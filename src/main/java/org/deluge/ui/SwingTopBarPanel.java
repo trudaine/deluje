@@ -47,6 +47,10 @@ public class SwingTopBarPanel extends JPanel {
     }
   }
 
+  public JButton getRecBtn() {
+    return recBtn;
+  }
+
   /** Callback interface for actions that need to reach the parent frame. */
   public interface TopBarListener {
     void onLiveRecordToggle(JButton btn);

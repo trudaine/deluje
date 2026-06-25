@@ -193,6 +193,20 @@ public class MidiService {
             sysExManager.setMidiOut(midiOut);
             System.out.println(
                 "MIDI: Automatically opened matching output port for SysEx: " + portName);
+            sysExManager
+                .negotiateSession("Deluge-Java Workstation")
+                .thenRun(
+                    () ->
+                        System.out.println(
+                            "MIDI: Session handshake completed. Active SID="
+                                + sysExManager.getSessionId()))
+                .exceptionally(
+                    ex -> {
+                      System.err.println(
+                          "MIDI: Session negotiation failed, falling back to session 0: "
+                              + ex.getMessage());
+                      return null;
+                    });
           }
         } catch (Exception e) {
           System.err.println(

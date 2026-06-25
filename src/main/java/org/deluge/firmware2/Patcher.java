@@ -188,13 +188,14 @@ public class Patcher {
 
   private static int cableToExpParamWithoutRangeAdjustment(
       int runningTotal, int source, int strength) {
-    return runningTotal + Functions.multiply_32x32_rshift32(source, strength);
+    return Functions.add_saturate(
+        runningTotal, Functions.multiply_32x32_rshift32(source, strength));
   }
 
   private static int cableToExpParam(int runningTotal, int source, int strength) {
     int scaledSource = Functions.multiply_32x32_rshift32(source, strength);
     scaledSource = applyRangeAdjustment(scaledSource);
-    return runningTotal + scaledSource;
+    return Functions.add_saturate(runningTotal, scaledSource);
   }
 
   // ── applyRangeAdjustment (patcher.cpp) ──

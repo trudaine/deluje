@@ -1456,6 +1456,30 @@ public class DelugeXmlParser {
       if (osc1fn != null && !osc1fn.isBlank()) {
         synth.setOsc1SamplePath(osc1fn);
       }
+
+      // Parse sampleRanges keyzones for Osc 1
+      Element osc1SampleRanges = getFirstChild(osc1, "sampleRanges");
+      if (osc1SampleRanges != null) {
+        NodeList zones = osc1SampleRanges.getElementsByTagName("zone");
+        for (int i = 0; i < zones.getLength(); i++) {
+          Element zone = (Element) zones.item(i);
+          SynthTrackModel.KeyZone kz = new SynthTrackModel.KeyZone();
+          kz.samplePath = zone.getAttribute("fileName");
+          if (kz.samplePath.isEmpty()) {
+            kz.samplePath = getChildText(zone, "fileName");
+          }
+          kz.minPitch = readIntAttr(zone, "minPitch", 0);
+          kz.maxPitch = readIntAttr(zone, "maxPitch", 127);
+          kz.minVelocity = readIntAttr(zone, "minVelocity", 0);
+          kz.maxVelocity = readIntAttr(zone, "maxVelocity", 127);
+          kz.startSamplePos = readIntAttr(zone, "startSamplePos", 0);
+          kz.endSamplePos = readIntAttr(zone, "endSamplePos", -1);
+          kz.startLoopPos = readIntAttr(zone, "startLoopPos", -1);
+          kz.endLoopPos = readIntAttr(zone, "endLoopPos", -1);
+          kz.looping = "1".equals(zone.getAttribute("loopMode"));
+          synth.getOsc1Zones().add(kz);
+        }
+      }
     }
 
     // ── Oscillator retrigger phase for osc2 ──
@@ -1510,6 +1534,30 @@ public class DelugeXmlParser {
       }
       if (osc2fn != null && !osc2fn.isBlank()) {
         synth.setOsc2SamplePath(osc2fn);
+      }
+
+      // Parse sampleRanges keyzones for Osc 2
+      Element osc2SampleRanges = getFirstChild(osc2, "sampleRanges");
+      if (osc2SampleRanges != null) {
+        NodeList zones = osc2SampleRanges.getElementsByTagName("zone");
+        for (int i = 0; i < zones.getLength(); i++) {
+          Element zone = (Element) zones.item(i);
+          SynthTrackModel.KeyZone kz = new SynthTrackModel.KeyZone();
+          kz.samplePath = zone.getAttribute("fileName");
+          if (kz.samplePath.isEmpty()) {
+            kz.samplePath = getChildText(zone, "fileName");
+          }
+          kz.minPitch = readIntAttr(zone, "minPitch", 0);
+          kz.maxPitch = readIntAttr(zone, "maxPitch", 127);
+          kz.minVelocity = readIntAttr(zone, "minVelocity", 0);
+          kz.maxVelocity = readIntAttr(zone, "maxVelocity", 127);
+          kz.startSamplePos = readIntAttr(zone, "startSamplePos", 0);
+          kz.endSamplePos = readIntAttr(zone, "endSamplePos", -1);
+          kz.startLoopPos = readIntAttr(zone, "startLoopPos", -1);
+          kz.endLoopPos = readIntAttr(zone, "endLoopPos", -1);
+          kz.looping = "1".equals(zone.getAttribute("loopMode"));
+          synth.getOsc2Zones().add(kz);
+        }
       }
     }
 

@@ -43,6 +43,15 @@ public class SwingProjectSidebarPanel extends JPanel {
   private JTabbedPane tabbedPane;
   private boolean hardwareRefreshedOnce = false;
 
+  // Remote Hardware SD Card Table components
+  private JTable remoteTable;
+  private javax.swing.table.DefaultTableModel remoteTableModel;
+  private JLabel currentFolderLabel;
+  private String currentRemotePath = "/SONGS";
+  private java.util.List<org.deluge.midi.RemoteFileEntry> currentRemoteEntries =
+      new java.util.ArrayList<>();
+  private JProgressBar transferProgressBar;
+
   public SwingProjectSidebarPanel(
       final BridgeContract bridge, org.deluge.midi.MidiService midiService) {
     this.bridge = bridge;
@@ -442,6 +451,7 @@ public class SwingProjectSidebarPanel extends JPanel {
     JPanel panel = new JPanel(new BorderLayout());
     panel.setBackground(new Color(0x12, 0x12, 0x14));
 
+    // Header segment
     JPanel head = new JPanel(new BorderLayout());
     head.setBackground(new Color(0x15, 0x15, 0x18));
     head.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
@@ -456,10 +466,15 @@ public class SwingProjectSidebarPanel extends JPanel {
     refreshBtn.setBackground(new Color(0x2a, 0x2a, 0x30));
     refreshBtn.setForeground(new Color(0x00, 0xff, 0xcc));
     refreshBtn.setFocusPainted(false);
-    refreshBtn.addActionListener(e -> refreshHardwareTree());
+    refreshBtn.addActionListener(
+        e -> {
+          refreshHardwareTree();
+          loadRemoteFolder(currentRemotePath);
+        });
     head.add(refreshBtn, BorderLayout.EAST);
     panel.add(head, BorderLayout.NORTH);
 
+    // 1. JTree Setup
     hardwareRoot = new DefaultMutableTreeNode("DELUGE HW");
     songsNode = new DefaultMutableTreeNode("SONGS");
     synthsNode = new DefaultMutableTreeNode("SYNTHS");
@@ -473,36 +488,173 @@ public class SwingProjectSidebarPanel extends JPanel {
     hardwareTree.setFont(new Font("SansSerif", Font.PLAIN, 10));
     hardwareTree.setRowHeight(20);
 
-    DefaultTreeCellRenderer renderer = new DefaultTreeCellRenderer();
-    renderer.setFont(new Font("SansSerif", Font.PLAIN, 10));
-    renderer.setBackgroundNonSelectionColor(new Color(0x12, 0x12, 0x14));
-    renderer.setTextNonSelectionColor(Color.LIGHT_GRAY);
-    renderer.setTextSelectionColor(Color.WHITE);
-    renderer.setBackgroundSelectionColor(new Color(0x00, 0xff, 0xcc, 0x33));
-    hardwareTree.setCellRenderer(renderer);
+    DefaultTreeCellRenderer treeRenderer = new DefaultTreeCellRenderer();
+    treeRenderer.setFont(new Font("SansSerif", Font.PLAIN, 10));
+    treeRenderer.setBackgroundNonSelectionColor(new Color(0x12, 0x12, 0x14));
+    treeRenderer.setTextNonSelectionColor(Color.LIGHT_GRAY);
+    treeRenderer.setTextSelectionColor(Color.WHITE);
+    treeRenderer.setBackgroundSelectionColor(new Color(0x00, 0xff, 0xcc, 0x33));
+    hardwareTree.setCellRenderer(treeRenderer);
 
-    hardwareTree.addMouseListener(
+    // Tree Selection Listener
+    hardwareTree.addTreeSelectionListener(
+        e -> {
+          javax.swing.tree.TreePath path = hardwareTree.getSelectionPath();
+          if (path != null) {
+            javax.swing.tree.DefaultMutableTreeNode node =
+                (javax.swing.tree.DefaultMutableTreeNode) path.getLastPathComponent();
+            String folder = node.getUserObject().toString();
+            if ("DELUGE HW".equals(folder)) {
+              loadRemoteFolder("/");
+            } else if ("SONGS".equals(folder) || "SYNTHS".equals(folder) || "KITS".equals(folder)) {
+              loadRemoteFolder("/" + folder);
+            }
+          }
+        });
+
+    JScrollPane treeScroll = new JScrollPane(hardwareTree);
+    treeScroll.setBorder(BorderFactory.createEmptyBorder());
+
+    // 2. JTable Setup
+    String[] columnNames = {"Name", "Size", "Date Modified"};
+    remoteTableModel =
+        new javax.swing.table.DefaultTableModel(columnNames, 0) {
+          @Override
+          public boolean isCellEditable(int row, int column) {
+            return false;
+          }
+        };
+    remoteTable = new JTable(remoteTableModel);
+    remoteTable.setBackground(new Color(0x15, 0x15, 0x18));
+    remoteTable.setForeground(Color.LIGHT_GRAY);
+    remoteTable.setGridColor(new Color(0x25, 0x25, 0x28));
+    remoteTable.setFont(new Font("SansSerif", Font.PLAIN, 10));
+    remoteTable.setRowHeight(22);
+    remoteTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+    remoteTable.setSelectionBackground(new Color(0x00, 0xff, 0xcc, 0x33));
+    remoteTable.setSelectionForeground(Color.WHITE);
+    remoteTable.setShowGrid(true);
+    remoteTable.setShowHorizontalLines(true);
+    remoteTable.setShowVerticalLines(false);
+
+    // Custom header styling
+    remoteTable.getTableHeader().setBackground(new Color(0x1a, 0x1a, 0x20));
+    remoteTable.getTableHeader().setForeground(Color.LIGHT_GRAY);
+    remoteTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 9));
+    remoteTable
+        .getTableHeader()
+        .setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(0x25, 0x25, 0x28)));
+
+    // Table Double-Click Listener
+    remoteTable.addMouseListener(
         new java.awt.event.MouseAdapter() {
           @Override
           public void mousePressed(java.awt.event.MouseEvent e) {
             if (e.getClickCount() == 2) {
-              javax.swing.tree.TreePath path = hardwareTree.getSelectionPath();
-              if (path != null) {
-                javax.swing.tree.DefaultMutableTreeNode node =
-                    (javax.swing.tree.DefaultMutableTreeNode) path.getLastPathComponent();
-                if (node.isLeaf()) {
-                  String name = node.getUserObject().toString();
-                  String category = path.getPathComponent(1).toString();
-                  downloadAndLoadRemoteFile(category, name);
+              int row = remoteTable.getSelectedRow();
+              if (row >= 0 && row < currentRemoteEntries.size()) {
+                org.deluge.midi.RemoteFileEntry entry = currentRemoteEntries.get(row);
+                if (entry.isDirectory()) {
+                  String nextPath =
+                      "/".equals(currentRemotePath)
+                          ? "/" + entry.name()
+                          : currentRemotePath + "/" + entry.name();
+                  loadRemoteFolder(nextPath);
+                } else {
+                  String cat = "SONGS";
+                  if (currentRemotePath.contains("/SYNTHS")) cat = "SYNTHS";
+                  else if (currentRemotePath.contains("/KITS")) cat = "KITS";
+                  downloadAndLoadRemoteFile(cat, entry.name());
                 }
               }
             }
           }
         });
 
-    JScrollPane scroll = new JScrollPane(hardwareTree);
-    scroll.setBorder(BorderFactory.createEmptyBorder());
-    panel.add(scroll, BorderLayout.CENTER);
+    // 3. Right-Click Popup Menu for Table
+    JPopupMenu popupMenu = new JPopupMenu();
+    popupMenu.setBackground(new Color(0x1a, 0x1a, 0x20));
+    popupMenu.setBorder(BorderFactory.createLineBorder(new Color(0x25, 0x25, 0x28)));
+
+    JMenuItem downloadItem = new JMenuItem("📥 Download & Open");
+    downloadItem.setForeground(Color.WHITE);
+    downloadItem.addActionListener(
+        e -> {
+          int row = remoteTable.getSelectedRow();
+          if (row >= 0 && row < currentRemoteEntries.size()) {
+            org.deluge.midi.RemoteFileEntry entry = currentRemoteEntries.get(row);
+            if (!entry.isDirectory()) {
+              String cat = "SONGS";
+              if (currentRemotePath.contains("/SYNTHS")) cat = "SYNTHS";
+              else if (currentRemotePath.contains("/KITS")) cat = "KITS";
+              downloadAndLoadRemoteFile(cat, entry.name());
+            }
+          }
+        });
+    popupMenu.add(downloadItem);
+
+    JMenuItem uploadItem = new JMenuItem("📤 Upload Local File...");
+    uploadItem.setForeground(Color.WHITE);
+    uploadItem.addActionListener(e -> triggerLocalUpload());
+    popupMenu.add(uploadItem);
+
+    JMenuItem mkdirItem = new JMenuItem("📁 New Folder...");
+    mkdirItem.setForeground(Color.WHITE);
+    mkdirItem.addActionListener(e -> triggerNewFolder());
+    popupMenu.add(mkdirItem);
+
+    JMenuItem renameItem = new JMenuItem("✏️ Rename...");
+    renameItem.setForeground(Color.WHITE);
+    renameItem.addActionListener(e -> triggerRename());
+    popupMenu.add(renameItem);
+
+    JMenuItem deleteItem = new JMenuItem("❌ Delete");
+    deleteItem.setForeground(Color.WHITE);
+    deleteItem.addActionListener(e -> triggerDelete());
+    popupMenu.add(deleteItem);
+
+    // Bind popup menu
+    remoteTable.setComponentPopupMenu(popupMenu);
+
+    JScrollPane tableScroll = new JScrollPane(remoteTable);
+    tableScroll.setBorder(BorderFactory.createEmptyBorder());
+
+    // Table container panel with title label showing current path
+    JPanel tablePanel = new JPanel(new BorderLayout());
+    tablePanel.setBackground(new Color(0x12, 0x12, 0x14));
+
+    JPanel tableHeader = new JPanel(new BorderLayout());
+    tableHeader.setBackground(new Color(0x15, 0x15, 0x18));
+    tableHeader.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+
+    currentFolderLabel = new JLabel("📂 /SONGS");
+    currentFolderLabel.setForeground(Color.WHITE);
+    currentFolderLabel.setFont(new Font("SansSerif", Font.BOLD, 10));
+    tableHeader.add(currentFolderLabel, BorderLayout.WEST);
+    tablePanel.add(tableHeader, BorderLayout.NORTH);
+    tablePanel.add(tableScroll, BorderLayout.CENTER);
+
+    // Progress bar for async transfers
+    transferProgressBar = new JProgressBar(0, 100);
+    transferProgressBar.setBackground(new Color(0x12, 0x12, 0x14));
+    transferProgressBar.setForeground(new Color(0x00, 0xff, 0xcc));
+    transferProgressBar.setStringPainted(true);
+    transferProgressBar.setFont(new Font("SansSerif", Font.BOLD, 9));
+    transferProgressBar.setVisible(false);
+    tablePanel.add(transferProgressBar, BorderLayout.SOUTH);
+
+    // 4. Split Pane holding both Tree (top) and Table (bottom)
+    JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, treeScroll, tablePanel);
+    splitPane.setDividerLocation(150);
+    splitPane.setBackground(new Color(0x12, 0x12, 0x14));
+    splitPane.setBorder(BorderFactory.createEmptyBorder());
+
+    panel.add(splitPane, BorderLayout.CENTER);
+
+    // Initial folder load
+    Timer initialLoadTimer = new Timer(800, ev -> loadRemoteFolder("/SONGS"));
+    initialLoadTimer.setRepeats(false);
+    initialLoadTimer.start();
 
     return panel;
   }
@@ -774,5 +926,276 @@ public class SwingProjectSidebarPanel extends JPanel {
         progressCb);
 
     progress.setVisible(true);
+  }
+
+  private void loadRemoteFolder(String remotePath) {
+    if (SwingDelugeApp.mainInstance == null) return;
+    var fileSync = SwingDelugeApp.mainInstance.getMidiService().getFileSyncService();
+    if (fileSync.isTransferActive()) {
+      System.out.println("[Sidebar] Remote folder load deferred: active transfer in progress.");
+      return;
+    }
+    this.currentRemotePath = remotePath;
+    currentFolderLabel.setText("📂 " + remotePath);
+
+    fileSync.listDirectory(
+        remotePath,
+        new org.deluge.midi.DelugeFileSyncService.DirectoryListCallback() {
+          @Override
+          public void onSuccess(java.util.List<org.deluge.midi.RemoteFileEntry> entries) {
+            SwingUtilities.invokeLater(
+                () -> {
+                  currentRemoteEntries = entries;
+                  remoteTableModel.setRowCount(0);
+                  for (org.deluge.midi.RemoteFileEntry entry : entries) {
+                    String sizeStr = entry.isDirectory() ? "<DIR>" : formatFileSize(entry.size());
+                    String dateStr = formatDate(entry.lastModifiedMillis());
+                    remoteTableModel.addRow(new Object[] {entry.name(), sizeStr, dateStr});
+                  }
+                });
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            System.err.println("[Sidebar] Failed to list remote directory: " + t.getMessage());
+          }
+        });
+  }
+
+  private void triggerLocalUpload() {
+    if (SwingDelugeApp.mainInstance == null) return;
+    var fileSync = SwingDelugeApp.mainInstance.getMidiService().getFileSyncService();
+    if (fileSync.isTransferActive()) {
+      JOptionPane.showMessageDialog(
+          this, "A file transfer is already active.", "Warning", JOptionPane.WARNING_MESSAGE);
+      return;
+    }
+    JFileChooser chooser = new JFileChooser();
+    chooser.setDialogTitle("Select File to Upload");
+    int result = chooser.showOpenDialog(this);
+    if (result == JFileChooser.APPROVE_OPTION) {
+      java.io.File localFile = chooser.getSelectedFile();
+      try {
+        byte[] content = java.nio.file.Files.readAllBytes(localFile.toPath());
+        String remoteFilePath =
+            "/".equals(currentRemotePath)
+                ? "/" + localFile.getName()
+                : currentRemotePath + "/" + localFile.getName();
+
+        transferProgressBar.setVisible(true);
+        transferProgressBar.setIndeterminate(true);
+        transferProgressBar.setString("Uploading " + localFile.getName() + "...");
+
+        fileSync.uploadFileAsync(
+            remoteFilePath,
+            content,
+            new org.deluge.midi.DelugeFileSyncService.FileUploadCallback() {
+              @Override
+              public void onSuccess() {
+                SwingUtilities.invokeLater(
+                    () -> {
+                      transferProgressBar.setVisible(false);
+                      loadRemoteFolder(currentRemotePath);
+                      JOptionPane.showMessageDialog(
+                          SwingProjectSidebarPanel.this,
+                          "File uploaded successfully!",
+                          "Success",
+                          JOptionPane.INFORMATION_MESSAGE);
+                    });
+              }
+
+              @Override
+              public void onFailure(Throwable t) {
+                SwingUtilities.invokeLater(
+                    () -> {
+                      transferProgressBar.setVisible(false);
+                      JOptionPane.showMessageDialog(
+                          SwingProjectSidebarPanel.this,
+                          "Upload failed: " + t.getMessage(),
+                          "Error",
+                          JOptionPane.ERROR_MESSAGE);
+                    });
+              }
+            });
+      } catch (Exception ex) {
+        JOptionPane.showMessageDialog(
+            this,
+            "Failed to read local file: " + ex.getMessage(),
+            "Error",
+            JOptionPane.ERROR_MESSAGE);
+      }
+    }
+  }
+
+  private void triggerNewFolder() {
+    if (SwingDelugeApp.mainInstance == null) return;
+    var fileSync = SwingDelugeApp.mainInstance.getMidiService().getFileSyncService();
+    if (fileSync.isTransferActive()) {
+      JOptionPane.showMessageDialog(
+          this, "A file transfer is already active.", "Warning", JOptionPane.WARNING_MESSAGE);
+      return;
+    }
+    String name = JOptionPane.showInputDialog(this, "Enter folder name:");
+    if (name != null && !name.trim().isEmpty()) {
+      String remotePath =
+          "/".equals(currentRemotePath) ? "/" + name.trim() : currentRemotePath + "/" + name.trim();
+
+      transferProgressBar.setVisible(true);
+      transferProgressBar.setIndeterminate(true);
+      transferProgressBar.setString("Creating folder " + name.trim() + "...");
+
+      fileSync.createDirectoryAsync(
+          remotePath,
+          System.currentTimeMillis(),
+          new org.deluge.midi.DelugeFileSyncService.FileOpCallback() {
+            @Override
+            public void onSuccess() {
+              SwingUtilities.invokeLater(
+                  () -> {
+                    transferProgressBar.setVisible(false);
+                    loadRemoteFolder(currentRemotePath);
+                  });
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+              SwingUtilities.invokeLater(
+                  () -> {
+                    transferProgressBar.setVisible(false);
+                    JOptionPane.showMessageDialog(
+                        SwingProjectSidebarPanel.this,
+                        "Failed to create folder: " + t.getMessage(),
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+                  });
+            }
+          });
+    }
+  }
+
+  private void triggerRename() {
+    if (SwingDelugeApp.mainInstance == null) return;
+    var fileSync = SwingDelugeApp.mainInstance.getMidiService().getFileSyncService();
+    if (fileSync.isTransferActive()) {
+      JOptionPane.showMessageDialog(
+          this, "A file transfer is already active.", "Warning", JOptionPane.WARNING_MESSAGE);
+      return;
+    }
+    int row = remoteTable.getSelectedRow();
+    if (row >= 0 && row < currentRemoteEntries.size()) {
+      org.deluge.midi.RemoteFileEntry entry = currentRemoteEntries.get(row);
+      String newName = JOptionPane.showInputDialog(this, "Enter new name:", entry.name());
+      if (newName != null && !newName.trim().isEmpty()) {
+        String from =
+            "/".equals(currentRemotePath)
+                ? "/" + entry.name()
+                : currentRemotePath + "/" + entry.name();
+        String to =
+            "/".equals(currentRemotePath)
+                ? "/" + newName.trim()
+                : currentRemotePath + "/" + newName.trim();
+
+        transferProgressBar.setVisible(true);
+        transferProgressBar.setIndeterminate(true);
+        transferProgressBar.setString("Renaming " + entry.name() + "...");
+
+        fileSync.renameAsync(
+            from,
+            to,
+            new org.deluge.midi.DelugeFileSyncService.FileOpCallback() {
+              @Override
+              public void onSuccess() {
+                SwingUtilities.invokeLater(
+                    () -> {
+                      transferProgressBar.setVisible(false);
+                      loadRemoteFolder(currentRemotePath);
+                    });
+              }
+
+              @Override
+              public void onFailure(Throwable t) {
+                SwingUtilities.invokeLater(
+                    () -> {
+                      transferProgressBar.setVisible(false);
+                      JOptionPane.showMessageDialog(
+                          SwingProjectSidebarPanel.this,
+                          "Failed to rename: " + t.getMessage(),
+                          "Error",
+                          JOptionPane.ERROR_MESSAGE);
+                    });
+              }
+            });
+      }
+    }
+  }
+
+  private void triggerDelete() {
+    if (SwingDelugeApp.mainInstance == null) return;
+    var fileSync = SwingDelugeApp.mainInstance.getMidiService().getFileSyncService();
+    if (fileSync.isTransferActive()) {
+      JOptionPane.showMessageDialog(
+          this, "A file transfer is already active.", "Warning", JOptionPane.WARNING_MESSAGE);
+      return;
+    }
+    int row = remoteTable.getSelectedRow();
+    if (row >= 0 && row < currentRemoteEntries.size()) {
+      org.deluge.midi.RemoteFileEntry entry = currentRemoteEntries.get(row);
+      int confirm =
+          JOptionPane.showConfirmDialog(
+              this,
+              "Are you sure you want to delete " + entry.name() + "?",
+              "Confirm Delete",
+              JOptionPane.YES_NO_OPTION,
+              JOptionPane.WARNING_MESSAGE);
+      if (confirm == JOptionPane.YES_OPTION) {
+        String path =
+            "/".equals(currentRemotePath)
+                ? "/" + entry.name()
+                : currentRemotePath + "/" + entry.name();
+
+        transferProgressBar.setVisible(true);
+        transferProgressBar.setIndeterminate(true);
+        transferProgressBar.setString("Deleting " + entry.name() + "...");
+
+        fileSync.deleteAsync(
+            path,
+            new org.deluge.midi.DelugeFileSyncService.FileOpCallback() {
+              @Override
+              public void onSuccess() {
+                SwingUtilities.invokeLater(
+                    () -> {
+                      transferProgressBar.setVisible(false);
+                      loadRemoteFolder(currentRemotePath);
+                    });
+              }
+
+              @Override
+              public void onFailure(Throwable t) {
+                SwingUtilities.invokeLater(
+                    () -> {
+                      transferProgressBar.setVisible(false);
+                      JOptionPane.showMessageDialog(
+                          SwingProjectSidebarPanel.this,
+                          "Failed to delete: " + t.getMessage(),
+                          "Error",
+                          JOptionPane.ERROR_MESSAGE);
+                    });
+              }
+            });
+      }
+    }
+  }
+
+  private static String formatFileSize(long bytes) {
+    if (bytes < 1024) return bytes + " B";
+    int exp = (int) (Math.log(bytes) / Math.log(1024));
+    char pre = "KMGTPE".charAt(exp - 1);
+    return String.format("%.1f %cB", bytes / Math.pow(1024, exp), pre);
+  }
+
+  private static String formatDate(long millis) {
+    if (millis <= 0) return "---";
+    java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm");
+    return sdf.format(new java.util.Date(millis));
   }
 }

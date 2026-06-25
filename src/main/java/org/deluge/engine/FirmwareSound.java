@@ -39,6 +39,11 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   public final int[] customLfoWave = new int[256];
   public final org.deluge.playback.Sample[] samples = new org.deluge.playback.Sample[2];
   public final org.deluge.firmware2.Sample[] fw2SampleCache = new org.deluge.firmware2.Sample[2];
+  public final java.util.List<org.deluge.firmware2.Sound.CompiledKeyZone>[] sourceZones =
+      new java.util.List[] {
+        new java.util.ArrayList<org.deluge.firmware2.Sound.CompiledKeyZone>(),
+        new java.util.ArrayList<org.deluge.firmware2.Sound.CompiledKeyZone>()
+      };
 
   /**
    * "type:path" key of the sample/wavetable currently loaded per oscillator source. Lets the
@@ -357,6 +362,11 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
       }
     }
 
+    for (int s = 0; s < 2; s++) {
+      fw2Sound.sourceZones[s].clear();
+      fw2Sound.sourceZones[s].addAll(sourceZones[s]);
+    }
+
     int[] nextGlobalSourceValues = new int[3];
     System.arraycopy(globalSourceValues, 0, nextGlobalSourceValues, 0, 3);
     fw2Sound.globalSourceValues = nextGlobalSourceValues;
@@ -373,8 +383,11 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
         nextPatchedParamValues,
         0,
         Math.min(paramNeutralValues.length, nextPatchedParamValues.length));
-    if (paramKnobsPopulated) {
-      for (int i = 0; i < Param.kNumParams; i++) {
+    for (int i = 0; i < Param.kNumParams; i++) {
+      var auto = paramManager.getAutomatedParam(i);
+      if (auto != null && !auto.nodes.isEmpty()) {
+        nextPatchedParamValues[i] = auto.currentValue;
+      } else if (paramKnobsPopulated) {
         nextPatchedParamValues[i] = paramKnobs[i];
       }
     }

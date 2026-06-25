@@ -257,28 +257,13 @@ public class MidiInputRouter {
         }
       }
 
-      // Fallback: legacy auditioning/live-routing if recording is off or no active grid
+      // Fallback: live auditioning if recording is off or no active grid
       int targetTrack = resolveTrackFromChannel(midiChannel);
-      int currentStep = (int) bridge.getGlobalInt(BridgeContract.G_CURRENT_STEP);
-      if (currentStep < 0 || currentStep >= 16) {
-        currentStep = 0;
+      org.deluge.engine.FirmwareSound liveSound = getLiveSound(targetTrack);
+      if (liveSound != null) {
+        liveSound.triggerNote(midiNote, velocity);
       }
-      activeNoteStarts.put(
-          midiNote, new NoteStartInfo(bridge.getCurrentTime(), currentStep, targetTrack));
-
-      if (targetTrack < 4) {
-        int row = midiNote - 36;
-        if (row >= 0 && row < 8) {
-          bridge.setStep(targetTrack, currentStep, true);
-          bridge.setVelocity(targetTrack, currentStep, velocity / 127.0);
-          bridge.setGate(targetTrack, currentStep, 1.0);
-        }
-      } else {
-        bridge.setPitch(targetTrack, currentStep, midiNote - 60);
-        bridge.setStep(targetTrack, currentStep, true);
-        bridge.setVelocity(targetTrack, currentStep, velocity / 127.0);
-        bridge.setGate(targetTrack, currentStep, 1.0);
-      }
+      activeNoteStarts.put(midiNote, new NoteStartInfo(bridge.getCurrentTime(), -1, targetTrack));
 
     } else if (msg.isNoteOff()) {
       int midiNote = msg.data2;
@@ -330,10 +315,29 @@ public class MidiInputRouter {
             }
           }
         } else {
-          // Legacy fallback
-          bridge.setGate(start.track, start.step, gate);
+          // Auditioning fallback: release the note live
+          org.deluge.engine.FirmwareSound liveSound = getLiveSound(start.track);
+          if (liveSound != null) {
+            liveSound.releaseNote(midiNote);
+          }
         }
       }
     }
+  }
+
+  private org.deluge.engine.FirmwareSound getLiveSound(int trackIndex) {
+    try {
+      Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine) {
+        if (trackIndex >= 0 && trackIndex < engine.sounds.size()) {
+          var sound = engine.sounds.get(trackIndex);
+          if (sound instanceof org.deluge.engine.FirmwareSound) {
+            return (org.deluge.engine.FirmwareSound) sound;
+          }
+        }
+      }
+    } catch (Exception ignored) {
+    }
+    return null;
   }
 }

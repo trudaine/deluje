@@ -137,6 +137,7 @@ public class DelugeSysExManager {
 
     packet[0] = SYSEX_START;
     System.arraycopy(DELUGE_HEADER, 0, packet, 1, 4);
+    packet[1] = (byte) sessionId;
     packet[5] = CMD_JSON_REQUEST;
     packet[6] = (byte) seq;
     System.arraycopy(jsonBytes, 0, packet, 7, jsonBytes.length);
@@ -239,7 +240,10 @@ public class DelugeSysExManager {
 
     // Verify header
     if (data[0] != SYSEX_START) return false;
-    for (int i = 0; i < 4; i++) {
+    if (data[1] != 0x00 && data[1] != (byte) sessionId) {
+      return false;
+    }
+    for (int i = 1; i < 4; i++) {
       if (data[i + 1] != DELUGE_HEADER[i]) {
         return false;
       }

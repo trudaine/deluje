@@ -129,6 +129,24 @@ public class Sound extends GlobalEffectable {
   public int maxPolyphony =
       8; // C: sound.h:116 maxVoiceCount = 8 (per-sound voice cap; steals above)
 
+  public static class CompiledKeyZone {
+    public Sample sample;
+    public int minPitch;
+    public int maxPitch;
+    public int minVelocity;
+    public int maxVelocity;
+    public int startSamplePos;
+    public int endSamplePos;
+    public int startLoopPos;
+    public int endLoopPos;
+    public boolean looping;
+  }
+
+  public final java.util.List<CompiledKeyZone>[] sourceZones =
+      new java.util.List[] {
+        new java.util.ArrayList<CompiledKeyZone>(), new java.util.ArrayList<CompiledKeyZone>()
+      };
+
   public final Sample[] samples = new Sample[2];
   public final int[] sampleStartPoint = {0, 0};
   public final int[] sampleEndPoint = {65535, 65535};
@@ -834,21 +852,59 @@ public class Sound extends GlobalEffectable {
       if (targetVoice != null) {
         // Setup/Update samples on targetVoice's sources before triggering
         for (int s = 0; s < 2; s++) {
-          if (samples[s] != null) {
+          Sample targetSample = null;
+          int startFrame = sampleStartPoint[s];
+          int len = 0;
+          int endFrame = sampleEndPoint[s];
+          boolean looping = sampleLoopMode[s] == 1;
+          int loopStartFrame = sampleLoopStart[s];
+
+          if (!sourceZones[s].isEmpty()) {
+            CompiledKeyZone matchedZone = null;
+            for (CompiledKeyZone kz : sourceZones[s]) {
+              if (note >= kz.minPitch
+                  && note <= kz.maxPitch
+                  && vel >= kz.minVelocity
+                  && vel <= kz.maxVelocity) {
+                matchedZone = kz;
+                break;
+              }
+            }
+            if (matchedZone != null) {
+              targetSample = matchedZone.sample;
+              len = (int) targetSample.lengthInSamples;
+              startFrame = matchedZone.startSamplePos;
+              endFrame =
+                  matchedZone.endSamplePos == -1 ? len : Math.min(matchedZone.endSamplePos, len);
+              looping = matchedZone.looping;
+              loopStartFrame = matchedZone.startLoopPos;
+            }
+          }
+
+          if (targetSample == null) {
+            targetSample = samples[s];
+            if (targetSample != null) {
+              len = (int) targetSample.lengthInSamples;
+              endFrame = sampleEndPoint[s] == 65535 ? len : Math.min(sampleEndPoint[s], len);
+            }
+          }
+
+          if (targetSample != null) {
             boolean ts = sampleTimestretch[s] && !sampleReverse[s];
             int playDir = sampleReverse[s] ? -1 : 1;
-            int len = (int) samples[s].lengthInSamples;
-            int startFrame = sampleStartPoint[s];
-            int endFrame = sampleEndPoint[s] == 65535 ? len : Math.min(sampleEndPoint[s], len);
-            boolean looping = sampleLoopMode[s] == 1;
-            int loopStartFrame = sampleLoopStart[s];
             if (ts) {
-              int tsRatio = (int) Math.max(1, 16777216.0 * (samples[s].sampleRate / 44100.0));
+              int tsRatio = (int) Math.max(1, 16777216.0 * (targetSample.sampleRate / 44100.0));
               targetVoice.sources[s].setupSampleTimeStretch(
-                  samples[s], startFrame, playDir, tsRatio);
+                  targetSample, startFrame, playDir, tsRatio);
             } else {
               targetVoice.sources[s].setupSample(
-                  samples[s], startFrame, endFrame, playDir, looping, loopStartFrame, samplesLate);
+                  targetSample,
+                  startFrame,
+                  endFrame,
+                  playDir,
+                  looping,
+                  loopStartFrame,
+                  samplesLate);
             }
           } else {
             targetVoice.sources[s].sampleRef = null;

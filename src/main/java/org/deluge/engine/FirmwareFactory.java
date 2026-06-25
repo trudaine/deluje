@@ -204,8 +204,63 @@ public class FirmwareFactory {
         final int finalS = s;
         executor.submit(
             () -> {
-              String path = (finalS == 0) ? model.getOsc1SamplePath() : model.getOsc2SamplePath();
               OscType type = sound.oscTypes[finalS];
+              var zones = (finalS == 0) ? model.getOsc1Zones() : model.getOsc2Zones();
+
+              if (!zones.isEmpty() && type == OscType.SAMPLE) {
+                // MULTISAMPLE LOADING PATH
+                java.util.List<org.deluge.firmware2.Sound.CompiledKeyZone> compiledZones =
+                    new java.util.ArrayList<>();
+                for (SynthTrackModel.KeyZone kz : zones) {
+                  if (kz.samplePath == null || kz.samplePath.isEmpty()) {
+                    continue;
+                  }
+                  File f = resolveSample(kz.samplePath, sdRoot);
+                  if (f == null || !f.exists()) {
+                    System.err.println(
+                        "[FirmwareFactory] Warning: keyzone sample not found: " + kz.samplePath);
+                    continue;
+                  }
+                  try {
+                    Sample smp = AudioFileReader.readSample(f.getAbsolutePath());
+                    if (smp != null) {
+                      var fw2Smp = org.deluge.firmware2.Sample.fromFirmwareSample(smp);
+                      org.deluge.firmware2.Sound.CompiledKeyZone ckz =
+                          new org.deluge.firmware2.Sound.CompiledKeyZone();
+                      ckz.sample = fw2Smp;
+                      ckz.minPitch = kz.minPitch;
+                      ckz.maxPitch = kz.maxPitch;
+                      ckz.minVelocity = kz.minVelocity;
+                      ckz.maxVelocity = kz.maxVelocity;
+                      ckz.startSamplePos = kz.startSamplePos;
+                      ckz.endSamplePos =
+                          kz.endSamplePos == -1 ? (int) fw2Smp.lengthInSamples : kz.endSamplePos;
+                      ckz.startLoopPos = kz.startLoopPos;
+                      ckz.endLoopPos = kz.endLoopPos;
+                      ckz.looping = kz.looping;
+                      compiledZones.add(ckz);
+                    }
+                  } catch (IOException e) {
+                    System.err.println(
+                        "[FirmwareFactory] Failed to load keyzone sample: " + kz.samplePath);
+                  }
+                }
+                synchronized (sound) {
+                  sound.sourceZones[finalS].clear();
+                  sound.sourceZones[finalS].addAll(compiledZones);
+                  sound.loadedOscPath[finalS] = "MULTISAMPLE:" + zones.size();
+                }
+                System.out.println(
+                    "[FirmwareFactory] Loaded multisample oscillator "
+                        + finalS
+                        + " with "
+                        + compiledZones.size()
+                        + " zones.");
+                return;
+              }
+
+              // SINGLE SAMPLE / WAVETABLE LOADING PATH (FALLBACK)
+              String path = (finalS == 0) ? model.getOsc1SamplePath() : model.getOsc2SamplePath();
               boolean wantsFile =
                   (type == OscType.SAMPLE || type == OscType.WAVETABLE)
                       && path != null
@@ -213,6 +268,7 @@ public class FirmwareFactory {
               if (!wantsFile) {
                 synchronized (sound) {
                   sound.loadedOscPath[finalS] = null;
+                  sound.sourceZones[finalS].clear();
                 }
                 return;
               }
@@ -235,6 +291,7 @@ public class FirmwareFactory {
                       sound.samples[finalS] = smp;
                       sound.fw2SampleCache[finalS] = fw2Smp;
                       sound.loadedOscPath[finalS] = key;
+                      sound.sourceZones[finalS].clear();
                     }
                     System.out.println(
                         "[FirmwareFactory] Loaded synth sample " + finalS + ": " + f.getName());
@@ -250,6 +307,7 @@ public class FirmwareFactory {
                   synchronized (sound) {
                     sound.fw2Sound.waveTables[finalS] = wt;
                     sound.loadedOscPath[finalS] = key;
+                    sound.sourceZones[finalS].clear();
                   }
                   System.out.println(
                       "[FirmwareFactory] Loaded synth wavetable " + finalS + ": " + f.getName());
@@ -270,6 +328,79 @@ public class FirmwareFactory {
    * — so the audio thread never iterates a half-rebuilt cable set. File loads happen outside it.
    */
   public static void applyModelToLiveSound(SynthTrackModel model, FirmwareSound sound) {
+    // ── Live Automation Recording ──
+    boolean isPlaying = false;
+    boolean isRecording = false;
+    int currentStep = -1;
+    try {
+      var bridge = org.deluge.hid.BridgeHolder.getBridge();
+      if (bridge != null) {
+        Object playState = bridge.getGlobalInt(org.deluge.BridgeContract.G_PLAY);
+        isPlaying = (playState instanceof Long && ((Long) playState) == 1L);
+        isRecording = org.deluge.ui.SwingGridPanel.isLiveRecordModeActive;
+        currentStep = (int) bridge.getGlobalInt(org.deluge.BridgeContract.G_CURRENT_STEP);
+      }
+    } catch (Exception ignored) {
+    }
+
+    if (isPlaying && isRecording && currentStep >= 0 && !model.getClips().isEmpty()) {
+      int activeIdx = model.getActiveClipIndex();
+      if (activeIdx >= 0 && activeIdx < model.getClips().size()) {
+        org.deluge.model.ClipModel clip = model.getClips().get(activeIdx);
+        int stepTicks = clip.isTripletMode() ? 32 : 24;
+
+        synchronized (sound) {
+          // 1. LPF Frequency
+          int newLpfQ31 = cutoffKnobFromHz(model.getLpfFreq());
+          if (newLpfQ31 != sound.paramNeutralValues[Param.LOCAL_LPF_FREQ]) {
+            float normVal = model.getLpfFreq() / 20000.0f;
+            clip.setAutomation("lpfFrequency", currentStep, normVal);
+            int q31Val = (int) (normVal * 2147483647.0);
+            sound.paramManager.recordParamValue(
+                Param.LOCAL_LPF_FREQ, q31Val, currentStep * stepTicks);
+          }
+
+          // 2. LPF Resonance
+          int newResQ31 = normToLinearParamKnob(model.getLpfRes());
+          if (newResQ31 != sound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE]) {
+            clip.setAutomation("lpfResonance", currentStep, model.getLpfRes());
+            int q31Val = (int) (model.getLpfRes() * 2147483647.0);
+            sound.paramManager.recordParamValue(
+                Param.LOCAL_LPF_RESONANCE, q31Val, currentStep * stepTicks);
+          }
+
+          // 3. HPF Frequency
+          int newHpfQ31 = cutoffKnobFromHz(model.getHpfFreq());
+          if (newHpfQ31 != sound.paramNeutralValues[Param.LOCAL_HPF_FREQ]) {
+            float normVal = model.getHpfFreq() / 20000.0f;
+            clip.setAutomation("hpfFrequency", currentStep, normVal);
+            int q31Val = (int) (normVal * 2147483647.0);
+            sound.paramManager.recordParamValue(
+                Param.LOCAL_HPF_FREQ, q31Val, currentStep * stepTicks);
+          }
+
+          // 4. Volume
+          int newVolQ31 = normToBipolarParamVolume(model.getVolume());
+          if (newVolQ31 != sound.paramNeutralValues[Param.LOCAL_VOLUME]) {
+            float normVal = Math.max(0.0f, Math.min(1.0f, model.getVolume() / 1.5f));
+            clip.setAutomation("volume", currentStep, normVal);
+            int q31Val = (int) (normVal * 2147483647.0);
+            sound.paramManager.recordParamValue(
+                Param.LOCAL_VOLUME, q31Val, currentStep * stepTicks);
+          }
+
+          // 5. Pan
+          int newPanQ31 = (int) (Math.max(-1.0, Math.min(1.0, model.getPan())) * 1073741824.0);
+          if (newPanQ31 != sound.paramNeutralValues[Param.LOCAL_PAN]) {
+            float normVal = (model.getPan() + 1.0f) / 2.0f;
+            clip.setAutomation("pan", currentStep, normVal);
+            int q31Val = (int) (normVal * 2147483647.0);
+            sound.paramManager.recordParamValue(Param.LOCAL_PAN, q31Val, currentStep * stepTicks);
+          }
+        }
+      }
+    }
+
     synchronized (sound) {
       mapModelToSound(model, sound);
     }
@@ -286,6 +417,7 @@ public class FirmwareFactory {
     // Idempotent: clear the cable set so live re-applies don't duplicate cables (they are
     // re-added from the model at the end of this method).
     sound.paramManager.getPatchCableSet().destinations.clear();
+    sound.paramManager.automatedParams.clear();
     sound.oscTypes[0] = stringToOscType(model.getOsc1Type());
     sound.oscTypes[1] = stringToOscType(model.getOsc2Type());
 
@@ -785,6 +917,29 @@ public class FirmwareFactory {
       float amt = em.amount() != 0.0f ? em.amount() : 1.0f;
       cable.amount = (int) (Math.max(-1f, Math.min(1f, amt)) * 2147483647.0);
       sound.paramManager.getPatchCableSet().addCable(paramId, cable);
+    }
+
+    // Map step automation from the active clip
+    if (model != null && !model.getClips().isEmpty()) {
+      int activeIdx = model.getActiveClipIndex();
+      if (activeIdx >= 0 && activeIdx < model.getClips().size()) {
+        org.deluge.model.ClipModel clipModel = model.getClips().get(activeIdx);
+        int stepTicks = clipModel.isTripletMode() ? 32 : 24;
+        for (java.util.Map.Entry<String, float[]> entry :
+            clipModel.getAutomationData().entrySet()) {
+          int paramId = getParamIdFromName(entry.getKey());
+          if (paramId != -1) {
+            float[] array = entry.getValue();
+            for (int s = 0; s < array.length; s++) {
+              if (array[s] > 0.0f) {
+                int q31Val = (int) (array[s] * 2147483647.0);
+                int pos = s * stepTicks;
+                sound.paramManager.recordParamValue(paramId, q31Val, pos);
+              }
+            }
+          }
+        }
+      }
     }
   }
 

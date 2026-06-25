@@ -262,4 +262,89 @@ public class LiveAutomationMpeTest {
     // Release note
     sound.releaseNote(60, 3);
   }
+
+  @Test
+  void testSynthStepAutomationCompilation() {
+    // 1. Setup SynthTrackModel with automation
+    org.deluge.model.SynthTrackModel model = new org.deluge.model.SynthTrackModel("TESTSYNTH");
+    org.deluge.model.ClipModel clip = new org.deluge.model.ClipModel("SYNTH CLIP", 1, 16);
+    model.getClips().add(clip);
+    model.setActiveClipIndex(0);
+
+    // Set LPF frequency automation at step 5
+    clip.setAutomation("lpfFrequency", 5, 0.65f);
+
+    // 2. Compile to FirmwareSound
+    org.deluge.engine.FirmwareSound sound = new org.deluge.engine.FirmwareSound();
+    org.deluge.engine.FirmwareFactory.applyModelToLiveSound(model, sound);
+
+    // Verify it is compiled in paramManager
+    var ap = sound.paramManager.getAutomatedParam(Param.LOCAL_LPF_FREQ);
+    assertNotNull(ap);
+    assertEquals(1, ap.nodes.size());
+    assertEquals(5 * 24, ap.nodes.get(0).pos);
+    assertEquals((int) (0.65f * 2147483647.0), ap.nodes.get(0).value);
+
+    // 3. Process play position at tick index 120 (step 5, pos = 5 * 24 = 120)
+    sound.paramManager.processCurrentPos(120, 16 * 24, false, false, true);
+    assertEquals((int) (0.65f * 2147483647.0), ap.currentValue);
+
+    // 4. Run syncParamsToFw2 and verify it is written to patchedParamValues
+    sound.syncParamsToFw2();
+    assertEquals(ap.currentValue, sound.fw2Sound.patchedParamValues[Param.LOCAL_LPF_FREQ]);
+  }
+
+  @Test
+  void testLiveAutomationRecording() {
+    // 1. Setup Bridge, Project, and PlaybackHandler
+    BridgeContract bridge = new BridgeContract();
+    org.deluge.hid.BridgeHolder.setBridge(bridge);
+
+    org.deluge.model.ProjectModel project = new org.deluge.model.ProjectModel();
+    org.deluge.model.SynthTrackModel track = new org.deluge.model.SynthTrackModel("TESTSYNTH");
+    org.deluge.model.ClipModel clip = new org.deluge.model.ClipModel("SYNTH CLIP", 1, 16);
+    track.getClips().add(clip);
+    track.setActiveClipIndex(0);
+    project.getTracks().add(track);
+
+    org.deluge.playback.PlaybackHandler playbackHandler = new org.deluge.playback.PlaybackHandler();
+    playbackHandler.setProject(project);
+    bridge.setGlobalObject(BridgeContract.G_PLAYBACK_HANDLER, playbackHandler);
+
+    // 2. Start transport and arm live recording
+    playbackHandler.start();
+    bridge.setGlobalInt(BridgeContract.G_PLAY, 1L);
+    org.deluge.ui.SwingGridPanel.isLiveRecordModeActive = true;
+    assertTrue(playbackHandler.isPlaying());
+    assertTrue(org.deluge.ui.SwingGridPanel.isLiveRecordModeActive);
+
+    // Advance to step 3 (3 * 24 = 72 ticks)
+    playbackHandler.advanceTicks(72);
+    bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, 3L);
+    assertEquals(3, bridge.getGlobalInt(BridgeContract.G_CURRENT_STEP));
+
+    // 3. Simulate turning the filter cutoff knob (e.g. updating LPF freq to 4000Hz)
+    org.deluge.engine.FirmwareSound sound = new org.deluge.engine.FirmwareSound();
+    // Pre-populate parameter neutral value to prevent false matching
+    sound.paramNeutralValues[Param.LOCAL_LPF_FREQ] = 0;
+
+    track.setLpfFreq(4000.0f);
+    // Apply changes - this will trigger our new live automation recording logic!
+    org.deluge.engine.FirmwareFactory.applyModelToLiveSound(track, sound);
+
+    // 4. Verify automation is written to the clip and paramManager at step 3!
+    float[] automationArray = clip.getAutomationArray("lpfFrequency");
+    assertNotNull(automationArray);
+    assertEquals(4000.0f / 20000.0f, automationArray[3]);
+
+    var ap = sound.paramManager.getAutomatedParam(Param.LOCAL_LPF_FREQ);
+    assertNotNull(ap);
+    assertEquals(1, ap.nodes.size());
+    assertEquals(3 * 24, ap.nodes.get(0).pos);
+    assertEquals((int) ((4000.0f / 20000.0f) * 2147483647.0), ap.nodes.get(0).value);
+
+    // Reset state and shutdown
+    org.deluge.ui.SwingGridPanel.isLiveRecordModeActive = false;
+    bridge.shutdown();
+  }
 }
