@@ -676,7 +676,9 @@ public class Voice {
         }
       }
     } else {
-      carrierIncA = calculateBasePhaseIncrement(noteCode);
+      // C voice.cpp:442 — transposedNoteCode = note + source transpose; then cents (line 505).
+      carrierIncA = calculateBasePhaseIncrement(noteCode + sound.sourceTranspose[0]);
+      carrierIncA = sound.sourceFineTuners[0].detune(carrierIncA);
     }
     if (carrierIncA <= 0) {
       active = false;
@@ -730,7 +732,10 @@ public class Voice {
         }
       }
     } else {
-      carrierIncB = carrierIncA;
+      // C voice.cpp:442 — osc B uses its OWN source transpose + cents (was: copied osc A, so osc 2
+      // transpose/cents were silently ignored).
+      carrierIncB = calculateBasePhaseIncrement(noteCode + sound.sourceTranspose[1]);
+      carrierIncB = sound.sourceFineTuners[1].detune(carrierIncB);
     }
 
     // Apply unison detune

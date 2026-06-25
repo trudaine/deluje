@@ -89,6 +89,22 @@ public class Sound extends GlobalEffectable {
   }
 
   /**
+   * Per-oscillator semitone transpose (C {@code sources[s].transpose}, voice.cpp:439-442). Added to
+   * the note code per source before computing the phase increment.
+   */
+  public final int[] sourceTranspose = new int[2];
+
+  /** Per-oscillator cents fine-tuners (C {@code sources[s].fineTuner}, voice.cpp:505). */
+  public final PhaseIncrementFineTuner[] sourceFineTuners = {
+    new PhaseIncrementFineTuner(), new PhaseIncrementFineTuner()
+  };
+
+  /** C: sources[s].cents (±50) scaled into the fine-tuner exactly like the modulator cents. */
+  public void setSourceCents(int s, int cents) {
+    sourceFineTuners[s].setup(cents * 42949672);
+  }
+
+  /**
    * Per-source DX7 patch (156-byte). Mirrors C sources[s].ensureDxPatch(); null = source not DX7.
    */
   public final byte[][] sourceDx7Patch = new byte[2][];
