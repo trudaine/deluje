@@ -613,7 +613,6 @@ public class ProjectSerializer {
         writer.writeOpeningTagBeginning("section");
         writer.writeAttribute("id", sectionId, false);
         writer.writeAttribute("numRepeats", sec.getNumRepeats(), false);
-        writer.writeAttribute("launchGroup", 0, false);
         writer.closeTag();
         seen++;
       }
