@@ -45,21 +45,39 @@ public class AllSynthsFidelityTest {
     ProjectModel project = new ProjectModel();
     project.setBpm(120.0f);
 
+    // Stagger: each synth plays its note at a different bar on the arranger timeline.
+    // Bar 0 = ticks 0..95, Bar 1 = ticks 96..191, etc. One bar per synth at 120 BPM.
+    int ticksPerBar =
+        96; // 96 PPQ ticks per quarter note × 4 quarters = 384? No: 96 ticks total per bar at 24
+    // ticks/step × 4 steps/beat × 4 beats = 384.
+    // Actually: FirmwareFactory uses stepTicks=24 ticks per step. A 16-step bar = 16*24 = 384 ticks
+    // per bar.
+    ticksPerBar = STEPS_PER_BAR * TICKS_PER_STEP; // 16 * 24 = 384 ticks per bar
+    // Each synth gets 2 bars = 768 ticks, to capture attack + sustain.
+    int ticksPerSynth = ticksPerBar * 2;
+
     List<String> synthNames = new ArrayList<>();
-    int trackIdx = 0;
+    List<ClipModel> allClips = new ArrayList<>();
+    int barIdx = 0;
     for (File f : synthFiles) {
       try {
         SynthTrackModel synth = DelugeXmlParser.parseSynth(new FileInputStream(f), f.getName());
         synth.setName(f.getName().replace(".XML", ""));
 
-        // One clip, one note at step 0 of bar N
+        // One clip, one note at step 0
         ClipModel clip = new ClipModel("CLIP", 1, STEPS_PER_BAR);
         clip.setStep(0, 0, StepData.of(true, 1.0f, 1.0f, 1.0f, 60)); // C4, max vel
         synth.addClip(clip);
+        allClips.add(clip);
 
         project.addTrack(synth);
         synthNames.add(synth.getName());
-        trackIdx++;
+
+        // Place this clip on the arranger timeline at bar barIdx
+        int startTicks = barIdx * ticksPerSynth;
+        project.addArrangerClip(
+            new ArrangerClip(synthNames.size() - 1, clip, startTicks, ticksPerSynth));
+        barIdx++;
       } catch (Exception e) {
         System.out.println("[AllSynths] Skipping " + f.getName() + ": " + e.getMessage());
       }
