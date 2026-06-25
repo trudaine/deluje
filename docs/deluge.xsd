@@ -148,6 +148,7 @@
         <xs:element ref="delay"    minOccurs="0" maxOccurs="1"/>
         <xs:element ref="audioCompressor" minOccurs="0" maxOccurs="1"/>
         <xs:element ref="arpeggiator"     minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="midiKnobs"    minOccurs="0" maxOccurs="1"/>
         <xs:element ref="modKnobs"    minOccurs="0" maxOccurs="1"/>
         <xs:element ref="patchCables" minOccurs="0" maxOccurs="1"/>
         <xs:element ref="modFX"       minOccurs="0" maxOccurs="1"/>
@@ -422,7 +423,49 @@
 
   <xs:element name="arpeggiator">
     <xs:complexType>
-      <xs:attribute name="gate" type="hexFloat"/>
+      <xs:attribute name="gate"                 type="hexFloat"/>
+      <xs:attribute name="active"               type="xs:int"/>
+      <xs:attribute name="mode"                 type="xs:string"/>
+      <xs:attribute name="rate"                 type="hexFloat"/>
+      <xs:attribute name="syncLevel"            type="xs:int"/>
+      <xs:attribute name="syncType"             type="xs:int"/>
+      <xs:attribute name="octaves"              type="xs:int"/>
+      <xs:attribute name="noteMode"             type="xs:string"/>
+      <xs:attribute name="octaveMode"           type="xs:string"/>
+      <xs:attribute name="stepRepeat"           type="xs:int"/>
+      <xs:attribute name="rhythmIndex"          type="xs:int"/>
+      <xs:attribute name="seqLength"            type="xs:int"/>
+      <xs:attribute name="octaveSpread"         type="hexFloat"/>
+      <xs:attribute name="gateSpread"           type="hexFloat"/>
+      <xs:attribute name="velSpread"            type="hexFloat"/>
+      <xs:attribute name="ratchetAmount"        type="xs:int"/>
+      <xs:attribute name="noteProbability"      type="hexFloat"/>
+      <xs:attribute name="chordPolyphony"       type="xs:int"/>
+      <xs:attribute name="chordProbability"     type="hexFloat"/>
+      <xs:attribute name="chordType"            type="xs:int"/>
+      <xs:attribute name="numOctaves"           type="xs:int"/>
+      <xs:attribute name="kitArp"               type="xs:int"/>
+      <xs:attribute name="randomizerLock"       type="xs:int"/>
+      <xs:attribute name="lastLockedBassProb"     type="xs:int"/>
+      <xs:attribute name="lastLockedChordProb"    type="xs:int"/>
+      <xs:attribute name="lastLockedGateSpread"   type="xs:int"/>
+      <xs:attribute name="lastLockedGlideProb"    type="xs:int"/>
+      <xs:attribute name="lastLockedNoteProb"     type="xs:int"/>
+      <xs:attribute name="lastLockedOctaveSpread" type="xs:int"/>
+      <xs:attribute name="lastLockedRatchetProb"  type="xs:int"/>
+      <xs:attribute name="lastLockedReverseProb"  type="xs:int"/>
+      <xs:attribute name="lastLockedSwapProb"     type="xs:int"/>
+      <xs:attribute name="lastLockedVelocitySpread" type="xs:int"/>
+      <xs:attribute name="lockedBassProbArray"     type="xs:string"/>
+      <xs:attribute name="lockedChordProbArray"    type="xs:string"/>
+      <xs:attribute name="lockedGateSpreadArray"   type="xs:string"/>
+      <xs:attribute name="lockedGlideProbArray"    type="xs:string"/>
+      <xs:attribute name="lockedNoteProbArray"     type="xs:string"/>
+      <xs:attribute name="lockedOctaveSpreadArray" type="xs:string"/>
+      <xs:attribute name="lockedRatchetProbArray"  type="xs:string"/>
+      <xs:attribute name="lockedReverseProbArray"  type="xs:string"/>
+      <xs:attribute name="lockedSwapProbArray"     type="xs:string"/>
+      <xs:attribute name="lockedVelocitySpreadArray" type="xs:string"/>
     </xs:complexType>
   </xs:element>
 
@@ -458,6 +501,27 @@
     </xs:complexType>
   </xs:element>
 
+  <xs:element name="midiKnobs">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="midiKnob" minOccurs="0" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="midiKnob">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="controlsParam"        minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="patchAmountFromSource" minOccurs="0" maxOccurs="1"/>
+      </xs:sequence>
+      <xs:attribute name="channel"               type="xs:int"/>
+      <xs:attribute name="ccNumber"              type="xs:int"/>
+      <xs:attribute name="relative"              type="xs:string"/>
+      <xs:attribute name="controlsParam"        type="xs:string"/>
+      <xs:attribute name="patchAmountFromSource" type="xs:string"/>
+    </xs:complexType>
+  </xs:element>
   <xs:element name="patchCables">
     <xs:complexType>
       <xs:sequence>
@@ -509,10 +573,32 @@
         <xs:element ref="noteRow"   minOccurs="0" maxOccurs="unbounded"/>
         <xs:element ref="soundParams" minOccurs="0" maxOccurs="1"/>
         <xs:element ref="kitParams"   minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="columnControls" minOccurs="0" maxOccurs="1"/>
       </xs:sequence>
       <xs:attribute name="slot"    type="xs:int"/>
       <xs:attribute name="subSlot" type="xs:int"/>
       <xs:attribute name="name"    type="xs:string"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="columnControls">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="leftCol"  minOccurs="0" maxOccurs="1"/>
+        <xs:element ref="rightCol" minOccurs="0" maxOccurs="1"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="leftCol">
+    <xs:complexType>
+      <xs:attribute name="type" type="xs:string"/>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="rightCol">
+    <xs:complexType>
+      <xs:attribute name="type" type="xs:string"/>
     </xs:complexType>
   </xs:element>
 
