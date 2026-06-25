@@ -77,7 +77,10 @@ public class ProjectSerializer {
     // fall back to defaults, but write them for fidelity.
     writer.writeAttribute("xScrollArrangementView", 0, false);
     writer.writeAttribute("xZoomArrangementView", 24, false);
-    writer.writeAttribute("arrangementAutoScrollOn", 0, false);
+    // Follow the playhead during arranger playback so cells light up as they play (helps verify the
+    // one-by-one sweep). Enabled for arranger-boot songs; off otherwise.
+    writer.writeAttribute(
+        "arrangementAutoScrollOn", model.isBootInArrangementView() ? 1 : 0, false);
     writer.writeAttribute("rootNote", model.getKey(), false); // C writes key.rootNote, not "key"
     // C song.cpp:1147-1148 — boot straight into the Arranger when requested, so arrangement
     // (clipInstances) playback drives the song instead of every session clip firing at once.
