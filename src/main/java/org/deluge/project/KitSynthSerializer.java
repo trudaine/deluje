@@ -201,7 +201,7 @@ public class KitSynthSerializer {
       Element dp = doc.createElement("defaultParams");
       appendHexChildUnipolar(doc, dp, "arpeggiatorGate", sound.getArpeggiatorGate());
       appendHexChildUnipolar(doc, dp, "portamento", sound.getPortamento());
-      appendHexChildUnipolar(doc, dp, "compressorShape", 0.92f); // typical default
+      appendHexChildUnipolar(doc, dp, "compressorShape", sound.getCompressorShape());
       appendHexChildUnipolar(doc, dp, "oscAVolume", sound.getOscAVolume());
       appendHexChildUnipolar(doc, dp, "oscAPulseWidth", 0f);
       appendHexChildUnipolar(doc, dp, "oscBVolume", sound.getOscBVolume());
@@ -374,6 +374,21 @@ public class KitSynthSerializer {
     // ── transpose (global synth transpose) ──
     appendTextChild(doc, root, "transpose", "0");
 
+    // ── modulator1 ──
+    Element mod1 = doc.createElement("modulator1");
+    mod1.setAttribute("transpose", String.valueOf(synth.getModulator1Transpose()));
+    mod1.setAttribute("cents", String.valueOf(synth.getModulator1Cents()));
+    mod1.setAttribute("retrigPhase", String.valueOf(synth.getMod1RetrigPhase()));
+    root.appendChild(mod1);
+
+    // ── modulator2 ──
+    Element mod2 = doc.createElement("modulator2");
+    mod2.setAttribute("transpose", String.valueOf(synth.getModulator2Transpose()));
+    mod2.setAttribute("cents", String.valueOf(synth.getModulator2Cents()));
+    mod2.setAttribute("retrigPhase", String.valueOf(synth.getMod2RetrigPhase()));
+    mod2.setAttribute("toModulator1", synth.isModulator1ToModulator0() ? "1" : "0");
+    root.appendChild(mod2);
+
     // ── unison ──
     Element unison = doc.createElement("unison");
     appendTextChild(doc, unison, "num", String.valueOf(synth.getUnisonNum()));
@@ -455,11 +470,20 @@ public class KitSynthSerializer {
     Element dp = doc.createElement("defaultParams");
     appendHexChildUnipolar(doc, dp, "arpeggiatorGate", synth.getArp().gate());
     appendHexChildUnipolar(doc, dp, "portamento", synth.getPortamento());
-    appendHexChildUnipolar(doc, dp, "compressorShape", 0.92f);
+    appendHexChildUnipolar(doc, dp, "compressorShape", synth.getCompressorShape());
     appendHexChildUnipolar(doc, dp, "oscAVolume", synth.getOscMix());
     appendHexChildUnipolar(doc, dp, "oscAPulseWidth", 0f);
     appendHexChildUnipolar(doc, dp, "oscBVolume", 1.0f - synth.getOscMix());
     appendHexChildUnipolar(doc, dp, "oscBPulseWidth", 0f);
+    if (synth.getPitchAdjustQ31() != Integer.MIN_VALUE) {
+      appendRawQ31Child(doc, dp, "pitchAdjust", synth.getPitchAdjustQ31());
+    }
+    if (synth.getOsc1PitchAdjustQ31() != Integer.MIN_VALUE) {
+      appendRawQ31Child(doc, dp, "oscAPitchAdjust", synth.getOsc1PitchAdjustQ31());
+    }
+    if (synth.getOsc2PitchAdjustQ31() != Integer.MIN_VALUE) {
+      appendRawQ31Child(doc, dp, "oscBPitchAdjust", synth.getOsc2PitchAdjustQ31());
+    }
     appendHexChildUnipolar(doc, dp, "noiseVolume", synth.getNoiseVol());
     appendHexChildUnipolar(doc, dp, "volume", synth.getVolume());
     appendHexChild(doc, dp, "pan", synth.getPan());
@@ -644,6 +668,13 @@ public class KitSynthSerializer {
   public static void appendTextChild(Document doc, Element parent, String tag, String value) {
     Element child = doc.createElement(tag);
     child.setTextContent(value);
+    parent.appendChild(child);
+  }
+
+  /** Append a raw Q31 value formatted as a 0xXXXXXXXX hex child node. */
+  public static void appendRawQ31Child(Document doc, Element parent, String tag, int q31Value) {
+    Element child = doc.createElement(tag);
+    child.setTextContent(String.format("0x%08X", q31Value));
     parent.appendChild(child);
   }
 

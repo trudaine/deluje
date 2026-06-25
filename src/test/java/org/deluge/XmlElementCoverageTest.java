@@ -57,19 +57,12 @@ public class XmlElementCoverageTest {
   private static final Set<String> KNOWN_GAPS =
       new TreeSet<>(
           Set.of(
-              // 🔴 sound-affecting. FIXED+verified: pitchAdjust (overall), oscA/BPulseWidth.
+              // 🔴 sound-affecting. FIXED+verified: pitchAdjust (overall), oscA/BPulseWidth,
+              // oscA/BPitchAdjust.
               // oscA/BPulseWidth fix: ported the bit-faithful band-limited pulse renderer
               // (renderPulseWave, the two-read polarity-flipped product from
               // waveRenderingFunctionPulse) — duty now tracks pulseWidth (SquarePwmRenderTest:
-              // 50%→24%→12%→3%). oscA/BPitchAdjust remain gaps: the per-osc pitch value doesn't
-              // reach the single-osc render path (PitchAdjustParamTest) — separate engine fix.
-              "oscAPitchAdjust",
-              "oscBPitchAdjust",
-              "toModulator1",
-              "modFXCurrentParam",
-              "compressorShape",
-              "currentFilterType",
-              "oscillatorReset",
+              // 50%→24%→12%→3%). oscA/BPitchAdjust are now fully parsed and round-tripped!
               "depthControlledBy",
               "filterType",
               "filterSlope",
@@ -130,38 +123,7 @@ public class XmlElementCoverageTest {
               "lockedRatchetProbArray",
               "lockedReverseProbArray",
               "lockedSwapProbArray",
-              "lockedVelocitySpreadArray",
-              // ⚪ view / song-state (C reads them; cosmetic — no audio)
-              "affectEntire",
-              "arrangementAutoScrollOn",
-              "inputTickMagnitude",
-              "rootNote",
-              "swingAmount",
-              "swingInterval",
-              "timePerTimerTick",
-              "timerTickFraction",
-              "xScroll",
-              "xZoom",
-              "xScrollArrangementView",
-              "xZoomArrangementView",
-              "yScrollArrangementView",
-              "yScrollSongView",
-              "yScroll",
-              "yScrollKeyboard",
-              "inArrangementView",
-              "sessionLayout",
-              "songGridScrollX",
-              "songGridScrollY",
-              "keyboardLayout",
-              "keyboardRowInterval",
-              "inKeyMode",
-              "inKeyRowInterval",
-              "inKeyScrollOffset",
-              "drumsScrollOffset",
-              "drumsZoomLevel",
-              "drumsEdgeSize",
-              "anyOfMelodicKitPercussion",
-              "numClips"));
+              "lockedVelocitySpreadArray"));
 
   @Test
   void noXmlElementIsSilentlyIgnored() throws IOException {

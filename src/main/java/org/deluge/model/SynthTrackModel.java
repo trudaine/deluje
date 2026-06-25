@@ -135,6 +135,7 @@ public class SynthTrackModel extends TrackModel {
   private float sidechainRelease = 0.0f;
   private float compressorThreshold = 0.0f; // dB, negative = compression threshold
   private float compressorRatio = 0.0f; // compression ratio (0 = off)
+  private float compressorShape = 0.92f;
 
   private String modFxType = "NONE";
   private float modFxRate = 0.0f;
@@ -195,9 +196,27 @@ public class SynthTrackModel extends TrackModel {
   private int carrier2FeedbackQ31 = Integer.MIN_VALUE;
 
   // Overall voice pitch adjust (raw Q31; C LOCAL_PITCH_ADJUST, XML pitchAdjust). INT_MIN = unset.
-  // (Per-osc oscA/BPitchAdjust deliberately NOT modelled — they don't reach the DSP yet;
-  // KNOWN_GAP.)
   private int pitchAdjustQ31 = Integer.MIN_VALUE;
+
+  // Per-oscillator pitch adjust (raw Q31; C LOCAL_OSC_A/B_PITCH_ADJUST, XML oscA/BPitchAdjust)
+  private int osc1PitchAdjustQ31 = Integer.MIN_VALUE;
+  private int osc2PitchAdjustQ31 = Integer.MIN_VALUE;
+
+  public int getOsc1PitchAdjustQ31() {
+    return osc1PitchAdjustQ31;
+  }
+
+  public void setOsc1PitchAdjustQ31(int v) {
+    this.osc1PitchAdjustQ31 = v;
+  }
+
+  public int getOsc2PitchAdjustQ31() {
+    return osc2PitchAdjustQ31;
+  }
+
+  public void setOsc2PitchAdjustQ31(int v) {
+    this.osc2PitchAdjustQ31 = v;
+  }
 
   // Oscillator pulse/phase width (raw Q31; C LOCAL_OSC_A/B_PHASE_WIDTH, XML oscA/BPulseWidth).
   // INT_MIN = unset → engine neutral (50% square). Wired end-to-end via renderPulseWave.
@@ -944,6 +963,14 @@ public class SynthTrackModel extends TrackModel {
     this.compressorRatio = v;
   }
 
+  public float getCompressorShape() {
+    return compressorShape;
+  }
+
+  public void setCompressorShape(float v) {
+    this.compressorShape = v;
+  }
+
   public int getCompressorSyncType() {
     return compressorSyncType;
   }
@@ -1420,6 +1447,7 @@ public class SynthTrackModel extends TrackModel {
     this.sidechainRelease = other.getSidechainRelease();
     this.compressorThreshold = other.getCompressorThreshold();
     this.compressorRatio = other.getCompressorRatio();
+    this.compressorShape = other.getCompressorShape();
     this.modFxType = other.getModFxType();
     this.modFxRate = other.getModFxRate();
     this.modFxDepth = other.getModFxDepth();

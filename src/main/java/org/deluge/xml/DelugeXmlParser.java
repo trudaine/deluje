@@ -231,6 +231,106 @@ public class DelugeXmlParser {
       project.setScale(songNode.getAttribute("scale"));
     }
 
+    // ── View & Song-State Parity Attribute Parsers (C++ Parity Gaps) ──
+    if (songNode.hasAttribute("affectEntire")) {
+      project.setAffectEntire("1".equals(songNode.getAttribute("affectEntire")));
+    }
+    if (songNode.hasAttribute("arrangementAutoScrollOn")) {
+      project.setArrangementAutoScrollOn(
+          "1".equals(songNode.getAttribute("arrangementAutoScrollOn")));
+    }
+    if (songNode.hasAttribute("inputTickMagnitude")) {
+      project.setInputTickMagnitude(Integer.parseInt(songNode.getAttribute("inputTickMagnitude")));
+    }
+    if (songNode.hasAttribute("rootNote")) {
+      project.setKey(songNode.getAttribute("rootNote"));
+    }
+    if (songNode.hasAttribute("swingAmount")) {
+      project.setSwingAmount(Integer.parseInt(songNode.getAttribute("swingAmount")));
+    }
+    if (songNode.hasAttribute("swingInterval")) {
+      project.setSwingInterval(Integer.parseInt(songNode.getAttribute("swingInterval")));
+    }
+    if (songNode.hasAttribute("timePerTimerTick")) {
+      project.setTimePerTimerTick(Integer.parseInt(songNode.getAttribute("timePerTimerTick")));
+    }
+    if (songNode.hasAttribute("timerTickFraction")) {
+      project.setTimerTickFraction(Integer.parseInt(songNode.getAttribute("timerTickFraction")));
+    }
+    if (songNode.hasAttribute("xScroll")) {
+      project.setXScroll(Integer.parseInt(songNode.getAttribute("xScroll")));
+    }
+    if (songNode.hasAttribute("xZoom")) {
+      project.setXZoom(Integer.parseInt(songNode.getAttribute("xZoom")));
+    }
+    if (songNode.hasAttribute("xScrollArrangementView")) {
+      project.setXScrollArrangementView(
+          Integer.parseInt(songNode.getAttribute("xScrollArrangementView")));
+    }
+    if (songNode.hasAttribute("xZoomArrangementView")) {
+      project.setXZoomArrangementView(
+          Integer.parseInt(songNode.getAttribute("xZoomArrangementView")));
+    }
+    if (songNode.hasAttribute("yScrollArrangementView")) {
+      project.setYScrollArrangementView(
+          Integer.parseInt(songNode.getAttribute("yScrollArrangementView")));
+    }
+    if (songNode.hasAttribute("yScrollSongView")) {
+      project.setYScrollSongView(Integer.parseInt(songNode.getAttribute("yScrollSongView")));
+    }
+    if (songNode.hasAttribute("yScroll")) {
+      project.setYScroll(Integer.parseInt(songNode.getAttribute("yScroll")));
+    }
+    if (songNode.hasAttribute("yScrollKeyboard")) {
+      project.setYScrollKeyboard(Integer.parseInt(songNode.getAttribute("yScrollKeyboard")));
+    }
+    if (songNode.hasAttribute("inArrangementView")) {
+      project.setBootInArrangementView("1".equals(songNode.getAttribute("inArrangementView")));
+    }
+    if (songNode.hasAttribute("sessionLayout")) {
+      project.setSessionLayout(Integer.parseInt(songNode.getAttribute("sessionLayout")));
+    }
+    if (songNode.hasAttribute("songGridScrollX")) {
+      project.setSongGridScrollX(Integer.parseInt(songNode.getAttribute("songGridScrollX")));
+    }
+    if (songNode.hasAttribute("songGridScrollY")) {
+      project.setSongGridScrollY(Integer.parseInt(songNode.getAttribute("songGridScrollY")));
+    }
+    if (songNode.hasAttribute("keyboardLayout")) {
+      project.setKeyboardLayout(Integer.parseInt(songNode.getAttribute("keyboardLayout")));
+    }
+    if (songNode.hasAttribute("keyboardRowInterval")) {
+      project.setKeyboardRowInterval(
+          Integer.parseInt(songNode.getAttribute("keyboardRowInterval")));
+    }
+    if (songNode.hasAttribute("inKeyMode")) {
+      project.setInKeyMode(
+          "1".equals(songNode.getAttribute("inKeyMode"))
+              || "true".equalsIgnoreCase(songNode.getAttribute("inKeyMode")));
+    }
+    if (songNode.hasAttribute("inKeyRowInterval")) {
+      project.setInKeyRowInterval(Integer.parseInt(songNode.getAttribute("inKeyRowInterval")));
+    }
+    if (songNode.hasAttribute("inKeyScrollOffset")) {
+      project.setInKeyScrollOffset(Integer.parseInt(songNode.getAttribute("inKeyScrollOffset")));
+    }
+    if (songNode.hasAttribute("drumsScrollOffset")) {
+      project.setDrumsScrollOffset(Integer.parseInt(songNode.getAttribute("drumsScrollOffset")));
+    }
+    if (songNode.hasAttribute("drumsZoomLevel")) {
+      project.setDrumsZoomLevel(Integer.parseInt(songNode.getAttribute("drumsZoomLevel")));
+    }
+    if (songNode.hasAttribute("drumsEdgeSize")) {
+      project.setDrumsEdgeSize(Integer.parseInt(songNode.getAttribute("drumsEdgeSize")));
+    }
+    if (songNode.hasAttribute("anyOfMelodicKitPercussion")) {
+      project.setAnyOfMelodicKitPercussion(
+          Integer.parseInt(songNode.getAttribute("anyOfMelodicKitPercussion")));
+    }
+    if (songNode.hasAttribute("numClips")) {
+      project.setNumClips(Integer.parseInt(songNode.getAttribute("numClips")));
+    }
+
     // ── Mode notes (scale note mask from <modeNotes>/<modeNote>) ──
     Element modeNotesEl = getFirstChild(songNode, "modeNotes");
     if (modeNotesEl != null) {
@@ -1546,6 +1646,17 @@ public class DelugeXmlParser {
       }
     }
 
+    // -- oscillatorReset (compatibility, tag or attribute) --
+    String oscReset = attrOrChildText(soundNode, "oscillatorReset");
+    if (oscReset != null && !oscReset.isEmpty()) {
+      if ("0".equals(oscReset) || "false".equalsIgnoreCase(oscReset)) {
+        synth.setOsc1RetrigPhase(-1);
+        synth.setOsc2RetrigPhase(-1);
+        synth.setMod1RetrigPhase(-1);
+        synth.setMod2RetrigPhase(-1);
+      }
+    }
+
     // ── Envelopes 0-3 ──
     parseEnvelopes(soundNode, synth);
 
@@ -1661,6 +1772,12 @@ public class DelugeXmlParser {
     NodeList soundNodes = kitNode.getElementsByTagName("sound");
 
     KitTrackModel kit = new KitTrackModel(name);
+    if (kitNode.hasAttribute("isMutedInArrangement")) {
+      kit.setMutedInArrangement("1".equals(kitNode.getAttribute("isMutedInArrangement")));
+    }
+    if (kitNode.hasAttribute("isSoloingInArrangement")) {
+      kit.setSoloingInArrangement("1".equals(kitNode.getAttribute("isSoloingInArrangement")));
+    }
 
     for (int i = 0; i < soundNodes.getLength(); i++) {
       Element soundNode = (Element) soundNodes.item(i);
@@ -1693,6 +1810,12 @@ public class DelugeXmlParser {
     }
 
     SynthTrackModel synth = new SynthTrackModel(name);
+    if (soundNode.hasAttribute("isMutedInArrangement")) {
+      synth.setMutedInArrangement("1".equals(soundNode.getAttribute("isMutedInArrangement")));
+    }
+    if (soundNode.hasAttribute("isSoloingInArrangement")) {
+      synth.setSoloingInArrangement("1".equals(soundNode.getAttribute("isSoloingInArrangement")));
+    }
     populateSynth(soundNode, synth);
     return synth;
   }
@@ -1797,6 +1920,13 @@ public class DelugeXmlParser {
       String armed = audioTrackNode.getAttribute("isArmedForRecording");
       track.setMuted(!"1".equals(armed) && !"true".equalsIgnoreCase(armed));
       // armed ↔ not muted, conceptually
+    }
+    if (audioTrackNode.hasAttribute("isMutedInArrangement")) {
+      track.setMutedInArrangement("1".equals(audioTrackNode.getAttribute("isMutedInArrangement")));
+    }
+    if (audioTrackNode.hasAttribute("isSoloingInArrangement")) {
+      track.setSoloingInArrangement(
+          "1".equals(audioTrackNode.getAttribute("isSoloingInArrangement")));
     }
     if (audioTrackNode.hasAttribute("lpfMode")) {
       // Store as track colour/label info — not on AudioTrackModel yet
@@ -1929,6 +2059,12 @@ public class DelugeXmlParser {
     }
     if (!(v = sp.getAttribute("pitchAdjust")).isEmpty()) {
       synth.setPitchAdjustQ31(DelugeHexMapper.hexToQ31(v));
+    }
+    if (!(v = sp.getAttribute("oscAPitchAdjust")).isEmpty()) {
+      synth.setOsc1PitchAdjustQ31(DelugeHexMapper.hexToQ31(v));
+    }
+    if (!(v = sp.getAttribute("oscBPitchAdjust")).isEmpty()) {
+      synth.setOsc2PitchAdjustQ31(DelugeHexMapper.hexToQ31(v));
     }
     if (!(v = sp.getAttribute("oscAPulseWidth")).isEmpty()) {
       synth.setOsc1PhaseWidthQ31(DelugeHexMapper.hexToQ31(v));
@@ -2145,8 +2281,17 @@ public class DelugeXmlParser {
       if ((v = attrOrChildText(dpEl, "pitchAdjust")) != null && !v.isBlank()) {
         synth.setPitchAdjustQ31(DelugeHexMapper.hexToQ31(v));
       }
+      if ((v = attrOrChildText(dpEl, "oscAPitchAdjust")) != null && !v.isBlank()) {
+        synth.setOsc1PitchAdjustQ31(DelugeHexMapper.hexToQ31(v));
+      }
+      if ((v = attrOrChildText(dpEl, "oscBPitchAdjust")) != null && !v.isBlank()) {
+        synth.setOsc2PitchAdjustQ31(DelugeHexMapper.hexToQ31(v));
+      }
       if ((v = attrOrChildText(dpEl, "oscAPulseWidth")) != null && !v.isBlank()) {
         synth.setOsc1PhaseWidthQ31(DelugeHexMapper.hexToQ31(v));
+      }
+      if ((v = attrOrChildText(dpEl, "compressorShape")) != null && !v.isBlank()) {
+        synth.setCompressorShape(toUnipolar(DelugeHexMapper.hexToFloat(v)));
       }
       if ((v = attrOrChildText(dpEl, "oscBPulseWidth")) != null && !v.isBlank()) {
         synth.setOsc2PhaseWidthQ31(DelugeHexMapper.hexToQ31(v));
@@ -2276,6 +2421,25 @@ public class DelugeXmlParser {
     return (float) Math.pow(2.0, (transpose * 100 + cents) / 1200.0);
   }
 
+  /** First child <tag> text or attribute as an int, or {@code def} if absent/unparseable. */
+  private static int attrOrChildInt(Element parent, String tag, int def) {
+    String attr = parent.getAttribute(tag);
+    if (attr != null && !attr.isEmpty()) {
+      try {
+        return Integer.parseInt(attr.trim());
+      } catch (NumberFormatException e) {
+        // fall through
+      }
+    }
+    NodeList n = parent.getElementsByTagName(tag);
+    if (n.getLength() == 0) return def;
+    try {
+      return Integer.parseInt(n.item(0).getTextContent().trim());
+    } catch (NumberFormatException e) {
+      return def;
+    }
+  }
+
   /** First child <tag> text as an int, or {@code def} if absent/unparseable. */
   private static int childInt(Element parent, String tag, int def) {
     NodeList n = parent.getElementsByTagName(tag);
@@ -2303,19 +2467,13 @@ public class DelugeXmlParser {
     NodeList mod1Nodes = soundNode.getElementsByTagName("modulator1");
     if (mod1Nodes.getLength() > 0) {
       Element mod1 = (Element) mod1Nodes.item(0);
-      int transpose = childInt(mod1, "transpose", 0);
-      int cents = childInt(mod1, "cents", 0);
+      int transpose = attrOrChildInt(mod1, "transpose", 0);
+      int cents = attrOrChildInt(mod1, "cents", 0);
       synth.setFmRatio(modulatorRatio(transpose, cents));
       synth.setModulator1Transpose(transpose);
       synth.setModulator1Cents(cents);
-      NodeList rpNodes = mod1.getElementsByTagName("retrigPhase");
-      if (rpNodes.getLength() > 0) {
-        try {
-          synth.setMod1RetrigPhase((int) Long.parseLong(rpNodes.item(0).getTextContent().trim()));
-        } catch (NumberFormatException e) {
-          LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
-        }
-      }
+      int retrig = attrOrChildInt(mod1, "retrigPhase", 0);
+      synth.setMod1RetrigPhase(retrig);
     }
     NodeList mod1AmtNodes = soundNode.getElementsByTagName("modulator1Amount");
     if (mod1AmtNodes.getLength() > 0) {
@@ -2356,18 +2514,16 @@ public class DelugeXmlParser {
     NodeList mod2Nodes = soundNode.getElementsByTagName("modulator2");
     if (mod2Nodes.getLength() > 0) {
       Element mod2 = (Element) mod2Nodes.item(0);
-      int transpose = childInt(mod2, "transpose", 0);
-      int cents = childInt(mod2, "cents", 0);
+      int transpose = attrOrChildInt(mod2, "transpose", 0);
+      int cents = attrOrChildInt(mod2, "cents", 0);
       synth.setFmRatio2(modulatorRatio(transpose, cents));
       synth.setModulator2Transpose(transpose);
       synth.setModulator2Cents(cents);
-      NodeList rpNodes = mod2.getElementsByTagName("retrigPhase");
-      if (rpNodes.getLength() > 0) {
-        try {
-          synth.setMod2RetrigPhase((int) Long.parseLong(rpNodes.item(0).getTextContent().trim()));
-        } catch (NumberFormatException e) {
-          LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
-        }
+      int retrig = attrOrChildInt(mod2, "retrigPhase", 0);
+      synth.setMod2RetrigPhase(retrig);
+      String toMod1 = attrOrChildText(mod2, "toModulator1");
+      if (toMod1 != null && !toMod1.isBlank()) {
+        synth.setModulator1ToModulator0("1".equals(toMod1) || "true".equalsIgnoreCase(toMod1));
       }
     }
     NodeList mod2AmtNodes = soundNode.getElementsByTagName("modulator2Amount");
@@ -2886,6 +3042,17 @@ public class DelugeXmlParser {
         });
     readAttrOrChildHexFloat(soundNode, "clippingAmount", sound::setClippingAmount);
 
+    // -- oscillatorReset (compatibility, tag or attribute) --
+    String oscReset = attrOrChildText(soundNode, "oscillatorReset");
+    if (oscReset != null && !oscReset.isEmpty()) {
+      if ("0".equals(oscReset) || "false".equalsIgnoreCase(oscReset)) {
+        sound.setOsc1RetrigPhase(-1);
+        sound.setOsc2RetrigPhase(-1);
+        sound.setMod1RetrigPhase(-1);
+        sound.setMod2RetrigPhase(-1);
+      }
+    }
+
     // ── Child elements ──
     // osc1 retrigPhase
     Element osc1El = getFirstChild(soundNode, "osc1");
@@ -3165,6 +3332,7 @@ public class DelugeXmlParser {
     readHexFloatUnipolar(dp, "sampleRateReduction", sound::setSampleRateReduction);
     readHexFloatUnipolar(dp, "bitCrush", sound::setBitCrush);
     readHexFloatUnipolar(dp, "waveIndex", sound::setWaveIndex);
+    readHexFloatUnipolar(dp, "compressorShape", sound::setCompressorShape);
 
     // Envelopes 1-4 as child elements of defaultParams (child-element format)
     for (int i = 1; i <= 4; i++) {
@@ -3936,6 +4104,14 @@ public class DelugeXmlParser {
       readSongHexAttr(sp, "compressorThreshold", project::setSongParamCompressorThreshold, true);
       readSongHexAttr(sp, "lpfMorph", project::setSongParamLpfMorph, true);
       readSongHexAttr(sp, "hpfMorph", project::setSongParamHpfMorph, true);
+      String modFXParam = sp.getAttribute("modFXCurrentParam");
+      if (modFXParam != null && !modFXParam.isEmpty()) {
+        project.setModFXCurrentParam(modFXParam);
+      }
+      String filterType = sp.getAttribute("currentFilterType");
+      if (filterType != null && !filterType.isEmpty()) {
+        project.setCurrentFilterType(filterType);
+      }
       // Child elements
       NodeList spDelay = sp.getElementsByTagName("delay");
       if (spDelay.getLength() > 0) {

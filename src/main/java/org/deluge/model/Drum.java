@@ -59,6 +59,7 @@ public abstract class Drum {
   protected float compressorSidechainHpf = 0.0f;
   protected float compressorThreshold = 0.0f;
   protected float compressorRatio = 0.0f;
+  protected float compressorShape = 0.92f;
 
   // LPF Mode/Morph
   protected FilterMode lpfMode = FilterMode.LADDER_12;
@@ -427,6 +428,14 @@ public abstract class Drum {
 
   public void setCompressorRatio(float v) {
     this.compressorRatio = v;
+  }
+
+  public float getCompressorShape() {
+    return compressorShape;
+  }
+
+  public void setCompressorShape(float v) {
+    this.compressorShape = v;
   }
 
   public FilterMode getLpfMode() {

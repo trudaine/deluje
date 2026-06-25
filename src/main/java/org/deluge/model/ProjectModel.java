@@ -90,6 +90,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   private float songParamEqTreble = 0.0f;
   private float songParamEqBassFrequency = 0.0f;
   private float songParamEqTrebleFrequency = 0.0f;
+  private String modFXCurrentParam = "offset";
+  private String currentFilterType = "lpf";
 
   // ── Scale info ──
   private int userScale = 0;
@@ -114,7 +116,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   private transient int swungTicksTilNextEvent = Integer.MAX_VALUE;
   private transient boolean inArrangerMode = false;
   private transient int swingAmount = 0; // -49 to 49
-  private transient int swingInterval = 3; // SyncLevel (e.g. 1/16)
+  private transient int swingInterval = 7; // SyncLevel (e.g. 1/16)
   private transient org.deluge.modulation.params.ParamManager paramManager =
       new org.deluge.modulation.params.ParamManager();
 
@@ -351,6 +353,242 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
 
   public void setBootInArrangementView(boolean v) {
     this.bootInArrangementView = v;
+  }
+
+  // ── View & Song-State Parity Fields (C++ Parity Gaps) ──
+  private boolean affectEntire = false;
+  private boolean arrangementAutoScrollOn = true;
+  private int inputTickMagnitude = 2;
+  private int timePerTimerTick = 229;
+  private int timerTickFraction = -1342177280;
+  private int xScroll = 0;
+  private int xZoom = 24;
+  private int xScrollArrangementView = 0;
+  private int xZoomArrangementView = 24;
+  private int yScrollArrangementView = 0;
+  private int yScrollSongView = 0;
+  private int yScroll = 0;
+  private int yScrollKeyboard = 0;
+  private int sessionLayout = 0;
+  private int songGridScrollX = 0;
+  private int songGridScrollY = 0;
+  private int keyboardLayout = 0;
+  private int keyboardRowInterval = 0;
+  private boolean inKeyMode = false;
+  private int inKeyRowInterval = 0;
+  private int inKeyScrollOffset = 0;
+  private int drumsScrollOffset = 0;
+  private int drumsZoomLevel = 0;
+  private int drumsEdgeSize = 0;
+  private int anyOfMelodicKitPercussion = 0;
+  private int numClips = 0;
+
+  public boolean isAffectEntire() {
+    return affectEntire;
+  }
+
+  public void setAffectEntire(boolean v) {
+    this.affectEntire = v;
+  }
+
+  public boolean isArrangementAutoScrollOn() {
+    return arrangementAutoScrollOn;
+  }
+
+  public void setArrangementAutoScrollOn(boolean v) {
+    this.arrangementAutoScrollOn = v;
+  }
+
+  public int getInputTickMagnitude() {
+    return inputTickMagnitude;
+  }
+
+  public void setInputTickMagnitude(int v) {
+    this.inputTickMagnitude = v;
+  }
+
+  public int getTimePerTimerTick() {
+    return timePerTimerTick;
+  }
+
+  public void setTimePerTimerTick(int v) {
+    this.timePerTimerTick = v;
+  }
+
+  public int getTimerTickFraction() {
+    return timerTickFraction;
+  }
+
+  public void setTimerTickFraction(int v) {
+    this.timerTickFraction = v;
+  }
+
+  public int getXScroll() {
+    return xScroll;
+  }
+
+  public void setXScroll(int v) {
+    this.xScroll = v;
+  }
+
+  public int getXZoom() {
+    return xZoom;
+  }
+
+  public void setXZoom(int v) {
+    this.xZoom = v;
+  }
+
+  public int getXScrollArrangementView() {
+    return xScrollArrangementView;
+  }
+
+  public void setXScrollArrangementView(int v) {
+    this.xScrollArrangementView = v;
+  }
+
+  public int getXZoomArrangementView() {
+    return xZoomArrangementView;
+  }
+
+  public void setXZoomArrangementView(int v) {
+    this.xZoomArrangementView = v;
+  }
+
+  public int getYScrollArrangementView() {
+    return yScrollArrangementView;
+  }
+
+  public void setYScrollArrangementView(int v) {
+    this.yScrollArrangementView = v;
+  }
+
+  public int getYScrollSongView() {
+    return yScrollSongView;
+  }
+
+  public void setYScrollSongView(int v) {
+    this.yScrollSongView = v;
+  }
+
+  public int getYScroll() {
+    return yScroll;
+  }
+
+  public void setYScroll(int v) {
+    this.yScroll = v;
+  }
+
+  public int getYScrollKeyboard() {
+    return yScrollKeyboard;
+  }
+
+  public void setYScrollKeyboard(int v) {
+    this.yScrollKeyboard = v;
+  }
+
+  public int getSessionLayout() {
+    return sessionLayout;
+  }
+
+  public void setSessionLayout(int v) {
+    this.sessionLayout = v;
+  }
+
+  public int getSongGridScrollX() {
+    return songGridScrollX;
+  }
+
+  public void setSongGridScrollX(int v) {
+    this.songGridScrollX = v;
+  }
+
+  public int getSongGridScrollY() {
+    return songGridScrollY;
+  }
+
+  public void setSongGridScrollY(int v) {
+    this.songGridScrollY = v;
+  }
+
+  public int getKeyboardLayout() {
+    return keyboardLayout;
+  }
+
+  public void setKeyboardLayout(int v) {
+    this.keyboardLayout = v;
+  }
+
+  public int getKeyboardRowInterval() {
+    return keyboardRowInterval;
+  }
+
+  public void setKeyboardRowInterval(int v) {
+    this.keyboardRowInterval = v;
+  }
+
+  public boolean isInKeyMode() {
+    return inKeyMode;
+  }
+
+  public void setInKeyMode(boolean v) {
+    this.inKeyMode = v;
+  }
+
+  public int getInKeyRowInterval() {
+    return inKeyRowInterval;
+  }
+
+  public void setInKeyRowInterval(int v) {
+    this.inKeyRowInterval = v;
+  }
+
+  public int getInKeyScrollOffset() {
+    return inKeyScrollOffset;
+  }
+
+  public void setInKeyScrollOffset(int v) {
+    this.inKeyScrollOffset = v;
+  }
+
+  public int getDrumsScrollOffset() {
+    return drumsScrollOffset;
+  }
+
+  public void setDrumsScrollOffset(int v) {
+    this.drumsScrollOffset = v;
+  }
+
+  public int getDrumsZoomLevel() {
+    return drumsZoomLevel;
+  }
+
+  public void setDrumsZoomLevel(int v) {
+    this.drumsZoomLevel = v;
+  }
+
+  public int getDrumsEdgeSize() {
+    return drumsEdgeSize;
+  }
+
+  public void setDrumsEdgeSize(int v) {
+    this.drumsEdgeSize = v;
+  }
+
+  public int getAnyOfMelodicKitPercussion() {
+    return anyOfMelodicKitPercussion;
+  }
+
+  public void setAnyOfMelodicKitPercussion(int v) {
+    this.anyOfMelodicKitPercussion = v;
+  }
+
+  public int getNumClips() {
+    return numClips;
+  }
+
+  public void setNumClips(int v) {
+    this.numClips = v;
   }
 
   public ProjectModel() {}
@@ -1266,6 +1504,22 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamEqTrebleFrequency", old, v));
     notifySongParamsChanged();
+  }
+
+  public String getModFXCurrentParam() {
+    return modFXCurrentParam;
+  }
+
+  public void setModFXCurrentParam(String v) {
+    this.modFXCurrentParam = v;
+  }
+
+  public String getCurrentFilterType() {
+    return currentFilterType;
+  }
+
+  public void setCurrentFilterType(String v) {
+    this.currentFilterType = v;
   }
 
   // ── Scales getters/setters ──
