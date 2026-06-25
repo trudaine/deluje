@@ -1,10 +1,12 @@
 package org.deluge.ui;
 
 import java.awt.*;
+import java.io.File;
 import javax.swing.*;
 import org.deluge.BridgeContract;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
+import org.deluge.project.PreferencesManager;
 
 /**
  * A beautiful, 2-column wide-screen optimized layout for Oscillator and Mix settings, preventing
@@ -12,12 +14,14 @@ import org.deluge.model.SynthTrackModel;
  * tooltips and hover quick help mapping details globally.
  */
 public class OscPanel extends JPanel {
+  private final SynthTrackModel model;
   private final Wavetable3DVisualizer vis1;
   private final Wavetable3DVisualizer vis2;
 
   public OscPanel(
       SynthTrackModel model, BridgeContract bridge, int trackIndex, ProjectModel projectModel) {
     super(new GridBagLayout());
+    this.model = model;
     vis1 = new Wavetable3DVisualizer(model, 0, trackIndex);
     vis2 = new Wavetable3DVisualizer(model, 1, trackIndex);
     setBackground(SwingSynthConfigDialog.BG_CARD);
@@ -237,6 +241,29 @@ public class OscPanel extends JPanel {
     cLeft.gridx = 0;
     cLeft.gridy = leftRow;
     cLeft.gridwidth = 1;
+    leftPanel.add(SwingSynthConfigDialog.label("Sample Map:"), cLeft);
+
+    JPanel osc1SampleButtons = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+    osc1SampleButtons.setBackground(SwingSynthConfigDialog.BG_CARD);
+
+    JButton osc1SingleBtn = new JButton("Single...");
+    styleOscButton(osc1SingleBtn, new Color(0x2d, 0x2d, 0x32), Color.WHITE);
+    osc1SingleBtn.addActionListener(e -> browseSingleSample(0, trackIndex, bridge));
+    osc1SampleButtons.add(osc1SingleBtn);
+
+    JButton osc1MultiBtn = new JButton("Map Zones...");
+    styleOscButton(osc1MultiBtn, new Color(0x32, 0x1e, 0x32), new Color(0xff, 0x00, 0xcc));
+    osc1MultiBtn.addActionListener(e -> openKeyZoneMapper(0, trackIndex, bridge));
+    osc1SampleButtons.add(osc1MultiBtn);
+
+    cLeft.gridx = 1;
+    cLeft.gridwidth = 2;
+    leftPanel.add(osc1SampleButtons, cLeft);
+    leftRow++;
+
+    cLeft.gridx = 0;
+    cLeft.gridy = leftRow;
+    cLeft.gridwidth = 1;
     JLabel osc1LoopLabel = SwingSynthConfigDialog.label("Loop Mode:");
     osc1LoopLabel.setToolTipText(osc1LoopCombo.getToolTipText());
     SwingSynthConfigDialog.attachHoverHelp(
@@ -332,6 +359,29 @@ public class OscPanel extends JPanel {
     cRight.gridwidth = 3;
     rightPanel.add(
         SwingSynthConfigDialog.sectionLabel("OSCILLATOR 2 \u2014 SAMPLE PLAYBACK"), cRight);
+    rightRow++;
+
+    cRight.gridx = 0;
+    cRight.gridy = rightRow;
+    cRight.gridwidth = 1;
+    rightPanel.add(SwingSynthConfigDialog.label("Sample Map:"), cRight);
+
+    JPanel osc2SampleButtons = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+    osc2SampleButtons.setBackground(SwingSynthConfigDialog.BG_CARD);
+
+    JButton osc2SingleBtn = new JButton("Single...");
+    styleOscButton(osc2SingleBtn, new Color(0x2d, 0x2d, 0x32), Color.WHITE);
+    osc2SingleBtn.addActionListener(e -> browseSingleSample(1, trackIndex, bridge));
+    osc2SampleButtons.add(osc2SingleBtn);
+
+    JButton osc2MultiBtn = new JButton("Map Zones...");
+    styleOscButton(osc2MultiBtn, new Color(0x32, 0x1e, 0x32), new Color(0xff, 0x00, 0xcc));
+    osc2MultiBtn.addActionListener(e -> openKeyZoneMapper(1, trackIndex, bridge));
+    osc2SampleButtons.add(osc2MultiBtn);
+
+    cRight.gridx = 1;
+    cRight.gridwidth = 2;
+    rightPanel.add(osc2SampleButtons, cRight);
     rightRow++;
 
     cRight.gridx = 0;
@@ -526,5 +576,66 @@ public class OscPanel extends JPanel {
     super.removeNotify();
     vis1.stopAnimation();
     vis2.stopAnimation();
+  }
+
+  private void browseSingleSample(int oscIdx, int trackIdx, BridgeContract bridge) {
+    JFileChooser fileChooser = new JFileChooser(PreferencesManager.getLibraryDir());
+    fileChooser.setDialogTitle("Select Single WAV Sample");
+    if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+      File file = fileChooser.getSelectedFile();
+      String absPath = file.getAbsolutePath();
+      File libraryDir = PreferencesManager.getLibraryDir();
+      String relPath = absPath;
+      if (libraryDir != null && absPath.startsWith(libraryDir.getAbsolutePath())) {
+        relPath = absPath.substring(libraryDir.getAbsolutePath().length());
+        if (relPath.startsWith("/") || relPath.startsWith("\\")) {
+          relPath = relPath.substring(1);
+        }
+      }
+
+      if (oscIdx == 0) {
+        model.setOsc1SamplePath(relPath);
+        model.setOsc1Type("SAMPLE");
+        model.getOsc1Zones().clear();
+      } else {
+        model.setOsc2SamplePath(relPath);
+        model.setOsc2Type("SAMPLE");
+        model.getOsc2Zones().clear();
+      }
+
+      try {
+        Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+        if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine) {
+          if (trackIdx >= 0 && trackIdx < engine.sounds.size()) {
+            var sound = engine.sounds.get(trackIdx);
+            if (sound instanceof org.deluge.engine.FirmwareSound fs) {
+              if (oscIdx == 0) {
+                fs.fw2Sound.oscTypes[0] = org.deluge.firmware2.Oscillator.OscType.SAMPLE;
+              } else {
+                fs.fw2Sound.oscTypes[1] = org.deluge.firmware2.Oscillator.OscType.SAMPLE;
+              }
+              org.deluge.engine.FirmwareFactory.loadOscResources(model, fs);
+            }
+          }
+        }
+      } catch (Exception ignored) {
+      }
+    }
+  }
+
+  private void openKeyZoneMapper(int oscIdx, int trackIdx, BridgeContract bridge) {
+    Window owner = SwingUtilities.getWindowAncestor(this);
+    SwingKeyZoneMapperDialog dialog =
+        new SwingKeyZoneMapperDialog(owner, model, oscIdx, trackIdx, bridge);
+    dialog.setVisible(true);
+  }
+
+  private void styleOscButton(JButton btn, Color bg, Color fg) {
+    btn.setBackground(bg);
+    btn.setForeground(fg);
+    btn.setFocusPainted(false);
+    btn.setFont(new Font("SansSerif", Font.BOLD, 9));
+    btn.setBorder(BorderFactory.createLineBorder(fg.darker(), 1));
+    btn.setPreferredSize(new Dimension(85, 22));
   }
 }

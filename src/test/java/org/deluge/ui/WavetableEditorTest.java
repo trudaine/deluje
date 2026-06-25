@@ -8,16 +8,15 @@ import org.deluge.firmware2.WaveTable;
 import org.deluge.firmware2.WaveTableBand;
 import org.deluge.firmware2.WaveTableReader;
 import org.deluge.firmware2.WaveTableWriter;
-import org.deluge.firmware2.WavetableGenerator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Headless-safe, high-fidelity unit test suite for Wavetable Creator & Editor.
- * Verifies WaveTable allocation, additive synthesis mathematics, piecewise linear
- * interpolation algorithms, and binary WAV persistence roundtrip without any GUI/AWT
- * dependencies to ensure 100% reliability in headless test execution environments.
+ * Headless-safe, high-fidelity unit test suite for Wavetable Creator & Editor. Verifies WaveTable
+ * allocation, additive synthesis mathematics, piecewise linear interpolation algorithms, and binary
+ * WAV persistence roundtrip without any GUI/AWT dependencies to ensure 100% reliability in headless
+ * test execution environments.
  */
 public class WavetableEditorTest {
 
@@ -73,9 +72,11 @@ public class WavetableEditorTest {
 
     // Verify mathematical correctness of the generated cycle shape
     assertEquals(0.0f, cycle[0], 0.01f);
-    // At 1/4 cycle (index 512): (1.0 * sin(pi/2) + 0.5 * sin(3pi/2)) / 1.5 = (1.0 - 0.5) / 1.5 = 0.333
+    // At 1/4 cycle (index 512): (1.0 * sin(pi/2) + 0.5 * sin(3pi/2)) / 1.5 = (1.0 - 0.5) / 1.5 =
+    // 0.333
     assertEquals(0.333f, cycle[512], 0.01f);
-    // At 3/4 cycle (index 1536): (1.0 * sin(3pi/2) + 0.5 * sin(9pi/2)) / 1.5 = (-1.0 + 0.5) / 1.5 = -0.333
+    // At 3/4 cycle (index 1536): (1.0 * sin(3pi/2) + 0.5 * sin(9pi/2)) / 1.5 = (-1.0 + 0.5) / 1.5 =
+    // -0.333
     assertEquals(-0.333f, cycle[1536], 0.01f);
   }
 
