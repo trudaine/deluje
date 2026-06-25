@@ -18,8 +18,8 @@ public class OscPanel extends JPanel {
   public OscPanel(
       SynthTrackModel model, BridgeContract bridge, int trackIndex, ProjectModel projectModel) {
     super(new GridBagLayout());
-    vis1 = new Wavetable3DVisualizer(model, 0);
-    vis2 = new Wavetable3DVisualizer(model, 1);
+    vis1 = new Wavetable3DVisualizer(model, 0, trackIndex);
+    vis2 = new Wavetable3DVisualizer(model, 1, trackIndex);
     setBackground(SwingSynthConfigDialog.BG_CARD);
 
     // Create left and right sub-panels
