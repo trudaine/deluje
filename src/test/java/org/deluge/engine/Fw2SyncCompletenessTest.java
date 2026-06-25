@@ -54,6 +54,7 @@ class Fw2SyncCompletenessTest {
           "oscRetriggerPhase",
           "modulatorRetriggerPhase",
           "modulatorTranspose",
+          "sourceTranspose",
           "polyphonic",
           "maxPolyphony",
           "voicePriority",

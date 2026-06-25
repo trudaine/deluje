@@ -354,9 +354,39 @@ public class ProjectSerializer {
         }
         writer.writeOpeningTagEnd();
 
-        // osc1 — multisample (<sampleRanges>) presets are preserved verbatim (our model doesn't
-        // re-model keyzones, so a raw round-trip is the faithful path); otherwise synthesize.
-        if (synth.getOsc1RawXml() != null) {
+        // osc1 — serialize dynamic keyzones if present, otherwise fall back to raw xml or
+        // single-sample synthesis
+        if (!synth.getOsc1Zones().isEmpty()) {
+          writer.writeOpeningTagBeginning("osc1");
+          writer.writeAttribute("type", "sample", false);
+          writer.writeAttribute("transpose", "0", false);
+          writer.writeAttribute("cents", String.valueOf(synth.getOsc1Cents()), false);
+          writer.writeAttribute("retrigPhase", String.valueOf(synth.getOsc1RetrigPhase()), false);
+          writer.writeOpeningTagEnd();
+
+          writer.writeOpeningTagBeginning("sampleRanges");
+          writer.writeOpeningTagEnd();
+
+          for (org.deluge.model.SynthTrackModel.KeyZone kz : synth.getOsc1Zones()) {
+            writer.writeOpeningTagBeginning("zone");
+            if (kz.samplePath != null) {
+              writer.writeAttribute("fileName", kz.samplePath, false);
+            }
+            writer.writeAttribute("minPitch", String.valueOf(kz.minPitch), false);
+            writer.writeAttribute("maxPitch", String.valueOf(kz.maxPitch), false);
+            writer.writeAttribute("minVelocity", String.valueOf(kz.minVelocity), false);
+            writer.writeAttribute("maxVelocity", String.valueOf(kz.maxVelocity), false);
+            writer.writeAttribute("startSamplePos", String.valueOf(kz.startSamplePos), false);
+            writer.writeAttribute("endSamplePos", String.valueOf(kz.endSamplePos), false);
+            writer.writeAttribute("startLoopPos", String.valueOf(kz.startLoopPos), false);
+            writer.writeAttribute("endLoopPos", String.valueOf(kz.endLoopPos), false);
+            writer.writeAttribute("loopMode", kz.looping ? "1" : "0", false);
+            writer.closeTag();
+          }
+
+          writer.writeClosingTag("sampleRanges");
+          writer.writeClosingTag("osc1");
+        } else if (synth.getOsc1RawXml() != null) {
           writer.write("\n");
           writer.write(synth.getOsc1RawXml());
         } else {
@@ -375,7 +405,37 @@ public class ProjectSerializer {
         }
 
         // osc2
-        if (synth.getOsc2RawXml() != null) {
+        if (!synth.getOsc2Zones().isEmpty()) {
+          writer.writeOpeningTagBeginning("osc2");
+          writer.writeAttribute("type", "sample", false);
+          writer.writeAttribute("transpose", String.valueOf(synth.getOsc2Transpose()), false);
+          writer.writeAttribute("cents", String.valueOf(synth.getOsc2Cents()), false);
+          writer.writeAttribute("retrigPhase", String.valueOf(synth.getOsc2RetrigPhase()), false);
+          writer.writeOpeningTagEnd();
+
+          writer.writeOpeningTagBeginning("sampleRanges");
+          writer.writeOpeningTagEnd();
+
+          for (org.deluge.model.SynthTrackModel.KeyZone kz : synth.getOsc2Zones()) {
+            writer.writeOpeningTagBeginning("zone");
+            if (kz.samplePath != null) {
+              writer.writeAttribute("fileName", kz.samplePath, false);
+            }
+            writer.writeAttribute("minPitch", String.valueOf(kz.minPitch), false);
+            writer.writeAttribute("maxPitch", String.valueOf(kz.maxPitch), false);
+            writer.writeAttribute("minVelocity", String.valueOf(kz.minVelocity), false);
+            writer.writeAttribute("maxVelocity", String.valueOf(kz.maxVelocity), false);
+            writer.writeAttribute("startSamplePos", String.valueOf(kz.startSamplePos), false);
+            writer.writeAttribute("endSamplePos", String.valueOf(kz.endSamplePos), false);
+            writer.writeAttribute("startLoopPos", String.valueOf(kz.startLoopPos), false);
+            writer.writeAttribute("endLoopPos", String.valueOf(kz.endLoopPos), false);
+            writer.writeAttribute("loopMode", kz.looping ? "1" : "0", false);
+            writer.closeTag();
+          }
+
+          writer.writeClosingTag("sampleRanges");
+          writer.writeClosingTag("osc2");
+        } else if (synth.getOsc2RawXml() != null) {
           writer.write("\n");
           writer.write(synth.getOsc2RawXml());
         } else {
