@@ -58,12 +58,14 @@ public class XmlElementCoverageTest {
       new TreeSet<>(
           Set.of(
               // 🔴 sound-affecting. FIXED+verified: pitchAdjust (overall) only.
-              // oscA/BPulseWidth + oscA/BPitchAdjust remain gaps: setting their factory knob does
-              // NOT
-              // propagate to the live patchedParamValues/paramFinalValues (verified by a
-              // deterministic
-              // render-diff — an earlier "PWM fix" was a noise-seed false positive). Needs the
-              // local-param sync path understood before claiming a fix.
+              // oscA/BPulseWidth + oscA/BPitchAdjust remain gaps — UNVERIFIED, deliberately not
+              // claimed. Findings: (1) an earlier "PWM fix" was a false positive — the analog-noise
+              // seed drifted between renders (tests now reset it via Functions.resetNoiseSeed);
+              // (2) RMS cannot detect pulse width at all — a ±A square has RMS=A for ANY duty, so a
+              // correct test needs a duty/spectral metric; (3) the value reaches paramFinalValues
+              // with an explicit syncParamsToFw2() but not reliably via model→factory→triggerNote
+              // (sync-ordering crux). Resolve sync ordering + use a duty metric before claiming
+              // fixed.
               "oscAPulseWidth",
               "oscBPulseWidth",
               "oscAPitchAdjust",
