@@ -341,6 +341,18 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   private final List<SongSection> songSections = new ArrayList<>();
   private final List<ArrangerClip> arrangerTimeline = new ArrayList<>();
 
+  // When true, the saved song boots straight into the Arranger view (C inArrangementView), so
+  // arrangement (clipInstances) playback drives the song instead of all session clips at once.
+  private boolean bootInArrangementView = false;
+
+  public boolean isBootInArrangementView() {
+    return bootInArrangementView;
+  }
+
+  public void setBootInArrangementView(boolean v) {
+    this.bootInArrangementView = v;
+  }
+
   public ProjectModel() {}
 
   public boolean isRecording() {

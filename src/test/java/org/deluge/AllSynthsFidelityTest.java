@@ -30,7 +30,7 @@ public class AllSynthsFidelityTest {
   private static final int SAMPLE_RATE = 44100;
   private static final int STEPS_PER_BAR = 16; // 4 beats × 16th notes
   private static final int TICKS_PER_STEP = 24; // 96 PPQ / 4 = 24 ticks per 16th note
-  private static final int SECTIONS = 12; // C kMaxNumSections (session-view sections)
+  private static final int SECTIONS = 24; // C kMaxNumSections (definitions_cxx.hpp:459)
 
   private static int countOccurrences(String haystack, String needle) {
     int n = 0, i = 0;
@@ -54,6 +54,9 @@ public class AllSynthsFidelityTest {
 
     ProjectModel project = new ProjectModel();
     project.setBpm(120.0f);
+    // Boot into the Arranger so playback follows the (sequential) clipInstances — not every session
+    // clip firing at once. Combined with isPlaying=0 below, this gives a clean one-by-one render.
+    project.setBootInArrangementView(true);
 
     // Stagger: each synth plays its note at a different bar on the arranger timeline.
     // Bar 0 = ticks 0..95, Bar 1 = ticks 96..191, etc. One bar per synth at 120 BPM.
@@ -80,6 +83,10 @@ public class AllSynthsFidelityTest {
         // Valid session section (cycled — there are far more synths than kMaxNumSections). The
         // ARRANGER (clipInstances), not sections, sequences the 173 synths one-by-one.
         clip.setSection(barIdx % SECTIONS);
+        // Inactive in the session clip-launcher so session view stays silent; the arranger sets
+        // each
+        // clip active as its instance is reached (arrangement.cpp:265,404).
+        clip.setActiveInSession(false);
         synth.addClip(clip);
         allClips.add(clip);
 
@@ -124,15 +131,22 @@ public class AllSynthsFidelityTest {
         xml.contains("clipInstances=\"0x" + String.format("%08X", 0)) // 1st at tick 0
             && xml.contains(expectedPos2), // 2nd at ticksPerSynth
         "arranger clipInstances are not placed sequentially");
+    // Boots into the arranger (so it plays sequentially, not all-at-once in session view), and NO
+    // session clip is left active (every isPlaying must be 0 — else session view = 173-way
+    // cacophony).
+    assertTrue(
+        xml.contains("inArrangementView=\"1\""), "song does not boot into the arranger view");
+    assertEquals(
+        0, countOccurrences(xml, "isPlaying=\"1\""), "session clips are active → all play at once");
     // Section round-trip through the parser (C clip.cpp:713-715).
     ProjectModel reparsed = DelugeXmlParser.parseSong(songFile);
     ClipModel firstReparsed = reparsed.getTracks().get(0).getClips().get(0);
     assertEquals(
         0, firstReparsed.getSection(), "section did not round-trip through save/parse (synth 0)");
     System.out.println(
-        "[AllSynths] Arranger serialization OK: "
+        "[AllSynths] Arranger song OK: "
             + ciCount
-            + " sequential clipInstances, sections round-trip");
+            + " sequential clipInstances, boots in arranger, 0 active session clips");
 
     // Render each synth independently through the engine and capture block-RMS
     double[] engineMaxRms = new double[synthNames.size()];

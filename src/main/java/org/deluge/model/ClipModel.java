@@ -282,6 +282,18 @@ public class ClipModel extends TimelineCounter {
     this.section = section;
   }
 
+  // C Clip::activeIfNoSolo (serialized as isPlaying). True = active in the session clip-launcher
+  // (plays when the session transport runs). Default true matches the C default.
+  private boolean activeInSession = true;
+
+  public boolean isActiveInSession() {
+    return activeInSession;
+  }
+
+  public void setActiveInSession(boolean active) {
+    this.activeInSession = active;
+  }
+
   public void setStepCount(int stepCount) {
     int old = this.stepCount;
     this.stepCount = Math.max(1, stepCount);
