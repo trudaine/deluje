@@ -789,6 +789,10 @@ public class SwingDelugeApp extends JFrame {
         BridgeContract.G_REVERB_COMP_SYNC_LEVEL, currentProject.getReverbCompressorSyncLevel());
     bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_HPF, currentProject.getReverbCompHpf());
     bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_BLEND, currentProject.getReverbCompBlend());
+    bridge.setGlobalFloat(
+        BridgeContract.G_REVERB_COMP_SHAPE, currentProject.getReverbCompressorShape());
+    bridge.setGlobalFloat(
+        BridgeContract.G_REVERB_COMP_VOLUME, currentProject.getReverbCompressorVolume());
 
     // ── Extended delay globals ──
     bridge.setGlobalInt(BridgeContract.G_DELAY_PINGPONG, currentProject.getDelayPingPong());
@@ -4928,6 +4932,8 @@ public class SwingDelugeApp extends JFrame {
           BridgeContract.G_REVERB_COMP_SYNC_LEVEL, model.getReverbCompressorSyncLevel());
       bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_HPF, model.getReverbCompHpf());
       bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_BLEND, model.getReverbCompBlend());
+      bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_SHAPE, model.getReverbCompressorShape());
+      bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_VOLUME, model.getReverbCompressorVolume());
     }
 
     @Override

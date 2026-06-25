@@ -301,6 +301,38 @@ public class SwingMasterFxDialog extends JDialog {
         },
         GLOW_BLUE);
 
+    addSliderRow(
+        panel,
+        5,
+        "Ducking Shape:",
+        (int) (projectModel.getReverbCompressorShape() * 100),
+        0,
+        100,
+        "%",
+        val -> {
+          float f = val / 100.0f;
+          projectModel.setReverbCompressorShape(f);
+          bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_SHAPE, f);
+          app.updateHardwareLedDisplayTransient("RC.SH", val + "%");
+        },
+        GLOW_BLUE);
+
+    addSliderRow(
+        panel,
+        6,
+        "Threshold Vol:",
+        (int) (projectModel.getReverbCompressorVolume() * 100),
+        0,
+        100,
+        "%",
+        val -> {
+          float f = val / 100.0f;
+          projectModel.setReverbCompressorVolume(f);
+          bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_VOLUME, f);
+          app.updateHardwareLedDisplayTransient("RC.VO", val + "%");
+        },
+        GLOW_BLUE);
+
     return panel;
   }
 

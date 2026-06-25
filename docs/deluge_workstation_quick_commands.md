@@ -70,6 +70,13 @@ Workstation-exclusive parity features that speed up your music production workfl
 *   **Workstation Shortcut:** Click the **Diatonic Scale Dropdown** in the Master FX panel to select Scales (C Major, A Minor, etc.) or toggle **Scale Mode** on/off.
 *   **Desktop Behavior:** Chromatic mode displays all 12 semitones, while Diatonic mode filters the rows to scale degrees, with octave C rows illuminated with a subtle white line overlay.
 
+### 🎛️ Custom Grid Border Shortcuts (Grid View)
+*   **Hardware Gesture:** Press `Left Column / Right Column` shortcuts to slide parameters.
+*   **Workstation Shortcut:** Open the **Track Inspector** (Double-click track header or click Inspect) ➔ Navigate to the **GRID SHORTCUTS** tab to bind the Left/Right border columns to `VELOCITY`, `MOD`, or `PITCH`.
+*   **Desktop Behavior:** 
+    > [!TIP]
+    > Clicking or sliding your finger/mouse vertically along the leftmost or rightmost column pads on the grid panel will dynamically apply the selected modulation/velocity/pitch shift to the active notes on that row!
+
 ---
 
 > [!NOTE]

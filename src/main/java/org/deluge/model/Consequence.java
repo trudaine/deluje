@@ -129,6 +129,37 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
           case "mod1Fb" -> synth.setModulator1Feedback(value / 100.0f);
           case "mod2Amt" -> synth.setModulator2Amount(value / 100.0f);
           case "mod2Fb" -> synth.setModulator2Feedback(value / 100.0f);
+          case "noiseVol" -> synth.setNoiseVol(value / 100.0f);
+          // Arpeggiator / Randomizer parameters
+          case "arpRate" -> synth.setArp(synth.getArp().toBuilder().rate(value / 100.0f).build());
+          case "arpGate" -> synth.setArp(synth.getArp().toBuilder().gate(value / 100.0f).build());
+          case "arpStepRepeat" ->
+              synth.setArp(synth.getArp().toBuilder().stepRepeat((int) value).build());
+          case "arpRhythm" ->
+              synth.setArp(synth.getArp().toBuilder().rhythmIndex((int) value).build());
+          case "arpSeqLength" ->
+              synth.setArp(synth.getArp().toBuilder().seqLength((int) value).build());
+          case "arpOctaveSpread" ->
+              synth.setArp(synth.getArp().toBuilder().octaveSpread(value / 100.0f).build());
+          case "arpGateSpread" ->
+              synth.setArp(synth.getArp().toBuilder().gateSpread(value / 100.0f).build());
+          case "arpVelSpread" ->
+              synth.setArp(synth.getArp().toBuilder().velSpread(value / 100.0f).build());
+          case "arpRatchet" ->
+              synth.setArp(synth.getArp().toBuilder().ratchetAmount((int) value).build());
+          case "arpNoteProb" ->
+              synth.setArp(synth.getArp().toBuilder().noteProbability(value / 100.0f).build());
+          case "arpChordPoly" ->
+              synth.setArp(synth.getArp().toBuilder().chordPolyphony((int) value).build());
+          case "arpChordProb" ->
+              synth.setArp(synth.getArp().toBuilder().chordProbability(value / 100.0f).build());
+          case "arpChordType" ->
+              synth.setArp(synth.getArp().toBuilder().chordType((int) value).build());
+          case "arpNumOctaves" ->
+              synth.setArp(synth.getArp().toBuilder().numOctaves((int) value).build());
+          case "arpKitArp" -> synth.setArp(synth.getArp().toBuilder().kitArp((int) value).build());
+          case "arpRandomizerLock" ->
+              synth.setArp(synth.getArp().toBuilder().randomizerLock((int) value).build());
         }
       }
     }
@@ -166,6 +197,8 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
         case "Pan", "masterPan" -> project.setMasterPan(value);
         case "reverbRoomSize" -> project.setReverbRoomSize(value);
         case "reverbDampening" -> project.setReverbDampening(value);
+        case "reverbCompressorShape" -> project.setReverbCompressorShape(value);
+        case "reverbCompressorVolume" -> project.setReverbCompressorVolume(value);
       }
     }
 
