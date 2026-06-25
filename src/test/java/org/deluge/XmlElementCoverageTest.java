@@ -57,24 +57,12 @@ public class XmlElementCoverageTest {
   private static final Set<String> KNOWN_GAPS =
       new TreeSet<>(
           Set.of(
-              // 🔴 sound-affecting. FIXED+verified: pitchAdjust (overall) only.
-              // oscAPulseWidth/oscBPulseWidth — ROOT-CAUSED precisely (engine DSP gap, not parsing
-              // or sync): the value DOES reach paramFinalValues[LOCAL_OSC_A_PHASE_WIDTH] and the
-              // oscillator. But Oscillator's BAND-LIMITED square (tableNumber>=6) calls
-              // renderWave(...,phaseToAdd=0,...), and renderWaveRawSegment only uses phaseToAdd as
-              // a
-              // phase OFFSET (a delayed 50% square — same duty). The C renders pulse width via a
-              // dedicated renderPulseWave / waveRenderingFunctionPulse (basic_waves.cpp:58,
-              // processing/vector_rendering_function.h) — a two-read POLARITY-FLIPPED PRODUCT of
-              // the
-              // square table at phase and phase+phaseToAdd — which was never ported. The crude path
-              // (tableNumber<6) works via getSquareSmall(phase,pulseWidth). FIX = port
-              // waveRenderingFunctionPulse (intricate fixed-point; verify with a 2nd-harmonic
-              // spectral test — RMS is duty-invariant, and reset Functions.resetNoiseSeed first).
-              // oscA/BPitchAdjust likely have an analogous unported per-osc path. NOT claimed
-              // fixed.
-              "oscAPulseWidth",
-              "oscBPulseWidth",
+              // 🔴 sound-affecting. FIXED+verified: pitchAdjust (overall), oscA/BPulseWidth.
+              // oscA/BPulseWidth fix: ported the bit-faithful band-limited pulse renderer
+              // (renderPulseWave, the two-read polarity-flipped product from
+              // waveRenderingFunctionPulse) — duty now tracks pulseWidth (SquarePwmRenderTest:
+              // 50%→24%→12%→3%). oscA/BPitchAdjust remain gaps: the per-osc pitch value doesn't
+              // reach the single-osc render path (PitchAdjustParamTest) — separate engine fix.
               "oscAPitchAdjust",
               "oscBPitchAdjust",
               "toModulator1",

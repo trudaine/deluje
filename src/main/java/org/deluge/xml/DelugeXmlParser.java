@@ -1930,6 +1930,12 @@ public class DelugeXmlParser {
     if (!(v = sp.getAttribute("pitchAdjust")).isEmpty()) {
       synth.setPitchAdjustQ31(DelugeHexMapper.hexToQ31(v));
     }
+    if (!(v = sp.getAttribute("oscAPulseWidth")).isEmpty()) {
+      synth.setOsc1PhaseWidthQ31(DelugeHexMapper.hexToQ31(v));
+    }
+    if (!(v = sp.getAttribute("oscBPulseWidth")).isEmpty()) {
+      synth.setOsc2PhaseWidthQ31(DelugeHexMapper.hexToQ31(v));
+    }
     if (!(v = sp.getAttribute("portamento")).isEmpty()) {
       synth.setPortamentoQ31(DelugeHexMapper.hexToQ31(v));
     }
@@ -2138,6 +2144,12 @@ public class DelugeXmlParser {
       }
       if ((v = attrOrChildText(dpEl, "pitchAdjust")) != null && !v.isBlank()) {
         synth.setPitchAdjustQ31(DelugeHexMapper.hexToQ31(v));
+      }
+      if ((v = attrOrChildText(dpEl, "oscAPulseWidth")) != null && !v.isBlank()) {
+        synth.setOsc1PhaseWidthQ31(DelugeHexMapper.hexToQ31(v));
+      }
+      if ((v = attrOrChildText(dpEl, "oscBPulseWidth")) != null && !v.isBlank()) {
+        synth.setOsc2PhaseWidthQ31(DelugeHexMapper.hexToQ31(v));
       }
       if ((v = attrOrChildText(dpEl, "portamento")) != null && !v.isBlank()) {
         synth.setPortamentoQ31(DelugeHexMapper.hexToQ31(v));

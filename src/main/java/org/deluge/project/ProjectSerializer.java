@@ -400,9 +400,17 @@ public class ProjectSerializer {
         writeHexTagUnipolar(writer, "portamento", synth.getPortamento());
         writeHexTagUnipolar(writer, "compressorShape", 0.92f);
         writeHexTagUnipolar(writer, "oscAVolume", synth.getOscMix());
-        writeHexTagUnipolar(writer, "oscAPulseWidth", 0f);
+        if (synth.getOsc1PhaseWidthQ31() != Integer.MIN_VALUE) {
+          writeRawQ31Tag(writer, "oscAPulseWidth", synth.getOsc1PhaseWidthQ31());
+        } else {
+          writeHexTagUnipolar(writer, "oscAPulseWidth", 0f);
+        }
         writeHexTagUnipolar(writer, "oscBVolume", 1.0f - synth.getOscMix());
-        writeHexTagUnipolar(writer, "oscBPulseWidth", 0f);
+        if (synth.getOsc2PhaseWidthQ31() != Integer.MIN_VALUE) {
+          writeRawQ31Tag(writer, "oscBPulseWidth", synth.getOsc2PhaseWidthQ31());
+        } else {
+          writeHexTagUnipolar(writer, "oscBPulseWidth", 0f);
+        }
         if (synth.getPitchAdjustQ31() != Integer.MIN_VALUE) {
           writeRawQ31Tag(writer, "pitchAdjust", synth.getPitchAdjustQ31());
         }
