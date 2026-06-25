@@ -338,6 +338,15 @@ public class FirmwareFactory {
       sound.paramNeutralValues[Param.LOCAL_CARRIER_1_FEEDBACK] = model.getCarrier2FeedbackQ31();
     }
 
+    // Oscillator pulse/phase width (C LOCAL_OSC_A/B_PHASE_WIDTH; Voice.java:922 reads it for the
+    // square osc). Apply only when the preset specified it (INT_MIN = keep engine neutral).
+    if (model.getOsc1PhaseWidthQ31() != Integer.MIN_VALUE) {
+      sound.paramNeutralValues[Param.LOCAL_OSC_A_PHASE_WIDTH] = model.getOsc1PhaseWidthQ31();
+    }
+    if (model.getOsc2PhaseWidthQ31() != Integer.MIN_VALUE) {
+      sound.paramNeutralValues[Param.LOCAL_OSC_B_PHASE_WIDTH] = model.getOsc2PhaseWidthQ31();
+    }
+
     // Volume/Pan
     sound.paramNeutralValues[Param.LOCAL_VOLUME] = normToBipolarParamVolume(model.getVolume());
     // LOCAL_PAN is BIPOLAR (0 = centre, ±2^30 = hard L/R), matching the firmware shouldDoPanning

@@ -57,9 +57,7 @@ public class XmlElementCoverageTest {
   private static final Set<String> KNOWN_GAPS =
       new TreeSet<>(
           Set.of(
-              // 🔴 sound-affecting
-              "oscAPulseWidth",
-              "oscBPulseWidth",
+              // 🔴 sound-affecting (oscAPulseWidth/oscBPulseWidth now FIXED — read+act+serialize)
               "oscAPitchAdjust",
               "oscBPitchAdjust",
               "toModulator1",
