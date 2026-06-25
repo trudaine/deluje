@@ -85,7 +85,10 @@ class ScriptingEngineTest {
     assertEquals(0, emptyProject.getTracks().size());
 
     // 2. Play back the Techno Creator script
-    File scriptFile = new File("/Users/ludo/a/chuckjava/deluge/techno_creator.txt");
+    File scriptFile = new File("techno_creator.txt");
+    if (!scriptFile.exists()) {
+      scriptFile = new File("../deluge/techno_creator.txt");
+    }
     ScriptingEngine engine = new ScriptingEngine();
     engine.loadAndExecuteScript(scriptFile, emptyProject);
 
