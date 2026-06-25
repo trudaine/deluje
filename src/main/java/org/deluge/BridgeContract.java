@@ -1202,6 +1202,7 @@ public final class BridgeContract {
   // ── VM Registration ────────────────────────────────────────────────────
 
   public void initRegistry() {
+    org.deluge.hid.BridgeHolder.setBridge(this);
 
     setGlobalFloat(G_BPM, bpm);
     setGlobalFloat(G_SWING, swing);

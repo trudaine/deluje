@@ -31,14 +31,29 @@ public class MidiInputRouterTest {
 
   @Test
   void testNoteOnRouting() {
+    // Set up FirmwareAudioEngine with our mock Sound at index 4
+    org.deluge.engine.FirmwareAudioEngine engine = new org.deluge.engine.FirmwareAudioEngine();
+    bridge.setGlobalObject(BridgeContract.G_FIRMWARE_ENGINE, engine);
+
+    final int[] triggerData = new int[] {-1, -1};
+    org.deluge.engine.FirmwareSound mockSound =
+        new org.deluge.engine.FirmwareSound() {
+          @Override
+          public void triggerNote(int note, int velocity) {
+            triggerData[0] = note;
+            triggerData[1] = velocity;
+          }
+        };
+    for (int i = 0; i < 4; i++) {
+      engine.sounds.add(new org.deluge.engine.FirmwareSound());
+    }
+    engine.sounds.add(mockSound);
+
     // Map MIDI channel 0 → Track 4 (follow channel A)
     router.setFollowChannel(0, 0, 4);
-    // Synth Track 1 (Index 4)
     router.setActiveTrack(4);
 
-    // Fake sequencer stopped (step 0)
-    bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, 0L);
-
+    // Send Note On
     MidiMsg noteOn = new MidiMsg();
     noteOn.data1 = 0x90; // Note On, CH 1
     noteOn.data2 = 72; // C5
@@ -46,22 +61,14 @@ public class MidiInputRouterTest {
 
     router.handleMidiMessage(noteOn);
 
-    // Retrieve arrays from bridge
-    ChuckArray pitchArray = (ChuckArray) bridge.getGlobalObject(BridgeContract.G_PITCH);
+    // 1. Verify it was triggered live on the sound engine!
+    assertEquals(72, triggerData[0]);
+    assertEquals(100, triggerData[1]);
+
+    // 2. Verify that NO step was written to the sequencer/bridge!
     ChuckArray patternArray = (ChuckArray) bridge.getGlobalObject(BridgeContract.G_PATTERN);
-    ChuckArray velArray = (ChuckArray) bridge.getGlobalObject(BridgeContract.G_VELOCITY);
-
-    // Track 4, Step 0
     int index = 4 * BridgeContract.STEPS + 0;
-
-    // Pitch should be offset from C3 (60): 72 - 60 = 12 (1 octave up)
-    assertEquals(12L, pitchArray.getInt(index));
-
-    // Pattern should be 1 (active)
-    assertEquals(1L, patternArray.getInt(index));
-
-    // Velocity should be 100/127
-    assertEquals(100.0 / 127.0, velArray.getFloat(index), 0.01);
+    assertEquals(0L, patternArray.getInt(index), "No step should be written in audition mode");
   }
 
   @Test
@@ -88,24 +95,50 @@ public class MidiInputRouterTest {
 
   @Test
   void testNoteOffContextSwitchSafety() {
+    // Set up FirmwareAudioEngine with mock Sounds at index 4 and 5
+    org.deluge.engine.FirmwareAudioEngine engine = new org.deluge.engine.FirmwareAudioEngine();
+    bridge.setGlobalObject(BridgeContract.G_FIRMWARE_ENGINE, engine);
+
+    final int[] releaseData4 = new int[] {-1};
+    final int[] releaseData5 = new int[] {-1};
+
+    org.deluge.engine.FirmwareSound mockSound4 =
+        new org.deluge.engine.FirmwareSound() {
+          @Override
+          public void releaseNote(int note) {
+            releaseData4[0] = note;
+          }
+        };
+    org.deluge.engine.FirmwareSound mockSound5 =
+        new org.deluge.engine.FirmwareSound() {
+          @Override
+          public void releaseNote(int note) {
+            releaseData5[0] = note;
+          }
+        };
+
+    for (int i = 0; i < 4; i++) {
+      engine.sounds.add(new org.deluge.engine.FirmwareSound());
+    }
+    engine.sounds.add(mockSound4);
+    engine.sounds.add(mockSound5);
+
     // Map MIDI channel 0 → Track 4 (follow channel A)
     router.setFollowChannel(0, 0, 4);
     router.setActiveTrack(4);
 
-    // Fake sequencer stopped (step 0)
-    bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, 0L);
-
+    // Send Note On
     MidiMsg noteOn = new MidiMsg();
     noteOn.data1 = 0x90; // Note On, CH 1
     noteOn.data2 = 72; // C5
-    noteOn.data3 = 100; // Velocity
+    noteOn.data3 = 100;
 
     router.handleMidiMessage(noteOn);
 
     // Now switch active track index to a DIFFERENT track (e.g. 5)
     router.setActiveTrack(5);
-    bridge.advanceTime(4410);
 
+    // Send Note Off
     MidiMsg noteOff = new MidiMsg();
     noteOff.data1 = 0x80; // Note Off, CH 1
     noteOff.data2 = 72; // C5
@@ -113,19 +146,9 @@ public class MidiInputRouterTest {
 
     router.handleMidiMessage(noteOff);
 
-    // Retrieve gate array from bridge
-    ChuckArray gateArray = (ChuckArray) bridge.getGlobalObject(BridgeContract.G_GATE);
-
-    // Track 4 index step 0
-    int index4 = 4 * BridgeContract.STEPS + 0;
-    // Track 5 index step 0
-    int index5 = 5 * BridgeContract.STEPS + 0;
-
-    // Gate on original track 4 should be updated to a positive float value of exactly 0.8
-    // (calculated from 4410 samples / 100ms time advance)
-    assertEquals(0.8f, gateArray.getFloat(index4), 0.01f, "track 4 gate should be set to 0.8");
-    // Gate on track 5 should remain at its pre-initialized default value (0.9f)
-    assertEquals(0.9f, gateArray.getFloat(index5), 0.01f, "track 5 gate should remain untouched");
+    // Verify that the note off was routed to the original track (Track 4), NOT Track 5!
+    assertEquals(72, releaseData4[0], "Track 4 should receive the release note");
+    assertEquals(-1, releaseData5[0], "Track 5 should not receive any release note");
   }
 
   @Test

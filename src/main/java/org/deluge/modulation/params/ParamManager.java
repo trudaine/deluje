@@ -1,13 +1,12 @@
 package org.deluge.modulation.params;
 
-import java.util.ArrayList;
 import java.util.List;
 import org.deluge.firmware2.Param;
 import org.deluge.modulation.automation.AutoParam;
 import org.deluge.modulation.patch.PatchCableSet;
 
 public class ParamManager {
-  public List<AutoParam> automatedParams = new ArrayList<>();
+  public final List<AutoParam> automatedParams = new java.util.concurrent.CopyOnWriteArrayList<>();
   public int ticksTilNextEvent = Integer.MAX_VALUE;
   private PatchCableSet patchCableSet = new PatchCableSet();
   private final int[] unpatchedValues = new int[Param.UNPATCHED_PITCH_ADJUST + 1];

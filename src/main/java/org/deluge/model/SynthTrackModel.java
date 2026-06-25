@@ -1493,4 +1493,28 @@ public class SynthTrackModel extends TrackModel {
       this.arp = this.arp.toBuilder().rate(rate).build();
     }
   }
+
+  public static class KeyZone {
+    public String samplePath;
+    public int minPitch;
+    public int maxPitch;
+    public int minVelocity = 0;
+    public int maxVelocity = 127;
+    public int startSamplePos = 0;
+    public int endSamplePos = -1;
+    public int startLoopPos = -1;
+    public int endLoopPos = -1;
+    public boolean looping = false;
+  }
+
+  private final List<KeyZone> osc1Zones = new ArrayList<>();
+  private final List<KeyZone> osc2Zones = new ArrayList<>();
+
+  public List<KeyZone> getOsc1Zones() {
+    return osc1Zones;
+  }
+
+  public List<KeyZone> getOsc2Zones() {
+    return osc2Zones;
+  }
 }

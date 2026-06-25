@@ -3699,6 +3699,23 @@ public class SwingDelugeApp extends JFrame {
               }
             });
 
+    // Global record toggle keyboard shortcut (R key)
+    getRootPane()
+        .getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+        .put(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_R, 0), "toggleRecord");
+    getRootPane()
+        .getActionMap()
+        .put(
+            "toggleRecord",
+            new AbstractAction() {
+              @Override
+              public void actionPerformed(java.awt.event.ActionEvent e) {
+                if (topBar != null && topBar.getRecBtn() != null) {
+                  topBar.getRecBtn().doClick();
+                }
+              }
+            });
+
     // F12 debug screenshot listener (programmatic memory capture)
     getRootPane()
         .getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
@@ -4628,6 +4645,7 @@ public class SwingDelugeApp extends JFrame {
     @Override
     public void onLiveRecordToggle(JButton btn) {
       SwingGridPanel.isLiveRecordModeActive = !SwingGridPanel.isLiveRecordModeActive;
+      currentProject.setRecording(SwingGridPanel.isLiveRecordModeActive);
       if (SwingGridPanel.isLiveRecordModeActive) {
         btn.setBackground(new Color(0xd3, 0x2f, 0x2f));
         btn.setForeground(Color.WHITE);
