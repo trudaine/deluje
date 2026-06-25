@@ -58,18 +58,21 @@ public class XmlElementCoverageTest {
       new TreeSet<>(
           Set.of(
               // 🔴 sound-affecting. FIXED+verified: pitchAdjust (overall) only.
-              // oscA/BPulseWidth + oscA/BPitchAdjust remain gaps — root-caused, NOT yet fixed:
-              //  * Spectral diag (Goertzel) on a SQUARE: f1(261Hz)=5312 strong, but f2(522Hz)≈0 and
-              //    the output is BYTE-IDENTICAL for pulseWidth 0 vs 0x50000000 → the param has zero
-              //    effect on the steady render.
-              //  * paramFinalValues[LOCAL_OSC_A_PHASE_WIDTH] IS set at noteOn (0x28000000) but the
-              //    value is gone by the steady-state per-block patch → the fix is in the per-block
-              //    patching/param-sync path, an engine change (a dedicated task, not param
-              // plumbing).
-              //  * Lessons banked: reset the noise seed (Functions.resetNoiseSeed) AND use a
-              //    SPECTRAL metric (2nd-harmonic) — RMS is invariant to square duty and gave a
-              // false
-              //    positive earlier.
+              // oscAPulseWidth/oscBPulseWidth — ROOT-CAUSED precisely (engine DSP gap, not parsing
+              // or sync): the value DOES reach paramFinalValues[LOCAL_OSC_A_PHASE_WIDTH] and the
+              // oscillator. But Oscillator's BAND-LIMITED square (tableNumber>=6) calls
+              // renderWave(...,phaseToAdd=0,...), and renderWaveRawSegment only uses phaseToAdd as
+              // a
+              // phase OFFSET (a delayed 50% square — same duty). The C renders pulse width via a
+              // dedicated renderPulseWave / waveRenderingFunctionPulse (basic_waves.cpp:58,
+              // processing/vector_rendering_function.h) — a two-read POLARITY-FLIPPED PRODUCT of
+              // the
+              // square table at phase and phase+phaseToAdd — which was never ported. The crude path
+              // (tableNumber<6) works via getSquareSmall(phase,pulseWidth). FIX = port
+              // waveRenderingFunctionPulse (intricate fixed-point; verify with a 2nd-harmonic
+              // spectral test — RMS is duty-invariant, and reset Functions.resetNoiseSeed first).
+              // oscA/BPitchAdjust likely have an analogous unported per-osc path. NOT claimed
+              // fixed.
               "oscAPulseWidth",
               "oscBPulseWidth",
               "oscAPitchAdjust",
