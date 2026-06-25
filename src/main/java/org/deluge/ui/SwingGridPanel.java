@@ -5836,7 +5836,8 @@ public class SwingGridPanel extends JPanel {
                 (viewMode == GridViewMode.SONG || viewMode == GridViewMode.ARRANGEMENT)
                     ? trk
                     : (baseTrackId + trk);
-            if (viewMode == GridViewMode.SONG && t >= tracks.size()) {
+            if ((viewMode == GridViewMode.SONG || viewMode == GridViewMode.ARRANGEMENT)
+                && t >= tracks.size()) {
               clipBtn.setText("");
               clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
               clipBtn.setEnabled(false);
@@ -5860,7 +5861,12 @@ public class SwingGridPanel extends JPanel {
                 }
               } else {
                 clipBtn.setEnabled(true);
-                boolean curMute = bridge.getMute(engineRow);
+                boolean curMute;
+                if (viewMode == GridViewMode.ARRANGEMENT) {
+                  curMute = tracks.get(t).isMutedInArrangement();
+                } else {
+                  curMute = bridge.getMute(engineRow);
+                }
                 Color muteBg =
                     curMute
                         ? new Color(0xff, 0xd7, 0x00)
@@ -5906,6 +5912,18 @@ public class SwingGridPanel extends JPanel {
             clearActionListeners(clipBtn);
             clipBtn.addActionListener(
                 e -> {
+                  if (viewMode == GridViewMode.ARRANGEMENT) {
+                    if (trkId < tracks.size()) {
+                      org.deluge.model.TrackModel track = tracks.get(trkId);
+                      boolean isMuted = track.isMutedInArrangement();
+                      track.setMutedInArrangement(!isMuted);
+                      if (SwingDelugeApp.mainInstance != null) {
+                        SwingDelugeApp.mainInstance.syncHighFidelityEngine(projectModel);
+                      }
+                    }
+                    refresh();
+                    return;
+                  }
                   if (viewMode == GridViewMode.SONG) {
                     if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
                       // Shift+Click in SONG mode: Toggle Launch of active clip! (swapped)
@@ -5999,7 +6017,42 @@ public class SwingGridPanel extends JPanel {
                   }
                 });
           } else if (isSoloColumn(colId)) {
-            if (viewMode == GridViewMode.SONG) {
+            if (viewMode == GridViewMode.ARRANGEMENT) {
+              if (currentTrack < tracks.size()) {
+                org.deluge.model.TrackModel track = tracks.get(currentTrack);
+                boolean isSoloed = track.isSoloingInArrangement();
+                Color soloBg = isSoloed ? new Color(0x00, 0xe6, 0x76) : new Color(0x2d, 0x37, 0x48);
+                clipBtn.setText(isSoloed ? "SOLOED" : "SOLO");
+                clipBtn.setBackground(soloBg);
+                clipBtn.setForeground(isSoloed ? Color.BLACK : Color.LIGHT_GRAY);
+                clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 10 : 8));
+                if (clipBtn instanceof DelugePadButton pad) {
+                  pad.setBaseColor(soloBg);
+                  pad.setTextColorOverride(isSoloed ? Color.BLACK : Color.LIGHT_GRAY);
+                  pad.setDrawCenterCircle(false);
+                  pad.setIntensity(isSoloed ? 1.0f : 0.4f);
+                  pad.setActive(true);
+                  pad.setNoteText(isSoloed ? "SOLOED" : "SOLO");
+                }
+
+                clearActionListeners(clipBtn);
+                clipBtn.addActionListener(
+                    e -> {
+                      track.setSoloingInArrangement(!isSoloed);
+                      if (SwingDelugeApp.mainInstance != null) {
+                        SwingDelugeApp.mainInstance.syncHighFidelityEngine(projectModel);
+                      }
+                      refresh();
+                    });
+              } else {
+                clipBtn.setText("");
+                clipBtn.setBackground(new Color(0x15, 0x15, 0x15));
+                clipBtn.setEnabled(false);
+                if (clipBtn instanceof DelugePadButton pad) {
+                  pad.setActive(false);
+                }
+              }
+            } else if (viewMode == GridViewMode.SONG) {
               if (currentTrack < tracks.size()) {
                 String sLaunch = tracks.get(currentTrack).getName();
                 clipBtn.setText(sLaunch);

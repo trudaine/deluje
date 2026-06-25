@@ -38,55 +38,62 @@ public class ProjectSerializer {
     writer.writeOpeningTagBeginning("song");
 
     // ── song attributes ──
-    writer.writeAttribute("affectEntire", 0, false);
+    writer.writeAttribute("affectEntire", model.isAffectEntire() ? "1" : "0", false);
     writer.writeAttribute("earliestCompatibleFirmware", "4.1.0-alpha", false);
     writer.writeAttribute("firmwareVersion", "c1.3.0", false);
-    writer.writeAttribute("inputTickMagnitude", 2, false);
+    writer.writeAttribute("inputTickMagnitude", model.getInputTickMagnitude(), false);
     writer.writeAttribute("previewNumPads", 144, false);
     writer.writeAttribute("swing", DelugeHexMapper.floatToHex(model.getSwing()), false);
-    writer.writeAttribute("swingAmount", 0, false);
-    writer.writeAttribute("swingInterval", 7, false);
+    writer.writeAttribute("swingAmount", model.getSwingAmount(), false);
+    writer.writeAttribute("swingInterval", model.getSwingInterval(), false);
     writer.writeAttribute("tempo", String.valueOf(model.getBpm()), false);
     writer.writeAttribute("key", model.getKey(), false);
     writer.writeAttribute("scale", model.getScale(), false);
 
-    double bpm = model.getBpm();
-    double scaledBpm = bpm * 4.0;
-    double timePerTimerTick = 110250.0 / scaledBpm;
-    long timePerTimerTickBig = (long) (timePerTimerTick * 4294967296.0);
-    int high = (int) (timePerTimerTickBig >> 32);
-    int low = (int) timePerTimerTickBig;
-
-    writer.writeAttribute("timePerTimerTick", high, false);
-    writer.writeAttribute("timerTickFraction", low, false);
-    writer.writeAttribute("xScroll", 0, false);
-    writer.writeAttribute("xZoom", 24, false);
-    int numClips = 0;
-    for (TrackModel track : model.getTracks()) {
-      if (track instanceof AudioTrackModel) {
-        numClips += ((AudioTrackModel) track).getAudioClips().size();
-      } else {
-        numClips += track.getClips().size();
-      }
+    // Calculate timePerTimerTick and timerTickFraction dynamically from BPM
+    // unless they were parsed as non-defaults.
+    int timePerTimerTickAttr = model.getTimePerTimerTick();
+    int timerTickFractionAttr = model.getTimerTickFraction();
+    if (model.getBpm() != 120.0f
+        || (timePerTimerTickAttr == 229 && timerTickFractionAttr == -1342177280)) {
+      double bpm = model.getBpm();
+      double scaledBpm = bpm * 4.0;
+      double timePerTimerTick = 110250.0 / scaledBpm;
+      long timePerTimerTickBig = (long) (timePerTimerTick * 4294967296.0);
+      timePerTimerTickAttr = (int) (timePerTimerTickBig >> 32);
+      timerTickFractionAttr = (int) timePerTimerTickBig;
     }
-    int yScrollSongView = Math.max(-7, numClips - 8);
 
-    writer.writeAttribute("yScrollSongView", yScrollSongView, false);
-    writer.writeAttribute("yScrollArrangementView", 0, false);
-    // C-read arranger view-state (song.cpp:1166-1170) — the reader consumes these; absent ones just
-    // fall back to defaults, but write them for fidelity.
-    writer.writeAttribute("xScrollArrangementView", 0, false);
-    writer.writeAttribute("xZoomArrangementView", 24, false);
-    // Follow the playhead during arranger playback so cells light up as they play (helps verify the
-    // one-by-one sweep). Enabled for arranger-boot songs; off otherwise.
+    writer.writeAttribute("timePerTimerTick", timePerTimerTickAttr, false);
+    writer.writeAttribute("timerTickFraction", timerTickFractionAttr, false);
+
+    writer.writeAttribute("xScroll", model.getXScroll(), false);
+    writer.writeAttribute("xZoom", model.getXZoom(), false);
+    writer.writeAttribute("yScrollSongView", model.getYScrollSongView(), false);
+    writer.writeAttribute("yScrollArrangementView", model.getYScrollArrangementView(), false);
+    writer.writeAttribute("xScrollArrangementView", model.getXScrollArrangementView(), false);
+    writer.writeAttribute("xZoomArrangementView", model.getXZoomArrangementView(), false);
+    writer.writeAttribute("yScroll", model.getYScroll(), false);
+    writer.writeAttribute("yScrollKeyboard", model.getYScrollKeyboard(), false);
     writer.writeAttribute(
-        "arrangementAutoScrollOn", model.isBootInArrangementView() ? 1 : 0, false);
-    writer.writeAttribute("rootNote", model.getKey(), false); // C writes key.rootNote, not "key"
-    // C song.cpp:1147-1148 — boot straight into the Arranger when requested, so arrangement
-    // (clipInstances) playback drives the song instead of every session clip firing at once.
+        "arrangementAutoScrollOn", model.isArrangementAutoScrollOn() ? "1" : "0", false);
+    writer.writeAttribute("rootNote", model.getKey(), false);
     if (model.isBootInArrangementView()) {
-      writer.writeAttribute("inArrangementView", 1, false);
+      writer.writeAttribute("inArrangementView", "1", false);
     }
+    writer.writeAttribute("sessionLayout", model.getSessionLayout(), false);
+    writer.writeAttribute("songGridScrollX", model.getSongGridScrollX(), false);
+    writer.writeAttribute("songGridScrollY", model.getSongGridScrollY(), false);
+    writer.writeAttribute("keyboardLayout", model.getKeyboardLayout(), false);
+    writer.writeAttribute("keyboardRowInterval", model.getKeyboardRowInterval(), false);
+    writer.writeAttribute("inKeyMode", model.isInKeyMode() ? "1" : "0", false);
+    writer.writeAttribute("inKeyRowInterval", model.getInKeyRowInterval(), false);
+    writer.writeAttribute("inKeyScrollOffset", model.getInKeyScrollOffset(), false);
+    writer.writeAttribute("drumsScrollOffset", model.getDrumsScrollOffset(), false);
+    writer.writeAttribute("drumsZoomLevel", model.getDrumsZoomLevel(), false);
+    writer.writeAttribute("drumsEdgeSize", model.getDrumsEdgeSize(), false);
+    writer.writeAttribute("anyOfMelodicKitPercussion", model.getAnyOfMelodicKitPercussion(), false);
+    writer.writeAttribute("numClips", model.getNumClips(), false);
     writer.writeOpeningTagEnd();
 
     // ── modeNotes (scale degrees) ──
@@ -122,6 +129,12 @@ public class ProjectSerializer {
         writer.writeOpeningTagBeginning("kit");
         writer.writeAttribute("presetName", track.getName(), false);
         writer.writeAttribute("presetFolder", "KITS", false);
+        if (track.isMutedInArrangement()) {
+          writer.writeAttribute("isMutedInArrangement", "1", false);
+        }
+        if (track.isSoloingInArrangement()) {
+          writer.writeAttribute("isSoloingInArrangement", "1", false);
+        }
         if (ciBuilder.length() > 2) {
           writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
         }
@@ -212,6 +225,12 @@ public class ProjectSerializer {
         writer.writeAttribute("lpfMode", "12dB", false);
         writer.writeAttribute("modFXType", "chorus", false);
         writer.writeAttribute("activeModFunction", "0", false);
+        if (audio.isMutedInArrangement()) {
+          writer.writeAttribute("isMutedInArrangement", "1", false);
+        }
+        if (audio.isSoloingInArrangement()) {
+          writer.writeAttribute("isSoloingInArrangement", "1", false);
+        }
         if (ciBuilder.length() > 2) {
           writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
         }
@@ -242,6 +261,12 @@ public class ProjectSerializer {
         writer.writeOpeningTagBeginning("sound");
         writer.writeAttribute("presetName", synth.getName(), false);
         writer.writeAttribute("presetFolder", "SYNTHS", false);
+        if (synth.isMutedInArrangement()) {
+          writer.writeAttribute("isMutedInArrangement", "1", false);
+        }
+        if (synth.isSoloingInArrangement()) {
+          writer.writeAttribute("isSoloingInArrangement", "1", false);
+        }
         if (ciBuilder.length() > 2) {
           writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
         }
@@ -315,6 +340,21 @@ public class ProjectSerializer {
             };
         writer.writeTag("mode", mode);
         writer.writeTag("transpose", "0");
+
+        // modulator1
+        writer.writeOpeningTagBeginning("modulator1");
+        writer.writeAttribute("transpose", String.valueOf(synth.getModulator1Transpose()), false);
+        writer.writeAttribute("cents", String.valueOf(synth.getModulator1Cents()), false);
+        writer.writeAttribute("retrigPhase", String.valueOf(synth.getMod1RetrigPhase()), false);
+        writer.closeTag();
+
+        // modulator2
+        writer.writeOpeningTagBeginning("modulator2");
+        writer.writeAttribute("transpose", String.valueOf(synth.getModulator2Transpose()), false);
+        writer.writeAttribute("cents", String.valueOf(synth.getModulator2Cents()), false);
+        writer.writeAttribute("retrigPhase", String.valueOf(synth.getMod2RetrigPhase()), false);
+        writer.writeAttribute("toModulator1", synth.isModulator1ToModulator0() ? "1" : "0", false);
+        writer.closeTag();
 
         // unison
         writer.writeOpeningTagBeginning("unison");
@@ -398,7 +438,7 @@ public class ProjectSerializer {
         writer.writeOpeningTagEnd();
         writeHexTagUnipolar(writer, "arpeggiatorGate", synth.getArp().gate());
         writeHexTagUnipolar(writer, "portamento", synth.getPortamento());
-        writeHexTagUnipolar(writer, "compressorShape", 0.92f);
+        writeHexTagUnipolar(writer, "compressorShape", synth.getCompressorShape());
         writeHexTagUnipolar(writer, "oscAVolume", synth.getOscMix());
         if (synth.getOsc1PhaseWidthQ31() != Integer.MIN_VALUE) {
           writeRawQ31Tag(writer, "oscAPulseWidth", synth.getOsc1PhaseWidthQ31());
@@ -413,6 +453,12 @@ public class ProjectSerializer {
         }
         if (synth.getPitchAdjustQ31() != Integer.MIN_VALUE) {
           writeRawQ31Tag(writer, "pitchAdjust", synth.getPitchAdjustQ31());
+        }
+        if (synth.getOsc1PitchAdjustQ31() != Integer.MIN_VALUE) {
+          writeRawQ31Tag(writer, "oscAPitchAdjust", synth.getOsc1PitchAdjustQ31());
+        }
+        if (synth.getOsc2PitchAdjustQ31() != Integer.MIN_VALUE) {
+          writeRawQ31Tag(writer, "oscBPitchAdjust", synth.getOsc2PitchAdjustQ31());
         }
         writeHexTagUnipolar(writer, "noiseVolume", synth.getNoiseVol());
         writeHexTagUnipolar(writer, "volume", synth.getVolume());
@@ -860,6 +906,8 @@ public class ProjectSerializer {
         "lpfMorph", DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamLpfMorph()), false);
     writer.writeAttribute(
         "hpfMorph", DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamHpfMorph()), false);
+    writer.writeAttribute("modFXCurrentParam", model.getModFXCurrentParam(), false);
+    writer.writeAttribute("currentFilterType", model.getCurrentFilterType(), false);
     writer.writeOpeningTagEnd();
 
     // delay

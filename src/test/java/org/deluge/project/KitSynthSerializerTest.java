@@ -70,6 +70,7 @@ public class KitSynthSerializerTest {
     assertEquals(orig.getCompressorAttack(), parsedSound.getCompressorAttack(), 0.01f);
     assertEquals(orig.getCompressorRelease(), parsedSound.getCompressorRelease(), 0.01f);
     assertEquals(orig.getCompressorSyncLevel(), parsedSound.getCompressorSyncLevel());
+    assertEquals(orig.getCompressorShape(), parsedSound.getCompressorShape(), 0.01f);
 
     // ── Delay ──
     // parseKitSound reads delay from <delay attr> or child elements
@@ -203,6 +204,15 @@ public class KitSynthSerializerTest {
     assertEquals(original.getModulator2Feedback(), parsed.getModulator2Feedback(), 0.01f);
     assertEquals(original.getCarrier1Feedback(), parsed.getCarrier1Feedback(), 0.01f);
     assertEquals(original.getCarrier2Feedback(), parsed.getCarrier2Feedback(), 0.01f);
+    assertEquals(original.getOsc1PitchAdjustQ31(), parsed.getOsc1PitchAdjustQ31());
+    assertEquals(original.getOsc2PitchAdjustQ31(), parsed.getOsc2PitchAdjustQ31());
+    assertEquals(original.getModulator1Transpose(), parsed.getModulator1Transpose());
+    assertEquals(original.getModulator1Cents(), parsed.getModulator1Cents());
+    assertEquals(original.getMod1RetrigPhase(), parsed.getMod1RetrigPhase());
+    assertEquals(original.getModulator2Transpose(), parsed.getModulator2Transpose());
+    assertEquals(original.getModulator2Cents(), parsed.getModulator2Cents());
+    assertEquals(original.getMod2RetrigPhase(), parsed.getMod2RetrigPhase());
+    assertEquals(original.isModulator1ToModulator0(), parsed.isModulator1ToModulator0());
 
     assertEquals(original.getModFxType(), parsed.getModFxType());
     assertEquals(original.getModFxRate(), parsed.getModFxRate(), 0.01f);
@@ -220,6 +230,7 @@ public class KitSynthSerializerTest {
     assertEquals(original.getCompressorAttack(), parsed.getCompressorAttack(), 0.01f);
     assertEquals(original.getCompressorRelease(), parsed.getCompressorRelease(), 0.01f);
     assertEquals(original.getCompressorSyncLevel(), parsed.getCompressorSyncLevel());
+    assertEquals(original.getCompressorShape(), parsed.getCompressorShape(), 0.01f);
 
     // Patch cables (from parsePatchCables)
     assertEquals(original.getPatchCables().size(), parsed.getPatchCables().size());
@@ -424,6 +435,7 @@ public class KitSynthSerializerTest {
     s.setBitCrush(0.4f);
     s.setFmAmount(0.25f);
     s.setReverbAmount(0.6f);
+    s.setCompressorShape(0.75f);
     s.setAdsr(new EnvelopeModel(0.02f, 0.15f, 0.6f, 0.3f, "VOLUME", 0.5f));
     s.setEnv2(new EnvelopeModel(0.05f, 0.2f, 0.5f, 0.4f, "PITCH", 0.3f));
     s.setEnv3(new EnvelopeModel(0.01f, 0.1f, 0.8f, 0.1f, "NONE", 0.0f));
@@ -478,7 +490,14 @@ public class KitSynthSerializerTest {
     synth.setSynthMode(1);
     synth.setFmRatio(2.0f);
     synth.setFmAmount(0.6f);
+    synth.setModulator1Transpose(2);
+    synth.setModulator1Cents(12);
+    synth.setMod1RetrigPhase(1);
     synth.setModulator1Feedback(0.3f);
+    synth.setModulator2Transpose(-1);
+    synth.setModulator2Cents(-5);
+    synth.setMod2RetrigPhase(2);
+    synth.setModulator1ToModulator0(true);
     synth.setModulator2Amount(0.15f);
     synth.setModulator2Feedback(0.1f);
     synth.setCarrier1Feedback(0.2f);
@@ -494,6 +513,9 @@ public class KitSynthSerializerTest {
     synth.setCompressorAttack(0.03f);
     synth.setCompressorRelease(0.2f);
     synth.setCompressorSyncLevel(1);
+    synth.setCompressorShape(0.85f);
+    synth.setOsc1PitchAdjustQ31(0xDA000000);
+    synth.setOsc2PitchAdjustQ31(0x15000000);
     synth.addPatchCable(new PatchCable("LFO1", "PITCH", 0.6f));
     synth.addPatchCable(new PatchCable("ENV2", "LPF", 0.9f));
     synth.setModKnob(0, new ModKnob("volume", "NONE"));

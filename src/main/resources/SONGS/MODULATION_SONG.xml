@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<song affectEntire="0" earliestCompatibleFirmware="4.1.0-alpha" firmwareVersion="c1.3.0" inputTickMagnitude="2" previewNumPads="144" swing="0x40000000" swingAmount="0" swingInterval="7" tempo="120.0" key="0" scale="Major" timePerTimerTick="229" timerTickFraction="-1342177280" xScroll="0" xZoom="24" yScrollArrangementView="-7" yScrollSongView="-5">
+<song affectEntire="0" earliestCompatibleFirmware="4.1.0-alpha" firmwareVersion="c1.3.0" inputTickMagnitude="2" previewNumPads="144" swing="0x40000000" swingAmount="0" swingInterval="7" tempo="120.0" key="0" scale="Major" timePerTimerTick="229" timerTickFraction="-1342177280" xScroll="0" xZoom="24" yScrollSongView="0" yScrollArrangementView="0" xScrollArrangementView="0" xZoomArrangementView="24" yScroll="0" yScrollKeyboard="0" arrangementAutoScrollOn="1" rootNote="0" sessionLayout="0" songGridScrollX="0" songGridScrollY="0" keyboardLayout="0" keyboardRowInterval="0" inKeyMode="0" inKeyRowInterval="0" inKeyScrollOffset="0" drumsScrollOffset="0" drumsZoomLevel="0" drumsEdgeSize="0" anyOfMelodicKitPercussion="0" numClips="0">
 	<instruments>
-		<sound presetName="Wobble Bass" presetFolder="SYNTHS" clipInstances="0x000000000000090000000000">
+		<sound presetName="Wobble Bass" presetFolder="SYNTHS" clipInstances="0x000000000000090080000000">
 			<osc1 type="saw" transpose="0" cents="0" retrigPhase="-1" />
 			<osc2 type="none" transpose="0" cents="0" retrigPhase="-1" />
 			<polyphonic>1</polyphonic>
@@ -134,7 +134,7 @@
 			</defaultParams>
 			<midiKnobs></midiKnobs>
 		</sound>
-		<sound presetName="Laser Lead" presetFolder="SYNTHS" clipInstances="0x000000000000090000000001">
+		<sound presetName="Laser Lead" presetFolder="SYNTHS" clipInstances="0x000000000000090080000001">
 			<osc1 type="square" transpose="0" cents="0" retrigPhase="-1" />
 			<osc2 type="none" transpose="0" cents="0" retrigPhase="-1" />
 			<polyphonic>1</polyphonic>
@@ -277,7 +277,7 @@
 			</defaultParams>
 			<midiKnobs></midiKnobs>
 		</sound>
-		<kit presetName="Synth Kit" presetFolder="KITS" clipInstances="0x000000000000090000000002">
+		<kit presetName="Synth Kit" presetFolder="KITS" clipInstances="0x000000000000090080000002">
 			<soundSources>
 				<sound name="Kick" polyphonic="1" voicePriority="1" sideChainSend="2147483647" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder" filterRoute="H2L" maxVoices="8">
 					<osc1 type="none" />
@@ -328,7 +328,7 @@
 		</kit>
 	</instruments>
 	<sessionClips>
-		<instrumentClip instrumentPresetName="Wobble Bass" instrumentPresetFolder="SYNTHS" length="192" isPlaying="1" section="0" clipInstances="0x000000000000090000000000">
+		<instrumentClip instrumentPresetName="Wobble Bass" instrumentPresetFolder="SYNTHS" length="192" isPlaying="1">
 			<soundParams volume="0x333332FF" pan="0x00000000" lpfFrequency="0xF74A7730" lpfResonance="0x00000000" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0x80000000" delayRate="0x80000000" />
 			<noteRows>
 				<noteRow y="48" noteDataWithLift="0x0000000000000360724014" noteDataWithSplitProb="0x0000000000000360724014000000" />
@@ -336,7 +336,7 @@
 				<noteRow y="53" noteDataWithLift="0x" noteDataWithSplitProb="0x" />
 			</noteRows>
 		</instrumentClip>
-		<instrumentClip instrumentPresetName="Laser Lead" instrumentPresetFolder="SYNTHS" length="384" isPlaying="1" section="0" clipInstances="0x000000000000090000000001">
+		<instrumentClip instrumentPresetName="Laser Lead" instrumentPresetFolder="SYNTHS" length="384" isPlaying="1">
 			<soundParams volume="0x0CCCCCFF" pan="0x00000000" lpfFrequency="0x32EFB2C0" lpfResonance="0xB3333340" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0xE6666680" delayRate="0xD9999980" />
 			<noteRows>
 				<noteRow y="60" noteDataWithLift="0x0000000000000120664014" noteDataWithSplitProb="0x0000000000000120664014000000" />
@@ -345,7 +345,7 @@
 				<noteRow y="70" noteDataWithLift="0x000000D800000120664014" noteDataWithSplitProb="0x000000D800000120664014000000" />
 			</noteRows>
 		</instrumentClip>
-		<instrumentClip instrumentPresetName="Synth Kit" instrumentPresetFolder="KITS" length="384" isPlaying="1" section="0" clipInstances="0x000000000000090000000002">
+		<instrumentClip instrumentPresetName="Synth Kit" instrumentPresetFolder="KITS" length="384" isPlaying="1">
 			<kitParams volume="0x7FFFFFFF" pan="0x40000000" />
 			<noteRows>
 				<noteRow drumIndex="0" noteDataWithLift="0x00000000000001207940140000006000000120794014000000C0000001207940140000012000000120794014" noteDataWithSplitProb="0x00000000000001207940140000000000006000000120794014000000000000C0000001207940140000000000012000000120794014000000" />

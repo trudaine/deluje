@@ -111,8 +111,27 @@ public class ArrangerPlaybackScheduler implements Runnable {
     int col = Math.floorMod(upcomingStep, 16);
     List<org.deluge.model.TrackModel> tracks = project.getTracks();
 
+    // Check if any track in the project is soloed in Arranger mode
+    boolean anySoloed = false;
+    for (org.deluge.model.TrackModel trk : tracks) {
+      if (trk.isSoloingInArrangement()) {
+        anySoloed = true;
+        break;
+      }
+    }
+
     for (int t = 0; t < tracks.size(); t++) {
-      ArrangerClip activePlacement = findActiveArrangerClip(t, upcomingStep);
+      org.deluge.model.TrackModel track = tracks.get(t);
+
+      // Determine if track should be silent due to mute or solo rules in Arrangement
+      boolean silent = false;
+      if (track.isMutedInArrangement()) {
+        silent = true;
+      } else if (anySoloed && !track.isSoloingInArrangement()) {
+        silent = true;
+      }
+
+      ArrangerClip activePlacement = silent ? null : findActiveArrangerClip(t, upcomingStep);
 
       if (activePlacement != null && activePlacement.clip() != null) {
         ClipModel clip = activePlacement.clip();

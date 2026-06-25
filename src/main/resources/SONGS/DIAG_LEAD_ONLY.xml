@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<song affectEntire="0" earliestCompatibleFirmware="4.1.0-alpha" firmwareVersion="c1.3.0" inputTickMagnitude="2" previewNumPads="144" swing="0x40000000" swingAmount="0" swingInterval="7" tempo="120.0" key="0" scale="Major" timePerTimerTick="229" timerTickFraction="-1342177280" xScroll="0" xZoom="24" yScrollArrangementView="-7" yScrollSongView="-7">
+<song affectEntire="0" earliestCompatibleFirmware="4.1.0-alpha" firmwareVersion="c1.3.0" inputTickMagnitude="2" previewNumPads="144" swing="0x40000000" swingAmount="0" swingInterval="7" tempo="120.0" key="0" scale="Major" timePerTimerTick="229" timerTickFraction="-1342177280" xScroll="0" xZoom="24" yScrollSongView="0" yScrollArrangementView="0" xScrollArrangementView="0" xZoomArrangementView="24" yScroll="0" yScrollKeyboard="0" arrangementAutoScrollOn="1" rootNote="0" sessionLayout="0" songGridScrollX="0" songGridScrollY="0" keyboardLayout="0" keyboardRowInterval="0" inKeyMode="0" inKeyRowInterval="0" inKeyScrollOffset="0" drumsScrollOffset="0" drumsZoomLevel="0" drumsEdgeSize="0" anyOfMelodicKitPercussion="0" numClips="0">
 	<instruments>
-		<sound presetName="Synth Lead" presetFolder="SYNTHS" clipInstances="0x000000000000060000000000">
+		<sound presetName="Synth Lead" presetFolder="SYNTHS" clipInstances="0x000000000000060080000000">
 			<osc1 type="saw" transpose="0" cents="0" retrigPhase="-1" />
 			<osc2 type="square" transpose="0" cents="10" retrigPhase="-1" />
 			<polyphonic>1</polyphonic>
@@ -134,7 +134,7 @@
 		</sound>
 	</instruments>
 	<sessionClips>
-		<instrumentClip instrumentPresetName="Synth Lead" instrumentPresetFolder="SYNTHS" length="384" isPlaying="1" section="0" clipInstances="0x000000000000060000000000">
+		<instrumentClip instrumentPresetName="Synth Lead" instrumentPresetFolder="SYNTHS" length="384" isPlaying="1">
 			<soundParams volume="0x00000000" pan="0x00000000" lpfFrequency="0x17BC4E80" lpfResonance="0x00000000" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0xE6666680" delayRate="0xCCCCCD00" />
 			<noteRows>
 				<noteRow y="72" noteDataWithLift="0x00000000000001B0664014" noteDataWithSplitProb="0x00000000000001B0664014000000" />

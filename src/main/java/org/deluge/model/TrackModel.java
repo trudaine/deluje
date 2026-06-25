@@ -8,6 +8,8 @@ public abstract class TrackModel {
   private String name;
   private final TrackType type;
   private boolean muted = false;
+  private boolean mutedInArrangement = false;
+  private boolean soloingInArrangement = false;
   private float volume = 1.0f;
   private float pan = 0.5f;
 
@@ -55,6 +57,22 @@ public abstract class TrackModel {
 
   public void setMuted(boolean muted) {
     this.muted = muted;
+  }
+
+  public boolean isMutedInArrangement() {
+    return mutedInArrangement;
+  }
+
+  public void setMutedInArrangement(boolean mutedInArrangement) {
+    this.mutedInArrangement = mutedInArrangement;
+  }
+
+  public boolean isSoloingInArrangement() {
+    return soloingInArrangement;
+  }
+
+  public void setSoloingInArrangement(boolean soloingInArrangement) {
+    this.soloingInArrangement = soloingInArrangement;
   }
 
   public float getVolume() {
