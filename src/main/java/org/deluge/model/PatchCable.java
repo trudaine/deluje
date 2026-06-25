@@ -1,16 +1,32 @@
 package org.deluge.model;
 
-/** Represents a modulation routing (source -> destination) with an amount and polarity. */
-public record PatchCable(String source, String destination, float amount, Polarity polarity) {
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * Represents a modulation routing (source -> destination) with an amount, polarity, and nested
+ * depth control cables.
+ */
+public record PatchCable(
+    String source,
+    String destination,
+    float amount,
+    Polarity polarity,
+    List<PatchCable> depthControlledBy) {
 
   public enum Polarity {
     UNIPOLAR,
     BIPOLAR
   }
 
+  /** Creates a default cable with empty depth control list. */
+  public PatchCable(String source, String destination, float amount, Polarity polarity) {
+    this(source, destination, amount, polarity, Collections.emptyList());
+  }
+
   /** Creates a default UNIPOLAR cable at 0 amount for migration convenience. */
   public PatchCable(String source, String destination, float amount) {
-    this(source, destination, amount, Polarity.UNIPOLAR);
+    this(source, destination, amount, Polarity.UNIPOLAR, Collections.emptyList());
   }
 
   /**

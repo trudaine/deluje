@@ -516,7 +516,13 @@ public class KitSynthSerializerTest {
     synth.setCompressorShape(0.85f);
     synth.setOsc1PitchAdjustQ31(0xDA000000);
     synth.setOsc2PitchAdjustQ31(0x15000000);
-    synth.addPatchCable(new PatchCable("LFO1", "PITCH", 0.6f));
+    synth.addPatchCable(
+        new PatchCable(
+            "LFO1",
+            "PITCH",
+            0.6f,
+            PatchCable.Polarity.BIPOLAR,
+            java.util.List.of(new PatchCable("ENV3", "", 0.4f, PatchCable.Polarity.UNIPOLAR))));
     synth.addPatchCable(new PatchCable("ENV2", "LPF", 0.9f));
     synth.setModKnob(0, new ModKnob("volume", "NONE"));
     synth.setModKnob(1, new ModKnob("lpfFrequency", "LFO1"));
@@ -555,6 +561,12 @@ public class KitSynthSerializerTest {
     assertEquals(expected.destination(), actual.destination());
     float scaled = PatchCable.applyScaling(expected.destination(), expected.amount());
     assertEquals(scaled, actual.amount(), 0.01f);
+    assertEquals(expected.polarity(), actual.polarity());
+    assertEquals(expected.depthControlledBy().size(), actual.depthControlledBy().size());
+    for (int i = 0; i < expected.depthControlledBy().size(); i++) {
+      assertPatchCableRoundTrip(
+          expected.depthControlledBy().get(i), actual.depthControlledBy().get(i));
+    }
   }
 
   private static void assertModKnobEquals(ModKnob expected, ModKnob actual) {

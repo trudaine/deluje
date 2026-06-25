@@ -250,11 +250,7 @@ public class KitSynthSerializer {
       if (!sound.getPatchCables().isEmpty()) {
         Element pcContainer = doc.createElement("patchCables");
         for (PatchCable pc : sound.getPatchCables()) {
-          Element cable = doc.createElement("patchCable");
-          appendTextChild(doc, cable, "source", pc.source());
-          appendTextChild(doc, cable, "destination", pc.destination());
-          appendHexChild(doc, cable, "amount", pc.amount());
-          pcContainer.appendChild(cable);
+          pcContainer.appendChild(createPatchCableElement(doc, pc));
         }
         dp.appendChild(pcContainer);
       }
@@ -534,11 +530,7 @@ public class KitSynthSerializer {
     if (!synth.getPatchCables().isEmpty()) {
       Element pcContainer = doc.createElement("patchCables");
       for (PatchCable pc : synth.getPatchCables()) {
-        Element cable = doc.createElement("patchCable");
-        appendTextChild(doc, cable, "source", pc.source());
-        appendTextChild(doc, cable, "destination", pc.destination());
-        appendHexChild(doc, cable, "amount", pc.amount());
-        pcContainer.appendChild(cable);
+        pcContainer.appendChild(createPatchCableElement(doc, pc));
       }
       dp.appendChild(pcContainer);
     }
@@ -672,6 +664,26 @@ public class KitSynthSerializer {
   }
 
   /** Append a raw Q31 value formatted as a 0xXXXXXXXX hex child node. */
+  private static Element createPatchCableElement(Document doc, PatchCable pc) {
+    Element cable = doc.createElement("patchCable");
+    appendTextChild(doc, cable, "source", pc.source());
+    if (pc.destination() != null && !pc.destination().isEmpty()) {
+      appendTextChild(doc, cable, "destination", pc.destination());
+    }
+    appendHexChild(doc, cable, "amount", pc.amount());
+    if (pc.polarity() != null) {
+      appendTextChild(doc, cable, "polarity", pc.polarity().name().toLowerCase());
+    }
+    if (pc.depthControlledBy() != null && !pc.depthControlledBy().isEmpty()) {
+      Element depthParent = doc.createElement("depthControlledBy");
+      for (PatchCable dc : pc.depthControlledBy()) {
+        depthParent.appendChild(createPatchCableElement(doc, dc));
+      }
+      cable.appendChild(depthParent);
+    }
+    return cable;
+  }
+
   public static void appendRawQ31Child(Document doc, Element parent, String tag, int q31Value) {
     Element child = doc.createElement(tag);
     child.setTextContent(String.format("0x%08X", q31Value));

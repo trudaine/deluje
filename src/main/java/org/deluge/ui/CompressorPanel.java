@@ -90,6 +90,22 @@ public class CompressorPanel extends JPanel {
             projectModel,
             trackIndex);
 
+    row =
+        SwingSynthConfigDialog.addSlider(
+            this,
+            c,
+            row,
+            "Shape:",
+            "Compressor sidechain envelope shape (0% = linear, 100% = exponential). — Physical Deluge: Turn compressor shape gold dial knob.",
+            0,
+            100,
+            (int) (model.getCompressorShape() * 100),
+            val -> model.setCompressorShape(val / 100f),
+            "%",
+            "compressorShape",
+            projectModel,
+            trackIndex);
+
     // ── Sidechain section ──
     c.gridx = 0;
     c.gridy = row;

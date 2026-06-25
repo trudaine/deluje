@@ -325,6 +325,23 @@ public class SwingSynthConfigDialog extends JDialog {
     leftPanel.add(oscSourceChip(model, 0, osc1Combo), lc);
     leftRow++;
 
+    // Osc 1 Pitch Adjust (raw Q31 cents)
+    leftRow =
+        addSlider(
+            leftPanel,
+            lc,
+            leftRow,
+            "Osc 1 Pitch:",
+            "Pitch adjustment for Oscillator 1 in cents (-2400 to +2400). — Physical Deluge: Turn OSC1 transpose/cents gold dial knobs.",
+            -2400,
+            2400,
+            q31ToCents(model.getOsc1PitchAdjustQ31()),
+            val -> model.setOsc1PitchAdjustQ31(centsToQ31(val)),
+            "c",
+            "osc1Pitch",
+            projectModel,
+            trackIndex);
+
     // Osc2 type
     lc.gridx = 0;
     lc.gridy = leftRow;
@@ -355,6 +372,31 @@ public class SwingSynthConfigDialog extends JDialog {
     lc.gridwidth = 2;
     leftPanel.add(oscSourceChip(model, 1, osc2Combo), lc);
     leftRow++;
+
+    // Osc 2 Pitch Adjust (raw Q31 cents, synced to transpose/cents for backwards compatibility)
+    int osc2PitchCents =
+        model.getOsc2PitchAdjustQ31() != Integer.MIN_VALUE
+            ? q31ToCents(model.getOsc2PitchAdjustQ31())
+            : (model.getOsc2Transpose() * 100 + model.getOsc2Cents());
+    leftRow =
+        addSlider(
+            leftPanel,
+            lc,
+            leftRow,
+            "Osc 2 Pitch:",
+            "Pitch adjustment for Oscillator 2 in cents (-2400 to +2400). — Physical Deluge: Turn OSC2 transpose/cents gold dial knobs.",
+            -2400,
+            2400,
+            osc2PitchCents,
+            val -> {
+              model.setOsc2PitchAdjustQ31(centsToQ31(val));
+              model.setOsc2Transpose(val / 100);
+              model.setOsc2Cents(val % 100);
+            },
+            "c",
+            "osc2Pitch",
+            projectModel,
+            trackIndex);
 
     // Retrigger Phase
     lc.gridx = 0;
@@ -895,6 +937,70 @@ public class SwingSynthConfigDialog extends JDialog {
             projectModel,
             trackIndex);
 
+    // Modulator 1 Pitch Adjust
+    rightRow =
+        addSlider(
+            rightPanel,
+            rc,
+            rightRow,
+            "Mod 1 Pitch:",
+            "Pitch adjustment for Modulator 1 in cents (-2400 to +2400). — Physical Deluge: Turn MOD1 transpose/cents gold dial knobs.",
+            -2400,
+            2400,
+            model.getModulator1Transpose() * 100 + model.getModulator1Cents(),
+            val -> {
+              model.setModulator1Transpose(val / 100);
+              model.setModulator1Cents(val % 100);
+            },
+            "c",
+            "mod1Pitch",
+            projectModel,
+            trackIndex);
+
+    // Modulator 2 Pitch Adjust
+    rightRow =
+        addSlider(
+            rightPanel,
+            rc,
+            rightRow,
+            "Mod 2 Pitch:",
+            "Pitch adjustment for Modulator 2 in cents (-2400 to +2400). — Physical Deluge: Turn MOD2 transpose/cents gold dial knobs.",
+            -2400,
+            2400,
+            model.getModulator2Transpose() * 100 + model.getModulator2Cents(),
+            val -> {
+              model.setModulator2Transpose(val / 100);
+              model.setModulator2Cents(val % 100);
+            },
+            "c",
+            "mod2Pitch",
+            projectModel,
+            trackIndex);
+
+    // Modulator Chaining Checkbox
+    rc.gridx = 0;
+    rc.gridy = rightRow;
+    rc.gridwidth = 1;
+    rightPanel.add(label("Mod Chain:"), rc);
+    rc.gridx = 1;
+    rc.gridwidth = 2;
+    JCheckBox modChainBox = new JCheckBox("Mod 2 -> Mod 1 Chaining");
+    modChainBox.setSelected(model.isModulator1ToModulator0());
+    modChainBox.setBackground(BG_CARD);
+    modChainBox.setForeground(Color.WHITE);
+    String modChainTooltip =
+        "Route modulator 2 output to modulate modulator 1's frequency instead of the carrier";
+    String modChainHelp =
+        "<b>MOD 2 -> MOD 1 CHAINING:</b> Routes Modulator 2 output to modulate the frequency of Modulator 1, creating a 3-operator stacked FM algorithm (Mod2 -> Mod1 -> Carrier). — <i>Physical Deluge:</i> Press mod chaining button in synth settings.";
+    modChainBox.setToolTipText(modChainTooltip);
+    attachHoverHelp(modChainBox, modChainHelp);
+    modChainBox.addActionListener(
+        e -> {
+          model.setModulator1ToModulator0(modChainBox.isSelected());
+        });
+    rightPanel.add(modChainBox, rc);
+    rightRow++;
+
     // ── Mount Left and Right Side-by-Side ──
     mainContainer.setLayout(new GridBagLayout());
     GridBagConstraints mc = new GridBagConstraints();
@@ -1272,6 +1378,15 @@ public class SwingSynthConfigDialog extends JDialog {
                       })));
         });
     return chip;
+  }
+
+  private static int q31ToCents(int q31) {
+    if (q31 == Integer.MIN_VALUE) return 0;
+    return Math.round(q31 / 178956f);
+  }
+
+  private static int centsToQ31(int cents) {
+    return cents * 178956;
   }
 
   static JLabel headerLabel(String text) {

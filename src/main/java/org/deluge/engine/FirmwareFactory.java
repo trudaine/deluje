@@ -336,6 +336,13 @@ public class FirmwareFactory {
       sound.paramNeutralValues[Param.LOCAL_MODULATOR_1_FEEDBACK] = model.getModulator2FeedbackQ31();
       sound.paramNeutralValues[Param.LOCAL_CARRIER_0_FEEDBACK] = model.getCarrier1FeedbackQ31();
       sound.paramNeutralValues[Param.LOCAL_CARRIER_1_FEEDBACK] = model.getCarrier2FeedbackQ31();
+      // Modulator 1 & 2 Pitch Adjusts (LOCAL_MODULATOR_0/1_PITCH_ADJUST)
+      sound.paramNeutralValues[Param.LOCAL_MODULATOR_0_PITCH_ADJUST] =
+          (model.getModulator1Transpose() * 100 + model.getModulator1Cents()) * 178956;
+      sound.paramNeutralValues[Param.LOCAL_MODULATOR_1_PITCH_ADJUST] =
+          (model.getModulator2Transpose() * 100 + model.getModulator2Cents()) * 178956;
+      // Modulator chaining
+      sound.fmModulator1ToModulator0 = model.isModulator1ToModulator0();
     }
 
     // Oscillator pulse/phase width (C LOCAL_OSC_A/B_PHASE_WIDTH; Voice.java:922 → renderPulseWave).
@@ -370,8 +377,17 @@ public class FirmwareFactory {
         normToBipolarParamVolume(model.getOscBVolume());
     sound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] =
         normToBipolarParamVolume(model.getNoiseVol());
-    sound.paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] =
-        (model.getOsc2Transpose() * 100 + model.getOsc2Cents()) * 178956;
+    if (model.getOsc1PitchAdjustQ31() != Integer.MIN_VALUE) {
+      sound.paramNeutralValues[Param.LOCAL_OSC_A_PITCH_ADJUST] = model.getOsc1PitchAdjustQ31();
+    } else {
+      sound.paramNeutralValues[Param.LOCAL_OSC_A_PITCH_ADJUST] = 0;
+    }
+    if (model.getOsc2PitchAdjustQ31() != Integer.MIN_VALUE) {
+      sound.paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] = model.getOsc2PitchAdjustQ31();
+    } else {
+      sound.paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] =
+          (model.getOsc2Transpose() * 100 + model.getOsc2Cents()) * 178956;
+    }
 
     // Filter cutoff: the faithful filter (FirmwareFilter.curveFrequency: instantTan of the q31
     // LPF_FREQ param) expects the firmware's exp-curved param value, NOT a Hz-derived number. The
@@ -416,7 +432,8 @@ public class FirmwareFactory {
     sound.paramNeutralValues[Param.UNPATCHED_TREBLE] = dbToBipolarParam(model.getEqTreble());
     sound.paramNeutralValues[Param.UNPATCHED_BASS_FREQ] = 0; // default/flat
     sound.paramNeutralValues[Param.UNPATCHED_TREBLE_FREQ] = 0; // default/flat
-    sound.paramNeutralValues[Param.UNPATCHED_SIDECHAIN_SHAPE] = 0; // default/flat
+    sound.paramNeutralValues[Param.UNPATCHED_SIDECHAIN_SHAPE] =
+        normToLinearParamKnob(model.getCompressorShape());
     sound.paramNeutralValues[Param.UNPATCHED_SIDECHAIN_VOLUME] = 0; // default/flat
 
     // Delay static configuration
@@ -1128,6 +1145,8 @@ public class FirmwareFactory {
     drumSound.fw2Sound.srrParam = normToBipolarParam(sd.getSampleRateReduction());
     drumSound.fw2Sound.eqBassParam = dbToBipolarParam(sd.getEqBass());
     drumSound.fw2Sound.eqTrebleParam = dbToBipolarParam(sd.getEqTreble());
+    drumSound.paramNeutralValues[Param.UNPATCHED_SIDECHAIN_SHAPE] =
+        normToLinearParamKnob(sd.getCompressorShape());
 
     // Sample playback settings
     drumSound.sampleSettings[0].reverse = sd.isReverse();
