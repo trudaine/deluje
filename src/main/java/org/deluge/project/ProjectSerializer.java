@@ -71,11 +71,16 @@ public class ProjectSerializer {
     }
     int yScrollSongView = Math.max(-7, numClips - 8);
 
-    writer.writeAttribute("yScrollArrangementView", 0, false);
     writer.writeAttribute("yScrollSongView", yScrollSongView, false);
-    // C song.cpp:1148 — boot straight into the Arranger when requested, so arrangement
-    // (clipInstances)
-    // playback drives the song instead of every session clip firing at once.
+    writer.writeAttribute("yScrollArrangementView", 0, false);
+    // C-read arranger view-state (song.cpp:1166-1170) — the reader consumes these; absent ones just
+    // fall back to defaults, but write them for fidelity.
+    writer.writeAttribute("xScrollArrangementView", 0, false);
+    writer.writeAttribute("xZoomArrangementView", 24, false);
+    writer.writeAttribute("arrangementAutoScrollOn", 0, false);
+    writer.writeAttribute("rootNote", model.getKey(), false); // C writes key.rootNote, not "key"
+    // C song.cpp:1147-1148 — boot straight into the Arranger when requested, so arrangement
+    // (clipInstances) playback drives the song instead of every session clip firing at once.
     if (model.isBootInArrangementView()) {
       writer.writeAttribute("inArrangementView", 1, false);
     }
