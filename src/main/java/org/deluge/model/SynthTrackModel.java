@@ -194,6 +194,11 @@ public class SynthTrackModel extends TrackModel {
   private int carrier1FeedbackQ31 = Integer.MIN_VALUE;
   private int carrier2FeedbackQ31 = Integer.MIN_VALUE;
 
+  // Oscillator pulse/phase width (raw Q31; C LOCAL_OSC_A/B_PHASE_WIDTH, XML oscA/BPulseWidth).
+  // INT_MIN = unset → keep the engine neutral (50% square). sound.cpp:3758.
+  private int osc1PhaseWidthQ31 = Integer.MIN_VALUE;
+  private int osc2PhaseWidthQ31 = Integer.MIN_VALUE;
+
   /** Wavefolder knob (raw Q31, C LOCAL_FOLD / XML "waveFold"); INT_MIN = off (sound.cpp:147). */
   private int waveFoldQ31 = Integer.MIN_VALUE;
 
@@ -1151,6 +1156,22 @@ public class SynthTrackModel extends TrackModel {
     this.modulator2AmountQ31 = v;
   }
 
+  public int getOsc1PhaseWidthQ31() {
+    return osc1PhaseWidthQ31;
+  }
+
+  public void setOsc1PhaseWidthQ31(int v) {
+    this.osc1PhaseWidthQ31 = v;
+  }
+
+  public int getOsc2PhaseWidthQ31() {
+    return osc2PhaseWidthQ31;
+  }
+
+  public void setOsc2PhaseWidthQ31(int v) {
+    this.osc2PhaseWidthQ31 = v;
+  }
+
   public int getModulator1FeedbackQ31() {
     return modulator1FeedbackQ31;
   }
@@ -1338,6 +1359,8 @@ public class SynthTrackModel extends TrackModel {
     this.fmRatio2 = other.getFmRatio2();
     this.modulator1AmountQ31 = other.modulator1AmountQ31;
     this.modulator2AmountQ31 = other.modulator2AmountQ31;
+    this.osc1PhaseWidthQ31 = other.osc1PhaseWidthQ31;
+    this.osc2PhaseWidthQ31 = other.osc2PhaseWidthQ31;
     this.modulator1FeedbackQ31 = other.modulator1FeedbackQ31;
     this.modulator2FeedbackQ31 = other.modulator2FeedbackQ31;
     this.carrier1FeedbackQ31 = other.carrier1FeedbackQ31;

@@ -400,9 +400,17 @@ public class ProjectSerializer {
         writeHexTagUnipolar(writer, "portamento", synth.getPortamento());
         writeHexTagUnipolar(writer, "compressorShape", 0.92f);
         writeHexTagUnipolar(writer, "oscAVolume", synth.getOscMix());
-        writeHexTagUnipolar(writer, "oscAPulseWidth", 0f);
+        if (synth.getOsc1PhaseWidthQ31() != Integer.MIN_VALUE) {
+          writeRawQ31Tag(writer, "oscAPulseWidth", synth.getOsc1PhaseWidthQ31());
+        } else {
+          writeHexTagUnipolar(writer, "oscAPulseWidth", 0f);
+        }
         writeHexTagUnipolar(writer, "oscBVolume", 1.0f - synth.getOscMix());
-        writeHexTagUnipolar(writer, "oscBPulseWidth", 0f);
+        if (synth.getOsc2PhaseWidthQ31() != Integer.MIN_VALUE) {
+          writeRawQ31Tag(writer, "oscBPulseWidth", synth.getOsc2PhaseWidthQ31());
+        } else {
+          writeHexTagUnipolar(writer, "oscBPulseWidth", 0f);
+        }
         writeHexTagUnipolar(writer, "noiseVolume", synth.getNoiseVol());
         writeHexTagUnipolar(writer, "volume", synth.getVolume());
         writeHexTag(writer, "pan", synth.getPan());
@@ -713,6 +721,11 @@ public class ProjectSerializer {
 
   private static void writeHexTag(XMLSerializer writer, String tag, float val) throws IOException {
     writer.writeTag(tag, DelugeHexMapper.floatToHex(val));
+  }
+
+  /** Write a raw signed-Q31 param value as a 0xXXXXXXXX hex tag (exact, lossless round-trip). */
+  private static void writeRawQ31Tag(XMLSerializer writer, String tag, int q31) throws IOException {
+    writer.writeTag(tag, String.format("0x%08X", q31));
   }
 
   private static void writeHexTagUnipolar(XMLSerializer writer, String tag, float val)
