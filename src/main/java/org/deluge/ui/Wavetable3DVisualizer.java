@@ -5,6 +5,7 @@ import java.awt.geom.Path2D;
 import java.io.File;
 import java.io.IOException;
 import javax.swing.*;
+import org.deluge.BridgeContract;
 import org.deluge.firmware2.WaveTable;
 import org.deluge.firmware2.WaveTableBand;
 import org.deluge.firmware2.WaveTableReader;
@@ -19,14 +20,16 @@ public class Wavetable3DVisualizer extends JPanel {
 
   private final SynthTrackModel model;
   private final int oscIndex; // 0 = Osc A, 1 = Osc B
+  private final int trackIndex;
 
   private WaveTable loadedWavetable = null;
   private String lastLoadedPath = null;
   private Timer animationTimer;
 
-  public Wavetable3DVisualizer(SynthTrackModel model, int oscIndex) {
+  public Wavetable3DVisualizer(SynthTrackModel model, int oscIndex, int trackIndex) {
     this.model = model;
     this.oscIndex = oscIndex;
+    this.trackIndex = trackIndex;
 
     setBackground(new Color(0x10, 0x10, 0x12));
     setBorder(BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32), 1));
@@ -38,8 +41,34 @@ public class Wavetable3DVisualizer extends JPanel {
             33,
             e -> {
               checkWavetableReload();
-              repaint();
             });
+
+    setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+    setToolTipText("Double-click or right-click to open Wavetable Editor Laboratory");
+
+    addMouseListener(
+        new java.awt.event.MouseAdapter() {
+          @Override
+          public void mouseClicked(java.awt.event.MouseEvent e) {
+            if (e.getClickCount() == 2 && javax.swing.SwingUtilities.isLeftMouseButton(e)) {
+              openEditorDialog();
+            }
+          }
+
+          @Override
+          public void mousePressed(java.awt.event.MouseEvent e) {
+            if (e.isPopupTrigger()) {
+              showPopupMenu(e);
+            }
+          }
+
+          @Override
+          public void mouseReleased(java.awt.event.MouseEvent e) {
+            if (e.isPopupTrigger()) {
+              showPopupMenu(e);
+            }
+          }
+        });
   }
 
   public void startAnimation() {
@@ -263,5 +292,31 @@ public class Wavetable3DVisualizer extends JPanel {
     String sub = "Ensure Osc Type is set to WAVETABLE to preview morphing";
     int subW = g2.getFontMetrics().stringWidth(sub);
     g2.drawString(sub, (w - subW) / 2, h / 2 + 12);
+  }
+
+  private void openEditorDialog() {
+    Window owner = getParentWindow();
+    BridgeContract bridge = org.deluge.hid.BridgeHolder.getBridge();
+    if (bridge != null) {
+      SwingSynthWavetableEditorDialog dialog =
+          new SwingSynthWavetableEditorDialog(owner, model, oscIndex, trackIndex, bridge);
+      dialog.setVisible(true);
+    }
+  }
+
+  private void showPopupMenu(java.awt.event.MouseEvent e) {
+    JPopupMenu menu = new JPopupMenu();
+    JMenuItem editItem = new JMenuItem("🔬 Open 3D Wavetable Laboratory & Editor...");
+    editItem.addActionListener(al -> openEditorDialog());
+    menu.add(editItem);
+    menu.show(this, e.getX(), e.getY());
+  }
+
+  private Window getParentWindow() {
+    Container parent = getParent();
+    while (parent != null && !(parent instanceof Window)) {
+      parent = parent.getParent();
+    }
+    return (Window) parent;
   }
 }
