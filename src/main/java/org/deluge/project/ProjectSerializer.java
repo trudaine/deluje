@@ -98,9 +98,9 @@ public class ProjectSerializer {
       StringBuilder ciBuilder = new StringBuilder("0x");
       for (ArrangerClip ac : model.getArrangerTimeline()) {
         if (ac.trackIndex() == trackIndex) {
-          int clipIdx = getGlobalClipIndex(model, ac.clip());
           ciBuilder.append(
-              String.format("%08X%08X%08X", ac.startTicks(), ac.durationTicks(), clipIdx));
+              String.format(
+                  "%08X%08X%08X", ac.startTicks(), ac.durationTicks(), clipCodeFor(model, ac)));
         }
       }
 
@@ -484,16 +484,9 @@ public class ProjectSerializer {
       } else {
         List<ClipModel> clips = track.getClips();
         for (ClipModel clip : clips) {
-          // Calculate clipInstances for arranger placements
-          StringBuilder ciBuilder = new StringBuilder("0x");
-          for (ArrangerClip ac : model.getArrangerTimeline()) {
-            if (ac.trackIndex() == trackIndex && ac.clip() == clip) {
-              int clipIdx = getGlobalClipIndex(model, clip);
-              ciBuilder.append(
-                  String.format("%08X%08X%08X", ac.startTicks(), ac.durationTicks(), clipIdx));
-            }
-          }
-
+          // NOTE: clipInstances is an Output (instrument) attribute in the C format (output.cpp),
+          // NOT a clip attribute — it is written in the <instruments> block above. Session clips
+          // carry only `section` (clip.cpp). Do not write clipInstances here.
           writer.writeOpeningTagBeginning("instrumentClip");
           if (track instanceof KitTrackModel) {
             writer.writeAttribute("instrumentPresetName", track.getName(), false);
@@ -507,7 +500,10 @@ public class ProjectSerializer {
           int lengthTicks = clip.getStepCount() * stepTicks;
           writer.writeAttribute("length", lengthTicks, false);
           writer.writeAttribute("isPlaying", "1", false);
-          writer.writeAttribute("section", "0", false);
+          // C clip.cpp:667 — write section only when assigned (!= 255 unassigned).
+          if (clip.getSection() != 255) {
+            writer.writeAttribute("section", clip.getSection(), false);
+          }
           if (clip.isTripletMode()) {
             writer.writeAttribute("triplet", "1", false);
           }
@@ -515,9 +511,6 @@ public class ProjectSerializer {
               && clip.getPlayDirection() != ClipModel.PlayDirection.FORWARD) {
             writer.writeAttribute(
                 "sequenceDirection", clip.getPlayDirection().name().toLowerCase(), false);
-          }
-          if (ciBuilder.length() > 2) {
-            writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
           }
           writer.writeOpeningTagEnd();
 
@@ -622,6 +615,18 @@ public class ProjectSerializer {
     serializeGlobalEffects(writer, model);
 
     writer.writeClosingTag("song", false);
+  }
+
+  /**
+   * The 32-bit clipCode the hardware stores per clipInstance (C output.cpp:280-285): 0xFFFFFFFF
+   * when the instance references no clip; otherwise the clip's save index with bit 31 set when the
+   * clip is unassigned to a session section (section == 255).
+   */
+  private static int clipCodeFor(ProjectModel model, ArrangerClip ac) {
+    ClipModel clip = ac.clip();
+    int clipIdx = getGlobalClipIndex(model, clip);
+    if (clip == null || clipIdx < 0) return 0xFFFFFFFF;
+    return (clip.getSection() == 255) ? (clipIdx | (1 << 31)) : clipIdx;
   }
 
   private static int getGlobalClipIndex(ProjectModel model, ClipModel targetClip) {

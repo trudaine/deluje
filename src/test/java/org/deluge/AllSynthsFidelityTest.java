@@ -30,6 +30,16 @@ public class AllSynthsFidelityTest {
   private static final int SAMPLE_RATE = 44100;
   private static final int STEPS_PER_BAR = 16; // 4 beats × 16th notes
   private static final int TICKS_PER_STEP = 24; // 96 PPQ / 4 = 24 ticks per 16th note
+  private static final int SECTIONS = 12; // C kMaxNumSections (session-view sections)
+
+  private static int countOccurrences(String haystack, String needle) {
+    int n = 0, i = 0;
+    while ((i = haystack.indexOf(needle, i)) >= 0) {
+      n++;
+      i += needle.length();
+    }
+    return n;
+  }
 
   @Test
   void generateAllSynthsSong() throws Exception {
@@ -67,6 +77,9 @@ public class AllSynthsFidelityTest {
         // One clip, one note at step 0
         ClipModel clip = new ClipModel("CLIP", 1, STEPS_PER_BAR);
         clip.setStep(0, 0, StepData.of(true, 1.0f, 1.0f, 1.0f, 60)); // C4, max vel
+        // Valid session section (cycled — there are far more synths than kMaxNumSections). The
+        // ARRANGER (clipInstances), not sections, sequences the 173 synths one-by-one.
+        clip.setSection(barIdx % SECTIONS);
         synth.addClip(clip);
         allClips.add(clip);
 
@@ -96,6 +109,30 @@ public class AllSynthsFidelityTest {
             + " ("
             + songFile.length()
             + " bytes)");
+
+    // Verify the C-correct arranger serialization: every synth must get a clipInstance placed at
+    // its
+    // own sequential timeline slot (this is what plays the synths one-by-one on hardware), plus a
+    // round-tripping section. (clipInstances IS the hardware arranger format — output.cpp:259-291.)
+    String xml = new String(java.nio.file.Files.readAllBytes(songFile.toPath()));
+    int nTracks = project.getTracks().size();
+    int ciCount = countOccurrences(xml, "clipInstances=\"0x");
+    assertEquals(nTracks, ciCount, "expected one clipInstances attribute per synth track");
+    // Spot-check the 2nd synth's instance starts at ticksPerSynth (=0x300=768) — i.e. sequential.
+    String expectedPos2 = String.format("%08X", ticksPerSynth); // 0x00000300
+    assertTrue(
+        xml.contains("clipInstances=\"0x" + String.format("%08X", 0)) // 1st at tick 0
+            && xml.contains(expectedPos2), // 2nd at ticksPerSynth
+        "arranger clipInstances are not placed sequentially");
+    // Section round-trip through the parser (C clip.cpp:713-715).
+    ProjectModel reparsed = DelugeXmlParser.parseSong(songFile);
+    ClipModel firstReparsed = reparsed.getTracks().get(0).getClips().get(0);
+    assertEquals(
+        0, firstReparsed.getSection(), "section did not round-trip through save/parse (synth 0)");
+    System.out.println(
+        "[AllSynths] Arranger serialization OK: "
+            + ciCount
+            + " sequential clipInstances, sections round-trip");
 
     // Render each synth independently through the engine and capture block-RMS
     double[] engineMaxRms = new double[synthNames.size()];
