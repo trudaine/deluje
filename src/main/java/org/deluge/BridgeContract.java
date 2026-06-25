@@ -335,6 +335,8 @@ public final class BridgeContract {
   public static final String G_REVERB_COMP_SYNC_LEVEL = "g_reverb_comp_sync_level";
   public static final String G_REVERB_COMP_HPF = "g_reverb_comp_hpf";
   public static final String G_REVERB_COMP_BLEND = "g_reverb_comp_blend";
+  public static final String G_REVERB_COMP_SHAPE = "g_reverb_comp_shape";
+  public static final String G_REVERB_COMP_VOLUME = "g_reverb_comp_volume";
   // ── Rings-reverb specific globals ─────────────────────────────────────────
   public static final String G_REVERB_EXCITATION = "g_reverb_excitation";
   public static final String G_REVERB_MODE = "g_reverb_mode";
@@ -1106,6 +1108,8 @@ public final class BridgeContract {
   private int reverbCompSyncLevel = 0;
   private float reverbCompHpf = 0.0f;
   private float reverbCompBlend = 0.5f;
+  private float reverbCompShape = 0.0f;
+  private float reverbCompVolume = 0.0f;
   private float reverbExcitation = 0.0f;
   private int reverbMode = 0; // 0=RESONATOR, 1=KARPLUS_STRONG
   // ── Extended delay scalars ──
@@ -1243,6 +1247,8 @@ public final class BridgeContract {
     setGlobalInt(G_REVERB_COMP_SYNC_LEVEL, (long) reverbCompSyncLevel);
     setGlobalFloat(G_REVERB_COMP_HPF, (double) reverbCompHpf);
     setGlobalFloat(G_REVERB_COMP_BLEND, (double) reverbCompBlend);
+    setGlobalFloat(G_REVERB_COMP_SHAPE, (double) reverbCompShape);
+    setGlobalFloat(G_REVERB_COMP_VOLUME, (double) reverbCompVolume);
     setGlobalFloat(G_REVERB_EXCITATION, (double) reverbExcitation);
     setGlobalInt(G_REVERB_MODE, (long) reverbMode);
 
@@ -2523,6 +2529,24 @@ public final class BridgeContract {
 
   public double getReverbCompBlend() {
     return reverbCompBlend;
+  }
+
+  public void setReverbCompShape(double v) {
+    this.reverbCompShape = (float) v;
+    if (vm != null) setGlobalFloat(G_REVERB_COMP_SHAPE, v);
+  }
+
+  public double getReverbCompShape() {
+    return reverbCompShape;
+  }
+
+  public void setReverbCompVolume(double v) {
+    this.reverbCompVolume = (float) v;
+    if (vm != null) setGlobalFloat(G_REVERB_COMP_VOLUME, v);
+  }
+
+  public double getReverbCompVolume() {
+    return reverbCompVolume;
   }
 
   // ── Rings-reverb setters ─────────────────────────────────

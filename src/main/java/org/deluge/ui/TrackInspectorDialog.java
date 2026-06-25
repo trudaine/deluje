@@ -36,6 +36,10 @@ public class TrackInspectorDialog extends JDialog {
 
     org.deluge.model.TrackModel currentTrack =
         (trackIndex < tracks.size()) ? tracks.get(trackIndex) : null;
+    org.deluge.model.ClipModel firstClip =
+        (currentTrack != null && !currentTrack.getClips().isEmpty())
+            ? currentTrack.getClips().get(0)
+            : null;
     boolean isSynth = currentTrack instanceof org.deluge.model.SynthTrackModel;
     boolean isKit = currentTrack instanceof org.deluge.model.KitTrackModel;
     java.io.File dir =
@@ -142,6 +146,59 @@ public class TrackInspectorDialog extends JDialog {
     p4.add(ratioSlider);
     tabs.addTab("FM OPERATORS", p4);
 
+    // Tab 5: Grid Shortcuts
+    JPanel p5 = new JPanel(new GridBagLayout());
+    p5.setBackground(new Color(0x2b, 0x2b, 0x2b));
+    GridBagConstraints gcS = new GridBagConstraints();
+    gcS.fill = GridBagConstraints.HORIZONTAL;
+    gcS.insets = new Insets(20, 20, 20, 20);
+
+    gcS.gridx = 0;
+    gcS.gridy = 0;
+    JLabel lLeft = new JLabel("Left Column Action:");
+    lLeft.setFont(new Font("SansSerif", Font.BOLD, 18));
+    lLeft.setForeground(Color.WHITE);
+    p5.add(lLeft, gcS);
+
+    gcS.gridx = 1;
+    String[] colActions = {"VELOCITY", "MOD", "PITCH", "NONE"};
+    JComboBox<String> leftColCombo = new JComboBox<>(colActions);
+    leftColCombo.setFont(new Font("SansSerif", Font.PLAIN, 18));
+    leftColCombo.setPreferredSize(new Dimension(250, 40));
+    if (firstClip != null) {
+      leftColCombo.setSelectedItem(firstClip.getLeftCol());
+    }
+    leftColCombo.addActionListener(
+        ev -> {
+          if (firstClip != null) {
+            firstClip.setLeftCol((String) leftColCombo.getSelectedItem());
+          }
+        });
+    p5.add(leftColCombo, gcS);
+
+    gcS.gridx = 0;
+    gcS.gridy = 1;
+    JLabel lRight = new JLabel("Right Column Action:");
+    lRight.setFont(new Font("SansSerif", Font.BOLD, 18));
+    lRight.setForeground(Color.WHITE);
+    p5.add(lRight, gcS);
+
+    gcS.gridx = 1;
+    JComboBox<String> rightColCombo = new JComboBox<>(colActions);
+    rightColCombo.setFont(new Font("SansSerif", Font.PLAIN, 18));
+    rightColCombo.setPreferredSize(new Dimension(250, 40));
+    if (firstClip != null) {
+      rightColCombo.setSelectedItem(firstClip.getRightCol());
+    }
+    rightColCombo.addActionListener(
+        ev -> {
+          if (firstClip != null) {
+            firstClip.setRightCol((String) rightColCombo.getSelectedItem());
+          }
+        });
+    p5.add(rightColCombo, gcS);
+
+    tabs.addTab("GRID SHORTCUTS", p5);
     cloneBtn.addActionListener(
         ev -> {
           if (trackIndex < tracks.size()) {

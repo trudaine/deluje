@@ -223,6 +223,199 @@ public class ArpPanel extends JPanel {
     leftPanel.add(octModeCombo, lc);
     leftRow++;
 
+    // Chord Type
+    lc.gridx = 0;
+    lc.gridy = leftRow;
+    lc.gridwidth = 1;
+    leftPanel.add(SwingSynthConfigDialog.label("Chord Type:"), lc);
+    lc.gridx = 1;
+    lc.gridwidth = 2;
+    String[] chordTypes = {
+      "Single",
+      "Octaves",
+      "Fifths",
+      "Major",
+      "Minor",
+      "Suspended",
+      "Seventh",
+      "Minor 7th",
+      "Major 7th"
+    };
+    JComboBox<String> chordCombo = new JComboBox<>(chordTypes);
+    chordCombo.setSelectedIndex(Math.max(0, Math.min(8, arp.chordType())));
+    chordCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
+    chordCombo.setForeground(Color.WHITE);
+    chordCombo.setToolTipText("Select base chord type for arpeggiation");
+    chordCombo.addActionListener(
+        e -> {
+          int oldVal = model.getArp().chordType();
+          int newVal = chordCombo.getSelectedIndex();
+          if (oldVal == newVal) return;
+          model.setArp(model.getArp().toBuilder().chordType(newVal).build());
+          if (projectModel.getUndoRedoStack() != null) {
+            projectModel
+                .getUndoRedoStack()
+                .push(
+                    new Consequence.SynthParamConsequence(
+                        projectModel,
+                        trackIndex,
+                        "arpChordType",
+                        oldVal,
+                        newVal,
+                        System.currentTimeMillis()));
+          }
+        });
+    leftPanel.add(chordCombo, lc);
+    leftRow++;
+
+    // Secondary Octaves (numOctaves)
+    lc.gridx = 0;
+    lc.gridy = leftRow;
+    lc.gridwidth = 1;
+    leftPanel.add(SwingSynthConfigDialog.label("Sec Octaves:"), lc);
+    lc.gridx = 1;
+    lc.gridwidth = 2;
+    JComboBox<Integer> numOctCombo = new JComboBox<>(new Integer[] {1, 2, 3, 4});
+    numOctCombo.setSelectedItem(Math.max(1, Math.min(4, arp.numOctaves())));
+    numOctCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
+    numOctCombo.setForeground(Color.WHITE);
+    numOctCombo.setToolTipText("Secondary arpeggiator octave span");
+    numOctCombo.addActionListener(
+        e -> {
+          int oldVal = model.getArp().numOctaves();
+          int newVal = (Integer) numOctCombo.getSelectedItem();
+          if (oldVal == newVal) return;
+          model.setArp(model.getArp().toBuilder().numOctaves(newVal).build());
+          if (projectModel.getUndoRedoStack() != null) {
+            projectModel
+                .getUndoRedoStack()
+                .push(
+                    new Consequence.SynthParamConsequence(
+                        projectModel,
+                        trackIndex,
+                        "arpNumOctaves",
+                        oldVal,
+                        newVal,
+                        System.currentTimeMillis()));
+          }
+        });
+    leftPanel.add(numOctCombo, lc);
+    leftRow++;
+
+    // Kit Arpeggiator Checkbox
+    lc.gridx = 0;
+    lc.gridy = leftRow;
+    lc.gridwidth = 1;
+    leftPanel.add(SwingSynthConfigDialog.label("Kit Arp:"), lc);
+    lc.gridx = 1;
+    lc.gridwidth = 2;
+    JCheckBox kitArpBox = new JCheckBox();
+    kitArpBox.setSelected(arp.kitArp() == 1);
+    kitArpBox.setBackground(SwingSynthConfigDialog.BG_CARD);
+    kitArpBox.setForeground(Color.WHITE);
+    kitArpBox.setToolTipText("Enable arpeggiation on drum kit track slots");
+    kitArpBox.addActionListener(
+        e -> {
+          int oldVal = model.getArp().kitArp();
+          int newVal = kitArpBox.isSelected() ? 1 : 0;
+          if (oldVal == newVal) return;
+          model.setArp(model.getArp().toBuilder().kitArp(newVal).build());
+          if (projectModel.getUndoRedoStack() != null) {
+            projectModel
+                .getUndoRedoStack()
+                .push(
+                    new Consequence.SynthParamConsequence(
+                        projectModel,
+                        trackIndex,
+                        "arpKitArp",
+                        oldVal,
+                        newVal,
+                        System.currentTimeMillis()));
+          }
+        });
+    leftPanel.add(kitArpBox, lc);
+    leftRow++;
+
+    // Randomizer Lock Checkbox
+    lc.gridx = 0;
+    lc.gridy = leftRow;
+    lc.gridwidth = 1;
+    leftPanel.add(SwingSynthConfigDialog.label("Rand Lock:"), lc);
+    lc.gridx = 1;
+    lc.gridwidth = 2;
+    JCheckBox randLockBox = new JCheckBox();
+    randLockBox.setSelected(arp.randomizerLock() == 1);
+    randLockBox.setBackground(SwingSynthConfigDialog.BG_CARD);
+    randLockBox.setForeground(Color.WHITE);
+    randLockBox.setToolTipText("Lock the step-level randomizations into a repeating loop pattern");
+    leftPanel.add(randLockBox, lc);
+    leftRow++;
+
+    // Clear Step-Locks Button
+    lc.gridx = 0;
+    lc.gridy = leftRow;
+    lc.gridwidth = 3;
+    JButton clearLocksBtn = new JButton("CLEAR RANDOM STEP-LOCKS");
+    clearLocksBtn.setBackground(new Color(0x6e, 0x2e, 0x2e));
+    clearLocksBtn.setForeground(Color.WHITE);
+    clearLocksBtn.setOpaque(true);
+    clearLocksBtn.setBorderPainted(false);
+    clearLocksBtn.setToolTipText("Instantly clear all step-level randomization pattern locks");
+    clearLocksBtn.addActionListener(
+        e -> {
+          model.setArp(
+              model.getArp().toBuilder()
+                  .randomizerLock(0)
+                  .lastLockedBassProb(0)
+                  .lockedBassProbArray("00000000000000000000000000000000")
+                  .lastLockedChordProb(0)
+                  .lockedChordProbArray("00000000000000000000000000000000")
+                  .lastLockedGateSpread(0)
+                  .lockedGateSpreadArray("00000000000000000000000000000000")
+                  .lastLockedGlideProb(0)
+                  .lockedGlideProbArray("00000000000000000000000000000000")
+                  .lastLockedNoteProb(0)
+                  .lockedNoteProbArray("00000000000000000000000000000000")
+                  .lastLockedOctaveSpread(0)
+                  .lockedOctaveSpreadArray("00000000000000000000000000000000")
+                  .lastLockedRatchetProb(0)
+                  .lockedRatchetProbArray("00000000000000000000000000000000")
+                  .lastLockedReverseProb(0)
+                  .lockedReverseProbArray("00000000000000000000000000000000")
+                  .lastLockedSwapProb(0)
+                  .lockedSwapProbArray("00000000000000000000000000000000")
+                  .lastLockedVelocitySpread(0)
+                  .lockedVelocitySpreadArray("00000000000000000000000000000000")
+                  .build());
+          randLockBox.setSelected(false);
+          JOptionPane.showMessageDialog(
+              this,
+              "All step-level randomization locks cleared!",
+              "Locks Cleared",
+              JOptionPane.INFORMATION_MESSAGE);
+        });
+    randLockBox.addActionListener(
+        e -> {
+          int oldVal = model.getArp().randomizerLock();
+          int newVal = randLockBox.isSelected() ? 1 : 0;
+          if (oldVal == newVal) return;
+          model.setArp(model.getArp().toBuilder().randomizerLock(newVal).build());
+          if (projectModel.getUndoRedoStack() != null) {
+            projectModel
+                .getUndoRedoStack()
+                .push(
+                    new Consequence.SynthParamConsequence(
+                        projectModel,
+                        trackIndex,
+                        "arpRandomizerLock",
+                        oldVal,
+                        newVal,
+                        System.currentTimeMillis()));
+          }
+        });
+    leftPanel.add(clearLocksBtn, lc);
+    leftRow++;
+
     // ── Right Column: Arpeggiator Parameters ──
 
     rc.gridx = 0;
