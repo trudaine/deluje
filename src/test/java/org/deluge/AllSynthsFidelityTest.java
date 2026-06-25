@@ -77,9 +77,14 @@ public class AllSynthsFidelityTest {
         SynthTrackModel synth = DelugeXmlParser.parseSynth(new FileInputStream(f), f.getName());
         synth.setName(f.getName().replace(".XML", ""));
 
-        // One clip, one note at step 0
-        ClipModel clip = new ClipModel("CLIP", 1, STEPS_PER_BAR);
-        clip.setStep(0, 0, StepData.of(true, 1.0f, 1.0f, 1.0f, 60)); // C4, max vel
+        // One clip spanning the whole 2-bar slot, with ONE sustained note held for the entire slot
+        // (gate = all steps). A 1-step blip (~125ms) leaves slow-attack pads inaudible on hardware
+        // —
+        // which is exactly the "1 note every 10-20s" symptom. Sustaining the note lets every synth
+        // bloom. (The per-synth engine RMS test held the note for 400 blocks, hiding this.)
+        int stepsPerSynth = STEPS_PER_BAR * 2; // 2 bars, matching the arranger instance length
+        ClipModel clip = new ClipModel("CLIP", 1, stepsPerSynth);
+        clip.setStep(0, 0, StepData.of(true, 1.0f, (float) stepsPerSynth, 1.0f, 60)); // held C4
         // Valid session section (cycled — there are far more synths than kMaxNumSections). The
         // ARRANGER (clipInstances), not sections, sequences the 173 synths one-by-one.
         clip.setSection(barIdx % SECTIONS);
@@ -138,6 +143,14 @@ public class AllSynthsFidelityTest {
         xml.contains("inArrangementView=\"1\""), "song does not boot into the arranger view");
     assertEquals(
         0, countOccurrences(xml, "isPlaying=\"1\""), "session clips are active → all play at once");
+    // Each note must be SUSTAINED for the slot (length 0x300=768), not a 1-step blip (0x18=24) —
+    // a blip leaves slow-attack synths silent on hardware ("1 note every 10-20s").
+    assertTrue(
+        xml.contains("noteDataWithLift=\"0x00000000000003007F"),
+        "clip note is not sustained for the full slot");
+    assertFalse(
+        xml.contains("noteDataWithLift=\"0x00000000000000187F"),
+        "clip note is a 1-step blip — slow synths will be inaudible");
     // Section round-trip through the parser (C clip.cpp:713-715).
     ProjectModel reparsed = DelugeXmlParser.parseSong(songFile);
     ClipModel firstReparsed = reparsed.getTracks().get(0).getClips().get(0);
