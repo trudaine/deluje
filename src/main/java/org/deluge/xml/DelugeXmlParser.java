@@ -1197,6 +1197,24 @@ public class DelugeXmlParser {
     return project;
   }
 
+  /** Serialize a DOM element back to an XML string (used to preserve multisample osc subtrees). */
+  static String nodeToXmlString(org.w3c.dom.Node node) {
+    try {
+      javax.xml.transform.Transformer t =
+          javax.xml.transform.TransformerFactory.newInstance().newTransformer();
+      t.setOutputProperty(javax.xml.transform.OutputKeys.OMIT_XML_DECLARATION, "yes");
+      t.setOutputProperty(javax.xml.transform.OutputKeys.INDENT, "yes");
+      java.io.StringWriter sw = new java.io.StringWriter();
+      t.transform(
+          new javax.xml.transform.dom.DOMSource(node),
+          new javax.xml.transform.stream.StreamResult(sw));
+      return sw.toString().trim();
+    } catch (Exception e) {
+      LOG.log(Level.WARNING, "nodeToXmlString failed", e);
+      return null;
+    }
+  }
+
   // ── Package-private helper: used by both parseSynth and parseSynthElement ──
 
   static void populateSynth(Element soundNode, SynthTrackModel synth) {
@@ -1208,6 +1226,16 @@ public class DelugeXmlParser {
     NodeList osc1List = soundNode.getElementsByTagName("osc1");
     if (osc1List.getLength() > 0) {
       Element osc1 = (Element) osc1List.item(0);
+      // Multisample oscillator (<sampleRanges> keyzones): capture verbatim so it survives the song
+      // round-trip unchanged (our model doesn't re-model keyzones).
+      if (osc1.getElementsByTagName("sampleRange").getLength() > 0) {
+        synth.setOsc1RawXml(nodeToXmlString(osc1));
+      }
+      NodeList osc2L = soundNode.getElementsByTagName("osc2");
+      if (osc2L.getLength() > 0
+          && ((Element) osc2L.item(0)).getElementsByTagName("sampleRange").getLength() > 0) {
+        synth.setOsc2RawXml(nodeToXmlString((Element) osc2L.item(0)));
+      }
       if (osc1.hasAttribute("dx7patch")) {
         synth.setDx7Patch(osc1.getAttribute("dx7patch"));
       }

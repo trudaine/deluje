@@ -43,12 +43,16 @@ public class AllSynthsFidelityTest {
 
   @Test
   void generateAllSynthsSong() throws Exception {
+    // Override with -Dsynth.dir=/path (e.g. the real SD card SYNTHS) to test the actual card
+    // presets.
+    String synthDir = System.getProperty("synth.dir", "src/main/resources/SYNTHS");
     File[] synthFiles =
-        new File("src/main/resources/SYNTHS")
-            .listFiles((d, n) -> n.endsWith(".XML") && !n.startsWith("SONG"));
-    assertTrue(
-        synthFiles != null && synthFiles.length > 0,
-        "No synth XML files in src/main/resources/SYNTHS");
+        new File(synthDir)
+            .listFiles(
+                (d, n) ->
+                    (n.endsWith(".XML") || n.endsWith(".xml"))
+                        && !n.toUpperCase().startsWith("SONG"));
+    assertTrue(synthFiles != null && synthFiles.length > 0, "No synth XML files in " + synthDir);
     Arrays.sort(synthFiles, Comparator.comparing(File::getName));
     System.out.println("[AllSynths] Found " + synthFiles.length + " synth presets");
 
@@ -111,8 +115,8 @@ public class AllSynthsFidelityTest {
 
     System.out.println("[AllSynths] Generated song with " + project.getTracks().size() + " tracks");
 
-    // Save song XML
-    File songFile = new File("target/ALL_SYNTHS_SONG.xml");
+    // Save song XML. Override with -Dsong.out=/path (e.g. the card's SONGS/ALL_SYNTHS_SONG.XML).
+    File songFile = new File(System.getProperty("song.out", "target/ALL_SYNTHS_SONG.xml"));
     songFile.getParentFile().mkdirs();
     ProjectSerializer.save(project, songFile);
     System.out.println(
@@ -205,11 +209,20 @@ public class AllSynthsFidelityTest {
     // Report
     System.out.println("\n[AllSynths] === PER-SYNTH RMS REPORT ===");
     double minRms = Double.MAX_VALUE, maxRmsAll = 0, sumRms = 0;
-    int silentCount = 0;
+    int silentCount = 0; // non-multisample silent (a real engine miss)
+    int multisampleCount = 0;
     for (int i = 0; i < engineMaxRms.length; i++) {
       double rms = engineMaxRms[i];
-      if (rms < 0.001) silentCount++;
-      System.out.printf("  %3d %-40s RMS=%.6f%n", i, synthNames.get(i), rms);
+      // Multisample (<sampleRanges>) presets reference SAMPLES/Multisamples WAVs that aren't in the
+      // repo, so they legitimately render silent HERE (they round-trip verbatim for hardware).
+      // Don't
+      // count them as engine misses.
+      boolean multisample = ((SynthTrackModel) project.getTracks().get(i)).getOsc1RawXml() != null;
+      if (multisample) multisampleCount++;
+      else if (rms < 0.001) silentCount++;
+      System.out.printf(
+          "  %3d %-40s RMS=%.6f%s%n",
+          i, synthNames.get(i), rms, multisample ? "  [multisample-verbatim]" : "");
       if (rms < minRms && rms > 0) minRms = rms;
       if (rms > maxRmsAll) maxRmsAll = rms;
       sumRms += rms;
@@ -217,19 +230,23 @@ public class AllSynthsFidelityTest {
 
     double avgRms = sumRms / engineMaxRms.length;
     System.out.printf(
-        "%n[AllSynths] Summary: %d synths, avg RMS=%.6f, min=%.6f, max=%.6f, silent=%d%n",
-        engineMaxRms.length, avgRms, minRms, maxRmsAll, silentCount);
+        "%n[AllSynths] Summary: %d synths (%d multisample-verbatim), avg RMS=%.6f, max=%.6f,"
+            + " non-multisample silent=%d%n",
+        engineMaxRms.length, multisampleCount, avgRms, maxRmsAll, silentCount);
 
-    // All synths should produce audible output
+    // Subtractive synths must render; multisample ones are excluded (no WAVs in the repo env).
+    int subtractive = engineMaxRms.length - multisampleCount;
     assertTrue(
-        silentCount < engineMaxRms.length * 0.1,
-        silentCount + " of " + engineMaxRms.length + " synths are silent!");
+        silentCount < subtractive * 0.1,
+        silentCount + " of " + subtractive + " subtractive synths are silent!");
     System.out.println(
         "[AllSynths] PASSED: "
-            + (engineMaxRms.length - silentCount)
-            + " synths produce audio, "
-            + silentCount
-            + " silent");
+            + (subtractive - silentCount)
+            + "/"
+            + subtractive
+            + " subtractive synths audible; "
+            + multisampleCount
+            + " multisample preserved verbatim");
   }
 
   /**
