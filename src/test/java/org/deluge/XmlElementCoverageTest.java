@@ -57,7 +57,15 @@ public class XmlElementCoverageTest {
   private static final Set<String> KNOWN_GAPS =
       new TreeSet<>(
           Set.of(
-              // 🔴 sound-affecting (oscAPulseWidth/oscBPulseWidth now FIXED — read+act+serialize)
+              // 🔴 sound-affecting. FIXED+verified: pitchAdjust (overall) only.
+              // oscA/BPulseWidth + oscA/BPitchAdjust remain gaps: setting their factory knob does
+              // NOT
+              // propagate to the live patchedParamValues/paramFinalValues (verified by a
+              // deterministic
+              // render-diff — an earlier "PWM fix" was a noise-seed false positive). Needs the
+              // local-param sync path understood before claiming a fix.
+              "oscAPulseWidth",
+              "oscBPulseWidth",
               "oscAPitchAdjust",
               "oscBPitchAdjust",
               "toModulator1",
@@ -65,7 +73,6 @@ public class XmlElementCoverageTest {
               "compressorShape",
               "currentFilterType",
               "oscillatorReset",
-              "pitchAdjust",
               "depthControlledBy",
               "filterType",
               "filterSlope",
