@@ -1184,39 +1184,30 @@ public class DelugeXmlParser {
               NodeList ndl = nr.getElementsByTagName("noteData");
               if (ndl.getLength() > 0) hd = ndl.item(0).getTextContent();
             }
-            if (hd != null && hd.startsWith("0x")) {
-              String data = hd.substring(2);
+            if (hd != null && hd.startsWith("0x") && hd.length() > 2) {
+              // Use the same robust decoder as session clips (was a buggy hand-rolled loop that
+              // read
+              // the split-velocity offset even on lift-format data → StringIndexOutOfBounds).
               int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
               if (la != null && !la.isEmpty()) hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
               else if (sa != null && !sa.isEmpty())
                 hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
-              else if (data.length() > 0
-                  && data.length() % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT == 0) {
-                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
-              }
-              for (int p = 0; p + hcpn <= data.length(); p += hcpn) {
-                try {
-                  int pos = (int) Long.parseLong(data.substring(p, p + 8), 16);
-                  int length = (int) Long.parseLong(data.substring(p + 8, p + 16), 16);
-                  int sVal =
-                      (hcpn > 16) ? (int) Long.parseLong(data.substring(p + 16, p + 24), 16) : 0;
-                  int velocity = (sVal & 0xFF00) >> 8;
-
-                  int sidx = pos / stepTicks;
-                  if (sidx >= 0 && sidx < stepCount) {
-                    clip.setRowYNote(r, noteVal);
-                    clip.setStep(
-                        r,
-                        sidx,
-                        StepData.of(
-                            true,
-                            (float) noteVal,
-                            velocity / 127f,
-                            length / (float) stepTicks,
-                            noteVal));
-                  }
-                } catch (NumberFormatException ignored) {
+              else {
+                int dataLen = hd.length() - 2;
+                if (dataLen > 0 && dataLen % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT == 0) {
+                  hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
                 }
+              }
+              java.util.List<StepData> row =
+                  DelugeNoteDataMapper.decodeRow(hd, stepCount, stepTicks, hcpn);
+              clip.setRowYNote(r, noteVal);
+              for (int s = 0; s < stepCount && s < row.size(); s++) {
+                StepData base = row.get(s);
+                clip.setStep(
+                    r,
+                    s,
+                    StepData.of(
+                        base.active(), base.velocity(), base.gate(), base.probability(), noteVal));
               }
             }
           }
