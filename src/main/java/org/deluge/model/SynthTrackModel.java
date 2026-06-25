@@ -109,6 +109,7 @@ public class SynthTrackModel extends TrackModel {
 
   private final List<PatchCable> patchCables = new ArrayList<>();
   private final List<ModKnob> modKnobs = new ArrayList<>(16);
+  private final List<MidiKnob> midiKnobs = new ArrayList<>();
 
   // FX and EQ
   // Master volume, pan
@@ -741,6 +742,18 @@ public class SynthTrackModel extends TrackModel {
 
   public void setModKnob(int index, ModKnob knob) {
     this.modKnobs.set(index, knob);
+  }
+
+  public List<MidiKnob> getMidiKnobs() {
+    return midiKnobs;
+  }
+
+  public void addMidiKnob(MidiKnob knob) {
+    this.midiKnobs.add(knob);
+  }
+
+  public void clearMidiKnobs() {
+    this.midiKnobs.clear();
   }
 
   public String getModFxType() {
@@ -1428,6 +1441,8 @@ public class SynthTrackModel extends TrackModel {
     for (int i = 0; i < 16; i++) {
       this.modKnobs.set(i, other.getModKnobs().get(i));
     }
+    this.midiKnobs.clear();
+    this.midiKnobs.addAll(other.getMidiKnobs());
 
     // FX
     this.volume = other.getVolume();
@@ -1467,5 +1482,15 @@ public class SynthTrackModel extends TrackModel {
 
   public int[] getCustomLfoWave() {
     return customLfoWave;
+  }
+
+  public float getArpRate() {
+    return this.arp != null ? this.arp.rate() : 0.0f;
+  }
+
+  public void setArpRate(float rate) {
+    if (this.arp != null) {
+      this.arp = this.arp.toBuilder().rate(rate).build();
+    }
   }
 }

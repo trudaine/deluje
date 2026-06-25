@@ -7,9 +7,18 @@ import java.util.List;
 public class KitTrackModel extends TrackModel {
 
   private final List<Drum> drums = new ArrayList<>();
+  private int selectedDrumIndex = 0;
 
   public KitTrackModel(String name) {
     super(name, TrackType.KIT);
+  }
+
+  public int getSelectedDrumIndex() {
+    return selectedDrumIndex;
+  }
+
+  public void setSelectedDrumIndex(int selectedDrumIndex) {
+    this.selectedDrumIndex = selectedDrumIndex;
   }
 
   public List<Drum> getDrums() {

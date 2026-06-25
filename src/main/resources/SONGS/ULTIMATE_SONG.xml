@@ -37,7 +37,7 @@
 				<detune>0x00000000</detune>
 				<spread>0x00000000</spread>
 			</unison>
-			<arpeggiator mode="up" active="0">
+			<arpeggiator mode="up" active="0" sequenceLength="8" arpMode="off" notePattern="00000000000000000000000000000000" chordType="0" numOctaves="2" kitArp="0" randomizerLock="0" lastLockedNoteProb="0" lockedNoteProbArray="00000000000000000000000000000000" lastLockedBassProb="0" lockedBassProbArray="00000000000000000000000000000000" lastLockedSwapProb="0" lockedSwapProbArray="00000000000000000000000000000000" lastLockedGlideProb="0" lockedGlideProbArray="00000000000000000000000000000000" lastLockedReverseProb="0" lockedReverseProbArray="00000000000000000000000000000000" lastLockedChordProb="0" lockedChordProbArray="00000000000000000000000000000000" lastLockedRatchetProb="0" lockedRatchetProbArray="00000000000000000000000000000000" lastLockedVelocitySpread="0" lockedVelocitySpreadArray="00000000000000000000000000000000" lastLockedGateSpread="0" lockedGateSpreadArray="00000000000000000000000000000000" lastLockedOctaveSpread="0" lockedOctaveSpreadArray="00000000000000000000000000000000">
 				<rate>0x7FFFFFFF</rate>
 				<octaves>1</octaves>
 				<gate>0x40000000</gate>
@@ -165,7 +165,7 @@
 				<detune>0x00000000</detune>
 				<spread>0x00000000</spread>
 			</unison>
-			<arpeggiator mode="up" active="0">
+			<arpeggiator mode="up" active="0" sequenceLength="8" arpMode="off" notePattern="00000000000000000000000000000000" chordType="0" numOctaves="2" kitArp="0" randomizerLock="0" lastLockedNoteProb="0" lockedNoteProbArray="00000000000000000000000000000000" lastLockedBassProb="0" lockedBassProbArray="00000000000000000000000000000000" lastLockedSwapProb="0" lockedSwapProbArray="00000000000000000000000000000000" lastLockedGlideProb="0" lockedGlideProbArray="00000000000000000000000000000000" lastLockedReverseProb="0" lockedReverseProbArray="00000000000000000000000000000000" lastLockedChordProb="0" lockedChordProbArray="00000000000000000000000000000000" lastLockedRatchetProb="0" lockedRatchetProbArray="00000000000000000000000000000000" lastLockedVelocitySpread="0" lockedVelocitySpreadArray="00000000000000000000000000000000" lastLockedGateSpread="0" lockedGateSpreadArray="00000000000000000000000000000000" lastLockedOctaveSpread="0" lockedOctaveSpreadArray="00000000000000000000000000000000">
 				<rate>0x7FFFFFFF</rate>
 				<octaves>1</octaves>
 				<gate>0x40000000</gate>
@@ -400,19 +400,24 @@
 					<midiKnobs></midiKnobs>
 				</sound>
 			</soundSources>
+			<selectedDrumIndex>0</selectedDrumIndex>
 		</kit>
 	</instruments>
 	<sessionClips>
-		<instrumentClip instrumentPresetName="Synth Bass" instrumentPresetFolder="SYNTHS" length="192" isPlaying="1">
-			<soundParams volume="0x333332FF" pan="0x00000000" lpfFrequency="0xFE0C34C8" lpfResonance="0xB3333340" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0x80000000" delayRate="0x80000000" />
+		<instrumentClip clipName="Bass Clip" instrumentPresetName="Synth Bass" instrumentPresetFolder="SYNTHS" length="192" isPlaying="1">
+			<soundParams volume="0x333332FF" pan="0x00000000" lpfFrequency="0xFE0C34C8" lpfResonance="0xB3333340" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0x80000000" delayRate="0x80000000" arpeggiatorRate="0x7FFFFFFF" />
 			<noteRows>
 				<noteRow y="48" noteDataWithLift="0x00000000000003607240140000003000000120664014" noteDataWithSplitProb="0x00000000000003607240140000000000003000000120664014000000" />
 				<noteRow y="51" noteDataWithLift="0x0000006000000240724014" noteDataWithSplitProb="0x0000006000000240724014000000" />
 				<noteRow y="53" noteDataWithLift="0x0000009000000240724014" noteDataWithSplitProb="0x0000009000000240724014000000" />
 			</noteRows>
+			<columnControls>
+				<leftCol type="VELOCITY" />
+				<rightCol type="MOD" />
+			</columnControls>
 		</instrumentClip>
-		<instrumentClip instrumentPresetName="Synth Lead" instrumentPresetFolder="SYNTHS" length="384" isPlaying="1">
-			<soundParams volume="0x00000000" pan="0x00000000" lpfFrequency="0x17BC4E80" lpfResonance="0x00000000" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0xE6666680" delayRate="0xCCCCCD00" />
+		<instrumentClip clipName="Lead Clip" instrumentPresetName="Synth Lead" instrumentPresetFolder="SYNTHS" length="384" isPlaying="1">
+			<soundParams volume="0x00000000" pan="0x00000000" lpfFrequency="0x17BC4E80" lpfResonance="0x00000000" hpfFrequency="0x80000000" hpfResonance="0x80000000" reverbAmount="0xE6666680" delayRate="0xCCCCCD00" arpeggiatorRate="0x7FFFFFFF" />
 			<noteRows>
 				<noteRow y="72" noteDataWithLift="0x00000000000001B0664014" noteDataWithSplitProb="0x00000000000001B0664014000000" />
 				<noteRow y="75" noteDataWithLift="0x00000048000001B066401400000150000001B0664014" noteDataWithSplitProb="0x00000048000001B066401400000000000150000001B0664014000000" />
@@ -421,18 +426,26 @@
 				<noteRow y="84" noteDataWithLift="0x" noteDataWithSplitProb="0x" />
 				<noteRow y="86" noteDataWithLift="0x" noteDataWithSplitProb="0x" />
 			</noteRows>
+			<columnControls>
+				<leftCol type="VELOCITY" />
+				<rightCol type="MOD" />
+			</columnControls>
 		</instrumentClip>
-		<instrumentClip instrumentPresetName="Synth Kit" instrumentPresetFolder="KITS" length="384" isPlaying="1">
+		<instrumentClip clipName="Drum Clip" instrumentPresetName="Synth Kit" instrumentPresetFolder="KITS" length="384" isPlaying="1">
 			<kitParams volume="0x7FFFFFFF" pan="0x40000000" />
 			<noteRows>
 				<noteRow drumIndex="0" noteDataWithLift="0x00000000000001207240140000006000000120724014000000C0000001207240140000012000000120724014" noteDataWithSplitProb="0x00000000000001207240140000000000006000000120724014000000000000C0000001207240140000000000012000000120724014000000" />
 				<noteRow drumIndex="1" noteDataWithLift="0x00000060000001206C401400000120000001206C4014" noteDataWithSplitProb="0x00000060000001206C401400000000000120000001206C4014000000" />
 				<noteRow drumIndex="2" noteDataWithLift="0x0000000000000090594014000000300000009059401400000060000000905940140000009000000090594014000000C000000090594014000000F00000009059401400000120000000905940140000015000000090594014" noteDataWithSplitProb="0x0000000000000090594014000000000000300000009059401400000000000060000000905940140000000000009000000090594014000000000000C000000090594014000000000000F00000009059401400000000000120000000905940140000000000015000000090594014000000" />
 			</noteRows>
+			<columnControls>
+				<leftCol type="VELOCITY" />
+				<rightCol type="MOD" />
+			</columnControls>
 		</instrumentClip>
 	</sessionClips>
 	<reverb roomSize="1288490240" dampening="1073741824" width="1073741824" hpf="0" pan="0" model="0">
-		<compressor attack="0" release="0" syncLevel="0" compHPF="0" compBlend="1073741824" />
+		<compressor attack="0" release="0" syncLevel="0" compHPF="0" compBlend="1073741824" shape="0" volume="0" />
 	</reverb>
 	<delay pingPong="0" analog="0" syncLevel="0" syncType="0" />
 	<sidechain attack="326417" release="923" syncLevel="0" syncType="0" />

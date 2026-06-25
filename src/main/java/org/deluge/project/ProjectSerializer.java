@@ -135,6 +135,9 @@ public class ProjectSerializer {
         if (track.isSoloingInArrangement()) {
           writer.writeAttribute("isSoloingInArrangement", "1", false);
         }
+        if (track.getDefaultVelocity() != 64) {
+          writer.writeAttribute("defaultVelocity", track.getDefaultVelocity(), false);
+        }
         if (ciBuilder.length() > 2) {
           writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
         }
@@ -211,10 +214,20 @@ public class ProjectSerializer {
           serializeEnvelope(writer, "envelope2", sound.getEnv2());
           writer.writeClosingTag("defaultParams");
 
-          writer.writeTag("midiKnobs", "");
+          serializeMidiKnobs(writer, sound.getMidiKnobs());
+
+          if (sound.getMidiChannel() != 255 || sound.getNoteForDrum() != 255) {
+            writer.writeOpeningTagBeginning("midiOutput");
+            writer.writeAttribute("channel", sound.getMidiChannel(), false);
+            writer.writeAttribute("noteForDrum", sound.getNoteForDrum(), false);
+            writer.closeTag();
+          }
+
           writer.writeClosingTag("sound");
         }
         writer.writeArrayEnding("soundSources");
+        writer.writeTag(
+            "selectedDrumIndex", String.valueOf(((KitTrackModel) track).getSelectedDrumIndex()));
         writer.writeClosingTag("kit");
 
       } else if (track instanceof AudioTrackModel) {
@@ -256,6 +269,72 @@ public class ProjectSerializer {
 
         writer.writeClosingTag("audioTrack");
 
+      } else if (track instanceof MidiTrackModel) {
+        MidiTrackModel midi = (MidiTrackModel) track;
+        writer.writeOpeningTagBeginning("sound");
+        writer.writeAttribute("presetName", midi.getName(), false);
+        writer.writeAttribute("presetFolder", "SYNTHS", false);
+        if (midi.isMutedInArrangement()) {
+          writer.writeAttribute("isMutedInArrangement", "1", false);
+        }
+        if (midi.isSoloingInArrangement()) {
+          writer.writeAttribute("isSoloingInArrangement", "1", false);
+        }
+        if (midi.getDefaultVelocity() != 64) {
+          writer.writeAttribute("defaultVelocity", midi.getDefaultVelocity(), false);
+        }
+        if (ciBuilder.length() > 2) {
+          writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
+        }
+        writer.writeOpeningTagEnd();
+
+        if (midi.isMpe()) {
+          writer.writeTag("zone", midi.getMpeZone());
+        } else {
+          writer.writeTag("midiChannel", String.valueOf(midi.getMidiChannel()));
+        }
+
+        if (midi.getDeviceName() != null && !midi.getDeviceName().isEmpty()) {
+          writer.writeOpeningTagBeginning("midiDevice");
+          writer.writeOpeningTagEnd();
+          writer.writeTag("name", midi.getDeviceName());
+          if (midi.getDeviceDefinitionFile() != null && !midi.getDeviceDefinitionFile().isEmpty()) {
+            writer.writeTag("definitionFile", midi.getDeviceDefinitionFile());
+          }
+          writer.writeClosingTag("midiDevice");
+        }
+
+        boolean hasLabels = false;
+        for (int i = 0; i < 120; i++) {
+          String fallback = "CC " + i;
+          if (i == 1) fallback = "Mod Wheel";
+          else if (i == 7) fallback = "Volume";
+          else if (i == 10) fallback = "Pan";
+          else if (i == 64) fallback = "Sustain";
+
+          if (!fallback.equals(midi.getCcLabel(i))) {
+            hasLabels = true;
+            break;
+          }
+        }
+        if (hasLabels) {
+          writer.writeOpeningTagBeginning("ccLabels");
+          writer.writeOpeningTagEnd();
+          for (int i = 0; i < 120; i++) {
+            String fallback = "CC " + i;
+            if (i == 1) fallback = "Mod Wheel";
+            else if (i == 7) fallback = "Volume";
+            else if (i == 10) fallback = "Pan";
+            else if (i == 64) fallback = "Sustain";
+
+            if (!fallback.equals(midi.getCcLabel(i))) {
+              writer.writeTag("cc" + i, midi.getCcLabel(i));
+            }
+          }
+          writer.writeClosingTag("ccLabels");
+        }
+        writer.writeClosingTag("sound");
+
       } else if (track instanceof SynthTrackModel) {
         SynthTrackModel synth = (SynthTrackModel) track;
         writer.writeOpeningTagBeginning("sound");
@@ -266,6 +345,9 @@ public class ProjectSerializer {
         }
         if (synth.isSoloingInArrangement()) {
           writer.writeAttribute("isSoloingInArrangement", "1", false);
+        }
+        if (synth.getDefaultVelocity() != 64) {
+          writer.writeAttribute("defaultVelocity", synth.getDefaultVelocity(), false);
         }
         if (ciBuilder.length() > 2) {
           writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
@@ -368,6 +450,87 @@ public class ProjectSerializer {
         writer.writeOpeningTagBeginning("arpeggiator");
         writer.writeAttribute("mode", synth.getArp().mode().toLowerCase(), false);
         writer.writeAttribute("active", synth.getArp().active() ? "1" : "0", false);
+        writer.writeAttribute("sequenceLength", synth.getArp().seqLength(), false);
+        writer.writeAttribute("arpMode", synth.getArp().active() ? "arp" : "off", false);
+        if (synth.getArp().notePattern() != null && !synth.getArp().notePattern().isEmpty()) {
+          writer.writeAttribute("notePattern", synth.getArp().notePattern(), false);
+        }
+        writer.writeAttribute("chordType", synth.getArp().chordType(), false);
+
+        writer.writeAttribute("numOctaves", synth.getArp().numOctaves(), false);
+        writer.writeAttribute("kitArp", synth.getArp().kitArp(), false);
+        writer.writeAttribute("randomizerLock", synth.getArp().randomizerLock(), false);
+
+        writer.writeAttribute("lastLockedNoteProb", synth.getArp().lastLockedNoteProb(), false);
+        if (synth.getArp().lockedNoteProbArray() != null
+            && !synth.getArp().lockedNoteProbArray().isEmpty()) {
+          writer.writeAttribute("lockedNoteProbArray", synth.getArp().lockedNoteProbArray(), false);
+        }
+
+        writer.writeAttribute("lastLockedBassProb", synth.getArp().lastLockedBassProb(), false);
+        if (synth.getArp().lockedBassProbArray() != null
+            && !synth.getArp().lockedBassProbArray().isEmpty()) {
+          writer.writeAttribute("lockedBassProbArray", synth.getArp().lockedBassProbArray(), false);
+        }
+
+        writer.writeAttribute("lastLockedSwapProb", synth.getArp().lastLockedSwapProb(), false);
+        if (synth.getArp().lockedSwapProbArray() != null
+            && !synth.getArp().lockedSwapProbArray().isEmpty()) {
+          writer.writeAttribute("lockedSwapProbArray", synth.getArp().lockedSwapProbArray(), false);
+        }
+
+        writer.writeAttribute("lastLockedGlideProb", synth.getArp().lastLockedGlideProb(), false);
+        if (synth.getArp().lockedGlideProbArray() != null
+            && !synth.getArp().lockedGlideProbArray().isEmpty()) {
+          writer.writeAttribute(
+              "lockedGlideProbArray", synth.getArp().lockedGlideProbArray(), false);
+        }
+
+        writer.writeAttribute(
+            "lastLockedReverseProb", synth.getArp().lastLockedReverseProb(), false);
+        if (synth.getArp().lockedReverseProbArray() != null
+            && !synth.getArp().lockedReverseProbArray().isEmpty()) {
+          writer.writeAttribute(
+              "lockedReverseProbArray", synth.getArp().lockedReverseProbArray(), false);
+        }
+
+        writer.writeAttribute("lastLockedChordProb", synth.getArp().lastLockedChordProb(), false);
+        if (synth.getArp().lockedChordProbArray() != null
+            && !synth.getArp().lockedChordProbArray().isEmpty()) {
+          writer.writeAttribute(
+              "lockedChordProbArray", synth.getArp().lockedChordProbArray(), false);
+        }
+
+        writer.writeAttribute(
+            "lastLockedRatchetProb", synth.getArp().lastLockedRatchetProb(), false);
+        if (synth.getArp().lockedRatchetProbArray() != null
+            && !synth.getArp().lockedRatchetProbArray().isEmpty()) {
+          writer.writeAttribute(
+              "lockedRatchetProbArray", synth.getArp().lockedRatchetProbArray(), false);
+        }
+
+        writer.writeAttribute(
+            "lastLockedVelocitySpread", synth.getArp().lastLockedVelocitySpread(), false);
+        if (synth.getArp().lockedVelocitySpreadArray() != null
+            && !synth.getArp().lockedVelocitySpreadArray().isEmpty()) {
+          writer.writeAttribute(
+              "lockedVelocitySpreadArray", synth.getArp().lockedVelocitySpreadArray(), false);
+        }
+
+        writer.writeAttribute("lastLockedGateSpread", synth.getArp().lastLockedGateSpread(), false);
+        if (synth.getArp().lockedGateSpreadArray() != null
+            && !synth.getArp().lockedGateSpreadArray().isEmpty()) {
+          writer.writeAttribute(
+              "lockedGateSpreadArray", synth.getArp().lockedGateSpreadArray(), false);
+        }
+
+        writer.writeAttribute(
+            "lastLockedOctaveSpread", synth.getArp().lastLockedOctaveSpread(), false);
+        if (synth.getArp().lockedOctaveSpreadArray() != null
+            && !synth.getArp().lockedOctaveSpreadArray().isEmpty()) {
+          writer.writeAttribute(
+              "lockedOctaveSpreadArray", synth.getArp().lockedOctaveSpreadArray(), false);
+        }
         writer.writeOpeningTagEnd();
         writeHexTag(writer, "rate", synth.getArp().rate());
         writer.writeTag("octaves", String.valueOf(synth.getArp().octaves()));
@@ -524,7 +687,7 @@ public class ProjectSerializer {
         writeHexTag(writer, "modFXFeedback", synth.getModFxFeedback());
         writer.writeClosingTag("defaultParams");
 
-        writer.writeTag("midiKnobs", "");
+        serializeMidiKnobs(writer, synth.getMidiKnobs());
 
         // modKnobs
         boolean hasKnobs = synth.getModKnobs().stream().anyMatch(k -> !"NONE".equals(k.param()));
@@ -565,6 +728,9 @@ public class ProjectSerializer {
           // NOT a clip attribute — it is written in the <instruments> block above. Session clips
           // carry only `section` (clip.cpp). Do not write clipInstances here.
           writer.writeOpeningTagBeginning("instrumentClip");
+          if (clip.getName() != null) {
+            writer.writeAttribute("clipName", clip.getName(), false);
+          }
           if (track instanceof KitTrackModel) {
             writer.writeAttribute("instrumentPresetName", track.getName(), false);
             writer.writeAttribute("instrumentPresetFolder", "KITS", false);
@@ -659,6 +825,16 @@ public class ProjectSerializer {
             }
             writer.writeArrayEnding("noteRows");
           }
+
+          writer.writeOpeningTagBeginning("columnControls");
+          writer.writeOpeningTagEnd();
+          writer.writeOpeningTagBeginning("leftCol");
+          writer.writeAttribute("type", clip.getLeftCol(), false);
+          writer.closeTag();
+          writer.writeOpeningTagBeginning("rightCol");
+          writer.writeAttribute("type", clip.getRightCol(), false);
+          writer.closeTag();
+          writer.writeClosingTag("columnControls");
 
           writer.writeClosingTag("instrumentClip");
         }
@@ -830,6 +1006,10 @@ public class ProjectSerializer {
     writer.writeAttribute("compHPF", (int) (model.getReverbCompHpf() * Integer.MAX_VALUE), false);
     writer.writeAttribute(
         "compBlend", (int) (model.getReverbCompBlend() * Integer.MAX_VALUE), false);
+    writer.writeAttribute(
+        "shape", (int) (model.getReverbCompressorShape() * Integer.MAX_VALUE), false);
+    writer.writeAttribute(
+        "volume", (int) (model.getReverbCompressorVolume() * Integer.MAX_VALUE), false);
     writer.closeTag();
 
     writer.writeClosingTag("reverb");
@@ -999,6 +1179,8 @@ public class ProjectSerializer {
         "reverbAmount", DelugeHexMapper.unipolarFloatToHexUnified(synth.getReverbSend()), false);
     writer.writeAttribute(
         "delayRate", DelugeHexMapper.unipolarFloatToHexUnified(synth.getDelaySend()), false);
+    writer.writeAttribute(
+        "arpeggiatorRate", DelugeHexMapper.unipolarFloatToHexUnified(synth.getArpRate()), false);
 
     // Write any raw patched parameters (like sidechain shape)
     for (var entry : synth.getRawParamKnobs().entrySet()) {
@@ -1148,5 +1330,26 @@ public class ProjectSerializer {
     writer.closeTag();
 
     writer.writeClosingTag("audioClip");
+  }
+
+  private static void serializeMidiKnobs(XMLSerializer writer, List<MidiKnob> midiKnobs)
+      throws IOException {
+    if (midiKnobs != null && !midiKnobs.isEmpty()) {
+      writer.writeArrayStart("midiKnobs");
+      for (MidiKnob mk : midiKnobs) {
+        writer.writeOpeningTagBeginning("midiKnob");
+        writer.writeAttribute("channel", mk.channel(), false);
+        writer.writeAttribute("ccNumber", mk.ccNumber(), false);
+        writer.writeAttribute("relative", mk.relative() ? 1 : 0, false);
+        writer.writeAttribute("controlsParam", mk.controlsParam(), false);
+        if (mk.patchSource() != null && !"NONE".equals(mk.patchSource())) {
+          writer.writeAttribute("patchAmountFromSource", mk.patchSource(), false);
+        }
+        writer.closeTag();
+      }
+      writer.writeArrayEnding("midiKnobs");
+    } else {
+      writer.writeTag("midiKnobs", "");
+    }
   }
 }

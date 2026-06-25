@@ -54,76 +54,7 @@ public class XmlElementCoverageTest {
 
   // Audited names the C reads but our parser does NOT yet act on. Shrinks as we fix them.
   // (docs: the XML coverage audit.) Anything here is a known, tracked bug — not a silent ignore.
-  private static final Set<String> KNOWN_GAPS =
-      new TreeSet<>(
-          Set.of(
-              // 🔴 sound-affecting. FIXED+verified: pitchAdjust (overall), oscA/BPulseWidth,
-              // oscA/BPitchAdjust.
-              // oscA/BPulseWidth fix: ported the bit-faithful band-limited pulse renderer
-              // (renderPulseWave, the two-read polarity-flipped product from
-              // waveRenderingFunctionPulse)              // duty now tracks pulseWidth
-              // (SquarePwmRenderTest:
-              // 50%→24%→12%→3%). oscA/BPitchAdjust are now fully parsed and round-tripped!
-              "filterType",
-              "filterSlope",
-              "lpfHpfOrder",
-              "distortionAmount",
-              "distortionType",
-              "noiseLevel",
-              "oscLevel1",
-              "oscLevel2",
-              "oscLevel",
-              "amplitudes",
-              "isPolyphonic",
-              "soundGroupMode",
-              "filters",
-              "eq",
-              "pitch",
-              "time",
-              // 🟠 note / clip / arp / kit data
-              "noteDataWithSplitProb",
-              "defaultVelocity",
-              "sequenceLength",
-              "notePattern",
-              "noteForDrum",
-              "chordType",
-              "arpeggiatorRate",
-              "kitArp",
-              "numOctaves",
-              "randomizerLock",
-              "columnControls",
-              "midiKnob",
-              "midiKnobs",
-              "midiOutput",
-              "selectedDrumIndex",
-              "soundSources",
-              "leftCol",
-              "rightCol",
-              "ccNumber",
-              "channel",
-              "clipName",
-              "shape",
-              // arp randomizer locks
-              "lastLockedBassProb",
-              "lastLockedChordProb",
-              "lastLockedGateSpread",
-              "lastLockedGlideProb",
-              "lastLockedNoteProb",
-              "lastLockedOctaveSpread",
-              "lastLockedRatchetProb",
-              "lastLockedReverseProb",
-              "lastLockedSwapProb",
-              "lastLockedVelocitySpread",
-              "lockedBassProbArray",
-              "lockedChordProbArray",
-              "lockedGateSpreadArray",
-              "lockedGlideProbArray",
-              "lockedNoteProbArray",
-              "lockedOctaveSpreadArray",
-              "lockedRatchetProbArray",
-              "lockedReverseProbArray",
-              "lockedSwapProbArray",
-              "lockedVelocitySpreadArray"));
+  private static final Set<String> KNOWN_GAPS = new TreeSet<>(Set.of());
 
   @Test
   void noXmlElementIsSilentlyIgnored() throws IOException {

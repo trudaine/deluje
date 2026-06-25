@@ -44,6 +44,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   private int reverbCompressorSyncLevel = 0;
   private float reverbCompHpf = 0.0f;
   private float reverbCompBlend = 0.5f;
+  private float reverbCompressorShape = 0.0f;
+  private float reverbCompressorVolume = 0.0f;
 
   // ── Song-level delay params ──
   private int delayPingPong = 0;
@@ -1007,6 +1009,32 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     this.reverbCompBlend = v;
     if (old != v)
       undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "reverbCompBlend", old, v));
+    notifyReverbChanged();
+  }
+
+  public float getReverbCompressorShape() {
+    return reverbCompressorShape;
+  }
+
+  public void setReverbCompressorShape(float v) {
+    float old = this.reverbCompressorShape;
+    this.reverbCompressorShape = v;
+    if (old != v)
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "reverbCompressorShape", old, v));
+    notifyReverbChanged();
+  }
+
+  public float getReverbCompressorVolume() {
+    return reverbCompressorVolume;
+  }
+
+  public void setReverbCompressorVolume(float v) {
+    float old = this.reverbCompressorVolume;
+    this.reverbCompressorVolume = v;
+    if (old != v)
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(this, "reverbCompressorVolume", old, v));
     notifyReverbChanged();
   }
 

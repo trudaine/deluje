@@ -139,20 +139,25 @@
 					<midiKnobs></midiKnobs>
 				</sound>
 			</soundSources>
+			<selectedDrumIndex>0</selectedDrumIndex>
 		</kit>
 	</instruments>
 	<sessionClips>
-		<instrumentClip instrumentPresetName="Synth Kit" instrumentPresetFolder="KITS" length="384" isPlaying="1">
+		<instrumentClip clipName="Drum Clip" instrumentPresetName="Synth Kit" instrumentPresetFolder="KITS" length="384" isPlaying="1">
 			<kitParams volume="0x7FFFFFFF" pan="0x40000000" />
 			<noteRows>
 				<noteRow drumIndex="0" noteDataWithLift="0x00000000000001207240140000006000000120724014000000C0000001207240140000012000000120724014" noteDataWithSplitProb="0x00000000000001207240140000000000006000000120724014000000000000C0000001207240140000000000012000000120724014000000" />
 				<noteRow drumIndex="1" noteDataWithLift="0x00000060000001206C401400000120000001206C4014" noteDataWithSplitProb="0x00000060000001206C401400000000000120000001206C4014000000" />
 				<noteRow drumIndex="2" noteDataWithLift="0x0000000000000090594014000000300000009059401400000060000000905940140000009000000090594014000000C000000090594014000000F00000009059401400000120000000905940140000015000000090594014" noteDataWithSplitProb="0x0000000000000090594014000000000000300000009059401400000000000060000000905940140000000000009000000090594014000000000000C000000090594014000000000000F00000009059401400000000000120000000905940140000000000015000000090594014000000" />
 			</noteRows>
+			<columnControls>
+				<leftCol type="VELOCITY" />
+				<rightCol type="MOD" />
+			</columnControls>
 		</instrumentClip>
 	</sessionClips>
 	<reverb roomSize="1288490240" dampening="1073741824" width="1073741824" hpf="0" pan="0" model="0">
-		<compressor attack="0" release="0" syncLevel="0" compHPF="0" compBlend="1073741824" />
+		<compressor attack="0" release="0" syncLevel="0" compHPF="0" compBlend="1073741824" shape="0" volume="0" />
 	</reverb>
 	<delay pingPong="0" analog="0" syncLevel="0" syncType="0" />
 	<sidechain attack="326417" release="923" syncLevel="0" syncType="0" />

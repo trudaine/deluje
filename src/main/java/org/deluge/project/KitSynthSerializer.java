@@ -1,6 +1,7 @@
 package org.deluge.project;
 
 import java.io.File;
+import java.util.List;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.OutputKeys;
@@ -8,11 +9,13 @@ import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+import org.deluge.firmware2.Param;
 import org.deluge.model.Drum;
 import org.deluge.model.EnvelopeModel;
 import org.deluge.model.KitTrackModel;
 import org.deluge.model.LfoModel;
 import org.deluge.model.LfoType;
+import org.deluge.model.MidiKnob;
 import org.deluge.model.ModKnob;
 import org.deluge.model.PatchCable;
 import org.deluge.model.SoundDrum;
@@ -267,8 +270,8 @@ public class KitSynthSerializer {
       appendHexChild(doc, dp, "modFXFeedback", 0f);
       soundElem.appendChild(dp);
 
-      // ── midiKnobs (empty container) ──
-      soundElem.appendChild(doc.createElement("midiKnobs"));
+      // ── midiKnobs ──
+      serializeMidiKnobs(doc, soundElem, sound.getMidiKnobs());
 
       // ── modKnobs ──
       boolean hasKnobs = sound.getModKnobs().stream().anyMatch(k -> !"NONE".equals(k.param()));
@@ -287,8 +290,18 @@ public class KitSynthSerializer {
         soundElem.appendChild(mkContainer);
       }
 
+      // ── midiOutput ──
+      if (sound.getMidiChannel() != 255 || sound.getNoteForDrum() != 255) {
+        Element midiOutput = doc.createElement("midiOutput");
+        midiOutput.setAttribute("channel", String.valueOf(sound.getMidiChannel()));
+        midiOutput.setAttribute("noteForDrum", String.valueOf(sound.getNoteForDrum()));
+        soundElem.appendChild(midiOutput);
+      }
+
       root.appendChild(soundElem);
     }
+
+    appendTextChild(doc, root, "selectedDrumIndex", String.valueOf(kit.getSelectedDrumIndex()));
 
     return root;
   }
@@ -397,6 +410,80 @@ public class KitSynthSerializer {
     Element arp = doc.createElement("arpeggiator");
     arp.setAttribute("mode", synth.getArp().mode().toLowerCase());
     arp.setAttribute("active", synth.getArp().active() ? "1" : "0");
+    arp.setAttribute("sequenceLength", String.valueOf(synth.getArp().seqLength()));
+    arp.setAttribute("arpMode", synth.getArp().active() ? "arp" : "off");
+    if (synth.getArp().notePattern() != null && !synth.getArp().notePattern().isEmpty()) {
+      arp.setAttribute("notePattern", synth.getArp().notePattern());
+    }
+    arp.setAttribute("chordType", String.valueOf(synth.getArp().chordType()));
+
+    arp.setAttribute("numOctaves", String.valueOf(synth.getArp().numOctaves()));
+    arp.setAttribute("kitArp", String.valueOf(synth.getArp().kitArp()));
+    arp.setAttribute("randomizerLock", String.valueOf(synth.getArp().randomizerLock()));
+
+    arp.setAttribute("lastLockedNoteProb", String.valueOf(synth.getArp().lastLockedNoteProb()));
+    if (synth.getArp().lockedNoteProbArray() != null
+        && !synth.getArp().lockedNoteProbArray().isEmpty()) {
+      arp.setAttribute("lockedNoteProbArray", synth.getArp().lockedNoteProbArray());
+    }
+
+    arp.setAttribute("lastLockedBassProb", String.valueOf(synth.getArp().lastLockedBassProb()));
+    if (synth.getArp().lockedBassProbArray() != null
+        && !synth.getArp().lockedBassProbArray().isEmpty()) {
+      arp.setAttribute("lockedBassProbArray", synth.getArp().lockedBassProbArray());
+    }
+
+    arp.setAttribute("lastLockedSwapProb", String.valueOf(synth.getArp().lastLockedSwapProb()));
+    if (synth.getArp().lockedSwapProbArray() != null
+        && !synth.getArp().lockedSwapProbArray().isEmpty()) {
+      arp.setAttribute("lockedSwapProbArray", synth.getArp().lockedSwapProbArray());
+    }
+
+    arp.setAttribute("lastLockedGlideProb", String.valueOf(synth.getArp().lastLockedGlideProb()));
+    if (synth.getArp().lockedGlideProbArray() != null
+        && !synth.getArp().lockedGlideProbArray().isEmpty()) {
+      arp.setAttribute("lockedGlideProbArray", synth.getArp().lockedGlideProbArray());
+    }
+
+    arp.setAttribute(
+        "lastLockedReverseProb", String.valueOf(synth.getArp().lastLockedReverseProb()));
+    if (synth.getArp().lockedReverseProbArray() != null
+        && !synth.getArp().lockedReverseProbArray().isEmpty()) {
+      arp.setAttribute("lockedReverseProbArray", synth.getArp().lockedReverseProbArray());
+    }
+
+    arp.setAttribute("lastLockedChordProb", String.valueOf(synth.getArp().lastLockedChordProb()));
+    if (synth.getArp().lockedChordProbArray() != null
+        && !synth.getArp().lockedChordProbArray().isEmpty()) {
+      arp.setAttribute("lockedChordProbArray", synth.getArp().lockedChordProbArray());
+    }
+
+    arp.setAttribute(
+        "lastLockedRatchetProb", String.valueOf(synth.getArp().lastLockedRatchetProb()));
+    if (synth.getArp().lockedRatchetProbArray() != null
+        && !synth.getArp().lockedRatchetProbArray().isEmpty()) {
+      arp.setAttribute("lockedRatchetProbArray", synth.getArp().lockedRatchetProbArray());
+    }
+
+    arp.setAttribute(
+        "lastLockedVelocitySpread", String.valueOf(synth.getArp().lastLockedVelocitySpread()));
+    if (synth.getArp().lockedVelocitySpreadArray() != null
+        && !synth.getArp().lockedVelocitySpreadArray().isEmpty()) {
+      arp.setAttribute("lockedVelocitySpreadArray", synth.getArp().lockedVelocitySpreadArray());
+    }
+
+    arp.setAttribute("lastLockedGateSpread", String.valueOf(synth.getArp().lastLockedGateSpread()));
+    if (synth.getArp().lockedGateSpreadArray() != null
+        && !synth.getArp().lockedGateSpreadArray().isEmpty()) {
+      arp.setAttribute("lockedGateSpreadArray", synth.getArp().lockedGateSpreadArray());
+    }
+
+    arp.setAttribute(
+        "lastLockedOctaveSpread", String.valueOf(synth.getArp().lastLockedOctaveSpread()));
+    if (synth.getArp().lockedOctaveSpreadArray() != null
+        && !synth.getArp().lockedOctaveSpreadArray().isEmpty()) {
+      arp.setAttribute("lockedOctaveSpreadArray", synth.getArp().lockedOctaveSpreadArray());
+    }
     appendHexChild(doc, arp, "rate", synth.getArp().rate());
     appendTextChild(doc, arp, "octaves", String.valueOf(synth.getArp().octaves()));
     appendHexChild(doc, arp, "gate", synth.getArp().gate());
@@ -474,6 +561,11 @@ public class KitSynthSerializer {
     if (synth.getPitchAdjustQ31() != Integer.MIN_VALUE) {
       appendRawQ31Child(doc, dp, "pitchAdjust", synth.getPitchAdjustQ31());
     }
+    Integer pitchVal = synth.getRawParamKnobs().get(Param.LOCAL_PITCH_ADJUST);
+    int pitchQ31 = pitchVal != null ? pitchVal : 0;
+    if (pitchQ31 != 0) {
+      appendRawQ31Child(doc, dp, "pitch", pitchQ31);
+    }
     if (synth.getOsc1PitchAdjustQ31() != Integer.MIN_VALUE) {
       appendRawQ31Child(doc, dp, "oscAPitchAdjust", synth.getOsc1PitchAdjustQ31());
     }
@@ -504,7 +596,7 @@ public class KitSynthSerializer {
     appendHexChildUnipolar(doc, dp, "delayRate", synth.getDelaySend());
     appendHexChildUnipolar(doc, dp, "delayFeedback", 0f);
     appendHexChildUnipolar(doc, dp, "reverbAmount", synth.getReverbSend());
-    appendHexChildUnipolar(doc, dp, "arpeggiatorRate", 0f);
+    appendHexChildUnipolar(doc, dp, "arpeggiatorRate", synth.getArpRate());
     appendHexChildUnipolar(doc, dp, "stutterRate", synth.getStutterRate());
     appendHexChildUnipolar(doc, dp, "sampleRateReduction", synth.getSampleRateReduction());
     appendHexChildUnipolar(doc, dp, "bitCrush", synth.getBitCrush());
@@ -540,7 +632,7 @@ public class KitSynthSerializer {
     root.appendChild(dp);
 
     // ── midiKnobs ──
-    root.appendChild(doc.createElement("midiKnobs"));
+    serializeMidiKnobs(doc, root, synth.getMidiKnobs());
 
     // ── modKnobs ──
     boolean hasKnobs = synth.getModKnobs().stream().anyMatch(k -> !"NONE".equals(k.param()));
@@ -701,5 +793,25 @@ public class KitSynthSerializer {
     t.setOutputProperty(OutputKeys.INDENT, "yes");
     t.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
     t.transform(new DOMSource(doc), new StreamResult(file));
+  }
+
+  private static void serializeMidiKnobs(Document doc, Element parent, List<MidiKnob> midiKnobs) {
+    if (midiKnobs != null && !midiKnobs.isEmpty()) {
+      Element container = doc.createElement("midiKnobs");
+      for (MidiKnob mk : midiKnobs) {
+        Element knob = doc.createElement("midiKnob");
+        knob.setAttribute("channel", String.valueOf(mk.channel()));
+        knob.setAttribute("ccNumber", String.valueOf(mk.ccNumber()));
+        knob.setAttribute("relative", mk.relative() ? "1" : "0");
+        knob.setAttribute("controlsParam", mk.controlsParam());
+        if (mk.patchSource() != null && !"NONE".equals(mk.patchSource())) {
+          knob.setAttribute("patchAmountFromSource", mk.patchSource());
+        }
+        container.appendChild(knob);
+      }
+      parent.appendChild(container);
+    } else {
+      parent.appendChild(doc.createElement("midiKnobs"));
+    }
   }
 }

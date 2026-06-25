@@ -12,6 +12,7 @@ public abstract class TrackModel {
   private boolean soloingInArrangement = false;
   private float volume = 1.0f;
   private float pan = 0.5f;
+  private int defaultVelocity = 64;
 
   private final List<ClipModel> clips = new ArrayList<>();
   private int activeClipIndex = 0;
@@ -118,5 +119,13 @@ public abstract class TrackModel {
       return clips.get(activeClipIndex);
     }
     return null;
+  }
+
+  public int getDefaultVelocity() {
+    return defaultVelocity;
+  }
+
+  public void setDefaultVelocity(int defaultVelocity) {
+    this.defaultVelocity = Math.max(1, Math.min(127, defaultVelocity));
   }
 }
