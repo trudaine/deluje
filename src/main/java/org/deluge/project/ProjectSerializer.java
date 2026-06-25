@@ -71,8 +71,14 @@ public class ProjectSerializer {
     }
     int yScrollSongView = Math.max(-7, numClips - 8);
 
-    writer.writeAttribute("yScrollArrangementView", -7, false);
+    writer.writeAttribute("yScrollArrangementView", 0, false);
     writer.writeAttribute("yScrollSongView", yScrollSongView, false);
+    // C song.cpp:1148 — boot straight into the Arranger when requested, so arrangement
+    // (clipInstances)
+    // playback drives the song instead of every session clip firing at once.
+    if (model.isBootInArrangementView()) {
+      writer.writeAttribute("inArrangementView", 1, false);
+    }
     writer.writeOpeningTagEnd();
 
     // ── modeNotes (scale degrees) ──
@@ -499,7 +505,9 @@ public class ProjectSerializer {
           int stepTicks = clip.isTripletMode() ? 32 : 24;
           int lengthTicks = clip.getStepCount() * stepTicks;
           writer.writeAttribute("length", lengthTicks, false);
-          writer.writeAttribute("isPlaying", "1", false);
+          // C clip.cpp:659 — isPlaying == activeIfNoSolo (session-active). All-active = every clip
+          // fires at once in session view; arranger songs keep these inactive.
+          writer.writeAttribute("isPlaying", clip.isActiveInSession() ? "1" : "0", false);
           // C clip.cpp:667 — write section only when assigned (!= 255 unassigned).
           if (clip.getSection() != 255) {
             writer.writeAttribute("section", clip.getSection(), false);
