@@ -375,6 +375,28 @@ public class SynthTrackModel extends TrackModel {
     this.osc1SamplePath = p;
   }
 
+  // Verbatim <osc1>/<osc2> XML for multisample (<sampleRanges>) oscillators, captured on parse and
+  // re-emitted unchanged so keyzone presets survive a song round-trip (our model doesn't re-model
+  // keyzones). Null for normal oscillators.
+  private String osc1RawXml = null;
+  private String osc2RawXml = null;
+
+  public String getOsc1RawXml() {
+    return osc1RawXml;
+  }
+
+  public void setOsc1RawXml(String x) {
+    this.osc1RawXml = x;
+  }
+
+  public String getOsc2RawXml() {
+    return osc2RawXml;
+  }
+
+  public void setOsc2RawXml(String x) {
+    this.osc2RawXml = x;
+  }
+
   public String getOsc2SamplePath() {
     return osc2SamplePath;
   }

@@ -247,30 +247,41 @@ public class ProjectSerializer {
         }
         writer.writeOpeningTagEnd();
 
-        // osc1
-        writer.writeOpeningTagBeginning("osc1");
-        writer.writeAttribute("type", synth.getOsc1Type().toLowerCase(), false);
-        writer.writeAttribute("transpose", "0", false);
-        writer.writeAttribute("cents", String.valueOf(synth.getOsc1Cents()), false);
-        writer.writeAttribute("retrigPhase", String.valueOf(synth.getOsc1RetrigPhase()), false);
-        if (synth.getOsc1SamplePath() != null && !synth.getOsc1SamplePath().isEmpty()) {
-          writer.writeAttribute("fileName", synth.getOsc1SamplePath(), false);
+        // osc1 — multisample (<sampleRanges>) presets are preserved verbatim (our model doesn't
+        // re-model keyzones, so a raw round-trip is the faithful path); otherwise synthesize.
+        if (synth.getOsc1RawXml() != null) {
+          writer.write("\n");
+          writer.write(synth.getOsc1RawXml());
+        } else {
+          writer.writeOpeningTagBeginning("osc1");
+          writer.writeAttribute("type", synth.getOsc1Type().toLowerCase(), false);
+          writer.writeAttribute("transpose", "0", false);
+          writer.writeAttribute("cents", String.valueOf(synth.getOsc1Cents()), false);
+          writer.writeAttribute("retrigPhase", String.valueOf(synth.getOsc1RetrigPhase()), false);
+          if (synth.getOsc1SamplePath() != null && !synth.getOsc1SamplePath().isEmpty()) {
+            writer.writeAttribute("fileName", synth.getOsc1SamplePath(), false);
+          }
+          if (synth.getDx7Patch() != null) {
+            writer.writeAttribute("dx7patch", synth.getDx7Patch(), false);
+          }
+          writer.closeTag();
         }
-        if (synth.getDx7Patch() != null) {
-          writer.writeAttribute("dx7patch", synth.getDx7Patch(), false);
-        }
-        writer.closeTag();
 
         // osc2
-        writer.writeOpeningTagBeginning("osc2");
-        writer.writeAttribute("type", synth.getOsc2Type().toLowerCase(), false);
-        writer.writeAttribute("transpose", String.valueOf(synth.getOsc2Transpose()), false);
-        writer.writeAttribute("cents", String.valueOf(synth.getOsc2Cents()), false);
-        writer.writeAttribute("retrigPhase", String.valueOf(synth.getOsc2RetrigPhase()), false);
-        if (synth.getOsc2SamplePath() != null && !synth.getOsc2SamplePath().isEmpty()) {
-          writer.writeAttribute("fileName", synth.getOsc2SamplePath(), false);
+        if (synth.getOsc2RawXml() != null) {
+          writer.write("\n");
+          writer.write(synth.getOsc2RawXml());
+        } else {
+          writer.writeOpeningTagBeginning("osc2");
+          writer.writeAttribute("type", synth.getOsc2Type().toLowerCase(), false);
+          writer.writeAttribute("transpose", String.valueOf(synth.getOsc2Transpose()), false);
+          writer.writeAttribute("cents", String.valueOf(synth.getOsc2Cents()), false);
+          writer.writeAttribute("retrigPhase", String.valueOf(synth.getOsc2RetrigPhase()), false);
+          if (synth.getOsc2SamplePath() != null && !synth.getOsc2SamplePath().isEmpty()) {
+            writer.writeAttribute("fileName", synth.getOsc2SamplePath(), false);
+          }
+          writer.closeTag();
         }
-        writer.closeTag();
 
         String polyVal =
             switch (synth.getPolyphony()) {
