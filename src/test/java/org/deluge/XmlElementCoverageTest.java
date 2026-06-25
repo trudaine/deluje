@@ -58,14 +58,18 @@ public class XmlElementCoverageTest {
       new TreeSet<>(
           Set.of(
               // 🔴 sound-affecting. FIXED+verified: pitchAdjust (overall) only.
-              // oscA/BPulseWidth + oscA/BPitchAdjust remain gaps — UNVERIFIED, deliberately not
-              // claimed. Findings: (1) an earlier "PWM fix" was a false positive — the analog-noise
-              // seed drifted between renders (tests now reset it via Functions.resetNoiseSeed);
-              // (2) RMS cannot detect pulse width at all — a ±A square has RMS=A for ANY duty, so a
-              // correct test needs a duty/spectral metric; (3) the value reaches paramFinalValues
-              // with an explicit syncParamsToFw2() but not reliably via model→factory→triggerNote
-              // (sync-ordering crux). Resolve sync ordering + use a duty metric before claiming
-              // fixed.
+              // oscA/BPulseWidth + oscA/BPitchAdjust remain gaps — root-caused, NOT yet fixed:
+              //  * Spectral diag (Goertzel) on a SQUARE: f1(261Hz)=5312 strong, but f2(522Hz)≈0 and
+              //    the output is BYTE-IDENTICAL for pulseWidth 0 vs 0x50000000 → the param has zero
+              //    effect on the steady render.
+              //  * paramFinalValues[LOCAL_OSC_A_PHASE_WIDTH] IS set at noteOn (0x28000000) but the
+              //    value is gone by the steady-state per-block patch → the fix is in the per-block
+              //    patching/param-sync path, an engine change (a dedicated task, not param
+              // plumbing).
+              //  * Lessons banked: reset the noise seed (Functions.resetNoiseSeed) AND use a
+              //    SPECTRAL metric (2nd-harmonic) — RMS is invariant to square duty and gave a
+              // false
+              //    positive earlier.
               "oscAPulseWidth",
               "oscBPulseWidth",
               "oscAPitchAdjust",
