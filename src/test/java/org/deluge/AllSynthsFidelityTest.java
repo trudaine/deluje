@@ -73,10 +73,11 @@ public class AllSynthsFidelityTest {
         project.addTrack(synth);
         synthNames.add(synth.getName());
 
-        // Place this clip on the arranger timeline at bar barIdx
+        // Place this clip on the arranger timeline AND song sections
         int startTicks = barIdx * ticksPerSynth;
         project.addArrangerClip(
             new ArrangerClip(synthNames.size() - 1, clip, startTicks, ticksPerSynth));
+        project.addSongSection(new SongSection(String.valueOf(barIdx))); // numRepeats defaults to 0
         barIdx++;
       } catch (Exception e) {
         System.out.println("[AllSynths] Skipping " + f.getName() + ": " + e.getMessage());
