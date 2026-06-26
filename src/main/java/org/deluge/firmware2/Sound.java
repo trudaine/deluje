@@ -89,6 +89,12 @@ public class Sound extends GlobalEffectable {
   }
 
   /**
+   * Sound-level master transpose in semitones (C {@code sound.transpose}, voice.cpp:419). Added to
+   * the note code for ALL sources + modulators before per-source transpose (noteCodeWithMaster).
+   */
+  public int masterTranspose = 0;
+
+  /**
    * Per-oscillator semitone transpose (C {@code sources[s].transpose}, voice.cpp:439-442). Added to
    * the note code per source before computing the phase increment.
    */

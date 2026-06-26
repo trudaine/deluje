@@ -638,7 +638,7 @@ public class Voice {
     if (sound.synthMode != 1
         && (sound.oscTypes[0] == Oscillator.OscType.SAMPLE || isInputType(sound.oscTypes[0]))) {
       int pitchAdjustNeutralValue = 16777216; // default (and the INPUT_* neutral, C:457)
-      int oscNoteCode = noteCode;
+      int oscNoteCode = noteCode + sound.masterTranspose;
       if (sound.oscTypes[0] == Oscillator.OscType.SAMPLE
           && unisonParts[0].sources[0].sampleRef != null) {
         pitchAdjustNeutralValue =
@@ -682,7 +682,8 @@ public class Voice {
       }
     } else {
       // C voice.cpp:442 — transposedNoteCode = note + source transpose; then cents (line 505).
-      carrierIncA = calculateBasePhaseIncrement(noteCode + sound.sourceTranspose[0]);
+      carrierIncA =
+          calculateBasePhaseIncrement(noteCode + sound.masterTranspose + sound.sourceTranspose[0]);
       carrierIncA = sound.sourceFineTuners[0].detune(carrierIncA);
     }
     if (carrierIncA <= 0) {
@@ -694,7 +695,7 @@ public class Voice {
     if (sound.synthMode != 1
         && (sound.oscTypes[1] == Oscillator.OscType.SAMPLE || isInputType(sound.oscTypes[1]))) {
       int pitchAdjustNeutralValue = 16777216; // default (and the INPUT_* neutral, C:457)
-      int oscNoteCode = noteCode;
+      int oscNoteCode = noteCode + sound.masterTranspose;
       if (sound.oscTypes[1] == Oscillator.OscType.SAMPLE
           && unisonParts[0].sources[1].sampleRef != null) {
         pitchAdjustNeutralValue =
@@ -739,7 +740,8 @@ public class Voice {
     } else {
       // C voice.cpp:442 — osc B uses its OWN source transpose + cents (was: copied osc A, so osc 2
       // transpose/cents were silently ignored).
-      carrierIncB = calculateBasePhaseIncrement(noteCode + sound.sourceTranspose[1]);
+      carrierIncB =
+          calculateBasePhaseIncrement(noteCode + sound.masterTranspose + sound.sourceTranspose[1]);
       carrierIncB = sound.sourceFineTuners[1].detune(carrierIncB);
     }
 
@@ -777,7 +779,9 @@ public class Voice {
           continue;
         }
 
-        int modInc = calculateBasePhaseIncrement(noteCode + sound.modulatorTranspose[m]);
+        int modInc =
+            calculateBasePhaseIncrement(
+                noteCode + sound.masterTranspose + sound.modulatorTranspose[m]);
         if (modInc <= 0) {
           for (int u = 0; u < sound.numUnison; u++) {
             unisonParts[u].modulatorPhaseIncrement[m] = 0xFFFFFFFF; // inactive

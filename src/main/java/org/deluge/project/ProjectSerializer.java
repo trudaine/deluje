@@ -461,8 +461,10 @@ public class ProjectSerializer {
               default -> "1";
             };
         writer.writeTag("polyphonic", polyVal);
-        writer.writeTag("clippingAmount", "0");
-        writer.writeTag("voicePriority", "1");
+        // Was hardcoded "0"/"1" — dropped the preset's saturation/distortion (clippingAmount is
+        // parsed + applied to the engine) and voice priority. Write the real model values.
+        writer.writeTag("clippingAmount", String.valueOf(synth.getClippingAmount()));
+        writer.writeTag("voicePriority", String.valueOf(synth.getVoicePriority()));
 
         serializeLfo(writer, "lfo1", synth.getLfo(0));
         serializeLfo(writer, "lfo2", synth.getLfo(1));
@@ -485,7 +487,8 @@ public class ProjectSerializer {
               default -> "subtractive";
             };
         writer.writeTag("mode", mode);
-        writer.writeTag("transpose", "0");
+        // Sound-level master transpose — was hardcoded "0" (lost the preset's transpose).
+        writer.writeTag("transpose", String.valueOf(synth.getTranspose()));
 
         // modulator1
         writer.writeOpeningTagBeginning("modulator1");
