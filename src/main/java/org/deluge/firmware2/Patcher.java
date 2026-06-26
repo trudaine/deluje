@@ -23,6 +23,9 @@ public class Patcher {
     public int paramId;
     public int sourcesMask; // bitmask of active source types
     public final java.util.ArrayList<PatchCable> cables = new java.util.ArrayList<>();
+    public int targetSource =
+        -1; // if >= 0, this modulates the range/depth of targetSource -> targetParamId
+    public int targetParamId = -1;
 
     public Destination(int paramId) {
       this.paramId = paramId;
@@ -34,6 +37,7 @@ public class Patcher {
     public int source; // PatchSource ordinal
     public int amount; // Q31 strength
     public int polarity = BIPOLAR;
+    public int rangeValue = 536870912; // dynamic range adjustment value (default 1.0 in Q30)
     public static final int BIPOLAR = 0;
     public static final int UNIPOLAR = 1;
 
@@ -79,16 +83,40 @@ public class Patcher {
    */
   public static void performPatching(
       int[] knobValues, int[] sourceValues, PatchCableSet patchCableSet, int[] paramFinalValues) {
-    // paramFinalValues must already hold the curve-applied knob values for ALL params (call
-    // performInitialPatching first). This applies cable modulation on top, overwriting only the
-    // cabled (destination) params and leaving non-cabled params at their curve-applied base.
+    // 1. Reset all cable range values to neutral
     for (Destination dest : patchCableSet.destinations) {
+      for (PatchCable cable : dest.cables) {
+        cable.rangeValue = 536870912;
+      }
+    }
+
+    // 2. Evaluate range/depth modulating destinations first
+    for (Destination dest : patchCableSet.destinations) {
+      if (dest.targetSource >= 0) {
+        int combo = combineCablesLinearForRangeParam(dest, sourceValues, null);
+        int val = Functions.getFinalParameterValueLinear(536870912, combo);
+
+        // Apply this range value to the target patch cable
+        for (Destination targetDest : patchCableSet.destinations) {
+          if (targetDest.paramId == dest.targetParamId && targetDest.targetSource < 0) {
+            for (PatchCable targetCable : targetDest.cables) {
+              if (targetCable.source == dest.targetSource) {
+                targetCable.rangeValue = val;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Evaluate normal parameter destinations
+    for (Destination dest : patchCableSet.destinations) {
+      if (dest.targetSource >= 0) continue; // skip range destinations in this pass
+
       int p = dest.paramId;
       // C (patcher.cpp:118): the curve neutral is paramNeutralValues[param], which the C populates
-      // as
-      // getParamNeutralValue(param) (functions.cpp:180) — a STATIC per-param constant, NOT the
+      // as getParamNeutralValue(param) (functions.cpp:180) — a STATIC per-param constant, NOT the
       // knob.
-      // The knob (getSmoothedPatchedParamValue) is folded into the cable combination below instead.
       int staticNeutral = Functions.getParamNeutralValue(p);
       int finalValue;
 
@@ -140,7 +168,7 @@ public class Patcher {
     for (PatchCable cable : dest.cables) {
       int srcVal = sourceValues[cable.source];
       srcVal = cable.toPolarity(srcVal);
-      runningTotal = cableToLinearParam(runningTotal, srcVal, cable.amount);
+      runningTotal = cableToLinearParam(runningTotal, srcVal, cable.amount, cable.rangeValue);
     }
     return runningTotal - 536870912; // return in [-2^29, 3*2^29]
   }
@@ -154,7 +182,11 @@ public class Patcher {
       int srcVal = sourceValues[cable.source];
       srcVal = cable.toPolarity(srcVal);
       runningTotal =
-          cableToExpParam(runningTotal, srcVal, getModifiedPatchCableAmount(cable, dest.paramId));
+          cableToExpParam(
+              runningTotal,
+              srcVal,
+              getModifiedPatchCableAmount(cable, dest.paramId),
+              cable.rangeValue);
     }
     // Wave index hack: stretch twice as far
     if (dest.paramId == Param.LOCAL_OSC_A_WAVE_INDEX
@@ -177,9 +209,10 @@ public class Patcher {
     return Functions.lshiftAndSaturate(preLimits, 3);
   }
 
-  private static int cableToLinearParam(int runningTotal, int source, int strength) {
+  private static int cableToLinearParam(
+      int runningTotal, int source, int strength, int rangeValue) {
     int scaledSource = Functions.multiply_32x32_rshift32(source, strength);
-    scaledSource = applyRangeAdjustment(scaledSource);
+    scaledSource = applyRangeAdjustment(scaledSource, rangeValue);
     int madePositive = scaledSource + 536870912;
     int preLimits = Functions.multiply_32x32_rshift32(runningTotal, madePositive);
     return Functions.lshiftAndSaturate(preLimits, 3);
@@ -193,16 +226,16 @@ public class Patcher {
         runningTotal, Functions.multiply_32x32_rshift32(source, strength));
   }
 
-  private static int cableToExpParam(int runningTotal, int source, int strength) {
+  private static int cableToExpParam(int runningTotal, int source, int strength, int rangeValue) {
     int scaledSource = Functions.multiply_32x32_rshift32(source, strength);
-    scaledSource = applyRangeAdjustment(scaledSource);
+    scaledSource = applyRangeAdjustment(scaledSource, rangeValue);
     return Functions.add_saturate(runningTotal, scaledSource);
   }
 
   // ── applyRangeAdjustment (patcher.cpp) ──
 
-  private static int applyRangeAdjustment(int value) {
-    int small = Functions.multiply_32x32_rshift32(value, 536870912);
+  private static int applyRangeAdjustment(int value, int rangeValue) {
+    int small = Functions.multiply_32x32_rshift32(value, rangeValue);
     return Functions.signed_saturate(small, 32 - 5) << 3;
   }
 
@@ -265,14 +298,16 @@ public class Patcher {
     int runningTotal = 536870912;
     for (PatchCable cable : destination.cables) {
       int srcVal = sourceValues[cable.source];
-      srcVal = cable.toPolarity(srcVal);
-      // C (patcher.cpp:198): cable_strength = patch_cable.param.getCurrentValue() (the RAW current
-      // value, NOT getModifiedPatchCableAmount — that's only for exp cables). cable.amount is the
-      // fw2 stand-in for getCurrentValue (automation smoothing is the separate documented gap).
+      // Special exception: If we're patching aftertouch to range
+      if (cable.source == PatchSource.AFTERTOUCH.ordinal()) {
+        srcVal = (srcVal - 1073741824) << 1;
+      } else {
+        srcVal = cable.toPolarity(srcVal);
+      }
       int strength = cable.amount;
-      runningTotal = cableToLinearParam(runningTotal, srcVal, strength);
+      runningTotal = cableToLinearParamWithoutRangeAdjustment(runningTotal, srcVal, strength);
     }
-    return Functions.getFinalParameterValueLinear(536870912, runningTotal - 536870912);
+    return runningTotal - 536870912;
   }
 
   /**
