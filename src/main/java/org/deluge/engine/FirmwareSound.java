@@ -384,12 +384,23 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
         0,
         Math.min(paramNeutralValues.length, nextPatchedParamValues.length));
     for (int i = 0; i < Param.kNumParams; i++) {
+      int newValue = paramNeutralValues[i];
+      boolean fromAutomation = false;
       var auto = paramManager.getAutomatedParam(i);
       if (auto != null && !auto.nodes.isEmpty()) {
-        nextPatchedParamValues[i] = auto.currentValue;
+        newValue = auto.currentValue;
+        fromAutomation = true;
       } else if (paramKnobsPopulated) {
-        nextPatchedParamValues[i] = paramKnobs[i];
+        newValue = paramKnobs[i];
       }
+
+      int oldValue = fw2Sound.patchedParamValues[i];
+      if (newValue != oldValue) {
+        boolean shouldDoParamLPF =
+            Param.paramNeedsLPF(i, fromAutomation) && !fw2Sound.voices.isEmpty();
+        fw2Sound.notifyValueChangeViaLPF(i, shouldDoParamLPF, oldValue, newValue, fromAutomation);
+      }
+      nextPatchedParamValues[i] = newValue;
     }
 
     if (FirmwareAudioEngine.debugTelemetry

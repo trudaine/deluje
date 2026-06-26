@@ -70,8 +70,7 @@ public class PatcherModulationTest {
     voice.noteOn(60, 100);
 
     // Check initial patched state (Initial patching resets to base knobs before render)
-    Patcher.performInitialPatching(
-        sound.patchedParamValues, voice.sourceValues, voice.paramFinalValues);
+    Patcher.performInitialPatching(sound, voice.sourceValues, voice.paramFinalValues);
 
     // Print cable count and sources to verify mapping
     System.out.println(

@@ -300,7 +300,7 @@ public class Voice {
     this.velocity = velocity;
     this.active = true;
 
-    Patcher.performInitialPatching(sound.patchedParamValues, sourceValues, paramFinalValues);
+    Patcher.performInitialPatching(sound, sourceValues, paramFinalValues);
     for (int e = 0; e < envelopes.length; e++) {
       sourceValues[PatchSource.ENVELOPE_0.ordinal() + e] = envelopes[e].noteOn(e, sound, this);
     }
@@ -628,8 +628,7 @@ public class Voice {
     // ── 4. Patcher: apply cable modulation on top of the curve-applied base
     //       (the base is set by performInitialPatching in the driver each block).
     //       (patcher.cpp performPatching) ──
-    Patcher.performPatching(
-        sound.patchedParamValues, sourceValues, sound.patchCableSet, paramFinalValues);
+    Patcher.performPatching(sound, sourceValues, sound.patchCableSet, paramFinalValues);
 
     // ── 5. Phase increments (voice.cpp:414-560) ──
     // C voice.cpp:447-458 — SAMPLE and INPUT_* sources use ratio-style increments (2^24 = unity);
@@ -772,7 +771,8 @@ public class Voice {
     // FM modulators
     if (sound.synthMode == 1) { // FM
       for (int m = 0; m < 2; m++) {
-        if (sound.patchedParamValues[Param.LOCAL_MODULATOR_0_VOLUME + m] == Integer.MIN_VALUE) {
+        if (sound.getSmoothedPatchedParamValue(Param.LOCAL_MODULATOR_0_VOLUME + m)
+            == Integer.MIN_VALUE) {
           for (int u = 0; u < sound.numUnison; u++) {
             unisonParts[u].modulatorPhaseIncrement[m] = 0xFFFFFFFF; // inactive
           }
