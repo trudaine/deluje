@@ -2283,27 +2283,46 @@ public class DelugeXmlParser {
    * used (not a clip's), matching the firmware's per-sound delay element.
    */
   private static void parseSynthDelay(Element soundNode, SynthTrackModel synth) {
+    // Delay feedback is a direct <sound> child (raw Q31, e.g.
+    // <delayFeedback>0xBA000000</delayFeedback>)
+    // — a patched param the firmware reads verbatim. No other parse path caught it for presets (the
+    // attribute/legacy <delay><feedback> readers missed it), leaving delayFeedbackQ31=0 → delay
+    // inert.
+    String dfb = attrOrChildText(soundNode, "delayFeedback");
+    if (dfb != null
+        && !dfb.isBlank()
+        && (dfb.trim().startsWith("0x") || dfb.trim().startsWith("0X"))) {
+      synth.setDelayFeedbackQ31(DelugeHexMapper.hexToQ31(dfb.trim()));
+    }
     Element del = getFirstChild(soundNode, "delay");
     if (del == null) {
       return;
     }
-    if (del.hasAttribute("syncLevel")) {
+    // Presets use the CHILD-element form (<delay><syncLevel>6</syncLevel>...), not attributes —
+    // read
+    // attribute-or-child for all four (matching the osc-transpose fix). Missing this left every
+    // delay-using synth's delay inert (delaySyncLevel=0 → delayFeedbackAmount=0).
+    String syncLevel = attrOrChildText(del, "syncLevel");
+    if (syncLevel != null && !syncLevel.isBlank()) {
       try {
-        synth.setDelaySyncLevel(Integer.parseInt(del.getAttribute("syncLevel").trim()));
+        synth.setDelaySyncLevel(Integer.parseInt(syncLevel.trim()));
       } catch (NumberFormatException ignored) {
       }
     }
-    if (del.hasAttribute("syncType")) {
+    String syncType = attrOrChildText(del, "syncType");
+    if (syncType != null && !syncType.isBlank()) {
       try {
-        synth.setDelaySyncType(Integer.parseInt(del.getAttribute("syncType").trim()));
+        synth.setDelaySyncType(Integer.parseInt(syncType.trim()));
       } catch (NumberFormatException ignored) {
       }
     }
-    if (del.hasAttribute("pingPong")) {
-      synth.setDelayPingPong(!"0".equals(del.getAttribute("pingPong").trim()));
+    String pingPong = attrOrChildText(del, "pingPong");
+    if (pingPong != null && !pingPong.isBlank()) {
+      synth.setDelayPingPong(!"0".equals(pingPong.trim()));
     }
-    if (del.hasAttribute("analog")) {
-      synth.setDelayAnalog(!"0".equals(del.getAttribute("analog").trim()));
+    String analog = attrOrChildText(del, "analog");
+    if (analog != null && !analog.isBlank()) {
+      synth.setDelayAnalog(!"0".equals(analog.trim()));
     }
   }
 
