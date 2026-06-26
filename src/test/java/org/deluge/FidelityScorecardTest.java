@@ -185,6 +185,65 @@ public class FidelityScorecardTest {
     return Math.sqrt(s / Math.max(c, 1));
   }
 
+  /**
+   * Detect the N note onsets by energy-rise tracking. Equal slicing fails because the hardware
+   * notes do not start on the slice boundaries (a constant offset + slow drift over 94 synths);
+   * tracking the strongest energy rise near each expected position follows both. Returns sample
+   * offsets.
+   */
+  static int[] detectOnsets(float[] rec, int lead, int tail, int n) {
+    int hop = SR / 100; // 10ms
+    int envN = tail / hop + 1;
+    double[] env = new double[envN];
+    for (int i = 0; i < envN; i++) {
+      int a = i * hop, b = Math.min(a + 2 * hop, tail);
+      double s = 0;
+      for (int j = a; j < b; j++) s += (double) rec[j] * rec[j];
+      env[i] = Math.sqrt(s / Math.max(1, b - a));
+    }
+    int d = 8; // 80ms rise window
+    double[] rise = new double[envN]; // half-wave-rectified energy increase = onset strength
+    for (int i = d; i < envN; i++) rise[i] = Math.max(0, env[i] - env[i - d]);
+    // The synths are equally spaced (one fixed-length arranger slot each), so fit a single global
+    // grid (period + offset) by cross-correlation against the onset-strength function. This is far
+    // more robust than greedy per-synth tracking, which cascades on any false detection.
+    double content = tail - lead;
+    double basePer = content / n;
+    double bestScore = -1, bestPer = basePer, bestOff = 0;
+    for (double perS = basePer * 0.96; perS <= basePer * 1.04; perS += hop * 0.5) {
+      double maxOff = content - (n - 1) * perS;
+      if (maxOff < 0) continue;
+      for (double off = 0; off < maxOff; off += hop) {
+        double sc = 0;
+        for (int k = 0; k < n; k++) {
+          int idx = (int) ((lead + off + k * perS) / hop);
+          if (idx >= 0 && idx < envN) sc += rise[idx];
+        }
+        if (sc > bestScore) {
+          bestScore = sc;
+          bestPer = perS;
+          bestOff = off;
+        }
+      }
+    }
+    int[] onset = new int[n];
+    int snapH = 30; // ±0.3s: tight snap to sub-grid jitter only. Wider snaps just grab loud
+    // neighbours and overfit the cosine (the grid already locates each uniform slot correctly).
+    for (int k = 0; k < n; k++) {
+      int g = (int) ((lead + bestOff + k * bestPer) / hop);
+      int loH = Math.max(d, g - snapH), hiH = Math.min(envN - 1, g + snapH);
+      int bestH = Math.min(g, envN - 1);
+      double best = -1;
+      for (int i = loH; i <= hiH; i++)
+        if (rise[i] > best) {
+          best = rise[i];
+          bestH = i;
+        }
+      onset[k] = bestH * hop;
+    }
+    return onset;
+  }
+
   void scoreSong(List<File> synths, File recWav, String label, List<Double> all, List<String> na)
       throws Exception {
     float[] rec = readWavMono(recWav);
@@ -196,14 +255,23 @@ public class FidelityScorecardTest {
     while (tail > lead && Math.abs(rec[tail - 1]) < 0.003) tail--;
     int per = (tail - lead) / synths.size();
     int win = SR * 2; // 2s analysis window
+    int[] onset = detectOnsets(rec, lead, tail, synths.size());
+    int minGap = Integer.MAX_VALUE, maxGap = 0;
+    for (int k = 1; k < onset.length; k++) {
+      int g = onset[k] - onset[k - 1];
+      minGap = Math.min(minGap, g);
+      maxGap = Math.max(maxGap, g);
+    }
     System.out.printf(
-        "%n=== %s : %d synths, rec %.1fs, content %.1fs, lead %.2fs, %.2fs/synth ===%n",
+        "%n=== %s : %d synths, rec %.1fs, content %.1fs, lead %.2fs, %.2fs/synth, onset gaps %.2f-%.2fs ===%n",
         label,
         synths.size(),
         rec.length / (double) SR,
         (tail - lead) / (double) SR,
         lead / (double) SR,
-        per / (double) SR);
+        per / (double) SR,
+        minGap / (double) SR,
+        maxGap / (double) SR);
     for (int k = 0; k < synths.size(); k++) {
       String name = synths.get(k).getName().replace(".XML", "");
       float[] our = renderSynth(synths.get(k));
@@ -226,12 +294,12 @@ public class FidelityScorecardTest {
         }
       }
       double[] ours = spectrum(our, ourBest, win);
-      // hardware: within this synth's slice, find the loudest 2s window (robust to spacing drift)
-      int sliceStart = lead + k * per, bestOff = sliceStart;
+      // hardware: within this synth's onset→next-onset region, find the loudest 2s window
+      int sliceStart = onset[k];
+      int sliceEnd = (k + 1 < onset.length) ? onset[k + 1] : tail;
+      int bestOff = sliceStart;
       double bestR = -1;
-      for (int off = sliceStart;
-          off + win < sliceStart + per && off + win < rec.length;
-          off += SR / 4) {
+      for (int off = sliceStart; off + win < sliceEnd && off + win < rec.length; off += SR / 4) {
         double r = rms(rec, off, win);
         if (r > bestR) {
           bestR = r;
