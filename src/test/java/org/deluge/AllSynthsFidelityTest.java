@@ -112,6 +112,12 @@ public class AllSynthsFidelityTest {
     ticksPerBar = STEPS_PER_BAR * TICKS_PER_STEP; // 16 * 24 = 384 ticks per bar
     // Each synth gets 2 bars = 768 ticks, to capture attack + sustain.
     int ticksPerSynth = ticksPerBar * 2;
+    // Silence GAP between synths (default 1 bar = 384 ticks = 2s at 120 BPM). The clip note still
+    // plays for the full 768-tick slot, but the NEXT clipInstance is pushed gapTicks later, leaving
+    // a clear silence so each synth's attack is an unambiguous onset for the fidelity scorecard's
+    // per-synth alignment (a concatenated, gapless recording made onsets impossible to locate
+    // reliably). Configurable via -Dsynth.gap (0 = back-to-back, the old behaviour).
+    int gapTicks = Integer.getInteger("synth.gap", ticksPerBar);
 
     // Card root (parent of SYNTHS/) — used to verify referenced sample files actually exist, so the
     // generated song LOADS on hardware. A multisample preset whose samples are missing makes the
@@ -175,8 +181,9 @@ public class AllSynthsFidelityTest {
         project.addTrack(synth);
         synthNames.add(synth.getName());
 
-        // Place this clip on the arranger timeline AND song sections
-        int startTicks = barIdx * ticksPerSynth;
+        // Place this clip on the arranger timeline AND song sections. The instance LENGTH stays the
+        // 768-tick slot (note blooms fully); the slot PITCH includes gapTicks of trailing silence.
+        int startTicks = barIdx * (ticksPerSynth + gapTicks);
         project.addArrangerClip(
             new ArrangerClip(synthNames.size() - 1, clip, startTicks, ticksPerSynth));
         project.addSongSection(new SongSection(String.valueOf(barIdx))); // numRepeats defaults to 0
@@ -207,11 +214,11 @@ public class AllSynthsFidelityTest {
     int nTracks = project.getTracks().size();
     int ciCount = countOccurrences(xml, "clipInstances=\"0x");
     assertEquals(nTracks, ciCount, "expected one clipInstances attribute per synth track");
-    // Spot-check the 2nd synth's instance starts at ticksPerSynth (=0x300=768) — i.e. sequential.
-    String expectedPos2 = String.format("%08X", ticksPerSynth); // 0x00000300
+    // Spot-check the 2nd synth's instance starts at one slot+gap (sequential with the silence gap).
+    String expectedPos2 = String.format("%08X", ticksPerSynth + gapTicks);
     assertTrue(
         xml.contains("clipInstances=\"0x" + String.format("%08X", 0)) // 1st at tick 0
-            && xml.contains(expectedPos2), // 2nd at ticksPerSynth
+            && xml.contains(expectedPos2), // 2nd at ticksPerSynth+gapTicks
         "arranger clipInstances are not placed sequentially");
     // Boots into the arranger (so it plays sequentially, not all-at-once in session view), and NO
     // session clip is left active (every isPlaying must be 0 — else session view = 173-way
