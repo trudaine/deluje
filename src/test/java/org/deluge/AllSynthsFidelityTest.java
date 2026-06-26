@@ -41,6 +41,46 @@ public class AllSynthsFidelityTest {
     return n;
   }
 
+  /** Sample fileName="..." paths referenced by a preset that don't exist under the card root. */
+  private static java.util.List<String> missingSamples(SynthTrackModel synth, File cardRoot) {
+    java.util.List<String> refs = new ArrayList<>();
+    for (String raw : new String[] {synth.getOsc1RawXml(), synth.getOsc2RawXml()}) {
+      if (raw == null) continue;
+      java.util.regex.Matcher m =
+          java.util.regex.Pattern.compile("fileName=\"([^\"]+)\"").matcher(raw);
+      while (m.find()) refs.add(m.group(1));
+    }
+    if (synth.getOsc1SamplePath() != null && !synth.getOsc1SamplePath().isEmpty())
+      refs.add(synth.getOsc1SamplePath());
+    if (synth.getOsc2SamplePath() != null && !synth.getOsc2SamplePath().isEmpty())
+      refs.add(synth.getOsc2SamplePath());
+    java.util.List<String> missing = new ArrayList<>();
+    for (String p : refs) {
+      if (cardRoot == null || !fileExistsCaseInsensitive(cardRoot, p)) missing.add(p);
+    }
+    return missing;
+  }
+
+  /** Resolve a relative path under root matching each component case-insensitively (FAT-like). */
+  private static boolean fileExistsCaseInsensitive(File root, String relPath) {
+    File cur = root;
+    for (String part : relPath.split("/")) {
+      if (part.isEmpty()) continue;
+      File[] kids = cur.listFiles();
+      if (kids == null) return false;
+      File match = null;
+      for (File k : kids) {
+        if (k.getName().equalsIgnoreCase(part)) {
+          match = k;
+          break;
+        }
+      }
+      if (match == null) return false;
+      cur = match;
+    }
+    return cur.isFile();
+  }
+
   @Test
   void generateAllSynthsSong() throws Exception {
     // Override with -Dsynth.dir=/path (e.g. the real SD card SYNTHS) to test the actual card
@@ -73,13 +113,34 @@ public class AllSynthsFidelityTest {
     // Each synth gets 2 bars = 768 ticks, to capture attack + sustain.
     int ticksPerSynth = ticksPerBar * 2;
 
+    // Card root (parent of SYNTHS/) — used to verify referenced sample files actually exist, so the
+    // generated song LOADS on hardware. A multisample preset whose samples are missing makes the
+    // Deluge fail the whole song load (error e369 = can't load a referenced sample), so we skip it.
+    File cardRoot = new File(synthDir).getParentFile();
+
     List<String> synthNames = new ArrayList<>();
     List<ClipModel> allClips = new ArrayList<>();
     int barIdx = 0;
+    int skippedMissingSamples = 0;
     for (File f : synthFiles) {
       try {
         SynthTrackModel synth = DelugeXmlParser.parseSynth(new FileInputStream(f), f.getName());
         synth.setName(f.getName().replace(".XML", ""));
+
+        // Skip presets that reference sample files not present on this card (otherwise the whole
+        // song fails to load on hardware).
+        java.util.List<String> missing = missingSamples(synth, cardRoot);
+        if (!missing.isEmpty()) {
+          skippedMissingSamples++;
+          System.out.println(
+              "[AllSynths] SKIP "
+                  + synth.getName()
+                  + " — "
+                  + missing.size()
+                  + " missing sample(s), e.g. "
+                  + missing.get(0));
+          continue;
+        }
 
         // One clip spanning the whole 2-bar slot, with ONE sustained note held for the entire slot
         // (gate = all steps). A 1-step blip (~125ms) leaves slow-attack pads inaudible on hardware
@@ -230,9 +291,14 @@ public class AllSynthsFidelityTest {
 
     double avgRms = sumRms / engineMaxRms.length;
     System.out.printf(
-        "%n[AllSynths] Summary: %d synths (%d multisample-verbatim), avg RMS=%.6f, max=%.6f,"
-            + " non-multisample silent=%d%n",
-        engineMaxRms.length, multisampleCount, avgRms, maxRmsAll, silentCount);
+        "%n[AllSynths] Summary: %d synths (%d multisample-verbatim, %d skipped: missing samples),"
+            + " avg RMS=%.6f, max=%.6f, non-multisample silent=%d%n",
+        engineMaxRms.length,
+        multisampleCount,
+        skippedMissingSamples,
+        avgRms,
+        maxRmsAll,
+        silentCount);
 
     // Subtractive synths must render; multisample ones are excluded (no WAVs in the repo env).
     int subtractive = engineMaxRms.length - multisampleCount;
