@@ -354,9 +354,15 @@ public class ProjectSerializer {
         }
         writer.writeOpeningTagEnd();
 
-        // osc1 — serialize dynamic keyzones if present, otherwise fall back to raw xml or
-        // single-sample synthesis
-        if (!synth.getOsc1Zones().isEmpty()) {
+        // osc1 — prefer the VERBATIM captured multisample XML (correct
+        // <sampleRange rangeTopNote><zone/></sampleRange> structure the hardware needs); the
+        // dynamic-keyzone path below omits the <sampleRange rangeTopNote> wrappers, so the Deluge
+        // can't map keyzones → silent multisamples. Fall back to dynamic zones / single-sample only
+        // when no raw XML was captured.
+        if (synth.getOsc1RawXml() != null) {
+          writer.write("\n");
+          writer.write(synth.getOsc1RawXml());
+        } else if (!synth.getOsc1Zones().isEmpty()) {
           writer.writeOpeningTagBeginning("osc1");
           writer.writeAttribute("type", "sample", false);
           writer.writeAttribute("transpose", "0", false);
@@ -386,9 +392,6 @@ public class ProjectSerializer {
 
           writer.writeClosingTag("sampleRanges");
           writer.writeClosingTag("osc1");
-        } else if (synth.getOsc1RawXml() != null) {
-          writer.write("\n");
-          writer.write(synth.getOsc1RawXml());
         } else {
           writer.writeOpeningTagBeginning("osc1");
           writer.writeAttribute("type", synth.getOsc1Type().toLowerCase(), false);
@@ -404,8 +407,12 @@ public class ProjectSerializer {
           writer.closeTag();
         }
 
-        // osc2
-        if (!synth.getOsc2Zones().isEmpty()) {
+        // osc2 — prefer verbatim multisample XML (see osc1 note); dynamic-zone path drops the
+        // <sampleRange rangeTopNote> wrappers → silent keyzones.
+        if (synth.getOsc2RawXml() != null) {
+          writer.write("\n");
+          writer.write(synth.getOsc2RawXml());
+        } else if (!synth.getOsc2Zones().isEmpty()) {
           writer.writeOpeningTagBeginning("osc2");
           writer.writeAttribute("type", "sample", false);
           writer.writeAttribute("transpose", String.valueOf(synth.getOsc2Transpose()), false);
@@ -435,9 +442,6 @@ public class ProjectSerializer {
 
           writer.writeClosingTag("sampleRanges");
           writer.writeClosingTag("osc2");
-        } else if (synth.getOsc2RawXml() != null) {
-          writer.write("\n");
-          writer.write(synth.getOsc2RawXml());
         } else {
           writer.writeOpeningTagBeginning("osc2");
           writer.writeAttribute("type", synth.getOsc2Type().toLowerCase(), false);
