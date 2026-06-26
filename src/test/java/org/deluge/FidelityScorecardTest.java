@@ -188,13 +188,22 @@ public class FidelityScorecardTest {
   void scoreSong(List<File> synths, File recWav, String label, List<Double> all, List<String> na)
       throws Exception {
     float[] rec = readWavMono(recWav);
+    // Trim BOTH leading and trailing silence — manual recordings have variable lead/tail, and
+    // dividing total length by N otherwise drifts the per-synth slices (artificially low scores).
     int lead = 0;
     while (lead < rec.length && Math.abs(rec[lead]) < 0.003) lead++;
-    int per = (rec.length - lead) / synths.size();
+    int tail = rec.length;
+    while (tail > lead && Math.abs(rec[tail - 1]) < 0.003) tail--;
+    int per = (tail - lead) / synths.size();
     int win = SR * 2; // 2s analysis window
     System.out.printf(
-        "%n=== %s : %d synths, rec %.1fs, lead %.2fs, %.2fs/synth ===%n",
-        label, synths.size(), rec.length / (double) SR, lead / (double) SR, per / (double) SR);
+        "%n=== %s : %d synths, rec %.1fs, content %.1fs, lead %.2fs, %.2fs/synth ===%n",
+        label,
+        synths.size(),
+        rec.length / (double) SR,
+        (tail - lead) / (double) SR,
+        lead / (double) SR,
+        per / (double) SR);
     for (int k = 0; k < synths.size(); k++) {
       String name = synths.get(k).getName().replace(".XML", "");
       float[] our = renderSynth(synths.get(k));
