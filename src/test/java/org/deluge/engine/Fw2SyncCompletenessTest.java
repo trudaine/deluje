@@ -86,6 +86,7 @@ class Fw2SyncCompletenessTest {
   private static final Set<String> RUNTIME_OR_DERIVED =
       Set.of(
           "lastNoteCode", // runtime: last triggered note
+          "masterTranspose", // model-driven at load time, not real-time bridge synced
           "timePerInternalTickInverse", // transport clock (documented gap; synced LFO unreachable)
           "timeStartedSkippingRenderingLFO", // runtime: skip/resume bookkeeping
           "unisonPan", // derived by setupUnisonStereoSpread() from unisonStereoSpread

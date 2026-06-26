@@ -47,16 +47,15 @@ public class SwingGridPanelNoteSpanningTest {
     gridPanel.handleStepTied(2, 10, 24);
 
     int modelRow = gridPanel.getModelRow(2);
-    int engineRow = 0 + modelRow;
 
     // Verify starting step in the model
-    StepData startStep = clipModel.getStep(modelRow, 10);
+    StepData startStep = gridPanel.getClipStep(clipModel, modelRow, 10);
     assertTrue(startStep.active(), "Start step must be active");
     assertEquals(14.9f, startStep.gate(), 0.01f, "Start step gate must be 14.9f");
 
     // Verify intermediate/ending steps are properly cleared
     for (int s = 11; s <= 24; s++) {
-      StepData intermediateStep = clipModel.getStep(modelRow, s);
+      StepData intermediateStep = gridPanel.getClipStep(clipModel, modelRow, s);
       assertFalse(intermediateStep.active(), "Intermediate step " + s + " must be cleared");
       assertEquals(0.0f, intermediateStep.gate(), 0.01f);
     }

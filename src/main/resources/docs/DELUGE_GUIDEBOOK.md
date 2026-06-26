@@ -81,15 +81,36 @@ The main sequencer pads grid can be toggled to **`AUTOMATION`** view mode. This 
 
 ### 1.3 Step Parameter Properties, Probability & Fill Conditions
 
-Double-clicking a sequence step opens our dedicated, high-contrast **`Step Properties`** JDialog. This provides precise, standard-compliant step parameters and random fill rules:
+Editing a step's characteristics can be done via the context-sensitive **Right-Click Step Menu** or the full **Step Properties** dialog. 
+
+#### 🎛️ The Right-Click Step Context Menu
+Right-clicking any grid pad in **Clip View** opens a premium popup menu that allows you to quickly adjust parameters on-the-fly without leaving the grid view:
+* **Step Toggle**: Turn the step ON or OFF.
+* **Velocity Quick-Presets**: Instantly set the note's velocity to standard levels: `100% (FF)`, `75% (mf)`, `50% (p)`, or `25% (pp)`.
+* **Fill Condition**: Toggle the **Fill** property on the step.
+* **Clear Step**: Reset all parameters on the step back to standard defaults.
+* **Properties...**: Open the full **Step Properties** JDialog.
+
+#### 📝 The Step Properties Dialog
+Double-clicking a sequence step (or selecting **Properties...** from the right-click menu) opens our dedicated, high-contrast **`Step Properties`** JDialog. This provides precise, standard-compliant step parameters and random fill rules:
 
 ![Per-Step Parameter Properties JDialog Dialog](images/deluge_step_properties.png)
 
-* **Velocity**: Scale note triggers velocities precisely from `1%` to `100%` (combines both slider and exact spinner values).
+* **Velocity**: Scale note triggers velocities precisely from `1%` to `100%` (combines both a slider and exact spinner values). Brightness of active note pads scales dynamically with velocity!
+* **Nudge (Micro-Timing)**: Offset step triggers by micro-fractions (from `-0.5` to `+0.5` steps) to introduce organic, humanized shuffle swings or micro-timing offsets. Nudged steps display with a subtle blur effect on the grid.
 * **Repeats (Sub-Triggers / Iterance)**: Subdivide standard sequencer steps into quick sub-triggers (0 to 3 subdivisions, where 3 represents active triplet step subdivisions within standard note ticks).
 * **Fill Probability % (Loop Conditionals)**: Program a step with specific chance properties:
   * `0%`: Standard static step (triggers every single pass).
   * `1% to 100%`: Fill-only conditional step! The step will only trigger on fills based on the random probability percentage selected, adding structural humanized variations to loops!
+
+#### 🎨 Pad Color Indicator Parity Guide
+* **Dim Charcoal (`#151515` / `#1a1a1a`)**: Inactive or empty step.
+* **Glowing Track Color (High Intensity)**: Active step (brightness scales dynamically with velocity!).
+* **Dim Track Color**: Inactive step or step with $0\%$ probability of playing on the current pass.
+* **Glowing Cyan-Blue (`0x00d2ff`)**: Step with a **Fill Condition** active.
+* **White Line Overlay / Highlight**: Octave C row boundaries in Diatonic/Keyboard views.
+* **Amber Glow (`0xffaa00`)**: Queued clip slot in SONG view.
+* **Active Green (`0x00cc00`)**: Actively playing loop clip in SONG view.
 
 #### 🔔 Tutorial E: Evolving Generative Ambient Sequence (Probability Sequencing)
 1. Select a Synth track grid. Sequence a basic chord progression across a 16-step grid lane: set warm pad steps on columns 1, 5, 9, 13!
