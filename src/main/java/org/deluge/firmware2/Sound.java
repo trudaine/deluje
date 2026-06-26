@@ -127,9 +127,66 @@ public class Sound extends GlobalEffectable {
   /** The patch's modulation cables (mirrors the C {@code ParamManager}'s PatchCableSet). */
   public final Patcher.PatchCableSet patchCableSet = new Patcher.PatchCableSet();
 
-  /** C: {@code Sound::getSmoothedPatchedParamValue}. No automation smoothing yet (static value). */
+  public static class ParamLPF {
+    public int p = -1; // -1 represents PARAM_LPF_OFF
+    public int currentValue;
+  }
+
+  public final ParamLPF paramLPF = new ParamLPF();
+
+  /** C: {@code Sound::getSmoothedPatchedParamValue}. */
   public int getSmoothedPatchedParamValue(int p) {
+    if (paramLPF.p == p) {
+      return paramLPF.currentValue;
+    }
     return patchedParamValues[p];
+  }
+
+  public void notifyValueChangeViaLPF(
+      int p, boolean shouldDoParamLPF, int oldValue, int newValue, boolean fromAutomation) {
+    if (!shouldDoParamLPF) {
+      if (paramLPF.p == p) {
+        paramLPF.p = -1;
+      }
+      return;
+    }
+
+    if (Param.paramNeedsLPF(p, fromAutomation)) {
+      if (paramLPF.p != -1) {
+        if (paramLPF.p != p) {
+          stopParamLPF();
+        } else {
+          paramLPF.p = p;
+          return;
+        }
+      }
+      paramLPF.currentValue = oldValue;
+      paramLPF.p = p;
+    }
+  }
+
+  public void doParamLPF(int numSamples) {
+    if (paramLPF.p == -1) {
+      return;
+    }
+
+    int oldValue = paramLPF.currentValue;
+    int targetValue = patchedParamValues[paramLPF.p];
+
+    int diff = (targetValue >> 8) - (oldValue >> 8);
+
+    if (diff == 0) {
+      stopParamLPF();
+    } else {
+      int amountToAdd = diff * numSamples;
+      paramLPF.currentValue += amountToAdd;
+    }
+  }
+
+  public void stopParamLPF() {
+    if (paramLPF.p != -1) {
+      paramLPF.p = -1;
+    }
   }
 
   public final LfoConfig[] lfoConfig = new LfoConfig[4];
@@ -634,7 +691,7 @@ public class Sound extends GlobalEffectable {
           continue;
         }
         hasActiveVoices = true;
-        Patcher.performInitialPatching(patchedParamValues, v.sourceValues, v.paramFinalValues);
+        Patcher.performInitialPatching(this, v.sourceValues, v.paramFinalValues);
         v.render(buffer, numSamples, lpfMode != FilterMode.OFF, hpfMode != FilterMode.OFF);
       }
     }
@@ -779,6 +836,7 @@ public class Sound extends GlobalEffectable {
       buffer[i * 2] = fxIntBuffer[i][0];
       buffer[i * 2 + 1] = fxIntBuffer[i][1];
     }
+    doParamLPF(numSamples);
   }
 
   public boolean arpEnabled() {

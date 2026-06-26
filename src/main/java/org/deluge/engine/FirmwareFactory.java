@@ -1587,6 +1587,23 @@ public class FirmwareFactory {
             engineCable.polarity = org.deluge.modulation.patch.PatchCable.Polarity.BIPOLAR;
           }
           sound.paramManager.getPatchCableSet().addCable(paramId, engineCable);
+
+          // Compile nested range modulation cables under depthControlledBy
+          if (pcm.depthControlledBy() != null) {
+            for (org.deluge.model.PatchCable dc : pcm.depthControlledBy()) {
+              PatchSource dcSource = stringToPatchSource(dc.source());
+              int dcAmount = (int) (dc.amount() * 2147483647.0);
+              PatchCable dcEngineCable = new PatchCable();
+              dcEngineCable.from = dcSource;
+              dcEngineCable.amount = dcAmount;
+              if (dc.polarity() == org.deluge.model.PatchCable.Polarity.UNIPOLAR) {
+                dcEngineCable.polarity = org.deluge.modulation.patch.PatchCable.Polarity.UNIPOLAR;
+              } else {
+                dcEngineCable.polarity = org.deluge.modulation.patch.PatchCable.Polarity.BIPOLAR;
+              }
+              sound.paramManager.getPatchCableSet().addRangeCable(paramId, source, dcEngineCable);
+            }
+          }
         }
       } catch (Exception e) {
         // Skip invalid cables

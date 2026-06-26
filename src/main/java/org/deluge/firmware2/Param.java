@@ -147,4 +147,34 @@ public final class Param {
   public static final int STATIC_SIDECHAIN_RELEASE = 163;
   public static final int STATIC_SIDECHAIN_VOLUME = 164;
   public static final int PATCH_CABLE = 190;
+
+  public static boolean paramNeedsLPF(int p, boolean fromAutomation) {
+    switch (p) {
+      case GLOBAL_VOLUME_POST_FX:
+      case GLOBAL_VOLUME_POST_REVERB_SEND:
+      case GLOBAL_REVERB_AMOUNT:
+      case LOCAL_VOLUME:
+      case LOCAL_PAN:
+      case LOCAL_LPF_FREQ:
+      case LOCAL_HPF_FREQ:
+      case LOCAL_OSC_A_VOLUME:
+      case LOCAL_OSC_B_VOLUME:
+      case LOCAL_OSC_A_WAVE_INDEX:
+      case LOCAL_OSC_B_WAVE_INDEX:
+        return !fromAutomation;
+
+      case LOCAL_MODULATOR_0_VOLUME:
+      case LOCAL_MODULATOR_1_VOLUME:
+      case LOCAL_MODULATOR_0_FEEDBACK:
+      case LOCAL_MODULATOR_1_FEEDBACK:
+      case LOCAL_CARRIER_0_FEEDBACK:
+      case LOCAL_CARRIER_1_FEEDBACK:
+      case GLOBAL_MOD_FX_DEPTH:
+      case GLOBAL_DELAY_FEEDBACK:
+        return true;
+
+      default:
+        return false;
+    }
+  }
 }

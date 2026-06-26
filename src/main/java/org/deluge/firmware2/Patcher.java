@@ -82,7 +82,7 @@ public class Patcher {
    * @param paramFinalValues output: final param values after curve application
    */
   public static void performPatching(
-      int[] knobValues, int[] sourceValues, PatchCableSet patchCableSet, int[] paramFinalValues) {
+      Sound sound, int[] sourceValues, PatchCableSet patchCableSet, int[] paramFinalValues) {
     // 1. Reset all cable range values to neutral
     for (Destination dest : patchCableSet.destinations) {
       for (PatchCable cable : dest.cables) {
@@ -125,21 +125,21 @@ public class Patcher {
       if (p < Param.FIRST_LOCAL_NON_VOLUME
           || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_NON_VOLUME)) {
         // VOLUME
-        int combo = combineCablesLinear(dest, knobValues[p], sourceValues);
+        int combo = combineCablesLinear(dest, sound.getSmoothedPatchedParamValue(p), sourceValues);
         finalValue = Functions.getFinalParameterValueVolume(staticNeutral, combo);
       } else if (p < Param.FIRST_LOCAL_HYBRID
           || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_HYBRID)) {
         // LINEAR
-        int combo = combineCablesLinear(dest, knobValues[p], sourceValues);
+        int combo = combineCablesLinear(dest, sound.getSmoothedPatchedParamValue(p), sourceValues);
         finalValue = Functions.getFinalParameterValueLinear(staticNeutral, combo);
       } else if (p < Param.FIRST_LOCAL_EXP
           || (p >= Param.FIRST_GLOBAL && p < Param.FIRST_GLOBAL_EXP)) {
         // HYBRID
-        int combo = combineCablesExp(dest, knobValues[p], sourceValues);
+        int combo = combineCablesExp(dest, sound.getSmoothedPatchedParamValue(p), sourceValues);
         finalValue = Functions.getFinalParameterValueHybrid(staticNeutral, combo);
       } else {
         // EXP
-        int combo = combineCablesExp(dest, knobValues[p], sourceValues);
+        int combo = combineCablesExp(dest, sound.getSmoothedPatchedParamValue(p), sourceValues);
         int stage = getEnvStage(p);
         if (stage != -1) {
           finalValue =
@@ -246,7 +246,7 @@ public class Patcher {
    * the correct firmware curve. (patcher.cpp:30-62)
    */
   public static void recalculateFinalValueForParamWithNoCables(
-      int p, int[] knobValues, int[] sourceValues, int[] paramFinalValues) {
+      int p, Sound sound, int[] sourceValues, int[] paramFinalValues) {
     // Uses which ever cable combine is appropriate for this param
     int cableCombination;
     if (p < Param.FIRST_LOCAL_HYBRID
@@ -254,12 +254,15 @@ public class Patcher {
       // Linear family: fold knob through combineCablesLinear(nullptr)
       int runningTotal = 536870912;
       int range = Functions.getParamRange(p);
-      runningTotal = cableToLinearParamWithoutRangeAdjustment(runningTotal, knobValues[p], range);
+      runningTotal =
+          cableToLinearParamWithoutRangeAdjustment(
+              runningTotal, sound.getSmoothedPatchedParamValue(p), range);
       cableCombination = runningTotal - 536870912;
     } else {
       // Exp family: fold knob through combineCablesExp(nullptr)
       int range = Functions.getParamRange(p);
-      cableCombination = cableToExpParamWithoutRangeAdjustment(0, knobValues[p], range);
+      cableCombination =
+          cableToExpParamWithoutRangeAdjustment(0, sound.getSmoothedPatchedParamValue(p), range);
     }
 
     // C (patcher.cpp:37): param_neutral_value = paramNeutralValues[p] = getParamNeutralValue(p)
@@ -353,9 +356,9 @@ public class Patcher {
    * (patcher.cpp:275-290)
    */
   public static void performInitialPatching(
-      int[] knobValues, int[] sourceValues, int[] paramFinalValues) {
+      Sound sound, int[] sourceValues, int[] paramFinalValues) {
     for (int p = 0; p < Param.kNumParams; p++) {
-      recalculateFinalValueForParamWithNoCables(p, knobValues, sourceValues, paramFinalValues);
+      recalculateFinalValueForParamWithNoCables(p, sound, sourceValues, paramFinalValues);
     }
   }
 
