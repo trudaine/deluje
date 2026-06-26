@@ -300,32 +300,7 @@ public class Voice {
     this.velocity = velocity;
     this.active = true;
 
-    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
-      System.out.println(
-          "[DIAG Voice.noteOn] Neutral: attack="
-              + Functions.getParamNeutralValue(Param.LOCAL_ENV_0_ATTACK)
-              + " decay="
-              + Functions.getParamNeutralValue(Param.LOCAL_ENV_0_DECAY)
-              + " sustain="
-              + Functions.getParamNeutralValue(Param.LOCAL_ENV_0_SUSTAIN)
-              + " release="
-              + Functions.getParamNeutralValue(Param.LOCAL_ENV_0_RELEASE));
-    }
-
     Patcher.performInitialPatching(sound.patchedParamValues, sourceValues, paramFinalValues);
-
-    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
-      System.out.println(
-          "[DIAG Voice.noteOn] Final: attack="
-              + paramFinalValues[Param.LOCAL_ENV_0_ATTACK]
-              + " decay="
-              + paramFinalValues[Param.LOCAL_ENV_0_DECAY]
-              + " sustain="
-              + paramFinalValues[Param.LOCAL_ENV_0_SUSTAIN]
-              + " release="
-              + paramFinalValues[Param.LOCAL_ENV_0_RELEASE]);
-    }
-
     for (int e = 0; e < envelopes.length; e++) {
       sourceValues[PatchSource.ENVELOPE_0.ordinal() + e] = envelopes[e].noteOn(e, sound, this);
     }
@@ -583,15 +558,6 @@ public class Voice {
     // ── 1. Envelopes (voice.cpp:740-800) ──
 
     // Envelope 0 (amplitude) always renders
-    if (!doneFirstRender && org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
-      System.out.println(
-          "[DIAG Voice.render before env0 render] envelopes[0]="
-              + System.identityHashCode(envelopes[0])
-              + " lastValue="
-              + envelopes[0].lastValue
-              + " state="
-              + envelopes[0].state);
-    }
     env0LastValue =
         envelopes[0].render(
             numSamples,
@@ -600,17 +566,6 @@ public class Voice {
             paramFinalValues[Param.LOCAL_ENV_0_SUSTAIN],
             paramFinalValues[Param.LOCAL_ENV_0_RELEASE],
             LookupTables.decayTableSmall8);
-    if (!doneFirstRender && org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
-      System.out.println(
-          "[DIAG Voice.render after env0 render] envelopes[0]="
-              + System.identityHashCode(envelopes[0])
-              + " lastValue="
-              + envelopes[0].lastValue
-              + " state="
-              + envelopes[0].state
-              + " env0LastValue="
-              + env0LastValue);
-    }
     sourceValues[PatchSource.ENVELOPE_0.ordinal()] = env0LastValue;
 
     boolean unassignVoiceAfter =
@@ -842,57 +797,19 @@ public class Voice {
       }
     }
 
-    // Overall osc amplitude: envelope 0 (unipolar lastValue) * LOCAL_VOLUME
-    if (!doneFirstRender && org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
-      System.out.println(
-          "[DIAG Voice.render before env0Gain read] envelopes[0]="
-              + System.identityHashCode(envelopes[0])
-              + " lastValue="
-              + envelopes[0].lastValue);
-    }
+    // ── 6. Per-source rendering (lines 950-1400) ──
+    // Overall osc amplitude (C voice.cpp:984-986): multiply LOCAL_VOLUME by the envelope-0 SOURCE
+    // value reconstructed to unipolar — (sourceValues[ENVELOPE_0] >> 1) + 2^30 — NOT the raw
+    // envelope lastValue field (that mismatch silenced some patches).
     int env0Gain = (env0LastValue >> 1) + 1073741824;
     int trackVol = paramFinalValues[Param.LOCAL_VOLUME];
 
     int overallOscAmplitude =
         Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(env0Gain, trackVol), 2);
 
-    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
-      System.out.println("[DIAG Voice.render] env0Gain=" + env0Gain);
-      System.out.println("[DIAG Voice.render] trackVol=" + trackVol);
-      System.out.println("[DIAG Voice.render] overallOscAmplitude=" + overallOscAmplitude);
-      System.out.println(
-          "[DIAG Voice.render] overallOscAmplitudeLastTime before=" + overallOscAmplitudeLastTime);
-      System.out.println(
-          "[DIAG Voice.render] final LOCAL_OSC_A_VOLUME="
-              + paramFinalValues[Param.LOCAL_OSC_A_VOLUME]
-              + " final LOCAL_OSC_B_VOLUME="
-              + paramFinalValues[Param.LOCAL_OSC_B_VOLUME]
-              + " final MOD_0_VOLUME="
-              + paramFinalValues[Param.LOCAL_MODULATOR_0_VOLUME]
-              + " final MOD_1_VOLUME="
-              + paramFinalValues[Param.LOCAL_MODULATOR_1_VOLUME]);
-      System.out.println(
-          "[DIAG Voice.render] sound patched LOCAL_VOLUME="
-              + sound.patchedParamValues[Param.LOCAL_VOLUME]
-              + " patched LOCAL_OSC_A_VOLUME="
-              + sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME]
-              + " patched LOCAL_OSC_B_VOLUME="
-              + sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME]
-              + " patched MOD_0_VOLUME="
-              + sound.patchedParamValues[Param.LOCAL_MODULATOR_0_VOLUME]
-              + " patched MOD_1_VOLUME="
-              + sound.patchedParamValues[Param.LOCAL_MODULATOR_1_VOLUME]);
-    }
-
     if (!doneFirstRender
         && Integer.compareUnsigned(paramFinalValues[Param.LOCAL_ENV_0_ATTACK], 245632) > 0) {
       overallOscAmplitudeLastTime = overallOscAmplitude;
-    }
-
-    if (!doneFirstRender && org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
-      System.out.println(
-          "[DIAG Voice.render Block 0] overallOscAmplitudeLastTime after="
-              + overallOscAmplitudeLastTime);
     }
 
     overallOscillatorAmplitudeIncrement =
@@ -1479,56 +1396,6 @@ public class Voice {
 
     boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
 
-    // C voice.cpp:1026-1028 — unison compensation folded into the CURRENT overall amplitude.
-    int overallForCarriers =
-        Functions.multiply_32x32_rshift32_rounded(
-                overallOscAmplitude, sound.volumeNeutralValueForUnison)
-            << 3;
-    int targetCarrierAmp0 =
-        Math.min(
-            Functions.multiply_32x32_rshift32(
-                paramFinalValues[Param.LOCAL_OSC_A_VOLUME], overallForCarriers),
-            134217727);
-    int targetCarrierAmp1 =
-        Math.min(
-            Functions.multiply_32x32_rshift32(
-                paramFinalValues[Param.LOCAL_OSC_B_VOLUME], overallForCarriers),
-            134217727);
-
-    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
-      System.out.println("[DIAG renderFmPath] overallOscAmplitude=" + overallOscAmplitude);
-      System.out.println(
-          "[DIAG renderFmPath] volumeNeutralValueForUnison=" + sound.volumeNeutralValueForUnison);
-      System.out.println("[DIAG renderFmPath] overallForCarriers=" + overallForCarriers);
-      System.out.println("[DIAG renderFmPath] targetCarrierAmp0=" + targetCarrierAmp0);
-    }
-
-    // If this is the very first render block of a newly triggered voice, C++ sets the
-    // historical amplitudes to the target values immediately to prevent a slow volume fade-in.
-    if (!doneFirstRender) {
-      modulatorAmplitudeLastTime[0] = modAmp0;
-      modulatorAmplitudeLastTime[1] = modAmp1;
-      sourceAmplitudesLastTime[0] = targetCarrierAmp0;
-      sourceAmplitudesLastTime[1] = targetCarrierAmp1;
-    }
-
-    // Calculate modulator start amplitudes and increments
-    int[] modAmpStart = new int[2];
-    int[] modAmpInc = new int[2];
-    for (int m = 0; m < 2; m++) {
-      int target = paramFinalValues[Param.LOCAL_MODULATOR_0_VOLUME + m];
-      modAmpStart[m] = modulatorAmplitudeLastTime[m];
-      modAmpInc[m] = (target - modulatorAmplitudeLastTime[m]) / numSamples;
-    }
-
-    // Calculate carrier start amplitudes and increments
-    int[] carrierAmpStart = new int[2];
-    int[] carrierAmpInc = new int[2];
-    carrierAmpStart[0] = sourceAmplitudesLastTime[0];
-    carrierAmpInc[0] = (targetCarrierAmp0 - sourceAmplitudesLastTime[0]) / numSamples;
-    carrierAmpStart[1] = sourceAmplitudesLastTime[1];
-    carrierAmpInc[1] = (targetCarrierAmp1 - sourceAmplitudesLastTime[1]) / numSamples;
-
     for (int u = 0; u < sound.numUnison; u++) {
       boolean carriersAreSine = false;
       int modInc0 = getModulatorInc(0, overallPitchAdjust, u);
@@ -1536,28 +1403,6 @@ public class Voice {
 
       boolean mod0ActiveThisUnison = mod0Active && modInc0 > 0;
       boolean mod1ActiveThisUnison = mod1Active && modInc1 > 0;
-
-      if (!doneFirstRender && org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
-        System.out.println(
-            "[DIAG renderFmPath Block 0] mod0ActiveThisUnison="
-                + mod0ActiveThisUnison
-                + " modInc0="
-                + modInc0
-                + " modAmp0="
-                + modAmp0);
-        System.out.println(
-            "[DIAG renderFmPath Block 0] mod1ActiveThisUnison="
-                + mod1ActiveThisUnison
-                + " modInc1="
-                + modInc1
-                + " modAmp1="
-                + modAmp1);
-        System.out.println(
-            "[DIAG renderFmPath Block 0] carrierAmpStart[0]="
-                + carrierAmpStart[0]
-                + " carrierAmpInc[0]="
-                + carrierAmpInc[0]);
-      }
 
       java.util.Arrays.fill(fmBuf, 0);
       java.util.Arrays.fill(fmOscBuffer, 0);
@@ -1568,38 +1413,35 @@ public class Voice {
             numSamples,
             unisonParts[u].modulatorPhase,
             1,
-            modAmpStart[1],
+            modAmp1,
             modInc1,
             paramFinalValues[Param.LOCAL_MODULATOR_1_FEEDBACK],
             unisonParts[u].modulatorFeedback,
             1,
-            false,
-            modAmpInc[1]);
+            false);
         if (sound.modulator1ToModulator0 && mod0ActiveThisUnison) {
           renderFMWithFeedback(
               fmBuf,
               numSamples,
               unisonParts[u].modulatorPhase,
               0,
-              modAmpStart[0],
+              modAmp0,
               modInc0,
               paramFinalValues[Param.LOCAL_MODULATOR_0_FEEDBACK],
               unisonParts[u].modulatorFeedback,
-              0,
-              modAmpInc[0]);
+              0);
         } else if (!sound.modulator1ToModulator0 && mod0ActiveThisUnison) {
           renderSineWaveWithFeedback(
               fmBuf,
               numSamples,
               unisonParts[u].modulatorPhase,
               0,
-              modAmpStart[0],
+              modAmp0,
               modInc0,
               paramFinalValues[Param.LOCAL_MODULATOR_0_FEEDBACK],
               unisonParts[u].modulatorFeedback,
               0,
-              true,
-              modAmpInc[0]);
+              true);
         }
       } else if (mod0ActiveThisUnison) {
         renderSineWaveWithFeedback(
@@ -1607,13 +1449,12 @@ public class Voice {
             numSamples,
             unisonParts[u].modulatorPhase,
             0,
-            modAmpStart[0],
+            modAmp0,
             modInc0,
             paramFinalValues[Param.LOCAL_MODULATOR_0_FEEDBACK],
             unisonParts[u].modulatorFeedback,
             0,
-            false,
-            modAmpInc[0]);
+            false);
       } else {
         carriersAreSine = true;
       }
@@ -1621,8 +1462,6 @@ public class Voice {
       // Carriers
       int carrierIncA = unisonParts[u].sources[0].phaseIncrementStoredValue;
       int carrierIncB = unisonParts[u].sources[1].phaseIncrementStoredValue;
-      int origIncA = carrierIncA;
-      int origIncB = carrierIncB;
 
       carrierIncA = adjustPitch(carrierIncA, overallPitchAdjust);
       if (carrierIncA >= 0) {
@@ -1633,36 +1472,24 @@ public class Voice {
         carrierIncB = adjustPitch(carrierIncB, paramFinalValues[Param.LOCAL_OSC_B_PITCH_ADJUST]);
       }
 
-      int carrierAmp0 = carrierIncA < 0 ? 0 : carrierAmpStart[0];
-      int carrierAmp1 = carrierIncB < 0 ? 0 : carrierAmpStart[1];
-      int carrierInc0 = carrierIncA < 0 ? 0 : carrierAmpInc[0];
-      int carrierInc1 = carrierIncB < 0 ? 0 : carrierAmpInc[1];
+      // C voice.cpp:1026-1028 — unison compensation folded into the CURRENT overall amplitude.
+      int overallForCarriers =
+          Functions.multiply_32x32_rshift32_rounded(
+                  overallOscAmplitude, sound.volumeNeutralValueForUnison)
+              << 3;
+      int carrierAmp0 =
+          Math.min(
+              Functions.multiply_32x32_rshift32(
+                  paramFinalValues[Param.LOCAL_OSC_A_VOLUME], overallForCarriers),
+              134217727);
+      int carrierAmp1 =
+          Math.min(
+              Functions.multiply_32x32_rshift32(
+                  paramFinalValues[Param.LOCAL_OSC_B_VOLUME], overallForCarriers),
+              134217727);
 
-      if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
-        System.out.println(
-            "[DIAG renderFmPath] u="
-                + u
-                + " origIncA="
-                + origIncA
-                + " origIncB="
-                + origIncB
-                + " carrierIncA="
-                + carrierIncA
-                + " carrierIncB="
-                + carrierIncB
-                + " carrierAmp0="
-                + carrierAmp0
-                + " carrierAmp1="
-                + carrierAmp1
-                + " carrierInc0="
-                + carrierInc0
-                + " carrierInc1="
-                + carrierInc1
-                + " carriersAreSine="
-                + carriersAreSine
-                + " overallPitchAdjust="
-                + overallPitchAdjust);
-      }
+      if (carrierIncA < 0) carrierAmp0 = 0;
+      if (carrierIncB < 0) carrierAmp1 = 0;
 
       if (carriersAreSine) {
         renderCarrierSine(
@@ -1671,16 +1498,14 @@ public class Voice {
             unisonParts[u].sources[0],
             carrierAmp0,
             carrierIncA,
-            paramFinalValues[Param.LOCAL_CARRIER_0_FEEDBACK],
-            carrierInc0);
+            paramFinalValues[Param.LOCAL_CARRIER_0_FEEDBACK]);
         renderCarrierSine(
             fmOscBuffer,
             numSamples,
             unisonParts[u].sources[1],
             carrierAmp1,
             carrierIncB,
-            paramFinalValues[Param.LOCAL_CARRIER_1_FEEDBACK],
-            carrierInc1);
+            paramFinalValues[Param.LOCAL_CARRIER_1_FEEDBACK]);
       } else {
         renderCarrierFM(
             fmOscBuffer,
@@ -1689,8 +1514,7 @@ public class Voice {
             unisonParts[u].sources[0],
             carrierAmp0,
             carrierIncA,
-            paramFinalValues[Param.LOCAL_CARRIER_0_FEEDBACK],
-            carrierInc0);
+            paramFinalValues[Param.LOCAL_CARRIER_0_FEEDBACK]);
         renderCarrierFM(
             fmOscBuffer,
             numSamples,
@@ -1698,8 +1522,7 @@ public class Voice {
             unisonParts[u].sources[1],
             carrierAmp1,
             carrierIncB,
-            paramFinalValues[Param.LOCAL_CARRIER_1_FEEDBACK],
-            carrierInc1);
+            paramFinalValues[Param.LOCAL_CARRIER_1_FEEDBACK]);
       }
 
       int[] ampLR = tempAmpLR;
@@ -1724,22 +1547,6 @@ public class Voice {
           mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], out);
         }
       }
-    }
-
-    // Save historical values at the end of the block
-    modulatorAmplitudeLastTime[0] = modAmp0;
-    modulatorAmplitudeLastTime[1] = modAmp1;
-    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
-      System.out.println(
-          "[DIAG renderFmPath END] targetCarrierAmp0="
-              + targetCarrierAmp0
-              + " before_write="
-              + sourceAmplitudesLastTime[0]);
-    }
-    sourceAmplitudesLastTime[0] = targetCarrierAmp0;
-    sourceAmplitudesLastTime[1] = targetCarrierAmp1;
-    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
-      System.out.println("[DIAG renderFmPath END] after_write=" + sourceAmplitudesLastTime[0]);
     }
   }
 
@@ -1853,34 +1660,29 @@ public class Voice {
       int fbAmt,
       int[] fb,
       int fi,
-      boolean add,
-      int ampInc) {
+      boolean add) {
     int phaseNow = ph[pi];
-    int amplitudeNow = amp;
     if (fbAmt != 0) {
       int fbVal = fb[fi];
       for (int i = 0; i < n; i++) {
-        amplitudeNow += ampInc;
         int fb2 = Functions.signed_saturate(Functions.multiply_32x32_rshift32(fbVal, fbAmt), 22);
         phaseNow += pInc;
         fbVal = SineOsc.doFMNew(phaseNow, fb2);
         if (add) {
-          buf[i] =
-              Functions.multiply_accumulate_32x32_rshift32_rounded(buf[i], fbVal, amplitudeNow);
+          buf[i] = Functions.multiply_accumulate_32x32_rshift32_rounded(buf[i], fbVal, amp);
         } else {
-          buf[i] = Functions.multiply_32x32_rshift32(fbVal, amplitudeNow);
+          buf[i] = Functions.multiply_32x32_rshift32(fbVal, amp);
         }
       }
       fb[fi] = fbVal;
     } else {
       for (int i = 0; i < n; i++) {
-        amplitudeNow += ampInc;
         phaseNow += pInc;
         int sine = SineOsc.doFMNew(phaseNow, 0);
         if (add) {
-          buf[i] = Functions.multiply_accumulate_32x32_rshift32_rounded(buf[i], sine, amplitudeNow);
+          buf[i] = Functions.multiply_accumulate_32x32_rshift32_rounded(buf[i], sine, amp);
         } else {
-          buf[i] = Functions.multiply_32x32_rshift32(sine, amplitudeNow);
+          buf[i] = Functions.multiply_32x32_rshift32(sine, amp);
         }
       }
     }
@@ -1888,34 +1690,22 @@ public class Voice {
   }
 
   private void renderFMWithFeedback(
-      int[] buf,
-      int n,
-      int[] ph,
-      int pi,
-      int amp,
-      int pInc,
-      int fbAmt,
-      int[] fb,
-      int fi,
-      int ampInc) {
+      int[] buf, int n, int[] ph, int pi, int amp, int pInc, int fbAmt, int[] fb, int fi) {
     int phaseNow = ph[pi];
-    int amplitudeNow = amp;
     if (fbAmt != 0) {
       int fbVal = fb[fi];
       for (int i = 0; i < n; i++) {
-        amplitudeNow += ampInc;
         int fb2 = Functions.signed_saturate(Functions.multiply_32x32_rshift32(fbVal, fbAmt), 22);
         int sum = buf[i] + fb2;
         phaseNow += pInc;
         fbVal = SineOsc.doFMNew(phaseNow, sum);
-        buf[i] = Functions.multiply_32x32_rshift32(fbVal, amplitudeNow);
+        buf[i] = Functions.multiply_32x32_rshift32(fbVal, amp);
       }
       fb[fi] = fbVal;
     } else {
       for (int i = 0; i < n; i++) {
-        amplitudeNow += ampInc;
         phaseNow += pInc;
-        buf[i] = Functions.multiply_32x32_rshift32(SineOsc.doFMNew(phaseNow, buf[i]), amplitudeNow);
+        buf[i] = Functions.multiply_32x32_rshift32(SineOsc.doFMNew(phaseNow, buf[i]), amp);
       }
     }
     ph[pi] = phaseNow;
@@ -1931,49 +1721,44 @@ public class Voice {
       int pInc,
       int fbAmt,
       int[] fb,
-      int fi,
-      int ampInc) {
+      int fi) {
     int phaseNow = ph[pi];
-    int amplitudeNow = amp;
     if (fbAmt != 0) {
       int fbVal = fb[fi];
       for (int i = 0; i < n; i++) {
-        amplitudeNow += ampInc;
         int fb2 = Functions.signed_saturate(Functions.multiply_32x32_rshift32(fbVal, fbAmt), 22);
         int sum = fmBuf[i] + fb2;
         phaseNow += pInc;
         fbVal = SineOsc.doFMNew(phaseNow, sum);
-        buf[i] = Functions.multiply_accumulate_32x32_rshift32_rounded(buf[i], fbVal, amplitudeNow);
+        buf[i] = Functions.multiply_accumulate_32x32_rshift32_rounded(buf[i], fbVal, amp);
       }
       fb[fi] = fbVal;
     } else {
       for (int i = 0; i < n; i++) {
-        amplitudeNow += ampInc;
         phaseNow += pInc;
         buf[i] =
             Functions.multiply_accumulate_32x32_rshift32_rounded(
-                buf[i], SineOsc.doFMNew(phaseNow, fmBuf[i]), amplitudeNow);
+                buf[i], SineOsc.doFMNew(phaseNow, fmBuf[i]), amp);
       }
     }
     ph[pi] = phaseNow;
   }
 
-  private void renderCarrierSine(
-      int[] buf, int n, VoiceSource src, int amp, int pInc, int fbAmt, int ampInc) {
-    if (amp == 0 && ampInc == 0) return;
+  private void renderCarrierSine(int[] buf, int n, VoiceSource src, int amp, int pInc, int fbAmt) {
+    if (amp == 0) return;
     int[] ph = {src.oscPos};
     int[] fb = {src.carrierFeedback};
-    renderSineWaveWithFeedback(buf, n, ph, 0, amp, pInc, fbAmt, fb, 0, true, ampInc);
+    renderSineWaveWithFeedback(buf, n, ph, 0, amp, pInc, fbAmt, fb, 0, true);
     src.oscPos = ph[0];
     src.carrierFeedback = fb[0];
   }
 
   private void renderCarrierFM(
-      int[] buf, int n, int[] fmBuf, VoiceSource src, int amp, int pInc, int fbAmt, int ampInc) {
-    if (amp == 0 && ampInc == 0) return;
+      int[] buf, int n, int[] fmBuf, VoiceSource src, int amp, int pInc, int fbAmt) {
+    if (amp == 0) return;
     int[] ph = {src.oscPos};
     int[] fb = {src.carrierFeedback};
-    renderFMWithFeedbackAdd(buf, n, fmBuf, ph, 0, amp, pInc, fbAmt, fb, 0, ampInc);
+    renderFMWithFeedbackAdd(buf, n, fmBuf, ph, 0, amp, pInc, fbAmt, fb, 0);
     src.oscPos = ph[0];
     src.carrierFeedback = fb[0];
   }

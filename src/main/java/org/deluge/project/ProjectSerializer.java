@@ -365,7 +365,7 @@ public class ProjectSerializer {
         } else if (!synth.getOsc1Zones().isEmpty()) {
           writer.writeOpeningTagBeginning("osc1");
           writer.writeAttribute("type", "sample", false);
-          writer.writeAttribute("transpose", "0", false);
+          writer.writeAttribute("transpose", String.valueOf(synth.getOsc1Transpose()), false);
           writer.writeAttribute("cents", String.valueOf(synth.getOsc1Cents()), false);
           writer.writeAttribute("retrigPhase", String.valueOf(synth.getOsc1RetrigPhase()), false);
           writer.writeOpeningTagEnd();
@@ -395,7 +395,7 @@ public class ProjectSerializer {
         } else {
           writer.writeOpeningTagBeginning("osc1");
           writer.writeAttribute("type", synth.getOsc1Type().toLowerCase(), false);
-          writer.writeAttribute("transpose", "0", false);
+          writer.writeAttribute("transpose", String.valueOf(synth.getOsc1Transpose()), false);
           writer.writeAttribute("cents", String.valueOf(synth.getOsc1Cents()), false);
           writer.writeAttribute("retrigPhase", String.valueOf(synth.getOsc1RetrigPhase()), false);
           if (synth.getOsc1SamplePath() != null && !synth.getOsc1SamplePath().isEmpty()) {
