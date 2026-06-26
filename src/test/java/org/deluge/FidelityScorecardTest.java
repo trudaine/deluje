@@ -114,6 +114,26 @@ public class FidelityScorecardTest {
     return dot / (Math.sqrt(na * nb) + 1e-12);
   }
 
+  /**
+   * TIME-RESOLVED score: average per-frame spectral cosine across the note (onset-aligned), so it
+   * captures time-varying timbre (FM bell decay, reverb tail, chorus movement) the single-window
+   * cosine is blind to. 250 ms frames from each side's onset; frames where BOTH are quiet (gap /
+   * release) are skipped so silence isn't scored.
+   */
+  static double timeResolvedScore(float[] a, int aOn, float[] b, int bOn, int bEnd) {
+    int frame = SR / 4; // 250 ms
+    double sum = 0;
+    int cnt = 0;
+    for (int i = 0; i < 12; i++) { // up to 3 s from the onset
+      int ao = aOn + i * frame, bo = bOn + i * frame;
+      if (ao + frame >= a.length || bo + frame >= bEnd || bo + frame >= b.length) break;
+      if (rms(a, ao, frame) < 0.005 && rms(b, bo, frame) < 0.005) continue; // both silent → skip
+      sum += cosine(spectrum(a, ao, frame), spectrum(b, bo, frame));
+      cnt++;
+    }
+    return cnt > 0 ? sum / cnt : 0;
+  }
+
   static float[] renderSynth(File xml) throws Exception {
     FirmwareAudioEngine.cpuDireness = 0;
     org.deluge.firmware2.Functions.resetNoiseSeed();
@@ -244,7 +264,13 @@ public class FidelityScorecardTest {
     return onset;
   }
 
-  void scoreSong(List<File> synths, File recWav, String label, List<Double> all, List<String> na)
+  void scoreSong(
+      List<File> synths,
+      File recWav,
+      String label,
+      List<Double> all,
+      List<String> na,
+      List<Double> tsAll)
       throws Exception {
     float[] rec = readWavMono(recWav);
     // Trim BOTH leading and trailing silence — manual recordings have variable lead/tail, and
@@ -308,7 +334,13 @@ public class FidelityScorecardTest {
       }
       double sim = cosine(ours, spectrum(rec, bestOff, win));
       all.add(sim);
-      System.out.printf("  %3d  %-30s  %.3f%n", k, name, sim);
+      // Time-resolved score: align our render's onset (first frame above 10% of its peak) to the
+      // hardware onset, then average per-frame spectral cosine across the note.
+      int aOn = 0;
+      while (aOn + win < our.length && rms(our, aOn, SR / 4) < 0.1 * ourMax) aOn += SR / 8;
+      double ts = timeResolvedScore(our, aOn, rec, sliceStart, sliceEnd);
+      tsAll.add(ts);
+      System.out.printf("  %3d  %-30s  win=%.3f  time=%.3f%n", k, name, sim, ts);
     }
   }
 
@@ -334,33 +366,40 @@ public class FidelityScorecardTest {
 
     List<Double> all = new ArrayList<>();
     List<String> na = new ArrayList<>();
+    List<Double> tsAll = new ArrayList<>();
     scoreSong(
         new ArrayList<>(p1),
         new File(HOME + "/ALL_SYNTHS_SONG/ALLSYN_1/output_000.wav"),
         "ALLSYN_1",
         all,
-        na);
+        na,
+        tsAll);
     scoreSong(
         new ArrayList<>(p2),
         new File(HOME + "/ALL_SYNTHS_SONG/ALLSYN_2/output_000.wav"),
         "ALLSYN_2",
         all,
-        na);
+        na,
+        tsAll);
     System.out.printf(
         "%n  not-measurable (our render silent, multisamples need samples): %d%n", na.size());
 
+    summarize("SINGLE-WINDOW", all);
+    summarize("TIME-RESOLVED", tsAll);
+  }
+
+  static void summarize(String label, List<Double> scores) {
+    List<Double> all = new ArrayList<>(scores);
     Collections.sort(all);
     double mean = all.stream().mapToDouble(d -> d).average().orElse(0);
     double median = all.get(all.size() / 2);
     long ge9 = all.stream().filter(d -> d >= 0.9).count();
     long ge8 = all.stream().filter(d -> d >= 0.8).count();
     long lt6 = all.stream().filter(d -> d < 0.6).count();
-    System.out.printf(
-        "%n=== FIDELITY SUMMARY (cosine of normalized log-spectrum vs hardware) ===%n");
+    System.out.printf("%n=== FIDELITY SUMMARY (%s cosine vs hardware) ===%n", label);
     System.out.printf("  n=%d  mean=%.3f  median=%.3f%n", all.size(), mean, median);
     System.out.printf(
         "  >=0.90: %d (%.0f%%)   >=0.80: %d (%.0f%%)   <0.60: %d%n",
         ge9, 100.0 * ge9 / all.size(), ge8, 100.0 * ge8 / all.size(), lt6);
-    System.out.printf("  worst: %s%n", all.subList(0, Math.min(10, all.size())));
   }
 }
