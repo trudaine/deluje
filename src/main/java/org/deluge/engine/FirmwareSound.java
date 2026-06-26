@@ -417,6 +417,8 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     for (Destination d : paramManager.getPatchCableSet().destinations) {
       org.deluge.firmware2.Patcher.Destination dest =
           new org.deluge.firmware2.Patcher.Destination(d.paramId);
+      dest.targetSource = d.targetSource;
+      dest.targetParamId = d.targetParamId;
       for (PatchCable c : d.cables) {
         var fc = new org.deluge.firmware2.Patcher.PatchCable();
         fc.source = c.from.ordinal();

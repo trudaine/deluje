@@ -25,4 +25,22 @@ public class PatchCableSet {
     dest.cables.add(cable);
     dest.sourcesMask |= (1 << cable.from.ordinal());
   }
+
+  public void addRangeCable(int targetParamId, PatchSource targetSource, PatchCable cable) {
+    Destination dest = null;
+    for (Destination d : destinations) {
+      if (d.targetParamId == targetParamId && d.targetSource == targetSource.ordinal()) {
+        dest = d;
+        break;
+      }
+    }
+    if (dest == null) {
+      dest = new Destination(targetParamId);
+      dest.targetSource = targetSource.ordinal();
+      dest.targetParamId = targetParamId;
+      destinations.add(dest);
+    }
+    dest.cables.add(cable);
+    dest.sourcesMask |= (1 << cable.from.ordinal());
+  }
 }
