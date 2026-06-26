@@ -2534,7 +2534,7 @@ public class SwingGridPanel extends JPanel {
                 : (baseTrackId + modelRow);
         final int engineRow = baseTrackId + modelRow;
         boolean isMuted = bridge != null && bridge.getMute(trackToMute);
-        
+
         Color muteBg;
         Color muteFg;
         if (viewMode == GridViewMode.CLIP && isEditedTrackKit()) {

@@ -828,6 +828,7 @@ public class FirmwareFactory {
         // modulator-depth cables (e.g. envelope2 -> modulator1Volume) get misrouted to the master
         // LOCAL_VOLUME and the FM depth never tracks the envelope.
         int paramId = -1;
+        // 1. Filter Cutoffs, Resonances, and Morphs
         if (destStr.contains("LPFFREQUENCY") || destStr.contains("LPF_FREQ"))
           paramId = Param.LOCAL_LPF_FREQ;
         else if (destStr.contains("LPFRESONANCE") || destStr.contains("LPF_RES"))
@@ -836,17 +837,72 @@ public class FirmwareFactory {
           paramId = Param.LOCAL_HPF_FREQ;
         else if (destStr.contains("HPFRESONANCE") || destStr.contains("HPF_RES"))
           paramId = Param.LOCAL_HPF_RESONANCE;
+        else if (destStr.contains("LPFMORPH") || destStr.contains("LPF_MORPH"))
+          paramId = Param.LOCAL_LPF_MORPH;
+        else if (destStr.contains("HPFMORPH") || destStr.contains("HPF_MORPH"))
+          paramId = Param.LOCAL_HPF_MORPH;
+
+        // 2. FM Modulators & Carriers
         else if (destStr.contains("MODULATOR1VOLUME")) paramId = Param.LOCAL_MODULATOR_0_VOLUME;
         else if (destStr.contains("MODULATOR2VOLUME")) paramId = Param.LOCAL_MODULATOR_1_VOLUME;
         else if (destStr.contains("CARRIER1FEEDBACK")) paramId = Param.LOCAL_CARRIER_0_FEEDBACK;
         else if (destStr.contains("CARRIER2FEEDBACK")) paramId = Param.LOCAL_CARRIER_1_FEEDBACK;
         else if (destStr.contains("MODULATOR1FEEDBACK")) paramId = Param.LOCAL_MODULATOR_0_FEEDBACK;
         else if (destStr.contains("MODULATOR2FEEDBACK")) paramId = Param.LOCAL_MODULATOR_1_FEEDBACK;
+
+        // 3. Independent Pitch Modulations (Specific before generic PITCH)
+        else if (destStr.contains("OSCAPITCH") || destStr.contains("OSC1PITCH"))
+          paramId = Param.LOCAL_OSC_A_PITCH_ADJUST;
+        else if (destStr.contains("OSCBPITCH") || destStr.contains("OSC2PITCH"))
+          paramId = Param.LOCAL_OSC_B_PITCH_ADJUST;
+        else if (destStr.contains("MODULATOR1PITCH") || destStr.contains("MOD1PITCH"))
+          paramId = Param.LOCAL_MODULATOR_0_PITCH_ADJUST;
+        else if (destStr.contains("MODULATOR2PITCH") || destStr.contains("MOD2PITCH"))
+          paramId = Param.LOCAL_MODULATOR_1_PITCH_ADJUST;
+        else if (destStr.contains("PITCH")) paramId = Param.LOCAL_PITCH_ADJUST;
+
+        // 4. Pulse Width (PWM) & Wavetable Index (Phase Width / Wave Index)
+        else if (destStr.contains("OSCAPULSEWIDTH")
+            || destStr.contains("OSC1PULSEWIDTH")
+            || destStr.contains("OSCAPHASEWIDTH")
+            || destStr.contains("OSC1PHASEWIDTH")) paramId = Param.LOCAL_OSC_A_PHASE_WIDTH;
+        else if (destStr.contains("OSCBPULSEWIDTH")
+            || destStr.contains("OSC2PULSEWIDTH")
+            || destStr.contains("OSCBPHASEWIDTH")
+            || destStr.contains("OSC2PHASEWIDTH")) paramId = Param.LOCAL_OSC_B_PHASE_WIDTH;
+        else if (destStr.contains("OSCAWAVETABLE")
+            || destStr.contains("OSC1WAVETABLE")
+            || destStr.contains("OSCAWAVEINDEX")
+            || destStr.contains("OSC1WAVEINDEX")) paramId = Param.LOCAL_OSC_A_WAVE_INDEX;
+        else if (destStr.contains("OSCBWAVETABLE")
+            || destStr.contains("OSC2WAVETABLE")
+            || destStr.contains("OSCBWAVEINDEX")
+            || destStr.contains("OSC2WAVEINDEX")) paramId = Param.LOCAL_OSC_B_WAVE_INDEX;
+
+        // 5. LFO Rates
+        else if (destStr.contains("LFO1RATE")
+            || destStr.contains("LFO1FREQ")
+            || destStr.contains("LFO_1_RATE")) paramId = Param.LOCAL_LFO_LOCAL_FREQ_1;
+        else if (destStr.contains("LFO2RATE")
+            || destStr.contains("LFO2FREQ")
+            || destStr.contains("LFO_2_RATE")) paramId = Param.LOCAL_LFO_LOCAL_FREQ_2;
+
+        // 6. Delay Effects
+        else if (destStr.contains("DELAYRATE") || destStr.contains("DELAY_RATE"))
+          paramId = Param.GLOBAL_DELAY_RATE;
+        else if (destStr.contains("DELAYFEEDBACK") || destStr.contains("DELAY_FEEDBACK"))
+          paramId = Param.GLOBAL_DELAY_FEEDBACK;
+
+        // 7. Panning (Specific PAN check)
+        else if (destStr.contains("PAN")) paramId = Param.LOCAL_PAN;
+
+        // 8. Shielded Specific Volumes (Before generic VOLUME)
         else if (destStr.contains("OSCAVOLUME") || destStr.contains("OSC1VOLUME"))
           paramId = Param.LOCAL_OSC_A_VOLUME;
         else if (destStr.contains("OSCBVOLUME") || destStr.contains("OSC2VOLUME"))
           paramId = Param.LOCAL_OSC_B_VOLUME;
-        else if (destStr.contains("PITCH")) paramId = Param.LOCAL_PITCH_ADJUST;
+        else if (destStr.contains("NOISEVOLUME") || destStr.contains("NOISE_VOL"))
+          paramId = Param.LOCAL_NOISE_VOLUME;
         else if (destStr.contains("VOLUME")) paramId = Param.LOCAL_VOLUME;
 
         if (paramId != -1) {
