@@ -532,6 +532,8 @@ public class FirmwareFactory {
     } else {
       sound.paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] = 0;
     }
+    // Sound-level master transpose (C sound.transpose, voice.cpp:419) — applies to all sources.
+    sound.fw2Sound.masterTranspose = model.getTranspose();
     // Per-osc coarse transpose (semitones) + cents detune — C sources[s].transpose / fineTuner.
     sound.fw2Sound.sourceTranspose[0] = model.getOsc1Transpose();
     sound.fw2Sound.sourceTranspose[1] = model.getOsc2Transpose();
