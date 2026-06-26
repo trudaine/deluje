@@ -79,5 +79,27 @@ Workstation-exclusive parity features that speed up your music production workfl
 
 ---
 
+## 🎛️ 4. The Right-Click Step Context Menu & Step Properties Dialog
+
+Right-clicking any grid pad in **Clip View** opens a premium, context-sensitive popup menu to edit step properties instantly without opening the full dialog, or to jump directly to the **Step Properties** dialog.
+
+### 📋 Context Menu Quick Actions
+*   **Step Toggle:** Turn the step ON or OFF.
+*   **Velocity Quick-Presets:** Set velocity to `100% (FF)`, `75% (mf)`, `50% (p)`, or `25% (pp)`.
+*   **Fill Condition:** Toggle whether the step behaves as a **Fill** trigger.
+*   **Clear Step:** Reset all parameters on the step to default.
+*   **Properties...:** Opens the full high-contrast **Step Properties** dialog.
+
+### 🎨 Pad Color Indicator Parity Guide
+*   **Dim Charcoal (`#151515` / `#1a1a1a`):** Inactive or empty step.
+*   **Glowing Track Color (High Intensity):** Active step (brightness scales dynamically with velocity!).
+*   **Dim Track Color:** Inactive step or step with $0\%$ probability of playing on the current pass.
+*   **Glowing Cyan-Blue (`0x00d2ff`):** Step with a **Fill Condition** active.
+*   **White Line Overlay / Highlight:** Octave C row boundaries in Diatonic/Keyboard views.
+*   **Amber Glow (`0xffaa00`):** Queued clip slot in SONG view.
+*   **Active Green (`0x00cc00`):** Actively playing loop clip in SONG view.
+
+---
+
 > [!NOTE]
 > All desktop shortcuts are designed with absolute safety, preventing EDT (Event Dispatch Thread) blocking to ensure that audio playback remains click-free and responsive even during heavy track duplications, transpositions, or copy-paste operations.
