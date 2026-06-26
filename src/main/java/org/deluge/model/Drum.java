@@ -769,4 +769,167 @@ public abstract class Drum {
   public void setArpeggiatorRate(float v) {
     this.arpeggiatorRate = v;
   }
+
+  protected String osc1Type = "SAMPLE";
+  protected int osc1Transpose = 0;
+  protected int osc1Cents = 0;
+  protected int osc2Transpose = 0;
+  protected int osc2Cents = 0;
+  protected int synthMode = 0;
+  protected float fmRatio = 1.0f;
+  protected float fmRatio2 = 1.0f;
+  protected int modulator1AmountQ31 = Integer.MIN_VALUE;
+  protected int modulator2AmountQ31 = Integer.MIN_VALUE;
+  protected int modulator1FeedbackQ31 = Integer.MIN_VALUE;
+  protected int modulator2FeedbackQ31 = Integer.MIN_VALUE;
+  protected int carrier1FeedbackQ31 = Integer.MIN_VALUE;
+  protected int carrier2FeedbackQ31 = Integer.MIN_VALUE;
+  protected int modulator1Transpose = 0;
+  protected int modulator1Cents = 0;
+  protected int modulator2Transpose = 0;
+  protected int modulator2Cents = 0;
+
+  public String getOsc1Type() {
+    return osc1Type;
+  }
+
+  public void setOsc1Type(String v) {
+    this.osc1Type = v;
+  }
+
+  public int getOsc1Transpose() {
+    return osc1Transpose;
+  }
+
+  public void setOsc1Transpose(int v) {
+    this.osc1Transpose = v;
+  }
+
+  public int getOsc1Cents() {
+    return osc1Cents;
+  }
+
+  public void setOsc1Cents(int v) {
+    this.osc1Cents = v;
+  }
+
+  public int getOsc2Transpose() {
+    return osc2Transpose;
+  }
+
+  public void setOsc2Transpose(int v) {
+    this.osc2Transpose = v;
+  }
+
+  public int getOsc2Cents() {
+    return osc2Cents;
+  }
+
+  public void setOsc2Cents(int v) {
+    this.osc2Cents = v;
+  }
+
+  public int getSynthMode() {
+    return synthMode;
+  }
+
+  public void setSynthMode(int v) {
+    this.synthMode = v;
+  }
+
+  public float getFmRatio() {
+    return fmRatio;
+  }
+
+  public void setFmRatio(float v) {
+    this.fmRatio = v;
+  }
+
+  public float getFmRatio2() {
+    return fmRatio2;
+  }
+
+  public void setFmRatio2(float v) {
+    this.fmRatio2 = v;
+  }
+
+  public int getModulator1AmountQ31() {
+    return modulator1AmountQ31;
+  }
+
+  public void setModulator1AmountQ31(int v) {
+    this.modulator1AmountQ31 = v;
+  }
+
+  public int getModulator2AmountQ31() {
+    return modulator2AmountQ31;
+  }
+
+  public void setModulator2AmountQ31(int v) {
+    this.modulator2AmountQ31 = v;
+  }
+
+  public int getModulator1FeedbackQ31() {
+    return modulator1FeedbackQ31;
+  }
+
+  public void setModulator1FeedbackQ31(int v) {
+    this.modulator1FeedbackQ31 = v;
+  }
+
+  public int getModulator2FeedbackQ31() {
+    return modulator2FeedbackQ31;
+  }
+
+  public void setModulator2FeedbackQ31(int v) {
+    this.modulator2FeedbackQ31 = v;
+  }
+
+  public int getCarrier1FeedbackQ31() {
+    return carrier1FeedbackQ31;
+  }
+
+  public void setCarrier1FeedbackQ31(int v) {
+    this.carrier1FeedbackQ31 = v;
+  }
+
+  public int getCarrier2FeedbackQ31() {
+    return carrier2FeedbackQ31;
+  }
+
+  public void setCarrier2FeedbackQ31(int v) {
+    this.carrier2FeedbackQ31 = v;
+  }
+
+  public int getModulator1Transpose() {
+    return modulator1Transpose;
+  }
+
+  public void setModulator1Transpose(int v) {
+    this.modulator1Transpose = v;
+  }
+
+  public int getModulator1Cents() {
+    return modulator1Cents;
+  }
+
+  public void setModulator1Cents(int v) {
+    this.modulator1Cents = v;
+  }
+
+  public int getModulator2Transpose() {
+    return modulator2Transpose;
+  }
+
+  public void setModulator2Transpose(int v) {
+    this.modulator2Transpose = v;
+  }
+
+  public int getModulator2Cents() {
+    return modulator2Cents;
+  }
+
+  public void setModulator2Cents(int v) {
+    this.modulator2Cents = v;
+  }
 }

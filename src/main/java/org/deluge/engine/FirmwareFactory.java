@@ -818,118 +818,7 @@ public class FirmwareFactory {
     sound.fw2Sound.eqTrebleParam = sound.paramKnobs[Param.UNPATCHED_TREBLE];
 
     // Patch Cables
-    for (org.deluge.model.PatchCable pcm : model.getPatchCables()) {
-      try {
-        String destStr = pcm.destination().toUpperCase();
-        String srcStr = pcm.source().toUpperCase();
-
-        // Manual mapping from string to Param ID. Order matters: the more specific modulator/osc
-        // volume names must be matched before the generic "VOLUME" catch-all, otherwise FM
-        // modulator-depth cables (e.g. envelope2 -> modulator1Volume) get misrouted to the master
-        // LOCAL_VOLUME and the FM depth never tracks the envelope.
-        int paramId = -1;
-        // 1. Filter Cutoffs, Resonances, and Morphs
-        if (destStr.contains("LPFFREQUENCY") || destStr.contains("LPF_FREQ"))
-          paramId = Param.LOCAL_LPF_FREQ;
-        else if (destStr.contains("LPFRESONANCE") || destStr.contains("LPF_RES"))
-          paramId = Param.LOCAL_LPF_RESONANCE;
-        else if (destStr.contains("HPFFREQUENCY") || destStr.contains("HPF_FREQ"))
-          paramId = Param.LOCAL_HPF_FREQ;
-        else if (destStr.contains("HPFRESONANCE") || destStr.contains("HPF_RES"))
-          paramId = Param.LOCAL_HPF_RESONANCE;
-        else if (destStr.contains("LPFMORPH") || destStr.contains("LPF_MORPH"))
-          paramId = Param.LOCAL_LPF_MORPH;
-        else if (destStr.contains("HPFMORPH") || destStr.contains("HPF_MORPH"))
-          paramId = Param.LOCAL_HPF_MORPH;
-
-        // 2. FM Modulators & Carriers
-        else if (destStr.contains("MODULATOR1VOLUME")) paramId = Param.LOCAL_MODULATOR_0_VOLUME;
-        else if (destStr.contains("MODULATOR2VOLUME")) paramId = Param.LOCAL_MODULATOR_1_VOLUME;
-        else if (destStr.contains("CARRIER1FEEDBACK")) paramId = Param.LOCAL_CARRIER_0_FEEDBACK;
-        else if (destStr.contains("CARRIER2FEEDBACK")) paramId = Param.LOCAL_CARRIER_1_FEEDBACK;
-        else if (destStr.contains("MODULATOR1FEEDBACK")) paramId = Param.LOCAL_MODULATOR_0_FEEDBACK;
-        else if (destStr.contains("MODULATOR2FEEDBACK")) paramId = Param.LOCAL_MODULATOR_1_FEEDBACK;
-
-        // 3. Independent Pitch Modulations (Specific before generic PITCH)
-        else if (destStr.contains("OSCAPITCH") || destStr.contains("OSC1PITCH"))
-          paramId = Param.LOCAL_OSC_A_PITCH_ADJUST;
-        else if (destStr.contains("OSCBPITCH") || destStr.contains("OSC2PITCH"))
-          paramId = Param.LOCAL_OSC_B_PITCH_ADJUST;
-        else if (destStr.contains("MODULATOR1PITCH") || destStr.contains("MOD1PITCH"))
-          paramId = Param.LOCAL_MODULATOR_0_PITCH_ADJUST;
-        else if (destStr.contains("MODULATOR2PITCH") || destStr.contains("MOD2PITCH"))
-          paramId = Param.LOCAL_MODULATOR_1_PITCH_ADJUST;
-        else if (destStr.contains("PITCH")) paramId = Param.LOCAL_PITCH_ADJUST;
-
-        // 4. Pulse Width (PWM) & Wavetable Index (Phase Width / Wave Index)
-        else if (destStr.contains("OSCAPULSEWIDTH")
-            || destStr.contains("OSC1PULSEWIDTH")
-            || destStr.contains("OSCAPHASEWIDTH")
-            || destStr.contains("OSC1PHASEWIDTH")) paramId = Param.LOCAL_OSC_A_PHASE_WIDTH;
-        else if (destStr.contains("OSCBPULSEWIDTH")
-            || destStr.contains("OSC2PULSEWIDTH")
-            || destStr.contains("OSCBPHASEWIDTH")
-            || destStr.contains("OSC2PHASEWIDTH")) paramId = Param.LOCAL_OSC_B_PHASE_WIDTH;
-        else if (destStr.contains("OSCAWAVETABLE")
-            || destStr.contains("OSC1WAVETABLE")
-            || destStr.contains("OSCAWAVEINDEX")
-            || destStr.contains("OSC1WAVEINDEX")) paramId = Param.LOCAL_OSC_A_WAVE_INDEX;
-        else if (destStr.contains("OSCBWAVETABLE")
-            || destStr.contains("OSC2WAVETABLE")
-            || destStr.contains("OSCBWAVEINDEX")
-            || destStr.contains("OSC2WAVEINDEX")) paramId = Param.LOCAL_OSC_B_WAVE_INDEX;
-
-        // 5. LFO Rates
-        else if (destStr.contains("LFO1RATE")
-            || destStr.contains("LFO1FREQ")
-            || destStr.contains("LFO_1_RATE")) paramId = Param.LOCAL_LFO_LOCAL_FREQ_1;
-        else if (destStr.contains("LFO2RATE")
-            || destStr.contains("LFO2FREQ")
-            || destStr.contains("LFO_2_RATE")) paramId = Param.LOCAL_LFO_LOCAL_FREQ_2;
-
-        // 6. Delay and Reverb Effects
-        else if (destStr.contains("DELAYRATE") || destStr.contains("DELAY_RATE"))
-          paramId = Param.GLOBAL_DELAY_RATE;
-        else if (destStr.contains("DELAYFEEDBACK") || destStr.contains("DELAY_FEEDBACK"))
-          paramId = Param.GLOBAL_DELAY_FEEDBACK;
-        else if (destStr.contains("REVERBAMOUNT") || destStr.contains("REVERB_SEND"))
-          paramId = Param.GLOBAL_REVERB_AMOUNT;
-
-        // 7. Mod FX (Chorus/Flanger/Phaser)
-        else if (destStr.contains("MODFXRATE") || destStr.contains("MOD_FX_RATE"))
-          paramId = Param.GLOBAL_MOD_FX_RATE;
-        else if (destStr.contains("MODFXDEPTH") || destStr.contains("MOD_FX_DEPTH"))
-          paramId = Param.GLOBAL_MOD_FX_DEPTH;
-
-        // 8. Panning (Specific PAN check)
-        else if (destStr.contains("PAN")) paramId = Param.LOCAL_PAN;
-
-        // 9. Shielded Specific Volumes (Before generic VOLUME)
-        else if (destStr.contains("OSCAVOLUME") || destStr.contains("OSC1VOLUME"))
-          paramId = Param.LOCAL_OSC_A_VOLUME;
-        else if (destStr.contains("OSCBVOLUME") || destStr.contains("OSC2VOLUME"))
-          paramId = Param.LOCAL_OSC_B_VOLUME;
-        else if (destStr.contains("NOISEVOLUME") || destStr.contains("NOISE_VOL"))
-          paramId = Param.LOCAL_NOISE_VOLUME;
-        else if (destStr.contains("VOLUME")) paramId = Param.LOCAL_VOLUME;
-
-        if (paramId != -1) {
-          PatchSource source = stringToPatchSource(pcm.source());
-          int amount = (int) (pcm.amount() * 2147483647.0);
-          PatchCable engineCable = new PatchCable();
-          engineCable.from = source;
-          engineCable.amount = amount;
-          if (pcm.polarity() == org.deluge.model.PatchCable.Polarity.UNIPOLAR) {
-            engineCable.polarity = org.deluge.modulation.patch.PatchCable.Polarity.UNIPOLAR;
-          } else {
-            engineCable.polarity = org.deluge.modulation.patch.PatchCable.Polarity.BIPOLAR;
-          }
-          sound.paramManager.getPatchCableSet().addCable(paramId, engineCable);
-        }
-      } catch (Exception e) {
-        // Skip invalid cables
-      }
-    }
+    mapPatchCables(model.getPatchCables(), sound);
 
     // ── LFO depth/target → synthesized patch cables ──
     // The LfoModel carries a depth + target (the UI's LFO tab) but only the rate/waveform were
@@ -1361,16 +1250,76 @@ public class FirmwareFactory {
     drumSound.fw2Sound.voicePriority =
         sd.getVoicePriority(); // voice-stealing priority (was stuck at default)
     drumSound.isDrum = true;
-    drumSound.oscTypes[0] = OscType.SAMPLE;
-    drumSound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
-    drumSound.paramNeutralValues[Param.LOCAL_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
-    drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
-    drumSound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
+
+    // Map synthesis oscillator types
+    drumSound.oscTypes[0] = stringToOscType(sd.getOsc1Type());
+    drumSound.oscTypes[1] = stringToOscType(sd.getOsc2Type());
+
+    // Map Synth Mode (0=Subtractive, 1=FM, 2=RingMod)
+    int modeVal = sd.getSynthMode();
+    if (modeVal == 1) {
+      drumSound.setSynthMode(FirmwareSound.SynthMode.FM);
+    } else if (modeVal == 2) {
+      drumSound.setSynthMode(FirmwareSound.SynthMode.RINGMOD);
+    } else {
+      drumSound.setSynthMode(FirmwareSound.SynthMode.SUBTRACTIVE);
+    }
+
+    // Map FM modulator-to-carrier frequency ratios and transposes/cents
+    drumSound.fmRatio1 = sd.getFmRatio();
+    drumSound.fmRatio2 = sd.getFmRatio2();
+    drumSound.fmModulator1Transpose = sd.getModulator1Transpose();
+    drumSound.fmModulator1Cents = sd.getModulator1Cents();
+    drumSound.fmModulator2Transpose = sd.getModulator2Transpose();
+    drumSound.fmModulator2Cents = sd.getModulator2Cents();
+
+    // Map FM modulator amounts and carrier feedback
+    drumSound.fmModulatorAmountBase[0] = sd.getModulator1AmountQ31();
+    drumSound.fmModulatorAmountBase[1] = sd.getModulator2AmountQ31();
+    drumSound.paramNeutralValues[Param.LOCAL_MODULATOR_0_VOLUME] = sd.getModulator1AmountQ31();
+    drumSound.paramNeutralValues[Param.LOCAL_MODULATOR_1_VOLUME] = sd.getModulator2AmountQ31();
+    drumSound.paramNeutralValues[Param.LOCAL_MODULATOR_0_FEEDBACK] = sd.getModulator1FeedbackQ31();
+    drumSound.paramNeutralValues[Param.LOCAL_MODULATOR_1_FEEDBACK] = sd.getModulator2FeedbackQ31();
+    drumSound.paramNeutralValues[Param.LOCAL_CARRIER_0_FEEDBACK] = sd.getCarrier1FeedbackQ31();
+    drumSound.paramNeutralValues[Param.LOCAL_CARRIER_1_FEEDBACK] = sd.getCarrier2FeedbackQ31();
+
+    // Map oscillator coarse transpose and cents detune
+    drumSound.fw2Sound.masterTranspose = (int) sd.getPitchSemitones();
+    drumSound.fw2Sound.sourceTranspose[0] = sd.getOsc1Transpose();
+    drumSound.fw2Sound.sourceTranspose[1] = sd.getOsc2Transpose();
+    drumSound.fw2Sound.setSourceCents(0, sd.getOsc1Cents());
+    drumSound.fw2Sound.setSourceCents(1, sd.getOsc2Cents());
+
+    // Map oscillator/noise volumes
+    float oscAVol = sd.getOscAVolume();
+    if (sd.getOsc1Type().equalsIgnoreCase("SAMPLE") && oscAVol == 0.0f) {
+      oscAVol = 1.0f; // Legacy sample-based row default
+    }
+    drumSound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = normToBipolarParamVolume(oscAVol);
+    drumSound.paramNeutralValues[Param.LOCAL_VOLUME] = normToBipolarParamVolume(sd.getVolume());
+    drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] =
+        normToBipolarParamVolume(sd.getOscBVolume());
+    drumSound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] =
+        normToBipolarParamVolume(sd.getNoiseVolume());
+
+    // If osc 2 is NONE/off, silence it
+    String osc2t = sd.getOsc2Type();
+    if (osc2t == null
+        || osc2t.isBlank()
+        || osc2t.equalsIgnoreCase("none")
+        || osc2t.equalsIgnoreCase("off")) {
+      drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+    }
+
+    // Trigger phases
     drumSound.osc1RetriggerPhase = sd.getOsc1RetrigPhase();
     drumSound.osc2RetriggerPhase = sd.getOsc2RetrigPhase();
     drumSound.mod1RetrigPhase = sd.getMod1RetrigPhase();
     drumSound.mod2RetrigPhase = sd.getMod2RetrigPhase();
     drumSound.fw2Sound.sidechainSend = (int) (sd.getSidechainSend() * 2147483647.0);
+
+    // Map drum-specific patch cables
+    mapPatchCables(sd.getPatchCables(), drumSound);
 
     // Per-drum modulation FX
     drumSound.fw2Sound.modFXType = stringToModFXType(sd.getModFxType());
@@ -1527,5 +1476,121 @@ public class FirmwareFactory {
   private static int finalEnvRateParam(int paramNeutralValue, int patchedValue, int stage) {
     return org.deluge.firmware2.Functions.getFinalParameterValueExpWithDumbEnvelopeHack(
         paramNeutralValue, patchedValue, stage);
+  }
+
+  private static void mapPatchCables(
+      java.util.List<org.deluge.model.PatchCable> patchCables, FirmwareSound sound) {
+    for (org.deluge.model.PatchCable pcm : patchCables) {
+      try {
+        String destStr = pcm.destination().toUpperCase();
+        String srcStr = pcm.source().toUpperCase();
+
+        // Manual mapping from string to Param ID. Order matters: the more specific modulator/osc
+        // volume names must be matched before the generic "VOLUME" catch-all, otherwise FM
+        // modulator-depth cables (e.g. envelope2 -> modulator1Volume) get misrouted to the master
+        // LOCAL_VOLUME and the FM depth never tracks the envelope.
+        int paramId = -1;
+        // 1. Filter Cutoffs, Resonances, and Morphs
+        if (destStr.contains("LPFFREQUENCY") || destStr.contains("LPF_FREQ"))
+          paramId = Param.LOCAL_LPF_FREQ;
+        else if (destStr.contains("LPFRESONANCE") || destStr.contains("LPF_RES"))
+          paramId = Param.LOCAL_LPF_RESONANCE;
+        else if (destStr.contains("HPFFREQUENCY") || destStr.contains("HPF_FREQ"))
+          paramId = Param.LOCAL_HPF_FREQ;
+        else if (destStr.contains("HPFRESONANCE") || destStr.contains("HPF_RES"))
+          paramId = Param.LOCAL_HPF_RESONANCE;
+        else if (destStr.contains("LPFMORPH") || destStr.contains("LPF_MORPH"))
+          paramId = Param.LOCAL_LPF_MORPH;
+        else if (destStr.contains("HPFMORPH") || destStr.contains("HPF_MORPH"))
+          paramId = Param.LOCAL_HPF_MORPH;
+
+        // 2. FM Modulators & Carriers
+        else if (destStr.contains("MODULATOR1VOLUME")) paramId = Param.LOCAL_MODULATOR_0_VOLUME;
+        else if (destStr.contains("MODULATOR2VOLUME")) paramId = Param.LOCAL_MODULATOR_1_VOLUME;
+        else if (destStr.contains("CARRIER1FEEDBACK")) paramId = Param.LOCAL_CARRIER_0_FEEDBACK;
+        else if (destStr.contains("CARRIER2FEEDBACK")) paramId = Param.LOCAL_CARRIER_1_FEEDBACK;
+        else if (destStr.contains("MODULATOR1FEEDBACK")) paramId = Param.LOCAL_MODULATOR_0_FEEDBACK;
+        else if (destStr.contains("MODULATOR2FEEDBACK")) paramId = Param.LOCAL_MODULATOR_1_FEEDBACK;
+
+        // 3. Independent Pitch Modulations (Specific before generic PITCH)
+        else if (destStr.contains("OSCAPITCH") || destStr.contains("OSC1PITCH"))
+          paramId = Param.LOCAL_OSC_A_PITCH_ADJUST;
+        else if (destStr.contains("OSCBPITCH") || destStr.contains("OSC2PITCH"))
+          paramId = Param.LOCAL_OSC_B_PITCH_ADJUST;
+        else if (destStr.contains("MODULATOR1PITCH") || destStr.contains("MOD1PITCH"))
+          paramId = Param.LOCAL_MODULATOR_0_PITCH_ADJUST;
+        else if (destStr.contains("MODULATOR2PITCH") || destStr.contains("MOD2PITCH"))
+          paramId = Param.LOCAL_MODULATOR_1_PITCH_ADJUST;
+        else if (destStr.contains("PITCH")) paramId = Param.LOCAL_PITCH_ADJUST;
+
+        // 4. Pulse Width (PWM) & Wavetable Index (Phase Width / Wave Index)
+        else if (destStr.contains("OSCAPULSEWIDTH")
+            || destStr.contains("OSC1PULSEWIDTH")
+            || destStr.contains("OSCAPHASEWIDTH")
+            || destStr.contains("OSC1PHASEWIDTH")) paramId = Param.LOCAL_OSC_A_PHASE_WIDTH;
+        else if (destStr.contains("OSCBPULSEWIDTH")
+            || destStr.contains("OSC2PULSEWIDTH")
+            || destStr.contains("OSCBPHASEWIDTH")
+            || destStr.contains("OSC2PHASEWIDTH")) paramId = Param.LOCAL_OSC_B_PHASE_WIDTH;
+        else if (destStr.contains("OSCAWAVETABLE")
+            || destStr.contains("OSC1WAVETABLE")
+            || destStr.contains("OSCAWAVEINDEX")
+            || destStr.contains("OSC1WAVEINDEX")) paramId = Param.LOCAL_OSC_A_WAVE_INDEX;
+        else if (destStr.contains("OSCBWAVETABLE")
+            || destStr.contains("OSC2WAVETABLE")
+            || destStr.contains("OSCBWAVEINDEX")
+            || destStr.contains("OSC2WAVEINDEX")) paramId = Param.LOCAL_OSC_B_WAVE_INDEX;
+
+        // 5. LFO Rates
+        else if (destStr.contains("LFO1RATE")
+            || destStr.contains("LFO1FREQ")
+            || destStr.contains("LFO_1_RATE")) paramId = Param.LOCAL_LFO_LOCAL_FREQ_1;
+        else if (destStr.contains("LFO2RATE")
+            || destStr.contains("LFO2FREQ")
+            || destStr.contains("LFO_2_RATE")) paramId = Param.LOCAL_LFO_LOCAL_FREQ_2;
+
+        // 6. Delay and Reverb Effects
+        else if (destStr.contains("DELAYRATE") || destStr.contains("DELAY_RATE"))
+          paramId = Param.GLOBAL_DELAY_RATE;
+        else if (destStr.contains("DELAYFEEDBACK") || destStr.contains("DELAY_FEEDBACK"))
+          paramId = Param.GLOBAL_DELAY_FEEDBACK;
+        else if (destStr.contains("REVERBAMOUNT") || destStr.contains("REVERB_SEND"))
+          paramId = Param.GLOBAL_REVERB_AMOUNT;
+
+        // 7. Mod FX (Chorus/Flanger/Phaser)
+        else if (destStr.contains("MODFXRATE") || destStr.contains("MOD_FX_RATE"))
+          paramId = Param.GLOBAL_MOD_FX_RATE;
+        else if (destStr.contains("MODFXDEPTH") || destStr.contains("MOD_FX_DEPTH"))
+          paramId = Param.GLOBAL_MOD_FX_DEPTH;
+
+        // 8. Panning (Specific PAN check)
+        else if (destStr.contains("PAN")) paramId = Param.LOCAL_PAN;
+
+        // 9. Shielded Specific Volumes (Before generic VOLUME)
+        else if (destStr.contains("OSCAVOLUME") || destStr.contains("OSC1VOLUME"))
+          paramId = Param.LOCAL_OSC_A_VOLUME;
+        else if (destStr.contains("OSCBVOLUME") || destStr.contains("OSC2VOLUME"))
+          paramId = Param.LOCAL_OSC_B_VOLUME;
+        else if (destStr.contains("NOISEVOLUME") || destStr.contains("NOISE_VOL"))
+          paramId = Param.LOCAL_NOISE_VOLUME;
+        else if (destStr.contains("VOLUME")) paramId = Param.LOCAL_VOLUME;
+
+        if (paramId != -1) {
+          PatchSource source = stringToPatchSource(pcm.source());
+          int amount = (int) (pcm.amount() * 2147483647.0);
+          PatchCable engineCable = new PatchCable();
+          engineCable.from = source;
+          engineCable.amount = amount;
+          if (pcm.polarity() == org.deluge.model.PatchCable.Polarity.UNIPOLAR) {
+            engineCable.polarity = org.deluge.modulation.patch.PatchCable.Polarity.UNIPOLAR;
+          } else {
+            engineCable.polarity = org.deluge.modulation.patch.PatchCable.Polarity.BIPOLAR;
+          }
+          sound.paramManager.getPatchCableSet().addCable(paramId, engineCable);
+        }
+      } catch (Exception e) {
+        // Skip invalid cables
+      }
+    }
   }
 }

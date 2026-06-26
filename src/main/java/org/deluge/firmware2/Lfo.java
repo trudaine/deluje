@@ -184,10 +184,8 @@ public class Lfo {
 
       case WARBLER:
         {
-          // phaseIncrement *= 2; warble(numSamples, phaseIncrement); value = holdValue;
-          // (lines 102-105)
-          int pi2 = phaseIncrement * 2;
-          warble(numSamples, pi2);
+          phaseIncrement *= 2;
+          warble(numSamples, phaseIncrement);
           value = holdValue;
           break;
         }

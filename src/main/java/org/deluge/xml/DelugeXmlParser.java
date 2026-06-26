@@ -3257,7 +3257,22 @@ public class DelugeXmlParser {
    * Parse all synth-parity fields from a kit sound element and return a SoundDrum. Handles
    * SONG006668.XML attribute-style format and falls back to child-element format.
    */
-  private static SoundDrum parseSoundDrum(Element soundNode, String soundName) {
+  public static SoundDrum parseSoundDrum(java.io.File xmlFile) throws Exception {
+    try (java.io.InputStream is = new java.io.FileInputStream(xmlFile)) {
+      Document doc = parseXml(is);
+      Element root = doc.getDocumentElement();
+      Element soundNode = root;
+      if (!root.getTagName().equals("sound")) {
+        NodeList sounds = root.getElementsByTagName("sound");
+        if (sounds.getLength() > 0) {
+          soundNode = (Element) sounds.item(0);
+        }
+      }
+      return parseSoundDrum(soundNode, xmlFile.getName().replace(".XML", ""));
+    }
+  }
+
+  public static SoundDrum parseSoundDrum(Element soundNode, String soundName) {
     SoundDrum sound = new SoundDrum(soundName);
 
     // ── Sample path ──
@@ -3338,11 +3353,17 @@ public class DelugeXmlParser {
             sound.setHpfMode(FilterMode.SVF_NOTCH);
           else sound.setHpfMode(FilterMode.LADDER_12);
         });
-    readAttrString(
+    readAttrOrChildString(
         soundNode,
         "mode",
         v -> {
-          // mode for kit sounds maps to synth mode concept; not directly stored
+          if ("fm".equalsIgnoreCase(v)) {
+            sound.setSynthMode(1);
+          } else if ("ringmod".equalsIgnoreCase(v)) {
+            sound.setSynthMode(2);
+          } else {
+            sound.setSynthMode(0);
+          }
         });
     readAttrString(
         soundNode,
@@ -3364,9 +3385,19 @@ public class DelugeXmlParser {
     }
 
     // ── Child elements ──
-    // osc1 retrigPhase
+    // osc1
     Element osc1El = getFirstChild(soundNode, "osc1");
     if (osc1El != null) {
+      String type = osc1El.getAttribute("type");
+      if (type == null || type.isEmpty() || type.isBlank()) {
+        type = getChildText(osc1El, "type");
+      }
+      if (type != null && !type.isBlank()) {
+        sound.setOsc1Type(type.toUpperCase());
+      }
+      readAttrOrChildInt(osc1El, "transpose", 0, sound::setOsc1Transpose);
+      readAttrOrChildInt(osc1El, "cents", 0, sound::setOsc1Cents);
+
       NodeList rpNodes = osc1El.getElementsByTagName("retrigPhase");
       if (rpNodes.getLength() > 0) {
         try {
@@ -3395,6 +3426,9 @@ public class DelugeXmlParser {
       if (type != null && !type.isBlank()) {
         sound.setOsc2Type(type.toUpperCase());
       }
+      readAttrOrChildInt(osc2, "transpose", 0, sound::setOsc2Transpose);
+      readAttrOrChildInt(osc2, "cents", 0, sound::setOsc2Cents);
+
       // osc2 sample fileName (attribute or child element)
       String osc2fn = osc2.getAttribute("fileName");
       if (osc2fn == null || osc2fn.isBlank()) {
@@ -3433,6 +3467,31 @@ public class DelugeXmlParser {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
       }
+    }
+
+    // Modulator 1
+    NodeList mod1Nodes = soundNode.getElementsByTagName("modulator1");
+    if (mod1Nodes.getLength() > 0) {
+      Element mod1 = (Element) mod1Nodes.item(0);
+      int transpose = attrOrChildInt(mod1, "transpose", 0);
+      int cents = attrOrChildInt(mod1, "cents", 0);
+      sound.setFmRatio(modulatorRatio(transpose, cents));
+      sound.setModulator1Transpose(transpose);
+      sound.setModulator1Cents(cents);
+      int retrig = attrOrChildInt(mod1, "retrigPhase", 0);
+      sound.setMod1RetrigPhase(retrig);
+    }
+    // Modulator 2
+    NodeList mod2Nodes = soundNode.getElementsByTagName("modulator2");
+    if (mod2Nodes.getLength() > 0) {
+      Element mod2 = (Element) mod2Nodes.item(0);
+      int transpose = attrOrChildInt(mod2, "transpose", 0);
+      int cents = attrOrChildInt(mod2, "cents", 0);
+      sound.setFmRatio2(modulatorRatio(transpose, cents));
+      sound.setModulator2Transpose(transpose);
+      sound.setModulator2Cents(cents);
+      int retrig = attrOrChildInt(mod2, "retrigPhase", 0);
+      sound.setMod2RetrigPhase(retrig);
     }
 
     // lfo1, lfo2
@@ -3624,12 +3683,26 @@ public class DelugeXmlParser {
     readHexFloatUnipolar(dp, "lpfResonance", sound::setLpfRes);
     readHexHz(dp, "hpfFrequency", sound::setHpfFreq);
     readHexFloatUnipolar(dp, "hpfResonance", sound::setHpfRes);
-    readHexFloatUnipolar(dp, "modulator1Amount", sound::setFmAmount);
-    readHexFloatUnipolar(dp, "modulator1Feedback", v -> {});
-    readHexFloatUnipolar(dp, "modulator2Amount", v -> {});
-    readHexFloatUnipolar(dp, "modulator2Feedback", v -> {});
-    readHexFloatUnipolar(dp, "carrier1Feedback", v -> {});
-    readHexFloatUnipolar(dp, "carrier2Feedback", v -> {});
+    String fmVal;
+    if ((fmVal = attrOrChildText(dp, "modulator1Amount")) != null && !fmVal.isBlank()) {
+      sound.setModulator1AmountQ31(DelugeHexMapper.hexToQ31(fmVal));
+      sound.setFmAmount(toUnipolar(DelugeHexMapper.hexToFloat(fmVal)));
+    }
+    if ((fmVal = attrOrChildText(dp, "modulator2Amount")) != null && !fmVal.isBlank()) {
+      sound.setModulator2AmountQ31(DelugeHexMapper.hexToQ31(fmVal));
+    }
+    if ((fmVal = attrOrChildText(dp, "modulator1Feedback")) != null && !fmVal.isBlank()) {
+      sound.setModulator1FeedbackQ31(DelugeHexMapper.hexToQ31(fmVal));
+    }
+    if ((fmVal = attrOrChildText(dp, "modulator2Feedback")) != null && !fmVal.isBlank()) {
+      sound.setModulator2FeedbackQ31(DelugeHexMapper.hexToQ31(fmVal));
+    }
+    if ((fmVal = attrOrChildText(dp, "carrier1Feedback")) != null && !fmVal.isBlank()) {
+      sound.setCarrier1FeedbackQ31(DelugeHexMapper.hexToQ31(fmVal));
+    }
+    if ((fmVal = attrOrChildText(dp, "carrier2Feedback")) != null && !fmVal.isBlank()) {
+      sound.setCarrier2FeedbackQ31(DelugeHexMapper.hexToQ31(fmVal));
+    }
     readHexFloatUnipolar(dp, "modFXRate", sound::setModFxRate);
     readHexFloatUnipolar(dp, "modFXDepth", sound::setModFxDepth);
     readHexFloatUnipolar(dp, "modFXOffset", sound::setModFxOffset);
