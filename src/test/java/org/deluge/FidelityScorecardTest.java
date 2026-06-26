@@ -21,9 +21,10 @@ import org.junit.jupiter.api.Test;
  */
 public class FidelityScorecardTest {
 
+  static final String HOME = System.getProperty("user.home");
+  static final String SYNTH_DIR = HOME + "/ludocard/SYNTHS";
+  static final File CARD = new File(HOME + "/ludocard");
   static final int SR = 44100;
-  static final String SYNTH_DIR = "/home/ludo/ludocard/SYNTHS";
-  static final File CARD = new File("/home/ludo/ludocard");
 
   // ---- WAV (16/24-bit, stereo->mono float) ----
   static float[] readWavMono(File f) throws Exception {
@@ -239,7 +240,7 @@ public class FidelityScorecardTest {
     // Local analysis tool: needs the ludocard SYNTHS + the hardware resamplings. Skip otherwise.
     org.junit.jupiter.api.Assumptions.assumeTrue(
         new File(SYNTH_DIR).isDirectory()
-            && new File("/home/ludo/ALL_SYNTHS_SONG/ALLSYN_1/output_000.wav").isFile(),
+            && new File(HOME + "/ALL_SYNTHS_SONG/ALLSYN_1/output_000.wav").isFile(),
         "fidelity scorecard needs ~/ludocard SYNTHS + ~/ALL_SYNTHS_SONG recordings");
     File[] files =
         new File(SYNTH_DIR)
@@ -258,13 +259,13 @@ public class FidelityScorecardTest {
     List<String> na = new ArrayList<>();
     scoreSong(
         new ArrayList<>(p1),
-        new File("/home/ludo/ALL_SYNTHS_SONG/ALLSYN_1/output_000.wav"),
+        new File(HOME + "/ALL_SYNTHS_SONG/ALLSYN_1/output_000.wav"),
         "ALLSYN_1",
         all,
         na);
     scoreSong(
         new ArrayList<>(p2),
-        new File("/home/ludo/ALL_SYNTHS_SONG/ALLSYN_2/output_000.wav"),
+        new File(HOME + "/ALL_SYNTHS_SONG/ALLSYN_2/output_000.wav"),
         "ALLSYN_2",
         all,
         na);

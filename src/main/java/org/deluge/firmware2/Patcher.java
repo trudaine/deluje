@@ -83,11 +83,7 @@ public class Patcher {
     // cabled (destination) params and leaving non-cabled params at their curve-applied base.
     for (Destination dest : patchCableSet.destinations) {
       int p = dest.paramId;
-      // C (patcher.cpp:118): the curve neutral is paramNeutralValues[param], which the C populates
-      // as
-      // getParamNeutralValue(param) (functions.cpp:180) — a STATIC per-param constant, NOT the
-      // knob.
-      // The knob (getSmoothedPatchedParamValue) is folded into the cable combination below instead.
+      // C (patcher.cpp:118): the curve neutral is paramNeutralValues[param] loaded from preset XML.
       int staticNeutral = Functions.getParamNeutralValue(p);
       int finalValue;
 
@@ -228,8 +224,7 @@ public class Patcher {
       cableCombination = cableToExpParamWithoutRangeAdjustment(0, knobValues[p], range);
     }
 
-    // C (patcher.cpp:37): param_neutral_value = paramNeutralValues[p] = getParamNeutralValue(p)
-    // (static per-param constant). The knob is already folded into cableCombination above.
+    // C (patcher.cpp:37): param_neutral_value = paramNeutralValues[p] loaded from preset XML.
     int neutralValue = Functions.getParamNeutralValue(p);
     int finalValue;
     if (p < Param.FIRST_LOCAL_HYBRID

@@ -357,7 +357,10 @@ public class VoiceSample {
       }
 
       // How many output samples we can emit before consuming `left` input frames.
-      long outAvail = native_ ? left : Math.max(1, (left << 24) / phaseIncrement);
+      long outAvail =
+          native_
+              ? left
+              : (phaseIncrement == 0 ? numSamples : Math.max(1, (left << 24) / phaseIncrement));
       int chunk = (int) Math.min(numSamples - produced, outAvail);
 
       int[] tmp = new int[chunk * numChannels];
