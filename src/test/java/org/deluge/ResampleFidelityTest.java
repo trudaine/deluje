@@ -30,6 +30,7 @@ public class ResampleFidelityTest {
   @BeforeEach
   void setUp() {
     org.deluge.firmware2.Functions.resetNoiseSeed();
+    org.deluge.engine.JavaAudioDriver.monitorGainMul = 24;
   }
 
   private static final int BLOCK_SIZE = 128;

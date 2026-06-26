@@ -887,16 +887,24 @@ public class FirmwareFactory {
             || destStr.contains("LFO2FREQ")
             || destStr.contains("LFO_2_RATE")) paramId = Param.LOCAL_LFO_LOCAL_FREQ_2;
 
-        // 6. Delay Effects
+        // 6. Delay and Reverb Effects
         else if (destStr.contains("DELAYRATE") || destStr.contains("DELAY_RATE"))
           paramId = Param.GLOBAL_DELAY_RATE;
         else if (destStr.contains("DELAYFEEDBACK") || destStr.contains("DELAY_FEEDBACK"))
           paramId = Param.GLOBAL_DELAY_FEEDBACK;
+        else if (destStr.contains("REVERBAMOUNT") || destStr.contains("REVERB_SEND"))
+          paramId = Param.GLOBAL_REVERB_AMOUNT;
 
-        // 7. Panning (Specific PAN check)
+        // 7. Mod FX (Chorus/Flanger/Phaser)
+        else if (destStr.contains("MODFXRATE") || destStr.contains("MOD_FX_RATE"))
+          paramId = Param.GLOBAL_MOD_FX_RATE;
+        else if (destStr.contains("MODFXDEPTH") || destStr.contains("MOD_FX_DEPTH"))
+          paramId = Param.GLOBAL_MOD_FX_DEPTH;
+
+        // 8. Panning (Specific PAN check)
         else if (destStr.contains("PAN")) paramId = Param.LOCAL_PAN;
 
-        // 8. Shielded Specific Volumes (Before generic VOLUME)
+        // 9. Shielded Specific Volumes (Before generic VOLUME)
         else if (destStr.contains("OSCAVOLUME") || destStr.contains("OSC1VOLUME"))
           paramId = Param.LOCAL_OSC_A_VOLUME;
         else if (destStr.contains("OSCBVOLUME") || destStr.contains("OSC2VOLUME"))

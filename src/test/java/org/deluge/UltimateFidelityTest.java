@@ -27,6 +27,11 @@ public class UltimateFidelityTest {
 
   private static final int BLOCK_SIZE = 128;
 
+  @org.junit.jupiter.api.BeforeEach
+  public void setUp() {
+    org.deluge.engine.JavaAudioDriver.monitorGainMul = 24;
+  }
+
   @Test
   public void testUltimateFidelity() throws Exception {
     // 1. Create a new, highly complex project model programmatically

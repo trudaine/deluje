@@ -21,6 +21,11 @@ public class Song000FidelityTest {
 
   private static final int BLOCK_SIZE = 128;
 
+  @org.junit.jupiter.api.BeforeEach
+  void setUp() {
+    org.deluge.engine.JavaAudioDriver.monitorGainMul = 24;
+  }
+
   @Test
   void testSong000RenderingMatchesHardwareRecording() throws Exception {
     // 1. Locate and parse SONG003.xml
