@@ -118,16 +118,19 @@ public class AllSynthsFidelityTest {
     // Deluge fail the whole song load (error e369 = can't load a referenced sample), so we skip it.
     File cardRoot = new File(synthDir).getParentFile();
 
-    // Optional cap on the number of synths included (e.g. -Dsynth.max=64 to probe arranger scale
-    // limits on hardware). Default: no cap.
+    // Optional cap + offset over the PLAYABLE synths (e.g. -Dsynth.offset=94 -Dsynth.max=94 to take
+    // the 2nd ~94). Lets us split the full set into RAM-safe arranger songs (the Deluge can't fit
+    // ~188 instruments — it plays cleanly up to ~120). Offset/max count playable synths, so halves
+    // are clean and non-overlapping regardless of missing-sample skips.
     int maxSynths = Integer.getInteger("synth.max", Integer.MAX_VALUE);
+    int offsetSynths = Integer.getInteger("synth.offset", 0);
 
     List<String> synthNames = new ArrayList<>();
     List<ClipModel> allClips = new ArrayList<>();
     int barIdx = 0;
     int skippedMissingSamples = 0;
+    int playableIndex = 0; // index among playable (passed missing-sample filter) synths
     for (File f : synthFiles) {
-      if (barIdx >= maxSynths) break;
       try {
         SynthTrackModel synth = DelugeXmlParser.parseSynth(new FileInputStream(f), f.getName());
         synth.setName(f.getName().replace(".XML", ""));
@@ -146,6 +149,10 @@ public class AllSynthsFidelityTest {
                   + missing.get(0));
           continue;
         }
+
+        // Window selection over playable synths (offset .. offset+max).
+        if (playableIndex++ < offsetSynths) continue;
+        if (barIdx >= maxSynths) break;
 
         // One clip spanning the whole 2-bar slot, with ONE sustained note held for the entire slot
         // (gate = all steps). A 1-step blip (~125ms) leaves slow-attack pads inaudible on hardware
