@@ -57,6 +57,13 @@ public class Envelope {
           break;
 
         case DECAY:
+          if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
+            System.out.println(
+                "[DIAG Envelope.render DECAY] sustain="
+                    + sustain
+                    + " smoothedSustain_before="
+                    + smoothedSustain);
+          }
           // smoothedSustain = add_saturate(smoothedSustain, numSamples * (((int32_t)sustain -
           // smoothedSustain) >> 9));
           // (lines 57-58)
@@ -68,8 +75,22 @@ public class Envelope {
                   + Functions.multiply_32x32_rshift32(
                           Functions.getDecay8(pos, 23), 2147483647 - smoothedSustain)
                       * 2;
+          if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
+            System.out.println(
+                "[DIAG Envelope.render DECAY] smoothedSustain_after="
+                    + smoothedSustain
+                    + " pos_before="
+                    + pos
+                    + " decay="
+                    + decay
+                    + " lastValue="
+                    + lastValue);
+          }
           // pos += decay * numSamples;  // (line 60)
           pos = (int) (((pos & 0xFFFFFFFFL) + (decay & 0xFFFFFFFFL) * numSamples) & 0xFFFFFFFFL);
+          if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
+            System.out.println("[DIAG Envelope.render DECAY] pos_after=" + pos);
+          }
           if (Integer.compareUnsigned(pos, 8388608) >= 0) { // C unsigned comparison
             setState(Stage.SUSTAIN);
           }
@@ -138,7 +159,7 @@ public class Envelope {
       }
 
       // return (lastValue - 1073741824) << 1; // Centre the range around 0  // (line 118)
-      return Functions.lshiftAndSaturate((lastValue - 1073741824), 1);
+      return (lastValue - 1073741824) << 1;
     }
   }
 

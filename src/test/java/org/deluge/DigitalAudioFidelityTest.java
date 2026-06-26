@@ -28,6 +28,7 @@ public class DigitalAudioFidelityTest {
   void setUp() {
     org.deluge.firmware2.Functions.resetNoiseSeed();
     org.deluge.model.tuning.ScalaScale.setActiveScale(null);
+    org.deluge.engine.FirmwareAudioEngine.debugTelemetry = true;
   }
 
   private static final int SAMPLE_RATE = 44100;
@@ -51,6 +52,25 @@ public class DigitalAudioFidelityTest {
     FirmwareSound synth = (FirmwareSound) clip.getSound();
     synth.triggerNote(60, 127); // Trigger note C4 (261Hz)
 
+    System.out.println(
+        "[DIAG] Active voice count immediately after triggerNote: " + synth.getActiveVoiceCount());
+    if (!synth.fw2Sound.voices.isEmpty()) {
+      org.deluge.firmware2.Voice v = synth.fw2Sound.voices.get(0);
+      System.out.println("[DIAG] Voice active: " + v.active);
+      System.out.println(
+          "[DIAG] paramNeutralValues[LOCAL_VOLUME]: "
+              + synth.paramNeutralValues[Param.LOCAL_VOLUME]);
+      System.out.println(
+          "[DIAG] paramNeutralValues[LOCAL_OSC_A_VOLUME]: "
+              + synth.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME]);
+      System.out.println(
+          "[DIAG] paramFinalValues[LOCAL_VOLUME] initial: "
+              + v.paramFinalValues[Param.LOCAL_VOLUME]);
+      System.out.println(
+          "[DIAG] paramFinalValues[LOCAL_OSC_A_VOLUME] initial: "
+              + v.paramFinalValues[Param.LOCAL_OSC_A_VOLUME]);
+    }
+
     int totalSamples = 44032; // ~1 second
     float[] outputWave = new float[totalSamples];
     StereoSample[] block = new StereoSample[128];
@@ -64,6 +84,20 @@ public class DigitalAudioFidelityTest {
         block[i].r = 0;
       }
       synth.renderOutput(block, 128, null);
+      if (b == 0 && !synth.fw2Sound.voices.isEmpty()) {
+        org.deluge.firmware2.Voice v = synth.fw2Sound.voices.get(0);
+        System.out.println("[DIAG] Block 0 render diagnostics:");
+        System.out.println("  Voice active: " + v.active);
+        System.out.println("  env0LastValue: " + v.env0LastValue);
+        System.out.println("  osc0 pInc: " + v.unisonParts[0].sources[0].phaseIncrementStoredValue);
+        System.out.println(
+            "  paramFinalValues[LOCAL_VOLUME] after render: "
+                + v.paramFinalValues[Param.LOCAL_VOLUME]);
+        System.out.println(
+            "  paramFinalValues[LOCAL_OSC_A_VOLUME] after render: "
+                + v.paramFinalValues[Param.LOCAL_OSC_A_VOLUME]);
+        System.out.println("  Block 0 output sample 0 L: " + block[0].l);
+      }
       for (int i = 0; i < 128; i++) {
         outputWave[b * 128 + i] = block[i].l / 2147483648.0f;
       }
