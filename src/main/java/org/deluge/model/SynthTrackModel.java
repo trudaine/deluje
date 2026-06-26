@@ -32,6 +32,7 @@ public class SynthTrackModel extends TrackModel {
   private boolean osc1Reversed = false;
   private boolean osc1TimeStretch = false;
   private float osc1TimeStretchAmount = 0.0f;
+  private int osc1Transpose = 0; // semitones (carrier A transpose; common in FM patches)
   private int osc1Cents = 0; // fine detune in cents (-50 to 50)
   private boolean osc1LinearInterpolation = false;
   private String osc1SamplePath = null;
@@ -473,6 +474,14 @@ public class SynthTrackModel extends TrackModel {
 
   public void setOsc1Cents(int v) {
     this.osc1Cents = Math.max(-50, Math.min(50, v));
+  }
+
+  public int getOsc1Transpose() {
+    return osc1Transpose;
+  }
+
+  public void setOsc1Transpose(int v) {
+    this.osc1Transpose = Math.max(-24, Math.min(24, v));
   }
 
   public boolean isOsc1LinearInterpolation() {
@@ -1370,6 +1379,7 @@ public class SynthTrackModel extends TrackModel {
     this.osc1TimeStretch = other.isOsc1TimeStretch();
     this.osc1TimeStretchAmount = other.getOsc1TimeStretchAmount();
     this.osc1Cents = other.getOsc1Cents();
+    this.osc1Transpose = other.getOsc1Transpose();
     this.osc1LinearInterpolation = other.isOsc1LinearInterpolation();
     this.osc1SamplePath = other.getOsc1SamplePath();
     this.osc2LoopMode = other.getOsc2LoopMode();

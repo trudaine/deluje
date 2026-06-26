@@ -533,6 +533,7 @@ public class FirmwareFactory {
       sound.paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] = 0;
     }
     // Per-osc coarse transpose (semitones) + cents detune — C sources[s].transpose / fineTuner.
+    sound.fw2Sound.sourceTranspose[0] = model.getOsc1Transpose();
     sound.fw2Sound.sourceTranspose[1] = model.getOsc2Transpose();
     sound.fw2Sound.setSourceCents(0, model.getOsc1Cents());
     sound.fw2Sound.setSourceCents(1, model.getOsc2Cents());

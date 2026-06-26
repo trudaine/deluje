@@ -1430,11 +1430,22 @@ public class DelugeXmlParser {
       }
       readAttrFloatHex(osc1, "timeStretchAmount", synth::setOsc1TimeStretchAmount, true);
       readAttrBool(osc1, "linearInterpolation", v -> synth.setOsc1LinearInterpolation(v));
-      // Osc1 cents (fine detune)
-      String centsStr = osc1.getAttribute("cents");
+      // Osc1 transpose (semitones) + cents (fine detune). Presets use the CHILD-element form
+      // (<osc1><transpose>12</transpose>), so read attribute-or-child. Carrier-A transpose is
+      // common
+      // in FM patches; missing it put the FM carrier at the wrong pitch (wrong FM spectrum).
+      String osc1Trans = attrOrChildText(osc1, "transpose");
+      if (osc1Trans != null && !osc1Trans.isBlank()) {
+        try {
+          synth.setOsc1Transpose(Integer.parseInt(osc1Trans.trim()));
+        } catch (NumberFormatException e) {
+          LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
+        }
+      }
+      String centsStr = attrOrChildText(osc1, "cents");
       if (centsStr != null && !centsStr.isBlank()) {
         try {
-          synth.setOsc1Cents(Integer.parseInt(centsStr));
+          synth.setOsc1Cents(Integer.parseInt(centsStr.trim()));
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
@@ -1485,17 +1496,17 @@ public class DelugeXmlParser {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
       }
-      // Osc2 transpose (semitones)
-      String transStr = osc2.getAttribute("transpose");
+      // Osc2 transpose (semitones) — attribute-or-child (presets use <osc2><transpose>N).
+      String transStr = attrOrChildText(osc2, "transpose");
       if (transStr != null && !transStr.isBlank()) {
         try {
-          synth.setOsc2Transpose(Integer.parseInt(transStr));
+          synth.setOsc2Transpose(Integer.parseInt(transStr.trim()));
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
       }
       // Osc2 cents (fine detune)
-      String centsStr2 = osc2.getAttribute("cents");
+      String centsStr2 = attrOrChildText(osc2, "cents");
       if (centsStr2 != null && !centsStr2.isBlank()) {
         try {
           synth.setOsc2Cents(Integer.parseInt(centsStr2));
