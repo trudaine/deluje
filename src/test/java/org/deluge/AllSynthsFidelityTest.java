@@ -118,11 +118,16 @@ public class AllSynthsFidelityTest {
     // Deluge fail the whole song load (error e369 = can't load a referenced sample), so we skip it.
     File cardRoot = new File(synthDir).getParentFile();
 
+    // Optional cap on the number of synths included (e.g. -Dsynth.max=64 to probe arranger scale
+    // limits on hardware). Default: no cap.
+    int maxSynths = Integer.getInteger("synth.max", Integer.MAX_VALUE);
+
     List<String> synthNames = new ArrayList<>();
     List<ClipModel> allClips = new ArrayList<>();
     int barIdx = 0;
     int skippedMissingSamples = 0;
     for (File f : synthFiles) {
+      if (barIdx >= maxSynths) break;
       try {
         SynthTrackModel synth = DelugeXmlParser.parseSynth(new FileInputStream(f), f.getName());
         synth.setName(f.getName().replace(".XML", ""));
