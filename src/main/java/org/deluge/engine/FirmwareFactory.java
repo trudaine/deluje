@@ -1160,31 +1160,43 @@ public class FirmwareFactory {
   }
 
   public static File resolveSample(String path, File sdRoot) {
-    File f = new File(path);
+    if (path == null) return null;
+    // Normalize path separators: replace Windows backslashes with forward slashes
+    String normPath = path.replace('\\', '/');
+
+    File f = new File(normPath);
     if (f.exists()) return f;
 
     // 1. Try directly under local src/main/resources
-    File localRes = new File("src/main/resources", path);
+    File localRes = new File("src/main/resources", normPath);
     if (localRes.exists()) return localRes;
 
     // 2. Try directly under local target/classes
-    File localTarget = new File("target/classes", path);
+    File localTarget = new File("target/classes", normPath);
     if (localTarget.exists()) return localTarget;
 
     // 3. Try under neighbor deluge module src/main/resources (for multi-module tests)
-    File delugeRes = new File("../deluge/src/main/resources", path);
+    File delugeRes = new File("../deluge/src/main/resources", normPath);
     if (delugeRes.exists()) return delugeRes;
 
     // 4. Try under neighbor deluge module target/classes
-    File delugeTarget = new File("../deluge/target/classes", path);
+    File delugeTarget = new File("../deluge/target/classes", normPath);
     if (delugeTarget.exists()) return delugeTarget;
 
     if (sdRoot != null) {
-      f = new File(sdRoot, path);
+      f = new File(sdRoot, normPath);
       if (f.exists()) return f;
-      File fallbackSd = new File("../deluge/" + sdRoot.getPath(), path);
+      File fallbackSd = new File("../deluge/" + sdRoot.getPath(), normPath);
       if (fallbackSd.exists()) return fallbackSd;
     }
+
+    // 5. Try under user's home "ludocard" directory (for scorecard/local test parity)
+    File ludocardSd = new File(System.getProperty("user.home"), "ludocard");
+    if (ludocardSd.isDirectory()) {
+      File fallbackLudo = new File(ludocardSd, normPath);
+      if (fallbackLudo.exists()) return fallbackLudo;
+    }
+
     return f;
   }
 
