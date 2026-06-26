@@ -39,7 +39,8 @@ public class Patcher {
 
     public int toPolarity(int srcVal) {
       if (polarity == UNIPOLAR) {
-        return (srcVal + 2147483647) >> 1; // convert bipolar to unipolar positive
+        return (int)
+            (((long) srcVal + 2147483647L) >> 1); // convert bipolar to unipolar positive safely
       }
       return srcVal;
     }
