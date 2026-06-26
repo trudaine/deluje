@@ -22,9 +22,18 @@ public class HardSyncDiagnosticTest {
     // Locate the XML preset in target or resources
     File songFile = new File("/Users/ludo/a/chuckjava/deluge/target/ALL_SYNTHS_SONG.xml");
     if (!songFile.exists()) {
-      songFile = new File("/Users/ludo/a/chuckjava/deluge/src/test/resources/ALL_SYNTHS_SONG.xml");
+      songFile =
+          new File(
+              System.getProperty("user.home") + "/a/chuckjava/deluge/target/ALL_SYNTHS_SONG.xml");
     }
-    assertTrue(songFile.exists(), "ALL_SYNTHS_SONG.xml must exist for this diagnostic test");
+    if (!songFile.exists()) {
+      songFile =
+          new File("deluge/src/test/resources/ALL_SYNTHS_SONG.xml"); // repo-relative fallback
+    }
+    // Local diagnostic: SKIP (not fail) when the generated artifact is absent — it is not committed
+    // and is Mac-path-specific. assertTrue here red-builds every other machine/CI.
+    org.junit.jupiter.api.Assumptions.assumeTrue(
+        songFile.exists(), "ALL_SYNTHS_SONG.xml not present — skipping local hard-sync diagnostic");
 
     // Load the whole song and find track 46 "046 Saw Sync"
     ProjectModel project = DelugeXmlParser.parseSong(songFile);
