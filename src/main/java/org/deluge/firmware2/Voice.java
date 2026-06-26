@@ -1242,8 +1242,10 @@ public class Voice {
 
             int resetterDivideByPhaseIncrement = 0;
             if (doOscSyncThisSource) {
-              resetterDivideByPhaseIncrement =
-                  (int) (0x80000000L / (((oscSyncPhaseIncrement[u] & 0xFFFF0000L) + 65536) >>> 16));
+              long divisor = ((oscSyncPhaseIncrement[u] & 0xFFFFFFFFL) + 65535) >>> 16;
+              if (divisor > 0) {
+                resetterDivideByPhaseIncrement = (int) (2147483648L / divisor);
+              }
             }
 
             vs.oscPos =

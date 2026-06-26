@@ -572,8 +572,10 @@ public final class Oscillator {
 
     // Osc sync setup (lines 136-144)
     if (doOscSync) {
-      resetterDivideByPhaseIncrement =
-          (int) (0x80000000L / (((resetterPhaseInc & 0xFFFF0000L) + 65536) >>> 16));
+      long divisor = ((resetterPhaseInc & 0xFFFFFFFFL) + 65535) >>> 16;
+      if (divisor > 0) {
+        resetterDivideByPhaseIncrement = (int) (2147483648L / divisor);
+      }
     }
 
     // ── SINE (line 147-151) ──
