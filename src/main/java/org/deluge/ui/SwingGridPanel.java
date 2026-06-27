@@ -4,9 +4,10 @@ import java.awt.*;
 import java.util.logging.Logger;
 import javax.swing.*;
 import org.deluge.BridgeContract;
-import org.deluge.model.Consequence;
-import org.deluge.model.ScaleMapper;
 import org.deluge.model.SongSection;
+import org.deluge.model.ScaleMapper;
+import org.deluge.model.KeyplayKeyboard;
+import org.deluge.model.Consequence;
 
 /** Unified 18x8 Grid Panel handling both sequence matrix and clip launch arrangements. */
 public class SwingGridPanel extends JPanel {
@@ -32,28 +33,7 @@ public class SwingGridPanel extends JPanel {
   public static int lockArmedTrack = -1;
   public static int lockArmedStep = -1;
 
-  // Isomorphic keyboard (KEYPLAY) layout, mirroring DelugeFirmware defaults:
-  //   noteFromCoords(x, y) = scrollOffset + x + y * rowInterval   (isomorphic.h:44)
-  // with rowInterval = kDefaultIsometricRowInterval = 5 and the default
-  //   scrollOffset = 60 - (kDisplayHeight >> 2) * 5 = 60 - (8>>2)*5 = 50  (state_data.h:26-29).
-  // So the bottom-left pad is MIDI 50 (D), each column +1 semitone, each row up +5.
-  private static final int KEYPLAY_BASE_NOTE = 50;
-  private static final int KEYPLAY_ROW_INTERVAL = 5;
 
-  /** Isomorphic note for a grid pad: trk is the row from the top (0..7), colId the column. */
-  private static int keyplayNote(int trk, int colId) {
-    return KEYPLAY_BASE_NOTE + colId + (7 - trk) * KEYPLAY_ROW_INTERVAL;
-  }
-
-  /**
-   * Drum index for a KEYPLAY pad on a kit track. Mirrors DelugeFirmware's velocity-drums layout at
-   * the default zoom (edge_size 1×1): note = x + y*pads_per_row + offset, with y measured from the
-   * bottom and pads_per_row = kDisplayWidth = 16 (velocity_drums.cpp:50). The isomorphic layout is
-   * instrument-only on hardware (isomorphic.h:39 supportsKit()==false), so kits use this grid.
-   */
-  private static int keyplayDrumIndex(int trk, int colId) {
-    return colId + (7 - trk) * 16;
-  }
 
   /** True when the track currently being edited is a Kit (KEYPLAY uses the drum grid for kits). */
   private boolean isEditedTrackKit() {
@@ -4424,7 +4404,7 @@ public class SwingGridPanel extends JPanel {
             clipBtn.setEnabled(false);
           } else if (c < 16) {
             if (kitTrack) {
-              int drumIdx = keyplayDrumIndex(v, c);
+              int drumIdx = KeyplayKeyboard.getDrumIndex(v, c);
               boolean drumPlayable = drumIdx < editedKitDrumCount();
               boolean isPlaying =
                   bridge != null
@@ -4440,7 +4420,7 @@ public class SwingGridPanel extends JPanel {
                 clipBtn.setBackground(drumPlayable ? trackColor : new Color(0x22, 0x22, 0x24));
               }
             } else {
-              int note = keyplayNote(v, c);
+              int note = KeyplayKeyboard.getNote(v, c);
               int keyOffset = getKeyMidiOffset(projectModel.getKey());
               boolean isRoot = (note % 12 == keyOffset);
               boolean inScale =
@@ -5800,10 +5780,10 @@ public class SwingGridPanel extends JPanel {
                 case KEYPLAY:
                   if (colId < 16) {
                     if (isEditedTrackKit()) {
-                      int drumIdx = keyplayDrumIndex(trk, colId);
+                      int drumIdx = KeyplayKeyboard.getDrumIndex(trk, colId);
                       clipBtn.setText(drumIdx < editedKitDrumCount() ? ("D" + (drumIdx + 1)) : "");
                     } else {
-                      clipBtn.setText(getNoteName(keyplayNote(trk, colId)));
+                      clipBtn.setText(getNoteName(KeyplayKeyboard.getNote(trk, colId)));
                     }
                   } else {
                     clipBtn.setText("");
@@ -6251,7 +6231,7 @@ public class SwingGridPanel extends JPanel {
               if (isEditedTrackKit()) {
                 // Kit: velocity-drums grid. Pads backing a real drum are lit in the track colour;
                 // pads beyond the last drum are dark (hardware: note > highestClipNote -> black).
-                int drumIdx = keyplayDrumIndex(trk, colId);
+                int drumIdx = KeyplayKeyboard.getDrumIndex(trk, colId);
                 boolean hasDrum = drumIdx < editedKitDrumCount();
                 Color padColor =
                     hasDrum
@@ -6265,7 +6245,7 @@ public class SwingGridPanel extends JPanel {
                   pad.setNoteText(hasDrum ? ("D" + (drumIdx + 1)) : "");
                 }
               } else {
-                int note = keyplayNote(trk, colId);
+                int note = KeyplayKeyboard.getNote(trk, colId);
                 boolean isRoot = isRootNote(note);
                 boolean inScale = isNoteInScale(note);
 
@@ -6357,8 +6337,8 @@ public class SwingGridPanel extends JPanel {
 
             if (viewMode == GridViewMode.KEYPLAY && colId < 16) {
               boolean kitTrack = isEditedTrackKit();
-              int note = keyplayNote(trk, colId);
-              int drumIdx = keyplayDrumIndex(trk, colId);
+              int note = KeyplayKeyboard.getNote(trk, colId);
+              int drumIdx = KeyplayKeyboard.getDrumIndex(trk, colId);
               boolean drumPlayable = kitTrack && drumIdx < editedKitDrumCount();
               clearActionListeners(clipBtn);
               clearKeyboardMouseListeners(clipBtn);
