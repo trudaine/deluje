@@ -110,6 +110,7 @@ public class FirmwareAudioEngine {
   // enabled (see JavaAudioDriver). C: audio_engine.cpp:626 renders it into the master buffer.
   public final Metronome metronome = new Metronome();
   public volatile boolean metronomeEnabled = false;
+  public volatile boolean dcBlockerEnabled = true;
 
   /** Trigger a metronome click. {@code phaseIncrement} sets the click pitch (downbeat vs beat). */
   public void triggerMetronome(int phaseIncrement) {
@@ -307,26 +308,33 @@ public class FirmwareAudioEngine {
     masterVolumeAdjustmentR = MASTER_VOLUME_NEUTRAL;
 
     // Apply AC-coupling high-pass filter (DC blocker) to prevent bass accumulation
-    float R = 0.9999f;
-    for (int i = 0; i < numSamples; i++) {
-      float xL = fxBuffer[i][0] / 2147483648.0f;
-      float xR = fxBuffer[i][1] / 2147483648.0f;
+    if (dcBlockerEnabled) {
+      float R = 0.9999f;
+      for (int i = 0; i < numSamples; i++) {
+        float xL = fxBuffer[i][0] / 2147483648.0f;
+        float xR = fxBuffer[i][1] / 2147483648.0f;
 
-      float yL = xL - dcBlockerInputL + R * dcBlockerStateL;
-      float yR = xR - dcBlockerInputR + R * dcBlockerStateR;
+        float yL = xL - dcBlockerInputL + R * dcBlockerStateL;
+        float yR = xR - dcBlockerInputR + R * dcBlockerStateR;
 
-      dcBlockerInputL = xL;
-      dcBlockerInputR = xR;
-      dcBlockerStateL = yL;
-      dcBlockerStateR = yR;
+        dcBlockerInputL = xL;
+        dcBlockerInputR = xR;
+        dcBlockerStateL = yL;
+        dcBlockerStateR = yR;
 
-      fxBuffer[i][0] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, yL * 2147483648.0f));
-      fxBuffer[i][1] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, yR * 2147483648.0f));
+        fxBuffer[i][0] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, yL * 2147483648.0f));
+        fxBuffer[i][1] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, yR * 2147483648.0f));
+      }
+    } else {
+      dcBlockerStateL = 0.0f;
+      dcBlockerStateR = 0.0f;
+      dcBlockerInputL = 0.0f;
+      dcBlockerInputR = 0.0f;
     }
 
     for (int i = 0; i < numSamples; i++) {
-      masterBuffer[i].l = org.deluge.firmware2.Functions.lshiftAndSaturate(fxBuffer[i][0], 7);
-      masterBuffer[i].r = org.deluge.firmware2.Functions.lshiftAndSaturate(fxBuffer[i][1], 7);
+      masterBuffer[i].l = org.deluge.firmware2.Functions.lshiftAndSaturate(fxBuffer[i][0], 4);
+      masterBuffer[i].r = org.deluge.firmware2.Functions.lshiftAndSaturate(fxBuffer[i][1], 4);
     }
   }
 

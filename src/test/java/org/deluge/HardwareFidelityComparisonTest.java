@@ -25,7 +25,7 @@ public class HardwareFidelityComparisonTest {
   void setUp() {
     FirmwareAudioEngine.cpuDireness = 0;
     org.deluge.firmware2.Functions.resetNoiseSeed();
-    FirmwareAudioEngine.debugTelemetry = true;
+    FirmwareAudioEngine.debugTelemetry = false;
   }
 
   private void renderAndCompare(String songName, double seconds) throws Exception {

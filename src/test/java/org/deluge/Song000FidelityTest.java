@@ -73,6 +73,7 @@ public class Song000FidelityTest {
 
     // 4. Initialize the audio engine and playback handler
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
+    engine.dcBlockerEnabled = false;
     engine.metronomeEnabled = false;
     engine.sounds.add(fwSound);
 
