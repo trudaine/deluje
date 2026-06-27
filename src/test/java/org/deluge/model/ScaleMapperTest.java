@@ -147,4 +147,94 @@ class ScaleMapperTest {
     List<Integer> expected2 = Arrays.asList(72, 67, 60);
     assertEquals(expected2, ScaleMapper.calculateFoldedPitches(clip));
   }
+
+  @Test
+  void testGetKeyMidiOffset() {
+    assertEquals(0, ScaleMapper.getKeyMidiOffset("C"));
+    assertEquals(1, ScaleMapper.getKeyMidiOffset("C#"));
+    assertEquals(1, ScaleMapper.getKeyMidiOffset("DF"));
+    assertEquals(2, ScaleMapper.getKeyMidiOffset("D"));
+    assertEquals(3, ScaleMapper.getKeyMidiOffset("D#"));
+    assertEquals(3, ScaleMapper.getKeyMidiOffset("EF"));
+    assertEquals(4, ScaleMapper.getKeyMidiOffset("E"));
+    assertEquals(5, ScaleMapper.getKeyMidiOffset("F"));
+    assertEquals(6, ScaleMapper.getKeyMidiOffset("F#"));
+    assertEquals(6, ScaleMapper.getKeyMidiOffset("GF"));
+    assertEquals(7, ScaleMapper.getKeyMidiOffset("G"));
+    assertEquals(8, ScaleMapper.getKeyMidiOffset("G#"));
+    assertEquals(8, ScaleMapper.getKeyMidiOffset("AF"));
+    assertEquals(9, ScaleMapper.getKeyMidiOffset("A"));
+    assertEquals(10, ScaleMapper.getKeyMidiOffset("A#"));
+    assertEquals(10, ScaleMapper.getKeyMidiOffset("BF"));
+    assertEquals(11, ScaleMapper.getKeyMidiOffset("B"));
+    assertEquals(0, ScaleMapper.getKeyMidiOffset(null));
+    assertEquals(0, ScaleMapper.getKeyMidiOffset("INVALID"));
+  }
+
+  @Test
+  void testScaleTypeFromName() {
+    assertEquals(Scales.ScaleType.MAJOR, ScaleMapper.scaleTypeFromName("Major"));
+    assertEquals(Scales.ScaleType.MINOR, ScaleMapper.scaleTypeFromName("Minor"));
+    assertEquals(Scales.ScaleType.MAJOR_PENTATONIC, ScaleMapper.scaleTypeFromName("Pentatonic"));
+    assertEquals(
+        Scales.ScaleType.MAJOR_PENTATONIC, ScaleMapper.scaleTypeFromName("Pentatonic Major"));
+    assertEquals(
+        Scales.ScaleType.MINOR_PENTATONIC, ScaleMapper.scaleTypeFromName("Pentatonic Minor"));
+    assertEquals(Scales.ScaleType.DORIAN, ScaleMapper.scaleTypeFromName("Dorian"));
+    assertEquals(Scales.ScaleType.MAJOR, ScaleMapper.scaleTypeFromName(null));
+    assertEquals(Scales.ScaleType.MAJOR, ScaleMapper.scaleTypeFromName("INVALID"));
+  }
+
+  @Test
+  void testIsNoteInScale() {
+    // In C Major (root C, MIDI 60, scale degrees: C, D, E, F, G, A, B)
+    // C (60) - Yes
+    assertTrue(ScaleMapper.isNoteInScale(60, "C", "Major"));
+    // D (62) - Yes
+    assertTrue(ScaleMapper.isNoteInScale(62, "C", "Major"));
+    // C# (61) - No
+    assertFalse(ScaleMapper.isNoteInScale(61, "C", "Major"));
+
+    // In A Minor (root A, MIDI 57, scale degrees: A, B, C, D, E, F, G)
+    // A (57) - Yes
+    assertTrue(ScaleMapper.isNoteInScale(57, "A", "Minor"));
+    // C (60) - Yes
+    assertTrue(ScaleMapper.isNoteInScale(60, "A", "Minor"));
+    // G# (68) - No (natural minor does not contain G#)
+    assertFalse(ScaleMapper.isNoteInScale(68, "A", "Minor"));
+
+    // Null scale should return true (pass-through)
+    assertTrue(ScaleMapper.isNoteInScale(61, "C", null));
+  }
+
+  @Test
+  void testIsRootNote() {
+    // Key of C (offset 0)
+    assertTrue(ScaleMapper.isRootNote(60, "C")); // C4
+    assertTrue(ScaleMapper.isRootNote(72, "C")); // C5
+    assertTrue(ScaleMapper.isRootNote(48, "C")); // C3
+    assertFalse(ScaleMapper.isRootNote(61, "C")); // C#4
+
+    // Key of F# (offset 6)
+    assertTrue(ScaleMapper.isRootNote(66, "F#")); // F#4
+    assertTrue(ScaleMapper.isRootNote(54, "F#")); // F#3
+    assertFalse(ScaleMapper.isRootNote(60, "F#")); // C4
+  }
+
+  @Test
+  void testCalculateNoteHue() {
+    // Test that the hue shift math works as expected and wraps around [0.0, 1.0]
+    float baseHue = 0.5f;
+    int colorOffset = 24;
+    int pitch = 60;
+
+    float expectedHue = (0.5f + (((60 + 24) * -8.0f / 3.0f) / 192.0f)) % 1.0f;
+    if (expectedHue < 0) expectedHue += 1.0f;
+
+    assertEquals(expectedHue, ScaleMapper.calculateNoteHue(pitch, baseHue, colorOffset), 1e-6f);
+
+    // Check boundaries and wrap-around
+    float hue = ScaleMapper.calculateNoteHue(127, 0.9f, 180);
+    assertTrue(hue >= 0.0f && hue <= 1.0f);
+  }
 }

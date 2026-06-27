@@ -128,4 +128,89 @@ public final class ScaleMapper {
     }
     return folded;
   }
+
+  /** Maps a musical key name (e.g., "C", "C#", "DF") to its MIDI note offset (0-11). */
+  public static int getKeyMidiOffset(String key) {
+    if (key == null) return 0;
+    switch (key.toUpperCase().trim()) {
+      case "C":
+        return 0;
+      case "C#":
+      case "DF": // D flat (F used for flat)
+        return 1;
+      case "D":
+        return 2;
+      case "D#":
+      case "EF": // E flat
+        return 3;
+      case "E":
+        return 4;
+      case "F":
+        return 5;
+      case "F#":
+      case "GF": // G flat
+        return 6;
+      case "G":
+        return 7;
+      case "G#":
+      case "AF": // A flat
+        return 8;
+      case "A":
+        return 9;
+      case "A#":
+      case "BF": // B flat
+        return 10;
+      case "B":
+        return 11;
+      default:
+        return 0;
+    }
+  }
+
+  /** Resolves a scale name to a {@link Scales.ScaleType}. */
+  public static Scales.ScaleType scaleTypeFromName(String scale) {
+    if (scale == null) return Scales.ScaleType.MAJOR;
+    String s = scale.trim();
+    if (s.equalsIgnoreCase("Pentatonic") || s.equalsIgnoreCase("Pentatonic Major")) {
+      return Scales.ScaleType.MAJOR_PENTATONIC;
+    }
+    if (s.equalsIgnoreCase("Pentatonic Minor")) {
+      return Scales.ScaleType.MINOR_PENTATONIC;
+    }
+    for (Scales.ScaleType t : Scales.ScaleType.values()) {
+      if (t.getName().equalsIgnoreCase(s)) {
+        return t;
+      }
+    }
+    return Scales.ScaleType.MAJOR;
+  }
+
+  /** Checks if a MIDI note is in the specified key and scale. */
+  public static boolean isNoteInScale(int note, String key, String scale) {
+    if (scale == null) return true;
+    return Scales.isNoteInScale(note, getKeyMidiOffset(key), scaleTypeFromName(scale));
+  }
+
+  /** Checks if a MIDI note is the root note of the specified key. */
+  public static boolean isRootNote(int note, String key) {
+    int rootOffset = getKeyMidiOffset(key);
+    int diff = note - rootOffset;
+    return (diff % 12) == 0;
+  }
+
+  /**
+   * Calculates a hue-shifted color hue for a given pitch, based on a base HSB hue and a color
+   * offset. This implements the Deluge's iconic row-based color-shifting.
+   *
+   * @param pitchMidi the MIDI pitch
+   * @param baseHue the base track hue (0.0 - 1.0)
+   * @param colourOffset the track's color offset
+   * @return the calculated hue for the note (0.0 - 1.0)
+   */
+  public static float calculateNoteHue(int pitchMidi, float baseHue, int colourOffset) {
+    float hueShift = ((pitchMidi + colourOffset) * -8.0f / 3.0f) / 192.0f;
+    float noteHue = (baseHue + hueShift) % 1.0f;
+    if (noteHue < 0) noteHue += 1.0f;
+    return noteHue;
+  }
 }
