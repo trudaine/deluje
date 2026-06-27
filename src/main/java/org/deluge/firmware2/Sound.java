@@ -127,14 +127,30 @@ public class Sound extends GlobalEffectable {
   /** The patch's modulation cables (mirrors the C {@code ParamManager}'s PatchCableSet). */
   public final Patcher.PatchCableSet patchCableSet = new Patcher.PatchCableSet();
 
+  /**
+   * Holds the state of the active parameter low-pass filter (smoothing). In the Deluge firmware,
+   * when a parameter (like volume or cutoff) is adjusted, its value is ramped smoothly over time
+   * rather than jumping instantly, which prevents audible clicks and pops.
+   */
   public static class ParamLPF {
+    /** The parameter ID currently being smoothed, or -1 if no smoothing is active. */
     public int p = -1; // -1 represents PARAM_LPF_OFF
+
+    /** The current intermediate smoothed value of the parameter (in Q31). */
     public int currentValue;
   }
 
+  /** Active parameter smoothing filter state. */
   public final ParamLPF paramLPF = new ParamLPF();
 
-  /** C: {@code Sound::getSmoothedPatchedParamValue}. */
+  /**
+   * Retrieves the smoothed value of a parameter if it is currently undergoing LPF smoothing,
+   * otherwise returns the target patched value directly. Mirrors the C++ {@code
+   * Sound::getSmoothedPatchedParamValue}.
+   *
+   * @param p the parameter ID
+   * @return the smoothed or target parameter value (in Q31)
+   */
   public int getSmoothedPatchedParamValue(int p) {
     if (paramLPF.p == p) {
       return paramLPF.currentValue;
@@ -142,6 +158,16 @@ public class Sound extends GlobalEffectable {
     return patchedParamValues[p];
   }
 
+  /**
+   * Notifies the sound that a parameter value has changed, initiating LPF smoothing if the
+   * parameter requires it.
+   *
+   * @param p the parameter ID
+   * @param shouldDoParamLPF true if LPF smoothing should be applied to this change
+   * @param oldValue the previous parameter value
+   * @param newValue the new target parameter value
+   * @param fromAutomation true if the change originated from sequencer automation
+   */
   public void notifyValueChangeViaLPF(
       int p, boolean shouldDoParamLPF, int oldValue, int newValue, boolean fromAutomation) {
     if (!shouldDoParamLPF) {
@@ -165,6 +191,23 @@ public class Sound extends GlobalEffectable {
     }
   }
 
+  /**
+   * Performs the low-pass filter (smoothing) step for the active parameter. This is called once per
+   * audio block (e.g. 128 samples).
+   *
+   * <p><b>Mathematical Implementation:</b> The difference between the target and current value is
+   * shifted right by 8 bits (dividing by 256) to establish a dead-band and prevent tiny precision
+   * oscillations. Multiplying this difference by {@code numSamples} (typically 128) results in:
+   *
+   * <pre>
+   *   amountToAdd = (target - current) * 128 / 256 = (target - current) / 2
+   * </pre>
+   *
+   * This effectively moves the parameter exactly <b>halfway</b> towards its target every block,
+   * implementing a highly efficient, division-free first-order exponential decay LPF.
+   *
+   * @param numSamples the number of samples in the rendered block (typically 128)
+   */
   public void doParamLPF(int numSamples) {
     if (paramLPF.p == -1) {
       return;
@@ -183,6 +226,7 @@ public class Sound extends GlobalEffectable {
     }
   }
 
+  /** Stops the active parameter LPF smoothing, snapping the parameter immediately to its target. */
   public void stopParamLPF() {
     if (paramLPF.p != -1) {
       paramLPF.p = -1;

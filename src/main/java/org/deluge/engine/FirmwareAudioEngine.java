@@ -10,6 +10,7 @@ import org.deluge.firmware2.LivePitchShifter;
 import org.deluge.firmware2.Metronome;
 import org.deluge.firmware2.Reverb;
 import org.deluge.firmware2.StereoSample;
+import org.deluge.model.ProjectModel;
 
 /**
  * Port of the Deluge's AudioEngine class. Performs master summing and global FX.
@@ -122,6 +123,38 @@ public class FirmwareAudioEngine {
     masterDelay.syncLevel = 0;
     masterVolumeAdjustmentL = MASTER_VOLUME_NEUTRAL;
     masterVolumeAdjustmentR = MASTER_VOLUME_NEUTRAL;
+  }
+
+  public void syncMasterEffects(ProjectModel project) {
+    double bpm = project.getBpm();
+    int syncLevel = project.getDelaySyncLevel();
+    double delaySec;
+    if (syncLevel > 0) {
+      double stepSec = (bpm > 0 ? 60.0 / bpm : 0.5) / 4.0; // 16th-note step
+      double syncFactor = Math.pow(2.0, syncLevel - 1);
+      if (project.getDelaySyncType() == 1) {
+        syncFactor *= 1.5; // triplet
+      }
+      delaySec = syncFactor * stepSec;
+    } else {
+      delaySec = project.getSongParamDelayRate();
+    }
+    delaySec = Math.max(0.001, Math.min(2.0, delaySec));
+    long rate = (long) (16384L * 16777216L / (delaySec * 44100.0));
+    this.delayState.userDelayRate = (int) Math.min(rate, Integer.MAX_VALUE);
+
+    double fb = project.getSongParamDelayFeedback();
+    fb = Math.max(0.0, Math.min(1.0, fb));
+    this.delayState.delayFeedbackAmount =
+        Math.min((int) (fb * 2147483647.0), (1 << 30) - (1 << 26));
+
+    this.masterDelay.pingPong = project.getDelayPingPong() != 0;
+    this.masterDelay.analog = project.getDelayAnalog() != 0;
+
+    // Sync Reverb
+    this.masterReverb.setRoomSize(project.getReverbRoomSize());
+    this.masterReverb.setDamping(project.getReverbDampening());
+    this.masterReverb.setWidth(project.getReverbWidth());
   }
 
   private long[] summedFlatBufferLong = new long[256];
