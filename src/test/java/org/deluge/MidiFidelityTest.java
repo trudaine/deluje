@@ -145,6 +145,7 @@ public class MidiFidelityTest {
     mock.messages.clear();
 
     // Trigger the note at step 0 manually through the instrument clip step playback handler logic!
+    instClip.lastProcessedPos += 1;
     instClip.processCurrentPos(1);
 
     // Verify that the note is triggered and dispatched to the mock MIDI transport

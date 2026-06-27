@@ -117,6 +117,7 @@ public class ResampleFidelityTest {
     FirmwareSound fwSound = (FirmwareSound) clip0.getSound();
 
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
+    engine.dcBlockerEnabled = false;
     engine.metronomeEnabled = false; // No metronome clicks
 
     // Add the sound to the engine

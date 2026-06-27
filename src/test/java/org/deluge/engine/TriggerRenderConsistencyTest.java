@@ -129,6 +129,7 @@ class TriggerRenderConsistencyTest {
     s.oscTypes[0] = org.deluge.firmware2.Oscillator.OscType.SAW;
     s.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME] =
         org.deluge.firmware2.Functions.ONE_Q31 / 4; // Turn down volume to prevent clipping when summing 4 notes
+    s.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_OSC_B_VOLUME] = 0; // Mute Osc B (defaults to SINE at full volume!)
     s.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_VOLUME] =
         org.deluge.firmware2.Functions.ONE_Q31;
     FirmwareAudioEngine eng = new FirmwareAudioEngine();
