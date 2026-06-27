@@ -65,6 +65,15 @@ public class ClipModel extends TimelineCounter {
 
   // ── Unified NoteRowModel map replacing parallel maps ──
   public final Map<Integer, NoteRowModel> noteRows = new HashMap<>();
+  private boolean isKit = false;
+
+  public boolean isKit() {
+    return isKit;
+  }
+
+  public void setIsKit(boolean isKit) {
+    this.isKit = isKit;
+  }
 
   // ── Transient Transport / Sequencer States ──
   private transient ClipType type = ClipType.INSTRUMENT;
@@ -346,7 +355,7 @@ public class ClipModel extends TimelineCounter {
       // Real-time surgical sync to noteRows
       int stepTicks = tripletMode ? 32 : 24;
       boolean isKit =
-          (type == ClipType.INSTRUMENT && sound instanceof org.deluge.engine.FirmwareKit);
+          this.isKit || (type == ClipType.INSTRUMENT && sound instanceof org.deluge.engine.FirmwareKit);
       int pitch =
           isKit
               ? r
@@ -414,7 +423,7 @@ public class ClipModel extends TimelineCounter {
 
   public void syncNoteRowsFromGrid() {
     int stepTicks = tripletMode ? 32 : 24;
-    boolean isKit = (type == ClipType.INSTRUMENT && sound instanceof org.deluge.engine.FirmwareKit);
+    boolean isKit = this.isKit || (type == ClipType.INSTRUMENT && sound instanceof org.deluge.engine.FirmwareKit);
 
     for (int r = 0; r < rowCount; r++) {
       boolean hasActiveSteps = false;
@@ -436,13 +445,16 @@ public class ClipModel extends TimelineCounter {
           StepData step = getStep(r, s);
           if (step.active() && step.pitch() > 0) {
             pitch = step.pitch();
+            System.out.println("  Row " + r + " step " + s + " has pitch " + pitch);
             break;
           }
         }
       }
+      System.out.println("  Row " + r + " resolved pitch before fallback: " + pitch);
       if (pitch < 0) {
         pitch = isKit ? r : (rowCount - 1 - r);
       }
+      System.out.println("  Row " + r + " final pitch: " + pitch);
       NoteRowModel row = getOrCreateRow(r);
       row.setPitch(pitch);
 
@@ -700,6 +712,7 @@ public class ClipModel extends TimelineCounter {
       ((org.deluge.engine.FirmwareSound) sound)
           .triggerNote(noteOn.noteRow.getPitch(), noteOn.velocity);
     } else if (sound instanceof org.deluge.engine.FirmwareKit) {
+      System.out.println("DEBUG TRIGGERDRUM: pitch=" + noteOn.noteRow.getPitch() + " vel=" + noteOn.velocity + " rowHash=" + Integer.toHexString(noteOn.noteRow.hashCode()));
       ((org.deluge.engine.FirmwareKit) sound)
           .triggerDrum(noteOn.noteRow.getPitch(), noteOn.velocity);
     } else if (sound instanceof org.deluge.engine.FirmwareMidiInstrument) {

@@ -67,7 +67,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   private float compressorBlend = 1.0f;
 
   // ── SongParams values (from <songParams> element) ──
-  private float songParamVolume = 1.0f;
+  private float songParamVolume = 0.5f;
   private float songParamPan = 0.0f;
   private float songParamReverbAmount = 0.5f;
   private float songParamDelayRate = 0.0f;

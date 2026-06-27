@@ -119,12 +119,12 @@
 				type="saw"
 				transpose="0"
 				cents="0"
-				retrigPhase="0" />
+				retrigPhase="-1" />
 			<osc2
 				type="square"
 				transpose="0"
 				cents="0"
-				retrigPhase="0" />
+				retrigPhase="-1" />
 			<lfo1 type="sine" syncLevel="0" syncType="0" />
 			<lfo2 type="sine" syncLevel="0" syncType="0" />
 			<unison num="4" detune="10" spread="0" />

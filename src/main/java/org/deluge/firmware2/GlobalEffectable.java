@@ -12,14 +12,26 @@ public abstract class GlobalEffectable {
   public int reverbSendKnob = Integer.MIN_VALUE;
   public boolean muted = false;
 
-  // Track level output gains. Q31 convention: 2147483647 = unity (the verified pre-flat-buffer
-  // behavior — the old firmware/engine/GlobalEffectable used Q31.ONE holders with (a*b)>>31
-  // mults, validated by MasterFxRegressionTest/ReverbSendRoutingTest). The flat-buffer rewrite
-  // briefly used 1<<30 defaults with <<1 staging, which attenuated every track by 4× at neutral
-  // (the C combines its 2^27-neutral volumes with <<5 staging, mod_controllable_audio.cpp:222/258
-  // — unity at neutral; Q31.ONE with >>31 is the same unity in this bridge's convention).
+  public int kitVolume = 0; // Q31 raw parameter value (0 = neutral)
+
+  public boolean isKit() {
+    return false;
+  }
+
+  // Track level output gains.
   public int postFXVolume = 134217728;
   public int postReverbVolume = 134217728;
+
+  /** C: mod_controllable_audio.h:107 — per-track saturation/clipping amount; 0 = off. */
+  public int clippingAmount = 0;
+
+  /** C: GlobalEffectableForClip.h:55 — per-channel saturation state. */
+  public final int[] lastSaturationTanHWorkingValue = {0x80000000, 0x80000000};
+
+  /** C: global_effectable_for_clip.h:46 — track-level saturation shift. */
+  public int getShiftAmountForSaturation() {
+    return (clippingAmount >= 3) ? (clippingAmount - 3) : 0;
+  }
 
   /**
    * Silence-detection scan (a Java-side optimization, not faithful-C math): abs-max over the track
@@ -58,7 +70,15 @@ public abstract class GlobalEffectable {
     Arrays.fill(trackReverbBuffer, 0, numSamples, 0);
 
     // Render actual voices or child elements into trackBuffer (32-bit)
-    postFXVolume = 134217728;
+    int a = Functions.cableToLinearParamShortcut(this.kitVolume);
+    int volumeAdjustment = Functions.getFinalParameterValueVolume(134217728, a) >> 1;
+    int volumePostFX = volumeAdjustment;
+    if (isKit()) {
+      volumePostFX += (volumeAdjustment >> 2);
+    } else {
+      volumePostFX += Functions.multiply_32x32_rshift32_rounded(volumeAdjustment, 471633397);
+    }
+    postFXVolume = volumePostFX;
     postReverbVolume = 134217728;
     renderInternal(trackBuffer, numSamples, trackReverbBuffer);
 
@@ -75,6 +95,27 @@ public abstract class GlobalEffectable {
     // skip the entire FX, panning, and summing loop to reclaim massive CPU cycles!
     if (maxValTrack == 0 && !filterSet.isOn()) {
       return;
+    }
+
+    // Apply track-level saturation (C: global_effectable_for_clip.cpp:121-127)
+    if (clippingAmount > 0) {
+      int saturationAmount = 3 + clippingAmount;
+      int shiftAmount = getShiftAmountForSaturation();
+      for (int i = 0; i < numSamples; i++) {
+        // Left Channel
+        int l = trackBuffer[i * 2];
+        int nextLastL = Functions.lshiftAndSaturateUnknown(l, saturationAmount) + 0x80000000;
+        l = Functions.getTanHAntialiased(l, lastSaturationTanHWorkingValue[0], saturationAmount);
+        trackBuffer[i * 2] = Functions.lshiftAndSaturate(l, shiftAmount);
+        lastSaturationTanHWorkingValue[0] = nextLastL;
+
+        // Right Channel
+        int r = trackBuffer[i * 2 + 1];
+        int nextLastR = Functions.lshiftAndSaturateUnknown(r, saturationAmount) + 0x80000000;
+        r = Functions.getTanHAntialiased(r, lastSaturationTanHWorkingValue[1], saturationAmount);
+        trackBuffer[i * 2 + 1] = Functions.lshiftAndSaturate(r, shiftAmount);
+        lastSaturationTanHWorkingValue[1] = nextLastR;
+      }
     }
 
     // Apply FilterSet

@@ -31,12 +31,12 @@ public class Voice {
   public final Envelope[] envelopes = new Envelope[4];
 
   /** Test seam: override osc1 initial phase. -2 = use random (default). */
-  public static final ThreadLocal<Integer> testStartPhaseOverrideOsc1 =
-      ThreadLocal.withInitial(() -> -2);
+  public static final java.util.concurrent.atomic.AtomicInteger testStartPhaseOverrideOsc1 =
+      new java.util.concurrent.atomic.AtomicInteger(-2);
 
   /** Test seam: override osc2 initial phase. -2 = use random (default). */
-  public static final ThreadLocal<Integer> testStartPhaseOverrideOsc2 =
-      ThreadLocal.withInitial(() -> -2);
+  public static final java.util.concurrent.atomic.AtomicInteger testStartPhaseOverrideOsc2 =
+      new java.util.concurrent.atomic.AtomicInteger(-2);
 
   // Unison parts and per-source oscillators
   public final VoiceUnisonPart[] unisonParts = new VoiceUnisonPart[Sound.kMaxNumVoicesUnison];
@@ -314,7 +314,8 @@ public class Voice {
         VoiceSource vs = unisonParts[u].sources[s];
         vs.active = true;
         int ovr = (s == 0) ? testStartPhaseOverrideOsc1.get() : testStartPhaseOverrideOsc2.get();
-        vs.oscPos = (ovr != -2) ? ovr : (Functions.getNoise() & 0x7FFFFFFF); // random initial phase
+        vs.oscPos = (ovr != -2) ? ovr : Functions.getNoise(); // random initial phase
+        System.out.println("DEBUG KITTEMP: Voice=" + Integer.toHexString(this.hashCode()) + " s=" + s + " sampleRef=" + (vs.sampleRef != null ? vs.sampleRef.fileName : "null") + " active=" + vs.active);
         // C vups:79-82 — retrigger overrides the random phase: zero-phase base for the wave type
         // plus the configured offset. 0xFFFFFFFF (-1) = off.
         if (sound.oscRetriggerPhase[s] != 0xFFFFFFFF) {

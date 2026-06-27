@@ -40,8 +40,6 @@ public class Sound extends GlobalEffectable {
   public boolean oscillatorSync = false;
 
   /** C: mod_controllable_audio.h:107 — per-sound saturation/clipping amount; 0 = off. */
-  public int clippingAmount = 0;
-
   public final int[] customLfoWave = new int[256];
 
   /** C: UNPATCHED_PORTAMENTO knob (raw Q31); INT_MIN = off. */
@@ -51,6 +49,7 @@ public class Sound extends GlobalEffectable {
   public int lastNoteCode = Integer.MIN_VALUE;
 
   /** C: sound.h:286 — saturation output left-shift derived from clippingAmount. */
+  @Override
   public int getShiftAmountForSaturation() {
     return (clippingAmount >= 2) ? (clippingAmount - 2) : 0;
   }
@@ -1002,6 +1001,7 @@ public class Sound extends GlobalEffectable {
                   matchedZone.endSamplePos == -1 ? len : Math.min(matchedZone.endSamplePos, len);
               looping = matchedZone.looping;
               loopStartFrame = matchedZone.startLoopPos;
+              System.out.println("DEBUG TRIGGER ZONE: sound=" + hashCode() + " s=" + s + " sample=" + targetSample.fileName + " len=" + len + " zoneEnd=" + matchedZone.endSamplePos + " -> endFrame=" + endFrame);
             }
           }
 
@@ -1010,6 +1010,7 @@ public class Sound extends GlobalEffectable {
             if (targetSample != null) {
               len = (int) targetSample.lengthInSamples;
               endFrame = sampleEndPoint[s] == 65535 ? len : Math.min(sampleEndPoint[s], len);
+              System.out.println("DEBUG TRIGGER DEFAULT: sound=" + hashCode() + " s=" + s + " sample=" + targetSample.fileName + " len=" + len + " sampleEndPoint=" + sampleEndPoint[s] + " -> endFrame=" + endFrame);
             }
           }
 
