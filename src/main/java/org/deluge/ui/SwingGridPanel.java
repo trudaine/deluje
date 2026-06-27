@@ -4,10 +4,10 @@ import java.awt.*;
 import java.util.logging.Logger;
 import javax.swing.*;
 import org.deluge.BridgeContract;
-import org.deluge.model.SongSection;
-import org.deluge.model.ScaleMapper;
-import org.deluge.model.KeyplayKeyboard;
 import org.deluge.model.Consequence;
+import org.deluge.model.KeyplayKeyboard;
+import org.deluge.model.ScaleMapper;
+import org.deluge.model.SongSection;
 
 /** Unified 18x8 Grid Panel handling both sequence matrix and clip launch arrangements. */
 public class SwingGridPanel extends JPanel {
@@ -32,8 +32,6 @@ public class SwingGridPanel extends JPanel {
   private int editedModelTrack = 0; // model track index currently being edited in CLIP mode
   public static int lockArmedTrack = -1;
   public static int lockArmedStep = -1;
-
-
 
   /** True when the track currently being edited is a Kit (KEYPLAY uses the drum grid for kits). */
   private boolean isEditedTrackKit() {

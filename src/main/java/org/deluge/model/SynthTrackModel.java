@@ -9,8 +9,19 @@ import java.util.Map;
 public class SynthTrackModel extends TrackModel {
 
   // Oscillators
-  private String osc1Type = "SINE";
-  private String osc2Type = "NONE";
+  private final OscillatorConfig osc1 = new OscillatorConfig("SINE");
+  private final OscillatorConfig osc2 = new OscillatorConfig("NONE");
+  private String osc1RawXml = null;
+  private String osc2RawXml = null;
+
+  public OscillatorConfig getOsc1() {
+    return osc1;
+  }
+
+  public OscillatorConfig getOsc2() {
+    return osc2;
+  }
+
   private float oscMix = 0.5f;
   private float noiseVol = 0.0f;
   private int unisonNum = 1;
@@ -27,41 +38,12 @@ public class SynthTrackModel extends TrackModel {
     }
   }
 
-  // Oscillator 1 sample-playback params (maps to firmware SampleRecorder/playback)
-  private int osc1LoopMode = 0; // 0=off, 1=loop, 2=oneshot
-  private boolean osc1Reversed = false;
-  private boolean osc1TimeStretch = false;
-  private float osc1TimeStretchAmount = 0.0f;
-  private int osc1Transpose = 0; // semitones (carrier A transpose; common in FM patches)
-  private int osc1Cents = 0; // fine detune in cents (-50 to 50)
-  private boolean osc1LinearInterpolation = false;
-  private String osc1SamplePath = null;
-
-  // Oscillator 2 sample-playback params (maps to firmware SampleRecorder/playback)
-  private int osc2LoopMode = 0; // 0=off, 1=loop, 2=oneshot
-  private boolean osc2Reversed = false;
-  private boolean osc2TimeStretch = false;
-  private float osc2TimeStretchAmount = 0.0f;
-  private boolean osc2LinearInterpolation = false;
-  private String osc2SamplePath = null;
-
-  // Oscillator 2 transpose/detune
-  private int osc2Transpose = 0; // semitones
-  private int osc2Cents = 0; // cents
-
   // Filter
-  private FilterMode filterMode = FilterMode.LADDER_24;
-  private float lpfFreq = 20000.0f;
-  private float lpfRes = 0.0f;
-  private float lpfMorph = 0.0f;
-  private float hpfFreq = 20.0f;
-  private float hpfRes = 0.0f;
-  private float hpfMorph = 0.0f;
-  private FilterMode hpfMode = FilterMode.LADDER_12;
-  private float hpfFm = 0.0f;
-  private float filterDrive = 1.0f;
-  private boolean filterNotch = false;
-  private int filterRoute = 0; // 0=SERIES_LPF_HPF, 1=SERIES_HPF_LPF, 2=PARALLEL
+  private final FilterConfig filter = new FilterConfig();
+
+  public FilterConfig getFilter() {
+    return filter;
+  }
 
   // Modulation arrays (per firmware correction §23)
   private final EnvelopeModel[] env = new EnvelopeModel[4];
@@ -123,107 +105,46 @@ public class SynthTrackModel extends TrackModel {
   private float bitCrush = 0.0f;
 
   // Compressor per-track
-  private float compressorAttack = 0.0f;
-  private float compressorRelease = 0.0f;
-  private int compressorSyncLevel = 0;
-  private float compressorBlend = 0.0f;
-  private float compressorSidechainHpf = 0.0f;
-  private int compressorSyncType = 0; // sidechain sync type
+  private final CompressorConfig compressor = new CompressorConfig();
 
-  // Sidechain (at sound level, separate from compressor)
-  private int sidechainSyncLevel = 0;
-  private int sidechainSyncType = 0;
-  private float sidechainAttack = 0.0f;
-  private float sidechainRelease = 0.0f;
-  private float compressorThreshold = 0.0f; // dB, negative = compression threshold
-  private float compressorRatio = 0.0f; // compression ratio (0 = off)
-  private float compressorShape = 0.92f;
+  public CompressorConfig getCompressor() {
+    return compressor;
+  }
 
-  private String modFxType = "NONE";
-  private float modFxRate = 0.0f;
-  private float modFxDepth = 0.0f;
-  private float modFxFeedback = 0.0f;
-  private float modFxOffset = 0.0f;
-  private float delaySend = 0.0f;
-  private float reverbSend = 0.0f;
-  private float eqBass = 0.0f;
-  private float eqTreble = 0.0f;
+  private final FxConfig fx = new FxConfig();
+
+  public FxConfig getFx() {
+    return fx;
+  }
 
   /** Synth mode: 0=SUBTRACTIVE, 1=FM, 2=RINGMOD. Maps to XML `<mode>` tag content. */
   /** Synth mode: 0=SUBTRACTIVE, 1=FM, 2=RINGMOD. Maps to XML `<mode>` tag content. */
   private int synthMode = 0;
 
-  /**
-   * FM modulator ratio derived from <modulator1><transpose> — 2^(transpose/12). 1.0 = no
-   * transposition.
-   */
-  private float fmRatio = 1.0f;
+  private final FmConfig fm = new FmConfig();
 
-  /** FM modulator amount (0-1) derived from <modulator1Amount> hex knob value. */
-  private float fmAmount = 0.0f;
-
-  /** Modulator 1 feedback amount (0-1) — self-modulation of the FM modulator. */
-  private float modulator1Feedback = 0.0f;
-
-  /** Modulator 2 FM amount (0-1). */
-  private float modulator2Amount = 0.0f;
-
-  /** Modulator 2 feedback amount (0-1). */
-  private float modulator2Feedback = 0.0f;
-
-  /** Carrier 1 feedback amount (0-1) — self-modulation of the FM carrier. */
-  private float carrier1Feedback = 0.0f;
-
-  /** Carrier 2 feedback amount (0-1). */
-  private float carrier2Feedback = 0.0f;
-
-  /**
-   * Frequency ratio of FM modulator 2 to the carrier, derived from {@code <modulator2>} transpose +
-   * cents. {@link #fmRatio} is modulator 1's ratio. Default 1.0 (same pitch as carrier).
-   */
-  private float fmRatio2 = 1.0f;
-
-  /**
-   * Raw signed Q31 values exactly as stored in the patch XML, preserved for the firmware-faithful
-   * FM engine (which runs them through the Deluge patched-param volume/linear curves). {@code
-   * Integer.MIN_VALUE} (0x80000000) means "off". These supersede the lossy unipolar floats above
-   * for the native 2-op FM path.
-   */
-  private int modulator1AmountQ31 = Integer.MIN_VALUE;
-
-  private int modulator2AmountQ31 = Integer.MIN_VALUE;
-  private int modulator1FeedbackQ31 = Integer.MIN_VALUE;
-  private int modulator2FeedbackQ31 = Integer.MIN_VALUE;
-  private int carrier1FeedbackQ31 = Integer.MIN_VALUE;
-  private int carrier2FeedbackQ31 = Integer.MIN_VALUE;
+  public FmConfig getFm() {
+    return fm;
+  }
 
   // Overall voice pitch adjust (raw Q31; C LOCAL_PITCH_ADJUST, XML pitchAdjust). INT_MIN = unset.
   private int pitchAdjustQ31 = Integer.MIN_VALUE;
 
-  // Per-oscillator pitch adjust (raw Q31; C LOCAL_OSC_A/B_PITCH_ADJUST, XML oscA/BPitchAdjust)
-  private int osc1PitchAdjustQ31 = Integer.MIN_VALUE;
-  private int osc2PitchAdjustQ31 = Integer.MIN_VALUE;
-
   public int getOsc1PitchAdjustQ31() {
-    return osc1PitchAdjustQ31;
+    return osc1.getPitchAdjustQ31();
   }
 
   public void setOsc1PitchAdjustQ31(int v) {
-    this.osc1PitchAdjustQ31 = v;
+    osc1.setPitchAdjustQ31(v);
   }
 
   public int getOsc2PitchAdjustQ31() {
-    return osc2PitchAdjustQ31;
+    return osc2.getPitchAdjustQ31();
   }
 
   public void setOsc2PitchAdjustQ31(int v) {
-    this.osc2PitchAdjustQ31 = v;
+    osc2.setPitchAdjustQ31(v);
   }
-
-  // Oscillator pulse/phase width (raw Q31; C LOCAL_OSC_A/B_PHASE_WIDTH, XML oscA/BPulseWidth).
-  // INT_MIN = unset → engine neutral (50% square). Wired end-to-end via renderPulseWave.
-  private int osc1PhaseWidthQ31 = Integer.MIN_VALUE;
-  private int osc2PhaseWidthQ31 = Integer.MIN_VALUE;
 
   /** Wavefolder knob (raw Q31, C LOCAL_FOLD / XML "waveFold"); INT_MIN = off (sound.cpp:147). */
   private int waveFoldQ31 = Integer.MIN_VALUE;
@@ -258,11 +179,6 @@ public class SynthTrackModel extends TrackModel {
     this.portamentoQ31 = v;
   }
 
-  /**
-   * When true, FM modulator 1 modulates modulator 0 (chained) rather than the carriers directly.
-   */
-  private boolean modulator1ToModulator0 = false;
-
   public enum PolyphonyMode {
     POLY,
     MONO,
@@ -275,26 +191,12 @@ public class SynthTrackModel extends TrackModel {
   private int maxVoiceCount = 8;
   // C sound.h: voice-stealing priority (0=low, 1=medium, 2=high). XML "voicePriority".
   private int voicePriority = 1;
-  private float oscAVolume = 1.0f;
-  private float oscBVolume = 1.0f;
 
   /**
    * Semitone transpose of the entire sound, typically -24 to 24. Maps to XML `<sound>` transpose
    * attr.
    */
   private int transpose = 0;
-
-  /** DX7 patch hex string (312 hex chars = 156 bytes), null if not a DX7 track. */
-  private String dx7patch = null;
-
-  /** DX7 random detune amount (written as dx7randomdetune on osc1 element). */
-  private int dx7RandomDetune = 0;
-
-  /**
-   * DX7 engine type: -1=AUTO (firmware default, MkI for algo 3/5 with feedback), 0=MODERN
-   * (sinLookup/exp2Lookup, 32-bit float path), 1=VINTAGE (mkiSin, 14-bit envelopes).
-   */
-  private int engineType = -1;
 
   // Synthesis algorithm: 0=FM, 10=Mandolin, 11=Rhodey, 12=ModalBar, 13=Moog
   private int synthAlgorithm = 0;
@@ -316,19 +218,19 @@ public class SynthTrackModel extends TrackModel {
 
   // Getters and Setters for all fields...
   public String getOsc1Type() {
-    return osc1Type;
+    return osc1.getType();
   }
 
   public void setOsc1Type(String osc1Type) {
-    this.osc1Type = osc1Type;
+    osc1.setType(osc1Type);
   }
 
   public String getOsc2Type() {
-    return osc2Type;
+    return osc2.getType();
   }
 
   public void setOsc2Type(String osc2Type) {
-    this.osc2Type = osc2Type;
+    osc2.setType(osc2Type);
   }
 
   public float getOscMix() {
@@ -337,25 +239,25 @@ public class SynthTrackModel extends TrackModel {
 
   public void setOscMix(float oscMix) {
     this.oscMix = oscMix;
-    this.oscAVolume = oscMix;
-    this.oscBVolume = 1.0f - oscMix;
+    osc1.setVolume(oscMix);
+    osc2.setVolume(1.0f - oscMix);
   }
 
   public float getOscAVolume() {
-    return oscAVolume;
+    return osc1.getVolume();
   }
 
   public void setOscAVolume(float oscAVolume) {
-    this.oscAVolume = oscAVolume;
+    osc1.setVolume(oscAVolume);
     this.oscMix = oscAVolume;
   }
 
   public float getOscBVolume() {
-    return oscBVolume;
+    return osc2.getVolume();
   }
 
   public void setOscBVolume(float oscBVolume) {
-    this.oscBVolume = oscBVolume;
+    osc2.setVolume(oscBVolume);
   }
 
   public float getNoiseVol() {
@@ -399,18 +301,12 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public String getOsc1SamplePath() {
-    return osc1SamplePath;
+    return osc1.getSamplePath();
   }
 
   public void setOsc1SamplePath(String p) {
-    this.osc1SamplePath = p;
+    osc1.setSamplePath(p);
   }
-
-  // Verbatim <osc1>/<osc2> XML for multisample (<sampleRanges>) oscillators, captured on parse and
-  // re-emitted unchanged so keyzone presets survive a song round-trip (our model doesn't re-model
-  // keyzones). Null for normal oscillators.
-  private String osc1RawXml = null;
-  private String osc2RawXml = null;
 
   public String getOsc1RawXml() {
     return osc1RawXml;
@@ -429,219 +325,219 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public String getOsc2SamplePath() {
-    return osc2SamplePath;
+    return osc2.getSamplePath();
   }
 
   public void setOsc2SamplePath(String p) {
-    this.osc2SamplePath = p;
+    osc2.setSamplePath(p);
   }
 
   public int getOsc1LoopMode() {
-    return osc1LoopMode;
+    return osc1.getLoopMode();
   }
 
   public void setOsc1LoopMode(int v) {
-    this.osc1LoopMode = v;
+    osc1.setLoopMode(v);
   }
 
   public boolean isOsc1Reversed() {
-    return osc1Reversed;
+    return osc1.isReversed();
   }
 
   public void setOsc1Reversed(boolean v) {
-    this.osc1Reversed = v;
+    osc1.setReversed(v);
   }
 
   public boolean isOsc1TimeStretch() {
-    return osc1TimeStretch;
+    return osc1.isTimeStretch();
   }
 
   public void setOsc1TimeStretch(boolean v) {
-    this.osc1TimeStretch = v;
+    osc1.setTimeStretch(v);
   }
 
   public float getOsc1TimeStretchAmount() {
-    return osc1TimeStretchAmount;
+    return osc1.getTimeStretchAmount();
   }
 
   public void setOsc1TimeStretchAmount(float v) {
-    this.osc1TimeStretchAmount = v;
+    osc1.setTimeStretchAmount(v);
   }
 
   public int getOsc1Cents() {
-    return osc1Cents;
+    return osc1.getCents();
   }
 
   public void setOsc1Cents(int v) {
-    this.osc1Cents = Math.max(-50, Math.min(50, v));
+    osc1.setCents(Math.max(-50, Math.min(50, v)));
   }
 
   public int getOsc1Transpose() {
-    return osc1Transpose;
+    return osc1.getTranspose();
   }
 
   public void setOsc1Transpose(int v) {
-    this.osc1Transpose = Math.max(-24, Math.min(24, v));
+    osc1.setTranspose(Math.max(-24, Math.min(24, v)));
   }
 
   public boolean isOsc1LinearInterpolation() {
-    return osc1LinearInterpolation;
+    return osc1.isLinearInterpolation();
   }
 
   public void setOsc1LinearInterpolation(boolean v) {
-    this.osc1LinearInterpolation = v;
+    osc1.setLinearInterpolation(v);
   }
 
   public int getOsc2Transpose() {
-    return osc2Transpose;
+    return osc2.getTranspose();
   }
 
   public void setOsc2Transpose(int v) {
-    this.osc2Transpose = Math.max(-24, Math.min(24, v));
+    osc2.setTranspose(Math.max(-24, Math.min(24, v)));
   }
 
   public int getOsc2Cents() {
-    return osc2Cents;
+    return osc2.getCents();
   }
 
   public void setOsc2Cents(int v) {
-    this.osc2Cents = Math.max(-50, Math.min(50, v));
+    osc2.setCents(Math.max(-50, Math.min(50, v)));
   }
 
   public int getOsc2LoopMode() {
-    return osc2LoopMode;
+    return osc2.getLoopMode();
   }
 
   public void setOsc2LoopMode(int v) {
-    this.osc2LoopMode = v;
+    osc2.setLoopMode(v);
   }
 
   public boolean isOsc2Reversed() {
-    return osc2Reversed;
+    return osc2.isReversed();
   }
 
   public void setOsc2Reversed(boolean v) {
-    this.osc2Reversed = v;
+    osc2.setReversed(v);
   }
 
   public boolean isOsc2TimeStretch() {
-    return osc2TimeStretch;
+    return osc2.isTimeStretch();
   }
 
   public void setOsc2TimeStretch(boolean v) {
-    this.osc2TimeStretch = v;
+    osc2.setTimeStretch(v);
   }
 
   public float getOsc2TimeStretchAmount() {
-    return osc2TimeStretchAmount;
+    return osc2.getTimeStretchAmount();
   }
 
   public void setOsc2TimeStretchAmount(float v) {
-    this.osc2TimeStretchAmount = v;
+    osc2.setTimeStretchAmount(v);
   }
 
   public boolean isOsc2LinearInterpolation() {
-    return osc2LinearInterpolation;
+    return osc2.isLinearInterpolation();
   }
 
   public void setOsc2LinearInterpolation(boolean v) {
-    this.osc2LinearInterpolation = v;
+    osc2.setLinearInterpolation(v);
   }
 
   public FilterMode getFilterMode() {
-    return filterMode;
+    return filter.getFilterMode();
   }
 
   public void setFilterMode(FilterMode filterMode) {
-    this.filterMode = filterMode;
+    filter.setFilterMode(filterMode);
   }
 
   public float getLpfFreq() {
-    return lpfFreq;
+    return filter.getLpfFreq();
   }
 
   public void setLpfFreq(float lpfFreq) {
-    this.lpfFreq = lpfFreq;
+    filter.setLpfFreq(lpfFreq);
   }
 
   public float getLpfRes() {
-    return lpfRes;
+    return filter.getLpfRes();
   }
 
   public void setLpfRes(float lpfRes) {
-    this.lpfRes = lpfRes;
+    filter.setLpfRes(lpfRes);
   }
 
   public float getLpfMorph() {
-    return lpfMorph;
+    return filter.getLpfMorph();
   }
 
   public void setLpfMorph(float lpfMorph) {
-    this.lpfMorph = lpfMorph;
+    filter.setLpfMorph(lpfMorph);
   }
 
   public float getHpfFreq() {
-    return hpfFreq;
+    return filter.getHpfFreq();
   }
 
   public void setHpfFreq(float hpfFreq) {
-    this.hpfFreq = hpfFreq;
+    filter.setHpfFreq(hpfFreq);
   }
 
   public float getHpfRes() {
-    return hpfRes;
+    return filter.getHpfRes();
   }
 
   public void setHpfRes(float hpfRes) {
-    this.hpfRes = hpfRes;
+    filter.setHpfRes(hpfRes);
   }
 
   public float getHpfMorph() {
-    return hpfMorph;
+    return filter.getHpfMorph();
   }
 
   public void setHpfMorph(float hpfMorph) {
-    this.hpfMorph = hpfMorph;
+    filter.setHpfMorph(hpfMorph);
   }
 
   public FilterMode getHpfMode() {
-    return hpfMode;
+    return filter.getHpfMode();
   }
 
   public void setHpfMode(FilterMode hpfMode) {
-    this.hpfMode = hpfMode;
+    filter.setHpfMode(hpfMode);
   }
 
   public float getHpfFm() {
-    return hpfFm;
+    return filter.getHpfFm();
   }
 
   public void setHpfFm(float hpfFm) {
-    this.hpfFm = hpfFm;
+    filter.setHpfFm(hpfFm);
   }
 
   public float getFilterDrive() {
-    return filterDrive;
+    return filter.getFilterDrive();
   }
 
   public void setFilterDrive(float filterDrive) {
-    this.filterDrive = Math.max(0.0f, Math.min(2.0f, filterDrive));
+    filter.setFilterDrive(Math.max(0.0f, Math.min(2.0f, filterDrive)));
   }
 
   public boolean isFilterNotch() {
-    return filterNotch;
+    return filter.isFilterNotch();
   }
 
   public void setFilterNotch(boolean filterNotch) {
-    this.filterNotch = filterNotch;
+    filter.setFilterNotch(filterNotch);
   }
 
   public int getFilterRoute() {
-    return filterRoute;
+    return filter.getFilterRoute();
   }
 
   public void setFilterRoute(int filterRoute) {
-    this.filterRoute = filterRoute;
+    filter.setFilterRoute(filterRoute);
   }
 
   public int getMaxVoiceCount() {
@@ -766,123 +662,115 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public String getModFxType() {
-    return modFxType;
+    return fx.getModFxType();
   }
 
   public void setModFxType(String modFxType) {
-    this.modFxType = modFxType != null ? modFxType.toUpperCase() : null;
+    fx.setModFxType(modFxType != null ? modFxType.toUpperCase() : null);
   }
 
   public float getModFxRate() {
-    return modFxRate;
+    return fx.getModFxRate();
   }
 
   public void setModFxRate(float modFxRate) {
-    this.modFxRate = modFxRate;
+    fx.setModFxRate(modFxRate);
   }
 
   public float getModFxDepth() {
-    return modFxDepth;
+    return fx.getModFxDepth();
   }
 
   public void setModFxDepth(float modFxDepth) {
-    this.modFxDepth = modFxDepth;
+    fx.setModFxDepth(modFxDepth);
   }
 
   public float getModFxFeedback() {
-    return modFxFeedback;
+    return fx.getModFxFeedback();
   }
 
   public void setModFxFeedback(float modFxFeedback) {
-    this.modFxFeedback = modFxFeedback;
+    fx.setModFxFeedback(modFxFeedback);
   }
 
   public float getModFxOffset() {
-    return modFxOffset;
+    return fx.getModFxOffset();
   }
 
   public void setModFxOffset(float modFxOffset) {
-    this.modFxOffset = modFxOffset;
+    fx.setModFxOffset(modFxOffset);
   }
 
   public float getDelaySend() {
-    return delaySend;
+    return fx.getDelaySend();
   }
 
   public void setDelaySend(float delaySend) {
-    this.delaySend = delaySend;
+    fx.setDelaySend(delaySend);
   }
 
   public float getReverbSend() {
-    return reverbSend;
+    return fx.getReverbSend();
   }
 
   public void setReverbSend(float reverbSend) {
-    this.reverbSend = reverbSend;
+    fx.setReverbSend(reverbSend);
   }
 
-  // Per-sound delay (the instrument's own <delay> element + soundParams delayFeedback). The
-  // firmware delay is per-sound; these drive FirmwareSound's per-sound delay (BPM-synced).
-  private int delaySyncLevel = 0;
-  private int delaySyncType = 0;
-  private int delayFeedbackQ31 = 0;
-  private boolean delayPingPong = false;
-  private boolean delayAnalog = false;
-
   public int getDelaySyncLevel() {
-    return delaySyncLevel;
+    return fx.getDelaySyncLevel();
   }
 
   public void setDelaySyncLevel(int v) {
-    this.delaySyncLevel = v;
+    fx.setDelaySyncLevel(v);
   }
 
   public int getDelaySyncType() {
-    return delaySyncType;
+    return fx.getDelaySyncType();
   }
 
   public void setDelaySyncType(int v) {
-    this.delaySyncType = v;
+    fx.setDelaySyncType(v);
   }
 
   public int getDelayFeedbackQ31() {
-    return delayFeedbackQ31;
+    return fx.getDelayFeedbackQ31();
   }
 
   public void setDelayFeedbackQ31(int v) {
-    this.delayFeedbackQ31 = v;
+    fx.setDelayFeedbackQ31(v);
   }
 
   public boolean isDelayPingPong() {
-    return delayPingPong;
+    return fx.isDelayPingPong();
   }
 
   public void setDelayPingPong(boolean v) {
-    this.delayPingPong = v;
+    fx.setDelayPingPong(v);
   }
 
   public boolean isDelayAnalog() {
-    return delayAnalog;
+    return fx.isDelayAnalog();
   }
 
   public void setDelayAnalog(boolean v) {
-    this.delayAnalog = v;
+    fx.setDelayAnalog(v);
   }
 
   public float getEqBass() {
-    return eqBass;
+    return fx.getEqBass();
   }
 
   public void setEqBass(float eqBass) {
-    this.eqBass = eqBass;
+    fx.setEqBass(eqBass);
   }
 
   public float getEqTreble() {
-    return eqTreble;
+    return fx.getEqTreble();
   }
 
   public void setEqTreble(float eqTreble) {
-    this.eqTreble = eqTreble;
+    fx.setEqTreble(eqTreble);
   }
 
   @Override
@@ -930,108 +818,108 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public float getCompressorAttack() {
-    return compressorAttack;
+    return compressor.getCompressorAttack();
   }
 
   public void setCompressorAttack(float v) {
-    this.compressorAttack = v;
+    compressor.setCompressorAttack(v);
   }
 
   public float getCompressorRelease() {
-    return compressorRelease;
+    return compressor.getCompressorRelease();
   }
 
   public void setCompressorRelease(float v) {
-    this.compressorRelease = v;
+    compressor.setCompressorRelease(v);
   }
 
   public int getCompressorSyncLevel() {
-    return compressorSyncLevel;
+    return compressor.getCompressorSyncLevel();
   }
 
   public void setCompressorSyncLevel(int v) {
-    this.compressorSyncLevel = v;
+    compressor.setCompressorSyncLevel(v);
   }
 
   public float getCompressorBlend() {
-    return compressorBlend;
+    return compressor.getCompressorBlend();
   }
 
   public void setCompressorBlend(float v) {
-    this.compressorBlend = Math.max(0.0f, Math.min(1.0f, v));
+    compressor.setCompressorBlend(Math.max(0.0f, Math.min(1.0f, v)));
   }
 
   public float getCompressorSidechainHpf() {
-    return compressorSidechainHpf;
+    return compressor.getCompressorSidechainHpf();
   }
 
   public void setCompressorSidechainHpf(float v) {
-    this.compressorSidechainHpf = Math.max(0.0f, Math.min(1.0f, v));
+    compressor.setCompressorSidechainHpf(Math.max(0.0f, Math.min(1.0f, v)));
   }
 
   public float getCompressorThreshold() {
-    return compressorThreshold;
+    return compressor.getCompressorThreshold();
   }
 
   public void setCompressorThreshold(float v) {
-    this.compressorThreshold = v;
+    compressor.setCompressorThreshold(v);
   }
 
   public float getCompressorRatio() {
-    return compressorRatio;
+    return compressor.getCompressorRatio();
   }
 
   public void setCompressorRatio(float v) {
-    this.compressorRatio = v;
+    compressor.setCompressorRatio(v);
   }
 
   public float getCompressorShape() {
-    return compressorShape;
+    return compressor.getCompressorShape();
   }
 
   public void setCompressorShape(float v) {
-    this.compressorShape = v;
+    compressor.setCompressorShape(v);
   }
 
   public int getCompressorSyncType() {
-    return compressorSyncType;
+    return compressor.getCompressorSyncType();
   }
 
   public void setCompressorSyncType(int v) {
-    this.compressorSyncType = v;
+    compressor.setCompressorSyncType(v);
   }
 
   // Sidechain (at sound level)
   public int getSidechainSyncLevel() {
-    return sidechainSyncLevel;
+    return compressor.getSidechainSyncLevel();
   }
 
   public void setSidechainSyncLevel(int v) {
-    this.sidechainSyncLevel = v;
+    compressor.setSidechainSyncLevel(v);
   }
 
   public int getSidechainSyncType() {
-    return sidechainSyncType;
+    return compressor.getSidechainSyncType();
   }
 
   public void setSidechainSyncType(int v) {
-    this.sidechainSyncType = v;
+    compressor.setSidechainSyncType(v);
   }
 
   public float getSidechainAttack() {
-    return sidechainAttack;
+    return compressor.getSidechainAttack();
   }
 
   public void setSidechainAttack(float v) {
-    this.sidechainAttack = v;
+    compressor.setSidechainAttack(v);
   }
 
   public float getSidechainRelease() {
-    return sidechainRelease;
+    return compressor.getSidechainRelease();
   }
 
   public void setSidechainRelease(float v) {
-    this.sidechainRelease = v;
+    compressor.setSidechainRelease(v);
   }
 
   public int getSynthMode() {
@@ -1051,27 +939,27 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public String getDx7Patch() {
-    return dx7patch;
+    return fm.getDx7patch();
   }
 
   public void setDx7Patch(String dx7patch) {
-    this.dx7patch = dx7patch;
+    fm.setDx7patch(dx7patch);
   }
 
   public int getDx7RandomDetune() {
-    return dx7RandomDetune;
+    return fm.getDx7RandomDetune();
   }
 
   public void setDx7RandomDetune(int v) {
-    this.dx7RandomDetune = v;
+    fm.setDx7RandomDetune(v);
   }
 
   public int getEngineType() {
-    return engineType;
+    return fm.getEngineType();
   }
 
   public void setEngineType(int engineType) {
-    this.engineType = engineType;
+    fm.setEngineType(engineType);
   }
 
   public int getSynthAlgorithm() {
@@ -1091,123 +979,115 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public float getFmRatio() {
-    return fmRatio;
+    return fm.getFmRatio();
   }
 
   public void setFmRatio(float fmRatio) {
-    this.fmRatio = fmRatio;
+    fm.setFmRatio(fmRatio);
   }
 
-  // Raw modulator transpose (semitones) + cents, preserved for the firmware-faithful FM engine,
-  // which computes the modulator phase increment from the note table + cents detune (voice.cpp),
-  // instead of the lossy 2^(transpose/12) float ratio.
-  private int modulator1Transpose = 0;
-  private int modulator1Cents = 0;
-  private int modulator2Transpose = 0;
-  private int modulator2Cents = 0;
-
   public int getModulator1Transpose() {
-    return modulator1Transpose;
+    return fm.getModulator1Transpose();
   }
 
   public void setModulator1Transpose(int v) {
-    this.modulator1Transpose = v;
+    fm.setModulator1Transpose(v);
   }
 
   public int getModulator1Cents() {
-    return modulator1Cents;
+    return fm.getModulator1Cents();
   }
 
   public void setModulator1Cents(int v) {
-    this.modulator1Cents = v;
+    fm.setModulator1Cents(v);
   }
 
   public int getModulator2Transpose() {
-    return modulator2Transpose;
+    return fm.getModulator2Transpose();
   }
 
   public void setModulator2Transpose(int v) {
-    this.modulator2Transpose = v;
+    fm.setModulator2Transpose(v);
   }
 
   public int getModulator2Cents() {
-    return modulator2Cents;
+    return fm.getModulator2Cents();
   }
 
   public void setModulator2Cents(int v) {
-    this.modulator2Cents = v;
+    fm.setModulator2Cents(v);
   }
 
   public float getFmAmount() {
-    return fmAmount;
+    return fm.getFmAmount();
   }
 
   public void setFmAmount(float fmAmount) {
-    this.fmAmount = fmAmount;
+    fm.setFmAmount(fmAmount);
   }
 
   public float getModulator1Feedback() {
-    return modulator1Feedback;
+    return fm.getModulator1Feedback();
   }
 
   public void setModulator1Feedback(float v) {
-    this.modulator1Feedback = v;
+    fm.setModulator1Feedback(v);
   }
 
   public float getModulator2Amount() {
-    return modulator2Amount;
+    return fm.getModulator2Amount();
   }
 
   public void setModulator2Amount(float v) {
-    this.modulator2Amount = v;
+    fm.setModulator2Amount(v);
   }
 
   public float getModulator2Feedback() {
-    return modulator2Feedback;
+    return fm.getModulator2Feedback();
   }
 
   public void setModulator2Feedback(float v) {
-    this.modulator2Feedback = v;
+    fm.setModulator2Feedback(v);
   }
 
   public float getCarrier1Feedback() {
-    return carrier1Feedback;
+    return fm.getCarrier1Feedback();
   }
 
   public void setCarrier1Feedback(float v) {
-    this.carrier1Feedback = v;
+    fm.setCarrier1Feedback(v);
   }
 
   public float getCarrier2Feedback() {
-    return carrier2Feedback;
+    return fm.getCarrier2Feedback();
   }
 
   public void setCarrier2Feedback(float v) {
-    this.carrier2Feedback = v;
+    fm.setCarrier2Feedback(v);
   }
 
   public float getFmRatio2() {
-    return fmRatio2;
+    return fm.getFmRatio2();
   }
 
   public void setFmRatio2(float v) {
-    this.fmRatio2 = v;
+    fm.setFmRatio2(v);
   }
 
   public int getModulator1AmountQ31() {
-    return modulator1AmountQ31;
+    return fm.getModulator1AmountQ31();
   }
 
   public void setModulator1AmountQ31(int v) {
-    this.modulator1AmountQ31 = v;
+    fm.setModulator1AmountQ31(v);
   }
 
   public int getModulator2AmountQ31() {
-    return modulator2AmountQ31;
+    return fm.getModulator2AmountQ31();
   }
 
   public void setModulator2AmountQ31(int v) {
-    this.modulator2AmountQ31 = v;
+    fm.setModulator2AmountQ31(v);
   }
 
   public int getPitchAdjustQ31() {
@@ -1219,59 +1099,59 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public int getOsc1PhaseWidthQ31() {
-    return osc1PhaseWidthQ31;
+    return osc1.getPhaseWidthQ31();
   }
 
   public void setOsc1PhaseWidthQ31(int v) {
-    this.osc1PhaseWidthQ31 = v;
+    osc1.setPhaseWidthQ31(v);
   }
 
   public int getOsc2PhaseWidthQ31() {
-    return osc2PhaseWidthQ31;
+    return osc2.getPhaseWidthQ31();
   }
 
   public void setOsc2PhaseWidthQ31(int v) {
-    this.osc2PhaseWidthQ31 = v;
+    osc2.setPhaseWidthQ31(v);
   }
 
   public int getModulator1FeedbackQ31() {
-    return modulator1FeedbackQ31;
+    return fm.getModulator1FeedbackQ31();
   }
 
   public void setModulator1FeedbackQ31(int v) {
-    this.modulator1FeedbackQ31 = v;
+    fm.setModulator1FeedbackQ31(v);
   }
 
   public int getModulator2FeedbackQ31() {
-    return modulator2FeedbackQ31;
+    return fm.getModulator2FeedbackQ31();
   }
 
   public void setModulator2FeedbackQ31(int v) {
-    this.modulator2FeedbackQ31 = v;
+    fm.setModulator2FeedbackQ31(v);
   }
 
   public int getCarrier1FeedbackQ31() {
-    return carrier1FeedbackQ31;
+    return fm.getCarrier1FeedbackQ31();
   }
 
   public void setCarrier1FeedbackQ31(int v) {
-    this.carrier1FeedbackQ31 = v;
+    fm.setCarrier1FeedbackQ31(v);
   }
 
   public int getCarrier2FeedbackQ31() {
-    return carrier2FeedbackQ31;
+    return fm.getCarrier2FeedbackQ31();
   }
 
   public void setCarrier2FeedbackQ31(int v) {
-    this.carrier2FeedbackQ31 = v;
+    fm.setCarrier2FeedbackQ31(v);
   }
 
   public boolean isModulator1ToModulator0() {
-    return modulator1ToModulator0;
+    return fm.isModulator1ToModulator0();
   }
 
   public void setModulator1ToModulator0(boolean v) {
-    this.modulator1ToModulator0 = v;
+    fm.setModulator1ToModulator0(v);
   }
 
   // Stutter config (ModControllableAudio::stutterConfig)
@@ -1279,55 +1159,45 @@ public class SynthTrackModel extends TrackModel {
   private boolean stutterReversed = false;
   private boolean stutterPingPong = false;
 
-  /**
-   * Oscillator retrigger phases — the RAW uint32 the Deluge stores/serializes (degrees * 11930464,
-   * C retrigger_phase.h:49-58); -1 (0xFFFFFFFF) = off/free-running, the C default (sound.cpp:88).
-   */
-  private int osc1RetrigPhase = -1;
-
-  private int osc2RetrigPhase = -1;
-  private int mod1RetrigPhase = -1;
-  private int mod2RetrigPhase = -1;
-
   public int getOsc1RetrigPhase() {
-    return osc1RetrigPhase;
+    return osc1.getRetrigPhase();
   }
 
   public void setOsc1RetrigPhase(int v) {
-    this.osc1RetrigPhase = v;
+    osc1.setRetrigPhase(v);
   }
 
   public int getOsc2RetrigPhase() {
-    return osc2RetrigPhase;
+    return osc2.getRetrigPhase();
   }
 
   public void setOsc2RetrigPhase(int v) {
-    this.osc2RetrigPhase = v;
+    osc2.setRetrigPhase(v);
   }
 
   public int getMod1RetrigPhase() {
-    return mod1RetrigPhase;
+    return fm.getMod1RetrigPhase();
   }
 
   public void setMod1RetrigPhase(int v) {
-    this.mod1RetrigPhase = v;
+    fm.setMod1RetrigPhase(v);
   }
 
   public int getMod2RetrigPhase() {
-    return mod2RetrigPhase;
+    return fm.getMod2RetrigPhase();
   }
 
   public void setMod2RetrigPhase(int v) {
-    this.mod2RetrigPhase = v;
+    fm.setMod2RetrigPhase(v);
   }
 
   public int getRetrigPhase() {
-    return osc1RetrigPhase;
+    return osc1.getRetrigPhase();
   }
 
   public void setRetrigPhase(int v) {
-    this.osc1RetrigPhase = v;
-    this.osc2RetrigPhase = v;
+    osc1.setRetrigPhase(v);
+    osc2.setRetrigPhase(v);
   }
 
   public PolyphonyMode getPolyphony() {
@@ -1366,42 +1236,17 @@ public class SynthTrackModel extends TrackModel {
    * Copies all synthesis, oscillator, filter, LFO, envelope, and FX parameters from another model.
    */
   public void copyParametersFrom(SynthTrackModel other) {
-    this.osc1Type = other.getOsc1Type();
-    this.osc2Type = other.getOsc2Type();
+    this.osc1.copyFrom(other.getOsc1());
+    this.osc2.copyFrom(other.getOsc2());
+    this.osc1RawXml = other.osc1RawXml;
+    this.osc2RawXml = other.osc2RawXml;
     this.oscMix = other.getOscMix();
     this.noiseVol = other.getNoiseVol();
     this.unisonNum = other.getUnisonNum();
     this.unisonDetune = other.getUnisonDetune();
     this.unisonStereoSpread = other.getUnisonStereoSpread();
     this.waveIndex = other.getWaveIndex();
-    this.osc1LoopMode = other.getOsc1LoopMode();
-    this.osc1Reversed = other.isOsc1Reversed();
-    this.osc1TimeStretch = other.isOsc1TimeStretch();
-    this.osc1TimeStretchAmount = other.getOsc1TimeStretchAmount();
-    this.osc1Cents = other.getOsc1Cents();
-    this.osc1Transpose = other.getOsc1Transpose();
-    this.osc1LinearInterpolation = other.isOsc1LinearInterpolation();
-    this.osc1SamplePath = other.getOsc1SamplePath();
-    this.osc2LoopMode = other.getOsc2LoopMode();
-    this.osc2Reversed = other.isOsc2Reversed();
-    this.osc2TimeStretch = other.isOsc2TimeStretch();
-    this.osc2TimeStretchAmount = other.getOsc2TimeStretchAmount();
-    this.osc2LinearInterpolation = other.isOsc2LinearInterpolation();
-    this.osc2SamplePath = other.getOsc2SamplePath();
-    this.osc2Transpose = other.getOsc2Transpose();
-    this.osc2Cents = other.getOsc2Cents();
-    this.filterMode = other.getFilterMode();
-    this.lpfFreq = other.getLpfFreq();
-    this.lpfRes = other.getLpfRes();
-    this.lpfMorph = other.getLpfMorph();
-    this.hpfFreq = other.getHpfFreq();
-    this.hpfRes = other.getHpfRes();
-    this.hpfMorph = other.getHpfMorph();
-    this.hpfMode = other.getHpfMode();
-    this.hpfFm = other.getHpfFm();
-    this.filterDrive = other.getFilterDrive();
-    this.filterNotch = other.isFilterNotch();
-    this.filterRoute = other.getFilterRoute();
+    this.filter.copyFrom(other.getFilter());
 
     // Arrays
     for (int i = 0; i < 4; i++) {
@@ -1412,36 +1257,15 @@ public class SynthTrackModel extends TrackModel {
 
     // FM
     this.synthMode = other.getSynthMode();
-    this.fmRatio = other.getFmRatio();
-    this.fmAmount = other.getFmAmount();
-    this.modulator1Feedback = other.getModulator1Feedback();
-    this.modulator2Amount = other.getModulator2Amount();
-    this.modulator2Feedback = other.getModulator2Feedback();
-    this.carrier1Feedback = other.getCarrier1Feedback();
-    this.carrier2Feedback = other.getCarrier2Feedback();
-    this.fmRatio2 = other.getFmRatio2();
-    this.modulator1AmountQ31 = other.modulator1AmountQ31;
-    this.modulator2AmountQ31 = other.modulator2AmountQ31;
+    this.fm.copyFrom(other.getFm());
     this.pitchAdjustQ31 = other.pitchAdjustQ31;
-    this.osc1PhaseWidthQ31 = other.osc1PhaseWidthQ31;
-    this.osc2PhaseWidthQ31 = other.osc2PhaseWidthQ31;
-    this.modulator1FeedbackQ31 = other.modulator1FeedbackQ31;
-    this.modulator2FeedbackQ31 = other.modulator2FeedbackQ31;
-    this.carrier1FeedbackQ31 = other.carrier1FeedbackQ31;
-    this.carrier2FeedbackQ31 = other.carrier2FeedbackQ31;
     this.waveFoldQ31 = other.getWaveFoldQ31();
     this.clippingAmount = other.getClippingAmount();
     this.portamentoQ31 = other.getPortamentoQ31();
-    this.modulator1ToModulator0 = other.modulator1ToModulator0;
     this.polyphony = other.getPolyphony();
     this.maxVoiceCount = other.getMaxVoiceCount();
     this.voicePriority = other.getVoicePriority();
-    this.oscAVolume = other.getOscAVolume();
-    this.oscBVolume = other.getOscBVolume();
     this.transpose = other.getTranspose();
-    this.dx7patch = other.dx7patch;
-    this.dx7RandomDetune = other.dx7RandomDetune;
-    this.engineType = other.engineType;
     this.synthAlgorithm = other.getSynthAlgorithm();
     this.oscillatorSync = other.oscillatorSync;
 
@@ -1460,33 +1284,8 @@ public class SynthTrackModel extends TrackModel {
     this.stutterRate = other.getStutterRate();
     this.sampleRateReduction = other.getSampleRateReduction();
     this.bitCrush = other.getBitCrush();
-    this.compressorAttack = other.getCompressorAttack();
-    this.compressorRelease = other.getCompressorRelease();
-    this.compressorSyncLevel = other.getCompressorSyncLevel();
-    this.compressorBlend = other.getCompressorBlend();
-    this.compressorSidechainHpf = other.getCompressorSidechainHpf();
-    this.compressorSyncType = other.getCompressorSyncType();
-    this.sidechainSyncLevel = other.getSidechainSyncLevel();
-    this.sidechainSyncType = other.getSidechainSyncType();
-    this.sidechainAttack = other.getSidechainAttack();
-    this.sidechainRelease = other.getSidechainRelease();
-    this.compressorThreshold = other.getCompressorThreshold();
-    this.compressorRatio = other.getCompressorRatio();
-    this.compressorShape = other.getCompressorShape();
-    this.modFxType = other.getModFxType();
-    this.modFxRate = other.getModFxRate();
-    this.modFxDepth = other.getModFxDepth();
-    this.modFxFeedback = other.getModFxFeedback();
-    this.modFxOffset = other.getModFxOffset();
-    this.delaySend = other.getDelaySend();
-    this.reverbSend = other.getReverbSend();
-    this.eqBass = other.getEqBass();
-    this.eqTreble = other.getEqTreble();
-    this.delaySyncLevel = other.getDelaySyncLevel();
-    this.delaySyncType = other.getDelaySyncType();
-    this.delayFeedbackQ31 = other.getDelayFeedbackQ31();
-    this.delayPingPong = other.isDelayPingPong();
-    this.delayAnalog = other.isDelayAnalog();
+    this.compressor.copyFrom(other.getCompressor());
+    this.fx.copyFrom(other.getFx());
     System.arraycopy(other.getCustomLfoWave(), 0, this.customLfoWave, 0, 256);
   }
 
