@@ -107,7 +107,7 @@ public class FirmwareGoldenSignatureTest {
     m.setLpfRes(0.0f);
     m.setVolume(1.0f);
     m.setEnv(0, new org.deluge.model.EnvelopeModel(0.01f, 0.1f, 0.20f, 0.2f, "NONE", 0.0f));
-    m.setEnvRateKnobsQ31(0, 200000000, -1073741824, -1073741824);
+    m.getRawKnobs().setEnvRateKnobsQ31(0, 200000000, -1073741824, -1073741824);
     m.addClip(new ClipModel("c", 8, 16));
     ProjectModel p = new ProjectModel();
     p.addTrack(m);

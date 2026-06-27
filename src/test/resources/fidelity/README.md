@@ -68,7 +68,7 @@ You can execute the automated phase-aligning waveform comparison tool directly a
 
 ```bash
 # Force compile and run the default C5 Dry Sawtooth (Patch A) comparison:
-mvn test-compile && mvn -pl deluge exec:java -Dexec.classpathScope="test" -Dexec.mainClass="org.chuck.deluge.reproduce.CompareAudioParity"
+mvn test-compile && mvn exec:java -Dexec.classpathScope="test" -Dexec.mainClass="org.deluge.reproduce.CompareAudioParity"
 ```
 
 The tool will auto-align zero-crossing phases, perform peak-normalization, and print:

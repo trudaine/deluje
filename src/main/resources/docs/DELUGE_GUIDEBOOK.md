@@ -936,7 +936,7 @@ All communications adhere to the following byte layout:
 
 #### 🗺️ Bidirectional Command Matrix (The Protocol Reference):
 
-Below is the complete reference of all realized and future-ready commands supported by the workstation's [DelugeSysExManager](file:///Users/ludo/a/chuckjava/deluge/src/main/java/org/chuck/deluge/midi/DelugeSysExManager.java) and the physical firmware's SysEx server:
+Below is the complete reference of all realized and future-ready commands supported by the workstation's [DelugeSysExManager](../../java/org/deluge/midi/DelugeSysExManager.java) and the physical firmware's SysEx server:
 
 | Direction | Command / Action | JSON Payload Template | Binary Payload / Behavior | Status |
 | :--- | :--- | :--- | :--- | :--- |
@@ -1708,9 +1708,9 @@ Macro scripts are simple, line-based text files. Each line represents an executa
 
 ### 23.3 Pre-Baked Showcases
 The workstation includes several magnificent, pre-baked procedural scripts in your workspace:
-*   **[techno_creator.txt](file:///Users/ludo/a/chuckjava/deluge/techno_creator.txt):** A driving 130 BPM techno beat featuring 4-on-the-floor drums, an FM bassline on a dedicated piano-roll, and automated low-pass filter sweeps.
-*   **[deep_house_groove.txt](file:///Users/ludo/a/chuckjava/deluge/deep_house_groove.txt):** A warm, lush 122 BPM Deep House groove featuring swingy percussion, a polyphonic 4-note chord progression (Amin7 -> Fmaj7 -> Cmaj7 -> G7), and a syncopated sub-bassline.
-*   **[cinematic_ambient.txt](file:///Users/ludo/a/chuckjava/deluge/cinematic_ambient.txt):** A majestic, slow-evolving cinematic soundscape featuring a lush 5-note drone pad, high warm string counter-melodies, and an endless, shimmering master reverb hall.
+*   **[techno_creator.txt](../../../../techno_creator.txt):** A driving 130 BPM techno beat featuring 4-on-the-floor drums, an FM bassline on a dedicated piano-roll, and automated low-pass filter sweeps.
+*   **[deep_house_groove.txt](../../../../deep_house_groove.txt):** A warm, lush 122 BPM Deep House groove featuring swingy percussion, a polyphonic 4-note chord progression (Amin7 -> Fmaj7 -> Cmaj7 -> G7), and a syncopated sub-bassline.
+*   **[cinematic_ambient.txt](../../../../cinematic_ambient.txt):** A majestic, slow-evolving cinematic soundscape featuring a lush 5-note drone pad, high warm string counter-melodies, and an endless, shimmering master reverb hall.
 
 ---
 
@@ -1862,7 +1862,7 @@ All arrangement-specific mute/solo configurations are written directly to the st
     ```xml
     <audioClip isMutedInArrangement="0" isSoloingInArrangement="1" ...>
     ```
-*   **Lossless XML Parsing**: When loading a song XML from your physical Deluge SD card, our [DelugeXmlParser](file:///Users/ludo/a/chuckjava/deluge/src/main/java/org/deluge/xml/DelugeXmlParser.java) recovers these attributes and maps them back onto the track model, ensuring your linear mix arrangement is perfectly preserved.
+*   **Lossless XML Parsing**: When loading a song XML from your physical Deluge SD card, our [DelugeXmlParser](../../java/org/deluge/xml/DelugeXmlParser.java) recovers these attributes and maps them back onto the track model, ensuring your linear mix arrangement is perfectly preserved.
 
 ---
 

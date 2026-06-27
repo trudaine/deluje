@@ -360,12 +360,12 @@ public class DelugeatorRandomizer {
     if (settings.unisonChecked) {
       double amt = settings.unisonAmount;
       int[] voiceCounts = {1, 2, 4, 8};
-      model.setUnisonNum(voiceCounts[(int) (Math.random() * voiceCounts.length)]);
-      model.setUnisonDetune(getTriangular(0.0f, 0.4f, 0.0f, amt));
+      model.getUnison().setUnisonNum(voiceCounts[(int) (Math.random() * voiceCounts.length)]);
+      model.getUnison().setUnisonDetune(getTriangular(0.0f, 0.4f, 0.0f, amt));
     }
 
     // ── Generate Dynamic Modulation Patch Cables (0 to 8 unique routings!) ──
-    model.getPatchCables().clear();
+    model.getModulation().getPatchCables().clear();
     int modCount = (int) (Math.random() * 5) + 1; // 1 to 5 modulations by default!
 
     String[] sources = {"lfo1", "lfo2", "env2", "velocity", "aftertouch"};
@@ -378,14 +378,14 @@ public class DelugeatorRandomizer {
 
       // Prevent duplicate routings (using exact immutable record field parameters!)
       boolean duplicate = false;
-      for (PatchCable c : model.getPatchCables()) {
+      for (PatchCable c : model.getModulation().getPatchCables()) {
         if (src.equals(c.source()) && dst.equals(c.destination())) {
           duplicate = true;
           break;
         }
       }
       if (!duplicate) {
-        model.addPatchCable(new PatchCable(src, dst, scale));
+        model.getModulation().addPatchCable(new PatchCable(src, dst, scale));
       }
     }
 

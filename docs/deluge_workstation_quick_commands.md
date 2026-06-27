@@ -10,13 +10,13 @@ These controls allow you to scroll through the grid timeline, zoom into resoluti
 
 | Functionality | Physical Hardware Gesture | Workstation Desktop Shortcut | UI Component & Implementation |
 | :--- | :--- | :--- | :--- |
-| **Scroll Timeline (X)** | Turn `◄► knob` | **Mouse Scroll Wheel** (without Shift) OR drag the virtual `◀ ▶` encoder. | [DelugeEncoderStrip](file:///Users/ludo/a/chuckjava/deluge/src/main/java/org/deluge/ui/controls/DelugeEncoderStrip.java) |
-| **Scroll Pitch Rows (Y)** | Turn `▼▲ knob` | **Shift + Mouse Scroll Wheel** OR drag the virtual `▲ ▼` encoder. | [DelugeEncoderStrip](file:///Users/ludo/a/chuckjava/deluge/src/main/java/org/deluge/ui/controls/DelugeEncoderStrip.java) |
-| **Zoom Resolution** | Push `◄► knob` + Turn | **Alt/Cmd + Mouse Scroll Wheel** OR **Push + Turn virtual `◀ ▶` encoder** (Alt-drag/Right-drag). | [adjustZoomResolution()](file:///Users/ludo/a/chuckjava/deluge/src/main/java/org/deluge/ui/SwingGridPanel.java#L10247) |
-| **Global Tempo (BPM)**| Turn `Tempo knob` | **Drag the BPM slider** in the top bar or use the scroll wheel over it. | [SwingTopBarPanel](file:///Users/ludo/a/chuckjava/deluge/src/main/java/org/deluge/ui/SwingTopBarPanel.java) |
-| **Swing Amount** | `Shift` + Turn `Tempo knob` | **Drag the Swing slider** in the top bar. | [SwingTopBarPanel](file:///Users/ludo/a/chuckjava/deluge/src/main/java/org/deluge/ui/SwingTopBarPanel.java) |
-| **Undo Action** | Press `Back` | Click the **Undo button** in the top bar OR press **Cmd+Z / Ctrl+Z**. | [Undo/Redo Stack](file:///Users/ludo/a/chuckjava/deluge/src/main/java/org/deluge/model/ProjectModel.java) |
-| **Redo Action** | `Shift` + Press `Back` | Click the **Redo button** in the top bar OR press **Cmd+Shift+Z / Ctrl+Shift+Z**. | [Undo/Redo Stack](file:///Users/ludo/a/chuckjava/deluge/src/main/java/org/deluge/model/ProjectModel.java) |
+| **Scroll Timeline (X)** | Turn `◄► knob` | **Mouse Scroll Wheel** (without Shift) OR drag the virtual `◀ ▶` encoder. | [DelugeEncoderStrip](file:///Users/ludo/a/chuckjava/src/main/java/org/deluge/ui/controls/DelugeEncoderStrip.java) |
+| **Scroll Pitch Rows (Y)** | Turn `▼▲ knob` | **Shift + Mouse Scroll Wheel** OR drag the virtual `▲ ▼` encoder. | [DelugeEncoderStrip](file:///Users/ludo/a/chuckjava/src/main/java/org/deluge/ui/controls/DelugeEncoderStrip.java) |
+| **Zoom Resolution** | Push `◄► knob` + Turn | **Alt/Cmd + Mouse Scroll Wheel** OR **Push + Turn virtual `◀ ▶` encoder** (Alt-drag/Right-drag). | [adjustZoomResolution()](file:///Users/ludo/a/chuckjava/src/main/java/org/deluge/ui/SwingGridPanel.java#L10247) |
+| **Global Tempo (BPM)**| Turn `Tempo knob` | **Drag the BPM slider** in the top bar or use the scroll wheel over it. | [SwingTopBarPanel](file:///Users/ludo/a/chuckjava/src/main/java/org/deluge/ui/SwingTopBarPanel.java) |
+| **Swing Amount** | `Shift` + Turn `Tempo knob` | **Drag the Swing slider** in the top bar. | [SwingTopBarPanel](file:///Users/ludo/a/chuckjava/src/main/java/org/deluge/ui/SwingTopBarPanel.java) |
+| **Undo Action** | Press `Back` | Click the **Undo button** in the top bar OR press **Cmd+Z / Ctrl+Z**. | [Undo/Redo Stack](file:///Users/ludo/a/chuckjava/src/main/java/org/deluge/model/ProjectModel.java) |
+| **Redo Action** | `Shift` + Press `Back` | Click the **Redo button** in the top bar OR press **Cmd+Shift+Z / Ctrl+Shift+Z**. | [Undo/Redo Stack](file:///Users/ludo/a/chuckjava/src/main/java/org/deluge/model/ProjectModel.java) |
 
 ---
 

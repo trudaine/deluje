@@ -1,6 +1,6 @@
 # Deluge-Java: SysEx API Gap Audit & Workstation Feature Discovery
 
-This document presents a comprehensive comparative code audit between the native C++ Deluge firmware's SysEx JSON storage command parser ([smsysex.cpp](file://<DelugeFirmwareRoot>/src/deluge/storage/smsysex.cpp)) and the Java workstation's file synchronization service ([DelugeFileSyncService.java](../../deluge/src/main/java/org/chuck/deluge/midi/DelugeFileSyncService.java)). It highlights the gaps between the hardware's capabilities and the Java implementation and outlines the technical specifications required to bridge them.
+This document presents a comprehensive comparative code audit between the native C++ Deluge firmware's SysEx JSON storage command parser ([smsysex.cpp](file://<DelugeFirmwareRoot>/src/deluge/storage/smsysex.cpp)) and the Java workstation's file synchronization service ([DelugeFileSyncService.java](../src/main/java/org/deluge/midi/DelugeFileSyncService.java)). It highlights the gaps between the hardware's capabilities and the Java implementation and outlines the technical specifications required to bridge them.
 
 ---
 

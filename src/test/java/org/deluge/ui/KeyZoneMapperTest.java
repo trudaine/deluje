@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.List;
+import org.deluge.model.KeyZone;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
 import org.deluge.project.ProjectSerializer;
@@ -20,14 +21,14 @@ public class KeyZoneMapperTest {
 
   @Test
   void testAutomaticUniformPitchDistribution() {
-    List<SynthTrackModel.KeyZone> zones = new ArrayList<>();
+    List<KeyZone> zones = new ArrayList<>();
     String[] samplePaths = {"SD/SAMPLES/KICK.WAV", "SD/SAMPLES/SNARE.WAV", "SD/SAMPLES/HIHAT.WAV"};
 
     int numFiles = samplePaths.length;
     int noteSpan = 128 / numFiles; // 128 / 3 = 42 notes each
 
     for (int i = 0; i < numFiles; i++) {
-      SynthTrackModel.KeyZone kz = new SynthTrackModel.KeyZone();
+      KeyZone kz = new KeyZone();
       kz.samplePath = samplePaths[i];
       kz.minPitch = i * noteSpan;
       kz.maxPitch = (i == numFiles - 1) ? 127 : (kz.minPitch + noteSpan - 1);
@@ -55,7 +56,7 @@ public class KeyZoneMapperTest {
 
   @Test
   void testResizeAndMoveBoundaryMathematics() {
-    SynthTrackModel.KeyZone kz = new SynthTrackModel.KeyZone();
+    KeyZone kz = new KeyZone();
     kz.minPitch = 60; // C4
     kz.maxPitch = 72; // C5
 
@@ -100,7 +101,7 @@ public class KeyZoneMapperTest {
     project.getTracks().add(synth);
 
     // 2. Populate 3 keyzones with detailed properties
-    SynthTrackModel.KeyZone kz1 = new SynthTrackModel.KeyZone();
+    KeyZone kz1 = new KeyZone();
     kz1.samplePath = "SD/SAMPLES/KICK.WAV";
     kz1.minPitch = 0;
     kz1.maxPitch = 60;
@@ -111,9 +112,9 @@ public class KeyZoneMapperTest {
     kz1.startLoopPos = 200;
     kz1.endLoopPos = 4000;
     kz1.looping = true;
-    synth.getOsc1Zones().add(kz1);
+    synth.getKeyZones().getOsc1Zones().add(kz1);
 
-    SynthTrackModel.KeyZone kz2 = new SynthTrackModel.KeyZone();
+    KeyZone kz2 = new KeyZone();
     kz2.samplePath = "SD/SAMPLES/SNARE.WAV";
     kz2.minPitch = 61;
     kz2.maxPitch = 127;
@@ -124,7 +125,7 @@ public class KeyZoneMapperTest {
     kz2.startLoopPos = -1;
     kz2.endLoopPos = -1;
     kz2.looping = false;
-    synth.getOsc1Zones().add(kz2);
+    synth.getKeyZones().getOsc1Zones().add(kz2);
 
     // 3. Serialize the project to an XML string using ProjectSerializer
     String xmlStr = ProjectSerializer.serializeToString(project);
@@ -140,12 +141,12 @@ public class KeyZoneMapperTest {
     assertTrue(parsedProject.getTracks().get(0) instanceof SynthTrackModel);
 
     SynthTrackModel parsedSynth = (SynthTrackModel) parsedProject.getTracks().get(0);
-    List<SynthTrackModel.KeyZone> restoredZones = parsedSynth.getOsc1Zones();
+    List<KeyZone> restoredZones = parsedSynth.getKeyZones().getOsc1Zones();
 
     assertEquals(2, restoredZones.size(), "Should restore exactly 2 keyzones!");
 
     // Verify Zone 1
-    SynthTrackModel.KeyZone res1 = restoredZones.get(0);
+    KeyZone res1 = restoredZones.get(0);
     assertEquals("SD/SAMPLES/KICK.WAV", res1.samplePath);
     assertEquals(0, res1.minPitch);
     assertEquals(60, res1.maxPitch);
@@ -158,7 +159,7 @@ public class KeyZoneMapperTest {
     assertTrue(res1.looping);
 
     // Verify Zone 2
-    SynthTrackModel.KeyZone res2 = restoredZones.get(1);
+    KeyZone res2 = restoredZones.get(1);
     assertEquals("SD/SAMPLES/SNARE.WAV", res2.samplePath);
     assertEquals(61, res2.minPitch);
     assertEquals(127, res2.maxPitch);

@@ -1,0 +1,77 @@
+name: Build and Release Deluge
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag (leave blank to auto-bump minor version from latest)'
+        required: false
+        default: ''
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: read
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Determine Tag Name
+      id: get_tag
+      run: |
+        if [ -n "${{ github.event.inputs.tag_name }}" ]; then
+          echo "TAG_NAME=${{ github.event.inputs.tag_name }}" >> $GITHUB_ENV
+        else
+          LATEST_TAG=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r .tag_name)
+          if [ "$LATEST_TAG" = "null" ] || [ -z "$LATEST_TAG" ]; then
+            echo "TAG_NAME=v1.1.0" >> $GITHUB_ENV
+          else
+            VERSION=${LATEST_TAG#v}
+            MAJOR=$(echo $VERSION | cut -d. -f1)
+            MINOR=$(echo $VERSION | cut -d. -f2)
+            NEW_MINOR=$((MINOR + 1))
+            echo "TAG_NAME=v${MAJOR}.${NEW_MINOR}.0" >> $GITHUB_ENV
+          fi
+        fi
+
+    - name: Set up JDK 27
+      uses: actions/setup-java@v4
+      with:
+        java-version: '27-ea'
+        distribution: 'temurin'
+        cache: maven
+        server-id: github
+
+    - name: Build Swing-only fat jar
+      run: mvn clean package -Pswing-dist -DskipTests -nsu
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Prepare Release Assets
+      run: |
+        mkdir -p release_assets
+        cp target/deluge-swing.jar release_assets/
+        cp run.sh release_assets/
+        cp run.bat release_assets/
+        chmod +x release_assets/run.sh
+        cd release_assets && zip -r ../deluge-workstation.zip ./*
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ env.TAG_NAME }}
+        name: Deluge Workstation Release ${{ env.TAG_NAME }}
+        draft: false
+        prerelease: false
+        files: |
+          deluge-workstation.zip
+          release_assets/deluge-swing.jar
+          release_assets/run.sh
+          release_assets/run.bat
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

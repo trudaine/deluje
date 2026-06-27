@@ -24,7 +24,7 @@ class BridgeMappingSnapshotTest {
     m.setSynthMode(1); // FM
     m.setOsc1Type("SAW");
     m.setOsc2Type("SQUARE");
-    m.setUnisonNum(3);
+    m.getUnison().setUnisonNum(3);
     m.setVoicePriority(2);
     m.setMaxVoiceCount(5);
     m.setPolyphony(SynthTrackModel.PolyphonyMode.MONO);

@@ -8,6 +8,7 @@ import javax.swing.border.EmptyBorder;
 import org.deluge.BridgeContract;
 import org.deluge.engine.FirmwareSound;
 import org.deluge.firmware2.Oscillator.OscType;
+import org.deluge.model.KeyZone;
 import org.deluge.model.SynthTrackModel;
 import org.deluge.project.PreferencesManager;
 
@@ -24,7 +25,7 @@ public class SwingKeyZoneMapperDialog extends JDialog {
   private final int trackIndex;
   private final BridgeContract bridge;
 
-  private final List<SynthTrackModel.KeyZone> zones;
+  private final List<KeyZone> zones;
   private final SwingKeyZoneGridMap gridMap;
 
   // Detail Panel Fields
@@ -52,7 +53,8 @@ public class SwingKeyZoneMapperDialog extends JDialog {
     this.bridge = bridge;
 
     // Get reference to the track's target zone list
-    this.zones = (oscIndex == 0) ? model.getOsc1Zones() : model.getOsc2Zones();
+    this.zones =
+        (oscIndex == 0) ? model.getKeyZones().getOsc1Zones() : model.getKeyZones().getOsc2Zones();
 
     setSize(1000, 550);
     setMinimumSize(new Dimension(850, 450));
@@ -263,7 +265,7 @@ public class SwingKeyZoneMapperDialog extends JDialog {
       int noteSpan = Math.max(1, 128 / numFiles);
 
       for (int i = 0; i < numFiles; i++) {
-        SynthTrackModel.KeyZone kz = new SynthTrackModel.KeyZone();
+        KeyZone kz = new KeyZone();
         // Resolve relative to SD card if possible
         String absPath = files[i].getAbsolutePath();
         String relativePath = getRelativeSdPath(absPath);
@@ -289,7 +291,7 @@ public class SwingKeyZoneMapperDialog extends JDialog {
       gridMap.repaint();
 
       // Select the newly added zone
-      SynthTrackModel.KeyZone newZone = zones.get(zones.size() - 1);
+      KeyZone newZone = zones.get(zones.size() - 1);
       gridMap.setSelectedZone(newZone);
       syncFieldsFromSelection();
 
@@ -314,7 +316,7 @@ public class SwingKeyZoneMapperDialog extends JDialog {
   }
 
   private void deleteSelectedZone() {
-    SynthTrackModel.KeyZone selected = gridMap.getSelectedZone();
+    KeyZone selected = gridMap.getSelectedZone();
     if (selected != null) {
       zones.remove(selected);
       gridMap.setSelectedZone(zones.isEmpty() ? null : zones.get(0));
@@ -343,7 +345,7 @@ public class SwingKeyZoneMapperDialog extends JDialog {
   }
 
   private void syncFieldsFromSelection() {
-    SynthTrackModel.KeyZone kz = gridMap.getSelectedZone();
+    KeyZone kz = gridMap.getSelectedZone();
     if (kz == null) {
       toggleFieldsEnabled(false);
       return;
@@ -367,7 +369,7 @@ public class SwingKeyZoneMapperDialog extends JDialog {
   private void updateSelectedZoneFromFields() {
     if (isUpdatingFields) return;
 
-    SynthTrackModel.KeyZone kz = gridMap.getSelectedZone();
+    KeyZone kz = gridMap.getSelectedZone();
     if (kz != null) {
       kz.minPitch = (Integer) minPitchSpinner.getValue();
       kz.maxPitch = (Integer) maxPitchSpinner.getValue();

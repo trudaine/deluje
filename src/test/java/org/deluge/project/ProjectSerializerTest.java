@@ -309,9 +309,11 @@ public class ProjectSerializerTest {
 
   @Test
   void testExportBillieJeanStemsForAnalysis() throws Exception {
+    String userHome = System.getProperty("user.home");
     File alsFile =
         new File(
-            "/Users/ludo/Downloads/Michael Jackson - Billie Jean (Ableton Remake)/Project/Michael Jackson - Billie Jean.als");
+            userHome
+                + "/Downloads/Michael Jackson - Billie Jean (Ableton Remake)/Project/Michael Jackson - Billie Jean.als");
     if (!alsFile.exists()) {
       System.out.println("Billie Jean ALS file not found!");
       return;
@@ -321,7 +323,7 @@ public class ProjectSerializerTest {
     ProjectModel project = new ProjectModel();
     org.deluge.ableton.AbletonTrackMapper.importAbletonSet(doc, project, alsFile);
 
-    File targetDir = new File("/Users/ludo/Downloads/BillieJean_Stems_Analysis");
+    File targetDir = new File(userHome + "/Downloads/BillieJean_Stems_Analysis");
     targetDir.mkdirs();
 
     System.out.println("==================================================");

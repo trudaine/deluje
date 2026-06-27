@@ -20,15 +20,15 @@ public class HardSyncDiagnosticTest {
     System.out.println("=== DIAGNOSING PRESET: 046 Saw Sync ===");
 
     // Locate the XML preset in target or resources
-    File songFile = new File("/Users/ludo/a/chuckjava/deluge/target/ALL_SYNTHS_SONG.xml");
+    File songFile = new File("target/ALL_SYNTHS_SONG.xml");
     if (!songFile.exists()) {
-      songFile =
-          new File(
-              System.getProperty("user.home") + "/a/chuckjava/deluge/target/ALL_SYNTHS_SONG.xml");
+      songFile = new File("deluge/target/ALL_SYNTHS_SONG.xml");
     }
     if (!songFile.exists()) {
-      songFile =
-          new File("deluge/src/test/resources/ALL_SYNTHS_SONG.xml"); // repo-relative fallback
+      songFile = new File("src/test/resources/ALL_SYNTHS_SONG.xml");
+    }
+    if (!songFile.exists()) {
+      songFile = new File("deluge/src/test/resources/ALL_SYNTHS_SONG.xml");
     }
     // Local diagnostic: SKIP (not fail) when the generated artifact is absent — it is not committed
     // and is Mac-path-specific. assertTrue here red-builds every other machine/CI.

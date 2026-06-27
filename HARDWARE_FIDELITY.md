@@ -35,10 +35,10 @@ against the `DelugeFirmware` NIGHTLY @ `9a74e162` / nightly-4, model/clip/instru
 
 To ensure the hardware uses the exact same sample and preset configurations:
 1. Copy the following resource directories from Deluge-Java to the root of your Deluge SD card:
-   * Copy `deluge/src/main/resources/SAMPLES/` to the SD card's `/SAMPLES/` folder.
-   * Copy `deluge/src/main/resources/SONGS/` to the SD card's `/SONGS/` folder.
-   * Copy `deluge/src/main/resources/SYNTHS/` to the SD card's `/SYNTHS/` folder.
-   * Copy `deluge/src/main/resources/KITS/` to the SD card's `/KITS/` folder.
+   * Copy `src/main/resources/SAMPLES/` to the SD card's `/SAMPLES/` folder.
+   * Copy `src/main/resources/SONGS/` to the SD card's `/SONGS/` folder.
+   * Copy `src/main/resources/SYNTHS/` to the SD card's `/SYNTHS/` folder.
+   * Copy `src/main/resources/KITS/` to the SD card's `/KITS/` folder.
 
 > [!NOTE]
 > This matches the directory structure expected by the Deluge firmware, ensuring that `SONG006668.XML` correctly resolves the path `SAMPLES/DRUMS/Kick/808 Kick.wav` dynamically.
@@ -142,23 +142,23 @@ To render the identical reference files offline, run the compiled test runner:
 ```bash
 # Render Scenario A: Synth (3.0 seconds)
 mvn exec:java -Dexec.classpathScope="test" \
-  -Dexec.mainClass="org.chuck.deluge.FidelityTestRunner" \
-  -Dexec.args="deluge/src/main/resources/SONGS/TestSynthFidelity.xml rendered_synth.wav 3.0"
+  -Dexec.mainClass="org.deluge.FidelityTestRunner" \
+  -Dexec.args="src/main/resources/SONGS/TestSynthFidelity.xml rendered_synth.wav 3.0"
 
 # Render Scenario B: Kit (3.0 seconds)
 mvn exec:java -Dexec.classpathScope="test" \
-  -Dexec.mainClass="org.chuck.deluge.FidelityTestRunner" \
-  -Dexec.args="deluge/src/main/resources/SONGS/TestKitFidelity.xml rendered_kit.wav 3.0"
+  -Dexec.mainClass="org.deluge.FidelityTestRunner" \
+  -Dexec.args="src/main/resources/SONGS/TestKitFidelity.xml rendered_kit.wav 3.0"
 
 # Render Scenario C: Song (10.0 seconds)
 mvn exec:java -Dexec.classpathScope="test" \
-  -Dexec.mainClass="org.chuck.deluge.FidelityTestRunner" \
-  -Dexec.args="deluge/src/main/resources/SONGS/SONG006668.XML rendered_song.wav 10.0"
+  -Dexec.mainClass="org.deluge.FidelityTestRunner" \
+  -Dexec.args="src/main/resources/SONGS/SONG006668.XML rendered_song.wav 10.0"
 
 # Render Scenario D: Unison (3.0 seconds)
 mvn exec:java -Dexec.classpathScope="test" \
-  -Dexec.mainClass="org.chuck.deluge.FidelityTestRunner" \
-  -Dexec.args="deluge/src/main/resources/SONGS/TestUnisonFidelity.xml rendered_unison.wav 3.0"
+  -Dexec.mainClass="org.deluge.FidelityTestRunner" \
+  -Dexec.args="src/main/resources/SONGS/TestUnisonFidelity.xml rendered_unison.wav 3.0"
 ```
 
 ---
@@ -169,7 +169,7 @@ Once you have recorded the hardware WAV file (e.g., `recorded_song.wav`), run th
 
 ```bash
 mvn exec:java -Dexec.classpathScope="test" \
-  -Dexec.mainClass="org.chuck.deluge.FidelityComparisonTool" \
+  -Dexec.mainClass="org.deluge.FidelityComparisonTool" \
   -Dexec.args="rendered_song.wav recorded_song.wav"
 ```
 
@@ -185,7 +185,7 @@ This tool automatically:
 All four songs loaded and were resampled on-device (Option B). Comparison harness:
 
 ```
-mvn -pl deluge test -Dtest=HardwareFidelityComparisonTest \
+mvn test -Dtest=HardwareFidelityComparisonTest \
     -Dhardware.recordings.dir=/path/to/recordings   # one folder per song, output_000.wav inside
 ```
 
@@ -227,6 +227,6 @@ listed duration) and put the WAVs in folders named after the song (e.g.
 The comparison harness picks up whatever has been recorded (missing folders are skipped):
 
 ```
-mvn -pl deluge test -Dtest=HardwareFidelityComparisonTest \
+mvn test -Dtest=HardwareFidelityComparisonTest \
     -Dhardware.recordings.dir=/path/to/recordings
 ```

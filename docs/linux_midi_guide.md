@@ -58,7 +58,7 @@ Background MIDI reader threads block on native ALSA `poll()` or `snd_seq_event_i
 Version **`1.0.4`** resolved four critical bugs that previously prevented MIDI from functioning reliably on Linux.
 
 ### 2.1. Input Subscription Direction Fix (`snd_seq_connect_from`)
-*   **Class**: [AlsaMidiIn.java](../../deluge/src/main/java/org/rtmidijava/linux/AlsaMidiIn.java#L73-L81)
+*   **Class**: [AlsaMidiIn.java](../src/main/java/org/rtmidijava/linux/AlsaMidiIn.java#L73-L81)
 *   **The Bug**: The input port subscribed to incoming hardware events using `snd_seq_connect_to`. In ALSA, `connect_to` is for output routing (connecting a write port to an external destination). 
 *   **The Fix**: Switched to `snd_seq_connect_from(seqHandle, vPort, src.client, src.port)`. This correctly establishes the read subscription, routing events from the external hardware transmitter to the Java client's read port. Previously, **absolutely zero MIDI input events were received on Linux.**
 

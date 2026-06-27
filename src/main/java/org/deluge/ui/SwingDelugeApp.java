@@ -583,51 +583,6 @@ public class SwingDelugeApp extends JFrame {
     propagateCurrentModel();
     syncHighFidelityEngine(model);
 
-    // DEBUG: dump loaded model clips
-    System.out.println("[LOAD-DUMP] project tracks=" + model.getTracks().size());
-    for (int ti = 0; ti < model.getTracks().size(); ti++) {
-      var trk = model.getTracks().get(ti);
-      System.out.println(
-          "[LOAD-DUMP] track "
-              + ti
-              + " type="
-              + trk.getClass().getSimpleName()
-              + " name="
-              + trk.getName()
-              + " clips="
-              + trk.getClips().size());
-      for (int ci = 0; ci < trk.getClips().size(); ci++) {
-        var cl = trk.getClips().get(ci);
-        System.out.println(
-            "[LOAD-DUMP]   clip "
-                + ci
-                + " rows="
-                + cl.getRowCount()
-                + " steps="
-                + cl.getStepCount());
-        int active = 0;
-        for (int r = 0; r < cl.getRowCount(); r++) {
-          for (int s = 0; s < cl.getStepCount(); s++) {
-            if (cl.getStep(r, s).active()) {
-              active++;
-              System.out.println(
-                  "[LOAD-DUMP]     row="
-                      + r
-                      + " col="
-                      + s
-                      + " yNote="
-                      + cl.getRowYNote(r)
-                      + " pitch="
-                      + cl.getStep(r, s).pitch()
-                      + " vel="
-                      + cl.getStep(r, s).velocity());
-            }
-          }
-        }
-        System.out.println("[LOAD-DUMP]   clip " + ci + " total active=" + active);
-      }
-    }
-
     if (clipPanel != null) clipPanel.setProjectModel(model);
     if (songPanel != null) songPanel.setProjectModel(model);
     if (arrGridPanel != null) arrGridPanel.setProjectModel(model);
@@ -1213,33 +1168,18 @@ public class SwingDelugeApp extends JFrame {
 
   private SwingGridPanel activeGridPanel() {
     if (cardLayout == null || centerCardPanel == null) {
-      System.out.println(
-          "[TRACE activeGrid] cardLayout or centerCardPanel is null! Returning default clipPanel.");
       return clipPanel;
     }
-    System.out.println("[TRACE activeGrid] Querying components inside centerCardPanel...");
     for (java.awt.Component comp : centerCardPanel.getComponents()) {
-      System.out.println(
-          "[TRACE activeGrid] Comp: class="
-              + comp.getClass().getName()
-              + " visible="
-              + comp.isVisible());
       if (comp.isVisible() && comp instanceof SwingGridPanel sgp) {
-        System.out.println(
-            "[TRACE activeGrid] Found visible SwingGridPanel: viewMode=" + sgp.getViewMode());
         return sgp;
       }
       if (comp.isVisible()
           && comp instanceof JScrollPane sp
           && sp.getViewport().getView() instanceof SwingGridPanel sgp) {
-        System.out.println(
-            "[TRACE activeGrid] Found visible SwingGridPanel inside JScrollPane: viewMode="
-                + sgp.getViewMode());
         return sgp;
       }
     }
-    System.out.println(
-        "[TRACE activeGrid] No visible grid panel found! Fallback to default clipPanel.");
     return clipPanel;
   }
 

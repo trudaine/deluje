@@ -13,6 +13,7 @@ import org.deluge.model.ClipModel;
 import org.deluge.model.ClipType;
 import org.deluge.model.Drum;
 import org.deluge.model.EnvelopeModel;
+import org.deluge.model.KeyZone;
 import org.deluge.model.KitTrackModel;
 import org.deluge.model.LfoModel;
 import org.deluge.model.MidiTrackModel;
@@ -205,13 +206,16 @@ public class FirmwareFactory {
         executor.submit(
             () -> {
               OscType type = sound.oscTypes[finalS];
-              var zones = (finalS == 0) ? model.getOsc1Zones() : model.getOsc2Zones();
+              var zones =
+                  (finalS == 0)
+                      ? model.getKeyZones().getOsc1Zones()
+                      : model.getKeyZones().getOsc2Zones();
 
               if (!zones.isEmpty() && type == OscType.SAMPLE) {
                 // MULTISAMPLE LOADING PATH
                 java.util.List<org.deluge.firmware2.Sound.CompiledKeyZone> compiledZones =
                     new java.util.ArrayList<>();
-                for (SynthTrackModel.KeyZone kz : zones) {
+                for (KeyZone kz : zones) {
                   if (kz.samplePath == null || kz.samplePath.isEmpty()) {
                     continue;
                   }
@@ -571,7 +575,8 @@ public class FirmwareFactory {
     sound.paramKnobs[Param.GLOBAL_DELAY_RATE] = lfoRateKnobFromHz(model.getDelaySend());
     sound.paramKnobs[Param.GLOBAL_DELAY_FEEDBACK] = model.getDelayFeedbackQ31();
     sound.paramKnobs[Param.GLOBAL_REVERB_AMOUNT] = normToBipolarParamVolume(model.getReverbSend());
-    sound.paramKnobs[Param.UNPATCHED_STUTTER_RATE] = normToLinearParamKnob(model.getStutterRate());
+    sound.paramKnobs[Param.UNPATCHED_STUTTER_RATE] =
+        normToLinearParamKnob(model.getStutter().getStutterRate());
     sound.paramKnobs[Param.UNPATCHED_SAMPLE_RATE_REDUCTION] =
         normToBipolarParam(model.getSampleRateReduction());
     sound.paramKnobs[Param.UNPATCHED_BITCRUSHING] = normToBipolarParam(model.getBitCrush());
@@ -637,7 +642,7 @@ public class FirmwareFactory {
       int attackInc;
       int decayInc;
       int releaseInc;
-      if (model.isEnvKnobSet(i)) {
+      if (model.getRawKnobs().isEnvKnobSet(i)) {
         // Faithful: the envelope rate increments follow the firmware's per-stage curves
         // (getFinalParameterValueExpWithDumbEnvelopeHack): attack via getExp on the negated patched
         // knob; decay/release via the release-rate table. Neutrals 4096 / 70<<9 / 140<<9; attack
@@ -646,19 +651,19 @@ public class FirmwareFactory {
             finalEnvRateParam(
                 4096,
                 org.deluge.firmware2.Functions.patchCombineExpStep(
-                    0, model.getEnvAttackKnobQ31(i), 805306368),
+                    0, model.getRawKnobs().getEnvAttackKnobQ31(i), 805306368),
                 0);
         decayInc =
             finalEnvRateParam(
                 70 << 9,
                 org.deluge.firmware2.Functions.patchCombineExpStep(
-                    0, model.getEnvDecayKnobQ31(i), 1073741824),
+                    0, model.getRawKnobs().getEnvDecayKnobQ31(i), 1073741824),
                 1);
         releaseInc =
             finalEnvRateParam(
                 140 << 9,
                 org.deluge.firmware2.Functions.patchCombineExpStep(
-                    0, model.getEnvReleaseKnobQ31(i), 1073741824),
+                    0, model.getRawKnobs().getEnvReleaseKnobQ31(i), 1073741824),
                 2);
       } else {
         // Programmatic time-in-seconds: increment = 190.2 / time is the faithful time<->increment
@@ -675,11 +680,11 @@ public class FirmwareFactory {
       int decayKnob;
       int sustainKnob;
       int releaseKnob;
-      if (model.isEnvKnobSet(i)) {
-        attackKnob = model.getEnvAttackKnobQ31(i);
-        decayKnob = model.getEnvDecayKnobQ31(i);
-        sustainKnob = model.getEnvSustainKnobQ31(i);
-        releaseKnob = model.getEnvReleaseKnobQ31(i);
+      if (model.getRawKnobs().isEnvKnobSet(i)) {
+        attackKnob = model.getRawKnobs().getEnvAttackKnobQ31(i);
+        decayKnob = model.getRawKnobs().getEnvDecayKnobQ31(i);
+        sustainKnob = model.getRawKnobs().getEnvSustainKnobQ31(i);
+        releaseKnob = model.getRawKnobs().getEnvReleaseKnobQ31(i);
       } else {
         sustainKnob = normToBipolarParam(em.sustain());
         float normAttack = org.deluge.xml.DelugeHexMapper.normFromEnvTime(em.attack());
@@ -699,10 +704,11 @@ public class FirmwareFactory {
     // C sound.cpp:616-626: numUnison clamped 0..kMaxNumVoicesUnison(8), detune 0..50, spread
     // 0..50 — all USER units (fw2 setupUnisonStereoSpread scales by 42949672 itself; the previous
     // *2^31 here overflowed and fed garbage spread values into the unison pan setup).
-    sound.fw2Sound.numUnison = Math.max(0, Math.min(8, model.getUnisonNum()));
-    sound.fw2Sound.unisonDetune = Math.max(0, Math.min(50, (int) model.getUnisonDetune()));
+    sound.fw2Sound.numUnison = Math.max(0, Math.min(8, model.getUnison().getUnisonNum()));
+    sound.fw2Sound.unisonDetune =
+        Math.max(0, Math.min(50, (int) model.getUnison().getUnisonDetune()));
     sound.fw2Sound.unisonStereoSpread =
-        Math.max(0, Math.min(50, (int) model.getUnisonStereoSpread()));
+        Math.max(0, Math.min(50, (int) model.getUnison().getUnisonStereoSpread()));
 
     // Sidechain settings
     int sidechainAttackVal =
@@ -743,7 +749,7 @@ public class FirmwareFactory {
           // (getExp(121739, combineExp(knob, 2^30))) per block. Pre-curving here DOUBLE-curved
           // the rate (found via hardware comparison: knob 0x1999997E → hardware 3.79 Hz, our
           // render ~1 Hz because the curved phase increment was curved again).
-          sound.paramKnobs[paramId] = model.getLfoRateKnobQ31(i);
+          sound.paramKnobs[paramId] = model.getRawKnobs().getLfoRateKnobQ31(i);
         }
       }
     }
@@ -751,10 +757,11 @@ public class FirmwareFactory {
     // Populate firmware2 raw knobs: envelope rates are already written directly to paramKnobs.
     // The previous redundant arraycopy is removed.
     for (int i = 0; i < 4; i++) {
-      if (model.isEnvKnobSet(i)) {
-        sound.paramKnobs[Param.LOCAL_ENV_0_ATTACK + i] = model.getEnvAttackKnobQ31(i);
-        sound.paramKnobs[Param.LOCAL_ENV_0_DECAY + i] = model.getEnvDecayKnobQ31(i);
-        sound.paramKnobs[Param.LOCAL_ENV_0_RELEASE + i] = model.getEnvReleaseKnobQ31(i);
+      if (model.getRawKnobs().isEnvKnobSet(i)) {
+        sound.paramKnobs[Param.LOCAL_ENV_0_ATTACK + i] = model.getRawKnobs().getEnvAttackKnobQ31(i);
+        sound.paramKnobs[Param.LOCAL_ENV_0_DECAY + i] = model.getRawKnobs().getEnvDecayKnobQ31(i);
+        sound.paramKnobs[Param.LOCAL_ENV_0_RELEASE + i] =
+            model.getRawKnobs().getEnvReleaseKnobQ31(i);
       }
     }
     sound.paramKnobsPopulated = true;
@@ -762,7 +769,7 @@ public class FirmwareFactory {
     // Raw Q31 param-knob overrides from a song clip's <soundParams> (firmware reads these verbatim;
     // applied after the float-based mapping so they win for params the float round-trip mis-ranges,
     // e.g. filter resonance/morph/cutoff). See SynthTrackModel.rawParamKnobs.
-    for (var e : model.getRawParamKnobs().entrySet()) {
+    for (var e : model.getRawKnobs().getRawParamKnobs().entrySet()) {
       int pid = e.getKey();
       sound.paramKnobs[pid] = e.getValue();
     }
@@ -810,7 +817,7 @@ public class FirmwareFactory {
     sound.fw2Sound.eqTrebleParam = sound.paramKnobs[Param.UNPATCHED_TREBLE];
 
     // Patch Cables
-    mapPatchCables(model.getPatchCables(), sound);
+    mapPatchCables(model.getModulation().getPatchCables(), sound);
 
     // ── LFO depth/target → synthesized patch cables ──
     // The LfoModel carries a depth + target (the UI's LFO tab) but only the rate/waveform were
@@ -1182,11 +1189,12 @@ public class FirmwareFactory {
       if (fallbackSd.exists()) return fallbackSd;
     }
 
-    // 5. Try under user's home "ludocard" directory (for scorecard/local test parity)
-    File ludocardSd = new File(System.getProperty("user.home"), "ludocard");
-    if (ludocardSd.isDirectory()) {
-      File fallbackLudo = new File(ludocardSd, normPath);
-      if (fallbackLudo.exists()) return fallbackLudo;
+    // 5. Try under user's home "deluge-card" directory (or custom path via -Ddeluge.card)
+    String cardName = System.getProperty("deluge.card", "deluge-card");
+    File sdCard = new File(System.getProperty("user.home"), cardName);
+    if (sdCard.isDirectory()) {
+      File fallback = new File(sdCard, normPath);
+      if (fallback.exists()) return fallback;
     }
 
     return f;

@@ -227,19 +227,21 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
 
   private GridViewMode viewMode = GridViewMode.SONG;
 
-  private String selectedAutomationParam = org.deluge.model.AutomationParam.SYTH_PARAMS[0];
+  // Automation is now managed by AutomationEditorController
+  private final AutomationEditorController automationController =
+      new AutomationEditorController(this, this::refresh);
   private javax.swing.JComboBox<String> automationParamCombo;
-  private boolean automationDragging = false;
 
-  // Arranger Timeline active drag/move gesture state fields
-  private org.deluge.model.ArrangerClip dragArrangerClip = null;
-  private int dragArrangerStartTicks = -1;
-  private int dragArrangerDurationTicks = -1;
-  private boolean isResizingArranger = false;
-  private int dragArrangerStartCol = -1;
+  // Arranger Timeline interaction is now managed by ArrangerTimelineController
+  private final ArrangerTimelineController arrangerController =
+      new ArrangerTimelineController(this, this::fireProjectChanged, this::refresh);
 
   private boolean shiftHeld = false;
   private boolean tabHeld = false;
+
+  // Clip Editor is now managed by ClipEditorController
+  private final ClipEditorController clipController =
+      new ClipEditorController(this, this::refresh, this::fireProjectChanged);
 
   public void setTabHeld(boolean held) {
     this.tabHeld = held;
@@ -249,14 +251,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     return tabHeld;
   }
 
-  private String activeShiftParam = null;
-  private int activeShiftRow = -1;
-  private int activeShiftCol = -1;
-
-  private int clonePreviewStartRow = -1;
-  private int clonePreviewStartCol = -1;
-  private int clonePreviewCurrentRow = -1;
-  private int clonePreviewCurrentCol = -1;
+  // activeShiftParam and clonePreview states are now managed by ClipEditorController
 
   // Multi-cell step selection state variables
   private final java.util.Set<String> selectedCells = new java.util.HashSet<>();
@@ -268,24 +263,22 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   private JPanel voicePanel;
 
   public int getActiveShiftRow() {
-    return activeShiftRow;
+    return clipController.getActiveShiftRow();
   }
 
   public int getActiveShiftCol() {
-    return activeShiftCol;
+    return clipController.getActiveShiftCol();
   }
 
   public String getActiveShiftParam() {
-    return activeShiftParam;
+    return clipController.getActiveShiftParam();
   }
 
   public void setShiftHeld(boolean held) {
     if (this.shiftHeld != held) {
       this.shiftHeld = held;
       if (!held) {
-        activeShiftParam = null;
-        activeShiftRow = -1;
-        activeShiftCol = -1;
+        clipController.resetActiveShiftParam();
         if (SwingDelugeApp.mainInstance != null) {
           SwingDelugeApp.mainInstance.updateHardwareLedDisplay(null, null);
         }
@@ -346,7 +339,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     "<html><body style='font-size: 9px; font-family: sans-serif;'><b>SAMPLE / ARP RATE (Col 15)</b><br>Swaps active sample wav or sets Arp Speed.<br>• <i>Kit Mode:</i> Opens multi-sample drum kit load swap browser.<br>• <i>Synth Mode:</i> Sets active Arpeggiator step speed rate (0.0 to 2.0).<br>• <i>Physical Deluge:</i> [ARP RATE] Button (Upper Mode) ➔ Turn Left Gold Knob.</body></html>"
   };
 
-  private static final String[][] SHIFT_LABELS = {
+  static final String[][] SHIFT_LABELS = {
     {
       "WAVE FORM",
       "WAVE FORM",
@@ -493,7 +486,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     }
   };
 
-  private static final Color[][] SHIFT_COLORS = {
+  static final Color[][] SHIFT_COLORS = {
     {
       COLOR_PINK, COLOR_PINK, COLOR_ORANGE, COLOR_PINK,
       COLOR_YELLOW, COLOR_WHITE, COLOR_SOFT_GREEN, COLOR_WHITE,
@@ -543,13 +536,8 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
       COLOR_SOFT_BLUE, COLOR_SOFT_BLUE, COLOR_PINK, COLOR_ORANGE
     }
   };
-  private String autoDragParam; // param name being dragged (for undo capture)
-  private int autoDragStep = -1; // step index being dragged
-  private float autoDragOldValue = -1f; // value before drag started
-  private boolean autoOverviewMode = true; // true=overview grid, false=detail editor
-  private int autoColScroll = 0; // horizontal scroll for overview param cols
 
-  private DelugeGestureCoordinator gestureCoordinator;
+  // gestureCoordinator is now managed by ClipEditorController
 
   private Color[] trackColors = {
     new Color(0x00, 0xff, 0xcc), // Cyan
@@ -613,7 +601,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
    * same basis — otherwise on a narrow window the rows compute a wider label, getGridWidth
    * overshoots the viewport, and the right (sidebar) column clips.
    */
-  private int currentLabelWidth() {
+  int currentLabelWidth() {
     int vpW = 0;
     java.awt.Container p = getParent();
     while (p != null) {
@@ -732,7 +720,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
 
     addMouseWheelListener(
         e -> {
-          if (shiftHeld && activeShiftParam != null) {
+          if (shiftHeld && clipController.getActiveShiftParam() != null) {
             int rotation = e.getWheelRotation();
             adjustRotaryParameter(-rotation);
             return;
@@ -863,12 +851,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
             cycleClip(1);
           }
         });
-    boolean isAdvanced =
-        org.deluge.project.PreferencesManager.getGridPanelType()
-            == org.deluge.project.PreferencesManager.GridPanelType.ADVANCED;
-    if (isAdvanced) {
-      this.gestureCoordinator = new DelugeGestureCoordinator(this, new DelugeGestureListener());
-    }
+    // gestureCoordinator is now initialized inside ClipEditorController
   }
 
   @Override
@@ -901,7 +884,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   }
 
   /** Blend a base color with black proportionally to velocity (0.0 = black, 1.0 = full color). */
-  private static Color velocityBlend(Color base, double velocity) {
+  static Color velocityBlend(Color base, double velocity) {
     if (velocity >= 1.0) return base;
     if (velocity <= 0.0) return new Color(0x33, 0x33, 0x33);
     int r = (int) (base.getRed() * velocity + 0x33 * (1 - velocity));
@@ -926,7 +909,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
         0x27, 0x27, 0x2b); // deeper, beautiful dark charcoal for standard subdivisions!
   }
 
-  private Color getStepPadDefaultBg(int modelRow, int col) {
+  Color getStepPadDefaultBg(int modelRow, int col) {
     boolean isSynth = false;
     if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
@@ -1419,11 +1402,11 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   }
 
   public boolean isAutoOverviewMode() {
-    return autoOverviewMode;
+    return automationController.isOverviewMode();
   }
 
   public void setAutoOverviewMode(boolean overview) {
-    this.autoOverviewMode = overview;
+    automationController.setOverviewMode(overview);
   }
 
   public org.deluge.model.ProjectModel getProjectModel() {
@@ -1972,8 +1955,8 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     }
     final int modelRow =
         (isSynth && viewMode == GridViewMode.CLIP)
-            ? (127 - getRowPitch(visualRowIndex))
-            : visualRowIndex;
+            ? (127 - getRowPitch(scrollOffset + visibleRow))
+            : getModelRow(visibleRow);
     boolean isSongOrArr = (viewMode == GridViewMode.SONG || viewMode == GridViewMode.ARRANGEMENT);
     boolean isUnusedTrackRow = isSongOrArr && (modelRow >= tracks.size());
     String samplePathLoc = null;
@@ -1981,7 +1964,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
       org.deluge.model.TrackModel track = tracks.get(modelRow);
       if (viewMode == GridViewMode.CLIP && track instanceof org.deluge.model.KitTrackModel kit) {
         java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
-        int drumIdx = sounds.size() - 1 - modelRow;
+        int drumIdx = modelRow;
         if (drumIdx >= 0 && drumIdx < sounds.size()) {
           org.deluge.model.Drum drum = sounds.get(drumIdx);
           if (drum instanceof org.deluge.model.SoundDrum soundDrum) {
@@ -2081,8 +2064,8 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
       if (rowTrack instanceof org.deluge.model.KitTrackModel kit) {
         java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
         trackName =
-            (modelRow < sounds.size())
-                ? sounds.get(sounds.size() - 1 - modelRow).getName()
+            (modelRow < sounds.size() && modelRow >= 0)
+                ? sounds.get(modelRow).getName()
                 : rowTrack.getName();
       } else {
         int pitchMidi = getRowPitch(modelRow);
@@ -2165,7 +2148,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
       org.deluge.model.TrackModel activeTrack = projectModel.getTracks().get(editedModelTrack);
       if (activeTrack instanceof org.deluge.model.KitTrackModel kitTrack) {
         java.util.List<org.deluge.model.Drum> drumsList = kitTrack.getDrums();
-        int soundIndex = drumsList.size() - 1 - modelRow;
+        int soundIndex = modelRow;
         if (soundIndex >= 0 && soundIndex < drumsList.size()) {
           JButton drumCfgBtn = new JButton("⚙");
           drumCfgBtn.setPreferredSize(new Dimension(20, 20));
@@ -2600,16 +2583,16 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
             boolean applicable = true;
             if (genericTrack != null) {
               String param = SHIFT_LABELS[visibleRow][colId];
-              applicable = isParamApplicable(param, visibleRow, colId, genericTrack);
+              applicable = clipController.isParamApplicable(param, visibleRow, colId, genericTrack);
             }
             pad.setApplicable(applicable);
             String tooltipText =
-                getShiftShortcutTooltip(visibleRow, colId, applicable, genericTrack);
+                clipController.getShiftShortcutTooltip(visibleRow, colId, applicable, genericTrack);
             pad.setToolTipText(tooltipText);
             pad.setInLoop(true);
             pad.setActive(true);
             pad.setBaseColor(SHIFT_COLORS[visibleRow][colId]);
-            String prefix = getGroupPrefix(colId);
+            String prefix = clipController.getGroupPrefix(colId);
             String shortcutLabel = SHIFT_LABELS[visibleRow][colId];
             String noteText =
                 (prefix != null && !shortcutLabel.isEmpty())
@@ -2622,7 +2605,9 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
             pad.setPlayhead(false);
             pad.setTail(false);
             pad.setText("");
-            if (applicable && visibleRow == activeShiftRow && colId == activeShiftCol) {
+            if (applicable
+                && visibleRow == clipController.getActiveShiftRow()
+                && colId == clipController.getActiveShiftCol()) {
               pad.setBorder(BorderFactory.createLineBorder(new Color(255, 215, 0), 3));
             } else {
               pad.setBorder(UIManager.getBorder("Button.border"));
@@ -2765,7 +2750,8 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
               }
             }
 
-            if (visibleRow == clonePreviewCurrentRow && colId == clonePreviewCurrentCol) {
+            if (visibleRow == clipController.getClonePreviewCurrentRow()
+                && colId == clipController.getClonePreviewCurrentCol()) {
               pad.setBorder(BorderFactory.createLineBorder(new Color(0x00, 0xf0, 0xff), 3));
             } else {
               pad.setBorder(UIManager.getBorder("Button.border"));
@@ -2779,16 +2765,16 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
             boolean applicable = true;
             if (genericTrack != null) {
               String param = SHIFT_LABELS[visibleRow][colId];
-              applicable = isParamApplicable(param, visibleRow, colId, genericTrack);
+              applicable = clipController.isParamApplicable(param, visibleRow, colId, genericTrack);
             }
-            String prefix = getGroupPrefix(colId);
+            String prefix = clipController.getGroupPrefix(colId);
             String shortcutLabel = SHIFT_LABELS[visibleRow][colId];
             String text =
                 (prefix != null && !shortcutLabel.isEmpty())
                     ? prefix + "<br>" + shortcutLabel.replace(" ", "<br>")
                     : shortcutLabel.replace(" ", "<br>");
             String tooltipText =
-                getShiftShortcutTooltip(visibleRow, colId, applicable, genericTrack);
+                clipController.getShiftShortcutTooltip(visibleRow, colId, applicable, genericTrack);
             clipBtn.setToolTipText(tooltipText);
             if (applicable) {
               clipBtn.setBackground(SHIFT_COLORS[visibleRow][colId]);
@@ -2893,441 +2879,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                       }
                     });
               }
-              if (isAdvanced && isStepColumn(colId)) {
-                if (gestureCoordinator == null) {
-                  gestureCoordinator =
-                      new DelugeGestureCoordinator(this, new DelugeGestureListener());
-                }
-                java.awt.event.MouseAdapter gestureAdapter =
-                    gestureCoordinator.createMouseAdapter(visibleRow, colId);
-                clipBtn.addMouseListener(gestureAdapter);
-                clipBtn.addMouseMotionListener(gestureAdapter);
-              } else {
-                clipBtn.addMouseListener(
-                    new java.awt.event.MouseAdapter() {
-                      @Override
-                      public void mousePressed(java.awt.event.MouseEvent e) {
-                        if (shiftHeld && visibleRow < 8 && isStepColumn(colId)) {
-                          handleShiftClick(visibleRow, colId, e.getPoint(), e.getComponent());
-                          return;
-                        }
-                        LOG.info(
-                            "[grid] mPressed bVR: modelRow="
-                                + modelRow
-                                + " visRow="
-                                + visibleRow
-                                + " colId="
-                                + colId
-                                + " t="
-                                + e.getClickCount());
-                        // Stop any preview timer from a previous press (button may have been
-                        // replaced by refresh)
-                        if (activeStutterTimer != null) {
-                          activeStutterTimer.stop();
-                          activeStutterTimer = null;
-                        }
-                        // Also write to debug file for offline inspection
-                        try {
-                          java.nio.file.Files.write(
-                              java.nio.file.Paths.get("grid_debug.log"),
-                              ("[grid] mPressed bVR: modelRow="
-                                      + modelRow
-                                      + " visRow="
-                                      + visibleRow
-                                      + " colId="
-                                      + colId
-                                      + " t="
-                                      + e.getClickCount()
-                                      + "\n")
-                                  .getBytes(),
-                              java.nio.file.StandardOpenOption.CREATE,
-                              java.nio.file.StandardOpenOption.APPEND);
-                        } catch (Exception ignored) {
-                          LOG.fine("grid_debug.log write failed: " + ignored.getMessage());
-                        }
-                        int engineRowOffset = getEngineRowOffset(modelRow);
-                        int engineRow = baseTrackId + engineRowOffset;
-                        if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                          double curVel = bridge.getVelocity(engineRow, activeCol);
-                          int curIt = bridge.getIterance(engineRow, activeCol);
-                          int curFill = (int) (bridge.getStepFill(engineRow, activeCol) * 100);
-                          StepPropertiesDialog dlg =
-                              new StepPropertiesDialog(
-                                  (Frame)
-                                      javax.swing.SwingUtilities.getWindowAncestor(
-                                          SwingGridPanel.this),
-                                  (int) (curVel * 100),
-                                  curIt,
-                                  curFill);
-                          dlg.setVisible(true);
-                          if (dlg.isConfirmed()) {
-                            int newVel = dlg.getVelocity();
-                            int newIt = dlg.getIterance();
-                            int newFill = dlg.getFill();
-                            if (newVel != (int) (curVel * 100)
-                                || newIt != curIt
-                                || newFill != curFill) {
-                              org.deluge.model.StepData oldStep = null;
-                              if (projectModel != null
-                                  && editedModelTrack < projectModel.getTracks().size()) {
-                                org.deluge.model.TrackModel tModel =
-                                    projectModel.getTracks().get(editedModelTrack);
-                                if (activeClipId < tModel.getClips().size()) {
-                                  oldStep =
-                                      getClipStep(
-                                          tModel.getClips().get(activeClipId), modelRow, activeCol);
-                                }
-                              }
-                              bridge.setVelocity(engineRow, activeCol, newVel / 100.0);
-                              bridge.setIterance(engineRow, activeCol, newIt);
-                              bridge.setStepFill(engineRow, activeCol, newFill / 100.0);
-                              if (projectModel != null
-                                  && editedModelTrack < projectModel.getTracks().size()) {
-                                org.deluge.model.TrackModel tModel =
-                                    projectModel.getTracks().get(editedModelTrack);
-                                if (activeClipId < tModel.getClips().size()) {
-                                  org.deluge.model.ClipModel cModel =
-                                      tModel.getClips().get(activeClipId);
-                                  boolean st = bridge.getStep(engineRow, activeCol);
-                                  double prob = bridge.getStepProbability(engineRow, activeCol);
-                                  setClipStep(
-                                      cModel,
-                                      modelRow,
-                                      activeCol,
-                                      new org.deluge.model.StepData(
-                                          st,
-                                          newVel / 100.0f,
-                                          0.5f,
-                                          (float) prob,
-                                          0,
-                                          newIt,
-                                          newFill / 100.0f));
-                                  if (oldStep != null) {
-                                    projectModel
-                                        .getUndoRedoStack()
-                                        .push(
-                                            new Consequence.StepConsequence(
-                                                projectModel,
-                                                editedModelTrack,
-                                                activeClipId,
-                                                modelRow,
-                                                activeCol,
-                                                oldStep,
-                                                getClipStep(cModel, modelRow, activeCol)));
-                                  }
-                                }
-                              }
-                              refresh();
-                            }
-                          }
-                        } else if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
-                          if (handleStepPressModifiers(baseTrackId, modelRow, colId, e)) return;
-                          boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-                          int trackType = bridge.getTrackType(baseTrackId);
-
-                          if (trackType == 2) {
-                            // MIDI track
-                            org.deluge.model.StepData oldStep = null;
-                            if (projectModel != null
-                                && editedModelTrack < projectModel.getTracks().size()) {
-                              org.deluge.model.TrackModel tModel =
-                                  projectModel.getTracks().get(editedModelTrack);
-                              if (activeClipId < tModel.getClips().size()) {
-                                org.deluge.model.ClipModel cModel =
-                                    tModel.getClips().get(activeClipId);
-                                oldStep = getClipStep(cModel, modelRow, activeCol);
-                              }
-                            }
-                            boolean st = bridge.getStep(engineRow, activeCol);
-                            bridge.setStep(engineRow, activeCol, !st);
-                            if (!st) {
-                              if (finalMidiOut != null) {
-                                sendMidiNote(60 + modelRow, 100, 250); // preview
-                              }
-                            }
-                            if (projectModel != null
-                                && editedModelTrack < projectModel.getTracks().size()) {
-                              org.deluge.model.TrackModel tModel =
-                                  projectModel.getTracks().get(editedModelTrack);
-                              if (activeClipId < tModel.getClips().size()) {
-                                org.deluge.model.ClipModel cModel =
-                                    tModel.getClips().get(activeClipId);
-                                double curVel = bridge.getVelocity(engineRow, activeCol);
-                                double curProb = bridge.getStepProbability(engineRow, activeCol);
-                                setClipStep(
-                                    cModel,
-                                    modelRow,
-                                    activeCol,
-                                    org.deluge.model.StepData.of(
-                                        !st,
-                                        (float) curVel,
-                                        org.deluge.model.StepData.DEFAULT_CLICK_GATE,
-                                        (float) curProb,
-                                        0));
-                                if (oldStep != null) {
-                                  projectModel
-                                      .getUndoRedoStack()
-                                      .push(
-                                          new Consequence.StepConsequence(
-                                              projectModel,
-                                              editedModelTrack,
-                                              activeClipId,
-                                              modelRow,
-                                              activeCol,
-                                              oldStep,
-                                              getClipStep(cModel, modelRow, activeCol)));
-                                }
-                              }
-                            }
-                            fireProjectChanged();
-                          } else if (isSynthMode) {
-                            // Synth piano roll
-                            int pitchMidi = getRowPitch(modelRow);
-                            org.deluge.model.StepData oldStep = null;
-                            if (projectModel != null
-                                && editedModelTrack < projectModel.getTracks().size()) {
-                              org.deluge.model.TrackModel tModel =
-                                  projectModel.getTracks().get(editedModelTrack);
-                              if (activeClipId < tModel.getClips().size()) {
-                                org.deluge.model.ClipModel cModel =
-                                    tModel.getClips().get(activeClipId);
-                                oldStep = getClipStep(cModel, modelRow, activeCol);
-                              }
-                            }
-                            boolean stepState = bridge.getStep(engineRow, activeCol);
-                            boolean nextState = !stepState;
-                            bridge.setStep(engineRow, activeCol, nextState);
-                            double velS;
-                            double probS;
-                            if (nextState) {
-                              velS =
-                                  (oldStep != null && oldStep.velocity() > 0.0f)
-                                      ? oldStep.velocity()
-                                      : 0.8;
-                              probS = (oldStep != null) ? oldStep.probability() : 1.0;
-                              bridge.setVelocity(engineRow, activeCol, velS);
-                              bridge.setStepProbability(engineRow, activeCol, probS);
-                            } else {
-                              velS = bridge.getVelocity(engineRow, activeCol);
-                              probS = bridge.getStepProbability(engineRow, activeCol);
-                            }
-                            clipBtn.setBackground(
-                                nextState
-                                    ? getGridNoteColor(modelRow, (float) velS)
-                                    : getStepPadDefaultBg(modelRow, activeCol));
-
-                            Object fwEngineObj =
-                                bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-                            if (fwEngineObj
-                                instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
-                              if (editedModelTrack < fwEngine.sounds.size()
-                                  && !isSequencerPlaying()) {
-                                org.deluge.firmware2.GlobalEffectable sound =
-                                    fwEngine.sounds.get(editedModelTrack);
-                                if (sound instanceof org.deluge.engine.FirmwareKit kit) {
-                                  kit.triggerDrum(engineRowOffset, 127);
-                                } else if (sound instanceof org.deluge.engine.FirmwareSound synth) {
-                                  stopAuditionIfNeeded();
-                                  auditionMidiNote = pitchMidi;
-                                  auditionSynth = synth;
-                                  synth.triggerNote(pitchMidi, 127);
-                                }
-                              }
-                            }
-
-                            if (projectModel != null
-                                && editedModelTrack < projectModel.getTracks().size()) {
-                              org.deluge.model.TrackModel tModel =
-                                  projectModel.getTracks().get(editedModelTrack);
-                              if (activeClipId < tModel.getClips().size()) {
-                                org.deluge.model.ClipModel cModel =
-                                    tModel.getClips().get(activeClipId);
-                                setClipStep(
-                                    cModel,
-                                    modelRow,
-                                    activeCol,
-                                    org.deluge.model.StepData.of(
-                                        nextState,
-                                        (float) velS,
-                                        org.deluge.model.StepData.DEFAULT_CLICK_GATE,
-                                        (float) probS,
-                                        pitchMidi));
-                                cModel.setRawNoteEvents(modelRow, null);
-                                if (oldStep != null) {
-                                  projectModel
-                                      .getUndoRedoStack()
-                                      .push(
-                                          new Consequence.StepConsequence(
-                                              projectModel,
-                                              editedModelTrack,
-                                              activeClipId,
-                                              modelRow,
-                                              activeCol,
-                                              oldStep,
-                                              getClipStep(cModel, modelRow, activeCol)));
-                                }
-                              }
-                            }
-                            fireProjectChanged();
-                          } else {
-                            // Kit track
-                            org.deluge.model.StepData oldStep = null;
-                            if (projectModel != null
-                                && editedModelTrack < projectModel.getTracks().size()) {
-                              org.deluge.model.TrackModel tModel =
-                                  projectModel.getTracks().get(editedModelTrack);
-                              if (activeClipId < tModel.getClips().size()) {
-                                org.deluge.model.ClipModel cModel =
-                                    tModel.getClips().get(activeClipId);
-                                oldStep = getClipStep(cModel, modelRow, activeCol);
-                              }
-                            }
-                            boolean stepState = bridge.getStep(engineRow, activeCol);
-                            boolean nextState = !stepState;
-                            bridge.setStep(engineRow, activeCol, nextState);
-                            double velK;
-                            double probK;
-                            if (nextState) {
-                              velK =
-                                  (oldStep != null && oldStep.velocity() > 0.0f)
-                                      ? oldStep.velocity()
-                                      : 0.8;
-                              probK = (oldStep != null) ? oldStep.probability() : 1.0;
-                              bridge.setVelocity(engineRow, activeCol, velK);
-                              bridge.setStepProbability(engineRow, activeCol, probK);
-                            } else {
-                              velK = bridge.getVelocity(engineRow, activeCol);
-                              probK = bridge.getStepProbability(engineRow, activeCol);
-                            }
-                            clipBtn.setBackground(
-                                nextState
-                                    ? velocityBlend(
-                                        trackColors[modelRow % trackColors.length], velK)
-                                    : getStepPadDefaultBg(modelRow, activeCol));
-                            if (projectModel != null
-                                && editedModelTrack < projectModel.getTracks().size()) {
-                              org.deluge.model.TrackModel tModel =
-                                  projectModel.getTracks().get(editedModelTrack);
-                              if (activeClipId < tModel.getClips().size()) {
-                                org.deluge.model.ClipModel cModel =
-                                    tModel.getClips().get(activeClipId);
-                                setClipStep(
-                                    cModel,
-                                    modelRow,
-                                    activeCol,
-                                    org.deluge.model.StepData.of(
-                                        nextState,
-                                        (float) velK,
-                                        org.deluge.model.StepData.DEFAULT_CLICK_GATE,
-                                        (float) probK,
-                                        0));
-                                if (oldStep != null) {
-                                  projectModel
-                                      .getUndoRedoStack()
-                                      .push(
-                                          new Consequence.StepConsequence(
-                                              projectModel,
-                                              editedModelTrack,
-                                              activeClipId,
-                                              modelRow,
-                                              activeCol,
-                                              oldStep,
-                                              getClipStep(cModel, modelRow, activeCol)));
-                                }
-                              }
-                            }
-                            // Stop any previous preview timer before refresh (refresh replaces
-                            // buttons)
-                            if (activeStutterTimer != null) {
-                              activeStutterTimer.stop();
-                              activeStutterTimer = null;
-                            }
-                            if (!stepState) {
-
-                              // ── High-Fidelity Audition ──
-                              Object fwEngineObj =
-                                  bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-                              if (fwEngineObj
-                                  instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
-                                if (editedModelTrack < fwEngine.sounds.size()
-                                    && !isSequencerPlaying()) {
-                                  org.deluge.firmware2.GlobalEffectable sound =
-                                      fwEngine.sounds.get(editedModelTrack);
-                                  if (sound instanceof org.deluge.engine.FirmwareKit kit) {
-                                    kit.triggerDrum(engineRowOffset, 127);
-                                  } else if (sound
-                                      instanceof org.deluge.engine.FirmwareSound synth) {
-                                    int pitchMidi = getRowPitch(modelRow);
-                                    stopAuditionIfNeeded();
-                                    auditionMidiNote = pitchMidi;
-                                    auditionSynth = synth;
-                                    synth.triggerNote(pitchMidi, 127);
-                                  }
-                                }
-                              }
-                            }
-                            fireProjectChanged();
-                          }
-                        }
-                      }
-
-                      @Override
-                      public void mouseReleased(java.awt.event.MouseEvent e) {
-                        if (activeStutterTimer != null) {
-                          activeStutterTimer.stop();
-                          activeStutterTimer = null;
-                        }
-
-                        // ── High-Fidelity Note Off ──
-
-                        int engineRowOffset = getEngineRowOffset(modelRow);
-                        Object fwEngineObj =
-                            bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-                        if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
-                          if (editedModelTrack < fwEngine.sounds.size()) {
-                            org.deluge.firmware2.GlobalEffectable sound =
-                                fwEngine.sounds.get(editedModelTrack);
-                            if (sound instanceof org.deluge.engine.FirmwareKit kit) {
-                              if (engineRowOffset < kit.drumSounds.size()) {
-                                kit.drumSounds.get(engineRowOffset).releaseNote(60);
-                              }
-                            } else if (sound instanceof org.deluge.engine.FirmwareSound synth) {
-                              int pitchMidi = getRowPitch(modelRow);
-                              synth.releaseNote(pitchMidi);
-                            }
-                          }
-                        }
-                      }
-
-                      @Override
-                      public void mouseExited(java.awt.event.MouseEvent e) {
-                        if (activeStutterTimer != null) {
-                          activeStutterTimer.stop();
-                          activeStutterTimer = null;
-                        }
-
-                        // ── High-Fidelity Note Off ──
-
-                        int engineRowOffset = getEngineRowOffset(modelRow);
-                        Object fwEngineObj =
-                            bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-                        if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
-                          if (editedModelTrack < fwEngine.sounds.size()) {
-                            org.deluge.firmware2.GlobalEffectable sound =
-                                fwEngine.sounds.get(editedModelTrack);
-                            if (sound instanceof org.deluge.engine.FirmwareKit kit) {
-                              if (engineRowOffset < kit.drumSounds.size()) {
-                                kit.drumSounds.get(engineRowOffset).releaseNote(60);
-                              }
-                            } else if (sound instanceof org.deluge.engine.FirmwareSound synth) {
-                              int pitchMidi = getRowPitch(modelRow);
-                              synth.releaseNote(pitchMidi);
-                            }
-                          }
-                        }
-                      }
-                    });
-              }
+              clipController.attachListeners(clipBtn, modelRow, visibleRow, colId);
               break;
             case SONG:
               break;
@@ -3834,7 +3386,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
    * on the running sequence (and rings until the next tap) — that is the "garbage when adding cells
    * during playback" symptom.
    */
-  private boolean isSequencerPlaying() {
+  boolean isSequencerPlaying() {
     return bridge != null && bridge.getGlobalInt(BridgeContract.G_PLAY) == 1L;
   }
 
@@ -3843,7 +3395,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
    * grid previews and the playhead used to emit note-ons with no note-offs, so any connected MIDI
    * device accumulated stuck notes. Pairing every on with a guaranteed off prevents that.
    */
-  private void sendMidiNote(int note, int velocity, int gateMs) {
+  void sendMidiNote(int note, int velocity, int gateMs) {
     org.rtmidijava.RtMidiOut out = finalMidiOut;
     if (out == null || note < 0 || note > 127) return;
     try {
@@ -3881,7 +3433,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     }
   }
 
-  private void stopAuditionIfNeeded() {
+  void stopAuditionIfNeeded() {
     if (auditionMidiNote != -1 && auditionSynth != null) {
       try {
         auditionSynth.releaseNote(auditionMidiNote);
@@ -3914,7 +3466,10 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
             t instanceof org.deluge.model.SynthTrackModel
                 || t instanceof org.deluge.model.MidiTrackModel;
         if (!isPianoRoll) {
-          scrollOffset = 0;
+          int drumCount =
+              (t instanceof org.deluge.model.KitTrackModel kit) ? kit.getDrums().size() : 8;
+          scrollOffset =
+              Math.max(0, Math.min(scrollOffset, Math.max(0, drumCount - gridMode.rows)));
         } else if (scrollOffset < 0 || scrollOffset > 127) {
           scrollOffset = 67; // reset to default pitch scroll if invalid
         }
@@ -4014,7 +3569,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
       boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
 
       for (int v = 0; v < gridMode.rows; v++) {
-        int modelRow = scrollOffset + v;
+        int modelRow = getModelRow(v);
         if (modelRow >= 0 && modelRow < voiceRowCount) {
           int engineROffset = getEngineRowOffset(modelRow);
           int engineR = baseTrackId + engineROffset;
@@ -4455,7 +4010,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
       autoHeader.setAlignmentX(Component.LEFT_ALIGNMENT);
 
       int topLw = currentLabelWidth();
-      int leftOffset = autoOverviewMode ? (topLw + 17) : (topLw + 91);
+      int leftOffset = automationController.isOverviewMode() ? (topLw + 17) : (topLw + 91);
       autoHeader.add(Box.createRigidArea(new Dimension(leftOffset, 1)));
 
       JLabel autoLabel = new JLabel("AUTO");
@@ -4464,27 +4019,28 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
       autoHeader.add(autoLabel);
 
       // Overview/Editor toggle
-      JToggleButton overviewToggle = new JToggleButton("OVERVIEW", autoOverviewMode);
+      JToggleButton overviewToggle =
+          new JToggleButton("OVERVIEW", automationController.isOverviewMode());
       overviewToggle.setFont(new Font("SansSerif", Font.PLAIN, 11));
       overviewToggle.setMargin(new Insets(0, 4, 0, 4));
       overviewToggle.addActionListener(
           e -> {
-            autoOverviewMode = overviewToggle.isSelected();
-            overviewToggle.setText(autoOverviewMode ? "OVERVIEW" : "EDITOR");
+            automationController.setOverviewMode(overviewToggle.isSelected());
+            overviewToggle.setText(automationController.isOverviewMode() ? "OVERVIEW" : "EDITOR");
             refresh();
           });
       autoHeader.add(overviewToggle);
 
-      if (!autoOverviewMode) {
+      if (!automationController.isOverviewMode()) {
         // Editor mode: param combo
         automationParamCombo =
             new javax.swing.JComboBox<>(org.deluge.model.AutomationParam.SYTH_PARAMS);
-        automationParamCombo.setSelectedItem(selectedAutomationParam);
+        automationParamCombo.setSelectedItem(automationController.getSelectedParam());
         automationParamCombo.addActionListener(
             e -> {
               String selected = (String) automationParamCombo.getSelectedItem();
               if (selected != null) {
-                selectedAutomationParam = selected;
+                automationController.setSelectedParam(selected);
                 refresh();
               }
             });
@@ -4495,7 +4051,10 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
         interpBtn.setFont(new Font("SansSerif", Font.PLAIN, 11));
         interpBtn.setMargin(new Insets(0, 4, 0, 4));
         interpBtn.setToolTipText("Linear interpolate between automated steps");
-        interpBtn.addActionListener(e -> interpolateAutomation(fAutoClip, selectedAutomationParam));
+        interpBtn.addActionListener(
+            e ->
+                automationController.interpolateAutomation(
+                    fAutoClip, automationController.getSelectedParam()));
         autoHeader.add(interpBtn);
 
         JButton clearAutoBtn = new JButton("Clear");
@@ -4504,7 +4063,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
         clearAutoBtn.addActionListener(
             e -> {
               if (fAutoClip != null) {
-                fAutoClip.clearAutomation(selectedAutomationParam);
+                fAutoClip.clearAutomation(automationController.getSelectedParam());
                 refresh();
               }
             });
@@ -4519,7 +4078,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
             e -> {
               if (fAutoClip != null) {
                 for (String param : fAutoClip.getAutomatedParams()) {
-                  interpolateAutomation(fAutoClip, param);
+                  automationController.interpolateAutomation(fAutoClip, param);
                 }
                 refresh();
               }
@@ -4562,14 +4121,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
 
       add(autoHeader);
 
-      if (autoOverviewMode) {
-        // ════════ OVERVIEW GRID ════════
-        // Show all params grouped by category with lit/unlit indicator for "has automation"
-        buildAutomationOverview(autoClip, padSz);
-      } else {
-        // ════════ DETAIL EDITOR ════════
-        buildAutomationEditor(autoClip, selectedAutomationParam, padSz);
-      }
+      automationController.buildAutomationView(this, autoClip, padSz);
     } else if (viewMode == GridViewMode.CLIP) {
       // ===== CLIP MODE: scrollable voice rows + fixed MACROS/SLIDERS/KEYBOARD =====
 
@@ -4724,8 +4276,12 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
       voicePanel.setBackground(new Color(0x15, 0x15, 0x15));
       voicePanel.setOpaque(true);
       voicePanel.setLayout(new BoxLayout(voicePanel, BoxLayout.Y_AXIS));
+      org.deluge.model.TrackModel rowTrack = null;
+      if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+        rowTrack = projectModel.getTracks().get(editedModelTrack);
+      }
       for (int v = 0; v < gridMode.rows; v++) {
-        int modelRow = scrollOffset + v;
+        int modelRow = getModelRow(v);
         if (modelRow >= 0 && modelRow < voiceRowCount) {
           JPanel row = buildVoiceRow(modelRow, v, padSz, tracks);
           voicePanel.add(row);
@@ -4902,7 +4458,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
         lw = currentLabelWidth();
         int leftSpacing;
         if (viewMode == GridViewMode.AUTOMATION) {
-          leftSpacing = autoOverviewMode ? (lw + 17) : (lw + 91);
+          leftSpacing = automationController.isOverviewMode() ? (lw + 17) : (lw + 91);
         } else {
           leftSpacing = lw + 69;
         }
@@ -5535,7 +5091,8 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                   }
                   break;
                 case ARRANGEMENT:
-                  org.deluge.model.ArrangerClip placement = getArrangerClipAt(currentTrack, c);
+                  org.deluge.model.ArrangerClip placement =
+                      arrangerController.getArrangerClipAt(currentTrack, c);
                   if (placement != null && placement.clip() != null) {
                     clipBtn.setText(
                         "<html><center><font size='3'><b>"
@@ -6097,405 +5654,11 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                     }
                   });
             } else if (viewMode == GridViewMode.CLIP) {
-              if (isAdvanced && isStepColumn(colId)) {
-                if (gestureCoordinator == null) {
-                  gestureCoordinator =
-                      new DelugeGestureCoordinator(this, new DelugeGestureListener());
-                }
-                java.awt.event.MouseAdapter gestureAdapter =
-                    gestureCoordinator.createMouseAdapter(trk, colId);
-                clipBtn.addMouseListener(gestureAdapter);
-                clipBtn.addMouseMotionListener(gestureAdapter);
-              } else {
-                clipBtn.addMouseListener(
-                    new java.awt.event.MouseAdapter() {
-                      @Override
-                      public void mousePressed(java.awt.event.MouseEvent e) {
-                        if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                          int engineRow = baseTrackId + trk;
-                          double curVel = bridge.getVelocity(engineRow, colId);
-                          int curIt = bridge.getIterance(engineRow, colId);
-                          int curFill = (int) (bridge.getStepFill(engineRow, colId) * 100);
-                          StepPropertiesDialog dlg =
-                              new StepPropertiesDialog(
-                                  (Frame)
-                                      javax.swing.SwingUtilities.getWindowAncestor(
-                                          SwingGridPanel.this),
-                                  (int) (curVel * 100),
-                                  curIt,
-                                  curFill);
-                          dlg.setVisible(true);
-                          if (dlg.isConfirmed()) {
-                            int newVel = dlg.getVelocity();
-                            int newIt = dlg.getIterance();
-                            int newFill = dlg.getFill();
-                            if (newVel != (int) (curVel * 100)
-                                || newIt != curIt
-                                || newFill != curFill) {
-                              org.deluge.model.StepData oldStep = null;
-                              if (projectModel != null
-                                  && editedModelTrack < projectModel.getTracks().size()) {
-                                org.deluge.model.TrackModel tModel =
-                                    projectModel.getTracks().get(editedModelTrack);
-                                if (activeClipId < tModel.getClips().size()) {
-                                  oldStep =
-                                      getClipStep(tModel.getClips().get(activeClipId), trk, colId);
-                                }
-                              }
-                              bridge.setVelocity(engineRow, colId, newVel / 100.0);
-                              bridge.setIterance(engineRow, colId, newIt);
-                              bridge.setStepFill(engineRow, colId, newFill / 100.0);
-                              if (projectModel != null
-                                  && editedModelTrack < projectModel.getTracks().size()) {
-                                org.deluge.model.TrackModel tModel =
-                                    projectModel.getTracks().get(editedModelTrack);
-                                if (activeClipId < tModel.getClips().size()) {
-                                  org.deluge.model.ClipModel cModel =
-                                      tModel.getClips().get(activeClipId);
-                                  boolean st = bridge.getStep(engineRow, colId);
-                                  double prob = bridge.getStepProbability(engineRow, colId);
-                                  setClipStep(
-                                      cModel,
-                                      trk,
-                                      colId,
-                                      new org.deluge.model.StepData(
-                                          st,
-                                          newVel / 100.0f,
-                                          0.5f,
-                                          (float) prob,
-                                          0,
-                                          newIt,
-                                          newFill / 100.0f));
-                                  if (oldStep != null) {
-                                    projectModel
-                                        .getUndoRedoStack()
-                                        .push(
-                                            new Consequence.StepConsequence(
-                                                projectModel,
-                                                editedModelTrack,
-                                                activeClipId,
-                                                trk,
-                                                colId,
-                                                oldStep,
-                                                getClipStep(cModel, trk, colId)));
-                                  }
-                                }
-                              }
-                              refresh();
-                            }
-                          }
-                        } else if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
-                          boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-
-                          int trackType = bridge.getTrackType(trk);
-                          if (trackType == 2) {
-                            org.deluge.model.StepData oldStep = null;
-                            if (projectModel != null
-                                && editedModelTrack < projectModel.getTracks().size()) {
-                              org.deluge.model.TrackModel tModel =
-                                  projectModel.getTracks().get(editedModelTrack);
-                              if (activeClipId < tModel.getClips().size()) {
-                                oldStep =
-                                    getClipStep(tModel.getClips().get(activeClipId), trk, colId);
-                              }
-                            }
-                            boolean st = bridge.getStep(baseTrackId + trk, colId);
-                            bridge.setStep(baseTrackId + trk, colId, !st);
-                            if (!st) {
-                              if (finalMidiOut != null) {
-                                sendMidiNote(60 + trk, 100, 250); // preview
-                              }
-                            }
-                            clipBtn.setBackground(
-                                !st
-                                    ? trackColors[6]
-                                    : new Color(0x33, 0x33, 0x33)); // Blue for MIDI Track
-
-                            // Write to model so changes survive view switches
-                            if (projectModel != null
-                                && editedModelTrack < projectModel.getTracks().size()) {
-                              org.deluge.model.TrackModel tModel =
-                                  projectModel.getTracks().get(editedModelTrack);
-                              if (activeClipId < tModel.getClips().size()) {
-                                org.deluge.model.ClipModel cModel =
-                                    tModel.getClips().get(activeClipId);
-                                setClipStep(
-                                    cModel,
-                                    trk,
-                                    colId,
-                                    org.deluge.model.StepData.of(
-                                        !st,
-                                        0.8f,
-                                        org.deluge.model.StepData.DEFAULT_CLICK_GATE,
-                                        1.0f,
-                                        0));
-                                if (oldStep != null) {
-                                  projectModel
-                                      .getUndoRedoStack()
-                                      .push(
-                                          new Consequence.StepConsequence(
-                                              projectModel,
-                                              editedModelTrack,
-                                              activeClipId,
-                                              trk,
-                                              colId,
-                                              oldStep,
-                                              getClipStep(cModel, trk, colId)));
-                                }
-                              }
-                            }
-                          } else if (isSynthMode) {
-                            // Each visual row toggles its own engine row independently (chords)
-                            int engineRow = baseTrackId + trk;
-                            org.deluge.model.StepData oldStep = null;
-                            if (projectModel != null
-                                && editedModelTrack < projectModel.getTracks().size()) {
-                              org.deluge.model.TrackModel tModel =
-                                  projectModel.getTracks().get(editedModelTrack);
-                              if (activeClipId < tModel.getClips().size()) {
-                                oldStep = tModel.getClips().get(activeClipId).getStep(trk, colId);
-                              }
-                            }
-                            boolean stepState = bridge.getStep(engineRow, colId);
-                            bridge.setStep(engineRow, colId, !stepState);
-                            double velS = bridge.getVelocity(engineRow, colId);
-                            clipBtn.setBackground(
-                                !stepState
-                                    ? velocityBlend(trackColors[trk], velS)
-                                    : new Color(0x33, 0x33, 0x33));
-
-                            // Audition via engine preview (wrap to voice slot)
-                            int slot = baseTrackId + (trk % 8);
-                            int midiPitch = getRowPitch(trk);
-                            bridge.setGlobalFloat(
-                                BridgeContract.G_PREVIEW_PITCH, (float) midiPitch);
-                            bridge.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) slot);
-                            bridge.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
-                            try {
-                              String[] noteNames =
-                                  new String[] {
-                                    "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
-                                  };
-                              String nName =
-                                  noteNames[Math.max(0, midiPitch) % 12] + ((midiPitch / 12) - 1);
-                              org.deluge.hid.FirmwareDisplay.get()
-                                  .getVirtualOLED()
-                                  .setNoteOverride(nName);
-                            } catch (Throwable th) {
-                              // Shield
-                            }
-
-                            // Write to model so changes survive view switches
-                            if (projectModel != null
-                                && editedModelTrack < projectModel.getTracks().size()) {
-                              org.deluge.model.TrackModel tModel =
-                                  projectModel.getTracks().get(editedModelTrack);
-                              if (activeClipId < tModel.getClips().size()) {
-                                org.deluge.model.ClipModel cModel =
-                                    tModel.getClips().get(activeClipId);
-                                double curVel = bridge.getVelocity(engineRow, colId);
-                                double curProb = bridge.getStepProbability(engineRow, colId);
-                                cModel.setStep(
-                                    trk,
-                                    colId,
-                                    org.deluge.model.StepData.of(
-                                        !stepState,
-                                        (float) curVel,
-                                        org.deluge.model.StepData.DEFAULT_CLICK_GATE,
-                                        (float) curProb,
-                                        0));
-                                if (oldStep != null) {
-                                  projectModel
-                                      .getUndoRedoStack()
-                                      .push(
-                                          new Consequence.StepConsequence(
-                                              projectModel,
-                                              editedModelTrack,
-                                              activeClipId,
-                                              trk,
-                                              colId,
-                                              oldStep,
-                                              cModel.getStep(trk, colId)));
-                                }
-                              }
-                            }
-                          } else {
-                            // Audition on press — no step toggle in Hi-Fi/Pure mode
-
-                            try {
-                              Object fwEngineObj =
-                                  bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-                              if (fwEngineObj
-                                  instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
-                                if (editedModelTrack < fwEngine.sounds.size()
-                                    && !isSequencerPlaying()) {
-                                  org.deluge.firmware2.GlobalEffectable sound =
-                                      fwEngine.sounds.get(editedModelTrack);
-                                  if (sound instanceof org.deluge.engine.FirmwareKit kit) {
-                                    if (trk < kit.drumSounds.size()) kit.triggerDrum(trk, 127);
-                                  } else if (sound
-                                      instanceof org.deluge.engine.FirmwareSound synth) {
-                                    boolean isSynthModeLocal =
-                                        bridge != null && bridge.getTrackType(baseTrackId) == 1;
-                                    int pitchMidi = isSynthModeLocal ? getRowPitch(trk) : 60;
-                                    stopAuditionIfNeeded();
-                                    auditionMidiNote = pitchMidi;
-                                    auditionSynth = synth;
-                                    synth.triggerNote(pitchMidi, 127);
-                                  }
-                                }
-                              }
-                            } catch (Exception ignored) {
-                            }
-                          }
-                        }
-                      }
-
-                      @Override
-                      public void mouseReleased(java.awt.event.MouseEvent e) {
-                        // Stop kit preview on release
-                        bridge.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, -1L);
-                        bridge.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
-
-                        try {
-                          Object fwEngineObj =
-                              bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-                          if (fwEngineObj
-                              instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
-                            if (editedModelTrack < fwEngine.sounds.size()) {
-                              org.deluge.firmware2.GlobalEffectable sound =
-                                  fwEngine.sounds.get(editedModelTrack);
-                              if (sound instanceof org.deluge.engine.FirmwareKit kit) {
-                                if (trk < kit.drumSounds.size()) {
-                                  kit.drumSounds.get(trk).releaseNote(60);
-                                }
-                              } else if (sound instanceof org.deluge.engine.FirmwareSound synth) {
-                                boolean isSynthModeLocal =
-                                    bridge != null && bridge.getTrackType(baseTrackId) == 1;
-                                int pitchMidi = isSynthModeLocal ? (((128 - 1) - trk) + 0) : 60;
-                                synth.releaseNote(pitchMidi);
-                              }
-                            }
-                          }
-                        } catch (Exception ignored) {
-                        }
-
-                        try {
-                          org.deluge.hid.FirmwareDisplay.get().getVirtualOLED().clearNoteOverride();
-                        } catch (Throwable th) {
-                          // Shield
-                        }
-                      }
-                    });
-              }
+              clipController.attachListeners(clipBtn, trk, t, colId);
             } else if (viewMode == GridViewMode.SONG) {
               // Handled by showClipContextMenu in cell mouse listener setup
             } else if (viewMode == GridViewMode.ARRANGEMENT) {
-              clipBtn.addMouseListener(
-                  new java.awt.event.MouseAdapter() {
-                    @Override
-                    public void mousePressed(java.awt.event.MouseEvent e) {
-                      if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                        org.deluge.model.ArrangerClip placement =
-                            getArrangerClipAt(currentTrack, colId);
-                        if (placement != null) {
-                          projectModel.getArrangerTimeline().remove(placement);
-                          fireProjectChanged();
-                          refresh();
-                        }
-                        return;
-                      }
-
-                      org.deluge.model.ArrangerClip placement =
-                          getArrangerClipAt(currentTrack, colId);
-                      if (e.getClickCount() == 2) {
-                        if (placement != null) {
-                          projectModel.getArrangerTimeline().remove(placement);
-                          fireProjectChanged();
-                          refresh();
-                        }
-                        return;
-                      }
-
-                      if (placement != null) {
-                        dragArrangerClip = placement;
-                        dragArrangerStartTicks = placement.startTicks();
-                        dragArrangerDurationTicks = placement.durationTicks();
-                        dragArrangerStartCol = colId;
-                        isResizingArranger = e.isShiftDown();
-                      } else {
-                        showArrangerClipSelectionPopup(clipBtn, currentTrack, colId);
-                      }
-                    }
-
-                    @Override
-                    public void mouseReleased(java.awt.event.MouseEvent e) {
-                      dragArrangerClip = null;
-                      dragArrangerStartTicks = -1;
-                      dragArrangerDurationTicks = -1;
-                      isResizingArranger = false;
-                      dragArrangerStartCol = -1;
-                      fireProjectChanged();
-                      refresh();
-                    }
-                  });
-
-              clipBtn.addMouseMotionListener(
-                  new java.awt.event.MouseMotionAdapter() {
-                    @Override
-                    public void mouseDragged(java.awt.event.MouseEvent e) {
-                      if (dragArrangerClip == null || projectModel == null) return;
-
-                      Point pt =
-                          javax.swing.SwingUtilities.convertPoint(
-                              e.getComponent(), e.getPoint(), SwingGridPanel.this);
-                      int currCol = colId;
-                      Component under = getComponentAt(pt);
-                      if (under instanceof JPanel rowPanel) {
-                        Component deepest =
-                            rowPanel.getComponentAt(
-                                new Point(pt.x - rowPanel.getX(), pt.y - rowPanel.getY()));
-                        if (deepest instanceof javax.swing.JComponent jc) {
-                          Integer col = (Integer) jc.getClientProperty("col");
-                          if (col != null) currCol = col;
-                        }
-                      }
-
-                      int colDiff = currCol - dragArrangerStartCol;
-                      if (colDiff != 0) {
-                        if (isResizingArranger) {
-                          int newDurationTicks =
-                              Math.max(96, dragArrangerDurationTicks + colDiff * 96);
-                          projectModel.getArrangerTimeline().remove(dragArrangerClip);
-                          org.deluge.model.ArrangerClip updated =
-                              new org.deluge.model.ArrangerClip(
-                                  currentTrack,
-                                  dragArrangerClip.clip(),
-                                  dragArrangerClip.startTicks(),
-                                  newDurationTicks);
-                          projectModel.addArrangerClip(updated);
-                          dragArrangerClip = updated;
-                          dragArrangerStartCol = currCol;
-                          dragArrangerDurationTicks = newDurationTicks;
-                          refresh();
-                        } else {
-                          int newStartTicks = Math.max(0, dragArrangerStartTicks + colDiff * 96);
-                          projectModel.getArrangerTimeline().remove(dragArrangerClip);
-                          org.deluge.model.ArrangerClip updated =
-                              new org.deluge.model.ArrangerClip(
-                                  currentTrack,
-                                  dragArrangerClip.clip(),
-                                  newStartTicks,
-                                  dragArrangerClip.durationTicks());
-                          projectModel.addArrangerClip(updated);
-                          dragArrangerClip = updated;
-                          dragArrangerStartCol = currCol;
-                          dragArrangerStartTicks = newStartTicks;
-                          refresh();
-                        }
-                      }
-                    }
-                  });
+              arrangerController.attachListeners(clipBtn, currentTrack, colId);
             }
 
             if (viewMode == GridViewMode.SONG && colId < 16) {
@@ -6736,39 +5899,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
       add(glue);
     }
 
-    // DEBUG: dump every grid cell state after rebuild
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-      org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
-      if (activeClipId >= 0 && activeClipId < t.getClips().size()) {
-        org.deluge.model.ClipModel cm = t.getClips().get(activeClipId);
-        System.out.println(
-            "[GRID-DUMP] rows="
-                + cm.getRowCount()
-                + " steps="
-                + cm.getStepCount()
-                + " voiceRowCount="
-                + voiceRowCount);
-        for (int r = 0; r < cm.getRowCount(); r++) {
-          int yNote = cm.getRowYNote(r);
-          for (int s = 0; s < cm.getStepCount(); s++) {
-            org.deluge.model.StepData sd = cm.getStep(r, s);
-            if (sd.active()) {
-              System.out.printf(
-                  "[GRID-DUMP] row=%d col=%d yNote=%d ACTIVE pitch=%d vel=%.2f%n",
-                  r, s, yNote, sd.pitch(), sd.velocity());
-            }
-          }
-        }
-        int total = 0;
-        for (int r = 0; r < cm.getRowCount(); r++) {
-          for (int s = 0; s < cm.getStepCount(); s++) {
-            if (cm.getStep(r, s).active()) total++;
-          }
-        }
-        System.out.println("[GRID-DUMP] total active cells: " + total);
-      }
-    }
-
+    // Revalidate and repaint
     refreshInProgress = false;
     revalidate();
     repaint();
@@ -6984,552 +6115,11 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
    * row's value band (0-15, 16-31, etc.). Click to set, shift-click to clear, drag to paint.
    */
   private void buildAutomationEditor(org.deluge.model.ClipModel autoClip, String param, int padSz) {
-    if (param == null) param = org.deluge.model.AutomationParam.SYTH_PARAMS[0];
-
-    // Step number header row (pixel-perfect BoxLayout X_AXIS alignment!)
-    JPanel stepHeader = new JPanel();
-    stepHeader.setLayout(new BoxLayout(stepHeader, BoxLayout.X_AXIS));
-    stepHeader.setBackground(new Color(0x15, 0x15, 0x15));
-    stepHeader.setMaximumSize(new Dimension(3000, 20));
-    int topLw = currentLabelWidth();
-    stepHeader.add(Box.createRigidArea(new Dimension(topLw + 91, 20)));
-    for (int c = 0; c < stepCount; c++) {
-      JLabel stepNum = new JLabel(String.valueOf(c + 1), javax.swing.SwingConstants.CENTER);
-      stepNum.setPreferredSize(new Dimension(padSz, 18));
-      stepNum.setMinimumSize(new Dimension(padSz, 18));
-      stepNum.setMaximumSize(new Dimension(padSz, 18));
-      stepNum.setForeground(Color.GRAY);
-      stepNum.setFont(new Font("Monospaced", Font.PLAIN, 10));
-      stepHeader.add(stepNum);
-    }
-    add(stepHeader);
-
-    // Label for each value band row
-    String[] bandLabels = {
-      "0-15", "16-31", "32-47", "48-63", "64-79", "80-95", "96-111", "112-127"
-    };
-
-    for (int r = 0; r < 8; r++) {
-      final int rowIdx = r;
-      JPanel rowPanel = new JPanel();
-      rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
-      rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
-      rowPanel.setPreferredSize(new Dimension(3000, padSz));
-      rowPanel.setMinimumSize(new Dimension(3000, padSz));
-      rowPanel.setMaximumSize(new Dimension(3000, padSz));
-
-      String finalParam = param;
-      JLabel valLabel = new JLabel(bandLabels[r]);
-      int lw = currentLabelWidth();
-      valLabel.setPreferredSize(new Dimension(lw, 30));
-      valLabel.setMinimumSize(new Dimension(lw, 30));
-      valLabel.setMaximumSize(new Dimension(lw, 30));
-      valLabel.setForeground(new Color(0x88, 0x88, 0x88));
-      valLabel.setFont(new Font("Monospaced", Font.PLAIN, 11));
-      rowPanel.add(valLabel);
-
-      // Spacer to match config-button + len-badge area
-      rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
-      rowPanel.add(Box.createHorizontalStrut(5));
-
-      VUMeterPanel vu = new VUMeterPanel();
-      vu.setPreferredSize(new Dimension(12, padSz));
-      vu.setMaximumSize(new Dimension(12, padSz));
-      rowPanel.add(vu);
-      rowPanel.add(Box.createHorizontalStrut(5));
-
-      for (int c = 0; c < stepCount; c++) {
-        final int colIdx = c;
-        DelugePadButton cell = new DelugePadButton();
-        cell.setPreferredSize(new Dimension(padSz, padSz));
-        cell.setMinimumSize(new Dimension(padSz, padSz));
-        cell.setMaximumSize(new Dimension(padSz, padSz));
-        cell.setMargin(new Insets(0, 0, 0, 0));
-        cell.setDrawCenterCircle(false);
-
-        cell.putClientProperty("row", r);
-        cell.putClientProperty("col", c);
-        pads[r][c] = cell;
-
-        // Determine if this cell is "lit" (value band matches row)
-        boolean lit = false;
-        float autoVal = -1f;
-        if (autoClip != null) {
-          autoVal = autoClip.getAutomation(finalParam, colIdx);
-          if (autoVal >= 0f) {
-            int band = (int) (autoVal * 127f) / 16;
-            lit = (band == rowIdx);
-          }
-        }
-
-        if (lit) {
-          int precise = (int) (autoVal * 127f) % 16;
-          int bright = 0x55 + precise * 8;
-          cell.setBaseColor(new Color(0x00, bright, Math.min(0xcc, bright / 2 + 0x44)));
-          cell.setIntensity(1.0f);
-          cell.setActive(true);
-          cell.setNoteText("\u25CF");
-        } else {
-          cell.setBaseColor(new Color(0x1d, 0x1d, 0x22));
-          cell.setIntensity(0.15f);
-          cell.setActive(false);
-          if (autoVal >= 0f) {
-            cell.setNoteText(".");
-          } else {
-            cell.setNoteText("");
-          }
-        }
-
-        cell.addMouseListener(
-            new java.awt.event.MouseAdapter() {
-              @Override
-              public void mousePressed(java.awt.event.MouseEvent e) {
-                if (projectModel == null) return;
-                int tIdx = editedModelTrack;
-                if (tIdx >= projectModel.getTracks().size()) return;
-                org.deluge.model.TrackModel tM = projectModel.getTracks().get(tIdx);
-                int acIdx2 = tM.getActiveClipIndex();
-                if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
-                org.deluge.model.ClipModel cM = tM.getClips().get(acIdx2);
-
-                if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
-                  if (e.isShiftDown()) {
-                    // Clear automation at this step
-                    float oldVal = cM.getAutomation(finalParam, colIdx);
-                    float[] arr = cM.getAutomationArray(finalParam);
-                    if (arr != null && colIdx < arr.length) {
-                      arr[colIdx] = -1f;
-                      projectModel
-                          .getUndoRedoStack()
-                          .push(
-                              new Consequence.AutomationConsequence(
-                                  projectModel, tIdx, acIdx2, finalParam, colIdx, oldVal, -1f));
-                      refresh();
-                    }
-                  } else {
-                    float oldVal = cM.getAutomation(finalParam, colIdx);
-                    float val = (rowIdx * 16 + 8) / 127.0f;
-                    cM.setAutomation(finalParam, colIdx, val);
-                    autoDragParam = finalParam;
-                    autoDragStep = colIdx;
-                    autoDragOldValue = oldVal;
-                    automationDragging = true;
-                    refresh();
-                  }
-                }
-              }
-
-              @Override
-              public void mouseReleased(java.awt.event.MouseEvent e) {
-                if (automationDragging
-                    && projectModel != null
-                    && autoDragParam != null
-                    && autoDragStep >= 0) {
-                  int tIdx = editedModelTrack;
-                  if (tIdx < projectModel.getTracks().size()) {
-                    org.deluge.model.TrackModel tM = projectModel.getTracks().get(tIdx);
-                    int acIdx2 = tM.getActiveClipIndex();
-                    if (acIdx2 >= 0 && acIdx2 < tM.getClips().size()) {
-                      org.deluge.model.ClipModel cM = tM.getClips().get(acIdx2);
-                      float newVal = cM.getAutomation(autoDragParam, autoDragStep);
-                      if (newVal != autoDragOldValue) {
-                        projectModel
-                            .getUndoRedoStack()
-                            .push(
-                                new Consequence.AutomationConsequence(
-                                    projectModel,
-                                    tIdx,
-                                    acIdx2,
-                                    autoDragParam,
-                                    autoDragStep,
-                                    autoDragOldValue,
-                                    newVal));
-                      }
-                    }
-                  }
-                  autoDragParam = null;
-                  autoDragStep = -1;
-                  autoDragOldValue = -1f;
-                }
-                automationDragging = false;
-              }
-            });
-
-        cell.addMouseMotionListener(
-            new java.awt.event.MouseAdapter() {
-              @Override
-              public void mouseDragged(java.awt.event.MouseEvent e) {
-                if (!automationDragging || projectModel == null) return;
-                int tIdx = editedModelTrack;
-                if (tIdx >= projectModel.getTracks().size()) return;
-                org.deluge.model.TrackModel tM = projectModel.getTracks().get(tIdx);
-                int acIdx2 = tM.getActiveClipIndex();
-                if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
-                org.deluge.model.ClipModel cM = tM.getClips().get(acIdx2);
-
-                Point pt =
-                    javax.swing.SwingUtilities.convertPoint(
-                        e.getComponent(), e.getPoint(), SwingGridPanel.this);
-                Component under = getComponentAt(pt);
-                if (under instanceof JPanel rowPanel) {
-                  Component deepest =
-                      rowPanel.getComponentAt(
-                          new Point(pt.x - rowPanel.getX(), pt.y - rowPanel.getY()));
-                  if (deepest instanceof javax.swing.JComponent jc) {
-                    Integer rProp = (Integer) jc.getClientProperty("row");
-                    Integer cProp = (Integer) jc.getClientProperty("col");
-                    if (rProp != null && cProp != null && cProp < stepCount && rProp < 8) {
-                      float val = (rProp * 16 + 8) / 127.0f;
-                      cM.setAutomation(finalParam, cProp, val);
-                      refresh();
-                    }
-                  }
-                }
-              }
-            });
-
-        rowPanel.add(cell);
-        rowPanel.add(Box.createHorizontalStrut(5));
-      }
-      add(rowPanel);
-    }
+    // Automation editor, overview, and interpolation methods moved to
+    // AutomationEditorController.java
   }
 
   // ── Automation Overview Grid ──
-
-  /**
-   * Build an overview grid showing all params and their automation status across steps. Each cell =
-   * (step, param). Lit = has automation data, dim = no automation. Row headers show compact param
-   * labels. Click to open editor for that param. Shift+click = clear automation for that param.
-   */
-  private void buildAutomationOverview(org.deluge.model.ClipModel autoClip, int padSz) {
-    String[] allParams = org.deluge.model.AutomationParam.SYTH_PARAMS;
-    int totalParams = allParams.length;
-
-    // Visible params (with vertical scroll)
-    int maxVisible = 8;
-    int paramOffset = autoColScroll;
-    int visibleParams = Math.min(maxVisible, totalParams - paramOffset);
-    if (visibleParams <= 0) return;
-
-    // Step header (pixel-perfect BoxLayout X_AXIS alignment!)
-    JPanel stepHeader = new JPanel();
-    stepHeader.setLayout(new BoxLayout(stepHeader, BoxLayout.X_AXIS));
-    stepHeader.setBackground(new Color(0x15, 0x15, 0x15));
-    stepHeader.setMaximumSize(new Dimension(3000, 20));
-    int topPw = currentLabelWidth();
-    stepHeader.add(Box.createRigidArea(new Dimension(topPw + 17, 20)));
-    for (int c = 0; c < stepCount; c++) {
-      JLabel stepNum = new JLabel(String.valueOf(c + 1), javax.swing.SwingConstants.CENTER);
-      stepNum.setPreferredSize(new Dimension(padSz, 18));
-      stepNum.setMinimumSize(new Dimension(padSz, 18));
-      stepNum.setMaximumSize(new Dimension(padSz, 18));
-      stepNum.setForeground(Color.GRAY);
-      stepNum.setFont(new Font("Monospaced", Font.PLAIN, 10));
-      stepHeader.add(stepNum);
-    }
-    add(stepHeader);
-
-    for (int r = 0; r < visibleParams; r++) {
-      int paramIdx = paramOffset + r;
-      String paramName = allParams[paramIdx];
-      String label = org.deluge.model.AutomationParam.labelFor(paramName);
-
-      JPanel rowPanel = new JPanel();
-      rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
-      rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
-      rowPanel.setPreferredSize(new Dimension(3000, padSz));
-      rowPanel.setMinimumSize(new Dimension(3000, padSz));
-      rowPanel.setMaximumSize(new Dimension(3000, padSz));
-
-      // Param label (clickable to open editor)
-      JButton paramBtn = new JButton(label);
-      int pw = currentLabelWidth();
-      paramBtn.setPreferredSize(new Dimension(pw, 30));
-      paramBtn.setMinimumSize(new Dimension(pw, 30));
-      paramBtn.setMaximumSize(new Dimension(pw, 30));
-      paramBtn.setMargin(new Insets(0, 2, 0, 2));
-
-      boolean hasAnyAuto = autoClip != null && autoClip.hasAutomation(paramName);
-      Color paramBg = hasAnyAuto ? new Color(0x1a, 0x4d, 0x1a) : new Color(0x2d, 0x2d, 0x32);
-      Color paramFg = hasAnyAuto ? new Color(0x88, 0xff, 0x88) : Color.LIGHT_GRAY;
-      styleSystemButton(paramBtn, paramBg, paramFg, 10);
-      paramBtn.setToolTipText(
-          "Parameter: Click to edit automation steps / Shift-Click to clear parameter automation");
-
-      final String fParam = paramName;
-      paramBtn.addActionListener(
-          e -> {
-            autoOverviewMode = false;
-            selectedAutomationParam = fParam;
-            refresh();
-          });
-      rowPanel.add(paramBtn);
-
-      // Up/down scroll buttons
-      JPanel scrollCol = new JPanel();
-      scrollCol.setLayout(new BoxLayout(scrollCol, BoxLayout.Y_AXIS));
-      scrollCol.setBackground(new Color(0x22, 0x22, 0x22));
-      JButton upBtn = new JButton("\u25B2");
-      upBtn.setMargin(new Insets(0, 0, 0, 0));
-      upBtn.setPreferredSize(new Dimension(14, padSz / 2));
-      upBtn.setEnabled(paramOffset > 0);
-      styleSystemButton(upBtn, new Color(0x2d, 0x2d, 0x32), Color.LIGHT_GRAY, 7);
-      upBtn.setToolTipText("Scroll parameter list up");
-      upBtn.addActionListener(
-          e -> {
-            autoColScroll = Math.max(0, autoColScroll - 1);
-            refresh();
-          });
-      scrollCol.add(upBtn);
-
-      JButton downBtn = new JButton("\u25BC");
-      downBtn.setMargin(new Insets(0, 0, 0, 0));
-      downBtn.setPreferredSize(new Dimension(14, padSz / 2));
-      downBtn.setEnabled(paramOffset + maxVisible < totalParams);
-      styleSystemButton(downBtn, new Color(0x2d, 0x2d, 0x32), Color.LIGHT_GRAY, 7);
-      downBtn.setToolTipText("Scroll parameter list down");
-      downBtn.addActionListener(
-          e -> {
-            autoColScroll = Math.min(totalParams - maxVisible, autoColScroll + 1);
-            refresh();
-          });
-      scrollCol.add(downBtn);
-      rowPanel.add(scrollCol);
-
-      rowPanel.add(Box.createHorizontalStrut(3));
-
-      for (int c = 0; c < stepCount; c++) {
-        final int colIdx = c;
-        DelugePadButton cell = new DelugePadButton();
-        cell.setPreferredSize(new Dimension(padSz, padSz));
-        cell.setMinimumSize(new Dimension(padSz, padSz));
-        cell.setMaximumSize(new Dimension(padSz, padSz));
-        cell.setMargin(new Insets(0, 0, 0, 0));
-        cell.setDrawCenterCircle(false);
-
-        pads[r][c] = cell;
-
-        boolean hasAuto = autoClip != null && autoClip.hasAutomation(paramName, c);
-
-        if (hasAuto) {
-          float val = autoClip.getAutomation(paramName, c);
-          int bright = 0x55 + (int) (val * 0xaa);
-          cell.setBaseColor(new Color(0x00, bright, 0x66));
-          cell.setIntensity(1.0f);
-          cell.setActive(true);
-          cell.setNoteText("\u25CF");
-        } else {
-          cell.setBaseColor(new Color(0x1d, 0x1d, 0x22));
-          cell.setIntensity(0.15f);
-          cell.setActive(false);
-          cell.setNoteText("");
-        }
-
-        cell.addMouseListener(
-            new java.awt.event.MouseAdapter() {
-              @Override
-              public void mousePressed(java.awt.event.MouseEvent e) {
-                if (projectModel == null) return;
-                int tIdx = editedModelTrack;
-                if (tIdx >= projectModel.getTracks().size()) return;
-                org.deluge.model.TrackModel tM = projectModel.getTracks().get(tIdx);
-                int acIdx2 = tM.getActiveClipIndex();
-                if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
-                org.deluge.model.ClipModel cM = tM.getClips().get(acIdx2);
-
-                if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
-                  if (e.isShiftDown()) {
-                    // Clear cell
-                    float oldVal = cM.getAutomation(fParam, colIdx);
-                    float[] arr = cM.getAutomationArray(fParam);
-                    if (arr != null && colIdx < arr.length) {
-                      arr[colIdx] = -1f;
-                      projectModel
-                          .getUndoRedoStack()
-                          .push(
-                              new Consequence.AutomationConsequence(
-                                  projectModel, tIdx, acIdx2, fParam, colIdx, oldVal, -1f));
-                      refresh();
-                    }
-                  } else {
-                    float oldVal = cM.getAutomation(fParam, colIdx);
-                    // Toggle: set to 0.5 if no automation, clear if already set
-                    if (cM.hasAutomation(fParam)) {
-                      float[] arr = cM.getAutomationArray(fParam);
-                      if (arr != null && colIdx < arr.length && arr[colIdx] >= 0f) {
-                        arr[colIdx] = -1f;
-                      } else if (arr != null && colIdx < arr.length) {
-                        arr[colIdx] = 0.5f;
-                      }
-                    } else {
-                      cM.setAutomation(fParam, colIdx, 0.5f);
-                    }
-                    float newVal = cM.getAutomation(fParam, colIdx);
-                    if (newVal != oldVal && !e.isShiftDown()) {
-                      // Single click — push now
-                      projectModel
-                          .getUndoRedoStack()
-                          .push(
-                              new Consequence.AutomationConsequence(
-                                  projectModel, tIdx, acIdx2, fParam, colIdx, oldVal, newVal));
-                    }
-                    // Track for drag coalescing
-                    autoDragParam = fParam;
-                    autoDragStep = colIdx;
-                    autoDragOldValue = oldVal;
-                    automationDragging = true;
-                    refresh();
-                  }
-                }
-              }
-
-              @Override
-              public void mouseReleased(java.awt.event.MouseEvent e) {
-                if (automationDragging
-                    && projectModel != null
-                    && autoDragParam != null
-                    && autoDragStep >= 0) {
-                  int tIdx = editedModelTrack;
-                  if (tIdx < projectModel.getTracks().size()) {
-                    org.deluge.model.TrackModel tM = projectModel.getTracks().get(tIdx);
-                    int acIdx2 = tM.getActiveClipIndex();
-                    if (acIdx2 >= 0 && acIdx2 < tM.getClips().size()) {
-                      org.deluge.model.ClipModel cM = tM.getClips().get(acIdx2);
-                      float newVal = cM.getAutomation(autoDragParam, autoDragStep);
-                      if (newVal != autoDragOldValue) {
-                        projectModel
-                            .getUndoRedoStack()
-                            .push(
-                                new Consequence.AutomationConsequence(
-                                    projectModel,
-                                    tIdx,
-                                    acIdx2,
-                                    autoDragParam,
-                                    autoDragStep,
-                                    autoDragOldValue,
-                                    newVal));
-                      }
-                    }
-                  }
-                  autoDragParam = null;
-                  autoDragStep = -1;
-                  autoDragOldValue = -1f;
-                }
-                automationDragging = false;
-              }
-            });
-
-        cell.addMouseMotionListener(
-            new java.awt.event.MouseAdapter() {
-              @Override
-              public void mouseDragged(java.awt.event.MouseEvent e) {
-                if (!automationDragging || projectModel == null) return;
-                int tIdx = editedModelTrack;
-                if (tIdx >= projectModel.getTracks().size()) return;
-                org.deluge.model.TrackModel tM = projectModel.getTracks().get(tIdx);
-                int acIdx2 = tM.getActiveClipIndex();
-                if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
-                org.deluge.model.ClipModel cM = tM.getClips().get(acIdx2);
-                cM.setAutomation(fParam, colIdx, 0.5f);
-                refresh();
-              }
-            });
-
-        rowPanel.add(cell);
-        rowPanel.add(Box.createHorizontalStrut(3));
-      }
-      add(rowPanel);
-    }
-
-    // Scroll indicator
-    if (totalParams > maxVisible) {
-      JPanel scrollBar = new JPanel();
-      scrollBar.setLayout(new BoxLayout(scrollBar, BoxLayout.X_AXIS));
-      scrollBar.setBackground(new Color(0x1a, 0x1a, 0x1a));
-      scrollBar.setMaximumSize(new Dimension(3000, 24));
-
-      int pw = currentLabelWidth();
-      scrollBar.add(Box.createRigidArea(new Dimension(pw + 17, 24)));
-
-      for (int i = 0; i < totalParams; i += maxVisible) {
-        int pageStart = i;
-        boolean isActivePage = (i <= paramOffset && paramOffset < i + maxVisible);
-
-        String firstParamName = allParams[i];
-        String lastParamName = allParams[Math.min(totalParams - 1, i + maxVisible - 1)];
-        String pageLabel =
-            org.deluge.model.AutomationParam.labelFor(firstParamName)
-                + "-"
-                + org.deluge.model.AutomationParam.labelFor(lastParamName);
-
-        JButton dot = new JButton(pageLabel);
-        dot.setPreferredSize(new Dimension(90, 22));
-        dot.setMinimumSize(new Dimension(90, 22));
-        dot.setMaximumSize(new Dimension(90, 22));
-        dot.setMargin(new Insets(0, 0, 0, 0));
-
-        Color dotBg = isActivePage ? new Color(0x00, 0x99, 0x66) : new Color(0x2d, 0x2d, 0x32);
-        Color dotFg = isActivePage ? Color.WHITE : Color.LIGHT_GRAY;
-        styleSystemButton(dot, dotBg, dotFg, 9);
-        dot.setToolTipText(
-            "Go to parameter page "
-                + (i / maxVisible + 1)
-                + " (params: "
-                + pageLabel.replace("-", " to ")
-                + ")");
-
-        int fPage = pageStart;
-        dot.addActionListener(
-            e -> {
-              autoColScroll = fPage;
-              refresh();
-            });
-        scrollBar.add(dot);
-        scrollBar.add(Box.createHorizontalStrut(6));
-      }
-      add(scrollBar);
-    }
-  }
-
-  // ── Automation interpolation ──
-
-  /**
-   * Linear interpolation between automated steps in a clip. Fills gaps (steps with -1) between two
-   * known values. If fewer than 2 automated values exist, does nothing.
-   */
-  private void interpolateAutomation(org.deluge.model.ClipModel clip, String param) {
-    if (clip == null || param == null) return;
-    float[] arr = clip.getAutomationArray(param);
-    if (arr == null) return;
-
-    // Find first and last automated step indices
-    int first = -1, last = -1;
-    for (int i = 0; i < arr.length; i++) {
-      if (arr[i] >= 0f) {
-        if (first < 0) first = i;
-        last = i;
-      }
-    }
-    if (first < 0 || first == last) return; // 0 or 1 automated steps — nothing to interpolate
-
-    // Walk through and interpolate between known-value pairs
-    int prevIdx = first;
-    for (int i = first + 1; i <= last; i++) {
-      if (arr[i] >= 0f) {
-        int gapLen = i - prevIdx;
-        if (gapLen > 1) {
-          float startVal = arr[prevIdx];
-          float endVal = arr[i];
-          for (int g = 1; g < gapLen; g++) {
-            float t = g / (float) gapLen;
-            arr[prevIdx + g] = startVal + (endVal - startVal) * t;
-          }
-        }
-        prevIdx = i;
-      }
-    }
-  }
 
   /** Activate a song section by its index, queueing clips on each track. */
   private void activateSection(int idx) {
@@ -7703,10 +6293,16 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   }
 
   int getModelRow(int visualRow) {
+    if (projectModel != null
+        && editedModelTrack < projectModel.getTracks().size()
+        && projectModel.getTracks().get(editedModelTrack)
+            instanceof org.deluge.model.KitTrackModel kit) {
+      return kit.getDrums().size() - 1 - (scrollOffset + visualRow);
+    }
     return scrollOffset + visualRow;
   }
 
-  private int getEngineRowOffset(int visualModelRow) {
+  int getEngineRowOffset(int visualModelRow) {
     boolean isSynth = false;
     if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
       isSynth =
@@ -7719,7 +6315,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     return visualModelRow;
   }
 
-  private int getActiveCol(int visualRow, int visualCol) {
+  int getActiveCol(int visualRow, int visualCol) {
     int activeCol = visualCol;
     if (bridge != null && projectModel != null) {
       int trackLen = 0;
@@ -7750,100 +6346,11 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     return activeCol;
   }
 
-  private class DelugeGestureListener implements DelugeGestureCoordinator.GestureListener {
-    @Override
-    public void onStepPressed(int row, int col) {
-      handleStepPressed(row, col);
-    }
+  // Advanced gesture handlers, duplicateStep, hotSwapTrackSample, handleShiftClick,
+  // and all shift-shortcut helpers have been moved to ClipEditorController.java.
 
-    @Override
-    public void onStepReleased(int row, int col) {
-      handleStepReleased(row, col);
-    }
-
-    @Override
-    public void onStepToggled(int row, int col) {
-      handleStepToggled(row, col);
-    }
-
-    @Override
-    public void onStepLongPressed(int row, int col, Point screenPos) {
-      handleStepLongPressed(row, col, screenPos);
-    }
-
-    @Override
-    public void onStepTied(int row, int colStart, int colEnd) {
-      handleStepTied(row, colStart, colEnd);
-    }
-
-    @Override
-    public void onDragPreview(int row, int colStart, int colCurrent) {
-      handleDragPreview(row, colStart, colCurrent);
-    }
-
-    @Override
-    public void onDragCleared() {
-      handleDragCleared();
-    }
-  }
-
-  void handleStepPressed(int row, int col) {
-    if (bridge == null) return;
-    int visualModelRow = getModelRow(row);
-    int engineRowOffset = getEngineRowOffset(visualModelRow);
-    boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-    int trackType = bridge.getTrackType(baseTrackId);
-
-    if (trackType == 2) {
-      if (finalMidiOut != null) {
-        sendMidiNote(60 + visualModelRow, 100, 250); // preview using visual key Pitch
-      }
-    } else if (isSynthMode) {
-      int pitchMidi = getRowPitch(visualModelRow);
-
-      Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-      if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
-        if (editedModelTrack < fwEngine.sounds.size() && !isSequencerPlaying()) {
-          org.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
-          if (sound instanceof org.deluge.engine.FirmwareSound synth) {
-            synth.triggerNote(pitchMidi, 127);
-          }
-        }
-      }
-
-    } else {
-
-      Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-      if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
-        if (editedModelTrack < fwEngine.sounds.size() && !isSequencerPlaying()) {
-          org.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
-          if (sound instanceof org.deluge.engine.FirmwareKit kit) {
-            kit.triggerDrum(engineRowOffset, 127);
-          }
-        }
-      }
-    }
-  }
-
-  private void handleStepReleased(int row, int col) {
-    if (bridge == null) return;
-    int visualModelRow = getModelRow(row);
-    int engineRowOffset = getEngineRowOffset(visualModelRow);
-
-    Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-    if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
-      if (editedModelTrack < fwEngine.sounds.size()) {
-        org.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
-        if (sound instanceof org.deluge.engine.FirmwareKit kit) {
-          if (engineRowOffset < kit.drumSounds.size()) {
-            kit.drumSounds.get(engineRowOffset).releaseNote(60);
-          }
-        } else if (sound instanceof org.deluge.engine.FirmwareSound synth) {
-          int pitchMidi = getRowPitch(visualModelRow);
-          synth.releaseNote(pitchMidi);
-        }
-      }
-    }
+  public BridgeContract getBridge() {
+    return bridge;
   }
 
   public int getBaseTrackId() {
@@ -7859,395 +6366,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     refresh();
   }
 
-  public void handleStepToggled(int row, int col) {
-    if (bridge == null) return;
-    int visualModelRow = getModelRow(row);
-    int engineRowOffset = getEngineRowOffset(visualModelRow);
-    int activeCol = getActiveCol(row, col);
-    boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-    int engineRow = baseTrackId + engineRowOffset;
-
-    org.deluge.model.StepData oldStep = null;
-    org.deluge.model.ClipModel cModel = null;
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-      org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
-      if (activeClipId < tModel.getClips().size()) {
-        cModel = tModel.getClips().get(activeClipId);
-        oldStep = getClipStep(cModel, visualModelRow, activeCol);
-      }
-    }
-
-    boolean stepState = bridge.getStep(engineRow, activeCol);
-    boolean nextState = !stepState;
-    bridge.setStep(engineRow, activeCol, nextState);
-
-    if (cModel != null) {
-      double curVel = bridge.getVelocity(engineRow, activeCol);
-      double curProb = bridge.getStepProbability(engineRow, activeCol);
-      int pitch = isSynthMode ? getRowPitch(visualModelRow) : 0;
-      org.deluge.model.StepData newStep =
-          org.deluge.model.StepData.of(
-              nextState,
-              (float) curVel,
-              org.deluge.model.StepData.DEFAULT_CLICK_GATE,
-              (float) curProb,
-              pitch);
-      setClipStep(cModel, visualModelRow, activeCol, newStep);
-
-      if (oldStep != null) {
-        projectModel
-            .getUndoRedoStack()
-            .push(
-                new Consequence.StepConsequence(
-                    projectModel,
-                    editedModelTrack,
-                    activeClipId,
-                    visualModelRow,
-                    activeCol,
-                    oldStep,
-                    newStep));
-      }
-    }
-    fireProjectChanged();
-  }
-
-  private void handleStepLongPressed(int row, int col, Point screenPos) {
-    if (bridge == null) return;
-    int visualModelRow = getModelRow(row);
-    int engineRowOffset = getEngineRowOffset(visualModelRow);
-    int activeCol = getActiveCol(row, col);
-    int engineRow = baseTrackId + engineRowOffset;
-    boolean synthModeActive = bridge.getTrackType(baseTrackId) == 1;
-    JPopupMenu popup = new JPopupMenu();
-
-    JMenuItem editProps = new JMenuItem("Edit Step Properties...");
-    editProps.addActionListener(e -> showStepPropertiesDialog(row, col));
-    popup.add(editProps);
-
-    JMenuItem toggleStep = new JMenuItem("Toggle Step");
-    toggleStep.addActionListener(e -> handleStepToggled(row, col));
-    popup.add(toggleStep);
-
-    if (synthModeActive) {
-      JMenuItem pianoRollItem = new JMenuItem("Open Piano Roll Editor...");
-      pianoRollItem.addActionListener(
-          ev -> {
-            SwingPianoRollDialog dlg =
-                new SwingPianoRollDialog(
-                    (Frame) javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this),
-                    SwingGridPanel.this,
-                    editedModelTrack,
-                    activeClipId,
-                    projectModel,
-                    bridge);
-            dlg.setVisible(true);
-          });
-      popup.add(pianoRollItem);
-    }
-
-    JMenuItem clearStep = new JMenuItem("Clear Step");
-    clearStep.addActionListener(
-        e -> {
-          boolean wasActive = bridge.getStep(engineRow, activeCol);
-          if (wasActive) {
-            handleStepToggled(row, col);
-          }
-        });
-    popup.add(clearStep);
-
-    popup.addSeparator();
-
-    JMenu velMenu = new JMenu("Quick Velocity");
-    double[] velocities = {0.25, 0.50, 0.75, 1.00};
-    for (double v : velocities) {
-      JMenuItem vItem = new JMenuItem((int) (v * 100) + "%");
-      vItem.addActionListener(e -> applyVelocity(row, col, v));
-      velMenu.add(vItem);
-    }
-    popup.add(velMenu);
-
-    JMenu probMenu = new JMenu("Quick Probability");
-    double[] probabilities = {0.25, 0.50, 0.75, 1.00};
-    for (double p : probabilities) {
-      JMenuItem pItem = new JMenuItem((int) (p * 100) + "%");
-      pItem.addActionListener(e -> saveStepProbability(row, col, p));
-      probMenu.add(pItem);
-    }
-    popup.add(probMenu);
-
-    JMenu gateMenu = new JMenu("Quick Gate (Duration)");
-    double[] gates = {0.0625, 0.125, 0.25, 0.5, 1.0};
-    String[] gateLabels = {"1/16 step", "1/8 step", "1/4 step", "1/2 step", "1 step (tied)"};
-    for (int i = 0; i < gates.length; i++) {
-      final double g = gates[i];
-      JMenuItem gItem = new JMenuItem(gateLabels[i]);
-      gItem.addActionListener(
-          e -> {
-            bridge.setGate(engineRow, activeCol, g);
-            if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-              org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
-              if (activeClipId < tModel.getClips().size()) {
-                org.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
-                org.deluge.model.StepData oldStep = getClipStep(cModel, visualModelRow, activeCol);
-                boolean st = bridge.getStep(engineRow, activeCol);
-                double vel = bridge.getVelocity(engineRow, activeCol);
-                double prob = bridge.getStepProbability(engineRow, activeCol);
-                int iter = bridge.getIterance(engineRow, activeCol);
-                double fill = bridge.getStepFill(engineRow, activeCol);
-                boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-                int pitch = isSynthMode ? getRowPitch(visualModelRow) : 0;
-
-                org.deluge.model.StepData newStep =
-                    new org.deluge.model.StepData(
-                        st, (float) vel, (float) g, (float) prob, pitch, iter, (float) fill);
-                setClipStep(cModel, visualModelRow, activeCol, newStep);
-                if (oldStep != null) {
-                  projectModel
-                      .getUndoRedoStack()
-                      .push(
-                          new Consequence.StepConsequence(
-                              projectModel,
-                              editedModelTrack,
-                              activeClipId,
-                              visualModelRow,
-                              activeCol,
-                              oldStep,
-                              getClipStep(cModel, visualModelRow, activeCol)));
-                }
-              }
-            }
-            refresh();
-          });
-      gateMenu.add(gItem);
-    }
-    popup.add(gateMenu);
-
-    popup.addSeparator();
-
-    JMenuItem copyItem = new JMenuItem("Copy Step");
-    copyItem.addActionListener(
-        e -> {
-          boolean st = bridge.getStep(engineRow, activeCol);
-          double vel = bridge.getVelocity(engineRow, activeCol);
-          double gate = bridge.getGate(engineRow, activeCol);
-          double prob = bridge.getStepProbability(engineRow, activeCol);
-          int iter = bridge.getIterance(engineRow, activeCol);
-          double fill = bridge.getStepFill(engineRow, activeCol);
-          boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-          int pitch = isSynthMode ? getRowPitch(visualModelRow) : 0;
-          copiedStep =
-              new org.deluge.model.StepData(
-                  st, (float) vel, (float) gate, (float) prob, pitch, iter, (float) fill);
-        });
-    popup.add(copyItem);
-
-    JMenuItem pasteItem = new JMenuItem("Paste Step");
-    pasteItem.setEnabled(copiedStep != null);
-    pasteItem.addActionListener(
-        e -> {
-          if (copiedStep != null) {
-            bridge.setStep(engineRow, activeCol, copiedStep.active());
-            bridge.setVelocity(engineRow, activeCol, copiedStep.velocity());
-            bridge.setGate(engineRow, activeCol, copiedStep.gate());
-            bridge.setStepProbability(engineRow, activeCol, copiedStep.probability());
-            bridge.setIterance(engineRow, activeCol, copiedStep.iterance());
-            bridge.setStepFill(engineRow, activeCol, copiedStep.fill());
-
-            if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-              org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
-              if (activeClipId < tModel.getClips().size()) {
-                org.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
-                org.deluge.model.StepData oldStep = getClipStep(cModel, visualModelRow, activeCol);
-                boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-                int pitch = isSynthMode ? getRowPitch(visualModelRow) : 0;
-                org.deluge.model.StepData newStep =
-                    new org.deluge.model.StepData(
-                        copiedStep.active(),
-                        copiedStep.velocity(),
-                        copiedStep.gate(),
-                        copiedStep.probability(),
-                        pitch,
-                        copiedStep.iterance(),
-                        copiedStep.fill());
-                setClipStep(cModel, visualModelRow, activeCol, newStep);
-                if (oldStep != null) {
-                  projectModel
-                      .getUndoRedoStack()
-                      .push(
-                          new Consequence.StepConsequence(
-                              projectModel,
-                              editedModelTrack,
-                              activeClipId,
-                              visualModelRow,
-                              activeCol,
-                              oldStep,
-                              getClipStep(cModel, visualModelRow, activeCol)));
-                }
-              }
-            }
-            refresh();
-          }
-        });
-    popup.add(pasteItem);
-
-    Point localPt = new Point(screenPos);
-    SwingUtilities.convertPointFromScreen(localPt, SwingGridPanel.this);
-    popup.show(SwingGridPanel.this, localPt.x, localPt.y);
-  }
-
-  private void showStepPropertiesDialog(int row, int col) {
-    if (bridge == null) return;
-    int visualModelRow = getModelRow(row);
-    int engineRowOffset = getEngineRowOffset(visualModelRow);
-    int activeCol = getActiveCol(row, col);
-    int engineRow = baseTrackId + engineRowOffset;
-    double curVel = bridge.getVelocity(engineRow, activeCol);
-    int curIt = bridge.getIterance(engineRow, activeCol);
-    int curFill = (int) (bridge.getStepFill(engineRow, activeCol) * 100);
-    StepPropertiesDialog dlg =
-        new StepPropertiesDialog(
-            (Frame) javax.swing.SwingUtilities.getWindowAncestor(SwingGridPanel.this),
-            (int) (curVel * 100),
-            curIt,
-            curFill);
-    dlg.setVisible(true);
-    if (dlg.isConfirmed()) {
-      int newVel = dlg.getVelocity();
-      int newIt = dlg.getIterance();
-      int newFill = dlg.getFill();
-      if (newVel != (int) (curVel * 100) || newIt != curIt || newFill != curFill) {
-        applyStepProperties(row, col, newVel / 100.0, newIt, newFill / 100.0);
-      }
-    }
-  }
-
-  private void applyStepProperties(int row, int col, double vel, int iterance, double fill) {
-    if (bridge == null) return;
-    int visualModelRow = getModelRow(row);
-    int engineRowOffset = getEngineRowOffset(visualModelRow);
-    int activeCol = getActiveCol(row, col);
-    int engineRow = baseTrackId + engineRowOffset;
-    boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-    int pitch = isSynthMode ? getRowPitch(visualModelRow) : 0;
-
-    org.deluge.model.StepData oldStep = null;
-    org.deluge.model.TrackModel tModel = null;
-    org.deluge.model.ClipModel cModel = null;
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-      tModel = projectModel.getTracks().get(editedModelTrack);
-      if (activeClipId < tModel.getClips().size()) {
-        cModel = tModel.getClips().get(activeClipId);
-        oldStep = getClipStep(cModel, visualModelRow, activeCol);
-      }
-    }
-
-    bridge.setVelocity(engineRow, activeCol, vel);
-    bridge.setIterance(engineRow, activeCol, iterance);
-    bridge.setStepFill(engineRow, activeCol, fill);
-
-    if (cModel != null) {
-      boolean st = bridge.getStep(engineRow, activeCol);
-      double prob = bridge.getStepProbability(engineRow, activeCol);
-      double gate = bridge.getGate(engineRow, activeCol);
-      org.deluge.model.StepData newStep =
-          new org.deluge.model.StepData(
-              st, (float) vel, (float) gate, (float) prob, pitch, iterance, (float) fill);
-      setClipStep(cModel, visualModelRow, activeCol, newStep);
-      if (oldStep != null && projectModel != null) {
-        projectModel
-            .getUndoRedoStack()
-            .push(
-                new Consequence.StepConsequence(
-                    projectModel,
-                    editedModelTrack,
-                    activeClipId,
-                    visualModelRow,
-                    activeCol,
-                    oldStep,
-                    getClipStep(cModel, visualModelRow, activeCol)));
-      }
-    }
-    fireProjectChanged();
-  }
-
-  private void applyVelocity(int row, int col, double vel) {
-    if (bridge == null) return;
-    int visualModelRow = getModelRow(row);
-    int engineRowOffset = getEngineRowOffset(visualModelRow);
-    int activeCol = getActiveCol(row, col);
-    int engineRow = baseTrackId + engineRowOffset;
-    int iter = bridge.getIterance(engineRow, activeCol);
-    double fill = bridge.getStepFill(engineRow, activeCol);
-    applyStepProperties(row, col, vel, iter, fill);
-  }
-
-  private void saveStepProbability(int row, int col, double prob) {
-    if (bridge == null) return;
-    int visualModelRow = getModelRow(row);
-    int engineRowOffset = getEngineRowOffset(visualModelRow);
-    int activeCol = getActiveCol(row, col);
-    int engineRow = baseTrackId + engineRowOffset;
-    boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-    int pitch = isSynthMode ? getRowPitch(visualModelRow) : 0;
-
-    org.deluge.model.StepData oldStep = null;
-    org.deluge.model.TrackModel tModel = null;
-    org.deluge.model.ClipModel cModel = null;
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-      tModel = projectModel.getTracks().get(editedModelTrack);
-      if (activeClipId < tModel.getClips().size()) {
-        cModel = tModel.getClips().get(activeClipId);
-        oldStep = getClipStep(cModel, visualModelRow, activeCol);
-      }
-    }
-
-    bridge.setStepProbability(engineRow, activeCol, prob);
-
-    if (cModel != null) {
-      boolean st = bridge.getStep(engineRow, activeCol);
-      double vel = bridge.getVelocity(engineRow, activeCol);
-      double gate = bridge.getGate(engineRow, activeCol);
-      int iter = bridge.getIterance(engineRow, activeCol);
-      double fill = bridge.getStepFill(engineRow, activeCol);
-      org.deluge.model.StepData newStep =
-          new org.deluge.model.StepData(
-              st, (float) vel, (float) gate, (float) prob, pitch, iter, (float) fill);
-      setClipStep(cModel, visualModelRow, activeCol, newStep);
-      if (oldStep != null && projectModel != null) {
-        projectModel
-            .getUndoRedoStack()
-            .push(
-                new Consequence.StepConsequence(
-                    projectModel,
-                    editedModelTrack,
-                    activeClipId,
-                    visualModelRow,
-                    activeCol,
-                    oldStep,
-                    getClipStep(cModel, visualModelRow, activeCol)));
-      }
-    }
-    fireProjectChanged();
-  }
-
-  void handleStepTied(int row, int colStart, int colEnd) {
-    if (bridge == null) return;
-    int start = Math.min(colStart, colEnd);
-    int end = Math.max(colStart, colEnd);
-
-    int startModelCol = getActiveCol(row, start);
-    int visualModelRow = getModelRow(row);
-    int engineRowOffset = getEngineRowOffset(visualModelRow);
-    int engineRow = baseTrackId + engineRowOffset;
-    boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-
-    boolean startActive = bridge.getStep(engineRow, startModelCol);
-    double vel = startActive ? bridge.getVelocity(engineRow, startModelCol) : 0.8;
-    double prob = startActive ? bridge.getStepProbability(engineRow, startModelCol) : 1.0;
-    int pitch = isSynthMode ? getRowPitch(visualModelRow) : 0;
-    int iter = startActive ? bridge.getIterance(engineRow, startModelCol) : 0;
-    double fill = startActive ? bridge.getStepFill(engineRow, startModelCol) : 0.0;
-
+  boolean isStepActive(int modelRow, int activeCol) {
     org.deluge.model.TrackModel tModel = null;
     org.deluge.model.ClipModel cModel = null;
     if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
@@ -8256,69 +6375,17 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
         cModel = tModel.getClips().get(activeClipId);
       }
     }
-
-    float newGate = (end - start) + 0.9f;
-
-    bridge.setStep(engineRow, startModelCol, true);
-    bridge.setVelocity(engineRow, startModelCol, vel);
-    bridge.setGate(engineRow, startModelCol, (double) newGate);
-    bridge.setStepProbability(engineRow, startModelCol, prob);
-    bridge.setIterance(engineRow, startModelCol, iter);
-    bridge.setStepFill(engineRow, startModelCol, fill);
-
     if (cModel != null) {
-      org.deluge.model.StepData oldStart = getClipStep(cModel, visualModelRow, startModelCol);
-      boolean startSt = true;
-      org.deluge.model.StepData startStep =
-          new org.deluge.model.StepData(
-              startSt, (float) vel, newGate, (float) prob, pitch, iter, (float) fill);
-      setClipStep(cModel, visualModelRow, startModelCol, startStep);
-      if (oldStart != null && projectModel != null) {
-        projectModel
-            .getUndoRedoStack()
-            .push(
-                new Consequence.StepConsequence(
-                    projectModel,
-                    editedModelTrack,
-                    activeClipId,
-                    visualModelRow,
-                    startModelCol,
-                    oldStart,
-                    startStep));
-      }
+      org.deluge.model.StepData step = getClipStep(cModel, modelRow, activeCol);
+      return (step != null && step.active());
+    } else if (bridge != null) {
+      int engineRow = baseTrackId + getEngineRowOffset(modelRow);
+      return bridge.getStep(engineRow, activeCol);
     }
-
-    for (int c = start + 1; c <= end; c++) {
-      int activeCol = getActiveCol(row, c);
-      bridge.setStep(engineRow, activeCol, false);
-      bridge.setGate(engineRow, activeCol, 0.0);
-
-      if (cModel != null) {
-        org.deluge.model.StepData oldStep = getClipStep(cModel, visualModelRow, activeCol);
-        org.deluge.model.StepData newStep =
-            new org.deluge.model.StepData(false, 0.8f, 0.0f, 1.0f, 0, 0, 0.0f);
-        setClipStep(cModel, visualModelRow, activeCol, newStep);
-        if (oldStep != null && projectModel != null && oldStep.active()) {
-          projectModel
-              .getUndoRedoStack()
-              .push(
-                  new Consequence.StepConsequence(
-                      projectModel,
-                      editedModelTrack,
-                      activeClipId,
-                      visualModelRow,
-                      activeCol,
-                      oldStep,
-                      newStep));
-        }
-      }
-    }
-
-    fireProjectChanged();
-    refresh();
+    return false;
   }
 
-  private boolean isStepActiveOrSpanned(int modelRow, int activeCol, double[] outVelProb) {
+  boolean isStepActiveOrSpanned(int modelRow, int activeCol, double[] outVelProb) {
     org.deluge.model.TrackModel tModel = null;
     org.deluge.model.ClipModel cModel = null;
     if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
@@ -8362,26 +6429,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     return false;
   }
 
-  private boolean isStepActive(int modelRow, int activeCol) {
-    org.deluge.model.TrackModel tModel = null;
-    org.deluge.model.ClipModel cModel = null;
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-      tModel = projectModel.getTracks().get(editedModelTrack);
-      if (activeClipId < tModel.getClips().size()) {
-        cModel = tModel.getClips().get(activeClipId);
-      }
-    }
-    if (cModel != null) {
-      org.deluge.model.StepData step = getClipStep(cModel, modelRow, activeCol);
-      return (step != null && step.active());
-    } else if (bridge != null) {
-      int engineRow = baseTrackId + getEngineRowOffset(modelRow);
-      return bridge.getStep(engineRow, activeCol);
-    }
-    return false;
-  }
-
-  private boolean isStepTied(int modelRow, int activeCol) {
+  boolean isStepTied(int modelRow, int activeCol) {
     org.deluge.model.TrackModel tModel = null;
     org.deluge.model.ClipModel cModel = null;
     if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
@@ -8411,917 +6459,79 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     return false;
   }
 
-  private void handleDragPreview(int row, int colStart, int colCurrent) {
-    int start = Math.min(colStart, colCurrent);
-    int end = Math.max(colStart, colCurrent);
-    int rowsToScan = (viewMode == GridViewMode.CLIP) ? voiceRowCount : gridMode.rows;
-
-    int visRow = -1;
-    for (int t = 0; t < rowsToScan; t++) {
-      if (t == row) {
-        visRow = t;
-        break;
-      }
-    }
-    if (visRow == -1) return;
-
-    for (int c = 0; c < columnCount; c++) {
-      if (pads[visRow][c] instanceof DelugePadButton pad) {
-        boolean tiedInModel = false;
-        int modelRow = getModelRow(row);
-        int activeCol = getActiveCol(row, c);
-        if (bridge != null) {
-          int engineRow = baseTrackId + modelRow;
-          tiedInModel = bridge.getGate(engineRow, activeCol) >= 0.99;
-        }
-        boolean isCurrentActive = isStepActive(modelRow, activeCol) || (c == start);
-        pad.setActive(isCurrentActive);
-        pad.setTail((tiedInModel || (c > start && c <= end)) && !isCurrentActive);
-      }
-    }
-  }
-
-  public void handleShiftHover(int row, int col) {
-    if (row < 0 || row >= 8 || col < 0 || col >= 16) return;
-    String param = SHIFT_LABELS[row][col];
-    if (param == null || param.isEmpty()) return;
-
-    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return;
-    org.deluge.model.TrackModel genericTrack = projectModel.getTracks().get(editedModelTrack);
-
-    boolean applicable = isParamApplicable(param, row, col, genericTrack);
-    if (!applicable) {
-      if (SwingDelugeApp.mainInstance != null) {
-        SwingDelugeApp.mainInstance.updateHardwareLedDisplay("----", "----");
-      }
-      return;
-    }
-
-    String code = getParamShortCode(param);
-    String valStr = getParamFormattedValue(param, row, col);
-    if (SwingDelugeApp.mainInstance != null) {
-      SwingDelugeApp.mainInstance.updateHardwareLedDisplay(code, valStr);
-    }
-  }
-
-  public void handleShiftHoverExit() {
-    if (activeShiftParam != null) {
-      String code = getParamShortCode(activeShiftParam);
-      String valStr = getParamFormattedValue(activeShiftParam, activeShiftRow, activeShiftCol);
-      if (SwingDelugeApp.mainInstance != null) {
-        SwingDelugeApp.mainInstance.updateHardwareLedDisplay(code, valStr);
-      }
-    } else {
-      if (SwingDelugeApp.mainInstance != null) {
-        SwingDelugeApp.mainInstance.updateHardwareLedDisplay(null, null);
-      }
-    }
-  }
-
-  public void setClonePreview(int startR, int startC, int currR, int currC) {
-    this.clonePreviewStartRow = startR;
-    this.clonePreviewStartCol = startC;
-    this.clonePreviewCurrentRow = currR;
-    this.clonePreviewCurrentCol = currC;
-    refresh();
+  public org.rtmidijava.RtMidiOut getMidiOut() {
+    return finalMidiOut;
   }
 
   public void duplicateStep(int startRow, int startCol, int targetRow, int targetCol) {
-    if (bridge == null) return;
-    int trackLen = bridge.getTrackLength(baseTrackId);
-
-    int srcRow = baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + startRow : startRow);
-    int srcCol = (trackLen < stepCount) ? (startCol % trackLen) : (startCol + scrollOffsetX);
-
-    int dstRow =
-        baseTrackId + (viewMode == GridViewMode.CLIP ? scrollOffset + targetRow : targetRow);
-    int dstCol = (trackLen < stepCount) ? (targetCol % trackLen) : (targetCol + scrollOffsetX);
-
-    // Read step parameters
-    boolean active = bridge.getStep(srcRow, srcCol);
-    double vel = bridge.getVelocity(srcRow, srcCol);
-    double gate = bridge.getGate(srcRow, srcCol);
-    int pitch = bridge.getPitch(srcRow, srcCol);
-    double prob = bridge.getStepProbability(srcRow, srcCol);
-    double fill = bridge.getStepFill(srcRow, srcCol);
-    double stepFilterVal = bridge.getStepFilter(srcRow, srcCol);
-    double stepResVal = bridge.getStepRes(srcRow, srcCol);
-    double stepPanVal = bridge.getStepPan(srcRow, srcCol);
-    double stepDelayVal = bridge.getStepDelay(srcRow, srcCol);
-    double stepReverbVal = bridge.getStepReverb(srcRow, srcCol);
-
-    // Save to target step
-    bridge.setStep(dstRow, dstCol, active);
-    bridge.setVelocity(dstRow, dstCol, vel);
-    bridge.setGate(dstRow, dstCol, gate);
-    bridge.setPitch(dstRow, dstCol, pitch);
-    bridge.setStepProbability(dstRow, dstCol, prob);
-    bridge.setStepFill(dstRow, dstCol, fill);
-    bridge.setStepFilter(dstRow, dstCol, stepFilterVal);
-    bridge.setStepRes(dstRow, dstCol, stepResVal);
-    bridge.setStepPan(dstRow, dstCol, stepPanVal);
-    bridge.setStepDelay(dstRow, dstCol, stepDelayVal);
-    bridge.setStepReverb(dstRow, dstCol, stepReverbVal);
-
-    // Push Undo/Redo step copy event!
-    java.util.ArrayList<Consequence> steps = new java.util.ArrayList<>();
-    steps.add(
-        new Consequence.StepConsequence(
-            projectModel,
-            editedModelTrack,
-            activeClipId,
-            targetRow,
-            targetCol,
-            org.deluge.model.StepData.of(
-                active, (float) vel, (float) gate, (float) prob, (int) fill),
-            org.deluge.model.StepData.empty()));
-    if (projectModel != null) {
-      projectModel
-          .getUndoRedoStack()
-          .push(new Consequence.CompoundConsequence("Clone step to " + targetCol, steps));
-    }
-
-    fireProjectChanged();
-    refresh();
+    clipController.duplicateStep(startRow, startCol, targetRow, targetCol);
   }
 
-  public void hotSwapTrackSample(int modelRow, int visibleRow, java.io.File soundFile) {
-    if (projectModel == null) return;
-    java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
-    if (modelRow < 0 || modelRow >= tracks.size()) return;
-
-    org.deluge.model.TrackModel track = tracks.get(modelRow);
-
-    if (viewMode == GridViewMode.CLIP && track instanceof org.deluge.model.KitTrackModel kit) {
-      java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
-      int drumIdx = sounds.size() - 1 - visibleRow;
-      if (drumIdx >= 0 && drumIdx < sounds.size()) {
-        org.deluge.model.Drum drum = sounds.get(drumIdx);
-        if (drum instanceof org.deluge.model.SoundDrum soundDrum) {
-          soundDrum.setSamplePath(soundFile.getAbsolutePath());
-        }
-        if (bridge != null) {
-          bridge.setSamplePath(modelRow, soundFile.getAbsolutePath());
-        }
-        if (SwingDelugeApp.mainInstance != null) {
-          SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("SMPL", "SWAP");
-        }
-        fireProjectChanged();
-        refresh();
-      }
-    } else if (track instanceof org.deluge.model.AudioTrackModel audioTrack) {
-      if (audioTrack.getAudioClips().isEmpty()) {
-        org.deluge.model.AudioTrackModel.AudioClip clip =
-            new org.deluge.model.AudioTrackModel.AudioClip();
-        clip.setFilePath(soundFile.getAbsolutePath());
-        audioTrack.getAudioClips().add(clip);
-      } else {
-        audioTrack.getAudioClips().get(0).setFilePath(soundFile.getAbsolutePath());
-      }
-      if (bridge != null) {
-        bridge.setSamplePath(modelRow, soundFile.getAbsolutePath());
-      }
-      if (SwingDelugeApp.mainInstance != null) {
-        SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("SMPL", "SWAP");
-      }
-      fireProjectChanged();
-      refresh();
-    }
+  void handleStepPressed(int row, int col) {
+    clipController.handleStepPressed(row, col);
   }
 
-  public void handleShiftClick(int row, int col, Point localPos, Component comp) {
-    if (row < 0 || row >= 8 || col < 0 || col >= 16) return;
-    String param = SHIFT_LABELS[row][col];
-    if (param == null || param.isEmpty()) return;
-
-    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return;
-    org.deluge.model.TrackModel genericTrack = projectModel.getTracks().get(editedModelTrack);
-
-    // Check parameter applicability first
-    boolean applicable = isParamApplicable(param, row, col, genericTrack);
-    if (!applicable) {
-      JPopupMenu tooltip = new JPopupMenu();
-      tooltip.setBackground(new Color(0x2a, 0x15, 0x15));
-      tooltip.setBorder(BorderFactory.createLineBorder(new Color(0xaa, 0x33, 0x33)));
-      JLabel alert = new JLabel("  PARAMETER NOT APPLICABLE  ");
-      alert.setForeground(new Color(0xff, 0x55, 0x55));
-      alert.setFont(new Font("SansSerif", Font.BOLD, 10));
-      tooltip.add(alert);
-      tooltip.show(comp, localPos.x, localPos.y);
-      Timer dismiss = new Timer(1500, ev -> tooltip.setVisible(false));
-      dismiss.setRepeats(false);
-      dismiss.start();
-      return;
-    }
-
-    // Extract track references (cast to SynthTrackModel for synth-specific operations)
-    org.deluge.model.SynthTrackModel track =
-        (genericTrack instanceof org.deluge.model.SynthTrackModel)
-            ? (org.deluge.model.SynthTrackModel) genericTrack
-            : null;
-
-    boolean isRotary =
-        org.deluge.project.PreferencesManager.getShiftInteractionMode()
-            == org.deluge.project.PreferencesManager.ShiftInteractionMode.ROTARY_ENCODER;
-    if (isRotary) {
-      this.activeShiftParam = param;
-      this.activeShiftRow = row;
-      this.activeShiftCol = col;
-      String code = getParamShortCode(param);
-      String valStr = getParamFormattedValue(param, row, col);
-      if (SwingDelugeApp.mainInstance != null) {
-        SwingDelugeApp.mainInstance.updateHardwareLedDisplay(code, valStr);
-      }
-      refresh();
-      return;
-    }
-
-    JPopupMenu popup = new JPopupMenu();
-    popup.setBackground(new Color(0x18, 0x18, 0x1c));
-    popup.setBorder(BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32)));
-
-    JPanel wrapper = new JPanel(new BorderLayout(5, 5));
-    wrapper.setBackground(new Color(0x18, 0x18, 0x1c));
-    wrapper.setBorder(BorderFactory.createEmptyBorder(6, 8, 6, 8));
-
-    JLabel title = new JLabel(param.toUpperCase());
-    title.setForeground(new Color(0x00, 0xff, 0xcc));
-    title.setFont(new Font("SansSerif", Font.BOLD, 10));
-    wrapper.add(title, BorderLayout.NORTH);
-
-    int initVal = 50;
-    String initialLabel = "";
-    final int envIdx = (col == 9) ? 1 : 0;
-
-    switch (param) {
-      case "CUTOFF":
-        if (row == 0 && track != null) { // LPF/HPF Cutoff
-          float freq = (col == 8) ? track.getLpfFreq() : track.getHpfFreq();
-          initVal = (int) (100.0 * Math.log(freq / 20.0) / Math.log(1000.0));
-          initialLabel = String.format("%.0f Hz", freq);
-        } else if (row == 1 && track != null) { // LPF/HPF Resonance
-          float res = (col == 8) ? track.getLpfRes() : track.getHpfRes();
-          initVal = (int) (res * 100.0f);
-          initialLabel = String.format("%d%%", initVal);
-        }
-        break;
-      case "RESONANCE":
-        if (track != null) {
-          float resVal = (col == 8) ? track.getLpfRes() : track.getHpfRes();
-          initVal = (int) (resVal * 100.0f);
-          initialLabel = String.format("%d%%", initVal);
-        }
-        break;
-      case "ATTACK":
-        if (track != null) {
-          float att = track.getEnv(envIdx).attack();
-          initVal = (int) (att * 10.0f);
-          initialLabel = String.format("%.2f s", att);
-        }
-        break;
-      case "DECAY":
-        if (track != null) {
-          float dec = track.getEnv(envIdx).decay();
-          initVal = (int) (dec * 10.0f);
-          initialLabel = String.format("%.2f s", dec);
-        }
-        break;
-      case "SUSTAIN":
-        if (track != null) {
-          float sus = track.getEnv(envIdx).sustain();
-          initVal = (int) (sus * 100.0f);
-          initialLabel = String.format("%d%%", initVal);
-        }
-        break;
-      case "RELEASE":
-        if (track != null) {
-          float rel = track.getEnv(envIdx).release();
-          initVal = (int) (rel * 10.0f);
-          initialLabel = String.format("%.2f s", rel);
-        }
-        break;
-      case "PAN":
-        if (row == 4 && col == 6) { // Master pan
-          initVal = (int) (genericTrack.getPan() * 100.0f);
-          initialLabel = String.format("%d%%", initVal);
-        }
-        break;
-      case "LEVEL":
-        if (row == 7 && col == 6) { // Master volume
-          initVal = (int) (genericTrack.getVolume() * 100.0f);
-          initialLabel = String.format("%d%%", initVal);
-        } else if (row == 7 && (col == 2 || col == 3) && track != null) { // Osc levels
-          initVal = (int) (track.getOscMix() * 100.0f);
-          initialLabel = String.format("%d%%", initVal);
-        }
-        break;
-      case "GLIDE":
-        initVal = (int) (track.getPortamento() * 50.0f);
-        initialLabel = String.format("%.2f s", track.getPortamento());
-        break;
-    }
-
-    JSlider slider = new JSlider(0, 100, Math.max(0, Math.min(100, initVal)));
-    slider.setBackground(new Color(0x12, 0x12, 0x14));
-    slider.setForeground(new Color(0x00, 0xff, 0xcc));
-    slider.setPreferredSize(new Dimension(150, 18));
-    slider.setOpaque(false);
-    slider.setFocusable(false);
-    slider.setUI(
-        new javax.swing.plaf.basic.BasicSliderUI(slider) {
-          @Override
-          public void paintTrack(java.awt.Graphics g) {
-            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
-            g2.setRenderingHint(
-                java.awt.RenderingHints.KEY_ANTIALIASING,
-                java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
-            int cy = trackRect.y + (trackRect.height / 2) - 2;
-            g2.setColor(new Color(0x66, 0x66, 0x6e));
-            g2.fillRoundRect(trackRect.x, cy, trackRect.width, 4, 2, 2);
-            int thumbPos = thumbRect.x + (thumbRect.width / 2);
-            g2.setColor(new Color(0x00, 0xff, 0xcc));
-            g2.fillRoundRect(trackRect.x, cy, Math.max(0, thumbPos - trackRect.x), 4, 2, 2);
-            g2.dispose();
-          }
-
-          @Override
-          public void paintThumb(java.awt.Graphics g) {
-            java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
-            g2.setRenderingHint(
-                java.awt.RenderingHints.KEY_ANTIALIASING,
-                java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(Color.WHITE);
-            g2.fillOval(
-                thumbRect.x + 2, thumbRect.y + 2, thumbRect.width - 4, thumbRect.height - 4);
-            g2.setColor(new Color(0x00, 0xff, 0xcc));
-            g2.drawOval(
-                thumbRect.x + 2, thumbRect.y + 2, thumbRect.width - 4, thumbRect.height - 4);
-            g2.dispose();
-          }
-        });
-    wrapper.add(slider, BorderLayout.CENTER);
-
-    JLabel valueLabel = new JLabel(initialLabel);
-    valueLabel.setForeground(Color.LIGHT_GRAY);
-    valueLabel.setFont(new Font("Monospaced", Font.PLAIN, 10));
-    wrapper.add(valueLabel, BorderLayout.SOUTH);
-
-    slider.addChangeListener(
-        e -> {
-          int val = slider.getValue();
-          switch (param) {
-            case "CUTOFF":
-              if (row == 0) {
-                float freq = (float) (20.0 * Math.pow(1000.0, val / 100.0));
-                if (col == 8) track.setLpfFreq(freq);
-                else track.setHpfFreq(freq);
-                valueLabel.setText(String.format("%.0f Hz", freq));
-              } else if (row == 1) {
-                float res = val / 100.0f;
-                if (col == 8) track.setLpfRes(res);
-                else track.setHpfRes(res);
-                valueLabel.setText(String.format("%d%%", val));
-              }
-              break;
-            case "RESONANCE":
-              float res = val / 100.0f;
-              if (col == 8) track.setLpfRes(res);
-              else track.setHpfRes(res);
-              valueLabel.setText(String.format("%d%%", val));
-              break;
-            case "ATTACK":
-              float aTime = val / 10.0f;
-              var attEnv = track.getEnv(envIdx);
-              track.setEnv(
-                  envIdx,
-                  new org.deluge.model.EnvelopeModel(
-                      aTime,
-                      attEnv.decay(),
-                      attEnv.sustain(),
-                      attEnv.release(),
-                      attEnv.target(),
-                      attEnv.amount()));
-              valueLabel.setText(String.format("%.2f s", aTime));
-              break;
-            case "DECAY":
-              float dTime = val / 10.0f;
-              var decEnv = track.getEnv(envIdx);
-              track.setEnv(
-                  envIdx,
-                  new org.deluge.model.EnvelopeModel(
-                      decEnv.attack(),
-                      dTime,
-                      decEnv.sustain(),
-                      decEnv.release(),
-                      decEnv.target(),
-                      decEnv.amount()));
-              valueLabel.setText(String.format("%.2f s", dTime));
-              break;
-            case "SUSTAIN":
-              float sLevel = val / 100.0f;
-              var susEnv = track.getEnv(envIdx);
-              track.setEnv(
-                  envIdx,
-                  new org.deluge.model.EnvelopeModel(
-                      susEnv.attack(),
-                      susEnv.decay(),
-                      sLevel,
-                      susEnv.release(),
-                      susEnv.target(),
-                      susEnv.amount()));
-              valueLabel.setText(String.format("%d%%", val));
-              break;
-            case "RELEASE":
-              float rTime = val / 10.0f;
-              var relEnv = track.getEnv(envIdx);
-              track.setEnv(
-                  envIdx,
-                  new org.deluge.model.EnvelopeModel(
-                      relEnv.attack(),
-                      relEnv.decay(),
-                      relEnv.sustain(),
-                      rTime,
-                      relEnv.target(),
-                      relEnv.amount()));
-              valueLabel.setText(String.format("%.2f s", rTime));
-              break;
-            case "PAN":
-              if (row == 4 && col == 6) {
-                float p = val / 100.0f;
-                genericTrack.setPan(p);
-                valueLabel.setText(String.format("%d%%", val));
-              }
-              break;
-            case "LEVEL":
-              if (row == 7 && col == 6) {
-                float vol = val / 100.0f;
-                genericTrack.setVolume(vol);
-                valueLabel.setText(String.format("%d%%", val));
-              } else if (row == 7 && (col == 2 || col == 3) && track != null) {
-                float mixVal = val / 100.0f;
-                track.setOscMix(mixVal);
-                valueLabel.setText(String.format("%d%%", val));
-              }
-              break;
-            case "GLIDE":
-              float port = val / 50.0f;
-              track.setPortamento(port);
-              valueLabel.setText(String.format("%.2f s", port));
-              break;
-          }
-          fireProjectChanged();
-        });
-
-    popup.add(wrapper);
-    popup.show(comp, localPos.x, localPos.y);
+  void handleStepToggled(int row, int col) {
+    clipController.handleStepToggled(row, col);
   }
 
-  private String getShiftShortcutTooltip(
-      int row, int col, boolean applicable, org.deluge.model.TrackModel track) {
-    String paramName = SHIFT_LABELS[row][col];
-    if (paramName == null || paramName.isEmpty()) {
-      return null;
-    }
-    String prefix = getGroupPrefix(col);
-    String fullParam = (prefix != null) ? prefix + " " + paramName : paramName;
-
-    String description = getParamDescription(paramName);
-    String trackTypeStr =
-        (track instanceof org.deluge.model.SynthTrackModel)
-            ? "Synth Track"
-            : (track instanceof org.deluge.model.KitTrackModel ? "Kit Track" : "Audio Track");
-    String header =
-        applicable
-            ? ""
-            : "<font color='#ff6666'><b>[NOT APPLICABLE FOR "
-                + trackTypeStr.toUpperCase()
-                + "]</b></font><br>";
-
-    return String.format(
-        "<html><body style='font-size: 9px; font-family: sans-serif; width: 180px;'>"
-            + "%s"
-            + "<b>Shift Shortcut: %s</b><br>"
-            + "• Group: %s<br>"
-            + "• Parameter: <b>%s</b><br>"
-            + "• Action: %s"
-            + "</body></html>",
-        header, fullParam, (prefix != null ? prefix : "None"), paramName, description);
+  void handleStepTied(int row, int colStart, int colEnd) {
+    clipController.handleStepTied(row, colStart, colEnd);
   }
 
-  private String getParamDescription(String paramName) {
-    switch (paramName) {
-      case "WAVE FORM":
-        return "Selects waveform shape (SINE, TRIANGLE, SAW, SQUARE, WAVETABLE).";
-      case "NOISE":
-        return "Toggles or adjusts white noise level.";
-      case "OSC SYNC":
-        return "Toggles hard oscillator pitch synchronization.";
-      case "DIRECTION":
-        return "Adjusts sample playback direction (Forward vs Reverse).";
-      case "SATURATE":
-        return "Applies analog saturation distortion gain.";
-      case "CUTOFF":
-        return "Adjusts Lowpass Filter Cutoff frequency (20Hz - 20kHz).";
-      case "RESONANCE":
-        return "Adjusts Lowpass Filter Resonance Q feedback factor.";
-      case "HPF CUTOFF":
-        return "Adjusts Highpass Filter Cutoff frequency.";
-      case "HPF RES":
-        return "Adjusts Highpass Filter Resonance Q feedback.";
-      case "ATTACK":
-        return "Adjusts Envelope Attack duration time (seconds).";
-      case "DECAY":
-        return "Adjusts Envelope Decay duration time.";
-      case "SUSTAIN":
-        return "Adjusts Envelope Sustain level height percentage.";
-      case "RELEASE":
-        return "Adjusts Envelope Release duration time.";
-      case "SPEED":
-        return "Adjusts LFO Speed rate frequency (Hz or subdivisions).";
-      case "DEPTH":
-        return "Adjusts LFO Modulation depth amount.";
-      case "FEEDBACK":
-        return "Adjusts Delay feedback or Mod FX regeneration level.";
-      case "DELAY SEND":
-        return "Adjusts master Delay send bus amount.";
-      case "REVERB SEND":
-        return "Adjusts master Reverb send bus amount.";
-      case "VOLUME":
-        return "Adjusts master channel volume level (0.0 - 1.5 multiplier).";
-      case "PAN":
-        return "Adjusts stereo balance panning position.";
-      case "PITCH":
-        return "Shifts note pitches (semitones / cents).";
-      case "ARPRATE":
-        return "Adjusts Arpeggiator rate clock speed.";
-      case "GATE":
-        return "Adjusts step gate length or Arp gate duration.";
-      case "VELOCITY":
-        return "Adjusts key trigger strike velocity.";
-      default:
-        return "Selects or adjusts the " + paramName.toLowerCase() + " parameter.";
-    }
+  public int getScrollOffsetX() {
+    return scrollOffsetX;
   }
 
-  private boolean isParamApplicable(
-      String param, int row, int col, org.deluge.model.TrackModel track) {
-    if (track == null || param == null || param.isEmpty()) return false;
-    if (track instanceof org.deluge.model.SynthTrackModel) {
-      return true;
-    }
-    // For non-synth tracks (Kit/Audio), only master track sends are applicable!
-    switch (param) {
-      case "LEVEL":
-        return (row == 7 && col == 6);
-      case "PAN":
-        return (row == 4 && col == 6);
-      case "SIZE":
-        return (row == 0 && col == 13);
-      case "RATE":
-        return (row == 7 && col == 14);
-      case "SDCHAIN":
-        return (row == 3 && col == 15);
-      default:
-        return false;
-    }
+  public Color[] getTrackColors() {
+    return trackColors;
   }
 
-  private String getGroupPrefix(int colId) {
-    if (colId == 0) return "S1";
-    if (colId == 1) return "S2";
-    if (colId == 2) return "OSC1";
-    if (colId == 3) return "OSC2";
-    if (colId == 4) return "FM1";
-    if (colId == 5) return "FM2";
-    if (colId == 8) return "ENV1";
-    if (colId == 9) return "ENV2";
-    if (colId == 12) return "LFO1";
-    if (colId == 13) return "LFO2";
-    return null;
+  public JButton[][] getPads() {
+    return pads;
   }
 
-  private String getParamShortCode(String param) {
-    if (param == null) return "----";
-    switch (param.toUpperCase()) {
-      case "WAVE FORM":
-        return "WAVE";
-      case "INTER POLATION":
-        return "INTR";
-      case "BROWSE":
-        return "BROW";
-      case "RECORD":
-        return "REC";
-      case "PITCH SPEED":
-        return "PTSP";
-      case "SPEED":
-        return "SPED";
-      case "REVERSE":
-        return "REV";
-      case "MODE":
-        return "MODE";
-      case "NOISE":
-        return "NOIS";
-      case "OSC SYNC":
-        return "SYNC";
-      case "WAVETABLE":
-        return "WTBL";
-      case "FEED BACK":
-        return "FDBK";
-      case "RETRIG PHASE":
-        return "RPHS";
-      case "PW":
-        return "PW";
-      case "TYPE":
-        return "TYPE";
-      case "TRANS POSE":
-        return "TRAN";
-      case "LEVEL":
-        return "LEVEL";
-      case "DIRECTION":
-        return "DIR";
-      case "DESTI NATION":
-        return "DEST";
-      case "RETRIG":
-        return "RTRG";
-      case "SATURATE":
-        return "SAT";
-      case "BITCRUSH":
-        return "CRSH";
-      case "DECIMATE":
-        return "DECI";
-      case "SYNTH MODE":
-        return "MODE";
-      case "UNISON VOICES":
-        return "UNIS";
-      case "UNISON DETUNE":
-        return "DETN";
-      case "VOICE PRIORITY":
-        return "PRIO";
-      case "POLY PHONY":
-        return "POLY";
-      case "GLIDE":
-        return "GLID";
-      case "CUTOFF":
-        return "CUT";
-      case "RESONANCE":
-        return "RES";
-      case "SLOPE":
-        return "SLOP";
-      case "SEND":
-        return "SEND";
-      case "SHAPE":
-        return "SHAP";
-      case "ATTACK":
-        return "ATK";
-      case "DECAY":
-        return "DECY";
-      case "SUSTAIN":
-        return "SUST";
-      case "RELEASE":
-        return "REL";
-      case "VOL DUCK":
-        return "DUCK";
-      case "ARP MODE":
-        return "AMOD";
-      case "ARP OCTAVES":
-        return "AOCT";
-      case "ARP GATE":
-        return "AGAT";
-      case "ARP SYNC":
-        return "ASYNC";
-      case "ARP RATE":
-        return "ARAT";
-      case "RATE":
-        return "RATE";
-      case "DEPTH":
-        return "DPTH";
-      case "FDBACK":
-        return "FDBK";
-      case "OFFSET":
-        return "OFST";
-      case "SIZE":
-        return "SIZE";
-      case "DAMP":
-        return "DAMP";
-      case "WIDTH":
-        return "WDTH";
-      case "PAN":
-        return "PAN";
-      case "ENV 1":
-        return "ENV1";
-      case "ENV 2":
-        return "ENV2";
-      case "LFO 1":
-        return "LFO1";
-      case "LFO 2":
-        return "LFO2";
-      case "MONO/ STEREO":
-        return "MSTE";
-      case "AMOUNT":
-        return "AMT";
-      case "DIGI/ ANALOG":
-        return "DIGI";
-      case "SDCHAIN":
-        return "SDCH";
-      case "NOTE":
-        return "NOTE";
-      case "RANDOM":
-        return "RAND";
-      case "VELOCITY":
-        return "VEL";
-      case "AFTER TOUCH":
-        return "AFTC";
-      default:
-        return param.length() > 4 ? param.substring(0, 4) : param;
-    }
+  public int getGridModeRows() {
+    return gridMode.rows;
   }
 
-  private String getParamFormattedValue(String param, int row, int col) {
-    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return "--";
-    org.deluge.model.TrackModel genericTrack = projectModel.getTracks().get(editedModelTrack);
-    org.deluge.model.SynthTrackModel track =
-        (genericTrack instanceof org.deluge.model.SynthTrackModel)
-            ? (org.deluge.model.SynthTrackModel) genericTrack
-            : null;
+  public GridViewMode getViewMode() {
+    return viewMode;
+  }
 
-    final int envIdx = (col == 9) ? 1 : 0;
+  public int getColumnCount() {
+    return columnCount;
+  }
 
-    switch (param) {
-      case "CUTOFF":
-        if (row == 0 && track != null) {
-          float freq = (col == 8) ? track.getLpfFreq() : track.getHpfFreq();
-          return (freq >= 1000.0f)
-              ? String.format("%.1fk", freq / 1000.0f)
-              : String.format("%.0f", freq);
-        } else if (row == 1 && track != null) {
-          float res = (col == 8) ? track.getLpfRes() : track.getHpfRes();
-          return String.format("%d%%", (int) (res * 100.0f));
-        }
-        break;
-      case "RESONANCE":
-        if (track != null) {
-          float res = (col == 8) ? track.getLpfRes() : track.getHpfRes();
-          return String.format("%d%%", (int) (res * 100.0f));
-        }
-        break;
-      case "ATTACK":
-        if (track != null) {
-          return String.format("%.2fs", track.getEnv(envIdx).attack());
-        }
-        break;
-      case "DECAY":
-        if (track != null) {
-          return String.format("%.2fs", track.getEnv(envIdx).decay());
-        }
-        break;
-      case "SUSTAIN":
-        if (track != null) {
-          return String.format("%d%%", (int) (track.getEnv(envIdx).sustain() * 100.0f));
-        }
-        break;
-      case "RELEASE":
-        if (track != null) {
-          return String.format("%.2fs", track.getEnv(envIdx).release());
-        }
-        break;
-      case "PAN":
-        if (row == 4 && col == 6) {
-          int panVal = (int) (genericTrack.getPan() * 100.0f);
-          if (panVal == 50) return "C";
-          return (panVal < 50)
-              ? String.format("L%d", 50 - panVal)
-              : String.format("R%d", panVal - 50);
-        }
-        break;
-      case "LEVEL":
-        if (row == 7 && col == 6) {
-          return String.format("%d%%", (int) (genericTrack.getVolume() * 100.0f));
-        } else if (row == 7 && (col == 2 || col == 3) && track != null) {
-          return String.format("%d%%", (int) (track.getOscMix() * 100.0f));
-        }
-        break;
-      case "GLIDE":
-        if (track != null) {
-          return String.format("%.2fs", track.getPortamento());
-        }
-        break;
-    }
-    return "--";
+  public void startAudition(org.deluge.engine.FirmwareSound synth, int pitchMidi, int velocity) {
+    stopAuditionIfNeeded();
+    auditionMidiNote = pitchMidi;
+    auditionSynth = synth;
+    synth.triggerNote(pitchMidi, velocity);
   }
 
   public void adjustRotaryParameter(int delta) {
-    if (activeShiftParam == null
-        || projectModel == null
-        || editedModelTrack >= projectModel.getTracks().size()) return;
-    org.deluge.model.TrackModel genericTrack = projectModel.getTracks().get(editedModelTrack);
-    org.deluge.model.SynthTrackModel track =
-        (genericTrack instanceof org.deluge.model.SynthTrackModel)
-            ? (org.deluge.model.SynthTrackModel) genericTrack
-            : null;
-
-    final int envIdx = (activeShiftCol == 9) ? 1 : 0;
-
-    switch (activeShiftParam) {
-      case "CUTOFF":
-        if (activeShiftRow == 0 && track != null) {
-          float freq = (activeShiftCol == 8) ? track.getLpfFreq() : track.getHpfFreq();
-          freq = (float) (freq * Math.pow(1.05, delta));
-          freq = Math.max(20.0f, Math.min(20000.0f, freq));
-          if (activeShiftCol == 8) track.setLpfFreq(freq);
-          else track.setHpfFreq(freq);
-        } else if (activeShiftRow == 1 && track != null) {
-          float res = (activeShiftCol == 8) ? track.getLpfRes() : track.getHpfRes();
-          res = Math.max(0.0f, Math.min(1.0f, res + delta * 0.02f));
-          if (activeShiftCol == 8) track.setLpfRes(res);
-          else track.setHpfRes(res);
-        }
-        break;
-      case "RESONANCE":
-        if (track != null) {
-          float res = (activeShiftCol == 8) ? track.getLpfRes() : track.getHpfRes();
-          res = Math.max(0.0f, Math.min(1.0f, res + delta * 0.02f));
-          if (activeShiftCol == 8) track.setLpfRes(res);
-          else track.setHpfRes(res);
-        }
-        break;
-      case "ATTACK":
-        if (track != null) {
-          var old = track.getEnv(envIdx);
-          float a = Math.max(0.0f, Math.min(10.0f, old.attack() + delta * 0.05f));
-          track.setEnv(
-              envIdx,
-              new org.deluge.model.EnvelopeModel(
-                  a, old.decay(), old.sustain(), old.release(), old.target(), old.amount()));
-        }
-        break;
-      case "DECAY":
-        if (track != null) {
-          var old = track.getEnv(envIdx);
-          float d = Math.max(0.0f, Math.min(10.0f, old.decay() + delta * 0.05f));
-          track.setEnv(
-              envIdx,
-              new org.deluge.model.EnvelopeModel(
-                  old.attack(), d, old.sustain(), old.release(), old.target(), old.amount()));
-        }
-        break;
-      case "SUSTAIN":
-        if (track != null) {
-          var old = track.getEnv(envIdx);
-          float s = Math.max(0.0f, Math.min(1.0f, old.sustain() + delta * 0.02f));
-          track.setEnv(
-              envIdx,
-              new org.deluge.model.EnvelopeModel(
-                  old.attack(), old.decay(), s, old.release(), old.target(), old.amount()));
-        }
-        break;
-      case "RELEASE":
-        if (track != null) {
-          var old = track.getEnv(envIdx);
-          float r = Math.max(0.0f, Math.min(10.0f, old.release() + delta * 0.05f));
-          track.setEnv(
-              envIdx,
-              new org.deluge.model.EnvelopeModel(
-                  old.attack(), old.decay(), old.sustain(), r, old.target(), old.amount()));
-        }
-        break;
-      case "PAN":
-        if (activeShiftRow == 4 && activeShiftCol == 6) {
-          float p = Math.max(0.0f, Math.min(1.0f, genericTrack.getPan() + delta * 0.02f));
-          genericTrack.setPan(p);
-        }
-        break;
-      case "LEVEL":
-        if (activeShiftRow == 7 && activeShiftCol == 6) {
-          float vol = Math.max(0.0f, genericTrack.getVolume() + delta * 0.02f);
-          genericTrack.setVolume(vol);
-        } else if (activeShiftRow == 7
-            && (activeShiftCol == 2 || activeShiftCol == 3)
-            && track != null) {
-          float mixVal = Math.max(0.0f, Math.min(1.0f, track.getOscMix() + delta * 0.02f));
-          track.setOscMix(mixVal);
-        }
-        break;
-      case "GLIDE":
-        if (track != null) {
-          float port = Math.max(0.0f, Math.min(2.0f, track.getPortamento() + delta * 0.02f));
-          track.setPortamento(port);
-        }
-        break;
-    }
-
-    // Update LED readout panel with new value
-    String code = getParamShortCode(activeShiftParam);
-    String valStr = getParamFormattedValue(activeShiftParam, activeShiftRow, activeShiftCol);
-    if (SwingDelugeApp.mainInstance != null) {
-      SwingDelugeApp.mainInstance.updateHardwareLedDisplay(code, valStr);
-    }
-
-    fireProjectChanged();
-    refresh();
+    clipController.adjustRotaryParameter(delta);
   }
 
-  private void handleDragCleared() {
-    refresh();
+  public void hotSwapTrackSample(int modelRow, int visibleRow, java.io.File soundFile) {
+    clipController.hotSwapTrackSample(modelRow, visibleRow, soundFile);
+  }
+
+  public void handleShiftClick(int row, int col, Point localPos, Component comp) {
+    clipController.handleShiftClick(row, col, localPos, comp);
+  }
+
+  public void handleShiftHover(int row, int col) {
+    clipController.handleShiftHover(row, col);
+  }
+
+  public void handleShiftHoverExit() {
+    clipController.handleShiftHoverExit();
+  }
+
+  public void setClonePreview(int startR, int startC, int currR, int currC) {
+    clipController.setClonePreview(startR, startC, currR, currC);
   }
 
   public String getNoteName(int pitchMidi) {
@@ -9446,7 +6656,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
         return 0.0;
       case 11:
         if (track instanceof org.deluge.model.SynthTrackModel st) {
-          return st.getStutterRate();
+          return st.getStutter().getStutterRate();
         }
         return 0.0;
       case 12:
@@ -9557,7 +6767,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
         break;
       case 11:
         if (track instanceof org.deluge.model.SynthTrackModel st) {
-          st.setStutterRate((float) v);
+          st.getStutter().setStutterRate((float) v);
         }
         break;
       case 12:
@@ -9819,10 +7029,6 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     }
   }
 
-  public GridViewMode getViewMode() {
-    return viewMode;
-  }
-
   public int getEditedModelTrack() {
     return editedModelTrack;
   }
@@ -10011,10 +7217,6 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     }
   }
 
-  public int getScrollOffsetX() {
-    return scrollOffsetX;
-  }
-
   public int getStepCount() {
     return stepCount;
   }
@@ -10031,80 +7233,14 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     scrollController.resetVerticalScroll();
   }
 
-  public JButton[][] getPads() {
-    return pads;
-  }
-
-  public int getColumnCount() {
-    return columnCount;
-  }
-
   public int getSoloRow() {
     return soloRow;
   }
 
-  private org.deluge.model.ArrangerClip getArrangerClipAt(int trackIndex, int col) {
-    if (projectModel == null) return null;
-    int queryTicks = col * 96;
-    for (org.deluge.model.ArrangerClip placement : projectModel.getArrangerTimeline()) {
-      if (placement.trackIndex() == trackIndex) {
-        if (queryTicks >= placement.startTicks()
-            && queryTicks < placement.startTicks() + placement.durationTicks()) {
-          return placement;
-        }
-      }
+  public void setPad(int r, int c, JButton pad) {
+    if (r >= 0 && r < MAX_GRID_ROWS && c >= 0 && c < MAX_GRID_COLS) {
+      pads[r][c] = pad;
     }
-    return null;
-  }
-
-  private void showArrangerClipSelectionPopup(
-      Component invoker, final int trackIdx, final int col) {
-    if (projectModel == null || trackIdx >= projectModel.getTracks().size()) return;
-    org.deluge.model.TrackModel track = projectModel.getTracks().get(trackIdx);
-
-    JPopupMenu menu = new JPopupMenu();
-    menu.setBackground(new Color(0x1e, 0x1e, 0x22));
-    menu.setBorder(BorderFactory.createLineBorder(new Color(0x3e, 0x3e, 0x42), 1));
-
-    JMenuItem createNew = new JMenuItem("Create New Pattern Clip (1 bar)");
-    createNew.setForeground(new Color(0x00, 0xff, 0xcc));
-    createNew.setBackground(new Color(0x1e, 0x1e, 0x22));
-    createNew.addActionListener(
-        e -> {
-          int clipCount = track.getClips().size();
-          org.deluge.model.ClipModel newClip =
-              new org.deluge.model.ClipModel("CLIP " + (clipCount + 1), 8, 16);
-          track.addClip(newClip);
-          projectModel.addArrangerClip(
-              new org.deluge.model.ArrangerClip(trackIdx, newClip, col * 96, 96));
-          fireProjectChanged();
-          refresh();
-        });
-    menu.add(createNew);
-
-    if (!track.getClips().isEmpty()) {
-      menu.addSeparator();
-      for (int i = 0; i < track.getClips().size(); i++) {
-        final org.deluge.model.ClipModel clip = track.getClips().get(i);
-        String name =
-            clip.getName() != null && !clip.getName().isBlank()
-                ? clip.getName()
-                : "Pattern Clip " + (i + 1);
-        JMenuItem item = new JMenuItem("Place: " + name);
-        item.setForeground(Color.WHITE);
-        item.setBackground(new Color(0x1e, 0x1e, 0x22));
-        item.addActionListener(
-            e -> {
-              projectModel.addArrangerClip(
-                  new org.deluge.model.ArrangerClip(trackIdx, clip, col * 96, 96));
-              fireProjectChanged();
-              refresh();
-            });
-        menu.add(item);
-      }
-    }
-
-    menu.show(invoker, 0, invoker.getHeight());
   }
 
   private void showCreateTrackMenu(
@@ -10197,7 +7333,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     }
   }
 
-  private void styleSystemButton(JButton btn, Color bg, Color fg, int fontSize) {
+  void styleSystemButton(JButton btn, Color bg, Color fg, int fontSize) {
     btn.setContentAreaFilled(false);
     btn.setOpaque(true);
     btn.setFocusPainted(false);
@@ -10521,10 +7657,5 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   @Override
   public boolean isRefreshInProgress() {
     return this.refreshInProgress;
-  }
-
-  @Override
-  public BridgeContract getBridge() {
-    return this.bridge;
   }
 }

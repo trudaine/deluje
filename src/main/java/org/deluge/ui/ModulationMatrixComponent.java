@@ -100,7 +100,7 @@ public class ModulationMatrixComponent extends JComponent {
             if (e.getClickCount() == 2) {
               // Double click to delete
               if (cable != null) {
-                model.getPatchCables().remove(cable);
+                model.getModulation().getPatchCables().remove(cable);
                 triggerChanged();
               }
               return;
@@ -112,7 +112,7 @@ public class ModulationMatrixComponent extends JComponent {
               cable =
                   new PatchCable(
                       SOURCES[col], DESTINATIONS[row], 0.0f, PatchCable.Polarity.BIPOLAR);
-              model.addPatchCable(cable);
+              model.getModulation().addPatchCable(cable);
               triggerChanged();
             }
 
@@ -134,7 +134,7 @@ public class ModulationMatrixComponent extends JComponent {
             newAmount = Math.max(-1.0f, Math.min(1.0f, newAmount));
 
             // Update patch cable amount in model
-            int index = model.getPatchCables().indexOf(activeDragCable);
+            int index = model.getModulation().getPatchCables().indexOf(activeDragCable);
             if (index >= 0) {
               PatchCable updated =
                   new PatchCable(
@@ -142,7 +142,7 @@ public class ModulationMatrixComponent extends JComponent {
                       activeDragCable.destination(),
                       newAmount,
                       activeDragCable.polarity());
-              model.getPatchCables().set(index, updated);
+              model.getModulation().getPatchCables().set(index, updated);
               activeDragCable = updated;
               triggerChanged();
             }
@@ -209,7 +209,7 @@ public class ModulationMatrixComponent extends JComponent {
   private PatchCable findCable(int col, int row) {
     String src = SOURCES[col];
     String dest = DESTINATIONS[row];
-    for (PatchCable c : model.getPatchCables()) {
+    for (PatchCable c : model.getModulation().getPatchCables()) {
       if (src.equalsIgnoreCase(c.source()) && dest.equalsIgnoreCase(c.destination())) {
         return c;
       }

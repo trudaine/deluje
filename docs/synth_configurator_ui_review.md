@@ -6,7 +6,7 @@ This document presents a rigorous, deep-dive architectural audit and code review
 
 ## 1. Architectural Components & Visualizer Breakdown
 
-The Synth Configurator UI ([SwingSynthConfigDialog.java](../../deluge/src/main/java/org/chuck/deluge/ui/SwingSynthConfigDialog.java)) incorporates several custom-drawn JComponents that utilize advanced geometry, physics, and DSP math.
+The Synth Configurator UI ([SwingSynthConfigDialog.java](../src/main/java/org/deluge/ui/SwingSynthConfigDialog.java)) incorporates several custom-drawn JComponents that utilize advanced geometry, physics, and DSP math.
 
 ```mermaid
 graph TD
@@ -36,7 +36,7 @@ graph TD
 ```
 
 ### 1.1. Interactive 2D Filter Response Graph
-*   **Source File**: [FilterGraphComponent.java](../../deluge/src/main/java/org/chuck/deluge/ui/FilterGraphComponent.java)
+*   **Source File**: [FilterGraphComponent.java](../src/main/java/org/deluge/ui/FilterGraphComponent.java)
 *   **The Math (DSP Transfer Function)**:
     Instead of drawing generic bezier lines, the component plots the **actual frequency response curve of a 2nd-order State-Variable Filter (SVF) or Ladder filter** in real time. It loops horizontally across the screen columns, maps the pixel $x$-coordinate to a normalized frequency ratio $r = f / f_c$, and calculates the gain $H(f)$:
     *   *Low-pass SVF Gain*: 
@@ -51,7 +51,7 @@ graph TD
 *   **Aesthetics**: Features a gorgeous, glowing gradient fill under the curve using the primary studio accent, and renders a distinct neon dot for the cutoff frequency marker.
 
 ### 1.2. Tactical Multi-Node ADSR Envelope Sculptor
-*   **Source File**: [EnvelopeGraphComponent.java](../../deluge/src/main/java/org/chuck/deluge/ui/EnvelopeGraphComponent.java)
+*   **Source File**: [EnvelopeGraphComponent.java](../src/main/java/org/deluge/ui/EnvelopeGraphComponent.java)
 *   **Vector Node Dragging**:
     The component defines 4 distinct, interactive anchor vertices on the envelope canvas:
     *   `ATTACK`: Handles horizontal dragging of the Attack time ($0.0$ to $2.0$ seconds).
@@ -62,7 +62,7 @@ graph TD
 *   **Tactile Visuals**: Renders a thick neon envelope outline, a glowing transparent fill, and centered labels (**A**, **D**, **S**, **R**) perfectly aligned underneath each respective envelope stage.
 
 ### 1.3. Real-time LFO Modulation Monitor
-*   **Source File**: [LfoMonitorComponent.java](../../deluge/src/main/java/org/chuck/deluge/ui/LfoMonitorComponent.java)
+*   **Source File**: [LfoMonitorComponent.java](../src/main/java/org/deluge/ui/LfoMonitorComponent.java)
 *   **Mathematical Oscilloscope Lanes**:
     Displays 4 stacked lanes matching the Deluge's 4 internal LFO channels. It calculates and plots the precise waveform shapes in real-time (lines 161–197):
     *   `SINE` / `SAW` / `SQUARE` / `TRIANGLE`: Direct mathematical oscillators.
@@ -75,7 +75,7 @@ graph TD
     A glowing neon dot with an outer glow ring travels along the curve, visualizing the modulator's exact instantaneous phase in real-time!
 
 ### 1.4. Vector-based 3D Wavetable Perspective Scanner
-*   **Source File**: [Wavetable3DVisualizer.java](../../deluge/src/main/java/org/chuck/deluge/ui/Wavetable3DVisualizer.java)
+*   **Source File**: [Wavetable3DVisualizer.java](../src/main/java/org/deluge/ui/Wavetable3DVisualizer.java)
 *   **3D Projection Mathematics**:
     Implements a full **perspective projection matrix** to render the single-cycle waveforms of a loaded wavetable file cascaded along a virtual Z-axis:
     *   **Painter's Algorithm**: Loops from back to front ($i = \text{numCycles}-1$ down to $0$) to draw the overlapping waves with correct depth layering.

@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-14
 **Firmware source:** `../DelugeFirmware/src/deluge/` (1006 C++ files)
-**Java deluge project:** `deluge/src/main/java/org/chuck/deluge/` (225 Java files)
+**Java deluge project:** `src/main/java/org/deluge/` (225 Java files)
 **Java chuck-core project:** `chuck-core/src/main/java/org/chuck/` (355 Java files)
 
 ---

@@ -57,7 +57,10 @@ public class DelugeXmlParser {
           FieldBinding.hexFloat(
               "defaultParams", "modFXFeedback", SynthTrackModel::setModFxFeedback),
           FieldBinding.hexFloat("defaultParams", "reverbAmount", SynthTrackModel::setReverbSend),
-          FieldBinding.hexFloat("defaultParams", "stutterRate", SynthTrackModel::setStutterRate),
+          FieldBinding.hexFloat(
+              "defaultParams",
+              "stutterRate",
+              (track, val) -> track.getStutter().setStutterRate(val)),
           FieldBinding.hexFloat(
               "defaultParams", "sampleRateReduction", SynthTrackModel::setSampleRateReduction),
           FieldBinding.hexFloat("defaultParams", "bitCrush", SynthTrackModel::setBitCrush),
@@ -1465,7 +1468,7 @@ public class DelugeXmlParser {
         NodeList zones = osc1SampleRanges.getElementsByTagName("zone");
         for (int i = 0; i < zones.getLength(); i++) {
           Element zone = (Element) zones.item(i);
-          SynthTrackModel.KeyZone kz = new SynthTrackModel.KeyZone();
+          KeyZone kz = new KeyZone();
           kz.samplePath = zone.getAttribute("fileName");
           if (kz.samplePath.isEmpty()) {
             kz.samplePath = getChildText(zone, "fileName");
@@ -1479,7 +1482,7 @@ public class DelugeXmlParser {
           kz.startLoopPos = readIntAttr(zone, "startLoopPos", -1);
           kz.endLoopPos = readIntAttr(zone, "endLoopPos", -1);
           kz.looping = "1".equals(zone.getAttribute("loopMode"));
-          synth.getOsc1Zones().add(kz);
+          synth.getKeyZones().getOsc1Zones().add(kz);
         }
       }
     }
@@ -1544,7 +1547,7 @@ public class DelugeXmlParser {
         NodeList zones = osc2SampleRanges.getElementsByTagName("zone");
         for (int i = 0; i < zones.getLength(); i++) {
           Element zone = (Element) zones.item(i);
-          SynthTrackModel.KeyZone kz = new SynthTrackModel.KeyZone();
+          KeyZone kz = new KeyZone();
           kz.samplePath = zone.getAttribute("fileName");
           if (kz.samplePath.isEmpty()) {
             kz.samplePath = getChildText(zone, "fileName");
@@ -1558,7 +1561,7 @@ public class DelugeXmlParser {
           kz.startLoopPos = readIntAttr(zone, "startLoopPos", -1);
           kz.endLoopPos = readIntAttr(zone, "endLoopPos", -1);
           kz.looping = "1".equals(zone.getAttribute("loopMode"));
-          synth.getOsc2Zones().add(kz);
+          synth.getKeyZones().getOsc2Zones().add(kz);
         }
       }
     }
@@ -1572,7 +1575,7 @@ public class DelugeXmlParser {
               : getChildText(unisonEl, "num");
       if (numStr != null && !numStr.isBlank()) {
         try {
-          synth.setUnisonNum(Integer.parseInt(numStr.trim()));
+          synth.getUnison().setUnisonNum(Integer.parseInt(numStr.trim()));
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "Error parsing unison num", e);
         }
@@ -1590,7 +1593,7 @@ public class DelugeXmlParser {
           } else {
             dVal = Float.parseFloat(val);
           }
-          synth.setUnisonDetune(dVal);
+          synth.getUnison().setUnisonDetune(dVal);
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "Error parsing unison detune", e);
         }
@@ -1608,7 +1611,7 @@ public class DelugeXmlParser {
           } else {
             sVal = Float.parseFloat(val);
           }
-          synth.setUnisonStereoSpread(sVal);
+          synth.getUnison().setUnisonStereoSpread(sVal);
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "Error parsing unison spread", e);
         }
@@ -1827,7 +1830,7 @@ public class DelugeXmlParser {
 
     // ── Mod Knobs ──
     parseModKnobs(soundNode, synth);
-    parseMidiKnobs(soundNode, synth.getMidiKnobs());
+    parseMidiKnobs(soundNode, synth.getModulation().getMidiKnobs());
 
     // ── Per-sound delay (the instrument's own <delay> element) ──
     parseSynthDelay(soundNode, synth);
@@ -2211,10 +2214,10 @@ public class DelugeXmlParser {
     }
     // LFO rate knobs: firmware lfo1 = global (slot 0), lfo2 = local (slot 1).
     if (!(v = sp.getAttribute("lfo1Rate")).isEmpty()) {
-      synth.setLfoRateKnobQ31(0, DelugeHexMapper.hexToQ31(v));
+      synth.getRawKnobs().setLfoRateKnobQ31(0, DelugeHexMapper.hexToQ31(v));
     }
     if (!(v = sp.getAttribute("lfo2Rate")).isEmpty()) {
-      synth.setLfoRateKnobQ31(1, DelugeHexMapper.hexToQ31(v));
+      synth.getRawKnobs().setLfoRateKnobQ31(1, DelugeHexMapper.hexToQ31(v));
     }
 
     // Patched params the firmware reads as RAW Q31 from <soundParams> (readParamsFromFile copies
@@ -2259,19 +2262,21 @@ public class DelugeXmlParser {
           (sustain != null && !sustain.isEmpty())
               ? DelugeHexMapper.hexToQ31(sustain)
               : 858993459; // default 0.7 sustain Q31
-      synth.setEnvKnobsQ31(
-          i,
-          DelugeHexMapper.hexToQ31(attack),
-          DelugeHexMapper.hexToQ31(decay),
-          sustainKnob,
-          DelugeHexMapper.hexToQ31(release));
-      synth.setRawParamKnob(Param.LOCAL_ENV_0_SUSTAIN + i, sustainKnob);
+      synth
+          .getRawKnobs()
+          .setEnvKnobsQ31(
+              i,
+              DelugeHexMapper.hexToQ31(attack),
+              DelugeHexMapper.hexToQ31(decay),
+              sustainKnob,
+              DelugeHexMapper.hexToQ31(release));
+      synth.getRawKnobs().setRawParamKnob(Param.LOCAL_ENV_0_SUSTAIN + i, sustainKnob);
     }
 
     // Patch cables (the clip's set is authoritative in the song format).
     NodeList cables = sp.getElementsByTagName("patchCable");
     if (cables.getLength() > 0) {
-      synth.getPatchCables().clear();
+      synth.getModulation().getPatchCables().clear();
       parsePatchCables(sp, synth);
     }
   }
@@ -2377,7 +2382,7 @@ public class DelugeXmlParser {
   private static void rawKnob(Element sp, String attr, SynthTrackModel synth, int paramId) {
     String v = attrOrChildText(sp, attr);
     if (v != null && !v.isBlank()) {
-      synth.setRawParamKnob(paramId, DelugeHexMapper.hexToQ31(v));
+      synth.getRawKnobs().setRawParamKnob(paramId, DelugeHexMapper.hexToQ31(v));
     }
   }
 
@@ -2454,16 +2459,16 @@ public class DelugeXmlParser {
         synth.setWaveFoldQ31(DelugeHexMapper.hexToQ31(v));
       }
       if ((v = attrOrChildText(dpEl, "lfo1Rate")) != null && !v.isBlank()) {
-        synth.setLfoRateKnobQ31(0, DelugeHexMapper.hexToQ31(v));
+        synth.getRawKnobs().setLfoRateKnobQ31(0, DelugeHexMapper.hexToQ31(v));
       }
       if ((v = attrOrChildText(dpEl, "lfo2Rate")) != null && !v.isBlank()) {
-        synth.setLfoRateKnobQ31(1, DelugeHexMapper.hexToQ31(v));
+        synth.getRawKnobs().setLfoRateKnobQ31(1, DelugeHexMapper.hexToQ31(v));
       }
       if ((v = attrOrChildText(dpEl, "lfo3Rate")) != null && !v.isBlank()) {
-        synth.setLfoRateKnobQ31(2, DelugeHexMapper.hexToQ31(v));
+        synth.getRawKnobs().setLfoRateKnobQ31(2, DelugeHexMapper.hexToQ31(v));
       }
       if ((v = attrOrChildText(dpEl, "lfo4Rate")) != null && !v.isBlank()) {
-        synth.setLfoRateKnobQ31(3, DelugeHexMapper.hexToQ31(v));
+        synth.getRawKnobs().setLfoRateKnobQ31(3, DelugeHexMapper.hexToQ31(v));
       }
     }
   }
@@ -2706,14 +2711,16 @@ public class DelugeXmlParser {
                 : 858993459; // default 0.7 sustain Q31
         // Preserve the raw rate + level knobs for the firmware-faithful envelope rate/sustain
         // curves.
-        synth.setEnvKnobsQ31(
-            i,
-            DelugeHexMapper.hexToQ31(envNode.getAttribute("attack")),
-            DelugeHexMapper.hexToQ31(envNode.getAttribute("decay")),
-            sustainKnob,
-            DelugeHexMapper.hexToQ31(envNode.getAttribute("release")));
+        synth
+            .getRawKnobs()
+            .setEnvKnobsQ31(
+                i,
+                DelugeHexMapper.hexToQ31(envNode.getAttribute("attack")),
+                DelugeHexMapper.hexToQ31(envNode.getAttribute("decay")),
+                sustainKnob,
+                DelugeHexMapper.hexToQ31(envNode.getAttribute("release")));
         if (sustainAttr != null && !sustainAttr.isEmpty()) {
-          synth.setRawParamKnob(Param.LOCAL_ENV_0_SUSTAIN + i, sustainKnob);
+          synth.getRawKnobs().setRawParamKnob(Param.LOCAL_ENV_0_SUSTAIN + i, sustainKnob);
         }
       }
     }
@@ -2742,14 +2749,16 @@ public class DelugeXmlParser {
                     : 858993459; // default 0.7 sustain Q31
             // Preserve the raw rate + level knobs for the firmware-faithful envelope rate/sustain
             // curves.
-            synth.setEnvKnobsQ31(
-                i,
-                DelugeHexMapper.hexToQ31(getChildText(envEl, "attack")),
-                DelugeHexMapper.hexToQ31(getChildText(envEl, "decay")),
-                sustainKnob,
-                DelugeHexMapper.hexToQ31(getChildText(envEl, "release")));
+            synth
+                .getRawKnobs()
+                .setEnvKnobsQ31(
+                    i,
+                    DelugeHexMapper.hexToQ31(getChildText(envEl, "attack")),
+                    DelugeHexMapper.hexToQ31(getChildText(envEl, "decay")),
+                    sustainKnob,
+                    DelugeHexMapper.hexToQ31(getChildText(envEl, "release")));
             if (sustainText != null && !sustainText.isEmpty()) {
-              synth.setRawParamKnob(Param.LOCAL_ENV_0_SUSTAIN + i, sustainKnob);
+              synth.getRawKnobs().setRawParamKnob(Param.LOCAL_ENV_0_SUSTAIN + i, sustainKnob);
             }
           }
         }
@@ -2819,7 +2828,7 @@ public class DelugeXmlParser {
             && "patchCable".equals(cableElem.getTagName())) {
           PatchCable pc = parseSinglePatchCable(cableElem);
           if (pc != null) {
-            synth.addPatchCable(pc);
+            synth.getModulation().addPatchCable(pc);
           }
         }
       }
@@ -2831,7 +2840,7 @@ public class DelugeXmlParser {
             && "patchCable".equals(cableElem.getTagName())) {
           PatchCable pc = parseSinglePatchCable(cableElem);
           if (pc != null) {
-            synth.addPatchCable(pc);
+            synth.getModulation().addPatchCable(pc);
           }
         }
       }
@@ -2844,13 +2853,13 @@ public class DelugeXmlParser {
       Element knobElem = (Element) knobList.item(i);
       String param = getChildText(knobElem, "controlsParam");
       if (param == null) param = knobElem.getAttribute("controlsParam");
-      if (param != null && !param.isBlank() && i < synth.getModKnobs().size()) {
+      if (param != null && !param.isBlank() && i < synth.getModulation().getModKnobs().size()) {
         String patchSrc = getChildText(knobElem, "patchSource");
         if (patchSrc == null) patchSrc = getChildText(knobElem, "patchAmountFromSource");
         if (patchSrc == null) patchSrc = knobElem.getAttribute("patchSource");
         if (patchSrc == null) patchSrc = knobElem.getAttribute("patchAmountFromSource");
         if (patchSrc == null || patchSrc.isBlank()) patchSrc = "NONE";
-        synth.setModKnob(i, new ModKnob(param.trim(), patchSrc.trim()));
+        synth.getModulation().setModKnob(i, new ModKnob(param.trim(), patchSrc.trim()));
       }
     }
   }
@@ -2978,7 +2987,7 @@ public class DelugeXmlParser {
     if (lfoIndex >= 0 && lfoIndex < 4) {
       synth.setLfo(
           lfoIndex, new LfoModel(rateHz, waveform, depth, "NONE", isLocal, syncLevel, syncType));
-      synth.setLfoRateKnobQ31(lfoIndex, rateKnobQ31);
+      synth.getRawKnobs().setLfoRateKnobQ31(lfoIndex, rateKnobQ31);
     }
   }
 
@@ -3972,9 +3981,9 @@ public class DelugeXmlParser {
     NodeList nodes = soundNode.getElementsByTagName("stutter");
     if (nodes.getLength() == 0) return;
     Element stut = (Element) nodes.item(0);
-    readAttrBool(stut, "quantized", synth::setStutterQuantized);
-    readAttrBool(stut, "reverse", synth::setStutterReversed);
-    readAttrBool(stut, "pingPong", synth::setStutterPingPong);
+    readAttrBool(stut, "quantized", val -> synth.getStutter().setStutterQuantized(val));
+    readAttrBool(stut, "reverse", val -> synth.getStutter().setStutterReversed(val));
+    readAttrBool(stut, "pingPong", val -> synth.getStutter().setStutterPingPong(val));
   }
 
   /** Parse <stutter> sub-element for a SoundDrum. */
@@ -4890,11 +4899,11 @@ public class DelugeXmlParser {
       int susQ31 = (int) ((susVal * 2.0f - 1.0f) * Integer.MAX_VALUE);
       int relQ31 = (int) ((relNorm * 2.0f - 1.0f) * Integer.MAX_VALUE);
 
-      synth.setEnvKnobsQ31(envIndex, attQ31, decQ31, susQ31, relQ31);
+      synth.getRawKnobs().setEnvKnobsQ31(envIndex, attQ31, decQ31, susQ31, relQ31);
       if (envIndex == 0) {
-        synth.setRawParamKnob(Param.LOCAL_ENV_0_SUSTAIN, susQ31);
+        synth.getRawKnobs().setRawParamKnob(Param.LOCAL_ENV_0_SUSTAIN, susQ31);
       } else if (envIndex == 1) {
-        synth.setRawParamKnob(Param.LOCAL_ENV_1_SUSTAIN, susQ31);
+        synth.getRawKnobs().setRawParamKnob(Param.LOCAL_ENV_1_SUSTAIN, susQ31);
       }
     } catch (NumberFormatException e) {
       LOG.log(Level.FINE, "Error parsing legacy envelope " + tagName, e);

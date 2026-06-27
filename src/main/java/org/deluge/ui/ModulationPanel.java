@@ -95,7 +95,7 @@ public class ModulationPanel extends JPanel {
     addCableBtn.setFont(new Font("SansSerif", Font.BOLD, 12));
     addCableBtn.addActionListener(
         ev -> {
-          model.addPatchCable(new PatchCable("velocity", "volume", 0.5f));
+          model.getModulation().addPatchCable(new PatchCable("velocity", "volume", 0.5f));
           syncModulationsLive();
           rebuildCableRows();
         });
@@ -129,7 +129,7 @@ public class ModulationPanel extends JPanel {
 
     JPanel knobGrid = new JPanel(new GridLayout(4, 4, 8, 8));
     knobGrid.setBackground(SwingSynthConfigDialog.BG_CARD);
-    List<ModKnob> knobs = model.getModKnobs();
+    List<ModKnob> knobs = model.getModulation().getModKnobs();
 
     for (int i = 0; i < 16 && i < knobs.size(); i++) {
       final int ki = i;
@@ -152,7 +152,7 @@ public class ModulationPanel extends JPanel {
       knobCombo.addActionListener(
           ev -> {
             String sel = (String) knobCombo.getSelectedItem();
-            model.setModKnob(ki, new ModKnob(sel, "NONE"));
+            model.getModulation().setModKnob(ki, new ModKnob(sel, "NONE"));
           });
       kp.add(knobCombo, BorderLayout.CENTER);
       knobGrid.add(kp);
@@ -217,7 +217,7 @@ public class ModulationPanel extends JPanel {
   /** Rebuilds the custom visual cable rows in place. */
   private void rebuildCableRows() {
     cableRows.removeAll();
-    List<PatchCable> cur = model.getPatchCables();
+    List<PatchCable> cur = model.getModulation().getPatchCables();
 
     for (int i = 0; i < cur.size(); i++) {
       final int idx = i;
@@ -249,8 +249,9 @@ public class ModulationPanel extends JPanel {
       srcCombo.setPreferredSize(new Dimension(110, 24));
       srcCombo.addActionListener(
           ev -> {
-            PatchCable old = model.getPatchCables().get(idx);
+            PatchCable old = model.getModulation().getPatchCables().get(idx);
             model
+                .getModulation()
                 .getPatchCables()
                 .set(
                     idx,
@@ -278,8 +279,9 @@ public class ModulationPanel extends JPanel {
       dstCombo.setPreferredSize(new Dimension(130, 24));
       dstCombo.addActionListener(
           ev -> {
-            PatchCable old = model.getPatchCables().get(idx);
+            PatchCable old = model.getModulation().getPatchCables().get(idx);
             model
+                .getModulation()
                 .getPatchCables()
                 .set(
                     idx,
@@ -321,10 +323,11 @@ public class ModulationPanel extends JPanel {
 
       polBtn.addActionListener(
           ev -> {
-            PatchCable old = model.getPatchCables().get(idx);
+            PatchCable old = model.getModulation().getPatchCables().get(idx);
             PatchCable.Polarity newPol =
                 polBtn.isSelected() ? PatchCable.Polarity.BIPOLAR : PatchCable.Polarity.UNIPOLAR;
             model
+                .getModulation()
                 .getPatchCables()
                 .set(idx, new PatchCable(old.source(), old.destination(), old.amount(), newPol));
             syncModulationsLive();
@@ -348,8 +351,9 @@ public class ModulationPanel extends JPanel {
       amtSlider.addChangeListener(
           ev -> {
             float v = amtSlider.getValue() / 100f;
-            PatchCable old = model.getPatchCables().get(idx);
+            PatchCable old = model.getModulation().getPatchCables().get(idx);
             model
+                .getModulation()
                 .getPatchCables()
                 .set(idx, new PatchCable(old.source(), old.destination(), v, old.polarity()));
             syncModulationsLive();
@@ -369,7 +373,7 @@ public class ModulationPanel extends JPanel {
       removeBtn.setPreferredSize(new Dimension(30, 24));
       removeBtn.addActionListener(
           ev -> {
-            model.getPatchCables().remove(idx);
+            model.getModulation().getPatchCables().remove(idx);
             syncModulationsLive();
             rebuildCableRows();
           });

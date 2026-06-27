@@ -53,9 +53,9 @@ public class DroneLabGeneratorTest {
     assertEquals(12, track.getOsc2Transpose());
     assertEquals(16, track.getOsc2Cents());
 
-    assertEquals(4, track.getUnisonNum());
-    assertEquals(22, track.getUnisonDetune(), 1e-4);
-    assertEquals(50, track.getUnisonStereoSpread(), 1e-4);
+    assertEquals(4, track.getUnison().getUnisonNum());
+    assertEquals(22, track.getUnison().getUnisonDetune(), 1e-4);
+    assertEquals(50, track.getUnison().getUnisonStereoSpread(), 1e-4);
 
     // Assert Envelopes
     EnvelopeModel env0 = track.getEnv(0);
@@ -99,8 +99,8 @@ public class DroneLabGeneratorTest {
     assertEquals(1.414f, track.getFmRatio(), 1e-4); // Square root of 2 modulator
     assertEquals(1.618f, track.getFmRatio2(), 1e-4); // Golden Ratio modulator
 
-    assertEquals(2, track.getUnisonNum());
-    assertEquals(12, track.getUnisonDetune(), 1e-4);
+    assertEquals(2, track.getUnison().getUnisonNum());
+    assertEquals(12, track.getUnison().getUnisonDetune(), 1e-4);
   }
 
   @Test

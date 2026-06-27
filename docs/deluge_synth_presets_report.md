@@ -19,26 +19,26 @@ Our architectural audit of the Deluge-Java codebase revealed that **the workstat
 
 Here is how the four layers of our workstation coordinate to deliver this seamless experience:
 
-### A. The Synth Engine Model ([SynthTrackModel.java](../../deluge/src/main/java/org/chuck/deluge/model/SynthTrackModel.java))
+### A. The Synth Engine Model ([SynthTrackModel.java](../src/main/java/org/deluge/model/SynthTrackModel.java))
 *   Contains variables for oscillator types (`saw`, `square`, `sine`, `whitenoise`), detuning, unison, and filter modes.
 *   Houses 4 native envelopes and 4 LFOs.
 *   Maintains a list of **`PatchCable`** objects representing the hardware's internal **modulation matrix** (e.g. linking `envelope2` to `lpfFrequency` with a specific Q31 fixed-point amount), allowing the software synth engine to patch modulation routings dynamically.
 
-### B. The XML Parser ([DelugeXmlParser.java](../../deluge/src/main/java/org/chuck/deluge/xml/DelugeXmlParser.java))
+### B. The XML Parser ([DelugeXmlParser.java](../src/main/java/org/deluge/xml/DelugeXmlParser.java))
 *   Exposes dedicated, public static methods designed specifically for standalone presets:
     *   `parseSynth(File xmlFile)`
     *   `parseSynth(InputStream is, String name)`
 *   Because the XML schema of a standalone preset is identical to the `<sound>` element embedded in Deluge songs, the parser fully maps all oscillators, filters, envelopes, and patch cables.
 *   Includes a **shared zone parser** supporting **multisampled presets (parsing `<zone>` elements)**!
 
-### C. The Preset Browser UI ([SynthParamRack.java](../../deluge/src/main/java/org/chuck/deluge/ui/SynthParamRack.java))
+### C. The Preset Browser UI ([SynthParamRack.java](../src/main/java/org/deluge/ui/SynthParamRack.java))
 *   The title of the Synth Parameter Rack (docked on the right side of the main window) acts as an interactive **"Preset Chip"** (e.g. `▾ Rich Saw Bass`).
-*   Clicking this title pops open the [LibraryPicker.java](../../deluge/src/main/java/org/chuck/deluge/ui/LibraryPicker.java) JDialog.
+*   Clicking this title pops open the [LibraryPicker.java](../src/main/java/org/deluge/ui/LibraryPicker.java) JDialog.
 *   Provides two explicit, committing actions:
     *   **"Replace track"**: Swaps the preset of the currently active track in-place, preserving your clips, patterns, and track color, then hot-swaps the DSP parameters in the engine on the fly.
     *   **"Load as NEW"**: Loads the preset as a brand-new track, adds it to the project, and syncs the engine.
 
-### D. Directory Management ([PreferencesManager.java](../../deluge/src/main/java/org/chuck/deluge/project/PreferencesManager.java))
+### D. Directory Management ([PreferencesManager.java](../src/main/java/org/deluge/project/PreferencesManager.java))
 *   Automatically manages your Deluge library root. By default, it creates and scans a dedicated directory in your user home folder:
     $$\text{\textasciitilde/Deluge/SYNTHS/}$$
 

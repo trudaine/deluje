@@ -1,10 +1,5 @@
 package org.deluge.model;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 /** Represents a synthesizer track containing full synthesis and modulation parameters. */
 public class SynthTrackModel extends TrackModel {
 
@@ -24,9 +19,7 @@ public class SynthTrackModel extends TrackModel {
 
   private float oscMix = 0.5f;
   private float noiseVol = 0.0f;
-  private int unisonNum = 1;
-  private float unisonDetune = 0.0f;
-  private float unisonStereoSpread = 0.0f;
+  private final UnisonConfig unison = new UnisonConfig();
   private float waveIndex = 0.0f;
   private final int[] customLfoWave = new int[256];
 
@@ -54,45 +47,12 @@ public class SynthTrackModel extends TrackModel {
    * mapping (knob -&gt; getExp). Avoids the lossy Hz round-trip through {@link
    * org.deluge.xml.DelugeHexMapper#hexToLfoHz}. 0 = the firmware neutral rate (~1.25 Hz).
    */
-  private final int[] lfoRateKnobQ31 = {0, 0, 0, 0};
-
-  /**
-   * Raw Q31 param-knob overrides parsed from a song clip's {@code <soundParams>} (firmware2 Param
-   * id -&gt; raw value). The Deluge song format stores every sound param as a raw Q31 knob; for
-   * params where the float round-trip (hex-&gt;float-&gt;normToKnob) loses the firmware range —
-   * notably the filter resonance/morph/cutoff, whose minimum must be INT_MIN not the float-path's
-   * -2^29 — the factory applies these verbatim, mirroring the firmware's readParamsFromFile. Empty
-   * for preset-built tracks (those keep the float path).
-   */
-  private final Map<Integer, Integer> rawParamKnobs = new HashMap<>();
-
-  public void setRawParamKnob(int paramId, int q31) {
-    rawParamKnobs.put(paramId, q31);
-  }
-
-  public Map<Integer, Integer> getRawParamKnobs() {
-    return rawParamKnobs;
-  }
-
-  /**
-   * Raw stored envelope rate knobs (Q31) for the 4 envelopes, preserved for the firmware-faithful
-   * rate curves (attack: getExp; decay/release: releaseRateTable). {@code envKnobSet[i]} marks that
-   * a patch supplied raw knobs for envelope i; programmatic callers that only set times in seconds
-   * leave it false, so the factory falls back to the (also-faithful) increment = 190.2/time path.
-   */
-  private final int[] envAttackKnobQ31 = {0, 0, 0, 0};
-
-  private final int[] envDecayKnobQ31 = {0, 0, 0, 0};
-  private final int[] envSustainKnobQ31 = {0, 0, 0, 0};
-  private final int[] envReleaseKnobQ31 = {0, 0, 0, 0};
-  private final boolean[] envKnobSet = {false, false, false, false};
+  private final RawKnobConfig rawKnobs = new RawKnobConfig();
 
   private ArpModel arp = ArpModel.defaultConfig();
   private float portamento = 0.0f;
 
-  private final List<PatchCable> patchCables = new ArrayList<>();
-  private final List<ModKnob> modKnobs = new ArrayList<>(16);
-  private final List<MidiKnob> midiKnobs = new ArrayList<>();
+  private final ModulationConfig modulation = new ModulationConfig();
 
   // FX and EQ
   // Master volume, pan
@@ -100,7 +60,7 @@ public class SynthTrackModel extends TrackModel {
   private float pan = 0.0f;
 
   // Stutter, bitcrush, sample rate reduction
-  private float stutterRate = 0.0f;
+  private final StutterConfig stutter = new StutterConfig();
   private float sampleRateReduction = 0.0f;
   private float bitCrush = 0.0f;
 
@@ -211,9 +171,26 @@ public class SynthTrackModel extends TrackModel {
       // LFO 0 and 1 are local (per voice), 2 and 3 are global
       lfo[i] = LfoModel.defaultConfig(i < 2);
     }
-    for (int i = 0; i < 16; i++) {
-      modKnobs.add(ModKnob.empty());
-    }
+  }
+
+  public UnisonConfig getUnison() {
+    return unison;
+  }
+
+  public StutterConfig getStutter() {
+    return stutter;
+  }
+
+  public ModulationConfig getModulation() {
+    return modulation;
+  }
+
+  public RawKnobConfig getRawKnobs() {
+    return rawKnobs;
+  }
+
+  public KeyZoneConfig getKeyZones() {
+    return keyZones;
   }
 
   // Getters and Setters for all fields...
@@ -266,30 +243,6 @@ public class SynthTrackModel extends TrackModel {
 
   public void setNoiseVol(float noiseVol) {
     this.noiseVol = noiseVol;
-  }
-
-  public int getUnisonNum() {
-    return unisonNum;
-  }
-
-  public void setUnisonNum(int unisonNum) {
-    this.unisonNum = unisonNum;
-  }
-
-  public float getUnisonDetune() {
-    return unisonDetune;
-  }
-
-  public void setUnisonDetune(float unisonDetune) {
-    this.unisonDetune = unisonDetune;
-  }
-
-  public float getUnisonStereoSpread() {
-    return unisonStereoSpread;
-  }
-
-  public void setUnisonStereoSpread(float unisonStereoSpread) {
-    this.unisonStereoSpread = unisonStereoSpread;
   }
 
   public float getWaveIndex() {
@@ -572,51 +525,6 @@ public class SynthTrackModel extends TrackModel {
     lfo[index] = model;
   }
 
-  public int getLfoRateKnobQ31(int index) {
-    return lfoRateKnobQ31[index];
-  }
-
-  public void setLfoRateKnobQ31(int index, int v) {
-    lfoRateKnobQ31[index] = v;
-  }
-
-  public boolean isEnvKnobSet(int index) {
-    return envKnobSet[index];
-  }
-
-  public int getEnvAttackKnobQ31(int index) {
-    return envAttackKnobQ31[index];
-  }
-
-  public int getEnvDecayKnobQ31(int index) {
-    return envDecayKnobQ31[index];
-  }
-
-  public int getEnvSustainKnobQ31(int index) {
-    return envSustainKnobQ31[index];
-  }
-
-  public int getEnvReleaseKnobQ31(int index) {
-    return envReleaseKnobQ31[index];
-  }
-
-  /** Set the raw envelope rate knobs (Q31) for envelope {@code index}, marking it knob-driven. */
-  public void setEnvRateKnobsQ31(int index, int attack, int decay, int release) {
-    envAttackKnobQ31[index] = attack;
-    envDecayKnobQ31[index] = decay;
-    envSustainKnobQ31[index] = 0; // default/neutral sustain if not provided in this legacy path
-    envReleaseKnobQ31[index] = release;
-    envKnobSet[index] = true;
-  }
-
-  public void setEnvKnobsQ31(int index, int attack, int decay, int sustain, int release) {
-    envAttackKnobQ31[index] = attack;
-    envDecayKnobQ31[index] = decay;
-    envSustainKnobQ31[index] = sustain;
-    envReleaseKnobQ31[index] = release;
-    envKnobSet[index] = true;
-  }
-
   public ArpModel getArp() {
     return arp;
   }
@@ -631,34 +539,6 @@ public class SynthTrackModel extends TrackModel {
 
   public void setPortamento(float portamento) {
     this.portamento = portamento;
-  }
-
-  public List<PatchCable> getPatchCables() {
-    return patchCables;
-  }
-
-  public void addPatchCable(PatchCable cable) {
-    this.patchCables.add(cable);
-  }
-
-  public List<ModKnob> getModKnobs() {
-    return modKnobs;
-  }
-
-  public void setModKnob(int index, ModKnob knob) {
-    this.modKnobs.set(index, knob);
-  }
-
-  public List<MidiKnob> getMidiKnobs() {
-    return midiKnobs;
-  }
-
-  public void addMidiKnob(MidiKnob knob) {
-    this.midiKnobs.add(knob);
-  }
-
-  public void clearMidiKnobs() {
-    this.midiKnobs.clear();
   }
 
   public String getModFxType() {
@@ -791,14 +671,6 @@ public class SynthTrackModel extends TrackModel {
   @Override
   public void setPan(float v) {
     this.pan = v;
-  }
-
-  public float getStutterRate() {
-    return stutterRate;
-  }
-
-  public void setStutterRate(float v) {
-    this.stutterRate = v;
   }
 
   public float getSampleRateReduction() {
@@ -1208,30 +1080,6 @@ public class SynthTrackModel extends TrackModel {
     this.polyphony = polyphony;
   }
 
-  public boolean isStutterQuantized() {
-    return stutterQuantized;
-  }
-
-  public void setStutterQuantized(boolean v) {
-    this.stutterQuantized = v;
-  }
-
-  public boolean isStutterReversed() {
-    return stutterReversed;
-  }
-
-  public void setStutterReversed(boolean v) {
-    this.stutterReversed = v;
-  }
-
-  public boolean isStutterPingPong() {
-    return stutterPingPong;
-  }
-
-  public void setStutterPingPong(boolean v) {
-    this.stutterPingPong = v;
-  }
-
   /**
    * Copies all synthesis, oscillator, filter, LFO, envelope, and FX parameters from another model.
    */
@@ -1242,9 +1090,7 @@ public class SynthTrackModel extends TrackModel {
     this.osc2RawXml = other.osc2RawXml;
     this.oscMix = other.getOscMix();
     this.noiseVol = other.getNoiseVol();
-    this.unisonNum = other.getUnisonNum();
-    this.unisonDetune = other.getUnisonDetune();
-    this.unisonStereoSpread = other.getUnisonStereoSpread();
+    this.unison.copyFrom(other.getUnison());
     this.waveIndex = other.getWaveIndex();
     this.filter.copyFrom(other.getFilter());
 
@@ -1252,7 +1098,6 @@ public class SynthTrackModel extends TrackModel {
     for (int i = 0; i < 4; i++) {
       this.env[i] = other.getEnv(i);
       this.lfo[i] = other.getLfo(i);
-      this.lfoRateKnobQ31[i] = other.getLfoRateKnobQ31(i);
     }
 
     // FM
@@ -1269,19 +1114,15 @@ public class SynthTrackModel extends TrackModel {
     this.synthAlgorithm = other.getSynthAlgorithm();
     this.oscillatorSync = other.oscillatorSync;
 
-    // Patch cables & Mod knobs
-    this.patchCables.clear();
-    this.patchCables.addAll(other.getPatchCables());
-    for (int i = 0; i < 16; i++) {
-      this.modKnobs.set(i, other.getModKnobs().get(i));
-    }
-    this.midiKnobs.clear();
-    this.midiKnobs.addAll(other.getMidiKnobs());
+    // New configs
+    this.stutter.copyFrom(other.getStutter());
+    this.modulation.copyFrom(other.getModulation());
+    this.rawKnobs.copyFrom(other.getRawKnobs());
+    this.keyZones.copyFrom(other.getKeyZones());
 
     // FX
     this.volume = other.getVolume();
     this.pan = other.getPan();
-    this.stutterRate = other.getStutterRate();
     this.sampleRateReduction = other.getSampleRateReduction();
     this.bitCrush = other.getBitCrush();
     this.compressor.copyFrom(other.getCompressor());
@@ -1303,27 +1144,5 @@ public class SynthTrackModel extends TrackModel {
     }
   }
 
-  public static class KeyZone {
-    public String samplePath;
-    public int minPitch;
-    public int maxPitch;
-    public int minVelocity = 0;
-    public int maxVelocity = 127;
-    public int startSamplePos = 0;
-    public int endSamplePos = -1;
-    public int startLoopPos = -1;
-    public int endLoopPos = -1;
-    public boolean looping = false;
-  }
-
-  private final List<KeyZone> osc1Zones = new ArrayList<>();
-  private final List<KeyZone> osc2Zones = new ArrayList<>();
-
-  public List<KeyZone> getOsc1Zones() {
-    return osc1Zones;
-  }
-
-  public List<KeyZone> getOsc2Zones() {
-    return osc2Zones;
-  }
+  private final KeyZoneConfig keyZones = new KeyZoneConfig();
 }

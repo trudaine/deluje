@@ -2,6 +2,7 @@ package org.deluge.ui;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import javax.swing.JButton;
 import org.deluge.BridgeContract;
 import org.deluge.model.KitTrackModel;
 import org.deluge.model.ProjectModel;
@@ -499,9 +500,11 @@ public class SwingDelugeAppE2ETest {
       synthTrack.setDelaySend(0.0f);
       synthTrack.setDelayFeedbackQ31(0);
       synthTrack
+          .getRawKnobs()
           .getRawParamKnobs()
           .put(org.deluge.firmware2.Param.GLOBAL_DELAY_FEEDBACK, Integer.MIN_VALUE);
       synthTrack
+          .getRawKnobs()
           .getRawParamKnobs()
           .put(org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT, Integer.MIN_VALUE);
 
@@ -1220,6 +1223,128 @@ public class SwingDelugeAppE2ETest {
           57,
           step.pitch(),
           "Programmed note pitch must be exactly 57 (A3), NOT chromatic 58 (A#3)!");
+
+    } finally {
+      app.dispose();
+      bridge.shutdown();
+    }
+  }
+
+  @Test
+  public void testDrumKitScrollingAndStepTogglingRegression() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+
+    // 1. Setup VM and Bridge Contract
+    BridgeContract bridge = new BridgeContract(44100, 2);
+
+    // 2. Initialize App Frame
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null);
+
+    try {
+      ProjectModel project = app.getCurrentProject();
+      assertNotNull(project, "ProjectModel must be initialized on app boot");
+
+      // 3. Add a KIT track
+      app.getTopBarListener().onAddTrack("KIT", true);
+      int trackIdx = project.getTracks().size() - 1;
+      org.deluge.model.TrackModel track = project.getTracks().get(trackIdx);
+      assertTrue(track instanceof KitTrackModel, "New track must be a KitTrackModel");
+      KitTrackModel kitTrack = (KitTrackModel) track;
+
+      // 4. Add 8 more drums to make it 16 drums (scrollable)
+      for (int i = 9; i <= 16; i++) {
+        kitTrack.addDrum(new org.deluge.model.SoundDrum("Drum " + i, "sample" + i + ".wav"));
+      }
+      assertEquals(16, kitTrack.getDrums().size(), "Kit must now have 16 drums");
+
+      // 5. Select the kit track, switch to CLIP view, and sync the engine/bridge
+      app.getTopBarListener().onViewModeChanged("CLIP");
+      app.switchToTrackEdit(trackIdx, 0);
+      app.pushModelToBridge();
+      app.syncHighFidelityEngine(project);
+
+      // With 16 drums, the viewport (8 rows) shows:
+      // Row 0 (top): Drum 16 (index 15)
+      // Row 7 (bottom): Drum 9 (index 8)
+      JButton[][] pads = app.getClipPanel().getPads();
+      assertEquals(
+          "Drum 16",
+          pads[0][17].getText(),
+          "Top row audition pad must show Drum 16 when scrollOffset=0");
+      assertEquals(
+          "Drum 9",
+          pads[7][17].getText(),
+          "Bottom row audition pad must show Drum 9 when scrollOffset=0");
+
+      // 6. Scroll the viewport by 8 rows
+      app.getClipPanel().setScrollOffset(8);
+      app.getClipPanel().refresh();
+
+      // Now, scrollOffset is 8.
+      // The viewport (8 rows) shows:
+      // Row 0 (top): Drum 8 (index 7)
+      // Row 7 (bottom): Drum 1 (index 0)
+      assertEquals(
+          "Percussion",
+          pads[0][17].getText(),
+          "Top row audition pad must show Percussion when scrollOffset=8");
+      assertEquals(
+          "Kick",
+          pads[7][17].getText(),
+          "Bottom row audition pad must show Kick when scrollOffset=8");
+
+      // 7. Test step toggling on the scrolled view
+      // Click step pad at Row 7 (bottom row, which is Kick, index 0), Column 0
+      JButton stepPad = pads[7][0];
+
+      // Simulate mouse pressed and released to trigger the gesture coordinator
+      java.awt.event.MouseEvent mePress =
+          new java.awt.event.MouseEvent(
+              stepPad,
+              java.awt.event.MouseEvent.MOUSE_PRESSED,
+              System.currentTimeMillis(),
+              0,
+              10,
+              10,
+              1,
+              false,
+              java.awt.event.MouseEvent.BUTTON1);
+
+      java.awt.event.MouseEvent meRelease =
+          new java.awt.event.MouseEvent(
+              stepPad,
+              java.awt.event.MouseEvent.MOUSE_RELEASED,
+              System.currentTimeMillis(),
+              0,
+              10,
+              10,
+              1,
+              false,
+              java.awt.event.MouseEvent.BUTTON1);
+
+      for (java.awt.event.MouseListener ml : stepPad.getMouseListeners()) {
+        ml.mousePressed(mePress);
+        ml.mouseReleased(meRelease);
+      }
+
+      // Assert that the step is active in the bridge for Kick (index 0) at Column 0
+      int baseTrackId = app.getClipPanel().getBaseTrackId();
+      assertTrue(
+          bridge.getStep(baseTrackId + 0, 0), "Step in bridge must be active for Kick (index 0)");
+
+      // Assert that the step is active in the clip model
+      org.deluge.model.ClipModel clip =
+          kitTrack.getClips().get(app.getClipPanel().getActiveClipId());
+      assertTrue(
+          clip.getStep(0, 0).active(), "Step in clip model must be active for Kick (index 0)");
+
+      // 8. Simulate click again to toggle it OFF
+      for (java.awt.event.MouseListener ml : stepPad.getMouseListeners()) {
+        ml.mousePressed(mePress);
+        ml.mouseReleased(meRelease);
+      }
+      assertFalse(bridge.getStep(baseTrackId + 0, 0), "Step in bridge must be toggled OFF");
+      assertFalse(clip.getStep(0, 0).active(), "Step in clip model must be toggled OFF");
 
     } finally {
       app.dispose();

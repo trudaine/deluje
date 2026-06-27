@@ -21,7 +21,7 @@ public class FirmwareFactoryTest {
 
     org.deluge.model.PatchCable cable =
         new org.deluge.model.PatchCable("lfo1", "lpfFrequency", 1.0f);
-    synth.getPatchCables().add(cable);
+    synth.getModulation().getPatchCables().add(cable);
 
     ClipModel clip = new ClipModel("c", 8, 16);
     clip.setStep(0, 0, true); // Active step at row 0, step 0

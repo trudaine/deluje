@@ -27,7 +27,7 @@ graph TD
 Ableton Live Set (`.als`) files are standard XML documents compressed with the **Gzip** algorithm. The workstation will decompress and compress them on the fly using Java’s built-in stream wrappers:
 
 ```java
-package org.chuck.deluge.ableton;
+package org.deluge.ableton;
 
 import java.io.*;
 import java.util.zip.GZIPInputStream;

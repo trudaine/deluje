@@ -362,7 +362,7 @@ public class ProjectSerializer {
         if (synth.getOsc1RawXml() != null) {
           writer.write("\n");
           writer.write(synth.getOsc1RawXml());
-        } else if (!synth.getOsc1Zones().isEmpty()) {
+        } else if (!synth.getKeyZones().getOsc1Zones().isEmpty()) {
           writer.writeOpeningTagBeginning("osc1");
           writer.writeAttribute("type", "sample", false);
           writer.writeAttribute("transpose", String.valueOf(synth.getOsc1Transpose()), false);
@@ -373,7 +373,7 @@ public class ProjectSerializer {
           writer.writeOpeningTagBeginning("sampleRanges");
           writer.writeOpeningTagEnd();
 
-          for (org.deluge.model.SynthTrackModel.KeyZone kz : synth.getOsc1Zones()) {
+          for (org.deluge.model.KeyZone kz : synth.getKeyZones().getOsc1Zones()) {
             writer.writeOpeningTagBeginning("zone");
             if (kz.samplePath != null) {
               writer.writeAttribute("fileName", kz.samplePath, false);
@@ -412,7 +412,7 @@ public class ProjectSerializer {
         if (synth.getOsc2RawXml() != null) {
           writer.write("\n");
           writer.write(synth.getOsc2RawXml());
-        } else if (!synth.getOsc2Zones().isEmpty()) {
+        } else if (!synth.getKeyZones().getOsc2Zones().isEmpty()) {
           writer.writeOpeningTagBeginning("osc2");
           writer.writeAttribute("type", "sample", false);
           writer.writeAttribute("transpose", String.valueOf(synth.getOsc2Transpose()), false);
@@ -423,7 +423,7 @@ public class ProjectSerializer {
           writer.writeOpeningTagBeginning("sampleRanges");
           writer.writeOpeningTagEnd();
 
-          for (org.deluge.model.SynthTrackModel.KeyZone kz : synth.getOsc2Zones()) {
+          for (org.deluge.model.KeyZone kz : synth.getKeyZones().getOsc2Zones()) {
             writer.writeOpeningTagBeginning("zone");
             if (kz.samplePath != null) {
               writer.writeAttribute("fileName", kz.samplePath, false);
@@ -508,9 +508,10 @@ public class ProjectSerializer {
         // unison
         writer.writeOpeningTagBeginning("unison");
         writer.writeOpeningTagEnd();
-        writer.writeTag("num", String.valueOf(synth.getUnisonNum()));
-        writer.writeTag("detune", DelugeHexMapper.floatToHex(synth.getUnisonDetune()));
-        writer.writeTag("spread", DelugeHexMapper.floatToHex(synth.getUnisonStereoSpread()));
+        writer.writeTag("num", String.valueOf(synth.getUnison().getUnisonNum()));
+        writer.writeTag("detune", DelugeHexMapper.floatToHex(synth.getUnison().getUnisonDetune()));
+        writer.writeTag(
+            "spread", DelugeHexMapper.floatToHex(synth.getUnison().getUnisonStereoSpread()));
         writer.writeClosingTag("unison");
 
         // arpeggiator
@@ -718,7 +719,7 @@ public class ProjectSerializer {
         writeHexTagUnipolar(writer, "delayFeedback", 0f);
         writeHexTagUnipolar(writer, "reverbAmount", synth.getReverbSend());
         writeHexTagUnipolar(writer, "arpeggiatorRate", 0f);
-        writeHexTagUnipolar(writer, "stutterRate", synth.getStutterRate());
+        writeHexTagUnipolar(writer, "stutterRate", synth.getStutter().getStutterRate());
         writeHexTagUnipolar(writer, "sampleRateReduction", synth.getSampleRateReduction());
         writeHexTagUnipolar(writer, "bitCrush", synth.getBitCrush());
         writeHexTagUnipolar(writer, "waveIndex", synth.getWaveIndex());
@@ -742,9 +743,9 @@ public class ProjectSerializer {
         writeHexTag(writer, "lfo2Rate", synth.getLfo(1).rateHz() / 100.0f);
 
         // Patch cables
-        if (!synth.getPatchCables().isEmpty()) {
+        if (!synth.getModulation().getPatchCables().isEmpty()) {
           writer.writeArrayStart("patchCables");
-          for (PatchCable pc : synth.getPatchCables()) {
+          for (PatchCable pc : synth.getModulation().getPatchCables()) {
             writePatchCable(writer, pc);
           }
           writer.writeArrayEnding("patchCables");
@@ -754,13 +755,14 @@ public class ProjectSerializer {
         writeHexTag(writer, "modFXFeedback", synth.getModFxFeedback());
         writer.writeClosingTag("defaultParams");
 
-        serializeMidiKnobs(writer, synth.getMidiKnobs());
+        serializeMidiKnobs(writer, synth.getModulation().getMidiKnobs());
 
         // modKnobs
-        boolean hasKnobs = synth.getModKnobs().stream().anyMatch(k -> !"NONE".equals(k.param()));
+        boolean hasKnobs =
+            synth.getModulation().getModKnobs().stream().anyMatch(k -> !"NONE".equals(k.param()));
         if (hasKnobs) {
           writer.writeArrayStart("modKnobs");
-          for (ModKnob mk : synth.getModKnobs()) {
+          for (ModKnob mk : synth.getModulation().getModKnobs()) {
             if (!"NONE".equals(mk.param())) {
               writer.writeOpeningTagBeginning("modKnob");
               writer.writeOpeningTagEnd();
@@ -1301,7 +1303,7 @@ public class ProjectSerializer {
         "arpeggiatorRate", DelugeHexMapper.unipolarFloatToHexUnified(synth.getArpRate()), false);
 
     // Write any raw patched parameters (like sidechain shape)
-    for (var entry : synth.getRawParamKnobs().entrySet()) {
+    for (var entry : synth.getRawKnobs().getRawParamKnobs().entrySet()) {
       String attrName = null;
       if (entry.getKey() == org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE) {
         attrName = "sidechainCompressorShape";

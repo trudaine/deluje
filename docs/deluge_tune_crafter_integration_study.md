@@ -138,11 +138,11 @@ To support audio-to-MIDI transcription:
 
 We can implement this suite cleanly inside the `deluge` module using the following classes:
 
-### 6.1 `org.chuck.deluge.midi` (Midi Compiler Package)
+### 6.1 `org.deluge.midi` (Midi Compiler Package)
 *   `MidiToDelugeCompiler.java`: Main compiler class. Reads a MIDI file, performs the 48 PPQ scaling, groups notes by pitch, and encodes them into the 22-character hexadecimal format.
 *   `MidiTrackModel.java`: A lightweight model representing parsed MIDI tracks (name, channel, notes, length).
 
-### 6.2 `org.chuck.deluge.ui` (UI Components Package)
+### 6.2 `org.deluge.ui` (UI Components Package)
 *   `SwingMidiImportDialog.java`: The interactive wizard dialog showing track lists, preset mappings, color pickers, and pitch-splitting check boxes.
 *   `SwingAudioTranscribeDialog.java`: The background process runner dialog. Executes the Python transcriber, displays logs, and shows a real-time progress bar.
 

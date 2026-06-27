@@ -65,9 +65,9 @@ public class DroneLabGenerator {
       track.setOscMix(0.5f);
 
       // Massive Unison spread
-      track.setUnisonNum(4);
-      track.setUnisonDetune(22);
-      track.setUnisonStereoSpread(50); // Fully wide (limits clamped 0..50)
+      track.getUnison().setUnisonNum(4);
+      track.getUnison().setUnisonDetune(22);
+      track.getUnison().setUnisonStereoSpread(50); // Fully wide (limits clamped 0..50)
 
       // Tape-hiss analog noise
       track.setNoiseVol(0.08f);
@@ -97,9 +97,9 @@ public class DroneLabGenerator {
       track.setModulator2Cents(0);
 
       // Unison
-      track.setUnisonNum(2);
-      track.setUnisonDetune(12);
-      track.setUnisonStereoSpread(40);
+      track.getUnison().setUnisonNum(2);
+      track.getUnison().setUnisonDetune(12);
+      track.getUnison().setUnisonStereoSpread(40);
 
       // Warm 12dB LPF
       track.setFilterMode(FilterMode.LADDER_12);

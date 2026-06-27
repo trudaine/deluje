@@ -1,0 +1,31 @@
+name: Unit Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: JVM tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 27 (GraalVM)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '27-ea'
+          distribution: 'graalvm'
+          cache: maven
+          server-id: github
+
+      - name: Run JVM tests
+        run: mvn test -B
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

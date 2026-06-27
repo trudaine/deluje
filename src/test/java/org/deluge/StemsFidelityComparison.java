@@ -11,7 +11,11 @@ public class StemsFidelityComparison {
 
   public static void main(String[] args) {
     System.out.println("=== BATCh STEMS FIDELITY COMPARISON ===");
-    File dir = new File("/Users/ludo/Downloads/BillieJean_Stems_Analysis/");
+    String dirPath =
+        args.length > 0
+            ? args[0]
+            : System.getProperty("user.home") + "/Downloads/BillieJean_Stems_Analysis";
+    File dir = new File(dirPath);
     if (!dir.exists() || !dir.isDirectory()) {
       System.err.println("Stems directory not found: " + dir.getAbsolutePath());
       System.exit(1);
@@ -34,9 +38,7 @@ public class StemsFidelityComparison {
 
     System.out.println("Found " + renderedStems.size() + " rendered stems to analyze.");
 
-    File reportFile =
-        new File(
-            "/Users/ludo/.gemini/jetski/brain/18b9c88e-8cdd-4820-9df4-d9135fefc0f8/stems_fidelity_report.md");
+    File reportFile = new File("target/stems_fidelity_report.md");
     try (PrintWriter pw = new PrintWriter(new FileWriter(reportFile))) {
       pw.println("# 🎙️ Stem-by-Stem Audio Fidelity & Alignment Report");
       pw.println();
