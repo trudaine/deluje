@@ -213,4 +213,13 @@ public final class ScaleMapper {
     if (noteHue < 0) noteHue += 1.0f;
     return noteHue;
   }
+
+  /** Maps a MIDI pitch (0-127) to a human-readable note name (e.g. "C4", "D#5"). */
+  public static String getNoteName(int pitchMidi) {
+    if (pitchMidi < 0) return "---";
+    String[] names = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+    int noteIdx = pitchMidi % 12;
+    int octave = (pitchMidi / 12) - 1;
+    return names[noteIdx] + octave;
+  }
 }

@@ -237,4 +237,14 @@ class ScaleMapperTest {
     float hue = ScaleMapper.calculateNoteHue(127, 0.9f, 180);
     assertTrue(hue >= 0.0f && hue <= 1.0f);
   }
+
+  @Test
+  void testGetNoteName() {
+    assertEquals("C4", ScaleMapper.getNoteName(60));
+    assertEquals("C#4", ScaleMapper.getNoteName(61));
+    assertEquals("A4", ScaleMapper.getNoteName(69));
+    assertEquals("C-1", ScaleMapper.getNoteName(0));
+    assertEquals("G9", ScaleMapper.getNoteName(127));
+    assertEquals("---", ScaleMapper.getNoteName(-1));
+  }
 }

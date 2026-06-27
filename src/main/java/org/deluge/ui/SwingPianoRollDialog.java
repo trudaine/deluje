@@ -687,7 +687,7 @@ public class SwingPianoRollDialog extends JDialog {
             if (noteW > 35) {
               g2.setFont(new Font("SansSerif", Font.BOLD, 9));
               g2.setColor(Color.WHITE);
-              String label = getNoteName(127 - r);
+              String label = org.deluge.model.ScaleMapper.getNoteName(127 - r);
               g2.drawString(label, noteX + 6, noteY + noteH - 4);
             }
           }
@@ -911,10 +911,5 @@ public class SwingPianoRollDialog extends JDialog {
 
   private void fireProjectChanged() {
     gridPanel.fireProjectChanged();
-  }
-
-  private String getNoteName(int pitch) {
-    String[] names = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-    return names[pitch % 12] + (pitch / 12 - 1);
   }
 }

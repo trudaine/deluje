@@ -71,8 +71,6 @@ public final class GridScrollController {
 
     boolean isRefreshInProgress();
 
-    String getNoteName(int pitch);
-
     int getRowPitch(int row);
   }
 
@@ -464,10 +462,10 @@ public final class GridScrollController {
         highestModelRow = Math.max(0, Math.min(highestModelRow, voiceRowCount - 1));
 
         int lowPitch = context.getRowPitch(lowestModelRow);
-        String lowNote = context.getNoteName(lowPitch);
+        String lowNote = org.deluge.model.ScaleMapper.getNoteName(lowPitch);
 
         int highPitch = context.getRowPitch(highestModelRow);
-        String highNote = context.getNoteName(highPitch);
+        String highNote = org.deluge.model.ScaleMapper.getNoteName(highPitch);
 
         vertScrollBar.setToolTipText(
             "Scroll Pitches (Showing: " + lowNote + " to " + highNote + ")");

@@ -338,11 +338,6 @@ class GridScrollControllerTest {
     }
 
     @Override
-    public String getNoteName(int pitch) {
-      return "C4";
-    }
-
-    @Override
     public int getRowPitch(int row) {
       return 60;
     }
