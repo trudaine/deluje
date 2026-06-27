@@ -408,6 +408,10 @@ public class FirmwareFactory {
   }
 
   private static void mapModelToSound(SynthTrackModel model, FirmwareSound sound) {
+    // Initialize paramKnobs with the static defaults first, so any unset params have their
+    // defaults.
+    System.arraycopy(sound.paramNeutralValues, 0, sound.paramKnobs, 0, Param.kNumParams);
+
     // Per-sound voice cap (C: sound.h:116, default 8). The model clamps to [1,16] and reads the
     // XML "maxVoices" attribute; propagate it so dense playing steals voices instead of stacking
     // 64.
@@ -462,16 +466,16 @@ public class FirmwareFactory {
       // readParam of modulator1Amount/modulator2Amount/feedbacks; default INT_MIN = off from
       // initParams, sound.cpp:159-162). Without this the fw2 modulator volume stays INT_MIN →
       // paramFinal 0 → no modulation → FM patches play a plain sine.
-      sound.paramNeutralValues[Param.LOCAL_MODULATOR_0_VOLUME] = model.getModulator1AmountQ31();
-      sound.paramNeutralValues[Param.LOCAL_MODULATOR_1_VOLUME] = model.getModulator2AmountQ31();
-      sound.paramNeutralValues[Param.LOCAL_MODULATOR_0_FEEDBACK] = model.getModulator1FeedbackQ31();
-      sound.paramNeutralValues[Param.LOCAL_MODULATOR_1_FEEDBACK] = model.getModulator2FeedbackQ31();
-      sound.paramNeutralValues[Param.LOCAL_CARRIER_0_FEEDBACK] = model.getCarrier1FeedbackQ31();
-      sound.paramNeutralValues[Param.LOCAL_CARRIER_1_FEEDBACK] = model.getCarrier2FeedbackQ31();
+      sound.paramKnobs[Param.LOCAL_MODULATOR_0_VOLUME] = model.getModulator1AmountQ31();
+      sound.paramKnobs[Param.LOCAL_MODULATOR_1_VOLUME] = model.getModulator2AmountQ31();
+      sound.paramKnobs[Param.LOCAL_MODULATOR_0_FEEDBACK] = model.getModulator1FeedbackQ31();
+      sound.paramKnobs[Param.LOCAL_MODULATOR_1_FEEDBACK] = model.getModulator2FeedbackQ31();
+      sound.paramKnobs[Param.LOCAL_CARRIER_0_FEEDBACK] = model.getCarrier1FeedbackQ31();
+      sound.paramKnobs[Param.LOCAL_CARRIER_1_FEEDBACK] = model.getCarrier2FeedbackQ31();
       // Modulator 1 & 2 Pitch Adjusts (LOCAL_MODULATOR_0/1_PITCH_ADJUST)
-      sound.paramNeutralValues[Param.LOCAL_MODULATOR_0_PITCH_ADJUST] =
+      sound.paramKnobs[Param.LOCAL_MODULATOR_0_PITCH_ADJUST] =
           (model.getModulator1Transpose() * 100 + model.getModulator1Cents()) * 178956;
-      sound.paramNeutralValues[Param.LOCAL_MODULATOR_1_PITCH_ADJUST] =
+      sound.paramKnobs[Param.LOCAL_MODULATOR_1_PITCH_ADJUST] =
           (model.getModulator2Transpose() * 100 + model.getModulator2Cents()) * 178956;
       // Modulator chaining
       sound.fmModulator1ToModulator0 = model.isModulator1ToModulator0();
@@ -480,10 +484,10 @@ public class FirmwareFactory {
     // Oscillator pulse/phase width (C LOCAL_OSC_A/B_PHASE_WIDTH; Voice.java:922 → renderPulseWave).
     // Verified end-to-end: duty tracks the value (SquarePwmRenderTest). Apply only when specified.
     if (model.getOsc1PhaseWidthQ31() != Integer.MIN_VALUE) {
-      sound.paramNeutralValues[Param.LOCAL_OSC_A_PHASE_WIDTH] = model.getOsc1PhaseWidthQ31();
+      sound.paramKnobs[Param.LOCAL_OSC_A_PHASE_WIDTH] = model.getOsc1PhaseWidthQ31();
     }
     if (model.getOsc2PhaseWidthQ31() != Integer.MIN_VALUE) {
-      sound.paramNeutralValues[Param.LOCAL_OSC_B_PHASE_WIDTH] = model.getOsc2PhaseWidthQ31();
+      sound.paramKnobs[Param.LOCAL_OSC_B_PHASE_WIDTH] = model.getOsc2PhaseWidthQ31();
     }
 
     // Overall voice pitch adjust (C LOCAL_PITCH_ADJUST; Voice.java:412). Apply only when specified.
@@ -491,22 +495,20 @@ public class FirmwareFactory {
     // PitchAdjustParamTest that setting them through this path does not reach the single-osc render
     // path, so they remain KNOWN_GAPS pending an engine-path fix (don't claim a false fix).
     if (model.getPitchAdjustQ31() != Integer.MIN_VALUE) {
-      sound.paramNeutralValues[Param.LOCAL_PITCH_ADJUST] = model.getPitchAdjustQ31();
+      sound.paramKnobs[Param.LOCAL_PITCH_ADJUST] = model.getPitchAdjustQ31();
     }
 
     // Volume/Pan
-    sound.paramNeutralValues[Param.LOCAL_VOLUME] = normToBipolarParamVolume(model.getVolume());
+    sound.paramKnobs[Param.LOCAL_VOLUME] = normToBipolarParamVolume(model.getVolume());
     // LOCAL_PAN is BIPOLAR (0 = centre, ±2^30 = hard L/R), matching the firmware shouldDoPanning
     // input.
-    sound.paramNeutralValues[Param.LOCAL_PAN] =
+    sound.paramKnobs[Param.LOCAL_PAN] =
         (int) (Math.max(-1.0, Math.min(1.0, model.getPan())) * 1073741824.0);
 
     // Oscillator & Noise Volumes. In FM mode these are the carrier amplitudes (the modulator depth
     // is carried separately in sound.fmModulatorAmount, no longer smuggled through OSC_B_VOLUME).
-    sound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] =
-        normToBipolarParamVolume(model.getOscAVolume());
-    sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] =
-        normToBipolarParamVolume(model.getOscBVolume());
+    sound.paramKnobs[Param.LOCAL_OSC_A_VOLUME] = normToBipolarParamVolume(model.getOscAVolume());
+    sound.paramKnobs[Param.LOCAL_OSC_B_VOLUME] = normToBipolarParamVolume(model.getOscBVolume());
     // Osc 2 "NONE"/off must silence osc B. The C has no NONE osc type — osc 2 is turned off by its
     // volume param being MIN_VALUE (isSourceActiveCurrently). stringToOscType maps "NONE"→SINE, so
     // without this a phantom SINE renders (audible whenever oscs differ in pitch).
@@ -515,22 +517,21 @@ public class FirmwareFactory {
         || osc2t.isBlank()
         || osc2t.equalsIgnoreCase("none")
         || osc2t.equalsIgnoreCase("off")) {
-      sound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+      sound.paramKnobs[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
     }
-    sound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] =
-        normToBipolarParamVolume(model.getNoiseVol());
+    sound.paramKnobs[Param.LOCAL_NOISE_VOLUME] = normToBipolarParamVolume(model.getNoiseVol());
     if (model.getOsc1PitchAdjustQ31() != Integer.MIN_VALUE) {
-      sound.paramNeutralValues[Param.LOCAL_OSC_A_PITCH_ADJUST] = model.getOsc1PitchAdjustQ31();
+      sound.paramKnobs[Param.LOCAL_OSC_A_PITCH_ADJUST] = model.getOsc1PitchAdjustQ31();
     } else {
-      sound.paramNeutralValues[Param.LOCAL_OSC_A_PITCH_ADJUST] = 0;
+      sound.paramKnobs[Param.LOCAL_OSC_A_PITCH_ADJUST] = 0;
     }
     // oscBPitch (the automatable fine param, raw-Q31 path) only; coarse osc-2 transpose + cents are
     // applied faithfully via sources[s].transpose / fineTuner below (C voice.cpp:439-442/505) — the
     // old (transpose*100+cents)*178956 routing through this param was mis-scaled and is removed.
     if (model.getOsc2PitchAdjustQ31() != Integer.MIN_VALUE) {
-      sound.paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] = model.getOsc2PitchAdjustQ31();
+      sound.paramKnobs[Param.LOCAL_OSC_B_PITCH_ADJUST] = model.getOsc2PitchAdjustQ31();
     } else {
-      sound.paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] = 0;
+      sound.paramKnobs[Param.LOCAL_OSC_B_PITCH_ADJUST] = 0;
     }
     // Sound-level master transpose (C sound.transpose, voice.cpp:419) — applies to all sources.
     sound.fw2Sound.masterTranspose = model.getTranspose();
@@ -546,12 +547,12 @@ public class FirmwareFactory {
     // value by inverting hexToHz (bijective), then run the firmware param path:
     // getFinalParameterValueExp(neutral, combineCablesExp(knob, paramRange)). LPF: neutral 2000000,
     // range 536870912*1.4; HPF: neutral 2672947, range 1073741824.
-    sound.paramNeutralValues[Param.LOCAL_LPF_FREQ] = cutoffKnobFromHz(model.getLpfFreq());
-    sound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = normToLinearParamKnob(model.getLpfRes());
-    sound.paramNeutralValues[Param.LOCAL_LPF_MORPH] = normToLinearParamKnob(model.getLpfMorph());
-    sound.paramNeutralValues[Param.LOCAL_HPF_FREQ] = cutoffKnobFromHz(model.getHpfFreq());
-    sound.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = normToLinearParamKnob(model.getHpfRes());
-    sound.paramNeutralValues[Param.LOCAL_HPF_MORPH] = normToLinearParamKnob(model.getHpfMorph());
+    sound.paramKnobs[Param.LOCAL_LPF_FREQ] = cutoffKnobFromHz(model.getLpfFreq());
+    sound.paramKnobs[Param.LOCAL_LPF_RESONANCE] = normToLinearParamKnob(model.getLpfRes());
+    sound.paramKnobs[Param.LOCAL_LPF_MORPH] = normToLinearParamKnob(model.getLpfMorph());
+    sound.paramKnobs[Param.LOCAL_HPF_FREQ] = cutoffKnobFromHz(model.getHpfFreq());
+    sound.paramKnobs[Param.LOCAL_HPF_RESONANCE] = normToLinearParamKnob(model.getHpfRes());
+    sound.paramKnobs[Param.LOCAL_HPF_MORPH] = normToLinearParamKnob(model.getHpfMorph());
 
     sound.setLpfMode(model.getFilterMode());
     sound.setHpfMode(model.getHpfMode());
@@ -560,32 +561,27 @@ public class FirmwareFactory {
     // Copy Custom LFO Waveform
     System.arraycopy(model.getCustomLfoWave(), 0, sound.fw2Sound.customLfoWave, 0, 256);
 
-    // Populating unpatched FX parameter defaults/neutrals in paramNeutralValues.
-    // These will be copied to paramKnobs and overlaid with rawParamKnobs overrides
-    // (from XML) later in this method.
-    sound.paramNeutralValues[Param.GLOBAL_MOD_FX_RATE] = lfoRateKnobFromHz(model.getModFxRate());
-    sound.paramNeutralValues[Param.GLOBAL_MOD_FX_DEPTH] =
-        normToLinearParamKnob(model.getModFxDepth());
-    sound.paramNeutralValues[Param.UNPATCHED_MOD_FX_OFFSET] =
-        normToLinearParamKnob(model.getModFxOffset());
-    sound.paramNeutralValues[Param.UNPATCHED_MOD_FX_FEEDBACK] =
+    // Populating unpatched FX parameter defaults/neutrals in paramKnobs.
+    // These will be overlaid with rawParamKnobs overrides (from XML) later in this method.
+    sound.paramKnobs[Param.GLOBAL_MOD_FX_RATE] = lfoRateKnobFromHz(model.getModFxRate());
+    sound.paramKnobs[Param.GLOBAL_MOD_FX_DEPTH] = normToLinearParamKnob(model.getModFxDepth());
+    sound.paramKnobs[Param.UNPATCHED_MOD_FX_OFFSET] = normToLinearParamKnob(model.getModFxOffset());
+    sound.paramKnobs[Param.UNPATCHED_MOD_FX_FEEDBACK] =
         normToLinearParamKnob(model.getModFxFeedback());
-    sound.paramNeutralValues[Param.GLOBAL_DELAY_RATE] = lfoRateKnobFromHz(model.getDelaySend());
-    sound.paramNeutralValues[Param.GLOBAL_DELAY_FEEDBACK] = model.getDelayFeedbackQ31();
-    sound.paramNeutralValues[Param.GLOBAL_REVERB_AMOUNT] =
-        normToBipolarParamVolume(model.getReverbSend());
-    sound.paramNeutralValues[Param.UNPATCHED_STUTTER_RATE] =
-        normToLinearParamKnob(model.getStutterRate());
-    sound.paramNeutralValues[Param.UNPATCHED_SAMPLE_RATE_REDUCTION] =
+    sound.paramKnobs[Param.GLOBAL_DELAY_RATE] = lfoRateKnobFromHz(model.getDelaySend());
+    sound.paramKnobs[Param.GLOBAL_DELAY_FEEDBACK] = model.getDelayFeedbackQ31();
+    sound.paramKnobs[Param.GLOBAL_REVERB_AMOUNT] = normToBipolarParamVolume(model.getReverbSend());
+    sound.paramKnobs[Param.UNPATCHED_STUTTER_RATE] = normToLinearParamKnob(model.getStutterRate());
+    sound.paramKnobs[Param.UNPATCHED_SAMPLE_RATE_REDUCTION] =
         normToBipolarParam(model.getSampleRateReduction());
-    sound.paramNeutralValues[Param.UNPATCHED_BITCRUSHING] = normToBipolarParam(model.getBitCrush());
-    sound.paramNeutralValues[Param.UNPATCHED_BASS] = dbToBipolarParam(model.getEqBass());
-    sound.paramNeutralValues[Param.UNPATCHED_TREBLE] = dbToBipolarParam(model.getEqTreble());
-    sound.paramNeutralValues[Param.UNPATCHED_BASS_FREQ] = 0; // default/flat
-    sound.paramNeutralValues[Param.UNPATCHED_TREBLE_FREQ] = 0; // default/flat
-    sound.paramNeutralValues[Param.UNPATCHED_SIDECHAIN_SHAPE] =
+    sound.paramKnobs[Param.UNPATCHED_BITCRUSHING] = normToBipolarParam(model.getBitCrush());
+    sound.paramKnobs[Param.UNPATCHED_BASS] = dbToBipolarParam(model.getEqBass());
+    sound.paramKnobs[Param.UNPATCHED_TREBLE] = dbToBipolarParam(model.getEqTreble());
+    sound.paramKnobs[Param.UNPATCHED_BASS_FREQ] = 0; // default/flat
+    sound.paramKnobs[Param.UNPATCHED_TREBLE_FREQ] = 0; // default/flat
+    sound.paramKnobs[Param.UNPATCHED_SIDECHAIN_SHAPE] =
         normToLinearParamKnob(model.getCompressorShape());
-    sound.paramNeutralValues[Param.UNPATCHED_SIDECHAIN_VOLUME] = 0; // default/flat
+    sound.paramKnobs[Param.UNPATCHED_SIDECHAIN_VOLUME] = 0; // default/flat
 
     // Delay static configuration
     sound.delaySyncLevel = model.getDelaySyncLevel();
@@ -623,11 +619,11 @@ public class FirmwareFactory {
 
     // Wave Index parameters (mapped to unipolar Q31)
     int waveIndexQ31 = (int) Math.round((double) clamp01(model.getWaveIndex()) * 2147483647.0);
-    sound.paramNeutralValues[Param.LOCAL_OSC_A_WAVE_INDEX] = waveIndexQ31;
-    sound.paramNeutralValues[Param.LOCAL_OSC_B_WAVE_INDEX] = waveIndexQ31;
+    sound.paramKnobs[Param.LOCAL_OSC_A_WAVE_INDEX] = waveIndexQ31;
+    sound.paramKnobs[Param.LOCAL_OSC_B_WAVE_INDEX] = waveIndexQ31;
 
     // Wavefolder knob (raw Q31 like the C readParam of "waveFold" → LOCAL_FOLD; INT_MIN = off).
-    sound.paramNeutralValues[Param.LOCAL_FOLD] = model.getWaveFoldQ31();
+    sound.paramKnobs[Param.LOCAL_FOLD] = model.getWaveFoldQ31();
 
     // Saturation/clipping amount (C clippingAmount; 0 = off).
     sound.fw2Sound.clippingAmount = model.getClippingAmount();
@@ -694,10 +690,10 @@ public class FirmwareFactory {
         releaseKnob = (int) Math.rint(normRelease * 2147483647.0);
       }
 
-      sound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK + i] = attackKnob;
-      sound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY + i] = decayKnob;
-      sound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN + i] = sustainKnob;
-      sound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE + i] = releaseKnob;
+      sound.paramKnobs[Param.LOCAL_ENV_0_ATTACK + i] = attackKnob;
+      sound.paramKnobs[Param.LOCAL_ENV_0_DECAY + i] = decayKnob;
+      sound.paramKnobs[Param.LOCAL_ENV_0_SUSTAIN + i] = sustainKnob;
+      sound.paramKnobs[Param.LOCAL_ENV_0_RELEASE + i] = releaseKnob;
     }
 
     // C sound.cpp:616-626: numUnison clamped 0..kMaxNumVoicesUnison(8), detune 0..50, spread
@@ -717,8 +713,7 @@ public class FirmwareFactory {
     sound.sidechain.release = sidechainReleaseVal;
     sound.sidechain.syncLevel = Math.max(0, Math.min(model.getSidechainSyncLevel(), 8));
     sound.sidechain.syncType = Math.max(0, Math.min(model.getSidechainSyncType(), 2));
-    sound.paramNeutralValues[org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE] =
-        0; // default shape
+    sound.paramKnobs[org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE] = 0; // default shape
     try {
       sound.fw2Sound.polyphonic =
           org.deluge.firmware2.Sound.PolyphonyMode.valueOf(model.getPolyphony().name());
@@ -748,15 +743,13 @@ public class FirmwareFactory {
           // (getExp(121739, combineExp(knob, 2^30))) per block. Pre-curving here DOUBLE-curved
           // the rate (found via hardware comparison: knob 0x1999997E → hardware 3.79 Hz, our
           // render ~1 Hz because the curved phase increment was curved again).
-          sound.paramNeutralValues[paramId] = model.getLfoRateKnobQ31(i);
+          sound.paramKnobs[paramId] = model.getLfoRateKnobQ31(i);
         }
       }
     }
 
-    // Populate firmware2 raw knobs: copy all paramNeutralValues (which are raw bipolar
-    // knobs for most params set by normToBipolarParam/Volume and cutoffKnobFromHz),
-    // then fix envelope params to use the raw knobs (paramNeutralValues stores curve outputs).
-    System.arraycopy(sound.paramNeutralValues, 0, sound.paramKnobs, 0, Param.kNumParams);
+    // Populate firmware2 raw knobs: envelope rates are already written directly to paramKnobs.
+    // The previous redundant arraycopy is removed.
     for (int i = 0; i < 4; i++) {
       if (model.isEnvKnobSet(i)) {
         sound.paramKnobs[Param.LOCAL_ENV_0_ATTACK + i] = model.getEnvAttackKnobQ31(i);
@@ -771,7 +764,6 @@ public class FirmwareFactory {
     // e.g. filter resonance/morph/cutoff). See SynthTrackModel.rawParamKnobs.
     for (var e : model.getRawParamKnobs().entrySet()) {
       int pid = e.getKey();
-      sound.paramNeutralValues[pid] = e.getValue();
       sound.paramKnobs[pid] = e.getValue();
     }
 

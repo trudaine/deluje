@@ -40,19 +40,19 @@ public class LiveApplyTest {
   void editedParamsReachTheLiveSound() {
     SynthTrackModel m = model();
     FirmwareSound sound = build(m);
-    int lpfBefore = sound.paramNeutralValues[Param.LOCAL_LPF_FREQ];
+    int lpfBefore = sound.paramKnobs[Param.LOCAL_LPF_FREQ];
 
     m.setLpfFreq(400f); // dialog edit: close the filter
     m.setVolume(0.9f);
     FirmwareFactory.applyModelToLiveSound(m, sound);
 
     assertTrue(
-        sound.paramNeutralValues[Param.LOCAL_LPF_FREQ] < lpfBefore,
+        sound.paramKnobs[Param.LOCAL_LPF_FREQ] < lpfBefore,
         "LPF knob should drop after closing the cutoff");
     // And the per-block fw2 sync forwards it (this is what the audio thread runs every block).
     sound.syncParamsToFw2();
     assertEquals(
-        sound.paramNeutralValues[Param.LOCAL_LPF_FREQ],
+        sound.paramKnobs[Param.LOCAL_LPF_FREQ],
         sound.fw2Sound.patchedParamValues[org.deluge.firmware2.Param.LOCAL_LPF_FREQ]);
   }
 
