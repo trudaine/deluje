@@ -9325,11 +9325,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   }
 
   public String getNoteName(int pitchMidi) {
-    if (pitchMidi < 0) return "---";
-    String[] names = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
-    int noteIdx = pitchMidi % 12;
-    int octave = (pitchMidi / 12) - 1;
-    return names[noteIdx] + octave;
+    return ScaleMapper.getNoteName(pitchMidi);
   }
 
   private Color getTrackBaseColor() {
