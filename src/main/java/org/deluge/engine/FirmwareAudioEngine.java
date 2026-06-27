@@ -167,8 +167,6 @@ public class FirmwareAudioEngine {
     float volFloat = project.getSongParamVolume();
     float bipolar = (volFloat * 2.0f) - 1.0f;
     this.songVolume = (int) (bipolar * 2147483647.0f);
-    System.out.printf("[DIAG Engine] syncMasterEffects: volFloat=%.6f, bipolar=%.6f, songVolume=%d (0x%08X)\n",
-        volFloat, bipolar, this.songVolume, this.songVolume);
   }
 
   private long[] summedFlatBufferLong = new long[256];

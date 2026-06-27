@@ -445,16 +445,13 @@ public class ClipModel extends TimelineCounter {
           StepData step = getStep(r, s);
           if (step.active() && step.pitch() > 0) {
             pitch = step.pitch();
-            System.out.println("  Row " + r + " step " + s + " has pitch " + pitch);
             break;
           }
         }
       }
-      System.out.println("  Row " + r + " resolved pitch before fallback: " + pitch);
       if (pitch < 0) {
         pitch = isKit ? r : (rowCount - 1 - r);
       }
-      System.out.println("  Row " + r + " final pitch: " + pitch);
       NoteRowModel row = getOrCreateRow(r);
       row.setPitch(pitch);
 
@@ -712,7 +709,6 @@ public class ClipModel extends TimelineCounter {
       ((org.deluge.engine.FirmwareSound) sound)
           .triggerNote(noteOn.noteRow.getPitch(), noteOn.velocity);
     } else if (sound instanceof org.deluge.engine.FirmwareKit) {
-      System.out.println("DEBUG TRIGGERDRUM: pitch=" + noteOn.noteRow.getPitch() + " vel=" + noteOn.velocity + " rowHash=" + Integer.toHexString(noteOn.noteRow.hashCode()));
       ((org.deluge.engine.FirmwareKit) sound)
           .triggerDrum(noteOn.noteRow.getPitch(), noteOn.velocity);
     } else if (sound instanceof org.deluge.engine.FirmwareMidiInstrument) {
