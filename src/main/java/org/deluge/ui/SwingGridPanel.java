@@ -5,6 +5,7 @@ import java.util.logging.Logger;
 import javax.swing.*;
 import org.deluge.BridgeContract;
 import org.deluge.model.Consequence;
+import org.deluge.model.ScaleMapper;
 import org.deluge.model.SongSection;
 
 /** Unified 18x8 Grid Panel handling both sequence matrix and clip launch arrangements. */
@@ -122,12 +123,7 @@ public class SwingGridPanel extends JPanel {
       isSynth = t instanceof org.deluge.model.SynthTrackModel;
     }
     if (isSynth && viewMode == GridViewMode.CLIP) {
-      if (foldMode && !foldedPitches.isEmpty()) {
-        if (modelRow >= 0 && modelRow < foldedPitches.size()) {
-          return foldedPitches.get(modelRow);
-        }
-      }
-      return scaleModeEnabled ? getDiatonicPitch(modelRow) : getChromaticPitch(modelRow);
+      return ScaleMapper.getRowPitch(modelRow, true, scaleModeEnabled, foldMode, foldedPitches);
     }
     return 60; // fallback
   }
@@ -176,15 +172,7 @@ public class SwingGridPanel extends JPanel {
       isSynth = t instanceof org.deluge.model.SynthTrackModel;
     }
     if (isSynth && viewMode == GridViewMode.CLIP) {
-      if (foldMode && !foldedPitches.isEmpty()) {
-        for (int i = 0; i < foldedPitches.size(); i++) {
-          if (foldedPitches.get(i) == pitch) return i;
-        }
-        return -1;
-      }
-      for (int r = 0; r < 128; r++) {
-        if (getRowPitch(r) == pitch) return r;
-      }
+      return ScaleMapper.getRowFromPitch(pitch, true, scaleModeEnabled, foldMode, foldedPitches);
     }
     return 127 - pitch;
   }
@@ -250,26 +238,9 @@ public class SwingGridPanel extends JPanel {
     if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return;
     org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
     if (!(t instanceof org.deluge.model.SynthTrackModel synthTrack)) return;
-    java.util.Set<Integer> pitchSet = new java.util.TreeSet<>();
     if (activeClipId >= 0 && activeClipId < synthTrack.getClips().size()) {
       org.deluge.model.ClipModel clip = synthTrack.getClips().get(activeClipId);
-      for (int r = 0; r < clip.getRowCount(); r++) {
-        int yNote = clip.getRowYNote(r);
-        boolean hasNotes = false;
-        for (int s = 0; s < clip.getStepCount(); s++) {
-          org.deluge.model.StepData step = clip.getStep(r, s);
-          if (step != null && step.active()) {
-            hasNotes = true;
-            break;
-          }
-        }
-        if (hasNotes && yNote >= 0 && yNote < 128) {
-          pitchSet.add(yNote);
-        }
-      }
-    }
-    for (int pitch : pitchSet) {
-      foldedPitches.add(0, pitch);
+      foldedPitches.addAll(ScaleMapper.calculateFoldedPitches(clip));
     }
   }
 
@@ -1015,7 +986,7 @@ public class SwingGridPanel extends JPanel {
     }
     if (isSynth && viewMode == GridViewMode.CLIP && !scaleModeEnabled) {
       int pitch = getRowPitch(modelRow);
-      if (isAccidental(pitch)) {
+      if (ScaleMapper.isAccidental(pitch)) {
         return Color.BLACK; // Accidental rows are completely black/unlit!
       }
     }
@@ -2029,25 +2000,6 @@ public class SwingGridPanel extends JPanel {
             return null;
           }
         });
-  }
-
-  public static int getDiatonicPitch(int modelRow) {
-    int baseDegree = 28; // C4
-    int degree = baseDegree + (67 - modelRow);
-    int octave = Math.floorDiv(degree, 7);
-    int rem = Math.floorMod(degree, 7);
-    int[] majorScaleOffsets = new int[] {0, 2, 4, 5, 7, 9, 11};
-    int pitch = ((octave + 1) * 12) + majorScaleOffsets[rem];
-    return Math.max(0, Math.min(pitch, 127));
-  }
-
-  public static int getChromaticPitch(int modelRow) {
-    return Math.max(0, Math.min(127, 60 + (67 - modelRow)));
-  }
-
-  public static boolean isAccidental(int pitch) {
-    int rem = Math.floorMod(pitch, 12);
-    return rem == 1 || rem == 3 || rem == 6 || rem == 8 || rem == 10; // C#, D#, F#, G#, A#
   }
 
   private JPopupMenu createMutePopupMenu(int rowToSolo) {
