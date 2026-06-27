@@ -35,7 +35,11 @@ public class AudioOutputPlaybackTest {
     engine.sounds.clear();
     for (var clip : song.getClips()) {
       if (clip instanceof ClipModel ic && ic.getSound() != null) {
-        engine.sounds.add((org.deluge.firmware2.GlobalEffectable) ic.getSound());
+        var sound = (org.deluge.firmware2.GlobalEffectable) ic.getSound();
+        if (sound instanceof org.deluge.firmware2.AudioOutput ao) {
+          ao.setAmplitude(1 << 20); // Turn down amplitude to prevent clipping under 128x master boost
+        }
+        engine.sounds.add(sound);
       }
     }
     PlaybackHandler handler = new PlaybackHandler();
@@ -229,7 +233,11 @@ public class AudioOutputPlaybackTest {
     int sounds = 0;
     for (var clip : song.getClips()) {
       if (clip instanceof ClipModel ic && ic.getSound() != null) {
-        engine.sounds.add((org.deluge.firmware2.GlobalEffectable) ic.getSound());
+        var sound = (org.deluge.firmware2.GlobalEffectable) ic.getSound();
+        if (sound instanceof org.deluge.firmware2.AudioOutput ao) {
+          ao.setAmplitude(1 << 20); // Turn down amplitude to prevent clipping under 128x master boost
+        }
+        engine.sounds.add(sound);
         sounds++;
       }
     }

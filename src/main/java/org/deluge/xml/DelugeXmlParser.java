@@ -170,7 +170,10 @@ public class DelugeXmlParser {
       if (children.getLength() > 0) eSec = children.item(0).getTextContent();
     }
 
-    if (!es.isEmpty()) sound.setEndSamplePos(Integer.parseInt(es));
+    if (!es.isEmpty()) {
+      System.out.println("PARSER: Drum " + sound.getName() + " zone endSamplePos string: \"" + es + "\" parsed: " + Integer.parseInt(es));
+      sound.setEndSamplePos(Integer.parseInt(es));
+    }
     if (!ss.isEmpty()) sound.setStartSamplePos(Integer.parseInt(ss));
     // Firmware: seconds * 1000 -> milliseconds, same as startMilliseconds/endMilliseconds
     if (!eSec.isEmpty()) sound.setEndMs(Float.parseFloat(eSec) * 1000.0f);
@@ -804,6 +807,7 @@ public class DelugeXmlParser {
         if (dataStepCount > stepCount) stepCount = dataStepCount;
 
         ClipModel clip = new ClipModel("SESSION_CLIP " + i, rowCount, stepCount);
+        clip.setIsKit(isKitClip);
         if (clipElem.hasAttribute("clipName")) {
           clip.setName(clipElem.getAttribute("clipName"));
         }
@@ -1408,10 +1412,10 @@ public class DelugeXmlParser {
         }
       }
       // retrigPhase as child element (firmware XML format)
-      NodeList rpNodes = osc1.getElementsByTagName("retrigPhase");
-      if (rpNodes.getLength() > 0) {
+      String rpStr = attrOrChildText(osc1, "retrigPhase");
+      if (rpStr != null && !rpStr.isBlank()) {
         try {
-          synth.setOsc1RetrigPhase((int) Long.parseLong(rpNodes.item(0).getTextContent().trim()));
+          synth.setOsc1RetrigPhase((int) Long.parseLong(rpStr.trim()));
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
@@ -1491,10 +1495,10 @@ public class DelugeXmlParser {
     NodeList osc2List = soundNode.getElementsByTagName("osc2");
     if (osc2List.getLength() > 0) {
       Element osc2 = (Element) osc2List.item(0);
-      NodeList rpNodes2 = osc2.getElementsByTagName("retrigPhase");
-      if (rpNodes2.getLength() > 0) {
+      String rpStr2 = attrOrChildText(osc2, "retrigPhase");
+      if (rpStr2 != null && !rpStr2.isBlank()) {
         try {
-          synth.setOsc2RetrigPhase((int) Long.parseLong(rpNodes2.item(0).getTextContent().trim()));
+          synth.setOsc2RetrigPhase((int) Long.parseLong(rpStr2.trim()));
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
@@ -1910,6 +1914,7 @@ public class DelugeXmlParser {
       kit.setSoloingInArrangement("1".equals(kitNode.getAttribute("isSoloingInArrangement")));
     }
     parseDefaultVelocity(kitNode, kit);
+    parseClippingAmount(kitNode, kit);
 
     for (int i = 0; i < soundNodes.getLength(); i++) {
       Element soundNode = (Element) soundNodes.item(i);
@@ -2062,6 +2067,7 @@ public class DelugeXmlParser {
       track.setSoloingInArrangement(
           "1".equals(audioTrackNode.getAttribute("isSoloingInArrangement")));
     }
+    parseClippingAmount(audioTrackNode, track);
     if (audioTrackNode.hasAttribute("lpfMode")) {
       // Store as track colour/label info — not on AudioTrackModel yet
     }
@@ -3426,14 +3432,7 @@ public class DelugeXmlParser {
       readAttrOrChildInt(osc1El, "transpose", 0, sound::setOsc1Transpose);
       readAttrOrChildInt(osc1El, "cents", 0, sound::setOsc1Cents);
 
-      NodeList rpNodes = osc1El.getElementsByTagName("retrigPhase");
-      if (rpNodes.getLength() > 0) {
-        try {
-          sound.setOsc1RetrigPhase((int) Long.parseLong(rpNodes.item(0).getTextContent().trim()));
-        } catch (NumberFormatException e) {
-          LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
-        }
-      }
+      readAttrOrChildInt(osc1El, "retrigPhase", -1, sound::setOsc1RetrigPhase);
       NodeList wtNodes = osc1El.getElementsByTagName("wavetableIndexPct");
       if (wtNodes.getLength() > 0) {
         try {
@@ -3487,14 +3486,7 @@ public class DelugeXmlParser {
       readAttrFloatHex(osc2, "timeStretchAmount", sound::setOsc2TimeStretchAmount, true);
       readAttrBool(osc2, "linearInterpolation", sound::setOsc2LinearInterpolation);
       // osc2 retrigPhase
-      NodeList rpNodes2 = osc2.getElementsByTagName("retrigPhase");
-      if (rpNodes2.getLength() > 0) {
-        try {
-          sound.setOsc2RetrigPhase((int) Long.parseLong(rpNodes2.item(0).getTextContent().trim()));
-        } catch (NumberFormatException e) {
-          LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
-        }
-      }
+      readAttrOrChildInt(osc2, "retrigPhase", -1, sound::setOsc2RetrigPhase);
     }
 
     // Modulator 1
@@ -4924,6 +4916,23 @@ public class DelugeXmlParser {
           track.setDefaultVelocity(Integer.parseInt(velNodes.item(0).getTextContent().trim()));
         } catch (NumberFormatException ignored) {
         }
+      }
+    }
+  }
+
+  private static void parseClippingAmount(Element node, TrackModel track) {
+    String clipStr = node.getAttribute("clippingAmount");
+    if (clipStr == null || clipStr.isEmpty()) {
+      NodeList clipNodes = node.getElementsByTagName("clippingAmount");
+      if (clipNodes.getLength() > 0) {
+        clipStr = clipNodes.item(0).getTextContent().trim();
+      }
+    }
+    if (clipStr != null && !clipStr.isEmpty()) {
+      try {
+        track.setClippingAmount(Integer.parseInt(clipStr));
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "Error parsing clippingAmount", e);
       }
     }
   }

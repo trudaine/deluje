@@ -451,7 +451,7 @@
 	<sidechain attack="326417" release="923" syncLevel="0" syncType="0" />
 	<audioCompressor attack="0" release="0" thresh="0" ratio="0" compHPF="0" compBlend="2147483647" />
 	<stutter quantized="1" reverse="0" pingPong="0" />
-	<songParams reverbAmount="0x00000000" volume="0x7FFFFFFF" pan="0x00000000" sidechainCompressorShape="0x3851EBFF" sidechainCompressorVolume="0x80000000" modFXRate="0x80000000" modFXDepth="0x80000000" modFXOffset="0x80000000" modFXFeedback="0x80000000" stutterRate="0x80000000" sampleRateReduction="0x80000000" bitCrush="0x80000000" compressorThreshold="0x80000000" lpfMorph="0x80000000" hpfMorph="0x80000000" modFXCurrentParam="offset" currentFilterType="lpf">
+	<songParams reverbAmount="0x00000000" volume="0x00000000" pan="0x00000000" sidechainCompressorShape="0x3851EBFF" sidechainCompressorVolume="0x80000000" modFXRate="0x80000000" modFXDepth="0x80000000" modFXOffset="0x80000000" modFXFeedback="0x80000000" stutterRate="0x80000000" sampleRateReduction="0x80000000" bitCrush="0x80000000" compressorThreshold="0x80000000" lpfMorph="0x80000000" hpfMorph="0x80000000" modFXCurrentParam="offset" currentFilterType="lpf">
 		<delay rate="0x80000000" feedback="0x80000000" />
 		<lpf frequency="0x7FFFFFFF" resonance="0x80000000" />
 		<hpf frequency="0x80000000" resonance="0x80000000" />

@@ -120,7 +120,7 @@ public class PreferencesManager {
    * {@link #MAX_CLEAN_GAIN_BOOST}.
    */
   public static int getMonitorGainBoost() {
-    int v = prefs.getInt(KEY_MONITOR_GAIN_BOOST, 24);
+    int v = prefs.getInt(KEY_MONITOR_GAIN_BOOST, 1);
     return Math.max(1, Math.min(MAX_CLEAN_GAIN_BOOST, v));
   }
 

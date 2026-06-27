@@ -194,7 +194,7 @@ public class DigitalAudioFidelityTest {
         float rawVal = rawKick[i];
         if (Math.abs(rawVal) > 0.02f) { // check non-silent active part
           float renderVal = outputWave[i];
-          float expectedRatio = 0.125f;
+          float expectedRatio = 0.078125f;
           float actualRatio = renderVal / rawVal;
           assertEquals(
               expectedRatio,

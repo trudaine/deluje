@@ -11,6 +11,11 @@ import java.util.List;
 public class Kit extends GlobalEffectable {
   public final List<Sound> drums = new ArrayList<>();
 
+  @Override
+  public boolean isKit() {
+    return true;
+  }
+
   public Kit() {
     for (int i = 0; i < 16; i++) {
       Sound drumSound = new Sound();

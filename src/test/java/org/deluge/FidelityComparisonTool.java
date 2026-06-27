@@ -76,7 +76,7 @@ public class FidelityComparisonTool {
     for (int lag = startFine; lag <= endFine; lag++) {
       double sum = 0;
       for (int i = 0; i < xMono.length; i++) {
-        int yIdx = i + bestLag;
+        int yIdx = i + lag;
         if (yIdx >= 0 && yIdx < yMono.length) {
           sum += xMono[i] * yMono[yIdx];
         }
@@ -311,6 +311,6 @@ public class FidelityComparisonTool {
     System.out.println("  Mean Absolute Error: " + String.format("%.6f", report.meanAbsoluteError));
     System.out.println("===========================================");
 
-    printSpectralParityReport(rec, ref);
+    printSpectralParityReport(ref, rec);
   }
 }

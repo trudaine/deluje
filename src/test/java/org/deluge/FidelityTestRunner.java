@@ -17,7 +17,22 @@ public class FidelityTestRunner {
     ProjectModel project = DelugeXmlParser.parseSong(xmlFile);
     ProjectModel song = FirmwareFactory.createSong(project);
 
+    System.out.println("=== DUMPING PARSED NOTES FOR " + xmlFile.getName() + " ===");
+    for (var clip : song.getClips()) {
+      if (clip instanceof org.deluge.model.ClipModel cm) {
+        System.out.println("  Clip: " + cm.getName() + " isKit=" + cm.isKit());
+        for (var entry : cm.noteRows.entrySet()) {
+          var row = entry.getValue();
+          System.out.println("    Row " + entry.getKey() + " (pitch=" + row.getPitch() + "):");
+          for (var note : row.getNotes()) {
+            System.out.println("      Note: pos=" + note.getPos() + " len=" + note.getLength() + " vel=" + note.getVelocityByte() + " prob=" + note.getProbabilityPercent());
+          }
+        }
+      }
+    }
+
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
+    engine.syncMasterEffects(project);
 
     // Add all instruments to engine sounds
     engine.sounds.clear();

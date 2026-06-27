@@ -128,4 +128,13 @@ public abstract class TrackModel {
   public void setDefaultVelocity(int defaultVelocity) {
     this.defaultVelocity = Math.max(1, Math.min(127, defaultVelocity));
   }
+  private int clippingAmount = 0;
+
+  public int getClippingAmount() {
+    return clippingAmount;
+  }
+
+  public void setClippingAmount(int clippingAmount) {
+    this.clippingAmount = clippingAmount;
+  }
 }

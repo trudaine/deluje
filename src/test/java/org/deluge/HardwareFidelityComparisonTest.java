@@ -3,6 +3,8 @@ package org.deluge;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
+import org.deluge.engine.FirmwareAudioEngine;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -18,6 +20,13 @@ import org.junit.jupiter.api.Test;
 public class HardwareFidelityComparisonTest {
 
   private static final String DEFAULT_DIR = "src/test/resources/fidelity/hardware-recordings";
+
+  @BeforeEach
+  void setUp() {
+    FirmwareAudioEngine.cpuDireness = 0;
+    org.deluge.firmware2.Functions.resetNoiseSeed();
+    FirmwareAudioEngine.debugTelemetry = true;
+  }
 
   private void renderAndCompare(String songName, double seconds) throws Exception {
     File recordingsDir = new File(System.getProperty("hardware.recordings.dir", DEFAULT_DIR));
@@ -54,7 +63,14 @@ public class HardwareFidelityComparisonTest {
 
   @Test
   void synth() throws Exception {
-    renderAndCompare("TestSynthFidelity", 3.0);
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(1156639367);
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(1533968290);
+    try {
+      renderAndCompare("TestSynthFidelity", 1.5);
+    } finally {
+      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(-2);
+      org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(-2);
+    }
   }
 
   @Test

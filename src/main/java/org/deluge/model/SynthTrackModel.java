@@ -117,16 +117,6 @@ public class SynthTrackModel extends TrackModel {
     this.waveFoldQ31 = v;
   }
 
-  /** Saturation/clipping amount (C clippingAmount, mod_controllable_audio.h:107); 0 = off. */
-  private int clippingAmount = 0;
-
-  public int getClippingAmount() {
-    return clippingAmount;
-  }
-
-  public void setClippingAmount(int v) {
-    this.clippingAmount = v;
-  }
 
   /** Portamento knob (raw Q31, C UNPATCHED_PORTAMENTO / XML "portamento"); INT_MIN = off. */
   private int portamentoQ31 = Integer.MIN_VALUE;
@@ -1105,7 +1095,7 @@ public class SynthTrackModel extends TrackModel {
     this.fm.copyFrom(other.getFm());
     this.pitchAdjustQ31 = other.pitchAdjustQ31;
     this.waveFoldQ31 = other.getWaveFoldQ31();
-    this.clippingAmount = other.getClippingAmount();
+    this.setClippingAmount(other.getClippingAmount());
     this.portamentoQ31 = other.getPortamentoQ31();
     this.polyphony = other.getPolyphony();
     this.maxVoiceCount = other.getMaxVoiceCount();

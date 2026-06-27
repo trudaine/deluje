@@ -223,6 +223,12 @@ public class NoteRowModel {
     int currentPos =
         (loopLengthIfIndependent > 0) ? lastProcessedPosIfIndependent : clipLastProcessedPos;
 
+    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
+      int tempStartTick = (currentPos - ticksSinceLast + effectiveLength) % effectiveLength;
+      System.out.printf("[DIAG NoteRow] pitch=%d currentPos=%d ticksSinceLast=%d startTick=%d\n",
+          pitch, currentPos, ticksSinceLast, tempStartTick);
+    }
+
     if (paramManager.mightContainAutomation()) {
       paramManager.processCurrentPos(
           currentPos, effectiveLength, playingReversedNow, didPingpong, true);
@@ -271,12 +277,11 @@ public class NoteRowModel {
   private static boolean isTickReached(
       int startTick, int ticksSinceLast, int target, int effectiveLength) {
     if (ticksSinceLast <= 0) return false;
-    if (startTick == 0 && target == 0) return true;
     int endTick = (startTick + ticksSinceLast) % effectiveLength;
-    if (startTick <= endTick) {
-      return startTick < target && target <= endTick;
+    if (startTick < endTick) {
+      return startTick <= target && target < endTick;
     } else {
-      return target > startTick || target <= endTick;
+      return target >= startTick || target < endTick;
     }
   }
 }
