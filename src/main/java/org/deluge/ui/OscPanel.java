@@ -596,11 +596,11 @@ public class OscPanel extends JPanel {
       if (oscIdx == 0) {
         model.setOsc1SamplePath(relPath);
         model.setOsc1Type("SAMPLE");
-        model.getOsc1Zones().clear();
+        model.getKeyZones().getOsc1Zones().clear();
       } else {
         model.setOsc2SamplePath(relPath);
         model.setOsc2Type("SAMPLE");
-        model.getOsc2Zones().clear();
+        model.getKeyZones().getOsc2Zones().clear();
       }
 
       try {

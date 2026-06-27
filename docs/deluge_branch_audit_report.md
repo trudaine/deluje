@@ -11,8 +11,8 @@ We inspected the commit logs and source diffs of the key active branches in the 
 | Branch Name | Primary Scope | Parity / Porting Assessment |
 | :--- | :--- | :--- |
 | **`microtuning`** | **New Feature**: Custom octave-based microtonal scales and pitch adjustments. | **HIGH VALUE PROPOSAL**. The core math and real-time row-tuning UI can be ported. We can enhance it with **XML persistence** and **Scala (.scl) file imports**, which the C++ branch lacks. |
-| **`3373-unison-stereo-spread...`** | **DSP Bugfix**: Unison stereo spread silently disabling oscillator hard-sync. | **PARITY CONFIRMED (IMMUNE)**. Our unified Java rendering loop in [Voice.java](../../deluge/src/main/java/org/chuck/deluge/firmware2/Voice.java) naturally avoided this bug by design. |
-| **`3221-tempo-automation...`** | **DSP Bugfix**: Stuck sidechain ducking in offline stem exports. | **PARITY CONFIRMED (IMMUNE)**. Our unified block rendering in [FirmwareAudioEngine.java](../../deluge/src/main/java/org/chuck/deluge/firmware/engine/FirmwareAudioEngine.java) clears sidechain states block-by-block, making us immune. |
+| **`3373-unison-stereo-spread...`** | **DSP Bugfix**: Unison stereo spread silently disabling oscillator hard-sync. | **PARITY CONFIRMED (IMMUNE)**. Our unified Java rendering loop in [Voice.java](../src/main/java/org/deluge/firmware2/Voice.java) naturally avoided this bug by design. |
+| **`3221-tempo-automation...`** | **DSP Bugfix**: Stuck sidechain ducking in offline stem exports. | **PARITY CONFIRMED (IMMUNE)**. Our unified block rendering in [FirmwareAudioEngine.java](../src/main/java/org/deluge/firmware/engine/FirmwareAudioEngine.java) clears sidechain states block-by-block, making us immune. |
 | **`bugfix/loop_recording`** | **UI/UX Bugfixes**: Null pointer crashes in sound editor and horizontal menus. | **N/A**. These are hardware-specific grid navigation issues that do not apply to our desktop Swing UI. |
 | **`3925-sound-gets-glitchy...`** | **I/O Bugfix**: Missing MIDI SysEx packet length safety bounds check. | **INFORMATIONAL**. Java's managed runtime protects us from out-of-bounds corruption, but bounds check safety is maintained. |
 
@@ -59,7 +59,7 @@ The C++ branch introduces a brilliant UI shortcut in the sequencer view (`Instru
 ### C. The Deluge-Java Enhanced Porting Strategy
 We propose porting this feature to Deluge-Java with several major enhancements that make it fully professional and persistent:
 1. **Java Port of the Math**:
-   * Add `isEqualTemperament`, `octaveNumMicrotonalNotes`, `baseFrequency`, and `centAdjustForNotesInTemperament` (an array of size 64) to `org.chuck.deluge.firmware2.Sound` or `Song`.
+   * Add `isEqualTemperament`, `octaveNumMicrotonalNotes`, `baseFrequency`, and `centAdjustForNotesInTemperament` (an array of size 64) to `org.deluge.firmware2.Sound` or `Song`.
    * Update the voice pitch phase calculations in `Voice.java` to use the custom frequency tables.
 2. **XML Persistence (Enhancement)**:
    * The C++ branch does *not* save these settings, meaning microtuning is lost on song reload.
@@ -84,14 +84,14 @@ Our audit of the C++ bugfix branches revealed that the clean, object-oriented, a
 * **The C++ Bug (`3373...` branch)**:
   In the C++ codebase, to optimize rendering, voices with active unison stereo spread are processed in a separate stereo rendering loop. In this stereo loop, the developer forgot to pass the hard-sync phase tracking parameters, silently disabling oscillator sync whenever unison spread was turned on.
 * **The Java Parity (Immune)**:
-  In our [Voice.java](../../deluge/src/main/java/org/chuck/deluge/firmware2/Voice.java) rendering loop, we did not duplicate the rendering code into mono and stereo paths. Instead, we use a single unified rendering loop that always correctly tracks, captures, and applies oscillator hard-sync variables (`doingOscSync`, `oscSyncPos`, and `oscSyncPhaseIncrement`) regardless of unison spread. Stereo panning is cleanly applied to the mixed buffer at the very end. 
+  In our [Voice.java](../src/main/java/org/deluge/firmware2/Voice.java) rendering loop, we did not duplicate the rendering code into mono and stereo paths. Instead, we use a single unified rendering loop that always correctly tracks, captures, and applies oscillator hard-sync variables (`doingOscSync`, `oscSyncPos`, and `oscSyncPhaseIncrement`) regardless of unison spread. Stereo panning is cleanly applied to the mixed buffer at the very end. 
   * **Result**: Oscillator sync under unison stereo spread has always worked perfectly in Deluge-Java!
 
 ### B. Stuck Sidechain Ducking in Offline Export
 * **The C++ Bug (`3221...` branch)**:
   In the C++ codebase, the offline stem export routine ran on a separate thread using a duplicated render loop. This loop forgot to clear the `sideChainHitPending` flag at the end of each audio block. As a result, the first kick drum or sidechain trigger would latch the ducking envelope permanently, rendering all sidechained tracks near-silent for the rest of the export.
 * **The Java Parity (Immune)**:
-  Our [FirmwareAudioEngine.java](../../deluge/src/main/java/org/chuck/deluge/firmware/engine/FirmwareAudioEngine.java) uses a single unified `renderBlock(numSamples)` entry point for both real-time playback and offline rendering (as used by our new `FidelityTestRunner`). This entry point always calls `GlobalSidechainBus.beginAudioFrame()` at the start of every block, which swaps and clears the pending hit state.
+  Our [FirmwareAudioEngine.java](../src/main/java/org/deluge/firmware/engine/FirmwareAudioEngine.java) uses a single unified `renderBlock(numSamples)` entry point for both real-time playback and offline rendering (as used by our new `FidelityTestRunner`). This entry point always calls `GlobalSidechainBus.beginAudioFrame()` at the start of every block, which swaps and clears the pending hit state.
   * **Result**: Offline rendering and stem exports in Deluge-Java are completely immune to stuck sidechain envelope issues!
 
 ---

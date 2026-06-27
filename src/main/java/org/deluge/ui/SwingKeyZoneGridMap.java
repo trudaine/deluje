@@ -6,7 +6,7 @@ import java.awt.event.MouseEvent;
 import java.io.File;
 import java.util.List;
 import javax.swing.*;
-import org.deluge.model.SynthTrackModel;
+import org.deluge.model.KeyZone;
 
 /**
  * A luxury, interactive horizontal grid and piano roll keyzone mapper. Displays white/black piano
@@ -15,8 +15,8 @@ import org.deluge.model.SynthTrackModel;
  */
 public class SwingKeyZoneGridMap extends JComponent {
 
-  private final List<SynthTrackModel.KeyZone> zones;
-  private SynthTrackModel.KeyZone selectedZone = null;
+  private final List<KeyZone> zones;
+  private KeyZone selectedZone = null;
 
   private final int NOTE_WIDTH = 11; // 128 notes * 11px = 1408px width (perfect for JScrollPane)
   private final int PIANO_HEIGHT = 45;
@@ -27,12 +27,12 @@ public class SwingKeyZoneGridMap extends JComponent {
   private int dragStartMinPitch = -1;
   private int dragStartMaxPitch = -1;
   private int dragMode = 0; // 0 = none, 1 = move, 2 = resize left, 3 = resize right
-  private SynthTrackModel.KeyZone dragZone = null;
+  private KeyZone dragZone = null;
 
   private Runnable onSelectionChanged = null;
   private Runnable onZonesModified = null;
 
-  public SwingKeyZoneGridMap(List<SynthTrackModel.KeyZone> zones) {
+  public SwingKeyZoneGridMap(List<KeyZone> zones) {
     this.zones = zones;
 
     setBackground(new Color(0x10, 0x10, 0x12));
@@ -65,11 +65,11 @@ public class SwingKeyZoneGridMap extends JComponent {
     addMouseMotionListener(mouseHandler);
   }
 
-  public SynthTrackModel.KeyZone getSelectedZone() {
+  public KeyZone getSelectedZone() {
     return selectedZone;
   }
 
-  public void setSelectedZone(SynthTrackModel.KeyZone zone) {
+  public void setSelectedZone(KeyZone zone) {
     this.selectedZone = zone;
     repaint();
   }
@@ -102,7 +102,7 @@ public class SwingKeyZoneGridMap extends JComponent {
     // Find which zone/row was clicked
     int row = (y - PIANO_HEIGHT) / ROW_HEIGHT;
     if (row >= 0 && row < zones.size()) {
-      SynthTrackModel.KeyZone kz = zones.get(row);
+      KeyZone kz = zones.get(row);
       selectedZone = kz;
       if (onSelectionChanged != null) {
         onSelectionChanged.run();
@@ -183,7 +183,7 @@ public class SwingKeyZoneGridMap extends JComponent {
 
     int row = (y - PIANO_HEIGHT) / ROW_HEIGHT;
     if (row >= 0 && row < zones.size()) {
-      SynthTrackModel.KeyZone kz = zones.get(row);
+      KeyZone kz = zones.get(row);
       int minX = kz.minPitch * NOTE_WIDTH;
       int maxX = (kz.maxPitch + 1) * NOTE_WIDTH;
 
@@ -267,7 +267,7 @@ public class SwingKeyZoneGridMap extends JComponent {
 
     // ── 2. Draw Color-Coded Keyzones ──
     for (int i = 0; i < zones.size(); i++) {
-      SynthTrackModel.KeyZone kz = zones.get(i);
+      KeyZone kz = zones.get(i);
       int rowY = PIANO_HEIGHT + i * ROW_HEIGHT;
 
       int x = kz.minPitch * NOTE_WIDTH;

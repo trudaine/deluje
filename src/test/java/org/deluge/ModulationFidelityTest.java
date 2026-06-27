@@ -55,7 +55,7 @@ public class ModulationFidelityTest {
     bassTrack.setLfo(0, lfo1);
 
     // Modulation Matrix: Patch LFO 1 to LPF Frequency
-    bassTrack.addPatchCable(new PatchCable("lfo1", "lpfFrequency", 0.6f));
+    bassTrack.getModulation().addPatchCable(new PatchCable("lfo1", "lpfFrequency", 0.6f));
 
     // Bassline clip: Long sustained notes to hear the wobble and sidechain pumping
     ClipModel bassClip = new ClipModel("Bass Clip", 3, 8);
@@ -93,10 +93,13 @@ public class ModulationFidelityTest {
 
     // Modulation Matrix:
     // 1. Env 2 modulates Pitch (creates tight downward laser "pew-pew" sweep!)
-    leadTrack.addPatchCable(
-        new PatchCable("envelope2", "pitch", 0.8f, PatchCable.Polarity.UNIPOLAR));
+    leadTrack
+        .getModulation()
+        .addPatchCable(new PatchCable("envelope2", "pitch", 0.8f, PatchCable.Polarity.UNIPOLAR));
     // 2. LFO 2 modulates Pan (auto-pans slowly left-to-right!)
-    leadTrack.addPatchCable(new PatchCable("lfo2", "pan", 1.0f, PatchCable.Polarity.BIPOLAR));
+    leadTrack
+        .getModulation()
+        .addPatchCable(new PatchCable("lfo2", "pan", 1.0f, PatchCable.Polarity.BIPOLAR));
 
     // Lead melody clip (16 steps)
     ClipModel leadClip = new ClipModel("Lead Clip", 4, 16);
@@ -154,7 +157,7 @@ public class ModulationFidelityTest {
         "[ModulationTest] Song XML successfully written to: " + xmlFile.getAbsolutePath());
 
     // 3. Render project to WAV using Deluge-Java emulator
-    File wavFile = new File("src/test/resources/fidelity/JAVA_RENDERED_MODULATION_SONG.WAV");
+    File wavFile = new File("target/JAVA_RENDERED_MODULATION_SONG.WAV");
     FidelityTestRunner.renderSongToWav(xmlFile, wavFile, 8.0);
     System.out.println(
         "[ModulationTest] Rendered WAV successfully written to: " + wavFile.getAbsolutePath());

@@ -765,9 +765,9 @@ public class AbletonTrackMapper {
       track.setEnv(1, new EnvelopeModel(0.60f, 2.00f, 0.70f, 1.50f, "FILTER", 0.25f));
 
       // Fat 4-voice Unison with stereo spread
-      track.setUnisonNum(4);
-      track.setUnisonDetune(0.15f);
-      track.setUnisonStereoSpread(0.80f);
+      track.getUnison().setUnisonNum(4);
+      track.getUnison().setUnisonDetune(0.15f);
+      track.getUnison().setUnisonStereoSpread(0.80f);
 
       // High Reverb and Chorus (Mod FX) spatial effects
       track.setReverbSend(0.45f);

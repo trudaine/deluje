@@ -577,7 +577,7 @@ public class SwingSynthConfigDialog extends JDialog {
     lc.gridx = 1;
     lc.gridwidth = 2;
     JComboBox<Integer> unisonNumCombo = new JComboBox<>(new Integer[] {1, 2, 3, 4, 5, 6, 7, 8});
-    unisonNumCombo.setSelectedItem(model.getUnisonNum());
+    unisonNumCombo.setSelectedItem(model.getUnison().getUnisonNum());
     unisonNumCombo.setBackground(BG_CONTROL);
     unisonNumCombo.setForeground(Color.WHITE);
     String unisonNumTooltip = "Number of layered unison voices (1-8)";
@@ -588,7 +588,7 @@ public class SwingSynthConfigDialog extends JDialog {
     unisonNumCombo.addActionListener(
         e -> {
           int v = (Integer) unisonNumCombo.getSelectedItem();
-          model.setUnisonNum(v);
+          model.getUnison().setUnisonNum(v);
         });
     leftPanel.add(unisonNumCombo, lc);
     leftRow++;
@@ -602,9 +602,9 @@ public class SwingSynthConfigDialog extends JDialog {
             "Unison detune in cents (0-50). Higher values = wider, chorus-ier sound.",
             0,
             500,
-            (int) (model.getUnisonDetune() * 100),
+            (int) (model.getUnison().getUnisonDetune() * 100),
             val -> {
-              model.setUnisonDetune(val / 100.0f);
+              model.getUnison().setUnisonDetune(val / 100.0f);
             },
             "cts",
             "unisonDetune",
@@ -620,9 +620,9 @@ public class SwingSynthConfigDialog extends JDialog {
             "Unison stereo spread (0-50). Distributes voices across stereo field.",
             0,
             500,
-            (int) (model.getUnisonStereoSpread() * 100),
+            (int) (model.getUnison().getUnisonStereoSpread() * 100),
             val -> {
-              model.setUnisonStereoSpread(val / 100.0f);
+              model.getUnison().setUnisonStereoSpread(val / 100.0f);
             },
             "",
             "unisonSpread",

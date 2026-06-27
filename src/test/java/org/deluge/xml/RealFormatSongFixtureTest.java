@@ -32,8 +32,8 @@ public class RealFormatSongFixtureTest {
     SynthTrackModel s = firstSynth("Dx7A.xml");
 
     // Instrument structure ("000 Rich Saw Bass"): unison num=4 detune=10, osc1 saw.
-    assertEquals(4, s.getUnisonNum(), "unison num from instrument element");
-    assertEquals(10, (int) s.getUnisonDetune(), "unison detune");
+    assertEquals(4, s.getUnison().getUnisonNum(), "unison num from instrument element");
+    assertEquals(10, (int) s.getUnison().getUnisonDetune(), "unison detune");
     assertEquals("SAW", s.getOsc1Type());
 
     // Clip soundParams statics: lpfFrequency="0x10000000" → default-synth cutoff in Hz
@@ -44,16 +44,16 @@ public class RealFormatSongFixtureTest {
 
     // Envelope1 from soundParams: attack="0x80000000" (instant) release="0x851EB851" — the raw
     // rate knobs must be captured for the firmware-faithful curves.
-    assertTrue(s.isEnvKnobSet(0), "env1 rate knobs from clip soundParams");
-    assertEquals(0x80000000, s.getEnvAttackKnobQ31(0));
-    assertEquals(0x851EB851, s.getEnvReleaseKnobQ31(0));
+    assertTrue(s.getRawKnobs().isEnvKnobSet(0), "env1 rate knobs from clip soundParams");
+    assertEquals(0x80000000, s.getRawKnobs().getEnvAttackKnobQ31(0));
+    assertEquals(0x851EB851, s.getRawKnobs().getEnvReleaseKnobQ31(0));
 
     // Patch cables from soundParams: the Rich Saw Bass clip has 6 (velocity/aftertouch/note/
     // velocity/envelope2/y).
-    assertEquals(6, s.getPatchCables().size(), "clip soundParams patch cables");
+    assertEquals(6, s.getModulation().getPatchCables().size(), "clip soundParams patch cables");
 
     // LFO1 rate knob from soundParams (lfo1Rate="0x1999997E").
-    assertEquals(0x1999997E, s.getLfoRateKnobQ31(0), "lfo1 rate knob");
+    assertEquals(0x1999997E, s.getRawKnobs().getLfoRateKnobQ31(0), "lfo1 rate knob");
   }
 
   @Test
@@ -62,7 +62,7 @@ public class RealFormatSongFixtureTest {
     // (0x80000000 = INT_MIN) must survive intact — the preset float round-trip floored it at -2^29,
     // turning min resonance into a moderate one that distorted clean tones.
     SynthTrackModel s = firstSynth("TestTuningFidelity.xml");
-    java.util.Map<Integer, Integer> raw = s.getRawParamKnobs();
+    java.util.Map<Integer, Integer> raw = s.getRawKnobs().getRawParamKnobs();
     assertEquals(
         Integer.MIN_VALUE,
         (int) raw.get(org.deluge.firmware2.Param.LOCAL_LPF_RESONANCE),
@@ -77,7 +77,7 @@ public class RealFormatSongFixtureTest {
   void lfoFidelitySongCableReachesTheModel() throws Exception {
     SynthTrackModel s = firstSynth("TestLfoFidelity.xml");
     boolean found =
-        s.getPatchCables().stream()
+        s.getModulation().getPatchCables().stream()
             .anyMatch(
                 c ->
                     "lfo1".equalsIgnoreCase(c.source())

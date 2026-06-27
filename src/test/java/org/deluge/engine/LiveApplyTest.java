@@ -59,7 +59,8 @@ public class LiveApplyTest {
   @Test
   void reapplyDoesNotDuplicatePatchCables() {
     SynthTrackModel m = model();
-    m.addPatchCable(new PatchCable("lfo1", "lpfFrequency", 0.5f, PatchCable.Polarity.BIPOLAR));
+    m.getModulation()
+        .addPatchCable(new PatchCable("lfo1", "lpfFrequency", 0.5f, PatchCable.Polarity.BIPOLAR));
     FirmwareSound sound = build(m);
 
     int cablesAfterBuild = countCables(sound);
@@ -70,7 +71,8 @@ public class LiveApplyTest {
     }
     assertEquals(1, countCables(sound), "re-applies must not duplicate cables");
 
-    m.addPatchCable(new PatchCable("envelope2", "volume", 0.3f, PatchCable.Polarity.UNIPOLAR));
+    m.getModulation()
+        .addPatchCable(new PatchCable("envelope2", "volume", 0.3f, PatchCable.Polarity.UNIPOLAR));
     FirmwareFactory.applyModelToLiveSound(m, sound);
     assertEquals(2, countCables(sound), "a newly added model cable must appear exactly once");
   }

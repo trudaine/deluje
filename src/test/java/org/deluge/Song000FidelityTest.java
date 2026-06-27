@@ -136,7 +136,7 @@ public class Song000FidelityTest {
     }
 
     // 5b. Write the accumulated stereo PCM bytes to a physical WAVE file
-    File renderedWavFile = new File("src/test/resources/fidelity/JAVA_RENDERED_SONG003.WAV");
+    File renderedWavFile = new File("target/JAVA_RENDERED_SONG003.WAV");
     javax.sound.sampled.AudioFormat format =
         new javax.sound.sampled.AudioFormat(44100.0f, 16, 2, true, false);
     try (javax.sound.sampled.AudioInputStream ais =

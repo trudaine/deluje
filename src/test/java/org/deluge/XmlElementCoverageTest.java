@@ -115,8 +115,9 @@ public class XmlElementCoverageTest {
       if (Files.isDirectory(p)) roots.add(p);
     }
     // Include the real card when present locally — that's where the rare/older presets live.
+    String cardName = System.getProperty("deluge.card", "deluge-card");
     for (String r : new String[] {"SYNTHS", "SONGS", "KITS", "DX7"}) {
-      Path p = Paths.get(System.getProperty("user.home"), "ludocard", r);
+      Path p = Paths.get(System.getProperty("user.home"), cardName, r);
       if (Files.isDirectory(p)) roots.add(p);
     }
     assertFalse(roots.isEmpty(), "no XML corpus found");

@@ -59,17 +59,21 @@ public class ResampleFidelityTest {
     synthModel.setDelaySend(0.0f);
     synthModel.setDelayFeedbackQ31(0);
     synthModel
+        .getRawKnobs()
         .getRawParamKnobs()
         .put(org.deluge.firmware2.Param.GLOBAL_DELAY_FEEDBACK, Integer.MIN_VALUE);
     synthModel
+        .getRawKnobs()
         .getRawParamKnobs()
         .put(org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT, Integer.MIN_VALUE);
     // Optimize volume envelope (Env 0) for instant attack and instant release to prevent note
     // overlap and bleed
     synthModel
+        .getRawKnobs()
         .getRawParamKnobs()
         .put(org.deluge.firmware2.Param.LOCAL_ENV_0_ATTACK, Integer.MIN_VALUE);
     synthModel
+        .getRawKnobs()
         .getRawParamKnobs()
         .put(org.deluge.firmware2.Param.LOCAL_ENV_0_RELEASE, Integer.MIN_VALUE);
 

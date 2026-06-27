@@ -155,8 +155,9 @@ public class KitSynthSerializerTest {
     // Noise volume (from DEFAULT_PARAMS_BINDINGS: noiseVolume)
     assertEquals(original.getNoiseVol(), parsed.getNoiseVol(), 0.01f);
 
-    assertEquals(original.getUnisonNum(), parsed.getUnisonNum());
-    assertEquals(original.getUnisonDetune(), parsed.getUnisonDetune(), 0.01f);
+    assertEquals(original.getUnison().getUnisonNum(), parsed.getUnison().getUnisonNum());
+    assertEquals(
+        original.getUnison().getUnisonDetune(), parsed.getUnison().getUnisonDetune(), 0.01f);
 
     // Polyphony (from parsePolyphony: <polyphonic> child element)
     assertEquals(original.getPolyphony(), parsed.getPolyphony());
@@ -174,7 +175,8 @@ public class KitSynthSerializerTest {
     assertEquals(original.getPan(), parsed.getPan(), 0.01f);
 
     // Stutter / Bitcrush / SRR (from DEFAULT_PARAMS_BINDINGS)
-    assertEquals(original.getStutterRate(), parsed.getStutterRate(), 0.01f);
+    assertEquals(
+        original.getStutter().getStutterRate(), parsed.getStutter().getStutterRate(), 0.01f);
     assertEquals(original.getSampleRateReduction(), parsed.getSampleRateReduction(), 0.01f);
     assertEquals(original.getBitCrush(), parsed.getBitCrush(), 0.01f);
 
@@ -233,15 +235,22 @@ public class KitSynthSerializerTest {
     assertEquals(original.getCompressorShape(), parsed.getCompressorShape(), 0.01f);
 
     // Patch cables (from parsePatchCables)
-    assertEquals(original.getPatchCables().size(), parsed.getPatchCables().size());
-    for (int i = 0; i < original.getPatchCables().size(); i++) {
-      assertPatchCableRoundTrip(original.getPatchCables().get(i), parsed.getPatchCables().get(i));
+    assertEquals(
+        original.getModulation().getPatchCables().size(),
+        parsed.getModulation().getPatchCables().size());
+    for (int i = 0; i < original.getModulation().getPatchCables().size(); i++) {
+      assertPatchCableRoundTrip(
+          original.getModulation().getPatchCables().get(i),
+          parsed.getModulation().getPatchCables().get(i));
     }
 
     // Mod knobs (from parseModKnobs)
-    assertEquals(original.getModKnobs().size(), parsed.getModKnobs().size());
-    for (int i = 0; i < original.getModKnobs().size(); i++) {
-      assertModKnobEquals(original.getModKnobs().get(i), parsed.getModKnobs().get(i));
+    assertEquals(
+        original.getModulation().getModKnobs().size(), parsed.getModulation().getModKnobs().size());
+    for (int i = 0; i < original.getModulation().getModKnobs().size(); i++) {
+      assertModKnobEquals(
+          original.getModulation().getModKnobs().get(i),
+          parsed.getModulation().getModKnobs().get(i));
     }
   }
 
@@ -315,7 +324,7 @@ public class KitSynthSerializerTest {
     synth.setCompressorRelease(0.25f);
     synth.setCompressorSyncLevel(3);
     synth.setModFxType("flanger");
-    synth.addPatchCable(new PatchCable("LFO1", "PITCH", 0.5f));
+    synth.getModulation().addPatchCable(new PatchCable("LFO1", "PITCH", 0.5f));
 
     File temp = File.createTempFile("deluge_synth_struct", ".xml");
     temp.deleteOnExit();
@@ -455,8 +464,8 @@ public class KitSynthSerializerTest {
     synth.setOsc2Type("SQUARE");
     synth.setOscMix(0.4f);
     synth.setNoiseVol(0.05f);
-    synth.setUnisonNum(4);
-    synth.setUnisonDetune(0.2f);
+    synth.getUnison().setUnisonNum(4);
+    synth.getUnison().setUnisonDetune(0.2f);
     synth.setPolyphony(PolyphonyMode.LEGATO);
     synth.setFilterMode(FilterMode.SVF);
     synth.setModFxType("CHORUS");
@@ -468,7 +477,7 @@ public class KitSynthSerializerTest {
     synth.setPan(0.15f);
     synth.setEqBass(0.3f);
     synth.setEqTreble(-0.1f);
-    synth.setStutterRate(0.3f);
+    synth.getStutter().setStutterRate(0.3f);
     synth.setSampleRateReduction(0.15f);
     synth.setBitCrush(0.25f);
     synth.setPortamento(0.35f);
@@ -517,17 +526,19 @@ public class KitSynthSerializerTest {
     synth.setCompressorShape(0.85f);
     synth.setOsc1PitchAdjustQ31(0xDA000000);
     synth.setOsc2PitchAdjustQ31(0x15000000);
-    synth.addPatchCable(
-        new PatchCable(
-            "LFO1",
-            "PITCH",
-            0.6f,
-            PatchCable.Polarity.BIPOLAR,
-            java.util.List.of(new PatchCable("ENV3", "", 0.4f, PatchCable.Polarity.UNIPOLAR))));
-    synth.addPatchCable(new PatchCable("ENV2", "LPF", 0.9f));
-    synth.setModKnob(0, new ModKnob("volume", "NONE"));
-    synth.setModKnob(1, new ModKnob("lpfFrequency", "LFO1"));
-    synth.setModKnob(2, new ModKnob("reverbAmount", "ENV3"));
+    synth
+        .getModulation()
+        .addPatchCable(
+            new PatchCable(
+                "LFO1",
+                "PITCH",
+                0.6f,
+                PatchCable.Polarity.BIPOLAR,
+                java.util.List.of(new PatchCable("ENV3", "", 0.4f, PatchCable.Polarity.UNIPOLAR))));
+    synth.getModulation().addPatchCable(new PatchCable("ENV2", "LPF", 0.9f));
+    synth.getModulation().setModKnob(0, new ModKnob("volume", "NONE"));
+    synth.getModulation().setModKnob(1, new ModKnob("lpfFrequency", "LFO1"));
+    synth.getModulation().setModKnob(2, new ModKnob("reverbAmount", "ENV3"));
     return synth;
   }
 

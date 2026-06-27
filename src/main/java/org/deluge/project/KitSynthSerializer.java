@@ -400,10 +400,14 @@ public class KitSynthSerializer {
 
     // ── unison ──
     Element unison = doc.createElement("unison");
-    appendTextChild(doc, unison, "num", String.valueOf(synth.getUnisonNum()));
-    appendTextChild(doc, unison, "detune", DelugeHexMapper.floatToHex(synth.getUnisonDetune()));
+    appendTextChild(doc, unison, "num", String.valueOf(synth.getUnison().getUnisonNum()));
     appendTextChild(
-        doc, unison, "spread", DelugeHexMapper.floatToHex(synth.getUnisonStereoSpread()));
+        doc, unison, "detune", DelugeHexMapper.floatToHex(synth.getUnison().getUnisonDetune()));
+    appendTextChild(
+        doc,
+        unison,
+        "spread",
+        DelugeHexMapper.floatToHex(synth.getUnison().getUnisonStereoSpread()));
     root.appendChild(unison);
 
     // ── arpeggiator ──
@@ -561,7 +565,7 @@ public class KitSynthSerializer {
     if (synth.getPitchAdjustQ31() != Integer.MIN_VALUE) {
       appendRawQ31Child(doc, dp, "pitchAdjust", synth.getPitchAdjustQ31());
     }
-    Integer pitchVal = synth.getRawParamKnobs().get(Param.LOCAL_PITCH_ADJUST);
+    Integer pitchVal = synth.getRawKnobs().getRawParamKnobs().get(Param.LOCAL_PITCH_ADJUST);
     int pitchQ31 = pitchVal != null ? pitchVal : 0;
     if (pitchQ31 != 0) {
       appendRawQ31Child(doc, dp, "pitch", pitchQ31);
@@ -597,7 +601,7 @@ public class KitSynthSerializer {
     appendHexChildUnipolar(doc, dp, "delayFeedback", 0f);
     appendHexChildUnipolar(doc, dp, "reverbAmount", synth.getReverbSend());
     appendHexChildUnipolar(doc, dp, "arpeggiatorRate", synth.getArpRate());
-    appendHexChildUnipolar(doc, dp, "stutterRate", synth.getStutterRate());
+    appendHexChildUnipolar(doc, dp, "stutterRate", synth.getStutter().getStutterRate());
     appendHexChildUnipolar(doc, dp, "sampleRateReduction", synth.getSampleRateReduction());
     appendHexChildUnipolar(doc, dp, "bitCrush", synth.getBitCrush());
     appendHexChildUnipolar(doc, dp, "waveIndex", synth.getWaveIndex());
@@ -619,9 +623,9 @@ public class KitSynthSerializer {
     appendHexChild(doc, dp, "lfo2Rate", synth.getLfo(1).rateHz() / 100.0f);
 
     // Patch cables inside defaultParams
-    if (!synth.getPatchCables().isEmpty()) {
+    if (!synth.getModulation().getPatchCables().isEmpty()) {
       Element pcContainer = doc.createElement("patchCables");
-      for (PatchCable pc : synth.getPatchCables()) {
+      for (PatchCable pc : synth.getModulation().getPatchCables()) {
         pcContainer.appendChild(createPatchCableElement(doc, pc));
       }
       dp.appendChild(pcContainer);
@@ -632,13 +636,14 @@ public class KitSynthSerializer {
     root.appendChild(dp);
 
     // ── midiKnobs ──
-    serializeMidiKnobs(doc, root, synth.getMidiKnobs());
+    serializeMidiKnobs(doc, root, synth.getModulation().getMidiKnobs());
 
     // ── modKnobs ──
-    boolean hasKnobs = synth.getModKnobs().stream().anyMatch(k -> !"NONE".equals(k.param()));
+    boolean hasKnobs =
+        synth.getModulation().getModKnobs().stream().anyMatch(k -> !"NONE".equals(k.param()));
     if (hasKnobs) {
       Element mkContainer = doc.createElement("modKnobs");
-      for (ModKnob mk : synth.getModKnobs()) {
+      for (ModKnob mk : synth.getModulation().getModKnobs()) {
         if (!"NONE".equals(mk.param())) {
           Element knob = doc.createElement("modKnob");
           appendTextChild(doc, knob, "controlsParam", mk.param());

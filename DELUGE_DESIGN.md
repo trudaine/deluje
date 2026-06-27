@@ -219,7 +219,7 @@ Deluge XMLs use 32-bit signed hex values (`0x00000000` to `0x7FFFFFFF` for posit
 
 ### 6.2 Path Resolution
 The `<fileName>` tag in XML refers to a relative path.
-- **Root**: `deluge/src/main/resources/`
+- **Root**: `src/main/resources/`
 - **Resolution**: Files in `KITS/` will resolve sample paths against a configurable `SAMPLES_DIR` (defaulting to the resources folder).
 
 ## 8. Multi-Track Sequencing Engine
@@ -1218,22 +1218,22 @@ Before committing to phases, every required building block was verified against 
 | Missing Piece | Effort | Where |
 | :--- | :--- | :--- |
 | `ShelfEQ.java` — bass/treble shelving BiQuad | S (< 1 day) | `chuck-core/audio/filter/` |
-| `DelugeXmlParser.java` — Kit/Synth/Song XML → model | M (2 days) | `deluge/src/main/java/…/xml/` |
-| `DelugeXmlWriter.java` — model → Deluge XML | M (1 day) | `deluge/src/main/java/…/xml/` |
-| `TrackModel` hierarchy (KitTrackModel, SynthTrackModel) | M (2 days) | `deluge/src/main/java/…/model/` |
-| `ProjectModel.java` — top-level state | S (< 1 day) | `deluge/src/main/java/…/model/` |
-| `BridgeContract.java` — typed shared-array builder | S (< 1 day) | `deluge/src/main/java/…/engine/` |
-| `DelugeMainPanel.java` (replaces `SequencerPanel`) | L (4 days) | `deluge/src/main/java/…/ui/` |
-| `KitConfigDialog.java` | M (2 days) | `deluge/src/main/java/…/ui/` |
-| `SynthConfigDialog.java` | L (3 days) | `deluge/src/main/java/…/ui/` |
-| `SampleBrowserPanel.java` | M (2 days) | `deluge/src/main/java/…/ui/` |
-| `StepEditorPopover.java` | S (1 day) | `deluge/src/main/java/…/ui/` |
-| `NoteEntryPopover.java` | S (1 day) | `deluge/src/main/java/…/ui/` |
-| `OledPanel.java` — virtual display | S (1 day) | `deluge/src/main/java/…/ui/` |
-| `SongModePanel.java` | M (2 days) | `deluge/src/main/java/…/ui/` |
-| `ArrangerPanel.java` | L (3 days) | `deluge/src/main/java/…/ui/` |
-| `UndoRedoStack.java` | S (1 day) | `deluge/src/main/java/…/model/` |
-| Auto-save + project persistence | M (2 days) | `deluge/src/main/java/…/project/` |
+| `DelugeXmlParser.java` — Kit/Synth/Song XML → model | M (2 days) | `src/main/java/…/xml/` |
+| `DelugeXmlWriter.java` — model → Deluge XML | M (1 day) | `src/main/java/…/xml/` |
+| `TrackModel` hierarchy (KitTrackModel, SynthTrackModel) | M (2 days) | `src/main/java/…/model/` |
+| `ProjectModel.java` — top-level state | S (< 1 day) | `src/main/java/…/model/` |
+| `BridgeContract.java` — typed shared-array builder | S (< 1 day) | `src/main/java/…/engine/` |
+| `DelugeMainPanel.java` (replaces `SequencerPanel`) | L (4 days) | `src/main/java/…/ui/` |
+| `KitConfigDialog.java` | M (2 days) | `src/main/java/…/ui/` |
+| `SynthConfigDialog.java` | L (3 days) | `src/main/java/…/ui/` |
+| `SampleBrowserPanel.java` | M (2 days) | `src/main/java/…/ui/` |
+| `StepEditorPopover.java` | S (1 day) | `src/main/java/…/ui/` |
+| `NoteEntryPopover.java` | S (1 day) | `src/main/java/…/ui/` |
+| `OledPanel.java` — virtual display | S (1 day) | `src/main/java/…/ui/` |
+| `SongModePanel.java` | M (2 days) | `src/main/java/…/ui/` |
+| `ArrangerPanel.java` | L (3 days) | `src/main/java/…/ui/` |
+| `UndoRedoStack.java` | S (1 day) | `src/main/java/…/model/` |
+| Auto-save + project persistence | M (2 days) | `src/main/java/…/project/` |
 
 **Total estimate: 10 phases, ~30 working days.**
 
@@ -1247,7 +1247,7 @@ Before committing to phases, every required building block was verified against 
 
 #### Deliverables — Completed
 
-1. **`BridgeContract.java`** (`deluge/src/main/java/org/chuck/deluge/BridgeContract.java`)
+1. **`BridgeContract.java`** (`src/main/java/org/deluge/BridgeContract.java`)
    - 15 shared arrays + 10 scalar globals — full §18.1 registry.
    - Incorporates §23 firmware corrections: `g_env[16]` (4 env × 4 params), `g_lfo_rate/type/depth[4]` (per-voice + global LFOs), `g_filter_mode/morph[8]` (LADDER_12/24/SVF modes).
    - `register(vm)` is idempotent — safe to call after every `vm.clear()`.
@@ -1260,7 +1260,7 @@ Before committing to phases, every required building block was verified against 
 #### Tests (Phase 1) — Results: 13/13 ✅
 
 ```
-deluge/src/test/java/org/chuck/deluge/BridgeContractTest.java
+src/test/java/org/deluge/BridgeContractTest.java
   testDimensions            — PATTERN_SIZE=128, ENV_COUNT=4, LFO_COUNT=4
   testDefaultsAreRegistered — BPM=120, SWING=0.5, PLAY=0, CURRENT_STEP=-1
   testPatternArrayRegistered — g_pattern registered, all 128 cells = 0
@@ -1301,7 +1301,7 @@ Key corrections from §23 firmware analysis applied to this phase:
 #### Deliverables
 
 ```
-deluge/src/main/java/org/chuck/deluge/model/
+src/main/java/org/deluge/model/
   TrackType.java            — enum KIT, SYNTH
   StepData.java             — record(boolean active, float velocity, float gate,
                                float probability, int pitch)
@@ -1334,7 +1334,7 @@ deluge/src/main/java/org/chuck/deluge/model/
   ArrangerClip.java         — trackIndex, patternId, startBar, durationBars
   ModKnob.java              — record(String param, String patchSource)
 
-deluge/src/main/java/org/chuck/deluge/xml/
+src/main/java/org/deluge/xml/
   DelugeHexMapper.java      — hexToFloat, floatToHex, hzToHex, hexToHz (exponential freq map)
   DelugeXmlParser.java      — parseKit(File)→KitTrackModel, parseSynth(File)→SynthTrackModel,
                                parseSong(File)→ProjectModel; maps all 4 envelopes,
@@ -1345,7 +1345,7 @@ deluge/src/main/java/org/chuck/deluge/xml/
 #### Tests (Phase 2)
 
 ```
-deluge/src/test/java/org/chuck/deluge/model/
+src/test/java/org/deluge/model/
   StepDataTest.java           — defaults, velocity/gate clamp
   EnvelopeModelTest.java      — 4 envelopes constructed with correct fields
   LfoModelTest.java           — isLocal true for indices 0/1; false for 2/3
@@ -1354,7 +1354,7 @@ deluge/src/test/java/org/chuck/deluge/model/
   SynthTrackModelTest.java    — env[4] array, lfo[4] array, filterMode=LADDER_12 default
   ProjectModelTest.java       — add/remove tracks, BPM range 1–300
 
-deluge/src/test/java/org/chuck/deluge/xml/
+src/test/java/org/deluge/xml/
   DelugeHexMapperTest.java    — hexToFloat("0x7FFFFFFF")=1.0, ("0x80000000")=-1.0,
                                  hexToHz("0x1A000000")→expected Hz; round-trip 20 values
   KitXmlParserTest.java       — parse factory Kit XMLs: name, samplePath, sideChainSend present
@@ -1373,7 +1373,7 @@ deluge/src/test/java/org/chuck/deluge/xml/
 #### Deliverables
 
 ```
-deluge/src/main/java/org/chuck/deluge/ui/
+src/main/java/org/deluge/ui/
   DelugeApp.java            — replaces SequencerApp.java; wires BridgeContract + Model + UI
   DelugeMainPanel.java      — root BorderPane; composes all sub-panels
   ParameterRibbonPanel.java — 13 toggle buttons; selected one maps Knob1/2 via g_param_values
@@ -1396,7 +1396,7 @@ deluge/src/main/java/org/chuck/deluge/ui/
 #### Tests (Phase 3)
 
 ```
-deluge/src/test/java/org/chuck/deluge/ui/
+src/test/java/org/deluge/ui/
   (Use TestFX framework — add to deluge pom.xml as test-scope dependency)
 
   DelugeMainPanelTest.java  — app starts, main panel visible, 8 track rows rendered
@@ -1436,7 +1436,7 @@ chuck-core/src/main/java/org/chuck/audio/filter/
   SVFilter.java             — State Variable Filter; tick() implements §23.4 morph formula
                                with tanh band saturation and double-sampling
 
-deluge/src/main/java/org/chuck/deluge/ui/dialog/
+src/main/java/org/deluge/ui/dialog/
   KitConfigDialog.java      — §20.2 layout; all fields wired to KitTrackModel
   SynthConfigDialog.java    — §20.3 layout; 4 ENV TitledPanes, 4 LFO rows with LOCAL/GLOBAL
                                toggle, filter mode ToggleGroup with SVF morph slider,
@@ -1463,7 +1463,7 @@ double cHigh = morph <= 0.5 ? 0 : 2*(morph-0.5);
 #### Tests (Phase 4)
 
 ```
-deluge/src/test/java/org/chuck/deluge/ui/dialog/
+src/test/java/org/deluge/ui/dialog/
   KitDialogRoundTripTest.java    — change sample path → KitTrackModel updated
   SynthDialogRoundTripTest.java  — change env[0] attack → g_env[0] = new value in bridge
                                  — change lfo[1] to WARBLER type → g_lfo_type[1] = 6
@@ -1485,7 +1485,7 @@ deluge/src/test/java/org/chuck/deluge/ui/dialog/
 #### Deliverables
 
 ```
-deluge/src/main/java/org/chuck/deluge/ui/browser/
+src/main/java/org/deluge/ui/browser/
   SampleBrowserPanel.java   — TreeView<Path> + detail panel (waveform + metadata + buttons)
   SampleTreeLoader.java     — background thread; lazy-loads directory contents into TreeItem
   WavPeakDecoder.java       — reads .wav header + PCM data, downsamples to peak array for Canvas
@@ -1496,7 +1496,7 @@ deluge/src/main/java/org/chuck/deluge/ui/browser/
 #### Tests (Phase 5)
 
 ```
-deluge/src/test/java/org/chuck/deluge/browser/
+src/test/java/org/deluge/browser/
   SampleTreeLoaderTest.java    — point at KITS/../SAMPLES dir, verify tree items built
   WavPeakDecoderTest.java      — decode kick.wav (known file), assert peaks array length > 0,
                                   max peak > 0.5 (loud drum)
@@ -1513,7 +1513,7 @@ deluge/src/test/java/org/chuck/deluge/browser/
 #### Deliverables
 
 ```
-deluge/src/main/java/org/chuck/deluge/ui/popover/
+src/main/java/org/deluge/ui/popover/
   StepEditorPopover.java    — Popup with velocity (vertical Slider), gate (horizontal Slider),
                                probability (horizontal Slider); writes to StepData in model + g_velocity/g_gate/g_probability
   NoteEntryPopover.java     — 12 chromatic buttons + octave ◄► + scale/root combo + TIE toggle;
@@ -1525,7 +1525,7 @@ deluge/src/main/java/org/chuck/deluge/ui/popover/
 #### Tests (Phase 6)
 
 ```
-deluge/src/test/java/org/chuck/deluge/popover/
+src/test/java/org/deluge/popover/
   StepEditorPopoverTest.java   — show popover for step (0,0); drag velocity slider to 0.5
                                  → StepData.velocity = 0.5 ± 0.02
                                — drag gate to 0.25 → g_gate[0] = 0.25 in bridge
@@ -1545,7 +1545,7 @@ deluge/src/test/java/org/chuck/deluge/popover/
 #### Deliverables
 
 ```
-deluge/src/main/java/org/chuck/deluge/ui/song/
+src/main/java/org/deluge/ui/song/
   SongModePanel.java        — SectionBar (A-Z HBox) + ClipLauncherGrid (8 rows × 6 slots)
   SectionBar.java           — 26 ToggleButton; click arms all filled clips in section
   ClipCell.java             — Canvas cell; colors by track type; states: empty / playing / queued
@@ -1559,7 +1559,7 @@ deluge/src/main/java/org/chuck/deluge/ui/song/
 #### Tests (Phase 7)
 
 ```
-deluge/src/test/java/org/chuck/deluge/song/
+src/test/java/org/deluge/song/
   SectionArmTest.java        — arm section B, advance 1 bar → all B clips set to PLAYING
   LaunchQuantTest.java       — arm section B with "1 BAR" quant, advance half-bar
                                → clips still QUEUED; advance other half → clips PLAYING
@@ -1577,7 +1577,7 @@ deluge/src/test/java/org/chuck/deluge/song/
 #### Deliverables
 
 ```
-deluge/src/main/java/org/chuck/deluge/ui/arranger/
+src/main/java/org/deluge/ui/arranger/
   ArrangerPanel.java        — Canvas-based timeline; handles all mouse events directly
   ArrangerViewModel.java    — list of ArrangerClip; provides pixel-to-bar and bar-to-pixel mapping
   ArrangerPlaybackController.java — watches g_playhead; schedules clip switches at bar boundaries;
@@ -1591,7 +1591,7 @@ deluge/src/main/java/org/chuck/deluge/ui/arranger/
 #### Tests (Phase 8)
 
 ```
-deluge/src/test/java/org/chuck/deluge/arranger/
+src/test/java/org/deluge/arranger/
   ArrangerViewModelTest.java  — place clip at bar 2, durationBars=2; barToPixel(2)*pixelsPerBar correct
   ClipDragTest.java           — mousePressed at clip block, mouseDragged +2 bars → startBar += 2
   ClipResizeTest.java         — drag right edge → durationBars increases
@@ -1609,7 +1609,7 @@ deluge/src/test/java/org/chuck/deluge/arranger/
 #### Deliverables
 
 ```
-deluge/src/main/java/org/chuck/deluge/project/
+src/main/java/org/deluge/project/
   ProjectSerializer.java    — ProjectModel → Deluge-compatible Song XML (extends DelugeXmlWriter)
   ProjectLoader.java        — Song XML → ProjectModel (extends DelugeXmlParser)
   AutoSaveService.java      — ScheduledExecutorService, fires every 5 min;
@@ -1623,7 +1623,7 @@ deluge/src/main/java/org/chuck/deluge/project/
 #### Tests (Phase 9)
 
 ```
-deluge/src/test/java/org/chuck/deluge/project/
+src/test/java/org/deluge/project/
   ProjectSerializerTest.java — create ProjectModel with 2 kit tracks, serialize, assert XML
                                has <kit>, <sound> elements, hex values parseable
   ProjectLoaderTest.java     — load all factory KITS/ XMLs → no exception; load all SYNTHS/ → no exception
@@ -1643,10 +1643,10 @@ deluge/src/test/java/org/chuck/deluge/project/
 #### Deliverables
 
 ```
-deluge/src/main/java/org/chuck/deluge/model/
+src/main/java/org/deluge/model/
   UndoRedoStack.java        — Deque<UndoableAction>(maxDepth=64); coalesces knob moves within 300ms window
 
-deluge/src/main/java/org/chuck/deluge/midi/
+src/main/java/org/deluge/midi/
   MidiInputRouter.java      — wraps chuck-core MidiIn; routes Note-On to NoteEntryPopover or
                                directly to g_pitch[] + g_seq_matrix[] in record mode
 
@@ -1663,7 +1663,7 @@ chuck-core/src/main/java/org/chuck/audio/fx/
 #### Tests (Phase 10)
 
 ```
-deluge/src/test/java/org/chuck/deluge/
+src/test/java/org/deluge/
   UndoRedoStackTest.java    — push 5 actions, undo 3, redo 1 → correct state
                             — push 65 actions → depth stays 64 (oldest dropped)
                             — knob moves within 300ms → coalesced to 1 undo entry

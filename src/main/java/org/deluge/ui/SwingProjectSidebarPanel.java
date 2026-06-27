@@ -930,7 +930,10 @@ public class SwingProjectSidebarPanel extends JPanel {
 
   private void loadRemoteFolder(String remotePath) {
     if (SwingDelugeApp.mainInstance == null) return;
-    var fileSync = SwingDelugeApp.mainInstance.getMidiService().getFileSyncService();
+    var midiService = SwingDelugeApp.mainInstance.getMidiService();
+    if (midiService == null) return;
+    var fileSync = midiService.getFileSyncService();
+    if (fileSync == null) return;
     if (fileSync.isTransferActive()) {
       System.out.println("[Sidebar] Remote folder load deferred: active transfer in progress.");
       return;
