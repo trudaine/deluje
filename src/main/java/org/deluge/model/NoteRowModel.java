@@ -223,11 +223,7 @@ public class NoteRowModel {
     int currentPos =
         (loopLengthIfIndependent > 0) ? lastProcessedPosIfIndependent : clipLastProcessedPos;
 
-    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
-      int tempStartTick = (currentPos - ticksSinceLast + effectiveLength) % effectiveLength;
-      System.out.printf("[DIAG NoteRow] pitch=%d currentPos=%d ticksSinceLast=%d startTick=%d\n",
-          pitch, currentPos, ticksSinceLast, tempStartTick);
-    }
+
 
     if (paramManager.mightContainAutomation()) {
       paramManager.processCurrentPos(
