@@ -39,6 +39,9 @@ Requires **JDK 27 early-access** and **Maven 3.9+**. The codebase uses preview f
 already wired into the compiler, surefire, and `run.sh`, but any manual `java`/`javac`
 invocation needs them too.
 
+A Maven Wrapper is committed (`./mvnw` / `mvnw.cmd`, pinned to Maven 3.9.16) — use it for a
+reproducible build without a system Maven; everything below works with `./mvnw` in place of `mvn`.
+
 ```bash
 mvn clean package                       # compile + run tests + build shaded jar
 mvn test -B                             # tests only
