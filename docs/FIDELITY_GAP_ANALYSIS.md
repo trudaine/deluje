@@ -314,14 +314,25 @@ to the current C:** `doFMNew`, `getFinalParameterValueVolume`, the modulator-vol
 the feedback branch (`signed_saturate<22>`), and the modulator→carrier feed (no extra shift). So a
 faithful-to-current-C render is HOTTER than these references.
 
-**Conclusion: do NOT apply an index multiplier** — that would diverge from the C (= the project's
-ground truth) to match a reference, breaking faithfulness. The references are the suspect: most
-likely recorded on **older firmware** (or a different patch state) with a lower FM index, exactly as
-the DX7 reference turned out CORRUPT. **Recommended next step: re-record `103 FM Simple` and
-`117 FM Feedback` on the CURRENT firmware** (the one we port), align via `scripts/align_recording.py`,
-then re-run `FmIndexAbHarness` — if x1.0 then wins, we are faithful and the old refs were stale; if
-x1.0 is still hot against fresh refs, there is a real index bug to hunt (and we'll have ruled out
-stale references). This mirrors how the DX7 re-record dissolved its "phantom" gap.
+**RESOLVED 2026-06-28 — the C5 FM fixtures are INVALID; the engine is faithful.** Re-recorded
+`103 FM Simple` + `117 FM Feedback` on the hardware and re-ran the harness; at the matching octave
+x0.25 still beat x1.0 (FM Simple 0.91 vs 0.73; FM Feedback 0.87 vs 0.42). That looked like a real
+~4× index error — until the root cause: **`103_FM_SIMPLE_C5.XML` / `117_FM_FEEDBACK_C5.XML` use the
+non-native `mode="fm" fmRatio="2.0" fmAmount="0.5"` attribute format**, which the real Deluge XML
+schema does NOT have (native presets use `<modulator1Amount>` etc.). So the hardware can't read the
+FM amount from these fixtures — it falls back to the default modulator amount (`INT_MIN` = **FM
+off**, `sound.cpp` initParams), and **records a near-pure carrier** (exactly why `assertFmBrightness`
+flagged FM Simple as "reads ≈ a pure carrier"). Meanwhile our parser maps `fmAmount=0.5` →
+`(0.5*2-1)*MAX` = knob 0 = neutral modulator volume → β≈1 cycle (FM on). So the harness "index too
+high" is this fixture-vs-hardware mismatch, NOT an engine bug — lower index wins because it
+approaches the hardware's FM-off carrier.
+
+Clincher: **049 Basic FM** (a NATIVE-format patch with real `<modulator1Amount>`, ref `REC00010`) is
+**index-insensitive (~0.86 flat)** — the native FM path is faithful. Combined with the byte-for-byte
+sub-function verification above, **the FM engine is faithful; the C5 FM fixtures are unusable for
+hardware FM-index calibration.** `FmIndexAbHarness` now only includes native-format cases. To
+calibrate FM index against real hardware in future, add NATIVE ludocard FM presets (e.g.
+`068 FM Bells 1`) + re-recorded references, or re-author 103/117 in native `<modulator1Amount>` form.
 
 ### 4.2 Oscillator hard sync — RESOLVED: clean-reference test passes (was a scorecard artifact)
 
