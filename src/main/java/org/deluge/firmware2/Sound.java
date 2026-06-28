@@ -113,6 +113,8 @@ public class Sound extends GlobalEffectable {
    * Per-source DX7 patch (156-byte). Mirrors C sources[s].ensureDxPatch(); null = source not DX7.
    */
   public final byte[][] sourceDx7Patch = new byte[2][];
+  public final int[] sourceDx7EngineType = new int[2];
+  public final int[] sourceDx7RandomDetune = new int[2];
 
   public volatile int[] globalSourceValues = new int[3];
 

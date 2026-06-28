@@ -504,11 +504,6 @@ public class FirmwareFactory {
       sound.paramKnobs[Param.LOCAL_MODULATOR_1_FEEDBACK] = model.getModulator2FeedbackQ31();
       sound.paramKnobs[Param.LOCAL_CARRIER_0_FEEDBACK] = model.getCarrier1FeedbackQ31();
       sound.paramKnobs[Param.LOCAL_CARRIER_1_FEEDBACK] = model.getCarrier2FeedbackQ31();
-      // Modulator 1 & 2 Pitch Adjusts (LOCAL_MODULATOR_0/1_PITCH_ADJUST)
-      sound.paramKnobs[Param.LOCAL_MODULATOR_0_PITCH_ADJUST] =
-          (model.getModulator1Transpose() * 100 + model.getModulator1Cents()) * 178956;
-      sound.paramKnobs[Param.LOCAL_MODULATOR_1_PITCH_ADJUST] =
-          (model.getModulator2Transpose() * 100 + model.getModulator2Cents()) * 178956;
       // Modulator chaining
       sound.fmModulator1ToModulator0 = model.isModulator1ToModulator0();
     }
