@@ -254,7 +254,28 @@ clamps `positivePatchedValue` to [0,2^30] while the C deliberately does NOT and 
 — affects high-index FM; (b) the FM modulator "active" test uses `paramFinalValues!=0` instead of the
 C's knob `==INT_MIN` (voice.cpp:528).
 
-### 4.2 Oscillator hard sync — major
+### 4.1ter The TRUSTWORTHY ground truth: the clean single-note reference suite (2026-06-28)
+
+The `FidelityScorecardTest` per-synth alignment is fragile (it produced false "FM too bright" and
+arguably false "hard sync broken" signals — see §4.1bis). The RELIABLE fidelity signal is
+`PhysicalHardwareFidelityTest` (`@Tag("slow")`, run with `mvn test -Pslow-tests`): each test renders
+ONE preset and compares it to a clean single-note hardware recording (`reference_*_c5.wav`) — no
+per-synth slicing, so no alignment ambiguity. Current state: **39 tests, 3 real failures.** These
+are the engine gaps worth chasing (the scorecard's other low scorers are largely measurement noise):
+
+| failing test | metric | meaning |
+|---|---|---|
+| `testPwmSquareParity` | wave corr **−0.66** (need ≥0.90) | PWM square (osc1 square + LFO→osc1PulseWidth) is roughly inverted / wrong duty vs HW |
+| `testDx7VintageParity` | wave corr **<0.05** (need ≥0.05) | DX7 voice (separate `Dx7Voice`/`FmCore`, not `Voice.renderFmPath`) essentially uncorrelated with HW — severely broken |
+| `testBasicFmRecordingParity` | — | FM-from-recording parity fails |
+
+NB hard sync (`testSynthHardSyncParity`) **PASSES** the clean reference — so its low scorecard score
+(Saw/Square Sync 0.3–0.4) is another alignment artifact, not an engine bug. **Methodology rule:
+trust `-Pslow-tests` clean-reference results over the scorecard for go/no-go on a synthesis family.**
+
+### 4.2 Oscillator hard sync — RESOLVED: clean-reference test passes (was a scorecard artifact)
+
+(Original note below kept for history; `testSynthHardSyncParity` now passes — see §4.1ter.)
 Sync patches are badly off.
 - `046 Saw Sync` **0.04**, `045 Square Sync` **0.28**, `098 Saturated Sync` **0.33**.
 - Likely cause: `processing/render_wave.h` `renderOscSync` / `oscillator.cpp` sync branch. Our
