@@ -41,7 +41,6 @@ public class FirmwareAudioEngineMetronomeTest {
   @Test
   public void clickDecaysAfterAboutAThousandSamples() {
     FirmwareAudioEngine e = new FirmwareAudioEngine();
-    e.dcBlockerEnabled = false;
     e.metronomeEnabled = true;
     e.triggerMetronome(DOWNBEAT_PHASE);
     // The one-shot click reaches true silence by ~block 9. The engaged master compressor sustains

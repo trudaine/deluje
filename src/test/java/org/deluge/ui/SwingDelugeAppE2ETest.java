@@ -482,9 +482,7 @@ public class SwingDelugeAppE2ETest {
     org.deluge.engine.FirmwareAudioEngine engine =
         (org.deluge.engine.FirmwareAudioEngine)
             bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-    if (engine != null) {
-      engine.dcBlockerEnabled = false;
-    }
+    if (engine != null) {}
     try {
       SwingGridPanel songGrid = app.getSongPanel();
 
