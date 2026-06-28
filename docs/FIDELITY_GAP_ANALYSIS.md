@@ -305,9 +305,23 @@ Signal: **FM Simple + FM Feedback match hardware far better at LOW index** (≈0
 native-FM index reads too high for them. BUT FM Simple's reference is flagged suspect (§4.1bis: it
 reads ≈ a pure carrier), so its x0.25 win may be a bad reference. **FM Feedback is the clean signal**
 (not flagged): index x1.0→0.06 vs x0.25→0.79 ⇒ our FM (and/or its modulator feedback, which this
-harness does NOT scale) is too hot. Basic FM is index-insensitive (≈0.86 throughout). NEXT: listen
-to the `$TMPDIR/deluge-fm-ab/` WAVs to confirm by ear, and decide whether the index/feedback scaling
-is a real engine fix or the FM Simple/Feedback references also need re-recording (like DX7's did).
+harness does NOT scale) is too hot. Basic FM is index-insensitive (≈0.86 throughout).
+
+**Ear check (user, 2026-06-28): x0.25 is closer than x1.0 but "still off"** — HW reads as real FM,
+just mellower than our faithful (x1.0) render. **Yet every FM sub-function is verified byte-identical
+to the current C:** `doFMNew`, `getFinalParameterValueVolume`, the modulator-volume neutral
+(`33554432 = 2^25`, matches C `functions.cpp:96-98`), note/velocity sources, the patch-cable math,
+the feedback branch (`signed_saturate<22>`), and the modulator→carrier feed (no extra shift). So a
+faithful-to-current-C render is HOTTER than these references.
+
+**Conclusion: do NOT apply an index multiplier** — that would diverge from the C (= the project's
+ground truth) to match a reference, breaking faithfulness. The references are the suspect: most
+likely recorded on **older firmware** (or a different patch state) with a lower FM index, exactly as
+the DX7 reference turned out CORRUPT. **Recommended next step: re-record `103 FM Simple` and
+`117 FM Feedback` on the CURRENT firmware** (the one we port), align via `scripts/align_recording.py`,
+then re-run `FmIndexAbHarness` — if x1.0 then wins, we are faithful and the old refs were stale; if
+x1.0 is still hot against fresh refs, there is a real index bug to hunt (and we'll have ruled out
+stale references). This mirrors how the DX7 re-record dissolved its "phantom" gap.
 
 ### 4.2 Oscillator hard sync — RESOLVED: clean-reference test passes (was a scorecard artifact)
 
