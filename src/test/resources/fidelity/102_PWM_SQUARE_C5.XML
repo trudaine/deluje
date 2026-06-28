@@ -32,7 +32,7 @@
 			<type>triangle</type>
 			<syncLevel>0</syncLevel>
 			<syncType>0</syncType>
-			<frequency>0x00000000</frequency>
+			<rate>0x00000000</rate>
 		</lfo1>
 	</defaultParams>
 	<patchCables>
