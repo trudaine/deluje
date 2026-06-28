@@ -354,7 +354,11 @@ public class Dx7Voice {
 
     /** set (pitchenv.cpp:39-43) */
     public void set(byte[] patch, int off) {
-      level = TAB[patch[off + 3] & 0xFF] << 19;
+      // C pitchenv.cpp:40 — level_ = pitchenv_tab[levels[3]] << 19. In the packed voice the pitch
+      // EG
+      // is rates[0..3] at off+0..3 then levels[0..3] at off+4..7, so levels[3] is off+7 (NOT off+3,
+      // which is rate[3] — that swap pinned a neutral env to TAB[99]=+127 ≈ +4 octaves).
+      level = TAB[patch[off + 4 + 3] & 0xFF] << 19;
       down = true;
       advance(patch, off, 0);
     }
@@ -391,10 +395,11 @@ public class Dx7Voice {
     void advance(byte[] patch, int off, int newix) {
       ix = newix;
       if (ix < 4) {
-        int newlevel = patch[off + ix] & 0xFF;
+        // C pitchenv.cpp:74-78 — target from levels[ix] (off+4+ix), rate from rates[ix] (off+ix).
+        int newlevel = patch[off + 4 + ix] & 0xFF;
         targetLevel = TAB[newlevel] << 19;
         rising = (targetLevel > level);
-        inc = RATE[patch[off + 4 + ix] & 0xFF] * UNIT;
+        inc = RATE[patch[off + ix] & 0xFF] * UNIT;
       }
     }
 

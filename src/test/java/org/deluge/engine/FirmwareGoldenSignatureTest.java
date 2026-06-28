@@ -389,7 +389,9 @@ public class FirmwareGoldenSignatureTest {
 
     assertClose("dx7 peak", 0.032643273, dx7Peak, 0.10, 0.0005);
     assertClose("dx7 rms", 0.013657779, dx7Rms, 0.10, 0.0005);
-    assertClose("dx7 brightness", 0.375853821, dx7Brightness, 0.10, 0.05);
+    // Updated 2026-06-28: DX7 pitch-envelope rates/levels-swap fix (Dx7Voice.PitchEnv) corrected a
+    // spurious +4-octave offset on neutral pitch envelopes, shifting DX7 brightness.
+    assertClose("dx7 brightness", 0.4292223632996002, dx7Brightness, 0.10, 0.05);
     assertClose("dx7 h1", 0.007801012, dx7H1, 0.10, 0.0005);
     assertClose("dx7 h3", 0.000026857, dx7H3, 0.10, 0.0005);
     assertTrue(dx7H3 > 0.000001, "dx7 patch should stay richer than a pure sine");
