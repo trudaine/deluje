@@ -36,8 +36,6 @@ public class Dx7Voice {
     158, 174, 190, 206, 222, 238, 250,
   };
 
-  static int debugCount = 0;
-
   // ── dxNoteToFreq (dx7note.cpp:50-54) ──
   static int dxNoteToFreq(int note) {
     final int base = 50857777; // (1<<24)*(log(440)/log(2)-69/12)
@@ -581,30 +579,11 @@ public class Dx7Voice {
     int algorithm = patch[134] & 0xFF;
     int feedback = patch[135] & 0xFF;
     int fbShift = feedback != 0 ? FEEDBACK_BITDEPTH - feedback : 16;
-    if (debugCount < 10) {
-      for (int op = 0; op < 6; op++) {
-        System.out.println(
-            "  op="
-                + op
-                + " active="
-                + ctrls.opSwitch(op)
-                + " freq="
-                + params[op].freq
-                + " level_in="
-                + params[op].level_in
-                + " gain_out="
-                + params[op].gain_out);
-      }
-    }
     // ctrls->core->render (dx7note.cpp:382). Static dispatch: MkI vs the modern FmCore.
     if (ctrls.useMkI) {
       EngineMkI.render(buf, n, params, algorithm, fbBuf, fbShift);
     } else {
       FmCore.render(buf, n, params, algorithm, fbBuf, fbShift);
-    }
-    if (debugCount < 10) {
-      System.out.println("  buf[0..3]=" + buf[0] + ", " + buf[1] + ", " + buf[2] + ", " + buf[3]);
-      debugCount++;
     }
 
     boolean anyActive = false;
