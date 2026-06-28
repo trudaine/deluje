@@ -269,6 +269,17 @@ are the engine gaps worth chasing (the scorecard's other low scorers are largely
 | `testDx7VintageParity` | wave corr 0.004→**0.035** (need ≥0.05) | PARTIALLY FIXED 2026-06-28. **Root cause #1 (FIXED): `Dx7Voice.PitchEnv` had rates/levels swapped** — `set()`/`advance()` read the initial/target level from the rate bytes (off+0..3) instead of the level bytes (off+4..7); a neutral pitch env (levels=50) read `TAB[99]=+127 ≈ +4 octaves`, so the whole voice was 4 octaves off. Now matches C `pitchenv.cpp` (`level=levels[3]=off+7`, `target=levels[ix]=off+4+ix`, `rate=rates[ix]=off+ix`). Spectral cosine **0.147→0.529**, gross pitch error gone. **Root cause #2 (OPEN): operator balance** — our dominant partial is the octave (1050 Hz) vs HW's fundamental (523). NB the per-operator `Dx7Env` looks like the same swap but applying it REGRESSES (cosine→−0.23), so the operator EG byte-order in the loaded patch differs from the pitch EG (a real puzzle — the operator path is correct as-is). Next: trace why the octave operator dominates (operator output-level/algorithm-carrier balance) without touching `Dx7Env`'s rate/level indexing. |
 | `testBasicFmRecordingParity` | — | FM-from-recording parity fails |
 
+**Basic FM** (`testBasicFmRecordingParity`, `049 Basic FM.XML` vs `REC00010.WAV`) — the active
+modulator is **modulator1 at transpose −12** (a subharmonic, half the carrier frequency;
+`modulator2Amount=0x80000000=INT_MIN`, inactive). The `assertSubharmonicFm` check wants the
+waveform to repeat at the subharmonic period `2T` (i.e. `AC(2T) > AC(T)`), but ours has
+`AC(2T)=0.20 < AC(T)=0.37` — the subharmonic sidebands from modulator1 are too weak (carrier still
+dominates). Pre-existing (independent of the `>>30` change — FM uses `doFMNew`, not the table-wave
+path — and of the per-sample modulator-amplitude interpolation, which is negligible on a steady
+sustain). Likely the modulator1 FM index (`modulator1Amount=0x32000000` + `envelope2`/`note` cables
+to `modulator1Volume`) renders too low; next: instrument modulator1's effective index/frequency for
+this patch and compare to the C, like the FM Bells trace in §4.1bis.
+
 NB hard sync (`testSynthHardSyncParity`) **PASSES** the clean reference — so its low scorecard score
 (Saw/Square Sync 0.3–0.4) is another alignment artifact, not an engine bug. **Methodology rule:
 trust `-Pslow-tests` clean-reference results over the scorecard for go/no-go on a synthesis family.**
