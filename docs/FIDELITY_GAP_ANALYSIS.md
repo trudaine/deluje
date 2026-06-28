@@ -276,9 +276,13 @@ waveform to repeat at the subharmonic period `2T` (i.e. `AC(2T) > AC(T)`), but o
 `AC(2T)=0.20 < AC(T)=0.37` — the subharmonic sidebands from modulator1 are too weak (carrier still
 dominates). Pre-existing (independent of the `>>30` change — FM uses `doFMNew`, not the table-wave
 path — and of the per-sample modulator-amplitude interpolation, which is negligible on a steady
-sustain). Likely the modulator1 FM index (`modulator1Amount=0x32000000` + `envelope2`/`note` cables
-to `modulator1Volume`) renders too low; next: instrument modulator1's effective index/frequency for
-this patch and compare to the C, like the FM Bells trace in §4.1bis.
+sustain). INSTRUMENTED 2026-06-28: modulator1 is active and at the **correct** frequency (130.7 Hz =
+carrier/2, ratio 0.500), so it's NOT a dropped/wrong-frequency modulator. But its index is very high
+(`modVol0 = 89M` → β ≈ 16 rad) and the autocorrelations are low overall (`AC(T)=0.37`, `AC(2T)=0.20`)
+— the spectrum is very complex/bright, so the carrier-period structure edges out the subharmonic.
+This is the same **FM-index magnitude** question as §4.1bis (modVol seems high); whether β≈16 is
+faithful needs a direct spectral comparison to `REC00010.WAV`. (Also check whether unison random
+detune is smearing the subharmonic — `detunePerVoice = getNoise()`.)
 
 NB hard sync (`testSynthHardSyncParity`) **PASSES** the clean reference — so its low scorecard score
 (Saw/Square Sync 0.3–0.4) is another alignment artifact, not an engine bug. **Methodology rule:
