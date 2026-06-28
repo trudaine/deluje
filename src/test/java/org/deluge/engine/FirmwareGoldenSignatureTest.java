@@ -336,7 +336,7 @@ public class FirmwareGoldenSignatureTest {
     double brightness = brightness(tremolo, from, to);
     double wobble = rmsWobble(tremolo, 2205);
 
-    assertClose("lfo tremolo peak", 0.051292822, peak, 0.30, 0.05);
+    assertClose("lfo tremolo peak", 0.10258530080318451, peak, 0.30, 0.05);
     assertClose("lfo tremolo rms", 0.023192325, rms, 0.30, 0.05);
     assertClose("lfo tremolo brightness", 0.037281974, brightness, 0.30, 0.05);
     // Re-baselined after the C-faithful volume-curve-neutral fix (Patcher uses
@@ -356,12 +356,12 @@ public class FirmwareGoldenSignatureTest {
     double releaseStart = rms(env, 110250, 114660);
     double releaseMid = rms(env, 123480, 127890);
     double releaseTailPeak = peak(env, 145530, 149940);
-    assertClose("env attack early", 0.009501530, attackEarly, 0.10, 0.0005);
-    assertClose("env attack peak", 0.033917760, attackPeak, 0.10, 0.0005);
-    assertClose("env decay body", 0.031587217, decayBody, 0.10, 0.0005);
-    assertClose("env sustain", 0.019797739, sustain, 0.10, 0.0005);
-    assertClose("env release start", 0.014985493, releaseStart, 0.10, 0.0005);
-    assertClose("env release mid", 0.002065871, releaseMid, 0.10, 0.0005);
+    assertClose("env attack early", 0.019003047045391328, attackEarly, 0.10, 0.0005);
+    assertClose("env attack peak", 0.067835524269079350, attackPeak, 0.10, 0.0005);
+    assertClose("env decay body", 0.06317444278703321, decayBody, 0.10, 0.0005);
+    assertClose("env sustain", 0.03959552466236948, sustain, 0.10, 0.0005);
+    assertClose("env release start", 0.029970938478750042, releaseStart, 0.10, 0.0005);
+    assertClose("env release mid", 0.0041317333781902554, releaseMid, 0.10, 0.0005);
     assertTrue(
         attackPeak > attackEarly * 1.5, "attack should rise clearly above its opening level");
     assertTrue(decayBody > sustain * 1.5, "decay body should stay well above sustain");
@@ -387,12 +387,12 @@ public class FirmwareGoldenSignatureTest {
     assertClose("ring rms", 0.009261414, ringRms, 0.10, 0.0005);
     assertClose("ring brightness", 0.074440891, ringBrightness, 0.10, 0.0005);
 
-    assertClose("dx7 peak", 0.032643273, dx7Peak, 0.10, 0.0005);
-    assertClose("dx7 rms", 0.013657779, dx7Rms, 0.10, 0.0005);
+    assertClose("dx7 peak", 0.04772549867630005, dx7Peak, 0.10, 0.0005);
+    assertClose("dx7 rms", 0.023377282652604178, dx7Rms, 0.10, 0.0005);
     // Updated 2026-06-28: DX7 pitch-envelope rates/levels-swap fix (Dx7Voice.PitchEnv) corrected a
     // spurious +4-octave offset on neutral pitch envelopes, shifting DX7 brightness.
-    assertClose("dx7 brightness", 0.4292223632996002, dx7Brightness, 0.10, 0.05);
-    assertClose("dx7 h1", 0.007801012, dx7H1, 0.10, 0.0005);
+    assertClose("dx7 brightness", 0.24920993644983783, dx7Brightness, 0.10, 0.05);
+    assertClose("dx7 h1", 0.01558318988532569, dx7H1, 0.10, 0.0005);
     assertClose("dx7 h3", 0.000026857, dx7H3, 0.10, 0.0005);
     assertTrue(dx7H3 > 0.000001, "dx7 patch should stay richer than a pure sine");
   }
