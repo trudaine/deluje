@@ -26,6 +26,8 @@ public class FirmwareGoldenSignatureTest {
     GlobalSidechainBus.reset();
     org.deluge.firmware2.Functions.resetNoiseSeed();
     org.deluge.engine.FirmwareAudioEngine.cpuDireness = 0;
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(-2);
+    org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(-2);
   }
 
   private static final int ONE = 2147483647;
