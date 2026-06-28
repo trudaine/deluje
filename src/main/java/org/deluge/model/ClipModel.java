@@ -355,7 +355,8 @@ public class ClipModel extends TimelineCounter {
       // Real-time surgical sync to noteRows
       int stepTicks = tripletMode ? 32 : 24;
       boolean isKit =
-          this.isKit || (type == ClipType.INSTRUMENT && sound instanceof org.deluge.engine.FirmwareKit);
+          this.isKit
+              || (type == ClipType.INSTRUMENT && sound instanceof org.deluge.engine.FirmwareKit);
       int pitch =
           isKit
               ? r
@@ -423,7 +424,9 @@ public class ClipModel extends TimelineCounter {
 
   public void syncNoteRowsFromGrid() {
     int stepTicks = tripletMode ? 32 : 24;
-    boolean isKit = this.isKit || (type == ClipType.INSTRUMENT && sound instanceof org.deluge.engine.FirmwareKit);
+    boolean isKit =
+        this.isKit
+            || (type == ClipType.INSTRUMENT && sound instanceof org.deluge.engine.FirmwareKit);
 
     for (int r = 0; r < rowCount; r++) {
       boolean hasActiveSteps = false;

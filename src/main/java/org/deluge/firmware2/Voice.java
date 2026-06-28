@@ -315,7 +315,6 @@ public class Voice {
         vs.active = true;
         int ovr = (s == 0) ? testStartPhaseOverrideOsc1.get() : testStartPhaseOverrideOsc2.get();
         vs.oscPos = (ovr != -2) ? ovr : Functions.getNoise(); // random initial phase
-        System.out.println("DEBUG KITTEMP: Voice=" + Integer.toHexString(this.hashCode()) + " s=" + s + " sampleRef=" + (vs.sampleRef != null ? vs.sampleRef.fileName : "null") + " active=" + vs.active);
         // C vups:79-82 — retrigger overrides the random phase: zero-phase base for the wave type
         // plus the configured offset. 0xFFFFFFFF (-1) = off.
         if (sound.oscRetriggerPhase[s] != 0xFFFFFFFF) {
@@ -1389,10 +1388,24 @@ public class Voice {
 
   private void renderFmPath(
       int[] mixBuf, int numSamples, int overallOscAmplitude, int overallPitchAdjust) {
-    int modAmp0 = paramFinalValues[Param.LOCAL_MODULATOR_0_VOLUME];
-    int modAmp1 = paramFinalValues[Param.LOCAL_MODULATOR_1_VOLUME];
-    boolean mod0Active = modAmp0 != 0;
-    boolean mod1Active = modAmp1 != 0;
+    // C: voice.cpp:975-979 — on the first render of a fast attack, seed lastTime to the target so
+    // the modulator amplitude doesn't ramp up from zero across the first block.
+    if (!doneFirstRender && paramFinalValues[Param.LOCAL_ENV_0_ATTACK] > 245632) {
+      modulatorAmplitudeLastTime[0] = paramFinalValues[Param.LOCAL_MODULATOR_0_VOLUME];
+      modulatorAmplitudeLastTime[1] = paramFinalValues[Param.LOCAL_MODULATOR_1_VOLUME];
+    }
+
+    // C: voice.cpp:1069-1079 — the modulator amplitude is ramped per sample from last block's value
+    // (modulatorAmplitudeLastTime) to this block's target (paramFinalValues). A modulator stays
+    // active while either is non-zero so a release ramp-down still renders.
+    int modTarget0 = paramFinalValues[Param.LOCAL_MODULATOR_0_VOLUME];
+    int modTarget1 = paramFinalValues[Param.LOCAL_MODULATOR_1_VOLUME];
+    boolean mod0Active = modTarget0 != 0 || modulatorAmplitudeLastTime[0] != 0;
+    boolean mod1Active = modTarget1 != 0 || modulatorAmplitudeLastTime[1] != 0;
+    int modAmp0 = modulatorAmplitudeLastTime[0]; // C:1424/1443 — start amplitude (ramped below)
+    int modAmp1 = modulatorAmplitudeLastTime[1];
+    int modAmpInc0 = mod0Active ? (modTarget0 - modulatorAmplitudeLastTime[0]) / numSamples : 0;
+    int modAmpInc1 = mod1Active ? (modTarget1 - modulatorAmplitudeLastTime[1]) / numSamples : 0;
 
     if (fmBuf.length < numSamples) {
       fmBuf = new int[numSamples];
@@ -1425,7 +1438,8 @@ public class Voice {
             paramFinalValues[Param.LOCAL_MODULATOR_1_FEEDBACK],
             unisonParts[u].modulatorFeedback,
             1,
-            false);
+            false,
+            modAmpInc1);
         if (sound.modulator1ToModulator0 && mod0ActiveThisUnison) {
           renderFMWithFeedback(
               fmBuf,
@@ -1436,7 +1450,8 @@ public class Voice {
               modInc0,
               paramFinalValues[Param.LOCAL_MODULATOR_0_FEEDBACK],
               unisonParts[u].modulatorFeedback,
-              0);
+              0,
+              modAmpInc0);
         } else if (!sound.modulator1ToModulator0 && mod0ActiveThisUnison) {
           renderSineWaveWithFeedback(
               fmBuf,
@@ -1448,7 +1463,8 @@ public class Voice {
               paramFinalValues[Param.LOCAL_MODULATOR_0_FEEDBACK],
               unisonParts[u].modulatorFeedback,
               0,
-              true);
+              true,
+              modAmpInc0);
         }
       } else if (mod0ActiveThisUnison) {
         renderSineWaveWithFeedback(
@@ -1461,7 +1477,8 @@ public class Voice {
             paramFinalValues[Param.LOCAL_MODULATOR_0_FEEDBACK],
             unisonParts[u].modulatorFeedback,
             0,
-            false);
+            false,
+            modAmpInc0);
       } else {
         carriersAreSine = true;
       }
@@ -1555,6 +1572,11 @@ public class Voice {
         }
       }
     }
+
+    // C: voice.cpp:1660 — carry this block's modulator amplitude target into the next block's ramp
+    // start, so the per-sample interpolation tracks the modulator-volume envelope across blocks.
+    modulatorAmplitudeLastTime[0] = paramFinalValues[Param.LOCAL_MODULATOR_0_VOLUME];
+    modulatorAmplitudeLastTime[1] = paramFinalValues[Param.LOCAL_MODULATOR_1_VOLUME];
   }
 
   // ── Filter + gain application ──
@@ -1657,6 +1679,8 @@ public class Voice {
   // ── FM helpers (ports of voice.cpp:1703-1830) ──
   // These are verified faithful from the FM fix session.
 
+  // C: voice.cpp:1703 — {@code amp} is the start amplitude (modulatorAmplitudeLastTime) and {@code
+  // ampInc} ramps it per sample toward this block's target. Non-modulator callers pass ampInc 0.
   private void renderSineWaveWithFeedback(
       int[] buf,
       int n,
@@ -1667,52 +1691,69 @@ public class Voice {
       int fbAmt,
       int[] fb,
       int fi,
-      boolean add) {
+      boolean add,
+      int ampInc) {
     int phaseNow = ph[pi];
+    int ampNow = amp;
     if (fbAmt != 0) {
       int fbVal = fb[fi];
       for (int i = 0; i < n; i++) {
+        ampNow += ampInc; // C:1716 — amplitudeNow += amplitudeIncrement
         int fb2 = Functions.signed_saturate(Functions.multiply_32x32_rshift32(fbVal, fbAmt), 22);
         phaseNow += pInc;
         fbVal = SineOsc.doFMNew(phaseNow, fb2);
         if (add) {
-          buf[i] = Functions.multiply_accumulate_32x32_rshift32_rounded(buf[i], fbVal, amp);
+          buf[i] = Functions.multiply_accumulate_32x32_rshift32_rounded(buf[i], fbVal, ampNow);
         } else {
-          buf[i] = Functions.multiply_32x32_rshift32(fbVal, amp);
+          buf[i] = Functions.multiply_32x32_rshift32(fbVal, ampNow);
         }
       }
       fb[fi] = fbVal;
     } else {
       for (int i = 0; i < n; i++) {
+        ampNow += ampInc; // C:1746
         phaseNow += pInc;
         int sine = SineOsc.doFMNew(phaseNow, 0);
         if (add) {
-          buf[i] = Functions.multiply_accumulate_32x32_rshift32_rounded(buf[i], sine, amp);
+          buf[i] = Functions.multiply_accumulate_32x32_rshift32_rounded(buf[i], sine, ampNow);
         } else {
-          buf[i] = Functions.multiply_32x32_rshift32(sine, amp);
+          buf[i] = Functions.multiply_32x32_rshift32(sine, ampNow);
         }
       }
     }
     ph[pi] = phaseNow;
   }
 
+  // C: voice.cpp:1785 — {@code amp}/{@code ampInc} ramp the modulator amplitude per sample.
   private void renderFMWithFeedback(
-      int[] buf, int n, int[] ph, int pi, int amp, int pInc, int fbAmt, int[] fb, int fi) {
+      int[] buf,
+      int n,
+      int[] ph,
+      int pi,
+      int amp,
+      int pInc,
+      int fbAmt,
+      int[] fb,
+      int fi,
+      int ampInc) {
     int phaseNow = ph[pi];
+    int ampNow = amp;
     if (fbAmt != 0) {
       int fbVal = fb[fi];
       for (int i = 0; i < n; i++) {
+        ampNow += ampInc;
         int fb2 = Functions.signed_saturate(Functions.multiply_32x32_rshift32(fbVal, fbAmt), 22);
         int sum = buf[i] + fb2;
         phaseNow += pInc;
         fbVal = SineOsc.doFMNew(phaseNow, sum);
-        buf[i] = Functions.multiply_32x32_rshift32(fbVal, amp);
+        buf[i] = Functions.multiply_32x32_rshift32(fbVal, ampNow);
       }
       fb[fi] = fbVal;
     } else {
       for (int i = 0; i < n; i++) {
+        ampNow += ampInc;
         phaseNow += pInc;
-        buf[i] = Functions.multiply_32x32_rshift32(SineOsc.doFMNew(phaseNow, buf[i]), amp);
+        buf[i] = Functions.multiply_32x32_rshift32(SineOsc.doFMNew(phaseNow, buf[i]), ampNow);
       }
     }
     ph[pi] = phaseNow;
@@ -1755,7 +1796,7 @@ public class Voice {
     if (amp == 0) return;
     int[] ph = {src.oscPos};
     int[] fb = {src.carrierFeedback};
-    renderSineWaveWithFeedback(buf, n, ph, 0, amp, pInc, fbAmt, fb, 0, true);
+    renderSineWaveWithFeedback(buf, n, ph, 0, amp, pInc, fbAmt, fb, 0, true, 0);
     src.oscPos = ph[0];
     src.carrierFeedback = fb[0];
   }

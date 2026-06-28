@@ -37,7 +37,8 @@ public class AudioOutputPlaybackTest {
       if (clip instanceof ClipModel ic && ic.getSound() != null) {
         var sound = (org.deluge.firmware2.GlobalEffectable) ic.getSound();
         if (sound instanceof org.deluge.firmware2.AudioOutput ao) {
-          ao.setAmplitude(1 << 20); // Turn down amplitude to prevent clipping under 128x master boost
+          ao.setAmplitude(
+              1 << 20); // Turn down amplitude to prevent clipping under 128x master boost
         }
         engine.sounds.add(sound);
       }
@@ -235,7 +236,8 @@ public class AudioOutputPlaybackTest {
       if (clip instanceof ClipModel ic && ic.getSound() != null) {
         var sound = (org.deluge.firmware2.GlobalEffectable) ic.getSound();
         if (sound instanceof org.deluge.firmware2.AudioOutput ao) {
-          ao.setAmplitude(1 << 20); // Turn down amplitude to prevent clipping under 128x master boost
+          ao.setAmplitude(
+              1 << 20); // Turn down amplitude to prevent clipping under 128x master boost
         }
         engine.sounds.add(sound);
         sounds++;

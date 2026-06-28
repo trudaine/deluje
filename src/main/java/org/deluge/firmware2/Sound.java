@@ -1001,7 +1001,6 @@ public class Sound extends GlobalEffectable {
                   matchedZone.endSamplePos == -1 ? len : Math.min(matchedZone.endSamplePos, len);
               looping = matchedZone.looping;
               loopStartFrame = matchedZone.startLoopPos;
-              System.out.println("DEBUG TRIGGER ZONE: sound=" + hashCode() + " s=" + s + " sample=" + targetSample.fileName + " len=" + len + " zoneEnd=" + matchedZone.endSamplePos + " -> endFrame=" + endFrame);
             }
           }
 
@@ -1010,7 +1009,6 @@ public class Sound extends GlobalEffectable {
             if (targetSample != null) {
               len = (int) targetSample.lengthInSamples;
               endFrame = sampleEndPoint[s] == 65535 ? len : Math.min(sampleEndPoint[s], len);
-              System.out.println("DEBUG TRIGGER DEFAULT: sound=" + hashCode() + " s=" + s + " sample=" + targetSample.fileName + " len=" + len + " sampleEndPoint=" + sampleEndPoint[s] + " -> endFrame=" + endFrame);
             }
           }
 

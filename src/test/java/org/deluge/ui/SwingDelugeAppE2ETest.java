@@ -479,7 +479,9 @@ public class SwingDelugeAppE2ETest {
 
     // 2. Initialize App Frame
     SwingDelugeApp app = new SwingDelugeApp(bridge, null, true); // true for hi-fi pure engine
-    org.deluge.engine.FirmwareAudioEngine engine = (org.deluge.engine.FirmwareAudioEngine) bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+    org.deluge.engine.FirmwareAudioEngine engine =
+        (org.deluge.engine.FirmwareAudioEngine)
+            bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
     if (engine != null) {
       engine.dcBlockerEnabled = false;
     }

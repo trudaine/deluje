@@ -271,7 +271,8 @@ public class FirmwareAudioEngine {
     // tanh walled dense content). songMasterVolume = 0 (neutral UNPATCHED_VOLUME).
     int songVolume =
         org.deluge.firmware2.Functions.getFinalParameterValueVolume(
-                134217728, org.deluge.firmware2.Functions.cableToLinearParamShortcut(this.songVolume))
+                134217728,
+                org.deluge.firmware2.Functions.cableToLinearParamShortcut(this.songVolume))
             >> 1;
 
     // These max-scans feed only the telemetry log below — skip the whole-buffer scan when
@@ -322,8 +323,10 @@ public class FirmwareAudioEngine {
         dcBlockerStateL = yL;
         dcBlockerStateR = yR;
 
-        fxBuffer[i][0] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, yL * 2147483648.0f));
-        fxBuffer[i][1] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, yR * 2147483648.0f));
+        fxBuffer[i][0] =
+            (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, yL * 2147483648.0f));
+        fxBuffer[i][1] =
+            (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, yR * 2147483648.0f));
       }
     } else {
       dcBlockerStateL = 0.0f;
