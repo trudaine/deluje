@@ -20,11 +20,14 @@ package:
   subsystem — port it; never add a bypass or fall back to an approximation.
 - **Every firmware2 edit cites the C `file:line` it ports.** Before writing code, open the exact
   C function, read it, mirror its structure.
-- **Beware the master/gain stage in `engine/FirmwareAudioEngine`.** It currently carries
-  non-faithful compensations (an invented DC-blocker, a `lshiftAndSaturate(…, 4)` final shift
-  where the C does `>>1`, and master-volume applied both pre-mix and inside the compressor).
-  These mask an upstream per-track output-scale mismatch. Re-deriving them faithfully is
-  high-leverage but **must be scorecard-verified** (see below) so it doesn't regress.
+- **The master/gain stage in `engine/FirmwareAudioEngine` is non-faithful per-stage but nets sane
+  output.** It carries compensations (an invented DC-blocker, a `lshiftAndSaturate(…, 4)` final
+  shift where the C does `>>1`, master-volume applied both pre-mix and in the compressor; and the
+  oscillator applies amplitude at `>>30` where the C nets `>>32`). These diverge from C per stage,
+  but empirically a full-volume single oscillator peaks at ~0.42–0.49 with **0% clipping** — the
+  net level is fine, so this is faithfulness debt, NOT a clipping/level bug. Re-deriving the chain
+  to match C stage-by-stage is fidelity-neutral for the spectral scorecard (which is
+  amplitude-invariant); only attempt it for saturation/inter-track-balance reasons, scorecard-gated.
 
 See `docs/FIRMWARE2_FAITHFUL_PORT.md` (port protocol + numeric-type mapping) and
 `docs/FIRMWARE2_PORT_ROADMAP.md`.
