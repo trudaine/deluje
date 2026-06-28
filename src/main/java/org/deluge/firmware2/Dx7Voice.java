@@ -36,6 +36,8 @@ public class Dx7Voice {
     158, 174, 190, 206, 222, 238, 250,
   };
 
+  static int debugCount = 0;
+
   // ── dxNoteToFreq (dx7note.cpp:50-54) ──
   static int dxNoteToFreq(int note) {
     final int base = 50857777; // (1<<24)*(log(440)/log(2)-69/12)
@@ -273,19 +275,19 @@ public class Dx7Voice {
     void advance(byte[] patch, int opOff, int newix, int extraRate) {
       ix = newix;
       if (ix < 4) {
-        int newlevel = patch[opOff + ix] & 0xFF;
+        int newlevel = patch[opOff + 4 + ix] & 0xFF;
         int actuallevel = scaleOutlevel(newlevel) >> 1;
         actuallevel = (actuallevel << 6) + outlevel - 4256;
         if (actuallevel < 16) actuallevel = 16;
         targetLevel = actuallevel << 16;
         rising = (targetLevel > level);
 
-        int qrate = ((patch[opOff + 4 + ix] & 0xFF) * 41) >> 6;
+        int qrate = ((patch[opOff + ix] & 0xFF) * 41) >> 6;
         qrate += rateScaling + extraRate;
         if (qrate > 63) qrate = 63;
 
         if (targetLevel == level || (ix == 0 && newlevel == 0)) {
-          int staticrate = (patch[opOff + 4 + ix] & 0xFF) + rateScaling + extraRate;
+          int staticrate = (patch[opOff + ix] & 0xFF) + rateScaling + extraRate;
           if (staticrate > 99) staticrate = 99;
           staticCount = staticrate < STATICS.length ? STATICS[staticrate] : 20 * (99 - staticrate);
           if (staticrate < STATICS.length && ix == 0 && newlevel == 0) {
@@ -296,6 +298,7 @@ public class Dx7Voice {
           staticCount = 0;
         }
         inc = ((4 + (qrate & 3)) << (2 + (qrate >> 2)));
+        inc = (int) (((long) inc * (long) SR_MULTIPLIER) >> 24);
       }
     }
 
@@ -578,11 +581,21 @@ public class Dx7Voice {
     int algorithm = patch[134] & 0xFF;
     int feedback = patch[135] & 0xFF;
     int fbShift = feedback != 0 ? FEEDBACK_BITDEPTH - feedback : 16;
+    if (debugCount < 10) {
+      System.out.println("[Dx7Voice] compute: n=" + n + " basePitchIn=" + basePitchIn + " pitchMod=" + pitchMod + " useMkI=" + ctrls.useMkI + " algo=" + algorithm + " fb=" + feedback);
+      for (int op = 0; op < 6; op++) {
+        System.out.println("  op=" + op + " active=" + ctrls.opSwitch(op) + " freq=" + params[op].freq + " level_in=" + params[op].level_in + " gain_out=" + params[op].gain_out);
+      }
+    }
     // ctrls->core->render (dx7note.cpp:382). Static dispatch: MkI vs the modern FmCore.
     if (ctrls.useMkI) {
       EngineMkI.render(buf, n, params, algorithm, fbBuf, fbShift);
     } else {
       FmCore.render(buf, n, params, algorithm, fbBuf, fbShift);
+    }
+    if (debugCount < 10) {
+      System.out.println("  buf[0..3]=" + buf[0] + ", " + buf[1] + ", " + buf[2] + ", " + buf[3]);
+      debugCount++;
     }
 
     boolean anyActive = false;

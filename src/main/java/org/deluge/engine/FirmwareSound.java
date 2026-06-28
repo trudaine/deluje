@@ -307,6 +307,8 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     if (dx7Patch != null) {
       fw2Sound.oscTypes[0] = org.deluge.firmware2.Oscillator.OscType.DX7;
       fw2Sound.sourceDx7Patch[0] = dx7Patch;
+      fw2Sound.sourceDx7EngineType[0] = dx7EngineType;
+      fw2Sound.sourceDx7RandomDetune[0] = dx7RandomDetune;
     } else {
       fw2Sound.sourceDx7Patch[0] = null;
     }

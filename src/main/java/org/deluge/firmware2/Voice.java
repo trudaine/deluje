@@ -394,7 +394,8 @@ public class Voice {
         VoiceSource vs = unisonParts[u].sources[s];
         if (sound.oscTypes[s] == OscType.DX7 && sound.sourceDx7Patch[s] != null) {
           System.arraycopy(sound.sourceDx7Patch[s], 0, vs.dxPatch.params, 0, 156);
-          vs.dxPatch.updateEngineMode(); // select modern vs MkI from the loaded algo/feedback
+          vs.dxPatch.setEngineMode(sound.sourceDx7EngineType[s]);
+          vs.dxPatch.randomDetune = sound.sourceDx7RandomDetune[s];
           vs.dxVoice.init(vs.dxPatch, midiNote, velocity);
         }
       }
@@ -1215,7 +1216,8 @@ public class Voice {
           } else if (sound.oscTypes[s] == OscType.DX7) {
             if (vs.dxVoice.patch == null && sound.sourceDx7Patch[s] != null) {
               System.arraycopy(sound.sourceDx7Patch[s], 0, vs.dxPatch.params, 0, 156);
-              vs.dxPatch.updateEngineMode();
+              vs.dxPatch.setEngineMode(sound.sourceDx7EngineType[s]);
+              vs.dxPatch.randomDetune = sound.sourceDx7RandomDetune[s];
               vs.dxVoice.init(vs.dxPatch, note, velocity);
             }
             if (vs.dxVoice.patch == null) continue;
