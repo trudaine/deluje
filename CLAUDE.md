@@ -41,6 +41,10 @@ invocation needs them too.
 
 A Maven Wrapper is committed (`./mvnw` / `mvnw.cmd`, pinned to Maven 3.9.16) — use it for a
 reproducible build without a system Maven; everything below works with `./mvnw` in place of `mvn`.
+For a fully self-contained build, `./build.sh [goals]` (or `build.bat`) provisions **JDK 27-ea**
+per-machine (downloads from Adoptium into `./jdk27` if absent, via `scripts/ensure-jdk27.sh`) and
+then runs `./mvnw` — no global JDK/Maven installs needed. `run.sh`/`run.bat` share the same JDK
+provisioning. (The wrapper itself only bootstraps Maven, never the JDK — that's what `build.sh` adds.)
 
 ```bash
 mvn clean package                       # compile + run tests + build shaded jar

@@ -36,3 +36,10 @@ Thumbs.db
 *.wav
 *.WAV
 target/
+
+# Locally-provisioned JDK 27-ea (downloaded by build.sh / run.sh / scripts/ensure-jdk27.sh)
+/jdk27/
+/jdk25/
+/jdk27_temp/
+/openjdk27.tar.gz
+/openjdk27.zip
