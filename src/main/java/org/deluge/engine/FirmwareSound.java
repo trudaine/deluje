@@ -424,14 +424,6 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     }
     fw2Sound.patchedParamValues = nextPatchedParamValues;
 
-    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry || true) { // temporarily force true
-      System.out.printf(
-          "DEBUG_SYNC_LFO: populated=%b neutral=%X knob=%X patched=%X\n",
-          paramKnobsPopulated,
-          paramNeutralValues[org.deluge.firmware2.Param.GLOBAL_LFO_FREQ_1],
-          paramKnobs[org.deluge.firmware2.Param.GLOBAL_LFO_FREQ_1],
-          fw2Sound.patchedParamValues[org.deluge.firmware2.Param.GLOBAL_LFO_FREQ_1]);
-    }
     java.util.List<org.deluge.firmware2.Patcher.Destination> nextDestinations =
         new java.util.ArrayList<>();
     for (Destination d : paramManager.getPatchCableSet().destinations) {

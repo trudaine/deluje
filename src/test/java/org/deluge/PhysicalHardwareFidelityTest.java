@@ -347,7 +347,8 @@ public class PhysicalHardwareFidelityTest {
   private float[] renderXmlTrackPreset(
       String xmlPath, int targetLength, int triggerBlock, int releaseBlock, int pitch)
       throws Exception {
-    return renderXmlTrackPreset(xmlPath, targetLength, triggerBlock, releaseBlock, pitch, null, null);
+    return renderXmlTrackPreset(
+        xmlPath, targetLength, triggerBlock, releaseBlock, pitch, null, null);
   }
 
   private float[] renderXmlTrackPreset(
@@ -358,7 +359,8 @@ public class PhysicalHardwareFidelityTest {
       int pitch,
       java.util.Map<Integer, Integer> paramOverrides)
       throws Exception {
-    return renderXmlTrackPreset(xmlPath, targetLength, triggerBlock, releaseBlock, pitch, paramOverrides, null);
+    return renderXmlTrackPreset(
+        xmlPath, targetLength, triggerBlock, releaseBlock, pitch, paramOverrides, null);
   }
 
   private float[] renderXmlTrackPreset(
@@ -976,11 +978,7 @@ public class PhysicalHardwareFidelityTest {
   }
 
   private double getWindowCorrelation(
-      float[] hw,
-      float[] sw,
-      int searchOffset,
-      int hwStartOverride,
-      int swStartOverride) {
+      float[] hw, float[] sw, int searchOffset, int hwStartOverride, int swStartOverride) {
     float[] normHw = normalizePeak(hw, 0.5f);
     float[] normSw = normalizePeak(sw, 0.5f);
 
@@ -1094,7 +1092,9 @@ public class PhysicalHardwareFidelityTest {
             72,
             null,
             bestPhase);
-    java.io.File filteredFile = new java.io.File("/Users/ludo/.gemini/jetski/brain/d859e59c-2cb2-47b0-ad86-3020dc9c7d0d/scratch/java_pwm_filtered.wav");
+    java.io.File outDir = new java.io.File(System.getProperty("java.io.tmpdir"), "deluge-pwm");
+    outDir.mkdirs();
+    java.io.File filteredFile = new java.io.File(outDir, "java_pwm_filtered.wav");
     writeWav(swFiltered, filteredFile);
     System.out.println("  Wrote filtered WAV to: " + filteredFile.getAbsolutePath());
 
@@ -1108,7 +1108,7 @@ public class PhysicalHardwareFidelityTest {
             72,
             java.util.Map.of(-999, 1),
             bestPhase);
-    java.io.File dryFile = new java.io.File("/Users/ludo/.gemini/jetski/brain/d859e59c-2cb2-47b0-ad86-3020dc9c7d0d/scratch/java_pwm_dry.wav");
+    java.io.File dryFile = new java.io.File(outDir, "java_pwm_dry.wav");
     writeWav(swDry, dryFile);
     System.out.println("  Wrote dry WAV to: " + dryFile.getAbsolutePath());
   }
@@ -1120,9 +1120,11 @@ public class PhysicalHardwareFidelityTest {
       byteBuffer[i * 2] = (byte) (val & 0xFF);
       byteBuffer[i * 2 + 1] = (byte) ((val >> 8) & 0xFF);
     }
-    javax.sound.sampled.AudioFormat format = new javax.sound.sampled.AudioFormat(44100, 16, 1, true, false);
+    javax.sound.sampled.AudioFormat format =
+        new javax.sound.sampled.AudioFormat(44100, 16, 1, true, false);
     java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(byteBuffer);
-    javax.sound.sampled.AudioInputStream ais = new javax.sound.sampled.AudioInputStream(bais, format, samples.length);
+    javax.sound.sampled.AudioInputStream ais =
+        new javax.sound.sampled.AudioInputStream(bais, format, samples.length);
     javax.sound.sampled.AudioSystem.write(ais, javax.sound.sampled.AudioFileFormat.Type.WAVE, file);
   }
 
