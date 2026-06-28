@@ -347,7 +347,7 @@ public class PhysicalHardwareFidelityTest {
   private float[] renderXmlTrackPreset(
       String xmlPath, int targetLength, int triggerBlock, int releaseBlock, int pitch)
       throws Exception {
-    return renderXmlTrackPreset(xmlPath, targetLength, triggerBlock, releaseBlock, pitch, null);
+    return renderXmlTrackPreset(xmlPath, targetLength, triggerBlock, releaseBlock, pitch, null, null);
   }
 
   private float[] renderXmlTrackPreset(
@@ -357,6 +357,18 @@ public class PhysicalHardwareFidelityTest {
       int releaseBlock,
       int pitch,
       java.util.Map<Integer, Integer> paramOverrides)
+      throws Exception {
+    return renderXmlTrackPreset(xmlPath, targetLength, triggerBlock, releaseBlock, pitch, paramOverrides, null);
+  }
+
+  private float[] renderXmlTrackPreset(
+      String xmlPath,
+      int targetLength,
+      int triggerBlock,
+      int releaseBlock,
+      int pitch,
+      java.util.Map<Integer, Integer> paramOverrides,
+      Integer lfoPhaseOverride)
       throws Exception {
     java.io.File xmlFile = new java.io.File(getClass().getResource(xmlPath).toURI());
     SynthTrackModel synthModel = DelugeXmlParser.parseSynth(xmlFile);
@@ -377,7 +389,12 @@ public class PhysicalHardwareFidelityTest {
     // Safety headroom is already set by synthModel.setVolume(0.5f) above!
 
     if (paramOverrides != null) {
+      if (paramOverrides.containsKey(-999)) {
+        synth.fw2Sound.lpfMode = org.deluge.firmware2.FilterSet.FilterMode.OFF;
+        synth.fw2Sound.hpfMode = org.deluge.firmware2.FilterSet.FilterMode.OFF;
+      }
       for (java.util.Map.Entry<Integer, Integer> entry : paramOverrides.entrySet()) {
+        if (entry.getKey() == -999) continue;
         synth.paramNeutralValues[entry.getKey()] = entry.getValue();
         synth.paramKnobs[entry.getKey()] = entry.getValue();
       }
@@ -396,6 +413,9 @@ public class PhysicalHardwareFidelityTest {
 
     for (int b = 0; b < totalBlocks; b++) {
       if (b == triggerBlock) {
+        if (lfoPhaseOverride != null) {
+          synth.fw2Sound.globalLfos[0].phase = lfoPhaseOverride;
+        }
         synth.triggerNote(pitch, 100);
       }
       if (b == releaseBlock) {
@@ -955,15 +975,155 @@ public class PhysicalHardwareFidelityTest {
     assertWaveShapeFidelity(hw, sw, 0.75, bestOffset, 67548, 67456, "Filter Mod Sawtooth C5");
   }
 
+  private double getWindowCorrelation(
+      float[] hw,
+      float[] sw,
+      int searchOffset,
+      int hwStartOverride,
+      int swStartOverride) {
+    float[] normHw = normalizePeak(hw, 0.5f);
+    float[] normSw = normalizePeak(sw, 0.5f);
+
+    int hwStart = hwStartOverride != 0 ? hwStartOverride : findActiveStart(normHw, 0.40f, 65000);
+    int swStart = swStartOverride != 0 ? swStartOverride : findActiveStart(normSw, 0.40f, 0);
+    int bestLag = hwStart - swStart;
+
+    int startHw = Math.max(0, bestLag);
+    int startSw = Math.max(0, -bestLag);
+    int len = Math.min(hw.length - startHw, sw.length - startSw);
+
+    float[] alignedHw = new float[len];
+    System.arraycopy(hw, startHw, alignedHw, 0, len);
+    float[] alignedSw = new float[len];
+    System.arraycopy(sw, startSw, alignedSw, 0, len);
+
+    int activeOffset = swStart - startSw;
+    float[] noDcHw = removeActiveDcOffset(alignedHw, activeOffset);
+    float[] noDcSw = removeActiveDcOffset(alignedSw, activeOffset);
+
+    int windowSize = 4410;
+    int targetOffset = activeOffset + searchOffset;
+
+    double maxCorr = -1.0;
+    double finalSignCorrelation = 0.0;
+
+    for (int lag = -350; lag <= 350; lag++) {
+      int hwIdx = targetOffset;
+      int swIdx = targetOffset + lag;
+      if (hwIdx < 0
+          || swIdx < 0
+          || hwIdx + windowSize > noDcHw.length
+          || swIdx + windowSize > noDcSw.length) {
+        continue;
+      }
+      float[] hWin = new float[windowSize];
+      float[] sWin = new float[windowSize];
+      System.arraycopy(noDcHw, hwIdx, hWin, 0, windowSize);
+      System.arraycopy(noDcSw, swIdx, sWin, 0, windowSize);
+      double corr = org.deluge.AudioAnalyzer.correlation(hWin, sWin);
+      if (Math.abs(corr) > maxCorr) {
+        maxCorr = Math.abs(corr);
+        finalSignCorrelation = corr;
+      }
+    }
+    return finalSignCorrelation;
+  }
+
   @Test
   public void testPwmSquareParity() throws Exception {
     System.out.println("=== RUNNING HARDWARE REGRESSION: PWM SQUARE C5 ===");
     float[] hw = loadWavFromResource("/fidelity/reference_pwm_square_c5.wav");
     int triggerBlock = 418;
+
+    double maxCorr = -1.0;
+    int bestPhase = 0;
+    double bestSignedCorr = 0.0;
+
+    // Sweep 200 phases across the 32-bit unsigned range
+    for (int i = 0; i < 200; i++) {
+      int phase = (int) ((long) i * 4294967296L / 200);
+      float[] sw =
+          renderXmlTrackPreset(
+              "/fidelity/102_PWM_SQUARE_C5.XML",
+              hw.length,
+              triggerBlock,
+              triggerBlock + 1000,
+              72,
+              java.util.Map.of(-999, 1),
+              phase);
+      double corr = getWindowCorrelation(hw, sw, 2000, 53509, 53504);
+      if (Math.abs(corr) > maxCorr) {
+        maxCorr = Math.abs(corr);
+        bestSignedCorr = corr;
+        bestPhase = phase;
+      }
+    }
+
+    System.out.printf("=== LFO PHASE SEARCH RESULT ===\n");
+    System.out.printf("  Best LFO Phase: %d (0x%08X)\n", bestPhase, bestPhase);
+    System.out.printf("  Max Correlation: %.6f (signed: %.6f)\n", maxCorr, bestSignedCorr);
+    System.out.printf("================================\n");
+
+    // Render one final time with the best phase and run the assertion
     float[] sw =
         renderXmlTrackPreset(
-            "/fidelity/102_PWM_SQUARE_C5.XML", hw.length, triggerBlock, triggerBlock + 1000, 72);
+            "/fidelity/102_PWM_SQUARE_C5.XML",
+            hw.length,
+            triggerBlock,
+            triggerBlock + 1000,
+            72,
+            java.util.Map.of(-999, 1),
+            bestPhase);
     assertWaveShapeFidelity(hw, sw, 0.90, 2000, 53509, 53504, "PWM Square C5");
+  }
+
+  @Test
+  public void testWritePwmWavs() throws Exception {
+    System.out.println("=== GENERATING JAVA PWM WAV FILES FOR VISUAL ANALYSIS ===");
+    float[] hw = loadWavFromResource("/fidelity/reference_pwm_square_c5.wav");
+    int triggerBlock = 418;
+    int bestPhase = -1954210120; // 0x8B851EB8
+
+    // 1. Render Filtered (filters ON)
+    float[] swFiltered =
+        renderXmlTrackPreset(
+            "/fidelity/102_PWM_SQUARE_C5.XML",
+            hw.length,
+            triggerBlock,
+            triggerBlock + 1000,
+            72,
+            null,
+            bestPhase);
+    java.io.File filteredFile = new java.io.File("/Users/ludo/.gemini/jetski/brain/d859e59c-2cb2-47b0-ad86-3020dc9c7d0d/scratch/java_pwm_filtered.wav");
+    writeWav(swFiltered, filteredFile);
+    System.out.println("  Wrote filtered WAV to: " + filteredFile.getAbsolutePath());
+
+    // 2. Render Dry (filters OFF)
+    float[] swDry =
+        renderXmlTrackPreset(
+            "/fidelity/102_PWM_SQUARE_C5.XML",
+            hw.length,
+            triggerBlock,
+            triggerBlock + 1000,
+            72,
+            java.util.Map.of(-999, 1),
+            bestPhase);
+    java.io.File dryFile = new java.io.File("/Users/ludo/.gemini/jetski/brain/d859e59c-2cb2-47b0-ad86-3020dc9c7d0d/scratch/java_pwm_dry.wav");
+    writeWav(swDry, dryFile);
+    System.out.println("  Wrote dry WAV to: " + dryFile.getAbsolutePath());
+  }
+
+  private void writeWav(float[] samples, java.io.File file) throws Exception {
+    byte[] byteBuffer = new byte[samples.length * 2];
+    for (int i = 0; i < samples.length; i++) {
+      short val = (short) Math.max(-32768, Math.min(32767, samples[i] * 32767.0f));
+      byteBuffer[i * 2] = (byte) (val & 0xFF);
+      byteBuffer[i * 2 + 1] = (byte) ((val >> 8) & 0xFF);
+    }
+    javax.sound.sampled.AudioFormat format = new javax.sound.sampled.AudioFormat(44100, 16, 1, true, false);
+    java.io.ByteArrayInputStream bais = new java.io.ByteArrayInputStream(byteBuffer);
+    javax.sound.sampled.AudioInputStream ais = new javax.sound.sampled.AudioInputStream(bais, format, samples.length);
+    javax.sound.sampled.AudioSystem.write(ais, javax.sound.sampled.AudioFileFormat.Type.WAVE, file);
   }
 
   @Test

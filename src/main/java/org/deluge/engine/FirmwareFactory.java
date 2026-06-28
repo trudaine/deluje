@@ -777,7 +777,9 @@ public class FirmwareFactory {
           // (getExp(121739, combineExp(knob, 2^30))) per block. Pre-curving here DOUBLE-curved
           // the rate (found via hardware comparison: knob 0x1999997E → hardware 3.79 Hz, our
           // render ~1 Hz because the curved phase increment was curved again).
-          sound.paramKnobs[paramId] = model.getRawKnobs().getLfoRateKnobQ31(i);
+          if (model.getRawKnobs().isLfoRateKnobSet(i)) {
+            sound.paramKnobs[paramId] = model.getRawKnobs().getLfoRateKnobQ31(i);
+          }
         }
       }
     }
@@ -940,6 +942,7 @@ public class FirmwareFactory {
         }
       }
     }
+    sound.fw2Sound.resyncGlobalLFOs();
   }
 
   private static int cutoffKnobFromHz(double hz) {
@@ -1470,6 +1473,7 @@ public class FirmwareFactory {
         }
       }
     }
+    drumSound.fw2Sound.resyncGlobalLFOs();
   }
 
   private static void applyRowOverrides(

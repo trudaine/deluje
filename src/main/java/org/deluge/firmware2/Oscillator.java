@@ -182,7 +182,7 @@ public final class Oscillator {
     int ampNow = amplitude;
     for (int i = 0; i < numSamples; i++) {
       ampNow += amplitudeIncrement;
-      int withAmp = (int) (((long) ampNow * raw[i]) >> 31);
+      int withAmp = sat32(((long) ampNow * raw[i]) >> 30);
       out[outOff + i] = Functions.add_saturate(out[outOff + i], withAmp);
     }
   }
@@ -332,8 +332,8 @@ public final class Oscillator {
       int wet = val;
       if (applyAmplitude) {
         currentAmplitude += amplitudeIncrement;
-        // vqdmulhq_s32(amplitude, val) == saturating (amplitude*val) >> 31
-        wet = (int) (((long) currentAmplitude * val) >> 31);
+        // vqdmulhq_s32(amplitude, val) == saturating (amplitude*val) >> 30
+        wet = sat32(((long) currentAmplitude * val) >> 30);
       }
       outputBuffer[offset + i] = Functions.add_saturate(outputBuffer[offset + i], wet);
     }
@@ -395,14 +395,18 @@ public final class Oscillator {
       long outB = sat32(2L * strengthB2 * valueB2);
       outB = sat32(outB + sat32(2L * strengthB1 * valueB1));
 
-      // output = MultiplyRoundFixedPoint(outputA, outputB) << 1  (Q31 round-multiply, then <<1)
-      int mrf = (int) (((outA * outB) + (1L << 30)) >> 31);
-      int val = mrf << 1;
+      // output = MultiplyRoundFixedPoint(outputA, outputB) << 1
+      // C++ MultiplyRoundFixedPoint is VQRDMULH (saturating rounding doubling multiply high).
+      // vqrdmulh(a, b) = sat32((2 * a * b + 2^30) >> 31)
+      long prod = outA * outB;
+      long rounded = prod + (1L << 30);
+      int mrf = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, rounded >> 31));
+      int val = Functions.lshiftAndSaturate(mrf, 1);
 
       int wet = val;
       if (applyAmplitude) {
         currentAmplitude += amplitudeIncrement;
-        wet = (int) (((long) currentAmplitude * val) >> 31);
+        wet = sat32(((long) currentAmplitude * val) >> 30);
       }
       outputBuffer[offset + i] = Functions.add_saturate(outputBuffer[offset + i], wet);
     }
@@ -443,7 +447,7 @@ public final class Oscillator {
       int wet = val;
       if (applyAmplitude) {
         currentAmplitude += amplitudeIncrement;
-        wet = (int) (((long) currentAmplitude * val) >> 31);
+        wet = sat32(((long) currentAmplitude * val) >> 30);
       }
       outputBuffer[offset + i] = Functions.add_saturate(outputBuffer[offset + i], wet);
     }
