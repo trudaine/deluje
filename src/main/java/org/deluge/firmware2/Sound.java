@@ -691,12 +691,12 @@ public class Sound extends GlobalEffectable {
     int phaseInc1 =
         Patcher.computeFinalValueForParam(
             Param.GLOBAL_LFO_FREQ_1, patchedParamValues[Param.GLOBAL_LFO_FREQ_1]);
-    globalSourceValues[PatchSource.LFO_GLOBAL_1.ordinal()] =
-        globalLfos[0].render(numSamples, lfoConfig[0], phaseInc1);
-
     int phaseInc2 =
         Patcher.computeFinalValueForParam(
             Param.GLOBAL_LFO_FREQ_2, patchedParamValues[Param.GLOBAL_LFO_FREQ_2]);
+
+    globalSourceValues[PatchSource.LFO_GLOBAL_1.ordinal()] =
+        globalLfos[0].render(numSamples, lfoConfig[0], phaseInc1);
     globalSourceValues[PatchSource.LFO_GLOBAL_2.ordinal()] =
         globalLfos[1].render(numSamples, lfoConfig[2], phaseInc2);
 

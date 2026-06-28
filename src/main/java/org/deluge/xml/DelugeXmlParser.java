@@ -2999,7 +2999,9 @@ public class DelugeXmlParser {
     if (lfoIndex >= 0 && lfoIndex < 4) {
       synth.setLfo(
           lfoIndex, new LfoModel(rateHz, waveform, depth, "NONE", isLocal, syncLevel, syncType));
-      synth.getRawKnobs().setLfoRateKnobQ31(lfoIndex, rateKnobQ31);
+      if (rateStr != null && !rateStr.isBlank()) {
+        synth.getRawKnobs().setLfoRateKnobQ31(lfoIndex, rateKnobQ31);
+      }
     }
   }
 

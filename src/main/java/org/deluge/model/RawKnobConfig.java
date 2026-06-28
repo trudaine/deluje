@@ -9,6 +9,7 @@ import java.util.Map;
  */
 public class RawKnobConfig {
   private final int[] lfoRateKnobQ31 = {0, 0, 0, 0};
+  private final boolean[] lfoRateKnobSet = {false, false, false, false};
   private final int[] envAttackKnobQ31 = {0, 0, 0, 0};
   private final int[] envDecayKnobQ31 = {0, 0, 0, 0};
   private final int[] envSustainKnobQ31 = {0, 0, 0, 0};
@@ -20,8 +21,13 @@ public class RawKnobConfig {
     return lfoRateKnobQ31[index];
   }
 
+  public boolean isLfoRateKnobSet(int index) {
+    return lfoRateKnobSet[index];
+  }
+
   public void setLfoRateKnobQ31(int index, int v) {
     lfoRateKnobQ31[index] = v;
+    lfoRateKnobSet[index] = true;
   }
 
   public boolean isEnvKnobSet(int index) {
