@@ -171,7 +171,13 @@ public class DelugeXmlParser {
     }
 
     if (!es.isEmpty()) {
-      System.out.println("PARSER: Drum " + sound.getName() + " zone endSamplePos string: \"" + es + "\" parsed: " + Integer.parseInt(es));
+      System.out.println(
+          "PARSER: Drum "
+              + sound.getName()
+              + " zone endSamplePos string: \""
+              + es
+              + "\" parsed: "
+              + Integer.parseInt(es));
       sound.setEndSamplePos(Integer.parseInt(es));
     }
     if (!ss.isEmpty()) sound.setStartSamplePos(Integer.parseInt(ss));

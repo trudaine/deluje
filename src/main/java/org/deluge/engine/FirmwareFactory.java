@@ -123,12 +123,10 @@ public class FirmwareFactory {
       Float vol = firstClip.getKitParams().get("volume");
       if (vol != null) {
         kit.kitVolume = normToBipolarParamVolume(vol);
-        System.out.printf("[FirmwareFactory] Kit volume synchronized: float=%.6f, Q31=0x%08X\n", vol, kit.kitVolume);
       }
       Float rev = firstClip.getKitParams().get("reverbAmount");
       if (rev != null) {
         kit.reverbSendKnob = normToBipolarParamVolume(rev);
-        System.out.printf("[FirmwareFactory] Kit reverb synchronized: float=%.6f, Q31=0x%08X\n", rev, kit.reverbSendKnob);
       }
     }
 
@@ -150,10 +148,7 @@ public class FirmwareFactory {
               }
             }
             if (rowModel != null) {
-              System.out.println("DEBUG KIT: Found rowModel for drum " + drumIdx + " (pitch=" + rowModel.getPitch() + ")");
               applyRowOverrides(rowModel, drumSound);
-            } else {
-              System.out.println("DEBUG KIT: No rowModel for drum " + drumIdx);
             }
           }
           final SoundDrum finalSd = sd;
@@ -1386,7 +1381,13 @@ public class FirmwareFactory {
       drumSound.sampleSettings[0].startPoint = sd.getStartSamplePos();
     }
     if (sd.getEndSamplePos() >= 0) {
-      System.out.println("[FirmwareFactory] Drum " + drumIdx + " (" + sd.getName() + ") endSamplePos from model: " + sd.getEndSamplePos());
+      System.out.println(
+          "[FirmwareFactory] Drum "
+              + drumIdx
+              + " ("
+              + sd.getName()
+              + ") endSamplePos from model: "
+              + sd.getEndSamplePos());
       drumSound.sampleSettings[0].endPoint = sd.getEndSamplePos();
     }
     if (sd.getStartLoopPos() >= 0) {
@@ -1471,54 +1472,63 @@ public class FirmwareFactory {
     }
   }
 
-  private static void applyRowOverrides(org.deluge.model.NoteRowModel rowModel, FirmwareSound drumSound) {
-    System.out.println("DEBUG OVERRIDES: row=" + rowModel.getPitch() + " params=" + rowModel.getSoundParams());
+  private static void applyRowOverrides(
+      org.deluge.model.NoteRowModel rowModel, FirmwareSound drumSound) {
     for (java.util.Map.Entry<String, Float> entry : rowModel.getSoundParams().entrySet()) {
       String param = entry.getKey();
       Float val = entry.getValue();
       if (val == null) continue;
-      System.out.println("  Applying override: " + param + " = " + val);
       switch (param) {
         case "volume" ->
-          drumSound.paramNeutralValues[Param.LOCAL_VOLUME] = normToBipolarParamVolume(val);
+            drumSound.paramNeutralValues[Param.LOCAL_VOLUME] = normToBipolarParamVolume(val);
         case "oscAVolume" ->
-          drumSound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = normToBipolarParamVolume(val);
+            drumSound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = normToBipolarParamVolume(val);
         case "oscBVolume" ->
-          drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = normToBipolarParamVolume(val);
+            drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = normToBipolarParamVolume(val);
         case "noiseVolume" ->
-          drumSound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = normToBipolarParamVolume(val);
+            drumSound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] = normToBipolarParamVolume(val);
         case "lpfFrequency" ->
-          drumSound.paramNeutralValues[Param.LOCAL_LPF_FREQ] = (int) (val * (20000.0f / 22050.0f) * 2147483647.0f);
+            drumSound.paramNeutralValues[Param.LOCAL_LPF_FREQ] =
+                (int) (val * (20000.0f / 22050.0f) * 2147483647.0f);
         case "lpfResonance" ->
-          drumSound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = (int) (val * 2147483647.0f);
+            drumSound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = (int) (val * 2147483647.0f);
         case "hpfFrequency" ->
-          drumSound.paramNeutralValues[Param.LOCAL_HPF_FREQ] = (int) (val * (20000.0f / 22050.0f) * 2147483647.0f);
+            drumSound.paramNeutralValues[Param.LOCAL_HPF_FREQ] =
+                (int) (val * (20000.0f / 22050.0f) * 2147483647.0f);
         case "hpfResonance" ->
-          drumSound.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = (int) (val * 2147483647.0f);
+            drumSound.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = (int) (val * 2147483647.0f);
         case "envelope1_attack" ->
-          drumSound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK] =
-              org.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_0_ATTACK, (int) (val * 50));
+            drumSound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK] =
+                org.deluge.firmware2.Functions.getParamFromUserValue(
+                    Param.LOCAL_ENV_0_ATTACK, (int) (val * 50));
         case "envelope1_decay" ->
-          drumSound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY] =
-              org.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_0_DECAY, (int) (val * 50));
+            drumSound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY] =
+                org.deluge.firmware2.Functions.getParamFromUserValue(
+                    Param.LOCAL_ENV_0_DECAY, (int) (val * 50));
         case "envelope1_sustain" ->
-          drumSound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] =
-              org.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_0_SUSTAIN, (int) (val * 50));
+            drumSound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] =
+                org.deluge.firmware2.Functions.getParamFromUserValue(
+                    Param.LOCAL_ENV_0_SUSTAIN, (int) (val * 50));
         case "envelope1_release" ->
-          drumSound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE] =
-              org.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_0_RELEASE, (int) (val * 50));
+            drumSound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE] =
+                org.deluge.firmware2.Functions.getParamFromUserValue(
+                    Param.LOCAL_ENV_0_RELEASE, (int) (val * 50));
         case "envelope2_attack" ->
-          drumSound.paramNeutralValues[Param.LOCAL_ENV_1_ATTACK] =
-              org.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_1_ATTACK, (int) (val * 50));
+            drumSound.paramNeutralValues[Param.LOCAL_ENV_1_ATTACK] =
+                org.deluge.firmware2.Functions.getParamFromUserValue(
+                    Param.LOCAL_ENV_1_ATTACK, (int) (val * 50));
         case "envelope2_decay" ->
-          drumSound.paramNeutralValues[Param.LOCAL_ENV_1_DECAY] =
-              org.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_1_DECAY, (int) (val * 50));
+            drumSound.paramNeutralValues[Param.LOCAL_ENV_1_DECAY] =
+                org.deluge.firmware2.Functions.getParamFromUserValue(
+                    Param.LOCAL_ENV_1_DECAY, (int) (val * 50));
         case "envelope2_sustain" ->
-          drumSound.paramNeutralValues[Param.LOCAL_ENV_1_SUSTAIN] =
-              org.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_1_SUSTAIN, (int) (val * 50));
+            drumSound.paramNeutralValues[Param.LOCAL_ENV_1_SUSTAIN] =
+                org.deluge.firmware2.Functions.getParamFromUserValue(
+                    Param.LOCAL_ENV_1_SUSTAIN, (int) (val * 50));
         case "envelope2_release" ->
-          drumSound.paramNeutralValues[Param.LOCAL_ENV_1_RELEASE] =
-              org.deluge.firmware2.Functions.getParamFromUserValue(Param.LOCAL_ENV_1_RELEASE, (int) (val * 50));
+            drumSound.paramNeutralValues[Param.LOCAL_ENV_1_RELEASE] =
+                org.deluge.firmware2.Functions.getParamFromUserValue(
+                    Param.LOCAL_ENV_1_RELEASE, (int) (val * 50));
       }
     }
   }

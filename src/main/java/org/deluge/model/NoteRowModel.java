@@ -223,8 +223,6 @@ public class NoteRowModel {
     int currentPos =
         (loopLengthIfIndependent > 0) ? lastProcessedPosIfIndependent : clipLastProcessedPos;
 
-
-
     if (paramManager.mightContainAutomation()) {
       paramManager.processCurrentPos(
           currentPos, effectiveLength, playingReversedNow, didPingpong, true);

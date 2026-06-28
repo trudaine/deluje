@@ -25,7 +25,15 @@ public class FidelityTestRunner {
           var row = entry.getValue();
           System.out.println("    Row " + entry.getKey() + " (pitch=" + row.getPitch() + "):");
           for (var note : row.getNotes()) {
-            System.out.println("      Note: pos=" + note.getPos() + " len=" + note.getLength() + " vel=" + note.getVelocityByte() + " prob=" + note.getProbabilityPercent());
+            System.out.println(
+                "      Note: pos="
+                    + note.getPos()
+                    + " len="
+                    + note.getLength()
+                    + " vel="
+                    + note.getVelocityByte()
+                    + " prob="
+                    + note.getProbabilityPercent());
           }
         }
       }
