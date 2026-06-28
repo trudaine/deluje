@@ -1,5 +1,4 @@
 import wave
-import struct
 import sys
 import os
 
@@ -8,82 +7,67 @@ def align_wav(input_path, output_path, target_sample=57856, threshold_ratio=0.05
     if not os.path.exists(input_path):
         print(f"Error: Input file {input_path} does not exist.")
         return False
-        
+
     with wave.open(input_path, 'rb') as w:
         params = w.getparams()
         num_channels = params.nchannels
-        sampwidth = params.sampwidth
+        sampwidth = params.sampwidth  # bytes per sample (2=16-bit, 3=24-bit, 4=32-bit)
         framerate = params.framerate
         num_frames = params.nframes
-        
-        if sampwidth != 2:
-            print("Error: Only 16-bit WAV files are supported.")
-            return False
-            
         frames_bytes = w.readframes(num_frames)
-        
-    # Unpack frames
-    # 16-bit signed integer is 'h' in struct
-    num_samples = num_frames * num_channels
-    samples = struct.unpack(f"<{num_samples}h", frames_bytes)
-    
-    # Convert to frames of max absolute value across channels to detect onset
+
+    # Work on RAW frame bytes so any bit depth (16/24/32) is preserved exactly. Decode samples only
+    # for onset detection. The Deluge resamples 24-bit mono, so 16-bit-only would corrupt the data.
+    frame_size = num_channels * sampwidth
+
+    # Per-frame max abs amplitude across channels (signed decode of each channel's sampwidth bytes).
     frame_maxes = []
-    for i in range(0, num_samples, num_channels):
-        frame_samples = samples[i:i+num_channels]
-        frame_maxes.append(max(abs(s) for s in frame_samples))
-        
-    # Find peak to set threshold
-    peak = max(frame_maxes)
+    for f in range(num_frames):
+        base = f * frame_size
+        m = 0
+        for c in range(num_channels):
+            off = base + c * sampwidth
+            v = int.from_bytes(frames_bytes[off:off + sampwidth], 'little', signed=True)
+            m = max(m, abs(v))
+        frame_maxes.append(m)
+
+    peak = max(frame_maxes) if frame_maxes else 0
     if peak == 0:
         print("Error: File is completely silent.")
         return False
-        
+
     threshold = peak * threshold_ratio
-    
-    # Find onset (first frame exceeding threshold)
-    onset_frame = -1
-    for i, val in enumerate(frame_maxes):
-        if val > threshold:
-            onset_frame = i
-            break
-            
+    onset_frame = next((i for i, v in enumerate(frame_maxes) if v > threshold), -1)
     if onset_frame == -1:
         print("Error: Could not detect onset.")
         return False
-        
+
+    print(f"Format: {num_channels}ch {sampwidth * 8}-bit {framerate}Hz, {num_frames} frames")
     print(f"Detected onset at frame {onset_frame} ({onset_frame / framerate:.3f} seconds)")
     print(f"Target onset is frame {target_sample} ({target_sample / framerate:.3f} seconds)")
-    
-    # Align
+
     diff = target_sample - onset_frame
     if diff > 0:
-        # Pad with silence (zero frames) at the beginning
         print(f"Padding beginning with {diff} frames of silence...")
-        padded_samples = [0] * (diff * num_channels) + list(samples)
+        out_bytes = (b"\x00" * (diff * frame_size)) + frames_bytes
     elif diff < 0:
-        # Trim beginning
-        trim_frames = -diff
-        print(f"Trimming {trim_frames} frames from the beginning...")
-        padded_samples = list(samples[trim_frames * num_channels:])
+        print(f"Trimming {-diff} frames from the beginning...")
+        out_bytes = frames_bytes[(-diff) * frame_size:]
     else:
         print("File is already perfectly aligned!")
-        padded_samples = list(samples)
-        
-    # Write back
+        out_bytes = frames_bytes
+
     print(f"Writing aligned file to {output_path}...")
-    # Ensure output directory exists
     output_dir = os.path.dirname(output_path)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
-        
+
     with wave.open(output_path, 'wb') as w:
-        w.setparams(params)
-        # We might have changed the number of frames
-        new_num_frames = len(padded_samples) // num_channels
-        w.setnframes(new_num_frames)
-        w.writeframes(struct.pack(f"<{len(padded_samples)}h", *padded_samples))
-        
+        w.setnchannels(num_channels)
+        w.setsampwidth(sampwidth)
+        w.setframerate(framerate)
+        w.writeframes(out_bytes)
+
     print("Alignment complete!")
     return True
 

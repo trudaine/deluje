@@ -1161,7 +1161,12 @@ public class PhysicalHardwareFidelityTest {
   }
 
   @Test
-  @Disabled("Disabled due to corrupted hardware reference file. The reference WAV plays a sustaining 261/523 Hz tone (likely the INIT VOICE) instead of the decaying FM Bell. Needs re-recording with the correct patch.")
+  @Disabled(
+      "Reference re-recorded 2026-06-28 (REC00002): now a correct decaying FM bell whose dominant"
+          + " partial (~1046 Hz) matches our render (~1050 Hz) — the earlier 'octave vs 523 Hz'"
+          + " gap was an artifact of the previous CORRUPT INIT-voice reference. A real engine gap"
+          + " remains: full-spectrum match is only ~0.10 (log-bin) / 0.03 (256-bin), i.e. the DX7"
+          + " operator/sideband structure still differs. Re-enable when that is fixed.")
   public void testDx7VintageParity() throws Exception {
     System.out.println("=== RUNNING HARDWARE REGRESSION: DX7 VINTAGE C5 ===");
     float[] hw = loadWavFromResource("/fidelity/reference_dx7_vintage_c5.wav");

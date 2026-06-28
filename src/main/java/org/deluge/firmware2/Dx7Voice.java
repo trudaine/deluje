@@ -582,9 +582,18 @@ public class Dx7Voice {
     int feedback = patch[135] & 0xFF;
     int fbShift = feedback != 0 ? FEEDBACK_BITDEPTH - feedback : 16;
     if (debugCount < 10) {
-      System.out.println("[Dx7Voice] compute: n=" + n + " basePitchIn=" + basePitchIn + " pitchMod=" + pitchMod + " useMkI=" + ctrls.useMkI + " algo=" + algorithm + " fb=" + feedback);
       for (int op = 0; op < 6; op++) {
-        System.out.println("  op=" + op + " active=" + ctrls.opSwitch(op) + " freq=" + params[op].freq + " level_in=" + params[op].level_in + " gain_out=" + params[op].gain_out);
+        System.out.println(
+            "  op="
+                + op
+                + " active="
+                + ctrls.opSwitch(op)
+                + " freq="
+                + params[op].freq
+                + " level_in="
+                + params[op].level_in
+                + " gain_out="
+                + params[op].gain_out);
       }
     }
     // ctrls->core->render (dx7note.cpp:382). Static dispatch: MkI vs the modern FmCore.
