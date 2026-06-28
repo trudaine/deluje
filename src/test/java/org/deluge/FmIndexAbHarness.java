@@ -28,19 +28,14 @@ public class FmIndexAbHarness {
   static final int SR = 44100;
   static final double[] SCALES = {0.25, 0.5, 0.75, 1.0, 1.5, 2.0};
 
-  // patch XML, hardware reference WAV, MIDI note
+  // patch XML, hardware reference WAV, MIDI note. ONLY native-format FM presets (real
+  // <modulator1Amount> etc.) are valid here: the 103/117 "_C5" fixtures use the non-native
+  // mode="fm" fmRatio/fmAmount attributes, which the hardware can't read — it falls back to the
+  // default modulator amount (INT_MIN = FM off), so those recordings are a near-pure carrier and
+  // can't validate our FM-on render (see FIDELITY_GAP_ANALYSIS 4.1quater). Add native ludocard FM
+  // presets + their re-recorded references here to calibrate FM index against real hardware.
   static final String[][] CASES = {
     {"src/test/resources/fidelity/049 Basic FM.XML", "/fidelity/REC00010.WAV", "60"},
-    {
-      "src/test/resources/fidelity/103_FM_SIMPLE_C5.XML",
-      "/fidelity/reference_fm_simple_c5.wav",
-      "72"
-    },
-    {
-      "src/test/resources/fidelity/117_FM_FEEDBACK_C5.XML",
-      "/fidelity/reference_fm_feedback_c5.wav",
-      "72"
-    },
   };
 
   @Test
