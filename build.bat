@@ -2,15 +2,17 @@
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
-REM Provision JDK 27-ea per machine (mirrors build.bat / scripts/ensure-jdk27.sh), then launch.
-set JAR_NAME=deluge-swing.jar
+REM Self-contained build: provisions JDK 27-ea (per machine) + Maven (via the committed mvnw.cmd
+REM wrapper), then runs Maven. No global installs needed.
+REM   build.bat                 -> clean package
+REM   build.bat test            -> passes goals/args through to mvnw.cmd
 
 if exist jdk27\bin\java.exe (
-    set "JAVA_EXEC=jdk27\bin\java.exe"
+    set "JAVA_HOME=%CD%\jdk27"
 ) else (
     java -version 2>&1 | findstr /C:"version \"27" >nul
     if !errorlevel! equ 0 (
-        set "JAVA_EXEC=java"
+        echo Using system Java 27.
     ) else (
         echo Java 27 is required but not found.
         echo Downloading OpenJDK 27 ^(early-access^) from Adoptium...
@@ -30,11 +32,12 @@ if exist jdk27\bin\java.exe (
         rd /s /q jdk27_temp
         del openjdk27.zip
 
-        set "JAVA_EXEC=jdk27\bin\java.exe"
+        set "JAVA_HOME=%CD%\jdk27"
     )
 )
 
-echo Launching Deluge (%JAR_NAME%)...
-"!JAVA_EXEC!" --add-modules jdk.incubator.vector -jar "%JAR_NAME%" --swing
+set "GOALS=%*"
+if "%GOALS%"=="" set "GOALS=clean package"
 
-pause
+echo Building with mvnw.cmd (%GOALS%)...
+call mvnw.cmd %GOALS%

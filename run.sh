@@ -1,51 +1,12 @@
 #!/usr/bin/env bash
 set -e
+cd "$(dirname "$0")"
 
-JAR_NAME="deluge-1.0-SNAPSHOT.jar"
-
-check_java() {
-  if command -v java >/dev/null 2>&1; then
-    JAVA_VERSION=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
-    # Handle cases like 27-ea or 27.0.1
-    if [[ "$JAVA_VERSION" =~ ^27 ]]; then
-      return 0
-    fi
-  fi
-  return 1
-}
-
-if [ -f "./jdk27/bin/java" ]; then
-  JAVA_EXEC="./jdk27/bin/java"
-elif check_java; then
-  JAVA_EXEC="java"
-else
-  echo "Java 27 is required but was not found."
-  echo "Attempting to download OpenJDK 27 (early-access) from Eclipse Adoptium..."
-
-  OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-  ARCH=$(uname -m)
-  if [ "$ARCH" = "x86_64" ]; then
-    ARCH="x64"
-  elif [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
-    ARCH="aarch64"
-  fi
-
-  URL="https://api.adoptium.net/v3/binary/latest/27/ea/${OS}/${ARCH}/jdk/hotspot/normal/eclipse?project=jdk"
-
-  echo "Downloading JDK 27 for ${OS} (${ARCH})..."
-  curl -L -o openjdk27.tar.gz "$URL"
-
-  echo "Extracting JDK 27..."
-  mkdir -p jdk27
-  tar -xzf openjdk27.tar.gz -C jdk27 --strip-components=1
-
-  JAVA_EXEC="./jdk27/bin/java"
-  rm openjdk27.tar.gz
-fi
+# Provision JDK 27-ea per machine (shared with build.sh); sets JAVA_HOME + JAVA_EXEC.
+# shellcheck source=scripts/ensure-jdk27.sh
+. scripts/ensure-jdk27.sh
 
 JAR_NAME="deluge-swing.jar"
 
-
 echo "Launching Deluge ($JAR_NAME)..."
 "$JAVA_EXEC" --add-modules jdk.incubator.vector -jar "$JAR_NAME" --swing
-
