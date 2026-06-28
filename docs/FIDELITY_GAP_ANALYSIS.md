@@ -266,7 +266,7 @@ are the engine gaps worth chasing (the scorecard's other low scorers are largely
 | failing test | metric | meaning |
 |---|---|---|
 | `testPwmSquareParity` | wave corr **−0.66** (need ≥0.90) | PWM square (osc1 square + LFO→osc1PulseWidth) is roughly inverted / wrong duty vs HW |
-| `testDx7VintageParity` | wave corr **<0.05** (need ≥0.05) | DX7 voice (separate `Dx7Voice`/`FmCore`, not `Voice.renderFmPath`) essentially uncorrelated with HW — severely broken |
+| `testDx7VintageParity` | wave corr **0.004** (need ≥0.05) | DX7 voice — CONFIRMED real (not a metric artifact): our dominant pitch is **689 Hz vs HW 523 Hz** (C5) and spectral cosine is only **0.147**. Both pitch/operator-balance AND timbre are wrong. Suspect: DX7 patch → operator level/ratio/algorithm setup in `Dx7Voice`/`FmCore` (separate from `Voice.renderFmPath`). Next: probe per-operator output levels + frequency ratios from the parsed `dx7patch` blob vs the DX7/Dexed spec. |
 | `testBasicFmRecordingParity` | — | FM-from-recording parity fails |
 
 NB hard sync (`testSynthHardSyncParity`) **PASSES** the clean reference — so its low scorecard score
