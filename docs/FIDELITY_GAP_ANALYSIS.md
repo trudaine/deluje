@@ -288,6 +288,27 @@ NB hard sync (`testSynthHardSyncParity`) **PASSES** the clean reference — so i
 (Saw/Square Sync 0.3–0.4) is another alignment artifact, not an engine bug. **Methodology rule:
 trust `-Pslow-tests` clean-reference results over the scorecard for go/no-go on a synthesis family.**
 
+### 4.1quater FM-index calibration harness (`FmIndexAbHarness`, 2026-06-28)
+
+`FmIndexAbHarness` (`@Tag("slow")`, `mvn test -Pslow-tests -Dtest=FmIndexAbHarness`) sweeps the
+native-FM modulation index (via the `Voice.testFmIndexScale` test seam) for each native-FM patch
+with a clean reference, scores each multiplier against the reference (log-bin spectral cosine), and
+writes a WAV per multiplier to `$TMPDIR/deluge-fm-ab/` (incl. `*_HW.wav`) for A/B-by-ear. First run:
+
+| patch | x0.25 | x0.5 | x1.0 | x1.5 | x2.0 | best |
+|---|---|---|---|---|---|---|
+| 049 Basic FM | 0.766 | 0.856 | **0.857** | 0.861 | 0.858 | ~flat (index-insensitive; spectrally ~0.86 = fine — the failing test is the brittle `AC(2T)` metric) |
+| 103 FM Simple | **0.902** | 0.714 | 0.286 | 0.045 | 0.110 | x0.25 (monotone ↓ with index) |
+| 117 FM Feedback | **0.793** | 0.502 | 0.061 | 0.063 | 0.169 | x0.25 (monotone ↓ with index) |
+
+Signal: **FM Simple + FM Feedback match hardware far better at LOW index** (≈0.25×) — i.e. our
+native-FM index reads too high for them. BUT FM Simple's reference is flagged suspect (§4.1bis: it
+reads ≈ a pure carrier), so its x0.25 win may be a bad reference. **FM Feedback is the clean signal**
+(not flagged): index x1.0→0.06 vs x0.25→0.79 ⇒ our FM (and/or its modulator feedback, which this
+harness does NOT scale) is too hot. Basic FM is index-insensitive (≈0.86 throughout). NEXT: listen
+to the `$TMPDIR/deluge-fm-ab/` WAVs to confirm by ear, and decide whether the index/feedback scaling
+is a real engine fix or the FM Simple/Feedback references also need re-recording (like DX7's did).
+
 ### 4.2 Oscillator hard sync — RESOLVED: clean-reference test passes (was a scorecard artifact)
 
 (Original note below kept for history; `testSynthHardSyncParity` now passes — see §4.1ter.)

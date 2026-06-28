@@ -38,6 +38,13 @@ public class Voice {
   public static final java.util.concurrent.atomic.AtomicInteger testStartPhaseOverrideOsc2 =
       new java.util.concurrent.atomic.AtomicInteger(-2);
 
+  /**
+   * Test seam: native-FM modulation-index multiplier (1.0 = faithful, no effect). Lets
+   * FmIndexAbHarness sweep the FM depth to calibrate against hardware references. NOT used in
+   * production rendering.
+   */
+  public static volatile double testFmIndexScale = 1.0;
+
   // Unison parts and per-source oscillators
   public final VoiceUnisonPart[] unisonParts = new VoiceUnisonPart[Sound.kMaxNumVoicesUnison];
   public final VoiceSource[] sources;
@@ -1408,6 +1415,15 @@ public class Voice {
     int modAmp1 = modulatorAmplitudeLastTime[1];
     int modAmpInc0 = mod0Active ? (modTarget0 - modulatorAmplitudeLastTime[0]) / numSamples : 0;
     int modAmpInc1 = mod1Active ? (modTarget1 - modulatorAmplitudeLastTime[1]) / numSamples : 0;
+    // TEST-ONLY FM-index calibration hook (1.0 = faithful, no effect). Scales the native-FM
+    // modulation depth so the FmIndexAbHarness can A/B index multipliers against hardware.
+    double fmScale = testFmIndexScale;
+    if (fmScale != 1.0) {
+      modAmp0 = (int) (modAmp0 * fmScale);
+      modAmp1 = (int) (modAmp1 * fmScale);
+      modAmpInc0 = (int) (modAmpInc0 * fmScale);
+      modAmpInc1 = (int) (modAmpInc1 * fmScale);
+    }
 
     if (fmBuf.length < numSamples) {
       fmBuf = new int[numSamples];
