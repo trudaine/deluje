@@ -38,6 +38,8 @@ class Fw2SyncCompletenessTest {
           "synthMode",
           "customLfoWave",
           "oscTypes",
+          "sourceDx7EngineType",
+          "sourceDx7RandomDetune",
           "lpfMode",
           "hpfMode",
           "filterRoute",
