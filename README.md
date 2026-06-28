@@ -54,17 +54,28 @@ This repository is heavily documented. Below is a structured directory of all av
 ## 🛠️ Building and Running
 
 ### Prerequisites
+Nothing pre-installed is required when you use the self-contained `build.sh` (below): it provisions
+both the JDK and Maven automatically. For a manual build you need:
 - **Java JDK 27 (Early-Access)** or higher.
-- **Maven 3.9+**
+- **Maven 3.9+** — or just use the bundled wrapper (`./mvnw`), no system Maven needed.
 
 ### Build & Validate
-To compile the project, format the code, and run all unit, integration, and E2E regression tests:
+Compile, format-check, and run all unit, integration, and E2E regression tests.
+
+**Self-contained (recommended — no global installs):** auto-downloads JDK 27-ea (into `./jdk27`,
+from Eclipse Adoptium) and Maven (via the wrapper), then builds:
 ```bash
-mvn clean package
+./build.sh                 # = clean package   (build.bat on Windows)
+./build.sh test            # any Maven goals/args pass through
+```
+
+**With a system JDK 27**, via the Maven Wrapper (pinned to Maven 3.9.16) or your own Maven:
+```bash
+./mvnw clean package       # or: mvn clean package
 ```
 
 ### Run the Workstation
-To launch the Swing-based workstation UI:
+To launch the Swing-based workstation UI (`run.sh`/`run.bat` also auto-provision JDK 27-ea):
 ```bash
 mvn exec:java -Dexec.mainClass="org.deluge.ui.SwingDelugeApp"
 ```
