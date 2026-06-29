@@ -360,6 +360,33 @@ reverb/FX **algorithm differing** from the C, not missing FX.
   Calibrate the reverb against the C; note that reverb-tail differences depress these scores beyond
   the true dry-tone error.
 
+### 4.5 Master gain chain — BLOCKED on a C-execution / calibrated-hardware reference (2026-06-29)
+
+The master/oscillator gain chain diverges from C per-stage: oscillator amplitude (`>>30` vs C's net
+`>>32`), a `×1.25` master pre-multiply (C has none), final output `lshiftAndSaturate(…, 4)` (`<<4`)
+vs C's `>>1`, and the `getFinalParameterValueVolume` clamp to `[0, 2^30]` (C is unclamped). DONE: the
+invented DC blocker was removed (faithful, verified neutral — §see commit). The rest is **deferred,
+and after a disciplined attempt, confirmed not completable here.**
+
+Measured per-stage (full-volume sine):
+`voiceSum 0.107 → ×1.25 premult → compressor → 0.026 → <<4 → 0.42 final`.
+Applying the C's faithful master (no premult, `>>1` final) to our voice-sum gives ≈ **0.01 (−39 dB)**
+— absurd for one note. So the C's voice output must be ~30× louder than ours; our `<<4`/premult are
+**compensating a quieter voice stage**, and the net is set partly by the **nonlinear compressor**
+(by-inspection scale math was off by 40–160× every attempt).
+
+Why blocked: matching the C needs its **actual per-stage sample values** — which requires *running
+the C firmware* (embedded ARM, not desktop-buildable) or a *level-calibrated hardware capture* (the
+recordings have unknown gain; `FidelityScorecardTest` is amplitude-invariant). With neither, any
+change just re-tunes to our current level (reshuffling, not verifiable faithfulness) at high
+regression risk. Corroboration: the `MASTER_VOLUME_NEUTRAL` comment notes a prior `Q31.ONE` attempt
+"drove the compressor ~13× too hot and broke hardware shape parity."
+
+Impact note: this is amplitude-invariant for per-synth **spectral** parity (the project's main goal,
+already ~0.79), so it does NOT affect "same synth sounds." It only governs saturation onset /
+inter-track balance. **Recommendation: leave the chain stable** until a C-execution buffer dump or a
+calibrated hardware loopback exists; then it becomes a clean by-construction stage-by-stage port.
+
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:
