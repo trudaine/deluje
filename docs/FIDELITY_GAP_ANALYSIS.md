@@ -410,6 +410,30 @@ shape — only clipping/silence/gross-pitch are unambiguous. The trustworthy ref
 remains `PhysicalHardwareFidelityTest` (clean refs) / `FidelityScorecardTest`. This audit's value is
 catching *unusable* references cheaply.
 
+### 4.7 Multisample loading — FIXED (2026-06-30): 11 silent multisamples now render
+
+The scorecard's ~16 "silent" multisamples were a **parser** bug, not synthesis: the real Deluge
+format puts `fileName`/`rangeTopNote`/`transpose` on each `<sampleRange>` (with positions on its
+child `<zone>`), but the parser read `fileName` off the `<zone>` (always empty) so no keyzones
+loaded → silent. Fixes:
+- `DelugeXmlParser.parseSampleRangeZones`: read `<sampleRange>` (attribute AND child-element vintages
+  via `intAttrOrChild`), contiguous `rangeTopNote` → pitch ranges, carry per-zone `transpose`.
+- `KeyZone`/`Sound.CompiledKeyZone`: add `transpose`; `Voice` applies it as the authoritative
+  multisample tuning (matches C `SampleHolderForVoice::transpose = round(60 - midiNote)`), falling
+  back to the WAV-root only when absent.
+- `FirmwareFactory.resolveSample`: case-insensitive component resolution (presets store
+  `Multisamples` vs on-disk `MULTISAMPLES`; FAT32 is CI but Linux isn't — `playable()` used CI
+  `ciExists` while the loader used case-sensitive `File.exists`, so files "present" for the filter
+  failed to load).
+- `Sound`: guard against a matched zone whose sample failed to load (prevents an NPE the parser fix
+  exposed for presets with unreadable WAVs).
+
+Result: scorecard n/a **16 → 5**; n 172 → 183; recovered synths score well (Soft Sax 0.90, Hang Drum
+0.94, SolidBass* 0.76–0.84, Secret Choir 0.89 — the high cosines confirm correct pitch/transpose).
+Remaining 5 n/a: `169 Double Bass` (its `.WAV` files won't load — reader issue, separate) + 4 short/
+percussive (Vibraphone/Tube Slap/Stone Skip/Wood Flute Verb) that DO render in isolation but fall
+below the scorecard's 2 s-RMS "silent" threshold — a measurement-window detail, not an engine bug.
+
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:

@@ -125,6 +125,78 @@ public class DelugeXmlParser {
   }
 
   /**
+   * Parse multisample keyzones from a {@code <sampleRanges>} element into {@code out}.
+   *
+   * <p>The real Deluge format puts {@code fileName}/{@code rangeTopNote}/{@code transpose} on each
+   * {@code <sampleRange>} and only sample positions on its child {@code <zone>}; zones are ordered
+   * ascending and contiguous (minPitch = previous range's top + 1, last covers to 127). The
+   * previous parser read {@code fileName} off the {@code <zone>} (always empty here) so no zones
+   * loaded and multisample presets rendered silent. Falls back to the legacy direct-{@code <zone>}
+   * form (with its own {@code fileName}/{@code minPitch}/{@code maxPitch}) when no {@code
+   * <sampleRange>} exists.
+   */
+  /**
+   * Read an int from an attribute, or (if absent) a child element of the same name; else default.
+   */
+  private static int intAttrOrChild(Element el, String name, int def) {
+    String v = el.getAttribute(name);
+    if (v == null || v.isBlank()) v = getChildText(el, name);
+    if (v == null || v.isBlank()) return def;
+    try {
+      return Integer.parseInt(v.trim());
+    } catch (NumberFormatException e) {
+      return def;
+    }
+  }
+
+  private static void parseSampleRangeZones(Element sampleRangesEl, java.util.List<KeyZone> out) {
+    NodeList ranges = sampleRangesEl.getElementsByTagName("sampleRange");
+    if (ranges.getLength() > 0) {
+      int prevTop = -1;
+      for (int i = 0; i < ranges.getLength(); i++) {
+        Element range = (Element) ranges.item(i);
+        KeyZone kz = new KeyZone();
+        kz.samplePath = range.getAttribute("fileName");
+        if (kz.samplePath.isEmpty()) kz.samplePath = getChildText(range, "fileName");
+        boolean last = (i == ranges.getLength() - 1);
+        // rangeTopNote/transpose may be attributes OR child elements depending on preset vintage.
+        int top = intAttrOrChild(range, "rangeTopNote", last ? 127 : prevTop + 1);
+        kz.minPitch = prevTop + 1;
+        kz.maxPitch = last ? 127 : top; // last range spans to the top of the keyboard
+        prevTop = top;
+        kz.transpose = intAttrOrChild(range, "transpose", 0);
+        Element zone = getFirstChild(range, "zone");
+        if (zone != null) {
+          kz.startSamplePos = intAttrOrChild(zone, "startSamplePos", 0);
+          kz.endSamplePos = intAttrOrChild(zone, "endSamplePos", -1);
+          kz.startLoopPos = intAttrOrChild(zone, "startLoopPos", -1);
+          kz.endLoopPos = intAttrOrChild(zone, "endLoopPos", -1);
+        }
+        if (!kz.samplePath.isEmpty()) out.add(kz);
+      }
+      return;
+    }
+    // Legacy fallback: direct <zone fileName=... minPitch=... maxPitch=...> entries.
+    NodeList zones = sampleRangesEl.getElementsByTagName("zone");
+    for (int i = 0; i < zones.getLength(); i++) {
+      Element zone = (Element) zones.item(i);
+      KeyZone kz = new KeyZone();
+      kz.samplePath = zone.getAttribute("fileName");
+      if (kz.samplePath.isEmpty()) kz.samplePath = getChildText(zone, "fileName");
+      kz.minPitch = readIntAttr(zone, "minPitch", 0);
+      kz.maxPitch = readIntAttr(zone, "maxPitch", 127);
+      kz.minVelocity = readIntAttr(zone, "minVelocity", 0);
+      kz.maxVelocity = readIntAttr(zone, "maxVelocity", 127);
+      kz.startSamplePos = readIntAttr(zone, "startSamplePos", 0);
+      kz.endSamplePos = readIntAttr(zone, "endSamplePos", -1);
+      kz.startLoopPos = readIntAttr(zone, "startLoopPos", -1);
+      kz.endLoopPos = readIntAttr(zone, "endLoopPos", -1);
+      kz.looping = "1".equals(zone.getAttribute("loopMode"));
+      if (!kz.samplePath.isEmpty()) out.add(kz);
+    }
+  }
+
+  /**
    * Shared zone parser: reads zone data from an osc1 child element (both attribute and
    * child-element formats).
    */
@@ -1475,25 +1547,7 @@ public class DelugeXmlParser {
       // Parse sampleRanges keyzones for Osc 1
       Element osc1SampleRanges = getFirstChild(osc1, "sampleRanges");
       if (osc1SampleRanges != null) {
-        NodeList zones = osc1SampleRanges.getElementsByTagName("zone");
-        for (int i = 0; i < zones.getLength(); i++) {
-          Element zone = (Element) zones.item(i);
-          KeyZone kz = new KeyZone();
-          kz.samplePath = zone.getAttribute("fileName");
-          if (kz.samplePath.isEmpty()) {
-            kz.samplePath = getChildText(zone, "fileName");
-          }
-          kz.minPitch = readIntAttr(zone, "minPitch", 0);
-          kz.maxPitch = readIntAttr(zone, "maxPitch", 127);
-          kz.minVelocity = readIntAttr(zone, "minVelocity", 0);
-          kz.maxVelocity = readIntAttr(zone, "maxVelocity", 127);
-          kz.startSamplePos = readIntAttr(zone, "startSamplePos", 0);
-          kz.endSamplePos = readIntAttr(zone, "endSamplePos", -1);
-          kz.startLoopPos = readIntAttr(zone, "startLoopPos", -1);
-          kz.endLoopPos = readIntAttr(zone, "endLoopPos", -1);
-          kz.looping = "1".equals(zone.getAttribute("loopMode"));
-          synth.getKeyZones().getOsc1Zones().add(kz);
-        }
+        parseSampleRangeZones(osc1SampleRanges, synth.getKeyZones().getOsc1Zones());
       }
     }
 
@@ -1554,25 +1608,7 @@ public class DelugeXmlParser {
       // Parse sampleRanges keyzones for Osc 2
       Element osc2SampleRanges = getFirstChild(osc2, "sampleRanges");
       if (osc2SampleRanges != null) {
-        NodeList zones = osc2SampleRanges.getElementsByTagName("zone");
-        for (int i = 0; i < zones.getLength(); i++) {
-          Element zone = (Element) zones.item(i);
-          KeyZone kz = new KeyZone();
-          kz.samplePath = zone.getAttribute("fileName");
-          if (kz.samplePath.isEmpty()) {
-            kz.samplePath = getChildText(zone, "fileName");
-          }
-          kz.minPitch = readIntAttr(zone, "minPitch", 0);
-          kz.maxPitch = readIntAttr(zone, "maxPitch", 127);
-          kz.minVelocity = readIntAttr(zone, "minVelocity", 0);
-          kz.maxVelocity = readIntAttr(zone, "maxVelocity", 127);
-          kz.startSamplePos = readIntAttr(zone, "startSamplePos", 0);
-          kz.endSamplePos = readIntAttr(zone, "endSamplePos", -1);
-          kz.startLoopPos = readIntAttr(zone, "startLoopPos", -1);
-          kz.endLoopPos = readIntAttr(zone, "endLoopPos", -1);
-          kz.looping = "1".equals(zone.getAttribute("loopMode"));
-          synth.getKeyZones().getOsc2Zones().add(kz);
-        }
+        parseSampleRangeZones(osc2SampleRanges, synth.getKeyZones().getOsc2Zones());
       }
     }
 

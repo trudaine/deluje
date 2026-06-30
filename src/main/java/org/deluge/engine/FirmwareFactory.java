@@ -270,6 +270,7 @@ public class FirmwareFactory {
                       ckz.startLoopPos = kz.startLoopPos;
                       ckz.endLoopPos = kz.endLoopPos;
                       ckz.looping = kz.looping;
+                      ckz.transpose = kz.transpose;
                       compiledZones.add(ckz);
                     }
                   } catch (IOException e) {
@@ -1221,9 +1222,39 @@ public class FirmwareFactory {
     if (sdCard.isDirectory()) {
       File fallback = new File(sdCard, normPath);
       if (fallback.exists()) return fallback;
+      // Case-insensitive fallback: real hardware (FAT32) is case-insensitive, but Deluge presets
+      // often store a different case than the on-disk dir (e.g. "Multisamples" vs "MULTISAMPLES").
+      // On case-sensitive filesystems (Linux) File.exists fails; resolve each path component CI.
+      File ci = resolveCaseInsensitive(sdCard, normPath);
+      if (ci != null) return ci;
     }
 
     return f;
+  }
+
+  /** Walk {@code relPath} under {@code root}, matching each component case-insensitively. */
+  private static File resolveCaseInsensitive(File root, String relPath) {
+    File cur = root;
+    for (String part : relPath.split("/")) {
+      if (part.isEmpty()) continue;
+      File exact = new File(cur, part);
+      if (exact.exists()) {
+        cur = exact;
+        continue;
+      }
+      File[] kids = cur.listFiles();
+      if (kids == null) return null;
+      File match = null;
+      for (File k : kids) {
+        if (k.getName().equalsIgnoreCase(part)) {
+          match = k;
+          break;
+        }
+      }
+      if (match == null) return null;
+      cur = match;
+    }
+    return cur.isFile() ? cur : null;
   }
 
   private static int amountToQ31(String dest, float amount) {

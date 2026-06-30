@@ -265,6 +265,7 @@ public class Sound extends GlobalEffectable {
     public int startLoopPos;
     public int endLoopPos;
     public boolean looping;
+    public int transpose; // semitones tuning the recorded sample to the played note
   }
 
   public final java.util.List<CompiledKeyZone>[] sourceZones =
@@ -984,11 +985,13 @@ public class Sound extends GlobalEffectable {
           int endFrame = sampleEndPoint[s];
           boolean looping = sampleLoopMode[s] == 1;
           int loopStartFrame = sampleLoopStart[s];
+          int zoneTranspose = Integer.MIN_VALUE; // INT_MIN = no zone (single sample)
 
           if (!sourceZones[s].isEmpty()) {
             CompiledKeyZone matchedZone = null;
             for (CompiledKeyZone kz : sourceZones[s]) {
-              if (note >= kz.minPitch
+              if (kz.sample != null
+                  && note >= kz.minPitch
                   && note <= kz.maxPitch
                   && vel >= kz.minVelocity
                   && vel <= kz.maxVelocity) {
@@ -1004,6 +1007,7 @@ public class Sound extends GlobalEffectable {
                   matchedZone.endSamplePos == -1 ? len : Math.min(matchedZone.endSamplePos, len);
               looping = matchedZone.looping;
               loopStartFrame = matchedZone.startLoopPos;
+              zoneTranspose = matchedZone.transpose;
             }
           }
 
@@ -1016,6 +1020,11 @@ public class Sound extends GlobalEffectable {
           }
 
           if (targetSample != null) {
+            // Carry the matched multisample zone's transpose (authoritative tuning) onto the
+            // source;
+            // INT_MIN = single sample / no zone → pitch falls back to the WAV-root-derived
+            // transpose.
+            targetVoice.sources[s].zoneTranspose = zoneTranspose;
             boolean ts = sampleTimestretch[s] && !sampleReverse[s];
             int playDir = sampleReverse[s] ? -1 : 1;
             if (ts) {
