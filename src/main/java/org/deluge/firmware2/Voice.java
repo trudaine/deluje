@@ -162,6 +162,11 @@ public class Voice {
     // Sample playback (when oscType == SAMPLE or source is sample-based).
     public final VoiceSample voiceSample = new VoiceSample();
     public Sample sampleRef; // the fw2 Sample backing this source
+    // Per-zone transpose from a matched multisample <sampleRange transpose=...>; INT_MIN = none, so
+    // the pitch falls back to the WAV-root-derived transpose. The XML value is what the hardware
+    // serialized (C SampleHolderForVoice::transpose = round(60 - midiNote)), so it's authoritative
+    // when present and avoids depending on our midiNoteFromFile detection.
+    public int zoneTranspose = Integer.MIN_VALUE;
     public int timeStretchRatio = 16777216; // 1 << 24 ≡ 1.0 (no time-stretch)
 
     // Live-input pitch shifting (C VoiceUnisonPartSource::livePitchShifter, voice.cpp:2236-2274).
@@ -650,10 +655,15 @@ public class Voice {
           && unisonParts[0].sources[0].sampleRef != null) {
         pitchAdjustNeutralValue =
             (int) (((unisonParts[0].sources[0].sampleRef.sampleRate) * 16777216L) / 44100);
-        float sampleMidiNote = unisonParts[0].sources[0].sampleRef.midiNoteFromFile;
-        if (sampleMidiNote != -1.0f) {
-          int sampleTranspose = Math.round(60.0f - sampleMidiNote);
-          oscNoteCode += sampleTranspose;
+        if (unisonParts[0].sources[0].zoneTranspose != Integer.MIN_VALUE) {
+          oscNoteCode +=
+              unisonParts[0].sources[0].zoneTranspose; // authoritative multisample tuning
+        } else {
+          float sampleMidiNote = unisonParts[0].sources[0].sampleRef.midiNoteFromFile;
+          if (sampleMidiNote != -1.0f) {
+            int sampleTranspose = Math.round(60.0f - sampleMidiNote);
+            oscNoteCode += sampleTranspose;
+          }
         }
       }
       int noteWithinOctave;
@@ -707,10 +717,15 @@ public class Voice {
           && unisonParts[0].sources[1].sampleRef != null) {
         pitchAdjustNeutralValue =
             (int) (((unisonParts[0].sources[1].sampleRef.sampleRate) * 16777216L) / 44100);
-        float sampleMidiNote = unisonParts[0].sources[1].sampleRef.midiNoteFromFile;
-        if (sampleMidiNote != -1.0f) {
-          int sampleTranspose = Math.round(60.0f - sampleMidiNote);
-          oscNoteCode += sampleTranspose;
+        if (unisonParts[0].sources[1].zoneTranspose != Integer.MIN_VALUE) {
+          oscNoteCode +=
+              unisonParts[0].sources[1].zoneTranspose; // authoritative multisample tuning
+        } else {
+          float sampleMidiNote = unisonParts[0].sources[1].sampleRef.midiNoteFromFile;
+          if (sampleMidiNote != -1.0f) {
+            int sampleTranspose = Math.round(60.0f - sampleMidiNote);
+            oscNoteCode += sampleTranspose;
+          }
         }
       }
       int noteWithinOctave;

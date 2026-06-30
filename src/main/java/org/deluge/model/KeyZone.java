@@ -12,4 +12,7 @@ public class KeyZone {
   public int startLoopPos = -1;
   public int endLoopPos = -1;
   public boolean looping = false;
+
+  /** Per-sampleRange transpose (semitones) tuning the recorded sample to the played note. */
+  public int transpose = 0;
 }
