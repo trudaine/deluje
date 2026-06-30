@@ -387,6 +387,29 @@ already ~0.79), so it does NOT affect "same synth sounds." It only governs satur
 inter-track balance. **Recommendation: leave the chain stable** until a C-execution buffer dump or a
 calibrated hardware loopback exists; then it becomes a clean by-construction stage-by-stage port.
 
+### 4.6 Reference-validity audit (`scripts/audit_references.py`, 2026-06-30, no hardware)
+
+`python3 scripts/audit_references.py` scans every `reference_*.wav` (pure WAV analysis, no engine/
+build) and reports format, dominant pitch, fundamental presence, and clipping. Robust findings:
+
+- **CLIPPED references (bad amplitude ground truth — measured peak = 1.0000, not a heuristic):**
+  `reference_reverb_tail_saw_c5.wav` (**100%** of samples at full scale — useless as a reference),
+  `reference_delay_trail_saw_c5.wav` (74%), `reference_eight_voice_unison_saw_c5.wav` (71%). These
+  are the FX-tail/dense-unison patches the gap doc already flags as scoring 0.4–0.7 "partly a metric
+  confound" (§4.4) — now we know part of that is the *reference itself being clipped*, so their low
+  scores overstate the engine error. Re-record at lower gain when hardware is available; until then,
+  treat their scores as unreliable.
+- **`sw_render.wav`** — a 16-bit *software* render living in the hardware-reference dir; not a
+  reference. Stray; safe to remove (left in place pending user confirmation).
+- **Weak heuristic (manual follow-up, NOT conclusions):** "FUND-ABSENT" flags filtered/modulated/
+  bell patches whose fundamental is legitimately weak (e.g. DX7 is correctly octave-dominant; the
+  `_c4` saws are 2nd-harmonic-dominant). Don't auto-trust these.
+
+Limitation: a pure-WAV audit can't distinguish "engine wrong" from "reference wrong" for spectral
+shape — only clipping/silence/gross-pitch are unambiguous. The trustworthy reference-vs-render check
+remains `PhysicalHardwareFidelityTest` (clean refs) / `FidelityScorecardTest`. This audit's value is
+catching *unusable* references cheaply.
+
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:
