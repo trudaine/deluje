@@ -204,8 +204,9 @@ public class SwingScreenshotGenerator {
                           synthBox[0] =
                               new SwingSynthConfigDialog(
                                   app, st, bridge, trackIdx, app.getCurrentProject());
-                          synthBox[0].pack();
-                          synthBox[0].setSize(950, 720);
+                          // Keep the dialog's own content-fitting size (constructor
+                          // sizeToFitContent)
+                          // instead of forcing a small fixed size that clipped the taller tabs.
                           synthBox[0].setVisible(true);
                         });
                     Thread.sleep(1500);
@@ -214,13 +215,24 @@ public class SwingScreenshotGenerator {
                     for (int tIdx = 0; tIdx < synthTabs.getTabCount(); tIdx++) {
                       final int finalTIdx = tIdx;
                       SwingUtilities.invokeAndWait(() -> synthTabs.setSelectedIndex(finalTIdx));
-                      Thread.sleep(1000); // Give the sub-panel EDT cycles to paint cleanly!
-
-                      String rawTitle = synthTabs.getTitleAt(tIdx);
-                      String tabName =
-                          rawTitle.toUpperCase().replaceAll("[^A-Z0-9]", "_").toLowerCase();
-                      SwingUtilities.invokeAndWait(
-                          () -> captureComponent(synthBox[0], "deluge_synth_tab_" + tabName));
+                      Thread.sleep(800);
+                      Component tabComp = synthTabs.getComponentAt(tIdx);
+                      if (tabComp instanceof JTabbedPane subTabs) {
+                        // Drill into nested sub-tabs (SOURCES, FX, SETUP) so each leaf tab (OSC,
+                        // ALGORITHM, DX7, MOD FX, EQ, COMPRESSOR, AUTOMATION, MIDI LEARN) is
+                        // captured.
+                        for (int sIdx = 0; sIdx < subTabs.getTabCount(); sIdx++) {
+                          final int finalSIdx = sIdx;
+                          SwingUtilities.invokeAndWait(() -> subTabs.setSelectedIndex(finalSIdx));
+                          Thread.sleep(800);
+                          String sub = slug(subTabs.getTitleAt(sIdx));
+                          SwingUtilities.invokeAndWait(
+                              () -> captureTabContent(subTabs.getComponentAt(finalSIdx), sub));
+                        }
+                      } else {
+                        String tabName = slug(synthTabs.getTitleAt(tIdx));
+                        SwingUtilities.invokeAndWait(() -> captureTabContent(tabComp, tabName));
+                      }
                     }
 
                     SwingUtilities.invokeAndWait(() -> synthBox[0].dispose());
@@ -345,6 +357,47 @@ public class SwingScreenshotGenerator {
               }
             })
         .start();
+  }
+
+  /**
+   * Tab title -> image-name slug, e.g. "MOD FX" -> "mod_fx", "OSC / FILTER / FM" ->
+   * "osc___filter___fm".
+   */
+  private static String slug(String title) {
+    return title.toUpperCase().replaceAll("[^A-Z0-9]", "_").toLowerCase();
+  }
+
+  /**
+   * Capture a synth tab's content UN-CLIPPED: unwrap the scroll pane, lay the panel out at its full
+   * preferred size, and paint that (so even oversized tabs like AUTOMATION are captured whole
+   * rather than showing a scrollbar). Writes deluge_synth_tab_&lt;name&gt;.png.
+   */
+  private static void captureTabContent(Component tabComp, String name) {
+    Component view = tabComp;
+    if (tabComp instanceof javax.swing.JScrollPane sp) {
+      view = sp.getViewport().getView();
+    }
+    if (view == null) return;
+    Dimension pref = view.getPreferredSize();
+    int w = Math.max(pref.width, view.getWidth());
+    int h = Math.max(pref.height, view.getHeight());
+    if (w <= 0) w = 800;
+    if (h <= 0) h = 600;
+    view.setSize(w, h);
+    layoutTree(view); // recursively lay out at the full size so nothing clips
+    captureComponent(view, "deluge_synth_tab_" + name);
+  }
+
+  /**
+   * Recursively re-layout a container subtree (so a resized off-viewport panel paints correctly).
+   */
+  private static void layoutTree(Component c) {
+    c.doLayout();
+    if (c instanceof Container cont) {
+      for (Component child : cont.getComponents()) {
+        layoutTree(child);
+      }
+    }
   }
 
   private static void captureComponent(Component comp, String filename) {

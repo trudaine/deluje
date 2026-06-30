@@ -216,6 +216,11 @@ public class SwingSynthConfigDialog extends JDialog {
     add(southStack, BorderLayout.SOUTH);
     DarkComboBoxRenderer.styleComponentTree(this);
 
+    // Size the dialog to fit its content so the tallest tab isn't clipped (the tab panels are not
+    // scroll-wrapped, so an undersized dialog hard-clips the bottom rows). Grow to the laid-out
+    // preferred size, never below the 1300x750 baseline, clamped to the usable screen.
+    sizeToFitContent(owner);
+
     // ── Live-apply ──
     // While the dialog is open, periodically re-map the (continuously edited) model onto the
     // running engine sound, so every knob/combo edit is audible immediately instead of waiting
@@ -1233,7 +1238,7 @@ public class SwingSynthConfigDialog extends JDialog {
    * 14-tab overload without burying the showcase editors or merging "main + detail" content.
    */
   private void populateTabs() {
-    tabs.addTab("OSC / FILTER / FM", buildMainPanel(model, bridge, trackIndex));
+    tabs.addTab("OSC / FILTER / FM", scrollWrap(buildMainPanel(model, bridge, trackIndex)));
 
     // ── Sound sources / FM detail (grouped) ──
     Runnable reloadDialog =
@@ -1243,37 +1248,70 @@ public class SwingSynthConfigDialog extends JDialog {
               .setVisible(true);
         };
     JTabbedPane sourceTabs = styledSubTabs();
-    sourceTabs.addTab("OSC", new OscPanel(model, bridge, trackIndex, projectModel));
-    sourceTabs.addTab("ALGORITHM", new AlgorithmPanel(model, bridge, trackIndex));
-    sourceTabs.addTab("DX7", new Dx7Panel(model, bridge, trackIndex, this, reloadDialog));
+    sourceTabs.addTab("OSC", scrollWrap(new OscPanel(model, bridge, trackIndex, projectModel)));
+    sourceTabs.addTab("ALGORITHM", scrollWrap(new AlgorithmPanel(model, bridge, trackIndex)));
+    sourceTabs.addTab(
+        "DX7", scrollWrap(new Dx7Panel(model, bridge, trackIndex, this, reloadDialog)));
     tabs.addTab("SOURCES", sourceTabs);
 
     // Filter: LPF lives in the main tab; HPF here.
-    tabs.addTab("HPF", new HpfPanel(model, bridge, trackIndex, projectModel));
+    tabs.addTab("HPF", scrollWrap(new HpfPanel(model, bridge, trackIndex, projectModel)));
 
     // ── Modulation (kept top-level to showcase the interactive visualizers) ──
-    tabs.addTab("ENVELOPE", new EnvelopePanel(model, bridge, trackIndex, projectModel));
+    tabs.addTab("ENVELOPE", scrollWrap(new EnvelopePanel(model, bridge, trackIndex, projectModel)));
     lfoPanel = new LfoPanel(model, trackIndex);
-    tabs.addTab("LFO", lfoPanel);
+    tabs.addTab("LFO", scrollWrap(lfoPanel));
     lfoPanel.startAnimation();
-    tabs.addTab("MODULATION", new ModulationPanel(model, bridge, trackIndex));
-    tabs.addTab("ARP", new ArpPanel(model, bridge, trackIndex, projectModel));
+    tabs.addTab("MODULATION", scrollWrap(new ModulationPanel(model, bridge, trackIndex)));
+    tabs.addTab("ARP", scrollWrap(new ArpPanel(model, bridge, trackIndex, projectModel)));
 
     // ── FX & dynamics (grouped) ──
     JTabbedPane fxTabs = styledSubTabs();
-    fxTabs.addTab("MOD FX", new ModFxPanel(model, bridge, trackIndex, projectModel));
-    fxTabs.addTab("EQ", new EqPanel(model, bridge, trackIndex, projectModel));
-    fxTabs.addTab("COMPRESSOR", new CompressorPanel(model, bridge, trackIndex, projectModel));
+    fxTabs.addTab("MOD FX", scrollWrap(new ModFxPanel(model, bridge, trackIndex, projectModel)));
+    fxTabs.addTab("EQ", scrollWrap(new EqPanel(model, bridge, trackIndex, projectModel)));
+    fxTabs.addTab(
+        "COMPRESSOR", scrollWrap(new CompressorPanel(model, bridge, trackIndex, projectModel)));
     tabs.addTab("FX", fxTabs);
 
     // ── Setup utilities (grouped) ──
     JTabbedPane setupTabs = styledSubTabs();
-    setupTabs.addTab("AUTOMATION", new AutomationPanel(model, bridge, trackIndex));
+    setupTabs.addTab("AUTOMATION", scrollWrap(new AutomationPanel(model, bridge, trackIndex)));
     if (midiLearnPanel == null) {
       midiLearnPanel = new MidiLearnPanel();
     }
-    setupTabs.addTab("MIDI LEARN", midiLearnPanel);
+    setupTabs.addTab("MIDI LEARN", scrollWrap(midiLearnPanel));
     tabs.addTab("SETUP", setupTabs);
+  }
+
+  /**
+   * Wrap a tab's content in a borderless scroll pane (scrollbars AS_NEEDED). Tabs that fit the
+   * dialog show no scrollbar; only genuinely-oversized panels (e.g. AUTOMATION) scroll instead of
+   * hard-clipping. Keeps the panel's own preferred size so {@link #captureFullTab} can snapshot it
+   * un-clipped.
+   */
+  private static JComponent scrollWrap(Component content) {
+    JScrollPane sp = new JScrollPane(content);
+    sp.setBorder(null);
+    sp.getVerticalScrollBar().setUnitIncrement(16);
+    sp.getHorizontalScrollBar().setUnitIncrement(16);
+    sp.setBackground(BG_CARD);
+    sp.getViewport().setBackground(BG_CARD);
+    return sp;
+  }
+
+  /**
+   * Size so the common tabs fit without scrolling, clamped to the usable screen. A few panels are
+   * genuinely huge (AUTOMATION ~1550 tall, ALGORITHM ~2300 wide) — sizing to the raw preferred size
+   * would make a multi-thousand-pixel window, so we use a generous baseline and let the per-tab
+   * scroll panes ({@link #scrollWrap}) scroll only those outliers. Re-centers on the owner.
+   */
+  private void sizeToFitContent(Frame owner) {
+    java.awt.Rectangle screen =
+        java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+    int w = Math.min(1380, screen.width - 40);
+    int h = Math.min(1000, screen.height - 60);
+    setSize(w, h);
+    setLocationRelativeTo(owner);
   }
 
   /** A dark-styled inner JTabbedPane for grouping related sub-editors. */
