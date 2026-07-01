@@ -434,6 +434,36 @@ Remaining 5 n/a: `169 Double Bass` (its `.WAV` files won't load — reader issue
 percussive (Vibraphone/Tube Slap/Stone Skip/Wood Flute Verb) that DO render in isolation but fall
 below the scorecard's 2 s-RMS "silent" threshold — a measurement-window detail, not an engine bug.
 
+### 4.8 Note-84 preset scorecard (2026-07-01): core faithful; one real saturation bug
+
+`PresetScorecardTest` renders the 28 hand-authored single-feature presets at note 84 (the Deluge's
+"C5" = 1046 Hz — the octave the references were recorded at; confirmed by the dry-sine take peaking
+at 1046) and scores each vs its `preset_refs/` reference. Baseline: n=27 mean 0.68 median 0.72,
+9 ≥ 0.80.
+
+**Faithful (high-confidence, distinctive spectra):** resonant LPF 0.965, resonant HPF 0.895, LFO
+tremolo 0.918, LFO vibrato 0.901, unison 0.860, PWM-static 0.855, FM bell 0.810, dry saw 0.814. The
+subtractive core, filter, LFO, unison, and PWM are faithful.
+
+**Low subtractive scores are mostly a METRIC ARTIFACT at this pitch, not bugs.** At note 84
+(1046 Hz) the band-limited oscillators are nearly sinusoidal — measured square/saw harmonics are
+weak (h3 ≈ 0.07–0.12, not the theoretical 0.33) on BOTH our render and the hardware, and they match
+each other. So the log-spectral cosine is dominated by quiet inter-harmonic/noise-floor differences
+(the same over-weighting the §4.0 subtractive deep-dive found), giving e.g. dry-square 0.50 despite
+matching harmonics. To score subtractive timbre meaningfully the presets should be recorded at a
+LOWER note (rich harmonics); note 84 is too high.
+
+**One CONFIRMED real bug — saturation/drive attenuates instead of saturating (`T28`, 0.046).**
+Measured a full-vol saw at note 84 through `clippingAmount`: clip 0 → rms 0.19, clip 2–15 → rms 0.09
+(HALVED, and flat across the range), clip 20 → rms 0.004 (collapses); the pre-saturation signal is
+already ~0.09 fs and `getTanHAntialiased` returns ~0 for a saturated input. The hardware `T28`
+(clip 20) is rms **0.245** with strong odd harmonics (h3 0.29 vs our 0.09) — drive should ADD
+harmonics and hold/boost level; ours guts it. NOT the final `<< shiftAmount` (C uses a plain shift
+where we used `lshiftAndSaturate`, but matching it changed nothing) — the attenuation is upstream in
+the tanh-saturation math / its interaction with the pre-scale. Real, but needs a careful faithful
+pass over `getTanHAntialiased` + `saturate` (`functions.h:286`, `sound.h:290`) vs the tanH2d table
+scaling; do NOT hack the level. (Also verify `clippingAmount=20` is in the hardware's valid range.)
+
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:
