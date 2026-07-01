@@ -1319,12 +1319,31 @@ public class DelugeXmlParser {
       }
     }
 
-    NodeList tracksList = songNode.getElementsByTagName("track");
-    if (tracksList.getLength() == 0) {
-      tracksList = songNode.getElementsByTagName("instrumentClip");
+    // clipInstances live on the instrument elements (<sound>/<kit>/<audioTrack>) under <instruments>
+    // in the current format; legacy songs put them on <track>/<instrumentClip>. Gather the elements
+    // that actually carry the attribute, in document order, so track index t maps to project track t.
+    java.util.List<Element> clipInstanceElems = new java.util.ArrayList<>();
+    NodeList instrumentsNodes = songNode.getElementsByTagName("instruments");
+    if (instrumentsNodes.getLength() > 0) {
+      NodeList kids = instrumentsNodes.item(0).getChildNodes();
+      for (int k = 0; k < kids.getLength(); k++) {
+        if (kids.item(k) instanceof Element e) clipInstanceElems.add(e);
+      }
     }
-    for (int t = 0; t < tracksList.getLength() && t < project.getTracks().size(); t++) {
-      Element trackElem = (Element) tracksList.item(t);
+    // Fall back to legacy <track>/<instrumentClip> when the instrument children don't carry the
+    // clipInstances attribute (older format, or the mock fidelity fixtures).
+    boolean anyHasClipInstances =
+        clipInstanceElems.stream().anyMatch(e -> e.hasAttribute("clipInstances"));
+    if (!anyHasClipInstances) {
+      clipInstanceElems.clear();
+      NodeList legacy = songNode.getElementsByTagName("track");
+      if (legacy.getLength() == 0) legacy = songNode.getElementsByTagName("instrumentClip");
+      for (int k = 0; k < legacy.getLength(); k++) {
+        clipInstanceElems.add((Element) legacy.item(k));
+      }
+    }
+    for (int t = 0; t < clipInstanceElems.size() && t < project.getTracks().size(); t++) {
+      Element trackElem = clipInstanceElems.get(t);
 
       String hexStr = "";
       if (trackElem.hasAttribute("clipInstances")) {
