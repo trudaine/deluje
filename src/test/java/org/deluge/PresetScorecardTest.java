@@ -26,9 +26,15 @@ import org.junit.jupiter.api.Test;
  */
 public class PresetScorecardTest {
   static final int SR = 44100;
-  static final int NOTE = 84; // Deluge "C5" = 1046 Hz (references recorded here)
+  // Render note. Default 84 = the Deluge's "C5" = 1046 Hz, the octave the current references were
+  // recorded at. Override with -Dpreset.note=60 when comparing lower-note re-records (a lower note
+  // gives the subtractive oscillators rich harmonics, so the spectral metric is far more meaningful
+  // than at 1046 Hz where they are nearly sinusoidal).
+  static final int NOTE = Integer.getInteger("preset.note", 84);
   static final File PRESETS = new File("src/test/resources/fidelity/test_presets");
-  static final File REFS = new File("src/test/resources/fidelity/preset_refs");
+  // Reference dir: preset_refs (note 84) by default; -Dpreset.refs=preset_refs_c4 for a lower set.
+  static final File REFS =
+      new File("src/test/resources/fidelity/" + System.getProperty("preset.refs", "preset_refs"));
 
   @Test
   @Tag("slow")
