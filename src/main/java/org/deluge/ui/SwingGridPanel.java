@@ -2045,14 +2045,25 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     rowPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
     if (modelRow < tracks.size()) {
-      String hex = tracks.get(modelRow).getColourHex();
+      // Colour the row the way the Deluge session view does (session_view.cpp:3356): fromHue of the
+      // output's stored colour (0-191), and when that's 0 (unset) a rotating auto-assigned hue so
+      // each track is distinct. A literal 0xRRGGBB hex (if ever stored) is still honoured directly.
+      org.deluge.model.TrackModel t = tracks.get(modelRow);
+      String hex = t.getColourHex();
       if (hex != null && hex.startsWith("0x")) {
         try {
-          int rgb = Integer.decode(hex.substring(0, 8));
-          trackColors[modelRow % trackColors.length] = new Color(rgb);
+          trackColors[modelRow % trackColors.length] = new Color(Integer.decode(hex.substring(0, 8)));
         } catch (Exception e) {
           LOG.warning("Bad color hex for track " + modelRow + ": " + e.getMessage());
         }
+      } else {
+        int stored = 0;
+        try {
+          if (hex != null && !hex.isBlank()) stored = Integer.parseInt(hex.trim());
+        } catch (NumberFormatException ignore) {
+          // not numeric — leave as auto-assign
+        }
+        trackColors[modelRow % trackColors.length] = DelugeColour.sessionColour(stored, modelRow);
       }
     }
 
