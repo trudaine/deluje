@@ -464,6 +464,33 @@ the tanh-saturation math / its interaction with the pre-scale. Real, but needs a
 pass over `getTanHAntialiased` + `saturate` (`functions.h:286`, `sound.h:290`) vs the tanH2d table
 scaling; do NOT hack the level. (Also verify `clippingAmount=20` is in the hardware's valid range.)
 
+### 4.9 Note-60 (C4) preset re-record CONFIRMS the subtractive core is faithful (2026-07-01)
+
+Re-recorded T01–T15 at note 60 (C4 = 262 Hz — confirmed by the dry-sine take peaking at 262) into
+`preset_refs_c4/`, and scored with `-Dpreset.note=60 -Dpreset.refs=preset_refs_c4`. At this
+rich-harmonic pitch the subtractive scores jump vs the note-84 near-sinusoidal regime, **confirming
+§4.8's "low subtractive scores are a metric artifact" conclusion**:
+
+| preset | note 84 | note 60 |
+|---|---|---|
+| dry sine | 0.71 | **0.991** |
+| dry square | 0.50 | **0.935** |
+| dry saw | 0.81 | **0.913** |
+| lpf_saw | (silent) | **0.931** |
+| pwm_static | 0.855 | 0.876 |
+| saw_sync | 0.715 | 0.854 |
+| lpf_12db | 0.774 | 0.828 |
+
+n=15 mean 0.73 median 0.80. **The oscillator + filter + PWM + sync core is faithful** — dry-square
+0.50→0.935 is the headline (the note-84 number was pure metric noise from the rolled-off harmonics).
+
+One low score is a SUSPECT REFERENCE, not an engine bug: `T06 dry_analogSquare` 0.075 — the hardware
+take has a dominant h6 (0.82, an EVEN harmonic) and an inconsistent peak (178/939 Hz), which is not
+a physical square. Our analogSquare is weak (quasi-sine, h3 0.11) and may have a minor real issue,
+but the reference is unreliable — re-take analogSquare cleanly before investigating. Noise (T07) is
+inherently uncorrelatable. The resonant/HPF scores (0.66–0.74) are the honest remaining subtractive
+question at C4 (higher than the near-sinusoidal note-84 flattered them) — worth a look, reference-gated.
+
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:
