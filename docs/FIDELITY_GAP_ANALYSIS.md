@@ -504,6 +504,16 @@ cutoff/fundamental ratio (it's masked at note 84 where the cutoff sits near the 
 scored 0.965 there). Fixing needs a dedicated faithful review of `LpLadderFilter`'s per-sample ladder
 processing vs the C; do NOT hack it (many filter cases pass: T08 0.93, resonant 0.96 at note 84).
 
+**Update 2026-07-01 — ladder-filter faithfulness fix (scorecard-neutral; did NOT resolve T09).** A
+review of the per-sample ladder found a systematic port error: every plain `<< n` in the C
+(`scaleInput` `<<3`/`<<2`, `do24dB` feedbacksSum `<<2` + cascade `<<1`, `do12dB` `<<1`) had been
+ported as the CLAMPING `lshiftAndSaturate`, which alters the nonlinear feedback at extreme
+resonance. Fixed all to plain shifts matching `lpladder.cpp`. No regression (full suite green bar
+the known-flaky UI tests; T08 0.931 / T12 0.828 unchanged) — but T09 is bit-identical (0.695), so
+the clamp never triggered for this signal and was NOT the cause of the sub-oscillation. The T09
+residual (resonance-peak position / low-frequency content) is still open and lives elsewhere in the
+ladder — a subtler tuning/fixed-point issue, not the shifts.
+
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:

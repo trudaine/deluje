@@ -1,7 +1,6 @@
 package org.deluge;
 
 import java.io.File;
-import java.io.FileInputStream;
 import org.deluge.engine.FirmwareAudioEngine;
 import org.deluge.engine.FirmwareFactory;
 import org.deluge.engine.FirmwareSound;
@@ -18,9 +17,9 @@ import org.junit.jupiter.api.Test;
 /**
  * Fidelity scorecard for the hand-authored single-feature test presets
  * (src/test/resources/fidelity/test_presets) against their hardware references
- * (src/test/resources/fidelity/preset_refs), recorded at the Deluge's "C5" = MIDI note 84
- * (1046 Hz). Renders each preset at note 84 and reports a log-spectrum cosine (loudest-window) —
- * the same amplitude-invariant metric as FidelityScorecardTest. Self-skips if the refs are absent.
+ * (src/test/resources/fidelity/preset_refs), recorded at the Deluge's "C5" = MIDI note 84 (1046
+ * Hz). Renders each preset at note 84 and reports a log-spectrum cosine (loudest-window) — the same
+ * amplitude-invariant metric as FidelityScorecardTest. Self-skips if the refs are absent.
  *
  * <p>Run: {@code mvn test -Dtest=PresetScorecardTest -Dgpg.skip=true}
  */
@@ -89,7 +88,8 @@ public class PresetScorecardTest {
     int g = 0;
     while (g < n) {
       e.renderBlock(128);
-      for (int i = 0; i < 128 && g < n; i++) out[g++] = (float) (e.masterBuffer[i].l / 2.147483648e9);
+      for (int i = 0; i < 128 && g < n; i++)
+        out[g++] = (float) (e.masterBuffer[i].l / 2.147483648e9);
     }
     return out;
   }
