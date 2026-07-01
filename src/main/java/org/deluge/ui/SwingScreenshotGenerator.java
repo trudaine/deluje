@@ -212,6 +212,12 @@ public class SwingScreenshotGenerator {
                     Thread.sleep(1500);
 
                     JTabbedPane synthTabs = synthBox[0].getTabbedPane();
+                    final int[] synBase = new int[2];
+                    SwingUtilities.invokeAndWait(
+                        () -> {
+                          synBase[0] = synthBox[0].getWidth();
+                          synBase[1] = synthBox[0].getHeight();
+                        });
                     for (int tIdx = 0; tIdx < synthTabs.getTabCount(); tIdx++) {
                       final int finalTIdx = tIdx;
                       SwingUtilities.invokeAndWait(() -> synthTabs.setSelectedIndex(finalTIdx));
@@ -220,18 +226,22 @@ public class SwingScreenshotGenerator {
                       if (tabComp instanceof JTabbedPane subTabs) {
                         // Drill into nested sub-tabs (SOURCES, FX, SETUP) so each leaf tab (OSC,
                         // ALGORITHM, DX7, MOD FX, EQ, COMPRESSOR, AUTOMATION, MIDI LEARN) is
-                        // captured.
+                        // captured — whole dialog, so header + both tab strips identify it.
                         for (int sIdx = 0; sIdx < subTabs.getTabCount(); sIdx++) {
                           final int finalSIdx = sIdx;
                           SwingUtilities.invokeAndWait(() -> subTabs.setSelectedIndex(finalSIdx));
                           Thread.sleep(800);
-                          String sub = slug(subTabs.getTitleAt(sIdx));
-                          SwingUtilities.invokeAndWait(
-                              () -> captureTabContent(subTabs.getComponentAt(finalSIdx), sub));
+                          String sub = "deluge_synth_tab_" + slug(subTabs.getTitleAt(sIdx));
+                          captureDialogTab(
+                              synthBox[0],
+                              subTabs.getComponentAt(finalSIdx),
+                              synBase[0],
+                              synBase[1],
+                              sub);
                         }
                       } else {
-                        String tabName = slug(synthTabs.getTitleAt(tIdx));
-                        SwingUtilities.invokeAndWait(() -> captureTabContent(tabComp, tabName));
+                        String tabName = "deluge_synth_tab_" + slug(synthTabs.getTitleAt(tIdx));
+                        captureDialogTab(synthBox[0], tabComp, synBase[0], synBase[1], tabName);
                       }
                     }
 
@@ -507,19 +517,50 @@ public class SwingScreenshotGenerator {
     Thread.sleep(1200);
     JTabbedPane tp = findComponent(dialog, JTabbedPane.class);
     if (tp != null) {
+      final int[] base0 = new int[2];
+      SwingUtilities.invokeAndWait(
+          () -> {
+            base0[0] = dialog.getWidth();
+            base0[1] = dialog.getHeight();
+          });
       for (int i = 0; i < tp.getTabCount(); i++) {
         final int fi = i;
         SwingUtilities.invokeAndWait(() -> tp.setSelectedIndex(fi));
         Thread.sleep(600);
-        Component c = tp.getComponentAt(i);
         String nm = base + "_" + slug(tp.getTitleAt(i));
-        SwingUtilities.invokeAndWait(() -> captureFull(c, nm));
+        captureDialogTab(dialog, tp.getComponentAt(i), base0[0], base0[1], nm);
       }
     } else {
       SwingUtilities.invokeAndWait(() -> captureComponent(dialog, base));
     }
     SwingUtilities.invokeAndWait(dialog::dispose);
     Thread.sleep(500);
+  }
+
+  /**
+   * Capture the WHOLE dialog for the currently-selected tab — grown so the tab's content fully fits
+   * (no scroll/clip) while keeping the dialog's header + tab strip visible (so each image
+   * identifies its dialog and tab). Restores the base size afterwards so the next tab measures from
+   * the same baseline.
+   */
+  private static void captureDialogTab(
+      JDialog dialog, Component tabComp, int baseW, int baseH, String imageName) throws Exception {
+    SwingUtilities.invokeAndWait(
+        () -> {
+          Component leaf =
+              (tabComp instanceof javax.swing.JScrollPane sp)
+                  ? sp.getViewport().getView()
+                  : tabComp;
+          Dimension pref = leaf.getPreferredSize();
+          int deficitW = Math.max(0, pref.width - tabComp.getWidth());
+          int deficitH = Math.max(0, pref.height - tabComp.getHeight());
+          dialog.setSize(baseW + deficitW + 4, baseH + deficitH + 4);
+          dialog.validate();
+          captureComponent(dialog, imageName);
+          dialog.setSize(baseW, baseH);
+          dialog.validate();
+        });
+    Thread.sleep(200);
   }
 
   /**
