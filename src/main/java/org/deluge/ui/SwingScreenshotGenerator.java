@@ -347,6 +347,98 @@ public class SwingScreenshotGenerator {
                     });
                 Thread.sleep(1000);
 
+                // ── 12. Previously-uncaptured dialogs (Master FX + Track Inspector are tabbed) ──
+                System.out.println("[Screenshot] Capturing remaining dialogs...");
+                java.util.List<TrackModel> allTracks = app.getCurrentProject().getTracks();
+                SynthTrackModel firstSynth = null;
+                int firstSynthIdx = 0;
+                for (int i = 0; i < allTracks.size(); i++) {
+                  if (allTracks.get(i) instanceof SynthTrackModel s) {
+                    firstSynth = s;
+                    firstSynthIdx = i;
+                    break;
+                  }
+                }
+
+                try {
+                  captureDialog(
+                      new SwingMasterFxDialog(app, app.getCurrentProject(), bridge, app),
+                      "deluge_master_fx_console");
+                } catch (Exception ex) {
+                  System.err.println("[Screenshot] MasterFx skipped: " + ex);
+                }
+                try {
+                  captureDialog(
+                      new TrackInspectorDialog(app, 0, allTracks, () -> {}),
+                      "deluge_track_inspector");
+                } catch (Exception ex) {
+                  System.err.println("[Screenshot] TrackInspector skipped: " + ex);
+                }
+                try {
+                  captureDialog(
+                      new SwingTuningDialog(app, app.getCurrentProject(), () -> {}),
+                      "deluge_tuning");
+                } catch (Exception ex) {
+                  System.err.println("[Screenshot] Tuning skipped: " + ex);
+                }
+                try {
+                  captureDialog(new SwingRecordingCleanerDialog(app), "deluge_recording_cleaner");
+                } catch (Exception ex) {
+                  System.err.println("[Screenshot] RecordingCleaner skipped: " + ex);
+                }
+                try {
+                  captureDialog(new BarAutomationDialog(app, 0), "deluge_bar_automation");
+                } catch (Exception ex) {
+                  System.err.println("[Screenshot] BarAutomation skipped: " + ex);
+                }
+                try {
+                  captureDialog(
+                      new EuclideanRhythmDialog(app, bridge, 0, 16, "Row", () -> {}),
+                      "deluge_euclidean_rhythm");
+                } catch (Exception ex) {
+                  System.err.println("[Screenshot] Euclidean skipped: " + ex);
+                }
+                if (firstSynth != null) {
+                  try {
+                    captureDialog(
+                        new SwingDroneLabDialog(
+                            app, firstSynth, bridge, firstSynthIdx, app.getCurrentProject()),
+                        "deluge_drone_lab");
+                  } catch (Exception ex) {
+                    System.err.println("[Screenshot] DroneLab skipped: " + ex);
+                  }
+                  try {
+                    captureDialog(
+                        new SwingKeyZoneMapperDialog(app, firstSynth, 0, firstSynthIdx, bridge),
+                        "deluge_keyzone_mapper");
+                  } catch (Exception ex) {
+                    System.err.println("[Screenshot] KeyZoneMapper skipped: " + ex);
+                  }
+                  try {
+                    captureDialog(
+                        new SwingSynthWavetableEditorDialog(
+                            app, firstSynth, 0, firstSynthIdx, bridge),
+                        "deluge_synth_wavetable_editor");
+                  } catch (Exception ex) {
+                    System.err.println("[Screenshot] SynthWavetableEditor skipped: " + ex);
+                  }
+                }
+
+                // ── 13. Menu-bar menus (File / Edit / Tools / View / Settings / Macro / Help) ──
+                System.out.println("[Screenshot] Capturing menu-bar menus...");
+                JMenuBar menuBar = app.getJMenuBar();
+                if (menuBar != null) {
+                  for (int i = 0; i < menuBar.getMenuCount(); i++) {
+                    JMenu menu = menuBar.getMenu(i);
+                    if (menu == null) continue;
+                    try {
+                      captureMenu(app, menu, slug(menu.getText()));
+                    } catch (Exception ex) {
+                      System.err.println("[Screenshot] Menu " + menu.getText() + " skipped: " + ex);
+                    }
+                  }
+                }
+
                 System.out.println(
                     "🎉 ALL EXPANDED SYSTEM REAL SCREENSHOTS GENERATED SUCCESSFULLY!");
                 System.exit(0);
@@ -373,6 +465,11 @@ public class SwingScreenshotGenerator {
    * rather than showing a scrollbar). Writes deluge_synth_tab_&lt;name&gt;.png.
    */
   private static void captureTabContent(Component tabComp, String name) {
+    captureFull(tabComp, "deluge_synth_tab_" + name);
+  }
+
+  /** Full-size capture of a (possibly scroll-wrapped) panel; {@code imageName} is the file stem. */
+  private static void captureFull(Component tabComp, String imageName) {
     Component view = tabComp;
     if (tabComp instanceof javax.swing.JScrollPane sp) {
       view = sp.getViewport().getView();
@@ -385,7 +482,67 @@ public class SwingScreenshotGenerator {
     if (h <= 0) h = 600;
     view.setSize(w, h);
     layoutTree(view); // recursively lay out at the full size so nothing clips
-    captureComponent(view, "deluge_synth_tab_" + name);
+    captureComponent(view, imageName);
+  }
+
+  /**
+   * Open a dialog, capture it (recursing into any tabbed pane so every tab is a full-size image),
+   * then dispose. Base name {@code deluge_<slug>}; tabs are {@code deluge_<slug>_<tab>}.
+   */
+  private static void captureDialog(JDialog dialog, String base) throws Exception {
+    SwingUtilities.invokeAndWait(
+        () -> {
+          // Force modeless: a modal dialog's setVisible(true) blocks the EDT and hangs the
+          // pipeline.
+          dialog.setModalityType(java.awt.Dialog.ModalityType.MODELESS);
+          dialog.pack();
+          Rectangle scr =
+              GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+          dialog.setSize(
+              Math.min(dialog.getWidth(), scr.width - 40),
+              Math.min(dialog.getHeight(), scr.height - 60));
+          dialog.setLocationRelativeTo(null);
+          dialog.setVisible(true);
+        });
+    Thread.sleep(1200);
+    JTabbedPane tp = findComponent(dialog, JTabbedPane.class);
+    if (tp != null) {
+      for (int i = 0; i < tp.getTabCount(); i++) {
+        final int fi = i;
+        SwingUtilities.invokeAndWait(() -> tp.setSelectedIndex(fi));
+        Thread.sleep(600);
+        Component c = tp.getComponentAt(i);
+        String nm = base + "_" + slug(tp.getTitleAt(i));
+        SwingUtilities.invokeAndWait(() -> captureFull(c, nm));
+      }
+    } else {
+      SwingUtilities.invokeAndWait(() -> captureComponent(dialog, base));
+    }
+    SwingUtilities.invokeAndWait(dialog::dispose);
+    Thread.sleep(500);
+  }
+
+  /**
+   * Show a menu-bar menu's popup and capture it at full size. Writes {@code deluge_menu_<name>}.
+   */
+  private static void captureMenu(SwingDelugeApp app, JMenu menu, String name) throws Exception {
+    SwingUtilities.invokeAndWait(
+        () -> {
+          JPopupMenu pm = menu.getPopupMenu();
+          pm.setInvoker(menu);
+          // Position under the menu in the menu bar; show to realize peers.
+          java.awt.Point p = menu.getLocationOnScreen();
+          pm.setLocation(p.x, p.y + menu.getHeight());
+          pm.setVisible(true);
+        });
+    Thread.sleep(500);
+    SwingUtilities.invokeAndWait(
+        () -> {
+          JPopupMenu pm = menu.getPopupMenu();
+          captureFull(pm, "deluge_menu_" + name);
+          pm.setVisible(false);
+        });
+    Thread.sleep(200);
   }
 
   /**
