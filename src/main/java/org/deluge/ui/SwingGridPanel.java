@@ -1426,6 +1426,34 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     refresh();
   }
 
+  /**
+   * The Deluge session/song colour of a track row (session_view.cpp:3356): fromHue of the output's
+   * stored colour (0-191), auto-assigning a rotating hue when that's 0 (unset). A literal 0xRRGGBB
+   * hex is honoured directly. Computed at pad-build time so the pads actually get the right colour
+   * (the old trackColors[] path was only updated during paintComponent, after the pads were built).
+   */
+  private Color getTrackColour(int modelRow) {
+    java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
+    if (modelRow >= tracks.size()) {
+      return trackColors[modelRow % trackColors.length];
+    }
+    String hex = tracks.get(modelRow).getColourHex();
+    if (hex != null && hex.startsWith("0x")) {
+      try {
+        return new Color(Integer.decode(hex.substring(0, 8)));
+      } catch (NumberFormatException ignore) {
+        // fall through to auto-assign
+      }
+    }
+    int stored = 0;
+    try {
+      if (hex != null && !hex.isBlank()) stored = Integer.parseInt(hex.trim());
+    } catch (NumberFormatException ignore) {
+      // not numeric -> auto-assign
+    }
+    return DelugeColour.sessionColour(stored, modelRow);
+  }
+
   public void setActiveClipId(int id) {
     this.activeClipId = id;
   }
@@ -2721,7 +2749,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
             } else {
               // SONG, ARRANGEMENT
               pad.setActive(hasClip);
-              pad.setBaseColor(trackColors[modelRow % trackColors.length]);
+              pad.setBaseColor(getTrackColour(modelRow));
               pad.setIntensity(0.8f);
               if (hasClip) {
                 if (modelRow < tracks.size() && c < tracks.get(modelRow).getClips().size()) {
@@ -2838,7 +2866,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
               }
             } else {
               if (hasClip) {
-                clipBtn.setBackground(trackColors[modelRow % trackColors.length]);
+                clipBtn.setBackground(getTrackColour(modelRow));
                 if (modelRow < tracks.size() && c < tracks.get(modelRow).getClips().size()) {
                   org.deluge.model.TrackModel t = tracks.get(modelRow);
                   clipBtn.setToolTipText(
@@ -2969,7 +2997,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                 if (clipBtn.getBackground().equals(trackColors[modelRow % trackColors.length])) {
                   clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
                 } else {
-                  clipBtn.setBackground(trackColors[modelRow % trackColors.length]);
+                  clipBtn.setBackground(getTrackColour(modelRow));
                 }
               }
             });
@@ -3823,7 +3851,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
               if (clipBtn instanceof DelugePadButton pad) {
                 org.deluge.project.PreferencesManager.GridColorTheme theme =
                     org.deluge.project.PreferencesManager.getGridColorTheme();
-                pad.setBaseColor(trackColors[modelRow % trackColors.length]);
+                pad.setBaseColor(getTrackColour(modelRow));
                 pad.setTheme(theme);
                 pad.setActive(hasClip);
                 pad.setMuted(isMuted);
@@ -3833,7 +3861,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                     viewMode == GridViewMode.ARRANGEMENT && ((c + scrollOffsetX) % 4 == 0));
               } else {
                 if (hasClip) {
-                  clipBtn.setBackground(trackColors[modelRow % trackColors.length]);
+                  clipBtn.setBackground(getTrackColour(modelRow));
                 } else {
                   clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
                 }

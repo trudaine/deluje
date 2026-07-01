@@ -537,6 +537,15 @@ public class DelugeXmlParser {
             project.addTrack(audioTrack);
             System.out.println("PARSER: Loaded audio track " + audioTrack.getName());
           }
+          // Carry the instrument's stored colour (0-191, or absent) onto the track it just created,
+          // so the session/song view colours it via the Deluge palette. Without this the track kept
+          // its default cyan hex and every clip rendered the same green (colour="0" was ignored).
+          if (childNode.hasAttribute("colour") && !project.getTracks().isEmpty()) {
+            project
+                .getTracks()
+                .get(project.getTracks().size() - 1)
+                .setColourHex(childNode.getAttribute("colour"));
+          }
         }
       }
     }
