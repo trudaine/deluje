@@ -3,7 +3,7 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 REM Provision JDK 27-ea per machine (mirrors build.bat / scripts/ensure-jdk27.sh), then launch.
-set JAR_NAME=deluge-swing.jar
+set "JAR=target\deluge-swing.jar"
 
 if exist jdk27\bin\java.exe (
     set "JAVA_EXEC=jdk27\bin\java.exe"
@@ -34,7 +34,14 @@ if exist jdk27\bin\java.exe (
     )
 )
 
-echo Launching Deluge (%JAR_NAME%)...
-"!JAVA_EXEC!" --add-modules jdk.incubator.vector -jar "%JAR_NAME%" --swing
+REM Build the self-contained Swing fat jar if it isn't present yet (via the mvnw.cmd wrapper).
+if not exist "%JAR%" (
+    echo %JAR% not found -- building it ^(first run^)...
+    call mvnw.cmd -q clean package -Pswing-dist -DskipTests
+)
+
+echo Launching Deluge (%JAR%)...
+REM --enable-preview is REQUIRED: classes are compiled with preview features and won't load without it.
+"!JAVA_EXEC!" --enable-preview --add-modules jdk.incubator.vector -jar "%JAR%" --swing
 
 pause
