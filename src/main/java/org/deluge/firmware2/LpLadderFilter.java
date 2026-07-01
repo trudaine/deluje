@@ -227,27 +227,28 @@ public class LpLadderFilter extends Filter {
   }
 
   private int scaleInput(int input, int feedbacksSum) {
+    // C lpladder.h:52 uses PLAIN left shifts (`<< 3`, `<< 2`) inside the resonance loop, not the
+    // clamping lshiftAndSaturate we had — clamping the feedback path changes the nonlinear
+    // self-oscillation behaviour at high resonance (produced a spurious ~150 Hz sub-oscillation).
     int temp;
     if (morph > 0 || processedResonance > 510000000) {
       temp =
           Functions.multiply_32x32_rshift32_rounded(
-              input
-                  - Functions.lshiftAndSaturate(
-                      Functions.multiply_32x32_rshift32_rounded(feedbacksSum, processedResonance),
-                      3),
-              divideByTotalMoveabilityAndProcessedResonance);
-      temp = Functions.lshiftAndSaturate(temp, 2);
+                  input
+                      - (Functions.multiply_32x32_rshift32_rounded(feedbacksSum, processedResonance)
+                          << 3),
+                  divideByTotalMoveabilityAndProcessedResonance)
+              << 2;
       int extra = 2 * Functions.multiply_32x32_rshift32(input, morph);
       temp = Functions.getTanHUnknown(temp + extra, 2);
     } else {
       temp =
           Functions.multiply_32x32_rshift32_rounded(
-              input
-                  - Functions.lshiftAndSaturate(
-                      Functions.multiply_32x32_rshift32_rounded(feedbacksSum, processedResonance),
-                      3),
-              divideByTotalMoveabilityAndProcessedResonance);
-      temp = Functions.lshiftAndSaturate(temp, 2);
+                  input
+                      - (Functions.multiply_32x32_rshift32_rounded(feedbacksSum, processedResonance)
+                          << 3),
+                  divideByTotalMoveabilityAndProcessedResonance)
+              << 2;
     }
     return temp;
   }
@@ -265,10 +266,10 @@ public class LpLadderFilter extends Filter {
             + state.lpfLPF3.getFeedbackOutput(divideBy1PlusTannedFrequency);
     int x = scaleInput(input, feedbacksSum);
 
-    return Functions.lshiftAndSaturate(
-        state.lpfLPF3.doAPF(
-            state.lpfLPF2.doFilter(state.lpfLPF1.doFilter(x, noisy_m), noisy_m), noisy_m),
-        1);
+    // C lpladder.cpp:343 — plain `<< 1`, not clamping.
+    return state.lpfLPF3.doAPF(
+            state.lpfLPF2.doFilter(state.lpfLPF1.doFilter(x, noisy_m), noisy_m), noisy_m)
+        << 1;
   }
 
   private int do24dBLPFOnSample(int input, LpLadderState state) {
@@ -278,20 +279,20 @@ public class LpLadderFilter extends Filter {
     int noisy_m =
         moveability + Functions.multiply_32x32_rshift32(moveability, state.noiseLastValue);
 
+    // C lpladder.cpp:353-356 — plain `<< 2` (not clamping), then the ladder cascade `<< 1`.
     int feedbacksSum =
         (state.lpfLPF1.getFeedbackOutputWithoutLshift(lpf1Feedback)
-            + state.lpfLPF2.getFeedbackOutputWithoutLshift(lpf2Feedback)
-            + state.lpfLPF3.getFeedbackOutputWithoutLshift(lpf3Feedback)
-            + state.lpfLPF4.getFeedbackOutputWithoutLshift(divideBy1PlusTannedFrequency));
-    feedbacksSum = Functions.lshiftAndSaturate(feedbacksSum, 2);
+                + state.lpfLPF2.getFeedbackOutputWithoutLshift(lpf2Feedback)
+                + state.lpfLPF3.getFeedbackOutputWithoutLshift(lpf3Feedback)
+                + state.lpfLPF4.getFeedbackOutputWithoutLshift(divideBy1PlusTannedFrequency))
+            << 2;
 
     int x = scaleInput(input, feedbacksSum);
-    return Functions.lshiftAndSaturate(
-        state.lpfLPF4.doFilter(
+    return state.lpfLPF4.doFilter(
             state.lpfLPF3.doFilter(
                 state.lpfLPF2.doFilter(state.lpfLPF1.doFilter(x, noisy_m), noisy_m), noisy_m),
-            noisy_m),
-        1);
+            noisy_m)
+        << 1;
   }
 
   private int doDriveLPFOnSample(int input, LpLadderState state) {
