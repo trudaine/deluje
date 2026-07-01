@@ -172,11 +172,11 @@ public class SwingProjectSidebarPanel extends JPanel {
 
     libraryTree = new JTree(libraryRoot);
     libraryTree.setBackground(new Color(0x12, 0x12, 0x14));
-    libraryTree.setFont(new Font("SansSerif", Font.PLAIN, 13));
-    libraryTree.setRowHeight(24);
+    libraryTree.setFont(new Font("SansSerif", Font.PLAIN, 16));
+    libraryTree.setRowHeight(30);
 
     DefaultTreeCellRenderer renderer = new DefaultTreeCellRenderer();
-    renderer.setFont(new Font("SansSerif", Font.PLAIN, 13));
+    renderer.setFont(new Font("SansSerif", Font.PLAIN, 16));
     renderer.setBackgroundNonSelectionColor(new Color(0x12, 0x12, 0x14));
     renderer.setTextNonSelectionColor(Color.LIGHT_GRAY);
     renderer.setTextSelectionColor(Color.WHITE);
@@ -485,11 +485,11 @@ public class SwingProjectSidebarPanel extends JPanel {
 
     hardwareTree = new JTree(hardwareRoot);
     hardwareTree.setBackground(new Color(0x12, 0x12, 0x14));
-    hardwareTree.setFont(new Font("SansSerif", Font.PLAIN, 13));
-    hardwareTree.setRowHeight(24);
+    hardwareTree.setFont(new Font("SansSerif", Font.PLAIN, 16));
+    hardwareTree.setRowHeight(30);
 
     DefaultTreeCellRenderer treeRenderer = new DefaultTreeCellRenderer();
-    treeRenderer.setFont(new Font("SansSerif", Font.PLAIN, 13));
+    treeRenderer.setFont(new Font("SansSerif", Font.PLAIN, 16));
     treeRenderer.setBackgroundNonSelectionColor(new Color(0x12, 0x12, 0x14));
     treeRenderer.setTextNonSelectionColor(Color.LIGHT_GRAY);
     treeRenderer.setTextSelectionColor(Color.WHITE);
