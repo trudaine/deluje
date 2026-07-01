@@ -43,7 +43,7 @@ public class PresetScorecardTest {
     Assumptions.assumeTrue(refs != null && refs.length > 0, "no preset references");
     java.util.Arrays.sort(refs);
     java.util.List<double[]> scores = new java.util.ArrayList<>();
-    System.out.printf("%n%-26s %s%n", "preset", "spectral cosine (note 84)");
+    System.out.printf("%n%-26s spectral cosine (note %d)%n", "preset", NOTE);
     for (File ref : refs) {
       String name = ref.getName().replace("reference_", "").replace(".wav", "");
       File xml = new File(PRESETS, name + ".XML");
@@ -62,8 +62,8 @@ public class PresetScorecardTest {
     double median = s.length == 0 ? 0 : s[s.length / 2];
     long ge80 = java.util.Arrays.stream(s).filter(v -> v >= 0.8).count();
     System.out.printf(
-        "%n=== PRESET SCORECARD (note 84) ===%n  n=%d  mean=%.3f  median=%.3f  >=0.80: %d%n",
-        s.length, mean, median, ge80);
+        "%n=== PRESET SCORECARD (note %d) ===%n  n=%d  mean=%.3f  median=%.3f  >=0.80: %d%n",
+        NOTE, s.length, mean, median, ge80);
   }
 
   static float[] render(File xml) throws Exception {
