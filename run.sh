@@ -8,9 +8,10 @@ cd "$(dirname "$0")"
 
 JAR="target/deluge-swing.jar"
 
-# Build the self-contained Swing fat jar if it isn't present yet (via the committed mvnw wrapper).
-if [ ! -f "$JAR" ]; then
-  echo "$JAR not found — building it (first run)..."
+# Build the self-contained Swing fat jar if it's missing OR any source changed since it was built
+# (so edits actually reach the launched app instead of reusing a stale jar).
+if [ ! -f "$JAR" ] || [ -n "$(find src pom.xml -newer "$JAR" \( -name '*.java' -o -name pom.xml \) -print -quit 2>/dev/null)" ]; then
+  echo "Building $JAR (missing or sources changed)..."
   ./mvnw -q clean package -Pswing-dist -DskipTests
 fi
 
