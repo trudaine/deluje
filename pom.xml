@@ -188,6 +188,15 @@
                                                 <exclude>META-INF/*.SF</exclude>
                                                 <exclude>META-INF/*.DSA</exclude>
                                                 <exclude>META-INF/*.RSA</exclude>
+                                                <!-- SD-card content: read from an external card at
+                                                     runtime, not bundled. Kept in the source tree
+                                                     (tests load them), just excluded from the jar. -->
+                                                <exclude>SAMPLES/**</exclude>
+                                                <exclude>DX7/**</exclude>
+                                                <exclude>examples/**</exclude>
+                                                <exclude>SONGS/**</exclude>
+                                                <exclude>KITS/**</exclude>
+                                                <exclude>SYNTHS/**</exclude>
                                             </excludes>
                                         </filter>
                                     </filters>
