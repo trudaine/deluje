@@ -206,6 +206,9 @@ public class MidiInputRouterTest {
           "Should push StepConsequence to undo/redo stack!");
 
     } finally {
+      if (app != null) {
+        app.dispose();
+      }
       // Clean up static process global
       org.deluge.ui.SwingDelugeApp.mainInstance = null;
       org.deluge.ui.SwingGridPanel.isLiveRecordModeActive = false;

@@ -31,6 +31,16 @@ public class MasterFxConsoleTest {
     dialog = new SwingMasterFxDialog(null, projectModel, bridge, app);
   }
 
+  @org.junit.jupiter.api.AfterEach
+  void tearDown() {
+    if (app != null) {
+      app.dispose();
+    }
+    if (bridge != null) {
+      bridge.shutdown();
+    }
+  }
+
   @Test
   void testReverbRoomSizeSync() {
     // 1. Find the Room Size slider in the dialog

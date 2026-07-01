@@ -14,7 +14,7 @@ public class PureFirmwareEngine {
   private final JavaAudioDriver audioDriver;
   private Thread audioThread;
   private Thread syncThread;
-  private boolean running = false;
+  private volatile boolean running = false;
 
   private float currentBpm = 120.0f;
 
@@ -350,6 +350,20 @@ public class PureFirmwareEngine {
     running = false;
     audioDriver.stop();
     playbackHandler.stop();
+    if (audioThread != null) {
+      try {
+        audioThread.join(2000);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    }
+    if (syncThread != null) {
+      try {
+        syncThread.join(2000);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    }
   }
 
   public FirmwareAudioEngine getAudioEngine() {

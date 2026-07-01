@@ -434,44 +434,47 @@ public class ClipViewChromaticGridHighFidelityTest {
     BridgeContract bridge = new BridgeContract();
 
     SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
-    ProjectModel project = ProjectModel.createDefaultProject();
-    app.loadProject(project);
+    try {
+      ProjectModel project = ProjectModel.createDefaultProject();
+      app.loadProject(project);
 
-    Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-    assertNotNull(eng, "Audio engine must be initialized");
-    org.deluge.engine.FirmwareAudioEngine engine = (org.deluge.engine.FirmwareAudioEngine) eng;
+      Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      assertNotNull(eng, "Audio engine must be initialized");
+      org.deluge.engine.FirmwareAudioEngine engine = (org.deluge.engine.FirmwareAudioEngine) eng;
 
-    // Default metronome should be disabled
-    assertFalse(engine.metronomeEnabled, "Metronome should default to disabled");
+      // Default metronome should be disabled
+      assertFalse(engine.metronomeEnabled, "Metronome should default to disabled");
 
-    // Simulate Shift + T key press with the standard old Shift mask (which JDK maps to
-    // getModifiersEx() SHIFT_DOWN_MASK)
-    java.awt.event.KeyEvent shiftT =
-        new java.awt.event.KeyEvent(
-            app,
-            java.awt.event.KeyEvent.KEY_PRESSED,
-            System.currentTimeMillis(),
-            java.awt.event.InputEvent.SHIFT_MASK,
-            java.awt.event.KeyEvent.VK_T,
-            'T');
+      // Simulate Shift + T key press with the standard old Shift mask (which JDK maps to
+      // getModifiersEx() SHIFT_DOWN_MASK)
+      java.awt.event.KeyEvent shiftT =
+          new java.awt.event.KeyEvent(
+              app,
+              java.awt.event.KeyEvent.KEY_PRESSED,
+              System.currentTimeMillis(),
+              java.awt.event.InputEvent.SHIFT_MASK,
+              java.awt.event.KeyEvent.VK_T,
+              'T');
 
-    // Invoke all registered key listeners to ensure our app handler gets triggered
-    for (java.awt.event.KeyListener kl : app.getKeyListeners()) {
-      kl.keyPressed(shiftT);
+      // Invoke all registered key listeners to ensure our app handler gets triggered
+      for (java.awt.event.KeyListener kl : app.getKeyListeners()) {
+        kl.keyPressed(shiftT);
+      }
+
+      // Assert that the metronome is now enabled!
+      assertTrue(engine.metronomeEnabled, "Metronome must be enabled after Shift+T press!");
+
+      // Simulate Shift + T key press again
+      for (java.awt.event.KeyListener kl : app.getKeyListeners()) {
+        kl.keyPressed(shiftT);
+      }
+
+      // Assert that the metronome is toggled back to disabled!
+      assertFalse(engine.metronomeEnabled, "Metronome must toggle back to disabled!");
+    } finally {
+      app.dispose();
+      bridge.shutdown();
     }
-
-    // Assert that the metronome is now enabled!
-    assertTrue(engine.metronomeEnabled, "Metronome must be enabled after Shift+T press!");
-
-    // Simulate Shift + T key press again
-    for (java.awt.event.KeyListener kl : app.getKeyListeners()) {
-      kl.keyPressed(shiftT);
-    }
-
-    // Assert that the metronome is toggled back to disabled!
-    assertFalse(engine.metronomeEnabled, "Metronome must toggle back to disabled!");
-
-    bridge.shutdown();
   }
 
   @Test
@@ -480,130 +483,133 @@ public class ClipViewChromaticGridHighFidelityTest {
     BridgeContract bridge = new BridgeContract();
 
     SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
-    ProjectModel project = ProjectModel.createDefaultProject();
-    app.loadProject(project);
+    try {
+      ProjectModel project = ProjectModel.createDefaultProject();
+      app.loadProject(project);
 
-    SwingGridPanel gridPanel = app.getClipPanel();
-    assertNotNull(gridPanel, "Grid panel must be initialized");
-    gridPanel.setScaleModeEnabled(false); // Enable chromatic mode for linear mapping!
+      SwingGridPanel gridPanel = app.getClipPanel();
+      assertNotNull(gridPanel, "Grid panel must be initialized");
+      gridPanel.setScaleModeEnabled(false); // Enable chromatic mode for linear mapping!
 
-    org.deluge.model.TrackModel t = project.getTracks().get(0);
-    org.deluge.model.ClipModel c = t.getActiveClip();
+      org.deluge.model.TrackModel t = project.getTracks().get(0);
+      org.deluge.model.ClipModel c = t.getActiveClip();
 
-    // 1. Program a note at Step 0, Row 67 (pitch 60, C4)
-    // Initial velocity = 0.8f, gate = 1.0f, probability = 0.9f
-    gridPanel.setClipStep(
-        c, 67, 0, new org.deluge.model.StepData(true, 0.8f, 1.0f, 0.9f, 60, 0, 0.0f, 0.0f));
-    gridPanel.refresh();
+      // 1. Program a note at Step 0, Row 67 (pitch 60, C4)
+      // Initial velocity = 0.8f, gate = 1.0f, probability = 0.9f
+      gridPanel.setClipStep(
+          c, 67, 0, new org.deluge.model.StepData(true, 0.8f, 1.0f, 0.9f, 60, 0, 0.0f, 0.0f));
+      gridPanel.refresh();
 
-    assertTrue(gridPanel.getClipStep(c, 67, 0).active(), "Original step must be active");
+      assertTrue(gridPanel.getClipStep(c, 67, 0).active(), "Original step must be active");
 
-    // Dynamically calculate the visual row for model row 67 based on the panel's scroll offset
-    int visualRow = 67 - gridPanel.getScrollOffset();
+      // Dynamically calculate the visual row for model row 67 based on the panel's scroll offset
+      int visualRow = 67 - gridPanel.getScrollOffset();
 
-    // 2. Test Velocity Adjustment (No Modifiers)
-    // Scroll down (rotation = 1 -> dir = -1) -> velocity should decrease by 0.05f to 0.75f
-    java.awt.event.MouseWheelEvent scrollDownVel =
-        new java.awt.event.MouseWheelEvent(
-            gridPanel,
-            java.awt.event.MouseEvent.MOUSE_WHEEL,
-            System.currentTimeMillis(),
-            0, // no modifiers
-            0,
-            0,
-            0,
-            false,
-            java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL,
-            1,
-            1);
-    gridPanel.handlePadMouseWheel(visualRow, 0, scrollDownVel);
-    assertEquals(
-        0.75f,
-        gridPanel.getClipStep(c, 67, 0).velocity(),
-        0.001f,
-        "Velocity must decrease to 0.75");
-    assertEquals(
-        0.75f,
-        bridge.getVelocity(gridPanel.getBaseTrackId() + 67, 0),
-        0.001f,
-        "Bridge velocity must sync to 0.75");
+      // 2. Test Velocity Adjustment (No Modifiers)
+      // Scroll down (rotation = 1 -> dir = -1) -> velocity should decrease by 0.05f to 0.75f
+      java.awt.event.MouseWheelEvent scrollDownVel =
+          new java.awt.event.MouseWheelEvent(
+              gridPanel,
+              java.awt.event.MouseEvent.MOUSE_WHEEL,
+              System.currentTimeMillis(),
+              0, // no modifiers
+              0,
+              0,
+              0,
+              false,
+              java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL,
+              1,
+              1);
+      gridPanel.handlePadMouseWheel(visualRow, 0, scrollDownVel);
+      assertEquals(
+          0.75f,
+          gridPanel.getClipStep(c, 67, 0).velocity(),
+          0.001f,
+          "Velocity must decrease to 0.75");
+      assertEquals(
+          0.75f,
+          bridge.getVelocity(gridPanel.getBaseTrackId() + 67, 0),
+          0.001f,
+          "Bridge velocity must sync to 0.75");
 
-    // Scroll up (rotation = -2 -> dir = 2) -> velocity should increase by 0.10f to 0.85f
-    java.awt.event.MouseWheelEvent scrollUpVel =
-        new java.awt.event.MouseWheelEvent(
-            gridPanel,
-            java.awt.event.MouseEvent.MOUSE_WHEEL,
-            System.currentTimeMillis(),
-            0,
-            0,
-            0,
-            0,
-            false,
-            java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL,
-            1,
-            -2);
-    gridPanel.handlePadMouseWheel(visualRow, 0, scrollUpVel);
-    assertEquals(
-        0.85f,
-        gridPanel.getClipStep(c, 67, 0).velocity(),
-        0.001f,
-        "Velocity must increase to 0.85");
+      // Scroll up (rotation = -2 -> dir = 2) -> velocity should increase by 0.10f to 0.85f
+      java.awt.event.MouseWheelEvent scrollUpVel =
+          new java.awt.event.MouseWheelEvent(
+              gridPanel,
+              java.awt.event.MouseEvent.MOUSE_WHEEL,
+              System.currentTimeMillis(),
+              0,
+              0,
+              0,
+              0,
+              false,
+              java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL,
+              1,
+              -2);
+      gridPanel.handlePadMouseWheel(visualRow, 0, scrollUpVel);
+      assertEquals(
+          0.85f,
+          gridPanel.getClipStep(c, 67, 0).velocity(),
+          0.001f,
+          "Velocity must increase to 0.85");
 
-    // 3. Test Probability Adjustment (Shift Held)
-    gridPanel.setShiftHeld(true);
-    // Scroll down (rotation = 1 -> dir = -1) -> probability should decrease by 0.05f from 0.9f to
-    // 0.85f
-    java.awt.event.MouseWheelEvent scrollDownProb =
-        new java.awt.event.MouseWheelEvent(
-            gridPanel,
-            java.awt.event.MouseEvent.MOUSE_WHEEL,
-            System.currentTimeMillis(),
-            java.awt.event.InputEvent.SHIFT_DOWN_MASK,
-            0,
-            0,
-            0,
-            false,
-            java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL,
-            1,
-            1);
-    gridPanel.handlePadMouseWheel(visualRow, 0, scrollDownProb);
-    assertEquals(
-        0.85f,
-        gridPanel.getClipStep(c, 67, 0).probability(),
-        0.001f,
-        "Probability must decrease to 0.85");
-    assertEquals(
-        0.85f,
-        bridge.getStepProbability(gridPanel.getBaseTrackId() + 67, 0),
-        0.001f,
-        "Bridge probability must sync to 0.85");
-    gridPanel.setShiftHeld(false);
+      // 3. Test Probability Adjustment (Shift Held)
+      gridPanel.setShiftHeld(true);
+      // Scroll down (rotation = 1 -> dir = -1) -> probability should decrease by 0.05f from 0.9f to
+      // 0.85f
+      java.awt.event.MouseWheelEvent scrollDownProb =
+          new java.awt.event.MouseWheelEvent(
+              gridPanel,
+              java.awt.event.MouseEvent.MOUSE_WHEEL,
+              System.currentTimeMillis(),
+              java.awt.event.InputEvent.SHIFT_DOWN_MASK,
+              0,
+              0,
+              0,
+              false,
+              java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL,
+              1,
+              1);
+      gridPanel.handlePadMouseWheel(visualRow, 0, scrollDownProb);
+      assertEquals(
+          0.85f,
+          gridPanel.getClipStep(c, 67, 0).probability(),
+          0.001f,
+          "Probability must decrease to 0.85");
+      assertEquals(
+          0.85f,
+          bridge.getStepProbability(gridPanel.getBaseTrackId() + 67, 0),
+          0.001f,
+          "Bridge probability must sync to 0.85");
+      gridPanel.setShiftHeld(false);
 
-    // 4. Test Gate Length Adjustment (Alt Held)
-    // Scroll up (rotation = -1 -> dir = 1) -> gate should increase by 0.25f from 1.0f to 1.25f
-    java.awt.event.MouseWheelEvent scrollUpGate =
-        new java.awt.event.MouseWheelEvent(
-            gridPanel,
-            java.awt.event.MouseEvent.MOUSE_WHEEL,
-            System.currentTimeMillis(),
-            java.awt.event.InputEvent.ALT_DOWN_MASK,
-            0,
-            0,
-            0,
-            false,
-            java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL,
-            1,
-            -1);
-    gridPanel.handlePadMouseWheel(visualRow, 0, scrollUpGate);
-    assertEquals(
-        1.25f, gridPanel.getClipStep(c, 67, 0).gate(), 0.001f, "Gate must increase to 1.25");
-    assertEquals(
-        1.25f,
-        bridge.getGate(gridPanel.getBaseTrackId() + 67, 0),
-        0.001f,
-        "Bridge gate must sync to 1.25");
-
-    bridge.shutdown();
+      // 4. Test Gate Length Adjustment (Alt Held)
+      // Scroll up (rotation = -1 -> dir = 1) -> gate should increase by 0.25f from 1.0f to 1.25f
+      java.awt.event.MouseWheelEvent scrollUpGate =
+          new java.awt.event.MouseWheelEvent(
+              gridPanel,
+              java.awt.event.MouseEvent.MOUSE_WHEEL,
+              System.currentTimeMillis(),
+              java.awt.event.InputEvent.ALT_DOWN_MASK,
+              0,
+              0,
+              0,
+              false,
+              java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL,
+              1,
+              -1);
+      gridPanel.handlePadMouseWheel(visualRow, 0, scrollUpGate);
+      assertEquals(
+          1.25f, gridPanel.getClipStep(c, 67, 0).gate(), 0.001f, "Gate must increase to 1.25");
+      assertEquals(
+          1.25f,
+          bridge.getGate(gridPanel.getBaseTrackId() + 67, 0),
+          0.001f,
+          "Bridge gate must sync to 1.25");
+    } finally {
+      app.dispose();
+      bridge.shutdown();
+    }
   }
 
   @Test
@@ -612,81 +618,84 @@ public class ClipViewChromaticGridHighFidelityTest {
     BridgeContract bridge = new BridgeContract();
 
     SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
-    ProjectModel project = ProjectModel.createDefaultProject();
-    app.loadProject(project);
+    try {
+      ProjectModel project = ProjectModel.createDefaultProject();
+      app.loadProject(project);
 
-    SwingGridPanel gridPanel = app.getClipPanel();
-    assertNotNull(gridPanel, "Grid panel must be initialized");
-    gridPanel.setScaleModeEnabled(false);
+      SwingGridPanel gridPanel = app.getClipPanel();
+      assertNotNull(gridPanel, "Grid panel must be initialized");
+      gridPanel.setScaleModeEnabled(false);
 
-    org.deluge.model.TrackModel t = project.getTracks().get(0);
-    org.deluge.model.ClipModel c = t.getActiveClip();
+      org.deluge.model.TrackModel t = project.getTracks().get(0);
+      org.deluge.model.ClipModel c = t.getActiveClip();
 
-    // 1. Program a note at Step 0, Row 67 (pitch 60, C4)
-    gridPanel.setClipStep(
-        c, 67, 0, new org.deluge.model.StepData(true, 0.8f, 1.0f, 0.9f, 60, 0, 0.0f, 0.0f));
-    gridPanel.refresh();
+      // 1. Program a note at Step 0, Row 67 (pitch 60, C4)
+      gridPanel.setClipStep(
+          c, 67, 0, new org.deluge.model.StepData(true, 0.8f, 1.0f, 0.9f, 60, 0, 0.0f, 0.0f));
+      gridPanel.refresh();
 
-    assertTrue(gridPanel.getClipStep(c, 67, 0).active(), "Original step must be active");
+      assertTrue(gridPanel.getClipStep(c, 67, 0).active(), "Original step must be active");
 
-    // 2. Simulate Ctrl + Shift + C (Copy notes)
-    java.awt.event.KeyEvent copyEvent =
-        new java.awt.event.KeyEvent(
-            app,
-            java.awt.event.KeyEvent.KEY_PRESSED,
-            System.currentTimeMillis(),
-            java.awt.event.InputEvent.CTRL_DOWN_MASK
-                | java.awt.event.InputEvent.SHIFT_DOWN_MASK
-                | java.awt.event.InputEvent.CTRL_MASK
-                | java.awt.event.InputEvent.SHIFT_MASK,
-            java.awt.event.KeyEvent.VK_C,
-            'C');
-    for (java.awt.event.KeyListener kl : app.getKeyListeners()) {
-      kl.keyPressed(copyEvent);
+      // 2. Simulate Ctrl + Shift + C (Copy notes)
+      java.awt.event.KeyEvent copyEvent =
+          new java.awt.event.KeyEvent(
+              app,
+              java.awt.event.KeyEvent.KEY_PRESSED,
+              System.currentTimeMillis(),
+              java.awt.event.InputEvent.CTRL_DOWN_MASK
+                  | java.awt.event.InputEvent.SHIFT_DOWN_MASK
+                  | java.awt.event.InputEvent.CTRL_MASK
+                  | java.awt.event.InputEvent.SHIFT_MASK,
+              java.awt.event.KeyEvent.VK_C,
+              'C');
+      for (java.awt.event.KeyListener kl : app.getKeyListeners()) {
+        kl.keyPressed(copyEvent);
+      }
+
+      // 3. Clear the note from the grid
+      gridPanel.setClipStep(c, 67, 0, org.deluge.model.StepData.empty());
+      gridPanel.refresh();
+      assertFalse(
+          gridPanel.getClipStep(c, 67, 0).active(), "Step must be cleared after setting to empty");
+
+      // 4. Simulate Ctrl + Shift + V (Paste notes)
+      java.awt.event.KeyEvent pasteEvent =
+          new java.awt.event.KeyEvent(
+              app,
+              java.awt.event.KeyEvent.KEY_PRESSED,
+              System.currentTimeMillis(),
+              java.awt.event.InputEvent.CTRL_DOWN_MASK
+                  | java.awt.event.InputEvent.SHIFT_DOWN_MASK
+                  | java.awt.event.InputEvent.CTRL_MASK
+                  | java.awt.event.InputEvent.SHIFT_MASK,
+              java.awt.event.KeyEvent.VK_V,
+              'V');
+      for (java.awt.event.KeyListener kl : app.getKeyListeners()) {
+        kl.keyPressed(pasteEvent);
+      }
+
+      // 5. Assert that the note has been perfectly restored and synchronized to the audio engine!
+      org.deluge.model.StepData restored = gridPanel.getClipStep(c, 67, 0);
+      assertTrue(restored.active(), "Step must be active after paste");
+      assertEquals(0.8f, restored.velocity(), 0.001f, "Velocity must be restored to 0.8");
+      assertEquals(1.0f, restored.gate(), 0.001f, "Gate must be restored to 1.0");
+      assertEquals(0.9f, restored.probability(), 0.001f, "Probability must be restored to 0.9");
+
+      // Verify audio bridge synchronization
+      assertEquals(
+          0.8f,
+          bridge.getVelocity(gridPanel.getBaseTrackId() + 67, 0),
+          0.001f,
+          "Bridge velocity must sync after paste");
+      assertEquals(
+          1.0f,
+          bridge.getGate(gridPanel.getBaseTrackId() + 67, 0),
+          0.001f,
+          "Bridge gate must sync after paste");
+    } finally {
+      app.dispose();
+      bridge.shutdown();
     }
-
-    // 3. Clear the note from the grid
-    gridPanel.setClipStep(c, 67, 0, org.deluge.model.StepData.empty());
-    gridPanel.refresh();
-    assertFalse(
-        gridPanel.getClipStep(c, 67, 0).active(), "Step must be cleared after setting to empty");
-
-    // 4. Simulate Ctrl + Shift + V (Paste notes)
-    java.awt.event.KeyEvent pasteEvent =
-        new java.awt.event.KeyEvent(
-            app,
-            java.awt.event.KeyEvent.KEY_PRESSED,
-            System.currentTimeMillis(),
-            java.awt.event.InputEvent.CTRL_DOWN_MASK
-                | java.awt.event.InputEvent.SHIFT_DOWN_MASK
-                | java.awt.event.InputEvent.CTRL_MASK
-                | java.awt.event.InputEvent.SHIFT_MASK,
-            java.awt.event.KeyEvent.VK_V,
-            'V');
-    for (java.awt.event.KeyListener kl : app.getKeyListeners()) {
-      kl.keyPressed(pasteEvent);
-    }
-
-    // 5. Assert that the note has been perfectly restored and synchronized to the audio engine!
-    org.deluge.model.StepData restored = gridPanel.getClipStep(c, 67, 0);
-    assertTrue(restored.active(), "Step must be active after paste");
-    assertEquals(0.8f, restored.velocity(), 0.001f, "Velocity must be restored to 0.8");
-    assertEquals(1.0f, restored.gate(), 0.001f, "Gate must be restored to 1.0");
-    assertEquals(0.9f, restored.probability(), 0.001f, "Probability must be restored to 0.9");
-
-    // Verify audio bridge synchronization
-    assertEquals(
-        0.8f,
-        bridge.getVelocity(gridPanel.getBaseTrackId() + 67, 0),
-        0.001f,
-        "Bridge velocity must sync after paste");
-    assertEquals(
-        1.0f,
-        bridge.getGate(gridPanel.getBaseTrackId() + 67, 0),
-        0.001f,
-        "Bridge gate must sync after paste");
-
-    bridge.shutdown();
   }
 
   @Test
@@ -695,37 +704,40 @@ public class ClipViewChromaticGridHighFidelityTest {
     BridgeContract bridge = new BridgeContract();
 
     SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
-    ProjectModel project = ProjectModel.createDefaultProject();
-    app.loadProject(project);
+    try {
+      ProjectModel project = ProjectModel.createDefaultProject();
+      app.loadProject(project);
 
-    SwingGridPanel gridPanel = app.getClipPanel();
-    assertNotNull(gridPanel, "Grid panel must be initialized");
+      SwingGridPanel gridPanel = app.getClipPanel();
+      assertNotNull(gridPanel, "Grid panel must be initialized");
 
-    int initialOffset = gridPanel.getScrollOffset();
-    System.out.println("[TEST-SCROLL] Initial scroll offset: " + initialOffset);
+      int initialOffset = gridPanel.getScrollOffset();
+      System.out.println("[TEST-SCROLL] Initial scroll offset: " + initialOffset);
 
-    // 1. Scroll vertically by an octave (12 rows) down
-    gridPanel.scrollVertically(12);
-    int offsetAfterScrollDown = gridPanel.getScrollOffset();
-    System.out.println("[TEST-SCROLL] Offset after scroll down 12: " + offsetAfterScrollDown);
-    assertEquals(
-        initialOffset + 12,
-        offsetAfterScrollDown,
-        "Scroll offset must increase by exactly 12 rows (one octave)");
+      // 1. Scroll vertically by an octave (12 rows) down
+      gridPanel.scrollVertically(12);
+      int offsetAfterScrollDown = gridPanel.getScrollOffset();
+      System.out.println("[TEST-SCROLL] Offset after scroll down 12: " + offsetAfterScrollDown);
+      assertEquals(
+          initialOffset + 12,
+          offsetAfterScrollDown,
+          "Scroll offset must increase by exactly 12 rows (one octave)");
 
-    // 2. Scroll vertically by an octave (12 rows) up
-    gridPanel.scrollVertically(-12);
-    int offsetAfterScrollUp = gridPanel.getScrollOffset();
-    System.out.println("[TEST-SCROLL] Offset after scroll up 12: " + offsetAfterScrollUp);
-    assertEquals(
-        initialOffset, offsetAfterScrollUp, "Scroll offset must return to the initial offset");
+      // 2. Scroll vertically by an octave (12 rows) up
+      gridPanel.scrollVertically(-12);
+      int offsetAfterScrollUp = gridPanel.getScrollOffset();
+      System.out.println("[TEST-SCROLL] Offset after scroll up 12: " + offsetAfterScrollUp);
+      assertEquals(
+          initialOffset, offsetAfterScrollUp, "Scroll offset must return to the initial offset");
 
-    // 3. Scroll beyond bounds (say, 200 rows up) -> should clamp to 0
-    gridPanel.scrollVertically(-200);
-    assertEquals(
-        0, gridPanel.getScrollOffset(), "Scroll offset must clamp to 0 at the lower boundary");
-
-    bridge.shutdown();
+      // 3. Scroll beyond bounds (say, 200 rows up) -> should clamp to 0
+      gridPanel.scrollVertically(-200);
+      assertEquals(
+          0, gridPanel.getScrollOffset(), "Scroll offset must clamp to 0 at the lower boundary");
+    } finally {
+      app.dispose();
+      bridge.shutdown();
+    }
   }
 
   @Test
@@ -734,68 +746,71 @@ public class ClipViewChromaticGridHighFidelityTest {
     BridgeContract bridge = new BridgeContract();
 
     SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
-    ProjectModel project = ProjectModel.createDefaultProject();
-    app.loadProject(project);
+    try {
+      ProjectModel project = ProjectModel.createDefaultProject();
+      app.loadProject(project);
 
-    SwingGridPanel gridPanel = app.getClipPanel();
-    assertNotNull(gridPanel, "Grid panel must be initialized");
-    gridPanel.setScaleModeEnabled(false);
+      SwingGridPanel gridPanel = app.getClipPanel();
+      assertNotNull(gridPanel, "Grid panel must be initialized");
+      gridPanel.setScaleModeEnabled(false);
 
-    org.deluge.model.TrackModel t = project.getTracks().get(0);
-    org.deluge.model.ClipModel c = t.getActiveClip();
+      org.deluge.model.TrackModel t = project.getTracks().get(0);
+      org.deluge.model.ClipModel c = t.getActiveClip();
 
-    // 1. Program a note at Step 0, Row 67 (pitch 60, C4)
-    gridPanel.setClipStep(
-        c, 67, 0, new org.deluge.model.StepData(true, 0.8f, 1.0f, 0.9f, 60, 0, 0.0f, 0.0f));
-    gridPanel.refresh();
+      // 1. Program a note at Step 0, Row 67 (pitch 60, C4)
+      gridPanel.setClipStep(
+          c, 67, 0, new org.deluge.model.StepData(true, 0.8f, 1.0f, 0.9f, 60, 0, 0.0f, 0.0f));
+      gridPanel.refresh();
 
-    assertTrue(gridPanel.getClipStep(c, 67, 0).active(), "Original step must be active");
+      assertTrue(gridPanel.getClipStep(c, 67, 0).active(), "Original step must be active");
 
-    // Dynamically calculate the visual row for model row 67 based on the panel's scroll offset
-    int visualRow = 67 - gridPanel.getScrollOffset();
+      // Dynamically calculate the visual row for model row 67 based on the panel's scroll offset
+      int visualRow = 67 - gridPanel.getScrollOffset();
 
-    // 2. Simulate Ctrl + Scroll Up 2 ticks (rotation = -2 -> dir = 2)
-    // This should transpose the note pitch by +2 semitones to pitch 62 (D4, model row 65)
-    java.awt.event.MouseWheelEvent scrollUpPitchEvent =
-        new java.awt.event.MouseWheelEvent(
-            gridPanel,
-            java.awt.event.MouseEvent.MOUSE_WHEEL,
-            System.currentTimeMillis(),
-            java.awt.event.InputEvent.CTRL_DOWN_MASK | java.awt.event.InputEvent.CTRL_MASK,
-            0,
-            0,
-            0,
-            false,
-            java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL,
-            1,
-            -2);
-    gridPanel.handlePadMouseWheel(visualRow, 0, scrollUpPitchEvent);
+      // 2. Simulate Ctrl + Scroll Up 2 ticks (rotation = -2 -> dir = 2)
+      // This should transpose the note pitch by +2 semitones to pitch 62 (D4, model row 65)
+      java.awt.event.MouseWheelEvent scrollUpPitchEvent =
+          new java.awt.event.MouseWheelEvent(
+              gridPanel,
+              java.awt.event.MouseEvent.MOUSE_WHEEL,
+              System.currentTimeMillis(),
+              java.awt.event.InputEvent.CTRL_DOWN_MASK | java.awt.event.InputEvent.CTRL_MASK,
+              0,
+              0,
+              0,
+              false,
+              java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL,
+              1,
+              -2);
+      gridPanel.handlePadMouseWheel(visualRow, 0, scrollUpPitchEvent);
 
-    // 3. Assert note pitch migration in memory
-    assertFalse(gridPanel.getClipStep(c, 67, 0).active(), "Old step at row 67 must be cleared");
-    org.deluge.model.StepData transposed = gridPanel.getClipStep(c, 65, 0);
-    assertTrue(transposed.active(), "New step at row 65 must be active");
-    assertEquals(62, transposed.pitch(), "Pitch must be transposed to 62");
-    assertEquals(0.8f, transposed.velocity(), 0.001f, "Velocity must be preserved");
-    assertEquals(1.0f, transposed.gate(), 0.001f, "Gate must be preserved");
+      // 3. Assert note pitch migration in memory
+      assertFalse(gridPanel.getClipStep(c, 67, 0).active(), "Old step at row 67 must be cleared");
+      org.deluge.model.StepData transposed = gridPanel.getClipStep(c, 65, 0);
+      assertTrue(transposed.active(), "New step at row 65 must be active");
+      assertEquals(62, transposed.pitch(), "Pitch must be transposed to 62");
+      assertEquals(0.8f, transposed.velocity(), 0.001f, "Velocity must be preserved");
+      assertEquals(1.0f, transposed.gate(), 0.001f, "Gate must be preserved");
 
-    // 4. Assert note channel migration and parameter synchronization in the ChucK DSP bridge
-    assertFalse(
-        bridge.getStep(gridPanel.getBaseTrackId() + 67, 0), "Bridge old step must be cleared");
-    assertTrue(
-        bridge.getStep(gridPanel.getBaseTrackId() + 65, 0), "Bridge new step must be active");
-    assertEquals(
-        0.8f,
-        bridge.getVelocity(gridPanel.getBaseTrackId() + 65, 0),
-        0.001f,
-        "Bridge velocity must sync to new channel");
-    assertEquals(
-        1.0f,
-        bridge.getGate(gridPanel.getBaseTrackId() + 65, 0),
-        0.001f,
-        "Bridge gate must sync to new channel");
-
-    bridge.shutdown();
+      // 4. Assert note channel migration and parameter synchronization in the ChucK DSP bridge
+      assertFalse(
+          bridge.getStep(gridPanel.getBaseTrackId() + 67, 0), "Bridge old step must be cleared");
+      assertTrue(
+          bridge.getStep(gridPanel.getBaseTrackId() + 65, 0), "Bridge new step must be active");
+      assertEquals(
+          0.8f,
+          bridge.getVelocity(gridPanel.getBaseTrackId() + 65, 0),
+          0.001f,
+          "Bridge velocity must sync to new channel");
+      assertEquals(
+          1.0f,
+          bridge.getGate(gridPanel.getBaseTrackId() + 65, 0),
+          0.001f,
+          "Bridge gate must sync to new channel");
+    } finally {
+      app.dispose();
+      bridge.shutdown();
+    }
   }
 
   @Test
@@ -804,62 +819,65 @@ public class ClipViewChromaticGridHighFidelityTest {
     BridgeContract bridge = new BridgeContract();
 
     SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
-    ProjectModel project = ProjectModel.createDefaultProject();
-    app.loadProject(project);
+    try {
+      ProjectModel project = ProjectModel.createDefaultProject();
+      app.loadProject(project);
 
-    SwingGridPanel gridPanel = app.getClipPanel();
-    org.deluge.model.TrackModel t = project.getTracks().get(0);
-    org.deluge.model.ClipModel c = t.getActiveClip();
+      SwingGridPanel gridPanel = app.getClipPanel();
+      org.deluge.model.TrackModel t = project.getTracks().get(0);
+      org.deluge.model.ClipModel c = t.getActiveClip();
 
-    // 1. Program notes at Step 1 and Step 3 in straight 16-step mode
-    // Pos 1 should be at 1 * 24 = 24 ticks
-    // Pos 3 should be at 3 * 24 = 72 ticks
-    gridPanel.setClipStep(
-        c, 60, 1, new org.deluge.model.StepData(true, 0.8f, 0.5f, 1.0f, 60, 0, 0.0f, 0.0f));
-    gridPanel.setClipStep(
-        c, 60, 3, new org.deluge.model.StepData(true, 0.8f, 0.5f, 1.0f, 60, 0, 0.0f, 0.0f));
+      // 1. Program notes at Step 1 and Step 3 in straight 16-step mode
+      // Pos 1 should be at 1 * 24 = 24 ticks
+      // Pos 3 should be at 3 * 24 = 72 ticks
+      gridPanel.setClipStep(
+          c, 60, 1, new org.deluge.model.StepData(true, 0.8f, 0.5f, 1.0f, 60, 0, 0.0f, 0.0f));
+      gridPanel.setClipStep(
+          c, 60, 3, new org.deluge.model.StepData(true, 0.8f, 0.5f, 1.0f, 60, 0, 0.0f, 0.0f));
 
-    // Verify straight tick positions in noteRows
-    assertEquals(1, c.getNoteRowsList().size(), "Should have exactly 1 note row");
-    org.deluge.model.NoteRowModel row = c.getNoteRowsList().get(0);
-    assertEquals(2, row.getNotes().size(), "Should have exactly 2 notes");
+      // Verify straight tick positions in noteRows
+      assertEquals(1, c.getNoteRowsList().size(), "Should have exactly 1 note row");
+      org.deluge.model.NoteRowModel row = c.getNoteRowsList().get(0);
+      assertEquals(2, row.getNotes().size(), "Should have exactly 2 notes");
 
-    org.deluge.model.NoteModel note1 = row.getNotes().get(0);
-    org.deluge.model.NoteModel note2 = row.getNotes().get(1);
+      org.deluge.model.NoteModel note1 = row.getNotes().get(0);
+      org.deluge.model.NoteModel note2 = row.getNotes().get(1);
 
-    int posA = Math.min(note1.getPos(), note2.getPos());
-    int posB = Math.max(note1.getPos(), note2.getPos());
-    assertEquals(24, posA, "First note straight tick position must be 24");
-    assertEquals(72, posB, "Second note straight tick position must be 72");
+      int posA = Math.min(note1.getPos(), note2.getPos());
+      int posB = Math.max(note1.getPos(), note2.getPos());
+      assertEquals(24, posA, "First note straight tick position must be 24");
+      assertEquals(72, posB, "Second note straight tick position must be 72");
 
-    // 2. Toggle triplet mode to active (12 steps, 32 ticks per step)
-    c.setTripletMode(true);
-    c.setStepCount(12);
-    c.rebuildNotesFromGrid();
+      // 2. Toggle triplet mode to active (12 steps, 32 ticks per step)
+      c.setTripletMode(true);
+      c.setStepCount(12);
+      c.rebuildNotesFromGrid();
 
-    // Verify notes are re-aligned to 32 ticks per step
-    assertEquals(2, row.getNotes().size(), "Should still have 2 notes");
-    note1 = row.getNotes().get(0);
-    note2 = row.getNotes().get(1);
-    posA = Math.min(note1.getPos(), note2.getPos());
-    posB = Math.max(note1.getPos(), note2.getPos());
-    assertEquals(32, posA, "First note triplet tick position must be 32 (1 * 32)");
-    assertEquals(96, posB, "Second note triplet tick position must be 96 (3 * 32)");
+      // Verify notes are re-aligned to 32 ticks per step
+      assertEquals(2, row.getNotes().size(), "Should still have 2 notes");
+      note1 = row.getNotes().get(0);
+      note2 = row.getNotes().get(1);
+      posA = Math.min(note1.getPos(), note2.getPos());
+      posB = Math.max(note1.getPos(), note2.getPos());
+      assertEquals(32, posA, "First note triplet tick position must be 32 (1 * 32)");
+      assertEquals(96, posB, "Second note triplet tick position must be 96 (3 * 32)");
 
-    // 3. Toggle triplet mode back to inactive (16 steps, 24 ticks per step)
-    c.setTripletMode(false);
-    c.setStepCount(16);
-    c.rebuildNotesFromGrid();
+      // 3. Toggle triplet mode back to inactive (16 steps, 24 ticks per step)
+      c.setTripletMode(false);
+      c.setStepCount(16);
+      c.rebuildNotesFromGrid();
 
-    // Verify notes are re-aligned back to 24 ticks per step
-    assertEquals(2, row.getNotes().size(), "Should still have 2 notes");
-    note1 = row.getNotes().get(0);
-    note2 = row.getNotes().get(1);
-    posA = Math.min(note1.getPos(), note2.getPos());
-    posB = Math.max(note1.getPos(), note2.getPos());
-    assertEquals(24, posA, "First note straight tick position must be restored to 24");
-    assertEquals(72, posB, "Second note straight tick position must be restored to 72");
-
-    bridge.shutdown();
+      // Verify notes are re-aligned back to 24 ticks per step
+      assertEquals(2, row.getNotes().size(), "Should still have 2 notes");
+      note1 = row.getNotes().get(0);
+      note2 = row.getNotes().get(1);
+      posA = Math.min(note1.getPos(), note2.getPos());
+      posB = Math.max(note1.getPos(), note2.getPos());
+      assertEquals(24, posA, "First note straight tick position must be restored to 24");
+      assertEquals(72, posB, "Second note straight tick position must be restored to 72");
+    } finally {
+      app.dispose();
+      bridge.shutdown();
+    }
   }
 }
