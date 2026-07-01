@@ -320,11 +320,14 @@ public class SwingProjectSidebarPanel extends JPanel {
                                         ((org.deluge.model.SoundDrum) sounds.get(i))
                                             .getSamplePath();
                                     if (sp != null && !sp.isEmpty()) {
-                                      java.io.File sf = new java.io.File(sp);
-                                      if (!sf.exists()) {
-                                        sf = new java.io.File(libraryDir, sp);
-                                      }
-                                      if (!sf.exists()) {
+                                      // Use the shared, case-insensitive resolver (the Deluge saves
+                                      // on case-insensitive FAT32, so "808 Clap.wav" may be
+                                      // "808 Clap.WAV" on disk). A plain File.exists() is
+                                      // case-sensitive on Linux and wrongly reported these missing.
+                                      java.io.File sf =
+                                          org.deluge.engine.FirmwareFactory.resolveSample(
+                                              sp, libraryDir);
+                                      if (sf == null || !sf.exists()) {
                                         missingFiles.add(sp);
                                       }
                                     }
