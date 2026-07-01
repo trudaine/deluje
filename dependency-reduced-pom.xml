@@ -24,7 +24,7 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.6</version>
         <configuration>
-          <argLine>--enable-preview --add-modules jdk.incubator.vector -Dchuck.audio.dummy=true -Xmx2048m</argLine>
+          <argLine>--enable-preview --add-modules jdk.incubator.vector -Dchuck.audio.dummy=true -Ddeluge.audio.silent=true -Xmx2048m</argLine>
           <excludedGroups>slow</excludedGroups>
         </configuration>
       </plugin>
@@ -32,6 +32,15 @@
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
         <version>3.6.0</version>
+        <executions>
+          <execution>
+            <id>spotless-check</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
         <configuration>
           <java>
             <googleJavaFormat>
@@ -75,6 +84,19 @@
     </plugins>
   </build>
   <profiles>
+    <profile>
+      <id>slow-tests</id>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <excludedGroups />
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
     <profile>
       <id>swing-dist</id>
       <build>

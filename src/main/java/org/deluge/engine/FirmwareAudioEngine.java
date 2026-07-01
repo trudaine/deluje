@@ -215,6 +215,15 @@ public class FirmwareAudioEngine {
     // Sum all tracks in 64-bit (infinite headroom!)
     for (GlobalEffectable sound : sounds) {
       if (sound != null) {
+        if (debugTelemetry && sound instanceof org.deluge.engine.FirmwareSound fs) {
+          System.out.println(
+              "[ENGINE-RENDER-DEBUG] sound="
+                  + System.identityHashCode(fs)
+                  + " muted="
+                  + fs.muted
+                  + " tick="
+                  + transportTick);
+        }
         sound.renderOutput(summedFlatBufferLong, numSamples, monoReverbBufferLong);
       }
     }

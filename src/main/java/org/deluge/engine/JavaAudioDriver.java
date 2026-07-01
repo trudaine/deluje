@@ -83,7 +83,7 @@ public class JavaAudioDriver implements Runnable {
   private final FirmwareAudioEngine engine;
   private final PlaybackHandler playbackHandler;
   private SourceDataLine line;
-  private boolean running = true;
+  private volatile boolean running = true;
   private static final int BLOCK_SIZE = 128;
   private final byte[] byteBuffer = new byte[BLOCK_SIZE * 4];
 

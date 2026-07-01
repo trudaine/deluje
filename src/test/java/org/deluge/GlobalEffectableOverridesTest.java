@@ -33,7 +33,12 @@ class GlobalEffectableOverridesTest {
 
   @AfterEach
   void tearDown() {
-    if (bridge != null) bridge.shutdown();
+    if (app != null) {
+      app.dispose();
+    }
+    if (bridge != null) {
+      bridge.shutdown();
+    }
   }
 
   // ── Helpers ──
