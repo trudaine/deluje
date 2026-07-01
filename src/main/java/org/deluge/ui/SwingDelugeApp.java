@@ -947,8 +947,14 @@ public class SwingDelugeApp extends JFrame {
             bottomInfo = "STEREO STREAM";
           }
         } else if ("SONG".equals(activeViewMode)) {
-          middleText = "SONG: " + model.getTracks().size() + " TRKS";
-          bottomInfo = "BPM: " + ((int) model.getBpm());
+          // Match the Deluge song/home screen: song name, key + scale, BPM.
+          modeBanner =
+              currentProjectFile != null
+                  ? currentProjectFile.getName().replaceFirst("(?i)\\.xml$", "").toUpperCase()
+                  : ("SONG: " + model.getTracks().size() + " TRKS");
+          String scale = model.getScale() != null ? model.getScale().toUpperCase() : "";
+          middleText = (rootNoteToName(model.getKey()) + " " + scale).trim();
+          bottomInfo = ((int) model.getBpm()) + " BPM";
         } else {
           middleText = tName;
           bottomInfo = "STATUS: READY";
@@ -990,6 +996,21 @@ public class SwingDelugeApp extends JFrame {
                 + " Total Programmed Note Events: "
                 + activeNotesCount);
       }
+    }
+  }
+
+  private static final String[] NOTE_NAMES = {
+    "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
+  };
+
+  /** Deluge key display: rootNote 0 -> "C-2" (Deluge octave = MIDI/12 - 2). */
+  private static String rootNoteToName(String rootNote) {
+    if (rootNote == null || rootNote.isBlank()) return "";
+    try {
+      int r = Integer.parseInt(rootNote.trim());
+      return NOTE_NAMES[((r % 12) + 12) % 12] + (Math.floorDiv(r, 12) - 2);
+    } catch (NumberFormatException e) {
+      return rootNote; // already a name
     }
   }
 
