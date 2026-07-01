@@ -491,6 +491,19 @@ but the reference is unreliable — re-take analogSquare cleanly before investig
 inherently uncorrelatable. The resonant/HPF scores (0.66–0.74) are the honest remaining subtractive
 question at C4 (higher than the near-sinusoidal note-84 flattered them) — worth a look, reference-gated.
 
+**Resonant LPF (`T09`) investigated 2026-07-01 — real ladder-filter instability, deferred.** The C4
+reference is clean (sustained 0.21 rms, normal decay; resonance peak at h2/524 Hz, smooth rolloff).
+Our render diverges in SHAPE (the score is amplitude-invariant): a **low-frequency
+self-oscillation/instability** — 16× sub-fundamental at ~150 Hz — absent from the hardware, with the
+resonance peak at h4 (1046 Hz) instead of h2. Verified FAITHFUL and NOT the cause: the `setConfig`
+resonance math (`resonanceUpperLimit` clamp, cold-ladder branch) and the makeup `filterGain`
+(`gainModifier`, `<<3`, `*0.8`) match `lpladder.cpp:150-171` line-for-line; the reference is clean;
+T08 (same cutoff, no resonance) scores 0.931 so the cutoff mapping is ~right. So the bug is in the
+ladder RENDER loop or a fixed-point interaction that goes unstable at high resonance + high
+cutoff/fundamental ratio (it's masked at note 84 where the cutoff sits near the fundamental — T09
+scored 0.965 there). Fixing needs a dedicated faithful review of `LpLadderFilter`'s per-sample ladder
+processing vs the C; do NOT hack it (many filter cases pass: T08 0.93, resonant 0.96 at note 84).
+
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:
