@@ -1735,7 +1735,12 @@ Designing custom sounds is a core creative workflow in the Deluge-Java Workstati
 
 The **Master FX Console & Modulation Dashboard** is a premium, high-fidelity mixing desk that exposes all global, song-level effects parameters to the user interface. It provides visual, tactile control over spatial room acoustics, sidechain dynamics, stereo delay timing, and output saturation drive in real-time.
 
-![Master FX Mixing Console & Modulation Desk](images/deluge_master_fx_console.png)
+The console groups its parameters into four tabbed panels — Reverb Tank, Reverb Compressor, Stereo Delay, and Drive & Saturation:
+
+![Master FX — Reverb Tank tab](images/deluge_master_fx_console___reverb_tank.png)
+![Master FX — Reverb Compressor tab](images/deluge_master_fx_console___reverb_comp.png)
+![Master FX — Stereo Delay tab](images/deluge_master_fx_console___stereo_delay.png)
+![Master FX — Drive & Saturation tab](images/deluge_master_fx_console___drive___sat.png)
 
 ### 25.1 Tactile Console Layout & Parameters
 
@@ -1893,5 +1898,91 @@ Follow these steps to record a live performance and sculpt it with track-level m
 8.  Press **`Ctrl + S`** to save your song. Copy the XML to your physical Deluge's SD card, load it, and hear your linear arrangement play back identically on the physical hardware!
 
 
+## 27. The Track Inspector
 
+The **Track Inspector** is a compact, tabbed utility for inspecting and adjusting a single track without opening the full synth/kit editor. Each tab focuses on one concern:
+
+*   **Mixer** — per-track Channel Volume and Channel Panning.
+
+    ![Track Inspector — Mixer tab](images/deluge_track_inspector_mixer.png)
+
+*   **Presets** — quick preset browsing/selection for the track.
+
+    ![Track Inspector — Presets tab](images/deluge_track_inspector_presets.png)
+
+*   **Clipboard** — copy/paste of track and clip data.
+
+    ![Track Inspector — Clipboard tab](images/deluge_track_inspector_clipboard.png)
+
+*   **FM Operators** — a summary of the 2-operator FM carrier/modulator amounts.
+
+    ![Track Inspector — FM Operators tab](images/deluge_track_inspector_fm_operators.png)
+
+*   **Grid Shortcuts** — a reference of the pad-grid button combinations.
+
+    ![Track Inspector — Grid Shortcuts tab](images/deluge_track_inspector_grid_shortcuts.png)
+
+## 28. Utility & Generator Dialogs
+
+These focused dialogs cover tuning, generative textures, rhythm generation, sample zone mapping, wavetable creation, and housekeeping.
+
+*   **Tuning & Temperaments** — choose an equal or microtonal temperament, notes-per-octave, reference pitch (A), import a Scala `.scl` file, and set a per-note scaling map (cents offset for each of the 12 notes).
+
+    ![Tuning & Temperaments dialog](images/deluge_tuning.png)
+
+*   **Drone Lab & Texture Generator** — build evolving drones/textures from a synth track.
+
+    ![Drone Lab & Texture Generator dialog](images/deluge_drone_lab.png)
+
+*   **Euclidean Rhythm Generator** — distribute N hits evenly across the step count to create Euclidean patterns for a note row.
+
+    ![Euclidean Rhythm Generator dialog](images/deluge_euclidean_rhythm.png)
+
+*   **Bar Automation** — toggle per-bar automation events (e.g. a low-pass filter sweep or a volume fade-in) on the timeline.
+
+    ![Bar Automation dialog](images/deluge_bar_automation.png)
+
+*   **Multi-Sample Zone Mapper** — map sample files to key/velocity zones for a multisample oscillator.
+
+    ![Multi-Sample Zone Mapper dialog](images/deluge_keyzone_mapper.png)
+
+*   **Wavetable Creator & Editor** — author/edit the wavetable used by a synth oscillator.
+
+    ![Wavetable Creator & Editor dialog](images/deluge_synth_wavetable_editor.png)
+
+*   **Orphaned Recording Cleaner** — find and remove orphaned/unused recording files from the SD card.
+
+    ![Orphaned Recording Cleaner dialog](images/deluge_recording_cleaner.png)
+
+## 29. Application Menus
+
+The desktop menu bar exposes file, editing, tooling, view, settings, macro, and help commands (with keyboard shortcuts). These desktop menus have no direct equivalent on the hardware — they are conveniences for the Java workstation.
+
+*   **File** — new/open/save projects, show the explorer, export Audio / WAV stems / MIDI, assemble a kit from synths, import Ableton/MIDI/audio, run scripts.
+
+    ![File menu](images/deluge_menu_file.png)
+
+*   **Edit** — editing commands (undo/redo and clipboard operations).
+
+    ![Edit menu](images/deluge_menu_edit.png)
+
+*   **Tools** — generators and utilities.
+
+    ![Tools menu](images/deluge_menu_tools.png)
+
+*   **View** — workspace/view switching.
+
+    ![View menu](images/deluge_menu_view.png)
+
+*   **Settings** — preferences and configuration.
+
+    ![Settings menu](images/deluge_menu_settings.png)
+
+*   **Macro** — the macro scripting / song-automation commands (see §23).
+
+    ![Macro menu](images/deluge_menu_macro.png)
+
+*   **Help** — documentation and about.
+
+    ![Help menu](images/deluge_menu_help.png)
 
