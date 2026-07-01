@@ -52,8 +52,29 @@ public final class DelugeColour {
     return new Color(rgb[0], rgb[1], rgb[2]);
   }
 
-  /** The clip/track colour the Deluge shows for a given {@code colourOffset}. */
+  /** The clip/track colour the Deluge shows for a given {@code colourOffset} (note-row hue). */
   public static Color clipColour(int colourOffset) {
     return fromHue(colourOffset * -8 / 3);
+  }
+
+  /** session_view.cpp:1655 — the hue step the auto-assigned output colours rotate by. */
+  public static final double COLOUR_STEP = 22.5882352941;
+
+  /**
+   * The Deluge SESSION/SONG-view colour of a track (output) — session_view.cpp:3356-3361. Each pad
+   * is {@code fromHue(output->colour)}. When {@code output->colour == 0} (unset), the hardware
+   * assigns a rotating hue in render order via a static {@code lastColour} that advances by {@code
+   * colourStep}; the i-th such output resolves to {@code fmod(1 + i*colourStep, 192)}. So distinct
+   * {@code colour="0"} instruments (as in most songs) still get distinct pastels.
+   *
+   * @param storedColour the instrument's stored {@code colour} (0-191), 0 = auto-assign
+   * @param autoIndex the track's position among auto-assigned (colour==0) tracks
+   */
+  public static Color sessionColour(int storedColour, int autoIndex) {
+    int colour = storedColour;
+    if (colour == 0) {
+      colour = (int) ((1.0 + autoIndex * COLOUR_STEP) % 192.0);
+    }
+    return fromHue(colour);
   }
 }
