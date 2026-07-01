@@ -3844,7 +3844,22 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
               boolean hasClip = false;
               if (modelRow < tracks.size()) {
                 org.deluge.model.TrackModel track = tracks.get(modelRow);
-                if (c < track.getClips().size()) {
+                if (viewMode == GridViewMode.SONG && !track.getClips().isEmpty()) {
+                  // Deluge session view draws the clip's step PATTERN across the row
+                  // (renderAsSingleRow): light column c if the clip has a note at that step in ANY
+                  // note row, in the clip's colour — so an active clip fills many cells, not just one.
+                  org.deluge.model.ClipModel clip = track.getClips().get(0);
+                  int step = c + scrollOffsetX;
+                  if (step < clip.getStepCount()) {
+                    for (int r = 0; r < clip.getRowCount(); r++) {
+                      org.deluge.model.StepData sd = clip.getStep(r, step);
+                      if (sd != null && sd.active()) {
+                        hasClip = true;
+                        break;
+                      }
+                    }
+                  }
+                } else if (c < track.getClips().size()) {
                   hasClip = true;
                 }
               }
