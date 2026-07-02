@@ -3769,8 +3769,10 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
       }
     } else if (viewMode == GridViewMode.SONG || viewMode == GridViewMode.ARRANGEMENT) {
       for (int v = 0; v < gridMode.rows; v++) {
-        int modelRow = scrollOffset + v;
-        if (modelRow < voiceRowCount) {
+        // Route through the shared mapper (was inline scrollOffset+v) so this pad grid, the left
+        // header (buildVoiceRow) and the clip labels all agree on the row order.
+        int modelRow = getModelRow(v);
+        if (modelRow >= 0 && modelRow < voiceRowCount) {
           int engineRow = baseTrackId + modelRow;
           boolean isMuted = bridge != null && bridge.getMute(engineRow);
           boolean isSoloed = (soloRow == modelRow);
@@ -6359,13 +6361,18 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   }
 
   int getModelRow(int visualRow) {
-    if (projectModel != null
-        && editedModelTrack < projectModel.getTracks().size()
-        && projectModel.getTracks().get(editedModelTrack)
-            instanceof org.deluge.model.KitTrackModel kit) {
-      return kit.getDrums().size() - 1 - (scrollOffset + visualRow);
-    }
-    return scrollOffset + visualRow;
+    boolean editedIsKit =
+        projectModel != null
+            && editedModelTrack < projectModel.getTracks().size()
+            && projectModel.getTracks().get(editedModelTrack)
+                instanceof org.deluge.model.KitTrackModel;
+    int kitDrumCount =
+        editedIsKit
+            ? ((org.deluge.model.KitTrackModel) projectModel.getTracks().get(editedModelTrack))
+                .getDrums()
+                .size()
+            : 0;
+    return GridRowMapper.modelRow(viewMode, scrollOffset, visualRow, editedIsKit, kitDrumCount);
   }
 
   int getEngineRowOffset(int visualModelRow) {
