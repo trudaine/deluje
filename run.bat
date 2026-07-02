@@ -42,6 +42,7 @@ if not exist "%JAR%" (
 
 echo Launching Deluge (%JAR%)...
 REM --enable-preview is REQUIRED: classes are compiled with preview features and won't load without it.
-"!JAVA_EXEC!" --enable-preview --add-modules jdk.incubator.vector -jar "%JAR%" --swing
+"!JAVA_EXEC!" --enable-preview --enable-native-access=ALL-UNNAMED --add-modules jdk.incubator.vector -jar "%JAR%" --swing
+
 
 pause

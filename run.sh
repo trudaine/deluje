@@ -18,4 +18,5 @@ fi
 echo "Launching Deluge ($JAR)..."
 # --enable-preview is REQUIRED: the classes are compiled with preview features, so the JVM refuses
 # to load them without it. --add-modules exposes the incubating Vector API used by the DSP.
-"$JAVA_EXEC" --enable-preview --add-modules jdk.incubator.vector -jar "$JAR" --swing
+"$JAVA_EXEC" --enable-preview --enable-native-access=ALL-UNNAMED --add-modules jdk.incubator.vector -jar "$JAR" --swing
+
