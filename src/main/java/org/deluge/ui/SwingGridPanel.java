@@ -90,12 +90,17 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   }
 
   public int getRowPitch(int modelRow) {
-    boolean isSynth = false;
+    boolean isPitched = false;
     if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
-      isSynth = t instanceof org.deluge.model.SynthTrackModel;
+      // MIDI_OUT (and CV) clips are pitched piano-rolls too (InstrumentClip in the C), not a single
+      // fixed pitch — previously only synth got real per-row pitches, so MIDI rows all mapped to
+      // C4 (and thus rendered a single colour despite the per-pitch colouring fix).
+      isPitched =
+          t instanceof org.deluge.model.SynthTrackModel
+              || t instanceof org.deluge.model.MidiTrackModel;
     }
-    if (isSynth && viewMode == GridViewMode.CLIP) {
+    if (isPitched && viewMode == GridViewMode.CLIP) {
       return ScaleMapper.getRowPitch(modelRow, true, scaleModeEnabled, foldMode, foldedPitches);
     }
     return 60; // fallback
@@ -139,12 +144,16 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   }
 
   public int getRowFromPitch(int pitch) {
-    boolean isSynth = false;
+    boolean isPitched = false;
     if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
-      isSynth = t instanceof org.deluge.model.SynthTrackModel;
+      // Mirror getRowPitch: MIDI (and CV) are pitched piano-rolls, so the inverse mapping must use
+      // the same path, otherwise MIDI note lookups (placement/hit-testing) desync from the display.
+      isPitched =
+          t instanceof org.deluge.model.SynthTrackModel
+              || t instanceof org.deluge.model.MidiTrackModel;
     }
-    if (isSynth && viewMode == GridViewMode.CLIP) {
+    if (isPitched && viewMode == GridViewMode.CLIP) {
       return ScaleMapper.getRowFromPitch(pitch, true, scaleModeEnabled, foldMode, foldedPitches);
     }
     return 127 - pitch;
