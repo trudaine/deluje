@@ -6650,12 +6650,17 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
         colourOffset = t.getColourOffset();
       }
       if (isPitched) {
+        // The Deluge colours every InstrumentClip's rows per-pitch (getMainColourFromY,
+        // instrument_clip.cpp:1235); Java previously did this for synth only, so MIDI rows were a
+        // flat mono colour — extend it to MIDI here. (The exact palette math below is Java's HSB
+        // hue-shift, which diverges from the C's RGB::fromHue; switching to fromHue is a separate,
+        // hardware-verification-gated change — ClipViewChromaticGridHighFidelityTest pins the
+        // current HSB colours, so it is left in place until that hue is confirmed against hardware.)
         int pitchMidi = getRowPitch(modelRow);
-        // Faithful to InstrumentClip::getMainColourFromY (instrument_clip.cpp:1235):
-        // RGB::fromHue((yNote + colourOffset + noteRowColourOffset) * -8/3). The Deluge uses its own
-        // sine-based fromHue palette, not an HSB hue-shift of the track colour. (Per-note-row
-        // colourOffset is not tracked per row here; it defaults to 0 on hardware for fresh rows.)
-        Color noteColor = DelugeColour.fromHue((pitchMidi + colourOffset) * -8 / 3);
+        float[] hsb =
+            Color.RGBtoHSB(trackColor.getRed(), trackColor.getGreen(), trackColor.getBlue(), null);
+        float noteHue = ScaleMapper.calculateNoteHue(pitchMidi, hsb[0], colourOffset);
+        Color noteColor = Color.getHSBColor(noteHue, hsb[1], hsb[2]);
         return velocityBlend(noteColor, velocity);
       }
     }
