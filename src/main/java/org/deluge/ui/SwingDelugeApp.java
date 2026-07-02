@@ -600,6 +600,13 @@ public class SwingDelugeApp extends JFrame {
       if (clipPanel != null) {
         clipPanel.setBaseTrackId(firstStart >= 0 ? firstStart : (firstIsSynth ? 4 : 0));
       }
+    } else if (!model.getArrangerTimeline().isEmpty()) {
+      // A song that has an arrangement opens in the arranger view on hardware (the Deluge boots
+      // arranged songs into arranger, not session view), so match that.
+      if (cardLayout != null && centerCardPanel != null) {
+        cardLayout.show(centerCardPanel, "ARR");
+      }
+      if (topBar != null) topBar.selectViewModeButton("ARR");
     } else {
       if (cardLayout != null && centerCardPanel != null) {
         cardLayout.show(centerCardPanel, "SONG");
