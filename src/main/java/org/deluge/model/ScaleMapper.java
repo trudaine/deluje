@@ -29,13 +29,35 @@ public final class ScaleMapper {
       boolean scaleModeEnabled,
       boolean foldMode,
       List<Integer> foldedPitches) {
+    // Legacy entry point: C major, C root.
+    return getRowPitch(
+        modelRow,
+        isSynth,
+        scaleModeEnabled,
+        foldMode,
+        foldedPitches,
+        Scales.ScaleType.MAJOR.getIntervals(),
+        0);
+  }
+
+  /** As {@link #getRowPitch}, but with the song's actual scale intervals and root pitch class. */
+  public static int getRowPitch(
+      int modelRow,
+      boolean isSynth,
+      boolean scaleModeEnabled,
+      boolean foldMode,
+      List<Integer> foldedPitches,
+      int[] modeNotes,
+      int rootPitchClass) {
     if (isSynth) {
       if (foldMode && foldedPitches != null && !foldedPitches.isEmpty()) {
         if (modelRow >= 0 && modelRow < foldedPitches.size()) {
           return foldedPitches.get(modelRow);
         }
       }
-      return scaleModeEnabled ? getDiatonicPitch(modelRow) : getChromaticPitch(modelRow);
+      return scaleModeEnabled
+          ? getDiatonicPitch(modelRow, modeNotes, rootPitchClass)
+          : getChromaticPitch(modelRow);
     }
     return 60; // fallback
   }
@@ -75,12 +97,28 @@ public final class ScaleMapper {
    * default.
    */
   public static int getDiatonicPitch(int modelRow) {
-    int baseDegree = 28; // C4 (4th octave in diatonic degrees, 28 = 4 * 7)
-    int degree = baseDegree + (67 - modelRow);
-    int octave = Math.floorDiv(degree, 7);
-    int rem = Math.floorMod(degree, 7);
-    int[] majorScaleOffsets = new int[] {0, 2, 4, 5, 7, 9, 11};
-    int pitch = ((octave + 1) * 12) + majorScaleOffsets[rem];
+    // Legacy entry point: assumes C major (root 0). Prefer the overload with the song's actual
+    // scale/root so non-major keys map correctly.
+    return getDiatonicPitch(modelRow, Scales.ScaleType.MAJOR.getIntervals(), 0);
+  }
+
+  /**
+   * Faithful port of {@code Song::getYNoteFromYVisual} (song.cpp) for scale (in-key) mode:
+   * {@code pitch = modeNotes[within] + octave*12 + rootNote}, where {@code within}/{@code octave}
+   * come from the scale-degree coordinate and the scale has {@code modeNotes.length} notes per
+   * octave. Replaces the previous hardcoded 7-note C-major table, which mapped the wrong pitches for
+   * any minor/modal/pentatonic scale or non-C root. Anchored so C major with a C root reproduces the
+   * legacy chromatic anchor (row 67 -> C4 = MIDI 60), keeping existing C-major songs unchanged.
+   *
+   * @param modeNotes the scale's semitone offsets within an octave (e.g. major {0,2,4,5,7,9,11})
+   * @param rootPitchClass the song key's root pitch class (0 = C .. 11 = B)
+   */
+  public static int getDiatonicPitch(int modelRow, int[] modeNotes, int rootPitchClass) {
+    int count = modeNotes.length;
+    int degree = 5 * count + (67 - modelRow); // scale-degree coordinate (row 67 -> degree 5*count)
+    int within = Math.floorMod(degree, count);
+    int octave = Math.floorDiv(degree, count);
+    int pitch = modeNotes[within] + octave * 12 + rootPitchClass;
     return Math.max(0, Math.min(pitch, 127));
   }
 

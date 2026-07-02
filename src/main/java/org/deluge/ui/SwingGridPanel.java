@@ -101,9 +101,32 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
               || t instanceof org.deluge.model.MidiTrackModel;
     }
     if (isPitched && viewMode == GridViewMode.CLIP) {
-      return ScaleMapper.getRowPitch(modelRow, true, scaleModeEnabled, foldMode, foldedPitches);
+      return ScaleMapper.getRowPitch(
+          modelRow,
+          true,
+          scaleModeEnabled,
+          foldMode,
+          foldedPitches,
+          songScaleIntervals(),
+          songRootPitchClass());
     }
     return 60; // fallback
+  }
+
+  /** The active song scale's semitone intervals (defaults to major). */
+  private int[] songScaleIntervals() {
+    String scale = projectModel != null ? projectModel.getScale() : null;
+    return ScaleMapper.scaleTypeFromName(scale).getIntervals();
+  }
+
+  /** The active song key's root pitch class (0=C..11=B), from the numeric rootNote. */
+  private int songRootPitchClass() {
+    if (projectModel == null) return 0;
+    try {
+      return Math.floorMod(Integer.parseInt(projectModel.getKey().trim()), 12);
+    } catch (NumberFormatException | NullPointerException e) {
+      return 0;
+    }
   }
 
   private Color getAuditionPadBgColor(int modelRow, boolean isSynth, int visualRowIndex) {
