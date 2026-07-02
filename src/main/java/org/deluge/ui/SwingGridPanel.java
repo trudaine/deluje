@@ -3853,6 +3853,10 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
               }
             } else {
               boolean hasClip = false;
+              // Arranger clip instances are coloured by their clip's SECTION
+              // (defaultClipSectionColours[clip->section], clip_instance.cpp:31-37), NOT the clip's
+              // own colourOffset. Null keeps the default getTrackColour for the SONG/other paths.
+              Color arrCellColour = null;
               if (modelRow < tracks.size()) {
                 org.deluge.model.TrackModel track = tracks.get(modelRow);
                 if (viewMode == GridViewMode.SONG && !track.getClips().isEmpty()) {
@@ -3873,16 +3877,24 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                 } else if (viewMode == GridViewMode.ARRANGEMENT) {
                   // Deluge arranger: each clip instance is a bar laid across the timeline at its
                   // start position for its length (arranger_view.cpp). Light column c when an
-                  // ArrangerClip placement on this track covers it (96 ticks per column).
-                  hasClip = arrangerController.getArrangerClipAt(modelRow, c + scrollOffsetX) != null;
+                  // ArrangerClip placement on this track covers it (96 ticks per column), coloured
+                  // by the clip's SECTION (ClipInstance::getColour -> defaultClipSectionColours).
+                  org.deluge.model.ArrangerClip ac =
+                      arrangerController.getArrangerClipAt(modelRow, c + scrollOffsetX);
+                  hasClip = ac != null;
+                  if (ac != null) {
+                    int section = ac.clip() != null ? ac.clip().getSection() : -1;
+                    arrCellColour = DelugeColour.sectionColour(section);
+                  }
                 } else if (c < track.getClips().size()) {
                   hasClip = true;
                 }
               }
+              Color cellColour = arrCellColour != null ? arrCellColour : getTrackColour(modelRow);
               if (clipBtn instanceof DelugePadButton pad) {
                 org.deluge.project.PreferencesManager.GridColorTheme theme =
                     org.deluge.project.PreferencesManager.getGridColorTheme();
-                pad.setBaseColor(getTrackColour(modelRow));
+                pad.setBaseColor(cellColour);
                 pad.setTheme(theme);
                 pad.setActive(hasClip);
                 pad.setMuted(isMuted);
@@ -3892,7 +3904,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                     viewMode == GridViewMode.ARRANGEMENT && ((c + scrollOffsetX) % 4 == 0));
               } else {
                 if (hasClip) {
-                  clipBtn.setBackground(getTrackColour(modelRow));
+                  clipBtn.setBackground(cellColour);
                 } else {
                   clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
                 }

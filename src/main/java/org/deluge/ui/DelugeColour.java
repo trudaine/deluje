@@ -57,6 +57,39 @@ public final class DelugeColour {
     return fromHue(colourOffset * -8 / 3);
   }
 
+  /**
+   * The Deluge {@code defaultClipSectionColours} palette (session.cpp:62). Arranger clip instances
+   * and the session/arranger section sidebar are coloured by their clip's SECTION via this table —
+   * NOT by the clip's own colourOffset (clip_instance.cpp:31-37 {@code
+   * defaultClipSectionColours[clip->section]}). Section 0 is {@code fromHue(102)} (light blue).
+   */
+  public static Color sectionColour(int section) {
+    if (section < 0) return monochrome(128); // arrangement-only clips -> grey (monochrome(128))
+    return switch (section % 16) {
+      case 0 -> fromHue(102); // bright light blue
+      case 1 -> fromHue(168); // bright dark pink
+      case 2 -> fromHue(24); // bright light orange
+      case 3 -> fromHue(84); // bright turquoise
+      case 4 -> new Color(255, 0, 0); // red
+      case 5 -> new Color(128, 255, 0); // lime
+      case 6 -> new Color(0, 0, 255); // blue
+      case 7 -> fromHue(12); // bright dark orange
+      case 8 -> fromHue(147); // bright purple
+      case 9 -> new Color(255, 255, 0); // yellow
+      case 10 -> new Color(0, 255, 0); // green
+      case 11 -> fromHue(157); // bright magenta
+      case 12 -> new Color(51, 109, 145); // pastel blue
+      case 13 -> new Color(255, 128, 128); // pink_full
+      case 14 -> new Color(221, 72, 13); // pastel orange
+      default -> new Color(85, 182, 72); // pastel green
+    };
+  }
+
+  /** RGB::monochrome(v) — equal channels (used for arrangement-only clip instances). */
+  public static Color monochrome(int v) {
+    return new Color(v, v, v);
+  }
+
   /** session_view.cpp:1655 — the hue step the auto-assigned output colours rotate by. */
   public static final double COLOUR_STEP = 22.5882352941;
 
