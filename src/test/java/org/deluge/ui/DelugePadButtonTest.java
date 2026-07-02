@@ -130,14 +130,16 @@ public class DelugePadButtonTest {
     Color green = new Color(0, 255, 0);
     Color blurGreen = DelugePadButton.getBlurColor(green);
 
-    // Green is (0, 255, 0).
-    // factor = (0*5 + 255*9 + 0*9) >> 5 = 2295 >> 5 = 71.
-    // nr = (0*3 + 71*5)/8 = 355/8 = 44.
-    // ng = (255*3 + 71*5)/8 = (765 + 355)/8 = 1120/8 = 140.
-    // nb = (0*3 + 71*5)/8 = 44.
-    // So expected color is (44, 140, 44)!
-    assertEquals(44, blurGreen.getRed(), "Red channel must match C++ blur math");
-    assertEquals(140, blurGreen.getGreen(), "Green channel must match C++ blur math");
-    assertEquals(44, blurGreen.getBlue(), "Blue channel must match C++ blur math");
+    // Green is (0, 255, 0). RGB::forBlur (rgb.h:96): avg = r*5 + g*9 + b*9; each channel becomes
+    // (channel*5 + avg) >> 5.
+    //   avg = 0*5 + 255*9 + 0*9 = 2295
+    //   nr = (0*5   + 2295) >> 5 = 2295 >> 5 = 71
+    //   ng = (255*5 + 2295) >> 5 = 3570 >> 5 = 111
+    //   nb = (0*5   + 2295) >> 5 = 71
+    // So expected color is (71, 111, 71). (The previous expectation (44,140,44) pinned an older
+    // Java approximation that diverged from the firmware.)
+    assertEquals(71, blurGreen.getRed(), "Red channel must match C++ forBlur math");
+    assertEquals(111, blurGreen.getGreen(), "Green channel must match C++ forBlur math");
+    assertEquals(71, blurGreen.getBlue(), "Blue channel must match C++ forBlur math");
   }
 }
