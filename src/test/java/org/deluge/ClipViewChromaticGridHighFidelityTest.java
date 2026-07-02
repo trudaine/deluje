@@ -165,22 +165,18 @@ public class ClipViewChromaticGridHighFidelityTest {
     assertEquals("C4", audRow1.getText());
     assertEquals("C3", audRow8.getText());
 
-    // C4 must be lit as Cyan/Teal (Blue)
+    // C4 = fromHue((60 + 0) * -8/3) per the C (getMainColourFromY); NOT the old HSB "cyan".
     if (audRow1 instanceof DelugePadButton pad1) {
       Color c4Color = pad1.getBaseColor();
       assertEquals(
-          new Color(0, 255, 255),
-          c4Color,
-          "C4 audition pad must be exactly Cyan/Teal (Blue) for a Green track");
+          new Color(128, 128, 0), c4Color, "C4 audition pad must be the C-faithful fromHue colour");
     }
 
-    // C3 must be lit as Blue (Purpleish-Blue)
+    // C3 = fromHue((48 + 0) * -8/3) = green.
     if (audRow8 instanceof DelugePadButton pad8) {
       Color c3Color = pad8.getBaseColor();
       assertEquals(
-          new Color(0, 0, 255),
-          c3Color,
-          "C3 audition pad must be exactly Blue (Purpleish-Blue) for a Green track");
+          new Color(0, 255, 0), c3Color, "C3 audition pad must be the C-faithful fromHue colour");
     }
 
     bridge.shutdown();
@@ -205,20 +201,21 @@ public class ClipViewChromaticGridHighFidelityTest {
     gridPanel.setScaleModeEnabled(true);
     gridPanel.refresh();
 
-    // 1. Initial State on Boot: colourOffset = 0
-    // C4 (Row 1) -> Cyan/Teal (0, 255, 255)
-    // C3 (Row 8) -> Blue (0, 0, 255)
+    // 1. Initial State on Boot: colourOffset = 0. Faithful fromHue (getMainColourFromY):
+    // C4 (pitch 60) -> fromHue(-160) = (128,128,0); C3 (pitch 48) -> fromHue(-128) = green.
     JButton audRow1 = gridPanel.getPadButtons()[0][17]; // C4
     JButton audRow8 = gridPanel.getPadButtons()[7][17]; // C3
 
     assertEquals("C4", audRow1.getText());
     assertEquals("C3", audRow8.getText());
     assertEquals(
-        new Color(0, 255, 255),
+        new Color(128, 128, 0),
         ((DelugePadButton) audRow1).getBaseColor(),
-        "C4 must start as Cyan/Teal");
+        "C4 must start as fromHue(-160)");
     assertEquals(
-        new Color(0, 0, 255), ((DelugePadButton) audRow8).getBaseColor(), "C3 must start as Blue");
+        new Color(0, 255, 0),
+        ((DelugePadButton) audRow8).getBaseColor(),
+        "C3 must start as fromHue(-128) green");
 
     // 2. Adjust track color offset by delta using Y-encoder shortcut!
     // Let's call adjustTrackColorOffset(8) -> shifts colourOffset by 8 * 3 = 24!
@@ -229,24 +226,25 @@ public class ClipViewChromaticGridHighFidelityTest {
     audRow8 = gridPanel.getPadButtons()[7][17];
 
     assertEquals(24, project.getTracks().get(0).getColourOffset(), "Track colourOffset must be 24");
+    // With fromHue, offset 24 moves C3 (pitch 48) to fromHue((48+24)*-8/3) = fromHue(-192) = red.
     assertNotEquals(
-        new Color(0, 0, 255),
+        new Color(0, 255, 0),
         ((DelugePadButton) audRow8).getBaseColor(),
-        "C3 color must have shifted");
+        "C3 color must have shifted off green");
 
-    // 3. Shift colourOffset to exactly 48 (which transposes C3 to Red!)
-    // Delta to reach 48 from 24 is (48 - 24) / 3 = 8!
+    // 3. Shift colourOffset to exactly 48.
     gridPanel.adjustTrackColorOffset(8);
     gridPanel.refresh();
 
     audRow8 = gridPanel.getPadButtons()[7][17]; // C3
     assertEquals(48, project.getTracks().get(0).getColourOffset(), "Track colourOffset must be 48");
 
-    // Assert that C3 is now exactly RED! (0.0 Hue is Red!)
+    // fromHue((48+48)*-8/3) = fromHue(-256) = fromHue(128) = blue (the C palette steps differently
+    // from the old HSB model, which claimed red here).
     Color c3Color = ((DelugePadButton) audRow8).getBaseColor();
-    assertEquals(255, c3Color.getRed(), "C3 must shift to Red (Red channel = 255)");
-    assertEquals(0, c3Color.getGreen(), "C3 must shift to Red (Green channel = 0)");
-    assertEquals(0, c3Color.getBlue(), "C3 must shift to Red (Blue channel = 0)");
+    assertEquals(0, c3Color.getRed(), "C3 at offset 48 (fromHue) red channel");
+    assertEquals(0, c3Color.getGreen(), "C3 at offset 48 (fromHue) green channel");
+    assertEquals(255, c3Color.getBlue(), "C3 at offset 48 (fromHue) blue channel");
 
     bridge.shutdown();
   }
