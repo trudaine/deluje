@@ -3960,6 +3960,11 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                 pad.setMuted(isMuted);
                 pad.setScaleRoot(false);
                 pad.setScaleNote(false);
+                // The arranger's dim(3)/blur shading IS the final LED value from the C; don't let
+                // the pad's velocity-intensity (0.8) darken it again (double-dim -> near-black).
+                if (viewMode == GridViewMode.ARRANGEMENT) {
+                  pad.setIntensity(1.0f);
+                }
                 pad.setBeatMarker(
                     viewMode == GridViewMode.ARRANGEMENT && ((c + scrollOffsetX) % 4 == 0));
               } else {
