@@ -581,6 +581,16 @@ public class SwingDelugeApp extends JFrame {
 
     syncCoordinator.pushModelToBridge();
     propagateCurrentModel();
+    // Decide the initial view BEFORE syncHighFidelityEngine, which updates the OLED from
+    // activeViewMode. An arranged song boots into arranger, a single-track song into clip, else
+    // song view — matching hardware and giving the OLED the right context (song banner vs synth).
+    if (model.getTracks().size() == 1) {
+      activeViewMode = "CLIP";
+    } else if (!model.getArrangerTimeline().isEmpty()) {
+      activeViewMode = "ARR";
+    } else {
+      activeViewMode = "SONG";
+    }
     syncHighFidelityEngine(model);
 
     if (clipPanel != null) clipPanel.setProjectModel(model);
@@ -603,11 +613,13 @@ public class SwingDelugeApp extends JFrame {
     } else if (!model.getArrangerTimeline().isEmpty()) {
       // A song that has an arrangement opens in the arranger view on hardware (the Deluge boots
       // arranged songs into arranger, not session view), so match that.
+      activeViewMode = "ARR";
       if (cardLayout != null && centerCardPanel != null) {
         cardLayout.show(centerCardPanel, "ARR");
       }
       if (topBar != null) topBar.selectViewModeButton("ARR");
     } else {
+      activeViewMode = "SONG";
       if (cardLayout != null && centerCardPanel != null) {
         cardLayout.show(centerCardPanel, "SONG");
       }
@@ -953,8 +965,8 @@ public class SwingDelugeApp extends JFrame {
             middleText = "AUDIO";
             bottomInfo = "STEREO STREAM";
           }
-        } else if ("SONG".equals(activeViewMode)) {
-          // Match the Deluge song/home screen: song name, key + scale, BPM.
+        } else if ("SONG".equals(activeViewMode) || "ARR".equals(activeViewMode)) {
+          // Match the Deluge song/home + arranger screen: song name, key + scale, BPM.
           modeBanner =
               currentProjectFile != null
                   ? currentProjectFile.getName().replaceFirst("(?i)\\.xml$", "").toUpperCase()
