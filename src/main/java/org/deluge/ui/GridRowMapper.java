@@ -30,7 +30,8 @@ final class GridRowMapper {
       int scrollOffset,
       int visualRow,
       boolean editedTrackIsKit,
-      int kitDrumCount) {
+      int kitDrumCount,
+      int trackCount) {
     // A kit CLIP is a bottom-up piano-roll of its drums (display row 0 = last drum). This only
     // applies in CLIP view; in SONG/ARRANGEMENT the rows are tracks, not drums, so the flip must
     // not happen there. (The original getModelRow flipped for any view when a kit was edited, which
@@ -39,6 +40,12 @@ final class GridRowMapper {
     if (editedTrackIsKit && view == SwingGridPanel.GridViewMode.CLIP) {
       return kitDrumCount - 1 - (scrollOffset + visualRow);
     }
+    // NOTE: the Deluge session/arranger grids are bottom-up (last track at the TOP). Enabling that
+    // here is a one-line change — `return trackCount - 1 - (scrollOffset + visualRow)` for
+    // SONG/ARRANGEMENT — BUT the left track-name column still renders via a separate path that
+    // doesn't yet consume this mapper, so flipping here alone desyncs the labels from the pads.
+    // Deferred until that left-column path is routed through GridRowMapper too. trackCount is
+    // already threaded through for when it's enabled.
     return scrollOffset + visualRow;
   }
 }

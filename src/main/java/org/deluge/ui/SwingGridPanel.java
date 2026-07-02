@@ -1993,7 +1993,9 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
             ? (127 - getRowPitch(scrollOffset + visibleRow))
             : getModelRow(visibleRow);
     boolean isSongOrArr = (viewMode == GridViewMode.SONG || viewMode == GridViewMode.ARRANGEMENT);
-    boolean isUnusedTrackRow = isSongOrArr && (modelRow >= tracks.size());
+    // With the bottom-up SONG/ARR ordering, display rows above the tracks map to negative model
+    // rows; treat those (and rows past the track count) as empty slots.
+    boolean isUnusedTrackRow = isSongOrArr && (modelRow < 0 || modelRow >= tracks.size());
     String samplePathLoc = null;
     if (modelRow < tracks.size()) {
       org.deluge.model.TrackModel track = tracks.get(modelRow);
@@ -6372,7 +6374,9 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                 .getDrums()
                 .size()
             : 0;
-    return GridRowMapper.modelRow(viewMode, scrollOffset, visualRow, editedIsKit, kitDrumCount);
+    int trackCount = projectModel != null ? projectModel.getTracks().size() : 0;
+    return GridRowMapper.modelRow(
+        viewMode, scrollOffset, visualRow, editedIsKit, kitDrumCount, trackCount);
   }
 
   int getEngineRowOffset(int visualModelRow) {
