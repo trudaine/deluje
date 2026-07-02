@@ -3804,9 +3804,9 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
       }
     } else if (viewMode == GridViewMode.SONG || viewMode == GridViewMode.ARRANGEMENT) {
       for (int v = 0; v < gridMode.rows; v++) {
-        // Route through the shared mapper (was inline scrollOffset+v) so this pad grid, the left
-        // header (buildVoiceRow) and the clip labels all agree on the row order.
-        int modelRow = getModelRow(v);
+        // Bottom-up SONG/ARR order, shared with the row-header builder (songDisplayRows) so the pad
+        // recolour agrees with the left labels; -1 marks the empty rows above the tracks.
+        int modelRow = songRowIndex(v);
         if (modelRow >= 0 && modelRow < voiceRowCount) {
           int engineRow = baseTrackId + modelRow;
           boolean isMuted = bridge != null && bridge.getMute(engineRow);
@@ -4904,6 +4904,13 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
       voicePanel.setOpaque(true);
       voicePanel.setLayout(new BoxLayout(voicePanel, BoxLayout.Y_AXIS));
 
+      // Single source of SONG/ARR row order (bottom-up: last track at the top). The loop reads a
+      // GridRow per visual row instead of computing a track index, so labels, colours and pads all
+      // agree and empty rows are just null-track entries (no reversal math, no negative indexing).
+      final boolean songArr =
+          (viewMode == GridViewMode.SONG || viewMode == GridViewMode.ARRANGEMENT);
+      final java.util.List<GridRow> songRows = songArr ? songDisplayRows(songVoiceRows) : null;
+
       for (int t = 0; t < songVoiceRows + 2; t++) {
 
         JPanel rowPanel = new JPanel();
@@ -4915,13 +4922,26 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
         rowPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         rowPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        final int currentTrack = (t < songVoiceRows) ? (scrollOffset + t) : t;
-        if (t < songVoiceRows && currentTrack < tracks.size()) {
-          String hex = tracks.get(currentTrack).getColourHex();
+        // Resolve this display row from the ordered model (SONG/ARR) or the legacy top-down index.
+        final int currentTrack;
+        final org.deluge.model.TrackModel dispTrack;
+        if (songArr && t < songVoiceRows) {
+          GridRow gr = songRows.get(t);
+          dispTrack = gr.track(); // null when empty
+          // Keep the index NON-negative so the many "< tracks.size()" guards downstream skip empty
+          // rows exactly as before (empties map out-of-range, never to a negative index).
+          currentTrack = (dispTrack != null) ? gr.modelIndex() : (tracks.size() + t);
+        } else {
+          currentTrack = (t < songVoiceRows) ? (scrollOffset + t) : t;
+          dispTrack =
+              (currentTrack >= 0 && currentTrack < tracks.size()) ? tracks.get(currentTrack) : null;
+        }
+        if (dispTrack != null) {
+          String hex = dispTrack.getColourHex();
           if (hex != null && hex.startsWith("0x")) {
             try {
               int rgb = Integer.decode(hex.substring(0, 8)); // strip alpha if 8 chars
-              trackColors[currentTrack % trackColors.length] = new Color(rgb);
+              trackColors[Math.floorMod(currentTrack, trackColors.length)] = new Color(rgb);
             } catch (Exception e) {
               LOG.warning("Bad color hex for track " + currentTrack + ": " + e.getMessage());
             }
@@ -4945,10 +4965,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
             trackName = (t == 0) ? rowTrack.getName() : "-" + t + "st";
           }
         } else {
-          trackName =
-              (t < songVoiceRows && currentTrack < tracks.size())
-                  ? tracks.get(currentTrack).getName()
-                  : "EMPTY " + (currentTrack + 1);
+          trackName = (dispTrack != null) ? dispTrack.getName() : ("EMPTY " + (t + 1));
         }
         if (t == songVoiceRows) trackName = "MACROS";
         if (t == songVoiceRows + 1) trackName = "KEYBOARD";
@@ -5019,8 +5036,8 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
         rowPanel.add(label);
 
         // ⚙ config button and length badge for real tracks; blank spacer for all others
-        if (t < songVoiceRows && currentTrack < tracks.size()) {
-          org.deluge.model.TrackModel track = tracks.get(currentTrack);
+        if (t < songVoiceRows && dispTrack != null) {
+          org.deluge.model.TrackModel track = dispTrack;
 
           // Per-track ⚙ Configure now lives in the fixed inspector strip above the grid
           // (SwingDelugeApp.buildTrackInspectorStrip) so controls stay out of the scrolling
@@ -5201,10 +5218,10 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
           } else {
 
             if (null == viewMode) {
-              if (currentTrack < tracks.size() && c < tracks.get(currentTrack).getClips().size()) {
+              if (dispTrack != null && c < dispTrack.getClips().size()) {
                 clipBtn.setText(
                     "<html><center><font size='3'>"
-                        + tracks.get(currentTrack).getClips().get(c).getName()
+                        + dispTrack.getClips().get(c).getName()
                         + "</font></center></html>");
               } else {
                 clipBtn.setText("PAD " + (c + 1));
@@ -5252,11 +5269,13 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                             + (c + 1)
                             + "</font></center></html>");
                     if (clipBtn instanceof DelugePadButton pad) {
-                      pad.setBaseColor(trackColors[currentTrack % trackColors.length]);
+                      pad.setBaseColor(
+                          trackColors[Math.floorMod(currentTrack, trackColors.length)]);
                       pad.setIntensity(1.0f);
                       pad.setActive(true);
                     } else {
-                      clipBtn.setBackground(trackColors[currentTrack % trackColors.length]);
+                      clipBtn.setBackground(
+                          trackColors[Math.floorMod(currentTrack, trackColors.length)]);
                       clipBtn.setForeground(Color.BLACK);
                     }
                   } else {
@@ -5275,11 +5294,10 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                   }
                   break;
                 default:
-                  if (currentTrack < tracks.size()
-                      && c < tracks.get(currentTrack).getClips().size()) {
+                  if (dispTrack != null && c < dispTrack.getClips().size()) {
                     clipBtn.setText(
                         "<html><center><font size='3'>"
-                            + tracks.get(currentTrack).getClips().get(c).getName()
+                            + dispTrack.getClips().get(c).getName()
                             + "</font></center></html>");
                   } else {
                     clipBtn.setText("PAD " + (c + 1));
@@ -5289,9 +5307,8 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
           }
 
           boolean hasClip = false;
-          if (currentTrack < tracks.size()) {
-            org.deluge.model.TrackModel track = tracks.get(currentTrack);
-            if (c < track.getClips().size()) {
+          if (dispTrack != null) {
+            if (c < dispTrack.getClips().size()) {
               hasClip = true;
             }
           }
@@ -5522,10 +5539,10 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                 String sLaunch = tracks.get(currentTrack).getName();
                 clipBtn.setText(sLaunch);
                 clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
-                clipBtn.setBackground(trackColors[currentTrack % trackColors.length]);
+                clipBtn.setBackground(trackColors[Math.floorMod(currentTrack, trackColors.length)]);
                 clipBtn.setForeground(Color.BLACK);
                 if (clipBtn instanceof DelugePadButton pad) {
-                  pad.setBaseColor(trackColors[currentTrack % trackColors.length]);
+                  pad.setBaseColor(trackColors[Math.floorMod(currentTrack, trackColors.length)]);
                   pad.setTextColorOverride(Color.BLACK);
                   pad.setDrawCenterCircle(false);
                   pad.setIntensity(1.0f);
@@ -5730,9 +5747,10 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                   pad.setActive(true);
                 }
               } else if (currentClip == colId) {
-                clipBtn.setBackground(trackColors[currentTrack % trackColors.length]); // playing
+                clipBtn.setBackground(
+                    trackColors[Math.floorMod(currentTrack, trackColors.length)]); // playing
                 if (clipBtn instanceof DelugePadButton pad) {
-                  pad.setBaseColor(trackColors[currentTrack % trackColors.length]);
+                  pad.setBaseColor(trackColors[Math.floorMod(currentTrack, trackColors.length)]);
                   pad.setIntensity(1.0f);
                   pad.setActive(true);
                 }
@@ -6441,6 +6459,45 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     if (changed) {
       fireProjectChanged();
     }
+  }
+
+  /**
+   * One SONG/ARRANGEMENT display row, top-to-bottom. {@code track == null} marks an empty padding
+   * row; {@code modelIndex} is the real model/engine track index (-1 when empty).
+   */
+  private record GridRow(org.deluge.model.TrackModel track, int modelIndex, String label) {}
+
+  /**
+   * The SONG/ARRANGEMENT grid rows in DISPLAY order — the single source of row ordering. The Deluge
+   * session/arranger grid is bottom-up (session_view.cpp getClipOnScreen/renderRow: pad-row 0 is
+   * the BOTTOM), so the last track renders at the TOP. The renderer iterates this list by visual
+   * row and reads {@code track}/{@code modelIndex} directly — no per-site reversal arithmetic and
+   * no negative-index guards, since empty rows are simply null-track entries.
+   */
+  private java.util.List<GridRow> songDisplayRows(int rowCount) {
+    java.util.List<org.deluge.model.TrackModel> t =
+        projectModel != null ? projectModel.getTracks() : java.util.List.of();
+    java.util.List<GridRow> rows = new java.util.ArrayList<>(rowCount);
+    for (int v = 0; v < rowCount; v++) {
+      int idx = songRowIndex(v);
+      if (idx >= 0) {
+        rows.add(new GridRow(t.get(idx), idx, t.get(idx).getName()));
+      } else {
+        rows.add(new GridRow(null, -1, "EMPTY " + (v + 1)));
+      }
+    }
+    return rows;
+  }
+
+  /**
+   * Model/engine track index for a SONG/ARRANGEMENT display row (bottom-up: display row 0 = last
+   * track), or -1 for the empty rows above the tracks. The single ordering primitive shared by the
+   * row builder ({@link #songDisplayRows}) and the in-place pad recolour, so labels and pads agree.
+   */
+  private int songRowIndex(int visualRow) {
+    int n = projectModel != null ? projectModel.getTracks().size() : 0;
+    int idx = n - 1 - (scrollOffset + visualRow);
+    return (idx >= 0 && idx < n) ? idx : -1;
   }
 
   int getModelRow(int visualRow) {

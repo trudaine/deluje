@@ -1107,13 +1107,13 @@ public class SwingDelugeAppE2ETest {
 
       // 4. Verify that the last column (column 17, SOLO/TrackName column) shows correct
       // scroll-adjusted track names!
-      // Visual row 5 represents track (scrollOffset + 5) = 25 + 5 = 30. Track index 30 (the 31st
-      // track) is named "TRACK_31".
+      // The SONG grid is bottom-up (last track at the TOP): visual row v maps to track index
+      // (n-1) - (scrollOffset + v) = 30 - (25 + v). Visual row 5 -> track index 0 = "TRACK_1".
       javax.swing.JButton lastTrackSoloBtn = pads[5][17];
       assertEquals(
-          "TRACK_31",
+          "TRACK_1",
           lastTrackSoloBtn.getText(),
-          "Visual row 5 (track 31) solo button should show TRACK_31 name");
+          "Visual row 5 (bottom-up: track index 0) solo button should show TRACK_1 name");
 
       // 5. Verify that the Macro row (visual row 8) and Keyboard row (visual row 9) do NOT show
       // MUTE and SOLO buttons!
