@@ -90,6 +90,11 @@ public final class DelugeColour {
     return new Color(v, v, v);
   }
 
+  /** RGB::dim(level) — right-shift each channel by {@code level} (rgb.h:123). */
+  public static Color dim(Color c, int level) {
+    return new Color(c.getRed() >> level, c.getGreen() >> level, c.getBlue() >> level);
+  }
+
   /** session_view.cpp:1655 — the hue step the auto-assigned output colours rotate by. */
   public static final double COLOUR_STEP = 22.5882352941;
 

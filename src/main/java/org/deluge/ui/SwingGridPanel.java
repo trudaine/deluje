@@ -3917,16 +3917,31 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                     }
                   }
                 } else if (viewMode == GridViewMode.ARRANGEMENT) {
-                  // Deluge arranger: each clip instance is a bar laid across the timeline at its
-                  // start position for its length (arranger_view.cpp). Light column c when an
-                  // ArrangerClip placement on this track covers it (96 ticks per column), coloured
-                  // by the clip's SECTION (ClipInstance::getColour -> defaultClipSectionColours).
+                  // Deluge arranger clip-instance bar (arranger_view.cpp renderRow, ~2356): the
+                  // HEAD square (where the instance starts) is the full section colour; body squares
+                  // are dimmed, with a brighter marker at every clip loopLength boundary showing the
+                  // repeats: loop-start = colour.dim(3), mid-loop = colour.forBlur().dim(3).
+                  int col = c + scrollOffsetX;
                   org.deluge.model.ArrangerClip ac =
-                      arrangerController.getArrangerClipAt(modelRow, c + scrollOffsetX);
+                      arrangerController.getArrangerClipAt(modelRow, col);
                   hasClip = ac != null;
                   if (ac != null) {
                     int section = ac.clip() != null ? ac.clip().getSection() : -1;
-                    arrCellColour = DelugeColour.sectionColour(section);
+                    Color base = DelugeColour.sectionColour(section);
+                    boolean isHead = (ac.startTicks() / 96) == col;
+                    if (ac.clip() == null) {
+                      arrCellColour = DelugeColour.dim(base, 4); // arrangement-only preview
+                    } else if (isHead) {
+                      arrCellColour = base;
+                    } else {
+                      int loopLen = ac.clip().getLoopLength();
+                      int rel = col * 96 - ac.startTicks();
+                      boolean loopStart = loopLen > 0 && (rel % loopLen == 0);
+                      arrCellColour =
+                          loopStart
+                              ? DelugeColour.dim(base, 3)
+                              : DelugeColour.dim(DelugePadButton.getBlurColor(base), 3);
+                    }
                   }
                 } else if (c < track.getClips().size()) {
                   hasClip = true;
