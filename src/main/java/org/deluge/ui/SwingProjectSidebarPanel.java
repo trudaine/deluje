@@ -30,6 +30,11 @@ public class SwingProjectSidebarPanel extends JPanel {
    */
   private Runnable onLibraryDirChanged;
 
+  // Copy/Paste clipboard state
+  private java.io.File localClipboardFile = null;
+  private String remoteClipboardPath = null;
+  private boolean isRemoteSource = false;
+
   private DefaultMutableTreeNode libraryRoot;
   private JTree libraryTree;
   private JButton changeDirButton;
@@ -183,11 +188,66 @@ public class SwingProjectSidebarPanel extends JPanel {
     renderer.setBackgroundSelectionColor(new Color(0x00, 0xff, 0xcc, 0x33));
     libraryTree.setCellRenderer(renderer);
 
+    JPopupMenu localPopupMenu = new JPopupMenu();
+    localPopupMenu.setBackground(new Color(0x1a, 0x1a, 0x20));
+    localPopupMenu.setBorder(BorderFactory.createLineBorder(new Color(0x25, 0x25, 0x28)));
+
+    JMenuItem localCopyItem = new JMenuItem("📋 Copy");
+    localCopyItem.setForeground(Color.WHITE);
+    localPopupMenu.add(localCopyItem);
+
+    JMenuItem localPasteItem = new JMenuItem("📋 Paste");
+    localPasteItem.setForeground(Color.WHITE);
+    localPopupMenu.add(localPasteItem);
+
+    localCopyItem.addActionListener(
+        ev -> {
+          javax.swing.tree.TreePath path = libraryTree.getSelectionPath();
+          if (path != null) {
+            File file = getLocalFileForPath(path);
+            if (file != null && file.isFile()) {
+              localClipboardFile = file;
+              remoteClipboardPath = null;
+              isRemoteSource = false;
+            }
+          }
+        });
+
+    localPasteItem.addActionListener(
+        ev -> {
+          javax.swing.tree.TreePath path = libraryTree.getSelectionPath();
+          if (path != null) {
+            File targetDir = getLocalFileForPath(path);
+            if (targetDir != null && targetDir.isDirectory() && isRemoteSource && remoteClipboardPath != null) {
+              int lastSlash = remoteClipboardPath.lastIndexOf('/');
+              String name = lastSlash != -1 ? remoteClipboardPath.substring(lastSlash + 1) : "downloaded.XML";
+              File destFile = new File(targetDir, name);
+              downloadRemoteFileToLocal(remoteClipboardPath, destFile);
+            }
+          }
+        });
+
     libraryTree.addMouseListener(
         new java.awt.event.MouseAdapter() {
+          private void handlePopup(java.awt.event.MouseEvent e) {
+            if (e.isPopupTrigger()) {
+              javax.swing.tree.TreePath path = libraryTree.getPathForLocation(e.getX(), e.getY());
+              if (path != null) {
+                libraryTree.setSelectionPath(path);
+                File file = getLocalFileForPath(path);
+                if (file != null) {
+                  localCopyItem.setEnabled(file.isFile());
+                  localPasteItem.setEnabled(file.isDirectory() && isRemoteSource && remoteClipboardPath != null);
+                  localPopupMenu.show(libraryTree, e.getX(), e.getY());
+                }
+              }
+            }
+          }
+
           @Override
           public void mousePressed(java.awt.event.MouseEvent e) {
-            if (e.getClickCount() == 2) {
+            handlePopup(e);
+            if (e.getClickCount() == 2 && javax.swing.SwingUtilities.isLeftMouseButton(e)) {
               javax.swing.tree.TreePath path = libraryTree.getSelectionPath();
               if (path != null) {
                 javax.swing.tree.DefaultMutableTreeNode node =
@@ -385,6 +445,11 @@ public class SwingProjectSidebarPanel extends JPanel {
                 }
               }
             }
+          }
+
+          @Override
+          public void mouseReleased(java.awt.event.MouseEvent e) {
+            handlePopup(e);
           }
         });
 
@@ -615,6 +680,65 @@ public class SwingProjectSidebarPanel extends JPanel {
     deleteItem.setForeground(Color.WHITE);
     deleteItem.addActionListener(e -> triggerDelete());
     popupMenu.add(deleteItem);
+
+    JMenuItem copyItem = new JMenuItem("📋 Copy");
+    copyItem.setForeground(Color.WHITE);
+    copyItem.addActionListener(
+        e -> {
+          int row = remoteTable.getSelectedRow();
+          if (row >= 0 && row < currentRemoteEntries.size()) {
+            org.deluge.midi.RemoteFileEntry entry = currentRemoteEntries.get(row);
+            if (!entry.isDirectory()) {
+              remoteClipboardPath =
+                  "/".equals(currentRemotePath)
+                      ? "/" + entry.name()
+                      : currentRemotePath + "/" + entry.name();
+              isRemoteSource = true;
+              localClipboardFile = null;
+            }
+          }
+        });
+    popupMenu.add(copyItem);
+
+    JMenuItem pasteItem = new JMenuItem("📋 Paste");
+    pasteItem.setForeground(Color.WHITE);
+    pasteItem.addActionListener(
+        e -> {
+          if (isRemoteSource && remoteClipboardPath != null) {
+            int slash = remoteClipboardPath.lastIndexOf('/');
+            String name = slash != -1 ? remoteClipboardPath.substring(slash + 1) : "copy.XML";
+            String to = "/".equals(currentRemotePath) ? "/" + name : currentRemotePath + "/" + name;
+            if (to.equalsIgnoreCase(remoteClipboardPath)) {
+              int extIdx = to.lastIndexOf('.');
+              if (extIdx != -1) {
+                to = to.substring(0, extIdx) + "_copy" + to.substring(extIdx);
+              } else {
+                to = to + "_copy";
+              }
+            }
+            copyRemoteFileToRemote(remoteClipboardPath, to);
+          } else if (!isRemoteSource && localClipboardFile != null) {
+            uploadLocalFileToRemote(localClipboardFile, currentRemotePath);
+          }
+        });
+    popupMenu.add(pasteItem);
+
+    popupMenu.addPopupMenuListener(
+        new javax.swing.event.PopupMenuListener() {
+          @Override
+          public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent ev) {
+            boolean hasSelection = remoteTable.getSelectedRow() != -1;
+            downloadItem.setEnabled(hasSelection);
+            renameItem.setEnabled(hasSelection);
+            deleteItem.setEnabled(hasSelection);
+            copyItem.setEnabled(hasSelection);
+
+            boolean canPaste = (localClipboardFile != null) || (remoteClipboardPath != null);
+            pasteItem.setEnabled(canPaste);
+          }
+          @Override public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent ev) {}
+          @Override public void popupMenuCanceled(javax.swing.event.PopupMenuEvent ev) {}
+        });
 
     // Bind popup menu
     remoteTable.setComponentPopupMenu(popupMenu);
@@ -1199,5 +1323,250 @@ public class SwingProjectSidebarPanel extends JPanel {
     if (millis <= 0) return "---";
     java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm");
     return sdf.format(new java.util.Date(millis));
+  }
+
+  // ── Copy/Paste Helpers ──
+
+  private File getLocalFileForPath(javax.swing.tree.TreePath path) {
+    if (path == null || path.getPathCount() < 2) return null;
+    String category = path.getPathComponent(1).toString();
+    File baseDir;
+    switch (category) {
+      case "KITS": baseDir = PreferencesManager.getKitsDir(); break;
+      case "SYNTHS": baseDir = PreferencesManager.getSynthsDir(); break;
+      case "SONGS": baseDir = PreferencesManager.getSongsDir(); break;
+      case "MIDI_DEVICES": baseDir = PreferencesManager.getMidiDevicesDir(); break;
+      case "PATTERNS": baseDir = PreferencesManager.getPatternsDir(); break;
+      case "EXAMPLES": baseDir = new File(PreferencesManager.getLibraryDir(), "EXAMPLES"); break;
+      default: baseDir = null;
+    }
+    if (baseDir == null) return null;
+
+    StringBuilder relBuilder = new StringBuilder();
+    for (int i = 2; i < path.getPathCount(); i++) {
+      if (i > 2) relBuilder.append(File.separator);
+      relBuilder.append(path.getPathComponent(i).toString());
+    }
+    String relPath = relBuilder.toString();
+
+    // Check if it's a directory
+    File directDir = new File(baseDir, relPath);
+    if (directDir.isDirectory()) {
+      return directDir;
+    }
+
+    String[] tryExts = {".XML", ".xml", ".ck"};
+    for (String ext : tryExts) {
+      File candidate = new File(baseDir, relPath + ext);
+      if (candidate.isFile()) {
+        return candidate;
+      }
+    }
+    return directDir; // fallback
+  }
+
+  private void downloadRemoteFileToLocal(String remotePath, File destFile) {
+    if (SwingDelugeApp.mainInstance == null) return;
+    var fileSync = SwingDelugeApp.mainInstance.getMidiService().getFileSyncService();
+    if (fileSync.isTransferActive()) {
+      JOptionPane.showMessageDialog(
+          this, "A file transfer is already active.", "Warning", JOptionPane.WARNING_MESSAGE);
+      return;
+    }
+
+    String name = destFile.getName();
+
+    JDialog progress = new JDialog(SwingDelugeApp.mainInstance, "Downloading", true);
+    progress.setLayout(new BorderLayout(0, 8));
+    ((JComponent) progress.getContentPane())
+        .setBorder(BorderFactory.createEmptyBorder(14, 18, 14, 18));
+
+    JLabel statusLbl = new JLabel("Downloading " + name + " from Deluge…");
+    statusLbl.setFont(new Font("SansSerif", Font.BOLD, 12));
+    progress.add(statusLbl, BorderLayout.NORTH);
+
+    JProgressBar bar = new JProgressBar(0, 100);
+    bar.setIndeterminate(true);
+    bar.setStringPainted(true);
+    bar.setString("Connecting…");
+    bar.setPreferredSize(new Dimension(360, 22));
+    progress.add(bar, BorderLayout.CENTER);
+
+    JLabel destLbl = new JLabel("Saving to: " + destFile.getAbsolutePath());
+    destLbl.setFont(new Font("SansSerif", Font.PLAIN, 10));
+    destLbl.setForeground(new Color(0x88, 0x88, 0x90));
+    progress.add(destLbl, BorderLayout.SOUTH);
+
+    progress.pack();
+    progress.setLocationRelativeTo(SwingDelugeApp.mainInstance);
+
+    var progressCb =
+        (org.deluge.midi.DelugeFileSyncService.ProgressCallback)
+            (done, total) ->
+                SwingUtilities.invokeLater(
+                    () -> {
+                      if (total > 0) {
+                        bar.setIndeterminate(false);
+                        int pct = (int) Math.min(100, (done * 100L) / total);
+                        bar.setValue(pct);
+                        bar.setString(String.format("%d%%  (%,d / %,d bytes)", pct, done, total));
+                      }
+                    });
+
+    fileSync.downloadFileAsync(
+        remotePath,
+        new org.deluge.midi.DelugeFileSyncService.FileDownloadCallback() {
+          @Override
+          public void onSuccess(byte[] content) {
+            try {
+              destFile.getParentFile().mkdirs();
+              java.nio.file.Files.write(destFile.toPath(), content);
+              SwingUtilities.invokeLater(
+                  () -> {
+                    progress.dispose();
+                    reloadLibrary();
+                    JOptionPane.showMessageDialog(
+                        SwingProjectSidebarPanel.this,
+                        "File downloaded successfully!",
+                        "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
+                  });
+            } catch (Exception saveEx) {
+              saveEx.printStackTrace();
+              SwingUtilities.invokeLater(
+                  () -> {
+                    progress.dispose();
+                    JOptionPane.showMessageDialog(
+                        SwingProjectSidebarPanel.this,
+                        "Failed to save downloaded file:\n" + saveEx.getMessage(),
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+                  });
+            }
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            t.printStackTrace();
+            SwingUtilities.invokeLater(
+                () -> {
+                  progress.dispose();
+                  JOptionPane.showMessageDialog(
+                      SwingProjectSidebarPanel.this,
+                      "Failed to download remote file:\n" + t.getMessage(),
+                      "Error",
+                      JOptionPane.ERROR_MESSAGE);
+                });
+          }
+        },
+        progressCb);
+
+    progress.setVisible(true);
+  }
+
+  private void uploadLocalFileToRemote(File localFile, String remotePath) {
+    if (SwingDelugeApp.mainInstance == null) return;
+    var fileSync = SwingDelugeApp.mainInstance.getMidiService().getFileSyncService();
+    if (fileSync.isTransferActive()) {
+      JOptionPane.showMessageDialog(
+          this, "A file transfer is already active.", "Warning", JOptionPane.WARNING_MESSAGE);
+      return;
+    }
+    try {
+      byte[] content = java.nio.file.Files.readAllBytes(localFile.toPath());
+      String remoteFilePath =
+          "/".equals(remotePath)
+              ? "/" + localFile.getName()
+              : remotePath + "/" + localFile.getName();
+
+      transferProgressBar.setVisible(true);
+      transferProgressBar.setIndeterminate(true);
+      transferProgressBar.setString("Uploading " + localFile.getName() + "...");
+
+      fileSync.uploadFileAsync(
+          remoteFilePath,
+          content,
+          new org.deluge.midi.DelugeFileSyncService.FileUploadCallback() {
+            @Override
+            public void onSuccess() {
+              SwingUtilities.invokeLater(
+                  () -> {
+                    transferProgressBar.setVisible(false);
+                    loadRemoteFolder(currentRemotePath);
+                    JOptionPane.showMessageDialog(
+                        SwingProjectSidebarPanel.this,
+                        "File uploaded successfully!",
+                        "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
+                  });
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+              SwingUtilities.invokeLater(
+                  () -> {
+                    transferProgressBar.setVisible(false);
+                    JOptionPane.showMessageDialog(
+                        SwingProjectSidebarPanel.this,
+                        "Upload failed: " + t.getMessage(),
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+                  });
+            }
+          });
+    } catch (Exception ex) {
+      JOptionPane.showMessageDialog(
+          this,
+          "Failed to read local file: " + ex.getMessage(),
+          "Error",
+          JOptionPane.ERROR_MESSAGE);
+    }
+  }
+
+  private void copyRemoteFileToRemote(String fromPath, String toPath) {
+    if (SwingDelugeApp.mainInstance == null) return;
+    var fileSync = SwingDelugeApp.mainInstance.getMidiService().getFileSyncService();
+    if (fileSync.isTransferActive()) {
+      JOptionPane.showMessageDialog(
+          this, "A file transfer is already active.", "Warning", JOptionPane.WARNING_MESSAGE);
+      return;
+    }
+
+    transferProgressBar.setVisible(true);
+    transferProgressBar.setIndeterminate(true);
+    transferProgressBar.setString("Copying " + fromPath + " to " + toPath + "...");
+
+    fileSync.copyAsync(
+        fromPath,
+        toPath,
+        System.currentTimeMillis(),
+        new org.deluge.midi.DelugeFileSyncService.FileOpCallback() {
+          @Override
+          public void onSuccess() {
+            SwingUtilities.invokeLater(
+                () -> {
+                  transferProgressBar.setVisible(false);
+                  loadRemoteFolder(currentRemotePath);
+                  JOptionPane.showMessageDialog(
+                      SwingProjectSidebarPanel.this,
+                      "File copied successfully!",
+                      "Success",
+                      JOptionPane.INFORMATION_MESSAGE);
+                });
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            SwingUtilities.invokeLater(
+                () -> {
+                  transferProgressBar.setVisible(false);
+                  JOptionPane.showMessageDialog(
+                      SwingProjectSidebarPanel.this,
+                      "Copy failed: " + t.getMessage(),
+                      "Error",
+                      JOptionPane.ERROR_MESSAGE);
+                });
+          }
+        });
   }
 }
