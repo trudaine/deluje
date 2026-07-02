@@ -3814,20 +3814,30 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                 pad.setNoteText(isMuted ? "UNMUTE" : "MUTE");
               }
             } else if (isSoloColumn(c)) {
+              // Deluge col-18 is the SECTION pad: defaultClipSectionColours[clip->section], black
+              // when the row has no clip (session_view.cpp drawSectionSquare). We keep Java's name
+              // label on top for readability but colour the pad by section to match hardware.
               Color labelBg;
               Color labelFg;
+              boolean rowHasClip =
+                  modelRow >= 0
+                      && modelRow < tracks.size()
+                      && !tracks.get(modelRow).getClips().isEmpty();
               if (soloRow == modelRow) {
                 labelBg = Color.GREEN;
                 labelFg = Color.BLACK;
-              } else if (modelRow == 0) {
-                labelBg = new Color(0xff, 0xb3, 0x00);
-                labelFg = Color.BLACK;
-              } else if (modelRow == voiceRowCount - 1) {
-                labelBg = new Color(0x7b, 0x68, 0xee);
-                labelFg = Color.WHITE;
+              } else if (rowHasClip) {
+                labelBg =
+                    DelugeColour.sectionColour(tracks.get(modelRow).getClips().get(0).getSection());
+                double b =
+                    (0.299 * labelBg.getRed()
+                            + 0.587 * labelBg.getGreen()
+                            + 0.114 * labelBg.getBlue())
+                        / 255.0;
+                labelFg = b > 0.5 ? Color.BLACK : Color.WHITE;
               } else {
-                labelBg = new Color(0x55, 0x55, 0x5a);
-                labelFg = Color.WHITE;
+                labelBg = Color.BLACK;
+                labelFg = Color.GRAY;
               }
               clipBtn.setBackground(labelBg);
               clipBtn.setForeground(labelFg);
