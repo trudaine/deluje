@@ -3928,14 +3928,17 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                   if (ac != null) {
                     int section = ac.clip() != null ? ac.clip().getSection() : -1;
                     Color base = DelugeColour.sectionColour(section);
-                    boolean isHead = (ac.startTicks() / 96) == col;
+                    int colTick = arrangerController.arrangerTickForColumn(col);
+                    int colTicks = arrangerController.arrangerTicksPerColumn();
+                    boolean isHead =
+                        ac.startTicks() >= colTick && ac.startTicks() < colTick + colTicks;
                     if (ac.clip() == null) {
                       arrCellColour = DelugeColour.dim(base, 4); // arrangement-only preview
                     } else if (isHead) {
                       arrCellColour = base;
                     } else {
                       int loopLen = ac.clip().getLoopLength();
-                      int rel = col * 96 - ac.startTicks();
+                      int rel = colTick - ac.startTicks();
                       boolean loopStart = loopLen > 0 && (rel % loopLen == 0);
                       arrCellColour =
                           loopStart

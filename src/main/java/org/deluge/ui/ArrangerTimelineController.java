@@ -44,11 +44,25 @@ public class ArrangerTimelineController {
     return parent.getProjectModel();
   }
 
-  /** Finds the arranger clip placement at the specified track and column (96 ticks per column). */
+  /** Ticks represented by one arranger column = the song's stored arrangement zoom (xZoom). */
+  public int arrangerTicksPerColumn() {
+    ProjectModel projectModel = getProjectModel();
+    int zoom = projectModel != null ? projectModel.getXZoomArrangementView() : 0;
+    return zoom > 0 ? zoom : 96;
+  }
+
+  /** Absolute tick position of the left edge of arranger column {@code col} (incl. horizontal scroll). */
+  public int arrangerTickForColumn(int col) {
+    ProjectModel projectModel = getProjectModel();
+    int scroll = projectModel != null ? projectModel.getXScrollArrangementView() : 0;
+    return col * arrangerTicksPerColumn() + scroll;
+  }
+
+  /** Finds the arranger clip placement at the specified track and column (song arrangement zoom). */
   public ArrangerClip getArrangerClipAt(int trackIndex, int col) {
     ProjectModel projectModel = getProjectModel();
     if (projectModel == null) return null;
-    int queryTicks = col * 96;
+    int queryTicks = arrangerTickForColumn(col);
     for (ArrangerClip placement : projectModel.getArrangerTimeline()) {
       if (placement.trackIndex() == trackIndex) {
         if (queryTicks >= placement.startTicks()
