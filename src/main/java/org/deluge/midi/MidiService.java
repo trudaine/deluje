@@ -251,17 +251,6 @@ public class MidiService {
                                     == (byte) 0xF7);
                         if (isEnd) {
                           accumulatingSysex = false;
-                          System.out.println(
-                              "[MidiService] Reassembled complete SysEx message, length="
-                                  + currentAccumulated.length
-                                  + (currentAccumulated.length > 4
-                                      ? String.format(
-                                          ", header=0x%02X 0x%02X 0x%02X 0x%02X",
-                                          currentAccumulated[1],
-                                          currentAccumulated[2],
-                                          currentAccumulated[3],
-                                          currentAccumulated[4])
-                                      : ""));
                           if (sysExManager.handleIncomingSysEx(currentAccumulated)) {
                             continue;
                           }
@@ -427,10 +416,7 @@ public class MidiService {
           String paramName = key.substring(prefix.length());
           float normalizedVal = val / 127.0f;
           bridge.setGlobalFloat(paramName, normalizedVal);
-          if (bridge.getLogLevel() >= 2) {
-            System.out.println(
-                "MIDI: Updated " + paramName + " to " + normalizedVal + " via " + portName);
-          }
+          if (bridge.getLogLevel() >= 2) {}
         }
       }
     }
@@ -463,10 +449,7 @@ public class MidiService {
       }
     }
 
-    if (bridge.getLogLevel() >= 2) {
-      System.out.println(
-          "MIDI: Pitch Bend track=" + track + " ch=" + msg.channel() + " value=" + bend);
-    }
+    if (bridge.getLogLevel() >= 2) {}
   }
 
   /** Called by engine when a Channel Aftertouch is received. */
@@ -491,10 +474,7 @@ public class MidiService {
       }
     }
 
-    if (bridge.getLogLevel() >= 2) {
-      System.out.println(
-          "MIDI: Aftertouch track=" + track + " ch=" + msg.channel() + " value=" + pressure);
-    }
+    if (bridge.getLogLevel() >= 2) {}
   }
 
   /** Called by engine for System Real-Time messages (clock, start, stop). */
