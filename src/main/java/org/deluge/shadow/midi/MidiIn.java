@@ -16,6 +16,13 @@ public class MidiIn {
 
   private RtMidiIn rt;
 
+  // Reusable receive buffer. Sized to the RtMidi ring capacity so a single large SysEx (e.g. a
+  // Deluge directory listing, ~1.5 KB, or file transfers) fits. We MUST read into a big buffer via
+  // getMessage(byte[], double[]) rather than the no-arg getMessage(), which uses a fixed 1024-byte
+  // scratch array and throws ArrayIndexOutOfBounds on any message larger than 1 KB (rtmidijava bug).
+  private final byte[] rxBuf = new byte[65536];
+  private final double[] rxTimestamp = new double[1];
+
   /** Live input port names from RtMidi, e.g. {@code "Deluge:Deluge MIDI 1"}. */
   public static String[] getPortNames() {
     RtMidiIn probe = null;
@@ -78,10 +85,11 @@ public class MidiIn {
       return false;
     }
     try {
-      byte[] data = rt.getMessage();
-      if (data == null || data.length == 0) {
+      int len = rt.getMessage(rxBuf, rxTimestamp);
+      if (len <= 0) {
         return false;
       }
+      byte[] data = java.util.Arrays.copyOf(rxBuf, len);
       msg.data = data;
       msg.data1 = data[0] & 0xFF; // status byte
       msg.status = msg.data1;
