@@ -85,20 +85,11 @@ public class PureFirmwareEngine {
 
     long play = bridge.getGlobalInt(BridgeContract.G_PLAY);
     if (play != lastPlayStateVal) {
-      System.out.println(
-          "[DIAG syncThread] G_PLAY transitioned from "
-              + lastPlayStateVal
-              + " to "
-              + play
-              + " (playbackHandler.isPlaying()="
-              + playbackHandler.isPlaying()
-              + ")");
       lastPlayStateVal = play;
     }
 
     if (play == 1L) {
       if (!playbackHandler.isPlaying()) {
-        System.out.println("[DIAG syncThread] Calling playbackHandler.start()");
         playbackHandler.start();
       }
       int stepTicks = 24;
@@ -110,7 +101,6 @@ public class PureFirmwareEngine {
       bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, (long) currentStep);
     } else {
       if (playbackHandler.isPlaying()) {
-        System.out.println("[DIAG syncThread] Calling playbackHandler.stop()");
         playbackHandler.stop();
         for (var sound : audioEngine.sounds) {
           if (sound instanceof org.deluge.engine.FirmwareSound fs) {
@@ -205,49 +195,7 @@ public class PureFirmwareEngine {
         org.deluge.model.ClipModel clip = project.getTracks().get(t).getActiveClip();
         boolean isMuted = bridge.getMute(t);
         if (clip != null && clip.getSound() instanceof org.deluge.engine.FirmwareSound fs) {
-          if (System.currentTimeMillis() % 1000 < 50) {
-            System.out.println(
-                "[SYNC-LOOP] Track "
-                    + t
-                    + ": clip=non-null"
-                    + " sound="
-                    + fs.getClass().getName()
-                    + " bridge.getMute="
-                    + isMuted
-                    + " fs.muted="
-                    + fs.muted
-                    + " fsHash="
-                    + System.identityHashCode(fs)
-                    + " bridgeHash="
-                    + System.identityHashCode(bridge));
-          }
-          if (fs.muted != isMuted) {
-            System.out.println(
-                "[SYNC-DEBUG] Track "
-                    + t
-                    + " mute state changing to: "
-                    + isMuted
-                    + " (fs="
-                    + System.identityHashCode(fs)
-                    + ")");
-          }
           fs.muted = isMuted;
-        } else {
-          if (System.currentTimeMillis() % 1000 < 50) {
-            System.out.println(
-                "[SYNC-LOOP] Track "
-                    + t
-                    + ": clip="
-                    + (clip == null ? "null" : "non-null")
-                    + " sound="
-                    + (clip == null || clip.getSound() == null
-                        ? "null"
-                        : clip.getSound().getClass().getName())
-                    + " bridge.getMute="
-                    + isMuted
-                    + " bridgeHash="
-                    + System.identityHashCode(bridge));
-          }
         }
       }
     }

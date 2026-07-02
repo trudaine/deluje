@@ -316,17 +316,7 @@ public class VoiceSample {
       return;
     }
     if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry
-        && (reader.playPos == 0 || Math.random() < 0.001)) {
-      System.out.println(
-          "[DIAG VoiceSample] render active: sample="
-              + (reader.sample != null ? "present" : "null")
-              + " playPos="
-              + reader.playPos
-              + " endFrame="
-              + endFrame
-              + " looping="
-              + looping);
-    }
+        && (reader.playPos == 0 || Math.random() < 0.001)) {}
     boolean native_ = (phaseIncrement == K_MAX_SAMPLE_VALUE);
     int ampVal = Functions.lshiftAndSaturate(amplitude[0], 3);
     int ampInc = Functions.lshiftAndSaturate(amplitudeIncrement, 3);

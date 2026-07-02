@@ -2121,7 +2121,8 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
       String hex = t.getColourHex();
       if (hex != null && hex.startsWith("0x")) {
         try {
-          trackColors[modelRow % trackColors.length] = new Color(Integer.decode(hex.substring(0, 8)));
+          trackColors[modelRow % trackColors.length] =
+              new Color(Integer.decode(hex.substring(0, 8)));
         } catch (Exception e) {
           LOG.warning("Bad color hex for track " + modelRow + ": " + e.getMessage());
         }
@@ -3904,7 +3905,8 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                 if (viewMode == GridViewMode.SONG && !track.getClips().isEmpty()) {
                   // Deluge session view draws the clip's step PATTERN across the row
                   // (renderAsSingleRow): light column c if the clip has a note at that step in ANY
-                  // note row, in the clip's colour — so an active clip fills many cells, not just one.
+                  // note row, in the clip's colour — so an active clip fills many cells, not just
+                  // one.
                   org.deluge.model.ClipModel clip = track.getClips().get(0);
                   int step = c + scrollOffsetX;
                   if (step < clip.getStepCount()) {
@@ -3918,8 +3920,10 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                   }
                 } else if (viewMode == GridViewMode.ARRANGEMENT) {
                   // Deluge arranger clip-instance bar (arranger_view.cpp renderRow, ~2356): the
-                  // HEAD square (where the instance starts) is the full section colour; body squares
-                  // are dimmed, with a brighter marker at every clip loopLength boundary showing the
+                  // HEAD square (where the instance starts) is the full section colour; body
+                  // squares
+                  // are dimmed, with a brighter marker at every clip loopLength boundary showing
+                  // the
                   // repeats: loop-start = colour.dim(3), mid-loop = colour.forBlur().dim(3).
                   int col = c + scrollOffsetX;
                   org.deluge.model.ArrangerClip ac =
@@ -6728,7 +6732,8 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
       }
       if (isPitched) {
         // Faithful to InstrumentClip::getMainColourFromY (instrument_clip.cpp:1235):
-        // RGB::fromHue((yNote + colourOffset + noteRowColourOffset) * -8/3). The Deluge uses its own
+        // RGB::fromHue((yNote + colourOffset + noteRowColourOffset) * -8/3). The Deluge uses its
+        // own
         // sine-based fromHue palette per pitch, NOT an HSB hue-shift of the track colour (a Java
         // invention). Per-note-row colourOffset is not tracked per row here (0 on fresh rows).
         int pitchMidi = getRowPitch(modelRow);

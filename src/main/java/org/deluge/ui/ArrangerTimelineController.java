@@ -51,14 +51,19 @@ public class ArrangerTimelineController {
     return zoom > 0 ? zoom : 96;
   }
 
-  /** Absolute tick position of the left edge of arranger column {@code col} (incl. horizontal scroll). */
+  /**
+   * Absolute tick position of the left edge of arranger column {@code col} (incl. horizontal
+   * scroll).
+   */
   public int arrangerTickForColumn(int col) {
     ProjectModel projectModel = getProjectModel();
     int scroll = projectModel != null ? projectModel.getXScrollArrangementView() : 0;
     return col * arrangerTicksPerColumn() + scroll;
   }
 
-  /** Finds the arranger clip placement at the specified track and column (song arrangement zoom). */
+  /**
+   * Finds the arranger clip placement at the specified track and column (song arrangement zoom).
+   */
   public ArrangerClip getArrangerClipAt(int trackIndex, int col) {
     ProjectModel projectModel = getProjectModel();
     if (projectModel == null) return null;

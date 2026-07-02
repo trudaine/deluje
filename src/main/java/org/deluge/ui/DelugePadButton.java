@@ -517,7 +517,8 @@ public class DelugePadButton extends JButton {
   }
 
   public static Color getBlurColor(Color base) {
-    // Faithful to RGB::forBlur (rgb.h:96): averageBrightness = r*5 + g*9 + b*9; each channel becomes
+    // Faithful to RGB::forBlur (rgb.h:96): averageBrightness = r*5 + g*9 + b*9; each channel
+    // becomes
     // (channel*5 + averageBrightness) >> 5. (The previous impl pre-divided avg by 32 and used a
     // 3:5 blend, which diverged from the firmware.)
     int r = base.getRed();

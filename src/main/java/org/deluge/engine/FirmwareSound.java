@@ -240,51 +240,19 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   private final int[] voiceMonoBuffer = new int[128];
 
   public void triggerNote(int note, int vel) {
-    if (FirmwareAudioEngine.debugTelemetry) {
-      System.out.println(
-          "[DIAG FirmwareSound] triggerNote: note="
-              + note
-              + " vel="
-              + vel
-              + " sound="
-              + this.hashCode()
-              + " sample="
-              + (samples[0] != null ? samples[0].fileName : "null"));
-    }
+    if (FirmwareAudioEngine.debugTelemetry) {}
     syncParamsToFw2();
     fw2Sound.triggerNote(note, vel);
   }
 
   public void triggerNote(int note, int vel, int midiChannel) {
-    if (FirmwareAudioEngine.debugTelemetry) {
-      System.out.println(
-          "[DIAG FirmwareSound] triggerNote: note="
-              + note
-              + " vel="
-              + vel
-              + " chan="
-              + midiChannel
-              + " sound="
-              + this.hashCode());
-    }
+    if (FirmwareAudioEngine.debugTelemetry) {}
     syncParamsToFw2();
     fw2Sound.triggerNote(note, vel, midiChannel);
   }
 
   public void triggerNoteLate(int note, int vel, int samplesLate) {
-    if (FirmwareAudioEngine.debugTelemetry) {
-      System.out.println(
-          "[DIAG FirmwareSound] triggerNoteLate: note="
-              + note
-              + " vel="
-              + vel
-              + " late="
-              + samplesLate
-              + " sound="
-              + this.hashCode()
-              + " sample="
-              + (samples[0] != null ? samples[0].fileName : "null"));
-    }
+    if (FirmwareAudioEngine.debugTelemetry) {}
     syncParamsToFw2();
     fw2Sound.triggerNoteLate(note, vel, samplesLate);
   }

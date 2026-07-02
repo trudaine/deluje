@@ -929,17 +929,7 @@ public class Sound extends GlobalEffectable {
     if (muted) {
       return;
     }
-    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {
-      System.out.println(
-          "[DIAG Sound] triggerVoiceInternal: note="
-              + note
-              + " vel="
-              + vel
-              + " sound="
-              + this.hashCode()
-              + " sample[0]="
-              + (samples[0] != null ? "present" : "null"));
-    }
+    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry) {}
     synchronized (voices) {
       setupUnisonDetuners();
       setupUnisonStereoSpread();

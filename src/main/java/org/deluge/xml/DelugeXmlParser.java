@@ -243,13 +243,6 @@ public class DelugeXmlParser {
     }
 
     if (!es.isEmpty()) {
-      System.out.println(
-          "PARSER: Drum "
-              + sound.getName()
-              + " zone endSamplePos string: \""
-              + es
-              + "\" parsed: "
-              + Integer.parseInt(es));
       sound.setEndSamplePos(Integer.parseInt(es));
     }
     if (!ss.isEmpty()) sound.setStartSamplePos(Integer.parseInt(ss));
@@ -510,7 +503,6 @@ public class DelugeXmlParser {
           if ("kit".equals(tagName)) {
             KitTrackModel kit = parseKitElement(childNode);
             project.addTrack(kit);
-            System.out.println("PARSER: Loaded kit track " + kit.getName());
           } else if ("sound".equals(tagName)) {
             instrumentSoundNodes.add(childNode);
             boolean hasMidiChannel = childNode.getElementsByTagName("midiChannel").getLength() > 0;
@@ -526,16 +518,13 @@ public class DelugeXmlParser {
             if (isMidi) {
               MidiTrackModel midiTrack = parseMidiElement(childNode);
               project.addTrack(midiTrack);
-              System.out.println("PARSER: Loaded midi track " + midiTrack.getName());
             } else {
               SynthTrackModel synth = parseSynthElement(childNode);
               project.addTrack(synth);
-              System.out.println("PARSER: Loaded synth track " + synth.getName());
             }
           } else if ("audioTrack".equals(tagName)) {
             AudioTrackModel audioTrack = parseAudioTrackElement(childNode);
             project.addTrack(audioTrack);
-            System.out.println("PARSER: Loaded audio track " + audioTrack.getName());
           }
           // Carry the instrument's stored colour (0-191, or absent) onto the track it just created,
           // so the session/song view colours it via the Deluge palette. Without this the track kept
@@ -555,8 +544,6 @@ public class DelugeXmlParser {
     if (tracksNodes.getLength() > 0) {
       Element tracks = (Element) tracksNodes.item(0);
       NodeList trackList = tracks.getElementsByTagName("track");
-
-      System.out.println("PARSER: Found " + trackList.getLength() + " tracks in XML");
 
       for (int i = 0; i < trackList.getLength(); i++) {
         Element trackElem = (Element) trackList.item(i);
@@ -601,13 +588,6 @@ public class DelugeXmlParser {
           ClipModel clip = new ClipModel("CLIP " + i, rowCount, stepCount);
           clip.setTripletMode(tripletMode);
           clip.setPlayDirection(readPlayDirectionAttr(trackElem));
-          System.out.println(
-              "PARSER: Created clip "
-                  + clip.getName()
-                  + " for track "
-                  + targetTrack.getName()
-                  + " with rows "
-                  + rowCount);
 
           if (noteRowList != null) {
             for (int r = 0; r < rowCount; r++) {
@@ -723,11 +703,6 @@ public class DelugeXmlParser {
             }
           }
         } else {
-          System.out.println(
-              "PARSER: Track index "
-                  + i
-                  + " out of bounds for project tracks size "
-                  + projectTracks.size());
         }
       }
     }
@@ -738,8 +713,6 @@ public class DelugeXmlParser {
     if (sessionClipsNodes.getLength() > 0) {
       Element sessionClips = (Element) sessionClipsNodes.item(0);
       NodeList clipNodeList = sessionClips.getElementsByTagName("instrumentClip");
-
-      System.out.println("PARSER: Found " + clipNodeList.getLength() + " instrumentClips in XML");
 
       // Build FIFO queues of kit tracks, non-drum instruments tracks, and audio tracks for matching
       java.util.List<TrackModel> projectTracks = project.getTracks();
@@ -784,12 +757,6 @@ public class DelugeXmlParser {
         }
 
         if (targetTrack == null) {
-          System.out.println(
-              "PARSER: No matching track for instrumentClip["
-                  + i
-                  + "] (isKitClip="
-                  + isKitClip
-                  + ")");
           continue;
         }
 
@@ -806,21 +773,6 @@ public class DelugeXmlParser {
             clipElem.hasAttribute("instrumentPresetSubSlot")
                 ? clipElem.getAttribute("instrumentPresetSubSlot")
                 : "?";
-        System.out.println(
-            "PARSER: instrumentClip["
-                + i
-                + "] slot="
-                + slot
-                + " subSlot="
-                + subSlot
-                + " name="
-                + name_
-                + " -> "
-                + targetTrack.getName()
-                + " ("
-                + targetTrack.getClass().getSimpleName()
-                + ") isKitClip="
-                + isKitClip);
 
         // The Deluge pad colour of a session clip is fromHue(colourOffset * -8/3)
         // (instrument_clip.cpp:1235); carry the clip's colourOffset onto its track so the song
@@ -915,15 +867,6 @@ public class DelugeXmlParser {
         if (clipElem.hasAttribute("section")) {
           clip.setSection(Integer.parseInt(clipElem.getAttribute("section").trim()));
         }
-        System.out.println(
-            "PARSER: Created clip "
-                + clip.getName()
-                + " for track "
-                + targetTrack.getName()
-                + " rows="
-                + rowCount
-                + " steps="
-                + stepCount);
 
         if (noteRowList != null) {
           for (int r = 0; r < rowCount; r++) {
@@ -1005,10 +948,7 @@ public class DelugeXmlParser {
               String rowLabel =
                   drumIdx >= 0 ? "drumIndex=" + drumIdx : "noteRow[" + r + "] y=" + notePitch;
               String hexPrefix = hexData.length() > 30 ? hexData.substring(0, 30) + "..." : hexData;
-              System.out.println(
-                  "  PARSER: " + rowLabel + " activeSteps=[" + sb + "] from " + hexPrefix);
             } else if (drumIdx >= 0) {
-              System.out.println("  PARSER: drumIndex=" + drumIdx + " no noteData (empty row)");
             }
 
             // Apply per-row pitch from y attribute to all steps in this row
@@ -1076,7 +1016,6 @@ public class DelugeXmlParser {
       }
       // ── Parse audioClips in sessionClips ──
       NodeList audioClipNodeList = sessionClips.getElementsByTagName("audioClip");
-      System.out.println("PARSER: Found " + audioClipNodeList.getLength() + " audioClips in XML");
       for (int i = 0; i < audioClipNodeList.getLength(); i++) {
         Element clipElem = (Element) audioClipNodeList.item(i);
 
@@ -1098,8 +1037,6 @@ public class DelugeXmlParser {
           targetTrack = audioTrackQueue.poll();
         }
         if (targetTrack == null) {
-          System.out.println(
-              "PARSER: No matching audio track for audioClip[" + i + "] trackName=" + trackName);
           continue;
         }
 
@@ -1154,15 +1091,6 @@ public class DelugeXmlParser {
         }
 
         targetTrack.addAudioClip(clip);
-        System.out.println(
-            "PARSER: Added audioClip["
-                + i
-                + "] trackName="
-                + trackName
-                + " file="
-                + clip.getFilePath()
-                + " to track "
-                + targetTrack.getName());
       }
     }
 
@@ -1180,8 +1108,6 @@ public class DelugeXmlParser {
     if (arrangementOnlyClipsNodes.getLength() > 0) {
       Element arrClipsElem = (Element) arrangementOnlyClipsNodes.item(0);
       NodeList arrClipNodeList = arrClipsElem.getElementsByTagName("instrumentClip");
-      System.out.println(
-          "PARSER: Found " + arrClipNodeList.getLength() + " arrangement-only clips in XML");
       for (int i = 0; i < arrClipNodeList.getLength(); i++) {
         Element clipElem = (Element) arrClipNodeList.item(i);
 
@@ -1320,11 +1246,6 @@ public class DelugeXmlParser {
           parseColumnControls(clipElem, clip);
           targetTrack.addClip(clip);
           allArrangementClips.add(clip);
-          System.out.println(
-              "PARSER: Loaded arrangement-only clip "
-                  + clip.getName()
-                  + " for track "
-                  + targetTrack.getName());
         }
       }
     }
@@ -1339,9 +1260,11 @@ public class DelugeXmlParser {
       }
     }
 
-    // clipInstances live on the instrument elements (<sound>/<kit>/<audioTrack>) under <instruments>
+    // clipInstances live on the instrument elements (<sound>/<kit>/<audioTrack>) under
+    // <instruments>
     // in the current format; legacy songs put them on <track>/<instrumentClip>. Gather the elements
-    // that actually carry the attribute, in document order, so track index t maps to project track t.
+    // that actually carry the attribute, in document order, so track index t maps to project track
+    // t.
     java.util.List<Element> clipInstanceElems = new java.util.ArrayList<>();
     NodeList instrumentsNodes = songNode.getElementsByTagName("instruments");
     if (instrumentsNodes.getLength() > 0) {
@@ -1404,13 +1327,6 @@ public class DelugeXmlParser {
             if (targetClip != null) {
               ArrangerClip arrangerClip = new ArrangerClip(t, targetClip, pos, length);
               project.addArrangerClip(arrangerClip);
-              System.out.println(
-                  "PARSER: Loaded ArrangerClip placement on track index "
-                      + t
-                      + " at startTicks="
-                      + pos
-                      + " len="
-                      + length);
             }
           } catch (NumberFormatException ignored) {
           }
@@ -1419,7 +1335,6 @@ public class DelugeXmlParser {
     }
 
     // DIAGNOSTIC: final ProjectModel summary
-    System.out.println("=== PARSER: ProjectModel after parseSong ===");
     System.out.println(
         "  tracks="
             + project.getTracks().size()

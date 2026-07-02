@@ -181,8 +181,6 @@ public class DelugeSysExManager {
     msg.setData(packet);
     try {
       activeMidiOut.send(msg);
-      System.out.println(
-          "[SysExManager] Sent OLED Real-Time Streaming Request to physical Deluge.");
     } catch (Exception e) {
       System.err.println("[SysExManager] Failed to send OLED stream request: " + e.getMessage());
     }
@@ -210,7 +208,6 @@ public class DelugeSysExManager {
     msg.setData(packet);
     try {
       activeMidiOut.send(msg);
-      System.out.println("[SysExManager] Sent MIDI Debug Streaming Toggle: " + enabled);
     } catch (Exception e) {
       System.err.println("[SysExManager] Failed to toggle debug streaming: " + e.getMessage());
     }
@@ -250,11 +247,6 @@ public class DelugeSysExManager {
     }
 
     byte cmd = data[5];
-    System.out.println(
-        "[SysExManager] Received Deluge SysEx command: cmd="
-            + String.format("0x%02X", cmd)
-            + ", len="
-            + data.length);
 
     if (cmd == CMD_JSON_REPLY || cmd == CMD_JSON_REQUEST) {
       int seq = data[6] & 0xFF;
@@ -283,7 +275,6 @@ public class DelugeSysExManager {
         // No binary payload spacer found, the entire content is the JSON string (excluding 0xF7)
         jsonStr = new String(data, 7, data.length - 8, StandardCharsets.US_ASCII);
       }
-      System.out.println("[SysExManager] Decoded JSON String: '" + jsonStr + "'");
 
       if (jsonStr.contains("\"^session\"")) {
         try {
@@ -293,14 +284,6 @@ public class DelugeSysExManager {
           this.sessionId = sid;
           this.midMin = min;
           this.midMax = max;
-          System.out.println(
-              "[SysExManager] Session negotiated successfully: sid="
-                  + sid
-                  + ", range=["
-                  + min
-                  + ","
-                  + max
-                  + "]");
           if (sessionNegotiationFuture != null) {
             sessionNegotiationFuture.complete(null);
           }

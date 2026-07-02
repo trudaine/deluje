@@ -1368,9 +1368,7 @@ public class Voice {
     for (int i = 0; i < numSamples * 2; i++) {
       maxValVoice = Math.max(maxValVoice, Math.abs(mixBuf[i]));
     }
-    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry && maxValVoice > 1000) {
-      System.out.println("[TELEMETRY Voice] mixBuf max absolute value: " + maxValVoice);
-    }
+    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry && maxValVoice > 1000) {}
 
     // Copy to output
     for (int i = 0; i < numSamples; i++) {

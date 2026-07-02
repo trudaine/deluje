@@ -236,7 +236,6 @@ public class SwingDelugeApp extends JFrame {
               case java.awt.event.KeyEvent.VK_M -> note = 71; // B4
             }
             if (note != -1) {
-              System.out.println("QWERTY Piano Trigger: Note " + note);
               if (clipPanel != null) {
                 clipPanel.flashIsomorphicNote(note);
                 int trackId = clipPanel.getFocusTrack();
@@ -992,28 +991,13 @@ public class SwingDelugeApp extends JFrame {
     }
 
     Object fwHandlerObj = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
-    System.out.println(
-        "[DIAG sync] fwHandlerObj="
-            + fwHandlerObj
-            + " isPlaybackHandler="
-            + (fwHandlerObj instanceof org.deluge.playback.PlaybackHandler));
     if (fwHandlerObj instanceof org.deluge.playback.PlaybackHandler fwHandler) {
       fwHandler.setProject(model);
-      System.out.println(
-          "[DIAG sync] Successfully set project inside PlaybackHandler! Current active play state="
-              + fwHandler.isPlaying()
-              + " songBpm="
-              + model.getBpm());
       if (firstClip != null) {
         int activeNotesCount = 0;
         for (var row : firstClip.getNoteRowsList()) {
           activeNotesCount += row.getNotes().size();
         }
-        System.out.println(
-            "[DIAG sync] First Clip Active NoteRows Count: "
-                + firstClip.getNoteRowsList().size()
-                + " Total Programmed Note Events: "
-                + activeNotesCount);
       }
     }
   }

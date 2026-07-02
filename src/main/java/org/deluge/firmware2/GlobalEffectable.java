@@ -86,10 +86,7 @@ public abstract class GlobalEffectable {
     // track buffer, every track every block. max-of-abs is order-independent, so the SIMD reduction
     // is bit-identical to the scalar loop (including the Math.abs(MIN_VALUE)==MIN_VALUE edge).
     int maxValTrack = absMax(trackBuffer, numSamples * 2);
-    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry && maxValTrack > 1000) {
-      System.out.println(
-          "[TELEMETRY GlobalEffectable] trackBuffer max absolute value: " + maxValTrack);
-    }
+    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry && maxValTrack > 1000) {}
 
     // Surgical Optimization: If the track is silent and has no active filter to decay,
     // skip the entire FX, panning, and summing loop to reclaim massive CPU cycles!

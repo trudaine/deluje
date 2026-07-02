@@ -1214,7 +1214,8 @@ public class FirmwareFactory {
       if (f.exists()) return f;
       // Case-insensitive match under the SD-card/library root: the Deluge saves on FAT32 (case-
       // insensitive), so a preset can reference "808 Clap.wav" while the file on disk is
-      // "808 Clap.WAV". Java's File.exists is case-sensitive on Linux, so resolve each component CI.
+      // "808 Clap.WAV". Java's File.exists is case-sensitive on Linux, so resolve each component
+      // CI.
       File ciSd = resolveCaseInsensitive(sdRoot, normPath);
       if (ciSd != null) return ciSd;
       File fallbackSd = new File("../deluge/" + sdRoot.getPath(), normPath);

@@ -13,7 +13,8 @@ class ScaleDiatonicPitchTest {
 
   private static final int[] MAJOR = Scales.ScaleType.MAJOR.getIntervals(); // 0,2,4,5,7,9,11
   private static final int[] MINOR = Scales.ScaleType.MINOR.getIntervals(); // 0,2,3,5,7,8,10
-  private static final int[] MINOR_PENT = Scales.ScaleType.MINOR_PENTATONIC.getIntervals(); // 0,3,5,7,10
+  private static final int[] MINOR_PENT =
+      Scales.ScaleType.MINOR_PENTATONIC.getIntervals(); // 0,3,5,7,10
 
   @Test
   void cMajor_unchangedFromLegacyAnchor() {
@@ -32,7 +33,8 @@ class ScaleDiatonicPitchTest {
   void cMinor_usesMinorThirdAndSixth() {
     assertEquals(60, ScaleMapper.getDiatonicPitch(67, MINOR, 0)); // C4
     assertEquals(62, ScaleMapper.getDiatonicPitch(66, MINOR, 0)); // D4
-    assertEquals(63, ScaleMapper.getDiatonicPitch(65, MINOR, 0)); // Eb4 (minor 3rd, was E4 under major)
+    assertEquals(
+        63, ScaleMapper.getDiatonicPitch(65, MINOR, 0)); // Eb4 (minor 3rd, was E4 under major)
     assertEquals(68, ScaleMapper.getDiatonicPitch(62, MINOR, 0)); // Ab4 (minor 6th)
     assertEquals(72, ScaleMapper.getDiatonicPitch(60, MINOR, 0)); // C5
   }

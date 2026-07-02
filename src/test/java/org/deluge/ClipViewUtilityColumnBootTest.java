@@ -31,7 +31,8 @@ public class ClipViewUtilityColumnBootTest {
           "Column 17 tooltip should describe Clip View Mute action");
 
       if (muteBtn instanceof DelugePadButton pad) {
-        assertFalse(pad.isDrawCenterCircle(), "Center circle must be strictly blocked on Column 17");
+        assertFalse(
+            pad.isDrawCenterCircle(), "Center circle must be strictly blocked on Column 17");
         assertEquals(1.0f, pad.getIntensity(), "Intensity must be 1.0f for active illumination");
       }
 
@@ -56,7 +57,8 @@ public class ClipViewUtilityColumnBootTest {
               + (audBtnTop instanceof DelugePadButton pad ? pad.getBaseColor() : "null"));
 
       if (audBtnTop instanceof DelugePadButton pad) {
-        assertFalse(pad.isDrawCenterCircle(), "Center circle must be strictly blocked on Column 18");
+        assertFalse(
+            pad.isDrawCenterCircle(), "Center circle must be strictly blocked on Column 18");
         assertEquals(
             app.getClipPanel().getGridNoteColor(67),
             pad.getBaseColor(),

@@ -103,11 +103,11 @@ public final class ScaleMapper {
   }
 
   /**
-   * Faithful port of {@code Song::getYNoteFromYVisual} (song.cpp) for scale (in-key) mode:
-   * {@code pitch = modeNotes[within] + octave*12 + rootNote}, where {@code within}/{@code octave}
-   * come from the scale-degree coordinate and the scale has {@code modeNotes.length} notes per
-   * octave. Replaces the previous hardcoded 7-note C-major table, which mapped the wrong pitches for
-   * any minor/modal/pentatonic scale or non-C root. Anchored so C major with a C root reproduces the
+   * Faithful port of {@code Song::getYNoteFromYVisual} (song.cpp) for scale (in-key) mode: {@code
+   * pitch = modeNotes[within] + octave*12 + rootNote}, where {@code within}/{@code octave} come
+   * from the scale-degree coordinate and the scale has {@code modeNotes.length} notes per octave.
+   * Replaces the previous hardcoded 7-note C-major table, which mapped the wrong pitches for any
+   * minor/modal/pentatonic scale or non-C root. Anchored so C major with a C root reproduces the
    * legacy chromatic anchor (row 67 -> C4 = MIDI 60), keeping existing C-major songs unchanged.
    *
    * @param modeNotes the scale's semitone offsets within an octave (e.g. major {0,2,4,5,7,9,11})

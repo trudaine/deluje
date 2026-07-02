@@ -142,7 +142,6 @@ public final class GridScrollController {
             int val = e.getValue();
             if (val != context.getScrollOffset()) {
               context.setScrollOffset(val);
-              System.out.println("[TRACE grid] vertScrollBar adjust scrollOffset=" + val);
               refreshCallback.run();
             }
           });
@@ -214,7 +213,6 @@ public final class GridScrollController {
               if (!isScrollingProgrammatically) {
                 context.setPlayheadFollowMode(false);
               }
-              System.out.println("[TRACE grid] horizScrollBar adjust scrollOffsetX=" + val);
               refreshCallback.run();
             }
           });
@@ -267,53 +265,28 @@ public final class GridScrollController {
 
   /** Scroll horizontally by cellsOffset steps. */
   public void scrollHorizontally(int cellsOffset) {
-    System.out.println(
-        "[TRACE grid] scrollHorizontally called: offset="
-            + cellsOffset
-            + " viewMode="
-            + context.getViewMode());
     if (context.getBridge() == null) {
-      System.out.println("[TRACE grid] scrollHorizontally ignored: bridge is null!");
       return;
     }
     int stepCount = context.getStepCount();
     int trackLenH = context.getTrackLength();
     int scrollOffsetX = context.getScrollOffsetX();
-    System.out.println(
-        "[TRACE grid] scrollHorizontally: trackLenH="
-            + trackLenH
-            + " stepCount="
-            + stepCount
-            + " currentOffsetX="
-            + scrollOffsetX);
     if (trackLenH > stepCount) {
       int maxOffX = trackLenH - stepCount;
       int newOffset = scrollOffsetX + cellsOffset;
       if (newOffset > maxOffX) newOffset = maxOffX;
       if (newOffset < 0) newOffset = 0;
-      System.out.println(
-          "[TRACE grid] scrollHorizontally newOffset=" + newOffset + " maxOffX=" + maxOffX);
       if (newOffset != scrollOffsetX) {
         context.setScrollOffsetX(newOffset);
-        System.out.println(
-            "[TRACE grid] scrollHorizontally executing refresh at offset=" + newOffset);
         refreshCallback.run();
       }
     } else {
-      System.out.println(
-          "[TRACE grid] scrollHorizontally ignored: trackLenH <= stepCount (no steps to scroll!)");
     }
   }
 
   /** Scroll vertically by cellsOffset rows. */
   public void scrollVertically(int cellsOffset) {
-    System.out.println(
-        "[TRACE grid] scrollVertically called: offset="
-            + cellsOffset
-            + " viewMode="
-            + context.getViewMode());
     if (context.getBridge() == null) {
-      System.out.println("[TRACE grid] scrollVertically ignored: bridge is null!");
       return;
     }
     int voiceRowCount = context.getVoiceRowCount();
@@ -321,25 +294,12 @@ public final class GridScrollController {
     int scrollOffset = context.getScrollOffset();
     int maxOffset = Math.max(0, voiceRowCount - rowsInView);
     int newOffset = scrollOffset + cellsOffset;
-    System.out.println(
-        "[TRACE grid] scrollVertically: voiceRowCount="
-            + voiceRowCount
-            + " rowsInView="
-            + rowsInView
-            + " currentOffset="
-            + scrollOffset
-            + " maxOffset="
-            + maxOffset);
     if (newOffset > maxOffset) newOffset = maxOffset;
     if (newOffset < 0) newOffset = 0;
-    System.out.println("[TRACE grid] scrollVertically newOffset=" + newOffset);
     if (newOffset != scrollOffset) {
       context.setScrollOffset(newOffset);
-      System.out.println("[TRACE grid] scrollVertically executing refresh at offset=" + newOffset);
       refreshCallback.run();
     } else {
-      System.out.println(
-          "[TRACE grid] scrollVertically ignored: no offset change or scroll locked!");
     }
   }
 

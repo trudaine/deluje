@@ -9,8 +9,8 @@ package org.deluge.ui;
  * Centralising it here makes the mapping pure and unit-testable, and lets view-order changes (e.g.
  * the Deluge's bottom-up session grid) be made in exactly one place.
  *
- * <p>Pure functions only — no Swing, no instance state — so behaviour can be pinned by tests
- * (see {@code GridRowMapperTest}) before and after any ordering change.
+ * <p>Pure functions only — no Swing, no instance state — so behaviour can be pinned by tests (see
+ * {@code GridRowMapperTest}) before and after any ordering change.
  */
 final class GridRowMapper {
   private GridRowMapper() {}

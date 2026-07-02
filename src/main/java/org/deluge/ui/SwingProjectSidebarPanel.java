@@ -666,7 +666,6 @@ public class SwingProjectSidebarPanel extends JPanel {
     if (SwingDelugeApp.mainInstance == null) return;
     var fileSync = SwingDelugeApp.mainInstance.getMidiService().getFileSyncService();
     if (fileSync.isTransferActive()) {
-      System.out.println("[Sidebar] Skipping hardware refresh: active file transfer in progress.");
       return;
     }
 
@@ -818,8 +817,6 @@ public class SwingProjectSidebarPanel extends JPanel {
             try {
               destDir.mkdirs();
               java.nio.file.Files.write(destFile.toPath(), content);
-              System.out.println(
-                  "[Sidebar] Saved downloaded " + name + " -> " + destFile.getAbsolutePath());
             } catch (Exception saveEx) {
               System.err.println(
                   "[Sidebar] Warning: could not save downloaded file to "
@@ -938,7 +935,6 @@ public class SwingProjectSidebarPanel extends JPanel {
     var fileSync = midiService.getFileSyncService();
     if (fileSync == null) return;
     if (fileSync.isTransferActive()) {
-      System.out.println("[Sidebar] Remote folder load deferred: active transfer in progress.");
       return;
     }
     this.currentRemotePath = remotePath;
