@@ -3866,6 +3866,11 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                       }
                     }
                   }
+                } else if (viewMode == GridViewMode.ARRANGEMENT) {
+                  // Deluge arranger: each clip instance is a bar laid across the timeline at its
+                  // start position for its length (arranger_view.cpp). Light column c when an
+                  // ArrangerClip placement on this track covers it (96 ticks per column).
+                  hasClip = arrangerController.getArrangerClipAt(modelRow, c + scrollOffsetX) != null;
                 } else if (c < track.getClips().size()) {
                   hasClip = true;
                 }
