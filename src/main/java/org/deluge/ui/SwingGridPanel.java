@@ -6638,19 +6638,24 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   public Color getGridNoteColor(int modelRow, float velocity) {
     Color trackColor = getTrackBaseColor();
     if (viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION) {
-      boolean isSynth = false;
+      boolean isPitched = false;
       int colourOffset = 0;
       if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
         org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
-        isSynth = t instanceof org.deluge.model.SynthTrackModel;
+        // Both synth AND MIDI (and CV) clips are pitched piano-rolls (InstrumentClip) and get the
+        // per-pitch rainbow on hardware; only synth did here, so MIDI rows rendered mono-colour.
+        isPitched =
+            t instanceof org.deluge.model.SynthTrackModel
+                || t instanceof org.deluge.model.MidiTrackModel;
         colourOffset = t.getColourOffset();
       }
-      if (isSynth) {
+      if (isPitched) {
         int pitchMidi = getRowPitch(modelRow);
-        float[] hsb =
-            Color.RGBtoHSB(trackColor.getRed(), trackColor.getGreen(), trackColor.getBlue(), null);
-        float noteHue = ScaleMapper.calculateNoteHue(pitchMidi, hsb[0], colourOffset);
-        Color noteColor = Color.getHSBColor(noteHue, hsb[1], hsb[2]);
+        // Faithful to InstrumentClip::getMainColourFromY (instrument_clip.cpp:1235):
+        // RGB::fromHue((yNote + colourOffset + noteRowColourOffset) * -8/3). The Deluge uses its own
+        // sine-based fromHue palette, not an HSB hue-shift of the track colour. (Per-note-row
+        // colourOffset is not tracked per row here; it defaults to 0 on hardware for fresh rows.)
+        Color noteColor = DelugeColour.fromHue((pitchMidi + colourOffset) * -8 / 3);
         return velocityBlend(noteColor, velocity);
       }
     }
