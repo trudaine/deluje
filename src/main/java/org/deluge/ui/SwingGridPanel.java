@@ -1437,7 +1437,14 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     if (modelRow >= tracks.size()) {
       return trackColors[modelRow % trackColors.length];
     }
-    String hex = tracks.get(modelRow).getColourHex();
+    org.deluge.model.TrackModel t = tracks.get(modelRow);
+    // The Deluge colours each session-clip pad from the CLIP's colourOffset:
+    // fromHue(colourOffset * -8/3) (instrument_clip.cpp:1235). This is the real pad hue seen on
+    // hardware (e.g. TR-808 offset -60 -> purple), so prefer it over the instrument colour.
+    if (!t.getClips().isEmpty()) {
+      return DelugeColour.clipColour(t.getColourOffset());
+    }
+    String hex = t.getColourHex();
     if (hex != null && hex.startsWith("0x")) {
       try {
         return new Color(Integer.decode(hex.substring(0, 8)));

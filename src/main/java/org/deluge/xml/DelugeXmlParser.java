@@ -822,6 +822,17 @@ public class DelugeXmlParser {
                 + ") isKitClip="
                 + isKitClip);
 
+        // The Deluge pad colour of a session clip is fromHue(colourOffset * -8/3)
+        // (instrument_clip.cpp:1235); carry the clip's colourOffset onto its track so the song
+        // view can reproduce the exact hue (e.g. TR-808 offset -60 -> purple).
+        if (clipElem.hasAttribute("colourOffset")) {
+          try {
+            targetTrack.setColourOffset(Integer.parseInt(clipElem.getAttribute("colourOffset")));
+          } catch (NumberFormatException ignore) {
+            // leave default
+          }
+        }
+
         int rowCount = 0;
         NodeList noteRowList = null;
         if (noteRowsList.getLength() > 0) {
