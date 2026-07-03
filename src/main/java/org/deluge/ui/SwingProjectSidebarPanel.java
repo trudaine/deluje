@@ -844,9 +844,9 @@ public class SwingProjectSidebarPanel extends JPanel {
                 log.append("✓ Ping reply in ").append(ms).append(" ms\n");
               } catch (Exception ex) {
                 log.append(
-                    "✗ No ping reply within 2s.\n"
-                        + "   Check the USB is attached to the container and the MIDI IN port is"
-                        + " selected.");
+                    "✗ No ping reply within 2s on the selected port.\n"
+                        + "   Scanning all Deluge cables to find one that responds…\n\n");
+                log.append(scanDelugePorts());
                 showSelfTestResult(log.toString());
                 return;
               }
@@ -892,6 +892,106 @@ public class SwingProjectSidebarPanel extends JPanel {
               }
               showSelfTestResult(log.toString());
             });
+  }
+
+  /**
+   * Low-level port probe used when the selected port doesn't answer. The Deluge exposes several USB
+   * cables (e.g. "Deluge MIDI 1/2/3") and its firmware replies on the SAME cable a request arrives
+   * on (smsysex.cpp sendMsg), so the fix for "no reply" is usually selecting the right cable. For
+   * each output cable this opens a fresh in+out pair directly (bypassing the shared receive thread
+   * and session layer), sends a raw {@code {"ping":{}}} SysEx, and watches ~1s for a {@code ^ping}
+   * reply — reporting which cable round-trips so the user knows which MIDI port to select.
+   */
+  private String scanDelugePorts() {
+    String[] outPorts = org.deluge.shadow.midi.MidiOut.list();
+    String[] inPorts = org.deluge.shadow.midi.MidiIn.list();
+    StringBuilder sb = new StringBuilder();
+    sb.append("Output ports: ").append(java.util.Arrays.toString(outPorts)).append('\n');
+    sb.append("Input ports:  ").append(java.util.Arrays.toString(inPorts)).append("\n\n");
+
+    String working = null;
+    for (String name : outPorts) {
+      // Match the same-named input cable (firmware replies on the cable it received on).
+      int inIdx = -1;
+      for (int i = 0; i < inPorts.length; i++) {
+        if (inPorts[i].equals(name)) {
+          inIdx = i;
+          break;
+        }
+      }
+      if (inIdx < 0) {
+        sb.append("• ").append(name).append(" — no matching INPUT cable, skipped\n");
+        continue;
+      }
+      org.deluge.shadow.midi.MidiOut out = new org.deluge.shadow.midi.MidiOut();
+      org.deluge.shadow.midi.MidiIn in = new org.deluge.shadow.midi.MidiIn();
+      try {
+        if (!out.open(name) || !in.open(inIdx)) {
+          sb.append("• ").append(name).append(" — could not open (in use?), skipped\n");
+          continue;
+        }
+        in.ignoreTypes(false, false, false);
+        // Raw ping: F0 00 21 7B 01 04 <seq> {"ping":{}} F7 (session byte 0 = pre-negotiation).
+        byte[] json = "{\"ping\":{}}".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        byte[] pkt = new byte[7 + json.length + 1];
+        pkt[0] = (byte) 0xF0;
+        pkt[1] = 0x00;
+        pkt[2] = 0x21;
+        pkt[3] = 0x7B;
+        pkt[4] = 0x01;
+        pkt[5] = 0x04; // CMD_JSON_REQUEST
+        pkt[6] = 0x01; // seq
+        System.arraycopy(json, 0, pkt, 7, json.length);
+        pkt[pkt.length - 1] = (byte) 0xF7;
+        org.deluge.shadow.midi.MidiMsg msg = new org.deluge.shadow.midi.MidiMsg();
+        msg.setData(pkt);
+        out.send(msg);
+
+        boolean replied = false;
+        org.deluge.shadow.midi.MidiMsg rx = new org.deluge.shadow.midi.MidiMsg();
+        long deadline = System.currentTimeMillis() + 1000;
+        while (System.currentTimeMillis() < deadline) {
+          if (in.recv(rx)) {
+            byte[] d = rx.getData();
+            if (d != null
+                && d.length >= 4
+                && (d[0] & 0xFF) == 0xF0
+                && (d[2] & 0xFF) == 0x21
+                && (d[3] & 0xFF) == 0x7B) {
+              replied = true;
+              break;
+            }
+          } else {
+            try {
+              Thread.sleep(10);
+            } catch (InterruptedException ie) {
+              break;
+            }
+          }
+        }
+        if (replied) {
+          sb.append("✓ ").append(name).append(" — REPLIED\n");
+          if (working == null) working = name;
+        } else {
+          sb.append("✗ ").append(name).append(" — no reply\n");
+        }
+      } finally {
+        in.close();
+        out.close();
+      }
+    }
+
+    sb.append('\n');
+    if (working != null) {
+      sb.append("→ Select MIDI port \"")
+          .append(working)
+          .append("\" in Preferences — that cable answers.");
+    } else {
+      sb.append(
+          "→ No cable answered. The Deluge isn't reachable: check the USB is attached to the"
+              + " Crostini container (ChromeOS ▸ Settings ▸ USB) and that the Deluge is powered on.");
+    }
+    return sb.toString();
   }
 
   private void showSelfTestResult(String text) {
