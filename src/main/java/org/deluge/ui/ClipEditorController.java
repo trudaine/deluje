@@ -1334,4 +1334,130 @@ public class ClipEditorController {
   private boolean isSynthOrKit(int type) {
     return type == 1 || type == 0;
   }
+
+  public void handlePadMouseWheel(int visibleRow, int visualCol, java.awt.event.MouseWheelEvent e) {
+    if (parent.projectModel == null || parent.editedModelTrack >= parent.projectModel.getTracks().size()) return;
+    org.deluge.model.TrackModel tModel = parent.projectModel.getTracks().get(parent.editedModelTrack);
+    org.deluge.model.ClipModel cModel = tModel.getActiveClip();
+    if (cModel == null) return;
+
+    int modelRow = parent.getModelRow(visibleRow);
+    int activeCol = parent.getActiveCol(visibleRow, visualCol);
+
+    org.deluge.model.StepData sd = parent.getClipStep(cModel, modelRow, activeCol);
+    if (!sd.active()) {
+      return; // Gestural pad adjustments only apply to active (programmed) notes!
+    }
+
+    int rotation = e.getWheelRotation();
+    int dir = -rotation; // Scroll up = positive change, scroll down = negative change
+
+    org.deluge.model.StepData updated = null;
+    String oledParam = "";
+    String oledValue = "";
+
+    if (parent.isShiftHeld()) {
+      // Shift held = Adjust note probability (0% to 100%, 5% increments)
+      float newProb = Math.max(0.0f, Math.min(1.0f, sd.probability() + dir * 0.05f));
+      newProb = Math.round(newProb * 100.0f) / 100.0f;
+      updated =
+          new org.deluge.model.StepData(
+              true,
+              sd.velocity(),
+              sd.gate(),
+              newProb,
+              sd.pitch(),
+              sd.iterance(),
+              sd.fill(),
+              sd.nudge());
+      oledParam = "PROB";
+      oledValue = (int) (newProb * 100) + "%";
+    } else if (e.isAltDown()) {
+      // Alt held = Adjust note gate/length (0.125 to 64.0 steps, 0.25 step increments)
+      float newGate = Math.max(0.125f, Math.min(64.0f, sd.gate() + dir * 0.25f));
+      updated =
+          new org.deluge.model.StepData(
+              true,
+              sd.velocity(),
+              newGate,
+              sd.probability(),
+              sd.pitch(),
+              sd.iterance(),
+              sd.fill(),
+              sd.nudge());
+      oledParam = "GATE";
+      oledValue = String.format("%.2f", newGate);
+    } else if (e.isControlDown()) {
+      // Ctrl held = Transpose note pitch (up/down by semitones)
+      int newPitch = Math.max(0, Math.min(127, sd.pitch() + dir));
+      int oldPitch = sd.pitch();
+      if (newPitch != oldPitch) {
+        int oldClipRow = parent.getClipRowIndex(cModel, modelRow, false);
+        if (oldClipRow >= 0) {
+          cModel.setStep(oldClipRow, activeCol, org.deluge.model.StepData.empty());
+          if (parent.bridge != null) {
+            int oldEngineRow = parent.baseTrackId + modelRow;
+            parent.bridge.setStep(oldEngineRow, activeCol, false); // Clear old step in bridge!
+          }
+        }
+        int newModelRow = parent.getRowFromPitch(newPitch);
+        if (newModelRow >= 0) {
+          updated =
+              new org.deluge.model.StepData(
+                  true,
+                  sd.velocity(),
+                  sd.gate(),
+                  sd.probability(),
+                  newPitch,
+                  sd.iterance(),
+                  sd.fill(),
+                  sd.nudge());
+          modelRow =
+              newModelRow; // Update modelRow reference for subsequent setClipStep/bridge sync
+        }
+      }
+      oledParam = "PITCH";
+      oledValue = String.valueOf(newPitch);
+    } else {
+      // No modifiers = Adjust note velocity (0.0 to 1.0, 0.05 increments, displayed as 0..127)
+      float newVel = Math.max(0.0f, Math.min(1.0f, sd.velocity() + dir * 0.05f));
+      newVel = Math.round(newVel * 100.0f) / 100.0f;
+      updated =
+          new org.deluge.model.StepData(
+              true,
+              newVel,
+              sd.gate(),
+              sd.probability(),
+              sd.pitch(),
+              sd.iterance(),
+              sd.fill(),
+              sd.nudge());
+      oledParam = "VEL";
+      oledValue = String.valueOf((int) (newVel * 127));
+    }
+
+    if (updated != null) {
+      parent.setClipStep(cModel, modelRow, activeCol, updated);
+
+      // Sync with real-time ChucK audio engine
+      if (parent.bridge != null) {
+        int engineRow = parent.baseTrackId + modelRow;
+        parent.bridge.setStep(engineRow, activeCol, updated.active());
+        parent.bridge.setVelocity(engineRow, activeCol, updated.velocity());
+        parent.bridge.setGate(engineRow, activeCol, updated.gate());
+        parent.bridge.setStepProbability(engineRow, activeCol, updated.probability());
+      }
+
+      // Display transient parameter change on OLED readout
+      if (SwingDelugeApp.mainInstance != null && SwingDelugeApp.mainInstance.getTopBar() != null) {
+        SwingDelugeApp.mainInstance
+            .getTopBar()
+            .getParamReadout()
+            .printTransient(oledParam, oledValue);
+      }
+
+      parent.fireProjectChanged();
+      parent.refresh();
+    }
+  }
 }
