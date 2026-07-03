@@ -67,11 +67,13 @@ public class ArrangerTimelineController {
   public ArrangerClip getArrangerClipAt(int trackIndex, int col) {
     ProjectModel projectModel = getProjectModel();
     if (projectModel == null) return null;
-    int queryTicks = arrangerTickForColumn(col);
+    int colTick = arrangerTickForColumn(col);
+    int colTicks = arrangerTicksPerColumn();
     for (ArrangerClip placement : projectModel.getArrangerTimeline()) {
       if (placement.trackIndex() == trackIndex) {
-        if (queryTicks >= placement.startTicks()
-            && queryTicks < placement.startTicks() + placement.durationTicks()) {
+        int start = placement.startTicks();
+        int end = start + placement.durationTicks();
+        if (start < colTick + colTicks && end > colTick) {
           return placement;
         }
       }
@@ -146,8 +148,9 @@ public class ArrangerTimelineController {
 
             int colDiff = currCol - dragArrangerStartCol;
             if (colDiff != 0) {
+              int ticksPerCol = arrangerTicksPerColumn();
               if (isResizingArranger) {
-                int newDurationTicks = Math.max(96, dragArrangerDurationTicks + colDiff * 96);
+                int newDurationTicks = Math.max(ticksPerCol, dragArrangerDurationTicks + colDiff * ticksPerCol);
                 projectModel.getArrangerTimeline().remove(dragArrangerClip);
                 ArrangerClip updated =
                     new ArrangerClip(
@@ -161,7 +164,7 @@ public class ArrangerTimelineController {
                 dragArrangerDurationTicks = newDurationTicks;
                 refreshCallback.run();
               } else {
-                int newStartTicks = Math.max(0, dragArrangerStartTicks + colDiff * 96);
+                int newStartTicks = Math.max(0, dragArrangerStartTicks + colDiff * ticksPerCol);
                 projectModel.getArrangerTimeline().remove(dragArrangerClip);
                 ArrangerClip updated =
                     new ArrangerClip(
@@ -180,7 +183,6 @@ public class ArrangerTimelineController {
         });
   }
 
-  /** Shows a popup menu to select or create a clip to place at the specified timeline slot. */
   public void showArrangerClipSelectionPopup(Component invoker, final int trackIdx, final int col) {
     ProjectModel projectModel = getProjectModel();
     if (projectModel == null || trackIdx >= projectModel.getTracks().size()) return;
@@ -194,7 +196,8 @@ public class ArrangerTimelineController {
           int clipCount = track.getClips().size();
           ClipModel newClip = new ClipModel("CLIP " + (clipCount + 1), 8, 16);
           track.addClip(newClip);
-          projectModel.addArrangerClip(new ArrangerClip(trackIdx, newClip, col * 96, 96));
+          int startTicks = arrangerTickForColumn(col);
+          projectModel.addArrangerClip(new ArrangerClip(trackIdx, newClip, startTicks, newClip.getLoopLength()));
           projectChangedCallback.run();
           refreshCallback.run();
         });
@@ -211,7 +214,8 @@ public class ArrangerTimelineController {
         JMenuItem item = new JMenuItem("Place: " + name);
         item.addActionListener(
             e -> {
-              projectModel.addArrangerClip(new ArrangerClip(trackIdx, clip, col * 96, 96));
+              int startTicks = arrangerTickForColumn(col);
+              projectModel.addArrangerClip(new ArrangerClip(trackIdx, clip, startTicks, clip.getLoopLength()));
               projectChangedCallback.run();
               refreshCallback.run();
             });
