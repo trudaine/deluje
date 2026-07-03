@@ -21,7 +21,6 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   private org.rtmidijava.RtMidiOut finalMidiOut;
   // VU meters and animation decay are now managed by GridVuManager
   final GridVuManager vuManager = new GridVuManager();
-  private Timer activeStutterTimer;
   int auditionMidiNote = -1;
   org.deluge.engine.FirmwareSound auditionSynth = null;
   public static volatile boolean isLiveRecordModeActive = false;
@@ -49,7 +48,6 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   int soloRow = -1; // -1 = no solo
-  private Timer playheadTimer; // single timer for playhead updates, avoids leaks
   private boolean wasSequencerPlaying; // edge-detect stop to flush MIDI notes
   final java.util.List<JButton> pageButtons = new java.util.ArrayList<>();
   // voiceVuMeters, trackVuMeters, and globalVuTimer moved to GridVuManager
@@ -862,12 +860,6 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
 
   @Override
   public void removeNotify() {
-    if (playheadTimer != null) {
-      playheadTimer.stop();
-    }
-    if (activeStutterTimer != null) {
-      activeStutterTimer.stop();
-    }
     vuManager.shutdown();
     super.removeNotify();
   }
