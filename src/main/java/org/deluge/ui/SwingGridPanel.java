@@ -1843,18 +1843,14 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
               int totalSamples = audioBytes.length / bytesPerFrame;
               if (totalSamples <= 0) return null;
 
-              int targetPoints = 256;
-              float[] points = new float[targetPoints];
-              int step = Math.max(1, totalSamples / targetPoints);
-
               boolean isBigEndian = format.isBigEndian();
               int sampleSizeInBits = format.getSampleSizeInBits();
 
-              for (int i = 0; i < targetPoints; i++) {
-                int sampleIndex = i * step;
-                int byteIndex = sampleIndex * bytesPerFrame;
-                if (byteIndex + bytesPerFrame > audioBytes.length) break;
-
+              // Decode the first channel of every frame to a normalized mono buffer, then let the
+              // pure AudioWaveform.envelope do the (unbounded -> fixed) decimation + smoothing.
+              float[] samples = new float[totalSamples];
+              for (int i = 0; i < totalSamples; i++) {
+                int byteIndex = i * bytesPerFrame;
                 float val = 0.0f;
                 if (sampleSizeInBits == 16) {
                   int b1 = audioBytes[byteIndex];
@@ -1863,27 +1859,14 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                       isBigEndian
                           ? (short) ((b1 << 8) | (b2 & 0xff))
                           : (short) ((b2 << 8) | (b1 & 0xff));
-                  val = Math.abs(sample / 32768.0f);
+                  val = sample / 32768.0f;
                 } else if (sampleSizeInBits == 8) {
                   int sample = audioBytes[byteIndex] & 0xff;
-                  val = Math.abs((sample - 128) / 128.0f);
+                  val = (sample - 128) / 128.0f;
                 }
-                points[i] = val;
+                samples[i] = val;
               }
-              float[] smoothed = new float[targetPoints];
-              for (int i = 0; i < targetPoints; i++) {
-                float sum = 0;
-                int count = 0;
-                for (int w = -2; w <= 2; w++) {
-                  int idx = i + w;
-                  if (idx >= 0 && idx < targetPoints) {
-                    sum += points[idx];
-                    count++;
-                  }
-                }
-                smoothed[i] = sum / count;
-              }
-              return smoothed;
+              return AudioWaveform.envelope(samples, AudioWaveform.DEFAULT_POINTS);
             }
           } catch (Exception ex) {
             LOG.warning("Waveform parsing failed for " + p + ": " + ex.getMessage());
