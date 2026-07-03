@@ -535,24 +535,12 @@ public class ArrangerGridPanel extends SwingGridPanel {
                   arrangerController.getArrangerClipAt(modelRow, col);
               hasClip = ac != null;
               if (ac != null) {
-                int section = ac.clip() != null ? ac.clip().getSection() : -1;
-                Color base = DelugeColour.sectionColour(section);
+                // Head/loop/blur/dim resolved by the pure ArrangementProjector
+                // (ArrangementProjector
+                // Test pins the colours); same code the whole-grid projector uses.
                 int colTick = arrangerController.arrangerTickForColumn(col);
                 int colTicks = arrangerController.arrangerTicksPerColumn();
-                boolean isHead = ac.startTicks() >= colTick && ac.startTicks() < colTick + colTicks;
-                if (ac.clip() == null) {
-                  arrCellColour = DelugeColour.dim(base, 4);
-                } else if (isHead) {
-                  arrCellColour = base;
-                } else {
-                  int loopLen = ac.clip().getLoopLength();
-                  int rel = colTick - ac.startTicks();
-                  boolean loopStart = loopLen > 0 && (rel % loopLen == 0);
-                  arrCellColour =
-                      loopStart
-                          ? DelugeColour.dim(base, 3)
-                          : DelugeColour.dim(DelugePadButton.getBlurColor(base), 3);
-                }
+                arrCellColour = ArrangementProjector.colourFor(ac, colTick, colTicks);
               }
             }
 

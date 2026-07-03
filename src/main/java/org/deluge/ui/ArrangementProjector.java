@@ -77,23 +77,31 @@ final class ArrangementProjector {
 
   /** Resolves the final LED colour for a covered column. Mirrors SwingGridPanel.java:3932-3951. */
   private static PadCell cellFor(ArrangerClip ac, int colTick, int ticksPerColumn) {
+    return PadCell.of(colourFor(ac, colTick, ticksPerColumn), true);
+  }
+
+  /**
+   * The final LED colour for the clip instance {@code ac} at the column starting on {@code
+   * colTick}: HEAD square = full section colour, loop boundary = {@code dim(base, 3)}, mid-loop
+   * body = {@code dim(forBlur(base), 3)}, arrangement-only preview = {@code dim(base, 4)}. Shared
+   * by {@link #project} (whole-grid, unit-tested) and the per-cell arranger render path so both
+   * agree.
+   */
+  static Color colourFor(ArrangerClip ac, int colTick, int ticksPerColumn) {
     int section = ac.clip() != null ? ac.clip().getSection() : -1;
     Color base = DelugeColour.sectionColour(section);
     boolean isHead = ac.startTicks() >= colTick && ac.startTicks() < colTick + ticksPerColumn;
-    Color colour;
     if (ac.clip() == null) {
-      colour = DelugeColour.dim(base, 4); // arrangement-only preview
+      return DelugeColour.dim(base, 4); // arrangement-only preview
     } else if (isHead) {
-      colour = base;
+      return base;
     } else {
       int loopLen = ac.clip().getLoopLength();
       int rel = colTick - ac.startTicks();
       boolean loopStart = loopLen > 0 && (rel % loopLen == 0);
-      colour =
-          loopStart
-              ? DelugeColour.dim(base, 3)
-              : DelugeColour.dim(DelugePadButton.getBlurColor(base), 3);
+      return loopStart
+          ? DelugeColour.dim(base, 3)
+          : DelugeColour.dim(DelugePadButton.getBlurColor(base), 3);
     }
-    return PadCell.of(colour, true);
   }
 }
