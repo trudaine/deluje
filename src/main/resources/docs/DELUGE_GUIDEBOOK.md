@@ -408,50 +408,50 @@ Remaining slots 9–16 are automatically filled with percussion, cowbells, woodb
 
 ---
 
-## 4. DAW-Grade Visual Waveform Crop & Loop Markers Deck
+## 4. Visual Waveform Crop & Loop Markers Deck
 
-Double-click any drum track or click its `[CFG]` button to enter the real-time graphic wav file crop editor:
+Double-click any drum track or click its `[CFG]` button to enter the wav file crop editor:
 
 ![Interactive WAV Waveform Loop Markers & Crop Sliders Panel](images/deluge_waveform_crop.png)
 
 ### Key Features:
-* **Loom Parallel WAV Decoders**: Spawns highly responsive background JVM virtual threads (Project Loom) to decode PCM streams in under 5ms without locking the primary event dispatch thread (EDT).
-* **Teal-to-Magenta Symmetric HSL Envelope Canvas**: Paints a stunning visual representation of the WAV stream's transient spike cycles. The gradient center-split shapes morph horizontally from a modern neon teal (`#00ffcc` at the center) to a hot magenta/pink (`#ff007f` at the borders) over an oscilloscope laboratory dark backdrop.
-* **4-Marker Interactive Crop Sliders**: Glide standard parameters in real-time to locate:
+* **Parallel WAV Decoders**: Uses background virtual threads to decode PCM streams without blocking the UI thread.
+* **Envelope Canvas**: Paints a visual representation of the WAV stream's transient spikes with a neon teal-to-magenta gradient center-split.
+* **4-Marker Interactive Crop Sliders**: Glide parameters in real-time to locate:
   * **Start Point (Green - S)**: Where the playback head begins reading samples.
   * **End Point (Red - E)**: Where the voice release completes.
   * **Loop Start (Blue - LS)**: Where continuous looping cycles begin.
   * **Loop End (Magenta - LE)**: Where continuous looping cycles wrap back to Loop Start.
-* **💾 Save & Apply Crop Button**: Commits the raw sample frame limits numbers back to the `SoundDrum` model, writes the XML kit configuration, and triggers a real-time JNI playback reload so boundaries update in live playback instantly!
+* **💾 Save & Apply Crop Button**: Commits the sample frame limits back to the model, writes the XML kit configuration, and triggers playback reload so boundaries update instantly.
 
 ---
 
-## 5. MPC-Style Automatic Loop Slicer & Kit Splitter
+## 5. Automatic Loop Slicer & Kit Splitter
 
-The menu action **`Tools ➔ Audio Loop Slicer...`** (global shortcut **`Ctrl + L` / `Cmd + L`**) opens our spacious, automatic breakbeat slicing suite:
+The menu action **`Tools ➔ Audio Loop Slicer...`** (global shortcut **`Ctrl + L` / `Cmd + L`**) opens the automatic breakbeat slicing dialog:
 
 ![Visual Audio Loop Slicer & Kit Splitter Dashboard](images/deluge_audio_slicer.png)
 
 ### Slicing Workflow:
-1. **Choose a WAV loop**: Load any drum break, loop phrase, or sample WAV file. The large waveform canvas draws the spike transients immediately.
-2. **Select Slices Grid Combobox**: Choose divisions count (**`4 Slices`**, **`8 Slices`**, or **`16 Slices`**). The screen instantly overlay-draws numbered vertical dashed orange slice-dividers over the audio wave!
-3. **Choke and Volume Setup**: Toggle standard checkboxes to auto-choke all generated slices on Mute Group 1 (so triggering a new slice cuts off the playing tail for tight MPC-style breakbeat grooves) and scale initial volume multipliers.
-4. **⚡ Slice & Load Across Kit Rows Button**: Click this button to split the breakbeat mathematically, populate drum kit rows 0 to 15 with the precise sample crops boundaries, write the Kit XML to the SD card `KITS/` folder, and hot-swap your active sequencer grid lane to play your newly sliced loops kit live instantly!
+1. **Choose a WAV loop**: Load any drum break, loop phrase, or sample WAV file. The waveform canvas draws the transients immediately.
+2. **Select Slices Grid Combobox**: Choose divisions count (**`4 Slices`**, **`8 Slices`**, or **`16 Slices`**). The screen draws vertical dashed orange slice-dividers over the audio wave.
+3. **Choke and Volume Setup**: Toggle checkboxes to auto-choke generated slices on Mute Group 1 (so triggering a new slice cuts off the playing tail) and scale initial volume multipliers.
+4. **⚡ Slice & Load Across Kit Rows Button**: Click this button to split the loop, populate drum kit rows 0 to 15 with the slice boundaries, write the Kit XML to the `KITS/` folder, and hot-swap the active sequencer grid lane to play the sliced loop kit.
 
 ---
 
 ## 6. The Visual Modulation Patchbay & Bipolar Modulation Math
 
-Modulation is what breathes organic life into electronic sound. In the Deluge Workstation, modulation routing functions like a virtual modular synthesizer patchbay. Instead of rigid hardwired paths, you can connect any modulation source to any destination with precise, real-time control over modulation polarity, depth, and summing mathematics.
+Modulation routing functions like a virtual modulation patchbay. You can connect any modulation source to any destination with control over modulation polarity, depth, and summing.
 
 ### 6.1 The Modulation Summing Engine (The Mathematics)
 
-When a target parameter (such as Low-Pass Filter Cutoff) has multiple active modulation paths, the internal DSP engine sums the control signals at sample-accurate rates. The mathematical formula for a modulated parameter value $V(t)$ is:
+When a target parameter (such as Low-Pass Filter Cutoff) has multiple active modulation paths, the engine sums the control signals. The mathematical formula for a modulated parameter value $V(t)$ is:
 
 $$V(t) = V_{base} + \sum_{i=1}^{N} A_i \cdot S_i(t)$$
 
 Where:
-* $V_{base}$ is the standard scalar value of the parameter set by its main slider (e.g. LPF Cutoff set to $10\text{kHz}$).
+* $V_{base}$ is the scalar value of the parameter set by its main slider (e.g. LPF Cutoff set to $10\text{kHz}$).
 * $A_i$ is the **Modulation Depth (Amount)** slider value ($-100\%$ to $+100\%$) cabled in the path list.
 * $S_i(t)$ is the current real-time normalized output signal of the modulation source (ranging from $0.0$ to $1.0$ or $-1.0$ to $+1.0$).
 
@@ -469,9 +469,9 @@ Where:
 4. **Envelope 3 & 4 (Uni)**: Aux envelopes for auxiliary parameters, like decay modulation or pitch sweeps.
 5. **LFO 1 & 2 (Bi)**: Low Frequency Oscillators. LFO 1 can be set to "Global" (syncs cycle phase across all voices) while LFO 2 is always "Local" (polyphonic, re-triggering phase per note-on).
 6. **LFO 3 & 4 (Bi)**: Auxiliary modular low frequency oscillators for secondary rate offsets or panning wiggles.
-7. **Aftertouch (Uni)**: Polyphonic channel pressure. Scales values based on pressure held on grid pads during play.
+7. **Aftertouch (Uni)**: Polyphonic pressure. Scales values based on pressure held on grid pads during play.
 8. **Note / Key Tracking (Bi)**: Scales parameters relative to the note's MIDI pitch. The center pitch is Middle C (MIDI note 60 = $0.0$). Notes above Middle C output positive offsets ($>0.0$), while notes below output negative offsets ($<0.0$).
-9. **Random (Uni)**: Sample & Hold step generator. Produces a static random value (0.0 to 1.0) on every note-on trigger.
+9. **Random (Uni)**: Sample & Hold step generator. Produces a random value (0.0 to 1.0) on every note-on trigger.
 10. **Sidechain Bus (Uni)**: Envelope follower that tracks the signal level of Mute Group 1 (typically Kicks/Drums) to duck other channels.
 
 ---
@@ -480,20 +480,20 @@ Where:
 
 Open the Synth Config Dialog (double-click a synth track or double-click a grid step) and select the **`MODULATION`** tab to view the patchbay panel:
 
-![Visual Modulation routing patchbay tab](images/deluge_synth_tab_modulation.png)
+![Modulation routing patchbay tab](images/deluge_synth_tab_modulation.png)
 
 #### Managing Patch Cables:
-* **Connect a New Cable**: Click the prominent green **`[+ Connect New Modulation Cable]`** button at the bottom. A new routing row is instantiated at the end of the scroll list.
+* **Connect a New Cable**: Click the green **`[+ Connect New Modulation Cable]`** button at the bottom. A new routing row is instantiated at the end of the scroll list.
 * **Configure Ports**: Select the source (e.g. `lfo1`) in the left combobox and the destination (e.g. `lpfFrequency`) in the right combobox.
-* **Toggle Polarity**: Click the **`[Bipolar]`** toggle button! When selected, it glows in warm amber indicating bipolar mode (amount range $-100\%$ to $+100\%$); when unselected, it styles in dark charcoal indicating unipolar mode (amount range $0\%$ to $100\%$).
-* **Adjust Slider Depth**: Drag the glowing cyan JSlider to set the modulation intensity. The numeric label displays the exact percentage (e.g. `+45%` or `-80%`). Changes are hot-swapped to ChucK VM memory registers in real-time!
+* **Toggle Polarity**: Click the **`[Bipolar]`** toggle button. When selected, it glows in warm amber indicating bipolar mode (amount range $-100\%$ to $+100\%$); when unselected, it styles in dark charcoal indicating unipolar mode (amount range $0\%$ to $100\%$).
+* **Adjust Slider Depth**: Drag the glowing cyan JSlider to set the modulation intensity. The numeric label displays the exact percentage (e.g. `+45%` or `-80%`). Changes are applied to the synthesis engine parameters.
 * **Disconnect / Delete Cable**: Click the red **`[✖]`** button on the right to instantly disconnect the cable, restoring the destination's default behavior.
 
 ---
 
 ### 6.4 Six Step-by-Step Sound Design Tutorials
 
-#### 🎹 Tutorial 1: Classic Subtractive Brass Swell (Envelope 2 ➔ LPF Cutoff Bipolar)
+#### 🎹 Tutorial 1: Subtractive Brass Swell (Envelope 2 ➔ LPF Cutoff)
 1. Double-click your Synth track to open the configuration dashboard, and select the **`OSC`** tab. Set Osc A wave shape to **`SAWTOOTH`** and set LPF Mode to **`24dB Low Pass`**.
 2. Select the **`FILTER`** tab and slide the Cutoff dial down to a low base value of **`800Hz`** (making the sound dark and warm).
 3. Select the **`ENVELOPE`** tab (specifically Envelope 2). Set:
@@ -503,48 +503,48 @@ Open the Synth Config Dialog (double-click a synth track or double-click a grid 
    * **Release**: **`300ms`** (clean fade out).
 4. Select the **`MODULATION`** tab. Click **`[+ Connect New Modulation Cable]`**.
 5. Set the Source combobox to **`envelope2`** and the Destination combobox to **`lpfFrequency`**.
-6. Set the depth slider to **`+65%`** (making the filter sweep open wide on note triggers!).
-7. *Result*: Trigger a sequence step: you will hear a gorgeous, classic analog subtractive brass swell as the filter cutoff sweeps up and decays!
+6. Set the depth slider to **`+65%`** (making the filter sweep open on note triggers).
+7. *Result*: Trigger a sequence step: you will hear a subtractive brass swell as the filter cutoff sweeps up and decays.
 
-#### 🌀 Tutorial 2: Polyphonic Vibrato (LFO 1 ➔ Pitch Bipolar)
+#### 🌀 Tutorial 2: Polyphonic Vibrato (LFO 1 ➔ Pitch)
 1. Open your Synth Config Dialog, go to the **`LFO`** tab (LFO 1 section). Set LFO 1 shape to **`SINE`** and the rate to **`6.2Hz`** (vibrato speed).
 2. Go to the **`MODULATION`** tab, click **`[+ Connect New Modulation Cable]`**.
 3. Set the Source to **`lfo1`** and the Destination to **`pitch`**.
-4. Click the **`[Bipolar]`** button so it glows in active amber (bipolar pitch vibrato!).
+4. Click the **`[Bipolar]`** button so it glows in active amber (bipolar pitch vibrato).
 5. Slide the depth slider to a very small positive percentage: **`+8%`** (subtle vibrato) or **`+15%`** (heavy chorused wiggle).
-6. *Result*: Play steps: you will hear a smooth, realistic polyphonic vibrato that adds massive acoustic space to raw lead waves!
+6. *Result*: Play steps: you will hear a vibrato.
 
-#### 🌊 Tutorial 3: Organic Filter Sweeps (LFO 2 ➔ LPF Cutoff Bipolar)
+#### 🌀 Tutorial 3: Organic Filter Sweeps (LFO 2 ➔ LPF Cutoff)
 1. Open your Synth dialog, select the **`LFO`** tab (LFO 2 section). Set LFO 2 shape to **`TRIANGLE`** and set a very slow rate of **`0.35Hz`** (one full cycles sweep every 3 seconds).
 2. Select the **`FILTER`** tab, set LPF Cutoff base to a middle frequency: **`2.5kHz`**.
 3. Select the **`MODULATION`** tab, click **`[+ Connect New Modulation Cable]`**.
 4. Set the Source to **`lfo2`** and the Destination to **`lpfFrequency`**. Ensure **`[Bipolar]`** is toggled active.
 5. Slide the depth slider up to **`+45%`**.
-6. *Result*: Hold down a long pad sequence gate: the filter cutoff will slowly open and close across a wide frequency path, creating a beautiful organic moving sweep!
+6. *Result*: Hold down a long pad sequence gate: the filter cutoff will slowly open and close, creating a moving filter sweep.
 
-#### 🎛️ Tutorial 4: Advanced Mod-of-Mod Vibrato Swell (LFO 2 ➔ LFO 1 Depth Bipolar)
+#### 🎛️ Tutorial 4: Mod-of-Mod (LFO 2 ➔ LFO 1 Depth)
 1. Setup standard vibrato first: Go to the **`LFO`** tab, set LFO 1 (vibrato LFO) shape to **`SINE`** and rate to **`6.5Hz`**. Set LFO 2 (modulator LFO) shape to **`TRIANGLE`** and rate to a slow **`0.5Hz`**.
 2. Go to the **`MODULATION`** tab, click **`[+ Connect New Modulation Cable]`**.
 3. Set the Source to **`lfo1`** and the Destination to **`pitch`**. Set Bipolar to active and set a moderate depth: **`+20%`**.
 4. Click **`[+ Connect New Modulation Cable]`** to add a SECOND cable route (Modulation of Modulator!).
 5. Set the Source to **`lfo2`** and set the Destination combobox to **`lfo1Rate`** (modulating LFO 1 vibrato rate!) or **`modFxDepth`**!
-6. *Result*: The slow LFO 2 will dynamically modulate the vibrato speed and depth itself, creating an advanced evolving texture where the pitch vibrato gets faster and deeper recursively!
+6. *Result*: The slow LFO 2 will dynamically modulate the vibrato speed and depth itself, modulating the vibrato speed/depth.
 
-#### ⛽ Tutorial 5: Sidechain Kick Ducking / The Pump Effect (Sidechain ➔ Volume Unipolar)
+#### ⛽ Tutorial 5: Sidechain Ducking (Sidechain ➔ Volume)
 1. Focus your drum kit track containing your Kick drum (Slot 1). Go to its slot configuration and ensure its Mute Group is set to **`1`** (or is named Kick).
 2. Open the Synth track config dialog you want to duck behind the kick. Go to the **`MODULATION`** tab, click **`[+ Connect New Modulation Cable]`**.
 3. Set the Source to **`sidechain`** and the Destination to **`volume`**.
 4. Ensure the **`[Bipolar]`** button is UNSELECTED (unipolar mode, ducking volume down!).
 5. Slide the depth slider to a negative percentage: **`-85%`** (near-total silence on Kick hits) or **`-50%`** (mild ducking).
-6. *Result*: Press play on the sequencer: every time the Kick drum triggers on the grid, the Synth track's volume will instantly slam down and pump back up as the kick decays, creating the famous modern electronic "Sidechain Pump" effect!
+6. *Result*: Press play on the sequencer: every time the Kick drum triggers on the grid, the Synth track's volume will duck, ducking the synthesizer volume.
 
-#### 🎯 Tutorial 6: Physical Velocity Filter Dynamics (Velocity ➔ LPF Cutoff Bipolar)
+#### 🎯 Tutorial 6: Velocity Filter Dynamics (Velocity ➔ LPF Cutoff)
 1. Open your Synth config, set LPF Cutoff base to a warm **`1.2kHz`**.
 2. Select the **`MODULATION`** tab, click **`[+ Connect New Modulation Cable]`**.
 3. Set the Source to **`velocity`** and the Destination to **`lpfFrequency`**.
 4. Set the depth to **`+50%`**.
 5. Go to the step sequencer grid: enter steps and adjust their velocities (click a pad to open step properties, slide velocity values between `15%`, `50%`, and `100%`).
-6. *Result*: Steps with low velocity will sound dark and muted, while steps hit with full velocity will open the filter wide, creating bright, aggressive transients that mimic acoustic string or percussion instruments!
+6. *Result*: Steps with low velocity will sound dark and muted, while steps hit with full velocity will open the filter wide, creating velocity-dependent filter variations.
 
 ---
 
@@ -554,40 +554,40 @@ The workstation provides three distinct workspace perspectives to support multip
 
 * **CLIP View**: Focuses on a single sequencer pattern grid lane to draw steps and adjust gate timings.
 * **SONG View**: A launching matrix where different clip patterns (rows) are grouped into Song Sections. Launch or mute rows live to test transitions and structure arrangements.
-* **ARRANGEMENT View**: A horizontal linear track timeline grid (where grid rows represent track channels, and columns represent standard BARS, i.e., $1\text{ column} = 96\text{ ticks}$). Double-click a cell or right-click to place a clip block, drag the edge of a block to extend its playback length, or drag standard blocks horizontally to shift their start time coordinates!
+* **ARRANGEMENT View**: A horizontal linear track timeline grid (where grid rows represent track channels, and columns represent standard BARS, i.e., $1\text{ column} = 96\text{ ticks}$). Double-click a cell or right-click to place a clip block, drag the edge of a block to extend its playback length, or drag blocks horizontally to shift their start time coordinates.
 
 ### 7.1 Widescreen Arranger Visual Grid Editor (Widescreen Mode)
-When the active view mode is set to ARRANGER, the step grid panel transforms into an interactive visual timeline workspace cabled to the track's real-time timeline models:
-*   **Empty Slot Click & Popup Creator:** Clicking an empty Arranger step slot opens a JPopupMenu listing all available clips for that track (plus a `"Create New Pattern Clip (1 bar)"` quick-access options builder). Selecting an item automatically instantiates and schedules the Arranger clip placement!
+When the active view mode is set to ARRANGER, the step grid panel transforms into an interactive visual timeline workspace linked to the track's timeline models:
+*   **Empty Slot Click & Popup Creator:** Clicking an empty Arranger step slot opens a menu listing all available clips for that track (plus a `"Create New Pattern Clip (1 bar)"` quick-access options builder). Selecting an item automatically instantiates and schedules the Arranger clip placement.
 *   **Widescreen Timeline Drag-Moving (Standard Drag):** Click a backlit clip block pad and drag it horizontally to shift its start time ticks position by increments of 1 bar ($96\text{ ticks}$ per grid column drag):
     $$\text{newStartTicks} = \max(0, \text{dragStartTicks} + \text{colDiff} \times 96)$$
 *   **Widescreen Timeline Drag-Resizing (Shift + Drag):** Hold down the **Shift** key while dragging a backlit clip block pad horizontally to extend or contract its loop duration length by increments of 1 bar ($96\text{ ticks}$ per grid column drag):
     $$\text{newDurationTicks} = \max(96, \text{dragDurationTicks} + \text{colDiff} \times 96)$$
-*   **Double-Click / Right-Click to Delete:** Double-clicking or right-clicking a backlit Arranger pad instantly removes that specific clip instance placement from the song model arrangement timeline!
+*   **Double-Click / Right-Click to Delete:** Double-clicking or right-clicking a backlit Arranger pad instantly removes that specific clip placement from the song model arrangement timeline.
 
-### 7.2 Arranger Real-Time Steps Scheduler & Live Capture Mode
-*   **Arranger Steps Playback Scheduler:** Spawns a high-priority, 5ms daemon background thread that monitors the real-time JNI playback step index. Ahead of the playhead hit, it pre-transfers cell active, pitch, velocity, and gate parameters for active arranger clips straight into the circular JNI step matrix column:
+### 7.2 Arranger Steps Scheduler & Live Capture Mode
+*   **Arranger Steps Scheduler:** Spawns a daemon background thread that monitors the playback step index. It updates note pitch, velocity, and gate parameters for active arranger clips in the step matrix:
     $$\text{col} = \text{upcomingStep} \bmod 16$$
-    If no placement is active on a track row, it automatically mutes the step channels to keep background audio perfectly quiet.
-*   **Live Session Clips Capture [🔴 CAPTURE]:** Clicking the glowing **`[🔴 CAPTURE]`** transport toggle button enables live recording session mode. When the user launches/stops a clip in Session view, the capture scheduler records the start ticks step and duration ticks, creating and appending the cabled `ArrangerClip` straight to the active arrangement timeline live!
+    If no placement is active on a track row, it automatically mutes the step channels to keep background audio quiet.
+*   **Live Session Clips Capture [🔴 CAPTURE]:** Clicking the glowing **`[🔴 CAPTURE]`** transport toggle button enables live recording session mode. When the user launches/stops a clip in Session view, the capture scheduler records the start ticks step and duration ticks, creating and appending the `ArrangerClip` to the active arrangement timeline.
 
 ### 7.1 Clip sequencing & Song Sections Workflow
-* **Grid Entry in CLIP Mode**: Click a cell to add a note event, double-click a step to configure its specific gate and velocity timings, or scroll mouse wheel vertically to search up/down vocal pitch scale lanes.
+* **Grid Entry in CLIP Mode**: Click a cell to add a note event, double-click a step to configure its specific gate and velocity timings, or edit step properties.
 * **Song Section Building**: Go to SONG mode (press **`Tab`** key). Create different pattern segments (e.g., Row 0 = Intro Beat, Row 1 = Chorus, Row 2 = Breakdown). 
   * Pads backlit represent each clip's state: *Solid Amber* (ready/loaded), *Flashing Green* (playing), *Unlit* (muted/empty).
-  * Click a Pad to queue a pattern play swap: the transition waits for the current bar loop boundary to complete and then swaps the audio streams programmatically in perfect tempo sync!
+  * Click a Pad to queue a pattern play swap: the transition waits for the current bar loop boundary to complete and then swaps the audio streams in tempo sync.
 
 ### 7.2 Linear Multitrack Arrangement Sequencing
 Go to ARR mode (press **`Tab`**). The screen displays horizontal timeline lanes per track:
 * **Sequencing Blocks**: Tap pads horizontally to spawn play blocks.
-* **Resizing Gate Boundaries**: Hold the right boundary cell of a play block and scroll or drag the mouse to extend its playback timeline from 2 bars to 8 bars dynamically!
-* **Track Solo/Mute Focus**: Click the left track header buttons to isolate build components (e.g. soloing vocal leads during drop builds).
+* **Resizing Gate Boundaries**: Hold the right boundary cell of a play block and scroll or drag the mouse to extend its playback timeline.
+* **Track Solo/Mute Focus**: Click the left track header buttons to isolate tracks.
 
 ---
 
 ## 8. DSP FX Bounding Box Dials Deck
 
-The bottom segment of your grid dashboard houses our dedicated premium stereo effects path processors:
+The bottom segment of your grid dashboard houses effects path processors:
 
 ```carousel
 ![Mod FX Chorus Flanger Phaser tab](images/deluge_synth_tab_mod_fx.png)
