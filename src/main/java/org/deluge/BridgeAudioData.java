@@ -2,9 +2,7 @@ package org.deluge;
 
 import org.deluge.shadow.core.ChuckArray;
 
-/**
- * Extracted AudioData class from BridgeContract.java to reduce file complexity.
- */
+/** Extracted AudioData class from BridgeContract.java to reduce file complexity. */
 final class BridgeAudioData {
   static final int TRACKS = BridgeContract.TRACKS;
 

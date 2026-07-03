@@ -1,11 +1,8 @@
 package org.deluge;
 
 import org.deluge.shadow.core.ChuckArray;
-import java.util.Arrays;
 
-/**
- * Extracted StepData class from BridgeContract.java to reduce file complexity.
- */
+/** Extracted StepData class from BridgeContract.java to reduce file complexity. */
 final class BridgeStepData {
   static final int PATTERN_SIZE = BridgeContract.PATTERN_SIZE;
 

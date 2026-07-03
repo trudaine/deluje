@@ -12,6 +12,18 @@ public class ArrangerGridPanel extends SwingGridPanel {
     super(bridge);
   }
 
+  /**
+   * The Deluge arranger status/mute square colour (arranger_view.cpp drawMuteSquare): blue when
+   * soloed, yellow-orange when muted, green when active; dulled (channels clamped to 5..50) when
+   * another track is soloing. Note the arranger's muted colour is yellow-orange, unlike the session
+   * status square's red.
+   */
+  private Color arrangerStatusColour(boolean muted, boolean soloedHere, boolean anySoloing) {
+    Color base =
+        soloedHere ? new Color(0, 0, 255) : (muted ? new Color(255, 160, 0) : new Color(0, 255, 6));
+    return (anySoloing && !soloedHere) ? DelugeColour.dull(base) : base;
+  }
+
   @Override
   public void rebuildUIComponents() {
     stopAuditionIfNeeded();
@@ -337,7 +349,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
             boolean isMuted = bridge != null && bridge.getMute(engineRow);
             clipBtn.setText(isMuted ? "UNMUTE" : "MUTE");
             clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
-            Color muteBg = isMuted ? new Color(0xff, 0xd7, 0x00) : Color.WHITE;
+            Color muteBg = arrangerStatusColour(isMuted, soloRow == trk, soloRow >= 0);
             clipBtn.setBackground(muteBg);
             clipBtn.setForeground(Color.BLACK);
             if (clipBtn instanceof DelugePadButton pad) {
@@ -503,7 +515,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
           if (clipBtn == null) continue;
 
           if (isMuteColumn(c)) {
-            Color muteBg = isMuted ? new Color(0xff, 0xd7, 0x00) : Color.WHITE;
+            Color muteBg = arrangerStatusColour(isMuted, soloRow == modelRow, soloRow >= 0);
             clipBtn.setBackground(muteBg);
             clipBtn.setText(isMuted ? "UNMUTE" : "MUTE");
             if (clipBtn instanceof DelugePadButton pad) {

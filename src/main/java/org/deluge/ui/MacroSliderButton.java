@@ -12,9 +12,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import javax.swing.JButton;
 
-/**
- * Extracted MacroSliderButton custom component from SwingGridPanel to offload complexity.
- */
+/** Extracted MacroSliderButton custom component from SwingGridPanel to offload complexity. */
 public class MacroSliderButton extends JButton {
   private final SwingGridPanel parent;
   private final int colId;
@@ -83,8 +81,10 @@ public class MacroSliderButton extends JButton {
   }
 
   public void updateValueFromModel() {
-    if (parent.projectModel == null || parent.editedModelTrack >= parent.projectModel.getTracks().size()) return;
-    org.deluge.model.TrackModel track = parent.projectModel.getTracks().get(parent.editedModelTrack);
+    if (parent.projectModel == null
+        || parent.editedModelTrack >= parent.projectModel.getTracks().size()) return;
+    org.deluge.model.TrackModel track =
+        parent.projectModel.getTracks().get(parent.editedModelTrack);
     value = parent.getMacroValue(colId, track);
     updateDisplayValueStr();
   }
@@ -96,8 +96,7 @@ public class MacroSliderButton extends JButton {
         break;
       case 1:
         int panPct = (int) ((value - 0.5) * 200);
-        displayValueStr =
-            panPct == 0 ? "C" : (panPct < 0 ? "L" + Math.abs(panPct) : "R" + panPct);
+        displayValueStr = panPct == 0 ? "C" : (panPct < 0 ? "L" + Math.abs(panPct) : "R" + panPct);
         break;
       case 2:
         int semi = (int) (value * 48 - 24);
@@ -106,9 +105,7 @@ public class MacroSliderButton extends JButton {
       case 3:
         float freq = (float) (20.0 * Math.pow(1000.0, value));
         displayValueStr =
-            freq >= 1000.0f
-                ? String.format("%.1fk", freq / 1000.0f)
-                : String.format("%.0f", freq);
+            freq >= 1000.0f ? String.format("%.1fk", freq / 1000.0f) : String.format("%.0f", freq);
         break;
       case 4:
         displayValueStr = (int) (value * 100) + "%";
@@ -152,8 +149,10 @@ public class MacroSliderButton extends JButton {
   }
 
   private void propagateValueToModel() {
-    if (parent.projectModel == null || parent.editedModelTrack >= parent.projectModel.getTracks().size()) return;
-    org.deluge.model.TrackModel track = parent.projectModel.getTracks().get(parent.editedModelTrack);
+    if (parent.projectModel == null
+        || parent.editedModelTrack >= parent.projectModel.getTracks().size()) return;
+    org.deluge.model.TrackModel track =
+        parent.projectModel.getTracks().get(parent.editedModelTrack);
     parent.setMacroValue(colId, value, track);
   }
 

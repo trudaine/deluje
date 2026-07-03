@@ -2,9 +2,7 @@ package org.deluge;
 
 import org.deluge.shadow.core.ChuckArray;
 
-/**
- * Extracted TrackData class from BridgeContract.java to reduce file complexity.
- */
+/** Extracted TrackData class from BridgeContract.java to reduce file complexity. */
 final class BridgeTrackData {
   static final int TRACKS = BridgeContract.TRACKS;
   static final int MAX_CLIPS_PER_TRACK = BridgeContract.MAX_CLIPS_PER_TRACK;
