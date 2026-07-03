@@ -843,10 +843,34 @@ public class SwingProjectSidebarPanel extends JPanel {
                 long ms = ping.get(2, java.util.concurrent.TimeUnit.SECONDS);
                 log.append("✓ Ping reply in ").append(ms).append(" ms\n");
               } catch (Exception ex) {
-                log.append(
-                    "✗ No ping reply within 2s on the selected port.\n"
-                        + "   Scanning all Deluge cables to find one that responds…\n\n");
-                log.append(scanDelugePorts());
+                log.append("✗ No ping reply within 2s on the selected port \"")
+                    .append(org.deluge.project.PreferencesManager.get("midi.input", "None"))
+                    .append("\".\n   Scanning all Deluge cables to find one that responds…\n\n");
+                String working = scanDelugePorts(log);
+                if (working != null) {
+                  log.append("\nApplying \"").append(working).append("\" and reconnecting…\n");
+                  try {
+                    org.deluge.project.PreferencesManager.set("midi.input", working);
+                    midi.reconnect();
+                    Thread.sleep(1200); // let ALSA re-subscribe and the session re-negotiate
+                    java.util.concurrent.CompletableFuture<Long> ping2 =
+                        new java.util.concurrent.CompletableFuture<>();
+                    long t1 = System.nanoTime();
+                    sysex.sendRequest(
+                        "{\"ping\":{}}",
+                        (j, b) -> ping2.complete((System.nanoTime() - t1) / 1_000_000));
+                    long ms = ping2.get(3, java.util.concurrent.TimeUnit.SECONDS);
+                    log.append("✓ Reconnected on \"")
+                        .append(working)
+                        .append("\" — ping ")
+                        .append(ms)
+                        .append(" ms. Click REFRESH to load the SD card.");
+                  } catch (Exception re) {
+                    log.append(
+                        "✗ Reconnect still got no reply. Power-cycle the Deluge and re-attach"
+                            + " the USB to the Crostini container.");
+                  }
+                }
                 showSelfTestResult(log.toString());
                 return;
               }
@@ -902,10 +926,9 @@ public class SwingProjectSidebarPanel extends JPanel {
    * and session layer), sends a raw {@code {"ping":{}}} SysEx, and watches ~1s for a {@code ^ping}
    * reply — reporting which cable round-trips so the user knows which MIDI port to select.
    */
-  private String scanDelugePorts() {
+  private String scanDelugePorts(StringBuilder sb) {
     String[] outPorts = org.deluge.shadow.midi.MidiOut.list();
     String[] inPorts = org.deluge.shadow.midi.MidiIn.list();
-    StringBuilder sb = new StringBuilder();
     sb.append("Output ports: ").append(java.util.Arrays.toString(outPorts)).append('\n');
     sb.append("Input ports:  ").append(java.util.Arrays.toString(inPorts)).append("\n\n");
 
