@@ -2325,7 +2325,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
         pad.putClientProperty("col", c);
         clipBtn = pad;
       } else {
-        clipBtn = new JButton();
+        clipBtn = new CleanJButton();
         clipBtn.setFocusable(false);
       }
 
@@ -2970,12 +2970,22 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                     @Override
                     public void mousePressed(java.awt.event.MouseEvent e) {
                       if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                        new BarAutomationDialog(
-                                (Frame)
-                                    javax.swing.SwingUtilities.getWindowAncestor(
-                                        SwingGridPanel.this),
-                                colId)
-                            .setVisible(true);
+                        JPopupMenu menu = new JPopupMenu();
+                        menu.setBackground(new Color(0x1e, 0x1e, 0x22));
+                        menu.setBorder(BorderFactory.createLineBorder(new Color(0x3e, 0x3e, 0x42), 1));
+                        JMenuItem editAuto = new JMenuItem("Edit Bar Automation...");
+                        editAuto.setForeground(Color.WHITE);
+                        editAuto.setBackground(new Color(0x1e, 0x1e, 0x22));
+                        editAuto.addActionListener(ev -> {
+                          new BarAutomationDialog(
+                                  (Frame)
+                                      javax.swing.SwingUtilities.getWindowAncestor(
+                                          SwingGridPanel.this),
+                                  colId)
+                              .setVisible(true);
+                        });
+                        menu.add(editAuto);
+                        menu.show(clipBtn, e.getX(), e.getY());
                       }
                     }
                   });
@@ -2995,6 +3005,26 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                   if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
                     if (clipCol < songTrack.getClips().size()) {
                       showClipContextMenu(clipBtn, e.getX(), e.getY(), songTrack, clipCol, trkIdx);
+                    } else {
+                      JPopupMenu emptyClipMenu = new JPopupMenu();
+                      emptyClipMenu.setBackground(new Color(0x1e, 0x1e, 0x22));
+                      emptyClipMenu.setBorder(BorderFactory.createLineBorder(new Color(0x3e, 0x3e, 0x42), 1));
+                      JMenuItem createItem = new JMenuItem("Create New Clip Pattern");
+                      createItem.setForeground(Color.WHITE);
+                      createItem.setBackground(new Color(0x1e, 0x1e, 0x22));
+                      createItem.addActionListener(ev -> {
+                        String name = "CLIP " + (clipCol + 1);
+                        songTrack.addClip(
+                            new org.deluge.model.ClipModel(
+                                name,
+                                songTrack.getClips().isEmpty()
+                                    ? 8
+                                    : songTrack.getClips().get(0).getRowCount(),
+                                16));
+                        fireProjectChanged();
+                      });
+                      emptyClipMenu.add(createItem);
+                      emptyClipMenu.show(clipBtn, e.getX(), e.getY());
                     }
                   } else {
                     if (clipCol >= songTrack.getClips().size()) {
@@ -3266,7 +3296,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
             };
             clipBtn = new MacroSliderButton(c, allParams[c]);
           } else {
-            clipBtn = new JButton();
+            clipBtn = new CleanJButton();
             clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
             clipBtn.setEnabled(false);
           }
@@ -3281,7 +3311,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                     || colId % 12 == 8
                     || colId % 12 == 10);
 
-            clipBtn = new JButton(getNoteName(note));
+            clipBtn = new CleanJButton(getNoteName(note));
             clipBtn.setBackground(isBlack ? new Color(0x33, 0x33, 0x33) : Color.WHITE);
             clipBtn.setForeground(isBlack ? Color.WHITE : Color.BLACK);
             clipBtn.setFont(
@@ -3289,7 +3319,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
 
             clipBtn.addMouseListener(new KeyboardMouseAdapter(this, note));
           } else {
-            clipBtn = new JButton();
+            clipBtn = new CleanJButton();
             clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a));
             clipBtn.setEnabled(false);
           }
@@ -3670,6 +3700,24 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                 pad.setMuted(isMuted);
                 pad.setNoteText(isMuted ? "UNMUTE" : "MUTE");
               }
+              if (viewMode == null) {
+                clipBtn.setToolTipText("Row " + (v + 1) + " Mute Toggle");
+              } else {
+                switch (viewMode) {
+                  case CLIP ->
+                      clipBtn.setToolTipText(
+                          "Clip View: Row "
+                              + (v + 1)
+                              + " Mute / Unmute (Right-Click for Options / Shift-Click to Clear Steps)");
+                  case SONG ->
+                      clipBtn.setToolTipText("Song View: Track " + (v + 1) + " Full Track Mute");
+                  case ARRANGEMENT ->
+                      clipBtn.setToolTipText("Arrangement View: Lane " + (v + 1) + " Mute");
+                  case AUTOMATION ->
+                      clipBtn.setToolTipText("Automation View: Parameter Lane " + (v + 1) + " Mute");
+                  default -> clipBtn.setToolTipText("Performance View: Live Stutter / Mute Punch");
+                }
+              }
             } else if (isSoloColumn(c)) {
               // Audition / Row Label button - dynamically update text on scroll!
               boolean isSynth = false;
@@ -3708,6 +3756,28 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                   pad.setTextColorOverride(labelFg);
                   pad.setActive(true);
                   pad.setIntensity(1.0f);
+                }
+              }
+              if (viewMode == null) {
+                clipBtn.setToolTipText("Audition Row " + (v + 1));
+              } else {
+                switch (viewMode) {
+                  case CLIP ->
+                      clipBtn.setToolTipText(
+                          "Clip View: Audition / Preview Row "
+                              + (v + 1)
+                              + " Note ("
+                              + nName
+                              + ")");
+                  case SONG ->
+                      clipBtn.setToolTipText("Song View: Launch Track " + (v + 1) + " Primary Clip");
+                  case ARRANGEMENT ->
+                      clipBtn.setToolTipText("Arrangement View: Cue Bar / Section Marker " + (v + 1));
+                  case AUTOMATION ->
+                      clipBtn.setToolTipText(
+                          "Automation View: Cue Parameter " + (v + 1) + " Automation");
+                  default ->
+                      clipBtn.setToolTipText("Performance View: Recall Macro Snapshot " + (v + 1));
                 }
               }
             } else {
@@ -5122,7 +5192,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
               pad.putClientProperty("col", c);
               clipBtn = pad;
             } else {
-              clipBtn = new JButton();
+              clipBtn = new CleanJButton();
             }
           } else {
             if (isAdvanced) {
@@ -5131,7 +5201,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
               pad.putClientProperty("col", c);
               clipBtn = pad;
             } else {
-              clipBtn = new JButton();
+              clipBtn = new CleanJButton();
             }
           }
 

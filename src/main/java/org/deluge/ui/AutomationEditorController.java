@@ -9,12 +9,7 @@ import java.awt.Point;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.JButton;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
+import javax.swing.*;
 import org.deluge.model.AutomationParam;
 import org.deluge.model.ClipModel;
 import org.deluge.model.Consequence;
@@ -192,6 +187,11 @@ public class AutomationEditorController {
                 int acIdx2 = tM.getActiveClipIndex();
                 if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
                 ClipModel cM = tM.getClips().get(acIdx2);
+
+                if (SwingUtilities.isRightMouseButton(e)) {
+                  showAutomationCellPopupMenu(cell, e.getX(), e.getY(), cM, finalParam, colIdx);
+                  return;
+                }
 
                 if (SwingUtilities.isLeftMouseButton(e)) {
                   if (e.isShiftDown()) {
@@ -433,6 +433,11 @@ public class AutomationEditorController {
                 if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
                 ClipModel cM = tM.getClips().get(acIdx2);
 
+                if (SwingUtilities.isRightMouseButton(e)) {
+                  showAutomationCellPopupMenu(cell, e.getX(), e.getY(), cM, fParam, colIdx);
+                  return;
+                }
+
                 if (SwingUtilities.isLeftMouseButton(e)) {
                   if (e.isShiftDown()) {
                     float oldVal = cM.getAutomation(fParam, colIdx);
@@ -603,5 +608,99 @@ public class AutomationEditorController {
       }
     }
     refreshCallback.run();
+  }
+
+  private void showAutomationCellPopupMenu(
+      Component invoker, int x, int y, ClipModel clip, String paramName, int colIdx) {
+    JPopupMenu menu = new JPopupMenu();
+    menu.setBackground(new Color(0x1e, 0x1e, 0x22));
+    menu.setBorder(BorderFactory.createLineBorder(new Color(0x3e, 0x3e, 0x42), 1));
+
+    float currentVal = clip.getAutomation(paramName, colIdx);
+    boolean hasVal = currentVal >= 0.0f;
+
+    JMenuItem setPrecise = new JMenuItem("Set Precise Value...");
+    setPrecise.setForeground(Color.WHITE);
+    setPrecise.setBackground(new Color(0x1e, 0x1e, 0x22));
+    setPrecise.addActionListener(
+        ev -> {
+          String init = hasVal ? String.format("%.0f", currentVal * 100) : "50";
+          String input = JOptionPane.showInputDialog(
+              parent,
+              "Enter automation value for " + paramName + " at step " + (colIdx + 1) + " (0 - 100):",
+              init);
+          if (input != null && !input.isBlank()) {
+            try {
+              float pct = Float.parseFloat(input);
+              if (pct >= 0f && pct <= 100f) {
+                float oldVal = clip.getAutomation(paramName, colIdx);
+                float newVal = pct / 100.0f;
+                clip.setAutomation(paramName, colIdx, newVal);
+                ProjectModel pm = getProjectModel();
+                if (pm != null) {
+                  int tIdx = getEditedModelTrack();
+                  int acIdx = pm.getTracks().get(tIdx).getActiveClipIndex();
+                  pm.getUndoRedoStack().push(
+                      new Consequence.AutomationConsequence(
+                          pm, tIdx, acIdx, paramName, colIdx, oldVal, newVal));
+                }
+                refreshCallback.run();
+              }
+            } catch (NumberFormatException ignored) {}
+          }
+        });
+    menu.add(setPrecise);
+
+    JMenuItem clearPoint = new JMenuItem("Clear Automation Point");
+    clearPoint.setForeground(hasVal ? Color.RED : Color.GRAY);
+    clearPoint.setBackground(new Color(0x1e, 0x1e, 0x22));
+    clearPoint.setEnabled(hasVal);
+    clearPoint.addActionListener(
+        ev -> {
+          float oldVal = clip.getAutomation(paramName, colIdx);
+          float[] arr = clip.getAutomationArray(paramName);
+          if (arr != null && colIdx < arr.length) {
+            arr[colIdx] = -1f;
+            ProjectModel pm = getProjectModel();
+            if (pm != null) {
+              int tIdx = getEditedModelTrack();
+              int acIdx = pm.getTracks().get(tIdx).getActiveClipIndex();
+              pm.getUndoRedoStack().push(
+                  new Consequence.AutomationConsequence(
+                      pm, tIdx, acIdx, paramName, colIdx, oldVal, -1f));
+            }
+            refreshCallback.run();
+          }
+        });
+    menu.add(clearPoint);
+
+    menu.addSeparator();
+
+    // Quick presets
+    JMenu quickVals = new JMenu("Quick Value");
+    quickVals.setForeground(Color.WHITE);
+    quickVals.setBackground(new Color(0x1e, 0x1e, 0x22));
+    double[] vals = {0.0, 0.25, 0.50, 0.75, 1.00};
+    for (double v : vals) {
+      JMenuItem vItem = new JMenuItem((int) (v * 100) + "%");
+      vItem.addActionListener(
+          ev -> {
+            float oldVal = clip.getAutomation(paramName, colIdx);
+            clip.setAutomation(paramName, colIdx, (float) v);
+            ProjectModel pm = getProjectModel();
+            if (pm != null) {
+              int tIdx = getEditedModelTrack();
+              int acIdx = pm.getTracks().get(tIdx).getActiveClipIndex();
+              pm.getUndoRedoStack().push(
+                  new Consequence.AutomationConsequence(
+                      pm, tIdx, acIdx, paramName, colIdx, oldVal, (float) v));
+            }
+            refreshCallback.run();
+          });
+      quickVals.add(vItem);
+    }
+    menu.add(quickVals);
+
+    menu.show(invoker, x, y);
   }
 }

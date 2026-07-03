@@ -255,6 +255,12 @@ public class DelugePadButton extends JButton {
     if (noteText == null) noteText = "";
     if (!this.noteText.equals(noteText)) {
       this.noteText = noteText;
+      if (!noteText.isEmpty()) {
+        String clean = noteText.replaceAll("<[^>]*>", " ").replaceAll("\\s+", " ").trim();
+        if (!clean.isEmpty()) {
+          setToolTipText(clean);
+        }
+      }
       repaint();
     }
   }
@@ -262,10 +268,18 @@ public class DelugePadButton extends JButton {
   @Override
   public void setText(String text) {
     super.setText(text);
-    if (text != null && !text.startsWith("<html>")) {
-      setNoteText(text);
+    if (text != null && !text.isEmpty()) {
+      String clean = text.replaceAll("<[^>]*>", " ").replaceAll("\\s+", " ").trim();
+      if (!clean.isEmpty()) {
+        setToolTipText(clean);
+      }
+      if (!text.startsWith("<html>")) {
+        setNoteText(text);
+      }
     }
+    repaint();
   }
+
 
   private boolean inLoop = true;
 
@@ -315,24 +329,6 @@ public class DelugePadButton extends JButton {
       g2.setColor(new Color(0x2d, 0x2d, 0x32));
       g2.setStroke(new BasicStroke(1.0f));
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
-
-      if (noteText != null && !noteText.isEmpty()) {
-        g2.setFont(getFont());
-        FontMetrics fm = g2.getFontMetrics();
-        int fh = fm.getHeight();
-        int fa = fm.getAscent();
-        g2.setColor(new Color(0x55, 0x55, 0x5a));
-
-        String[] parts = noteText.split("\n");
-        int partsCount = parts.length;
-        int totalH = fh * partsCount - (fh - fa);
-
-        for (int i = 0; i < partsCount; i++) {
-          int wp = fm.stringWidth(parts[i]);
-          int yPart = (h - totalH) / 2 + i * fh + fa - 1;
-          g2.drawString(parts[i], (w - wp) / 2, yPart);
-        }
-      }
       g2.dispose();
       return;
     }
@@ -467,39 +463,6 @@ public class DelugePadButton extends JButton {
       g2.setColor(new Color(0x00, 0xff, 0xcc, 110));
       g2.setStroke(new BasicStroke(1.5f));
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
-    }
-
-    // 6. Minimal Text overlays
-    if (!noteText.isEmpty()) {
-      g2.setFont(getFont());
-      FontMetrics fm = g2.getFontMetrics();
-      int fh = fm.getHeight();
-      int fa = fm.getAscent();
-      String[] parts = noteText.split("\n");
-      int partsCount = parts.length;
-
-      int maxW = 0;
-      for (String p : parts) {
-        int wp = fm.stringWidth(p);
-        if (wp > maxW) maxW = wp;
-      }
-      int totalH = fh * partsCount - (fh - fa);
-
-      if (textColorOverride != null) {
-        g2.setColor(textColorOverride);
-      } else if (active) {
-        g2.setColor(new Color(0, 0, 0, 160));
-        g2.fillRect((w - maxW) / 2 - 4, (h - totalH) / 2 - 2, maxW + 8, totalH + 4);
-        g2.setColor(Color.WHITE);
-      } else {
-        g2.setColor(new Color(0xcc, 0xcc, 0xdd));
-      }
-
-      for (int i = 0; i < partsCount; i++) {
-        int wp = fm.stringWidth(parts[i]);
-        int yPart = (h - totalH) / 2 + i * fh + fa - 1;
-        g2.drawString(parts[i], (w - wp) / 2, yPart);
-      }
     }
 
     g2.dispose();

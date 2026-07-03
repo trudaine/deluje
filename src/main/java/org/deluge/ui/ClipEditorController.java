@@ -189,73 +189,7 @@ public class ClipEditorController {
               int baseTrackId = getBaseTrackId();
 
               if (SwingUtilities.isRightMouseButton(e)) {
-                if (bridge == null) return;
-                int engineRow = baseTrackId + modelRow;
-                double curVel = bridge.getVelocity(engineRow, colId);
-                int curIt = bridge.getIterance(engineRow, colId);
-                int curFill = (int) (bridge.getStepFill(engineRow, colId) * 100);
-
-                StepPropertiesDialog dlg =
-                    new StepPropertiesDialog(
-                        (Frame) SwingUtilities.getWindowAncestor(parent),
-                        (int) (curVel * 100),
-                        curIt,
-                        curFill);
-                dlg.setVisible(true);
-                if (dlg.isConfirmed()) {
-                  int newVel = dlg.getVelocity();
-                  int newIt = dlg.getIterance();
-                  int newFill = dlg.getFill();
-                  if (newVel != (int) (curVel * 100) || newIt != curIt || newFill != curFill) {
-                    StepData oldStep = null;
-                    if (projectModel != null
-                        && editedModelTrack < projectModel.getTracks().size()) {
-                      TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
-                      if (activeClipId < tModel.getClips().size()) {
-                        oldStep =
-                            parent.getClipStep(
-                                tModel.getClips().get(activeClipId), modelRow, colId);
-                      }
-                    }
-                    bridge.setVelocity(engineRow, colId, newVel / 100.0);
-                    bridge.setIterance(engineRow, colId, newIt);
-                    bridge.setStepFill(engineRow, colId, newFill / 100.0);
-
-                    if (projectModel != null
-                        && editedModelTrack < projectModel.getTracks().size()) {
-                      TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
-                      if (activeClipId < tModel.getClips().size()) {
-                        ClipModel cModel = tModel.getClips().get(activeClipId);
-                        boolean st = bridge.getStep(engineRow, colId);
-                        double prob = bridge.getStepProbability(engineRow, colId);
-                        StepData newStep =
-                            new StepData(
-                                st,
-                                newVel / 100.0f,
-                                0.5f,
-                                (float) prob,
-                                0,
-                                newIt,
-                                newFill / 100.0f);
-                        parent.setClipStep(cModel, modelRow, colId, newStep);
-                        if (oldStep != null) {
-                          projectModel
-                              .getUndoRedoStack()
-                              .push(
-                                  new Consequence.StepConsequence(
-                                      projectModel,
-                                      editedModelTrack,
-                                      activeClipId,
-                                      modelRow,
-                                      colId,
-                                      oldStep,
-                                      parent.getClipStep(cModel, modelRow, colId)));
-                        }
-                      }
-                    }
-                    refreshCallback.run();
-                  }
-                }
+                handleStepLongPressed(visualRow, colId, e.getLocationOnScreen());
               } else if (SwingUtilities.isLeftMouseButton(e)) {
                 if (bridge == null) return;
                 boolean isSynthMode = isSynthOrKit(bridge.getTrackType(baseTrackId));
