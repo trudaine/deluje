@@ -1,6 +1,6 @@
 # Deluge-Java Workstation — Operations Manual & User Guide
 
-Welcome to the **Deluge-Java Workstation**, a modern, high-fidelity software recreation and operations controller dashboard inspired by the Synthstrom Deluge hardware sequencer and synthesizer workflow. By combining a robust, multi-voice Java JRE control system with the high-performance ChucK (strongly-timed audio synthesis language) virtual machine engine, this workstation delivers zero-latency, sample-accurate step sequencing, physical DSP modeling, MPC-grade breakbeat auto-slicing, and modular modulation route routing.
+Welcome to the **Deluge-Java Workstation**, a software recreation and operations controller dashboard inspired by the Synthstrom Deluge hardware sequencer and synthesizer workflow. By combining a robust, multi-voice Java control system with an internal Java DSP synthesis engine, this workstation delivers responsive step sequencing, physical DSP modeling, breakbeat auto-slicing, and modular modulation routing.
 
 ---
 
@@ -8,18 +8,18 @@ Welcome to the **Deluge-Java Workstation**, a modern, high-fidelity software rec
 1. [The Step Sequencer & Clip View](#1-the-step-sequencer--clip-view)
    * [1.6 The Euclidean Rhythm Generator](#16-the-euclidean-rhythm-generator)
    * [1.7 Sequencer Grid Zooming & Proportional Scaling](#17-sequencer-grid-zooming--proportional-scaling)
-   * [1.8 Premium Fold Mode & Vertical Space Optimization](#18-premium-fold-mode--vertical-space-optimization)
-2. [Synthesizers & Sound Engines (Subtractive, FM, Wavetable, Legato, Multi-Sampler, Ring Mod)](#2-synthesizers--sound-engines-subtractive-fm-wavetable)
+   * [1.8 Fold Mode & Vertical Space Optimization](#18-fold-mode--vertical-space-optimization)
+2. [Synthesizers & Sound Engines (Subtractive, FM, Wavetable, Legato, Multi-Sampler, Ring Mod)](#2-synthesizers--sound-engines-subtractive-fm-wavetable-legato-multi-sampler-ring-mod)
    * [2.7 Chord Keyboard (CORK & CORL Layouts)](#27-chord-keyboard-cork--corl-layouts)
 3. [Drum Kits & Smart Keyword Auto-Mapper](#3-drum-kits--smart-keyword-auto-mapper)
-4. [DAW-Grade Visual Waveform Crop & Loop Markers Deck](#4-daw-grade-visual-waveform-crop--loop-markers-deck)
-5. [MPC-Style Automatic Loop Slicer & Kit Splitter](#5-mpc-style-automatic-loop-slicer--kit-splitter)
+4. [Visual Waveform Crop & Loop Markers Deck](#4-visual-waveform-crop--loop-markers-deck)
+5. [Automatic Loop Slicer & Kit Splitter](#5-automatic-loop-slicer--kit-splitter)
 6. [The Visual Modulation Patchbay & Bipolar Modulation Math](#6-the-visual-modulation-patchbay--bipolar-modulation-math)
 7. [Song & Arrangement Linear Timelines View](#7-song--arrangement-linear-timelines-view)
 8. [DSP FX Bounding Box Dials Deck](#8-dsp-fx-bounding-box-dials-deck)
 9. [Delugeator Multi-Generator Dashboard Suite](#9-delugeator-multi-generator-dashboard-suite)
    * [9.3 Drone Lab & Evolving Texture Generator](#93-drone-lab--evolving-texture-generator)
-10. [UI Panels & Shift Shortcuts System Behavior](#10-ui-panels-&-shift-shortcuts-system-behavior)
+10. [UI Panels & Shift Shortcuts System Behavior](#10-ui-panels--shift-shortcuts-system-behavior)
     * [10.3 Track Header & Top Toolbar Shift Shortcuts Map](#103-track-header--top-toolbar-shift-shortcuts-map)
 11. [Audio Tracks, Time-Stretching & Pitch-Shifting](#11-audio-tracks-time-stretching--pitch-shifting)
 12. [Advanced Wavetable Index Scan Editor](#12-advanced-wavetable-index-scan-editor)
@@ -32,41 +32,48 @@ Welcome to the **Deluge-Java Workstation**, a modern, high-fidelity software rec
 17. [System Settings, Directories Preferences & Shortcuts Table](#17-system-settings-directories-preferences--shortcuts-table)
     * [17.1 Hardware Character Emulations & Master Saturation Drive](#171-hardware-character-emulations--master-saturation-drive)
     * [17.2 Microtuning, Custom Temperaments & Scala (.scl) Imports](#172-microtuning-custom-temperaments--scala-scl-imports)
-    * [17.3 Deluge-Java Workstation Exclusive Power Features](#173-Deluge-Java-workstation-exclusive-power-features)
-18. [Appendix: Programmatic High-Fidelity JNI Registers Architecture](#18-appendix-programmatic-high-fidelity-jni-registers-architecture)
-19. [Appendix: Pending Work Items & Future Development Roadmap (TODO List)](#19-appendix-pending-work-items--future-development-roadmap-todo-list)
-20. [Hardware Popular Commands & Java UI Equivalents Table](#20-hardware-popular-commands--java-ui-equivalents-table)
-21. [Deluge Community Quick Reference & Java Adaptation Guide](#21-deluge-community-quick-reference--java-adaptation-guide)
-22. [Creative Workflow Tips & Best Practices (Understanding the Workflow)](#22-creative-workflow-tips--best-practices-understanding-the-workflow)
+    * [17.3 Deluge-Java Workstation Exclusive Power Features](#173-deluge-java-workstation-exclusive-power-features)
+18. [Appendix: Programmatic BridgeContract API & Properties](#18-appendix-programmatic-bridgecontract-api--properties)
+19. [Hardware Popular Commands & Java UI Equivalents Table](#19-hardware-popular-commands--java-ui-equivalents-table)
+20. [Deluge Community Quick Reference & Java Adaptation Guide](#20-deluge-community-quick-reference--java-adaptation-guide)
+21. [Creative Workflow Tips & Best Practices (Understanding the Workflow)](#21-creative-workflow-tips--best-practices-understanding-the-workflow)
+22. [Appendix: Java Swing Desktop Quick Reference & Hardware Parity Matrix](#22-appendix-java-swing-desktop-quick-reference--hardware-parity-matrix)
 23. [The Macro Scripting & Song Automation Engine](#23-the-macro-scripting--song-automation-engine)
 24. [The Interactive Synth Preset Designer & Exporter](#24-the-interactive-synth-preset-designer--exporter)
+25. [The Master FX Console & Modulation Dashboard Extension](#25-the-master-fx-console--modulation-dashboard-extension)
+26. [Arranger Track Mutes, Solos & Live Capture Extension](#26-arranger-track-mutes-solos--live-capture-extension)
+27. [The Track Inspector](#27-the-track-inspector)
+28. [Utility & Generator Dialogs](#28-utility--generator-dialogs)
+29. [Application Menus](#29-application-menus)
+30. [Recent Architecture & UI Enhancements (Past 48 Hours)](#30-recent-architecture--ui-enhancements-past-48-hours)
+
 ---
 
 ## 1. The Step Sequencer & Clip View
 
-The central focus of the Deluge Workstation is the multi-lane visual step sequencer. Represented as a responsive, high-contrast pads grid, it maps your sequencing notes and durations with absolute sample accuracy.
+The central focus of the Deluge Workstation is the multi-lane step sequencer. Represented as a responsive grid of pads, it maps sequencing notes and durations.
 
 ![Swing Main Sequencer Clip View Grid](images/deluge_main_sequencer.png)
 
 ### Key Features:
-* **Interactive Step Matrix Grid**: A standard 16x8 matrix scroll list representing time divisions (columns) across voice lanes (rows). Pads are backlit and glow in warm HSL colors reflecting step status and velocity levels.
-* **Horizontal Step Drag-Ties (Extended Notes Entry)**: Click a pad and drag your mouse horizontally along the same row to extend note durations (ties) across multiple steps dynamically!
-  * Visual step cells in the drag range glow in a beautiful backlit color preview state during drags.
+* **Interactive Step Matrix Grid**: A standard 16x8 matrix scroll list representing time divisions (columns) across voice lanes (rows). Pads are backlit and glow in colors reflecting step status and velocity levels.
+* **Horizontal Step Drag-Ties (Extended Notes Entry)**: Click a pad and drag horizontally along the same row to extend note durations (ties) across multiple steps.
+  * Visual step cells in the drag range glow in a backlit color preview state during drags.
   * Upon release, consecutive step properties (intermediate steps gate set to `1.0` and ending step gate set to `0.5`) are finalized inside the model.
-* **Smooth Proximity Auto-Scrolling**: When dragging note ties or selecting cell ranges, moving the cursor near the left/right view borders automatically shifts the scroll offset view by 4 steps smoothly:
+* **Proximity Auto-Scrolling**: When dragging note ties or selecting cell ranges, moving the cursor near the left/right view borders automatically shifts the scroll offset view by 4 steps:
   * Dragging near the right panel boundary ($\ge \text{width} - 30\text{px}$) scrolls the viewport RIGHT.
   * Dragging near the left panel boundary ($\le 130\text{px}$) scrolls the viewport LEFT.
-  * Active drag column indexes are updated dynamically during auto-scrolling, keeping your selection perfectly aligned!
-* **Note Characteristics Tweak Deck**: Hovering over or clicking a step exposes a dynamic wiggler slider to adjust:
-  * **Velocity**: Scale note triggers velocities from `1%` to `100%`.
-  * **Duration (Length)**: Extend a note's gate across consecutive pads from a quick sixteenth trigger up to multiple bars.
-  * **Nudge (Micro-Timing)**: Offset step triggers by micro-fractions to introduce organic, humanized shuffle swings.
-  * **Repeat (Stutter)**: Subdivide a single grid step into automatic stutter retriggers (1x, 2x, 4x, 8x speed) for trap-style rolls.
-* **Quantized Playback Head**: A moving vertical white indicator line tracks the JNI playhead position across columns in real-time, matching standard system clocks.
+  * Active drag column indexes are updated during auto-scrolling, keeping the selection aligned.
+* **Note Characteristics Tweak Deck**: Hovering over or clicking a step exposes a dynamic slider to adjust:
+  * **Velocity**: Scale note trigger velocities from `1%` to `100%`.
+  * **Duration (Length)**: Extend a note's gate across consecutive pads from a sixteenth trigger up to multiple bars.
+  * **Nudge (Micro-Timing)**: Offset step triggers by micro-fractions to introduce shuffle swing.
+  * **Repeat (Stutter)**: Subdivide a single grid step into automatic stutter retriggers (1x, 2x, 4x, 8x speed) for rolls.
+* **Quantized Playback Head**: A moving vertical white indicator line tracks the playhead position across columns in real-time.
 
 ### 1.2 Grid Automation Overview & Detail Editor Views
 
-The main sequencer pads grid can be toggled to **`AUTOMATION`** view mode. This view provides two distinct, visual perspective layouts:
+The main sequencer pads grid can be toggled to **`AUTOMATION`** view mode. This view provides two distinct visual layouts:
 
 ```carousel
 ![Automation Overview Grid Workspace](images/deluge_grid_automation_overview.png)
@@ -74,30 +81,30 @@ The main sequencer pads grid can be toggled to **`AUTOMATION`** view mode. This 
 ![Automation Detail Editor Grid Workspace](images/deluge_grid_automation_editor.png)
 ```
 
-1. **AUTOMATION OVERVIEW Grid Mode (`deluge_grid_automation_overview.png`)**: Lists all synthesizer/track automatable parameters vertically (rows). Pads represent sequence columns step ticks: a step pad glows in solid green if it houses active automated points for that row's parameter, letting you scan entire automation states at a single glance!
-2. **AUTOMATION DETAIL EDITOR Grid Mode (`deluge_grid_automation_editor.png`)**: Selecting a specific parameter row in Overview mode opens the dedicated per-step value editor! The 8 grid rows act as value bands (from `0-15` up to `112-127`). You draw step-by-step values directly on the physical pads: a pad glows in bright cyan indicating the parameter value at that specific sequencer step!
+1. **AUTOMATION OVERVIEW Grid Mode (`deluge_grid_automation_overview.png`)**: Lists all synthesizer/track automatable parameters vertically (rows). Pads represent sequence columns step ticks: a step pad glows in green if it houses active automated points for that parameter, indicating automation state.
+2. **AUTOMATION DETAIL EDITOR Grid Mode (`deluge_grid_automation_editor.png`)**: Selecting a parameter row in Overview mode opens the step value editor. The 8 grid rows act as value bands (from `0-15` up to `112-127`). Values are drawn on the pads: a pad glows in cyan indicating the parameter value at that specific sequencer step.
 
 ---
 
 ### 1.3 Step Parameter Properties, Probability & Fill Conditions
 
-Editing a step's characteristics can be done via the context-sensitive **Right-Click Step Menu** or the full **Step Properties** dialog. 
+Editing a step's characteristics can be done via the context-sensitive **Right-Click Step Menu** or the **Step Properties** dialog. 
 
 #### 🎛️ The Right-Click Step Context Menu
-Right-clicking any grid pad in **Clip View** opens a premium popup menu that allows you to quickly adjust parameters on-the-fly without leaving the grid view:
+Right-clicking any grid pad in **Clip View** opens a popup menu to adjust parameters on-the-fly:
 * **Step Toggle**: Turn the step ON or OFF.
 * **Velocity Quick-Presets**: Instantly set the note's velocity to standard levels: `100% (FF)`, `75% (mf)`, `50% (p)`, or `25% (pp)`.
 * **Fill Condition**: Toggle the **Fill** property on the step.
-* **Clear Step**: Reset all parameters on the step back to standard defaults.
+* **Clear Step**: Reset all parameters on the step to defaults.
 * **Properties...**: Open the full **Step Properties** JDialog.
 
 #### 📝 The Step Properties Dialog
-Double-clicking a sequence step (or selecting **Properties...** from the right-click menu) opens our dedicated, high-contrast **`Step Properties`** JDialog. This provides precise, standard-compliant step parameters and random fill rules:
+Double-clicking a sequence step (or selecting **Properties...** from the right-click menu) opens the **`Step Properties`** JDialog. This provides step parameters and random fill rules:
 
 ![Per-Step Parameter Properties JDialog Dialog](images/deluge_step_properties.png)
 
-* **Velocity**: Scale note triggers velocities precisely from `1%` to `100%` (combines both a slider and exact spinner values). Brightness of active note pads scales dynamically with velocity!
-* **Nudge (Micro-Timing)**: Offset step triggers by micro-fractions (from `-0.5` to `+0.5` steps) to introduce organic, humanized shuffle swings or micro-timing offsets. Nudged steps display with a subtle blur effect on the grid.
+* **Velocity**: Scale note trigger velocities from `1%` to `100%` (combines both a slider and spinner values). Brightness of active note pads scales dynamically with velocity.
+* **Nudge (Micro-Timing)**: Offset step triggers by micro-fractions (from `-0.5` to `+0.5` steps) to introduce shuffle swing or micro-timing offsets. Nudged steps display with a subtle visual effect on the grid.
 * **Repeats (Sub-Triggers / Iterance)**: Subdivide standard sequencer steps into quick sub-triggers (0 to 3 subdivisions, where 3 represents active triplet step subdivisions within standard note ticks).
 * **Fill Probability % (Loop Conditionals)**: Program a step with specific chance properties:
   * `0%`: Standard static step (triggers every single pass).
@@ -125,7 +132,7 @@ Double-clicking a sequence step (or selecting **Properties...** from the right-c
 
 ### 1.4 Play Direction Modes (Forward, Reverse, Ping-Pong, Random)
 
-Tracks can be configured to walk the step pointers in multiple structural pathways, parsed dynamically by the JNI timing clock:
+Tracks can be configured to walk the step pointers in multiple structural pathways, parsed dynamically by the sequencer timing clock:
 * **FORWARD**: The standard grid walk (from step 1 to step 16, wrapping back to 1).
 * **REVERSE**: The track steps play backward (from step 16 to step 1, wrapping back to 16). Great for reversing drum fills or mirror vocal phrases!
 * **PING-PONG**: Symmetrical bi-directional walk! Plays Forward from step 1 to 16, and then immediately plays backward from 15 down to 2, bouncing back and forth.
@@ -135,53 +142,53 @@ Tracks can be configured to walk the step pointers in multiple structural pathwa
 
 ### 1.5 Triplet Column Grid Divisions View (12-Step Triplets vs 16-Step Straights)
 
-Step sequencing is no longer restricted to straight subdivisions (sixteenth notes, 16 steps per bar)! The Deluge Workstation supports dynamic, per-track **Triplet Grid Divisions** switching, allowing you to build complex polyrhythms, drum shuffles, and eighth-note triplet sequences.
+Step sequencing is no longer restricted to straight subdivisions (sixteenth notes, 16 steps per bar). The Deluge Workstation supports per-track **Triplet Grid Divisions** switching, allowing you to build polyrhythms, drum shuffles, and eighth-note triplet sequences.
 
-* **The JToggleButton [3] Toggle**: Located at the bottom JScrollbar zoom toolbar (immediately next to the rate speed JComboBox), a warm-gold outline button labeled **`[3]`** switches step subdivisions on the active track clip dynamically:
-  * **Straight Mode (Default)**: Visual columns are set to **16 steps per bar**, with an underlying JPlayhead step time duration of exactly **24 ticks** (sixteenth notes).
-  * **Triplet Mode (3-Subdivisions)**: Visual columns swap instantly to **12 steps per bar**, with an underlying JPlayhead step time duration of exactly **32 ticks** (eighth-note triplets).
-* **Beat Divisions Visual Slate Stripes**: To guarantee that you can map your musical patterns with absolute visual speed, the empty pad cells' background colors dynamically display beat stripes guidelines based on the active clip's triplet state:
+* **The [3] Toggle**: Located at the bottom scrollbar zoom toolbar (immediately next to the rate speed JComboBox), a gold outline button labeled **`[3]`** switches step subdivisions on the active track clip dynamically:
+  * **Straight Mode (Default)**: Visual columns are set to **16 steps per bar**, with an underlying step time duration of exactly **24 ticks** (sixteenth notes).
+  * **Triplet Mode (3-Subdivisions)**: Visual columns swap instantly to **12 steps per bar**, with an underlying step time duration of exactly **32 ticks** (eighth-note triplets).
+* **Beat Divisions Visual Stripes**: To guarantee that you can map patterns with visual speed, the empty pad cells' background colors dynamically display beat stripes guidelines based on the active clip's triplet state:
   * **Sixteenth Straight beat divisions**: Emphasizes every **4 steps** (highlighted slate-gray columns on step 1, 5, 9, 13).
   * **Eighth Triplet beat divisions**: Emphasizes every **3 steps** (highlighted slate-gray columns on step 1, 4, 7, 10).
-* **Parity XML loop lengths saving**: When saving files, the song XML writer dynamically computes the physical track loop duration ($12\text{ steps} \times 32\text{ ticks} = 384\text{ ticks}$ total loop length per bar) and saves it alongside the raw JNI ticks array structures and the `triplet="1"` attribute, ensuring 100% loss-free load cycles in all standard environments!
+* **XML loop lengths saving**: When saving files, the song XML writer dynamically computes the track loop duration ($12\text{ steps} \times 32\text{ ticks} = 384\text{ ticks}$ total loop length per bar) and saves it alongside the raw ticks structures and the `triplet="1"` attribute, ensuring correct load cycles.
 
 ### 1.6 The Euclidean Rhythm Generator
 
-Drawing even trigger distributions across step grids is fully automated. By integrating a dedicated mathematical Euclidean pattern layout planner, the workstation lets you populate drum tracks or basslines with organic polyrhythms in seconds:
+Drawing even trigger distributions across step grids is fully automated. By integrating a dedicated mathematical Euclidean pattern layout planner, the workstation lets you populate drum tracks or basslines with polyrhythms:
 
-* **The Interactive Euclidean Wheel JDialog**: Clicking the **`Euclidean`** button (located on the left-side control panel of the active matrix row) opens a modal JDialog. The window features an interactive **Euclidean Wheel** rendering active pulses as glowing amber outer pads and silent steps as dark charcoal segments.
-* **Parameters Deck**:
+* **The Interactive Euclidean Wheel Dialog**: Clicking the **`Euclidean`** button (located on the left-side control panel of the active matrix row) opens a modal dialog. The window features an interactive **Euclidean Wheel** rendering active pulses as glowing amber outer pads and silent steps as dark charcoal segments.
+* **Parameters**:
   * **Steps (N)**: The total sequence length (up to 16 steps per bar).
   * **Pulses (K)**: The number of active notes to distribute.
   * **Rotation (Shift)**: Rotates the pulse offsets horizontally (e.g. shifts the downbeat triggers).
 * **The Mathematical Distribution Formula**: Follows the Bjorklund spacing algorithm which calculates a boolean array $B[s]$ of length $N$:
   $$B[s] = \text{true if } (s \cdot K + \text{rotation}) \bmod N < K$$
-  This matches the community Deluge firmware's exact `editNumEuclideanEvents()` step spacing behavior.
-* **💾 Generate & Apply Button**: Click this button to overwrite the active row's sequence grid cells with the computed pattern. It triggers immediate JNI audio playback reload so you hear the polyrhythm play instantly!
+  This matches the Deluge firmware's step spacing behavior.
+* **💾 Generate & Apply Button**: Click this button to overwrite the active row's sequence grid cells with the computed pattern. It triggers immediate audio playback reload so you hear the polyrhythm play instantly.
 
 ### 1.7 Sequencer Grid Zooming & Proportional Scaling
 
-The workstation features a premium, DAW-grade **Fluid Viewport Grid Zooming** engine. Rather than forcing the main window to resize or causing text to overflow, changing the sequencer resolution dynamically resizes the cell pads (grid buttons) so they **always fit perfectly and fill the active window boundaries**!
+The workstation features a **Grid Zooming** engine. Rather than forcing the main window to resize or causing text to overflow, changing the sequencer resolution dynamically resizes the cell pads (grid buttons) so they fit and fill the active window boundaries.
 
 ![Swing Grid Zoom and Proportional Scaling Workspace](images/deluge_grid_zoom.jpg)
 
 #### Grid Zoom Keyboard Shortcuts:
-The grid resolution can be zoomed fluidly from anywhere inside the active window using standard global desktop shortcuts:
+The grid resolution can be zoomed from anywhere inside the active window using standard global desktop shortcuts:
 *   🔍 **Zoom In (Larger Pads / Fewer Cells)**: **`Ctrl + =`** (or **`Cmd + =`** on macOS)
     *   *Effect*: Scales the cell pads up, cycling the viewport layout: **`24x16 (Small)` $\rightarrow$ `16x16 (Medium)` $\rightarrow$ `8x16 (Large)`**.
 *   🔍 **Zoom Out (Smaller Pads / Denser Cells)**: **`Ctrl + -`** (or **`Cmd + -`** on macOS)
     *   *Effect*: Scales the cell pads down, cycling the viewport layout: **`8x16 (Large)` $\rightarrow$ `16x16 (Medium)` $\rightarrow$ `24x16 (Small)`**.
 
 #### Proportional Fixed-Row Scaling:
-The bottom fixed panels — **`MACROS`** (vertical DSP routing knobs) and **`KEYBOARD`** (the playhead note isomorphic keyboard) — are **decoupled from static row indexes and fully integrated into the fluid layout system**:
-*   **Dynamic Positioning**: The fixed rows automatically calculate their positions based on `gridMode.rows` (Macros are placed at index `gridMode.rows`, and Keyboard at index `gridMode.rows + 2`). They never overlap or hide sequencer notes when switching views!
-*   **Proportional Height Sync**: The height of these fixed rows scales dynamically in perfect proportion to the voice pads size (`padSz`):
+The bottom fixed panels — **`MACROS`** (vertical DSP routing knobs) and **`KEYBOARD`** (the playhead note isomorphic keyboard) — are **decoupled from static row indexes and integrated into the layout system**:
+*   **Dynamic Positioning**: The fixed rows automatically calculate their positions based on `gridMode.rows` (Macros are placed at index `gridMode.rows`, and Keyboard at index `gridMode.rows + 2`). They do not overlap or hide sequencer notes when switching views.
+*   **Proportional Height Sync**: The height of these fixed rows scales in proportion to the voice pads size (`padSz`):
     *   **Macros Height**: `(int) (padSz * 1.1)` (capped at a minimum of `28` pixels for usability).
     *   **Keyboard Height**: `(int) (padSz * 0.6)` (capped at a minimum of `16` pixels).
-*   *Result*: As you zoom out to denser modes (like `24x16` or `16x24`), the keyboard keys and macro sliders shrink proportionally, maintaining a beautifully balanced visual composition, saving massive vertical screen space, and remaining 100% tactile!
+*   *Result*: As you zoom out to denser modes (like `24x16` or `16x24`), the keyboard keys and macro sliders shrink proportionally, maintaining layout balance and optimizing vertical screen space.
 
 #### 🖥️ The Interactive "View" Menu:
-A brand-new **`View`** menu is located in the main menu bar. It provides:
+AView menu is located in the main menu bar. It provides:
 1.  **Zoom In** and **Zoom Out** options alongside their respective keyboard shortcut symbols.
 2.  **A Radio Button Group** representing the active grid size:
     *   `● 8x16 Grid (Large Pads)`
@@ -190,14 +197,14 @@ A brand-new **`View`** menu is located in the main menu bar. It provides:
     *   `○ 16x24 Grid (Wide Pads)`
 3.  **Bidirectional Real-Time Sync**:
     *   Pressing `Ctrl + =` or `Ctrl + -` dynamically updates the checked radio button in the menu bar.
-    *   Clicking a radio button in the menu bar instantly scales the grid and updates your preferences!
-### 1.8 Premium Fold Mode & Vertical Space Optimization
+    *   Clicking a radio button in the menu bar instantly scales the grid and updates preferences.
+### 1.8 Fold Mode & Vertical Space Optimization
 
-The Deluge Workstation features a premium **Fold Mode** for synthesizer clip tracks. It optimizes your workspace by collapsing empty rows on the sequencer grid, allowing you to focus strictly on the musical structure of your pattern.
+The Deluge Workstation features a **Fold Mode** for synthesizer clip tracks. It optimizes the workspace by collapsing empty rows on the sequencer grid, allowing you to focus on the musical structure of your pattern.
 
 #### The Concept:
-* **Unfolded Mode (Default)**: Displays a full chromatic piano roll spanning 128 rows (representing MIDI notes 0 to 127). This allows you to sequence notes across any octave but requires vertical scrolling to navigate between distant pitches.
-* **Folded Mode**: Collapses the grid to **only display rows that contain programmed notes** in the active clip (e.g., if your bassline only uses C3, D#3, and F3, the grid shrinks to exactly 3 rows). This eliminates all empty vertical space, bringing all your notes onto a single screen for distraction-free editing!
+* **Unfolded Mode (Default)**: Displays a full chromatic piano roll spanning 128 rows (representing MIDI notes 0 to 127). This allows you to sequence notes across any octave but requires vertical scrolling to navigate between pitches.
+* **Folded Mode**: Collapses the grid to **only display rows that contain programmed notes** in the active clip (e.g., if your bassline only uses C3, D#3, and F3, the grid shrinks to exactly 3 rows). This eliminates empty vertical space, bringing all notes onto a single screen.
 
 ```mermaid
 graph TD
@@ -208,15 +215,15 @@ graph TD
 ```
 
 #### Key Features & System Architecture:
-* **The Unified Pitch Resolver (MVC Data Parity)**: 
-  * In a standard sparse-row sequencer model, changing the grid height dynamically can cause note placements to shift or get corrupted.
-  * To solve this, the Deluge Workstation implements a **Unified Pitch Resolver** in the model (`ClipModel`). When Fold Mode is active, the model transparently maps step read/write actions from the collapsed UI rows directly to their absolute chromatic MIDI pitches in the audio engine. 
-  * This guarantees 100% data integrity: notes played by the audio engine and saved to the XML file always maintain their exact pitch, regardless of whether you are editing them in folded or unfolded mode!
+* **The Unified Pitch Resolver**: 
+  * In a standard sparse-row sequencer model, changing the grid height dynamically can cause note placements to shift.
+  * To solve this, the Deluge Workstation implements a **Unified Pitch Resolver** in the model (`ClipModel`). When Fold Mode is active, the model maps step read/write actions from the collapsed UI rows directly to their absolute chromatic MIDI pitches. 
+  * This guarantees data integrity: notes played by the audio engine and saved to the XML file maintain their exact pitch, regardless of whether you are editing them in folded or unfolded mode.
 * **Auto-Hiding Scroll Controls**:
   * Toggling Fold Mode recalculates the grid layout. If the active note rows fit on a single screen (8 rows or fewer), the vertical scrollbar, Page Up, and Page Down buttons **automatically hide** to maximize grid workspace and eliminate visual clutter.
-  * The side navigation panel remains perfectly locked at a fixed width of **32 pixels** to prevent the grid pads from shifting or jittering horizontally during folding/unfolding transitions.
-* **macOS Cross-Platform Button Polish**:
-  * All navigation buttons inside the side panel are rendered using flat, pixel-perfect Basic button UIs. This bypasses native macOS Aqua minimum-width constraints ($\ge 70$px), ensuring that the glowing green **`FOLD`** and **`UNFLD`** toggle buttons and their labels fit and display with absolute clarity!
+  * The side navigation panel remains locked at a fixed width of **32 pixels** to prevent the grid pads from shifting horizontally during folding/unfolding transitions.
+* **macOS Button Polish**:
+  * All navigation buttons inside the side panel are rendered using flat, pixel-perfect Basic button UIs. This bypasses native macOS Aqua minimum-width constraints ($\ge 70$px), ensuring that the glowing green **`FOLD`** and **`UNFLD`** toggle buttons and their labels fit and display clearly.
 
 #### How to Use Fold Mode:
 1. Select a Synth track to enter its Clip view.
