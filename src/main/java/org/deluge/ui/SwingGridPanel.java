@@ -1015,6 +1015,118 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     return focusTrack;
   }
 
+  private void showSoloButtonContextMenu(java.awt.Component src, int x, int y, int trackIdx) {
+    java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
+    if (trackIdx >= tracks.size()) return;
+    org.deluge.model.TrackModel track = tracks.get(trackIdx);
+
+    JPopupMenu menu = new JPopupMenu();
+    menu.setBackground(new Color(0x1e, 0x1e, 0x22));
+    menu.setBorder(BorderFactory.createLineBorder(new Color(0x3e, 0x3e, 0x42), 1));
+
+    // 1. Exclusive Solo
+    JMenuItem exclusiveSolo = new JMenuItem("Solo Exclusive (Unsolo Others)");
+    exclusiveSolo.setForeground(Color.WHITE);
+    exclusiveSolo.setBackground(new Color(0x1e, 0x1e, 0x22));
+    exclusiveSolo.addActionListener(
+        e -> {
+          soloRow = trackIdx;
+          for (int i = 0; i < tracks.size(); i++) {
+            setTrackMuteWithCapture(i, i != trackIdx);
+          }
+          if (SwingDelugeApp.mainInstance != null) {
+            SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
+                "SOLO", "T" + (trackIdx + 1));
+          }
+          refresh();
+        });
+    menu.add(exclusiveSolo);
+
+    // 2. Unsolo All
+    JMenuItem unsoloAll = new JMenuItem("Unsolo All Tracks");
+    unsoloAll.setForeground(Color.WHITE);
+    unsoloAll.setBackground(new Color(0x1e, 0x1e, 0x22));
+    unsoloAll.addActionListener(
+        e -> {
+          soloRow = -1;
+          for (int i = 0; i < tracks.size(); i++) {
+            setTrackMuteWithCapture(i, false);
+          }
+          if (SwingDelugeApp.mainInstance != null) {
+            SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("SOLO", "OFF");
+          }
+          refresh();
+        });
+    menu.add(unsoloAll);
+
+    menu.addSeparator();
+
+    // 3. Mute/Unmute Track
+    boolean isMuted = track.isMuted();
+    JMenuItem muteItem = new JMenuItem(isMuted ? "Unmute Track" : "Mute Track");
+    muteItem.setForeground(Color.WHITE);
+    muteItem.setBackground(new Color(0x1e, 0x1e, 0x22));
+    muteItem.addActionListener(
+        e -> {
+          setTrackMuteWithCapture(trackIdx, !isMuted);
+          refresh();
+        });
+    menu.add(muteItem);
+
+    menu.addSeparator();
+
+    // 4. Rename Track...
+    JMenuItem renameItem = new JMenuItem("Rename Track...");
+    renameItem.setForeground(Color.WHITE);
+    renameItem.setBackground(new Color(0x1e, 0x1e, 0x22));
+    renameItem.addActionListener(
+        e -> {
+          String newName = JOptionPane.showInputDialog(this, "Track name:", track.getName());
+          if (newName != null && !newName.isBlank()) {
+            track.setName(newName);
+            fireProjectChanged();
+          }
+        });
+    menu.add(renameItem);
+
+    // 5. Change Color...
+    JMenuItem colorItem = new JMenuItem("Change Track Color...");
+    colorItem.setForeground(Color.WHITE);
+    colorItem.setBackground(new Color(0x1e, 0x1e, 0x22));
+    colorItem.addActionListener(
+        e -> {
+          Color chosen = javax.swing.JColorChooser.showDialog(this, "Track Color", trackColors[trackIdx]);
+          if (chosen != null) {
+            trackColors[trackIdx] = chosen;
+            track.setColourHex(
+                "0x" + Integer.toHexString(chosen.getRGB() & 0xFFFFFF).toUpperCase());
+            fireProjectChanged();
+          }
+        });
+    menu.add(colorItem);
+
+    if (track instanceof org.deluge.model.SynthTrackModel synthTrack) {
+      menu.addSeparator();
+      // 6. Synthesizer Parameters Dashboard
+      JMenuItem synthDashboard = new JMenuItem("Synth Dashboard...");
+      synthDashboard.setForeground(new Color(0x00, 0xff, 0xcc));
+      synthDashboard.setBackground(new Color(0x1e, 0x1e, 0x22));
+      synthDashboard.addActionListener(
+          e -> {
+            new SwingSynthConfigDialog(
+                    (Frame) SwingUtilities.getWindowAncestor(src),
+                    synthTrack,
+                    bridge,
+                    trackIdx,
+                    projectModel)
+                .setVisible(true);
+          });
+      menu.add(synthDashboard);
+    }
+
+    menu.show(src, x, y);
+  }
+
   private void showTrackContextMenu(java.awt.Component src, int x, int y, int trackIdx) {
     java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
     if (trackIdx >= tracks.size()) return;
@@ -2675,6 +2787,15 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                   }
                 }
               });
+          clipBtn.addMouseListener(
+              new java.awt.event.MouseAdapter() {
+                @Override
+                public void mousePressed(java.awt.event.MouseEvent e) {
+                  if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
+                    showSoloButtonContextMenu(clipBtn, e.getX(), e.getY(), modelRow);
+                  }
+                }
+              });
         }
       } else {
         if (clipBtn instanceof DelugePadButton pad) {
@@ -2927,29 +3048,23 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                             + "</body></html>",
                         activeCol + 1, modelRow + 1, pitchMidi));
               }
-            } else {
+            } else if (viewMode == GridViewMode.SONG) {
               if (hasClip) {
                 clipBtn.setBackground(getTrackColour(modelRow));
                 if (modelRow < tracks.size() && c < tracks.get(modelRow).getClips().size()) {
                   org.deluge.model.TrackModel t = tracks.get(modelRow);
                   clipBtn.setToolTipText(
                       "<html><body style='font-size: 9px; font-family: sans-serif;'>"
-                          + "<b>Track: "
-                          + t.getName()
-                          + "</b><br>"
-                          + "• View Mode: "
-                          + viewMode
-                          + "<br>"
-                          + "• Status: Click to select/edit this clip!"
+                          + "<b>Track: " + t.getName() + " (Clip " + (c + 1) + ")</b><br>"
+                          + "• Left-Click: Open in Clip editor grid<br>"
+                          + "• Right-Click: Rename, Duplicate, Delete, Play Mode/Direction"
                           + "</body></html>");
                 } else {
                   clipBtn.setToolTipText(
                       "<html><body style='font-size: 9px; font-family: sans-serif;'>"
-                          + "<b>Session Clip Slot</b><br>"
-                          + "• View Mode: "
-                          + viewMode
-                          + "<br>"
-                          + "• Status: Active clip populated!"
+                          + "<b>Session Clip Slot " + (c + 1) + "</b><br>"
+                          + "• Left-Click: Open in Clip editor grid<br>"
+                          + "• Right-Click: Rename, Duplicate, Delete, Play Mode/Direction"
                           + "</body></html>");
                 }
               } else {
@@ -2957,10 +3072,29 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                 clipBtn.setToolTipText(
                     "<html><body style='font-size: 9px; font-family: sans-serif;'>"
                         + "<b>Empty Session Slot</b><br>"
-                        + "• View Mode: "
-                        + viewMode
-                        + "<br>"
-                        + "• Action: Click to create new clip pattern slot!"
+                        + "• Left-Click: Create new pattern clip here<br>"
+                        + "• Right-Click: Create new pattern clip here"
+                        + "</body></html>");
+              }
+            } else if (viewMode == GridViewMode.ARRANGEMENT) {
+              int col = c + scrollOffsetX;
+              org.deluge.model.ArrangerClip ac = arrangerController.getArrangerClipAt(modelRow, col);
+              if (ac != null) {
+                String clipName = ac.clip() != null ? ac.clip().getName() : "Arrangement Clip";
+                clipBtn.setToolTipText(
+                    "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+                        + "<b>Arranger Clip: " + clipName + "</b><br>"
+                        + "• Position: Bar " + (col + 1) + "<br>"
+                        + "• Duration: " + (ac.durationTicks() / 96) + " bars<br>"
+                        + "• Actions: Drag to move, Shift+Drag to resize<br>"
+                        + "• Right-Click: Delete clip, Duplicate, or Edit Bar Automation"
+                        + "</body></html>");
+              } else {
+                clipBtn.setToolTipText(
+                    "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+                        + "<b>Empty Timeline Bar " + (col + 1) + "</b><br>"
+                        + "• Left-Click: Place a clip at this position<br>"
+                        + "• Right-Click: Add Arranged Clip or Edit Bar Automation"
                         + "</body></html>");
               }
             }
@@ -2986,30 +3120,6 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
             case SONG:
               break;
             case ARRANGEMENT:
-              clipBtn.addMouseListener(
-                  new java.awt.event.MouseAdapter() {
-                    @Override
-                    public void mousePressed(java.awt.event.MouseEvent e) {
-                      if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                        JPopupMenu menu = new JPopupMenu();
-                        menu.setBackground(new Color(0x1e, 0x1e, 0x22));
-                        menu.setBorder(BorderFactory.createLineBorder(new Color(0x3e, 0x3e, 0x42), 1));
-                        JMenuItem editAuto = new JMenuItem("Edit Bar Automation...");
-                        editAuto.setForeground(Color.WHITE);
-                        editAuto.setBackground(new Color(0x1e, 0x1e, 0x22));
-                        editAuto.addActionListener(ev -> {
-                          new BarAutomationDialog(
-                                  (Frame)
-                                      javax.swing.SwingUtilities.getWindowAncestor(
-                                          SwingGridPanel.this),
-                                  colId)
-                              .setVisible(true);
-                        });
-                        menu.add(editAuto);
-                        menu.show(clipBtn, e.getX(), e.getY());
-                      }
-                    }
-                  });
               break;
             default:
               break;

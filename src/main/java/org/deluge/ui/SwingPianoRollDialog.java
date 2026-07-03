@@ -68,11 +68,15 @@ public class SwingPianoRollDialog extends JDialog {
     this.projectModel = projectModel;
     this.bridge = bridge;
 
-    if (projectModel != null && trackIndex < projectModel.getTracks().size()) {
+    if (projectModel != null && trackIndex >= 0 && trackIndex < projectModel.getTracks().size()) {
       this.trackModel = projectModel.getTracks().get(trackIndex);
-      if (clipIndex < trackModel.getClips().size()) {
+      if (clipIndex >= 0 && clipIndex < trackModel.getClips().size()) {
         this.clipModel = trackModel.getClips().get(clipIndex);
       }
+    }
+
+    if (this.clipModel == null) {
+      throw new IllegalArgumentException("Active clip model cannot be null");
     }
 
     // Determine engine base track ID mapping
@@ -95,6 +99,7 @@ public class SwingPianoRollDialog extends JDialog {
     getContentPane().setBackground(BG_DARK);
 
     buildUI();
+    updateSizes();
 
     // Scroll to C4 (MIDI Note 60) on open
     SwingUtilities.invokeLater(

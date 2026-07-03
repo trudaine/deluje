@@ -616,12 +616,21 @@ public class ClipEditorController {
       JMenuItem pianoRollItem = new JMenuItem("Open Piano Roll Editor...");
       pianoRollItem.addActionListener(
           ev -> {
+            int clipId = getActiveClipId();
+            if (clipId < 0) {
+              javax.swing.JOptionPane.showMessageDialog(
+                  SwingUtilities.getWindowAncestor(parent),
+                  "Please create or select an active pattern clip first.",
+                  "Open Piano Roll",
+                  javax.swing.JOptionPane.WARNING_MESSAGE);
+              return;
+            }
             SwingPianoRollDialog dlg =
                 new SwingPianoRollDialog(
                     (Frame) SwingUtilities.getWindowAncestor(parent),
                     parent,
                     getEditedModelTrack(),
-                    getActiveClipId(),
+                    clipId,
                     getProjectModel(),
                     bridge);
             dlg.setVisible(true);
