@@ -55,7 +55,11 @@ final class SongProjector {
   }
 
   /** True when any note row of {@code clip} has an active step at {@code step}. */
-  private static boolean stepActive(ClipModel clip, int step) {
+  /**
+   * True when any note row of {@code clip} has an active step at {@code step}. Shared by {@link
+   * #project} (whole-grid, unit-tested) and the per-cell session render so both agree.
+   */
+  static boolean stepActive(ClipModel clip, int step) {
     if (step < 0 || step >= clip.getStepCount()) return false;
     for (int r = 0; r < clip.getRowCount(); r++) {
       StepData sd = clip.getStep(r, step);

@@ -294,13 +294,6 @@ public class SongGridPanel extends SwingGridPanel {
           clipBtn.setEnabled(true);
           clipBtn.setText("");
 
-          boolean hasClip = false;
-          if (dispTrack != null) {
-            if (c < dispTrack.getClips().size()) {
-              hasClip = true;
-            }
-          }
-
           if (t >= songVoiceRows && (isMuteColumn(colId) || isSoloColumn(colId))) {
             clipBtn.setVisible(false);
             clipBtn.setEnabled(false);
@@ -396,13 +389,7 @@ public class SongGridPanel extends SwingGridPanel {
                 clipBtn.setBackground(new Color(0x22, 0x22, 0x24));
               }
             } else if (currentTrack < tracks.size()) {
-              updateSongPadVisuals(
-                  clipBtn,
-                  currentTrack,
-                  colId,
-                  hasClip,
-                  trackColors[Math.floorMod(currentTrack, trackColors.length)],
-                  org.deluge.project.PreferencesManager.getGridColorTheme());
+              renderSongPatternPad(clipBtn, currentTrack, colId);
 
               final int clipCol = colId;
               final int trkIdx = currentTrack;
@@ -546,6 +533,35 @@ public class SongGridPanel extends SwingGridPanel {
     scrollController.updateScrollBarValues();
   }
 
+  /**
+   * Deluge-faithful session render for one main pad: light column {@code c} where the track's clip
+   * has a note at that step (via {@link SongProjector#stepActive}), in the clip/track colour —
+   * parity with the hardware's session_view.cpp renderAsSingleRow (the clip's pattern spread across
+   * the row), replacing the Ableton-style clip-slot launcher look. Used by both the rebuild and the
+   * in-place recolour so structure-change and steady-state renders agree.
+   */
+  private void renderSongPatternPad(JButton clipBtn, int modelRow, int c) {
+    java.util.List<org.deluge.model.ClipModel> clips =
+        projectModel.getTracks().get(modelRow).getClips();
+    org.deluge.model.ClipModel clip = clips.isEmpty() ? null : clips.get(0);
+    boolean lit = clip != null && SongProjector.stepActive(clip, c + scrollOffsetX);
+    Color colour = getTrackColour(modelRow);
+    boolean isMuted = bridge != null && bridge.getMute(baseTrackId + modelRow);
+    if (clipBtn instanceof DelugePadButton pad) {
+      pad.setBaseColor(colour);
+      pad.setTheme(org.deluge.project.PreferencesManager.getGridColorTheme());
+      pad.setActive(lit);
+      pad.setMuted(isMuted);
+      pad.setIntensity(1.0f);
+      pad.setScaleRoot(false);
+      pad.setScaleNote(false);
+      pad.setNoteText("");
+      pad.setText("");
+    } else {
+      clipBtn.setBackground(lit ? colour : new Color(0x22, 0x22, 0x24));
+    }
+  }
+
   @Override
   public void refreshInPlace() {
     if (projectModel == null) return;
@@ -627,14 +643,7 @@ public class SongGridPanel extends SwingGridPanel {
               pad.setNoteText(nName);
             }
           } else {
-            boolean hasClip = c < tracks.get(modelRow).getClips().size();
-            updateSongPadVisuals(
-                clipBtn,
-                modelRow,
-                c,
-                hasClip,
-                getTrackColour(modelRow),
-                org.deluge.project.PreferencesManager.getGridColorTheme());
+            renderSongPatternPad(clipBtn, modelRow, c);
           }
         }
       }
