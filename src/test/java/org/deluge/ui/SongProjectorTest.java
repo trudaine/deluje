@@ -104,6 +104,21 @@ class SongProjectorTest {
   }
 
   @Test
+  void columnsBeyondClipLengthAreGrey() {
+    ClipModel clip = new ClipModel("A", 8, 8); // 8-step clip shown in a 16-wide row
+    clip.setRowYNote(0, 60);
+    clip.setStep(0, 0, true);
+
+    PadCell[][] cells = SongProjector.project(List.of(new SongProjector.Row(clip, 0)), 1, 16, 0);
+
+    assertEquals(head(60, 0, DEF_VEL), cells[0][0].colour(), "note within the pattern");
+    assertNull(cells[0][3].colour(), "defined-but-empty column is black (null)");
+    assertEquals(
+        SongProjector.UNDEFINED_AREA, cells[0][8].colour(), "past the 8-step clip -> grey");
+    assertEquals(SongProjector.UNDEFINED_AREA, cells[0][15].colour(), "still grey at the edge");
+  }
+
+  @Test
   void emptyAndNullRows_areBlank() {
     List<SongProjector.Row> rows = Arrays.asList(new SongProjector.Row(null, 24), null);
     PadCell[][] cells = SongProjector.project(rows, 2, 16, 0);

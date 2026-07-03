@@ -38,6 +38,9 @@ final class SongProjector {
    * @param cols framebuffer width (main pad columns)
    * @param scrollX step scroll offset (column {@code c} shows step {@code scrollX + c})
    */
+  /** colours::grey = RGB::monochrome(7) — the "undefined area" beyond the clip's length. */
+  static final Color UNDEFINED_AREA = new Color(7, 7, 7);
+
   static PadCell[][] project(List<Row> rows, int rowCount, int cols, int scrollX) {
     PadCell[][] out = new PadCell[rowCount][cols];
     for (int r = 0; r < rowCount; r++) {
@@ -46,11 +49,22 @@ final class SongProjector {
         Color colour =
             (row == null || row.clip() == null)
                 ? null
-                : noteColourAt(row.clip(), row.colourOffset(), scrollX + c);
+                : cellColour(row.clip(), row.colourOffset(), scrollX + c);
         out[r][c] = colour == null ? PadCell.EMPTY : PadCell.of(colour, true);
       }
     }
     return out;
+  }
+
+  /**
+   * The final colour for column {@code step} of {@code clip}: the note colour within the pattern
+   * ({@link #noteColourAt}), {@link #UNDEFINED_AREA} grey for columns past the clip's length
+   * ({@code Clip::drawUndefinedArea}, clip.cpp:861), or null for a defined-but-empty column
+   * (black). Shared by {@link #project} and the per-cell session render.
+   */
+  static Color cellColour(ClipModel clip, int colourOffset, int step) {
+    if (step >= clip.getStepCount()) return UNDEFINED_AREA;
+    return noteColourAt(clip, colourOffset, step);
   }
 
   /**

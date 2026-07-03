@@ -546,12 +546,12 @@ public class SongGridPanel extends SwingGridPanel {
     org.deluge.model.TrackModel track = projectModel.getTracks().get(modelRow);
     java.util.List<org.deluge.model.ClipModel> clips = track.getClips();
     org.deluge.model.ClipModel clip = clips.isEmpty() ? null : clips.get(0);
-    Color noteColour =
+    Color cell =
         clip == null
             ? null
-            : SongProjector.noteColourAt(clip, track.getColourOffset(), c + scrollOffsetX);
-    boolean lit = noteColour != null;
-    Color base = lit ? noteColour : Color.BLACK;
+            : SongProjector.cellColour(clip, track.getColourOffset(), c + scrollOffsetX);
+    boolean lit = cell != null;
+    Color base = lit ? cell : Color.BLACK;
     boolean isMuted = bridge != null && bridge.getMute(baseTrackId + modelRow);
     if (clipBtn instanceof DelugePadButton pad) {
       pad.setBaseColor(base);
