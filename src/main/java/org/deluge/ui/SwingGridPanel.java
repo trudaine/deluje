@@ -283,13 +283,6 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
 
   // activeShiftParam and clonePreview states are now managed by ClipEditorController
 
-  // Multi-cell step selection state variables
-  final java.util.Set<String> selectedCells = new java.util.HashSet<>();
-  int dragSelStartRow = -1;
-  int dragSelStartCol = -1;
-  int dragSelCurrRow = -1;
-  int dragSelCurrCol = -1;
-  boolean isDragSelecting = false;
   JPanel voicePanel;
 
   public int getActiveShiftRow() {
@@ -817,9 +810,6 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     im.put(KeyStroke.getKeyStroke("PAGE_DOWN"), "scrollPageDown");
     im.put(KeyStroke.getKeyStroke("UP"), "scrollLineUp");
     im.put(KeyStroke.getKeyStroke("DOWN"), "scrollLineDown");
-    im.put(KeyStroke.getKeyStroke("DELETE"), "deleteSelectedSteps");
-    im.put(KeyStroke.getKeyStroke("BACK_SPACE"), "deleteSelectedSteps");
-    im.put(KeyStroke.getKeyStroke("ESCAPE"), "clearSelectedSteps");
 
     am.put(
         "scrollPageUp",
@@ -847,20 +837,6 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
         new AbstractAction() {
           public void actionPerformed(java.awt.event.ActionEvent e) {
             if (viewMode == GridViewMode.CLIP) scrollBy(1);
-          }
-        });
-    am.put(
-        "deleteSelectedSteps",
-        new AbstractAction() {
-          public void actionPerformed(java.awt.event.ActionEvent e) {
-            deleteSelectedStepsAction();
-          }
-        });
-    am.put(
-        "clearSelectedSteps",
-        new AbstractAction() {
-          public void actionPerformed(java.awt.event.ActionEvent e) {
-            clearMultiSelection();
           }
         });
 
@@ -2190,150 +2166,6 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   // ── Advanced Pad Gestures & LED Pad Helpers ──
 
   private static org.deluge.model.StepData copiedStep = null;
-
-  public boolean hasMultiSelection() {
-    return !selectedCells.isEmpty();
-  }
-
-  public void clearMultiSelection() {
-    if (!selectedCells.isEmpty()) {
-      selectedCells.clear();
-      refresh();
-    }
-  }
-
-  private void handleStepCtrlClicked(int row, int col) {
-    int mRow = getModelRow(row);
-    int aCol = getActiveCol(row, col);
-    String key = mRow + "," + aCol;
-    if (selectedCells.contains(key)) {
-      selectedCells.remove(key);
-    } else {
-      selectedCells.add(key);
-    }
-    refresh();
-  }
-
-  private void updateDragSelectionVisuals() {
-    if (!isDragSelecting) return;
-    int minR = Math.min(dragSelStartRow, dragSelCurrRow);
-    int maxR = Math.max(dragSelStartRow, dragSelCurrRow);
-    int minC = Math.min(dragSelStartCol, dragSelCurrCol);
-    int maxC = Math.max(dragSelStartCol, dragSelCurrCol);
-
-    int visibleRows = Math.min(gridMode.rows, voiceRowCount);
-    for (int r = 0; r < visibleRows; r++) {
-      int mRow = getModelRow(r);
-      for (int c = 0; c < 16; c++) {
-        JButton btn = pads[r][c];
-        if (btn instanceof DelugePadButton pad) {
-          int aCol = getActiveCol(r, c);
-          boolean selected = selectedCells.contains(mRow + "," + aCol);
-          if (r >= minR && r <= maxR && c >= minC && c <= maxC) {
-            selected = true;
-          }
-          pad.setSelected(selected);
-        }
-      }
-    }
-  }
-
-  private void finalizeDragSelection(
-      int startRow, int startCol, int currRow, int currCol, boolean isControlOrCmd) {
-    if (!isControlOrCmd) {
-      selectedCells.clear();
-    }
-    int minR = Math.min(startRow, currRow);
-    int maxR = Math.max(startRow, currRow);
-    int minC = Math.min(startCol, currCol);
-    int maxC = Math.max(startCol, currCol);
-
-    for (int r = minR; r <= maxR; r++) {
-      int mRow = getModelRow(r);
-      for (int c = minC; c <= maxC; c++) {
-        if (c >= 16) continue;
-        int aCol = getActiveCol(r, c);
-        String key = mRow + "," + aCol;
-        if (isControlOrCmd) {
-          if (selectedCells.contains(key)) {
-            selectedCells.remove(key);
-          } else {
-            selectedCells.add(key);
-          }
-        } else {
-          selectedCells.add(key);
-        }
-      }
-    }
-    isDragSelecting = false;
-    refresh();
-  }
-
-  private void deleteSelectedStepsAction() {
-    if (selectedCells.isEmpty() || bridge == null) return;
-
-    boolean changed = false;
-    boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1;
-
-    for (String cellKey : new java.util.ArrayList<>(selectedCells)) {
-      String[] parts = cellKey.split(",");
-      if (parts.length != 2) continue;
-      int modelRow = Integer.parseInt(parts[0]);
-      int activeCol = Integer.parseInt(parts[1]);
-      int engineRow = baseTrackId + modelRow;
-
-      if (bridge.getStep(engineRow, activeCol)) {
-        org.deluge.model.StepData oldStep = null;
-        if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-          org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
-          if (activeClipId < tModel.getClips().size()) {
-            oldStep = getClipStep(tModel.getClips().get(activeClipId), modelRow, activeCol);
-          }
-        }
-
-        bridge.setStep(engineRow, activeCol, false);
-
-        if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-          org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
-          if (activeClipId < tModel.getClips().size()) {
-            org.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
-            double curVel = bridge.getVelocity(engineRow, activeCol);
-            double curProb = bridge.getStepProbability(engineRow, activeCol);
-            int pitch = isSynthMode ? getRowPitch(modelRow) : 0;
-            setClipStep(
-                cModel,
-                modelRow,
-                activeCol,
-                org.deluge.model.StepData.of(
-                    false,
-                    (float) curVel,
-                    org.deluge.model.StepData.DEFAULT_CLICK_GATE,
-                    (float) curProb,
-                    pitch));
-
-            if (oldStep != null) {
-              projectModel
-                  .getUndoRedoStack()
-                  .push(
-                      new Consequence.StepConsequence(
-                          projectModel,
-                          editedModelTrack,
-                          activeClipId,
-                          modelRow,
-                          activeCol,
-                          oldStep,
-                          getClipStep(cModel, modelRow, activeCol)));
-            }
-          }
-        }
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      fireProjectChanged();
-    }
-  }
 
   /**
    * One SONG/ARRANGEMENT display row, top-to-bottom. {@code track == null} marks an empty padding
