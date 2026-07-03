@@ -1631,22 +1631,22 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
       int col,
       boolean state,
       float vel,
+      float gate,
       float prob,
       int iterance,
       float fill,
+      float nudge,
       org.deluge.model.StepData oldStep) {
     if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
       if (activeClipId < tModel.getClips().size()) {
         org.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
         int originalPitch = oldStep != null ? oldStep.pitch() : 60;
-        float originalGate =
-            oldStep != null ? oldStep.gate() : org.deluge.model.StepData.DEFAULT_CLICK_GATE;
         cModel.setStep(
             row,
             col,
             new org.deluge.model.StepData(
-                state, vel, originalGate, prob, originalPitch, iterance, fill));
+                state, vel, gate, prob, originalPitch, iterance, fill, nudge));
         if (oldStep != null) {
           projectModel
               .getUndoRedoStack()
@@ -1687,34 +1687,51 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     if (e.isAltDown()) {
       double curVel = bridge.getVelocity(engineRow, activeCol);
       int curIt = bridge.getIterance(engineRow, activeCol);
-      int curFill = (int) (bridge.getStepFill(engineRow, activeCol) * 100);
+      double curProb = bridge.getStepProbability(engineRow, activeCol);
+      double curGate = bridge.getGate(engineRow, activeCol);
+
+      float curFill = 0.0f;
+      float curNudge = 0.0f;
+      org.deluge.model.StepData oldStep = getModelStep(row, activeCol);
+      if (oldStep != null) {
+        curFill = oldStep.fill();
+        curNudge = oldStep.nudge();
+      }
 
       StepPropertiesDialog dlg =
           new StepPropertiesDialog(
               (java.awt.Frame) javax.swing.SwingUtilities.getWindowAncestor(this),
               (int) (curVel * 100),
               curIt,
-              curFill);
+              (int) (curFill * 100),
+              (int) (curProb * 100),
+              curGate,
+              (int) (curNudge * 100));
       dlg.setVisible(true);
       if (dlg.isConfirmed()) {
         int newVel = dlg.getVelocity();
         int newIt = dlg.getIterance();
         int newFill = dlg.getFill();
-
-        org.deluge.model.StepData oldStep = getModelStep(row, activeCol);
+        int newProb = dlg.getProbability();
+        double newGate = dlg.getGate();
+        int newNudge = dlg.getNudge();
 
         bridge.setVelocity(engineRow, activeCol, newVel / 100.0);
         bridge.setIterance(engineRow, activeCol, newIt);
-        bridge.setStepFill(engineRow, activeCol, newFill / 100.0);
+        bridge.setStepProbability(engineRow, activeCol, newProb / 100.0);
+        bridge.setGate(engineRow, activeCol, newGate);
+        bridge.setStepFill(engineRow, activeCol, newNudge / 100.0);
 
         updateModelStep(
             row,
             activeCol,
             bridge.getStep(engineRow, activeCol),
             newVel / 100.0f,
-            (float) bridge.getStepProbability(engineRow, activeCol),
+            (float) newGate,
+            newProb / 100.0f,
             newIt,
             newFill / 100.0f,
+            newNudge / 100.0f,
             oldStep);
         refresh();
       }
@@ -1741,9 +1758,11 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
       double curVel = bridge.getVelocity(engineRow, activeCol);
       int curIt = bridge.getIterance(engineRow, activeCol);
       double curFill = bridge.getStepFill(engineRow, activeCol);
+      float oldGate = oldStep != null ? oldStep.gate() : org.deluge.model.StepData.DEFAULT_CLICK_GATE;
+      float oldNudge = oldStep != null ? oldStep.nudge() : 0.0f;
 
       updateModelStep(
-          row, activeCol, stepOn, (float) curVel, (float) newProb, curIt, (float) curFill, oldStep);
+          row, activeCol, stepOn, (float) curVel, oldGate, (float) newProb, curIt, (float) curFill, oldNudge, oldStep);
 
       if (SwingDelugeApp.mainInstance != null) {
         SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
@@ -1773,9 +1792,11 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
       double curProb = bridge.getStepProbability(engineRow, activeCol);
       int curIt = bridge.getIterance(engineRow, activeCol);
       double curFill = bridge.getStepFill(engineRow, activeCol);
+      float oldGate = oldStep != null ? oldStep.gate() : org.deluge.model.StepData.DEFAULT_CLICK_GATE;
+      float oldNudge = oldStep != null ? oldStep.nudge() : 0.0f;
 
       updateModelStep(
-          row, activeCol, stepOn, (float) newVel, (float) curProb, curIt, (float) curFill, oldStep);
+          row, activeCol, stepOn, (float) newVel, oldGate, (float) curProb, curIt, (float) curFill, oldNudge, oldStep);
 
       if (SwingDelugeApp.mainInstance != null) {
         SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(

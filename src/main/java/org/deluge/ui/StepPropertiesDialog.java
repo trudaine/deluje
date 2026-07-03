@@ -4,31 +4,47 @@ import java.awt.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 
-/** Modal dialog for editing per-step properties (velocity, iterance, fill). */
+/** Modal dialog for editing per-step properties (velocity, iterance, fill, probability, gate, nudge). */
 public class StepPropertiesDialog extends JDialog {
 
   private final JSlider velSlider;
   private final JSpinner velSpin;
   private final JSpinner iterSpin;
   private final JSlider fillSlider;
+  private final JSlider probSlider;
+  private final JSpinner probSpin;
+  private final JSpinner gateSpin;
+  private final JSlider nudgeSlider;
+  private final JSpinner nudgeSpin;
 
   private boolean confirmed = false;
 
   public StepPropertiesDialog(Frame owner) {
-    this(owner, 80, 0, 0);
+    this(owner, 80, 0, 0, 100, 0.9, 0);
   }
 
   public StepPropertiesDialog(Frame owner, int currentVelocity) {
-    this(owner, currentVelocity, 0, 0);
+    this(owner, currentVelocity, 0, 0, 100, 0.9, 0);
   }
 
   public StepPropertiesDialog(
       Frame owner, int currentVelocity, int currentIterance, int currentFill) {
+    this(owner, currentVelocity, currentIterance, currentFill, 100, 0.9, 0);
+  }
+
+  public StepPropertiesDialog(
+      Frame owner,
+      int currentVelocity,
+      int currentIterance,
+      int currentFill,
+      int currentProbability,
+      double currentGate,
+      int currentNudge) {
     super(owner, "Step Properties", true);
 
     // Set modern slate background and size
     getContentPane().setBackground(SwingSynthConfigDialog.BG_DARK);
-    setSize(750, 450);
+    setSize(750, 520);
     setLocationRelativeTo(owner);
 
     // Set standard title layout
@@ -51,7 +67,7 @@ public class StepPropertiesDialog extends JDialog {
 
     GridBagConstraints gc = new GridBagConstraints();
     gc.fill = GridBagConstraints.HORIZONTAL;
-    gc.insets = new Insets(8, 12, 8, 12);
+    gc.insets = new Insets(6, 12, 6, 12);
     gc.anchor = GridBagConstraints.WEST;
     Font labelFont = new Font("SansSerif", Font.BOLD, 13);
 
@@ -77,7 +93,6 @@ public class StepPropertiesDialog extends JDialog {
     velSpin.setPreferredSize(new Dimension(65, 30));
     velSpin.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     velSpin.setForeground(Color.WHITE);
-    // Link slider and spinner together for immediate state sync!
     velSlider.addChangeListener(e -> velSpin.setValue(velSlider.getValue()));
     velSpin.addChangeListener(e -> velSlider.setValue((Integer) velSpin.getValue()));
     gridPanel.add(velSpin, gc);
@@ -129,6 +144,83 @@ public class StepPropertiesDialog extends JDialog {
     fillPct.setFont(new Font("SansSerif", Font.BOLD, 10));
     fillPct.setForeground(Color.LIGHT_GRAY);
     gridPanel.add(fillPct, gc);
+
+    // Row 4: Probability
+    gc.gridx = 0;
+    gc.gridy = 3;
+    gc.weightx = 0.1;
+    JLabel l4 = new JLabel("Probability:");
+    l4.setFont(labelFont);
+    l4.setForeground(Color.WHITE);
+    gridPanel.add(l4, gc);
+
+    gc.gridx = 1;
+    gc.weightx = 0.8;
+    probSlider = new JSlider(0, 100, currentProbability);
+    probSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
+    probSlider.setForeground(SwingSynthConfigDialog.ACCENT_BLUE);
+    gridPanel.add(probSlider, gc);
+
+    gc.gridx = 2;
+    gc.weightx = 0.1;
+    probSpin = new JSpinner(new SpinnerNumberModel(currentProbability, 0, 100, 1));
+    probSpin.setPreferredSize(new Dimension(65, 30));
+    probSpin.setBackground(SwingSynthConfigDialog.BG_CONTROL);
+    probSpin.setForeground(Color.WHITE);
+    probSlider.addChangeListener(e -> probSpin.setValue(probSlider.getValue()));
+    probSpin.addChangeListener(e -> probSlider.setValue((Integer) probSpin.getValue()));
+    gridPanel.add(probSpin, gc);
+
+    // Row 5: Gate (Length)
+    gc.gridx = 0;
+    gc.gridy = 4;
+    gc.weightx = 0.1;
+    JLabel l5 = new JLabel("Gate (Length):");
+    l5.setFont(labelFont);
+    l5.setForeground(Color.WHITE);
+    gridPanel.add(l5, gc);
+
+    gc.gridx = 1;
+    gc.weightx = 0.8;
+    JLabel gateDesc = new JLabel("Step duration length (e.g. 0.05 to 192.0 steps)");
+    gateDesc.setFont(new Font("SansSerif", Font.PLAIN, 12));
+    gateDesc.setForeground(Color.LIGHT_GRAY);
+    gridPanel.add(gateDesc, gc);
+
+    gc.gridx = 2;
+    gc.weightx = 0.1;
+    gateSpin = new JSpinner(new SpinnerNumberModel(currentGate, 0.01, 192.0, 0.25));
+    gateSpin.setPreferredSize(new Dimension(65, 30));
+    gateSpin.setBackground(SwingSynthConfigDialog.BG_CONTROL);
+    gateSpin.setForeground(Color.WHITE);
+    gridPanel.add(gateSpin, gc);
+
+    // Row 6: Nudge (Microtiming)
+    gc.gridx = 0;
+    gc.gridy = 5;
+    gc.weightx = 0.1;
+    JLabel l6 = new JLabel("Nudge %:");
+    l6.setFont(labelFont);
+    l6.setForeground(Color.WHITE);
+    gridPanel.add(l6, gc);
+
+    gc.gridx = 1;
+    gc.weightx = 0.8;
+    nudgeSlider = new JSlider(0, 99, currentNudge);
+    nudgeSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
+    nudgeSlider.setForeground(SwingSynthConfigDialog.ACCENT_BLUE);
+    nudgeSlider.setToolTipText("Microtiming offset forward (0 to 99% of step)");
+    gridPanel.add(nudgeSlider, gc);
+
+    gc.gridx = 2;
+    gc.weightx = 0.1;
+    nudgeSpin = new JSpinner(new SpinnerNumberModel(currentNudge, 0, 99, 1));
+    nudgeSpin.setPreferredSize(new Dimension(65, 30));
+    nudgeSpin.setBackground(SwingSynthConfigDialog.BG_CONTROL);
+    nudgeSpin.setForeground(Color.WHITE);
+    nudgeSlider.addChangeListener(e -> nudgeSpin.setValue(nudgeSlider.getValue()));
+    nudgeSpin.addChangeListener(e -> nudgeSlider.setValue((Integer) nudgeSpin.getValue()));
+    gridPanel.add(nudgeSpin, gc);
 
     mainContainer.add(gridPanel, BorderLayout.CENTER);
 
@@ -184,5 +276,17 @@ public class StepPropertiesDialog extends JDialog {
 
   public int getFill() {
     return fillSlider.getValue();
+  }
+
+  public int getProbability() {
+    return probSlider.getValue();
+  }
+
+  public double getGate() {
+    return (Double) gateSpin.getValue();
+  }
+
+  public int getNudge() {
+    return nudgeSlider.getValue();
   }
 }

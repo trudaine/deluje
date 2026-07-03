@@ -793,22 +793,72 @@ public class ClipEditorController {
     int engineRow = getBaseTrackId() + engineRowOffset;
     double curVel = bridge.getVelocity(engineRow, activeCol);
     int curIt = bridge.getIterance(engineRow, activeCol);
-    int curFill = (int) (bridge.getStepFill(engineRow, activeCol) * 100);
+    double curProb = bridge.getStepProbability(engineRow, activeCol);
+    double curGate = bridge.getGate(engineRow, activeCol);
+
+    float curFill = 0.0f;
+    float curNudge = 0.0f;
+
+    ProjectModel projectModel = getProjectModel();
+    int editedModelTrack = getEditedModelTrack();
+    int activeClipId = getActiveClipId();
+    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      TrackModel tm = projectModel.getTracks().get(editedModelTrack);
+      if (activeClipId >= 0 && activeClipId < tm.getClips().size()) {
+        ClipModel cm = tm.getClips().get(activeClipId);
+        StepData sd = parent.getClipStep(cm, visualModelRow, activeCol);
+        if (sd != null) {
+          curFill = sd.fill();
+          curNudge = sd.nudge();
+        }
+      }
+    }
+
     StepPropertiesDialog dlg =
         new StepPropertiesDialog(
-            (Frame) SwingUtilities.getWindowAncestor(parent), (int) (curVel * 100), curIt, curFill);
+            (Frame) SwingUtilities.getWindowAncestor(parent),
+            (int) (curVel * 100),
+            curIt,
+            (int) (curFill * 100),
+            (int) (curProb * 100),
+            curGate,
+            (int) (curNudge * 100));
     dlg.setVisible(true);
     if (dlg.isConfirmed()) {
       int newVel = dlg.getVelocity();
       int newIt = dlg.getIterance();
       int newFill = dlg.getFill();
-      if (newVel != (int) (curVel * 100) || newIt != curIt || newFill != curFill) {
-        applyStepProperties(row, col, newVel / 100.0, newIt, newFill / 100.0);
+      int newProb = dlg.getProbability();
+      double newGate = dlg.getGate();
+      int newNudge = dlg.getNudge();
+      if (newVel != (int) (curVel * 100)
+          || newIt != curIt
+          || newFill != (int) (curFill * 100)
+          || newProb != (int) (curProb * 100)
+          || newGate != curGate
+          || newNudge != (int) (curNudge * 100)) {
+        applyStepProperties(
+            row,
+            col,
+            newVel / 100.0,
+            newIt,
+            newFill / 100.0,
+            newProb / 100.0,
+            newGate,
+            newNudge / 100.0);
       }
     }
   }
 
-  private void applyStepProperties(int row, int col, double vel, int iterance, double fill) {
+  private void applyStepProperties(
+      int row,
+      int col,
+      double vel,
+      int iterance,
+      double fill,
+      double prob,
+      double gate,
+      double nudge) {
     BridgeContract bridge = getBridge();
     if (bridge == null) return;
     int visualModelRow = parent.getModelRow(row);
@@ -834,14 +884,22 @@ public class ClipEditorController {
 
     bridge.setVelocity(engineRow, activeCol, vel);
     bridge.setIterance(engineRow, activeCol, iterance);
-    bridge.setStepFill(engineRow, activeCol, fill);
+    bridge.setStepProbability(engineRow, activeCol, prob);
+    bridge.setGate(engineRow, activeCol, gate);
+    bridge.setStepFill(engineRow, activeCol, nudge);
 
     if (cModel != null) {
       boolean st = bridge.getStep(engineRow, activeCol);
-      double prob = bridge.getStepProbability(engineRow, activeCol);
-      double gate = bridge.getGate(engineRow, activeCol);
       StepData newStep =
-          new StepData(st, (float) vel, (float) gate, (float) prob, pitch, iterance, (float) fill);
+          new StepData(
+              st,
+              (float) vel,
+              (float) gate,
+              (float) prob,
+              pitch,
+              iterance,
+              (float) fill,
+              (float) nudge);
       parent.setClipStep(cModel, visualModelRow, activeCol, newStep);
       if (oldStep != null && getProjectModel() != null) {
         getProjectModel()
@@ -868,8 +926,25 @@ public class ClipEditorController {
     int activeCol = parent.getActiveCol(row, col);
     int engineRow = getBaseTrackId() + engineRowOffset;
     int iter = bridge.getIterance(engineRow, activeCol);
-    double fill = bridge.getStepFill(engineRow, activeCol);
-    applyStepProperties(row, col, vel, iter, fill);
+    double fill = 0.0;
+    double nudge = 0.0;
+    ProjectModel projectModel = getProjectModel();
+    int editedModelTrack = getEditedModelTrack();
+    int activeClipId = getActiveClipId();
+    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      TrackModel tm = projectModel.getTracks().get(editedModelTrack);
+      if (activeClipId >= 0 && activeClipId < tm.getClips().size()) {
+        ClipModel cm = tm.getClips().get(activeClipId);
+        StepData sd = parent.getClipStep(cm, visualModelRow, activeCol);
+        if (sd != null) {
+          fill = sd.fill();
+          nudge = sd.nudge();
+        }
+      }
+    }
+    double prob = bridge.getStepProbability(engineRow, activeCol);
+    double gate = bridge.getGate(engineRow, activeCol);
+    applyStepProperties(row, col, vel, iter, fill, prob, gate, nudge);
   }
 
   private void saveStepProbability(int row, int col, double prob) {

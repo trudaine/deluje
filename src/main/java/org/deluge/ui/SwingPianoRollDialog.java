@@ -652,7 +652,10 @@ public class SwingPianoRollDialog extends JDialog {
           (Frame) SwingUtilities.getWindowAncestor(SwingPianoRollDialog.this),
           (int) (note.velocity() * 100),
           note.iterance(),
-          (int) (note.fill() * 100)
+          (int) (note.fill() * 100),
+          (int) (note.probability() * 100),
+          note.gate(),
+          (int) (note.nudge() * 100)
       );
       dlg.setVisible(true);
       if (dlg.isConfirmed()) {
@@ -660,13 +663,25 @@ public class SwingPianoRollDialog extends JDialog {
         double newVel = dlg.getVelocity() / 100.0;
         int newIt = dlg.getIterance();
         double newFill = dlg.getFill() / 100.0;
+        double newProb = dlg.getProbability() / 100.0;
+        double newGate = dlg.getGate();
+        double newNudge = dlg.getNudge() / 100.0;
 
         bridge.setVelocity(engineRow, step, newVel);
         bridge.setIterance(engineRow, step, newIt);
-        bridge.setStepFill(engineRow, step, newFill);
+        bridge.setStepFill(engineRow, step, newNudge);
+        bridge.setStepProbability(engineRow, step, newProb);
+        bridge.setGate(engineRow, step, newGate);
 
         StepData updated = new StepData(
-            true, (float) newVel, note.gate(), note.probability(), note.pitch(), newIt, (float) newFill, note.nudge());
+            true,
+            (float) newVel,
+            (float) newGate,
+            (float) newProb,
+            note.pitch(),
+            newIt,
+            (float) newFill,
+            (float) newNudge);
         clipModel.setStep(row, step, updated);
         repaint();
         velocityLane.repaint();
