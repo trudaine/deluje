@@ -541,14 +541,20 @@ public class SongGridPanel extends SwingGridPanel {
    * in-place recolour so structure-change and steady-state renders agree.
    */
   private void renderSongPatternPad(JButton clipBtn, int modelRow, int c) {
-    java.util.List<org.deluge.model.ClipModel> clips =
-        projectModel.getTracks().get(modelRow).getClips();
+    org.deluge.model.TrackModel track = projectModel.getTracks().get(modelRow);
+    java.util.List<org.deluge.model.ClipModel> clips = track.getClips();
     org.deluge.model.ClipModel clip = clips.isEmpty() ? null : clips.get(0);
-    boolean lit = clip != null && SongProjector.stepActive(clip, c + scrollOffsetX);
-    Color colour = getTrackColour(modelRow);
+    // Per-pitch rainbow of the note at this step (getMainColourFromY), highest note-row wins;
+    // null = no note = unlit black. Matches session_view.cpp renderAsSingleRow.
+    Color noteColour =
+        clip == null
+            ? null
+            : SongProjector.noteColourAt(clip, track.getColourOffset(), c + scrollOffsetX);
+    boolean lit = noteColour != null;
+    Color base = lit ? noteColour : Color.BLACK;
     boolean isMuted = bridge != null && bridge.getMute(baseTrackId + modelRow);
     if (clipBtn instanceof DelugePadButton pad) {
-      pad.setBaseColor(colour);
+      pad.setBaseColor(base);
       pad.setTheme(org.deluge.project.PreferencesManager.getGridColorTheme());
       pad.setActive(lit);
       pad.setMuted(isMuted);
@@ -558,7 +564,7 @@ public class SongGridPanel extends SwingGridPanel {
       pad.setNoteText("");
       pad.setText("");
     } else {
-      clipBtn.setBackground(lit ? colour : new Color(0x22, 0x22, 0x24));
+      clipBtn.setBackground(lit ? base : new Color(0x1a, 0x1a, 0x1a));
     }
   }
 

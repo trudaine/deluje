@@ -8,28 +8,28 @@ import org.deluge.model.StepData;
 /**
  * Pure projection of the session (SONG) view onto a fixed {@code rows × cols} pad framebuffer.
  *
- * <p>Faithful extraction of the session render at {@code SwingGridPanel#refreshInPlace} (~line
- * 3905), which mirrors the C {@code session_view.cpp renderRow} "renderAsSingleRow": each track's
- * row shows its clip's step PATTERN — column {@code c} is lit when the clip has any active note at
- * step {@code scrollX + c} in ANY note row — in the clip's own colour ({@code fromHue(colourOffset
- * * -8/3)}, resolved by the caller and passed in per row).
+ * <p>Faithful to the hardware's {@code session_view.cpp renderRow} → {@code
+ * InstrumentClip::renderAsSingleRow}: each track's row shows its clip's step PATTERN, and every lit
+ * column is coloured by the <b>per-pitch rainbow of the note there</b> — {@code
+ * getMainColourFromY(yNote) = fromHue((pitch + colourOffset) * -8/3)} (instrument_clip.cpp:1234) —
+ * NOT a flat track colour. When several note rows have a note in the same column the higher-index
+ * row wins, mirroring the C's render-order overwrite. Columns with no note are unlit (black), as
+ * the firmware memsets the row to 0 and only writes lit columns.
  *
  * <p>Unlike the arranger, the SONG X axis is bounded (steps, 1:1 with column index plus a step
- * scroll); the Y axis is the finite track list. The pad carries the track colour whether or not the
- * step is active — {@code active} gates whether the LED lights, exactly as {@code pad.setActive} +
- * {@code pad.setBaseColor} do in the renderer.
+ * scroll); the Y axis is the finite track list.
  */
 final class SongProjector {
   private SongProjector() {}
 
   /**
-   * One session display row: the track's first clip (or null) and the resolved pad colour.
+   * One session display row: the track's first clip (or null) and the clip's colour offset (the
+   * track {@code colourOffset}, added to each note's pitch before {@code fromHue}).
    *
-   * @param clip the clip whose step pattern paints the row, or null (no clip -> row stays dark but
-   *     keeps its colour)
-   * @param colour the pad colour for this row (e.g. {@code DelugeColour.clipColour(colourOffset)})
+   * @param clip the clip whose pattern paints the row, or null (empty row)
+   * @param colourOffset the clip/track colour offset fed into {@code getMainColourFromY}
    */
-  record Row(ClipModel clip, Color colour) {}
+  record Row(ClipModel clip, int colourOffset) {}
 
   /**
    * @param rows per-display-row descriptors, top-to-bottom (already in the caller's bottom-up
@@ -43,22 +43,38 @@ final class SongProjector {
     for (int r = 0; r < rowCount; r++) {
       Row row = (r < rows.size()) ? rows.get(r) : null;
       for (int c = 0; c < cols; c++) {
-        if (row == null) {
-          out[r][c] = PadCell.EMPTY;
-        } else {
-          boolean active = row.clip() != null && stepActive(row.clip(), scrollX + c);
-          out[r][c] = new PadCell(row.colour(), active, null);
-        }
+        Color colour =
+            (row == null || row.clip() == null)
+                ? null
+                : noteColourAt(row.clip(), row.colourOffset(), scrollX + c);
+        out[r][c] = colour == null ? PadCell.EMPTY : PadCell.of(colour, true);
       }
     }
     return out;
   }
 
-  /** True when any note row of {@code clip} has an active step at {@code step}. */
   /**
-   * True when any note row of {@code clip} has an active step at {@code step}. Shared by {@link
-   * #project} (whole-grid, unit-tested) and the per-cell session render so both agree.
+   * The per-pitch rainbow colour of the note lighting column {@code step}, or null if no note. The
+   * highest-index note row with an active step wins (mirrors the C render-order overwrite); its
+   * colour is {@code fromHue((pitch + colourOffset) * -8/3)} — {@code
+   * InstrumentClip::getMainColourFromY}. Shared by {@link #project} (unit-tested) and the per-cell
+   * session render so both agree.
    */
+  static Color noteColourAt(ClipModel clip, int colourOffset, int step) {
+    if (step < 0 || step >= clip.getStepCount()) return null;
+    Color colour = null;
+    int rowCount = clip.getRowCount();
+    for (int r = 0; r < rowCount; r++) {
+      StepData sd = clip.getStep(r, step);
+      if (sd != null && sd.active()) {
+        int pitch = clip.getRowYNote(r);
+        colour = DelugeColour.fromHue((pitch + colourOffset) * -8 / 3);
+      }
+    }
+    return colour;
+  }
+
+  /** True when any note row of {@code clip} has an active step at {@code step}. */
   static boolean stepActive(ClipModel clip, int step) {
     if (step < 0 || step >= clip.getStepCount()) return false;
     for (int r = 0; r < clip.getRowCount(); r++) {
