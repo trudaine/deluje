@@ -41,8 +41,14 @@ if not exist "%JAR%" (
 )
 
 echo Launching Deluge (%JAR%)...
+REM HiDPI text: the AA flags make Swing text high-def. Windows auto-detects the OS display-scaling
+REM setting (e.g. 150%%) per-monitor since Java 9, so we do NOT force sun.java2d.uiScale here -- that
+REM would override the user's chosen Windows scale. Set DELUGE_UI_SCALE to override if you want a
+REM fixed scale (e.g. set DELUGE_UI_SCALE=2 before running).
+set "SCALE_FLAGS="
+if defined DELUGE_UI_SCALE set "SCALE_FLAGS=-Dsun.java2d.uiScale=%DELUGE_UI_SCALE% -Dsun.java2d.uiScale.enabled=true"
 REM --enable-preview is REQUIRED: classes are compiled with preview features and won't load without it.
-"!JAVA_EXEC!" --enable-preview --enable-native-access=ALL-UNNAMED --add-modules jdk.incubator.vector -jar "%JAR%" --swing
+"!JAVA_EXEC!" --enable-preview --enable-native-access=ALL-UNNAMED --add-modules jdk.incubator.vector %SCALE_FLAGS% -Dawt.useSystemAAFontSettings=on -Dswing.aatext=true -jar "%JAR%" --swing
 
 
 pause
