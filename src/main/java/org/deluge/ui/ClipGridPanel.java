@@ -651,7 +651,8 @@ public class ClipGridPanel extends SwingGridPanel {
                   org.deluge.model.StepData sd = getClipStep(cModel, modelRow, activeCol);
                   if (sd != null && sd.active()) {
                     if (sd.fill() > 0.0f) {
-                      cellBaseColor = new Color(0x00, 0xd2, 0xff);
+                      cellBaseColor =
+                          new Color(0, 0, 255); // FILL note = colours::blue (note_row.cpp:1993)
                     } else if (sd.nudge() > 0.0f) {
                       isNudged = true;
                     }
@@ -673,7 +674,11 @@ public class ClipGridPanel extends SwingGridPanel {
               pad.setMuted(isMuted);
               pad.setInLoop(inLoop);
               pad.setActive(stepState);
-              pad.setIntensity((float) (vel * (0.2f + 0.8f * prob)));
+              pad.setIntensity(
+                  stepState
+                      ? (float) vel
+                      : 1.0f); // C: velocity-only head brightness (pad applies (65+1.5v)/255);
+              // tails full
               pad.setTail(isStepTied(modelRow, activeCol) && !stepState);
               if (stepState) {
                 if (isSynthMode) {
@@ -1234,7 +1239,8 @@ public class ClipGridPanel extends SwingGridPanel {
               org.deluge.model.StepData sd = getClipStep(cModel, modelRow, activeCol);
               if (sd != null && sd.active()) {
                 if (sd.fill() > 0.0f) {
-                  cellBaseColor = new Color(0x00, 0xd2, 0xff);
+                  cellBaseColor =
+                      new Color(0, 0, 255); // FILL note = colours::blue (note_row.cpp:1993)
                 } else if (sd.nudge() > 0.0f) {
                   isNudged = true;
                 }
@@ -1256,7 +1262,11 @@ public class ClipGridPanel extends SwingGridPanel {
           pad.setMuted(isMuted);
           pad.setInLoop(inLoop);
           pad.setActive(stepState);
-          pad.setIntensity((float) (vel * (0.2f + 0.8f * prob)));
+          pad.setIntensity(
+              stepState
+                  ? (float) vel
+                  : 1.0f); // C: velocity-only head brightness (pad applies (65+1.5v)/255); tails
+          // full
           pad.setTail(isStepTied(modelRow, activeCol) && !stepState);
           if (stepState) {
             if (isSynthMode) {

@@ -1197,8 +1197,6 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     }
   }
 
-
-
   void clearKeyboardMouseListeners(JButton btn) {
     if (btn == null) return;
     for (java.awt.event.MouseListener ml : btn.getMouseListeners()) {

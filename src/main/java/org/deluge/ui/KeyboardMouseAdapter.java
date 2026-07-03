@@ -7,8 +7,8 @@ import org.deluge.model.StepData;
 import org.deluge.model.TrackModel;
 
 /**
- * Adapter handling mouse press/release on isomorphic keyboard grid keys.
- * Accesses companion properties package-privately.
+ * Adapter handling mouse press/release on isomorphic keyboard grid keys. Accesses companion
+ * properties package-privately.
  */
 class KeyboardMouseAdapter extends MouseAdapter {
   private final int note;

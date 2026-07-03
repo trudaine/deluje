@@ -272,14 +272,14 @@ public class ClipViewChromaticGridHighFidelityTest {
 
     gridPanel.refresh();
 
-    // 2. Assert that Step 0, Row 1 pad is lit with the glowing Blue FILL highlight color (0x00d2ff)
-    // instead of its normal row color!
+    // 2. FILL steps render in the Deluge FILL colour = colours::blue (0,0,255) — note_row.cpp:1993
+    // (previously our own cyan 0x00d2ff, which collided with the scale-root highlight).
     JButton fillStepPad = gridPanel.getPadButtons()[0][0]; // Row 1 Col 1 (Step 0)
     assertTrue(((DelugePadButton) fillStepPad).isActive(), "Step 0 must be active");
     assertEquals(
-        new Color(0x00, 0xd2, 0xff),
+        new Color(0, 0, 255),
         ((DelugePadButton) fillStepPad).getBaseColor(),
-        "Step 0 (FILL step) must be colored glowing Blue (0x00d2ff) on the grid!");
+        "Step 0 (FILL step) must be the Deluge FILL blue (colours::blue)");
 
     bridge.shutdown();
   }
