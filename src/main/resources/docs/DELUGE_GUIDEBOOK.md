@@ -235,7 +235,7 @@ graph TD
 
 ## 2. Synthesizers & Sound Engines (Subtractive, FM, Wavetable)
 
-The sound design panel operates in three distinct, JRE-swappable hardware modeling modes:
+The sound design panel operates in three distinct, swappable synthesis modes:
 
 ```carousel
 ![Dual Oscillators control tab](images/deluge_synth_tab_osc.png)
@@ -246,78 +246,78 @@ The sound design panel operates in three distinct, JRE-swappable hardware modeli
 ```
 
 ### 2.1 Subtractive Synthesizer Engine
-Subtractive synthesis models standard analog hardware signal paths: Oscillators ➔ Resonant Filters ➔ VCA Amplifier.
+Subtractive synthesis models standard analog signal paths: Oscillators ➔ Resonant Filters ➔ VCA Amplifier.
 * **Dual Detuned Oscillators (Osc A & Osc B)**: Selectable shapes:
   * *Sine, Triangle, Sawtooth, Square wave with adjustable Pulse-Width (PW)*.
   * *Noise generator* (white/pink) to sculpt transient cracks or ambient grit.
-* **Moog-Style Resonant Ladder Low-Pass Filter (LPF)**: A high-fidelity physical model of a 4-pole ($24\text{dB}/\text{octave}$) ladder filter with drive saturation (ladder filter feedback clipping paths) and self-oscillating resonance!
+* **Moog-Style Resonant Ladder Low-Pass Filter (LPF)**: A model of a 4-pole ($24\text{dB}/\text{octave}$) ladder filter with drive saturation and resonance.
 * **High-Pass Filter (HPF)**: Separate resonant 2-pole high-pass path to carve out low-frequency rumble.
 
-#### 🎸 Tutorial A: Thick Detuned Analog Sub-Bass (Subtractive Mode)
+#### 🎸 Tutorial A: Detuned Analog Sub-Bass (Subtractive Mode)
 1. Double-click a Synth step cell to open the Synth editor, and select the **`OSC`** tab. Set:
    * **Osc A Shape**: **`SAWTOOTH`**, **Level**: **`90%`**.
-   * **Osc B Shape**: **`SAWTOOTH`**, **Level**: **`80%`**, **Detune (Fine)**: **`+12 cents`** (detuning creates thick analog chorusing!).
-2. Select the **`FILTER`** tab (or HPF tab). Set **LPF Mode** to **`24dB Low Pass`**, LPF Cutoff base to **`450Hz`**, and **LPF Drive (Saturation)** to **`12%`** (adds harmonics clipping grit!).
+   * **Osc B Shape**: **`SAWTOOTH`**, **Level**: **`80%`**, **Detune (Fine)**: **`+12 cents`** (detuning creates analog chorusing).
+2. Select the **`FILTER`** tab (or HPF tab). Set **LPF Mode** to **`24dB Low Pass`**, LPF Cutoff base to **`450Hz`**, and **LPF Drive (Saturation)** to **`12%`** (adds harmonics clipping grit).
 3. Select the **`ENVELOPE`** tab (specifically Envelope 1 VCA). Set:
    * **Attack**: **`2ms`** (instant punch).
    * **Decay**: **`200ms`** (tight low-end decay).
    * **Sustain**: **`15%`** (low background drone).
    * **Release**: **`100ms`** (clean mute tail).
-4. *Result*: Trigger a low step (e.g. C3 or G2) on the grid: you will hear a massive, thick analog detuned club bass with warm ladder saturation!
+4. *Result*: Trigger a low step (e.g. C3 or G2) on the grid: you will hear an analog detuned bass with ladder saturation.
 
 ---
 
-### 2.2 6-Operator Yamaha DX7-Style FM Synthesizer
+### 2.2 6-Operator FM Synthesizer
 FM synthesis generates complex, metallic, and crystal timbres by modulating the frequency/phase of operators at audio rates. The engine provides:
 * **32 Carrier-Modulator Algorithms**: Choose standard operator configurations (Algorithms 1 to 32) mapping who modulates whom.
 * **Operator Multipliers & Feedback**: Program individual frequency ratio multipliers ($0.5$ to $32.0$), output levels, feedback lines, and dedicated ADSR envelopes per operator.
 
-#### 🔔 Tutorial B: Classic 80s Crystal Bell (6-Operator FM Mode)
+#### 🔔 Tutorial B: Crystal Bell (6-Operator FM Mode)
 1. Open the Synth Config editor, go to the **`OSC`** tab. Change the Synthesizer Mode from `SUBTRACTIVE` to **`FM`**.
-2. Select the **`ALGORITHM`** tab. Set the active Algorithm index to **`Algorithm 05`** (maps Op 6 and Op 5 as modulators cascading into Op 1 carrier!).
+2. Select the **`ALGORITHM`** tab. Set the active Algorithm index to **`Algorithm 05`** (maps Op 6 and Op 5 as modulators cascading into Op 1 carrier).
 3. Select the **`DX7`** tab. Let's configure our key operators:
    * **Operator 1 (Carrier)**: Set **Ratio Multiplier** to **`1.0`** (fundamental pitch), and Level to **`90%`**.
-   * **Operator 5 (Primary Modulator)**: Set **Ratio Multiplier** to **`3.5`** (creates standard bell harmonics!), and Level to **`75%`**.
-   * **Operator 6 (High-Modulator)**: Set **Ratio Multiplier** to **`8.0`** (bright crystal chime!), and Level to **`60%`**.
+   * **Operator 5 (Primary Modulator)**: Set **Ratio Multiplier** to **`3.5`** (creates standard bell harmonics), and Level to **`75%`**.
+   * **Operator 6 (High-Modulator)**: Set **Ratio Multiplier** to **`8.0`** (bright crystal chime), and Level to **`60%`**.
 4. Select the **`ENVELOPE`** tab (specifically Operator 5 and 6 envelopes). Set:
    * **Attack**: **`0ms`** (instant sharp strike).
    * **Decay**: **`180ms`** (quick pluck decay).
-   * **Sustain**: **`0%`** (no sustain for modulators, so the bell pluck turns into a warm carrier hum!).
-5. *Result*: Trigger a high step note (e.g. C6 or E5): you will hear the classic, bright FM crystal chime bell made famous by DX7 keyboard patches!
+   * **Sustain**: **`0%`** (no sustain for modulators, so the bell pluck decays to the carrier).
+5. *Result*: Trigger a high step note (e.g. C6 or E5): you will hear the classic FM crystal chime bell.
 
 ---
 
 ### 2.3 Wavetable Synthesis Engine
-Wavetable synthesis loops single-cycle wave tables, allowing complex wavetable sweeps:
-* **Wavetable Index Sweeping**: Choose a multi-cycle wavetable WAV, set base index position coordinates, and write index automation sweeps to morph the waveshape over time.
+Wavetable synthesis loops single-cycle waveforms, allowing wavetable sweeps:
+* **Wavetable Index Sweeping**: Choose a wavetable WAV, set base index position coordinates, and write index automation sweeps to morph the waveshape over time.
 
 ---
 
 ### 2.4 Legato Glide & Portamento Pitch Slides
 
 Portamento (Glide) introduces a smooth, continuous slide transition between consecutive notes pitch frequencies rather than an immediate pitch step jump. 
-* **Legato Portamento mode (Auto-Glide)**: The pitch glide slides **only** when note pad keys overlap on the step sequencer grid! If notes are played staccato (separated gaps), pitch jumps immediately.
-* **Portamento Glide Time (ms)**: Scale the slide velocity transition time smoothly from quick slurs (`10ms`) up to long sweeping portamento rises (`1200ms`).
+* **Legato Portamento mode (Auto-Glide)**: The pitch glide slides **only** when note pad keys overlap on the step sequencer grid. If notes are played staccato (separated gaps), pitch jumps immediately.
+* **Portamento Glide Time (ms)**: Scale the slide transition time from 10ms to 1200ms.
 
-#### 🎸 Tutorial F: 303 Acid Bassline Glide Slides
+#### 🎸 Tutorial F: Portamento Glide
 1. Go to the **`OSC`** tab of your Synth config, set the mode to **`SUBTRACTIVE`**. Set Osc A to **`SAWTOOTH`** wave shape.
-2. Go to the **`FILTER`** tab, set LPF Cutoff base to a deep **`600Hz`** and Resonance to a high **`75%`** (acid squelch!). Set LPF Envelope Mod to **`+55%`** (filter dynamics).
+2. Go to the **`FILTER`** tab, set LPF Cutoff base to a deep **`600Hz`** and Resonance to a high **`75%`** (acid squelch). Set LPF Envelope Mod to **`+55%`** (filter dynamics).
 3. Select the **`OSC`** tab (or standard sidebar settings) to configure:
-   * **Polyphony Mode**: Toggle from `POLY` to **`LEGATO`** (auto-glide mode!).
+   * **Polyphony Mode**: Toggle from `POLY` to **`LEGATO`** (auto-glide mode).
    * **Portamento Glide Time**: Set to **`150ms`**.
 4. Go to the Clip sequencer grid. Let's enter steps:
-   * Column 1: note **`C3`** (Length = 2 steps! It extends to the end of Column 2!).
-   * Column 2: note **`G3`** (Note starts on Column 2! Because Column 1's C3 is still active, the notes OVERLAP! This triggers the auto-glide!).
+   * Column 1: note **`C3`** (Length = 2 steps! It extends to the end of Column 2).
+   * Column 2: note **`G3`** (Note starts on Column 2. Because Column 1's C3 is still active, the notes OVERLAP. This triggers the auto-glide).
    * Column 3: note **`F3`** (Length = 1 step).
-   * Column 4: note **`C4`** (Starts on Column 4, overlapping F3!).
+   * Column 4: note **`C4`** (Starts on Column 4, overlapping F3).
 5. Go to step properties for the C4 note: check the **Fill %** as standard or leave velocity at **`100%`**.
-6. *Result*: Press play: you will hear a perfect, classic analog 303 acid bassline sequence, slurring and sliding its pitch slides and filter envelope sweeps beautifully on the overlapping steps!
+6. *Result*: Press play: you will hear an acid bassline sequence, sliding its pitch on overlapping steps.
 
 ---
 
 ### 2.5 Multi-Sample Keyzones & Pitch Ranges
 
-For highly realistic acoustic instrument modeling (such as pianos, string sections, or choirs), loading a single sample across the entire keyboard results in unnatural speed/pitch stretching ("chipmunk effect"). The Multi-Sampler engine lets you load multiple WAV files split across distinct key ranges:
+For realistic acoustic instrument modeling (such as pianos, string sections, or choirs), loading a single sample across the entire keyboard results in unnatural speed/pitch stretching. The Multi-Sampler engine lets you load multiple WAV files split across distinct key ranges:
 
 ```mermaid
 graph TD
@@ -327,46 +327,46 @@ graph TD
 ```
 
 * **Keyzone Boundaries (Split Points)**: Configure target key boundaries (e.g., Zone 1 maps keys C0 to B2, Zone 2 maps C3 to B5, Zone 3 maps C6 to C8).
-* **Root Pitch Mapping**: Assign the baseline root pitch for each WAV file (e.g., Zone 2 file is a recording of Middle C, so its root pitch is set to C4 / MIDI 60). The engine calculates detunes relative to the file's root pitch, ensuring organic pitch playback speed scaling.
+* **Root Pitch Mapping**: Assign the baseline root pitch for each WAV file (e.g., Zone 2 file is a recording of Middle C, so its root pitch is set to C4 / MIDI 60). The engine calculates detunes relative to the file's root pitch, ensuring correct pitch scaling.
 
-#### 🎹 Tutorial G: High-Fidelity Acoustic Grand Piano Multi-Sampler
-1. In the Synth config panel, change the sound generator source from basic waveforms to the **`MULTI-SAMPLE`** engine deck.
+#### 🎹 Tutorial G: Acoustic Piano Multi-Sampler
+1. In the Synth config panel, change the sound generator source from basic waveforms to the **`MULTI-SAMPLE`** engine.
 2. Add three keyzone slot rows mapping your instrument's raw acoustic recordings:
    * **Zone Slot 1**: Select file **`Piano_Bass_C2.wav`**. Set Key Range from **`C0 to B2`** and Root Pitch to **`C2 (MIDI 36)`**.
    * **Zone Slot 2**: Select file **`Piano_Mid_C4.wav`**. Set Key Range from **`C3 to B5`** and Root Pitch to **`C4 (MIDI 60)`**.
    * **Zone Slot 3**: Select file **`Piano_Treble_C6.wav`**. Set Key Range from **`C6 to C8`** and Root Pitch to **`C6 (MIDI 84)`**.
 3. Go to the **`ENVELOPE`** tab (Envelope 1 VCA). Set Attack to **`1ms`** (instant strike), Decay to **`2.5s`**, Sustain to **`0%`**, and Release to **`250ms`** (natural acoustic resonance tail damping).
-4. *Result*: Play steps across separate octaves: the sequencer will dynamically load and trigger different high-fidelity recordings, delivering an incredibly rich, organic multi-sampled acoustic grand piano with perfect pitch parity!
+4. *Result*: Play steps across separate octaves: the sequencer will dynamically load and trigger different recordings, delivering a multi-sampled acoustic piano.
 
 ---
 
 ### 2.6 Ring Modulation Sound Synthesis
 
-Ring Modulation multiplies two audio frequency signals at sample-accurate rates. The output signal contains the sum and difference frequencies of the input waves, but silences the individual original pitches, generating dark, metallic, or bell-like industrial timbres:
+Ring Modulation multiplies two audio frequency signals at audio rates. The output signal contains the sum and difference frequencies of the input waves, but silences the individual original pitches, generating metallic or bell-like industrial timbres:
 
 $$V_{out}(t) = \text{Osc A}(t) \times \text{Osc B}(t)$$
 
-* **Oscillator A (Carrier) & Oscillator B (Modulator)**: Dual audio signal inputs multiplied at sample-accurate rates.
-* **Frequency Ratio Splits**: Tuning the frequency split between Osc A and Osc B to non-harmonic intervals (e.g. detuning Osc B by a tritone or major 7th) yields complex, highly aggressive robotic timbres.
+* **Oscillator A (Carrier) & Oscillator B (Modulator)**: Dual audio signal inputs multiplied at audio rates.
+* **Frequency Ratio Splits**: Tuning the frequency split between Osc A and Osc B to non-harmonic intervals (e.g. detuning Osc B by a tritone or major 7th) yields complex robotic timbres.
 
-#### 🤖 Tutorial H: Metallic Industrial Ring-Mod Sound Pluck
+#### 🤖 Tutorial H: Ring-Modulation Pluck
 1. Open your Synth Config editor, go to the **`OSC`** tab. Change the active Synthesizer Mode from `SUBTRACTIVE` to **`RINGMOD`**.
 2. Configure your dual input oscillators:
    * **Osc A Shape**: **`SINE`** (warm carrier fundamental), **Pitch Tuning**: **`0 semitones`**.
-   * **Osc B Shape**: **`SAWTOOTH`** (rich modulator harmonics), **Pitch Tuning**: **`+11 semitones`** (detuned major 7th interval creates metallic ring-modulation splits!).
+   * **Osc B Shape**: **`SAWTOOTH`** (rich modulator harmonics), **Pitch Tuning**: **`+11 semitones`** (detuned major 7th interval creates metallic ring-modulation splits).
 3. Go to the **`FILTER`** tab, set LPF Cutoff base to a dark **`700Hz`** and Resonance to a moderate **`45%`**.
-4. Go to the **`ENVELOPE`** tab (specifically Envelope 2 VCF). Set Attack to **`0ms`** (instant sharp strike), Decay to **`120ms`** (quick pluck decay), and Sustain to **`0%`**. Set the LPF Envelope Mod to a high **`+60%`** (plucky filter sweep!).
-5. *Result*: Sequence a steps phrase: you will hear a highly aggressive, sharp, metallic industrial ring-modulated sound pluck perfect for heavy dark techno or industrial music leads!
+4. Go to the **`ENVELOPE`** tab (specifically Envelope 2 VCF). Set Attack to **`0ms`** (instant sharp strike), Decay to **`120ms`** (quick pluck decay), and Sustain to **`0%`**. Set the LPF Envelope Mod to a high **`+60%`** (plucky filter sweep).
+5. *Result*: Sequence a steps phrase: you will hear a sharp, ring-modulated pluck for industrial leads.
 
 ### 2.7 Chord Keyboard (CORK & CORL Layouts)
 
-The Chord Keyboard turns the layout pads grid into a specialized harmonic controller, allowing you to trigger complex chord shapes, inversions, and scale-locked voicings instantly. Access this workspace by selecting **`CHORD_LIBRARY`** or **`CHORD`** from the **KB** dropdown JComboBox at the top toolbar (or via Tab view cycles):
+The Chord Keyboard maps pads to chords, scale degrees, and inversions. Access this workspace by selecting **`CHORD_LIBRARY`** or **`CHORD`** from the **KB** dropdown JComboBox at the top toolbar (or via Tab view cycles):
 
-* **Mode 1: PIANO Layout**: Standard isomorphic chromatic keyboard mapping. Pads in the current scale are highlighted in dim blue/slate, and root notes glow in bright mint-green.
+* **Mode 1: PIANO Layout**: Standard isomorphic chromatic keyboard mapping. Pads in the current scale are highlighted in dim blue/slate, and root notes glow in mint-green.
 * **Mode 2: CORK (Chord Keyboard)**:
   * **COLUMN Mode**: Harmonically similar chords are stacked vertically. Clicking a grid pad triggers scale-degree chords (I, ii, iii, IV, V, vi, vii) matching the selected key.
   * **ROW Mode**: Spreads scale intervals horizontally (Launchpad Pro style).
-* **Mode 3: CORL (Chord Library)**: A comprehensive chord catalog. Columns represent the 12 chromatic root notes ($C \dots B$), and rows represent chord qualities (Major, Minor, Dominant 7th, Major 7th, Minor 7th, Diminished, Suspended, etc.). Scale-aware highlighting makes finding in-key chords instant.
+* **Mode 3: CORL (Chord Library)**: A comprehensive chord catalog. Columns represent the 12 chromatic root notes ($C \dots B$), and rows represent chord qualities (Major, Minor, Dominant 7th, Major 7th, Minor 7th, Diminished, Suspended, etc.). Scale-aware highlighting indicates in-key chords.
 * **Chords Voicings & Inversions**: Select the Voicing mode dropdown to instantly change the note spreads across the operators voice allocations:
   1. *Close*: Standard tight stack.
   2. *Drop 2*: Drops the second-highest note by an octave (classic jazz voicing).
@@ -398,13 +398,13 @@ When you select a sample folder path inside the **`Kit Super-Generator (Tab 2)`*
 
 Remaining slots 9–16 are automatically filled with percussion, cowbells, woodblocks, and other samples without duplicate overlaps!
 
-### 🥁 Tutorial C: Step-by-Step Drum Kit Construction & Auto-Choke
+### 🥁 Tutorial C: Drum Kit Construction & Auto-Choke
 1. Press **`Ctrl + R` / `Cmd + R`** to summon the generators panel, and select **`Tab 2: Kit Super-Generator`**.
-2. Click **`[📁 Browse Samples Directory]`** and select a folder of drum WAVs (e.g., standard 808 or acoustic stems!).
-3. The mapper immediately scans the directory, populates the slots 1–16 rows table, and applies the keyword templates!
-4. Check the **`[✓] Auto-Choke Hats`** box! This automatically maps Slot 3 (Closed Hat) and Slot 4 (Open Hat) to shared **Mute Group 1**, so triggering a closed hat instantly cuts off the open hat's trailing ring!
-5. Click **`[Generate & Load Kit]`**. The workstation saves the Kit XML, registers files inside memory, and rebuilds the JNI play links!
-6. *Result*: Your active sequencer pads grid rows now house the full detuned drum set. Sequence a kick, snare, and open/closed hats: you will hear tight, realistic, auto-choked drum parts playing live!
+2. Click **`[📁 Browse Samples Directory]`** and select a folder of drum WAVs.
+3. The mapper scans the directory, populates the slots 1–16 rows table, and applies the keyword templates.
+4. Check the **`[✓] Auto-Choke Hats`** box. This automatically maps Slot 3 (Closed Hat) and Slot 4 (Open Hat) to Mute Group 1, so triggering a closed hat cuts off the open hat's trailing ring.
+5. Click **`[Generate & Load Kit]`**. The workstation saves the Kit XML, registers files inside memory, and rebuilds the track's audio players.
+6. *Result*: Your active sequencer pads grid rows now house the drum kit. Sequence a kick, snare, and open/closed hats to hear the auto-choke behavior.
 
 ---
 
