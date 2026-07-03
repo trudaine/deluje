@@ -2,9 +2,7 @@ package org.deluge.firmware2;
 
 import org.deluge.firmware2.Arpeggiator.*;
 
-/**
- * Extracted ArpeggiatorKit subclass from Arpeggiator.java.
- */
+/** Extracted ArpeggiatorKit subclass from Arpeggiator.java. */
 public class ArpeggiatorKit extends ArpeggiatorSynth {
   @Override
   public ArpType getArpType() {

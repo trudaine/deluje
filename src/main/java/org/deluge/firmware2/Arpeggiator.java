@@ -1,6 +1,5 @@
 package org.deluge.firmware2;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
@@ -440,14 +439,11 @@ public class Arpeggiator {
 
   // ── ArpeggiatorForDrum (arpeggiator.h:332-348, arpeggiator.cpp:72-216, etc.) ──
 
-  public static class ForDrum extends ArpeggiatorForDrum {
-  }
+  public static class ForDrum extends ArpeggiatorForDrum {}
 
   // ── Arpeggiator (synth) (arpeggiator.h:350-373, arpeggiator.cpp:76-503, etc.) ──
 
-  public static class Synth extends ArpeggiatorSynth {
-  }
+  public static class Synth extends ArpeggiatorSynth {}
 
-  public static class Kit extends ArpeggiatorKit {
-  }
+  public static class Kit extends ArpeggiatorKit {}
 }

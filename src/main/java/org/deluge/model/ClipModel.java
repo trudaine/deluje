@@ -324,6 +324,19 @@ public class ClipModel extends TimelineCounter {
     this.activeInSession = active;
   }
 
+  // C Clip::armState (clip.h:170). Whether this clip is armed to change state at the next session
+  // launch event, and how. Transient runtime state (not serialized), cleared to OFF when the launch
+  // fires. Default OFF matches the C.
+  private transient ArmState armState = ArmState.OFF;
+
+  public ArmState getArmState() {
+    return armState;
+  }
+
+  public void setArmState(ArmState armState) {
+    this.armState = armState != null ? armState : ArmState.OFF;
+  }
+
   public void setStepCount(int stepCount) {
     int old = this.stepCount;
     this.stepCount = Math.max(1, stepCount);

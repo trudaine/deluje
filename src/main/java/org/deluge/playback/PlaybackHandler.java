@@ -16,6 +16,13 @@ public class PlaybackHandler {
   private int swungTicksTilNextEvent = 0;
   private volatile int syncMode = 0; // 0 = INTERNAL, 1 = EXTERNAL_MIDI
 
+  // Session launch scheduler (C Session, playback/mode/session.cpp). The swung tick at which armed
+  // clips fire (0 = no launch scheduled) and how many clip repeats remain until then. Set by the
+  // scheduler (Phase 3, scheduleLaunchTiming); armed clips act at this tick and return to
+  // ArmState.OFF. Phase 1 adds the state; the wiring lands in later phases.
+  private volatile long launchEventAtSwungTickCount = 0;
+  private int numRepeatsTilLaunch = 0;
+
   /**
    * Outbound MIDI clock sink (the Deluge as clock master). Decoupled so the transport doesn't
    * depend on the MIDI layer and stays unit-testable. Wire to {@code MidiEngine}'s
@@ -46,6 +53,43 @@ public class PlaybackHandler {
     this.syncMode = mode;
   }
 
+  public long getLaunchEventAtSwungTickCount() {
+    return launchEventAtSwungTickCount;
+  }
+
+  public int getNumRepeatsTilLaunch() {
+    return numRepeatsTilLaunch;
+  }
+
+  /** Whether a session launch event is currently scheduled. */
+  public boolean hasLaunchEvent() {
+    return launchEventAtSwungTickCount > 0;
+  }
+
+  /**
+   * Swung ticks from the last actioned tick until the scheduled launch event (never negative), or
+   * -1 when no launch is scheduled. This is what the launch playhead (Phase 6) counts down.
+   */
+  public long getSwungTicksTilLaunch() {
+    if (!hasLaunchEvent()) return -1;
+    return Math.max(0, launchEventAtSwungTickCount - lastSwungTickActioned);
+  }
+
+  /**
+   * Schedule the session launch event at {@code atSwungTickCount}. Phase 3 drives this from the
+   * faithful {@code scheduleLaunchTiming}; exposed now so the state has a single mutator.
+   */
+  public synchronized void setLaunchEvent(long atSwungTickCount, int numRepeatsUntil) {
+    this.launchEventAtSwungTickCount = atSwungTickCount;
+    this.numRepeatsTilLaunch = numRepeatsUntil;
+  }
+
+  /** Clear any scheduled launch event (C: {@code launchEventAtSwungTickCount = 0}). */
+  public synchronized void clearLaunchEvent() {
+    this.launchEventAtSwungTickCount = 0;
+    this.numRepeatsTilLaunch = 0;
+  }
+
   public synchronized void setProject(ProjectModel project) {
     this.currentProject = project;
   }
@@ -62,6 +106,8 @@ public class PlaybackHandler {
     playing = true;
     lastSwungTickActioned = 0;
     swungTicksTilNextEvent = 0;
+    launchEventAtSwungTickCount = 0;
+    numRepeatsTilLaunch = 0;
     lastClockTick = 0;
     if (midiClockOut != null) midiClockOut.start(); // 0xFA — external gear starts from the top
     FirmwareDisplay.get().setText(" PLAYING ");
@@ -76,6 +122,8 @@ public class PlaybackHandler {
 
   public synchronized void stop() {
     playing = false;
+    launchEventAtSwungTickCount = 0;
+    numRepeatsTilLaunch = 0;
     if (midiClockOut != null) midiClockOut.stop(); // 0xFC
     FirmwareDisplay.get().setText(" STOPPED ");
   }

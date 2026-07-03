@@ -2,9 +2,7 @@ package org.deluge.firmware2;
 
 import org.deluge.firmware2.Arpeggiator.*;
 
-/**
- * Extracted ArpeggiatorForDrum subclass from Arpeggiator.java.
- */
+/** Extracted ArpeggiatorForDrum subclass from Arpeggiator.java. */
 public class ArpeggiatorForDrum extends ArpeggiatorBase {
   public int noteForDrum;
   public boolean invertReversedFromKitArp;
@@ -143,7 +141,8 @@ public class ArpeggiatorForDrum extends ArpeggiatorBase {
             velocity = active_note.mpeValues[1] >> 8;
             break;
         }
-        if (velocity < Arpeggiator.MIN_MPE_MODULATED_VELOCITY) velocity = Arpeggiator.MIN_MPE_MODULATED_VELOCITY;
+        if (velocity < Arpeggiator.MIN_MPE_MODULATED_VELOCITY)
+          velocity = Arpeggiator.MIN_MPE_MODULATED_VELOCITY;
       }
       active_note.baseVelocity = velocity;
       velocity = calculateSpreadVelocity(velocity, spreadVelocityForCurrentStep);

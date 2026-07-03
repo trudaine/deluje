@@ -3,9 +3,7 @@ package org.deluge.firmware2;
 import java.util.ArrayList;
 import org.deluge.firmware2.Arpeggiator.*;
 
-/**
- * Extracted ArpeggiatorSynth subclass from Arpeggiator.java.
- */
+/** Extracted ArpeggiatorSynth subclass from Arpeggiator.java. */
 public class ArpeggiatorSynth extends ArpeggiatorBase {
   /** C: OrderedResizeableArray — sorted by note code */
   public final ArrayList<ArpNote> notes = new ArrayList<>();
@@ -45,7 +43,8 @@ public class ArpeggiatorSynth extends ArpeggiatorBase {
     int numNotes = notes.size();
     for (int i = 0; i < numNotes; i++) {
       int notesByPatternIndex =
-          Math.min(settings.notePattern[Math.min(i, Arpeggiator.PATTERN_MAX_BUFFER_SIZE - 1)] & 0xFF, i);
+          Math.min(
+              settings.notePattern[Math.min(i, Arpeggiator.PATTERN_MAX_BUFFER_SIZE - 1)] & 0xFF, i);
       notesByPatternIndex = Math.min(notesByPatternIndex, notesByPattern.size());
       ArpJustNoteCode entry = new ArpJustNoteCode(notes.get(i).inputCharacteristics[0]);
       notesByPattern.add(notesByPatternIndex, entry);
@@ -314,7 +313,8 @@ public class ArpeggiatorSynth extends ArpeggiatorBase {
             velocity = arpNote.mpeValues[1] >> 8;
             break;
         }
-        if (velocity < Arpeggiator.MIN_MPE_MODULATED_VELOCITY) velocity = Arpeggiator.MIN_MPE_MODULATED_VELOCITY;
+        if (velocity < Arpeggiator.MIN_MPE_MODULATED_VELOCITY)
+          velocity = Arpeggiator.MIN_MPE_MODULATED_VELOCITY;
       }
       arpNote.baseVelocity = velocity;
       velocity = calculateSpreadVelocity(velocity, spreadVelocityForCurrentStep); // C:1338
@@ -325,7 +325,9 @@ public class ArpeggiatorSynth extends ArpeggiatorBase {
       if (out.shouldPlayBassNote) {
         note = arpNote.inputCharacteristics[0];
       } else if (out.shouldPlayRandomStep) {
-        note = arpNote.inputCharacteristics[0] + (Arpeggiator.getRandom255() % settings.numOctaves) * 12;
+        note =
+            arpNote.inputCharacteristics[0]
+                + (Arpeggiator.getRandom255() % settings.numOctaves) * 12;
       } else {
         int diff = currentOctave * 12;
         if (spreadOctaveForCurrentStep != 0) {
