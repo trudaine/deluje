@@ -18,6 +18,10 @@ public class ClipGridPanel extends SwingGridPanel {
 
   @Override
   public void rebuildUIComponents() {
+    if (viewMode == GridViewMode.KEYPLAY) {
+      rebuildKeyplayComponents();
+      return;
+    }
     stopAuditionIfNeeded();
     refreshInProgress = true;
     removeAll();
@@ -515,6 +519,10 @@ public class ClipGridPanel extends SwingGridPanel {
   @Override
   public void refreshInPlace() {
     if (projectModel == null) return;
+    if (viewMode == GridViewMode.KEYPLAY) {
+      refreshKeyplayInPlace();
+      return;
+    }
     updatePageBarHighlights();
     scrollController.syncScrollBarValues();
 
@@ -1199,5 +1207,206 @@ public class ClipGridPanel extends SwingGridPanel {
       rowPanel.add(clipBtn);
     }
     return rowPanel;
+  }
+
+  private void rebuildKeyplayComponents() {
+    stopAuditionIfNeeded();
+    refreshInProgress = true;
+    removeAll();
+
+    voiceRowCount = 8;
+    int songVoiceRows = 8;
+    this.stepCount = gridMode.columns;
+    int savedColCount = this.stepCount + 2;
+    this.columnCount = savedColCount;
+
+    vuManager.clear();
+    vuManager.startTimer();
+
+    int padSz = cachedPadSz;
+    int lw = currentLabelWidth();
+    int rowW = getGridWidth(padSz, lw);
+
+    voicePanel = new JPanel();
+    voicePanel.setBackground(new Color(0x15, 0x15, 0x15));
+    voicePanel.setOpaque(true);
+    voicePanel.setLayout(new BoxLayout(voicePanel, BoxLayout.Y_AXIS));
+
+    boolean kitTrack = isEditedTrackKit();
+    Color trackColor = getTrackBaseColor();
+    PreferencesManager.GridColorTheme theme = PreferencesManager.getGridColorTheme();
+
+    for (int t = 0; t < songVoiceRows; t++) {
+      JPanel rowPanel = new JPanel();
+      rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
+      rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
+      rowPanel.setPreferredSize(new Dimension(rowW, padSz));
+      rowPanel.setMinimumSize(new Dimension(rowW, padSz));
+      rowPanel.setMaximumSize(new Dimension(rowW, padSz));
+      rowPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+      String trackName = "";
+      if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+        TrackModel rowTrack = projectModel.getTracks().get(editedModelTrack);
+        if (rowTrack instanceof org.deluge.model.KitTrackModel kit) {
+          java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
+          trackName = (t < sounds.size()) ? sounds.get(sounds.size() - 1 - t).getName() : rowTrack.getName();
+        } else {
+          trackName = (t == 0) ? rowTrack.getName() : "-" + t + "st";
+        }
+      }
+
+      JLabel label = new JLabel(trackName);
+      lw = currentLabelWidth();
+      label.setPreferredSize(new Dimension(lw, 30));
+      label.setMinimumSize(new Dimension(lw, 30));
+      label.setMaximumSize(new Dimension(lw, 30));
+      label.setForeground(Color.LIGHT_GRAY);
+      label.setFont(new Font("SansSerif", Font.BOLD, 10));
+
+      rowPanel.add(label);
+      rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
+      rowPanel.add(Box.createHorizontalStrut(5));
+
+      VUMeterPanel vu = new VUMeterPanel();
+      vu.setPreferredSize(new Dimension(12, padSz));
+      vu.setMaximumSize(new Dimension(12, padSz));
+      rowPanel.add(vu);
+      rowPanel.add(Box.createHorizontalStrut(5));
+
+      vuManager.registerTrackVu(t, vu);
+
+      for (int c = 0; c < columnCount; c++) {
+        final int colId = c;
+        boolean isAdvanced = PreferencesManager.getGridPanelType() == PreferencesManager.GridPanelType.ADVANCED;
+        JButton clipBtn;
+
+        if (isAdvanced) {
+          DelugePadButton pad = new DelugePadButton();
+          pad.putClientProperty("row", t);
+          pad.putClientProperty("col", c);
+          clipBtn = pad;
+        } else {
+          clipBtn = new CleanJButton();
+        }
+
+        clipBtn.setPreferredSize(new Dimension(padSz, padSz));
+        clipBtn.setMinimumSize(new Dimension(padSz, padSz));
+        clipBtn.setMaximumSize(new Dimension(padSz, padSz));
+        clipBtn.setMargin(new Insets(0, 0, 0, 0));
+
+        pads[t][c] = clipBtn;
+        clipBtn.setBorder(UIManager.getBorder("Button.border"));
+
+        if (isMuteColumn(colId) || isSoloColumn(colId)) {
+          clipBtn.setVisible(false);
+          clipBtn.setEnabled(false);
+        } else {
+          if (colId < 16) {
+            if (kitTrack) {
+              int drumIdx = org.deluge.model.KeyplayKeyboard.getDrumIndex(t, colId);
+              clipBtn.setText(drumIdx < editedKitDrumCount() ? ("D" + (drumIdx + 1)) : "");
+              clearActionListeners(clipBtn);
+              clearKeyboardMouseListeners(clipBtn);
+              boolean drumPlayable = drumIdx < editedKitDrumCount();
+              if (drumPlayable) {
+                clipBtn.addMouseListener(
+                    new java.awt.event.MouseAdapter() {
+                      @Override
+                      public void mousePressed(java.awt.event.MouseEvent e) {
+                        triggerKeyboardDrum(drumIdx);
+                        refresh();
+                      }
+
+                      @Override
+                      public void mouseReleased(java.awt.event.MouseEvent e) {
+                        releaseKeyboardDrum(drumIdx);
+                        refresh();
+                      }
+                    });
+              }
+            } else {
+              int note = org.deluge.model.KeyplayKeyboard.getNote(t, colId);
+              clipBtn.setText(getNoteName(note));
+              clearActionListeners(clipBtn);
+              clearKeyboardMouseListeners(clipBtn);
+              clipBtn.addMouseListener(new KeyboardMouseAdapter(this, note));
+            }
+          } else {
+            clipBtn.setText("");
+          }
+        }
+
+        rowPanel.add(clipBtn);
+        rowPanel.add(Box.createHorizontalStrut(5));
+      }
+      voicePanel.add(rowPanel);
+    }
+
+    JPanel voiceWrapper = new JPanel(new BorderLayout());
+    voiceWrapper.setBackground(new Color(0x15, 0x15, 0x15));
+    voiceWrapper.setPreferredSize(new Dimension(rowW, gridMode.rows * (padSz + 5) - 5));
+    voiceWrapper.setMaximumSize(new Dimension(rowW, gridMode.rows * (padSz + 5) - 5));
+    voiceWrapper.setAlignmentX(Component.LEFT_ALIGNMENT);
+    voiceWrapper.add(voicePanel, BorderLayout.CENTER);
+
+    add(voiceWrapper);
+    revalidate();
+    repaint();
+    refreshInProgress = false;
+  }
+
+  private void refreshKeyplayInPlace() {
+    boolean kitTrack = isEditedTrackKit();
+    Color trackColor = getTrackBaseColor();
+    PreferencesManager.GridColorTheme theme = PreferencesManager.getGridColorTheme();
+
+    for (int v = 0; v < 8; v++) {
+      for (int c = 0; c < columnCount; c++) {
+        JButton clipBtn = pads[v][c];
+        if (clipBtn == null) continue;
+
+        if (isMuteColumn(c) || isSoloColumn(c)) {
+          clipBtn.setVisible(false);
+          clipBtn.setEnabled(false);
+        } else if (c < 16) {
+          if (kitTrack) {
+            int drumIdx = org.deluge.model.KeyplayKeyboard.getDrumIndex(v, c);
+            boolean drumPlayable = drumIdx < editedKitDrumCount();
+            boolean isPlaying = bridge != null && bridge.getGlobalInt(BridgeContract.G_PREVIEW_TRACK) == (long) (baseTrackId + (v % 8));
+
+            if (clipBtn instanceof DelugePadButton pad) {
+              pad.setActive(drumPlayable);
+              pad.setBaseColor(drumPlayable ? trackColor : new Color(0x1a, 0x1a, 0x1e));
+              pad.setApplicable(drumPlayable);
+              pad.setIntensity(isPlaying ? 1.0f : 0.4f);
+            } else {
+              clipBtn.setBackground(drumPlayable ? trackColor : new Color(0x22, 0x22, 0x24));
+            }
+          } else {
+            int note = org.deluge.model.KeyplayKeyboard.getNote(v, c);
+            boolean isRoot = ScaleMapper.isRootNote(note, projectModel.getKey());
+            boolean inScale = ScaleMapper.isNoteInScale(note, projectModel.getKey(), projectModel.getScale());
+
+            boolean isPlaying = false;
+            Color cellBaseColor = getThemeColor(theme, trackColor, isPlaying, inScale, isRoot, v);
+
+            if (clipBtn instanceof DelugePadButton pad) {
+              pad.setBaseColor(cellBaseColor);
+              pad.setApplicable(inScale);
+              pad.setTheme(theme);
+              pad.setBeatMarker(false);
+              pad.setScaleRoot(isRoot);
+              pad.setScaleNote(inScale);
+              pad.setActive(isPlaying || isRoot || inScale);
+              pad.setIntensity(isPlaying ? 1.0f : (isRoot ? 0.6f : 0.3f));
+            } else {
+              clipBtn.setBackground(cellBaseColor);
+            }
+          }
+        }
+      }
+    }
+    repaint();
   }
 }

@@ -18,7 +18,7 @@ public class ConvertTrackTypeTest {
     System.setProperty("chuck.audio.dummy", "true");
     BridgeContract bridge = new BridgeContract();
 
-    SwingGridPanel p = new SwingGridPanel(bridge);
+    SwingGridPanel p = new ClipGridPanel(bridge);
     p.setProjectModel(project);
     return p;
   }

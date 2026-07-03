@@ -23,7 +23,7 @@ public class SwingGridPanelRightClickConflictTest {
     model.addTrack(track);
 
     // 3. Setup Grid Panel in SONG view
-    SwingGridPanel gridPanel = new SwingGridPanel(bridge);
+    SwingGridPanel gridPanel = new SongGridPanel(bridge);
     gridPanel.setProjectModel(model);
     gridPanel.setViewMode(SwingGridPanel.GridViewMode.SONG);
     gridPanel.refresh();

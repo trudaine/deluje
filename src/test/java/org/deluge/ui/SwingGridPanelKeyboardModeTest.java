@@ -19,7 +19,7 @@ public class SwingGridPanelKeyboardModeTest {
     project.setScale("Major");
     project.addTrack(new SynthTrackModel("Synth"));
 
-    SwingGridPanel panel = new SwingGridPanel(bridge);
+    SwingGridPanel panel = new ClipGridPanel(bridge);
     panel.setProjectModel(project);
     panel.setViewMode(SwingGridPanel.GridViewMode.KEYPLAY);
     panel.refresh();

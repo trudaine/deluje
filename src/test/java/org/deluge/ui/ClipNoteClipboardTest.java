@@ -17,7 +17,7 @@ public class ClipNoteClipboardTest {
     System.setProperty("chuck.audio.dummy", "true");
     BridgeContract bridge = new BridgeContract();
 
-    SwingGridPanel p = new SwingGridPanel(bridge);
+    SwingGridPanel p = new ClipGridPanel(bridge);
     p.setProjectModel(project);
     p.setEditedModelTrack(0);
     p.setActiveClipId(0);
@@ -57,7 +57,7 @@ public class ClipNoteClipboardTest {
   public void pasteWithoutCopyOnFreshClipboardIsSafe() throws Exception {
     // Note: the clipboard is static; this test only asserts the no-clip guard path is safe.
     ProjectModel proj = new ProjectModel();
-    SwingGridPanel p = new SwingGridPanel(new BridgeContract());
+    SwingGridPanel p = new ClipGridPanel(new BridgeContract());
     p.setProjectModel(proj);
     p.setEditedModelTrack(0);
     // No tracks -> getEditedActiveClip() returns null -> paste is a safe no-op.

@@ -57,7 +57,7 @@ public class VerifySync {
     }
 
     // 2. Load UI View
-    SwingGridPanel clipPanel = new SwingGridPanel(bridge);
+    SwingGridPanel clipPanel = new ClipGridPanel(bridge);
     clipPanel.setProjectModel(model);
     clipPanel.setViewMode(SwingGridPanel.GridViewMode.CLIP);
 

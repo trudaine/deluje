@@ -2856,7 +2856,7 @@ public class SwingDelugeApp extends JFrame {
     arrGridPanel.setOnProjectChanged(projectChangeHandler);
     centerCardPanel.add(wrapGridPanel(arrGridPanel), "ARR");
 
-    autoPanel = new SwingGridPanel(bridge);
+    autoPanel = new AutomationGridPanel(bridge);
     autoPanel.setViewMode(SwingGridPanel.GridViewMode.AUTOMATION);
     autoPanel.setProjectModel(currentProject);
     autoPanel.setOnProjectChanged(projectChangeHandler);
