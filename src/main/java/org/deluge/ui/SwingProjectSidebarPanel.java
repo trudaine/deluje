@@ -534,6 +534,19 @@ public class SwingProjectSidebarPanel extends JPanel {
     title.setFont(new Font("SansSerif", Font.BOLD, 9));
     head.add(title, BorderLayout.WEST);
 
+    JPanel headBtns = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 4, 0));
+    headBtns.setOpaque(false);
+
+    JButton testBtn = new JButton("🩺 TEST");
+    testBtn.setToolTipText(
+        "Ping the Deluge and report session id + /SONGS count (live diagnostic)");
+    testBtn.setFont(new Font("SansSerif", Font.BOLD, 9));
+    testBtn.setBackground(new Color(0x2a, 0x2a, 0x30));
+    testBtn.setForeground(new Color(0xff, 0xd7, 0x00));
+    testBtn.setFocusPainted(false);
+    testBtn.addActionListener(e -> runConnectionSelfTest());
+    headBtns.add(testBtn);
+
     JButton refreshBtn = new JButton("🔄 REFRESH");
     refreshBtn.setFont(new Font("SansSerif", Font.BOLD, 9));
     refreshBtn.setBackground(new Color(0x2a, 0x2a, 0x30));
@@ -544,7 +557,8 @@ public class SwingProjectSidebarPanel extends JPanel {
           refreshHardwareTree();
           loadRemoteFolder(currentRemotePath);
         });
-    head.add(refreshBtn, BorderLayout.EAST);
+    headBtns.add(refreshBtn);
+    head.add(headBtns, BorderLayout.EAST);
     panel.add(head, BorderLayout.NORTH);
 
     // 1. JTree Setup
@@ -793,6 +807,102 @@ public class SwingProjectSidebarPanel extends JPanel {
     initialLoadTimer.start();
 
     return panel;
+  }
+
+  /**
+   * Live connection diagnostic: checks the MIDI OUT port, pings the Deluge, negotiates a session,
+   * and lists /SONGS — reporting each step so a "no songs" problem can be localized (no MIDI port
+   * vs. no reply vs. session failure vs. empty listing) without a debugger. Runs off the EDT on a
+   * virtual thread; results are shown in a dialog and echoed to stdout.
+   */
+  private void runConnectionSelfTest() {
+    if (SwingDelugeApp.mainInstance == null) return;
+    var midi = SwingDelugeApp.mainInstance.getMidiService();
+    var sysex = midi.getSysExManager();
+    var fileSync = midi.getFileSyncService();
+    Thread.ofVirtual()
+        .name("DelugeSelfTest")
+        .start(
+            () -> {
+              StringBuilder log = new StringBuilder();
+              // 1. Output port wired up?
+              if (!sysex.hasMidiOut()) {
+                log.append("✗ No MIDI OUT port configured.\n   Select the Deluge MIDI port first.");
+                showSelfTestResult(log.toString());
+                return;
+              }
+              log.append("✓ MIDI OUT configured\n");
+
+              // 2. Ping round-trip.
+              try {
+                java.util.concurrent.CompletableFuture<Long> ping =
+                    new java.util.concurrent.CompletableFuture<>();
+                long t0 = System.nanoTime();
+                sysex.sendRequest(
+                    "{\"ping\":{}}", (j, b) -> ping.complete((System.nanoTime() - t0) / 1_000_000));
+                long ms = ping.get(2, java.util.concurrent.TimeUnit.SECONDS);
+                log.append("✓ Ping reply in ").append(ms).append(" ms\n");
+              } catch (Exception ex) {
+                log.append(
+                    "✗ No ping reply within 2s.\n"
+                        + "   Check the USB is attached to the container and the MIDI IN port is"
+                        + " selected.");
+                showSelfTestResult(log.toString());
+                return;
+              }
+
+              // 3. Session negotiation.
+              try {
+                sysex.negotiateSession("DelugeJava").get(2, java.util.concurrent.TimeUnit.SECONDS);
+                log.append("✓ Session id=")
+                    .append(sysex.getSessionId())
+                    .append(" (midMin=")
+                    .append(sysex.getMidMin())
+                    .append(", midMax=")
+                    .append(sysex.getMidMax())
+                    .append(")\n");
+              } catch (Exception ex) {
+                log.append("✗ Session negotiation timed out (continuing to dir test).\n");
+              }
+
+              // 4. /SONGS listing count (the actual explorer path).
+              java.util.concurrent.CompletableFuture<Integer> songs =
+                  new java.util.concurrent.CompletableFuture<>();
+              fileSync.listSongs(
+                  "/SONGS",
+                  new org.deluge.midi.DelugeFileSyncService.FileListCallback() {
+                    @Override
+                    public void onSuccess(java.util.List<String> files) {
+                      songs.complete(files.size());
+                    }
+
+                    @Override
+                    public void onFailure(Throwable t) {
+                      songs.completeExceptionally(t);
+                    }
+                  });
+              try {
+                int n = songs.get(20, java.util.concurrent.TimeUnit.SECONDS);
+                log.append("✓ /SONGS listing returned ").append(n).append(" file(s)");
+                if (n == 0) {
+                  log.append("\n   (0 files — is the SD card inserted and /SONGS non-empty?)");
+                }
+              } catch (Exception ex) {
+                log.append("✗ /SONGS listing failed: ").append(ex.getMessage());
+              }
+              showSelfTestResult(log.toString());
+            });
+  }
+
+  private void showSelfTestResult(String text) {
+    System.out.println("[Deluge Self-Test]\n" + text);
+    SwingUtilities.invokeLater(
+        () ->
+            JOptionPane.showMessageDialog(
+                hardwareTree,
+                text,
+                "Deluge Connection Self-Test",
+                JOptionPane.INFORMATION_MESSAGE));
   }
 
   private void refreshHardwareTree() {

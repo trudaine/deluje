@@ -80,6 +80,11 @@ public class DelugeSysExManager {
     this.activeMidiOut = midiOut;
   }
 
+  /** Whether an output port is wired up (so requests can actually be sent). */
+  public boolean hasMidiOut() {
+    return activeMidiOut != null;
+  }
+
   public void setDisplayListener(DisplayListener listener) {
     this.displayListener = listener;
   }
