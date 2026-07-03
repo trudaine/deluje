@@ -209,6 +209,8 @@ public class SwingPianoRollDialog extends JDialog {
 
     add(centralPanel, BorderLayout.CENTER);
 
+    updateSizes();
+
     // Theme repaint registration
     ThemeManager.addThemeListener(this::repaint);
   }
@@ -223,6 +225,7 @@ public class SwingPianoRollDialog extends JDialog {
   }
 
   private void updateSizes() {
+    if (canvas == null || velocityLane == null || keyboardPanel == null) return;
     int totalW = clipModel.getStepCount() * stepWidth + 20;
     int totalH = 128 * rowHeight;
     canvas.setPreferredSize(new Dimension(totalW, totalH));
