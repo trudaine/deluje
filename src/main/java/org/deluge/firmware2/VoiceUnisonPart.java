@@ -8,11 +8,11 @@ public class VoiceUnisonPart {
   public final int[] modulatorPhase = new int[2];
   public final int[] modulatorPhaseIncrement = new int[2];
   public final int[] modulatorFeedback = new int[2];
-  public final Voice.VoiceSource[] sources = new Voice.VoiceSource[2];
+  public final VoiceSource[] sources = new VoiceSource[2];
 
   public VoiceUnisonPart() {
     for (int i = 0; i < sources.length; i++) {
-      sources[i] = new Voice.VoiceSource();
+      sources[i] = new VoiceSource();
     }
   }
 }
