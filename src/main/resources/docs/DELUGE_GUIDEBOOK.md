@@ -802,74 +802,74 @@ The **`Wavetable Index Laboratory`** provides an editor to slice, scan, and modu
 ![Wavetable Index Laboratory Dialog](images/deluge_wavetable_laboratory.png)
 
 ### 12.1 Dynamic Double-View Oscilloscope Architecture
-* **Left Panel: Single-Cycle Waveform Profile**: Renders a thick, glowing neon-cyan curve representing the exact single-cycle waveform at the current selected position index. It updates dynamically and morphs in real-time as you drag the slider.
-* **Right Panel: 3D Perspective Waterfall Stack**: Projects a gorgeous 3D perspective waterfall stack of 15 consecutive surrounding cycles. Skewed with precise coordinate offsets, it projects the entire wavetable morph spectrum in dynamic color-coded HSL gradients: deep purple at the back (lower index cycles), glowing cyan in the center (current cycle), and warm amber at the front (higher index cycles).
+* **Left Panel: Single-Cycle Waveform Profile**: Renders a curve representing the single-cycle waveform at the selected position index. It updates and morphs in real-time as you drag the slider.
+* **Right Panel: 3D Perspective Waterfall Stack**: Projects a 3D perspective waterfall stack of 15 surrounding cycles. Skewed with coordinate offsets, it projects the wavetable spectrum in color-coded HSL gradients: deep purple at the back (lower index cycles), cyan in the center (current cycle), and amber at the front (higher index cycles).
 
-### 12.2 Cycle Slicing and Real-Time JNI Hot-Swaps
+### 12.2 Cycle Slicing and Hot-Swaps
 * **Selectable Cycle Size**: Slice custom WAV files into standard cycle frames (256, 512, 1024, 2048, or 4096 samples per cycle) to support different wavetable formats.
-* **Wavetable Position Scan Slider**: A massive horizontal slider styled with a glowing amber thumb allows you to wiggle the wavetable index from `0%` to `100%`.
-* **Zero-Latency JNI Sweeps**: Sweeping the slider sends immediate, real-time wave position indices down to the ChucK JNI synthesis engine via `bridge.setOsc1PW(...)`. It hot-swaps active cycle arrays on every frame shift, letting you hear the sound waves morph dynamically with zero latency!
+* **Wavetable Position Scan Slider**: A horizontal slider allows you to change the wavetable index from `0%` to `100%`.
+* **Parameter Sweeps**: Sweeping the slider sends wave position indices to the synthesis engine, hot-swapping active cycle arrays on every frame shift.
 
 #### 🔬 Tutorial K: Sculpting Dynamic Morphing Wavetable Patches
-1. Open a kit track lane and double-click a drum slot button to open the **`Kit Sound Editor`** JDialog.
-2. Click **`Browse...`** next to the sample path field and load a multi-cycle wavetable WAV file (e.g. a sweep morph wavetable).
-3. Click the **`🔬 Wavetable Laboratory...`** button next to the loop bounds panel! The spacious dark-neon laboratory window spawns in the center!
-4. Look at the **Cycle Size (Samples)** menu: set it to **`2048`** (the standard modern wavetable size). The 3D waterfall stack instantly aligns, projecting the wavy consecutive wave lines!
-5. Drag the **`Wavetable Position Scan Slider`** back and forth: watch the left cyan curve morph smoothly between round sine, detuned saw, and complex spectral form shapes, while the active white cursor line tracks the highlighted position in the 3D waterfall stack!
-6. Tap notes on your keyboard or play the sequencer: you will hear the active drum kit synth voice sweep dynamically, transforming from a warm bass hum into a bright, aggressive digital vocal lead in real-time! Click **`Apply & Close`** to save your selected wave state.
+1. Open a kit track lane and double-click a drum slot button to open the **`Kit Sound Editor`** dialog.
+2. Click **`Browse...`** next to the sample path field and load a multi-cycle wavetable WAV file.
+3. Click the **`🔬 Wavetable Laboratory...`** button next to the loop bounds panel. The laboratory window opens in the center.
+4. Look at the **Cycle Size (Samples)** menu: set it to **`2048`** (the standard wavetable size). The 3D waterfall stack aligns, projecting the consecutive wave lines.
+5. Drag the **`Wavetable Position Scan Slider`** back and forth: watch the left curve morph between sine, saw, and spectral shapes, while the active white cursor line tracks the position in the 3D waterfall stack.
+6. Play the sequencer to hear the active synth voice sweep. Click **`Apply & Close`** to save your selected wave state.
 
 ---
 
 ## 13. Pedal Looper & Continuous Multi-Layer Overdubs
 
-The Pedal Looper turns the sequencer grid into a continuous, pedal-style audio overdubbing station. Perfect for live instrumentalists (guitarists, violinists) or keyboard players to build entire arrangements in real-time.
+The Pedal Looper turns the sequencer grid into an audio overdubbing station. It allows live instrumentalists or keyboard players to build arrangements in real-time.
 
-* **Continuous Multi-Layer Overdubs**: Record a primary baseline loop, and then layer consecutive parallel audio overdubs recursively onto the same lane timeline in perfect loop sync!
-* **Virtual Pedal Key mappings**: Bind standard external hardware foot-pedals (via MIDI CC) to trigger looper actions: Single-tap (Record/Play/Overdub), Double-tap (Stop), or Hold (Undo/Redo last layer).
-* **Automatic Tempo Detection (Auto-BPM)**: Record a primary loop without a click track! The engine calculates the loop cycle duration, defines the grid boundaries, and sets the system BPM tempo automatically based on the loop length!
+* **Continuous Multi-Layer Overdubs**: Record a primary baseline loop, and layer consecutive parallel audio overdubs in loop sync.
+* **Virtual Pedal mappings**: Bind standard external hardware foot-pedals (via MIDI CC) to trigger looper actions: Single-tap (Record/Play/Overdub), Double-tap (Stop), or Hold (Undo/Redo last layer).
+* **Automatic Tempo Detection (Auto-BPM)**: Record a primary loop without a click track. The engine calculates the loop cycle duration, defines the grid boundaries, and sets the system BPM tempo automatically.
 
 #### 🎸 Tutorial J: Recording a Live Multi-Layer Overdub Loop Stack
-1. Connect an external instrument (e.g. guitar, synthesizer line input) or select a microphone input source. Create a new looper track.
-2. Tap your mapped foot-pedal (or click the virtual **`[● REC]`** looper button on screen). The looper starts recording immediately!
-3. Play a 4-bar chord progression. Tap the pedal exactly at the end of the 4th bar loop boundary!
-   * The looper stops recording, enters playback mode, and the system **Auto-BPM** instantly locks the master clock tempo to your loop's precise cycle speed!
-   * The pad lane glows in solid green indicating the baseline loop is active!
-4. Tap the pedal again to enter **`[● OVERDUB]`** mode! The pad starts flashing red-yellow.
-5. Play a secondary lead melody line on top of the looping chords. The looper records this melody layer in perfect sync! Tap the pedal again to return to simple play mode.
-6. *Result / Layer Undo*: Make a mistake during your next overdub sweep? Simply **Hold down the foot-pedal for 2 seconds**! The JApp instantly triggers a **Layer Undo**, snipping the last recorded audio file out of the loop memory queue while keeping the rest of the backing tracks playing uninterrupted!
+1. Connect an external instrument or select a microphone input source. Create a new looper track.
+2. Tap your mapped foot-pedal (or click the virtual **`[● REC]`** looper button on screen). The looper starts recording immediately.
+3. Play a 4-bar chord progression. Tap the pedal at the end of the 4-bar loop.
+   * The looper stops recording, enters playback mode, and the system **Auto-BPM** locks the master clock tempo to your loop's speed.
+   * The pad lane glows in solid green indicating the baseline loop is active.
+4. Tap the pedal again to enter **`[● OVERDUB]`** mode. The pad starts flashing red-yellow.
+5. Play a secondary lead melody line on top of the looping chords. The looper records this melody layer in sync. Tap the pedal again to return to play mode.
+6. *Result / Layer Undo*: Make a mistake during your next overdub sweep? Simply **Hold down the foot-pedal for 2 seconds**. The application triggers a **Layer Undo**, removing the last recorded layer.
 
 ---
 
 ## 14. MIDI Hardware, Device Mappings & Pure SD File Explorer
 
-The Deluge Workstation features a professional-grade, modern workspace re-organization, separating file-system assets browsing from hardware device settings. Following professional DAW paradigms (such as Ableton, Logic, and Reaper), the floating **SD Card Explorer** is a pure directory tree, while physical MIDI controllers, inputs, CC learning, and sync channels are managed in a dedicated central settings dialogue.
+The Deluge Workstation separates file-system assets browsing from hardware device settings. The **SD Card Explorer** is a directory tree, while physical MIDI controllers, inputs, CC learning, and sync channels are managed in a dedicated settings dialogue.
 
 ### 14.0 Step-by-Step MIDI Connection & Operations Guide
 
-Connecting a physical Synthstrom Deluge hardware unit to the Deluge-Java Workstation provides an incredibly tight, interactive hybrid hardware-software studio environment. Follow these precise steps to get up and running:
+Connecting a physical Deluge hardware unit to the Deluge-Java Workstation provides an interactive studio environment. Follow these steps to connect:
 
 #### 🔌 Connection Sequence:
-1. **Connect the Cable**: Plug a standard USB-B cable into the back of your physical Deluge, and connect the USB-A (or USB-C) end directly into your computer. 
-2. **Power On**: Turn on the Deluge. It will mount its internal USB MIDI interface to your operating system.
-3. **Configure MIDI Port**: Open the Workstation and select **`Settings ➔ Preferences...`** (or press the global shortcut **`Cmd+Shift+M`** / **`Ctrl+Shift+M`** to summon the MIDI device settings directly).
-4. **Select Port**: Under the **MIDI Input Device** dropdown, select **`Deluge Port 1`** (our robust model-based name translator will bypass any macOS combo-box rendering bugs and map it cleanly!). Click **Apply** or **Save**.
-5. **Verify Status**: Check the top toolbar status panel: the Led indicator dot will glow in a vibrant **glowing green** and display **`DELUGE ON`**!
+1. **Connect the Cable**: Plug a standard USB cable into the back of your physical Deluge, and connect it directly to your computer. 
+2. **Power On**: Turn on the Deluge. It mounts its USB MIDI interface.
+3. **Configure MIDI Port**: Open the Workstation and select **`Settings ➔ Preferences...`** (or press the global shortcut **`Cmd+Shift+M`** / **`Ctrl+Shift+M`**).
+4. **Select Port**: Under the **MIDI Input Device** dropdown, select **`Deluge Port 1`** (the system maps it to the midi service). Click **Apply** or **Save**.
+5. **Verify Status**: Check the top toolbar status panel: the Led indicator dot will glow green and display **`DELUGE ON`**.
 
 #### 🛰️ Realized Hardware Features (What You Can Do Today):
-* **Real-Time OLED Screen Mirroring**: Once connected, the Workstation automatically sends a stream request to the Deluge. Because the Deluge's firmware automatically stops streaming after 2 seconds to conserve bandwidth, the Workstation runs a background **1.5-second keep-alive timer**. The virtual OLED panel will mirror every menu scroll, waveform draw, and parameter edit on your physical Deluge in real-time, indefinitely!
-* **Stateful SD Card Explorer**: Open the SD Explorer (`Cmd+B` / `📁` icon) and click **`🔄 REFRESH`** on the **`📡 HARDWARE`** tab. The Workstation sends a directory listing request. Our stateful SysEx reassembler automatically catches the chunked 48-byte packets sent by the macOS CoreMIDI driver, stitches them back into a single high-speed JSON stream, parses the file parameters, and populates your remote **SONGS**, **SYNTHS**, and **KITS** directories instantly!
-* **Remote Song Audition & Load**: Double-click any song XML in the remote hardware tree. The Workstation sends a sequence of `{"open"}` and block-by-block `{"read"}` SysEx requests to download the XML file (in 512-byte packets), parses it, and loads the song directly into your workstation's high-fidelity audio engine so you can play and edit it instantly!
-* **Low-Latency Virtual Sound Triggering**: Play notes on the Deluge's physical pads grid or keyboard layout to trigger the Workstation's high-fidelity subtractive, 6-operator FM, and ring-modulation voices with zero latency!
+* **Real-Time OLED Screen Mirroring**: Once connected, the Workstation sends a stream request. A background 1.5-second keep-alive timer manages display streaming. The virtual OLED panel mirrors menu scrolls, waveform draws, and parameter edits on the physical hardware.
+* **Stateful SD Card Explorer**: Open the SD Explorer (`Cmd+B` / `📁` icon) and click **`🔄 REFRESH`** on the **`📡 HARDWARE`** tab. The workstation processes SysEx packets to populate SONGS, SYNTHS, and KITS directories.
+* **Remote Song Audition & Load**: Double-click any song XML in the remote hardware tree. The Workstation sends SysEx requests to download the XML file, parse it, and load the song into the audio engine.
+* **Low-Latency Virtual Sound Triggering**: Play notes on the physical pads grid or keyboard layout to trigger the workstation's subtractive, FM, or ring-modulation voices.
 
 ---
 
 ### 14.1 Pure JTree SD Card Explorer (`deluge_project_explorer.png`)
-* **The Interface**: Access the sidebar or float dialogue by pressing **`Command/Ctrl + E`** (or selecting **`File ➔ Show Explorer`**). The explorer is a focused, lightweight, high-contrast file and preset tree JDialog (`deluge_project_explorer.png`) scrolling through active SD Card paths:
+* **The Interface**: Access the sidebar or float dialogue by pressing **`Command/Ctrl + E`** (or selecting **`File ➔ Show Explorer`**). The explorer is a file and preset tree panel scrolling through active SD Card paths:
   * **`KITS`**: Browse kit XML files and load them directly onto project tracks.
-  * **`SYNTHS`**: Load individual voice and operator settings presets.
+  * **`SYNTHS`**: Load individual voice presets.
   * **`SONGS`**: Double-click to load complete multi-track sequence song XML nodes.
-  * **`PATTERNS`**: Double-click to load saved track clip sequences or load script `.ck` files!
-* **Zero Clutter**: All legacy mocked or static placeholder tabs (like static sliders editor, script text views, and list lists profilers) have been cleanly pruned, leaving a fast and lightweight file-tree navigation core!
+  * **`PATTERNS`**: Double-click to load saved track clip sequences or load script files.
+* **Zero Clutter**: Mocked or static placeholder tabs have been removed.
 
 ![Pure JTree Project File Explorer](images/deluge_project_explorer.png)
 
@@ -877,63 +877,61 @@ Connecting a physical Synthstrom Deluge hardware unit to the Deluge-Java Worksta
 
 ### 14.1.1 Contextual Library Picker & Track Inspector (Scoped Preset / Sample Swapping)
 
-The global JTree explorer above is the "browse everything" view. For the common *"change **this** sound"* case, the Workstation adds **contextual pickers** that open next to the thing they change, **scoped** to only the relevant assets — so you never scroll a giant tree to swap one sound.
+The global JTree explorer above is the "browse everything" view. For the common case of swapping a specific sound, the Workstation adds **contextual pickers** scoped to only the relevant assets.
 
-* **Fixed Track-Inspector Strip**: An always-visible strip sits **above the grid** (outside the scroll area), showing the **active track** as `ACTIVE TRACK · T<n> · <name> [TYPE]` with two controls:
-  * **`⚙ Configure`** — opens the full synth/kit config dialog for the active track.
+* **Fixed Track-Inspector Strip**: An always-visible strip sits **above the grid**, showing the **active track** as `ACTIVE TRACK · T<n> · <name> [TYPE]` with two controls:
+  * **`⚙ Configure`** — opens the config dialog for the active track.
   * **`▾ Preset…`** — opens the contextual Library Picker scoped to **SYNTHS** (synth track) or **KITS** (kit track).
-  Being outside the grid, these controls never scroll away and never shift the grid rows.
+  These controls remain visible when the grid is scrolled.
 
-* **The Library Picker** (a modal, anchored popover) is **scoped** to one category — it lists only the relevant files (e.g. SAMPLES, or SYNTHS) with a **search filter**, a **waveform / wavetable preview**, and a **▶ Audition** button. Every picker presents **explicit action verbs** instead of an ambiguous double-click:
-  * **`Replace track`** — hot-swaps the active track's sound *in place*, preserving its clips, notes and colour. Faithful to the hardware LOAD-onto-track behaviour; works even **while the sequencer is playing** (the engine rebuilds on the swap).
+* **The Library Picker** (a modal popover) is **scoped** to one category — it lists only the relevant files (e.g. SAMPLES, or SYNTHS) with a **search filter**, a **waveform / wavetable preview**, and a **▶ Audition** button. Pickers present action options:
+  * **`Replace track`** — hot-swaps the active track's sound *in place*, preserving clips, notes, and color.
   * **`Load as NEW`** — adds a brand-new track from the chosen preset.
 
 * **Drum Sample Chip**: In the Kit config dialog, each drum slot's **`Change…`** button opens the picker scoped to **SAMPLES** (with waveform preview + audition) to swap that drum's WAV.
 
 * **Synth Oscillator Source Chip**: In the Synth config dialog, setting an oscillator type to **`SAMPLE`** or **`WAVETABLE`** reveals a **source chip** that opens the picker scoped to **SAMPLES** / **WAVETABLES** to choose the file for that oscillator.
 
-> **Design principle**: scope to the target, anchor to the widget, name the verb (Replace vs Load-as-new), and preview/audition before committing — the global tree (14.1) remains for free-form browsing.
+> **Design principle**: scope to the target, anchor to the widget, name the verb (Replace vs Load-as-new), and preview/audition before committing.
 
 ---
 
 ### 14.2 Dedicated MIDI Settings & CC Learn Laboratory (`deluge_midi_device_settings.png`)
-* **The Interface**: Press **`Command/Ctrl + Shift + M`** (or select **`Settings ➔ MIDI Device Settings...`**) to open the central dark-neon MIDI Configuration JDialog (`deluge_midi_device_settings.png`). This panel acts as the master hub for external keyboard controllers, physical knobs mappings, and real-time controller assignments:
-  * **Device Port Selector**: A dropdown JComboBox list of all active physical MIDI input interfaces mounted on the host OS.
-  * **CC Mappings Table**: A scrollable high-contrast list tracking active JNI parameter bindings, cabled CC controller signals, and connection states.
-  * **Real-Time CC Learn**: Enter any JNI parameter target name (e.g. `g_master_vol`), click the glowing mint-green **`[START LEARN]`** button, and wiggle a physical knob/fader on your controller: the CC binding registers instantly and updates the mappings!
+* **The Interface**: Press **`Command/Ctrl + Shift + M`** (or select **`Settings ➔ MIDI Device Settings...`**) to open the MIDI Configuration dialog. This panel acts as the master hub for external keyboard controllers, physical knobs mappings, and controller assignments:
+  * **Device Port Selector**: A dropdown list of all active physical MIDI input interfaces.
+  * **CC Mappings Table**: A scrollable list tracking active parameter bindings, CC signals, and connection states.
+  * **Real-Time CC Learn**: Enter a parameter target name, click **`[START LEARN]`**, and sweep a physical knob/fader on your controller: the CC binding registers and updates the mappings.
 
 ![Dedicated MIDI Settings & CC Mappings Table JDialog](images/deluge_midi_device_settings.png)
 
 ---
 
 ### 14.3 MIDI Clock Master/Slave Sync Modes
-* **MIDI Clock Master (Send Sync)**: The JApp sends continuous real-time system clocks ($24\text{ pulses per quarter note (PPQN)}$ standard) to the active MIDI output ports, driving external drum machines and synthesizers to play in perfect tempo sync with the internal step sequencer.
-* **MIDI Clock Slave (Receive Sync)**: The JApp listens to incoming MIDI clock ticks on standard inputs, locking the internal playback playhead speed and start/stop triggers to the external hardware clock master!
+* **MIDI Clock Master (Send Sync)**: The application sends system clocks ($24\text{ pulses per quarter note (PPQN)}$ standard) to the active MIDI output ports, driving external instruments.
+* **MIDI Clock Slave (Receive Sync)**: The application listens to incoming MIDI clock ticks, locking the internal playback playhead speed and start/stop triggers to the external clock.
 
 ### 14.4 MIDI Program Changes & Hardware Chains
-* **MIDI Program Change (PC) Messages**: Send PC commands (values 0–127) and bank select indices dynamically from target sequencer steps to automatically swap active presets/sounds on your hardware instruments live on stage!
-* **Multi-Device Chains (MIDI Thru)**: Daisy-chain multiple hardware synthesizers: set each sequencer lane to send data to a distinct MIDI Channel (Channels 1–16) to play polyphonic parts across separate physical keyboards from a single master track project!
+* **MIDI Program Change (PC) Messages**: Send PC commands (values 0–127) and bank select indices dynamically from target sequencer steps to automatically swap active presets.
+* **Multi-Device Chains (MIDI Thru)**: Daisy-chain multiple hardware synthesizers: set each sequencer lane to send data to a distinct MIDI Channel (Channels 1–16) to play parts across separate physical keyboards from a single master track.
 
 ### 14.5 MIDI CC Parameter Takeover Algorithms
 
-To prevent sudden audio level spikes or filter jumps when wiggling physical knobs on MIDI controllers (whose physical position might differ from the virtual parameter value in memory), the JApp implements three distinct parameter takeover algorithms (configurable in Settings Preferences):
+To prevent sudden audio level spikes when wiggling physical knobs on MIDI controllers (whose physical position might differ from the virtual parameter value in memory), the application implements three parameter takeover algorithms:
 
-1. **JUMP Mode (Default)**: The virtual parameter immediately jumps to match the incoming CC value. Quick and direct, but can cause audible glitches.
-2. **PICKUP Mode**: The virtual parameter value remains locked and ignores CC sweeps until the physical knob is swept past (or "picks up") the current virtual value. This ensures 100% glitch-free performance.
+1. **JUMP Mode (Default)**: The virtual parameter immediately jumps to match the incoming CC value.
+2. **PICKUP Mode**: The virtual parameter value remains locked and ignores CC sweeps until the physical knob is swept past the current virtual value.
 3. **SCALE Mode (Runway-Delta Scaling)**: Proportional scaling based on the remaining distance between the current value and the parameter limits:
   * If the physical knob is wiggled, the virtual parameter moves toward the target limits, scaling the travel speed dynamically so that both physical and virtual reach the bounds simultaneously.
 
-  * If the physical knob is wiggled, the virtual parameter moves toward the target limits, scaling the travel speed dynamically so that both physical and virtual reach the bounds simultaneously.
+### 14.6 Bidirectional SysEx Command Protocol
 
-### 14.6 Bidirectional SysEx Command Protocol & Future Horizons
-
-The integration between the Deluge-Java Workstation and the physical Synthstrom Deluge hardware relies on a high-speed, lightweight **Bidirectional SysEx Command Protocol**. By encapsulating compressed JSON payloads and raw 7-to-8 bit unpacked binary data inside standard MIDI System Exclusive (SysEx) envelopes, the workstation and hardware achieve seamless, real-time synchronization.
+The integration between the Deluge-Java Workstation and the physical hardware uses a SysEx protocol over MIDI envelopes.
 
 #### 📦 The SysEx Packet Structure:
 All communications adhere to the following byte layout:
 `[0xF0] [0x00 0x21 0x7B 0x01] [Command ID] [Sequence ID] [JSON Payload...] [0x00 (Spacer)] [Binary Payload...] [0xF7]`
 *   `0xF0`: Standard SysEx Start byte.
-*   `0x00 0x21 0x7B 0x01`: The official Synthstrom Deluge Manufacturer Header.
+*   `0x00 0x21 0x7B 0x01`: The official Manufacturer Header.
 *   `Command ID`: `0x02` (Real-time OLED display streaming), `0x05` (JSON file-system request/response), or `0x06` (JSON system broadcast).
 *   `Sequence ID`: 1-indexed transaction counter (`1 to 127`) to match asynchronous callbacks.
 *   `0x00 (Spacer)`: Optional division byte separating JSON metadata from raw binary blocks.
@@ -943,7 +941,7 @@ All communications adhere to the following byte layout:
 
 #### 🗺️ Bidirectional Command Matrix (The Protocol Reference):
 
-Below is the complete reference of all realized and future-ready commands supported by the workstation's [DelugeSysExManager](../../java/org/deluge/midi/DelugeSysExManager.java) and the physical firmware's SysEx server:
+Below is the reference of commands supported by the system:
 
 | Direction | Command / Action | JSON Payload Template | Binary Payload / Behavior | Status |
 | :--- | :--- | :--- | :--- | :--- |
@@ -952,50 +950,45 @@ Below is the complete reference of all realized and future-ready commands suppor
 | **Host ➔ HW** | **Open Remote File** | `{"open": {"path": "/S/S1.XML", "mode": "r"}}` | *None*. Opens file handle on Deluge SD card. | **Realized** |
 | **Host ➔ HW** | **Read File Block** | `{"read": {"fid": 1, "offset": 0, "size": 512}}` | *None*. Requests 512-byte block from open handle. | **Realized** |
 | **Host ➔ HW** | **Close Remote File**| `{"close": {"fid": 1}}` | *None*. Closes open file handle and flushes memory. | **Realized** |
-| **Host ➔ HW** | **Start OLED Stream** | `[0xF0][0x00 0x21 0x7B 0x01][0x01][0x00][0x03][0xF7]` | *None*. Initiates real-time pixel-level display streaming. | **Realized** |
+| **Host ➔ HW** | **Start OLED Stream** | `[0xF0][0x00 0x21 0x7B 0x01][0x01][0x00][0x03][0xF7]` | *None*. Initiates display streaming. | **Realized** |
 | **HW ➔ Host** | **OLED Frame Delta** | *None* (Command `0x02`, Subtype `0x41`) | RLE-compressed display differences to redraw UI screen. | **Realized** |
 | **HW ➔ Host** | **Ping Response** | `{"^ping": {}}` | *None*. Heartbeat echo confirming hardware is online. | **Realized** |
 | **HW ➔ Host** | **Directory Reply** | `{"^dir": {"list": [{"name": "s1.xml", "size": 19974}], "err": 0}}` | *None*. Returns structured file arrays to sidebar. | **Realized** |
 | **HW ➔ Host** | **Open File Reply** | `{"^open": {"fid": 1, "size": 19974, "err": 0}}` | *None*. Returns file descriptor and byte size. | **Realized** |
 | **HW ➔ Host** | **Read Block Reply** | `{"^read": {"fid": 1, "err": 0}}` | Raw 512-byte segment of file unpacked on receipt. | **Realized** |
-| **Host ➔ HW** | **Write File Block** | `{"write": {"fid": 2, "offset": 512, "size": 256}}` | Raw 256-byte segment to write to open SD handle. | **Future** |
-| **Host ➔ HW** | **Delete Remote File**| `{"delete": {"path": "/SONGS/SONG001.XML"}}` | *None*. Deletes file from physical SD card. | **Future** |
-| **Host ➔ HW** | **Sequencer Play** | `{"play": {"state": 1}}` | *None*. Starts physical hardware sequencer playback. | **Future** |
-| **Host ➔ HW** | **Sequencer Stop** | `{"stop": {}}` | *None*. Stops physical hardware sequencer playback. | **Future** |
-| **Host ➔ HW** | **Sync Hardware Tempo**| `{"set_tempo": {"bpm": 124.5}}` | *None*. Sets physical hardware master tempo clock. | **Future** |
 | **HW ➔ Host** | **Key Event** | `{"key_event": {"code": 42, "state": 1}}` | Notification that physical button #42 was pressed. | **Future** |
 | **HW ➔ Host** | **Encoder Rotation** | `{"encoder_event": {"id": 2, "delta": -1}}` | Notification that parameter knob #2 rotated CCW. | **Future** |
 
 ---
 
-#### 🔭 Future Horizons (Could We Do More?):
+#### 🔭 Future Horizons:
 
-Our robust JNI/SysEx architecture is designed for extensive growth. Below is the blueprint for upcoming bidirectional capabilities to fuse the hardware and software even deeper:
+Upcoming bidirectional capabilities include:
 
-1. **🔴 Full 128-Pad Grid LED Streaming (Real-Time Grid Mirroring)**:
-   * **Concept**: Mirror the active backlit states of the physical Deluge's 8x16 grid pads straight to your computer screen in real-time!
-   * **Implementation**: We can extend the firmware's display streaming thread to package the LED grid state (a 128-byte array representing HSL color indexes per pad) and send it as a quick `0x06` broadcast packet. The workstation's `SwingGridPanel` will catch this stream and light up the virtual screen pads in perfect real-time sync with the hardware button lights!
-2. **🎛️ Physical Encoder Telemetry (High-Resolution Control)**:
-   * **Concept**: Sweep software knobs, draw automation curves, and scroll parameters in the Swing UI using the physical gold knobs on your Deluge!
-   * **Implementation**: The hardware will stream `{"encoder_event"}` packets containing raw rotation delta values. The workstation's MIDI Takeover engine will catch these events and glide the virtual knobs smoothly using Jump, Pickup, or Scale runway takeover algorithms.
-3. **📁 Remote SD Card Management (Upload & Delete)**:
-   * **Concept**: Organize, upload, and delete files on your physical Deluge SD card straight from your computer's sidebar explorer without ever taking the SD card out of the machine!
-   * **Implementation**: By exposing the `{"write"}` and `{"delete"}` commands, double-clicking a local preset will upload it block-by-block over USB MIDI to the Deluge's SD card, and right-clicking a remote file in the explorer tree will delete it instantly.
-4. **⏱️ Universal Clock & Transport Synchronization**:
-   * **Concept**: Start, stop, and tempo-sync the physical Deluge and the desktop workstation simultaneously with sample-accurate clock alignment.
-   * **Implementation**: Exposing transport control commands (`{"play"}`/`{"stop"}`) and real-time tempo syncs will allow pressing play on your computer to trigger the physical Deluge's synthesis engine to play its internal sequences in absolute phase lock with the workstation's timeline!
+1. **128-Pad Grid LED Streaming**:
+   * **Concept**: Mirror active backlit states of physical grid pads to the screen in real-time.
+   * **Implementation**: We can extend display streaming to package the LED grid state and send it as a broadcast packet. The workstation updates the grid lights based on this stream.
+2. **Physical Encoder Telemetry**:
+   * **Concept**: Sweep software knobs, draw automation curves, and scroll parameters in the UI using physical encoders on the hardware.
+   * **Implementation**: The hardware streams delta values. Knobs are updated using Jump, Pickup, or Scale algorithms.
+3. **Remote SD Card Management**:
+   * **Concept**: Organize and upload files on the hardware SD card from your computer's explorer.
+   * **Implementation**: Exposing write/delete commands allows preset uploads over USB MIDI.
+4. **Clock & Transport Synchronization**:
+   * **Concept**: Sync transport controls and tempo simultaneously with clock alignment.
+   * **Implementation**: Exposing transport commands allows remote play/stop triggers to sync with the workstation's timeline.
 
 ---
 
 ### 14.6 DAW Import Suite: Ableton Live Set (.als) Importer
 
-The Deluge Workstation features a professional-grade, modern **DAW Import Suite** that lets you import complete Ableton Live Sets (`.als` files) directly into the high-fidelity synthesizer and sequencer engine! Rather than just importing MIDI files, this suite parses the complex XML structure of the Ableton project and reconstructs the track layout, mixer volume levels, MIDI clips, arranger timeline placements, and—most importantly—the exact instrument parameters!
+The Deluge Workstation features a **DAW Import Suite** that lets you import Ableton Live Sets (`.als` files) directly into the sequencer. It parses the Ableton project and reconstructs the track layout, mixer volume levels, MIDI clips, arranger timeline, and instrument parameters.
 
 #### ⚙️ The Smart Hybrid Importer Architecture
-Because Ableton Live Sets can contain a mixture of native instruments (like Sampler or Simpler) and third-party VST plugins (like Xfer Serum), the importer employs a highly advanced **Hybrid Import Pipeline**:
+Because Ableton Live Sets can contain a mixture of native instruments and third-party VST plugins, the importer employs a **Hybrid Import Pipeline**:
 
 1. **Generic Native Simpler/Sampler Parameter Extractor (Fully Generic)**:
-   * When the importer detects a native Ableton `<OriginalSimpler>` or `<MultiSampler>` device on a MIDI track, it bypasses static templates and parses the instrument parameters directly from the XML!
+   * When the importer detects a native Ableton `<OriginalSimpler>` or `<MultiSampler>` device on a MIDI track, it parses the instrument parameters directly from the XML.
    * **Volume Envelopes (ADSR)**: Automatically extracts Attack, Decay, Sustain, and Release times in milliseconds from the `<VolumeAndPan>` -> `<Envelope>` subtree, converts them to seconds, and maps them directly to the Deluge's **Env 0** (Volume envelope).
    * **Logarithmic Filter Cutoff Frequency**: Extracts the manual filter cutoff frequency in Hz (ranging from $30\text{Hz}$ to $22,000\text{Hz}$). Since filter frequency is logarithmic, it maps it mathematically to the Deluge's normalized `0..1` scale:
      $$\text{normFreq} = \frac{\ln(f) - \ln(30)}{\ln(22000) - \ln(30)}$$
