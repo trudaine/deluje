@@ -270,7 +270,8 @@ public class MidiInputRouter {
       NoteStartInfo start = activeNoteStarts.remove(midiNote);
       if (start != null) {
         long duration = bridge.getCurrentTime() - start.time;
-        double gate = (double) duration / (bridge.getSampleRate() * 0.125);
+        double bpm = SwingDelugeApp.mainInstance != null ? SwingDelugeApp.mainInstance.getCurrentProject().getBpm() : 120.0;
+        double gate = (double) duration / (bridge.getSampleRate() * (15.0 / bpm));
 
         // If recording is active, update the gate length in the high-level model!
         if (isRecording && isPlaying && SwingDelugeApp.mainInstance != null) {

@@ -214,6 +214,10 @@ public class JavaAudioDriver implements Runnable {
 
         long start = System.nanoTime();
         engine.renderBlock(BLOCK_SIZE);
+        org.deluge.BridgeContract bridge = org.deluge.hid.BridgeHolder.getBridge();
+        if (bridge != null) {
+          bridge.advanceTime(BLOCK_SIZE);
+        }
         long duration = System.nanoTime() - start;
         // Boot benchmark (deluge.bootbench): JVM-start-relative time to first audio block and to
         // steady state (block 200) — the JIT-warmup window the AOT cache is meant to shorten.
