@@ -1162,42 +1162,32 @@ Physical Deluge grids are locked to an 8x16 matrix. Deluge-Java introduces **Flu
 
 ---
 
-## 18. Appendix: Programmatic High-Fidelity JNI Registers Architecture
+## 18. Appendix: Programmatic BridgeContract API & Properties
 
-When you play a sequence, the control parameters are written straight to ChucK VM global registers arrays. Below is a breakdown of the dynamic real-time data registers:
+The Deluge-Java Workstation uses a registry pattern to synchronize parameter state between the Swing user interface and the internal DSP synthesis voice loops thread-safely. This is managed by the `BridgeContract` class, which holds a registry of key-value property variables.
 
+### How State Synchronization Works:
 ```mermaid
 graph TD
-    A[Swing UI JSliders & Grids] -->|MVC listeners update| B[ProjectModel Java Memory]
-    B -->|pushModelToBridge| C[BridgeContract JNI Layer]
-    C -->|vm.setGlobalFloat/Int/Array| D[ChucK VM Runtime Engine]
-    D -->|dsp loop reads registers| E[High-Fidelity Stereo Audio Outputs]
+    A[Swing UI Action / Event] -->|Update Model| B[ProjectModel Memory]
+    B -->|Invoke Bridge API| C[BridgeContract Registry Map]
+    C -->|Loop Reads Values| D[PureFirmwareEngine Audio Thread]
+    D -->|Synthesize Sample Frames| E[Audio Device Output]
 ```
 
-### Main ChucK Global Registers:
-* **`g_bpm`** *(float)*: System sequencer tempo clock speed.
-* **`g_swing`** *(float)*: Quantized grid micro-timing shuffle percentage (0.0 to 1.0).
-* **`g_master_vol`** *(float)*: Master hardware gain multiplier path limits (0.0 to 1.0).
-* **`g_kit_pitch`** *(float array[16])*: Real-time transposition playback speed modifier per drum kit voice row lane.
-* **`g_kit_mute_group`** *(int array[16])*: Choke exclusion group bindings parameters per drum kit sound slot.
-* **`g_synth_patch_cables`** *(float array[8*4])*: Encodes the source-destination matrices parameters mapping amount, polarity, and ports index to multi-voice virtual synthesis structures.
+### Core API Methods:
+* `setGlobalInt(String name, long val)` / `getGlobalInt(String name)`
+* `setGlobalFloat(String name, double val)` / `getGlobalFloat(String name)`
+* `setGlobalString(String name, String val)` / `getGlobalString(String name)`
+* `setGlobalObject(String name, Object val)` / `getGlobalObject(String name)`
 
----
-
-## 19. Appendix: Pending Work Items & Future Development Roadmap (TODO List)
-
-While the Deluge-Java Workstation provides a comprehensive operations platform, several features from the Deluge OS 4.0 firmware guidebook remain planned for upcoming development.
-
-### 📋 Future Technical Roadmap:
-* **[x] 19.1 Triplet Column Grid Divisions View (SwingGridPanel & ChucK Sequencer)**: Completed! Dynamic JToggleButton `[3]`, beat grid guidelines update, and loop lengths XML serialization.
-* **[x] 19.2 Advanced Wavetable Index Scan Editor (SwingKitConfigDialog)**: Completed! Dual single-cycle neon wave drawings, 3D perspective stacked waterfall lines, and real-time JNI position hot-swaps.
-* **[ ] 19.3 MPE & Polyphonic Aftertouch Multi-Dimensional JNI Sweeps**:
-  * *Goal*: Add active tracking layers for MPE controllers pressure (Z-axis) and vertical position slide (Y-axis) MIDI events.
-  * *JNI Routing*: Cable these dynamic parameters to real-time arrays to drive individual synthesizer voice filters and pulse widths independently per key played.
-* **[x] 19.4 Continuous Recursive Looper Stacking (Pedal-Style Overdub Panel)**: Completed! Real-time looper decks, system Auto-BPM, and foot-pedal layer undos/redos.
-* **[ ] 19.5 Arranger Live Capture Suite**:
-  * *Goal*: Add a **`[🔴 Capture Live Performance]`** record mode. Actively records live SONG view launching clicks, mutes, solos, and tempo alterations straight into block timeline tracks inside ARRANGEMENT view for structured linear timelines exports!
-* **[x] 19.6 Performance View & FX Touch-Pads Grid**: Completed! Multi-effects matrix launchers cabled to unipolar JNI track bounds and LATCH/MOMENTARY touch modes.
+### Key Properties Map:
+* **`g_bpm`** *(double)*: System sequencer tempo clock speed.
+* **`g_swing`** *(double)*: Shuffle swing timing percentage (0.0 to 1.0).
+* **`g_master_vol`** *(double)*: Master volume multiplier (0.0 to 1.0).
+* **`g_kit_pitch`** *(double[])*: Transposition speeds per drum lane.
+* **`g_kit_mute_group`** *(long[])*: Choke group indices per drum lane.
+* **`g_synth_patch_cables`** *(double[])*: Flattened array encoding active modulation patch connections, depths, and source/destination mappings.
 
 ---
 
@@ -1358,7 +1348,7 @@ This chapter provides a direct, code-by-code mapping of every shortcut code from
 | **AV06** | Solo instrument | Hold `◄►` + press launch pad | Click `[S]` button on track row header |
 | **AV07** | Enter Clip | Press pad to view/edit | Double-click arranger block to zoom into Clip View |
 | **AV08** | Start Playback | Press `Play` | Playhead scheduler syncs play to visible viewport |
-| **AV09** | Live performance record | Press `Record` | Click glowing **`[🔴 CAPTURE]`** button |
+| **AV09** | Live performance record | Press `Record` | Click **`[🔴 CAPTURE]`** button |
 
 ### 21.8 MIDI Commands (MC)
 
@@ -1370,7 +1360,7 @@ This chapter provides a direct, code-by-code mapping of every shortcut code from
 | **MC04** | Takeover modes | Managed in menus | Configure JUMP, PICKUP, or SCALE in Preferences dialog |
 
 ### 21.9 FM Multipliers to Semitones & Cents Table
-Because the hardware Deluge and Yamaha DX7 FM operators specify frequency ratios as raw multipliers ($1\dots12$), while the internal DSP engine maps these to semitone offsets and fine cent tuning adjustments, use the following conversion table when designing FM synth presets manually:
+Use the following table to map FM multipliers to semitone offsets and fine cent tuning adjustments when designing FM presets:
 
 | Target FM Ratio | Semitone Pitch Offset | Cent Tuning Offset | Sonic Characteristics |
 | :--- | :--- | :--- | :--- |
@@ -1388,16 +1378,16 @@ Because the hardware Deluge and Yamaha DX7 FM operators specify frequency ratios
 
 ---
 
-## 22. Creative Workflow Tips & Best Practices (Understanding the Workflow)
+## 22. Creative Workflow Tips & Best Practices
 
-The open-ended nature of the Deluge Workstation workflow allows you to compose, arrange, and design sounds in multiple directions. Incorporating the following creative guidelines and production methods (inspired by veteran Deluge users) will keep your session flows organized and efficient:
+The following workflow tips and practices help organize project sessions:
 
-*   **Sequencing as a Super Looper**: Look at individual clips as highly flexible loops (spanning 2, 4, 8, or unusual length like 7 or 11 bars) rather than drawing massive linear tracks in the beginning. Use the Arrangement view to puzzle these loops together into complete songs.
-*   **Keep Song Mode at 1/16th Resolution**: When navigating song structures in **SONG View**, stick to a standard 1/16th zoom level. At this zoom level, the backlit pads patterns form distinct visual identities (identifiable HSL color patterns) for each track, helping you locate and switch clips rapidly without visual clutter.
+*   **Sequencing as Loops**: Use Clip View for loops, and Arrangement View to chain them into complete songs.
+*   **Keep Song Mode at 1/16th Resolution**: When navigating song structures in **SONG View**, stick to a standard 1/16th zoom level. At this zoom level, the backlit pads patterns form distinct color patterns for each track, helping you locate and switch clips rapidly without visual clutter.
 *   **Protect the Source (Non-Destructive Editing)**: When experimenting, clone your active clip or section first before performing destructive actions (e.g. clearing steps, applying extreme randomizations, or recording live automation). This keeps a safe baseline copy of your original ideas, letting you iterate fearlessly.
 *   **Drums Kit Consolidation**: To keep your session responsive and conserve system memory, avoid filling drum kits with hundreds of unused samples. Group kit slots logically (e.g. Kick/Snare/Hats in one kit, ambient loops in another, and SFX in a third) across separate track lanes.
-*   **Resampling as a CPU Voice Saver**: The workstation offers massive voice polyphony, but heavy FM modulation feedback loops, multiple stereo voice stack detuning detunes, and global Master effects can strain CPU resources. Use the resampling feature (or export audio) to record complex, CPU-heavy multi-voice synth lanes down into a single clean audio WAV sample, saving voices for live performance parts.
-*   **Calibrate Tempo-Synced Delay**: To sync the master Delay to your tempo, ensure the Delay Time parameter is set to its default value (the golden dials indicators snap to middle ground). Adjust the Division selector (e.g. from 16th to a wider 8th or 4th note) to create spacious, tempo-locked delays.
+*   **Resampling**: If multiple synth voices or complex modulation strain CPU, use the export audio feature to bounce track lanes into a single WAV sample.
+*   **Calibrate Tempo-Synced Delay**: To sync the master Delay to your tempo, ensure the Delay Time parameter is set to its default value (the dials are centered). Adjust the Division selector (e.g. from 16th to a wider 8th or 4th note) to create spacious, tempo-locked delays.
 
 ---
 
@@ -1408,7 +1398,7 @@ The open-ended nature of the Deluge Workstation workflow allows you to compose, 
 
 ## 23. Appendix: Java Swing Desktop Quick Reference & Hardware Parity Matrix
 
-> Consolidated from former `SWING_QUICK_REFERENCE.md`. Hardware buttons → keyboard shortcuts and mouse gestures. Sections marked **⚠ NOT YET IMPLEMENTED** exist in the engine or model but have no UI yet.
+Maps hardware buttons to keyboard shortcuts and mouse gestures. Sections marked ⚠ are not implemented in the Swing UI.
 
 ---
 
@@ -1472,7 +1462,7 @@ The open-ended nature of the Deluge Workstation workflow allows you to compose, 
 | PL08 | **Save Kit as preset** | Right-click Kit row header → Save as Kit preset… | File chooser opens in KITS/ with track name pre-filled |
 | PL09 | **Save Synth as preset** | Right-click Synth row header → Save as Synth preset… | File chooser opens in SYNTHS/ with track name pre-filled |
 
-> **Library directory:** Set once via Settings > Set Samples Directory… pointing to the SAMPLES folder. The app derives `SONGS/`, `KITS/`, `SYNTHS/` as siblings. Default: `~/Deluge/`.
+> **Library directory:** Set once via Settings > Set Samples Directory… pointing to the SAMPLES folder. The app derives `SONGS/`, `KITS/`, `SYNTHS/` as sibling folders. Default: `~/Deluge/`.
 
 #### PL-B: Track management
 
@@ -1518,9 +1508,9 @@ The open-ended nature of the Deluge Workstation workflow allows you to compose, 
 | GL13 | Swing | SWING slider (toolbar), default 50% = no swing |
 | GL14 | Settings / Preferences | **Settings > Preferences…** |
 | GL15 | Set Samples Directory | **Settings > Set Samples Directory…** |
-| GL16 | Reverb Model | **Settings > Preferences… → Reverb Model** (JCRev / FreeVerb / MVerb / ProceduralReverb) |
+| GL16 | Reverb Model | **Settings > Preferences… → Reverb Model** |
 | GL17 | MIDI Input Device | **Settings > Preferences… → MIDI Input** |
-| GL18 | Adjust UI Font Size | Controlled by `PreferencesManager` (`window.width/height`) |
+| GL18 | Adjust UI Font Size | Controlled by `PreferencesManager` |
 | GL19 | Firmware Update | N/A — update the JAR file |
 | GL20 | Show/Hide Visualisers | **Settings > Preferences… → Show Visualizers** |
 
@@ -1542,16 +1532,16 @@ The open-ended nature of the Deluge Workstation workflow allows you to compose, 
 | SQ08 | Duplicate clip content | ⚠ not yet implemented (`Ctrl+D` planned) |
 | SQ09 | Cross-screen editing | Drag note tail near screen border to auto-scroll and extend notes across pages |
 | SQ10 | Add instrument / row | ⚠ rows loaded from XML only; drag-and-drop planned |
-| SQ11 | Record live notes | `R` (while focused on grid; triggers engine record mode) |
+| SQ11 | Record live notes | `R` (while focused on grid) |
 | SQ12 | Resample | ⚠ not yet implemented |
 | SQ13 | Shift all clip notes | ⚠ not yet implemented |
 | SQ14 | Clear clip | ⚠ not yet implemented (`Ctrl+Delete` planned) |
 | SQ15 | Change clip / row colour | ⚠ not yet implemented |
 | SQ16 | Note nudge left/right | ⚠ not yet implemented |
-| SQ17 | Reduce clip length | `Ctrl+[` (decreases `G_TRACK_LENGTH` by 1) |
-| SQ18 | Increase clip length | `Ctrl+]` (increases `G_TRACK_LENGTH` by 1) |
+| SQ17 | Reduce clip length | `Ctrl+[` |
+| SQ18 | Increase clip length | `Ctrl+]` |
 | SQ19 | Reset clip length to 16 | `Ctrl+Shift+L` |
-| SQ20 | Poly Rhythms | Set each row's length independently via `Ctrl+[` / `Ctrl+]` when that row is focused. Rows cycle at their own length against the master clock. |
+| SQ20 | Poly Rhythms | Set each row's length independently via `Ctrl+[` / `Ctrl+]` when that row is focused. |
 | SQ21 | Move kit clip row | ⚠ not yet implemented |
 | SQ22 | Note repeat | ⚠ not yet implemented |
 | SQ23 | Copy notes | `Ctrl+C` (⚠ planned) |
@@ -1567,13 +1557,13 @@ Switch to Song view: `F2` or click **[SONG]** tab.
 | # | Action | How |
 | :--- | :--- | :--- |
 | SV01 | Launch / stop clip | `Click` clip block in song grid |
-| SV02 | Launch clip immediately | `Click` (clips always launch immediately in software) |
-| SV03 | Enter clip (edit) | `Click` clip block or track name button → switches to CLIP view (matches physical hardware) |
+| SV02 | Launch clip immediately | `Click` |
+| SV03 | Enter clip (edit) | `Click` clip block or track name button → switches to CLIP view |
 | SV04 | Create new clip | `Right-click` empty row → **New Clip** |
-| SV05 | Move row up/down | ⚠ not yet implemented (drag-and-drop planned) |
+| SV05 | Move row up/down | ⚠ not yet implemented |
 | SV06 | Clone clip | ⚠ not yet implemented |
-| SV07 | Delete clip | ⚠ not yet implemented (`Delete` key planned) |
-| SV08 | Solo track | `Click` **[S]** button on row header (dims all other rows) |
+| SV07 | Delete clip | ⚠ not yet implemented |
+| SV08 | Solo track | `Click` **[S]** button on row header |
 | SV09 | Un-solo | `Click` **[S]** again |
 | SV10 | Mute / unmute track | `Click` **[M]** button on row header |
 | SV11 | Mute tracks 1–8 | `Alt+1` … `Alt+8` |
@@ -1583,17 +1573,17 @@ Switch to Song view: `F2` or click **[SONG]** tab.
 | SV15 | Share / clone clip status | ⚠ not yet implemented |
 | SV16 | Check clip / instrument name | Hover over row header — tooltip shows name |
 
-#### Hardware Parity & Row Label Display Rules (CLIP View)
+#### Row Label Display Rules
 
 | Track Type / Column | Hardware Parity & Visual Readout Behavior |
 | :--- | :--- |
-| **Kit Track Rows** | Each matrix row displays the parsed sample name (e.g., `808 Kick`, `808 Snare`) with file extensions `.wav`/`.aif` cleanly trimmed. |
-| **Synth Track (Scale Mode)** | Matrix rows map strictly to diatonic scale degrees (**C, D, E, F, G, A, B**). At boot (`scrollOffset == 67`), Column 18 top row renders **`C4`** in vibrant **Purplish** (`#7B68EE`) and bottom row renders **`C3`** in solid **Red** (`Color.RED`). |
-| **Vertical Scrolling (Scale Mode)** | Turning the scroll wheel shifts the viewport purely *diatonically* up or down scale degrees, completely excluding non-scale sharps (`#`). |
-| **Columns 17 & 18 (Utility Pads)** | Renders 8 solid backlit physical rubber buttons across all track types. Inner rubber center circles are strictly blocked (`isUtilityCol`). |
-| **OLED Screen Readout** | Renders crisp 3-line layout (`Y = 10, 28, 44`) with zero horizontal or vertical truncation, displaying full context strings (`"CLIP VIEW"`, `"SYNTH"`). |
+| **Kit Track Rows** | Each matrix row displays the parsed sample name with extensions trimmed. |
+| **Synth Track (Scale Mode)** | Matrix rows map to scale degrees. At boot, C4 and C3 octave rows are visually highlighted. |
+| **Vertical Scrolling (Scale Mode)** | Viewport shifts diatonically. |
+| **Columns 17 & 18 (Utility Pads)** | Renders 8 backlit buttons across all track types. |
+| **OLED Screen Readout** | Renders 3-line layout showing context strings. |
 
-In SONG and ARRANGER views, all rows display the project track name (`tracks.get(t).getName()`).
+In SONG and ARRANGER views, all rows display the project track name.
 
 ---
 
@@ -1604,7 +1594,7 @@ In SONG and ARRANGER views, all rows display the project track name (`tracks.get
 | RS01 | Record sample (live) | ⚠ not yet implemented |
 | RS02 | Resample synth output | ⚠ not yet implemented |
 | RS03 | Load sample into kit row | Row **[⚙]** → Sample section → **Browse…** |
-| RS04 | Load all samples to kit | ⚠ (auto-loaded from XML on song load) |
+| RS04 | Load all samples to kit | ⚠ (auto-loaded from XML) |
 | RS05 | Slice sample | ⚠ not yet implemented |
 | RS06 | Loop resample | ⚠ not yet implemented |
 | RS07 | Rename sample | ⚠ rename via OS file manager |
@@ -1629,7 +1619,7 @@ In SONG and ARRANGER views, all rows display the project track name (`tracks.get
 
 | # | Action | How |
 | :--- | :--- | :--- |
-| MS10 | Oscillator type | **[⚙]** → Oscillator section → Type combo (Sine/Saw/Square/Tri) |
+| MS10 | Oscillator type | **[⚙]** → Oscillator section → Type combo |
 | MS11 | Filter mode / cutoff / res | **[⚙]** → Filter section |
 | MS12 | FM ratio / FM amount | **[⚙]** → FM Synthesis section |
 | MS13 | Arpeggiator on/rate/octave | **[⚙]** → Arpeggiator section |
@@ -1658,77 +1648,62 @@ In SONG and ARRANGER views, all rows display the project track name (`tracks.get
 | # | Action | How |
 | :--- | :--- | :--- |
 | LF01 | Open LFO editor (synth) | Row **[⚙]** → LFO section |
-| LF02 | Set LFO shape | LFO slot → Shape combo: Sine / Saw / Square / Triangle |
-| LF03 | Set LFO rate | LFO slot → Rate slider (0.01–20 Hz) |
+| LF02 | Set LFO shape | LFO slot → Shape combo |
+| LF03 | Set LFO rate | LFO slot → Rate slider |
 | LF04 | Set LFO depth | LFO slot → Depth slider |
-| LF05 | Set LFO target | LFO slot → Target combo: Filter / Res / Pan / Pitch / Vol / FM |
+| LF05 | Set LFO target | LFO slot → Target combo |
 
 ---
 
-### K. COMPLETED DESKTOP WORKSTATION UI OVERHAUL
+### K. UI Module Index
 
-| UI Module | What Was Built | Code Coordinates / Components |
+| UI Module | Functional Description | Code Coordinates / Components |
 | :--- | :--- | :--- |
-| **LFO Modulation Editor** | 4 full LFO slots with rate, shape, depth, and target routing drop-downs. | `LfoPanel.java` tab panel in `SwingSynthConfigDialog.java`. |
-| **Kit Sound ADSR Envelope** | Individual Attack/Decay/Sustain/Release milliseconds sliders per drum sound. | `SwingKitConfigDialog.java` (ADSR Section). |
-| **Kit Sound Mute Groups** | Drop-down selections (None / Group 1-4) to dynamically cut off sounds. | `SwingKitConfigDialog.java` (Mute Group Combobox). |
-| **Kit Sound Sample Reverse** | Interactive JCheckBox toggles to reverse sample playback directions. | `SwingKitConfigDialog.java` (Reverse Checkbox). |
-| **Step Properties Dialog** | Right-click context actions on grid pads to modify step velocity, sub-trigger repeats (iterance), and fill probability. | `StepPropertiesDialog.java` and `showStepPropertiesDialog()` in `SwingGridPanel.java`. |
-| **Undo / Redo Stack** | Unified command Consequence stack mapping step additions, deletions, properties changes, and project parameters updates. | `UndoRedoStack.java` integrated across standard grid edits and sliders. |
-| **MIDI Learn Interface Grid** | Dedicated dark-themed setup grid allowing automatic CC learning, incoming MIDI parameter updates, reset keys, and clear functions. | `MidiLearnPanel.java` tab view in top panels. |
-| **Track Solo & Audition Play** | Dedicated Column 18 Solo triggers in Song/Arranger view, and real-time press-and-hold Audition Play (with transient LED display note text) in Clip view. | Columns 17/18 implementation inside `SwingGridPanel.java`. |
+| **LFO Modulation Editor** | 4 full LFO slots with rate, shape, depth, and target routing. | `LfoPanel.java` |
+| **Kit Sound ADSR Envelope** | Individual Attack/Decay/Sustain/Release milliseconds sliders. | `SwingKitConfigDialog.java` |
+| **Kit Sound Mute Groups** | Drop-down selections to dynamically cut off sounds. | `SwingKitConfigDialog.java` |
+| **Kit Sound Sample Reverse** | Toggle to reverse sample playback directions. | `SwingKitConfigDialog.java` |
+| **Step Properties Dialog** | Right-click context actions on grid pads. | `StepPropertiesDialog.java` |
+| **Undo / Redo Stack** | Unified Consequence stack mapping changes. | `UndoRedoStack.java` |
+| **MIDI Learn Interface Grid** | Setup grid allowing CC learning and mapping. | `MidiLearnPanel.java` |
+| **Track Solo & Audition Play** | Column 18 Solo triggers and Audition Play. | `SwingGridPanel.java` |
 
 ---
 
 ## 23. The Macro Scripting & Song Automation Engine
 
-The Deluge-Java Workstation features a powerful, high-performance **Macro Scripting & Song Automation Engine**. This system allows you to record your actions in real-time, serialize them into a human-readable, line-based text script, and play them back to procedurally build entire songs from scratch!
+The Deluge-Java Workstation features a **Macro Scripting & Song Automation Engine**. This system allows you to record actions in real-time, serialize them into a text script, and play them back to procedurally build songs.
 
 ### 23.1 How to Record a Macro
-1. Open the **Macro** menu in the top menu bar.
-2. Click **Start Recording**. The menu header will immediately transform into a glowing red indicator: **`Macro ●`**, letting you know that every action is being captured.
-3. Perform your sequencing actions in the UI:
-   * Toggle sequencer steps on/off.
-   * Add new Synth, Kit, or Audio tracks.
-   * Load synthesizer presets or adjust track filters, resonances, and FM depths.
-   * Adjust global project parameters like BPM, swing, and master reverb.
+1. Open the **Macro** menu.
+2. Click **Start Recording**. The menu header transforms into: **`Macro ●`**.
+3. Perform sequencing actions: toggle steps, add tracks, load presets, adjust parameters.
 4. Open the **Macro** menu and click **Stop Recording**.
-5. Click **Save Macro Script...** to save your recorded sequence as a portable `.txt` file.
+5. Click **Save Macro Script...** to save as a `.txt` file.
 
 ### 23.2 Script Syntax Reference
-Macro scripts are simple, line-based text files. Each line represents an executable command. Comments start with `#`.
+Macro scripts are line-based text files.
 
 | Command Token | Arguments Syntax & Description | Example |
 | :--- | :--- | :--- |
-| **`BPM_SWING`** | `paramName\|value`<br>Sets a project-level parameter (e.g. `bpm`, `swing`, `reverbRoomSize`, `reverbDampening`). | `BPM_SWING\|bpm\|128.000000` |
-| **`TRACK_STRUCT`** | `ADD\|trackIdx\|trackType\|trackName`<br>Adds a new track (`SYNTH` or `KIT`) at the specified index. | `TRACK_STRUCT\|ADD\|1\|SYNTH\|Bass` |
-| **`LOAD_PRESET`** | `trackIdx\|presetName`<br>Loads an XML preset file from the `SYNTHS/` folder onto a track. | `LOAD_PRESET\|1\|049 Basic FM` |
-| **`STEP`** | `trackIdx\|clipIdx\|row\|step\|active\|velocity\|gate\|probability\|pitch\|iterance\|fill\|nudge`<br>Programs a sequencer step on a specific track and row. | `STEP\|1\|0\|0\|2\|true\|0.85\|0.90\|1.0\|36\|0\|0\|0` |
-| **`SYNTH_PARAM`** | `trackIdx\|paramName\|value`<br>Automates a synthesizer parameter (e.g. `lpfCutoff`, `lpfResonance`, `reverbSend`, `fmAmount`). | `SYNTH_PARAM\|1\|lpfCutoff\|45.000000` |
+| **`BPM_SWING`** | `paramName\|value` | `BPM_SWING\|bpm\|128.000000` |
+| **`TRACK_STRUCT`** | `ADD\|trackIdx\|trackType\|trackName` | `TRACK_STRUCT\|ADD\|1\|SYNTH\|Bass` |
+| **`LOAD_PRESET`** | `trackIdx\|presetName` | `LOAD_PRESET\|1\|049 Basic FM` |
+| **`STEP`** | `trackIdx\|clipIdx\|row\|step\|active...` | `STEP\|1\|0\|0\|2\|true\|0.85...` |
+| **`SYNTH_PARAM`** | `trackIdx\|paramName\|value` | `SYNTH_PARAM\|1\|lpfCutoff\|45.000000` |
 
 ### 23.3 Pre-Baked Showcases
-The workstation includes several magnificent, pre-baked procedural scripts in your workspace:
-*   **[techno_creator.txt](../../../../techno_creator.txt):** A driving 130 BPM techno beat featuring 4-on-the-floor drums, an FM bassline on a dedicated piano-roll, and automated low-pass filter sweeps.
-*   **[deep_house_groove.txt](../../../../deep_house_groove.txt):** A warm, lush 122 BPM Deep House groove featuring swingy percussion, a polyphonic 4-note chord progression (Amin7 -> Fmaj7 -> Cmaj7 -> G7), and a syncopated sub-bassline.
-*   **[cinematic_ambient.txt](../../../../cinematic_ambient.txt):** A majestic, slow-evolving cinematic soundscape featuring a lush 5-note drone pad, high warm string counter-melodies, and an endless, shimmering master reverb hall.
+*   **techno_creator.txt**: 130 BPM techno beat.
+*   **deep_house_groove.txt**: 122 BPM House groove.
+*   **cinematic_ambient.txt**: Cinematic soundscape.
 
 ---
 
 ## 24. The Interactive Synth Preset Designer & Exporter
 
-Designing custom sounds is a core creative workflow in the Deluge-Java Workstation. The **Interactive Synth Preset Designer & Exporter** bridges your live track sound configurations directly with your persistent preset library!
+Designing custom sounds is a workflow in the Deluge-Java Workstation.
 
 ### 24.1 How to Design and Save a Custom Preset
-1. Double-click the track header **`[⚙]`** button on any Synth track to open the advanced **Synth Track Editor**.
-2. Customize your sound across the tabs:
-   * Choose oscillator waveforms (Sine, Saw, Square, Triangle, Wavetable, Sample).
-   * Adjust Low-Pass and High-Pass filter cutoffs, resonances, and envelope amounts.
-   * Wire custom modulation routings in the Patchbay or configure LFO rates and depths.
-3. Once you are happy with the sound, click the glowing **`SAVE AS PRESET 💾`** button in the top right corner of the dialog.
-4. A dark-themed input overlay will prompt you for a name (e.g. `Lush Chillout Pad`).
-5. Click OK. The workstation will deep-copy your synthesizer's state and export it as a standard Deluge-compatible XML preset inside your local **`SYNTHS/`** directory.
-6. A success dialog will confirm that your preset is saved. It is now instantly loadable on any track in your project!
-
 ---
 
 ## 25. The Master FX Console & Modulation Dashboard Extension
@@ -1777,11 +1752,11 @@ Applies final mix-bus gluing and analog character modeling to the master output:
 
 ---
 
-### 25.2 Real-Time JNI Bridge Sync & Undo Stack
+### 25.2 Real-Time Bridge Sync & Undo Stack
 
 Every knob turn, slider drag, or button toggle inside the console performs a three-way real-time synchronization:
 1.  **High-Level Model Update**: Mutates the active `ProjectModel` structure.
-2.  **JNI Bridge Broadcast**: Pushes the updated parameters directly to ChucK VM global registers (e.g. `g_reverb_room`, `g_delay_fb`, `g_masterSat`), altering the audio rendering pipeline instantly in real-time.
+2.  **Bridge Sync**: Pushes the updated parameters directly to `BridgeContract` registry variables (e.g. `g_reverb_room`, `g_delay_fb`), updating the audio rendering pipeline.
 3.  **OLED Display Readout**: Prints transient readouts on the OLED screen (e.g. `RV.RM 75%`, `DL.PP ON`) for hardware-parity visual feedback.
 4.  **Undo/Redo Registration**: Every tweak pushes a `ProjectParamConsequence` to the `UndoRedoStack` so that your mixing decisions are fully undoable/redoable!
 
@@ -1790,13 +1765,13 @@ Every knob turn, slider drag, or button toggle inside the console performs a thr
 ### 25.3 💾 Hardware Compatibility & SD Card Portability
 
 Any changes made inside the Master FX Console are written directly to the standard Synthstrom Deluge song XML format upon saving (`Ctrl + S`). 
-Because the physical Deluge hardware loads these exact song-level parameters from its XML songs, your master effects mix will **transfer losslessly to your physical SD card** and sound identical when loaded on your physical Deluge unit!
+Because the physical Deluge hardware loads these exact song-level parameters from its XML songs, your master effects mix will transfer losslessly to your physical SD card and sound identical when loaded on your physical Deluge unit.
 
 ---
 
 ### 🔊 Tutorial M: Mixing and Mastering a Heavy Electronic Groove
 
-Follow these steps to sculpt a massive, spatial mix with sidechain ducking and analog warmth using the Master FX Console:
+Follow these steps to sculpt a mix with sidechain ducking and analog warmth using the Master FX Console:
 
 1.  Press **`Spacebar`** to start playing a heavy electronic drum and bass sequence.
 2.  Click the **`🎛️ MASTER FX`** button next to the master volume slider on the top toolbar to open the console.
@@ -1812,14 +1787,14 @@ Follow these steps to sculpt a massive, spatial mix with sidechain ducking and a
     *   Slide **`Room Size`** to **`70%`** and **`Stereo Width`** to **`80%`**. You will hear a massive, cathedral-like spatial reverb, but it might wash out the kick drum.
 6.  Navigate to the **`💨 REVERB COMP`** tab to sculpt the sidechain pump:
     *   Slide **`Sidechain Release`** to **`120ms`** and **`Wet/Dry Blend`** to **`100%`**.
-    *   Watch the kick drum hits: the massive reverb tail now **ducks completely out of the way** during the kick, then swells back in beautifully during the gaps, creating a pumping, high-energy spatial rhythm!
+    *   Watch the kick drum hits: the massive reverb tail now ducks completely out of the way during the kick, then swells back in beautifully during the gaps, creating a pumping, high-energy spatial rhythm!
 7.  Once you are happy with the mix, press **`CLOSE CONSOLE`** and hit **`Ctrl + S`** to save your masterpiece! Your song is now mixed, mastered, and ready to be loaded onto your physical Deluge SD card!
 
 ---
 
 ## 26. Arranger Track Mutes, Solos & Live Capture Extension
 
-The **Arranger Track Mutes, Solos & Live Capture Extension** provides a high-fidelity, hardware-accurate track management deck for the linear timeline arranger. It allows independent, non-destructive mute/solo states on the Arranger timeline, which translate losslessly to the physical Deluge hardware's XML song format.
+The **Arranger Track Mutes, Solos & Live Capture Extension** provides a high-fidelity, hardware-accurate track management deck for the linear timeline arranger. It allows independent, non-destructive mute/solo states on the Arranger timeline, which are saved in the song XML format.
 
 ```mermaid
 graph TD
@@ -1827,7 +1802,7 @@ graph TD
     A -->|Column 17 Pad| C[Toggle Arrangement Solo]
     B -->|Model Update| D[ArrangerPlaybackScheduler]
     C -->|Model Update| D
-    D -->|Real-Time Silencing| E[Mutes JNI Circular Step Buffers]
+    D -->|Real-Time Silencing| E[Silences active synthesis voices]
 ```
 
 ### 26.1 Tactile Arranger Headers & Value Ranges
@@ -1836,10 +1811,10 @@ In Arranger view (accessed via the **`[ARR]`** tab on the top toolbar or pressin
 
 *   **Column 16: Track Arrangement Mute (`[M]`)**:
     *   *Visual States*: Displays a slate-gray pad when active (unmuted) and a solid yellow pad (**`#FFD700`**) with the text **`UNMUTE`** when muted in the arrangement.
-    *   *Behavior*: Clicking this pad toggles `track.isMutedInArrangement()`.
+    *   *Behavior*: Clicking this pad toggles track arrangement mute.
 *   **Column 17: Track Arrangement Solo (`[S]`)**:
     *   *Visual States*: Displays a dark slate-gray pad (**`#2D3748`**) with the text **`SOLO`** when inactive, and a brilliant neon-green pad (**`#00E676`**) with the text **`SOLOED`** when soloed in the arrangement.
-    *   *Behavior*: Clicking this pad toggles `track.isSoloingInArrangement()`.
+    *   *Behavior*: Clicking this pad toggles track arrangement solo.
 
 ---
 
@@ -1850,8 +1825,8 @@ The **`ArrangerPlaybackScheduler`** background loop dynamically monitors the arr
 1.  **Ducking/Silencing Evaluation**: On every step tick, the scheduler evaluates if a track should be silenced:
     *   *Mute Evaluation*: The track is explicitly muted in the arrangement (`track.isMutedInArrangement() == true`).
     *   *Solo Evaluation*: Another track in the project is soloed (`isSoloingInArrangement() == true`), and this track is not soloed.
-2.  **JNI Bridge Broadcast**: If a track is silenced, the scheduler overrides its active timeline clip placement to `null`. It then writes `false` to all JNI circular step registers (`bridge.setStep(engineRow, col, false)`) for that track's lanes. This instantly silences the synthesizers and audio players at the DSP layer, keeping background channels completely quiet without introducing click/pop transients.
-3.  **Instant Engine Sync**: Toggling mute/solo in the GUI immediately calls `syncHighFidelityEngine(projectModel)` to rewrite the upcoming step buffers, updating the active audio rendering stream in under **2.9 milliseconds**!
+2.  **Engine Update**: If a track is silenced, the scheduler overrides its active timeline clip placement, clearing active steps in the engine to silence synthesizers and audio players.
+3.  **Instant Engine Sync**: Toggling mute/solo in the GUI immediately calls `syncHighFidelityEngine(projectModel)` to rewrite the upcoming step buffers, updating the active audio rendering stream.
 
 ---
 
@@ -1867,17 +1842,17 @@ All arrangement-specific mute/solo configurations are written directly to the st
     ```xml
     <audioClip isMutedInArrangement="0" isSoloingInArrangement="1" ...>
     ```
-*   **Lossless XML Parsing**: When loading a song XML from your physical Deluge SD card, our [DelugeXmlParser](../../java/org/deluge/xml/DelugeXmlParser.java) recovers these attributes and maps them back onto the track model, ensuring your linear mix arrangement is perfectly preserved.
+*   **Lossless XML Parsing**: When loading a song XML from your physical Deluge SD card, the parser recovers these attributes and maps them back onto the track model, ensuring your linear mix arrangement is perfectly preserved.
 
 ---
 
 ### 26.4 🔴 Live Capture Log Integration
 
-When the glowing red **`[🔴 CAPTURE]`** button is active during playback, muting/unmuting tracks in Song View automatically records linear arrangement clips in real-time onto the Arranger timeline:
+When the red **`[🔴 CAPTURE]`** button is active during playback, muting/unmuting tracks in Song View automatically records linear arrangement clips in real-time onto the Arranger timeline:
 
-*   **Dampening / Mute Action**: Muting a track calls `scheduler.notifyClipStopped(trackIndex)`, which immediately finalizes and logs the active arranger clip block placement up to the current playhead step.
-*   **Relaunch / Unmute Action**: Unmuting a track scans for the track's active clip and calls `scheduler.notifyClipLaunched(trackIndex, clip)`, automatically drawing a new linear arranger placement starting at the current playhead step.
-*   *Result*: You can perform your song live by simply muting and unmuting tracks in Song View, and the workstation will **automatically record your entire performance** into a linear Arranger timeline layout!
+*   **Dampening / Mute Action**: Muting a track finalizes and logs the active arranger clip block placement up to the current playhead step.
+*   **Relaunch / Unmute Action**: Unmuting a track automatically draws a new linear arranger placement starting at the current playhead step.
+*   *Result*: You can perform your song live by simply muting and unmuting tracks in Song View, and the workstation will automatically record your entire performance into a linear Arranger timeline layout.
 
 ---
 
@@ -1886,7 +1861,7 @@ When the glowing red **`[🔴 CAPTURE]`** button is active during playback, muti
 Follow these steps to record a live performance and sculpt it with track-level mutes/solos in the Arranger:
 
 1.  Open a multi-track song (e.g. `techno_creator.txt`) and click the **`[SONG]`** tab to enter Song View.
-2.  Click the glowing **`[🔴 CAPTURE]`** button on the top toolbar to arm live arranger capture recording!
+2.  Click the **`[🔴 CAPTURE]`** button on the top toolbar to arm live arranger capture recording!
 3.  Press **`Spacebar`** to start playback. All tracks are unmuted and begin logging arranger blocks.
 4.  At the end of the 4th bar, click the **`[M]`** (Mute) button on the Bass synth track header: the bass is silenced, and the capture engine automatically logs a 4-bar arranger block on the timeline!
 5.  At the end of the 8th bar, click the Bass track's **`UNMUTE`** button: the bass returns, and the capture engine starts a new arranger block at step 8!
@@ -1987,33 +1962,33 @@ The desktop menu bar exposes file, editing, tooling, view, settings, macro, and 
     ![Help menu](images/deluge_menu_help.png)
 
 
-## 30. Recent Architecture & Premium UI Enhancements (Past 48 Hours)
+## 30. Premium UI Visuals & Component Architecture
 
-The workstation has undergone major core architectural decomposition and styling upgrades to achieve premium visual quality, smooth real-time feedback, and enhanced project modularity.
+The workstation has undergone core architectural decomposition and styling upgrades to achieve visual quality, real-time feedback, and project modularity.
 
 ### 30.1 Modular Sidebar Panel Decomposition
-To maintain codebase maintainability and clean class design, the monolithic `SwingProjectSidebarPanel` (~1,800 lines of Java) has been decomposed into isolated, focused tab components:
+To maintain codebase maintainability and clean class design, the monolithic `SwingProjectSidebarPanel` has been decomposed into isolated tab components:
 *   **Library Tab (`LibrarySidebarTab.java`)**: Manages the local directory tree traversal of presets, samples, and projects on the simulated SD card, including search queries, file drag-and-drop, and XML parsing.
 *   **Hardware Tab (`HardwareSidebarTab.java`)**: Handles MIDI SysEx bi-directional remote communications with the physical Synthstrom Deluge hardware over MIDI, remote directory listings, firmware updates, and local-remote SD-card synchronizations.
-*   **Coordinator Layout**: The main sidebar panel class has been reduced to a lean, 150-line layout coordinator that wires the shared copy-paste clipboard and handles Tab switching.
+*   **Coordinator Layout**: The main sidebar panel class coordinator wires the shared copy-paste clipboard and handles Tab switching.
 
 ### 30.2 Backlit Silicone LED Grid Pads & Hover Glow Animations
-The grid pad buttons (`DelugePadButton.java`) have been completely redesigned to emulate physical Deluge backlit rubber:
-*   **Silicone Hotspot Rendering**: Active buttons paint their background using a `RadialGradientPaint`, blending a bright white silicone hotspot in the center outward into the track's glowing color and a dark, desaturated edge boundary.
-*   **Smooth Hover Halo Transitions**: Buttons automatically capture mouse hover entries/exits using internal AWT event masking (`enableEvents(AWTEvent.MOUSE_EVENT_MASK)`) to avoid right-click conflicts. Hover states animate a smooth, glowing halo intensity over 150ms synced with the `UiAnimator` clock.
+The grid pad buttons (`DelugePadButton.java`) render backlit rubber:
+*   **Silicone Hotspot Rendering**: Active buttons paint their background using a `RadialGradientPaint`, blending a white silicone hotspot in the center outward into the track's color and a desaturated edge boundary.
+*   **Hover Halo Transitions**: Buttons automatically capture mouse hover entries/exits to avoid right-click conflicts. Hover states animate a glowing halo intensity.
 
 ### 30.3 3D Wavetable Morphing Visualizer & Pulsing Placeholder
-The 3D Wavetable scanner panel (`Wavetable3DVisualizer.java`) now features:
-*   **3D Cyberpunk Placeholder Wireframe**: When no wavetable is loaded, the component renders a rotating, morphing 3D double sine-wave mesh in the background, utilizing theme-aware colors to make the UI feel alive immediately.
-*   **Real-time Playhead Morphing Tracking**: The playhead plane updates smoothly in real-time at 30 FPS, tracking note automations, LFO sweeps, and wave index changes dynamically.
+The 3D Wavetable scanner panel (`Wavetable3DVisualizer.java`) features:
+*   **3D Placeholder Wireframe**: When no wavetable is loaded, the component renders a rotating 3D double sine-wave mesh in the background, utilizing theme-aware colors.
+*   **Real-time Playhead Morphing Tracking**: The playhead plane updates in real-time, tracking note automations, LFO sweeps, and wave index changes.
 
 ### 30.4 CRT Cathode Glow LFO Monitor & Custom Waveform Drawer
-*   **CRT Cathode Oscilloscope Lanes**: The LFO Monitor (`LfoMonitorComponent.java`) paints LFO waveforms with multi-layered neon glow strokes and pulsing outer glow phase dots, simulating physical CRT cathode screen traces.
-*   **Hover Node Highlighting**: The Custom Waveform Drawer (`LfoDrawPad.java`) renders a soft, semi-transparent highlight column behind the active hovered step index, and draws a pulsing neon selection circle around node values to enhance editing precision.
+*   **CRT Cathode Oscilloscope Lanes**: The LFO Monitor (`LfoMonitorComponent.java`) paints LFO waveforms with neon glow strokes and phase dots, simulating physical CRT cathode screen traces.
+*   **Hover Node Highlighting**: The Custom Waveform Drawer (`LfoDrawPad.java`) renders a highlight column behind the active hovered step index, and draws a selection circle around node values to enhance editing precision.
 *   **Theme-Aware Zero Lines**: Zero grid levels adapt to the active `ThemeManager` colors.
 
 ### 30.5 Bipolar Modulation Matrix & Highlight Channels
-The Modulation Matrix panel (`ModulationMatrixComponent.java`) has been polished with:
-*   **Rounded Neon Connection Squares**: Active connections are drawn using rounded corners and opacity levels scaled to the modulation amount. Positive modulation uses the Theme Primary accent color, while negative modulation maps to the Theme Secondary accent.
-*   **Active Row/Column Hover Highlights**: Hovering over a cell automatically highlights both the corresponding Modulation Source column label and the target Modulation Destination row label in the theme's primary color, making complex patch routings instantly scannable.
+The Modulation Matrix panel (`ModulationMatrixComponent.java`) features:
+*   **Rounded Neon Connection Squares**: Active connections are drawn using rounded corners and opacity levels scaled to the modulation amount. Positive modulation uses the primary theme accent color, while negative modulation maps to the secondary theme accent.
+*   **Active Row/Column Hover Highlights**: Hovering over a cell highlights both the corresponding Modulation Source column label and the target Modulation Destination row label in the theme's primary color, making patch routings scannable.
 
