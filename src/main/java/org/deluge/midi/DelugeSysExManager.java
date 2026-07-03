@@ -461,6 +461,11 @@ public class DelugeSysExManager {
       throw new IllegalArgumentException("Field '" + field + "' not found in JSON: " + json);
     }
     int start = idx + pattern.length();
+    // The firmware's JSON serializer emits a space after the colon ("sid": 5), so skip whitespace
+    // before reading the number — otherwise substring(start, start) is "" and parseInt throws.
+    while (start < json.length() && Character.isWhitespace(json.charAt(start))) {
+      start++;
+    }
     int end = start;
     while (end < json.length()
         && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '-')) {

@@ -156,10 +156,34 @@ public class DelugeFileSyncService {
           String.format(
               "{\"dir\":{\"path\":\"%s\",\"offset\":%d,\"lines\":%d}}",
               remotePath, offset, linesWanted);
-      Reply reply = sendWithRetry(req, null, 12, 800, "dir " + remotePath + "@" + offset);
+      Reply reply;
+      try {
+        reply = sendWithRetry(req, null, 12, 800, "dir " + remotePath + "@" + offset);
+      } catch (Exception e) {
+        // A page failed after all retries. If it was the very first page we have nothing useful, so
+        // propagate (a genuine connection failure). Otherwise keep what we already fetched rather
+        // than discarding the whole directory — better to show the first N entries than none (this
+        // is why /SYNTHS showed zero when only its 3rd page kept dropping).
+        if (offset == 0) {
+          throw e;
+        }
+        System.err.println(
+            "[FileSyncService] "
+                + remotePath
+                + " listing truncated at offset "
+                + offset
+                + " ("
+                + files.size()
+                + " entries so far): "
+                + e.getMessage());
+        break;
+      }
       int err = getIntAttr(reply.json(), "err");
       if (err != 0) {
-        throw new IOException("Remote dir list failed for " + remotePath + ", err=" + err);
+        if (offset == 0) {
+          throw new IOException("Remote dir list failed for " + remotePath + ", err=" + err);
+        }
+        break; // partial listing: stop on a mid-directory error, keep what we have
       }
       int entryCount = countDirEntries(reply.json()); // all entries incl. directories
       files.addAll(getFileNamesFromList(reply.json())); // non-directory names only

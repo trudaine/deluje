@@ -308,4 +308,37 @@ public class DelugeSysExManagerTest {
     int seq = sentPing[6] & 0xFF;
     assertTrue(seq >= 17 && seq <= 23, "Sequence " + seq + " must be in range [17, 23]");
   }
+
+  @Test
+  public void testSessionParsingToleratesSpacesAfterColons() throws Exception {
+    // The real firmware JSON serializer emits a space after each colon ("sid": 3). The hand-parser
+    // used to read the empty string between "sid": and the space and throw
+    // (NumberFormatException: For input string: ""), which left the session un-negotiated on
+    // hardware. Feed a SPACED reply and confirm it parses.
+    DelugeSysExManager manager = new DelugeSysExManager();
+    MockMidiOut mockOut = new MockMidiOut();
+    manager.setMidiOut(mockOut);
+
+    java.util.concurrent.CompletableFuture<Void> future = manager.negotiateSession("Deluge-Java");
+
+    String replyJson =
+        "{\"^session\": {\"sid\": 3, \"tag\": \"Deluge-Java\", \"midMin\": 9, \"midMax\": 15}}";
+    byte[] replyBytes = replyJson.getBytes(StandardCharsets.US_ASCII);
+    byte[] incoming = new byte[7 + replyBytes.length + 1];
+    incoming[0] = (byte) 0xF0;
+    incoming[1] = 0x00;
+    incoming[2] = 0x21;
+    incoming[3] = 0x7B;
+    incoming[4] = 0x01;
+    incoming[5] = 0x05; // CMD_JSON_REPLY
+    incoming[6] = 0x00;
+    System.arraycopy(replyBytes, 0, incoming, 7, replyBytes.length);
+    incoming[incoming.length - 1] = (byte) 0xF7;
+
+    assertTrue(manager.handleIncomingSysEx(incoming));
+    future.get(2, java.util.concurrent.TimeUnit.SECONDS);
+    assertEquals(3, manager.getSessionId());
+    assertEquals(9, manager.getMidMin());
+    assertEquals(15, manager.getMidMax());
+  }
 }
