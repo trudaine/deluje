@@ -71,28 +71,106 @@ public class DelugeFileSyncService {
    * @param callback Callback for success (file list) or failure
    */
   public void listSongs(String remotePath, FileListCallback callback) {
-    String req = String.format("{\"dir\": {\"path\": \"%s\"}}", remotePath);
-    sysExManager.sendRequest(
-        req,
-        (json, bin) -> {
-          int err = getIntAttr(json, "err");
-          if (err != 0) {
-            callback.onFailure(new IOException("Remote dir list failed, err=" + err));
-            return;
-          }
-          List<String> files = getFileNamesFromList(json);
-          if (files.isEmpty()) {
-            files = getStringListAttr(json, "files");
-          }
-          System.out.println(
-              "[FileSyncService] listSongs success for path: "
-                  + remotePath
-                  + ", parsed files count: "
-                  + files.size()
-                  + ", files: "
-                  + files);
-          callback.onSuccess(files);
-        });
+    Thread.ofVirtual()
+        .name("DelugeDirLister-" + remotePath)
+        .start(
+            () -> {
+              boolean prevOled = sysExManager.isOledStreamingEnabled();
+              transferActive = true;
+              sysExManager.setOledStreamingEnabled(
+                  false); // quiet the OLED flood during the listing
+              try {
+                callback.onSuccess(listOneBlocking(remotePath));
+              } catch (Exception e) {
+                callback.onFailure(e);
+              } finally {
+                sysExManager.setOledStreamingEnabled(prevOled);
+                transferActive = false;
+              }
+            });
+  }
+
+  /** Per-directory callback for {@link #listDirs}. */
+  public interface DirListCallback {
+    void onDir(String path, List<String> files);
+
+    void onError(String path, Throwable t);
+  }
+
+  /**
+   * Lists several remote directories <b>sequentially on a single virtual thread</b>. This is the
+   * correct way to refresh the whole remote tree (SONGS + SYNTHS + KITS): the firmware {@code dir}
+   * command keeps a <i>single</i> shared cursor ({@code sxDIR}/{@code dirOffsetCounter} in
+   * smsysex.cpp), so overlapping/interleaved listings would corrupt each other's pagination.
+   * Serializing them here — and toggling the OLED stream + {@code transferActive} once for the
+   * whole batch — avoids that and the OLED save/restore races that nesting per-path listings would
+   * cause.
+   */
+  public void listDirs(List<String> paths, DirListCallback callback) {
+    Thread.ofVirtual()
+        .name("DelugeDirLister-batch")
+        .start(
+            () -> {
+              boolean prevOled = sysExManager.isOledStreamingEnabled();
+              transferActive = true;
+              sysExManager.setOledStreamingEnabled(false);
+              try {
+                for (String path : paths) {
+                  try {
+                    callback.onDir(path, listOneBlocking(path));
+                  } catch (Exception e) {
+                    callback.onError(path, e);
+                  }
+                }
+              } finally {
+                sysExManager.setOledStreamingEnabled(prevOled);
+                transferActive = false;
+              }
+            });
+  }
+
+  /**
+   * Blocking, paginated, retrying directory listing — the core the async wrappers share. Mirrors
+   * the download path because the Deluge {@code dir} command needs BOTH pagination and retry, which
+   * the old single fire-and-forget request lacked (which is why the remote tree showed no songs):
+   *
+   * <ul>
+   *   <li><b>Pagination</b>: the firmware (smsysex.cpp getDirEntries) returns at most {@code
+   *       MAX_DIR_LINES = 25} entries and tracks an internal offset cursor; to list a full
+   *       directory the host must send repeated {@code dir} requests with increasing {@code offset}
+   *       until a short page (&lt; linesWanted) marks the end. A single request only ever saw the
+   *       first ≤25.
+   *   <li><b>Retry</b>: the /SONGS response is a large (~1.5 KB) SysEx and larger messages are
+   *       dropped ~half the time (see {@link #sendWithRetry}); with no retry a dropped page left
+   *       the tree empty.
+   * </ul>
+   *
+   * <p>Caller is responsible for the OLED-stream pause and {@code transferActive} guard.
+   */
+  private List<String> listOneBlocking(String remotePath) throws Exception {
+    List<String> files = new ArrayList<>();
+    final int linesWanted = 25; // MAX_DIR_LINES in firmware smsysex.cpp
+    int offset = 0;
+    while (true) {
+      String req =
+          String.format(
+              "{\"dir\":{\"path\":\"%s\",\"offset\":%d,\"lines\":%d}}",
+              remotePath, offset, linesWanted);
+      Reply reply = sendWithRetry(req, null, 12, 800, "dir " + remotePath + "@" + offset);
+      int err = getIntAttr(reply.json(), "err");
+      if (err != 0) {
+        throw new IOException("Remote dir list failed for " + remotePath + ", err=" + err);
+      }
+      int entryCount = countDirEntries(reply.json()); // all entries incl. directories
+      files.addAll(getFileNamesFromList(reply.json())); // non-directory names only
+      offset += entryCount;
+      if (entryCount < linesWanted) {
+        break; // short page => end of directory
+      }
+    }
+    System.out.println(
+        "[FileSyncService] listOneBlocking " + remotePath + " -> " + files.size() + " files");
+    return files;
   }
 
   /**
@@ -383,22 +461,21 @@ public class DelugeFileSyncService {
     return -1;
   }
 
-  private static List<String> getStringListAttr(String json, String attrName) {
-    List<String> result = new ArrayList<>();
-    Pattern arrayPattern = Pattern.compile("\"" + attrName + "\"\\s*:\\s*\\[([^\\]]*)\\]");
-    Matcher arrayMatcher = arrayPattern.matcher(json);
-    if (arrayMatcher.find()) {
-      String arrayContent = arrayMatcher.group(1);
-      Pattern stringPattern = Pattern.compile("\"([^\"]+)\"");
-      Matcher stringMatcher = stringPattern.matcher(arrayContent);
-      while (stringMatcher.find()) {
-        result.add(stringMatcher.group(1));
-      }
+  /**
+   * Counts ALL directory entries in a {@code ^dir} reply (files AND sub-directories), used to drive
+   * pagination: a page shorter than {@code linesWanted} means the end of the directory was reached.
+   * Distinct from {@link #getFileNamesFromList}, which returns only the non-directory names.
+   */
+  static int countDirEntries(String json) {
+    Matcher m = Pattern.compile("\"name\"\\s*:").matcher(json);
+    int n = 0;
+    while (m.find()) {
+      n++;
     }
-    return result;
+    return n;
   }
 
-  private static List<String> getFileNamesFromList(String json) {
+  static List<String> getFileNamesFromList(String json) {
     List<String> result = new ArrayList<>();
     // Each ^dir entry looks like {"name":"X.XML","size":..,"date":..,"time":..,"attr":N}.
     // The FatFS attribute bit 0x10 (AM_DIR) marks a directory (e.g. a song's "NAME.DATA" folder),

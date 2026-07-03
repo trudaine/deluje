@@ -20,16 +20,6 @@ public class DelugeFileSyncServiceTest {
 
     String json2 = "{\"err\":-5}";
     assertEquals(-5, parseGetIntAttr(json2, "err"));
-
-    // 2. Test getStringListAttr
-    String json3 = "{\"^dir\": {\"files\": [\"SONG001.XML\", \"PRESET_BASS.XML\"], \"err\": 0}}";
-    List<String> files = parseGetStringListAttr(json3, "files");
-    assertEquals(2, files.size());
-    assertEquals("SONG001.XML", files.get(0));
-    assertEquals("PRESET_BASS.XML", files.get(1));
-
-    String json4 = "{\"files\": []}";
-    assertTrue(parseGetStringListAttr(json4, "files").isEmpty());
   }
 
   @Test
@@ -40,9 +30,15 @@ public class DelugeFileSyncServiceTest {
           public void sendRequest(String jsonPayload, SysExCallback callback) {
             assertTrue(jsonPayload.contains("\"dir\""));
             assertTrue(jsonPayload.contains("\"/SONGS\""));
-            // Simulate remote response
+            assertTrue(jsonPayload.contains("\"offset\""), "paginated request carries an offset");
+            // Simulate the current firmware ^dir reply (list of {name,attr} entries). Two files,
+            // fewer than MAX_DIR_LINES, so the pager treats this as the final page and stops.
             callback.onResponse(
-                "{\"^dir\": {\"files\": [\"S1.XML\", \"S2.XML\"], \"err\": 0}}", null);
+                "{\"^dir\": {\"list\": ["
+                    + "{\"name\":\"S1.XML\",\"size\":1,\"date\":0,\"time\":0,\"attr\":32},"
+                    + "{\"name\":\"S2.XML\",\"size\":1,\"date\":0,\"time\":0,\"attr\":32}"
+                    + "], \"err\": 0}}",
+                null);
           }
         };
 
@@ -173,19 +169,6 @@ public class DelugeFileSyncServiceTest {
           DelugeFileSyncService.class.getDeclaredMethod("getIntAttr", String.class, String.class);
       m.setAccessible(true);
       return (Integer) m.invoke(null, json, attrName);
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  private List<String> parseGetStringListAttr(String json, String attrName) {
-    try {
-      java.lang.reflect.Method m =
-          DelugeFileSyncService.class.getDeclaredMethod(
-              "getStringListAttr", String.class, String.class);
-      m.setAccessible(true);
-      return (List<String>) m.invoke(null, json, attrName);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

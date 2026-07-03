@@ -807,85 +807,32 @@ public class SwingProjectSidebarPanel extends JPanel {
     kitsNode.removeAllChildren();
     ((javax.swing.tree.DefaultTreeModel) hardwareTree.getModel()).reload();
 
-    fileSync.listSongs(
-        "/SONGS",
-        new org.deluge.midi.DelugeFileSyncService.FileListCallback() {
+    // List SONGS, SYNTHS and KITS in ONE sequential batch on a single virtual thread. The firmware
+    // `dir` command shares one cursor, so these must not overlap (the old three-timer approach both
+    // raced the cursor and skipped synths/kits once a listing took longer than the fixed delays).
+    java.util.Map<String, DefaultMutableTreeNode> nodeFor =
+        java.util.Map.of("/SONGS", songsNode, "/SYNTHS", synthsNode, "/KITS", kitsNode);
+    fileSync.listDirs(
+        java.util.List.of("/SONGS", "/SYNTHS", "/KITS"),
+        new org.deluge.midi.DelugeFileSyncService.DirListCallback() {
           @Override
-          public void onSuccess(java.util.List<String> files) {
+          public void onDir(String path, java.util.List<String> files) {
+            DefaultMutableTreeNode node = nodeFor.get(path);
+            if (node == null) return;
             SwingUtilities.invokeLater(
                 () -> {
                   for (String f : files) {
-                    songsNode.add(new DefaultMutableTreeNode(f));
+                    node.add(new DefaultMutableTreeNode(f));
                   }
-                  ((javax.swing.tree.DefaultTreeModel) hardwareTree.getModel()).reload(songsNode);
+                  ((javax.swing.tree.DefaultTreeModel) hardwareTree.getModel()).reload(node);
                 });
           }
 
           @Override
-          public void onFailure(Throwable t) {
-            System.err.println("[Sidebar] Failed to fetch remote songs: " + t.getMessage());
+          public void onError(String path, Throwable t) {
+            System.err.println("[Sidebar] Failed to fetch remote " + path + ": " + t.getMessage());
           }
         });
-
-    Timer t1 =
-        new Timer(
-            250,
-            ev -> {
-              if (fileSync.isTransferActive()) return;
-              fileSync.listSongs(
-                  "/SYNTHS",
-                  new org.deluge.midi.DelugeFileSyncService.FileListCallback() {
-                    @Override
-                    public void onSuccess(java.util.List<String> files) {
-                      SwingUtilities.invokeLater(
-                          () -> {
-                            for (String f : files) {
-                              synthsNode.add(new DefaultMutableTreeNode(f));
-                            }
-                            ((javax.swing.tree.DefaultTreeModel) hardwareTree.getModel())
-                                .reload(synthsNode);
-                          });
-                    }
-
-                    @Override
-                    public void onFailure(Throwable t) {
-                      System.err.println(
-                          "[Sidebar] Failed to fetch remote synths: " + t.getMessage());
-                    }
-                  });
-            });
-    t1.setRepeats(false);
-    t1.start();
-
-    Timer t2 =
-        new Timer(
-            500,
-            ev -> {
-              if (fileSync.isTransferActive()) return;
-              fileSync.listSongs(
-                  "/KITS",
-                  new org.deluge.midi.DelugeFileSyncService.FileListCallback() {
-                    @Override
-                    public void onSuccess(java.util.List<String> files) {
-                      SwingUtilities.invokeLater(
-                          () -> {
-                            for (String f : files) {
-                              kitsNode.add(new DefaultMutableTreeNode(f));
-                            }
-                            ((javax.swing.tree.DefaultTreeModel) hardwareTree.getModel())
-                                .reload(kitsNode);
-                          });
-                    }
-
-                    @Override
-                    public void onFailure(Throwable t) {
-                      System.err.println(
-                          "[Sidebar] Failed to fetch remote kits: " + t.getMessage());
-                    }
-                  });
-            });
-    t2.setRepeats(false);
-    t2.start();
   }
 
   private void downloadAndLoadRemoteFile(String category, String name) {
