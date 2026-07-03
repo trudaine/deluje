@@ -43,7 +43,7 @@ public class AuditionDuringPlaybackTest {
     bridge.setTrackType(0, 1); // baseTrackId 0 = synth mode
     eng.sounds.add(sawSynth());
     bridge.setGlobalObject(BridgeContract.G_FIRMWARE_ENGINE, eng);
-    SwingGridPanel p = new SwingGridPanel(bridge);
+    SwingGridPanel p = new ClipGridPanel(bridge);
     p.setProjectModel(new ProjectModel());
     p.setEditedModelTrack(0);
     return p;

@@ -127,57 +127,6 @@ public final class BridgeContract {
     initRegistry();
   }
 
-  // ── VM Stubs for Decoupling ──
-  private long currentTime = 0L;
-
-  public long getCurrentTime() {
-    return currentTime;
-  }
-
-  public double getSampleRate() {
-    return 44100.0;
-  }
-
-  public int getLogLevel() {
-    return 0;
-  }
-
-  public void broadcastGlobalEvent(String name) {
-    // Stub event broadcaster
-  }
-
-  public void eval(String code) {
-    // Stub evaluator
-  }
-
-  public void dispatchHidMsg(org.deluge.shadow.hid.HidMsg msg) {
-    // Stub HID dispatcher
-  }
-
-  public int getActiveShredCount() {
-    return 0;
-  }
-
-  public org.deluge.shadow.core.DacChannel getDacChannel(int channel) {
-    return null;
-  }
-
-  public void register(BridgeContract bridge) {
-    // Stub register
-  }
-
-  public void shutdown() {
-    // Stub shutdown
-  }
-
-  public void advanceTime(int ticks) {
-    this.currentTime += ticks;
-  }
-
-  public BridgeContract(int sampleRate, int bufferSize) {
-    initRegistry();
-  }
-
   // ── Dimensions ────────────────────────────────────────────────────────
 
   public static final int TRACKS = Integer.getInteger("deluge.tracks", 128);
@@ -1198,6 +1147,25 @@ public final class BridgeContract {
     kit.initDefaults();
     audio.initDefaults();
   }
+
+  public BridgeContract(int sampleRate, int bufferSize) {
+    this();
+  }
+
+  // ── VM Stubs for Decoupling ──
+  private volatile long currentTime = 0L;
+  public long getCurrentTime() { return currentTime; }
+  public void advanceTime(int ticks) { this.currentTime += ticks; }
+  public double getSampleRate() { return 44100.0; }
+
+  public int getLogLevel() { return 0; }
+  public void broadcastGlobalEvent(String name) {}
+  public void eval(String code) {}
+  public void dispatchHidMsg(org.deluge.shadow.hid.HidMsg msg) {}
+  public int getActiveShredCount() { return 0; }
+  public org.deluge.shadow.core.DacChannel getDacChannel(int channel) { return null; }
+  public void register(BridgeContract bridge) {}
+  public void shutdown() {}
 
   // ── VM Registration ────────────────────────────────────────────────────
 

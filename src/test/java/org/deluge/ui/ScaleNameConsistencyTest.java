@@ -21,7 +21,7 @@ public class ScaleNameConsistencyTest {
     ProjectModel project = new ProjectModel();
     project.setKey("C");
     project.setScale(scale);
-    SwingGridPanel panel = new SwingGridPanel(bridge);
+    SwingGridPanel panel = new ClipGridPanel(bridge);
     panel.setProjectModel(project);
     return panel;
   }

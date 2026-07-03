@@ -34,7 +34,7 @@ public class SwingGridPanelNoteSpanningTest {
     synthTrack.setActiveClipIndex(0);
     model.getTracks().add(synthTrack);
 
-    SwingGridPanel gridPanel = new SwingGridPanel(bridge);
+    SwingGridPanel gridPanel = new ClipGridPanel(bridge);
     gridPanel.setProjectModel(model);
     gridPanel.setViewMode(SwingGridPanel.GridViewMode.CLIP);
     gridPanel.setBaseTrackId(0);

@@ -67,11 +67,13 @@ public class ArrangerTimelineController {
   public ArrangerClip getArrangerClipAt(int trackIndex, int col) {
     ProjectModel projectModel = getProjectModel();
     if (projectModel == null) return null;
-    int queryTicks = arrangerTickForColumn(col);
+    int colTick = arrangerTickForColumn(col);
+    int colTicks = arrangerTicksPerColumn();
     for (ArrangerClip placement : projectModel.getArrangerTimeline()) {
       if (placement.trackIndex() == trackIndex) {
-        if (queryTicks >= placement.startTicks()
-            && queryTicks < placement.startTicks() + placement.durationTicks()) {
+        int start = placement.startTicks();
+        int end = start + placement.durationTicks();
+        if (start < colTick + colTicks && end > colTick) {
           return placement;
         }
       }
@@ -87,12 +89,7 @@ public class ArrangerTimelineController {
           public void mousePressed(MouseEvent e) {
             ProjectModel projectModel = getProjectModel();
             if (SwingUtilities.isRightMouseButton(e)) {
-              ArrangerClip placement = getArrangerClipAt(currentTrack, colId);
-              if (placement != null && projectModel != null) {
-                projectModel.getArrangerTimeline().remove(placement);
-                projectChangedCallback.run();
-                refreshCallback.run();
-              }
+              showArrangerCellContextMenu(clipBtn, currentTrack, colId, e.getX(), e.getY());
               return;
             }
 
@@ -151,8 +148,9 @@ public class ArrangerTimelineController {
 
             int colDiff = currCol - dragArrangerStartCol;
             if (colDiff != 0) {
+              int ticksPerCol = arrangerTicksPerColumn();
               if (isResizingArranger) {
-                int newDurationTicks = Math.max(96, dragArrangerDurationTicks + colDiff * 96);
+                int newDurationTicks = Math.max(ticksPerCol, dragArrangerDurationTicks + colDiff * ticksPerCol);
                 projectModel.getArrangerTimeline().remove(dragArrangerClip);
                 ArrangerClip updated =
                     new ArrangerClip(
@@ -166,7 +164,7 @@ public class ArrangerTimelineController {
                 dragArrangerDurationTicks = newDurationTicks;
                 refreshCallback.run();
               } else {
-                int newStartTicks = Math.max(0, dragArrangerStartTicks + colDiff * 96);
+                int newStartTicks = Math.max(0, dragArrangerStartTicks + colDiff * ticksPerCol);
                 projectModel.getArrangerTimeline().remove(dragArrangerClip);
                 ArrangerClip updated =
                     new ArrangerClip(
@@ -185,25 +183,21 @@ public class ArrangerTimelineController {
         });
   }
 
-  /** Shows a popup menu to select or create a clip to place at the specified timeline slot. */
   public void showArrangerClipSelectionPopup(Component invoker, final int trackIdx, final int col) {
     ProjectModel projectModel = getProjectModel();
     if (projectModel == null || trackIdx >= projectModel.getTracks().size()) return;
     TrackModel track = projectModel.getTracks().get(trackIdx);
 
     JPopupMenu menu = new JPopupMenu();
-    menu.setBackground(new Color(0x1e, 0x1e, 0x22));
-    menu.setBorder(BorderFactory.createLineBorder(new Color(0x3e, 0x3e, 0x42), 1));
 
     JMenuItem createNew = new JMenuItem("Create New Pattern Clip (1 bar)");
-    createNew.setForeground(new Color(0x00, 0xff, 0xcc));
-    createNew.setBackground(new Color(0x1e, 0x1e, 0x22));
     createNew.addActionListener(
         e -> {
           int clipCount = track.getClips().size();
           ClipModel newClip = new ClipModel("CLIP " + (clipCount + 1), 8, 16);
           track.addClip(newClip);
-          projectModel.addArrangerClip(new ArrangerClip(trackIdx, newClip, col * 96, 96));
+          int startTicks = arrangerTickForColumn(col);
+          projectModel.addArrangerClip(new ArrangerClip(trackIdx, newClip, startTicks, newClip.getLoopLength()));
           projectChangedCallback.run();
           refreshCallback.run();
         });
@@ -218,11 +212,10 @@ public class ArrangerTimelineController {
                 ? clip.getName()
                 : "Pattern Clip " + (i + 1);
         JMenuItem item = new JMenuItem("Place: " + name);
-        item.setForeground(Color.WHITE);
-        item.setBackground(new Color(0x1e, 0x1e, 0x22));
         item.addActionListener(
             e -> {
-              projectModel.addArrangerClip(new ArrangerClip(trackIdx, clip, col * 96, 96));
+              int startTicks = arrangerTickForColumn(col);
+              projectModel.addArrangerClip(new ArrangerClip(trackIdx, clip, startTicks, clip.getLoopLength()));
               projectChangedCallback.run();
               refreshCallback.run();
             });
@@ -230,6 +223,74 @@ public class ArrangerTimelineController {
       }
     }
 
+    SwingGridPanel.stylePopupMenu(menu);
+    createNew.setForeground(new Color(0x00, 0xff, 0xcc));
+
     menu.show(invoker, 0, invoker.getHeight());
+  }
+
+  public void showArrangerCellContextMenu(
+      Component invoker, final int trackIdx, final int col, int x, int y) {
+    ProjectModel projectModel = getProjectModel();
+    if (projectModel == null || trackIdx >= projectModel.getTracks().size()) return;
+    TrackModel track = projectModel.getTracks().get(trackIdx);
+    ArrangerClip placement = getArrangerClipAt(trackIdx, col);
+
+    JPopupMenu menu = new JPopupMenu();
+
+    if (placement != null) {
+      JMenuItem deleteItem = new JMenuItem("Delete Arranged Clip");
+      deleteItem.addActionListener(
+          e -> {
+            projectModel.getArrangerTimeline().remove(placement);
+            projectChangedCallback.run();
+            refreshCallback.run();
+          });
+      menu.add(deleteItem);
+
+      JMenuItem dupeItem = new JMenuItem("Duplicate Arranged Clip");
+      dupeItem.addActionListener(
+          e -> {
+            int nextStart = placement.startTicks() + placement.durationTicks();
+            projectModel.addArrangerClip(
+                new ArrangerClip(
+                    trackIdx, placement.clip(), nextStart, placement.durationTicks()));
+            projectChangedCallback.run();
+            refreshCallback.run();
+          });
+      menu.add(dupeItem);
+
+      menu.addSeparator();
+    } else {
+      JMenuItem placeNew = new JMenuItem("Add Arranged Clip...");
+      placeNew.addActionListener(
+          e -> {
+            showArrangerClipSelectionPopup(invoker, trackIdx, col);
+          });
+      menu.add(placeNew);
+    }
+
+    JMenuItem editAuto = new JMenuItem("Edit Bar Automation...");
+    editAuto.addActionListener(
+        ev -> {
+          new BarAutomationDialog(
+                  (java.awt.Frame) javax.swing.SwingUtilities.getWindowAncestor(invoker), col)
+              .setVisible(true);
+        });
+    menu.add(editAuto);
+
+    SwingGridPanel.stylePopupMenu(menu);
+
+    for (java.awt.Component comp : menu.getComponents()) {
+      if (comp instanceof JMenuItem mi) {
+        if ("Delete Arranged Clip".equals(mi.getText())) {
+          mi.setForeground(Color.RED);
+        } else if ("Add Arranged Clip...".equals(mi.getText())) {
+          mi.setForeground(new Color(0x00, 0xff, 0xcc));
+        }
+      }
+    }
+
+    menu.show(invoker, x, y);
   }
 }

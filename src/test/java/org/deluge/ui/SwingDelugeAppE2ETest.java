@@ -182,6 +182,11 @@ public class SwingDelugeAppE2ETest {
     // Toggle play state ON to simulate active sequencer playback
     app.getTopBarListener().onPlayToggle();
 
+    // Stop background audio driver thread to avoid resource contention/race with the test's mock audio thread
+    if (app.getPureEngine() != null && app.getPureEngine().getAudioDriver() != null) {
+      app.getPureEngine().getAudioDriver().stop();
+    }
+
     // 2. Start a mock audio thread that calls renderBlock() and measures latency
     org.deluge.engine.FirmwareAudioEngine engine = null;
     Object engObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);

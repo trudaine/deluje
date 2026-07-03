@@ -68,11 +68,15 @@ public class SwingPianoRollDialog extends JDialog {
     this.projectModel = projectModel;
     this.bridge = bridge;
 
-    if (projectModel != null && trackIndex < projectModel.getTracks().size()) {
+    if (projectModel != null && trackIndex >= 0 && trackIndex < projectModel.getTracks().size()) {
       this.trackModel = projectModel.getTracks().get(trackIndex);
-      if (clipIndex < trackModel.getClips().size()) {
+      if (clipIndex >= 0 && clipIndex < trackModel.getClips().size()) {
         this.clipModel = trackModel.getClips().get(clipIndex);
       }
+    }
+
+    if (this.clipModel == null) {
+      throw new IllegalArgumentException("Active clip model cannot be null");
     }
 
     // Determine engine base track ID mapping
@@ -95,6 +99,7 @@ public class SwingPianoRollDialog extends JDialog {
     getContentPane().setBackground(BG_DARK);
 
     buildUI();
+    updateSizes();
 
     // Scroll to C4 (MIDI Note 60) on open
     SwingUtilities.invokeLater(
@@ -204,6 +209,8 @@ public class SwingPianoRollDialog extends JDialog {
 
     add(centralPanel, BorderLayout.CENTER);
 
+    updateSizes();
+
     // Theme repaint registration
     ThemeManager.addThemeListener(this::repaint);
   }
@@ -218,6 +225,7 @@ public class SwingPianoRollDialog extends JDialog {
   }
 
   private void updateSizes() {
+    if (canvas == null || velocityLane == null || keyboardPanel == null) return;
     int totalW = clipModel.getStepCount() * stepWidth + 20;
     int totalH = 128 * rowHeight;
     canvas.setPreferredSize(new Dimension(totalW, totalH));
@@ -385,6 +393,8 @@ public class SwingPianoRollDialog extends JDialog {
       setBackground(BG_GRID);
       updateSizes();
 
+      ToolTipManager.sharedInstance().registerComponent(this);
+
       MouseAdapter listener =
           new MouseAdapter() {
             @Override
@@ -404,6 +414,10 @@ public class SwingPianoRollDialog extends JDialog {
               int noteStepStart = findNoteStartStep(rowIdx, e.getX());
 
               if (clickedNote != null && clickedNote.active()) {
+                if (SwingUtilities.isRightMouseButton(e)) {
+                  showNotePopupMenu(e.getComponent(), e.getX(), e.getY(), rowIdx, noteStepStart, clickedNote);
+                  return;
+                }
                 if (e.getClickCount() == 2) {
                   // Double click to delete
                   deleteNote(rowIdx, noteStepStart);
@@ -426,6 +440,10 @@ public class SwingPianoRollDialog extends JDialog {
                 // Trigger acoustic pitch preview on drag start
                 playPreviewNote(127 - rowIdx);
               } else {
+                if (SwingUtilities.isRightMouseButton(e)) {
+                  showEmptySpacePopupMenu(e.getComponent(), e.getX(), e.getY(), rowIdx, stepIdx);
+                  return;
+                }
                 if (e.getClickCount() == 2) {
                   // Double click on empty space to add note
                   addNote(rowIdx, stepIdx);
@@ -542,6 +560,153 @@ public class SwingPianoRollDialog extends JDialog {
 
       addMouseListener(listener);
       addMouseMotionListener(listener);
+    }
+
+    @Override
+    public String getToolTipText(MouseEvent event) {
+      int stepIdx = (event.getX() - 5) / stepWidth;
+      int rowIdx = event.getY() / rowHeight;
+
+      if (stepIdx >= 0 && stepIdx < clipModel.getStepCount() && rowIdx >= 0 && rowIdx < 128) {
+        StepData note = findNoteAt(rowIdx, event.getX());
+        if (note != null && note.active()) {
+          String noteName = org.deluge.model.ScaleMapper.getNoteName(127 - rowIdx);
+          int noteStart = findNoteStartStep(rowIdx, event.getX());
+          return "<html>Note: <b>" + noteName + "</b><br>"
+              + "Step: " + (noteStart + 1) + "<br>"
+              + "Duration: " + String.format("%.2f", note.gate()) + " steps<br>"
+              + "Velocity: " + String.format("%.0f", note.velocity() * 100) + "%<br>"
+              + "Probability: " + String.format("%.0f", note.probability() * 100) + "%<br>"
+              + "Nudge: " + String.format("%.0f", note.nudge() * 100) + "%</html>";
+        }
+      }
+      return null;
+    }
+
+    private void showNotePopupMenu(Component invoker, int x, int y, int row, int step, StepData note) {
+      JPopupMenu menu = new JPopupMenu();
+
+      JMenuItem editProps = new JMenuItem("Edit Note Properties...");
+      editProps.addActionListener(ev -> showNotePropertiesDialog(row, step, note));
+      menu.add(editProps);
+
+      JMenuItem deleteItem = new JMenuItem("Delete Note");
+      deleteItem.addActionListener(ev -> {
+        deleteNote(row, step);
+        repaint();
+        velocityLane.repaint();
+      });
+      menu.add(deleteItem);
+
+      menu.addSeparator();
+
+      // Quick Velocity preset
+      JMenu velMenu = new JMenu("Quick Velocity");
+      double[] velocities = {0.25, 0.50, 0.75, 1.00};
+      for (double v : velocities) {
+        JMenuItem vItem = new JMenuItem((int) (v * 100) + "%");
+        vItem.addActionListener(ev -> {
+          int engineRow = baseTrackId + row;
+          bridge.setVelocity(engineRow, step, v);
+          StepData updated = new StepData(
+              true, (float) v, note.gate(), note.probability(), note.pitch(), note.iterance(), note.fill(), note.nudge());
+          clipModel.setStep(row, step, updated);
+          repaint();
+          velocityLane.repaint();
+          fireProjectChanged();
+        });
+        velMenu.add(vItem);
+      }
+      menu.add(velMenu);
+
+      // Quick Probability preset
+      JMenu probMenu = new JMenu("Quick Probability");
+      double[] probabilities = {0.25, 0.50, 0.75, 1.00};
+      for (double p : probabilities) {
+        JMenuItem pItem = new JMenuItem((int) (p * 100) + "%");
+        pItem.addActionListener(ev -> {
+          int engineRow = baseTrackId + row;
+          bridge.setStepProbability(engineRow, step, p);
+          StepData updated = new StepData(
+              true, note.velocity(), note.gate(), (float) p, note.pitch(), note.iterance(), note.fill(), note.nudge());
+          clipModel.setStep(row, step, updated);
+          repaint();
+          velocityLane.repaint();
+          fireProjectChanged();
+        });
+        probMenu.add(pItem);
+      }
+      menu.add(probMenu);
+
+      SwingGridPanel.stylePopupMenu(menu);
+
+      // keep Delete Note in red
+      for (java.awt.Component comp : menu.getComponents()) {
+        if (comp instanceof JMenuItem mi && "Delete Note".equals(mi.getText())) {
+          mi.setForeground(Color.RED);
+        }
+      }
+
+      menu.show(invoker, x, y);
+    }
+
+    private void showNotePropertiesDialog(int row, int step, StepData note) {
+      StepPropertiesDialog dlg = new StepPropertiesDialog(
+          (Frame) SwingUtilities.getWindowAncestor(SwingPianoRollDialog.this),
+          (int) (note.velocity() * 100),
+          note.iterance(),
+          (int) (note.fill() * 100),
+          (int) (note.probability() * 100),
+          note.gate(),
+          (int) (note.nudge() * 100)
+      );
+      dlg.setVisible(true);
+      if (dlg.isConfirmed()) {
+        int engineRow = baseTrackId + row;
+        double newVel = dlg.getVelocity() / 100.0;
+        int newIt = dlg.getIterance();
+        double newFill = dlg.getFill() / 100.0;
+        double newProb = dlg.getProbability() / 100.0;
+        double newGate = dlg.getGate();
+        double newNudge = dlg.getNudge() / 100.0;
+
+        bridge.setVelocity(engineRow, step, newVel);
+        bridge.setIterance(engineRow, step, newIt);
+        bridge.setStepFill(engineRow, step, newNudge);
+        bridge.setStepProbability(engineRow, step, newProb);
+        bridge.setGate(engineRow, step, newGate);
+
+        StepData updated = new StepData(
+            true,
+            (float) newVel,
+            (float) newGate,
+            (float) newProb,
+            note.pitch(),
+            newIt,
+            (float) newFill,
+            (float) newNudge);
+        clipModel.setStep(row, step, updated);
+        repaint();
+        velocityLane.repaint();
+        fireProjectChanged();
+      }
+    }
+
+    private void showEmptySpacePopupMenu(Component invoker, int x, int y, int row, int step) {
+      JPopupMenu menu = new JPopupMenu();
+
+      JMenuItem addItem = new JMenuItem("Add Note");
+      addItem.addActionListener(ev -> {
+        addNote(row, step);
+        repaint();
+        velocityLane.repaint();
+      });
+      menu.add(addItem);
+
+      SwingGridPanel.stylePopupMenu(menu);
+      addItem.setForeground(new Color(0x00, 0xff, 0xcc));
+
+      menu.show(invoker, x, y);
     }
 
     private StepData findNoteAt(int row, int mouseX) {
@@ -683,13 +848,6 @@ public class SwingPianoRollDialog extends JDialog {
             g2.setStroke(new BasicStroke(1.0f));
             g2.drawRoundRect(noteX, noteY, noteW, noteH, 6, 6);
 
-            // Draw note label inside if large enough
-            if (noteW > 35) {
-              g2.setFont(new Font("SansSerif", Font.BOLD, 9));
-              g2.setColor(Color.WHITE);
-              String label = org.deluge.model.ScaleMapper.getNoteName(127 - r);
-              g2.drawString(label, noteX + 6, noteY + noteH - 4);
-            }
           }
         }
       }

@@ -189,16 +189,14 @@ public class SwingProjectSidebarPanel extends JPanel {
     libraryTree.setCellRenderer(renderer);
 
     JPopupMenu localPopupMenu = new JPopupMenu();
-    localPopupMenu.setBackground(new Color(0x1a, 0x1a, 0x20));
-    localPopupMenu.setBorder(BorderFactory.createLineBorder(new Color(0x25, 0x25, 0x28)));
 
     JMenuItem localCopyItem = new JMenuItem("📋 Copy");
-    localCopyItem.setForeground(Color.WHITE);
     localPopupMenu.add(localCopyItem);
 
     JMenuItem localPasteItem = new JMenuItem("📋 Paste");
-    localPasteItem.setForeground(Color.WHITE);
     localPopupMenu.add(localPasteItem);
+
+    SwingGridPanel.stylePopupMenu(localPopupMenu);
 
     localCopyItem.addActionListener(
         ev -> {
@@ -660,11 +658,8 @@ public class SwingProjectSidebarPanel extends JPanel {
 
     // 3. Right-Click Popup Menu for Table
     JPopupMenu popupMenu = new JPopupMenu();
-    popupMenu.setBackground(new Color(0x1a, 0x1a, 0x20));
-    popupMenu.setBorder(BorderFactory.createLineBorder(new Color(0x25, 0x25, 0x28)));
 
     JMenuItem downloadItem = new JMenuItem("📥 Download & Open");
-    downloadItem.setForeground(Color.WHITE);
     downloadItem.addActionListener(
         e -> {
           int row = remoteTable.getSelectedRow();
@@ -681,27 +676,22 @@ public class SwingProjectSidebarPanel extends JPanel {
     popupMenu.add(downloadItem);
 
     JMenuItem uploadItem = new JMenuItem("📤 Upload Local File...");
-    uploadItem.setForeground(Color.WHITE);
     uploadItem.addActionListener(e -> triggerLocalUpload());
     popupMenu.add(uploadItem);
 
     JMenuItem mkdirItem = new JMenuItem("📁 New Folder...");
-    mkdirItem.setForeground(Color.WHITE);
     mkdirItem.addActionListener(e -> triggerNewFolder());
     popupMenu.add(mkdirItem);
 
     JMenuItem renameItem = new JMenuItem("✏️ Rename...");
-    renameItem.setForeground(Color.WHITE);
     renameItem.addActionListener(e -> triggerRename());
     popupMenu.add(renameItem);
 
     JMenuItem deleteItem = new JMenuItem("❌ Delete");
-    deleteItem.setForeground(Color.WHITE);
     deleteItem.addActionListener(e -> triggerDelete());
     popupMenu.add(deleteItem);
 
     JMenuItem copyItem = new JMenuItem("📋 Copy");
-    copyItem.setForeground(Color.WHITE);
     copyItem.addActionListener(
         e -> {
           int row = remoteTable.getSelectedRow();
@@ -720,7 +710,6 @@ public class SwingProjectSidebarPanel extends JPanel {
     popupMenu.add(copyItem);
 
     JMenuItem pasteItem = new JMenuItem("📋 Paste");
-    pasteItem.setForeground(Color.WHITE);
     pasteItem.addActionListener(
         e -> {
           if (isRemoteSource && remoteClipboardPath != null) {
@@ -741,6 +730,19 @@ public class SwingProjectSidebarPanel extends JPanel {
           }
         });
     popupMenu.add(pasteItem);
+
+    SwingGridPanel.stylePopupMenu(popupMenu);
+
+    // Apply color highlighting to special actions
+    for (java.awt.Component comp : popupMenu.getComponents()) {
+      if (comp instanceof JMenuItem mi) {
+        if ("📥 Download & Open".equals(mi.getText())) {
+          mi.setForeground(new Color(0x00, 0xff, 0xcc));
+        } else if ("❌ Delete".equals(mi.getText())) {
+          mi.setForeground(Color.RED);
+        }
+      }
+    }
 
     popupMenu.addPopupMenuListener(
         new javax.swing.event.PopupMenuListener() {
