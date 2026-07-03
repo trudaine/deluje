@@ -1504,7 +1504,7 @@ Maps hardware buttons to keyboard shortcuts and mouse gestures. Sections marked 
 | GL09 | Save + Collect All Samples | ⚠ not yet implemented |
 | GL10 | Change Tempo | BPM slider (toolbar), or `Ctrl+Up/Down` |
 | GL11 | Tap Tempo | `T` (focus on main window) |
-| GL12 | Metronome On/Off | ⚠ not yet implemented |
+| GL12 | Metronome On/Off | Shift+click tap tempo button, or press Shift+T |
 | GL13 | Swing | SWING slider (toolbar), default 50% = no swing |
 | GL14 | Settings / Preferences | **Settings > Preferences…** |
 | GL15 | Set Samples Directory | **Settings > Set Samples Directory…** |
@@ -1529,23 +1529,23 @@ Maps hardware buttons to keyboard shortcuts and mouse gestures. Sections marked 
 | SQ05 | Set per-step filter | `Right-click` cell → **Step Editor** → filter offset |
 | SQ06 | Set per-step pan | `Right-click` cell → **Step Editor** → pan offset |
 | SQ07 | Set sample start/end | `Right-click` cell → **Step Editor** → start / end |
-| SQ08 | Duplicate clip content | ⚠ not yet implemented (`Ctrl+D` planned) |
+| SQ08 | Duplicate track length (Double) | Shift + push ◄► / Click [Double & Append] |
 | SQ09 | Cross-screen editing | Drag note tail near screen border to auto-scroll and extend notes across pages |
-| SQ10 | Add instrument / row | ⚠ rows loaded from XML only; drag-and-drop planned |
+| SQ10 | Add track row | Click '+ KIT' or '+ SYNTH' in top toolbar |
 | SQ11 | Record live notes | `R` (while focused on grid) |
 | SQ12 | Resample | ⚠ not yet implemented |
 | SQ13 | Shift all clip notes | ⚠ not yet implemented |
 | SQ14 | Clear clip | ⚠ not yet implemented (`Ctrl+Delete` planned) |
-| SQ15 | Change clip / row colour | ⚠ not yet implemented |
-| SQ16 | Note nudge left/right | ⚠ not yet implemented |
+| SQ15 | Change track color | Right-click row header ➔ Change Track Color |
+| SQ16 | Note nudge | Right-click step ➔ Step Editor ➔ nudge slider |
 | SQ17 | Reduce clip length | `Ctrl+[` |
 | SQ18 | Increase clip length | `Ctrl+]` |
 | SQ19 | Reset clip length to 16 | `Ctrl+Shift+L` |
 | SQ20 | Poly Rhythms | Set each row's length independently via `Ctrl+[` / `Ctrl+]` when that row is focused. |
 | SQ21 | Move kit clip row | ⚠ not yet implemented |
-| SQ22 | Note repeat | ⚠ not yet implemented |
-| SQ23 | Copy notes | `Ctrl+C` (⚠ planned) |
-| SQ24 | Paste notes | `Ctrl+V` (⚠ planned) |
+| SQ22 | Note repeat (stutter) | Right-click step ➔ Step Editor ➔ repeats slider |
+| SQ23 | Copy notes | `Ctrl+Shift+C` |
+| SQ24 | Paste notes | `Ctrl+Shift+V` |
 | SQ25 | Set note iteration group | ⚠ not yet implemented |
 
 ---
@@ -1560,9 +1560,9 @@ Switch to Song view: `F2` or click **[SONG]** tab.
 | SV02 | Launch clip immediately | `Click` |
 | SV03 | Enter clip (edit) | `Click` clip block or track name button → switches to CLIP view |
 | SV04 | Create new clip | `Right-click` empty row → **New Clip** |
-| SV05 | Move row up/down | ⚠ not yet implemented |
-| SV06 | Clone clip | ⚠ not yet implemented |
-| SV07 | Delete clip | ⚠ not yet implemented |
+| SV05 | Move track row up/down | Right-click row header ➔ Move Up / Move Down |
+| SV06 | Duplicate clip variant | Right-click clip pad ➔ Duplicate Clip |
+| SV07 | Delete clip variant | Right-click clip pad ➔ Delete Clip |
 | SV08 | Solo track | `Click` **[S]** button on row header |
 | SV09 | Un-solo | `Click` **[S]** again |
 | SV10 | Mute / unmute track | `Click` **[M]** button on row header |
@@ -1591,11 +1591,11 @@ In SONG and ARRANGER views, all rows display the project track name.
 
 | # | Action | How |
 | :--- | :--- | :--- |
-| RS01 | Record sample (live) | ⚠ not yet implemented |
+| RS01 | Record sample / audio (live) | Click Looper [● REC] button on a looper track |
 | RS02 | Resample synth output | ⚠ not yet implemented |
 | RS03 | Load sample into kit row | Row **[⚙]** → Sample section → **Browse…** |
 | RS04 | Load all samples to kit | ⚠ (auto-loaded from XML) |
-| RS05 | Slice sample | ⚠ not yet implemented |
+| RS05 | Slice sample | Select Tools ➔ Audio Loop Slicer... (Ctrl+L) |
 | RS06 | Loop resample | ⚠ not yet implemented |
 | RS07 | Rename sample | ⚠ rename via OS file manager |
 | RS08 | Multi-sampling | ⚠ not yet implemented |
