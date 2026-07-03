@@ -3803,6 +3803,39 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
         }
       }
     } else if (viewMode == GridViewMode.SONG || viewMode == GridViewMode.ARRANGEMENT) {
+      // ARRANGEMENT: resolve the whole visible clip-instance grid up front via the pure
+      // ArrangementProjector (colours pinned by ArrangementProjectorTest), so this loop just blits
+      // the already-computed PadCell instead of recomputing head/loop/blur inline per cell.
+      PadCell[][] arrGrid = null;
+      PadCell[][] songGrid = null;
+      if (viewMode == GridViewMode.ARRANGEMENT) {
+        int[] rowToTrack = new int[gridMode.rows];
+        for (int v = 0; v < gridMode.rows; v++) {
+          int mr = songRowIndex(v);
+          rowToTrack[v] = (mr >= 0 && mr < tracks.size()) ? mr : -1;
+        }
+        arrGrid =
+            ArrangementProjector.project(
+                projectModel.getArrangerTimeline(),
+                rowToTrack,
+                gridMode.rows,
+                columnCount,
+                arrangerController.arrangerTickForColumn(scrollOffsetX),
+                arrangerController.arrangerTicksPerColumn());
+      } else { // SONG
+        java.util.List<SongProjector.Row> songRows = new java.util.ArrayList<>(gridMode.rows);
+        for (int v = 0; v < gridMode.rows; v++) {
+          int mr = songRowIndex(v);
+          if (mr >= 0 && mr < tracks.size()) {
+            org.deluge.model.TrackModel t = tracks.get(mr);
+            org.deluge.model.ClipModel clip = t.getClips().isEmpty() ? null : t.getClips().get(0);
+            songRows.add(new SongProjector.Row(clip, getTrackColour(mr)));
+          } else {
+            songRows.add(null);
+          }
+        }
+        songGrid = SongProjector.project(songRows, gridMode.rows, columnCount, scrollOffsetX);
+      }
       for (int v = 0; v < gridMode.rows; v++) {
         // Bottom-up SONG/ARR order, shared with the row-header builder (songDisplayRows) so the pad
         // recolour agrees with the left labels; -1 marks the empty rows above the tracks.
@@ -3902,53 +3935,20 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
               Color arrCellColour = null;
               if (modelRow < tracks.size()) {
                 org.deluge.model.TrackModel track = tracks.get(modelRow);
-                if (viewMode == GridViewMode.SONG && !track.getClips().isEmpty()) {
-                  // Deluge session view draws the clip's step PATTERN across the row
-                  // (renderAsSingleRow): light column c if the clip has a note at that step in ANY
-                  // note row, in the clip's colour — so an active clip fills many cells, not just
-                  // one.
-                  org.deluge.model.ClipModel clip = track.getClips().get(0);
-                  int step = c + scrollOffsetX;
-                  if (step < clip.getStepCount()) {
-                    for (int r = 0; r < clip.getRowCount(); r++) {
-                      org.deluge.model.StepData sd = clip.getStep(r, step);
-                      if (sd != null && sd.active()) {
-                        hasClip = true;
-                        break;
-                      }
-                    }
-                  }
+                if (viewMode == GridViewMode.SONG) {
+                  // Session row = the clip's step PATTERN (SongProjector, pinned by
+                  // SongProjectorTest): column lit when the clip has an active note at that step in
+                  // ANY note row. Colour stays getTrackColour(modelRow) below.
+                  PadCell cell = (songGrid != null && c < columnCount) ? songGrid[v][c] : null;
+                  hasClip = cell != null && cell.active();
                 } else if (viewMode == GridViewMode.ARRANGEMENT) {
-                  // Deluge arranger clip-instance bar (arranger_view.cpp renderRow, ~2356): the
-                  // HEAD square (where the instance starts) is the full section colour; body
-                  // squares
-                  // are dimmed, with a brighter marker at every clip loopLength boundary showing
-                  // the
-                  // repeats: loop-start = colour.dim(3), mid-loop = colour.forBlur().dim(3).
-                  int col = c + scrollOffsetX;
-                  org.deluge.model.ArrangerClip ac =
-                      arrangerController.getArrangerClipAt(modelRow, col);
-                  hasClip = ac != null;
-                  if (ac != null) {
-                    int section = ac.clip() != null ? ac.clip().getSection() : -1;
-                    Color base = DelugeColour.sectionColour(section);
-                    int colTick = arrangerController.arrangerTickForColumn(col);
-                    int colTicks = arrangerController.arrangerTicksPerColumn();
-                    boolean isHead =
-                        ac.startTicks() >= colTick && ac.startTicks() < colTick + colTicks;
-                    if (ac.clip() == null) {
-                      arrCellColour = DelugeColour.dim(base, 4); // arrangement-only preview
-                    } else if (isHead) {
-                      arrCellColour = base;
-                    } else {
-                      int loopLen = ac.clip().getLoopLength();
-                      int rel = colTick - ac.startTicks();
-                      boolean loopStart = loopLen > 0 && (rel % loopLen == 0);
-                      arrCellColour =
-                          loopStart
-                              ? DelugeColour.dim(base, 3)
-                              : DelugeColour.dim(DelugePadButton.getBlurColor(base), 3);
-                    }
+                  // Clip-instance colour already resolved by ArrangementProjector (head = full
+                  // section colour, loop boundary = dim(3), mid-loop body = dim(forBlur,3),
+                  // arrangement-only = dim(4)); blit the PadCell for this display row/column.
+                  PadCell cell = (arrGrid != null && c < columnCount) ? arrGrid[v][c] : null;
+                  if (cell != null && cell.active()) {
+                    hasClip = true;
+                    arrCellColour = cell.colour();
                   }
                 } else if (c < track.getClips().size()) {
                   hasClip = true;
