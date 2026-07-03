@@ -309,6 +309,10 @@ public class Wavetable3DVisualizer extends JPanel {
     JMenuItem editItem = new JMenuItem("🔬 Open 3D Wavetable Laboratory & Editor...");
     editItem.addActionListener(al -> openEditorDialog());
     menu.add(editItem);
+
+    SwingGridPanel.stylePopupMenu(menu);
+    editItem.setForeground(new Color(0x00, 0xff, 0xcc));
+
     menu.show(this, e.getX(), e.getY());
   }
 

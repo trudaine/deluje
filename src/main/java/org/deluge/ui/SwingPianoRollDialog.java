@@ -582,18 +582,12 @@ public class SwingPianoRollDialog extends JDialog {
 
     private void showNotePopupMenu(Component invoker, int x, int y, int row, int step, StepData note) {
       JPopupMenu menu = new JPopupMenu();
-      menu.setBackground(new Color(0x1e, 0x1e, 0x22));
-      menu.setBorder(BorderFactory.createLineBorder(new Color(0x3e, 0x3e, 0x42), 1));
 
       JMenuItem editProps = new JMenuItem("Edit Note Properties...");
-      editProps.setForeground(Color.WHITE);
-      editProps.setBackground(new Color(0x1e, 0x1e, 0x22));
       editProps.addActionListener(ev -> showNotePropertiesDialog(row, step, note));
       menu.add(editProps);
 
       JMenuItem deleteItem = new JMenuItem("Delete Note");
-      deleteItem.setForeground(Color.RED);
-      deleteItem.setBackground(new Color(0x1e, 0x1e, 0x22));
       deleteItem.addActionListener(ev -> {
         deleteNote(row, step);
         repaint();
@@ -605,13 +599,9 @@ public class SwingPianoRollDialog extends JDialog {
 
       // Quick Velocity preset
       JMenu velMenu = new JMenu("Quick Velocity");
-      velMenu.setForeground(Color.WHITE);
-      velMenu.setBackground(new Color(0x1e, 0x1e, 0x22));
       double[] velocities = {0.25, 0.50, 0.75, 1.00};
       for (double v : velocities) {
         JMenuItem vItem = new JMenuItem((int) (v * 100) + "%");
-        vItem.setForeground(Color.WHITE);
-        vItem.setBackground(new Color(0x1e, 0x1e, 0x22));
         vItem.addActionListener(ev -> {
           int engineRow = baseTrackId + row;
           bridge.setVelocity(engineRow, step, v);
@@ -628,13 +618,9 @@ public class SwingPianoRollDialog extends JDialog {
 
       // Quick Probability preset
       JMenu probMenu = new JMenu("Quick Probability");
-      probMenu.setForeground(Color.WHITE);
-      probMenu.setBackground(new Color(0x1e, 0x1e, 0x22));
       double[] probabilities = {0.25, 0.50, 0.75, 1.00};
       for (double p : probabilities) {
         JMenuItem pItem = new JMenuItem((int) (p * 100) + "%");
-        pItem.setForeground(Color.WHITE);
-        pItem.setBackground(new Color(0x1e, 0x1e, 0x22));
         pItem.addActionListener(ev -> {
           int engineRow = baseTrackId + row;
           bridge.setStepProbability(engineRow, step, p);
@@ -648,6 +634,15 @@ public class SwingPianoRollDialog extends JDialog {
         probMenu.add(pItem);
       }
       menu.add(probMenu);
+
+      SwingGridPanel.stylePopupMenu(menu);
+
+      // keep Delete Note in red
+      for (java.awt.Component comp : menu.getComponents()) {
+        if (comp instanceof JMenuItem mi && "Delete Note".equals(mi.getText())) {
+          mi.setForeground(Color.RED);
+        }
+      }
 
       menu.show(invoker, x, y);
     }
@@ -696,18 +691,17 @@ public class SwingPianoRollDialog extends JDialog {
 
     private void showEmptySpacePopupMenu(Component invoker, int x, int y, int row, int step) {
       JPopupMenu menu = new JPopupMenu();
-      menu.setBackground(new Color(0x1e, 0x1e, 0x22));
-      menu.setBorder(BorderFactory.createLineBorder(new Color(0x3e, 0x3e, 0x42), 1));
 
       JMenuItem addItem = new JMenuItem("Add Note");
-      addItem.setForeground(Color.WHITE);
-      addItem.setBackground(new Color(0x1e, 0x1e, 0x22));
       addItem.addActionListener(ev -> {
         addNote(row, step);
         repaint();
         velocityLane.repaint();
       });
       menu.add(addItem);
+
+      SwingGridPanel.stylePopupMenu(menu);
+      addItem.setForeground(new Color(0x00, 0xff, 0xcc));
 
       menu.show(invoker, x, y);
     }

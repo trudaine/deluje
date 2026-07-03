@@ -613,15 +613,11 @@ public class AutomationEditorController {
   private void showAutomationCellPopupMenu(
       Component invoker, int x, int y, ClipModel clip, String paramName, int colIdx) {
     JPopupMenu menu = new JPopupMenu();
-    menu.setBackground(new Color(0x1e, 0x1e, 0x22));
-    menu.setBorder(BorderFactory.createLineBorder(new Color(0x3e, 0x3e, 0x42), 1));
 
     float currentVal = clip.getAutomation(paramName, colIdx);
     boolean hasVal = currentVal >= 0.0f;
 
     JMenuItem setPrecise = new JMenuItem("Set Precise Value...");
-    setPrecise.setForeground(Color.WHITE);
-    setPrecise.setBackground(new Color(0x1e, 0x1e, 0x22));
     setPrecise.addActionListener(
         ev -> {
           String init = hasVal ? String.format("%.0f", currentVal * 100) : "50";
@@ -652,8 +648,6 @@ public class AutomationEditorController {
     menu.add(setPrecise);
 
     JMenuItem clearPoint = new JMenuItem("Clear Automation Point");
-    clearPoint.setForeground(hasVal ? Color.RED : Color.GRAY);
-    clearPoint.setBackground(new Color(0x1e, 0x1e, 0x22));
     clearPoint.setEnabled(hasVal);
     clearPoint.addActionListener(
         ev -> {
@@ -667,7 +661,7 @@ public class AutomationEditorController {
               int acIdx = pm.getTracks().get(tIdx).getActiveClipIndex();
               pm.getUndoRedoStack().push(
                   new Consequence.AutomationConsequence(
-                      pm, tIdx, acIdx, paramName, colIdx, oldVal, -1f));
+                       pm, tIdx, acIdx, paramName, colIdx, oldVal, -1f));
             }
             refreshCallback.run();
           }
@@ -678,8 +672,6 @@ public class AutomationEditorController {
 
     // Quick presets
     JMenu quickVals = new JMenu("Quick Value");
-    quickVals.setForeground(Color.WHITE);
-    quickVals.setBackground(new Color(0x1e, 0x1e, 0x22));
     double[] vals = {0.0, 0.25, 0.50, 0.75, 1.00};
     for (double v : vals) {
       JMenuItem vItem = new JMenuItem((int) (v * 100) + "%");
@@ -700,6 +692,13 @@ public class AutomationEditorController {
       quickVals.add(vItem);
     }
     menu.add(quickVals);
+
+    SwingGridPanel.stylePopupMenu(menu);
+    for (java.awt.Component comp : menu.getComponents()) {
+      if (comp instanceof JMenuItem mi && "Clear Automation Point".equals(mi.getText())) {
+        mi.setForeground(hasVal ? Color.RED : Color.GRAY);
+      }
+    }
 
     menu.show(invoker, x, y);
   }

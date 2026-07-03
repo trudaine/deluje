@@ -1011,6 +1011,26 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     }
   }
 
+  public static void stylePopupMenu(JPopupMenu menu) {
+    menu.setBackground(new Color(0x1e, 0x1e, 0x22));
+    menu.setBorder(BorderFactory.createLineBorder(new Color(0x3e, 0x3e, 0x42), 1));
+    for (java.awt.Component comp : menu.getComponents()) {
+      styleMenuComponent(comp);
+    }
+  }
+
+  private static void styleMenuComponent(java.awt.Component comp) {
+    if (comp instanceof javax.swing.JMenuItem item) {
+      item.setForeground(Color.WHITE);
+      item.setBackground(new Color(0x1e, 0x1e, 0x22));
+      if (item instanceof javax.swing.JMenu subMenu) {
+        for (java.awt.Component subComp : subMenu.getMenuComponents()) {
+          styleMenuComponent(subComp);
+        }
+      }
+    }
+  }
+
   public int getFocusTrack() {
     return focusTrack;
   }
@@ -3138,11 +3158,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                       showClipContextMenu(clipBtn, e.getX(), e.getY(), songTrack, clipCol, trkIdx);
                     } else {
                       JPopupMenu emptyClipMenu = new JPopupMenu();
-                      emptyClipMenu.setBackground(new Color(0x1e, 0x1e, 0x22));
-                      emptyClipMenu.setBorder(BorderFactory.createLineBorder(new Color(0x3e, 0x3e, 0x42), 1));
                       JMenuItem createItem = new JMenuItem("Create New Clip Pattern");
-                      createItem.setForeground(Color.WHITE);
-                      createItem.setBackground(new Color(0x1e, 0x1e, 0x22));
                       createItem.addActionListener(ev -> {
                         String name = "CLIP " + (clipCol + 1);
                         songTrack.addClip(
@@ -3155,6 +3171,10 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                         fireProjectChanged();
                       });
                       emptyClipMenu.add(createItem);
+
+                      stylePopupMenu(emptyClipMenu);
+                      createItem.setForeground(new Color(0x00, 0xff, 0xcc));
+
                       emptyClipMenu.show(clipBtn, e.getX(), e.getY());
                     }
                   } else {
@@ -7668,28 +7688,20 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   private void showCreateTrackMenu(
       java.awt.Component src, int x, int y, final int row, final int col) {
     JPopupMenu menu = new JPopupMenu();
-    menu.setBackground(new Color(0x1e, 0x1e, 0x22));
-    menu.setBorder(BorderFactory.createLineBorder(new Color(0x3e, 0x3e, 0x42), 1));
 
     JMenuItem createSynth = new JMenuItem("Create SYNTH Track");
-    createSynth.setForeground(Color.WHITE);
-    createSynth.setBackground(new Color(0x1e, 0x1e, 0x22));
     createSynth.addActionListener(
         ev -> {
           createTrackAndNavigate(row, col, "SYNTH");
         });
 
     JMenuItem createKit = new JMenuItem("Create KIT Track");
-    createKit.setForeground(Color.WHITE);
-    createKit.setBackground(new Color(0x1e, 0x1e, 0x22));
     createKit.addActionListener(
         ev -> {
           createTrackAndNavigate(row, col, "KIT");
         });
 
     JMenuItem createAudio = new JMenuItem("Create AUDIO Track");
-    createAudio.setForeground(Color.WHITE);
-    createAudio.setBackground(new Color(0x1e, 0x1e, 0x22));
     createAudio.addActionListener(
         ev -> {
           createTrackAndNavigate(row, col, "AUDIO");
@@ -7698,6 +7710,12 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     menu.add(createSynth);
     menu.add(createKit);
     menu.add(createAudio);
+
+    stylePopupMenu(menu);
+
+    // style SYNTH in neon cyan as a default primary choice
+    createSynth.setForeground(new Color(0x00, 0xff, 0xcc));
+
     menu.show(src, x, y);
   }
 

@@ -788,6 +788,13 @@ public class ClipEditorController {
         });
     popup.add(pasteItem);
 
+    SwingGridPanel.stylePopupMenu(popup);
+    for (java.awt.Component comp : popup.getComponents()) {
+      if (comp instanceof JMenuItem mi && "Open Piano Roll Editor...".equals(mi.getText())) {
+        mi.setForeground(new Color(0x00, 0xff, 0xcc));
+      }
+    }
+
     Point localPt = new Point(screenPos);
     SwingUtilities.convertPointFromScreen(localPt, parent);
     popup.show(parent, localPt.x, localPt.y);

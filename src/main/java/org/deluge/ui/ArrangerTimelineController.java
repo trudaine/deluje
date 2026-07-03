@@ -187,12 +187,8 @@ public class ArrangerTimelineController {
     TrackModel track = projectModel.getTracks().get(trackIdx);
 
     JPopupMenu menu = new JPopupMenu();
-    menu.setBackground(new Color(0x1e, 0x1e, 0x22));
-    menu.setBorder(BorderFactory.createLineBorder(new Color(0x3e, 0x3e, 0x42), 1));
 
     JMenuItem createNew = new JMenuItem("Create New Pattern Clip (1 bar)");
-    createNew.setForeground(new Color(0x00, 0xff, 0xcc));
-    createNew.setBackground(new Color(0x1e, 0x1e, 0x22));
     createNew.addActionListener(
         e -> {
           int clipCount = track.getClips().size();
@@ -213,8 +209,6 @@ public class ArrangerTimelineController {
                 ? clip.getName()
                 : "Pattern Clip " + (i + 1);
         JMenuItem item = new JMenuItem("Place: " + name);
-        item.setForeground(Color.WHITE);
-        item.setBackground(new Color(0x1e, 0x1e, 0x22));
         item.addActionListener(
             e -> {
               projectModel.addArrangerClip(new ArrangerClip(trackIdx, clip, col * 96, 96));
@@ -224,6 +218,9 @@ public class ArrangerTimelineController {
         menu.add(item);
       }
     }
+
+    SwingGridPanel.stylePopupMenu(menu);
+    createNew.setForeground(new Color(0x00, 0xff, 0xcc));
 
     menu.show(invoker, 0, invoker.getHeight());
   }
@@ -236,13 +233,9 @@ public class ArrangerTimelineController {
     ArrangerClip placement = getArrangerClipAt(trackIdx, col);
 
     JPopupMenu menu = new JPopupMenu();
-    menu.setBackground(new Color(0x1e, 0x1e, 0x22));
-    menu.setBorder(BorderFactory.createLineBorder(new Color(0x3e, 0x3e, 0x42), 1));
 
     if (placement != null) {
       JMenuItem deleteItem = new JMenuItem("Delete Arranged Clip");
-      deleteItem.setForeground(Color.RED);
-      deleteItem.setBackground(new Color(0x1e, 0x1e, 0x22));
       deleteItem.addActionListener(
           e -> {
             projectModel.getArrangerTimeline().remove(placement);
@@ -252,8 +245,6 @@ public class ArrangerTimelineController {
       menu.add(deleteItem);
 
       JMenuItem dupeItem = new JMenuItem("Duplicate Arranged Clip");
-      dupeItem.setForeground(Color.WHITE);
-      dupeItem.setBackground(new Color(0x1e, 0x1e, 0x22));
       dupeItem.addActionListener(
           e -> {
             int nextStart = placement.startTicks() + placement.durationTicks();
@@ -268,8 +259,6 @@ public class ArrangerTimelineController {
       menu.addSeparator();
     } else {
       JMenuItem placeNew = new JMenuItem("Add Arranged Clip...");
-      placeNew.setForeground(new Color(0x00, 0xff, 0xcc));
-      placeNew.setBackground(new Color(0x1e, 0x1e, 0x22));
       placeNew.addActionListener(
           e -> {
             showArrangerClipSelectionPopup(invoker, trackIdx, col);
@@ -278,8 +267,6 @@ public class ArrangerTimelineController {
     }
 
     JMenuItem editAuto = new JMenuItem("Edit Bar Automation...");
-    editAuto.setForeground(Color.WHITE);
-    editAuto.setBackground(new Color(0x1e, 0x1e, 0x22));
     editAuto.addActionListener(
         ev -> {
           new BarAutomationDialog(
@@ -287,6 +274,18 @@ public class ArrangerTimelineController {
               .setVisible(true);
         });
     menu.add(editAuto);
+
+    SwingGridPanel.stylePopupMenu(menu);
+
+    for (java.awt.Component comp : menu.getComponents()) {
+      if (comp instanceof JMenuItem mi) {
+        if ("Delete Arranged Clip".equals(mi.getText())) {
+          mi.setForeground(Color.RED);
+        } else if ("Add Arranged Clip...".equals(mi.getText())) {
+          mi.setForeground(new Color(0x00, 0xff, 0xcc));
+        }
+      }
+    }
 
     menu.show(invoker, x, y);
   }
