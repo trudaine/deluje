@@ -1031,6 +1031,116 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     }
   }
 
+  private void updateSongPadVisuals(
+      JButton clipBtn,
+      int trackIdx,
+      int colId,
+      boolean hasClip,
+      Color trackColor,
+      org.deluge.project.PreferencesManager.GridColorTheme theme) {
+    long launchQ = bridge != null ? bridge.getLaunchQueue(trackIdx) : -1L;
+    long currentClip = bridge != null ? bridge.getCurrentClip(trackIdx) : 0L;
+    Color padColor;
+    float intensity = 0.8f;
+    boolean active = false;
+    String noteText = "";
+    String tooltipText = "";
+
+    if (launchQ == colId) {
+      padColor = new Color(0xff, 0xaa, 0x00); // amber = queued
+      intensity = 1.0f;
+      active = true;
+      if (hasClip && trackIdx < projectModel.getTracks().size()) {
+        org.deluge.model.TrackModel t = projectModel.getTracks().get(trackIdx);
+        if (colId < t.getClips().size()) {
+          noteText = t.getClips().get(colId).getName();
+        }
+      }
+      tooltipText = "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+          + "<b>Queued Clip Slot " + (colId + 1) + "</b><br>"
+          + "• Status: Queued for launch!<br>"
+          + "• Left-Click: Open in Clip editor grid"
+          + "</body></html>";
+    } else if (currentClip == colId
+        && bridge != null
+        && bridge.getClipPlayMode(trackIdx, colId) == 1) {
+      padColor = new Color(0x00, 0xcc, 0x00); // green = LOOP mode
+      intensity = 1.0f;
+      active = true;
+      if (hasClip && trackIdx < projectModel.getTracks().size()) {
+        org.deluge.model.TrackModel t = projectModel.getTracks().get(trackIdx);
+        if (colId < t.getClips().size()) {
+          noteText = t.getClips().get(colId).getName();
+        }
+      }
+      tooltipText = "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+          + "<b>Playing Clip Slot " + (colId + 1) + "</b><br>"
+          + "• Status: Playing (Loop Mode)<br>"
+          + "• Left-Click: Open in Clip editor grid"
+          + "</body></html>";
+    } else if (currentClip == colId) {
+      padColor = trackColor; // playing
+      intensity = 1.0f;
+      active = true;
+      if (hasClip && trackIdx < projectModel.getTracks().size()) {
+        org.deluge.model.TrackModel t = projectModel.getTracks().get(trackIdx);
+        if (colId < t.getClips().size()) {
+          noteText = t.getClips().get(colId).getName();
+        }
+      }
+      tooltipText = "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+          + "<b>Playing Clip Slot " + (colId + 1) + "</b><br>"
+          + "• Status: Playing<br>"
+          + "• Left-Click: Open in Clip editor grid"
+          + "</body></html>";
+    } else if (hasClip) {
+      padColor = new Color(0x33, 0x44, 0x55); // stopped
+      intensity = 0.5f;
+      active = true;
+      if (trackIdx < projectModel.getTracks().size()) {
+        org.deluge.model.TrackModel t = projectModel.getTracks().get(trackIdx);
+        if (colId < t.getClips().size()) {
+          noteText = t.getClips().get(colId).getName();
+        }
+      }
+      tooltipText = "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+          + "<b>Stopped Clip Slot " + (colId + 1) + "</b><br>"
+          + "• Status: Stopped<br>"
+          + "• Left-Click: Open in Clip editor grid<br>"
+          + "• Right-Click: Rename, Duplicate, Delete, Play Mode/Direction"
+          + "</body></html>";
+    } else {
+      padColor = new Color(0x1a, 0x1a, 0x1a); // empty slot
+      intensity = 0.2f;
+      active = false;
+      noteText = "";
+      tooltipText = "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+          + "<b>Empty Session Slot</b><br>"
+          + "• View Mode: SONG<br>"
+          + "• Action: Click to create new clip pattern slot!"
+          + "</body></html>";
+    }
+
+    clipBtn.setBackground(padColor);
+    clipBtn.setToolTipText(tooltipText);
+
+    if (clipBtn instanceof DelugePadButton pad) {
+      pad.setBaseColor(padColor);
+      pad.setTheme(theme);
+      pad.setActive(active);
+      pad.setIntensity(intensity);
+      pad.setNoteText(noteText);
+      pad.setText("");
+    } else {
+      if (!noteText.isEmpty()) {
+        clipBtn.setText("<html><center><font size='3'><b>" + noteText + "</b></font></center></html>");
+        clipBtn.setForeground(Color.WHITE);
+      } else {
+        clipBtn.setText("");
+      }
+    }
+  }
+
   public int getFocusTrack() {
     return focusTrack;
   }
@@ -4123,22 +4233,8 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
               Color arrCellColour = null;
               if (modelRow < tracks.size()) {
                 org.deluge.model.TrackModel track = tracks.get(modelRow);
-                if (viewMode == GridViewMode.SONG && !track.getClips().isEmpty()) {
-                  // Deluge session view draws the clip's step PATTERN across the row
-                  // (renderAsSingleRow): light column c if the clip has a note at that step in ANY
-                  // note row, in the clip's colour — so an active clip fills many cells, not just
-                  // one.
-                  org.deluge.model.ClipModel clip = track.getClips().get(0);
-                  int step = c + scrollOffsetX;
-                  if (step < clip.getStepCount()) {
-                    for (int r = 0; r < clip.getRowCount(); r++) {
-                      org.deluge.model.StepData sd = clip.getStep(r, step);
-                      if (sd != null && sd.active()) {
-                        hasClip = true;
-                        break;
-                      }
-                    }
-                  }
+                if (viewMode == GridViewMode.SONG) {
+                  hasClip = c < track.getClips().size();
                 } else if (viewMode == GridViewMode.ARRANGEMENT) {
                   // Deluge arranger clip-instance bar (arranger_view.cpp renderRow, ~2356): the
                   // HEAD square (where the instance starts) is the full section colour; body
@@ -4175,28 +4271,39 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                   hasClip = true;
                 }
               }
-              Color cellColour = arrCellColour != null ? arrCellColour : getTrackColour(modelRow);
-              if (clipBtn instanceof DelugePadButton pad) {
-                org.deluge.project.PreferencesManager.GridColorTheme theme =
-                    org.deluge.project.PreferencesManager.getGridColorTheme();
-                pad.setBaseColor(cellColour);
-                pad.setTheme(theme);
-                pad.setActive(hasClip);
-                pad.setMuted(isMuted);
-                pad.setScaleRoot(false);
-                pad.setScaleNote(false);
-                // The arranger's dim(3)/blur shading IS the final LED value from the C; don't let
-                // the pad's velocity-intensity (0.8) darken it again (double-dim -> near-black).
-                if (viewMode == GridViewMode.ARRANGEMENT) {
-                  pad.setIntensity(1.0f);
-                }
-                pad.setBeatMarker(
-                    viewMode == GridViewMode.ARRANGEMENT && ((c + scrollOffsetX) % 4 == 0));
+
+              if (viewMode == GridViewMode.SONG && modelRow < tracks.size()) {
+                updateSongPadVisuals(
+                    clipBtn,
+                    modelRow,
+                    c,
+                    hasClip,
+                    getTrackColour(modelRow),
+                    org.deluge.project.PreferencesManager.getGridColorTheme());
               } else {
-                if (hasClip) {
-                  clipBtn.setBackground(cellColour);
+                Color cellColour = arrCellColour != null ? arrCellColour : getTrackColour(modelRow);
+                if (clipBtn instanceof DelugePadButton pad) {
+                  org.deluge.project.PreferencesManager.GridColorTheme theme =
+                      org.deluge.project.PreferencesManager.getGridColorTheme();
+                  pad.setBaseColor(cellColour);
+                  pad.setTheme(theme);
+                  pad.setActive(hasClip);
+                  pad.setMuted(isMuted);
+                  pad.setScaleRoot(false);
+                  pad.setScaleNote(false);
+                  // The arranger's dim(3)/blur shading IS the final LED value from the C; don't let
+                  // the pad's velocity-intensity (0.8) darken it again (double-dim -> near-black).
+                  if (viewMode == GridViewMode.ARRANGEMENT) {
+                    pad.setIntensity(1.0f);
+                  }
+                  pad.setBeatMarker(
+                      viewMode == GridViewMode.ARRANGEMENT && ((c + scrollOffsetX) % 4 == 0));
                 } else {
-                  clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
+                  if (hasClip) {
+                    clipBtn.setBackground(cellColour);
+                  } else {
+                    clipBtn.setBackground(new Color(0x33, 0x33, 0x33));
+                  }
                 }
               }
             }
@@ -5515,14 +5622,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                   }
                   break;
                 default:
-                  if (dispTrack != null && c < dispTrack.getClips().size()) {
-                    clipBtn.setText(
-                        "<html><center><font size='3'>"
-                            + dispTrack.getClips().get(c).getName()
-                            + "</font></center></html>");
-                  } else {
-                    clipBtn.setText("PAD " + (c + 1));
-                  }
+                  clipBtn.setText("");
                   break;
               }
           }
@@ -5947,49 +6047,13 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
             } else if (viewMode == GridViewMode.SONG
                 && currentTrack < tracks.size()
                 && colId < 16) {
-              // SONG visual states: loop-green, playing (track color), queued (amber), stopped
-              // (dark), empty (very dark)
-              long launchQ = bridge != null ? bridge.getLaunchQueue(currentTrack) : -1L;
-              long currentClip = bridge != null ? bridge.getCurrentClip(currentTrack) : 0L;
-              if (launchQ == colId) {
-                clipBtn.setBackground(new Color(0xff, 0xaa, 0x00)); // amber = queued
-                if (clipBtn instanceof DelugePadButton pad) {
-                  pad.setBaseColor(new Color(0xff, 0xaa, 0x00));
-                  pad.setIntensity(1.0f);
-                  pad.setActive(true);
-                }
-              } else if (currentClip == colId
-                  && bridge != null
-                  && bridge.getClipPlayMode(currentTrack, colId) == 1) {
-                clipBtn.setBackground(new Color(0x00, 0xcc, 0x00)); // green = LOOP mode
-                if (clipBtn instanceof DelugePadButton pad) {
-                  pad.setBaseColor(new Color(0x00, 0xcc, 0x00));
-                  pad.setIntensity(1.0f);
-                  pad.setActive(true);
-                }
-              } else if (currentClip == colId) {
-                clipBtn.setBackground(
-                    trackColors[Math.floorMod(currentTrack, trackColors.length)]); // playing
-                if (clipBtn instanceof DelugePadButton pad) {
-                  pad.setBaseColor(trackColors[Math.floorMod(currentTrack, trackColors.length)]);
-                  pad.setIntensity(1.0f);
-                  pad.setActive(true);
-                }
-              } else if (hasClip) {
-                clipBtn.setBackground(new Color(0x33, 0x44, 0x55)); // stopped
-                if (clipBtn instanceof DelugePadButton pad) {
-                  pad.setBaseColor(new Color(0x33, 0x44, 0x55));
-                  pad.setIntensity(0.5f);
-                  pad.setActive(true);
-                }
-              } else {
-                clipBtn.setBackground(new Color(0x1a, 0x1a, 0x1a)); // empty slot
-                if (clipBtn instanceof DelugePadButton pad) {
-                  pad.setBaseColor(new Color(0x1a, 0x1a, 0x1a));
-                  pad.setIntensity(0.2f);
-                  pad.setActive(false);
-                }
-              }
+              updateSongPadVisuals(
+                  clipBtn,
+                  currentTrack,
+                  colId,
+                  hasClip,
+                  trackColors[Math.floorMod(currentTrack, trackColors.length)],
+                  org.deluge.project.PreferencesManager.getGridColorTheme());
             } else {
               if (hasClip) {
                 clipBtn.setBackground(trackColors[currentTrack]);
@@ -6064,6 +6128,26 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
                           if (clipCol < songTrack.getClips().size()) {
                             showClipContextMenu(
                                 clipBtn, e.getX(), e.getY(), songTrack, clipCol, trkIdx);
+                          } else {
+                            JPopupMenu emptyClipMenu = new JPopupMenu();
+                            JMenuItem createItem = new JMenuItem("Create New Clip Pattern");
+                            createItem.addActionListener(ev -> {
+                              String name = "CLIP " + (clipCol + 1);
+                              songTrack.addClip(
+                                  new org.deluge.model.ClipModel(
+                                      name,
+                                      songTrack.getClips().isEmpty()
+                                          ? 8
+                                          : songTrack.getClips().get(0).getRowCount(),
+                                      16));
+                              fireProjectChanged();
+                            });
+                            emptyClipMenu.add(createItem);
+
+                            stylePopupMenu(emptyClipMenu);
+                            createItem.setForeground(new Color(0x00, 0xff, 0xcc));
+
+                            emptyClipMenu.show(clipBtn, e.getX(), e.getY());
                           }
                         } else {
                           if (clipCol >= songTrack.getClips().size()) {
