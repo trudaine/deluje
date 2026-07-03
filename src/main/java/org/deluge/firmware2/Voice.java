@@ -783,9 +783,11 @@ public class Voice {
     if (sound.synthMode == 1) { // FM
       renderFmPath(mixBuf, numSamples, overallOscAmplitude, overallPitchAdjust);
     } else if (sound.synthMode == 2) {
-      renderRingModPath(mixBuf, numSamples, overallPitchAdjust, hasFilters, filterGain, doingOscSync);
+      renderRingModPath(
+          mixBuf, numSamples, overallPitchAdjust, hasFilters, filterGain, doingOscSync);
     } else {
-      renderSubtractivePath(mixBuf, numSamples, overallPitchAdjust, hasFilters, filterGain, doingOscSync);
+      renderSubtractivePath(
+          mixBuf, numSamples, overallPitchAdjust, hasFilters, filterGain, doingOscSync);
     }
 
     // Noise (voice.cpp:1131-1149): add the noise source into the mono mix before the filter +
@@ -1012,10 +1014,8 @@ public class Voice {
             Functions.multiply_32x32_rshift32_rounded(
                 Functions.multiply_32x32_rshift32(tempBufA[i], tempBufB[i]), amplitudeForRingMod);
         if (stereoUnison) {
-          int l =
-              Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[0]), 2);
-          int r =
-              Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[1]), 2);
+          int l = Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[0]), 2);
+          int r = Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[1]), 2);
           mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], l);
           mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], r);
         } else {
@@ -1100,9 +1100,7 @@ public class Voice {
                   ? srcAmp
                   : Math.max(paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4, 1 << 26);
           if (vs.voiceSample.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]
-              || vs.voiceSample
-                  .timeStretcher
-                  .playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]) {
+              || vs.voiceSample.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]) {
             int requiredTsLen = numSamples * 2;
             if (vs.tsBuf == null || vs.tsBuf.length < requiredTsLen) {
               vs.tsBuf = new int[requiredTsLen];
@@ -1180,15 +1178,13 @@ public class Voice {
               for (int i = 0; i < n; i++) {
                 tempBuf[i] =
                     Functions.lshiftAndSaturate(
-                        Functions.multiply_32x32_rshift32(input[i * 2 + channelOffset], srcAmp),
-                        4);
+                        Functions.multiply_32x32_rshift32(input[i * 2 + channelOffset], srcAmp), 4);
               }
             } else {
               for (int i = 0; i < n; i++) {
                 int mono = (input[i * 2] >> 1) + (input[i * 2 + 1] >> 1);
                 tempBuf[i] =
-                    Functions.lshiftAndSaturate(
-                        Functions.multiply_32x32_rshift32(mono, srcAmp), 4);
+                    Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(mono, srcAmp), 4);
               }
             }
           }
