@@ -2850,7 +2850,7 @@ public class SwingDelugeApp extends JFrame {
     songPanel.setOnProjectChanged(projectChangeHandler);
     centerCardPanel.add(wrapGridPanel(songPanel), "SONG");
 
-    arrGridPanel = new SwingGridPanel(bridge);
+    arrGridPanel = new ArrangerGridPanel(bridge);
     arrGridPanel.setViewMode(SwingGridPanel.GridViewMode.ARRANGEMENT);
     arrGridPanel.setProjectModel(currentProject);
     arrGridPanel.setOnProjectChanged(projectChangeHandler);

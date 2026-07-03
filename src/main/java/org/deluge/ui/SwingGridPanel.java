@@ -265,7 +265,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   private javax.swing.JComboBox<String> automationParamCombo;
 
   // Arranger Timeline interaction is now managed by ArrangerTimelineController
-  private final ArrangerTimelineController arrangerController =
+  final ArrangerTimelineController arrangerController =
       new ArrangerTimelineController(this, this::fireProjectChanged, this::refresh);
 
   boolean shiftHeld = false;
