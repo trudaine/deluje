@@ -11,59 +11,59 @@ import org.deluge.model.SongSection;
 
 /** Unified 18x8 Grid Panel handling both sequence matrix and clip launch arrangements. */
 public class SwingGridPanel extends JPanel implements GridScrollController.GridContext {
-  private static final Logger LOG = Logger.getLogger(SwingGridPanel.class.getName());
-  private final BridgeContract bridge;
+  static final Logger LOG = Logger.getLogger(SwingGridPanel.class.getName());
+  final BridgeContract bridge;
 
-  private org.deluge.model.ProjectModel projectModel;
-  private java.util.function.BiConsumer<Integer, Integer> onEditRequest;
+  org.deluge.model.ProjectModel projectModel;
+  java.util.function.BiConsumer<Integer, Integer> onEditRequest;
   private static final int MAX_GRID_ROWS = 128;
   private static final int MAX_GRID_COLS = 26; // max columns: 24 steps + MUTE + SOLO
-  private JButton[][] pads = new JButton[MAX_GRID_ROWS][MAX_GRID_COLS];
+  JButton[][] pads = new JButton[MAX_GRID_ROWS][MAX_GRID_COLS];
   private org.rtmidijava.RtMidiOut finalMidiOut;
   // VU meters and animation decay are now managed by GridVuManager
-  private final GridVuManager vuManager = new GridVuManager();
+  final GridVuManager vuManager = new GridVuManager();
   private Timer activeStutterTimer;
-  private int auditionMidiNote = -1;
-  private org.deluge.engine.FirmwareSound auditionSynth = null;
+  int auditionMidiNote = -1;
+  org.deluge.engine.FirmwareSound auditionSynth = null;
   public static volatile boolean isLiveRecordModeActive = false;
   private int currentPlayheadStep = -1;
-  private boolean[] isOneShotTrack = new boolean[MAX_GRID_ROWS];
-  private int activeClipId = 0;
-  private int baseTrackId = 0;
-  private int editedModelTrack = 0; // model track index currently being edited in CLIP mode
+  boolean[] isOneShotTrack = new boolean[MAX_GRID_ROWS];
+  int activeClipId = 0;
+  int baseTrackId = 0;
+  int editedModelTrack = 0; // model track index currently being edited in CLIP mode
   public static int lockArmedTrack = -1;
   public static int lockArmedStep = -1;
 
   /** True when the track currently being edited is a Kit (KEYPLAY uses the drum grid for kits). */
-  private boolean isEditedTrackKit() {
+  boolean isEditedTrackKit() {
     return projectModel != null
         && editedModelTrack < projectModel.getTracks().size()
         && projectModel.getTracks().get(editedModelTrack) instanceof org.deluge.model.KitTrackModel;
   }
 
   /** Number of drums in the edited kit track, or 0 if not a kit. */
-  private int editedKitDrumCount() {
+  int editedKitDrumCount() {
     if (!isEditedTrackKit()) return 0;
     return ((org.deluge.model.KitTrackModel) projectModel.getTracks().get(editedModelTrack))
         .getDrums()
         .size();
   }
 
-  private int soloRow = -1; // -1 = no solo
+  int soloRow = -1; // -1 = no solo
   private Timer playheadTimer; // single timer for playhead updates, avoids leaks
   private boolean wasSequencerPlaying; // edge-detect stop to flush MIDI notes
-  private final java.util.List<JButton> pageButtons = new java.util.ArrayList<>();
+  final java.util.List<JButton> pageButtons = new java.util.ArrayList<>();
   // voiceVuMeters, trackVuMeters, and globalVuTimer moved to GridVuManager
-  private int scrollOffset = 67; // vertical scroll offset for voice rows in CLIP mode (C4 at top)
-  private int scrollOffsetX = 0; // horizontal scroll offset for step columns in CLIP mode
+  int scrollOffset = 67; // vertical scroll offset for voice rows in CLIP mode (C4 at top)
+  int scrollOffsetX = 0; // horizontal scroll offset for step columns in CLIP mode
   private boolean playheadFollowMode = true;
-  private JScrollBar vertScrollBar;
-  private JScrollBar horizScrollBar;
-  private final GridScrollController scrollController;
-  private int voiceRowCount = 8; // total number of voice rows for current track
-  private org.deluge.project.PreferencesManager.GridMode gridMode =
+  JScrollBar vertScrollBar;
+  JScrollBar horizScrollBar;
+  final GridScrollController scrollController;
+  int voiceRowCount = 8; // total number of voice rows for current track
+  org.deluge.project.PreferencesManager.GridMode gridMode =
       org.deluge.project.PreferencesManager.getGridMode();
-  private int stepCount = 16; // steps per row, derived from gridMode
+  int stepCount = 16; // steps per row, derived from gridMode
   int columnCount = 18; // stepCount + 2 (MUTE + SOLO), derived from gridMode
 
   private int lastColumnCount = -1;
@@ -75,10 +75,10 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   private int lastPadSz =
       -1; // forces a structural rebuild when the cell size changes (resize/zoom)
 
-  private boolean foldMode = false;
-  private boolean scaleModeEnabled =
+  boolean foldMode = false;
+  boolean scaleModeEnabled =
       true; // default to true (diatonic scale mode) like the real Deluge!
-  private final java.util.List<Integer> foldedPitches = new java.util.ArrayList<>();
+  final java.util.List<Integer> foldedPitches = new java.util.ArrayList<>();
 
   public boolean isScaleModeEnabled() {
     return scaleModeEnabled;
@@ -129,7 +129,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     }
   }
 
-  private Color getAuditionPadBgColor(int modelRow, boolean isSynth, int visualRowIndex) {
+  Color getAuditionPadBgColor(int modelRow, boolean isSynth, int visualRowIndex) {
     if (soloRow == visualRowIndex) {
       return Color.GREEN;
     }
@@ -146,7 +146,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     }
   }
 
-  private Color getAuditionPadFgColor(int modelRow, boolean isSynth, int visualRowIndex) {
+  Color getAuditionPadFgColor(int modelRow, boolean isSynth, int visualRowIndex) {
     if (soloRow == visualRowIndex) {
       return Color.BLACK;
     }
@@ -257,7 +257,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     KEYPLAY
   }
 
-  private GridViewMode viewMode = GridViewMode.SONG;
+  GridViewMode viewMode = GridViewMode.SONG;
 
   // Automation is now managed by AutomationEditorController
   private final AutomationEditorController automationController =
@@ -268,11 +268,11 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   private final ArrangerTimelineController arrangerController =
       new ArrangerTimelineController(this, this::fireProjectChanged, this::refresh);
 
-  private boolean shiftHeld = false;
-  private boolean tabHeld = false;
+  boolean shiftHeld = false;
+  boolean tabHeld = false;
 
   // Clip Editor is now managed by ClipEditorController
-  private final ClipEditorController clipController =
+  final ClipEditorController clipController =
       new ClipEditorController(this, this::refresh, this::fireProjectChanged);
 
   public void setTabHeld(boolean held) {
@@ -286,13 +286,13 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   // activeShiftParam and clonePreview states are now managed by ClipEditorController
 
   // Multi-cell step selection state variables
-  private final java.util.Set<String> selectedCells = new java.util.HashSet<>();
-  private int dragSelStartRow = -1;
-  private int dragSelStartCol = -1;
-  private int dragSelCurrRow = -1;
-  private int dragSelCurrCol = -1;
-  private boolean isDragSelecting = false;
-  private JPanel voicePanel;
+  final java.util.Set<String> selectedCells = new java.util.HashSet<>();
+  int dragSelStartRow = -1;
+  int dragSelStartCol = -1;
+  int dragSelCurrRow = -1;
+  int dragSelCurrCol = -1;
+  boolean isDragSelecting = false;
+  JPanel voicePanel;
 
   public int getActiveShiftRow() {
     return clipController.getActiveShiftRow();
@@ -571,7 +571,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
 
   // gestureCoordinator is now managed by ClipEditorController
 
-  private Color[] trackColors = {
+  Color[] trackColors = {
     new Color(0x00, 0xff, 0xcc), // Cyan
     new Color(0xff, 0x33, 0xcc), // Magenta
     new Color(0x33, 0xff, 0x33), // Lime Green
@@ -601,7 +601,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   /** Cached pad size, computed once per resize so refresh() is idempotent. */
   int cachedPadSz = 48;
 
-  private boolean refreshInProgress = false;
+  boolean refreshInProgress = false;
 
   /** Constrain max size to preferred so BoxLayout can't grow this panel unbounded. */
   @Override
@@ -900,7 +900,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
 
   private int focusTrack = 0;
   private Runnable onProjectChanged;
-  private Runnable onClipChanged;
+  Runnable onClipChanged;
 
   public void setOnProjectChanged(Runnable r) {
     this.onProjectChanged = r;
@@ -956,7 +956,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     return getPadDefaultBg(col);
   }
 
-  private Color getThemeColor(
+  Color getThemeColor(
       org.deluge.project.PreferencesManager.GridColorTheme theme,
       Color trackColor,
       boolean active,
@@ -1031,7 +1031,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     }
   }
 
-  private void updateSongPadVisuals(
+  void updateSongPadVisuals(
       JButton clipBtn,
       int trackIdx,
       int colId,
@@ -1145,7 +1145,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     return focusTrack;
   }
 
-  private void showSoloButtonContextMenu(java.awt.Component src, int x, int y, int trackIdx) {
+  void showSoloButtonContextMenu(java.awt.Component src, int x, int y, int trackIdx) {
     java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
     if (trackIdx >= tracks.size()) return;
     org.deluge.model.TrackModel track = tracks.get(trackIdx);
@@ -1257,7 +1257,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     menu.show(src, x, y);
   }
 
-  private void showTrackContextMenu(java.awt.Component src, int x, int y, int trackIdx) {
+  void showTrackContextMenu(java.awt.Component src, int x, int y, int trackIdx) {
     java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
     if (trackIdx >= tracks.size()) return;
     org.deluge.model.TrackModel track = tracks.get(trackIdx);
@@ -1469,7 +1469,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     }
   }
 
-  private void showClipContextMenu(
+  void showClipContextMenu(
       java.awt.Component src,
       int x,
       int y,
@@ -1706,7 +1706,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
    * hex is honoured directly. Computed at pad-build time so the pads actually get the right colour
    * (the old trackColors[] path was only updated during paintComponent, after the pads were built).
    */
-  private Color getTrackColour(int modelRow) {
+  Color getTrackColour(int modelRow) {
     java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
     if (modelRow >= tracks.size()) {
       return trackColors[modelRow % trackColors.length];
@@ -1782,14 +1782,14 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     scrollController.resetScrollOffset();
   }
 
-  private void clearActionListeners(JButton btn) {
+  void clearActionListeners(JButton btn) {
     if (btn == null) return;
     for (java.awt.event.ActionListener al : btn.getActionListeners()) {
       btn.removeActionListener(al);
     }
   }
 
-  private static class KeyboardMouseAdapter extends java.awt.event.MouseAdapter {
+  static class KeyboardMouseAdapter extends java.awt.event.MouseAdapter {
     private final int note;
     private final SwingGridPanel panel;
 
@@ -1829,7 +1829,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     }
   }
 
-  private void clearKeyboardMouseListeners(JButton btn) {
+  void clearKeyboardMouseListeners(JButton btn) {
     if (btn == null) return;
     for (java.awt.event.MouseListener ml : btn.getMouseListeners()) {
       if (ml instanceof KeyboardMouseAdapter) {
@@ -2065,7 +2065,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   }
 
   /** Compute total voice rows for the currently edited track in CLIP mode. */
-  private int computeVoiceRowCount() {
+  int computeVoiceRowCount() {
     if (viewMode == GridViewMode.AUTOMATION) {
       return 8; // fixed 8 value bands (0-127 mapped to 8 rows)
     }
@@ -2126,7 +2126,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   private static final java.util.Map<String, float[]> waveformCache =
       new java.util.concurrent.ConcurrentHashMap<>();
 
-  private static float[] getCachedWaveform(String path) {
+  static float[] getCachedWaveform(String path) {
     if (path == null || path.isEmpty()) return null;
     return waveformCache.computeIfAbsent(
         path,
@@ -2198,7 +2198,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
         });
   }
 
-  private JPopupMenu createMutePopupMenu(int rowToSolo) {
+  JPopupMenu createMutePopupMenu(int rowToSolo) {
     JPopupMenu mutePopup = new JPopupMenu();
     mutePopup.setBackground(new Color(0x18, 0x18, 0x1a));
     mutePopup.setBorder(BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x34), 1));
@@ -2255,7 +2255,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     return mutePopup;
   }
 
-  private void updatePageBarHighlights() {
+  void updatePageBarHighlights() {
     int currentPageIndex = scrollOffsetX / 16;
     for (int i = 0; i < pageButtons.size(); i++) {
       JButton pageBtn = pageButtons.get(i);
@@ -3471,7 +3471,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   }
 
   /** Build a fixed row (MACROS, SLIDERS, KEYBOARD) for the CLIP grid. */
-  private JPanel buildFixedRow(String type, int rowIdx, int padSz, int rowHeight) {
+  JPanel buildFixedRow(String type, int rowIdx, int padSz, int rowHeight) {
     JPanel rowPanel = new JPanel();
     rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
     rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
@@ -3905,7 +3905,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     refreshInProgress = false;
   }
 
-  private void refreshInPlace() {
+  void refreshInPlace() {
     if (projectModel == null) return;
     updatePageBarHighlights();
 
@@ -4371,7 +4371,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     repaint();
   }
 
-  private void rebuildUIComponents() {
+  void rebuildUIComponents() {
     stopAuditionIfNeeded();
     refreshInProgress = true;
     removeAll();
@@ -6596,7 +6596,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
   // ── Automation Overview Grid ──
 
   /** Activate a song section by its index, queueing clips on each track. */
-  private void activateSection(int idx) {
+  void activateSection(int idx) {
     java.util.List<SongSection> sections = projectModel.getSongSections();
     if (idx >= sections.size()) return;
     SongSection section = sections.get(idx);
@@ -6770,7 +6770,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
    * One SONG/ARRANGEMENT display row, top-to-bottom. {@code track == null} marks an empty padding
    * row; {@code modelIndex} is the real model/engine track index (-1 when empty).
    */
-  private record GridRow(org.deluge.model.TrackModel track, int modelIndex, String label) {}
+  record GridRow(org.deluge.model.TrackModel track, int modelIndex, String label) {}
 
   /**
    * The SONG/ARRANGEMENT grid rows in DISPLAY order — the single source of row ordering. The Deluge
@@ -6779,7 +6779,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
    * row and reads {@code track}/{@code modelIndex} directly — no per-site reversal arithmetic and
    * no negative-index guards, since empty rows are simply null-track entries.
    */
-  private java.util.List<GridRow> songDisplayRows(int rowCount) {
+  java.util.List<GridRow> songDisplayRows(int rowCount) {
     java.util.List<org.deluge.model.TrackModel> t =
         projectModel != null ? projectModel.getTracks() : java.util.List.of();
     java.util.List<GridRow> rows = new java.util.ArrayList<>(rowCount);
@@ -6799,7 +6799,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
    * track), or -1 for the empty rows above the tracks. The single ordering primitive shared by the
    * row builder ({@link #songDisplayRows}) and the in-place pad recolour, so labels and pads agree.
    */
-  private int songRowIndex(int visualRow) {
+  int songRowIndex(int visualRow) {
     int n = projectModel != null ? projectModel.getTracks().size() : 0;
     int idx = n - 1 - (scrollOffset + visualRow);
     return (idx >= 0 && idx < n) ? idx : -1;
@@ -7058,7 +7058,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     return ScaleMapper.getNoteName(pitchMidi);
   }
 
-  private Color getTrackBaseColor() {
+  Color getTrackBaseColor() {
     if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
       String hex = t.getColourHex();
@@ -7769,7 +7769,7 @@ public class SwingGridPanel extends JPanel implements GridScrollController.GridC
     }
   }
 
-  private void showCreateTrackMenu(
+  void showCreateTrackMenu(
       java.awt.Component src, int x, int y, final int row, final int col) {
     JPopupMenu menu = new JPopupMenu();
 

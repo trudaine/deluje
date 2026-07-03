@@ -2825,7 +2825,7 @@ public class SwingDelugeApp extends JFrame {
           syncHighFidelityEngine(currentProject);
         };
 
-    clipPanel = new SwingGridPanel(bridge);
+    clipPanel = new ClipGridPanel(bridge);
     clipPanel.setViewMode(SwingGridPanel.GridViewMode.CLIP);
     clipPanel.setProjectModel(currentProject);
     clipPanel.resetScrollOffset();
@@ -2844,7 +2844,7 @@ public class SwingDelugeApp extends JFrame {
     picTransport.setPadButtons(clipPanel.getPadButtons());
     PIC.setTransport(picTransport);
 
-    songPanel = new SwingGridPanel(bridge);
+    songPanel = new SongGridPanel(bridge);
     songPanel.setViewMode(SwingGridPanel.GridViewMode.SONG);
     songPanel.setProjectModel(currentProject);
     songPanel.setOnProjectChanged(projectChangeHandler);
