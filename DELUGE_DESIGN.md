@@ -17,6 +17,41 @@ This document outlines the architecture for a software-only emulation of the **S
 - **Shared Memory**: All grid states, mutes, and automation are stored in `ChuckArray` objects globally accessible by both Java and ChucK.
 - **Dynamic Shredding**: Track types (Synth/Kit) are managed by independent ChucK shreds that can be hot-swapped via `Machine.replace()` without stopping the global clock.
 
+### 1.3 Grid Rendering: `PadCell` Projectors
+
+The grid renderer (`SwingGridPanel`) resolves *what colour each pad shows* through **pure projector
+functions**, not inline per-cell logic. This is what makes pad-colour parity with the hardware
+**unit-testable** instead of verifiable only by eyeballing hardware photos.
+
+**The framebuffer/projection split.** The visible grid is a fixed-size framebuffer — `PadCell[rows][cols]`,
+where `rows`/`cols` come from the current `gridMode` (so `16×16`, `24×16`, `8×18` are all valid; the
+dimensions are a *parameter*, never a constant). Each view has a **projector**: a Swing-free pure
+function `project(model, rows, cols, viewport) -> PadCell[][]`. The `PadCell` record carries only
+on-screen state (`colour`, `active`, `text`) — never model data (tick positions, pitches, sample
+offsets). Those stay in the model; the scroll/zoom that map an unbounded model onto the finite grid
+live in the projector's `viewport`, so the array **never grows** to represent more content.
+
+| View | Projector | Model axis shape |
+|------|-----------|------------------|
+| **Song** | `SongProjector` → `PadCell[][]` | X bounded (steps + step scroll); Y = finite track list |
+| **Arrangement** | `ArrangementProjector` → `PadCell[][]` | X **unbounded** timeline, absorbed by `scrollTicks`/`ticksPerColumn`; Y = finite track list |
+| **Clip** | `ClipCellColour.resolve(theme, trackColour, active, inScale, isRoot)` | theme × pad-state colour matrix; HARDWARE theme is the parity target |
+| **Audio** | `AudioWaveform.envelope(samples, targetPoints)` | not a pad grid — a waveform overlay; unbounded sample buffer decimated to a fixed 256-point envelope |
+
+**"Infinite on the right side" is not a special case.** An unbounded axis (the arranger's tick
+timeline, an audio clip's sample length) is always a *fixed visual projection of an unbounded model*:
+the infinity is absorbed by scroll/zoom (arranger) or decimation (audio), never by growing the output.
+The tests prove it directly — a clip placed at tick `10×zoom` reappears in column 0 of the *same*
+16-wide array after scrolling, and a 1,000,000-sample buffer still yields exactly 256 envelope points.
+
+**Faithful boundary (honesty rule).** Song and Arrangement collapse cleanly into the shared `PadCell`
+contract because their cell state *is* just `{colour, active, text}`. Clip and Audio do **not**: a clip
+pad also drives a scale-root ring, tail, beat marker and velocity intensity; audio is a polyline, not
+pads. Rather than bloat `PadCell` or force a false uniformity, only the **parity-critical colour/envelope
+core** is extracted and pinned (`ClipCellColour`, `AudioWaveform`); the genuinely view-specific decoration
+hints remain in the renderer. Colour parity is guarded by `ArrangementProjectorTest`, `SongProjectorTest`,
+`ClipCellColourTest`, and `AudioWaveformTest`.
+
 ---
 
 ## 2. Command & Parameter Interface
