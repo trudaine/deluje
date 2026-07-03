@@ -783,450 +783,9 @@ public class Voice {
     if (sound.synthMode == 1) { // FM
       renderFmPath(mixBuf, numSamples, overallOscAmplitude, overallPitchAdjust);
     } else if (sound.synthMode == 2) {
-      // RINGMOD (voice.cpp:1309-1370)
-      if (tempBufA.length < numSamples) {
-        tempBufA = new int[numSamples];
-      }
-      if (tempBufB.length < numSamples) {
-        tempBufB = new int[numSamples];
-      }
-      boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
-
-      for (int u = 0; u < sound.numUnison; u++) {
-        int[] ampLR = tempAmpLR;
-        boolean doPanning = shouldDoPanning(stereoUnison ? sound.unisonPan[u] : 0, ampLR);
-
-        VoiceSource vsA = unisonParts[u].sources[0];
-        VoiceSource vsB = unisonParts[u].sources[1];
-
-        int pIncA = vsA.phaseIncrementStoredValue;
-        int pIncB = vsB.phaseIncrementStoredValue;
-
-        pIncA = adjustPitch(pIncA, overallPitchAdjust);
-        if (pIncA < 0) continue;
-        pIncA = adjustPitch(pIncA, paramFinalValues[Param.LOCAL_OSC_A_PITCH_ADJUST]);
-        if (pIncA < 0) continue;
-
-        pIncB = adjustPitch(pIncB, overallPitchAdjust);
-        if (pIncB < 0) continue;
-        pIncB = adjustPitch(pIncB, paramFinalValues[Param.LOCAL_OSC_B_PITCH_ADJUST]);
-        if (pIncB < 0) continue;
-
-        java.util.Arrays.fill(tempBufA, 0, numSamples, 0);
-        java.util.Arrays.fill(tempBufB, 0, numSamples, 0);
-
-        int amplitudeForRingMod = 1 << 27;
-        if (hasFilters) {
-          amplitudeForRingMod =
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32_rounded(amplitudeForRingMod, filterGain), 4);
-        }
-
-        // C voice.cpp:1317-1340 — osc A can never osc-sync (cantBeDoingOscSyncForFirstOsc); osc B
-        // syncs to osc A's captured phase + this part's osc-A increment. Both pass the source's
-        // retrigger phase (used by the pulse-width reset path even without sync).
-        if (sound.oscTypes[0] == OscType.WAVETABLE && sound.waveTables[0] != null) {
-          int waveIndexA = paramFinalValues[Param.LOCAL_OSC_A_WAVE_INDEX];
-          if (!doneFirstRender) {
-            vsA.waveIndexLastTime = waveIndexA;
-          }
-          int waveIndexIncrementA = (waveIndexA - vsA.waveIndexLastTime) / numSamples;
-          vsA.oscPos =
-              sound.waveTables[0].render(
-                  tempBufA,
-                  0,
-                  numSamples,
-                  pIncA,
-                  vsA.oscPos,
-                  false,
-                  0,
-                  0,
-                  0,
-                  sound.oscRetriggerPhase[0],
-                  vsA.waveIndexLastTime,
-                  waveIndexIncrementA);
-          vsA.waveIndexLastTime = waveIndexA;
-        } else {
-          int pulseWidthA =
-              Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH], 1);
-          int[] phaseA = {vsA.oscPos};
-          Oscillator.renderOsc(
-              sound.oscTypes[0],
-              0,
-              tempBufA,
-              0,
-              numSamples,
-              pIncA,
-              pulseWidthA,
-              phaseA,
-              false,
-              0,
-              false,
-              0,
-              0,
-              sound.oscRetriggerPhase[0]);
-          vsA.oscPos = phaseA[0];
-        }
-        if (sound.oscTypes[0] == OscType.SAW || sound.oscTypes[0] == OscType.ANALOG_SAW_2) {
-          amplitudeForRingMod = Functions.lshiftAndSaturate(amplitudeForRingMod, 1);
-        } else if (sound.oscTypes[0] == OscType.WAVETABLE) {
-          amplitudeForRingMod = Functions.lshiftAndSaturate(amplitudeForRingMod, 2);
-        }
-
-        if (sound.oscTypes[1] == OscType.WAVETABLE && sound.waveTables[1] != null) {
-          int waveIndexB = paramFinalValues[Param.LOCAL_OSC_B_WAVE_INDEX];
-          if (!doneFirstRender) {
-            vsB.waveIndexLastTime = waveIndexB;
-          }
-          int waveIndexIncrementB = (waveIndexB - vsB.waveIndexLastTime) / numSamples;
-
-          int resetterDivideByPhaseIncrement = 0;
-          if (doingOscSync) {
-            resetterDivideByPhaseIncrement =
-                (int) (0x80000000L / (((pIncA & 0xFFFF0000L) + 65536) >>> 16));
-          }
-
-          vsB.oscPos =
-              sound.waveTables[1].render(
-                  tempBufB,
-                  0,
-                  numSamples,
-                  pIncB,
-                  vsB.oscPos,
-                  doingOscSync,
-                  oscSyncPos[u],
-                  pIncA,
-                  resetterDivideByPhaseIncrement,
-                  sound.oscRetriggerPhase[1],
-                  vsB.waveIndexLastTime,
-                  waveIndexIncrementB);
-          vsB.waveIndexLastTime = waveIndexB;
-        } else {
-          int pulseWidthB =
-              Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_B_PHASE_WIDTH], 1);
-          int[] phaseB = {vsB.oscPos};
-          Oscillator.renderOsc(
-              sound.oscTypes[1],
-              0,
-              tempBufB,
-              0,
-              numSamples,
-              pIncB,
-              pulseWidthB,
-              phaseB,
-              false,
-              0,
-              doingOscSync,
-              oscSyncPos[u],
-              pIncA,
-              sound.oscRetriggerPhase[1]);
-          vsB.oscPos = phaseB[0];
-        }
-        if (sound.oscTypes[1] == OscType.SAW || sound.oscTypes[1] == OscType.ANALOG_SAW_2) {
-          amplitudeForRingMod = Functions.lshiftAndSaturate(amplitudeForRingMod, 1);
-        } else if (sound.oscTypes[1] == OscType.WAVETABLE) {
-          amplitudeForRingMod = Functions.lshiftAndSaturate(amplitudeForRingMod, 2);
-        }
-
-        for (int i = 0; i < numSamples; i++) {
-          int out =
-              Functions.multiply_32x32_rshift32_rounded(
-                  Functions.multiply_32x32_rshift32(tempBufA[i], tempBufB[i]), amplitudeForRingMod);
-          if (stereoUnison) {
-            int l =
-                Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[0]), 2);
-            int r =
-                Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[1]), 2);
-            mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], l);
-            mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], r);
-          } else {
-            mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], out);
-            mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], out);
-          }
-        }
-      }
+      renderRingModPath(mixBuf, numSamples, overallPitchAdjust, hasFilters, filterGain, doingOscSync);
     } else {
-      // SUBTRACTIVE (voice.cpp:1042-1049): source-volume scaling applied during osc render
-      if (tempBuf.length < numSamples) {
-        tempBuf = new int[numSamples];
-      }
-      boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
-
-      // C voice.cpp:1175 — osc A's per-part FINAL phase increments, collected during its render
-      // pass so osc B can hard-sync to them. 0 = "this part's pitch was too high; skip syncing".
-
-      for (int s = 0; s < 2; s++) {
-        // C voice.cpp:1180-1199 — when osc-syncing, an INACTIVE source 0 still walks its parts to
-        // collect phase increments (and advance its phases), then gets out without rendering.
-        boolean getPhaseIncrements = (s == 0) && doingOscSync;
-        boolean getOutAfterGettingPhaseIncrements = false;
-        if (!sound.isSourceActiveCurrently(s, sources[s].sampleRef != null)) {
-          if (getPhaseIncrements) {
-            getOutAfterGettingPhaseIncrements = true;
-          } else {
-            continue;
-          }
-        }
-        boolean doOscSyncThisSource = (s == 1) && doingOscSync;
-
-        int srcAmp =
-            hasFilters
-                ? Functions.multiply_32x32_rshift32_rounded(
-                    paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s], filterGain)
-                : paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4;
-
-        for (int u = 0; u < sound.numUnison; u++) {
-          VoiceSource vs = unisonParts[u].sources[s];
-          if (!vs.active) continue;
-
-          int pInc = vs.phaseIncrementStoredValue;
-          pInc = adjustPitch(pInc, overallPitchAdjust);
-          if (pInc >= 0) {
-            pInc = adjustPitch(pInc, paramFinalValues[Param.LOCAL_OSC_A_PITCH_ADJUST + s]);
-          }
-          if (pInc < 0) {
-            // C renderBasicSource pitchTooHigh (voice.cpp:1977-1982): mark the sync increment 0.
-            if (getPhaseIncrements) oscSyncPhaseIncrement[u] = 0;
-            continue;
-          }
-          if (getPhaseIncrements) {
-            oscSyncPhaseIncrement[u] = pInc;
-            if (getOutAfterGettingPhaseIncrements) {
-              // C voice.cpp:1993-1996 — advance the silent source's phase and move on.
-              vs.oscPos += pInc * numSamples;
-              continue;
-            }
-          }
-          // C voice.cpp:2403-2406 — osc B skips parts whose osc-A pitch was too high.
-          if (doOscSyncThisSource && oscSyncPhaseIncrement[u] == 0) continue;
-
-          int[] ampLR = tempAmpLR;
-          shouldDoPanning(stereoUnison ? sound.unisonPan[u] : 0, ampLR);
-
-          java.util.Arrays.fill(tempBuf, 0, numSamples, 0);
-
-          // Sample playback path (bypasses oscillator when a Sample is attached to this source).
-          if (vs.sampleRef != null) {
-            if (vs.voiceSample.pendingSamplesLate > 0) {
-              long rawSamplesLate =
-                  ((((long) vs.voiceSample.pendingSamplesLate * vs.phaseIncrementStoredValue) >> 24)
-                          * vs.timeStretchRatio)
-                      >> 24;
-              boolean success = vs.voiceSample.attemptLateSampleStart((int) rawSamplesLate);
-              if (!success) {
-                vs.active = false;
-                continue;
-              }
-            }
-            int sampAmp =
-                (srcAmp > 0)
-                    ? srcAmp
-                    : Math.max(paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4, 1 << 26);
-            if (vs.voiceSample.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]
-                || vs.voiceSample
-                    .timeStretcher
-                    .playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]) {
-              int requiredTsLen = numSamples * 2;
-              if (vs.tsBuf == null || vs.tsBuf.length < requiredTsLen) {
-                vs.tsBuf = new int[requiredTsLen];
-              }
-              int[] tsBuf = vs.tsBuf;
-              java.util.Arrays.fill(tsBuf, 0, requiredTsLen, 0);
-              int[] ampArr = {sampAmp};
-              vs.voiceSample.renderTimeStretched(
-                  tsBuf, numSamples, 2, pInc, vs.timeStretchRatio, ampArr, 0);
-              for (int i = 0; i < numSamples; i++) {
-                tempBuf[i] = (tsBuf[i * 2] + tsBuf[i * 2 + 1]) >> 1;
-              }
-              if (!vs.voiceSample.active) vs.active = false;
-            } else if (vs.voiceSample.active) {
-              int[] ampArr = {sampAmp};
-              vs.voiceSample.render(tempBuf, numSamples, 1, pInc, ampArr, 0);
-              if (!vs.voiceSample.active) vs.active = false;
-            }
-          } else if (isInputType(sound.oscTypes[s])) {
-            // Live input echo (voice.cpp:2232-2360): read the current block's captured input.
-            pInc = vs.phaseIncrementStoredValue;
-            int[] input = LiveInput.currentBlock;
-            if (input != null) {
-              OscType inputTypeNow = sound.oscTypes[s];
-              boolean anyInputDevice = LiveInput.lineInPluggedIn || LiveInput.micPluggedIn;
-              if (inputTypeNow == OscType.INPUT_STEREO && !anyInputDevice) {
-                inputTypeNow = OscType.INPUT_L; // C voice.cpp:2240-2243
-              }
-              int n = Math.min(numSamples, input.length / 2);
-              // Pitch-shifting lifecycle (voice.cpp:2236-2274): create the per-source shifter
-              // while the ratio increment isn't unity (kMaxSampleValue), remove it click-free
-              // once back at unity. Desktop seam: each source owns its LiveInputBuffer (the C
-              // shares AudioEngine buffers, but the fw2 shifter feeds its buffer in render).
-              if (pInc != Functions.K_MAX_SAMPLE_VALUE && anyInputDevice) {
-                if (vs.livePitchShifter == null) {
-                  LiveInputBuffer.InputType t =
-                      switch (inputTypeNow) {
-                        case INPUT_R -> LiveInputBuffer.InputType.INPUT_R;
-                        case INPUT_STEREO -> LiveInputBuffer.InputType.STEREO;
-                        default -> LiveInputBuffer.InputType.INPUT_L;
-                      };
-                  vs.livePitchShifter = new LivePitchShifter(t, pInc);
-                  vs.liveInputBuffer = new LiveInputBuffer();
-                  vs.liveInputTimer = 0;
-                }
-              } else if (vs.livePitchShifter != null
-                  && vs.livePitchShifter.mayBeRemovedWithoutClick()) {
-                vs.livePitchShifter = null; // C voice.cpp:2261-2266
-                vs.liveInputBuffer = null;
-              }
-
-              if (vs.livePitchShifter != null) {
-                // C voice.cpp:2255-2260 — shifted path. The shifter applies the amplitude itself
-                // and ACCUMULATES; render into a zeroed scratch, condense stereo to mono.
-                int ch = vs.livePitchShifter.numChannels;
-                int requiredShiftLen = n * ch;
-                if (vs.shiftedBuf == null || vs.shiftedBuf.length < requiredShiftLen) {
-                  vs.shiftedBuf = new int[requiredShiftLen];
-                }
-                int[] shifted = vs.shiftedBuf;
-                java.util.Arrays.fill(shifted, 0, requiredShiftLen, 0);
-                vs.liveInputTimer += n;
-                vs.livePitchShifter.render(
-                    shifted,
-                    n,
-                    pInc,
-                    Functions.lshiftAndSaturate(srcAmp, 4),
-                    0,
-                    16,
-                    vs.liveInputBuffer,
-                    vs.liveInputTimer,
-                    input);
-                if (ch == 2) {
-                  for (int i = 0; i < n; i++) {
-                    tempBuf[i] = (shifted[i * 2] >> 1) + (shifted[i * 2 + 1] >> 1);
-                  }
-                } else {
-                  System.arraycopy(shifted, 0, tempBuf, 0, n);
-                }
-              } else if (inputTypeNow != OscType.INPUT_STEREO) {
-                // C voice.cpp:2294-2305 — left, or right only when a real input device exists.
-                int channelOffset = (inputTypeNow == OscType.INPUT_R && anyInputDevice) ? 1 : 0;
-                for (int i = 0; i < n; i++) {
-                  tempBuf[i] =
-                      Functions.lshiftAndSaturate(
-                          Functions.multiply_32x32_rshift32(input[i * 2 + channelOffset], srcAmp),
-                          4);
-                }
-              } else {
-                // C voice.cpp:2325-2345 — stereo condensed to mono for the mono osc buffer.
-                for (int i = 0; i < n; i++) {
-                  int mono = (input[i * 2] >> 1) + (input[i * 2 + 1] >> 1);
-                  tempBuf[i] =
-                      Functions.lshiftAndSaturate(
-                          Functions.multiply_32x32_rshift32(mono, srcAmp), 4);
-                }
-              }
-            }
-          } else if (sound.oscTypes[s] == OscType.DX7) {
-            if (vs.dxVoice.patch == null && sound.sourceDx7Patch[s] != null) {
-              System.arraycopy(sound.sourceDx7Patch[s], 0, vs.dxPatch.params, 0, 156);
-              vs.dxPatch.setEngineMode(sound.sourceDx7EngineType[s]);
-              vs.dxPatch.randomDetune = sound.sourceDx7RandomDetune[s];
-              vs.dxVoice.init(vs.dxPatch, note, velocity);
-            }
-            if (vs.dxVoice.patch == null) continue;
-
-            int logpitch = (int) (Math.log(pInc & 0xFFFFFFFFL) / Math.log(2.0) * (1 << 24));
-            int adjpitch = logpitch - 278023814;
-            int ampMod = paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s] >> 13;
-            vs.dxPatch.computeLfo(numSamples);
-            if (uniBuf.length < numSamples) {
-              uniBuf = new int[numSamples];
-            }
-            vs.dxVoice.compute(uniBuf, numSamples, adjpitch, vs.dxPatch, ampMod, 0, 0);
-            for (int i = 0; i < numSamples; i++) {
-              tempBuf[i] =
-                  Functions.lshiftAndSaturate(
-                      Functions.multiply_32x32_rshift32(uniBuf[i], srcAmp), 6);
-            }
-          } else if (sound.oscTypes[s] == OscType.WAVETABLE && sound.waveTables[s] != null) {
-            int waveIndex = paramFinalValues[Param.LOCAL_OSC_A_WAVE_INDEX + s];
-            if (!doneFirstRender) {
-              vs.waveIndexLastTime = waveIndex;
-            }
-            int waveIndexIncrement = (waveIndex - vs.waveIndexLastTime) / numSamples;
-
-            int resetterDivideByPhaseIncrement = 0;
-            if (doOscSyncThisSource) {
-              long divisor = ((oscSyncPhaseIncrement[u] & 0xFFFFFFFFL) + 65535) >>> 16;
-              if (divisor > 0) {
-                resetterDivideByPhaseIncrement = (int) (2147483648L / divisor);
-              }
-            }
-
-            vs.oscPos =
-                sound.waveTables[s].render(
-                    tempBuf,
-                    0,
-                    numSamples,
-                    pInc,
-                    vs.oscPos,
-                    doOscSyncThisSource,
-                    oscSyncPos[u],
-                    oscSyncPhaseIncrement[u],
-                    resetterDivideByPhaseIncrement,
-                    sound.oscRetriggerPhase[s],
-                    vs.waveIndexLastTime,
-                    waveIndexIncrement);
-            vs.waveIndexLastTime = waveIndex;
-
-            // Apply amplitude srcAmp to the rendered wavetable values
-            for (int i = 0; i < numSamples; i++) {
-              tempBuf[i] =
-                  Functions.lshiftAndSaturate(
-                      Functions.multiply_32x32_rshift32(tempBuf[i], srcAmp), 1);
-            }
-          } else {
-            // C voice.cpp:2421-2430 — pulse width from LOCAL_OSC_A_PHASE_WIDTH+s, hard sync from
-            // osc A's captured phase/increment (osc B only), and the source's retrigger phase
-            // (needed by the pulse-width reset path even without sync).
-            int pulseWidth =
-                Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s], 1);
-            int[] phase = {vs.oscPos};
-            Oscillator.renderOsc(
-                sound.oscTypes[s],
-                srcAmp,
-                tempBuf,
-                0,
-                numSamples,
-                pInc,
-                pulseWidth,
-                phase,
-                true,
-                0,
-                doOscSyncThisSource,
-                oscSyncPos[u],
-                oscSyncPhaseIncrement[u],
-                sound.oscRetriggerPhase[s]);
-            vs.oscPos = phase[0];
-          }
-
-          if (stereoUnison) {
-            for (int i = 0; i < numSamples; i++) {
-              int out = tempBuf[i];
-              int l =
-                  Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[0]), 2);
-              int r =
-                  Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[1]), 2);
-              mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], l);
-              mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], r);
-            }
-          } else {
-            for (int i = 0; i < numSamples; i++) {
-              int out = tempBuf[i];
-              mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], out);
-              mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], out);
-            }
-          }
-        }
-      }
+      renderSubtractivePath(mixBuf, numSamples, overallPitchAdjust, hasFilters, filterGain, doingOscSync);
     }
 
     // Noise (voice.cpp:1131-1149): add the noise source into the mono mix before the filter +
@@ -1295,6 +854,443 @@ public class Voice {
     modInc = adjustPitch(modInc, paramFinalValues[Param.LOCAL_MODULATOR_0_PITCH_ADJUST + m]);
     if (modInc < 0) return 0;
     return modInc;
+  }
+
+  private void renderRingModPath(
+      int[] mixBuf,
+      int numSamples,
+      int overallPitchAdjust,
+      boolean hasFilters,
+      int filterGain,
+      boolean doingOscSync) {
+    if (tempBufA.length < numSamples) {
+      tempBufA = new int[numSamples];
+    }
+    if (tempBufB.length < numSamples) {
+      tempBufB = new int[numSamples];
+    }
+    boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
+
+    for (int u = 0; u < sound.numUnison; u++) {
+      int[] ampLR = tempAmpLR;
+      boolean doPanning = shouldDoPanning(stereoUnison ? sound.unisonPan[u] : 0, ampLR);
+
+      VoiceSource vsA = unisonParts[u].sources[0];
+      VoiceSource vsB = unisonParts[u].sources[1];
+
+      int pIncA = vsA.phaseIncrementStoredValue;
+      int pIncB = vsB.phaseIncrementStoredValue;
+
+      pIncA = adjustPitch(pIncA, overallPitchAdjust);
+      if (pIncA < 0) continue;
+      pIncA = adjustPitch(pIncA, paramFinalValues[Param.LOCAL_OSC_A_PITCH_ADJUST]);
+      if (pIncA < 0) continue;
+
+      pIncB = adjustPitch(pIncB, overallPitchAdjust);
+      if (pIncB < 0) continue;
+      pIncB = adjustPitch(pIncB, paramFinalValues[Param.LOCAL_OSC_B_PITCH_ADJUST]);
+      if (pIncB < 0) continue;
+
+      java.util.Arrays.fill(tempBufA, 0, numSamples, 0);
+      java.util.Arrays.fill(tempBufB, 0, numSamples, 0);
+
+      int amplitudeForRingMod = 1 << 27;
+      if (hasFilters) {
+        amplitudeForRingMod =
+            Functions.lshiftAndSaturate(
+                Functions.multiply_32x32_rshift32_rounded(amplitudeForRingMod, filterGain), 4);
+      }
+
+      // C voice.cpp:1317-1340 — osc A can never osc-sync (cantBeDoingOscSyncForFirstOsc); osc B
+      // syncs to osc A's captured phase + this part's osc-A increment. Both pass the source's
+      // retrigger phase (used by the pulse-width reset path even without sync).
+      if (sound.oscTypes[0] == OscType.WAVETABLE && sound.waveTables[0] != null) {
+        int waveIndexA = paramFinalValues[Param.LOCAL_OSC_A_WAVE_INDEX];
+        if (!doneFirstRender) {
+          vsA.waveIndexLastTime = waveIndexA;
+        }
+        int waveIndexIncrementA = (waveIndexA - vsA.waveIndexLastTime) / numSamples;
+        vsA.oscPos =
+            sound.waveTables[0].render(
+                tempBufA,
+                0,
+                numSamples,
+                pIncA,
+                vsA.oscPos,
+                false,
+                0,
+                0,
+                0,
+                sound.oscRetriggerPhase[0],
+                vsA.waveIndexLastTime,
+                waveIndexIncrementA);
+        vsA.waveIndexLastTime = waveIndexA;
+      } else {
+        int pulseWidthA =
+            Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH], 1);
+        int[] phaseA = {vsA.oscPos};
+        Oscillator.renderOsc(
+            sound.oscTypes[0],
+            0,
+            tempBufA,
+            0,
+            numSamples,
+            pIncA,
+            pulseWidthA,
+            phaseA,
+            false,
+            0,
+            false,
+            0,
+            0,
+            sound.oscRetriggerPhase[0]);
+        vsA.oscPos = phaseA[0];
+      }
+      if (sound.oscTypes[0] == OscType.SAW || sound.oscTypes[0] == OscType.ANALOG_SAW_2) {
+        amplitudeForRingMod = Functions.lshiftAndSaturate(amplitudeForRingMod, 1);
+      } else if (sound.oscTypes[0] == OscType.WAVETABLE) {
+        amplitudeForRingMod = Functions.lshiftAndSaturate(amplitudeForRingMod, 2);
+      }
+
+      if (sound.oscTypes[1] == OscType.WAVETABLE && sound.waveTables[1] != null) {
+        int waveIndexB = paramFinalValues[Param.LOCAL_OSC_B_WAVE_INDEX];
+        if (!doneFirstRender) {
+          vsB.waveIndexLastTime = waveIndexB;
+        }
+        int waveIndexIncrementB = (waveIndexB - vsB.waveIndexLastTime) / numSamples;
+
+        int resetterDivideByPhaseIncrement = 0;
+        if (doingOscSync) {
+          resetterDivideByPhaseIncrement =
+              (int) (0x80000000L / (((pIncA & 0xFFFF0000L) + 65536) >>> 16));
+        }
+
+        vsB.oscPos =
+            sound.waveTables[1].render(
+                tempBufB,
+                0,
+                numSamples,
+                pIncB,
+                vsB.oscPos,
+                doingOscSync,
+                oscSyncPos[u],
+                pIncA,
+                resetterDivideByPhaseIncrement,
+                sound.oscRetriggerPhase[1],
+                vsB.waveIndexLastTime,
+                waveIndexIncrementB);
+        vsB.waveIndexLastTime = waveIndexB;
+      } else {
+        int pulseWidthB =
+            Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_B_PHASE_WIDTH], 1);
+        int[] phaseB = {vsB.oscPos};
+        Oscillator.renderOsc(
+            sound.oscTypes[1],
+            0,
+            tempBufB,
+            0,
+            numSamples,
+            pIncB,
+            pulseWidthB,
+            phaseB,
+            false,
+            0,
+            doingOscSync,
+            oscSyncPos[u],
+            pIncA,
+            sound.oscRetriggerPhase[1]);
+        vsB.oscPos = phaseB[0];
+      }
+      if (sound.oscTypes[1] == OscType.SAW || sound.oscTypes[1] == OscType.ANALOG_SAW_2) {
+        amplitudeForRingMod = Functions.lshiftAndSaturate(amplitudeForRingMod, 1);
+      } else if (sound.oscTypes[1] == OscType.WAVETABLE) {
+        amplitudeForRingMod = Functions.lshiftAndSaturate(amplitudeForRingMod, 2);
+      }
+
+      for (int i = 0; i < numSamples; i++) {
+        int out =
+            Functions.multiply_32x32_rshift32_rounded(
+                Functions.multiply_32x32_rshift32(tempBufA[i], tempBufB[i]), amplitudeForRingMod);
+        if (stereoUnison) {
+          int l =
+              Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[0]), 2);
+          int r =
+              Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[1]), 2);
+          mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], l);
+          mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], r);
+        } else {
+          mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], out);
+          mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], out);
+        }
+      }
+    }
+  }
+
+  private void renderSubtractivePath(
+      int[] mixBuf,
+      int numSamples,
+      int overallPitchAdjust,
+      boolean hasFilters,
+      int filterGain,
+      boolean doingOscSync) {
+    if (tempBuf.length < numSamples) {
+      tempBuf = new int[numSamples];
+    }
+    boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
+
+    for (int s = 0; s < 2; s++) {
+      boolean getPhaseIncrements = (s == 0) && doingOscSync;
+      boolean getOutAfterGettingPhaseIncrements = false;
+      if (!sound.isSourceActiveCurrently(s, sources[s].sampleRef != null)) {
+        if (getPhaseIncrements) {
+          getOutAfterGettingPhaseIncrements = true;
+        } else {
+          continue;
+        }
+      }
+      boolean doOscSyncThisSource = (s == 1) && doingOscSync;
+
+      int srcAmp =
+          hasFilters
+              ? Functions.multiply_32x32_rshift32_rounded(
+                  paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s], filterGain)
+              : paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4;
+
+      for (int u = 0; u < sound.numUnison; u++) {
+        VoiceSource vs = unisonParts[u].sources[s];
+        if (!vs.active) continue;
+
+        int pInc = vs.phaseIncrementStoredValue;
+        pInc = adjustPitch(pInc, overallPitchAdjust);
+        if (pInc >= 0) {
+          pInc = adjustPitch(pInc, paramFinalValues[Param.LOCAL_OSC_A_PITCH_ADJUST + s]);
+        }
+        if (pInc < 0) {
+          if (getPhaseIncrements) oscSyncPhaseIncrement[u] = 0;
+          continue;
+        }
+        if (getPhaseIncrements) {
+          oscSyncPhaseIncrement[u] = pInc;
+          if (getOutAfterGettingPhaseIncrements) {
+            vs.oscPos += pInc * numSamples;
+            continue;
+          }
+        }
+        if (doOscSyncThisSource && oscSyncPhaseIncrement[u] == 0) continue;
+
+        int[] ampLR = tempAmpLR;
+        shouldDoPanning(stereoUnison ? sound.unisonPan[u] : 0, ampLR);
+
+        java.util.Arrays.fill(tempBuf, 0, numSamples, 0);
+
+        if (vs.sampleRef != null) {
+          if (vs.voiceSample.pendingSamplesLate > 0) {
+            long rawSamplesLate =
+                ((((long) vs.voiceSample.pendingSamplesLate * vs.phaseIncrementStoredValue) >> 24)
+                        * vs.timeStretchRatio)
+                    >> 24;
+            boolean success = vs.voiceSample.attemptLateSampleStart((int) rawSamplesLate);
+            if (!success) {
+              vs.active = false;
+              continue;
+            }
+          }
+          int sampAmp =
+              (srcAmp > 0)
+                  ? srcAmp
+                  : Math.max(paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4, 1 << 26);
+          if (vs.voiceSample.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]
+              || vs.voiceSample
+                  .timeStretcher
+                  .playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]) {
+            int requiredTsLen = numSamples * 2;
+            if (vs.tsBuf == null || vs.tsBuf.length < requiredTsLen) {
+              vs.tsBuf = new int[requiredTsLen];
+            }
+            int[] tsBuf = vs.tsBuf;
+            java.util.Arrays.fill(tsBuf, 0, requiredTsLen, 0);
+            int[] ampArr = {sampAmp};
+            vs.voiceSample.renderTimeStretched(
+                tsBuf, numSamples, 2, pInc, vs.timeStretchRatio, ampArr, 0);
+            for (int i = 0; i < numSamples; i++) {
+              tempBuf[i] = (tsBuf[i * 2] + tsBuf[i * 2 + 1]) >> 1;
+            }
+            if (!vs.voiceSample.active) vs.active = false;
+          } else if (vs.voiceSample.active) {
+            int[] ampArr = {sampAmp};
+            vs.voiceSample.render(tempBuf, numSamples, 1, pInc, ampArr, 0);
+            if (!vs.voiceSample.active) vs.active = false;
+          }
+        } else if (isInputType(sound.oscTypes[s])) {
+          pInc = vs.phaseIncrementStoredValue;
+          int[] input = LiveInput.currentBlock;
+          if (input != null) {
+            OscType inputTypeNow = sound.oscTypes[s];
+            boolean anyInputDevice = LiveInput.lineInPluggedIn || LiveInput.micPluggedIn;
+            if (inputTypeNow == OscType.INPUT_STEREO && !anyInputDevice) {
+              inputTypeNow = OscType.INPUT_L;
+            }
+            int n = Math.min(numSamples, input.length / 2);
+            if (pInc != Functions.K_MAX_SAMPLE_VALUE && anyInputDevice) {
+              if (vs.livePitchShifter == null) {
+                LiveInputBuffer.InputType t =
+                    switch (inputTypeNow) {
+                      case INPUT_R -> LiveInputBuffer.InputType.INPUT_R;
+                      case INPUT_STEREO -> LiveInputBuffer.InputType.STEREO;
+                      default -> LiveInputBuffer.InputType.INPUT_L;
+                    };
+                vs.livePitchShifter = new LivePitchShifter(t, pInc);
+                vs.liveInputBuffer = new LiveInputBuffer();
+                vs.liveInputTimer = 0;
+              }
+            } else if (vs.livePitchShifter != null
+                && vs.livePitchShifter.mayBeRemovedWithoutClick()) {
+              vs.livePitchShifter = null;
+              vs.liveInputBuffer = null;
+            }
+
+            if (vs.livePitchShifter != null) {
+              int ch = vs.livePitchShifter.numChannels;
+              int requiredShiftLen = n * ch;
+              if (vs.shiftedBuf == null || vs.shiftedBuf.length < requiredShiftLen) {
+                vs.shiftedBuf = new int[requiredShiftLen];
+              }
+              int[] shifted = vs.shiftedBuf;
+              java.util.Arrays.fill(shifted, 0, requiredShiftLen, 0);
+              vs.liveInputTimer += n;
+              vs.livePitchShifter.render(
+                  shifted,
+                  n,
+                  pInc,
+                  Functions.lshiftAndSaturate(srcAmp, 4),
+                  0,
+                  16,
+                  vs.liveInputBuffer,
+                  vs.liveInputTimer,
+                  input);
+              if (ch == 2) {
+                for (int i = 0; i < n; i++) {
+                  tempBuf[i] = (shifted[i * 2] >> 1) + (shifted[i * 2 + 1] >> 1);
+                }
+              } else {
+                System.arraycopy(shifted, 0, tempBuf, 0, n);
+              }
+            } else if (inputTypeNow != OscType.INPUT_STEREO) {
+              int channelOffset = (inputTypeNow == OscType.INPUT_R && anyInputDevice) ? 1 : 0;
+              for (int i = 0; i < n; i++) {
+                tempBuf[i] =
+                    Functions.lshiftAndSaturate(
+                        Functions.multiply_32x32_rshift32(input[i * 2 + channelOffset], srcAmp),
+                        4);
+              }
+            } else {
+              for (int i = 0; i < n; i++) {
+                int mono = (input[i * 2] >> 1) + (input[i * 2 + 1] >> 1);
+                tempBuf[i] =
+                    Functions.lshiftAndSaturate(
+                        Functions.multiply_32x32_rshift32(mono, srcAmp), 4);
+              }
+            }
+          }
+        } else if (sound.oscTypes[s] == OscType.DX7) {
+          if (vs.dxVoice.patch == null && sound.sourceDx7Patch[s] != null) {
+            System.arraycopy(sound.sourceDx7Patch[s], 0, vs.dxPatch.params, 0, 156);
+            vs.dxPatch.setEngineMode(sound.sourceDx7EngineType[s]);
+            vs.dxPatch.randomDetune = sound.sourceDx7RandomDetune[s];
+            vs.dxVoice.init(vs.dxPatch, note, velocity);
+          }
+          if (vs.dxVoice.patch == null) continue;
+
+          int logpitch = (int) (Math.log(pInc & 0xFFFFFFFFL) / Math.log(2.0) * (1 << 24));
+          int adjpitch = logpitch - 278023814;
+          int ampMod = paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s] >> 13;
+          vs.dxPatch.computeLfo(numSamples);
+          if (uniBuf.length < numSamples) {
+            uniBuf = new int[numSamples];
+          }
+          vs.dxVoice.compute(uniBuf, numSamples, adjpitch, vs.dxPatch, ampMod, 0, 0);
+          for (int i = 0; i < numSamples; i++) {
+            tempBuf[i] =
+                Functions.lshiftAndSaturate(
+                    Functions.multiply_32x32_rshift32(uniBuf[i], srcAmp), 6);
+          }
+        } else if (sound.oscTypes[s] == OscType.WAVETABLE && sound.waveTables[s] != null) {
+          int waveIndex = paramFinalValues[Param.LOCAL_OSC_A_WAVE_INDEX + s];
+          if (!doneFirstRender) {
+            vs.waveIndexLastTime = waveIndex;
+          }
+          int waveIndexIncrement = (waveIndex - vs.waveIndexLastTime) / numSamples;
+
+          int resetterDivideByPhaseIncrement = 0;
+          if (doOscSyncThisSource) {
+            long divisor = ((oscSyncPhaseIncrement[u] & 0xFFFFFFFFL) + 65535) >>> 16;
+            if (divisor > 0) {
+              resetterDivideByPhaseIncrement = (int) (2147483648L / divisor);
+            }
+          }
+
+          vs.oscPos =
+              sound.waveTables[s].render(
+                  tempBuf,
+                  0,
+                  numSamples,
+                  pInc,
+                  vs.oscPos,
+                  doOscSyncThisSource,
+                  oscSyncPos[u],
+                  oscSyncPhaseIncrement[u],
+                  resetterDivideByPhaseIncrement,
+                  sound.oscRetriggerPhase[s],
+                  vs.waveIndexLastTime,
+                  waveIndexIncrement);
+          vs.waveIndexLastTime = waveIndex;
+
+          for (int i = 0; i < numSamples; i++) {
+            tempBuf[i] =
+                Functions.lshiftAndSaturate(
+                    Functions.multiply_32x32_rshift32(tempBuf[i], srcAmp), 1);
+          }
+        } else {
+          int pulseWidth =
+              Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s], 1);
+          int[] phase = {vs.oscPos};
+          Oscillator.renderOsc(
+              sound.oscTypes[s],
+              srcAmp,
+              tempBuf,
+              0,
+              numSamples,
+              pInc,
+              pulseWidth,
+              phase,
+              true,
+              0,
+              doOscSyncThisSource,
+              oscSyncPos[u],
+              oscSyncPhaseIncrement[u],
+              sound.oscRetriggerPhase[s]);
+          vs.oscPos = phase[0];
+        }
+
+        if (stereoUnison) {
+          for (int i = 0; i < numSamples; i++) {
+            int out = tempBuf[i];
+            int l =
+                Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[0]), 2);
+            int r =
+                Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[1]), 2);
+            mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], l);
+            mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], r);
+          }
+        } else {
+          for (int i = 0; i < numSamples; i++) {
+            int out = tempBuf[i];
+            mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], out);
+            mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], out);
+          }
+        }
+      }
+    }
   }
 
   private void renderFmPath(
