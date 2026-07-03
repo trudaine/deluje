@@ -1039,7 +1039,7 @@ The **`Performance View (PERF)`** provides a hardware-inspired 16-column × 8-ro
   14. `SIDECHAIN`: Direct kick ducking volume envelope.
   15. `COMP`: Master compressor threshold drive.
   16. `NOISE VOL`: White noise generator injection.
-* **8 Rows Value Intensities (0 to 7)**: Row 0 represents the minimum value range of the column FX, and Row 7 represents the maximum value intensity. Clicking a pad lights it up and writes the level change instantly to JNI playback registers.
+* **8 Rows Value Intensities (0 to 7)**: Row 0 represents the minimum value range of the column FX, and Row 7 represents the maximum value intensity. Clicking a pad lights it up and writes the level change instantly to playback parameters.
 
 ### 15.2 Dual Interaction Play Modes: LATCH vs MOMENTARY
 * **LATCH Mode**: Tapping a pad toggles the effect on/off like a static switch, allowing you to select and keep multiple columns active at once (multi-select style) to build custom static multi-effects matrices!
@@ -1077,38 +1077,38 @@ graph TD
 
 ## 17. System Settings, Directories Preferences & Shortcuts Table
 
-The **`Settings ➔ Preferences...`** panel manages your paths and grid configurations without JNI hooks:
+The **`Settings ➔ Preferences...`** panel manages your paths and grid configurations without native hooks:
 * **SD Card Mounted Library Directory**: Set the root parent directory folder path representing your physical SD card library. All subdirectories (`SAMPLES/`, `KITS/`, `SYNTHS/`, `SONGS/`) are resolved relative to this parent root dynamically.
 * **Grid Layout Profiles**: Standardize your interface to **`Grid 8x16`** or extended **`Grid 16x16`** formats.
 * **Microtuning & Custom Temperaments**: Fully integrated at the song-level, allowing you to break free from standard 12-TET tuning and explore dynamic, alternative temperaments, historical scales, and custom EDO microtonality (described in detail in [Section 17.2](#172-microtuning-custom-temperaments--scala-scl-imports) below).
 
 ### 17.2 Microtuning, Custom Temperaments & Scala (.scl) Imports
 
-The Deluge-Java Workstation features a professional-grade microtuning engine that is fully integrated into the song structure and sound synthesis pipelines. You can configure custom temperaments, detune individual note classes, calibrate the base reference pitch, and import standard Scala `.scl` files.
+The Deluge-Java Workstation features a microtuning engine that is fully integrated into the song structure and sound synthesis pipelines. You can configure custom temperaments, detune individual note classes, calibrate the base reference pitch, and import standard Scala `.scl` files.
 
 Access the interface by selecting **`Settings ➔ Tuning & Temperaments...`** from the global menu bar:
 
 #### 1. Temperament Core Settings
 *   **Tuning Type Selector**: Choose between **Equal Temperament** (which detunes notes relative to equal subdivisions of the octave) and **Custom Ratios** (which builds scales from custom harmonic multipliers, such as Just Intonation).
 *   **Notes / Octave Spinner**: Adjust the number of microtonal notes within the octave from **1 to 64 notes**. If you change this value, the note adjustment grid below immediately rebuilds itself to match! This makes it effortless to explore dynamic EDO systems like 19-TET, 31-TET, or 53-TET.
-*   **Reference Pitch Calibration**: Calibrate the base reference frequency of Note 0 (defaults to A = 440.0 Hz) to alternative reference pitches (such as A = 432 Hz for organic resonances, A = 415 Hz for baroque temperaments, or A = 444 Hz) with perfect, linear fixed-point frequency scaling across the entire synthesizer engine.
-*   **Scala (.scl) File Import**: Click the **`Import Scala (.scl) File...`** button to open a file browser, select any standard `.scl` file on your disk, and import it. The parser will immediately read the file, extract its step count and custom ratios, update the active project, and populate all sliders and text fields dynamically!
+*   **Reference Pitch Calibration**: Calibrate the base reference frequency of Note 0 (defaults to A = 440.0 Hz) to alternative reference pitches (such as A = 432 Hz for organic resonances, A = 415 Hz for baroque temperaments, or A = 444 Hz) across the synthesizer engine.
+*   **Scala (.scl) File Import**: Click the **`Import Scala (.scl) File...`** button to open a file browser, select any standard `.scl` file on your disk, and import it. The parser reads the file, extracts step count and ratios, and updates the settings.
 
 #### 2. Note-by-Note Scaling Map
 *   **Cents Adjustments (Equal Temperament Mode)**: Displays a vertical list of rows for notes `00` to `N-1`. Each row has a **JSlider** and a **JSpinner** bound bidirectionally to detune that note class by up to **$\pm 100$ cents**.
-*   **Fractional Ratios (Custom Ratios Mode)**: Displays text fields to type custom ratios. Note 0 is locked to `1.0` (unison). Subsequent text fields intelligently support **both decimal entries (e.g. `1.125`) and fractional ratios (e.g. `9/8`)!** The evaluated decimal value is displayed next to each text field in real-time.
+*   **Fractional Ratios (Custom Ratios Mode)**: Displays text fields to type custom ratios. Note 0 is locked to `1.0` (unison). Subsequent text fields support decimal entries and fractional ratios. Evaluated decimal values display next to each text field in real-time.
 
 #### 3. ⚡ Real-Time Live Auditioning
-All microtuning adjustments are cabled directly to the active JNI synthesizer voices. **Dragging a cents slider or typing a new ratio instantly recalculates the DSP frequency tables and warps the pitch of active playing voices in real-time during playback!** This allows you to audit, play, and tune scales dynamically while the sequencer is running.
+All microtuning adjustments are applied directly to the active synthesizer voices. **Dragging a cents slider or typing a new ratio instantly recalculates frequencies and updates the pitch of active playing voices in real-time during playback!** This allows you to audit, play, and tune scales dynamically while the sequencer is running.
 
 #### 4. 💾 Song-Level XML Persistence
 Microtuning configurations are serialized directly inside the song's `.XML` file under the `<microtuning>` element:
 *   Standard 12-TET songs are untouched, keeping files 100% clean and backward-compatible.
-*   Custom tunings store their notes count, temperament type, reference pitch, and cents/ratios arrays seamlessly, ensuring loss-free load cycles.
+*   Custom tunings store note count, temperament type, reference pitch, and cents/ratios arrays.
 
 ### 17.1 Hardware Character Emulations & Master Saturation Drive
 
-To reproduce the exact, iconic lo-fi and physical audio character of the vintage Deluge hardware unit, the JApp incorporates four specialized DSP emulation configurations (accessible under the Preferences panel):
+To reproduce the exact, iconic lo-fi and physical audio character of the vintage Deluge hardware unit, the application incorporates four specialized DSP emulation configurations (accessible under the Preferences panel):
 
 * **Master Bus Saturation (Tanh)**: Emulates the warm analog headroom compression of the physical output op-amps using a state-space tanh lookup:
   $$V_{out}(t) = \tanh(V_{in}(t) \cdot \text{drive})$$
@@ -1120,15 +1120,15 @@ To reproduce the exact, iconic lo-fi and physical audio character of the vintage
 ### Complete Keyboard Shortcuts Reference:
 | Shortcut Combination | Focused Panel / Action | Operational Description |
 | :--- | :--- | :--- |
-| **`Spacebar`** | Global Play / Stop | Starts or stops the JNI/ChucK virtual playback thread clock live. |
-| **`Ctrl + R` / `Cmd + R`** | Tools menu dropdown | Opens the **Delugeator Randomizer & Generators Suite** JDialog window. |
-| **`Ctrl + L` / `Cmd + L`** | Tools menu dropdown | Opens the **Audio Loop Slicer & Kit Splitter** breakbeat tool JDialog. |
-| **`Ctrl + O` / `Cmd + O`** | File menu dropdown | Spawns a JFileChooser file browser to load a `.XML` project Song/Kit from disk. |
+| **`Spacebar`** | Global Play / Stop | Starts or stops the sequencer playback. |
+| **`Ctrl + R` / `Cmd + R`** | Tools menu dropdown | Opens the **Delugeator Randomizer & Generators Suite** dialog window. |
+| **`Ctrl + L` / `Cmd + L`** | Tools menu dropdown | Opens the **Audio Loop Slicer & Kit Splitter** breakbeat tool dialog. |
+| **`Ctrl + O` / `Cmd + O`** | File menu dropdown | Spawns a file browser to load a `.XML` project Song/Kit from disk. |
 | **`Ctrl + S` / `Cmd + S`** | File menu dropdown | Overwrites and exports the current active `ProjectModel` structure back to XML. |
 | **`Ctrl + Z` / `Cmd + Z`** | Edit action | Undoes the last grid step note change or gate timing adjustment. |
 | **`Ctrl + Y` / `Cmd + Y`** | Edit action | Redoes the last undone sequencer state change from the transaction history stack. |
 | **`Tab` Key** | View Mode | Toggles active display focus between CLIP, SONG, and ARRANGEMENT grid views. |
-| **`Escape` Key** | Dialog focus | Closes the active frontmost modeless JDialog frame window instantly. |
+| **`Escape` Key** | Dialog focus | Closes the active frontmost dialog instantly. |
 
 ### 17.3 Deluge-Java Workstation Exclusive Power Features
 
