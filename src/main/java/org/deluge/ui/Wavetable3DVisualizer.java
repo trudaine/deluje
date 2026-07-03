@@ -24,6 +24,7 @@ public class Wavetable3DVisualizer extends JPanel {
 
   private WaveTable loadedWavetable = null;
   private String lastLoadedPath = null;
+  private double animPhase = 0.0;
   private Timer animationTimer;
 
   public Wavetable3DVisualizer(SynthTrackModel model, int oscIndex, int trackIndex) {
@@ -41,6 +42,10 @@ public class Wavetable3DVisualizer extends JPanel {
             33,
             e -> {
               checkWavetableReload();
+              if (isShowing()) {
+                animPhase += 0.04;
+                repaint();
+              }
             });
 
     setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -271,27 +276,55 @@ public class Wavetable3DVisualizer extends JPanel {
   }
 
   private void drawPlaceholder(Graphics2D g2, int w, int h) {
-    // Draw an ultra-sleek dark grid backdrop
-    g2.setColor(new Color(0x1a, 0x1a, 0x22));
-    g2.setStroke(new BasicStroke(0.5f));
-    for (int x = 0; x < w; x += 20) {
-      g2.drawLine(x, 0, x, h);
-    }
-    for (int y = 0; y < h; y += 20) {
-      g2.drawLine(0, y, w, y);
+    g2.setColor(new Color(0x11, 0x11, 0x13));
+    g2.fillRect(0, 0, w, h);
+
+    int centerX = w / 2;
+    int centerY = h / 2 - 5;
+    int gridLines = 10;
+    double depthSpread = 70.0;
+
+    g2.setStroke(new BasicStroke(1.0f));
+    for (int i = gridLines - 1; i >= 0; i--) {
+      double normZ = (double) i / (gridLines - 1);
+      double scale = 0.55 + 0.45 * (1.0 - normZ);
+
+      Path2D.Double path = new Path2D.Double();
+      boolean first = true;
+      for (int x = 0; x < 35; x++) {
+        double normX = -1.0 + 2.0 * x / 34;
+
+        double angle = normX * Math.PI * 2.0 + animPhase + normZ * Math.PI * 0.8;
+        double normY = 0.22 * Math.sin(angle) * Math.cos(animPhase * 0.4);
+
+        double projX = centerX + normX * (w * 0.38) * scale;
+        double projY = centerY - normY * (h * 0.28) * scale + (normZ - 0.5) * depthSpread;
+
+        if (first) {
+          path.moveTo(projX, projY);
+          first = false;
+        } else {
+          path.lineTo(projX, projY);
+        }
+      }
+
+      Color c = ThemeManager.getPrimaryAccent();
+      int alpha = (int) (15 + 85 * (1.0 - normZ));
+      g2.setColor(new Color(c.getRed(), c.getGreen(), c.getBlue(), alpha));
+      g2.draw(path);
     }
 
-    g2.setColor(Color.GRAY);
+    g2.setColor(new Color(255, 255, 255, 180));
     g2.setFont(new Font("SansSerif", Font.BOLD, 10));
     String msg = "📁 LOAD A WAVETABLE (.WAV) TO SCAN IN 3D";
     int msgW = g2.getFontMetrics().stringWidth(msg);
-    g2.drawString(msg, (w - msgW) / 2, h / 2 - 5);
+    g2.drawString(msg, (w - msgW) / 2, h / 2 - 8);
 
     g2.setFont(new Font("SansSerif", Font.PLAIN, 9));
     g2.setColor(new Color(0x60, 0x60, 0x68));
     String sub = "Ensure Osc Type is set to WAVETABLE to preview morphing";
     int subW = g2.getFontMetrics().stringWidth(sub);
-    g2.drawString(sub, (w - subW) / 2, h / 2 + 12);
+    g2.drawString(sub, (w - subW) / 2, h / 2 + 10);
   }
 
   private void openEditorDialog() {
