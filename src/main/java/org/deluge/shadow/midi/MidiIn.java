@@ -19,7 +19,8 @@ public class MidiIn {
   // Reusable receive buffer. Sized to the RtMidi ring capacity so a single large SysEx (e.g. a
   // Deluge directory listing, ~1.5 KB, or file transfers) fits. We MUST read into a big buffer via
   // getMessage(byte[], double[]) rather than the no-arg getMessage(), which uses a fixed 1024-byte
-  // scratch array and throws ArrayIndexOutOfBounds on any message larger than 1 KB (rtmidijava bug).
+  // scratch array and throws ArrayIndexOutOfBounds on any message larger than 1 KB (rtmidijava
+  // bug).
   private final byte[] rxBuf = new byte[65536];
   private final double[] rxTimestamp = new double[1];
 

@@ -218,9 +218,13 @@ public class SwingProjectSidebarPanel extends JPanel {
           javax.swing.tree.TreePath path = libraryTree.getSelectionPath();
           if (path != null) {
             File targetDir = getLocalFileForPath(path);
-            if (targetDir != null && targetDir.isDirectory() && isRemoteSource && remoteClipboardPath != null) {
+            if (targetDir != null
+                && targetDir.isDirectory()
+                && isRemoteSource
+                && remoteClipboardPath != null) {
               int lastSlash = remoteClipboardPath.lastIndexOf('/');
-              String name = lastSlash != -1 ? remoteClipboardPath.substring(lastSlash + 1) : "downloaded.XML";
+              String name =
+                  lastSlash != -1 ? remoteClipboardPath.substring(lastSlash + 1) : "downloaded.XML";
               File destFile = new File(targetDir, name);
               downloadRemoteFileToLocal(remoteClipboardPath, destFile);
             }
@@ -237,7 +241,8 @@ public class SwingProjectSidebarPanel extends JPanel {
                 File file = getLocalFileForPath(path);
                 if (file != null) {
                   localCopyItem.setEnabled(file.isFile());
-                  localPasteItem.setEnabled(file.isDirectory() && isRemoteSource && remoteClipboardPath != null);
+                  localPasteItem.setEnabled(
+                      file.isDirectory() && isRemoteSource && remoteClipboardPath != null);
                   localPopupMenu.show(libraryTree, e.getX(), e.getY());
                 }
               }
@@ -736,8 +741,12 @@ public class SwingProjectSidebarPanel extends JPanel {
             boolean canPaste = (localClipboardFile != null) || (remoteClipboardPath != null);
             pasteItem.setEnabled(canPaste);
           }
-          @Override public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent ev) {}
-          @Override public void popupMenuCanceled(javax.swing.event.PopupMenuEvent ev) {}
+
+          @Override
+          public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent ev) {}
+
+          @Override
+          public void popupMenuCanceled(javax.swing.event.PopupMenuEvent ev) {}
         });
 
     // Bind popup menu
@@ -1332,13 +1341,26 @@ public class SwingProjectSidebarPanel extends JPanel {
     String category = path.getPathComponent(1).toString();
     File baseDir;
     switch (category) {
-      case "KITS": baseDir = PreferencesManager.getKitsDir(); break;
-      case "SYNTHS": baseDir = PreferencesManager.getSynthsDir(); break;
-      case "SONGS": baseDir = PreferencesManager.getSongsDir(); break;
-      case "MIDI_DEVICES": baseDir = PreferencesManager.getMidiDevicesDir(); break;
-      case "PATTERNS": baseDir = PreferencesManager.getPatternsDir(); break;
-      case "EXAMPLES": baseDir = new File(PreferencesManager.getLibraryDir(), "EXAMPLES"); break;
-      default: baseDir = null;
+      case "KITS":
+        baseDir = PreferencesManager.getKitsDir();
+        break;
+      case "SYNTHS":
+        baseDir = PreferencesManager.getSynthsDir();
+        break;
+      case "SONGS":
+        baseDir = PreferencesManager.getSongsDir();
+        break;
+      case "MIDI_DEVICES":
+        baseDir = PreferencesManager.getMidiDevicesDir();
+        break;
+      case "PATTERNS":
+        baseDir = PreferencesManager.getPatternsDir();
+        break;
+      case "EXAMPLES":
+        baseDir = new File(PreferencesManager.getLibraryDir(), "EXAMPLES");
+        break;
+      default:
+        baseDir = null;
     }
     if (baseDir == null) return null;
 
