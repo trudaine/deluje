@@ -158,7 +158,14 @@ public class DelugeFileSyncService {
               remotePath, offset, linesWanted);
       Reply reply;
       try {
-        reply = sendWithRetry(req, null, 12, 800, "dir " + remotePath + "@" + offset);
+        // Deep pages need a long per-attempt timeout, NOT just more attempts. When a page's reply
+        // drops, the firmware's dir cursor has already advanced past `offset`, so every RETRY makes
+        // it reopen the directory and re-seek by f_readdir'ing `offset` entries before replying
+        // (smsysex.cpp getDirEntries). That re-seek grows with offset and can exceed a short
+        // timeout — so with 800ms we'd falsely time out on the re-seek'd reply and retry forever,
+        // which is exactly why the 3rd page (@50) failed 100% of the time while @0/@25 didn't. A
+        // normal reply still returns in ~15ms, so the wide window only costs time on actual drops.
+        reply = sendWithRetry(req, null, 8, 3000, "dir " + remotePath + "@" + offset);
       } catch (Exception e) {
         // A page failed after all retries. If it was the very first page we have nothing useful, so
         // propagate (a genuine connection failure). Otherwise keep what we already fetched rather
