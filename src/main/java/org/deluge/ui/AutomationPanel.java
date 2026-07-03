@@ -113,7 +113,7 @@ public class AutomationPanel extends JPanel {
 
       JCheckBox enableBox = new JCheckBox(paramName, paramHasData);
       enableBox.setFont(new Font("SansSerif", Font.BOLD, 12));
-      enableBox.setForeground(paramHasData ? Color.CYAN : Color.LIGHT_GRAY);
+      enableBox.setForeground(paramHasData ? ThemeManager.getPrimaryAccent() : Color.LIGHT_GRAY);
       enableBox.setBackground(SwingSynthConfigDialog.BG_CARD);
       enableBox.setPreferredSize(new Dimension(150, 24));
       enableBox.setFocusable(false);
@@ -130,7 +130,7 @@ public class AutomationPanel extends JPanel {
               clip.clearAutomation(paramName);
             }
 
-            enableBox.setForeground(isSelected ? Color.CYAN : Color.LIGHT_GRAY);
+            enableBox.setForeground(isSelected ? ThemeManager.getPrimaryAccent() : Color.LIGHT_GRAY);
 
             // Toggle JSliders and JLabels states live on screen instantly!
             for (int s = 0; s < stepCount; s++) {
@@ -142,7 +142,7 @@ public class AutomationPanel extends JPanel {
                 if (isSelected) {
                   sl.setValue(64); // Reset JSlider back to neutral middle!
                   vl.setText("64");
-                  vl.setForeground(Color.CYAN);
+                  vl.setForeground(ThemeManager.getPrimaryAccent());
                 } else {
                   vl.setText("-");
                   vl.setForeground(Color.DARK_GRAY);
@@ -175,11 +175,12 @@ public class AutomationPanel extends JPanel {
         slider.setPaintTicks(false);
         slider.setPaintLabels(false);
         slider.setEnabled(hasAuto);
+        DarkSliderUI.styleSlider(slider, ThemeManager.getPrimaryAccent());
         rowSliders[s] = slider;
 
         JLabel valLabel = new JLabel(hasAuto ? String.valueOf(val) : "-");
         valLabel.setFont(new Font("Monospaced", Font.BOLD, 11));
-        valLabel.setForeground(hasAuto ? Color.CYAN : Color.DARK_GRAY);
+        valLabel.setForeground(hasAuto ? ThemeManager.getPrimaryAccent() : Color.DARK_GRAY);
         valLabel.setPreferredSize(new Dimension(28, 20));
         valLabel.setHorizontalAlignment(SwingConstants.CENTER);
         rowLabels[s] = valLabel;

@@ -131,9 +131,17 @@ public class LfoMonitorComponent extends JComponent {
         }
       }
 
-      // 1. Draw waveform curve (semi-transparent, glowing look)
-      g2.setColor(new Color(laneColor.getRed(), laneColor.getGreen(), laneColor.getBlue(), 80));
-      g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      // 1. Draw waveform curve (CRT neon glow look)
+      g2.setColor(new Color(laneColor.getRed(), laneColor.getGreen(), laneColor.getBlue(), 35));
+      g2.setStroke(new BasicStroke(4.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      g2.draw(path);
+
+      g2.setColor(new Color(laneColor.getRed(), laneColor.getGreen(), laneColor.getBlue(), 90));
+      g2.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+      g2.draw(path);
+
+      g2.setColor(Color.WHITE);
+      g2.setStroke(new BasicStroke(0.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
       g2.draw(path);
       g2.setStroke(oldStroke);
 
@@ -143,12 +151,16 @@ public class LfoMonitorComponent extends JComponent {
       float dotAmp = getLfoAmplitudeAtPhase(type, currentPhase);
       float dotY = centerY - dotAmp * (drawH / 2.0f) * depth;
 
-      g2.setColor(laneColor);
-      g2.fillOval((int) dotX - 4, (int) dotY - 4, 8, 8);
+      // Pulse outer glow circle based on clock
+      int pulseSize = 10 + (int) (3.0 * Math.sin(System.currentTimeMillis() * 0.01));
+      g2.setColor(new Color(laneColor.getRed(), laneColor.getGreen(), laneColor.getBlue(), 60));
+      g2.fillOval((int) dotX - pulseSize / 2, (int) dotY - pulseSize / 2, pulseSize, pulseSize);
 
-      // Add outer glow ring
-      g2.setColor(new Color(laneColor.getRed(), laneColor.getGreen(), laneColor.getBlue(), 120));
-      g2.drawOval((int) dotX - 5, (int) dotY - 5, 10, 10);
+      g2.setColor(laneColor);
+      g2.fillOval((int) dotX - 3, (int) dotY - 3, 6, 6);
+
+      g2.setColor(Color.WHITE);
+      g2.fillOval((int) dotX - 1, (int) dotY - 1, 2, 2);
 
       // 3. Draw lane label in corner (e.g., "LFO 0: SINE 1.25Hz")
       g2.setFont(new Font("SansSerif", Font.BOLD, 9));

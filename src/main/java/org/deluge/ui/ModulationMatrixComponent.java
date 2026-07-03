@@ -246,9 +246,11 @@ public class ModulationMatrixComponent extends JComponent {
       if (col == hoverCol) {
         g2.setColor(new Color(0x28, 0x28, 0x30));
         g2.fillRect(cellX, 0, cellSize, h);
+        g2.setColor(ThemeManager.getPrimaryAccent());
+      } else {
+        g2.setColor(Color.LIGHT_GRAY);
       }
 
-      g2.setColor(Color.LIGHT_GRAY);
       String label = SRC_LABELS[col];
 
       // Center the label text horizontally in the cell column
@@ -266,11 +268,13 @@ public class ModulationMatrixComponent extends JComponent {
       if (row == hoverRow) {
         g2.setColor(new Color(0x28, 0x28, 0x30));
         g2.fillRect(0, cellY, w, cellSize);
+        g2.setColor(ThemeManager.getPrimaryAccent());
+      } else {
+        g2.setColor(Color.LIGHT_GRAY);
       }
 
       // 1. Draw Row Label (Destination)
       g2.setFont(new Font("SansSerif", Font.BOLD, 10));
-      g2.setColor(Color.LIGHT_GRAY);
       String label = DST_LABELS[row];
       g2.drawString(label, 12, cellY + cellSize - 8);
 
@@ -290,19 +294,19 @@ public class ModulationMatrixComponent extends JComponent {
           // ACTIVE MODULATION: Glowing Neon Square
           float amt = cable.amount();
 
-          // Color based on polarity: positive is Neon Mint, negative is Neon Pink
-          Color baseColor = (amt >= 0) ? new Color(0x00, 0xff, 0xcc) : new Color(0xff, 0x00, 0x7f);
+          // Color based on polarity: positive is Theme Primary, negative is Theme Secondary
+          Color baseColor = (amt >= 0) ? ThemeManager.getPrimaryAccent() : ThemeManager.getSecondaryAccent();
 
           // Filled square with opacity scaled by modulation amount
           int alpha = (int) (40 + Math.abs(amt) * 160);
           g2.setColor(
               new Color(baseColor.getRed(), baseColor.getGreen(), baseColor.getBlue(), alpha));
-          g2.fillRect(boxX, boxY, boxW, boxH);
+          g2.fillRoundRect(boxX, boxY, boxW, boxH, 4, 4);
 
-          // Neon border outline
+          // Neon border outline (rounded rect)
           g2.setColor(baseColor);
           g2.setStroke(new BasicStroke(1.5f));
-          g2.drawRect(boxX, boxY, boxW, boxH);
+          g2.drawRoundRect(boxX, boxY, boxW, boxH, 4, 4);
 
           // Draw tiny value text inside the cell (e.g. "+4", "-9")
           g2.setFont(new Font("SansSerif", Font.BOLD, 8));
@@ -315,17 +319,17 @@ public class ModulationMatrixComponent extends JComponent {
         } else {
           // INACTIVE CELL: Subtle dark box with a center dot
           g2.setColor(new Color(0x28, 0x28, 0x2e));
-          g2.drawRect(boxX, boxY, boxW, boxH);
+          g2.drawRoundRect(boxX, boxY, boxW, boxH, 4, 4);
 
           g2.setColor(new Color(0x38, 0x38, 0x40));
           g2.fillRect(cellX + cellSize / 2 - 1, cellY + cellSize / 2 - 1, 2, 2);
         }
 
-        // Highlight Cell Hover Border
+        // Highlight Cell Hover Border (theme secondary accent)
         if (col == hoverCol && row == hoverRow) {
-          g2.setColor(new Color(0xff, 0xb3, 0x00)); // Gold hover border
+          g2.setColor(ThemeManager.getSecondaryAccent());
           g2.setStroke(new BasicStroke(1.5f));
-          g2.drawRect(boxX - 1, boxY - 1, boxW + 2, boxH + 2);
+          g2.drawRoundRect(boxX - 1, boxY - 1, boxW + 2, boxH + 2, 4, 4);
         }
       }
     }

@@ -20,6 +20,7 @@ public class LfoDrawPad extends JPanel {
 
   private final float[] steps = new float[16];
   private boolean smoothMode = false;
+  private int hoverStep = -1;
 
   public LfoDrawPad(SynthTrackModel model, java.lang.Runnable onWaveChanged) {
     this.model = model;
@@ -35,12 +36,18 @@ public class LfoDrawPad extends JPanel {
       steps[i] = (float) customLfoWave[i * 16] / 1073741824.0f;
     }
 
-    // ── Mouse Dragging to Draw ──
+    // ── Mouse Dragging to Draw & Hover highlights ──
     MouseAdapter drawHandler =
         new MouseAdapter() {
           @Override
           public void mousePressed(MouseEvent e) {
             drawAtMouse(e.getX(), e.getY());
+          }
+
+          @Override
+          public void mouseExited(MouseEvent e) {
+            hoverStep = -1;
+            repaint();
           }
         };
     addMouseListener(drawHandler);
@@ -50,6 +57,22 @@ public class LfoDrawPad extends JPanel {
           @Override
           public void mouseDragged(MouseEvent e) {
             drawAtMouse(e.getX(), e.getY());
+          }
+
+          @Override
+          public void mouseMoved(MouseEvent e) {
+            int w = getWidth();
+            int paddingX = 10;
+            int drawW = w - 2 * paddingX;
+            if (drawW > 0) {
+              float stepW = (float) drawW / 16.0f;
+              int newHover = (int) ((e.getX() - paddingX) / stepW);
+              newHover = Math.max(0, Math.min(15, newHover));
+              if (newHover != hoverStep) {
+                hoverStep = newHover;
+                repaint();
+              }
+            }
           }
         });
   }
@@ -153,8 +176,9 @@ public class LfoDrawPad extends JPanel {
     g2.drawLine(
         paddingX, (int) (centerY + drawH / 4.0f), paddingX + drawW, (int) (centerY + drawH / 4.0f));
 
-    // Center zero line (glowing dotted orange)
-    g2.setColor(new Color(0xff, 0x66, 0x00, 100));
+    // Center zero line (glowing dotted theme-aware color)
+    Color zeroColor = ThemeManager.getSecondaryAccent();
+    g2.setColor(new Color(zeroColor.getRed(), zeroColor.getGreen(), zeroColor.getBlue(), 120));
     Stroke oldStroke = g2.getStroke();
     g2.setStroke(
         new BasicStroke(
@@ -215,6 +239,18 @@ public class LfoDrawPad extends JPanel {
       for (int i = 0; i < 16; i++) {
         float x = paddingX + i * stepW + stepW / 2.0f;
         float y = centerY - steps[i] * (drawH / 2.0f);
+
+        if (i == hoverStep) {
+          // Draw hover halo
+          g2.setColor(
+              new Color(
+                  secondaryAccent.getRed(),
+                  secondaryAccent.getGreen(),
+                  secondaryAccent.getBlue(),
+                  65));
+          g2.fillOval((int) x - 6, (int) y - 6, 12, 12);
+        }
+
         g2.setColor(Color.WHITE);
         g2.fillOval((int) x - 3, (int) y - 3, 6, 6);
         g2.setColor(secondaryAccent);
@@ -236,6 +272,17 @@ public class LfoDrawPad extends JPanel {
           hBar = (int) (-val * (drawH / 2.0f));
         }
 
+        // Draw hover column highlight
+        if (i == hoverStep) {
+          g2.setColor(
+              new Color(
+                  secondaryAccent.getRed(),
+                  secondaryAccent.getGreen(),
+                  secondaryAccent.getBlue(),
+                  25));
+          g2.fillRect((int) (paddingX + i * stepW), paddingY, (int) stepW, drawH);
+        }
+
         // Fill bar with glowing gradient
         g2.setColor(neonFill);
         g2.fillRect(x, y, stepWInt, hBar);
@@ -252,13 +299,20 @@ public class LfoDrawPad extends JPanel {
       }
     }
 
-    // ── 3. Draw Step Labels at the Bottom ──
+    // ── 3. Draw Step Labels at the Bottom
     g2.setFont(new Font("Monospaced", Font.BOLD, 8));
     g2.setColor(new Color(0x60, 0x60, 0x68));
     for (int i = 0; i < 16; i++) {
       String label = String.valueOf(i + 1);
       int lblW = g2.getFontMetrics().stringWidth(label);
       float x = paddingX + i * stepW + (stepW - lblW) / 2.0f;
+
+      // Highlight active hovered label in secondary accent
+      if (i == hoverStep) {
+        g2.setColor(secondaryAccent);
+      } else {
+        g2.setColor(new Color(0x60, 0x60, 0x68));
+      }
       g2.drawString(label, x, baseY + 12);
     }
   }

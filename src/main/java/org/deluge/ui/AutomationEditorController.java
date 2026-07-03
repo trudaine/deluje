@@ -158,9 +158,13 @@ public class AutomationEditorController {
         }
 
         if (lit) {
+          Color sec = ThemeManager.getSecondaryAccent();
           int precise = (int) (autoVal * 127f) % 16;
-          int bright = 0x55 + precise * 8;
-          cell.setBaseColor(new Color(0x00, bright, Math.min(0xcc, bright / 2 + 0x44)));
+          float scalar = 0.45f + (precise / 15.0f) * 0.55f;
+          int nr = Math.min(255, (int) (sec.getRed() * scalar));
+          int ng = Math.min(255, (int) (sec.getGreen() * scalar));
+          int nb = Math.min(255, (int) (sec.getBlue() * scalar));
+          cell.setBaseColor(new Color(nr, ng, nb));
           cell.setIntensity(1.0f);
           cell.setActive(true);
           cell.setNoteText("\u25CF");
@@ -407,9 +411,13 @@ public class AutomationEditorController {
         boolean hasAuto = autoClip != null && autoClip.hasAutomation(paramName, c);
 
         if (hasAuto) {
+          Color sec = ThemeManager.getSecondaryAccent();
           float val = autoClip.getAutomation(paramName, c);
-          int bright = 0x55 + (int) (val * 0xaa);
-          cell.setBaseColor(new Color(0x00, bright, 0x66));
+          float scalar = 0.45f + val * 0.55f;
+          int nr = Math.min(255, (int) (sec.getRed() * scalar));
+          int ng = Math.min(255, (int) (sec.getGreen() * scalar));
+          int nb = Math.min(255, (int) (sec.getBlue() * scalar));
+          cell.setBaseColor(new Color(nr, ng, nb));
           cell.setIntensity(1.0f);
           cell.setActive(true);
           cell.setNoteText("\u25CF");
