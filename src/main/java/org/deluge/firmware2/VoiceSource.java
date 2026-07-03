@@ -3,8 +3,9 @@ package org.deluge.firmware2;
 import org.deluge.firmware2.Oscillator.OscType;
 
 /**
- * Port of C++ struct VoiceUnisonPartSource (voice_unison_part_source.h / voice_unison_part_source.cpp).
- * Represents a single oscillator/sample source within a unison part of a Voice.
+ * Port of C++ struct VoiceUnisonPartSource (voice_unison_part_source.h /
+ * voice_unison_part_source.cpp). Represents a single oscillator/sample source within a unison part
+ * of a Voice.
  */
 public class VoiceSource {
   public Voice voiceRef;
@@ -78,21 +79,14 @@ public class VoiceSource {
               fw2Sample, startFrame, endFrame, playDirection, looping, loopStartFrame);
         } else {
           vs.voiceSample.setupLate(
-              fw2Sample,
-              startFrame,
-              endFrame,
-              playDirection,
-              looping,
-              loopStartFrame,
-              samplesLate);
+              fw2Sample, startFrame, endFrame, playDirection, looping, loopStartFrame, samplesLate);
         }
       }
     } else {
       sampleRef = fw2Sample;
       voiceSample.active = false;
       if (samplesLate == 0) {
-        voiceSample.setup(
-            fw2Sample, startFrame, endFrame, playDirection, looping, loopStartFrame);
+        voiceSample.setup(fw2Sample, startFrame, endFrame, playDirection, looping, loopStartFrame);
       } else {
         voiceSample.setupLate(
             fw2Sample, startFrame, endFrame, playDirection, looping, loopStartFrame, samplesLate);

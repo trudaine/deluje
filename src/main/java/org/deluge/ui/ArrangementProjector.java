@@ -88,20 +88,32 @@ final class ArrangementProjector {
    * agree.
    */
   static Color colourFor(ArrangerClip ac, int colTick, int ticksPerColumn) {
-    int section = ac.clip() != null ? ac.clip().getSection() : -1;
-    Color base = DelugeColour.sectionColour(section);
+    org.deluge.model.ClipModel clip = ac.clip();
+    // ClipInstance::getColour (clip_instance.cpp): grey monochrome(128) for a missing OR
+    // arrangement-only clip, otherwise the section colour.
+    boolean grey = clip == null || clip.isArrangementOnly();
+    Color base =
+        grey ? DelugeColour.monochrome(128) : DelugeColour.sectionColour(clip.getSection());
     boolean isHead = ac.startTicks() >= colTick && ac.startTicks() < colTick + ticksPerColumn;
-    if (ac.clip() == null) {
-      return DelugeColour.dim(base, 4); // arrangement-only preview
-    } else if (isHead) {
+
+    // Head square = the full instance colour (arranger_view.cpp:2362), whether or not it has a
+    // clip.
+    if (isHead) {
       return base;
-    } else {
-      int loopLen = ac.clip().getLoopLength();
-      int rel = colTick - ac.startTicks();
-      boolean loopStart = loopLen > 0 && (rel % loopLen == 0);
-      return loopStart
-          ? DelugeColour.dim(base, 3)
-          : DelugeColour.dim(DelugePadButton.getBlurColor(base), 3);
     }
+    // Follower squares (arranger_view.cpp:2388-2423):
+    if (clip == null) {
+      return DelugeColour.dim(base, 4); // no backing clip yet -> dim preview
+    }
+    boolean arrOnly = clip.isArrangementOnly();
+    int loopLen = clip.getLoopLength();
+    int rel = colTick - ac.startTicks();
+    boolean loopStart = loopLen > 0 && (rel % loopLen == 0);
+    if (loopStart) {
+      return DelugeColour.dim(base, arrOnly ? 2 : 3); // arrangement-only loop starts are dimmer
+    }
+    return arrOnly
+        ? DelugeColour.dim(base, 4)
+        : DelugeColour.dim(DelugePadButton.getBlurColor(base), 3);
   }
 }

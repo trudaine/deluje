@@ -148,8 +148,6 @@ public class Voice {
 
   // ── VoiceSource (port of VoiceUnisonPartSource) ──
 
-
-
   // ── combineExpressionValues (voice.cpp:78-83) ──
 
   /**

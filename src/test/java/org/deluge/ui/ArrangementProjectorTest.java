@@ -95,14 +95,35 @@ class ArrangementProjectorTest {
   }
 
   @Test
-  void arrangementOnlyPlacement_isDimPreview() {
+  void noClipPreview_headIsFullGrey_bodyIsDim() {
     int zoom = 192;
     ArrangerClip ac = new ArrangerClip(0, null, 0, 4 * zoom); // no backing clip
     int[] rowToTrack = {0};
 
     PadCell[][] cells = ArrangementProjector.project(List.of(ac), rowToTrack, 1, 16, 0, zoom);
 
-    Color grey = DelugeColour.sectionColour(-1); // monochrome(128)
-    assertEquals(DelugeColour.dim(grey, 4), cells[0][0].colour(), "arrangement-only = dim(base,4)");
+    Color grey = DelugeColour.monochrome(128); // ClipInstance::getColour for a clipless instance
+    assertEquals(grey, cells[0][0].colour(), "head square = full grey");
+    assertEquals(DelugeColour.dim(grey, 4), cells[0][1].colour(), "body = dim(grey,4)");
+  }
+
+  @Test
+  void arrangementOnlyClip_isGrey_withDimmerLoopStarts() {
+    // A real clip flagged arrangement-only: grey base (not section colour), loop start dim(2),
+    // mid-loop body dim(4) — arranger_view.cpp:2415-2423 / clip_instance.cpp getColour.
+    int zoom = 192;
+    ClipModel clip = new ClipModel("A", 8, 16);
+    clip.setSection(0); // section is ignored for arrangement-only clips
+    clip.setLoopLength(zoom); // loops every column
+    clip.setArrangementOnly(true);
+    ArrangerClip ac = new ArrangerClip(0, clip, 0, 4 * zoom);
+    int[] rowToTrack = {0};
+
+    PadCell[][] cells = ArrangementProjector.project(List.of(ac), rowToTrack, 1, 16, 0, zoom);
+    Color grey = DelugeColour.monochrome(128);
+
+    assertEquals(grey, cells[0][0].colour(), "head = grey, not the section colour");
+    assertEquals(
+        DelugeColour.dim(grey, 2), cells[0][1].colour(), "arrangement-only loop start dim(2)");
   }
 }

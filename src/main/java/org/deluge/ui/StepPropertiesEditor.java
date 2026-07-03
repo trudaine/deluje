@@ -1,5 +1,6 @@
 package org.deluge.ui;
 
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Frame;
 import java.awt.Point;
@@ -13,15 +14,15 @@ import org.deluge.model.ClipModel;
 import org.deluge.model.Consequence;
 import org.deluge.model.StepData;
 import org.deluge.model.TrackModel;
-import java.awt.Color;
 
 /**
- * Extracted properties editing logic for step sequencer cells.
- * Accesses companion properties package-privately to minimize ClipEditorController's size.
+ * Extracted properties editing logic for step sequencer cells. Accesses companion properties
+ * package-privately to minimize ClipEditorController's size.
  */
 class StepPropertiesEditor {
 
-  public static void handleStepLongPressed(ClipEditorController controller, int row, int col, Point screenPos) {
+  public static void handleStepLongPressed(
+      ClipEditorController controller, int row, int col, Point screenPos) {
     SwingGridPanel parent = controller.parent;
     BridgeContract bridge = parent.getBridge();
     if (bridge == null) return;
@@ -128,7 +129,8 @@ class StepPropertiesEditor {
                         st, (float) vel, (float) g, (float) prob, pitch, iter, (float) fill);
                 parent.setClipStep(cModel, visualModelRow, activeCol, newStep);
                 if (oldStep != null && parent.getProjectModel() != null) {
-                  parent.getProjectModel()
+                  parent
+                      .getProjectModel()
                       .getUndoRedoStack()
                       .push(
                           new Consequence.StepConsequence(
@@ -199,7 +201,8 @@ class StepPropertiesEditor {
                         controller.copiedStep.fill());
                 parent.setClipStep(cModel, visualModelRow, activeCol, newStep);
                 if (oldStep != null && parent.getProjectModel() != null) {
-                  parent.getProjectModel()
+                  parent
+                      .getProjectModel()
                       .getUndoRedoStack()
                       .push(
                           new Consequence.StepConsequence(
@@ -316,7 +319,8 @@ class StepPropertiesEditor {
     int activeCol = parent.getActiveCol(row, col);
     int baseTrackId = parent.getBaseTrackId();
     int engineRow = baseTrackId + engineRowOffset;
-    boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1 || bridge.getTrackType(baseTrackId) == 0;
+    boolean isSynthMode =
+        bridge.getTrackType(baseTrackId) == 1 || bridge.getTrackType(baseTrackId) == 0;
     int pitch = isSynthMode ? parent.getRowPitch(visualModelRow) : 0;
 
     StepData oldStep = null;
@@ -324,7 +328,8 @@ class StepPropertiesEditor {
     ClipModel cModel = null;
     int editedModelTrack = parent.getEditedModelTrack();
     int activeClipId = parent.getActiveClipId();
-    if (parent.getProjectModel() != null && editedModelTrack < parent.getProjectModel().getTracks().size()) {
+    if (parent.getProjectModel() != null
+        && editedModelTrack < parent.getProjectModel().getTracks().size()) {
       tModel = parent.getProjectModel().getTracks().get(editedModelTrack);
       if (activeClipId < tModel.getClips().size()) {
         cModel = tModel.getClips().get(activeClipId);
@@ -352,7 +357,8 @@ class StepPropertiesEditor {
               (float) nudge);
       parent.setClipStep(cModel, visualModelRow, activeCol, newStep);
       if (oldStep != null && parent.getProjectModel() != null) {
-        parent.getProjectModel()
+        parent
+            .getProjectModel()
             .getUndoRedoStack()
             .push(
                 new Consequence.StepConsequence(
@@ -398,7 +404,8 @@ class StepPropertiesEditor {
     applyStepProperties(controller, row, col, vel, iter, fill, prob, gate, nudge);
   }
 
-  public static void saveStepProbability(ClipEditorController controller, int row, int col, double prob) {
+  public static void saveStepProbability(
+      ClipEditorController controller, int row, int col, double prob) {
     SwingGridPanel parent = controller.parent;
     BridgeContract bridge = parent.getBridge();
     if (bridge == null) return;
@@ -407,7 +414,8 @@ class StepPropertiesEditor {
     int activeCol = parent.getActiveCol(row, col);
     int baseTrackId = parent.getBaseTrackId();
     int engineRow = baseTrackId + engineRowOffset;
-    boolean isSynthMode = bridge.getTrackType(baseTrackId) == 1 || bridge.getTrackType(baseTrackId) == 0;
+    boolean isSynthMode =
+        bridge.getTrackType(baseTrackId) == 1 || bridge.getTrackType(baseTrackId) == 0;
     int pitch = isSynthMode ? parent.getRowPitch(visualModelRow) : 0;
 
     StepData oldStep = null;
@@ -415,7 +423,8 @@ class StepPropertiesEditor {
     ClipModel cModel = null;
     int editedModelTrack = parent.getEditedModelTrack();
     int activeClipId = parent.getActiveClipId();
-    if (parent.getProjectModel() != null && editedModelTrack < parent.getProjectModel().getTracks().size()) {
+    if (parent.getProjectModel() != null
+        && editedModelTrack < parent.getProjectModel().getTracks().size()) {
       tModel = parent.getProjectModel().getTracks().get(editedModelTrack);
       if (activeClipId < tModel.getClips().size()) {
         cModel = tModel.getClips().get(activeClipId);
@@ -435,7 +444,8 @@ class StepPropertiesEditor {
           new StepData(st, (float) vel, (float) gate, (float) prob, pitch, iter, (float) fill);
       parent.setClipStep(cModel, visualModelRow, activeCol, newStep);
       if (oldStep != null && parent.getProjectModel() != null) {
-        parent.getProjectModel()
+        parent
+            .getProjectModel()
             .getUndoRedoStack()
             .push(
                 new Consequence.StepConsequence(
