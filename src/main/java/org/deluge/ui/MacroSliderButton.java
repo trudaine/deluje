@@ -170,28 +170,41 @@ public class MacroSliderButton extends JButton {
     int rh = h - 2 * yPad;
     int arc = 6;
 
-    g2.setColor(new Color(0x15, 0x15, 0x18));
+    g2.setColor(new Color(0x11, 0x11, 0x13));
     g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+
+    // Draw slot shadow
+    g2.setColor(new Color(0, 0, 0, 100));
+    g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
 
     int barH = (int) (value * rh);
     if (barH > 0) {
+      Color c1 = ThemeManager.getPrimaryAccent();
+      Color c2 = ThemeManager.getSecondaryAccent();
+
+      Color alphaC1 = new Color(c1.getRed(), c1.getGreen(), c1.getBlue(), 95);
+      Color alphaC2 = new Color(c2.getRed(), c2.getGreen(), c2.getBlue(), 160);
+
       GradientPaint grad =
           new GradientPaint(
-              w / 2.0f,
-              h - yPad,
-              new Color(0x00, 0xe6, 0x76, 90),
-              w / 2.0f,
-              h - yPad - barH,
-              new Color(0x00, 0xb0, 0xff, 140));
+              w / 2.0f, h - yPad, alphaC1,
+              w / 2.0f, h - yPad - barH, alphaC2);
       g2.setPaint(grad);
       g2.fillRoundRect(xPad, h - yPad - barH, rw, barH, arc, arc);
 
-      g2.setColor(new Color(0x00, 0xb0, 0xff, 220));
+      // Draw bright center line (LED strip hotspot)
+      g2.setColor(new Color(255, 255, 255, 180));
+      g2.setStroke(new BasicStroke(1.2f));
+      g2.drawLine(w / 2, h - yPad, w / 2, h - yPad - barH);
+
+      // Draw top bar cap line
+      g2.setColor(c2);
       g2.setStroke(new BasicStroke(1.5f));
       g2.drawLine(xPad + 2, h - yPad - barH, w - xPad - 2, h - yPad - barH);
     }
 
-    g2.setColor(isSliding ? new Color(0x00, 0xb0, 0xff) : new Color(0x2d, 0x2d, 0x35));
+    Color borderCol = isSliding ? ThemeManager.getSecondaryAccent() : new Color(0x2d, 0x2d, 0x35);
+    g2.setColor(borderCol);
     g2.setStroke(new BasicStroke(isSliding ? 1.5f : 1.0f));
     g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
 
