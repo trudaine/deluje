@@ -90,6 +90,54 @@ public class PlaybackHandler {
     this.numRepeatsTilLaunch = 0;
   }
 
+  /**
+   * Faithful port of {@code Session::scheduleLaunchTiming} (session.cpp:746). Schedules the launch
+   * at {@code atTickCount} only if it is later than any already-scheduled event (so a longer clip
+   * doesn't get its launch pulled earlier by a shorter one), and pulls {@code
+   * swungTicksTilNextEvent} in so the transport wakes at the launch tick.
+   */
+  public synchronized void scheduleLaunchTiming(long atTickCount, int numRepeatsUntil) {
+    if (atTickCount > launchEventAtSwungTickCount) {
+      launchEventAtSwungTickCount = atTickCount;
+      numRepeatsTilLaunch = numRepeatsUntil;
+      long ticksTilLaunchEvent = atTickCount - lastSwungTickActioned;
+      if (swungTicksTilNextEvent > ticksTilLaunchEvent) {
+        swungTicksTilNextEvent = (int) ticksTilLaunchEvent;
+      }
+    }
+  }
+
+  /**
+   * Assembles Phase 2's quantization with the live transport to schedule the next quantized launch
+   * — {@code Session::armAllClipsToStop} + {@code investigateSyncedLaunch}
+   * (LAUNCH_USING_QUANTIZATION branch). Given the clip being synced to (its loop length and current
+   * position within the quantization window), quantizes and calls {@link #scheduleLaunchTiming} at
+   * the next boundary.
+   *
+   * @param waitForClipLoopLength loop length (ticks) of the clip being synced to (0 = nothing to
+   *     sync to, no-op)
+   * @param longestStartingClipLength loop length of the longest clip being started now (pass the
+   *     same as {@code waitForClipLoopLength} to disable subdivision)
+   * @param posWithinQuantization the sync clip's current forward position in ticks
+   * @param numRepeatsUntil clip repeats remaining until the launch fires
+   * @param allowSubdivided whether sub-loop-length quantization is permitted
+   */
+  public synchronized void scheduleQuantizedLaunch(
+      long waitForClipLoopLength,
+      long longestStartingClipLength,
+      long posWithinQuantization,
+      int numRepeatsUntil,
+      boolean allowSubdivided) {
+    if (waitForClipLoopLength <= 0) {
+      return; // nothing playing to sync to
+    }
+    long quantization =
+        LaunchQuantizer.syncedQuantization(
+            waitForClipLoopLength, longestStartingClipLength, allowSubdivided);
+    long ticksTilSwap = LaunchQuantizer.ticksTilLaunch(posWithinQuantization, quantization);
+    scheduleLaunchTiming(lastSwungTickActioned + ticksTilSwap, numRepeatsUntil);
+  }
+
   public synchronized void setProject(ProjectModel project) {
     this.currentProject = project;
   }

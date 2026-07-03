@@ -17,8 +17,8 @@ import org.deluge.model.TrackModel;
 import org.deluge.project.PreferencesManager;
 
 /**
- * Controller extracting the shift-click synthesizer parameter overlay and basic popup sliders
- * from ClipEditorController to keep it clean and focused.
+ * Controller extracting the shift-click synthesizer parameter overlay and basic popup sliders from
+ * ClipEditorController to keep it clean and focused.
  */
 class ShiftClickController {
 
