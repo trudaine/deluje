@@ -1197,45 +1197,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     }
   }
 
-  static class KeyboardMouseAdapter extends java.awt.event.MouseAdapter {
-    private final int note;
-    private final SwingGridPanel panel;
 
-    KeyboardMouseAdapter(SwingGridPanel panel, int note) {
-      this.panel = panel;
-      this.note = note;
-    }
-
-    @Override
-    public void mousePressed(java.awt.event.MouseEvent e) {
-      if (lockArmedTrack == panel.editedModelTrack
-          && lockArmedStep != -1
-          && panel.projectModel != null) {
-        int trkIndex = panel.scrollOffset - note;
-        if (trkIndex >= 0 && trkIndex < panel.voiceRowCount) {
-          int engineRow = panel.baseTrackId + trkIndex;
-          boolean st = panel.bridge.getStep(engineRow, lockArmedStep);
-          panel.bridge.setStep(engineRow, lockArmedStep, !st);
-
-          org.deluge.model.TrackModel tModel = panel.projectModel.getTracks().get(lockArmedTrack);
-          if (panel.activeClipId < tModel.getClips().size()) {
-            org.deluge.model.ClipModel cModel = tModel.getClips().get(panel.activeClipId);
-            cModel.setStep(
-                trkIndex,
-                lockArmedStep,
-                new org.deluge.model.StepData(!st, 0.8f, 0.5f, 1.0f, 0, 1, 1.0f));
-          }
-          panel.fireProjectChanged();
-        }
-      }
-      panel.triggerKeyboardNote(note);
-    }
-
-    @Override
-    public void mouseReleased(java.awt.event.MouseEvent e) {
-      panel.triggerKeyboardNoteRelease(note);
-    }
-  }
 
   void clearKeyboardMouseListeners(JButton btn) {
     if (btn == null) return;
