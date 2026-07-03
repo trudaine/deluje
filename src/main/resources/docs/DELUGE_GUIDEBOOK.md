@@ -36,16 +36,16 @@ Welcome to the **Deluge-Java Workstation**, a software recreation and operations
 18. [Appendix: Programmatic BridgeContract API & Properties](#18-appendix-programmatic-bridgecontract-api--properties)
 19. [Hardware Popular Commands & Java UI Equivalents Table](#19-hardware-popular-commands--java-ui-equivalents-table)
 20. [Deluge Community Quick Reference & Java Adaptation Guide](#20-deluge-community-quick-reference--java-adaptation-guide)
-21. [Creative Workflow Tips & Best Practices (Understanding the Workflow)](#21-creative-workflow-tips--best-practices-understanding-the-workflow)
+21. [Creative Workflow Tips & Best Practices](#21-creative-workflow-tips--best-practices)
 22. [Appendix: Java Swing Desktop Quick Reference & Hardware Parity Matrix](#22-appendix-java-swing-desktop-quick-reference--hardware-parity-matrix)
 23. [The Macro Scripting & Song Automation Engine](#23-the-macro-scripting--song-automation-engine)
 24. [The Interactive Synth Preset Designer & Exporter](#24-the-interactive-synth-preset-designer--exporter)
-25. [The Master FX Console & Modulation Dashboard Extension](#25-the-master-fx-console--modulation-dashboard-extension)
+25. [The Master FX Console & Modulation Dashboard](#25-the-master-fx-console--modulation-dashboard)
 26. [Arranger Track Mutes, Solos & Live Capture Extension](#26-arranger-track-mutes-solos--live-capture-extension)
 27. [The Track Inspector](#27-the-track-inspector)
 28. [Utility & Generator Dialogs](#28-utility--generator-dialogs)
 29. [Application Menus](#29-application-menus)
-30. [Recent Architecture & UI Enhancements (Past 48 Hours)](#30-recent-architecture--ui-enhancements-past-48-hours)
+30. [Premium UI Visuals & Component Architecture](#30-premium-ui-visuals--component-architecture)
 
 ---
 
@@ -1191,7 +1191,7 @@ graph TD
 
 ---
 
-## 20. Hardware Popular Commands & Java UI Equivalents Table
+## 19. Hardware Popular Commands & Java UI Equivalents Table
 
 The following table maps the standard Deluge hardware button combinations (from the official Synthstrom Popular Commands Guide) to the equivalent modern desktop mouse clicks and keyboard shortcuts inside the Deluge-Java Workstation:
 
@@ -1234,7 +1234,7 @@ The following table maps the standard Deluge hardware button combinations (from 
 
 ---
 
-## 21. Deluge Community Quick Reference & Java Adaptation Guide
+## 20. Deluge Community Quick Reference & Java Adaptation Guide
 
 This chapter provides a direct, code-by-code mapping of every shortcut code from the official **Deluge Community Quick Reference Guide v3.1** to the equivalent mouse/keyboard actions in the Java desktop Workstation:
 
@@ -1378,7 +1378,7 @@ Use the following table to map FM multipliers to semitone offsets and fine cent 
 
 ---
 
-## 22. Creative Workflow Tips & Best Practices
+## 21. Creative Workflow Tips & Best Practices
 
 The following workflow tips and practices help organize project sessions:
 
@@ -1396,7 +1396,7 @@ The following workflow tips and practices help organize project sessions:
 
 ---
 
-## 23. Appendix: Java Swing Desktop Quick Reference & Hardware Parity Matrix
+## 22. Appendix: Java Swing Desktop Quick Reference & Hardware Parity Matrix
 
 Maps hardware buttons to keyboard shortcuts and mouse gestures. Sections marked ⚠ are not implemented in the Swing UI.
 
@@ -1706,7 +1706,7 @@ Designing custom sounds is a workflow in the Deluge-Java Workstation.
 ### 24.1 How to Design and Save a Custom Preset
 ---
 
-## 25. The Master FX Console & Modulation Dashboard Extension
+## 25. The Master FX Console & Modulation Dashboard
 
 The **Master FX Console & Modulation Dashboard** is a premium, high-fidelity mixing desk that exposes all global, song-level effects parameters to the user interface. It provides visual, tactile control over spatial room acoustics, sidechain dynamics, stereo delay timing, and output saturation drive in real-time.
 
