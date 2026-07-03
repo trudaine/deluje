@@ -3,26 +3,24 @@ package org.deluge.xml;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import java.util.List;
-import java.util.ArrayList;
 import org.deluge.model.ClipModel;
-import org.deluge.model.LfoType;
 import org.deluge.model.EnvelopeModel;
 import org.deluge.model.KeyZone;
+import org.deluge.model.LfoType;
+import org.deluge.model.MidiKnob;
 import org.deluge.model.PatchCable;
 import org.deluge.model.TrackModel;
-import org.deluge.model.MidiKnob;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
-/**
- * Common XML parsing and DOM-traversal utility helpers for Deluge XML files.
- */
+/** Common XML parsing and DOM-traversal utility helpers for Deluge XML files. */
 public class DelugeXmlUtil {
   private static final Logger LOG = Logger.getLogger(DelugeXmlUtil.class.getName());
 

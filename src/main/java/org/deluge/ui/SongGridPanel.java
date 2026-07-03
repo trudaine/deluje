@@ -3,14 +3,10 @@ package org.deluge.ui;
 import java.awt.*;
 import javax.swing.*;
 import org.deluge.BridgeContract;
-import org.deluge.ui.SwingGridPanel.GridRow;
 import org.deluge.model.SongSection;
-import org.deluge.model.TrackModel;
-import org.deluge.project.PreferencesManager;
+import org.deluge.ui.SwingGridPanel.GridRow;
 
-/**
- * Specialized Song Launcher Grid Panel.
- */
+/** Specialized Song Launcher Grid Panel. */
 public class SongGridPanel extends SwingGridPanel {
 
   public SongGridPanel(BridgeContract bridge) {
@@ -340,7 +336,11 @@ public class SongGridPanel extends SwingGridPanel {
               labelFg = Color.BLACK;
             } else if (rowHasClip) {
               labelBg = DelugeColour.sectionColour(tracks.get(trk).getClips().get(0).getSection());
-              double b = (0.299 * labelBg.getRed() + 0.587 * labelBg.getGreen() + 0.114 * labelBg.getBlue()) / 255.0;
+              double b =
+                  (0.299 * labelBg.getRed()
+                          + 0.587 * labelBg.getGreen()
+                          + 0.114 * labelBg.getBlue())
+                      / 255.0;
               labelFg = b > 0.5 ? Color.BLACK : Color.WHITE;
             } else {
               labelBg = Color.BLACK;
@@ -420,17 +420,18 @@ public class SongGridPanel extends SwingGridPanel {
                         } else {
                           JPopupMenu emptyClipMenu = new JPopupMenu();
                           JMenuItem createItem = new JMenuItem("Create New Clip Pattern");
-                          createItem.addActionListener(ev -> {
-                            String name = "CLIP " + (clipCol + 1);
-                            songTrack.addClip(
-                                new org.deluge.model.ClipModel(
-                                    name,
-                                    songTrack.getClips().isEmpty()
-                                        ? 8
-                                        : songTrack.getClips().get(0).getRowCount(),
-                                    16));
-                            fireProjectChanged();
-                          });
+                          createItem.addActionListener(
+                              ev -> {
+                                String name = "CLIP " + (clipCol + 1);
+                                songTrack.addClip(
+                                    new org.deluge.model.ClipModel(
+                                        name,
+                                        songTrack.getClips().isEmpty()
+                                            ? 8
+                                            : songTrack.getClips().get(0).getRowCount(),
+                                        16));
+                                fireProjectChanged();
+                              });
                           emptyClipMenu.add(createItem);
                           stylePopupMenu(emptyClipMenu);
                           createItem.setForeground(new Color(0x00, 0xff, 0xcc));
@@ -600,8 +601,13 @@ public class SongGridPanel extends SwingGridPanel {
               labelBg = Color.GREEN;
               labelFg = Color.BLACK;
             } else if (rowHasClip) {
-              labelBg = DelugeColour.sectionColour(tracks.get(modelRow).getClips().get(0).getSection());
-              double b = (0.299 * labelBg.getRed() + 0.587 * labelBg.getGreen() + 0.114 * labelBg.getBlue()) / 255.0;
+              labelBg =
+                  DelugeColour.sectionColour(tracks.get(modelRow).getClips().get(0).getSection());
+              double b =
+                  (0.299 * labelBg.getRed()
+                          + 0.587 * labelBg.getGreen()
+                          + 0.114 * labelBg.getBlue())
+                      / 255.0;
               labelFg = b > 0.5 ? Color.BLACK : Color.WHITE;
             } else {
               labelBg = Color.BLACK;

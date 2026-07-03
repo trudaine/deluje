@@ -4,12 +4,8 @@ import java.awt.*;
 import javax.swing.*;
 import org.deluge.BridgeContract;
 import org.deluge.ui.SwingGridPanel.GridRow;
-import org.deluge.model.TrackModel;
-import org.deluge.project.PreferencesManager;
 
-/**
- * Specialized Arranger Timeline Grid Panel.
- */
+/** Specialized Arranger Timeline Grid Panel. */
 public class ArrangerGridPanel extends SwingGridPanel {
 
   public ArrangerGridPanel(BridgeContract bridge) {
@@ -96,7 +92,8 @@ public class ArrangerGridPanel extends SwingGridPanel {
           new TransferHandler() {
             @Override
             public boolean canImport(TransferSupport support) {
-              return support.isDataFlavorSupported(java.awt.datatransfer.DataFlavor.javaFileListFlavor);
+              return support.isDataFlavorSupported(
+                  java.awt.datatransfer.DataFlavor.javaFileListFlavor);
             }
 
             @SuppressWarnings("unchecked")
@@ -104,10 +101,15 @@ public class ArrangerGridPanel extends SwingGridPanel {
             public boolean importData(TransferSupport support) {
               if (!canImport(support)) return false;
               try {
-                java.util.List<java.io.File> files = (java.util.List<java.io.File>) support.getTransferable().getTransferData(java.awt.datatransfer.DataFlavor.javaFileListFlavor);
+                java.util.List<java.io.File> files =
+                    (java.util.List<java.io.File>)
+                        support
+                            .getTransferable()
+                            .getTransferData(java.awt.datatransfer.DataFlavor.javaFileListFlavor);
                 if (files != null && !files.isEmpty()) {
                   java.io.File soundFile = files.get(0);
-                  if (soundFile.getName().toLowerCase().endsWith(".wav") || soundFile.getName().toLowerCase().endsWith(".aif")) {
+                  if (soundFile.getName().toLowerCase().endsWith(".wav")
+                      || soundFile.getName().toLowerCase().endsWith(".aif")) {
                     hotSwapTrackSample(trk, 0, soundFile);
                     return true;
                   }
@@ -158,7 +160,9 @@ public class ArrangerGridPanel extends SwingGridPanel {
               @Override
               public void mouseClicked(java.awt.event.MouseEvent e) {
                 if (javax.swing.SwingUtilities.isRightMouseButton(e) || e.getClickCount() == 2) {
-                  String input = JOptionPane.showInputDialog(ArrangerGridPanel.this, "Track length (1-64):", stepLen);
+                  String input =
+                      JOptionPane.showInputDialog(
+                          ArrangerGridPanel.this, "Track length (1-64):", stepLen);
                   if (input != null) {
                     try {
                       int newLen = Integer.parseInt(input.trim());
@@ -166,7 +170,8 @@ public class ArrangerGridPanel extends SwingGridPanel {
                         bridge.setTrackLength(trk, newLen);
                         refresh();
                       }
-                    } catch (NumberFormatException ignored) {}
+                    } catch (NumberFormatException ignored) {
+                    }
                   }
                 }
               }
@@ -194,7 +199,9 @@ public class ArrangerGridPanel extends SwingGridPanel {
 
       for (int c = 0; c < columnCount; c++) {
         final int colId = c;
-        boolean isAdvanced = org.deluge.project.PreferencesManager.getGridPanelType() == org.deluge.project.PreferencesManager.GridPanelType.ADVANCED;
+        boolean isAdvanced =
+            org.deluge.project.PreferencesManager.getGridPanelType()
+                == org.deluge.project.PreferencesManager.GridPanelType.ADVANCED;
         JButton clipBtn;
         int macR = songVoiceRows, keyR = songVoiceRows + 1;
 
@@ -275,7 +282,12 @@ public class ArrangerGridPanel extends SwingGridPanel {
         } else if (t == keyR) {
           if (colId < 18) {
             int note = 48 + colId;
-            boolean isBlack = (colId % 12 == 1 || colId % 12 == 3 || colId % 12 == 6 || colId % 12 == 8 || colId % 12 == 10);
+            boolean isBlack =
+                (colId % 12 == 1
+                    || colId % 12 == 3
+                    || colId % 12 == 6
+                    || colId % 12 == 8
+                    || colId % 12 == 10);
             clipBtn.setBackground(isBlack ? new Color(0x33, 0x33, 0x33) : Color.WHITE);
             clipBtn.setForeground(isBlack ? Color.WHITE : Color.BLACK);
             clipBtn.setText(getNoteName(note));
@@ -287,9 +299,15 @@ public class ArrangerGridPanel extends SwingGridPanel {
           }
         } else {
           if (colId < 16) {
-            org.deluge.model.ArrangerClip placement = arrangerController.getArrangerClipAt(currentTrack, c);
+            org.deluge.model.ArrangerClip placement =
+                arrangerController.getArrangerClipAt(currentTrack, c);
             if (placement != null && placement.clip() != null) {
-              clipBtn.setText("<html><center><font size='3'><b>" + placement.clip().getName() + "</b><br>Bar " + (c + 1) + "</font></center></html>");
+              clipBtn.setText(
+                  "<html><center><font size='3'><b>"
+                      + placement.clip().getName()
+                      + "</b><br>Bar "
+                      + (c + 1)
+                      + "</font></center></html>");
               if (clipBtn instanceof DelugePadButton pad) {
                 pad.setBaseColor(trackColors[Math.floorMod(currentTrack, trackColors.length)]);
                 pad.setIntensity(1.0f);
@@ -299,7 +317,10 @@ public class ArrangerGridPanel extends SwingGridPanel {
                 clipBtn.setForeground(Color.BLACK);
               }
             } else {
-              clipBtn.setText("<html><center><font color='#555555' size='3'>Bar " + (c + 1) + "</font></center></html>");
+              clipBtn.setText(
+                  "<html><center><font color='#555555' size='3'>Bar "
+                      + (c + 1)
+                      + "</font></center></html>");
               if (clipBtn instanceof DelugePadButton pad) {
                 pad.setBaseColor(new Color(0x1e, 0x1e, 0x22));
                 pad.setIntensity(0.2f);
@@ -328,11 +349,12 @@ public class ArrangerGridPanel extends SwingGridPanel {
             }
             clipBtn.setToolTipText("Arrangement View: Track " + (trk + 1) + " Full Track Mute");
             clearActionListeners(clipBtn);
-            clipBtn.addActionListener(e -> {
-              boolean nextMute = bridge != null && !bridge.getMute(engineRow);
-              setTrackMuteWithCapture(engineRow, nextMute);
-              refresh();
-            });
+            clipBtn.addActionListener(
+                e -> {
+                  boolean nextMute = bridge != null && !bridge.getMute(engineRow);
+                  setTrackMuteWithCapture(engineRow, nextMute);
+                  refresh();
+                });
           } else if (isSoloColumn(colId)) {
             clipBtn.setText("SOLO");
             clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
@@ -375,12 +397,23 @@ public class ArrangerGridPanel extends SwingGridPanel {
 
         if (colId < 16) {
           int col = colId + scrollOffsetX;
-          org.deluge.model.ArrangerClip ac = arrangerController.getArrangerClipAt(currentTrack, col);
+          org.deluge.model.ArrangerClip ac =
+              arrangerController.getArrangerClipAt(currentTrack, col);
           if (ac != null) {
             String clipName = ac.clip() != null ? ac.clip().getName() : "Arrangement Clip";
-            clipBtn.setToolTipText("<html><body style='font-size: 9px; font-family: sans-serif;'><b>Arranger Clip: " + clipName + "</b><br>• Position: Bar " + (col + 1) + "<br>• Duration: " + (ac.durationTicks() / 96) + " bars<br>• Actions: Drag to move, Shift+Drag to resize<br>• Right-Click: Delete clip, Duplicate, or Edit Bar Automation</body></html>");
+            clipBtn.setToolTipText(
+                "<html><body style='font-size: 9px; font-family: sans-serif;'><b>Arranger Clip: "
+                    + clipName
+                    + "</b><br>• Position: Bar "
+                    + (col + 1)
+                    + "<br>• Duration: "
+                    + (ac.durationTicks() / 96)
+                    + " bars<br>• Actions: Drag to move, Shift+Drag to resize<br>• Right-Click: Delete clip, Duplicate, or Edit Bar Automation</body></html>");
           } else {
-            clipBtn.setToolTipText("<html><body style='font-size: 9px; font-family: sans-serif;'><b>Empty Timeline Bar " + (col + 1) + "</b><br>• Left-Click: Place a clip at this position<br>• Right-Click: Add Arranged Clip or Edit Bar Automation</body></html>");
+            clipBtn.setToolTipText(
+                "<html><body style='font-size: 9px; font-family: sans-serif;'><b>Empty Timeline Bar "
+                    + (col + 1)
+                    + "</b><br>• Left-Click: Place a clip at this position<br>• Right-Click: Add Arranged Clip or Edit Bar Automation</body></html>");
           }
         }
 
@@ -478,7 +511,8 @@ public class ArrangerGridPanel extends SwingGridPanel {
               pad.setMuted(isMuted);
               pad.setNoteText(isMuted ? "UNMUTE" : "MUTE");
             }
-            clipBtn.setToolTipText("Arrangement View: Track " + (modelRow + 1) + " Full Track Mute");
+            clipBtn.setToolTipText(
+                "Arrangement View: Track " + (modelRow + 1) + " Full Track Mute");
           } else if (isSoloColumn(c)) {
             clipBtn.setText("SOLO");
             boolean isSoloed = (soloRow == modelRow);
@@ -497,7 +531,8 @@ public class ArrangerGridPanel extends SwingGridPanel {
             Color arrCellColour = null;
             if (modelRow < tracks.size()) {
               int col = c + scrollOffsetX;
-              org.deluge.model.ArrangerClip ac = arrangerController.getArrangerClipAt(modelRow, col);
+              org.deluge.model.ArrangerClip ac =
+                  arrangerController.getArrangerClipAt(modelRow, col);
               hasClip = ac != null;
               if (ac != null) {
                 int section = ac.clip() != null ? ac.clip().getSection() : -1;
@@ -513,14 +548,18 @@ public class ArrangerGridPanel extends SwingGridPanel {
                   int loopLen = ac.clip().getLoopLength();
                   int rel = colTick - ac.startTicks();
                   boolean loopStart = loopLen > 0 && (rel % loopLen == 0);
-                  arrCellColour = loopStart ? DelugeColour.dim(base, 3) : DelugeColour.dim(DelugePadButton.getBlurColor(base), 3);
+                  arrCellColour =
+                      loopStart
+                          ? DelugeColour.dim(base, 3)
+                          : DelugeColour.dim(DelugePadButton.getBlurColor(base), 3);
                 }
               }
             }
 
             Color cellColour = arrCellColour != null ? arrCellColour : getTrackColour(modelRow);
             if (clipBtn instanceof DelugePadButton pad) {
-              org.deluge.project.PreferencesManager.GridColorTheme theme = org.deluge.project.PreferencesManager.getGridColorTheme();
+              org.deluge.project.PreferencesManager.GridColorTheme theme =
+                  org.deluge.project.PreferencesManager.getGridColorTheme();
               pad.setBaseColor(cellColour);
               pad.setTheme(theme);
               pad.setActive(hasClip);

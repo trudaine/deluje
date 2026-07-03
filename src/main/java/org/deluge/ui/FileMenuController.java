@@ -25,7 +25,6 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
-import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JTextField;
 import javax.swing.SpinnerNumberModel;
@@ -34,7 +33,6 @@ import javax.swing.SwingWorker;
 import org.deluge.BridgeContract;
 import org.deluge.ableton.AbletonProjectManager;
 import org.deluge.ableton.AbletonTrackMapper;
-import org.deluge.engine.FirmwareAudioEngine;
 import org.deluge.engine.FirmwareFactory;
 import org.deluge.kit.KitAssembler;
 import org.deluge.model.AudioTrackModel;
@@ -55,8 +53,8 @@ import org.deluge.storage.audio.AudioFileReader;
 import org.w3c.dom.Document;
 
 /**
- * Controller class coordinating Deluge XML project saving, loading,
- * audio/MIDI stem exports, custom ChUCk scripting, and Ableton project importing.
+ * Controller class coordinating Deluge XML project saving, loading, audio/MIDI stem exports, custom
+ * ChUCk scripting, and Ableton project importing.
  */
 public class FileMenuController {
   private final SwingDelugeApp app;
@@ -70,8 +68,7 @@ public class FileMenuController {
 
   public void saveProject(boolean forceChooser) {
     File songsDir = PreferencesManager.getSongsDir();
-    File suggestedFile =
-        SaveNameSuggester.suggestNextSaveFile(songsDir, app.currentProjectFile);
+    File suggestedFile = SaveNameSuggester.suggestNextSaveFile(songsDir, app.currentProjectFile);
 
     File target = (suggestedFile != null) ? suggestedFile : app.currentProjectFile;
 
@@ -111,8 +108,7 @@ public class FileMenuController {
     if (file == null) return;
 
     final JDialog progressDialog =
-        new JDialog(
-            app, isAbleton ? "Importing Ableton Live Set" : "Loading Deluge Project", true);
+        new JDialog(app, isAbleton ? "Importing Ableton Live Set" : "Loading Deluge Project", true);
     progressDialog.setUndecorated(true);
     progressDialog.setSize(420, 110);
     progressDialog.setLocationRelativeTo(app);
@@ -310,10 +306,7 @@ public class FileMenuController {
       duration = Double.parseDouble(input);
     } catch (NumberFormatException e) {
       JOptionPane.showMessageDialog(
-          app,
-          "Invalid duration. Using auto-detect.",
-          "Export Stems",
-          JOptionPane.WARNING_MESSAGE);
+          app, "Invalid duration. Using auto-detect.", "Export Stems", JOptionPane.WARNING_MESSAGE);
       duration = 0;
     }
 
@@ -444,8 +437,7 @@ public class FileMenuController {
     }
 
     try {
-      PatternModel pattern =
-          new PatternModel(UUID.randomUUID().toString(), clip.getName());
+      PatternModel pattern = new PatternModel(UUID.randomUUID().toString(), clip.getName());
       pattern.setCategory("MELODIC");
 
       PatternModel.ClipSnapshot snap =
@@ -509,7 +501,11 @@ public class FileMenuController {
                   "Load pattern",
                   List.of(
                       new Consequence.PatternLoadConsequence(
-                          app.currentProject, focusTrack, clipIdx, beforeSnapshot, afterSnapshot))));
+                          app.currentProject,
+                          focusTrack,
+                          clipIdx,
+                          beforeSnapshot,
+                          afterSnapshot))));
 
       app.pushModelToBridge();
       app.propagateCurrentModel();
@@ -622,8 +618,7 @@ public class FileMenuController {
           KitAssembler.assembleFromSynths(
               kitName, Arrays.asList(selected), muteGroups, pitchOffsets);
 
-      JFileChooser saveChooser =
-          new JFileChooser(PreferencesManager.getSongsDir());
+      JFileChooser saveChooser = new JFileChooser(PreferencesManager.getSongsDir());
       saveChooser.setDialogTitle("Save Kit As");
       saveChooser.setFileFilter(
           new javax.swing.filechooser.FileNameExtensionFilter("Kit XML", "xml", "XML"));
@@ -658,12 +653,7 @@ public class FileMenuController {
         Collections.addAll(cmd, args);
       } else {
         // Fallback: java.home/bin/java + the JVM's own input args + classpath + this main class.
-        cmd.add(
-            System.getProperty("java.home")
-                + File.separator
-                + "bin"
-                + File.separator
-                + "java");
+        cmd.add(System.getProperty("java.home") + File.separator + "bin" + File.separator + "java");
         cmd.addAll(ManagementFactory.getRuntimeMXBean().getInputArguments());
         cmd.add("-cp");
         cmd.add(System.getProperty("java.class.path"));

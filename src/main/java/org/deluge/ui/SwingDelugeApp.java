@@ -1,9 +1,6 @@
 package org.deluge.ui;
 
 import java.awt.*;
-import java.io.IOException;
-import javax.sound.sampled.LineUnavailableException;
-import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.*;
 import org.deluge.BridgeContract;
 import org.deluge.engine.FirmwareFactory;
@@ -14,7 +11,6 @@ import org.deluge.model.AudioTrackModel;
 import org.deluge.model.ClipModel;
 import org.deluge.model.Consequence;
 import org.deluge.model.KitTrackModel;
-import org.deluge.model.PatternModel;
 import org.deluge.model.SoundDrum;
 import org.deluge.model.SynthTrackModel;
 import org.deluge.ui.views.KitView;

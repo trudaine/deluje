@@ -12,8 +12,8 @@ import org.deluge.model.SoundDrum;
 import org.deluge.model.StepData;
 
 /**
- * Controller managing audio engine transport, playback states, resampling capture,
- * tap tempo calculation, and metronome volume.
+ * Controller managing audio engine transport, playback states, resampling capture, tap tempo
+ * calculation, and metronome volume.
  */
 public class TransportController {
   private final SwingDelugeApp app;

@@ -280,7 +280,6 @@ public class DelugePadButton extends JButton {
     repaint();
   }
 
-
   private boolean inLoop = true;
 
   public boolean isInLoop() {

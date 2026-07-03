@@ -3,13 +3,10 @@ package org.deluge.ui;
 import java.awt.*;
 import javax.swing.*;
 import org.deluge.BridgeContract;
-import org.deluge.project.PreferencesManager;
-import org.deluge.model.ClipModel;
 import org.deluge.model.AutomationParam;
+import org.deluge.model.ClipModel;
 
-/**
- * Concrete AutomationGridPanel subclass for Parameter Automation view mode.
- */
+/** Concrete AutomationGridPanel subclass for Parameter Automation view mode. */
 public class AutomationGridPanel extends SwingGridPanel {
 
   public AutomationGridPanel(BridgeContract bridge) {
@@ -54,7 +51,8 @@ public class AutomationGridPanel extends SwingGridPanel {
     autoLabel.setForeground(new Color(0x00, 0xff, 0xcc));
     autoHeader.add(autoLabel);
 
-    JToggleButton overviewToggle = new JToggleButton("OVERVIEW", automationController.isOverviewMode());
+    JToggleButton overviewToggle =
+        new JToggleButton("OVERVIEW", automationController.isOverviewMode());
     overviewToggle.setFont(new Font("SansSerif", Font.PLAIN, 11));
     overviewToggle.setMargin(new Insets(0, 4, 0, 4));
     overviewToggle.addActionListener(
@@ -83,7 +81,10 @@ public class AutomationGridPanel extends SwingGridPanel {
       interpBtn.setFont(new Font("SansSerif", Font.PLAIN, 11));
       interpBtn.setMargin(new Insets(0, 4, 0, 4));
       interpBtn.setToolTipText("Linear interpolate between automated steps");
-      interpBtn.addActionListener(e -> automationController.interpolateAutomation(fAutoClip, automationController.getSelectedParam()));
+      interpBtn.addActionListener(
+          e ->
+              automationController.interpolateAutomation(
+                  fAutoClip, automationController.getSelectedParam()));
       autoHeader.add(interpBtn);
 
       JButton clearAutoBtn = new JButton("Clear");

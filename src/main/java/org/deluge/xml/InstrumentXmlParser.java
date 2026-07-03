@@ -1,5 +1,7 @@
 package org.deluge.xml;
 
+import static org.deluge.xml.DelugeXmlUtil.*;
+
 import java.io.InputStream;
 import java.util.List;
 import java.util.logging.Level;
@@ -9,8 +11,6 @@ import org.deluge.model.*;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
-
-import static org.deluge.xml.DelugeXmlUtil.*;
 
 public class InstrumentXmlParser {
   private static final Logger LOG = Logger.getLogger(InstrumentXmlParser.class.getName());
@@ -53,7 +53,8 @@ public class InstrumentXmlParser {
               "defaultParams",
               "stutterRate",
               (track, val) -> track.getStutter().setStutterRate(val)),
-          FieldBinding.hexFloat("defaultParams", "sampleRateReduction", SynthTrackModel::setSampleRateReduction),
+          FieldBinding.hexFloat(
+              "defaultParams", "sampleRateReduction", SynthTrackModel::setSampleRateReduction),
           FieldBinding.hexFloat("defaultParams", "bitCrush", SynthTrackModel::setBitCrush),
           FieldBinding.hexFloat("defaultParams", "delayRate", SynthTrackModel::setDelaySend),
           FieldBinding.hexFloat("defaultParams", "waveIndex", SynthTrackModel::setWaveIndex),
@@ -80,7 +81,7 @@ public class InstrumentXmlParser {
     return synth;
   }
 
-    private static final java.util.Map<String, Integer> SOUNDPARAMS_RAW_PATCHED =
+  private static final java.util.Map<String, Integer> SOUNDPARAMS_RAW_PATCHED =
       new java.util.LinkedHashMap<>();
 
   static {
@@ -1694,5 +1695,4 @@ public class InstrumentXmlParser {
       synth.getRawKnobs().setRawParamKnob(paramId, DelugeHexMapper.hexToQ31(v));
     }
   }
-
 }

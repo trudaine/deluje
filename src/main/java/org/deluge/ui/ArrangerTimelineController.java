@@ -6,7 +6,6 @@ import java.awt.Point;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
-import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
@@ -150,7 +149,8 @@ public class ArrangerTimelineController {
             if (colDiff != 0) {
               int ticksPerCol = arrangerTicksPerColumn();
               if (isResizingArranger) {
-                int newDurationTicks = Math.max(ticksPerCol, dragArrangerDurationTicks + colDiff * ticksPerCol);
+                int newDurationTicks =
+                    Math.max(ticksPerCol, dragArrangerDurationTicks + colDiff * ticksPerCol);
                 projectModel.getArrangerTimeline().remove(dragArrangerClip);
                 ArrangerClip updated =
                     new ArrangerClip(
@@ -197,7 +197,8 @@ public class ArrangerTimelineController {
           ClipModel newClip = new ClipModel("CLIP " + (clipCount + 1), 8, 16);
           track.addClip(newClip);
           int startTicks = arrangerTickForColumn(col);
-          projectModel.addArrangerClip(new ArrangerClip(trackIdx, newClip, startTicks, newClip.getLoopLength()));
+          projectModel.addArrangerClip(
+              new ArrangerClip(trackIdx, newClip, startTicks, newClip.getLoopLength()));
           projectChangedCallback.run();
           refreshCallback.run();
         });
@@ -215,7 +216,8 @@ public class ArrangerTimelineController {
         item.addActionListener(
             e -> {
               int startTicks = arrangerTickForColumn(col);
-              projectModel.addArrangerClip(new ArrangerClip(trackIdx, clip, startTicks, clip.getLoopLength()));
+              projectModel.addArrangerClip(
+                  new ArrangerClip(trackIdx, clip, startTicks, clip.getLoopLength()));
               projectChangedCallback.run();
               refreshCallback.run();
             });
@@ -253,8 +255,7 @@ public class ArrangerTimelineController {
           e -> {
             int nextStart = placement.startTicks() + placement.durationTicks();
             projectModel.addArrangerClip(
-                new ArrangerClip(
-                    trackIdx, placement.clip(), nextStart, placement.durationTicks()));
+                new ArrangerClip(trackIdx, placement.clip(), nextStart, placement.durationTicks()));
             projectChangedCallback.run();
             refreshCallback.run();
           });

@@ -621,10 +621,15 @@ public class AutomationEditorController {
     setPrecise.addActionListener(
         ev -> {
           String init = hasVal ? String.format("%.0f", currentVal * 100) : "50";
-          String input = JOptionPane.showInputDialog(
-              parent,
-              "Enter automation value for " + paramName + " at step " + (colIdx + 1) + " (0 - 100):",
-              init);
+          String input =
+              JOptionPane.showInputDialog(
+                  parent,
+                  "Enter automation value for "
+                      + paramName
+                      + " at step "
+                      + (colIdx + 1)
+                      + " (0 - 100):",
+                  init);
           if (input != null && !input.isBlank()) {
             try {
               float pct = Float.parseFloat(input);
@@ -636,13 +641,15 @@ public class AutomationEditorController {
                 if (pm != null) {
                   int tIdx = getEditedModelTrack();
                   int acIdx = pm.getTracks().get(tIdx).getActiveClipIndex();
-                  pm.getUndoRedoStack().push(
-                      new Consequence.AutomationConsequence(
-                          pm, tIdx, acIdx, paramName, colIdx, oldVal, newVal));
+                  pm.getUndoRedoStack()
+                      .push(
+                          new Consequence.AutomationConsequence(
+                              pm, tIdx, acIdx, paramName, colIdx, oldVal, newVal));
                 }
                 refreshCallback.run();
               }
-            } catch (NumberFormatException ignored) {}
+            } catch (NumberFormatException ignored) {
+            }
           }
         });
     menu.add(setPrecise);
@@ -659,9 +666,10 @@ public class AutomationEditorController {
             if (pm != null) {
               int tIdx = getEditedModelTrack();
               int acIdx = pm.getTracks().get(tIdx).getActiveClipIndex();
-              pm.getUndoRedoStack().push(
-                  new Consequence.AutomationConsequence(
-                       pm, tIdx, acIdx, paramName, colIdx, oldVal, -1f));
+              pm.getUndoRedoStack()
+                  .push(
+                      new Consequence.AutomationConsequence(
+                          pm, tIdx, acIdx, paramName, colIdx, oldVal, -1f));
             }
             refreshCallback.run();
           }
@@ -683,9 +691,10 @@ public class AutomationEditorController {
             if (pm != null) {
               int tIdx = getEditedModelTrack();
               int acIdx = pm.getTracks().get(tIdx).getActiveClipIndex();
-              pm.getUndoRedoStack().push(
-                  new Consequence.AutomationConsequence(
-                      pm, tIdx, acIdx, paramName, colIdx, oldVal, (float) v));
+              pm.getUndoRedoStack()
+                  .push(
+                      new Consequence.AutomationConsequence(
+                          pm, tIdx, acIdx, paramName, colIdx, oldVal, (float) v));
             }
             refreshCallback.run();
           });

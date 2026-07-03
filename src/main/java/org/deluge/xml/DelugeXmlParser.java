@@ -1,16 +1,16 @@
 package org.deluge.xml;
 
-import java.io.InputStream;
 import java.io.File;
+import java.io.InputStream;
 import org.deluge.model.KitTrackModel;
 import org.deluge.model.ProjectModel;
-import org.deluge.model.SynthTrackModel;
 import org.deluge.model.SoundDrum;
+import org.deluge.model.SynthTrackModel;
 import org.w3c.dom.Element;
 
 /**
- * Coordinator entry point for Deluge XML parsing. Delegates actual parsing of
- * songs, synths, and kits to domain-specific parser subclasses.
+ * Coordinator entry point for Deluge XML parsing. Delegates actual parsing of songs, synths, and
+ * kits to domain-specific parser subclasses.
  */
 public class DelugeXmlParser {
 

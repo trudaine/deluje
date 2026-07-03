@@ -415,7 +415,8 @@ public class SwingPianoRollDialog extends JDialog {
 
               if (clickedNote != null && clickedNote.active()) {
                 if (SwingUtilities.isRightMouseButton(e)) {
-                  showNotePopupMenu(e.getComponent(), e.getX(), e.getY(), rowIdx, noteStepStart, clickedNote);
+                  showNotePopupMenu(
+                      e.getComponent(), e.getX(), e.getY(), rowIdx, noteStepStart, clickedNote);
                   return;
                 }
                 if (e.getClickCount() == 2) {
@@ -572,18 +573,31 @@ public class SwingPianoRollDialog extends JDialog {
         if (note != null && note.active()) {
           String noteName = org.deluge.model.ScaleMapper.getNoteName(127 - rowIdx);
           int noteStart = findNoteStartStep(rowIdx, event.getX());
-          return "<html>Note: <b>" + noteName + "</b><br>"
-              + "Step: " + (noteStart + 1) + "<br>"
-              + "Duration: " + String.format("%.2f", note.gate()) + " steps<br>"
-              + "Velocity: " + String.format("%.0f", note.velocity() * 100) + "%<br>"
-              + "Probability: " + String.format("%.0f", note.probability() * 100) + "%<br>"
-              + "Nudge: " + String.format("%.0f", note.nudge() * 100) + "%</html>";
+          return "<html>Note: <b>"
+              + noteName
+              + "</b><br>"
+              + "Step: "
+              + (noteStart + 1)
+              + "<br>"
+              + "Duration: "
+              + String.format("%.2f", note.gate())
+              + " steps<br>"
+              + "Velocity: "
+              + String.format("%.0f", note.velocity() * 100)
+              + "%<br>"
+              + "Probability: "
+              + String.format("%.0f", note.probability() * 100)
+              + "%<br>"
+              + "Nudge: "
+              + String.format("%.0f", note.nudge() * 100)
+              + "%</html>";
         }
       }
       return null;
     }
 
-    private void showNotePopupMenu(Component invoker, int x, int y, int row, int step, StepData note) {
+    private void showNotePopupMenu(
+        Component invoker, int x, int y, int row, int step, StepData note) {
       JPopupMenu menu = new JPopupMenu();
 
       JMenuItem editProps = new JMenuItem("Edit Note Properties...");
@@ -591,11 +605,12 @@ public class SwingPianoRollDialog extends JDialog {
       menu.add(editProps);
 
       JMenuItem deleteItem = new JMenuItem("Delete Note");
-      deleteItem.addActionListener(ev -> {
-        deleteNote(row, step);
-        repaint();
-        velocityLane.repaint();
-      });
+      deleteItem.addActionListener(
+          ev -> {
+            deleteNote(row, step);
+            repaint();
+            velocityLane.repaint();
+          });
       menu.add(deleteItem);
 
       menu.addSeparator();
@@ -605,16 +620,25 @@ public class SwingPianoRollDialog extends JDialog {
       double[] velocities = {0.25, 0.50, 0.75, 1.00};
       for (double v : velocities) {
         JMenuItem vItem = new JMenuItem((int) (v * 100) + "%");
-        vItem.addActionListener(ev -> {
-          int engineRow = baseTrackId + row;
-          bridge.setVelocity(engineRow, step, v);
-          StepData updated = new StepData(
-              true, (float) v, note.gate(), note.probability(), note.pitch(), note.iterance(), note.fill(), note.nudge());
-          clipModel.setStep(row, step, updated);
-          repaint();
-          velocityLane.repaint();
-          fireProjectChanged();
-        });
+        vItem.addActionListener(
+            ev -> {
+              int engineRow = baseTrackId + row;
+              bridge.setVelocity(engineRow, step, v);
+              StepData updated =
+                  new StepData(
+                      true,
+                      (float) v,
+                      note.gate(),
+                      note.probability(),
+                      note.pitch(),
+                      note.iterance(),
+                      note.fill(),
+                      note.nudge());
+              clipModel.setStep(row, step, updated);
+              repaint();
+              velocityLane.repaint();
+              fireProjectChanged();
+            });
         velMenu.add(vItem);
       }
       menu.add(velMenu);
@@ -624,16 +648,25 @@ public class SwingPianoRollDialog extends JDialog {
       double[] probabilities = {0.25, 0.50, 0.75, 1.00};
       for (double p : probabilities) {
         JMenuItem pItem = new JMenuItem((int) (p * 100) + "%");
-        pItem.addActionListener(ev -> {
-          int engineRow = baseTrackId + row;
-          bridge.setStepProbability(engineRow, step, p);
-          StepData updated = new StepData(
-              true, note.velocity(), note.gate(), (float) p, note.pitch(), note.iterance(), note.fill(), note.nudge());
-          clipModel.setStep(row, step, updated);
-          repaint();
-          velocityLane.repaint();
-          fireProjectChanged();
-        });
+        pItem.addActionListener(
+            ev -> {
+              int engineRow = baseTrackId + row;
+              bridge.setStepProbability(engineRow, step, p);
+              StepData updated =
+                  new StepData(
+                      true,
+                      note.velocity(),
+                      note.gate(),
+                      (float) p,
+                      note.pitch(),
+                      note.iterance(),
+                      note.fill(),
+                      note.nudge());
+              clipModel.setStep(row, step, updated);
+              repaint();
+              velocityLane.repaint();
+              fireProjectChanged();
+            });
         probMenu.add(pItem);
       }
       menu.add(probMenu);
@@ -651,15 +684,15 @@ public class SwingPianoRollDialog extends JDialog {
     }
 
     private void showNotePropertiesDialog(int row, int step, StepData note) {
-      StepPropertiesDialog dlg = new StepPropertiesDialog(
-          (Frame) SwingUtilities.getWindowAncestor(SwingPianoRollDialog.this),
-          (int) (note.velocity() * 100),
-          note.iterance(),
-          (int) (note.fill() * 100),
-          (int) (note.probability() * 100),
-          note.gate(),
-          (int) (note.nudge() * 100)
-      );
+      StepPropertiesDialog dlg =
+          new StepPropertiesDialog(
+              (Frame) SwingUtilities.getWindowAncestor(SwingPianoRollDialog.this),
+              (int) (note.velocity() * 100),
+              note.iterance(),
+              (int) (note.fill() * 100),
+              (int) (note.probability() * 100),
+              note.gate(),
+              (int) (note.nudge() * 100));
       dlg.setVisible(true);
       if (dlg.isConfirmed()) {
         int engineRow = baseTrackId + row;
@@ -676,15 +709,16 @@ public class SwingPianoRollDialog extends JDialog {
         bridge.setStepProbability(engineRow, step, newProb);
         bridge.setGate(engineRow, step, newGate);
 
-        StepData updated = new StepData(
-            true,
-            (float) newVel,
-            (float) newGate,
-            (float) newProb,
-            note.pitch(),
-            newIt,
-            (float) newFill,
-            (float) newNudge);
+        StepData updated =
+            new StepData(
+                true,
+                (float) newVel,
+                (float) newGate,
+                (float) newProb,
+                note.pitch(),
+                newIt,
+                (float) newFill,
+                (float) newNudge);
         clipModel.setStep(row, step, updated);
         repaint();
         velocityLane.repaint();
@@ -696,11 +730,12 @@ public class SwingPianoRollDialog extends JDialog {
       JPopupMenu menu = new JPopupMenu();
 
       JMenuItem addItem = new JMenuItem("Add Note");
-      addItem.addActionListener(ev -> {
-        addNote(row, step);
-        repaint();
-        velocityLane.repaint();
-      });
+      addItem.addActionListener(
+          ev -> {
+            addNote(row, step);
+            repaint();
+            velocityLane.repaint();
+          });
       menu.add(addItem);
 
       SwingGridPanel.stylePopupMenu(menu);
@@ -847,7 +882,6 @@ public class SwingPianoRollDialog extends JDialog {
             g2.setColor(Color.WHITE);
             g2.setStroke(new BasicStroke(1.0f));
             g2.drawRoundRect(noteX, noteY, noteW, noteH, 6, 6);
-
           }
         }
       }

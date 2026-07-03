@@ -15,8 +15,8 @@ import org.deluge.shadow.core.ChuckEvent;
 import org.deluge.shadow.hid.HidMsg;
 
 /**
- * Controller class managing application keyboard shortcuts, isomorphic keyboard notes,
- * and forwarding raw input events to the native simulation bridge.
+ * Controller class managing application keyboard shortcuts, isomorphic keyboard notes, and
+ * forwarding raw input events to the native simulation bridge.
  */
 public class KeyboardShortcutManager extends KeyAdapter {
   private final SwingDelugeApp app;

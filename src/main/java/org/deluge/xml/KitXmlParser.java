@@ -1,20 +1,16 @@
 package org.deluge.xml;
 
+import static org.deluge.xml.DelugeXmlUtil.*;
+
 import java.io.InputStream;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.deluge.firmware2.Param;
 import org.deluge.model.*;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
-import static org.deluge.xml.DelugeXmlUtil.*;
-
-/**
- * Parses Drum Kits and parameters from Deluge XML patch presets or song XML node.
- */
+/** Parses Drum Kits and parameters from Deluge XML patch presets or song XML node. */
 public class KitXmlParser {
   private static final Logger LOG = Logger.getLogger(KitXmlParser.class.getName());
 
@@ -72,7 +68,7 @@ public class KitXmlParser {
     return kit;
   }
 
-    public static KitTrackModel parseKitElement(Element kitNode) throws Exception {
+  public static KitTrackModel parseKitElement(Element kitNode) throws Exception {
     String name = "KIT";
     if (kitNode.hasAttribute("name")) {
       name = kitNode.getAttribute("name");
@@ -754,5 +750,4 @@ public class KitXmlParser {
     readAttrBool(stut, "reverse", sound::setStutterReversed);
     readAttrBool(stut, "pingPong", sound::setStutterPingPong);
   }
-
 }

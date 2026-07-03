@@ -1,16 +1,14 @@
 package org.deluge.xml;
 
+import static org.deluge.xml.DelugeXmlUtil.*;
+
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.deluge.model.*;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
-
-import static org.deluge.xml.DelugeXmlUtil.*;
 
 /**
  * Parses Deluge Project Songs and all track types/sequencer notes/automation from song XML format.
@@ -22,7 +20,7 @@ public class SongXmlParser {
     return parseSong(new java.io.FileInputStream(xmlFile), xmlFile.getName().replace(".XML", ""));
   }
 
-    public static ProjectModel parseSong(InputStream is, String name) throws Exception {
+  public static ProjectModel parseSong(InputStream is, String name) throws Exception {
     Document doc = parseXml(is);
     Element root = doc.getDocumentElement();
 
@@ -1112,8 +1110,7 @@ public class SongXmlParser {
     return project;
   }
 
-
-    private static MidiTrackModel parseMidiElement(Element soundNode) throws Exception {
+  private static MidiTrackModel parseMidiElement(Element soundNode) throws Exception {
     String name = "MIDI";
     if (soundNode.hasAttribute("presetName")) {
       name = soundNode.getAttribute("presetName");
@@ -1781,5 +1778,4 @@ public class SongXmlParser {
     } catch (Exception e) {
     }
   }
-
 }

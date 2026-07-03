@@ -7,9 +7,7 @@ import org.deluge.model.ScaleMapper;
 import org.deluge.model.TrackModel;
 import org.deluge.project.PreferencesManager;
 
-/**
- * Specialized Clip Editor sequencer grid panel.
- */
+/** Specialized Clip Editor sequencer grid panel. */
 public class ClipGridPanel extends SwingGridPanel {
 
   public ClipGridPanel(BridgeContract bridge) {
@@ -185,8 +183,7 @@ public class ClipGridPanel extends SwingGridPanel {
           projectModel.getTracks().get(editedModelTrack)
               instanceof org.deluge.model.SynthTrackModel;
     }
-    boolean showNavPanel =
-        (voiceRowCount > gridMode.rows) || isSynthTrack;
+    boolean showNavPanel = (voiceRowCount > gridMode.rows) || isSynthTrack;
 
     int viewH = gridMode.rows * (padSz + 5) - 5;
     int wrapperW = rowW + (showNavPanel ? 32 : 0);
@@ -238,8 +235,7 @@ public class ClipGridPanel extends SwingGridPanel {
       foldBtn.setUI(new javax.swing.plaf.basic.BasicButtonUI());
       foldBtn.setFont(new Font("SansSerif", Font.BOLD, 8));
       foldBtn.setForeground(foldMode ? Color.BLACK : new Color(0x00, 0xff, 0xcc));
-      foldBtn.setBackground(
-          foldMode ? new Color(0x00, 0xff, 0xcc) : new Color(0x1f, 0x1f, 0x24));
+      foldBtn.setBackground(foldMode ? new Color(0x00, 0xff, 0xcc) : new Color(0x1f, 0x1f, 0x24));
       foldBtn.setBorder(BorderFactory.createEmptyBorder(4, 2, 4, 2));
       foldBtn.setFocusable(false);
       foldBtn.setToolTipText("Fold Mode (Only show rows containing notes)");
@@ -345,13 +341,17 @@ public class ClipGridPanel extends SwingGridPanel {
       synthCfgBtn.setFocusPainted(false);
       synthCfgBtn.setBorder(BorderFactory.createLineBorder(new Color(0x00, 0xff, 0xcc), 1));
       synthCfgBtn.setFocusable(false);
-      synthCfgBtn.setToolTipText("Open full synthesizer parameters dashboard (Envelopes, LFOs, FM matrix)");
+      synthCfgBtn.setToolTipText(
+          "Open full synthesizer parameters dashboard (Envelopes, LFOs, FM matrix)");
       synthCfgBtn.addActionListener(
           e -> {
             Window owner = SwingUtilities.getWindowAncestor(synthCfgBtn);
-            org.deluge.model.TrackModel activeTrack = projectModel.getTracks().get(editedModelTrack);
+            org.deluge.model.TrackModel activeTrack =
+                projectModel.getTracks().get(editedModelTrack);
             if (activeTrack instanceof org.deluge.model.SynthTrackModel synthTrack) {
-              new SwingSynthConfigDialog((Frame) owner, synthTrack, bridge, editedModelTrack, projectModel).setVisible(true);
+              new SwingSynthConfigDialog(
+                      (Frame) owner, synthTrack, bridge, editedModelTrack, projectModel)
+                  .setVisible(true);
             }
           });
       scrollRow.add(synthCfgBtn);
@@ -362,7 +362,9 @@ public class ClipGridPanel extends SwingGridPanel {
     int trackLenH = (bridge != null) ? bridge.getTrackLength(baseTrackId) : stepCount;
     this.horizScrollBar = scrollController.getHorizontalScrollBar();
     org.deluge.model.TrackModel curTrack = null;
-    if (projectModel != null && editedModelTrack >= 0 && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       curTrack = projectModel.getTracks().get(editedModelTrack);
     }
     org.deluge.model.ClipModel activeClip = null;
@@ -375,8 +377,12 @@ public class ClipGridPanel extends SwingGridPanel {
     String[] rateLabels;
     double[] rateValues;
     if (activeTrip) {
-      rateLabels = new String[] {"1 Bar", "1/2T", "1/4T", "1/8T", "1/16T", "1/32T", "1/64T", "1/128T"};
-      rateValues = new double[] {4.0, 4.0 / 3.0, 2.0 / 3.0, 1.0 / 3.0, 0.5 / 3.0, 0.25 / 3.0, 0.125 / 3.0, 0.0625 / 3.0};
+      rateLabels =
+          new String[] {"1 Bar", "1/2T", "1/4T", "1/8T", "1/16T", "1/32T", "1/64T", "1/128T"};
+      rateValues =
+          new double[] {
+            4.0, 4.0 / 3.0, 2.0 / 3.0, 1.0 / 3.0, 0.5 / 3.0, 0.25 / 3.0, 0.125 / 3.0, 0.0625 / 3.0
+          };
     } else {
       rateLabels = new String[] {"1 Bar", "1/2", "1/4", "1/8", "1/16", "1/32", "1/64", "1/128"};
       rateValues = new double[] {4.0, 2.0, 1.0, 0.5, 0.25, 0.125, 0.0625, 0.03125};
@@ -408,7 +414,8 @@ public class ClipGridPanel extends SwingGridPanel {
               bridge.setStepResolution(newVal);
             }
             if (SwingDelugeApp.mainInstance != null) {
-              SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("RATE", rateLabels[idx] + " ");
+              SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
+                  "RATE", rateLabels[idx] + " ");
             }
             refresh();
           }
@@ -426,13 +433,16 @@ public class ClipGridPanel extends SwingGridPanel {
         new java.awt.event.MouseAdapter() {
           @Override
           public void mouseClicked(java.awt.event.MouseEvent e) {
-            String input = JOptionPane.showInputDialog(ClipGridPanel.this, "Track step length (1-192):", clipSteps);
+            String input =
+                JOptionPane.showInputDialog(
+                    ClipGridPanel.this, "Track step length (1-192):", clipSteps);
             if (input != null) {
               try {
                 int newLen = Integer.parseInt(input.trim());
                 if (newLen >= 1 && newLen <= 192) {
                   if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-                    org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
+                    org.deluge.model.TrackModel track =
+                        projectModel.getTracks().get(editedModelTrack);
                     int activeClipIdx = track.getActiveClipIndex();
                     if (activeClipIdx >= 0 && activeClipIdx < track.getClips().size()) {
                       org.deluge.model.ClipModel clip = track.getClips().get(activeClipIdx);
@@ -444,7 +454,8 @@ public class ClipGridPanel extends SwingGridPanel {
                   }
                   refresh();
                 }
-              } catch (NumberFormatException ignored) {}
+              } catch (NumberFormatException ignored) {
+              }
             }
           }
         });
@@ -550,7 +561,10 @@ public class ClipGridPanel extends SwingGridPanel {
               pad.setMuted(isMuted);
               pad.setNoteText(isMuted ? "UNMUTE" : "MUTE");
             }
-            clipBtn.setToolTipText("Clip View: Row " + (v + 1) + " Mute / Unmute (Right-Click for Options / Shift-Click to Clear Steps)");
+            clipBtn.setToolTipText(
+                "Clip View: Row "
+                    + (v + 1)
+                    + " Mute / Unmute (Right-Click for Options / Shift-Click to Clear Steps)");
           } else if (isSoloColumn(c)) {
             boolean isSynth = false;
             if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
@@ -560,11 +574,17 @@ public class ClipGridPanel extends SwingGridPanel {
             String nName;
             if (isSynth) {
               int midiPitch = getRowPitch(modelRow);
-              String[] noteNames = new String[] {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+              String[] noteNames =
+                  new String[] {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
               nName = noteNames[Math.max(0, midiPitch) % 12] + ((midiPitch / 12) - 1);
-            } else if (projectModel != null && editedModelTrack < projectModel.getTracks().size()
-                && projectModel.getTracks().get(editedModelTrack) instanceof org.deluge.model.KitTrackModel kit) {
-              nName = (modelRow < kit.getDrums().size()) ? kit.getDrums().get(modelRow).getName() : ("PAD " + (modelRow + 1));
+            } else if (projectModel != null
+                && editedModelTrack < projectModel.getTracks().size()
+                && projectModel.getTracks().get(editedModelTrack)
+                    instanceof org.deluge.model.KitTrackModel kit) {
+              nName =
+                  (modelRow < kit.getDrums().size())
+                      ? kit.getDrums().get(modelRow).getName()
+                      : ("PAD " + (modelRow + 1));
               if (nName.toLowerCase().endsWith(".wav") || nName.toLowerCase().endsWith(".aif")) {
                 nName = nName.substring(0, nName.lastIndexOf('.'));
               }
@@ -582,7 +602,8 @@ public class ClipGridPanel extends SwingGridPanel {
               pad.setActive(true);
               pad.setIntensity(1.0f);
             }
-            clipBtn.setToolTipText("Clip View: Audition / Preview Row " + (v + 1) + " Note (" + nName + ")");
+            clipBtn.setToolTipText(
+                "Clip View: Audition / Preview Row " + (v + 1) + " Note (" + nName + ")");
           } else {
             int activeCol;
             if (curTrackLen > 0 && curTrackLen < stepCount) {
@@ -600,7 +621,8 @@ public class ClipGridPanel extends SwingGridPanel {
             boolean inLoop = activeCol < curTrackLen;
 
             if (clipBtn instanceof DelugePadButton pad) {
-              org.deluge.project.PreferencesManager.GridColorTheme theme = org.deluge.project.PreferencesManager.getGridColorTheme();
+              org.deluge.project.PreferencesManager.GridColorTheme theme =
+                  org.deluge.project.PreferencesManager.getGridColorTheme();
               Color trackColor = getGridNoteColor(modelRow);
               boolean inScale = true;
               boolean isRoot = false;
@@ -608,15 +630,19 @@ public class ClipGridPanel extends SwingGridPanel {
               if (isSynthMode) {
                 int pitchMidi = getRowPitch(modelRow);
                 isRoot = ScaleMapper.isRootNote(pitchMidi, projectModel.getKey());
-                inScale = ScaleMapper.isNoteInScale(pitchMidi, projectModel.getKey(), projectModel.getScale());
+                inScale =
+                    ScaleMapper.isNoteInScale(
+                        pitchMidi, projectModel.getKey(), projectModel.getScale());
               }
 
-              Color cellBaseColor = getThemeColor(theme, trackColor, stepState, inScale, isRoot, modelRow);
+              Color cellBaseColor =
+                  getThemeColor(theme, trackColor, stepState, inScale, isRoot, modelRow);
               boolean isNudged = false;
               if (stepState) {
                 org.deluge.model.ClipModel cModel = null;
                 if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-                  org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
+                  org.deluge.model.TrackModel tModel =
+                      projectModel.getTracks().get(editedModelTrack);
                   if (activeClipId < tModel.getClips().size()) {
                     cModel = tModel.getClips().get(activeClipId);
                   }
@@ -660,7 +686,10 @@ public class ClipGridPanel extends SwingGridPanel {
                 pad.setNoteText("");
               }
             } else {
-              clipBtn.setBackground(stepState ? getGridNoteColor(modelRow, (float) vel) : getStepPadDefaultBg(modelRow, c));
+              clipBtn.setBackground(
+                  stepState
+                      ? getGridNoteColor(modelRow, (float) vel)
+                      : getStepPadDefaultBg(modelRow, c));
             }
           }
         }
@@ -668,12 +697,19 @@ public class ClipGridPanel extends SwingGridPanel {
     }
   }
 
-  private JPanel buildVoiceRow(int visualRowIndex, int visibleRow, int padSz, java.util.List<org.deluge.model.TrackModel> tracks) {
+  private JPanel buildVoiceRow(
+      int visualRowIndex,
+      int visibleRow,
+      int padSz,
+      java.util.List<org.deluge.model.TrackModel> tracks) {
     boolean isSynth = false;
     if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-      isSynth = projectModel.getTracks().get(editedModelTrack) instanceof org.deluge.model.SynthTrackModel;
+      isSynth =
+          projectModel.getTracks().get(editedModelTrack)
+              instanceof org.deluge.model.SynthTrackModel;
     }
-    final int modelRow = isSynth ? (127 - getRowPitch(scrollOffset + visibleRow)) : getModelRow(visibleRow);
+    final int modelRow =
+        isSynth ? (127 - getRowPitch(scrollOffset + visibleRow)) : getModelRow(visibleRow);
     String samplePathLoc = null;
     if (modelRow < tracks.size()) {
       org.deluge.model.TrackModel track = tracks.get(modelRow);
@@ -686,67 +722,70 @@ public class ClipGridPanel extends SwingGridPanel {
             samplePathLoc = soundDrum.getSamplePath();
           }
         }
-      } else if (track instanceof org.deluge.model.AudioTrackModel audioTrack && !audioTrack.getAudioClips().isEmpty()) {
+      } else if (track instanceof org.deluge.model.AudioTrackModel audioTrack
+          && !audioTrack.getAudioClips().isEmpty()) {
         samplePathLoc = audioTrack.getAudioClips().get(0).getFilePath();
       }
     }
     final String targetSamplePath = samplePathLoc;
 
-    JPanel rowPanel = new JPanel() {
-      @Override
-      protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        if (targetSamplePath == null || targetSamplePath.isEmpty()) return;
-        float[] points = getCachedWaveform(targetSamplePath);
-        if (points == null || points.length == 0) return;
+    JPanel rowPanel =
+        new JPanel() {
+          @Override
+          protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            if (targetSamplePath == null || targetSamplePath.isEmpty()) return;
+            float[] points = getCachedWaveform(targetSamplePath);
+            if (points == null || points.length == 0) return;
 
-        int startX = 0;
-        int endX = getWidth();
-        boolean foundPads = false;
-        for (Component c : getComponents()) {
-          if (c instanceof DelugePadButton pad) {
-            Integer col = (Integer) pad.getClientProperty("col");
-            if (col != null) {
-              if (col == 0) {
-                startX = pad.getX();
-                foundPads = true;
-              }
-              if (col == stepCount - 1) {
-                endX = pad.getX() + pad.getWidth();
+            int startX = 0;
+            int endX = getWidth();
+            boolean foundPads = false;
+            for (Component c : getComponents()) {
+              if (c instanceof DelugePadButton pad) {
+                Integer col = (Integer) pad.getClientProperty("col");
+                if (col != null) {
+                  if (col == 0) {
+                    startX = pad.getX();
+                    foundPads = true;
+                  }
+                  if (col == stepCount - 1) {
+                    endX = pad.getX() + pad.getWidth();
+                  }
+                }
               }
             }
+
+            int width = endX - startX;
+            if (!foundPads || width <= 0) return;
+
+            Graphics2D g2d = (Graphics2D) g;
+            g2d.setRenderingHint(
+                RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2d.setColor(new Color(0x00, 0xff, 0x66, 0x1a));
+
+            int midY = getHeight() / 2;
+            int maxAmp = (int) (getHeight() * 0.45);
+
+            java.awt.geom.Path2D.Float path = new java.awt.geom.Path2D.Float();
+            for (int i = 0; i < points.length; i++) {
+              int x = startX + (int) ((i / (float) (points.length - 1)) * width);
+              int yOffset = (int) (points[i] * maxAmp);
+              if (i == 0) {
+                path.moveTo(x, midY - yOffset);
+              } else {
+                path.lineTo(x, midY - yOffset);
+              }
+            }
+            for (int i = points.length - 1; i >= 0; i--) {
+              int x = startX + (int) ((i / (float) (points.length - 1)) * width);
+              int yOffset = (int) (points[i] * maxAmp);
+              path.lineTo(x, midY + yOffset);
+            }
+            path.closePath();
+            g2d.fill(path);
           }
-        }
-
-        int width = endX - startX;
-        if (!foundPads || width <= 0) return;
-
-        Graphics2D g2d = (Graphics2D) g;
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2d.setColor(new Color(0x00, 0xff, 0x66, 0x1a));
-
-        int midY = getHeight() / 2;
-        int maxAmp = (int) (getHeight() * 0.45);
-
-        java.awt.geom.Path2D.Float path = new java.awt.geom.Path2D.Float();
-        for (int i = 0; i < points.length; i++) {
-          int x = startX + (int) ((i / (float) (points.length - 1)) * width);
-          int yOffset = (int) (points[i] * maxAmp);
-          if (i == 0) {
-            path.moveTo(x, midY - yOffset);
-          } else {
-            path.lineTo(x, midY - yOffset);
-          }
-        }
-        for (int i = points.length - 1; i >= 0; i--) {
-          int x = startX + (int) ((i / (float) (points.length - 1)) * width);
-          int yOffset = (int) (points[i] * maxAmp);
-          path.lineTo(x, midY + yOffset);
-        }
-        path.closePath();
-        g2d.fill(path);
-      }
-    };
+        };
 
     int lw = currentLabelWidth();
     int rowW = getGridWidth(padSz, lw);
@@ -762,7 +801,8 @@ public class ClipGridPanel extends SwingGridPanel {
       String hex = t.getColourHex();
       if (hex != null && hex.startsWith("0x")) {
         try {
-          trackColors[modelRow % trackColors.length] = new Color(Integer.decode(hex.substring(0, 8)));
+          trackColors[modelRow % trackColors.length] =
+              new Color(Integer.decode(hex.substring(0, 8)));
         } catch (Exception e) {
           LOG.warning("Bad color hex for track " + modelRow + ": " + e.getMessage());
         }
@@ -770,7 +810,8 @@ public class ClipGridPanel extends SwingGridPanel {
         int stored = 0;
         try {
           if (hex != null && !hex.isBlank()) stored = Integer.parseInt(hex.trim());
-        } catch (NumberFormatException ignore) {}
+        } catch (NumberFormatException ignore) {
+        }
         trackColors[modelRow % trackColors.length] = DelugeColour.sessionColour(stored, modelRow);
       }
     }
@@ -780,13 +821,17 @@ public class ClipGridPanel extends SwingGridPanel {
       org.deluge.model.TrackModel rowTrack = projectModel.getTracks().get(editedModelTrack);
       if (rowTrack instanceof org.deluge.model.KitTrackModel kit) {
         java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
-        trackName = (modelRow < sounds.size() && modelRow >= 0) ? sounds.get(modelRow).getName() : rowTrack.getName();
+        trackName =
+            (modelRow < sounds.size() && modelRow >= 0)
+                ? sounds.get(modelRow).getName()
+                : rowTrack.getName();
       } else {
         int pitchMidi = getRowPitch(modelRow);
         trackName = getNoteName(pitchMidi);
       }
     } else {
-      trackName = (modelRow < tracks.size()) ? tracks.get(modelRow).getName() : "EMPTY " + (modelRow + 1);
+      trackName =
+          (modelRow < tracks.size()) ? tracks.get(modelRow).getName() : "EMPTY " + (modelRow + 1);
     }
 
     final int trk = visibleRow;
@@ -801,7 +846,8 @@ public class ClipGridPanel extends SwingGridPanel {
         new TransferHandler() {
           @Override
           public boolean canImport(TransferSupport support) {
-            return support.isDataFlavorSupported(java.awt.datatransfer.DataFlavor.javaFileListFlavor);
+            return support.isDataFlavorSupported(
+                java.awt.datatransfer.DataFlavor.javaFileListFlavor);
           }
 
           @SuppressWarnings("unchecked")
@@ -809,10 +855,15 @@ public class ClipGridPanel extends SwingGridPanel {
           public boolean importData(TransferSupport support) {
             if (!canImport(support)) return false;
             try {
-              java.util.List<java.io.File> files = (java.util.List<java.io.File>) support.getTransferable().getTransferData(java.awt.datatransfer.DataFlavor.javaFileListFlavor);
+              java.util.List<java.io.File> files =
+                  (java.util.List<java.io.File>)
+                      support
+                          .getTransferable()
+                          .getTransferData(java.awt.datatransfer.DataFlavor.javaFileListFlavor);
               if (files != null && !files.isEmpty()) {
                 java.io.File soundFile = files.get(0);
-                if (soundFile.getName().toLowerCase().endsWith(".wav") || soundFile.getName().toLowerCase().endsWith(".aif")) {
+                if (soundFile.getName().toLowerCase().endsWith(".wav")
+                    || soundFile.getName().toLowerCase().endsWith(".aif")) {
                   hotSwapTrackSample(modelRow, visibleRow, soundFile);
                   return true;
                 }
@@ -870,7 +921,8 @@ public class ClipGridPanel extends SwingGridPanel {
           drumCfgBtn.addActionListener(
               e -> {
                 Window owner = SwingUtilities.getWindowAncestor(rowPanel);
-                SwingKitConfigDialog dialog = new SwingKitConfigDialog((Frame) owner, kitTrack, bridge, editedModelTrack);
+                SwingKitConfigDialog dialog =
+                    new SwingKitConfigDialog((Frame) owner, kitTrack, bridge, editedModelTrack);
                 dialog.setSelectedTab(soundIndex);
                 dialog.setVisible(true);
               });
@@ -894,7 +946,9 @@ public class ClipGridPanel extends SwingGridPanel {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
               if (javax.swing.SwingUtilities.isRightMouseButton(e) || e.getClickCount() == 2) {
-                String input = JOptionPane.showInputDialog(ClipGridPanel.this, "Track length (1-192):", stepLen);
+                String input =
+                    JOptionPane.showInputDialog(
+                        ClipGridPanel.this, "Track length (1-192):", stepLen);
                 if (input != null) {
                   try {
                     int newLen = Integer.parseInt(input.trim());
@@ -902,7 +956,8 @@ public class ClipGridPanel extends SwingGridPanel {
                       bridge.setTrackLength(modelRow, newLen);
                       refresh();
                     }
-                  } catch (NumberFormatException ignored) {}
+                  } catch (NumberFormatException ignored) {
+                  }
                 }
               }
             }
@@ -926,7 +981,9 @@ public class ClipGridPanel extends SwingGridPanel {
     for (int c = 0; c < columnCount; c++) {
       final int colId = c;
       JButton clipBtn;
-      boolean isAdvanced = org.deluge.project.PreferencesManager.getGridPanelType() == org.deluge.project.PreferencesManager.GridPanelType.ADVANCED;
+      boolean isAdvanced =
+          org.deluge.project.PreferencesManager.getGridPanelType()
+              == org.deluge.project.PreferencesManager.GridPanelType.ADVANCED;
       if (isAdvanced) {
         DelugePadButton pad = new DelugePadButton();
         pad.putClientProperty("row", visibleRow);
@@ -977,7 +1034,10 @@ public class ClipGridPanel extends SwingGridPanel {
         JPopupMenu mutePopup = createMutePopupMenu(modelRow);
         clipBtn.setComponentPopupMenu(mutePopup);
 
-        clipBtn.setToolTipText("Clip View: Row " + (visibleRow + 1) + " Mute / Unmute (Right-Click for Options / Shift-Click to Clear Steps)");
+        clipBtn.setToolTipText(
+            "Clip View: Row "
+                + (visibleRow + 1)
+                + " Mute / Unmute (Right-Click for Options / Shift-Click to Clear Steps)");
         javax.swing.ToolTipManager.sharedInstance().registerComponent(clipBtn);
 
         clearActionListeners(clipBtn);
@@ -1002,11 +1062,17 @@ public class ClipGridPanel extends SwingGridPanel {
         String nName;
         if (isSynth) {
           int midiPitch = getRowPitch(modelRow);
-          String[] noteNames = new String[] {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+          String[] noteNames =
+              new String[] {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
           nName = noteNames[Math.max(0, midiPitch) % 12] + ((midiPitch / 12) - 1);
-        } else if (projectModel != null && editedModelTrack < projectModel.getTracks().size()
-            && projectModel.getTracks().get(editedModelTrack) instanceof org.deluge.model.KitTrackModel kit) {
-          nName = (modelRow < kit.getDrums().size()) ? kit.getDrums().get(modelRow).getName() : ("PAD " + (modelRow + 1));
+        } else if (projectModel != null
+            && editedModelTrack < projectModel.getTracks().size()
+            && projectModel.getTracks().get(editedModelTrack)
+                instanceof org.deluge.model.KitTrackModel kit) {
+          nName =
+              (modelRow < kit.getDrums().size())
+                  ? kit.getDrums().get(modelRow).getName()
+                  : ("PAD " + (modelRow + 1));
           if (nName.toLowerCase().endsWith(".wav") || nName.toLowerCase().endsWith(".aif")) {
             nName = nName.substring(0, nName.lastIndexOf('.'));
           }
@@ -1031,7 +1097,8 @@ public class ClipGridPanel extends SwingGridPanel {
           pad.setNoteText(nName);
         }
 
-        clipBtn.setToolTipText("Clip View: Audition / Preview Row " + (visibleRow + 1) + " Note (" + nName + ")");
+        clipBtn.setToolTipText(
+            "Clip View: Audition / Preview Row " + (visibleRow + 1) + " Note (" + nName + ")");
         javax.swing.ToolTipManager.sharedInstance().registerComponent(clipBtn);
 
         final String finalNoteName = nName;
@@ -1048,13 +1115,15 @@ public class ClipGridPanel extends SwingGridPanel {
                 int pitchMidi = isSynthMode ? getRowPitch(modelRow) : 60;
 
                 if (SwingDelugeApp.mainInstance != null) {
-                  SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("AUD ", finalNoteName);
+                  SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
+                      "AUD ", finalNoteName);
                 }
 
                 Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                 if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
                   if (editedModelTrack < fwEngine.sounds.size() && !isSequencerPlaying()) {
-                    org.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
+                    org.deluge.firmware2.GlobalEffectable sound =
+                        fwEngine.sounds.get(editedModelTrack);
                     if (sound instanceof org.deluge.engine.FirmwareKit kit) {
                       if (modelRow < kit.drumSounds.size()) {
                         kit.triggerDrum(modelRow, 127);
@@ -1079,7 +1148,8 @@ public class ClipGridPanel extends SwingGridPanel {
                 Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                 if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
                   if (editedModelTrack < fwEngine.sounds.size()) {
-                    org.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
+                    org.deluge.firmware2.GlobalEffectable sound =
+                        fwEngine.sounds.get(editedModelTrack);
                     if (sound instanceof org.deluge.engine.FirmwareKit kit) {
                       if (modelRow < kit.drumSounds.size()) {
                         kit.drumSounds.get(modelRow).releaseNote(60);
@@ -1128,10 +1198,14 @@ public class ClipGridPanel extends SwingGridPanel {
         double prob = outVelProb[1];
         boolean inLoop = activeCol < curTrackLen;
 
-        clipBtn.setBackground(stepState ? getGridNoteColor(modelRow, (float) vel) : getStepPadDefaultBg(modelRow, colId));
+        clipBtn.setBackground(
+            stepState
+                ? getGridNoteColor(modelRow, (float) vel)
+                : getStepPadDefaultBg(modelRow, colId));
 
         if (clipBtn instanceof DelugePadButton pad) {
-          org.deluge.project.PreferencesManager.GridColorTheme theme = org.deluge.project.PreferencesManager.getGridColorTheme();
+          org.deluge.project.PreferencesManager.GridColorTheme theme =
+              org.deluge.project.PreferencesManager.getGridColorTheme();
           Color trackColor = getGridNoteColor(modelRow);
           boolean inScale = true;
           boolean isRoot = false;
@@ -1140,10 +1214,13 @@ public class ClipGridPanel extends SwingGridPanel {
           if (isSynthMode) {
             int pitchMidi = getRowPitch(modelRow);
             isRoot = ScaleMapper.isRootNote(pitchMidi, projectModel.getKey());
-            inScale = ScaleMapper.isNoteInScale(pitchMidi, projectModel.getKey(), projectModel.getScale());
+            inScale =
+                ScaleMapper.isNoteInScale(
+                    pitchMidi, projectModel.getKey(), projectModel.getScale());
           }
 
-          Color cellBaseColor = getThemeColor(theme, trackColor, stepState, inScale, isRoot, modelRow);
+          Color cellBaseColor =
+              getThemeColor(theme, trackColor, stepState, inScale, isRoot, modelRow);
           boolean isNudged = false;
           if (stepState) {
             org.deluge.model.ClipModel cModel = null;
@@ -1250,7 +1327,10 @@ public class ClipGridPanel extends SwingGridPanel {
         TrackModel rowTrack = projectModel.getTracks().get(editedModelTrack);
         if (rowTrack instanceof org.deluge.model.KitTrackModel kit) {
           java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
-          trackName = (t < sounds.size()) ? sounds.get(sounds.size() - 1 - t).getName() : rowTrack.getName();
+          trackName =
+              (t < sounds.size())
+                  ? sounds.get(sounds.size() - 1 - t).getName()
+                  : rowTrack.getName();
         } else {
           trackName = (t == 0) ? rowTrack.getName() : "-" + t + "st";
         }
@@ -1278,7 +1358,8 @@ public class ClipGridPanel extends SwingGridPanel {
 
       for (int c = 0; c < columnCount; c++) {
         final int colId = c;
-        boolean isAdvanced = PreferencesManager.getGridPanelType() == PreferencesManager.GridPanelType.ADVANCED;
+        boolean isAdvanced =
+            PreferencesManager.getGridPanelType() == PreferencesManager.GridPanelType.ADVANCED;
         JButton clipBtn;
 
         if (isAdvanced) {
@@ -1373,7 +1454,10 @@ public class ClipGridPanel extends SwingGridPanel {
           if (kitTrack) {
             int drumIdx = org.deluge.model.KeyplayKeyboard.getDrumIndex(v, c);
             boolean drumPlayable = drumIdx < editedKitDrumCount();
-            boolean isPlaying = bridge != null && bridge.getGlobalInt(BridgeContract.G_PREVIEW_TRACK) == (long) (baseTrackId + (v % 8));
+            boolean isPlaying =
+                bridge != null
+                    && bridge.getGlobalInt(BridgeContract.G_PREVIEW_TRACK)
+                        == (long) (baseTrackId + (v % 8));
 
             if (clipBtn instanceof DelugePadButton pad) {
               pad.setActive(drumPlayable);
@@ -1386,7 +1470,8 @@ public class ClipGridPanel extends SwingGridPanel {
           } else {
             int note = org.deluge.model.KeyplayKeyboard.getNote(v, c);
             boolean isRoot = ScaleMapper.isRootNote(note, projectModel.getKey());
-            boolean inScale = ScaleMapper.isNoteInScale(note, projectModel.getKey(), projectModel.getScale());
+            boolean inScale =
+                ScaleMapper.isNoteInScale(note, projectModel.getKey(), projectModel.getScale());
 
             boolean isPlaying = false;
             Color cellBaseColor = getThemeColor(theme, trackColor, isPlaying, inScale, isRoot, v);

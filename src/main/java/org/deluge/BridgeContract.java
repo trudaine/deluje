@@ -1154,17 +1154,39 @@ public final class BridgeContract {
 
   // ── VM Stubs for Decoupling ──
   private volatile long currentTime = 0L;
-  public long getCurrentTime() { return currentTime; }
-  public void advanceTime(int ticks) { this.currentTime += ticks; }
-  public double getSampleRate() { return 44100.0; }
 
-  public int getLogLevel() { return 0; }
+  public long getCurrentTime() {
+    return currentTime;
+  }
+
+  public void advanceTime(int ticks) {
+    this.currentTime += ticks;
+  }
+
+  public double getSampleRate() {
+    return 44100.0;
+  }
+
+  public int getLogLevel() {
+    return 0;
+  }
+
   public void broadcastGlobalEvent(String name) {}
+
   public void eval(String code) {}
+
   public void dispatchHidMsg(org.deluge.shadow.hid.HidMsg msg) {}
-  public int getActiveShredCount() { return 0; }
-  public org.deluge.shadow.core.DacChannel getDacChannel(int channel) { return null; }
+
+  public int getActiveShredCount() {
+    return 0;
+  }
+
+  public org.deluge.shadow.core.DacChannel getDacChannel(int channel) {
+    return null;
+  }
+
   public void register(BridgeContract bridge) {}
+
   public void shutdown() {}
 
   // ── VM Registration ────────────────────────────────────────────────────

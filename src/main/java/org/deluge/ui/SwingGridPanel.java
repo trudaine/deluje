@@ -5,7 +5,6 @@ import java.util.logging.Logger;
 import javax.swing.*;
 import org.deluge.BridgeContract;
 import org.deluge.model.Consequence;
-import org.deluge.model.KeyplayKeyboard;
 import org.deluge.model.ScaleMapper;
 import org.deluge.model.SongSection;
 
@@ -76,8 +75,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       -1; // forces a structural rebuild when the cell size changes (resize/zoom)
 
   boolean foldMode = false;
-  boolean scaleModeEnabled =
-      true; // default to true (diatonic scale mode) like the real Deluge!
+  boolean scaleModeEnabled = true; // default to true (diatonic scale mode) like the real Deluge!
   final java.util.List<Integer> foldedPitches = new java.util.ArrayList<>();
 
   public boolean isScaleModeEnabled() {
@@ -1056,11 +1054,14 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
           noteText = t.getClips().get(colId).getName();
         }
       }
-      tooltipText = "<html><body style='font-size: 9px; font-family: sans-serif;'>"
-          + "<b>Queued Clip Slot " + (colId + 1) + "</b><br>"
-          + "• Status: Queued for launch!<br>"
-          + "• Left-Click: Open in Clip editor grid"
-          + "</body></html>";
+      tooltipText =
+          "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+              + "<b>Queued Clip Slot "
+              + (colId + 1)
+              + "</b><br>"
+              + "• Status: Queued for launch!<br>"
+              + "• Left-Click: Open in Clip editor grid"
+              + "</body></html>";
     } else if (currentClip == colId
         && bridge != null
         && bridge.getClipPlayMode(trackIdx, colId) == 1) {
@@ -1073,11 +1074,14 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
           noteText = t.getClips().get(colId).getName();
         }
       }
-      tooltipText = "<html><body style='font-size: 9px; font-family: sans-serif;'>"
-          + "<b>Playing Clip Slot " + (colId + 1) + "</b><br>"
-          + "• Status: Playing (Loop Mode)<br>"
-          + "• Left-Click: Open in Clip editor grid"
-          + "</body></html>";
+      tooltipText =
+          "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+              + "<b>Playing Clip Slot "
+              + (colId + 1)
+              + "</b><br>"
+              + "• Status: Playing (Loop Mode)<br>"
+              + "• Left-Click: Open in Clip editor grid"
+              + "</body></html>";
     } else if (currentClip == colId) {
       padColor = trackColor; // playing
       intensity = 1.0f;
@@ -1088,11 +1092,14 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
           noteText = t.getClips().get(colId).getName();
         }
       }
-      tooltipText = "<html><body style='font-size: 9px; font-family: sans-serif;'>"
-          + "<b>Playing Clip Slot " + (colId + 1) + "</b><br>"
-          + "• Status: Playing<br>"
-          + "• Left-Click: Open in Clip editor grid"
-          + "</body></html>";
+      tooltipText =
+          "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+              + "<b>Playing Clip Slot "
+              + (colId + 1)
+              + "</b><br>"
+              + "• Status: Playing<br>"
+              + "• Left-Click: Open in Clip editor grid"
+              + "</body></html>";
     } else if (hasClip) {
       padColor = new Color(0x33, 0x44, 0x55); // stopped
       intensity = 0.5f;
@@ -1103,22 +1110,26 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
           noteText = t.getClips().get(colId).getName();
         }
       }
-      tooltipText = "<html><body style='font-size: 9px; font-family: sans-serif;'>"
-          + "<b>Stopped Clip Slot " + (colId + 1) + "</b><br>"
-          + "• Status: Stopped<br>"
-          + "• Left-Click: Open in Clip editor grid<br>"
-          + "• Right-Click: Rename, Duplicate, Delete, Play Mode/Direction"
-          + "</body></html>";
+      tooltipText =
+          "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+              + "<b>Stopped Clip Slot "
+              + (colId + 1)
+              + "</b><br>"
+              + "• Status: Stopped<br>"
+              + "• Left-Click: Open in Clip editor grid<br>"
+              + "• Right-Click: Rename, Duplicate, Delete, Play Mode/Direction"
+              + "</body></html>";
     } else {
       padColor = new Color(0x1a, 0x1a, 0x1a); // empty slot
       intensity = 0.2f;
       active = false;
       noteText = "";
-      tooltipText = "<html><body style='font-size: 9px; font-family: sans-serif;'>"
-          + "<b>Empty Session Slot</b><br>"
-          + "• View Mode: SONG<br>"
-          + "• Action: Click to create new clip pattern slot!"
-          + "</body></html>";
+      tooltipText =
+          "<html><body style='font-size: 9px; font-family: sans-serif;'>"
+              + "<b>Empty Session Slot</b><br>"
+              + "• View Mode: SONG<br>"
+              + "• Action: Click to create new clip pattern slot!"
+              + "</body></html>";
     }
 
     clipBtn.setBackground(padColor);
@@ -1133,7 +1144,8 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       pad.setText("");
     } else {
       if (!noteText.isEmpty()) {
-        clipBtn.setText("<html><center><font size='3'><b>" + noteText + "</b></font></center></html>");
+        clipBtn.setText(
+            "<html><center><font size='3'><b>" + noteText + "</b></font></center></html>");
         clipBtn.setForeground(Color.WHITE);
       } else {
         clipBtn.setText("");
@@ -1225,7 +1237,8 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     colorItem.setBackground(new Color(0x1e, 0x1e, 0x22));
     colorItem.addActionListener(
         e -> {
-          Color chosen = javax.swing.JColorChooser.showDialog(this, "Track Color", trackColors[trackIdx]);
+          Color chosen =
+              javax.swing.JColorChooser.showDialog(this, "Track Color", trackColors[trackIdx]);
           if (chosen != null) {
             trackColors[trackIdx] = chosen;
             track.setColourHex(
@@ -2000,11 +2013,21 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       double curVel = bridge.getVelocity(engineRow, activeCol);
       int curIt = bridge.getIterance(engineRow, activeCol);
       double curFill = bridge.getStepFill(engineRow, activeCol);
-      float oldGate = oldStep != null ? oldStep.gate() : org.deluge.model.StepData.DEFAULT_CLICK_GATE;
+      float oldGate =
+          oldStep != null ? oldStep.gate() : org.deluge.model.StepData.DEFAULT_CLICK_GATE;
       float oldNudge = oldStep != null ? oldStep.nudge() : 0.0f;
 
       updateModelStep(
-          row, activeCol, stepOn, (float) curVel, oldGate, (float) newProb, curIt, (float) curFill, oldNudge, oldStep);
+          row,
+          activeCol,
+          stepOn,
+          (float) curVel,
+          oldGate,
+          (float) newProb,
+          curIt,
+          (float) curFill,
+          oldNudge,
+          oldStep);
 
       if (SwingDelugeApp.mainInstance != null) {
         SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
@@ -2034,11 +2057,21 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       double curProb = bridge.getStepProbability(engineRow, activeCol);
       int curIt = bridge.getIterance(engineRow, activeCol);
       double curFill = bridge.getStepFill(engineRow, activeCol);
-      float oldGate = oldStep != null ? oldStep.gate() : org.deluge.model.StepData.DEFAULT_CLICK_GATE;
+      float oldGate =
+          oldStep != null ? oldStep.gate() : org.deluge.model.StepData.DEFAULT_CLICK_GATE;
       float oldNudge = oldStep != null ? oldStep.nudge() : 0.0f;
 
       updateModelStep(
-          row, activeCol, stepOn, (float) newVel, oldGate, (float) curProb, curIt, (float) curFill, oldNudge, oldStep);
+          row,
+          activeCol,
+          stepOn,
+          (float) newVel,
+          oldGate,
+          (float) curProb,
+          curIt,
+          (float) curFill,
+          oldNudge,
+          oldStep);
 
       if (SwingDelugeApp.mainInstance != null) {
         SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
@@ -3185,14 +3218,20 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
                   org.deluge.model.TrackModel t = tracks.get(modelRow);
                   clipBtn.setToolTipText(
                       "<html><body style='font-size: 9px; font-family: sans-serif;'>"
-                          + "<b>Track: " + t.getName() + " (Clip " + (c + 1) + ")</b><br>"
+                          + "<b>Track: "
+                          + t.getName()
+                          + " (Clip "
+                          + (c + 1)
+                          + ")</b><br>"
                           + "• Left-Click: Open in Clip editor grid<br>"
                           + "• Right-Click: Rename, Duplicate, Delete, Play Mode/Direction"
                           + "</body></html>");
                 } else {
                   clipBtn.setToolTipText(
                       "<html><body style='font-size: 9px; font-family: sans-serif;'>"
-                          + "<b>Session Clip Slot " + (c + 1) + "</b><br>"
+                          + "<b>Session Clip Slot "
+                          + (c + 1)
+                          + "</b><br>"
                           + "• Left-Click: Open in Clip editor grid<br>"
                           + "• Right-Click: Rename, Duplicate, Delete, Play Mode/Direction"
                           + "</body></html>");
@@ -3208,21 +3247,30 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
               }
             } else if (viewMode == GridViewMode.ARRANGEMENT) {
               int col = c + scrollOffsetX;
-              org.deluge.model.ArrangerClip ac = arrangerController.getArrangerClipAt(modelRow, col);
+              org.deluge.model.ArrangerClip ac =
+                  arrangerController.getArrangerClipAt(modelRow, col);
               if (ac != null) {
                 String clipName = ac.clip() != null ? ac.clip().getName() : "Arrangement Clip";
                 clipBtn.setToolTipText(
                     "<html><body style='font-size: 9px; font-family: sans-serif;'>"
-                        + "<b>Arranger Clip: " + clipName + "</b><br>"
-                        + "• Position: Bar " + (col + 1) + "<br>"
-                        + "• Duration: " + (ac.durationTicks() / 96) + " bars<br>"
+                        + "<b>Arranger Clip: "
+                        + clipName
+                        + "</b><br>"
+                        + "• Position: Bar "
+                        + (col + 1)
+                        + "<br>"
+                        + "• Duration: "
+                        + (ac.durationTicks() / 96)
+                        + " bars<br>"
                         + "• Actions: Drag to move, Shift+Drag to resize<br>"
                         + "• Right-Click: Delete clip, Duplicate, or Edit Bar Automation"
                         + "</body></html>");
               } else {
                 clipBtn.setToolTipText(
                     "<html><body style='font-size: 9px; font-family: sans-serif;'>"
-                        + "<b>Empty Timeline Bar " + (col + 1) + "</b><br>"
+                        + "<b>Empty Timeline Bar "
+                        + (col + 1)
+                        + "</b><br>"
                         + "• Left-Click: Place a clip at this position<br>"
                         + "• Right-Click: Add Arranged Clip or Edit Bar Automation"
                         + "</body></html>");
@@ -3269,17 +3317,18 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
                     } else {
                       JPopupMenu emptyClipMenu = new JPopupMenu();
                       JMenuItem createItem = new JMenuItem("Create New Clip Pattern");
-                      createItem.addActionListener(ev -> {
-                        String name = "CLIP " + (clipCol + 1);
-                        songTrack.addClip(
-                            new org.deluge.model.ClipModel(
-                                name,
-                                songTrack.getClips().isEmpty()
-                                    ? 8
-                                    : songTrack.getClips().get(0).getRowCount(),
-                                16));
-                        fireProjectChanged();
-                      });
+                      createItem.addActionListener(
+                          ev -> {
+                            String name = "CLIP " + (clipCol + 1);
+                            songTrack.addClip(
+                                new org.deluge.model.ClipModel(
+                                    name,
+                                    songTrack.getClips().isEmpty()
+                                        ? 8
+                                        : songTrack.getClips().get(0).getRowCount(),
+                                    16));
+                            fireProjectChanged();
+                          });
                       emptyClipMenu.add(createItem);
 
                       stylePopupMenu(emptyClipMenu);
@@ -3906,7 +3955,6 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   abstract void refreshInPlace();
-
 
   abstract void rebuildUIComponents();
 
@@ -5098,8 +5146,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     }
   }
 
-  void showCreateTrackMenu(
-      java.awt.Component src, int x, int y, final int row, final int col) {
+  void showCreateTrackMenu(java.awt.Component src, int x, int y, final int row, final int col) {
     JPopupMenu menu = new JPopupMenu();
 
     JMenuItem createSynth = new JMenuItem("Create SYNTH Track");

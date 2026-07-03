@@ -4,7 +4,10 @@ import java.awt.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 
-/** Modal dialog for editing per-step properties (velocity, iterance, fill, probability, gate, nudge). */
+/**
+ * Modal dialog for editing per-step properties (velocity, iterance, fill, probability, gate,
+ * nudge).
+ */
 public class StepPropertiesDialog extends JDialog {
 
   private final JSlider velSlider;
