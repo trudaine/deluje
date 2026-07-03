@@ -436,9 +436,7 @@ public class Arpeggiator {
 
   // ── ArpeggiatorBase (arpeggiator.h:215-330) ──
 
-  public abstract static class Base extends ArpeggiatorBase {
-
-  }
+  public abstract static class Base extends ArpeggiatorBase {}
 
   // ── ArpeggiatorForDrum (arpeggiator.h:332-348, arpeggiator.cpp:72-216, etc.) ──
 

@@ -607,23 +607,32 @@ public class SongGridPanel extends SwingGridPanel {
               pad.setInLoop(true);
             }
           } else if (isMuteColumn(c)) {
-            Color muteBg = isMuted ? new Color(0xff, 0xd7, 0x00) : Color.WHITE;
-            clipBtn.setBackground(muteBg);
+            // Deluge status square (view.cpp getClipMuteSquareColour): blue=soloed, red=muted/
+            // stopped, green=active; dulled (channels clamped 5..50) when another track is soloing.
+            boolean soloedHere = soloRow == modelRow;
+            Color statusBg =
+                soloedHere
+                    ? new Color(0, 0, 255)
+                    : (isMuted ? new Color(255, 0, 0) : new Color(0, 255, 6));
+            if (soloRow >= 0 && !soloedHere) {
+              statusBg = DelugeColour.dull(statusBg);
+            }
+            clipBtn.setBackground(statusBg);
             clipBtn.setText(isMuted ? "UNMUTE" : "MUTE");
             if (clipBtn instanceof DelugePadButton pad) {
-              pad.setBaseColor(muteBg);
+              pad.setBaseColor(statusBg);
               pad.setIntensity(1.0f);
               pad.setActive(true);
               pad.setNoteText(isMuted ? "UNMUTE" : "MUTE");
             }
           } else if (isSoloColumn(c)) {
+            // Deluge section square (session_view.cpp drawSectionSquare): the clip's section
+            // colour,
+            // black when the row has no clip. Solo/mute state lives on the status square, NOT here.
             Color labelBg;
             Color labelFg;
             boolean rowHasClip = !tracks.get(modelRow).getClips().isEmpty();
-            if (soloRow == modelRow) {
-              labelBg = Color.GREEN;
-              labelFg = Color.BLACK;
-            } else if (rowHasClip) {
+            if (rowHasClip) {
               labelBg =
                   DelugeColour.sectionColour(tracks.get(modelRow).getClips().get(0).getSection());
               double b =

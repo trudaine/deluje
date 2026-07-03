@@ -51,12 +51,13 @@ public class SwingGridPanelMuteAutomationTest {
     assertTrue(bridge.getMute(0), "Track must be muted in the bridge");
     assertEquals(1L, bridge.getGlobalInt("g_mute_0"), "VM global g_mute_0 must reflect mute state");
 
-    // 7. Verify UI component color matching
+    // 7. Verify UI component color matching: the Deluge session status square shows a muted/stopped
+    // clip RED (stoppedColourMenu, view.cpp getClipMuteSquareColour), not the old gold.
     if (muteBtn instanceof DelugePadButton pad) {
       assertEquals(
-          new java.awt.Color(0xff, 0xd7, 0x00),
+          new java.awt.Color(255, 0, 0),
           pad.getBaseColor(),
-          "Pad must light up yellow on mute");
+          "Pad must light up red (Deluge muted/stopped status colour) on mute");
     }
 
     // 8. Simulate second click to unmute

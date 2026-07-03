@@ -95,6 +95,16 @@ public final class DelugeColour {
     return new Color(c.getRed() >> level, c.getGreen() >> level, c.getBlue() >> level);
   }
 
+  /**
+   * RGB::dull() — clamp each channel to [5, 50] (rgb.h:136); the "another track is soloing" look.
+   */
+  public static Color dull(Color c) {
+    return new Color(
+        Math.max(5, Math.min(50, c.getRed())),
+        Math.max(5, Math.min(50, c.getGreen())),
+        Math.max(5, Math.min(50, c.getBlue())));
+  }
+
   /** session_view.cpp:1655 — the hue step the auto-assigned output colours rotate by. */
   public static final double COLOUR_STEP = 22.5882352941;
 

@@ -12,15 +12,14 @@ import org.deluge.firmware2.Arpeggiator.Settings;
 import org.deluge.firmware2.Arpeggiator.SyncLevel;
 import org.deluge.firmware2.Arpeggiator.SyncType;
 
-/**
- * Extracted Base class for Arpeggiator to decompose Arpeggiator.java.
- */
+/** Extracted Base class for Arpeggiator to decompose Arpeggiator.java. */
 public abstract class ArpeggiatorBase {
   // Setup rhythm patterns static reference
   protected static final Arpeggiator.ArpRhythm[] arpRhythmPatterns = Arpeggiator.arpRhythmPatterns;
 
   public ArpNote active_note = new ArpNote();
-  public final int[] glideNoteCodeCurrentlyOnPostArp = new int[Arpeggiator.ARP_MAX_INSTRUCTION_NOTES];
+  public final int[] glideNoteCodeCurrentlyOnPostArp =
+      new int[Arpeggiator.ARP_MAX_INSTRUCTION_NOTES];
   public final int[] outputMIDIChannelForGlideNoteCurrentlyOnPostArp =
       new int[Arpeggiator.ARP_MAX_INSTRUCTION_NOTES];
   public int gatePos;
@@ -71,7 +70,9 @@ public abstract class ArpeggiatorBase {
   }
 
   public abstract boolean hasAnyInputNotesActive();
+
   public abstract void reset();
+
   public abstract ArpType getArpType();
 
   protected abstract void switchNoteOn(
