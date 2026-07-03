@@ -6,9 +6,9 @@ import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeCellRenderer;
 import org.deluge.BridgeContract;
+import org.deluge.midi.RemoteFileEntry;
 import org.deluge.project.PreferencesManager;
 import org.deluge.xml.DelugeXmlParser;
-import org.deluge.midi.RemoteFileEntry;
 
 public class HardwareSidebarTab extends JPanel {
 
@@ -225,7 +225,8 @@ public class HardwareSidebarTab extends JPanel {
         e -> {
           if (parent.isRemoteSource && parent.remoteClipboardPath != null) {
             int slash = parent.remoteClipboardPath.lastIndexOf('/');
-            String name = slash != -1 ? parent.remoteClipboardPath.substring(slash + 1) : "copy.XML";
+            String name =
+                slash != -1 ? parent.remoteClipboardPath.substring(slash + 1) : "copy.XML";
             String to = "/".equals(currentRemotePath) ? "/" + name : currentRemotePath + "/" + name;
             if (to.equalsIgnoreCase(parent.remoteClipboardPath)) {
               int extIdx = to.lastIndexOf('.');
@@ -265,7 +266,8 @@ public class HardwareSidebarTab extends JPanel {
             deleteItem.setEnabled(hasSelection);
             copyItem.setEnabled(hasSelection);
 
-            boolean canPaste = (parent.localClipboardFile != null) || (parent.remoteClipboardPath != null);
+            boolean canPaste =
+                (parent.localClipboardFile != null) || (parent.remoteClipboardPath != null);
             pasteItem.setEnabled(canPaste);
           }
 
@@ -685,7 +687,8 @@ public class HardwareSidebarTab extends JPanel {
                       java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
                       for (int i = 0; i < sounds.size(); i++) {
                         String sp = ((org.deluge.model.SoundDrum) sounds.get(i)).getSamplePath();
-                        parent.bridge.setGlobalString("g_sample_" + (baseTrack + i), sp != null ? sp : "");
+                        parent.bridge.setGlobalString(
+                            "g_sample_" + (baseTrack + i), sp != null ? sp : "");
                         parent.bridge.setSamplePath(baseTrack + i, sp != null ? sp : "");
                         parent.bridge.setMute(baseTrack + i, false);
                       }

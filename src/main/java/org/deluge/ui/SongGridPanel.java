@@ -13,6 +13,19 @@ public class SongGridPanel extends SwingGridPanel {
     super(bridge);
   }
 
+  /**
+   * The Deluge session status/mute square colour (view.cpp getClipMuteSquareColour): blue when
+   * soloed, red when muted/stopped, green when active; dulled (channels clamped to 5..50) when
+   * another track is soloing. (Session muted is red — stoppedColourMenu — unlike the arranger's
+   * yellow.) Used by both the rebuild and in-place paths so structure-change and steady-state
+   * renders agree.
+   */
+  private Color sessionStatusColour(boolean muted, boolean soloedHere, boolean anySoloing) {
+    Color base =
+        soloedHere ? new Color(0, 0, 255) : (muted ? new Color(255, 0, 0) : new Color(0, 255, 6));
+    return (anySoloing && !soloedHere) ? DelugeColour.dull(base) : base;
+  }
+
   @Override
   public void rebuildUIComponents() {
     stopAuditionIfNeeded();
@@ -300,17 +313,17 @@ public class SongGridPanel extends SwingGridPanel {
           } else if (isMuteColumn(colId)) {
             final int engineRow = trk;
             boolean curMute = bridge.getMute(engineRow);
-            Color muteBg = curMute ? new Color(0xff, 0xd7, 0x00) : Color.WHITE;
-            clipBtn.setText(curMute ? "UNMUTE" : "MUTE");
+            Color muteBg = sessionStatusColour(curMute, soloRow == trk, soloRow >= 0);
+            clipBtn.setText(
+                curMute ? "UNMUTE" : "MUTE"); // getText() = mute state (E2E observes it)
             clipBtn.setBackground(muteBg);
-            clipBtn.setForeground(Color.BLACK);
             clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
             if (clipBtn instanceof DelugePadButton pad) {
               pad.setBaseColor(muteBg);
               pad.setIntensity(1.0f);
               pad.setActive(true);
-              pad.setNoteText(curMute ? "UNMUTE" : "MUTE");
             }
+            clipBtn.setToolTipText(curMute ? "Muted — click to unmute" : "Mute track");
             clearActionListeners(clipBtn);
             clipBtn.addActionListener(
                 e -> {
@@ -607,24 +620,16 @@ public class SongGridPanel extends SwingGridPanel {
               pad.setInLoop(true);
             }
           } else if (isMuteColumn(c)) {
-            // Deluge status square (view.cpp getClipMuteSquareColour): blue=soloed, red=muted/
-            // stopped, green=active; dulled (channels clamped 5..50) when another track is soloing.
-            boolean soloedHere = soloRow == modelRow;
-            Color statusBg =
-                soloedHere
-                    ? new Color(0, 0, 255)
-                    : (isMuted ? new Color(255, 0, 0) : new Color(0, 255, 6));
-            if (soloRow >= 0 && !soloedHere) {
-              statusBg = DelugeColour.dull(statusBg);
-            }
+            Color statusBg = sessionStatusColour(isMuted, soloRow == modelRow, soloRow >= 0);
             clipBtn.setBackground(statusBg);
-            clipBtn.setText(isMuted ? "UNMUTE" : "MUTE");
+            clipBtn.setText(
+                isMuted ? "UNMUTE" : "MUTE"); // getText() = mute state (E2E observes it)
             if (clipBtn instanceof DelugePadButton pad) {
               pad.setBaseColor(statusBg);
               pad.setIntensity(1.0f);
               pad.setActive(true);
-              pad.setNoteText(isMuted ? "UNMUTE" : "MUTE");
             }
+            clipBtn.setToolTipText(isMuted ? "Muted — click to unmute" : "Mute track");
           } else if (isSoloColumn(c)) {
             // Deluge section square (session_view.cpp drawSectionSquare): the clip's section
             // colour,

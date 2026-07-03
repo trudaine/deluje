@@ -8,7 +8,8 @@ import org.deluge.project.PreferencesManager;
 
 /**
  * A dedicated, sleek, and lightweight filesystem tree explorer for mounting SD card resources, Kit
- * and Synth presets, and multi-track songs. Simplified to delegate tab instantiation to modular components.
+ * and Synth presets, and multi-track songs. Simplified to delegate tab instantiation to modular
+ * components.
  */
 public class SwingProjectSidebarPanel extends JPanel {
 

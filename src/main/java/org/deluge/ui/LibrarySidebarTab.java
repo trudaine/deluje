@@ -77,7 +77,9 @@ public class LibrarySidebarTab extends JScrollPane {
                 && parent.remoteClipboardPath != null) {
               int lastSlash = parent.remoteClipboardPath.lastIndexOf('/');
               String name =
-                  lastSlash != -1 ? parent.remoteClipboardPath.substring(lastSlash + 1) : "downloaded.XML";
+                  lastSlash != -1
+                      ? parent.remoteClipboardPath.substring(lastSlash + 1)
+                      : "downloaded.XML";
               File destFile = new File(targetDir, name);
               downloadRemoteFileToLocal(parent.remoteClipboardPath, destFile);
             }
@@ -95,7 +97,9 @@ public class LibrarySidebarTab extends JScrollPane {
                 if (file != null) {
                   localCopyItem.setEnabled(file.isFile());
                   localPasteItem.setEnabled(
-                      file.isDirectory() && parent.isRemoteSource && parent.remoteClipboardPath != null);
+                      file.isDirectory()
+                          && parent.isRemoteSource
+                          && parent.remoteClipboardPath != null);
                   localPopupMenu.show(libraryTree, e.getX(), e.getY());
                 }
               }
@@ -203,7 +207,8 @@ public class LibrarySidebarTab extends JScrollPane {
                                         parent.onSongLoaded.accept(mockProj, finalLeafFile);
                                       }
                                     }
-                                    parent.bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+                                    parent.bridge.broadcastGlobalEvent(
+                                        BridgeContract.G_LOAD_TRIGGER);
                                   });
                             } else if ("SYNTHS".equals(finalCategory)) {
                               org.deluge.model.SynthTrackModel synth =
@@ -220,7 +225,8 @@ public class LibrarySidebarTab extends JScrollPane {
                                         parent.onSongLoaded.accept(mockProj, finalLeafFile);
                                       }
                                     }
-                                    parent.bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+                                    parent.bridge.broadcastGlobalEvent(
+                                        BridgeContract.G_LOAD_TRIGGER);
                                   });
                             } else if ("SONGS".equals(finalCategory)) {
                               org.deluge.model.ProjectModel loadedProject =
@@ -271,7 +277,8 @@ public class LibrarySidebarTab extends JScrollPane {
                                     if (parent.onSongLoaded != null) {
                                       parent.onSongLoaded.accept(loadedProject, finalLeafFile);
                                     }
-                                    parent.bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
+                                    parent.bridge.broadcastGlobalEvent(
+                                        BridgeContract.G_LOAD_TRIGGER);
                                   });
                             } else if ("PATTERNS".equals(finalCategory)) {
                               javax.swing.SwingUtilities.invokeLater(

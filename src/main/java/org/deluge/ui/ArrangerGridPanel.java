@@ -347,19 +347,18 @@ public class ArrangerGridPanel extends SwingGridPanel {
           if (isMuteColumn(colId)) {
             final int engineRow = trk;
             boolean isMuted = bridge != null && bridge.getMute(engineRow);
-            clipBtn.setText(isMuted ? "UNMUTE" : "MUTE");
+            clipBtn.setText(
+                isMuted ? "UNMUTE" : "MUTE"); // getText() = mute state (E2E observes it)
             clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
             Color muteBg = arrangerStatusColour(isMuted, soloRow == trk, soloRow >= 0);
             clipBtn.setBackground(muteBg);
-            clipBtn.setForeground(Color.BLACK);
             if (clipBtn instanceof DelugePadButton pad) {
               pad.setBaseColor(muteBg);
-              pad.setTextColorOverride(Color.BLACK);
-              pad.setIntensity(isMuted ? 0.4f : 1.0f);
+              pad.setIntensity(
+                  1.0f); // the faithful status colour is the final LED; don't re-dim it
               pad.setActive(true);
-              pad.setNoteText(isMuted ? "UNMUTE" : "MUTE");
             }
-            clipBtn.setToolTipText("Arrangement View: Track " + (trk + 1) + " Full Track Mute");
+            clipBtn.setToolTipText(isMuted ? "Muted — click to unmute" : "Mute track");
             clearActionListeners(clipBtn);
             clipBtn.addActionListener(
                 e -> {
@@ -517,14 +516,14 @@ public class ArrangerGridPanel extends SwingGridPanel {
           if (isMuteColumn(c)) {
             Color muteBg = arrangerStatusColour(isMuted, soloRow == modelRow, soloRow >= 0);
             clipBtn.setBackground(muteBg);
-            clipBtn.setText(isMuted ? "UNMUTE" : "MUTE");
+            clipBtn.setText(
+                isMuted ? "UNMUTE" : "MUTE"); // getText() = mute state (E2E observes it)
             if (clipBtn instanceof DelugePadButton pad) {
               pad.setBaseColor(muteBg);
-              pad.setMuted(isMuted);
-              pad.setNoteText(isMuted ? "UNMUTE" : "MUTE");
+              pad.setIntensity(1.0f);
+              pad.setActive(true);
             }
-            clipBtn.setToolTipText(
-                "Arrangement View: Track " + (modelRow + 1) + " Full Track Mute");
+            clipBtn.setToolTipText(isMuted ? "Muted — click to unmute" : "Mute track");
           } else if (isSoloColumn(c)) {
             clipBtn.setText("SOLO");
             boolean isSoloed = (soloRow == modelRow);
