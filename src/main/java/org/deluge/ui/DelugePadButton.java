@@ -116,6 +116,44 @@ public class DelugePadButton extends JButton {
     }
   }
 
+  private float hoverIntensity = 0.0f;
+  private boolean mouseHovered = false;
+  private boolean hoverTickRegistered = false;
+
+  private final UiAnimator.Tick hoverTick =
+      new UiAnimator.Tick() {
+        @Override
+        public void onTick(long frame) {
+          boolean rep = false;
+          if (mouseHovered) {
+            if (hoverIntensity < 1.0f) {
+              hoverIntensity = Math.min(1.0f, hoverIntensity + 0.15f);
+              rep = true;
+            }
+          } else {
+            if (hoverIntensity > 0.0f) {
+              hoverIntensity = Math.max(0.0f, hoverIntensity - 0.15f);
+              rep = true;
+            }
+          }
+          if (rep) {
+            repaint();
+          } else {
+            setHoverTickRegistered(false);
+          }
+        }
+      };
+
+  private void setHoverTickRegistered(boolean on) {
+    if (on == hoverTickRegistered) return;
+    hoverTickRegistered = on;
+    if (on) {
+      UiAnimator.get().add(hoverTick);
+    } else {
+      UiAnimator.get().remove(hoverTick);
+    }
+  }
+
   public DelugePadButton() {
     setContentAreaFilled(false);
     setBorderPainted(false);
@@ -123,6 +161,20 @@ public class DelugePadButton extends JButton {
     setOpaque(false);
     setMargin(new Insets(0, 0, 0, 0));
     setFont(new Font("Monospaced", Font.BOLD, 9));
+
+    enableEvents(java.awt.AWTEvent.MOUSE_EVENT_MASK);
+  }
+
+  @Override
+  protected void processMouseEvent(java.awt.event.MouseEvent e) {
+    super.processMouseEvent(e);
+    if (e.getID() == java.awt.event.MouseEvent.MOUSE_ENTERED) {
+      mouseHovered = true;
+      setHoverTickRegistered(true);
+    } else if (e.getID() == java.awt.event.MouseEvent.MOUSE_EXITED) {
+      mouseHovered = false;
+      setHoverTickRegistered(true);
+    }
   }
 
   @Override
@@ -201,6 +253,7 @@ public class DelugePadButton extends JButton {
   @Override
   public void removeNotify() {
     setTickRegistered(false);
+    setHoverTickRegistered(false);
     super.removeNotify();
   }
 
@@ -402,8 +455,30 @@ public class DelugePadButton extends JButton {
 
       // Blend color with dynamic velocity/probability intensity
       Color finalColor = blendWithBlack(ledColor, intensity);
-      g2.setColor(finalColor);
-      g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+
+      boolean isUtilityCol =
+          Boolean.TRUE.equals(getClientProperty("utility"))
+              || (getClientProperty("col") instanceof Integer colIdx && colIdx >= 16);
+
+      if (isUtilityCol || !drawCenterCircle) {
+        g2.setColor(finalColor);
+        g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+      } else {
+        // Render beautiful glowing silicone RadialGradient!
+        java.awt.geom.Point2D center = new java.awt.geom.Point2D.Float(w / 2.0f, h / 2.0f);
+        float radius = Math.min(w, h) * 0.9f;
+        float[] dist = {0.0f, 0.22f, 0.75f, 1.0f};
+        Color[] colors = {
+          Color.WHITE,
+          getBrightCenterColor(finalColor),
+          finalColor,
+          blendWithBlack(finalColor, 0.5f)
+        };
+        java.awt.RadialGradientPaint radial =
+            new java.awt.RadialGradientPaint(center, radius, dist, colors);
+        g2.setPaint(radial);
+        g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+      }
 
       // Border for tail/blur is dimmer than note start!
       Color border =
@@ -417,23 +492,6 @@ public class DelugePadButton extends JButton {
       g2.setColor(border);
       g2.setStroke(new BasicStroke(isTail ? 1.0f : 1.5f));
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
-
-      // Symmetrical physical center hotspot (white silicone glowing core) - only for note starts,
-      // not tails!
-      boolean isUtilityCol =
-          Boolean.TRUE.equals(getClientProperty("utility"))
-              || (getClientProperty("col") instanceof Integer colIdx && colIdx >= 16);
-
-      if (drawCenterCircle
-          && !isTail
-          && !isUtilityCol
-          && noteText.isEmpty()
-          && getText().isEmpty()) {
-        g2.setColor(new Color(255, 255, 255, 160));
-        int cw = Math.max(4, rw / 4);
-        int ch = Math.max(4, rh / 4);
-        g2.fillOval((w - cw) / 2, (h - ch) / 2, cw, ch);
-      }
     }
 
     // 5. Playhead Highlight Ring (glowing neon-white), pulsing on the shared blink clock
@@ -461,6 +519,27 @@ public class DelugePadButton extends JButton {
       g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
       g2.setColor(new Color(0x00, 0xff, 0xcc, 110));
       g2.setStroke(new BasicStroke(1.5f));
+      g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
+    }
+
+    // 5.7 Mouse Hover Halo (soft glow that tracks the pointer)
+    if (hoverIntensity > 0.0f) {
+      Color hoverAccent =
+          (active || isTail || isBlur) ? baseColor : ThemeManager.getPrimaryAccent();
+      g2.setColor(
+          new Color(
+              hoverAccent.getRed(),
+              hoverAccent.getGreen(),
+              hoverAccent.getBlue(),
+              (int) (hoverIntensity * 35)));
+      g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+      g2.setColor(
+          new Color(
+              hoverAccent.getRed(),
+              hoverAccent.getGreen(),
+              hoverAccent.getBlue(),
+              (int) (hoverIntensity * 80)));
+      g2.setStroke(new BasicStroke(1.0f));
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
     }
 
