@@ -25,18 +25,21 @@ import org.deluge.ui.views.SessionView;
 public class SwingDelugeApp extends JFrame {
   public static SwingDelugeApp mainInstance;
   public static boolean pureModeActive = false;
-  private final BridgeContract bridge;
+  final BridgeContract bridge;
   private final org.deluge.model.ScriptingEngine scriptingEngine =
       new org.deluge.model.ScriptingEngine();
 
-  private SwingGridPanel clipPanel;
+  final TransportController transportController;
+  final FileMenuController fileMenuController;
+
+  SwingGridPanel clipPanel;
   private SwingVisualizerPanel visualizerPanel;
-  private SwingGridPanel songPanel;
+  SwingGridPanel songPanel;
   private SwingGridPanel arrGridPanel;
   private SwingGridPanel autoPanel;
   private SwingPerformanceViewPanel performancePanel;
 
-  private SwingTopBarPanel topBar;
+  SwingTopBarPanel topBar;
   private AppTopBarListener appTopBarListener;
   private SwingMasterFxPanel masterFxPanel;
   private SynthParamRack synthParamRack;
@@ -48,7 +51,7 @@ public class SwingDelugeApp extends JFrame {
   }
 
   private JPanel centerCardPanel;
-  private boolean learnHeld = false;
+  boolean learnHeld = false;
 
   public boolean isLearnHeld() {
     return learnHeld;
@@ -69,10 +72,10 @@ public class SwingDelugeApp extends JFrame {
 
   private CardLayout cardLayout;
 
-  private String activeViewMode = "CLIP";
-  private org.deluge.model.ProjectModel currentProject =
+  String activeViewMode = "CLIP";
+  org.deluge.model.ProjectModel currentProject =
       org.deluge.model.ProjectModel.createDefaultProject();
-  private java.io.File currentProjectFile = null;
+  java.io.File currentProjectFile = null;
 
   private javax.swing.JRadioButtonMenuItem grid8x16Item;
   private javax.swing.JRadioButtonMenuItem grid16x16Item;
@@ -84,26 +87,23 @@ public class SwingDelugeApp extends JFrame {
   }
 
   public void triggerPlayToggle() {
-    if (appTopBarListener != null) {
-      appTopBarListener.onPlayToggle();
-    }
+    transportController.onPlayToggle();
   }
 
   public boolean isPlaying() {
-    return bridge != null && bridge.getGlobalInt(BridgeContract.G_PLAY) == 1L;
+    return transportController.isPlaying();
   }
 
   // Engine voice mapping is now managed by the EngineSyncCoordinator
   private final EngineSyncCoordinator syncCoordinator;
 
   private final org.deluge.midi.MidiService midiService;
-  private SwingProjectSidebarPanel sidebarPanel;
-  private SwingProjectSidebarPanel floatingSidebar;
-  private org.deluge.hid.pic.SwingPicTransport picTransport;
-  private JDialog leftFloat;
+  SwingProjectSidebarPanel sidebarPanel;
+  SwingProjectSidebarPanel floatingSidebar;
+  org.deluge.hid.pic.SwingPicTransport picTransport;
+  JDialog leftFloat;
   private JDialog rightFloat;
   private JCheckBoxMenuItem showMonitorItem;
-  private final java.util.ArrayDeque<Long> tapTimes = new java.util.ArrayDeque<>();
   private Timer visualizerRepaintTimer;
   private Timer picTransportFlushTimer;
   private Timer
@@ -123,8 +123,8 @@ public class SwingDelugeApp extends JFrame {
     syncCoordinator.pushModelToBridge();
   }
 
-  private org.deluge.engine.PureFirmwareEngine pureEngine;
-  private org.deluge.ui.ArrangerPlaybackScheduler arrangerScheduler;
+  org.deluge.engine.PureFirmwareEngine pureEngine;
+  org.deluge.ui.ArrangerPlaybackScheduler arrangerScheduler;
 
   public org.deluge.ui.ArrangerPlaybackScheduler getArrangerScheduler() {
     return arrangerScheduler;
@@ -146,6 +146,8 @@ public class SwingDelugeApp extends JFrame {
     mainInstance = this;
     pureModeActive = pureMode;
     this.syncCoordinator = new EngineSyncCoordinator(this, bridge);
+    this.transportController = new TransportController(this);
+    this.fileMenuController = new FileMenuController(this);
 
     if (pureMode) {
       System.out.println("[UI] Initializing Pure Java High-Fidelity Engine...");
@@ -216,76 +218,7 @@ public class SwingDelugeApp extends JFrame {
     MatrixDriver.get().pushUI(new SessionView(null)); // Placeholder song
 
     setFocusable(true);
-    addKeyListener(
-        new java.awt.event.KeyAdapter() {
-          @Override
-          public void keyPressed(java.awt.event.KeyEvent e) {
-            int note = -1;
-            switch (e.getKeyCode()) {
-              case java.awt.event.KeyEvent.VK_Z -> note = 60; // C4
-              case java.awt.event.KeyEvent.VK_S -> note = 61; // C#4
-              case java.awt.event.KeyEvent.VK_X -> note = 62; // D4
-              case java.awt.event.KeyEvent.VK_D -> note = 63; // D#4
-              case java.awt.event.KeyEvent.VK_C -> note = 64; // E4
-              case java.awt.event.KeyEvent.VK_V -> note = 65; // F4
-              case java.awt.event.KeyEvent.VK_G -> note = 66; // F#4
-              case java.awt.event.KeyEvent.VK_B -> note = 67; // G4
-              case java.awt.event.KeyEvent.VK_H -> note = 68; // G#4
-              case java.awt.event.KeyEvent.VK_N -> note = 69; // A4
-              case java.awt.event.KeyEvent.VK_J -> note = 70; // A#4
-              case java.awt.event.KeyEvent.VK_M -> note = 71; // B4
-            }
-            if (note != -1) {
-              if (clipPanel != null) {
-                clipPanel.flashIsomorphicNote(note);
-                int trackId = clipPanel.getFocusTrack();
-
-                boolean isSynth =
-                    clipPanel.getProjectModel() != null
-                        && !clipPanel.getProjectModel().getTracks().isEmpty()
-                        && clipPanel.getProjectModel().getTracks().get(0)
-                            instanceof org.deluge.model.SynthTrackModel;
-
-                if (isSynth) {
-                  try {
-                    org.deluge.shadow.core.ChuckEvent noteEv =
-                        (org.deluge.shadow.core.ChuckEvent) bridge.getGlobalObject("g_ck_noteOn");
-                    if (noteEv != null) {
-                      org.deluge.shadow.core.ChuckArray pitchArr =
-                          (org.deluge.shadow.core.ChuckArray)
-                              bridge.getGlobalObject(BridgeContract.G_PITCH);
-                      pitchArr.setInt(0, (long) (note - 60));
-                      noteEv.broadcast();
-                    }
-                  } catch (Exception ex) {
-                  }
-                } else {
-                  String sp = (String) bridge.getGlobalObject("g_sample_" + trackId);
-                  if (sp != null && !sp.isEmpty()) {
-                    new Thread(
-                            () -> {
-                              try {
-                                java.io.File file = new java.io.File(sp);
-                                if (file.exists()) {
-                                  javax.sound.sampled.AudioInputStream stream =
-                                      javax.sound.sampled.AudioSystem.getAudioInputStream(file);
-                                  javax.sound.sampled.Clip c =
-                                      javax.sound.sampled.AudioSystem.getClip();
-                                  c.open(stream);
-                                  c.start();
-                                }
-                              } catch (IOException
-                                  | LineUnavailableException
-                                  | UnsupportedAudioFileException ex) {
-                              }
-                            })
-                        .start();
-                  }
-                }
-              }
-            }
-          }
-        });
+    addKeyListener(new KeyboardShortcutManager(this));
 
     // Register a global KeyEventDispatcher to capture Shift key state changes instantly across all
     // child components
@@ -449,105 +382,6 @@ public class SwingDelugeApp extends JFrame {
 
     startPlaybackTimer();
 
-    setFocusable(true);
-    addKeyListener(
-        new java.awt.event.KeyAdapter() {
-          @Override
-          public void keyPressed(java.awt.event.KeyEvent e) {
-            int kc = e.getKeyCode();
-            boolean ctrl = (e.getModifiersEx() & java.awt.event.InputEvent.CTRL_DOWN_MASK) != 0;
-            boolean shift = (e.getModifiersEx() & java.awt.event.InputEvent.SHIFT_DOWN_MASK) != 0;
-
-            if (kc == java.awt.event.KeyEvent.VK_L && !ctrl) {
-              learnHeld = true;
-            }
-
-            // Ctrl+Shift+C / Ctrl+Shift+V — copy / paste the active clip's notes (Deluge
-            // X_ENC+LEARN copy / paste). Shift-qualified to avoid clashing with system copy/paste.
-            if (ctrl && shift && kc == java.awt.event.KeyEvent.VK_C) {
-              SwingGridPanel active = activeGridPanel();
-              if (active != null) {
-                active.copyClipNotes();
-              }
-              return;
-            }
-            if (ctrl && shift && kc == java.awt.event.KeyEvent.VK_V) {
-              SwingGridPanel active = activeGridPanel();
-              if (active != null) {
-                active.pasteClipNotes();
-              }
-              return;
-            }
-
-            // Ctrl+[ / Ctrl+] — adjust focused track length
-            if (ctrl && kc == java.awt.event.KeyEvent.VK_OPEN_BRACKET) {
-              SwingGridPanel active = activeGridPanel();
-              if (active != null) {
-                int trk = active.getFocusTrack();
-                int len = bridge.getTrackLength(trk);
-                bridge.setTrackLength(trk, Math.max(1, len - 1));
-                active.refresh();
-              }
-              return;
-            }
-            if (ctrl && kc == java.awt.event.KeyEvent.VK_CLOSE_BRACKET) {
-              SwingGridPanel active = activeGridPanel();
-              if (active != null) {
-                int trk = active.getFocusTrack();
-                int len = bridge.getTrackLength(trk);
-                bridge.setTrackLength(trk, Math.min(64, len + 1));
-                active.refresh();
-              }
-              return;
-            }
-
-            // T — tap tempo (or Shift + T to toggle metronome)
-            if (!ctrl && kc == java.awt.event.KeyEvent.VK_T) {
-              if (shift) {
-                if (topBar != null) {
-                  topBar.toggleMetronome();
-                }
-              } else {
-                long now = System.currentTimeMillis();
-                tapTimes.addLast(now);
-                while (tapTimes.size() > 8) tapTimes.removeFirst();
-                if (tapTimes.size() >= 2) {
-                  long[] arr = tapTimes.stream().mapToLong(Long::longValue).toArray();
-                  long totalGap = arr[arr.length - 1] - arr[0];
-                  double avgGap = totalGap / (double) (arr.length - 1);
-                  double bpm = 60000.0 / avgGap;
-                  bpm = Math.max(20, Math.min(300, bpm));
-                  bridge.setBpm(bpm);
-                }
-              }
-              return;
-            }
-
-            org.deluge.shadow.hid.HidMsg msg = new org.deluge.shadow.hid.HidMsg();
-            msg.deviceType = "keyboard";
-            msg.type = org.deluge.shadow.hid.HidMsg.BUTTON_DOWN;
-            msg.which = kc;
-            msg.key = kc;
-            char c = e.getKeyChar();
-            if (c != java.awt.event.KeyEvent.CHAR_UNDEFINED) {
-              msg.ascii = c;
-            }
-            bridge.dispatchHidMsg(msg);
-          }
-
-          @Override
-          public void keyReleased(java.awt.event.KeyEvent e) {
-            if (e.getKeyCode() == java.awt.event.KeyEvent.VK_L) {
-              learnHeld = false;
-            }
-            org.deluge.shadow.hid.HidMsg msg = new org.deluge.shadow.hid.HidMsg();
-            msg.deviceType = "keyboard";
-            msg.type = org.deluge.shadow.hid.HidMsg.BUTTON_UP;
-            msg.which = e.getKeyCode();
-            msg.key = e.getKeyCode();
-            bridge.dispatchHidMsg(msg);
-          }
-        });
     DarkComboBoxRenderer.styleComponentTree(this);
 
     // Instantiate Arranger Timeline real-time Scheduler
@@ -630,162 +464,8 @@ public class SwingDelugeApp extends JFrame {
             + (currentProjectFile != null ? currentProjectFile.getName() : "Untitled"));
   }
 
-  /**
-   * Loads or imports a project in the background with a premium dark-themed progress dialog,
-   * pre-resolving and caching all audio samples to guarantee instant EDT-free playback.
-   */
   public void loadProjectWithProgress(final java.io.File file, final boolean isAbleton) {
-    if (file == null) return;
-
-    final JDialog progressDialog =
-        new JDialog(
-            this, isAbleton ? "Importing Ableton Live Set" : "Loading Deluge Project", true);
-    progressDialog.setUndecorated(true);
-    progressDialog.setSize(420, 110);
-    progressDialog.setLocationRelativeTo(this);
-
-    JPanel panel = new JPanel(new BorderLayout(12, 12));
-    panel.setBackground(new Color(0x18, 0x18, 0x1a));
-    panel.setBorder(
-        BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x34), 1),
-            BorderFactory.createEmptyBorder(16, 16, 16, 16)));
-
-    final JLabel label =
-        new JLabel(
-            isAbleton ? "Parsing Ableton Live Set..." : "Parsing Deluge Project XML...",
-            JLabel.CENTER);
-    label.setForeground(new Color(0xaa, 0xbb, 0xcc));
-    label.setFont(new Font("SansSerif", Font.PLAIN, 12));
-
-    final JProgressBar progressBar = new JProgressBar(0, 100);
-    progressBar.setIndeterminate(true);
-    progressBar.setBackground(new Color(0x22, 0x22, 0x25));
-    progressBar.setForeground(new Color(0x00, 0xcc, 0xff));
-    progressBar.setBorderPainted(false);
-    progressBar.setPreferredSize(new Dimension(380, 6));
-
-    panel.add(label, BorderLayout.CENTER);
-    panel.add(progressBar, BorderLayout.SOUTH);
-    progressDialog.add(panel);
-
-    javax.swing.SwingWorker<org.deluge.model.ProjectModel, String> worker =
-        new javax.swing.SwingWorker<>() {
-          @Override
-          protected org.deluge.model.ProjectModel doInBackground() throws Exception {
-            org.deluge.model.ProjectModel model;
-            if (isAbleton) {
-              publish("Parsing Ableton Live Set...");
-              org.w3c.dom.Document doc =
-                  org.deluge.ableton.AbletonProjectManager.parseAlsToXml(file);
-              model = new org.deluge.model.ProjectModel();
-              org.deluge.ableton.AbletonTrackMapper.importAbletonSet(doc, model, file);
-            } else {
-              publish("Parsing Deluge Project XML...");
-              try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
-                model = org.deluge.xml.DelugeXmlParser.parseSong(fis, file.getName());
-              }
-            }
-
-            // Pre-resolve and load all sample paths to cache them in the background thread
-            final java.util.List<String> samplePaths = new java.util.ArrayList<>();
-            java.io.File sdRoot = org.deluge.project.PreferencesManager.getLibraryDir();
-
-            for (org.deluge.model.TrackModel track : model.getTracks()) {
-              if (track instanceof org.deluge.model.AudioTrackModel atm) {
-                for (org.deluge.model.AudioTrackModel.AudioClip clip : atm.getAudioClips()) {
-                  String p = clip.getFilePath();
-                  if (p != null && !p.isEmpty()) samplePaths.add(p);
-                }
-              } else if (track instanceof org.deluge.model.SynthTrackModel stm) {
-                String p1 = stm.getOsc1SamplePath();
-                if (p1 != null && !p1.isEmpty()) samplePaths.add(p1);
-                String p2 = stm.getOsc2SamplePath();
-                if (p2 != null && !p2.isEmpty()) samplePaths.add(p2);
-              } else if (track instanceof org.deluge.model.KitTrackModel ktm) {
-                for (org.deluge.model.Drum d : ktm.getDrums()) {
-                  if (d instanceof org.deluge.model.SoundDrum sd) {
-                    String p = sd.getSamplePath();
-                    if (p != null && !p.isEmpty()) samplePaths.add(p);
-                  }
-                }
-              }
-            }
-
-            if (!samplePaths.isEmpty()) {
-              // Switch to determinate progress bar
-              javax.swing.SwingUtilities.invokeLater(
-                  () -> {
-                    progressBar.setIndeterminate(false);
-                    progressBar.setMaximum(samplePaths.size());
-                    progressBar.setValue(0);
-                  });
-
-              for (int i = 0; i < samplePaths.size(); i++) {
-                String path = samplePaths.get(i);
-                java.io.File resolved =
-                    org.deluge.engine.FirmwareFactory.resolveSample(path, sdRoot);
-                if (resolved != null && resolved.exists()) {
-                  publish(
-                      "Loading "
-                          + resolved.getName()
-                          + " ("
-                          + (i + 1)
-                          + "/"
-                          + samplePaths.size()
-                          + ")...");
-                  try {
-                    org.deluge.storage.audio.AudioFileReader.readSample(resolved.getAbsolutePath());
-                  } catch (Exception ignored) {
-                  }
-                }
-                final int progressValue = i + 1;
-                javax.swing.SwingUtilities.invokeLater(() -> progressBar.setValue(progressValue));
-              }
-            }
-
-            return model;
-          }
-
-          @Override
-          protected void process(java.util.List<String> chunks) {
-            if (!chunks.isEmpty()) {
-              String lastMsg = chunks.get(chunks.size() - 1);
-              label.setText(lastMsg);
-            }
-          }
-
-          @Override
-          protected void done() {
-            progressDialog.dispose();
-            try {
-              org.deluge.model.ProjectModel model = get();
-              if (isAbleton) {
-                currentProjectFile = null;
-                loadProject(model);
-                setTitle("DELUGE WORKSTATION — [Imported] " + file.getName());
-              } else {
-                currentProjectFile = file;
-                loadProject(model);
-                setTitle("DELUGE WORKSTATION — " + file.getName());
-              }
-            } catch (Exception ex) {
-              Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
-              cause.printStackTrace();
-              JOptionPane.showMessageDialog(
-                  SwingDelugeApp.this,
-                  "Failed to "
-                      + (isAbleton ? "import" : "load")
-                      + " project:\n"
-                      + cause.getMessage(),
-                  "Error",
-                  JOptionPane.ERROR_MESSAGE);
-            }
-          }
-        };
-
-    worker.execute();
-    progressDialog.setVisible(true);
+    fileMenuController.loadProjectWithProgress(file, isAbleton);
   }
 
   /**
@@ -1151,46 +831,11 @@ public class SwingDelugeApp extends JFrame {
     snap.applyTo(clip);
   }
 
-  private void saveProject(boolean forceChooser) {
-    java.io.File songsDir = org.deluge.project.PreferencesManager.getSongsDir();
-    java.io.File suggestedFile =
-        org.deluge.project.SaveNameSuggester.suggestNextSaveFile(songsDir, currentProjectFile);
-
-    java.io.File target = (suggestedFile != null) ? suggestedFile : currentProjectFile;
-
-    if (currentProjectFile == null || forceChooser) {
-      JFileChooser chooser = new JFileChooser(songsDir);
-      chooser.setFileFilter(
-          new javax.swing.filechooser.FileNameExtensionFilter("Song XML", "xml", "XML"));
-
-      if (target != null) {
-        chooser.setSelectedFile(target);
-      }
-
-      if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
-      target = chooser.getSelectedFile();
-      if (!target.getName().toLowerCase().endsWith(".xml")) {
-        target = new java.io.File(target.getAbsolutePath() + ".xml");
-      }
-    }
-    try {
-      pushModelToBridge();
-      org.deluge.project.ProjectSerializer.save(currentProject, target);
-      currentProjectFile = target;
-      setTitle("DELUGE WORKSTATION — " + target.getName());
-      if (sidebarPanel != null) {
-        sidebarPanel.reloadLibrary();
-      }
-      if (topBar != null) {
-        topBar.setSaved(true);
-      }
-    } catch (Exception ex) {
-      JOptionPane.showMessageDialog(
-          this, "Save failed:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-    }
+  public SwingTopBarPanel getTopBar() {
+    return topBar;
   }
 
-  private SwingGridPanel activeGridPanel() {
+  SwingGridPanel activeGridPanel() {
     if (cardLayout == null || centerCardPanel == null) {
       return clipPanel;
     }
@@ -1466,407 +1111,12 @@ public class SwingDelugeApp extends JFrame {
     repaint();
   }
 
-  public SwingTopBarPanel getTopBar() {
-    return topBar;
-  }
-
-  private void exportAudio() {
-    JFileChooser chooser = new JFileChooser();
-    chooser.setDialogTitle("Export Audio");
-    chooser.setSelectedFile(new java.io.File("deluge_export.wav"));
-    if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
-
-    String filePath = chooser.getSelectedFile().getAbsolutePath();
-    if (!filePath.toLowerCase().endsWith(".wav")) filePath += ".wav";
-
-    bridge.setGlobalString(BridgeContract.G_WVOUT_FILE, filePath);
-    bridge.setGlobalFloat(BridgeContract.G_WVOUT_ACTIVE, 1.0f);
-
-    JOptionPane.showMessageDialog(
-        this,
-        "Export started to:\n" + filePath + "\n\nClick OK to stop export.",
-        "Exporting Audio...",
-        JOptionPane.INFORMATION_MESSAGE);
-
-    bridge.setGlobalFloat(BridgeContract.G_WVOUT_ACTIVE, 0.0f);
-  }
-
-  private volatile boolean exportInProgress = false;
-
-  private void exportWavStems() {
-    if (exportInProgress) {
-      JOptionPane.showMessageDialog(
-          this,
-          "An export is already in progress. Please wait until it completes.",
-          "Export Busy",
-          JOptionPane.WARNING_MESSAGE);
-      return;
-    }
-
-    JFileChooser chooser = new JFileChooser();
-    chooser.setDialogTitle("Select Directory to Export Stems");
-    chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-    if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
-
-    java.io.File targetDir = chooser.getSelectedFile();
-    if (!targetDir.exists()) {
-      targetDir.mkdirs();
-    }
-
-    String input =
-        JOptionPane.showInputDialog(
-            this, "Enter duration to render in seconds (0 for auto-detect from Arranger):", "0");
-    if (input == null) return;
-
-    double duration;
-    try {
-      duration = Double.parseDouble(input);
-    } catch (NumberFormatException e) {
-      JOptionPane.showMessageDialog(
-          this,
-          "Invalid duration. Using auto-detect.",
-          "Export Stems",
-          JOptionPane.WARNING_MESSAGE);
-      duration = 0;
-    }
-
-    exportInProgress = true;
-
-    JDialog progressDialog = new JDialog(this, "Exporting WAV Stems...", true);
-    progressDialog.setSize(350, 120);
-    progressDialog.setLocationRelativeTo(this);
-    progressDialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
-    progressDialog.setLayout(new BorderLayout(10, 10));
-
-    JLabel statusLabel = new JLabel("Preparing export...", JLabel.CENTER);
-    JProgressBar progressBar = new JProgressBar(0, 100);
-    progressBar.setStringPainted(true);
-
-    JPanel panel = new JPanel(new GridLayout(2, 1, 5, 5));
-    panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-    panel.add(statusLabel);
-    panel.add(progressBar);
-    progressDialog.add(panel, BorderLayout.CENTER);
-
-    double finalDuration = duration;
-
-    SwingWorker<Void, String> worker =
-        new SwingWorker<>() {
-          @Override
-          protected Void doInBackground() throws Exception {
-            org.deluge.project.ExportHelper.exportStems(
-                currentProject,
-                targetDir,
-                finalDuration,
-                (status, percent) -> {
-                  publish(status + "|" + percent);
-                });
-            return null;
-          }
-
-          @Override
-          protected void process(java.util.List<String> chunks) {
-            String lastChunk = chunks.get(chunks.size() - 1);
-            String[] parts = lastChunk.split("\\|");
-            statusLabel.setText(parts[0]);
-            progressBar.setValue(Integer.parseInt(parts[1]));
-          }
-
-          @Override
-          protected void done() {
-            exportInProgress = false;
-            progressDialog.dispose();
-            try {
-              get(); // Check for exceptions
-              JOptionPane.showMessageDialog(
-                  SwingDelugeApp.this,
-                  "WAV Stems exported successfully to:\n" + targetDir.getAbsolutePath(),
-                  "Export Success",
-                  JOptionPane.INFORMATION_MESSAGE);
-            } catch (Exception ex) {
-              JOptionPane.showMessageDialog(
-                  SwingDelugeApp.this,
-                  "WAV Stems export failed:\n" + ex.getMessage(),
-                  "Export Error",
-                  JOptionPane.ERROR_MESSAGE);
-            }
-          }
-        };
-
-    worker.execute();
-    progressDialog.setVisible(true);
-  }
-
-  private void exportMidiFile() {
-    JFileChooser chooser = new JFileChooser();
-    chooser.setDialogTitle("Export MIDI File");
-    chooser.setSelectedFile(new java.io.File("deluge_export.mid"));
-    if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
-
-    java.io.File targetFile = chooser.getSelectedFile();
-    String filePath = targetFile.getAbsolutePath();
-    if (!filePath.toLowerCase().endsWith(".mid") && !filePath.toLowerCase().endsWith(".midi")) {
-      targetFile = new java.io.File(filePath + ".mid");
-    }
-
-    try {
-      org.deluge.project.ExportHelper.exportMidi(currentProject, targetFile);
-      JOptionPane.showMessageDialog(
-          this,
-          "MIDI file exported successfully to:\n" + targetFile.getAbsolutePath(),
-          "Export Success",
-          JOptionPane.INFORMATION_MESSAGE);
-    } catch (Exception ex) {
-      JOptionPane.showMessageDialog(
-          this,
-          "MIDI export failed:\n" + ex.getMessage(),
-          "Export Error",
-          JOptionPane.ERROR_MESSAGE);
-    }
-  }
-
-  /**
-   * Save the active clip of the currently focused track as a pattern XML file. Prompts the user for
-   * a file location under the PATTERNS directory.
-   */
   private void saveCurrentClipAsPattern() {
-    SwingGridPanel active = activeGridPanel();
-    if (active == null) return;
-    int focusTrack = active.getFocusTrack();
-    if (focusTrack < 0 || focusTrack >= currentProject.getTracks().size()) {
-      JOptionPane.showMessageDialog(
-          this, "No track selected.", "Save Pattern", JOptionPane.WARNING_MESSAGE);
-      return;
-    }
-    var track = currentProject.getTracks().get(focusTrack);
-    int clipIdx = track.getActiveClipIndex();
-    if (clipIdx < 0 || clipIdx >= track.getClips().size()) {
-      JOptionPane.showMessageDialog(
-          this, "Active clip not found.", "Save Pattern", JOptionPane.WARNING_MESSAGE);
-      return;
-    }
-    ClipModel clip = track.getClips().get(clipIdx);
-
-    JFileChooser chooser = new JFileChooser(org.deluge.project.PreferencesManager.getPatternsDir());
-    chooser.setDialogTitle("Save Pattern");
-    chooser.setFileFilter(
-        new javax.swing.filechooser.FileNameExtensionFilter("Pattern XML", "xml", "XML"));
-    String suggestedName = track.getName() + "_" + clip.getName() + ".xml";
-    chooser.setSelectedFile(new java.io.File(suggestedName));
-    if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
-
-    java.io.File target = chooser.getSelectedFile();
-    if (!target.getName().toLowerCase().endsWith(".xml")) {
-      target = new java.io.File(target.getAbsolutePath() + ".xml");
-    }
-
-    try {
-      PatternModel pattern =
-          new PatternModel(java.util.UUID.randomUUID().toString(), clip.getName());
-      pattern.setCategory("MELODIC");
-
-      PatternModel.ClipSnapshot snap =
-          PatternModel.ClipSnapshot.fromClipModel(clip, focusTrack, track.getName());
-      snap.setInstrumentSlot(track.getName());
-      snap.setColourHex(track.getColourHex());
-      pattern.addClipSnapshot(snap);
-
-      org.deluge.project.PatternSerializer.save(pattern, target);
-      JOptionPane.showMessageDialog(
-          this,
-          "Pattern saved:\n" + target.getName(),
-          "Save Pattern",
-          JOptionPane.INFORMATION_MESSAGE);
-    } catch (Exception ex) {
-      JOptionPane.showMessageDialog(
-          this, "Failed to save pattern:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-    }
+    fileMenuController.saveCurrentClipAsPattern();
   }
 
-  /**
-   * Load a pattern from an XML file and apply it to the active clip of the focused track. Prompts
-   * the user to select a target track if the focused track doesn't have a compatible clip.
-   */
   private void loadPatternIntoActiveTrack(java.io.File patternFile) {
-    try {
-      PatternModel pattern = org.deluge.project.PatternSerializer.load(patternFile);
-      if (pattern.getClipSnapshots().isEmpty()) {
-        JOptionPane.showMessageDialog(
-            this, "Pattern file contains no clips.", "Load Pattern", JOptionPane.WARNING_MESSAGE);
-        return;
-      }
-
-      SwingGridPanel active = activeGridPanel();
-      int focusTrack = (active != null) ? active.getFocusTrack() : 0;
-      if (focusTrack < 0 || focusTrack >= currentProject.getTracks().size()) {
-        focusTrack = 0;
-      }
-      var track = currentProject.getTracks().get(focusTrack);
-      int clipIdx = track.getActiveClipIndex();
-      if (clipIdx < 0 || clipIdx >= track.getClips().size()) {
-        JOptionPane.showMessageDialog(
-            this,
-            "Active clip not found on target track.",
-            "Load Pattern",
-            JOptionPane.WARNING_MESSAGE);
-        return;
-      }
-      ClipModel clip = track.getClips().get(clipIdx);
-
-      // Capture before-snapshot for undo
-      var beforeSnapshot =
-          PatternModel.ClipSnapshot.fromClipModel(clip, focusTrack, track.getName());
-
-      // Apply the first clip snapshot to the active clip
-      pattern.getClipSnapshots().get(0).applyTo(clip);
-
-      // Push undo: re-apply the old snapshot
-      var afterSnapshot =
-          PatternModel.ClipSnapshot.fromClipModel(clip, focusTrack, track.getName());
-      currentProject
-          .getUndoRedoStack()
-          .push(
-              new Consequence.CompoundConsequence(
-                  "Load pattern",
-                  java.util.List.of(
-                      new Consequence.PatternLoadConsequence(
-                          currentProject, focusTrack, clipIdx, beforeSnapshot, afterSnapshot))));
-
-      pushModelToBridge();
-      propagateCurrentModel();
-      refreshGrids();
-
-      JOptionPane.showMessageDialog(
-          this,
-          "Pattern loaded into: " + track.getName(),
-          "Load Pattern",
-          JOptionPane.INFORMATION_MESSAGE);
-    } catch (Exception ex) {
-      JOptionPane.showMessageDialog(
-          this, "Failed to load pattern:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-    }
-  }
-
-  private void loadChuckScript() {
-    JFileChooser chooser = new JFileChooser();
-    chooser.setDialogTitle("Load ChucK Script");
-    javax.swing.filechooser.FileNameExtensionFilter filter =
-        new javax.swing.filechooser.FileNameExtensionFilter("ChucK Scripts (*.ck)", "ck");
-    chooser.setFileFilter(filter);
-    if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return;
-
-    java.io.File file = chooser.getSelectedFile();
-    try {
-      String content = new String(java.nio.file.Files.readAllBytes(file.toPath()));
-      bridge.eval(content);
-      JOptionPane.showMessageDialog(
-          this,
-          "Script loaded successfully:\n" + file.getName(),
-          "Script Loaded",
-          JOptionPane.INFORMATION_MESSAGE);
-    } catch (HeadlessException | IOException ex) {
-      JOptionPane.showMessageDialog(
-          this, "Failed to load script:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-    }
-  }
-
-  private void assembleKitFromSynths() {
-    JFileChooser chooser = new JFileChooser(org.deluge.project.PreferencesManager.getSongsDir());
-    chooser.setDialogTitle("Select Synth Preset XML Files");
-    chooser.setMultiSelectionEnabled(true);
-    chooser.setFileFilter(
-        new javax.swing.filechooser.FileNameExtensionFilter("Synth XML", "xml", "XML"));
-    if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) return;
-
-    java.io.File[] selected = chooser.getSelectedFiles();
-    if (selected.length == 0) return;
-
-    // Dialog for configuring each lane
-    JPanel configPanel = new JPanel(new GridBagLayout());
-    GridBagConstraints c = new GridBagConstraints();
-    c.fill = GridBagConstraints.HORIZONTAL;
-    c.insets = new Insets(3, 5, 3, 5);
-    c.gridx = 0;
-
-    java.util.List<JTextField> nameFields = new java.util.ArrayList<>();
-    java.util.List<JSpinner> muteFields = new java.util.ArrayList<>();
-    java.util.List<JSpinner> pitchFields = new java.util.ArrayList<>();
-
-    for (int i = 0; i < selected.length; i++) {
-      JTextField nameFld = new JTextField(selected[i].getName().replaceAll("(?i)\\.xml$", ""), 20);
-      SpinnerNumberModel muteModel = new SpinnerNumberModel(0, 0, 16, 1);
-      JSpinner muteSpinner = new JSpinner(muteModel);
-      SpinnerNumberModel pitchModel = new SpinnerNumberModel(0, -24, 24, 1);
-      JSpinner pitchSpinner = new JSpinner(pitchModel);
-
-      c.gridy = i;
-      c.gridwidth = 1;
-      configPanel.add(new JLabel((i + 1) + ":"), c);
-      c.gridx = 1;
-      configPanel.add(nameFld, c);
-      c.gridx = 2;
-      configPanel.add(new JLabel("MG:"), c);
-      c.gridx = 3;
-      configPanel.add(muteSpinner, c);
-      c.gridx = 4;
-      configPanel.add(new JLabel("Pitch:"), c);
-      c.gridx = 5;
-      configPanel.add(pitchSpinner, c);
-      c.gridx = 0;
-
-      nameFields.add(nameFld);
-      muteFields.add(muteSpinner);
-      pitchFields.add(pitchSpinner);
-    }
-
-    int result =
-        JOptionPane.showConfirmDialog(
-            this,
-            configPanel,
-            "Configure Kit Lanes",
-            JOptionPane.OK_CANCEL_OPTION,
-            JOptionPane.PLAIN_MESSAGE);
-    if (result != JOptionPane.OK_OPTION) return;
-
-    try {
-      java.util.List<Integer> muteGroups = new java.util.ArrayList<>();
-      java.util.List<Integer> pitchOffsets = new java.util.ArrayList<>();
-      for (int i = 0; i < selected.length; i++) {
-        muteGroups.add((Integer) muteFields.get(i).getValue());
-        pitchOffsets.add((Integer) pitchFields.get(i).getValue());
-      }
-
-      String kitName = JOptionPane.showInputDialog(this, "Kit name:", "Kit from Synths");
-      if (kitName == null || kitName.isBlank()) kitName = "Kit from Synths";
-
-      org.deluge.model.KitTrackModel kit =
-          org.deluge.kit.KitAssembler.assembleFromSynths(
-              kitName, java.util.Arrays.asList(selected), muteGroups, pitchOffsets);
-
-      JFileChooser saveChooser =
-          new JFileChooser(org.deluge.project.PreferencesManager.getSongsDir());
-      saveChooser.setDialogTitle("Save Kit As");
-      saveChooser.setFileFilter(
-          new javax.swing.filechooser.FileNameExtensionFilter("Kit XML", "xml", "XML"));
-      saveChooser.setSelectedFile(new java.io.File(kitName + ".xml"));
-      if (saveChooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
-
-      java.io.File saveFile = saveChooser.getSelectedFile();
-      if (!saveFile.getName().toLowerCase().endsWith(".xml")) {
-        saveFile = new java.io.File(saveFile.getAbsolutePath() + ".xml");
-      }
-      org.deluge.project.KitSynthSerializer.saveKit(kit, saveFile);
-
-      JOptionPane.showMessageDialog(
-          this,
-          "Kit saved to:\n" + saveFile.getAbsolutePath(),
-          "Kit Assembly Complete",
-          JOptionPane.INFORMATION_MESSAGE);
-    } catch (Exception ex) {
-      JOptionPane.showMessageDialog(
-          this, "Failed to assemble kit:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-      ex.printStackTrace();
-    }
+    fileMenuController.loadPatternIntoActiveTrack(patternFile);
   }
 
   private void setupUI() {
@@ -1901,7 +1151,7 @@ public class SwingDelugeApp extends JFrame {
             java.awt.event.KeyEvent.VK_N,
             java.awt.event.InputEvent.CTRL_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
     newWindowItem.setToolTipText("Launch a second, independent Deluge instance in its own window");
-    newWindowItem.addActionListener(e -> launchNewInstance());
+    newWindowItem.addActionListener(e -> fileMenuController.launchNewInstance());
 
     JMenuItem openItem = new JMenuItem("Open Project...");
     openItem.setAccelerator(
@@ -1923,29 +1173,29 @@ public class SwingDelugeApp extends JFrame {
     saveItem.setAccelerator(
         KeyStroke.getKeyStroke(
             java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.CTRL_DOWN_MASK));
-    saveItem.addActionListener(e -> saveProject(false));
+    saveItem.addActionListener(e -> fileMenuController.saveProject(false));
 
     JMenuItem saveAsItem = new JMenuItem("Save Project As...");
     saveAsItem.setAccelerator(
         KeyStroke.getKeyStroke(
             java.awt.event.KeyEvent.VK_S,
             java.awt.event.InputEvent.CTRL_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK));
-    saveAsItem.addActionListener(e -> saveProject(true));
+    saveAsItem.addActionListener(e -> fileMenuController.saveProject(true));
 
     JMenuItem exportItem = new JMenuItem("Export Audio...");
-    exportItem.addActionListener(e -> exportAudio());
+    exportItem.addActionListener(e -> fileMenuController.exportAudio());
 
     JMenuItem exportWavStemsItem = new JMenuItem("Export WAV Stems...");
-    exportWavStemsItem.addActionListener(e -> exportWavStems());
+    exportWavStemsItem.addActionListener(e -> fileMenuController.exportWavStems());
 
     JMenuItem exportMidiItem = new JMenuItem("Export MIDI File...");
-    exportMidiItem.addActionListener(e -> exportMidiFile());
+    exportMidiItem.addActionListener(e -> fileMenuController.exportMidiFile());
 
     JMenuItem assembleKitItem = new JMenuItem("Assemble Kit From Synths...");
-    assembleKitItem.addActionListener(e -> assembleKitFromSynths());
+    assembleKitItem.addActionListener(e -> fileMenuController.assembleKitFromSynths());
 
     JMenuItem loadScriptItem = new JMenuItem("Load Script...");
-    loadScriptItem.addActionListener(e -> loadChuckScript());
+    loadScriptItem.addActionListener(e -> fileMenuController.loadChuckScript());
 
     JMenuItem explorerItem = new JMenuItem("Show Explorer");
     explorerItem.setAccelerator(
@@ -3671,97 +2921,12 @@ public class SwingDelugeApp extends JFrame {
   private class AppTopBarListener implements SwingTopBarPanel.TopBarListener {
     @Override
     public void onLiveRecordToggle(JButton btn) {
-      SwingGridPanel.isLiveRecordModeActive = !SwingGridPanel.isLiveRecordModeActive;
-      currentProject.setRecording(SwingGridPanel.isLiveRecordModeActive);
-      if (SwingGridPanel.isLiveRecordModeActive) {
-        btn.setBackground(new Color(0xd3, 0x2f, 0x2f));
-        btn.setForeground(Color.WHITE);
-        btn.setText("\u25CF RECORDING");
-        if (topBar != null && topBar.getParamReadout() != null) {
-          topBar.getParamReadout().printTransient("REC", "ON");
-        }
-      } else {
-        btn.setBackground(new Color(0x3a, 0x0c, 0x0c));
-        btn.setForeground(new Color(0xff, 0x33, 0x33));
-        btn.setText("\u25CF REC");
-        if (topBar != null && topBar.getParamReadout() != null) {
-          topBar.getParamReadout().printTransient("REC", "OFF");
-        }
-      }
+      transportController.onLiveRecordToggle(btn);
     }
 
     @Override
     public void onResampleToggle(JButton btn) {
-      if (!org.deluge.engine.JavaAudioDriver.isResamplingActive) {
-        // Start resample mode: panic old voices, start capture, THEN start play.
-        // Order matters: capture must be active before the first note renders.
-        if (pureEngine != null && pureEngine.getAudioEngine() != null) {
-          pureEngine.getAudioEngine().panic();
-        }
-        org.deluge.engine.JavaAudioDriver.startResampling();
-        // Auto-start play if not already playing
-        if (bridge.getGlobalInt(BridgeContract.G_PLAY) == 0L) {
-          onPlayToggle();
-        }
-        btn.setBackground(new Color(0xff, 0xaa, 0x00));
-        btn.setForeground(Color.WHITE);
-        btn.setText("\u25CF SAMPLING");
-        if (topBar != null && topBar.getParamReadout() != null) {
-          topBar.getParamReadout().printTransient("LOOP", "REC");
-        }
-      } else {
-        // Stop resample: build looper KitTrack dynamically with a 4-on-the-floor trigger step
-        // pattern
-        byte[] pcmData = org.deluge.engine.JavaAudioDriver.stopResampling();
-        btn.setBackground(new Color(0x3e, 0x27, 0x0c));
-        btn.setForeground(new Color(0xff, 0xb3, 0x00));
-        btn.setText("\u25CF RESAMPLE");
-        if (topBar != null && topBar.getParamReadout() != null) {
-          topBar.getParamReadout().printTransient("LOOP", "DONE");
-        }
-
-        if (pcmData == null || pcmData.length < 100) return;
-
-        try {
-          java.io.File resampleDir =
-              new java.io.File(
-                  org.deluge.project.PreferencesManager.getLibraryDir(), "SAMPLES/RESAMPLE");
-          if (!resampleDir.exists()) resampleDir.mkdirs();
-          String sampleName = "Resample_" + System.currentTimeMillis() + ".wav";
-          java.io.File targetFile = new java.io.File(resampleDir, sampleName);
-
-          org.deluge.engine.JavaAudioDriver.saveWavFile(pcmData, targetFile);
-
-          // Instantiate a new Kit track with our recorded loop sample loaded
-          org.deluge.model.KitTrackModel kitTrack =
-              new org.deluge.model.KitTrackModel(
-                  "Resample " + (currentProject.getTracks().size() + 1));
-          org.deluge.model.Drum drum =
-              new org.deluge.model.SoundDrum(sampleName, "SAMPLES/RESAMPLE/" + sampleName);
-          kitTrack.addDrum(drum);
-
-          // Program 4-on-the-floor loop triggers (Col 0, 4, 8, 12)
-          org.deluge.model.ClipModel clip = new org.deluge.model.ClipModel("CLIP 1", 1, 16);
-          clip.setStep(0, 0, org.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
-          clip.setStep(0, 4, org.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
-          clip.setStep(0, 8, org.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
-          clip.setStep(0, 12, org.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
-          kitTrack.addClip(clip);
-
-          currentProject.addTrack(kitTrack);
-
-          // Synchronize model changes to both engines
-          propagateCurrentModel();
-          pushModelToBridge();
-          syncHighFidelityEngine(currentProject);
-
-          if (clipPanel != null) {
-            clipPanel.refresh();
-          }
-        } catch (Exception ex) {
-          System.err.println("Failed to save and load master resample: " + ex.getMessage());
-        }
-      }
+      transportController.onResampleToggle(btn);
     }
 
     @Override
@@ -3870,40 +3035,17 @@ public class SwingDelugeApp extends JFrame {
 
     @Override
     public void onPlayToggle() {
-      long nextPlay = bridge.getGlobalInt(BridgeContract.G_PLAY) == 1L ? 0L : 1L;
-      if (nextPlay == 1L) {
-        syncHighFidelityEngine(currentProject);
-        if (clipPanel != null) {
-          clipPanel.setPlayheadFollowMode(true);
-        }
-      }
-      bridge.setGlobalInt(BridgeContract.G_PLAY, nextPlay);
-      if (bridge != null) bridge.setPlayState((int) nextPlay);
+      transportController.onPlayToggle();
     }
 
     @Override
     public void onStop() {
-      if (org.deluge.engine.JavaAudioDriver.isResamplingActive) {
-        if (topBar != null) {
-          topBar.stopRecordingIfActive();
-        }
-      }
-      bridge.setGlobalInt(BridgeContract.G_PLAY, 0L);
-      if (bridge != null) bridge.setPlayState(0);
-
-      try {
-        Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-        if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
-          fwEngine.panic();
-        }
-      } catch (Exception ex) {
-        // ignore
-      }
+      transportController.onStop();
     }
 
     @Override
     public void onMasterVolumeChanged(float vol) {
-      bridge.setGlobalFloat(BridgeContract.G_MASTER_VOL, vol);
+      transportController.onMasterVolumeChanged(vol);
     }
   }
 
