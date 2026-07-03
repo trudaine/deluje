@@ -54,33 +54,56 @@ final class SongProjector {
   }
 
   /**
-   * The per-pitch rainbow colour of the note lighting column {@code step}, or null if no note. The
-   * highest-index note row with an active step wins (mirrors the C render-order overwrite); its
-   * colour is {@code fromHue((pitch + colourOffset) * -8/3)} — {@code
-   * InstrumentClip::getMainColourFromY}. Shared by {@link #project} (unit-tested) and the per-cell
-   * session render so both agree.
+   * The final LED colour lighting column {@code step}, or null if no note reaches it. Mirrors
+   * {@code NoteRow::renderRow} (note_row.cpp:1881) at one-step-per-square resolution, with the
+   * highest-index note row winning (the C render-order overwrite):
+   *
+   * <ul>
+   *   <li><b>Head</b> (a note starts at this step): the pitch's main colour {@code fromHue((pitch +
+   *       colourOffset) * -8/3)} scaled by velocity {@code * (65 + v + v/2)/255} (v = 0..127) —
+   *       {@code getMainColourFromY} × the velocity fraction at note_row.cpp:1967.
+   *   <li><b>Tail</b> (a note starting earlier extends past this step's start): {@code
+   *       forTail(mainColour)} (DelugePadButton.getTailColor).
+   *   <li>Otherwise this row draws nothing here.
+   * </ul>
+   *
+   * Shared by {@link #project} (unit-tested) and the per-cell session render so both agree.
    */
   static Color noteColourAt(ClipModel clip, int colourOffset, int step) {
     if (step < 0 || step >= clip.getStepCount()) return null;
     Color colour = null;
     int rowCount = clip.getRowCount();
     for (int r = 0; r < rowCount; r++) {
-      StepData sd = clip.getStep(r, step);
-      if (sd != null && sd.active()) {
-        int pitch = clip.getRowYNote(r);
-        colour = DelugeColour.fromHue((pitch + colourOffset) * -8 / 3);
-      }
+      Color draw = rowDrawAt(clip, colourOffset, r, step);
+      if (draw != null) colour = draw; // higher-index row overwrites
     }
     return colour;
   }
 
-  /** True when any note row of {@code clip} has an active step at {@code step}. */
-  static boolean stepActive(ClipModel clip, int step) {
-    if (step < 0 || step >= clip.getStepCount()) return false;
-    for (int r = 0; r < clip.getRowCount(); r++) {
-      StepData sd = clip.getStep(r, step);
-      if (sd != null && sd.active()) return true;
+  /** What note row {@code r} draws at {@code step}: head colour, tail colour, or null. */
+  private static Color rowDrawAt(ClipModel clip, int colourOffset, int r, int step) {
+    Color main = DelugeColour.fromHue((clip.getRowYNote(r) + colourOffset) * -8 / 3);
+    StepData here = clip.getStep(r, step);
+    if (here != null && here.active()) {
+      int v = Math.round(here.velocity() * 127f); // model velocity is 0..1
+      int num = 65 + v + v / 2; // note_row.cpp:1967
+      return scaleToward(main, num);
     }
-    return false;
+    // Tail: the nearest earlier note in this row that extends past the start of this square.
+    for (int s = step - 1; s >= 0; s--) {
+      StepData sd = clip.getStep(r, s);
+      if (sd != null && sd.active()) {
+        return (s + sd.gate() > step) ? DelugePadButton.getTailColor(main) : null;
+      }
+    }
+    return null;
+  }
+
+  /** {@code RGB::adjustFractional(num<<8, 255<<8)} — channel * num / 255, clamped. */
+  private static Color scaleToward(Color c, int num) {
+    return new Color(
+        Math.min(255, c.getRed() * num / 255),
+        Math.min(255, c.getGreen() * num / 255),
+        Math.min(255, c.getBlue() * num / 255));
   }
 }

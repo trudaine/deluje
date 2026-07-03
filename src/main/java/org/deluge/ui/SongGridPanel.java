@@ -534,18 +534,18 @@ public class SongGridPanel extends SwingGridPanel {
   }
 
   /**
-   * Deluge-faithful session render for one main pad: light column {@code c} where the track's clip
-   * has a note at that step (via {@link SongProjector#stepActive}), in the clip/track colour —
-   * parity with the hardware's session_view.cpp renderAsSingleRow (the clip's pattern spread across
-   * the row), replacing the Ableton-style clip-slot launcher look. Used by both the rebuild and the
-   * in-place recolour so structure-change and steady-state renders agree.
+   * Deluge-faithful session render for one main pad: colour column {@code c} by the note lighting
+   * that step — the pitch's velocity-scaled main colour for a note head, {@code forTail} for a held
+   * note's tail, black when unlit (via {@link SongProjector#noteColourAt}). Parity with the
+   * hardware's session_view.cpp renderAsSingleRow / note_row.cpp renderRow, replacing the
+   * Ableton-style clip-slot launcher look. The final LED colour is baked by the projector, so the
+   * pad blits it verbatim (intensity 1.0, tail flag off). Used by both the rebuild and the in-place
+   * recolour so structure-change and steady-state renders agree.
    */
   private void renderSongPatternPad(JButton clipBtn, int modelRow, int c) {
     org.deluge.model.TrackModel track = projectModel.getTracks().get(modelRow);
     java.util.List<org.deluge.model.ClipModel> clips = track.getClips();
     org.deluge.model.ClipModel clip = clips.isEmpty() ? null : clips.get(0);
-    // Per-pitch rainbow of the note at this step (getMainColourFromY), highest note-row wins;
-    // null = no note = unlit black. Matches session_view.cpp renderAsSingleRow.
     Color noteColour =
         clip == null
             ? null
@@ -557,6 +557,7 @@ public class SongGridPanel extends SwingGridPanel {
       pad.setBaseColor(base);
       pad.setTheme(org.deluge.project.PreferencesManager.getGridColorTheme());
       pad.setActive(lit);
+      pad.setTail(false);
       pad.setMuted(isMuted);
       pad.setIntensity(1.0f);
       pad.setScaleRoot(false);
