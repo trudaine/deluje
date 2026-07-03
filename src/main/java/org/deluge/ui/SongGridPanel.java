@@ -229,7 +229,7 @@ public class SongGridPanel extends SwingGridPanel {
           pad.setDrawCenterCircle(false);
           clipBtn = pad;
         } else if (trkId == macR && colId < 16) {
-          clipBtn = new MacroSliderButton(colId, allParams[colId]);
+          clipBtn = new MacroSliderButton(this, colId, allParams[colId]);
         } else if (trkId == keyR && colId < 18) {
           if (isAdvanced) {
             DelugePadButton pad = new DelugePadButton();
