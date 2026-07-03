@@ -1986,3 +1986,34 @@ The desktop menu bar exposes file, editing, tooling, view, settings, macro, and 
 
     ![Help menu](images/deluge_menu_help.png)
 
+
+## 30. Recent Architecture & Premium UI Enhancements (Past 48 Hours)
+
+The workstation has undergone major core architectural decomposition and styling upgrades to achieve premium visual quality, smooth real-time feedback, and enhanced project modularity.
+
+### 30.1 Modular Sidebar Panel Decomposition
+To maintain codebase maintainability and clean class design, the monolithic `SwingProjectSidebarPanel` (~1,800 lines of Java) has been decomposed into isolated, focused tab components:
+*   **Library Tab (`LibrarySidebarTab.java`)**: Manages the local directory tree traversal of presets, samples, and projects on the simulated SD card, including search queries, file drag-and-drop, and XML parsing.
+*   **Hardware Tab (`HardwareSidebarTab.java`)**: Handles MIDI SysEx bi-directional remote communications with the physical Synthstrom Deluge hardware over MIDI, remote directory listings, firmware updates, and local-remote SD-card synchronizations.
+*   **Coordinator Layout**: The main sidebar panel class has been reduced to a lean, 150-line layout coordinator that wires the shared copy-paste clipboard and handles Tab switching.
+
+### 30.2 Backlit Silicone LED Grid Pads & Hover Glow Animations
+The grid pad buttons (`DelugePadButton.java`) have been completely redesigned to emulate physical Deluge backlit rubber:
+*   **Silicone Hotspot Rendering**: Active buttons paint their background using a `RadialGradientPaint`, blending a bright white silicone hotspot in the center outward into the track's glowing color and a dark, desaturated edge boundary.
+*   **Smooth Hover Halo Transitions**: Buttons automatically capture mouse hover entries/exits using internal AWT event masking (`enableEvents(AWTEvent.MOUSE_EVENT_MASK)`) to avoid right-click conflicts. Hover states animate a smooth, glowing halo intensity over 150ms synced with the `UiAnimator` clock.
+
+### 30.3 3D Wavetable Morphing Visualizer & Pulsing Placeholder
+The 3D Wavetable scanner panel (`Wavetable3DVisualizer.java`) now features:
+*   **3D Cyberpunk Placeholder Wireframe**: When no wavetable is loaded, the component renders a rotating, morphing 3D double sine-wave mesh in the background, utilizing theme-aware colors to make the UI feel alive immediately.
+*   **Real-time Playhead Morphing Tracking**: The playhead plane updates smoothly in real-time at 30 FPS, tracking note automations, LFO sweeps, and wave index changes dynamically.
+
+### 30.4 CRT Cathode Glow LFO Monitor & Custom Waveform Drawer
+*   **CRT Cathode Oscilloscope Lanes**: The LFO Monitor (`LfoMonitorComponent.java`) paints LFO waveforms with multi-layered neon glow strokes and pulsing outer glow phase dots, simulating physical CRT cathode screen traces.
+*   **Hover Node Highlighting**: The Custom Waveform Drawer (`LfoDrawPad.java`) renders a soft, semi-transparent highlight column behind the active hovered step index, and draws a pulsing neon selection circle around node values to enhance editing precision.
+*   **Theme-Aware Zero Lines**: Zero grid levels adapt to the active `ThemeManager` colors.
+
+### 30.5 Bipolar Modulation Matrix & Highlight Channels
+The Modulation Matrix panel (`ModulationMatrixComponent.java`) has been polished with:
+*   **Rounded Neon Connection Squares**: Active connections are drawn using rounded corners and opacity levels scaled to the modulation amount. Positive modulation uses the Theme Primary accent color, while negative modulation maps to the Theme Secondary accent.
+*   **Active Row/Column Hover Highlights**: Hovering over a cell automatically highlights both the corresponding Modulation Source column label and the target Modulation Destination row label in the theme's primary color, making complex patch routings instantly scannable.
+
