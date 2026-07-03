@@ -212,7 +212,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
           pad.setDrawCenterCircle(false);
           clipBtn = pad;
         } else if (t == macR) {
-          clipBtn = new MacroSliderButton(colId, allParams[colId]);
+          clipBtn = new MacroSliderButton(this, colId, allParams[colId]);
         } else if (t == keyR) {
           if (isAdvanced) {
             DelugePadButton pad = new DelugePadButton();
