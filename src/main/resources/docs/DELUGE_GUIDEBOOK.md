@@ -5,10 +5,19 @@ Welcome to the **Deluge-Java Workstation**, a software recreation and operations
 ---
 
 ## Table of Contents
-1. [The Step Sequencer & Clip View](#1-the-step-sequencer--clip-view)
-   * [1.6 The Euclidean Rhythm Generator](#16-the-euclidean-rhythm-generator)
-   * [1.7 Sequencer Grid Zooming & Proportional Scaling](#17-sequencer-grid-zooming--proportional-scaling)
-   * [1.8 Fold Mode & Vertical Space Optimization](#18-fold-mode--vertical-space-optimization)
+1. [Track View & Sequence Editing Basics](#1-track-view--sequence-editing-basics)
+   * [1.1 Sequence Editing Basics](#11-sequence-editing-basics)
+   * [1.2 Kit Tracks & Muting Rows](#12-kit-tracks--muting-rows)
+   * [1.3 Sound Parameters & Press-Down Knob Functions](#13-sound-parameters--press-down-knob-functions)
+   * [1.4 Scrolling and Zooming](#14-scrolling-and-zooming)
+   * [1.5 Shifting Track Contents Horizontally](#15-shifting-track-contents-horizontally)
+   * [1.6 Triplet View & Column Grid Divisions](#16-triplet-view--column-grid-divisions)
+   * [1.7 Notes of Different Length (Dim Extension Pads & Drones)](#17-notes-of-different-length-dim-extension-pads--drones)
+   * [1.8 Editing Note Velocity](#18-editing-note-velocity)
+   * [1.9 Cross-Screen Edit Mode](#19-cross-screen-edit-mode)
+   * [1.10 The Euclidean Rhythm Generator](#110-the-euclidean-rhythm-generator)
+   * [1.11 Sequencer Grid Zooming & Proportional Scaling](#111-sequencer-grid-zooming--proportional-scaling)
+   * [1.12 Fold Mode & Vertical Space Optimization](#112-fold-mode--vertical-space-optimization)
 2. [Synthesizers & Sound Engines (Subtractive, FM, Wavetable, Legato, Multi-Sampler, Ring Mod)](#2-synthesizers--sound-engines-subtractive-fm-wavetable-legato-multi-sampler-ring-mod)
    * [2.7 Chord Keyboard (CORK & CORL Layouts)](#27-chord-keyboard-cork--corl-layouts)
 3. [Drum Kits & Smart Keyword Auto-Mapper](#3-drum-kits--smart-keyword-auto-mapper)
@@ -48,128 +57,123 @@ Welcome to the **Deluge-Java Workstation**, a software recreation and operations
 
 ---
 
-## 1. The Step Sequencer & Clip View
+## 1. Track View & Sequence Editing Basics
 
-The central focus of the Deluge Workstation is the multi-lane step sequencer. Represented as a responsive grid of pads, it maps sequencing notes and durations.
+Powering on the Deluge-Java Workstation automatically creates a blank song with one blank track with a synth assigned to it, and puts the device into **Track View** for this track. In this view, the main 16x8 grid of pads represents a piano-roll-style view of the sequence of notes that the track contains.
 
-![Swing Main Sequencer Clip View Grid](images/deluge_main_sequencer.png)
+### 1.1 Sequence Editing Basics
 
-### Key Features:
-* **Interactive Step Matrix Grid**: A standard 16x8 matrix scroll list representing time divisions (columns) across voice lanes (rows). Pads are backlit and glow in colors reflecting step status and velocity levels.
-* **Horizontal Step Drag-Ties (Extended Notes Entry)**: Click a pad and drag horizontally along the same row to extend note durations (ties) across multiple steps.
-  * Visual step cells in the drag range glow in a backlit color preview state during drags.
-  * Upon release, consecutive step properties (intermediate steps gate set to `1.0` and ending step gate set to `0.5`) are finalized inside the model.
-* **Proximity Auto-Scrolling**: When dragging note ties or selecting cell ranges, moving the cursor near the left/right view borders automatically shifts the scroll offset view by 4 steps:
-  * Dragging near the right panel boundary ($\ge \text{width} - 30\text{px}$) scrolls the viewport RIGHT.
-  * Dragging near the left panel boundary ($\le 130\text{px}$) scrolls the viewport LEFT.
-  * Active drag column indexes are updated during auto-scrolling, keeping the selection aligned.
-* **Note Characteristics Tweak Deck**: Hovering over or clicking a step exposes a dynamic slider to adjust:
-  * **Velocity**: Scale note trigger velocities from `1%` to `100%`.
-  * **Duration (Length)**: Extend a note's gate across consecutive pads from a sixteenth trigger up to multiple bars.
-  * **Nudge (Micro-Timing)**: Offset step triggers by micro-fractions to introduce shuffle swing.
-  * **Repeat (Stutter)**: Subdivide a single grid step into automatic stutter retriggers (1x, 2x, 4x, 8x speed) for rolls.
-* **Quantized Playback Head**: A moving vertical white indicator line tracks the playhead position across columns in real-time.
-
-### 1.2 Grid Automation Overview & Detail Editor Views
-
-The main sequencer pads grid can be toggled to **`AUTOMATION`** view mode. This view provides two distinct visual layouts:
-
-```carousel
-![Automation Overview Grid Workspace](images/deluge_grid_automation_overview.png)
-<!-- slide -->
-![Automation Detail Editor Grid Workspace](images/deluge_grid_automation_editor.png)
-```
-
-1. **AUTOMATION OVERVIEW Grid Mode (`deluge_grid_automation_overview.png`)**: Lists all synthesizer/track automatable parameters vertically (rows). Pads represent sequence columns step ticks: a step pad glows in green if it houses active automated points for that parameter, indicating automation state.
-2. **AUTOMATION DETAIL EDITOR Grid Mode (`deluge_grid_automation_editor.png`)**: Selecting a parameter row in Overview mode opens the step value editor. The 8 grid rows act as value bands (from `0-15` up to `112-127`). Values are drawn on the pads: a pad glows in cyan indicating the parameter value at that specific sequencer step.
+*   **Create a Note**: Press any pad in the main 16x8 group corresponding to a pitch and a moment in time. The pad will light up to indicate the presence of a note.
+*   **Audition a Pitch**: With each row representing a different pitch, you can audition any of the available pitches by pressing the very right-most pad (the **audition pad**) for that row.
+*   **Audible Feedback**: If the workstation is *not* in play-mode, the note will sound immediately when placed or auditioned. This does not happen if the workstation is in play-mode, preventing unwanted sound during a performance.
+*   **Delete a Note**: Tapping a pad for which a note is already present deletes the note.
+*   **Change Track Color**: Hold down the **[SHIFT]** button and turn the **▼▲** knob to change the color of a track.
 
 ---
 
-### 1.3 Step Parameter Properties, Probability & Fill Conditions
+### 1.2 Kit Tracks & Muting Rows
 
-Editing a step's characteristics can be done via the context-sensitive **Right-Click Step Menu** or the **Step Properties** dialog. 
+Instead of having a synth assigned, a track may have a "kit". For kit tracks, each row of pads represents an entirely different sound (e.g. Row 1 = Kick, Row 2 = Snare, Row 3 = Closed Hat).
 
-#### 🎛️ The Right-Click Step Context Menu
-Right-clicking any grid pad in **Clip View** opens a popup menu to adjust parameters on-the-fly:
-* **Step Toggle**: Turn the step ON or OFF.
-* **Velocity Quick-Presets**: Instantly set the note's velocity to standard levels: `100% (FF)`, `75% (mf)`, `50% (p)`, or `25% (pp)`.
-* **Fill Condition**: Toggle the **Fill** property on the step.
-* **Clear Step**: Reset all parameters on the step to defaults.
-* **Properties...**: Open the full **Step Properties** JDialog.
-
-#### 📝 The Step Properties Dialog
-Double-clicking a sequence step (or selecting **Properties...** from the right-click menu) opens the **`Step Properties`** JDialog. This provides step parameters and random fill rules:
-
-![Per-Step Parameter Properties JDialog Dialog](images/deluge_step_properties.png)
-
-* **Velocity**: Scale note trigger velocities from `1%` to `100%` (combines both a slider and spinner values). Brightness of active note pads scales dynamically with velocity.
-* **Nudge (Micro-Timing)**: Offset step triggers by micro-fractions (from `-0.5` to `+0.5` steps) to introduce shuffle swing or micro-timing offsets. Nudged steps display with a subtle visual effect on the grid.
-* **Repeats (Sub-Triggers / Iterance)**: Subdivide standard sequencer steps into quick sub-triggers (0 to 3 subdivisions, where 3 represents active triplet step subdivisions within standard note ticks).
-* **Fill Probability % (Loop Conditionals)**: Program a step with specific chance properties:
-  * `0%`: Standard static step (triggers every single pass).
-  * `1% to 100%`: Fill-only conditional step! The step will only trigger on fills based on the random probability percentage selected, adding structural humanized variations to loops!
-
-#### 🎨 Pad Color Indicator Parity Guide
-* **Dim Charcoal (`#151515` / `#1a1a1a`)**: Inactive or empty step.
-* **Glowing Track Color (High Intensity)**: Active step (brightness scales dynamically with velocity!).
-* **Dim Track Color**: Inactive step or step with $0\%$ probability of playing on the current pass.
-* **Glowing Cyan-Blue (`0x00d2ff`)**: Step with a **Fill Condition** active.
-* **White Line Overlay / Highlight**: Octave C row boundaries in Diatonic/Keyboard views.
-* **Amber Glow (`0xffaa00`)**: Queued clip slot in SONG view.
-* **Active Green (`0x00cc00`)**: Actively playing loop clip in SONG view.
-
-#### 🔔 Tutorial E: Evolving Generative Ambient Sequence (Probability Sequencing)
-1. Select a Synth track grid. Sequence a basic chord progression across a 16-step grid lane: set warm pad steps on columns 1, 5, 9, 13!
-2. Now let's add secondary ambient "ornament plucks" on columns 3, 7, 11, and 15!
-3. Double-click the pluck note on Column 3. In the Step Properties dialog, slide the **Fill %** up to **`35%`** and click Apply (the pluck now has only a $35\%$ chance of playing on any loop pass!).
-4. Double-click the Column 7 pluck: set its **Fill %** to **`50%`**.
-5. Double-click the Column 11 pluck: set **Fill %** to **`20%`** and change **Repeats** to **`2`** (quick double-strike pluck!).
-6. Double-click the Column 15 pluck: set **Fill %** to **`60%`**.
-7. *Result*: Press play: you will hear a beautiful, organic, and endlessly evolving ambient track! The chord pads lay a steady foundation, while the ambient plucks strike at different random intervals, creating a generative composition that never sounds identical!
+*   **Convert to Kit Track**: Click the **[KIT]** button. A kit preset takes effect, and each row now triggers a different drum sound.
+*   **Mute a Drum Row**: Press the corresponding pad-row’s mute pad (second from the right; green). It turns yellow to indicate the row is muted.
+*   **Re-order Kit Rows**: Hold down the audition pad (far-right) for the row, and hold down the **▼▲** encoder while turning/dragging it up or down. The selected row will move along with the scrolling.
+*   **Set Row Color**: Hold the **[SHIFT]** button, hold the audition pad (far-right) for the row, and turn the **▼▲** knob.
 
 ---
 
-### 1.4 Play Direction Modes (Forward, Reverse, Ping-Pong, Random)
+### 1.3 Sound Parameters & Press-Down Knob Functions
 
-Tracks can be configured to walk the step pointers in multiple structural pathways, parsed dynamically by the sequencer timing clock:
-* **FORWARD**: The standard grid walk (from step 1 to step 16, wrapping back to 1).
-* **REVERSE**: The track steps play backward (from step 16 to step 1, wrapping back to 16). Great for reversing drum fills or mirror vocal phrases!
-* **PING-PONG**: Symmetrical bi-directional walk! Plays Forward from step 1 to 16, and then immediately plays backward from 15 down to 2, bouncing back and forth.
-* **RANDOM**: On every clock step division tick, the playhead jumps to a completely random step column. Perfect for generative noise sweeps or pointillistic FM plucks!
+The parameter knobs (the two gold knobs) control parameters of the synthesizer or sampler engine. Each has a level-meter to its left, indicating the current value of the parameter. Which parameters the knobs control (their function) can be quickly switched by the row of 8 buttons indicating options such as volume/pan, attack/release, etc.
+
+*   **Affect Entire Kit**: If you wish to affect the sound of the entire kit track, press the **[AFFECT ENTIRE]** button so that it is illuminated. The parameter knobs will now affect the output of all sounds within the kit.
+*   **Custom Parameters**: Three of the parameter functions are labeled "custom" (1, 2 and 3). Custom 1 typically controls pitch for sample-based sounds, or portamento for synth sounds. Custom 2 and 3 control sample rate reduction and bitcrushing respectively for kits or songs in "affect entire" mode.
+*   **Parameter Knob Press-Down Functions**: Pushing down on the parameter knobs toggles secondary parameters:
+    *   **Cutoff Knob**: Toggles the function of the "cutoff" and "res" knobs to affect the LPF (default), HPF, or Treble and Bass controls ("EQ").
+    *   **Res (Resonance) Knob**: Toggles the filter slope between 24dB and 12dB (LPF only).
+    *   **Delay Time Knob**: Toggles Ping-Pong Delay on and off.
+    *   **Delay Amount Knob**: Toggles Analog Warmth simulation on and off. Analog simulation adds tape saturation characteristics.
+    *   **Sidechain Knob**: Toggles sidechain speed between fast (synced to 32nd-notes) and slow (synced to 8th-notes).
+    *   **Reverb Knob**: Toggles global Reverb presets: "small", "medium", and "large".
+    *   **Mod Rate Knob**: (In affect-entire mode) Cycles through chorus, flanger, or phaser mod effects.
+    *   **Mod Depth Knob**: (In affect-entire mode) Toggles the modulation depth function between depth, feedback, and offset.
+    *   **Stutter Knob**: Pressing down on the knob enacts the stutter effect. Releasing it stops it. Turning the knob controls the length and speed of stuttering.
 
 ---
 
-### 1.5 Triplet Column Grid Divisions View (12-Step Triplets vs 16-Step Straights)
+### 1.4 Scrolling and Zooming
 
-Step sequencing is no longer restricted to straight subdivisions (sixteenth notes, 16 steps per bar). The Deluge Workstation supports per-track **Triplet Grid Divisions** switching, allowing you to build polyrhythms, drum shuffles, and eighth-note triplet sequences.
+*   **Vertical Scrolling**: Turn the **▼▲** knob to scroll vertically. For synth, MIDI and CV tracks, scrolling up accesses higher pitches, and scrolling down accesses lower pitches. For kit tracks, vertical scrolling exposes additional drum rows.
+*   **Display Zoom Level**: Press down on the **◄►** knob to temporarily display the current zoom resolution (e.g. "16th").
+*   **Zooming In/Out**: Hold down the **◄►** knob and turn it clockwise to zoom in (edit finer details like 32nd or 64th notes). Turn it anti-clockwise (while holding down) to zoom back out.
+*   **Horizontal Scrolling**: Turn the **◄►** knob without pressing down on it. The screen position is shown momentarily on the display as two numbers (e.g. "1.4" indicates screen 1 of 4 total screens).
+*   **Fine Detail Indicators**: After zooming back out, pads containing programmed details too fine to see at the current zoom level will appear as an almost-white color. Zoom back in to expose and edit these details.
 
-* **The [3] Toggle**: Located at the bottom scrollbar zoom toolbar (immediately next to the rate speed JComboBox), a gold outline button labeled **`[3]`** switches step subdivisions on the active track clip dynamically:
-  * **Straight Mode (Default)**: Visual columns are set to **16 steps per bar**, with an underlying step time duration of exactly **24 ticks** (sixteenth notes).
-  * **Triplet Mode (3-Subdivisions)**: Visual columns swap instantly to **12 steps per bar**, with an underlying step time duration of exactly **32 ticks** (eighth-note triplets).
-* **Beat Divisions Visual Stripes**: To guarantee that you can map patterns with visual speed, the empty pad cells' background colors dynamically display beat stripes guidelines based on the active clip's triplet state:
-  * **Sixteenth Straight beat divisions**: Emphasizes every **4 steps** (highlighted slate-gray columns on step 1, 5, 9, 13).
-  * **Eighth Triplet beat divisions**: Emphasizes every **3 steps** (highlighted slate-gray columns on step 1, 4, 7, 10).
-* **XML loop lengths saving**: When saving files, the song XML writer dynamically computes the track loop duration ($12\text{ steps} \times 32\text{ ticks} = 384\text{ ticks}$ total loop length per bar) and saves it alongside the raw ticks structures and the `triplet="1"` attribute, ensuring correct load cycles.
+---
 
-### 1.6 The Euclidean Rhythm Generator
+### 1.5 Shifting Track Contents Horizontally
+
+*   **Shift Notes Horizontally**: Hold down the **▼▲** knob and turn the **◄►** knob. All notes and automation in the track are shifted sideways in steps of one square at the current zoom level. Notes that move past either end of the track wrap around and appear at the other end.
+
+---
+
+### 1.6 Triplet View & Column Grid Divisions
+
+*   **Triplets View Toggle**: Press the **[TRIPLETS VIEW]** button. This changes the pad grid’s function to divide time into threes rather than fours, allowing you to create triplet rhythms.
+*   **Triplet Subdivisions**: When in Triplets View, each quarter of the 16x8 pad grid displays 3 columns of notes, with the fourth column greyed out and unused.
+*   **Beat Division Stripes**: The empty grid pad cells' background colors dynamically display beat stripes guidelines:
+    *   *Straight Mode*: Highlights columns at steps 1, 5, 9, and 13.
+    *   *Triplet Mode*: Highlights columns at steps 1, 4, 7, and 10.
+
+---
+
+### 1.7 Notes of Different Length (Dim Extension Pads & Drones)
+
+At any zoom level, a note created on a given pad lasts up until the start of the next pad to the right (e.g., a 16th note).
+
+*   **Manually Create Long Notes**: Hold down the note's starting pad and press a pad further to the right. The note will extend to occupy all pads in between.
+*   **Visual Length Extension**: Only the leftmost pad occupied by the note is brightly colored. The extended pads are dimly lit to indicate they are an extension of the existing note, not a new note.
+*   **Shorten a Note**: Press any of the dimmed extension pads to "delete" the portion of the note that falls beyond that pad.
+*   **Wrap-Around Notes**: Create a note starting towards the end of a sequence, hold the starting pad, press down the **◄►** knob, and press a pad on the left (at the beginning of the sequence) to wrap the note around the loop boundary.
+*   **Create a Drone**: Create a note that occupies the entire length of the track. The workstation will keep the note permanently sounding rather than restarting it each time the sequence loops.
+
+---
+
+### 1.8 Editing Note Velocity
+
+*   **Edit Velocity**: Hold down the pad corresponding to a note and turn the **◄►** encoder. The velocity value displays on the screen (range 1 to 127, with 64 as default).
+*   **Velocity Level Meter**: While holding the pad, the rightmost two columns of pads act as a level-meter to indicate the note's velocity. Pressing any pad in these two columns jumps straight to that velocity level.
+*   **Group Velocity Edit**: Hold multiple note pads simultaneously and turn the encoder to edit their velocities together.
+
+---
+
+### 1.9 Cross-Screen Edit Mode
+
+*   **Enter Cross-Screen Mode**: Press the **[CROSS-SCREEN]** button.
+*   **How it Works**: If you have a sequence multiplied across multiple screens (e.g., a 4-bar phrase), any edits you make on the currently visible screen will automatically apply to all other screens.
+*   **Zoom-Level Lock**: Cross-screen edit mode remains locked to the zoom level at which it was activated. If you zoom in further, edits still apply on a per-bar (not per-half-bar) basis.
+
+---
+
+### 1.10 The Euclidean Rhythm Generator
 
 Drawing even trigger distributions across step grids is fully automated. By integrating a dedicated mathematical Euclidean pattern layout planner, the workstation lets you populate drum tracks or basslines with polyrhythms:
 
-* **The Interactive Euclidean Wheel Dialog**: Clicking the **`Euclidean`** button (located on the left-side control panel of the active matrix row) opens a modal dialog. The window features an interactive **Euclidean Wheel** rendering active pulses as glowing amber outer pads and silent steps as dark charcoal segments.
-* **Parameters**:
-  * **Steps (N)**: The total sequence length (up to 16 steps per bar).
-  * **Pulses (K)**: The number of active notes to distribute.
-  * **Rotation (Shift)**: Rotates the pulse offsets horizontally (e.g. shifts the downbeat triggers).
-* **The Mathematical Distribution Formula**: Follows the Bjorklund spacing algorithm which calculates a boolean array $B[s]$ of length $N$:
-  $$B[s] = \text{true if } (s \cdot K + \text{rotation}) \bmod N < K$$
-  This matches the Deluge firmware's step spacing behavior.
-* **💾 Generate & Apply Button**: Click this button to overwrite the active row's sequence grid cells with the computed pattern. It triggers immediate audio playback reload so you hear the polyrhythm play instantly.
+*   **The Interactive Euclidean Wheel**: Clicking the **`Euclidean`** button (located on the left-side control panel of the active matrix row) opens a modal dialog. The window features an interactive **Euclidean Wheel** rendering active pulses as glowing amber outer pads and silent steps as dark charcoal segments.
+*   **Parameters**:
+    *   **Steps (N)**: The total sequence length (up to 16 steps per bar).
+    *   **Pulses (K)**: The number of active notes to distribute.
+    *   **Rotation (Shift)**: Rotates the pulse offsets horizontally (e.g. shifts the downbeat triggers).
+*   **The Mathematical Distribution Formula**: Follows the Bjorklund spacing algorithm which calculates a boolean array $B[s]$ of length $N$:
+    $$B[s] = \text{true if } (s \cdot K + \text{rotation}) \bmod N < K$$
+    This matches the Deluge firmware's step spacing behavior.
+*   **💾 Generate & Apply Button**: Click this button to overwrite the active row's sequence grid cells with the computed pattern. It triggers immediate audio playback reload so you hear the polyrhythm play instantly.
 
-### 1.7 Sequencer Grid Zooming & Proportional Scaling
+---
 
-The workstation features a **Grid Zooming** engine. Rather than forcing the main window to resize or causing text to overflow, changing the sequencer resolution dynamically resizes the cell pads (grid buttons) so they fit and fill the active window boundaries.
+### 1.11 Sequencer Grid Zooming & Proportional Scaling
 
-![Swing Grid Zoom and Proportional Scaling Workspace](images/deluge_grid_zoom.jpg)
+The workstation features a **Grid Zooming** engine. Changing the sequencer resolution dynamically resizes the cell pads (grid buttons) so they fit and fill the active window boundaries.
 
 #### Grid Zoom Keyboard Shortcuts:
 The grid resolution can be zoomed from anywhere inside the active window using standard global desktop shortcuts:
@@ -187,7 +191,7 @@ The bottom fixed panels — **`MACROS`** (vertical DSP routing knobs) and **`KEY
 *   *Result*: As you zoom out to denser modes (like `24x16` or `16x24`), the keyboard keys and macro sliders shrink proportionally, maintaining layout balance and optimizing vertical screen space.
 
 #### 🖥️ The Interactive "View" Menu:
-AView menu is located in the main menu bar. It provides:
+A View menu is located in the main menu bar. It provides:
 1.  **Zoom In** and **Zoom Out** options alongside their respective keyboard shortcut symbols.
 2.  **A Radio Button Group** representing the active grid size:
     *   `● 8x16 Grid (Large Pads)`
@@ -197,7 +201,10 @@ AView menu is located in the main menu bar. It provides:
 3.  **Bidirectional Real-Time Sync**:
     *   Pressing `Ctrl + =` or `Ctrl + -` dynamically updates the checked radio button in the menu bar.
     *   Clicking a radio button in the menu bar instantly scales the grid and updates preferences.
-### 1.8 Fold Mode & Vertical Space Optimization
+
+---
+
+### 1.12 Fold Mode & Vertical Space Optimization
 
 The Deluge Workstation features a **Fold Mode** for synthesizer clip tracks. It optimizes the workspace by collapsing empty rows on the sequencer grid, allowing you to focus on the musical structure of your pattern.
 
@@ -215,17 +222,14 @@ graph TD
 
 #### Key Features & System Architecture:
 * **The Unified Pitch Resolver**: 
-  * In a standard sparse-row sequencer model, changing the grid height dynamically can cause note placements to shift.
-  * To solve this, the Deluge Workstation implements a **Unified Pitch Resolver** in the model (`ClipModel`). When Fold Mode is active, the model maps step read/write actions from the collapsed UI rows directly to their absolute chromatic MIDI pitches. 
-  * This guarantees data integrity: notes played by the audio engine and saved to the XML file maintain their exact pitch, regardless of whether you are editing them in folded or unfolded mode.
+    * In a collapsed UI layout, note triggers must map back to their absolute pitches.
+    * The workstation implements a pitch resolver that maps step clicks on the folded view back to their absolute chromatic MIDI pitches, ensuring perfect data integrity.
 * **Auto-Hiding Scroll Controls**:
-  * Toggling Fold Mode recalculates the grid layout. If the active note rows fit on a single screen (8 rows or fewer), the vertical scrollbar, Page Up, and Page Down buttons **automatically hide** to maximize grid workspace and eliminate visual clutter.
-  * The side navigation panel remains locked at a fixed width of **32 pixels** to prevent the grid pads from shifting horizontally during folding/unfolding transitions.
-* **macOS Button Polish**:
-  * All navigation buttons inside the side panel are rendered using flat, pixel-perfect Basic button UIs. This bypasses native macOS Aqua minimum-width constraints ($\ge 70$px), ensuring that the glowing green **`FOLD`** and **`UNFLD`** toggle buttons and their labels fit and display clearly.
+    * If the active note rows fit on a single screen (8 rows or fewer), the vertical scrollbar, Page Up, and Page Down buttons **automatically hide** to maximize grid workspace.
+    * The side navigation panel remains locked at a fixed width of **32 pixels** to prevent horizontal pad shifting.
 
 #### How to Use Fold Mode:
-1. Select a Synth track to enter its Clip view.
+1. Select a Synth track to enter its Track View.
 2. Look at the vertical navigation panel on the far right. At the bottom right, you will see a glowing green button labeled **`FOLD`**.
 3. Click **`FOLD`**. The grid will instantly collapse to display only your active note rows. The button will toggle to a glowing cyan background labeled **`UNFLD`**.
 4. To add a new note at a pitch that is not currently in the folded view, click **`UNFLD`** to return to the chromatic piano roll, click a pad to add the note, and then click **`FOLD`** again to collapse the grid with the new pitch included!
@@ -650,39 +654,65 @@ The top menu action **`Tools ➔ Drone Lab & Texture Generator...`** (global sho
 
 ## 10. UI Panels & Shift Shortcuts System Behavior
 
-The Deluge Workstation features a deeply integrated Shift action system and sound configuration dialogs. Holding down the **Shift** key (or clicking the virtual Shift button) triggers shortcuts and sub-labels overlays directly across the main pads grid.
+The Deluge Workstation features a deeply integrated Shift action system and sound configuration dialogs. Holding down the **[SHIFT]** key (or clicking the virtual Shift button) triggers shortcuts and sub-labels overlays directly across the main pads grid.
 
-### 10.1 The Shift Grid Shortcuts Overlay (Shift Held)
+### 10.1 The Shift Grid Shortcuts Overlay (Sound Editor Shortcuts)
 
-When Shift state is active, the standard step sequencing grid changes context, displaying backlit function shortcuts sub-labels directly on the pads.
+When the **[SHIFT]** button is held in Track View or Keyboard View, the standard step sequencing grid transforms into the **Sound Editor Shortcuts** overlay. Tapping a grid pad instantly opens the parameter's editor slider or value selector in the UI.
 
-![Sequencer Pad Grid with Shift state active](images/deluge_main_grid_shift.png)
+The 16 columns of the grid are grouped into dedicated parameter channels:
 
-#### Grid Function Shortcuts Map:
-* **Row 1 (Synthesis Osc A/B)**: Quick shortcut mappings for `osc1Type`, `osc1Shape`, `osc1PW`, `osc1Sync`, `osc2Type`, `osc2Shape`, `osc2PW`, `osc2Sync`.
-* **Row 2 (Low-Pass & High-Pass Filters)**: Quick shortcuts for LPF Mode, Cutoff, Resonance, LPF Envelope, HPF Mode, Cutoff, Resonance, and HPF Envelope.
-* **Row 3 (Envelopes ADSR)**: Direct sliders quick focus bounds for Envelope 1 (Attack, Decay, Sustain, Release) and Envelope 2 (Attack, Decay, Sustain, Release).
-* **Row 4 (LFO Modulators)**: Quick focus parameters for LFO 1 Rate, Shape, Depth and LFO 2 Rate, Shape, Depth.
-* **Row 5 (Master Stereo FX Deck)**: Quick dials focus for Mod FX (Chorus, Flanger, Phaser), Reverb damping, Delay feedback, Panning, Master Volume, and Transpose.
-* **Row 6 (Sequencer Clocks & MIDI CC)**: Quick settings keys for Tempo clock, Swing shuffle, Step Quantization, MIDI CC Learn channels, and device Clear actions.
-* **Row 7 (System & File IO Operations)**: Disk quick triggers for Preset Load, Preset Save, Stems Import, XML Export, Undo transitions, and Redo stacks.
-* **Row 8 (Workspaces View Modes)**: Quick view selectors to toggle grids to CLIP, SONG, ARRANGEMENT, AUTOMATION, PERFORMANCE, or system PREFERENCES.
+*   **Columns 1–2: SAMPLE 1 & SAMPLE 2 (Audio & Sample Controls)**:
+    *   *Row 1–2*: `START` time / `END` time (adjust sample start/end markers in milliseconds).
+    *   *Row 3–4*: `BROWSE` (open file explorer) / `RECORD` (record custom sample).
+    *   *Row 5–6*: `PITCH SPEED` / `SPEED` (adjust sample playback rate & pitch).
+    *   *Row 7–8*: `REVERSE` toggle / `MODE` (cycle ONCE, CUT, REPEat, STREtch).
+*   **Columns 3–4: OSC 1 & OSC 2 (Dual Oscillators)**:
+    *   *Row 1–2*: `NOISE` generator level / `OSC SYNC` toggle.
+    *   *Row 3–4*: `FEEDBACK` level / `RETRIG PHASE` (retrigger phase in degrees).
+    *   *Row 5–6*: `PW` (pulse width) / `TYPE` (SINE, SAW, SQUAre, TRIangle, SAMPle, IN).
+    *   *Row 7–8*: `TRANSPOSE` (semitones) / `LEVEL` (oscillator volume).
+*   **Columns 5–6: FM MOD 1 & FM MOD 2 (FM Modulators)**:
+    *   *Row 1–2*: `DIRECTION` / `DESTINATION` (select routing target carrier).
+    *   *Row 3–4*: `FEEDBACK` level / `RETRIG PHASE` (retrigger phase).
+    *   *Row 5–6*: `PW` / `TYPE` (modulator waveform shape).
+    *   *Row 7–8*: `TRANSPOSE` / `LEVEL` (modulation depth/amount).
+*   **Columns 7–8: MASTER & VOICE (Global Voice Settings)**:
+    *   *Row 1–3*: `SATURATE` / `BITCRUSH` / `DECIMATE` (lo-fi sample rate reduction).
+    *   *Row 4–5*: `SYNTH MODE` (SUB, RING, FM) / `PAN` (voice panning).
+    *   *Row 6–8*: `VIBRATO` depth / `TRANSPOSE` / `LEVEL` (global master transpose & volume).
+*   **Columns 9–10: ENVELOPE 1 & ENVELOPE 2 (ADSR Envelopes)**:
+    *   *Row 1–2*: LPF `CUTOFF` / LPF `RESONANCE`.
+    *   *Row 3*: LPF `SLOPE` (toggle 12dB/24dB slope).
+    *   *Row 5–8*: `ATTACK`, `DECAY`, `SUSTAIN`, and `RELEASE` times for Env 1 (VCA) and Env 2 (Filter/Modulation).
+*   **Columns 11–12: SIDECHAIN & ARP (Dynamics & Arpeggiator)**:
+    *   *Row 1–2*: `BASS FREQ` / `TREBLE FREQ` (EQ frequency controls).
+    *   *Row 3–4*: Reverb `SEND` / `SHAPE` (envelope or compressor characteristics).
+    *   *Row 5–8*: `ATTACK` (sidechain) / `VOL DUCK` / `SYNC` (timing division).
+*   **Columns 13–14: LFO 1 & LFO 2 (Low Frequency Oscillators)**:
+    *   *Row 1–2*: LFO `RATE` / LFO `DEPTH`.
+    *   *Row 3–4*: LFO `FEEDBACK` / `OFFSET`.
+    *   *Row 5–8*: LFO `TYPE` (SINE, SAW, SQUAre, TRIangle) / `SYNC` (tempo sync clock).
+*   **Columns 15–16: DELAY, REVERB & MOD SOURCES (Effects & Modulations)**:
+    *   *Row 1–3*: Reverb `ROOM SIZE` / Reverb `DAMP` / Reverb `WIDTH` (stereo image).
+    *   *Row 4–5*: Delay `MONO/STEREO` / Reverb `AMOUNT` (mix blend).
+    *   *Row 6–8*: Delay `DIGI/ANALOG` / Delay `SYNC` / Delay `RATE` (tempo-sync division).
 
 ---
 
-### 10.3 Track Header & Top Toolbar Shift Shortcuts Map
+### 10.2 Track Header & Top Toolbar Shift Shortcuts Map
 
-In addition to the main grid pads, holding **Shift** while clicking top toolbar buttons, row header labels, or turning encoders activates quick operations:
-* **`Shift` + Click `[+ KIT]`, `[+ SYNTH]`, `[+ AUDIO]`**: Bypasses the standard track naming modal prompt and instantly creates a new default track (`SYNTH 1`, `KIT 1`, `AUDIO 1`) with generic initial presets.
-* **`Shift` + Click `[Track Name Label]`**: Toggles **One-Shot Playback Mode (`1SH`)** for sample-trigger track rows.
-* **`Shift` + Click `[MUTE]` Button**: Clears all active step note events on that specific lane (`Clear row`).
-* **`Shift` + Turn `[Horizontal Scroll Encoder ◄►]`**: Dynamically adjusts the play rate step speed resolution (horizontal zoom, e.g. from $1/16$ to $1/32$ straight or triplet mode) and updates the OLED display.
-* **`Shift` + Turn `[Vertical Scroll Encoder ▼▲]`**: Scrolls the visible note rows of the active grid by **exactly one octave (12 rows) per detent** instead of a single row, to scroll through the piano roll.
-* **Right-Click / Double-Click `[Track Name Label]`**: Spawns the multitrack Context Menu (`Clone Track`, `Delete Track`, `Change Swatch Color`).
+In addition to the main grid pads, holding **[SHIFT]** while clicking top toolbar buttons, row header labels, or turning encoders activates quick operations:
+*   **`Shift` + Click `[+ KIT]`, `[+ SYNTH]`, `[+ AUDIO]`**: Bypasses the standard track naming modal prompt and instantly creates a new default track (`SYNTH 1`, `KIT 1`, `AUDIO 1`) with generic initial presets.
+*   **`Shift` + Click `[Track Name Label]`**: Toggles **One-Shot Playback Mode (`1SH`)** for sample-trigger track rows.
+*   **`Shift` + Click `[MUTE]` Button**: Clears all active step note events on that specific lane (`Clear row`).
+*   **`Shift` + Turn `[Horizontal Scroll Encoder ◄►]`**: Dynamically adjusts the play rate step speed resolution (horizontal zoom, e.g. from $1/16$ to $1/32$ straight or triplet mode) and updates the OLED display.
+*   **`Shift` + Turn `[Vertical Scroll Encoder ▼▲]`**: Scrolls the visible note rows of the active grid by **exactly one octave (12 rows) per detent** instead of a single row, to scroll through the piano roll.
+*   **Right-Click / Double-Click `[Track Name Label]`**: Spawns the multitrack Context Menu (`Clone Track`, `Delete Track`, `Change Swatch Color`).
 
 ---
 
-### 10.4 Synth Configuration Dialog Tabs
+### 10.3 Synth Configuration Dialog Tabs
 
 Double-clicking a Synth track opens the sound editor, which displays parameter panels:
 
@@ -733,7 +763,7 @@ Double-clicking a Synth track opens the sound editor, which displays parameter p
 
 ---
 
-### 10.3 Settings Preferences Dialog
+### 10.4 Settings Preferences Dialog
 
 The Settings Preferences Dialog provides preferences controls:
 
