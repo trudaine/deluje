@@ -481,24 +481,26 @@ Where:
 
 ---
 
-### 6.2 The Ten Modulation Sources
+### 6.2 The Modulation Sources
 
-1. **Velocity (Uni)**: Triggered by note-on strike force. Useful for scaling volume, filter cutoff, or attack times based on how hard a step is triggered.
-2. **Envelope 1 (Uni)**: Hardwired to the Voice VCA (Master Volume path) by default, shaping the volume outline.
-3. **Envelope 2 (Uni)**: Hardwired to the Low-Pass Filter (LPF Cutoff path) by default, creating subtractive filter sweeps.
-4. **Envelope 3 & 4 (Uni)**: Aux envelopes for auxiliary parameters, like decay modulation or pitch sweeps.
-5. **LFO 1 & 2 (Bi)**: Low Frequency Oscillators. LFO 1 can be set to "Global" (syncs cycle phase across all voices) while LFO 2 is always "Local" (polyphonic, re-triggering phase per note-on).
-6. **LFO 3 & 4 (Bi)**: Auxiliary modular low frequency oscillators for secondary rate offsets or panning wiggles.
-7. **Aftertouch (Uni)**: Polyphonic pressure. Scales values based on pressure held on grid pads during play.
-8. **Note / Key Tracking (Bi)**: Scales parameters relative to the note's MIDI pitch. The center pitch is Middle C (MIDI note 60 = $0.0$). Notes above Middle C output positive offsets ($>0.0$), while notes below output negative offsets ($<0.0$).
-9. **Random (Uni)**: Sample & Hold step generator. Produces a random value (0.0 to 1.0) on every note-on trigger.
-10. **Sidechain Bus (Uni)**: Envelope follower that tracks the signal level of Mute Group 1 (typically Kicks/Drums) to duck other channels.
+The **Source** dropdown offers thirteen options — `velocity`, `envelope1`–`envelope4`, `lfo1`–`lfo4`, `aftertouch`, `note`, `random`, and `sidechain`. Each envelope and LFO is individually selectable:
+
+1. **Velocity (Uni)**: note-on strike force. Useful for scaling volume, filter cutoff, or attack times by how hard a step is triggered.
+2. **Envelope 1 (Uni)**: shapes the voice's volume outline (VCA) by default.
+3. **Envelope 2 (Uni)**: sweeps the Low-Pass Filter cutoff by default.
+4. **Envelopes 3 & 4 (Uni)**: two more ADSR envelopes, freely assignable (e.g. pitch or decay sweeps).
+5. **LFO 1 & 2 (Bi)**: Low Frequency Oscillators. LFO 1 can run "Global" (one phase shared across voices); LFO 2 is "Local" (per-voice phase, re-triggered on note-on).
+6. **LFO 3 & 4 (Bi)**: two more LFOs for secondary wiggles (rate offsets, panning, etc.).
+7. **Aftertouch (Uni)**: pressure held on pads during play.
+8. **Note / Key Tracking (Bi)**: scales relative to MIDI pitch, centered on Middle C (note 60 = $0.0$); higher notes give positive offsets, lower notes negative.
+9. **Random (Uni)**: a sample-and-hold value (0.0–1.0) chosen fresh on every note-on.
+10. **Sidechain (Uni)**: envelope follower tracking Mute Group 1 (typically kicks) to duck other channels.
 
 ---
 
 ### 6.3 Operational Tutorial: The Modulation Matrix Tab UI
 
-Open the Synth Config Dialog (double-click a synth track or double-click a grid step) and select the **`MODULATION`** tab to view the patchbay panel:
+Open the sound editor (double-click the track name) and select the **`MODULATION`** tab to view the patchbay panel:
 
 ![Modulation routing patchbay tab](images/deluge_synth_tab_modulation.png)
 
@@ -514,7 +516,7 @@ Open the Synth Config Dialog (double-click a synth track or double-click a grid 
 ### 6.4 Six Step-by-Step Sound Design Tutorials
 
 #### 🎹 Tutorial 1: Subtractive Brass Swell (Envelope 2 ➔ LPF Cutoff)
-1. Double-click your Synth track to open the configuration dashboard, and select the **`OSC`** tab. Set Osc A wave shape to **`SAWTOOTH`** and set LPF Mode to **`24dB Low Pass`**.
+1. Double-click the track name to open its sound editor. In **SOURCES ▸ OSC** set Osc A to **`SAWTOOTH`**, and on the main **`OSC / FILTER / FM`** tab set LPF Mode to **`24dB Low Pass`**.
 2. Select the main **`OSC / FILTER / FM`** tab and slide the Cutoff dial down to a low base value of **`800Hz`** (making the sound dark and warm).
 3. Select the **`ENVELOPE`** tab (specifically Envelope 2). Set:
    * **Attack**: **`250ms`** (creates a gradual opening swell).
