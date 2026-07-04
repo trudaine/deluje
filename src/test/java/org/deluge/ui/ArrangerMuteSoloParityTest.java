@@ -163,9 +163,9 @@ public class ArrangerMuteSoloParityTest {
 
     // Note: updateBridgeUpcomingStep will write to step (currentStep + 1), which is step 1 (col 1)
     // Assert track 0 is completely silenced (bridge step is false)
-    assertFalse(bridge.getStep(0, 1), "Track 0 must be silent on JNI bridge due to Arranger mute");
+    assertFalse(bridge.getStep(0, 1), "Track 0 must be silent on bridge due to Arranger mute");
     // Assert track 1 plays correctly (bridge step is true)
-    assertTrue(bridge.getStep(8, 1), "Track 1 must be active on JNI bridge");
+    assertTrue(bridge.getStep(8, 1), "Track 1 must be active on bridge");
 
     // Case B: Track 1 is soloed (which should mute Track 0 even if Track 0 mute is cleared)
     track0.setMutedInArrangement(false);

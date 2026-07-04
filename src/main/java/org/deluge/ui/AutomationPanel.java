@@ -9,7 +9,7 @@ import org.deluge.model.SynthTrackModel;
 
 /**
  * AUTOMATION tab: per-parameter x per-step step sliders matrix table interface. Operates on the
- * active clip's step automation registers with smooth, non-adjusting JNI bridges.
+ * active clip's step automation registers with smooth, non-adjusting state variables.
  */
 public class AutomationPanel extends JPanel {
 
@@ -151,7 +151,7 @@ public class AutomationPanel extends JPanel {
               }
             }
 
-            // Live JNI Sync
+            // Live Bridge Sync
             SwingDelugeApp.mainInstance.pushModelToBridge();
             SwingDelugeApp.mainInstance.propagateCurrentModel();
             SwingDelugeApp.mainInstance.syncHighFidelityEngine(
@@ -189,7 +189,7 @@ public class AutomationPanel extends JPanel {
         slider.addChangeListener(
             ev -> {
               valLabel.setText(String.valueOf(slider.getValue()));
-              // Drag-and-release performance safety (blocks JNI flood timings queue starvation)
+              // Drag-and-release performance safety (blocks update flood timings queue starvation)
               if (!slider.getValueIsAdjusting()) {
                 if (clip != null && slider.isEnabled()) {
                   clip.setAutomation(paramName, stepIdx, slider.getValue() / 127.0f);

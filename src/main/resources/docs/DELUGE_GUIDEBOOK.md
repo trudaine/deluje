@@ -867,15 +867,23 @@ The **`Wavetable Index Laboratory`** provides an editor to slice, scan, and modu
 
 ## 13. Audio Track Overdubbing & PCM Layer Mixing
 
-The Deluge-Java Workstation provides basic support for recording and mixing multiple audio layers on Audio Tracks.
+The Deluge-Java Workstation provides support for recording, layering, and mixing multiple audio layers on Audio Tracks using external MIDI foot-pedals.
 
-### 13.1 PCM Layer Mixing (Overdubs)
-Rather than overwriting an existing recording, the workstation can mix new takes directly on top of the baseline file:
-*   **Overdub Activation**: If an audio clip is configured with the XML attribute `overdubsShouldCloneAudioTrack="true"` (which can be defined in the saved song XML), subsequent recordings on that track will enter overdub mode.
-*   **Saturating Mixdown**: The engine reads the existing WAV file, decodes its 16-bit little-endian PCM stream, and mixes it in real time with the new input signal using a saturating mixdown algorithm to prevent clipping.
-*   **WAV File Finalization**: When recording stops, the combined stream is finalized and saved as a new file in the library directory (named `Overdub_[Timestamp].wav`), which is then hot-swapped into the track's audio player.
+### 13.1 MIDI Looper Pedal Integration
+You can bind a physical foot-pedal (or MIDI fader/button) to control recording and overdubbing hands-free:
+*   **CC Mapping**: In the MIDI CC Learn section of Preferences (**`Settings ➔ MIDI Settings...`**), input the parameter name **`action_looper_pedal`** and sweep your controller fader or click the foot-pedal to automatically bind the CC action.
+*   **Looper State Machine**: A single foot-pedal tap cycles through the looper's active phases:
+    1.  **Idle / Armed**: Tapping the pedal immediately arms and starts recording on the active track (using a `-60 dB` threshold for instant trigger). If the workstation is not currently playing, it automatically toggles the master play clock.
+    2.  **Recording**: Tapping the pedal while recording finishes the current layer, stops recording, and begins looping the captured phrase.
+    3.  **Overdubbing**: On subsequent takes, the workstation automatically detects that a baseline WAV file exists. It enters overdub mode, mixing the incoming signal with the existing file in real-time. Tapping the pedal again stops overdub recording and preserves loop playback.
 
-### 13.2 Track Controls
+### 13.2 Auto-BPM Tempo Detection
+When you record your baseline loop without a click track, the workstation automatically estimates and sets the master tempo:
+*   **Tempo Parity Calculation**: When the first recording on an Audio Track stops, the engine calculates the duration of the captured PCM audio in seconds. It compares this duration against the track's configured clip length (expressed in beats) using the formula:
+    $$\text{BPM} = \frac{\text{beatsCount} \times 60}{\text{duration}}$$
+*   **Automatic Tempo Sync**: The project's BPM and play clock are updated to match the detected tempo (clamped between 40 and 280 BPM). The new tempo value is sent to the physical hardware display to confirm the sync.
+
+### 13.3 Track Controls
 Real-time playback and recording are managed via the **`Audio Track`** panel inside the sidebar or track inspector:
 *   **REC**: Toggles microphone/line-in capture. If `overdubsShouldCloneAudioTrack` is active, it layers new input on top of the active clip.
 *   **PLAY**: Starts or stops playback of the track's audio clip.
@@ -883,7 +891,7 @@ Real-time playback and recording are managed via the **`Audio Track`** panel ins
 *   **Rate Slider**: Speeds up or slows down the playback rate (from `0.25x` to `4.00x`).
 
 > [!NOTE]
-> **Unimplemented Features**: Live hardware foot-pedal MIDI CC mappings, automatic tempo detection (Auto-BPM), and layer-by-layer looper undo/redo are not currently implemented.
+> **Unimplemented Features**: Layer-by-layer looper undo/redo (reverting only the last overdub layer) is not currently implemented.
 
 ---
 

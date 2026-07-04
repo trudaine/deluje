@@ -10,7 +10,7 @@ import org.deluge.model.StepData;
 
 /**
  * High-performance real-time thread scheduler for the Arranger Timeline. 1. Playback: Overwrites
- * JNI bridge active step columns ahead of the playhead tick during Arranger Mode. 2. Live Capture:
+ * bridge active step columns ahead of the playhead tick during Arranger Mode. 2. Live Capture:
  * Listens to real-time session grid launches and automatically logs Arranger placements.
  */
 public class ArrangerPlaybackScheduler implements Runnable {
@@ -102,7 +102,7 @@ public class ArrangerPlaybackScheduler implements Runnable {
   }
 
   /**
-   * Transfers the upcoming arranger note cell step properties into the circular JNI step matrix
+   * Transfers the upcoming arranger note cell step properties into the circular bridge step matrix
    * ahead of playhead.
    */
   private void updateBridgeUpcomingStep(int upcomingStep) {
@@ -138,7 +138,7 @@ public class ArrangerPlaybackScheduler implements Runnable {
         int localStep =
             Math.floorMod(upcomingStep - (activePlacement.startTicks() / 24), clip.getStepCount());
 
-        // Transfer step parameter states straight to the JNI circular index
+        // Transfer step parameter states straight to the bridge circular index
         for (int r = 0; r < clip.getRowCount(); r++) {
           int engineRow = t * 8 + r; // Map visual track grid lanes offsets
           if (engineRow >= BridgeContract.TRACKS) continue;
