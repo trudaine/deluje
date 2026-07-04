@@ -479,8 +479,22 @@ public class ClipGridPanel extends SwingGridPanel {
                 int newLen = Integer.parseInt(input.trim());
                 if (newLen >= 1 && newLen <= 192) {
                   org.deluge.model.ClipModel clip = activeEditedClip();
-                  if (clip != null) {
+                  if (clip != null && newLen != clip.getStepCount()) {
+                    org.deluge.model.ClipModel before = clip.deepCopy(clip.getName());
                     clip.setStepCount(newLen);
+                    if (projectModel != null) {
+                      int clipIdx =
+                          projectModel.getTracks().get(editedModelTrack).getActiveClipIndex();
+                      projectModel
+                          .getUndoRedoStack()
+                          .push(
+                              new org.deluge.model.Consequence.ClipContentConsequence(
+                                  projectModel,
+                                  editedModelTrack,
+                                  clipIdx,
+                                  before,
+                                  clip.deepCopy(clip.getName())));
+                    }
                   }
                   if (bridge != null) {
                     bridge.setTrackLength(baseTrackId, newLen);

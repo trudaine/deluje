@@ -1442,16 +1442,17 @@ Edits are undoable with **`Ctrl + Z`** / **`Ctrl + Y`** (or the **Edit** menu). 
 
 | Undoable | Not yet on the undo stack |
 | :--- | :--- |
-| Note/step toggles, velocity, probability, iteration, gate | Setting clip length by typing in the length badge |
-| Step copy/paste, clear step | Change Track Color |
-| Per-step & clip automation edits | Randomizer / generator suite results |
+| Note/step toggles, velocity, probability, iteration, gate | Change Track Color |
+| Step copy/paste, clear step | Kit Super-Generator (Tab 2) results |
+| Per-step & clip automation edits | |
 | Euclidean **Fill Row** | |
 | Synth/kit parameter changes; arpeggiator changes | |
 | Project params (BPM, swing, master volume, reverb) | |
 | Add / remove / move / rename / duplicate track & clip | |
-| **Double clip length** | |
+| Set clip length (typed) and **Double clip length** | |
+| **Synth Randomizer** (Delugeator, Tab 1) | |
 
-If you're about to run a generator or a bulk operation that isn't undoable yet, save the project first (`Ctrl + S`) so you can revert.
+If you're about to run the Kit Super-Generator, save the project first (`Ctrl + S`) so you can revert.
 
 ---
 

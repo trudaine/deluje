@@ -455,6 +455,33 @@ public class ClipModel extends TimelineCounter {
     }
   }
 
+  /**
+   * Restores this clip's length and note content from a snapshot (typically produced by {@link
+   * #deepCopy}). Used for lossless undo of bulk clip edits — e.g. a typed length change that would
+   * otherwise discard notes past the new end. The step grid is authoritative; note rows are rebuilt
+   * from it afterwards so the two stay consistent.
+   */
+  public void restoreFrom(ClipModel src) {
+    if (src == null) return;
+    setStepCount(src.stepCount);
+    for (int r = 0; r < rowCount; r++) {
+      for (int s = 0; s < stepCount; s++) {
+        setStep(r, s, src.getStep(r, s));
+      }
+    }
+    automationData.clear();
+    for (Map.Entry<String, float[]> e : src.automationData.entrySet()) {
+      automationData.put(e.getKey(), e.getValue().clone());
+    }
+    kitParams.clear();
+    kitParams.putAll(src.kitParams);
+    playMode = src.playMode;
+    playDirection = src.playDirection;
+    tripletMode = src.tripletMode;
+    isArrangementOnly = src.isArrangementOnly;
+    rebuildNotesFromGrid();
+  }
+
   public void syncNoteRowsFromGrid() {
     int stepTicks = tripletMode ? 32 : 24;
     boolean isKit =

@@ -720,6 +720,10 @@ public class SwingDelugeApp extends JFrame {
       default -> stack.undo();
     }
     pushModelToBridge();
+    // A synth randomize swaps the whole sound; like a preset swap, the DSP engine must rebuild.
+    if (action instanceof Consequence.SynthRandomizeConsequence) {
+      syncHighFidelityEngine(currentProject, true);
+    }
     refreshGrids();
   }
 
@@ -744,6 +748,9 @@ public class SwingDelugeApp extends JFrame {
       default -> stack.redo();
     }
     pushModelToBridge();
+    if (action instanceof Consequence.SynthRandomizeConsequence) {
+      syncHighFidelityEngine(currentProject, true);
+    }
     refreshGrids();
   }
 

@@ -42,6 +42,35 @@ class ClipModelDoubleLengthTest {
   }
 
   @Test
+  void clipContentConsequence_undoRestoresNotesLostToShrink() {
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel track = new SynthTrackModel("Synth");
+    ClipModel clip = new ClipModel("t", 4, 16);
+    clip.setStep(0, 0, StepData.of(true, 0.7f, 1.0f, 1.0f, 60));
+    clip.setStep(2, 12, StepData.of(true, 0.9f, 1.0f, 1.0f, 62)); // lives past step 8
+    track.addClip(clip);
+    project.addTrack(track);
+
+    ClipModel before = clip.deepCopy(clip.getName());
+    clip.setStepCount(8); // shrink drops the note at step 12
+    ClipModel after = clip.deepCopy(clip.getName());
+    Consequence.ClipContentConsequence cons =
+        new Consequence.ClipContentConsequence(project, 0, 0, before, after);
+
+    assertEquals(8, clip.getStepCount());
+    assertFalse(clip.getStep(2, 12).active(), "note beyond the new end is gone after shrink");
+
+    cons.undo();
+    assertEquals(16, clip.getStepCount(), "undo restores the original length");
+    assertTrue(clip.getStep(0, 0).active());
+    assertTrue(clip.getStep(2, 12).active(), "the discarded note is restored by undo");
+
+    cons.redo();
+    assertEquals(8, clip.getStepCount());
+    assertFalse(clip.getStep(2, 12).active());
+  }
+
+  @Test
   void clipLengthConsequence_undoRedoRestoresState() {
     ProjectModel project = new ProjectModel();
     SynthTrackModel track = new SynthTrackModel("Synth");

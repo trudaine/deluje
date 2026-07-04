@@ -396,6 +396,94 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
     }
   }
 
+  /**
+   * A bulk clip-content change captured as before/after snapshots (deep copies). Used for edits
+   * that can't be reversed incrementally — e.g. a typed clip-length change that discards notes on
+   * shrink.
+   */
+  record ClipContentConsequence(
+      ProjectModel project, int trackIndex, int clipIndex, ClipModel before, ClipModel after)
+      implements Consequence {
+    @Override
+    public void undo() {
+      ClipModel clip = clip();
+      if (clip != null) clip.restoreFrom(before);
+    }
+
+    @Override
+    public void redo() {
+      ClipModel clip = clip();
+      if (clip != null) clip.restoreFrom(after);
+    }
+
+    private ClipModel clip() {
+      var tracks = project.getTracks();
+      if (trackIndex < 0 || trackIndex >= tracks.size()) return null;
+      var clips = tracks.get(trackIndex).getClips();
+      if (clipIndex < 0 || clipIndex >= clips.size()) return null;
+      return clips.get(clipIndex);
+    }
+
+    @Override
+    public String getDescription() {
+      return "Change clip length";
+    }
+
+    @Override
+    public Category category() {
+      return Category.CLIP_STRUCT;
+    }
+  }
+
+  /**
+   * A bulk synth-parameter change (e.g. the Delugeator randomizer) captured as before/after
+   * snapshots. Each snapshot is a detached {@link SynthTrackModel} carrying the copied parameters,
+   * arpeggiator, and name; restoring copies them back into the live track. The UI must force a DSP
+   * engine rebuild after undo/redo (as it does for a preset swap), since the whole sound changes.
+   */
+  record SynthRandomizeConsequence(
+      ProjectModel project, int trackIndex, SynthTrackModel before, SynthTrackModel after)
+      implements Consequence {
+
+    /** Detached snapshot of {@code src}'s parameters, arp, and name for later restore. */
+    public static SynthTrackModel snapshot(SynthTrackModel src) {
+      SynthTrackModel snap = new SynthTrackModel(src.getName());
+      snap.copyParametersFrom(src); // copyParametersFrom does not include the arp
+      snap.setArp(src.getArp());
+      return snap;
+    }
+
+    @Override
+    public void undo() {
+      apply(before);
+    }
+
+    @Override
+    public void redo() {
+      apply(after);
+    }
+
+    private void apply(SynthTrackModel snap) {
+      var tracks = project.getTracks();
+      if (trackIndex < 0 || trackIndex >= tracks.size()) return;
+      if (tracks.get(trackIndex) instanceof SynthTrackModel s) {
+        s.copyParametersFrom(snap);
+        s.setArp(snap.getArp());
+        s.setName(snap.getName());
+      }
+    }
+
+    @Override
+    public String getDescription() {
+      return "Randomize synth";
+    }
+
+    @Override
+    public Category category() {
+      return Category.SYNTH_PARAM;
+    }
+  }
+
   /** Batch of consequences undone/redone as one. */
   record CompoundConsequence(String description, List<Consequence> children)
       implements Consequence {

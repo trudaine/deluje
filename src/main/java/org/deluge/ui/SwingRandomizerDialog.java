@@ -811,11 +811,28 @@ public class SwingRandomizerDialog extends JDialog {
     settings.hardcoreMode = hardcoreBox.isSelected();
 
     SynthTrackModel synth = (SynthTrackModel) track;
+    // Snapshot for undo before randomizing (skip when we just created a fallback track — its
+    // creation isn't itself on the undo stack, so there's nothing coherent to revert to).
+    SynthTrackModel undoBefore =
+        fallbackCreated
+            ? null
+            : org.deluge.model.Consequence.SynthRandomizeConsequence.snapshot(synth);
     DelugeatorRandomizer.randomizeSynth(synth, projectModel, settings);
 
     String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
     String synthName = "Random_" + timestamp;
     synth.setName(synthName);
+
+    if (undoBefore != null) {
+      projectModel
+          .getUndoRedoStack()
+          .push(
+              new org.deluge.model.Consequence.SynthRandomizeConsequence(
+                  projectModel,
+                  activeTrackIdx,
+                  undoBefore,
+                  org.deluge.model.Consequence.SynthRandomizeConsequence.snapshot(synth)));
+    }
 
     File exportFile = new File(PreferencesManager.getSynthsDir(), synthName + ".XML");
     try {
