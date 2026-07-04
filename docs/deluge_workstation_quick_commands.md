@@ -34,7 +34,7 @@ Work in the piano roll and chromatic grids to sequence notes, adjust velocities,
 | **Velocity Adjust**     | Hold note pad + turn `◄► knob` | **Scroll Mouse Wheel** over active note pad. | **Non-Linear Brightness:** Pad glow scales dynamically with note velocity! (Displays `0..127` on OLED). |
 | **Step Probability**    | Hold pad + turn `Select` left | **Shift + Scroll Mouse Wheel** over active note pad OR Right-click $\rightarrow$ Slider. | Un-triggered steps dynamically dim during playback. (Displays `%` on OLED). |
 | **Step Iterance**       | Hold pad + turn `Select` right| **Right-click active pad** $\rightarrow$ Set the **Iteration Condition** dropdown. | Supports complex physical iteration rules. |
-| **Fill Mode Shifting**  | *Firmware Dependent* | **Right-click active pad** $\rightarrow$ Set **Fill Condition** to active. | **Cyan Glow:** Steps set to play on fill glow in glowing Cyan-Blue (`0x00d2ff`). |
+| **Fill Mode Shifting**  | *Firmware Dependent* | **Shift + Alt + Scroll Mouse Wheel** over active note pad OR Right-click $\rightarrow$ Set **Fill Condition** to active. | **Cyan Glow:** Steps set to play on fill glow in glowing Cyan-Blue (`0x00d2ff`). |
 
 ---
 
@@ -77,6 +77,13 @@ Workstation-exclusive parity features that speed up your music production workfl
     > [!TIP]
     > Clicking or sliding your finger/mouse vertically along the leftmost or rightmost column pads on the grid panel will dynamically apply the selected modulation/velocity/pitch shift to the active notes on that row!
 
+### 🎹 Multi-Sample Keyzone Tuning (Transpose)
+*   **Hardware Gesture:** Hold pad + turn `▼▲ knob` to transpose/detune sample.
+*   **Workstation Shortcut:** Double-click sample track header ➔ click **Keyzone Mapper** ➔ Select a Keyzone ➔ Adjust the **Transpose** spinner in the details panel.
+*   **Desktop Behavior:** 
+    > [!TIP]
+    > Allows you to detune/transpose individual sample keyzones in your multi-sample preset by up to ±48 semitones directly from the visual keyzone layout editor. The DSP engine updates the sample playback rate instantly upon adjustment!
+
 ---
 
 ## 🎛️ 4. The Right-Click Step Context Menu & Step Properties Dialog
@@ -98,6 +105,22 @@ Right-clicking any grid pad in **Clip View** opens a premium, context-sensitive 
 *   **White Line Overlay / Highlight:** Octave C row boundaries in Diatonic/Keyboard views.
 *   **Amber Glow (`0xffaa00`):** Queued clip slot in SONG view.
 *   **Active Green (`0x00cc00`):** Actively playing loop clip in SONG view.
+
+---
+
+## 🎛️ 5. MIDI Follow & External Controller Integration
+
+The desktop workstation supports the Deluge community firmware's extended **MIDI Follow** protocol, allowing you to control and automate track levels, parameters, mutes, and solos from external hardware controllers (keyboards, launchpads, fader controllers) in real time.
+
+### 🔌 Specific Track Routing & Follow Channels
+Instead of just 3 global follow slots, you can map up to **16 distinct MIDI channels** to automatically follow specific tracks (Tracks 1–16).
+*   **How it works:** When follow mode is active, incoming MIDI messages (Note On/Off, CCs, Pitch Bend) received on a mapped MIDI channel are automatically routed directly to that specific track, regardless of which track is currently selected/focused in the user interface.
+*   **Track Mapping Configuration:** Channel mappings are configured via the MIDI input preferences router.
+
+### 🎚️ Default Mixer CC Controls (Mute & Solo)
+When using specific track follow channels, the workstation listens for the following standardized control change (CC) commands to perform track mixing operations:
+*   **CC 89 (value `0` to `127`):** Toggles the **Mute** state of the targeted track.
+*   **CC 90 (value `0` to `127`):** Toggles the **Solo** state of the targeted track (exclusive solo: solos the target track and mutes all other tracks; receiving CC 90 again unsolos the track and restores previous levels).
 
 ---
 
