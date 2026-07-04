@@ -673,9 +673,11 @@ The Deluge Workstation features a deeply integrated Shift action system and soun
 
 ### 10.1 The Shift Grid Shortcuts Overlay (Sound Editor Shortcuts)
 
-When the **[SHIFT]** button is held in Track View or Keyboard View, the standard step sequencing grid transforms into the **Sound Editor Shortcuts** overlay. Tapping a grid pad instantly opens the parameter's editor slider or value selector in the UI.
+Hold **Shift** in Track or Keyboard View and the grid turns into the **Sound Editor Shortcuts** overlay, printing a parameter name on each pad (mirroring the physical Deluge's gold-shortcut grid). Click a pad to jump straight to that parameter's control.
 
-The 16 columns of the grid are grouped into dedicated parameter channels:
+![The Shift shortcut overlay printed across the grid](images/deluge_main_grid_shift.png)
+
+The 16 columns are grouped into dedicated parameter channels:
 
 *   **Columns 1–2: SAMPLE 1 & SAMPLE 2 (Audio & Sample Controls)**:
     *   *Row 1–2*: `START` time / `END` time (adjust sample start/end markers in milliseconds).
