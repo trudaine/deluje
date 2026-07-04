@@ -10,9 +10,10 @@ bugs (OLED, encoders, memory-safety, host-sim/SIMD) are out of scope by design.
 
 ## Verdict
 
-**The Java port is current — no fidelity gaps found.** The three sound-affecting fixes are already
-ported, and the two most fidelity-critical DSP commits are already correct in Java by construction.
-The only open items are minor UX behaviors with no bearing on sound parity.
+**The Java port is current — no fidelity gaps and no open porting items.** The three sound-affecting
+fixes are already ported; the two most fidelity-critical DSP commits are already correct in Java by
+construction; and the two behavior "maybes" turned out, on inspection, to be hardware-UI specific
+with no Swing equivalent (§4). Everything else is hardware/UI/C-memory-safety, out of scope.
 
 ---
 
@@ -64,15 +65,16 @@ desktop app:
   editing (see the guidebook's §1.9 note), so N/A.
 - Website/docs/CI/dependency bumps (many).
 
-## 4. Optional, low-impact behavior items (not fidelity)
+## 4. Reviewed and found N/A (verified, not gaps)
 
-Worth a look only if we want closer *workflow* parity; none affect sound:
+On closer inspection the two "maybe" behavior items are **hardware-UI specific with no Java
+equivalent** — not workflow gaps:
 
-| Upstream | What | Notes |
+| Upstream | What | Why N/A |
 | :--- | :--- | :--- |
-| #4541 (`089a1d5b`) | Preserve custom knob mappings when swapping a wavetable osc's file | Minor UX; our wavetable-swap path is unverified for this. |
-| #4587 (`f69525aa`) | Toggle the "fill" setting for *held* notes | Note-fill behavior in `song.cpp`. |
-| #4540 / #4593 / #4615 | Tempo-automation undo, mod-encoder automation action, `homogenizeRegion` edit-drop | Our automation is a simpler `float[]` model, so these C `param_set`/`auto_param` structural fixes likely don't map. |
+| #4541 (`089a1d5b`) | Don't reset custom knob mappings when swapping a wavetable osc's file | Operates on `modKnobs[7][x].paramDescriptor` / `modKnobMode` — the physical **gold-knob mod-knob auto-assignment** system. The Swing app has no `modKnobMode`/`paramDescriptor` mechanism at all (wavetable editing is a position-scan slider), so there is nothing to reset. |
+| #4587 (`f69525aa`) | Toggle the "fill" setting for *held* notes | Entirely in `gui/ui/sound_editor.cpp` + `gui/views/instrument_clip_view.cpp` — the `SYNC_SCALING` hardware button, edit-pad-press popups, and hardware note editor. The Swing app sets Fill via the Step Properties dialog slider; none of that gesture handling maps. |
+| #4540 / #4593 / #4615 | Tempo-automation undo, mod-encoder automation action, `homogenizeRegion` edit-drop | Our automation is a simpler `float[]` model, so these C `param_set`/`auto_param` structural fixes don't map. |
 
 ## Method
 
