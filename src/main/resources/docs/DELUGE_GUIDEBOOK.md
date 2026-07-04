@@ -1304,8 +1304,8 @@ This chapter provides a direct, code-by-code mapping of every shortcut code from
 | **SQ03** | Adjust note velocity | Hold pad + turn `◄►` knob | Right-click the step ➔ **Edit Step Properties…** ➔ Velocity slider |
 | **SQ04** | Note probability | Hold pad + turn `Select` left | Right-click the step ➔ **Edit Step Properties…** ➔ Probability / Fill slider |
 | **SQ05** | Note iteration | Hold pad + turn `Select` right | Right-click the step ➔ **Edit Step Properties…** ➔ Iteration spinner |
-| **SQ06** | Copy notes | Hold `Learn` + push `◄►` | Select notes or columns + press **`Ctrl + C`** |
-| **SQ07** | Paste notes | Hold `Learn` + `Shift` + push `◄►`| Select target cell + press **`Ctrl + V`** |
+| **SQ06** | Copy notes | Hold `Learn` + push `◄►` | Select notes or columns + press **`Ctrl + Shift + C`** |
+| **SQ07** | Paste notes | Hold `Learn` + `Shift` + push `◄►`| Select target cell + press **`Ctrl + Shift + V`** |
 | **SQ08** | Euclidean Rhythm | Push `Select` in Euclidean menu | Right-click a step in the target row ➔ **Euclidean Fill Row…** |
 | **SQ09** | Shift all clip notes | Push `▼▲` + turn `◄►` knob | Drag notes, or use Nudge slider in Step properties |
 | **SQ10** | Clear clip | Press `Shift` + `Back` + push `◄►`| Click **`[Clear Track]`** button, or right-click track ➔ Clear |
