@@ -144,7 +144,7 @@ on community firmware c1.2.0 and has since been brought up to head; see `SONG_XM
   **Always run `mvn spotless:apply` before committing** to keep commits pre-formatted.
 - Extensive prose documentation lives at the repo root (`DELUGE_DESIGN.md`, `FIRMWARE_PARITY.md`,
   `HARDWARE_FIDELITY.md`, `SONG_XML_SPEC.md`) and under `docs/`; the README indexes all of it.
-- **Guidebook & User Manual rules**: When editing the user manual ([DELUGE_GUIDEBOOK.md](file:///Users/ludo/a/deluje/src/main/resources/docs/DELUGE_GUIDEBOOK.md)):
+- **Guidebook & User Manual rules**: When editing the user manual ([DELUGE_GUIDEBOOK.md](src/main/resources/docs/DELUGE_GUIDEBOOK.md)):
   * **Strict Code Grounding**: Never guess or invent UI buttons, keyboard shortcuts, config options, or parameter keywords. Verify them directly in the Java UI classes (`SwingGridPanel.java`, `ClipGridPanel.java`, `StepPropertiesEditor.java`, etc.).
   * **Strict User-Facing Tone**: Maintain a clean, user-centric manual. Avoid developer jargon such as "virtual threads", "daemon schedulers", "Swing classes", or "JNI playback thread clock".
   * **Skip Builds for Doc-Only Changes**: Do *not* run a full test compilation (`mvn clean test`) if only markdown (`.md`) or text documentation files were modified. Commit and push directly.

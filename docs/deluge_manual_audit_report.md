@@ -13,7 +13,7 @@ This report presents a functional audit comparing the official **Synthstrom Audi
     > *"If you wish to shift all notes and automation in a track sideways (in the “time” dimension), hold down the ▼▲ knob and turn the ◄► knob. Your track’s contents will be moved sideways in steps of one square at your current zoom level. If the contents move past either end of the track, they will wrap around and appear at the other end."*
 *   **Java Implementation Status:** **Completely Missing.**
     *   No shifting/rotating method exists in `ClipModel.java` or `ClipEditorController.java`.
-    *   No arrow key or modifier shortcuts exist in [KeyboardShortcutManager.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/ui/KeyboardShortcutManager.java) to trigger sideways note shifting.
+    *   No arrow key or modifier shortcuts exist in [KeyboardShortcutManager.java](../src/main/java/org/deluge/ui/KeyboardShortcutManager.java) to trigger sideways note shifting.
 
 ### B. Sync-Scaling
 *   **Manual Feature (p. 119 / Line 1592):**
@@ -34,15 +34,15 @@ This report presents a functional audit comparing the official **Synthstrom Audi
 
 ### A. LFO Global vs. Local Scope Mismatch (UI Illusion)
 *   **Discrepancy:**
-    *   [LfoPanel.java:343](file:///Users/ludo/a/deluje/src/main/java/org/deluge/ui/LfoPanel.java#L343) provides a "Scope" drop-down combobox allowing the user to select "All tracks" (Global) vs. "This track" (Local) for **any** of the 4 LFO slots.
+    *   [LfoPanel.java:343](../src/main/java/org/deluge/ui/LfoPanel.java#L343) provides a "Scope" drop-down combobox allowing the user to select "All tracks" (Global) vs. "This track" (Local) for **any** of the 4 LFO slots.
     *   However, the physical Deluge does not allow changing the scope of LFOs, and neither does the engine: it maps LFO slots by **index** — **even slots (0, 2) are global, odd slots (1, 3) are local** (`FirmwareFactory`), matching `LfoModel.defaultConfig`. (Correcting this report's earlier draft, which had global/local reversed.)
-    *   Our codebase also hardcodes this inside [FirmwareFactory.java:760-766](file:///Users/ludo/a/deluje/src/main/java/org/deluge/engine/FirmwareFactory.java#L760-L766) and the C++ DSP sound core. The `isLocal()` configuration field is completely ignored.
+    *   Our codebase also hardcodes this inside [FirmwareFactory.java:760-766](../src/main/java/org/deluge/engine/FirmwareFactory.java#L760-L766) and the C++ DSP sound core. The `isLocal()` configuration field is completely ignored.
     *   This makes the "Scope" combobox in the UI a non-functional illusion.
 
 ### B. Live Recording Quantization Limits
 *   **Discrepancy:**
     *   The hardware records notes at high resolution (192 PPQN) and writes unquantized events into the XML project.
-    *   In the desktop workstation, [MidiInputRouter.java:199](file:///Users/ludo/a/deluje/src/main/java/org/deluge/midi/MidiInputRouter.java#L199) resolves incoming events to the active playhead step:
+    *   In the desktop workstation, [MidiInputRouter.java:199](../src/main/java/org/deluge/midi/MidiInputRouter.java#L199) resolves incoming events to the active playhead step:
         ```java
         int col = activeGrid.getCurrentPlayheadStep();
         ```
@@ -54,7 +54,7 @@ This report presents a functional audit comparing the official **Synthstrom Audi
 
 ### A. Missing Armed Launch Blinking Feedback
 *   **Discrepancy:**
-    *   In Song View, [SongGridPanel.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/ui/SongGridPanel.java) lets the user queue clips or sections.
+    *   In Song View, [SongGridPanel.java](../src/main/java/org/deluge/ui/SongGridPanel.java) lets the user queue clips or sections.
     *   The bridge correctly waits until the next bar boundary to switch the clips (`SequencerClock.java` processes the launch queue at step boundaries).
     *   However, the manual states: *"When the Deluge is playing, pressing the “launch” pad will usually not cause the track to stop or start immediately - it will instead become armed (indicated with fast blinking on its 'launch' pad)."*
     *   `SongGridPanel` does not check the launch queue to blink the pad, so there is no visual blinking feedback in the UI while waiting.

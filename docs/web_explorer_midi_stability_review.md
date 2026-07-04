@@ -34,11 +34,11 @@ graph TD
 
 ### 1.1. Suspension of Background Display Polling
 *   **Target Files**: 
-    *   [fsList.ts](file:///Users/ludo/a/deluge-extensions/src/commands/fileSystem/fsList.ts) (Directory Listings)
-    *   [fsRead.ts](file:///Users/ludo/a/deluge-extensions/src/commands/fileSystem/fsRead.ts) (File Reading)
-    *   [fsWrite.ts](file:///Users/ludo/a/deluge-extensions/src/commands/fileSystem/fsWrite.ts) (File Writing)
-    *   [fsDelete.ts](file:///Users/ludo/a/deluge-extensions/src/commands/fileSystem/fsDelete.ts) (File Deletion)
-    *   [uploadFile.ts](file:///Users/ludo/a/deluge-extensions/src/commands/fileSystem/uploadFile/uploadFile.ts) (Single File Uploads)
+    *   [fsList.ts](../../deluge-extensions/src/commands/fileSystem/fsList.ts) (Directory Listings)
+    *   [fsRead.ts](../../deluge-extensions/src/commands/fileSystem/fsRead.ts) (File Reading)
+    *   [fsWrite.ts](../../deluge-extensions/src/commands/fileSystem/fsWrite.ts) (File Writing)
+    *   [fsDelete.ts](../../deluge-extensions/src/commands/fileSystem/fsDelete.ts) (File Deletion)
+    *   [uploadFile.ts](../../deluge-extensions/src/commands/fileSystem/uploadFile/uploadFile.ts) (Single File Uploads)
 *   **Implementation**: Each file operation now calls `stopPolling()` from the display library immediately upon entry, and wraps the entire execution in a `try...finally` block that calls `startPolling()` on completion.
 *   **Benefit**: Guarantees a completely quiet MIDI channel during the transfer, preventing packet collisions.
 
@@ -59,15 +59,15 @@ graph TD
 Maintaining correct file modified times during transfers is critical for project history and organization.
 
 ### 2.1. File Explorer Metadata Extraction
-*   **Target File**: [FileCommanderView.tsx](file:///Users/ludo/a/deluge-extensions/src/components/FileCommanderView.tsx#L49-L119)
+*   **Target File**: [FileCommanderView.tsx](../../deluge-extensions/src/components/FileCommanderView.tsx#L49-L119)
 *   **Implementation**: When copying or moving files, the view extracts the matching `entry` metadata (including `date` and `time` integers) from the reactive `fileTree` state. It then forwards these timestamps as optional arguments to the `copyFile` and `moveFile` commands.
 
 ### 2.2. Command Serializers
-*   **Target Files**: [fsCopy.ts](file:///Users/ludo/a/deluge-extensions/src/commands/fileSystem/fsCopy.ts) and [fsMove.ts](file:///Users/ludo/a/deluge-extensions/src/commands/fileSystem/fsMove.ts)
+*   **Target Files**: [fsCopy.ts](../../deluge-extensions/src/commands/fileSystem/fsCopy.ts) and [fsMove.ts](../../deluge-extensions/src/commands/fileSystem/fsMove.ts)
 *   **Implementation**: The commands serialize the `date` and `time` properties directly into the SysEx JSON requests (`{ copy: { from, to, date, time } }` and `{ move: { from, to, update_paths, date, time } }`), matching the firmware's community endpoints.
 
 ### 2.3. Dual-Fidelity Upload Timestamping
-*   **Target File**: [uploadFile.ts](file:///Users/ludo/a/deluge-extensions/src/commands/fileSystem/uploadFile/uploadFile.ts#L19-L160)
+*   **Target File**: [uploadFile.ts](../../deluge-extensions/src/commands/fileSystem/uploadFile/uploadFile.ts#L19-L160)
 *   **Implementation**:
     1.  **Fidelity 1 (Open-stage)**: It passes the FAT-formatted `date` and `time` inside the initial `open` request payload when opening the write stream.
     2.  **Fidelity 2 (Post-close stage)**: Once the chunks are written and the file handle is closed, it sleeps `50ms` and dispatches the new **`fsUtime`** command to explicitly set the file's modification time on the SD card.
@@ -77,7 +77,7 @@ Maintaining correct file modified times during transfers is critical for project
 
 ## 3. Test Suite Integrity & JDOM Polyfills
 
-*   **Target File**: [setup.ts](file:///Users/ludo/a/deluge-extensions/src/test/setup.ts#L81-L129)
+*   **Target File**: [setup.ts](../../deluge-extensions/src/test/setup.ts#L81-L129)
 *   **Pollyfills Added**:
     1.  **Memory-based `localStorage` Mock**: Bypasses JSDOM `about:blank` security blocks that caused settings tests to fail.
     2.  **Cross-Realm `TextEncoder` Bridge**: Re-wraps JSDOM `TextEncoder.encode()` outputs to return Node-realm `Uint8Array` instances, fixing cross-realm `expect.any(Uint8Array)` assertion failures.
