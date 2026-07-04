@@ -41,6 +41,7 @@ This repository is heavily documented. Below is a structured directory of all av
 *   **[Remote Control Blueprint](docs/remote_control_blueprint.md)**: Protocol and architecture design for controlling the workstation remotely via network/SysEx.
 
 ### 4. Subsystem Reviews & Audits
+*   **[Firmware Sync Audit](docs/firmware_sync_audit.md)**: Recent upstream DelugeFirmware C/C++ commits reviewed against the Java port — what's ported, already-correct, or not applicable.
 *   **[UI and MIDI Subsystem Review](docs/ui_and_midi_subsystem_review.md)**: A detailed review of the UI event dispatch thread separation and MIDI scheduling stability.
 *   **[Web Explorer & MIDI Stability Review](docs/web_explorer_midi_stability_review.md)**: Analysis of browser-based explorers and MIDI latency/jitter.
 *   **[Sysex Gap Audit Report](docs/sysex_gap_audit_report.md)**: A gap analysis of SysEx command coverage compared to the hardware specification.
