@@ -2,6 +2,19 @@
 
 This document outlines the proposed design and implementation plan to resolve the key feature gaps identified in the audit. Each section includes verification, proposed user interface changes, and technical code design.
 
+## Implementation Status — ✅ All four items shipped
+
+| # | Item | Status | Notes |
+| :--- | :--- | :--- | :--- |
+| 1 | Horizontal note shift | ✅ Done | `ClipModel.shiftNotesHorizontally` + `Alt+←/→`; undoable via `ClipContentConsequence`. Tests: `ClipShiftTest`. |
+| 2 | Armed-launch blinking | ✅ Done | `SongGridPanel` blinks the status square white while `bridge.getLaunchQueue >= 0` (needs a visual pass during live playback to tune rate/colour). |
+| 3 | LFO scope combobox removal | ✅ Done | Replaced with a fixed **Global/Local** label per slot (even = global, odd = local, matching `FirmwareFactory`). |
+| 4 | Undo/Redo top-bar buttons | ✅ Done | `doUndo`/`doRedo` made public; buttons enable/disable against the active undo stack. |
+
+Additional fixes made while implementing:
+- **Undo-stack re-entrancy bug** — `undo()`/`redo()` re-entered `push()`, clearing redo history and corrupting every `ProjectParamConsequence` undo (BPM, volume, reverb). Fixed with an `applying` guard in `UndoRedoStack`; also made reverb width/hpf/pan genuinely undoable.
+- The **audit's LFO description (§2.A) was backwards** — see the correction note in §3 below; the engine maps **even LFO slots to global, odd to local**.
+
 ---
 
 ## 1. Horizontal Track Content Shifting (Rotate Note Sequences)

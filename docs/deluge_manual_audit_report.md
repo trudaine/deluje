@@ -2,6 +2,8 @@
 
 This report presents a functional audit comparing the official **Synthstrom Audible Deluge Instruction Manual** against the **Java Desktop Workstation** codebase. It identifies missing features, discrepancies in engine behavior, and UI/visual feedback limitations.
 
+> **Status update:** the items with an implementation plan (`docs/proposed_design_plan.md`) have since been **resolved** — horizontal note shift (§1.A), the LFO scope "illusion" (§2.A), armed-launch blinking (§3.A), and physical undo/redo buttons (§3.B). Still open: **Sync-scaling** (§1.B), **cross-screen edit mode** (§1.C — intentionally not ported; the desktop uses the Piano Roll + zoom-out instead), and **high-resolution live-record timing** (§2.B).
+
 ---
 
 ## 1. Major Missing Features (Not Implemented)
@@ -33,7 +35,7 @@ This report presents a functional audit comparing the official **Synthstrom Audi
 ### A. LFO Global vs. Local Scope Mismatch (UI Illusion)
 *   **Discrepancy:**
     *   [LfoPanel.java:343](file:///Users/ludo/a/deluje/src/main/java/org/deluge/ui/LfoPanel.java#L343) provides a "Scope" drop-down combobox allowing the user to select "All tracks" (Global) vs. "This track" (Local) for **any** of the 4 LFO slots.
-    *   However, the physical Deluge does not allow changing the scope of LFOs: LFO 1/2 are hardcoded as local, and LFO 3/4 are global.
+    *   However, the physical Deluge does not allow changing the scope of LFOs, and neither does the engine: it maps LFO slots by **index** — **even slots (0, 2) are global, odd slots (1, 3) are local** (`FirmwareFactory`), matching `LfoModel.defaultConfig`. (Correcting this report's earlier draft, which had global/local reversed.)
     *   Our codebase also hardcodes this inside [FirmwareFactory.java:760-766](file:///Users/ludo/a/deluje/src/main/java/org/deluge/engine/FirmwareFactory.java#L760-L766) and the C++ DSP sound core. The `isLocal()` configuration field is completely ignored.
     *   This makes the "Scope" combobox in the UI a non-functional illusion.
 
