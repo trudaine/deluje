@@ -601,9 +601,9 @@ Enable **Live Capture** to record a Session performance straight into the arrang
 
 ---
 
-## 8. DSP FX Bounding Box Dials Deck
+## 8. DSP Effects
 
-The bottom segment of your grid dashboard houses effects path processors:
+Effects live in two places: each synth's own **FX tabs** in the sound editor (Mod FX, EQ, Compressor, plus the HPF tab and the delay/reverb sends), applied per track; and the **Master FX Console** (§24), applied across the whole mix. Between them you get:
 
 ```carousel
 ![Mod FX Chorus Flanger Phaser tab](images/deluge_synth_tab_mod_fx.png)
@@ -621,13 +621,13 @@ The bottom segment of your grid dashboard houses effects path processors:
   * Shelving Bass and Treble dials to isolate low-ends and polish high frequencies.
 * **Stereo Ping-Pong Delay**: 
   * Features delay time divisions sync parameters ($1/4$, $1/8$, $1/16$ notes or dotted eighths), feedback loop path clipping, and "Analog Mode" filter color simulation (gradually dampens high frequencies inside the delay line on every repeat).
-* **Reverb Deck (JCRev Engine)**: 
-  * Room Size volume ratios, High-Pass Filter (HPF) damping cutoffs, and stereo spatial width selectors to craft small spaces or long cathedral tails.
+* **Reverb** (default **Freeverb**; Mutable/Rings and Digital Chamber models also available): 
+  * Room Size, damping, and width to craft anything from a small room to a long cathedral tail.
 * **Overdrive Distortion Chain**: 
   * Interactive controls for Master Saturation threshold level (adds tube clipping saturation harmonics), sample-rate decimation steps, and Bitcrusher distortion levels for digital tracks.
 
 #### 🎛️ Tutorial D: Synth Polish Effects Chain
-1. Open your active Synth track config dialog and select the **`MOD FX`** tab. Set the Mod FX type to **`FLANGER`**, set the Rate to **`0.45Hz`** (slow movement), and the Depth to **`60%`**.
+1. Open the sound editor (double-click the track name) and select **FX ▸ MOD FX**. Set the Mod FX type to **`FLANGER`**, Rate to **`0.45Hz`** (slow movement), and Depth to **`60%`**.
 2. Go to the **`EQ`** tab. Boost the **Treble** slightly to **`+3dB`** and trim the **Bass** to **`-2dB`**.
 3. Go to the **`COMPRESSOR`** tab. Set the Threshold to **`-18dB`**, the Ratio to **`4.0:1`**, and the Attack to **`15ms`**.
 4. Go to the **`HPF`** tab. Slide HPF Cutoff to a safe low-cut point: **`120Hz`** to clean up raw sub rumble from your synth pads.
