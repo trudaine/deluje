@@ -1728,9 +1728,9 @@ The Deluge-Java Workstation features a **Macro Scripting & Song Automation Engin
 
 ### 22.1 How to Record a Macro
 1. Open the **Macro** menu.
-2. Click **Start Recording**. The menu header transforms into: **`Macro ●`**.
+2. Click **Start Recording Macro**. The menu header transforms into: **`Macro ●`** in red text.
 3. Perform sequencing actions: toggle steps, add tracks, load presets, adjust parameters.
-4. Open the **Macro** menu and click **Stop Recording**.
+4. Open the **Macro** menu and click **Stop Recording Macro**.
 5. Click **Save Macro Script...** to save as a `.txt` file.
 
 ### 22.2 Script Syntax Reference
