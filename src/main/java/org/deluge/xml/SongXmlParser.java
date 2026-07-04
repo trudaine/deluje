@@ -71,7 +71,10 @@ public class SongXmlParser {
       project.setSwingAmount(Integer.parseInt(songNode.getAttribute("swingAmount")));
     }
     if (songNode.hasAttribute("swingInterval")) {
-      project.setSwingInterval(Integer.parseInt(songNode.getAttribute("swingInterval")));
+      int fileValue = Integer.parseInt(songNode.getAttribute("swingInterval"));
+      project.setSwingInterval(
+          DelugeXmlUtil.convertSyncLevelFromFileValueToInternalValue(
+              fileValue, project.getInputTickMagnitude()));
     }
     if (songNode.hasAttribute("timePerTimerTick")) {
       project.setTimePerTimerTick(Integer.parseInt(songNode.getAttribute("timePerTimerTick")));

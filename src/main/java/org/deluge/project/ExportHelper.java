@@ -108,7 +108,7 @@ public class ExportHelper {
     // Build FW Song from model
     ProjectModel project = FirmwareFactory.createSong(model);
 
-    // Populate compileable tracks list to match JNI clips to original tracks
+    // Populate compileable tracks list to match active clips to original tracks
     java.util.List<TrackModel> compileableTracks = new java.util.ArrayList<>();
     for (TrackModel track : model.getTracks()) {
       if (track instanceof SynthTrackModel

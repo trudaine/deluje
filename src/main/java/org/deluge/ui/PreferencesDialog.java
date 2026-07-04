@@ -324,7 +324,7 @@ public class PreferencesDialog extends JDialog {
         panel,
         "Active CC Mappings",
         tableScroll,
-        "Table showing JNI parameter variable and mapped MIDI CC.",
+        "Table showing parameter variable and mapped MIDI CC.",
         c,
         3);
 
@@ -849,7 +849,7 @@ public class PreferencesDialog extends JDialog {
     if (tableData.length == 0) {
       tableData = new String[][] {{"— No midi mappings cabled —", "", ""}};
     }
-    String[] cols = {"JNI Parameter Variable", "MIDI CC Signal", "Connection Status"};
+    String[] cols = {"Parameter Variable", "MIDI CC Signal", "Connection Status"};
 
     javax.swing.table.DefaultTableModel model =
         new javax.swing.table.DefaultTableModel(tableData, cols) {

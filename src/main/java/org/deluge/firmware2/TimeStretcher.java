@@ -174,6 +174,9 @@ public class TimeStretcher {
         speedLog = (768 << 20);
       }
       int position = speedLog - (768 << 20);
+      if (position >= (128 << 20)) {
+        position = (128 << 20) - 1;
+      }
       minBeamWidth = Functions.interpolateTableSigned(position, 27, minHopSizeCoarse, 2) >> 16;
       maxBeamWidth = Functions.interpolateTableSigned(position, 27, maxHopSizeCoarse, 2) >> 16;
       crossfadeProportional =

@@ -11,7 +11,7 @@ By compiling MIDI files natively, you can import external musical arrangements, 
 To import a MIDI file into your active workstation:
 
 1.  Open the workstation and navigate to the top menu bar.
-2.  Select **`File -> Import MIDI File...`** (or use the keyboard shortcut).
+2.  Select **`File -> Import MIDI File...`**.
 3.  Choose any standard MIDI file from your computer.
 4.  The **MIDI Import Wizard** will open, showing a card-based deck of all tracks in the file.
 5.  Select which tracks to import, map them to your desired instruments, and click **`Import Into Workstation`**.

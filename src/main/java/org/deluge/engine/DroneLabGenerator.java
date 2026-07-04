@@ -136,7 +136,7 @@ public class DroneLabGenerator {
     System.arraycopy(JUST_INTONATION_CENTS, 0, centsAdjust, 0, 12);
 
     // ── 5. Sequence Long Overlapping Note Ties ──
-    // Clear JNI bridge steps for this track first
+    // Clear bridge steps for this track first
     for (int s = 0; s < BridgeContract.STEPS; s++) {
       bridge.setStep(trackIndex, s, false);
     }
@@ -144,7 +144,7 @@ public class DroneLabGenerator {
     // Sequence a massive C2 root note (MIDI 36) spanning the entire step grid (192 steps)
     int rootPitch = 36; // C2
 
-    // Write to raw JNI bridge
+    // Write to raw bridge
     bridge.setStep(trackIndex, 0, true);
     bridge.setPitch(trackIndex, 0, rootPitch);
     bridge.setGate(trackIndex, 0, 192.0); // Spans full sequence length (192 steps)

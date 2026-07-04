@@ -6,7 +6,7 @@
 
 ## 1. Architectural & Environment Overview
 
-| Technical Metric | Original C++ Hardware Firmware | Ported JNI-Free Java Workstation |
+| Technical Metric | Original C++ Hardware Firmware | Ported Pure Java Workstation |
 | :--- | :--- | :--- |
 | **Target Runtime** | ARM Cortex-M7 (Bare-Metal CPU) | Modern JVM (JDK 25 Previews) |
 | **Concurrency Model** | Bare-Metal Interrupt Timers (Timer 6) | Java Virtual Threads (`Thread.startVirtualThread`) |
@@ -14,7 +14,7 @@
 | **Hardware Vectorization** | ARM NEON / Cortex-M Assembly Blocks | Java Vector API (`jdk.incubator.vector`) |
 | **File I/O & Storage** | Bare-Metal SD Card FAT Library | Safe, Thread-Secure Java NIO2 Path Builders |
 | **UI Presentation** | Physical LED Matrix Display & Knobs | Modern JavaFX UI & Swing Desktop UI |
-| **Integration Hook** | Native C++ Code Blocks | Pure Java JNI-Free direct classes |
+| **Integration Hook** | Native C++ Code Blocks | Pure Java direct classes |
 
 ---
 
@@ -51,7 +51,7 @@
 
 ## 4. Key Findings & Core Fixed-Point Bugs Resolved
 
-During the direct-rendering comparative wave check campaign, three massive architectural bugs were discovered and surgically fixed in the JNI-free codebase:
+During the direct-rendering comparative wave check campaign, three massive architectural bugs were discovered and surgically fixed in the pure Java codebase:
 
 ### 🔍 Bug 1: High-Frequency Tangent Overflow (The LPF Pop/Click Transient)
 
@@ -62,7 +62,7 @@ During the direct-rendering comparative wave check campaign, three massive archi
   ```cpp
   q31_t tannedFrequency = instantTan(lshiftAndSaturate<5>(frequency));
   ```
-- **The Java JNI-Free Bug:** During the direct port, a trailing shift-left by 1 (`<< 1`) was mistakenly added to `instantTan` in the belief that it was returning a Q31 value. For wide-open LPF frequencies (`0x7FFFFFFF`), the interpolated sum inside `instantTan` reached `1.8 billion`. Shifting it left by 1 caused a **signed integer overflow to a large negative number**!
+- **The Java Translation Bug:** During the direct port, a trailing shift-left by 1 (`<< 1`) was mistakenly added to `instantTan` in the belief that it was returning a Q31 value. For wide-open LPF frequencies (`0x7FFFFFFF`), the interpolated sum inside `instantTan` reached `1.8 billion`. Shifting it left by 1 caused a **signed integer overflow to a large negative number**!
 - **The Denominator Collapse:** In `FirmwareFilter.java`, this wrapped negative number corrupted the feedback denominator equation:
   ```java
   double denom = (double) ONE_Q16 + (tannedFrequency >> 1); // denominator collapsed to a tiny value!
@@ -79,7 +79,7 @@ During the direct-rendering comparative wave check campaign, three massive archi
 ### 🔍 Bug 2: Drum Kit Sampler Lanes Synth Bleed (Continuous Drone Hum)
 
 - **The C++ Logic:** The original hardware firmware loads specific drum row configurations, leaving other slots inactive or unallocated.
-- **The Java JNI-Free Bug:** When a `FirmwareKit` is created, its list of 16 lane sounds (`drumSounds`) are instantiated with default `FirmwareSound` constructors. In our port, these default sounds had active subtractive synthesizer oscillators running in the background. Even when loading a raw WAV drum sample on the primary slot, the other 15 lanes kept **continuously bleeding a loud synthetic background hum/drone** into the track mix, completely muddying the clean physical drum hit.
+- **The Java Translation Bug:** When a `FirmwareKit` is created, its list of 16 lane sounds (`drumSounds`) are instantiated with default `FirmwareSound` constructors. In our port, these default sounds had active subtractive synthesizer oscillators running in the background. Even when loading a raw WAV drum sample on the primary slot, the other 15 lanes kept **continuously bleeding a loud synthetic background hum/drone** into the track mix, completely muddying the clean physical drum hit.
 - **The Fix:** We implemented a strict constructor safety block in `FirmwareKit.java` that sets the primary oscillator volume, secondary oscillator volume, and noise generator volume parameters of all 16 slots to **`0`** by default. We programmatically restore full dynamic play volume (`LOCAL_OSC_A_VOLUME = Q31.ONE`) only for active parsed XML sample rows inside the song compiler factory `FirmwareFactory.java`. This isolates loaded WAV files in complete, pure digital silence!
 
 ---
@@ -87,7 +87,7 @@ During the direct-rendering comparative wave check campaign, three massive archi
 ### 🔍 Bug 3: Signed 32-bit Integer Saturation & Master Index Shifts
 
 - **Signed Saturations:** In delay lines math inside `FirmwareUtils.java`, we replaced the unsafe double-overflow signed bit-shifts with direct delegation to the secure, rounded `Q31.signedSaturate`, preventing signed integer bit wrapping when processing high feedback delay lines.
-- **Master Clipper Table Math:** In our JNI-free engine master-bus output, we replaced the signed double-sided hyperbolic tangent lookup with a 64-bit safe unsigned logical shift index mapping, and restored the original bipolar pre-shifted table offset (`input + 2147483648L`) in `FirmwareUtils.java`. This successfully resolved master-bus digital clipping blocks and full-wave digital rectification buzzes.
+- **Master Clipper Table Math:** In our pure Java engine master-bus output, we replaced the signed double-sided hyperbolic tangent lookup with a 64-bit safe unsigned logical shift index mapping, and restored the original bipolar pre-shifted table offset (`input + 2147483648L`) in `FirmwareUtils.java`. This successfully resolved master-bus digital clipping blocks and full-wave digital rectification buzzes.
 
 ---
 
@@ -122,7 +122,7 @@ The Deluge emulator runs under two primary operational models:
 
 ## 7. End-to-End Real-Time WAV Comparative Parity Success Report
 
-We created a custom Real-Time Direct JNI-Free Waveform Comparative Test Suite inside `DigitalAudioFidelityTest.java`. This test runs our internal fixed-point playhead UGen (`VoiceSample.java`), the voice engine matrix (`FirmwareVoice.java`), and the global track effects/filters pipeline (`GlobalEffectable.java`) concurrently in memory. It renders raw signed master audio float frames directly, and compares them sequentially with the original macOS `afplay`-verified TR-808 drum sample disk wave files.
+We created a custom Real-Time Direct Pure Java Waveform Comparative Test Suite inside `DigitalAudioFidelityTest.java`. This test runs our internal fixed-point playhead UGen (`VoiceSample.java`), the voice engine matrix (`FirmwareVoice.java`), and the global track effects/filters pipeline (`GlobalEffectable.java`) concurrently in memory. It renders raw signed master audio float frames directly, and compares them sequentially with the original macOS `afplay`-verified TR-808 drum sample disk wave files.
 
 ### 📈 Wave attack comparative ratios print:
 ```

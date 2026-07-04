@@ -33,7 +33,17 @@ public class SwingTopBarPanel extends JPanel {
   private JButton recBtn;
   private JButton resampleBtn;
   private JToggleButton captureBtn;
+  private JToggleButton stutterBtn;
+  private javax.swing.JComboBox<String> stutterDivCombo;
   public static boolean isAffectEntireActive = false;
+
+  public void setStutterActive(boolean active) {
+    if (stutterBtn != null) {
+      stutterBtn.setSelected(active);
+    }
+    bridge.setGlobalInt(BridgeContract.G_STUTTER_ON, active ? 1L : 0L);
+    paramReadout.printTransient("STUT", active ? "ON" : "OFF");
+  }
 
   public void stopRecordingIfActive() {
     if (org.deluge.engine.JavaAudioDriver.isResamplingActive) {
@@ -443,6 +453,48 @@ public class SwingTopBarPanel extends JPanel {
           }
         });
     add(tapBtn);
+
+    // STUTTER button: live repeat the current step at the selected subdivision rate.
+    stutterBtn = new JToggleButton("STUT");
+    styleButton(stutterBtn, new Color(0x3a, 0x1c, 0x3d), new Color(0xff, 0x66, 0xff));
+    stutterBtn.setPreferredSize(new Dimension(46, 22));
+    stutterBtn.setMargin(new Insets(0, 0, 0, 0));
+    stutterBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+    stutterBtn.setFocusable(false);
+    stutterBtn.setToolTipText("Engage Stutter (repeats current step). Key: Hold Q");
+    stutterBtn.addActionListener(
+        e -> {
+          boolean active = stutterBtn.isSelected();
+          bridge.setGlobalInt(BridgeContract.G_STUTTER_ON, active ? 1L : 0L);
+          paramReadout.printTransient("STUT", active ? "ON" : "OFF");
+        });
+    add(stutterBtn);
+
+    // Stutter division selector
+    String[] stutterDivs = {"1/4", "1/8", "1/12", "1/16", "1/24", "1/32", "1/64"};
+    stutterDivCombo = new javax.swing.JComboBox<>(stutterDivs);
+    stutterDivCombo.setBackground(new Color(0x2a, 0x2a, 0x30));
+    stutterDivCombo.setForeground(new Color(0x00, 0xcc, 0xff));
+    stutterDivCombo.setFont(new Font("SansSerif", Font.BOLD, 10));
+    stutterDivCombo.setPreferredSize(new java.awt.Dimension(58, 22));
+    stutterDivCombo.setFocusable(false);
+    stutterDivCombo.setSelectedItem("1/16");
+    stutterDivCombo.setToolTipText("Stutter repeat subdivision division");
+    stutterDivCombo.addActionListener(
+        e -> {
+          String s = (String) stutterDivCombo.getSelectedItem();
+          float val = 16.0f;
+          if ("1/4".equals(s)) val = 4.0f;
+          else if ("1/8".equals(s)) val = 8.0f;
+          else if ("1/12".equals(s)) val = 12.0f;
+          else if ("1/16".equals(s)) val = 16.0f;
+          else if ("1/24".equals(s)) val = 24.0f;
+          else if ("1/32".equals(s)) val = 32.0f;
+          else if ("1/64".equals(s)) val = 64.0f;
+          bridge.setGlobalFloat(BridgeContract.G_STUTTER_DIV, (double) val);
+          paramReadout.printTransient("DIV ", s);
+        });
+    add(stutterDivCombo);
 
     JToggleButton affectEntireBtn = new JToggleButton("ALL");
     styleButton(affectEntireBtn, new Color(0x3d, 0x23, 0x23), new Color(0xff, 0x55, 0x55));

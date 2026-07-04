@@ -110,6 +110,14 @@ public class KeyboardShortcutManager extends KeyAdapter {
       return;
     }
 
+    // Q — Stutter live step repeating (momentary)
+    if (!ctrl && kc == KeyEvent.VK_Q) {
+      if (app.getTopBar() != null) {
+        app.getTopBar().setStutterActive(true);
+      }
+      return;
+    }
+
     // 3. Dispatch other key events to native simulation
     HidMsg msg = new HidMsg();
     msg.deviceType = "keyboard";
@@ -125,8 +133,14 @@ public class KeyboardShortcutManager extends KeyAdapter {
 
   @Override
   public void keyReleased(KeyEvent e) {
-    if (e.getKeyCode() == KeyEvent.VK_L) {
+    int kc = e.getKeyCode();
+    if (kc == KeyEvent.VK_L) {
       app.learnHeld = false;
+    }
+    if (kc == KeyEvent.VK_Q) {
+      if (app.getTopBar() != null) {
+        app.getTopBar().setStutterActive(false);
+      }
     }
     HidMsg msg = new HidMsg();
     msg.deviceType = "keyboard";

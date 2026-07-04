@@ -434,7 +434,7 @@ To remove the functional gaps and surpass hardware performance, we will implemen
 - **Param**: `algorithm(int)` to re-route internal mod paths instantly.
 
 ### 17.5 `SharedBuffer` (Zero-Latency Bridge)
-- **Goal**: High-resolution automation without JNI/Array overhead.
+- **Goal**: High-resolution automation without native integration or array copy overhead.
 - **Tech**: Direct Memory Access (DMA) using **Direct ByteBuffers**.
 - **Result**: Perfect sync between Java UI automation curves and ChucK DSP.
 

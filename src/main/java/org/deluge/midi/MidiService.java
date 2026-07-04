@@ -414,10 +414,96 @@ public class MidiService {
         String mappedCc = PreferencesManager.get(key, "None");
         if (mappedCc.equals(String.valueOf(cc))) {
           String paramName = key.substring(prefix.length());
+          if ("action_looper_pedal".equals(paramName)) {
+            handleLooperPedalTap(val);
+            return;
+          }
           float normalizedVal = val / 127.0f;
           bridge.setGlobalFloat(paramName, normalizedVal);
           if (bridge.getLogLevel() >= 2) {}
         }
+      }
+    }
+  }
+
+  private void handleLooperPedalTap(int val) {
+    if (val < 64) return; // Trigger on press only
+
+    if (SwingDelugeApp.mainInstance == null) return;
+    var app = SwingDelugeApp.mainInstance;
+    var project = app.getCurrentProject();
+    if (project == null) return;
+
+    int trackIdx = activeTrack;
+    if (trackIdx < 0 || trackIdx >= project.getTracks().size()) return;
+    var track = project.getTracks().get(trackIdx);
+
+    var captureLine = org.deluge.engine.AudioInputCaptureLine.getInstance();
+
+    if (!captureLine.isArmed() && !captureLine.isRecording()) {
+      // Start recording!
+      System.out.println("MIDI LOOPER: Arming immediate recording on track " + (trackIdx + 1));
+
+      if (track instanceof org.deluge.model.AudioTrackModel audioTrack) {
+        if (!audioTrack.getAudioClips().isEmpty()) {
+          var clip = audioTrack.getAudioClips().get(0);
+          clip.setOverdubsShouldCloneAudioTrack(
+              clip.getFilePath() != null && !clip.getFilePath().isEmpty());
+        }
+      }
+
+      captureLine.arm(
+          -60.0f, // thresholdDb for instant trigger
+          trackIdx,
+          0,
+          () -> {
+            // onTrigger
+            if (SwingDelugeApp.mainInstance != null && !SwingDelugeApp.mainInstance.isPlaying()) {
+              SwingDelugeApp.mainInstance.triggerPlayToggle();
+            }
+            if (SwingDelugeApp.mainInstance != null) {
+              SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("REC", "LOOP");
+            }
+          },
+          () -> {
+            // onFinished
+            if (SwingDelugeApp.mainInstance != null) {
+              var mainApp = SwingDelugeApp.mainInstance;
+              var proj = mainApp.getCurrentProject();
+              if (proj != null) {
+                mainApp.syncHighFidelityEngine(proj, true);
+                if (mainApp.getSongPanel() != null) mainApp.getSongPanel().refresh();
+                if (mainApp.getClipPanel() != null) mainApp.getClipPanel().refresh();
+
+                // Auto-BPM tempo detection
+                if (track instanceof org.deluge.model.AudioTrackModel audioTrack) {
+                  double dur = captureLine.getLastRecordedDurationSec();
+                  if (dur > 0.5) {
+                    double beats = 16.0; // default to 4 bars (16 beats)
+                    if (!audioTrack.getAudioClips().isEmpty()) {
+                      beats = audioTrack.getAudioClips().get(0).getLength() / 24.0;
+                    }
+                    float estimatedBpm = (float) ((beats * 60.0) / dur);
+                    if (estimatedBpm >= 40.0f && estimatedBpm <= 280.0f) {
+                      System.out.println(
+                          String.format(
+                              "AUTO-BPM: Detected tempo %.2f BPM from %.3f seconds (beats=%s)",
+                              estimatedBpm, dur, beats));
+                      proj.setBpm(estimatedBpm);
+                      mainApp.updateHardwareLedDisplayTransient(
+                          "BPM", String.format("%03d", Math.round(estimatedBpm)));
+                    }
+                  }
+                }
+              }
+            }
+          });
+    } else {
+      // Stop recording!
+      System.out.println("MIDI LOOPER: Stopping recording on track " + (trackIdx + 1));
+      captureLine.stop();
+      if (SwingDelugeApp.mainInstance != null) {
+        SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("PLAY", "LOOP");
       }
     }
   }

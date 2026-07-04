@@ -7,7 +7,7 @@ import org.deluge.BridgeContract;
 
 /**
  * A beautiful, spacious, and fully resizeable dark JDialog laboratory editor for scanning and
- * wiggling Wavetable indices with real-time visual feedback and JNI hot-swaps.
+ * wiggling Wavetable indices with real-time visual feedback and hot-swaps.
  */
 public class SwingWavetableDialog extends JDialog {
 
@@ -150,7 +150,7 @@ public class SwingWavetableDialog extends JDialog {
 
     add(bottomPanel, BorderLayout.SOUTH);
 
-    // Connect slider for real-time JNI and visual updates!
+    // Connect slider for real-time visual and engine updates!
     positionSlider.addChangeListener(
         e -> {
           int val = positionSlider.getValue();

@@ -32,7 +32,7 @@ graph TD
 
 ## 1. Core Architectural Pillars of `rtmidijava` on Linux
 
-Deluge-Java utilizes the modern **Java 25 Foreign Function & Memory (FFM) API** to bind directly to the native ALSA library (`libasound.so`). This replaces high-overhead JNI wrappers with zero-dependency, type-safe native memory calls.
+Deluge-Java utilizes the modern **Java 25 Foreign Function & Memory (FFM) API** to bind directly to the native ALSA library (`libasound.so`). This replaces high-overhead traditional native wrappers with zero-dependency, type-safe native memory calls.
 
 ### 1.1. Zero-GC High-Performance Fast Path
 Traditional Java MIDI libraries allocate heap objects (e.g. `byte[]` and timestamp wrappers) for every incoming MIDI event. Under rapid MIDI streams (like the Deluge's 60 FPS OLED frames or 14-bit pitch bend sweeps), this floods the JVM garbage collector, introducing micro-stutters and audio dropouts on the real-time DSP thread.

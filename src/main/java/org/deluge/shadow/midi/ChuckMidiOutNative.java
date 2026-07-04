@@ -1,7 +1,7 @@
 package org.deluge.shadow.midi;
 
 /**
- * A lightweight shadow representing the native JNI MIDI Out wrapper. Implemented in pure Java to
+ * A lightweight shadow representing the native MIDI Out wrapper. Implemented in pure Java to
  * completely decouple the Deluge UI from the heavy native ChucK VM.
  */
 public class ChuckMidiOutNative {

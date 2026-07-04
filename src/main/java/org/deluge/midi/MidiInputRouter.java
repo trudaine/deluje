@@ -24,9 +24,9 @@ public class MidiInputRouter {
   private boolean followModeEnabled = true;
   private int activeTrackIndex = 4; // Default to first synth track
 
-  // Follow channel routing: index 0=A, 1=B, 2=C
-  private final int[] followMidiChannels = new int[] {0, 1, 2};
-  private final int[] followTracks = new int[] {0, 1, 2};
+  // Follow channel routing: index 0..15
+  private final int[] followMidiChannels = new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+  private final int[] followTracks = new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
 
   private static class NoteStartInfo {
     long time;
@@ -102,26 +102,26 @@ public class MidiInputRouter {
     this.currentDevice = def;
   }
 
-  /** Configure a follow channel: followIndex=0(A),1(B),2(C). */
+  /** Configure a follow channel: followIndex=0..15. */
   public void setFollowChannel(int followIndex, int midiChannel, int track) {
-    if (followIndex >= 0 && followIndex < 3) {
+    if (followIndex >= 0 && followIndex < 16) {
       followMidiChannels[followIndex] = midiChannel;
       followTracks[followIndex] = track;
     }
   }
 
   public int getFollowMidiChannel(int followIndex) {
-    return followIndex >= 0 && followIndex < 3 ? followMidiChannels[followIndex] : -1;
+    return followIndex >= 0 && followIndex < 16 ? followMidiChannels[followIndex] : -1;
   }
 
   public int getFollowTrack(int followIndex) {
-    return followIndex >= 0 && followIndex < 3 ? followTracks[followIndex] : -1;
+    return followIndex >= 0 && followIndex < 16 ? followTracks[followIndex] : -1;
   }
 
   /** Resolve target track from MIDI channel when follow mode is enabled. */
   private int resolveTrackFromChannel(int midiChannel) {
     if (!followModeEnabled) return activeTrackIndex;
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 16; i++) {
       if (followMidiChannels[i] == midiChannel) {
         return followTracks[i];
       }
@@ -139,6 +139,42 @@ public class MidiInputRouter {
     if (status == 0xB0) {
       int cc = msg.data2;
       double normalized = msg.data3 / 127.0;
+
+      // CC 89 toggles mute, CC 90 toggles solo on the resolved track channel
+      if (cc == 89 || cc == 90) {
+        int trackIdx = resolveTrackFromChannel(midiChannel);
+        if (SwingDelugeApp.mainInstance != null) {
+          org.deluge.ui.SwingGridPanel activeGrid = SwingDelugeApp.mainInstance.getActiveGridPanel();
+          if (activeGrid != null && activeGrid.getProjectModel() != null) {
+            int trackCount = activeGrid.getProjectModel().getTracks().size();
+            if (trackIdx >= 0 && trackIdx < trackCount) {
+              if (cc == 89) {
+                // CC 89: toggle mute
+                boolean currentMuted = activeGrid.getBridge().getMute(trackIdx);
+                activeGrid.setTrackMuteWithCapture(trackIdx, !currentMuted);
+              } else {
+                // CC 90: toggle solo
+                boolean isAlreadySolo = (activeGrid.getSoloRow() == trackIdx);
+                if (isAlreadySolo) {
+                  // Unsolo all
+                  activeGrid.setSoloRow(-1);
+                  for (int i = 0; i < trackCount; i++) {
+                    activeGrid.setTrackMuteWithCapture(i, false);
+                  }
+                } else {
+                  // Solo this track
+                  activeGrid.setSoloRow(trackIdx);
+                  for (int i = 0; i < trackCount; i++) {
+                    activeGrid.setTrackMuteWithCapture(i, i != trackIdx);
+                  }
+                }
+              }
+              activeGrid.refresh();
+            }
+          }
+        }
+        return;
+      }
 
       // MIDI learn mode
       if (learningTarget != null) {

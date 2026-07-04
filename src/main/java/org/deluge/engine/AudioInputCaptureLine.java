@@ -32,6 +32,11 @@ public class AudioInputCaptureLine {
   private float threshold = 0.05f; // Peak amplitude threshold (default ~ -26dB)
   private final ByteArrayOutputStream capturedStream = new ByteArrayOutputStream();
   private Thread captureThread = null;
+  private double lastRecordedDurationSec = 0.0;
+
+  public double getLastRecordedDurationSec() {
+    return lastRecordedDurationSec;
+  }
 
   private int targetTrackIndex = 0;
   private int targetSlotIndex = 0;
@@ -234,6 +239,9 @@ public class AudioInputCaptureLine {
     try {
       byte[] pcmData = capturedStream.toByteArray();
       if (pcmData.length == 0) return;
+
+      int numSamples = pcmData.length / 4; // 16-bit stereo PCM is 4 bytes/frame
+      this.lastRecordedDurationSec = (double) numSamples / 44100.0;
 
       // Save to SD library SAMPLES directory path
       String mountedRoot = org.deluge.project.PreferencesManager.getLibraryDir().getAbsolutePath();

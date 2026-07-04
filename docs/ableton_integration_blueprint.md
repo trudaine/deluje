@@ -132,7 +132,7 @@ We map Ableton's built-in instruments to Deluge-Java’s high-fidelity audio eng
     *   This allows full playback of Ableton factory and user Drum Racks directly in the workstation!
 
 ### 2. Ableton Simpler & Sampler (`<OriginalSimpler>` / `<MultiSampler>`)
-*   **Simpler**: We extract the single sample path and load it into the multi-voice JMem JNI sampler oscillator on a `SynthTrackModel`.
+*   **Simpler**: We extract the single sample path and load it into the multi-voice JMem sampler oscillator on a `SynthTrackModel`.
 *   **Sampler**: We parse the keyzone mappings (`<MultiSampleMap>`) and load the respective sample zones into a multi-sampled ChucK oscillator.
 
 ### 3. Ableton Synthesizers (`<Operator>` / `<Analog>`)
@@ -165,7 +165,7 @@ We map Ableton's built-in instruments to Deluge-Java’s high-fidelity audio eng
 
 ## 7. Real-Time Transport, Clip Playback & Session Recording Sync ("Hot Integration")
 
-To bridge the performance gap between the Deluge's quantized loop workflow and Ableton Live’s Session View, the workstation provides a real-time JNI MIDI synchronization and control layer.
+To bridge the performance gap between the Deluge's quantized loop workflow and Ableton Live’s Session View, the workstation provides a real-time MIDI synchronization and control layer.
 
 ```mermaid
 graph LR
@@ -177,7 +177,7 @@ graph LR
 
 ### 1. Low-Latency Transport & Tempo Synchronization
 We utilize macOS's native **IAC Driver (Inter-Application Communication)** to establish a virtual MIDI port link:
-*   **MIDI Clock Master**: The ChucK JNI audio engine transmits real-time **MIDI Clock (0xF8)** bytes at a rate of 24 PPQN (Parts Per Quarter Note) based on the active project BPM.
+*   **MIDI Clock Master**: The ChucK audio engine transmits real-time **MIDI Clock (0xF8)** bytes at a rate of 24 PPQN (Parts Per Quarter Note) based on the active project BPM.
 *   **System Real-Time Messages**: Clicking Play, Stop, or Pause transmits **Start (0xFA)**, **Stop (0xFC)**, and **Continue (0xFB)** bytes.
 *   **Ableton Live Configuration**: In Ableton's Link/Tempo/MIDI preferences, the virtual IAC input port is configured with **`Sync = ON`**. When transport starts on the Deluge Workstation, Ableton's playhead immediately starts in sample-accurate, phase-locked synchronization.
 

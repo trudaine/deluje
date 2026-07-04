@@ -305,7 +305,7 @@ public class SwingAudioSlicerDialog extends JDialog {
       System.err.println("[KitSlicer] Export XML slices kit failed: " + ex.getMessage());
     }
 
-    // Real-time JNI playback reloading pipeline
+    // Real-time playback reloading pipeline
     SwingDelugeApp.mainInstance.pushModelToBridge();
     SwingDelugeApp.mainInstance.reloadSidebarLibraries();
     SwingDelugeApp.mainInstance.propagateCurrentModel();

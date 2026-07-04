@@ -48,8 +48,8 @@ public class SwingVisualizerPanel extends JPanel {
     int h = getHeight();
     int quarterH = h / 4;
 
-    // Fetch live time-domain sound buffers from either the live Pure Java driver or the core JNI
-    // DAC channels
+    // Fetch live time-domain sound buffers from either the live Pure Java driver or the core
+    // audio channels
     float[] dataL = null;
     float[] dataR = null;
     if (SwingDelugeApp.pureModeActive) {

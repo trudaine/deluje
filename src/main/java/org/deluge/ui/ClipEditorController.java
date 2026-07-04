@@ -1358,7 +1358,23 @@ public class ClipEditorController {
     String oledParam = "";
     String oledValue = "";
 
-    if (parent.isShiftHeld()) {
+    if (parent.isShiftHeld() && e.isAltDown()) {
+      // Shift + Alt held = Adjust note fill (0% to 100%, 5% increments)
+      float newFill = Math.max(0.0f, Math.min(1.0f, sd.fill() + dir * 0.05f));
+      newFill = Math.round(newFill * 100.0f) / 100.0f;
+      updated =
+          new org.deluge.model.StepData(
+              true,
+              sd.velocity(),
+              sd.gate(),
+              sd.probability(),
+              sd.pitch(),
+              sd.iterance(),
+              newFill,
+              sd.nudge());
+      oledParam = "FILL";
+      oledValue = (newFill == 0.0f) ? "OFF" : (int) (newFill * 100) + "%";
+    } else if (parent.isShiftHeld()) {
       // Shift held = Adjust note probability (0% to 100%, 5% increments)
       float newProb = Math.max(0.0f, Math.min(1.0f, sd.probability() + dir * 0.05f));
       newProb = Math.round(newProb * 100.0f) / 100.0f;
@@ -1448,6 +1464,7 @@ public class ClipEditorController {
         parent.bridge.setVelocity(engineRow, activeCol, updated.velocity());
         parent.bridge.setGate(engineRow, activeCol, updated.gate());
         parent.bridge.setStepProbability(engineRow, activeCol, updated.probability());
+        parent.bridge.setStepFill(engineRow, activeCol, updated.fill());
       }
 
       // Display transient parameter change on OLED readout

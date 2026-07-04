@@ -25,7 +25,7 @@ Welcome to the **Deluge-Java Workstation**, a software recreation and operations
 5. [Automatic Loop Slicer & Kit Splitter](#5-automatic-loop-slicer--kit-splitter)
 6. [The Visual Modulation Patchbay & Bipolar Modulation Math](#6-the-visual-modulation-patchbay--bipolar-modulation-math)
 7. [Song & Arrangement Linear Timelines View](#7-song--arrangement-linear-timelines-view)
-8. [DSP FX Bounding Box Dials Deck](#8-dsp-fx-bounding-box-dials-deck)
+8. [Master FX Console & Bottom Master Panel](#8-master-fx-console--bottom-master-panel)
 9. [Delugeator Multi-Generator Dashboard Suite](#9-delugeator-multi-generator-dashboard-suite)
    * [9.3 Drone Lab & Evolving Texture Generator](#93-drone-lab--evolving-texture-generator)
 10. [UI Panels & Shift Shortcuts System Behavior](#10-ui-panels--shift-shortcuts-system-behavior)
@@ -601,37 +601,39 @@ Enable **Live Capture** to record a Session performance straight into the arrang
 
 ---
 
-## 8. DSP Effects
+## 8. Master FX Console & Bottom Master Panel
 
-Effects live in two places: each synth's own **FX tabs** in the sound editor (Mod FX, EQ, Compressor, plus the HPF tab and the delay/reverb sends), applied per track; and the **Master FX Console** (§24), applied across the whole mix. Between them you get:
+Effects processing in the Deluge-Java Workstation is split into three levels: the **Bottom Master Panel** for global project controls, the **Master FX Console** dialog for global spatial effects, and per-track **Track-Level FX** inside the sound editor.
 
-```carousel
-![Mod FX Chorus Flanger Phaser tab](images/deluge_synth_tab_mod_fx.png)
-<!-- slide -->
-![2-Pole resonant High-Pass Filter tab](images/deluge_synth_tab_hpf.png)
-<!-- slide -->
-![2-Band shelving Master EQ tab](images/deluge_synth_tab_eq.png)
-<!-- slide -->
-![Stereo Compressor dynamic threshold tab](images/deluge_synth_tab_compressor.png)
-```
+### 8.1 The Bottom Master Panel
+Located directly under the step sequencer grid, this compact 54px panel provides key master parameters:
+*   **Status Counter**: Shows the active playhead beat position in real time (e.g. `1:1:1`).
+*   **Transpose**: Global playback transposition (-24 to +24 semitones).
+*   **Scale Mode**: Quantizes isomorphic pads notes to the selected scale (Major, Minor, Pentatonic, Chromatic).
+*   **Master Compressor**: Quick adjustments for Threshold, Attack, Release, Ratio, and Blend.
+*   **Master Volume**: Overall song playback gain.
 
-* **Mod FX (Chorus / Flanger / Phaser)**: 
-  * Selectable modulation types adjusting LFO speed Hz, feedback delay line loops, depth width, and phase offset splits for wide-screen stereo images.
-* **2-Band shelving Master EQ**: 
-  * Shelving Bass and Treble dials to isolate low-ends and polish high frequencies.
-* **Stereo Ping-Pong Delay**: 
-  * Features delay time divisions sync parameters ($1/4$, $1/8$, $1/16$ notes or dotted eighths), feedback loop path clipping, and "Analog Mode" filter color simulation (gradually dampens high frequencies inside the delay line on every repeat).
-* **Reverb** (default **Freeverb**; Mutable/Rings and Digital Chamber models also available): 
-  * Room Size, damping, and width to craft anything from a small room to a long cathedral tail.
-* **Overdrive Distortion Chain**: 
-  * Interactive controls for Master Saturation threshold level (adds tube clipping saturation harmonics), sample-rate decimation steps, and Bitcrusher distortion levels for digital tracks.
+### 8.2 The Master FX Console
+Clicking the **`🎛️ MASTER FX`** button in the top toolbar opens the global Mixing Console. It provides four tabs:
+1.  **🌌 REVERB TANK**: global room size, decay, high-pass (HPF) damping, and stereo width. The reverb defaults to **Freeverb**, with Mutable/Rings and Digital Chamber models also available.
+2.  **💨 REVERB COMP**: A dedicated sidechain compressor that ducks the reverb tail based on signal transients.
+3.  **⏳ STEREO DELAY**: Configures delay feedback, tempo sync timing divisions, Ping-Pong mode, and Analog Mode (filter color simulation that dampens high frequencies on repeats).
+4.  **🌋 DRIVE & SAT**: Adjusts master saturation threshold (adding analog tube saturation harmonics), sample-rate decimation, and bitcrush distortion.
 
-#### 🎛️ Tutorial D: Synth Polish Effects Chain
-1. Open the sound editor (double-click the track name) and select **FX ▸ MOD FX**. Set the Mod FX type to **`FLANGER`**, Rate to **`0.45Hz`** (slow movement), and Depth to **`60%`**.
-2. Go to the **`EQ`** tab. Boost the **Treble** slightly to **`+3dB`** and trim the **Bass** to **`-2dB`**.
-3. Go to the **`COMPRESSOR`** tab. Set the Threshold to **`-18dB`**, the Ratio to **`4.0:1`**, and the Attack to **`15ms`**.
-4. Go to the **`HPF`** tab. Slide HPF Cutoff to a safe low-cut point: **`120Hz`** to clean up raw sub rumble from your synth pads.
-5. *Result*: Press play: you will hear a polished stereo synth pad.
+### 8.3 Track-Level FX (Sound Editor)
+Double-clicking a track name opens the sound editor (or Synth Configuration Dialog), containing dedicated panels for sculpting individual track signals:
+*   **HPF**: A 2-pole resonant high-pass filter with feedback ladder overdrive to clean up low-end rumble.
+*   **EQ**: Master 2-band shelving equalizer (Bass and Treble boost/cut).
+*   **COMPRESSOR**: Dynamic compressor adjusting Threshold, Ratio, Attack, Release, and sidechain HPF.
+*   **MOD FX**: Configures rate, depth, and feedback parameters for Chorus, Flanger, or Phaser modulation lines.
+
+#### 🎛️ Tutorial D: Polish a Lead Synth (Track-Level FX)
+1. Double-click the Synth track name to open its sound editor.
+2. Select **FX ▸ MOD FX**. Set the type to **`FLANGER`**, the Rate to **`0.45Hz`** (slow movement), and the Depth to **`60%`**.
+3. Select **FX ▸ EQ**. Boost **Treble** to **`+3dB`** and cut **Bass** to **`-2dB`** to help the lead cut through the mix.
+4. Select **FX ▸ COMPRESSOR**. Set the Threshold to **`-18dB`**, the Ratio to **`4.0:1`**, and the Attack to **`15ms`**.
+5. Select the **`HPF`** tab. Slide the HPF Cutoff to **`120Hz`** to filter out unnecessary low rumble.
+6. *Result*: The lead synth now sounds wider, cleaner, and dynamically controlled in the stereo mix.
 
 ---
 
@@ -643,11 +645,11 @@ The top menu action **`Tools ➔ Delugeator Randomizer...`** (global shortcut **
 
 ### Tab 1: 🎲 Synth Randomizer:
 * **Continuous Probability Distributions**: Algorithms morph subtractive parameters, FM carrier multipliers, and filter feedback.
-* **Live Needle Gauge**: A custom circular dial maps patch randomness onto a color scale.
-* **Overdrive Toggle**: Check this box to allow wider FM feedback loops, extreme ladder overdrive, and filter self-oscillation.
+* **Live Randomness Gauge**: A horizontal multi-colored progress bar with a white tracking needle that maps the patch's average randomness percentage onto a visual range scale (from Safe/Mild up to Wild/Brain-Crushing).
+* **Hardcore Mode**: Checking this box (**Hardcore Mode ☠️ (Worse presets, but fun)**) allows wider FM feedback loops, extreme ladder overdrive, and filter self-oscillation.
 
 ### Tab 2: 🥁 Kit Super-Generator:
-* Select folders, map drum kits with smart auto-stems regex, audition steps, auto-choke hats, and output ready-to-load KITS XML presets in seconds.
+* Select a sample directory, automatically map drum kits to track rows using the smart case-insensitive auto-mapper, audition steps, enable Auto-Choke (exclusion mute group 1) for hats, and generate ready-to-load drum kit XML presets in one click.
 
 ### 9.3 Drone Lab & Evolving Texture Generator:
 The top menu action **`Tools ➔ Drone Lab & Texture Generator...`** (global shortcut **`Ctrl + D` / `Cmd + D`**) opens the Drone Lab dialog to build drone textures, apply microtonal temperaments, and sweep parameters.
@@ -801,28 +803,29 @@ graph TD
 ```
 
 * **Independent Time-Stretching**: Forces a loaded WAV stem loop to stretch its playback speed to match the global tempo (BPM) exactly, without altering the loop's original key or pitch. Changing the master BPM keeps the loop locked to the sequencer grid.
-* **Real-Time Pitch-Shifting**: Transposes the loop's pitch up or down by semitones and cents, without changing the speed of playback. Phase vocoders and windowed overlap-add (OLA) algorithms process the audio to shift pitch.
+* **Real-Time Pitch-Shifting**: Transposes the loop's pitch up or down by semitones and cents, without changing the speed of playback.
 * **Transient Lock Points**: Pins specific timing landmarks within the file to maintain perfect time alignment even under extreme tempo shifts.
 
 #### 🎤 Tutorial I: Time-Stretching and Pitch-Shifting a Vocal Stem Loop
-1. Click **`File ➔ Load Audio Track...`** (or create a new lane row, set track type to `Audio Track`).
-2. Choose a vocal phrase WAV stem loop.
-3. Double-click the track to open its crop panel.
+1. Click the **`+ AUDIO`** button in the top toolbar to create a new audio track (or Shift-Click to instantly create a default named one).
+2. Drag and drop your vocal phrase WAV/AIF stem file from your system file explorer or the local library browser directly onto the track name label in the sidebar header to load it. The waveform will render in the background of the sequencer row.
+3. Double-click the track name to open the settings panel (or click its gear **⚙** button).
 4. Locate the **Length (Bars)** field: set it to **`4 Bars`** (informs the engine that the loop represents exactly four bars of music).
-5. Toggle the **`[✓] Time-Stretch`** checkbox to active. The engine stretches the sample loop playback speed to match your current session tempo (e.g. $120\text{ BPM}$).
+5. Toggle the **`Time-Stretch`** checkbox to active. The engine stretches the sample loop playback speed to match your current session tempo (e.g. $120\text{ BPM}$).
 6. Click the **Transpose** slider: set it to **`+3 semitones`** to pitch-shift the vocals higher.
 7. *Result*: Press play: the vocal stem plays in synchronization with your drum kit beats, maintaining its pitch even as session tempo changes.
 
-### 11.4 Threshold Loop Sampler & Real-Time Recording
+### 11.1 Threshold Loop Sampler & Real-Time Recording
 
 The **Threshold Loop Sampler** provides a dedicated real-time audio recording dashboard to capture live external audio (via microphone or line-in) and load it instantly into your workstation.
 
 ![Threshold Loop Sampler Dialog with Target Track Dropdown Open](images/deluge_threshold_record_dropdown.png)
 
 #### Key Features:
-* **Threshold-Triggered Recording**: The recording waits in an idle "Armed" state until the input signal level exceeds your set threshold (e.g. $-30\text{dB}$), waiting for audio input to exceed the threshold.
+* **Threshold-Triggered Recording**: The recording waits in an idle "Armed" state until the input signal level exceeds your set threshold (e.g. `-26 dB` default), starting automatically.
 * **Dynamic Target Routing**: You can select where the recorded audio is loaded when recording completes:
-  - **Kit Slots (1–16)**: Records a quick drum sample (kick, snare, hat) and loads it directly into a specific drum kit instrument row.
+  - **Kit Tracks**: Records a quick drum sample and loads it directly into a specific drum kit instrument row (Slots 1–16).
+  - **Synth Tracks**: Records a sample and loads it directly into the first oscillator of the synthesizer voice (Oscillator 1).
   - **Audio Tracks**: Records a long vocal/instrument phrase and instantiates it as a continuous **Audio Clip** on a target audio track.
 * **Loop Alignment**: Calculates the duration of the recorded loop and aligns it to the grid for synchronized playback.
 
@@ -853,7 +856,7 @@ The **`Wavetable Index Laboratory`** provides an editor to slice, scan, and modu
 * **Parameter Sweeps**: Sweeping the slider sends wave position indices to the synthesis engine, hot-swapping active cycle arrays on every frame shift.
 
 #### 🔬 Tutorial K: Sculpting Dynamic Morphing Wavetable Patches
-1. Open a kit track lane and double-click a drum slot button to open the **`Kit Sound Editor`** dialog.
+1. Open a kit track lane and click the gear **⚙** button next to a drum row header to open its settings editor.
 2. Click **`Browse...`** next to the sample path field and load a multi-cycle wavetable WAV file.
 3. Click the **`🔬 Wavetable Laboratory...`** button next to the loop bounds panel. The laboratory window opens in the center.
 4. Look at the **Cycle Size (Samples)** menu: set it to **`2048`** (the standard wavetable size). The 3D waterfall stack aligns, projecting the consecutive wave lines.
@@ -862,23 +865,33 @@ The **`Wavetable Index Laboratory`** provides an editor to slice, scan, and modu
 
 ---
 
-## 13. Pedal Looper & Continuous Multi-Layer Overdubs
+## 13. Audio Track Overdubbing & PCM Layer Mixing
 
-The Pedal Looper turns the sequencer grid into an audio overdubbing station. It allows live instrumentalists or keyboard players to build arrangements in real-time.
+The Deluge-Java Workstation provides support for recording, layering, and mixing multiple audio layers on Audio Tracks using external MIDI foot-pedals.
 
-* **Continuous Multi-Layer Overdubs**: Record a primary baseline loop, and layer consecutive parallel audio overdubs in loop sync.
-* **Virtual Pedal mappings**: Bind standard external hardware foot-pedals (via MIDI CC) to trigger looper actions: Single-tap (Record/Play/Overdub), Double-tap (Stop), or Hold (Undo/Redo last layer).
-* **Automatic Tempo Detection (Auto-BPM)**: Record a primary loop without a click track. The engine calculates the loop cycle duration, defines the grid boundaries, and sets the system BPM tempo automatically.
+### 13.1 MIDI Looper Pedal Integration
+You can bind a physical foot-pedal (or MIDI fader/button) to control recording and overdubbing hands-free:
+*   **CC Mapping**: In the MIDI CC Learn section of Preferences (**`Settings ➔ MIDI Settings...`**), input the parameter name **`action_looper_pedal`** and sweep your controller fader or click the foot-pedal to automatically bind the CC action.
+*   **Looper State Machine**: A single foot-pedal tap cycles through the looper's active phases:
+    1.  **Idle / Armed**: Tapping the pedal immediately arms and starts recording on the active track (using a `-60 dB` threshold for instant trigger). If the workstation is not currently playing, it automatically toggles the master play clock.
+    2.  **Recording**: Tapping the pedal while recording finishes the current layer, stops recording, and begins looping the captured phrase.
+    3.  **Overdubbing**: On subsequent takes, the workstation automatically detects that a baseline WAV file exists. It enters overdub mode, mixing the incoming signal with the existing file in real-time. Tapping the pedal again stops overdub recording and preserves loop playback.
 
-#### 🎸 Tutorial J: Recording a Live Multi-Layer Overdub Loop Stack
-1. Connect an external instrument or select a microphone input source. Create a new looper track.
-2. Tap your mapped foot-pedal (or click the virtual **`[● REC]`** looper button on screen). The looper starts recording immediately.
-3. Play a 4-bar chord progression. Tap the pedal at the end of the 4-bar loop.
-   * The looper stops recording, enters playback mode, and the system **Auto-BPM** locks the master clock tempo to your loop's speed.
-   * The pad lane glows in solid green indicating the baseline loop is active.
-4. Tap the pedal again to enter **`[● OVERDUB]`** mode. The pad starts flashing red-yellow.
-5. Play a secondary lead melody line on top of the looping chords. The looper records this melody layer in sync. Tap the pedal again to return to play mode.
-6. *Result / Layer Undo*: Make a mistake during your next overdub sweep? Simply **Hold down the foot-pedal for 2 seconds**. The application triggers a **Layer Undo**, removing the last recorded layer.
+### 13.2 Auto-BPM Tempo Detection
+When you record your baseline loop without a click track, the workstation automatically estimates and sets the master tempo:
+*   **Tempo Parity Calculation**: When the first recording on an Audio Track stops, the engine calculates the duration of the captured PCM audio in seconds. It compares this duration against the track's configured clip length (expressed in beats) using the formula:
+    $$\text{BPM} = \frac{\text{beatsCount} \times 60}{\text{duration}}$$
+*   **Automatic Tempo Sync**: The project's BPM and play clock are updated to match the detected tempo (clamped between 40 and 280 BPM). The new tempo value is sent to the physical hardware display to confirm the sync.
+
+### 13.3 Track Controls
+Real-time playback and recording are managed via the **`Audio Track`** panel inside the sidebar or track inspector:
+*   **REC**: Toggles microphone/line-in capture. If `overdubsShouldCloneAudioTrack` is active, it layers new input on top of the active clip.
+*   **PLAY**: Starts or stops playback of the track's audio clip.
+*   **LOOP**: Toggles loop wrap-around on or off.
+*   **Rate Slider**: Speeds up or slows down the playback rate (from `0.25x` to `4.00x`).
+
+> [!NOTE]
+> **Unimplemented Features**: Layer-by-layer looper undo/redo (reverting only the last overdub layer) is not currently implemented.
 
 ---
 
@@ -974,8 +987,8 @@ All communications adhere to the following byte layout:
 `[0xF0] [0x00 0x21 0x7B 0x01] [Command ID] [Sequence ID] [JSON Payload...] [0x00 (Spacer)] [Binary Payload...] [0xF7]`
 *   `0xF0`: Standard SysEx Start byte.
 *   `0x00 0x21 0x7B 0x01`: The official Manufacturer Header.
-*   `Command ID`: `0x02` (Real-time OLED display streaming), `0x05` (JSON file-system request/response), or `0x06` (JSON system broadcast).
-*   `Sequence ID`: 1-indexed transaction counter (`1 to 127`) to match asynchronous callbacks.
+*   `Command ID`: `0x02` (HID Display stream data), `0x04` (JSON Request), `0x05` (JSON Reply), or `0x03` (Debug print stream).
+*   `Sequence ID`: 1-indexed transaction counter (`1 to 127`, or specific session negotiated limits) to match asynchronous callbacks.
 *   `0x00 (Spacer)`: Optional division byte separating JSON metadata from raw binary blocks.
 *   `0xF7`: Standard SysEx End byte.
 
@@ -992,8 +1005,9 @@ Below is the reference of commands supported by the system:
 | **Host ➔ HW** | **Open Remote File** | `{"open": {"path": "/S/S1.XML", "mode": "r"}}` | *None*. Opens file handle on Deluge SD card. | **Realized** |
 | **Host ➔ HW** | **Read File Block** | `{"read": {"fid": 1, "offset": 0, "size": 512}}` | *None*. Requests 512-byte block from open handle. | **Realized** |
 | **Host ➔ HW** | **Close Remote File**| `{"close": {"fid": 1}}` | *None*. Closes open file handle and flushes memory. | **Realized** |
-| **Host ➔ HW** | **Start OLED Stream** | `[0xF0][0x00 0x21 0x7B 0x01][0x01][0x00][0x03][0xF7]` | *None*. Initiates display streaming. | **Realized** |
-| **HW ➔ Host** | **OLED Frame Delta** | *None* (Command `0x02`, Subtype `0x41`) | RLE-compressed display differences to redraw UI screen. | **Realized** |
+| **Host ➔ HW** | **Start OLED Stream** | *None* | Sends `[0xF0] [0x00 0x21 0x7B 0x01] [0x02] [0x00] [0x03] [0xF7]` | **Realized** |
+| **HW ➔ Host** | **OLED Frame Delta** | *None* | Command `0x02`, Subtype `0x40`. RLE-compressed display differences to redraw OLED screen. | **Realized** |
+| **HW ➔ Host** | **7-Segment Display** | *None* | Command `0x02`, Subtype `0x41`. Character segment configurations. | **Realized** |
 | **HW ➔ Host** | **Ping Response** | `{"^ping": {}}` | *None*. Heartbeat echo confirming hardware is online. | **Realized** |
 | **HW ➔ Host** | **Directory Reply** | `{"^dir": {"list": [{"name": "s1.xml", "size": 19974}], "err": 0}}` | *None*. Returns structured file arrays to sidebar. | **Realized** |
 | **HW ➔ Host** | **Open File Reply** | `{"^open": {"fid": 1, "size": 19974, "err": 0}}` | *None*. Returns file descriptor and byte size. | **Realized** |
@@ -1059,12 +1073,12 @@ Follow these precise steps to import your Ableton Live Set and play it in the De
 
 ## 15. Performance View & FX Touch-Pads Grid
 
-The **`Performance View (PERF)`** provides a hardware-inspired 16-column × 8-row dynamic interactive touch grid. It maps variables and sends real-time global sweeps straight to the active focus track, creating an electronic performance launch pad.
+The **`Performance View (PERF)`** provides a hardware-inspired 18-column × 8-row dynamic interactive touch grid. It maps variables and sends real-time global sweeps straight to the active focus track, creating an electronic performance launch pad.
 
 ![Performance View FX Touch-Pads Grid](images/deluge_performance_view.png)
 
 ### 15.1 Column FX Variables and Row Intensities Mapping
-* **16 Columns FX Destinations**:
+* **18 Columns FX Destinations**:
   1. `VOLUME`: Master track volume leveling.
   2. `PAN`: Sound spatial panning sweep.
   3. `LPF FREQ`: Low-pass filter cutoff frequency.
@@ -1081,17 +1095,20 @@ The **`Performance View (PERF)`** provides a hardware-inspired 16-column × 8-ro
   14. `SIDECHAIN`: Direct kick ducking volume envelope.
   15. `COMP`: Master compressor threshold drive.
   16. `NOISE VOL`: White noise generator injection.
+  17. `PERF MUTE`: Global performance mute group trigger.
+  18. `SNAPSHOT`: Temporarily saves or recalls parameters states.
 * **8 Rows Value Intensities (0 to 7)**: Row 0 represents the minimum value range of the column FX, and Row 7 represents the maximum value intensity. Clicking a pad lights it up and writes the level change instantly to playback parameters.
 
 ### 15.2 Dual Interaction Play Modes: LATCH vs MOMENTARY
 * **LATCH Mode**: Tapping a pad toggles the effect on/off like a static switch, allowing you to select and keep multiple columns active at once (multi-select style) to build custom static multi-effects matrices!
 * **MOMENTARY Mode**: Actively triggers effects while you press-and-hold down a pad, and instantly restores the original parameters state the moment you release the mouse/pad! Perfect for quick glitch fills, transient filter sweeps, and dramatic drop build-ups!
+* **Mode Toggle**: Managed via the **`MODE`** toggle button in the panel's top bar (which displays the active state, `LATCH` or `MOMENTARY`).
 * **Column Section Mutes**: Pressing a column's header button acts as a group bypass/mute, instantly resetting all active values in that column block back to their safe baseline states.
 
 #### 🔊 Tutorial L: Live High-Pass Filtering & Stutter Sweeps during Drops
 1. Press **`Spacebar`** to start playing a heavy, 4-bar drum beat sequence.
 2. Click the **`PERF`** button on the top toolbar to open the Performance touch-pads grid.
-3. Look at the bottom toolbar: click the **`[MOMENTARY]`** button to activate live momentary triggers mode!
+3. Look at the Performance top bar: toggle the **`MODE`** button to **`MOMENTARY`** to activate live momentary triggers mode!
 4. As the song approaches the end of the 2nd bar, click and drag a vertical line on Column 5 (**`HPF FREQ`**) from Row 0 up to Row 7! You will hear the sound thin out beautifully as a high-pass sweeping filter slices out the low-end!
 5. Hold down the pad at Column 11 (**`STUTTER`**) Row 5: the drum beat instantly enters a fast, repeating $1/16$-note stutter loop!
 6. Exactly on the downbeat of the 3rd bar, release the mouse! The high-pass filter instantly snaps open, the stutter loop ends, the full thumping bass kick crashes back in, and the song drops with perfect timing!
@@ -1124,8 +1141,18 @@ The **`Settings ➔ Preferences...`** panel manages your paths and grid configur
 * **Grid Layout Profiles**: Standardize your interface to **`Grid 8x16`** or extended **`Grid 16x16`** formats.
 * **Microtuning & Custom Temperaments**: Fully integrated at the song-level, allowing you to break free from standard 12-TET tuning and explore dynamic, alternative temperaments, historical scales, and custom EDO microtonality (described in detail in [Section 17.2](#172-microtuning-custom-temperaments--scala-scl-imports) below).
 
-### 17.2 Microtuning, Custom Temperaments & Scala (.scl) Imports
+### 17.1 Hardware Character Emulations & DSP FX Engines
+To reproduce the exact, iconic lo-fi and physical audio character of the vintage Deluge hardware unit, the application incorporates specialized DSP emulation settings under the **Audio** tab in the Preferences panel (**`Settings ➔ Preferences...`**):
+* **Reverb Model**: Select your preferred algorithmic hardware emulation reverb bus from the dropdown:
+  * **`JCRev`**: Classic John Chowning-style waveguide reverberator.
+  * **`FreeVerb`**: Classic high-density Schroeder/Moorer feedback comb filter matrix.
+  * **`MVerb`**, **`ProceduralReverb`**, or **`RingsReverb`**.
+* **Master Saturation Guard**: Check **`Enable Master Saturation Guard`** to enable the warm analog headroom compression of physical output op-amps via a state-space tanh lookup:
+  $$V_{out}(t) = \tanh(V_{in}(t) \cdot \text{drive})$$
+* **Nonlinear Filter Drive**: Check **`Enable Nonlinear Filter Drive`** to mimic input stage clipping and feedback charging loops inside the transistor ladder filter algorithms (`SVFilter` and `LpLadderFilter`).
+* **Bit-Crusher DSP**: Check **`Enable Decimation Bit-Crusher`** to simulate early Deluge DAC converter grit by truncating the 24-bit audio stream to a 14-bit integer space with dither.
 
+### 17.2 Microtuning, Custom Temperaments & Scala (.scl) Imports
 The Deluge-Java Workstation features a microtuning engine that is fully integrated into the song structure and sound synthesis pipelines. You can configure custom temperaments, detune individual note classes, calibrate the base reference pitch, and import standard Scala `.scl` files.
 
 Access the interface by selecting **`Settings ➔ Tuning & Temperaments...`** from the global menu bar:
@@ -1147,17 +1174,6 @@ All microtuning adjustments are applied directly to the active synthesizer voice
 Microtuning configurations are serialized directly inside the song's `.XML` file under the `<microtuning>` element:
 *   Standard 12-TET songs are untouched, keeping files 100% clean and backward-compatible.
 *   Custom tunings store note count, temperament type, reference pitch, and cents/ratios arrays.
-
-### 17.1 Hardware Character Emulations & Master Saturation Drive
-
-To reproduce the exact, iconic lo-fi and physical audio character of the vintage Deluge hardware unit, the application incorporates four specialized DSP emulation configurations (accessible under the Preferences panel):
-
-* **Master Bus Saturation (Tanh)**: Emulates the warm analog headroom compression of the physical output op-amps using a state-space tanh lookup:
-  $$V_{out}(t) = \tanh(V_{in}(t) \cdot \text{drive})$$
-  Adjust the Master Saturation slider to inject rich, harmonic distortion into hot mixes.
-* **LPF Drive Saturation**: Mapped directly inside the transistor ladder filter algorithms (`SVFilter` and `LpLadderFilter`), mimicking the input stage clipping drive of analog synthesizers.
-* **14-bit DAC Converter Emulation**: Reproduces the vintage digital-to-analog converter grit of early Deluge batches. It truncates the 24-bit floating-point audio samples to a 14-bit integer space, injecting high-performance Triangular Probability Density Function (TPDF) dither to mask quantization noise with analog-sounding noise floor.
-* **JCRev / Freeverb Emulation**: Simulates the early digital spring-modeling reverberation algorithm using a high-density matrix of comb and allpass filters with room size and damping controls.
 
 ### Complete Keyboard Shortcuts Reference:
 | Shortcut Combination | Focused Panel / Action | Operational Description |
@@ -1288,8 +1304,8 @@ This chapter provides a direct, code-by-code mapping of every shortcut code from
 | **SQ03** | Adjust note velocity | Hold pad + turn `◄►` knob | Right-click the step ➔ **Edit Step Properties…** ➔ Velocity slider |
 | **SQ04** | Note probability | Hold pad + turn `Select` left | Right-click the step ➔ **Edit Step Properties…** ➔ Probability / Fill slider |
 | **SQ05** | Note iteration | Hold pad + turn `Select` right | Right-click the step ➔ **Edit Step Properties…** ➔ Iteration spinner |
-| **SQ06** | Copy notes | Hold `Learn` + push `◄►` | Select notes or columns + press **`Ctrl + C`** |
-| **SQ07** | Paste notes | Hold `Learn` + `Shift` + push `◄►`| Select target cell + press **`Ctrl + V`** |
+| **SQ06** | Copy notes | Hold `Learn` + push `◄►` | Select notes or columns + press **`Ctrl + Shift + C`** |
+| **SQ07** | Paste notes | Hold `Learn` + `Shift` + push `◄►`| Select target cell + press **`Ctrl + Shift + V`** |
 | **SQ08** | Euclidean Rhythm | Push `Select` in Euclidean menu | Right-click a step in the target row ➔ **Euclidean Fill Row…** |
 | **SQ09** | Shift all clip notes | Push `▼▲` + turn `◄►` knob | Drag notes, or use Nudge slider in Step properties |
 | **SQ10** | Clear clip | Press `Shift` + `Back` + push `◄►`| Click **`[Clear Track]`** button, or right-click track ➔ Clear |
@@ -1712,9 +1728,9 @@ The Deluge-Java Workstation features a **Macro Scripting & Song Automation Engin
 
 ### 22.1 How to Record a Macro
 1. Open the **Macro** menu.
-2. Click **Start Recording**. The menu header transforms into: **`Macro ●`**.
+2. Click **Start Recording Macro**. The menu header transforms into: **`Macro ●`** in red text.
 3. Perform sequencing actions: toggle steps, add tracks, load presets, adjust parameters.
-4. Open the **Macro** menu and click **Stop Recording**.
+4. Open the **Macro** menu and click **Stop Recording Macro**.
 5. Click **Save Macro Script...** to save as a `.txt` file.
 
 ### 22.2 Script Syntax Reference
@@ -1737,9 +1753,75 @@ Macro scripts are line-based text files.
 
 ## 23. Interactive Synth Preset Designer
 
-Designing custom sounds is a workflow in the Deluge-Java Workstation.
+Designing custom sounds is a key workflow in the Deluge-Java Workstation. The application features a comprehensive, multi-tab **Synth Track Editor** window that exposes every aspect of the synthesis engine, including oscillators, envelopes, modulation matrices, LFOs, and hardware-modeled filters.
 
-### 23.1 How to Design and Save a Custom Preset
+Double-click any Synth Track's header name in the sequencer grid to open the editor.
+
+### 23.1 Detailed Synth Configurator Layout & Tabs
+
+The editor organizes the parameters into logical tabs to keep the workflow clean and intuitive:
+
+#### 1. 🎛️ OSC / FILTER / FM (MAIN PANEL)
+A consolidated quick-access panel showing the core synthesis controls. Ideal for rapid wiggling during performances:
+*   **Oscillators**: Type and volume leveling for Osc 1 and Osc 2.
+*   **LPF (Low-Pass Filter)**: Cutoff frequency and resonance sliders.
+*   **FM Intensity**: Depth of frequency modulation between oscillators.
+
+#### 2. 🌊 SOURCES
+Detailed configurations for the synth's voice generators:
+*   **OSC Sub-Tab**: Waveform selectors (Sine, Saw, Square, Triangle, Noise, Sample, or Wavetable) for Osc 1 and Osc 2. Includes pulse-width modulation (PWM), oscillator sync, and frequency detuning.
+*   **ALGORITHM Sub-Tab**: Selects the active synthesis engine type:
+  *   **`SUBTRACTIVE`**: Traditional analog modeling using dual oscillators through a low-pass filter.
+  *   **`FM`**: Frequency modulation where Osc 2 modulates the frequency of Osc 1.
+  *   **`RINGMOD`**: Ring modulation multiplying the signals of Osc 1 and Osc 2.
+  *   **Voice Polyphony Mode**: Selects `POLY` (polyphonic play), `MONO` (monophonic), `LEGATO` (smooth sliding notes), `AUTO`, or `CHOKE` groups.
+*   **DX7 Sub-Tab**: A dedicated DX7 patch importer. Click **`Import DX7 Cartridge...`** to load a standard `.SYX` DX7 cartridge bank file and instantly convert its patch configurations to Deluge parameters!
+
+#### 3. 📉 HPF (HIGH-PASS FILTER)
+A dedicated panel to configure the high-pass filter cutoff frequency and resonance, letting you carve out muddy low frequencies from synth pads.
+
+#### 4. ✉️ ENVELOPE
+Exposes **Envelope 1** (typically routed to volume/VCA) and **Envelope 2** (typically routed to LPF cutoff) ADSR sliders. Drag sliders to adjust Attack, Decay, Sustain, and Release times, and watch the real-time ADSR curve update in the graphical readout.
+
+#### 5. 〰️ LFO
+Provides controls for **LFO 1** and **LFO 2**:
+*   Select LFO waveform shapes (Sine, Triangle, Saw, Square, or Random Sample-and-Hold).
+*   Adjust LFO frequency rate.
+*   A real-time animated oscillator visualizes the LFO frequency and wave cycle shape in real-time.
+
+#### 6. 🔌 MODULATION (THE PATCHBAY MATRIX)
+An interactive routing grid. Create custom patch cables connecting mod sources (e.g. `ENV1`, `ENV2`, `LFO1`, `LFO2`, `VELOCITY`, `AFTERTOUCH`) to destination parameters (e.g. `LPF Cutoff`, `Pitch`, `Volume`, `Pan`). Each connection has a bipolar slider adjusting the modulation depth.
+
+#### 7. 🎹 ARP (ARPEGGIATOR)
+Adjust the arpeggiator rate, octave range, sync division, chord gating modes, and click **`Enable Arpeggiator`** to sweep keys polyphonically.
+
+#### 8. 🎚️ FX RACK
+Exposes track-level effects processors:
+*   **MOD FX**: Select Chorus, Flanger, or Phaser, and adjust depth, feedback, and rate.
+*   **EQ**: Bass and Treble shelving gains.
+*   **COMPRESSOR**: Dynamic threshold and release compression controls.
+
+#### 9. ⚙️ SETUP UTILITIES
+*   **AUTOMATION**: An automation lanes table. Click the checkbox next to any automatable parameter to enable it, exposing a step-by-step slider grid to draw automation directly.
+*   **MIDI LEARN**: A table mapping synth parameters to physical MIDI CC signals. Click **`[MIDI Learn]`**, click a parameter slider in the UI, and sweep your hardware controller dial to map them instantly.
+
+---
+
+### 23.2 Synth Preset Browser Sidebar
+
+On the right-hand side of the editor is a collapsible **`Preset Browser Sidebar`**:
+*   Lists all `.XML` synth presets in your SD Card Mounted Library (`SYNTHS/` folder).
+*   Presets are loaded instantly on double-click, letting you audition presets rapidly during sequencing.
+*   Click **`COLLAPSE ➔`** to hide the browser and maximize editor screen space.
+
+---
+
+### 23.3 Saving Your Presets
+Click the **`SAVE AS PRESET 💾`** button in the header toolbar of the editor:
+1. Enter a custom name when prompted (e.g. `Fat Sub Bass`).
+2. The workstation automatically serializes the active track parameters into a standard Deluge-compatible song XML element structure and saves it to `[LibraryRoot]/SYNTHS/Fat Sub Bass.XML`.
+3. If you copy this file to your physical SD card, it can be loaded directly onto your Deluge hardware synthesizer!
+
 ---
 
 ## 24. Master FX Console & Modulation Dashboard

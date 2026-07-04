@@ -34,6 +34,7 @@ public class SwingKeyZoneMapperDialog extends JDialog {
   private JSpinner maxPitchSpinner;
   private JSpinner minVelSpinner;
   private JSpinner maxVelSpinner;
+  private JSpinner transposeSpinner;
   private JSpinner loopStartSpinner;
   private JSpinner loopEndSpinner;
   private JCheckBox loopCheckBox;
@@ -188,6 +189,16 @@ public class SwingKeyZoneMapperDialog extends JDialog {
     styleSpinner(maxPitchSpinner);
     maxPitchSpinner.addChangeListener(e -> updateSelectedZoneFromFields());
     panel.add(maxPitchSpinner, c);
+
+    c.gridx = 2;
+    c.gridy = 3;
+    panel.add(new JLabel("Transpose:"), c);
+
+    c.gridx = 3;
+    transposeSpinner = new JSpinner(new SpinnerNumberModel(0, -48, 48, 1));
+    styleSpinner(transposeSpinner);
+    transposeSpinner.addChangeListener(e -> updateSelectedZoneFromFields());
+    panel.add(transposeSpinner, c);
 
     // ── Column 3: Velocity Boundaries ──
     c.gridx = 4;
@@ -357,6 +368,7 @@ public class SwingKeyZoneMapperDialog extends JDialog {
     pathField.setText(new File(kz.samplePath).getName());
     minPitchSpinner.setValue(kz.minPitch);
     maxPitchSpinner.setValue(kz.maxPitch);
+    transposeSpinner.setValue(kz.transpose);
     minVelSpinner.setValue(kz.minVelocity);
     maxVelSpinner.setValue(kz.maxVelocity);
     loopCheckBox.setSelected(kz.looping);
@@ -373,6 +385,7 @@ public class SwingKeyZoneMapperDialog extends JDialog {
     if (kz != null) {
       kz.minPitch = (Integer) minPitchSpinner.getValue();
       kz.maxPitch = (Integer) maxPitchSpinner.getValue();
+      kz.transpose = (Integer) transposeSpinner.getValue();
       kz.minVelocity = (Integer) minVelSpinner.getValue();
       kz.maxVelocity = (Integer) maxVelSpinner.getValue();
       kz.looping = loopCheckBox.isSelected();
@@ -419,6 +432,7 @@ public class SwingKeyZoneMapperDialog extends JDialog {
     pathField.setEnabled(enabled);
     minPitchSpinner.setEnabled(enabled);
     maxPitchSpinner.setEnabled(enabled);
+    transposeSpinner.setEnabled(enabled);
     minVelSpinner.setEnabled(enabled);
     maxVelSpinner.setEnabled(enabled);
     loopCheckBox.setEnabled(enabled);
