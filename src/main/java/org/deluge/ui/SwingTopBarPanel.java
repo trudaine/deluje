@@ -33,6 +33,8 @@ public class SwingTopBarPanel extends JPanel {
   private JButton recBtn;
   private JButton resampleBtn;
   private JToggleButton captureBtn;
+  private JButton undoBtn;
+  private JButton redoBtn;
   private JToggleButton stutterBtn;
   private javax.swing.JComboBox<String> stutterDivCombo;
   public static boolean isAffectEntireActive = false;
@@ -394,6 +396,29 @@ public class SwingTopBarPanel extends JPanel {
         });
     add(captureBtn);
 
+    // ── Undo / Redo buttons (surface the undo stack that Ctrl+Z / Ctrl+Y drive) ──
+    undoBtn = new JButton("↶");
+    undoBtn.setToolTipText("Undo (Ctrl+Z)");
+    styleButton(undoBtn, new Color(0x1e, 0x1e, 0x24), new Color(0x9c, 0xa3, 0xaf));
+    undoBtn.addActionListener(
+        e -> {
+          if (SwingDelugeApp.mainInstance != null) SwingDelugeApp.mainInstance.doUndo();
+        });
+    add(undoBtn);
+
+    redoBtn = new JButton("↷");
+    redoBtn.setToolTipText("Redo (Ctrl+Y)");
+    styleButton(redoBtn, new Color(0x1e, 0x1e, 0x24), new Color(0x9c, 0xa3, 0xaf));
+    redoBtn.addActionListener(
+        e -> {
+          if (SwingDelugeApp.mainInstance != null) SwingDelugeApp.mainInstance.doRedo();
+        });
+    add(redoBtn);
+
+    // Keep the buttons' enabled state in sync with the active project's undo stack.
+    new javax.swing.Timer(300, e -> refreshUndoRedoButtons()).start();
+    refreshUndoRedoButtons();
+
     // Physical Deluge Hardware Status Panel
     if (SwingDelugeApp.mainInstance != null
         && SwingDelugeApp.mainInstance.getMidiService() != null) {
@@ -704,6 +729,23 @@ public class SwingTopBarPanel extends JPanel {
             });
 
     applyDisplayPreferences();
+  }
+
+  /** Enables/disables the undo & redo buttons to match the active project's undo stack. */
+  private void refreshUndoRedoButtons() {
+    if (undoBtn == null || redoBtn == null) return;
+    org.deluge.model.ProjectModel project =
+        SwingDelugeApp.mainInstance != null
+            ? SwingDelugeApp.mainInstance.getCurrentProject()
+            : null;
+    if (project == null) {
+      undoBtn.setEnabled(false);
+      redoBtn.setEnabled(false);
+      return;
+    }
+    org.deluge.model.UndoRedoStack stack = project.getUndoRedoStack();
+    undoBtn.setEnabled(stack.canUndo());
+    redoBtn.setEnabled(stack.canRedo());
   }
 
   private JPanel createEncoderSim(

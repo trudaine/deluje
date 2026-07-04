@@ -699,7 +699,7 @@ public class SwingDelugeApp extends JFrame {
     if (arrGridPanel != null) arrGridPanel.refresh();
   }
 
-  private void doUndo() {
+  public void doUndo() {
     if (currentProject == null) return;
     var stack = currentProject.getUndoRedoStack();
     if (!stack.canUndo()) return;
@@ -727,7 +727,7 @@ public class SwingDelugeApp extends JFrame {
     refreshGrids();
   }
 
-  private void doRedo() {
+  public void doRedo() {
     if (currentProject == null) return;
     var stack = currentProject.getUndoRedoStack();
     if (!stack.canRedo()) return;

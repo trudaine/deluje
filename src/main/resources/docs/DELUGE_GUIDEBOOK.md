@@ -490,8 +490,8 @@ The **Source** dropdown offers thirteen options — `velocity`, `envelope1`–`e
 2. **Envelope 1 (Uni)**: shapes the voice's volume outline (VCA) by default.
 3. **Envelope 2 (Uni)**: sweeps the Low-Pass Filter cutoff by default.
 4. **Envelopes 3 & 4 (Uni)**: two more ADSR envelopes, freely assignable (e.g. pitch or decay sweeps).
-5. **LFO 1 & 2 (Bi)**: Low Frequency Oscillators. LFO 1 can run "Global" (one phase shared across voices); LFO 2 is "Local" (per-voice phase, re-triggered on note-on).
-6. **LFO 3 & 4 (Bi)**: two more LFOs for secondary wiggles (rate offsets, panning, etc.).
+5. **LFO 1 & 3 (Bi, Global)**: Low Frequency Oscillators with one phase shared across all voices — good for synced, whole-patch movement. (Scope is fixed by slot, not selectable.)
+6. **LFO 2 & 4 (Bi, Local)**: per-voice LFOs whose phase re-triggers on each note-on — good for independent per-note movement.
 7. **Aftertouch (Uni)**: pressure held on pads during play.
 8. **Note / Key Tracking (Bi)**: scales relative to MIDI pitch, centered on Middle C (note 60 = $0.0$); higher notes give positive offsets, lower notes negative.
 9. **Random (Uni)**: a sample-and-hold value (0.0–1.0) chosen fresh on every note-on.
