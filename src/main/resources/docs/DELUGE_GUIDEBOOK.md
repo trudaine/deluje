@@ -601,37 +601,39 @@ Enable **Live Capture** to record a Session performance straight into the arrang
 
 ---
 
-## 8. DSP FX Bounding Box Dials Deck
+## 8. Master FX Console & Bottom Master Panel
 
-The bottom segment of your grid dashboard houses effects path processors:
+Effects processing in the Deluge-Java Workstation is split into three levels: the **Bottom Master Panel** for global project controls, the **Master FX Console** dialog for global spatial effects, and per-track **Track-Level FX** inside the sound editor.
 
-```carousel
-![Mod FX Chorus Flanger Phaser tab](images/deluge_synth_tab_mod_fx.png)
-<!-- slide -->
-![2-Pole resonant High-Pass Filter tab](images/deluge_synth_tab_hpf.png)
-<!-- slide -->
-![2-Band shelving Master EQ tab](images/deluge_synth_tab_eq.png)
-<!-- slide -->
-![Stereo Compressor dynamic threshold tab](images/deluge_synth_tab_compressor.png)
-```
+### 8.1 The Bottom Master Panel
+Located directly under the step sequencer grid, this compact 54px panel provides key master parameters:
+*   **Status Counter**: Shows the active playhead beat position in real time (e.g. `1:1:1`).
+*   **Transpose**: Global playback transposition (-24 to +24 semitones).
+*   **Scale Mode**: Quantizes isomorphic pads notes to the selected scale (Major, Minor, Pentatonic, Chromatic).
+*   **Master Compressor**: Quick adjustments for Threshold, Attack, Release, Ratio, and Blend.
+*   **Master Volume**: Overall song playback gain.
 
-* **Mod FX (Chorus / Flanger / Phaser)**: 
-  * Selectable modulation types adjusting LFO speed Hz, feedback delay line loops, depth width, and phase offset splits for wide-screen stereo images.
-* **2-Band shelving Master EQ**: 
-  * Shelving Bass and Treble dials to isolate low-ends and polish high frequencies.
-* **Stereo Ping-Pong Delay**: 
-  * Features delay time divisions sync parameters ($1/4$, $1/8$, $1/16$ notes or dotted eighths), feedback loop path clipping, and "Analog Mode" filter color simulation (gradually dampens high frequencies inside the delay line on every repeat).
-* **Reverb Deck (JCRev Engine)**: 
-  * Room Size volume ratios, High-Pass Filter (HPF) damping cutoffs, and stereo spatial width selectors to craft small spaces or long cathedral tails.
-* **Overdrive Distortion Chain**: 
-  * Interactive controls for Master Saturation threshold level (adds tube clipping saturation harmonics), sample-rate decimation steps, and Bitcrusher distortion levels for digital tracks.
+### 8.2 The Master FX Console
+Clicking the **`🎛️ MASTER FX`** button in the top toolbar opens the global Mixing Console. It provides four tabs:
+1.  **🌌 REVERB TANK**: Controls global room size, decay times, high-pass filter (HPF) damping, and stereo spatial width.
+2.  **💨 REVERB COMP**: A dedicated sidechain compressor that ducks the reverb tail based on signal transients.
+3.  **⏳ STEREO DELAY**: Configures delay feedback, tempo sync timing divisions, Ping-Pong mode, and Analog Mode (filter color simulation that dampens high frequencies on repeats).
+4.  **🌋 DRIVE & SAT**: Adjusts master saturation threshold (adding analog tube saturation harmonics), sample-rate decimation, and bitcrush distortion.
 
-#### 🎛️ Tutorial D: Synth Polish Effects Chain
-1. Open your active Synth track config dialog and select the **`MOD FX`** tab. Set the Mod FX type to **`FLANGER`**, set the Rate to **`0.45Hz`** (slow movement), and the Depth to **`60%`**.
-2. Go to the **`EQ`** tab. Boost the **Treble** slightly to **`+3dB`** and trim the **Bass** to **`-2dB`**.
-3. Go to the **`COMPRESSOR`** tab. Set the Threshold to **`-18dB`**, the Ratio to **`4.0:1`**, and the Attack to **`15ms`**.
-4. Go to the **`HPF`** tab. Slide HPF Cutoff to a safe low-cut point: **`120Hz`** to clean up raw sub rumble from your synth pads.
-5. *Result*: Press play: you will hear a polished stereo synth pad.
+### 8.3 Track-Level FX (Sound Editor)
+Double-clicking a track name opens the sound editor (or Synth Configuration Dialog), containing dedicated panels for sculpting individual track signals:
+*   **HPF**: A 2-pole resonant high-pass filter with feedback ladder overdrive to clean up low-end rumble.
+*   **EQ**: Master 2-band shelving equalizer (Bass and Treble boost/cut).
+*   **COMPRESSOR**: Dynamic compressor adjusting Threshold, Ratio, Attack, Release, and sidechain HPF.
+*   **MOD FX**: Configures rate, depth, and feedback parameters for Chorus, Flanger, or Phaser modulation lines.
+
+#### 🎛️ Tutorial D: Polish a Lead Synth (Track-Level FX)
+1. Double-click the Synth track name to open its sound editor.
+2. Select the **`MOD FX`** tab. Set the type to **`FLANGER`**, the Rate to **`0.45Hz`** (slow movement), and the Depth to **`60%`**.
+3. Select the **`EQ`** tab. Boost **Treble** to **`+3dB`** and cut **Bass** to **`-2dB`** to help the lead cut through the mix.
+4. Select the **`COMPRESSOR`** tab. Set the Threshold to **`-18dB`**, the Ratio to **`4.0:1`**, and the Attack to **`15ms`**.
+5. Select the **`HPF`** tab. Slide the HPF Cutoff to **`120Hz`** to filter out unnecessary low rumble.
+6. *Result*: The lead synth now sounds wider, cleaner, and dynamically controlled in the stereo mix.
 
 ---
 
@@ -643,11 +645,11 @@ The top menu action **`Tools ➔ Delugeator Randomizer...`** (global shortcut **
 
 ### Tab 1: 🎲 Synth Randomizer:
 * **Continuous Probability Distributions**: Algorithms morph subtractive parameters, FM carrier multipliers, and filter feedback.
-* **Live Needle Gauge**: A custom circular dial maps patch randomness onto a color scale.
-* **Overdrive Toggle**: Check this box to allow wider FM feedback loops, extreme ladder overdrive, and filter self-oscillation.
+* **Live Randomness Gauge**: A horizontal multi-colored progress bar with a white tracking needle that maps the patch's average randomness percentage onto a visual range scale (from Safe/Mild up to Wild/Brain-Crushing).
+* **Hardcore Mode**: Checking this box (**Hardcore Mode ☠️ (Worse presets, but fun)**) allows wider FM feedback loops, extreme ladder overdrive, and filter self-oscillation.
 
 ### Tab 2: 🥁 Kit Super-Generator:
-* Select folders, map drum kits with smart auto-stems regex, audition steps, auto-choke hats, and output ready-to-load KITS XML presets in seconds.
+* Select a sample directory, automatically map drum kits to track rows using the smart case-insensitive auto-mapper, audition steps, enable Auto-Choke (exclusion mute group 1) for hats, and generate ready-to-load drum kit XML presets in one click.
 
 ### 9.3 Drone Lab & Evolving Texture Generator:
 The top menu action **`Tools ➔ Drone Lab & Texture Generator...`** (global shortcut **`Ctrl + D` / `Cmd + D`**) opens the Drone Lab dialog to build drone textures, apply microtonal temperaments, and sweep parameters.
