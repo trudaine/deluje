@@ -3292,7 +3292,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     refresh();
   }
 
-  private static record TransposedStep(int modelRow, int step, org.deluge.model.StepData data) {}
+  static record TransposedStep(int modelRow, int step, org.deluge.model.StepData data) {}
 
   // ── GridScrollController.GridContext Implementation ──
   @Override

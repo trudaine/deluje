@@ -1361,4 +1361,30 @@ public class SwingDelugeAppE2ETest {
       bridge.shutdown();
     }
   }
+
+  @Test
+  public void testStutterUIAndShortcutWorkflow() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract(44100, 2);
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null);
+
+    try {
+      SwingTopBarPanel topBar = app.getTopBar();
+      assertNotNull(topBar, "TopBarPanel must be initialized");
+
+      // Verify initial state
+      assertEquals(0L, bridge.getStutterOn(), "Stutter should be off initially");
+
+      // Activate stutter via UI method
+      topBar.setStutterActive(true);
+      assertEquals(1L, bridge.getStutterOn(), "Stutter must be engaged in bridge");
+
+      // Deactivate stutter
+      topBar.setStutterActive(false);
+      assertEquals(0L, bridge.getStutterOn(), "Stutter must be disengaged in bridge");
+    } finally {
+      app.dispose();
+      bridge.shutdown();
+    }
+  }
 }

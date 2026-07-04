@@ -18,7 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * JNI-Free Digital Signal Quality and Waveform Fidelity Test. Directly renders the wave presets in
+ * Pure Java Digital Signal Quality and Waveform Fidelity Test. Directly renders the wave presets in
  * memory and analyzes their real physical components (RMS, DC Offset, Zero-Crossings, and transient
  * decay envelopes).
  */
