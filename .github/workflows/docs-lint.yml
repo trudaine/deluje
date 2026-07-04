@@ -1,0 +1,15 @@
+name: Docs Lint
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  doc-links:
+    name: No hardcoded absolute paths in Markdown
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Markdown for machine-specific file:// links
+        run: bash scripts/check-doc-links.sh
