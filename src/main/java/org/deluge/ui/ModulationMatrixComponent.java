@@ -295,7 +295,8 @@ public class ModulationMatrixComponent extends JComponent {
           float amt = cable.amount();
 
           // Color based on polarity: positive is Theme Primary, negative is Theme Secondary
-          Color baseColor = (amt >= 0) ? ThemeManager.getPrimaryAccent() : ThemeManager.getSecondaryAccent();
+          Color baseColor =
+              (amt >= 0) ? ThemeManager.getPrimaryAccent() : ThemeManager.getSecondaryAccent();
 
           // Filled square with opacity scaled by modulation amount
           int alpha = (int) (40 + Math.abs(amt) * 160);

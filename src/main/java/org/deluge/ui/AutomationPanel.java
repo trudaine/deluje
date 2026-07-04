@@ -130,7 +130,8 @@ public class AutomationPanel extends JPanel {
               clip.clearAutomation(paramName);
             }
 
-            enableBox.setForeground(isSelected ? ThemeManager.getPrimaryAccent() : Color.LIGHT_GRAY);
+            enableBox.setForeground(
+                isSelected ? ThemeManager.getPrimaryAccent() : Color.LIGHT_GRAY);
 
             // Toggle JSliders and JLabels states live on screen instantly!
             for (int s = 0; s < stepCount; s++) {

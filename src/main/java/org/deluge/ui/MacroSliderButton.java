@@ -186,9 +186,7 @@ public class MacroSliderButton extends JButton {
       Color alphaC2 = new Color(c2.getRed(), c2.getGreen(), c2.getBlue(), 160);
 
       GradientPaint grad =
-          new GradientPaint(
-              w / 2.0f, h - yPad, alphaC1,
-              w / 2.0f, h - yPad - barH, alphaC2);
+          new GradientPaint(w / 2.0f, h - yPad, alphaC1, w / 2.0f, h - yPad - barH, alphaC2);
       g2.setPaint(grad);
       g2.fillRoundRect(xPad, h - yPad - barH, rw, barH, arc, arc);
 

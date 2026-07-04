@@ -1336,8 +1336,10 @@ public class ClipEditorController {
   }
 
   public void handlePadMouseWheel(int visibleRow, int visualCol, java.awt.event.MouseWheelEvent e) {
-    if (parent.projectModel == null || parent.editedModelTrack >= parent.projectModel.getTracks().size()) return;
-    org.deluge.model.TrackModel tModel = parent.projectModel.getTracks().get(parent.editedModelTrack);
+    if (parent.projectModel == null
+        || parent.editedModelTrack >= parent.projectModel.getTracks().size()) return;
+    org.deluge.model.TrackModel tModel =
+        parent.projectModel.getTracks().get(parent.editedModelTrack);
     org.deluge.model.ClipModel cModel = tModel.getActiveClip();
     if (cModel == null) return;
 
