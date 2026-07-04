@@ -803,28 +803,29 @@ graph TD
 ```
 
 * **Independent Time-Stretching**: Forces a loaded WAV stem loop to stretch its playback speed to match the global tempo (BPM) exactly, without altering the loop's original key or pitch. Changing the master BPM keeps the loop locked to the sequencer grid.
-* **Real-Time Pitch-Shifting**: Transposes the loop's pitch up or down by semitones and cents, without changing the speed of playback. Phase vocoders and windowed overlap-add (OLA) algorithms process the audio to shift pitch.
+* **Real-Time Pitch-Shifting**: Transposes the loop's pitch up or down by semitones and cents, without changing the speed of playback.
 * **Transient Lock Points**: Pins specific timing landmarks within the file to maintain perfect time alignment even under extreme tempo shifts.
 
 #### 🎤 Tutorial I: Time-Stretching and Pitch-Shifting a Vocal Stem Loop
-1. Click **`File ➔ Load Audio Track...`** (or create a new lane row, set track type to `Audio Track`).
-2. Choose a vocal phrase WAV stem loop.
-3. Double-click the track to open its crop panel.
+1. Click the **`+ AUDIO`** button in the top toolbar to create a new audio track (or Shift-Click to instantly create a default named one).
+2. Drag and drop your vocal phrase WAV/AIF stem file from your system file explorer or the local library browser directly onto the track name label in the sidebar header to load it. The waveform will render in the background of the sequencer row.
+3. Double-click the track name to open the settings panel (or click its gear **⚙** button).
 4. Locate the **Length (Bars)** field: set it to **`4 Bars`** (informs the engine that the loop represents exactly four bars of music).
-5. Toggle the **`[✓] Time-Stretch`** checkbox to active. The engine stretches the sample loop playback speed to match your current session tempo (e.g. $120\text{ BPM}$).
+5. Toggle the **`Time-Stretch`** checkbox to active. The engine stretches the sample loop playback speed to match your current session tempo (e.g. $120\text{ BPM}$).
 6. Click the **Transpose** slider: set it to **`+3 semitones`** to pitch-shift the vocals higher.
 7. *Result*: Press play: the vocal stem plays in synchronization with your drum kit beats, maintaining its pitch even as session tempo changes.
 
-### 11.4 Threshold Loop Sampler & Real-Time Recording
+### 11.1 Threshold Loop Sampler & Real-Time Recording
 
 The **Threshold Loop Sampler** provides a dedicated real-time audio recording dashboard to capture live external audio (via microphone or line-in) and load it instantly into your workstation.
 
 ![Threshold Loop Sampler Dialog with Target Track Dropdown Open](images/deluge_threshold_record_dropdown.png)
 
 #### Key Features:
-* **Threshold-Triggered Recording**: The recording waits in an idle "Armed" state until the input signal level exceeds your set threshold (e.g. $-30\text{dB}$), waiting for audio input to exceed the threshold.
+* **Threshold-Triggered Recording**: The recording waits in an idle "Armed" state until the input signal level exceeds your set threshold (e.g. `-26 dB` default), starting automatically.
 * **Dynamic Target Routing**: You can select where the recorded audio is loaded when recording completes:
-  - **Kit Slots (1–16)**: Records a quick drum sample (kick, snare, hat) and loads it directly into a specific drum kit instrument row.
+  - **Kit Tracks**: Records a quick drum sample and loads it directly into a specific drum kit instrument row (Slots 1–16).
+  - **Synth Tracks**: Records a sample and loads it directly into the first oscillator of the synthesizer voice (Oscillator 1).
   - **Audio Tracks**: Records a long vocal/instrument phrase and instantiates it as a continuous **Audio Clip** on a target audio track.
 * **Loop Alignment**: Calculates the duration of the recorded loop and aligns it to the grid for synchronized playback.
 
