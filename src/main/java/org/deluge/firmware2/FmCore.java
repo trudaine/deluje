@@ -168,7 +168,7 @@ public final class FmCore {
         if (!hasContents[outbus]) add = false;
         if (inbus == 0 || inptr == null || !hasContents[inbus]) {
           if ((flags & 0xc0) == 0xc0 && feedbackShift < 16) {
-            computeFb(outptr, simdN, param, gain1, gain2, dgain, fbBuf, feedbackShift, add);
+            computeFb(outptr, n, param, gain1, gain2, dgain, fbBuf, feedbackShift, add);
           } else {
             computePure(outptr, simdN, param, gain1, gain2, dgain, add);
           }

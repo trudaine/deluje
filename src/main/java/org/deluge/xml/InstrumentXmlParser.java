@@ -441,6 +441,7 @@ public class InstrumentXmlParser {
     if (attrM1f != null && !attrM1f.isEmpty()) {
       try {
         synth.setModulator1Feedback(DelugeHexMapper.hexToFloat(attrM1f));
+        synth.setModulator1FeedbackQ31(DelugeHexMapper.hexToQ31(attrM1f));
       } catch (Exception e) {
         LOG.log(Level.FINE, "Exception parsing XML hex attribute", e);
       }
@@ -449,6 +450,7 @@ public class InstrumentXmlParser {
     if (attrM2a != null && !attrM2a.isEmpty()) {
       try {
         synth.setModulator2Amount(DelugeHexMapper.hexToFloat(attrM2a));
+        synth.setModulator2AmountQ31(DelugeHexMapper.hexToQ31(attrM2a));
       } catch (Exception e) {
         LOG.log(Level.FINE, "Exception parsing XML hex attribute", e);
       }
@@ -457,6 +459,7 @@ public class InstrumentXmlParser {
     if (attrM2f != null && !attrM2f.isEmpty()) {
       try {
         synth.setModulator2Feedback(DelugeHexMapper.hexToFloat(attrM2f));
+        synth.setModulator2FeedbackQ31(DelugeHexMapper.hexToQ31(attrM2f));
       } catch (Exception e) {
         LOG.log(Level.FINE, "Exception parsing XML hex attribute", e);
       }
@@ -465,6 +468,7 @@ public class InstrumentXmlParser {
     if (attrC1f != null && !attrC1f.isEmpty()) {
       try {
         synth.setCarrier1Feedback(DelugeHexMapper.hexToFloat(attrC1f));
+        synth.setCarrier1FeedbackQ31(DelugeHexMapper.hexToQ31(attrC1f));
       } catch (Exception e) {
         LOG.log(Level.FINE, "Exception parsing XML hex attribute", e);
       }
@@ -473,6 +477,7 @@ public class InstrumentXmlParser {
     if (attrC2f != null && !attrC2f.isEmpty()) {
       try {
         synth.setCarrier2Feedback(DelugeHexMapper.hexToFloat(attrC2f));
+        synth.setCarrier2FeedbackQ31(DelugeHexMapper.hexToQ31(attrC2f));
       } catch (Exception e) {
         LOG.log(Level.FINE, "Exception parsing XML hex attribute", e);
       }

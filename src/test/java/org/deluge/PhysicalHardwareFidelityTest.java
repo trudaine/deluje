@@ -50,6 +50,7 @@ public class PhysicalHardwareFidelityTest {
   public void setUp() {
     org.deluge.firmware2.Voice.testStartPhaseOverrideOsc1.set(-2);
     org.deluge.firmware2.Voice.testStartPhaseOverrideOsc2.set(-2);
+    org.deluge.firmware2.Functions.resetNoiseSeed();
   }
 
   @AfterEach
