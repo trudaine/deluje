@@ -1141,8 +1141,18 @@ The **`Settings ➔ Preferences...`** panel manages your paths and grid configur
 * **Grid Layout Profiles**: Standardize your interface to **`Grid 8x16`** or extended **`Grid 16x16`** formats.
 * **Microtuning & Custom Temperaments**: Fully integrated at the song-level, allowing you to break free from standard 12-TET tuning and explore dynamic, alternative temperaments, historical scales, and custom EDO microtonality (described in detail in [Section 17.2](#172-microtuning-custom-temperaments--scala-scl-imports) below).
 
-### 17.2 Microtuning, Custom Temperaments & Scala (.scl) Imports
+### 17.1 Hardware Character Emulations & DSP FX Engines
+To reproduce the exact, iconic lo-fi and physical audio character of the vintage Deluge hardware unit, the application incorporates specialized DSP emulation settings under the **Audio** tab in the Preferences panel (**`Settings ➔ Preferences...`**):
+* **Reverb Model**: Select your preferred algorithmic hardware emulation reverb bus from the dropdown:
+  * **`JCRev`**: Classic John Chowning-style waveguide reverberator.
+  * **`FreeVerb`**: Classic high-density Schroeder/Moorer feedback comb filter matrix.
+  * **`MVerb`**, **`ProceduralReverb`**, or **`RingsReverb`**.
+* **Master Saturation Guard**: Check **`Enable Master Saturation Guard`** to enable the warm analog headroom compression of physical output op-amps via a state-space tanh lookup:
+  $$V_{out}(t) = \tanh(V_{in}(t) \cdot \text{drive})$$
+* **Nonlinear Filter Drive**: Check **`Enable Nonlinear Filter Drive`** to mimic input stage clipping and feedback charging loops inside the transistor ladder filter algorithms (`SVFilter` and `LpLadderFilter`).
+* **Bit-Crusher DSP**: Check **`Enable Decimation Bit-Crusher`** to simulate early Deluge DAC converter grit by truncating the 24-bit audio stream to a 14-bit integer space with dither.
 
+### 17.2 Microtuning, Custom Temperaments & Scala (.scl) Imports
 The Deluge-Java Workstation features a microtuning engine that is fully integrated into the song structure and sound synthesis pipelines. You can configure custom temperaments, detune individual note classes, calibrate the base reference pitch, and import standard Scala `.scl` files.
 
 Access the interface by selecting **`Settings ➔ Tuning & Temperaments...`** from the global menu bar:
@@ -1164,17 +1174,6 @@ All microtuning adjustments are applied directly to the active synthesizer voice
 Microtuning configurations are serialized directly inside the song's `.XML` file under the `<microtuning>` element:
 *   Standard 12-TET songs are untouched, keeping files 100% clean and backward-compatible.
 *   Custom tunings store note count, temperament type, reference pitch, and cents/ratios arrays.
-
-### 17.1 Hardware Character Emulations & Master Saturation Drive
-
-To reproduce the exact, iconic lo-fi and physical audio character of the vintage Deluge hardware unit, the application incorporates four specialized DSP emulation configurations (accessible under the Preferences panel):
-
-* **Master Bus Saturation (Tanh)**: Emulates the warm analog headroom compression of the physical output op-amps using a state-space tanh lookup:
-  $$V_{out}(t) = \tanh(V_{in}(t) \cdot \text{drive})$$
-  Adjust the Master Saturation slider to inject rich, harmonic distortion into hot mixes.
-* **LPF Drive Saturation**: Mapped directly inside the transistor ladder filter algorithms (`SVFilter` and `LpLadderFilter`), mimicking the input stage clipping drive of analog synthesizers.
-* **14-bit DAC Converter Emulation**: Reproduces the vintage digital-to-analog converter grit of early Deluge batches. It truncates the 24-bit floating-point audio samples to a 14-bit integer space, injecting high-performance Triangular Probability Density Function (TPDF) dither to mask quantization noise with analog-sounding noise floor.
-* **JCRev / Freeverb Emulation**: Simulates the early digital spring-modeling reverberation algorithm using a high-density matrix of comb and allpass filters with room size and damping controls.
 
 ### Complete Keyboard Shortcuts Reference:
 | Shortcut Combination | Focused Panel / Action | Operational Description |
