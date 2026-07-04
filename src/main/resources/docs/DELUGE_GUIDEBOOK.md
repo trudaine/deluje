@@ -275,7 +275,7 @@ FM synthesis generates complex, metallic, and crystal timbres by modulating the 
 #### 🔔 Tutorial B: Crystal Bell (6-Operator FM Mode)
 1. Open the Synth Config editor, go to the **`OSC`** tab. Change the Synthesizer Mode from `SUBTRACTIVE` to **`FM`**.
 2. Select the **`ALGORITHM`** tab. Set the active Algorithm index to **`Algorithm 05`** (maps Op 6 and Op 5 as modulators cascading into Op 1 carrier).
-3. Select the **`DX7`** tab. Let's configure our key operators:
+3. Select the **`DX7`** tab. Let's configure the key operators:
    * **Operator 1 (Carrier)**: Set **Ratio Multiplier** to **`1.0`** (fundamental pitch), and Level to **`90%`**.
    * **Operator 5 (Primary Modulator)**: Set **Ratio Multiplier** to **`3.5`** (creates standard bell harmonics), and Level to **`75%`**.
    * **Operator 6 (High-Modulator)**: Set **Ratio Multiplier** to **`8.0`** (bright crystal chime), and Level to **`60%`**.
@@ -380,7 +380,7 @@ The Chord Keyboard maps pads to chords, scale degrees, and inversions. Access th
 
 ## 3. Drum Kits & Smart Keyword Auto-Mapper
 
-The **`KITS`** drum workstation houses 16 independent sound rows. Standardizing sample imports is managed by our smart auto-mapping engine.
+The **`KITS`** drum workstation houses 16 independent sound rows. Standardizing sample imports is managed by a smart auto-mapping engine.
 
 ### 3.1 Stem Keywords Map Rules
 When you select a sample folder path inside the **`Kit Super-Generator (Tab 2)`**, the mapper runs regex keyword stems lookups on filenames to auto-assign slots:
@@ -996,8 +996,8 @@ Because Ableton Live Sets can contain a mixture of native instruments and third-
    * **Dynamic Filter Envelopes**: Parses the filter envelope's ADSR rates and its modulation depth (`Amount`, ranging from $-72$ to $+72$ semitones). It normalizes the depth relative to the 72-semitone ceiling and maps it to the Deluge's **Env 1** (Filter envelope).
    * **Transposition & Pitch**: Parses the manual semitone transposition (`TransposeKey`) and fine-tuning cents (`TransposeFine`) and maps them directly to the pitch controls.
 2. **Name-Based Semantic Preset Auto-Mapper (Scalable Fallback)**:
-   * If a track uses a third-party VST plugin (like Serum) where the preset is stored in a proprietary binary block, the importer falls back to our highly-tuned **Semantic Preset Mapper**.
-   * It scans the track name for keywords (like `"bass"`, `"lead"`, `"choir"`, `"trumpet"`, `"guitar"`, `"string"`, `"pad"`) and automatically applies legendary, custom-tailored synthesizer patches (such as detuned Juno-style Square+Saw bass, vocal-like resonant Meuw Lead, or Oberheim-style bright brass).
+   * If a track uses a third-party VST plugin (like Serum) where the preset is stored in a proprietary binary block, the importer falls back to a Semantic Preset Mapper.
+   * It scans the track name for keywords (like `"bass"`, `"lead"`, `"choir"`, `"trumpet"`, `"guitar"`, `"string"`, `"pad"`) and automatically applies custom-tailored synthesizer patches (such as detuned Juno-style Square+Saw bass, vocal-like resonant Meuw Lead, or Oberheim-style bright brass).
 
 #### 🛰️ Core Audio Engine Patch Matrix Synthesis
 To make these imported parameters sound alive, the core audio engine (`FirmwareFactory.java`) dynamically compiles the imported envelope targets into the **Modulation Patch Matrix**:
@@ -1058,7 +1058,7 @@ The **`Performance View (PERF)`** provides a hardware-inspired 16-column × 8-ro
 
 ## 16. MPE & Multi-Dimensional Controller Expression
 
-Multi-Dimensional Polyphonic Expression (MPE) is the modern standard for expressive controller tracking, supported natively by our sound engine:
+Multi-Dimensional Polyphonic Expression (MPE) is the modern standard for expressive controller tracking, supported natively by the sound engine:
 
 ```mermaid
 graph TD
