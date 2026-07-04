@@ -1753,9 +1753,75 @@ Macro scripts are line-based text files.
 
 ## 23. Interactive Synth Preset Designer
 
-Designing custom sounds is a workflow in the Deluge-Java Workstation.
+Designing custom sounds is a key workflow in the Deluge-Java Workstation. The application features a comprehensive, multi-tab **Synth Track Editor** window that exposes every aspect of the synthesis engine, including oscillators, envelopes, modulation matrices, LFOs, and hardware-modeled filters.
 
-### 23.1 How to Design and Save a Custom Preset
+Double-click any Synth Track's header name in the sequencer grid to open the editor.
+
+### 23.1 Detailed Synth Configurator Layout & Tabs
+
+The editor organizes the parameters into logical tabs to keep the workflow clean and intuitive:
+
+#### 1. 🎛️ OSC / FILTER / FM (MAIN PANEL)
+A consolidated quick-access panel showing the core synthesis controls. Ideal for rapid wiggling during performances:
+*   **Oscillators**: Type and volume leveling for Osc 1 and Osc 2.
+*   **LPF (Low-Pass Filter)**: Cutoff frequency and resonance sliders.
+*   **FM Intensity**: Depth of frequency modulation between oscillators.
+
+#### 2. 🌊 SOURCES
+Detailed configurations for the synth's voice generators:
+*   **OSC Sub-Tab**: Waveform selectors (Sine, Saw, Square, Triangle, Noise, Sample, or Wavetable) for Osc 1 and Osc 2. Includes pulse-width modulation (PWM), oscillator sync, and frequency detuning.
+*   **ALGORITHM Sub-Tab**: Selects the active synthesis engine type:
+  *   **`SUBTRACTIVE`**: Traditional analog modeling using dual oscillators through a low-pass filter.
+  *   **`FM`**: Frequency modulation where Osc 2 modulates the frequency of Osc 1.
+  *   **`RINGMOD`**: Ring modulation multiplying the signals of Osc 1 and Osc 2.
+  *   **Voice Polyphony Mode**: Selects `POLY` (polyphonic play), `MONO` (monophonic), `LEGATO` (smooth sliding notes), `AUTO`, or `CHOKE` groups.
+*   **DX7 Sub-Tab**: A dedicated DX7 patch importer. Click **`Import DX7 Cartridge...`** to load a standard `.SYX` DX7 cartridge bank file and instantly convert its patch configurations to Deluge parameters!
+
+#### 3. 📉 HPF (HIGH-PASS FILTER)
+A dedicated panel to configure the high-pass filter cutoff frequency and resonance, letting you carve out muddy low frequencies from synth pads.
+
+#### 4. ✉️ ENVELOPE
+Exposes **Envelope 1** (typically routed to volume/VCA) and **Envelope 2** (typically routed to LPF cutoff) ADSR sliders. Drag sliders to adjust Attack, Decay, Sustain, and Release times, and watch the real-time ADSR curve update in the graphical readout.
+
+#### 5. 〰️ LFO
+Provides controls for **LFO 1** and **LFO 2**:
+*   Select LFO waveform shapes (Sine, Triangle, Saw, Square, or Random Sample-and-Hold).
+*   Adjust LFO frequency rate.
+*   A real-time animated oscillator visualizes the LFO frequency and wave cycle shape in real-time.
+
+#### 6. 🔌 MODULATION (THE PATCHBAY MATRIX)
+An interactive routing grid. Create custom patch cables connecting mod sources (e.g. `ENV1`, `ENV2`, `LFO1`, `LFO2`, `VELOCITY`, `AFTERTOUCH`) to destination parameters (e.g. `LPF Cutoff`, `Pitch`, `Volume`, `Pan`). Each connection has a bipolar slider adjusting the modulation depth.
+
+#### 7. 🎹 ARP (ARPEGGIATOR)
+Adjust the arpeggiator rate, octave range, sync division, chord gating modes, and click **`Enable Arpeggiator`** to sweep keys polyphonically.
+
+#### 8. 🎚️ FX RACK
+Exposes track-level effects processors:
+*   **MOD FX**: Select Chorus, Flanger, or Phaser, and adjust depth, feedback, and rate.
+*   **EQ**: Bass and Treble shelving gains.
+*   **COMPRESSOR**: Dynamic threshold and release compression controls.
+
+#### 9. ⚙️ SETUP UTILITIES
+*   **AUTOMATION**: An automation lanes table. Click the checkbox next to any automatable parameter to enable it, exposing a step-by-step slider grid to draw automation directly.
+*   **MIDI LEARN**: A table mapping synth parameters to physical MIDI CC signals. Click **`[MIDI Learn]`**, click a parameter slider in the UI, and sweep your hardware controller dial to map them instantly.
+
+---
+
+### 23.2 Synth Preset Browser Sidebar
+
+On the right-hand side of the editor is a collapsible **`Preset Browser Sidebar`**:
+*   Lists all `.XML` synth presets in your SD Card Mounted Library (`SYNTHS/` folder).
+*   Presets are loaded instantly on double-click, letting you audition presets rapidly during sequencing.
+*   Click **`COLLAPSE ➔`** to hide the browser and maximize editor screen space.
+
+---
+
+### 23.3 Saving Your Presets
+Click the **`SAVE AS PRESET 💾`** button in the header toolbar of the editor:
+1. Enter a custom name when prompted (e.g. `Fat Sub Bass`).
+2. The workstation automatically serializes the active track parameters into a standard Deluge-compatible song XML element structure and saves it to `[LibraryRoot]/SYNTHS/Fat Sub Bass.XML`.
+3. If you copy this file to your physical SD card, it can be loaded directly onto your Deluge hardware synthesizer!
+
 ---
 
 ## 24. Master FX Console & Modulation Dashboard
