@@ -856,7 +856,7 @@ The **`Wavetable Index Laboratory`** provides an editor to slice, scan, and modu
 * **Parameter Sweeps**: Sweeping the slider sends wave position indices to the synthesis engine, hot-swapping active cycle arrays on every frame shift.
 
 #### 🔬 Tutorial K: Sculpting Dynamic Morphing Wavetable Patches
-1. Open a kit track lane and double-click a drum slot button to open the **`Kit Sound Editor`** dialog.
+1. Open a kit track lane and click the gear **⚙** button next to a drum row header to open its settings editor.
 2. Click **`Browse...`** next to the sample path field and load a multi-cycle wavetable WAV file.
 3. Click the **`🔬 Wavetable Laboratory...`** button next to the loop bounds panel. The laboratory window opens in the center.
 4. Look at the **Cycle Size (Samples)** menu: set it to **`2048`** (the standard wavetable size). The 3D waterfall stack aligns, projecting the consecutive wave lines.
