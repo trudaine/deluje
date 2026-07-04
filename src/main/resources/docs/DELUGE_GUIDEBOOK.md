@@ -400,30 +400,30 @@ The Chord Keyboard maps pads to chords, scale degrees, and inversions. Access th
 
 ## 3. Drum Kits & Smart Keyword Auto-Mapper
 
-The **`KITS`** drum workstation houses 16 independent sound rows. Standardizing sample imports is managed by a smart auto-mapping engine.
+A kit track holds up to 16 independent drum sounds, one per row. Beyond building a kit by hand, the **Kit Super-Generator** can assemble a whole kit from a folder of samples in one click, using a smart auto-mapper to sort files into the right slots. (For everyday kit editing — muting rows, reordering, recoloring — see §1.2.)
 
-### 3.1 Stem Keywords Map Rules
-When you select a sample folder path inside the **`Kit Super-Generator (Tab 2)`**, the mapper runs regex keyword stems lookups on filenames to auto-assign slots:
+### 3.1 Smart Auto-Mapper Rules
+When you pick a sample folder in the **`Kit Super-Generator (Tab 2)`**, the mapper matches filenames (case-insensitive substring, not full regex) to assign the first eight kit slots:
 
-| Target Drum Kit Slot | Classpath Lane ID | File Name Keyword Stem Regex Tokens |
-| :--- | :--- | :--- |
-| **Slot 1 (Kick)** | `Lane 00` | `kick`, `kik`, `bassdrum`, `sub_kick`, `808kick` |
-| **Slot 2 (Snare)** | `Lane 01` | `snare`, `snr`, `rim`, `side_stick`, `sd` |
-| **Slot 3 (Closed Hat)** | `Lane 02` | `closed_hat`, `cl_hat`, `hat_closed`, `ch`, `hhc` |
-| **Slot 4 (Open Hat)** | `Lane 03` | `open_hat`, `op_hat`, `hat_open`, `oh`, `hho` |
-| **Slot 5 (Clap/Shaker)** | `Lane 04` | `clap`, `clp`, `shaker`, `shk`, `cabasa` |
-| **Slot 6 (Tom Low)** | `Lane 05` | `low_tom`, `floor_tom`, `tom_low`, `t_low` |
-| **Slot 7 (Tom High)** | `Lane 06` | `high_tom`, `tom_high`, `t_high`, `conga_high` |
-| **Slot 8 (Cymbal/Ride)** | `Lane 07` | `cymbal`, `crash`, `ride`, `splash`, `china` |
+| Kit Slot | File-name keywords (any match) |
+| :--- | :--- |
+| **1 — Kick** | `KICK`, `BD`, `BASSDRUM`, `SUB` |
+| **2 — Snare** | `SNARE`, `SD`, `RIM`, `STICK` |
+| **3 — Closed Hat** | `CLOSED`, `CLH`, `CL_HAT`, `HHC`, `CH` (but not `CHORUS`/`CRASH`) |
+| **4 — Open Hat** | `OPEN`, `OPH`, `OH`, `OP_HAT`, `HHO` |
+| **5 — Clap** | `CLAP`, `CP`, `SNAP` |
+| **6 — Perc / Shaker** | `RIM`, `SIDE`, `CLICK`, `PERC`, `TAMB`, `SHAKER` |
+| **7 — Tom** | `TOM`, `FT`, `MT`, `HT`, `CONGA` |
+| **8 — Cymbal / Ride** | `CRASH`, `RIDE`, `CYM`, `SPLASH`, `BELL`, `COWBELL` |
 
-Remaining slots 9–16 are automatically filled with percussion, cowbells, woodblocks, and other samples without duplicate overlaps!
+The mapper runs in two passes: first it fills slots 1–8 by keyword, then it fills any still-empty slots (up to 16 total) with the remaining unmatched samples in order — never assigning the same file twice.
 
 ### 🥁 Tutorial C: Drum Kit Construction & Auto-Choke
 1. Press **`Ctrl + R` / `Cmd + R`** to summon the generators panel, and select **`Tab 2: Kit Super-Generator`**.
 2. Click **`[📁 Browse Samples Directory]`** and select a folder of drum WAVs.
 3. The mapper scans the directory, populates the slots 1–16 rows table, and applies the keyword templates.
-4. Check the **`[✓] Auto-Choke Hats`** box. This automatically maps Slot 3 (Closed Hat) and Slot 4 (Open Hat) to Mute Group 1, so triggering a closed hat cuts off the open hat's trailing ring.
-5. Click **`[Generate & Load Kit]`**. The workstation saves the Kit XML, registers files inside memory, and rebuilds the track's audio players.
+4. Leave **`Auto-Choke Hats (Exclusion Mute Group 1)`** checked (it's on by default). This puts Slot 3 (Closed Hat) and Slot 4 (Open Hat) in Mute Group 1, so a closed hat cuts off the open hat's ring.
+5. Click **`⚡ Generate & Load Drum Kit live`**. The workstation builds the kit, loads the samples, and rebuilds the track's audio players.
 6. *Result*: Your active sequencer pads grid rows now house the drum kit. Sequence a kick, snare, and open/closed hats to hear the auto-choke behavior.
 
 ---
