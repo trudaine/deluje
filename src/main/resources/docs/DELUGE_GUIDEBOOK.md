@@ -865,23 +865,25 @@ The **`Wavetable Index Laboratory`** provides an editor to slice, scan, and modu
 
 ---
 
-## 13. Pedal Looper & Continuous Multi-Layer Overdubs
+## 13. Audio Track Overdubbing & PCM Layer Mixing
 
-The Pedal Looper turns the sequencer grid into an audio overdubbing station. It allows live instrumentalists or keyboard players to build arrangements in real-time.
+The Deluge-Java Workstation provides basic support for recording and mixing multiple audio layers on Audio Tracks.
 
-* **Continuous Multi-Layer Overdubs**: Record a primary baseline loop, and layer consecutive parallel audio overdubs in loop sync.
-* **Virtual Pedal mappings**: Bind standard external hardware foot-pedals (via MIDI CC) to trigger looper actions: Single-tap (Record/Play/Overdub), Double-tap (Stop), or Hold (Undo/Redo last layer).
-* **Automatic Tempo Detection (Auto-BPM)**: Record a primary loop without a click track. The engine calculates the loop cycle duration, defines the grid boundaries, and sets the system BPM tempo automatically.
+### 13.1 PCM Layer Mixing (Overdubs)
+Rather than overwriting an existing recording, the workstation can mix new takes directly on top of the baseline file:
+*   **Overdub Activation**: If an audio clip is configured with the XML attribute `overdubsShouldCloneAudioTrack="true"` (which can be defined in the saved song XML), subsequent recordings on that track will enter overdub mode.
+*   **Saturating Mixdown**: The engine reads the existing WAV file, decodes its 16-bit little-endian PCM stream, and mixes it in real time with the new input signal using a saturating mixdown algorithm to prevent clipping.
+*   **WAV File Finalization**: When recording stops, the combined stream is finalized and saved as a new file in the library directory (named `Overdub_[Timestamp].wav`), which is then hot-swapped into the track's audio player.
 
-#### 🎸 Tutorial J: Recording a Live Multi-Layer Overdub Loop Stack
-1. Connect an external instrument or select a microphone input source. Create a new looper track.
-2. Tap your mapped foot-pedal (or click the virtual **`[● REC]`** looper button on screen). The looper starts recording immediately.
-3. Play a 4-bar chord progression. Tap the pedal at the end of the 4-bar loop.
-   * The looper stops recording, enters playback mode, and the system **Auto-BPM** locks the master clock tempo to your loop's speed.
-   * The pad lane glows in solid green indicating the baseline loop is active.
-4. Tap the pedal again to enter **`[● OVERDUB]`** mode. The pad starts flashing red-yellow.
-5. Play a secondary lead melody line on top of the looping chords. The looper records this melody layer in sync. Tap the pedal again to return to play mode.
-6. *Result / Layer Undo*: Make a mistake during your next overdub sweep? Simply **Hold down the foot-pedal for 2 seconds**. The application triggers a **Layer Undo**, removing the last recorded layer.
+### 13.2 Track Controls
+Real-time playback and recording are managed via the **`Audio Track`** panel inside the sidebar or track inspector:
+*   **REC**: Toggles microphone/line-in capture. If `overdubsShouldCloneAudioTrack` is active, it layers new input on top of the active clip.
+*   **PLAY**: Starts or stops playback of the track's audio clip.
+*   **LOOP**: Toggles loop wrap-around on or off.
+*   **Rate Slider**: Speeds up or slows down the playback rate (from `0.25x` to `4.00x`).
+
+> [!NOTE]
+> **Unimplemented Features**: Live hardware foot-pedal MIDI CC mappings, automatic tempo detection (Auto-BPM), and layer-by-layer looper undo/redo are not currently implemented.
 
 ---
 
