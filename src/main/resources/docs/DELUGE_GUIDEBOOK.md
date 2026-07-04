@@ -1928,14 +1928,14 @@ graph TD
 
 ### 25.1 Tactile Arranger Headers
 
-In Arranger view (accessed via the **`[ARR]`** tab on the top toolbar or pressing **`F3`**), the 18-column grid partitions the first 16 columns for timeline clip placements, reserving the final two columns as dedicated track headers:
+In Arranger view (click the **`[ARR]`** button in the top toolbar), the two right-hand columns of the grid act as per-track headers alongside the timeline lanes:
 
-*   **Column 16: Track Arrangement Mute (`[M]`)**:
-    *   *Visual States*: Displays a slate-gray pad when active (unmuted) and a solid yellow pad (**`#FFD700`**) with the text **`UNMUTE`** when muted in the arrangement.
-    *   *Behavior*: Clicking this pad toggles track arrangement mute.
-*   **Column 17: Track Arrangement Solo (`[S]`)**:
-    *   *Visual States*: Displays a dark slate-gray pad (**`#2D3748`**) with the text **`SOLO`** when inactive, and a brilliant neon-green pad (**`#00E676`**) with the text **`SOLOED`** when soloed in the arrangement.
-    *   *Behavior*: Clicking this pad toggles track arrangement solo.
+*   **Mute column** (text **`MUTE`** / **`UNMUTE`**):
+    *   *Visual States*: **green** when the track is active (unmuted), **yellow-orange** (`#FFA000`) with the text **`UNMUTE`** when muted, and **blue** when this track is the soloed one; it dims when another track is soloing.
+    *   *Behavior*: click to toggle the track's arrangement mute.
+*   **Solo column** (text **`SOLO`**):
+    *   *Visual States*: dark slate (`#2D2D32`) when off, and **cyan** (`#00FFCC`) when this track is soloed.
+    *   *Behavior*: click to toggle the track's arrangement solo.
 
 ---
 
@@ -1981,16 +1981,16 @@ When the red **`[🔴 CAPTURE]`** button is active during playback, muting/unmut
 
 Follow these steps to record a live performance and sculpt it with track-level mutes/solos in the Arranger:
 
-1.  Open a multi-track song (e.g. `techno_creator.txt`) and click the **`[SONG]`** tab to enter Song View.
-2.  Click the **`[🔴 CAPTURE]`** button on the top toolbar to arm live arranger capture recording!
-3.  Press **`Spacebar`** to start playback. All tracks are unmuted and begin logging arranger blocks.
-4.  At the end of the 4th bar, click the **`[M]`** (Mute) button on the Bass synth track header: the bass is silenced, and the capture engine automatically logs a 4-bar arranger block on the timeline!
-5.  At the end of the 8th bar, click the Bass track's **`UNMUTE`** button: the bass returns, and the capture engine starts a new arranger block at step 8!
-6.  Click the **`[ARR]`** tab (or press **`F3`**) to enter Arranger View:
-    *   You will see your live performance recorded perfectly as linear clip blocks on the timeline!
-7.  Let's sculpt the arrangement further:
-    *   Click the **`SOLO`** button (Column 17) on the Lead synth track: the button turns vibrant neon green (**`SOLOED`**), and the Drum and Bass tracks are instantly silenced!
-    *   Click **`SOLOED`** again to restore the full mix.
+1.  Open a multi-track song and click the **`[SONG]`** button to enter Song View.
+2.  Click the **`● CAPTURE`** button on the top toolbar to arm live arranger capture.
+3.  Click **Play (▶)** in the transport to start playback. All tracks are unmuted and begin logging arranger blocks.
+4.  At the end of the 4th bar, click the **`MUTE`** button on the Bass synth track header: the bass is silenced, and the capture engine logs a 4-bar arranger block on the timeline.
+5.  At the end of the 8th bar, click the Bass track's **`UNMUTE`** button: the bass returns, and a new arranger block starts at that point.
+6.  Click the **`[ARR]`** button to enter Arranger View:
+    *   Your live performance appears as linear clip blocks on the timeline.
+7.  Sculpt the arrangement further:
+    *   Click the **`SOLO`** button on the Lead synth track: it turns **cyan** and the Drum and Bass tracks are instantly silenced.
+    *   Click **`SOLO`** again to restore the full mix.
 8.  Press **`Ctrl + S`** to save your song. Copy the XML to your physical Deluge's SD card, load it, and hear your linear arrangement play back identically on the physical hardware!
 
 
