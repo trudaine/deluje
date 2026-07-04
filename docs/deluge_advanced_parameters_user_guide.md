@@ -13,38 +13,38 @@ The Deluge features one of the most powerful hardware arpeggiators and step-rand
 *   **Step Randomizer**: Turn the **random** encoder to add velocity spread (`velSpread`), octave spread (`octaveSpread`), gate duration spread (`gateSpread`), or ratchet probability.
 *   **Locking Random Sequences**: While playing, press the **RANDOM** encoder dial. This captures the active randomized sequence and "locks" the steps. The hardware writes these captured patterns into 16-byte hex-encoded locking arrays (representing step offsets for up to 16 steps) so that the randomized groove plays identically on every loop cycle.
 
-### 1.2. Native C++ Parity (`arpeggiator.cpp`)
-All arpeggiator settings are read and written in native firmware via `ArpeggiatorSettings::readCommonTagsFromFile` and `writeCommonParamsToFile` inside `arpeggiator.cpp`.
-*   **Locking Arrays**: Represented in C++ as fixed-size byte arrays (e.g., `uint8_t lockedNoteProbabilityValues[16]`). 
-*   **Hex Encoding**: Written to XML as 32-character hex-encoded strings (representing 16 bytes), which ChucK-Java parses, models, and serializes with bit-for-bit accuracy.
+### 1.2. Underlying Hardware Synchronization
+Arpeggiator settings are loaded directly from the song XML and synchronized with the hardware synth engine.
+*   **Locking Patterns**: Random locks are stored as a sequence of 16 step values.
+*   **Hex Encoding**: These values are written to the XML as 32-character hex-encoded strings. The Workstation parses and saves these strings with absolute accuracy, ensuring your saved files are fully compatible with your physical Deluge.
 
 ### 1.3. Parameter & XML Specification
 
-| XML Attribute | Description | C++ Value Range | Java UI / Model Representation |
+| XML Attribute | Description | Value Range | Workstation UI / Model Mapping |
 |---|---|---|---|
-| `active` | Arpeggiator active toggle | `0` or `1` | `boolean active()` |
-| `mode` | Sequence direction | `UP`, `DOWN`, `UP_DOWN`, `RANDOM`, `WALK` | `String mode()` |
-| `rate` | Rate speed multiplier | Hex-float (0.25 to 4.0) | `float rate()` |
-| `syncLevel` | Clock note-division sync | `0`, `1`, `2`, `4`, `8`, `16`, `32`, `64` | `int syncLevel()` |
-| `syncType` | Rhythm sync type | `0` (Normal) or `1` (Triplet) | `int syncType()` |
-| `octaves` | Pitch octave span | `1` to `4` | `int octaves()` |
-| `noteMode` | Chord note selection pattern | `UP`, `DOWN`, `UPDN`, `RAND`, `PLAY`, `PATT` | `String noteMode()` |
-| `octaveMode` | Octave progression style | `UP`, `DOWN`, `UPDN`, `ALT`, `RAND` | `String octaveMode()` |
-| `stepRepeat` | Step repetition multiplier | `1` to `8` | `int stepRepeat()` |
-| `rhythmIndex` | Built-in silence rhythm pattern | `0` (Flat) to `49` (Firmware patterns) | `int rhythmIndex()` |
-| `seqLength` | Active step grid length | `1` to `16` | `int seqLength()` |
-| `octaveSpread` | Random octave offset spread | Hex-float (0% to 100%) | `float octaveSpread()` |
-| `gateSpread` | Random gate duration spread | Hex-float (0% to 100%) | `float gateSpread()` |
-| `velSpread` | Random note velocity spread | Hex-float (0% to 100%) | `float velSpread()` |
-| `ratchetAmount` | Step subdivision trigger | `0` (none) to `4` (machine-gun) | `int ratchetAmount()` |
-| `noteProbability` | Step playback probability | Hex-float (0% to 100%) | `float noteProbability()` |
-| `chordPolyphony` | Maximum notes in a chord | `1` to `8` | `int chordPolyphony()` |
-| `chordProbability` | Chord triggering probability | Hex-float (0% to 100%) | `float chordProbability()` |
-| `chordType` | Preset chord base scaling | `0` to `8` | `int chordType()` |
-| `numOctaves` | Secondary octave range span | `1` to `4` | `int numOctaves()` |
-| `kitArp` | Enable arp on drum kit slot | `0` or `1` | `int kitArp()` |
-| `randomizerLock` | Random step loop lock active | `0` or `1` | `int randomizerLock()` |
-| `locked*Array` | 16-byte step randomization locks | 32-char hex string | `String locked*Array()` |
+| `active` | Arpeggiator active toggle | `0` or `1` | Active (Checkbox) |
+| `mode` | Sequence direction | `UP`, `DOWN`, `UP_DOWN`, `RANDOM`, `WALK` | Mode (Dropdown) |
+| `rate` | Rate speed multiplier | Hex-float (0.25 to 4.0) | Rate (Slider / Text field) |
+| `syncLevel` | Clock note-division sync | `0`, `1`, `2`, `4`, `8`, `16`, `32`, `64` | Sync Rate (Combo box) |
+| `syncType` | Rhythm sync type | `0` (Normal) or `1` (Triplet) | Sync Mode (Normal / Triplet) |
+| `octaves` | Pitch octave span | `1` to `4` | Octaves count (Dropdown) |
+| `noteMode` | Chord note selection pattern | `UP`, `DOWN`, `UPDN`, `RAND`, `PLAY`, `PATT` | Note Play Order (Combo box) |
+| `octaveMode` | Octave progression style | `UP`, `DOWN`, `UPDN`, `ALT`, `RAND` | Octave Progression (Combo box) |
+| `stepRepeat` | Step repetition multiplier | `1` to `8` | Step Repeat (Dropdown) |
+| `rhythmIndex` | Silence rhythm pattern | `0` (Flat) to `49` (Preset patterns) | Rhythm pattern selection |
+| `seqLength` | Active step grid length | `1` to `16` | Sequence steps count |
+| `octaveSpread` | Random octave offset spread | Hex-float (0% to 100%) | Octave Spread (Slider) |
+| `gateSpread` | Random gate duration spread | Hex-float (0% to 100%) | Gate Duration Spread (Slider) |
+| `velSpread` | Random note velocity spread | Hex-float (0% to 100%) | Velocity Spread (Slider) |
+| `ratchetAmount` | Step subdivision trigger | `0` (none) to `4` (Ratchets) | Ratchets multiplier (Dropdown) |
+| `noteProbability` | Step playback probability | Hex-float (0% to 100%) | Step Trigger Probability (Slider) |
+| `chordPolyphony` | Maximum notes in a chord | `1` to `8` | Chord Polyphony limit |
+| `chordProbability` | Chord triggering probability | Hex-float (0% to 100%) | Chord Trigger Probability |
+| `chordType` | Preset chord base scaling | `0` to `8` | Chord Type selector |
+| `numOctaves` | Secondary octave range span | `1` to `4` | Secondary Octaves count |
+| `kitArp` | Enable arp on drum kit slot | `0` or `1` | Kit Arp toggle (Checkbox) |
+| `randomizerLock` | Random step loop lock active | `0` or `1` | Random Lock state (Checkbox) |
+| `locked*Array` | 16-byte step randomization locks | 32-char hex string | Locked steps sequence |
 
 #### XML Example:
 ```xml
@@ -64,8 +64,8 @@ On the Deluge hardware, to map a MIDI controller knob to an instrument parameter
 3.  Turn the physical knob or fader on your external MIDI keyboard/controller.
 4.  The screen displays `LN` (Learned), binding that specific CC number and channel to that track parameter. These mappings are saved inside the song XML under the `<midiKnobs>` element.
 
-### 2.2. Native C++ Parity (`output.cpp`)
-In the native firmware, individual MIDI learn mappings are handled by the `MIDIKnob` structure and written in `Output::writeToFile` via `<midiKnobs>` and `<midiKnob>` tags. Mappings support relative rotary encoder input (relative modes 1/2) and patch amount modifiers.
+### 2.2. Hardware MIDI Mapping Parity
+Song-specific learned MIDI mappings are parsed from and written to the song XML files. The workstation fully supports absolute faders as well as relative endless dials, wiggling external controllers to map synth and filter parameters in real time.
 
 ### 2.3. Parameter & XML Specification
 
@@ -121,14 +121,14 @@ Users can tap or slide their fingers vertically along the border columns to appl
 
 ### 4.1. Saturation Distortion
 *   **Physical Behavior**: Turn the **distortion** encoder to apply analog-modeled saturation to the sound.
-*   **C++ Parity**: The firmware supports two types of distortion: **Tube Saturation** and **Wavefolder/Fuzz**.
+*   **Engine Behavior**: The workstation supports two types of distortion: **Tube Saturation** and **Wavefolder/Fuzz**.
 *   **XML Representation**:
     *   `distortionAmount`: The drive amount (Hex-float).
     *   `distortionType`: Set to `0` (Tube) or `1` (Fuzz/Wavefolder).
 
 ### 4.2. Filter Types & Slopes
 *   **Physical Behavior**: Press and turn the filter encoders to switch filter shapes.
-*   **C++ Parity**: Exposes steepness options. Standard lowpass filters can be run at **12dB/octave** (2-pole) or cascaded to **24dB/octave** (4-pole) for a sharper frequency cut.
+*   **Engine Behavior**: Exposes steepness options. Standard lowpass filters can be run at **12dB/octave** (2-pole) or cascaded to **24dB/octave** (4-pole) for a sharper frequency cut.
 *   **XML Representation**:
     *   `filterType`: Selects `LPF`, `HPF`, or `BPF`.
     *   `filterSlope`: Sets slope steepness.
@@ -136,16 +136,16 @@ Users can tap or slide their fingers vertically along the border columns to appl
 
 ### 4.3. Fine Semitone Pitch Tuning
 *   **Physical Behavior**: Detune oscillators slightly to create thick, organic chorus effects.
-*   **C++ Parity**: Written as fine cents detuning offsets.
+*   **Engine Behavior**: Written as fine cents detuning offsets.
 *   **XML Representation**:
     *   `oscAPitchAdjust` / `oscBPitchAdjust`: Fine pitch adjustments (Hex-floats).
 
 ---
 
-## 5. Summary of C-Parity Value Conversions
+## 5. Summary of Song XML Value Formats
 
-To ensure absolute compatibility when round-tripping files, all floating-point parameters (0.0 to 1.0) and decibel/frequency numbers are encoded into a **signed 32-bit hex representation** (unified hex-float format) matching the Deluge hardware's internal register structures:
+To ensure absolute compatibility when round-tripping files, all floating-point parameters (0.0 to 1.0) and decibel/frequency numbers are encoded into a **signed 32-bit hex representation** (unified hex-float format) matching the Deluge hardware's internal structures:
 
 *   **Unipolar Float**: `0.0` (flat) to `1.0` (max) maps to `0x00000000` to `0x3F800000`.
 *   **Bipolar Float**: `-1.0` to `1.0` maps to `0xBF800000` to `0x3F800000`.
-*   **Frequency (Hz)**: Sound cutoffs are converted via `hzToHex` and `hexToHz` functions, matching the logarithmic response of physical capacitors.
+*   **Frequency (Hz)**: Sound cutoffs are converted to logarithmic values matching the physical hardware's response curve.
