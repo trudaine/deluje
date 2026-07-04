@@ -1073,12 +1073,12 @@ Follow these precise steps to import your Ableton Live Set and play it in the De
 
 ## 15. Performance View & FX Touch-Pads Grid
 
-The **`Performance View (PERF)`** provides a hardware-inspired 16-column × 8-row dynamic interactive touch grid. It maps variables and sends real-time global sweeps straight to the active focus track, creating an electronic performance launch pad.
+The **`Performance View (PERF)`** provides a hardware-inspired 18-column × 8-row dynamic interactive touch grid. It maps variables and sends real-time global sweeps straight to the active focus track, creating an electronic performance launch pad.
 
 ![Performance View FX Touch-Pads Grid](images/deluge_performance_view.png)
 
 ### 15.1 Column FX Variables and Row Intensities Mapping
-* **16 Columns FX Destinations**:
+* **18 Columns FX Destinations**:
   1. `VOLUME`: Master track volume leveling.
   2. `PAN`: Sound spatial panning sweep.
   3. `LPF FREQ`: Low-pass filter cutoff frequency.
@@ -1095,17 +1095,20 @@ The **`Performance View (PERF)`** provides a hardware-inspired 16-column × 8-ro
   14. `SIDECHAIN`: Direct kick ducking volume envelope.
   15. `COMP`: Master compressor threshold drive.
   16. `NOISE VOL`: White noise generator injection.
+  17. `PERF MUTE`: Global performance mute group trigger.
+  18. `SNAPSHOT`: Temporarily saves or recalls parameters states.
 * **8 Rows Value Intensities (0 to 7)**: Row 0 represents the minimum value range of the column FX, and Row 7 represents the maximum value intensity. Clicking a pad lights it up and writes the level change instantly to playback parameters.
 
 ### 15.2 Dual Interaction Play Modes: LATCH vs MOMENTARY
 * **LATCH Mode**: Tapping a pad toggles the effect on/off like a static switch, allowing you to select and keep multiple columns active at once (multi-select style) to build custom static multi-effects matrices!
 * **MOMENTARY Mode**: Actively triggers effects while you press-and-hold down a pad, and instantly restores the original parameters state the moment you release the mouse/pad! Perfect for quick glitch fills, transient filter sweeps, and dramatic drop build-ups!
+* **Mode Toggle**: Managed via the **`MODE`** toggle button in the panel's top bar (which displays the active state, `LATCH` or `MOMENTARY`).
 * **Column Section Mutes**: Pressing a column's header button acts as a group bypass/mute, instantly resetting all active values in that column block back to their safe baseline states.
 
 #### 🔊 Tutorial L: Live High-Pass Filtering & Stutter Sweeps during Drops
 1. Press **`Spacebar`** to start playing a heavy, 4-bar drum beat sequence.
 2. Click the **`PERF`** button on the top toolbar to open the Performance touch-pads grid.
-3. Look at the bottom toolbar: click the **`[MOMENTARY]`** button to activate live momentary triggers mode!
+3. Look at the Performance top bar: toggle the **`MODE`** button to **`MOMENTARY`** to activate live momentary triggers mode!
 4. As the song approaches the end of the 2nd bar, click and drag a vertical line on Column 5 (**`HPF FREQ`**) from Row 0 up to Row 7! You will hear the sound thin out beautifully as a high-pass sweeping filter slices out the low-end!
 5. Hold down the pad at Column 11 (**`STUTTER`**) Row 5: the drum beat instantly enters a fast, repeating $1/16$-note stutter loop!
 6. Exactly on the downbeat of the 3rd bar, release the mouse! The high-pass filter instantly snaps open, the stutter loop ends, the full thumping bass kick crashes back in, and the song drops with perfect timing!
