@@ -339,27 +339,20 @@ public class LfoPanel extends JPanel {
       c.gridx = col++;
       controlsPanel.add(syncCombo, c);
 
-      // Scope
-      JComboBox<String> scopeCombo = new JComboBox<>(new String[] {"All tracks", "This track"});
-      scopeCombo.setSelectedIndex(init.isLocal() ? 1 : 0);
-      scopeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
-      scopeCombo.setForeground(Color.WHITE);
-      scopeCombo.addActionListener(
-          e -> {
-            LfoModel lm = lfo(lfoIdx);
-            model.setLfo(
-                lfoIdx,
-                new LfoModel(
-                    lm.rateHz(),
-                    lm.waveform(),
-                    lm.depth(),
-                    lm.target(),
-                    scopeCombo.getSelectedIndex() == 1,
-                    lm.syncLevel(),
-                    lm.syncType()));
-          });
+      // Scope is fixed by slot: the engine maps even slots to the global LFO and odd slots to the
+      // local LFO (FirmwareFactory), ignoring any per-LFO override — so show a static label rather
+      // than a control that would do nothing.
+      boolean isGlobal = (lfoIdx % 2 == 0);
+      JLabel scopeLabel = new JLabel(isGlobal ? "Global" : "Local");
+      scopeLabel.setForeground(
+          isGlobal ? new Color(0x00, 0xff, 0x66) : new Color(0x00, 0xff, 0xcc));
+      scopeLabel.setFont(new Font("SansSerif", Font.BOLD, 11));
+      scopeLabel.setToolTipText(
+          isGlobal
+              ? "Global: one phase shared across all voices (fixed for this slot)"
+              : "Local: per-voice phase, retriggered on note-on (fixed for this slot)");
       c.gridx = col;
-      controlsPanel.add(scopeCombo, c);
+      controlsPanel.add(scopeLabel, c);
     }
 
     // Depth note
