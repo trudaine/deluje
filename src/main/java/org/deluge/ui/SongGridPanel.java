@@ -9,8 +9,37 @@ import org.deluge.ui.SwingGridPanel.GridRow;
 /** Specialized Song Launcher Grid Panel. */
 public class SongGridPanel extends SwingGridPanel {
 
+  // Blink phase for armed (queued) launch pads. Toggled by launchBlinkTimer; the mute column reads
+  // it in refreshInPlace to flash the pad white while a clip is armed for the next bar boundary.
+  private boolean launchBlinkOn = true;
+  private javax.swing.Timer launchBlinkTimer;
+
   public SongGridPanel(BridgeContract bridge) {
     super(bridge);
+    // ~4 Hz blink; only repaints while something is actually armed, so it's idle-cheap.
+    launchBlinkTimer =
+        new javax.swing.Timer(
+            250,
+            e -> {
+              if (!anyTrackArmed()) return;
+              launchBlinkOn = !launchBlinkOn;
+              refreshInPlace();
+            });
+    launchBlinkTimer.start();
+  }
+
+  /** Whether any visible track has a clip queued for launch (used to gate the blink repaint). */
+  private boolean anyTrackArmed() {
+    if (bridge == null || projectModel == null) return false;
+    for (int v = 0; v < gridMode.rows; v++) {
+      int modelRow = songRowIndex(v);
+      if (modelRow >= 0
+          && modelRow < voiceRowCount
+          && bridge.getLaunchQueue(baseTrackId + modelRow) >= 0) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -621,6 +650,12 @@ public class SongGridPanel extends SwingGridPanel {
             }
           } else if (isMuteColumn(c)) {
             Color statusBg = sessionStatusColour(isMuted, soloRow == modelRow, soloRow >= 0);
+            // Armed for launch (queued for the next bar boundary): fast-blink the pad, matching the
+            // hardware's blinking "launch" pad, until the queue is consumed.
+            boolean armed = bridge != null && bridge.getLaunchQueue(engineRow) >= 0;
+            if (armed && !launchBlinkOn) {
+              statusBg = Color.WHITE;
+            }
             clipBtn.setBackground(statusBg);
             clipBtn.setText(
                 isMuted ? "UNMUTE" : "MUTE"); // getText() = mute state (E2E observes it)
@@ -629,7 +664,10 @@ public class SongGridPanel extends SwingGridPanel {
               pad.setIntensity(1.0f);
               pad.setActive(true);
             }
-            clipBtn.setToolTipText(isMuted ? "Muted — click to unmute" : "Mute track");
+            clipBtn.setToolTipText(
+                armed
+                    ? "Armed — launches at the next bar"
+                    : (isMuted ? "Muted — click to unmute" : "Mute track"));
           } else if (isSoloColumn(c)) {
             // Deluge section square (session_view.cpp drawSectionSquare): the clip's section
             // colour,

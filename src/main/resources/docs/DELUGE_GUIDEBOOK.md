@@ -585,7 +585,7 @@ Each row shows a clip drawn as its own step pattern, tinted by its Song Section 
 
 * **Launch / mute a clip**: click a clip's launcher to start or stop it. The change is quantized to the loop boundary so it stays in time.
 * **Launch a whole Section**: click a Section pad to queue every clip in that section together.
-* **Status square** (in the sidebar): **green** = active, **red** = muted/stopped, **blue** = soloed; it dims when another track is soloing so the soloed one stands out.
+* **Status square** (in the sidebar): **green** = active, **red** = muted/stopped, **blue** = soloed; it dims when another track is soloing so the soloed one stands out. While a clip is *armed* and waiting for the loop boundary, the square **blinks white** — matching the hardware's blinking launch pad.
 
 ### 7.2 Arrangement View — Building the Timeline
 
