@@ -3042,6 +3042,10 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     return soloRow;
   }
 
+  public void setSoloRow(int row) {
+    this.soloRow = row;
+  }
+
   public void setPad(int r, int c, JButton pad) {
     if (r >= 0 && r < MAX_GRID_ROWS && c >= 0 && c < MAX_GRID_COLS) {
       pads[r][c] = pad;
