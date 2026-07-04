@@ -1466,7 +1466,8 @@ Edits are undoable with **`Ctrl + Z`** / **`Ctrl + Y`** (or the **Edit** menu). 
 | :--- | :--- |
 | Note/step toggles, velocity, probability, iteration, gate | Change Track Color |
 | Step copy/paste, clear step | Kit Super-Generator (Tab 2) results |
-| Per-step & clip automation edits | |
+| Per-step & clip automation edits | Master FX **Stereo Delay** and **Drive & Saturation** |
+| Master FX **Reverb Tank** & **Reverb Comp** | |
 | Euclidean **Fill Row** | |
 | Synth/kit parameter changes; arpeggiator changes | |
 | Project params (BPM, swing, master volume, reverb) | |
@@ -1878,7 +1879,7 @@ Every knob turn, slider drag, or button toggle inside the console performs a thr
 1.  **High-Level Model Update**: Updates the active project song model configuration.
 2.  **Bridge Sync**: Pushes the updated parameters directly to the audio engine, updating the audio rendering pipeline.
 3.  **OLED Display Readout**: Prints transient readouts on the OLED screen (e.g. `RV.RM 75%`, `DL.PP ON`) for hardware-parity visual feedback.
-4.  **Undo/Redo Registration**: Every tweak registers a mix change in the undo stack so that your mixing decisions are fully undoable/redoable!
+4.  **Undo/Redo Registration**: Reverb Tank and Reverb Compressor changes are registered on the undo stack (`Ctrl + Z` / `Ctrl + Y`). Stereo Delay and Drive & Saturation changes are applied live but are not yet undoable.
 
 ---
 

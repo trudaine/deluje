@@ -197,6 +197,9 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
         case "Pan", "masterPan" -> project.setMasterPan(value);
         case "reverbRoomSize" -> project.setReverbRoomSize(value);
         case "reverbDampening" -> project.setReverbDampening(value);
+        case "reverbWidth" -> project.setReverbWidth(value);
+        case "reverbHpf" -> project.setReverbHpf(value);
+        case "reverbPan" -> project.setReverbPan(value);
         case "reverbCompressorShape" -> project.setReverbCompressorShape(value);
         case "reverbCompressorVolume" -> project.setReverbCompressorVolume(value);
       }

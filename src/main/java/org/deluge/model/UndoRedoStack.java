@@ -12,6 +12,11 @@ public class UndoRedoStack {
   private final Deque<UndoableAction> redoStack;
   private final int maxDepth;
 
+  // True while an undo/redo is being applied. Many consequences restore state by calling model
+  // setters that themselves push a consequence; without this guard those re-entrant pushes would
+  // clear the redo history and corrupt the stack. Pushes are ignored while applying.
+  private boolean applying = false;
+
   public interface UndoableAction {
     void undo();
 
@@ -37,6 +42,8 @@ public class UndoRedoStack {
   }
 
   public void push(UndoableAction action) {
+    if (applying) return; // ignore re-entrant pushes triggered by a consequence's own setters
+
     // A new action invalidates the redo history
     redoStack.clear();
 
@@ -106,7 +113,12 @@ public class UndoRedoStack {
   public void undo() {
     if (canUndo()) {
       UndoableAction action = undoStack.removeFirst();
-      action.undo();
+      applying = true;
+      try {
+        action.undo();
+      } finally {
+        applying = false;
+      }
       redoStack.addFirst(action);
     }
   }
@@ -114,7 +126,12 @@ public class UndoRedoStack {
   public void redo() {
     if (canRedo()) {
       UndoableAction action = redoStack.removeFirst();
-      action.redo();
+      applying = true;
+      try {
+        action.redo();
+      } finally {
+        applying = false;
+      }
       undoStack.addFirst(action);
     }
   }
