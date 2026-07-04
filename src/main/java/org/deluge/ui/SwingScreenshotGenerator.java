@@ -145,8 +145,23 @@ public class SwingScreenshotGenerator {
                 System.out.println(
                     "[Screenshot] Spawning wide-screen Kit Configuration JDialog...");
                 List<TrackModel> tracks = app.getCurrentProject().getTracks();
+                boolean capturedKitShots = false;
                 for (TrackModel t : tracks) {
                   if (t instanceof KitTrackModel kt) {
+                    // Both kit-only shots need a SoundDrum to seed the wavetable dialog; find the
+                    // first one rather than blindly casting drum 0 (a sample-only Drum there would
+                    // throw and abort the rest of the pipeline).
+                    SoundDrum targetSound = null;
+                    for (var d : kt.getDrums()) {
+                      if (d instanceof SoundDrum sd) {
+                        targetSound = sd;
+                        break;
+                      }
+                    }
+                    if (targetSound == null) {
+                      continue; // no SoundDrum in this kit; try the next track
+                    }
+                    final SoundDrum seedSound = targetSound;
                     final SwingKitConfigDialog[] kitBox = new SwingKitConfigDialog[1];
                     SwingUtilities.invokeAndWait(
                         () -> {
@@ -167,12 +182,11 @@ public class SwingScreenshotGenerator {
                     System.out.println(
                         "[Screenshot] Spawning Wavetable Index Laboratory Dialog...");
                     final SwingWavetableDialog[] wtBox = new SwingWavetableDialog[1];
-                    SoundDrum targetSound = (SoundDrum) kt.getDrums().get(0);
                     int trackIndex = tracks.indexOf(kt);
                     SwingUtilities.invokeAndWait(
                         () -> {
                           wtBox[0] =
-                              new SwingWavetableDialog(app, targetSound, bridge, trackIndex, 0);
+                              new SwingWavetableDialog(app, seedSound, bridge, trackIndex, 0);
                           wtBox[0].setSize(900, 480);
                           wtBox[0].setVisible(true);
                         });
@@ -182,8 +196,21 @@ public class SwingScreenshotGenerator {
                     Thread.sleep(500);
                     SwingUtilities.invokeAndWait(() -> wtBox[0].dispose());
                     Thread.sleep(500);
+                    capturedKitShots = true;
                     break;
                   }
+                }
+                if (!capturedKitShots) {
+                  // The default boot project is synth-only (ProjectModel.createDefaultProject), so
+                  // a
+                  // plain `--screenshot` run cannot refresh these two. Say so loudly instead of
+                  // silently leaving deluge_waveform_crop.png / deluge_wavetable_laboratory.png
+                  // stale.
+                  System.out.println(
+                      "[Screenshot] WARNING: no Kit track with a SoundDrum in the loaded project — "
+                          + "skipping deluge_waveform_crop and deluge_wavetable_laboratory. "
+                          + "Re-run with a kit song, e.g. `--screenshot /path/to/KitSong.xml`, "
+                          + "to regenerate those two images.");
                 }
                 Thread.sleep(1000);
 
