@@ -18,7 +18,7 @@ Welcome to the **Deluge-Java Workstation**, a software recreation and operations
    * [1.10 The Euclidean Rhythm Generator](#110-the-euclidean-rhythm-generator)
    * [1.11 Sequencer Grid Zooming & Proportional Scaling](#111-sequencer-grid-zooming--proportional-scaling)
    * [1.12 Fold Mode & Vertical Space Optimization](#112-fold-mode--vertical-space-optimization)
-2. [Synthesizers & Sound Engines (Subtractive, FM, Wavetable, Legato, Multi-Sampler, Ring Mod)](#2-synthesizers--sound-engines-subtractive-fm-wavetable-legato-multi-sampler-ring-mod)
+2. [Synthesizers & Sound Engines](#2-synthesizers--sound-engines)
    * [2.7 Chord Keyboard (CORK & CORL Layouts)](#27-chord-keyboard-cork--corl-layouts)
 3. [Drum Kits & Smart Keyword Auto-Mapper](#3-drum-kits--smart-keyword-auto-mapper)
 4. [Visual Waveform Crop & Loop Markers Deck](#4-visual-waveform-crop--loop-markers-deck)
@@ -245,9 +245,17 @@ graph TD
 
 ---
 
-## 2. Synthesizers & Sound Engines (Subtractive, FM, Wavetable)
+## 2. Synthesizers & Sound Engines
 
-The sound design panel operates in three distinct, swappable synthesis modes:
+Open a synth's sound editor by **double-clicking the track's name** in its row header. The editor is organized into grouped tabs: **OSC / FILTER / FM** (the main page — oscillators, the LPF, and FM depth), **SOURCES** (OSC, ALGORITHM, DX7 operators), **HPF**, **ENVELOPE**, **LFO**, **MODULATION**, **ARP**, **FX** (Mod FX, EQ, Compressor), and **SETUP** (Automation, MIDI Learn).
+
+At the top of the editor, the **Synth Mode** selector switches the core engine between three modes:
+
+* **SUBTRACTIVE** — oscillators through a resonant filter (the classic analog path).
+* **FM** — 6-operator frequency modulation (DX7-style).
+* **RING MOD** — two oscillators multiplied together for metallic, bell-like tones.
+
+Two things are often mistaken for separate modes: **wavetable** and **multi-sample** playback are *oscillator types* you pick as an oscillator's shape within Subtractive mode (§2.3, §2.5), and **glide/legato** is set by the **Polyphony** mode — POLY, MONO, LEGATO, AUTO, or CHOKE (§2.4).
 
 ```carousel
 ![Dual Oscillators control tab](images/deluge_synth_tab_osc.png)
@@ -266,10 +274,10 @@ Subtractive synthesis models standard analog signal paths: Oscillators ➔ Reson
 * **High-Pass Filter (HPF)**: Separate resonant 2-pole high-pass path to carve out low-frequency rumble.
 
 #### 🎸 Tutorial A: Detuned Analog Sub-Bass (Subtractive Mode)
-1. Double-click a Synth step cell to open the Synth editor, and select the **`OSC`** tab. Set:
+1. Double-click the track name to open its sound editor, then open **SOURCES ▸ OSC**. Set:
    * **Osc A Shape**: **`SAWTOOTH`**, **Level**: **`90%`**.
    * **Osc B Shape**: **`SAWTOOTH`**, **Level**: **`80%`**, **Detune (Fine)**: **`+12 cents`** (detuning creates analog chorusing).
-2. Select the **`FILTER`** tab (or HPF tab). Set **LPF Mode** to **`24dB Low Pass`**, LPF Cutoff base to **`450Hz`**, and **LPF Drive (Saturation)** to **`12%`** (adds harmonics clipping grit).
+2. On the main **`OSC / FILTER / FM`** tab, in the **FILTER (LPF)** section set **LPF Mode** to **`24dB Low Pass`**, Cutoff to **`450Hz`**, and **Drive (Saturation)** to **`12%`** (adds harmonic grit).
 3. Select the **`ENVELOPE`** tab (specifically Envelope 1 VCA). Set:
    * **Attack**: **`2ms`** (instant punch).
    * **Decay**: **`200ms`** (tight low-end decay).
@@ -285,9 +293,9 @@ FM synthesis generates complex, metallic, and crystal timbres by modulating the 
 * **Operator Multipliers & Feedback**: Program individual frequency ratio multipliers ($0.5$ to $32.0$), output levels, feedback lines, and dedicated ADSR envelopes per operator.
 
 #### 🔔 Tutorial B: Crystal Bell (6-Operator FM Mode)
-1. Open the Synth Config editor, go to the **`OSC`** tab. Change the Synthesizer Mode from `SUBTRACTIVE` to **`FM`**.
-2. Select the **`ALGORITHM`** tab. Set the active Algorithm index to **`Algorithm 05`** (maps Op 6 and Op 5 as modulators cascading into Op 1 carrier).
-3. Select the **`DX7`** tab. Let's configure the key operators:
+1. Open the sound editor and set **Synth Mode** (top of the editor) to **`FM`**.
+2. Open **SOURCES ▸ ALGORITHM**. Set the active Algorithm to **`Algorithm 05`** (maps Op 6 and Op 5 as modulators cascading into Op 1 carrier).
+3. Open **SOURCES ▸ DX7**. Let's configure the key operators:
    * **Operator 1 (Carrier)**: Set **Ratio Multiplier** to **`1.0`** (fundamental pitch), and Level to **`90%`**.
    * **Operator 5 (Primary Modulator)**: Set **Ratio Multiplier** to **`3.5`** (creates standard bell harmonics), and Level to **`75%`**.
    * **Operator 6 (High-Modulator)**: Set **Ratio Multiplier** to **`8.0`** (bright crystal chime), and Level to **`60%`**.
@@ -299,9 +307,9 @@ FM synthesis generates complex, metallic, and crystal timbres by modulating the 
 
 ---
 
-### 2.3 Wavetable Synthesis Engine
-Wavetable synthesis loops single-cycle waveforms, allowing wavetable sweeps:
-* **Wavetable Index Sweeping**: Choose a wavetable WAV, set base index position coordinates, and write index automation sweeps to morph the waveshape over time.
+### 2.3 Wavetable Oscillators
+Wavetable is an **oscillator type within Subtractive mode** (set an oscillator's shape to Wavetable in **SOURCES ▸ OSC**). It loops a table of single-cycle waveforms, and sweeping the index morphs the waveshape:
+* **Wavetable Index Sweeping**: choose a wavetable WAV, set the base index, and write index automation to morph the waveshape over time.
 
 ---
 
@@ -312,10 +320,10 @@ Portamento (Glide) introduces a smooth, continuous slide transition between cons
 * **Portamento Glide Time (ms)**: Scale the slide transition time from 10ms to 1200ms.
 
 #### 🎸 Tutorial F: Portamento Glide
-1. Go to the **`OSC`** tab of your Synth config, set the mode to **`SUBTRACTIVE`**. Set Osc A to **`SAWTOOTH`** wave shape.
-2. Go to the **`FILTER`** tab, set LPF Cutoff base to a deep **`600Hz`** and Resonance to a high **`75%`** (acid squelch). Set LPF Envelope Mod to **`+55%`** (filter dynamics).
-3. Select the **`OSC`** tab (or standard sidebar settings) to configure:
-   * **Polyphony Mode**: Toggle from `POLY` to **`LEGATO`** (auto-glide mode).
+1. Open the sound editor, set **Synth Mode** to **`SUBTRACTIVE`**, and in **SOURCES ▸ OSC** set Osc A to **`SAWTOOTH`**.
+2. On the main **`OSC / FILTER / FM`** tab, set LPF Cutoff to a deep **`600Hz`** and Resonance to a high **`75%`** (acid squelch). Set LPF Envelope Mod to **`+55%`** (filter dynamics).
+3. At the top of the editor:
+   * **Polyphony Mode**: switch from `POLY` to **`LEGATO`** (auto-glide mode).
    * **Portamento Glide Time**: Set to **`150ms`**.
 4. Go to the Clip sequencer grid. Let's enter steps:
    * Column 1: note **`C3`** (Length = 2 steps! It extends to the end of Column 2).
@@ -329,7 +337,7 @@ Portamento (Glide) introduces a smooth, continuous slide transition between cons
 
 ### 2.5 Multi-Sample Keyzones & Pitch Ranges
 
-For realistic acoustic instrument modeling (such as pianos, string sections, or choirs), loading a single sample across the entire keyboard results in unnatural speed/pitch stretching. The Multi-Sampler engine lets you load multiple WAV files split across distinct key ranges:
+Multi-sampling is a **sample oscillator type within Subtractive mode**, not a separate engine. For realistic acoustic instruments (pianos, strings, choirs), stretching one sample across the whole keyboard sounds unnatural — so a multi-sample oscillator lets you load several WAV files split across distinct key ranges:
 
 ```mermaid
 graph TD
@@ -342,7 +350,7 @@ graph TD
 * **Root Pitch Mapping**: Assign the baseline root pitch for each WAV file (e.g., Zone 2 file is a recording of Middle C, so its root pitch is set to C4 / MIDI 60). The engine calculates detunes relative to the file's root pitch, ensuring correct pitch scaling.
 
 #### 🎹 Tutorial G: Acoustic Piano Multi-Sampler
-1. In the Synth config panel, change the sound generator source from basic waveforms to the **`MULTI-SAMPLE`** engine.
+1. Open the sound editor (Synth Mode **`SUBTRACTIVE`**) and in **SOURCES ▸ OSC** set the oscillator type to the **multi-sample (sample)** source.
 2. Add three keyzone slot rows mapping your instrument's raw acoustic recordings:
    * **Zone Slot 1**: Select file **`Piano_Bass_C2.wav`**. Set Key Range from **`C0 to B2`** and Root Pitch to **`C2 (MIDI 36)`**.
    * **Zone Slot 2**: Select file **`Piano_Mid_C4.wav`**. Set Key Range from **`C3 to B5`** and Root Pitch to **`C4 (MIDI 60)`**.
@@ -362,11 +370,11 @@ $$V_{out}(t) = \text{Osc A}(t) \times \text{Osc B}(t)$$
 * **Frequency Ratio Splits**: Tuning the frequency split between Osc A and Osc B to non-harmonic intervals (e.g. detuning Osc B by a tritone or major 7th) yields complex robotic timbres.
 
 #### 🤖 Tutorial H: Ring-Modulation Pluck
-1. Open your Synth Config editor, go to the **`OSC`** tab. Change the active Synthesizer Mode from `SUBTRACTIVE` to **`RINGMOD`**.
+1. Open the sound editor and set **Synth Mode** (top of the editor) to **`RINGMOD`**.
 2. Configure your dual input oscillators:
    * **Osc A Shape**: **`SINE`** (warm carrier fundamental), **Pitch Tuning**: **`0 semitones`**.
    * **Osc B Shape**: **`SAWTOOTH`** (rich modulator harmonics), **Pitch Tuning**: **`+11 semitones`** (detuned major 7th interval creates metallic ring-modulation splits).
-3. Go to the **`FILTER`** tab, set LPF Cutoff base to a dark **`700Hz`** and Resonance to a moderate **`45%`**.
+3. Go to the main **`OSC / FILTER / FM`** tab, set LPF Cutoff base to a dark **`700Hz`** and Resonance to a moderate **`45%`**.
 4. Go to the **`ENVELOPE`** tab (specifically Envelope 2 VCF). Set Attack to **`0ms`** (instant sharp strike), Decay to **`120ms`** (quick pluck decay), and Sustain to **`0%`**. Set the LPF Envelope Mod to a high **`+60%`** (plucky filter sweep).
 5. *Result*: Sequence a steps phrase: you will hear a sharp, ring-modulated pluck for industrial leads.
 
@@ -507,7 +515,7 @@ Open the Synth Config Dialog (double-click a synth track or double-click a grid 
 
 #### 🎹 Tutorial 1: Subtractive Brass Swell (Envelope 2 ➔ LPF Cutoff)
 1. Double-click your Synth track to open the configuration dashboard, and select the **`OSC`** tab. Set Osc A wave shape to **`SAWTOOTH`** and set LPF Mode to **`24dB Low Pass`**.
-2. Select the **`FILTER`** tab and slide the Cutoff dial down to a low base value of **`800Hz`** (making the sound dark and warm).
+2. Select the main **`OSC / FILTER / FM`** tab and slide the Cutoff dial down to a low base value of **`800Hz`** (making the sound dark and warm).
 3. Select the **`ENVELOPE`** tab (specifically Envelope 2). Set:
    * **Attack**: **`250ms`** (creates a gradual opening swell).
    * **Decay**: **`400ms`** (gradual decay).
@@ -528,7 +536,7 @@ Open the Synth Config Dialog (double-click a synth track or double-click a grid 
 
 #### 🌀 Tutorial 3: Organic Filter Sweeps (LFO 2 ➔ LPF Cutoff)
 1. Open your Synth dialog, select the **`LFO`** tab (LFO 2 section). Set LFO 2 shape to **`TRIANGLE`** and set a very slow rate of **`0.35Hz`** (one full cycles sweep every 3 seconds).
-2. Select the **`FILTER`** tab, set LPF Cutoff base to a middle frequency: **`2.5kHz`**.
+2. Select the main **`OSC / FILTER / FM`** tab, set LPF Cutoff base to a middle frequency: **`2.5kHz`**.
 3. Select the **`MODULATION`** tab, click **`[+ Connect New Modulation Cable]`**.
 4. Set the Source to **`lfo2`** and the Destination to **`lpfFrequency`**. Ensure **`[Bipolar]`** is toggled active.
 5. Slide the depth slider up to **`+45%`**.
