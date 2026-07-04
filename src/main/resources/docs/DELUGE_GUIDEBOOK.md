@@ -2020,9 +2020,9 @@ The **Track Inspector** is a compact, tabbed utility for inspecting and adjustin
 
 ## 27. Workstation Dialogs & Tools
 
-These focused dialogs cover tuning, generative textures, rhythm generation, sample zone mapping, wavetable creation, and housekeeping.
+These focused dialogs cover tuning, generative textures, rhythm generation, sample zone mapping, wavetable creation, and housekeeping. **Tuning & Temperaments**, **Drone Lab**, and the **Orphaned Recording Cleaner** open from the **Tools** menu; the others open in context (from a step's right-click menu or the oscillator/sample settings).
 
-*   **Tuning & Temperaments** — choose an equal or microtonal temperament, notes-per-octave, reference pitch (A), import a Scala `.scl` file, and set a per-note scaling map (cents offset for each of the 12 notes).
+*   **Tuning & Temperaments** (Tools menu) — choose an equal or microtonal temperament, notes-per-octave, reference pitch (A), import a Scala `.scl` file, and set a per-note scaling map (cents offset for each of the 12 notes).
 
     ![Tuning & Temperaments dialog](images/deluge_tuning.png)
 
@@ -2030,7 +2030,7 @@ These focused dialogs cover tuning, generative textures, rhythm generation, samp
 
     ![Drone Lab & Texture Generator dialog](images/deluge_drone_lab.png)
 
-*   **Euclidean Rhythm Generator** — distribute N hits evenly across the step count to create Euclidean patterns for a note row.
+*   **Euclidean Rhythm Generator** (right-click a step ➔ **Euclidean Fill Row…**) — distribute N hits evenly across the step count to create Euclidean patterns for a note row (§1.10).
 
     ![Euclidean Rhythm Generator dialog](images/deluge_euclidean_rhythm.png)
 
