@@ -979,8 +979,8 @@ All communications adhere to the following byte layout:
 `[0xF0] [0x00 0x21 0x7B 0x01] [Command ID] [Sequence ID] [JSON Payload...] [0x00 (Spacer)] [Binary Payload...] [0xF7]`
 *   `0xF0`: Standard SysEx Start byte.
 *   `0x00 0x21 0x7B 0x01`: The official Manufacturer Header.
-*   `Command ID`: `0x02` (Real-time OLED display streaming), `0x05` (JSON file-system request/response), or `0x06` (JSON system broadcast).
-*   `Sequence ID`: 1-indexed transaction counter (`1 to 127`) to match asynchronous callbacks.
+*   `Command ID`: `0x02` (HID Display stream data), `0x04` (JSON Request), `0x05` (JSON Reply), or `0x03` (Debug print stream).
+*   `Sequence ID`: 1-indexed transaction counter (`1 to 127`, or specific session negotiated limits) to match asynchronous callbacks.
 *   `0x00 (Spacer)`: Optional division byte separating JSON metadata from raw binary blocks.
 *   `0xF7`: Standard SysEx End byte.
 
@@ -997,8 +997,9 @@ Below is the reference of commands supported by the system:
 | **Host ➔ HW** | **Open Remote File** | `{"open": {"path": "/S/S1.XML", "mode": "r"}}` | *None*. Opens file handle on Deluge SD card. | **Realized** |
 | **Host ➔ HW** | **Read File Block** | `{"read": {"fid": 1, "offset": 0, "size": 512}}` | *None*. Requests 512-byte block from open handle. | **Realized** |
 | **Host ➔ HW** | **Close Remote File**| `{"close": {"fid": 1}}` | *None*. Closes open file handle and flushes memory. | **Realized** |
-| **Host ➔ HW** | **Start OLED Stream** | `[0xF0][0x00 0x21 0x7B 0x01][0x01][0x00][0x03][0xF7]` | *None*. Initiates display streaming. | **Realized** |
-| **HW ➔ Host** | **OLED Frame Delta** | *None* (Command `0x02`, Subtype `0x41`) | RLE-compressed display differences to redraw UI screen. | **Realized** |
+| **Host ➔ HW** | **Start OLED Stream** | *None* | Sends `[0xF0] [0x00 0x21 0x7B 0x01] [0x02] [0x00] [0x03] [0xF7]` | **Realized** |
+| **HW ➔ Host** | **OLED Frame Delta** | *None* | Command `0x02`, Subtype `0x40`. RLE-compressed display differences to redraw OLED screen. | **Realized** |
+| **HW ➔ Host** | **7-Segment Display** | *None* | Command `0x02`, Subtype `0x41`. Character segment configurations. | **Realized** |
 | **HW ➔ Host** | **Ping Response** | `{"^ping": {}}` | *None*. Heartbeat echo confirming hardware is online. | **Realized** |
 | **HW ➔ Host** | **Directory Reply** | `{"^dir": {"list": [{"name": "s1.xml", "size": 19974}], "err": 0}}` | *None*. Returns structured file arrays to sidebar. | **Realized** |
 | **HW ➔ Host** | **Open File Reply** | `{"^open": {"fid": 1, "size": 19974, "err": 0}}` | *None*. Returns file descriptor and byte size. | **Realized** |
