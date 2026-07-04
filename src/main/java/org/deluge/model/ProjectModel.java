@@ -50,7 +50,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   // ── Song-level delay params ──
   private int delayPingPong = 0;
   private int delayAnalog = 0;
-  private int delaySyncLevel = 0;
+  private int delaySyncLevel = 6;
   private int delaySyncType = 0;
 
   // ── Song-level sidechain params ──

@@ -323,7 +323,7 @@ public class Sound extends GlobalEffectable {
   public int delayFeedbackAmount = 0;
   public boolean delayPingPong = false;
   public boolean delayAnalog = false;
-  public boolean shouldLimitDelayFeedback = true;
+  public boolean shouldLimitDelayFeedback = false;
 
   public ModFx.ModFXType modFXType = ModFx.ModFXType.NONE;
   public int modFXRateIncrement = 0;

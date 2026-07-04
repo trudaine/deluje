@@ -17,9 +17,9 @@ public class FxConfig {
   private float eqTreble = 0.0f;
 
   // Per-sound delay parameters
-  private int delaySyncLevel = 0;
+  private int delaySyncLevel = 6;
   private int delaySyncType = 0;
-  private int delayFeedbackQ31 = 0;
+  private int delayFeedbackQ31 = Integer.MIN_VALUE;
   private boolean delayPingPong = false;
   private boolean delayAnalog = false;
 

@@ -350,7 +350,7 @@ public class PhysicalHardwareFidelityTest {
       String xmlPath, int targetLength, int triggerBlock, int releaseBlock, int pitch)
       throws Exception {
     return renderXmlTrackPreset(
-        xmlPath, targetLength, triggerBlock, releaseBlock, pitch, null, null);
+        xmlPath, targetLength, triggerBlock, releaseBlock, pitch, null, null, false, null, null);
   }
 
   private float[] renderXmlTrackPreset(
@@ -362,7 +362,7 @@ public class PhysicalHardwareFidelityTest {
       java.util.Map<Integer, Integer> paramOverrides)
       throws Exception {
     return renderXmlTrackPreset(
-        xmlPath, targetLength, triggerBlock, releaseBlock, pitch, paramOverrides, null);
+        xmlPath, targetLength, triggerBlock, releaseBlock, pitch, paramOverrides, null, false, null, null);
   }
 
   private float[] renderXmlTrackPreset(
@@ -374,6 +374,45 @@ public class PhysicalHardwareFidelityTest {
       java.util.Map<Integer, Integer> paramOverrides,
       Integer lfoPhaseOverride)
       throws Exception {
+    return renderXmlTrackPreset(
+        xmlPath, targetLength, triggerBlock, releaseBlock, pitch, paramOverrides, lfoPhaseOverride, false, null, null);
+  }
+
+  private float[] renderXmlTrackPreset(
+      String xmlPath,
+      int targetLength,
+      int triggerBlock,
+      int releaseBlock,
+      int pitch,
+      java.util.Map<Integer, Integer> paramOverrides,
+      Integer lfoPhaseOverride,
+      boolean limitDelayFeedback)
+      throws Exception {
+    return renderXmlTrackPreset(
+        xmlPath,
+        targetLength,
+        triggerBlock,
+        releaseBlock,
+        pitch,
+        paramOverrides,
+        lfoPhaseOverride,
+        limitDelayFeedback,
+        null,
+        null);
+  }
+
+  private float[] renderXmlTrackPreset(
+      String xmlPath,
+      int targetLength,
+      int triggerBlock,
+      int releaseBlock,
+      int pitch,
+      java.util.Map<Integer, Integer> paramOverrides,
+      Integer lfoPhaseOverride,
+      boolean limitDelayFeedback,
+      Float bpm,
+      Integer delaySyncLevel)
+      throws Exception {
     java.io.File xmlFile = new java.io.File(getClass().getResource(xmlPath).toURI());
     SynthTrackModel synthModel = DelugeXmlParser.parseSynth(xmlFile);
 
@@ -383,11 +422,20 @@ public class PhysicalHardwareFidelityTest {
     // the same 0.5 as everything else.)
     synthModel.setVolume(0.5f);
 
+    if (delaySyncLevel != null) {
+      synthModel.setDelaySyncLevel(delaySyncLevel);
+    }
+
     ProjectModel project = new ProjectModel();
+    if (bpm != null) {
+      project.setTempoBPM(bpm);
+      project.setBpm(bpm);
+    }
     project.addTrack(synthModel);
     ProjectModel fwSong = FirmwareFactory.createSong(project);
     org.deluge.model.ClipModel clip = fwSong.getTracks().get(0).getActiveClip();
     FirmwareSound synth = (FirmwareSound) clip.getSound();
+    synth.fw2Sound.shouldLimitDelayFeedback = limitDelayFeedback;
 
     // Keep XML-parsed active volumes to preserve numerical resolution and fixed-point precision!
     // Safety headroom is already set by synthModel.setVolume(0.5f) above!
@@ -1633,7 +1681,12 @@ public class PhysicalHardwareFidelityTest {
             hw.length,
             triggerBlock,
             triggerBlock + 1000,
-            72);
+            72,
+            null,
+            null,
+            true,
+            85.0f,
+            6);
     int hwStart = findPositiveZeroCrossing(hw, 10000);
     int swStart = findPositiveZeroCrossing(sw, 12800);
     assertWaveShapeFidelity(hw, sw, 0.50, 15000, hwStart, swStart, "Delay Trail Saw C5");
