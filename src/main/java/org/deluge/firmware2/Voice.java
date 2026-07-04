@@ -1203,6 +1203,8 @@ public class Voice {
           vs.dxPatch.computeLfo(numSamples);
           if (uniBuf.length < numSamples) {
             uniBuf = new int[numSamples];
+          } else {
+            java.util.Arrays.fill(uniBuf, 0, numSamples, 0);
           }
           vs.dxVoice.compute(uniBuf, numSamples, adjpitch, vs.dxPatch, ampMod, 0, 0);
           for (int i = 0; i < numSamples; i++) {

@@ -10,6 +10,7 @@ package org.deluge.firmware2;
  * <p>Firmware reference: {@code dsp/dx/fm_core.cpp} (119 lines), {@code fm_core.h} (63 lines).
  */
 public final class FmCore {
+  public static boolean debugRender = false;
 
   private FmCore() {}
 
@@ -132,23 +133,25 @@ public final class FmCore {
   public static void render(
       int[] output, int n, FmOpParams[] params, int algorithm, int[] fbBuf, int feedbackShift) {
     int[] alg = ALGORITHMS[algorithm];
-
-    // simd_n: round up to multiple of 4 (replaces NEON alignment)
     int simdN = (n + 3) & ~3;
-
-    // inv_n = (1<<30) / n (fixed-point division constant)
     int invN = (1 << 30) / n;
-
-    // Scratch buffers for operator interconnects (bus 1, bus 2)
     int[][] buf = new int[2][simdN];
     java.util.Arrays.fill(buf[0], 0);
     java.util.Arrays.fill(buf[1], 0);
     boolean[] hasContents = {true, false, false};
 
+    if (debugRender) {
+      System.out.printf("[FMCORE DEBUG] render algorithm=%d n=%d feedbackShift=%d%n", algorithm, n, feedbackShift);
+    }
+
     for (int op = 0; op < 6; op++) {
       int flags = alg[op];
       boolean add = (flags & OUT_BUS_ADD) != 0;
       FmOpParams param = params[op];
+      if (debugRender) {
+        System.out.printf("  op=%d (Op %d) freq=%d level_in=%d gain_out=%d flags=0x%02X%n",
+            op, 6 - op, param.freq, param.level_in, param.gain_out, flags);
+      }
       int inbus = (flags >> 4) & 3;
       int outbus = flags & 3;
 

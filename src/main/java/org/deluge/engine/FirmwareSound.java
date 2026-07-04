@@ -114,7 +114,7 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   // syncParamsToFw2 converts it to fw2Sound.delayUserRate using currentBpm. delayFeedbackAmount <
   // 256
   // (or syncLevel 0) leaves the per-sound delay inert.
-  public int delaySyncLevel = 0;
+  public int delaySyncLevel = 6;
   public int delaySyncType = 0; // 0=even, 1=triplet, 2=dotted
   public int delayFeedbackAmount = 0;
   public boolean delayPingPong = false;
@@ -450,7 +450,9 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
       fw2Sound.delayAnalog = delayAnalog;
     } else if (delaySyncLevel == 0 && dfb >= 256) {
       fw2Sound.delayUserRate =
-          fw2Sound.patchedParamValues[org.deluge.firmware2.Param.GLOBAL_DELAY_RATE];
+          org.deluge.firmware2.Patcher.computeFinalValueForParam(
+              org.deluge.firmware2.Param.GLOBAL_DELAY_RATE,
+              fw2Sound.patchedParamValues[org.deluge.firmware2.Param.GLOBAL_DELAY_RATE]);
       fw2Sound.delayFeedbackAmount = dfb;
       fw2Sound.delayPingPong = delayPingPong;
       fw2Sound.delayAnalog = delayAnalog;
