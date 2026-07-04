@@ -586,7 +586,8 @@ public class DelugeXmlUtil {
     }
   }
 
-  public static int convertSyncLevelFromFileValueToInternalValue(int fileValue, int inputTickMagnitude) {
+  public static int convertSyncLevelFromFileValueToInternalValue(
+      int fileValue, int inputTickMagnitude) {
     if (fileValue == 0) {
       return 0; // 0 means "off"
     }
@@ -599,7 +600,8 @@ public class DelugeXmlUtil {
     return internalValue;
   }
 
-  public static int convertSyncLevelFromInternalValueToFileValue(int internalValue, int inputTickMagnitude) {
+  public static int convertSyncLevelFromInternalValueToFileValue(
+      int internalValue, int inputTickMagnitude) {
     if (internalValue == 0) {
       return 0; // 0 means "off"
     }

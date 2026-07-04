@@ -25,8 +25,10 @@ public class MidiInputRouter {
   private int activeTrackIndex = 4; // Default to first synth track
 
   // Follow channel routing: index 0..15
-  private final int[] followMidiChannels = new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-  private final int[] followTracks = new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+  private final int[] followMidiChannels =
+      new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+  private final int[] followTracks =
+      new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
 
   private static class NoteStartInfo {
     long time;
@@ -144,7 +146,8 @@ public class MidiInputRouter {
       if (cc == 89 || cc == 90) {
         int trackIdx = resolveTrackFromChannel(midiChannel);
         if (SwingDelugeApp.mainInstance != null) {
-          org.deluge.ui.SwingGridPanel activeGrid = SwingDelugeApp.mainInstance.getActiveGridPanel();
+          org.deluge.ui.SwingGridPanel activeGrid =
+              SwingDelugeApp.mainInstance.getActiveGridPanel();
           if (activeGrid != null && activeGrid.getProjectModel() != null) {
             int trackCount = activeGrid.getProjectModel().getTracks().size();
             if (trackIdx >= 0 && trackIdx < trackCount) {

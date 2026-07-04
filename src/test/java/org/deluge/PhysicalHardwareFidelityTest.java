@@ -1256,7 +1256,8 @@ public class PhysicalHardwareFidelityTest {
   }
 
   @Test
-  @org.junit.jupiter.api.Disabled("Disabled due to platform/JVM spectral correlation threshold flakiness (was -0.00513563). Needs reference calibration alignment.")
+  @org.junit.jupiter.api.Disabled(
+      "Disabled due to platform/JVM spectral correlation threshold flakiness (was -0.00513563). Needs reference calibration alignment.")
   public void testLfoPitchVibratoParity() throws Exception {
     System.out.println("=== RUNNING HARDWARE REGRESSION: LFO PITCH VIBRATO C5 ===");
     float[] hw = loadWavFromResource("/fidelity/reference_lfo_pitch_vibrato_c5.wav");
