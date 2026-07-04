@@ -430,14 +430,14 @@ The mapper runs in two passes: first it fills slots 1–8 by keyword, then it fi
 
 ## 4. Visual Waveform Crop & Loop Markers Deck
 
-Double-click any drum track or click its `[CFG]` button to enter the wav file crop editor:
+Click the **⚙** button on a drum row to open that drum's settings editor, which includes the waveform crop deck:
 
 ![Interactive WAV Waveform Loop Markers & Crop Sliders Panel](images/deluge_waveform_crop.png)
 
 ### Key Features:
-* **Parallel WAV Decoders**: Uses background virtual threads to decode PCM streams without blocking the UI thread.
-* **Envelope Canvas**: Paints a visual representation of the WAV stream's transient spikes with a neon teal-to-magenta gradient center-split.
-* **4-Marker Interactive Crop Sliders**: Glide parameters in real-time to locate:
+* **Responsive loading**: samples decode in the background, so the waveform appears without freezing the interface.
+* **Waveform canvas**: draws the sample's shape so you can see transients and set boundaries by eye.
+* **4-Marker Interactive Crop Sliders**: drag in real time to set:
   * **Start Point (Green - S)**: Where the playback head begins reading samples.
   * **End Point (Red - E)**: Where the voice release completes.
   * **Loop Start (Blue - LS)**: Where continuous looping cycles begin.
@@ -456,7 +456,7 @@ The menu action **`Tools ➔ Audio Loop Slicer...`** (global shortcut **`Ctrl + 
 1. **Choose a WAV loop**: Load any drum break, loop phrase, or sample WAV file. The waveform canvas draws the transients immediately.
 2. **Select Slices Grid Combobox**: Choose divisions count (**`4 Slices`**, **`8 Slices`**, or **`16 Slices`**). The screen draws vertical dashed orange slice-dividers over the audio wave.
 3. **Choke and Volume Setup**: Toggle checkboxes to auto-choke generated slices on Mute Group 1 (so triggering a new slice cuts off the playing tail) and scale initial volume multipliers.
-4. **⚡ Slice & Load Across Kit Rows Button**: Click this button to split the loop, populate drum kit rows 0 to 15 with the slice boundaries, write the Kit XML to the `KITS/` folder, and hot-swap the active sequencer grid lane to play the sliced loop kit.
+4. **✂️ Slice & Load Across Kit Rows live**: click this button to split the loop, spread the slices across the kit's drum rows, save the kit to the `KITS/` folder, and load it onto the active track so you can play the sliced loop straight away.
 
 ---
 
