@@ -1300,22 +1300,43 @@ public class PhysicalHardwareFidelityTest {
   }
 
   @Test
-  @org.junit.jupiter.api.Disabled(
-      "Disabled due to platform/JVM spectral correlation threshold flakiness (was -0.00513563). Needs reference calibration alignment.")
   public void testLfoPitchVibratoParity() throws Exception {
     System.out.println("=== RUNNING HARDWARE REGRESSION: LFO PITCH VIBRATO C5 ===");
-    float[] hw = loadWavFromResource("/fidelity/reference_lfo_pitch_vibrato_c5.wav");
+    float[] hw = loadWavFromResource("/fidelity/ab_lfo_vibrato_c5.wav");
     int triggerBlock = 100;
+    int hwStart = findPositiveZeroCrossing(hw, 10000);
     float[] sw =
         renderXmlTrackPreset(
             "/fidelity/108_LFO_PITCH_VIBRATO_C5.XML",
             hw.length,
             triggerBlock,
             triggerBlock + 1000,
-            72);
-    int hwStart = findPositiveZeroCrossing(hw, 10000);
+            84,
+            null,
+            (int) 2326440618L,
+            false);
     int swStart = findPositiveZeroCrossing(sw, 12800);
-    assertSpectralFidelity(hw, sw, hwStart, swStart, 0.0, "LFO Pitch Vibrato C5");
+    try {
+      java.io.File outFile =
+          new java.io.File(System.getProperty("java.io.tmpdir"), "sw_test_vibrato.wav");
+      byte[] outBytes = new byte[sw.length * 2];
+      for (int i = 0; i < sw.length; i++) {
+        short val = (short) Math.max(-32768, Math.min(32767, sw[i] * 32768.0f));
+        outBytes[i * 2] = (byte) (val & 0xFF);
+        outBytes[i * 2 + 1] = (byte) ((val >> 8) & 0xFF);
+      }
+      javax.sound.sampled.AudioFormat format =
+          new javax.sound.sampled.AudioFormat(44100.0f, 16, 1, true, false);
+      try (javax.sound.sampled.AudioInputStream ais =
+          new javax.sound.sampled.AudioInputStream(
+              new java.io.ByteArrayInputStream(outBytes), format, sw.length)) {
+        javax.sound.sampled.AudioSystem.write(
+            ais, javax.sound.sampled.AudioFileFormat.Type.WAVE, outFile);
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    assertSpectralFidelity(hw, sw, hwStart, swStart, 0.30, "LFO Pitch Vibrato C5");
   }
 
   @Test
