@@ -13,6 +13,7 @@ public class EuclideanRhythmDialog extends JDialog {
   private final int baseTrack;
   private final int stepCount;
   private final Runnable onApply;
+  private final java.util.function.Consumer<boolean[]> patternConsumer;
   private final EuclideanWheelPanel wheelPanel;
   private boolean[] currentPattern;
 
@@ -31,11 +32,36 @@ public class EuclideanRhythmDialog extends JDialog {
       int stepCount,
       String rowName,
       Runnable onApply) {
+    this(owner, bridge, baseTrack, stepCount, rowName, onApply, null);
+  }
+
+  /**
+   * Preferred constructor: hands the chosen pattern to {@code patternConsumer} on Apply so the
+   * caller can write it through the model (undoable), instead of the dialog writing straight to the
+   * engine. {@code rowName} labels the target row.
+   */
+  public EuclideanRhythmDialog(
+      Frame owner,
+      int stepCount,
+      String rowName,
+      java.util.function.Consumer<boolean[]> patternConsumer) {
+    this(owner, null, 0, stepCount, rowName, null, patternConsumer);
+  }
+
+  private EuclideanRhythmDialog(
+      Frame owner,
+      BridgeContract bridge,
+      int baseTrack,
+      int stepCount,
+      String rowName,
+      Runnable onApply,
+      java.util.function.Consumer<boolean[]> patternConsumer) {
     super(owner, "Euclidean Rhythm Generator", true);
     this.bridge = bridge;
     this.baseTrack = baseTrack;
     this.stepCount = stepCount;
     this.onApply = onApply;
+    this.patternConsumer = patternConsumer;
 
     setSize(600, 520);
     setLocationRelativeTo(owner);
@@ -155,7 +181,11 @@ public class EuclideanRhythmDialog extends JDialog {
     applyBtn.setForeground(Color.WHITE);
     applyBtn.addActionListener(
         e -> {
-          applyPattern();
+          if (patternConsumer != null) {
+            patternConsumer.accept(currentPattern);
+          } else {
+            applyPattern();
+          }
           if (onApply != null) onApply.run();
           dispose();
         });

@@ -48,6 +48,16 @@ class StepPropertiesEditor {
       popup.add(pianoRollItem);
     }
 
+    JMenuItem euclideanItem = new JMenuItem("Euclidean Fill Row...");
+    euclideanItem.addActionListener(
+        ev -> {
+          Frame owner = (Frame) SwingUtilities.getWindowAncestor(parent);
+          new EuclideanRhythmDialog(
+                  owner, 16, "Row " + (row + 1), pat -> parent.applyEuclideanFillToRow(row, pat))
+              .setVisible(true);
+        });
+    popup.add(euclideanItem);
+
     JMenuItem clearStep = new JMenuItem("Clear Step");
     clearStep.addActionListener(
         e -> {

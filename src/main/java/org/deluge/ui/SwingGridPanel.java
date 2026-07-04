@@ -220,6 +220,56 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   /**
+   * Writes a Euclidean pattern across one row of the active clip, routed through the model (so it
+   * persists and serializes) and pushed to the undo stack as a single {@code CompoundConsequence}.
+   * {@code pattern[s] == true} places a note on step {@code s}; other steps in range are cleared.
+   */
+  public void applyEuclideanFillToRow(int visualRow, boolean[] pattern) {
+    BridgeContract bridge = getBridge();
+    org.deluge.model.ProjectModel project = getProjectModel();
+    if (bridge == null || project == null || pattern == null) return;
+    int editedTrack = getEditedModelTrack();
+    int activeClipId = getActiveClipId();
+    if (editedTrack < 0 || editedTrack >= project.getTracks().size()) return;
+    org.deluge.model.TrackModel tModel = project.getTracks().get(editedTrack);
+    if (activeClipId < 0 || activeClipId >= tModel.getClips().size()) return;
+    org.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
+
+    int visualModelRow = getModelRow(visualRow);
+    int engineRow = getBaseTrackId() + getEngineRowOffset(visualModelRow);
+    int trackType = bridge.getTrackType(getBaseTrackId());
+    boolean isSynthMode = trackType == 0 || trackType == 1;
+    int pitch = isSynthMode ? getRowPitch(visualModelRow) : 0;
+
+    java.util.List<org.deluge.model.Consequence> steps = new java.util.ArrayList<>();
+    int n = Math.min(cModel.getStepCount(), pattern.length);
+    for (int s = 0; s < n; s++) {
+      boolean active = pattern[s];
+      org.deluge.model.StepData oldStep = getClipStep(cModel, visualModelRow, s);
+      if (oldStep.active() == active) continue; // no change on this step
+      org.deluge.model.StepData newStep =
+          org.deluge.model.StepData.of(
+              active,
+              active ? 0.8f : oldStep.velocity(),
+              oldStep.gate(),
+              oldStep.probability(),
+              pitch);
+      bridge.setStep(engineRow, s, active);
+      if (active) bridge.setVelocity(engineRow, s, 0.8);
+      setClipStep(cModel, visualModelRow, s, newStep);
+      steps.add(
+          new org.deluge.model.Consequence.StepConsequence(
+              project, editedTrack, activeClipId, visualModelRow, s, oldStep, newStep));
+    }
+    if (!steps.isEmpty()) {
+      project
+          .getUndoRedoStack()
+          .push(new org.deluge.model.Consequence.CompoundConsequence("Euclidean fill row", steps));
+    }
+    refresh();
+  }
+
+  /**
    * Opens the Piano Roll editor for this grid's active clip — the desktop's scrollable, whole-clip
    * note editor. Shared by the step right-click menu and the Tools menu so both use one path.
    */

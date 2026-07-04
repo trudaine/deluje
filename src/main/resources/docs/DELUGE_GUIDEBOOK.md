@@ -168,17 +168,15 @@ The pad grid is perfect for building a pattern a step at a time, but for long, m
 
 ### 1.10 The Euclidean Rhythm Generator
 
-Drawing even trigger distributions across step grids is fully automated. By integrating a dedicated mathematical Euclidean pattern layout planner, the workstation lets you populate drum tracks or basslines with polyrhythms:
+The Euclidean generator spreads a number of hits as evenly as possible across a row — a fast way to build drum patterns and polyrhythms.
 
-*   **The Interactive Euclidean Wheel**: Clicking the **`Euclidean`** button (located on the left-side control panel of the active matrix row) opens a modal dialog. The window features an interactive **Euclidean Wheel** rendering active pulses as glowing amber outer pads and silent steps as dark charcoal segments.
+*   **Open it**: right-click any step in the row you want to fill ➔ **Euclidean Fill Row…**. A dialog opens with an interactive **Euclidean Wheel** showing active pulses as glowing dots and silent steps as dim ones.
 *   **Parameters**:
-    *   **Steps (N)**: The total sequence length (up to 16 steps per bar).
-    *   **Pulses (K)**: The number of active notes to distribute.
-    *   **Rotation (Shift)**: Rotates the pulse offsets horizontally (e.g. shifts the downbeat triggers).
-*   **The Mathematical Distribution Formula**: Follows the Bjorklund spacing algorithm which calculates a boolean array $B[s]$ of length $N$:
-    $$B[s] = \text{true if } (s \cdot K + \text{rotation}) \bmod N < K$$
-    This matches the Deluge firmware's step spacing behavior.
-*   **💾 Generate & Apply Button**: Click this button to overwrite the active row's sequence grid cells with the computed pattern. It triggers immediate audio playback reload so you hear the polyrhythm play instantly.
+    *   **Steps (N)**: the number of steps to spread across (up to 16).
+    *   **Pulses (K)**: the number of active hits to distribute.
+    *   **Rotation**: shifts every hit forward by a number of steps (moves the downbeat).
+*   **How the spacing is computed**: hit *n* lands on step `(n · N / K + rotation) mod N`, distributing the *K* pulses as evenly as the *N* steps allow — the same even-spacing the firmware uses.
+*   **Apply**: click **Apply** to write the pattern onto that row. It replaces the row's existing steps, plays back immediately, and is a single **undoable** action (`Ctrl + Z`).
 
 ---
 
@@ -1288,7 +1286,7 @@ This chapter provides a direct, code-by-code mapping of every shortcut code from
 | **SQ05** | Note iteration | Hold pad + turn `Select` right | Right-click the step ➔ **Edit Step Properties…** ➔ Iteration spinner |
 | **SQ06** | Copy notes | Hold `Learn` + push `◄►` | Select notes or columns + press **`Ctrl + C`** |
 | **SQ07** | Paste notes | Hold `Learn` + `Shift` + push `◄►`| Select target cell + press **`Ctrl + V`** |
-| **SQ08** | Euclidean Rhythm | Push `Select` in Euclidean menu | Click **`Euclidean`** button next to grid row to open wheel dialog |
+| **SQ08** | Euclidean Rhythm | Push `Select` in Euclidean menu | Right-click a step in the target row ➔ **Euclidean Fill Row…** |
 | **SQ09** | Shift all clip notes | Push `▼▲` + turn `◄►` knob | Drag notes, or use Nudge slider in Step properties |
 | **SQ10** | Clear clip | Press `Shift` + `Back` + push `◄►`| Click **`[Clear Track]`** button, or right-click track ➔ Clear |
 | **SQ11** | Change clip color | `Shift` + press `▼▲` knob | Click colored track swatch in track row header |
@@ -1445,9 +1443,10 @@ Edits are undoable with **`Ctrl + Z`** / **`Ctrl + Y`** (or the **Edit** menu). 
 | Undoable | Not yet on the undo stack |
 | :--- | :--- |
 | Note/step toggles, velocity, probability, iteration, gate | Setting clip length by typing in the length badge |
-| Step copy/paste, clear step | Euclidean **Apply** (writing a generated pattern) |
-| Per-step & clip automation edits | Change Track Color |
-| Synth/kit parameter changes; arpeggiator changes | Randomizer / generator suite results |
+| Step copy/paste, clear step | Change Track Color |
+| Per-step & clip automation edits | Randomizer / generator suite results |
+| Euclidean **Fill Row** | |
+| Synth/kit parameter changes; arpeggiator changes | |
 | Project params (BPM, swing, master volume, reverb) | |
 | Add / remove / move / rename / duplicate track & clip | |
 | **Double clip length** | |
