@@ -1158,6 +1158,7 @@ public class ClipGridPanel extends SwingGridPanel {
         clipBtn.addMouseListener(
             new java.awt.event.MouseAdapter() {
               private boolean isPressed = false;
+              private boolean auditionSounded = false;
 
               private void startAudition() {
                 if (isPressed) return;
@@ -1179,12 +1180,14 @@ public class ClipGridPanel extends SwingGridPanel {
                     if (sound instanceof org.deluge.engine.FirmwareKit kit) {
                       if (modelRow < kit.drumSounds.size()) {
                         kit.triggerDrum(modelRow, 127);
+                        auditionSounded = true;
                       }
                     } else if (sound instanceof org.deluge.engine.FirmwareSound synth) {
                       stopAuditionIfNeeded();
                       auditionMidiNote = pitchMidi;
                       auditionSynth = synth;
                       synth.triggerNote(pitchMidi, 127);
+                      auditionSounded = true;
                     }
                   }
                 }
@@ -1193,6 +1196,9 @@ public class ClipGridPanel extends SwingGridPanel {
               private void stopAudition() {
                 if (!isPressed) return;
                 isPressed = false;
+
+                if (!auditionSounded) return;
+                auditionSounded = false;
 
                 boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
                 int pitchMidi = isSynthMode ? getRowPitch(modelRow) : 60;

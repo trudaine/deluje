@@ -585,4 +585,28 @@ public class DelugeXmlUtil {
       return "";
     }
   }
+
+  public static int convertSyncLevelFromFileValueToInternalValue(int fileValue, int inputTickMagnitude) {
+    if (fileValue == 0) {
+      return 0; // 0 means "off"
+    }
+    int internalValue = fileValue + 1 - inputTickMagnitude;
+    if (internalValue < 1) {
+      internalValue = 1;
+    } else if (internalValue > 9) {
+      internalValue = 9;
+    }
+    return internalValue;
+  }
+
+  public static int convertSyncLevelFromInternalValueToFileValue(int internalValue, int inputTickMagnitude) {
+    if (internalValue == 0) {
+      return 0; // 0 means "off"
+    }
+    int fileValue = internalValue - 1 + inputTickMagnitude;
+    if (fileValue < 1) {
+      fileValue = 1;
+    }
+    return fileValue;
+  }
 }

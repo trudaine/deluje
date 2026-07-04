@@ -118,7 +118,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   private transient int swungTicksTilNextEvent = Integer.MAX_VALUE;
   private transient boolean inArrangerMode = false;
   private transient int swingAmount = 0; // -49 to 49
-  private transient int swingInterval = 7; // SyncLevel (e.g. 1/16)
+  private transient int swingInterval = 6; // SyncLevel (e.g. 1/16)
   private transient org.deluge.modulation.params.ParamManager paramManager =
       new org.deluge.modulation.params.ParamManager();
 

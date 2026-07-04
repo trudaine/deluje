@@ -10,6 +10,7 @@ import java.util.List;
 import org.deluge.model.*;
 import org.deluge.xml.DelugeHexMapper;
 import org.deluge.xml.DelugeNoteDataMapper;
+import org.deluge.xml.DelugeXmlUtil;
 
 /** Stream-based project song serializer utilizing XMLSerializer for perfect formatting parity. */
 public class ProjectSerializer {
@@ -45,7 +46,10 @@ public class ProjectSerializer {
     writer.writeAttribute("previewNumPads", 144, false);
     writer.writeAttribute("swing", DelugeHexMapper.floatToHex(model.getSwing()), false);
     writer.writeAttribute("swingAmount", model.getSwingAmount(), false);
-    writer.writeAttribute("swingInterval", model.getSwingInterval(), false);
+    int fileSwingInterval =
+        DelugeXmlUtil.convertSyncLevelFromInternalValueToFileValue(
+            model.getSwingInterval(), model.getInputTickMagnitude());
+    writer.writeAttribute("swingInterval", fileSwingInterval, false);
     writer.writeAttribute("tempo", String.valueOf(model.getBpm()), false);
     writer.writeAttribute("key", model.getKey(), false);
     writer.writeAttribute("scale", model.getScale(), false);
