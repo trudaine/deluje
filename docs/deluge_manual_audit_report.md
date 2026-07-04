@@ -47,6 +47,7 @@ This report presents a functional audit comparing the official **Synthstrom Audi
         int col = activeGrid.getCurrentPlayheadStep();
         ```
     *   This forces all live-recorded notes to be hard-quantized to the current grid step (e.g. 16th notes), losing high-res timing entirely.
+*   **Scope note (deeper than the recording path):** This is **not** a `MidiInputRouter`-only fix. The whole sequencer/playback pipeline is step-quantized: playback derives `currentStep = lastSwungTickActioned / stepTicks` (integer floor, `PureFirmwareEngine`), so notes only ever fire *at step boundaries*. `StepData` already carries a `nudge` (sub-step offset) field exposed in the Step Properties dialog, **but nothing in the engine or playback reads it** — it is stored-but-unused. Recording sub-step timing into `nudge` today would therefore be inaudible (a non-functional illusion). A meaningful fix requires **sub-step note firing in the engine** — triggering each note at `stepStart + nudge·stepTicks` in the per-tick loop — which is timing-core and fidelity-sensitive, so it must be verified by ear (scorecard-neutral). Deferred until then.
 
 ---
 
