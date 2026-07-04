@@ -270,6 +270,33 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   /**
+   * Shifts every note in the active clip sideways by {@code steps} columns (wrapping around),
+   * routed through the model and pushed to the undo stack as one action (Deluge horizontal shift).
+   */
+  public void shiftActiveClipNotes(int steps) {
+    org.deluge.model.ProjectModel project = getProjectModel();
+    if (project == null) return;
+    int editedTrack = getEditedModelTrack();
+    if (editedTrack < 0 || editedTrack >= project.getTracks().size()) return;
+    org.deluge.model.TrackModel track = project.getTracks().get(editedTrack);
+    int clipIdx = track.getActiveClipIndex();
+    if (clipIdx < 0 || clipIdx >= track.getClips().size()) return;
+    org.deluge.model.ClipModel clip = track.getClips().get(clipIdx);
+
+    org.deluge.model.ClipModel before = clip.deepCopy(clip.getName());
+    clip.shiftNotesHorizontally(steps);
+    project
+        .getUndoRedoStack()
+        .push(
+            new org.deluge.model.Consequence.ClipContentConsequence(
+                project, editedTrack, clipIdx, before, clip.deepCopy(clip.getName())));
+    if (SwingDelugeApp.mainInstance != null) {
+      SwingDelugeApp.mainInstance.pushModelToBridge();
+    }
+    refresh();
+  }
+
+  /**
    * Opens the Piano Roll editor for this grid's active clip — the desktop's scrollable, whole-clip
    * note editor. Shared by the step right-click menu and the Tools menu so both use one path.
    */

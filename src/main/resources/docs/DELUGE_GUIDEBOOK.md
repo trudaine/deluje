@@ -114,6 +114,7 @@ Getting around the grid:
 ### 1.5 Moving & Nudging Notes
 
 *   **Move a note**: Drag a note pad along its row to slide it earlier or later in time, or up/down to change its pitch.
+*   **Shift the whole clip sideways**: press **`Alt + →`** or **`Alt + ←`** to move *every* note in the clip one step later or earlier. Notes that fall off one end wrap around to the other. It's a single, undoable action (`Ctrl + Z`).
 *   **Fine nudge**: Right-click a step ➔ **Edit Step Properties…** and use the **Nudge** slider to shift that note by a fine amount within its column — handy for humanizing timing without changing the grid resolution.
 
 ---
@@ -1231,7 +1232,8 @@ The following table maps the standard Deluge hardware button combinations (from 
 | **All Views** | Adjust Brightness | `Shift` + `Learn` + turn `▼▲` knob | Adjust monitor brightness, or configure desktop layouts under **`Settings ➔ Preferences...`** |
 | | Time resolution (rate) | Press `◄►` knob | Pick the resolution from the rate selector at the bottom of the clip grid |
 | | Grid (pad) zoom | — | **`Ctrl + =`** / **`Ctrl + -`**, or the **View** menu, to resize the pad grid |
-| | Previous / next clip | — | **`Ctrl + [`** / **`Ctrl + ]`** |
+| | Previous / next clip | — | **`[`** / **`]`** |
+| | Shift clip notes sideways | Push `▼▲` + turn `◄►` | **`Alt + ←`** / **`Alt + →`** (wraps around) |
 | | Scroll grid horizontally | Turn `◄►` knob | Turn horizontal encoder knob in top toolbar / encoder strip, scroll mouse wheel horizontally, drag bottom scroll bar, or glide cursor near borders |
 | | Zoom resolution / rate | `Shift` + turn `◄►` knob | Hold **`Shift`** + turn the horizontal scroll encoder in top toolbar / encoder strip to scale sequencer rate |
 | | Scroll grid vertically | Turn `▼▲` knob | Turn vertical encoder knob in top toolbar / encoder strip, or scroll mouse wheel vertically |
@@ -1252,7 +1254,7 @@ The following table maps the standard Deluge hardware button combinations (from 
 | | Clone track | Hold track pad + tap another row | Right-click track row header ➔ **`Clone Track`** |
 | | Solo track | `Hold ◄►` + press launch | Click the **`[S]`** button next to track name |
 | | Delete track | Hold track pad + `Save/Delete` | Right-click track row header ➔ **`Delete Track`** |
-| **Track View** | Adjust track length | `Shift` + turn `◄►` knob | Click the length badge (e.g. `[16]`) at the bottom of the clip grid and type a step count (1–192) |
+| **Track View** | Adjust track length | `Shift` + turn `◄►` knob | **`Ctrl + [`** / **`Ctrl + ]`** (shorten / lengthen), or click the length badge (e.g. `[16]`) and type a step count (1–192) |
 | | Double clip (duplicate content) | `Shift` + push `◄►` knob | Right-click the length badge ➔ **Double clip length (duplicate content)** |
 | | Open Piano Roll editor | — | **`Tools ➔ Piano Roll Editor…`** (**`Ctrl + P`**), or right-click a step ➔ Open Piano Roll Editor… |
 | | Horizontal shift note | Push `▼▲` + turn `◄►` knob | Drag selected note block horizontally, or use Nudge slider |
@@ -1309,10 +1311,10 @@ This chapter provides a direct, code-by-code mapping of every shortcut code from
 | **SQ06** | Copy notes | Hold `Learn` + push `◄►` | Select notes or columns + press **`Ctrl + Shift + C`** |
 | **SQ07** | Paste notes | Hold `Learn` + `Shift` + push `◄►`| Select target cell + press **`Ctrl + Shift + V`** |
 | **SQ08** | Euclidean Rhythm | Push `Select` in Euclidean menu | Right-click a step in the target row ➔ **Euclidean Fill Row…** |
-| **SQ09** | Shift all clip notes | Push `▼▲` + turn `◄►` knob | Drag notes, or use Nudge slider in Step properties |
+| **SQ09** | Shift all clip notes | Push `▼▲` + turn `◄►` knob | **`Alt + ←`** / **`Alt + →`** shifts every note one step (wraps around) |
 | **SQ10** | Clear clip | Press `Shift` + `Back` + push `◄►`| Click **`[Clear Track]`** button, or right-click track ➔ Clear |
 | **SQ11** | Change clip color | `Shift` + press `▼▲` knob | Click colored track swatch in track row header |
-| **SQ12** | Adjust clip length | `Shift` + turn `◄►` knob | Click the length badge (e.g. `[16]`) at the bottom of the clip grid and type a step count (1–192) |
+| **SQ12** | Adjust clip length | `Shift` + turn `◄►` knob | **`Ctrl + [`** / **`Ctrl + ]`**, or click the length badge (e.g. `[16]`) and type a step count (1–192) |
 | **SQ13** | Duplicate clip content | `Shift` + push `◄►` knob | Right-click the length badge ➔ **Double clip length (duplicate content)** |
 | **SQ14** | Note repeat (stutter) | Hold pad + turn parameter knob | Right-click the step ➔ **Edit Step Properties…** ➔ Iteration / Gate |
 | **SQ15** | Play direction | Track menu ➔ direction | Select Forward/Reverse/Ping-Pong/Random track modes dropdown |
@@ -1589,7 +1591,7 @@ If you're about to run the Kit Super-Generator, save the project first (`Ctrl + 
 | SQ10 | Add track row | Click '+ KIT' or '+ SYNTH' in top toolbar |
 | SQ11 | Record live notes | `R` (while focused on grid) |
 | SQ12 | Resample | ⚠ not yet implemented |
-| SQ13 | Shift all clip notes | ⚠ not yet implemented |
+| SQ13 | Shift all clip notes | **`Alt + ←`** / **`Alt + →`** (shifts every note one step, wraps around) |
 | SQ14 | Clear clip | ⚠ not yet implemented (`Ctrl+Delete` planned) |
 | SQ15 | Change track color | Right-click row header ➔ Change Track Color |
 | SQ16 | Note nudge | Right-click step ➔ Step Editor ➔ nudge slider |

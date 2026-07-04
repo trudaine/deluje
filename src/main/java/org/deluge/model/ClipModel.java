@@ -456,6 +456,28 @@ public class ClipModel extends TimelineCounter {
   }
 
   /**
+   * Shifts every note in the clip sideways in time by {@code steps} columns (positive = right,
+   * negative = left), wrapping any note that moves past an edge around to the other end — the
+   * Deluge hardware's "shift track contents horizontally". Operates at the clip's current step
+   * resolution.
+   */
+  public void shiftNotesHorizontally(int steps) {
+    int n = stepCount;
+    if (n <= 0) return;
+    int shift = Math.floorMod(steps, n);
+    if (shift == 0) return;
+    for (int r = 0; r < rowCount; r++) {
+      StepData[] rowSnap = new StepData[n];
+      for (int s = 0; s < n; s++) {
+        rowSnap[s] = getStep(r, s);
+      }
+      for (int s = 0; s < n; s++) {
+        setStep(r, s, rowSnap[Math.floorMod(s - shift, n)]);
+      }
+    }
+  }
+
+  /**
    * Restores this clip's length and note content from a snapshot (typically produced by {@link
    * #deepCopy}). Used for lossless undo of bulk clip edits — e.g. a typed length change that would
    * otherwise discard notes past the new end. The step grid is authoritative; note rows are rebuilt

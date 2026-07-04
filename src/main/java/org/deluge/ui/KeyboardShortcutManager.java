@@ -100,6 +100,16 @@ public class KeyboardShortcutManager extends KeyAdapter {
       return;
     }
 
+    // Alt + Left/Right — shift all notes in the focused clip sideways one step (wraps around)
+    boolean alt = (e.getModifiersEx() & KeyEvent.ALT_DOWN_MASK) != 0;
+    if (alt && (kc == KeyEvent.VK_LEFT || kc == KeyEvent.VK_RIGHT)) {
+      SwingGridPanel active = app.activeGridPanel();
+      if (active != null) {
+        active.shiftActiveClipNotes(kc == KeyEvent.VK_RIGHT ? 1 : -1);
+      }
+      return;
+    }
+
     // T — tap tempo (or Shift+T to toggle metronome)
     if (!ctrl && kc == KeyEvent.VK_T) {
       if (shift) {

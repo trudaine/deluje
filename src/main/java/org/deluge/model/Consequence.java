@@ -429,7 +429,7 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
 
     @Override
     public String getDescription() {
-      return "Change clip length";
+      return "Edit clip content";
     }
 
     @Override
