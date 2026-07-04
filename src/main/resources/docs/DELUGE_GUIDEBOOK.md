@@ -1996,7 +1996,7 @@ Follow these steps to record a live performance and sculpt it with track-level m
 
 ## 26. The Track Inspector
 
-The **Track Inspector** is a compact, tabbed utility for inspecting and adjusting a single track without opening the full synth/kit editor. Each tab focuses on one concern:
+The **Track Inspector** is a compact, tabbed utility for inspecting and adjusting a single track without opening the full synth/kit editor. Open it by right-clicking a track's row header and choosing **Track Inspector…**. Each tab focuses on one concern:
 
 *   **Mixer** — per-track Channel Volume and Channel Panning.
 
