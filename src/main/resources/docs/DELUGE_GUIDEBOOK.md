@@ -8,13 +8,13 @@ Welcome to the **Deluge-Java Workstation**, a software recreation and operations
 1. [Track View & Sequence Editing Basics](#1-track-view--sequence-editing-basics)
    * [1.1 Sequence Editing Basics](#11-sequence-editing-basics)
    * [1.2 Kit Tracks & Muting Rows](#12-kit-tracks--muting-rows)
-   * [1.3 Sound Parameters & Press-Down Knob Functions](#13-sound-parameters--press-down-knob-functions)
-   * [1.4 Scrolling and Zooming](#14-scrolling-and-zooming)
-   * [1.5 Shifting Track Contents Horizontally](#15-shifting-track-contents-horizontally)
-   * [1.6 Triplet View & Column Grid Divisions](#16-triplet-view--column-grid-divisions)
-   * [1.7 Notes of Different Length (Dim Extension Pads & Drones)](#17-notes-of-different-length-dim-extension-pads--drones)
-   * [1.8 Editing Note Velocity](#18-editing-note-velocity)
-   * [1.9 Cross-Screen Edit Mode](#19-cross-screen-edit-mode)
+   * [1.3 Sound Parameters (Gold Dials & the Dials Deck)](#13-sound-parameters-gold-dials--the-dials-deck)
+   * [1.4 Scrolling, Grid Zoom & Time Resolution](#14-scrolling-grid-zoom--time-resolution)
+   * [1.5 Moving & Nudging Notes](#15-moving--nudging-notes)
+   * [1.6 Triplet Timing & Beat Guides](#16-triplet-timing--beat-guides)
+   * [1.7 Note Length, Extensions & Drones](#17-note-length-extensions--drones)
+   * [1.8 Step Properties: Velocity, Probability & Iteration](#18-step-properties-velocity-probability--iteration)
+   * [1.9 Editing Across the Whole Clip](#19-editing-across-the-whole-clip)
    * [1.10 The Euclidean Rhythm Generator](#110-the-euclidean-rhythm-generator)
    * [1.11 Sequencer Grid Zooming & Proportional Scaling](#111-sequencer-grid-zooming--proportional-scaling)
    * [1.12 Fold Mode & Vertical Space Optimization](#112-fold-mode--vertical-space-optimization)
@@ -59,15 +59,17 @@ Welcome to the **Deluge-Java Workstation**, a software recreation and operations
 
 ## 1. Track View & Sequence Editing Basics
 
-Powering on the Deluge-Java Workstation automatically creates a blank song with one blank track with a synth assigned to it, and puts the device into **Track View** for this track. In this view, the main 16x8 grid of pads represents a piano-roll-style view of the sequence of notes that the track contains.
+When you launch the Deluge-Java Workstation, it opens a blank song with a single synth track and drops you into **Track View** for that track. The main pad grid is a piano-roll view of the track's notes: each column is a moment in time and each row is a pitch. Unlike the hardware's fixed 16×8 pads, this grid is resizable — use the **View** menu or `Ctrl + =` / `Ctrl + -` to switch between the 8×16, 16×16, 24×16, and 16×24 layouts (see §1.11).
+
+![The main sequencer grid in Track View](images/deluge_main_sequencer.png)
 
 ### 1.1 Sequence Editing Basics
 
-*   **Create a Note**: Press any pad in the main 16x8 group corresponding to a pitch and a moment in time. The pad will light up to indicate the presence of a note.
-*   **Audition a Pitch**: With each row representing a different pitch, you can audition any of the available pitches by pressing the very right-most pad (the **audition pad**) for that row.
-*   **Audible Feedback**: If the workstation is *not* in play-mode, the note will sound immediately when placed or auditioned. This does not happen if the workstation is in play-mode, preventing unwanted sound during a performance.
-*   **Delete a Note**: Tapping a pad for which a note is already present deletes the note.
-*   **Change Track Color**: Hold down the **[SHIFT]** button and turn the **▼▲** knob to change the color of a track.
+*   **Create a Note**: Click any pad at the pitch (row) and moment (column) you want. The pad lights up to show a note is present.
+*   **Audition a Pitch**: Each row is a pitch. Click the right-most pad in a row (the **audition pad**) to hear that pitch without adding a note.
+*   **Audible Feedback**: When the transport is stopped, placing or auditioning a note sounds it immediately. While playing, that preview is suppressed so you don't hear stray notes during a performance.
+*   **Delete a Note**: Click a pad that already holds a note to remove it.
+*   **Change Track Color**: Click the colored swatch in the track's row header to recolor the track. (On the hardware this is `Shift` + the `▼▲` knob — see the mapping tables in §18–§19.)
 
 ---
 
@@ -75,83 +77,89 @@ Powering on the Deluge-Java Workstation automatically creates a blank song with 
 
 Instead of having a synth assigned, a track may have a "kit". For kit tracks, each row of pads represents an entirely different sound (e.g. Row 1 = Kick, Row 2 = Snare, Row 3 = Closed Hat).
 
-*   **Convert to Kit Track**: Click the **[KIT]** button. A kit preset takes effect, and each row now triggers a different drum sound.
-*   **Mute a Drum Row**: Press the corresponding pad-row’s mute pad (second from the right; green). It turns yellow to indicate the row is muted.
-*   **Re-order Kit Rows**: Hold down the audition pad (far-right) for the row, and hold down the **▼▲** encoder while turning/dragging it up or down. The selected row will move along with the scrolling.
-*   **Set Row Color**: Hold the **[SHIFT]** button, hold the audition pad (far-right) for the row, and turn the **▼▲** knob.
+*   **Convert to Kit Track**: Add a kit track from the sidebar (right-click ➔ **Add Kit Track**), or click the **[KIT]** button. Each row now triggers a different drum sound.
+*   **Mute a Drum Row**: Click the row's mute pad (second from the right; green). It turns yellow to show the row is muted; click again to unmute.
+*   **Re-order Kit Rows**: Drag the row's header up or down to move it. The row and its notes move together.
+*   **Set Row Color**: Click the colored swatch on the drum row to recolor it.
 
 ---
 
-### 1.3 Sound Parameters & Press-Down Knob Functions
+### 1.3 Sound Parameters (Gold Dials & the Dials Deck)
 
-The parameter knobs (the two gold knobs) control parameters of the synthesizer or sampler engine. Each has a level-meter to its left, indicating the current value of the parameter. Which parameters the knobs control (their function) can be quickly switched by the row of 8 buttons indicating options such as volume/pan, attack/release, etc.
+The two **gold dials** at the top of the window control the parameters of the track's synth or sampler engine, and the row of function buttons/tabs beside them chooses *which* pair of parameters the dials adjust (Volume/Pan, Cutoff/Res, Attack/Release, and so on). Each dial shows its current value on the level meter to its left.
 
-*   **Affect Entire Kit**: If you wish to affect the sound of the entire kit track, press the **[AFFECT ENTIRE]** button so that it is illuminated. The parameter knobs will now affect the output of all sounds within the kit.
-*   **Custom Parameters**: Three of the parameter functions are labeled "custom" (1, 2 and 3). Custom 1 typically controls pitch for sample-based sounds, or portamento for synth sounds. Custom 2 and 3 control sample rate reduction and bitcrushing respectively for kits or songs in "affect entire" mode.
-*   **Parameter Knob Press-Down Functions**: Pushing down on the parameter knobs toggles secondary parameters:
-    *   **Cutoff Knob**: Toggles the function of the "cutoff" and "res" knobs to affect the LPF (default), HPF, or Treble and Bass controls ("EQ").
-    *   **Res (Resonance) Knob**: Toggles the filter slope between 24dB and 12dB (LPF only).
-    *   **Delay Time Knob**: Toggles Ping-Pong Delay on and off.
-    *   **Delay Amount Knob**: Toggles Analog Warmth simulation on and off. Analog simulation adds tape saturation characteristics.
-    *   **Sidechain Knob**: Toggles sidechain speed between fast (synced to 32nd-notes) and slow (synced to 8th-notes).
-    *   **Reverb Knob**: Toggles global Reverb presets: "small", "medium", and "large".
-    *   **Mod Rate Knob**: (In affect-entire mode) Cycles through chorus, flanger, or phaser mod effects.
-    *   **Mod Depth Knob**: (In affect-entire mode) Toggles the modulation depth function between depth, feedback, and offset.
-    *   **Stutter Knob**: Pressing down on the knob enacts the stutter effect. Releasing it stops it. Turning the knob controls the length and speed of stuttering.
+*   **Affect Entire Kit**: For a kit track, click **[AFFECT ENTIRE]** so it lights up. The gold dials now shape *every* drum in the kit at once instead of the selected row.
+*   **Custom Parameters**: Three function slots are labelled "Custom 1–3". Custom 1 typically controls pitch (samples) or portamento (synths); Custom 2 and 3 control sample-rate reduction and bitcrushing for kits or for songs in Affect Entire mode.
+*   **Filter, Delay & FX toggles**: Options that the hardware hides behind a *push* of a dial live as visible controls in this desktop build — the LPF/HPF/EQ tabs and 12/24 dB slope in the **DSP FX dials deck** (§8), the Ping-Pong and Analog checkboxes in the Delay deck, the Chorus/Flanger/Phaser selector in Mod FX, and the reverb model/size controls. See §8 (DSP FX) and §24 (Master FX Console) for the full layout.
 
 ---
 
-### 1.4 Scrolling and Zooming
+### 1.4 Scrolling, Grid Zoom & Time Resolution
 
-*   **Vertical Scrolling**: Turn the **▼▲** knob to scroll vertically. For synth, MIDI and CV tracks, scrolling up accesses higher pitches, and scrolling down accesses lower pitches. For kit tracks, vertical scrolling exposes additional drum rows.
-*   **Display Zoom Level**: Press down on the **◄►** knob to temporarily display the current zoom resolution (e.g. "16th").
-*   **Zooming In/Out**: Hold down the **◄►** knob and turn it clockwise to zoom in (edit finer details like 32nd or 64th notes). Turn it anti-clockwise (while holding down) to zoom back out.
-*   **Horizontal Scrolling**: Turn the **◄►** knob without pressing down on it. The screen position is shown momentarily on the display as two numbers (e.g. "1.4" indicates screen 1 of 4 total screens).
-*   **Fine Detail Indicators**: After zooming back out, pads containing programmed details too fine to see at the current zoom level will appear as an almost-white color. Zoom back in to expose and edit these details.
+Two independent controls are easy to confuse, so it's worth separating them:
 
----
+*   **Grid (pad) zoom** changes how *big* the pads are — how many rows and columns fill the window — without changing the music. Use the **View** menu or **`Ctrl + =`** / **`Ctrl + -`** to cycle the 8×16, 16×16, 24×16, and 16×24 layouts (see §1.11).
+*   **Time resolution** changes how much time each column represents (16th, 32nd, 64th…). Pick it from the **rate selector** at the bottom of the clip grid. A finer resolution lets you place notes on smaller subdivisions.
 
-### 1.5 Shifting Track Contents Horizontally
+Getting around the grid:
 
-*   **Shift Notes Horizontally**: Hold down the **▼▲** knob and turn the **◄►** knob. All notes and automation in the track are shifted sideways in steps of one square at the current zoom level. Notes that move past either end of the track wrap around and appear at the other end.
-
----
-
-### 1.6 Triplet View & Column Grid Divisions
-
-*   **Triplets View Toggle**: Press the **[TRIPLETS VIEW]** button. This changes the pad grid’s function to divide time into threes rather than fours, allowing you to create triplet rhythms.
-*   **Triplet Subdivisions**: When in Triplets View, each quarter of the 16x8 pad grid displays 3 columns of notes, with the fourth column greyed out and unused.
-*   **Beat Division Stripes**: The empty grid pad cells' background colors dynamically display beat stripes guidelines:
-    *   *Straight Mode*: Highlights columns at steps 1, 5, 9, and 13.
-    *   *Triplet Mode*: Highlights columns at steps 1, 4, 7, and 10.
+*   **Vertical scrolling**: Scroll the mouse wheel over the grid, or drag the vertical scrollbar. On synth/MIDI/CV tracks this moves through pitches (up = higher); on kit tracks it reveals more drum rows.
+*   **Horizontal scrolling**: Scroll the wheel horizontally or drag the bottom scrollbar to move along longer sequences.
+*   **Fine-detail indicator**: When you view a long clip at a coarse resolution, any column that hides finer notes than the current grid can show is drawn almost-white. Choose a finer rate to reveal and edit them.
 
 ---
 
-### 1.7 Notes of Different Length (Dim Extension Pads & Drones)
+### 1.5 Moving & Nudging Notes
 
-At any zoom level, a note created on a given pad lasts up until the start of the next pad to the right (e.g., a 16th note).
-
-*   **Manually Create Long Notes**: Hold down the note's starting pad and press a pad further to the right. The note will extend to occupy all pads in between.
-*   **Visual Length Extension**: Only the leftmost pad occupied by the note is brightly colored. The extended pads are dimly lit to indicate they are an extension of the existing note, not a new note.
-*   **Shorten a Note**: Press any of the dimmed extension pads to "delete" the portion of the note that falls beyond that pad.
-*   **Wrap-Around Notes**: Create a note starting towards the end of a sequence, hold the starting pad, press down the **◄►** knob, and press a pad on the left (at the beginning of the sequence) to wrap the note around the loop boundary.
-*   **Create a Drone**: Create a note that occupies the entire length of the track. The workstation will keep the note permanently sounding rather than restarting it each time the sequence loops.
+*   **Move a note**: Drag a note pad along its row to slide it earlier or later in time, or up/down to change its pitch.
+*   **Fine nudge**: Right-click a step ➔ **Edit Step Properties…** and use the **Nudge** slider to shift that note by a fine amount within its column — handy for humanizing timing without changing the grid resolution.
 
 ---
 
-### 1.8 Editing Note Velocity
+### 1.6 Triplet Timing & Beat Guides
 
-*   **Edit Velocity**: Hold down the pad corresponding to a note and turn the **◄►** encoder. The velocity value displays on the screen (range 1 to 127, with 64 as default).
-*   **Velocity Level Meter**: While holding the pad, the rightmost two columns of pads act as a level-meter to indicate the note's velocity. Pressing any pad in these two columns jumps straight to that velocity level.
-*   **Group Velocity Edit**: Hold multiple note pads simultaneously and turn the encoder to edit their velocities together.
+*   **Triplet toggle**: Click the **triplet** toggle on the rate selector at the bottom of the clip grid. Time is now divided into threes rather than fours, so you can build triplet and shuffle rhythms.
+*   **Beat guide stripes**: Empty grid cells are tinted to mark the strong beats so you can navigate at a glance:
+    *   *Straight*: emphasis on steps 1, 5, 9, and 13.
+    *   *Triplet*: emphasis on steps 1, 4, 7, and 10.
 
 ---
 
-### 1.9 Cross-Screen Edit Mode
+### 1.7 Note Length, Extensions & Drones
 
-*   **Enter Cross-Screen Mode**: Press the **[CROSS-SCREEN]** button.
-*   **How it Works**: If you have a sequence multiplied across multiple screens (e.g., a 4-bar phrase), any edits you make on the currently visible screen will automatically apply to all other screens.
-*   **Zoom-Level Lock**: Cross-screen edit mode remains locked to the zoom level at which it was activated. If you zoom in further, edits still apply on a per-bar (not per-half-bar) basis.
+By default a note lasts until the start of the next column (for example, a 16th note at 16th resolution).
+
+*   **Create a longer note**: Click the note's starting pad and drag right along the row (or hold the start pad and click a pad further right). The note extends to fill the pads in between.
+*   **How extensions look**: Only the note's first pad is fully bright. The pads it extends over are dimly lit to show they're a *tail* of the same note, not new notes.
+*   **Shorten a note**: Click any of the dim tail pads to trim the note back to that point.
+*   **Create a drone**: Extend a note across the entire clip length. The workstation holds it continuously instead of retriggering it each time the clip loops.
+
+---
+
+### 1.8 Step Properties: Velocity, Probability & Iteration
+
+Right-click any step and choose **Edit Step Properties…** to open the Step Properties dialog. Everything about how that step plays lives here:
+
+![Step Properties dialog — velocity, probability, iteration, gate & nudge](images/deluge_step_properties.png)
+
+*   **Velocity** (1–127): how hard the note is struck. Drag the slider or type a value; louder notes are drawn brighter on the grid.
+*   **Probability / Fill**: the chance the note fires on any given pass — great for evolving, non-repetitive patterns.
+*   **Iteration**: play the note only on specific repeats of the loop (for example, "1 of 4").
+*   **Gate**: the note's sounding length as a fraction of its step.
+*   **Nudge**: fine timing offset within the column (see §1.5).
+
+To edit several notes at once, open Step Properties on each in turn, or use the Piano Roll editor (right-click a step ➔ **Open Piano Roll Editor…**) for freehand multi-note editing.
+
+---
+
+### 1.9 Editing Across the Whole Clip
+
+The desktop workstation edits the clip you can see. To work on a long, multi-bar phrase:
+
+*   **Zoom out** (`Ctrl + -` for pads, or a coarser rate) to bring the whole clip on screen, then edit any part directly.
+*   **Open the Piano Roll editor** (right-click a step ➔ **Open Piano Roll Editor…**) for a scrollable, full-length view of every note with freehand drag editing.
+
+> [!NOTE] The hardware's *cross-screen* mirror-editing (where an edit on one screen repeats on every screen) is not part of this desktop build — zoom-out and the Piano Roll cover the same multi-bar workflow.
 
 ---
 
@@ -1198,7 +1206,9 @@ The following table maps the standard Deluge hardware button combinations (from 
 | Category | Hardware Command | Hardware Button Key Sequence | Java UI Desktop Equivalent Action |
 | :--- | :--- | :--- | :--- |
 | **All Views** | Adjust Brightness | `Shift` + `Learn` + turn `▼▲` knob | Adjust monitor brightness, or configure desktop layouts under **`Settings ➔ Preferences...`** |
-| | Current Zoom Level | Press `◄►` knob | Inspect bottom rate selection box, or use shortcut **`Ctrl + [`** / **`Ctrl + ]`** |
+| | Time resolution (rate) | Press `◄►` knob | Pick the resolution from the rate selector at the bottom of the clip grid |
+| | Grid (pad) zoom | — | **`Ctrl + =`** / **`Ctrl + -`**, or the **View** menu, to resize the pad grid |
+| | Previous / next clip | — | **`Ctrl + [`** / **`Ctrl + ]`** |
 | | Scroll grid horizontally | Turn `◄►` knob | Turn horizontal encoder knob in top toolbar / encoder strip, scroll mouse wheel horizontally, drag bottom scroll bar, or glide cursor near borders |
 | | Zoom resolution / rate | `Shift` + turn `◄►` knob | Hold **`Shift`** + turn the horizontal scroll encoder in top toolbar / encoder strip to scale sequencer rate |
 | | Scroll grid vertically | Turn `▼▲` knob | Turn vertical encoder knob in top toolbar / encoder strip, or scroll mouse wheel vertically |
@@ -1219,8 +1229,7 @@ The following table maps the standard Deluge hardware button combinations (from 
 | | Clone track | Hold track pad + tap another row | Right-click track row header ➔ **`Clone Track`** |
 | | Solo track | `Hold ◄►` + press launch | Click the **`[S]`** button next to track name |
 | | Delete track | Hold track pad + `Save/Delete` | Right-click track row header ➔ **`Delete Track`** |
-| **Track View** | Adjust track length | `Shift` + turn `◄►` knob | Press **`Ctrl + [`** (decrease) or **`Ctrl + ]`** (increase) |
-| | Duplicate/Double track | `Shift` + push `◄►` knob | Click **`[Double & Append]`** button next to loop length |
+| **Track View** | Adjust track length | `Shift` + turn `◄►` knob | Click the length badge (e.g. `[16]`) at the bottom of the clip grid and type a step count (1–192) |
 | | Horizontal shift note | Push `▼▲` + turn `◄►` knob | Drag selected note block horizontally, or use Nudge slider |
 | | Note length/Tie | Hold start pad + tap end pad | Click a note pad and drag mouse horizontally along the row |
 | | Note velocity | Hold pad + turn `◄►` knob | Hover step to slide velocity wiggler, or double-click to set value |
@@ -1242,7 +1251,7 @@ This chapter provides a direct, code-by-code mapping of every shortcut code from
 
 | Code | Hardware Function | Hardware Button Sequence | Java Workstation Equivalent Action |
 | :--- | :--- | :--- | :--- |
-| **GL01** | Zoom level view | Turn `◄►` knob | Use rate select box at bottom zoom toolbar, or **`Ctrl + [`** / **`Ctrl + ]`** |
+| **GL01** | Zoom level view | Turn `◄►` knob | Choose the resolution in the rate selector at the bottom of the clip grid; resize the pad grid with **`Ctrl + =`** / **`Ctrl + -`** |
 | **GL02** | Scroll grid | Turn `◄►` or `▼▲` knob | Drag grid scrollbars, use mouse scrollwheel, or hover border to auto-scroll |
 | **GL03** | Undo action | Press `Back` button | **`Ctrl + Z`** or select **`Edit ➔ Undo`** |
 | **GL04** | Redo action | Press `Shift` + `Back` | **`Ctrl + Y`** or select **`Edit ➔ Redo`** |
@@ -1269,18 +1278,18 @@ This chapter provides a direct, code-by-code mapping of every shortcut code from
 | :--- | :--- | :--- | :--- |
 | **SQ01** | Make note | Tap grid pad | Click grid cell to place note event |
 | **SQ02** | Make long note (tie) | Hold start pad + tap end pad | Click a note pad and drag mouse horizontally along the row |
-| **SQ03** | Adjust note velocity | Hold pad + turn `◄►` knob | Hover sequenced pad to slide velocity wiggler, or double-click step |
-| **SQ04** | Note probability | Hold pad + turn `Select` left | Double-click step ➔ adjust Fill Probability % slider in properties |
-| **SQ05** | Note iteration | Hold pad + turn `Select` right | Double-click step ➔ adjust repeats/sub-divisions spinner |
+| **SQ03** | Adjust note velocity | Hold pad + turn `◄►` knob | Right-click the step ➔ **Edit Step Properties…** ➔ Velocity slider |
+| **SQ04** | Note probability | Hold pad + turn `Select` left | Right-click the step ➔ **Edit Step Properties…** ➔ Probability / Fill slider |
+| **SQ05** | Note iteration | Hold pad + turn `Select` right | Right-click the step ➔ **Edit Step Properties…** ➔ Iteration spinner |
 | **SQ06** | Copy notes | Hold `Learn` + push `◄►` | Select notes or columns + press **`Ctrl + C`** |
 | **SQ07** | Paste notes | Hold `Learn` + `Shift` + push `◄►`| Select target cell + press **`Ctrl + V`** |
 | **SQ08** | Euclidean Rhythm | Push `Select` in Euclidean menu | Click **`Euclidean`** button next to grid row to open wheel dialog |
 | **SQ09** | Shift all clip notes | Push `▼▲` + turn `◄►` knob | Drag notes, or use Nudge slider in Step properties |
 | **SQ10** | Clear clip | Press `Shift` + `Back` + push `◄►`| Click **`[Clear Track]`** button, or right-click track ➔ Clear |
 | **SQ11** | Change clip color | `Shift` + press `▼▲` knob | Click colored track swatch in track row header |
-| **SQ12** | Adjust clip length | `Shift` + turn `◄►` knob | Press **`Ctrl + [`** (decrease) or **`Ctrl + ]`** (increase) |
-| **SQ13** | Duplicate clip content | `Shift` + push `◄►` knob | Click **`[Double & Append]`** button next to loop length |
-| **SQ14** | Note repeat (stutter) | Hold pad + turn parameter knob | Adjust repeats count on step properties wiggler slider |
+| **SQ12** | Adjust clip length | `Shift` + turn `◄►` knob | Click the length badge (e.g. `[16]`) at the bottom of the clip grid and type a step count (1–192) |
+| **SQ13** | Duplicate clip content | `Shift` + push `◄►` knob | ⚠ Not yet available in the desktop workstation |
+| **SQ14** | Note repeat (stutter) | Hold pad + turn parameter knob | Right-click the step ➔ **Edit Step Properties…** ➔ Iteration / Gate |
 | **SQ15** | Play direction | Track menu ➔ direction | Select Forward/Reverse/Ping-Pong/Random track modes dropdown |
 | **SQ16** | Step Parameter Lock | Hold note pad + turn parameter knob | Hold **`Shift`** + click step pad to arm, then adjust any configuration slider |
 
@@ -1529,7 +1538,7 @@ Maps hardware buttons to keyboard shortcuts and mouse gestures. Sections marked 
 | SQ05 | Set per-step filter | `Right-click` cell → **Step Editor** → filter offset |
 | SQ06 | Set per-step pan | `Right-click` cell → **Step Editor** → pan offset |
 | SQ07 | Set sample start/end | `Right-click` cell → **Step Editor** → start / end |
-| SQ08 | Duplicate track length (Double) | Shift + push ◄► / Click [Double & Append] |
+| SQ08 | Set clip length | Click the length badge (e.g. `[16]`) at the bottom of the clip grid and type a step count (1–192) |
 | SQ09 | Cross-screen editing | Drag note tail near screen border to auto-scroll and extend notes across pages |
 | SQ10 | Add track row | Click '+ KIT' or '+ SYNTH' in top toolbar |
 | SQ11 | Record live notes | `R` (while focused on grid) |
