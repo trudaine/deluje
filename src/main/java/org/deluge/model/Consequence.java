@@ -356,6 +356,46 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
     }
   }
 
+  /**
+   * Doubling a clip's length. Undo is lossless because {@link ClipModel#doubleLength()} grows the
+   * grid non-destructively (the original pattern stays in {@code [0, oldLength)}), so shrinking
+   * back and rebuilding the note rows restores the pre-double state exactly.
+   */
+  record ClipLengthConsequence(ProjectModel project, int trackIndex, int clipIndex, int oldLength)
+      implements Consequence {
+    @Override
+    public void undo() {
+      ClipModel clip = clip();
+      if (clip == null) return;
+      clip.setStepCount(oldLength);
+      clip.rebuildNotesFromGrid();
+    }
+
+    @Override
+    public void redo() {
+      ClipModel clip = clip();
+      if (clip != null) clip.doubleLength();
+    }
+
+    private ClipModel clip() {
+      var tracks = project.getTracks();
+      if (trackIndex < 0 || trackIndex >= tracks.size()) return null;
+      var clips = tracks.get(trackIndex).getClips();
+      if (clipIndex < 0 || clipIndex >= clips.size()) return null;
+      return clips.get(clipIndex);
+    }
+
+    @Override
+    public String getDescription() {
+      return "Double clip length";
+    }
+
+    @Override
+    public Category category() {
+      return Category.CLIP_STRUCT;
+    }
+  }
+
   /** Batch of consequences undone/redone as one. */
   record CompoundConsequence(String description, List<Consequence> children)
       implements Consequence {

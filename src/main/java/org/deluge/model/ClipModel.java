@@ -435,6 +435,26 @@ public class ClipModel extends TimelineCounter {
     }
   }
 
+  /**
+   * Doubles the clip length, copying the existing pattern into the new second half so the clip
+   * plays the same content twice as long — the desktop equivalent of the hardware's clip-double.
+   * Active steps are duplicated with their velocity/gate/probability/pitch; per-step automation is
+   * extended (not duplicated) by {@link #setStepCount}.
+   */
+  public void doubleLength() {
+    int n = stepCount;
+    if (n <= 0) return;
+    setStepCount(n * 2); // non-destructive grow: [0,n) preserved, [n,2n) starts empty
+    for (int r = 0; r < rowCount; r++) {
+      for (int s = 0; s < n; s++) {
+        StepData sd = getStep(r, s);
+        if (sd.active()) {
+          setStep(r, s + n, sd);
+        }
+      }
+    }
+  }
+
   public void syncNoteRowsFromGrid() {
     int stepTicks = tripletMode ? 32 : 24;
     boolean isKit =

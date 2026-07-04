@@ -429,10 +429,48 @@ public class ClipGridPanel extends SwingGridPanel {
     bottomLenBadge.setFont(new Font("Monospaced", Font.BOLD, 11));
     bottomLenBadge.setForeground(clipSteps == 16 ? Color.GRAY : new Color(0xff, 0xcc, 0x00));
     bottomLenBadge.setCursor(new Cursor(Cursor.HAND_CURSOR));
+    bottomLenBadge.setToolTipText(
+        "Clip length: click to set the step count; right-click to double the clip (duplicate its"
+            + " content)");
     bottomLenBadge.addMouseListener(
         new java.awt.event.MouseAdapter() {
           @Override
           public void mouseClicked(java.awt.event.MouseEvent e) {
+            if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
+              JPopupMenu menu = new JPopupMenu();
+              JMenuItem doubleItem = new JMenuItem("Double clip length (duplicate content)");
+              doubleItem.addActionListener(
+                  ev -> {
+                    org.deluge.model.ClipModel clip = activeEditedClip();
+                    if (clip == null) return;
+                    int oldLen = clip.getStepCount();
+                    if (oldLen * 2 > 192) {
+                      JOptionPane.showMessageDialog(
+                          ClipGridPanel.this,
+                          "Doubling would exceed the 192-step maximum.",
+                          "Double Clip Length",
+                          JOptionPane.WARNING_MESSAGE);
+                      return;
+                    }
+                    clip.doubleLength();
+                    if (projectModel != null) {
+                      int clipIdx =
+                          projectModel.getTracks().get(editedModelTrack).getActiveClipIndex();
+                      projectModel
+                          .getUndoRedoStack()
+                          .push(
+                              new org.deluge.model.Consequence.ClipLengthConsequence(
+                                  projectModel, editedModelTrack, clipIdx, oldLen));
+                    }
+                    if (bridge != null) {
+                      bridge.setTrackLength(baseTrackId, clip.getStepCount());
+                    }
+                    refresh();
+                  });
+              menu.add(doubleItem);
+              menu.show(bottomLenBadge, e.getX(), e.getY());
+              return;
+            }
             String input =
                 JOptionPane.showInputDialog(
                     ClipGridPanel.this, "Track step length (1-192):", clipSteps);
@@ -440,14 +478,9 @@ public class ClipGridPanel extends SwingGridPanel {
               try {
                 int newLen = Integer.parseInt(input.trim());
                 if (newLen >= 1 && newLen <= 192) {
-                  if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-                    org.deluge.model.TrackModel track =
-                        projectModel.getTracks().get(editedModelTrack);
-                    int activeClipIdx = track.getActiveClipIndex();
-                    if (activeClipIdx >= 0 && activeClipIdx < track.getClips().size()) {
-                      org.deluge.model.ClipModel clip = track.getClips().get(activeClipIdx);
-                      clip.setStepCount(newLen);
-                    }
+                  org.deluge.model.ClipModel clip = activeEditedClip();
+                  if (clip != null) {
+                    clip.setStepCount(newLen);
                   }
                   if (bridge != null) {
                     bridge.setTrackLength(baseTrackId, newLen);
@@ -1503,5 +1536,18 @@ public class ClipGridPanel extends SwingGridPanel {
       }
     }
     repaint();
+  }
+
+  /** The clip currently being edited on this grid, or {@code null} if none is resolvable. */
+  private org.deluge.model.ClipModel activeEditedClip() {
+    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) {
+      return null;
+    }
+    org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
+    int idx = track.getActiveClipIndex();
+    if (idx < 0 || idx >= track.getClips().size()) {
+      return null;
+    }
+    return track.getClips().get(idx);
   }
 }

@@ -14,7 +14,7 @@ Welcome to the **Deluge-Java Workstation**, a software recreation and operations
    * [1.6 Triplet Timing & Beat Guides](#16-triplet-timing--beat-guides)
    * [1.7 Note Length, Extensions & Drones](#17-note-length-extensions--drones)
    * [1.8 Step Properties: Velocity, Probability & Iteration](#18-step-properties-velocity-probability--iteration)
-   * [1.9 Editing Across the Whole Clip](#19-editing-across-the-whole-clip)
+   * [1.9 Editing Long Clips with the Piano Roll](#19-editing-long-clips-with-the-piano-roll)
    * [1.10 The Euclidean Rhythm Generator](#110-the-euclidean-rhythm-generator)
    * [1.11 Sequencer Grid Zooming & Proportional Scaling](#111-sequencer-grid-zooming--proportional-scaling)
    * [1.12 Fold Mode & Vertical Space Optimization](#112-fold-mode--vertical-space-optimization)
@@ -70,6 +70,8 @@ When you launch the Deluge-Java Workstation, it opens a blank song with a single
 *   **Audible Feedback**: When the transport is stopped, placing or auditioning a note sounds it immediately. While playing, that preview is suppressed so you don't hear stray notes during a performance.
 *   **Delete a Note**: Click a pad that already holds a note to remove it.
 *   **Change Track Color**: Click the colored swatch in the track's row header to recolor the track. (On the hardware this is `Shift` + the `▼▲` knob — see the mapping tables in §18–§19.)
+
+> [!TIP] **Undo & Redo.** Most note, step, automation, parameter, and clip/track edits are undoable: press **`Ctrl + Z`** to undo and **`Ctrl + Y`** to redo (also under the **Edit** menu). A few operations aren't yet on the undo stack — see the note in §21.
 
 ---
 
@@ -148,18 +150,19 @@ Right-click any step and choose **Edit Step Properties…** to open the Step Pro
 *   **Gate**: the note's sounding length as a fraction of its step.
 *   **Nudge**: fine timing offset within the column (see §1.5).
 
-To edit several notes at once, open Step Properties on each in turn, or use the Piano Roll editor (right-click a step ➔ **Open Piano Roll Editor…**) for freehand multi-note editing.
+To edit several notes at once, use the **Piano Roll editor** (§1.9) — a scrollable, whole-clip view with freehand drag editing.
 
 ---
 
-### 1.9 Editing Across the Whole Clip
+### 1.9 Editing Long Clips with the Piano Roll
 
-The desktop workstation edits the clip you can see. To work on a long, multi-bar phrase:
+The pad grid is perfect for building a pattern a step at a time, but for long, multi-bar phrases the **Piano Roll editor** gives you the whole clip at once — no paging between screens.
 
-*   **Zoom out** (`Ctrl + -` for pads, or a coarser rate) to bring the whole clip on screen, then edit any part directly.
-*   **Open the Piano Roll editor** (right-click a step ➔ **Open Piano Roll Editor…**) for a scrollable, full-length view of every note with freehand drag editing.
+*   **Open it**: **`Tools ➔ Piano Roll Editor…`** (**`Ctrl + P`**), or right-click any step ➔ **Open Piano Roll Editor…**.
+*   **What you get**: every note in the clip laid out on a scrollable pitch × time grid. Drag notes to move them, drag their ends to change length, and click to add or remove notes — across the full length of the clip, at any zoom.
+*   **Grid alternative**: you can also **zoom out** (`Ctrl + -`, or pick a coarser rate) to fit the whole clip on the pad grid and edit any bar directly.
 
-> [!NOTE] The hardware's *cross-screen* mirror-editing (where an edit on one screen repeats on every screen) is not part of this desktop build — zoom-out and the Piano Roll cover the same multi-bar workflow.
+> [!NOTE] The desktop workstation doesn't need the hardware's *cross-screen* mode (which mirrors an edit across every screen of a long clip): the Piano Roll and grid zoom-out already show the entire clip on one screen, so you edit any bar directly.
 
 ---
 
@@ -1230,6 +1233,8 @@ The following table maps the standard Deluge hardware button combinations (from 
 | | Solo track | `Hold ◄►` + press launch | Click the **`[S]`** button next to track name |
 | | Delete track | Hold track pad + `Save/Delete` | Right-click track row header ➔ **`Delete Track`** |
 | **Track View** | Adjust track length | `Shift` + turn `◄►` knob | Click the length badge (e.g. `[16]`) at the bottom of the clip grid and type a step count (1–192) |
+| | Double clip (duplicate content) | `Shift` + push `◄►` knob | Right-click the length badge ➔ **Double clip length (duplicate content)** |
+| | Open Piano Roll editor | — | **`Tools ➔ Piano Roll Editor…`** (**`Ctrl + P`**), or right-click a step ➔ Open Piano Roll Editor… |
 | | Horizontal shift note | Push `▼▲` + turn `◄►` knob | Drag selected note block horizontally, or use Nudge slider |
 | | Note length/Tie | Hold start pad + tap end pad | Click a note pad and drag mouse horizontally along the row |
 | | Note velocity | Hold pad + turn `◄►` knob | Hover step to slide velocity wiggler, or double-click to set value |
@@ -1288,7 +1293,7 @@ This chapter provides a direct, code-by-code mapping of every shortcut code from
 | **SQ10** | Clear clip | Press `Shift` + `Back` + push `◄►`| Click **`[Clear Track]`** button, or right-click track ➔ Clear |
 | **SQ11** | Change clip color | `Shift` + press `▼▲` knob | Click colored track swatch in track row header |
 | **SQ12** | Adjust clip length | `Shift` + turn `◄►` knob | Click the length badge (e.g. `[16]`) at the bottom of the clip grid and type a step count (1–192) |
-| **SQ13** | Duplicate clip content | `Shift` + push `◄►` knob | ⚠ Not yet available in the desktop workstation |
+| **SQ13** | Duplicate clip content | `Shift` + push `◄►` knob | Right-click the length badge ➔ **Double clip length (duplicate content)** |
 | **SQ14** | Note repeat (stutter) | Hold pad + turn parameter knob | Right-click the step ➔ **Edit Step Properties…** ➔ Iteration / Gate |
 | **SQ15** | Play direction | Track menu ➔ direction | Select Forward/Reverse/Ping-Pong/Random track modes dropdown |
 | **SQ16** | Step Parameter Lock | Hold note pad + turn parameter knob | Hold **`Shift`** + click step pad to arm, then adjust any configuration slider |
@@ -1433,6 +1438,24 @@ Maps hardware buttons to keyboard shortcuts and mouse gestures. Sections marked 
 
 ---
 
+### A2. Undo & Redo Coverage
+
+Edits are undoable with **`Ctrl + Z`** / **`Ctrl + Y`** (or the **Edit** menu). What is on the undo stack today:
+
+| Undoable | Not yet on the undo stack |
+| :--- | :--- |
+| Note/step toggles, velocity, probability, iteration, gate | Setting clip length by typing in the length badge |
+| Step copy/paste, clear step | Euclidean **Apply** (writing a generated pattern) |
+| Per-step & clip automation edits | Change Track Color |
+| Synth/kit parameter changes; arpeggiator changes | Randomizer / generator suite results |
+| Project params (BPM, swing, master volume, reverb) | |
+| Add / remove / move / rename / duplicate track & clip | |
+| **Double clip length** | |
+
+If you're about to run a generator or a bulk operation that isn't undoable yet, save the project first (`Ctrl + S`) so you can revert.
+
+---
+
 ### B. Window Layout
 
 ```
@@ -1532,14 +1555,14 @@ Maps hardware buttons to keyboard shortcuts and mouse gestures. Sections marked 
 | # | Action | How |
 | :--- | :--- | :--- |
 | SQ01 | Toggle step on/off | `Click` cell |
-| SQ02 | Make a long note (tie) | Click and drag note tail horizontally (supports cross-screen scrolling) |
+| SQ02 | Make a long note (tie) | Click and drag the note tail horizontally along the row |
 | SQ03 | Adjust note velocity | `Right-click` cell → **Step Editor** → velocity slider |
 | SQ04 | Set note probability | `Right-click` cell → **Step Editor** → probability slider |
 | SQ05 | Set per-step filter | `Right-click` cell → **Step Editor** → filter offset |
 | SQ06 | Set per-step pan | `Right-click` cell → **Step Editor** → pan offset |
 | SQ07 | Set sample start/end | `Right-click` cell → **Step Editor** → start / end |
 | SQ08 | Set clip length | Click the length badge (e.g. `[16]`) at the bottom of the clip grid and type a step count (1–192) |
-| SQ09 | Cross-screen editing | Drag note tail near screen border to auto-scroll and extend notes across pages |
+| SQ09 | Edit a long, multi-bar clip | Open the **Piano Roll Editor** (`Ctrl + P`) for a scrollable whole-clip view, or zoom out to fit the clip on the grid |
 | SQ10 | Add track row | Click '+ KIT' or '+ SYNTH' in top toolbar |
 | SQ11 | Record live notes | `R` (while focused on grid) |
 | SQ12 | Resample | ⚠ not yet implemented |

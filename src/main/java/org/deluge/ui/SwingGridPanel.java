@@ -219,6 +219,31 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     return activeClipId;
   }
 
+  /**
+   * Opens the Piano Roll editor for this grid's active clip — the desktop's scrollable, whole-clip
+   * note editor. Shared by the step right-click menu and the Tools menu so both use one path.
+   */
+  public void openPianoRollForActiveClip() {
+    int clipId = getActiveClipId();
+    if (clipId < 0) {
+      JOptionPane.showMessageDialog(
+          SwingUtilities.getWindowAncestor(this),
+          "Please create or select an active pattern clip first.",
+          "Open Piano Roll",
+          JOptionPane.WARNING_MESSAGE);
+      return;
+    }
+    SwingPianoRollDialog dlg =
+        new SwingPianoRollDialog(
+            (Frame) SwingUtilities.getWindowAncestor(this),
+            this,
+            getEditedModelTrack(),
+            clipId,
+            getProjectModel(),
+            getBridge());
+    dlg.setVisible(true);
+  }
+
   public org.deluge.model.StepData getClipStep(
       org.deluge.model.ClipModel cModel, int modelRow, int col) {
     int r = getClipRowIndex(cModel, modelRow, false);

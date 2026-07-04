@@ -1699,6 +1699,18 @@ public class SwingDelugeApp extends JFrame {
 
     // Tools menu — Delugeator Randomizer & Loop Slicer
     JMenu toolsMenu = new JMenu("Tools");
+
+    JMenuItem pianoRollItem = new JMenuItem("Piano Roll Editor...");
+    pianoRollItem.setAccelerator(
+        KeyStroke.getKeyStroke(
+            java.awt.event.KeyEvent.VK_P, java.awt.event.InputEvent.CTRL_DOWN_MASK));
+    pianoRollItem.addActionListener(
+        e -> {
+          if (clipPanel != null) clipPanel.openPianoRollForActiveClip();
+        });
+    toolsMenu.add(pianoRollItem);
+    toolsMenu.addSeparator();
+
     JMenuItem randomizerItem = new JMenuItem("Delugeator Randomizer...");
     randomizerItem.setAccelerator(
         KeyStroke.getKeyStroke(

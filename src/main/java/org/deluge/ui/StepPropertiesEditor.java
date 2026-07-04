@@ -6,7 +6,6 @@ import java.awt.Frame;
 import java.awt.Point;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
-import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
 import javax.swing.SwingUtilities;
 import org.deluge.BridgeContract;
@@ -45,27 +44,7 @@ class StepPropertiesEditor {
 
     if (synthModeActive) {
       JMenuItem pianoRollItem = new JMenuItem("Open Piano Roll Editor...");
-      pianoRollItem.addActionListener(
-          ev -> {
-            int clipId = parent.getActiveClipId();
-            if (clipId < 0) {
-              JOptionPane.showMessageDialog(
-                  SwingUtilities.getWindowAncestor(parent),
-                  "Please create or select an active pattern clip first.",
-                  "Open Piano Roll",
-                  JOptionPane.WARNING_MESSAGE);
-              return;
-            }
-            SwingPianoRollDialog dlg =
-                new SwingPianoRollDialog(
-                    (Frame) SwingUtilities.getWindowAncestor(parent),
-                    parent,
-                    parent.getEditedModelTrack(),
-                    clipId,
-                    parent.getProjectModel(),
-                    bridge);
-            dlg.setVisible(true);
-          });
+      pianoRollItem.addActionListener(ev -> parent.openPianoRollForActiveClip());
       popup.add(pianoRollItem);
     }
 
