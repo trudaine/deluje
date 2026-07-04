@@ -572,38 +572,32 @@ Open the sound editor (double-click the track name) and select the **`MODULATION
 
 ## 7. Song & Arrangement Linear Timelines View
 
-The workstation provides three distinct workspace perspectives to support multiple arrangement stages:
+Switch between workspaces with the **view buttons in the top toolbar** — **CLIP**, **SONG**, **ARRANGEMENT**, and **PERF**. (The ARRANGEMENT button is a two-step toggle: one click shows the linear timeline; a second click shows Song view.)
 
-* **CLIP View**: Focuses on a single sequencer pattern grid lane to draw steps and adjust gate timings.
-* **SONG View**: A launching matrix where different clip patterns (rows) are grouped into Song Sections. Launch or mute rows live to test transitions and structure arrangements.
-* **ARRANGEMENT View**: A horizontal linear track timeline grid (where grid rows represent track channels, and columns represent standard BARS, i.e., $1\text{ column} = 96\text{ ticks}$). Double-click a cell or right-click to place a clip block, drag the edge of a block to extend its playback length, or drag blocks horizontally to shift their start time coordinates.
+* **CLIP View**: a single pattern's piano-roll grid — where you draw and edit notes (Chapters 1–2).
+* **SONG View**: all your clips at once, one per row, shown as their actual note patterns and grouped into Song Sections. Launch and mute clips live to audition transitions and build structure.
+* **ARRANGEMENT View**: a horizontal timeline, one lane per track, where you place clip blocks along bars to lay out the finished song. At the default zoom each grid column is **96 ticks** (one bar).
 
-### 7.1 Widescreen Arranger Visual Grid Editor (Widescreen Mode)
-When the active view mode is set to ARRANGER, the step grid panel transforms into an interactive visual timeline workspace linked to the track's timeline models:
-*   **Empty Slot Click & Popup Creator:** Clicking an empty Arranger step slot opens a menu listing all available clips for that track (plus a `"Create New Pattern Clip (1 bar)"` quick-access options builder). Selecting an item automatically instantiates and schedules the Arranger clip placement.
-*   **Widescreen Timeline Drag-Moving (Standard Drag):** Click a backlit clip block pad and drag it horizontally to shift its start time ticks position by increments of 1 bar ($96\text{ ticks}$ per grid column drag):
-    $$\text{newStartTicks} = \max(0, \text{dragStartTicks} + \text{colDiff} \times 96)$$
-*   **Widescreen Timeline Drag-Resizing (Shift + Drag):** Hold down the **Shift** key while dragging a backlit clip block pad horizontally to extend or contract its loop duration length by increments of 1 bar ($96\text{ ticks}$ per grid column drag):
-    $$\text{newDurationTicks} = \max(96, \text{dragDurationTicks} + \text{colDiff} \times 96)$$
-*   **Double-Click / Right-Click to Delete:** Double-clicking or right-clicking a backlit Arranger pad instantly removes that specific clip placement from the song model arrangement timeline.
+### 7.1 Song View — Launching & Muting Clips
 
-### 7.2 Arranger Steps Scheduler & Live Capture Mode
-*   **Arranger Steps Scheduler:** Spawns a daemon background thread that monitors the playback step index. It updates note pitch, velocity, and gate parameters for active arranger clips in the step matrix:
-    $$\text{col} = \text{upcomingStep} \bmod 16$$
-    If no placement is active on a track row, it automatically mutes the step channels to keep background audio quiet.
-*   **Live Session Clips Capture [🔴 CAPTURE]:** Clicking the glowing **`[🔴 CAPTURE]`** transport toggle button enables live recording session mode. When the user launches/stops a clip in Session view, the capture scheduler records the start ticks step and duration ticks, creating and appending the `ArrangerClip` to the active arrangement timeline.
+Each row shows a clip drawn as its own step pattern, tinted by its Song Section colour, so you can read the whole arrangement at a glance.
 
-### 7.1 Clip sequencing & Song Sections Workflow
-* **Grid Entry in CLIP Mode**: Click a cell to add a note event, double-click a step to configure its specific gate and velocity timings, or edit step properties.
-* **Song Section Building**: Go to SONG mode (press **`Tab`** key). Create different pattern segments (e.g., Row 0 = Intro Beat, Row 1 = Chorus, Row 2 = Breakdown). 
-  * Pads backlit represent each clip's state: *Solid Amber* (ready/loaded), *Flashing Green* (playing), *Unlit* (muted/empty).
-  * Click a Pad to queue a pattern play swap: the transition waits for the current bar loop boundary to complete and then swaps the audio streams in tempo sync.
+* **Launch / mute a clip**: click a clip's launcher to start or stop it. The change is quantized to the loop boundary so it stays in time.
+* **Launch a whole Section**: click a Section pad to queue every clip in that section together.
+* **Status square** (in the sidebar): **green** = active, **red** = muted/stopped, **blue** = soloed; it dims when another track is soloing so the soloed one stands out.
 
-### 7.2 Linear Multitrack Arrangement Sequencing
-Go to ARR mode (press **`Tab`**). The screen displays horizontal timeline lanes per track:
-* **Sequencing Blocks**: Tap pads horizontally to spawn play blocks.
-* **Resizing Gate Boundaries**: Hold the right boundary cell of a play block and scroll or drag the mouse to extend its playback timeline.
-* **Track Solo/Mute Focus**: Click the left track header buttons to isolate tracks.
+### 7.2 Arrangement View — Building the Timeline
+
+Lay clip blocks along each track's lane to compose the full song:
+
+* **Add a block**: click an empty slot in a track's lane to open a menu of that track's clips (plus **Create New Pattern Clip (1 bar)**); pick one to drop a block there.
+* **Move a block**: drag a block horizontally. It snaps by whole columns (96 ticks / one bar), and can't move before the start of the timeline.
+* **Resize a block**: hold **Shift** and drag a block's edge to lengthen or shorten how long it plays, again in one-bar steps (minimum one bar).
+* **Delete a block**: right-click (or double-click) a block to remove that placement.
+
+### 7.3 Live Capture
+
+Enable **Live Capture** to record a Session performance straight into the arrangement: as you launch and stop clips in Song view, their start and length are written onto the timeline as Arrangement blocks, so you can perform an arrangement and keep it.
 
 ---
 
