@@ -36,16 +36,23 @@ public class VoiceSample {
   public final TimeStretcher timeStretcher = new TimeStretcher();
   public final SampleReader olderReader = new SampleReader();
 
-  /** Begin time-stretched playback from {@code startFrame}; the first render hops immediately. */
+  /**
+   * Begin time-stretched playback from {@code startFrame}. C TimeStretcher::init
+   * (time_stretcher.cpp:54-56, 130-139): both heads start active, and the existing head plays the
+   * REAL attack for kDefaultFirstHopLength (200) ± a small random element before the first hop —
+   * hopping immediately displaced/skipped every stretched attack transient.
+   */
   public void setupTimeStretch(Sample sample, int startFrame, int playDirection) {
     reader.sample = sample;
     reader.playDirection = playDirection;
     reader.init(startFrame);
     timeStretcher.samplePosBig = (long) startFrame << 24;
-    timeStretcher.samplesTilHopEnd = 0; // ⇒ hop on the first render
-    timeStretcher.crossfadeProgress = K_MAX_SAMPLE_VALUE;
-    timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER] = false;
-    timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER] = false;
+    // C:136 — samplesTilHopEnd = kDefaultFirstHopLength + ((int8_t)getRandom255() >> 2)
+    timeStretcher.samplesTilHopEnd = 200 + (((byte) Arpeggiator.getRandom255()) >> 2);
+    timeStretcher.crossfadeProgress = K_MAX_SAMPLE_VALUE; // C:138
+    timeStretcher.crossfadeIncrement = 0; // C:139
+    timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER] = true; // C:54
+    timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER] = true; // C:55
     active = true;
   }
 

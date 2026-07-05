@@ -484,22 +484,22 @@ class SampleEngineTest {
   }
 
   /**
-   * At exactly 1x stretch the hop's randomElement is 0 (randomFine[8]=0), so getNoise() has no
-   * effect and the render is deterministic — two identical setups must produce identical output.
+   * Determinism given equal RNG state. setupTimeStretch now consumes the shared CONG like the C
+   * (time_stretcher.cpp:136 randomizes the first hop length by ±31 samples), so determinism holds
+   * per seed, not across arbitrary RNG states — reset the seed before each setup.
    */
   @Test
   void renderTimeStretchedUnityIsDeterministic() {
     Sample s = bigSample(1, 50000, 2);
     int unity = 16777216;
 
+    Functions.resetNoiseSeed();
     VoiceSample a = new VoiceSample();
     a.setupTimeStretch(s, 10000, 1);
     int[] oscA = new int[400];
     a.renderTimeStretched(oscA, 400, 1, unity, unity, new int[] {1 << 27}, 0);
 
-    // Consume some noise in between to prove the result doesn't depend on the RNG at 1x.
-    for (int i = 0; i < 37; i++) Functions.getNoise();
-
+    Functions.resetNoiseSeed();
     VoiceSample b = new VoiceSample();
     b.setupTimeStretch(s, 10000, 1);
     int[] oscB = new int[400];

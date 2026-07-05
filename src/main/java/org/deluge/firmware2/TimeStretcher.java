@@ -577,19 +577,24 @@ public class TimeStretcher {
       newHeadBytePos = sample.audioDataStartPosBytes + beamBackEdge * bytesPerSample; // C:593
     }
 
-    // C:600-862 — phase-align the crossfade.
-    int[] search =
-        searchForCrossfadeOffset(
-            sample,
-            oldHeadBytePos,
-            newHeadBytePos,
-            crossfadeLengthSamples,
-            phaseIncrement,
-            playDirection,
-            samplesTilHopEnd,
-            olderOscPos);
-    newHeadBytePos += search[0]; // C:854
-    int additionalOscPos = search[1];
+    // C:600-862 — phase-align the crossfade. C:612 ("Added condition, Aug 2019"): the whole
+    // search — and the olderOscPos fold-in (C:855-861) — only runs when there IS an older head
+    // to align to; otherwise the new head would be offset by up to ~490 source samples.
+    int additionalOscPos = 0;
+    if (playHeadStillActive[PLAY_HEAD_OLDER]) {
+      int[] search =
+          searchForCrossfadeOffset(
+              sample,
+              oldHeadBytePos,
+              newHeadBytePos,
+              crossfadeLengthSamples,
+              phaseIncrement,
+              playDirection,
+              samplesTilHopEnd,
+              olderOscPos);
+      newHeadBytePos += search[0]; // C:854
+      additionalOscPos = search[1];
+    }
 
     // C:858-861 — keep within the waveform.
     if ((newHeadBytePos - waveformStartByte) * playDirection < 0) {
