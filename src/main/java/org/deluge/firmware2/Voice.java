@@ -782,7 +782,7 @@ public class Voice {
         }
 
         int modInc =
-            calculateBasePhaseIncrement(
+            calculateModulatorBasePhaseIncrement(
                 noteCode + sound.masterTranspose + sound.modulatorTranspose[m]);
         if (modInc <= 0) {
           for (int u = 0; u < sound.numUnison; u++) {
@@ -1949,6 +1949,33 @@ public class Voice {
       return 0; // inactive / too high
     } else {
       int noteWithinOctave = (noteCode + 240 - 4) % 12;
+      int octave = (noteCode + 120 - 4) / 12;
+      int shiftRightAmount = 20 - octave;
+      if (shiftRightAmount >= 0) {
+        return (shiftRightAmount >= 32)
+            ? 0
+            : (LookupTables.noteFrequencyTable[noteWithinOctave] >>> shiftRightAmount);
+      }
+      return 0; // inactive / too high
+    }
+  }
+
+  public int calculateModulatorBasePhaseIncrement(int noteCode) {
+    if (sound.tuning != null) {
+      TuningProvider tuning = sound.tuning;
+      // Pass noteCode - 4 to align synth octave indexing!
+      int noteWithinOctave = tuning.noteWithinOctaveOf(noteCode - 4);
+      int octave = tuning.octaveOf(noteCode - 4);
+      int shiftRightAmount = 10 - octave;
+      if (shiftRightAmount >= 0) {
+        return (shiftRightAmount >= 32)
+            ? 0
+            : (tuning.noteFrequencyRatio(noteWithinOctave) >>> shiftRightAmount);
+      }
+      return 0; // inactive / too high
+    } else {
+      // C voice.cpp:534-536
+      int noteWithinOctave = (noteCode + 120 - 4) % 12;
       int octave = (noteCode + 120 - 4) / 12;
       int shiftRightAmount = 20 - octave;
       if (shiftRightAmount >= 0) {
