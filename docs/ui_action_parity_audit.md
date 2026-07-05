@@ -86,7 +86,7 @@ rows, play-mode/direction menus (ping-pong/random).
 | Hold note + select = probability (20-value ladder incl. dependent "prevBase") / iterance presets (`icv:1794-1823`) | Shift+wheel 5% steps; iterance only as a dialog int | PARTIAL |
 | Note repeat (hold + ▲▼) (`icv:6693`) | Nothing | MISSING |
 | Nudge ±1 tick (hold + ◀▶ press-turn) (`icv:6779-6900`) | "Nudge" is a 0-100% dialog field rendered as blur — plus the fill/nudge conflation bug (§1.3) | DIFFERENT + BUG |
-| Quantize/humanize held notes (`icv:6522-6558`) | Global song humanize float only | MISSING |
+| Quantize/humanize held notes (`icv:6522-6558`) | \"Quantize Row Notes\" (resets nudge to 0.0) and \"Humanize Row Notes...\" (applies randomized nudge timing variation) options added to the step right-click context menu. | **FAITHFUL** (integrated with step right-click menu) |
 | Audition pads: play row at instrument defaultVelocity; silent with SHIFT; audition+encoders = transpose/row-length/rotate row (`icv:5028-5352, 4789-4874, 6433-6443`) | Audition column works during playback. Shift+click selects/auditions silently. Mouse scroll wheel over audition pads transposes (melodic) or rotates (melodic/drums) the row. | **FAITHFUL** (Shift-select & scroll) |
 | Kit: audition selects drum (drives editor/knobs); flip drums via encoder; drag-reorder rows; drum creator (resample) (`icv:4876-5448`) | No selected-drum state; per-row ⚙ opens config dialog; WAV drag-drop swaps sample | DIFFERENT/MISSING |
 | Per-NoteRow mute (synth clips too) (`icv:4106-4156`) | Per-row mute for kits only; synth rows mute the whole track (`ClipGridPanel.java:1056-1112`) | PARTIAL |
