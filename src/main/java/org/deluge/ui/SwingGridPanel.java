@@ -49,6 +49,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
 
   int soloRow = -1; // -1 = no solo
   public final java.util.Set<Integer> soloedTracks = java.util.concurrent.ConcurrentHashMap.newKeySet();
+  private static org.deluge.model.ClipModel copiedClip = null;
   private boolean wasSequencerPlaying; // edge-detect stop to flush MIDI notes
   final java.util.List<JButton> pageButtons = new java.util.ArrayList<>();
   // voiceVuMeters, trackVuMeters, and globalVuTimer moved to GridVuManager
@@ -1162,7 +1163,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       return;
     }
     EngineSyncCoordinator sync = null;
-    if (SwingDelugeApp.mainInstance != null) {
+    if (SwingDelugeApp.mainInstance != null && SwingDelugeApp.mainInstance.getActiveGridPanel() == this) {
       sync = SwingDelugeApp.mainInstance.getSyncCoordinator();
     }
     java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
@@ -3161,6 +3162,14 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     if (row >= 0) {
       soloedTracks.add(row);
     }
+  }
+
+  public org.deluge.model.ClipModel getCopiedClip() {
+    return copiedClip;
+  }
+
+  public void setCopiedClip(org.deluge.model.ClipModel clip) {
+    copiedClip = clip;
   }
 
   public void setPad(int r, int c, JButton pad) {

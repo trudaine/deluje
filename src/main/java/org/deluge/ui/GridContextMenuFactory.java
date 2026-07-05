@@ -357,6 +357,26 @@ public class GridContextMenuFactory {
         });
     menu.add(dupeItem);
 
+    JMenuItem copyItem = new JMenuItem("Copy Clip");
+    copyItem.addActionListener(
+        e -> {
+          panel.setCopiedClip(clip);
+        });
+    menu.add(copyItem);
+
+    if (panel.getCopiedClip() != null) {
+      JMenuItem pasteOverItem = new JMenuItem("Paste Over Clip");
+      pasteOverItem.addActionListener(
+          e -> {
+            ClipModel copied = panel.getCopiedClip();
+            ClipModel copy = copied.deepCopy(clip.getName());
+            track.getClips().set(clipIdx, copy);
+            panel.fireProjectChanged();
+            panel.refresh();
+          });
+      menu.add(pasteOverItem);
+    }
+
     menu.addSeparator();
 
     JMenuItem deleteItem = new JMenuItem("Delete Clip");

@@ -90,6 +90,45 @@ public class SongGridPanelSoloTest {
     bridge.shutdown();
   }
 
+  @Test
+  public void testCopyPasteClipIntegration() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+    ProjectModel project = new ProjectModel();
+
+    TrackModel track0 = new SynthTrackModel("T0");
+    org.deluge.model.ClipModel clip0 = new org.deluge.model.ClipModel("CLIP_SRC", 8, 16);
+    clip0.setStep(0, 0, org.deluge.model.StepData.of(true, 1.0f, 0.9f, 1.0f, 60));
+    track0.addClip(clip0);
+    project.addTrack(track0);
+
+    SongGridPanel panel = new SongGridPanel(bridge);
+    panel.setProjectModel(project);
+
+    assertNull(panel.getCopiedClip());
+
+    panel.setCopiedClip(clip0);
+    assertNotNull(panel.getCopiedClip());
+    assertEquals("CLIP_SRC", panel.getCopiedClip().getName());
+
+    int clipCol = 1;
+    while (track0.getClips().size() <= clipCol) {
+      track0.addClip(new org.deluge.model.ClipModel(
+          "CLIP " + (track0.getClips().size() + 1), 8, 16));
+    }
+    org.deluge.model.ClipModel copied = panel.getCopiedClip();
+    org.deluge.model.ClipModel copy = copied.deepCopy("CLIP " + (clipCol + 1));
+    track0.getClips().set(clipCol, copy);
+
+    assertEquals(2, track0.getClips().size());
+    org.deluge.model.ClipModel pastedClip = track0.getClips().get(1);
+    assertEquals("CLIP 2", pastedClip.getName());
+    assertTrue(pastedClip.getStep(0, 0).active());
+    assertEquals(60, pastedClip.getStep(0, 0).pitch());
+
+    bridge.shutdown();
+  }
+
   private JButton getSoloButton(SongGridPanel panel, int trackIdx) {
     int col = panel.columnCount - 1; // Solo column is the last column
     for (int r = 0; r < panel.gridMode.rows; r++) {

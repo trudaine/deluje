@@ -465,8 +465,29 @@ public class SongGridPanel extends SwingGridPanel {
                                 fireProjectChanged();
                               });
                           emptyClipMenu.add(createItem);
-                          stylePopupMenu(emptyClipMenu);
                           createItem.setForeground(new Color(0x00, 0xff, 0xcc));
+
+                          if (getCopiedClip() != null) {
+                            JMenuItem pasteItem = new JMenuItem("Paste Clip");
+                            pasteItem.addActionListener(
+                                ev -> {
+                                  while (songTrack.getClips().size() <= clipCol) {
+                                    songTrack.addClip(new org.deluge.model.ClipModel(
+                                        "CLIP " + (songTrack.getClips().size() + 1),
+                                        songTrack.getClips().isEmpty() ? 8 : songTrack.getClips().get(0).getRowCount(),
+                                        16));
+                                  }
+                                  org.deluge.model.ClipModel copied = getCopiedClip();
+                                  org.deluge.model.ClipModel copy = copied.deepCopy("CLIP " + (clipCol + 1));
+                                  songTrack.getClips().set(clipCol, copy);
+                                  fireProjectChanged();
+                                  refresh();
+                                });
+                            emptyClipMenu.add(pasteItem);
+                            pasteItem.setForeground(new Color(0x00, 0xff, 0xcc));
+                          }
+
+                          stylePopupMenu(emptyClipMenu);
                           emptyClipMenu.show(clipBtn, e.getX(), e.getY());
                         }
                       } else {
