@@ -119,7 +119,8 @@ public class FirmwareAudioEngine {
       return;
     }
     int vol = 0; // C:1288-1291 — no SIDECHAIN cable on the send → no ducking
-    java.util.List<org.deluge.firmware2.Patcher.Destination> dests = best.patchCableSet.destinations;
+    java.util.List<org.deluge.firmware2.Patcher.Destination> dests =
+        best.patchCableSet.destinations;
     for (int dIdx = 0; dIdx < dests.size(); dIdx++) {
       org.deluge.firmware2.Patcher.Destination dest = dests.get(dIdx);
       if (dest.paramId == org.deluge.firmware2.Param.GLOBAL_VOLUME_POST_REVERB_SEND) {
@@ -154,6 +155,10 @@ public class FirmwareAudioEngine {
   public final LivePitchShifter livePitchShifter =
       new LivePitchShifter(LiveInputBuffer.InputType.STEREO, 16777216);
   private int liveAudioSampleTimer;
+
+  // Reused scratch for renderLiveInput's pitch-shifter output (grow-only), so the live-input/
+  // resample callback path doesn't allocate a fresh int[] every audio block.
+  private int[] liveInputOut = new int[256];
 
   // ── High-Fidelity Gain Constants ──
   // C: audio_engine.cpp:861 — masterVolumeAdjustment starts at getParamNeutralValue(GLOBAL_VOLUME_
@@ -407,7 +412,12 @@ public class FirmwareAudioEngine {
    * (LRLR...), matching the fw2 DSP convention.
    */
   public void renderLiveInput(int[] inputBlock, int numSamples, int phaseIncrement) {
-    int[] out = new int[numSamples * 2];
+    int requiredLen = numSamples * 2;
+    if (liveInputOut.length < requiredLen) {
+      liveInputOut = new int[requiredLen];
+    }
+    int[] out = liveInputOut;
+    java.util.Arrays.fill(out, 0, requiredLen, 0);
     livePitchShifter.render(
         out,
         numSamples,
