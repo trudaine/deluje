@@ -1235,25 +1235,62 @@ public class Voice {
               (srcAmp > 0)
                   ? srcAmp
                   : Math.max(paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4, 1 << 26);
+          // C voice_sample.cpp:594 — numChannelsInOutputBuffer = 2 when the source sample is
+          // stereo (this engine always renders in stereo downstream): stereo samples keep
+          // their image instead of being mono-summed.
+          boolean stereoSample = vs.sampleRef.numChannels == 2;
+          int requiredTsLen = numSamples * 2;
+          if (vs.tsBuf == null || vs.tsBuf.length < requiredTsLen) {
+            vs.tsBuf = new int[requiredTsLen];
+          }
+          int[] tsBuf = vs.tsBuf;
           if (vs.voiceSample.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]
               || vs.voiceSample.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]) {
-            int requiredTsLen = numSamples * 2;
-            if (vs.tsBuf == null || vs.tsBuf.length < requiredTsLen) {
-              vs.tsBuf = new int[requiredTsLen];
-            }
-            int[] tsBuf = vs.tsBuf;
             java.util.Arrays.fill(tsBuf, 0, requiredTsLen, 0);
             int[] ampArr = {sampAmp};
             vs.voiceSample.renderTimeStretched(
                 tsBuf, numSamples, 2, pInc, vs.timeStretchRatio, ampArr, 0);
-            for (int i = 0; i < numSamples; i++) {
-              tempBuf[i] = (tsBuf[i * 2] + tsBuf[i * 2 + 1]) >> 1;
+            if (!stereoSample) {
+              for (int i = 0; i < numSamples; i++) {
+                tempBuf[i] = (tsBuf[i * 2] + tsBuf[i * 2 + 1]) >> 1;
+              }
             }
             if (!vs.voiceSample.active) vs.active = false;
           } else if (vs.voiceSample.active) {
             int[] ampArr = {sampAmp};
-            vs.voiceSample.render(tempBuf, numSamples, 1, pInc, ampArr, 0);
+            if (stereoSample) {
+              java.util.Arrays.fill(tsBuf, 0, requiredTsLen, 0);
+              vs.voiceSample.render(tsBuf, numSamples, 2, pInc, ampArr, 0);
+            } else {
+              vs.voiceSample.render(tempBuf, numSamples, 1, pInc, ampArr, 0);
+            }
             if (!vs.voiceSample.active) vs.active = false;
+          } else {
+            stereoSample = false; // nothing rendered
+          }
+          if (stereoSample) {
+            // Mix the interleaved stereo render directly (C voice.cpp:2220-2239); with unison
+            // stereo spread the per-part pan applies to each channel.
+            if (stereoUnison) {
+              for (int i = 0; i < numSamples; i++) {
+                mixBuf[i * 2] =
+                    Functions.add_saturate(
+                        mixBuf[i * 2],
+                        Functions.lshiftAndSaturate(
+                            Functions.multiply_32x32_rshift32(tsBuf[i * 2], ampLR[0]), 2));
+                mixBuf[i * 2 + 1] =
+                    Functions.add_saturate(
+                        mixBuf[i * 2 + 1],
+                        Functions.lshiftAndSaturate(
+                            Functions.multiply_32x32_rshift32(tsBuf[i * 2 + 1], ampLR[1]), 2));
+              }
+            } else {
+              for (int i = 0; i < numSamples; i++) {
+                mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], tsBuf[i * 2]);
+                mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], tsBuf[i * 2 + 1]);
+              }
+            }
+            continue;
           }
         } else if (isInputType(sound.oscTypes[s])) {
           pInc = vs.phaseIncrementStoredValue;

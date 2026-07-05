@@ -845,19 +845,6 @@ public class Sound extends GlobalEffectable {
 
     srrBitcrush.process(fxIntBuffer, numSamples, bitcrushParam, srrParam, postFXVolumeHolder);
 
-    // Stutterer still uses StereoSample[]. Bypass entirely if inactive to save massive CPU!
-    if (stutterer.isActive()) {
-      for (int i = 0; i < numSamples; i++) {
-        fxStereoBuffer[i].l = fxIntBuffer[i][0];
-        fxStereoBuffer[i].r = fxIntBuffer[i][1];
-      }
-      stutterer.processStutter(fxStereoBuffer, null);
-      for (int i = 0; i < numSamples; i++) {
-        fxIntBuffer[i][0] = fxStereoBuffer[i].l;
-        fxIntBuffer[i][1] = fxStereoBuffer[i].r;
-      }
-    }
-
     if (modFXType == ModFx.ModFXType.GRAIN) {
       granular.processGrainFX(
           fxIntBuffer,
@@ -908,6 +895,20 @@ public class Sound extends GlobalEffectable {
             : delayFeedbackAmount;
     delay.setupWorkingState(delayState, timePerInternalTickInverse, hasActiveVoices);
     delay.process(fxIntBuffer, numSamples, delayState);
+
+    // Stutter runs AFTER processFX (modFX → EQ → delay), so it chops the delayed/chorused
+    // signal like the C (sound.cpp:2589). Bypass entirely if inactive to save CPU.
+    if (stutterer.isActive()) {
+      for (int i = 0; i < numSamples; i++) {
+        fxStereoBuffer[i].l = fxIntBuffer[i][0];
+        fxStereoBuffer[i].r = fxIntBuffer[i][1];
+      }
+      stutterer.processStutter(fxStereoBuffer, null);
+      for (int i = 0; i < numSamples; i++) {
+        fxIntBuffer[i][0] = fxStereoBuffer[i].l;
+        fxIntBuffer[i][1] = fxStereoBuffer[i].r;
+      }
+    }
 
     // Per-sound compressor moved to processPostVolumeDynamics — C runs it AFTER
     // processReverbSendAndVolume (sound.cpp:2591-2600), so it must see the volume-applied signal.

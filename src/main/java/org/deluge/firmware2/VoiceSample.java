@@ -129,6 +129,15 @@ public class VoiceSample {
         }
       }
 
+      // C voice_sample.cpp:1427-1430 — one-shot: when both stretch heads have died (newer killed
+      // past the waveform end, older's crossfade finished), the voice ends instead of re-hopping
+      // and rendering silence forever.
+      if (!timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]
+          && !timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]) {
+        active = false;
+        return;
+      }
+
       int numThis = Math.min(numSamples - produced, timeStretcher.samplesTilHopEnd);
       if (numThis <= 0) {
         break;
@@ -351,8 +360,17 @@ public class VoiceSample {
           left = framesUntilEnd();
         }
         if (left <= 0) { // one-shot ended, or degenerate loop
-          active = false;
-          return;
+          // C doZeroes (sample_low_level_reader.cpp:692-699): the resampled path keeps feeding
+          // zeroes through the interpolation buffer until it has fully drained — the reader's
+          // playPos leads the audible sinc center, so stopping at endFrame cut the last ~9 real
+          // frames and the windowed-sinc ring-out (a click on samples ending at non-zero
+          // amplitude). pushFrame already yields zeroes past the sample data.
+          long tailLeft = native_ ? 0 : interpBufSize - (-left);
+          if (tailLeft <= 0) {
+            active = false;
+            return;
+          }
+          left = tailLeft;
         }
       }
 
