@@ -91,7 +91,7 @@ rows, play-mode/direction menus (ping-pong/random).
 | Kit: audition selects drum (drives editor/knobs); flip drums via encoder; drag-reorder rows; drum creator (resample) (`icv:4876-5448`) | No selected-drum state; per-row ⚙ opens config dialog; WAV drag-drop swaps sample | DIFFERENT/MISSING |
 | Per-NoteRow mute (synth clips too) (`icv:4106-4156`) | Per-row mute for kits only; synth rows mute the whole track (`ClipGridPanel.java:1056-1112`) | PARTIAL |
 | Independent note-row length; per-row rotate; euclidean via audition+▲▼ (`icv:6151-6484`) | Whole-clip length/rotate; euclidean via dialog (forces velocity 0.8) | PARTIAL/MISSING |
-| Cross-screen wrap editing (edits replicate across screens) (`icv:316-338, 2566-2574`) | Display echoes short clips, but edits don't replicate | MISSING |
+| Cross-screen wrap editing (edits replicate across screens) (`icv:316-338, 2566-2574`) | Toggled via Edit -> \"Cross-Screen Wrap Edits\" checkbox item. Toggling a step replicates the action across all screen boundaries (every 16 steps) of the clip's full length. | **FAITHFUL** (menu option) |
 | Zoom (◀▶ press+turn), animated scroll (`timeline_view.cpp:155-169`) | RATE combo (step resolution) + scrollbars/page buttons, fixed 16 columns | DIFFERENT-BY-DESIGN |
 | Row colours: pitched rows `fromHue((yNote+colourOffset)*-8/3)`; kits also rainbow (`instrument_clip.cpp:1237`, `icv:5753`) | Pitched rows FAITHFUL (minus per-row `noteRowColourOffset`); kit rows use one flat track colour | FAITHFUL/DIFFERENT |
 | Velocity brightness + tail/blur colours (`note_row.cpp:1955-1992`) | Same formulas (`DelugePadButton.java:549-604`); compositing stylized (0x22 floor, white hotspot); blur repurposed for "nudge" | PARTIAL |
