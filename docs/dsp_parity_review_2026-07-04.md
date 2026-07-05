@@ -465,6 +465,22 @@ Scorecard stable (mean 0.760 / ≥0.90: 28 / <0.60: 24) — correct-by-construct
   native compensates half the interpolation buffer minus the fractional lead — pitch modulation
   crossing unity no longer drifts ~8 source frames per crossing.
 
+### Seventh pass (2026-07-05, later still)
+
+- Filter engagement conditions ported (sound.cpp:2506-2519): a filter section runs only when it
+  can have an effect (drive mode; cutoff patched/off-neutral; morph engaged). Every hardware
+  preset writes hpfMode="HPLadder" even with the HPF unused (hpfFrequency=0x80000000), so the
+  Java HP ladder had been running at minimum frequency on EVERY preset — a low-cut + resonance
+  residue the C's bypass never produces. Scorecard: known-bad presets rose sharply (Nasal Choir
+  0.338→0.473, PWM 0.476→0.560, FM Theremin +0.05), median held 0.800, mean dipped 0.760→0.755
+  where the accidental residue had flattered other presets — kept per the C, which is
+  unambiguous with the same preset knob values. (DX7 golden values re-baselined: the ring
+  fixture's bypassed max-cutoff ladder no longer consumes per-sample noise draws, shifting the
+  shared CONG stream for the render that follows — an RNG-position artifact, not a DX7 change.)
+- Post-arp notes: every noteCodeOnPostArp entry until ARP_NOTE_NONE now plays (chord/octave arp
+  modes emit several) at the arp note's real velocity (sound.cpp:2340-2360; the [0]-only +
+  velocity-64 floor was invented).
+
 Still open: the remaining timestretch hop details (perc-cache beam refinement needs a
 percussiveness analysis the Java Sample doesn't compute; hop deferral is CPU staggering), the
 justCreated one-block render deferral (deliberately NOT ported: it would shift every note's

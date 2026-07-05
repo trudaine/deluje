@@ -108,6 +108,16 @@ public class Sound extends GlobalEffectable {
     return patchedParamValues[Param.LOCAL_OSC_B_VOLUME] != Integer.MIN_VALUE || synthMode == 2;
   }
 
+  /** C PatchCableSet::doesParamHaveSomethingPatchedToIt — any real cable lands on this param. */
+  public boolean doesParamHaveSomethingPatchedToIt(int p) {
+    for (Patcher.Destination d : patchCableSet.destinations) {
+      if (d.paramId == p && d.targetSource < 0 && !d.cables.isEmpty()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /**
    * envelopeHasSustainCurrently (sound.cpp:4320-4328). Params fetched "pre-LPF" — the raw patched
    * (knob) values, not paramFinalValues.
@@ -777,14 +787,36 @@ public class Sound extends GlobalEffectable {
       }
 
       if (arpInstr.arpNoteOn != null) {
-        int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[0];
-        int vel = arpInstr.arpNoteOn.velocity;
-        if (vel <= 0) vel = 64;
-        triggerVoice(noteOn, vel, -1);
-        arpInstr.arpNoteOn.noteStatus[0] = Arpeggiator.ArpNoteStatus.PLAYING;
+        // C process_postarp_notes (sound.cpp:2340-2360) — EVERY entry until ARP_NOTE_NONE plays
+        // (chord/octave arp modes emit several), each at the arp note's real velocity.
+        for (int n = 0; n < arpInstr.arpNoteOn.noteCodeOnPostArp.length; n++) {
+          int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[n];
+          if (noteOn == Arpeggiator.ARP_NOTE_NONE) {
+            break;
+          }
+          triggerVoice(noteOn, arpInstr.arpNoteOn.velocity, -1);
+          arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
+        }
         arpInstr.arpNoteOn = null;
       }
     }
+
+    // C sound.cpp:2506-2519 — a filter section only runs when it can have an audible effect:
+    // drive mode always; otherwise when the cutoff is patched, below max (LPF), set at all
+    // (HPF), or the morph is engaged. A filter whose knobs sit at neutral is a hard bypass on
+    // hardware (no ladder phase/level residue).
+    boolean thisHasFilters = (lpfMode != FilterMode.OFF) || (hpfMode != FilterMode.OFF);
+    boolean doLPF =
+        thisHasFilters
+            && (lpfMode == FilterMode.TRANSISTOR_24DB_DRIVE
+                || doesParamHaveSomethingPatchedToIt(Param.LOCAL_LPF_FREQ)
+                || getSmoothedPatchedParamValue(Param.LOCAL_LPF_FREQ) < 0x7FFFFFD2
+                || getSmoothedPatchedParamValue(Param.LOCAL_LPF_MORPH) > Integer.MIN_VALUE);
+    boolean doHPF =
+        thisHasFilters
+            && (doesParamHaveSomethingPatchedToIt(Param.LOCAL_HPF_FREQ)
+                || getSmoothedPatchedParamValue(Param.LOCAL_HPF_FREQ) != Integer.MIN_VALUE
+                || getSmoothedPatchedParamValue(Param.LOCAL_HPF_MORPH) > Integer.MIN_VALUE);
 
     // 4. Sum active voices
     boolean hasActiveVoices = false;
@@ -797,7 +829,7 @@ public class Sound extends GlobalEffectable {
         }
         hasActiveVoices = true;
         Patcher.performInitialPatching(this, v.sourceValues, v.paramFinalValues);
-        v.render(buffer, numSamples, lpfMode != FilterMode.OFF, hpfMode != FilterMode.OFF);
+        v.render(buffer, numSamples, doLPF, doHPF);
       }
     }
 

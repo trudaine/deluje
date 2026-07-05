@@ -392,14 +392,15 @@ public class FirmwareGoldenSignatureTest {
     assertClose("ring rms", 0.009261414, ringRms, 0.10, 0.0005);
     assertClose("ring brightness", 0.074440891, ringBrightness, 0.10, 0.0005);
 
-    // Re-baselined 2026-07-04: DX7 LFO-delay fix (dx7note.cpp:294 unsigned compare — the first
-    // delay phase now uses delayInc as in C, suppressing the LFO longer at note start).
-    assertClose("dx7 peak", 0.01263253390789032, dx7Peak, 0.10, 0.0005);
-    assertClose("dx7 rms", 0.008775530699255971, dx7Rms, 0.10, 0.0005);
+    // Re-baselined 2026-07-05: the C filter-engagement bypass (sound.cpp:2506-2519) stops the
+    // ring fixture's max-cutoff ladder from consuming per-sample noise draws, shifting the
+    // shared CONG stream position for this render (the DX7 random detune/phases differ).
+    assertClose("dx7 peak", 0.019105032086372375, dx7Peak, 0.10, 0.0005);
+    assertClose("dx7 rms", 0.013321079207954802, dx7Rms, 0.10, 0.0005);
     // Updated 2026-06-28: DX7 pitch-envelope rates/levels-swap fix (Dx7Voice.PitchEnv) corrected a
     // spurious +4-octave offset on neutral pitch envelopes, shifting DX7 brightness.
     assertClose("dx7 brightness", 0.03731857465320066, dx7Brightness, 0.10, 0.05);
-    assertClose("dx7 h1", 0.006201611988001976, dx7H1, 0.10, 0.0005);
+    assertClose("dx7 h1", 0.009412460496958971, dx7H1, 0.10, 0.0005);
     assertClose("dx7 h3", 0.000026857, dx7H3, 0.10, 0.0005);
     assertTrue(dx7H3 > 0.000001, "dx7 patch should stay richer than a pure sine");
   }
