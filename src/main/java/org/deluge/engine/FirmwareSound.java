@@ -114,8 +114,12 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   // syncParamsToFw2 converts it to fw2Sound.delayUserRate using currentBpm. delayFeedbackAmount <
   // 256
   // (or syncLevel 0) leaves the per-sound delay inert.
-  public int delaySyncLevel = 6;
+  // FILE-value semantics (as stored in preset XML). The C converts file→internal on load
+  // (song.cpp:5761-5778: internal = file + 1 - inputTickMagnitude); we convert in
+  // syncParamsToFw2 so the fw2 Delay sees the internal value (1=whole ... 9=256th).
+  public int delaySyncLevel = 7; // file 7 @ magnitude 2 = internal 6 (16ths), the C default
   public int delaySyncType = 0; // 0=even, 1=triplet, 2=dotted
+  public int inputTickMagnitude = 2; // song's tick magnitude (ProjectModel default = C default)
   public int delayFeedbackAmount = 0;
   public boolean delayPingPong = false;
   public boolean delayAnalog = false;
@@ -416,9 +420,16 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     }
     fw2Sound.patchCableSet.destinations = nextDestinations;
 
-    // Modulated FX params: compute directly into fw2Sound from its patched-param knobs (no shadow).
-    fw2Sound.modFXRateIncrement = fw2Sound.patchedParamValues[Param.GLOBAL_MOD_FX_RATE];
-    fw2Sound.modFXDepth = fw2Sound.patchedParamValues[Param.GLOBAL_MOD_FX_DEPTH];
+    // Modulated FX params. C sound.cpp:2582-2584 reads the patcher's FINAL values for rate and
+    // depth (rate: exp curve, neutral 121739; depth: linear) — the raw Q31 knob is 100-1000x off
+    // as an LFO phase increment (frozen or kHz-speed chorus). The UNPATCHED offset/feedback ARE
+    // read raw (ModFXProcessor.cpp:91/106).
+    fw2Sound.modFXRateIncrement =
+        org.deluge.firmware2.Patcher.computeFinalValueForParam(
+            Param.GLOBAL_MOD_FX_RATE, fw2Sound.patchedParamValues[Param.GLOBAL_MOD_FX_RATE]);
+    fw2Sound.modFXDepth =
+        org.deluge.firmware2.Patcher.computeFinalValueForParam(
+            Param.GLOBAL_MOD_FX_DEPTH, fw2Sound.patchedParamValues[Param.GLOBAL_MOD_FX_DEPTH]);
     fw2Sound.modFXOffset = fw2Sound.patchedParamValues[Param.UNPATCHED_MOD_FX_OFFSET];
     fw2Sound.modFXFeedback = fw2Sound.patchedParamValues[Param.UNPATCHED_MOD_FX_FEEDBACK];
     fw2Sound.bitcrushParam = fw2Sound.patchedParamValues[Param.UNPATCHED_BITCRUSHING];
@@ -428,38 +439,39 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
 
     fw2Sound.currentBpm = (int) currentBpm;
 
-    // Per-sound delay: convert the note-division syncLevel to a buffer rate using the live BPM
-    // (same scheme as PureFirmwareEngine's master-delay sync). syncLevel exponent → multiples of a
-    // 16th-note step; rate = 16384 * 2^24 / (delaySec * 44100), the inverse of
-    // DelayBuffer.getIdealBufferSizeFromRate.
-    int dfb =
+    // timePerInternalTickInverse (C: song.cpp:2561 — divideByTimePerTimerTick = 2^63 /
+    // ((timePerTimerTickBig * 3) >> 1) = 2^31 / (1.5 × samplesPerTimerTick)). From the BPM
+    // formula (song.h:447-456: bpm = 110250 / (samplesPerTimerTick × 2^magnitude)):
+    // samplesPerInternalTick = 1.5 × 110250 / (bpm × 2^magnitude) — 64 internal ticks per
+    // quarter note at the default magnitude 2. Ground-truthed by PerSoundDelayTimingTest's
+    // hardware measurement (file syncLevel 4 → internal 3 → 1.0 s echo at 120 BPM).
+    {
+      double bpm = currentBpm > 0 ? currentBpm : 120.0;
+      double samplesPerInternalTick = 165375.0 / (bpm * (1 << inputTickMagnitude));
+      fw2Sound.timePerInternalTickInverse =
+          (int) Math.min(2147483647.0, 2147483648.0 / samplesPerInternalTick);
+      // The sidechain's synced release uses the same tick inverse (sidechain.cpp:102/121).
+      fw2Sound.sidechain.timePerInternalTickInverse = fw2Sound.timePerInternalTickInverse;
+    }
+
+    // Per-sound delay: pass the C's actual inputs (sound.cpp:2477-2484) — the exp-final
+    // GLOBAL_DELAY_RATE (neutral 2^24) and GLOBAL_DELAY_FEEDBACK, plus the preset's
+    // syncLevel/syncType. The fw2 Delay applies tempo sync itself (delay.cpp:102-117); each
+    // +1 syncLevel HALVES the delay time (1=whole ... 9=256th).
+    fw2Sound.delayFeedbackAmount =
         org.deluge.firmware2.Patcher.computeFinalValueForParam(
             org.deluge.firmware2.Param.GLOBAL_DELAY_FEEDBACK,
             fw2Sound.patchedParamValues[org.deluge.firmware2.Param.GLOBAL_DELAY_FEEDBACK]);
-    if (delaySyncLevel > 0 && dfb >= 256) {
-      double bpm = currentBpm > 0 ? currentBpm : 120.0;
-      double stepSec = (60.0 / bpm) / 4.0; // 16th-note
-      double syncFactor = Math.pow(2.0, delaySyncLevel - 1);
-      if (delaySyncType == 1) syncFactor *= 1.5; // triplet
-      else if (delaySyncType == 2) syncFactor *= 2.0 / 3.0; // dotted
-      double delaySec = Math.max(0.001, Math.min(2.0, syncFactor * stepSec));
-      long rate = (long) (16384L * 16777216L / (delaySec * 44100.0));
-      fw2Sound.delayUserRate = (int) Math.min(rate, Integer.MAX_VALUE);
-      fw2Sound.delayFeedbackAmount = dfb;
-      fw2Sound.delayPingPong = delayPingPong;
-      fw2Sound.delayAnalog = delayAnalog;
-    } else if (delaySyncLevel == 0 && dfb >= 256) {
-      fw2Sound.delayUserRate =
-          org.deluge.firmware2.Patcher.computeFinalValueForParam(
-              org.deluge.firmware2.Param.GLOBAL_DELAY_RATE,
-              fw2Sound.patchedParamValues[org.deluge.firmware2.Param.GLOBAL_DELAY_RATE]);
-      fw2Sound.delayFeedbackAmount = dfb;
-      fw2Sound.delayPingPong = delayPingPong;
-      fw2Sound.delayAnalog = delayAnalog;
-    } else {
-      fw2Sound.delayUserRate = 0;
-      fw2Sound.delayFeedbackAmount = 0;
-    }
+    fw2Sound.delayUserRate =
+        org.deluge.firmware2.Patcher.computeFinalValueForParam(
+            org.deluge.firmware2.Param.GLOBAL_DELAY_RATE,
+            fw2Sound.patchedParamValues[org.deluge.firmware2.Param.GLOBAL_DELAY_RATE]);
+    fw2Sound.delaySyncLevel =
+        org.deluge.xml.DelugeXmlUtil.convertSyncLevelFromFileValueToInternalValue(
+            delaySyncLevel, inputTickMagnitude);
+    fw2Sound.delaySyncType = delaySyncType;
+    fw2Sound.delayPingPong = delayPingPong;
+    fw2Sound.delayAnalog = delayAnalog;
 
     // Copy Custom LFO Waveform
     System.arraycopy(customLfoWave, 0, fw2Sound.customLfoWave, 0, 256);

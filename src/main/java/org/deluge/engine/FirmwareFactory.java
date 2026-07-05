@@ -87,6 +87,7 @@ public class FirmwareFactory {
       if (track instanceof SynthTrackModel synthTrack) {
         FirmwareSound synth = new FirmwareSound();
         synth.fw2Sound.tuning = model; // project is the tuning provider
+        synth.inputTickMagnitude = model.getInputTickMagnitude(); // for file→internal sync levels
         mapModelToSound(synthTrack, synth);
         loadOscResources(synthTrack, synth);
         sound = synth;
@@ -271,6 +272,7 @@ public class FirmwareFactory {
                       ckz.endLoopPos = kz.endLoopPos;
                       ckz.looping = kz.looping;
                       ckz.transpose = kz.transpose;
+                      ckz.cents = kz.cents;
                       compiledZones.add(ckz);
                     }
                   } catch (IOException e) {
@@ -734,14 +736,28 @@ public class FirmwareFactory {
     sound.fw2Sound.unisonStereoSpread =
         Math.max(0, Math.min(50, (int) model.getUnison().getUnisonStereoSpread()));
 
-    // Sidechain settings
-    int sidechainAttackVal =
-        (int) (200 + Math.pow(2.0, (1.0 - model.getSidechainAttack()) * 12.0) * 2.0);
-    int sidechainReleaseVal =
-        (int) (50 + Math.pow(2.0, (1.0 - model.getSidechainRelease()) * 12.0) * 1.5);
-    sound.sidechain.attack = sidechainAttackVal;
-    sound.sidechain.release = sidechainReleaseVal;
-    sound.sidechain.syncLevel = Math.max(0, Math.min(model.getSidechainSyncLevel(), 8));
+    // Sidechain settings. The preset XML carries the C's RAW rate ints
+    // (mod_controllable_audio.cpp:892-896); when the tag is absent, keep the Sidechain
+    // constructor defaults (sidechain.cpp:29-30 — attackRateTable[7]*4 / releaseRateTable[28]*8).
+    if (model.getSidechainAttackRaw() >= 0) {
+      sound.sidechain.attack = model.getSidechainAttackRaw();
+    }
+    if (model.getSidechainReleaseRaw() >= 0) {
+      sound.sidechain.release = model.getSidechainReleaseRaw();
+    }
+    // File→internal conversion like every sync tag (mod_controllable_audio.cpp:903-906). When
+    // the preset carries no <sidechain> tag at all (raw attack unset), the C constructor default
+    // applies: syncLevel = 8 - insideWorldTickMagnitude (mod_controllable_audio.cpp:71-82).
+    int scSyncFile = Math.max(0, model.getSidechainSyncLevel());
+    if (scSyncFile > 0) {
+      sound.sidechain.syncLevel =
+          org.deluge.xml.DelugeXmlUtil.convertSyncLevelFromFileValueToInternalValue(
+              scSyncFile, sound.inputTickMagnitude);
+    } else if (model.getSidechainAttackRaw() < 0) {
+      sound.sidechain.syncLevel = 8 - sound.inputTickMagnitude;
+    } else {
+      sound.sidechain.syncLevel = 0;
+    }
     sound.sidechain.syncType = Math.max(0, Math.min(model.getSidechainSyncType(), 2));
     sound.paramKnobs[org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE] = 0; // default shape
     try {
@@ -777,6 +793,18 @@ public class FirmwareFactory {
             sound.paramKnobs[paramId] = model.getRawKnobs().getLfoRateKnobQ31(i);
           }
         }
+        // Tempo sync: the preset's <lfo1/lfo2 syncLevel/syncType> drives lfoConfig — the fw2
+        // Sound then uses getSyncedLFOPhaseIncrement instead of the rate knob
+        // (C sound.cpp:2700-2707) and resyncGlobalLFOs pins the phase to the bar. The XML
+        // carries FILE values; convert to internal like the C load path (song.cpp:5761-5778).
+        int internalSync =
+            org.deluge.xml.DelugeXmlUtil.convertSyncLevelFromFileValueToInternalValue(
+                lm.syncLevel(), sound.inputTickMagnitude);
+        org.deluge.firmware2.Lfo.SyncType[] types = org.deluge.firmware2.Lfo.SyncType.values();
+        sound.fw2Sound.lfoConfig[i].syncLevel =
+            org.deluge.firmware2.Lfo.SyncLevel.values()[internalSync];
+        sound.fw2Sound.lfoConfig[i].syncType =
+            types[Math.max(0, Math.min(lm.syncType(), types.length - 1))];
       }
     }
 
@@ -814,27 +842,14 @@ public class FirmwareFactory {
         org.deluge.firmware2.Patcher.computeFinalValueForParam(
             Param.UNPATCHED_MOD_FX_FEEDBACK, sound.paramKnobs[Param.UNPATCHED_MOD_FX_FEEDBACK]);
 
-    int dfb =
+    // Load-time delay finals (overwritten by FirmwareSound.syncParamsToFw2 before every render,
+    // which also converts delaySyncLevel file→internal and applies the C's in-Delay tempo sync).
+    sound.delayFeedbackAmount =
         org.deluge.firmware2.Patcher.computeFinalValueForParam(
             Param.GLOBAL_DELAY_FEEDBACK, sound.paramKnobs[Param.GLOBAL_DELAY_FEEDBACK]);
-    if (sound.delaySyncLevel > 0 && dfb >= 256) {
-      double stepSec = 60.0 / (sound.currentBpm * 4.0);
-      double syncFactor = Math.pow(2.0, sound.delaySyncLevel - 1);
-      if (sound.delaySyncType == 1) syncFactor *= 1.5;
-      else if (sound.delaySyncType == 2) syncFactor *= 2.0 / 3.0;
-      double delaySec = Math.max(0.001, Math.min(2.0, syncFactor * stepSec));
-      long rate = (long) (16384L * 16777216L / (delaySec * 44100.0));
-      sound.fw2Sound.delayUserRate = (int) Math.min(rate, Integer.MAX_VALUE);
-      sound.delayFeedbackAmount = dfb;
-    } else if (sound.delaySyncLevel == 0 && dfb >= 256) {
-      sound.fw2Sound.delayUserRate =
-          org.deluge.firmware2.Patcher.computeFinalValueForParam(
-              Param.GLOBAL_DELAY_RATE, sound.paramKnobs[Param.GLOBAL_DELAY_RATE]);
-      sound.delayFeedbackAmount = dfb;
-    } else {
-      sound.fw2Sound.delayUserRate = 0;
-      sound.delayFeedbackAmount = 0;
-    }
+    sound.fw2Sound.delayUserRate =
+        org.deluge.firmware2.Patcher.computeFinalValueForParam(
+            Param.GLOBAL_DELAY_RATE, sound.paramKnobs[Param.GLOBAL_DELAY_RATE]);
 
     sound.reverbSendKnob = sound.paramKnobs[Param.GLOBAL_REVERB_AMOUNT];
     sound.fw2Sound.bitcrushParam = sound.paramKnobs[Param.UNPATCHED_BITCRUSHING];

@@ -140,10 +140,12 @@ public class PureFirmwareEngine {
     // Sync master reverb model + room/damping/width from the song (previously left at defaults, so
     // the song's reverb settings had no effect in the pure engine).
     int reverbModel = (int) bridge.getGlobalInt(BridgeContract.G_REVERB_MODEL);
+    // C reverb.hpp:15-19 — enum order is FREEVERB=0, MUTABLE=1, DIGITAL=2 (song.cpp:1423 casts
+    // the raw XML int straight to this enum).
     audioEngine.masterReverb.setModel(
         switch (reverbModel) {
-          case 1 -> org.deluge.firmware2.Reverb.Model.DIGITAL;
-          case 2 -> org.deluge.firmware2.Reverb.Model.MUTABLE;
+          case 1 -> org.deluge.firmware2.Reverb.Model.MUTABLE;
+          case 2 -> org.deluge.firmware2.Reverb.Model.DIGITAL;
           default -> org.deluge.firmware2.Reverb.Model.FREEVERB;
         });
     audioEngine.masterReverb.setRoomSize(

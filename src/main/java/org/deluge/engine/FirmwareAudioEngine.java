@@ -75,6 +75,13 @@ public class FirmwareAudioEngine {
 
   // Global FX — faithful firmware2 ports.
   public final Compressor masterCompressor = new Compressor();
+
+  {
+    // C song.cpp:191 — the song's master compressor uses 0.85, not the constructor's 1.35
+    // ("The song compressor must use 0.8 to maintain compatibility", rms_feedback.h:163-167).
+    masterCompressor.setBaseGain(0.85f);
+  }
+
   public final Delay masterDelay = new Delay();
   public final Reverb.Container masterReverb = new Reverb.Container();
   public final Delay.State delayState = new Delay.State();
