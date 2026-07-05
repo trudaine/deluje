@@ -62,7 +62,7 @@ public abstract class GlobalEffectable {
   private transient long[] tempOutLong = new long[256];
   private transient long[] tempRevLong = new long[128];
 
-  public void renderOutput(long[] output, int numSamples, long[] reverbBuffer) {
+  public synchronized void renderOutput(long[] output, int numSamples, long[] reverbBuffer) {
     if (muted) {
       return;
     }
