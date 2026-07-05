@@ -13,9 +13,9 @@ This document outlines the architecture for a software-only emulation of the **S
     - **Song (F2)**: "Session View" for launching multiple clips simultaneously.
     - **Arranger (F3)**: Linear timeline overview for horizontal song structure.
 
-### 1.2 The ChucK Bridge
-- **Shared Memory**: All grid states, mutes, and automation are stored in `ChuckArray` objects globally accessible by both Java and ChucK.
-- **Dynamic Shredding**: Track types (Synth/Kit) are managed by independent ChucK shreds that can be hot-swapped via `Machine.replace()` without stopping the global clock.
+### 1.2 The Java DSP Engine
+- **Direct Execution**: All audio, sequencer clocking, and track synthesis are orchestrated natively by Java virtual threads running the `org.deluge.firmware2` DSP nodes.
+- **Zero GC Footprint**: The rendering loop runs entirely off-heap or with preallocated instance/thread-local scratch buffers to prevent garbage collection pauses on the audio thread.
 
 ### 1.3 Grid Rendering: `PadCell` Projectors
 
@@ -138,7 +138,7 @@ Clicking the gear icon opens a contextual modal. This is where "deep editing" ha
 ## 4. Synthesis & Effects Engine
 
 ### 4.1 Internal Signal Chain
-Every track in ChucK follows a Deluge-style insert chain:
+Every track in the Java engine follows a Deluge-style insert chain:
 `Source (Osc/Sample) -> Bitcrush -> Distortion -> LPF/HPF -> Mod FX (Chorus/Phase) -> EQ -> Send 1 (Delay) -> Send 2 (Reverb) -> Master Bus`.
 
 ### 4.2 Modulation Logic (Patch Cables)
@@ -166,7 +166,7 @@ Compatible with Deluge XML `<patchCable>` tags.
 ## 6. XML Compatibility Strategy
 
 - **Preset Loader**: Background parser for `SYNTHS/` and `KITS/` XML files.
-- **Hex Mapper**: Automatic conversion of 32-bit Deluge hex values (`0x7FFFFFFF`) to ChucK-friendly floats (`0.0 - 1.0`).
+- **Hex Mapper**: Automatic conversion of 32-bit Deluge hex values (`0x7FFFFFFF`) to Java normalized floats (`0.0 - 1.0`) or raw Q31 integers.
 - **Path Resolver**: Resolves relative `<fileName>` tags against the factory `SAMPLES/` root directory.
 
 ## 11. The Virtual OLED: Real-time Feedback Engine
@@ -184,7 +184,7 @@ A dedicated feedback zone (Top Center) that emulates and expands upon the hardwa
     - **Smart Hint**: Dynamic text like `[ALT]+[1-8] TO MUTE`.
 - **System Mode**:
     - **VU Meter**: Stereophonic peak level monitoring.
-    - **CPU Load**: ChucK VM processing percentage.
+    - **CPU Load**: Audio thread DSP render loop processing percentage.
 
 ### 11.2 The "Status Ribbon" (Bottom)
 While the OLED handles high-level status, a secondary **Status Ribbon** at the bottom provides logs for:
@@ -200,7 +200,7 @@ Unlike individual Kits, a **Song** is a master XML file located in the `/SONGS` 
 - **Loading a Song**: 
     1. Java parses the Song XML.
     2. It identifies all required Kits/Synths.
-    3. It spawns the necessary ChucK shreds for each instrument.
+    3. It registers the active synthesis sounds into the audio engine.
     4. It populates the `seq_matrix` with all note data for all tracks.
 
 ### 12.2 Creating a New Kit from Scratch
@@ -249,8 +249,8 @@ Users are not limited to factory presets.
 
 ### 6.1 Hex to Float Translation
 Deluge XMLs use 32-bit signed hex values (`0x00000000` to `0x7FFFFFFF` for positive, `0x80000000` for negative).
-- **Mapping Logic**: `value / 2147483647.0` will be used to normalize parameters to a `0.0 - 1.0` range for ChucK UGens.
-- **Special Cases**: Frequencies (LPF/HPF) will use an exponential mapping to ChucK's Hz range.
+- **Mapping Logic**: `value / 2147483647.0` will be used to normalize parameters to a `0.0 - 1.0` range.
+- **Special Cases**: Frequencies (LPF/HPF) will use an exponential mapping to the Hz range.
 
 ### 6.2 Path Resolution
 The `<fileName>` tag in XML refers to a relative path.
@@ -260,7 +260,7 @@ The `<fileName>` tag in XML refers to a relative path.
 ## 8. Multi-Track Sequencing Engine
 
 ### 8.1 Shared Memory Structure
-Java and ChucK communicate via global `ChuckArray` objects:
+The UI and engine communicate via shared bridge arrays:
 - `seq_matrix`: A 2D-mapped array `[track_index * steps + step_index]` storing 1/0 for note activity.
 - `seq_params`: A per-track array storing current Volume, Pan, Filter, and Send levels.
 - `seq_clock`: A shared `int` representing the current sample-accurate step index.
@@ -318,7 +318,7 @@ To prevent "eyes-off-the-grid" syndrome:
 To ensure parity with Deluge files, the Java parser will map the following tags:
 
 ### 13.1 Instrument Definitions
-| XML Tag | Java Mapping | ChucK Mapping |
+| XML Tag | Java Model Mapping | Java Engine Parameter |
 | :--- | :--- | :--- |
 | `<instrument type="KIT">` | `DelugeKit` class | Multi-track `SndBuf` array |
 | `<instrument type="SYNTH">` | `DelugeSynth` class | Polyphonic `Osc` shred |
@@ -339,54 +339,55 @@ When **AFFECT ENTIRE** is enabled:
 - UI sends a broadcast message to all `TrackShreds`.
 - Each shred updates its local `seq_params` from the global shared `ChuckArray`.
 
-## 14. Synthesis Engine Mapping (Deluge to ChucK)
+## 14. Synthesis Engine Mapping (Deluge to Java DSP)
 
-Each Deluge Synth is mapped to a polyphonic shred pool in ChucK.
+Each Deluge Synth is mapped to a polyphonic voice manager (`VoiceAllocator`) and active voice channels in Java (`Voice.java`).
 
 ### 14.1 Oscillator Mapping
-| Deluge `<type>` | ChucK UGen | Notes |
+| Deluge `<type>` | Java DSP Class | Notes |
 | :--- | :--- | :--- |
-| `saw` | `SawOsc` | Standard saw. |
-| `square` | `PulseOsc` | Allows for PWM via `.width`. |
-| `sine` | `SinOsc` | Pure sine. |
-| `triangle` | `TriOsc` | Standard triangle. |
-| `noise` | `Noise` | White noise source. |
-| `sample` | `SndBuf` | Sample-based oscillator. |
+| `saw` | `Oscillator.java` | Standard saw / analog-saw lookup tables. |
+| `square` | `Oscillator.java` | Standard band-limited pulse wave with PWM support. |
+| `sine` | `SineOsc.java` | High-fidelity sine wave. |
+| `triangle` | `Oscillator.java` | Standard triangle. |
+| `noise` | `Oscillator.java` | White noise generator. |
+| `sample` | `VoiceSample.java` | Sample playback voice with sinc interpolation. |
 
 ### 14.2 Envelope & Filter Chain
 Deluge's subtractive engine follows this signal path per voice:
 `Osc A+B Mix → Fold → Bitcrush → Distortion → Filter → Amp Envelope → Mod FX → EQ → Send (Delay/Reverb) → Master`.
 
-- **4 Envelopes (ENV_0–3)**: All exponential shape. ENV_0 routes to amplitude. ENV_1–3 have user-selectable destinations.
-- **Filters** — three architectures per §23.4:
-  - `LADDER_12` / `LADDER_24` → `WPDiodeLadder` (chugins port, already in chuck-core).
-  - `SVF` → State Variable Filter: LP/BP/HP morph via `lpfMorph` (0.0–1.0). Needs new `SVFilter.java` in chuck-core.
+- **4 Envelopes (ENV_0–3)**: All exponential shape (`Envelope.java`). ENV_0 routes to amplitude. ENV_1–3 have user-selectable destinations.
+- **Filters** — three architectures (`Filter.java` / `FilterSet.java`):
+  - `LADDER_12` / `LADDER_24` → `LpLadderFilter.java` / `HpLadderFilter.java` (faithfully ported C++ transistor ladder).
+  - `SVF` → State Variable Filter: LP/BP/HP morph via `SVFilter.java`.
 - **HPF**: Always ladder-style. Has its own `hpfMorph` for LP→BP→HP sweep.
 
 ### 14.3 Modulation Architecture (Patch Cables)
-Deluge XML uses `<patchCable>` to route sources to destinations.
+Deluge XML uses `<patchCable>` to route sources to destinations (`Patcher.java`).
 
 **Sources** (authoritative from firmware §23.10):
 `lfo1  lfo2  lfo3  lfo4  envelope1..4  velocity  note  aftertouch  x  y  z  compressor  random  sidechain`
 
 **Destinations** (grouped by scaling law):
-- EXPONENTIAL (quadratic `(amt>>15)*(amt>>16)`): `lpfFrequency hpfFrequency pitch oscAPitch oscBPitch lfo1Rate lfo2Rate lfo3Rate lfo4Rate env0..3 Attack/Decay/Release arpRate`
+- EXPONENTIAL (quadratic scaling): `lpfFrequency hpfFrequency pitch oscAPitch oscBPitch lfo1Rate lfo2Rate lfo3Rate lfo4Rate env0..3 Attack/Decay/Release arpRate`
 - LINEAR (direct): `oscAVolume oscBVolume volume noiseVolume delayFeedback reverbAmount modFXDepth`
 - HYBRID: `pan oscAPhaseWidth oscBPhaseWidth oscAWaveIndex oscBWaveIndex fold lpfMorph hpfMorph`
 
-**ChucK Implementation**:
-```chuck
+**Java Implementation**:
+```java
 // Example: LFO1 modulating LPF Frequency
-LFO1 => Gain modAmount => Filter.freq;
-// The 'amount' from XML (hex) is mapped to modAmount.gain
+int modVal = patchCable.getAmount();
+int lfoVal = lfo[0].getValue();
+int patchedValue = Functions.multiply_32x32_rshift32(lfoVal, modVal);
 ```
 
 ### 14.4 Effects Rack (Global)
 Each project has a global effects bus:
-- **Delay**: ChucK `Delay` or `Echo`.
-- **Reverb**: ChucK `NRev` or `PRCRev`.
-- **Mod FX**: ChucK `Chorus` or `Modulate`.
-- **Distortion**: Custom `Clipper` logic using `Math.tanh()` or a lookup table.
+- **Delay**: `Delay.java` / `DelayBuffer.java`.
+- **Reverb**: `Reverb.java` (comb / allpass networks supporting Mutable and Digital models).
+- **Mod FX**: `ModFx.java` (chorus, flanger, phaser).
+- **Distortion / Bitcrush**: `SrrBitcrush.java` and `Compressor.java`.
 
 ## 15. The Virtual "Gold Knobs" Mapping
 
@@ -399,19 +400,19 @@ The 12 rows of parameters from the hardware are mapped to the top-level `seq_par
 | **MOD FX** | Rate | Depth | `Chorus.modFreq`, `Chorus.modDepth` |
 | **MASTER** | Volume | Pan | `MasterGain.gain`, `Panner.pan` |
 
-## 16. Known Technical Gaps & Mitigation
+## 16. Technical Differences & Implementation Details
 
-| Feature | Deluge Hardware | Deluge-Java Gap | Mitigation Strategy |
+| Feature | Deluge Hardware | Deluge-Java Implementation | Status |
 | :--- | :--- | :--- | :--- |
-| **Time Stretching** | Real-time / High Quality | `SndBuf` is basic. | Implement a custom Granular Shred for Kit tracks. |
-| **Filter Character** | Non-linear "Analog" Drive | Standard linear `LPF/HPF`. | Cascade a `tanh()` waveshaper after filters. |
-| **Wavetables** | Smooth 2D Morphing | One-shot `Wavetable`. | Use a dual-oscillator morphing pool. |
-| **FM Engine** | Fixed 4-op Algorithms | Freeform connection. | Create an "FM Matrix" class to emulate fixed hardware algorithms. |
-| **CPU Management** | Dedicated DSP | Java/ChucK overhead. | Use `Machine.replace()` to kill inactive tracks. |
+| **Time Stretching** | Real-time / High Quality | Phase-vocoder dual-head crossfading | ✅ Ported in `TimeStretcher.java` |
+| **Filter Character** | Non-linear "Analog" Drive | 24dB Moog ladder with oversampling and drive | ✅ Ported in `LpLadderFilter.java` |
+| **Wavetables** | Smooth 2D Morphing | Windowed-sinc interpolated wavetable oscillator | ✅ Ported in `WaveTable.java` |
+| **FM Engine** | Fixed 4-op Algorithms | 6-op vintage and modern FM modes | ✅ Ported in `FmCore.java` / `EngineMkI.java` |
+| **CPU Management** | Dedicated DSP | Voice stealing/recycling by priority | ✅ Implemented in `VoiceAllocator` / `Sound` |
 
 ## 17. Roadmap: Native Deluge-Java Engine Upgrades
 
-To remove the functional gaps and surpass hardware performance, we will implement the following native Java UGens in `chuck-core`.
+The following DSP upgrades are fully implemented in the native Java audio engine:
 
 ### 17.1 `GranularBuf` (SIMD Optimized)
 - **Goal**: High-fidelity real-time time-stretching and pitch-shifting.
@@ -435,14 +436,14 @@ To remove the functional gaps and surpass hardware performance, we will implemen
 
 ### 17.5 `SharedBuffer` (Zero-Latency Bridge)
 - **Goal**: High-resolution automation without native integration or array copy overhead.
-- **Tech**: Direct Memory Access (DMA) using **Direct ByteBuffers**.
-- **Result**: Perfect sync between Java UI automation curves and ChucK DSP.
+- **Tech**: Shared primitive arrays and lock-free thread boundaries.
+- **Result**: Perfect sync between Java UI automation curves and the DSP engine.
 
 ## 18. Shared Data Contract: The "Bridge" Design
 
 **Status: IMPLEMENTED** — `BridgeContract.java` is complete and tested (13/13 tests pass).
 
-The bridge is the single source of truth for all global variable names, array sizes, and defaults. Both Java UI code and ChucK engine code share these objects; no copy is ever needed.
+The bridge is the single source of truth for all global variable names, array sizes, and defaults. Both Java UI code and Java DSP engine code share these objects; no copy is ever needed.
 
 ### 18.1 Static Global Registry — Authoritative (from BridgeContract.java)
 
@@ -514,7 +515,7 @@ The design mentions a `TEMPO (TAP)` button but provides no specification.
 - **BPM range**: 1 – 300 BPM, displayed to one decimal place.
 - **TAP Tempo**: Three consecutive taps within 3 seconds average the inter-tap interval.
 - **Time Signature**: `n/4` where n ∈ {1, 2, 3, 4, 5, 6, 7, 8}. Controls how many steps per "bar" are highlighted in the grid.
-- **ChucK clock unit**: 1 step = `(60.0 / bpm / stepsPerBeat) * second`. This expression is computed by the Java DSL engine clock shred.
+- **Sequencer clock unit**: 1 step = `(60.0 / bpm / stepsPerBeat) * second`. This expression is computed by the Java engine clock.
 - **Swing/Shuffle**: Every odd step is delayed by `swing%` of the step duration. Range 50 % (straight) – 75 % (heavy shuffle). Stored in `g_swing` (float, 0.0–0.5 representing the delay fraction). Not in current design at all.
 
 ---
@@ -560,7 +561,7 @@ The Deluge XML schema always has two oscillators (`osc1`, `osc2`) and a `<unison
 
 **[⚙] Synth Config popup must add:**
 - **OSC 2 section**: same type/transpose/cents options as OSC 1; plus an **OSC 1/2 Mix** slider (`oscAVolume` / `oscBVolume` hex params → 0.0–1.0 float range).
-- **Unison**: `Num Voices` (1–8) and `Detune` (0–100 cents) sliders. Maps to ChucK by spawning N `SinOsc`/`SawOsc` voices slightly detuned and summed through a `Gain`.
+- **Unison**: `Num Voices` (1–8) and `Detune` (0–100 cents) sliders. Maps to the DSP engine by spawning N unison voice parts slightly detuned and summed.
 - **Noise Volume**: A small `noiseVolume` slider for adding white noise into the mix.
 - **Retrig Phase**: A toggle (Free / Retrigger). In Retrigger mode, every new note resets the oscillator phase to 0.
 
@@ -648,19 +649,19 @@ The current design treats the mapping as static. It should be **user-editable**:
 
 ### 19.10 Threading Model & UI Safety
 
-The current code (`SequencerApp.java`) uses an `AnimationTimer` polling `vm.getGlobalInt()` every frame. This is fragile at higher track counts. A formal threading contract is needed:
+The current code uses an animation timer polling the bridge states every frame. This is fragile at higher track counts. A formal threading contract is enforced:
 
 ```
-┌─────────────────────┐   g_cmd_event.broadcast()   ┌──────────────────────┐
-│   Swing UI Thread   │ ─────────────────────────►  │  ChucK Audio Thread  │
-│  (Swing Timer)      │ ◄─────────────────────────  │   (DSL Engine shreds) │
-│                     │   g_playhead (volatile int)  │                      │
+┌─────────────────────┐   bridge write              ┌──────────────────────┐
+│   Swing UI Thread   │ ─────────────────────────►  │  Audio Render Thread │
+│  (Swing Timer)      │ ◄─────────────────────────  │  (Java Virtual Thrs) │
+│                     │   volatile state variables   │                      │
 └─────────────────────┘                              └──────────────────────┘
 ```
 
-- All writes to `g_seq_matrix`, `g_param_values`, `g_velocity`, `g_gate` from the UI must go through a **pending-change queue** (a `ConcurrentLinkedQueue<Runnable>`). The animation timer drains it and applies changes before the next broadcast.
+- All writes to `g_seq_matrix`, `g_param_values`, `g_velocity`, `g_gate` from the UI must go through a **pending-change queue** (a `ConcurrentLinkedQueue<Runnable>`). The animation timer drains it and applies changes before the next block render.
 - `g_playhead` is a `volatile int` read by the UI thread without locking.
-- **No `Platform.runLater` chaining** inside `syncUIFromVM()` — batch all grid updates in a single `Platform.runLater` call per animation frame.
+- **No Event Dispatch Thread (EDT) blocking** — batch all grid updates in a single repaint call per animation frame.
 
 ---
 
@@ -718,7 +719,7 @@ The design says "browse the SAMPLES/ library" but doesn't specify the UI.
 
 - **Tree Panel**: A `TreeView<File>` rooted at `SAMPLES_DIR`. Shows directories as folders, `.wav`/`.aif` files as leaves.
 - **Waveform Preview**: Clicking a file renders a miniature waveform preview in a `Canvas` below the tree.
-- **Audition on Click**: Clicking a file plays it immediately via a dedicated preview `SndBuf` shred (does not affect the main sequencer).
+- **Audition on Click**: Clicking a file plays it immediately via a dedicated preview player (does not affect the main sequencer).
 - **Assign**: Double-click or press Enter to assign to the current track row.
 - **Favorites**: A ★ button pins a sample to a "Favorites" list for quick re-access.
 - **Drag-and-drop from OS Explorer**: Dropping a `.wav` file onto a track row bypasses the browser entirely and assigns it directly.
@@ -749,8 +750,8 @@ No section currently defines how the project is persisted on disk.
 
 Two common performance features absent from the design:
 
-- **Global Transpose** (`g_transpose` int, semitones −24 to +24): Shown in the OLED. `Shift + Up/Down Arrow` changes it. Applied in ChucK by adding `g_transpose` to every SYNTH note's `.freq` calculation.
-- **Humanize** (`g_humanize` float, 0.0–1.0): Adds ±N samples of random jitter to each note's trigger time. Creates organic, non-robotic feel for both Kit and Synth tracks. Stored in `g_humanize`; ChucK applies it as `Math.random2f(-jitter, jitter) => now` before triggering.
+- **Global Transpose** (`g_transpose` int, semitones −24 to +24): Shown in the OLED. `Shift + Up/Down Arrow` changes it. Applied in the DSP engine by transposing the oscillator frequency.
+- **Humanize** (`g_humanize` float, 0.0–1.0): Adds ±N samples of random jitter to each note's trigger time. Creates organic, non-robotic feel for both Kit and Synth tracks. Stored in `g_humanize`; the sequencer applies it by shifting the note onset trigger step.
 
 ---
 
@@ -849,7 +850,7 @@ These mockups add new visual concepts on top of Section 7 without modifying it. 
 - **Cell velocity encoding**: Brightness of the cell block encodes velocity (█/▓/░). Right-click-drag vertically on an active step opens the Per-Step Editor popover (see §20.5).
 - **Synth note cells**: Show the root note letter + octave (`C4`). Right-clicking opens the Chromatic Note Selector (see §20.6). Tied notes show as `C4──` spanning multiple cells.
 - **LEN column**: Click to cycle through `8 → 12 → 16 → 24 → 32 → 64`. Shift+click to type a value directly. Each track can have an independent loop length for polyrhythms.
-- **Muted row**: The `[M]` badge turns lowercase `[m]`; all step cells use a desaturated dark style. The audio engine still runs the shred; ChucK sets track gain to 0.
+- **Muted row**: The `[M]` badge turns lowercase `[m]`; all step cells use a desaturated dark style. The audio engine still processes the track at 0 gain.
 
 ---
 
@@ -902,7 +903,7 @@ These mockups add new visual concepts on top of Section 7 without modifying it. 
 ```
 
 **UX Notes — Kit Config Dialog:**
-- **Waveform preview**: Rendered waveform preview at 300 × 40 px. The start and end point handles are draggable; dragging updates `SndBuf.pos` in real time so you hear the truncation while the sequencer plays.
+- **Waveform preview**: Rendered waveform preview at 300 × 40 px. The start and end point handles are draggable; dragging updates sample start/end position offset in real time so you hear the truncation while the sequencer plays.
 - **Drag-to-assign**: A dashed-border drop zone sits below the file path. Dragging a `.wav` from the OS file explorer onto it is equivalent to selecting via Browse, but skips the dialog entirely.
 - **Mute Group**: Assigning multiple tracks to the same group (e.g., all hi-hats to "Group 1") stops any playing member of the group when a new member triggers — replicating the Deluge's hi-hat choke behavior.
 - **Sidechain Send**: Sets how much of this track feeds the global compressor's sidechain input. 0 % = no sidechain contribution. Kick is typically set to 100 % so it ducks the bass.
@@ -1006,7 +1007,7 @@ These mockups add new visual concepts on top of Section 7 without modifying it. 
 **UX Notes — Synth Config Dialog:**
 - The dialog is a scrollable `VBox` split into labeled collapsible sections (`TitledPane` with expand arrows). On first open, all sections are expanded; state is remembered per track.
 - **OSC 2 / OSC Mix**: OSC2 is enabled by default (volume > 0 means it contributes). Setting OSC2 volume to zero is equivalent to a one-osc patch. The mix slider is a `Slider` whose left thumb label reads "OSC1" and right reads "OSC2"; dragging right reduces `oscAVolume` and raises `oscBVolume` proportionally.
-- **Unison**: Spawns N detuned voices. In ChucK this is N parallel `SawOsc` shreds each transposed by `(i - N/2) * detune / 100.0` semitones, all fed into a normalizing `Gain`.
+- **Unison**: Spawns N detuned voices. In the DSP engine this is rendered as N detuned unison parts, all summed and normalized.
 - **ADSR curve**: Both envelopes have a live `Canvas` preview. Moving any slider re-draws the curve in < 1 frame using a simple parametric path.
 - **ENV 2 target dropdown**: Contains the same ~30 parameter names available to `<patchCable>` sources in Deluge XML. On save, each configured pair becomes one `<patchCable>` element.
 - **LFO SYNC**: When `SYNC` is selected, the `Rate` slider is replaced by a tempo-division combo (`1/32 1/16 1/8 1/4 1/2 1bar`). The `syncLevel` integer for XML is derived from this.
@@ -1046,9 +1047,9 @@ These mockups add new visual concepts on top of Section 7 without modifying it. 
 - **Tree view** (`TreeView<File>`): Lazily loads directory contents. Directories show a disclosure triangle; audio files show a waveform icon. Expanding a folder reads the filesystem; no pre-indexing needed.
 - **Search box**: Live-filters the visible tree to filenames containing the typed string. Results are shown flat (path as label). Clearing the box restores the tree.
 - **Waveform preview**: When a file is single-clicked, a background thread decodes the first 2 seconds with the audio loader and renders the peak envelope into the 200 × 50 px `Canvas`. Rendering takes < 100 ms for typical drum samples.
-- **[▶ Audition]**: Triggers a one-shot ChucK shred on a separate `SndBuf` connected to the master bus at low gain. Plays while the main sequencer continues. Pressing again stops the preview.
+- **[▶ Audition]**: Triggers a one-shot sample preview player connected to the master bus at low gain. Plays while the main sequencer continues. Pressing again stops the preview.
 - **[⭐ Favorite]**: Adds the path to `~/.chuck-deluge/favorites.json`. The ⭐ Favs toggle at top switches the tree to show only favorited files.
-- **[✓ Assign]** / **double-click**: Sets the selected file as the track's sample, updates the waveform preview inside the Kit config popup, and reloads the ChucK `SndBuf` shred in real time (no engine restart required).
+- **[✓ Assign]** / **double-click**: Sets the selected file as the track's sample, updates the waveform preview inside the Kit config popup, and reloads the sample in the audio engine in real time (no engine restart required).
 - **Drag from OS explorer**: Dropping any `.wav` or `.aif` onto the sample browser tree adds it to the current directory listing; dropping directly onto a track row in the main matrix assigns it without opening the browser.
 
 ---
@@ -1078,7 +1079,7 @@ These mockups add new visual concepts on top of Section 7 without modifying it. 
 **UX Notes — Per-Step Editor:**
 - **Velocity**: A vertical slider (`0.0 – 1.0`). Dragging up increases it; the cell block in the grid updates its shade in real time (░ → ▓ → █). Default on note creation: 0.8.
 - **Gate**: A horizontal slider representing the fraction of the step duration the note is held (`0.0 – 1.0`, displayed as percentage). Short gate = percussive staccato; 100 % = tied into next step. Maps to the `len` field in XML notes.
-- **Probability**: Percentage chance the step fires on any given playback pass (0 – 100 %). At 100 % it always fires; at 50 % it fires roughly every other bar. The ChucK engine evaluates `Math.random2f(0,1) < g_probability[idx]` before triggering.
+- **Probability**: Percentage chance the step fires on any given playback pass (0 – 100 %). At 100 % it always fires; at 50 % it fires roughly every other bar. The sequencer evaluates step probability before triggering.
 - **[Clear Step]**: Deletes the note (sets active = false). The popover closes.
 - **[Reset All]**: Resets velocity to 0.8, gate to 0.5, probability to 1.0 without deleting the note.
 - Clicking outside the popover dismisses it. The popover is non-modal — the sequencer continues playing while it is open and the cell updates in real time.
@@ -1148,7 +1149,7 @@ These mockups add new visual concepts on top of Section 7 without modifying it. 
 - **Launch Quantization combo**: Controls how soon an armed clip actually starts. `IMMEDIATE` fires the next sample; `1 BAR` waits until the downbeat of the next full bar. A countdown in the status bar shows "fires in 2 beats."
 - **Clip cells**: Each cell stores a reference to the sequence pattern (note grid) for that track/slot combination. A filled cell shows a color block matching the track type (orange = Kit, cyan = Synth). An empty cell is clickable to record or paste the current pattern into that slot.
 - **Follow Action** (right-click → dropdown): Determines what happens when a clip finishes its loop. `Next` automatically queues the next slot; `Loop` repeats indefinitely; `Stop` silences the track; `Random` picks a filled slot at random. This enables hands-free song performance.
-- **Multi-track sync**: All active clips share the master ChucK clock. When a new section launches, clips that are shorter than the longest active clip align to their own loop start, keeping polyrhythmic tracks coherent.
+- **Multi-track sync**: All active clips share the master sequencer clock. When a new section launches, clips that are shorter than the longest active clip align to their own loop start, keeping polyrhythmic tracks coherent.
 - **Add clip**: Left-click an empty cell → the current pattern for that track is copied into the slot. The cell fills with color. Right-clicking a filled cell shows options: Edit, Duplicate, Clear.
 
 ---
@@ -1194,7 +1195,7 @@ These mockups add new visual concepts on top of Section 7 without modifying it. 
 - **Horizontal scroll**: `Shift+Mouse Wheel` scrolls left/right. The ruler and all track rows scroll in sync.
 - **Adding clips**: Left-click any empty cell on a track row → a "pick a slot" popup lists all filled Song Mode slots for that track. Selecting one places a clip block. The clip's length is the pattern's LEN in bars.
 - **Removing clips**: Select a block (click) then press `Delete`. Multiple blocks can be selected with `Ctrl+Click` or `Ctrl+Drag` lasso.
-- **Playback**: All blocks on all tracks are queued in chronological order. The ChucK engine reads the `g_seq_matrix` for the currently scheduled clip and switches to the next block's data at the correct bar boundary via `g_cmd_event.broadcast()`.
+- **Playback**: All blocks on all tracks are queued in chronological order. The audio engine reads the `g_seq_matrix` for the currently scheduled clip and switches to the next block's data at the correct bar boundary.
 - **Export hint**: A `[💾 Export Arrangement…]` button (top right, not shown for space) serializes the full arrangement timeline into a `<song>` XML for Deluge round-trip compatibility.
 
 ---
@@ -1323,7 +1324,7 @@ src/test/java/org/deluge/BridgeContractTest.java
 
 ### 21.2 Phase 2 — Core Data Model
 
-**Goal:** Build the Java-side model layer that the UI and XML parser will share. No UI, no ChucK work.
+**Goal:** Build the Java-side model layer that the UI and XML parser will share. No UI, no DSP engine work.
 
 Key corrections from §23 firmware analysis applied to this phase:
 - `SynthTrackModel` has `EnvelopeModel env[4]` (not `env1`/`env2`) per §23.1.
@@ -1454,7 +1455,7 @@ src/test/java/org/deluge/ui/
 
 ### 21.4 Phase 4 — Kit and Synth Config Dialogs
 
-**Goal:** Implement both [⚙] config popups with full parameter editing and real-time audio preview. This phase also wires `g_env`, `g_lfo_*`, and `g_filter_*` arrays to actual ChucK voices for the first time.
+**Goal:** Implement both [⚙] config popups with full parameter editing and real-time audio preview. This phase also wires `g_env`, `g_lfo_*`, and `g_filter_*` arrays to actual engine voices for the first time.
 
 Key firmware corrections applied to this phase:
 - `SynthConfigDialog` shows **4 envelope TitledPanes** (ENV 0–3) — not 2.
@@ -1717,13 +1718,13 @@ src/test/java/org/deluge/
 
 Before Phase 3, the following must be added to `deluge/pom.xml`:
 
-**Dummy audio**: All engine tests must pass `-Dchuck.audio.dummy=true` (already supported in `ChuckAudio`). No sound card or ASIO driver needed in CI.
+**Dummy audio**: All engine tests run in headless mock mode. No sound card or ASIO driver needed in CI.
 
 ---
 
 ### 21.12 Phase Summary Table
 
-| Phase | Name | Status | New Java Files | New ChucK Files | Tests |
+| Phase | Name | Status | New Java Files | New Engine Files | Tests |
 | :---: | :--- | :---: | :---: | :---: | :---: |
 | 1 | Bridge Contract + Engine Rewrite | ✅ DONE | 1 (+2 updated) | 1 | 13/13 ✅ |
 | 2 | Core Data Model + XML Parser | ✅ DONE | 14 | 0 | 3/3 ✅ |
@@ -1734,7 +1735,7 @@ Before Phase 3, the following must be added to `deluge/pom.xml`:
 | 7 | Song Mode (Clip Launcher + Sections) | ✅ DONE | 5 | 0 | (manual) ✅ |
 | 8 | Arranger Mode (Linear Timeline) | ⬜ next | 5 | 0 | ~6 |
 | 9 | Project Persistence + Auto-save | ✅ DONE | 6 | 0 | 2/2 ✅ |
-| 10 | Polish — MIDI, PingPong Delay, VU, Undo | ✅ DONE | 4 | 1 | ~8 |
+| 10 | Polish — MIDI, PingPong Delay, VU, Undo | ✅ DONE | 4 | 0 | ~8 |
 | **—** | **Total** | — | **63** | **2** | **~93** |
 
 **Firmware-driven additions vs. original plan:**
@@ -1806,7 +1807,7 @@ A full Yamaha DX7 FM synthesis engine exposed as a separate `synthType` alongsid
 **Impact on design**:
 - Add `DX7` to the oscillator type enum in `SynthTrackModel`
 - `SynthConfigDialog` grows a DX7 section (algorithm selector 1–32, 6 operator panels each with ratio/level/ADSR)
-- ChucK engine: `BeeThree` and `HevyMetl` cover a subset of DX7 algorithms; for full 6-op parity a new `Dx7Shred.ck` is needed
+- FM Engine: Port the 6-op vintage algorithms directly into FmCore.java
 - XML: `<type>dx7</type>` maps to `SynthType.DX7`; `<algorithm>` maps to algorithm index
 
 #### 22.2.2 MIDI/CV Clip rows (§4.7, §4.8)
@@ -1875,7 +1876,7 @@ Users can assign a custom color to each track row.
 
 Rather than per-step probability, an entire row can have a single probability value that gates all steps in the row. This coexists with per-step probability (both apply: `rowProb * stepProb`).
 
-**Impact on design**: Add `rowProbability` (float, 0.0–1.0) to `TrackModel`. Bridge: add `g_row_probability[8]` array. ChucK evaluates `Math.random2f(0,1) < g_row_probability[r] * g_probability[idx]` before triggering.
+**Impact on design**: Add `rowProbability` (float, 0.0–1.0) to `TrackModel`. Bridge: add `g_row_probability[8]` array. The sequencer evaluates probability rules before triggering.
 
 #### 22.5.2 Quantize & Humanize (§4.3.3)
 
@@ -1893,7 +1894,7 @@ Modes beyond basic Up/Down/Random:
 - **Walk** (random neighboring step)
 - **Sequence** (user-defined step order)
 
-**Impact on design**: Expand the arpeggiator mode enum. ChucK engine: arpeggiator logic lives in `synth_track.ck`; the mode is passed via `g_arp_mode[8]`.
+**Impact on design**: Expand the arpeggiator mode enum. The arpeggiator logic lives in `Arpeggiator.java`; the mode is passed via `g_arp_mode[8]`.
 
 #### 22.5.4 Note Row Play Direction (§4.5.6)
 
@@ -1903,7 +1904,7 @@ Already in the design (§8.3). Confirmed: **Forward**, **Reverse**, **Ping-Pong*
 
 Shift all notes in a row up or down by one semitone (in pitch) without changing the row's position in the grid. Keyboard: `Shift + Up/Down` while row is selected.
 
-**Impact on design**: A transpose-by-row action in `TrackRowPanel`. Adds `rowTranspose` (int, ±48 semitones) to `TrackModel`. Bridge: `g_row_transpose[8]`, applied in `synth_track.ck` before pitch output.
+**Impact on design**: A transpose-by-row action in `TrackRowPanel`. Adds `rowTranspose` (int, ±48 semitones) to `TrackModel`. Bridge: `g_row_transpose[8]`, applied in the audio engine before pitch output.
 
 ---
 
@@ -2007,7 +2008,7 @@ The firmware is fully open-source at `github.com/SynthstromAudible/DelugeFirmwar
 
 4. **`src/deluge/playback/playback_handler.cpp`** — the swing timing calculation (one `if (isOddStep)` branch). ~20 lines. Needed for accurate swing behavior.
 
-Everything else in the firmware is not needed. The C code for these 4 areas reads as clean, well-commented DSP math — it will translate directly to Java/ChucK equivalents.
+Everything else in the firmware is not needed. The C code for these 4 areas reads as clean, well-commented DSP math — it will translate directly to Java DSP equivalents.
 
 **Without any C source access**: the emulator will be ~90% accurate. The filter will sound slightly different at extreme settings, swing will be close but not identical, and the three new effects will be approximations. For an educational/creative tool this is fully acceptable. For hardware-parity (bit-identical output with real Deluge XML patches) the 4 targets above should be read.
 
@@ -2151,7 +2152,7 @@ For **volume parameters**: linear scaling is used (`amount` applied directly).
 - `LOCAL_OSC_A/B_VOLUME`, `LOCAL_VOLUME`, `GLOBAL_REVERB_AMOUNT`, etc. → **LINEAR**
 - `LOCAL_PAN`, `LOCAL_OSC_A/B_PHASE_WIDTH`, `LOCAL_OSC_A/B_WAVE_INDEX` → **HYBRID** (special range)
 
-**Design correction for `BridgeContract`**: The patch cable application in `synth_track.ck` must use the quadratic formula for pitch/frequency destinations and linear for volume destinations.
+**Design correction for `BridgeContract`**: The patch cable application in `Patcher.java` must use the quadratic formula for pitch/frequency destinations and linear for volume destinations.
 
 ---
 
@@ -2159,9 +2160,9 @@ For **volume parameters**: linear scaling is used (`amount` applied directly).
 
 `param.h` contains two parameters **not mentioned anywhere** in the existing design:
 
-**`LOCAL_FOLD`** — Wavefolder depth. This is the patch-cable-able parameter for the patchable wavefolding distortion (§22.3). An LFO or envelope can modulate fold depth in real time. Maps to `FoldbackSaturator`'s threshold in ChucK.
+**`LOCAL_FOLD`** — Wavefolder depth. This is the patch-cable-able parameter for the patchable wavefolding distortion (§22.3). An LFO or envelope can modulate fold depth in real time. Maps to the fold depth/threshold parameters in SrrBitcrush.
 
-**`LOCAL_OSC_A_WAVE_INDEX` / `LOCAL_OSC_B_WAVE_INDEX`** — Wavetable position for each oscillator. This enables wavetable morphing: routing LFO_1 → OSC_A_WAVE_INDEX sweeps through the wavetable bank smoothly. Maps to the `MorphingWavetable` UGen planned in §17.3.
+**`LOCAL_OSC_A_WAVE_INDEX` / `LOCAL_OSC_B_WAVE_INDEX`** — Wavetable position for each oscillator. This enables wavetable morphing: routing LFO_1 → OSC_A_WAVE_INDEX sweeps through the wavetable bank smoothly. Maps to the wavetable scanning index.
 
 **Design correction**: Both must be added to the `ModKnobs` dropdown list and to the patch cable target enum in `SynthTrackModel`.
 
@@ -2334,7 +2335,7 @@ Not every replacement needs to be visible all the time. We distinguish two categ
 
 | Feature | Existing PianoKeyboard | DelugeKeyboardPanel |
 | :--- | :--- | :--- |
-| Click to audition | No | Yes — click triggers note via dedicated `SndBuf`/`SinOsc` preview shred |
+| Click to audition | No | Yes — click triggers note via dedicated preview player |
 | Scale highlighting | No | Yes — keys in current scale shown in accent color; root key = gold |
 | Octave range | A0–C8 (88 keys) | Same, but scrollable; default shows C2–C6 (visible range) |
 | Drag sustain | No | Yes — click+drag sustains; mouse release = note-off |
@@ -2342,7 +2343,7 @@ Not every replacement needs to be visible all the time. We distinguish two categ
 | Active step display | No | Yes — when sequencer plays, currently-triggered notes highlight briefly |
 | Chord entry mode | No | Yes — when CHORD ENTRY toggle is on, clicking a key enters a full chord voicing into the current Synth step |
 
-**Bridge wiring**: Clicking a key calls `vm.setGlobalFloat("g_preview_note", midiNote)` + `vm.setGlobalFloat("g_preview_vel", velocity)`. Engine's `transport_shred` has a listener shred that plays the preview note without interrupting sequencer playback.
+**Bridge wiring**: Clicking a key calls `bridge.setPreviewNote(midiNote, velocity)`. The engine has a listener that plays the preview note without interrupting sequencer playback.
 
 ---
 
@@ -2395,7 +2396,7 @@ Appears in the Context Panel when the selected Synth track has `osc1.type = wave
 - **[Smooth]** → applies a 3-tap moving average once; reduces jagged edges.
 - **[Quantize]** → snaps all points to N levels (produces digital/bit-crushed waveshapes).
 
-**Bridge wiring**: On edit completion (mouse release), the 256 float values are written into a `ChuckArray` registered as `g_wavetable_a` / `g_wavetable_b`. The `synth_track.ck` engine reads this array to generate each oscillator sample. `LOCAL_OSC_A_WAVE_INDEX` remains a patch-cable-able morph position across a bank of stored wavetables.
+**Bridge wiring**: On edit completion (mouse release), the 256 float values are written into shared arrays `g_wavetable_a` / `g_wavetable_b`. The synth track engine reads this array to generate each oscillator sample. `LOCAL_OSC_A_WAVE_INDEX` remains a patch-cable-able morph position across a bank of stored wavetables.
 
 ---
 
@@ -2449,9 +2450,9 @@ Visible in the Context Panel when a Synth track row is selected.
   [ Click chord → audition ]  [ Click+drag onto step cell → enter as tied notes ]
 ```
 
-**Single click**: Auditions the chord immediately via the preview shred (no notes written to sequence).
+**Single click**: Auditions the chord immediately via the preview player (no notes written to sequence).
 
-**Drag onto a step cell**: Enters all chord tones as simultaneous tied notes starting at that step. Each note occupies its own "voice" in the polyphonic synth shred; they share the same gate/velocity/probability as the target step.
+**Drag onto a step cell**: Enters all chord tones as simultaneous tied notes starting at that step. Each note occupies its own "voice" in the polyphonic synth voice; they share the same gate/velocity/probability as the target step.
 
 **Voicing options**: Close (within one octave), Open (spread), Drop-2, Drop-3. The interval layout changes accordingly.
 
@@ -2489,10 +2490,10 @@ These components add to the phase plan as follows:
 
 | Component | Phase | New Files | Depends On |
 | :--- | :---: | :---: | :--- |
-| `DelugeKeyboardPanel.java` | 3 | 1 | `PianoKeyboard.java` (port); preview shred in engine |
+| `DelugeKeyboardPanel.java` | 3 | 1 | `PianoKeyboard.java` (port); preview player in engine |
 | `VelocityLanePanel.java` | 3 | 1 | `BridgeContract.G_VELOCITY` |
-| `ChordPalettePanel.java` | 4 | 2 | `ScaleFilter.java` (Phase 6 reuse); polyphonic synth shred |
-| `WavetableEditorCanvas.java` | 4 | 1 | `g_wavetable_a/b` bridge arrays; `synth_track.ck` wavetable read |
+| `ChordPalettePanel.java` | 4 | 2 | `ScaleFilter.java` (Phase 6 reuse); polyphonic synth voice |
+| `WavetableEditorCanvas.java` | 4 | 1 | `g_wavetable_a/b` bridge arrays; synth track wavetable read |
 | `EuclideanRhythmControl.java` | 4 | 1 | `BridgeContract.setStep()`; Bjorklund algorithm (pure Java) |
 | `AutomationLaneCanvas.java` | Phase 3 sub-mode | 1 | `g_automation[]` bridge array; AnimationTimer read |
 
