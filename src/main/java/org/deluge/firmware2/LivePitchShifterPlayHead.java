@@ -23,6 +23,7 @@ public class LivePitchShifterPlayHead {
   public int oscPos; // uint32
   public int percPos; // uint32
   public final SincInterpolator interpolator = new SincInterpolator();
+  private final int[] sampleReadBuffer = new int[2];
 
   /**
    * C live_pitch_shifter.cpp:379 — "What was new is now old" is a struct copy BY VALUE; the Java
@@ -77,15 +78,16 @@ public class LivePitchShifterPlayHead {
         }
 
         amplitude += amplitudeIncrement; // C:90
-        int[] sampleRead =
-            (interpolationBufferSize > 2)
-                ? interpolator.interpolate(numChannels, whichKernel, oscPos)
-                : interpolator.interpolateLinear(numChannels, oscPos); // C:92-94
+        if (interpolationBufferSize > 2) {
+          interpolator.interpolate(numChannels, whichKernel, oscPos, sampleReadBuffer);
+        } else {
+          interpolator.interpolateLinear(numChannels, oscPos, sampleReadBuffer);
+        }
         outputBuffer[o++] +=
-            Functions.multiply_32x32_rshift32_rounded(sampleRead[0], amplitude) << 5; // C:96
+            Functions.multiply_32x32_rshift32_rounded(sampleReadBuffer[0], amplitude) << 5; // C:96
         if (numChannels == 2) {
           outputBuffer[o++] +=
-              Functions.multiply_32x32_rshift32_rounded(sampleRead[1], amplitude) << 5;
+              Functions.multiply_32x32_rshift32_rounded(sampleReadBuffer[1], amplitude) << 5;
         }
       } while (o != end);
     } else { // RAW_DIRECT (C:106-119)

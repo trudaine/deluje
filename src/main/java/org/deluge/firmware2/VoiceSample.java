@@ -17,6 +17,14 @@ public class VoiceSample {
 
   public final SampleReader reader = new SampleReader();
   public boolean active;
+  private transient int[] renderScratchBuffer = new int[256];
+
+  private int[] getScratchBuffer(int requiredCapacity) {
+    if (renderScratchBuffer == null || renderScratchBuffer.length < requiredCapacity) {
+      renderScratchBuffer = new int[requiredCapacity];
+    }
+    return renderScratchBuffer;
+  }
 
   /**
    * C SampleControls::interpolationMode == LINEAR (sample_controls.cpp:30-33): the per-source
@@ -115,24 +123,23 @@ public class VoiceSample {
         int oldHeadBytePos =
             reader.getPlayByteLowLevel(true); // C:284 (compensates for the interp buffer)
         olderReader.copyStateFrom(reader); // fork the older head before repositioning the newer one
-        int[] hop =
-            timeStretcher.hopEnd(
-                sample,
-                null,
-                TimeStretcher.LoopType.NONE,
-                oldHeadBytePos,
-                samplePos,
-                phaseIncrement,
-                timeStretchRatio,
-                combinedIncrement,
-                reader.playDirection,
-                Functions.getNoise(),
-                olderReader.oscPos);
+        timeStretcher.hopEndVoid(
+            sample,
+            null,
+            TimeStretcher.LoopType.NONE,
+            oldHeadBytePos,
+            samplePos,
+            phaseIncrement,
+            timeStretchRatio,
+            combinedIncrement,
+            reader.playDirection,
+            Functions.getNoise(),
+            olderReader.oscPos);
         if (timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]) {
           int newFrame =
-              (hop[0] - sample.audioDataStartPosBytes) / bps; // setupNewPlayHead (in-RAM)
+              (timeStretcher.newHeadBytePosResult - sample.audioDataStartPosBytes) / bps; // setupNewPlayHead (in-RAM)
           reader.init(newFrame);
-          reader.oscPos = hop[1]; // C:998
+          reader.oscPos = timeStretcher.additionalOscPosResult; // C:998
         }
       }
 
@@ -181,7 +188,8 @@ public class VoiceSample {
         newerAmplitudeIncrementNow = preCacheAmplitudeIncrement;
       }
 
-      int[] tmp = new int[numThis * numChannels];
+      int[] tmp = getScratchBuffer(numThis * numChannels);
+      java.util.Arrays.fill(tmp, 0, numThis * numChannels, 0);
       // C:1300-1332 — newer head
       if (timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]) {
         readHead(
@@ -215,7 +223,8 @@ public class VoiceSample {
       }
 
       int base = produced * numChannels;
-      for (int i = 0; i < tmp.length; i++) {
+      int len = numThis * numChannels;
+      for (int i = 0; i < len; i++) {
         osc[base + i] += tmp[i];
       }
 
@@ -391,7 +400,8 @@ public class VoiceSample {
               : (phaseIncrement == 0 ? numSamples : Math.max(1, (left << 24) / phaseIncrement));
       int chunk = (int) Math.min(numSamples - produced, outAvail);
 
-      int[] tmp = new int[chunk * numChannels];
+      int[] tmp = getScratchBuffer(chunk * numChannels);
+      java.util.Arrays.fill(tmp, 0, chunk * numChannels, 0);
       if (native_) {
         reader.readNative(tmp, chunk, numChannels, ampArr, ampInc);
       } else {
@@ -399,7 +409,8 @@ public class VoiceSample {
             tmp, chunk, numChannels, whichKernel, phaseIncrement, interpBufSize, ampArr, ampInc);
       }
       int base = produced * numChannels;
-      for (int i = 0; i < tmp.length; i++) {
+      int len = chunk * numChannels;
+      for (int i = 0; i < len; i++) {
         osc[base + i] += tmp[i];
       }
       produced += chunk;

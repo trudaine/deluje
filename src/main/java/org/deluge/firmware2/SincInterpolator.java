@@ -49,7 +49,7 @@ public class SincInterpolator {
    * @param oscPos 32-bit phase accumulator (24.8 fixed)
    * @return interpolated [l, r] sample
    */
-  public int[] interpolate(int channels, int whichKernel, int oscPos) {
+  public void interpolate(int channels, int whichKernel, int oscPos, int[] out) {
     // C:10-11 — constants
     int rshiftAmount =
         ((24 + K_INTERPOLATION_MAX_NUM_SAMPLES_MAGNITUDE) - 16 - NUM_BITS_IN_TABLE_SIZE + 1);
@@ -94,16 +94,23 @@ public class SincInterpolator {
       sumL += kernel[i] * bufferL[i];
     }
 
+    out[0] = sumL;
     if (channels == 2) {
       // C:53-65 — right channel convolution
       int sumR = 0;
       for (int i = 0; i < K_INTERPOLATION_MAX_NUM_SAMPLES; i++) {
         sumR += kernel[i] * bufferR[i];
       }
-      return new int[] {sumL, sumR};
+      out[1] = sumR;
+    } else {
+      out[1] = 0;
     }
+  }
 
-    return new int[] {sumL, 0};
+  public int[] interpolate(int channels, int whichKernel, int oscPos) {
+    int[] out = new int[2];
+    interpolate(channels, whichKernel, oscPos, out);
+    return out;
   }
 
   /**
@@ -191,16 +198,24 @@ public class SincInterpolator {
   // ── interpolateLinear (interpolate.cpp:70-80) ──
 
   /** C: interpolate.cpp:70-80 — cheap linear interpolation using most recent 2 samples. */
-  public int[] interpolateLinear(int channels, int phase) {
+  public void interpolateLinear(int channels, int phase, int[] out) {
     short strength2 = (short) (phase >> 9); // C:72
     short strength1 = (short) (0x7FFF - strength2); // C:73 — inverse
 
     int l = (bufferL[1] * strength1) + (bufferL[0] * strength2); // C:75
+    out[0] = l;
     if (channels == 2) {
       int r = (bufferR[1] * strength1) + (bufferR[0] * strength2); // C:77
-      return new int[] {l, r};
+      out[1] = r;
+    } else {
+      out[1] = 0;
     }
-    return new int[] {l, 0};
+  }
+
+  public int[] interpolateLinear(int channels, int phase) {
+    int[] out = new int[2];
+    interpolateLinear(channels, phase, out);
+    return out;
   }
 
   // ── Windowed sinc kernel tables (interpolate.cpp:84-218) ──

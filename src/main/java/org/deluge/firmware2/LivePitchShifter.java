@@ -64,6 +64,16 @@ public class LivePitchShifter {
     new LivePitchShifterPlayHead(), new LivePitchShifterPlayHead()
   };
 
+  private final int[] hopParameters = new int[6];
+  private transient int[] renderScratchBuffer = new int[256];
+
+  private int[] getScratchBuffer(int requiredCapacity) {
+    if (renderScratchBuffer == null || renderScratchBuffer.length < requiredCapacity) {
+      renderScratchBuffer = new int[requiredCapacity];
+    }
+    return renderScratchBuffer;
+  }
+
   /** C: live_pitch_shifter.cpp:29-60 */
   public LivePitchShifter(LiveInputBuffer.InputType newInputType, int phaseIncrement) {
     inputType = newInputType;
@@ -109,7 +119,7 @@ public class LivePitchShifter {
    * @return {@code {minSearch, maxSearch, percThresholdForCut, nextCrossfadeLength, maxHopLength,
    *     randomElement}}
    */
-  public static int[] computeLiveHopParameters(int phaseIncrement) {
+  public static void computeLiveHopParameters(int phaseIncrement, int[] out) {
     int pitchLog = Functions.quickLog(phaseIncrement); // C:382
 
     int minSearch;
@@ -145,9 +155,18 @@ public class LivePitchShifter {
       randomElement = Functions.interpolateTableSigned(position, 27, randomCoarse, 2);
     }
 
-    return new int[] {
-      minSearch, maxSearch, percThreshold, nextCrossfade, maxHopLength, randomElement
-    };
+    out[LHP_MIN_SEARCH] = minSearch;
+    out[LHP_MAX_SEARCH] = maxSearch;
+    out[LHP_PERC_THRESHOLD] = percThreshold;
+    out[LHP_NEXT_CROSSFADE] = nextCrossfade;
+    out[LHP_MAX_HOP_LENGTH] = maxHopLength;
+    out[LHP_RANDOM] = randomElement;
+  }
+
+  public static int[] computeLiveHopParameters(int phaseIncrement) {
+    int[] out = new int[6];
+    computeLiveHopParameters(phaseIncrement, out);
+    return out;
   }
 
   // ── render (live_pitch_shifter.cpp:71-306) ──
@@ -312,7 +331,8 @@ public class LivePitchShifter {
       }
 
       // C:272-279 — newer play-head (render into a local temp, then merge at outOff)
-      int[] tmp = new int[numSamplesThisTimestretchedRead * numChannels];
+      int[] tmp = getScratchBuffer(numSamplesThisTimestretchedRead * numChannels);
+      java.util.Arrays.fill(tmp, 0, numSamplesThisTimestretchedRead * numChannels, 0);
       playHeads[TimeStretcher.PLAY_HEAD_NEWER].render(
           tmp,
           numSamplesThisTimestretchedRead,
@@ -338,7 +358,8 @@ public class LivePitchShifter {
             interpolationBufferSize);
       }
 
-      for (int i = 0; i < tmp.length; i++) {
+      int len = numSamplesThisTimestretchedRead * numChannels;
+      for (int i = 0; i < len; i++) {
         outputBuffer[outOff + i] += tmp[i];
       }
 
@@ -373,7 +394,8 @@ public class LivePitchShifter {
     // C:379 — "What was new is now old" (struct copy by value).
     playHeads[TimeStretcher.PLAY_HEAD_OLDER].copyFrom(playHeads[TimeStretcher.PLAY_HEAD_NEWER]);
 
-    int[] hp = computeLiveHopParameters(phaseIncrement); // C:382-420
+    computeLiveHopParameters(phaseIncrement, hopParameters); // C:382-420
+    int[] hp = hopParameters;
     int minSearch = hp[LHP_MIN_SEARCH];
     int maxSearch = hp[LHP_MAX_SEARCH];
     percThresholdForCut = hp[LHP_PERC_THRESHOLD];
