@@ -1406,6 +1406,7 @@ public class ClipGridPanel extends SwingGridPanel {
     PreferencesManager.GridColorTheme theme = PreferencesManager.getGridColorTheme();
 
     for (int t = 0; t < songVoiceRows; t++) {
+      final int rowIdx = t;
       JPanel rowPanel = new JPanel();
       rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
       rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
@@ -1499,11 +1500,38 @@ public class ClipGridPanel extends SwingGridPanel {
                     });
               }
             } else {
-              int note = org.deluge.model.KeyplayKeyboard.getNote(t, colId);
-              clipBtn.setText(getNoteName(note));
-              clearActionListeners(clipBtn);
-              clearKeyboardMouseListeners(clipBtn);
-              clipBtn.addMouseListener(new KeyboardMouseAdapter(this, note));
+              if (colId == 15) {
+                // CC74 Modulation Column touch strip
+                clearActionListeners(clipBtn);
+                clearKeyboardMouseListeners(clipBtn);
+                clipBtn.setText(rowIdx == 0 ? "CC74" : (rowIdx == 7 ? String.valueOf(currentCc74Value) : ""));
+                java.awt.event.MouseAdapter ma = new java.awt.event.MouseAdapter() {
+                  @Override
+                  public void mousePressed(java.awt.event.MouseEvent e) {
+                    updateCc74FromRow(rowIdx);
+                  }
+
+                  @Override
+                  public void mouseDragged(java.awt.event.MouseEvent e) {
+                    Component comp = e.getComponent();
+                    if (comp instanceof JButton btn) {
+                      Point p = SwingUtilities.convertPoint(btn, e.getPoint(), voicePanel);
+                      int rowHeight = btn.getHeight() + 5;
+                      int row = p.y / rowHeight;
+                      row = Math.max(0, Math.min(row, 7));
+                      updateCc74FromRow(row);
+                    }
+                  }
+                };
+                clipBtn.addMouseListener(ma);
+                clipBtn.addMouseMotionListener(ma);
+              } else {
+                int note = org.deluge.model.KeyplayKeyboard.getNote(rowIdx, colId, scaleModeEnabled, projectModel.getKey(), projectModel.getScale());
+                clipBtn.setText(getNoteName(note));
+                clearActionListeners(clipBtn);
+                clearKeyboardMouseListeners(clipBtn);
+                clipBtn.addMouseListener(new KeyboardMouseAdapter(this, note));
+              }
             }
           } else {
             clipBtn.setText("");
@@ -1527,6 +1555,28 @@ public class ClipGridPanel extends SwingGridPanel {
     revalidate();
     repaint();
     refreshInProgress = false;
+  }
+
+  private int currentCc74Value = 64; // Default to neutral
+
+  private void updateCc74FromRow(int v) {
+    int ccVal = (7 - v) * 127 / 7;
+    currentCc74Value = ccVal;
+
+    if (bridge != null) {
+      Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
+        if (editedModelTrack >= 0 && editedModelTrack < fwEngine.sounds.size()) {
+          org.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
+          if (sound instanceof org.deluge.firmware2.Sound s) {
+            int newValue = (ccVal - 64) << 25;
+            s.polyphonicExpressionEventOnChannelOrNote(newValue, 1, 1, 1);
+          }
+        }
+      }
+    }
+
+    refreshKeyplayInPlace();
   }
 
   private void refreshKeyplayInPlace() {
@@ -1560,25 +1610,44 @@ public class ClipGridPanel extends SwingGridPanel {
               clipBtn.setBackground(drumPlayable ? trackColor : new Color(0x22, 0x22, 0x24));
             }
           } else {
-            int note = org.deluge.model.KeyplayKeyboard.getNote(v, c);
-            boolean isRoot = ScaleMapper.isRootNote(note, projectModel.getKey());
-            boolean inScale =
-                ScaleMapper.isNoteInScale(note, projectModel.getKey(), projectModel.getScale());
-
-            boolean isPlaying = false;
-            Color cellBaseColor = getThemeColor(theme, trackColor, isPlaying, inScale, isRoot, v);
-
-            if (clipBtn instanceof DelugePadButton pad) {
-              pad.setBaseColor(cellBaseColor);
-              pad.setApplicable(inScale);
-              pad.setTheme(theme);
-              pad.setBeatMarker(false);
-              pad.setScaleRoot(isRoot);
-              pad.setScaleNote(inScale);
-              pad.setActive(isPlaying || isRoot || inScale);
-              pad.setIntensity(isPlaying ? 1.0f : (isRoot ? 0.6f : 0.3f));
+            if (c == 15) {
+              // CC74 Modulation Column touch strip
+              int padCcValue = (7 - v) * 127 / 7;
+              boolean active = padCcValue <= currentCc74Value;
+              Color ccColor = active ? new Color(0xd0, 0x00, 0xff) : new Color(0x3a, 0x1c, 0x4a);
+              clipBtn.setText(v == 0 ? "CC74" : (v == 7 ? String.valueOf(currentCc74Value) : ""));
+              clipBtn.setForeground(Color.WHITE);
+              if (clipBtn instanceof DelugePadButton pad) {
+                pad.setBaseColor(ccColor);
+                pad.setActive(active);
+                pad.setApplicable(true);
+                pad.setIntensity(active ? 1.0f : 0.3f);
+                pad.setDrawCenterCircle(false);
+              } else {
+                clipBtn.setBackground(ccColor);
+              }
             } else {
-              clipBtn.setBackground(cellBaseColor);
+              int note = org.deluge.model.KeyplayKeyboard.getNote(v, c, scaleModeEnabled, projectModel.getKey(), projectModel.getScale());
+              boolean isRoot = ScaleMapper.isRootNote(note, projectModel.getKey());
+              boolean inScale =
+                  ScaleMapper.isNoteInScale(note, projectModel.getKey(), projectModel.getScale());
+
+              boolean isPlaying = false;
+              Color cellBaseColor = getThemeColor(theme, trackColor, isPlaying, inScale, isRoot, v);
+
+              if (clipBtn instanceof DelugePadButton pad) {
+                pad.setBaseColor(cellBaseColor);
+                pad.setApplicable(inScale);
+                pad.setTheme(theme);
+                pad.setBeatMarker(false);
+                pad.setScaleRoot(isRoot);
+                pad.setScaleNote(inScale);
+                pad.setActive(isPlaying || isRoot || inScale);
+                pad.setIntensity(isPlaying ? 1.0f : (isRoot ? 0.6f : 0.3f));
+                pad.setDrawCenterCircle(true);
+              } else {
+                clipBtn.setBackground(cellBaseColor);
+              }
             }
           }
         }

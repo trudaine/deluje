@@ -52,4 +52,42 @@ public final class KeyplayKeyboard {
   public static int getDrumIndex(int trk, int colId) {
     return colId + (7 - trk) * 16;
   }
+
+  /**
+   * Maps a coordinate in folded in-key scale mode to a MIDI note.
+   */
+  public static int getNoteInKey(
+      int trk,
+      int colId,
+      int[] scaleNotes,
+      int rootNote,
+      int rowInterval,
+      int scrollOffset) {
+    int scaleNoteCount = scaleNotes.length;
+    int y = 7 - trk;
+    int padIndex = scrollOffset + colId + y * rowInterval;
+    int octave = padIndex / scaleNoteCount;
+    int octaveNoteIndex = padIndex % scaleNoteCount;
+    return octave * 12 + rootNote + scaleNotes[octaveNoteIndex];
+  }
+
+  /**
+   * Maps a pad coordinate to a MIDI note, automatically handling scaleModeEnabled.
+   */
+  public static int getNote(
+      int trk,
+      int colId,
+      boolean scaleModeEnabled,
+      String key,
+      String scaleName) {
+    if (!scaleModeEnabled) {
+      return BASE_NOTE + colId + (7 - trk) * ROW_INTERVAL;
+    } else {
+      int rootNote = ScaleMapper.getKeyMidiOffset(key);
+      int[] scaleNotes = ScaleMapper.scaleTypeFromName(scaleName).getIntervals();
+      int rowInterval = 3; // Default 3 scale degrees
+      int scrollOffset = scaleNotes.length * 3; // Default 3 octaves offset
+      return getNoteInKey(trk, colId, scaleNotes, rootNote, rowInterval, scrollOffset);
+    }
+  }
 }

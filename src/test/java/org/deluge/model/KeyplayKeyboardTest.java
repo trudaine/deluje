@@ -25,6 +25,23 @@ class KeyplayKeyboardTest {
   }
 
   @Test
+  void testGetNoteScaleFolded() {
+    // 1. Chromatic mode toggle check
+    assertEquals(50, KeyplayKeyboard.getNote(7, 0, false, "C", "Major"));
+    assertEquals(73, KeyplayKeyboard.getNote(4, 8, false, "C", "Major"));
+
+    // 2. Scale-folded Major scale check (root C)
+    // Bottom-left pad: row 7, col 0 -> padIndex 21 -> octave 3, index 0 -> C1 (36)
+    assertEquals(36, KeyplayKeyboard.getNote(7, 0, true, "C", "Major"));
+
+    // Bottom-left + 1 col: row 7, col 1 -> padIndex 22 -> octave 3, index 1 -> D1 (38)
+    assertEquals(38, KeyplayKeyboard.getNote(7, 1, true, "C", "Major"));
+
+    // One row up: row 6, col 0 -> padIndex 21 + 3 = 24 -> octave 3, index 3 -> F1 (41)
+    assertEquals(41, KeyplayKeyboard.getNote(6, 0, true, "C", "Major"));
+  }
+
+  @Test
   void testGetDrumIndex() {
     // Bottom-left pad: row 7, col 0 -> 0
     assertEquals(0, KeyplayKeyboard.getDrumIndex(7, 0));

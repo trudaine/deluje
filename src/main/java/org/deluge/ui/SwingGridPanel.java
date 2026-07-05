@@ -1732,12 +1732,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     if (isLiveRecordModeActive
         && currentPlayheadStep >= 0
         && bridge.getGlobalInt(BridgeContract.G_PLAY) == 1L) {
-      int modelRow = 127 - note;
+      int modelRow = ScaleMapper.getRowFromPitch(note, isSynthTrack(), scaleModeEnabled, foldMode, foldedPitches);
       int col = currentPlayheadStep % stepCount;
-      // A synth clip is a 128-row piano roll (row = 127 - pitch, see buildVoiceRow pitchMidi),
-      // so gate on the full pitch range — NOT voiceRowCount, which is the number of rows visible
-      // in the current view (8 in KEYPLAY) and would reject every isomorphic note.
-      if (modelRow >= 0 && modelRow < 128 && col >= 0 && col < stepCount) {
+      if (modelRow >= 0 && col >= 0 && col < stepCount) {
         if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
           org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
           if (track instanceof org.deluge.model.SynthTrackModel synthTrack) {
