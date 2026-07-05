@@ -411,7 +411,9 @@ public class Reverb {
         float wetR = c.get();
         wetR -= onePole(hpSt, 0, wetR, hpCutoff); // HP right
         wetR = onePole(lpSt, 0, wetR, lpCutoff); // LP right
-        outputLR[frame][1] += (int) (wetR * UINT32_MAX_F * 0xF); // C:91-92 (uint32 max, NOT int32)
+        int outputRight = (int) (wetR * UINT32_MAX_F * 0xF); // C:91-92 (uint32 max, NOT int32)
+        // C mutable.hpp:111 — s.r += multiply_32x32_rshift32_rounded(output_right, getPanRight())
+        outputLR[frame][1] += Functions.multiply_32x32_rshift32_rounded(outputRight, panR);
 
         // C:94-107 — left channel loop
         c.set(apout);
@@ -425,8 +427,9 @@ public class Reverb {
         float wetL = c.get();
         wetL -= onePole(hpSt, 1, wetL, hpCutoff); // HP left
         wetL = onePole(lpSt, 1, wetL, lpCutoff); // LP left
-        outputLR[frame][0] +=
-            (int) (wetL * UINT32_MAX_F * 0xF); // C:106-107 (uint32 max, NOT int32)
+        int outputLeft = (int) (wetL * UINT32_MAX_F * 0xF); // C:106-107 (uint32 max, NOT int32)
+        // C mutable.hpp:110 — s.l += multiply_32x32_rshift32_rounded(output_left, getPanLeft())
+        outputLR[frame][0] += Functions.multiply_32x32_rshift32_rounded(outputLeft, panL);
       }
     }
   }
@@ -536,9 +539,12 @@ public class Reverb {
         rightSum -= onePole(hpSt, 1, rightSum, hpCutoff); // C:124 (hp_l_, sic)
         rightSum = onePole(lpSt, 1, rightSum, lpCutoff); // C:125 (lp_l_, sic)
 
-        // C:127-135 — output (uint32 max scale, as the Mutable model)
-        outputLR[frame][0] += (int) (leftSum * UINT32_MAX_F * 0xF);
-        outputLR[frame][1] += (int) (rightSum * UINT32_MAX_F * 0xF);
+        // C digital.hpp:127-135 — output (uint32 max scale), then pan applied on mix like the
+        // Mutable model: output[frame] += multiply_32x32_rshift32_rounded(out, getPan*()).
+        int outputLeft = (int) (leftSum * UINT32_MAX_F * 0xF);
+        int outputRight = (int) (rightSum * UINT32_MAX_F * 0xF);
+        outputLR[frame][0] += Functions.multiply_32x32_rshift32_rounded(outputLeft, panL);
+        outputLR[frame][1] += Functions.multiply_32x32_rshift32_rounded(outputRight, panR);
       }
     }
   }
@@ -549,7 +555,11 @@ public class Reverb {
     public Model model = Model.FREEVERB;
     Freeverb freeverb = new Freeverb();
     MutableModel mutableModel;
-    float roomSize, damping, width, hpf, lpf;
+    // C song.cpp:179-183 — every loaded/new song applies reverbLPF = 50/50 = 1.0 (near-open)
+    // via audio_engine.cpp:1358. Without this the Mutable/Digital output one-pole coefficient
+    // is 0 and the models render silence.
+    float roomSize, damping, width, hpf;
+    float lpf = 1.0f;
 
     public void setModel(Model m) {
       // DIGITAL needs the Digital subclass; MUTABLE needs the base class. Re-create if the type
