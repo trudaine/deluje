@@ -24,6 +24,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   int auditionMidiNote = -1;
   org.deluge.engine.FirmwareSound auditionSynth = null;
   public static volatile boolean isLiveRecordModeActive = false;
+  public static volatile boolean isCrossScreenWrapActive = false;
   int currentPlayheadStep = -1;
   boolean[] isOneShotTrack = new boolean[MAX_GRID_ROWS];
   int activeClipId = 0;
@@ -270,6 +271,101 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       project
           .getUndoRedoStack()
           .push(new org.deluge.model.Consequence.CompoundConsequence("Euclidean fill row", steps));
+    }
+    refresh();
+  }
+
+  /** Clears the nudge value of all active notes on this visual row (quantize to grid). */
+  public void quantizeRow(int visualRow) {
+    BridgeContract bridge = getBridge();
+    org.deluge.model.ProjectModel project = getProjectModel();
+    if (bridge == null || project == null) return;
+    int editedTrack = getEditedModelTrack();
+    int activeClipId = getActiveClipId();
+    if (editedTrack < 0 || editedTrack >= project.getTracks().size()) return;
+    org.deluge.model.TrackModel tModel = project.getTracks().get(editedTrack);
+    if (activeClipId < 0 || activeClipId >= tModel.getClips().size()) return;
+    org.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
+
+    int visualModelRow = getModelRow(visualRow);
+    int engineRow = getBaseTrackId() + getEngineRowOffset(visualModelRow);
+
+    java.util.List<org.deluge.model.Consequence> steps = new java.util.ArrayList<>();
+    for (int s = 0; s < cModel.getStepCount(); s++) {
+      org.deluge.model.StepData oldStep = getClipStep(cModel, visualModelRow, s);
+      if (oldStep == null || !oldStep.active()) continue;
+      if (oldStep.nudge() == 0.0f) continue;
+
+      org.deluge.model.StepData newStep =
+          new org.deluge.model.StepData(
+              oldStep.active(),
+              oldStep.velocity(),
+              oldStep.gate(),
+              oldStep.probability(),
+              oldStep.pitch(),
+              oldStep.iterance(),
+              oldStep.fill(),
+              0.0f); // Clear nudge
+      bridge.setStepNudge(engineRow, s, 0.0);
+      setClipStep(cModel, visualModelRow, s, newStep);
+      steps.add(
+          new org.deluge.model.Consequence.StepConsequence(
+              project, editedTrack, activeClipId, visualModelRow, s, oldStep, newStep));
+    }
+    if (!steps.isEmpty()) {
+      project
+          .getUndoRedoStack()
+          .push(new org.deluge.model.Consequence.CompoundConsequence("Quantize row", steps));
+    }
+    refresh();
+  }
+
+  /**
+   * Applies random timing nudge variation (humanization) to active notes on this visual row.
+   *
+   * @param maxNudgeFraction maximum shift (0.0 to 0.99)
+   */
+  public void humanizeRow(int visualRow, float maxNudgeFraction) {
+    BridgeContract bridge = getBridge();
+    org.deluge.model.ProjectModel project = getProjectModel();
+    if (bridge == null || project == null) return;
+    int editedTrack = getEditedModelTrack();
+    int activeClipId = getActiveClipId();
+    if (editedTrack < 0 || editedTrack >= project.getTracks().size()) return;
+    org.deluge.model.TrackModel tModel = project.getTracks().get(editedTrack);
+    if (activeClipId < 0 || activeClipId >= tModel.getClips().size()) return;
+    org.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
+
+    int visualModelRow = getModelRow(visualRow);
+    int engineRow = getBaseTrackId() + getEngineRowOffset(visualModelRow);
+
+    java.util.List<org.deluge.model.Consequence> steps = new java.util.ArrayList<>();
+    java.util.Random rand = new java.util.Random();
+    for (int s = 0; s < cModel.getStepCount(); s++) {
+      org.deluge.model.StepData oldStep = getClipStep(cModel, visualModelRow, s);
+      if (oldStep == null || !oldStep.active()) continue;
+
+      float randNudge = rand.nextFloat() * maxNudgeFraction;
+      org.deluge.model.StepData newStep =
+          new org.deluge.model.StepData(
+              oldStep.active(),
+              oldStep.velocity(),
+              oldStep.gate(),
+              oldStep.probability(),
+              oldStep.pitch(),
+              oldStep.iterance(),
+              oldStep.fill(),
+              randNudge);
+      bridge.setStepNudge(engineRow, s, randNudge);
+      setClipStep(cModel, visualModelRow, s, newStep);
+      steps.add(
+          new org.deluge.model.Consequence.StepConsequence(
+              project, editedTrack, activeClipId, visualModelRow, s, oldStep, newStep));
+    }
+    if (!steps.isEmpty()) {
+      project
+          .getUndoRedoStack()
+          .push(new org.deluge.model.Consequence.CompoundConsequence("Humanize row", steps));
     }
     refresh();
   }

@@ -337,6 +337,15 @@ public class GridContextMenuFactory {
     JPopupMenu menu = new JPopupMenu();
     ClipModel clip = track.getClips().get(clipIdx);
 
+    JMenuItem editItem = new JMenuItem("Edit Clip Pattern");
+    editItem.addActionListener(
+        e -> {
+          if (org.deluge.ui.SwingDelugeApp.mainInstance != null) {
+            org.deluge.ui.SwingDelugeApp.mainInstance.switchToTrackEdit(trackIndex, clipIdx);
+          }
+        });
+    menu.add(editItem);
+
     JMenuItem renameItem = new JMenuItem("Rename Clip...");
     renameItem.addActionListener(
         e -> {
@@ -402,6 +411,27 @@ public class GridContextMenuFactory {
 
     menu.addSeparator();
 
+    // ── Assign Section submenu ──
+    JMenu assignSectionMenu = new JMenu("Assign Section");
+    char currentSec = (char) clip.getSection();
+    ButtonGroup secGroup = new ButtonGroup();
+    for (char cSec = 'A'; cSec <= 'H'; cSec++) {
+      final char secChar = cSec;
+      JRadioButtonMenuItem secItem =
+          new JRadioButtonMenuItem(String.valueOf(secChar), currentSec == secChar);
+      secItem.addActionListener(
+          e -> {
+            clip.setSection(secChar);
+            panel.fireProjectChanged();
+            panel.refresh();
+          });
+      secGroup.add(secItem);
+      assignSectionMenu.add(secItem);
+    }
+    menu.add(assignSectionMenu);
+
+    menu.addSeparator();
+
     // ── Play Mode submenu ──
     JMenu playModeMenu = new JMenu("Play Mode");
     ClipModel.PlayMode currentMode = clip.getPlayMode();
@@ -413,6 +443,7 @@ public class GridContextMenuFactory {
           clip.setPlayMode(ClipModel.PlayMode.NORMAL);
           if (panel.bridge != null) panel.bridge.setClipPlayMode(trackIndex, clipIdx, 0);
           panel.fireProjectChanged();
+          panel.refresh();
         });
     playModeMenu.add(normalItem);
 
@@ -423,13 +454,38 @@ public class GridContextMenuFactory {
           clip.setPlayMode(ClipModel.PlayMode.LOOP);
           if (panel.bridge != null) panel.bridge.setClipPlayMode(trackIndex, clipIdx, 1);
           panel.fireProjectChanged();
+          panel.refresh();
         });
     playModeMenu.add(loopItem);
+
+    JRadioButtonMenuItem onceItem =
+        new JRadioButtonMenuItem("Once (yellow)", currentMode == ClipModel.PlayMode.ONCE);
+    onceItem.addActionListener(
+        e -> {
+          clip.setPlayMode(ClipModel.PlayMode.ONCE);
+          if (panel.bridge != null) panel.bridge.setClipPlayMode(trackIndex, clipIdx, 2);
+          panel.fireProjectChanged();
+          panel.refresh();
+        });
+    playModeMenu.add(onceItem);
+
+    JRadioButtonMenuItem fillItem =
+        new JRadioButtonMenuItem("Fill (purple)", currentMode == ClipModel.PlayMode.FILL);
+    fillItem.addActionListener(
+        e -> {
+          clip.setPlayMode(ClipModel.PlayMode.FILL);
+          if (panel.bridge != null) panel.bridge.setClipPlayMode(trackIndex, clipIdx, 3);
+          panel.fireProjectChanged();
+          panel.refresh();
+        });
+    playModeMenu.add(fillItem);
 
     // Group the radio buttons so only one can be selected
     ButtonGroup playModeGroup = new ButtonGroup();
     playModeGroup.add(normalItem);
     playModeGroup.add(loopItem);
+    playModeGroup.add(onceItem);
+    playModeGroup.add(fillItem);
 
     menu.add(playModeMenu);
 
@@ -485,6 +541,7 @@ public class GridContextMenuFactory {
 
     menu.add(playDirMenu);
 
+    stylePopupMenu(menu);
     menu.show(src, x, y);
   }
 

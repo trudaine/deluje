@@ -50,9 +50,23 @@ public class SongGridPanel extends SwingGridPanel {
    * yellow.) Used by both the rebuild and in-place paths so structure-change and steady-state
    * renders agree.
    */
-  private Color sessionStatusColour(boolean muted, boolean soloedHere, boolean anySoloing) {
-    Color base =
-        soloedHere ? new Color(0, 0, 255) : (muted ? new Color(255, 0, 0) : new Color(0, 255, 6));
+  private Color sessionStatusColour(
+      boolean muted,
+      boolean soloedHere,
+      boolean anySoloing,
+      org.deluge.model.ClipModel.PlayMode playMode) {
+    Color base;
+    if (soloedHere) {
+      base = new Color(0, 0, 255);
+    } else if (muted) {
+      base = new Color(255, 0, 0);
+    } else if (playMode == org.deluge.model.ClipModel.PlayMode.ONCE) {
+      base = new Color(245, 190, 0);
+    } else if (playMode == org.deluge.model.ClipModel.PlayMode.FILL) {
+      base = new Color(185, 0, 220);
+    } else {
+      base = new Color(0, 255, 6);
+    }
     return (anySoloing && !soloedHere) ? DelugeColour.dull(base) : base;
   }
 
@@ -345,7 +359,12 @@ public class SongGridPanel extends SwingGridPanel {
             org.deluge.model.TrackModel track = tracks.get(trk);
             boolean anySoloing = !soloedTracks.isEmpty();
             boolean curMute = anySoloing ? !soloedTracks.contains(trk) : track.isMuted();
-            Color muteBg = sessionStatusColour(curMute, soloedTracks.contains(trk), anySoloing);
+            org.deluge.model.ClipModel.PlayMode pMode = org.deluge.model.ClipModel.PlayMode.NORMAL;
+            if (!track.getClips().isEmpty()) {
+              pMode = track.getClips().get(0).getPlayMode();
+            }
+            Color muteBg =
+                sessionStatusColour(curMute, soloedTracks.contains(trk), anySoloing, pMode);
             clipBtn.setText(
                 curMute ? "UNMUTE" : "MUTE"); // getText() = mute state (E2E observes it)
             clipBtn.setBackground(muteBg);
@@ -509,18 +528,48 @@ public class SongGridPanel extends SwingGridPanel {
                         }
                       } else {
                         if (clipCol >= songTrack.getClips().size()) {
-                          String name = "CLIP " + (clipCol + 1);
-                          songTrack.addClip(
-                              new org.deluge.model.ClipModel(
-                                  name,
-                                  songTrack.getClips().isEmpty()
-                                      ? 8
-                                      : songTrack.getClips().get(0).getRowCount(),
-                                  16));
-                          fireProjectChanged();
+                          if (e.getClickCount() == 1) {
+                            String name = "CLIP " + (clipCol + 1);
+                            songTrack.addClip(
+                                new org.deluge.model.ClipModel(
+                                    name,
+                                    songTrack.getClips().isEmpty()
+                                        ? 8
+                                        : songTrack.getClips().get(0).getRowCount(),
+                                    16));
+                            editedModelTrack = trkIdx;
+                            if (SwingDelugeApp.mainInstance != null) {
+                              SwingDelugeApp.mainInstance.refreshTrackInspector();
+                            }
+                            fireProjectChanged();
+                          }
                         } else {
-                          if (SwingDelugeApp.mainInstance != null) {
-                            SwingDelugeApp.mainInstance.switchToTrackEdit(trkIdx, clipCol);
+                          if (e.getClickCount() == 2) {
+                            if (SwingDelugeApp.mainInstance != null) {
+                              SwingDelugeApp.mainInstance.switchToTrackEdit(trkIdx, clipCol);
+                            }
+                          } else {
+                            editedModelTrack = trkIdx;
+                            if (SwingDelugeApp.mainInstance != null) {
+                              SwingDelugeApp.mainInstance.refreshTrackInspector();
+                            }
+                            if (e.isShiftDown()) {
+                              // Instant launch
+                              songTrack.setActiveClipIndex(clipCol);
+                              bridge.setCurrentClip(trkIdx, clipCol);
+                              if (SwingDelugeApp.mainInstance != null
+                                  && SwingDelugeApp.mainInstance.getArrangerScheduler() != null) {
+                                SwingDelugeApp.mainInstance
+                                    .getArrangerScheduler()
+                                    .notifyClipLaunched(trkIdx, songTrack.getClips().get(clipCol));
+                              }
+                              fireProjectChanged();
+                              refresh();
+                            } else {
+                              // Quantized launch
+                              bridge.setLaunchQueue(trkIdx, clipCol);
+                              refresh();
+                            }
                           }
                         }
                       }
@@ -701,9 +750,16 @@ public class SongGridPanel extends SwingGridPanel {
               pad.setInLoop(true);
             }
           } else if (isMuteColumn(c)) {
+            org.deluge.model.ClipModel.PlayMode pMode = org.deluge.model.ClipModel.PlayMode.NORMAL;
+            if (!tracks.get(modelRow).getClips().isEmpty()) {
+              pMode = tracks.get(modelRow).getClips().get(0).getPlayMode();
+            }
             Color statusBg =
                 sessionStatusColour(
-                    isMuted, soloedTracks.contains(modelRow), !soloedTracks.isEmpty());
+                    isMuted, soloedTracks.contains(modelRow), !soloedTracks.isEmpty(), pMode);
+            if (isLiveRecordModeActive && modelRow == editedModelTrack) {
+              statusBg = launchBlinkOn ? Color.RED : Color.BLACK;
+            }
             // Armed for launch (queued for the next bar boundary): fast-blink the pad, matching the
             // hardware's blinking "launch" pad, until the queue is consumed.
             boolean armed = bridge != null && bridge.getLaunchQueue(engineRow) >= 0;
@@ -719,9 +775,11 @@ public class SongGridPanel extends SwingGridPanel {
               pad.setActive(true);
             }
             clipBtn.setToolTipText(
-                armed
-                    ? "Armed — launches at the next bar"
-                    : (isMuted ? "Muted — click to unmute" : "Mute track"));
+                isLiveRecordModeActive && modelRow == editedModelTrack
+                    ? "Recording active track"
+                    : (armed
+                        ? "Armed — launches at the next bar"
+                        : (isMuted ? "Muted — click to unmute" : "Mute track")));
           } else if (isSoloColumn(c)) {
             // Deluge section square (session_view.cpp drawSectionSquare): the clip's section
             // colour,
@@ -742,11 +800,19 @@ public class SongGridPanel extends SwingGridPanel {
               labelBg = Color.BLACK;
               labelFg = Color.GRAY;
             }
+            if (isLiveRecordModeActive && modelRow == editedModelTrack) {
+              labelBg = Color.RED;
+              labelFg = Color.WHITE;
+            }
             clipBtn.setBackground(labelBg);
             clipBtn.setForeground(labelFg);
 
             String nName = tracks.get(modelRow).getName();
-            clipBtn.setText(nName);
+            if (isLiveRecordModeActive && modelRow == editedModelTrack) {
+              clipBtn.setText("● REC");
+            } else {
+              clipBtn.setText(nName);
+            }
 
             if (clipBtn instanceof DelugePadButton pad) {
               pad.setBaseColor(labelBg);

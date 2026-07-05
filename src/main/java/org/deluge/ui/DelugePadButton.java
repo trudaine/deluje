@@ -498,7 +498,11 @@ public class DelugePadButton extends JButton {
     //    at the firmware cursor-flash rate (kFlashTime ~110ms).
     if (isPlayhead) {
       int alpha = UiAnimator.blinkOn(UiAnimator.FLASH_SLOW_MS) ? 235 : 120;
-      g2.setColor(new Color(255, 255, 255, alpha));
+      if (org.deluge.ui.SwingGridPanel.isLiveRecordModeActive) {
+        g2.setColor(new Color(255, 0, 0, alpha));
+      } else {
+        g2.setColor(new Color(255, 255, 255, alpha));
+      }
       g2.setStroke(new BasicStroke(2.0f));
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
     }

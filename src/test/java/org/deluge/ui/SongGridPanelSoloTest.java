@@ -2,10 +2,13 @@ package org.deluge.ui;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.awt.Color;
 import java.awt.event.ActionEvent;
 import javax.swing.JButton;
 import org.deluge.BridgeContract;
+import org.deluge.model.ClipModel;
 import org.deluge.model.ProjectModel;
+import org.deluge.model.StepData;
 import org.deluge.model.SynthTrackModel;
 import org.deluge.model.TrackModel;
 import org.junit.jupiter.api.Test;
@@ -126,6 +129,230 @@ public class SongGridPanelSoloTest {
     assertEquals("CLIP 2", pastedClip.getName());
     assertTrue(pastedClip.getStep(0, 0).active());
     assertEquals(60, pastedClip.getStep(0, 0).pitch());
+
+    bridge.shutdown();
+  }
+
+  @Test
+  public void testClipLaunching() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+    ProjectModel project = new ProjectModel();
+
+    TrackModel track0 = new SynthTrackModel("T0");
+    track0.addClip(new org.deluge.model.ClipModel("C1", 8, 16));
+    track0.addClip(new org.deluge.model.ClipModel("C2", 8, 16));
+    project.addTrack(track0);
+
+    SongGridPanel panel = new SongGridPanel(bridge);
+    panel.setProjectModel(project);
+
+    assertEquals(0, track0.getActiveClipIndex());
+    assertEquals(-1, bridge.getLaunchQueue(0));
+
+    JButton clipPad1 = panel.pads[0][1];
+    assertNotNull(clipPad1);
+    java.awt.event.MouseEvent normalClick =
+        new java.awt.event.MouseEvent(
+            clipPad1,
+            java.awt.event.MouseEvent.MOUSE_PRESSED,
+            System.currentTimeMillis(),
+            0,
+            0,
+            0,
+            1,
+            false,
+            java.awt.event.MouseEvent.BUTTON1);
+    for (java.awt.event.MouseListener ml : clipPad1.getMouseListeners()) {
+      ml.mousePressed(normalClick);
+    }
+
+    assertEquals(1, bridge.getLaunchQueue(0));
+    assertEquals(0, track0.getActiveClipIndex());
+
+    java.awt.event.MouseEvent shiftClick =
+        new java.awt.event.MouseEvent(
+            clipPad1,
+            java.awt.event.MouseEvent.MOUSE_PRESSED,
+            System.currentTimeMillis(),
+            java.awt.event.InputEvent.SHIFT_DOWN_MASK,
+            0,
+            0,
+            1,
+            false,
+            java.awt.event.MouseEvent.BUTTON1);
+    for (java.awt.event.MouseListener ml : clipPad1.getMouseListeners()) {
+      ml.mousePressed(shiftClick);
+    }
+
+    assertEquals(1, track0.getActiveClipIndex());
+    assertEquals(1, bridge.getCurrentClip(0));
+
+    bridge.shutdown();
+  }
+
+  @Test
+  public void testRecordingIndicatorsAndSelection() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+    ProjectModel project = new ProjectModel();
+
+    TrackModel track0 = new SynthTrackModel("T0");
+    track0.addClip(new org.deluge.model.ClipModel("C1", 8, 16));
+    project.addTrack(track0);
+
+    TrackModel track1 = new SynthTrackModel("T1");
+    track1.addClip(new org.deluge.model.ClipModel("C2", 8, 16));
+    project.addTrack(track1);
+
+    SongGridPanel panel = new SongGridPanel(bridge);
+    panel.setProjectModel(project);
+
+    assertFalse(SwingGridPanel.isLiveRecordModeActive);
+    assertEquals(0, panel.editedModelTrack);
+
+    SwingGridPanel.isLiveRecordModeActive = true;
+    panel.refresh();
+
+    JButton clipPadT1 =
+        panel.pads[0][0]; // Visual row 0 is track 1 (since songRowIndex(0) = 1 in SONG mode)
+    assertNotNull(clipPadT1);
+
+    java.awt.event.MouseEvent normalClick =
+        new java.awt.event.MouseEvent(
+            clipPadT1,
+            java.awt.event.MouseEvent.MOUSE_PRESSED,
+            System.currentTimeMillis(),
+            0,
+            0,
+            0,
+            1,
+            false,
+            java.awt.event.MouseEvent.BUTTON1);
+    for (java.awt.event.MouseListener ml : clipPadT1.getMouseListeners()) {
+      ml.mousePressed(normalClick);
+    }
+
+    assertEquals(1, panel.editedModelTrack);
+
+    SwingGridPanel.isLiveRecordModeActive = false;
+    bridge.shutdown();
+  }
+
+  @Test
+  public void testClipSectionAssignment() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+    ProjectModel project = new ProjectModel();
+
+    TrackModel track0 = new SynthTrackModel("T0");
+    ClipModel clip = new org.deluge.model.ClipModel("C1", 8, 16);
+    clip.setSection('A');
+    track0.addClip(clip);
+    project.addTrack(track0);
+
+    SongGridPanel panel = new SongGridPanel(bridge);
+    panel.setProjectModel(project);
+
+    assertEquals('A', clip.getSection());
+
+    clip.setSection('B');
+    panel.refresh();
+    assertEquals('B', clip.getSection());
+
+    bridge.shutdown();
+  }
+
+  @Test
+  public void testPlayModeStatusColours() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+    ProjectModel project = new ProjectModel();
+
+    TrackModel track0 = new SynthTrackModel("T0");
+    ClipModel clip = new org.deluge.model.ClipModel("C1", 8, 16);
+    clip.setPlayMode(ClipModel.PlayMode.ONCE);
+    track0.addClip(clip);
+    project.addTrack(track0);
+
+    SongGridPanel panel = new SongGridPanel(bridge);
+    panel.setProjectModel(project);
+
+    int muteCol = panel.columnCount - 2;
+    JButton mutePad = panel.pads[0][muteCol];
+    assertNotNull(mutePad);
+
+    assertEquals(new Color(245, 190, 0), mutePad.getBackground());
+
+    clip.setPlayMode(ClipModel.PlayMode.FILL);
+    panel.refresh();
+    assertEquals(new Color(185, 0, 220), mutePad.getBackground());
+
+    clip.setPlayMode(ClipModel.PlayMode.NORMAL);
+    panel.refresh();
+    assertEquals(new Color(0, 255, 6), mutePad.getBackground());
+
+    bridge.shutdown();
+  }
+
+  @Test
+  public void testQuantizeAndHumanizeRow() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+    ProjectModel project = new ProjectModel();
+
+    TrackModel track0 = new SynthTrackModel("T0");
+    ClipModel clip = new org.deluge.model.ClipModel("C1", 8, 16);
+    StepData step = new StepData(true, 0.8f, 1.0f, 1.0f, 60, 0, 0.0f, 0.5f);
+    clip.setStep(0, 0, step);
+    track0.addClip(clip);
+    project.addTrack(track0);
+
+    SongGridPanel panel = new SongGridPanel(bridge);
+    panel.setProjectModel(project);
+
+    assertEquals(0.5f, panel.getClipStep(clip, 0, 0).nudge());
+
+    panel.quantizeRow(0);
+    assertEquals(0.0f, panel.getClipStep(clip, 0, 0).nudge());
+
+    panel.humanizeRow(0, 0.3f);
+    float humanizedNudge = panel.getClipStep(clip, 0, 0).nudge();
+    assertTrue(humanizedNudge >= 0.0f && humanizedNudge <= 0.3f);
+
+    bridge.shutdown();
+  }
+
+  @Test
+  public void testCrossScreenWrapEditing() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+    ProjectModel project = new ProjectModel();
+
+    TrackModel track0 = new SynthTrackModel("T0");
+    ClipModel clip = new org.deluge.model.ClipModel("C1", 8, 32);
+    StepData step = new StepData(true, 0.8f, 1.0f, 1.0f, 60, 0, 0.0f, 0.0f);
+    clip.setStep(0, 0, step);
+    track0.addClip(clip);
+    project.addTrack(track0);
+
+    SongGridPanel panel = new SongGridPanel(bridge);
+    panel.setProjectModel(project);
+    panel.setEditedModelTrack(0);
+    panel.setViewMode(SwingGridPanel.GridViewMode.CLIP);
+
+    SwingGridPanel.isCrossScreenWrapActive = true;
+
+    panel.clipController.handleStepToggled(67, 2);
+
+    assertTrue(clip.getStep(0, 2).active());
+    assertTrue(clip.getStep(0, 18).active());
+
+    SwingGridPanel.isCrossScreenWrapActive = false;
+
+    panel.clipController.handleStepToggled(67, 3);
+    assertTrue(clip.getStep(0, 3).active());
+    assertFalse(clip.getStep(0, 19).active());
 
     bridge.shutdown();
   }

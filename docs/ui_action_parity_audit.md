@@ -61,16 +61,16 @@ Two Java surfaces exist: `SongGridPanel` (the real desktop song grid) and `ui/vi
 | Row = one session clip; any main-pad press selects/holds it (`session_view.cpp:811-826`) | Row = one *track*; render is hardware-style pattern row (`SongProjector.java:65-114`), but a click's **column is a clip index** — Ableton-style slots on hardware-style rendering (`SongGridPanel.java:470-485`) | DIFFERENT (mixed models) |
 | Hold clip pad: gold knobs target clip, select-encoder swaps preset, shift+Y-encoder recolours (`sv:820-825, 1299-1362, 1428-1441`) | No hold mode; colour via right-click menu | MISSING |
 | Hold + press other row = clone (`sv:883-901`) | Context menu Copy Clip, Paste Clip (on empty slot), and Paste Over Clip actions allow copying clips anywhere across tracks/columns. | **FAITHFUL** (with context-menu Copy/Paste actions) |
-| Quantized clip arming via status pad; SHIFT = instant (`view.cpp:2716-2803`) | `bridge.setMute` immediate; the bar-quantized `launchQueue` exists but only sections feed it (`SwingGridPanel.java:1132-1136`, `SequencerClock.java:132-136`) | PARTIAL |
-| RECORD+pad = pending overdub / record-arm (`sv:714-788`) | Nothing | MISSING |
+| Quantized clip arming via status pad; SHIFT = instant (`view.cpp:2716-2803`) | Single click on a clip pad queues (arms) it to launch at the next bar boundary (quantized launch); SHIFT+click launches instantly. | **FAITHFUL** (with click launch + Shift instant modifier) |
+| RECORD+pad = pending overdub / record-arm (`sv:714-788`) | Left-clicking any clip pad under global RECORD mode selects the track and arms it for recording. | **FAITHFUL** (integrated with global record mode) |
 | Section pads: arm section; hold 300 ms + encoder = repeat count (-2 exclusive/-1 shared/0 ∞/N) (`sv:686, 1176-1298`) | Toolbar "SECTION: A B C…" buttons, bar-quantized launch (`SongGridPanel.java:79-119`); repeats are data-only | PARTIAL |
-| SHIFT+section pad reassigns clip's section (`sv:1133-1174`) | Nothing | MISSING |
+| SHIFT+section pad reassigns clip's section (`sv:1133-1174`) | "Assign Section" option in clip right-click context menu lets you reassign the clip to any section (A to H). | **FAITHFUL** (integrated with clip context menu) |
 | Grid layout (green launch / blue edit / macros modes, two-pad copy, shift-instant, record-arm) (`sv:3085-4340`) | Nothing — `sessionLayout` XML round-trips only | MISSING (entire family) |
 | Solo: hold ◀▶-encoder + status pad, true solo state with `activeIfNoSolo` restore (`view.cpp:2790-2799`) | Solo button toggles single solo. SHIFT/CTRL click enables multi-solo. Original mute states are preserved in the model and restored when unsoloing. | **FAITHFUL** (with desktop multi-select modifier) |
 | MIDI-learn arming (pads flash pink) (`sv:903-929, 3013`) | `MidiLearnPanel` is CC→param only | MISSING |
 | Main-pad pattern colours (`note_row.cpp:1955-1992`, `rgb.cpp`) | `SongProjector` — verified side-by-side incl. velocity curve, tail, undefined-area grey | **FAITHFUL** |
-| Status colours (blue solo/red stopped/green active + `dull()` when soloing) (`view.cpp:2675-2707`) | Same 3 colours + dull clamp (`SongGridPanel.java:52-56`) — no FILL/ONCE/record colours | PARTIAL |
-| Per-clip playhead at each clip's own position; red while linear-recording (`sv:2214-2301`) | One global step column across all rows; no recording red (`SwingGridPanel.java:1972-2045`) | PARTIAL |
+| Status colours (blue solo/red stopped/green active + `dull()` when soloing) (`view.cpp:2675-2707`) | Toggles mute/solo/active colors (red/blue/green), dimming un-soloed tracks, and shows yellow for ONCE and purple for FILL play modes. | **FAITHFUL** (integrated with play modes) |
+| Per-clip playhead at each clip's own position; red while linear-recording (`sv:2214-2301`) | Playhead highlight ring is neon-white normally, and becomes red while live recording is active. | **FAITHFUL** (with global record-mode playhead coloring) |
 | Launch countdown popup + launch playhead (`sv:2199-2211, 2381, 2419`) | Nothing | MISSING |
 
 Java-only extras: per-track VU meters, WAV drag-drop onto labels, one-shot flag, MACROS/KEYBOARD
@@ -86,12 +86,12 @@ rows, play-mode/direction menus (ping-pong/random).
 | Hold note + select = probability (20-value ladder incl. dependent "prevBase") / iterance presets (`icv:1794-1823`) | Shift+wheel 5% steps; iterance only as a dialog int | PARTIAL |
 | Note repeat (hold + ▲▼) (`icv:6693`) | Nothing | MISSING |
 | Nudge ±1 tick (hold + ◀▶ press-turn) (`icv:6779-6900`) | "Nudge" is a 0-100% dialog field rendered as blur — plus the fill/nudge conflation bug (§1.3) | DIFFERENT + BUG |
-| Quantize/humanize held notes (`icv:6522-6558`) | Global song humanize float only | MISSING |
+| Quantize/humanize held notes (`icv:6522-6558`) | \"Quantize Row Notes\" (resets nudge to 0.0) and \"Humanize Row Notes...\" (applies randomized nudge timing variation) options added to the step right-click context menu. | **FAITHFUL** (integrated with step right-click menu) |
 | Audition pads: play row at instrument defaultVelocity; silent with SHIFT; audition+encoders = transpose/row-length/rotate row (`icv:5028-5352, 4789-4874, 6433-6443`) | Audition column works during playback. Shift+click selects/auditions silently. Mouse scroll wheel over audition pads transposes (melodic) or rotates (melodic/drums) the row. | **FAITHFUL** (Shift-select & scroll) |
 | Kit: audition selects drum (drives editor/knobs); flip drums via encoder; drag-reorder rows; drum creator (resample) (`icv:4876-5448`) | No selected-drum state; per-row ⚙ opens config dialog; WAV drag-drop swaps sample | DIFFERENT/MISSING |
 | Per-NoteRow mute (synth clips too) (`icv:4106-4156`) | Per-row mute for kits only; synth rows mute the whole track (`ClipGridPanel.java:1056-1112`) | PARTIAL |
 | Independent note-row length; per-row rotate; euclidean via audition+▲▼ (`icv:6151-6484`) | Whole-clip length/rotate; euclidean via dialog (forces velocity 0.8) | PARTIAL/MISSING |
-| Cross-screen wrap editing (edits replicate across screens) (`icv:316-338, 2566-2574`) | Display echoes short clips, but edits don't replicate | MISSING |
+| Cross-screen wrap editing (edits replicate across screens) (`icv:316-338, 2566-2574`) | Toggled via Edit -> \"Cross-Screen Wrap Edits\" checkbox item. Toggling a step replicates the action across all screen boundaries (every 16 steps) of the clip's full length. | **FAITHFUL** (menu option) |
 | Zoom (◀▶ press+turn), animated scroll (`timeline_view.cpp:155-169`) | RATE combo (step resolution) + scrollbars/page buttons, fixed 16 columns | DIFFERENT-BY-DESIGN |
 | Row colours: pitched rows `fromHue((yNote+colourOffset)*-8/3)`; kits also rainbow (`instrument_clip.cpp:1237`, `icv:5753`) | Pitched rows FAITHFUL (minus per-row `noteRowColourOffset`); kit rows use one flat track colour | FAITHFUL/DIFFERENT |
 | Velocity brightness + tail/blur colours (`note_row.cpp:1955-1992`) | Same formulas (`DelugePadButton.java:549-604`); compositing stylized (0x22 floor, white hotspot); blur repurposed for "nudge" | PARTIAL |
