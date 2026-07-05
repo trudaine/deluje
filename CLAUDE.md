@@ -32,6 +32,34 @@ package:
 See `docs/FIRMWARE2_FAITHFUL_PORT.md` (port protocol + numeric-type mapping) and
 `docs/FIRMWARE2_PORT_ROADMAP.md`.
 
+### How to actually find parity bugs (hard-won — read before auditing faithfulness)
+
+For a long time repeated audits concluded "faithful, no gaps" while ~15 real translation bugs sat
+in the DSP (signed-vs-unsigned shifts, an off-by-one table, dropped sync branches, an un-zeroed
+buffer, inverted delay sync). They were always there and always findable — the audits used a
+method that structurally could not find them. The lessons:
+
+- **Audit Java→C, line by line, quoting both sides — not C-delta→Java.** A "what changed upstream
+  recently, do we have it?" audit (e.g. `docs/firmware_sync_audit.md`) **cannot** find a bug baked
+  into the port from day one; those bugs aren't in the recent-commits set. The only method that
+  works is: start from the Java DSP line, open the exact C function it claims to port, and read
+  both texts side by side. That is the *only* way `>>` vs `>>>` on a `uint32_t`, a table one entry
+  short, or a `goto` that lands after a doubling become visible. It is expensive; do it anyway.
+- **Proxies do not prove faithfulness.** A passing scorecard median (amplitude-invariant,
+  time-resolved cosine — a preset can sit at 0.80 with a real bug masked by other spectral energy),
+  green tests (only prove the tested path), and green commit messages are all evidence of *absence
+  of a detected problem*, never evidence of correctness.
+- **The "line-for-line port" assertion above is a claim to verify, not a prior to trust.** Treating
+  it as "probably faithful unless proven otherwise" is confirmation bias; audit adversarially,
+  hunting for divergence.
+- **Scope your claims honestly.** "I read these lines against the C and they match at the bit level"
+  is a trustworthy, *scoped* statement. "No gaps / it's faithful" is a universal claim no delta
+  audit or scorecard number entitles you to. Everything you did not put side by side with the C is
+  **unaudited**, not presumed-correct. (Corollary: past "resolved/faithful" verdicts here — e.g.
+  the FM "too-bright" write-off — turned out to mask real C-divergences; re-verify, don't inherit.)
+
+See `docs/dsp_parity_review_2026-07-04.md` for the review that used this method and what it found.
+
 ## Build, test, run
 
 Requires **JDK 27 early-access** and **Maven 3.9+**. The codebase uses preview features
