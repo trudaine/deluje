@@ -40,6 +40,7 @@ class Fw2SyncCompletenessTest {
           "oscTypes",
           "sourceDx7EngineType",
           "sourceDx7RandomDetune",
+          "sourceLinearInterpolation",
           "lpfMode",
           "hpfMode",
           "filterRoute",

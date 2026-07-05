@@ -171,11 +171,14 @@ public class SampleReader {
         // 9),
         // selected at sample_low_level_reader.cpp:1081 when getInterpolationBufferSize() == 2 — the
         // CPU-direness fallback for pitched-up samples under load (sample_controls.cpp:29).
+        // C: strength1 = int16_max - strength2 (interpolate.cpp:73); the C's int16-sample
+        // products land at ~sample32 >> 1, the same scale as the sinc path — the full-precision
+        // history here needs >> 16 to match (>> 15 made the linear fallback +6 dB vs sinc).
         int strength2 = (oscPos >>> 9) & 0x7FFF;
-        int strength1 = 32768 - strength2;
-        interpOut[0] = (int) (((long) bufL[1] * strength1 + (long) bufL[0] * strength2) >> 15);
+        int strength1 = 32767 - strength2;
+        interpOut[0] = (int) (((long) bufL[1] * strength1 + (long) bufL[0] * strength2) >> 16);
         if (sample.numChannels == 2) {
-          interpOut[1] = (int) (((long) bufR[1] * strength1 + (long) bufR[0] * strength2) >> 15);
+          interpOut[1] = (int) (((long) bufR[1] * strength1 + (long) bufR[0] * strength2) >> 16);
         }
       }
       if (sample.numChannels == 2) {
@@ -221,6 +224,15 @@ public class SampleReader {
    */
   public void readNative(
       int[] oscBuffer, int numSamples, int numChannels, int[] amplitude, int amplitudeIncrement) {
+    // C sample_low_level_reader.cpp:824-835 — "if we were interpolating last time": jump back by
+    // half the interpolation buffer minus the fractional lead, so returning to native (e.g. a
+    // pitch modulation crossing unity) doesn't drift ~half a buffer of source frames.
+    if (interpolationBufferSizeLastTime != 0) {
+      int numToJumpBack = (interpolationBufferSizeLastTime >> 1) - (oscPos >>> 23);
+      playPos -= numToJumpBack * playDirection;
+      interpolationBufferSizeLastTime = 0;
+      oscPos = 0;
+    }
     int o = 0;
     int n = numFrames();
     for (int s = 0; s < numSamples; s++) {

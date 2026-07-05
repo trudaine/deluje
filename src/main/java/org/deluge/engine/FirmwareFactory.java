@@ -458,6 +458,10 @@ public class FirmwareFactory {
     sound.paramManager.getPatchCableSet().destinations.clear();
     sound.paramManager.automatedParams.clear();
     sound.oscTypes[0] = stringToOscType(model.getOsc1Type());
+    // C SampleControls.interpolationMode (sample_controls.cpp:30-33): the per-osc
+    // "linearInterpolation" preset flag selects the 2-tap lo-fi path.
+    sound.fw2Sound.sourceLinearInterpolation[0] = model.isOsc1LinearInterpolation();
+    sound.fw2Sound.sourceLinearInterpolation[1] = model.isOsc2LinearInterpolation();
     sound.oscTypes[1] = stringToOscType(model.getOsc2Type());
 
     // Map Synth Mode (0=Subtractive, 1=FM, 2=RingMod)

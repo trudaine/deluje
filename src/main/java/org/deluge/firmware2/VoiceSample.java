@@ -18,6 +18,12 @@ public class VoiceSample {
   public final SampleReader reader = new SampleReader();
   public boolean active;
 
+  /**
+   * C SampleControls::interpolationMode == LINEAR (sample_controls.cpp:30-33): the per-source
+   * "lo-fi" interpolation choice forces the 2-tap linear path regardless of CPU direness.
+   */
+  public boolean linearInterpolation;
+
   /** Exclusive end frame in the play direction (forwards: end > start; reverse: end < start). */
   public int endFrame;
 
@@ -87,7 +93,8 @@ public class VoiceSample {
     boolean native_ = (phaseIncrement == K_MAX_SAMPLE_VALUE);
     int whichKernel = native_ ? 0 : Functions.getWhichKernel(phaseIncrement);
     // C: voice.cpp:2106 — resampling quality (sinc vs linear) per the cpuDireness fallback.
-    int interpolationBufferSize = Functions.getInterpolationBufferSize(phaseIncrement);
+    int interpolationBufferSize =
+        linearInterpolation ? 2 : Functions.getInterpolationBufferSize(phaseIncrement);
     long combinedIncrement =
         ((phaseIncrement & 0xFFFFFFFFL) * (timeStretchRatio & 0xFFFFFFFFL)) >>> 24; // C:614
 
@@ -346,7 +353,10 @@ public class VoiceSample {
     // render call), so compute once instead of per output chunk (getInterpolationBufferSize showed
     // up in the resampler profile because it ran in the inner loop).
     int whichKernel = native_ ? 0 : Functions.getWhichKernel(phaseIncrement);
-    int interpBufSize = native_ ? 0 : Functions.getInterpolationBufferSize(phaseIncrement);
+    int interpBufSize =
+        native_
+            ? 0
+            : (linearInterpolation ? 2 : Functions.getInterpolationBufferSize(phaseIncrement));
 
     int produced = 0;
     while (produced < numSamples) {

@@ -161,6 +161,9 @@ public class Sound extends GlobalEffectable {
   public final int[] sourceDx7EngineType = new int[2];
   public final int[] sourceDx7RandomDetune = new int[2];
 
+  /** C SampleControls.interpolationMode per source: true = 2-tap LINEAR ("lo-fi"). */
+  public final boolean[] sourceLinearInterpolation = new boolean[2];
+
   public volatile int[] globalSourceValues = new int[3];
 
   /**
@@ -1071,6 +1074,8 @@ public class Sound extends GlobalEffectable {
             // transpose.
             targetVoice.sources[s].zoneTranspose = zoneTranspose;
             targetVoice.sources[s].zoneCents = zoneCents;
+            // C SampleControls.interpolationMode — per-source lo-fi linear interpolation.
+            targetVoice.sources[s].voiceSample.linearInterpolation = sourceLinearInterpolation[s];
             boolean ts = sampleTimestretch[s] && !sampleReverse[s];
             int playDir = sampleReverse[s] ? -1 : 1;
             if (ts) {

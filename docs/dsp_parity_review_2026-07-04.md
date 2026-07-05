@@ -445,6 +445,28 @@ exactly on the 0.80 threshold). Applied:
 - Stutter moved to the C position: AFTER processFX (modFX → EQ → delay, sound.cpp:2589), so it
   chops the delayed/chorused signal.
 
-Still open: the remaining timestretch hop details (perc-cache beam refinement, hop deferral),
-per-source LINEAR interpolation mode, native↔resampled transition jump-back, and the master
-gain chain (blocked, §4.5).
+### Sixth pass (2026-07-05, later still)
+
+Scorecard stable (mean 0.760 / ≥0.90: 28 / <0.60: 24) — correct-by-construction paths again:
+
+- Note-on order + initial patching with cables (voice.cpp:117-206, patcher.cpp:275-339):
+  note/velocity/random/LFO/MPE source values and the 3 globals are set BEFORE
+  performInitialPatching, which now folds the real cables (no-cables pass, then the same
+  per-destination combine+finalize the per-block patching does); envelope noteOns run after,
+  reading cable-modulated attack/sustain finals. Velocity→attack presets now decide their first
+  block like the C. (PatcherModulationTest re-baselined: its "base" value assumed the old
+  cable-free initial patching.)
+- Pitch bend applies BEFORE the porta multiply (voice.cpp:830-856), so the 8388607 overflow
+  clamp sits on the C's side of the bend during glides.
+- Per-source LINEAR ("lo-fi") interpolation mode honored end-to-end (sample_controls.cpp:30-33):
+  the preset's linearInterpolation flag now forces the 2-tap path; the linear fallback's scale
+  fixed to match the sinc path (was +6 dB — C's int16 math lands at ~sample32>>1).
+- Native↔resampled transition jump-back (sample_low_level_reader.cpp:824-835): returning to
+  native compensates half the interpolation buffer minus the fractional lead — pitch modulation
+  crossing unity no longer drifts ~8 source frames per crossing.
+
+Still open: the remaining timestretch hop details (perc-cache beam refinement needs a
+percussiveness analysis the Java Sample doesn't compute; hop deferral is CPU staggering), the
+justCreated one-block render deferral (deliberately NOT ported: it would shift every note's
+onset one block vs the current test/reference alignment), per-preset bend ranges, and the
+master gain chain (blocked, §4.5).

@@ -207,11 +207,6 @@ public class Voice {
     this.velocity = velocity;
     this.active = true;
 
-    Patcher.performInitialPatching(sound, sourceValues, paramFinalValues);
-    for (int e = 0; e < envelopes.length; e++) {
-      sourceValues[PatchSource.ENVELOPE_0.ordinal() + e] = envelopes[e].noteOn(e, sound, this);
-    }
-
     // C: a freshly acquired voice randomizes all part phases (Voice::randomizeOscPhases,
     // voice.cpp:399-411, called from sound.cpp:1654); noteOn then pins any source/modulator with a
     // retrigger phase set (voice_unison_part_source.cpp:79-82, voice.cpp:319-327). The test
@@ -295,6 +290,16 @@ public class Voice {
       }
     }
 
+    // C voice.cpp:196-206 — globals copied, THEN initial patching (which folds the real cables
+    // using the note/velocity/random/LFO source values just set above), THEN the envelopes'
+    // noteOn — "we really need to render them *after* initial patching is performed" (their
+    // attack/sustain final values may be velocity/note-patched).
+    System.arraycopy(sound.globalSourceValues, 0, sourceValues, 0, 3);
+    Patcher.performInitialPatching(sound, sourceValues, paramFinalValues);
+    for (int e = 0; e < envelopes.length; e++) {
+      sourceValues[PatchSource.ENVELOPE_0.ordinal() + e] = envelopes[e].noteOn(e, sound, this);
+    }
+
     // Per-source DX7 init
     for (int u = 0; u < sound.numUnison; u++) {
       for (int s = 0; s < 2; s++) {
@@ -321,8 +326,8 @@ public class Voice {
    * overall pitch adjust by the decaying glide ratio and advance the envelope (speed from the
    * release-rate table of the UNPATCHED_PORTAMENTO knob). Must run exactly once per block.
    */
-  private int computeOverallPitchAdjust(int numSamples) {
-    int overallPitchAdjust = paramFinalValues[Param.LOCAL_PITCH_ADJUST];
+  private int computeOverallPitchAdjust(int numSamples, int basePitchAdjust) {
+    int overallPitchAdjust = basePitchAdjust;
     if (Integer.compareUnsigned(portaEnvelopePos, 8388608) < 0) {
       int envValue = Functions.getDecay4(portaEnvelopePos, 23);
       int pitchAdjustmentHere =
@@ -752,17 +757,18 @@ public class Voice {
       unisonParts[u].sources[1].phaseIncrementStoredValue = pIncB;
     }
 
-    // Portamento (voice.cpp:840-856): while the porta envelope runs, the overall pitch adjust is
-    // multiplied by the decaying glide ratio. Computed ONCE per block (the envelope advances
-    // here) and used by every pitch consumer below.
-    int overallPitchAdjustPorta = computeOverallPitchAdjust(numSamples);
-
-    // Pitch adjust via MIDI pitch bend and MPE
-    // default BEND_RANGE_MAIN = 2, BEND_RANGE_FINGER_LEVEL = 48
+    // C voice.cpp:830-841 — the pitch BEND applies to the base pitch adjust FIRST
+    // (default bend ranges: BEND_RANGE_MAIN = 2, BEND_RANGE_FINGER_LEVEL = 48)...
     long monophonicBend = (sound.monophonicExpressionValues[0] / 192L) * 2;
     long polyphonicBend = (localExpressionSourceValuesBeforeSmoothing[0] / 192L) * 48;
     int totalBendAmount = (int) (monophonicBend + polyphonicBend);
-    overallPitchAdjust = Functions.getExp(overallPitchAdjustPorta, totalBendAmount >> 1);
+    int bentPitchAdjust =
+        Functions.getExp(paramFinalValues[Param.LOCAL_PITCH_ADJUST], totalBendAmount >> 1);
+
+    // ...THEN portamento multiplies the bent value, with the 8388607 overflow clamp inside
+    // (voice.cpp:843-856). The previous order (porta first, bend second) put the clamp on the
+    // wrong side of the bend during glides.
+    overallPitchAdjust = computeOverallPitchAdjust(numSamples, bentPitchAdjust);
 
     // FM modulators
     if (sound.synthMode == 1) { // FM

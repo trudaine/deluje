@@ -352,14 +352,18 @@ public class Patcher {
   // ── performInitialPatching (patcher.cpp:275) ──
 
   /**
-   * Port of performInitialPatching. Runs patching for all params during voice init.
-   * (patcher.cpp:275-290)
+   * Port of performInitialPatching (patcher.cpp:275-339): every param is first computed as if
+   * unpatched, then the params that DO have cables are overwritten with the real cable combination
+   * (using the source values the caller set up beforehand — note, velocity, random, local LFOs,
+   * globals). The overwrite pass is the same per-destination combine+finalize the per-block
+   * performPatching does.
    */
   public static void performInitialPatching(
       Sound sound, int[] sourceValues, int[] paramFinalValues) {
     for (int p = 0; p < Param.kNumParams; p++) {
       recalculateFinalValueForParamWithNoCables(p, sound, sourceValues, paramFinalValues);
     }
+    performPatching(sound, sourceValues, sound.patchCableSet, paramFinalValues);
   }
 
   // ── getEnvStage (envelope rate dispatching) ──

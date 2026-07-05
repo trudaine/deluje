@@ -69,9 +69,6 @@ public class PatcherModulationTest {
     // Trigger noteOn
     voice.noteOn(60, 100);
 
-    // Check initial patched state (Initial patching resets to base knobs before render)
-    Patcher.performInitialPatching(sound, voice.sourceValues, voice.paramFinalValues);
-
     // Print cable count and sources to verify mapping
     System.out.println(
         "[TEST] Sound Patch Cable destinations count: " + sound.patchCableSet.destinations.size());
@@ -81,8 +78,13 @@ public class PatcherModulationTest {
           "[TEST] Dest Param ID: " + dest.paramId + " | cables size: " + dest.cables.size());
     }
 
-    // Dynamically capture the base uncabled parameter value
-    int baseVol = voice.paramFinalValues[Param.LOCAL_MODULATOR_0_VOLUME];
+    // The uncabled reference: initial patching now folds the real cables like the C
+    // (patcher.cpp:275-339), so paramFinalValues after noteOn already includes the envelope
+    // cable — compute the no-cables value explicitly instead.
+    int baseVol =
+        Patcher.computeFinalValueForParam(
+            Param.LOCAL_MODULATOR_0_VOLUME,
+            sound.patchedParamValues[Param.LOCAL_MODULATOR_0_VOLUME]);
     System.out.println("[TEST] Base modulator volume: " + baseVol);
     System.out.println(
         "[TEST] Envelope 1 initial source value: "
