@@ -426,6 +426,25 @@ correct-by-construction work on paths the single-note preset renders don't exerc
   absolute level — that's why removing the clamp regressed. It can only be removed together
   with the master gain-chain re-derivation.
 
-Still open: stutter chain position (dormant — no beginStutter caller), sample end-of-note sinc
-tail / stereo samples, remaining timestretch hop details (perc-cache beam refinement, hop
-deferral, end-of-heads voice unassign), and the master gain chain (blocked, §4.5).
+### Fifth pass (2026-07-05, later still)
+
+Mean 0.758 → 0.760, ≥0.90: 27 → 28, <0.60: 25 → 24 (median/≥0.80 wiggle is one preset sitting
+exactly on the 0.80 threshold). Applied:
+
+- Sample end-of-note: the resampled one-shot path now drains the interpolation buffer with
+  zeroes like the C's doZeroes (sample_low_level_reader.cpp:692-699) instead of deactivating
+  the moment the leading read position hits endFrame — restoring the last ~9 audible frames and
+  the windowed-sinc ring-out (was a click on samples ending at non-zero amplitude).
+- Stereo samples keep their stereo image (C voice_sample.cpp:594 renders stereo sources into a
+  stereo buffer): both the time-stretch and plain sample paths render interleaved stereo when
+  the source is stereo and mix L/R directly (with per-part pan under unison stereo spread),
+  instead of mono-summing.
+- Timestretch end-of-heads: a one-shot stretched sample whose two heads have both died now
+  deactivates (C voice_sample.cpp:1427-1430) instead of re-hopping and rendering silence
+  forever.
+- Stutter moved to the C position: AFTER processFX (modFX → EQ → delay, sound.cpp:2589), so it
+  chops the delayed/chorused signal.
+
+Still open: the remaining timestretch hop details (perc-cache beam refinement, hop deferral),
+per-source LINEAR interpolation mode, native↔resampled transition jump-back, and the master
+gain chain (blocked, §4.5).
