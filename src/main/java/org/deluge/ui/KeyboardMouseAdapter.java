@@ -21,6 +21,11 @@ class KeyboardMouseAdapter extends MouseAdapter {
 
   @Override
   public void mousePressed(MouseEvent e) {
+    double pct = (double) e.getY() / e.getComponent().getHeight();
+    int velocity = 127 - (int) (pct * 97); // 30 to 127
+    velocity = Math.max(1, Math.min(velocity, 127));
+    float velFloat = velocity / 127.0f;
+
     if (SwingGridPanel.lockArmedTrack == panel.editedModelTrack
         && SwingGridPanel.lockArmedStep != -1
         && panel.projectModel != null) {
@@ -29,6 +34,9 @@ class KeyboardMouseAdapter extends MouseAdapter {
         int engineRow = panel.baseTrackId + trkIndex;
         boolean st = panel.bridge.getStep(engineRow, SwingGridPanel.lockArmedStep);
         panel.bridge.setStep(engineRow, SwingGridPanel.lockArmedStep, !st);
+        if (panel.bridge != null) {
+          panel.bridge.setVelocity(engineRow, SwingGridPanel.lockArmedStep, velFloat);
+        }
 
         TrackModel tModel = panel.projectModel.getTracks().get(SwingGridPanel.lockArmedTrack);
         if (panel.activeClipId < tModel.getClips().size()) {
@@ -36,12 +44,12 @@ class KeyboardMouseAdapter extends MouseAdapter {
           cModel.setStep(
               trkIndex,
               SwingGridPanel.lockArmedStep,
-              new StepData(!st, 0.8f, 0.5f, 1.0f, 0, 1, 1.0f));
+              new StepData(!st, velFloat, 0.5f, 1.0f, 0, 1, 1.0f));
         }
         panel.fireProjectChanged();
       }
     }
-    panel.triggerKeyboardNote(note);
+    panel.triggerKeyboardNote(note, velocity);
   }
 
   @Override

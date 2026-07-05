@@ -119,7 +119,7 @@ rows, play-mode/direction menus (ping-pong/random).
 | Hardware (C cite) | Java (cite) | Status |
 |---|---|---|
 | 7 layouts: isomorphic, in-key, velocity-drums, piano, chord, chord-library, norns (`keyboard_screen.cpp:69-76`, `layout/*.cpp`) | KEYPLAY tab = isomorphic + in-key folded diatonic layouts (dynamically toggled via scaleModeEnabled); sequential drum grid; piano exists as a separate mouse widget; chord layouts fully coded but never instantiated | **FAITHFUL** (isomorphic & in-key) |
-| Velocity from sidebar velocity column / position in enlarged drum pad (`column_controls/velocity.cpp:67-84`, `velocity_drums.cpp:55-56`) | Hard-coded 127 everywhere (`SwingGridPanel.java:1695, 1761`) | MISSING |
+| Velocity from sidebar velocity column / position in enlarged drum pad (`column_controls/velocity.cpp:67-84`, `velocity_drums.cpp:55-56`) | Column 14 acts as a vertical trigger velocity touch strip in melodic keyboard mode. Mouse clicks on both melodic and drum pads calculate velocity dynamically from the click Y coordinate. | **FAITHFUL** (Y-coord & VEL strip) |
 | Aftertouch/MPE from surface; mod column sends CC74 (`keyboard_screen.cpp:299-301`, `mod.cpp:69-88`) | Column 15 acts as a vertical CC74 modulation touch strip in melodic keyboard mode, routing polyphonic slide timbre events directly to the active sound | **FAITHFUL** (CC74 strip) |
 | Root-note selection (SCALE-hold + pad / encoder) (`ks:168-185, 726-747`) | No UI path sets the root (only the XML parser) | MISSING |
 | Scale cycling (`ks:431-433, 555-561`) | `cycleScale()` over 12 scales (`SwingDelugeApp.java:3091-3110`) | PARTIAL |

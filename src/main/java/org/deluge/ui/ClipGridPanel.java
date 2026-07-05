@@ -1488,7 +1488,10 @@ public class ClipGridPanel extends SwingGridPanel {
                     new java.awt.event.MouseAdapter() {
                       @Override
                       public void mousePressed(java.awt.event.MouseEvent e) {
-                        triggerKeyboardDrum(drumIdx);
+                        double pct = (double) e.getY() / e.getComponent().getHeight();
+                        int velocity = 127 - (int) (pct * 97); // 30 to 127
+                        velocity = Math.max(1, Math.min(velocity, 127));
+                        triggerKeyboardDrum(drumIdx, velocity);
                         refresh();
                       }
 
@@ -1520,6 +1523,31 @@ public class ClipGridPanel extends SwingGridPanel {
                       int row = p.y / rowHeight;
                       row = Math.max(0, Math.min(row, 7));
                       updateCc74FromRow(row);
+                    }
+                  }
+                };
+                clipBtn.addMouseListener(ma);
+                clipBtn.addMouseMotionListener(ma);
+              } else if (colId == 14) {
+                // Velocity Column touch strip
+                clearActionListeners(clipBtn);
+                clearKeyboardMouseListeners(clipBtn);
+                clipBtn.setText(rowIdx == 0 ? "VEL" : (rowIdx == 7 ? String.valueOf(defaultKeyboardVelocity) : ""));
+                java.awt.event.MouseAdapter ma = new java.awt.event.MouseAdapter() {
+                  @Override
+                  public void mousePressed(java.awt.event.MouseEvent e) {
+                    updateVelocityFromRow(rowIdx);
+                  }
+
+                  @Override
+                  public void mouseDragged(java.awt.event.MouseEvent e) {
+                    Component comp = e.getComponent();
+                    if (comp instanceof JButton btn) {
+                      Point p = SwingUtilities.convertPoint(btn, e.getPoint(), voicePanel);
+                      int rowHeight = btn.getHeight() + 5;
+                      int row = p.y / rowHeight;
+                      row = Math.max(0, Math.min(row, 7));
+                      updateVelocityFromRow(row);
                     }
                   }
                 };
@@ -1579,6 +1607,12 @@ public class ClipGridPanel extends SwingGridPanel {
     refreshKeyplayInPlace();
   }
 
+  private void updateVelocityFromRow(int v) {
+    int velVal = (7 - v) * 127 / 7;
+    defaultKeyboardVelocity = velVal;
+    refreshKeyplayInPlace();
+  }
+
   private void refreshKeyplayInPlace() {
     boolean kitTrack = isEditedTrackKit();
     Color trackColor = getTrackBaseColor();
@@ -1625,6 +1659,22 @@ public class ClipGridPanel extends SwingGridPanel {
                 pad.setDrawCenterCircle(false);
               } else {
                 clipBtn.setBackground(ccColor);
+              }
+            } else if (c == 14) {
+              // Velocity Column touch strip
+              int padVelValue = (7 - v) * 127 / 7;
+              boolean active = padVelValue <= defaultKeyboardVelocity;
+              Color velColor = active ? new Color(0xff, 0x6f, 0x00) : new Color(0x4a, 0x24, 0x00);
+              clipBtn.setText(v == 0 ? "VEL" : (v == 7 ? String.valueOf(defaultKeyboardVelocity) : ""));
+              clipBtn.setForeground(Color.WHITE);
+              if (clipBtn instanceof DelugePadButton pad) {
+                pad.setBaseColor(velColor);
+                pad.setActive(active);
+                pad.setApplicable(true);
+                pad.setIntensity(active ? 1.0f : 0.3f);
+                pad.setDrawCenterCircle(false);
+              } else {
+                clipBtn.setBackground(velColor);
               }
             } else {
               int note = org.deluge.model.KeyplayKeyboard.getNote(v, c, scaleModeEnabled, projectModel.getKey(), projectModel.getScale());

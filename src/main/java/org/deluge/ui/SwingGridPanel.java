@@ -75,6 +75,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
 
   boolean foldMode = false;
   boolean scaleModeEnabled = true; // default to true (diatonic scale mode) like the real Deluge!
+  int defaultKeyboardVelocity = 127;
   final java.util.List<Integer> foldedPitches = new java.util.ArrayList<>();
 
   public boolean isScaleModeEnabled() {
@@ -1729,6 +1730,10 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   void triggerKeyboardNote(int note) {
+    triggerKeyboardNote(note, 127);
+  }
+
+  void triggerKeyboardNote(int note, int velocity) {
     if (isLiveRecordModeActive
         && currentPlayheadStep >= 0
         && bridge.getGlobalInt(BridgeContract.G_PLAY) == 1L) {
@@ -1741,11 +1746,12 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
             int activeClipIdx = synthTrack.getActiveClipIndex();
             if (activeClipIdx >= 0 && activeClipIdx < synthTrack.getClips().size()) {
               org.deluge.model.ClipModel clip = synthTrack.getClips().get(activeClipIdx);
-              clip.setStep(modelRow, col, org.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, 0));
+              float velFloat = velocity / 127.0f;
+              clip.setStep(modelRow, col, org.deluge.model.StepData.of(true, velFloat, 1.0f, 1.0f, 0));
               int engineRow = baseTrackId + modelRow;
               if (bridge != null) {
                 bridge.setStep(engineRow, col, true);
-                bridge.setVelocity(engineRow, col, 1.0f);
+                bridge.setVelocity(engineRow, col, velFloat);
               }
               SwingUtilities.invokeLater(() -> refresh());
             }
@@ -1760,12 +1766,12 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
         if (editedModelTrack < fwEngine.sounds.size()) {
           org.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
           if (sound instanceof org.deluge.engine.FirmwareSound synth) {
-            synth.triggerNote(note, 127);
+            synth.triggerNote(note, velocity);
             return;
           } else if (sound instanceof org.deluge.engine.FirmwareKit kit) {
             if (!kit.drumSounds.isEmpty()) {
               int drumIdx = note % kit.drumSounds.size();
-              kit.triggerDrum(drumIdx, 127);
+              kit.triggerDrum(drumIdx, velocity);
             }
             return;
           }
@@ -1820,13 +1826,17 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
    * velocity-drums grid layout rather than the instrument-only isomorphic note layout).
    */
   void triggerKeyboardDrum(int drumIdx) {
+    triggerKeyboardDrum(drumIdx, 127);
+  }
+
+  void triggerKeyboardDrum(int drumIdx, int velocity) {
     try {
       Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine
           && editedModelTrack < fwEngine.sounds.size()
           && fwEngine.sounds.get(editedModelTrack) instanceof org.deluge.engine.FirmwareKit kit) {
         if (drumIdx >= 0 && drumIdx < kit.drumSounds.size()) {
-          kit.triggerDrum(drumIdx, 127);
+          kit.triggerDrum(drumIdx, velocity);
         }
       }
     } catch (Exception ex) {
