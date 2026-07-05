@@ -270,6 +270,7 @@ class ShiftClickController {
               valueLabel.setText(String.format("%.2f s", port));
               break;
           }
+          controller.parent.applyTrackModelToLiveSound(genericTrack);
           controller.projectChangedCallback.run();
         });
 

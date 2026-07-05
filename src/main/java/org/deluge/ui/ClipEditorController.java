@@ -1361,6 +1361,7 @@ public class ClipEditorController {
       SwingDelugeApp.mainInstance.updateHardwareLedDisplay(code, valStr);
     }
 
+    parent.applyTrackModelToLiveSound(genericTrack);
     projectChangedCallback.run();
     refreshCallback.run();
   }
