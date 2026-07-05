@@ -1,6 +1,6 @@
 # Firmware Sync Audit — DelugeFirmware (last 3 weeks) vs. the Java port
 
-**Date:** 2026-07-04 · **Upstream range:** ~55 commits from mid-June 2026 to 2026-07-04 on
+**Date:** 2026-07-04 (re-verified 2026-07-05: upstream tip unchanged at `9456095b`; two DSP-adjacent commits in the pulled range not previously named — #4538, #4576 — verified below) · **Upstream range:** ~55 commits from mid-June 2026 to 2026-07-04 on
 `../DelugeFirmware` (community `main`).
 
 This audit reviews recent Synthstrom **DelugeFirmware** C/C++ commits and checks, for each one that
@@ -45,6 +45,20 @@ Landed via `765579fd` ("Port community C++ firmware bug fixes"), verified presen
 
   Java's GC, bounds-checked arrays, its own `jdk.incubator.vector` gather, and correctly-written
   fixed-point ops immunize the port against this whole class of C bug.
+- **Stereo unison live-input (#4538, `95fad73b`) — re-verified 2026-07-05.** The C bug: with
+  unison stereo spread, a MONO live-input / live-pitch-shifter render wrote directly into the
+  interleaved stereo `oscBuffer` as if it were mono → noise; the fix renders to a temp mono
+  buffer and pans per part (`multiply_32x32_rshift32(sample, amplitudeL/R) << 2`,
+  voice.cpp:2271-2350). The Java architecture never had this bug: the INPUT branch in
+  [`Voice.renderSubtractivePath`](../src/main/java/org/deluge/firmware2/Voice.java) always
+  renders each unison part into the mono `tempBuf` and the shared mix step applies exactly that
+  per-part pan into the interleaved buffer when `stereoUnison`. (Residual nuance, noted in
+  `docs/dsp_parity_review_2026-07-04.md`: a STEREO live shifter is condensed to mono in Java
+  where the fixed C renders it stereo — live-monitoring edge case only.)
+- **Tempo-automation float interpolation (#4576, `6f7cae0b`) — re-verified 2026-07-05.** Entirely
+  inside `auto_param.cpp` interpolation increments; same category as #4540/#4593/#4615 (§4): our
+  automation is a simpler float model that doesn't port `auto_param.cpp`, so there is nothing to
+  apply.
 
 ## 3. Not applicable to a pure-Java Swing port
 
