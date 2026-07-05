@@ -411,6 +411,27 @@ public class GridContextMenuFactory {
 
     menu.addSeparator();
 
+    // ── Assign Section submenu ──
+    JMenu assignSectionMenu = new JMenu("Assign Section");
+    char currentSec = (char) clip.getSection();
+    ButtonGroup secGroup = new ButtonGroup();
+    for (char cSec = 'A'; cSec <= 'H'; cSec++) {
+      final char secChar = cSec;
+      JRadioButtonMenuItem secItem =
+          new JRadioButtonMenuItem(String.valueOf(secChar), currentSec == secChar);
+      secItem.addActionListener(
+          e -> {
+            clip.setSection(secChar);
+            panel.fireProjectChanged();
+            panel.refresh();
+          });
+      secGroup.add(secItem);
+      assignSectionMenu.add(secItem);
+    }
+    menu.add(assignSectionMenu);
+
+    menu.addSeparator();
+
     // ── Play Mode submenu ──
     JMenu playModeMenu = new JMenu("Play Mode");
     ClipModel.PlayMode currentMode = clip.getPlayMode();
@@ -494,6 +515,7 @@ public class GridContextMenuFactory {
 
     menu.add(playDirMenu);
 
+    stylePopupMenu(menu);
     menu.show(src, x, y);
   }
 

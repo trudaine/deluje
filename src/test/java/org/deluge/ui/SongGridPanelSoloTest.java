@@ -8,6 +8,7 @@ import org.deluge.BridgeContract;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.TrackModel;
 import org.deluge.model.SynthTrackModel;
+import org.deluge.model.ClipModel;
 import org.junit.jupiter.api.Test;
 
 public class SongGridPanelSoloTest {
@@ -204,6 +205,30 @@ public class SongGridPanelSoloTest {
     assertEquals(1, panel.editedModelTrack);
 
     SwingGridPanel.isLiveRecordModeActive = false;
+    bridge.shutdown();
+  }
+
+  @Test
+  public void testClipSectionAssignment() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+    ProjectModel project = new ProjectModel();
+
+    TrackModel track0 = new SynthTrackModel("T0");
+    ClipModel clip = new org.deluge.model.ClipModel("C1", 8, 16);
+    clip.setSection('A');
+    track0.addClip(clip);
+    project.addTrack(track0);
+
+    SongGridPanel panel = new SongGridPanel(bridge);
+    panel.setProjectModel(project);
+
+    assertEquals('A', clip.getSection());
+
+    clip.setSection('B');
+    panel.refresh();
+    assertEquals('B', clip.getSection());
+
     bridge.shutdown();
   }
 
