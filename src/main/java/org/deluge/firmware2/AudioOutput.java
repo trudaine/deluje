@@ -47,6 +47,7 @@ public class AudioOutput extends GlobalEffectable {
   // level is insensitive to this beyond ~1<<27), so this is just a sane working level. Wiring the
   // per-track volume param into this is a later-phase refinement.
   private int amplitude = 1 << 27;
+  private final int[] ampArray = new int[1];
 
   // Phase 3b — loop at the clip's musical length (samples) rather than the whole sample. 0 = whole
   // sample. Computed from the clip's tick-length at the song tempo in createAudioSound.
@@ -193,12 +194,12 @@ public class AudioOutput extends GlobalEffectable {
     }
     // buffer is interleaved stereo (LRLR), pre-zeroed by GlobalEffectable.renderOutput; VoiceSample
     // accumulates into it. phaseIncrement==unity → native; otherwise resampled (pitch).
-    int[] amp = {amplitude};
+    ampArray[0] = amplitude;
     if (timeStretch) {
       voiceSample.renderTimeStretched(
-          buffer, numSamples, 2, phaseIncrement, timeStretchRatio, amp, 0);
+          buffer, numSamples, 2, phaseIncrement, timeStretchRatio, ampArray, 0);
     } else {
-      voiceSample.render(buffer, numSamples, 2, phaseIncrement, amp, 0);
+      voiceSample.render(buffer, numSamples, 2, phaseIncrement, ampArray, 0);
     }
   }
 }

@@ -51,15 +51,7 @@ public class MidiEngine {
   private final MidiCable[] cables = new MidiCable[MAX_CABLES];
 
   // --- Event stack (loop detection) ---
-  private static class EventStackEntry {
-    final Object source;
-
-    EventStackEntry(Object source) {
-      this.source = source;
-    }
-  }
-
-  private final EventStackEntry[] eventStack = new EventStackEntry[EVENT_STACK_SIZE];
+  private final Object[] eventStack = new Object[EVENT_STACK_SIZE];
   private int eventStackDepth = 0;
 
   // --- MIDI Follow ---
@@ -134,7 +126,7 @@ public class MidiEngine {
    */
   public boolean containsSource(Object source) {
     for (int i = 0; i < eventStackDepth; i++) {
-      if (eventStack[i].source == source) return true;
+      if (eventStack[i] == source) return true;
     }
     return false;
   }
@@ -142,7 +134,7 @@ public class MidiEngine {
   /** Push a source onto the event stack. */
   public void pushSource(Object source) {
     if (eventStackDepth < EVENT_STACK_SIZE) {
-      eventStack[eventStackDepth++] = new EventStackEntry(source);
+      eventStack[eventStackDepth++] = source;
     }
   }
 
