@@ -59,6 +59,7 @@ public class Delay {
 
   int countCyclesWithoutChange;
   int userRateLastTime;
+  private int[][] workingBuf = new int[0][0];
 
   /** C: delay.h:65 */
   public boolean pingPong = true;
@@ -328,7 +329,16 @@ public class Delay {
     boolean wrapped = false; // C:271
 
     // C:273 — working buffer (spareRenderingBuffer)
-    int[][] workingBuf = new int[numSamples][2]; // [l, r] per sample
+    // Prepare workingBuf scratch space
+    if (this.workingBuf.length < numSamples) {
+      int[][] next = new int[numSamples][2];
+      System.arraycopy(this.workingBuf, 0, next, 0, this.workingBuf.length);
+      for (int i = this.workingBuf.length; i < numSamples; i++) {
+        next[i] = new int[2];
+      }
+      this.workingBuf = next;
+    }
+    int[][] workingBuf = this.workingBuf;
     int primaryBufferOldLongPos = 0;
     int primaryBufferOldLastShortPos = 0;
 
@@ -609,6 +619,7 @@ public class Delay {
     int divideByRate; // C:292
     int rateMultiple; // C:293
     int writeSizeAdjustment; // C:294
+    private final int[] strength = new int[4];
 
     DelayBuffer() {
       discard();
@@ -887,7 +898,6 @@ public class Delay {
         int writeIdx = currentIdx - DELAY_SPACE_BETWEEN_READ_AND_WRITE + 2;
         while (writeIdx < 0) writeIdx += sizeIncludingExtra;
 
-        int[] strength = new int[4];
         strength[1] = strength1 + rateMultiple - 65536; // C:236
         strength[2] = strength2 + rateMultiple - 65536; // C:237
         strength[0] = strength[1] - 65536; // C:240

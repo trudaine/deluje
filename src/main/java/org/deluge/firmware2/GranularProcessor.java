@@ -50,6 +50,7 @@ public class GranularProcessor {
   // C:91-92 — output LPFs (12kHz one-pole)
   final BasicFilterComponent lpfL = new BasicFilterComponent();
   final BasicFilterComponent lpfR = new BasicFilterComponent();
+  private final int[] scratchWet = new int[2];
 
   // ── Constructor (GranularProcessor.cpp:287-304) ──
 
@@ -97,7 +98,8 @@ public class GranularProcessor {
       setupGrainFX(rate, mix, density, pitchRand, postFXVolume);
 
       for (int i = 0; i < numSamples; i++) {
-        int[] grainWet = processOneGrainSample(buffer[i]);
+        processOneGrainSample(buffer[i], scratchWet);
+        int[] grainWet = scratchWet;
 
         // C:64-65 — apply grain volume
         int wetL = Functions.multiply_32x32_rshift32(grainWet[0], grainVol);
@@ -177,7 +179,7 @@ public class GranularProcessor {
 
   // ── processOneGrainSample (GranularProcessor.cpp:128-174) ──
 
-  int[] processOneGrainSample(int[] currentSample) {
+  void processOneGrainSample(int[] currentSample, int[] out) {
     if (bufferWriteIndex >= K_MOD_FX_GRAIN_BUFFER_SIZE) {
       bufferWriteIndex = 0;
       wrapsToShutdown--;
@@ -241,7 +243,8 @@ public class GranularProcessor {
             currentSample[1], grainsR, grainFeedbackVol);
 
     bufferWriteIndex++; // C:172
-    return new int[] {grainsL, grainsR};
+    out[0] = grainsL;
+    out[1] = grainsR;
   }
 
   // ── setupGrainsIfNeeded (GranularProcessor.cpp:175-277) ──

@@ -53,6 +53,7 @@ public class Reverb {
     float[] f = new float[2];
     float[] y0 = {0, 0}, y1 = {0, 0};
     float[] iir = new float[2], amp = new float[2];
+    float val0, val1;
 
     LFO(float f1, float f2) {
       f[0] = f1;
@@ -79,21 +80,28 @@ public class Reverb {
       System.arraycopy(amp, 0, y0, 0, 2);
       y1[0] = 0.5f;
       y1[1] = 0.5f;
+      val0 = y0[0] + 0.5f;
+      val1 = y0[1] + 0.5f;
     }
 
     /** C:50 */
     float[] values() {
-      return new float[] {y0[0] + 0.5f, y0[1] + 0.5f};
+      return new float[] {val0, val1};
+    }
+
+    float value(int idx) {
+      return idx == 0 ? val0 : val1;
     }
 
     /** C:52-57 */
-    float[] next() {
+    void next() {
       float t0 = y1[0], t1 = y1[1];
       y1[0] = iir[0] * y1[0] - y0[0];
       y1[1] = iir[1] * y1[1] - y0[1];
       y0[0] = t0;
       y0[1] = t1;
-      return new float[] {t0 + 0.5f, t1 + 0.5f};
+      val0 = t0 + 0.5f;
+      val1 = t1 + 0.5f;
     }
 
     void setFreq(int i, float v) {
@@ -146,7 +154,7 @@ public class Reverb {
     /** C:55-69 — LFO access */
     float lfoVal(int idx) {
       if ((writePtr & 31) == 0) lfo.next();
-      return lfo.values()[idx];
+      return lfo.value(idx);
     }
   }
 
