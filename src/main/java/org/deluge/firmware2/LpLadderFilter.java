@@ -302,12 +302,13 @@ public class LpLadderFilter extends Filter {
     int noisy_m =
         moveability + Functions.multiply_32x32_rshift32(moveability, state.noiseLastValue);
 
+    // C lpladder.cpp:390
     int feedbacksSum =
         (state.lpfLPF1.getFeedbackOutputWithoutLshift(lpf1Feedback)
-            + state.lpfLPF2.getFeedbackOutputWithoutLshift(lpf2Feedback)
-            + state.lpfLPF3.getFeedbackOutputWithoutLshift(lpf3Feedback)
-            + state.lpfLPF4.getFeedbackOutputWithoutLshift(divideBy1PlusTannedFrequency));
-    feedbacksSum = Functions.lshiftAndSaturate(feedbacksSum, 2);
+                + state.lpfLPF2.getFeedbackOutputWithoutLshift(lpf2Feedback)
+                + state.lpfLPF3.getFeedbackOutputWithoutLshift(lpf3Feedback)
+                + state.lpfLPF4.getFeedbackOutputWithoutLshift(divideBy1PlusTannedFrequency))
+            << 2;
 
     feedbacksSum = Functions.getTanHUnknown(feedbacksSum, 7);
     int x = scaleInput(input, feedbacksSum);
@@ -315,7 +316,8 @@ public class LpLadderFilter extends Filter {
     int a = state.lpfLPF1.doFilter(x, noisy_m);
     int b = state.lpfLPF2.doFilter(a, noisy_m);
     int c = state.lpfLPF3.doFilter(b, noisy_m);
-    int d = Functions.lshiftAndSaturate(state.lpfLPF4.doFilter(c, noisy_m), 1);
+    // C lpladder.cpp:408
+    int d = state.lpfLPF4.doFilter(c, noisy_m) << 1;
     return d;
   }
 }
