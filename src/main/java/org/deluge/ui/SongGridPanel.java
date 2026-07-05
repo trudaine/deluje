@@ -501,6 +501,10 @@ public class SongGridPanel extends SwingGridPanel {
                                         ? 8
                                         : songTrack.getClips().get(0).getRowCount(),
                                     16));
+                            editedModelTrack = trkIdx;
+                            if (SwingDelugeApp.mainInstance != null) {
+                              SwingDelugeApp.mainInstance.refreshTrackInspector();
+                            }
                             fireProjectChanged();
                           }
                         } else {
@@ -509,6 +513,10 @@ public class SongGridPanel extends SwingGridPanel {
                               SwingDelugeApp.mainInstance.switchToTrackEdit(trkIdx, clipCol);
                             }
                           } else {
+                            editedModelTrack = trkIdx;
+                            if (SwingDelugeApp.mainInstance != null) {
+                              SwingDelugeApp.mainInstance.refreshTrackInspector();
+                            }
                             if (e.isShiftDown()) {
                               // Instant launch
                               songTrack.setActiveClipIndex(clipCol);
@@ -704,6 +712,9 @@ public class SongGridPanel extends SwingGridPanel {
             }
           } else if (isMuteColumn(c)) {
             Color statusBg = sessionStatusColour(isMuted, soloedTracks.contains(modelRow), !soloedTracks.isEmpty());
+            if (isLiveRecordModeActive && modelRow == editedModelTrack) {
+              statusBg = launchBlinkOn ? Color.RED : Color.BLACK;
+            }
             // Armed for launch (queued for the next bar boundary): fast-blink the pad, matching the
             // hardware's blinking "launch" pad, until the queue is consumed.
             boolean armed = bridge != null && bridge.getLaunchQueue(engineRow) >= 0;
@@ -719,9 +730,11 @@ public class SongGridPanel extends SwingGridPanel {
               pad.setActive(true);
             }
             clipBtn.setToolTipText(
-                armed
-                    ? "Armed — launches at the next bar"
-                    : (isMuted ? "Muted — click to unmute" : "Mute track"));
+                isLiveRecordModeActive && modelRow == editedModelTrack
+                    ? "Recording active track"
+                    : (armed
+                        ? "Armed — launches at the next bar"
+                        : (isMuted ? "Muted — click to unmute" : "Mute track")));
           } else if (isSoloColumn(c)) {
             // Deluge section square (session_view.cpp drawSectionSquare): the clip's section
             // colour,
@@ -742,11 +755,19 @@ public class SongGridPanel extends SwingGridPanel {
               labelBg = Color.BLACK;
               labelFg = Color.GRAY;
             }
+            if (isLiveRecordModeActive && modelRow == editedModelTrack) {
+              labelBg = Color.RED;
+              labelFg = Color.WHITE;
+            }
             clipBtn.setBackground(labelBg);
             clipBtn.setForeground(labelFg);
 
             String nName = tracks.get(modelRow).getName();
-            clipBtn.setText(nName);
+            if (isLiveRecordModeActive && modelRow == editedModelTrack) {
+              clipBtn.setText("● REC");
+            } else {
+              clipBtn.setText(nName);
+            }
 
             if (clipBtn instanceof DelugePadButton pad) {
               pad.setBaseColor(labelBg);

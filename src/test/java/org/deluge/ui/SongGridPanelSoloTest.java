@@ -169,6 +169,44 @@ public class SongGridPanelSoloTest {
     bridge.shutdown();
   }
 
+  @Test
+  public void testRecordingIndicatorsAndSelection() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+    ProjectModel project = new ProjectModel();
+
+    TrackModel track0 = new SynthTrackModel("T0");
+    track0.addClip(new org.deluge.model.ClipModel("C1", 8, 16));
+    project.addTrack(track0);
+
+    TrackModel track1 = new SynthTrackModel("T1");
+    track1.addClip(new org.deluge.model.ClipModel("C2", 8, 16));
+    project.addTrack(track1);
+
+    SongGridPanel panel = new SongGridPanel(bridge);
+    panel.setProjectModel(project);
+
+    assertFalse(SwingGridPanel.isLiveRecordModeActive);
+    assertEquals(0, panel.editedModelTrack);
+
+    SwingGridPanel.isLiveRecordModeActive = true;
+    panel.refresh();
+
+    JButton clipPadT1 = panel.pads[0][0]; // Visual row 0 is track 1 (since songRowIndex(0) = 1 in SONG mode)
+    assertNotNull(clipPadT1);
+
+    java.awt.event.MouseEvent normalClick = new java.awt.event.MouseEvent(
+        clipPadT1, java.awt.event.MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(), 0, 0, 0, 1, false, java.awt.event.MouseEvent.BUTTON1);
+    for (java.awt.event.MouseListener ml : clipPadT1.getMouseListeners()) {
+      ml.mousePressed(normalClick);
+    }
+
+    assertEquals(1, panel.editedModelTrack);
+
+    SwingGridPanel.isLiveRecordModeActive = false;
+    bridge.shutdown();
+  }
+
   private JButton getSoloButton(SongGridPanel panel, int trackIdx) {
     int col = panel.columnCount - 1; // Solo column is the last column
     for (int r = 0; r < panel.gridMode.rows; r++) {
