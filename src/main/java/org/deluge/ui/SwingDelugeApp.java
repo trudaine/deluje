@@ -114,6 +114,28 @@ public class SwingDelugeApp extends JFrame {
     syncCoordinator.pushModelToBridge();
   }
 
+  public void applyTrackModelToLiveSound(org.deluge.model.TrackModel track) {
+    if (currentProject != null && track != null) {
+      int idx = currentProject.getTracks().indexOf(track);
+      if (idx >= 0) {
+        try {
+          Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+          if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine
+              && idx < engine.sounds.size()) {
+            org.deluge.firmware2.GlobalEffectable ge = engine.sounds.get(idx);
+            if (track instanceof org.deluge.model.SynthTrackModel st && ge instanceof org.deluge.engine.FirmwareSound fs) {
+              org.deluge.engine.FirmwareFactory.applyModelToLiveSound(st, fs);
+            } else if (track instanceof org.deluge.model.KitTrackModel kt && ge instanceof org.deluge.engine.FirmwareKit fk) {
+              org.deluge.engine.FirmwareFactory.applyModelToLiveSound(kt, fk);
+            }
+          }
+        } catch (Exception ignored) {
+          // Engine not running (e.g. tests)
+        }
+      }
+    }
+  }
+
   org.deluge.engine.PureFirmwareEngine pureEngine;
   org.deluge.ui.ArrangerPlaybackScheduler arrangerScheduler;
 
@@ -690,6 +712,11 @@ public class SwingDelugeApp extends JFrame {
       default -> stack.undo();
     }
     pushModelToBridge();
+    if (currentProject != null) {
+      for (org.deluge.model.TrackModel tm : currentProject.getTracks()) {
+        applyTrackModelToLiveSound(tm);
+      }
+    }
     // A synth randomize swaps the whole sound; like a preset swap, the DSP engine must rebuild.
     if (action instanceof Consequence.SynthRandomizeConsequence) {
       syncHighFidelityEngine(currentProject, true);
@@ -718,6 +745,11 @@ public class SwingDelugeApp extends JFrame {
       default -> stack.redo();
     }
     pushModelToBridge();
+    if (currentProject != null) {
+      for (org.deluge.model.TrackModel tm : currentProject.getTracks()) {
+        applyTrackModelToLiveSound(tm);
+      }
+    }
     if (action instanceof Consequence.SynthRandomizeConsequence) {
       syncHighFidelityEngine(currentProject, true);
     }

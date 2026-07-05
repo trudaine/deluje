@@ -1395,4 +1395,66 @@ public class SwingDelugeAppE2ETest {
       bridge.shutdown();
     }
   }
+
+  @Test
+  public void testUndoRedoLiveApplyParameters() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract(44100, 2);
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
+
+    try {
+      ProjectModel project = app.getCurrentProject();
+      project.getTracks().clear();
+
+      org.deluge.model.SynthTrackModel track = new org.deluge.model.SynthTrackModel("UndoRedoTest");
+      track.setLpfFreq(20000.0f);
+      project.addTrack(track);
+
+      app.propagateCurrentModel();
+      app.syncHighFidelityEngine(project);
+
+      org.deluge.engine.FirmwareAudioEngine engine =
+          (org.deluge.engine.FirmwareAudioEngine) bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      org.deluge.engine.FirmwareSound sound = (org.deluge.engine.FirmwareSound) engine.sounds.get(0);
+
+      // Verify initial LPF state
+      int initialLpfKnob = sound.paramKnobs[org.deluge.firmware2.Param.LOCAL_LPF_FREQ];
+
+      // 1. Simulate change (like a knob turn)
+      float oldVal = 20000.0f;
+      float newVal = 500.0f;
+      track.setLpfFreq(newVal);
+      org.deluge.engine.FirmwareFactory.applyModelToLiveSound(track, sound);
+
+      // Record this consequence in the undo stack
+      project.getUndoRedoStack().push(
+          new org.deluge.model.Consequence.SynthParamConsequence(
+              project, 0, "goldLpfCutoff", oldVal, newVal, System.currentTimeMillis()));
+
+      int modifiedLpfKnob = sound.paramKnobs[org.deluge.firmware2.Param.LOCAL_LPF_FREQ];
+      assertTrue(modifiedLpfKnob < initialLpfKnob, "LPF knob value should drop after applying new value");
+
+      // 2. Perform Undo via SwingDelugeApp
+      app.doUndo();
+
+      // Model should be restored
+      assertEquals(oldVal, track.getLpfFreq(), 1e-3f, "Track LPF cutoff should be restored to 20kHz");
+
+      // Live sound paramKnobs should be updated instantly!
+      int restoredLpfKnob = sound.paramKnobs[org.deluge.firmware2.Param.LOCAL_LPF_FREQ];
+      assertEquals(initialLpfKnob, restoredLpfKnob, "LPF knob value on live sound should be restored to initial state after undo");
+
+      // 3. Perform Redo
+      app.doRedo();
+
+      assertEquals(newVal, track.getLpfFreq(), 1e-3f, "Track LPF cutoff should be redone to 500Hz");
+      int redoneLpfKnob = sound.paramKnobs[org.deluge.firmware2.Param.LOCAL_LPF_FREQ];
+      assertEquals(modifiedLpfKnob, redoneLpfKnob, "LPF knob value on live sound should match the modified state after redo");
+
+    } finally {
+      app.dispose();
+      bridge.shutdown();
+    }
+  }
 }
+
