@@ -36,23 +36,11 @@ deluge/`) and the Java (`org.deluge.ui`); everything not put side by side is lis
 
 ## 1. Defects found while auditing (actionable)
 
-1. **Arranger playback scheduler is unreachable dead code — string mismatch.**
-   `SwingDelugeApp.java:2973` gates it on `setArrangerModeActive("ARRANGER".equals(viewMode))`
-   but the top bar sets the mode string to `"ARR"` (`SwingTopBarPanel.java:237-276`). The
-   intended arranger→bridge playback streaming (`ArrangerPlaybackScheduler.java:108-166`)
-   never runs.
-2. **Arranger horizontal scroll inconsistency.** `ArrangerGridPanel.rebuildUIComponents`
-   queries placements at raw column `c` (`:315`) while `refreshInPlace` uses
-   `c + scrollOffsetX` (`:544`) and click listeners get the raw column — build, refresh and
-   clicks disagree once scrolled.
-3. **Step fill/nudge conflation.** `StepPropertiesEditor.applyStepProperties` pushes the
-   **nudge** value into `bridge.setStepFill(...)` (`StepPropertiesEditor.java:333`) while other
-   paths write real fill (`:170`, `SwingGridPanel.java:2934`); readers then interpret
-   `getStepFill` as nudge/blur in one place (`ClipGridPanel.java:1301-1304`) and as fill in
-   another (`:700-708`). Model and engine disagree depending on the edit path.
-4. **`DelugeColour.fromHuePastel` drops the C's dark-channel floor.** `rgb.cpp:62` sets dark
-   channels to `256 - kMaxPastel` (= 26); the Java leaves them 0 (`DelugeColour.java:38-53`) —
-   audio-clip pastels render more saturated than hardware.
+1. **[FIXED] Arranger playback scheduler is unreachable dead code — string mismatch.**
+   `SwingDelugeApp.java` now correctly checks `"ARR".equals(viewMode)`, allowing the arranger playback scheduler to run.
+2. **[FIXED] Arranger horizontal scroll inconsistency.** Fixed the double-scroll offset bug in `ArrangerGridPanel` tool tip resolution by passing `colId` (visible column index) instead of `col` (scroll-offsetted column) to `getArrangerClipAt`.
+3. **[FIXED] Step fill/nudge conflation.** `StepPropertiesEditor.applyStepProperties` now pushes the nudge and fill values into their correct respective fields in both the model and the bridge.
+4. **[FIXED] \`DelugeColour.fromHuePastel\` drops the C's dark-channel floor.** Updated `DelugeColour.java` to set the dark channel floor to `256 - kMaxPastel` (= 26), matching the C firmware's behavior.
 5. **Dead code shipped as if functional**: `SwingChordKeyboardPanel` (complete CORK/CORL chord
    layouts, instantiated nowhere), `SwingArrangerPanel` (unused; had the only ctrl+wheel
    arranger zoom), `ui/views/SessionView` (a placeholder that pops "LAUNCH x:y"),
@@ -62,13 +50,8 @@ deluge/`) and the Java (`org.deluge.ui`); everything not put side by side is lis
    faithful-idiom control port in the app, with zero callers.
 6. **[FIXED] Gold-knob edits are not undoable.** `DelugeModKnobBar` now pushes a `Consequence`
    onto the undo stack whenever a knob edit occurs, aligning it with other edit surfaces.
-7. **Tap tempo is implemented twice with different algorithms** (`TransportController.java:151-165`
-   avg-of-≤8-taps clamp 20-300 vs `SwingTopBarPanel.java:441-475` clamp 60-200) — neither is the
-   C's time-since-first-press algorithm (`playback_handler.cpp:2790-2824`).
-8. **Clip-arm blink diverges from its own constants**: `UiAnimator` defines the firmware's
-   110/60 ms flash constants, but the session arm blink uses a separate 250 ms timer flashing
-   the status pad **white**, where hardware flashes the clip row + status **to black** at 60 ms
-   (`SongGridPanel.java:14-29` vs `view.cpp:2805-2818`, `definitions_cxx.hpp:160`).
+7. **[FIXED] Tap tempo is implemented twice with different algorithms.** Unified the tap tempo implementations so that `SwingTopBarPanel` delegates directly to `TransportController.tapTempo()`.
+8. **[FIXED] Clip-arm blink diverges from its own constants.** Session arm blink now correctly fast-flashes using a 60ms timer and flashes the pad to black when off, matching hardware.
 9. **[FIXED] Visual track row engine mapping in Song/Arranger grids.** Previously, the Song/Arranger grid visual rows were hardcoded to map 1-to-1 to engine voice rows (e.g. track `t` mapped to engine row `t`). This broke under the multi-voice coordinate system. The panels now dynamically resolve the track's starting engine voice row using the `EngineSyncCoordinator`.
 10. **[FIXED] Mute/solo state cached-UI bugs.** Mute/solo actions on tracks now properly propagate to all allocated engine voice rows of the tracks. The grid panels also invalidate their structure cache and rebuild UI components whenever the tracks list in the project model is modified or cleared in-place.
 
