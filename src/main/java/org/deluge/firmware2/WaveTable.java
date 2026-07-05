@@ -20,6 +20,14 @@ public class WaveTable {
   public int waveIndexMultiplier;
   public List<WaveTableBand> bands = new ArrayList<>();
 
+  private static class WaveTableScratch {
+    final int[] interpolatedKernel = new int[16];
+    final int[] vals = new int[2];
+  }
+
+  private static final ThreadLocal<WaveTableScratch> scratchHolder =
+      ThreadLocal.withInitial(WaveTableScratch::new);
+
   public void setup(int rawFileCycleSize, int totalSamples) {
     if (rawFileCycleSize < kWavetableMinCycleSize) return;
 
@@ -370,7 +378,8 @@ public class WaveTable {
       short[] k1 = kernel[progressSmall];
       short[] k2 = kernel[progressSmall + 1];
 
-      int[] interpolatedKernel = new int[16];
+      WaveTableScratch scratch = scratchHolder.get();
+      int[] interpolatedKernel = scratch.interpolatedKernel;
       for (int k = 0; k < 16; k++) {
         int diff = k2[k] - k1[k];
         interpolatedKernel[k] = (k1[k] << 16) + diff * strength2 * 2;
@@ -440,13 +449,14 @@ public class WaveTable {
       short[] k1 = kernel[progressSmall];
       short[] k2 = kernel[progressSmall + 1];
 
-      int[] interpolatedKernel = new int[16];
+      WaveTableScratch scratch = scratchHolder.get();
+      int[] interpolatedKernel = scratch.interpolatedKernel;
       for (int k = 0; k < 16; k++) {
         int diff = k2[k] - k1[k];
         interpolatedKernel[k] = (k1[k] << 16) + diff * strength2 * 2;
       }
 
-      int[] vals = new int[2];
+      int[] vals = scratch.vals;
       for (int c = 0; c < 2; c++) {
         int tableOffset = (c == 0) ? table1Offset : table2Offset;
         int whichValueCentral = (currentPhase >>> (32 - bandCycleSizeMagnitude));
