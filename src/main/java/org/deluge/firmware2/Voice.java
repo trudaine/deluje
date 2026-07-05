@@ -1975,7 +1975,7 @@ public class Voice {
       return 0; // inactive / too high
     } else {
       // C voice.cpp:534-536
-      int noteWithinOctave = (noteCode + 120 - 4) % 12;
+      int noteWithinOctave = (noteCode + 240 - 4) % 12;
       int octave = (noteCode + 120 - 4) / 12;
       int shiftRightAmount = 20 - octave;
       if (shiftRightAmount >= 0) {

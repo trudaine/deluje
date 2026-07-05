@@ -118,4 +118,13 @@ public class FirmwareTuningTest {
       }
     }
   }
+
+  @Test
+  public void testModulatorPhaseIncrementSafetyForExtremeNegativeTransposes() {
+    org.deluge.firmware2.Voice voice = new org.deluge.firmware2.Voice();
+    // Verify that calculateModulatorBasePhaseIncrement runs safely without throwing exceptions for extreme negative note codes
+    int inc = voice.calculateModulatorBasePhaseIncrement(-150);
+    assertTrue(inc >= 0, "Phase increment must be non-negative");
+  }
 }
+
