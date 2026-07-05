@@ -50,7 +50,7 @@ class MasterFxRegressionTest {
   void compressorSilenceStaysSilent() {
     Compressor c = new Compressor();
     int[][] buf = new int[128][2]; // all zero
-    c.renderVolNeutral(buf, ONE);
+    c.renderVolNeutral(buf, 128, ONE);
     for (int i = 0; i < 128; i++) {
       assertEquals(0, buf[i][0], "silent L @" + i);
       assertEquals(0, buf[i][1], "silent R @" + i);
@@ -61,8 +61,8 @@ class MasterFxRegressionTest {
   void compressorIsDeterministic() {
     int[][] a = noiseBlock(128, 42);
     int[][] b = noiseBlock(128, 42);
-    new Compressor().renderVolNeutral(a, ONE);
-    new Compressor().renderVolNeutral(b, ONE);
+    new Compressor().renderVolNeutral(a, 128, ONE);
+    new Compressor().renderVolNeutral(b, 128, ONE);
     assertEquals(signature(a, 128), signature(b, 128), "compressor must be deterministic");
   }
 
@@ -70,7 +70,7 @@ class MasterFxRegressionTest {
   void compressorGoldenSignature() {
     int[][] buf = noiseBlock(128, 7);
     Compressor c = new Compressor();
-    c.renderVolNeutral(buf, ONE);
+    c.renderVolNeutral(buf, 128, ONE);
     assertEquals(
         COMPRESSOR_GOLDEN,
         signature(buf, 128),

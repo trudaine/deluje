@@ -70,6 +70,8 @@ class Fw2SyncCompletenessTest {
           "sidechainSend",
           "delayUserRate",
           "delayFeedbackAmount",
+          "delaySyncLevel",
+          "delaySyncType",
           "delayPingPong",
           "delayAnalog",
           "modFXRateIncrement",

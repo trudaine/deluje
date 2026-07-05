@@ -338,7 +338,8 @@ public class FirmwareGoldenSignatureTest {
     double brightness = brightness(tremolo, from, to);
     double wobble = rmsWobble(tremolo, 2205);
 
-    assertClose("lfo tremolo peak", 0.10258530080318451, peak, 0.30, 0.05);
+    // Re-baselined 2026-07-04: sine osc amplitude undoubling (see envelopeShape note).
+    assertClose("lfo tremolo peak", 0.051292821764945984, peak, 0.30, 0.05);
     assertClose("lfo tremolo rms", 0.023192325, rms, 0.30, 0.05);
     assertClose("lfo tremolo brightness", 0.037281974, brightness, 0.30, 0.05);
     // Re-baselined after the C-faithful volume-curve-neutral fix (Patcher uses
@@ -358,12 +359,14 @@ public class FirmwareGoldenSignatureTest {
     double releaseStart = rms(env, 110250, 114660);
     double releaseMid = rms(env, 123480, 127890);
     double releaseTailPeak = peak(env, 145530, 149940);
-    assertClose("env attack early", 0.019003047045391328, attackEarly, 0.10, 0.0005);
-    assertClose("env attack peak", 0.067835524269079350, attackPeak, 0.10, 0.0005);
-    assertClose("env decay body", 0.06317444278703321, decayBody, 0.10, 0.0005);
-    assertClose("env sustain", 0.03959552466236948, sustain, 0.10, 0.0005);
-    assertClose("env release start", 0.029970938478750042, releaseStart, 0.10, 0.0005);
-    assertClose("env release mid", 0.0041317333781902554, releaseMid, 0.10, 0.0005);
+    // Re-baselined 2026-07-04: sine osc no longer doubles its amplitude (C oscillator.cpp:147-151
+    // jumps past the <<1 at :471-472), so the sine-based fixtures halved.
+    assertClose("env attack early", 0.009501531637691943, attackEarly, 0.10, 0.0005);
+    assertClose("env attack peak", 0.033917754118354924, attackPeak, 0.10, 0.0005);
+    assertClose("env decay body", 0.06317444278703321 / 2, decayBody, 0.10, 0.0005);
+    assertClose("env sustain", 0.03959552466236948 / 2, sustain, 0.10, 0.0005);
+    assertClose("env release start", 0.029970938478750042 / 2, releaseStart, 0.10, 0.0005);
+    assertClose("env release mid", 0.0041317333781902554 / 2, releaseMid, 0.10, 0.0005);
     assertTrue(
         attackPeak > attackEarly * 1.5, "attack should rise clearly above its opening level");
     assertTrue(decayBody > sustain * 1.5, "decay body should stay well above sustain");
@@ -389,12 +392,14 @@ public class FirmwareGoldenSignatureTest {
     assertClose("ring rms", 0.009261414, ringRms, 0.10, 0.0005);
     assertClose("ring brightness", 0.074440891, ringBrightness, 0.10, 0.0005);
 
-    assertClose("dx7 peak", 0.04772549867630005, dx7Peak, 0.10, 0.0005);
-    assertClose("dx7 rms", 0.023377282652604178, dx7Rms, 0.10, 0.0005);
+    // Re-baselined 2026-07-04: DX7 LFO-delay fix (dx7note.cpp:294 unsigned compare — the first
+    // delay phase now uses delayInc as in C, suppressing the LFO longer at note start).
+    assertClose("dx7 peak", 0.01263253390789032, dx7Peak, 0.10, 0.0005);
+    assertClose("dx7 rms", 0.008775530699255971, dx7Rms, 0.10, 0.0005);
     // Updated 2026-06-28: DX7 pitch-envelope rates/levels-swap fix (Dx7Voice.PitchEnv) corrected a
     // spurious +4-octave offset on neutral pitch envelopes, shifting DX7 brightness.
-    assertClose("dx7 brightness", 0.24920993644983783, dx7Brightness, 0.10, 0.05);
-    assertClose("dx7 h1", 0.01558318988532569, dx7H1, 0.10, 0.0005);
+    assertClose("dx7 brightness", 0.03731857465320066, dx7Brightness, 0.10, 0.05);
+    assertClose("dx7 h1", 0.006201611988001976, dx7H1, 0.10, 0.0005);
     assertClose("dx7 h3", 0.000026857, dx7H3, 0.10, 0.0005);
     assertTrue(dx7H3 > 0.000001, "dx7 patch should stay richer than a pure sine");
   }

@@ -34,6 +34,14 @@ public abstract class GlobalEffectable {
   }
 
   /**
+   * Whether the track-level saturation pass applies. True for kits/audio clips
+   * (GlobalEffectableForClip); {@link Sound} overrides to false (it saturates per-voice).
+   */
+  protected boolean hasTrackLevelSaturation() {
+    return true;
+  }
+
+  /**
    * Silence-detection scan (a Java-side optimization, not faithful-C math): abs-max over the track
    * buffer, every track every block. Kept as a clean scalar loop because the JDK 27 JIT compiler
    * (C2) auto-vectorizes this loop safely on all architectures. We explicitly avoid the incubator
@@ -94,8 +102,10 @@ public abstract class GlobalEffectable {
       return;
     }
 
-    // Apply track-level saturation (C: global_effectable_for_clip.cpp:121-127)
-    if (clippingAmount > 0) {
+    // Apply track-level saturation (C: global_effectable_for_clip.cpp:121-127). This pass exists
+    // ONLY for GlobalEffectableForClip (kits, audio clips) — a Sound saturates per-voice
+    // (voice.cpp:1553-1565) and must NOT be saturated a second time here.
+    if (hasTrackLevelSaturation() && clippingAmount > 0) {
       int saturationAmount = 3 + clippingAmount;
       int shiftAmount = getShiftAmountForSaturation();
       for (int i = 0; i < numSamples; i++) {
@@ -124,10 +134,12 @@ public abstract class GlobalEffectable {
       postFXVolume = 0;
     }
 
-    // C: global_effectable_for_clip.cpp:84-86 — the reverb send amount is a volume curve of the
-    // per-sound send knob, scaled by the clip's post-FX volume (reverbAmountAdjust =
-    // volumePostFX>>1). INT_MIN knob → curve returns 0, so an off/unset send stays dry.
-    int reverbAmountAdjust = postFXVolume >> 1;
+    // C: song.cpp:2453-2475 — reverbAmountAdjust derives from the SONG's post-FX volume
+    // ("reverbAmountAdjust has '1' as 67108864", output.h:113), NOT this track's own postFXVolume
+    // (which multiplies the send separately below — using it here double-counted track volume).
+    // The song volume is applied at the master stage in this engine, so the neutral "1" is the
+    // faithful adjust here. INT_MIN knob → curve returns 0, so an off/unset send stays dry.
+    int reverbAmountAdjust = 67108864;
     int reverbSendAmount =
         Functions.getFinalParameterValueVolume(
             reverbAmountAdjust, Functions.cableToLinearParamShortcut(reverbSendKnob));
@@ -139,6 +151,9 @@ public abstract class GlobalEffectable {
         Functions.lshiftAndSaturate(
             Functions.multiply_32x32_rshift32(postReverbVolume, postFXVolume), 5);
 
+    // C mod_controllable_audio.cpp:219-267 (processReverbSendAndVolume): per sample, the reverb
+    // send is taken from the RAW (pre-volume) signal and the post-FX×post-reverb volume is
+    // applied to the dry buffer IN PLACE...
     for (int i = 0; i < numSamples; i++) {
       int l = trackBuffer[i * 2];
       int r = trackBuffer[i * 2 + 1];
@@ -152,18 +167,30 @@ public abstract class GlobalEffectable {
         reverbBuffer[i] += (long) trackReverbBuffer[i] + revSend;
       }
 
-      // Apply track final gain and sum to main output in 64-bit (infinite headroom!)
-      int outL =
+      trackBuffer[i * 2] =
           Functions.lshiftAndSaturate(
               Functions.multiply_32x32_rshift32(l, postFXAndReverbVolumeL), 5);
-      int outR =
+      trackBuffer[i * 2 + 1] =
           Functions.lshiftAndSaturate(
               Functions.multiply_32x32_rshift32(r, postFXAndReverbVolumeL), 5);
+    }
 
-      output[i * 2] += outL;
-      output[i * 2 + 1] += outR;
+    // ...then the compressor sees the volume-applied signal (C sound.cpp:2591-2600 /
+    // global_effectable_for_clip.cpp:148-153 — the RMS feedback design depends on absolute
+    // level, and the reverb send taps the UNCOMPRESSED signal above).
+    processPostVolumeDynamics(trackBuffer, numSamples, postFXVolume);
+
+    // Sum to main output in 64-bit (infinite headroom!)
+    for (int i = 0; i < numSamples * 2; i++) {
+      output[i] += trackBuffer[i];
     }
   }
+
+  /**
+   * Post-volume dynamics hook — the C runs the per-sound/per-clip compressor here, after
+   * processReverbSendAndVolume. Default no-op; {@link Sound} overrides.
+   */
+  protected void processPostVolumeDynamics(int[] interleaved, int numSamples, int postFXVolume) {}
 
   public void renderOutput(int[] output, int numSamples, int[] reverbBuffer) {
     int requiredLen = numSamples * 2;

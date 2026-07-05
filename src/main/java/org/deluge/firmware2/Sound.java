@@ -54,6 +54,40 @@ public class Sound extends GlobalEffectable {
     return (clippingAmount >= 2) ? (clippingAmount - 2) : 0;
   }
 
+  /** A Sound saturates per-voice (voice.cpp:1553-1565), never at track level. */
+  @Override
+  protected boolean hasTrackLevelSaturation() {
+    return false;
+  }
+
+  private int[][] compScratch;
+
+  /**
+   * C sound.cpp:2591-2600 — the per-sound compressor runs AFTER processReverbSendAndVolume, on the
+   * volume-applied signal, with the postFX volume as its neutral reference.
+   */
+  @Override
+  protected void processPostVolumeDynamics(int[] interleaved, int numSamples, int postFXVolume) {
+    int compThreshold = patchedParamValues[Param.UNPATCHED_COMPRESSOR_THRESHOLD];
+    compressor.setThreshold(compThreshold);
+    if (compThreshold <= 0) {
+      compressor.reset();
+      return;
+    }
+    if (compScratch == null || compScratch.length < numSamples) {
+      compScratch = new int[numSamples][2];
+    }
+    for (int i = 0; i < numSamples; i++) {
+      compScratch[i][0] = interleaved[i * 2];
+      compScratch[i][1] = interleaved[i * 2 + 1];
+    }
+    compressor.renderVolNeutral(compScratch, numSamples, postFXVolume);
+    for (int i = 0; i < numSamples; i++) {
+      interleaved[i * 2] = compScratch[i][0];
+      interleaved[i * 2 + 1] = compScratch[i][1];
+    }
+  }
+
   /** C: sound.h:156 — per-source retrigger phase; 0xFFFFFFFF means "off" (sound.cpp:88). */
   public final int[] oscRetriggerPhase = {0xFFFFFFFF, 0xFFFFFFFF};
 
@@ -72,6 +106,16 @@ public class Sound extends GlobalEffectable {
       return false;
     }
     return patchedParamValues[Param.LOCAL_OSC_B_VOLUME] != Integer.MIN_VALUE || synthMode == 2;
+  }
+
+  /**
+   * envelopeHasSustainCurrently (sound.cpp:4320-4328). Params fetched "pre-LPF" — the raw patched
+   * (knob) values, not paramFinalValues.
+   */
+  public boolean envelopeHasSustainCurrently(int e) {
+    return patchedParamValues[Param.LOCAL_ENV_0_SUSTAIN + e] != -2147483648
+        || patchedParamValues[Param.LOCAL_ENV_0_DECAY + e]
+            > patchedParamValues[Param.LOCAL_ENV_0_RELEASE + e];
   }
 
   /** FM modulator transpose in semitones (voice.cpp modulatorTranspose[m]). */
@@ -266,6 +310,7 @@ public class Sound extends GlobalEffectable {
     public int endLoopPos;
     public boolean looping;
     public int transpose; // semitones tuning the recorded sample to the played note
+    public int cents; // C SampleHolderForVoice cents (applied via fineTuner, voice.cpp:505)
   }
 
   public final java.util.List<CompiledKeyZone>[] sourceZones =
@@ -315,12 +360,15 @@ public class Sound extends GlobalEffectable {
 
   // Per-sound delay (C: ModControllableAudio::delay, applied in processFX after modFX). The
   // firmware's delay is PER-SOUND; the FirmwareAudioEngine master delay covers the song-level
-  // GlobalEffectable delay. Sync is driven externally (syncLevel 0 + userDelayRate), the same
-  // scheme the master delay uses. delayUserRate <= 0 or delayFeedbackAmount < 256 → inert.
+  // GlobalEffectable delay. Tempo sync happens INSIDE Delay.setupWorkingState (delay.cpp:102-117):
+  // the caller provides the preset's syncLevel/syncType, the exp-final userDelayRate
+  // (paramFinalValues[GLOBAL_DELAY_RATE], neutral 2^24) and timePerInternalTickInverse.
   public final Delay delay = new Delay();
   public final Delay.State delayState = new Delay.State();
-  public int delayUserRate = 0; // 0 = no per-sound delay
+  public int delayUserRate = 0;
   public int delayFeedbackAmount = 0;
+  public int delaySyncLevel = 0; // 0 = unsynced; 1 = whole ... 9 = 256th (SyncLevel numbering)
+  public int delaySyncType = 0; // 0 = EVEN, 1 = TRIPLET, 2 = DOTTED
   public boolean delayPingPong = false;
   public boolean delayAnalog = false;
   public boolean shouldLimitDelayFeedback = false;
@@ -535,6 +583,17 @@ public class Sound extends GlobalEffectable {
     cfg.patchCableSet.addCable(paramId, cable);
   }
 
+  /**
+   * getGlobalLFOPhaseIncrement (sound.cpp:2700-2707) — unsynced LFOs run at the rate param's final
+   * value; synced LFOs derive the increment from the tempo.
+   */
+  public int getGlobalLFOPhaseIncrement(LfoConfig config, int param) {
+    if (config.syncLevel == Lfo.SyncLevel.NONE) {
+      return Patcher.computeFinalValueForParam(param, patchedParamValues[param]);
+    }
+    return getSyncedLFOPhaseIncrement(config);
+  }
+
   public int getSyncedLFOPhaseIncrement(LfoConfig config) {
     int shift = Lfo.SyncLevel.L_256TH.ordinal() - config.syncLevel.ordinal();
     int phaseIncrement = timePerInternalTickInverse >> shift;
@@ -692,12 +751,8 @@ public class Sound extends GlobalEffectable {
     // 2. Global LFO rendering. C (sound.cpp:2382/2395) renders globalLFO1/3 from lfoConfig[LFO1_ID]
     // / lfoConfig[LFO3_ID] — the config carries the waveType, so the waveform must come from there,
     // NOT a separate array. (LFO1_ID → lfoConfig[0], LFO3_ID → lfoConfig[2].)
-    int phaseInc1 =
-        Patcher.computeFinalValueForParam(
-            Param.GLOBAL_LFO_FREQ_1, patchedParamValues[Param.GLOBAL_LFO_FREQ_1]);
-    int phaseInc2 =
-        Patcher.computeFinalValueForParam(
-            Param.GLOBAL_LFO_FREQ_2, patchedParamValues[Param.GLOBAL_LFO_FREQ_2]);
+    int phaseInc1 = getGlobalLFOPhaseIncrement(lfoConfig[0], Param.GLOBAL_LFO_FREQ_1);
+    int phaseInc2 = getGlobalLFOPhaseIncrement(lfoConfig[2], Param.GLOBAL_LFO_FREQ_2);
 
     globalSourceValues[PatchSource.LFO_GLOBAL_1.ordinal()] =
         globalLfos[0].render(numSamples, lfoConfig[0], phaseInc1);
@@ -706,9 +761,9 @@ public class Sound extends GlobalEffectable {
 
     // 3. Arpeggiator clock & processing
     if (arpEnabled() && arpPhaseIncrement > 0) {
-      long gateU = (arpSettings.gate & 0xFFFFFFFFL);
-      long gateBiased = gateU + (1L << 31);
-      int gateThreshold = (int) (gateBiased >> 8);
+      // sound.cpp:2448 — (uint32_t)gate + 2147483648, passed FULL-SCALE (the arp itself does the
+      // single >> 8, arpeggiator.cpp:1457). Int add wraps exactly like the C uint32 add.
+      int gateThreshold = arpSettings.gate + Integer.MIN_VALUE;
       arpeggiator.render(arpSettings, arpInstr, numSamples, gateThreshold, arpPhaseIncrement);
 
       for (int n = 0; n < 4; n++) {
@@ -825,7 +880,9 @@ public class Sound extends GlobalEffectable {
           modFXOffset,
           modFXFeedback,
           true,
-          true);
+          // C sound.cpp:2588 — anySoundComingIn = !voices_.empty(): during delay/reverb-tail-only
+          // blocks the C skips modFX entirely (incl. its postFXVolume cuts).
+          hasActiveVoices);
     }
 
     eq.process(
@@ -836,29 +893,24 @@ public class Sound extends GlobalEffectable {
         patchedParamValues[Param.UNPATCHED_BASS_FREQ],
         patchedParamValues[Param.UNPATCHED_TREBLE_FREQ]);
 
-    // Per-sound delay (C: processFX delay.process, after EQ). Rate is driven externally with the
-    // delay's own sync disabled (syncLevel 0), matching the master-delay scheme; FirmwareSound
-    // computes delayUserRate from the per-sound delay sync + BPM.
-    if (delayUserRate > 0 && delayFeedbackAmount >= 256) {
-      delay.syncLevel = 0;
-      delay.pingPong = delayPingPong;
-      delay.analog = delayAnalog;
-      delayState.userDelayRate = delayUserRate;
-      delayState.delayFeedbackAmount =
-          shouldLimitDelayFeedback
-              ? Math.min(delayFeedbackAmount, (1 << 30) - (1 << 26))
-              : delayFeedbackAmount;
-      delay.setupWorkingState(delayState, 1 << 20, hasActiveVoices);
-      delay.process(fxIntBuffer, numSamples, delayState);
-    }
+    // Per-sound delay (C: sound.cpp:2477-2484 sets the working state; processFX runs
+    // delay.process after EQ, mod_controllable_audio.cpp:195). setupWorkingState is called
+    // UNCONDITIONALLY like the C — it applies the tempo sync (delay.cpp:102-117) and, when the
+    // feedback drops below 256, discards the buffers via informWhetherActive(false).
+    delay.syncLevel = delaySyncLevel;
+    delay.syncType = delaySyncType;
+    delay.pingPong = delayPingPong;
+    delay.analog = delayAnalog;
+    delayState.userDelayRate = delayUserRate;
+    delayState.delayFeedbackAmount =
+        shouldLimitDelayFeedback
+            ? Math.min(delayFeedbackAmount, (1 << 30) - (1 << 26))
+            : delayFeedbackAmount;
+    delay.setupWorkingState(delayState, timePerInternalTickInverse, hasActiveVoices);
+    delay.process(fxIntBuffer, numSamples, delayState);
 
-    int compThreshold = patchedParamValues[Param.UNPATCHED_COMPRESSOR_THRESHOLD];
-    compressor.setThreshold(compThreshold);
-    if (compThreshold > 0) {
-      compressor.renderVolNeutral(fxIntBuffer, postFXVolumeHolder[0]);
-    } else {
-      compressor.reset();
-    }
+    // Per-sound compressor moved to processPostVolumeDynamics — C runs it AFTER
+    // processReverbSendAndVolume (sound.cpp:2591-2600), so it must see the volume-applied signal.
 
     int postReverbKnob = patchedParamValues[Param.GLOBAL_VOLUME_POST_REVERB_SEND];
     Patcher.Destination dReverb = null;
@@ -976,6 +1028,7 @@ public class Sound extends GlobalEffectable {
           boolean looping = sampleLoopMode[s] == 1;
           int loopStartFrame = sampleLoopStart[s];
           int zoneTranspose = Integer.MIN_VALUE; // INT_MIN = no zone (single sample)
+          int zoneCents = 0;
 
           if (!sourceZones[s].isEmpty()) {
             CompiledKeyZone matchedZone = null;
@@ -998,6 +1051,7 @@ public class Sound extends GlobalEffectable {
               looping = matchedZone.looping;
               loopStartFrame = matchedZone.startLoopPos;
               zoneTranspose = matchedZone.transpose;
+              zoneCents = matchedZone.cents;
             }
           }
 
@@ -1015,6 +1069,7 @@ public class Sound extends GlobalEffectable {
             // INT_MIN = single sample / no zone → pitch falls back to the WAV-root-derived
             // transpose.
             targetVoice.sources[s].zoneTranspose = zoneTranspose;
+            targetVoice.sources[s].zoneCents = zoneCents;
             boolean ts = sampleTimestretch[s] && !sampleReverse[s];
             int playDir = sampleReverse[s] ? -1 : 1;
             if (ts) {

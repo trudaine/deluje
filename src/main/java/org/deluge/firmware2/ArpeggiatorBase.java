@@ -595,7 +595,9 @@ public abstract class ArpeggiatorBase {
     if (settings.mode == ArpMode.OFF || !hasAnyInputNotesActive()) return;
 
     int maxGate = 1 << 24;
-    int gateThresholdSmall = gateThreshold >> 8;
+    // arpeggiator.cpp:1457 — gateThreshold arrives FULL-SCALE (uint32, knob + 2^31); this >> 8
+    // is the only shift (the caller must not pre-shift). Logical: it's a uint32 in C.
+    int gateThresholdSmall = gateThreshold >>> 8;
 
     if (spreadGateForCurrentStep != 0) {
       int signedGateThreshold = gateThresholdSmall;

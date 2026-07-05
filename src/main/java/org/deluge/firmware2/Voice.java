@@ -79,6 +79,12 @@ public class Voice {
   public int[] modulatorAmplitudeLastTime = {0, 0};
   public int[] modulatorAmplitudeIncrements = new int[2];
   public int[] sourceAmplitudesLastTime = {0, 0};
+  // voice.cpp:1042-1069 — per-block source amplitude targets + per-sample ramp increments.
+  private final int[] sourceAmplitudes = new int[2];
+  private final int[] sourceAmplitudeIncrements = new int[2];
+  private int filterGainLastTime;
+  // Scratch tuner for the matched multisample zone's cents (C SampleHolderForVoice.fineTuner).
+  private final PhaseIncrementFineTuner zoneFineTuner = new PhaseIncrementFineTuner();
 
   // Filter set
   public final FilterSet filterSet = new FilterSet();
@@ -385,11 +391,40 @@ public class Voice {
   }
 
   // ── noteOff (voice.cpp:570-634) ──
+  // allowNoteTails / allowReleaseStage are true for every caller in this engine (synth voices);
+  // the C's sample loop-end handling (voice.cpp:605-618) has no Java counterpart yet.
 
   public void noteOff() {
-    for (Envelope e : envelopes) {
-      e.unconditionalRelease(Envelope.Stage.RELEASE, 1024);
+    // voice.cpp:583-585 — no release stage: stop as soon as we can.
+    if (!hasReleaseStage()) {
+      envelopes[0].unconditionalRelease(Envelope.Stage.FAST_RELEASE, 65536); // SOFT_CULL_INCREMENT
+    } else {
+      // voice.cpp:589-597 — env0 gets the conditional noteOff (ignoredNoteOff when no sustain);
+      // env1 only if its release final value >= 9; envelopes 2-3 are NOT released.
+      envelopes[0].noteOff(0, sound);
+      if (paramFinalValues[Param.LOCAL_ENV_1_RELEASE] >= 9) {
+        envelopes[1].noteOff(1, sound);
+      }
     }
+
+    // voice.cpp:619-625 — DX7 operator/pitch envelopes enter their release segments.
+    if (sound.synthMode != 1) {
+      for (int s = 0; s < 2; s++) {
+        if (sound.oscTypes[s] == OscType.DX7) {
+          for (int u = 0; u < sound.numUnison; u++) {
+            if (unisonParts[u].sources[s].dxVoice != null) {
+              unisonParts[u].sources[s].dxVoice.keyup();
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // ── hasReleaseStage (voice.cpp:2564-2566) ──
+
+  public boolean hasReleaseStage() {
+    return paramFinalValues[Param.LOCAL_ENV_0_RELEASE] <= 18359;
   }
 
   // ── shouldDoPanning (functions.cpp:1487-1500) ──
@@ -539,7 +574,12 @@ public class Voice {
     if (sound.synthMode != 1
         && (sound.oscTypes[0] == Oscillator.OscType.SAMPLE || isInputType(sound.oscTypes[0]))) {
       int pitchAdjustNeutralValue = 16777216; // default (and the INPUT_* neutral, C:457)
-      int oscNoteCode = noteCode + sound.masterTranspose;
+      // C voice.cpp:434-442 — non-SAMPLE (INPUT_*) sources use the source's own transpose;
+      // SAMPLE uses the holder/zone transpose below.
+      int oscNoteCode =
+          noteCode
+              + sound.masterTranspose
+              + (sound.oscTypes[0] == Oscillator.OscType.SAMPLE ? 0 : sound.sourceTranspose[0]);
       if (sound.oscTypes[0] == Oscillator.OscType.SAMPLE
           && unisonParts[0].sources[0].sampleRef != null) {
         pitchAdjustNeutralValue =
@@ -583,8 +623,29 @@ public class Voice {
         if (shiftRightAmount >= 0) {
           carrierIncA >>>= shiftRightAmount;
         } else {
-          carrierIncA <<= (-shiftRightAmount);
+          // C voice.cpp:471-481 — frequency-too-high guard (one semitone of headroom for
+          // cents + unison detune); the C makes the source inactive.
+          int shiftLeftAmount = -shiftRightAmount;
+          if (carrierIncA >= (2026954652 >> shiftLeftAmount)) {
+            for (int u = 0; u < sound.numUnison; u++) {
+              unisonParts[u].sources[0].active = false;
+            }
+            carrierIncA = 1; // unused while the source is inactive
+          } else {
+            carrierIncA <<= shiftLeftAmount;
+          }
         }
+      }
+      // C voice.cpp:503-509 — cents fine-tune: SAMPLE uses the matched zone's cents,
+      // INPUT_* uses the source's fineTuner.
+      if (sound.oscTypes[0] == Oscillator.OscType.SAMPLE) {
+        int zc = unisonParts[0].sources[0].zoneCents;
+        if (zc != 0) {
+          zoneFineTuner.setup(zc * 42949672);
+          carrierIncA = zoneFineTuner.detune(carrierIncA);
+        }
+      } else {
+        carrierIncA = sound.sourceFineTuners[0].detune(carrierIncA);
       }
     } else {
       // C voice.cpp:442 — transposedNoteCode = note + source transpose; then cents (line 505).
@@ -601,7 +662,11 @@ public class Voice {
     if (sound.synthMode != 1
         && (sound.oscTypes[1] == Oscillator.OscType.SAMPLE || isInputType(sound.oscTypes[1]))) {
       int pitchAdjustNeutralValue = 16777216; // default (and the INPUT_* neutral, C:457)
-      int oscNoteCode = noteCode + sound.masterTranspose;
+      // C voice.cpp:434-442 — non-SAMPLE (INPUT_*) sources use the source's own transpose.
+      int oscNoteCode =
+          noteCode
+              + sound.masterTranspose
+              + (sound.oscTypes[1] == Oscillator.OscType.SAMPLE ? 0 : sound.sourceTranspose[1]);
       if (sound.oscTypes[1] == Oscillator.OscType.SAMPLE
           && unisonParts[0].sources[1].sampleRef != null) {
         pitchAdjustNeutralValue =
@@ -645,8 +710,27 @@ public class Voice {
         if (shiftRightAmount >= 0) {
           carrierIncB >>>= shiftRightAmount;
         } else {
-          carrierIncB <<= (-shiftRightAmount);
+          // C voice.cpp:471-481 — frequency-too-high guard; the C makes the source inactive.
+          int shiftLeftAmount = -shiftRightAmount;
+          if (carrierIncB >= (2026954652 >> shiftLeftAmount)) {
+            for (int u = 0; u < sound.numUnison; u++) {
+              unisonParts[u].sources[1].active = false;
+            }
+            carrierIncB = 1; // unused while the source is inactive
+          } else {
+            carrierIncB <<= shiftLeftAmount;
+          }
         }
+      }
+      // C voice.cpp:503-509 — cents fine-tune (zone cents for SAMPLE, source tuner for INPUT).
+      if (sound.oscTypes[1] == Oscillator.OscType.SAMPLE) {
+        int zc = unisonParts[0].sources[1].zoneCents;
+        if (zc != 0) {
+          zoneFineTuner.setup(zc * 42949672);
+          carrierIncB = zoneFineTuner.detune(carrierIncB);
+        }
+      } else {
+        carrierIncB = sound.sourceFineTuners[1].detune(carrierIncB);
       }
     } else {
       // C voice.cpp:442 — osc B uses its OWN source transpose + cents (was: copied osc A, so osc 2
@@ -779,9 +863,57 @@ public class Voice {
       }
     }
 
+    // ── Per-source amplitude + ramp setup (voice.cpp:1012-1069, "If not ringmod") ──
+    // FM folds the overall amplitude into each carrier's amplitude (voice.cpp:1026-1039);
+    // subtractive folds the filter gain (or >>4). Both then ramp per sample from LAST block's
+    // value (sourceAmplitudesLastTime / sourceAmplitudeIncrements), with the ramp suppressed on
+    // the first render of a non-instant-attack note or when the filter gain jumps.
+    if (sound.synthMode != 2) {
+      if (sound.synthMode == 1) { // FM (voice.cpp:1026-1039)
+        int overallForCarriers =
+            Functions.multiply_32x32_rshift32_rounded(
+                    overallOscAmplitude, sound.volumeNeutralValueForUnison)
+                << 3;
+        sourceAmplitudes[0] =
+            Math.min(
+                Functions.multiply_32x32_rshift32(
+                    paramFinalValues[Param.LOCAL_OSC_A_VOLUME], overallForCarriers),
+                134217727);
+        sourceAmplitudes[1] =
+            Math.min(
+                Functions.multiply_32x32_rshift32(
+                    paramFinalValues[Param.LOCAL_OSC_B_VOLUME], overallForCarriers),
+                134217727);
+      } else { // subtractive (voice.cpp:1042-1054)
+        for (int s = 0; s < 2; s++) {
+          sourceAmplitudes[s] =
+              hasFilters
+                  ? Functions.multiply_32x32_rshift32_rounded(
+                      paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s], filterGain)
+                  : paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4;
+        }
+      }
+      boolean shouldAvoidIncrementing =
+          doneFirstRender
+              ? (filterGainLastTime != filterGain)
+              : (paramFinalValues[Param.LOCAL_ENV_0_ATTACK] > 245632);
+      if (shouldAvoidIncrementing) {
+        sourceAmplitudesLastTime[0] = sourceAmplitudes[0];
+        sourceAmplitudesLastTime[1] = sourceAmplitudes[1];
+      }
+      for (int s = 0; s < 2; s++) {
+        sourceAmplitudeIncrements[s] =
+            (sourceAmplitudes[s] - sourceAmplitudesLastTime[s]) / numSamples;
+      }
+      filterGainLastTime = filterGain;
+    }
+
     // ── FM path (voice.cpp:1400-1560) ──
     if (sound.synthMode == 1) { // FM
       renderFmPath(mixBuf, numSamples, overallOscAmplitude, overallPitchAdjust);
+      // voice.cpp:1674-1676 — next block ramps from this block's targets.
+      sourceAmplitudesLastTime[0] = sourceAmplitudes[0];
+      sourceAmplitudesLastTime[1] = sourceAmplitudes[1];
     } else if (sound.synthMode == 2) {
       renderRingModPath(
           mixBuf, numSamples, overallPitchAdjust, hasFilters, filterGain, doingOscSync);
@@ -924,7 +1056,8 @@ public class Voice {
                 0,
                 0,
                 sound.oscRetriggerPhase[0],
-                vsA.waveIndexLastTime,
+                // C oscillator.cpp:155 — waveIndex = sourceWaveIndexLastTime + 1073741824
+                vsA.waveIndexLastTime + 1073741824,
                 waveIndexIncrementA);
         vsA.waveIndexLastTime = waveIndexA;
       } else {
@@ -979,7 +1112,8 @@ public class Voice {
                 pIncA,
                 resetterDivideByPhaseIncrement,
                 sound.oscRetriggerPhase[1],
-                vsB.waveIndexLastTime,
+                // C oscillator.cpp:155 — waveIndex = sourceWaveIndexLastTime + 1073741824
+                vsB.waveIndexLastTime + 1073741824,
                 waveIndexIncrementB);
         vsB.waveIndexLastTime = waveIndexB;
       } else {
@@ -1038,6 +1172,9 @@ public class Voice {
     }
     boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
 
+    // Per-source amplitude targets + ramp increments are set up in render() (voice.cpp:1042-1069)
+    // before dispatching here.
+
     for (int s = 0; s < 2; s++) {
       boolean getPhaseIncrements = (s == 0) && doingOscSync;
       boolean getOutAfterGettingPhaseIncrements = false;
@@ -1050,11 +1187,10 @@ public class Voice {
       }
       boolean doOscSyncThisSource = (s == 1) && doingOscSync;
 
-      int srcAmp =
-          hasFilters
-              ? Functions.multiply_32x32_rshift32_rounded(
-                  paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s], filterGain)
-              : paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4;
+      int srcAmp = sourceAmplitudes[s];
+      // voice.cpp:1119-1121 — each unison part's render ramps from last block's value.
+      int srcAmpStart = sourceAmplitudesLastTime[s];
+      int srcAmpInc = sourceAmplitudeIncrements[s];
 
       for (int u = 0; u < sound.numUnison; u++) {
         VoiceSource vs = unisonParts[u].sources[s];
@@ -1207,10 +1343,13 @@ public class Voice {
             java.util.Arrays.fill(uniBuf, 0, numSamples, 0);
           }
           vs.dxVoice.compute(uniBuf, numSamples, adjpitch, vs.dxPatch, ampMod, 0, 0);
+          // voice.cpp:2441-2444 — sourceAmplitudeNow += increment per sample.
+          int dxAmpNow = srcAmpStart;
           for (int i = 0; i < numSamples; i++) {
+            dxAmpNow += srcAmpInc;
             tempBuf[i] =
                 Functions.lshiftAndSaturate(
-                    Functions.multiply_32x32_rshift32(uniBuf[i], srcAmp), 6);
+                    Functions.multiply_32x32_rshift32(uniBuf[i], dxAmpNow), 6);
           }
         } else if (sound.oscTypes[s] == OscType.WAVETABLE && sound.waveTables[s] != null) {
           int waveIndex = paramFinalValues[Param.LOCAL_OSC_A_WAVE_INDEX + s];
@@ -1239,14 +1378,19 @@ public class Voice {
                   oscSyncPhaseIncrement[u],
                   resetterDivideByPhaseIncrement,
                   sound.oscRetriggerPhase[s],
-                  vs.waveIndexLastTime,
+                  // C oscillator.cpp:155 — waveIndex = sourceWaveIndexLastTime + 1073741824
+                  vs.waveIndexLastTime + 1073741824,
                   waveIndexIncrement);
           vs.waveIndexLastTime = waveIndex;
 
+          // oscillator.cpp:163-169 — amplitude (ramped per sample) applied after the wavetable
+          // render, same net scale as the C's <<3 + vqdmulh chain.
+          int wtAmpNow = srcAmpStart;
           for (int i = 0; i < numSamples; i++) {
+            wtAmpNow += srcAmpInc;
             tempBuf[i] =
                 Functions.lshiftAndSaturate(
-                    Functions.multiply_32x32_rshift32(tempBuf[i], srcAmp), 1);
+                    Functions.multiply_32x32_rshift32(tempBuf[i], wtAmpNow), 1);
           }
         } else {
           int pulseWidth =
@@ -1254,7 +1398,8 @@ public class Voice {
           int[] phase = {vs.oscPos};
           Oscillator.renderOsc(
               sound.oscTypes[s],
-              srcAmp,
+              // voice.cpp:2487-2491 — start at last block's amplitude, ramp per sample.
+              srcAmpStart,
               tempBuf,
               0,
               numSamples,
@@ -1262,7 +1407,7 @@ public class Voice {
               pulseWidth,
               phase,
               true,
-              0,
+              srcAmpInc,
               doOscSyncThisSource,
               oscSyncPos[u],
               oscSyncPhaseIncrement[u],
@@ -1289,6 +1434,10 @@ public class Voice {
         }
       }
     }
+
+    // voice.cpp:1674-1676 — next block ramps from this block's targets.
+    sourceAmplitudesLastTime[0] = sourceAmplitudes[0];
+    sourceAmplitudesLastTime[1] = sourceAmplitudes[1];
   }
 
   private void renderFmPath(
@@ -1341,7 +1490,12 @@ public class Voice {
       java.util.Arrays.fill(fmBuf, 0);
       java.util.Arrays.fill(fmOscBuffer, 0);
 
-      if (mod1ActiveThisUnison) {
+      if (mod1ActiveThisUnison && sound.modulator1ToModulator0 && !mod0ActiveThisUnison) {
+        // C voice.cpp:1436-1439 — "If special case where mod1 is modulating mod0 but mod0 is
+        // inactive, go away" (goto noModulatorsActive): nothing reaches the carriers, so they
+        // render as plain sines instead of being FM'd by mod1's output.
+        carriersAreSine = true;
+      } else if (mod1ActiveThisUnison) {
         renderSineWaveWithFeedback(
             fmBuf,
             numSamples,
@@ -1410,24 +1564,22 @@ public class Voice {
         carrierIncB = adjustPitch(carrierIncB, paramFinalValues[Param.LOCAL_OSC_B_PITCH_ADJUST]);
       }
 
-      // C voice.cpp:1026-1028 — unison compensation folded into the CURRENT overall amplitude.
-      int overallForCarriers =
-          Functions.multiply_32x32_rshift32_rounded(
-                  overallOscAmplitude, sound.volumeNeutralValueForUnison)
-              << 3;
-      int carrierAmp0 =
-          Math.min(
-              Functions.multiply_32x32_rshift32(
-                  paramFinalValues[Param.LOCAL_OSC_A_VOLUME], overallForCarriers),
-              134217727);
-      int carrierAmp1 =
-          Math.min(
-              Functions.multiply_32x32_rshift32(
-                  paramFinalValues[Param.LOCAL_OSC_B_VOLUME], overallForCarriers),
-              134217727);
+      // voice.cpp:1119-1121 + 2487-2496 — carriers ramp per sample from LAST block's folded
+      // amplitude; the targets/increments were set up in render() (voice.cpp:1026-1039, incl.
+      // the min(…, 134217727) clip and the volumeNeutralValueForUnison << 3 fold).
+      int carrierAmp0 = sourceAmplitudesLastTime[0];
+      int carrierAmpInc0 = sourceAmplitudeIncrements[0];
+      int carrierAmp1 = sourceAmplitudesLastTime[1];
+      int carrierAmpInc1 = sourceAmplitudeIncrements[1];
 
-      if (carrierIncA < 0) carrierAmp0 = 0;
-      if (carrierIncB < 0) carrierAmp1 = 0;
+      if (carrierIncA < 0) {
+        carrierAmp0 = 0;
+        carrierAmpInc0 = 0;
+      }
+      if (carrierIncB < 0) {
+        carrierAmp1 = 0;
+        carrierAmpInc1 = 0;
+      }
 
       if (carriersAreSine) {
         renderCarrierSine(
@@ -1435,6 +1587,7 @@ public class Voice {
             numSamples,
             unisonParts[u].sources[0],
             carrierAmp0,
+            carrierAmpInc0,
             carrierIncA,
             paramFinalValues[Param.LOCAL_CARRIER_0_FEEDBACK]);
         renderCarrierSine(
@@ -1442,6 +1595,7 @@ public class Voice {
             numSamples,
             unisonParts[u].sources[1],
             carrierAmp1,
+            carrierAmpInc1,
             carrierIncB,
             paramFinalValues[Param.LOCAL_CARRIER_1_FEEDBACK]);
       } else {
@@ -1451,6 +1605,7 @@ public class Voice {
             fmBuf,
             unisonParts[u].sources[0],
             carrierAmp0,
+            carrierAmpInc0,
             carrierIncA,
             paramFinalValues[Param.LOCAL_CARRIER_0_FEEDBACK]);
         renderCarrierFM(
@@ -1459,6 +1614,7 @@ public class Voice {
             fmBuf,
             unisonParts[u].sources[1],
             carrierAmp1,
+            carrierAmpInc1,
             carrierIncB,
             paramFinalValues[Param.LOCAL_CARRIER_1_FEEDBACK]);
       }
@@ -1683,44 +1839,49 @@ public class Voice {
       int pInc,
       int fbAmt,
       int[] fb,
-      int fi) {
+      int fi,
+      int ampInc) {
     int phaseNow = ph[pi];
+    int ampNow = amp;
     if (fbAmt != 0) {
       int fbVal = fb[fi];
       for (int i = 0; i < n; i++) {
+        ampNow += ampInc; // C voice.cpp:1492-1496 — carrier amplitude ramps per sample
         int fb2 = Functions.signed_saturate(Functions.multiply_32x32_rshift32(fbVal, fbAmt), 22);
         int sum = fmBuf[i] + fb2;
         phaseNow += pInc;
         fbVal = SineOsc.doFMNew(phaseNow, sum);
-        buf[i] = Functions.multiply_accumulate_32x32_rshift32_rounded(buf[i], fbVal, amp);
+        buf[i] = Functions.multiply_accumulate_32x32_rshift32_rounded(buf[i], fbVal, ampNow);
       }
       fb[fi] = fbVal;
     } else {
       for (int i = 0; i < n; i++) {
+        ampNow += ampInc;
         phaseNow += pInc;
         buf[i] =
             Functions.multiply_accumulate_32x32_rshift32_rounded(
-                buf[i], SineOsc.doFMNew(phaseNow, fmBuf[i]), amp);
+                buf[i], SineOsc.doFMNew(phaseNow, fmBuf[i]), ampNow);
       }
     }
     ph[pi] = phaseNow;
   }
 
-  private void renderCarrierSine(int[] buf, int n, VoiceSource src, int amp, int pInc, int fbAmt) {
-    if (amp == 0) return;
+  private void renderCarrierSine(
+      int[] buf, int n, VoiceSource src, int amp, int ampInc, int pInc, int fbAmt) {
+    if (amp == 0 && ampInc == 0) return;
     int[] ph = {src.oscPos};
     int[] fb = {src.carrierFeedback};
-    renderSineWaveWithFeedback(buf, n, ph, 0, amp, pInc, fbAmt, fb, 0, true, 0);
+    renderSineWaveWithFeedback(buf, n, ph, 0, amp, pInc, fbAmt, fb, 0, true, ampInc);
     src.oscPos = ph[0];
     src.carrierFeedback = fb[0];
   }
 
   private void renderCarrierFM(
-      int[] buf, int n, int[] fmBuf, VoiceSource src, int amp, int pInc, int fbAmt) {
-    if (amp == 0) return;
+      int[] buf, int n, int[] fmBuf, VoiceSource src, int amp, int ampInc, int pInc, int fbAmt) {
+    if (amp == 0 && ampInc == 0) return;
     int[] ph = {src.oscPos};
     int[] fb = {src.carrierFeedback};
-    renderFMWithFeedbackAdd(buf, n, fmBuf, ph, 0, amp, pInc, fbAmt, fb, 0);
+    renderFMWithFeedbackAdd(buf, n, fmBuf, ph, 0, amp, pInc, fbAmt, fb, 0, ampInc);
     src.oscPos = ph[0];
     src.carrierFeedback = fb[0];
   }

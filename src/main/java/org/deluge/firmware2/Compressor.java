@@ -203,9 +203,13 @@ public class Compressor {
 
   // ── renderVolNeutral (rms_feedback.cpp:52-57) ──
 
-  /** C: rms_feedback.cpp:52-57 — render in place on the actual buffer. */
-  public void renderVolNeutral(int[][] buffer, int finalVolume) {
-    render(buffer, buffer.length, 1 << 27, 1 << 27, finalVolume >> 3);
+  /**
+   * C: rms_feedback.cpp:52-57 — render in place on the actual buffer. The C span carries the real
+   * block size; callers must pass it (using a 256-row scratch array's length for a 128-sample block
+   * ran the envelope 2x too fast and under-read the RMS by ~3 dB).
+   */
+  public void renderVolNeutral(int[][] buffer, int numSamples, int finalVolume) {
+    render(buffer, numSamples, 1 << 27, 1 << 27, finalVolume >> 3);
   }
 
   // ── render (rms_feedback.cpp:59-128) ──

@@ -7,30 +7,32 @@ import java.util.concurrent.atomic.AtomicInteger;
  * signals. Moved to org.deluge.firmware2 for package decoupling.
  */
 public class GlobalSidechainBus {
-  private static final ThreadLocal<AtomicInteger> pendingHitStrength =
-      ThreadLocal.withInitial(() -> new AtomicInteger(0));
-  private static final ThreadLocal<Integer> activeFrameHitStrength =
-      ThreadLocal.withInitial(() -> 0);
+  // C: AudioEngine::sideChainHitPending is a single GLOBAL, written from wherever a note-on
+  // happens and consumed once per audio render. A ThreadLocal here silently dropped hits
+  // registered on the Swing EDT / MIDI threads (manually played kicks never ducked) — the
+  // pending accumulator must be shared across threads.
+  private static final AtomicInteger pendingHitStrength = new AtomicInteger(0);
+  private static volatile int activeFrameHitStrength = 0;
 
   public static void registerHit(int strength) {
-    pendingHitStrength.get().updateAndGet(current -> combineHitStrengths(strength, current));
+    pendingHitStrength.updateAndGet(current -> combineHitStrengths(strength, current));
   }
 
   public static int getPendingHit() {
-    return pendingHitStrength.get().get();
+    return pendingHitStrength.get();
   }
 
   public static void beginAudioFrame() {
-    activeFrameHitStrength.set(pendingHitStrength.get().getAndSet(0));
+    activeFrameHitStrength = pendingHitStrength.getAndSet(0);
   }
 
   public static int getActiveFrameHit() {
-    return activeFrameHitStrength.get();
+    return activeFrameHitStrength;
   }
 
   public static void reset() {
-    pendingHitStrength.get().set(0);
-    activeFrameHitStrength.set(0);
+    pendingHitStrength.set(0);
+    activeFrameHitStrength = 0;
   }
 
   /** Replicates C++ deluge estimation to combine multiple concurrent trigger values. */

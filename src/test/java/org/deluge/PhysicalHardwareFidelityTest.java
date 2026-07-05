@@ -362,7 +362,16 @@ public class PhysicalHardwareFidelityTest {
       java.util.Map<Integer, Integer> paramOverrides)
       throws Exception {
     return renderXmlTrackPreset(
-        xmlPath, targetLength, triggerBlock, releaseBlock, pitch, paramOverrides, null, false, null, null);
+        xmlPath,
+        targetLength,
+        triggerBlock,
+        releaseBlock,
+        pitch,
+        paramOverrides,
+        null,
+        false,
+        null,
+        null);
   }
 
   private float[] renderXmlTrackPreset(
@@ -375,7 +384,16 @@ public class PhysicalHardwareFidelityTest {
       Integer lfoPhaseOverride)
       throws Exception {
     return renderXmlTrackPreset(
-        xmlPath, targetLength, triggerBlock, releaseBlock, pitch, paramOverrides, lfoPhaseOverride, false, null, null);
+        xmlPath,
+        targetLength,
+        triggerBlock,
+        releaseBlock,
+        pitch,
+        paramOverrides,
+        lfoPhaseOverride,
+        false,
+        null,
+        null);
   }
 
   private float[] renderXmlTrackPreset(
@@ -1210,7 +1228,6 @@ public class PhysicalHardwareFidelityTest {
   }
 
   @Test
-
   public void testDx7VintageParity() throws Exception {
     System.out.println("=== RUNNING HARDWARE REGRESSION: DX7 VINTAGE C5 ===");
     float[] hw = loadWavFromResource("/fidelity/reference_dx7_vintage_c5.wav");

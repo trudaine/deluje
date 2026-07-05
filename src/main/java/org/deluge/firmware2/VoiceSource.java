@@ -26,6 +26,10 @@ public class VoiceSource {
   // serialized (C SampleHolderForVoice::transpose = round(60 - midiNote)), so it's authoritative
   // when present and avoids depending on our midiNoteFromFile detection.
   public int zoneTranspose = Integer.MIN_VALUE;
+
+  /** Matched multisample zone's cents fine-tune (C SampleHolderForVoice cents; voice.cpp:505). */
+  public int zoneCents = 0;
+
   public int timeStretchRatio = 16777216; // 1 << 24 ≡ 1.0 (no time-stretch)
 
   // Live-input pitch shifting (C VoiceUnisonPartSource::livePitchShifter, voice.cpp:2236-2274).

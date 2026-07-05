@@ -86,7 +86,8 @@ public class Envelope {
           if (sustain == 0) {
             setState(Stage.OFF); // (line 73)
           } else if (ignoredNoteOff) {
-            unconditionalRelease(Stage.RELEASE, 1024); // (lines 75-76)
+            // (lines 75-76) — default args = (RELEASE, SOFT_CULL_INCREMENT = 65536)
+            unconditionalRelease(Stage.RELEASE, 65536);
           }
           break;
 
@@ -161,6 +162,18 @@ public class Envelope {
       lastValue = 2147483647;
     }
     return (lastValue - 1073741824) << 1; // Centre
+  }
+
+  // ── noteOff (envelope.cpp:144-153) ──
+  // Zero-sustain envelopes IGNORE the note-off (the decay completes naturally; release only
+  // starts once SUSTAIN is reached — see the ignoredNoteOff branch in the SUSTAIN case above).
+
+  public void noteOff(int envelopeIndex, Sound sound) {
+    if (!sound.envelopeHasSustainCurrently(envelopeIndex)) {
+      ignoredNoteOff = true;
+    } else if (state.compareTo(Stage.RELEASE) < 0) {
+      unconditionalRelease(Stage.RELEASE, 65536);
+    }
   }
 
   // ── unconditionalRelease (envelope.cpp:176-185) ──
