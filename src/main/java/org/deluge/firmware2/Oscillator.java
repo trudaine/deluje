@@ -172,6 +172,51 @@ public final class Oscillator {
   }
 
   /**
+   * Raw pulse segment: the per-sample math of {@link #renderPulseWave} (C {@code
+   * waveRenderingFunctionPulse}, vector_rendering_function.h:51-99) writing RAW values — the scalar
+   * equivalent of the C's pulse storeVectorWaveForOneSync lambda (oscillator.cpp:428-436).
+   */
+  private static void renderPulseRawSegment(
+      short[] table,
+      int tableSizeMagnitude,
+      int[] buf,
+      int from,
+      int toExclusive,
+      int phaseIncrement,
+      int phase,
+      int phaseToAdd) {
+    int currentPhase = phase;
+    for (int i = from; i < toExclusive; i++) {
+      currentPhase += phaseIncrement;
+      int pa = currentPhase;
+      int pb = currentPhase + phaseToAdd;
+
+      int idxA = pa >>> (32 - tableSizeMagnitude);
+      int rshiftedA = (idxA >>> 16) & 0x7FFF;
+      int valueA1 = table[idxA];
+      int valueA2 = table[idxA + 1];
+      int strengthA1 = (rshiftedA | 0x8000) - 0x10000;
+      int strengthA2 = -32768 - strengthA1;
+      long outA = sat32(2L * strengthA2 * valueA2);
+      outA = sat32(outA + sat32(2L * strengthA1 * valueA1));
+
+      int idxB = pb >>> (32 - tableSizeMagnitude);
+      int rshiftedB = (idxB >>> 16) & 0x7FFF;
+      int valueB1 = table[idxB];
+      int valueB2 = table[idxB + 1];
+      int strengthB2 = rshiftedB;
+      int strengthB1 = 0x7FFF - strengthB2;
+      long outB = sat32(2L * strengthB2 * valueB2);
+      outB = sat32(outB + sat32(2L * strengthB1 * valueB1));
+
+      long prod = outA * outB;
+      long rounded = prod + (1L << 30);
+      int mrf = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, rounded >> 31));
+      buf[i] = Functions.lshiftAndSaturate(mrf, 1);
+    }
+  }
+
+  /**
    * C: Oscillator::applyAmplitudeVectorToBuffer (oscillator.cpp:510-529) — applies the (already
    * doubled, per callRenderWave) amplitude ramp to the raw synced wave and accumulates into the
    * output. Scalar equivalent using this port's renderWave amplitude convention ({@code
@@ -209,6 +254,46 @@ public final class Oscillator {
       int resetterPhaseIncrement,
       int resetterDivideByPhaseIncrement,
       int retriggerPhase) {
+    return renderWaveSync(
+        table,
+        tableSizeMagnitude,
+        amplitude,
+        outputBuffer,
+        offset,
+        numSamples,
+        phaseIncrement,
+        phase,
+        applyAmplitude,
+        phaseToAdd,
+        amplitudeIncrement,
+        resetterPhase,
+        resetterPhaseIncrement,
+        resetterDivideByPhaseIncrement,
+        retriggerPhase,
+        false);
+  }
+
+  /**
+   * As above, with {@code pulseWave} selecting the C's {@code waveRenderingFunctionPulse} segment
+   * renderer (oscillator.cpp:428-449 — the synced variable-width pulse path).
+   */
+  private static int renderWaveSync(
+      Object table, // short[] or int[]
+      int tableSizeMagnitude,
+      int amplitude,
+      int[] outputBuffer,
+      int offset,
+      int numSamples,
+      int phaseIncrement,
+      int phase,
+      boolean applyAmplitude,
+      int phaseToAdd,
+      int amplitudeIncrement,
+      int resetterPhase,
+      int resetterPhaseIncrement,
+      int resetterDivideByPhaseIncrement,
+      int retriggerPhase,
+      boolean pulseWave) {
     // C: bufferStartThisSync = applyAmplitude ? oscSyncRenderingBuffer : bufferStart
     int[] raw = new int[numSamples];
     int bufPos = 0; // index into raw[]
@@ -234,7 +319,17 @@ public final class Oscillator {
                   ? samplesIncludingNextCrossoverSample
                   : numSamplesThisOscSyncSession);
 
-      if (table instanceof short[] st) {
+      if (pulseWave) {
+        renderPulseRawSegment(
+            (short[]) table,
+            tableSizeMagnitude,
+            raw,
+            bufPos,
+            bufPos + numSamplesThisSyncRender,
+            phaseIncrement,
+            phase,
+            phaseToAdd);
+      } else if (table instanceof short[] st) {
         renderWaveRawSegment(
             st,
             tableSizeMagnitude,
@@ -549,17 +644,20 @@ public final class Oscillator {
             rtpDiv -= 1L << 62;
           }
           phase = (int) (rtpDiv / (((pwAbs & 0xFFFFFFFFL) + 0x80000000L) >>> 1));
+          // C oscillator.cpp:105 — the divisor here is NOT halved (only the phase division
+          // above divides by ">> 1").
           phaseIncrement =
               (int)
                   ((((long) phaseIncrement & 0xFFFFFFFFL) << 31)
-                      / (((pwAbs & 0xFFFFFFFFL) + 0x80000000L) >>> 1));
+                      / ((pwAbs & 0xFFFFFFFFL) + 0x80000000L));
         } else {
           if (type == OscType.SAW) {
             resetterPhase += -2147483648;
           } else if (type == OscType.SINE) {
             resetterPhase -= -1073741824;
           }
-          int rtpMul = resetterPhase >> 1;
+          // C oscillator.cpp:116 — resetterPhase is uint32_t, so this is a LOGICAL shift.
+          int rtpMul = resetterPhase >>> 1;
           if (Integer.compareUnsigned(resetterPhase, -(resetterPhaseInc >>> 1)) >= 0) {
             rtpMul -= 1 << 31;
           }
@@ -584,15 +682,16 @@ public final class Oscillator {
 
     // ── SINE (line 147-151) ──
     if (type == OscType.SINE) {
-      // C: table = sineWaveSmall; tableSizeMagnitude = 8; goto callRenderWave (which does
-      // amplitude<<=1; amplitudeIncrement<<=1). (oscillator.cpp:147-151). Same renderWave path as
-      // saw/square — replaces the doFMNew reconstruction (doFMNew is for FM feedback, not the osc).
+      // C: table = sineWaveSmall; tableSizeMagnitude = 8; goto callRenderWave
+      // (oscillator.cpp:147-151). The callRenderWave label sits AFTER the "amplitude <<= 1;
+      // amplitudeIncrement <<= 1;" at oscillator.cpp:471-472, so sine is rendered with the
+      // UNDOUBLED amplitude (unlike saw/square, which fall through the doubling).
       if (doOscSync) { // C callRenderWave sync branch (oscillator.cpp:476-498)
         phase =
             renderWaveSync(
                 LookupTables.sineWaveSmall,
                 8,
-                amplitude << 1,
+                amplitude,
                 buffer,
                 off,
                 numSamples,
@@ -600,7 +699,7 @@ public final class Oscillator {
                 phase,
                 applyAmplitude,
                 0,
-                amplitudeIncrement << 1,
+                amplitudeIncrement,
                 resetterPhase,
                 resetterPhaseInc,
                 resetterDivideByPhaseIncrement,
@@ -612,7 +711,7 @@ public final class Oscillator {
           renderWave(
               LookupTables.sineWaveSmall,
               8,
-              amplitude << 1,
+              amplitude,
               buffer,
               off,
               numSamples,
@@ -620,7 +719,7 @@ public final class Oscillator {
               phase,
               applyAmplitude,
               0,
-              amplitudeIncrement << 1);
+              amplitudeIncrement);
       maybeStorePhase(type, startPhase, phase, doPulseWave);
       return;
     }
@@ -805,17 +904,32 @@ public final class Oscillator {
     // ── SQUARE (lines 328-457) ──
     if (type == OscType.SQUARE) {
       if (tableNumber < 6) {
-        int ampNow = amplitude;
-        int a = ampNow;
+        int a = amplitude;
+        // C oscillator.cpp:332-410 — the amplitude path uses the FULL-SCALE getSquare;
+        // getSquareSmall is only for the raw (!applyAmplitude) path. The doOscSync branch
+        // (oscillator.cpp:381-410) resets phase per-sample like the crude triangle.
+        int rstPhase = resetterPhase;
         for (int i = 0; i < numSamples; i++) {
           phase += phaseIncrement;
-          a += amplitudeIncrement;
-          int val = getSquareSmall(phase, pulseWidth);
+          if (doOscSync) {
+            rstPhase += resetterPhaseInc;
+            if (Integer.compareUnsigned(rstPhase, resetterPhaseInc) < 0) {
+              phase =
+                  (Functions.multiply_32x32_rshift32(
+                              Functions.multiply_32x32_rshift32(rstPhase, phaseIncrement),
+                              resetterDivideByPhaseIncrement)
+                          << 17)
+                      + 1
+                      + retriggerPhase;
+            }
+          }
           if (applyAmplitude) {
+            a += amplitudeIncrement;
             buffer[off + i] =
-                Functions.multiply_accumulate_32x32_rshift32_rounded(buffer[off + i], val, a);
+                Functions.multiply_accumulate_32x32_rshift32_rounded(
+                    buffer[off + i], getSquare(phase, pulseWidth), a);
           } else {
-            buffer[off + i] = val;
+            buffer[off + i] = getSquareSmall(phase, pulseWidth);
           }
         }
         maybeStorePhase(type, startPhase, phase, doPulseWave);
@@ -826,24 +940,55 @@ public final class Oscillator {
           SquareLookupTables.squareWaveTables[
               Math.min(tableNumber, SquareLookupTables.squareWaveTables.length - 1)];
 
-      // Band-limited PULSE width (C oscillator.cpp:413-453). pulseWidth is already offset by -2^31
-      // (line ~443). The pulse is the product of two square reads offset by phaseToAdd; the C
+      // Band-limited PULSE width (C oscillator.cpp:417-453). pulseWidth is already offset by
+      // -2^31. The pulse is the product of two square reads offset by phaseToAdd; the C
       // pre-halves phase/phaseIncrement (the product doubles the effective freq) and doubles
-      // amplitude. startPhase was already advanced with the ORIGINAL phaseIncrement at entry, so we
-      // return without maybeStorePhase. (Sync+pulse path not yet ported — rare; falls through.)
-      if (doPulseWave && !doOscSync) {
+      // amplitude. With osc sync, the same halved-phase pulse renders through renderOscSync with
+      // waveRenderingFunctionPulse and the phase is re-doubled after (oscillator.cpp:426-447).
+      if (doPulseWave) {
+        int pAmp = amplitude << 1;
+        int pAmpInc = amplitudeIncrement << 1;
+        // C oscillator.cpp:422 — pulseWidth is uint32_t: LOGICAL shift.
+        int pToAdd = -(pulseWidth >>> 1);
+        int pPhase = phase >>> 1;
+        int pInc = phaseIncrement >>> 1;
+        if (doOscSync) {
+          int newPhase =
+              renderWaveSync(
+                  squareTable,
+                  tableSizeMagnitude,
+                  pAmp,
+                  buffer,
+                  off,
+                  numSamples,
+                  pInc,
+                  pPhase,
+                  applyAmplitude,
+                  pToAdd,
+                  pAmpInc,
+                  resetterPhase,
+                  resetterPhaseInc,
+                  resetterDivideByPhaseIncrement,
+                  retriggerPhase,
+                  true);
+          phase = newPhase << 1; // C:445 — phase <<= 1
+          maybeStorePhase(type, startPhase, phase, doPulseWave);
+          return;
+        }
+        // Unsynced: startPhase was already advanced with the ORIGINAL phaseIncrement at entry,
+        // so we return without maybeStorePhase (matching the C's plain return).
         renderPulseWave(
             squareTable,
             tableSizeMagnitude,
-            amplitude << 1,
+            pAmp,
             buffer,
             off,
             numSamples,
-            phaseIncrement >>> 1,
-            phase >>> 1,
+            pInc,
+            pPhase,
             applyAmplitude,
-            -(pulseWidth >> 1),
-            amplitudeIncrement << 1);
+            pToAdd,
+            pAmpInc);
         return;
       }
       // C: amplitude <<= 1; amplitudeIncrement <<= 1; before callRenderWave
