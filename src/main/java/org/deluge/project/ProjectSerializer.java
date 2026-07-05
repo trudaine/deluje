@@ -1378,6 +1378,9 @@ public class ProjectSerializer {
     if (clip.getFilePath() != null) {
       writer.writeAttribute("filePath", clip.getFilePath(), false);
     }
+    if (clip.isReversed()) {
+      writer.writeAttribute("reversed", 1, false);
+    }
     writer.writeAttribute("startSamplePos", clip.getStartSamplePos(), false);
     writer.writeAttribute("endSamplePos", clip.getEndSamplePos(), false);
     writer.writeAttribute("attack", DelugeHexMapper.floatToHex(clip.getAttack()), false);

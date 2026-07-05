@@ -22,6 +22,15 @@ public class AudioOutput extends GlobalEffectable {
   private final VoiceSample voiceSample = new VoiceSample();
   private boolean playing = false;
   private boolean looping = true;
+  private boolean reversed = false;
+
+  public void setReversed(boolean reversed) {
+    this.reversed = reversed;
+  }
+
+  public boolean isReversed() {
+    return reversed;
+  }
 
   // Phase 2 — playback rate / pitch. phaseIncrement is in the 24-bit fixed convention (unity =
   // 16777216 = native). Coupled mode (pitchSpeedIndependent=false): playRate scales phaseIncrement,
@@ -110,16 +119,22 @@ public class AudioOutput extends GlobalEffectable {
     this.sample = sample;
     this.looping = looping;
     if (sample != null) {
-      // VoiceSample.setup(sample, startFrame, endFrame, playDirection, looping, loopStartFrame)
-      voiceSample.setup(sample, 0, endFrame(), 1, looping, 0);
+      int dir = reversed ? -1 : 1;
+      int start = reversed ? endFrame() : 0;
+      int end = reversed ? 0 : endFrame();
+      int loopStart = reversed ? endFrame() : 0;
+      voiceSample.setup(sample, start, end, dir, looping, loopStart);
     }
   }
 
   public void setPlaying(boolean p) {
     this.playing = p;
     if (p && sample != null) {
-      // (re)arm from the start so playback begins cleanly.
-      voiceSample.setup(sample, 0, endFrame(), 1, looping, 0);
+      int dir = reversed ? -1 : 1;
+      int start = reversed ? endFrame() : 0;
+      int end = reversed ? 0 : endFrame();
+      int loopStart = reversed ? endFrame() : 0;
+      voiceSample.setup(sample, start, end, dir, looping, loopStart);
     }
   }
 
@@ -129,12 +144,14 @@ public class AudioOutput extends GlobalEffectable {
    */
   public void onTransportStart() {
     if (sample != null) {
+      int dir = reversed ? -1 : 1;
+      int start = reversed ? endFrame() : 0;
+      int end = reversed ? 0 : endFrame();
+      int loopStart = reversed ? endFrame() : 0;
       if (timeStretch) {
-        // Independent pitch/speed: the TimeStretcher hops through the sample (one-shot for now;
-        // musical-length looping is Phase 3b).
-        voiceSample.setupTimeStretch(sample, 0, 1);
+        voiceSample.setupTimeStretch(sample, start, dir);
       } else {
-        voiceSample.setup(sample, 0, endFrame(), 1, looping, 0);
+        voiceSample.setup(sample, start, end, dir, looping, loopStart);
       }
       playing = true;
     }

@@ -29,6 +29,7 @@ public class AudioTrackModel extends TrackModel {
     private int colourOffset = 0;
     private int section = 0;
     private boolean beingEdited = false;
+    private boolean reversed = false;
 
     // Per-clip params (from <params> child element)
     private float volume = 1.0f;
@@ -86,6 +87,14 @@ public class AudioTrackModel extends TrackModel {
 
     public void setEndSamplePos(int v) {
       this.endSamplePos = v;
+    }
+
+    public boolean isReversed() {
+      return reversed;
+    }
+
+    public void setReversed(boolean reversed) {
+      this.reversed = reversed;
     }
 
     public float getAttack() {

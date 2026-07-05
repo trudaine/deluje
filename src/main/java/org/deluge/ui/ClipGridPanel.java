@@ -1189,9 +1189,17 @@ public class ClipGridPanel extends SwingGridPanel {
               private boolean isPressed = false;
               private boolean auditionSounded = false;
 
-              private void startAudition() {
+              private void startAudition(java.awt.event.MouseEvent e) {
                 if (isPressed) return;
                 isPressed = true;
+
+                if (e != null && e.isShiftDown()) {
+                  if (SwingDelugeApp.mainInstance != null) {
+                    SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
+                        "SEL ", finalNoteName);
+                  }
+                  return;
+                }
 
                 boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
                 int pitchMidi = isSynthMode ? getRowPitch(modelRow) : 60;
@@ -1203,7 +1211,7 @@ public class ClipGridPanel extends SwingGridPanel {
 
                 Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                 if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
-                  if (editedModelTrack < fwEngine.sounds.size() && !isSequencerPlaying()) {
+                  if (editedModelTrack < fwEngine.sounds.size()) {
                     org.deluge.firmware2.GlobalEffectable sound =
                         fwEngine.sounds.get(editedModelTrack);
                     if (sound instanceof org.deluge.engine.FirmwareKit kit) {
@@ -1251,7 +1259,7 @@ public class ClipGridPanel extends SwingGridPanel {
               @Override
               public void mousePressed(java.awt.event.MouseEvent e) {
                 if (javax.swing.SwingUtilities.isLeftMouseButton(e)) {
-                  startAudition();
+                  startAudition(e);
                 }
               }
 
@@ -1263,6 +1271,17 @@ public class ClipGridPanel extends SwingGridPanel {
               @Override
               public void mouseExited(java.awt.event.MouseEvent e) {
                 stopAudition();
+              }
+            });
+
+        clipBtn.addMouseWheelListener(
+            e -> {
+              int rotation = e.getWheelRotation();
+              boolean isShift = e.isShiftDown();
+              if (isShift) {
+                rotateRow(modelRow, rotation > 0);
+              } else {
+                transposeRow(modelRow, rotation < 0);
               }
             });
       } else {
@@ -1717,5 +1736,80 @@ public class ClipGridPanel extends SwingGridPanel {
       return null;
     }
     return track.getClips().get(idx);
+  }
+
+  private void rotateRow(int modelRow, boolean right) {
+    if (projectModel == null) return;
+    org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
+    if (activeClipId >= track.getClips().size()) return;
+    org.deluge.model.ClipModel clip = track.getClips().get(activeClipId);
+    
+    // Get the NoteRowModel
+    org.deluge.model.NoteRowModel rowModel = clip.noteRows.get(modelRow);
+    if (rowModel == null || rowModel.notes.isEmpty()) return;
+    
+    int stepTicks = 24; // Sixteenth note step
+    int totalTicks = clip.getStepCount() * stepTicks;
+    int shift = right ? stepTicks : -stepTicks;
+    
+    for (org.deluge.model.NoteModel note : rowModel.notes) {
+      int newPos = (note.getPos() + shift + totalTicks) % totalTicks;
+      note.setPos(newPos);
+    }
+    
+    // Update the visual step data grid as well
+    org.deluge.model.StepData[] shiftedSteps = new org.deluge.model.StepData[clip.getStepCount()];
+    for (int s = 0; s < clip.getStepCount(); s++) {
+      int srcIdx = (s - (shift / 24) + clip.getStepCount()) % clip.getStepCount();
+      shiftedSteps[s] = clip.getStep(modelRow, srcIdx);
+    }
+    for (int s = 0; s < clip.getStepCount(); s++) {
+      clip.setStep(modelRow, s, shiftedSteps[s]);
+    }
+    
+    if (SwingDelugeApp.mainInstance != null) {
+      SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("ROTA", right ? "RGHT" : "LEFT");
+      SwingDelugeApp.mainInstance.getSyncCoordinator().pushModelToBridge();
+    }
+    
+    refreshKeyplayInPlace();
+    repaint();
+  }
+
+  private void transposeRow(int modelRow, boolean up) {
+    if (projectModel == null) return;
+    org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
+    if (activeClipId >= track.getClips().size()) return;
+    org.deluge.model.ClipModel clip = track.getClips().get(activeClipId);
+    
+    if (track instanceof org.deluge.model.KitTrackModel) return;
+    
+    int currentPitch = clip.getRowYNote(modelRow);
+    if (currentPitch == -1) {
+      currentPitch = getRowPitch(modelRow);
+    }
+    
+    int newPitch = currentPitch + (up ? 1 : -1);
+    newPitch = Math.max(0, Math.min(newPitch, 127));
+    
+    clip.setRowYNote(modelRow, newPitch);
+    
+    for (int s = 0; s < clip.getStepCount(); s++) {
+      org.deluge.model.StepData step = clip.getStep(modelRow, s);
+      if (step != null && step.active()) {
+        clip.setStep(modelRow, s, org.deluge.model.StepData.of(true, step.velocity(), step.gate(), step.probability(), newPitch));
+      }
+    }
+    
+    String[] keyNames = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+    int oct = (newPitch / 12) - 1;
+    String noteName = keyNames[newPitch % 12] + oct;
+    if (SwingDelugeApp.mainInstance != null) {
+      SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("TRSP", noteName);
+      SwingDelugeApp.mainInstance.getSyncCoordinator().pushModelToBridge();
+    }
+    
+    refreshKeyplayInPlace();
+    repaint();
   }
 }

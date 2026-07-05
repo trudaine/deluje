@@ -206,6 +206,18 @@ public class AudioOutputPlaybackTest {
   }
 
   @Test
+  void reversedPlaybackIsAudible() throws Exception {
+    AudioTrackModel at = new AudioTrackModel("Reversed");
+    AudioTrackModel.AudioClip ac = new AudioTrackModel.AudioClip();
+    ac.setFilePath(wav().getAbsolutePath());
+    ac.setReversed(true);
+    at.addAudioClip(ac);
+    double rms = renderRms(at);
+    System.out.printf("[AudioOutput] reversed RMS=%.5f%n", rms);
+    assertTrue(rms > 1e-4, "reversed audio render was silent");
+  }
+
+  @Test
   void timeStretchPlaybackIsAudible() throws Exception {
     // Independent mode: slower speed, pitch unchanged (time-stretch). Must still produce sound.
     AudioTrackModel at = new AudioTrackModel("Stretched");

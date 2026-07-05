@@ -185,6 +185,7 @@ public class FirmwareFactory {
           try {
             var smp = AudioFileReader.readSample(f.getAbsolutePath());
             if (smp != null) {
+              out.setReversed(clip.isReversed());
               out.setClip(org.deluge.firmware2.Sample.fromFirmwareSample(smp), true);
               // Phase 2: playback rate / pitch (coupled resample vs independent time-stretch).
               out.setPlayback(model.getPlayRate(), clip.isPitchSpeedIndependent());

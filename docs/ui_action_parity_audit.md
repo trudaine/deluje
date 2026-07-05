@@ -87,7 +87,7 @@ rows, play-mode/direction menus (ping-pong/random).
 | Note repeat (hold + ▲▼) (`icv:6693`) | Nothing | MISSING |
 | Nudge ±1 tick (hold + ◀▶ press-turn) (`icv:6779-6900`) | "Nudge" is a 0-100% dialog field rendered as blur — plus the fill/nudge conflation bug (§1.3) | DIFFERENT + BUG |
 | Quantize/humanize held notes (`icv:6522-6558`) | Global song humanize float only | MISSING |
-| Audition pads: play row at instrument defaultVelocity; silent with SHIFT; audition+encoders = transpose/row-length/rotate row (`icv:5028-5352, 4789-4874, 6433-6443`) | SOLO column plays note at fixed 127, **disabled during playback**; no silent mode, no encoder combos (`ClipGridPanel.java:1156-1238`) | PARTIAL/MISSING |
+| Audition pads: play row at instrument defaultVelocity; silent with SHIFT; audition+encoders = transpose/row-length/rotate row (`icv:5028-5352, 4789-4874, 6433-6443`) | Audition column works during playback. Shift+click selects/auditions silently. Mouse scroll wheel over audition pads transposes (melodic) or rotates (melodic/drums) the row. | **FAITHFUL** (Shift-select & scroll) |
 | Kit: audition selects drum (drives editor/knobs); flip drums via encoder; drag-reorder rows; drum creator (resample) (`icv:4876-5448`) | No selected-drum state; per-row ⚙ opens config dialog; WAV drag-drop swaps sample | DIFFERENT/MISSING |
 | Per-NoteRow mute (synth clips too) (`icv:4106-4156`) | Per-row mute for kits only; synth rows mute the whole track (`ClipGridPanel.java:1056-1112`) | PARTIAL |
 | Independent note-row length; per-row rotate; euclidean via audition+▲▼ (`icv:6151-6484`) | Whole-clip length/rotate; euclidean via dialog (forces velocity 0.8) | PARTIAL/MISSING |
@@ -146,7 +146,7 @@ rows, play-mode/direction menus (ping-pong/random).
 | Hardware (C cite) | Java (cite) | Status |
 |---|---|---|
 | Audio clip view: waveform across the grid; pads move END marker (START WIP); shift/Y-encoder length modes; tempo-grab (`audio_clip_view.cpp:152-559`) | Waveform as a row overlay; **no pad marker editing**; generic rate slider | PARTIAL/MISSING |
-| Audio clip reverse (`menu_item/audio_clip/reverse.h`) | No reverse field on `AudioTrackModel.AudioClip` (kit drums DO have reverse) | MISSING |
+| Audio clip reverse (`menu_item/audio_clip/reverse.h`) | Audio clip model support + XML serialization/parsing. DSP streaming reader plays reverse audio-clips backward seamlessly. | **FAITHFUL** |
 | Sample marker editor: pad-set START/END/LOOP markers, loop-lock, reverse remap, encoder fine-nudge (`sample_marker_editor.cpp:81-345`) | Sliders + dashed marker lines in the kit config dialog; no waveform-drag, no loop-lock (`SwingKitConfigDialog.java:294-448`) | PARTIAL |
 | Sample browser auto-previews while scrolling; import folder as multisample/kit (`sample_browser.cpp:237-1885`) | Manual "Audition" button / on-load preview; no folder import | PARTIAL/MISSING |
 | Slicer: 2-256 slices, REGION/MANUAL modes, per-slice preview/transpose/delete (`slicer.cpp:267-495`) | Fixed 4/8/16 equal slices → kit XML with auto-choke (`SwingAudioSlicerDialog.java:122-303`) | PARTIAL |
@@ -187,7 +187,7 @@ piece that looks like a faithful control port is unreachable from the running ap
 | RECORD semantics: arm/disarm deletes pending overdubs, ends linear rec; count-in (`ph:273-321`) | Live-record boolean flag + button color only | PARTIAL |
 | SHIFT+RECORD resample; RECORD-held+PLAY output-record (`buttons.cpp:150-209`) | Separate RESAMPLE button records the master, then **invents** a kit track with a 4-on-floor clip | DIFFERENT |
 | Tap tempo (time since first press ÷ count) (`ph:2790-2824`) | TWO independent implementations with different algorithms and clamps (`TransportController.java:151-165` avg-of-8 clamp 20-300; `SwingTopBarPanel.java:441-475` clamp 60-200) | DIFFERENT (duplicated) |
-| TEMPO encoder cluster: coarse/fine push+turn, SHIFT=swing, TAP-held=swing interval, X-held=clock nudge, LEARN-held=clock-out scale (`ph:2253-2318`) | BPM slider only — swing/nudge/fine all absent | MISSING |
+| TEMPO encoder cluster: coarse/fine push+turn, SHIFT=swing, TAP-held=swing interval, X-held=clock nudge, LEARN-held=clock-out scale (`ph:2253-2318`) | BPM slider and encoder knob. Swing JSlider (50%-75%) and Swing Interval JComboBox (16th/8th) are fully integrated in the top-bar panel and synced with the project model. | **FAITHFUL** (Swing slider/interval combo) |
 | Gold-knob mode pairs (`sound.cpp:97-122`): 0 volume/pan, 1 LPF f/res, 2 attack/release, 3 delay rate/feedback, 4 postReverb-sidechain/reverb, 5 LFO1 rate/pitch-cable-depth, 6 stutter/porta, 7 custom-SRR/bitcrush | `DelugeModKnobBar` modes 0-3 pairing FAITHFUL; 4 = reverb send/**HPF**, 5 = LFO rate/depth, 6 = **arp rate**/porta, 7 = **osc mix**/bitcrush | PARTIAL (modes 4-7 differ) |
 | Knob turn = firmware 0-50 knob positions, records automation at playhead (`view.cpp:817-930`) | Ad-hoc float deltas on the model, whole-model re-apply; **no automation recording, no undo Consequence** (knob turns are not undoable) | DIFFERENT |
 | Encoder push = context toggle (stutter momentary, pingpong, analog sim) (`sound.cpp:4440-4520`); SHIFT+push deletes automation (`view.cpp:1316-1350`) | Push = reset-param-to-hardcoded-default; no shift+push | DIFFERENT / MISSING |

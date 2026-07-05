@@ -648,6 +648,44 @@ public class SwingTopBarPanel extends JPanel {
         () -> paramReadout.printTransient("TEM ", String.valueOf(bpmSlider.getValue())));
     add(tempoKnob);
 
+    JLabel swingLabel = new JLabel("SWING:");
+    swingLabel.setForeground(Color.WHITE);
+    swingLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+    add(swingLabel);
+
+    int initSwing = (int) (projectModel.getSwing() * 100);
+    if (initSwing < 50 || initSwing > 75) initSwing = 50;
+    JSlider swingSlider = new JSlider(50, 75, initSwing);
+    swingSlider.setBackground(new Color(0x12, 0x12, 0x14));
+    swingSlider.setForeground(new Color(0x00, 0xff, 0xcc));
+    swingSlider.setOpaque(false);
+    swingSlider.setFocusable(false);
+    swingSlider.setPreferredSize(new Dimension(80, 22));
+    swingSlider.setUI(new javax.swing.plaf.basic.BasicSliderUI(swingSlider));
+    swingSlider.addChangeListener(
+        e -> {
+          int val = swingSlider.getValue();
+          projectModel.setSwing(val / 100.0f);
+          projectModel.setSwingAmount(val - 50);
+          paramReadout.printTransient("SWG ", val + "%");
+        });
+    add(swingSlider);
+
+    String[] swingIntervals = {"16th", "8th"};
+    javax.swing.JComboBox<String> swingIntervalCombo = new javax.swing.JComboBox<>(swingIntervals);
+    swingIntervalCombo.setPreferredSize(new Dimension(65, 22));
+    swingIntervalCombo.setFont(new Font("SansSerif", Font.BOLD, 10));
+    swingIntervalCombo.setFocusable(false);
+    swingIntervalCombo.setSelectedIndex(projectModel.getSwingInterval() == 5 ? 1 : 0);
+    swingIntervalCombo.addActionListener(
+        e -> {
+          String selected = (String) swingIntervalCombo.getSelectedItem();
+          int interval = "8th".equals(selected) ? 5 : 6;
+          projectModel.setSwingInterval(interval);
+          paramReadout.printTransient("SWI ", selected);
+        });
+    add(swingIntervalCombo);
+
     JLabel masterLabel = new JLabel("MASTER:");
     masterLabel.setForeground(Color.WHITE);
     masterLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
