@@ -1797,7 +1797,21 @@ public class ClipGridPanel extends SwingGridPanel {
     for (int s = 0; s < clip.getStepCount(); s++) {
       org.deluge.model.StepData step = clip.getStep(modelRow, s);
       if (step != null && step.active()) {
-        clip.setStep(modelRow, s, org.deluge.model.StepData.of(true, step.velocity(), step.gate(), step.probability(), newPitch));
+        // Only the pitch changes — preserve every other per-step property (iterance, fill,
+        // nudge as well as velocity/gate/probability). The 5-arg StepData.of() resets
+        // iterance/fill/nudge to 0, silently discarding them on transpose.
+        clip.setStep(
+            modelRow,
+            s,
+            new org.deluge.model.StepData(
+                true,
+                step.velocity(),
+                step.gate(),
+                step.probability(),
+                newPitch,
+                step.iterance(),
+                step.fill(),
+                step.nudge()));
       }
     }
     
