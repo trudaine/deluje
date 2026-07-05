@@ -348,6 +348,36 @@ public class SongGridPanelSoloTest {
     assertTrue(clip.getStep(0, 2).active());
     assertTrue(clip.getStep(0, 18).active());
 
+    // --- Verify handlePadMouseWheel scroll edit wrapping ---
+    // Generate a MouseWheelEvent (scrolling down to adjust velocity)
+    java.awt.event.MouseWheelEvent wheelEv = new java.awt.event.MouseWheelEvent(
+        new javax.swing.JButton(), 0, 0, 0, 0, 0, 0, false, 0, 0, 1);
+    panel.clipController.handlePadMouseWheel(67, 2, wheelEv);
+    
+    float vel2 = clip.getStep(0, 2).velocity();
+    float vel18 = clip.getStep(0, 18).velocity();
+    assertEquals(0.75f, vel2, 1e-3f);
+    assertEquals(vel2, vel18, 1e-3f, "Velocity adjustments must wrap across screens");
+    
+    // --- Verify handleStepTied note-tying wrapping ---
+    panel.clipController.handleStepTied(67, 4, 6);
+    assertTrue(clip.getStep(0, 4).active());
+    assertEquals(2.9f, clip.getStep(0, 4).gate(), 1e-3f);
+    assertFalse(clip.getStep(0, 5).active());
+    assertFalse(clip.getStep(0, 6).active());
+    
+    assertTrue(clip.getStep(0, 20).active());
+    assertEquals(2.9f, clip.getStep(0, 20).gate(), 1e-3f, "Tying notes must wrap across screens");
+    assertFalse(clip.getStep(0, 21).active());
+    assertFalse(clip.getStep(0, 22).active());
+
+    // --- Verify applyStepProperties context menu edit wrapping ---
+    StepPropertiesEditor.applyStepProperties(panel.clipController, 67, 4, 0.5, 0, 0.0, 0.5, 1.0, 0.0);
+    assertEquals(0.5f, clip.getStep(0, 4).velocity(), 1e-3f);
+    assertEquals(0.5f, clip.getStep(0, 4).probability(), 1e-3f);
+    assertEquals(0.5f, clip.getStep(0, 20).velocity(), 1e-3f, "Context menu velocity edits must wrap");
+    assertEquals(0.5f, clip.getStep(0, 20).probability(), 1e-3f, "Context menu probability edits must wrap");
+
     SwingGridPanel.isCrossScreenWrapActive = false;
 
     panel.clipController.handleStepToggled(67, 3);
