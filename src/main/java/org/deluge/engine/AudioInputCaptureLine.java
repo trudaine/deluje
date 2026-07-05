@@ -32,7 +32,7 @@ public class AudioInputCaptureLine {
   private float threshold = 0.05f; // Peak amplitude threshold (default ~ -26dB)
   private final ByteArrayOutputStream capturedStream = new ByteArrayOutputStream();
   private Thread captureThread = null;
-  private double lastRecordedDurationSec = 0.0;
+  private volatile double lastRecordedDurationSec = 0.0;
 
   public double getLastRecordedDurationSec() {
     return lastRecordedDurationSec;
@@ -43,7 +43,7 @@ public class AudioInputCaptureLine {
   private Runnable onTriggerCallback = null;
   private Runnable onFinishedCallback = null;
 
-  private float currentLivePeak = 0f;
+  private volatile float currentLivePeak = 0f;
 
   // ── Live-monitor ring ──
   // The capture thread publishes Q31 stereo frames here; JavaAudioDriver drains one block per

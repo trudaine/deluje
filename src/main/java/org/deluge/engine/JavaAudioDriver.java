@@ -91,7 +91,7 @@ public class JavaAudioDriver implements Runnable {
       org.deluge.project.PreferencesManager.getMonitorGainBoost();
   public static boolean debugPeak = false;
 
-  private double ticksPerSample = 0.005; // 120BPM default
+  private volatile double ticksPerSample = 0.005; // 120BPM default
   private double accumulatedTicks = 0;
 
   // Metronome beat tracking: 96 ticks per quarter note. -1 means "not yet clicked since stopped".
