@@ -3065,7 +3065,26 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
           org.deluge.model.ArpModel oldArp = st.getArp();
           st.setArp(oldArp.toBuilder().rate((float) (v * 2.0f)).build());
         }
-        break;
+    }
+    // Apply changes immediately to the live audio engine sound if active
+    if (projectModel != null) {
+      int idx = projectModel.getTracks().indexOf(track);
+      if (idx >= 0) {
+        try {
+          Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+          if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine
+              && idx < engine.sounds.size()) {
+            org.deluge.firmware2.GlobalEffectable ge = engine.sounds.get(idx);
+            if (track instanceof org.deluge.model.SynthTrackModel st && ge instanceof org.deluge.engine.FirmwareSound fs) {
+              org.deluge.engine.FirmwareFactory.applyModelToLiveSound(st, fs);
+            } else if (track instanceof org.deluge.model.KitTrackModel kt && ge instanceof org.deluge.engine.FirmwareKit fk) {
+              org.deluge.engine.FirmwareFactory.applyModelToLiveSound(kt, fk);
+            }
+          }
+        } catch (Exception ignored) {
+          // Engine not running (e.g. tests)
+        }
+      }
     }
   }
 
