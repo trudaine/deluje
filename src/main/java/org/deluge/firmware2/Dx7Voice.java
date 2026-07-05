@@ -469,7 +469,7 @@ public class Dx7Voice {
     pitchEnv.set(patch, 126);
 
     if ((patch[141] & 0xFF) != 0) {
-      newp.lfoPhase = -1; // (1U<<31)-1
+      newp.lfoPhase = Integer.MAX_VALUE; // dx7note.cpp:267 — (1U << 31) - 1 = 0x7FFFFFFF
     }
     if ((patch[136] & 0xFF) != 0) oscSync();
     else oscUnSync();
@@ -509,7 +509,8 @@ public class Dx7Voice {
 
   // getdelay (dx7note.cpp:293-306)
   int getDelay(int n) {
-    long delta = (delayState < (1 << 31)) ? (delayInc & 0xFFFFFFFFL) : (delayInc2 & 0xFFFFFFFFL);
+    // dx7note.cpp:294 — "delaystate_ < (1U << 31)" on uint32 means the top bit is clear.
+    long delta = (delayState >= 0) ? (delayInc & 0xFFFFFFFFL) : (delayInc2 & 0xFFFFFFFFL);
     long d = (delayState & 0xFFFFFFFFL) + delta * n;
     if (d > 0xFFFFFFFFL) return 1 << 24;
     delayState = (int) d;

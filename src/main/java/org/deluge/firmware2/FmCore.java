@@ -141,7 +141,9 @@ public final class FmCore {
     boolean[] hasContents = {true, false, false};
 
     if (debugRender) {
-      System.out.printf("[FMCORE DEBUG] render algorithm=%d n=%d feedbackShift=%d%n", algorithm, n, feedbackShift);
+      System.out.printf(
+          "[FMCORE DEBUG] render algorithm=%d n=%d feedbackShift=%d%n",
+          algorithm, n, feedbackShift);
     }
 
     for (int op = 0; op < 6; op++) {
@@ -149,7 +151,8 @@ public final class FmCore {
       boolean add = (flags & OUT_BUS_ADD) != 0;
       FmOpParams param = params[op];
       if (debugRender) {
-        System.out.printf("  op=%d (Op %d) freq=%d level_in=%d gain_out=%d flags=0x%02X%n",
+        System.out.printf(
+            "  op=%d (Op %d) freq=%d level_in=%d gain_out=%d flags=0x%02X%n",
             op, 6 - op, param.freq, param.level_in, param.gain_out, flags);
       }
       int inbus = (flags >> 4) & 3;
