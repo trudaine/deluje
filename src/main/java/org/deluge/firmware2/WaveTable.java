@@ -49,8 +49,8 @@ public class WaveTable {
       int cycleSizeNoDuplicates = initialBandCycleSizeNoDuplicates >> b;
       band.cycleSizeNoDuplicates = cycleSizeNoDuplicates;
       band.cycleSizeMagnitude = (byte) (initialBandCycleMagnitude - b);
-      // 1 increment covers whole cycle: 2^32 / 2^magnitude
-      band.maxPhaseIncrement = (int) (0xFFFFFFFFL >> (32 - band.cycleSizeMagnitude));
+      // C wave_table.cpp:288 — (uint32_t)(0xFFFFFFFF >> cycleSizeMagnitude) * 1.25
+      band.maxPhaseIncrement = (int) ((0xFFFFFFFFL >>> band.cycleSizeMagnitude) * 1.25);
 
       int bandSizeSamplesWithDuplicates =
           numCycles * (cycleSizeNoDuplicates + WAVETABLE_NUM_DUPLICATE_SAMPLES_AT_END_OF_CYCLE);
@@ -62,10 +62,12 @@ public class WaveTable {
 
     if (numCycles > 1) {
       int numCycleTransitions = numCycles - 1;
-      numCycleTransitionsNextPowerOf2Magnitude = getMagnitude(numCycleTransitions);
+      // C wave_table.cpp:749 uses getMagnitudeOld = 32 - clz (NOT the 31 - clz getMagnitude).
+      numCycleTransitionsNextPowerOf2Magnitude =
+          32 - Integer.numberOfLeadingZeros(numCycleTransitions);
       numCycleTransitionsNextPowerOf2 = 1 << numCycleTransitionsNextPowerOf2Magnitude;
-      waveIndexMultiplier =
-          (int) (((long) numCycleTransitions << 31) >> numCycleTransitionsNextPowerOf2Magnitude);
+      // C wave_table.cpp:752
+      waveIndexMultiplier = numCycleTransitions << (31 - numCycleTransitionsNextPowerOf2Magnitude);
     }
   }
 
@@ -93,10 +95,11 @@ public class WaveTable {
       int waveIndex,
       int waveIndexIncrement) {
 
-    // Decide on ideal band
+    // Decide on ideal band — C wave_table.cpp:1061: bands.search(phaseIncrement, GREATER_OR_EQUAL)
+    // on the uint32 maxPhaseIncrement key.
     WaveTableBand bandHere = null;
     for (WaveTableBand band : bands) {
-      if (phaseIncrement <= band.maxPhaseIncrement) {
+      if (Integer.compareUnsigned(phaseIncrement, band.maxPhaseIncrement) <= 0) {
         bandHere = band;
         break;
       }
@@ -108,13 +111,14 @@ public class WaveTable {
     if (bandHere == null) return phase;
 
     if (numCycles > 1) {
-      long prod = (waveIndexMultiplier & 0xFFFFFFFFL) * (waveIndex & 0xFFFFFFFFL);
-      int waveIndexScaled = (int) ((prod + 0x80000000L) >> 32);
+      // C wave_table.cpp:1071-1072 — SIGNED rounded multiplies.
+      int waveIndexScaled =
+          Functions.multiply_32x32_rshift32_rounded(waveIndexMultiplier, waveIndex);
+      int waveIndexIncrementScaled =
+          Functions.multiply_32x32_rshift32_rounded(waveIndexMultiplier, waveIndexIncrement);
 
-      long prodInc = (waveIndexMultiplier & 0xFFFFFFFFL) * waveIndexIncrement;
-      int waveIndexIncrementScaled = (int) ((prodInc + 0x80000000L) >> 32);
-
-      int lshiftAmountToGetCrossCycleStrength = 32 + numCycleTransitionsNextPowerOf2Magnitude - 31;
+      // C wave_table.cpp:910,1074-1075 — NUM_BITS_IN_WAVE_INDEX_SCALED_INPUT = 30.
+      int lshiftAmountToGetCrossCycleStrength = 32 + numCycleTransitionsNextPowerOf2Magnitude - 30;
       int crossCycleStrength2Increment =
           waveIndexIncrementScaled << lshiftAmountToGetCrossCycleStrength;
 
@@ -124,17 +128,18 @@ public class WaveTable {
       int currentWaveIndexScaled = waveIndexScaled;
 
       while (numSamplesLeftToDo > 0) {
+        // C wave_table.cpp:1081-1090 — shifts use NUM_BITS_IN_WAVE_INDEX_SCALED_INPUT = 30.
         int firstCycleNumber =
-            currentWaveIndexScaled >> (31 - numCycleTransitionsNextPowerOf2Magnitude);
+            currentWaveIndexScaled >> (30 - numCycleTransitionsNextPowerOf2Magnitude);
 
         int numSamplesThisLoop = numSamplesLeftToDo;
 
         int firstCycleNumberAfterAllIncrements =
             (currentWaveIndexScaled + waveIndexIncrementScaled * (numSamplesLeftToDo - 1))
-                >> (31 - numCycleTransitionsNextPowerOf2Magnitude);
+                >> (30 - numCycleTransitionsNextPowerOf2Magnitude);
 
         if (firstCycleNumber != firstCycleNumberAfterAllIncrements) {
-          int cycleSizeInWaveIndex = 1 << (31 - numCycleTransitionsNextPowerOf2Magnitude);
+          int cycleSizeInWaveIndex = 1 << (30 - numCycleTransitionsNextPowerOf2Magnitude);
           int waveIndexPlaceWithinCycle = currentWaveIndexScaled & (cycleSizeInWaveIndex - 1);
           int waveIndexDistanceUntilFinalBigValueStillInThisCycle =
               (waveIndexIncrementScaled >= 0)
