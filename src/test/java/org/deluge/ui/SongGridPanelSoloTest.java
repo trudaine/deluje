@@ -10,6 +10,7 @@ import org.deluge.model.ProjectModel;
 import org.deluge.model.TrackModel;
 import org.deluge.model.SynthTrackModel;
 import org.deluge.model.ClipModel;
+import org.deluge.model.StepData;
 import org.junit.jupiter.api.Test;
 
 public class SongGridPanelSoloTest {
@@ -261,6 +262,34 @@ public class SongGridPanelSoloTest {
     clip.setPlayMode(ClipModel.PlayMode.NORMAL);
     panel.refresh();
     assertEquals(new Color(0, 255, 6), mutePad.getBackground());
+
+    bridge.shutdown();
+  }
+
+  @Test
+  public void testQuantizeAndHumanizeRow() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+    ProjectModel project = new ProjectModel();
+
+    TrackModel track0 = new SynthTrackModel("T0");
+    ClipModel clip = new org.deluge.model.ClipModel("C1", 8, 16);
+    StepData step = new StepData(true, 0.8f, 1.0f, 1.0f, 60, 0, 0.0f, 0.5f);
+    clip.setStep(0, 0, step);
+    track0.addClip(clip);
+    project.addTrack(track0);
+
+    SongGridPanel panel = new SongGridPanel(bridge);
+    panel.setProjectModel(project);
+
+    assertEquals(0.5f, panel.getClipStep(clip, 0, 0).nudge());
+
+    panel.quantizeRow(0);
+    assertEquals(0.0f, panel.getClipStep(clip, 0, 0).nudge());
+
+    panel.humanizeRow(0, 0.3f);
+    float humanizedNudge = panel.getClipStep(clip, 0, 0).nudge();
+    assertTrue(humanizedNudge >= 0.0f && humanizedNudge <= 0.3f);
 
     bridge.shutdown();
   }

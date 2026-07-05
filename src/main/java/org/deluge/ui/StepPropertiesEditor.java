@@ -7,6 +7,7 @@ import java.awt.Point;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
+import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import org.deluge.BridgeContract;
 import org.deluge.model.ClipModel;
@@ -57,6 +58,24 @@ class StepPropertiesEditor {
               .setVisible(true);
         });
     popup.add(euclideanItem);
+
+    JMenuItem quantizeItem = new JMenuItem("Quantize Row Notes");
+    quantizeItem.addActionListener(ev -> parent.quantizeRow(row));
+    popup.add(quantizeItem);
+
+    JMenuItem humanizeItem = new JMenuItem("Humanize Row Notes...");
+    humanizeItem.addActionListener(
+        ev -> {
+          String input = JOptionPane.showInputDialog(parent, "Max timing shift (nudge % from 1 to 99):", "15");
+          if (input != null && !input.isBlank()) {
+            try {
+              float pct = Float.parseFloat(input.trim()) / 100.0f;
+              pct = Math.max(0.0f, Math.min(0.99f, pct));
+              parent.humanizeRow(row, pct);
+            } catch (NumberFormatException ignored) {}
+          }
+        });
+    popup.add(humanizeItem);
 
     JMenuItem clearStep = new JMenuItem("Clear Step");
     clearStep.addActionListener(
