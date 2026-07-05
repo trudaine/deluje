@@ -66,6 +66,10 @@ public class LivePitchShifter {
 
   private final int[] hopParameters = new int[6];
   private transient int[] renderScratchBuffer = new int[256];
+  private final int[] oldHeadTotals = new int[TimeStretcher.K_NUM_MOVING_AVERAGES];
+  private final int[] newHeadTotals = new int[TimeStretcher.K_NUM_MOVING_AVERAGES];
+  private final int[] readPos = new int[TimeStretcher.K_NUM_MOVING_AVERAGES + 1];
+  private final int[] newHeadRunningTotals = new int[TimeStretcher.K_NUM_MOVING_AVERAGES];
 
   private int[] getScratchBuffer(int requiredCapacity) {
     if (renderScratchBuffer == null || renderScratchBuffer.length < requiredCapacity) {
@@ -433,7 +437,6 @@ public class LivePitchShifter {
             - lengthPerMovingAverage * TimeStretcher.K_NUM_MOVING_AVERAGES; // C:461-462
 
     // C:464-473 — old-head moving averages
-    int[] oldHeadTotals = new int[TimeStretcher.K_NUM_MOVING_AVERAGES];
     if (lengthPerMovingAverage != 0) {
       int averagesStartPosOldHead =
           (playHeads[TimeStretcher.PLAY_HEAD_OLDER].rawBufferReadPos + averagesStartOffsetFromHead)
@@ -568,7 +571,6 @@ public class LivePitchShifter {
     searchBlock:
     if (doSearch) {
 
-      int[] newHeadTotals = new int[TimeStretcher.K_NUM_MOVING_AVERAGES];
       liveInputBuffer.getAveragesForCrossfade(
           newHeadTotals, averagesStartPosNewHead, lengthPerMovingAverage, numChannels); // C:621-622
 
@@ -583,12 +585,11 @@ public class LivePitchShifter {
       while (true) {
         // ── startSearch (C:629-668) ──
         int lastTotalChange = initialTotalChange;
-        int[] readPos = new int[TimeStretcher.K_NUM_MOVING_AVERAGES + 1];
         readPos[0] = averagesStartPosNewHead;
         if (searchDirection == -1) {
           readPos[0] = (readPos[0] - 1) & (LiveInputBuffer.K_INPUT_RAW_BUFFER_SIZE - 1);
         }
-        int[] newHeadRunningTotals = new int[TimeStretcher.K_NUM_MOVING_AVERAGES];
+
         for (int i = 0; i < TimeStretcher.K_NUM_MOVING_AVERAGES; i++) {
           newHeadRunningTotals[i] = newHeadTotals[i];
           readPos[i + 1] =
