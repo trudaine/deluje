@@ -61,7 +61,7 @@ Two Java surfaces exist: `SongGridPanel` (the real desktop song grid) and `ui/vi
 | Row = one session clip; any main-pad press selects/holds it (`session_view.cpp:811-826`) | Row = one *track*; render is hardware-style pattern row (`SongProjector.java:65-114`), but a click's **column is a clip index** — Ableton-style slots on hardware-style rendering (`SongGridPanel.java:470-485`) | DIFFERENT (mixed models) |
 | Hold clip pad: gold knobs target clip, select-encoder swaps preset, shift+Y-encoder recolours (`sv:820-825, 1299-1362, 1428-1441`) | No hold mode; colour via right-click menu | MISSING |
 | Hold + press other row = clone (`sv:883-901`) | Context menu Copy Clip, Paste Clip (on empty slot), and Paste Over Clip actions allow copying clips anywhere across tracks/columns. | **FAITHFUL** (with context-menu Copy/Paste actions) |
-| Quantized clip arming via status pad; SHIFT = instant (`view.cpp:2716-2803`) | `bridge.setMute` immediate; the bar-quantized `launchQueue` exists but only sections feed it (`SwingGridPanel.java:1132-1136`, `SequencerClock.java:132-136`) | PARTIAL |
+| Quantized clip arming via status pad; SHIFT = instant (`view.cpp:2716-2803`) | Single click on a clip pad queues (arms) it to launch at the next bar boundary (quantized launch); SHIFT+click launches instantly. | **FAITHFUL** (with click launch + Shift instant modifier) |
 | RECORD+pad = pending overdub / record-arm (`sv:714-788`) | Nothing | MISSING |
 | Section pads: arm section; hold 300 ms + encoder = repeat count (-2 exclusive/-1 shared/0 ∞/N) (`sv:686, 1176-1298`) | Toolbar "SECTION: A B C…" buttons, bar-quantized launch (`SongGridPanel.java:79-119`); repeats are data-only | PARTIAL |
 | SHIFT+section pad reassigns clip's section (`sv:1133-1174`) | Nothing | MISSING |
