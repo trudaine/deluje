@@ -14,6 +14,14 @@ public final class FmCore {
 
   private FmCore() {}
 
+  private static class FmScratch {
+    int[][] buf = new int[2][0];
+    boolean[] hasContents = new boolean[3];
+  }
+
+  private static final ThreadLocal<FmScratch> scratchHolder =
+      ThreadLocal.withInitial(FmScratch::new);
+
   // ── Constants (fm_core.h) ──
 
   /** Maximum render block size (132 to allow 128 output + 4-byte padding). */
@@ -135,10 +143,18 @@ public final class FmCore {
     int[] alg = ALGORITHMS[algorithm];
     int simdN = (n + 3) & ~3;
     int invN = (1 << 30) / n;
-    int[][] buf = new int[2][simdN];
-    java.util.Arrays.fill(buf[0], 0);
-    java.util.Arrays.fill(buf[1], 0);
-    boolean[] hasContents = {true, false, false};
+    FmScratch scratch = scratchHolder.get();
+    if (scratch.buf[0].length < simdN) {
+      scratch.buf[0] = new int[simdN];
+      scratch.buf[1] = new int[simdN];
+    }
+    int[][] buf = scratch.buf;
+    java.util.Arrays.fill(buf[0], 0, simdN, 0);
+    java.util.Arrays.fill(buf[1], 0, simdN, 0);
+    boolean[] hasContents = scratch.hasContents;
+    hasContents[0] = true;
+    hasContents[1] = false;
+    hasContents[2] = false;
 
     if (debugRender) {
       System.out.printf(
