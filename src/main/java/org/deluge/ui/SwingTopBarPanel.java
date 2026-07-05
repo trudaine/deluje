@@ -158,11 +158,12 @@ public class SwingTopBarPanel extends JPanel {
         new org.deluge.model.ProjectModel.ProjectAdapter() {
           @Override
           public void onBpmChanged(float bpm) {
-            javax.swing.SwingUtilities.invokeLater(() -> {
-              if (bpmSlider != null && bpmSlider.getValue() != (int) bpm) {
-                bpmSlider.setValue((int) bpm);
-              }
-            });
+            javax.swing.SwingUtilities.invokeLater(
+                () -> {
+                  if (bpmSlider != null && bpmSlider.getValue() != (int) bpm) {
+                    bpmSlider.setValue((int) bpm);
+                  }
+                });
           }
         });
 
@@ -463,7 +464,8 @@ public class SwingTopBarPanel extends JPanel {
             toggleMetronome();
             return;
           }
-          if (SwingDelugeApp.mainInstance != null && SwingDelugeApp.mainInstance.transportController != null) {
+          if (SwingDelugeApp.mainInstance != null
+              && SwingDelugeApp.mainInstance.transportController != null) {
             SwingDelugeApp.mainInstance.transportController.tapTempo();
           }
         });

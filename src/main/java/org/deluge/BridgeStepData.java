@@ -68,7 +68,7 @@ final class BridgeStepData {
   static final String G_STEP_STUTTER = BridgeContract.G_STEP_STUTTER;
   static final String G_STEP_BITCRUSH = BridgeContract.G_STEP_BITCRUSH;
   static final String G_STEP_SRR = BridgeContract.G_STEP_SRR;
- 
+
   final int[] pattern = new int[PATTERN_SIZE];
   final float[] velocity = new float[PATTERN_SIZE];
   final float[] gate = new float[PATTERN_SIZE];

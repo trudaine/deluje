@@ -1,6 +1,7 @@
 package org.deluge.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.awt.Color;
 import org.junit.jupiter.api.Test;
 

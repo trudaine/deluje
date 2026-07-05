@@ -108,16 +108,36 @@ public class ViewAndSongStateParityTest {
     project.setSwing(0.6f);
     project.setSwingInterval(6);
 
-    SwingTopBarPanel topBar = new SwingTopBarPanel(bridge, project, null, new SwingTopBarPanel.TopBarListener() {
-      @Override public void onLiveRecordToggle(javax.swing.JButton btn) {}
-      @Override public void onResampleToggle(javax.swing.JButton btn) {}
-      @Override public void onArrangerCaptureToggle(boolean active) {}
-      @Override public void onViewModeChanged(String viewMode) {}
-      @Override public void onAddTrack(String type, boolean isShift) {}
-      @Override public void onPlayToggle() {}
-      @Override public void onStop() {}
-      @Override public void onMasterVolumeChanged(float vol) {}
-    });
+    SwingTopBarPanel topBar =
+        new SwingTopBarPanel(
+            bridge,
+            project,
+            null,
+            new SwingTopBarPanel.TopBarListener() {
+              @Override
+              public void onLiveRecordToggle(javax.swing.JButton btn) {}
+
+              @Override
+              public void onResampleToggle(javax.swing.JButton btn) {}
+
+              @Override
+              public void onArrangerCaptureToggle(boolean active) {}
+
+              @Override
+              public void onViewModeChanged(String viewMode) {}
+
+              @Override
+              public void onAddTrack(String type, boolean isShift) {}
+
+              @Override
+              public void onPlayToggle() {}
+
+              @Override
+              public void onStop() {}
+
+              @Override
+              public void onMasterVolumeChanged(float vol) {}
+            });
     assertNotNull(topBar);
 
     javax.swing.JSlider swingSlider = null;
@@ -126,7 +146,9 @@ public class ViewAndSongStateParityTest {
     for (java.awt.Component comp : topBar.getComponents()) {
       if (comp instanceof javax.swing.JSlider slider && slider.getMaximum() == 75) {
         swingSlider = slider;
-      } else if (comp instanceof javax.swing.JComboBox<?> combo && combo.getItemCount() == 2 && "16th".equals(combo.getItemAt(0))) {
+      } else if (comp instanceof javax.swing.JComboBox<?> combo
+          && combo.getItemCount() == 2
+          && "16th".equals(combo.getItemAt(0))) {
         swingCombo = combo;
       }
     }
@@ -134,7 +156,8 @@ public class ViewAndSongStateParityTest {
     assertNotNull(swingSlider, "Swing slider should be present");
     assertNotNull(swingCombo, "Swing interval combo should be present");
 
-    assertEquals(60, swingSlider.getValue(), "Initial Swing slider value should reflect project (60%)");
+    assertEquals(
+        60, swingSlider.getValue(), "Initial Swing slider value should reflect project (60%)");
     assertEquals(0, swingCombo.getSelectedIndex(), "Initial Combo should select 16th index (0)");
 
     swingSlider.setValue(70);

@@ -53,16 +53,9 @@ public final class KeyplayKeyboard {
     return colId + (7 - trk) * 16;
   }
 
-  /**
-   * Maps a coordinate in folded in-key scale mode to a MIDI note.
-   */
+  /** Maps a coordinate in folded in-key scale mode to a MIDI note. */
   public static int getNoteInKey(
-      int trk,
-      int colId,
-      int[] scaleNotes,
-      int rootNote,
-      int rowInterval,
-      int scrollOffset) {
+      int trk, int colId, int[] scaleNotes, int rootNote, int rowInterval, int scrollOffset) {
     int scaleNoteCount = scaleNotes.length;
     int y = 7 - trk;
     int padIndex = scrollOffset + colId + y * rowInterval;
@@ -71,15 +64,9 @@ public final class KeyplayKeyboard {
     return octave * 12 + rootNote + scaleNotes[octaveNoteIndex];
   }
 
-  /**
-   * Maps a pad coordinate to a MIDI note, automatically handling scaleModeEnabled.
-   */
+  /** Maps a pad coordinate to a MIDI note, automatically handling scaleModeEnabled. */
   public static int getNote(
-      int trk,
-      int colId,
-      boolean scaleModeEnabled,
-      String key,
-      String scaleName) {
+      int trk, int colId, boolean scaleModeEnabled, String key, String scaleName) {
     if (!scaleModeEnabled) {
       return BASE_NOTE + colId + (7 - trk) * ROW_INTERVAL;
     } else {

@@ -6,8 +6,8 @@ import java.awt.event.ActionEvent;
 import javax.swing.JButton;
 import org.deluge.BridgeContract;
 import org.deluge.model.ProjectModel;
-import org.deluge.model.TrackModel;
 import org.deluge.model.SynthTrackModel;
+import org.deluge.model.TrackModel;
 import org.junit.jupiter.api.Test;
 
 public class SongGridPanelSoloTest {
@@ -42,7 +42,7 @@ public class SongGridPanelSoloTest {
     // Simulate clicking solo on Track 0 (normal click, no modifiers)
     JButton soloBtn0 = getSoloButton(panel, 0);
     assertNotNull(soloBtn0);
-    
+
     ActionEvent normalClick = new ActionEvent(soloBtn0, ActionEvent.ACTION_PERFORMED, "");
     soloBtn0.getActionListeners()[0].actionPerformed(normalClick);
 
@@ -53,14 +53,15 @@ public class SongGridPanelSoloTest {
 
     // Assert engine mutes are updated: track 0 active, others muted
     assertTrue(bridge.getMute(0) == false); // Track 0 active
-    assertTrue(bridge.getMute(8) == true);  // Track 1 voice 8 muted
+    assertTrue(bridge.getMute(8) == true); // Track 1 voice 8 muted
     assertTrue(bridge.getMute(16) == true); // Track 2 voice 16 muted
 
     // Simulate clicking solo on Track 2 with SHIFT key held down
     JButton soloBtn2 = getSoloButton(panel, 2);
     assertNotNull(soloBtn2);
-    
-    ActionEvent shiftClick = new ActionEvent(soloBtn2, ActionEvent.ACTION_PERFORMED, "", ActionEvent.SHIFT_MASK);
+
+    ActionEvent shiftClick =
+        new ActionEvent(soloBtn2, ActionEvent.ACTION_PERFORMED, "", ActionEvent.SHIFT_MASK);
     soloBtn2.getActionListeners()[0].actionPerformed(shiftClick);
 
     // Assert both Track 0 and Track 2 are soloed (multi-solo)
@@ -84,7 +85,7 @@ public class SongGridPanelSoloTest {
 
     // Assert mutes are restored to original state (Track 0 unmuted, Track 1 muted, Track 2 unmuted)
     assertTrue(bridge.getMute(0) == false); // T0
-    assertTrue(bridge.getMute(8) == true);  // T1
+    assertTrue(bridge.getMute(8) == true); // T1
     assertTrue(bridge.getMute(16) == false); // T2
 
     bridge.shutdown();
@@ -113,8 +114,8 @@ public class SongGridPanelSoloTest {
 
     int clipCol = 1;
     while (track0.getClips().size() <= clipCol) {
-      track0.addClip(new org.deluge.model.ClipModel(
-          "CLIP " + (track0.getClips().size() + 1), 8, 16));
+      track0.addClip(
+          new org.deluge.model.ClipModel("CLIP " + (track0.getClips().size() + 1), 8, 16));
     }
     org.deluge.model.ClipModel copied = panel.getCopiedClip();
     org.deluge.model.ClipModel copy = copied.deepCopy("CLIP " + (clipCol + 1));

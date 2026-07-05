@@ -1051,7 +1051,7 @@ public class ClipGridPanel extends SwingGridPanel {
       clipBtn.setMaximumSize(new Dimension(padSz, padSz));
       clipBtn.setMargin(new Insets(0, 0, 0, 0));
 
-          pads[visibleRow][c] = clipBtn;
+      pads[visibleRow][c] = clipBtn;
 
       if (isMuteColumn(colId)) {
         final int trackToMute = isEditedTrackKit() ? (baseTrackId + modelRow) : editedModelTrack;
@@ -1059,8 +1059,12 @@ public class ClipGridPanel extends SwingGridPanel {
         boolean isMuted;
         if (isEditedTrackKit()) {
           org.deluge.model.ClipModel clip = activeEditedClip();
-          org.deluge.model.NoteRowModel noteRow = (clip != null) ? clip.getOrCreateRow(modelRow) : null;
-          isMuted = (noteRow != null) ? noteRow.isMuted() : (bridge != null && bridge.getMute(trackToMute));
+          org.deluge.model.NoteRowModel noteRow =
+              (clip != null) ? clip.getOrCreateRow(modelRow) : null;
+          isMuted =
+              (noteRow != null)
+                  ? noteRow.isMuted()
+                  : (bridge != null && bridge.getMute(trackToMute));
         } else {
           if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
             isMuted = projectModel.getTracks().get(editedModelTrack).isMuted();
@@ -1116,7 +1120,8 @@ public class ClipGridPanel extends SwingGridPanel {
               boolean nextMute;
               if (isEditedTrackKit()) {
                 org.deluge.model.ClipModel clip = activeEditedClip();
-                org.deluge.model.NoteRowModel noteRow = (clip != null) ? clip.getOrCreateRow(modelRow) : null;
+                org.deluge.model.NoteRowModel noteRow =
+                    (clip != null) ? clip.getOrCreateRow(modelRow) : null;
                 if (noteRow != null) {
                   nextMute = !noteRow.isMuted();
                   noteRow.setMuted(nextMute);
@@ -1125,7 +1130,8 @@ public class ClipGridPanel extends SwingGridPanel {
                 }
               } else {
                 if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-                  org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
+                  org.deluge.model.TrackModel track =
+                      projectModel.getTracks().get(editedModelTrack);
                   nextMute = !track.isMuted();
                   track.setMuted(nextMute);
                 } else {
@@ -1526,54 +1532,66 @@ public class ClipGridPanel extends SwingGridPanel {
                 // CC74 Modulation Column touch strip
                 clearActionListeners(clipBtn);
                 clearKeyboardMouseListeners(clipBtn);
-                clipBtn.setText(rowIdx == 0 ? "CC74" : (rowIdx == 7 ? String.valueOf(currentCc74Value) : ""));
-                java.awt.event.MouseAdapter ma = new java.awt.event.MouseAdapter() {
-                  @Override
-                  public void mousePressed(java.awt.event.MouseEvent e) {
-                    updateCc74FromRow(rowIdx);
-                  }
+                clipBtn.setText(
+                    rowIdx == 0 ? "CC74" : (rowIdx == 7 ? String.valueOf(currentCc74Value) : ""));
+                java.awt.event.MouseAdapter ma =
+                    new java.awt.event.MouseAdapter() {
+                      @Override
+                      public void mousePressed(java.awt.event.MouseEvent e) {
+                        updateCc74FromRow(rowIdx);
+                      }
 
-                  @Override
-                  public void mouseDragged(java.awt.event.MouseEvent e) {
-                    Component comp = e.getComponent();
-                    if (comp instanceof JButton btn) {
-                      Point p = SwingUtilities.convertPoint(btn, e.getPoint(), voicePanel);
-                      int rowHeight = btn.getHeight() + 5;
-                      int row = p.y / rowHeight;
-                      row = Math.max(0, Math.min(row, 7));
-                      updateCc74FromRow(row);
-                    }
-                  }
-                };
+                      @Override
+                      public void mouseDragged(java.awt.event.MouseEvent e) {
+                        Component comp = e.getComponent();
+                        if (comp instanceof JButton btn) {
+                          Point p = SwingUtilities.convertPoint(btn, e.getPoint(), voicePanel);
+                          int rowHeight = btn.getHeight() + 5;
+                          int row = p.y / rowHeight;
+                          row = Math.max(0, Math.min(row, 7));
+                          updateCc74FromRow(row);
+                        }
+                      }
+                    };
                 clipBtn.addMouseListener(ma);
                 clipBtn.addMouseMotionListener(ma);
               } else if (colId == 14) {
                 // Velocity Column touch strip
                 clearActionListeners(clipBtn);
                 clearKeyboardMouseListeners(clipBtn);
-                clipBtn.setText(rowIdx == 0 ? "VEL" : (rowIdx == 7 ? String.valueOf(defaultKeyboardVelocity) : ""));
-                java.awt.event.MouseAdapter ma = new java.awt.event.MouseAdapter() {
-                  @Override
-                  public void mousePressed(java.awt.event.MouseEvent e) {
-                    updateVelocityFromRow(rowIdx);
-                  }
+                clipBtn.setText(
+                    rowIdx == 0
+                        ? "VEL"
+                        : (rowIdx == 7 ? String.valueOf(defaultKeyboardVelocity) : ""));
+                java.awt.event.MouseAdapter ma =
+                    new java.awt.event.MouseAdapter() {
+                      @Override
+                      public void mousePressed(java.awt.event.MouseEvent e) {
+                        updateVelocityFromRow(rowIdx);
+                      }
 
-                  @Override
-                  public void mouseDragged(java.awt.event.MouseEvent e) {
-                    Component comp = e.getComponent();
-                    if (comp instanceof JButton btn) {
-                      Point p = SwingUtilities.convertPoint(btn, e.getPoint(), voicePanel);
-                      int rowHeight = btn.getHeight() + 5;
-                      int row = p.y / rowHeight;
-                      row = Math.max(0, Math.min(row, 7));
-                      updateVelocityFromRow(row);
-                    }
-                  }
-                };
+                      @Override
+                      public void mouseDragged(java.awt.event.MouseEvent e) {
+                        Component comp = e.getComponent();
+                        if (comp instanceof JButton btn) {
+                          Point p = SwingUtilities.convertPoint(btn, e.getPoint(), voicePanel);
+                          int rowHeight = btn.getHeight() + 5;
+                          int row = p.y / rowHeight;
+                          row = Math.max(0, Math.min(row, 7));
+                          updateVelocityFromRow(row);
+                        }
+                      }
+                    };
                 clipBtn.addMouseListener(ma);
                 clipBtn.addMouseMotionListener(ma);
               } else {
-                int note = org.deluge.model.KeyplayKeyboard.getNote(rowIdx, colId, scaleModeEnabled, projectModel.getKey(), projectModel.getScale());
+                int note =
+                    org.deluge.model.KeyplayKeyboard.getNote(
+                        rowIdx,
+                        colId,
+                        scaleModeEnabled,
+                        projectModel.getKey(),
+                        projectModel.getScale());
                 clipBtn.setText(getNoteName(note));
                 clearActionListeners(clipBtn);
                 clearKeyboardMouseListeners(clipBtn);
@@ -1684,7 +1702,8 @@ public class ClipGridPanel extends SwingGridPanel {
               int padVelValue = (7 - v) * 127 / 7;
               boolean active = padVelValue <= defaultKeyboardVelocity;
               Color velColor = active ? new Color(0xff, 0x6f, 0x00) : new Color(0x4a, 0x24, 0x00);
-              clipBtn.setText(v == 0 ? "VEL" : (v == 7 ? String.valueOf(defaultKeyboardVelocity) : ""));
+              clipBtn.setText(
+                  v == 0 ? "VEL" : (v == 7 ? String.valueOf(defaultKeyboardVelocity) : ""));
               clipBtn.setForeground(Color.WHITE);
               if (clipBtn instanceof DelugePadButton pad) {
                 pad.setBaseColor(velColor);
@@ -1696,7 +1715,9 @@ public class ClipGridPanel extends SwingGridPanel {
                 clipBtn.setBackground(velColor);
               }
             } else {
-              int note = org.deluge.model.KeyplayKeyboard.getNote(v, c, scaleModeEnabled, projectModel.getKey(), projectModel.getScale());
+              int note =
+                  org.deluge.model.KeyplayKeyboard.getNote(
+                      v, c, scaleModeEnabled, projectModel.getKey(), projectModel.getScale());
               boolean isRoot = ScaleMapper.isRootNote(note, projectModel.getKey());
               boolean inScale =
                   ScaleMapper.isNoteInScale(note, projectModel.getKey(), projectModel.getScale());
@@ -1743,20 +1764,20 @@ public class ClipGridPanel extends SwingGridPanel {
     org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
     if (activeClipId >= track.getClips().size()) return;
     org.deluge.model.ClipModel clip = track.getClips().get(activeClipId);
-    
+
     // Get the NoteRowModel
     org.deluge.model.NoteRowModel rowModel = clip.noteRows.get(modelRow);
     if (rowModel == null || rowModel.notes.isEmpty()) return;
-    
+
     int stepTicks = 24; // Sixteenth note step
     int totalTicks = clip.getStepCount() * stepTicks;
     int shift = right ? stepTicks : -stepTicks;
-    
+
     for (org.deluge.model.NoteModel note : rowModel.notes) {
       int newPos = (note.getPos() + shift + totalTicks) % totalTicks;
       note.setPos(newPos);
     }
-    
+
     // Update the visual step data grid as well
     org.deluge.model.StepData[] shiftedSteps = new org.deluge.model.StepData[clip.getStepCount()];
     for (int s = 0; s < clip.getStepCount(); s++) {
@@ -1766,12 +1787,13 @@ public class ClipGridPanel extends SwingGridPanel {
     for (int s = 0; s < clip.getStepCount(); s++) {
       clip.setStep(modelRow, s, shiftedSteps[s]);
     }
-    
+
     if (SwingDelugeApp.mainInstance != null) {
-      SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("ROTA", right ? "RGHT" : "LEFT");
+      SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
+          "ROTA", right ? "RGHT" : "LEFT");
       SwingDelugeApp.mainInstance.getSyncCoordinator().pushModelToBridge();
     }
-    
+
     refreshKeyplayInPlace();
     repaint();
   }
@@ -1781,19 +1803,19 @@ public class ClipGridPanel extends SwingGridPanel {
     org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
     if (activeClipId >= track.getClips().size()) return;
     org.deluge.model.ClipModel clip = track.getClips().get(activeClipId);
-    
+
     if (track instanceof org.deluge.model.KitTrackModel) return;
-    
+
     int currentPitch = clip.getRowYNote(modelRow);
     if (currentPitch == -1) {
       currentPitch = getRowPitch(modelRow);
     }
-    
+
     int newPitch = currentPitch + (up ? 1 : -1);
     newPitch = Math.max(0, Math.min(newPitch, 127));
-    
+
     clip.setRowYNote(modelRow, newPitch);
-    
+
     for (int s = 0; s < clip.getStepCount(); s++) {
       org.deluge.model.StepData step = clip.getStep(modelRow, s);
       if (step != null && step.active()) {
@@ -1814,7 +1836,7 @@ public class ClipGridPanel extends SwingGridPanel {
                 step.nudge()));
       }
     }
-    
+
     String[] keyNames = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
     int oct = (newPitch / 12) - 1;
     String noteName = keyNames[newPitch % 12] + oct;
@@ -1822,7 +1844,7 @@ public class ClipGridPanel extends SwingGridPanel {
       SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("TRSP", noteName);
       SwingDelugeApp.mainInstance.getSyncCoordinator().pushModelToBridge();
     }
-    
+
     refreshKeyplayInPlace();
     repaint();
   }

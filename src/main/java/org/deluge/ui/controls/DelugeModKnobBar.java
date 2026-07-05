@@ -282,14 +282,21 @@ public class DelugeModKnobBar extends JPanel {
     var stack = pm.getUndoRedoStack();
     long now = System.currentTimeMillis();
 
-    if (stack.canUndo() && stack.peekUndo() instanceof org.deluge.model.Consequence.SynthParamConsequence prev) {
-      if (prev.trackIndex() == trackIndex && prev.paramName().equals(paramName) && (now - prev.timestamp()) < 800) {
-        stack.replaceLast(new org.deluge.model.Consequence.SynthParamConsequence(pm, trackIndex, paramName, prev.oldValue(), newValue, now));
+    if (stack.canUndo()
+        && stack.peekUndo() instanceof org.deluge.model.Consequence.SynthParamConsequence prev) {
+      if (prev.trackIndex() == trackIndex
+          && prev.paramName().equals(paramName)
+          && (now - prev.timestamp()) < 800) {
+        stack.replaceLast(
+            new org.deluge.model.Consequence.SynthParamConsequence(
+                pm, trackIndex, paramName, prev.oldValue(), newValue, now));
         return;
       }
     }
 
-    stack.push(new org.deluge.model.Consequence.SynthParamConsequence(pm, trackIndex, paramName, oldValue, newValue, now));
+    stack.push(
+        new org.deluge.model.Consequence.SynthParamConsequence(
+            pm, trackIndex, paramName, oldValue, newValue, now));
   }
 
   private void adjustTopKnob(int d) {

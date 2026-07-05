@@ -48,7 +48,8 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   int soloRow = -1; // -1 = no solo
-  public final java.util.Set<Integer> soloedTracks = java.util.concurrent.ConcurrentHashMap.newKeySet();
+  public final java.util.Set<Integer> soloedTracks =
+      java.util.concurrent.ConcurrentHashMap.newKeySet();
   private static org.deluge.model.ClipModel copiedClip = null;
   private boolean wasSequencerPlaying; // edge-detect stop to flush MIDI notes
   final java.util.List<JButton> pageButtons = new java.util.ArrayList<>();
@@ -1163,12 +1164,14 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       return;
     }
     EngineSyncCoordinator sync = null;
-    if (SwingDelugeApp.mainInstance != null && SwingDelugeApp.mainInstance.getActiveGridPanel() == this) {
+    if (SwingDelugeApp.mainInstance != null
+        && SwingDelugeApp.mainInstance.getActiveGridPanel() == this) {
       sync = SwingDelugeApp.mainInstance.getSyncCoordinator();
     }
     java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
     int n = tracks.size();
-    System.out.println("TEST-DEBUG: updateEngineMutes: tracks count=" + n + " sync=" + (sync != null));
+    System.out.println(
+        "TEST-DEBUG: updateEngineMutes: tracks count=" + n + " sync=" + (sync != null));
     int[] trackEngineStart = new int[n];
     int[] trackVoiceCount = new int[n];
 
@@ -1176,7 +1179,13 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       for (int t = 0; t < n; t++) {
         trackEngineStart[t] = sync.getTrackEngineStart(t);
         trackVoiceCount[t] = sync.getTrackVoiceCount(t);
-        System.out.println("TEST-DEBUG:   Track " + t + " from sync: start=" + trackEngineStart[t] + " count=" + trackVoiceCount[t]);
+        System.out.println(
+            "TEST-DEBUG:   Track "
+                + t
+                + " from sync: start="
+                + trackEngineStart[t]
+                + " count="
+                + trackVoiceCount[t]);
       }
     } else {
       int nextRow = 0;
@@ -1184,13 +1193,22 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
         trackEngineStart[t] = nextRow;
         boolean isKit = tracks.get(t) instanceof org.deluge.model.KitTrackModel;
         boolean isMidi = tracks.get(t) instanceof org.deluge.model.MidiTrackModel;
-        int voices = isMidi ? 0 : (isKit ? ((org.deluge.model.KitTrackModel) tracks.get(t)).getDrums().size() : 8);
+        int voices =
+            isMidi
+                ? 0
+                : (isKit ? ((org.deluge.model.KitTrackModel) tracks.get(t)).getDrums().size() : 8);
         int capped = 0;
         if (nextRow < 128) {
           capped = Math.min(voices, 128 - nextRow);
         }
         trackVoiceCount[t] = capped;
-        System.out.println("TEST-DEBUG:   Track " + t + " fallback: start=" + trackEngineStart[t] + " count=" + trackVoiceCount[t]);
+        System.out.println(
+            "TEST-DEBUG:   Track "
+                + t
+                + " fallback: start="
+                + trackEngineStart[t]
+                + " count="
+                + trackVoiceCount[t]);
         nextRow += capped;
       }
     }
@@ -1206,7 +1224,13 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
         continue;
       }
       boolean trackMuted = anySoloing ? !soloedTracks.contains(t) : track.isMuted();
-      System.out.println("DEBUG-MUTE: update loop track hash=" + System.identityHashCode(track) + " isMuted=" + track.isMuted() + " resolvedMuted=" + trackMuted);
+      System.out.println(
+          "DEBUG-MUTE: update loop track hash="
+              + System.identityHashCode(track)
+              + " isMuted="
+              + track.isMuted()
+              + " resolvedMuted="
+              + trackMuted);
 
       for (int i = 0; i < voiceCount; i++) {
         boolean voiceMuted = trackMuted;
@@ -1220,7 +1244,8 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
             }
           }
         }
-        System.out.println("TEST-DEBUG:     Setting voice " + (baseId + i) + " to mute=" + voiceMuted);
+        System.out.println(
+            "TEST-DEBUG:     Setting voice " + (baseId + i) + " to mute=" + voiceMuted);
         setTrackMuteWithCapture(baseId + i, voiceMuted);
       }
     }
@@ -1739,7 +1764,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     if (isLiveRecordModeActive
         && currentPlayheadStep >= 0
         && bridge.getGlobalInt(BridgeContract.G_PLAY) == 1L) {
-      int modelRow = ScaleMapper.getRowFromPitch(note, isSynthTrack(), scaleModeEnabled, foldMode, foldedPitches);
+      int modelRow =
+          ScaleMapper.getRowFromPitch(
+              note, isSynthTrack(), scaleModeEnabled, foldMode, foldedPitches);
       int col = currentPlayheadStep % stepCount;
       if (modelRow >= 0 && col >= 0 && col < stepCount) {
         if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
@@ -1749,7 +1776,8 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
             if (activeClipIdx >= 0 && activeClipIdx < synthTrack.getClips().size()) {
               org.deluge.model.ClipModel clip = synthTrack.getClips().get(activeClipIdx);
               float velFloat = velocity / 127.0f;
-              clip.setStep(modelRow, col, org.deluge.model.StepData.of(true, velFloat, 1.0f, 1.0f, 0));
+              clip.setStep(
+                  modelRow, col, org.deluge.model.StepData.of(true, velFloat, 1.0f, 1.0f, 0));
               int engineRow = baseTrackId + modelRow;
               if (bridge != null) {
                 bridge.setStep(engineRow, col, true);

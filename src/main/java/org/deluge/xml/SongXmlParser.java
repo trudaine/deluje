@@ -775,7 +775,9 @@ public class SongXmlParser {
         clip.setTrackName(trackName);
         if (clipElem.hasAttribute("filePath")) clip.setFilePath(clipElem.getAttribute("filePath"));
         if (clipElem.hasAttribute("reversed"))
-          clip.setReversed("1".equals(clipElem.getAttribute("reversed")) || "true".equalsIgnoreCase(clipElem.getAttribute("reversed")));
+          clip.setReversed(
+              "1".equals(clipElem.getAttribute("reversed"))
+                  || "true".equalsIgnoreCase(clipElem.getAttribute("reversed")));
         if (clipElem.hasAttribute("startSamplePos"))
           clip.setStartSamplePos(Integer.parseInt(clipElem.getAttribute("startSamplePos")));
         if (clipElem.hasAttribute("endSamplePos"))

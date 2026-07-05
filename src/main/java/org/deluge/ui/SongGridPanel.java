@@ -16,7 +16,8 @@ public class SongGridPanel extends SwingGridPanel {
 
   public SongGridPanel(BridgeContract bridge) {
     super(bridge);
-    // 60ms blink (matching hardware kFastFlashTime); only repaints while something is actually armed.
+    // 60ms blink (matching hardware kFastFlashTime); only repaints while something is actually
+    // armed.
     launchBlinkTimer =
         new javax.swing.Timer(
             60,
@@ -358,9 +359,17 @@ public class SongGridPanel extends SwingGridPanel {
             clearActionListeners(clipBtn);
             clipBtn.addActionListener(
                 e -> {
-                  System.out.println("DEBUG-MUTE: listener track hash=" + System.identityHashCode(track) + " before=" + track.isMuted());
+                  System.out.println(
+                      "DEBUG-MUTE: listener track hash="
+                          + System.identityHashCode(track)
+                          + " before="
+                          + track.isMuted());
                   track.setMuted(!track.isMuted());
-                  System.out.println("DEBUG-MUTE: listener track hash=" + System.identityHashCode(track) + " after=" + track.isMuted());
+                  System.out.println(
+                      "DEBUG-MUTE: listener track hash="
+                          + System.identityHashCode(track)
+                          + " after="
+                          + track.isMuted());
                   updateEngineMutes();
                   refresh();
                 });
@@ -399,7 +408,11 @@ public class SongGridPanel extends SwingGridPanel {
             clearActionListeners(clipBtn);
             clipBtn.addActionListener(
                 e -> {
-                  boolean isMulti = (e.getModifiers() & (java.awt.event.ActionEvent.SHIFT_MASK | java.awt.event.ActionEvent.CTRL_MASK)) != 0;
+                  boolean isMulti =
+                      (e.getModifiers()
+                              & (java.awt.event.ActionEvent.SHIFT_MASK
+                                  | java.awt.event.ActionEvent.CTRL_MASK))
+                          != 0;
                   if (soloedTracks.contains(trk)) {
                     soloedTracks.remove(trk);
                   } else {
@@ -472,13 +485,17 @@ public class SongGridPanel extends SwingGridPanel {
                             pasteItem.addActionListener(
                                 ev -> {
                                   while (songTrack.getClips().size() <= clipCol) {
-                                    songTrack.addClip(new org.deluge.model.ClipModel(
-                                        "CLIP " + (songTrack.getClips().size() + 1),
-                                        songTrack.getClips().isEmpty() ? 8 : songTrack.getClips().get(0).getRowCount(),
-                                        16));
+                                    songTrack.addClip(
+                                        new org.deluge.model.ClipModel(
+                                            "CLIP " + (songTrack.getClips().size() + 1),
+                                            songTrack.getClips().isEmpty()
+                                                ? 8
+                                                : songTrack.getClips().get(0).getRowCount(),
+                                            16));
                                   }
                                   org.deluge.model.ClipModel copied = getCopiedClip();
-                                  org.deluge.model.ClipModel copy = copied.deepCopy("CLIP " + (clipCol + 1));
+                                  org.deluge.model.ClipModel copy =
+                                      copied.deepCopy("CLIP " + (clipCol + 1));
                                   songTrack.getClips().set(clipCol, copy);
                                   fireProjectChanged();
                                   refresh();
@@ -684,7 +701,9 @@ public class SongGridPanel extends SwingGridPanel {
               pad.setInLoop(true);
             }
           } else if (isMuteColumn(c)) {
-            Color statusBg = sessionStatusColour(isMuted, soloedTracks.contains(modelRow), !soloedTracks.isEmpty());
+            Color statusBg =
+                sessionStatusColour(
+                    isMuted, soloedTracks.contains(modelRow), !soloedTracks.isEmpty());
             // Armed for launch (queued for the next bar boundary): fast-blink the pad, matching the
             // hardware's blinking "launch" pad, until the queue is consumed.
             boolean armed = bridge != null && bridge.getLaunchQueue(engineRow) >= 0;

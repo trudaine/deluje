@@ -54,17 +54,20 @@ public class SwingGridPanelKeyboardModeTest {
     panel.refresh();
 
     KeyboardMouseAdapter adapter = new KeyboardMouseAdapter(panel, 65); // F#4 / F
-    
-    java.awt.event.MouseEvent me = new java.awt.event.MouseEvent(
-        panel.getPads()[0][0],
-        java.awt.event.MouseEvent.MOUSE_PRESSED,
-        System.currentTimeMillis(),
-        java.awt.event.InputEvent.SHIFT_DOWN_MASK,
-        0, 0, 1, false
-    );
-    
+
+    java.awt.event.MouseEvent me =
+        new java.awt.event.MouseEvent(
+            panel.getPads()[0][0],
+            java.awt.event.MouseEvent.MOUSE_PRESSED,
+            System.currentTimeMillis(),
+            java.awt.event.InputEvent.SHIFT_DOWN_MASK,
+            0,
+            0,
+            1,
+            false);
+
     adapter.mousePressed(me);
-    
+
     assertEquals("F", project.getKey(), "Shift+Click on MIDI 65 (F) should change song key to F");
     bridge.shutdown();
   }

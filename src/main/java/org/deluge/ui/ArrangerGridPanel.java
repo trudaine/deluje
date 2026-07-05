@@ -554,7 +554,8 @@ public class ArrangerGridPanel extends SwingGridPanel {
               hasClip = ac != null;
               if (ac != null) {
                 // Head/loop/blur/dim resolved by the pure ArrangementProjector
-                // (ArrangementProjector Test pins the colours); same code the whole-grid projector uses.
+                // (ArrangementProjector Test pins the colours); same code the whole-grid projector
+                // uses.
                 int colTick = arrangerController.arrangerTickForColumn(c);
                 int colTicks = arrangerController.arrangerTicksPerColumn();
                 arrCellColour = ArrangementProjector.colourFor(ac, colTick, colTicks);
@@ -679,15 +680,18 @@ public class ArrangerGridPanel extends SwingGridPanel {
             // Restore default background color
             if (t < songVoiceRows) {
               if (isMuteColumn(c)) {
-                pads[t][c].setBackground(arrangerStatusColour(isMuted, soloRow == modelRow, soloRow >= 0));
+                pads[t][c].setBackground(
+                    arrangerStatusColour(isMuted, soloRow == modelRow, soloRow >= 0));
               } else if (isSoloColumn(c)) {
                 boolean isSoloed = (soloRow == modelRow);
-                pads[t][c].setBackground(isSoloed ? new Color(0x00, 0xff, 0xcc) : new Color(0x2d, 0x2d, 0x32));
+                pads[t][c].setBackground(
+                    isSoloed ? new Color(0x00, 0xff, 0xcc) : new Color(0x2d, 0x2d, 0x32));
               } else {
                 boolean hasClip = false;
                 Color arrCellColour = null;
                 if (modelRow >= 0 && modelRow < tracks.size()) {
-                  org.deluge.model.ArrangerClip ac = arrangerController.getArrangerClipAt(modelRow, c);
+                  org.deluge.model.ArrangerClip ac =
+                      arrangerController.getArrangerClipAt(modelRow, c);
                   hasClip = ac != null;
                   if (ac != null) {
                     int colTick = arrangerController.arrangerTickForColumn(c);

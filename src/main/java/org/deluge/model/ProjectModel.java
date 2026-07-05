@@ -719,21 +719,50 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   }
 
   public static class ProjectAdapter implements ProjectListener {
-    @Override public void onTrackListChanged() {}
-    @Override public void onBpmChanged(float bpm) {}
-    @Override public void onSwingChanged(float swing) {}
-    @Override public void onMasterVolumeChanged(float vol) {}
-    @Override public void onMasterPanChanged(float pan) {}
-    @Override public void onKeyChanged(String key) {}
-    @Override public void onScaleChanged(String scale) {}
-    @Override public void onTransposeChanged(int transpose) {}
-    @Override public void onHumanizeChanged(float humanize) {}
-    @Override public void onReverbChanged() {}
-    @Override public void onDelayChanged() {}
-    @Override public void onSidechainChanged() {}
-    @Override public void onCompressorChanged() {}
-    @Override public void onSongParamsChanged() {}
-    @Override public void onScalesChanged() {}
+    @Override
+    public void onTrackListChanged() {}
+
+    @Override
+    public void onBpmChanged(float bpm) {}
+
+    @Override
+    public void onSwingChanged(float swing) {}
+
+    @Override
+    public void onMasterVolumeChanged(float vol) {}
+
+    @Override
+    public void onMasterPanChanged(float pan) {}
+
+    @Override
+    public void onKeyChanged(String key) {}
+
+    @Override
+    public void onScaleChanged(String scale) {}
+
+    @Override
+    public void onTransposeChanged(int transpose) {}
+
+    @Override
+    public void onHumanizeChanged(float humanize) {}
+
+    @Override
+    public void onReverbChanged() {}
+
+    @Override
+    public void onDelayChanged() {}
+
+    @Override
+    public void onSidechainChanged() {}
+
+    @Override
+    public void onCompressorChanged() {}
+
+    @Override
+    public void onSongParamsChanged() {}
+
+    @Override
+    public void onScalesChanged() {}
   }
 
   private final List<ProjectListener> listeners = new ArrayList<>();

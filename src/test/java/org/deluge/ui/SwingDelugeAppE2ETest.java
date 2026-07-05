@@ -1140,7 +1140,8 @@ public class SwingDelugeAppE2ETest {
     }
   }
 
-  private void assertLightweightMuteState(SwingDelugeApp app, BridgeContract bridge, int trk, boolean expectedMute) {
+  private void assertLightweightMuteState(
+      SwingDelugeApp app, BridgeContract bridge, int trk, boolean expectedMute) {
     int startRow = trk;
     if (app != null && app.getSyncCoordinator() != null) {
       int syncStart = app.getSyncCoordinator().getTrackEngineStart(trk);
