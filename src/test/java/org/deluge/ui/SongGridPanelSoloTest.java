@@ -292,6 +292,24 @@ public class SongGridPanelSoloTest {
     panel.refresh();
     assertEquals(new Color(0, 255, 6), mutePad.getBackground());
 
+    // --- Verify active clip switching when track has multiple clips ---
+    ClipModel clip0 = new org.deluge.model.ClipModel("C0", 8, 16);
+    clip0.setPlayMode(ClipModel.PlayMode.NORMAL);
+    ClipModel clip1 = new org.deluge.model.ClipModel("C1", 8, 16);
+    clip1.setPlayMode(ClipModel.PlayMode.ONCE);
+
+    track0.getClips().clear();
+    track0.addClip(clip0);
+    track0.addClip(clip1);
+
+    track0.setActiveClipIndex(1);
+    panel.refresh();
+    assertEquals(new Color(245, 190, 0), mutePad.getBackground(), "Status pad must reflect active clip play mode (ONCE)");
+
+    track0.setActiveClipIndex(0);
+    panel.refresh();
+    assertEquals(new Color(0, 255, 6), mutePad.getBackground(), "Status pad must reflect active clip play mode (NORMAL)");
+
     bridge.shutdown();
   }
 

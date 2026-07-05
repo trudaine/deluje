@@ -360,8 +360,9 @@ public class SongGridPanel extends SwingGridPanel {
             boolean anySoloing = !soloedTracks.isEmpty();
             boolean curMute = anySoloing ? !soloedTracks.contains(trk) : track.isMuted();
             org.deluge.model.ClipModel.PlayMode pMode = org.deluge.model.ClipModel.PlayMode.NORMAL;
-            if (!track.getClips().isEmpty()) {
-              pMode = track.getClips().get(0).getPlayMode();
+            org.deluge.model.ClipModel activeClip = track.getActiveClip();
+            if (activeClip != null) {
+              pMode = activeClip.getPlayMode();
             }
             Color muteBg =
                 sessionStatusColour(curMute, soloedTracks.contains(trk), anySoloing, pMode);
@@ -751,8 +752,9 @@ public class SongGridPanel extends SwingGridPanel {
             }
           } else if (isMuteColumn(c)) {
             org.deluge.model.ClipModel.PlayMode pMode = org.deluge.model.ClipModel.PlayMode.NORMAL;
-            if (!tracks.get(modelRow).getClips().isEmpty()) {
-              pMode = tracks.get(modelRow).getClips().get(0).getPlayMode();
+            org.deluge.model.ClipModel activeClip = tracks.get(modelRow).getActiveClip();
+            if (activeClip != null) {
+              pMode = activeClip.getPlayMode();
             }
             Color statusBg =
                 sessionStatusColour(
