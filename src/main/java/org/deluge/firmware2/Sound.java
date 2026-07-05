@@ -110,7 +110,9 @@ public class Sound extends GlobalEffectable {
 
   /** C PatchCableSet::doesParamHaveSomethingPatchedToIt — any real cable lands on this param. */
   public boolean doesParamHaveSomethingPatchedToIt(int p) {
-    for (Patcher.Destination d : patchCableSet.destinations) {
+    java.util.List<Patcher.Destination> dests = patchCableSet.destinations;
+    for (int i = 0; i < dests.size(); i++) {
+      Patcher.Destination d = dests.get(i);
       if (d.paramId == p && d.targetSource < 0 && !d.cables.isEmpty()) {
         return true;
       }

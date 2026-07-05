@@ -83,23 +83,30 @@ public class Patcher {
    */
   public static void performPatching(
       Sound sound, int[] sourceValues, PatchCableSet patchCableSet, int[] paramFinalValues) {
+    java.util.List<Destination> dests = patchCableSet.destinations;
     // 1. Reset all cable range values to neutral
-    for (Destination dest : patchCableSet.destinations) {
-      for (PatchCable cable : dest.cables) {
-        cable.rangeValue = 536870912;
+    for (int i = 0; i < dests.size(); i++) {
+      Destination dest = dests.get(i);
+      java.util.ArrayList<PatchCable> cables = dest.cables;
+      for (int j = 0; j < cables.size(); j++) {
+        cables.get(j).rangeValue = 536870912;
       }
     }
 
     // 2. Evaluate range/depth modulating destinations first
-    for (Destination dest : patchCableSet.destinations) {
+    for (int i = 0; i < dests.size(); i++) {
+      Destination dest = dests.get(i);
       if (dest.targetSource >= 0) {
         int combo = combineCablesLinearForRangeParam(dest, sourceValues, null);
         int val = Functions.getFinalParameterValueLinear(536870912, combo);
 
         // Apply this range value to the target patch cable
-        for (Destination targetDest : patchCableSet.destinations) {
+        for (int k = 0; k < dests.size(); k++) {
+          Destination targetDest = dests.get(k);
           if (targetDest.paramId == dest.targetParamId && targetDest.targetSource < 0) {
-            for (PatchCable targetCable : targetDest.cables) {
+            java.util.ArrayList<PatchCable> targetCables = targetDest.cables;
+            for (int l = 0; l < targetCables.size(); l++) {
+              PatchCable targetCable = targetCables.get(l);
               if (targetCable.source == dest.targetSource) {
                 targetCable.rangeValue = val;
               }
@@ -110,7 +117,8 @@ public class Patcher {
     }
 
     // 3. Evaluate normal parameter destinations
-    for (Destination dest : patchCableSet.destinations) {
+    for (int i = 0; i < dests.size(); i++) {
+      Destination dest = dests.get(i);
       if (dest.targetSource >= 0) continue; // skip range destinations in this pass
 
       int p = dest.paramId;

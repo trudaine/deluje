@@ -10,7 +10,7 @@ import java.util.Arrays;
 public abstract class GlobalEffectable {
   public final FilterSet filterSet = new FilterSet();
   public int reverbSendKnob = Integer.MIN_VALUE;
-  public boolean muted = false;
+  public volatile boolean muted = false;
 
   public int kitVolume = 0; // Q31 raw parameter value (0 = neutral)
 

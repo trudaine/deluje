@@ -104,7 +104,8 @@ public class FirmwareAudioEngine {
   private void updateReverbParams() {
     org.deluge.firmware2.Sound best = null;
     int highestReverbAmountFound = Integer.MIN_VALUE; // C seeds with the song's own send amount
-    for (GlobalEffectable ge : sounds) {
+    for (int i = 0; i < sounds.size(); i++) {
+      GlobalEffectable ge = sounds.get(i);
       if (ge instanceof org.deluge.firmware2.Sound snd) {
         int amount = snd.patchedParamValues[org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT];
         if (amount != Integer.MIN_VALUE && amount > highestReverbAmountFound) {
@@ -118,9 +119,13 @@ public class FirmwareAudioEngine {
       return;
     }
     int vol = 0; // C:1288-1291 — no SIDECHAIN cable on the send → no ducking
-    for (var dest : best.patchCableSet.destinations) {
+    java.util.List<org.deluge.firmware2.Patcher.Destination> dests = best.patchCableSet.destinations;
+    for (int dIdx = 0; dIdx < dests.size(); dIdx++) {
+      org.deluge.firmware2.Patcher.Destination dest = dests.get(dIdx);
       if (dest.paramId == org.deluge.firmware2.Param.GLOBAL_VOLUME_POST_REVERB_SEND) {
-        for (var cable : dest.cables) {
+        java.util.List<org.deluge.firmware2.Patcher.PatchCable> cables = dest.cables;
+        for (int cIdx = 0; cIdx < cables.size(); cIdx++) {
+          org.deluge.firmware2.Patcher.PatchCable cable = cables.get(cIdx);
           if (cable.source == org.deluge.firmware2.PatchSource.SIDECHAIN.ordinal()) {
             vol =
                 org.deluge.firmware2.Patcher.getModifiedPatchCableAmount(
@@ -266,14 +271,16 @@ public class FirmwareAudioEngine {
     // Audio-track gating (Phase 3): each block, update audio clips with the transport state + tick
     // so they stream only while playing (3a) and only within their arrangement range (3b part 2),
     // restarting phase-aligned on entry.
-    for (GlobalEffectable sound : sounds) {
+    for (int i = 0; i < sounds.size(); i++) {
+      GlobalEffectable sound = sounds.get(i);
       if (sound instanceof org.deluge.firmware2.AudioOutput ao) {
         ao.updateTimeline(transportTick, transportPlaying);
       }
     }
 
     // Sum all tracks in 64-bit (infinite headroom!)
-    for (GlobalEffectable sound : sounds) {
+    for (int i = 0; i < sounds.size(); i++) {
+      GlobalEffectable sound = sounds.get(i);
       if (sound != null) {
         if (debugTelemetry && sound instanceof org.deluge.engine.FirmwareSound fs) {
           System.out.println(
