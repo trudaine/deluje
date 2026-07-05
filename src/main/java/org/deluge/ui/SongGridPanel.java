@@ -342,8 +342,9 @@ public class SongGridPanel extends SwingGridPanel {
           } else if (isMuteColumn(colId)) {
             final int engineRow = trk;
             org.deluge.model.TrackModel track = tracks.get(trk);
-            boolean curMute = (soloRow >= 0) ? (trk != soloRow) : track.isMuted();
-            Color muteBg = sessionStatusColour(curMute, soloRow == trk, soloRow >= 0);
+            boolean anySoloing = !soloedTracks.isEmpty();
+            boolean curMute = anySoloing ? !soloedTracks.contains(trk) : track.isMuted();
+            Color muteBg = sessionStatusColour(curMute, soloedTracks.contains(trk), anySoloing);
             clipBtn.setText(
                 curMute ? "UNMUTE" : "MUTE"); // getText() = mute state (E2E observes it)
             clipBtn.setBackground(muteBg);
@@ -369,7 +370,7 @@ public class SongGridPanel extends SwingGridPanel {
             Color labelBg;
             Color labelFg;
             boolean rowHasClip = !tracks.get(trk).getClips().isEmpty();
-            if (soloRow == trk) {
+            if (soloedTracks.contains(trk)) {
               labelBg = Color.GREEN;
               labelFg = Color.BLACK;
             } else if (rowHasClip) {
@@ -398,10 +399,14 @@ public class SongGridPanel extends SwingGridPanel {
             clearActionListeners(clipBtn);
             clipBtn.addActionListener(
                 e -> {
-                  if (soloRow == trk) {
-                    soloRow = -1;
+                  boolean isMulti = (e.getModifiers() & (java.awt.event.ActionEvent.SHIFT_MASK | java.awt.event.ActionEvent.CTRL_MASK)) != 0;
+                  if (soloedTracks.contains(trk)) {
+                    soloedTracks.remove(trk);
                   } else {
-                    soloRow = trk;
+                    if (!isMulti) {
+                      soloedTracks.clear();
+                    }
+                    soloedTracks.add(trk);
                   }
                   updateEngineMutes();
                   refresh();
@@ -658,7 +663,7 @@ public class SongGridPanel extends SwingGridPanel {
               pad.setInLoop(true);
             }
           } else if (isMuteColumn(c)) {
-            Color statusBg = sessionStatusColour(isMuted, soloRow == modelRow, soloRow >= 0);
+            Color statusBg = sessionStatusColour(isMuted, soloedTracks.contains(modelRow), !soloedTracks.isEmpty());
             // Armed for launch (queued for the next bar boundary): fast-blink the pad, matching the
             // hardware's blinking "launch" pad, until the queue is consumed.
             boolean armed = bridge != null && bridge.getLaunchQueue(engineRow) >= 0;

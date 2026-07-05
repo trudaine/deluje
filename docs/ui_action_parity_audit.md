@@ -66,7 +66,7 @@ Two Java surfaces exist: `SongGridPanel` (the real desktop song grid) and `ui/vi
 | Section pads: arm section; hold 300 ms + encoder = repeat count (-2 exclusive/-1 shared/0 ∞/N) (`sv:686, 1176-1298`) | Toolbar "SECTION: A B C…" buttons, bar-quantized launch (`SongGridPanel.java:79-119`); repeats are data-only | PARTIAL |
 | SHIFT+section pad reassigns clip's section (`sv:1133-1174`) | Nothing | MISSING |
 | Grid layout (green launch / blue edit / macros modes, two-pad copy, shift-instant, record-arm) (`sv:3085-4340`) | Nothing — `sessionLayout` XML round-trips only | MISSING (entire family) |
-| Solo: hold ◀▶-encoder + status pad, true solo state with `activeIfNoSolo` restore (`view.cpp:2790-2799`) | Solo = mass-mute of other tracks; prior mute states NOT restored on unsolo (`SongGridPanel.java:396-410`) | DIFFERENT (lossy) |
+| Solo: hold ◀▶-encoder + status pad, true solo state with `activeIfNoSolo` restore (`view.cpp:2790-2799`) | Solo button toggles single solo. SHIFT/CTRL click enables multi-solo. Original mute states are preserved in the model and restored when unsoloing. | **FAITHFUL** (with desktop multi-select modifier) |
 | MIDI-learn arming (pads flash pink) (`sv:903-929, 3013`) | `MidiLearnPanel` is CC→param only | MISSING |
 | Main-pad pattern colours (`note_row.cpp:1955-1992`, `rgb.cpp`) | `SongProjector` — verified side-by-side incl. velocity curve, tail, undefined-area grey | **FAITHFUL** |
 | Status colours (blue solo/red stopped/green active + `dull()` when soloing) (`view.cpp:2675-2707`) | Same 3 colours + dull clamp (`SongGridPanel.java:52-56`) — no FILL/ONCE/record colours | PARTIAL |
