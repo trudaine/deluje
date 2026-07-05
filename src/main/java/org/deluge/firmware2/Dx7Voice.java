@@ -427,8 +427,13 @@ public class Dx7Voice {
   public Dx7Voice nextUnassigned;
   boolean preallocated;
 
+  public final FmCore.FmOpParams[] params = new FmCore.FmOpParams[6];
+
   public Dx7Voice() {
-    for (int i = 0; i < 6; i++) env[i] = new Dx7Env();
+    for (int i = 0; i < 6; i++) {
+      env[i] = new Dx7Env();
+      params[i] = new FmCore.FmOpParams();
+    }
   }
 
   // init (dx7note.cpp:229-291)
@@ -546,8 +551,7 @@ public class Dx7Voice {
     long amod3 = (long) (ctrls.egMod + 1) << 17;
     amdMod = Math.max((1L << 24) - amod3, amdMod);
 
-    FmCore.FmOpParams[] params = new FmCore.FmOpParams[6];
-    for (int i = 0; i < 6; i++) params[i] = new FmCore.FmOpParams();
+    FmCore.FmOpParams[] params = this.params;
 
     for (int op = 0; op < 6; op++) {
       params[op].phase = phase[op];

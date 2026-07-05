@@ -18,6 +18,18 @@ package org.deluge.firmware2;
 public final class EngineMkI {
   private EngineMkI() {}
 
+  private static class MkIScratch {
+    int[] alg = new int[6];
+    boolean[] hasContents = new boolean[3];
+    int[][] buf = new int[2][0];
+    int[] dgain = new int[3];
+    int[] gain = new int[3];
+    int[] phase = new int[3];
+  }
+
+  private static final ThreadLocal<MkIScratch> scratchHolder =
+      ThreadLocal.withInitial(MkIScratch::new);
+
   // EngineMkI.cpp:35-46
   private static final int NEGATIVE_BIT = 0x8000;
   private static final int ENV_BITDEPTH = 14;
@@ -158,9 +170,10 @@ public final class EngineMkI {
       int dgain0,
       int[] fbBuf,
       int fbShift) {
-    int[] dgain = new int[2];
-    int[] gain = new int[2];
-    int[] phase = new int[2];
+    MkIScratch scratch = scratchHolder.get();
+    int[] dgain = scratch.dgain;
+    int[] gain = scratch.gain;
+    int[] phase = scratch.phase;
     int y0 = fbBuf[0];
     int y = fbBuf[1];
 
@@ -206,9 +219,10 @@ public final class EngineMkI {
       int dgain0,
       int[] fbBuf,
       int fbShift) {
-    int[] dgain = new int[3];
-    int[] gain = new int[3];
-    int[] phase = new int[3];
+    MkIScratch scratch = scratchHolder.get();
+    int[] dgain = scratch.dgain;
+    int[] gain = scratch.gain;
+    int[] phase = scratch.phase;
     int y0 = fbBuf[0];
     int y = fbBuf[1];
 
@@ -261,13 +275,24 @@ public final class EngineMkI {
       int[] fbBuf,
       int feedbackShift) {
     final int kLevelThresh = ENV_MAX - 100;
-    int[] alg = FmCore.ALGORITHMS[algorithm].clone(); // FmAlgorithm copy (we may mutate ops[0])
-    boolean[] hasContents = {true, false, false};
+    MkIScratch scratch = scratchHolder.get();
+    System.arraycopy(FmCore.ALGORITHMS[algorithm], 0, scratch.alg, 0, 6);
+    int[] alg = scratch.alg;
+    boolean[] hasContents = scratch.hasContents;
+    hasContents[0] = true;
+    hasContents[1] = false;
+    hasContents[2] = false;
     boolean fbOn = feedbackShift < 16;
     final int invN = (1 << 30) / n;
 
     // Bus scratch buffers (FmCore buf_).
-    int[][] buf = new int[2][n];
+    if (scratch.buf[0].length < n) {
+      scratch.buf[0] = new int[n];
+      scratch.buf[1] = new int[n];
+    }
+    int[][] buf = scratch.buf;
+    java.util.Arrays.fill(buf[0], 0, n, 0);
+    java.util.Arrays.fill(buf[1], 0, n, 0);
 
     switch (algorithm) {
       case 3:
