@@ -940,8 +940,8 @@ public class Voice {
       int noiseAmplitude = Math.min(n, 268435455) >> 2;
       for (int i = 0; i < numSamples; i++) {
         int ns = Functions.multiply_32x32_rshift32(Functions.getNoise(), noiseAmplitude);
-        mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], ns);
-        mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], ns);
+        mixBuf[i * 2] += ns;
+        mixBuf[i * 2 + 1] += ns;
       }
     }
 
@@ -960,8 +960,8 @@ public class Voice {
 
     // Copy to output
     for (int i = 0; i < numSamples; i++) {
-      soundBuffer[i * 2] = Functions.add_saturate(soundBuffer[i * 2], mixBuf[i * 2]);
-      soundBuffer[i * 2 + 1] = Functions.add_saturate(soundBuffer[i * 2 + 1], mixBuf[i * 2 + 1]);
+      soundBuffer[i * 2] += mixBuf[i * 2];
+      soundBuffer[i * 2 + 1] += mixBuf[i * 2 + 1];
     }
 
     // Port of voice.cpp:1664 — return false if voice should be unassigned
@@ -1154,13 +1154,13 @@ public class Voice {
             Functions.multiply_32x32_rshift32_rounded(
                 Functions.multiply_32x32_rshift32(tempBufA[i], tempBufB[i]), amplitudeForRingMod);
         if (stereoUnison) {
-          int l = Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[0]), 2);
-          int r = Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[1]), 2);
-          mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], l);
-          mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], r);
+          int l = Functions.multiply_32x32_rshift32(out, ampLR[0]) << 2;
+          int r = Functions.multiply_32x32_rshift32(out, ampLR[1]) << 2;
+          mixBuf[i * 2] += l;
+          mixBuf[i * 2 + 1] += r;
         } else {
-          mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], out);
-          mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], out);
+          mixBuf[i * 2] += out;
+          mixBuf[i * 2 + 1] += out;
         }
       }
     }
@@ -1279,21 +1279,13 @@ public class Voice {
             // stereo spread the per-part pan applies to each channel.
             if (stereoUnison) {
               for (int i = 0; i < numSamples; i++) {
-                mixBuf[i * 2] =
-                    Functions.add_saturate(
-                        mixBuf[i * 2],
-                        Functions.lshiftAndSaturate(
-                            Functions.multiply_32x32_rshift32(tsBuf[i * 2], ampLR[0]), 2));
-                mixBuf[i * 2 + 1] =
-                    Functions.add_saturate(
-                        mixBuf[i * 2 + 1],
-                        Functions.lshiftAndSaturate(
-                            Functions.multiply_32x32_rshift32(tsBuf[i * 2 + 1], ampLR[1]), 2));
+                mixBuf[i * 2] += (Functions.multiply_32x32_rshift32(tsBuf[i * 2], ampLR[0]) << 2);
+                mixBuf[i * 2 + 1] += (Functions.multiply_32x32_rshift32(tsBuf[i * 2 + 1], ampLR[1]) << 2);
               }
             } else {
               for (int i = 0; i < numSamples; i++) {
-                mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], tsBuf[i * 2]);
-                mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], tsBuf[i * 2 + 1]);
+                mixBuf[i * 2] += tsBuf[i * 2];
+                mixBuf[i * 2 + 1] += tsBuf[i * 2 + 1];
               }
             }
             continue;
@@ -1461,18 +1453,16 @@ public class Voice {
         if (stereoUnison) {
           for (int i = 0; i < numSamples; i++) {
             int out = tempBuf[i];
-            int l =
-                Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[0]), 2);
-            int r =
-                Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[1]), 2);
-            mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], l);
-            mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], r);
+            int l = Functions.multiply_32x32_rshift32(out, ampLR[0]) << 2;
+            int r = Functions.multiply_32x32_rshift32(out, ampLR[1]) << 2;
+            mixBuf[i * 2] += l;
+            mixBuf[i * 2 + 1] += r;
           }
         } else {
           for (int i = 0; i < numSamples; i++) {
             int out = tempBuf[i];
-            mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], out);
-            mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], out);
+            mixBuf[i * 2] += out;
+            mixBuf[i * 2 + 1] += out;
           }
         }
       }
@@ -1668,20 +1658,14 @@ public class Voice {
       if (stereoUnison) {
         for (int i = 0; i < numSamples; i++) {
           int out = fmOscBuffer[i];
-          mixBuf[i * 2] =
-              Functions.add_saturate(
-                  mixBuf[i * 2],
-                  Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[0]), 2));
-          mixBuf[i * 2 + 1] =
-              Functions.add_saturate(
-                  mixBuf[i * 2 + 1],
-                  Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(out, ampLR[1]), 2));
+          mixBuf[i * 2] += (Functions.multiply_32x32_rshift32(out, ampLR[0]) << 2);
+          mixBuf[i * 2 + 1] += (Functions.multiply_32x32_rshift32(out, ampLR[1]) << 2);
         }
       } else {
         for (int i = 0; i < numSamples; i++) {
           int out = fmOscBuffer[i];
-          mixBuf[i * 2] = Functions.add_saturate(mixBuf[i * 2], out);
-          mixBuf[i * 2 + 1] = Functions.add_saturate(mixBuf[i * 2 + 1], out);
+          mixBuf[i * 2] += out;
+          mixBuf[i * 2 + 1] += out;
         }
       }
     }
@@ -1777,12 +1761,8 @@ public class Voice {
     // Apply pan
     if (doPanning) {
       for (int i = 0; i < numSamples; i++) {
-        int l =
-            Functions.lshiftAndSaturate(
-                Functions.multiply_32x32_rshift32(stereoBuf[i * 2], ampLR[0]), 2);
-        int r =
-            Functions.lshiftAndSaturate(
-                Functions.multiply_32x32_rshift32(stereoBuf[i * 2 + 1], ampLR[1]), 2);
+        int l = Functions.multiply_32x32_rshift32(stereoBuf[i * 2], ampLR[0]) << 2;
+        int r = Functions.multiply_32x32_rshift32(stereoBuf[i * 2 + 1], ampLR[1]) << 2;
         stereoBuf[i * 2] = l;
         stereoBuf[i * 2 + 1] = r;
       }
