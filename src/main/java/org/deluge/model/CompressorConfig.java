@@ -20,6 +20,29 @@ public class CompressorConfig {
   private float compressorRatio = 0.0f;
   private float compressorShape = 0.92f;
 
+  // RAW firmware rate values as stored in preset XML (<sidechain attack="327244" .../>) — the C
+  // reads these verbatim (mod_controllable_audio.cpp:892-896). -1 = not specified in the file
+  // (keep the Sidechain constructor defaults). The float fields above are the UI's normalized
+  // knobs and must not round-trip through the engine.
+  private int sidechainAttackRaw = -1;
+  private int sidechainReleaseRaw = -1;
+
+  public int getSidechainAttackRaw() {
+    return sidechainAttackRaw;
+  }
+
+  public void setSidechainAttackRaw(int v) {
+    this.sidechainAttackRaw = v;
+  }
+
+  public int getSidechainReleaseRaw() {
+    return sidechainReleaseRaw;
+  }
+
+  public void setSidechainReleaseRaw(int v) {
+    this.sidechainReleaseRaw = v;
+  }
+
   public float getCompressorAttack() {
     return compressorAttack;
   }

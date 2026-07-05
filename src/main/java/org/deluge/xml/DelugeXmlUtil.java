@@ -406,6 +406,7 @@ public class DelugeXmlUtil {
         kz.maxPitch = last ? 127 : top;
         prevTop = top;
         kz.transpose = attrOrChildInt(range, "transpose", 0);
+        kz.cents = attrOrChildInt(range, "cents", 0);
         Element zone = getFirstChild(range, "zone");
         if (zone != null) {
           kz.startSamplePos = attrOrChildInt(zone, "startSamplePos", 0);

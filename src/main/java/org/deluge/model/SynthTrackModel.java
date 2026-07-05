@@ -783,6 +783,22 @@ public class SynthTrackModel extends TrackModel {
     compressor.setSidechainRelease(v);
   }
 
+  public int getSidechainAttackRaw() {
+    return compressor.getSidechainAttackRaw();
+  }
+
+  public void setSidechainAttackRaw(int v) {
+    compressor.setSidechainAttackRaw(v);
+  }
+
+  public int getSidechainReleaseRaw() {
+    return compressor.getSidechainReleaseRaw();
+  }
+
+  public void setSidechainReleaseRaw(int v) {
+    compressor.setSidechainReleaseRaw(v);
+  }
+
   public int getSynthMode() {
     return synthMode;
   }

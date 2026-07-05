@@ -529,6 +529,23 @@ public class InstrumentXmlParser {
       Element sc = (Element) sidechainNodes.item(0);
       readAttrFloatHex(sc, "attack", synth::setSidechainAttack, true);
       readAttrFloatHex(sc, "release", synth::setSidechainRelease, true);
+      // The firmware stores attack/release as RAW decimal rate ints (mod_controllable_audio.cpp
+      // :892-896 reads them verbatim); the hex-float mapping above is only the UI knob. Keep the
+      // raw values for the engine.
+      String scAtk = attrOrChildText(sc, "attack");
+      if (scAtk != null && !scAtk.isBlank()) {
+        try {
+          synth.setSidechainAttackRaw(Integer.parseInt(scAtk.trim()));
+        } catch (NumberFormatException ignored) {
+        }
+      }
+      String scRel = attrOrChildText(sc, "release");
+      if (scRel != null && !scRel.isBlank()) {
+        try {
+          synth.setSidechainReleaseRaw(Integer.parseInt(scRel.trim()));
+        } catch (NumberFormatException ignored) {
+        }
+      }
       if (sc.hasAttribute("syncLevel")) {
         try {
           synth.setSidechainSyncLevel(Integer.parseInt(sc.getAttribute("syncLevel")));

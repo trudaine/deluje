@@ -15,4 +15,7 @@ public class KeyZone {
 
   /** Per-sampleRange transpose (semitones) tuning the recorded sample to the played note. */
   public int transpose = 0;
+
+  /** Per-sampleRange cents fine-tune (C SampleHolderForVoice cents, applied via fineTuner). */
+  public int cents = 0;
 }
