@@ -294,6 +294,40 @@ public class SongGridPanelSoloTest {
     bridge.shutdown();
   }
 
+  @Test
+  public void testCrossScreenWrapEditing() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+    ProjectModel project = new ProjectModel();
+
+    TrackModel track0 = new SynthTrackModel("T0");
+    ClipModel clip = new org.deluge.model.ClipModel("C1", 8, 32);
+    StepData step = new StepData(true, 0.8f, 1.0f, 1.0f, 60, 0, 0.0f, 0.0f);
+    clip.setStep(0, 0, step);
+    track0.addClip(clip);
+    project.addTrack(track0);
+
+    SongGridPanel panel = new SongGridPanel(bridge);
+    panel.setProjectModel(project);
+    panel.setEditedModelTrack(0);
+    panel.setViewMode(SwingGridPanel.GridViewMode.CLIP);
+
+    SwingGridPanel.isCrossScreenWrapActive = true;
+
+    panel.clipController.handleStepToggled(67, 2);
+
+    assertTrue(clip.getStep(0, 2).active());
+    assertTrue(clip.getStep(0, 18).active());
+
+    SwingGridPanel.isCrossScreenWrapActive = false;
+
+    panel.clipController.handleStepToggled(67, 3);
+    assertTrue(clip.getStep(0, 3).active());
+    assertFalse(clip.getStep(0, 19).active());
+
+    bridge.shutdown();
+  }
+
   private JButton getSoloButton(SongGridPanel panel, int trackIdx) {
     int col = panel.columnCount - 1; // Solo column is the last column
     for (int r = 0; r < panel.gridMode.rows; r++) {

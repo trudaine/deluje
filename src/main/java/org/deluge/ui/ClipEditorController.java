@@ -560,29 +560,64 @@ public class ClipEditorController {
 
     boolean stepState = bridge.getStep(engineRow, activeCol);
     boolean nextState = !stepState;
-    bridge.setStep(engineRow, activeCol, nextState);
 
-    if (cModel != null) {
-      double curVel = bridge.getVelocity(engineRow, activeCol);
-      double curProb = bridge.getStepProbability(engineRow, activeCol);
+    if (cModel != null && SwingGridPanel.isCrossScreenWrapActive) {
+      int baseCol = activeCol % 16;
+      java.util.List<Consequence> steps = new java.util.ArrayList<>();
+      int trackLen = cModel.getStepCount();
       int pitch = isSynthMode ? parent.getRowPitch(visualModelRow) : 0;
-      StepData newStep =
-          StepData.of(
-              nextState, (float) curVel, StepData.DEFAULT_CLICK_GATE, (float) curProb, pitch);
-      parent.setClipStep(cModel, visualModelRow, activeCol, newStep);
-
-      if (oldStep != null && getProjectModel() != null) {
+      for (int c = baseCol; c < trackLen; c += 16) {
+        StepData oldSt = parent.getClipStep(cModel, visualModelRow, c);
+        bridge.setStep(engineRow, c, nextState);
+        StepData newSt =
+            StepData.of(
+                nextState,
+                (float) bridge.getVelocity(engineRow, c),
+                StepData.DEFAULT_CLICK_GATE,
+                (float) bridge.getStepProbability(engineRow, c),
+                pitch);
+        parent.setClipStep(cModel, visualModelRow, c, newSt);
+        if (oldSt != null && getProjectModel() != null) {
+          steps.add(
+              new Consequence.StepConsequence(
+                  getProjectModel(),
+                  editedModelTrack,
+                  activeClipId,
+                  visualModelRow,
+                  c,
+                  oldSt,
+                  newSt));
+        }
+      }
+      if (!steps.isEmpty() && getProjectModel() != null) {
         getProjectModel()
             .getUndoRedoStack()
-            .push(
-                new Consequence.StepConsequence(
-                    getProjectModel(),
-                    editedModelTrack,
-                    activeClipId,
-                    visualModelRow,
-                    activeCol,
-                    oldStep,
-                    newStep));
+            .push(new Consequence.CompoundConsequence("Toggle Step Wrap", steps));
+      }
+    } else {
+      bridge.setStep(engineRow, activeCol, nextState);
+      if (cModel != null) {
+        double curVel = bridge.getVelocity(engineRow, activeCol);
+        double curProb = bridge.getStepProbability(engineRow, activeCol);
+        int pitch = isSynthMode ? parent.getRowPitch(visualModelRow) : 0;
+        StepData newStep =
+            StepData.of(
+                nextState, (float) curVel, StepData.DEFAULT_CLICK_GATE, (float) curProb, pitch);
+        parent.setClipStep(cModel, visualModelRow, activeCol, newStep);
+
+        if (oldStep != null && getProjectModel() != null) {
+          getProjectModel()
+              .getUndoRedoStack()
+              .push(
+                  new Consequence.StepConsequence(
+                      getProjectModel(),
+                      editedModelTrack,
+                      activeClipId,
+                      visualModelRow,
+                      activeCol,
+                      oldStep,
+                      newStep));
+        }
       }
     }
     projectChangedCallback.run();

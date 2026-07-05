@@ -24,6 +24,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   int auditionMidiNote = -1;
   org.deluge.engine.FirmwareSound auditionSynth = null;
   public static volatile boolean isLiveRecordModeActive = false;
+  public static volatile boolean isCrossScreenWrapActive = false;
   int currentPlayheadStep = -1;
   boolean[] isOneShotTrack = new boolean[MAX_GRID_ROWS];
   int activeClipId = 0;

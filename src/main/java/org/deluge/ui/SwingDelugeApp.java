@@ -1673,6 +1673,10 @@ public class SwingDelugeApp extends JFrame {
 
     editMenu.add(undoItem);
     editMenu.add(redoItem);
+    editMenu.addSeparator();
+    JCheckBoxMenuItem wrapItem = new JCheckBoxMenuItem("Cross-Screen Wrap Edits", SwingGridPanel.isCrossScreenWrapActive);
+    wrapItem.addActionListener(e -> SwingGridPanel.isCrossScreenWrapActive = wrapItem.isSelected());
+    editMenu.add(wrapItem);
 
     // Tools menu — Delugeator Randomizer & Loop Slicer
     JMenu toolsMenu = new JMenu("Tools");
