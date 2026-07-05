@@ -4,8 +4,6 @@ import java.awt.*;
 import javax.swing.*;
 import org.deluge.BridgeContract;
 import org.deluge.engine.FirmwareFactory;
-import org.deluge.hid.Flasher;
-import org.deluge.hid.MatrixDriver;
 import org.deluge.hid.pic.PIC;
 import org.deluge.model.AudioTrackModel;
 import org.deluge.model.ClipModel;
@@ -13,9 +11,6 @@ import org.deluge.model.Consequence;
 import org.deluge.model.KitTrackModel;
 import org.deluge.model.SoundDrum;
 import org.deluge.model.SynthTrackModel;
-import org.deluge.ui.views.KitView;
-import org.deluge.ui.views.PianoRollView;
-import org.deluge.ui.views.SessionView;
 
 /** Alternative lightweight UI running purely on Java Swing (no native libs). */
 public class SwingDelugeApp extends JFrame {
@@ -214,9 +209,6 @@ public class SwingDelugeApp extends JFrame {
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
     // ── Virtual Hardware Initialization ──
-    Flasher.startGlobal();
-    MatrixDriver.get().pushUI(new SessionView(null)); // Placeholder song
-
     setFocusable(true);
     addKeyListener(new KeyboardShortcutManager(this));
 
@@ -573,26 +565,6 @@ public class SwingDelugeApp extends JFrame {
     // Compile DSP engine in-place on the unified model!
     org.deluge.model.ProjectModel project = FirmwareFactory.createSong(model);
 
-    org.deluge.model.ClipModel firstClip = null;
-    if (!model.getTracks().isEmpty()) {
-      firstClip = model.getTracks().get(0).getActiveClip();
-    }
-
-    final org.deluge.model.ClipModel fClip = firstClip;
-    javax.swing.SwingUtilities.invokeLater(
-        () -> {
-          MatrixDriver.get().popUI();
-          if (fClip != null) {
-            if (fClip.getSound() instanceof org.deluge.engine.FirmwareKit) {
-              MatrixDriver.get().pushUI(new KitView(fClip));
-            } else {
-              MatrixDriver.get().pushUI(new PianoRollView(fClip));
-            }
-          } else {
-            MatrixDriver.get().pushUI(new SessionView(model));
-          }
-        });
-
     // ── Sync Audio Registry ──
     Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
     if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
@@ -673,12 +645,6 @@ public class SwingDelugeApp extends JFrame {
     Object fwHandlerObj = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
     if (fwHandlerObj instanceof org.deluge.playback.PlaybackHandler fwHandler) {
       fwHandler.setProject(model);
-      if (firstClip != null) {
-        int activeNotesCount = 0;
-        for (var row : firstClip.getNoteRowsList()) {
-          activeNotesCount += row.getNotes().size();
-        }
-      }
     }
   }
 
