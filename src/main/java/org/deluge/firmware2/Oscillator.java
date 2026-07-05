@@ -11,6 +11,8 @@ public final class Oscillator {
 
   private Oscillator() {}
 
+  private static final ThreadLocal<int[]> rawScratch = ThreadLocal.withInitial(() -> new int[0]);
+
   /** Waveform type, matching the firmware OscType enum. */
   public enum OscType {
     SINE,
@@ -295,7 +297,11 @@ public final class Oscillator {
       int retriggerPhase,
       boolean pulseWave) {
     // C: bufferStartThisSync = applyAmplitude ? oscSyncRenderingBuffer : bufferStart
-    int[] raw = new int[numSamples];
+    int[] raw = rawScratch.get();
+    if (raw.length < numSamples) {
+      raw = new int[numSamples];
+      rawScratch.set(raw);
+    }
     int bufPos = 0; // index into raw[]
     boolean renderedASyncFromItsStartYet = false;
     int crossoverSampleBeforeSync = 0;
