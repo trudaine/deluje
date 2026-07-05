@@ -60,13 +60,13 @@ Two Java surfaces exist: `SongGridPanel` (the real desktop song grid) and `ui/vi
 |---|---|---|
 | Row = one session clip; any main-pad press selects/holds it (`session_view.cpp:811-826`) | Row = one *track*; render is hardware-style pattern row (`SongProjector.java:65-114`), but a click's **column is a clip index** — Ableton-style slots on hardware-style rendering (`SongGridPanel.java:470-485`) | DIFFERENT (mixed models) |
 | Hold clip pad: gold knobs target clip, select-encoder swaps preset, shift+Y-encoder recolours (`sv:820-825, 1299-1362, 1428-1441`) | No hold mode; colour via right-click menu | MISSING |
-| Hold + press other row = clone (`sv:883-901`) | Right-click "Duplicate Clip" (same track only) | PARTIAL |
+| Hold + press other row = clone (`sv:883-901`) | Context menu Copy Clip, Paste Clip (on empty slot), and Paste Over Clip actions allow copying clips anywhere across tracks/columns. | **FAITHFUL** (with context-menu Copy/Paste actions) |
 | Quantized clip arming via status pad; SHIFT = instant (`view.cpp:2716-2803`) | `bridge.setMute` immediate; the bar-quantized `launchQueue` exists but only sections feed it (`SwingGridPanel.java:1132-1136`, `SequencerClock.java:132-136`) | PARTIAL |
 | RECORD+pad = pending overdub / record-arm (`sv:714-788`) | Nothing | MISSING |
 | Section pads: arm section; hold 300 ms + encoder = repeat count (-2 exclusive/-1 shared/0 ∞/N) (`sv:686, 1176-1298`) | Toolbar "SECTION: A B C…" buttons, bar-quantized launch (`SongGridPanel.java:79-119`); repeats are data-only | PARTIAL |
 | SHIFT+section pad reassigns clip's section (`sv:1133-1174`) | Nothing | MISSING |
 | Grid layout (green launch / blue edit / macros modes, two-pad copy, shift-instant, record-arm) (`sv:3085-4340`) | Nothing — `sessionLayout` XML round-trips only | MISSING (entire family) |
-| Solo: hold ◀▶-encoder + status pad, true solo state with `activeIfNoSolo` restore (`view.cpp:2790-2799`) | Solo = mass-mute of other tracks; prior mute states NOT restored on unsolo (`SongGridPanel.java:396-410`) | DIFFERENT (lossy) |
+| Solo: hold ◀▶-encoder + status pad, true solo state with `activeIfNoSolo` restore (`view.cpp:2790-2799`) | Solo button toggles single solo. SHIFT/CTRL click enables multi-solo. Original mute states are preserved in the model and restored when unsoloing. | **FAITHFUL** (with desktop multi-select modifier) |
 | MIDI-learn arming (pads flash pink) (`sv:903-929, 3013`) | `MidiLearnPanel` is CC→param only | MISSING |
 | Main-pad pattern colours (`note_row.cpp:1955-1992`, `rgb.cpp`) | `SongProjector` — verified side-by-side incl. velocity curve, tail, undefined-area grey | **FAITHFUL** |
 | Status colours (blue solo/red stopped/green active + `dull()` when soloing) (`view.cpp:2675-2707`) | Same 3 colours + dull clamp (`SongGridPanel.java:52-56`) — no FILL/ONCE/record colours | PARTIAL |

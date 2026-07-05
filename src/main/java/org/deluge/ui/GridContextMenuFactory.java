@@ -46,7 +46,7 @@ public class GridContextMenuFactory {
     exclusiveSolo.setBackground(new Color(0x1e, 0x1e, 0x22));
     exclusiveSolo.addActionListener(
         e -> {
-          panel.soloRow = trackIdx;
+          panel.setSoloRow(trackIdx);
           panel.updateEngineMutes();
           if (SwingDelugeApp.mainInstance != null) {
             SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
@@ -62,7 +62,7 @@ public class GridContextMenuFactory {
     unsoloAll.setBackground(new Color(0x1e, 0x1e, 0x22));
     unsoloAll.addActionListener(
         e -> {
-          panel.soloRow = -1;
+          panel.setSoloRow(-1);
           panel.updateEngineMutes();
           if (SwingDelugeApp.mainInstance != null) {
             SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("SOLO", "OFF");
@@ -357,6 +357,26 @@ public class GridContextMenuFactory {
         });
     menu.add(dupeItem);
 
+    JMenuItem copyItem = new JMenuItem("Copy Clip");
+    copyItem.addActionListener(
+        e -> {
+          panel.setCopiedClip(clip);
+        });
+    menu.add(copyItem);
+
+    if (panel.getCopiedClip() != null) {
+      JMenuItem pasteOverItem = new JMenuItem("Paste Over Clip");
+      pasteOverItem.addActionListener(
+          e -> {
+            ClipModel copied = panel.getCopiedClip();
+            ClipModel copy = copied.deepCopy(clip.getName());
+            track.getClips().set(clipIdx, copy);
+            panel.fireProjectChanged();
+            panel.refresh();
+          });
+      menu.add(pasteOverItem);
+    }
+
     menu.addSeparator();
 
     JMenuItem deleteItem = new JMenuItem("Delete Clip");
@@ -482,9 +502,9 @@ public class GridContextMenuFactory {
           if (panel.projectModel != null) {
             if (panel.viewMode == SwingGridPanel.GridViewMode.CLIP
                 || panel.viewMode == SwingGridPanel.GridViewMode.AUTOMATION) {
-              panel.soloRow = panel.editedModelTrack;
+              panel.setSoloRow(panel.editedModelTrack);
             } else {
-              panel.soloRow = rowToSolo;
+              panel.setSoloRow(rowToSolo);
             }
             panel.updateEngineMutes();
             panel.refresh();
@@ -498,7 +518,7 @@ public class GridContextMenuFactory {
     unmuteAllItem.addActionListener(
         evt -> {
           if (panel.projectModel != null) {
-            panel.soloRow = -1;
+            panel.setSoloRow(-1);
             for (TrackModel t : panel.projectModel.getTracks()) {
               t.setMuted(false);
             }

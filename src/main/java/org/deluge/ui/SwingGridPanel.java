@@ -48,6 +48,8 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   int soloRow = -1; // -1 = no solo
+  public final java.util.Set<Integer> soloedTracks = java.util.concurrent.ConcurrentHashMap.newKeySet();
+  private static org.deluge.model.ClipModel copiedClip = null;
   private boolean wasSequencerPlaying; // edge-detect stop to flush MIDI notes
   final java.util.List<JButton> pageButtons = new java.util.ArrayList<>();
   // voiceVuMeters, trackVuMeters, and globalVuTimer moved to GridVuManager
@@ -128,7 +130,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   Color getAuditionPadBgColor(int modelRow, boolean isSynth, int visualRowIndex) {
-    if (soloRow == visualRowIndex) {
+    if (soloedTracks.contains(visualRowIndex)) {
       return Color.GREEN;
     }
     if (!isSynth) {
@@ -145,7 +147,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   Color getAuditionPadFgColor(int modelRow, boolean isSynth, int visualRowIndex) {
-    if (soloRow == visualRowIndex) {
+    if (soloedTracks.contains(visualRowIndex)) {
       return Color.BLACK;
     }
     if (!isSynth) {
@@ -1161,7 +1163,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       return;
     }
     EngineSyncCoordinator sync = null;
-    if (SwingDelugeApp.mainInstance != null) {
+    if (SwingDelugeApp.mainInstance != null && SwingDelugeApp.mainInstance.getActiveGridPanel() == this) {
       sync = SwingDelugeApp.mainInstance.getSyncCoordinator();
     }
     java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
@@ -1193,8 +1195,8 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       }
     }
 
-    boolean anySoloing = (soloRow >= 0);
-    System.out.println("TEST-DEBUG: updateEngineMutes: soloRow=" + soloRow + " anySoloing=" + anySoloing);
+    boolean anySoloing = !soloedTracks.isEmpty();
+    System.out.println("TEST-DEBUG: updateEngineMutes: anySoloing=" + anySoloing);
     for (int t = 0; t < n; t++) {
       org.deluge.model.TrackModel track = tracks.get(t);
       int baseId = trackEngineStart[t];
@@ -1203,7 +1205,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
         System.out.println("TEST-DEBUG:   Track " + t + " skipped (baseId < 0)");
         continue;
       }
-      boolean trackMuted = anySoloing ? (t != soloRow) : track.isMuted();
+      boolean trackMuted = anySoloing ? !soloedTracks.contains(t) : track.isMuted();
       System.out.println("DEBUG-MUTE: update loop track hash=" + System.identityHashCode(track) + " isMuted=" + track.isMuted() + " resolvedMuted=" + trackMuted);
 
       for (int i = 0; i < voiceCount; i++) {
@@ -3151,11 +3153,23 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   public int getSoloRow() {
-    return soloRow;
+    return soloedTracks.isEmpty() ? -1 : soloedTracks.iterator().next();
   }
 
   public void setSoloRow(int row) {
     this.soloRow = row;
+    soloedTracks.clear();
+    if (row >= 0) {
+      soloedTracks.add(row);
+    }
+  }
+
+  public org.deluge.model.ClipModel getCopiedClip() {
+    return copiedClip;
+  }
+
+  public void setCopiedClip(org.deluge.model.ClipModel clip) {
+    copiedClip = clip;
   }
 
   public void setPad(int r, int c, JButton pad) {
