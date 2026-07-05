@@ -3082,6 +3082,35 @@ public class SwingDelugeApp extends JFrame {
     fireProjectChanged();
   }
 
+  private static final String[] KEY_CYCLE = {
+    "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
+  };
+
+  /** Advance to the next key (rootNote): updates model, engine, and grid. */
+  public void cycleKey() {
+    if (currentProject == null) {
+      return;
+    }
+    String cur = currentProject.getKey();
+    if (cur == null || cur.isEmpty() || cur.equals("NONE")) {
+      cur = "C";
+    }
+    int idx = 0;
+    for (int i = 0; i < KEY_CYCLE.length; i++) {
+      if (KEY_CYCLE[i].equalsIgnoreCase(cur)) {
+        idx = i;
+        break;
+      }
+    }
+    String next = KEY_CYCLE[(idx + 1) % KEY_CYCLE.length];
+    currentProject.setKey(next);
+    bridge.setGlobalInt(BridgeContract.G_ROOT_KEY, EngineSyncCoordinator.parseRootKey(next));
+    if (topBar != null && topBar.getParamReadout() != null) {
+      topBar.getParamReadout().printTransient("KEY", next);
+    }
+    fireProjectChanged();
+  }
+
   // Smallest window we still lay out correctly — fits a 1366x768 laptop after screen margins.
   private static final int MIN_WINDOW_W = 1180;
   private static final int MIN_WINDOW_H = 680;

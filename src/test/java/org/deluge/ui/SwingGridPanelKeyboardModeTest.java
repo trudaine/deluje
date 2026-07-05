@@ -37,4 +37,35 @@ public class SwingGridPanelKeyboardModeTest {
 
     bridge.shutdown();
   }
+
+  @Test
+  public void testShiftClickSetsRootNote() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+
+    ProjectModel project = new ProjectModel();
+    project.setKey("G");
+    project.setScale("Major");
+    project.addTrack(new SynthTrackModel("Synth"));
+
+    SwingGridPanel panel = new ClipGridPanel(bridge);
+    panel.setProjectModel(project);
+    panel.setViewMode(SwingGridPanel.GridViewMode.KEYPLAY);
+    panel.refresh();
+
+    KeyboardMouseAdapter adapter = new KeyboardMouseAdapter(panel, 65); // F#4 / F
+    
+    java.awt.event.MouseEvent me = new java.awt.event.MouseEvent(
+        panel.getPads()[0][0],
+        java.awt.event.MouseEvent.MOUSE_PRESSED,
+        System.currentTimeMillis(),
+        java.awt.event.InputEvent.SHIFT_DOWN_MASK,
+        0, 0, 1, false
+    );
+    
+    adapter.mousePressed(me);
+    
+    assertEquals("F", project.getKey(), "Shift+Click on MIDI 65 (F) should change song key to F");
+    bridge.shutdown();
+  }
 }

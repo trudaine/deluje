@@ -21,6 +21,18 @@ class KeyboardMouseAdapter extends MouseAdapter {
 
   @Override
   public void mousePressed(MouseEvent e) {
+    if (e.isShiftDown() && panel.projectModel != null) {
+      int rootMidi = note % 12;
+      String[] keyNames = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+      String keyStr = keyNames[rootMidi];
+      panel.projectModel.setKey(keyStr);
+      if (SwingDelugeApp.mainInstance != null && SwingDelugeApp.mainInstance.getTopBar() != null) {
+        SwingDelugeApp.mainInstance.getTopBar().getParamReadout().printTransient("KEY", keyStr);
+      }
+      panel.fireProjectChanged();
+      return;
+    }
+
     double pct = (double) e.getY() / e.getComponent().getHeight();
     int velocity = 127 - (int) (pct * 97); // 30 to 127
     velocity = Math.max(1, Math.min(velocity, 127));

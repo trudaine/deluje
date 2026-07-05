@@ -543,6 +543,21 @@ public class SwingTopBarPanel extends JPanel {
         });
     add(scaleBtn);
 
+    JButton keyBtn = new JButton("KEY");
+    styleButton(keyBtn, new Color(0x2d, 0x23, 0x3d), new Color(0xcc, 0x66, 0xff));
+    keyBtn.setPreferredSize(new Dimension(45, 22));
+    keyBtn.setMargin(new Insets(0, 0, 0, 0));
+    keyBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+    keyBtn.setFocusable(false);
+    keyBtn.setToolTipText("Cycle the song root key");
+    keyBtn.addActionListener(
+        e -> {
+          if (SwingDelugeApp.mainInstance != null) {
+            SwingDelugeApp.mainInstance.cycleKey();
+          }
+        });
+    add(keyBtn);
+
     // Track type convert (Deluge SYNTH / MIDI buttons) — converts the edited track, keeping clips.
     JButton toSynthBtn = new JButton("→SYN");
     styleButton(toSynthBtn, new Color(0x23, 0x3d, 0x23), new Color(0x66, 0xff, 0x88));
