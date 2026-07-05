@@ -339,6 +339,10 @@ public class Delay {
       this.workingBuf = next;
     }
     int[][] workingBuf = this.workingBuf;
+    for (int i = 0; i < numSamples; i++) {
+      workingBuf[i][0] = 0;
+      workingBuf[i][1] = 0;
+    }
     int primaryBufferOldLongPos = 0;
     int primaryBufferOldLastShortPos = 0;
 

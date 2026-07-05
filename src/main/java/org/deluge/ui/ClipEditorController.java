@@ -1592,15 +1592,16 @@ public class ClipEditorController {
                   }
                 }
               }
-              newSt = new org.deluge.model.StepData(
-                  true,
-                  targetSd.velocity(),
-                  targetSd.gate(),
-                  targetSd.probability(),
-                  newPitch,
-                  targetSd.iterance(),
-                  targetSd.fill(),
-                  targetSd.nudge());
+              newSt =
+                  new org.deluge.model.StepData(
+                      true,
+                      targetSd.velocity(),
+                      targetSd.gate(),
+                      targetSd.probability(),
+                      newPitch,
+                      targetSd.iterance(),
+                      targetSd.fill(),
+                      targetSd.nudge());
             } else {
               newSt = updated;
             }

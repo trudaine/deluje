@@ -13,8 +13,8 @@ import org.deluge.model.SynthTrackModel;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies that sweeping macro values on SwingGridPanel immediately updates the parameters
- * on the live sound engine.
+ * Verifies that sweeping macro values on SwingGridPanel immediately updates the parameters on the
+ * live sound engine.
  */
 public class MacroLiveApplyTest {
 

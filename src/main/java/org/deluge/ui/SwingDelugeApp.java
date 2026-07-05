@@ -123,9 +123,11 @@ public class SwingDelugeApp extends JFrame {
           if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine
               && idx < engine.sounds.size()) {
             org.deluge.firmware2.GlobalEffectable ge = engine.sounds.get(idx);
-            if (track instanceof org.deluge.model.SynthTrackModel st && ge instanceof org.deluge.engine.FirmwareSound fs) {
+            if (track instanceof org.deluge.model.SynthTrackModel st
+                && ge instanceof org.deluge.engine.FirmwareSound fs) {
               org.deluge.engine.FirmwareFactory.applyModelToLiveSound(st, fs);
-            } else if (track instanceof org.deluge.model.KitTrackModel kt && ge instanceof org.deluge.engine.FirmwareKit fk) {
+            } else if (track instanceof org.deluge.model.KitTrackModel kt
+                && ge instanceof org.deluge.engine.FirmwareKit fk) {
               org.deluge.engine.FirmwareFactory.applyModelToLiveSound(kt, fk);
             }
           }

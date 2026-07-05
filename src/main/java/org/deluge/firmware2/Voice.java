@@ -1280,7 +1280,8 @@ public class Voice {
             if (stereoUnison) {
               for (int i = 0; i < numSamples; i++) {
                 mixBuf[i * 2] += (Functions.multiply_32x32_rshift32(tsBuf[i * 2], ampLR[0]) << 2);
-                mixBuf[i * 2 + 1] += (Functions.multiply_32x32_rshift32(tsBuf[i * 2 + 1], ampLR[1]) << 2);
+                mixBuf[i * 2 + 1] +=
+                    (Functions.multiply_32x32_rshift32(tsBuf[i * 2 + 1], ampLR[1]) << 2);
               }
             } else {
               for (int i = 0; i < numSamples; i++) {

@@ -510,7 +510,8 @@ class StepPropertiesEditor {
           int iter = bridge != null ? bridge.getIterance(engineRow, c) : oldSt.iterance();
           double fill = bridge != null ? bridge.getStepFill(engineRow, c) : oldSt.fill();
           StepData newStep =
-              new StepData(true, (float) vel, (float) gate, (float) prob, pitch, iter, (float) fill);
+              new StepData(
+                  true, (float) vel, (float) gate, (float) prob, pitch, iter, (float) fill);
           parent.setClipStep(cModel, visualModelRow, c, newStep);
           if (oldSt != null && parent.getProjectModel() != null) {
             steps.add(

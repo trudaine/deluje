@@ -257,7 +257,8 @@ public class TimeStretcher {
 
     // C:612-631 — averages for both heads (skip on failure / out of bounds)
     if (oldHeadBytePos < audioDataStart) {
-      out[0] = 0; out[1] = 0;
+      out[0] = 0;
+      out[1] = 0;
       return; // C:613-615 skipSearch
     }
     int[] oldHeadTotals = new int[K_NUM_MOVING_AVERAGES];
@@ -267,7 +268,8 @@ public class TimeStretcher {
         crossfadeLengthSamplesSource,
         playDirection,
         lengthToAverageEach)) {
-      out[0] = 0; out[1] = 0;
+      out[0] = 0;
+      out[1] = 0;
       return;
     }
     int[] newHeadTotals = new int[K_NUM_MOVING_AVERAGES];
@@ -277,7 +279,8 @@ public class TimeStretcher {
         crossfadeLengthSamplesSource,
         playDirection,
         lengthToAverageEach)) {
-      out[0] = 0; out[1] = 0;
+      out[0] = 0;
+      out[1] = 0;
       return;
     }
 

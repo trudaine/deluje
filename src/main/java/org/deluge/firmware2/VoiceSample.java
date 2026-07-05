@@ -137,7 +137,8 @@ public class VoiceSample {
             olderReader.oscPos);
         if (timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]) {
           int newFrame =
-              (timeStretcher.newHeadBytePosResult - sample.audioDataStartPosBytes) / bps; // setupNewPlayHead (in-RAM)
+              (timeStretcher.newHeadBytePosResult - sample.audioDataStartPosBytes)
+                  / bps; // setupNewPlayHead (in-RAM)
           reader.init(newFrame);
           reader.oscPos = timeStretcher.additionalOscPosResult; // C:998
         }
