@@ -14,10 +14,13 @@ public class BasicFilterComponent {
     reset();
   }
 
+  // C (ladder_components.h:27-48): every shift/add below is a PLAIN (wrapping) C operator, not a
+  // saturating one — there is no lshiftAndSaturate/add_saturate call anywhere in this class in the
+  // firmware. Using saturating ops here diverges from hardware specifically when resonance/feedback
+  // pushes these one-pole stages toward overflow, which is exactly when it matters audibly.
+
   public int doFilter(int input, int moveability) {
-    int a =
-        Functions.lshiftAndSaturate(
-            Functions.multiply_32x32_rshift32_rounded(input - memory, moveability), 1);
+    int a = Functions.multiply_32x32_rshift32_rounded(input - memory, moveability) << 1;
     int b = a + memory;
     memory = b + a;
     return b;
@@ -25,26 +28,15 @@ public class BasicFilterComponent {
 
   /** doAPF — one-pole all-pass filter. (ladder_components.h:33-37) */
   public int doAPF(int input, int moveability) {
-    // q31_t a = multiply_32x32_rshift32_rounded(input - memory, moveability) << 1;
-    int a =
-        Functions.lshiftAndSaturate(
-            Functions.multiply_32x32_rshift32_rounded(input - memory, moveability), 1);
-    // q31_t b = a + memory;
+    int a = Functions.multiply_32x32_rshift32_rounded(input - memory, moveability) << 1;
     int b = a + memory;
-    // memory = a + b;
     memory = a + b;
-    // return b * 2 - input;
     return b * 2 - input;
   }
 
   /** affectFilter — feed a sample into the filter with no output. (ladder_components.h:39-40) */
   public void affectFilter(int input, int moveability) {
-    // memory += multiply_32x32_rshift32_rounded(input - memory, moveability) << 2;
-    memory =
-        Functions.add_saturate(
-            memory,
-            Functions.lshiftAndSaturate(
-                Functions.multiply_32x32_rshift32_rounded(input - memory, moveability), 2));
+    memory += Functions.multiply_32x32_rshift32_rounded(input - memory, moveability) << 2;
   }
 
   /** Reset the one-pole memory to zero. (ladder_components.h:42) */
@@ -57,9 +49,7 @@ public class BasicFilterComponent {
    * (ladder_components.h:43-44)
    */
   public int getFeedbackOutput(int feedbackAmount) {
-    // return multiply_32x32_rshift32_rounded(memory, feedbackAmount) << 2;
-    return Functions.lshiftAndSaturate(
-        Functions.multiply_32x32_rshift32_rounded(memory, feedbackAmount), 2);
+    return Functions.multiply_32x32_rshift32_rounded(memory, feedbackAmount) << 2;
   }
 
   /** getFeedbackOutputWithoutLshift — raw feedback. (ladder_components.h:46-47) */

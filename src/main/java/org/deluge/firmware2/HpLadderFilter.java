@@ -79,12 +79,19 @@ public class HpLadderFilter extends Filter {
     hpfHPF3Feedback = -Functions.multiply_32x32_rshift32_rounded(fc, divideBy1PlusTannedFrequency);
     hpfLPF1Feedback = divideBy1PlusTannedFrequency >> 1;
 
+    // C: hpladder.cpp:53-55 — toDivideBy is uint32_t. It can go negative as a signed int at high
+    // cutoff+resonance (moveabilityTimesProcessedResonance >> 1 dominating), in which case C's
+    // (double) cast reinterprets the bit pattern as a huge *positive* unsigned value; a plain
+    // Java (double) cast on the signed int would instead keep it negative, diverging sharply.
     int toDivideBy =
         268435456
             - (moveabilityTimesProcessedResonance >> 1)
             + moveabilitySquaredTimesProcessedResonance;
     divideByTotalMoveability =
-        (int) ((double) hpfProcessedResonance * 67108864.0 / (double) toDivideBy);
+        (int)
+            ((double) hpfProcessedResonance
+                * 67108864.0
+                / (double) Integer.toUnsignedLong(toDivideBy));
 
     // Adjust volume for HPF resonance
     int rawResonance = Math.min(hpfResonance, Functions.ONE_Q31 >>> 2) << 2;
@@ -125,11 +132,14 @@ public class HpLadderFilter extends Filter {
         state.hpfHPF3.getFeedbackOutput(hpfHPF3Feedback)
             + state.hpfLPF1.getFeedbackOutput(hpfLPF1Feedback);
 
+    // C: hpladder.cpp:97 — a plain (wrapping) << (4+1), NOT a saturating shift; at high
+    // cutoff+resonance this term is expected to overflow and wrap, which the antialiasing/tanH
+    // stage below then tames. Saturating here instead of wrapping clips the waveform differently
+    // than hardware at exactly the resonance extremes the calibration targets.
     int a =
-        Functions.lshiftAndSaturate(
-            Functions.multiply_32x32_rshift32_rounded(
-                divideByTotalMoveability, firstHPFOutput + feedbacksValue),
-            5);
+        Functions.multiply_32x32_rshift32_rounded(
+                divideByTotalMoveability, firstHPFOutput + feedbacksValue)
+            << 5;
 
     // Only saturate / anti-alias if lots of resonance
     if (hpfProcessedResonance > 900000000) {

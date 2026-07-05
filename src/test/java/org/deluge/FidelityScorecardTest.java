@@ -357,7 +357,11 @@ public class FidelityScorecardTest {
             .listFiles(
                 (d, n) ->
                     (n.endsWith(".XML") || n.endsWith(".xml"))
-                        && !n.toUpperCase().startsWith("SONG"));
+                        && !n.toUpperCase().startsWith("SONG")
+                        // The CAL_SONG calibration presets (docs/HARDWARE_CALIBRATION_RECORDING.md)
+                        // live on the card for recording but are not in the ALLSYN recordings;
+                        // including them would shift every later preset's slice index.
+                        && !n.matches("\\d\\d CAL .*"));
     Arrays.sort(files, Comparator.comparing(File::getName));
     List<File> playable = new ArrayList<>();
     for (File f : files) if (playable(f)) playable.add(f);
