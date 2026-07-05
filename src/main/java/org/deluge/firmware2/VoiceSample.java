@@ -337,7 +337,10 @@ public class VoiceSample {
       long left = framesUntilEnd();
       if (left <= 0) {
         if (looping) {
-          reader.init(loopStartFrame);
+          // C sample_low_level_reader.cpp:404-433 — the wrap preserves the overshoot, the
+          // fractional phase, and the 16-tap history; re-initing here dropped up to one input
+          // frame + the fraction per cycle (audible pitch drift on short sustain loops).
+          reader.wrapBy(endFrame - loopStartFrame);
           left = framesUntilEnd();
         }
         if (left <= 0) { // one-shot ended, or degenerate loop

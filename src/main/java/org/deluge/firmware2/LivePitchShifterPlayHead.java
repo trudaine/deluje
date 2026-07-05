@@ -25,6 +25,19 @@ public class LivePitchShifterPlayHead {
   public final SincInterpolator interpolator = new SincInterpolator();
 
   /**
+   * C live_pitch_shifter.cpp:379 — "What was new is now old" is a struct copy BY VALUE; the Java
+   * equivalent copies every state field (including the interpolation history).
+   */
+  public void copyFrom(LivePitchShifterPlayHead other) {
+    mode = other.mode;
+    rawBufferReadPos = other.rawBufferReadPos;
+    oscPos = other.oscPos;
+    percPos = other.percPos;
+    System.arraycopy(other.interpolator.bufferL, 0, interpolator.bufferL, 0, K_TAPS);
+    System.arraycopy(other.interpolator.bufferR, 0, interpolator.bufferR, 0, K_TAPS);
+  }
+
+  /**
    * C: render (live_pitch_shifter_play_head.cpp:31-120) — accumulate into {@code outputBuffer}
    * (interleaved), reading the live {@code rawBuffer} repitched or direct.
    */

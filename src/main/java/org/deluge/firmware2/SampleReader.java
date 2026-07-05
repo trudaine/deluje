@@ -110,6 +110,15 @@ public class SampleReader {
   }
 
   /**
+   * Loop wrap (C sample_low_level_reader.cpp:404-433): jump the read position back by the loop
+   * length, PRESERVING the frame overshoot past the loop end, the 24-bit {@code oscPos} fraction,
+   * and the interpolation history — the seam renders continuously (no re-init, no re-prime).
+   */
+  public void wrapBy(int loopLengthFrames) {
+    playPos -= loopLengthFrames;
+  }
+
+  /**
    * C: readSamplesResampled (sample_low_level_reader.cpp:943-1110), forward/reverse, full-precision
    * (b). Accumulates {@code numSamples} interpolated, amplitude-ramped samples into {@code
    * oscBuffer} (interleaved when {@code numChannels == 2}).

@@ -370,6 +370,9 @@ public class LivePitchShifter {
       int numRawSamplesProcessedAtNowTime,
       int numRawSamplesProcessedLatest) {
 
+    // C:379 — "What was new is now old" (struct copy by value).
+    playHeads[TimeStretcher.PLAY_HEAD_OLDER].copyFrom(playHeads[TimeStretcher.PLAY_HEAD_NEWER]);
+
     int[] hp = computeLiveHopParameters(phaseIncrement); // C:382-420
     int minSearch = hp[LHP_MIN_SEARCH];
     int maxSearch = hp[LHP_MAX_SEARCH];
@@ -389,11 +392,11 @@ public class LivePitchShifter {
             (((thisCrossfadeLength & 0xFFFFFFFFL) * (phaseIncrement & 0xFFFFFFFFL))
                 >>> 24); // C:441
 
+    // C:445-446 — (numRawSamplesProcessedLatest - olderHead.rawBufferReadPos) & mask (the
+    // operands were previously swapped, clamping the search window against a wrong bound).
     int maxOffsetFromHead =
-        (playHeads[TimeStretcher.PLAY_HEAD_OLDER].rawBufferReadPos
-                + LiveInputBuffer.K_INPUT_RAW_BUFFER_SIZE
-                - numRawSamplesProcessedLatest)
-            & (LiveInputBuffer.K_INPUT_RAW_BUFFER_SIZE - 1); // C:445-446
+        (numRawSamplesProcessedLatest - playHeads[TimeStretcher.PLAY_HEAD_OLDER].rawBufferReadPos)
+            & (LiveInputBuffer.K_INPUT_RAW_BUFFER_SIZE - 1);
 
     int averagesEndOffsetFromHead =
         (crossfadeLengthSamplesSource >> 1)
