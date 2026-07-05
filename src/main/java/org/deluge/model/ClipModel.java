@@ -15,7 +15,9 @@ public class ClipModel extends TimelineCounter {
   /** Play mode determines how the clip behaves after being launched. */
   public enum PlayMode {
     NORMAL,
-    LOOP
+    LOOP,
+    ONCE,
+    FILL
   }
 
   /** Play direction determines the structural pathway of step playback. */

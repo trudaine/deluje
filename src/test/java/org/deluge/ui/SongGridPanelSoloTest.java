@@ -2,6 +2,7 @@ package org.deluge.ui;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.awt.Color;
 import java.awt.event.ActionEvent;
 import javax.swing.JButton;
 import org.deluge.BridgeContract;
@@ -228,6 +229,38 @@ public class SongGridPanelSoloTest {
     clip.setSection('B');
     panel.refresh();
     assertEquals('B', clip.getSection());
+
+    bridge.shutdown();
+  }
+
+  @Test
+  public void testPlayModeStatusColours() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+    ProjectModel project = new ProjectModel();
+
+    TrackModel track0 = new SynthTrackModel("T0");
+    ClipModel clip = new org.deluge.model.ClipModel("C1", 8, 16);
+    clip.setPlayMode(ClipModel.PlayMode.ONCE);
+    track0.addClip(clip);
+    project.addTrack(track0);
+
+    SongGridPanel panel = new SongGridPanel(bridge);
+    panel.setProjectModel(project);
+
+    int muteCol = panel.columnCount - 2;
+    JButton mutePad = panel.pads[0][muteCol];
+    assertNotNull(mutePad);
+
+    assertEquals(new Color(245, 190, 0), mutePad.getBackground());
+
+    clip.setPlayMode(ClipModel.PlayMode.FILL);
+    panel.refresh();
+    assertEquals(new Color(185, 0, 220), mutePad.getBackground());
+
+    clip.setPlayMode(ClipModel.PlayMode.NORMAL);
+    panel.refresh();
+    assertEquals(new Color(0, 255, 6), mutePad.getBackground());
 
     bridge.shutdown();
   }

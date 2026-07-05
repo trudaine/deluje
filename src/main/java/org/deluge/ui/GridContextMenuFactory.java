@@ -443,6 +443,7 @@ public class GridContextMenuFactory {
           clip.setPlayMode(ClipModel.PlayMode.NORMAL);
           if (panel.bridge != null) panel.bridge.setClipPlayMode(trackIndex, clipIdx, 0);
           panel.fireProjectChanged();
+          panel.refresh();
         });
     playModeMenu.add(normalItem);
 
@@ -453,13 +454,38 @@ public class GridContextMenuFactory {
           clip.setPlayMode(ClipModel.PlayMode.LOOP);
           if (panel.bridge != null) panel.bridge.setClipPlayMode(trackIndex, clipIdx, 1);
           panel.fireProjectChanged();
+          panel.refresh();
         });
     playModeMenu.add(loopItem);
+
+    JRadioButtonMenuItem onceItem =
+        new JRadioButtonMenuItem("Once (yellow)", currentMode == ClipModel.PlayMode.ONCE);
+    onceItem.addActionListener(
+        e -> {
+          clip.setPlayMode(ClipModel.PlayMode.ONCE);
+          if (panel.bridge != null) panel.bridge.setClipPlayMode(trackIndex, clipIdx, 2);
+          panel.fireProjectChanged();
+          panel.refresh();
+        });
+    playModeMenu.add(onceItem);
+
+    JRadioButtonMenuItem fillItem =
+        new JRadioButtonMenuItem("Fill (purple)", currentMode == ClipModel.PlayMode.FILL);
+    fillItem.addActionListener(
+        e -> {
+          clip.setPlayMode(ClipModel.PlayMode.FILL);
+          if (panel.bridge != null) panel.bridge.setClipPlayMode(trackIndex, clipIdx, 3);
+          panel.fireProjectChanged();
+          panel.refresh();
+        });
+    playModeMenu.add(fillItem);
 
     // Group the radio buttons so only one can be selected
     ButtonGroup playModeGroup = new ButtonGroup();
     playModeGroup.add(normalItem);
     playModeGroup.add(loopItem);
+    playModeGroup.add(onceItem);
+    playModeGroup.add(fillItem);
 
     menu.add(playModeMenu);
 
