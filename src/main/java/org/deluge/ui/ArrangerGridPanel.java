@@ -406,7 +406,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
         if (colId < 16) {
           int col = colId + scrollOffsetX;
           org.deluge.model.ArrangerClip ac =
-              arrangerController.getArrangerClipAt(currentTrack, col);
+              arrangerController.getArrangerClipAt(currentTrack, colId);
           if (ac != null) {
             String clipName = ac.clip() != null ? ac.clip().getName() : "Arrangement Clip";
             clipBtn.setToolTipText(
