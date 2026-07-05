@@ -126,6 +126,8 @@ public class WaveTable {
       int currentOffset = offset;
       int currentPhase = phase;
       int currentWaveIndexScaled = waveIndexScaled;
+      // C wave_table.cpp:1055/1156 — the resetter advances across cycle chunks.
+      int resetterPhaseThisCycle = resetterPhase;
 
       while (numSamplesLeftToDo > 0) {
         // C wave_table.cpp:1081-1090 — shifts use NUM_BITS_IN_WAVE_INDEX_SCALED_INPUT = 30.
@@ -169,34 +171,175 @@ public class WaveTable {
         int whichKernel = getKernelIndex(phaseIncrement, bandHere.maxPhaseIncrement);
         short[][] kernel = SincKernel.windowedSincKernel[whichKernel];
 
-        doRenderingLoop(
-            outputBuffer,
-            currentOffset,
-            numSamplesThisLoop,
-            firstCycleNumber,
-            bandHere,
-            currentPhase,
-            phaseIncrement,
-            crossCycleStrength2,
-            crossCycleStrength2Increment,
-            kernel);
+        if (doOscSync) {
+          // C wave_table.cpp:1128-1145 — the cycle chunk renders through renderOscSync with
+          // doRenderingLoop as the segment renderer; crossCycleStrength2 advances between
+          // sync sessions via the redo callback.
+          final WaveTableBand bandF = bandHere;
+          final int firstCycleF = firstCycleNumber;
+          final short[][] kernelF = kernel;
+          final int ccsInc = crossCycleStrength2Increment;
+          final int[] ccs = {crossCycleStrength2};
+          currentPhase =
+              renderOscSyncSessions(
+                  outputBuffer,
+                  currentOffset,
+                  numSamplesThisLoop,
+                  phaseIncrement,
+                  currentPhase,
+                  resetterPhaseThisCycle,
+                  resetterPhaseIncrement,
+                  resetterDivideByPhaseIncrement,
+                  retriggerPhase,
+                  (from, count, ph) ->
+                      doRenderingLoop(
+                          outputBuffer,
+                          from,
+                          count,
+                          firstCycleF,
+                          bandF,
+                          ph,
+                          phaseIncrement,
+                          ccs[0],
+                          ccsInc,
+                          kernelF),
+                  samplesIncl -> ccs[0] += ccsInc * (samplesIncl - 1));
+        } else {
+          doRenderingLoop(
+              outputBuffer,
+              currentOffset,
+              numSamplesThisLoop,
+              firstCycleNumber,
+              bandHere,
+              currentPhase,
+              phaseIncrement,
+              crossCycleStrength2,
+              crossCycleStrength2Increment,
+              kernel);
+          currentPhase += phaseIncrement * numSamplesThisLoop;
+        }
 
-        currentPhase += phaseIncrement * numSamplesThisLoop;
+        // C wave_table.cpp:1152-1157 — advance the outer positions per chunk.
         currentWaveIndexScaled += waveIndexIncrementScaled * numSamplesThisLoop;
+        resetterPhaseThisCycle += resetterPhaseIncrement * numSamplesThisLoop;
         numSamplesLeftToDo -= numSamplesThisLoop;
         currentOffset += numSamplesThisLoop;
       }
       return currentPhase;
     } else {
-      // Single cycle rendering
+      // Single cycle rendering (C wave_table.cpp:1160-1180)
       short[][][] kernels = SincKernel.windowedSincKernel;
       int whichKernel = getKernelIndex(phaseIncrement, bandHere.maxPhaseIncrement);
       short[][] kernel = kernels[whichKernel];
 
+      if (doOscSync) {
+        final WaveTableBand bandF = bandHere;
+        final short[][] kernelF = kernel;
+        return renderOscSyncSessions(
+            outputBuffer,
+            offset,
+            numSamples,
+            phaseIncrement,
+            phase,
+            resetterPhase,
+            resetterPhaseIncrement,
+            resetterDivideByPhaseIncrement,
+            retriggerPhase,
+            (from, count, ph) ->
+                doRenderingLoopSingleCycle(
+                    outputBuffer, from, count, bandF, ph, phaseIncrement, kernelF),
+            samplesIncl -> {});
+      }
       doRenderingLoopSingleCycle(
           outputBuffer, offset, numSamples, bandHere, phase, phaseIncrement, kernel);
       return phase + phaseIncrement * numSamples;
     }
+  }
+
+  /** Raw segment renderer for {@link #renderOscSyncSessions}: OVERWRITES the output range. */
+  private interface SyncSegmentRenderer {
+    void render(int fromOffset, int count, int phase);
+  }
+
+  /**
+   * C render_wave.h:25-90 renderOscSync — the generic hard-sync session loop: renders raw segments
+   * between sync resets, half-sine-blends each crossover sample, re-derives the synced phase from
+   * the resetter at every reset, and calls {@code crossoverRedoExtra} with
+   * samplesIncludingNextCrossoverSample at each reset (the wavetable advances its
+   * cross-cycle-strength there, wave_table.cpp:1139-1141). Returns the updated phase.
+   */
+  private int renderOscSyncSessions(
+      int[] outputBuffer,
+      int offset,
+      int numSamples,
+      int phaseIncrement,
+      int phase,
+      int resetterPhase,
+      int resetterPhaseIncrement,
+      int resetterDivideByPhaseIncrement,
+      int retriggerPhase,
+      SyncSegmentRenderer segment,
+      java.util.function.IntConsumer crossoverRedoExtra) {
+    int bufPos = 0;
+    boolean renderedASyncFromItsStartYet = false;
+    int crossoverSampleBeforeSync = 0;
+    int fadeBetweenSyncs = 0;
+    long numSamplesThisOscSyncSession = numSamples;
+    long samplesIncludingNextCrossoverSample = 1;
+
+    while (true) {
+      // C render_wave.h:41-46 (all uint32 arithmetic)
+      long distanceTilNextCrossoverSample =
+          (-(resetterPhase & 0xFFFFFFFFL) - ((resetterPhaseIncrement & 0xFFFFFFFFL) >>> 1))
+              & 0xFFFFFFFFL;
+      samplesIncludingNextCrossoverSample +=
+          ((distanceTilNextCrossoverSample - 1) & 0xFFFFFFFFL)
+              / (resetterPhaseIncrement & 0xFFFFFFFFL);
+      boolean shouldBeginNextSyncAfter =
+          numSamplesThisOscSyncSession >= samplesIncludingNextCrossoverSample;
+      int numSamplesThisSyncRender =
+          (int)
+              (shouldBeginNextSyncAfter
+                  ? samplesIncludingNextCrossoverSample
+                  : numSamplesThisOscSyncSession);
+
+      segment.render(offset + bufPos, numSamplesThisSyncRender, phase);
+
+      // C render_wave.h:55-61 — half-sine crossfade of the crossover sample at this window's
+      // start.
+      if (renderedASyncFromItsStartYet) {
+        int v = outputBuffer[offset + bufPos];
+        int average = (v >> 1) + (crossoverSampleBeforeSync >> 1);
+        int halfDifference = (v >> 1) - (crossoverSampleBeforeSync >> 1);
+        int sineValue = Functions.getSine(fadeBetweenSyncs >> 1, 32);
+        outputBuffer[offset + bufPos] =
+            average + (Functions.multiply_32x32_rshift32(halfDifference, sineValue) << 1);
+      }
+
+      if (shouldBeginNextSyncAfter) {
+        // C render_wave.h:63-84
+        bufPos += (int) samplesIncludingNextCrossoverSample - 1;
+        crossoverSampleBeforeSync = outputBuffer[offset + bufPos];
+        numSamplesThisOscSyncSession -= samplesIncludingNextCrossoverSample - 1;
+        crossoverRedoExtra.accept((int) samplesIncludingNextCrossoverSample);
+        resetterPhase +=
+            resetterPhaseIncrement
+                * (int)
+                    (samplesIncludingNextCrossoverSample - (renderedASyncFromItsStartYet ? 1 : 0));
+        fadeBetweenSyncs =
+            Functions.multiply_32x32_rshift32(resetterPhase, resetterDivideByPhaseIncrement) << 17;
+        phase =
+            Functions.multiply_32x32_rshift32(fadeBetweenSyncs, phaseIncrement) + retriggerPhase;
+        phase -= phaseIncrement; // we're going back and redoing the last sample
+        renderedASyncFromItsStartYet = true;
+        samplesIncludingNextCrossoverSample = 2;
+        continue;
+      }
+
+      phase += phaseIncrement * numSamplesThisSyncRender;
+      break;
+    }
+    return phase;
   }
 
   private void doRenderingLoopSingleCycle(
