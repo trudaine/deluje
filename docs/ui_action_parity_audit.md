@@ -69,7 +69,7 @@ Two Java surfaces exist: `SongGridPanel` (the real desktop song grid) and `ui/vi
 | Solo: hold ◀▶-encoder + status pad, true solo state with `activeIfNoSolo` restore (`view.cpp:2790-2799`) | Solo button toggles single solo. SHIFT/CTRL click enables multi-solo. Original mute states are preserved in the model and restored when unsoloing. | **FAITHFUL** (with desktop multi-select modifier) |
 | MIDI-learn arming (pads flash pink) (`sv:903-929, 3013`) | `MidiLearnPanel` is CC→param only | MISSING |
 | Main-pad pattern colours (`note_row.cpp:1955-1992`, `rgb.cpp`) | `SongProjector` — verified side-by-side incl. velocity curve, tail, undefined-area grey | **FAITHFUL** |
-| Status colours (blue solo/red stopped/green active + `dull()` when soloing) (`view.cpp:2675-2707`) | Same 3 colours + dull clamp (`SongGridPanel.java:52-56`) — no FILL/ONCE/record colours | PARTIAL |
+| Status colours (blue solo/red stopped/green active + `dull()` when soloing) (`view.cpp:2675-2707`) | Toggles mute/solo/active colors (red/blue/green), dimming un-soloed tracks, and shows yellow for ONCE and purple for FILL play modes. | **FAITHFUL** (integrated with play modes) |
 | Per-clip playhead at each clip's own position; red while linear-recording (`sv:2214-2301`) | Playhead highlight ring is neon-white normally, and becomes red while live recording is active. | **FAITHFUL** (with global record-mode playhead coloring) |
 | Launch countdown popup + launch playhead (`sv:2199-2211, 2381, 2419`) | Nothing | MISSING |
 
