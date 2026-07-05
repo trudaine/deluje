@@ -86,6 +86,59 @@ public class FirmwareAudioEngine {
   public final Reverb.Container masterReverb = new Reverb.Container();
   public final Delay.State delayState = new Delay.State();
 
+  // C: audio_engine.cpp — the global reverb's own sidechain ("reverb compressor") + the
+  // in-effect params resolved by updateReverbParams (auto mode).
+  public final org.deluge.firmware2.Sidechain reverbSidechain =
+      new org.deluge.firmware2.Sidechain();
+  public int reverbSidechainVolumeInEffect = 0;
+  public int reverbSidechainShapeInEffect = 0;
+
+  /**
+   * C audio_engine.cpp:1251-1317 updateReverbParams, "auto" mode (the C's default,
+   * reverbSidechainVolume &lt; 0): find the sound with the most reverb send; if it has a
+   * SIDECHAIN→GLOBAL_VOLUME_POST_REVERB_SEND cable, the reverb ducks with that cable's modified
+   * amount and borrows the sound's sidechain shape/attack/release/syncLevel. No qualifying sound →
+   * no ducking. (The C's manual mode — an explicit song-level reverb sidechain volume — is not
+   * modeled; hardware defaults to auto, song.cpp:185.)
+   */
+  private void updateReverbParams() {
+    org.deluge.firmware2.Sound best = null;
+    int highestReverbAmountFound = Integer.MIN_VALUE; // C seeds with the song's own send amount
+    for (GlobalEffectable ge : sounds) {
+      if (ge instanceof org.deluge.firmware2.Sound snd) {
+        int amount = snd.patchedParamValues[org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT];
+        if (amount != Integer.MIN_VALUE && amount > highestReverbAmountFound) {
+          highestReverbAmountFound = amount;
+          best = snd;
+        }
+      }
+    }
+    if (best == null) {
+      reverbSidechainVolumeInEffect = 0;
+      return;
+    }
+    int vol = 0; // C:1288-1291 — no SIDECHAIN cable on the send → no ducking
+    for (var dest : best.patchCableSet.destinations) {
+      if (dest.paramId == org.deluge.firmware2.Param.GLOBAL_VOLUME_POST_REVERB_SEND) {
+        for (var cable : dest.cables) {
+          if (cable.source == org.deluge.firmware2.PatchSource.SIDECHAIN.ordinal()) {
+            vol =
+                org.deluge.firmware2.Patcher.getModifiedPatchCableAmount(
+                    cable, org.deluge.firmware2.Param.GLOBAL_VOLUME_POST_REVERB_SEND);
+            break;
+          }
+        }
+      }
+    }
+    reverbSidechainVolumeInEffect = vol;
+    reverbSidechainShapeInEffect =
+        best.patchedParamValues[org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE];
+    reverbSidechain.attack = best.sidechain.attack; // C:1304-1306
+    reverbSidechain.release = best.sidechain.release;
+    reverbSidechain.syncLevel = best.sidechain.syncLevel;
+    reverbSidechain.timePerInternalTickInverse = best.sidechain.timePerInternalTickInverse;
+  }
+
   /** int[][] stereo scratch for the fw2 FX chain (fw2 FX read/write [l, r] per sample). */
   private final int[][] fxBuffer = new int[128][2];
 
@@ -248,13 +301,27 @@ public class FirmwareAudioEngine {
       monoReverbBuffer[i] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, revVal));
     }
 
-    // C: audio_engine.cpp:819-837 — the reverb output level must be set as the reverb's pan levels
-    // BEFORE process(), or every model multiplies its wet by a 0 pan amplitude and emits silence.
-    // No reverb sidechain is wired in the bridge yet (a seam), so sidechainOutput = 0; with center
-    // pan, reverbAmplitudeL == reverbAmplitudeR == reverbOutputVolume.
-    int sidechainOutput = 0; // seam: reverbSidechainVolumeInEffect == 0 in the bridge
-    int positivePatchedValue = sidechainOutput + 0x20000000; // C:820-822 (sidechain term is 0)
-    int reverbOutputVolume = (positivePatchedValue >> 15) * (positivePatchedValue >> 14); // C:823
+    // C: audio_engine.cpp:806-844 — the reverb's own sidechain ("reverb compressor") ducks the
+    // wet level. In the C's default "auto" mode, updateReverbParams borrows the sidechain
+    // volume/shape/attack/release from the sound with the most reverb send that has a
+    // SIDECHAIN→POST_REVERB_SEND cable. The resulting output level must be set as the reverb's
+    // pan levels BEFORE process(), or every model multiplies its wet by a 0 pan amplitude and
+    // emits silence.
+    updateReverbParams();
+    int sidechainOutput = 0;
+    if (reverbSidechainVolumeInEffect != 0) { // C:812-819
+      int hit = GlobalSidechainBus.getActiveFrameHit();
+      if (hit != 0) {
+        reverbSidechain.registerHit(hit);
+      }
+      sidechainOutput = reverbSidechain.render(numSamples, reverbSidechainShapeInEffect);
+    }
+    // C:829-833 — patch the sidechain into the reverb volume.
+    int positivePatchedValue =
+        org.deluge.firmware2.Functions.multiply_32x32_rshift32(
+                sidechainOutput, reverbSidechainVolumeInEffect)
+            + 0x20000000;
+    int reverbOutputVolume = (positivePatchedValue >> 15) * (positivePatchedValue >> 14); // C:833
     masterReverb.setPanLevels(reverbOutputVolume, reverbOutputVolume); // C:836
 
     // fw2 reverb ACCUMULATES the wet signal onto the [l, r] frames, so it adds reverb on top of the

@@ -319,7 +319,7 @@ public class Patcher {
    * by exp cables (combineCablesExp). {@code amount} is cable.amount (the fw2 stand-in for the C
    * {@code patch_cable.param.getCurrentValue()}; automation smoothing is a separate gap).
    */
-  static int getModifiedPatchCableAmount(PatchCable cable, int p) {
+  public static int getModifiedPatchCableAmount(PatchCable cable, int p) {
     int amount = cable.amount;
     switch (p) {
       case Param.LOCAL_PITCH_ADJUST:
