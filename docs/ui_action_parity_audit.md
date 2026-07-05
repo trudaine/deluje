@@ -60,9 +60,8 @@ deluge/`) and the Java (`org.deluge.ui`); everything not put side by side is lis
    `ARR_PARAMS` (referenced by no UI), `SongSection.numRepeats` (parsed/serialized, never used); the entire firmware-style HID/menu
    stack (`MatrixDriver`, `MenuView`, `ui/menu/SoundEditor`, `SwingMatrixPanel`) — the only
    faithful-idiom control port in the app, with zero callers.
-6. **Gold-knob edits are not undoable.** `DelugeModKnobBar` mutates the model directly and
-   pushes no `Consequence` onto the undo stack, unlike every other edit surface (and unlike the
-   C, where param edits are action-logged).
+6. **[FIXED] Gold-knob edits are not undoable.** `DelugeModKnobBar` now pushes a `Consequence`
+   onto the undo stack whenever a knob edit occurs, aligning it with other edit surfaces.
 7. **Tap tempo is implemented twice with different algorithms** (`TransportController.java:151-165`
    avg-of-≤8-taps clamp 20-300 vs `SwingTopBarPanel.java:441-475` clamp 60-200) — neither is the
    C's time-since-first-press algorithm (`playback_handler.cpp:2790-2824`).
@@ -70,6 +69,8 @@ deluge/`) and the Java (`org.deluge.ui`); everything not put side by side is lis
    110/60 ms flash constants, but the session arm blink uses a separate 250 ms timer flashing
    the status pad **white**, where hardware flashes the clip row + status **to black** at 60 ms
    (`SongGridPanel.java:14-29` vs `view.cpp:2805-2818`, `definitions_cxx.hpp:160`).
+9. **[FIXED] Visual track row engine mapping in Song/Arranger grids.** Previously, the Song/Arranger grid visual rows were hardcoded to map 1-to-1 to engine voice rows (e.g. track `t` mapped to engine row `t`). This broke under the multi-voice coordinate system. The panels now dynamically resolve the track's starting engine voice row using the `EngineSyncCoordinator`.
+10. **[FIXED] Mute/solo state cached-UI bugs.** Mute/solo actions on tracks now properly propagate to all allocated engine voice rows of the tracks. The grid panels also invalidate their structure cache and rebuild UI components whenever the tracks list in the project model is modified or cleared in-place.
 
 ---
 
