@@ -92,13 +92,13 @@ public class SwingTopBarPanel extends JPanel {
   private final JToggleButton perfBtn;
   private final JToggleButton keyplayBtn;
   private final JSlider masterVolSlider;
+  private final JSlider bpmSlider;
   private final TopBarListener listener;
   private final DelugeParamReadout paramReadout;
   private final SwingOledPanel oledPanel;
 
   private String currentViewMode = "CLIP";
   private boolean isSaved = false;
-  private final java.util.List<Long> tapTimes = new java.util.ArrayList<>();
 
   public void setSaved(boolean saved) {
     this.isSaved = saved;
@@ -153,6 +153,18 @@ public class SwingTopBarPanel extends JPanel {
     this.listener = listener;
     this.paramReadout = new DelugeParamReadout();
     this.oledPanel = new SwingOledPanel();
+
+    projectModel.addProjectListener(
+        new org.deluge.model.ProjectModel.ProjectAdapter() {
+          @Override
+          public void onBpmChanged(float bpm) {
+            javax.swing.SwingUtilities.invokeLater(() -> {
+              if (bpmSlider != null && bpmSlider.getValue() != (int) bpm) {
+                bpmSlider.setValue((int) bpm);
+              }
+            });
+          }
+        });
 
     // Wire physical hardware OLED stream directly into our virtual OLED panel
     if (SwingDelugeApp.mainInstance != null
@@ -436,7 +448,7 @@ public class SwingTopBarPanel extends JPanel {
     bpmLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
     add(bpmLabel);
 
-    JSlider bpmSlider = new JSlider(60, 200, (int) projectModel.getBpm());
+    this.bpmSlider = new JSlider(60, 200, (int) projectModel.getBpm());
 
     JButton tapBtn = new JButton("TAP");
     styleButton(tapBtn, new Color(0x2d, 0x2d, 0x3d), Color.WHITE);
@@ -451,30 +463,8 @@ public class SwingTopBarPanel extends JPanel {
             toggleMetronome();
             return;
           }
-          long now = System.currentTimeMillis();
-          // Start a fresh tap sequence if it's been too long since the last tap, so a stale
-          // tap from minutes ago can't drag the average down (mirrors hardware tap-tempo reset).
-          if (!tapTimes.isEmpty() && (now - tapTimes.get(tapTimes.size() - 1)) > 2000) {
-            tapTimes.clear();
-          }
-          tapTimes.add(now);
-          if (tapTimes.size() > 4) {
-            tapTimes.remove(0);
-          }
-          if (tapTimes.size() >= 2) {
-            long sum = 0;
-            for (int i = 1; i < tapTimes.size(); i++) {
-              sum += (tapTimes.get(i) - tapTimes.get(i - 1));
-            }
-            long avgMs = sum / (tapTimes.size() - 1);
-            if (avgMs > 0) {
-              int bpm = (int) (60000.0 / avgMs);
-              if (bpm >= 60 && bpm <= 200) {
-                projectModel.setBpm(bpm);
-                bpmSlider.setValue(bpm);
-                paramReadout.printTransient("TEM ", String.valueOf(bpm));
-              }
-            }
+          if (SwingDelugeApp.mainInstance != null && SwingDelugeApp.mainInstance.transportController != null) {
+            SwingDelugeApp.mainInstance.transportController.tapTempo();
           }
         });
     add(tapBtn);

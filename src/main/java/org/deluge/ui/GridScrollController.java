@@ -72,6 +72,8 @@ public final class GridScrollController {
     boolean isRefreshInProgress();
 
     int getRowPitch(int row);
+
+    int getArrangerTicksPerColumn();
   }
 
   public GridScrollController(GridContext context, Runnable refreshCallback) {
@@ -246,7 +248,17 @@ public final class GridScrollController {
       scrollOffset = 0;
     }
     context.setScrollOffset(scrollOffset);
-    context.setScrollOffsetX(0);
+    if (context.getViewMode() == SwingGridPanel.GridViewMode.ARRANGEMENT) {
+      org.deluge.model.ProjectModel pm = context.getProjectModel();
+      if (pm != null) {
+        int ticksPerCol = context.getArrangerTicksPerColumn();
+        context.setScrollOffsetX(pm.getXScrollArrangementView() / ticksPerCol);
+      } else {
+        context.setScrollOffsetX(0);
+      }
+    } else {
+      context.setScrollOffsetX(0);
+    }
   }
 
   /** Scroll the voice row viewport by delta rows. Positive = down, negative = up. */

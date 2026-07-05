@@ -71,6 +71,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   private int lastScrollOffsetX = -1;
   private int lastPadSz =
       -1; // forces a structural rebuild when the cell size changes (resize/zoom)
+  private java.util.List<org.deluge.model.TrackModel> lastTracks = null;
 
   boolean foldMode = false;
   boolean scaleModeEnabled = true; // default to true (diatonic scale mode) like the real Deluge!
@@ -1153,6 +1154,75 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     }
   }
 
+  public void updateEngineMutes() {
+    if (bridge == null || projectModel == null) {
+      System.out.println("TEST-DEBUG: updateEngineMutes: bridge or projectModel is null!");
+      return;
+    }
+    EngineSyncCoordinator sync = null;
+    if (SwingDelugeApp.mainInstance != null) {
+      sync = SwingDelugeApp.mainInstance.getSyncCoordinator();
+    }
+    java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
+    int n = tracks.size();
+    System.out.println("TEST-DEBUG: updateEngineMutes: tracks count=" + n + " sync=" + (sync != null));
+    int[] trackEngineStart = new int[n];
+    int[] trackVoiceCount = new int[n];
+
+    if (sync != null) {
+      for (int t = 0; t < n; t++) {
+        trackEngineStart[t] = sync.getTrackEngineStart(t);
+        trackVoiceCount[t] = sync.getTrackVoiceCount(t);
+        System.out.println("TEST-DEBUG:   Track " + t + " from sync: start=" + trackEngineStart[t] + " count=" + trackVoiceCount[t]);
+      }
+    } else {
+      int nextRow = 0;
+      for (int t = 0; t < n; t++) {
+        trackEngineStart[t] = nextRow;
+        boolean isKit = tracks.get(t) instanceof org.deluge.model.KitTrackModel;
+        boolean isMidi = tracks.get(t) instanceof org.deluge.model.MidiTrackModel;
+        int voices = isMidi ? 0 : (isKit ? ((org.deluge.model.KitTrackModel) tracks.get(t)).getDrums().size() : 8);
+        int capped = 0;
+        if (nextRow < 128) {
+          capped = Math.min(voices, 128 - nextRow);
+        }
+        trackVoiceCount[t] = capped;
+        System.out.println("TEST-DEBUG:   Track " + t + " fallback: start=" + trackEngineStart[t] + " count=" + trackVoiceCount[t]);
+        nextRow += capped;
+      }
+    }
+
+    boolean anySoloing = (soloRow >= 0);
+    System.out.println("TEST-DEBUG: updateEngineMutes: soloRow=" + soloRow + " anySoloing=" + anySoloing);
+    for (int t = 0; t < n; t++) {
+      org.deluge.model.TrackModel track = tracks.get(t);
+      int baseId = trackEngineStart[t];
+      int voiceCount = trackVoiceCount[t];
+      if (baseId < 0) {
+        System.out.println("TEST-DEBUG:   Track " + t + " skipped (baseId < 0)");
+        continue;
+      }
+      boolean trackMuted = anySoloing ? (t != soloRow) : track.isMuted();
+      System.out.println("DEBUG-MUTE: update loop track hash=" + System.identityHashCode(track) + " isMuted=" + track.isMuted() + " resolvedMuted=" + trackMuted);
+
+      for (int i = 0; i < voiceCount; i++) {
+        boolean voiceMuted = trackMuted;
+        if (!trackMuted && track instanceof org.deluge.model.KitTrackModel) {
+          int activeClipIdx = track.getActiveClipIndex();
+          if (activeClipIdx >= 0 && activeClipIdx < track.getClips().size()) {
+            org.deluge.model.ClipModel clip = track.getClips().get(activeClipIdx);
+            org.deluge.model.NoteRowModel noteRow = clip.getNoteRowsMap().get(i);
+            if (noteRow != null && noteRow.isMuted()) {
+              voiceMuted = true;
+            }
+          }
+        }
+        System.out.println("TEST-DEBUG:     Setting voice " + (baseId + i) + " to mute=" + voiceMuted);
+        setTrackMuteWithCapture(baseId + i, voiceMuted);
+      }
+    }
+  }
+
   public boolean isAutoOverviewMode() {
     return automationController.isOverviewMode();
   }
@@ -1400,7 +1470,8 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
         bridge.setIterance(engineRow, activeCol, newIt);
         bridge.setStepProbability(engineRow, activeCol, newProb / 100.0);
         bridge.setGate(engineRow, activeCol, newGate);
-        bridge.setStepFill(engineRow, activeCol, newNudge / 100.0);
+        bridge.setStepFill(engineRow, activeCol, newFill / 100.0);
+        bridge.setStepNudge(engineRow, activeCol, newNudge / 100.0);
 
         updateModelStep(
             row,
@@ -2189,6 +2260,10 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       this.columnCount = this.stepCount + 2;
     }
 
+    java.util.List<org.deluge.model.TrackModel> currentTracks =
+        projectModel != null ? projectModel.getTracks() : java.util.List.of();
+    boolean tracksChanged = (lastTracks == null) || !lastTracks.equals(currentTracks);
+
     boolean structureChanged =
         (columnCount != lastColumnCount
             || voiceRowCount != lastVoiceRowCount
@@ -2197,6 +2272,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
             || scrollOffset != lastScrollOffset
             || scrollOffsetX != lastScrollOffsetX
             || cachedPadSz != lastPadSz
+            || tracksChanged
             || getComponentCount() == 0);
 
     if (structureChanged) {
@@ -2207,6 +2283,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       lastScrollOffset = scrollOffset;
       lastScrollOffsetX = scrollOffsetX;
       lastPadSz = cachedPadSz;
+      lastTracks = new java.util.ArrayList<>(currentTracks);
 
       rebuildUIComponents();
     } else {
@@ -2931,6 +3008,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
             bridge.setGate(engineRow, c, sd.gate());
             bridge.setStepProbability(engineRow, c, sd.probability());
             bridge.setStepFill(engineRow, c, sd.fill());
+            bridge.setStepNudge(engineRow, c, sd.nudge());
           }
         }
       }
@@ -3261,7 +3339,8 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
         bridge.setGate(engineRow, ts.step, ts.data.gate());
         bridge.setStepProbability(engineRow, ts.step, ts.data.probability());
         bridge.setIterance(engineRow, ts.step, ts.data.iterance());
-        bridge.setStepFill(engineRow, ts.step, ts.data.nudge());
+        bridge.setStepFill(engineRow, ts.step, ts.data.fill());
+        bridge.setStepNudge(engineRow, ts.step, ts.data.nudge());
       }
     }
 
@@ -3312,7 +3391,8 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
               bridge.setGate(engineRow, targetStep, sd.gate());
               bridge.setStepProbability(engineRow, targetStep, sd.probability());
               bridge.setIterance(engineRow, targetStep, sd.iterance());
-              bridge.setStepFill(engineRow, targetStep, sd.nudge());
+              bridge.setStepFill(engineRow, targetStep, sd.fill());
+              bridge.setStepNudge(engineRow, targetStep, sd.nudge());
             }
           }
         }
@@ -3329,6 +3409,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   @Override
   public void setScrollOffsetX(int val) {
     this.scrollOffsetX = val;
+    if (viewMode == GridViewMode.ARRANGEMENT && projectModel != null) {
+      projectModel.setXScrollArrangementView(val * arrangerController.arrangerTicksPerColumn());
+    }
   }
 
   @Override
@@ -3363,5 +3446,10 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   @Override
   public boolean isRefreshInProgress() {
     return this.refreshInProgress;
+  }
+
+  @Override
+  public int getArrangerTicksPerColumn() {
+    return arrangerController.arrangerTicksPerColumn();
   }
 }

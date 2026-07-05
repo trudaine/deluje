@@ -47,9 +47,7 @@ public class GridContextMenuFactory {
     exclusiveSolo.addActionListener(
         e -> {
           panel.soloRow = trackIdx;
-          for (int i = 0; i < tracks.size(); i++) {
-            panel.setTrackMuteWithCapture(i, i != trackIdx);
-          }
+          panel.updateEngineMutes();
           if (SwingDelugeApp.mainInstance != null) {
             SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
                 "SOLO", "T" + (trackIdx + 1));
@@ -65,9 +63,7 @@ public class GridContextMenuFactory {
     unsoloAll.addActionListener(
         e -> {
           panel.soloRow = -1;
-          for (int i = 0; i < tracks.size(); i++) {
-            panel.setTrackMuteWithCapture(i, false);
-          }
+          panel.updateEngineMutes();
           if (SwingDelugeApp.mainInstance != null) {
             SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("SOLO", "OFF");
           }
@@ -84,7 +80,8 @@ public class GridContextMenuFactory {
     muteItem.setBackground(new Color(0x1e, 0x1e, 0x22));
     muteItem.addActionListener(
         e -> {
-          panel.setTrackMuteWithCapture(trackIdx, !isMuted);
+          track.setMuted(!track.isMuted());
+          panel.updateEngineMutes();
           panel.refresh();
         });
     menu.add(muteItem);
@@ -482,23 +479,14 @@ public class GridContextMenuFactory {
     muteOthersItem.setFont(new Font("SansSerif", Font.PLAIN, 11));
     muteOthersItem.addActionListener(
         evt -> {
-          if (panel.bridge != null) {
-            java.util.List<TrackModel> tracks =
-                panel.projectModel != null
-                    ? panel.projectModel.getTracks()
-                    : java.util.Collections.emptyList();
+          if (panel.projectModel != null) {
             if (panel.viewMode == SwingGridPanel.GridViewMode.CLIP
                 || panel.viewMode == SwingGridPanel.GridViewMode.AUTOMATION) {
-              for (int i = 0; i < tracks.size(); i++) {
-                panel.setTrackMuteWithCapture(i, i != panel.editedModelTrack);
-              }
               panel.soloRow = panel.editedModelTrack;
             } else {
-              for (int i = 0; i < panel.voiceRowCount; i++) {
-                panel.setTrackMuteWithCapture(panel.baseTrackId + i, i != rowToSolo);
-              }
               panel.soloRow = rowToSolo;
             }
+            panel.updateEngineMutes();
             panel.refresh();
           }
         });
@@ -509,22 +497,12 @@ public class GridContextMenuFactory {
     unmuteAllItem.setFont(new Font("SansSerif", Font.PLAIN, 11));
     unmuteAllItem.addActionListener(
         evt -> {
-          if (panel.bridge != null) {
-            java.util.List<TrackModel> tracks =
-                panel.projectModel != null
-                    ? panel.projectModel.getTracks()
-                    : java.util.Collections.emptyList();
-            if (panel.viewMode == SwingGridPanel.GridViewMode.CLIP
-                || panel.viewMode == SwingGridPanel.GridViewMode.AUTOMATION) {
-              for (int i = 0; i < tracks.size(); i++) {
-                panel.setTrackMuteWithCapture(i, false);
-              }
-            } else {
-              for (int i = 0; i < panel.voiceRowCount; i++) {
-                panel.setTrackMuteWithCapture(panel.baseTrackId + i, false);
-              }
-            }
+          if (panel.projectModel != null) {
             panel.soloRow = -1;
+            for (TrackModel t : panel.projectModel.getTracks()) {
+              t.setMuted(false);
+            }
+            panel.updateEngineMutes();
             panel.refresh();
           }
         });

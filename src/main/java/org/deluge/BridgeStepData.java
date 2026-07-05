@@ -14,6 +14,7 @@ final class BridgeStepData {
   static final String G_PROBABILITY = BridgeContract.G_PROBABILITY;
   static final String G_ITERANCE = BridgeContract.G_ITERANCE;
   static final String G_FILL = BridgeContract.G_FILL;
+  static final String G_STEP_NUDGE = BridgeContract.G_STEP_NUDGE;
   static final String G_STEP_FILTER = BridgeContract.G_STEP_FILTER;
   static final String G_STEP_RES = BridgeContract.G_STEP_RES;
   static final String G_STEP_FILTER_MODE = BridgeContract.G_STEP_FILTER_MODE;
@@ -67,7 +68,7 @@ final class BridgeStepData {
   static final String G_STEP_STUTTER = BridgeContract.G_STEP_STUTTER;
   static final String G_STEP_BITCRUSH = BridgeContract.G_STEP_BITCRUSH;
   static final String G_STEP_SRR = BridgeContract.G_STEP_SRR;
-
+ 
   final int[] pattern = new int[PATTERN_SIZE];
   final float[] velocity = new float[PATTERN_SIZE];
   final float[] gate = new float[PATTERN_SIZE];
@@ -75,6 +76,7 @@ final class BridgeStepData {
   final float[] probability = new float[PATTERN_SIZE];
   final int[] iterance = new int[PATTERN_SIZE];
   final float[] fill = new float[PATTERN_SIZE];
+  final float[] nudge = new float[PATTERN_SIZE];
   final float[] stepFilter = new float[PATTERN_SIZE];
   final float[] stepRes = new float[PATTERN_SIZE];
   final int[] stepFilterMode = new int[PATTERN_SIZE];
@@ -138,6 +140,7 @@ final class BridgeStepData {
       probability[i] = 1f;
       iterance[i] = 0;
       fill[i] = 0f;
+      nudge[i] = 0f;
       stepFilter[i] = 0f;
       stepRes[i] = 0f;
       stepFilterMode[i] = -1;
@@ -202,6 +205,7 @@ final class BridgeStepData {
     bridge.setGlobalObject(G_PROBABILITY, new ChuckArray(probability));
     bridge.setGlobalObject(G_ITERANCE, new ChuckArray(iterance));
     bridge.setGlobalObject(G_FILL, new ChuckArray(fill));
+    bridge.setGlobalObject(G_STEP_NUDGE, new ChuckArray(nudge));
     bridge.setGlobalObject(G_STEP_FILTER, new ChuckArray(stepFilter));
     bridge.setGlobalObject(G_STEP_RES, new ChuckArray(stepRes));
     bridge.setGlobalObject(G_STEP_FILTER_MODE, new ChuckArray(stepFilterMode));

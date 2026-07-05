@@ -160,6 +160,35 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
           case "arpKitArp" -> synth.setArp(synth.getArp().toBuilder().kitArp((int) value).build());
           case "arpRandomizerLock" ->
               synth.setArp(synth.getArp().toBuilder().randomizerLock((int) value).build());
+          // Gold encoder parameters (raw float values)
+          case "goldVolume" -> synth.setVolume(value);
+          case "goldPan" -> synth.setPan(value);
+          case "goldLpfCutoff" -> synth.setLpfFreq(value);
+          case "goldLpfResonance" -> synth.setLpfRes(value);
+          case "goldEnv0Attack" -> {
+            var env0 = synth.getEnv(0);
+            synth.setEnv(0, new EnvelopeModel(value, env0.decay(), env0.sustain(), env0.release(), env0.target(), env0.amount()));
+          }
+          case "goldEnv0Release" -> {
+            var env0 = synth.getEnv(0);
+            synth.setEnv(0, new EnvelopeModel(env0.attack(), env0.decay(), env0.sustain(), value, env0.target(), env0.amount()));
+          }
+          case "goldDelaySyncLevel" -> synth.setDelaySyncLevel((int) value);
+          case "goldDelayFeedback" -> synth.setDelayFeedbackQ31((int) value);
+          case "goldReverbSend" -> synth.setReverbSend(value);
+          case "goldHpfCutoff" -> synth.setHpfFreq(value);
+          case "goldLfo0Rate" -> {
+            var lfo0 = synth.getLfo(0);
+            synth.setLfo(0, new LfoModel(value, lfo0.waveform(), lfo0.depth(), lfo0.target(), lfo0.isLocal(), lfo0.syncLevel(), lfo0.syncType()));
+          }
+          case "goldLfo0Depth" -> {
+            var lfo0 = synth.getLfo(0);
+            synth.setLfo(0, new LfoModel(lfo0.rateHz(), lfo0.waveform(), value, lfo0.target(), lfo0.isLocal(), lfo0.syncLevel(), lfo0.syncType()));
+          }
+          case "goldArpRate" -> synth.setArp(synth.getArp().toBuilder().rate(value).build());
+          case "goldPortamento" -> synth.setPortamento(value);
+          case "goldOscMix" -> synth.setOscMix(value);
+          case "goldBitcrusher" -> synth.setClippingAmount((int) value);
         }
       }
     }

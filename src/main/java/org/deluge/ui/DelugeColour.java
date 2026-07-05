@@ -47,6 +47,8 @@ public final class DelugeColour {
         long flipped = 0xFFFFFFFFL - basic;
         long flippedScaled = (flipped >> 8) * kMaxPastel;
         rgb[c] = (int) (((0xFFFFFFFFL - flippedScaled) >> 24) & 0xFF);
+      } else {
+        rgb[c] = (int) (256 - kMaxPastel); // C rgb.cpp:62
       }
     }
     return new Color(rgb[0], rgb[1], rgb[2]);

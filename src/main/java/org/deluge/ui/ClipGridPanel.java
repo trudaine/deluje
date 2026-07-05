@@ -1051,12 +1051,23 @@ public class ClipGridPanel extends SwingGridPanel {
       clipBtn.setMaximumSize(new Dimension(padSz, padSz));
       clipBtn.setMargin(new Insets(0, 0, 0, 0));
 
-      pads[visibleRow][c] = clipBtn;
+          pads[visibleRow][c] = clipBtn;
 
       if (isMuteColumn(colId)) {
         final int trackToMute = isEditedTrackKit() ? (baseTrackId + modelRow) : editedModelTrack;
         final int engineRow = baseTrackId + modelRow;
-        boolean isMuted = bridge != null && bridge.getMute(trackToMute);
+        boolean isMuted;
+        if (isEditedTrackKit()) {
+          org.deluge.model.ClipModel clip = activeEditedClip();
+          org.deluge.model.NoteRowModel noteRow = (clip != null) ? clip.getOrCreateRow(modelRow) : null;
+          isMuted = (noteRow != null) ? noteRow.isMuted() : (bridge != null && bridge.getMute(trackToMute));
+        } else {
+          if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+            isMuted = projectModel.getTracks().get(editedModelTrack).isMuted();
+          } else {
+            isMuted = bridge != null && bridge.getMute(trackToMute);
+          }
+        }
 
         Color muteBg;
         Color muteFg;
@@ -1102,8 +1113,26 @@ public class ClipGridPanel extends SwingGridPanel {
                 refresh();
                 return;
               }
-              boolean nextMute = bridge != null && !bridge.getMute(trackToMute);
-              setTrackMuteWithCapture(trackToMute, nextMute);
+              boolean nextMute;
+              if (isEditedTrackKit()) {
+                org.deluge.model.ClipModel clip = activeEditedClip();
+                org.deluge.model.NoteRowModel noteRow = (clip != null) ? clip.getOrCreateRow(modelRow) : null;
+                if (noteRow != null) {
+                  nextMute = !noteRow.isMuted();
+                  noteRow.setMuted(nextMute);
+                } else {
+                  nextMute = bridge != null && !bridge.getMute(trackToMute);
+                }
+              } else {
+                if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+                  org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
+                  nextMute = !track.isMuted();
+                  track.setMuted(nextMute);
+                } else {
+                  nextMute = bridge != null && !bridge.getMute(trackToMute);
+                }
+              }
+              updateEngineMutes();
               if (SwingDelugeApp.mainInstance != null) {
                 SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
                     "MUT ", (nextMute ? "ON  " : "OFF ") + "T" + (modelRow + 1));

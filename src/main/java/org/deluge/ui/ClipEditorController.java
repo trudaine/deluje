@@ -631,6 +631,7 @@ public class ClipEditorController {
     bridge.setStepProbability(engineRow, startModelCol, prob);
     bridge.setIterance(engineRow, startModelCol, iter);
     bridge.setStepFill(engineRow, startModelCol, fill);
+    bridge.setStepNudge(engineRow, startModelCol, 0.0);
 
     if (cModel != null) {
       StepData oldStart = parent.getClipStep(cModel, visualModelRow, startModelCol);
@@ -798,6 +799,7 @@ public class ClipEditorController {
     int pitch = bridge.getPitch(srcRow, srcCol);
     double prob = bridge.getStepProbability(srcRow, srcCol);
     double fill = bridge.getStepFill(srcRow, srcCol);
+    double nudge = bridge.getStepNudge(srcRow, srcCol);
     double stepFilterVal = bridge.getStepFilter(srcRow, srcCol);
     double stepResVal = bridge.getStepRes(srcRow, srcCol);
     double stepPanVal = bridge.getStepPan(srcRow, srcCol);
@@ -811,6 +813,7 @@ public class ClipEditorController {
     bridge.setPitch(dstRow, dstCol, pitch);
     bridge.setStepProbability(dstRow, dstCol, prob);
     bridge.setStepFill(dstRow, dstCol, fill);
+    bridge.setStepNudge(dstRow, dstCol, nudge);
     bridge.setStepFilter(dstRow, dstCol, stepFilterVal);
     bridge.setStepRes(dstRow, dstCol, stepResVal);
     bridge.setStepPan(dstRow, dstCol, stepPanVal);
@@ -1465,6 +1468,7 @@ public class ClipEditorController {
         parent.bridge.setGate(engineRow, activeCol, updated.gate());
         parent.bridge.setStepProbability(engineRow, activeCol, updated.probability());
         parent.bridge.setStepFill(engineRow, activeCol, updated.fill());
+        parent.bridge.setStepNudge(engineRow, activeCol, updated.nudge());
       }
 
       // Display transient parameter change on OLED readout

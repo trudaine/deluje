@@ -311,6 +311,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
           }
         } else {
           if (colId < 16) {
+            int col = c + scrollOffsetX;
             org.deluge.model.ArrangerClip placement =
                 arrangerController.getArrangerClipAt(currentTrack, c);
             if (placement != null && placement.clip() != null) {
@@ -318,7 +319,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
                   "<html><center><font size='3'><b>"
                       + placement.clip().getName()
                       + "</b><br>Bar "
-                      + (c + 1)
+                      + (col + 1)
                       + "</font></center></html>");
               if (clipBtn instanceof DelugePadButton pad) {
                 pad.setBaseColor(trackColors[Math.floorMod(currentTrack, trackColors.length)]);
@@ -331,7 +332,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
             } else {
               clipBtn.setText(
                   "<html><center><font color='#555555' size='3'>Bar "
-                      + (c + 1)
+                      + (col + 1)
                       + "</font></center></html>");
               if (clipBtn instanceof DelugePadButton pad) {
                 pad.setBaseColor(new Color(0x1e, 0x1e, 0x22));
@@ -346,7 +347,8 @@ public class ArrangerGridPanel extends SwingGridPanel {
 
           if (isMuteColumn(colId)) {
             final int engineRow = trk;
-            boolean isMuted = bridge != null && bridge.getMute(engineRow);
+            org.deluge.model.TrackModel track = tracks.get(trk);
+            boolean isMuted = (soloRow >= 0) ? (trk != soloRow) : track.isMuted();
             clipBtn.setText(
                 isMuted ? "UNMUTE" : "MUTE"); // getText() = mute state (E2E observes it)
             clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
@@ -362,8 +364,8 @@ public class ArrangerGridPanel extends SwingGridPanel {
             clearActionListeners(clipBtn);
             clipBtn.addActionListener(
                 e -> {
-                  boolean nextMute = bridge != null && !bridge.getMute(engineRow);
-                  setTrackMuteWithCapture(engineRow, nextMute);
+                  track.setMuted(!track.isMuted());
+                  updateEngineMutes();
                   refresh();
                 });
           } else if (isSoloColumn(colId)) {
@@ -391,15 +393,10 @@ public class ArrangerGridPanel extends SwingGridPanel {
                     }
                     if (soloRow == trk) {
                       soloRow = -1;
-                      for (int i = 0; i < voiceRowCount; i++) {
-                        setTrackMuteWithCapture(baseTrackId + i, false);
-                      }
                     } else {
                       soloRow = trk;
-                      for (int i = 0; i < voiceRowCount; i++) {
-                        setTrackMuteWithCapture(baseTrackId + i, i != trk);
-                      }
                     }
+                    updateEngineMutes();
                     refresh();
                   }
                 });
@@ -502,11 +499,22 @@ public class ArrangerGridPanel extends SwingGridPanel {
     java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
     int songVoiceRows = gridMode.rows;
 
+    EngineSyncCoordinator sync = null;
+    if (SwingDelugeApp.mainInstance != null) {
+      sync = SwingDelugeApp.mainInstance.getSyncCoordinator();
+    }
+
     for (int v = 0; v < songVoiceRows; v++) {
       int modelRow = getModelRow(v);
       if (modelRow >= 0 && modelRow < voiceRowCount) {
         int engineROffset = getEngineRowOffset(modelRow);
         int engineR = baseTrackId + engineROffset;
+        if (sync != null) {
+          int syncStart = sync.getTrackEngineStart(modelRow);
+          if (syncStart >= 0) {
+            engineR = syncStart;
+          }
+        }
         boolean isMuted = bridge != null && bridge.getMute(engineR);
 
         for (int c = 0; c < columnCount; c++) {
@@ -540,19 +548,32 @@ public class ArrangerGridPanel extends SwingGridPanel {
           } else {
             boolean hasClip = false;
             Color arrCellColour = null;
+            org.deluge.model.ArrangerClip ac = null;
             if (modelRow < tracks.size()) {
-              int col = c + scrollOffsetX;
-              org.deluge.model.ArrangerClip ac =
-                  arrangerController.getArrangerClipAt(modelRow, col);
+              ac = arrangerController.getArrangerClipAt(modelRow, c);
               hasClip = ac != null;
               if (ac != null) {
                 // Head/loop/blur/dim resolved by the pure ArrangementProjector
-                // (ArrangementProjector
-                // Test pins the colours); same code the whole-grid projector uses.
-                int colTick = arrangerController.arrangerTickForColumn(col);
+                // (ArrangementProjector Test pins the colours); same code the whole-grid projector uses.
+                int colTick = arrangerController.arrangerTickForColumn(c);
                 int colTicks = arrangerController.arrangerTicksPerColumn();
                 arrCellColour = ArrangementProjector.colourFor(ac, colTick, colTicks);
               }
+            }
+
+            int col = c + scrollOffsetX;
+            if (hasClip && ac != null && ac.clip() != null) {
+              clipBtn.setText(
+                  "<html><center><font size='3'><b>"
+                      + ac.clip().getName()
+                      + "</b><br>Bar "
+                      + (col + 1)
+                      + "</font></center></html>");
+            } else {
+              clipBtn.setText(
+                  "<html><center><font color='#555555' size='3'>Bar "
+                      + (col + 1)
+                      + "</font></center></html>");
             }
 
             Color cellColour = arrCellColour != null ? arrCellColour : getTrackColour(modelRow);
@@ -566,7 +587,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
               pad.setScaleRoot(false);
               pad.setScaleNote(false);
               pad.setIntensity(1.0f);
-              pad.setBeatMarker((c + scrollOffsetX) % 4 == 0);
+              pad.setBeatMarker(col % 4 == 0);
             } else {
               if (hasClip) {
                 clipBtn.setBackground(cellColour);

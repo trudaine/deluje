@@ -239,6 +239,7 @@ public class EngineSyncCoordinator {
                 bridge.setVelocity(startRow + r, s, step.velocity());
                 bridge.setIterance(startRow + r, s, step.iterance());
                 bridge.setStepFill(startRow + r, s, step.fill());
+                bridge.setStepNudge(startRow + r, s, step.nudge());
               }
             }
           }
@@ -272,6 +273,7 @@ public class EngineSyncCoordinator {
                 bridge.setPitch(engineRow, s, step.pitch());
                 bridge.setIterance(engineRow, s, step.iterance());
                 bridge.setStepFill(engineRow, s, step.fill());
+                bridge.setStepNudge(engineRow, s, step.nudge());
               }
             }
           }

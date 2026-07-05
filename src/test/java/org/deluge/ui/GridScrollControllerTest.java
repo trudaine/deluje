@@ -341,5 +341,10 @@ class GridScrollControllerTest {
     public int getRowPitch(int row) {
       return 60;
     }
+
+    @Override
+    public int getArrangerTicksPerColumn() {
+      return 96; // Standard Deluge ticks per column
+    }
   }
 }

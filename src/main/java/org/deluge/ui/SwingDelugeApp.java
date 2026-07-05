@@ -130,6 +130,10 @@ public class SwingDelugeApp extends JFrame {
     return pureEngine;
   }
 
+  public EngineSyncCoordinator getSyncCoordinator() {
+    return syncCoordinator;
+  }
+
   public SwingDelugeApp(final BridgeContract bridge, org.deluge.midi.MidiService midiService) {
     this(bridge, midiService, false);
   }
@@ -2970,7 +2974,7 @@ public class SwingDelugeApp extends JFrame {
 
       // Dynamic real-time Arranger Mode activation
       if (arrangerScheduler != null) {
-        arrangerScheduler.setArrangerModeActive("ARRANGER".equals(viewMode));
+        arrangerScheduler.setArrangerModeActive("ARR".equals(viewMode));
       }
     }
 

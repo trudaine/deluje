@@ -150,6 +150,9 @@ public class TransportController {
 
   public void tapTempo() {
     long now = System.currentTimeMillis();
+    if (!tapTimes.isEmpty() && (now - tapTimes.peekLast()) > 2000) {
+      tapTimes.clear();
+    }
     tapTimes.addLast(now);
     while (tapTimes.size() > 8) {
       tapTimes.removeFirst();
@@ -159,8 +162,10 @@ public class TransportController {
       long totalGap = arr[arr.length - 1] - arr[0];
       double avgGap = totalGap / (double) (arr.length - 1);
       double bpm = 60000.0 / avgGap;
-      bpm = Math.max(20, Math.min(300, bpm));
-      bridge.setBpm(bpm);
+      bpm = Math.max(20.0, Math.min(999.0, bpm));
+      if (app.getCurrentProject() != null) {
+        app.getCurrentProject().setBpm((float) bpm);
+      }
     }
   }
 

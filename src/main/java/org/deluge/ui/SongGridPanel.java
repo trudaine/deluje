@@ -16,10 +16,10 @@ public class SongGridPanel extends SwingGridPanel {
 
   public SongGridPanel(BridgeContract bridge) {
     super(bridge);
-    // ~4 Hz blink; only repaints while something is actually armed, so it's idle-cheap.
+    // 60ms blink (matching hardware kFastFlashTime); only repaints while something is actually armed.
     launchBlinkTimer =
         new javax.swing.Timer(
-            250,
+            60,
             e -> {
               if (!anyTrackArmed()) return;
               launchBlinkOn = !launchBlinkOn;
@@ -341,7 +341,8 @@ public class SongGridPanel extends SwingGridPanel {
             clipBtn.setEnabled(false);
           } else if (isMuteColumn(colId)) {
             final int engineRow = trk;
-            boolean curMute = bridge.getMute(engineRow);
+            org.deluge.model.TrackModel track = tracks.get(trk);
+            boolean curMute = (soloRow >= 0) ? (trk != soloRow) : track.isMuted();
             Color muteBg = sessionStatusColour(curMute, soloRow == trk, soloRow >= 0);
             clipBtn.setText(
                 curMute ? "UNMUTE" : "MUTE"); // getText() = mute state (E2E observes it)
@@ -356,8 +357,10 @@ public class SongGridPanel extends SwingGridPanel {
             clearActionListeners(clipBtn);
             clipBtn.addActionListener(
                 e -> {
-                  boolean isMuted = bridge.getMute(engineRow);
-                  setTrackMuteWithCapture(engineRow, !isMuted);
+                  System.out.println("DEBUG-MUTE: listener track hash=" + System.identityHashCode(track) + " before=" + track.isMuted());
+                  track.setMuted(!track.isMuted());
+                  System.out.println("DEBUG-MUTE: listener track hash=" + System.identityHashCode(track) + " after=" + track.isMuted());
+                  updateEngineMutes();
                   refresh();
                 });
             JPopupMenu mutePopup = createMutePopupMenu(engineRow);
@@ -397,15 +400,10 @@ public class SongGridPanel extends SwingGridPanel {
                 e -> {
                   if (soloRow == trk) {
                     soloRow = -1;
-                    for (int i = 0; i < voiceRowCount; i++) {
-                      setTrackMuteWithCapture(baseTrackId + i, false);
-                    }
                   } else {
                     soloRow = trk;
-                    for (int i = 0; i < voiceRowCount; i++) {
-                      setTrackMuteWithCapture(baseTrackId + i, i != trk);
-                    }
                   }
+                  updateEngineMutes();
                   refresh();
                 });
             clipBtn.addMouseListener(
@@ -620,10 +618,21 @@ public class SongGridPanel extends SwingGridPanel {
     java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
     int songVoiceRows = gridMode.rows;
 
+    EngineSyncCoordinator sync = null;
+    if (SwingDelugeApp.mainInstance != null) {
+      sync = SwingDelugeApp.mainInstance.getSyncCoordinator();
+    }
+
     for (int v = 0; v < gridMode.rows; v++) {
       int modelRow = songRowIndex(v);
       if (modelRow >= 0 && modelRow < voiceRowCount) {
         int engineRow = baseTrackId + modelRow;
+        if (sync != null) {
+          int syncStart = sync.getTrackEngineStart(modelRow);
+          if (syncStart >= 0) {
+            engineRow = syncStart;
+          }
+        }
         boolean isMuted = bridge != null && bridge.getMute(engineRow);
 
         for (int c = 0; c < columnCount; c++) {
@@ -654,7 +663,7 @@ public class SongGridPanel extends SwingGridPanel {
             // hardware's blinking "launch" pad, until the queue is consumed.
             boolean armed = bridge != null && bridge.getLaunchQueue(engineRow) >= 0;
             if (armed && !launchBlinkOn) {
-              statusBg = Color.WHITE;
+              statusBg = Color.BLACK;
             }
             clipBtn.setBackground(statusBg);
             clipBtn.setText(

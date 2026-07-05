@@ -168,6 +168,7 @@ class StepPropertiesEditor {
             bridge.setStepProbability(engineRow, activeCol, controller.copiedStep.probability());
             bridge.setIterance(engineRow, activeCol, controller.copiedStep.iterance());
             bridge.setStepFill(engineRow, activeCol, controller.copiedStep.fill());
+            bridge.setStepNudge(engineRow, activeCol, controller.copiedStep.nudge());
 
             int editedModelTrack = parent.getEditedModelTrack();
             int activeClipId = parent.getActiveClipId();
@@ -330,7 +331,8 @@ class StepPropertiesEditor {
     bridge.setIterance(engineRow, activeCol, iterance);
     bridge.setStepProbability(engineRow, activeCol, prob);
     bridge.setGate(engineRow, activeCol, gate);
-    bridge.setStepFill(engineRow, activeCol, nudge);
+    bridge.setStepFill(engineRow, activeCol, fill);
+    bridge.setStepNudge(engineRow, activeCol, nudge);
 
     if (cModel != null) {
       boolean st = bridge.getStep(engineRow, activeCol);

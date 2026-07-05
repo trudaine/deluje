@@ -271,6 +271,27 @@ public class DelugeModKnobBar extends JPanel {
 
   // ── Encoder turn adjustments ──
 
+  private void pushParamChange(String paramName, float oldValue, float newValue) {
+    SwingGridPanel grid = gridSupplier.get();
+    if (grid == null) return;
+    org.deluge.model.ProjectModel pm = grid.getProjectModel();
+    if (pm == null) return;
+    int trackIndex = indexSupplier.getAsInt();
+    if (trackIndex < 0) return;
+
+    var stack = pm.getUndoRedoStack();
+    long now = System.currentTimeMillis();
+
+    if (stack.canUndo() && stack.peekUndo() instanceof org.deluge.model.Consequence.SynthParamConsequence prev) {
+      if (prev.trackIndex() == trackIndex && prev.paramName().equals(paramName) && (now - prev.timestamp()) < 800) {
+        stack.replaceLast(new org.deluge.model.Consequence.SynthParamConsequence(pm, trackIndex, paramName, prev.oldValue(), newValue, now));
+        return;
+      }
+    }
+
+    stack.push(new org.deluge.model.Consequence.SynthParamConsequence(pm, trackIndex, paramName, oldValue, newValue, now));
+  }
+
   private void adjustTopKnob(int d) {
     SwingGridPanel grid = gridSupplier.get();
     if (grid != null && grid.isShiftHeld() && grid.getActiveShiftParam() != null) {
@@ -281,34 +302,54 @@ public class DelugeModKnobBar extends JPanel {
     SynthTrackModel t = trackSupplier.get();
     if (t == null) return;
 
+    float oldVal = 0.0f;
+    String paramName = "";
+
     switch (activeMode) {
       case 0: // VOLUME
+        oldVal = t.getVolume();
+        paramName = "goldVolume";
         t.setVolume(clamp(t.getVolume() + d * 0.02f, 0f, 1.5f));
         apply(t, "LVL", pct(t.getVolume() / 1.5f));
+        pushParamChange(paramName, oldVal, t.getVolume());
         break;
       case 1: // LPF CUTOFF
+        oldVal = t.getLpfFreq();
+        paramName = "goldLpfCutoff";
         t.setLpfFreq(clamp((float) (t.getLpfFreq() * Math.pow(1.05, d)), 20f, 20000f));
         apply(t, "CUT", String.valueOf((int) t.getLpfFreq()));
+        pushParamChange(paramName, oldVal, t.getLpfFreq());
         break;
       case 2: // ENV ATTACK
         var env0 = t.getEnv(0);
+        oldVal = env0.attack();
+        paramName = "goldEnv0Attack";
         float a0 = clamp(env0.attack() + d * 0.05f, 0f, 10f);
         t.setEnv(
             0,
             new EnvelopeModel(
                 a0, env0.decay(), env0.sustain(), env0.release(), env0.target(), env0.amount()));
         apply(t, "ATK", String.format("%.2fs", a0));
+        pushParamChange(paramName, oldVal, a0);
         break;
       case 3: // DELAY RATE
+        oldVal = (float) t.getDelaySyncLevel();
+        paramName = "goldDelaySyncLevel";
         t.setDelaySyncLevel(clamp(t.getDelaySyncLevel() + d, 0, 12));
         apply(t, "DLYR", "DIV " + t.getDelaySyncLevel());
+        pushParamChange(paramName, oldVal, (float) t.getDelaySyncLevel());
         break;
       case 4: // REVERB SEND
+        oldVal = t.getReverbSend();
+        paramName = "goldReverbSend";
         t.setReverbSend(clamp(t.getReverbSend() + d * 0.02f, 0f, 1.0f));
         apply(t, "REVS", pct(t.getReverbSend()));
+        pushParamChange(paramName, oldVal, t.getReverbSend());
         break;
       case 5: // LFO RATE
         var lfo0 = t.getLfo(0);
+        oldVal = lfo0.rateHz();
+        paramName = "goldLfo0Rate";
         float r0 = clamp(lfo0.rateHz() + d * 0.1f, 0.01f, 50f);
         t.setLfo(
             0,
@@ -321,16 +362,23 @@ public class DelugeModKnobBar extends JPanel {
                 lfo0.syncLevel(),
                 lfo0.syncType()));
         apply(t, "LFOR", String.format("%.1fH", r0));
+        pushParamChange(paramName, oldVal, r0);
         break;
       case 6: // ARP RATE
         var oldArp = t.getArp();
+        oldVal = oldArp.rate();
+        paramName = "goldArpRate";
         float newRate = clamp(oldArp.rate() + d * 0.05f, 0.05f, 10f);
         t.setArp(oldArp.toBuilder().rate(newRate).active(true).build());
         apply(t, "ARPR", String.format("%.2fH", newRate));
+        pushParamChange(paramName, oldVal, newRate);
         break;
       case 7: // OSC MIX
+        oldVal = t.getOscMix();
+        paramName = "goldOscMix";
         t.setOscMix(clamp(t.getOscMix() + d * 0.02f, 0f, 1f));
         apply(t, "MIX", pct(t.getOscMix()));
+        pushParamChange(paramName, oldVal, t.getOscMix());
         break;
     }
   }
@@ -345,8 +393,13 @@ public class DelugeModKnobBar extends JPanel {
     SynthTrackModel t = trackSupplier.get();
     if (t == null) return;
 
+    float oldVal = 0.0f;
+    String paramName = "";
+
     switch (activeMode) {
       case 0: // PAN
+        oldVal = t.getPan();
+        paramName = "goldPan";
         t.setPan(clamp(t.getPan() + d * 0.02f, -1.0f, 1.0f));
         apply(
             t,
@@ -354,30 +407,45 @@ public class DelugeModKnobBar extends JPanel {
             String.format(
                 "%.0f%% %s",
                 Math.abs(t.getPan() * 100), t.getPan() < 0 ? "L" : t.getPan() > 0 ? "R" : "C"));
+        pushParamChange(paramName, oldVal, t.getPan());
         break;
       case 1: // LPF RES
+        oldVal = t.getLpfRes();
+        paramName = "goldLpfResonance";
         t.setLpfRes(clamp(t.getLpfRes() + d * 0.02f, 0f, 1f));
         apply(t, "RES", pct(t.getLpfRes()));
+        pushParamChange(paramName, oldVal, t.getLpfRes());
         break;
       case 2: // ENV RELEASE
         var env0 = t.getEnv(0);
+        oldVal = env0.release();
+        paramName = "goldEnv0Release";
         float r0 = clamp(env0.release() + d * 0.05f, 0f, 10f);
         t.setEnv(
             0,
             new EnvelopeModel(
                 env0.attack(), env0.decay(), env0.sustain(), r0, env0.target(), env0.amount()));
         apply(t, "REL", String.format("%.2fs", r0));
+        pushParamChange(paramName, oldVal, r0);
         break;
       case 3: // DELAY FEEDBACK
+        oldVal = (float) t.getDelayFeedbackQ31();
+        paramName = "goldDelayFeedback";
         t.setDelayFeedbackQ31(clamp(t.getDelayFeedbackQ31() + d * 0x04000000, 0, 0x7fffffff));
         apply(t, "DLYF", pct((float) t.getDelayFeedbackQ31() / 0x7fffffff));
+        pushParamChange(paramName, oldVal, (float) t.getDelayFeedbackQ31());
         break;
       case 4: // HPF CUTOFF
+        oldVal = t.getHpfFreq();
+        paramName = "goldHpfCutoff";
         t.setHpfFreq(clamp((float) (t.getHpfFreq() * Math.pow(1.05, d)), 20f, 20000f));
         apply(t, "HPF", String.valueOf((int) t.getHpfFreq()));
+        pushParamChange(paramName, oldVal, t.getHpfFreq());
         break;
       case 5: // LFO DEPTH
         var lfo0 = t.getLfo(0);
+        oldVal = lfo0.depth();
+        paramName = "goldLfo0Depth";
         float d0 = clamp(lfo0.depth() + d * 0.02f, 0f, 1.0f);
         t.setLfo(
             0,
@@ -390,14 +458,21 @@ public class DelugeModKnobBar extends JPanel {
                 lfo0.syncLevel(),
                 lfo0.syncType()));
         apply(t, "LFOD", pct(d0));
+        pushParamChange(paramName, oldVal, d0);
         break;
       case 6: // PORTAMENTO
+        oldVal = t.getPortamento();
+        paramName = "goldPortamento";
         t.setPortamento(clamp(t.getPortamento() + d * 0.02f, 0f, 1f));
         apply(t, "PORT", pct(t.getPortamento()));
+        pushParamChange(paramName, oldVal, t.getPortamento());
         break;
       case 7: // BITCRUSHER
+        oldVal = (float) t.getClippingAmount();
+        paramName = "goldBitcrusher";
         t.setClippingAmount(clamp(t.getClippingAmount() + d * 10, 0, 1000));
         apply(t, "CRSH", String.valueOf(t.getClippingAmount()));
+        pushParamChange(paramName, oldVal, (float) t.getClippingAmount());
         break;
     }
   }
@@ -408,34 +483,54 @@ public class DelugeModKnobBar extends JPanel {
     SynthTrackModel t = trackSupplier.get();
     if (t == null) return;
 
+    float oldVal = 0.0f;
+    String paramName = "";
+
     // Reset default parameters
     switch (activeMode) {
       case 0: // VOLUME
+        oldVal = t.getVolume();
+        paramName = "goldVolume";
         t.setVolume(1.0f);
         apply(t, "LVL", "100%");
+        pushParamChange(paramName, oldVal, 1.0f);
         break;
       case 1: // LPF CUTOFF
+        oldVal = t.getLpfFreq();
+        paramName = "goldLpfCutoff";
         t.setLpfFreq(20000f);
         apply(t, "CUT", "20k");
+        pushParamChange(paramName, oldVal, 20000f);
         break;
       case 2: // ENV ATTACK
         var env0 = t.getEnv(0);
+        oldVal = env0.attack();
+        paramName = "goldEnv0Attack";
         t.setEnv(
             0,
             new EnvelopeModel(
                 0.01f, env0.decay(), env0.sustain(), env0.release(), env0.target(), env0.amount()));
         apply(t, "ATK", "0.01s");
+        pushParamChange(paramName, oldVal, 0.01f);
         break;
       case 3: // DELAY RATE
+        oldVal = (float) t.getDelaySyncLevel();
+        paramName = "goldDelaySyncLevel";
         t.setDelaySyncLevel(4); // default quarter note
         apply(t, "DLYR", "DIV 4");
+        pushParamChange(paramName, oldVal, 4.0f);
         break;
       case 4: // REVERB SEND
+        oldVal = t.getReverbSend();
+        paramName = "goldReverbSend";
         t.setReverbSend(0.0f);
         apply(t, "REVS", "0%");
+        pushParamChange(paramName, oldVal, 0.0f);
         break;
       case 5: // LFO RATE
         var lfo0 = t.getLfo(0);
+        oldVal = lfo0.rateHz();
+        paramName = "goldLfo0Rate";
         t.setLfo(
             0,
             new LfoModel(
@@ -447,15 +542,22 @@ public class DelugeModKnobBar extends JPanel {
                 lfo0.syncLevel(),
                 lfo0.syncType()));
         apply(t, "LFOR", "1.0H");
+        pushParamChange(paramName, oldVal, 1.0f);
         break;
       case 6: // ARP RATE
         var oldArp = t.getArp();
+        oldVal = oldArp.rate();
+        paramName = "goldArpRate";
         t.setArp(oldArp.toBuilder().rate(1.0f).build());
         apply(t, "ARPR", "1.0H");
+        pushParamChange(paramName, oldVal, 1.0f);
         break;
       case 7: // OSC MIX
+        oldVal = t.getOscMix();
+        paramName = "goldOscMix";
         t.setOscMix(0.5f);
         apply(t, "MIX", "50%");
+        pushParamChange(paramName, oldVal, 0.5f);
         break;
     }
   }
@@ -464,34 +566,54 @@ public class DelugeModKnobBar extends JPanel {
     SynthTrackModel t = trackSupplier.get();
     if (t == null) return;
 
+    float oldVal = 0.0f;
+    String paramName = "";
+
     // Reset default parameters
     switch (activeMode) {
       case 0: // PAN
+        oldVal = t.getPan();
+        paramName = "goldPan";
         t.setPan(0.0f);
         apply(t, "PAN", "C");
+        pushParamChange(paramName, oldVal, 0.0f);
         break;
       case 1: // LPF RES
+        oldVal = t.getLpfRes();
+        paramName = "goldLpfResonance";
         t.setLpfRes(0.0f);
         apply(t, "RES", "0%");
+        pushParamChange(paramName, oldVal, 0.0f);
         break;
       case 2: // ENV RELEASE
         var env0 = t.getEnv(0);
+        oldVal = env0.release();
+        paramName = "goldEnv0Release";
         t.setEnv(
             0,
             new EnvelopeModel(
                 env0.attack(), env0.decay(), env0.sustain(), 0.2f, env0.target(), env0.amount()));
         apply(t, "REL", "0.2s");
+        pushParamChange(paramName, oldVal, 0.2f);
         break;
       case 3: // DELAY FEEDBACK
+        oldVal = (float) t.getDelayFeedbackQ31();
+        paramName = "goldDelayFeedback";
         t.setDelayFeedbackQ31(0);
         apply(t, "DLYF", "0%");
+        pushParamChange(paramName, oldVal, 0.0f);
         break;
       case 4: // HPF CUTOFF
+        oldVal = t.getHpfFreq();
+        paramName = "goldHpfCutoff";
         t.setHpfFreq(20f);
         apply(t, "HPF", "20");
+        pushParamChange(paramName, oldVal, 20f);
         break;
       case 5: // LFO DEPTH
         var lfo0 = t.getLfo(0);
+        oldVal = lfo0.depth();
+        paramName = "goldLfo0Depth";
         t.setLfo(
             0,
             new LfoModel(
@@ -503,14 +625,21 @@ public class DelugeModKnobBar extends JPanel {
                 lfo0.syncLevel(),
                 lfo0.syncType()));
         apply(t, "LFOD", "0%");
+        pushParamChange(paramName, oldVal, 0.0f);
         break;
       case 6: // PORTAMENTO
+        oldVal = t.getPortamento();
+        paramName = "goldPortamento";
         t.setPortamento(0.0f);
         apply(t, "PORT", "0%");
+        pushParamChange(paramName, oldVal, 0.0f);
         break;
       case 7: // BITCRUSHER
+        oldVal = (float) t.getClippingAmount();
+        paramName = "goldBitcrusher";
         t.setClippingAmount(0);
         apply(t, "CRSH", "0");
+        pushParamChange(paramName, oldVal, 0.0f);
         break;
     }
   }

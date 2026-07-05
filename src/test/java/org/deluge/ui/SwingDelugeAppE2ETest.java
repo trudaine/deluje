@@ -800,9 +800,9 @@ public class SwingDelugeAppE2ETest {
           });
 
       // Verify track 1 is unmuted (soloed), and track 0 and 2 are muted!
-      assertLightweightMuteState(bridge, 0, true);
-      assertLightweightMuteState(bridge, 1, false);
-      assertLightweightMuteState(bridge, 2, true);
+      assertLightweightMuteState(app, bridge, 0, true);
+      assertLightweightMuteState(app, bridge, 1, false);
+      assertLightweightMuteState(app, bridge, 2, true);
 
       assertEquals("UNMUTE", muteBtn0.getText(), "Muted track should show UNMUTE");
       assertEquals("MUTE", muteBtn1.getText(), "Active track should show MUTE");
@@ -816,9 +816,9 @@ public class SwingDelugeAppE2ETest {
           });
 
       // Verify all tracks are unmuted now!
-      assertLightweightMuteState(bridge, 0, false);
-      assertLightweightMuteState(bridge, 1, false);
-      assertLightweightMuteState(bridge, 2, false);
+      assertLightweightMuteState(app, bridge, 0, false);
+      assertLightweightMuteState(app, bridge, 1, false);
+      assertLightweightMuteState(app, bridge, 2, false);
 
       assertEquals("MUTE", muteBtn0.getText());
       assertEquals("MUTE", muteBtn1.getText());
@@ -1140,11 +1140,18 @@ public class SwingDelugeAppE2ETest {
     }
   }
 
-  private void assertLightweightMuteState(BridgeContract bridge, int trk, boolean expectedMute) {
+  private void assertLightweightMuteState(SwingDelugeApp app, BridgeContract bridge, int trk, boolean expectedMute) {
+    int startRow = trk;
+    if (app != null && app.getSyncCoordinator() != null) {
+      int syncStart = app.getSyncCoordinator().getTrackEngineStart(trk);
+      if (syncStart >= 0) {
+        startRow = syncStart;
+      }
+    }
     assertEquals(
         expectedMute,
-        bridge.getMute(trk),
-        "Track " + trk + " mute state should be " + expectedMute);
+        bridge.getMute(startRow),
+        "Track " + trk + " (engine row " + startRow + ") mute state should be " + expectedMute);
   }
 
   @Test

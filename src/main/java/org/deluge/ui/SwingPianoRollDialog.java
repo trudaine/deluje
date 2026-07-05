@@ -343,7 +343,8 @@ public class SwingPianoRollDialog extends JDialog {
         bridge.setStep(engineRow, step, true);
         bridge.setVelocity(engineRow, step, ne.velocity);
         bridge.setGate(engineRow, step, gate);
-        bridge.setStepFill(engineRow, step, fill);
+        bridge.setStepFill(engineRow, step, 0.0f);
+        bridge.setStepNudge(engineRow, step, fill);
 
         // Apply to model
         StepData stepData = new StepData(true, ne.velocity, gate, 1.0f, ne.pitch, 0, 0.0f, fill);
@@ -705,7 +706,8 @@ public class SwingPianoRollDialog extends JDialog {
 
         bridge.setVelocity(engineRow, step, newVel);
         bridge.setIterance(engineRow, step, newIt);
-        bridge.setStepFill(engineRow, step, newNudge);
+        bridge.setStepFill(engineRow, step, newFill);
+        bridge.setStepNudge(engineRow, step, newNudge);
         bridge.setStepProbability(engineRow, step, newProb);
         bridge.setGate(engineRow, step, newGate);
 
@@ -783,6 +785,7 @@ public class SwingPianoRollDialog extends JDialog {
       bridge.setVelocity(engineRow, step, 0.8f);
       bridge.setGate(engineRow, step, StepData.DEFAULT_CLICK_GATE);
       bridge.setStepFill(engineRow, step, 0.0f);
+      bridge.setStepNudge(engineRow, step, 0.0f);
 
       clipModel.setStep(row, step, newStep);
       playPreviewNote(pitch);
@@ -818,7 +821,8 @@ public class SwingPianoRollDialog extends JDialog {
       bridge.setStep(toEngineRow, toStep, true);
       bridge.setVelocity(toEngineRow, toStep, note.velocity());
       bridge.setGate(toEngineRow, toStep, note.gate());
-      bridge.setStepFill(toEngineRow, toStep, nudge);
+      bridge.setStepFill(toEngineRow, toStep, note.fill());
+      bridge.setStepNudge(toEngineRow, toStep, nudge);
 
       StepData movedNote =
           new StepData(

@@ -172,6 +172,7 @@ public final class BridgeContract {
   public static final String G_PROBABILITY = "g_probability";
   public static final String G_ITERANCE = "g_iterance";
   public static final String G_FILL = "g_fill";
+  public static final String G_STEP_NUDGE = "g_step_nudge";
   public static final String G_FILL_ACTIVE = "g_fill_active";
   public static final String G_STEP_FILTER = "g_step_filter";
   public static final String G_STEP_RES = "g_step_res";
@@ -917,6 +918,14 @@ public final class BridgeContract {
 
   public double getStepFill(int track, int sidx) {
     return step.fill[track * STEPS + sidx];
+  }
+
+  public void setStepNudge(int track, int sidx, double val) {
+    step.nudge[track * STEPS + sidx] = (float) Math.max(0.0, Math.min(1.0, val));
+  }
+
+  public double getStepNudge(int track, int sidx) {
+    return step.nudge[track * STEPS + sidx];
   }
 
   public ChuckArray getClipArray(String baseName, int clipIdx) {
