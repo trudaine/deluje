@@ -2648,6 +2648,9 @@ public class SwingDelugeApp extends JFrame {
               if (songPanel != null) {
                 songPanel.updatePlayhead(step);
               }
+              if (arrGridPanel != null) {
+                arrGridPanel.updatePlayhead(step);
+              }
 
               if (visualizerPanel != null) {
                 visualizerPanel.repaint();

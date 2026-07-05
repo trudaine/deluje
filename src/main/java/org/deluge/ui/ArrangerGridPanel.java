@@ -600,4 +600,111 @@ public class ArrangerGridPanel extends SwingGridPanel {
       }
     }
   }
+
+  @Override
+  public void updatePlayhead(int step) {
+    this.currentPlayheadStep = step;
+    Object fwHandlerObj = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
+    if (!(fwHandlerObj instanceof org.deluge.playback.PlaybackHandler ph)) {
+      return;
+    }
+
+    int playheadTick = ph.lastSwungTickActioned;
+    int scroll = projectModel != null ? projectModel.getXScrollArrangementView() : 0;
+    int ticksPerCol = arrangerController.arrangerTicksPerColumn();
+    int playheadCol = (ticksPerCol > 0) ? ((playheadTick - scroll) / ticksPerCol) : -1;
+
+    boolean isPlaying = ph.isPlaying();
+    if (!isPlaying) {
+      playheadCol = -1;
+    }
+
+    int songVoiceRows = gridMode.rows;
+    int rowsToScan = songVoiceRows + 2; // Include Macros and Keyboard rows
+    boolean isAdvanced =
+        org.deluge.project.PreferencesManager.getGridPanelType()
+            == org.deluge.project.PreferencesManager.GridPanelType.ADVANCED;
+
+    // Playhead Follow Auto-Scrolling Mode!
+    if (isPlaying && isPlayheadFollowMode() && ticksPerCol > 0) {
+      int absolutePlayheadCol = playheadTick / ticksPerCol;
+      int targetPageCol = (absolutePlayheadCol / stepCount) * stepCount;
+      if (targetPageCol != scrollOffsetX) {
+        final int fTargetPage = targetPageCol;
+        javax.swing.SwingUtilities.invokeLater(
+            () -> scrollController.scrollHorizontallyToPage(fTargetPage));
+      }
+    }
+
+    EngineSyncCoordinator sync = null;
+    if (SwingDelugeApp.mainInstance != null) {
+      sync = SwingDelugeApp.mainInstance.getSyncCoordinator();
+    }
+
+    java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
+
+    for (int t = 0; t < rowsToScan; t++) {
+      int modelRow = -1;
+      int engineR = -1;
+      boolean isMuted = false;
+
+      if (t < songVoiceRows) {
+        modelRow = getModelRow(t);
+        if (modelRow >= 0 && modelRow < voiceRowCount) {
+          int engineROffset = getEngineRowOffset(modelRow);
+          engineR = baseTrackId + engineROffset;
+          if (sync != null) {
+            int syncStart = sync.getTrackEngineStart(modelRow);
+            if (syncStart >= 0) {
+              engineR = syncStart;
+            }
+          }
+          isMuted = bridge != null && bridge.getMute(engineR);
+        }
+      }
+
+      for (int c = 0; c < columnCount; c++) {
+        if (pads[t][c] == null) continue;
+
+        boolean showPlayhead = (c == playheadCol && c < stepCount);
+        if (isAdvanced) {
+          if (pads[t][c] instanceof DelugePadButton pad) {
+            pad.setPlayhead(showPlayhead);
+          }
+        } else {
+          // Standard mode
+          if (showPlayhead) {
+            pads[t][c].setBackground(Color.WHITE);
+          } else {
+            // Restore default background color
+            if (t < songVoiceRows) {
+              if (isMuteColumn(c)) {
+                pads[t][c].setBackground(arrangerStatusColour(isMuted, soloRow == modelRow, soloRow >= 0));
+              } else if (isSoloColumn(c)) {
+                boolean isSoloed = (soloRow == modelRow);
+                pads[t][c].setBackground(isSoloed ? new Color(0x00, 0xff, 0xcc) : new Color(0x2d, 0x2d, 0x32));
+              } else {
+                boolean hasClip = false;
+                Color arrCellColour = null;
+                if (modelRow >= 0 && modelRow < tracks.size()) {
+                  org.deluge.model.ArrangerClip ac = arrangerController.getArrangerClipAt(modelRow, c);
+                  hasClip = ac != null;
+                  if (ac != null) {
+                    int colTick = arrangerController.arrangerTickForColumn(c);
+                    int colTicks = arrangerController.arrangerTicksPerColumn();
+                    arrCellColour = ArrangementProjector.colourFor(ac, colTick, colTicks);
+                  }
+                }
+                Color cellColour = arrCellColour != null ? arrCellColour : getTrackColour(modelRow);
+                pads[t][c].setBackground(hasClip ? cellColour : new Color(0x33, 0x33, 0x33));
+              }
+            } else {
+              // Macros / Keyboard rows
+              pads[t][c].setBackground(new Color(0x15, 0x15, 0x15));
+            }
+          }
+        }
+      }
+    }
+  }
 }
