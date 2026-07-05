@@ -64,7 +64,7 @@ Two Java surfaces exist: `SongGridPanel` (the real desktop song grid) and `ui/vi
 | Quantized clip arming via status pad; SHIFT = instant (`view.cpp:2716-2803`) | Single click on a clip pad queues (arms) it to launch at the next bar boundary (quantized launch); SHIFT+click launches instantly. | **FAITHFUL** (with click launch + Shift instant modifier) |
 | RECORD+pad = pending overdub / record-arm (`sv:714-788`) | Left-clicking any clip pad under global RECORD mode selects the track and arms it for recording. | **FAITHFUL** (integrated with global record mode) |
 | Section pads: arm section; hold 300 ms + encoder = repeat count (-2 exclusive/-1 shared/0 ∞/N) (`sv:686, 1176-1298`) | Toolbar "SECTION: A B C…" buttons, bar-quantized launch (`SongGridPanel.java:79-119`); repeats are data-only | PARTIAL |
-| SHIFT+section pad reassigns clip's section (`sv:1133-1174`) | Nothing | MISSING |
+| SHIFT+section pad reassigns clip's section (`sv:1133-1174`) | "Assign Section" option in clip right-click context menu lets you reassign the clip to any section (A to H). | **FAITHFUL** (integrated with clip context menu) |
 | Grid layout (green launch / blue edit / macros modes, two-pad copy, shift-instant, record-arm) (`sv:3085-4340`) | Nothing — `sessionLayout` XML round-trips only | MISSING (entire family) |
 | Solo: hold ◀▶-encoder + status pad, true solo state with `activeIfNoSolo` restore (`view.cpp:2790-2799`) | Solo button toggles single solo. SHIFT/CTRL click enables multi-solo. Original mute states are preserved in the model and restored when unsoloing. | **FAITHFUL** (with desktop multi-select modifier) |
 | MIDI-learn arming (pads flash pink) (`sv:903-929, 3013`) | `MidiLearnPanel` is CC→param only | MISSING |
