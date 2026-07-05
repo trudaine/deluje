@@ -84,15 +84,49 @@ Alternative (line-out into a DAW): 44.1 kHz / 16-bit / stereo WAV, gain set so p
 
 ## 5. After recording — hooking it up
 
-1. Place the WAV at `~/CAL_SONG/output_000.wav`.
-2. Point the scorecard machinery at the calibration set (same slicing logic as ALLSYN — 6 s
-   uniform grid, onset-snapped): a `CalibrationScorecard` variant can reuse
-   `FidelityScorecardTest`'s time-resolved comparison with `-Dsynth.dir` and the new WAV path.
-3. High-value manual checks even before any tooling:
+1. Place the WAV at `~/a/CAL_SONG/output_000.wav` (or pass `-Dcal.wav=/path/to/it`).
+2. Run the calibration scorecard (reuses `FidelityScorecardTest`'s onset-snapped, time-resolved
+   comparison; renders each preset through the clean per-preset `renderSynth` path):
+
+   ```bash
+   mvn test -Dtest=CalibrationScorecardTest -Dgpg.skip=true
+   ```
+
+   **Do not score against `FidelityTestRunner.renderSongToWav` output** — its master chain
+   over-drives full-velocity notes into the 0.5 `lshiftAndSaturate` clamp (~25% of samples rail),
+   so its spectrum measures clipping, not timbre. Fine as a smoke test, unusable for fidelity.
+3. `scripts/cal_analyze.py OURS.wav HARDWARE.wav` does waveform-level checks (onset pairing,
+   sine purity, echo timing, arp gate duty) when you need to look below the spectral level.
+4. High-value manual checks even before any tooling:
    - Segment 19 is a sine (routing gate) — by ear.
    - Segment 21's first echo at 250 ms after note-off — visible in any editor.
    - Segment 01 vs 03 peak levels (sine-vs-saw balance).
    - Segment 27 gate duty ≈ 50% of a 16th at 120 BPM (62.5 ms on / 62.5 ms off).
+
+## 5b. Results — 2026-07-05 recording (firmware nightly `9456095b`, matching the port's C reference)
+
+Time-resolved median **0.810**, mean 0.720 across the 28 segments — in line with the main
+scorecard's ~0.79–0.80, confirming the harness and the recording are sound.
+
+**Hardware-validated (time-resolved ≥ 0.80):** the entire recent fix cluster —
+FM CHAIN MUTE **0.918** (win 0.985: the mod1→mod0 mute-gate port, hardware plays the same pure
+sine we do), SQUARE 50 0.910, TRIANGLE 0.879, SAW 0.875, ARP GATE 0.874 (gate-duty fix),
+LPF RESO 0.871, REVERB SEND 0.871, PLUCK 0.869 (note-off/decay), CHORUS 0.866 (patcher-final
+rate), DELAY PINGPONG 0.861, SINE 0.858 (post-undoubling level), PHASER 0.852, SAW PW 0.847
+(`resetterPhase >>>` fix), DELAY SYNC 0.810 (sync-mapping fix).
+
+**Confirmed gaps (real divergences, now hardware-attributed):**
+
+| Segment(s) | time | Reading |
+|---|---|---|
+| 18 FM CHAIN 0.127 · 17 FM HIGH 0.341 · 20 FM FEEDBACK 0.490 | — | MUTE near-perfect but active chains badly off ⇒ FM routing/gating is right; **operator level / index scaling with live modulators is wrong**. Best-scoped fidelity target. |
+| 09 SAW SYNC 0.615 · 10 SQ SYNC PW 0.671 | — | hard-sync timbre still diverges |
+| 15 HPF RESO 0.449 | — | HPF resonance diverges (check vs the filter-engagement change) |
+| 07 PWM LFO 0.670 · 14 LPF DRIVE 0.742 | — | moving-PWM and driven-filter partial |
+
+**Not measurable:** 11 NOISE 0.156 — two independent white-noise realizations are spectrally
+uncorrelated; cosine cannot score noise. Minor caveat: `renderSynth` triggers at velocity 110 vs
+the song's 127 (timbre-invariant for these presets).
 
 ## 6. Known limits of this set (deliberate)
 
