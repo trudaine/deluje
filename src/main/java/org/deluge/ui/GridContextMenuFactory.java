@@ -337,6 +337,15 @@ public class GridContextMenuFactory {
     JPopupMenu menu = new JPopupMenu();
     ClipModel clip = track.getClips().get(clipIdx);
 
+    JMenuItem editItem = new JMenuItem("Edit Clip Pattern");
+    editItem.addActionListener(
+        e -> {
+          if (org.deluge.ui.SwingDelugeApp.mainInstance != null) {
+            org.deluge.ui.SwingDelugeApp.mainInstance.switchToTrackEdit(trackIndex, clipIdx);
+          }
+        });
+    menu.add(editItem);
+
     JMenuItem renameItem = new JMenuItem("Rename Clip...");
     renameItem.addActionListener(
         e -> {

@@ -492,18 +492,37 @@ public class SongGridPanel extends SwingGridPanel {
                         }
                       } else {
                         if (clipCol >= songTrack.getClips().size()) {
-                          String name = "CLIP " + (clipCol + 1);
-                          songTrack.addClip(
-                              new org.deluge.model.ClipModel(
-                                  name,
-                                  songTrack.getClips().isEmpty()
-                                      ? 8
-                                      : songTrack.getClips().get(0).getRowCount(),
-                                  16));
-                          fireProjectChanged();
+                          if (e.getClickCount() == 1) {
+                            String name = "CLIP " + (clipCol + 1);
+                            songTrack.addClip(
+                                new org.deluge.model.ClipModel(
+                                    name,
+                                    songTrack.getClips().isEmpty()
+                                        ? 8
+                                        : songTrack.getClips().get(0).getRowCount(),
+                                    16));
+                            fireProjectChanged();
+                          }
                         } else {
-                          if (SwingDelugeApp.mainInstance != null) {
-                            SwingDelugeApp.mainInstance.switchToTrackEdit(trkIdx, clipCol);
+                          if (e.getClickCount() == 2) {
+                            if (SwingDelugeApp.mainInstance != null) {
+                              SwingDelugeApp.mainInstance.switchToTrackEdit(trkIdx, clipCol);
+                            }
+                          } else {
+                            if (e.isShiftDown()) {
+                              // Instant launch
+                              songTrack.setActiveClipIndex(clipCol);
+                              bridge.setCurrentClip(trkIdx, clipCol);
+                              if (SwingDelugeApp.mainInstance != null && SwingDelugeApp.mainInstance.getArrangerScheduler() != null) {
+                                SwingDelugeApp.mainInstance.getArrangerScheduler().notifyClipLaunched(trkIdx, songTrack.getClips().get(clipCol));
+                              }
+                              fireProjectChanged();
+                              refresh();
+                            } else {
+                              // Quantized launch
+                              bridge.setLaunchQueue(trkIdx, clipCol);
+                              refresh();
+                            }
                           }
                         }
                       }

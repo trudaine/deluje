@@ -193,12 +193,23 @@ public class PureFirmwareEngine {
     // Sync track mute states from the bridge globals to Java engine sounds
     org.deluge.model.ProjectModel project = playbackHandler.getProject();
     if (project != null) {
+      boolean modelChanged = false;
       for (int t = 0; t < project.getTracks().size(); t++) {
-        org.deluge.model.ClipModel clip = project.getTracks().get(t).getActiveClip();
+        org.deluge.model.TrackModel track = project.getTracks().get(t);
+        int currentClipIdx = bridge.getCurrentClip(t);
+        if (currentClipIdx >= 0 && currentClipIdx != track.getActiveClipIndex() && currentClipIdx < track.getClips().size()) {
+          track.setActiveClipIndex(currentClipIdx);
+          modelChanged = true;
+        }
+
+        org.deluge.model.ClipModel clip = track.getActiveClip();
         boolean isMuted = bridge.getMute(t);
         if (clip != null && clip.getSound() instanceof org.deluge.engine.FirmwareSound fs) {
           fs.muted = isMuted;
         }
+      }
+      if (modelChanged && org.deluge.ui.SwingDelugeApp.mainInstance != null) {
+        javax.swing.SwingUtilities.invokeLater(() -> org.deluge.ui.SwingDelugeApp.mainInstance.refreshGrids());
       }
     }
 

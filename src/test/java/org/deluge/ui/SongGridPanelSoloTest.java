@@ -129,6 +129,46 @@ public class SongGridPanelSoloTest {
     bridge.shutdown();
   }
 
+  @Test
+  public void testClipLaunching() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    BridgeContract bridge = new BridgeContract();
+    ProjectModel project = new ProjectModel();
+
+    TrackModel track0 = new SynthTrackModel("T0");
+    track0.addClip(new org.deluge.model.ClipModel("C1", 8, 16));
+    track0.addClip(new org.deluge.model.ClipModel("C2", 8, 16));
+    project.addTrack(track0);
+
+    SongGridPanel panel = new SongGridPanel(bridge);
+    panel.setProjectModel(project);
+
+    assertEquals(0, track0.getActiveClipIndex());
+    assertEquals(-1, bridge.getLaunchQueue(0));
+
+    JButton clipPad1 = panel.pads[0][1];
+    assertNotNull(clipPad1);
+    java.awt.event.MouseEvent normalClick = new java.awt.event.MouseEvent(
+        clipPad1, java.awt.event.MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(), 0, 0, 0, 1, false, java.awt.event.MouseEvent.BUTTON1);
+    for (java.awt.event.MouseListener ml : clipPad1.getMouseListeners()) {
+      ml.mousePressed(normalClick);
+    }
+
+    assertEquals(1, bridge.getLaunchQueue(0));
+    assertEquals(0, track0.getActiveClipIndex());
+
+    java.awt.event.MouseEvent shiftClick = new java.awt.event.MouseEvent(
+        clipPad1, java.awt.event.MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(), java.awt.event.InputEvent.SHIFT_DOWN_MASK, 0, 0, 1, false, java.awt.event.MouseEvent.BUTTON1);
+    for (java.awt.event.MouseListener ml : clipPad1.getMouseListeners()) {
+      ml.mousePressed(shiftClick);
+    }
+
+    assertEquals(1, track0.getActiveClipIndex());
+    assertEquals(1, bridge.getCurrentClip(0));
+
+    bridge.shutdown();
+  }
+
   private JButton getSoloButton(SongGridPanel panel, int trackIdx) {
     int col = panel.columnCount - 1; // Solo column is the last column
     for (int r = 0; r < panel.gridMode.rows; r++) {

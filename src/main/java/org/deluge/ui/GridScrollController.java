@@ -226,7 +226,8 @@ public final class GridScrollController {
   public void resetScrollOffset() {
     boolean isSynth = context.isSynthTrack();
     int scrollOffset;
-    if (isSynth) {
+    if (isSynth && (context.getViewMode() == SwingGridPanel.GridViewMode.CLIP
+        || context.getViewMode() == SwingGridPanel.GridViewMode.AUTOMATION)) {
       if (context.isFoldMode()) {
         context.updateFoldedPitches();
         scrollOffset = 0;
