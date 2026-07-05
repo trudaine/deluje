@@ -41,13 +41,7 @@ deluge/`) and the Java (`org.deluge.ui`); everything not put side by side is lis
 2. **[FIXED] Arranger horizontal scroll inconsistency.** Fixed the double-scroll offset bug in `ArrangerGridPanel` tool tip resolution by passing `colId` (visible column index) instead of `col` (scroll-offsetted column) to `getArrangerClipAt`.
 3. **[FIXED] Step fill/nudge conflation.** `StepPropertiesEditor.applyStepProperties` now pushes the nudge and fill values into their correct respective fields in both the model and the bridge.
 4. **[FIXED] \`DelugeColour.fromHuePastel\` drops the C's dark-channel floor.** Updated `DelugeColour.java` to set the dark channel floor to `256 - kMaxPastel` (= 26), matching the C firmware's behavior.
-5. **Dead code shipped as if functional**: `SwingChordKeyboardPanel` (complete CORK/CORL chord
-   layouts, instantiated nowhere), `SwingArrangerPanel` (unused; had the only ctrl+wheel
-   arranger zoom), `ui/views/SessionView` (a placeholder that pops "LAUNCH x:y"),
-   `BarAutomationDialog` (its getters are never called), `AutomationParam.KIT_PARAMS`/
-   `ARR_PARAMS` (referenced by no UI), `SongSection.numRepeats` (parsed/serialized, never used); the entire firmware-style HID/menu
-   stack (`MatrixDriver`, `MenuView`, `ui/menu/SoundEditor`, `SwingMatrixPanel`) — the only
-   faithful-idiom control port in the app, with zero callers.
+5. **[FIXED] Dead code shipped as if functional.** Deleted the dead/unused firmware-style HID and menu stack (including `MatrixDriver`, `Flasher`, `PadLEDs`, `SwingMatrixPanel`, `SwingChordKeyboardPanel`, `SwingArrangerPanel`, and the entire `org.deluge.ui.views` and `org.deluge.ui.menu` packages), cleaning up the repository.
 6. **[FIXED] Gold-knob edits are not undoable.** `DelugeModKnobBar` now pushes a `Consequence`
    onto the undo stack whenever a knob edit occurs, aligning it with other edit surfaces.
 7. **[FIXED] Tap tempo is implemented twice with different algorithms.** Unified the tap tempo implementations so that `SwingTopBarPanel` delegates directly to `TransportController.tapTempo()`.
