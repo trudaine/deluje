@@ -400,7 +400,32 @@ Also applied and gated — **final: median 0.797, mean 0.757, ≥0.90: 26, ≥0.
   previously the older head was NEVER written, so every hop crossfaded against stale audio) and
   the `maxOffsetFromHead` operand swap is fixed (C:445-446).
 
-Still open: wavetable osc-sync, reverb sidechain ducking (auto-mode param borrowing), stutter
-chain position (dormant — no beginStutter caller), sample end-of-note sinc tail / stereo
-samples, timestretch init/hop details, the volume-clamp upstream investigation, and the master
-gain chain (blocked, §4.5).
+### Fourth pass (2026-07-05, later)
+
+Scorecard held at median 0.800 / mean 0.758 / ≥0.80: 91 / <0.60: 25 — this pass was
+correct-by-construction work on paths the single-note preset renders don't exercise:
+
+- Timestretch init (time_stretcher.cpp:54-56, 130-139): both heads start active and the real
+  attack plays for kDefaultFirstHopLength (200) ± random before the first hop (was: immediate
+  hop, displacing every stretched attack); the crossfade-offset search + olderOscPos fold-in now
+  gate on playHeadStillActive[OLDER] (C:612).
+- Wavetable osc-sync ported (wave_table.cpp:1128-1180): a generic renderOscSync session loop
+  (render_wave.h:25-90) wraps doRenderingLoop/doRenderingLoopSingleCycle, with the
+  cross-cycle-strength advance in the crossover-redo callback; the resetter advances across
+  cycle chunks (C:1156). Sync params were previously accepted and ignored.
+- Reverb sidechain ducking (audio_engine.cpp:806-844 + 1251-1317 auto mode): the engine's
+  reverbSidechain renders from the shared hit bus and ducks the reverb output volume; auto mode
+  borrows volume (the modified SIDECHAIN→POST_REVERB_SEND cable amount), shape, attack, release
+  and syncLevel from the sound with the most reverb send. The C's manual mode is not modeled
+  (hardware defaults to auto, song.cpp:185).
+- Volume-clamp investigation CLOSED as blocked-by-§4.5: probing the scorecard run shows the
+  clamp fires only for the FM-modulator (neutral 2^25, patched up to ~854M ≈ 1.6x) and volume
+  (neutral 2^27) families. The C is unclamped, but our per-stage levels are deliberately
+  non-faithful (osc amplitude >>30 vs C net >>32 etc.), so the over-unity parabola region
+  drives our nonlinear stages (ladder drive, per-voice tanh, master compressor) at ~4x the C's
+  absolute level — that's why removing the clamp regressed. It can only be removed together
+  with the master gain-chain re-derivation.
+
+Still open: stutter chain position (dormant — no beginStutter caller), sample end-of-note sinc
+tail / stereo samples, remaining timestretch hop details (perc-cache beam refinement, hop
+deferral, end-of-heads voice unassign), and the master gain chain (blocked, §4.5).
