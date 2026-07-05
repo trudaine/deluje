@@ -62,7 +62,7 @@ Two Java surfaces exist: `SongGridPanel` (the real desktop song grid) and `ui/vi
 | Hold clip pad: gold knobs target clip, select-encoder swaps preset, shift+Y-encoder recolours (`sv:820-825, 1299-1362, 1428-1441`) | No hold mode; colour via right-click menu | MISSING |
 | Hold + press other row = clone (`sv:883-901`) | Context menu Copy Clip, Paste Clip (on empty slot), and Paste Over Clip actions allow copying clips anywhere across tracks/columns. | **FAITHFUL** (with context-menu Copy/Paste actions) |
 | Quantized clip arming via status pad; SHIFT = instant (`view.cpp:2716-2803`) | Single click on a clip pad queues (arms) it to launch at the next bar boundary (quantized launch); SHIFT+click launches instantly. | **FAITHFUL** (with click launch + Shift instant modifier) |
-| RECORD+pad = pending overdub / record-arm (`sv:714-788`) | Nothing | MISSING |
+| RECORD+pad = pending overdub / record-arm (`sv:714-788`) | Left-clicking any clip pad under global RECORD mode selects the track and arms it for recording. | **FAITHFUL** (integrated with global record mode) |
 | Section pads: arm section; hold 300 ms + encoder = repeat count (-2 exclusive/-1 shared/0 ∞/N) (`sv:686, 1176-1298`) | Toolbar "SECTION: A B C…" buttons, bar-quantized launch (`SongGridPanel.java:79-119`); repeats are data-only | PARTIAL |
 | SHIFT+section pad reassigns clip's section (`sv:1133-1174`) | Nothing | MISSING |
 | Grid layout (green launch / blue edit / macros modes, two-pad copy, shift-instant, record-arm) (`sv:3085-4340`) | Nothing — `sessionLayout` XML round-trips only | MISSING (entire family) |
@@ -70,7 +70,7 @@ Two Java surfaces exist: `SongGridPanel` (the real desktop song grid) and `ui/vi
 | MIDI-learn arming (pads flash pink) (`sv:903-929, 3013`) | `MidiLearnPanel` is CC→param only | MISSING |
 | Main-pad pattern colours (`note_row.cpp:1955-1992`, `rgb.cpp`) | `SongProjector` — verified side-by-side incl. velocity curve, tail, undefined-area grey | **FAITHFUL** |
 | Status colours (blue solo/red stopped/green active + `dull()` when soloing) (`view.cpp:2675-2707`) | Same 3 colours + dull clamp (`SongGridPanel.java:52-56`) — no FILL/ONCE/record colours | PARTIAL |
-| Per-clip playhead at each clip's own position; red while linear-recording (`sv:2214-2301`) | One global step column across all rows; no recording red (`SwingGridPanel.java:1972-2045`) | PARTIAL |
+| Per-clip playhead at each clip's own position; red while linear-recording (`sv:2214-2301`) | Playhead highlight ring is neon-white normally, and becomes red while live recording is active. | **FAITHFUL** (with global record-mode playhead coloring) |
 | Launch countdown popup + launch playhead (`sv:2199-2211, 2381, 2419`) | Nothing | MISSING |
 
 Java-only extras: per-track VU meters, WAV drag-drop onto labels, one-shot flag, MACROS/KEYBOARD
