@@ -36,26 +36,26 @@ graph TD
 ### Phase 1: Bidirectional Project & File Transfer [COMPLETED]
 * **Description**: Transfer XML song files, custom synth presets, and WAV samples directly to and from the Deluge SD card over USB CDC Serial.
 * **Implementation Details**:
-  * **C++**: Implemented `processIncomingCdcData` and `processOutgoingFileTransfer` in [usb_sync.cpp](file:///Users/ludo/a/DelugeFirmware/src/deluge/io/usb/usb_sync.cpp).
+  * **C++**: Implemented `processIncomingCdcData` and `processOutgoingFileTransfer` in [usb_sync.cpp](../../DelugeFirmware/src/deluge/io/usb/usb_sync.cpp).
     * `0x02` (Request Directory Listing) $\rightarrow$ Returns `0x03` with entries list.
     * `0x04` (Request File Read) $\rightarrow$ Streams file chunks in `0x05` (512-byte blocks) sequentially, yielding to other threads to avoid blocking CPU/audio.
-  * **Java**: Implemented response parsing and listeners in [DelugeUsbSyncService.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/usb/DelugeUsbSyncService.java).
+  * **Java**: Implemented response parsing and listeners in [DelugeUsbSyncService.java](../src/main/java/org/deluge/usb/DelugeUsbSyncService.java).
 * **How to run the Diagnostic Utility**:
   1. Flash the updated firmware on the Deluge. Ensure `USBS` settings option is `ON`.
   2. Connect the Deluge via USB.
-  3. Run the Java class **[HardwareUsbFileTransferDiagnostic.java](file:///Users/ludo/a/deluje/src/test/java/org/deluge/usb/HardwareUsbFileTransferDiagnostic.java)**.
+  3. Run the Java class **[HardwareUsbFileTransferDiagnostic.java](../src/test/java/org/deluge/usb/HardwareUsbFileTransferDiagnostic.java)**.
   4. The tool will connect, request the `"/SONGS"` folder, print the list of song files, and automatically download the first XML song file, saving it as `downloaded_song.xml` locally.
 
 ### Phase 2: Interactive Preset & Envelope Editor [COMPLETED]
 * **Description**: Read and write Deluge synthesizer preset parameters (like filter resonance, LPF morph, ADSR envelope stages, oscillator volumes) in real-time over the CDC Serial port.
 * **Implementation Details**:
-  * **C++**: Added serial packet commands in [usb_sync.cpp](file:///Users/ludo/a/DelugeFirmware/src/deluge/io/usb/usb_sync.cpp):
+  * **C++**: Added serial packet commands in [usb_sync.cpp](../../DelugeFirmware/src/deluge/io/usb/usb_sync.cpp):
     * `0x09` (Write Parameter): Resolves parameter kind and ID, and applies value to the active output instrument in the model stack.
     * `0x0A` (Read Parameter): Retrieves the parameter's current value and returns it in a `0x0B` packet.
-  * **Java**: Implemented senders and listeners in [DelugeUsbSyncService.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/usb/DelugeUsbSyncService.java).
+  * **Java**: Implemented senders and listeners in [DelugeUsbSyncService.java](../src/main/java/org/deluge/usb/DelugeUsbSyncService.java).
 * **How to run the Diagnostic Utility**:
   1. Ensure a Synth clip is active on the Deluge.
-  2. Run the Java class **[HardwareUsbParameterDiagnostic.java](file:///Users/ludo/a/deluje/src/test/java/org/deluge/usb/HardwareUsbParameterDiagnostic.java)**.
+  2. Run the Java class **[HardwareUsbParameterDiagnostic.java](../src/test/java/org/deluge/usb/HardwareUsbParameterDiagnostic.java)**.
   3. The tool will read the active LPF Resonance, write a new value, read it back to verify, and output the result.
 
 ### Phase 3: Visual Pad Matrix Mirroring & Remote Control
