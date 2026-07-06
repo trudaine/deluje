@@ -25,6 +25,7 @@ class HardwareDspTapTest {
 
   static final byte[] MFR = {0x00, 0x21, 0x7B, 0x01}; // Deluge manufacturer id + 0x01
   static final int CMD_DEBUG = 0x03;
+  static final int SR = 44100;
 
   static int findDeluge(String[] ports) {
     for (int i = 0; i < ports.length; i++) {
@@ -75,6 +76,45 @@ class HardwareDspTapTest {
       // (3b) Poll mode: for -Dtap.poll=<seconds>, repeatedly capture and keep the loudest window
       // (so a note held on the DEVICE anytime during the run is caught — no tight timing). Saves
       // the loudest window to -Dtap.out (default target/tap_capture.txt) as one int32 per line.
+      // (3c) Modulator-envelope mode: -Dtap.mod=true arms the per-block modulator-amplitude tap on
+      // the next note onset (subcmd 6), lets it capture for -Dtap.settle ms (whole decay), freezes
+      // (subcmd 7), and reads the partial buffer — one modulator-0 amplitude value per audio block.
+      if (Boolean.getBoolean("tap.mod")) {
+        sendSysex(out, new int[] {CMD_DEBUG, 0x06}); // arm-modulator-on-next-note
+        int waitSecs = Integer.getInteger("tap.wait", 30);
+        System.out.println("MOD-TAP armed — STRIKE the note once now (waiting " + waitSecs + "s)…");
+        long deadline = System.currentTimeMillis() + waitSecs * 1000L;
+        boolean got = false;
+        while (System.currentTimeMillis() < deadline) {
+          Thread.sleep(250);
+          DspTapCodec.Chunk p = readChunk(out, in, 0);
+          if (p != null && p.nSamples() > 0) {
+            int pk = 0;
+            for (int v : p.samples()) pk = Math.max(pk, Math.abs(v));
+            if (pk > 0) {
+              got = true;
+              break;
+            }
+          }
+        }
+        Assumptions.assumeTrue(got, "no note captured for modulator tap");
+        Thread.sleep(Integer.getInteger("tap.settle", 4000)); // capture the decay (one/block)
+        sendSysex(out, new int[] {CMD_DEBUG, 0x07}); // stop/freeze
+        Thread.sleep(60);
+        DspTapCodec.Chunk c = readChunk(out, in, 0);
+        int total = (c == null) ? 0 : c.capturedCount();
+        Assumptions.assumeTrue(total > 0, "modulator tap empty");
+        int[] traj = capture(out, in, total);
+        String outPath = System.getProperty("tap.out", "target/tap_modulator.txt");
+        StringBuilder sb = new StringBuilder();
+        for (int v : traj) sb.append(v).append('\n');
+        java.nio.file.Files.writeString(java.nio.file.Path.of(outPath), sb.toString());
+        System.out.printf(
+            "MOD TAP: %d blocks (~%.2fs), first=%d last=%d -> %s%n",
+            traj.length, traj.length * 128.0 / SR, traj[0], traj[traj.length - 1], outPath);
+        return;
+      }
+
       // (3a) Onset-synced mode: -Dtap.onset=true asks the firmware to arm at the next note onset
       // (Debug subcmd 5), so a single strike captures the bright ATTACK. Waits -Dtap.wait secs for
       // you to strike once, then reads back. Saves to -Dtap.out (default target/tap_capture.txt).
@@ -100,6 +140,14 @@ class HardwareDspTapTest {
           }
         }
         Assumptions.assumeTrue(gotAudio, "no note captured — did a note strike after arming?");
+        // The strike was detected mid-fill; wait for the 93 ms window to complete (capturedCount
+        // stops growing) so the multi-chunk read sees a consistent, frozen buffer.
+        Thread.sleep(150);
+        for (int s = 0; s < 20; s++) {
+          DspTapCodec.Chunk s0 = readChunk(out, in, 0);
+          if (s0 != null && s0.capturedCount() >= 4096) break;
+          Thread.sleep(20);
+        }
         int[] full = capture(out, in, probe.capturedCount());
         int pk = 0;
         long nz = 0;
