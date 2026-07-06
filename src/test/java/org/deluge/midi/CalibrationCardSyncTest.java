@@ -58,6 +58,16 @@ class CalibrationCardSyncTest {
   }
 
   @Test
+  void pushSongUploadsOnlyTheSong(@TempDir File dir) throws Exception {
+    File song = new File(dir, "FM_CAL.XML");
+    Files.write(song.toPath(), "song".getBytes());
+    FakeCard card = new FakeCard();
+    String remote = new CalibrationCardSync(card).pushSong(song);
+    assertEquals("/SONGS/FM_CAL.XML", remote);
+    assertEquals(List.of("/SONGS/FM_CAL.XML"), new ArrayList<>(card.uploads.keySet()));
+  }
+
+  @Test
   void pullWritesSamplesFileToLocalDest(@TempDir File dir) throws Exception {
     FakeCard card = new FakeCard();
     card.files.put("/SAMPLES/output_000.wav", "WAVDATA".getBytes());

@@ -48,6 +48,16 @@ public class CalibrationCardSync {
     return pushCalibration(songXml, presetXmls, STDOUT);
   }
 
+  /**
+   * Upload just the song to {@code /SONGS} (for calibration songs whose synth presets are already
+   * on the card, e.g. stock ludocard presets). Convenience for {@code pushCalibration(song, [])}.
+   *
+   * @return the remote song path written
+   */
+  public String pushSong(File songXml) throws Exception {
+    return pushCalibration(songXml, List.of());
+  }
+
   public String pushCalibration(File songXml, List<File> presetXmls, Progress progress)
       throws Exception {
     int total = presetXmls.size() + 1;

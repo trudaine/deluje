@@ -45,17 +45,30 @@ public class DelugeHwStatusPanel extends JPanel {
     label.setFont(new Font("SansSerif", Font.BOLD, 10));
     add(label);
 
-    // Click to manually trigger a connection test
+    // Click to manually trigger a connection test; right-click for card push/pull actions.
     addMouseListener(
         new MouseAdapter() {
           @Override
           public void mouseClicked(MouseEvent e) {
-            // A manual click is also a "reconnect" gesture: if the output port never opened
-            // (e.g. the Deluge wasn't enumerable at startup), re-run the MIDI open before pinging.
-            if (!midiService.isOutputConnected()) {
-              midiService.reconnect();
+            if (SwingUtilities.isLeftMouseButton(e)) {
+              // A manual click is also a "reconnect" gesture: if the output port never opened
+              // (e.g. the Deluge wasn't enumerable at startup), re-run the MIDI open before
+              // pinging.
+              if (!midiService.isOutputConnected()) {
+                midiService.reconnect();
+              }
+              triggerPingTest();
             }
-            triggerPingTest();
+          }
+
+          @Override
+          public void mousePressed(MouseEvent e) {
+            maybeShowCardMenu(e);
+          }
+
+          @Override
+          public void mouseReleased(MouseEvent e) {
+            maybeShowCardMenu(e);
           }
         });
 
@@ -76,6 +89,94 @@ public class DelugeHwStatusPanel extends JPanel {
 
     // Trigger initial check immediately
     triggerPingTest();
+  }
+
+  /** Show the card push/pull popup on a platform popup-trigger (right-click). */
+  private void maybeShowCardMenu(MouseEvent e) {
+    if (!e.isPopupTrigger()) {
+      return;
+    }
+    javax.swing.JPopupMenu menu = new javax.swing.JPopupMenu();
+    javax.swing.JMenuItem push = new javax.swing.JMenuItem("Push Song to Card…");
+    push.addActionListener(a -> pushSongToCard());
+    javax.swing.JMenuItem pull = new javax.swing.JMenuItem("Pull Recording from Card…");
+    pull.addActionListener(a -> pullRecordingFromCard());
+    boolean online = midiService.isOutputConnected();
+    push.setEnabled(online);
+    pull.setEnabled(online);
+    menu.add(push);
+    menu.add(pull);
+    menu.show(e.getComponent(), e.getX(), e.getY());
+  }
+
+  /**
+   * Pick a song XML and upload it to the card's /SONGS over USB (presets assumed already there).
+   */
+  private void pushSongToCard() {
+    javax.swing.JFileChooser fc = new javax.swing.JFileChooser();
+    fc.setDialogTitle("Push Song to Deluge Card");
+    fc.setFileFilter(
+        new javax.swing.filechooser.FileNameExtensionFilter("Deluge song XML", "xml", "XML"));
+    if (fc.showOpenDialog(this) != javax.swing.JFileChooser.APPROVE_OPTION) {
+      return;
+    }
+    java.io.File song = fc.getSelectedFile();
+    var sync =
+        new org.deluge.midi.CalibrationCardSync(
+            new org.deluge.midi.DelugeFileSyncTransport(midiService.getFileSyncService()));
+    runCardOp(
+        "Pushing " + song.getName() + " to /SONGS…",
+        () -> {
+          String remote = sync.pushSong(song);
+          return "Pushed to " + remote;
+        });
+  }
+
+  /** Download /SAMPLES/output_000.wav off the card to a chosen local file. */
+  private void pullRecordingFromCard() {
+    javax.swing.JFileChooser fc = new javax.swing.JFileChooser();
+    fc.setDialogTitle("Pull Recording from Deluge Card");
+    fc.setSelectedFile(new java.io.File("output_000.wav"));
+    if (fc.showSaveDialog(this) != javax.swing.JFileChooser.APPROVE_OPTION) {
+      return;
+    }
+    java.io.File dest = fc.getSelectedFile();
+    var sync =
+        new org.deluge.midi.CalibrationCardSync(
+            new org.deluge.midi.DelugeFileSyncTransport(midiService.getFileSyncService()));
+    runCardOp(
+        "Pulling /SAMPLES/output_000.wav…",
+        () -> {
+          sync.pullRecording("output_000.wav", dest);
+          return "Saved to " + dest.getAbsolutePath();
+        });
+  }
+
+  /** Run a blocking card op on a background thread with a simple result dialog. */
+  private void runCardOp(String status, java.util.concurrent.Callable<String> op) {
+    label.setText(status);
+    Thread t =
+        new Thread(
+            () -> {
+              String msg;
+              int type = javax.swing.JOptionPane.INFORMATION_MESSAGE;
+              try {
+                msg = op.call();
+              } catch (Exception ex) {
+                msg = "Failed: " + ex.getMessage();
+                type = javax.swing.JOptionPane.ERROR_MESSAGE;
+              }
+              final String fmsg = msg;
+              final int ftype = type;
+              SwingUtilities.invokeLater(
+                  () -> {
+                    javax.swing.JOptionPane.showMessageDialog(this, fmsg, "Deluge Card", ftype);
+                    triggerPingTest();
+                  });
+            },
+            "DelugeCardOp");
+    t.setDaemon(true);
+    t.start();
   }
 
   /** Run a live ping test to the physical Deluge. */
