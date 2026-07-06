@@ -28,7 +28,7 @@ This document outlines the strategic roadmap for expanding the USB integration b
 ```mermaid
 graph TD
     A["Phase 1: Project & File Transfer (USB SD card)"] -->|Completed / CDC Serial| B["Phase 2: Visual Preset & Envelope Editor"]
-    B -->|Medium Risk / MIDI SysEx| C["Phase 3: Visual Pad Matrix Mirroring"]
+    B -->|Completed / CDC Serial| C["Phase 3: Visual Pad Matrix Mirroring"]
     C -->|Medium Risk / CDC Serial| D["Phase 4: USB Audio Streaming (UAC2)"]
     D -->|High Risk / Isochronous DMA| E["Completed: Ultimate Hardware Integration"]
 ```
@@ -46,11 +46,17 @@ graph TD
   3. Run the Java class **[HardwareUsbFileTransferDiagnostic.java](file:///Users/ludo/a/deluje/src/test/java/org/deluge/usb/HardwareUsbFileTransferDiagnostic.java)**.
   4. The tool will connect, request the `"/SONGS"` folder, print the list of song files, and automatically download the first XML song file, saving it as `downloaded_song.xml` locally.
 
-### Phase 2: Interactive Preset & Envelope Editor
-* **Description**: A visual editor on the computer screen to configure FM operator algorithms, filters, envelopes, and patch modulation slots.
-* **Implementation Plan**:
-  * **C++**: Expand the existing MIDI SysEx handler to dump and accept parameter adjustments.
-  * **Java**: Build a beautiful Swing/JavaFX panel displaying interactive envelope curves (ADSR) and modulation routings that reflect and control the physical unit in real-time.
+### Phase 2: Interactive Preset & Envelope Editor [COMPLETED]
+* **Description**: Read and write Deluge synthesizer preset parameters (like filter resonance, LPF morph, ADSR envelope stages, oscillator volumes) in real-time over the CDC Serial port.
+* **Implementation Details**:
+  * **C++**: Added serial packet commands in [usb_sync.cpp](file:///Users/ludo/a/DelugeFirmware/src/deluge/io/usb/usb_sync.cpp):
+    * `0x09` (Write Parameter): Resolves parameter kind and ID, and applies value to the active output instrument in the model stack.
+    * `0x0A` (Read Parameter): Retrieves the parameter's current value and returns it in a `0x0B` packet.
+  * **Java**: Implemented senders and listeners in [DelugeUsbSyncService.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/usb/DelugeUsbSyncService.java).
+* **How to run the Diagnostic Utility**:
+  1. Ensure a Synth clip is active on the Deluge.
+  2. Run the Java class **[HardwareUsbParameterDiagnostic.java](file:///Users/ludo/a/deluje/src/test/java/org/deluge/usb/HardwareUsbParameterDiagnostic.java)**.
+  3. The tool will read the active LPF Resonance, write a new value, read it back to verify, and output the result.
 
 ### Phase 3: Visual Pad Matrix Mirroring & Remote Control
 * **Description**: Render an exact 8x16 grid interactive mirror of the Deluge pads in the Workstation UI. Clicking virtual pads triggers launch/mute states on hardware, and physical pad presses illuminate the UI in real-time.
