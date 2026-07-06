@@ -704,6 +704,32 @@ incoming MIDI note N an octave below its sequencer note N. Whether our emulation
 replicates that is a distinct live-MIDI parity question (not DSP; not scorecard-covered) — worth a
 check of `MidiInputRouter` note handling.
 
+### 4.13 T09 ladder + the MIDI octave offset — tap-verified (2026-07-06)
+
+Using the MIDI-controlled tap on the `T09 resonant LPF` preset (a clean saw+ladder, so pitch is
+unambiguous):
+
+- **Octave offset CONFIRMED (clean saw, not FM):** hardware MIDI note 60 fundamental = 140 Hz, our
+  `renderSynth(60)` = 264 Hz — the Deluge plays **MIDI-in note N ~an octave below its sequencer note
+  N** (our engine + the scorecard match the sequencer). Our `MidiInputRouter` triggers the raw MIDI
+  note (`triggerNote(midiNote)`), so our **live-MIDI input is ~an octave too high** vs a real Deluge.
+  A real (live-MIDI) parity gap — separate from DSP/scorecard. NB the exact offset (−12 vs a base
+  convention) needs one more clean capture to pin before fixing; peak-picking gave 264/140 ≈ 1.89.
+
+- **T09 ladder is largely faithful, pitch-matched.** Comparing our note-48 (129 Hz) to hardware
+  MIDI-60 (140 Hz) — matched pitch — both are fundamental-dominant with **no sub-oscillation** (sub<
+  fund = 0.000 both) and the resonant peak aligned (522 vs 528 Hz). The doc's "resonance peak at h4
+  not h2" is just the **fixed ~525 Hz cutoff** landing on h4 at low notes / h2 at note 60 — not a bug.
+  Residual: our note-60 render has a **~5%-amplitude period-doubling sub-harmonic** (129 Hz = fund/2)
+  absent at note-48 and (at matched low pitch) absent on hardware — a small, note-dependent ladder
+  instability, not the gross "150 Hz sub-oscillation" the reference-based scorecard implied. Couldn't
+  confirm against hardware at note-60 pitch (MIDI-72 capture was filter-attenuated to near-silence).
+
+**Same pattern as FM:** measured pitch-matched with the tap, T09 is largely faithful; the big
+reference-scorecard gap was inflated by pitch/note/alignment confounds. The real residuals (FM decay
+~20-30% bright; T09 5% sub-harmonic at high notes) are small. The one clearly-actionable item is the
+**MIDI-in octave offset** in `MidiInputRouter`.
+
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:
