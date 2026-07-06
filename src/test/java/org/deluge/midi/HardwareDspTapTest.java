@@ -81,8 +81,20 @@ class HardwareDspTapTest {
       // (subcmd 7), and reads the partial buffer — one modulator-0 amplitude value per audio block.
       if (Boolean.getBoolean("tap.mod")) {
         sendSysex(out, new int[] {CMD_DEBUG, 0x06}); // arm-modulator-on-next-note
+        boolean midiTrig = Boolean.getBoolean("tap.note");
+        int mch = Integer.getInteger("tap.ch", 0);
+        int mnote = Integer.getInteger("tap.midinote", 60);
+        if (midiTrig) {
+          Thread.sleep(50);
+          out.send(rawMsg(0x90 | (mch & 0x0F), mnote, 100)); // MIDI-triggered onset
+        }
         int waitSecs = Integer.getInteger("tap.wait", 30);
-        System.out.println("MOD-TAP armed — STRIKE the note once now (waiting " + waitSecs + "s)…");
+        System.out.println(
+            "MOD-TAP armed — "
+                + (midiTrig ? "MIDI-triggered" : "STRIKE the note")
+                + " (waiting up to "
+                + waitSecs
+                + "s)…");
         long deadline = System.currentTimeMillis() + waitSecs * 1000L;
         boolean got = false;
         while (System.currentTimeMillis() < deadline) {
@@ -100,6 +112,7 @@ class HardwareDspTapTest {
         Assumptions.assumeTrue(got, "no note captured for modulator tap");
         Thread.sleep(Integer.getInteger("tap.settle", 4000)); // capture the decay (one/block)
         sendSysex(out, new int[] {CMD_DEBUG, 0x07}); // stop/freeze
+        if (midiTrig) out.send(rawMsg(0x80 | (mch & 0x0F), mnote, 0)); // note-off
         Thread.sleep(60);
         DspTapCodec.Chunk c = readChunk(out, in, 0);
         int total = (c == null) ? 0 : c.capturedCount();
@@ -233,6 +246,13 @@ class HardwareDspTapTest {
       System.out.print("  first 8: ");
       for (int i = 0; i < Math.min(8, full.length); i++) System.out.print(full[i] + " ");
       System.out.println();
+      String fullOut = System.getProperty("tap.out", null);
+      if (fullOut != null && nz > 0) {
+        StringBuilder sb = new StringBuilder();
+        for (int v : full) sb.append(v).append('\n');
+        java.nio.file.Files.writeString(java.nio.file.Path.of(fullOut), sb.toString());
+        System.out.println("  wrote " + full.length + " samples -> " + fullOut);
+      }
       if (nz == 0) {
         System.out.println(
             "  (all zero = silence: the Deluge isn't producing audio. Play/hold a note on the"
