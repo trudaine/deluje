@@ -74,16 +74,22 @@ class HardwareDspTapTest {
 
       // (3) Full capture (arm, optional MIDI note, read all chunks).
       boolean withNote = Boolean.getBoolean("tap.note"); // -Dtap.note=true to try a MIDI note
-      sendSysex(out, new int[] {CMD_DEBUG, 0x03}); // re-arm
+      int ch = Integer.getInteger("tap.ch", 0);
+      int note = Integer.getInteger("tap.midinote", 60);
+      boolean noteHeld = false;
       if (withNote) {
-        int ch = Integer.getInteger("tap.ch", 0);
-        int note = Integer.getInteger("tap.midinote", 60);
-        out.send(rawMsg(0x90 | (ch & 0x0F), note, 100)); // note-on
-        Thread.sleep(200);
-        out.send(rawMsg(0x80 | (ch & 0x0F), note, 0)); // note-off
+        // note-on FIRST, let it sustain, THEN arm — so audio is already flowing during capture
+        // (disambiguates MIDI-routing failure from capture-timing).
+        out.send(rawMsg(0x90 | (ch & 0x0F), note, 100));
+        noteHeld = true;
+        Thread.sleep(Integer.getInteger("tap.predelay", 300));
       }
+      sendSysex(out, new int[] {CMD_DEBUG, 0x03}); // re-arm (capture the next 93 ms)
       Thread.sleep(150);
       int[] full = capture(out, in, c0.capturedCount());
+      if (noteHeld) {
+        out.send(rawMsg(0x80 | (ch & 0x0F), note, 0)); // note-off
+      }
       long nz = 0;
       int peak = 0;
       for (int v : full) {
