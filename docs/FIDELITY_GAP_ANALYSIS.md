@@ -564,6 +564,46 @@ buffers inside `FmCore`/`Oscillator` sync/`WaveTable`/`DX7` render loops) was re
 a stale-buffer timbre regression: **CAL bit-identical (median 0.810), full scorecard time-resolved
 median 0.800 (n=183)** — confirmed timbre-neutral.
 
+### 4.12 FM is a CONFIRMED real gap on valid ground truth — §4.1bis "artifact" verdict OVERTURNED (2026-07-06)
+
+A purpose-built isolated FM recording (`FM_CAL`: 7 native ludocard FM presets, one C4 each, 4 s
+gap so bell tails decay; `FmCalibrationScorecardTest`) gives the FIRST alignment-unambiguous FM
+ground truth — recorded on firmware nightly `9456095b` (= our port reference). Onset detection is
+clean (gaps 7.98–8.02 s) and the **anchor `050 FM Basic Bass` scores time=0.863**, a known-faithful
+low-index patch — so the recording, alignment, and metric are all validated. Against that control:
+
+| preset | time @ x1.0 (faithful) | time @ x0.0625 |
+|---|---|---|
+| 068 FM Bells 1 | **0.196** | 0.864 |
+| 069 FM Bells 2 | 0.596 | 0.872 |
+| 084 FM Narrow Band | 0.385 | 0.875 |
+| 093 FM Distorted Bells | 0.476 | 0.898 |
+| 095 Harsh FM Feedback | 0.638 | 0.767 |
+| 050 FM Basic Bass (anchor) | 0.863 | 0.929 |
+
+**This OVERTURNS §4.1bis's "mostly a MEASUREMENT artifact, NOT an engine bug" resolution.** That
+verdict rested on fragile per-synth alignment inside the big ALLSYN song and on the invalid C5 FM
+fixtures (§4.1quater). With a clean isolated recording + a validated anchor, the FM bells are
+genuinely too bright — a REAL engine gap. (Textbook case of CLAUDE.md's "past 'resolved/faithful'
+verdicts masked real divergences — re-verify, don't inherit.")
+
+**But the index sweep (`FmIndexSweepTest`, via `Voice.testFmIndexScale`) does NOT isolate the
+cause.** The time-resolved cosine improves *monotonically* as the modulator index is lowered, all
+the way down to x0.0625 (the lowest tested) — no clean optimum, NOT a tidy 2-bit/×4 shift. A
+monotonic "dimmer is always better" is consistent with EITHER (a) a constant index-scaling error,
+OR (b) our modulator amplitude not DECAYING over the note like hardware's, so a low *static* index
+just approximates the hardware's *decayed average*. A static-scale sweep cannot tell these apart.
+**Do NOT apply a multiplier** — that hacks the level without identifying the bug, and risks the
+§4.1quater "approaching FM-off carrier" trap. (`107 LPG Percussion` is flat across all scales — a
+correct control; its FM isn't driven by this seam.)
+
+**Decisive next step: the golden-buffer dump.** Compare the real firmware's per-sample FM modulator
+envelope (and output) for `068 FM Bells 1` against ours — that disambiguates constant-scale vs
+envelope-decay and pins the exact divergence. Baseline dump firmware builds from `trudaine/DelugeFirmware`
+`fork/main` (= `9456095b`) on this machine (see the calibration/hardware notes); the debug SysEx
+buffer-dump command is the tool to add. Until then, FM is "confirmed too bright, cause not yet
+isolated" — not "faithful."
+
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:
