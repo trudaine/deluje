@@ -35,7 +35,9 @@ Welcome to the **Deluge-Java Workstation**, a software recreation and operations
 13. [Pedal Looper & Continuous Multi-Layer Overdubs](#13-pedal-looper--continuous-multi-layer-overdubs)
 14. [MIDI Hardware, Device Mappings & Pure SD File Explorer](#14-midi-hardware-device-mappings--pure-sd-file-explorer)
     * [14.5 MIDI CC Parameter Takeover Algorithms](#145-midi-cc-parameter-takeover-algorithms)
-    * [14.6 DAW Import Suite: Ableton Live Set (.als) Importer](#146-daw-import-suite-ableton-live-set-als-importer)
+    * [14.6 Bidirectional SysEx Command Protocol](#146-bidirectional-sysex-command-protocol)
+    * [14.7 DAW Import Suite: Ableton Live Set (.als) Importer](#147-daw-import-suite-ableton-live-set-als-importer)
+    * [14.8 Card Sync, Live DSP-Tap & Parity Calibration](#148-card-sync-live-dsp-tap--parity-calibration)
 15. [Performance View & FX Touch-Pads Grid](#15-performance-view--fx-touch-pads-grid)
 16. [MPE & Multi-Dimensional Controller Expression](#16-mpe--multi-dimensional-controller-expression)
 17. [System Settings, Directories Preferences & Shortcuts Table](#17-system-settings-directories-preferences--shortcuts-table)
@@ -1039,7 +1041,7 @@ Upcoming bidirectional capabilities include:
 
 ---
 
-### 14.6 DAW Import Suite: Ableton Live Set (.als) Importer
+### 14.7 DAW Import Suite: Ableton Live Set (.als) Importer
 
 The Deluge Workstation features a **DAW Import Suite** that lets you import Ableton Live Sets (`.als` files) directly into the sequencer. It parses the Ableton project and reconstructs the track layout, mixer volume levels, MIDI clips, arranger timeline, and instrument parameters.
 
@@ -1071,6 +1073,39 @@ Follow these precise steps to import your Ableton Live Set and play it in the De
 4. **Select the Samples Folder**: Browse and select the folder containing your collected WAV samples.
 5. **Load the Project**: Click **`Import & Load Project`**. The workstation parses the tracks, extracts the clips, runs the hybrid parameter translator, writes the Deluge Song XML, and loads it directly into the audio engine.
 6. **Press Play**: Watch the playhead sweep across the sequencer grid in perfect sync, triggering rich, bouncy detuned basslines, resonant vocal leads, and crisp drum kits with absolute timbral parity!
+
+---
+
+### 14.8 Card Sync, Live DSP-Tap & Parity Calibration
+
+The Workstation features a **Hardware Calibration & Sync Deck** designed for developers and power users who want to link their physical Deluge directly to the software workstation via USB for file transfers and sample-accurate DSP comparisons.
+
+#### 🗂️ 1. USB SD Card Synchronization (Push & Pull)
+Instead of ejecting and inserting the SD card continually, the workstation communicates directly with the physical Deluge's file system over USB using the Card Sync utility:
+* **Pulling Songs/Presets**: Right-click the **Hardware Status Panel** (or the **Pure SD Card Explorer** sidebar) and select **"Pull Calibration Files"** or **"Sync Card Content"**. This reads XML files and samples directly from the physical Deluge's SD Card and clones them into the local directory.
+* **Pushing Workstation Edits**: Edit your song or synth parameters in the Java UI, then select **"Push Current Song to Card"** from the status panel. The workstation packages the XML payload and transfers it over USB, saving it instantly on the physical Deluge's SD Card.
+
+#### 🔭 2. Live DSP-Tap Hardware Capture
+For absolute audio-fidelity debugging, you can capture raw, sample-accurate, 32-bit floating-point audio data directly from the physical Deluge's hardware DSP rendering buffer over USB. This allows you to compare the physical hardware's audio output side-by-side with the Java emulation:
+* **Requirements**: Connect the physical Deluge via USB and ensure it is running the custom C++ firmware compiled from the `feat/dsp-buffer-dump` branch.
+* **Arming the Capture**: Run the hardware harness (`HardwareDspTapTest`) from your terminal:
+  ```bash
+  mvn test -Dtest=HardwareDspTapTest -Pslow-tests -Dgpg.skip=true
+  ```
+* **Triggering**: The harness communicates with the Deluge via SysEx, sends a MIDI note-on trigger, arms the capture on the hardware at note-onset to capture the exact attack transient, and reads back the 4096-sample rendering buffer chunk-by-chunk.
+* **Analysis**: The captured samples are stored locally to let you run spectral analysis and time-resolved cosine comparisons to calibrate envelopes, filters, and modulation indices.
+
+#### 🛠️ Example: Debugging & Calibrating an FM Bell Patch
+Here is how to run a live debugging session to calibrate the FM synthesis engine (e.g., `068 FM Bells 1`) to match the hardware:
+1. **Connect the Deluge**: Enable USB MIDI on your hardware running the debug firmware.
+2. **Synchronize the Patch**: Right-click the status panel and select **"Pull Calibration Files"**. This pulls the XML preset onto your computer.
+3. **Capture Hardware Output**: Run the tap harness with `-Dtap.onset=true`. Strike the note pad on the physical Deluge. The harness arms, captures the sound, and saves the raw DSP float buffer to `target/tap_capture.txt`.
+4. **Compare & Calibrate**: Run the FM Index Sweep test suite:
+   ```bash
+   mvn test -Pslow-tests -Dtest=FmIndexSweepTest
+   ```
+   This renders the patch inside the Java engine at different modulation index multiplier scales and compares each mathematically (log-spectral cosine similarity) against the hardware capture.
+5. **Adjust Engine Parameters**: Use the sweep results to identify whether the mismatch is a constant scaling difference (e.g., index multiplier needs to be scaled by 0.5) or an envelope decay issue, and adjust your synthesis coefficients in `org.deluge.firmware2` to achieve perfect parity.
 
 ---
 

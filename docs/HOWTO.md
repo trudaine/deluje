@@ -114,3 +114,24 @@ To detune individual sample zones inside a multisample instrument:
 1.  Double-click the sample track header to open the synth options, and click **"Keyzone Mapper"**.
 2.  Click on a mapped keyzone rectangle in the visual editor map.
 3.  In the details panel under **PITCH LIMITS**, adjust the **Transpose** spinner (range of ±48 semitones). The synthesis engine will instantly update sample playback rates in real time.
+
+---
+
+## 5. Hardware Synchronization & DSP Parity Calibration
+
+### How to Sync Songs and Presets Over USB
+To transfer songs and presets directly to and from your physical Deluge's SD card over USB without removing the card:
+1.  Connect the physical Deluge to your computer via USB and verify it is powered on.
+2.  Right-click the **Hardware Status Panel** (or the **Pure SD Card Explorer** sidebar) in the Workstation.
+3.  *   Select **"Pull Calibration Files"** or **"Sync Card Content"** to clone songs/presets from the Deluge SD card onto your computer.
+    *   Select **"Push Current Song to Card"** to save your active project directly to the Deluge SD card.
+
+### How to Run a Live DSP Parity Calibration Session
+To capture sample-accurate rendering audio from the physical Deluge to calibrate a synth patch's envelope, filters, or FM index:
+1.  Connect the physical Deluge via USB and ensure it is running the custom C++ firmware compiled from the `feat/dsp-buffer-dump` branch.
+2.  In your terminal, launch the live hardware capture harness:
+    ```bash
+    mvn test -Dtest=HardwareDspTapTest -Pslow-tests -Dgpg.skip=true -Dtap.onset=true
+    ```
+3.  When prompted by the console, strike a note pad on the physical Deluge. The harness will detect the note-on trigger, arm the capture at note-onset, and read back the 4096-sample rendering buffer over USB.
+4.  Run the index sweep or scorecard test suite (e.g., `FmIndexSweepTest` or `FmCalibrationScorecardTest`) to compare the capture against the Java simulation and determine the necessary parameter adjustments.
