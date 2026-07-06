@@ -514,6 +514,56 @@ the clamp never triggered for this signal and was NOT the cause of the sub-oscil
 residual (resonance-peak position / low-frequency content) is still open and lives elsewhere in the
 ladder — a subtler tuning/fixed-point issue, not the shifts.
 
+### 4.10 Ladder fully bit-audited faithful; `fc` clamp fixed; T09 root cause is NOT in the ladder (2026-07-06)
+
+Extended the §4.9 ladder review to the pieces prior passes never checked, doing a Java→C
+line-by-line read of the **entire** 24 dB path for the T09 (resonant LPF, note 60) regime:
+`setConfig`, `scaleInput` (lpladder.h:52), `do24dBLPFOnSample` (lpladder.cpp:345), the
+`BasicFilterComponent` integrator/feedback (`doFilter`/`doAPF`/`getFeedbackOutput*`,
+ladder_components.h:27-48), AND the base-class `curveFrequency` + `instantTan`. Result: **the whole
+ladder DSP path is faithful for T09's parameter regime.**
+
+**One real faithfulness bug found + fixed (commit `2bcd277c`):** `Filter.curveFrequency` computed
+`fc` with the clamping `lshiftAndSaturate(…, 4)` where C `filter.h:135` uses a **plain (wrapping)
+`<< 4`**. `fc` feeds `moveability`, the core ladder coefficient — same plain-`<<`-vs-saturating-`<<`
+class as the §4.9 fixes. **Scorecard-neutral / bit-identical everywhere** (FidelityScorecardTest
+time-resolved median 0.800, PresetScorecardTest note-60 T08 0.931 / T09 0.697 / median 0.827
+unchanged) because no in-range patch has a cutoff extreme enough to overflow int32 — it only diverges
+near Nyquist, so it's a pure faithfulness correction, zero regression. **The identical divergence
+exists in `instantTan`** (functions.cpp does `(a+b) << 1` in int32 = wraps; Java promotes to `long`
+and clamps to INT_MAX) — left as-is because matching C's wrap yields negative-tan nonsense at the
+near-Nyquist extreme; revisit with the golden-buffer harness, not by eye.
+
+**T09 is unmoved (0.697 ≈ prior 0.695).** The valuable negative result: the instability is **NOT in
+the ladder math** (now comprehensively verified faithful). It lives upstream — the resonance/cutoff
+**param values** fed into `setConfig` (patcher/paramFinal path), or the reference — and pinning it
+needs **sample-level C diffing** (a standalone C golden-buffer harness for `LpLadderFilter`), not
+another read-audit. Do not re-run the ladder read-audit; it's done.
+
+### 4.11 T28 drive/saturation is FAITHFUL — a downstream symptom of the §4.5 gain debt (2026-07-06)
+
+Re-opened §4.8's "one confirmed real bug" (T28 drive attenuates instead of saturating). Traced the
+per-voice saturation end-to-end against C: `Voice` saturation loop (voice.cpp:1553-1565),
+`Sound::saturate`/`getShiftAmountForSaturation` (sound.h:286,290 — the Java `Sound` override
+correctly uses `(clip>=2)?clip-2` distinct from `GlobalEffectableForClip`'s `>=3 / -3`),
+`getTanHAntialiased` + `interpolateTableSigned2d` (functions.h:294,244) with the 129×65 `tanH2d`
+table. **All faithful.** The algebra is the tell: net output shift = `(clip-2) − (5+clip+1) = −8`,
+**independent of clippingAmount** — which is *exactly* the measured flat level across clip 2–15. So
+the attenuation is inherent to the (faithful) soft-saturator, NOT a bug in it.
+
+**Root cause: the tanh is a level-dependent waveshaper fed a signal ~30× too quiet** (§4.5: our
+voice stage is ~30× below C's). At 0.09 fs input the pre-scale doesn't drive the tanh into its
+compression/boost region, so it applies its ~0.5 linear gain and the `<<(clip-2)` makeup can't
+recover it; on C the near-full-scale input compresses-with-harmonics. **T28 is therefore blocked on
+the same master/voice-gain calibration as §4.5** — do NOT hack the saturation math (prior local
+attempts "changed nothing" for this reason). Unblocks together with §4.5 via a C-execution buffer
+dump or level-calibrated hardware capture.
+
+**Method note (2026-07-06):** the GC-allocation commit wave (`e80178a8`…`d3e3d31a`, reusing scratch
+buffers inside `FmCore`/`Oscillator` sync/`WaveTable`/`DX7` render loops) was re-scored to rule out
+a stale-buffer timbre regression: **CAL bit-identical (median 0.810), full scorecard time-resolved
+median 0.800 (n=183)** — confirmed timbre-neutral.
+
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:
