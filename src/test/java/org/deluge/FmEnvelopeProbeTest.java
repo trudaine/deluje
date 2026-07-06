@@ -52,10 +52,29 @@ public class FmEnvelopeProbeTest {
     engine.metronomeEnabled = false;
     engine.sounds.add(fs);
     int n = SR * 3;
+    boolean trace = Boolean.getBoolean("fm.trace");
+    int env0 = org.deluge.firmware2.PatchSource.ENVELOPE_0.ordinal();
+    int pMod0Vol = org.deluge.firmware2.Param.LOCAL_MODULATOR_0_VOLUME;
+    int pMod0Fb = org.deluge.firmware2.Param.LOCAL_MODULATOR_0_FEEDBACK;
+    if (trace)
+      System.out.printf(
+          "%6s %12s %12s %12s %12s%n", "t(ms)", "env1", "carrierAmp", "modVol", "modFb");
     StringBuilder sb = new StringBuilder();
     int got = 0;
+    int blk = 0;
     while (got < n) {
       engine.renderBlock(128);
+      if (trace && (blk % 30 == 0) && !fs.fw2Sound.voices.isEmpty()) {
+        var v = fs.fw2Sound.voices.get(0);
+        System.out.printf(
+            "%6d %12d %12d %12d %12d%n",
+            got * 1000 / SR,
+            v.sourceValues[env0],
+            v.sourceAmplitudesLastTime[0],
+            v.paramFinalValues[pMod0Vol],
+            v.paramFinalValues[pMod0Fb]);
+      }
+      blk++;
       for (int i = 0; i < 128 && got < n; i++, got++) {
         sb.append(engine.masterBuffer[i].l).append('\n');
       }
