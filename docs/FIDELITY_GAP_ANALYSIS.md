@@ -639,6 +639,39 @@ offsets), which uncontrolled audition-pad striking can't provide. Do NOT lower t
 NOT "fix" the modulator envelope — both are tap-confirmed faithful. (Lesson: the tap corrected a
 premature conclusion that a read-audit-style inference had reached — exactly its purpose.)
 
+### 4.12ter DEFINITIVE (2026-07-06, MIDI-controlled tap): FM sidebands too bright — the FM CORE, not envelopes
+
+With MIDI-Follow enabled on the Deluge, the tap is now fully controlled: MIDI-trigger a known note
+(C4) at known timing and capture the master output at set offsets AND the per-block modulator
+amplitude. This is the trustworthy measurement (same note, same phase, repeatable); it supersedes
+the note-confounded ones above. **Result for `068 FM Bells 1` at C4** (brightness = energy >2 kHz):
+
+| offset | HW bright | OUR bright | HW centroid | OUR centroid |
+|---|---|---|---|---|
+| 0 ms (attack) | 0.802 | 0.861 | 4444 Hz | **7341 Hz** |
+| 500 ms | 0.592 | 0.822 | | |
+| 1000 ms | 0.336 | 0.739 | | |
+| 2000 ms | 0.199 | 0.644 | 1291 Hz | 2673 Hz |
+
+**Our FM is genuinely too bright at C4 — at the attack AND worsening through the decay.** And the
+MIDI-controlled per-block modulator-amplitude capture shows: **at the attack the modulator amplitude
+MATCHES** (~46M peak both; our 45.4M vs HW 47.2M), yet our centroid is **1.65× higher** (7341 vs
+4444). So the modulator *amplitude* is faithful, but the *sidebands it produces are too bright* →
+the divergence is in the **FM core** (modulator frequency / phase-increment, or the modulator→
+carrier index/depth scaling in `doFMNew`), NOT the amplitude envelopes. The §4.1bis read-audit claim
+that `doFMNew` is "byte-identical" is contradicted by this ground truth — re-audit it against the C
+looking specifically for a modulator-frequency or index-scaling divergence (the modulator1 transpose
+is +34 semitones; check `calculateBasePhaseIncrement`/`phaseIncrementModulator` and the FM depth).
+
+**Measurement-quality progression (why the verdict flipped — do not re-litigate the early ones):**
+§4.1bis "artifact" (fragile ALLSYN alignment) → §4.12 "confirmed real" (validated anchor, correct)
+→ §4.12bis "missing modulator decay" (WRONG — confounded E6-attack vs C5-tail) → §4.12bis correction
+"faithful" (WRONG — the E6 attack match was note-lucky) → **§4.12ter (this): too bright in the FM
+core, controlled same-note C4, DEFINITIVE.** Lesson: only the MIDI-controlled, same-note, same-offset
+capture is trustworthy for FM; uncontrolled audition strikes (varying note/phase) produce confounded
+verdicts. Do NOT lower the FM index globally (attack modAmp is right); find the sideband-brightness
+bug in the FM core, scorecard-gated.
+
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:
