@@ -139,6 +139,7 @@ public class SwingDelugeApp extends JFrame {
   }
 
   org.deluge.engine.PureFirmwareEngine pureEngine;
+  org.deluge.usb.DelugeUsbSyncService usbSyncService;
   org.deluge.ui.ArrangerPlaybackScheduler arrangerScheduler;
 
   public org.deluge.ui.ArrangerPlaybackScheduler getArrangerScheduler() {
@@ -210,6 +211,11 @@ public class SwingDelugeApp extends JFrame {
       System.out.println(
           "[UI] Boot Sync Mode applied to PlaybackHandler: "
               + (syncMode == 1 ? "EXTERNAL" : "INTERNAL"));
+
+      // Start real-time USB playhead sync service
+      this.usbSyncService =
+          new org.deluge.usb.DelugeUsbSyncService(pureEngine.getPlaybackHandler());
+      this.usbSyncService.start();
     }
 
     // Inflate Font Sizes globally (excluding menus to prevent layout bloat!)
@@ -342,6 +348,9 @@ public class SwingDelugeApp extends JFrame {
           public void windowClosing(java.awt.event.WindowEvent e) {
             org.deluge.project.PreferencesManager.set("window.width", String.valueOf(getWidth()));
             org.deluge.project.PreferencesManager.set("window.height", String.valueOf(getHeight()));
+            if (usbSyncService != null) {
+              usbSyncService.stop();
+            }
           }
         });
 
