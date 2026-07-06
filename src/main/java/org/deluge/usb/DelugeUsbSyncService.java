@@ -41,11 +41,16 @@ public class DelugeUsbSyncService {
     void onError(String error);
   }
 
+  public interface UsbParameterListener {
+    void onParameterReceived(int paramKind, int paramID, int value);
+  }
+
   private final PlaybackHandler playbackHandler;
   private volatile boolean running = false;
   private Thread thread;
   private SerialPort serialPort;
   private final List<UsbFileListener> fileListeners = new CopyOnWriteArrayList<>();
+  private final List<UsbParameterListener> parameterListeners = new CopyOnWriteArrayList<>();
 
   public DelugeUsbSyncService(PlaybackHandler playbackHandler) {
     this.playbackHandler = playbackHandler;
@@ -77,12 +82,46 @@ public class DelugeUsbSyncService {
     }
   }
 
+  public void addParameterListener(UsbParameterListener listener) {
+    parameterListeners.add(listener);
+  }
+
+  public void removeParameterListener(UsbParameterListener listener) {
+    parameterListeners.remove(listener);
+  }
+
+  private void notifyParameterReceived(int paramKind, int paramID, int value) {
+    for (UsbParameterListener listener : parameterListeners) {
+      listener.onParameterReceived(paramKind, paramID, value);
+    }
+  }
+
   public synchronized void requestDirectoryListing(String path) {
     sendPacket(0x02, path.getBytes(StandardCharsets.UTF_8));
   }
 
   public synchronized void requestFileRead(String filePath) {
     sendPacket(0x04, filePath.getBytes(StandardCharsets.UTF_8));
+  }
+
+  public synchronized void requestParameterWrite(int paramKind, int paramID, int value) {
+    byte[] payload = new byte[7];
+    payload[0] = (byte) paramKind;
+    payload[1] = (byte) (paramID & 0xFF);
+    payload[2] = (byte) ((paramID >> 8) & 0xFF);
+    payload[3] = (byte) (value & 0xFF);
+    payload[4] = (byte) ((value >> 8) & 0xFF);
+    payload[5] = (byte) ((value >> 16) & 0xFF);
+    payload[6] = (byte) ((value >> 24) & 0xFF);
+    sendPacket(0x09, payload);
+  }
+
+  public synchronized void requestParameterRead(int paramKind, int paramID) {
+    byte[] payload = new byte[3];
+    payload[0] = (byte) paramKind;
+    payload[1] = (byte) (paramID & 0xFF);
+    payload[2] = (byte) ((paramID >> 8) & 0xFF);
+    sendPacket(0x0A, payload);
   }
 
   private void sendPacket(int cmd, byte[] payload) {
@@ -250,6 +289,16 @@ public class DelugeUsbSyncService {
               System.arraycopy(payload, 5, fileData, 0, chunkSize);
               boolean isEof = (status == 1);
               notifyFileChunk(chunkIndex, isEof, fileData);
+            }
+          } else if (cmd == 11) { // Parameter Value Response (0x0B)
+            if (payload.length >= 7) {
+              int paramKind = payload[0] & 0xFF;
+              int paramID = (payload[1] & 0xFF) | ((payload[2] & 0xFF) << 8);
+              int value = (payload[3] & 0xFF)
+                  | ((payload[4] & 0xFF) << 8)
+                  | ((payload[5] & 0xFF) << 16)
+                  | ((payload[6] & 0xFF) << 24);
+              notifyParameterReceived(paramKind, paramID, value);
             }
           }
         }
