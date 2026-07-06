@@ -604,6 +604,29 @@ envelope-decay and pins the exact divergence. Baseline dump firmware builds from
 buffer-dump command is the tool to add. Until then, FM is "confirmed too bright, cause not yet
 isolated" — not "faithful."
 
+### 4.12bis RESOLVED (2026-07-06) — the FM gap is a MISSING MODULATOR-ENVELOPE DECAY (golden-buffer tap)
+
+Built the golden-buffer tap into the firmware (`trudaine/DelugeFirmware` branch `feat/dsp-buffer-dump`:
+a Debug-SysEx command that captures the master output; onset-synced via auto-arm on `Voice::noteOn`),
+drove it headlessly over USB (`HardwareDspTapTest` + `DspTapCodec`), and captured real `068 FM Bells 1`
+output from hardware. Comparing **same-note** windows (our render at the captured notes via
+`FmEnvelopeProbeTest`), with brightness = fraction of energy above 2 kHz:
+
+| | HARDWARE | OURS |
+|---|---|---|
+| Attack @E6 | 0.838 | **0.837** |
+| Tail @C5 | 0.370 | **0.997** |
+| brightness retained attack→tail | **0.44** | **1.19** |
+
+**Our FM ATTACK is faithful (0.837 ≈ 0.838) — the index at onset is correct, NOT a constant-scale
+error.** The divergence is entirely in the decay: hardware's FM brightness collapses over the note
+(the modulator amplitude envelopes down, 0.84→0.37) while **ours barely decays** (0.84→0.997). This
+is why §4.1quater's static-index sweep was monotonic-dimmer-is-better — lowering the static index
+fakes the hardware's *decayed average*, but the real fix is the **modulator amplitude envelope**, NOT
+the index. Next: find why our modulator amplitude doesn't decay like hardware in the `Voice` FM path
+(the modulator's own envelope / env→modulator-volume application), scorecard-gated. Do NOT lower the
+FM index.
+
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:
