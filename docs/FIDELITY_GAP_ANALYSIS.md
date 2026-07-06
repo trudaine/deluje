@@ -759,6 +759,34 @@ notes). The only real *bug* found was in tooling — the `DelugeSysExManager` se
 substantially more faithful than the amplitude-/alignment-sensitive scorecard implied; the tap is
 the trustworthy instrument, and pitch-matching is mandatory.**
 
+### 4.16 Ladder is BIT-EXACT to C — offline golden-buffer harness (2026-07-06)
+
+Built the standalone C golden-buffer harness the earlier sections kept deferring to (§4.10 "needs
+sample-level C diffing", §4.5 "no desktop-buildable C level reference"). It turns out the ladder
+DSP **is** desktop-buildable: `tools/ladder_harness/` compiles the **real** firmware `lpladder.cpp`
++ `lookuptables.cpp` with system `g++` and emits per-sample golden buffers; `LadderGoldenBufferTest`
+(`@Tag("slow")`) bit-diffs the Java `LpLadderFilter` against them. Only `AudioEngine::cpuDireness`
+(=0) and a couple of globals are stubbed — the tables and all DSP math are the firmware's own, so
+nothing can drift.
+
+**Result: all 9 cases match the C firmware BIT-EXACT (`maxAbsDiff = 0`)** — 12dB / 24dB / drive
+modes, across cutoff/resonance points including the high-resonance self-oscillation regime (the T09
+stress case, `f400_r2000`) and drive/saturation (the T28 case). Every sample of every buffer is
+identical. This is a far stronger confirmation than the hardware tap: the Java ladder is
+sample-for-sample the C ladder, including the CONG-noise moveability dither.
+
+Two port lessons the harness surfaced (both cited in `tools/ladder_harness/README.md`):
+(1) `Filter::dryFade` starts at 0 at runtime (the `FilterSet` zeroes the filter memory), **not** the
+`= 1` member initializer — the Java `dryFade = 0.0f` is correct; a naive harness that constructs the
+filter directly gets the wrong blend path. (2) the ladder calls `getNoise()` (CONG) every sample, so
+bit-exactness requires the shared PRNG seed (380116160, `Functions.resetNoiseSeed()`).
+
+**Corollary for T09/T28:** with the ladder now proven bit-exact, any residual T09 sub-harmonic or
+T28 drive-timbre gap is definitively **not** in the `LpLadderFilter` DSP — it is upstream (input
+level/gain into the filter, §4.5) or in the reference. This retires the ladder itself as a parity
+suspect. The same harness pattern (link the real C unit, stub the ARM globals, bit-diff) is the
+template for the next units — saturation, FmCore.
+
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:
