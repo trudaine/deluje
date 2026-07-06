@@ -8,6 +8,10 @@ package org.deluge.usb;
 
 import com.fazecast.jSerialComm.SerialPort;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.deluge.model.ClipModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.playback.PlaybackHandler;
@@ -15,19 +19,94 @@ import org.deluge.playback.PlaybackHandler;
 /**
  * Service that connects to the physical Deluge workstation via USB CDC Virtual Serial port.
  * Receives real-time playhead sync packets (tick count, BPM, and play state) and syncs the Java
- * workstation engine in real-time.
+ * workstation engine in real-time. Also supports file system listing and file reading over USB.
  */
 public class DelugeUsbSyncService {
   private static final int USB_VID = 0x16D0;
   private static final int USB_PID = 0x0CE2;
 
+  public static class FileEntry {
+    public final boolean isDirectory;
+    public final String name;
+
+    public FileEntry(boolean isDirectory, String name) {
+      this.isDirectory = isDirectory;
+      this.name = name;
+    }
+  }
+
+  public interface UsbFileListener {
+    void onDirectoryListingReceived(List<FileEntry> entries);
+    void onFileChunkReceived(int chunkIndex, boolean isEof, byte[] data);
+    void onError(String error);
+  }
+
   private final PlaybackHandler playbackHandler;
   private volatile boolean running = false;
   private Thread thread;
   private SerialPort serialPort;
+  private final List<UsbFileListener> fileListeners = new CopyOnWriteArrayList<>();
 
   public DelugeUsbSyncService(PlaybackHandler playbackHandler) {
     this.playbackHandler = playbackHandler;
+  }
+
+  public void addFileListener(UsbFileListener listener) {
+    fileListeners.add(listener);
+  }
+
+  public void removeFileListener(UsbFileListener listener) {
+    fileListeners.remove(listener);
+  }
+
+  private void notifyDirectoryListing(List<FileEntry> entries) {
+    for (UsbFileListener listener : fileListeners) {
+      listener.onDirectoryListingReceived(entries);
+    }
+  }
+
+  private void notifyFileChunk(int chunkIndex, boolean isEof, byte[] data) {
+    for (UsbFileListener listener : fileListeners) {
+      listener.onFileChunkReceived(chunkIndex, isEof, data);
+    }
+  }
+
+  private void notifyError(String error) {
+    for (UsbFileListener listener : fileListeners) {
+      listener.onError(error);
+    }
+  }
+
+  public synchronized void requestDirectoryListing(String path) {
+    sendPacket(0x02, path.getBytes(StandardCharsets.UTF_8));
+  }
+
+  public synchronized void requestFileRead(String filePath) {
+    sendPacket(0x04, filePath.getBytes(StandardCharsets.UTF_8));
+  }
+
+  private void sendPacket(int cmd, byte[] payload) {
+    if (serialPort == null || !serialPort.isOpen()) {
+      return;
+    }
+    int len = payload != null ? payload.length : 0;
+    byte[] msg = new byte[len + 6];
+    msg[0] = (byte) 0xDE;
+    msg[1] = (byte) 0x4C;
+    msg[2] = (byte) cmd;
+    msg[3] = (byte) (len & 0xFF);
+    msg[4] = (byte) ((len >> 8) & 0xFF);
+    if (len > 0) {
+      System.arraycopy(payload, 0, msg, 5, len);
+    }
+    int checksum = cmd ^ (len & 0xFF) ^ ((len >> 8) & 0xFF);
+    if (payload != null) {
+      for (int i = 0; i < len; i++) {
+        checksum ^= payload[i];
+      }
+    }
+    msg[5 + len] = (byte) checksum;
+    serialPort.writeBytes(msg, msg.length);
   }
 
   public synchronized void start() {
@@ -137,6 +216,41 @@ public class DelugeUsbSyncService {
             int playState = payload[8] & 0xFF;
 
             handleSync(tick, bpm, playState);
+          } else if (cmd == 3) { // File List Response
+            int status = payload[0] & 0xFF;
+            if (status != 0) {
+              notifyError("Failed to read directory listing.");
+            } else {
+              List<FileEntry> entries = new ArrayList<>();
+              int idx = 1;
+              while (idx < payload.length) {
+                if (idx >= payload.length) break;
+                char type = (char) payload[idx++];
+                int start = idx;
+                while (idx < payload.length && payload[idx] != 0) {
+                  idx++;
+                }
+                if (idx > start) {
+                  String name = new String(payload, start, idx - start, StandardCharsets.UTF_8);
+                  entries.add(new FileEntry(type == 'd', name));
+                }
+                idx++;
+              }
+              notifyDirectoryListing(entries);
+            }
+          } else if (cmd == 5) { // Read File Data Chunk
+            int status = payload[0] & 0xFF;
+            int chunkIndex = (payload[1] & 0xFF) | ((payload[2] & 0xFF) << 8);
+            int chunkSize = (payload[3] & 0xFF) | ((payload[4] & 0xFF) << 8);
+
+            if (status == 2) {
+              notifyError("Failed to read file chunk (error on Deluge).");
+            } else {
+              byte[] fileData = new byte[chunkSize];
+              System.arraycopy(payload, 5, fileData, 0, chunkSize);
+              boolean isEof = (status == 1);
+              notifyFileChunk(chunkIndex, isEof, fileData);
+            }
           }
         }
       } catch (InterruptedException e) {
