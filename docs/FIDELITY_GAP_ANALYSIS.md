@@ -672,6 +672,38 @@ capture is trustworthy for FM; uncontrolled audition strikes (varying note/phase
 verdicts. Do NOT lower the FM index globally (attack modAmp is right); find the sideband-brightness
 bug in the FM core, scorecard-gated.
 
+### 4.12quater PITCH-MATCHED (2026-07-06) — §4.12ter's "1.65×" was an OCTAVE confound; FM is largely faithful
+
+§4.12ter compared our `renderSynth(note 60)` to a hardware capture of **MIDI** note 60 — but
+**MIDI-Follow plays MIDI note N an octave below the Deluge's sequencer note N** (verified: our
+note-60 carrier tail = 1357 Hz, hardware MIDI-60 carrier tail = 678 Hz, exactly 2×). The ALLSYN /
+FM_CAL references and our `renderSynth` both use the *sequencer* note 60, which match; the tap
+captures used MIDI note 60, an octave low. Re-running with **MIDI note 72** (= our note-60 pitch):
+
+| offset | HW >2 kHz | OUR >2 kHz | HW centroid | OUR centroid |
+|---|---|---|---|---|
+| 0 ms (attack) | 0.855 | 0.861 | 6471 Hz | 7341 Hz |
+| 1000 ms | 0.628 | 0.739 | | |
+| 2000 ms | 0.506 | 0.644 | 2110 Hz | 2673 Hz |
+
+**Pitch-matched, the FM attack matches (0.861 vs 0.855) and the whole FM signal path is verified
+faithful to C** (`doFMNew`, `renderFMWithFeedback`, `calculateModulatorBasePhaseIncrement`, the
+index/depth scaling — all line-for-line). A **modest residual** remains: our brightness decays ~20–30%
+too slowly (2 s: 0.644 vs 0.506) — real but small, not the gross bug the confounded measurements
+implied. **Do NOT chase it with an index/envelope hack** (both are tap-confirmed faithful); if pursued,
+it's a subtle carrier-vs-modulator decay-balance effect, scorecard-gated.
+
+**THE meta-lesson (this whole §4.12 arc): every uncontrolled or mismatched comparison produced a
+false "bug"** — fragile ALLSYN alignment, different notes (E6 vs C5), different envelope phases
+(sustain vs release), and finally an OCTAVE offset (MIDI vs sequencer). Only the **fully
+pitch-matched, same-offset, MIDI-controlled** capture is trustworthy, and it shows FM is largely
+faithful. When using the tap, always verify pitch first (compare carrier tails).
+
+**Side finding (separate, unverified):** the MIDI-Follow octave offset means a real Deluge plays
+incoming MIDI note N an octave below its sequencer note N. Whether our emulation's MIDI-input path
+replicates that is a distinct live-MIDI parity question (not DSP; not scorecard-covered) — worth a
+check of `MidiInputRouter` note handling.
+
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:
