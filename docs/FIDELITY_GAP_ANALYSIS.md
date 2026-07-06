@@ -787,6 +787,28 @@ level/gain into the filter, §4.5) or in the reference. This retires the ladder 
 suspect. The same harness pattern (link the real C unit, stub the ARM globals, bit-diff) is the
 template for the next units — saturation, FmCore.
 
+### 4.17 FM operator kernel is BIT-EXACT to C — the "too-bright FM" is NOT in the kernel (2026-07-06)
+
+Applied the §4.16 harness pattern to the FM sideband generator. `tools/fm_harness/` compiles the
+**real** firmware `fm_op_kernel.cpp` + `math_lut.cpp` on desktop `g++` (filling the real `sintab`
+via `dx_init_lut_data`, so `Sin::lookup` runs on the firmware's own SIN_DELTA table); only the ARM
+`neon_fm_kernel` asm (never called — harness passes `neon=false`) and the `dxEngine` global are
+stubbed. `FmKernelGoldenBufferTest` (`@Tag("slow")`) bit-diffs the Java `FmCore` kernel
+(`computeNormal`/`computePure`/`computeFb`, via reflection) against the goldens.
+
+**Result: all 3 operator modes match BIT-EXACT (`maxAbsDiff = 0`)** — feedback (`compute_fb`, the
+FM feedback recurrence), pure carrier (`compute_pure`), and modulated (`compute`). The FM operator
+math and `Sin::lookup`/`Dx7Tables.sinLookup` are sample-identical to the C.
+
+**This settles the biggest scorecard cluster's locus.** The "too-bright FM" (§4.12 arc; FM Bells
+0.1–0.4) is **definitively NOT in the FM operator kernel** — the sideband generation is bit-exact.
+The residual must be in the layers *above* the kernel: the operator **envelope** (level→gain via
+`exp2Lookup`, `Env`/`Dx7Voice`), **algorithm routing** (which op feeds which), operator
+**frequency/ratio** setup, or **pitch**. That is where FM auditing effort should now go — and each
+is itself harness-able (link `env.cpp`, `dx7note.cpp`) the same way. Matches the pitch-matched tap
+verdict (§4.12quater: attack faithful, only a modest decay residual) and localizes it further:
+decay lives in the envelope, not the kernel.
+
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:
