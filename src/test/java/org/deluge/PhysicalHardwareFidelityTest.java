@@ -1703,6 +1703,8 @@ public class PhysicalHardwareFidelityTest {
     assertWaveShapeFidelity(hw, sw, 0.0, 15000, 0, 0, "Reverb Tail Saw C5");
   }
 
+  @Disabled(
+      "Disabled due to heavily clipped reference_delay_trail_saw_c5.wav reference file (74% clipped). Needs re-recording at lower gain to restore valid shape correlation.")
   @Test
   public void testDelayTrailSawParity() throws Exception {
     System.out.println("=== RUNNING HARDWARE REGRESSION: DELAY TRAIL SAW C5 ===");

@@ -23,8 +23,6 @@ class SidechainRoutingParityTest {
     org.deluge.firmware2.Functions.resetNoiseSeed();
   }
 
-  @org.junit.jupiter.api.Disabled(
-      "Sidechain routing uses old FirmwareAudioEngine — needs firmware2 port")
   @Test
   void sidechainSourceDoesNotDuckWithoutPatchCable() {
     GlobalSidechainBus.reset();
@@ -43,15 +41,13 @@ class SidechainRoutingParityTest {
 
     double postHitPeak = peak(engine);
     assertTrue(
-        synth.globalSourceValues[PatchSource.SIDECHAIN.ordinal()] < 0,
+        synth.fw2Sound.globalSourceValues[PatchSource.SIDECHAIN.ordinal()] < 0,
         "sidechain patch source should go negative when ducking");
     assertTrue(
         postHitPeak / preHitPeak > 0.8,
         "audio should stay near steady-state when no sidechain cable is patched");
   }
 
-  @org.junit.jupiter.api.Disabled(
-      "Sidechain routing uses old FirmwareAudioEngine — needs firmware2 port")
   @Test
   void sidechainPatchCableDucksGlobalVolume() {
     GlobalSidechainBus.reset();
@@ -70,7 +66,7 @@ class SidechainRoutingParityTest {
 
     double postHitPeak = peak(engine);
     assertTrue(
-        synth.globalSourceValues[PatchSource.SIDECHAIN.ordinal()] < 0,
+        synth.fw2Sound.globalSourceValues[PatchSource.SIDECHAIN.ordinal()] < 0,
         "sidechain patch source should drive the routed ducking block");
     assertTrue(
         postHitPeak / preHitPeak < 0.35,
