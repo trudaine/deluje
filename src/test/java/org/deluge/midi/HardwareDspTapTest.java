@@ -72,6 +72,84 @@ class HardwareDspTapTest {
               + (c0 == null ? "-" : c0.nSamples()));
       Assumptions.assumeTrue(c0 != null && c0.capturedCount() > 0, "tap did not capture");
 
+      // (3b) Poll mode: for -Dtap.poll=<seconds>, repeatedly capture and keep the loudest window
+      // (so a note held on the DEVICE anytime during the run is caught — no tight timing). Saves
+      // the loudest window to -Dtap.out (default target/tap_capture.txt) as one int32 per line.
+      // (3a) Onset-synced mode: -Dtap.onset=true asks the firmware to arm at the next note onset
+      // (Debug subcmd 5), so a single strike captures the bright ATTACK. Waits -Dtap.wait secs for
+      // you to strike once, then reads back. Saves to -Dtap.out (default target/tap_capture.txt).
+      if (Boolean.getBoolean("tap.onset")) {
+        sendSysex(out, new int[] {CMD_DEBUG, 0x05}); // arm-on-next-note
+        int waitSecs = Integer.getInteger("tap.wait", 8);
+        System.out.println(
+            "ARM-ON-NOTE set — STRIKE the note once now (waiting " + waitSecs + "s)…");
+        long deadline = System.currentTimeMillis() + waitSecs * 1000L;
+        DspTapCodec.Chunk probe = null;
+        while (System.currentTimeMillis() < deadline) {
+          Thread.sleep(300);
+          probe = readChunk(out, in, 0);
+          if (probe != null && probe.capturedCount() >= 4096) break;
+        }
+        Assumptions.assumeTrue(
+            probe != null && probe.capturedCount() >= 4096,
+            "no note captured (capturedCount="
+                + (probe == null ? "null" : probe.capturedCount())
+                + ") — did a note strike after arming?");
+        int[] full = capture(out, in, probe.capturedCount());
+        int pk = 0;
+        long nz = 0;
+        for (int v : full) {
+          pk = Math.max(pk, Math.abs(v));
+          if (v != 0) nz++;
+        }
+        System.out.printf(
+            "ONSET CAPTURE (attack): %d samples, non-zero=%d, peak=%d (%.4f fs)%n",
+            full.length, nz, pk, pk / 2.147483648e9);
+        String outPath = System.getProperty("tap.out", "target/tap_capture.txt");
+        StringBuilder sb = new StringBuilder();
+        for (int v : full) sb.append(v).append('\n');
+        java.nio.file.Files.writeString(java.nio.file.Path.of(outPath), sb.toString());
+        System.out.println("  wrote " + full.length + " samples -> " + outPath);
+        return;
+      }
+
+      int pollSecs = Integer.getInteger("tap.poll", 0);
+      if (pollSecs > 0) {
+        int[] best = new int[0];
+        int bestPeak = 0;
+        long deadline = System.currentTimeMillis() + pollSecs * 1000L;
+        System.out.println("POLLING " + pollSecs + "s — hold a note on the Deluge now…");
+        while (System.currentTimeMillis() < deadline) {
+          sendSysex(out, new int[] {CMD_DEBUG, 0x03}); // arm
+          Thread.sleep(120); // fill the 93 ms window (frozen until next arm)
+          // Cheap probe: read only chunk 0 to see if this window has audio, before the full read.
+          DspTapCodec.Chunk probe = readChunk(out, in, 0);
+          if (probe == null) continue;
+          int pk0 = 0;
+          for (int v : probe.samples()) pk0 = Math.max(pk0, Math.abs(v));
+          if (pk0 <= bestPeak) continue; // not louder than best-so-far — skip full read
+          try {
+            int[] w = capture(out, in, probe.capturedCount());
+            int pk = 0;
+            for (int v : w) pk = Math.max(pk, Math.abs(v));
+            if (pk > bestPeak) {
+              bestPeak = pk;
+              best = w;
+            }
+          } catch (IllegalStateException dropped) {
+            // A chunk dropped over MIDI — skip this window, keep polling.
+          }
+        }
+        System.out.printf("POLL BEST: peak=%d (%.4f fs)%n", bestPeak, bestPeak / 2.147483648e9);
+        String outPath = System.getProperty("tap.out", "target/tap_capture.txt");
+        StringBuilder sb = new StringBuilder();
+        for (int v : best) sb.append(v).append('\n');
+        java.nio.file.Files.writeString(java.nio.file.Path.of(outPath), sb.toString());
+        System.out.println("  wrote " + best.length + " samples -> " + outPath);
+        Assumptions.assumeTrue(bestPeak > 0, "no audio captured — was a note held?");
+        return;
+      }
+
       // (3) Full capture (arm, optional MIDI note, read all chunks).
       boolean withNote = Boolean.getBoolean("tap.note"); // -Dtap.note=true to try a MIDI note
       int ch = Integer.getInteger("tap.ch", 0);
@@ -122,12 +200,26 @@ class HardwareDspTapTest {
   // ── helpers ──
 
   static DspTapCodec.Chunk readChunk(MidiOut out, MidiIn in, int idx) throws Exception {
-    for (int attempt = 0; attempt < 3; attempt++) {
+    for (int attempt = 0; attempt < 6; attempt++) {
+      // Drain any stale bytes so a late reply from a prior request isn't mismatched to this chunk.
+      drain(in);
       sendSysex(out, new int[] {CMD_DEBUG, 0x04, idx & 0x7F});
-      byte[] reply = recvSysex(in, 1500);
-      if (DspTapCodec.isTapReply(reply)) return DspTapCodec.decode(reply);
+      byte[] reply = recvSysex(in, 600);
+      if (DspTapCodec.isTapReply(reply)) {
+        DspTapCodec.Chunk c = DspTapCodec.decode(reply);
+        if (c.chunkIndex() == idx) return c; // ignore a stale reply for a different chunk
+      }
+      Thread.sleep(3);
     }
     return null;
+  }
+
+  /** Discard any pending input bytes (non-blocking). */
+  static void drain(MidiIn in) {
+    MidiMsg m = new MidiMsg();
+    for (int i = 0; i < 64 && in.recv(m); i++) {
+      m = new MidiMsg();
+    }
   }
 
   static int[] capture(MidiOut out, MidiIn in, int total) throws Exception {
