@@ -85,16 +85,21 @@ class HardwareDspTapTest {
             "ARM-ON-NOTE set — STRIKE the note once now (waiting " + waitSecs + "s)…");
         long deadline = System.currentTimeMillis() + waitSecs * 1000L;
         DspTapCodec.Chunk probe = null;
+        boolean gotAudio = false;
         while (System.currentTimeMillis() < deadline) {
-          Thread.sleep(300);
+          Thread.sleep(250);
           probe = readChunk(out, in, 0);
-          if (probe != null && probe.capturedCount() >= 4096) break;
+          if (probe == null) continue;
+          // The pre-arm (step 2) left a SILENT window; the real strike re-arms at onset and fills
+          // with the (loud) attack. So wait for chunk 0 to show non-zero audio, not just a count.
+          int pk0 = 0;
+          for (int v : probe.samples()) pk0 = Math.max(pk0, Math.abs(v));
+          if (pk0 > 0) {
+            gotAudio = true;
+            break;
+          }
         }
-        Assumptions.assumeTrue(
-            probe != null && probe.capturedCount() >= 4096,
-            "no note captured (capturedCount="
-                + (probe == null ? "null" : probe.capturedCount())
-                + ") — did a note strike after arming?");
+        Assumptions.assumeTrue(gotAudio, "no note captured — did a note strike after arming?");
         int[] full = capture(out, in, probe.capturedCount());
         int pk = 0;
         long nz = 0;
