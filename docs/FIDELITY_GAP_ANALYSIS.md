@@ -618,14 +618,26 @@ output from hardware. Comparing **same-note** windows (our render at the capture
 | Tail @C5 | 0.370 | **0.997** |
 | brightness retained attack→tail | **0.44** | **1.19** |
 
-**Our FM ATTACK is faithful (0.837 ≈ 0.838) — the index at onset is correct, NOT a constant-scale
-error.** The divergence is entirely in the decay: hardware's FM brightness collapses over the note
-(the modulator amplitude envelopes down, 0.84→0.37) while **ours barely decays** (0.84→0.997). This
-is why §4.1quater's static-index sweep was monotonic-dimmer-is-better — lowering the static index
-fakes the hardware's *decayed average*, but the real fix is the **modulator amplitude envelope**, NOT
-the index. Next: find why our modulator amplitude doesn't decay like hardware in the `Voice` FM path
-(the modulator's own envelope / env→modulator-volume application), scorecard-gated. Do NOT lower the
-FM index.
+**Our FM ATTACK is faithful (0.837 ≈ 0.838)** — the index at onset is correct, NOT a constant-scale
+error.
+
+**CORRECTION 2026-07-06 — the "missing modulator-envelope decay" conclusion below was WRONG; the
+modulator envelope IS faithful.** Added a second tap source (per-block modulator amplitude,
+`paramFinalValues[LOCAL_MODULATOR_0_VOLUME]`, SysEx subcmd 6) and captured the real hardware
+modulator-amplitude trajectory for `068`. It decays to a **0.32 sustain ratio** (32.0M peak →
+10.2M) — and OUR engine's modulator decays to **~0.30** (38.1M → ~10M, `FmEnvelopeProbeTest -Dfm.trace`).
+**They match: the modulator amplitude envelope is faithful.** So is the attack. The earlier
+"0.84→0.997 vs 0.84→0.37" tail divergence was a **confounded measurement** — the hardware attack
+(E6) and "tail" (C5) were *different notes* AND different envelope phases (our 0.8–1.2 s sustain vs
+an uncontrolled polled hardware window), so it does NOT establish a bug.
+
+**Honest status:** the two *controlled* tap measurements (onset-synced same-note attack; per-block
+modulator envelope) both show our FM is faithful — re-opening whether the FM_CAL scorecard gap
+(068 = 0.196 at x1.0) is a real steady-state divergence or a decay/alignment measurement effect.
+Settling it needs a **controlled same-note, known-timing capture** (MIDI-triggered note + tap at set
+offsets), which uncontrolled audition-pad striking can't provide. Do NOT lower the FM index, and do
+NOT "fix" the modulator envelope — both are tap-confirmed faithful. (Lesson: the tap corrected a
+premature conclusion that a read-audit-style inference had reached — exactly its purpose.)
 
 ## 5. Real bugs: synths our engine renders SILENT
 
