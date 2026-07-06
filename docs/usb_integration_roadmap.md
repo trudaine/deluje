@@ -70,3 +70,35 @@ graph TD
   * **C++**: Update `usb_descriptors.cpp` to declare a USB Audio Class 2.0 interface. Stream the final stereo render buffer over asynchronous ISO endpoints, matching host sample rate.
   * **Java/Host**: The workstation client (or any DAW) can select "Deluge Audio" as a digital input source.
 
+---
+
+## Additional QoL & Integration Proposals
+
+### 1. Computer QWERTY Keyboard Naming Helper
+* **Description**: Instantly name songs, presets, or samples using your computer keyboard.
+* **Concept**:
+  * When the Deluge enters a text-input dialogue (e.g. Save preset), it notifies the host over serial.
+  * Typing on the computer keyboard transmits characters directly to the Deluge, bypassing physical encoder scrolling.
+* **Complexity**: **Low.**
+
+### 2. Over-The-Air (OTA) USB Firmware Updates
+* **Description**: Flash new community firmware versions directly over USB without ejecting the SD card.
+* **Concept**:
+  * Workstation downloads the latest community firmware `.bin` from GitHub.
+  * Writes it to the Deluge SD card root over USB CDC Serial (Phase 1).
+  * Sends a command to reboot the Deluge, triggering the bootloader's self-update sequence.
+* **Complexity**: **Medium.**
+
+### 3. Integrated Preset & Sample Librarian
+* **Description**: Desktop organizer to drag-and-drop presets, clean up unused samples, and audition files remotely.
+* **Concept**:
+  * Built entirely on top of Phase 1 file-transfer protocols.
+* **Complexity**: **Medium.**
+
+### 4. Real-time USB Oscilloscope & Spectrogram
+* **Description**: Render a real-time waveform visualizer of active synth voices on the computer screen.
+* **Concept**:
+  * Stream low-resolution audio peak and envelope levels (50-100 fps) over CDC serial.
+* **Complexity**: **Medium.**
+
+
