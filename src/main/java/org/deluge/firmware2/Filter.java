@@ -39,11 +39,11 @@ public abstract class Filter {
     tannedFrequency = Functions.instantTan(Functions.lshiftAndSaturate(frequency, 5));
     double denom = (double) (Functions.ONE_Q16 + (tannedFrequency >> 1));
     divideBy1PlusTannedFrequency = (int) (288230376151711744.0 / denom);
+    // C filter.h:135 — plain (wrapping) `<< 4`, NOT the clamping lshiftAndSaturate. At extreme
+    // cutoffs the product overflows int32 and the C wraps; clamping here diverges from hardware.
     fc =
-        Functions.lshiftAndSaturate(
-            Functions.multiply_32x32_rshift32_rounded(
-                tannedFrequency, divideBy1PlusTannedFrequency),
-            4);
+        Functions.multiply_32x32_rshift32_rounded(tannedFrequency, divideBy1PlusTannedFrequency)
+            << 4;
   }
 
   public final int configure(
