@@ -142,7 +142,12 @@ public class DelugeSysExManager {
 
     packet[0] = SYSEX_START;
     System.arraycopy(DELUGE_HEADER, 0, packet, 1, 4);
-    packet[1] = (byte) sessionId;
+    // NOTE: the session is NOT carried in the manufacturer-ID byte. The firmware reads it from the
+    // msgId byte (packet[6]), and the session's midMin/midMax range (returned by ^session as
+    // (sid<<3)+1 .. (sid<<3)+MAX) already bakes the session bits into `seq`. Overwriting packet[1]
+    // here corrupted the `00 21 7B` manufacturer ID for any non-zero session, so every file op
+    // after
+    // session negotiation was silently dropped by the firmware. Leave packet[1] = 0x00.
     packet[5] = CMD_JSON_REQUEST;
     packet[6] = (byte) seq;
     System.arraycopy(jsonBytes, 0, packet, 7, jsonBytes.length);
