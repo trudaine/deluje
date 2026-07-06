@@ -730,6 +730,35 @@ reference-scorecard gap was inflated by pitch/note/alignment confounds. The real
 ~20-30% bright; T09 5% sub-harmonic at high notes) are small. The one clearly-actionable item is the
 **MIDI-in octave offset** in `MidiInputRouter`.
 
+### 4.14 T28 saturation faithful; octave offset RETRACTED (2026-07-06, MIDI-controlled tap)
+
+**T28 drive/saturation is faithful** (retracts §4.8's "saturation attenuates / doesn't add
+harmonics", which was a note-84/level artifact). Pitch-matched via the MIDI-controlled tap
+(hardware MIDI-60 vs our note-60, both ~258 Hz), the odd-harmonic content matches: **h3 = 0.36 (HW)
+vs 0.31 (ours), h5 = 0.18 vs 0.20, h2 ≈ 0.03 both.** Our per-voice saturation adds the drive
+harmonics as hardware does.
+
+**The "MIDI octave offset" (§4.13) is RETRACTED — it was a measurement confound.** T28 (osc
+transpose 0, the cleanest reference) plays hardware MIDI-60 at **258 Hz = C4**, i.e. the *correct*
+MIDI pitch and equal to our `renderSynth(60)` — **no octave offset**. The apparent offset in §4.13
+came from T09's resonance sub-harmonic and FM's dense sidebands corrupting the pitch read (a saw
+through a resonant ladder is 2nd-harmonic-dominant; FM has no clean fundamental). **Do NOT change
+`MidiInputRouter`.** (Lesson yet again: verify pitch with a clean, non-resonant, non-FM tone before
+concluding anything — and autocorrelation mis-locks on these, per CLAUDE.md.)
+
+### 4.15 Summary of the 2026-07-06 hardware-tap session
+
+Built a full hardware-in-the-loop golden-buffer tap (firmware `trudaine/DelugeFirmware`
+`feat/dsp-buffer-dump` + Java `DspTapCodec`/`HardwareDspTapTest`), MIDI-Follow-controlled. Verdict
+across the three biggest "gaps": **FM (§4.12quater), T09 ladder (§4.13), and T28 saturation (§4.14)
+are all LARGELY FAITHFUL when measured pitch-matched.** The large reference-scorecard gaps were
+inflated by measurement confounds (alignment, note, phase, octave, resonance sub-harmonics, FM
+sidebands, level). Real residuals are small (FM decay ~20-30% bright; T09 ~5% sub-harmonic at high
+notes). The only real *bug* found was in tooling — the `DelugeSysExManager` session-encoding
+(file transfer broken vs current firmware, now fixed). **Bottom line: the DSP engine is
+substantially more faithful than the amplitude-/alignment-sensitive scorecard implied; the tap is
+the trustworthy instrument, and pitch-matching is mandatory.**
+
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:
