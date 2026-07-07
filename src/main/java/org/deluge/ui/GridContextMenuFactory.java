@@ -194,6 +194,29 @@ public class GridContextMenuFactory {
 
     menu.addSeparator();
 
+    JMenuItem pianoRollItem = new JMenuItem("Open Piano Roll Editor...");
+    pianoRollItem.addActionListener(
+        e -> {
+          if (SwingDelugeApp.mainInstance != null) SwingDelugeApp.mainInstance.launchPianoRoll();
+        });
+    menu.add(pianoRollItem);
+
+    JMenuItem droneItem = new JMenuItem("Open Drone Lab on Track...");
+    droneItem.addActionListener(
+        e -> {
+          if (SwingDelugeApp.mainInstance != null) SwingDelugeApp.mainInstance.launchDroneLab();
+        });
+    menu.add(droneItem);
+
+    JMenuItem randItem = new JMenuItem("Randomize Track Steps...");
+    randItem.addActionListener(
+        e -> {
+          if (SwingDelugeApp.mainInstance != null) SwingDelugeApp.mainInstance.launchRandomizer();
+        });
+    menu.add(randItem);
+
+    menu.addSeparator();
+
     JMenuItem upItem = new JMenuItem("Move Up");
     upItem.setEnabled(trackIdx > 0);
     upItem.addActionListener(

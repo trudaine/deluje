@@ -442,7 +442,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
         arrangerController.attachListeners(clipBtn, currentTrack, colId);
 
         if (isFaceplate) {
-          if (c == 16) {
+          if (c == stepCount) {
             rowPanel.add(ClipGridPanel.createFaceplateSeparator(faceScale, padSz));
           } else if (c > 0) {
             rowPanel.add(Box.createRigidArea(new Dimension((int) Math.round(41 * faceScale), 1)));
@@ -459,7 +459,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
       }
       voicePanel.add(rowPanel);
       if (isFaceplate) {
-        voicePanel.add(Box.createRigidArea(new Dimension(1, (int) Math.round(41 * faceScale))));
+        voicePanel.add(Box.createRigidArea(new Dimension(1, 5)));
       }
     }
 

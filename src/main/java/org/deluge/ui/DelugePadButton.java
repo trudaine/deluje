@@ -407,11 +407,11 @@ public class DelugePadButton extends JButton {
         g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
       } else if (theme == org.deluge.project.PreferencesManager.GridColorTheme.HARDWARE) {
         if (isBeatMarker) {
-          g2.setColor(new Color(0x1a, 0x1a, 0x1e));
+          g2.setColor(new Color(0x1a, 0x1a, 0x20));
           g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
-          g2.setColor(new Color(255, 255, 255, 12));
+          g2.setColor(new Color(255, 255, 255, 38)); // Visible white beat marker tint
           g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
-          g2.setColor(new Color(255, 255, 255, 25));
+          g2.setColor(new Color(255, 255, 255, 60));
           g2.setStroke(new BasicStroke(1.0f));
           g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
         } else {
@@ -437,7 +437,9 @@ public class DelugePadButton extends JButton {
           g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
           Color dimBorder = new Color(base.getRed(), base.getGreen(), base.getBlue(), 45);
           if (isBeatMarker) {
-            dimBorder = new Color(base.getRed(), base.getGreen(), base.getBlue(), 90);
+            g2.setColor(new Color(255, 255, 255, 36));
+            g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
+            dimBorder = new Color(base.getRed(), base.getGreen(), base.getBlue(), 95);
           }
           g2.setColor(dimBorder);
           g2.setStroke(new BasicStroke(1.0f));

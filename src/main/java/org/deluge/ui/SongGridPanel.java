@@ -616,7 +616,7 @@ public class SongGridPanel extends SwingGridPanel {
         }
 
         if (isFaceplate) {
-          if (c == 16) {
+          if (c == stepCount) {
             rowPanel.add(ClipGridPanel.createFaceplateSeparator(faceScale, padSz));
           } else if (c > 0) {
             rowPanel.add(Box.createRigidArea(new Dimension((int) Math.round(41 * faceScale), 1)));
@@ -635,7 +635,7 @@ public class SongGridPanel extends SwingGridPanel {
       voicePanel.add(rowPanel);
       if (t < songVoiceRows + 1) {
         if (isFaceplate) {
-          voicePanel.add(Box.createRigidArea(new Dimension(1, (int) Math.round(41 * faceScale))));
+          voicePanel.add(Box.createRigidArea(new Dimension(1, 5)));
         } else {
           voicePanel.add(Box.createVerticalStrut(5));
         }

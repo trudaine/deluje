@@ -84,7 +84,7 @@ public class SwingHardwareTopPanel extends JPanel {
   private double currentScale = 1.0;
   private int upperGoldRow = 0;
   private int lowerGoldRow = 0;
-  private boolean isAffectEntire = false;
+  private boolean isAffectEntire = true;
   private boolean isScaleMode = false;
   private boolean isTriplets = false;
 
@@ -158,20 +158,21 @@ public class SwingHardwareTopPanel extends JPanel {
     Color amber = new Color(255, 135, 15);
     Color green = new Color(0, 220, 50);
     Color red = new Color(245, 35, 35);
+    Color blue = new Color(0, 175, 255);
 
     // Named function buttons
     controls.add(new ControlDef("PLAY", 2072, 332, 32, false, green));
     controls.add(new ControlDef("RECORD", 2072, 424, 32, false, red));
     controls.add(new ControlDef("SHIFT", 2072, 515, 32, false, amber));
-    controls.add(new ControlDef("SESSION_VIEW", 865, 424, 28, false, amber));
-    controls.add(new ControlDef("CLIP_VIEW", 865, 515, 28, false, amber));
+    controls.add(new ControlDef("SESSION_VIEW", 865, 424, 28, false, blue));
+    controls.add(new ControlDef("CLIP_VIEW", 865, 515, 28, false, blue));
     controls.add(new ControlDef("KEYBOARD", 1045, 516, 28, false, amber));
     controls.add(new ControlDef("SYNTH", 1187, 424, 28, false, amber));
     controls.add(new ControlDef("KIT", 1268, 424, 28, false, amber));
     controls.add(new ControlDef("MIDI", 1350, 424, 28, false, amber));
     controls.add(new ControlDef("CV", 1432, 424, 28, false, amber));
     controls.add(new ControlDef("SCALE_MODE", 1205, 515, 28, false, amber));
-    controls.add(new ControlDef("AFFECT_ENTIRE", 1125, 515, 28, false, amber));
+    controls.add(new ControlDef("AFFECT_ENTIRE", 1100, 515, 28, false, red));
     controls.add(new ControlDef("CROSS_SCREEN", 1350, 515, 28, false, amber));
     controls.add(new ControlDef("TRIPLETS", 1440, 515, 28, false, amber));
     controls.add(new ControlDef("BACK", 1529, 241, 28, false, amber));
@@ -266,21 +267,21 @@ public class SwingHardwareTopPanel extends JPanel {
     if (faceplateImg != null) {
       g2.drawImage(faceplateImg, drawX, drawY, drawW, drawH, null);
 
-      // Cleanly replace old "delugemu" logo on the faceplate with "delujemu"
-      int logoX = drawX + (int) Math.round(1035 * currentScale);
-      int logoY = drawY + (int) Math.round(140 * currentScale);
-      int logoW = (int) Math.round(385 * currentScale);
-      int logoH = (int) Math.round(75 * currentScale);
+      // Cleanly replace old logo on the faceplate with larger, bolder "delujemu"
+      int logoX = drawX + (int) Math.round(1015 * currentScale);
+      int logoY = drawY + (int) Math.round(128 * currentScale);
+      int logoW = (int) Math.round(425 * currentScale);
+      int logoH = (int) Math.round(95 * currentScale);
       g2.setColor(Color.BLACK);
       g2.fillRect(logoX, logoY, logoW, logoH);
 
       g2.setFont(
-          new Font("SansSerif", Font.BOLD, Math.max(12, (int) Math.round(52 * currentScale))));
+          new Font("SansSerif", Font.BOLD, Math.max(16, (int) Math.round(68 * currentScale))));
       g2.setColor(Color.WHITE);
       g2.drawString(
           "delujemu",
-          drawX + (int) Math.round(1046 * currentScale),
-          drawY + (int) Math.round(195 * currentScale));
+          drawX + (int) Math.round(1025 * currentScale),
+          drawY + (int) Math.round(198 * currentScale));
     } else {
       g2.setColor(new Color(0x20, 0x20, 0x24));
       g2.fillRect(drawX, drawY, drawW, drawH);
@@ -352,12 +353,36 @@ public class SwingHardwareTopPanel extends JPanel {
 
   private boolean isLearnMode = false;
 
+  private javax.swing.Timer blinkTimer;
+
+  private void startBlinkTimer() {
+    if (blinkTimer == null) {
+      blinkTimer =
+          new javax.swing.Timer(
+              250,
+              e -> {
+                if ("ARR".equals(activeView)) {
+                  repaint();
+                } else {
+                  blinkTimer.stop();
+                }
+              });
+    }
+    if (!blinkTimer.isRunning()) {
+      blinkTimer.start();
+    }
+  }
+
   private boolean isControlActive(ControlDef c) {
     if ("PLAY".equals(c.name)) return isPlaying;
     if ("RECORD".equals(c.name)) return isRecording;
     if ("SHIFT".equals(c.name)) return isShiftHeld;
     if ("CLIP_VIEW".equals(c.name)) return "CLIP".equals(activeView);
-    if ("SESSION_VIEW".equals(c.name)) return "SONG".equals(activeView);
+    if ("SESSION_VIEW".equals(c.name)) {
+      if ("SONG".equals(activeView)) return true;
+      if ("ARR".equals(activeView)) return (System.currentTimeMillis() % 700) < 350;
+      return false;
+    }
     if ("KEYBOARD".equals(c.name)) return "KEYPLAY".equals(activeView);
     if ("AFFECT_ENTIRE".equals(c.name)) return isAffectEntire;
     if ("SCALE_MODE".equals(c.name)) return isScaleMode;
@@ -478,8 +503,16 @@ public class SwingHardwareTopPanel extends JPanel {
         listener.onViewModeChanged("CLIP");
       }
       case "SESSION_VIEW" -> {
-        activeView = "SONG";
-        listener.onViewModeChanged("SONG");
+        if ("SONG".equals(activeView)) {
+          activeView = "ARR";
+          listener.onViewModeChanged("ARR");
+          if (oledPanel != null) oledPanel.showParamText("VIEW", "ARRANGER");
+          startBlinkTimer();
+        } else {
+          activeView = "SONG";
+          listener.onViewModeChanged("SONG");
+          if (oledPanel != null) oledPanel.showParamText("VIEW", "SONG");
+        }
       }
       case "KEYBOARD" -> {
         activeView = "KEYPLAY";

@@ -172,8 +172,7 @@ public class ClipGridPanel extends SwingGridPanel {
     voicePanel.setLayout(new BoxLayout(voicePanel, BoxLayout.Y_AXIS));
     for (int v = 0; v < gridMode.rows; v++) {
       if (isFaceplate && v > 0) {
-        double faceScaleV = Math.max(800, getWidth()) / 2256.0;
-        voicePanel.add(Box.createRigidArea(new Dimension(1, (int) Math.round(41 * faceScaleV))));
+        voicePanel.add(Box.createRigidArea(new Dimension(1, 5)));
       }
       int modelRow = getModelRow(v);
       if (modelRow >= 0 && modelRow < voiceRowCount) {
@@ -716,7 +715,11 @@ public class ClipGridPanel extends SwingGridPanel {
               pad.setBlur(isNudged);
               pad.setApplicable(inScale || !isSynthMode);
               pad.setTheme(theme);
-              pad.setBeatMarker((c + scrollOffsetX) % 4 == 0);
+              org.deluge.model.ClipModel curClip = activeEditedClip();
+              boolean isTrip = curClip != null && curClip.isTripletMode();
+              pad.setBeatMarker(
+                  ((c + scrollOffsetX) % (isTrip ? 3 : 4) == 0)
+                      || (isTrip && (c + scrollOffsetX) % 4 == 0));
               pad.setScaleRoot(isRoot);
               pad.setScaleNote(inScale);
 
@@ -1395,7 +1398,11 @@ public class ClipGridPanel extends SwingGridPanel {
           pad.setBlur(isNudged);
           pad.setApplicable(inScale || !isSynthMode);
           pad.setTheme(theme);
-          pad.setBeatMarker((colId + scrollOffsetX) % 4 == 0);
+          org.deluge.model.ClipModel curClip2 = activeEditedClip();
+          boolean isTrip2 = curClip2 != null && curClip2.isTripletMode();
+          pad.setBeatMarker(
+              ((colId + scrollOffsetX) % (isTrip2 ? 3 : 4) == 0)
+                  || (isTrip2 && (colId + scrollOffsetX) % 4 == 0));
           pad.setScaleRoot(isRoot);
           pad.setScaleNote(inScale);
 
@@ -1429,7 +1436,7 @@ public class ClipGridPanel extends SwingGridPanel {
       }
 
       if (isFaceplateRow) {
-        if (c == 16) {
+        if (c == stepCount) {
           rowPanel.add(createFaceplateSeparator(faceScaleRow, padSz));
         } else if (c > 0) {
           rowPanel.add(Box.createRigidArea(new Dimension((int) Math.round(41 * faceScaleRow), 1)));

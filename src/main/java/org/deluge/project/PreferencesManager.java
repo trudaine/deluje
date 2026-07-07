@@ -210,7 +210,7 @@ public class PreferencesManager {
   private static final String KEY_TOP_PANEL_STYLE = "topPanel.style";
 
   public static TopPanelStyle getTopPanelStyle() {
-    return TopPanelStyle.fromString(prefs.get(KEY_TOP_PANEL_STYLE, "STANDARD_DAW"));
+    return TopPanelStyle.HARDWARE_FACEPLATE;
   }
 
   public static void setTopPanelStyle(TopPanelStyle style) {

@@ -148,7 +148,7 @@ public class SwingDelugeApp extends JFrame {
     return arrangerScheduler;
   }
 
-  public static volatile boolean isAffectEntireActive = false;
+  public static volatile boolean isAffectEntireActive = true;
   public static volatile boolean isScaleModeActive = false;
 
   public org.deluge.engine.PureFirmwareEngine getPureEngine() {
@@ -864,26 +864,14 @@ public class SwingDelugeApp extends JFrame {
   public void refreshTopPanelStyle() {
     if (topBarCards == null) return;
     CardLayout cl = (CardLayout) topBarCards.getLayout();
-    boolean isFaceplate =
-        org.deluge.project.PreferencesManager.getTopPanelStyle()
-            == org.deluge.project.PreferencesManager.TopPanelStyle.HARDWARE_FACEPLATE;
-    if (isFaceplate) {
-      cl.show(topBarCards, "FACEPLATE");
-      if (modKnobBar != null) modKnobBar.setVisible(false);
-      if (rackScroll != null) rackScroll.setVisible(false);
-      if (trackInspectorStrip != null) trackInspectorStrip.setVisible(false);
-      if (masterFxPanel != null) masterFxPanel.setVisible(false);
-      if (encoderStrip != null) encoderStrip.setVisible(false);
-      if (leftFloat != null) leftFloat.setVisible(false);
-      if (rightFloat != null) rightFloat.setVisible(false);
-    } else {
-      cl.show(topBarCards, "STANDARD");
-      if (modKnobBar != null) modKnobBar.setVisible(true);
-      if (rackScroll != null) rackScroll.setVisible(true);
-      if (trackInspectorStrip != null) trackInspectorStrip.setVisible(true);
-      if (masterFxPanel != null) masterFxPanel.setVisible(true);
-      if (encoderStrip != null) encoderStrip.setVisible(true);
-    }
+    cl.show(topBarCards, "FACEPLATE");
+    if (modKnobBar != null) modKnobBar.setVisible(false);
+    if (rackScroll != null) rackScroll.setVisible(false);
+    if (trackInspectorStrip != null) trackInspectorStrip.setVisible(false);
+    if (masterFxPanel != null) masterFxPanel.setVisible(false);
+    if (encoderStrip != null) encoderStrip.setVisible(false);
+    if (leftFloat != null) leftFloat.setVisible(false);
+    if (rightFloat != null) rightFloat.setVisible(false);
   }
 
   SwingGridPanel activeGridPanel() {
@@ -3395,5 +3383,106 @@ public class SwingDelugeApp extends JFrame {
     if (nextIdx >= 0 && nextIdx < modes.length) {
       updateGlobalGridMode(modes[nextIdx]);
     }
+  }
+
+  public void launchDroneLab() {
+    SwingGridPanel a = activeGridPanel();
+    if (a == null || a.getProjectModel() == null) {
+      JOptionPane.showMessageDialog(
+          this, "Please load a project first.", "Drone Lab", JOptionPane.WARNING_MESSAGE);
+      return;
+    }
+    int idx = a.getEditedModelTrack();
+    java.util.List<org.deluge.model.TrackModel> tl = a.getProjectModel().getTracks();
+    if (idx < 0 || idx >= tl.size()) {
+      JOptionPane.showMessageDialog(
+          this, "Please select a valid track first.", "Drone Lab", JOptionPane.WARNING_MESSAGE);
+      return;
+    }
+    org.deluge.model.TrackModel t = tl.get(idx);
+    if (!(t instanceof org.deluge.model.SynthTrackModel st)) {
+      JOptionPane.showMessageDialog(
+          this,
+          "Drone Lab requires a Synthesizer track. Please select or create a Synth track first.",
+          "Drone Lab",
+          JOptionPane.WARNING_MESSAGE);
+      return;
+    }
+    new SwingDroneLabDialog(this, st, bridge, idx, currentProject).setVisible(true);
+  }
+
+  public void launchPianoRoll() {
+    if (clipPanel != null) clipPanel.openPianoRollForActiveClip();
+  }
+
+  public void launchRandomizer() {
+    new SwingRandomizerDialog(this, bridge, currentProject).setVisible(true);
+  }
+
+  public void launchAudioSlicer() {
+    new SwingAudioSlicerDialog(this, bridge, currentProject).setVisible(true);
+  }
+
+  public void launchMasterFxDialog() {
+    new SwingMasterFxDialog(this, currentProject, bridge, this).setVisible(true);
+  }
+
+  public void launchPreferences() {
+    new org.deluge.ui.PreferencesDialog(this, midiService, this::refreshGrids, null)
+        .setVisible(true);
+  }
+
+  public void launchHelp() {
+    new SwingHelpDialog(this).setVisible(true);
+  }
+
+  public void launchNewProject() {
+    loadProject(org.deluge.model.ProjectModel.createDefaultProject());
+  }
+
+  public void launchExportAudio() {
+    fileMenuController.exportAudio();
+  }
+
+  public void launchImportMidi() {
+    JFileChooser chooser =
+        new JFileChooser(org.deluge.ableton.AbletonAssetResolver.getDefaultImportDir());
+    chooser.setDialogTitle("Import MIDI File (.mid)");
+    chooser.setFileFilter(
+        new javax.swing.filechooser.FileNameExtensionFilter(
+            "MIDI File", "mid", "midi", "MID", "MIDI"));
+    if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+      java.io.File file = chooser.getSelectedFile();
+      if (file != null && file.isFile()) {
+        SwingMidiImportDialog wizard = new SwingMidiImportDialog(this, file);
+        wizard.setVisible(true);
+        if (wizard.isImportSuccessful() && wizard.getCompiledProject() != null) {
+          loadProject(wizard.getCompiledProject());
+        }
+      }
+    }
+  }
+
+  public void launchWavetableEditor() {
+    SwingGridPanel a = activeGridPanel();
+    if (a == null || a.getProjectModel() == null) return;
+    int idx = a.getEditedModelTrack();
+    java.util.List<org.deluge.model.TrackModel> tl = a.getProjectModel().getTracks();
+    if (idx < 0 || idx >= tl.size()) return;
+    org.deluge.model.TrackModel t = tl.get(idx);
+    if (t instanceof org.deluge.model.SynthTrackModel st) {
+      new SwingSynthWavetableEditorDialog(this, st, 0, idx, bridge).setVisible(true);
+    } else {
+      JOptionPane.showMessageDialog(
+          this,
+          "Wavetable Editor requires a Synth track.",
+          "Wavetable Editor",
+          JOptionPane.WARNING_MESSAGE);
+    }
+  }
+
+  public void launchTuning() {
+    new SwingTuningDialog(this, currentProject, () -> syncHighFidelityEngine(currentProject, true))
+        .setVisible(true);
   }
 }

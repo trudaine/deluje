@@ -27,6 +27,8 @@ public class SwingLayoutStabilityTest {
   void resetPreferences() {
     org.deluge.project.PreferencesManager.setGridMode(
         org.deluge.project.PreferencesManager.GridMode.GRID_8x16);
+    org.deluge.project.PreferencesManager.setTopPanelStyle(
+        org.deluge.project.PreferencesManager.TopPanelStyle.HARDWARE_FACEPLATE);
   }
 
   @Test
