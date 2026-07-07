@@ -1486,9 +1486,20 @@ public class ClipGridPanel extends SwingGridPanel {
     vuManager.clear();
     vuManager.startTimer();
 
+    boolean isFaceplate =
+        PreferencesManager.getTopPanelStyle()
+            == PreferencesManager.TopPanelStyle.HARDWARE_FACEPLATE;
+    double faceScale = Math.max(800, getWidth()) / 2256.0;
     int padSz = cachedPadSz;
     int lw = currentLabelWidth();
-    int rowW = getGridWidth(padSz, lw);
+    int rowW;
+    if (isFaceplate) {
+      // Match the CLIP faceplate grid sizing so the keyboard grid is the same pad size.
+      padSz = Math.max(16, (int) Math.round(78 * faceScale));
+      rowW = (int) Math.round(2270 * faceScale);
+    } else {
+      rowW = getGridWidth(padSz, lw);
+    }
 
     voicePanel = new JPanel();
     voicePanel.setBackground(new Color(0x15, 0x15, 0x15));
@@ -1531,17 +1542,21 @@ public class ClipGridPanel extends SwingGridPanel {
       label.setForeground(Color.LIGHT_GRAY);
       label.setFont(new Font("SansSerif", Font.BOLD, 10));
 
-      rowPanel.add(label);
-      rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
-      rowPanel.add(Box.createHorizontalStrut(5));
+      // In faceplate mode the CLIP grid omits the leading label + VU meter so pads start at the
+      // left edge; mirror that here so the keyboard grid lines up 1:1 with the clip grid.
+      if (!isFaceplate) {
+        rowPanel.add(label);
+        rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
+        rowPanel.add(Box.createHorizontalStrut(5));
 
-      VUMeterPanel vu = new VUMeterPanel();
-      vu.setPreferredSize(new Dimension(12, padSz));
-      vu.setMaximumSize(new Dimension(12, padSz));
-      rowPanel.add(vu);
-      rowPanel.add(Box.createHorizontalStrut(5));
+        VUMeterPanel vu = new VUMeterPanel();
+        vu.setPreferredSize(new Dimension(12, padSz));
+        vu.setMaximumSize(new Dimension(12, padSz));
+        rowPanel.add(vu);
+        rowPanel.add(Box.createHorizontalStrut(5));
 
-      vuManager.registerTrackVu(t, vu);
+        vuManager.registerTrackVu(t, vu);
+      }
 
       for (int c = 0; c < columnCount; c++) {
         final int colId = c;

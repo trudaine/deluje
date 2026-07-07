@@ -173,7 +173,7 @@ public class SwingHardwareTopPanel extends JPanel {
     controls.add(new ControlDef("MIDI", 1350, 424, 28, false, amber));
     controls.add(new ControlDef("CV", 1432, 424, 28, false, amber));
     controls.add(new ControlDef("SCALE_MODE", 1205, 515, 28, false, amber));
-    controls.add(new ControlDef("AFFECT_ENTIRE", 1100, 515, 28, false, red));
+    controls.add(new ControlDef("AFFECT_ENTIRE", 670, 460, 26, false, red));
     controls.add(new ControlDef("CROSS_SCREEN", 1350, 515, 28, false, amber));
     controls.add(new ControlDef("TRIPLETS", 1440, 515, 28, false, amber));
     controls.add(new ControlDef("BACK", 1529, 241, 28, false, amber));
