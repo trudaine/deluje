@@ -2177,8 +2177,7 @@ public class SwingDelugeApp extends JFrame {
     appTopBarListener = new AppTopBarListener();
     topBar = new SwingTopBarPanel(bridge, currentProject, leftFloat, appTopBarListener);
     hardwareTopPanel =
-        new SwingHardwareTopPanel(
-            bridge, currentProject, new SwingOledPanel(), appTopBarListener);
+        new SwingHardwareTopPanel(bridge, currentProject, new SwingOledPanel(), appTopBarListener);
 
     topBarCards = new JPanel(new CardLayout());
     topBarCards.add(topBar, "STANDARD");
@@ -2985,8 +2984,7 @@ public class SwingDelugeApp extends JFrame {
   private class AppTopBarListener implements SwingTopBarPanel.TopBarListener {
     @Override
     public void onLoadProject() {
-      JFileChooser chooser =
-          new JFileChooser(org.deluge.project.PreferencesManager.getSongsDir());
+      JFileChooser chooser = new JFileChooser(org.deluge.project.PreferencesManager.getSongsDir());
       chooser.setFileFilter(
           new javax.swing.filechooser.FileNameExtensionFilter("Song XML", "xml", "XML"));
       if (chooser.showOpenDialog(SwingDelugeApp.this) == JFileChooser.APPROVE_OPTION) {

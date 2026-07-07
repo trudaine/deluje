@@ -90,8 +90,7 @@ public class SwingOledPanel extends JPanel {
         });
     menu.add(slicerItem);
 
-    javax.swing.JMenuItem wtItem =
-        new javax.swing.JMenuItem("Wavetable Editor & 3D Terrain...");
+    javax.swing.JMenuItem wtItem = new javax.swing.JMenuItem("Wavetable Editor & 3D Terrain...");
     wtItem.addActionListener(
         e -> {
           if (SwingDelugeApp.mainInstance != null)

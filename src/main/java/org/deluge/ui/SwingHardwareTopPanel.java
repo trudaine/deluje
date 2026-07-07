@@ -33,8 +33,7 @@ public class SwingHardwareTopPanel extends JPanel {
     public final boolean isEncoder;
     public final Color ledColor;
 
-    public ControlDef(
-        String name, int cx, int cy, int radius, boolean isEncoder, Color ledColor) {
+    public ControlDef(String name, int cx, int cy, int radius, boolean isEncoder, Color ledColor) {
       this.name = name;
       this.cx = cx;
       this.cy = cy;
@@ -100,8 +99,10 @@ public class SwingHardwareTopPanel extends JPanel {
     activeInstance = this;
 
     setLayout(null);
-    setPreferredSize(new Dimension(1400, (int) Math.round(1400 * (ORIG_TOP_HEIGHT / (double) ORIG_WIDTH))));
-    setMinimumSize(new Dimension(800, (int) Math.round(800 * (ORIG_TOP_HEIGHT / (double) ORIG_WIDTH))));
+    setPreferredSize(
+        new Dimension(1400, (int) Math.round(1400 * (ORIG_TOP_HEIGHT / (double) ORIG_WIDTH))));
+    setMinimumSize(
+        new Dimension(800, (int) Math.round(800 * (ORIG_TOP_HEIGHT / (double) ORIG_WIDTH))));
     setOpaque(true);
     setBackground(new Color(0x13, 0x13, 0x15));
 
@@ -210,11 +211,13 @@ public class SwingHardwareTopPanel extends JPanel {
   public void loadFaceplateImage() {
     try {
       String path = "/skin/Delugemu_Normal.png";
-      java.io.InputStream in = getClass().getResourceAsStream(path);
-      if (in != null) {
-        BufferedImage full = ImageIO.read(in);
-        faceplateImg =
-            full.getSubimage(0, 0, ORIG_WIDTH, Math.min(ORIG_TOP_HEIGHT, full.getHeight()));
+      try (java.io.InputStream in = getClass().getResourceAsStream(path)) {
+        if (in != null) {
+          BufferedImage full = ImageIO.read(in);
+          int subW = Math.min(ORIG_WIDTH, full.getWidth());
+          int subH = Math.min(ORIG_TOP_HEIGHT, full.getHeight());
+          faceplateImg = full.getSubimage(0, 0, subW, subH);
+        }
       }
     } catch (Exception ex) {
       System.err.println(

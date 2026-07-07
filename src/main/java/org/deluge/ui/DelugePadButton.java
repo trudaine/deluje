@@ -584,18 +584,158 @@ public class DelugePadButton extends JButton {
     g2.dispose();
   }
 
+  // Authentic printed faceplate shortcut lettering, indexed [row 0-7][col 0-15].
+  // Static so it is not re-allocated on every paint call — getAuthenticDelugeShortcutText
+  // runs once per pad, per repaint, while Shift is held.
+  private static final String[][] SHORTCUT_TABLE = {
+    {
+      "WAVEFORM",
+      "TRANSPOSE",
+      "UNISON",
+      "MODE",
+      "VOICES",
+      "GLIDE",
+      "PORTA",
+      "LEGATO",
+      "ARP",
+      "MODE",
+      "OCTAVES",
+      "RATE",
+      "SYNC",
+      "GATE",
+      "SWING",
+      "SCALE"
+    },
+    {
+      "LPF CUT",
+      "RESONANCE",
+      "DRIVE",
+      "SLOPE",
+      "HPF CUT",
+      "HPF RES",
+      "MORPH",
+      "ROUTING",
+      "FM INT",
+      "RING MOD",
+      "NOISE",
+      "SAMPLE",
+      "REVERSE",
+      "LOOP",
+      "SPEED",
+      "PITCH"
+    },
+    {
+      "ENV1 ATT",
+      "DECAY",
+      "SUSTAIN",
+      "RELEASE",
+      "ENV2 ATT",
+      "DECAY",
+      "SUSTAIN",
+      "RELEASE",
+      "LFO1 RATE",
+      "WAVE",
+      "SYNC",
+      "LFO2 RATE",
+      "WAVE",
+      "SYNC",
+      "MOD FX",
+      "DEPTH"
+    },
+    {
+      "DELAY TIME",
+      "FEEDBACK",
+      "PING PONG",
+      "ANALOG",
+      "REVERB",
+      "DECAY",
+      "DAMPING",
+      "WET",
+      "STUTTER",
+      "PROB",
+      "RATIO",
+      "SIDECHAIN",
+      "DUCKING",
+      "COMPRESS",
+      "THRESH",
+      "RATIO"
+    },
+    {
+      "OSC1 LVL",
+      "PITCH",
+      "PW",
+      "OSC2 LVL",
+      "PITCH",
+      "PW",
+      "SUB LVL",
+      "NOISE LVL",
+      "MOD1->PCH",
+      "MOD2->PCH",
+      "MOD1->CUT",
+      "MOD2->CUT",
+      "LFO1->PCH",
+      "LFO2->PCH",
+      "ENV1->CUT",
+      "ENV2->PCH"
+    },
+    {
+      "PAN",
+      "VELOCITY",
+      "MOD WHEEL",
+      "BEND RANGE",
+      "MPE",
+      "SLIDE",
+      "PRESSURE",
+      "TIMBRE",
+      "CHORD",
+      "ARPEGGIATOR",
+      "EUCLIDEAN",
+      "STEPS",
+      "HITS",
+      "SHIFT",
+      "LENGTH",
+      "RESOLUTION"
+    },
+    {
+      "CUSTOM 1",
+      "CUSTOM 2",
+      "CUSTOM 3",
+      "CUSTOM 4",
+      "CUSTOM 5",
+      "CUSTOM 6",
+      "CUSTOM 7",
+      "CUSTOM 8",
+      "CUSTOM 9",
+      "CUSTOM 10",
+      "CUSTOM 11",
+      "CUSTOM 12",
+      "CUSTOM 13",
+      "CUSTOM 14",
+      "CUSTOM 15",
+      "CUSTOM 16"
+    },
+    {
+      "MIDI CHAN",
+      "PROGRAM",
+      "BANK",
+      "SUB BANK",
+      "CV GATE",
+      "CV PITCH",
+      "GATE LVL",
+      "PITCH BEND",
+      "CC 1",
+      "CC 2",
+      "CC 7",
+      "CC 10",
+      "CC 74",
+      "MOD MATRIX",
+      "VELOCITY",
+      "AFTERTOUCH"
+    }
+  };
+
   public static String getAuthenticDelugeShortcutText(int row, int col) {
     if (row < 0 || row > 7 || col < 0 || col > 15) return "";
-    String[][] SHORTCUT_TABLE = {
-      {"WAVEFORM", "TRANSPOSE", "UNISON", "MODE", "VOICES", "GLIDE", "PORTA", "LEGATO", "ARP", "MODE", "OCTAVES", "RATE", "SYNC", "GATE", "SWING", "SCALE"},
-      {"LPF CUT", "RESONANCE", "DRIVE", "SLOPE", "HPF CUT", "HPF RES", "MORPH", "ROUTING", "FM INT", "RING MOD", "NOISE", "SAMPLE", "REVERSE", "LOOP", "SPEED", "PITCH"},
-      {"ENV1 ATT", "DECAY", "SUSTAIN", "RELEASE", "ENV2 ATT", "DECAY", "SUSTAIN", "RELEASE", "LFO1 RATE", "WAVE", "SYNC", "LFO2 RATE", "WAVE", "SYNC", "MOD FX", "DEPTH"},
-      {"DELAY TIME", "FEEDBACK", "PING PONG", "ANALOG", "REVERB", "DECAY", "DAMPING", "WET", "STUTTER", "PROB", "RATIO", "SIDECHAIN", "DUCKING", "COMPRESS", "THRESH", "RATIO"},
-      {"OSC1 LVL", "PITCH", "PW", "OSC2 LVL", "PITCH", "PW", "SUB LVL", "NOISE LVL", "MOD1->PCH", "MOD2->PCH", "MOD1->CUT", "MOD2->CUT", "LFO1->PCH", "LFO2->PCH", "ENV1->CUT", "ENV2->PCH"},
-      {"PAN", "VELOCITY", "MOD WHEEL", "BEND RANGE", "MPE", "SLIDE", "PRESSURE", "TIMBRE", "CHORD", "ARPEGGIATOR", "EUCLIDEAN", "STEPS", "HITS", "SHIFT", "LENGTH", "RESOLUTION"},
-      {"CUSTOM 1", "CUSTOM 2", "CUSTOM 3", "CUSTOM 4", "CUSTOM 5", "CUSTOM 6", "CUSTOM 7", "CUSTOM 8", "CUSTOM 9", "CUSTOM 10", "CUSTOM 11", "CUSTOM 12", "CUSTOM 13", "CUSTOM 14", "CUSTOM 15", "CUSTOM 16"},
-      {"MIDI CHAN", "PROGRAM", "BANK", "SUB BANK", "CV GATE", "CV PITCH", "GATE LVL", "PITCH BEND", "CC 1", "CC 2", "CC 7", "CC 10", "CC 74", "MOD MATRIX", "VELOCITY", "AFTERTOUCH"}
-    };
     return SHORTCUT_TABLE[row][col];
   }
 

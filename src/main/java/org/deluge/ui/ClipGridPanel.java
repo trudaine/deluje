@@ -865,10 +865,7 @@ public class ClipGridPanel extends SwingGridPanel {
             == org.deluge.project.PreferencesManager.TopPanelStyle.HARDWARE_FACEPLATE;
     double faceScaleRow = Math.max(800, getWidth()) / 2256.0;
     int lw = currentLabelWidth();
-    int rowW =
-        isFaceplateRow
-            ? (int) Math.round(2270 * faceScaleRow)
-            : getGridWidth(padSz, lw);
+    int rowW = isFaceplateRow ? (int) Math.round(2270 * faceScaleRow) : getGridWidth(padSz, lw);
     rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
     rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
     rowPanel.setPreferredSize(new Dimension(rowW, padSz));
@@ -1026,7 +1023,9 @@ public class ClipGridPanel extends SwingGridPanel {
       vuManager.registerVoiceVu(modelRow, vu);
     }
 
-    if (!isFaceplateRow && projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (!isFaceplateRow
+        && projectModel != null
+        && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel activeTrack = projectModel.getTracks().get(editedModelTrack);
       if (activeTrack instanceof org.deluge.model.KitTrackModel kitTrack) {
         java.util.List<org.deluge.model.Drum> drumsList = kitTrack.getDrums();
@@ -1456,15 +1455,16 @@ public class ClipGridPanel extends SwingGridPanel {
     int line1 = (int) Math.round(17 * scale);
     int line2 = (int) Math.round(98 * scale);
     int lineW = Math.max(1, (int) Math.round(2 * scale));
-    JPanel sep = new JPanel() {
-      @Override
-      protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        g.setColor(new Color(0xd8, 0xd8, 0xd8, 220));
-        g.fillRect(line1, 0, lineW, getHeight());
-        g.fillRect(line2, 0, lineW, getHeight());
-      }
-    };
+    JPanel sep =
+        new JPanel() {
+          @Override
+          protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            g.setColor(new Color(0xd8, 0xd8, 0xd8, 220));
+            g.fillRect(line1, 0, lineW, getHeight());
+            g.fillRect(line2, 0, lineW, getHeight());
+          }
+        };
     sep.setOpaque(false);
     sep.setPreferredSize(new Dimension(w, height));
     sep.setMinimumSize(new Dimension(w, height));
