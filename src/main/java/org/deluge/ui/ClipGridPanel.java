@@ -1477,8 +1477,8 @@ public class ClipGridPanel extends SwingGridPanel {
     refreshInProgress = true;
     removeAll();
 
-    voiceRowCount = 8;
-    int songVoiceRows = 8;
+    voiceRowCount = gridMode.rows;
+    int songVoiceRows = gridMode.rows;
     this.stepCount = gridMode.columns;
     int savedColCount = this.stepCount + 2;
     this.columnCount = savedColCount;
@@ -1587,7 +1587,7 @@ public class ClipGridPanel extends SwingGridPanel {
         } else {
           if (colId < 16) {
             if (kitTrack) {
-              int drumIdx = org.deluge.model.KeyplayKeyboard.getDrumIndex(t, colId);
+              int drumIdx = org.deluge.model.KeyplayKeyboard.getDrumIndex(t, colId, gridMode.rows);
               clipBtn.setText(drumIdx < editedKitDrumCount() ? ("D" + (drumIdx + 1)) : "");
               clearActionListeners(clipBtn);
               clearKeyboardMouseListeners(clipBtn);
@@ -1617,7 +1617,9 @@ public class ClipGridPanel extends SwingGridPanel {
                 clearActionListeners(clipBtn);
                 clearKeyboardMouseListeners(clipBtn);
                 clipBtn.setText(
-                    rowIdx == 0 ? "CC74" : (rowIdx == 7 ? String.valueOf(currentCc74Value) : ""));
+                    rowIdx == 0
+                        ? "CC74"
+                        : (rowIdx == songVoiceRows - 1 ? String.valueOf(currentCc74Value) : ""));
                 java.awt.event.MouseAdapter ma =
                     new java.awt.event.MouseAdapter() {
                       @Override
@@ -1632,7 +1634,7 @@ public class ClipGridPanel extends SwingGridPanel {
                           Point p = SwingUtilities.convertPoint(btn, e.getPoint(), voicePanel);
                           int rowHeight = btn.getHeight() + 5;
                           int row = p.y / rowHeight;
-                          row = Math.max(0, Math.min(row, 7));
+                          row = Math.max(0, Math.min(row, songVoiceRows - 1));
                           updateCc74FromRow(row);
                         }
                       }
@@ -1646,7 +1648,9 @@ public class ClipGridPanel extends SwingGridPanel {
                 clipBtn.setText(
                     rowIdx == 0
                         ? "VEL"
-                        : (rowIdx == 7 ? String.valueOf(defaultKeyboardVelocity) : ""));
+                        : (rowIdx == songVoiceRows - 1
+                            ? String.valueOf(defaultKeyboardVelocity)
+                            : ""));
                 java.awt.event.MouseAdapter ma =
                     new java.awt.event.MouseAdapter() {
                       @Override
@@ -1661,7 +1665,7 @@ public class ClipGridPanel extends SwingGridPanel {
                           Point p = SwingUtilities.convertPoint(btn, e.getPoint(), voicePanel);
                           int rowHeight = btn.getHeight() + 5;
                           int row = p.y / rowHeight;
-                          row = Math.max(0, Math.min(row, 7));
+                          row = Math.max(0, Math.min(row, songVoiceRows - 1));
                           updateVelocityFromRow(row);
                         }
                       }
@@ -1675,7 +1679,8 @@ public class ClipGridPanel extends SwingGridPanel {
                         colId,
                         scaleModeEnabled,
                         projectModel.getKey(),
-                        projectModel.getScale());
+                        projectModel.getScale(),
+                        gridMode.rows);
                 clipBtn.setText(getNoteName(note));
                 clearActionListeners(clipBtn);
                 clearKeyboardMouseListeners(clipBtn);
@@ -1720,7 +1725,7 @@ public class ClipGridPanel extends SwingGridPanel {
   private int currentCc74Value = 64; // Default to neutral
 
   private void updateCc74FromRow(int v) {
-    int ccVal = (7 - v) * 127 / 7;
+    int ccVal = (gridMode.rows - 1 - v) * 127 / (gridMode.rows - 1);
     currentCc74Value = ccVal;
 
     if (bridge != null) {
@@ -1740,7 +1745,7 @@ public class ClipGridPanel extends SwingGridPanel {
   }
 
   private void updateVelocityFromRow(int v) {
-    int velVal = (7 - v) * 127 / 7;
+    int velVal = (gridMode.rows - 1 - v) * 127 / (gridMode.rows - 1);
     defaultKeyboardVelocity = velVal;
     refreshKeyplayInPlace();
   }
@@ -1750,7 +1755,7 @@ public class ClipGridPanel extends SwingGridPanel {
     Color trackColor = getTrackBaseColor();
     PreferencesManager.GridColorTheme theme = PreferencesManager.getGridColorTheme();
 
-    for (int v = 0; v < 8; v++) {
+    for (int v = 0; v < gridMode.rows; v++) {
       for (int c = 0; c < columnCount; c++) {
         JButton clipBtn = pads[v][c];
         if (clipBtn == null) continue;
@@ -1760,7 +1765,7 @@ public class ClipGridPanel extends SwingGridPanel {
           clipBtn.setEnabled(false);
         } else if (c < 16) {
           if (kitTrack) {
-            int drumIdx = org.deluge.model.KeyplayKeyboard.getDrumIndex(v, c);
+            int drumIdx = org.deluge.model.KeyplayKeyboard.getDrumIndex(v, c, gridMode.rows);
             boolean drumPlayable = drumIdx < editedKitDrumCount();
             boolean isPlaying =
                 bridge != null
@@ -1778,10 +1783,13 @@ public class ClipGridPanel extends SwingGridPanel {
           } else {
             if (c == 15) {
               // CC74 Modulation Column touch strip
-              int padCcValue = (7 - v) * 127 / 7;
+              int padCcValue = (gridMode.rows - 1 - v) * 127 / (gridMode.rows - 1);
               boolean active = padCcValue <= currentCc74Value;
               Color ccColor = active ? new Color(0xd0, 0x00, 0xff) : new Color(0x3a, 0x1c, 0x4a);
-              clipBtn.setText(v == 0 ? "CC74" : (v == 7 ? String.valueOf(currentCc74Value) : ""));
+              clipBtn.setText(
+                  v == 0
+                      ? "CC74"
+                      : (v == gridMode.rows - 1 ? String.valueOf(currentCc74Value) : ""));
               clipBtn.setForeground(Color.WHITE);
               if (clipBtn instanceof DelugePadButton pad) {
                 pad.setBaseColor(ccColor);
@@ -1794,11 +1802,13 @@ public class ClipGridPanel extends SwingGridPanel {
               }
             } else if (c == 14) {
               // Velocity Column touch strip
-              int padVelValue = (7 - v) * 127 / 7;
+              int padVelValue = (gridMode.rows - 1 - v) * 127 / (gridMode.rows - 1);
               boolean active = padVelValue <= defaultKeyboardVelocity;
               Color velColor = active ? new Color(0xff, 0x6f, 0x00) : new Color(0x4a, 0x24, 0x00);
               clipBtn.setText(
-                  v == 0 ? "VEL" : (v == 7 ? String.valueOf(defaultKeyboardVelocity) : ""));
+                  v == 0
+                      ? "VEL"
+                      : (v == gridMode.rows - 1 ? String.valueOf(defaultKeyboardVelocity) : ""));
               clipBtn.setForeground(Color.WHITE);
               if (clipBtn instanceof DelugePadButton pad) {
                 pad.setBaseColor(velColor);
@@ -1812,7 +1822,12 @@ public class ClipGridPanel extends SwingGridPanel {
             } else {
               int note =
                   org.deluge.model.KeyplayKeyboard.getNote(
-                      v, c, scaleModeEnabled, projectModel.getKey(), projectModel.getScale());
+                      v,
+                      c,
+                      scaleModeEnabled,
+                      projectModel.getKey(),
+                      projectModel.getScale(),
+                      gridMode.rows);
               boolean isRoot = ScaleMapper.isRootNote(note, projectModel.getKey());
               boolean inScale =
                   ScaleMapper.isNoteInScale(note, projectModel.getKey(), projectModel.getScale());

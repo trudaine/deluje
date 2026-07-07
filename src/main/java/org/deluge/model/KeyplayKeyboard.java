@@ -35,7 +35,15 @@ public final class KeyplayKeyboard {
    * @return the mapped MIDI note number
    */
   public static int getNote(int trk, int colId) {
-    return BASE_NOTE + colId + (7 - trk) * ROW_INTERVAL;
+    return getNote(trk, colId, 8);
+  }
+
+  /**
+   * As {@link #getNote(int, int)} but for a grid of {@code numRows} rows. The bottom row (trk =
+   * numRows-1) is always BASE_NOTE, so the row flip stays non-negative for any row count.
+   */
+  public static int getNote(int trk, int colId, int numRows) {
+    return BASE_NOTE + colId + ((numRows - 1) - trk) * ROW_INTERVAL;
   }
 
   /**
@@ -50,14 +58,31 @@ public final class KeyplayKeyboard {
    * @return the mapped drum slot index (0 to 127)
    */
   public static int getDrumIndex(int trk, int colId) {
-    return colId + (7 - trk) * 16;
+    return getDrumIndex(trk, colId, 8);
+  }
+
+  /** As {@link #getDrumIndex(int, int)} but for a grid of {@code numRows} rows. */
+  public static int getDrumIndex(int trk, int colId, int numRows) {
+    return colId + ((numRows - 1) - trk) * 16;
   }
 
   /** Maps a coordinate in folded in-key scale mode to a MIDI note. */
   public static int getNoteInKey(
       int trk, int colId, int[] scaleNotes, int rootNote, int rowInterval, int scrollOffset) {
+    return getNoteInKey(trk, colId, scaleNotes, rootNote, rowInterval, scrollOffset, 8);
+  }
+
+  /** As {@link #getNoteInKey} but for a grid of {@code numRows} rows. */
+  public static int getNoteInKey(
+      int trk,
+      int colId,
+      int[] scaleNotes,
+      int rootNote,
+      int rowInterval,
+      int scrollOffset,
+      int numRows) {
     int scaleNoteCount = scaleNotes.length;
-    int y = 7 - trk;
+    int y = (numRows - 1) - trk;
     int padIndex = scrollOffset + colId + y * rowInterval;
     int octave = padIndex / scaleNoteCount;
     int octaveNoteIndex = padIndex % scaleNoteCount;
@@ -67,14 +92,20 @@ public final class KeyplayKeyboard {
   /** Maps a pad coordinate to a MIDI note, automatically handling scaleModeEnabled. */
   public static int getNote(
       int trk, int colId, boolean scaleModeEnabled, String key, String scaleName) {
+    return getNote(trk, colId, scaleModeEnabled, key, scaleName, 8);
+  }
+
+  /** As the 5-arg {@link #getNote} but for a grid of {@code numRows} rows. */
+  public static int getNote(
+      int trk, int colId, boolean scaleModeEnabled, String key, String scaleName, int numRows) {
     if (!scaleModeEnabled) {
-      return BASE_NOTE + colId + (7 - trk) * ROW_INTERVAL;
+      return getNote(trk, colId, numRows);
     } else {
       int rootNote = ScaleMapper.getKeyMidiOffset(key);
       int[] scaleNotes = ScaleMapper.scaleTypeFromName(scaleName).getIntervals();
       int rowInterval = 3; // Default 3 scale degrees
       int scrollOffset = scaleNotes.length * 3; // Default 3 octaves offset
-      return getNoteInKey(trk, colId, scaleNotes, rootNote, rowInterval, scrollOffset);
+      return getNoteInKey(trk, colId, scaleNotes, rootNote, rowInterval, scrollOffset, numRows);
     }
   }
 }
