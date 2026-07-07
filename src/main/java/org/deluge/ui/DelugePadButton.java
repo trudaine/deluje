@@ -372,7 +372,10 @@ public class DelugePadButton extends JButton {
     int yPad = 2;
     int rw = w - 2 * xPad;
     int rh = h - 2 * yPad;
-    int arc = 6;
+    boolean isSiliconeLedStyle =
+        org.deluge.project.PreferencesManager.getPadRenderStyle()
+            == org.deluge.project.PreferencesManager.PadRenderStyle.SILICONE_LED;
+    int arc = isSiliconeLedStyle ? Math.max(8, Math.min(rw, rh) * 35 / 100) : 6;
 
     if (!applicable) {
       // Color-neutral titanium grey pad
@@ -460,7 +463,7 @@ public class DelugePadButton extends JButton {
           Boolean.TRUE.equals(getClientProperty("utility"))
               || (getClientProperty("col") instanceof Integer colIdx && colIdx >= 16);
 
-      if (isUtilityCol || !drawCenterCircle) {
+      if (isUtilityCol || (!drawCenterCircle && !isSiliconeLedStyle)) {
         g2.setColor(finalColor);
         g2.fillRoundRect(xPad, yPad, rw, rh, arc, arc);
       } else {

@@ -142,4 +142,31 @@ public class DelugePadButtonTest {
     assertEquals(111, blurGreen.getGreen(), "Green channel must match C++ forBlur math");
     assertEquals(71, blurGreen.getBlue(), "Blue channel must match C++ forBlur math");
   }
+
+  @Test
+  public void testPadRenderStyleSiliconeAndStandardDaw() {
+    org.deluge.project.PreferencesManager.PadRenderStyle oldStyle =
+        org.deluge.project.PreferencesManager.getPadRenderStyle();
+    try {
+      DelugePadButton pad = new DelugePadButton();
+      pad.setSize(40, 40);
+      pad.setActive(true);
+
+      org.deluge.project.PreferencesManager.setPadRenderStyle(
+          org.deluge.project.PreferencesManager.PadRenderStyle.SILICONE_LED);
+      BufferedImage imgSilicone = new BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB);
+      Graphics2D g1 = imgSilicone.createGraphics();
+      pad.paint(g1);
+      g1.dispose();
+
+      org.deluge.project.PreferencesManager.setPadRenderStyle(
+          org.deluge.project.PreferencesManager.PadRenderStyle.STANDARD_DAW);
+      BufferedImage imgStandard = new BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB);
+      Graphics2D g2 = imgStandard.createGraphics();
+      pad.paint(g2);
+      g2.dispose();
+    } finally {
+      org.deluge.project.PreferencesManager.setPadRenderStyle(oldStyle);
+    }
+  }
 }

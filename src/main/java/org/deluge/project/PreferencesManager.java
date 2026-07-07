@@ -161,6 +161,36 @@ public class PreferencesManager {
     prefs.put(KEY_GRID_PANEL_TYPE, type.name());
   }
 
+  /** Pad visual rendering shader style preference. */
+  public enum PadRenderStyle {
+    /** Standard desktop DAW rectangular cells. */
+    STANDARD_DAW,
+    /** Photorealistic silicone rubber pads with radial LED bloom & tone mapping. */
+    SILICONE_LED;
+
+    public static PadRenderStyle fromString(String s) {
+      try {
+        return valueOf(s);
+      } catch (Exception e) {
+        return SILICONE_LED;
+      }
+    }
+  }
+
+  private static final String KEY_PAD_RENDER_STYLE = "pad.renderStyle";
+
+  public static PadRenderStyle getPadRenderStyle() {
+    return PadRenderStyle.fromString(prefs.get(KEY_PAD_RENDER_STYLE, "SILICONE_LED"));
+  }
+
+  public static void setPadRenderStyle(PadRenderStyle style) {
+    prefs.put(KEY_PAD_RENDER_STYLE, style.name());
+    try {
+      prefs.flush();
+    } catch (Exception ignored) {
+    }
+  }
+
   /** Sequence Grid UI Color Themes. */
   public enum GridColorTheme {
     HARDWARE, // Native Deluge hardware colors mapping

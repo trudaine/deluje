@@ -37,7 +37,9 @@ public class DelugeUsbSyncService {
 
   public interface UsbFileListener {
     void onDirectoryListingReceived(List<FileEntry> entries);
+
     void onFileChunkReceived(int chunkIndex, boolean isEof, byte[] data);
+
     void onError(String error);
   }
 
@@ -294,10 +296,11 @@ public class DelugeUsbSyncService {
             if (payload.length >= 7) {
               int paramKind = payload[0] & 0xFF;
               int paramID = (payload[1] & 0xFF) | ((payload[2] & 0xFF) << 8);
-              int value = (payload[3] & 0xFF)
-                  | ((payload[4] & 0xFF) << 8)
-                  | ((payload[5] & 0xFF) << 16)
-                  | ((payload[6] & 0xFF) << 24);
+              int value =
+                  (payload[3] & 0xFF)
+                      | ((payload[4] & 0xFF) << 8)
+                      | ((payload[5] & 0xFF) << 16)
+                      | ((payload[6] & 0xFF) << 24);
               notifyParameterReceived(paramKind, paramID, value);
             }
           }

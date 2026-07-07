@@ -50,6 +50,7 @@ public class PreferencesDialog extends JDialog {
   private final java.util.Map<String, String> friendlyToRawMidi = new java.util.HashMap<>();
   private final java.util.Map<String, String> rawToFriendlyMidi = new java.util.HashMap<>();
   private JCheckBox advancedGridStyleCheck;
+  private JComboBox<String> padRenderStyleCombo;
   private JComboBox<String> interactionModeCombo;
   private JComboBox<String> displayTypeCombo;
   private JLabel dirLabel;
@@ -519,6 +520,20 @@ public class PreferencesDialog extends JDialog {
         c,
         2);
 
+    padRenderStyleCombo =
+        new JComboBox<>(
+            new String[] {
+              "Silicone LED (Tone-Mapped Hardware Glow)", "Standard DAW (Flat Rectangular Grid)"
+            });
+    styleComboBox(padRenderStyleCombo);
+    addField(
+        panel,
+        "Pad Rendering Style",
+        padRenderStyleCombo,
+        "Silicone backlit pads vs flat desktop DAW grid cells.",
+        c,
+        3);
+
     interactionModeCombo =
         new JComboBox<>(new String[] {"Desktop Slider Popup", "Hardware Rotary Dial SELECT"});
     styleComboBox(interactionModeCombo);
@@ -528,7 +543,7 @@ public class PreferencesDialog extends JDialog {
         interactionModeCombo,
         "Controls how parameters modify on pad click hold.",
         c,
-        3);
+        4);
 
     displayTypeCombo =
         new JComboBox<>(
@@ -540,7 +555,7 @@ public class PreferencesDialog extends JDialog {
         displayTypeCombo,
         "Gates digital hardware segment indicators layouts.",
         c,
-        4);
+        5);
 
     JPanel scalaSelectPanel = new JPanel(new BorderLayout(5, 0));
     scalaSelectPanel.setOpaque(false);
@@ -900,6 +915,12 @@ public class PreferencesDialog extends JDialog {
     advancedGridStyleCheck.setSelected(
         PreferencesManager.getGridPanelType() == PreferencesManager.GridPanelType.ADVANCED);
 
+    if (PreferencesManager.getPadRenderStyle() == PreferencesManager.PadRenderStyle.SILICONE_LED) {
+      padRenderStyleCombo.setSelectedIndex(0);
+    } else {
+      padRenderStyleCombo.setSelectedIndex(1);
+    }
+
     if (PreferencesManager.getShiftInteractionMode()
         == PreferencesManager.ShiftInteractionMode.POPUP_SLIDER) {
       interactionModeCombo.setSelectedIndex(0);
@@ -1098,6 +1119,11 @@ public class PreferencesDialog extends JDialog {
             ? PreferencesManager.GridPanelType.ADVANCED
             : PreferencesManager.GridPanelType.LEGACY;
     PreferencesManager.setGridPanelType(panelType);
+
+    PreferencesManager.setPadRenderStyle(
+        padRenderStyleCombo.getSelectedIndex() == 0
+            ? PreferencesManager.PadRenderStyle.SILICONE_LED
+            : PreferencesManager.PadRenderStyle.STANDARD_DAW);
 
     PreferencesManager.setShiftInteractionMode(
         interactionModeCombo.getSelectedIndex() == 0

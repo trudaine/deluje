@@ -5,9 +5,9 @@ import java.util.concurrent.TimeUnit;
 import org.deluge.playback.PlaybackHandler;
 
 /**
- * Diagnostic tool to test real-time USB parameter reading and writing.
- * Connects to the Deluge, reads the current value of LOCAL_LPF_RESONANCE (ID 84, Kind 0),
- * changes its value, reads it back, and reports the results.
+ * Diagnostic tool to test real-time USB parameter reading and writing. Connects to the Deluge,
+ * reads the current value of LOCAL_LPF_RESONANCE (ID 84, Kind 0), changes its value, reads it back,
+ * and reports the results.
  */
 public class HardwareUsbParameterDiagnostic {
 
@@ -26,20 +26,23 @@ public class HardwareUsbParameterDiagnostic {
 
     final int[] receivedVal = new int[1];
 
-    service.addParameterListener(new DelugeUsbSyncService.UsbParameterListener() {
-      @Override
-      public void onParameterReceived(int paramKind, int paramID, int value) {
-        System.out.printf("[USB] Received parameter update: Kind=%d, ID=%d, Value=%d%n", paramKind, paramID, value);
-        if (paramKind == KIND_PATCHED && paramID == PARAM_LPF_RESONANCE) {
-          receivedVal[0] = value;
-          if (readLatch.getCount() > 0) {
-            readLatch.countDown();
-          } else if (verifyLatch.getCount() > 0) {
-            verifyLatch.countDown();
+    service.addParameterListener(
+        new DelugeUsbSyncService.UsbParameterListener() {
+          @Override
+          public void onParameterReceived(int paramKind, int paramID, int value) {
+            System.out.printf(
+                "[USB] Received parameter update: Kind=%d, ID=%d, Value=%d%n",
+                paramKind, paramID, value);
+            if (paramKind == KIND_PATCHED && paramID == PARAM_LPF_RESONANCE) {
+              receivedVal[0] = value;
+              if (readLatch.getCount() > 0) {
+                readLatch.countDown();
+              } else if (verifyLatch.getCount() > 0) {
+                verifyLatch.countDown();
+              }
+            }
           }
-        }
-      }
-    });
+        });
 
     service.start();
 
@@ -58,7 +61,7 @@ public class HardwareUsbParameterDiagnostic {
         int newValue = (originalValue > 0) ? originalValue / 2 : 0x10000000;
         System.out.printf("\n[2] Writing new LPF Resonance value: %d...%n", newValue);
         service.requestParameterWrite(KIND_PATCHED, PARAM_LPF_RESONANCE, newValue);
-        
+
         // Wait a brief moment for update to apply
         Thread.sleep(500);
 
@@ -76,7 +79,8 @@ public class HardwareUsbParameterDiagnostic {
           System.err.println("Timeout waiting for value verification readback.");
         }
       } else {
-        System.err.println("Timeout waiting for initial parameter read. Is the Deluge connected via USB and is a Synth clip active?");
+        System.err.println(
+            "Timeout waiting for initial parameter read. Is the Deluge connected via USB and is a Synth clip active?");
       }
     } catch (InterruptedException e) {
       System.err.println("Diagnostic interrupted.");
