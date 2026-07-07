@@ -80,6 +80,26 @@ public class SwingTopBarPanel extends JPanel {
     void onStop();
 
     void onMasterVolumeChanged(float vol);
+
+    default void onLoadProject() {}
+
+    default void onSaveProject() {}
+
+    default void onNewProject() {}
+
+    default void onUndo() {}
+
+    default void onRedo() {}
+
+    default void onLearnToggle() {}
+
+    default void onAffectEntireToggle() {}
+
+    default void onScaleModeToggle() {}
+
+    default void onTripletsToggle() {}
+
+    default void onBack() {}
   }
 
   private final ProjectModel projectModel;

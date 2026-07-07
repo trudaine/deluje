@@ -85,15 +85,24 @@ public class SongGridPanel extends SwingGridPanel {
     vuManager.clear();
     vuManager.startTimer();
 
-    // Compute dynamic pad size: always fit gridMode.rows × gridMode.columns cells in the viewport
+    boolean isFaceplate =
+        org.deluge.project.PreferencesManager.getTopPanelStyle()
+            == org.deluge.project.PreferencesManager.TopPanelStyle.HARDWARE_FACEPLATE;
+    double faceScale = Math.max(800, getWidth()) / 2256.0;
     int padSz = cachedPadSz;
     int lw = currentLabelWidth();
-    int rowW = getGridWidth(padSz, lw);
+    int rowW;
+    if (isFaceplate) {
+      padSz = Math.max(16, (int) Math.round(78 * faceScale));
+      rowW = (int) Math.round(2270 * faceScale);
+    } else {
+      rowW = getGridWidth(padSz, lw);
+    }
     int songVoiceRows = gridMode.rows; // always draw full viewport slots
 
     // ── Section bar (A-Z) for SONG mode ──
     java.util.List<SongSection> sections = getProjectModel().getSongSections();
-    if (sections != null && !sections.isEmpty()) {
+    if (!isFaceplate && sections != null && !sections.isEmpty()) {
       JPanel sectionBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 2));
       sectionBar.setBackground(new Color(0x15, 0x15, 0x15));
       sectionBar.setMaximumSize(new Dimension(rowW, 24));
@@ -243,31 +252,35 @@ public class SongGridPanel extends SwingGridPanel {
             }
           });
 
-      rowPanel.add(label);
-      rowPanel.add(Box.createHorizontalStrut(5));
+      if (!isFaceplate) {
+        rowPanel.add(label);
+        rowPanel.add(Box.createHorizontalStrut(5));
 
-      if (t < songVoiceRows) {
-        JLabel lenBadge = new JLabel("[SONG]");
-        lenBadge.setPreferredSize(new Dimension(48, 26));
-        lenBadge.setMinimumSize(new Dimension(48, 26));
-        lenBadge.setMaximumSize(new Dimension(48, 26));
-        lenBadge.setFont(new Font("Monospaced", Font.BOLD, 10));
-        lenBadge.setForeground(Color.GRAY);
-        lenBadge.setToolTipText("Currently in Song matrix launcher view");
-        rowPanel.add(lenBadge);
+        if (t < songVoiceRows) {
+          JLabel lenBadge = new JLabel("[SONG]");
+          lenBadge.setPreferredSize(new Dimension(48, 26));
+          lenBadge.setMinimumSize(new Dimension(48, 26));
+          lenBadge.setMaximumSize(new Dimension(48, 26));
+          lenBadge.setFont(new Font("Monospaced", Font.BOLD, 10));
+          lenBadge.setForeground(Color.GRAY);
+          lenBadge.setToolTipText("Currently in Song matrix launcher view");
+          rowPanel.add(lenBadge);
+        } else {
+          rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
+        }
+
+        rowPanel.add(Box.createHorizontalStrut(5));
+
+        VUMeterPanel vu = new VUMeterPanel();
+        vu.setPreferredSize(new Dimension(12, padSz));
+        vu.setMaximumSize(new Dimension(12, padSz));
+        rowPanel.add(vu);
+        rowPanel.add(Box.createHorizontalStrut(5));
+
+        vuManager.registerTrackVu(trk, vu);
       } else {
-        rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
+        rowPanel.add(Box.createRigidArea(new Dimension((int) Math.round(58 * faceScale), 1)));
       }
-
-      rowPanel.add(Box.createHorizontalStrut(5));
-
-      VUMeterPanel vu = new VUMeterPanel();
-      vu.setPreferredSize(new Dimension(12, padSz));
-      vu.setMaximumSize(new Dimension(12, padSz));
-      rowPanel.add(vu);
-      rowPanel.add(Box.createHorizontalStrut(5));
-
-      vuManager.registerTrackVu(trk, vu);
 
       for (int c = 0; c < columnCount; c++) {
         final int slot = c;
@@ -602,19 +615,36 @@ public class SongGridPanel extends SwingGridPanel {
           }
         }
 
+        if (isFaceplate) {
+          if (c == 16) {
+            rowPanel.add(ClipGridPanel.createFaceplateSeparator(faceScale, padSz));
+          } else if (c > 0) {
+            rowPanel.add(Box.createRigidArea(new Dimension((int) Math.round(41 * faceScale), 1)));
+          }
+          if (dispTrack != null) {
+            String oldTip = clipBtn.getToolTipText();
+            clipBtn.setToolTipText(dispTrack.getName() + (oldTip != null ? " — " + oldTip : ""));
+          }
+        }
         rowPanel.add(clipBtn);
-        rowPanel.add(Box.createHorizontalStrut(5));
+        if (!isFaceplate) {
+          rowPanel.add(Box.createHorizontalStrut(5));
+        }
       }
 
       voicePanel.add(rowPanel);
       if (t < songVoiceRows + 1) {
-        voicePanel.add(Box.createVerticalStrut(5));
+        if (isFaceplate) {
+          voicePanel.add(Box.createRigidArea(new Dimension(1, (int) Math.round(41 * faceScale))));
+        } else {
+          voicePanel.add(Box.createVerticalStrut(5));
+        }
       }
     }
 
     JPanel voiceWrapper = new JPanel(new BorderLayout());
     voiceWrapper.setBackground(new Color(0x15, 0x15, 0x15));
-    boolean showNavPanel = voiceRowCount > gridMode.rows;
+    boolean showNavPanel = (voiceRowCount > gridMode.rows) || isFaceplate;
 
     int viewH = gridMode.rows * (padSz + 5) - 5;
     int wrapperW = rowW + (showNavPanel ? 32 : 0);

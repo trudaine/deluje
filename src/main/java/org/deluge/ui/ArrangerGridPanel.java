@@ -40,9 +40,19 @@ public class ArrangerGridPanel extends SwingGridPanel {
     vuManager.clear();
     vuManager.startTimer();
 
+    boolean isFaceplate =
+        org.deluge.project.PreferencesManager.getTopPanelStyle()
+            == org.deluge.project.PreferencesManager.TopPanelStyle.HARDWARE_FACEPLATE;
+    double faceScale = Math.max(800, getWidth()) / 2256.0;
     int padSz = cachedPadSz;
     int lw = currentLabelWidth();
-    int rowW = getGridWidth(padSz, lw);
+    int rowW;
+    if (isFaceplate) {
+      padSz = Math.max(16, (int) Math.round(78 * faceScale));
+      rowW = (int) Math.round(2270 * faceScale);
+    } else {
+      rowW = getGridWidth(padSz, lw);
+    }
 
     voicePanel = new JPanel();
     voicePanel.setBackground(new Color(0x15, 0x15, 0x15));
@@ -155,54 +165,58 @@ public class ArrangerGridPanel extends SwingGridPanel {
             }
           });
 
-      rowPanel.add(label);
+      if (!isFaceplate) {
+        rowPanel.add(label);
 
-      if (t < songVoiceRows && dispTrack != null) {
-        int stepLen = (bridge != null) ? bridge.getTrackLength(trk) : 16;
-        JLabel lenBadge = new JLabel("[" + stepLen + "]");
-        lenBadge.setPreferredSize(new Dimension(48, 26));
-        lenBadge.setMinimumSize(new Dimension(48, 26));
-        lenBadge.setMaximumSize(new Dimension(48, 26));
-        lenBadge.setFont(new Font("Monospaced", Font.BOLD, 11));
-        lenBadge.setForeground(stepLen == 16 ? Color.GRAY : new Color(0xff, 0xcc, 0x00));
-        lenBadge.setToolTipText("Track length (right-click to change)");
-        lenBadge.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        lenBadge.addMouseListener(
-            new java.awt.event.MouseAdapter() {
-              @Override
-              public void mouseClicked(java.awt.event.MouseEvent e) {
-                if (javax.swing.SwingUtilities.isRightMouseButton(e) || e.getClickCount() == 2) {
-                  String input =
-                      JOptionPane.showInputDialog(
-                          ArrangerGridPanel.this, "Track length (1-64):", stepLen);
-                  if (input != null) {
-                    try {
-                      int newLen = Integer.parseInt(input.trim());
-                      if (newLen >= 1 && newLen <= BridgeContract.STEPS) {
-                        bridge.setTrackLength(trk, newLen);
-                        refresh();
+        if (t < songVoiceRows && dispTrack != null) {
+          int stepLen = (bridge != null) ? bridge.getTrackLength(trk) : 16;
+          JLabel lenBadge = new JLabel("[" + stepLen + "]");
+          lenBadge.setPreferredSize(new Dimension(48, 26));
+          lenBadge.setMinimumSize(new Dimension(48, 26));
+          lenBadge.setMaximumSize(new Dimension(48, 26));
+          lenBadge.setFont(new Font("Monospaced", Font.BOLD, 11));
+          lenBadge.setForeground(stepLen == 16 ? Color.GRAY : new Color(0xff, 0xcc, 0x00));
+          lenBadge.setToolTipText("Track length (right-click to change)");
+          lenBadge.setCursor(new Cursor(Cursor.HAND_CURSOR));
+          lenBadge.addMouseListener(
+              new java.awt.event.MouseAdapter() {
+                @Override
+                public void mouseClicked(java.awt.event.MouseEvent e) {
+                  if (javax.swing.SwingUtilities.isRightMouseButton(e) || e.getClickCount() == 2) {
+                    String input =
+                        JOptionPane.showInputDialog(
+                            ArrangerGridPanel.this, "Track length (1-64):", stepLen);
+                    if (input != null) {
+                      try {
+                        int newLen = Integer.parseInt(input.trim());
+                        if (newLen >= 1 && newLen <= BridgeContract.STEPS) {
+                          bridge.setTrackLength(trk, newLen);
+                          refresh();
+                        }
+                      } catch (NumberFormatException ignored) {
                       }
-                    } catch (NumberFormatException ignored) {
                     }
                   }
                 }
-              }
-            });
-        rowPanel.add(Box.createHorizontalStrut(21));
-        rowPanel.add(lenBadge);
+              });
+          rowPanel.add(Box.createHorizontalStrut(21));
+          rowPanel.add(lenBadge);
+        } else {
+          rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
+        }
+
+        rowPanel.add(Box.createHorizontalStrut(5));
+
+        VUMeterPanel vu = new VUMeterPanel();
+        vu.setPreferredSize(new Dimension(12, padSz));
+        vu.setMaximumSize(new Dimension(12, padSz));
+        rowPanel.add(vu);
+        rowPanel.add(Box.createHorizontalStrut(5));
+
+        vuManager.registerTrackVu(trk, vu);
       } else {
-        rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
+        rowPanel.add(Box.createRigidArea(new Dimension((int) Math.round(58 * faceScale), 1)));
       }
-
-      rowPanel.add(Box.createHorizontalStrut(5));
-
-      VUMeterPanel vu = new VUMeterPanel();
-      vu.setPreferredSize(new Dimension(12, padSz));
-      vu.setMaximumSize(new Dimension(12, padSz));
-      rowPanel.add(vu);
-      rowPanel.add(Box.createHorizontalStrut(5));
-
-      vuManager.registerTrackVu(trk, vu);
 
       String[] allParams = {
         "LEVEL", "PAN", "PITCH", "FILTER", "RESONANCE", "OSC1", "OSC2", "LFO",
@@ -427,18 +441,31 @@ public class ArrangerGridPanel extends SwingGridPanel {
 
         arrangerController.attachListeners(clipBtn, currentTrack, colId);
 
-        if (isMuteColumn(c)) {
-          rowPanel.add(Box.createHorizontalStrut(20));
+        if (isFaceplate) {
+          if (c == 16) {
+            rowPanel.add(ClipGridPanel.createFaceplateSeparator(faceScale, padSz));
+          } else if (c > 0) {
+            rowPanel.add(Box.createRigidArea(new Dimension((int) Math.round(41 * faceScale), 1)));
+          }
+          if (dispTrack != null) {
+            String oldTip = clipBtn.getToolTipText();
+            clipBtn.setToolTipText(dispTrack.getName() + (oldTip != null ? " — " + oldTip : ""));
+          }
         }
         rowPanel.add(clipBtn);
-        rowPanel.add(Box.createHorizontalStrut(5));
+        if (!isFaceplate) {
+          rowPanel.add(Box.createHorizontalStrut(5));
+        }
       }
       voicePanel.add(rowPanel);
+      if (isFaceplate) {
+        voicePanel.add(Box.createRigidArea(new Dimension(1, (int) Math.round(41 * faceScale))));
+      }
     }
 
     JPanel voiceWrapper = new JPanel(new BorderLayout());
     voiceWrapper.setBackground(new Color(0x15, 0x15, 0x15));
-    boolean showNavPanel = voiceRowCount > gridMode.rows;
+    boolean showNavPanel = (voiceRowCount > gridMode.rows) || isFaceplate;
     int viewH = gridMode.rows * (padSz + 5) - 5;
     int wrapperW = rowW + (showNavPanel ? 32 : 0);
     voiceWrapper.setPreferredSize(new Dimension(wrapperW, viewH));

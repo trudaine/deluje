@@ -849,6 +849,9 @@ public class SwingDelugeApp extends JFrame {
     snap.applyTo(clip);
   }
 
+  private JComponent trackInspectorStrip;
+  private org.deluge.ui.controls.DelugeEncoderStrip encoderStrip;
+
   public SwingTopBarPanel getTopBar() {
     return topBar;
   }
@@ -856,11 +859,25 @@ public class SwingDelugeApp extends JFrame {
   public void refreshTopPanelStyle() {
     if (topBarCards == null) return;
     CardLayout cl = (CardLayout) topBarCards.getLayout();
-    if (org.deluge.project.PreferencesManager.getTopPanelStyle()
-        == org.deluge.project.PreferencesManager.TopPanelStyle.HARDWARE_FACEPLATE) {
+    boolean isFaceplate =
+        org.deluge.project.PreferencesManager.getTopPanelStyle()
+            == org.deluge.project.PreferencesManager.TopPanelStyle.HARDWARE_FACEPLATE;
+    if (isFaceplate) {
       cl.show(topBarCards, "FACEPLATE");
+      if (modKnobBar != null) modKnobBar.setVisible(false);
+      if (rackScroll != null) rackScroll.setVisible(false);
+      if (trackInspectorStrip != null) trackInspectorStrip.setVisible(false);
+      if (masterFxPanel != null) masterFxPanel.setVisible(false);
+      if (encoderStrip != null) encoderStrip.setVisible(false);
+      if (leftFloat != null) leftFloat.setVisible(false);
+      if (rightFloat != null) rightFloat.setVisible(false);
     } else {
       cl.show(topBarCards, "STANDARD");
+      if (modKnobBar != null) modKnobBar.setVisible(true);
+      if (rackScroll != null) rackScroll.setVisible(true);
+      if (trackInspectorStrip != null) trackInspectorStrip.setVisible(true);
+      if (masterFxPanel != null) masterFxPanel.setVisible(true);
+      if (encoderStrip != null) encoderStrip.setVisible(true);
     }
   }
 
@@ -2179,7 +2196,7 @@ public class SwingDelugeApp extends JFrame {
     refreshTopPanelStyle();
 
     // Scroll encoders (X timeline / Y note rows) routed to whichever grid panel is showing.
-    org.deluge.ui.controls.DelugeEncoderStrip encoderStrip =
+    encoderStrip =
         new org.deluge.ui.controls.DelugeEncoderStrip(
             d -> {
               SwingGridPanel a = activeGridPanel();
@@ -2270,9 +2287,10 @@ public class SwingDelugeApp extends JFrame {
 
     // Fixed track-inspector strip ABOVE the scrolling grid: per-track controls (configure + preset)
     // belong outside the scroll area so you never have to scroll up to reach them.
+    trackInspectorStrip = buildTrackInspectorStrip();
     JPanel centerWrap = new JPanel(new BorderLayout());
     centerWrap.setOpaque(false);
-    centerWrap.add(buildTrackInspectorStrip(), BorderLayout.NORTH);
+    centerWrap.add(trackInspectorStrip, BorderLayout.NORTH);
     centerWrap.add(centerScroll, BorderLayout.CENTER);
     add(centerWrap, BorderLayout.CENTER);
 
@@ -2488,6 +2506,7 @@ public class SwingDelugeApp extends JFrame {
     masterFxPanel.setPreferredSize(new Dimension(1, 54));
     add(masterFxPanel, BorderLayout.SOUTH);
 
+    refreshTopPanelStyle();
     revalidate();
 
     // Push default project to engine and broadcast load trigger to unblock shreds
@@ -2971,6 +2990,38 @@ public class SwingDelugeApp extends JFrame {
 
   /** Handles top-bar view-mode and add-track actions. */
   private class AppTopBarListener implements SwingTopBarPanel.TopBarListener {
+    @Override
+    public void onLoadProject() {
+      JFileChooser chooser =
+          new JFileChooser(org.deluge.project.PreferencesManager.getSongsDir());
+      chooser.setFileFilter(
+          new javax.swing.filechooser.FileNameExtensionFilter("Song XML", "xml", "XML"));
+      if (chooser.showOpenDialog(SwingDelugeApp.this) == JFileChooser.APPROVE_OPTION) {
+        final java.io.File file = chooser.getSelectedFile();
+        loadProjectWithProgress(file, false);
+      }
+    }
+
+    @Override
+    public void onSaveProject() {
+      fileMenuController.saveProject(false);
+    }
+
+    @Override
+    public void onNewProject() {
+      loadProject(org.deluge.model.ProjectModel.createDefaultProject());
+    }
+
+    @Override
+    public void onUndo() {
+      doUndo();
+    }
+
+    @Override
+    public void onRedo() {
+      doRedo();
+    }
+
     @Override
     public void onLiveRecordToggle(JButton btn) {
       transportController.onLiveRecordToggle(btn);

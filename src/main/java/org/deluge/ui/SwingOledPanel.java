@@ -30,6 +30,11 @@ public class SwingOledPanel extends JPanel {
     repaint();
   }
 
+  public void showParamText(String banner, String val) {
+    virtualOLED.drawTrackScreen(banner, val, "");
+    repaint();
+  }
+
   @Override
   protected void paintComponent(Graphics g) {
     super.paintComponent(g);

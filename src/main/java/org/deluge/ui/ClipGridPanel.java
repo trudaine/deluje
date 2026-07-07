@@ -32,12 +32,22 @@ public class ClipGridPanel extends SwingGridPanel {
     vuManager.clear();
     vuManager.startTimer();
 
+    boolean isFaceplate =
+        org.deluge.project.PreferencesManager.getTopPanelStyle()
+            == org.deluge.project.PreferencesManager.TopPanelStyle.HARDWARE_FACEPLATE;
+    double faceScale = Math.max(800, getWidth()) / 2256.0;
     int padSz = cachedPadSz;
     int lw = currentLabelWidth();
-    int rowW = getGridWidth(padSz, lw);
+    int rowW;
+    if (isFaceplate) {
+      padSz = Math.max(16, (int) Math.round(78 * faceScale));
+      rowW = (int) Math.round(2270 * faceScale);
+    } else {
+      rowW = getGridWidth(padSz, lw);
+    }
 
     // Section 0: Clip tab bar (shown when track has >1 clip)
-    if (editedModelTrack < projectModel.getTracks().size()) {
+    if (!isFaceplate && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel curTrack = projectModel.getTracks().get(editedModelTrack);
       int clipCount = curTrack.getClips().size();
       if (clipCount > 1) {
@@ -93,7 +103,7 @@ public class ClipGridPanel extends SwingGridPanel {
     }
 
     // Section 1: Track info header
-    if (editedModelTrack < projectModel.getTracks().size()) {
+    if (!isFaceplate && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel curTrack = projectModel.getTracks().get(editedModelTrack);
       JPanel headerRow = new JPanel(new BorderLayout(10, 0));
       headerRow.setBackground(new Color(0x15, 0x15, 0x15));
@@ -161,6 +171,10 @@ public class ClipGridPanel extends SwingGridPanel {
     voicePanel.setOpaque(true);
     voicePanel.setLayout(new BoxLayout(voicePanel, BoxLayout.Y_AXIS));
     for (int v = 0; v < gridMode.rows; v++) {
+      if (isFaceplate && v > 0) {
+        double faceScaleV = Math.max(800, getWidth()) / 2256.0;
+        voicePanel.add(Box.createRigidArea(new Dimension(1, (int) Math.round(41 * faceScaleV))));
+      }
       int modelRow = getModelRow(v);
       if (modelRow >= 0 && modelRow < voiceRowCount) {
         JPanel row = buildVoiceRow(modelRow, v, padSz, tracks);
@@ -183,7 +197,7 @@ public class ClipGridPanel extends SwingGridPanel {
           projectModel.getTracks().get(editedModelTrack)
               instanceof org.deluge.model.SynthTrackModel;
     }
-    boolean showNavPanel = (voiceRowCount > gridMode.rows) || isSynthTrack;
+    boolean showNavPanel = (voiceRowCount > gridMode.rows) || isSynthTrack || isFaceplate;
 
     int viewH = gridMode.rows * (padSz + 5) - 5;
     int wrapperW = rowW + (showNavPanel ? 32 : 0);
@@ -217,7 +231,7 @@ public class ClipGridPanel extends SwingGridPanel {
       pgDnBtn.setToolTipText("Page Down / Octave Down (Shift 8 rows down)");
       pgDnBtn.addActionListener(e -> scrollVertically(gridMode.rows));
 
-      boolean showScrollControls = voiceRowCount > gridMode.rows;
+      boolean showScrollControls = (voiceRowCount > gridMode.rows) || isFaceplate;
       pgUpBtn.setVisible(showScrollControls);
       vertScrollBar.setVisible(showScrollControls);
 
@@ -557,16 +571,17 @@ public class ClipGridPanel extends SwingGridPanel {
     scrollRow.add(bottomLenBadge);
 
     int rightSpacing = 2 * padSz + 22;
-    scrollRow.add(Box.createRigidArea(new Dimension(rightSpacing, 10)));
-    add(scrollRow);
+    if (!isFaceplate) {
+      add(scrollRow);
 
-    // Section 3: Fixed rows
-    int macroRowIdx = gridMode.rows;
-    int keyboardRowIdx = gridMode.rows + 2;
-    int macroHeight = (int) (padSz * 1.1);
-    int keyboardHeight = (int) (padSz * 0.6);
-    add(buildFixedRow("MACROS", macroRowIdx, padSz, Math.max(28, macroHeight)));
-    add(buildFixedRow("KEYBOARD", keyboardRowIdx, padSz, Math.max(16, keyboardHeight)));
+      // Section 3: Fixed rows
+      int macroRowIdx = gridMode.rows;
+      int keyboardRowIdx = gridMode.rows + 2;
+      int macroHeight = (int) (padSz * 1.1);
+      int keyboardHeight = (int) (padSz * 0.6);
+      add(buildFixedRow("MACROS", macroRowIdx, padSz, Math.max(28, macroHeight)));
+      add(buildFixedRow("KEYBOARD", keyboardRowIdx, padSz, Math.max(16, keyboardHeight)));
+    }
 
     revalidate();
     repaint();
@@ -839,8 +854,15 @@ public class ClipGridPanel extends SwingGridPanel {
           }
         };
 
+    boolean isFaceplateRow =
+        org.deluge.project.PreferencesManager.getTopPanelStyle()
+            == org.deluge.project.PreferencesManager.TopPanelStyle.HARDWARE_FACEPLATE;
+    double faceScaleRow = Math.max(800, getWidth()) / 2256.0;
     int lw = currentLabelWidth();
-    int rowW = getGridWidth(padSz, lw);
+    int rowW =
+        isFaceplateRow
+            ? (int) Math.round(2270 * faceScaleRow)
+            : getGridWidth(padSz, lw);
     rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
     rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
     rowPanel.setPreferredSize(new Dimension(rowW, padSz));
@@ -949,9 +971,56 @@ public class ClipGridPanel extends SwingGridPanel {
           }
         });
 
-    rowPanel.add(label);
+    if (!isFaceplateRow) {
+      rowPanel.add(label);
+      if (modelRow < tracks.size() && modelRow < 8) {
+        int stepLen = (bridge != null) ? bridge.getTrackLength(modelRow) : 16;
+        JLabel lenBadge = new JLabel("[" + stepLen + "]");
+        lenBadge.setPreferredSize(new Dimension(48, 26));
+        lenBadge.setMinimumSize(new Dimension(48, 26));
+        lenBadge.setMaximumSize(new Dimension(48, 26));
+        lenBadge.setFont(new Font("Monospaced", Font.BOLD, 11));
+        lenBadge.setForeground(stepLen == 16 ? Color.GRAY : new Color(0xff, 0xcc, 0x00));
+        lenBadge.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        lenBadge.addMouseListener(
+            new java.awt.event.MouseAdapter() {
+              @Override
+              public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (javax.swing.SwingUtilities.isRightMouseButton(e) || e.getClickCount() == 2) {
+                  String input =
+                      JOptionPane.showInputDialog(
+                          ClipGridPanel.this, "Track length (1-192):", stepLen);
+                  if (input != null) {
+                    try {
+                      int newLen = Integer.parseInt(input.trim());
+                      if (newLen >= 1 && newLen <= BridgeContract.STEPS) {
+                        bridge.setTrackLength(modelRow, newLen);
+                        refresh();
+                      }
+                    } catch (NumberFormatException ignored) {
+                    }
+                  }
+                }
+              }
+            });
+        rowPanel.add(Box.createHorizontalStrut(21));
+        rowPanel.add(lenBadge);
+      } else {
+        rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
+      }
 
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      rowPanel.add(Box.createHorizontalStrut(5));
+
+      VUMeterPanel vu = new VUMeterPanel();
+      vu.setPreferredSize(new Dimension(12, padSz));
+      vu.setMaximumSize(new Dimension(12, padSz));
+      rowPanel.add(vu);
+      rowPanel.add(Box.createHorizontalStrut(5));
+
+      vuManager.registerVoiceVu(modelRow, vu);
+    }
+
+    if (!isFaceplateRow && projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel activeTrack = projectModel.getTracks().get(editedModelTrack);
       if (activeTrack instanceof org.deluge.model.KitTrackModel kitTrack) {
         java.util.List<org.deluge.model.Drum> drumsList = kitTrack.getDrums();
@@ -984,51 +1053,12 @@ public class ClipGridPanel extends SwingGridPanel {
       }
     }
 
-    if (modelRow < tracks.size() && modelRow < 8) {
-      int stepLen = (bridge != null) ? bridge.getTrackLength(modelRow) : 16;
-      JLabel lenBadge = new JLabel("[" + stepLen + "]");
-      lenBadge.setPreferredSize(new Dimension(48, 26));
-      lenBadge.setMinimumSize(new Dimension(48, 26));
-      lenBadge.setMaximumSize(new Dimension(48, 26));
-      lenBadge.setFont(new Font("Monospaced", Font.BOLD, 11));
-      lenBadge.setForeground(stepLen == 16 ? Color.GRAY : new Color(0xff, 0xcc, 0x00));
-      lenBadge.setCursor(new Cursor(Cursor.HAND_CURSOR));
-      lenBadge.addMouseListener(
-          new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-              if (javax.swing.SwingUtilities.isRightMouseButton(e) || e.getClickCount() == 2) {
-                String input =
-                    JOptionPane.showInputDialog(
-                        ClipGridPanel.this, "Track length (1-192):", stepLen);
-                if (input != null) {
-                  try {
-                    int newLen = Integer.parseInt(input.trim());
-                    if (newLen >= 1 && newLen <= BridgeContract.STEPS) {
-                      bridge.setTrackLength(modelRow, newLen);
-                      refresh();
-                    }
-                  } catch (NumberFormatException ignored) {
-                  }
-                }
-              }
-            }
-          });
-      rowPanel.add(Box.createHorizontalStrut(21));
-      rowPanel.add(lenBadge);
+    if (isFaceplateRow) {
+      int leftMargin = (int) Math.round(58 * faceScaleRow);
+      rowPanel.add(Box.createRigidArea(new Dimension(leftMargin, 1)));
     } else {
-      rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
+      rowPanel.add(Box.createHorizontalStrut(5));
     }
-
-    rowPanel.add(Box.createHorizontalStrut(5));
-
-    VUMeterPanel vu = new VUMeterPanel();
-    vu.setPreferredSize(new Dimension(12, padSz));
-    vu.setMaximumSize(new Dimension(12, padSz));
-    rowPanel.add(vu);
-    rowPanel.add(Box.createHorizontalStrut(5));
-
-    vuManager.registerVoiceVu(modelRow, vu);
 
     for (int c = 0; c < columnCount; c++) {
       final int colId = c;
@@ -1395,12 +1425,41 @@ public class ClipGridPanel extends SwingGridPanel {
         clipController.attachListeners(clipBtn, modelRow, visibleRow, colId);
       }
 
-      if (isMuteColumn(c)) {
-        rowPanel.add(Box.createHorizontalStrut(20));
+      if (isFaceplateRow) {
+        if (c == 16) {
+          rowPanel.add(createFaceplateSeparator(faceScaleRow, padSz));
+        } else if (c > 0) {
+          rowPanel.add(Box.createRigidArea(new Dimension((int) Math.round(41 * faceScaleRow), 1)));
+        }
+      } else {
+        if (isMuteColumn(c)) {
+          rowPanel.add(Box.createHorizontalStrut(20));
+        }
       }
       rowPanel.add(clipBtn);
     }
     return rowPanel;
+  }
+
+  static JPanel createFaceplateSeparator(double scale, int height) {
+    int w = (int) Math.round(112 * scale);
+    int line1 = (int) Math.round(17 * scale);
+    int line2 = (int) Math.round(98 * scale);
+    int lineW = Math.max(1, (int) Math.round(2 * scale));
+    JPanel sep = new JPanel() {
+      @Override
+      protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        g.setColor(new Color(0xd8, 0xd8, 0xd8, 220));
+        g.fillRect(line1, 0, lineW, getHeight());
+        g.fillRect(line2, 0, lineW, getHeight());
+      }
+    };
+    sep.setOpaque(false);
+    sep.setPreferredSize(new Dimension(w, height));
+    sep.setMinimumSize(new Dimension(w, height));
+    sep.setMaximumSize(new Dimension(w, height));
+    return sep;
   }
 
   private void rebuildKeyplayComponents() {
