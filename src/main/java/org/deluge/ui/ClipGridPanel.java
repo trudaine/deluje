@@ -1687,8 +1687,19 @@ public class ClipGridPanel extends SwingGridPanel {
           }
         }
 
-        rowPanel.add(clipBtn);
-        rowPanel.add(Box.createHorizontalStrut(5));
+        if (isFaceplate) {
+          // Mirror the CLIP faceplate row: inter-pad gaps + a separator before the utility
+          // columns so the keyboard grid spans the same width as the clip grid.
+          if (c == stepCount) {
+            rowPanel.add(createFaceplateSeparator(faceScale, padSz));
+          } else if (c > 0) {
+            rowPanel.add(Box.createRigidArea(new Dimension((int) Math.round(41 * faceScale), 1)));
+          }
+          rowPanel.add(clipBtn);
+        } else {
+          rowPanel.add(clipBtn);
+          rowPanel.add(Box.createHorizontalStrut(5));
+        }
       }
       voicePanel.add(rowPanel);
     }

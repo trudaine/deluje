@@ -173,9 +173,10 @@ public class SwingHardwareTopPanel extends JPanel {
     controls.add(new ControlDef("MIDI", 1350, 424, 28, false, amber));
     controls.add(new ControlDef("CV", 1432, 424, 28, false, amber));
     controls.add(new ControlDef("SCALE_MODE", 1205, 515, 28, false, amber));
-    controls.add(new ControlDef("AFFECT_ENTIRE", 670, 460, 26, false, red));
+    controls.add(new ControlDef("AFFECT_ENTIRE", 690, 466, 24, false, red));
     controls.add(new ControlDef("CROSS_SCREEN", 1350, 515, 28, false, amber));
-    controls.add(new ControlDef("TRIPLETS", 1440, 515, 28, false, amber));
+    controls.add(new ControlDef("TRIPLETS", 1812, 515, 28, false, amber));
+    controls.add(new ControlDef("SYNC_SCALING", 1812, 424, 28, false, blue));
     controls.add(new ControlDef("BACK", 1529, 241, 28, false, amber));
     controls.add(new ControlDef("LOAD", 1529, 332, 28, false, amber));
     controls.add(new ControlDef("SAVE", 1529, 424, 28, false, amber));
@@ -355,6 +356,7 @@ public class SwingHardwareTopPanel extends JPanel {
   }
 
   private boolean isLearnMode = false;
+  private boolean isSyncScaling = false;
 
   private javax.swing.Timer blinkTimer;
 
@@ -392,6 +394,7 @@ public class SwingHardwareTopPanel extends JPanel {
     if ("TRIPLETS".equals(c.name)) return isTriplets;
     if ("CROSS_SCREEN".equals(c.name)) return org.deluge.ui.SwingGridPanel.isCrossScreenWrapActive;
     if ("LEARN".equals(c.name)) return isLearnMode;
+    if ("SYNC_SCALING".equals(c.name)) return isSyncScaling;
     return false;
   }
 
@@ -556,6 +559,12 @@ public class SwingHardwareTopPanel extends JPanel {
           oledPanel.showParamText(
               "CROSS SCREEN",
               org.deluge.ui.SwingGridPanel.isCrossScreenWrapActive ? "WRAP ON" : "WRAP OFF");
+        }
+      }
+      case "SYNC_SCALING" -> {
+        isSyncScaling = !isSyncScaling;
+        if (oledPanel != null) {
+          oledPanel.showParamText("SYNC-SCALING", isSyncScaling ? "SCALED" : "NORMAL");
         }
       }
       case "LEARN" -> {
