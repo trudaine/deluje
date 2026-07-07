@@ -191,6 +191,36 @@ public class PreferencesManager {
     }
   }
 
+  /** Top panel visual rendering style preference. */
+  public enum TopPanelStyle {
+    /** Standard desktop DAW compact toolbar. */
+    STANDARD_DAW,
+    /** Photorealistic native hardware faceplate emulation at the image level. */
+    HARDWARE_FACEPLATE;
+
+    public static TopPanelStyle fromString(String s) {
+      try {
+        return valueOf(s);
+      } catch (Exception e) {
+        return STANDARD_DAW;
+      }
+    }
+  }
+
+  private static final String KEY_TOP_PANEL_STYLE = "topPanel.style";
+
+  public static TopPanelStyle getTopPanelStyle() {
+    return TopPanelStyle.fromString(prefs.get(KEY_TOP_PANEL_STYLE, "STANDARD_DAW"));
+  }
+
+  public static void setTopPanelStyle(TopPanelStyle style) {
+    prefs.put(KEY_TOP_PANEL_STYLE, style.name());
+    try {
+      prefs.flush();
+    } catch (Exception ignored) {
+    }
+  }
+
   /** Sequence Grid UI Color Themes. */
   public enum GridColorTheme {
     HARDWARE, // Native Deluge hardware colors mapping

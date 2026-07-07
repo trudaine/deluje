@@ -31,6 +31,8 @@ public class SwingDelugeApp extends JFrame {
   private SwingPerformanceViewPanel performancePanel;
 
   SwingTopBarPanel topBar;
+  SwingHardwareTopPanel hardwareTopPanel;
+  JPanel topBarCards;
   private AppTopBarListener appTopBarListener;
   private SwingMasterFxPanel masterFxPanel;
   private SynthParamRack synthParamRack;
@@ -851,6 +853,17 @@ public class SwingDelugeApp extends JFrame {
     return topBar;
   }
 
+  public void refreshTopPanelStyle() {
+    if (topBarCards == null) return;
+    CardLayout cl = (CardLayout) topBarCards.getLayout();
+    if (org.deluge.project.PreferencesManager.getTopPanelStyle()
+        == org.deluge.project.PreferencesManager.TopPanelStyle.HARDWARE_FACEPLATE) {
+      cl.show(topBarCards, "FACEPLATE");
+    } else {
+      cl.show(topBarCards, "STANDARD");
+    }
+  }
+
   SwingGridPanel activeGridPanel() {
     if (cardLayout == null || centerCardPanel == null) {
       return clipPanel;
@@ -1623,6 +1636,7 @@ public class SwingDelugeApp extends JFrame {
                       arrGridPanel.setGridMode(mode);
                       arrGridPanel.refresh();
                     }
+                    refreshTopPanelStyle();
                     recalcWrapperSize();
                   },
                   () -> {
@@ -1655,6 +1669,7 @@ public class SwingDelugeApp extends JFrame {
                       arrGridPanel.setGridMode(mode);
                       arrGridPanel.refresh();
                     }
+                    refreshTopPanelStyle();
                     recalcWrapperSize();
                   },
                   () -> {
@@ -2151,16 +2166,17 @@ public class SwingDelugeApp extends JFrame {
 
     appTopBarListener = new AppTopBarListener();
     topBar = new SwingTopBarPanel(bridge, currentProject, leftFloat, appTopBarListener);
+    hardwareTopPanel =
+        new SwingHardwareTopPanel(
+            bridge, currentProject, new SwingOledPanel(), appTopBarListener);
 
-    // DEBUG: solid background colors to visualize panel sizes
-    System.out.println(
-        "DEBUG setupUI: topBar bg="
-            + topBar.getBackground()
-            + " contentPane bg="
-            + getContentPane().getBackground());
+    topBarCards = new JPanel(new CardLayout());
+    topBarCards.add(topBar, "STANDARD");
+    topBarCards.add(hardwareTopPanel, "FACEPLATE");
 
     JPanel topBarWrapper = new JPanel(new BorderLayout());
-    topBarWrapper.add(topBar, BorderLayout.CENTER);
+    topBarWrapper.add(topBarCards, BorderLayout.CENTER);
+    refreshTopPanelStyle();
 
     // Scroll encoders (X timeline / Y note rows) routed to whichever grid panel is showing.
     org.deluge.ui.controls.DelugeEncoderStrip encoderStrip =
