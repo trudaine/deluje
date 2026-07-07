@@ -48,6 +48,8 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
         .size();
   }
 
+  public void toggleTripletMode() {}
+
   int soloRow = -1; // -1 = no solo
   public final java.util.Set<Integer> soloedTracks =
       java.util.concurrent.ConcurrentHashMap.newKeySet();

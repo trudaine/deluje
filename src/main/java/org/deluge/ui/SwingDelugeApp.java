@@ -148,6 +148,9 @@ public class SwingDelugeApp extends JFrame {
     return arrangerScheduler;
   }
 
+  public static volatile boolean isAffectEntireActive = false;
+  public static volatile boolean isScaleModeActive = false;
+
   public org.deluge.engine.PureFirmwareEngine getPureEngine() {
     return pureEngine;
   }
@@ -265,10 +268,12 @@ public class SwingDelugeApp extends JFrame {
                     if (clipPanel != null) clipPanel.setShiftHeld(true);
                     if (songPanel != null) songPanel.setShiftHeld(true);
                     if (arrGridPanel != null) arrGridPanel.setShiftHeld(true);
+                    if (hardwareTopPanel != null) hardwareTopPanel.setShiftHeld(true);
                   } else if (e.getID() == java.awt.event.KeyEvent.KEY_RELEASED) {
                     if (clipPanel != null) clipPanel.setShiftHeld(false);
                     if (songPanel != null) songPanel.setShiftHeld(false);
                     if (arrGridPanel != null) arrGridPanel.setShiftHeld(false);
+                    if (hardwareTopPanel != null) hardwareTopPanel.setShiftHeld(false);
                     if (bridge != null && bridge.getPlayState() != 0) {
                       picTransport.flush();
                     } else {
@@ -3020,6 +3025,30 @@ public class SwingDelugeApp extends JFrame {
     @Override
     public void onRedo() {
       doRedo();
+    }
+
+    @Override
+    public void onTripletsToggle() {
+      if (clipPanel != null) {
+        clipPanel.toggleTripletMode();
+      }
+    }
+
+    @Override
+    public void onAffectEntireToggle() {
+      isAffectEntireActive = !isAffectEntireActive;
+      if (hardwareTopPanel != null) {
+        hardwareTopPanel.repaint();
+      }
+    }
+
+    @Override
+    public void onScaleModeToggle() {
+      isScaleModeActive = !isScaleModeActive;
+      refreshGrids();
+      if (hardwareTopPanel != null) {
+        hardwareTopPanel.repaint();
+      }
     }
 
     @Override

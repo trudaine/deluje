@@ -548,20 +548,7 @@ public class ClipGridPanel extends SwingGridPanel {
     }
 
     final org.deluge.model.ClipModel fActiveClip = activeClip;
-    tripletBtn.addActionListener(
-        ev -> {
-          if (fActiveClip != null) {
-            boolean nextTrip = !fActiveClip.isTripletMode();
-            fActiveClip.setTripletMode(nextTrip);
-            fActiveClip.setStepCount(nextTrip ? 12 : 16);
-            fActiveClip.rebuildNotesFromGrid();
-            if (bridge != null) {
-              bridge.setTrackLength(baseTrackId, nextTrip ? 12 : 16);
-              bridge.setStepResolution(nextTrip ? (1.0 / 3.0) : 0.25);
-            }
-            refresh();
-          }
-        });
+    tripletBtn.addActionListener(ev -> toggleTripletMode());
 
     scrollRow.add(Box.createRigidArea(new Dimension(15, 10)));
     scrollRow.add(rateCombo);
@@ -761,6 +748,22 @@ public class ClipGridPanel extends SwingGridPanel {
           }
         }
       }
+    }
+  }
+
+  @Override
+  public void toggleTripletMode() {
+    org.deluge.model.ClipModel fActiveClip = activeEditedClip();
+    if (fActiveClip != null) {
+      boolean nextTrip = !fActiveClip.isTripletMode();
+      fActiveClip.setTripletMode(nextTrip);
+      fActiveClip.setStepCount(nextTrip ? 12 : 16);
+      fActiveClip.rebuildNotesFromGrid();
+      if (bridge != null) {
+        bridge.setTrackLength(baseTrackId, nextTrip ? 12 : 16);
+        bridge.setStepResolution(nextTrip ? (1.0 / 3.0) : 0.25);
+      }
+      refresh();
     }
   }
 

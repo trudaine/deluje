@@ -550,7 +550,51 @@ public class DelugePadButton extends JButton {
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
     }
 
+    // 6. Text Overlay: When SHIFT is active, overlay authentic printed faceplate shortcut text.
+    //    Otherwise, display noteText if present.
+    boolean shiftActive = SwingHardwareTopPanel.isShiftActive();
+    String textToDraw = null;
+    Color textColor = Color.WHITE;
+
+    Object rowProp = getClientProperty("row");
+    Object colProp = getClientProperty("col");
+    if (shiftActive && rowProp instanceof Integer r && colProp instanceof Integer c && c < 16) {
+      int tableRow = r % 8;
+      textToDraw = getAuthenticDelugeShortcutText(tableRow, c);
+      textColor = new Color(255, 215, 75); // Authentic Deluge gold faceplate lettering
+    } else if (noteText != null && !noteText.isEmpty()) {
+      textToDraw = noteText;
+      textColor = new Color(240, 240, 248, 230);
+    }
+
+    if (textToDraw != null && !textToDraw.isEmpty()) {
+      int maxFont = Math.max(7, Math.min(10, rw / Math.max(3, (textToDraw.length() + 1) / 2)));
+      g2.setFont(new Font("SansSerif", Font.BOLD, maxFont));
+      java.awt.FontMetrics fm = g2.getFontMetrics();
+      int tx = xPad + (rw - fm.stringWidth(textToDraw)) / 2;
+      int ty = yPad + rh - 4;
+      g2.setColor(new Color(0, 0, 0, 200));
+      g2.drawString(textToDraw, tx + 1, ty + 1);
+      g2.setColor(textColor);
+      g2.drawString(textToDraw, tx, ty);
+    }
+
     g2.dispose();
+  }
+
+  public static String getAuthenticDelugeShortcutText(int row, int col) {
+    if (row < 0 || row > 7 || col < 0 || col > 15) return "";
+    String[][] SHORTCUT_TABLE = {
+      {"WAVEFORM", "TRANSPOSE", "UNISON", "MODE", "VOICES", "GLIDE", "PORTA", "LEGATO", "ARP", "MODE", "OCTAVES", "RATE", "SYNC", "GATE", "SWING", "SCALE"},
+      {"LPF CUT", "RESONANCE", "DRIVE", "SLOPE", "HPF CUT", "HPF RES", "MORPH", "ROUTING", "FM INT", "RING MOD", "NOISE", "SAMPLE", "REVERSE", "LOOP", "SPEED", "PITCH"},
+      {"ENV1 ATT", "DECAY", "SUSTAIN", "RELEASE", "ENV2 ATT", "DECAY", "SUSTAIN", "RELEASE", "LFO1 RATE", "WAVE", "SYNC", "LFO2 RATE", "WAVE", "SYNC", "MOD FX", "DEPTH"},
+      {"DELAY TIME", "FEEDBACK", "PING PONG", "ANALOG", "REVERB", "DECAY", "DAMPING", "WET", "STUTTER", "PROB", "RATIO", "SIDECHAIN", "DUCKING", "COMPRESS", "THRESH", "RATIO"},
+      {"OSC1 LVL", "PITCH", "PW", "OSC2 LVL", "PITCH", "PW", "SUB LVL", "NOISE LVL", "MOD1->PCH", "MOD2->PCH", "MOD1->CUT", "MOD2->CUT", "LFO1->PCH", "LFO2->PCH", "ENV1->CUT", "ENV2->PCH"},
+      {"PAN", "VELOCITY", "MOD WHEEL", "BEND RANGE", "MPE", "SLIDE", "PRESSURE", "TIMBRE", "CHORD", "ARPEGGIATOR", "EUCLIDEAN", "STEPS", "HITS", "SHIFT", "LENGTH", "RESOLUTION"},
+      {"CUSTOM 1", "CUSTOM 2", "CUSTOM 3", "CUSTOM 4", "CUSTOM 5", "CUSTOM 6", "CUSTOM 7", "CUSTOM 8", "CUSTOM 9", "CUSTOM 10", "CUSTOM 11", "CUSTOM 12", "CUSTOM 13", "CUSTOM 14", "CUSTOM 15", "CUSTOM 16"},
+      {"MIDI CHAN", "PROGRAM", "BANK", "SUB BANK", "CV GATE", "CV PITCH", "GATE LVL", "PITCH BEND", "CC 1", "CC 2", "CC 7", "CC 10", "CC 74", "MOD MATRIX", "VELOCITY", "AFTERTOUCH"}
+    };
+    return SHORTCUT_TABLE[row][col];
   }
 
   public static Color getTailColor(Color base) {

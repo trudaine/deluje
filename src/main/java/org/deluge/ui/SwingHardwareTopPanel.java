@@ -55,6 +55,22 @@ public class SwingHardwareTopPanel extends JPanel {
   private boolean isPlaying = false;
   private boolean isRecording = false;
   private boolean isShiftHeld = false;
+  private static SwingHardwareTopPanel activeInstance;
+
+  public static boolean isShiftActive() {
+    return activeInstance != null && activeInstance.isShiftHeld;
+  }
+
+  public void setShiftHeld(boolean held) {
+    if (this.isShiftHeld != held) {
+      this.isShiftHeld = held;
+      repaint();
+      if (SwingDelugeApp.mainInstance != null) {
+        SwingDelugeApp.mainInstance.refreshGrids();
+      }
+    }
+  }
+
   private String activeView = "CLIP";
   private ControlDef hoveredControl = null;
   private ControlDef activeDragControl = null;
@@ -81,6 +97,7 @@ public class SwingHardwareTopPanel extends JPanel {
     this.projectModel = projectModel;
     this.oledPanel = oledPanel;
     this.listener = listener;
+    activeInstance = this;
 
     setLayout(null);
     setPreferredSize(new Dimension(1400, (int) Math.round(1400 * (ORIG_TOP_HEIGHT / (double) ORIG_WIDTH))));
@@ -154,7 +171,9 @@ public class SwingHardwareTopPanel extends JPanel {
     controls.add(new ControlDef("MIDI", 1350, 424, 28, false, amber));
     controls.add(new ControlDef("CV", 1432, 424, 28, false, amber));
     controls.add(new ControlDef("SCALE_MODE", 1205, 515, 28, false, amber));
+    controls.add(new ControlDef("AFFECT_ENTIRE", 1125, 515, 28, false, amber));
     controls.add(new ControlDef("CROSS_SCREEN", 1350, 515, 28, false, amber));
+    controls.add(new ControlDef("TRIPLETS", 1440, 515, 28, false, amber));
     controls.add(new ControlDef("BACK", 1529, 241, 28, false, amber));
     controls.add(new ControlDef("LOAD", 1529, 332, 28, false, amber));
     controls.add(new ControlDef("SAVE", 1529, 424, 28, false, amber));
@@ -331,6 +350,8 @@ public class SwingHardwareTopPanel extends JPanel {
     g2.fillOval(dotX - dotRadius, dotY - dotRadius, dotRadius * 2, dotRadius * 2);
   }
 
+  private boolean isLearnMode = false;
+
   private boolean isControlActive(ControlDef c) {
     if ("PLAY".equals(c.name)) return isPlaying;
     if ("RECORD".equals(c.name)) return isRecording;
@@ -341,6 +362,8 @@ public class SwingHardwareTopPanel extends JPanel {
     if ("AFFECT_ENTIRE".equals(c.name)) return isAffectEntire;
     if ("SCALE_MODE".equals(c.name)) return isScaleMode;
     if ("TRIPLETS".equals(c.name)) return isTriplets;
+    if ("CROSS_SCREEN".equals(c.name)) return org.deluge.ui.SwingGridPanel.isCrossScreenWrapActive;
+    if ("LEARN".equals(c.name)) return isLearnMode;
     return false;
   }
 
@@ -449,7 +472,7 @@ public class SwingHardwareTopPanel extends JPanel {
         isRecording = !isRecording;
         listener.onLiveRecordToggle(null);
       }
-      case "SHIFT" -> isShiftHeld = !isShiftHeld;
+      case "SHIFT" -> setShiftHeld(!isShiftHeld);
       case "CLIP_VIEW" -> {
         activeView = "CLIP";
         listener.onViewModeChanged("CLIP");
@@ -471,20 +494,44 @@ public class SwingHardwareTopPanel extends JPanel {
       case "BACK" -> listener.onUndo();
       case "AFFECT_ENTIRE" -> {
         isAffectEntire = !isAffectEntire;
+        listener.onAffectEntireToggle();
         if (oledPanel != null) {
           oledPanel.showParamText("AFFECT ENTIRE", isAffectEntire ? "ALL CLIPS" : "SINGLE CLIP");
         }
       }
       case "SCALE_MODE" -> {
         isScaleMode = !isScaleMode;
+        listener.onScaleModeToggle();
         if (oledPanel != null) {
           oledPanel.showParamText("SCALE MODE", isScaleMode ? "ACTIVE" : "CHROMATIC");
         }
       }
       case "TRIPLETS" -> {
         isTriplets = !isTriplets;
+        listener.onTripletsToggle();
         if (oledPanel != null) {
           oledPanel.showParamText("TRIPLETS VIEW", isTriplets ? "ON (1/12T)" : "OFF (1/16)");
+        }
+      }
+      case "CROSS_SCREEN" -> {
+        org.deluge.ui.SwingGridPanel.isCrossScreenWrapActive =
+            !org.deluge.ui.SwingGridPanel.isCrossScreenWrapActive;
+        if (oledPanel != null) {
+          oledPanel.showParamText(
+              "CROSS SCREEN",
+              org.deluge.ui.SwingGridPanel.isCrossScreenWrapActive ? "WRAP ON" : "WRAP OFF");
+        }
+      }
+      case "LEARN" -> {
+        isLearnMode = !isLearnMode;
+        listener.onLearnToggle();
+        if (oledPanel != null) {
+          oledPanel.showParamText("MIDI LEARN", isLearnMode ? "LEARNING..." : "INACTIVE");
+        }
+      }
+      case "TAP_TEMPO" -> {
+        if (projectModel != null && oledPanel != null) {
+          oledPanel.showParamText("TEMPO", String.format("%.1f BPM", projectModel.getBpm()));
         }
       }
       default -> {
