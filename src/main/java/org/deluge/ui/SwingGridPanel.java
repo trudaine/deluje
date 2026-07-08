@@ -50,8 +50,14 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
 
   public void toggleTripletMode() {}
 
-  int soloRow = -1; // -1 = no solo
-  public final java.util.Set<Integer> soloedTracks =
+  // Solo is a project-wide concept, not a per-view one — a track soloed via Song view's solo
+  // column, Arranger view's own solo button, or any panel's right-click "Solo" context menu
+  // (GridContextMenuFactory) must be respected when ANY panel's updateEngineMutes() next runs.
+  // This was previously a per-instance field, so soloing in one view was invisible to another
+  // view's own updateEngineMutes() call, and (in ArrangerGridPanel specifically) its solo button
+  // wrote directly to its own now-removed soloRow field without updating soloedTracks at all —
+  // lighting up its LED with zero effect on actual playback.
+  public static final java.util.Set<Integer> soloedTracks =
       java.util.concurrent.ConcurrentHashMap.newKeySet();
   private static org.deluge.model.ClipModel copiedClip = null;
   private boolean wasSequencerPlaying; // edge-detect stop to flush MIDI notes
@@ -3324,7 +3330,6 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   public void setSoloRow(int row) {
-    this.soloRow = row;
     soloedTracks.clear();
     if (row >= 0) {
       soloedTracks.add(row);

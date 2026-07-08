@@ -362,11 +362,13 @@ public class ArrangerGridPanel extends SwingGridPanel {
           if (isMuteColumn(colId)) {
             final int engineRow = trk;
             org.deluge.model.TrackModel track = tracks.get(trk);
-            boolean isMuted = (soloRow >= 0) ? (trk != soloRow) : track.isMuted();
+            boolean isMuted =
+                (!soloedTracks.isEmpty()) ? !soloedTracks.contains(trk) : track.isMuted();
             clipBtn.setText(
                 isMuted ? "UNMUTE" : "MUTE"); // getText() = mute state (E2E observes it)
             clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
-            Color muteBg = arrangerStatusColour(isMuted, soloRow == trk, soloRow >= 0);
+            Color muteBg =
+                arrangerStatusColour(isMuted, soloedTracks.contains(trk), !soloedTracks.isEmpty());
             clipBtn.setBackground(muteBg);
             if (clipBtn instanceof DelugePadButton pad) {
               pad.setBaseColor(muteBg);
@@ -385,7 +387,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
           } else if (isSoloColumn(colId)) {
             clipBtn.setText("SOLO");
             clipBtn.setFont(new Font("SansSerif", Font.BOLD, padSz > 70 ? 11 : 9));
-            boolean isSoloed = (soloRow == trk);
+            boolean isSoloed = soloedTracks.contains(trk);
             Color soloBg = isSoloed ? new Color(0x00, 0xff, 0xcc) : new Color(0x2d, 0x2d, 0x32);
             Color soloFg = isSoloed ? Color.BLACK : Color.LIGHT_GRAY;
             clipBtn.setBackground(soloBg);
@@ -405,10 +407,12 @@ public class ArrangerGridPanel extends SwingGridPanel {
                       showSoloButtonContextMenu(clipBtn, e.getX(), e.getY(), trk);
                       return;
                     }
-                    if (soloRow == trk) {
-                      soloRow = -1;
+                    // setSoloRow (not a direct soloRow= write) so soloedTracks — what
+                    // updateEngineMutes() actually checks — stays in sync.
+                    if (soloedTracks.contains(trk)) {
+                      setSoloRow(-1);
                     } else {
-                      soloRow = trk;
+                      setSoloRow(trk);
                     }
                     updateEngineMutes();
                     refresh();
@@ -549,7 +553,9 @@ public class ArrangerGridPanel extends SwingGridPanel {
           if (clipBtn == null) continue;
 
           if (isMuteColumn(c)) {
-            Color muteBg = arrangerStatusColour(isMuted, soloRow == modelRow, soloRow >= 0);
+            Color muteBg =
+                arrangerStatusColour(
+                    isMuted, soloedTracks.contains(modelRow), !soloedTracks.isEmpty());
             clipBtn.setBackground(muteBg);
             clipBtn.setText(
                 isMuted ? "UNMUTE" : "MUTE"); // getText() = mute state (E2E observes it)
@@ -561,7 +567,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
             clipBtn.setToolTipText(isMuted ? "Muted — click to unmute" : "Mute track");
           } else if (isSoloColumn(c)) {
             clipBtn.setText("SOLO");
-            boolean isSoloed = (soloRow == modelRow);
+            boolean isSoloed = soloedTracks.contains(modelRow);
             Color soloBg = isSoloed ? new Color(0x00, 0xff, 0xcc) : new Color(0x2d, 0x2d, 0x32);
             Color soloFg = isSoloed ? Color.BLACK : Color.LIGHT_GRAY;
             clipBtn.setBackground(soloBg);
@@ -708,9 +714,10 @@ public class ArrangerGridPanel extends SwingGridPanel {
             if (t < songVoiceRows) {
               if (isMuteColumn(c)) {
                 pads[t][c].setBackground(
-                    arrangerStatusColour(isMuted, soloRow == modelRow, soloRow >= 0));
+                    arrangerStatusColour(
+                        isMuted, soloedTracks.contains(modelRow), !soloedTracks.isEmpty()));
               } else if (isSoloColumn(c)) {
-                boolean isSoloed = (soloRow == modelRow);
+                boolean isSoloed = soloedTracks.contains(modelRow);
                 pads[t][c].setBackground(
                     isSoloed ? new Color(0x00, 0xff, 0xcc) : new Color(0x2d, 0x2d, 0x32));
               } else {
