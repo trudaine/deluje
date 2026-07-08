@@ -60,6 +60,13 @@ public class SwingHardwareTopPanel extends JPanel {
     return activeInstance != null && activeInstance.isShiftHeld;
   }
 
+  /** Refreshes the SYNTH/KIT/MIDI/CV sibling-selection LEDs after a shift-param changes. */
+  public static void repaintActive() {
+    if (activeInstance != null) {
+      activeInstance.repaint();
+    }
+  }
+
   public void setShiftHeld(boolean held) {
     if (this.isShiftHeld != held) {
       this.isShiftHeld = held;
@@ -409,7 +416,24 @@ public class SwingHardwareTopPanel extends JPanel {
     if ("CROSS_SCREEN".equals(c.name)) return org.deluge.ui.SwingGridPanel.isCrossScreenWrapActive;
     if ("LEARN".equals(c.name)) return isLearnMode;
     if ("SYNC_SCALING".equals(c.name)) return isSyncScaling;
+    if ("SYNTH".equals(c.name)) return isSelectedSiblingSlot(0);
+    if ("KIT".equals(c.name)) return isSelectedSiblingSlot(1);
+    if ("MIDI".equals(c.name)) return isSelectedSiblingSlot(2);
+    if ("CV".equals(c.name)) return isSelectedSiblingSlot(3);
     return false;
+  }
+
+  // C: horizontal_menu.cpp:546-571, updateSelectedMenuItemLED — lights the SYNTH/KIT/MIDI/CV LED
+  // matching the currently selected item's column within its horizontal-menu sibling group.
+  private boolean isSelectedSiblingSlot(int slot) {
+    SwingGridPanel gp =
+        SwingDelugeApp.mainInstance != null ? SwingDelugeApp.mainInstance.activeGridPanel() : null;
+    if (gp == null || gp.getActiveShiftRow() < 0) return false;
+    int[] target =
+        DelugePadButton.getSiblingCoordinate(gp.getActiveShiftRow(), gp.getActiveShiftCol(), slot);
+    return target != null
+        && target[0] == gp.getActiveShiftRow()
+        && target[1] == gp.getActiveShiftCol();
   }
 
   private void drawIndicatorLed(Graphics2D g2, int origX, int origY, int btnRadius, Color c) {
@@ -572,6 +596,32 @@ public class SwingHardwareTopPanel extends JPanel {
     repaint();
   }
 
+  /**
+   * C: horizontal_menu.cpp:70-107 — while a horizontal menu is open, SYNTH/KIT/MIDI/CV (select_map
+   * = {SYNTH:0, KIT:1, MIDI:2, CV:3}) select between up to 4 sibling menu items instead of their
+   * normal track-creation function. Modeled here for the subset of shift-grid parameters that
+   * already have a real sibling group and a working editor (see DelugePadButton.SIBLING_GROUPS);
+   * falls back to the normal add-track behavior when no shift-param is currently active or it has
+   * no modeled sibling group.
+   */
+  private void selectSiblingOrAddTrack(String type, int slot) {
+    SwingGridPanel gp =
+        SwingDelugeApp.mainInstance != null ? SwingDelugeApp.mainInstance.activeGridPanel() : null;
+    if (gp != null && gp.getActiveShiftRow() >= 0) {
+      int[] target =
+          DelugePadButton.getSiblingCoordinate(
+              gp.getActiveShiftRow(), gp.getActiveShiftCol(), slot);
+      if (target != null) {
+        gp.handleShiftClick(target[0], target[1], new Point(0, 0), this);
+        return;
+      }
+    }
+    if (oledPanel != null) {
+      oledPanel.showParamText(type, "NEW TRACK");
+    }
+    listener.onAddTrack(type, isShiftHeld);
+  }
+
   private void handleMouseClick(int mouseX, int mouseY) {
     ControlDef hit = hitTestControl(mouseX, mouseY);
     if (hit == null || listener == null) return;
@@ -606,34 +656,10 @@ public class SwingHardwareTopPanel extends JPanel {
         activeView = "KEYPLAY";
         listener.onViewModeChanged("KEYPLAY");
       }
-      case "SYNTH" -> {
-        if (isShiftHeld && oledPanel != null) {
-          oledPanel.showParamText("OLED TAB 1", "OSC / SUB / FM");
-        } else {
-          listener.onAddTrack("SYNTH", isShiftHeld);
-        }
-      }
-      case "KIT" -> {
-        if (isShiftHeld && oledPanel != null) {
-          oledPanel.showParamText("OLED TAB 2", "FILTER / ENV");
-        } else {
-          listener.onAddTrack("KIT", isShiftHeld);
-        }
-      }
-      case "MIDI" -> {
-        if (isShiftHeld && oledPanel != null) {
-          oledPanel.showParamText("OLED TAB 3", "LFO / MOD MATRIX");
-        } else {
-          listener.onAddTrack("MIDI", isShiftHeld);
-        }
-      }
-      case "CV" -> {
-        if (isShiftHeld && oledPanel != null) {
-          oledPanel.showParamText("OLED TAB 4", "FX / ARP / EQ");
-        } else {
-          listener.onAddTrack("CV", isShiftHeld);
-        }
-      }
+      case "SYNTH" -> selectSiblingOrAddTrack("SYNTH", 0);
+      case "KIT" -> selectSiblingOrAddTrack("KIT", 1);
+      case "MIDI" -> selectSiblingOrAddTrack("MIDI", 2);
+      case "CV" -> selectSiblingOrAddTrack("CV", 3);
       case "LOAD" -> listener.onLoadProject();
       case "SAVE" -> listener.onSaveProject();
       case "BACK" -> {

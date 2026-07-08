@@ -734,7 +734,7 @@ When selecting or editing a parameter via **Shift** + Pad Cell or turning an enc
 ### 10.3 Track Header & Faceplate Shift Shortcuts Map
 
 In addition to the main grid pads, holding **[SHIFT]** while clicking faceplate track buttons, row header labels, or turning encoders (or Push-and-Turn) activates quick operations:
-*   **`Shift` + Click `[SYNTH]`, `[KIT]`, `[MIDI]`, `[CV]` Faceplate Buttons**: Bypasses the track naming prompt to create a default track (`SYNTH 1`, `KIT 1`, `MIDI 1`, `CV 1`).
+*   **Click `[SYNTH]`, `[KIT]`, `[MIDI]`, `[CV]` Faceplate Buttons**: While editing a Shift-shortcut parameter that belongs to a related group of sibling controls (LPF, HPF, Envelope 1/2, Reverb, or Delay), these four buttons jump directly to that group's other siblings instead of creating a track: `[SYNTH]` selects the group's 1st control, `[KIT]` the 2nd, `[MIDI]` the 3rd, `[CV]` the 4th (e.g. for LPF: Mode, Cutoff, Resonance, Morph in that order). The corresponding button LED lights up to show which sibling is currently selected. Otherwise (no shortcut parameter active), `Shift` + Click bypasses the track naming prompt to create a default track (`SYNTH 1`, `KIT 1`, `MIDI 1`, `CV 1`).
 *   **`Shift` + Click `[Track Name Label]`**: Toggles **One-Shot Playback Mode (`1SH`)** for sample-trigger track rows.
 *   **`Shift` + Click `[MUTE]` Button**: Clears all active step note events on that specific lane (`Clear row`).
 *   **Push-and-Turn `[X Encoder]`**: Adjusts the grid zoom resolution (horizontal zoom).

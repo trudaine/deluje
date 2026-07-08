@@ -107,6 +107,7 @@ public class ClipEditorController {
     this.activeShiftParam = param;
     this.activeShiftRow = row;
     this.activeShiftCol = col;
+    SwingHardwareTopPanel.repaintActive();
   }
 
   // --- Private Bridge/Model Shortcuts ---

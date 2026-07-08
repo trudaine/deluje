@@ -1,6 +1,7 @@
 package org.deluge.ui;
 
 import java.awt.*;
+import java.util.Map;
 import javax.swing.JButton;
 import org.deluge.ui.controls.UiAnimator;
 
@@ -651,6 +652,44 @@ public class DelugePadButton extends JButton {
 
   public static String getColumnGroupName(int row, int col) {
     return sectionName(row, col);
+  }
+
+  // Real firmware horizontal-menu sibling groups (gui/menu_item/generate/g_menus.inc for
+  // lpfMenu/hpfMenu/env1Menu/env2Menu; gui/ui/menus.cpp:583-596/499-508 for reverbMenu/delayMenu
+  // page 0), restricted to the subset of each group's items that already have live shift-grid
+  // coordinates + working editors in this port. On real hardware, SYNTH/KIT/MIDI/CV select
+  // between up to 4 sibling menu items of whichever menu is currently open
+  // (horizontal_menu.cpp:97, select_map = {SYNTH:0, KIT:1, MIDI:2, CV:3}); each array below is
+  // that same 4-slot order for one such group, as {row, col} pairs.
+  private static final Map<String, int[][]> SIBLING_GROUPS =
+      Map.of(
+          "LPF", new int[][] {{5, 8}, {7, 8}, {6, 8}, {4, 8}}, // MODE, FREQ(CUTOFF), RES, MORPH
+          "HPF", new int[][] {{5, 9}, {7, 9}, {6, 9}, {4, 9}},
+          "ENV1", new int[][] {{3, 8}, {2, 8}, {1, 8}, {0, 8}}, // ATTACK, DECAY, SUSTAIN, RELEASE
+          "ENV2", new int[][] {{3, 9}, {2, 9}, {1, 9}, {0, 9}},
+          "REVERB",
+              new int[][] {{3, 13}, {7, 13}, {6, 13}, {5, 13}}, // AMOUNT, ROOM SIZE, DAMPING, WIDTH
+          "DELAY",
+              new int[][] {{3, 14}, {4, 14}, {1, 14}, {0, 14}}); // FEEDBACK, PINGPONG, SYNC, RATE
+
+  private static String siblingGroupOf(int row, int col) {
+    for (Map.Entry<String, int[][]> e : SIBLING_GROUPS.entrySet()) {
+      for (int[] coord : e.getValue()) {
+        if (coord[0] == row && coord[1] == col) return e.getKey();
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Given the currently-active shift-param coordinate and a slot (0=SYNTH, 1=KIT, 2=MIDI, 3=CV),
+   * returns the sibling coordinate to switch to, or null if the current param has no modeled
+   * sibling group.
+   */
+  public static int[] getSiblingCoordinate(int activeRow, int activeCol, int slot) {
+    String group = siblingGroupOf(activeRow, activeCol);
+    if (group == null) return null;
+    return SIBLING_GROUPS.get(group)[slot];
   }
 
   public static Color getTailColor(Color base) {
