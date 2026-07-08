@@ -734,13 +734,17 @@ When selecting or editing a parameter via **Shift** + Pad Cell or turning an enc
 ### 10.3 Track Header & Faceplate Shift Shortcuts Map
 
 In addition to the main grid pads, holding **[SHIFT]** while clicking faceplate track buttons, row header labels, or turning encoders (or Push-and-Turn) activates quick operations:
-*   **`Shift` + Click `[SYNTH]`, `[KIT]`, `[MIDI]`, `[CV]` Faceplate Buttons**: Selects OLED soft-key tabs or bypasses the track naming prompt to create a default track (`SYNTH 1`, `KIT 1`, `MIDI 1`, `CV 1`).
+*   **`Shift` + Click `[SYNTH]`, `[KIT]`, `[MIDI]`, `[CV]` Faceplate Buttons**: Bypasses the track naming prompt to create a default track (`SYNTH 1`, `KIT 1`, `MIDI 1`, `CV 1`).
 *   **`Shift` + Click `[Track Name Label]`**: Toggles **One-Shot Playback Mode (`1SH`)** for sample-trigger track rows.
 *   **`Shift` + Click `[MUTE]` Button**: Clears all active step note events on that specific lane (`Clear row`).
-*   **`Shift` + Turn / Push-and-Turn `[X Encoder]`**: Dynamically adjusts the grid zoom resolution (horizontal zoom, e.g. from $1/16$ to $1/32$ straight or triplet mode) and updates the OLED display.
-*   **`Shift` + Turn / Push-and-Turn `[Y Encoder]`**: Scrolls the visible note rows of the active grid by **exactly one octave (12 rows) per detent** instead of a single row, allowing fast navigation through the piano roll.
-*   **`Shift` + Turn / Push-and-Turn `[SELECT Encoder]`**: Coarse preset / item jump (±5 items per detent).
-*   **`Shift` + Turn / Push-and-Turn `[TEMPO Encoder]`**: Fine project tempo adjustment (±0.1 BPM per detent).
+*   **Push-and-Turn `[X Encoder]`**: Adjusts the grid zoom resolution (horizontal zoom).
+*   **`Shift` + Turn `[X Encoder]`**: Grows/shrinks the active clip's length.
+*   **Push-and-Turn `[Y Encoder]`**: Transposes the clip's notes up/down by one octave per detent.
+*   **Push-and-Turn + `Shift` `[Y Encoder]`** (both held together): Transposes by a single semitone per detent instead of a full octave.
+*   **`Shift` + Turn `[Y Encoder]`** (encoder not pushed): Shifts the track's note colour instead of transposing.
+*   **`Shift` + Turn `[SELECT Encoder]`**: Coarse preset / item jump (±5 items per detent). Pushing the encoder itself has no effect on the step size — only `Shift` does.
+*   **`Shift` + Turn `[TEMPO Encoder]`**: Adjusts swing amount, not tempo.
+*   **Push-and-Turn `[TEMPO Encoder]`**: Fine tempo adjustment (±1 BPM per detent). Turning without pushing adjusts tempo in larger (±5 BPM) steps.
 *   **Right-Click / Double-Click `[Track Name Label]`**: Spawns the multitrack Context Menu (`Clone Track`, `Delete Track`, `Change Swatch Color`).
 
 ---
@@ -1283,9 +1287,10 @@ The following table maps the standard Deluge hardware button combinations (from 
 | | Previous / next clip | — | **`[`** / **`]`** |
 | | Shift clip notes sideways | Push `▼▲` + turn `◄►` | **`Alt + ←`** / **`Alt + →`** (wraps around) |
 | | Scroll grid horizontally | Turn `◄►` knob | Turn horizontal encoder knob in top toolbar / encoder strip, scroll mouse wheel horizontally, drag bottom scroll bar, or glide cursor near borders |
-| | Zoom resolution / rate | `Shift` + turn `◄►` knob | Hold **`Shift`** + turn the horizontal scroll encoder in top toolbar / encoder strip to scale sequencer rate |
+| | Zoom resolution / rate | Push-and-turn `◄►` knob | Hold the horizontal scroll encoder down while turning it to scale sequencer rate (`Shift` + turn instead adjusts clip length — see Track View below) |
 | | Scroll grid vertically | Turn `▼▲` knob | Turn vertical encoder knob in top toolbar / encoder strip, or scroll mouse wheel vertically |
-| | Octave-scroll vertical | `Shift` + turn `▼▲` knob | Hold **`Shift`** + turn the vertical scroll encoder in top toolbar / encoder strip to scroll view by exactly one octave (12 rows) |
+| | Octave-transpose notes | Push-and-turn `▼▲` knob | Hold the vertical scroll encoder down while turning it to transpose the clip's notes by an octave per detent (hold `Shift` at the same time to transpose by a semitone instead) |
+| | Shift note colour | `Shift` + turn `▼▲` knob | Hold **`Shift`** (without pushing the encoder) + turn the vertical scroll encoder to shift the track's note colour |
 | | Metronome toggle | `Shift` + `Tap Tempo` | Check **`[✓] Metronome`** in transport toolbar or hold `Shift` + `T` |
 | | Delete song | `Shift` + `Save/Delete` | Right-click Song XML file in Sidebar Explorer ➔ Delete |
 | | New song | `Shift` + `Load` ➔ `Load` | Select **`File ➔ New Project`** (`Ctrl + N`) |
