@@ -711,6 +711,21 @@ public class SwingDelugeApp extends JFrame {
     if (arrGridPanel != null) arrGridPanel.refresh();
   }
 
+  /**
+   * Propagates shift-held state to the grid panels, mirroring what the physical keyboard Shift
+   * key's KeyEventDispatcher already does (lines ~268-278). The hardware faceplate's on-screen
+   * SHIFT button only toggled its own LED/overlay state without this, so clicking it and then
+   * clicking a grid pad triggered a normal note-play instead of the shift-shortcut editor —
+   * SwingGridPanel.shiftHeld (checked by ClipEditorController.attachListeners) is a separate flag
+   * from SwingHardwareTopPanel's own isShiftHeld (used only for the LED and the shift-label
+   * overlay), and nothing previously kept them in sync for this input path.
+   */
+  public void setGridShiftHeld(boolean held) {
+    if (clipPanel != null) clipPanel.setShiftHeld(held);
+    if (songPanel != null) songPanel.setShiftHeld(held);
+    if (arrGridPanel != null) arrGridPanel.setShiftHeld(held);
+  }
+
   public void doUndo() {
     if (currentProject == null) return;
     var stack = currentProject.getUndoRedoStack();

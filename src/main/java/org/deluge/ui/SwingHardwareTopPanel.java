@@ -72,6 +72,11 @@ public class SwingHardwareTopPanel extends JPanel {
       this.isShiftHeld = held;
       repaint();
       if (SwingDelugeApp.mainInstance != null) {
+        // Grid panels have their own shiftHeld flag (SwingGridPanel.shiftHeld) that
+        // ClipEditorController.attachListeners actually checks to decide whether a pad click
+        // opens the shift-shortcut editor or plays a note — this panel's own isShiftHeld only
+        // drives its LED and the shift-label overlay, so it must be propagated explicitly.
+        SwingDelugeApp.mainInstance.setGridShiftHeld(held);
         SwingDelugeApp.mainInstance.refreshGrids();
       }
     }
