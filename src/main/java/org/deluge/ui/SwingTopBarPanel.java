@@ -99,8 +99,6 @@ public class SwingTopBarPanel extends JPanel {
 
     default void onTripletsToggle() {}
 
-    default void onBack() {}
-
     default void onTapTempo() {}
   }
 

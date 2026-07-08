@@ -636,7 +636,18 @@ public class SwingHardwareTopPanel extends JPanel {
       }
       case "LOAD" -> listener.onLoadProject();
       case "SAVE" -> listener.onSaveProject();
-      case "BACK" -> listener.onBack();
+      case "BACK" -> {
+        // C: view.cpp:401-419 — on every hardware revision this firmware actually compiles for
+        // (undoButtonX is never #defined anywhere in the tree, so the #ifndef branch is always
+        // active), BACK performs Undo, and Shift+BACK performs Redo. A prior pass in this file
+        // removed this binding on the mistaken belief (never checked against view.cpp) that BACK
+        // was never bound to undo on real hardware — it was wrong; restoring it.
+        if (isShiftHeld) {
+          listener.onRedo();
+        } else {
+          listener.onUndo();
+        }
+      }
       case "AFFECT_ENTIRE" -> {
         isAffectEntire = !isAffectEntire;
         listener.onAffectEntireToggle();

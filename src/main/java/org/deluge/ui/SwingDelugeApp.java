@@ -3031,22 +3031,6 @@ public class SwingDelugeApp extends JFrame {
       doRedo();
     }
 
-    /**
-     * C: BACK is never a global undo — every b == BACK handler in the firmware closes the current
-     * nested UI (sound_editor.cpp:418, browser.cpp:1579, rename_ui.cpp:103, etc). The one such
-     * nested layer this port models today is the automation editor (instrument_clip_view.cpp:297,
-     * changeRootUI(&automationView)), so BACK from there returns to the note editor; elsewhere
-     * there is no nested UI to close yet.
-     */
-    @Override
-    public void onBack() {
-      if ("AUTO".equals(activeViewMode)) {
-        activeViewMode = "CLIP";
-        cardLayout.show(centerCardPanel, "CLIP");
-        if (topBar != null) topBar.selectViewModeButton("CLIP");
-      }
-    }
-
     @Override
     public void onTripletsToggle() {
       if (clipPanel != null) {
