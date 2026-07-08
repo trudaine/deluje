@@ -720,14 +720,16 @@ The 16 columns are grouped into dedicated parameter channels:
 
 ---
 
-### 10.2 Track Header & Top Toolbar Shift Shortcuts Map
+### 10.2 Track Header & Faceplate Shift Shortcuts Map
 
-In addition to the main grid pads, holding **[SHIFT]** while clicking top toolbar buttons, row header labels, or turning encoders activates quick operations:
-*   **`Shift` + Click `[+ KIT]`, `[+ SYNTH]`, `[+ AUDIO]`**: Bypasses the standard track naming modal prompt and instantly creates a new default track (`SYNTH 1`, `KIT 1`, `AUDIO 1`) with generic initial presets.
+In addition to the main grid pads, holding **[SHIFT]** while clicking faceplate track buttons, row header labels, or turning encoders (or Push-and-Turn) activates quick operations:
+*   **`Shift` + Click `[SYNTH]`, `[KIT]`, `[MIDI]`, `[CV]` Faceplate Buttons**: Bypasses the standard track naming modal prompt and instantly creates a new default track (`SYNTH 1`, `KIT 1`, `MIDI 1`, `CV 1`) with generic initial presets.
 *   **`Shift` + Click `[Track Name Label]`**: Toggles **One-Shot Playback Mode (`1SH`)** for sample-trigger track rows.
 *   **`Shift` + Click `[MUTE]` Button**: Clears all active step note events on that specific lane (`Clear row`).
-*   **`Shift` + Turn `[Horizontal Scroll Encoder ◄►]`**: Dynamically adjusts the play rate step speed resolution (horizontal zoom, e.g. from $1/16$ to $1/32$ straight or triplet mode) and updates the OLED display.
-*   **`Shift` + Turn `[Vertical Scroll Encoder ▼▲]`**: Scrolls the visible note rows of the active grid by **exactly one octave (12 rows) per detent** instead of a single row, to scroll through the piano roll.
+*   **`Shift` + Turn / Push-and-Turn `[X Encoder]`**: Dynamically adjusts the grid zoom resolution (horizontal zoom, e.g. from $1/16$ to $1/32$ straight or triplet mode) and updates the OLED display.
+*   **`Shift` + Turn / Push-and-Turn `[Y Encoder]`**: Scrolls the visible note rows of the active grid by **exactly one octave (12 rows) per detent** instead of a single row, allowing fast navigation through the piano roll.
+*   **`Shift` + Turn / Push-and-Turn `[SELECT Encoder]`**: Coarse preset / item jump (±5 items per detent).
+*   **`Shift` + Turn / Push-and-Turn `[TEMPO Encoder]`**: Fine project tempo adjustment (±0.1 BPM per detent).
 *   **Right-Click / Double-Click `[Track Name Label]`**: Spawns the multitrack Context Menu (`Clone Track`, `Delete Track`, `Change Swatch Color`).
 
 ---
@@ -1516,24 +1518,23 @@ If you're about to run the Kit Super-Generator, save the project first (`Ctrl + 
 
 ---
 
-### B. Window Layout
+### B. Window Layout (1:1 Hardware Faceplate UI)
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│ Menu: File | Settings | View                          [MIDI status] │
-├──────────────────┬──────────────────────────────────────────────────┤
-│                  │  Toolbar: [▶] [■] BPM──── SWING──── [VOL]       │
-│  Sidebar         ├──────────────────────────────────────────────────┤
-│  (Project        │  View tabs: [CLIP] [SONG] [ARRANGEMENT]          │
-│   Tree /         ├──────────────────────────────────────────────────┤
-│   Library)       │                                                  │
-│                  │         GRID (rows × 18 columns)                 │
-│  SONGS/          │  [○][M][⚙] track name │ step cells 1-16 │ctrl│  │
-│  KITS/           │  [○][M][⚙] track name │ step cells 1-16 │ctrl│  │
-│  SYNTHS/         │         …                                        │
-│  SAMPLES/        ├──────────────────────────────────────────────────┤
-│                  │  Velocity / visualiser strip                     │
-└──────────────────┴──────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Menu Bar: File | Edit | Tools | View | Settings | Macro | Help                                  │
+├─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ HARDWARE TOP DECK (Authentic Deluge Faceplate: Delugemu_Normal.png)                             │
+│  [AFFECT ENTIRE]  [SONG] [CLIP]  [KEYBOARD]  [SYNTH][KIT][MIDI][CV]    [OLED SCREEN]  [SELECT]  │
+│  [MOD0..MOD7]     [UPPER GOLD KNOB]  [LOWER GOLD KNOB]                 [TEMPO] [PLAY][REC][SHFT]│
+├─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ SEQUENCER PAD GRID (8×16 / 16×16 / 24×16 Pads with Gold Shift Text Overlays)                    │
+│  Row 1 [○][M][⚙] Track 1 │ [Pad 1] [Pad 2] ... [Pad 16] │ [Right Utility Pad Column]            │
+│  Row 2 [○][M][⚙] Track 2 │ [Pad 1] [Pad 2] ... [Pad 16] │ [Right Utility Pad Column]            │
+│  ...                                                                                            │
+├─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Status Bar / Navigation Encoders: [X Encoder ◄►] [Y Encoder ▼▲]                                 │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -1560,8 +1561,10 @@ If you're about to run the Kit Super-Generator, save the project first (`Ctrl + 
 
 | # | Action | How | Notes |
 | :--- | :--- | :--- | :--- |
-| PL10 | **Add Kit track** | Toolbar "+ KIT" button | Prompts for name; adds a Kit row with one empty clip |
-| PL11 | **Add Synth track** | Toolbar "+ SYNTH" button | Prompts for name; adds a Synth row with one empty clip |
+| PL10 | **Add Kit track** | Faceplate `[KIT]` button | Prompts for name; adds a Kit row with one empty clip (`Shift+Click` for instant default) |
+| PL11 | **Add Synth track** | Faceplate `[SYNTH]` button | Prompts for name; adds a Synth row with one empty clip (`Shift+Click` for instant default) |
+| PL11b | **Add MIDI track** | Faceplate `[MIDI]` button | Adds an external MIDI channel track (`Shift+Click` for instant default) |
+| PL11c | **Add CV track** | Faceplate `[CV]` button | Adds a CV / Gate output track (`Shift+Click` for instant default) |
 | PL12 | **Rename track** | Right-click row header → Rename | In-place prompt |
 | PL13 | **Set track color** | Right-click row header → Set Color | Color chooser; saved to XML |
 | PL14 | **Move track up** | Right-click row header → Move Up | Disabled when track is already first |

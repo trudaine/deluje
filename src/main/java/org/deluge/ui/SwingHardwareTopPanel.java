@@ -145,7 +145,13 @@ public class SwingHardwareTopPanel extends JPanel {
               int deltaY = lastDragY - e.getY();
               if (Math.abs(deltaY) >= 3) {
                 int steps = deltaY / 3;
-                rotateEncoder(activeDragControl, steps);
+                boolean isPushedOrShift =
+                    isShiftHeld
+                        || e.isShiftDown()
+                        || SwingUtilities.isRightMouseButton(e)
+                        || e.isControlDown()
+                        || e.isAltDown();
+                rotateEncoder(activeDragControl, steps, isPushedOrShift);
                 lastDragY = e.getY();
               }
             }
@@ -445,46 +451,75 @@ public class SwingHardwareTopPanel extends JPanel {
   }
 
   private void rotateEncoder(ControlDef enc, int delta) {
+    rotateEncoder(enc, delta, isShiftHeld);
+  }
+
+  private void rotateEncoder(ControlDef enc, int delta, boolean isPushedOrShift) {
     double oldAngle = encoderAngles.getOrDefault(enc.name, 0.0);
     encoderAngles.put(enc.name, oldAngle + delta * 0.15);
 
+    SwingGridPanel gp =
+        SwingDelugeApp.mainInstance != null ? SwingDelugeApp.mainInstance.activeGridPanel() : null;
+
     if ("TEMPO_ENC".equals(enc.name) && projectModel != null) {
-      double bpm = projectModel.getBpm() + delta * 1.0;
+      double step = isPushedOrShift ? 0.1 : 1.0;
+      double bpm = projectModel.getBpm() + delta * step;
       bpm = Math.max(40.0, Math.min(300.0, bpm));
       projectModel.setBpm((float) bpm);
       if (oledPanel != null) {
         oledPanel.showParamText("TEMPO", String.format("%.1f BPM", bpm));
       }
     } else if ("SELECT_ENC".equals(enc.name)) {
+      int step = isPushedOrShift ? delta * 5 : delta;
       if (oledPanel != null) {
-        oledPanel.showParamText("SELECT", delta > 0 ? "NEXT PRESET" : "PREV PRESET");
+        oledPanel.showParamText(
+            isPushedOrShift ? "SELECT COARSE" : "SELECT",
+            step > 0 ? ("+" + step + " PRESET") : (step + " PRESET"));
       }
-    } else if ("Y_ENC".equals(enc.name) || "UPPER_GOLD".equals(enc.name)) {
-      if (oledPanel != null) {
-        oledPanel.showParamText("CUTOFF", delta > 0 ? "+ LPF CUTOFF" : "- LPF CUTOFF");
+    } else if ("Y_ENC".equals(enc.name)) {
+      if (isLearnMode && gp != null) {
+        gp.adjustTrackColorOffset(delta);
+        if (oledPanel != null) oledPanel.showParamText("TRACK COLOR", "ADJUSTED");
+      } else if (gp != null) {
+        int rowDelta = isPushedOrShift ? (-delta * 12) : (-delta);
+        gp.scrollVertically(rowDelta);
+        if (oledPanel != null) {
+          oledPanel.showParamText(
+              isPushedOrShift ? "Y OCTAVE SCROLL" : "Y SCROLL",
+              rowDelta > 0 ? "SCROLL DOWN" : "SCROLL UP");
+        }
       }
-    } else if ("X_ENC".equals(enc.name) || "LOWER_GOLD".equals(enc.name)) {
-      if (oledPanel != null) {
-        oledPanel.showParamText("RESONANCE", delta > 0 ? "+ RES" : "- RES");
+    } else if ("X_ENC".equals(enc.name)) {
+      if (gp != null) {
+        if (isPushedOrShift) {
+          gp.adjustZoomResolution(delta);
+          if (oledPanel != null) oledPanel.showParamText("ZOOM", "RESOLUTION");
+        } else {
+          gp.scrollHorizontally(delta);
+          if (oledPanel != null) {
+            oledPanel.showParamText("X SCROLL", delta > 0 ? "SCROLL RIGHT" : "SCROLL LEFT");
+          }
+        }
       }
     } else if ("MASTER_VOL".equals(enc.name)) {
-      if (listener != null) {
-        // Step master volume up or down
-      }
       if (oledPanel != null) {
         oledPanel.showParamText("MASTER VOL", delta > 0 ? "VOLUME UP" : "VOLUME DOWN");
       }
-    } else if ("MOD_ENCODER_1".equals(enc.name)) {
-      upperGoldRow = (upperGoldRow + (delta > 0 ? 1 : 3)) % 4;
-      String[] upperNames = {"LEVEL / PAN", "CUTOFF / RES", "ATTACK / REL", "CUSTOM"};
-      if (oledPanel != null) {
-        oledPanel.showParamText("UPPER MOD", upperNames[upperGoldRow]);
-      }
     } else if ("MOD_ENCODER_0".equals(enc.name)) {
-      lowerGoldRow = (lowerGoldRow + (delta > 0 ? 1 : 3)) % 4;
-      String[] lowerNames = {"DELAY / SIDE", "RATE / STUTTER", "REVERB / DEPTH", "CUSTOM"};
+      String[] upperNames = {"LEVEL / PAN", "CUTOFF / RES", "ATTACK / REL", "CUSTOM"};
+      String paramName = upperNames[upperGoldRow];
       if (oledPanel != null) {
-        oledPanel.showParamText("LOWER MOD", lowerNames[lowerGoldRow]);
+        oledPanel.showParamText(
+            paramName,
+            (isPushedOrShift ? "FINE " : "") + (delta > 0 ? "+ ADJUST" : "- ADJUST"));
+      }
+    } else if ("MOD_ENCODER_1".equals(enc.name)) {
+      String[] lowerNames = {"DELAY / SIDE", "RATE / STUTTER", "REVERB / DEPTH", "CUSTOM"};
+      String paramName = lowerNames[lowerGoldRow];
+      if (oledPanel != null) {
+        oledPanel.showParamText(
+            paramName,
+            (isPushedOrShift ? "FINE " : "") + (delta > 0 ? "+ ADJUST" : "- ADJUST"));
       }
     }
     repaint();
@@ -593,7 +628,13 @@ public class SwingHardwareTopPanel extends JPanel {
     if (hit == null || !hit.isEncoder) return;
 
     int delta = -e.getWheelRotation();
-    rotateEncoder(hit, delta);
+    boolean isPushedOrShift =
+        isShiftHeld
+            || e.isShiftDown()
+            || SwingUtilities.isRightMouseButton(e)
+            || e.isControlDown()
+            || e.isAltDown();
+    rotateEncoder(hit, delta, isPushedOrShift);
   }
 
   public void setPlaybackState(boolean playing, boolean recording) {
