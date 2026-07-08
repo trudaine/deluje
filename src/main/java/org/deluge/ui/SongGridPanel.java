@@ -102,7 +102,7 @@ public class SongGridPanel extends SwingGridPanel {
 
     // ── Section bar (A-Z) for SONG mode ──
     java.util.List<SongSection> sections = getProjectModel().getSongSections();
-    if (!isFaceplate && sections != null && !sections.isEmpty()) {
+    if (sections != null && !sections.isEmpty()) {
       JPanel sectionBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 2));
       sectionBar.setBackground(new Color(0x15, 0x15, 0x15));
       sectionBar.setMaximumSize(new Dimension(rowW, 24));
