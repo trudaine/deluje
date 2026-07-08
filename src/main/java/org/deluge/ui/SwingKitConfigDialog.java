@@ -941,7 +941,7 @@ public class SwingKitConfigDialog extends JDialog {
             }
           } else {
             onChange.accept(newVal);
-            if (SwingTopBarPanel.isAffectEntireActive && paramName != null) {
+            if (SwingDelugeApp.isAffectEntireActive && paramName != null) {
               org.deluge.model.ProjectModel projectModel =
                   SwingDelugeApp.mainInstance != null
                       ? SwingDelugeApp.mainInstance.getCurrentProject()

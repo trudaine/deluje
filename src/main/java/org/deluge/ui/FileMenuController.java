@@ -95,9 +95,6 @@ public class FileMenuController {
       if (app.sidebarPanel != null) {
         app.sidebarPanel.reloadLibrary();
       }
-      if (app.getTopBar() != null) {
-        app.getTopBar().setSaved(true);
-      }
     } catch (Exception ex) {
       JOptionPane.showMessageDialog(
           app, "Save failed:\n" + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);

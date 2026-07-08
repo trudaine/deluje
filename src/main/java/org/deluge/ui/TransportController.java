@@ -46,9 +46,7 @@ public class TransportController {
 
   public void onStop() {
     if (org.deluge.engine.JavaAudioDriver.isResamplingActive) {
-      if (app.topBar != null) {
-        app.topBar.stopRecordingIfActive();
-      }
+      onResampleToggle(null);
     }
     bridge.setGlobalInt(BridgeContract.G_PLAY, 0L);
     if (bridge != null) {
@@ -75,29 +73,31 @@ public class TransportController {
         btn.setForeground(Color.WHITE);
         btn.setText("\u25CF RECORDING");
       }
-      if (app.topBar != null && app.topBar.getParamReadout() != null) {
-        app.topBar.getParamReadout().printTransient("REC", "ON");
-      }
+      showOled("REC", "ON");
     } else {
       if (btn != null) {
         btn.setBackground(new Color(0x3a, 0x0c, 0x0c));
         btn.setForeground(new Color(0xff, 0x33, 0x33));
         btn.setText("\u25CF REC");
       }
-      if (app.topBar != null && app.topBar.getParamReadout() != null) {
-        app.topBar.getParamReadout().printTransient("REC", "OFF");
-      }
+      showOled("REC", "OFF");
     }
     syncFaceplatePlaybackLeds();
   }
 
+  /** Shows transient feedback on the real, visible faceplate OLED. */
+  private void showOled(String banner, String value) {
+    if (app.hardwareTopPanel != null && app.hardwareTopPanel.getOledPanel() != null) {
+      app.hardwareTopPanel.getOledPanel().showParamText(banner, value);
+    }
+  }
+
   // The faceplate PLAY/RECORD LEDs (SwingHardwareTopPanel.isPlaying/isRecording) are a display
   // copy separate from the real state here (bridge G_PLAY, SwingGridPanel.isLiveRecordModeActive)
-  // \u2014 there are multiple ways to reach these methods (the faceplate's own buttons, the legacy
-  // (now-hidden) top-bar's REC button via the global "R" keyboard shortcut
-  // (SwingDelugeApp.java:2082-2096, topBar.getRecBtn().doClick()), ThresholdRecordDialog's
-  // triggerPlayToggle()), so the LEDs must be resynced here on every real state change rather than
-  // only when the faceplate's own button was the trigger.
+  // -- there are multiple ways to reach these methods (the faceplate's own buttons, the global
+  // "R" keyboard shortcut, ThresholdRecordDialog's triggerPlayToggle()), so the LEDs must be
+  // resynced here on every real state change rather than only when the faceplate's own button
+  // was the trigger.
   private void syncFaceplatePlaybackLeds() {
     if (app.hardwareTopPanel != null) {
       app.hardwareTopPanel.setPlaybackState(isPlaying(), SwingGridPanel.isLiveRecordModeActive);
@@ -113,20 +113,20 @@ public class TransportController {
       if (bridge.getGlobalInt(BridgeContract.G_PLAY) == 0L) {
         onPlayToggle();
       }
-      btn.setBackground(new Color(0xff, 0xaa, 0x00));
-      btn.setForeground(Color.WHITE);
-      btn.setText("\u25CF SAMPLING");
-      if (app.topBar != null && app.topBar.getParamReadout() != null) {
-        app.topBar.getParamReadout().printTransient("LOOP", "REC");
+      if (btn != null) {
+        btn.setBackground(new Color(0xff, 0xaa, 0x00));
+        btn.setForeground(Color.WHITE);
+        btn.setText("\u25CF SAMPLING");
       }
+      showOled("LOOP", "REC");
     } else {
       byte[] pcmData = org.deluge.engine.JavaAudioDriver.stopResampling();
-      btn.setBackground(new Color(0x3e, 0x27, 0x0c));
-      btn.setForeground(new Color(0xff, 0xb3, 0x00));
-      btn.setText("\u25CF RESAMPLE");
-      if (app.topBar != null && app.topBar.getParamReadout() != null) {
-        app.topBar.getParamReadout().printTransient("LOOP", "DONE");
+      if (btn != null) {
+        btn.setBackground(new Color(0x3e, 0x27, 0x0c));
+        btn.setForeground(new Color(0xff, 0xb3, 0x00));
+        btn.setText("\u25CF RESAMPLE");
       }
+      showOled("LOOP", "DONE");
 
       if (pcmData == null || pcmData.length < 100) {
         return;
@@ -193,9 +193,17 @@ public class TransportController {
     bridge.setGlobalFloat(BridgeContract.G_MASTER_VOL, vol);
   }
 
+  /** Momentary live step-repeat, held while the Q key (or a future hardware button) is down. */
+  public void setStutterActive(boolean active) {
+    bridge.setGlobalInt(BridgeContract.G_STUTTER_ON, active ? 1L : 0L);
+    showOled("STUT", active ? "ON" : "OFF");
+  }
+
   public void toggleMetronome() {
-    if (app.topBar != null) {
-      app.topBar.toggleMetronome();
+    Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+    if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine) {
+      engine.metronomeEnabled = !engine.metronomeEnabled;
+      showOled("METRO", engine.metronomeEnabled ? "ON" : "OFF");
     }
   }
 }

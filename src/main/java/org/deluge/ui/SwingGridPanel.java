@@ -803,6 +803,16 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
 
   boolean refreshInProgress = false;
 
+  // The viewport's componentResized listener fires on the AWT event queue's own thread, which can
+  // run concurrently with a Swing tree still being built synchronously on the constructing thread
+  // (tests, and SwingDelugeApp's own constructor, build the UI off the EDT). refreshInProgress
+  // alone is a check-then-act race, not just a visibility gap — a plain volatile would still let
+  // both threads pass the "is a refresh already running?" check before either sets the flag.
+  // Serializing on this lock is what actually prevents two concurrent rebuildUIComponents() calls
+  // on the same panel, which otherwise both land their rows in the tree (neither's removeAll() is
+  // guarded against the other), doubling every row.
+  private final Object refreshLock = new Object();
+
   /** Constrain max size to preferred so BoxLayout can't grow this panel unbounded. */
   @Override
   public Dimension getMaximumSize() {
@@ -871,8 +881,10 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
               if (w != lastW || h != lastH) {
                 lastW = w;
                 lastH = h;
-                if (recomputePadSize() && !refreshInProgress) {
-                  refresh();
+                synchronized (refreshLock) {
+                  if (recomputePadSize() && !refreshInProgress) {
+                    refresh();
+                  }
                 }
               }
             }
@@ -1000,8 +1012,10 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
             if (w != lastW || h != lastH) {
               lastW = w;
               lastH = h;
-              if (recomputePadSize() && !refreshInProgress) {
-                refresh();
+              synchronized (refreshLock) {
+                if (recomputePadSize() && !refreshInProgress) {
+                  refresh();
+                }
               }
             }
           }
@@ -2350,87 +2364,89 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   public void refresh() {
-    stopAuditionIfNeeded();
-    refreshInProgress = true;
+    synchronized (refreshLock) {
+      stopAuditionIfNeeded();
+      refreshInProgress = true;
 
-    // Reset or clamp scrollOffset based on track type and view mode
-    if (viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION) {
-      if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-        org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
-        boolean isPianoRoll =
-            t instanceof org.deluge.model.SynthTrackModel
-                || t instanceof org.deluge.model.MidiTrackModel;
-        if (!isPianoRoll) {
-          int drumCount =
-              (t instanceof org.deluge.model.KitTrackModel kit) ? kit.getDrums().size() : 8;
-          scrollOffset =
-              Math.max(0, Math.min(scrollOffset, Math.max(0, drumCount - gridMode.rows)));
-        } else if (scrollOffset < 0 || scrollOffset > 127) {
-          scrollOffset = 67; // reset to default pitch scroll if invalid
+      // Reset or clamp scrollOffset based on track type and view mode
+      if (viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION) {
+        if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+          org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+          boolean isPianoRoll =
+              t instanceof org.deluge.model.SynthTrackModel
+                  || t instanceof org.deluge.model.MidiTrackModel;
+          if (!isPianoRoll) {
+            int drumCount =
+                (t instanceof org.deluge.model.KitTrackModel kit) ? kit.getDrums().size() : 8;
+            scrollOffset =
+                Math.max(0, Math.min(scrollOffset, Math.max(0, drumCount - gridMode.rows)));
+          } else if (scrollOffset < 0 || scrollOffset > 127) {
+            scrollOffset = 67; // reset to default pitch scroll if invalid
+          }
+        } else {
+          scrollOffset = 0;
         }
       } else {
-        scrollOffset = 0;
+        // In SONG/ARRANGEMENT mode, scrollOffset is track scroll, clamp it to valid tracks range
+        // (including buffer slots)
+        int totalRows = computeVoiceRowCount();
+        scrollOffset = Math.max(0, Math.min(scrollOffset, Math.max(0, totalRows - gridMode.rows)));
       }
-    } else {
-      // In SONG/ARRANGEMENT mode, scrollOffset is track scroll, clamp it to valid tracks range
-      // (including buffer slots)
-      int totalRows = computeVoiceRowCount();
-      scrollOffset = Math.max(0, Math.min(scrollOffset, Math.max(0, totalRows - gridMode.rows)));
-    }
 
-    refreshInProgress = true;
+      refreshInProgress = true;
 
-    // 1. Initial metrics setup to check if structural parameters changed
-    voiceRowCount = computeVoiceRowCount();
-    if ((viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION)
-        && projectModel != null
-        && editedModelTrack < projectModel.getTracks().size()) {
-      org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
-      if (activeClipId >= 0 && activeClipId < t.getClips().size()) {
-        org.deluge.model.ClipModel activeClip = t.getClips().get(activeClipId);
-        this.stepCount = activeClip.isTripletMode() ? 12 : gridMode.columns;
+      // 1. Initial metrics setup to check if structural parameters changed
+      voiceRowCount = computeVoiceRowCount();
+      if ((viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION)
+          && projectModel != null
+          && editedModelTrack < projectModel.getTracks().size()) {
+        org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+        if (activeClipId >= 0 && activeClipId < t.getClips().size()) {
+          org.deluge.model.ClipModel activeClip = t.getClips().get(activeClipId);
+          this.stepCount = activeClip.isTripletMode() ? 12 : gridMode.columns;
+        } else {
+          this.stepCount = gridMode.columns;
+        }
       } else {
         this.stepCount = gridMode.columns;
       }
-    } else {
-      this.stepCount = gridMode.columns;
+      if (viewMode == GridViewMode.AUTOMATION) {
+        this.columnCount = this.stepCount;
+      } else {
+        this.columnCount = this.stepCount + 2;
+      }
+
+      java.util.List<org.deluge.model.TrackModel> currentTracks =
+          projectModel != null ? projectModel.getTracks() : java.util.List.of();
+      boolean tracksChanged = (lastTracks == null) || !lastTracks.equals(currentTracks);
+
+      boolean structureChanged =
+          (columnCount != lastColumnCount
+              || voiceRowCount != lastVoiceRowCount
+              || viewMode != lastViewMode
+              || gridMode != lastGridMode
+              || cachedPadSz != lastPadSz
+              || tracksChanged
+              || getComponentCount() == 0);
+
+      lastScrollOffset = scrollOffset;
+      lastScrollOffsetX = scrollOffsetX;
+
+      if (structureChanged) {
+        lastColumnCount = columnCount;
+        lastVoiceRowCount = voiceRowCount;
+        lastViewMode = viewMode;
+        lastGridMode = gridMode;
+        lastPadSz = cachedPadSz;
+        lastTracks = new java.util.ArrayList<>(currentTracks);
+
+        rebuildUIComponents();
+      } else {
+        refreshInPlace();
+      }
+
+      refreshInProgress = false;
     }
-    if (viewMode == GridViewMode.AUTOMATION) {
-      this.columnCount = this.stepCount;
-    } else {
-      this.columnCount = this.stepCount + 2;
-    }
-
-    java.util.List<org.deluge.model.TrackModel> currentTracks =
-        projectModel != null ? projectModel.getTracks() : java.util.List.of();
-    boolean tracksChanged = (lastTracks == null) || !lastTracks.equals(currentTracks);
-
-    boolean structureChanged =
-        (columnCount != lastColumnCount
-            || voiceRowCount != lastVoiceRowCount
-            || viewMode != lastViewMode
-            || gridMode != lastGridMode
-            || cachedPadSz != lastPadSz
-            || tracksChanged
-            || getComponentCount() == 0);
-
-    lastScrollOffset = scrollOffset;
-    lastScrollOffsetX = scrollOffsetX;
-
-    if (structureChanged) {
-      lastColumnCount = columnCount;
-      lastVoiceRowCount = voiceRowCount;
-      lastViewMode = viewMode;
-      lastGridMode = gridMode;
-      lastPadSz = cachedPadSz;
-      lastTracks = new java.util.ArrayList<>(currentTracks);
-
-      rebuildUIComponents();
-    } else {
-      refreshInPlace();
-    }
-
-    refreshInProgress = false;
   }
 
   abstract void refreshInPlace();

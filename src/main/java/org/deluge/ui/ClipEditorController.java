@@ -1712,11 +1712,8 @@ public class ClipEditorController {
       }
 
       // Display transient parameter change on OLED readout
-      if (SwingDelugeApp.mainInstance != null && SwingDelugeApp.mainInstance.getTopBar() != null) {
-        SwingDelugeApp.mainInstance
-            .getTopBar()
-            .getParamReadout()
-            .printTransient(oledParam, oledValue);
+      if (SwingDelugeApp.mainInstance != null) {
+        SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(oledParam, oledValue);
       }
 
       parent.fireProjectChanged();

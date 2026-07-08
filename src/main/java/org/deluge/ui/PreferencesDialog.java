@@ -52,7 +52,6 @@ public class PreferencesDialog extends JDialog {
   private JCheckBox advancedGridStyleCheck;
   private JComboBox<String> padRenderStyleCombo;
   private JComboBox<String> interactionModeCombo;
-  private JComboBox<String> displayTypeCombo;
   private JLabel dirLabel;
   private JList<String> mappingList;
   private JButton browseBtn;
@@ -545,18 +544,6 @@ public class PreferencesDialog extends JDialog {
         c,
         5);
 
-    displayTypeCombo =
-        new JComboBox<>(
-            new String[] {"Show Both Screens", "OLED Screen Only", "Classic LED Screen Only"});
-    styleComboBox(displayTypeCombo);
-    addField(
-        panel,
-        "Screen Display Style",
-        displayTypeCombo,
-        "Gates digital hardware segment indicators layouts.",
-        c,
-        6);
-
     JPanel scalaSelectPanel = new JPanel(new BorderLayout(5, 0));
     scalaSelectPanel.setOpaque(false);
 
@@ -928,15 +915,6 @@ public class PreferencesDialog extends JDialog {
       interactionModeCombo.setSelectedIndex(1);
     }
 
-    PreferencesManager.DisplayType dt = PreferencesManager.getDisplayType();
-    if (dt == PreferencesManager.DisplayType.BOTH) {
-      displayTypeCombo.setSelectedIndex(0);
-    } else if (dt == PreferencesManager.DisplayType.OLED_ONLY) {
-      displayTypeCombo.setSelectedIndex(1);
-    } else {
-      displayTypeCombo.setSelectedIndex(2);
-    }
-
     // MIDI input ports
     String[] ports = org.deluge.shadow.midi.MidiIn.list();
     midiCombo.removeAllItems();
@@ -1132,11 +1110,6 @@ public class PreferencesDialog extends JDialog {
             ? PreferencesManager.ShiftInteractionMode.POPUP_SLIDER
             : PreferencesManager.ShiftInteractionMode.ROTARY_ENCODER);
 
-    PreferencesManager.DisplayType dt = PreferencesManager.DisplayType.BOTH;
-    if (displayTypeCombo.getSelectedIndex() == 1) dt = PreferencesManager.DisplayType.OLED_ONLY;
-    else if (displayTypeCombo.getSelectedIndex() == 2) dt = PreferencesManager.DisplayType.LED_ONLY;
-    PreferencesManager.setDisplayType(dt);
-
     int selectedSyncMode = syncModeCombo.getSelectedIndex();
     PreferencesManager.set(
         "sequencer.sync.mode", selectedSyncMode == 1 ? "EXTERNAL_MIDI" : "INTERNAL");
@@ -1150,10 +1123,6 @@ public class PreferencesDialog extends JDialog {
             "[Preferences] Dynamic Sync Mode applied: "
                 + (selectedSyncMode == 1 ? "EXTERNAL" : "INTERNAL"));
       }
-    }
-
-    if (SwingDelugeApp.mainInstance != null && SwingDelugeApp.mainInstance.getTopBar() != null) {
-      SwingDelugeApp.mainInstance.getTopBar().applyDisplayPreferences();
     }
 
     if (onGridModeChanged != null) onGridModeChanged.run();

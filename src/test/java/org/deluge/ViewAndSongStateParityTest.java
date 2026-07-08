@@ -6,7 +6,6 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import org.deluge.model.ProjectModel;
 import org.deluge.project.ProjectSerializer;
-import org.deluge.ui.SwingTopBarPanel;
 import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
@@ -98,75 +97,5 @@ public class ViewAndSongStateParityTest {
     assertEquals(14, parsed.getNumClips(), "numClips parity failed");
     assertEquals("feedback", parsed.getModFXCurrentParam(), "modFXCurrentParam parity failed");
     assertEquals("hpf", parsed.getCurrentFilterType(), "currentFilterType parity failed");
-  }
-
-  @Test
-  public void testSwingControlsIntegration() throws Exception {
-    System.setProperty("chuck.audio.dummy", "true");
-    BridgeContract bridge = new BridgeContract();
-    ProjectModel project = new ProjectModel();
-    project.setSwing(0.6f);
-    project.setSwingInterval(6);
-
-    SwingTopBarPanel topBar =
-        new SwingTopBarPanel(
-            bridge,
-            project,
-            null,
-            new SwingTopBarPanel.TopBarListener() {
-              @Override
-              public void onLiveRecordToggle(javax.swing.JButton btn) {}
-
-              @Override
-              public void onResampleToggle(javax.swing.JButton btn) {}
-
-              @Override
-              public void onArrangerCaptureToggle(boolean active) {}
-
-              @Override
-              public void onViewModeChanged(String viewMode) {}
-
-              @Override
-              public void onAddTrack(String type, boolean isShift) {}
-
-              @Override
-              public void onPlayToggle() {}
-
-              @Override
-              public void onStop() {}
-
-              @Override
-              public void onMasterVolumeChanged(float vol) {}
-            });
-    assertNotNull(topBar);
-
-    javax.swing.JSlider swingSlider = null;
-    javax.swing.JComboBox<?> swingCombo = null;
-
-    for (java.awt.Component comp : topBar.getComponents()) {
-      if (comp instanceof javax.swing.JSlider slider && slider.getMaximum() == 75) {
-        swingSlider = slider;
-      } else if (comp instanceof javax.swing.JComboBox<?> combo
-          && combo.getItemCount() == 2
-          && "16th".equals(combo.getItemAt(0))) {
-        swingCombo = combo;
-      }
-    }
-
-    assertNotNull(swingSlider, "Swing slider should be present");
-    assertNotNull(swingCombo, "Swing interval combo should be present");
-
-    assertEquals(
-        60, swingSlider.getValue(), "Initial Swing slider value should reflect project (60%)");
-    assertEquals(0, swingCombo.getSelectedIndex(), "Initial Combo should select 16th index (0)");
-
-    swingSlider.setValue(70);
-    assertEquals(0.70f, project.getSwing(), 1e-4, "Project swing float should update to 0.70f");
-    assertEquals(20, project.getSwingAmount(), "Project swing amount should update to 20");
-
-    swingCombo.setSelectedIndex(1);
-    assertEquals(5, project.getSwingInterval(), "Project swing interval should update to 5 (8th)");
-
-    bridge.shutdown();
   }
 }

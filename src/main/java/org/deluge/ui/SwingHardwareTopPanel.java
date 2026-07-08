@@ -25,6 +25,45 @@ public class SwingHardwareTopPanel extends JPanel {
   private static final int ORIG_WIDTH = 2256;
   private static final int ORIG_TOP_HEIGHT = 574;
 
+  /** Callback interface for actions that need to reach the parent frame. */
+  public interface TopBarListener {
+    void onLiveRecordToggle(JButton btn);
+
+    void onResampleToggle(JButton btn);
+
+    void onArrangerCaptureToggle(boolean active);
+
+    void onViewModeChanged(String viewMode);
+
+    void onAddTrack(String type, boolean isShift);
+
+    void onPlayToggle();
+
+    void onStop();
+
+    void onMasterVolumeChanged(float vol);
+
+    default void onLoadProject() {}
+
+    default void onSaveProject() {}
+
+    default void onNewProject() {}
+
+    default void onUndo() {}
+
+    default void onRedo() {}
+
+    default void onLearnToggle() {}
+
+    default void onAffectEntireToggle() {}
+
+    default void onScaleModeToggle() {}
+
+    default void onTripletsToggle() {}
+
+    default void onTapTempo() {}
+  }
+
   public static class ControlDef {
     public final String name;
     public final int cx;
@@ -47,7 +86,7 @@ public class SwingHardwareTopPanel extends JPanel {
   private final Map<String, Double> encoderAngles = new HashMap<>();
   private BufferedImage faceplateImg;
   private final SwingOledPanel oledPanel;
-  private final SwingTopBarPanel.TopBarListener listener;
+  private final TopBarListener listener;
   private final BridgeContract bridge;
   private final ProjectModel projectModel;
 
@@ -65,6 +104,10 @@ public class SwingHardwareTopPanel extends JPanel {
     if (activeInstance != null) {
       activeInstance.repaint();
     }
+  }
+
+  public SwingOledPanel getOledPanel() {
+    return oledPanel;
   }
 
   public void setShiftHeld(boolean held) {
@@ -105,7 +148,7 @@ public class SwingHardwareTopPanel extends JPanel {
       BridgeContract bridge,
       ProjectModel projectModel,
       SwingOledPanel oledPanel,
-      SwingTopBarPanel.TopBarListener listener) {
+      TopBarListener listener) {
     this.bridge = bridge;
     this.projectModel = projectModel;
     this.oledPanel = oledPanel;

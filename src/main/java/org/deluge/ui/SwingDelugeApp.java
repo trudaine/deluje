@@ -30,9 +30,7 @@ public class SwingDelugeApp extends JFrame {
   private SwingGridPanel autoPanel;
   private SwingPerformanceViewPanel performancePanel;
 
-  SwingTopBarPanel topBar;
   SwingHardwareTopPanel hardwareTopPanel;
-  JPanel topBarCards;
   private AppTopBarListener appTopBarListener;
   private SynthParamRack synthParamRack;
   private javax.swing.JScrollPane rackScroll;
@@ -161,10 +159,6 @@ public class SwingDelugeApp extends JFrame {
     this.midiService = midiService;
     mainInstance = this;
     pureModeActive = pureMode;
-    // Sync the flag SwingKitConfigDialog actually reads to this class's boot default (see
-    // onAffectEntireToggle below) — otherwise they start out of sync (true here, false there)
-    // until the first faceplate toggle.
-    SwingTopBarPanel.isAffectEntireActive = isAffectEntireActive;
     this.syncCoordinator = new EngineSyncCoordinator(this, bridge);
     this.transportController = new TransportController(this);
     this.fileMenuController = new FileMenuController(this);
@@ -381,32 +375,6 @@ public class SwingDelugeApp extends JFrame {
     // bridge/engine!
     loadProject(currentProject);
 
-    // Trigger a high-fidelity retro rolling welcome message on boot!
-    if (topBar != null && topBar.getParamReadout() != null) {
-      topBar.getParamReadout().print("HELO", "    ");
-      javax.swing.Timer timer1 =
-          new javax.swing.Timer(
-              800,
-              e -> {
-                if (topBar != null && topBar.getParamReadout() != null) {
-                  topBar.getParamReadout().print("DELU", "V1.0");
-                }
-              });
-      timer1.setRepeats(false);
-      timer1.start();
-
-      javax.swing.Timer timer2 =
-          new javax.swing.Timer(
-              1600,
-              e -> {
-                if (topBar != null && topBar.getParamReadout() != null) {
-                  topBar.getParamReadout().reset();
-                }
-              });
-      timer2.setRepeats(false);
-      timer2.start();
-    }
-
     startPlaybackTimer();
 
     DarkComboBoxRenderer.styleComponentTree(this);
@@ -462,7 +430,6 @@ public class SwingDelugeApp extends JFrame {
       if (cardLayout != null && centerCardPanel != null) {
         cardLayout.show(centerCardPanel, "CLIP");
       }
-      if (topBar != null) topBar.selectClipView();
       boolean firstIsSynth =
           !model.getTracks().isEmpty()
               && model.getTracks().get(0) instanceof org.deluge.model.SynthTrackModel;
@@ -477,13 +444,11 @@ public class SwingDelugeApp extends JFrame {
       if (cardLayout != null && centerCardPanel != null) {
         cardLayout.show(centerCardPanel, "ARR");
       }
-      if (topBar != null) topBar.selectViewModeButton("ARR");
     } else {
       activeViewMode = "SONG";
       if (cardLayout != null && centerCardPanel != null) {
         cardLayout.show(centerCardPanel, "SONG");
       }
-      if (topBar != null) topBar.selectViewModeButton("SONG");
     }
 
     setTitle(
@@ -629,7 +594,7 @@ public class SwingDelugeApp extends JFrame {
               + " track slots for Hi-Fi Rendering. MasterVol: "
               + masterVol);
     }
-    if (topBar != null && !model.getTracks().isEmpty()) {
+    if (!model.getTracks().isEmpty()) {
       int activeTrk = clipPanel != null ? clipPanel.getEditedModelTrack() : 0;
       if (activeTrk >= 0 && activeTrk < model.getTracks().size()) {
         org.deluge.model.TrackModel tm = model.getTracks().get(activeTrk);
@@ -864,14 +829,7 @@ public class SwingDelugeApp extends JFrame {
     snap.applyTo(clip);
   }
 
-  public SwingTopBarPanel getTopBar() {
-    return topBar;
-  }
-
   public void refreshTopPanelStyle() {
-    if (topBarCards == null) return;
-    CardLayout cl = (CardLayout) topBarCards.getLayout();
-    cl.show(topBarCards, "FACEPLATE");
     if (rackScroll != null) rackScroll.setVisible(false);
     if (leftFloat != null) leftFloat.setVisible(false);
     if (rightFloat != null) rightFloat.setVisible(false);
@@ -928,24 +886,20 @@ public class SwingDelugeApp extends JFrame {
   }
 
   public void updateHardwareLedDisplay(String paramCode, String valueString) {
-    if (topBar != null && topBar.getParamReadout() != null) {
-      if (paramCode == null || valueString == null) {
-        topBar.getParamReadout().reset();
-      } else {
-        topBar.getParamReadout().print(paramCode, valueString);
-        org.deluge.hid.VirtualOLED vOled = org.deluge.hid.FirmwareDisplay.get().getVirtualOLED();
-        String[] softKeys = new String[] {"SYNTH", "KIT", "MIDI", "CV"};
-        if ("REVERB".equalsIgnoreCase(paramCode)) {
-          vOled.drawMultiSectionGraph(
-              paramCode,
-              new String[] {"AMNT", "TIME", "DAMP", "DIFF"},
-              new float[] {0.4f, 0.6f, 0.3f, 0.7f},
-              3,
-              softKeys);
-        } else {
-          vOled.drawParameterBar(paramCode, valueString, 0.65f, softKeys, 0);
-        }
-      }
+    if (paramCode == null || valueString == null) {
+      return;
+    }
+    org.deluge.hid.VirtualOLED vOled = org.deluge.hid.FirmwareDisplay.get().getVirtualOLED();
+    String[] softKeys = new String[] {"SYNTH", "KIT", "MIDI", "CV"};
+    if ("REVERB".equalsIgnoreCase(paramCode)) {
+      vOled.drawMultiSectionGraph(
+          paramCode,
+          new String[] {"AMNT", "TIME", "DAMP", "DIFF"},
+          new float[] {0.4f, 0.6f, 0.3f, 0.7f},
+          3,
+          softKeys);
+    } else {
+      vOled.drawParameterBar(paramCode, valueString, 0.65f, softKeys, 0);
     }
   }
 
@@ -954,8 +908,8 @@ public class SwingDelugeApp extends JFrame {
   }
 
   public void updateHardwareLedDisplayTransient(String paramCode, String valueString) {
-    if (topBar != null && topBar.getParamReadout() != null) {
-      topBar.getParamReadout().printTransient(paramCode, valueString);
+    if (hardwareTopPanel != null && hardwareTopPanel.getOledPanel() != null) {
+      hardwareTopPanel.getOledPanel().showParamText(paramCode, valueString);
     }
   }
 
@@ -963,7 +917,7 @@ public class SwingDelugeApp extends JFrame {
     return clipPanel;
   }
 
-  public SwingTopBarPanel.TopBarListener getTopBarListener() {
+  public SwingHardwareTopPanel.TopBarListener getTopBarListener() {
     return appTopBarListener;
   }
 
@@ -977,7 +931,6 @@ public class SwingDelugeApp extends JFrame {
 
   public void setWorkspaceView(String viewName) {
     activeViewMode = viewName;
-    if (topBar != null) topBar.selectViewModeButton(viewName);
     cardLayout.show(centerCardPanel, viewName);
     revalidate();
     repaint();
@@ -1885,9 +1838,7 @@ public class SwingDelugeApp extends JFrame {
             new AbstractAction() {
               @Override
               public void actionPerformed(java.awt.event.ActionEvent e) {
-                if (topBar != null && topBar.getRecBtn() != null) {
-                  topBar.getRecBtn().doClick();
-                }
+                transportController.onLiveRecordToggle(null);
               }
             });
 
@@ -2008,16 +1959,11 @@ public class SwingDelugeApp extends JFrame {
     centerCardPanel.add(performancePanel, "PERF");
 
     appTopBarListener = new AppTopBarListener();
-    topBar = new SwingTopBarPanel(bridge, currentProject, leftFloat, appTopBarListener);
     hardwareTopPanel =
         new SwingHardwareTopPanel(bridge, currentProject, new SwingOledPanel(), appTopBarListener);
 
-    topBarCards = new JPanel(new CardLayout());
-    topBarCards.add(topBar, "STANDARD");
-    topBarCards.add(hardwareTopPanel, "FACEPLATE");
-
     JPanel topBarWrapper = new JPanel(new BorderLayout());
-    topBarWrapper.add(topBarCards, BorderLayout.CENTER);
+    topBarWrapper.add(hardwareTopPanel, BorderLayout.CENTER);
     refreshTopPanelStyle();
     add(topBarWrapper, BorderLayout.NORTH);
 
@@ -2165,7 +2111,6 @@ public class SwingDelugeApp extends JFrame {
           }
 
           cardLayout.show(centerCardPanel, "CLIP");
-          if (topBar != null) topBar.selectClipView();
         };
     sidebarPanel.setOnTrackAdded(addTrack);
     floatingSidebar.setOnTrackAdded(addTrack);
@@ -2620,9 +2565,6 @@ public class SwingDelugeApp extends JFrame {
 
     activeViewMode = nextMode;
     cardLayout.show(centerCardPanel, nextMode);
-    if (topBar != null) {
-      topBar.selectViewModeButton(nextMode);
-    }
     if ("CLIP".equals(nextMode) || "SONG".equals(nextMode)) {
       syncHighFidelityEngine(currentProject);
     }
@@ -2692,11 +2634,10 @@ public class SwingDelugeApp extends JFrame {
 
     activeViewMode = "CLIP";
     cardLayout.show(centerCardPanel, "CLIP");
-    if (topBar != null) topBar.selectViewModeButton("CLIP");
   }
 
   /** Handles top-bar view-mode and add-track actions. */
-  private class AppTopBarListener implements SwingTopBarPanel.TopBarListener {
+  private class AppTopBarListener implements SwingHardwareTopPanel.TopBarListener {
     @Override
     public void onLoadProject() {
       JFileChooser chooser = new JFileChooser(org.deluge.project.PreferencesManager.getSongsDir());
@@ -2736,9 +2677,7 @@ public class SwingDelugeApp extends JFrame {
     }
 
     // C: view.cpp:144-176 — TAP_TEMPO computes BPM from tap intervals
-    // (playbackHandler.tapTempoButtonPress). The legacy top-bar TAP button already reaches this
-    // via transportController.tapTempo() (SwingTopBarPanel.java:489); the hardware faceplate's
-    // TAP_TEMPO control only redisplayed the current BPM without ever measuring a tap interval.
+    // (playbackHandler.tapTempoButtonPress).
     @Override
     public void onTapTempo() {
       if (transportController != null) {
@@ -2749,12 +2688,6 @@ public class SwingDelugeApp extends JFrame {
     @Override
     public void onAffectEntireToggle() {
       isAffectEntireActive = !isAffectEntireActive;
-      // SwingKitConfigDialog's actual "apply to all kit rows" behavior reads
-      // SwingTopBarPanel.isAffectEntireActive (a separate flag driven only by the legacy
-      // top-bar's own "ALL" toggle button) — not this class's isAffectEntireActive, which
-      // nothing else reads. Without this, the faceplate's AFFECT_ENTIRE button had no effect
-      // on kit editing at all.
-      SwingTopBarPanel.isAffectEntireActive = isAffectEntireActive;
       if (hardwareTopPanel != null) {
         hardwareTopPanel.repaint();
       }
@@ -2947,9 +2880,7 @@ public class SwingDelugeApp extends JFrame {
     String next = SCALE_CYCLE[(idx + 1) % SCALE_CYCLE.length];
     currentProject.setScale(next);
     bridge.setGlobalInt(BridgeContract.G_SCALE, EngineSyncCoordinator.parseScaleIndex(next));
-    if (topBar != null && topBar.getParamReadout() != null) {
-      topBar.getParamReadout().printTransient("SCALE", next);
-    }
+    updateHardwareLedDisplayTransient("SCALE", next);
     fireProjectChanged();
   }
 
@@ -2976,9 +2907,7 @@ public class SwingDelugeApp extends JFrame {
     String next = KEY_CYCLE[(idx + 1) % KEY_CYCLE.length];
     currentProject.setKey(next);
     bridge.setGlobalInt(BridgeContract.G_ROOT_KEY, EngineSyncCoordinator.parseRootKey(next));
-    if (topBar != null && topBar.getParamReadout() != null) {
-      topBar.getParamReadout().printTransient("KEY", next);
-    }
+    updateHardwareLedDisplayTransient("KEY", next);
     fireProjectChanged();
   }
 

@@ -26,8 +26,8 @@ class KeyboardMouseAdapter extends MouseAdapter {
       String[] keyNames = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
       String keyStr = keyNames[rootMidi];
       panel.projectModel.setKey(keyStr);
-      if (SwingDelugeApp.mainInstance != null && SwingDelugeApp.mainInstance.getTopBar() != null) {
-        SwingDelugeApp.mainInstance.getTopBar().getParamReadout().printTransient("KEY", keyStr);
+      if (SwingDelugeApp.mainInstance != null) {
+        SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("KEY", keyStr);
       }
       panel.fireProjectChanged();
       return;
