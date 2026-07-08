@@ -463,26 +463,19 @@ public class ArrangerGridPanel extends SwingGridPanel {
 
         arrangerController.attachListeners(clipBtn, currentTrack, colId);
 
-        if (isFaceplate) {
-          if (c == stepCount) {
-            rowPanel.add(ClipGridPanel.createFaceplateSeparator(faceScale, padSz));
-          } else if (c > 0) {
-            rowPanel.add(Box.createRigidArea(new Dimension((int) Math.round(41 * faceScale), 1)));
-          }
-          if (dispTrack != null) {
-            String oldTip = clipBtn.getToolTipText();
-            clipBtn.setToolTipText(dispTrack.getName() + (oldTip != null ? " — " + oldTip : ""));
-          }
+        if (c == stepCount) {
+          rowPanel.add(ClipGridPanel.createFaceplateSeparator(faceScale, padSz));
+        } else if (c > 0) {
+          rowPanel.add(Box.createRigidArea(new Dimension((int) Math.round(41 * faceScale), 1)));
+        }
+        if (dispTrack != null) {
+          String oldTip = clipBtn.getToolTipText();
+          clipBtn.setToolTipText(dispTrack.getName() + (oldTip != null ? " — " + oldTip : ""));
         }
         rowPanel.add(clipBtn);
-        if (!isFaceplate) {
-          rowPanel.add(Box.createHorizontalStrut(5));
-        }
       }
       voicePanel.add(rowPanel);
-      if (isFaceplate) {
-        voicePanel.add(Box.createRigidArea(new Dimension(1, 5)));
-      }
+      voicePanel.add(Box.createRigidArea(new Dimension(1, 5)));
     }
 
     JPanel voiceWrapper = new JPanel(new BorderLayout());
