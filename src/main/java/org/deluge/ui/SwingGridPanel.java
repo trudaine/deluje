@@ -2404,19 +2404,18 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
             || voiceRowCount != lastVoiceRowCount
             || viewMode != lastViewMode
             || gridMode != lastGridMode
-            || scrollOffset != lastScrollOffset
-            || scrollOffsetX != lastScrollOffsetX
             || cachedPadSz != lastPadSz
             || tracksChanged
             || getComponentCount() == 0);
+
+    lastScrollOffset = scrollOffset;
+    lastScrollOffsetX = scrollOffsetX;
 
     if (structureChanged) {
       lastColumnCount = columnCount;
       lastVoiceRowCount = voiceRowCount;
       lastViewMode = viewMode;
       lastGridMode = gridMode;
-      lastScrollOffset = scrollOffset;
-      lastScrollOffsetX = scrollOffsetX;
       lastPadSz = cachedPadSz;
       lastTracks = new java.util.ArrayList<>(currentTracks);
 

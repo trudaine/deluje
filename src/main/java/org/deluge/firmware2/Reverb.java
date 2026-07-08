@@ -645,6 +645,18 @@ public class Reverb {
       applyParams();
     }
 
+    public float getRoomSize() {
+      return roomSize;
+    }
+
+    public float getDamping() {
+      return damping;
+    }
+
+    public float getWidth() {
+      return width;
+    }
+
     public void mute() {
       freeverb.mute();
       if (mutableModel != null) mutableModel.clear();

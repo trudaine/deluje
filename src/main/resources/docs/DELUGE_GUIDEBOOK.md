@@ -676,7 +676,9 @@ The Deluge Workstation features a deeply integrated Shift action system and soun
 
 ### 10.1 The Shift Grid Shortcuts Overlay (Sound Editor Shortcuts)
 
-Hold **Shift** in Track or Keyboard View and the grid turns into the **Sound Editor Shortcuts** overlay, printing a parameter name on each pad (mirroring the physical Deluge's gold-shortcut grid). Click a pad to jump straight to that parameter's control.
+Hold **Shift** in Track or Keyboard View and the grid turns into the **Sound Editor Shortcuts** overlay, printing a parameter name on each pad (mirroring the physical Deluge's gold-shortcut grid). Click a pad or turn an encoder while holding **Shift** to adjust that parameter directly on the active sound.
+
+Along the top row of pads, the interface displays light-cyan **Column Group Header Banners** (`SMP 1`, `SMP 2`, `OSC 1`, `OSC 2`, `FM 1`, `FM 2`, `MASTER`, `VOICE`, `ENV 1`, `ENV 2`, `SIDE`, `ARP`, `LFO 1`, `LFO 2`, `DELAY`, `REVERB`) so you can instantly identify which parameter group each column belongs to.
 
 ![The Shift shortcut overlay printed across the grid](images/deluge_main_grid_shift.png)
 
@@ -714,16 +716,25 @@ The 16 columns are grouped into dedicated parameter channels:
     *   *Row 3–4*: LFO `FEEDBACK` / `OFFSET`.
     *   *Row 5–8*: LFO `TYPE` (SINE, SAW, SQUAre, TRIangle) / `SYNC` (tempo sync clock).
 *   **Columns 15–16: DELAY, REVERB & MOD SOURCES (Effects & Modulations)**:
-    *   *Row 1–3*: Reverb `ROOM SIZE` / Reverb `DAMP` / Reverb `WIDTH` (stereo image).
+    *   *Row 1–3*: Reverb `ROOM SIZE` / Reverb `DAMP` / Reverb `WIDTH` / `DIFFUSION` (stereo image & diffusion).
     *   *Row 4–5*: Delay `MONO/STEREO` / Reverb `AMOUNT` (mix blend).
     *   *Row 6–8*: Delay `DIGI/ANALOG` / Delay `SYNC` / Delay `RATE` (tempo-sync division).
 
 ---
 
-### 10.2 Track Header & Faceplate Shift Shortcuts Map
+### 10.2 OLED Graphical Parameter Bars, 4-Section Reverb Graph & Soft-Key Tabs
+
+When selecting or editing a parameter via **Shift** + Pad Cell or turning an encoder, the OLED screen renders interactive graphical feedback:
+*   **Horizontal Progress Bars**: Numeric parameters display a high-contrast visual bar across the middle of the screen indicating the current setting relative to its minimum and maximum range.
+*   **4-Section Reverb & Multi-Column Graphs**: Selecting Reverb parameters displays a 4-section histogram graph showing **`AMNT`** (Amount), **`TIME`** (Room Size / Decay), **`DAMP`** (High-Frequency Damping), and **`DIFF`** (Diffusion / Width).
+*   **OLED Soft-Key Tabs**: Along the bottom edge of the OLED screen, four interactive tab boxes correspond directly to the four physical buttons below the display (`[SYNTH]`, `[KIT]`, `[MIDI]`, `[CV]`). Pressing these buttons while holding **Shift** cycles parameter tabs and sub-views.
+
+---
+
+### 10.3 Track Header & Faceplate Shift Shortcuts Map
 
 In addition to the main grid pads, holding **[SHIFT]** while clicking faceplate track buttons, row header labels, or turning encoders (or Push-and-Turn) activates quick operations:
-*   **`Shift` + Click `[SYNTH]`, `[KIT]`, `[MIDI]`, `[CV]` Faceplate Buttons**: Bypasses the standard track naming modal prompt and instantly creates a new default track (`SYNTH 1`, `KIT 1`, `MIDI 1`, `CV 1`) with generic initial presets.
+*   **`Shift` + Click `[SYNTH]`, `[KIT]`, `[MIDI]`, `[CV]` Faceplate Buttons**: Selects OLED soft-key tabs or bypasses the track naming prompt to create a default track (`SYNTH 1`, `KIT 1`, `MIDI 1`, `CV 1`).
 *   **`Shift` + Click `[Track Name Label]`**: Toggles **One-Shot Playback Mode (`1SH`)** for sample-trigger track rows.
 *   **`Shift` + Click `[MUTE]` Button**: Clears all active step note events on that specific lane (`Clear row`).
 *   **`Shift` + Turn / Push-and-Turn `[X Encoder]`**: Dynamically adjusts the grid zoom resolution (horizontal zoom, e.g. from $1/16$ to $1/32$ straight or triplet mode) and updates the OLED display.

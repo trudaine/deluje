@@ -1410,19 +1410,67 @@ public class ClipEditorController {
         break;
       case "LEVEL":
         if (activeShiftRow == 7 && activeShiftCol == 6) {
-          float vol = Math.max(0.0f, genericTrack.getVolume() + delta * 0.02f);
+          float vol = Math.max(0.0f, Math.min(1.0f, genericTrack.getVolume() + delta * 0.02f));
           genericTrack.setVolume(vol);
         } else if (activeShiftRow == 7
             && (activeShiftCol == 2 || activeShiftCol == 3)
             && track != null) {
-          float mixVal = Math.max(0.0f, Math.min(1.0f, track.getOscMix() + delta * 0.02f));
-          track.setOscMix(mixVal);
+          float mix = Math.max(0.0f, Math.min(1.0f, track.getOscMix() + delta * 0.02f));
+          track.setOscMix(mix);
         }
         break;
       case "GLIDE":
         if (track != null) {
-          float port = Math.max(0.0f, Math.min(2.0f, track.getPortamento() + delta * 0.02f));
+          float port = Math.max(0.0f, Math.min(2.0f, track.getPortamento() + delta * 0.05f));
           track.setPortamento(port);
+        }
+        break;
+      case "REVERB":
+      case "AMOUNT":
+      case "WET":
+      case "DEPTH":
+        if (track != null) {
+          float rev = Math.max(0.0f, Math.min(1.0f, track.getReverbSend() + delta * 0.05f));
+          track.setReverbSend(rev);
+          if (SwingDelugeApp.mainInstance != null) {
+            SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
+                "REVERB", String.format("%d%%", (int) (rev * 100)));
+          }
+        }
+        break;
+      case "ROOM SIZE":
+      case "TIME":
+      case "DAMP":
+      case "DAMPING":
+      case "WIDTH":
+      case "DIFF":
+        if (SwingDelugeApp.mainInstance != null
+            && SwingDelugeApp.mainInstance.getFirmwareAudioEngine() != null) {
+          var revEngine = SwingDelugeApp.mainInstance.getFirmwareAudioEngine().masterReverb;
+          if ("ROOM SIZE".equals(activeShiftParam) || "TIME".equals(activeShiftParam)) {
+            revEngine.setRoomSize(
+                Math.max(0.0f, Math.min(1.0f, revEngine.getRoomSize() + delta * 0.05f)));
+          } else if ("DAMP".equals(activeShiftParam) || "DAMPING".equals(activeShiftParam)) {
+            revEngine.setDamping(
+                Math.max(0.0f, Math.min(1.0f, revEngine.getDamping() + delta * 0.05f)));
+          } else {
+            revEngine.setWidth(
+                Math.max(0.0f, Math.min(1.0f, revEngine.getWidth() + delta * 0.05f)));
+          }
+          SwingDelugeApp.mainInstance.updateHardwareLedDisplay("REVERB", activeShiftParam);
+        }
+        break;
+      case "DELAY":
+      case "DELAY TIME":
+      case "FEEDBACK":
+      case "PING PONG":
+        if (track != null) {
+          float dly = Math.max(0.0f, Math.min(1.0f, track.getDelaySend() + delta * 0.05f));
+          track.setDelaySend(dly);
+          if (SwingDelugeApp.mainInstance != null) {
+            SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
+                "DELAY", String.format("%d%%", (int) (dly * 100)));
+          }
         }
         break;
     }

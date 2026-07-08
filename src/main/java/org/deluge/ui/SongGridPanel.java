@@ -748,6 +748,34 @@ public class SongGridPanel extends SwingGridPanel {
 
     for (int v = 0; v < gridMode.rows; v++) {
       int modelRow = songRowIndex(v);
+      if (modelRow < 0 || modelRow >= voiceRowCount || modelRow >= tracks.size()) {
+        for (int c = 0; c < columnCount; c++) {
+          JButton clipBtn = pads[v][c];
+          if (clipBtn == null) continue;
+          Color darkBg = new Color(0x15, 0x15, 0x15);
+          clipBtn.setBackground(darkBg);
+          clipBtn.setForeground(Color.GRAY);
+          clipBtn.setText("");
+          clipBtn.setComponentPopupMenu(null);
+          for (java.awt.event.ActionListener al : clipBtn.getActionListeners()) {
+            clipBtn.removeActionListener(al);
+          }
+          if (clipBtn instanceof DelugePadButton pad) {
+            pad.setBaseColor(darkBg);
+            pad.setTextColorOverride(Color.GRAY);
+            pad.setDrawCenterCircle(false);
+            pad.setIntensity(0.0f);
+            pad.setActive(false);
+            pad.setTail(false);
+            pad.setNoteText("");
+            pad.setMuted(false);
+            pad.setPlayhead(false);
+            pad.setSelected(false);
+            pad.setInLoop(true);
+          }
+        }
+        continue;
+      }
       if (modelRow >= 0 && modelRow < voiceRowCount) {
         int engineRow = baseTrackId + modelRow;
         if (sync != null) {

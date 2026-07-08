@@ -560,13 +560,28 @@ public class DelugePadButton extends JButton {
 
     Object rowProp = getClientProperty("row");
     Object colProp = getClientProperty("col");
+    String headerText = null;
     if (shiftActive && rowProp instanceof Integer r && colProp instanceof Integer c && c < 16) {
       int tableRow = r % 8;
       textToDraw = getAuthenticDelugeShortcutText(tableRow, c);
       textColor = new Color(255, 215, 75); // Authentic Deluge gold faceplate lettering
+      if (tableRow == 0) {
+        headerText = getColumnGroupShortName(c);
+      }
     } else if (noteText != null && !noteText.isEmpty()) {
       textToDraw = noteText;
       textColor = new Color(240, 240, 248, 230);
+    }
+
+    if (headerText != null && !headerText.isEmpty()) {
+      g2.setFont(new Font("SansSerif", Font.BOLD, 8));
+      java.awt.FontMetrics fmH = g2.getFontMetrics();
+      int hx = xPad + (rw - fmH.stringWidth(headerText)) / 2;
+      int hy = yPad + 11;
+      g2.setColor(new Color(0, 0, 0, 220));
+      g2.drawString(headerText, hx + 1, hy + 1);
+      g2.setColor(new Color(180, 225, 255)); // Crisp light cyan silk-screen header
+      g2.drawString(headerText, hx, hy);
     }
 
     if (textToDraw != null && !textToDraw.isEmpty()) {
@@ -737,6 +752,34 @@ public class DelugePadButton extends JButton {
   public static String getAuthenticDelugeShortcutText(int row, int col) {
     if (row < 0 || row > 7 || col < 0 || col > 15) return "";
     return SHORTCUT_TABLE[row][col];
+  }
+
+  public static String getColumnGroupName(int col) {
+    return switch (col / 2) {
+      case 0 -> (col % 2 == 0) ? "SAMPLE 1" : "SAMPLE 2";
+      case 1 -> (col % 2 == 0) ? "OSC 1" : "OSC 2";
+      case 2 -> (col % 2 == 0) ? "FM MOD 1" : "FM MOD 2";
+      case 3 -> (col % 2 == 0) ? "MASTER" : "VOICE";
+      case 4 -> (col % 2 == 0) ? "ENVELOPE 1" : "ENVELOPE 2";
+      case 5 -> (col % 2 == 0) ? "SIDECHAIN" : "ARP";
+      case 6 -> (col % 2 == 0) ? "LFO 1" : "LFO 2";
+      case 7 -> (col % 2 == 0) ? "DELAY" : "REVERB";
+      default -> "";
+    };
+  }
+
+  public static String getColumnGroupShortName(int col) {
+    return switch (col / 2) {
+      case 0 -> (col % 2 == 0) ? "SMP 1" : "SMP 2";
+      case 1 -> (col % 2 == 0) ? "OSC 1" : "OSC 2";
+      case 2 -> (col % 2 == 0) ? "FM 1" : "FM 2";
+      case 3 -> (col % 2 == 0) ? "MASTER" : "VOICE";
+      case 4 -> (col % 2 == 0) ? "ENV 1" : "ENV 2";
+      case 5 -> (col % 2 == 0) ? "SIDE" : "ARP";
+      case 6 -> (col % 2 == 0) ? "LFO 1" : "LFO 2";
+      case 7 -> (col % 2 == 0) ? "DELAY" : "REVERB";
+      default -> "";
+    };
   }
 
   public static Color getTailColor(Color base) {

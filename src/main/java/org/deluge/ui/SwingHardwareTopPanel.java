@@ -559,10 +559,34 @@ public class SwingHardwareTopPanel extends JPanel {
         activeView = "KEYPLAY";
         listener.onViewModeChanged("KEYPLAY");
       }
-      case "SYNTH" -> listener.onAddTrack("SYNTH", isShiftHeld);
-      case "KIT" -> listener.onAddTrack("KIT", isShiftHeld);
-      case "MIDI" -> listener.onAddTrack("MIDI", isShiftHeld);
-      case "CV" -> listener.onAddTrack("CV", isShiftHeld);
+      case "SYNTH" -> {
+        if (isShiftHeld && oledPanel != null) {
+          oledPanel.showParamText("OLED TAB 1", "OSC / SUB / FM");
+        } else {
+          listener.onAddTrack("SYNTH", isShiftHeld);
+        }
+      }
+      case "KIT" -> {
+        if (isShiftHeld && oledPanel != null) {
+          oledPanel.showParamText("OLED TAB 2", "FILTER / ENV");
+        } else {
+          listener.onAddTrack("KIT", isShiftHeld);
+        }
+      }
+      case "MIDI" -> {
+        if (isShiftHeld && oledPanel != null) {
+          oledPanel.showParamText("OLED TAB 3", "LFO / MOD MATRIX");
+        } else {
+          listener.onAddTrack("MIDI", isShiftHeld);
+        }
+      }
+      case "CV" -> {
+        if (isShiftHeld && oledPanel != null) {
+          oledPanel.showParamText("OLED TAB 4", "FX / ARP / EQ");
+        } else {
+          listener.onAddTrack("CV", isShiftHeld);
+        }
+      }
       case "LOAD" -> listener.onLoadProject();
       case "SAVE" -> listener.onSaveProject();
       case "BACK" -> listener.onUndo();

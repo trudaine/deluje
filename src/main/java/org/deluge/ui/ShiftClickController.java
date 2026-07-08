@@ -24,9 +24,12 @@ class ShiftClickController {
 
   static void handleShiftClick(
       ClipEditorController controller, int row, int col, Point localPos, Component comp) {
-    if (row < 0 || row >= 8 || col < 0 || col >= 16) return;
-    String param = SwingGridPanel.SHIFT_LABELS[row][col];
-    if (param == null || param.isEmpty()) return;
+    String lookup = DelugePadButton.getAuthenticDelugeShortcutText(row, col);
+    if (lookup == null || lookup.isEmpty()) {
+      lookup = SwingGridPanel.SHIFT_LABELS[row][col];
+    }
+    if (lookup == null || lookup.isEmpty()) return;
+    final String param = lookup;
 
     int editedModelTrack = controller.getEditedModelTrack();
     if (controller.getProjectModel() == null
@@ -54,16 +57,17 @@ class ShiftClickController {
     SynthTrackModel track =
         (genericTrack instanceof SynthTrackModel) ? (SynthTrackModel) genericTrack : null;
 
+    controller.setActiveShiftParam(param, row, col);
+    String groupName = DelugePadButton.getColumnGroupName(col);
+    String banner = !groupName.isEmpty() ? groupName : controller.getParamShortCode(param);
+    if (SwingDelugeApp.mainInstance != null) {
+      SwingDelugeApp.mainInstance.updateHardwareLedDisplay(banner, param);
+    }
+
     boolean isRotary =
         PreferencesManager.getShiftInteractionMode()
             == PreferencesManager.ShiftInteractionMode.ROTARY_ENCODER;
     if (isRotary) {
-      controller.setActiveShiftParam(param, row, col);
-      String code = controller.getParamShortCode(param);
-      String valStr = controller.getParamFormattedValue(param, row, col);
-      if (SwingDelugeApp.mainInstance != null) {
-        SwingDelugeApp.mainInstance.updateHardwareLedDisplay(code, valStr);
-      }
       controller.refreshCallback.run();
       return;
     }
@@ -268,6 +272,50 @@ class ShiftClickController {
               float port = val / 50.0f;
               track.setPortamento(port);
               valueLabel.setText(String.format("%.2f s", port));
+              break;
+            case "REVERB":
+            case "AMOUNT":
+            case "WET":
+            case "DEPTH":
+              float rev = val / 100.0f;
+              track.setReverbSend(rev);
+              valueLabel.setText(String.format("%d%%", val));
+              if (SwingDelugeApp.mainInstance != null) {
+                SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
+                    "REVERB", String.format("%d%%", val));
+              }
+              break;
+            case "ROOM SIZE":
+            case "TIME":
+            case "DAMP":
+            case "DAMPING":
+            case "WIDTH":
+            case "DIFF":
+              if (SwingDelugeApp.mainInstance != null
+                  && SwingDelugeApp.mainInstance.getFirmwareAudioEngine() != null) {
+                var revEngine = SwingDelugeApp.mainInstance.getFirmwareAudioEngine().masterReverb;
+                if ("ROOM SIZE".equals(param) || "TIME".equals(param)) {
+                  revEngine.setRoomSize(val / 100.0f);
+                } else if ("DAMP".equals(param) || "DAMPING".equals(param)) {
+                  revEngine.setDamping(val / 100.0f);
+                } else {
+                  revEngine.setWidth(val / 100.0f);
+                }
+                valueLabel.setText(String.format("%d%%", val));
+                SwingDelugeApp.mainInstance.updateHardwareLedDisplay("REVERB", param);
+              }
+              break;
+            case "DELAY":
+            case "DELAY TIME":
+            case "FEEDBACK":
+            case "PING PONG":
+              float dly = val / 100.0f;
+              track.setDelaySend(dly);
+              valueLabel.setText(String.format("%d%%", val));
+              if (SwingDelugeApp.mainInstance != null) {
+                SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
+                    "DELAY", String.format("%d%%", val));
+              }
               break;
           }
           controller.parent.applyTrackModelToLiveSound(genericTrack);

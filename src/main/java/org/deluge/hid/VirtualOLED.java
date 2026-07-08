@@ -164,6 +164,98 @@ public class VirtualOLED {
   }
 
   /**
+   * Emulates C++ Number::drawBar and renders parameter title, value, visual bar graph, and soft-key tabs.
+   */
+  public void drawParameterBar(
+      String banner, String title, float normalizedVal, String[] softKeys, int activeSoftKey) {
+    clear();
+    setLargeFont(false);
+    drawString(banner != null ? banner : "", 4, 12);
+
+    setLargeFont(true);
+    drawString(title != null ? title : "", 4, 30);
+
+    setLargeFont(false);
+    // Draw Number::drawBar at y=36, height=8
+    try {
+      g2d.setColor(Color.WHITE);
+      g2d.drawRect(4, 36, 120, 7);
+      int fillW = (int) (Math.max(0.0f, Math.min(1.0f, normalizedVal)) * 118);
+      g2d.fillRect(5, 37, fillW, 5);
+
+      // Draw 4 soft-key indicator boxes along bottom (y=48..60) matching [SYNTH][KIT][MIDI][CV]
+      if (softKeys != null && softKeys.length == 4) {
+        int boxW = 29;
+        for (int i = 0; i < 4; i++) {
+          int bx = 3 + i * 31;
+          if (i == activeSoftKey) {
+            g2d.fillRect(bx, 48, boxW, 13);
+            g2d.setColor(Color.BLACK);
+            g2d.drawString(softKeys[i], bx + 3, 58);
+            g2d.setColor(Color.WHITE);
+          } else {
+            g2d.drawRect(bx, 48, boxW, 13);
+            g2d.drawString(softKeys[i], bx + 3, 58);
+          }
+        }
+      }
+      dirty = true;
+    } catch (Throwable t) {
+      // Headless shield
+    }
+    FirmwareDisplay.get().notifyOledListener();
+  }
+
+  /**
+   * Renders multi-section OLED graph screens (e.g. Reverb AMNT|TIME|DAMP|DIFF or Env ATT|DEC|SUS|REL).
+   */
+  public void drawMultiSectionGraph(
+      String banner, String[] labels, float[] values, int activeIdx, String[] softKeys) {
+    clear();
+    setLargeFont(false);
+    drawString(banner != null ? banner : "", 4, 11);
+
+    try {
+      g2d.setColor(Color.WHITE);
+      int n = (labels != null) ? labels.length : 4;
+      int colW = 120 / Math.max(1, n);
+      for (int i = 0; i < n; i++) {
+        int x = 4 + i * colW;
+        float val = (values != null && i < values.length) ? Math.max(0f, Math.min(1f, values[i])) : 0.5f;
+        int barH = (int) (val * 24);
+        // Bar graph column
+        g2d.drawRect(x, 14, colW - 3, 25);
+        if (i == activeIdx) {
+          g2d.fillRect(x, 14 + (25 - barH), colW - 3, barH);
+        } else {
+          g2d.drawRect(x + 2, 14 + (25 - barH), colW - 7, barH);
+        }
+      }
+
+      // Draw soft keys at bottom
+      if (softKeys != null && softKeys.length == 4) {
+        int boxW = 29;
+        for (int i = 0; i < 4; i++) {
+          int bx = 3 + i * 31;
+          if (i == activeIdx) {
+            g2d.fillRect(bx, 48, boxW, 13);
+            g2d.setColor(Color.BLACK);
+            g2d.drawString(softKeys[i], bx + 3, 58);
+            g2d.setColor(Color.WHITE);
+          } else {
+            g2d.drawRect(bx, 48, boxW, 13);
+            g2d.drawString(softKeys[i], bx + 3, 58);
+          }
+        }
+      }
+      dirty = true;
+    } catch (Throwable t) {
+      // Headless shield
+    }
+    FirmwareDisplay.get().notifyOledListener();
+  }
+
+  /**
    * Draws a bit-accurate waveform from the given data. Replicates the firmware's waveform drawing
    * routine.
    */

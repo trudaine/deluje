@@ -1116,8 +1116,24 @@ public class SwingDelugeApp extends JFrame {
         topBar.getParamReadout().reset();
       } else {
         topBar.getParamReadout().print(paramCode, valueString);
+        org.deluge.hid.VirtualOLED vOled = org.deluge.hid.FirmwareDisplay.get().getVirtualOLED();
+        String[] softKeys = new String[] {"SYNTH", "KIT", "MIDI", "CV"};
+        if ("REVERB".equalsIgnoreCase(paramCode)) {
+          vOled.drawMultiSectionGraph(
+              paramCode,
+              new String[] {"AMNT", "TIME", "DAMP", "DIFF"},
+              new float[] {0.4f, 0.6f, 0.3f, 0.7f},
+              3,
+              softKeys);
+        } else {
+          vOled.drawParameterBar(paramCode, valueString, 0.65f, softKeys, 0);
+        }
       }
     }
+  }
+
+  public org.deluge.engine.FirmwareAudioEngine getFirmwareAudioEngine() {
+    return (pureEngine != null) ? pureEngine.getAudioEngine() : null;
   }
 
   public void updateHardwareLedDisplayTransient(String paramCode, String valueString) {
