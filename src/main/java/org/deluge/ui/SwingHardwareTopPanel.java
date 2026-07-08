@@ -475,8 +475,14 @@ public class SwingHardwareTopPanel extends JPanel {
         SwingDelugeApp.mainInstance != null ? SwingDelugeApp.mainInstance.activeGridPanel() : null;
 
     if ("TEMPO_ENC".equals(enc.name) && projectModel != null) {
-      // C: playback_handler.cpp:2253-2316 — shiftButtonPressed edits swing amount, never BPM;
-      // holding the TEMPO_ENC button itself selects a finer BPM step. These are independent.
+      // C: playback_handler.cpp:2272-2280 — shiftButtonPressed edits swing amount, never BPM,
+      // independent of whether TEMPO_ENC is also held. Verified directly:
+      // commandEditTempoFine (2244-2251) moves BPM by a flat integer +/-1 per detent;
+      // commandEditTempoCoarse (2222-2242) instead steps an internal tick-magnitude/digit
+      // representation (getCurrentTempoParams/setTempoFromParams), which is NOT a flat BPM
+      // delta — that finer algorithm isn't ported here, so coarse below is approximated as a
+      // larger flat BPM step rather than 0.1 (which had fine and coarse backwards: real fine is
+      // 1.0, not 0.1, and real coarse is bigger than fine, not smaller).
       if (shiftMod) {
         float swing = Math.max(0.0f, Math.min(1.0f, projectModel.getSwing() + delta * 0.02f));
         projectModel.setSwing(swing);
@@ -484,7 +490,7 @@ public class SwingHardwareTopPanel extends JPanel {
           oledPanel.showParamText("SWING", String.format("%d%%", Math.round(swing * 100)));
         }
       } else {
-        double step = pushMod ? 0.1 : 1.0;
+        double step = pushMod ? 1.0 : 5.0;
         double bpm = projectModel.getBpm() + delta * step;
         bpm = Math.max(40.0, Math.min(300.0, bpm));
         projectModel.setBpm((float) bpm);
@@ -502,10 +508,17 @@ public class SwingHardwareTopPanel extends JPanel {
             step > 0 ? ("+" + step + " PRESET") : (step + " PRESET"));
       }
     } else if ("Y_ENC".equals(enc.name)) {
-      // C: instrument_clip_view.cpp:6128-6197 — holding Y_ENC transposes the clip's notes
-      // (octave nudge); holding SHIFT instead shifts the track's note colour. Neither is a
-      // "scroll by an octave" — that was fabricated.
-      if (pushMod && gp != null) {
+      // C: instrument_clip_view.cpp:6148-6164, commandTransposeKey (6186-6204) — holding Y_ENC
+      // ALONE transposes by octave (VerticalNudgeType::OCTAVE); holding Y_ENC *together with*
+      // SHIFT transposes by a single row/semitone instead (VerticalNudgeType::ROW) — it is not
+      // "push OR shift", both modifiers combine. SHIFT alone (Y_ENC not held) instead shifts the
+      // track's note colour (commandShiftColour, line 6168-6170). Neither combination is a
+      // "scroll by an octave" — that was fabricated in an earlier revision of this method.
+      if (pushMod && shiftMod && gp != null) {
+        gp.transposeTrack(-delta);
+        if (oledPanel != null)
+          oledPanel.showParamText("TRANSPOSE", "ROW " + (-delta > 0 ? "+" : "") + (-delta));
+      } else if (pushMod && gp != null) {
         gp.transposeTrack(-delta * 12);
         if (oledPanel != null)
           oledPanel.showParamText("TRANSPOSE", "OCTAVE " + (-delta > 0 ? "+" : "") + (-delta));
