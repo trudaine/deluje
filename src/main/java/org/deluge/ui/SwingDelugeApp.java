@@ -172,6 +172,10 @@ public class SwingDelugeApp extends JFrame {
     this.midiService = midiService;
     mainInstance = this;
     pureModeActive = pureMode;
+    // Sync the flag SwingKitConfigDialog actually reads to this class's boot default (see
+    // onAffectEntireToggle below) — otherwise they start out of sync (true here, false there)
+    // until the first faceplate toggle.
+    SwingTopBarPanel.isAffectEntireActive = isAffectEntireActive;
     this.syncCoordinator = new EngineSyncCoordinator(this, bridge);
     this.transportController = new TransportController(this);
     this.fileMenuController = new FileMenuController(this);
@@ -3067,6 +3071,12 @@ public class SwingDelugeApp extends JFrame {
     @Override
     public void onAffectEntireToggle() {
       isAffectEntireActive = !isAffectEntireActive;
+      // SwingKitConfigDialog's actual "apply to all kit rows" behavior reads
+      // SwingTopBarPanel.isAffectEntireActive (a separate flag driven only by the legacy
+      // top-bar's own "ALL" toggle button) — not this class's isAffectEntireActive, which
+      // nothing else reads. Without this, the faceplate's AFFECT_ENTIRE button had no effect
+      // on kit editing at all.
+      SwingTopBarPanel.isAffectEntireActive = isAffectEntireActive;
       if (hardwareTopPanel != null) {
         hardwareTopPanel.repaint();
       }
