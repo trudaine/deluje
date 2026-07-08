@@ -149,7 +149,9 @@ public class SwingDelugeApp extends JFrame {
   }
 
   public static volatile boolean isAffectEntireActive = true;
-  public static volatile boolean isScaleModeActive = false;
+  // Matches SwingGridPanel.scaleModeEnabled's default of true (real Deluge hardware boots with
+  // scale mode on) now that this flag is actually wired to it — see onScaleModeToggle below.
+  public static volatile boolean isScaleModeActive = true;
 
   public org.deluge.engine.PureFirmwareEngine getPureEngine() {
     return pureEngine;
@@ -3029,10 +3031,37 @@ public class SwingDelugeApp extends JFrame {
       doRedo();
     }
 
+    /**
+     * C: BACK is never a global undo — every b == BACK handler in the firmware closes the current
+     * nested UI (sound_editor.cpp:418, browser.cpp:1579, rename_ui.cpp:103, etc). The one such
+     * nested layer this port models today is the automation editor (instrument_clip_view.cpp:297,
+     * changeRootUI(&automationView)), so BACK from there returns to the note editor; elsewhere
+     * there is no nested UI to close yet.
+     */
+    @Override
+    public void onBack() {
+      if ("AUTO".equals(activeViewMode)) {
+        activeViewMode = "CLIP";
+        cardLayout.show(centerCardPanel, "CLIP");
+        if (topBar != null) topBar.selectViewModeButton("CLIP");
+      }
+    }
+
     @Override
     public void onTripletsToggle() {
       if (clipPanel != null) {
         clipPanel.toggleTripletMode();
+      }
+    }
+
+    // C: view.cpp:144-176 — TAP_TEMPO computes BPM from tap intervals
+    // (playbackHandler.tapTempoButtonPress). The legacy top-bar TAP button already reaches this
+    // via transportController.tapTempo() (SwingTopBarPanel.java:489); the hardware faceplate's
+    // TAP_TEMPO control only redisplayed the current BPM without ever measuring a tap interval.
+    @Override
+    public void onTapTempo() {
+      if (transportController != null) {
+        transportController.tapTempo();
       }
     }
 
@@ -3044,9 +3073,18 @@ public class SwingDelugeApp extends JFrame {
       }
     }
 
+    // C: instrument_clip_view.cpp:256-258,5710,5826 — SCALE toggles enterScaleMode/exitScaleMode,
+    // which recomputes every note row's pitch via the scale-degree mapping. That mapping already
+    // exists here as SwingGridPanel.scaleModeEnabled (consumed by ScaleMapper.getRowFromPitch,
+    // SwingGridPanel.java:184) and defaults on, matching real hardware — but the hardware
+    // faceplate's SCALE_MODE button only toggled the disconnected isScaleModeActive flag, which
+    // nothing else read, so pressing it never actually changed the note grid.
     @Override
     public void onScaleModeToggle() {
       isScaleModeActive = !isScaleModeActive;
+      if (clipPanel != null) {
+        clipPanel.setScaleModeEnabled(isScaleModeActive);
+      }
       refreshGrids();
       if (hardwareTopPanel != null) {
         hardwareTopPanel.repaint();

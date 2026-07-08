@@ -565,9 +565,7 @@ public class DelugePadButton extends JButton {
       int tableRow = r % 8;
       textToDraw = getAuthenticDelugeShortcutText(tableRow, c);
       textColor = new Color(255, 215, 75); // Authentic Deluge gold faceplate lettering
-      if (tableRow == 0) {
-        headerText = getColumnGroupShortName(c);
-      }
+      headerText = getSectionHeaderIfBoundary(tableRow, c);
     } else if (noteText != null && !noteText.isEmpty()) {
       textToDraw = noteText;
       textColor = new Color(240, 240, 248, 230);
@@ -599,187 +597,60 @@ public class DelugePadButton extends JButton {
     g2.dispose();
   }
 
-  // Authentic printed faceplate shortcut lettering, indexed [row 0-7][col 0-15].
-  // Static so it is not re-allocated on every paint call — getAuthenticDelugeShortcutText
-  // runs once per pad, per repaint, while Shift is held.
-  private static final String[][] SHORTCUT_TABLE = {
-    {
-      "WAVEFORM",
-      "TRANSPOSE",
-      "UNISON",
-      "MODE",
-      "VOICES",
-      "GLIDE",
-      "PORTA",
-      "LEGATO",
-      "ARP",
-      "MODE",
-      "OCTAVES",
-      "RATE",
-      "SYNC",
-      "GATE",
-      "SWING",
-      "SCALE"
-    },
-    {
-      "LPF CUT",
-      "RESONANCE",
-      "DRIVE",
-      "SLOPE",
-      "HPF CUT",
-      "HPF RES",
-      "MORPH",
-      "ROUTING",
-      "FM INT",
-      "RING MOD",
-      "NOISE",
-      "SAMPLE",
-      "REVERSE",
-      "LOOP",
-      "SPEED",
-      "PITCH"
-    },
-    {
-      "ENV1 ATT",
-      "DECAY",
-      "SUSTAIN",
-      "RELEASE",
-      "ENV2 ATT",
-      "DECAY",
-      "SUSTAIN",
-      "RELEASE",
-      "LFO1 RATE",
-      "WAVE",
-      "SYNC",
-      "LFO2 RATE",
-      "WAVE",
-      "SYNC",
-      "MOD FX",
-      "DEPTH"
-    },
-    {
-      "DELAY TIME",
-      "FEEDBACK",
-      "PING PONG",
-      "ANALOG",
-      "REVERB",
-      "DECAY",
-      "DAMPING",
-      "WET",
-      "STUTTER",
-      "PROB",
-      "RATIO",
-      "SIDECHAIN",
-      "DUCKING",
-      "COMPRESS",
-      "THRESH",
-      "RATIO"
-    },
-    {
-      "OSC1 LVL",
-      "PITCH",
-      "PW",
-      "OSC2 LVL",
-      "PITCH",
-      "PW",
-      "SUB LVL",
-      "NOISE LVL",
-      "MOD1->PCH",
-      "MOD2->PCH",
-      "MOD1->CUT",
-      "MOD2->CUT",
-      "LFO1->PCH",
-      "LFO2->PCH",
-      "ENV1->CUT",
-      "ENV2->PCH"
-    },
-    {
-      "PAN",
-      "VELOCITY",
-      "MOD WHEEL",
-      "BEND RANGE",
-      "MPE",
-      "SLIDE",
-      "PRESSURE",
-      "TIMBRE",
-      "CHORD",
-      "ARPEGGIATOR",
-      "EUCLIDEAN",
-      "STEPS",
-      "HITS",
-      "SHIFT",
-      "LENGTH",
-      "RESOLUTION"
-    },
-    {
-      "CUSTOM 1",
-      "CUSTOM 2",
-      "CUSTOM 3",
-      "CUSTOM 4",
-      "CUSTOM 5",
-      "CUSTOM 6",
-      "CUSTOM 7",
-      "CUSTOM 8",
-      "CUSTOM 9",
-      "CUSTOM 10",
-      "CUSTOM 11",
-      "CUSTOM 12",
-      "CUSTOM 13",
-      "CUSTOM 14",
-      "CUSTOM 15",
-      "CUSTOM 16"
-    },
-    {
-      "MIDI CHAN",
-      "PROGRAM",
-      "BANK",
-      "SUB BANK",
-      "CV GATE",
-      "CV PITCH",
-      "GATE LVL",
-      "PITCH BEND",
-      "CC 1",
-      "CC 2",
-      "CC 7",
-      "CC 10",
-      "CC 74",
-      "MOD MATRIX",
-      "VELOCITY",
-      "AFTERTOUCH"
-    }
-  };
-
+  // Authentic printed faceplate shortcut lettering, indexed [row 0-7][col 0-15]. This delegates to
+  // SwingGridPanel.SHIFT_LABELS, the pre-existing table cross-checked against the firmware's
+  // paramShortcutsForSounds[16][8] (menus.cpp:1753-1771). A prior revision of this method carried
+  // its own, independently-authored SHORTCUT_TABLE that silently shadowed SHIFT_LABELS here (while
+  // ClipEditorController.handleShiftHover/getShiftShortcutTooltip kept reading SHIFT_LABELS
+  // directly) — nearly every cell mismatched the real coordinate, and because the two tables
+  // disagreed, the OLED hover preview/tooltip and the actual click-to-edit behavior showed two
+  // different parameters for the same pad. Delegating here keeps click/hover/tooltip on one source
+  // of truth.
   public static String getAuthenticDelugeShortcutText(int row, int col) {
     if (row < 0 || row > 7 || col < 0 || col > 15) return "";
-    return SHORTCUT_TABLE[row][col];
+    String v = SwingGridPanel.SHIFT_LABELS[row][col];
+    return v == null ? "" : v;
   }
 
-  public static String getColumnGroupName(int col) {
-    return switch (col / 2) {
-      case 0 -> (col % 2 == 0) ? "SAMPLE 1" : "SAMPLE 2";
-      case 1 -> (col % 2 == 0) ? "OSC 1" : "OSC 2";
-      case 2 -> (col % 2 == 0) ? "FM MOD 1" : "FM MOD 2";
-      case 3 -> (col % 2 == 0) ? "MASTER" : "VOICE";
-      case 4 -> (col % 2 == 0) ? "ENVELOPE 1" : "ENVELOPE 2";
-      case 5 -> (col % 2 == 0) ? "SIDECHAIN" : "ARP";
-      case 6 -> (col % 2 == 0) ? "LFO 1" : "LFO 2";
-      case 7 -> (col % 2 == 0) ? "DELAY" : "REVERB";
+  // Real firmware column-group boundaries (menus.cpp:1753-1771), converted from the C table's
+  // y=0..7 (bottom-to-top) ordering to this grid's row=0..7 (top-to-bottom / OLED-to-user)
+  // ordering via row = 7 - y. Several columns are physically split: the C array packs two
+  // unrelated parameter groups into one column (e.g. col 8 is ENV1 release/sustain/decay/attack
+  // at C y=0-3, then LPF morph/mode/res/freq at C y=4-7), so the printed silk-screen group name
+  // changes partway down the column, not just once at the top.
+  private static String sectionName(int row, int col) {
+    return switch (col) {
+      case 0 -> "SAMPLE 1";
+      case 1 -> "SAMPLE 2";
+      case 2 -> "OSC 1";
+      case 3 -> "OSC 2";
+      case 4 -> "FM MOD 1";
+      case 5 -> "FM MOD 2";
+      case 6 -> "MASTER";
+      case 7 -> "VOICE";
+      case 8 -> (row <= 3) ? "LPF" : "ENV 1";
+      case 9 -> (row <= 3) ? "HPF" : "ENV 2";
+      case 10 -> (row <= 1) ? "EQ" : "SIDECHAIN";
+      case 11 -> (row <= 1) ? "EQ" : "ARP";
+      case 12 -> (row <= 4) ? "MOD FX" : "LFO 1";
+      case 13 -> (row <= 4) ? "REVERB" : "LFO 2";
+      case 14 -> (row <= 2) ? "" : "DELAY";
       default -> "";
     };
   }
 
-  public static String getColumnGroupShortName(int col) {
-    return switch (col / 2) {
-      case 0 -> (col % 2 == 0) ? "SMP 1" : "SMP 2";
-      case 1 -> (col % 2 == 0) ? "OSC 1" : "OSC 2";
-      case 2 -> (col % 2 == 0) ? "FM 1" : "FM 2";
-      case 3 -> (col % 2 == 0) ? "MASTER" : "VOICE";
-      case 4 -> (col % 2 == 0) ? "ENV 1" : "ENV 2";
-      case 5 -> (col % 2 == 0) ? "SIDE" : "ARP";
-      case 6 -> (col % 2 == 0) ? "LFO 1" : "LFO 2";
-      case 7 -> (col % 2 == 0) ? "DELAY" : "REVERB";
-      default -> "";
-    };
+  /**
+   * Returns the section header text only on the row where it first applies (row 0, or a change).
+   */
+  private static String getSectionHeaderIfBoundary(int row, int col) {
+    String here = sectionName(row, col);
+    if (here.isEmpty()) return "";
+    if (row == 0 || !here.equals(sectionName(row - 1, col))) return here;
+    return "";
+  }
+
+  public static String getColumnGroupName(int row, int col) {
+    return sectionName(row, col);
   }
 
   public static Color getTailColor(Color base) {

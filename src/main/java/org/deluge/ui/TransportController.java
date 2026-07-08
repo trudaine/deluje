@@ -68,16 +68,20 @@ public class TransportController {
     SwingGridPanel.isLiveRecordModeActive = !SwingGridPanel.isLiveRecordModeActive;
     app.getCurrentProject().setRecording(SwingGridPanel.isLiveRecordModeActive);
     if (SwingGridPanel.isLiveRecordModeActive) {
-      btn.setBackground(new Color(0xd3, 0x2f, 0x2f));
-      btn.setForeground(Color.WHITE);
-      btn.setText("\u25CF RECORDING");
+      if (btn != null) {
+        btn.setBackground(new Color(0xd3, 0x2f, 0x2f));
+        btn.setForeground(Color.WHITE);
+        btn.setText("\u25CF RECORDING");
+      }
       if (app.topBar != null && app.topBar.getParamReadout() != null) {
         app.topBar.getParamReadout().printTransient("REC", "ON");
       }
     } else {
-      btn.setBackground(new Color(0x3a, 0x0c, 0x0c));
-      btn.setForeground(new Color(0xff, 0x33, 0x33));
-      btn.setText("\u25CF REC");
+      if (btn != null) {
+        btn.setBackground(new Color(0x3a, 0x0c, 0x0c));
+        btn.setForeground(new Color(0xff, 0x33, 0x33));
+        btn.setText("\u25CF REC");
+      }
       if (app.topBar != null && app.topBar.getParamReadout() != null) {
         app.topBar.getParamReadout().printTransient("REC", "OFF");
       }

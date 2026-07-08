@@ -104,7 +104,12 @@ public final class KeyplayKeyboard {
       int rootNote = ScaleMapper.getKeyMidiOffset(key);
       int[] scaleNotes = ScaleMapper.scaleTypeFromName(scaleName).getIntervals();
       int rowInterval = 3; // Default 3 scale degrees
-      int scrollOffset = scaleNotes.length * 3; // Default 3 octaves offset
+      // C: state_data.h:40 initializes scrollOffset to a fixed 7*3=21 once, on the assumption
+      // that scales have 7 elements — it is never recomputed from the *current* scale's note
+      // count. Deriving it here as scaleNotes.length*3 instead means the absolute pitch at a
+      // given pad silently shifts whenever the user switches to a non-7-note scale (e.g.
+      // pentatonic: 15 vs firmware's persisted 21), which real hardware never does.
+      int scrollOffset = 21;
       return getNoteInKey(trk, colId, scaleNotes, rootNote, rowInterval, scrollOffset, numRows);
     }
   }

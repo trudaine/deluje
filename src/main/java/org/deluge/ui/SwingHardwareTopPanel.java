@@ -84,7 +84,9 @@ public class SwingHardwareTopPanel extends JPanel {
   private int upperGoldRow = 0;
   private int lowerGoldRow = 0;
   private boolean isAffectEntire = true;
-  private boolean isScaleMode = false;
+  // Matches SwingGridPanel.scaleModeEnabled's default of true (real Deluge hardware boots with
+  // scale mode on).
+  private boolean isScaleMode = true;
   private boolean isTriplets = false;
 
   public SwingHardwareTopPanel(
@@ -145,13 +147,19 @@ public class SwingHardwareTopPanel extends JPanel {
               int deltaY = lastDragY - e.getY();
               if (Math.abs(deltaY) >= 3) {
                 int steps = deltaY / 3;
-                boolean isPushedOrShift =
-                    isShiftHeld
-                        || e.isShiftDown()
-                        || SwingUtilities.isRightMouseButton(e)
-                        || e.isControlDown()
-                        || e.isAltDown();
-                rotateEncoder(activeDragControl, steps, isPushedOrShift);
+                // C: on real hardware, holding an encoder's own push-button and holding the
+                // separate SHIFT button are independent inputs that often drive unrelated
+                // features on the same encoder (e.g. playback_handler.cpp:2253-2316 —
+                // TEMPO_ENC shift=swing, push=fine/coarse BPM toggle; timeline_view.cpp:130-222
+                // — X_ENC push=zoom, shift=clip length; instrument_clip_view.cpp:6128-6197 —
+                // Y_ENC push=octave/row transpose, shift=note colour). They must not be folded
+                // into one flag. Mouse right-click/ctrl/alt simulate the encoder's own push
+                // button (there's no physical push sensor on a mouse drag); isShiftHeld/
+                // e.isShiftDown() simulate the separate hardware SHIFT button.
+                boolean pushMod =
+                    SwingUtilities.isRightMouseButton(e) || e.isControlDown() || e.isAltDown();
+                boolean shiftMod = isShiftHeld || e.isShiftDown();
+                rotateEncoder(activeDragControl, steps, pushMod, shiftMod);
                 lastDragY = e.getY();
               }
             }
@@ -451,10 +459,15 @@ public class SwingHardwareTopPanel extends JPanel {
   }
 
   private void rotateEncoder(ControlDef enc, int delta) {
-    rotateEncoder(enc, delta, isShiftHeld);
+    rotateEncoder(enc, delta, false, isShiftHeld);
   }
 
-  private void rotateEncoder(ControlDef enc, int delta, boolean isPushedOrShift) {
+  /**
+   * @param pushMod encoder's own push-button held (simulated via right-click/ctrl/alt drag)
+   * @param shiftMod separate hardware SHIFT button held — independent of pushMod, since real
+   *     firmware frequently binds unrelated features to each on the same encoder
+   */
+  private void rotateEncoder(ControlDef enc, int delta, boolean pushMod, boolean shiftMod) {
     double oldAngle = encoderAngles.getOrDefault(enc.name, 0.0);
     encoderAngles.put(enc.name, oldAngle + delta * 0.15);
 
@@ -462,38 +475,61 @@ public class SwingHardwareTopPanel extends JPanel {
         SwingDelugeApp.mainInstance != null ? SwingDelugeApp.mainInstance.activeGridPanel() : null;
 
     if ("TEMPO_ENC".equals(enc.name) && projectModel != null) {
-      double step = isPushedOrShift ? 0.1 : 1.0;
-      double bpm = projectModel.getBpm() + delta * step;
-      bpm = Math.max(40.0, Math.min(300.0, bpm));
-      projectModel.setBpm((float) bpm);
-      if (oledPanel != null) {
-        oledPanel.showParamText("TEMPO", String.format("%.1f BPM", bpm));
+      // C: playback_handler.cpp:2253-2316 — shiftButtonPressed edits swing amount, never BPM;
+      // holding the TEMPO_ENC button itself selects a finer BPM step. These are independent.
+      if (shiftMod) {
+        float swing = Math.max(0.0f, Math.min(1.0f, projectModel.getSwing() + delta * 0.02f));
+        projectModel.setSwing(swing);
+        if (oledPanel != null) {
+          oledPanel.showParamText("SWING", String.format("%d%%", Math.round(swing * 100)));
+        }
+      } else {
+        double step = pushMod ? 0.1 : 1.0;
+        double bpm = projectModel.getBpm() + delta * step;
+        bpm = Math.max(40.0, Math.min(300.0, bpm));
+        projectModel.setBpm((float) bpm);
+        if (oledPanel != null) {
+          oledPanel.showParamText("TEMPO", String.format("%.1f BPM", bpm));
+        }
       }
     } else if ("SELECT_ENC".equals(enc.name)) {
-      int step = isPushedOrShift ? delta * 5 : delta;
+      // C: sound_editor.cpp:1030-1035 — 5x acceleration is triggered by SHIFT, not by pushing
+      // the encoder itself.
+      int step = shiftMod ? delta * 5 : delta;
       if (oledPanel != null) {
         oledPanel.showParamText(
-            isPushedOrShift ? "SELECT COARSE" : "SELECT",
+            shiftMod ? "SELECT COARSE" : "SELECT",
             step > 0 ? ("+" + step + " PRESET") : (step + " PRESET"));
       }
     } else if ("Y_ENC".equals(enc.name)) {
-      if (isLearnMode && gp != null) {
+      // C: instrument_clip_view.cpp:6128-6197 — holding Y_ENC transposes the clip's notes
+      // (octave nudge); holding SHIFT instead shifts the track's note colour. Neither is a
+      // "scroll by an octave" — that was fabricated.
+      if (pushMod && gp != null) {
+        gp.transposeTrack(-delta * 12);
+        if (oledPanel != null)
+          oledPanel.showParamText("TRANSPOSE", "OCTAVE " + (-delta > 0 ? "+" : "") + (-delta));
+      } else if (shiftMod && gp != null) {
         gp.adjustTrackColorOffset(delta);
         if (oledPanel != null) oledPanel.showParamText("TRACK COLOR", "ADJUSTED");
       } else if (gp != null) {
-        int rowDelta = isPushedOrShift ? (-delta * 12) : (-delta);
-        gp.scrollVertically(rowDelta);
+        gp.scrollVertically(-delta);
         if (oledPanel != null) {
-          oledPanel.showParamText(
-              isPushedOrShift ? "Y OCTAVE SCROLL" : "Y SCROLL",
-              rowDelta > 0 ? "SCROLL DOWN" : "SCROLL UP");
+          oledPanel.showParamText("Y SCROLL", -delta > 0 ? "SCROLL DOWN" : "SCROLL UP");
         }
       }
     } else if ("X_ENC".equals(enc.name)) {
+      // C: timeline_view.cpp:130-222 — holding X_ENC (push) zooms; holding SHIFT instead edits
+      // clip length (clip_view.cpp:145-176, simplified here to a step-count nudge rather than
+      // the full quantized-to-zoom-level algorithm).
       if (gp != null) {
-        if (isPushedOrShift) {
+        if (pushMod) {
           gp.adjustZoomResolution(delta);
           if (oledPanel != null) oledPanel.showParamText("ZOOM", "RESOLUTION");
+        } else if (shiftMod) {
+          gp.adjustClipLength(delta);
+          if (oledPanel != null)
+            oledPanel.showParamText("CLIP LENGTH", delta > 0 ? "LONGER" : "SHORTER");
         } else {
           gp.scrollHorizontally(delta);
           if (oledPanel != null) {
@@ -510,16 +546,14 @@ public class SwingHardwareTopPanel extends JPanel {
       String paramName = upperNames[upperGoldRow];
       if (oledPanel != null) {
         oledPanel.showParamText(
-            paramName,
-            (isPushedOrShift ? "FINE " : "") + (delta > 0 ? "+ ADJUST" : "- ADJUST"));
+            paramName, (pushMod ? "FINE " : "") + (delta > 0 ? "+ ADJUST" : "- ADJUST"));
       }
     } else if ("MOD_ENCODER_1".equals(enc.name)) {
       String[] lowerNames = {"DELAY / SIDE", "RATE / STUTTER", "REVERB / DEPTH", "CUSTOM"};
       String paramName = lowerNames[lowerGoldRow];
       if (oledPanel != null) {
         oledPanel.showParamText(
-            paramName,
-            (isPushedOrShift ? "FINE " : "") + (delta > 0 ? "+ ADJUST" : "- ADJUST"));
+            paramName, (pushMod ? "FINE " : "") + (delta > 0 ? "+ ADJUST" : "- ADJUST"));
       }
     }
     repaint();
@@ -589,7 +623,7 @@ public class SwingHardwareTopPanel extends JPanel {
       }
       case "LOAD" -> listener.onLoadProject();
       case "SAVE" -> listener.onSaveProject();
-      case "BACK" -> listener.onUndo();
+      case "BACK" -> listener.onBack();
       case "AFFECT_ENTIRE" -> {
         isAffectEntire = !isAffectEntire;
         listener.onAffectEntireToggle();
@@ -634,6 +668,7 @@ public class SwingHardwareTopPanel extends JPanel {
         }
       }
       case "TAP_TEMPO" -> {
+        listener.onTapTempo();
         if (projectModel != null && oledPanel != null) {
           oledPanel.showParamText("TEMPO", String.format("%.1f BPM", projectModel.getBpm()));
         }
@@ -652,13 +687,9 @@ public class SwingHardwareTopPanel extends JPanel {
     if (hit == null || !hit.isEncoder) return;
 
     int delta = -e.getWheelRotation();
-    boolean isPushedOrShift =
-        isShiftHeld
-            || e.isShiftDown()
-            || SwingUtilities.isRightMouseButton(e)
-            || e.isControlDown()
-            || e.isAltDown();
-    rotateEncoder(hit, delta, isPushedOrShift);
+    boolean pushMod = e.isControlDown() || e.isAltDown();
+    boolean shiftMod = isShiftHeld || e.isShiftDown();
+    rotateEncoder(hit, delta, pushMod, shiftMod);
   }
 
   public void setPlaybackState(boolean playing, boolean recording) {

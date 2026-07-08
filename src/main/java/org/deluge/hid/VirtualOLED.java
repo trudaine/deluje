@@ -164,7 +164,8 @@ public class VirtualOLED {
   }
 
   /**
-   * Emulates C++ Number::drawBar and renders parameter title, value, visual bar graph, and soft-key tabs.
+   * Emulates C++ Number::drawBar and renders parameter title, value, visual bar graph, and soft-key
+   * tabs.
    */
   public void drawParameterBar(
       String banner, String title, float normalizedVal, String[] softKeys, int activeSoftKey) {
@@ -207,7 +208,8 @@ public class VirtualOLED {
   }
 
   /**
-   * Renders multi-section OLED graph screens (e.g. Reverb AMNT|TIME|DAMP|DIFF or Env ATT|DEC|SUS|REL).
+   * Renders multi-section OLED graph screens (e.g. Reverb AMNT|TIME|DAMP|DIFF or Env
+   * ATT|DEC|SUS|REL).
    */
   public void drawMultiSectionGraph(
       String banner, String[] labels, float[] values, int activeIdx, String[] softKeys) {
@@ -221,7 +223,8 @@ public class VirtualOLED {
       int colW = 120 / Math.max(1, n);
       for (int i = 0; i < n; i++) {
         int x = 4 + i * colW;
-        float val = (values != null && i < values.length) ? Math.max(0f, Math.min(1f, values[i])) : 0.5f;
+        float val =
+            (values != null && i < values.length) ? Math.max(0f, Math.min(1f, values[i])) : 0.5f;
         int barH = (int) (val * 24);
         // Bar graph column
         g2d.drawRect(x, 14, colW - 3, 25);

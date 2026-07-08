@@ -25,9 +25,6 @@ class ShiftClickController {
   static void handleShiftClick(
       ClipEditorController controller, int row, int col, Point localPos, Component comp) {
     String lookup = DelugePadButton.getAuthenticDelugeShortcutText(row, col);
-    if (lookup == null || lookup.isEmpty()) {
-      lookup = SwingGridPanel.SHIFT_LABELS[row][col];
-    }
     if (lookup == null || lookup.isEmpty()) return;
     final String param = lookup;
 
@@ -58,7 +55,7 @@ class ShiftClickController {
         (genericTrack instanceof SynthTrackModel) ? (SynthTrackModel) genericTrack : null;
 
     controller.setActiveShiftParam(param, row, col);
-    String groupName = DelugePadButton.getColumnGroupName(col);
+    String groupName = DelugePadButton.getColumnGroupName(row, col);
     String banner = !groupName.isEmpty() ? groupName : controller.getParamShortCode(param);
     if (SwingDelugeApp.mainInstance != null) {
       SwingDelugeApp.mainInstance.updateHardwareLedDisplay(banner, param);

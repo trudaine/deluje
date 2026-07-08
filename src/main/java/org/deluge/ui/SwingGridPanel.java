@@ -2827,6 +2827,24 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     }
   }
 
+  /**
+   * Grows/shrinks the active clip's length one step at a time — the SHIFT+X_ENC gesture on real
+   * hardware (clip_view.cpp:145-176). This is a simplified step-count nudge, not the firmware's
+   * full quantized-to-zoom-level {@code changeClipLength} algorithm.
+   */
+  public void adjustClipLength(int delta) {
+    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return;
+    org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
+    org.deluge.model.ClipModel cModel = tModel.getActiveClip();
+    if (cModel == null) return;
+    if (delta > 0) {
+      cModel.doubleLength();
+    } else if (delta < 0) {
+      cModel.setStepCount(Math.max(1, cModel.getStepCount() / 2));
+    }
+    refresh();
+  }
+
   public boolean isNoteInScale(int note) {
     if (projectModel == null) return true;
     return ScaleMapper.isNoteInScale(note, projectModel.getKey(), projectModel.getScale());

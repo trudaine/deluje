@@ -567,8 +567,26 @@ public class SongGridPanel extends SwingGridPanel {
                             if (SwingDelugeApp.mainInstance != null) {
                               SwingDelugeApp.mainInstance.refreshTrackInspector();
                             }
-                            if (e.isShiftDown()) {
+                            // C: session_view.cpp:3839 gridToggleClipPlay ->
+                            // session.toggleClipStatus is a true toggle — pressing the pad of
+                            // the clip that's already playing on this track stops it. The
+                            // engine has no dedicated "stopped" clip-slot state to target, so
+                            // muting the track (the same mechanism the dedicated mute pad uses)
+                            // is used to silence it without inventing new scheduler state.
+                            boolean alreadyPlaying =
+                                songTrack.getActiveClipIndex() == clipCol && !songTrack.isMuted();
+                            if (alreadyPlaying) {
+                              songTrack.setMuted(true);
+                              bridge.setLaunchQueue(trkIdx, -1);
+                              updateEngineMutes();
+                              fireProjectChanged();
+                              refresh();
+                            } else if (e.isShiftDown()) {
                               // Instant launch
+                              if (songTrack.isMuted()) {
+                                songTrack.setMuted(false);
+                                updateEngineMutes();
+                              }
                               songTrack.setActiveClipIndex(clipCol);
                               bridge.setCurrentClip(trkIdx, clipCol);
                               if (SwingDelugeApp.mainInstance != null
@@ -581,6 +599,10 @@ public class SongGridPanel extends SwingGridPanel {
                               refresh();
                             } else {
                               // Quantized launch
+                              if (songTrack.isMuted()) {
+                                songTrack.setMuted(false);
+                                updateEngineMutes();
+                              }
                               bridge.setLaunchQueue(trkIdx, clipCol);
                               refresh();
                             }
