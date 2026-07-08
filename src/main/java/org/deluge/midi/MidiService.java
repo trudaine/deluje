@@ -338,13 +338,6 @@ public class MidiService {
       disableHwSync = true;
       bridge.setFilterFreq(activeTrack, normalized);
       disableHwSync = false;
-
-      javax.swing.SwingUtilities.invokeLater(
-          () -> {
-            if (SwingDelugeApp.mainInstance != null) {
-              SwingDelugeApp.mainInstance.refreshTrackInspector();
-            }
-          });
       return;
     } else if (cc == 71) { // Resonance
       int val = msg.data2();
@@ -352,13 +345,6 @@ public class MidiService {
       disableHwSync = true;
       bridge.setFilterRes(activeTrack, normalized);
       disableHwSync = false;
-
-      javax.swing.SwingUtilities.invokeLater(
-          () -> {
-            if (SwingDelugeApp.mainInstance != null) {
-              SwingDelugeApp.mainInstance.refreshTrackInspector();
-            }
-          });
       return;
     }
 

@@ -3541,6 +3541,13 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     refresh();
   }
 
+  /**
+   * Doubles the active clip's step count and duplicates its content into the new second half.
+   * Currently only reachable from tests (ClipViewChromaticGridHighFidelityTest) — its former UI
+   * trigger (Learn+Shift+Click on the now-removed legacy encoder strip) was deleted along with that
+   * dead widget, but the underlying data operation is real and tested, so the method itself stays
+   * rather than being deleted with its trigger.
+   */
   public void duplicateTrackContent() {
     if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return;
     org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);

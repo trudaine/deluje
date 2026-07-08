@@ -58,9 +58,6 @@ public class KeyboardShortcutManager extends KeyAdapter {
     }
 
     // 2. Control Shortcuts
-    if (kc == KeyEvent.VK_L && !ctrl) {
-      app.learnHeld = true;
-    }
 
     // Ctrl+Shift+C / Ctrl+Shift+V — copy / paste clip notes
     if (ctrl && shift && kc == KeyEvent.VK_C) {
@@ -144,9 +141,6 @@ public class KeyboardShortcutManager extends KeyAdapter {
   @Override
   public void keyReleased(KeyEvent e) {
     int kc = e.getKeyCode();
-    if (kc == KeyEvent.VK_L) {
-      app.learnHeld = false;
-    }
     if (kc == KeyEvent.VK_Q) {
       if (app.getTopBar() != null) {
         app.getTopBar().setStutterActive(false);

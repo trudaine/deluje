@@ -34,21 +34,10 @@ public class SwingDelugeApp extends JFrame {
   SwingHardwareTopPanel hardwareTopPanel;
   JPanel topBarCards;
   private AppTopBarListener appTopBarListener;
-  private SwingMasterFxPanel masterFxPanel;
   private SynthParamRack synthParamRack;
   private javax.swing.JScrollPane rackScroll;
-  private org.deluge.ui.controls.DelugeModKnobBar modKnobBar;
-
-  public SwingMasterFxPanel getMasterFxPanel() {
-    return masterFxPanel;
-  }
 
   private JPanel centerCardPanel;
-  boolean learnHeld = false;
-
-  public boolean isLearnHeld() {
-    return learnHeld;
-  }
 
   /**
    * When true, the boot auto-screenshot pipeline runs (it cycles grid modes 8x16/24x16 to capture
@@ -875,9 +864,6 @@ public class SwingDelugeApp extends JFrame {
     snap.applyTo(clip);
   }
 
-  private JComponent trackInspectorStrip;
-  private org.deluge.ui.controls.DelugeEncoderStrip encoderStrip;
-
   public SwingTopBarPanel getTopBar() {
     return topBar;
   }
@@ -886,11 +872,7 @@ public class SwingDelugeApp extends JFrame {
     if (topBarCards == null) return;
     CardLayout cl = (CardLayout) topBarCards.getLayout();
     cl.show(topBarCards, "FACEPLATE");
-    if (modKnobBar != null) modKnobBar.setVisible(false);
     if (rackScroll != null) rackScroll.setVisible(false);
-    if (trackInspectorStrip != null) trackInspectorStrip.setVisible(false);
-    if (masterFxPanel != null) masterFxPanel.setVisible(false);
-    if (encoderStrip != null) encoderStrip.setVisible(false);
     if (leftFloat != null) leftFloat.setVisible(false);
     if (rightFloat != null) rightFloat.setVisible(false);
   }
@@ -917,186 +899,6 @@ public class SwingDelugeApp extends JFrame {
     if (songPanel != null) songPanel.setProjectModel(currentProject);
     if (arrGridPanel != null) arrGridPanel.setProjectModel(currentProject);
     if (autoPanel != null) autoPanel.setProjectModel(currentProject);
-    refreshTrackInspector();
-  }
-
-  // ── Fixed track-inspector strip (above the grid, outside the scroll) ──
-  private javax.swing.JLabel trackInspectorLabel;
-  private javax.swing.JButton trackInspectorPresetBtn;
-
-  private javax.swing.JComponent buildTrackInspectorStrip() {
-    JPanel strip = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 8, 4));
-    strip.setBackground(new Color(0x1a, 0x1a, 0x20));
-    strip.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(0x2d, 0x2d, 0x34)));
-    javax.swing.JLabel tag = new javax.swing.JLabel("ACTIVE TRACK");
-    tag.setForeground(new Color(0x66, 0x88, 0x99));
-    tag.setFont(new Font("SansSerif", Font.BOLD, 10));
-    strip.add(tag);
-    trackInspectorLabel = new javax.swing.JLabel("—");
-    trackInspectorLabel.setForeground(new Color(0x00, 0xcc, 0xff));
-    trackInspectorLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
-    strip.add(trackInspectorLabel);
-    javax.swing.JButton cfg =
-        stripButton("⚙ Configure", "Open the full config dialog for the active track");
-    cfg.addActionListener(e -> openEditedTrackConfig());
-    strip.add(cfg);
-    trackInspectorPresetBtn =
-        stripButton("▾ Preset…", "Replace the active track's sound or load a new track");
-    trackInspectorPresetBtn.addActionListener(
-        e -> openEditedTrackPresetPicker(trackInspectorPresetBtn));
-    strip.add(trackInspectorPresetBtn);
-    return strip;
-  }
-
-  private javax.swing.JButton stripButton(String text, String tip) {
-    javax.swing.JButton b = new javax.swing.JButton(text);
-    b.setBackground(new Color(0x2a, 0x2a, 0x30));
-    b.setForeground(new Color(0x00, 0xcc, 0xff));
-    b.setFocusPainted(false);
-    b.setFont(new Font("SansSerif", Font.PLAIN, 11));
-    b.setToolTipText(tip);
-    return b;
-  }
-
-  /** Update the strip label to reflect the active (edited) track. */
-  public void refreshTrackInspector() {
-    if (trackInspectorLabel == null) return;
-    SwingGridPanel a = activeGridPanel();
-    if (a == null || a.getProjectModel() == null) {
-      trackInspectorLabel.setText("—");
-      return;
-    }
-    int idx = a.getEditedModelTrack();
-    java.util.List<org.deluge.model.TrackModel> tl = a.getProjectModel().getTracks();
-    if (idx < 0 || idx >= tl.size()) {
-      trackInspectorLabel.setText("—");
-      return;
-    }
-    org.deluge.model.TrackModel t = tl.get(idx);
-    String type =
-        (t instanceof org.deluge.model.KitTrackModel)
-            ? "KIT"
-            : (t instanceof org.deluge.model.SynthTrackModel) ? "SYNTH" : "TRK";
-    boolean hasPreset =
-        (t instanceof org.deluge.model.KitTrackModel)
-            || (t instanceof org.deluge.model.SynthTrackModel);
-    trackInspectorLabel.setText("T" + (idx + 1) + " · " + t.getName() + "  [" + type + "]");
-    if (trackInspectorPresetBtn != null) trackInspectorPresetBtn.setEnabled(hasPreset);
-  }
-
-  private void openEditedTrackConfig() {
-    SwingGridPanel a = activeGridPanel();
-    if (a == null || a.getProjectModel() == null) return;
-    int idx = a.getEditedModelTrack();
-    java.util.List<org.deluge.model.TrackModel> tl = a.getProjectModel().getTracks();
-    if (idx < 0 || idx >= tl.size()) return;
-    org.deluge.model.TrackModel t = tl.get(idx);
-    if (t instanceof org.deluge.model.KitTrackModel kt) {
-      new SwingKitConfigDialog(this, kt, bridge, idx).setVisible(true);
-    } else if (t instanceof org.deluge.model.SynthTrackModel st) {
-      new SwingSynthConfigDialog(this, st, bridge, idx, currentProject).setVisible(true);
-    }
-  }
-
-  private void openEditedTrackPresetPicker(java.awt.Component anchor) {
-    SwingGridPanel a = activeGridPanel();
-    if (a == null || a.getProjectModel() == null) return;
-    int idx = a.getEditedModelTrack();
-    java.util.List<org.deluge.model.TrackModel> tl = a.getProjectModel().getTracks();
-    if (idx < 0 || idx >= tl.size()) return;
-    boolean isKit = tl.get(idx) instanceof org.deluge.model.KitTrackModel;
-    boolean isSynth = tl.get(idx) instanceof org.deluge.model.SynthTrackModel;
-    if (!isKit && !isSynth) return;
-    LibraryPicker.show(
-        anchor,
-        isKit ? LibraryPicker.Scope.KITS : LibraryPicker.Scope.SYNTHS,
-        null,
-        java.util.List.of(
-            new LibraryPicker.Action(
-                "Replace track",
-                new Color(0x00, 0x88, 0x66),
-                f -> replaceEditedTrackPreset(f, isKit)),
-            new LibraryPicker.Action(
-                "Load as NEW", new Color(0x33, 0x55, 0x88), f -> loadPresetAsNewTrack(f, isKit))));
-  }
-
-  private void replaceEditedTrackPreset(java.io.File f, boolean isKit) {
-    try {
-      SwingGridPanel a = activeGridPanel();
-      if (a == null || a.getProjectModel() == null) return;
-      int idx = a.getEditedModelTrack();
-      java.util.List<org.deluge.model.TrackModel> tl = a.getProjectModel().getTracks();
-      if (idx < 0 || idx >= tl.size()) return;
-      org.deluge.model.TrackModel old = tl.get(idx);
-
-      setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-      Thread.ofVirtual()
-          .start(
-              () -> {
-                try {
-                  final org.deluge.model.TrackModel nt =
-                      isKit
-                          ? org.deluge.xml.DelugeXmlParser.parseKit(f)
-                          : org.deluge.xml.DelugeXmlParser.parseSynth(f);
-                  nt.getClips().clear();
-                  for (org.deluge.model.ClipModel cm : old.getClips()) nt.addClip(cm);
-                  nt.setColourHex(old.getColourHex());
-
-                  // Update model list on the EDT and wait
-                  javax.swing.SwingUtilities.invokeAndWait(
-                      () -> {
-                        tl.set(idx, nt);
-                        propagateCurrentModel();
-                      });
-
-                  // Heavy engine sync on background thread
-                  syncHighFidelityEngine(currentProject, true);
-
-                  // Rebuild UI components on the EDT
-                  javax.swing.SwingUtilities.invokeLater(
-                      () -> {
-                        setCursor(Cursor.getDefaultCursor());
-                        a.forceRebuild();
-                        if (synthParamRack != null) synthParamRack.refresh();
-                        if (modKnobBar != null) modKnobBar.refresh();
-                      });
-                } catch (Exception ex) {
-                  javax.swing.SwingUtilities.invokeLater(
-                      () -> {
-                        setCursor(Cursor.getDefaultCursor());
-                        System.err.println("[Inspector] preset replace failed: " + ex.getMessage());
-                      });
-                }
-              });
-    } catch (Exception ex) {
-      System.err.println("[Inspector] preset replace failed: " + ex.getMessage());
-    }
-  }
-
-  private void loadPresetAsNewTrack(java.io.File f, boolean isKit) {
-    new javax.swing.SwingWorker<org.deluge.model.TrackModel, Void>() {
-      @Override
-      protected org.deluge.model.TrackModel doInBackground() throws Exception {
-        return isKit
-            ? org.deluge.xml.DelugeXmlParser.parseKit(f)
-            : org.deluge.xml.DelugeXmlParser.parseSynth(f);
-      }
-
-      @Override
-      protected void done() {
-        try {
-          org.deluge.model.TrackModel nt = get();
-          currentProject.addTrack(nt);
-          propagateCurrentModel();
-          syncHighFidelityEngine(currentProject);
-          if (clipPanel != null) clipPanel.refresh();
-          if (modKnobBar != null) modKnobBar.refresh();
-        } catch (Exception ex) {
-          Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
-          System.err.println("[Inspector] preset load-new failed: " + cause.getMessage());
-        }
-      }
-    }.execute();
   }
 
   public void fireProjectChanged() {
@@ -1107,8 +909,6 @@ public class SwingDelugeApp extends JFrame {
     if (arrGridPanel != null) arrGridPanel.refresh();
     if (autoPanel != null) autoPanel.refresh();
     if (synthParamRack != null) synthParamRack.refresh();
-    if (modKnobBar != null) modKnobBar.refresh();
-    refreshTrackInspector();
   }
 
   /** Show/hide the EAST synth param rack; the grid reflows to reclaim the width. */
@@ -1122,12 +922,8 @@ public class SwingDelugeApp extends JFrame {
 
   /** Re-read the edited track into the param rack (called on track/view changes). */
   public void refreshParamRack() {
-    refreshTrackInspector();
     if (synthParamRack != null) {
       synthParamRack.refresh();
-    }
-    if (modKnobBar != null) {
-      modKnobBar.refresh();
     }
   }
 
@@ -2223,85 +2019,6 @@ public class SwingDelugeApp extends JFrame {
     JPanel topBarWrapper = new JPanel(new BorderLayout());
     topBarWrapper.add(topBarCards, BorderLayout.CENTER);
     refreshTopPanelStyle();
-
-    // Scroll encoders (X timeline / Y note rows) routed to whichever grid panel is showing.
-    encoderStrip =
-        new org.deluge.ui.controls.DelugeEncoderStrip(
-            d -> {
-              SwingGridPanel a = activeGridPanel();
-              if (a != null) {
-                if (a.isShiftHeld()) {
-                  a.adjustZoomResolution(d);
-                } else {
-                  a.scrollHorizontally(d);
-                }
-              }
-            },
-            d -> {
-              SwingGridPanel a = activeGridPanel();
-              if (a != null) {
-                if (isLearnHeld()) {
-                  a.adjustTrackColorOffset(d); // Learn + Turn Y = Change track color!
-                } else if (a.isShiftHeld()) {
-                  a.scrollVertically(-d * 12); // Shift + Turn Y = Octave scroll (12 rows)!
-                } else {
-                  a.scrollVertically(-d); // Turn Y = Single-row scroll!
-                }
-              }
-            },
-            d -> {
-              // Gold mod-encoder: adjust whichever param is selected via the Shift overlay.
-              SwingGridPanel a = activeGridPanel();
-              if (a != null && a.getActiveShiftParam() != null) {
-                a.adjustRotaryParameter(d);
-              }
-            });
-
-    encoderStrip
-        .getXKnob()
-        .onPress(
-            () -> {
-              SwingGridPanel a = activeGridPanel();
-              if (a != null) {
-                if (isLearnHeld()) {
-                  if (a.isShiftHeld()) {
-                    a.pasteClipNotes(); // Learn + Shift + Click = Paste!
-                  } else {
-                    a.copyClipNotes(); // Learn + Click = Copy!
-                  }
-                } else if (a.isShiftHeld()) {
-                  a.duplicateTrackContent(); // Shift + Click = Duplicate!
-                }
-              }
-            });
-
-    encoderStrip
-        .getXKnob()
-        .onPressTurn(
-            d -> {
-              SwingGridPanel a = activeGridPanel();
-              if (a != null) {
-                a.adjustZoomResolution(d);
-              }
-            });
-
-    encoderStrip
-        .getYKnob()
-        .onPressTurn(
-            d -> {
-              SwingGridPanel a = activeGridPanel();
-              if (a != null) {
-                if (a.isShiftHeld()) {
-                  a.transposeTrack(d * 12); // Shift + Press-Turn Y = Octave transposition!
-                } else {
-                  a.transposeTrack(d); // Press-Turn Y = Semitone transposition!
-                }
-              }
-            });
-
-    encoderStrip.setBackground(topBar.getBackground());
-    encoderStrip.setOpaque(true);
-    topBarWrapper.add(encoderStrip, BorderLayout.EAST);
     add(topBarWrapper, BorderLayout.NORTH);
 
     JScrollPane centerScroll =
@@ -2314,39 +2031,10 @@ public class SwingDelugeApp extends JFrame {
     /*centerScroll.getViewport().setOpaque(true);
     centerScroll.getViewport().setBackground(Color.BLUE);*/
 
-    // Fixed track-inspector strip ABOVE the scrolling grid: per-track controls (configure + preset)
-    // belong outside the scroll area so you never have to scroll up to reach them.
-    trackInspectorStrip = buildTrackInspectorStrip();
     JPanel centerWrap = new JPanel(new BorderLayout());
     centerWrap.setOpaque(false);
-    centerWrap.add(trackInspectorStrip, BorderLayout.NORTH);
     centerWrap.add(centerScroll, BorderLayout.CENTER);
     add(centerWrap, BorderLayout.CENTER);
-
-    // Hardware-faithful Gold Knobs & Mod Buttons bar docked WEST
-    modKnobBar =
-        new org.deluge.ui.controls.DelugeModKnobBar(
-            bridge,
-            () -> {
-              SwingGridPanel a = activeGridPanel();
-              if (a == null || a.getProjectModel() == null) {
-                return null;
-              }
-              int idx = a.getEditedModelTrack();
-              if (idx < 0 || idx >= a.getProjectModel().getTracks().size()) {
-                return null;
-              }
-              return (a.getProjectModel().getTracks().get(idx)
-                      instanceof org.deluge.model.SynthTrackModel st)
-                  ? st
-                  : null;
-            },
-            () -> {
-              SwingGridPanel a = activeGridPanel();
-              return a == null ? -1 : a.getEditedModelTrack();
-            },
-            this::activeGridPanel);
-    add(modKnobBar, BorderLayout.WEST);
 
     // Always-visible synth param rack docked EAST (collapsible via the RACK button). It costs only
     // horizontal space (abundant) so the grid keeps its full height; scrollable for short screens.
@@ -2389,7 +2077,6 @@ public class SwingDelugeApp extends JFrame {
             syncHighFidelityEngine(currentProject, true); // preset swap: rebuild even while playing
             a.forceRebuild(); // structure unchanged on a swap → force header/name rebuild
             synthParamRack.refresh();
-            if (modKnobBar != null) modKnobBar.refresh();
           } catch (Exception ex) {
             System.err.println("[PresetChip] replace failed: " + ex.getMessage());
           }
@@ -2402,7 +2089,6 @@ public class SwingDelugeApp extends JFrame {
             syncHighFidelityEngine(currentProject);
             if (clipPanel != null) clipPanel.refresh();
             synthParamRack.refresh();
-            if (modKnobBar != null) modKnobBar.refresh();
           } catch (Exception ex) {
             System.err.println("[PresetChip] load-new failed: " + ex.getMessage());
           }
@@ -2526,14 +2212,6 @@ public class SwingDelugeApp extends JFrame {
 
     // 5. Bottom Area - Rows 9 and 10 (Param Deck)
     // Obsolete bottom parameter deck removed. Integrated in 10x18 pads matrix.
-
-    // 7. Bottom Area - Row 3 (Master FX dials bounding boxes)
-    SwingMasterFxPanel masterFxPanel = new SwingMasterFxPanel(bridge, currentProject, topBar);
-    this.masterFxPanel = masterFxPanel;
-    // DEBUG: masterFxPanel.setBorder(BorderFactory.createLineBorder(Color.YELLOW, 3));
-
-    masterFxPanel.setPreferredSize(new Dimension(1, 54));
-    add(masterFxPanel, BorderLayout.SOUTH);
 
     refreshTopPanelStyle();
     revalidate();

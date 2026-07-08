@@ -538,18 +538,6 @@ public class EngineSyncCoordinator {
     bridge.setGlobalInt(BridgeContract.G_FOLLOW_TRACK_B, bridge.getFollowTrack('B'));
     bridge.setGlobalInt(BridgeContract.G_FOLLOW_TRACK_C, bridge.getFollowTrack('C'));
 
-    // Sync the master FX panel slider with the model's volume
-    SwingMasterFxPanel masterFx = app.getMasterFxPanel();
-    if (masterFx != null) {
-      masterFx.setMasterVol(Math.round(currentProject.getMasterVolume() * 100));
-      masterFx.updateCompressorUI(
-          currentProject.getCompressorThreshold(),
-          currentProject.getCompressorAttack(),
-          currentProject.getCompressorRelease(),
-          currentProject.getCompressorRatio(),
-          currentProject.getCompressorBlend());
-    }
-
     // ── Apply GlobalEffectable clip FX overrides for each track's active clip ──
     for (int t = 0; t < tracks.size(); t++) {
       TrackModel track = tracks.get(t);
@@ -1136,16 +1124,6 @@ public class EngineSyncCoordinator {
       bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP_RELEASE, model.getCompressorRelease());
       bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP_RATIO, model.getCompressorRatio());
       bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP_BLEND, model.getCompressorBlend());
-
-      SwingMasterFxPanel masterFx = app.getMasterFxPanel();
-      if (masterFx != null) {
-        masterFx.updateCompressorUI(
-            model.getCompressorThreshold(),
-            model.getCompressorAttack(),
-            model.getCompressorRelease(),
-            model.getCompressorRatio(),
-            model.getCompressorBlend());
-      }
     }
 
     @Override

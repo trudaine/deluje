@@ -552,9 +552,6 @@ public class SongGridPanel extends SwingGridPanel {
                                         : songTrack.getClips().get(0).getRowCount(),
                                     16));
                             editedModelTrack = trkIdx;
-                            if (SwingDelugeApp.mainInstance != null) {
-                              SwingDelugeApp.mainInstance.refreshTrackInspector();
-                            }
                             fireProjectChanged();
                           }
                         } else {
@@ -564,9 +561,6 @@ public class SongGridPanel extends SwingGridPanel {
                             }
                           } else {
                             editedModelTrack = trkIdx;
-                            if (SwingDelugeApp.mainInstance != null) {
-                              SwingDelugeApp.mainInstance.refreshTrackInspector();
-                            }
                             // C: session_view.cpp:3839 gridToggleClipPlay ->
                             // session.toggleClipStatus is a true toggle — pressing the pad of
                             // the clip that's already playing on this track stops it. The
