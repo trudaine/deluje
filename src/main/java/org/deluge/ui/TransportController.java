@@ -41,6 +41,7 @@ public class TransportController {
     if (bridge != null) {
       bridge.setPlayState((int) nextPlay);
     }
+    syncFaceplatePlaybackLeds();
   }
 
   public void onStop() {
@@ -62,6 +63,7 @@ public class TransportController {
     } catch (Exception ex) {
       // ignore
     }
+    syncFaceplatePlaybackLeds();
   }
 
   public void onLiveRecordToggle(JButton btn) {
@@ -85,6 +87,20 @@ public class TransportController {
       if (app.topBar != null && app.topBar.getParamReadout() != null) {
         app.topBar.getParamReadout().printTransient("REC", "OFF");
       }
+    }
+    syncFaceplatePlaybackLeds();
+  }
+
+  // The faceplate PLAY/RECORD LEDs (SwingHardwareTopPanel.isPlaying/isRecording) are a display
+  // copy separate from the real state here (bridge G_PLAY, SwingGridPanel.isLiveRecordModeActive)
+  // \u2014 there are multiple ways to reach these methods (the faceplate's own buttons, the legacy
+  // (now-hidden) top-bar's REC button via the global "R" keyboard shortcut
+  // (SwingDelugeApp.java:2082-2096, topBar.getRecBtn().doClick()), ThresholdRecordDialog's
+  // triggerPlayToggle()), so the LEDs must be resynced here on every real state change rather than
+  // only when the faceplate's own button was the trigger.
+  private void syncFaceplatePlaybackLeds() {
+    if (app.hardwareTopPanel != null) {
+      app.hardwareTopPanel.setPlaybackState(isPlaying(), SwingGridPanel.isLiveRecordModeActive);
     }
   }
 
