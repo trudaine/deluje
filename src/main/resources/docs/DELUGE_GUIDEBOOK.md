@@ -933,7 +933,7 @@ Connecting a physical Deluge hardware unit to the Deluge-Java Workstation provid
 5. **Verify Status**: Check the top toolbar status panel: the Led indicator dot will glow green and display **`DELUGE ON`**.
 
 #### 🛰️ Realized Hardware Features (What You Can Do Today):
-* **Real-Time OLED Screen Mirroring**: Once connected, the Workstation sends a stream request. A background 1.5-second keep-alive timer manages display streaming. The virtual OLED panel mirrors menu scrolls, waveform draws, and parameter edits on the physical hardware.
+* **Live Device Screen Monitor**: Once connected, the **`📡 HARDWARE`** tab shows a **"LIVE DEVICE SCREEN"** panel with a small live mirror of your physical Deluge's own screen — menu scrolls, waveform draws, and parameter edits, exactly as they appear on the hardware — plus a scrolling debug log of messages the hardware reports in real time. This is separate from the Workstation's own on-screen faceplate display, so the two never interfere with each other.
 * **Stateful SD Card Explorer**: Open the SD Explorer (`Cmd+B` / `📁` icon) and click **`🔄 REFRESH`** on the **`📡 HARDWARE`** tab. The workstation processes SysEx packets to populate SONGS, SYNTHS, and KITS directories.
 * **Remote Song Audition & Load**: Double-click any song XML in the remote hardware tree. The Workstation sends SysEx requests to download the XML file, parse it, and load the song into the audio engine.
 * **Low-Latency Virtual Sound Triggering**: Play notes on the physical pads grid or keyboard layout to trigger the workstation's subtractive, FM, or ring-modulation voices.
