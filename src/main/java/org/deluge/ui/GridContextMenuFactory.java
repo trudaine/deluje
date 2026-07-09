@@ -145,7 +145,7 @@ public class GridContextMenuFactory {
   public static void showTrackContextMenu(
       SwingGridPanel panel, Component src, int x, int y, int trackIdx) {
     java.util.List<TrackModel> tracks = panel.projectModel.getTracks();
-    if (trackIdx >= tracks.size()) return;
+    if (trackIdx < 0 || trackIdx >= tracks.size()) return;
     TrackModel track = tracks.get(trackIdx);
 
     JPopupMenu menu = new JPopupMenu();

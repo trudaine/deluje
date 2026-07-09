@@ -2791,7 +2791,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   Color getTrackBaseColor() {
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
       String hex = t.getColourHex();
       if (hex != null && hex.startsWith("0x")) {
