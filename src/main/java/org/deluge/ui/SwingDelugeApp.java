@@ -3114,6 +3114,34 @@ public class SwingDelugeApp extends JFrame {
     new SwingMasterFxDialog(this, currentProject, bridge, this).setVisible(true);
   }
 
+  public void launchStutterConfig() {
+    org.deluge.model.SynthTrackModel model = null;
+    SwingGridPanel a = activeGridPanel();
+    java.util.List<org.deluge.model.TrackModel> tl = currentProject.getTracks();
+    int trackIdx = a != null ? Math.max(0, a.getEditedModelTrack()) : 0;
+    if (tl != null && trackIdx >= 0 && trackIdx < tl.size()) {
+      org.deluge.model.TrackModel tm = tl.get(trackIdx);
+      if (tm instanceof org.deluge.model.SynthTrackModel sm) {
+        model = sm;
+      }
+    }
+    if (model == null && tl != null && !tl.isEmpty()) {
+      for (int i = 0; i < tl.size(); i++) {
+        if (tl.get(i) instanceof org.deluge.model.SynthTrackModel sm) {
+          model = sm;
+          trackIdx = i;
+          break;
+        }
+      }
+    }
+    if (model != null) {
+      new SwingSynthConfigDialog(this, model, bridge, trackIdx, currentProject, 6).setVisible(true);
+    } else {
+      JOptionPane.showMessageDialog(
+          this, "Please select or create a Synth Track to edit its Stutter modes.");
+    }
+  }
+
   public void launchPreferences() {
     new org.deluge.ui.PreferencesDialog(this, midiService, this::refreshGrids, null)
         .setVisible(true);

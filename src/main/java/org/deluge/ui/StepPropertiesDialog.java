@@ -19,20 +19,35 @@ public class StepPropertiesDialog extends JDialog {
   private final JSpinner gateSpin;
   private final JSlider nudgeSlider;
   private final JSpinner nudgeSpin;
+  private final JComboBox<String> condCombo;
+  private final JPanel condCustomPanel;
+  private final JSpinner condDivisorSpin;
+  private final JCheckBox[] condChecks = new JCheckBox[8];
+  private org.deluge.model.Iterance currentPlayCondition =
+      new org.deluge.model.Iterance((byte) 1, (byte) 1);
+  private boolean isSyncingUI = false;
 
   private boolean confirmed = false;
 
   public StepPropertiesDialog(Frame owner) {
-    this(owner, 80, 0, 0, 100, 0.9, 0);
+    this(owner, 80, 0, 0, 100, 0.9, 0, new org.deluge.model.Iterance((byte) 1, (byte) 1));
   }
 
   public StepPropertiesDialog(Frame owner, int currentVelocity) {
-    this(owner, currentVelocity, 0, 0, 100, 0.9, 0);
+    this(owner, currentVelocity, 0, 0, 100, 0.9, 0, new org.deluge.model.Iterance((byte) 1, (byte) 1));
   }
 
   public StepPropertiesDialog(
       Frame owner, int currentVelocity, int currentIterance, int currentFill) {
-    this(owner, currentVelocity, currentIterance, currentFill, 100, 0.9, 0);
+    this(
+        owner,
+        currentVelocity,
+        currentIterance,
+        currentFill,
+        100,
+        0.9,
+        0,
+        new org.deluge.model.Iterance((byte) 1, (byte) 1));
   }
 
   public StepPropertiesDialog(
@@ -43,11 +58,35 @@ public class StepPropertiesDialog extends JDialog {
       int currentProbability,
       double currentGate,
       int currentNudge) {
+    this(
+        owner,
+        currentVelocity,
+        currentIterance,
+        currentFill,
+        currentProbability,
+        currentGate,
+        currentNudge,
+        new org.deluge.model.Iterance((byte) 1, (byte) 1));
+  }
+
+  public StepPropertiesDialog(
+      Frame owner,
+      int currentVelocity,
+      int currentIterance,
+      int currentFill,
+      int currentProbability,
+      double currentGate,
+      int currentNudge,
+      org.deluge.model.Iterance initialCondition) {
     super(owner, "Step Properties", true);
+    if (initialCondition != null) {
+      this.currentPlayCondition =
+          new org.deluge.model.Iterance(initialCondition.divisor, initialCondition.iteranceStep);
+    }
 
     // Set modern slate background and size
     getContentPane().setBackground(SwingSynthConfigDialog.BG_DARK);
-    setSize(750, 520);
+    setSize(760, 610);
     setLocationRelativeTo(owner);
 
     // Set standard title layout
@@ -225,6 +264,88 @@ public class StepPropertiesDialog extends JDialog {
     nudgeSpin.addChangeListener(e -> nudgeSlider.setValue((Integer) nudgeSpin.getValue()));
     gridPanel.add(nudgeSpin, gc);
 
+    // Row 7: Play Condition / Iterance (C++ Hardware Parity: 1of1, 1of2, 1of4, Custom bitmask)
+    gc.gridx = 0;
+    gc.gridy = 6;
+    gc.weightx = 0.1;
+    JLabel l7 = new JLabel("Condition:");
+    l7.setFont(labelFont);
+    l7.setForeground(Color.WHITE);
+    gridPanel.add(l7, gc);
+
+    gc.gridx = 1;
+    gc.weightx = 0.8;
+    String[] presets = {
+      "Always (1 of 1)",
+      "1st of 2 (1 of 2)",
+      "2nd of 2 (2 of 2)",
+      "1st of 3 (1 of 3)",
+      "1st of 4 (1 of 4)",
+      "2nd of 4 (2 of 4)",
+      "3rd of 4 (3 of 4)",
+      "4th of 4 (4 of 4)",
+      "1st of 8 (1 of 8)",
+      "8th of 8 (8 of 8)",
+      "Custom (Cycle Bitmask)"
+    };
+    condCombo = new JComboBox<>(presets);
+    condCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
+    condCombo.setForeground(Color.WHITE);
+    condCombo.setFont(new Font("SansSerif", Font.PLAIN, 12));
+    gridPanel.add(condCombo, gc);
+
+    gc.gridx = 2;
+    gc.weightx = 0.1;
+    JLabel condTag = new JLabel("Iterance");
+    condTag.setFont(new Font("SansSerif", Font.BOLD, 10));
+    condTag.setForeground(Color.LIGHT_GRAY);
+    gridPanel.add(condTag, gc);
+
+    // Row 8: Custom Bitmask Panel (1..8 cycle checks)
+    gc.gridx = 1;
+    gc.gridy = 7;
+    gc.gridwidth = 2;
+    condCustomPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 2));
+    condCustomPanel.setBackground(SwingSynthConfigDialog.BG_CARD);
+    JLabel divLab = new JLabel("Cycles:");
+    divLab.setForeground(Color.LIGHT_GRAY);
+    divLab.setFont(new Font("SansSerif", Font.PLAIN, 11));
+    condCustomPanel.add(divLab);
+
+    condDivisorSpin = new JSpinner(new SpinnerNumberModel(4, 1, 8, 1));
+    condDivisorSpin.setPreferredSize(new Dimension(42, 24));
+    condCustomPanel.add(condDivisorSpin);
+
+    condCustomPanel.add(new JLabel(" Steps:"));
+    for (int i = 0; i < 8; i++) {
+      condChecks[i] = new JCheckBox(String.valueOf(i + 1));
+      condChecks[i].setBackground(SwingSynthConfigDialog.BG_CARD);
+      condChecks[i].setForeground(Color.WHITE);
+      condChecks[i].setFont(new Font("SansSerif", Font.PLAIN, 10));
+      condChecks[i].setFocusPainted(false);
+      condChecks[i].addActionListener(e -> syncFromCustomCheckboxes());
+      condCustomPanel.add(condChecks[i]);
+    }
+    condDivisorSpin.addChangeListener(e -> syncFromCustomCheckboxes());
+    gridPanel.add(condCustomPanel, gc);
+    gc.gridwidth = 1;
+
+    // Set initial dropdown state matching currentPlayCondition
+    syncUIFromPlayCondition();
+
+    condCombo.addActionListener(
+        e -> {
+          if (isSyncingUI) return;
+          String sel = (String) condCombo.getSelectedItem();
+          if (sel != null && !sel.equals("Custom (Cycle Bitmask)")) {
+            condCustomPanel.setVisible(false);
+            applyPresetToPlayCondition(sel);
+          } else {
+            condCustomPanel.setVisible(true);
+            syncFromCustomCheckboxes();
+          }
+        });
+
     mainContainer.add(gridPanel, BorderLayout.CENTER);
 
     // Action buttons bar at the bottom
@@ -291,5 +412,86 @@ public class StepPropertiesDialog extends JDialog {
 
   public int getNudge() {
     return nudgeSlider.getValue();
+  }
+
+  private void syncUIFromPlayCondition() {
+    isSyncingUI = true;
+    try {
+      int div = currentPlayCondition.divisor & 0xFF;
+      int mask = currentPlayCondition.iteranceStep & 0xFF;
+      String matchedPreset = null;
+      if (div == 1 && mask == 0b1) matchedPreset = "Always (1 of 1)";
+      else if (div == 2 && mask == 0b1) matchedPreset = "1st of 2 (1 of 2)";
+      else if (div == 2 && mask == 0b10) matchedPreset = "2nd of 2 (2 of 2)";
+      else if (div == 3 && mask == 0b1) matchedPreset = "1st of 3 (1 of 3)";
+      else if (div == 4 && mask == 0b1) matchedPreset = "1st of 4 (1 of 4)";
+      else if (div == 4 && mask == 0b10) matchedPreset = "2nd of 4 (2 of 4)";
+      else if (div == 4 && mask == 0b100) matchedPreset = "3rd of 4 (3 of 4)";
+      else if (div == 4 && mask == 0b1000) matchedPreset = "4th of 4 (4 of 4)";
+      else if (div == 8 && mask == 0b1) matchedPreset = "1st of 8 (1 of 8)";
+      else if (div == 8 && mask == 0b10000000) matchedPreset = "8th of 8 (8 of 8)";
+
+      for (int i = 0; i < 8; i++) {
+        if (condChecks[i] != null) {
+          condChecks[i].setSelected((mask & (1 << i)) != 0);
+        }
+      }
+      condDivisorSpin.setValue(Math.max(1, Math.min(8, div)));
+
+      if (matchedPreset != null) {
+        condCombo.setSelectedItem(matchedPreset);
+        condCustomPanel.setVisible(false);
+      } else {
+        condCombo.setSelectedItem("Custom (Cycle Bitmask)");
+        condCustomPanel.setVisible(true);
+      }
+    } finally {
+      isSyncingUI = false;
+    }
+  }
+
+  private void applyPresetToPlayCondition(String sel) {
+    switch (sel) {
+      case "Always (1 of 1)" ->
+          currentPlayCondition = new org.deluge.model.Iterance((byte) 1, (byte) 0b1);
+      case "1st of 2 (1 of 2)" ->
+          currentPlayCondition = new org.deluge.model.Iterance((byte) 2, (byte) 0b1);
+      case "2nd of 2 (2 of 2)" ->
+          currentPlayCondition = new org.deluge.model.Iterance((byte) 2, (byte) 0b10);
+      case "1st of 3 (1 of 3)" ->
+          currentPlayCondition = new org.deluge.model.Iterance((byte) 3, (byte) 0b1);
+      case "1st of 4 (1 of 4)" ->
+          currentPlayCondition = new org.deluge.model.Iterance((byte) 4, (byte) 0b1);
+      case "2nd of 4 (2 of 4)" ->
+          currentPlayCondition = new org.deluge.model.Iterance((byte) 4, (byte) 0b10);
+      case "3rd of 4 (3 of 4)" ->
+          currentPlayCondition = new org.deluge.model.Iterance((byte) 4, (byte) 0b100);
+      case "4th of 4 (4 of 4)" ->
+          currentPlayCondition = new org.deluge.model.Iterance((byte) 4, (byte) 0b1000);
+      case "1st of 8 (1 of 8)" ->
+          currentPlayCondition = new org.deluge.model.Iterance((byte) 8, (byte) 0b1);
+      case "8th of 8 (8 of 8)" ->
+          currentPlayCondition = new org.deluge.model.Iterance((byte) 8, (byte) 0b10000000);
+    }
+  }
+
+  private void syncFromCustomCheckboxes() {
+    if (isSyncingUI) return;
+    int div = (Integer) condDivisorSpin.getValue();
+    int mask = 0;
+    for (int i = 0; i < 8; i++) {
+      if (condChecks[i] != null && condChecks[i].isSelected()) {
+        mask |= (1 << i);
+      }
+    }
+    currentPlayCondition = new org.deluge.model.Iterance((byte) div, (byte) mask);
+  }
+
+  public org.deluge.model.Iterance getPlayCondition() {
+    return currentPlayCondition;
+  }
+
+  public int getPlayConditionInt() {
+    return currentPlayCondition.toInt();
   }
 }

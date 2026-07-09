@@ -149,3 +149,20 @@ To ensure absolute compatibility when round-tripping files, all floating-point p
 *   **Unipolar Float**: `0.0` (flat) to `1.0` (max) maps to `0x00000000` to `0x3F800000`.
 *   **Bipolar Float**: `-1.0` to `1.0` maps to `0xBF800000` to `0x3F800000`.
 *   **Frequency (Hz)**: Sound cutoffs are converted to logarithmic values matching the physical hardware's response curve.
+
+---
+
+## 11. Step Iterance & Stutter Performance FX Parity
+
+### Step Iterance & Play Conditions (`StepPropertiesDialog.java`)
+Deluge-Java provides 100% C++ hardware parity for conditional step triggers (`Iterance`):
+*   **Accessing Step Properties**: Right-click or shift-click a step on the sequencer grid to open **Step Parameter Properties**.
+*   **Preset Conditions**: Choose standard multi-cycle play rules from the **Condition** menu (`Always (1 of 1)`, `1st of 2 (1 of 2)`, `2nd of 2 (2 of 2)`, `1st of 4 (1of4)`, `4th of 4 (4of4)`, `1st of 8 (1of8)`, etc.).
+*   **Custom Cycle Bitmasks**: Select **Custom (Cycle Bitmask)** to specify a custom loop length (`1 to 8 cycles`) and toggle interactive step boxes (`1 through 8`) to specify exact cycles where the note triggers.
+
+### Track Stutter Modes (`StutterPanel.java`)
+Synthesizer tracks support three real-time hardware stutter performance modes located under the **STUTTER** tab of the **Track Inspector** or via the OLED menu (**Track Stutter Modes (Quantize / Reverse / Ping-Pong)...**):
+*   **Quantize to Grid**: Locks stutter repeat loop boundaries to the musical sequencer grid.
+*   **Reversed Playback**: Plays captured audio slices backward during stutter loops.
+*   **Ping-Pong Bounce**: Alternates forward and backward playback across consecutive stutter repeats.
+

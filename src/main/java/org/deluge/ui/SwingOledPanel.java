@@ -113,6 +113,15 @@ public class SwingOledPanel extends JPanel {
         });
     menu.add(fxItem);
 
+    javax.swing.JMenuItem stutterItem =
+        new javax.swing.JMenuItem("Track Stutter Modes (Quantize / Reverse / Ping-Pong)...");
+    stutterItem.addActionListener(
+        e -> {
+          if (SwingDelugeApp.mainInstance != null)
+            SwingDelugeApp.mainInstance.launchStutterConfig();
+        });
+    menu.add(stutterItem);
+
     menu.addSeparator();
 
     javax.swing.JMenuItem prefsItem = new javax.swing.JMenuItem("Preferences & UI Style...");

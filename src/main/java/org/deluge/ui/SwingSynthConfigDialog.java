@@ -43,6 +43,24 @@ public class SwingSynthConfigDialog extends JDialog {
       SynthTrackModel model,
       final BridgeContract bridge,
       int trackIndex,
+      ProjectModel projectModel,
+      int initialTabIndex) {
+    this(owner, model, bridge, trackIndex, projectModel);
+    if (initialTabIndex >= 0 && initialTabIndex < tabs.getTabCount()) {
+      tabs.setSelectedIndex(initialTabIndex);
+      if (initialTabIndex == 6 && tabs.getComponentAt(6) instanceof JTabbedPane fxTabs) {
+        if (3 < fxTabs.getTabCount()) {
+          fxTabs.setSelectedIndex(3);
+        }
+      }
+    }
+  }
+
+  public SwingSynthConfigDialog(
+      Frame owner,
+      SynthTrackModel model,
+      final BridgeContract bridge,
+      int trackIndex,
       ProjectModel projectModel) {
     super(
         owner,
@@ -1271,6 +1289,8 @@ public class SwingSynthConfigDialog extends JDialog {
     fxTabs.addTab("EQ", scrollWrap(new EqPanel(model, bridge, trackIndex, projectModel)));
     fxTabs.addTab(
         "COMPRESSOR", scrollWrap(new CompressorPanel(model, bridge, trackIndex, projectModel)));
+    fxTabs.addTab(
+        "STUTTER", scrollWrap(new StutterPanel(model, bridge, trackIndex, projectModel)));
     tabs.addTab("FX", fxTabs);
 
     // ── Setup utilities (grouped) ──
