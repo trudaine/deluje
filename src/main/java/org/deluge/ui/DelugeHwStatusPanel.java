@@ -188,6 +188,15 @@ public class DelugeHwStatusPanel extends JPanel {
       // Skip heartbeat pings during active file transfers to keep the MIDI channel 100% quiet
       return;
     }
+    if (!midiService.isOutputConnected()) {
+      // The port wasn't enumerable when the app started (Deluge was off/unplugged) or a prior
+      // ping timed out and dropped it -- ping alone can't recover from that, since sendRequest
+      // silently no-ops with no MidiOut wired up. Without this, turning the Deluge on after the
+      // app is already running never gets picked up by this 4s heartbeat; only a manual click
+      // (which already calls reconnect()) or a full app restart re-scans the MIDI ports. Retrying
+      // reconnect() here on every heartbeat closes that gap automatically.
+      midiService.reconnect();
+    }
     DelugeSysExManager mgr = midiService.getSysExManager();
     long now = System.currentTimeMillis();
     lastPingTime = now;
