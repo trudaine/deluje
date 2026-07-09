@@ -622,23 +622,8 @@ public class ClipGridPanel extends SwingGridPanel {
         });
 
     if (isFaceplateRow) {
-      // Faceplate mode has no room for a full text label, but the same `label` widget (with its
-      // rename/color/inspector/move context menu, shift-click one-shot toggle, click-to-edit, and
-      // sample drag-drop) is still reachable, shrunk to a color swatch in the same reserved space
-      // a blank spacer previously occupied.
-      int swatchW = (int) Math.round(58 * faceScaleRow);
-      label.setPreferredSize(new Dimension(swatchW, padSz));
-      label.setMinimumSize(new Dimension(swatchW, padSz));
-      label.setMaximumSize(new Dimension(swatchW, padSz));
-      label.setText("");
-      label.setOpaque(true);
-      label.setBackground(getTrackBaseColor());
-      label.setToolTipText(
-          "<html><b>"
-              + tName
-              + "</b><br>Click: edit track &nbsp; Shift-click: toggle one-shot<br>Right-click:"
-              + " track menu &nbsp; Drag a sample here: hot-swap</html>");
-      rowPanel.add(label);
+      int leftMargin = (int) Math.round(58 * faceScaleRow);
+      rowPanel.add(Box.createRigidArea(new Dimension(leftMargin, 1)));
     } else {
       rowPanel.add(label);
       if (modelRow < tracks.size() && modelRow < 8) {

@@ -36,7 +36,7 @@ public class SwingOledPanel extends JPanel {
         });
   }
 
-  private void showSystemOledMenu(int x, int y) {
+  private javax.swing.JPopupMenu showSystemOledMenu(int x, int y) {
     javax.swing.JPopupMenu menu = new javax.swing.JPopupMenu();
 
     javax.swing.JMenuItem newItem = new javax.swing.JMenuItem("New Project");
@@ -129,7 +129,59 @@ public class SwingOledPanel extends JPanel {
         });
     menu.add(helpItem);
 
+    menu.addSeparator();
+
+    // Real hardware has no per-row text label/column in the grid (just pads), so these track-level
+    // actions -- previously reachable only via a now-removed grid-row label -- live here instead,
+    // scoped to whichever track is currently open in the Clip editor.
+    javax.swing.JMenuItem trackMenuItem =
+        new javax.swing.JMenuItem("Current Track: Rename / Color / Inspector / Move...");
+    trackMenuItem.addActionListener(
+        e -> {
+          if (SwingDelugeApp.mainInstance != null) {
+            SwingGridPanel clip = SwingDelugeApp.mainInstance.getClipPanel();
+            if (clip != null) {
+              clip.showTrackContextMenu(this, x, y, clip.editedModelTrack);
+            }
+          }
+        });
+    menu.add(trackMenuItem);
+
+    javax.swing.JMenuItem oneShotItem =
+        new javax.swing.JMenuItem("Toggle One-Shot Mode (current track)");
+    oneShotItem.addActionListener(
+        e -> {
+          if (SwingDelugeApp.mainInstance != null) {
+            SwingGridPanel clip = SwingDelugeApp.mainInstance.getClipPanel();
+            if (clip != null
+                && clip.editedModelTrack >= 0
+                && clip.editedModelTrack < clip.isOneShotTrack.length) {
+              clip.isOneShotTrack[clip.editedModelTrack] =
+                  !clip.isOneShotTrack[clip.editedModelTrack];
+            }
+          }
+        });
+    menu.add(oneShotItem);
+
+    javax.swing.JMenuItem hotSwapItem =
+        new javax.swing.JMenuItem("Hot-Swap Sample (current track)...");
+    hotSwapItem.addActionListener(
+        e -> {
+          if (SwingDelugeApp.mainInstance == null) return;
+          SwingGridPanel clip = SwingDelugeApp.mainInstance.getClipPanel();
+          if (clip == null) return;
+          javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
+          chooser.setFileFilter(
+              new javax.swing.filechooser.FileNameExtensionFilter(
+                  "WAV / AIFF samples", "wav", "aif", "aiff"));
+          if (chooser.showOpenDialog(this) == javax.swing.JFileChooser.APPROVE_OPTION) {
+            clip.hotSwapTrackSample(clip.editedModelTrack, 0, chooser.getSelectedFile());
+          }
+        });
+    menu.add(hotSwapItem);
+
     menu.show(this, x, y);
+    return menu;
   }
 
   public void drawRawFrameBuffer(byte[] frameBuffer) {

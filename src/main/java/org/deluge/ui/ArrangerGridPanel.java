@@ -215,25 +215,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
 
         vuManager.registerTrackVu(trk, vu);
       } else {
-        // Faceplate mode has no room for a full text label, but the same `label` widget (with its
-        // rename/color/inspector/move context menu, shift-click one-shot toggle, click-to-edit,
-        // and sample drag-drop) is still reachable, shrunk to a color swatch in the same reserved
-        // space a blank spacer previously occupied.
-        int swatchW = (int) Math.round(58 * faceScale);
-        label.setPreferredSize(new Dimension(swatchW, padSz));
-        label.setMinimumSize(new Dimension(swatchW, padSz));
-        label.setMaximumSize(new Dimension(swatchW, padSz));
-        label.setText("");
-        if (dispTrack != null) {
-          label.setBackground(trackColors[Math.floorMod(trk, trackColors.length)]);
-        }
-        label.setOpaque(true);
-        label.setToolTipText(
-            "<html><b>"
-                + tName
-                + "</b><br>Click: edit track &nbsp; Shift-click: toggle one-shot<br>Right-click:"
-                + " track menu &nbsp; Drag a sample here: hot-swap</html>");
-        rowPanel.add(label);
+        rowPanel.add(Box.createRigidArea(new Dimension((int) Math.round(58 * faceScale), 1)));
       }
 
       String[] allParams = {
