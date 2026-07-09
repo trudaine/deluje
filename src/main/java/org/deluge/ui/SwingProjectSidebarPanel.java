@@ -95,6 +95,11 @@ public class SwingProjectSidebarPanel extends JPanel {
     add(tabbedPane, BorderLayout.CENTER);
   }
 
+  /** Switches this sidebar to its "📡 HARDWARE" (real SD card explorer) tab. */
+  public void selectHardwareTab() {
+    tabbedPane.setSelectedIndex(1);
+  }
+
   /** Opens a directory chooser and applies the new SD-card root (PreferencesManager library). */
   private void chooseLibraryDir() {
     JFileChooser chooser = new JFileChooser(PreferencesManager.getLibraryDir());

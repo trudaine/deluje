@@ -99,6 +99,14 @@ public class SwingDelugeApp extends JFrame {
     return leftFloat;
   }
 
+  /** Brings the SD Explorer to the front (never hides it) and switches it to the Hardware tab. */
+  public void openHardwareExplorer() {
+    if (leftFloat == null || floatingSidebar == null) return;
+    floatingSidebar.selectHardwareTab();
+    leftFloat.setVisible(true);
+    leftFloat.toFront();
+  }
+
   public void pushModelToBridge() {
     syncCoordinator.pushModelToBridge();
   }
@@ -1966,6 +1974,17 @@ public class SwingDelugeApp extends JFrame {
     topBarWrapper.add(hardwareTopPanel, BorderLayout.CENTER);
     refreshTopPanelStyle();
     add(topBarWrapper, BorderLayout.NORTH);
+
+    // Real-hardware connection status ("DELUGE ON"/"DELUGE OFF" + LED) was a fully built,
+    // never-added widget -- click now opens the SD Explorer's Hardware tab (openHardwareExplorer)
+    // in addition to its existing ping/reconnect behavior.
+    if (this.midiService != null) {
+      JPanel statusBar = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 8, 2));
+      statusBar.setBackground(new Color(0x12, 0x12, 0x14));
+      statusBar.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(0x2d, 0x2d, 0x34)));
+      statusBar.add(new DelugeHwStatusPanel(this.midiService));
+      add(statusBar, BorderLayout.SOUTH);
+    }
 
     JScrollPane centerScroll =
         new JScrollPane(

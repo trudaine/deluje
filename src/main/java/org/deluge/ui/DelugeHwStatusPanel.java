@@ -58,6 +58,9 @@ public class DelugeHwStatusPanel extends JPanel {
                 midiService.reconnect();
               }
               triggerPingTest();
+              if (SwingDelugeApp.mainInstance != null) {
+                SwingDelugeApp.mainInstance.openHardwareExplorer();
+              }
             }
           }
 
