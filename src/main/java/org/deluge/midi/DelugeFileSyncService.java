@@ -309,7 +309,11 @@ public class DelugeFileSyncService {
           throw new IOException(
               "No reply after " + maxAttempts + " attempts (USB SysEx drops): " + what, te);
         }
-        Thread.sleep(40); // brief backoff before re-firing the dropped request
+        // Exponential backoff (capped): a flat, short retry delay under sustained congestion just
+        // re-fires into the same jam. Back off further each consecutive drop so the transport gets
+        // a real chance to drain before the next attempt.
+        long backoffMs = Math.min(40L * attempt, 400L);
+        Thread.sleep(backoffMs);
       }
     }
     throw new IllegalStateException("unreachable");

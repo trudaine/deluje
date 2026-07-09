@@ -263,7 +263,10 @@ public class MidiService {
                       engine.midiMessageReceived(MIDIMessage.fromMidiMsg(m), midiIn);
                     } else {
                       try {
-                        Thread.sleep(5);
+                        // 1ms, not 5ms: during a large file transfer this thread is the only
+                        // consumer draining SysEx replies, and a slower idle-poll adds worst-case
+                        // latency right when replies are arriving back-to-back under load.
+                        Thread.sleep(1);
                       } catch (InterruptedException e) {
                         break;
                       }
