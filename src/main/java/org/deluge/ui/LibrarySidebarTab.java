@@ -32,11 +32,11 @@ public class LibrarySidebarTab extends JScrollPane {
 
     libraryTree = new JTree(libraryRoot);
     libraryTree.setBackground(new Color(0x12, 0x12, 0x14));
-    libraryTree.setFont(new Font("SansSerif", Font.PLAIN, 16));
-    libraryTree.setRowHeight(30);
+    libraryTree.setFont(new Font("SansSerif", Font.PLAIN, 11));
+    libraryTree.setRowHeight(20);
 
     DefaultTreeCellRenderer renderer = new DefaultTreeCellRenderer();
-    renderer.setFont(new Font("SansSerif", Font.PLAIN, 16));
+    renderer.setFont(new Font("SansSerif", Font.PLAIN, 11));
     renderer.setBackgroundNonSelectionColor(new Color(0x12, 0x12, 0x14));
     renderer.setTextNonSelectionColor(Color.LIGHT_GRAY);
     renderer.setTextSelectionColor(Color.WHITE);

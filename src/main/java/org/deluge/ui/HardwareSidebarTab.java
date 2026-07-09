@@ -87,11 +87,11 @@ public class HardwareSidebarTab extends JPanel {
 
     hardwareTree = new JTree(hardwareRoot);
     hardwareTree.setBackground(new Color(0x12, 0x12, 0x14));
-    hardwareTree.setFont(new Font("SansSerif", Font.PLAIN, 16));
-    hardwareTree.setRowHeight(30);
+    hardwareTree.setFont(new Font("SansSerif", Font.PLAIN, 11));
+    hardwareTree.setRowHeight(20);
 
     DefaultTreeCellRenderer treeRenderer = new DefaultTreeCellRenderer();
-    treeRenderer.setFont(new Font("SansSerif", Font.PLAIN, 16));
+    treeRenderer.setFont(new Font("SansSerif", Font.PLAIN, 11));
     treeRenderer.setBackgroundNonSelectionColor(new Color(0x12, 0x12, 0x14));
     treeRenderer.setTextNonSelectionColor(Color.LIGHT_GRAY);
     treeRenderer.setTextSelectionColor(Color.WHITE);
