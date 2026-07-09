@@ -392,7 +392,10 @@ public class HardwareSidebarTab extends JPanel {
 
   /** Registers this panel as the live consumer of the real device's OLED/7-seg/debug streams. */
   private void wireLiveDeviceListeners() {
-    if (SwingDelugeApp.mainInstance == null) return;
+    if (SwingDelugeApp.mainInstance == null
+        || SwingDelugeApp.mainInstance.getMidiService() == null) {
+      return;
+    }
     var sysex = SwingDelugeApp.mainInstance.getMidiService().getSysExManager();
     sysex.setDisplayListener(
         new org.deluge.midi.DelugeSysExManager.DisplayListener() {

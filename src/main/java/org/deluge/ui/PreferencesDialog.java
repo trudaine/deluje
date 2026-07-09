@@ -542,7 +542,7 @@ public class PreferencesDialog extends JDialog {
         interactionModeCombo,
         "Controls how parameters modify on pad click hold.",
         c,
-        5);
+        4);
 
     JPanel scalaSelectPanel = new JPanel(new BorderLayout(5, 0));
     scalaSelectPanel.setOpaque(false);

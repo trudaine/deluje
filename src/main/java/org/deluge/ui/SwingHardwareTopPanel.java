@@ -136,8 +136,6 @@ public class SwingHardwareTopPanel extends JPanel {
   private int drawW = ORIG_WIDTH;
   private int drawH = ORIG_TOP_HEIGHT;
   private double currentScale = 1.0;
-  private int upperGoldRow = 0;
-  private int lowerGoldRow = 0;
   private boolean isAffectEntire = true;
   // Matches SwingGridPanel.scaleModeEnabled's default of true (real Deluge hardware boots with
   // scale mode on).
@@ -271,6 +269,15 @@ public class SwingHardwareTopPanel extends JPanel {
     controls.add(new ControlDef("MOD_ENCODER_0", 549, 469, 65, true, null));
     controls.add(new ControlDef("MOD_ENCODER_1", 775, 196, 65, true, null));
 
+    // Small printed arrow icons next to X_ENC (left/right, plain-turn equivalent = horizontal
+    // scroll) and Y_ENC (up/down, plain-turn equivalent = vertical scroll). Desktop-only click
+    // shortcuts for the same action already reachable via scrolling those encoders -- not a
+    // separate physical control on real hardware, just printed artwork with no hit region before.
+    controls.add(new ControlDef("X_ENC_LEFT", 401, 196, 16, false, null));
+    controls.add(new ControlDef("X_ENC_RIGHT", 441, 196, 16, false, null));
+    controls.add(new ControlDef("Y_ENC_UP", 174, 449, 16, false, null));
+    controls.add(new ControlDef("Y_ENC_DOWN", 174, 489, 16, false, null));
+
     for (ControlDef c : controls) {
       if (c.isEncoder) {
         encoderAngles.put(c.name, 0.0);
@@ -397,8 +404,16 @@ public class SwingHardwareTopPanel extends JPanel {
   private void drawModEncoderSquareLeds(Graphics2D g2) {
     int[] upperY = {251, 214, 177, 140}; // bottom -> top
     int[] lowerY = {523, 486, 449, 412}; // bottom -> top
-    drawSquareLedColumn(g2, 671, upperY, upperGoldRow);
-    drawSquareLedColumn(g2, 446, lowerY, lowerGoldRow);
+    // C: sound.cpp's modKnobMode is a single 0-7 state shared by both gold knobs together, but the
+    // physical MOD buttons are laid out as two columns of 4 (button.h ZmodButtonX: 1 for 0-3, 2 for
+    // 4-7) -- mirrored here as two 4-square columns, only one of which lights up depending on which
+    // half of the 8 modes is currently active.
+    org.deluge.model.SynthTrackModel st = currentSynthTrack();
+    int mode = st != null ? st.getModKnobMode() : -1;
+    int upperActive = (mode >= 0 && mode < 4) ? mode : -1;
+    int lowerActive = (mode >= 4) ? mode - 4 : -1;
+    drawSquareLedColumn(g2, 671, upperY, upperActive);
+    drawSquareLedColumn(g2, 446, lowerY, lowerActive);
   }
 
   private void drawSquareLedColumn(Graphics2D g2, int cx, int[] yTable, int activeRow) {
@@ -477,7 +492,26 @@ public class SwingHardwareTopPanel extends JPanel {
     if ("KIT".equals(c.name)) return isSelectedSiblingSlot(1);
     if ("MIDI".equals(c.name)) return isSelectedSiblingSlot(2);
     if ("CV".equals(c.name)) return isSelectedSiblingSlot(3);
+    if (c.name.length() == 4 && c.name.startsWith("MOD") && Character.isDigit(c.name.charAt(3))) {
+      org.deluge.model.SynthTrackModel st = currentSynthTrack();
+      return st != null && st.getModKnobMode() == (c.name.charAt(3) - '0');
+    }
     return false;
+  }
+
+  /**
+   * The currently-edited track, if it's a synth (the only track type with the full 8-mode gold-knob
+   * parameter table currently wired -- see modKnobMode on SynthTrackModel).
+   */
+  private org.deluge.model.SynthTrackModel currentSynthTrack() {
+    SwingGridPanel gp =
+        SwingDelugeApp.mainInstance != null ? SwingDelugeApp.mainInstance.activeGridPanel() : null;
+    if (gp == null || gp.getProjectModel() == null) return null;
+    int idx = gp.getEditedModelTrack();
+    java.util.List<org.deluge.model.TrackModel> tracks = gp.getProjectModel().getTracks();
+    if (idx < 0 || idx >= tracks.size()) return null;
+    org.deluge.model.TrackModel t = tracks.get(idx);
+    return (t instanceof org.deluge.model.SynthTrackModel st) ? st : null;
   }
 
   // C: horizontal_menu.cpp:546-571, updateSelectedMenuItemLED — lights the SYNTH/KIT/MIDI/CV LED
@@ -636,21 +670,160 @@ public class SwingHardwareTopPanel extends JPanel {
         oledPanel.showParamText("MASTER VOL", delta > 0 ? "VOLUME UP" : "VOLUME DOWN");
       }
     } else if ("MOD_ENCODER_0".equals(enc.name)) {
-      String[] upperNames = {"LEVEL / PAN", "CUTOFF / RES", "ATTACK / REL", "CUSTOM"};
-      String paramName = upperNames[upperGoldRow];
-      if (oledPanel != null) {
-        oledPanel.showParamText(
-            paramName, (pushMod ? "FINE " : "") + (delta > 0 ? "+ ADJUST" : "- ADJUST"));
-      }
+      adjustModKnobParam(0, delta, pushMod);
     } else if ("MOD_ENCODER_1".equals(enc.name)) {
-      String[] lowerNames = {"DELAY / SIDE", "RATE / STUTTER", "REVERB / DEPTH", "CUSTOM"};
-      String paramName = lowerNames[lowerGoldRow];
-      if (oledPanel != null) {
-        oledPanel.showParamText(
-            paramName, (pushMod ? "FINE " : "") + (delta > 0 ? "+ ADJUST" : "- ADJUST"));
-      }
+      adjustModKnobParam(1, delta, pushMod);
     }
     repaint();
+  }
+
+  /**
+   * Turning a gold knob: adjusts whichever of the 16 real parameters (8 modes x 2 knobs, C:
+   * sound.cpp:97-122) the current track's modKnobMode currently maps that knob to. knobIndex 0 =
+   * MOD_ENCODER_0, 1 = MOD_ENCODER_1, matching modKnobs[mode][knobIndex] in the C source.
+   */
+  private void adjustModKnobParam(int knobIndex, int delta, boolean fine) {
+    org.deluge.model.SynthTrackModel st = currentSynthTrack();
+    if (st == null) {
+      if (oledPanel != null) oledPanel.showParamText("MOD KNOB", "NO SYNTH TRACK");
+      return;
+    }
+    int mode = st.getModKnobMode();
+    float step = fine ? 0.01f : 0.04f;
+    int q31Step = fine ? (Integer.MAX_VALUE / 400) : (Integer.MAX_VALUE / 50);
+    String paramName;
+    String valueText;
+
+    switch (mode * 2 + knobIndex) {
+      case 0 -> { // mode 0, knob 0: PAN
+        float v = clamp(st.getPan() + delta * step, -1.0f, 1.0f);
+        st.setPan(v);
+        paramName = "PAN";
+        valueText = String.format("%+.0f%%", v * 100);
+      }
+      case 1 -> { // mode 0, knob 1: VOLUME
+        float v = clamp(st.getVolume() + delta * step, 0.0f, 1.0f);
+        st.setVolume(v);
+        paramName = "VOLUME";
+        valueText = String.format("%.0f%%", v * 100);
+      }
+      case 2 -> { // mode 1, knob 0: LPF RESONANCE
+        float v = clamp(st.getLpfRes() + delta * step, 0.0f, 1.0f);
+        st.setLpfRes(v);
+        paramName = "RESONANCE";
+        valueText = String.format("%.0f%%", v * 100);
+      }
+      case 3 -> { // mode 1, knob 1: LPF CUTOFF (log-scaled, matches ear-linear knob feel)
+        float mult = (float) Math.pow(fine ? 1.01 : 1.06, delta);
+        float v = clamp(st.getLpfFreq() * mult, 20.0f, 20000.0f);
+        st.setLpfFreq(v);
+        paramName = "CUTOFF";
+        valueText = String.format("%.0f Hz", v);
+      }
+      case 4 -> { // mode 2, knob 0: ENV RELEASE
+        org.deluge.model.EnvelopeModel e = st.getEnv(0);
+        float v = clamp(e.release() + delta * step, 0.0f, 5.0f);
+        st.setEnv(
+            0,
+            new org.deluge.model.EnvelopeModel(
+                e.attack(), e.decay(), e.sustain(), v, e.target(), e.amount()));
+        paramName = "RELEASE";
+        valueText = String.format("%.2f s", v);
+      }
+      case 5 -> { // mode 2, knob 1: ENV ATTACK
+        org.deluge.model.EnvelopeModel e = st.getEnv(0);
+        float v = clamp(e.attack() + delta * step, 0.0f, 5.0f);
+        st.setEnv(
+            0,
+            new org.deluge.model.EnvelopeModel(
+                v, e.decay(), e.sustain(), e.release(), e.target(), e.amount()));
+        paramName = "ATTACK";
+        valueText = String.format("%.2f s", v);
+      }
+      case 6 -> { // mode 3, knob 0: DELAY FEEDBACK
+        long v = clampQ31((long) st.getDelayFeedbackQ31() + (long) delta * q31Step);
+        st.setDelayFeedbackQ31((int) v);
+        paramName = "DELAY FEEDBACK";
+        valueText = String.format("%.0f%%", (v / (double) Integer.MAX_VALUE) * 100);
+      }
+      case 7 -> { // mode 3, knob 1: DELAY RATE (send level -- see FIRMWARE_PARITY note below)
+        float v = clamp(st.getDelaySend() + delta * step, 0.0f, 1.0f);
+        st.setDelaySend(v);
+        paramName = "DELAY RATE";
+        valueText = String.format("%.0f%%", v * 100);
+      }
+      case 8 -> { // mode 4, knob 0: REVERB AMOUNT
+        float v = clamp(st.getReverbSend() + delta * step, 0.0f, 1.0f);
+        st.setReverbSend(v);
+        paramName = "REVERB";
+        valueText = String.format("%.0f%%", v * 100);
+      }
+      case 9 -> { // mode 4, knob 1: SIDECHAIN/ducking depth -- NOT YET WIRED (no model+engine
+        // plumbing for a synthesized SIDECHAIN->GLOBAL_VOLUME_POST_REVERB_SEND patch cable; see
+        // docs/deluge_branch_audit_report.md follow-up notes)
+        if (oledPanel != null) oledPanel.showParamText("SIDECHAIN", "NOT YET WIRED");
+        return;
+      }
+      case 10 -> { // mode 5, knob 0: PITCH-LFO1 DEPTH
+        org.deluge.model.LfoModel l = st.getLfo(0);
+        float v = clamp(l.depth() + delta * step, 0.0f, 1.0f);
+        st.setLfo(
+            0,
+            new org.deluge.model.LfoModel(
+                l.rateHz(), l.waveform(), v, "PITCH", l.isLocal(), l.syncLevel(), l.syncType()));
+        paramName = "PITCH DEPTH";
+        valueText = String.format("%.0f%%", v * 100);
+      }
+      case 11 -> { // mode 5, knob 1: LFO1 RATE (raw knob, Q31)
+        int cur = st.getRawKnobs().isLfoRateKnobSet(0) ? st.getRawKnobs().getLfoRateKnobQ31(0) : 0;
+        long v = clampQ31((long) cur + (long) delta * q31Step);
+        st.getRawKnobs().setLfoRateKnobQ31(0, (int) v);
+        paramName = "LFO RATE";
+        valueText = String.format("%.0f%%", (v / (double) Integer.MAX_VALUE) * 100);
+      }
+      case 12 -> { // mode 6, knob 0: PORTAMENTO
+        int cur = st.getPortamentoQ31() == Integer.MIN_VALUE ? 0 : st.getPortamentoQ31();
+        long v = clampQ31((long) cur + (long) delta * q31Step);
+        st.setPortamentoQ31((int) v);
+        paramName = "PORTAMENTO";
+        valueText = String.format("%.0f%%", (v / (double) Integer.MAX_VALUE) * 100);
+      }
+      case 13 -> { // mode 6, knob 1: STUTTER RATE
+        float v = clamp(st.getStutter().getStutterRate() + delta * step, 0.0f, 1.0f);
+        st.getStutter().setStutterRate(v);
+        paramName = "STUTTER RATE";
+        valueText = String.format("%.0f%%", v * 100);
+      }
+      case 14 -> { // mode 7, knob 0: BITCRUSH
+        float v = clamp(st.getBitCrush() + delta * step, 0.0f, 1.0f);
+        st.setBitCrush(v);
+        paramName = "BITCRUSH";
+        valueText = String.format("%.0f%%", v * 100);
+      }
+      case 15 -> { // mode 7, knob 1: SAMPLE RATE REDUCTION
+        float v = clamp(st.getSampleRateReduction() + delta * step, 0.0f, 1.0f);
+        st.setSampleRateReduction(v);
+        paramName = "SAMPLE RATE";
+        valueText = String.format("%.0f%%", v * 100);
+      }
+      default -> {
+        return;
+      }
+    }
+    if (oledPanel != null) {
+      oledPanel.showParamText(paramName, valueText);
+    }
+    if (SwingDelugeApp.mainInstance != null) {
+      SwingDelugeApp.mainInstance.fireProjectChanged();
+    }
+  }
+
+  private static float clamp(float v, float lo, float hi) {
+    return Math.max(lo, Math.min(hi, v));
+  }
+
+  private static long clampQ31(long v) {
+    return Math.max(Integer.MIN_VALUE + 1, Math.min(Integer.MAX_VALUE, v));
   }
 
   /**
@@ -677,6 +850,35 @@ public class SwingHardwareTopPanel extends JPanel {
       oledPanel.showParamText(type, "NEW TRACK");
     }
     listener.onAddTrack(type, isShiftHeld);
+  }
+
+  // C: sound.cpp:97-122 (Sound::Sound() default modKnobs[mode][knob] table) -- each mode remaps
+  // both physical gold knobs (MOD_ENCODER_0 = knob 0, MOD_ENCODER_1 = knob 1) together. Names are
+  // "knob0 / knob1". Mode 4's knob1 (sidechain/ducking depth) has no model+engine plumbing yet in
+  // this port (see SwingHardwareTopPanel's rotateEncoder MOD_ENCODER handling), so its turn is a
+  // no-op with an OLED note rather than silently pretending to work.
+  private static final String[] MOD_KNOB_MODE_NAMES = {
+    "PAN / VOLUME",
+    "RESONANCE / CUTOFF",
+    "RELEASE / ATTACK",
+    "DELAY FEEDBACK / RATE",
+    "REVERB / SIDECHAIN",
+    "PITCH DEPTH / LFO RATE",
+    "PORTAMENTO / STUTTER",
+    "BITCRUSH / SAMPLE RATE"
+  };
+
+  /** MOD0-7 button press: selects which of the 8 gold-knob parameter pairs is active. */
+  private void selectModKnobMode(int mode) {
+    org.deluge.model.SynthTrackModel st = currentSynthTrack();
+    if (st == null) {
+      if (oledPanel != null) oledPanel.showParamText("MOD" + mode, "NO SYNTH TRACK");
+      return;
+    }
+    st.setModKnobMode(mode);
+    if (oledPanel != null) {
+      oledPanel.showParamText("MOD " + mode, MOD_KNOB_MODE_NAMES[mode]);
+    }
   }
 
   private void handleMouseClick(int mouseX, int mouseY) {
@@ -717,6 +919,14 @@ public class SwingHardwareTopPanel extends JPanel {
       case "KIT" -> selectSiblingOrAddTrack("KIT", 1);
       case "MIDI" -> selectSiblingOrAddTrack("MIDI", 2);
       case "CV" -> selectSiblingOrAddTrack("CV", 3);
+      case "MOD0" -> selectModKnobMode(0);
+      case "MOD1" -> selectModKnobMode(1);
+      case "MOD2" -> selectModKnobMode(2);
+      case "MOD3" -> selectModKnobMode(3);
+      case "MOD4" -> selectModKnobMode(4);
+      case "MOD5" -> selectModKnobMode(5);
+      case "MOD6" -> selectModKnobMode(6);
+      case "MOD7" -> selectModKnobMode(7);
       case "LOAD" -> listener.onLoadProject();
       case "SAVE" -> listener.onSaveProject();
       case "BACK" -> {
@@ -778,6 +988,46 @@ public class SwingHardwareTopPanel extends JPanel {
         listener.onTapTempo();
         if (projectModel != null && oledPanel != null) {
           oledPanel.showParamText("TEMPO", String.format("%.1f BPM", projectModel.getBpm()));
+        }
+      }
+      case "X_ENC_LEFT" -> {
+        SwingGridPanel gpLeft =
+            SwingDelugeApp.mainInstance != null
+                ? SwingDelugeApp.mainInstance.activeGridPanel()
+                : null;
+        if (gpLeft != null) {
+          gpLeft.scrollHorizontally(-1);
+          if (oledPanel != null) oledPanel.showParamText("X SCROLL", "SCROLL LEFT");
+        }
+      }
+      case "X_ENC_RIGHT" -> {
+        SwingGridPanel gpRight =
+            SwingDelugeApp.mainInstance != null
+                ? SwingDelugeApp.mainInstance.activeGridPanel()
+                : null;
+        if (gpRight != null) {
+          gpRight.scrollHorizontally(1);
+          if (oledPanel != null) oledPanel.showParamText("X SCROLL", "SCROLL RIGHT");
+        }
+      }
+      case "Y_ENC_UP" -> {
+        SwingGridPanel gpUp =
+            SwingDelugeApp.mainInstance != null
+                ? SwingDelugeApp.mainInstance.activeGridPanel()
+                : null;
+        if (gpUp != null) {
+          gpUp.scrollVertically(-1);
+          if (oledPanel != null) oledPanel.showParamText("Y SCROLL", "SCROLL UP");
+        }
+      }
+      case "Y_ENC_DOWN" -> {
+        SwingGridPanel gpDown =
+            SwingDelugeApp.mainInstance != null
+                ? SwingDelugeApp.mainInstance.activeGridPanel()
+                : null;
+        if (gpDown != null) {
+          gpDown.scrollVertically(1);
+          if (oledPanel != null) oledPanel.showParamText("Y SCROLL", "SCROLL DOWN");
         }
       }
       default -> {

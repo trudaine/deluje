@@ -141,6 +141,12 @@ public class SynthTrackModel extends TrackModel {
   // C sound.h: voice-stealing priority (0=low, 1=medium, 2=high). XML "voicePriority".
   private int voicePriority = 1;
 
+  // C: Output::modKnobMode (model/output.h:105) -- which of the 8 gold-knob parameter pairs the
+  // physical MOD_ENCODER_0/1 knobs currently control, selected by pressing one of the 8 MOD
+  // buttons (C: model/global_effectable/global_effectable.cpp:100-131, sound.cpp:97-122 for the
+  // default per-mode parameter table). Not yet round-tripped through XML serialization.
+  private int modKnobMode = 1;
+
   /**
    * Semitone transpose of the entire sound, typically -24 to 24. Maps to XML `<sound>` transpose
    * attr.
@@ -652,6 +658,14 @@ public class SynthTrackModel extends TrackModel {
     this.volume = v;
   }
 
+  public int getModKnobMode() {
+    return modKnobMode;
+  }
+
+  public void setModKnobMode(int mode) {
+    this.modKnobMode = Math.max(0, Math.min(7, mode));
+  }
+
   @Override
   public float getPan() {
     return pan;
@@ -1115,6 +1129,7 @@ public class SynthTrackModel extends TrackModel {
     this.polyphony = other.getPolyphony();
     this.maxVoiceCount = other.getMaxVoiceCount();
     this.voicePriority = other.getVoicePriority();
+    this.modKnobMode = other.getModKnobMode();
     this.transpose = other.getTranspose();
     this.synthAlgorithm = other.getSynthAlgorithm();
     this.oscillatorSync = other.oscillatorSync;
