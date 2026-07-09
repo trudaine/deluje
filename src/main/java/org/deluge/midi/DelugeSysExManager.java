@@ -224,16 +224,57 @@ public class DelugeSysExManager {
   }
 
   /**
-   * Negotiates a stateful MIDI session with the physical Deluge.
+   * Negotiates a stateful MIDI session with the physical Deluge, resending on a dropped reply.
+   *
+   * <p>Previously this fired a single, un-retried request: if that lone ~30-byte SysEx message was
+   * dropped in transit (the same USB SysEx unreliability documented on every retryable request in
+   * {@link org.deluge.midi.DelugeFileSyncService#sendWithRetry}), the returned future simply hung
+   * forever with no timeout, no retry, and no error -- {@code sessionId} silently stayed 0 for the
+   * rest of the connection, and every subsequent file/dir/ping request then failed with a confusing
+   * "no reply" of its own, with nothing pointing back at the real cause. Observed live: a real
+   * Deluge occasionally drops this first exchange, especially after many rapid reconnects.
    *
    * @param clientTag The client identifier tag
-   * @return A CompletableFuture that completes when the session has been successfully established
+   * @return A CompletableFuture that completes when the session has been successfully established,
+   *     or fails after retrying if the Deluge never replies at all
    */
   public java.util.concurrent.CompletableFuture<Void> negotiateSession(String clientTag) {
-    this.sessionNegotiationFuture = new java.util.concurrent.CompletableFuture<>();
+    java.util.concurrent.CompletableFuture<Void> resultFuture =
+        new java.util.concurrent.CompletableFuture<>();
+    this.sessionNegotiationFuture = resultFuture;
     String payload = "{\"session\":{\"tag\":\"" + clientTag + "\"}}";
+    // First attempt is sent synchronously, before this method returns -- matches the prior
+    // behavior callers/tests rely on (e.g. inspecting the just-sent packet right after calling
+    // this). Only the retry-on-drop wait runs in the background.
     sendRequest(payload, null);
-    return sessionNegotiationFuture;
+
+    Thread.ofVirtual()
+        .name("DelugeSessionNegotiator")
+        .start(
+            () -> {
+              final int maxAttempts = 5;
+              int attempt = 1;
+              while (true) {
+                try {
+                  resultFuture.get(1000, java.util.concurrent.TimeUnit.MILLISECONDS);
+                  return; // reply arrived, future already completed by handleIncomingSysEx
+                } catch (java.util.concurrent.TimeoutException te) {
+                  if (resultFuture.isDone() || attempt >= maxAttempts) {
+                    break;
+                  }
+                  attempt++;
+                  sendRequest(payload, null); // dropped in transit -- resend
+                } catch (Exception e) {
+                  return; // already resolved (success or a real failure) by some other path
+                }
+              }
+              if (!resultFuture.isDone()) {
+                resultFuture.completeExceptionally(
+                    new java.io.IOException(
+                        "Session negotiation: no reply after " + maxAttempts + " attempts"));
+              }
+            });
+    return resultFuture;
   }
 
   /**

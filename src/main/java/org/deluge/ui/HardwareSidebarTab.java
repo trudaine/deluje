@@ -851,6 +851,14 @@ public class HardwareSidebarTab extends JPanel {
     this.currentRemotePath = remotePath;
     currentFolderLabel.setText("📂 " + remotePath);
 
+    // Unlike a one-shot request, listDirectory now retries/paginates over the fragile USB SysEx
+    // link and can legitimately take several seconds on a lossy connection. Every other transfer
+    // in this tab shows transferProgressBar while it works; this one didn't, so a slow-but-working
+    // listing looked identical to a broken, permanently empty one.
+    transferProgressBar.setVisible(true);
+    transferProgressBar.setIndeterminate(true);
+    transferProgressBar.setString("Loading " + remotePath + "…");
+
     fileSync.listDirectory(
         remotePath,
         new org.deluge.midi.DelugeFileSyncService.DirectoryListCallback() {
@@ -858,6 +866,7 @@ public class HardwareSidebarTab extends JPanel {
           public void onSuccess(java.util.List<RemoteFileEntry> entries) {
             SwingUtilities.invokeLater(
                 () -> {
+                  transferProgressBar.setVisible(false);
                   currentRemoteEntries = entries;
                   remoteTableModel.setRowCount(0);
                   for (RemoteFileEntry entry : entries) {
@@ -871,6 +880,7 @@ public class HardwareSidebarTab extends JPanel {
           @Override
           public void onFailure(Throwable t) {
             System.err.println("[Sidebar] Failed to list remote directory: " + t.getMessage());
+            SwingUtilities.invokeLater(() -> transferProgressBar.setVisible(false));
           }
         });
   }

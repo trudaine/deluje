@@ -658,6 +658,8 @@ public class DelugeFileSyncService {
         break; // short page => end of directory
       }
     }
+    System.out.println(
+        "[FileSyncService] listDirectory " + remotePath + " -> " + entries.size() + " entries");
     return entries;
   }
 

@@ -341,4 +341,80 @@ public class DelugeSysExManagerTest {
     assertEquals(9, manager.getMidMin());
     assertEquals(15, manager.getMidMax());
   }
+
+  @Test
+  public void testNegotiateSessionRetriesOnDroppedFirstReply() throws Exception {
+    // Regression: negotiateSession used to fire a single, un-retried request. If that lone reply
+    // was dropped in transit (the same USB SysEx unreliability every other request already retries
+    // against), sessionId silently stayed 0 forever -- with no timeout, no retry, and no error --
+    // and every subsequent request then failed with its own unrelated-looking "no reply". This was
+    // observed live: a real Deluge occasionally drops the session handshake, especially after many
+    // rapid reconnects, which read as "no songs in the remote explorer" with no clue why.
+    java.util.concurrent.atomic.AtomicInteger sendCount =
+        new java.util.concurrent.atomic.AtomicInteger(0);
+    org.deluge.shadow.midi.MidiOut countingOut =
+        new org.deluge.shadow.midi.MidiOut() {
+          @Override
+          public void send(MidiMsg msg) {
+            sendCount.incrementAndGet();
+          }
+        };
+    DelugeSysExManager manager = new DelugeSysExManager();
+    manager.setMidiOut(countingOut);
+
+    java.util.concurrent.CompletableFuture<Void> future = manager.negotiateSession("Deluge-Java");
+    assertEquals(1, sendCount.get(), "first attempt must be sent synchronously");
+    assertFalse(future.isDone());
+
+    // Simulate the first reply being dropped entirely: wait past the per-attempt timeout without
+    // ever calling handleIncomingSysEx, then confirm a second request was actually sent.
+    long deadline = System.currentTimeMillis() + 3000;
+    while (sendCount.get() < 2 && System.currentTimeMillis() < deadline) {
+      Thread.sleep(50);
+    }
+    assertEquals(2, sendCount.get(), "must resend after the first reply is dropped");
+    assertFalse(future.isDone(), "must not fail until retries are exhausted");
+
+    // Now let the (second) reply arrive and confirm the session still completes successfully.
+    String replyJson =
+        "{\"^session\":{\"sid\":5,\"tag\":\"Deluge-Java\",\"midMin\":33,\"midMax\":39}}";
+    byte[] replyBytes = replyJson.getBytes(StandardCharsets.US_ASCII);
+    byte[] incoming = new byte[7 + replyBytes.length + 1];
+    incoming[0] = (byte) 0xF0;
+    incoming[1] = 0x00;
+    incoming[2] = 0x21;
+    incoming[3] = 0x7B;
+    incoming[4] = 0x01;
+    incoming[5] = 0x04;
+    incoming[6] = 0x00;
+    System.arraycopy(replyBytes, 0, incoming, 7, replyBytes.length);
+    incoming[incoming.length - 1] = (byte) 0xF7;
+    assertTrue(manager.handleIncomingSysEx(incoming));
+
+    future.get(2, java.util.concurrent.TimeUnit.SECONDS);
+    assertEquals(5, manager.getSessionId());
+  }
+
+  @Test
+  public void testNegotiateSessionFailsExplicitlyAfterAllRetriesDrop() throws Exception {
+    // If every attempt is dropped, the future must eventually fail with a clear error instead of
+    // hanging forever (the pre-fix behavior: sessionId stuck at 0 with no explanation).
+    org.deluge.shadow.midi.MidiOut blackHoleOut =
+        new org.deluge.shadow.midi.MidiOut() {
+          @Override
+          public void send(MidiMsg msg) {
+            // Never reply -- every attempt is dropped.
+          }
+        };
+    DelugeSysExManager manager = new DelugeSysExManager();
+    manager.setMidiOut(blackHoleOut);
+
+    java.util.concurrent.CompletableFuture<Void> future = manager.negotiateSession("Deluge-Java");
+    Exception ex =
+        assertThrows(
+            java.util.concurrent.ExecutionException.class,
+            () -> future.get(10, java.util.concurrent.TimeUnit.SECONDS));
+    assertTrue(ex.getCause() instanceof java.io.IOException);
+    assertEquals(0, manager.getSessionId());
+  }
 }
