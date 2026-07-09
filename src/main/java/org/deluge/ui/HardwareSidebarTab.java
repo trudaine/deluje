@@ -27,6 +27,12 @@ public class HardwareSidebarTab extends JPanel {
   private java.util.List<RemoteFileEntry> currentRemoteEntries = new java.util.ArrayList<>();
   private JProgressBar transferProgressBar;
 
+  private org.deluge.hid.VirtualOLED liveOled;
+  private JComponent liveOledView;
+  private JLabel liveSevenSegLabel;
+  private JTextArea liveDebugLogArea;
+  private static final int MAX_DEBUG_LOG_LINES = 500;
+
   public HardwareSidebarTab(SwingProjectSidebarPanel parent) {
     this.parent = parent;
 
@@ -315,11 +321,110 @@ public class HardwareSidebarTab extends JPanel {
     splitPane.setBorder(BorderFactory.createEmptyBorder());
 
     add(splitPane, BorderLayout.CENTER);
+    add(buildLiveDeviceMonitorPanel(), BorderLayout.SOUTH);
 
     // Initial folder load
     Timer initialLoadTimer = new Timer(800, ev -> loadRemoteFolder("/SONGS"));
     initialLoadTimer.setRepeats(false);
     initialLoadTimer.start();
+
+    // Deferred so SwingDelugeApp.mainInstance is guaranteed set by the time we look it up.
+    Timer wireListenersTimer = new Timer(800, ev -> wireLiveDeviceListeners());
+    wireListenersTimer.setRepeats(false);
+    wireListenersTimer.start();
+  }
+
+  /**
+   * Builds the live-mirror panel for the physical Deluge's own screen: its real OLED frame buffer
+   * (or 7-segment text, on older hardware) and its real-time debug log stream. Both were already
+   * being requested from the device (DelugeHwStatusPanel calls startOledStreaming() on connect) but
+   * had no UI consumer -- DelugeSysExManager.DisplayListener/MidiDebugListener were set up in the
+   * protocol layer and never wired to anything, so the frames/messages were silently dropped.
+   */
+  private JPanel buildLiveDeviceMonitorPanel() {
+    JPanel panel = new JPanel(new BorderLayout(6, 0));
+    panel.setBackground(new Color(0x15, 0x15, 0x18));
+    panel.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+
+    JLabel title = new JLabel("LIVE DEVICE SCREEN");
+    title.setForeground(Color.LIGHT_GRAY);
+    title.setFont(new Font("SansSerif", Font.BOLD, 9));
+    JPanel titleRow = new JPanel(new BorderLayout());
+    titleRow.setOpaque(false);
+    titleRow.add(title, BorderLayout.WEST);
+    liveSevenSegLabel = new JLabel("");
+    liveSevenSegLabel.setForeground(new Color(0x00, 0xff, 0xcc));
+    liveSevenSegLabel.setFont(new Font("Monospaced", Font.BOLD, 10));
+    titleRow.add(liveSevenSegLabel, BorderLayout.EAST);
+    panel.add(titleRow, BorderLayout.NORTH);
+
+    liveOled = new org.deluge.hid.VirtualOLED();
+    liveOledView =
+        new JComponent() {
+          @Override
+          protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            g.setColor(Color.BLACK);
+            g.fillRect(0, 0, getWidth(), getHeight());
+            ((Graphics2D) g).drawImage(liveOled.getImage(), 0, 0, getWidth(), getHeight(), null);
+          }
+        };
+    liveOledView.setPreferredSize(new Dimension(256, 96));
+    liveOledView.setMinimumSize(new Dimension(256, 96));
+    liveOledView.setBorder(BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x34), 1));
+    liveOledView.setToolTipText(
+        "Mirrors the physical Deluge's own screen (only updates while a real device is connected)");
+    panel.add(liveOledView, BorderLayout.WEST);
+
+    liveDebugLogArea = new JTextArea();
+    liveDebugLogArea.setEditable(false);
+    liveDebugLogArea.setBackground(new Color(0x0e, 0x0e, 0x10));
+    liveDebugLogArea.setForeground(new Color(0x8a, 0xff, 0x8a));
+    liveDebugLogArea.setFont(new Font("Monospaced", Font.PLAIN, 9));
+    liveDebugLogArea.setLineWrap(true);
+    JScrollPane debugScroll = new JScrollPane(liveDebugLogArea);
+    debugScroll.setPreferredSize(new Dimension(200, 96));
+    debugScroll.setBorder(BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x34), 1));
+    panel.add(debugScroll, BorderLayout.CENTER);
+
+    return panel;
+  }
+
+  /** Registers this panel as the live consumer of the real device's OLED/7-seg/debug streams. */
+  private void wireLiveDeviceListeners() {
+    if (SwingDelugeApp.mainInstance == null) return;
+    var sysex = SwingDelugeApp.mainInstance.getMidiService().getSysExManager();
+    sysex.setDisplayListener(
+        new org.deluge.midi.DelugeSysExManager.DisplayListener() {
+          @Override
+          public void onOledFrame(byte[] frameBuffer) {
+            SwingUtilities.invokeLater(
+                () -> {
+                  liveOled.drawRawFrameBuffer(frameBuffer);
+                  liveOledView.repaint();
+                });
+          }
+
+          @Override
+          public void onSevenSegment(String text) {
+            SwingUtilities.invokeLater(() -> liveSevenSegLabel.setText(text));
+          }
+        });
+    sysex.setMidiDebugListener(
+        message -> SwingUtilities.invokeLater(() -> appendDebugLine(message)));
+  }
+
+  private void appendDebugLine(String message) {
+    liveDebugLogArea.append(message + "\n");
+    int excess = liveDebugLogArea.getLineCount() - MAX_DEBUG_LOG_LINES;
+    if (excess > 0) {
+      try {
+        int endOfExcess = liveDebugLogArea.getLineEndOffset(excess - 1);
+        liveDebugLogArea.replaceRange("", 0, endOfExcess);
+      } catch (javax.swing.text.BadLocationException ignored) {
+      }
+    }
+    liveDebugLogArea.setCaretPosition(liveDebugLogArea.getDocument().getLength());
   }
 
   private void runConnectionSelfTest() {
