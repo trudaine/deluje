@@ -56,6 +56,23 @@ public class DelugeFileSyncService {
   private final DelugeSysExManager sysExManager;
   private volatile boolean transferActive = false;
 
+  /**
+   * Serializes every logical hardware operation (a whole dir listing, download, upload, or one-shot
+   * mkdir/delete/rename/copy/move/utime) so at most one is ever in flight at a time.
+   *
+   * <p>Without this, two overlapping operations (e.g. a background dir refresh racing a
+   * user-triggered download -- concretely, HardwareSidebarTab's REFRESH button fires
+   * refreshHardwareTree() and loadRemoteFolder() back-to-back with no coordination) don't just
+   * compete for USB bandwidth: DelugeSysExManager dispatches replies by a single shared, narrow
+   * {@code seq} counter (bounded by the negotiated session's midMin..midMax, as few as 7 slots)
+   * keyed in one map. Interleaved retries from two unrelated operations can land on the same {@code
+   * seq}, silently overwriting one operation's pending callback with the other's -- the orphaned
+   * request then times out and retries forever, which is exactly the cascading "No reply after N
+   * attempts" seen across an open + two unrelated dir listings all failing together.
+   */
+  private final java.util.concurrent.locks.ReentrantLock hardwareLock =
+      new java.util.concurrent.locks.ReentrantLock();
+
   public boolean isTransferActive() {
     return transferActive;
   }
@@ -75,6 +92,7 @@ public class DelugeFileSyncService {
         .name("DelugeDirLister-" + remotePath)
         .start(
             () -> {
+              hardwareLock.lock();
               boolean prevOled = sysExManager.isOledStreamingEnabled();
               transferActive = true;
               sysExManager.setOledStreamingEnabled(
@@ -86,6 +104,7 @@ public class DelugeFileSyncService {
               } finally {
                 sysExManager.setOledStreamingEnabled(prevOled);
                 transferActive = false;
+                hardwareLock.unlock();
               }
             });
   }
@@ -111,6 +130,7 @@ public class DelugeFileSyncService {
         .name("DelugeDirLister-batch")
         .start(
             () -> {
+              hardwareLock.lock();
               boolean prevOled = sysExManager.isOledStreamingEnabled();
               transferActive = true;
               sysExManager.setOledStreamingEnabled(false);
@@ -125,6 +145,7 @@ public class DelugeFileSyncService {
               } finally {
                 sysExManager.setOledStreamingEnabled(prevOled);
                 transferActive = false;
+                hardwareLock.unlock();
               }
             });
   }
@@ -300,6 +321,7 @@ public class DelugeFileSyncService {
 
   public byte[] downloadFileBlocking(String remotePath, ProgressCallback progress)
       throws Exception {
+    hardwareLock.lock();
     transferActive = true;
     sysExManager.setOledStreamingEnabled(false);
     try {
@@ -373,6 +395,7 @@ public class DelugeFileSyncService {
       sysExManager.setOledStreamingEnabled(true);
       sysExManager.startOledStreaming();
       transferActive = false;
+      hardwareLock.unlock();
     }
   }
 
@@ -382,6 +405,7 @@ public class DelugeFileSyncService {
 
   public void uploadFileBlocking(String remotePath, byte[] content, long lastModifiedMillis)
       throws Exception {
+    hardwareLock.lock();
     transferActive = true;
     sysExManager.setOledStreamingEnabled(false);
     try {
@@ -478,6 +502,7 @@ public class DelugeFileSyncService {
       sysExManager.setOledStreamingEnabled(true);
       sysExManager.startOledStreaming();
       transferActive = false;
+      hardwareLock.unlock();
     }
   }
 
@@ -589,37 +614,100 @@ public class DelugeFileSyncService {
   }
 
   /**
-   * Retrieves the detailed metadata-preserving list of directory entries on the Deluge.
+   * Blocking, paginated, retrying counterpart of {@link #listOneBlocking} that keeps full entry
+   * metadata (size/date/attr) instead of just names, for the folder-table view.
+   */
+  private List<RemoteFileEntry> listDirectoryBlocking(String remotePath) throws Exception {
+    List<RemoteFileEntry> entries = new ArrayList<>();
+    final int linesWanted = 25; // MAX_DIR_LINES in firmware smsysex.cpp
+    int offset = 0;
+    while (true) {
+      String req =
+          String.format(
+              "{\"dir\":{\"path\":\"%s\",\"offset\":%d,\"lines\":%d}}",
+              remotePath, offset, linesWanted);
+      Reply reply;
+      try {
+        reply = sendWithRetry(req, null, 8, 3000, "dir " + remotePath + "@" + offset);
+      } catch (Exception e) {
+        if (offset == 0) {
+          throw e;
+        }
+        System.err.println(
+            "[FileSyncService] "
+                + remotePath
+                + " listing truncated at offset "
+                + offset
+                + " ("
+                + entries.size()
+                + " entries so far): "
+                + e.getMessage());
+        break;
+      }
+      int err = getIntAttr(reply.json(), "err");
+      if (err != 0) {
+        if (offset == 0) {
+          throw new IOException("Remote dir list failed for " + remotePath + ", err=" + err);
+        }
+        break;
+      }
+      List<RemoteFileEntry> page = parseDirectoryEntries(reply.json());
+      entries.addAll(page);
+      offset += page.size();
+      if (page.size() < linesWanted) {
+        break; // short page => end of directory
+      }
+    }
+    return entries;
+  }
+
+  /**
+   * Retrieves the detailed metadata-preserving list of directory entries on the Deluge, driving the
+   * folder-table view. Paginated and retrying like every other operation in this file (a single
+   * dropped ~1.5KB reply used to mean an instant, un-retried failure here, unlike {@link
+   * #listOneBlocking}/{@link #downloadFileBlocking} which already retry) and serialized via {@link
+   * #hardwareLock} so it can't race a concurrent dir listing or download.
    *
    * @param remotePath Absolute remote path (e.g. {@code "/SONGS"} or {@code "/SYNTHS"})
    * @param callback Callback for success (file entry list) or failure
    */
   public void listDirectory(String remotePath, DirectoryListCallback callback) {
-    String req = String.format("{\"dir\": {\"path\": \"%s\", \"lines\": 25}}", remotePath);
-    sysExManager.sendRequest(
-        req,
-        (json, bin) -> {
-          int err = getIntAttr(json, "err");
-          if (err != 0) {
-            callback.onFailure(new IOException("Remote dir list failed, err=" + err));
-            return;
-          }
-          List<RemoteFileEntry> entries = parseDirectoryEntries(json);
-          callback.onSuccess(entries);
-        });
+    Thread.ofVirtual()
+        .name("DelugeDirEntryLister-" + remotePath)
+        .start(
+            () -> {
+              hardwareLock.lock();
+              boolean prevOled = sysExManager.isOledStreamingEnabled();
+              transferActive = true;
+              sysExManager.setOledStreamingEnabled(false);
+              try {
+                callback.onSuccess(listDirectoryBlocking(remotePath));
+              } catch (Exception e) {
+                callback.onFailure(e);
+              } finally {
+                sysExManager.setOledStreamingEnabled(prevOled);
+                transferActive = false;
+                hardwareLock.unlock();
+              }
+            });
   }
 
   // ── New Remote File System Operations ──
 
   /** Create a remote directory. */
   public int createDirectoryBlocking(String remotePath, long lastModifiedMillis) throws Exception {
-    int[] fatDT = encodeFatDateTime(lastModifiedMillis);
-    String req =
-        String.format(
-            "{\"mkdir\": {\"path\": \"%s\", \"date\": %d, \"time\": %d}}",
-            remotePath, fatDT[0], fatDT[1]);
-    Reply r = sendWithRetry(req, null, 8, 800, "mkdir " + remotePath);
-    return getIntAttr(r.json(), "err");
+    hardwareLock.lock();
+    try {
+      int[] fatDT = encodeFatDateTime(lastModifiedMillis);
+      String req =
+          String.format(
+              "{\"mkdir\": {\"path\": \"%s\", \"date\": %d, \"time\": %d}}",
+              remotePath, fatDT[0], fatDT[1]);
+      Reply r = sendWithRetry(req, null, 8, 800, "mkdir " + remotePath);
+      return getIntAttr(r.json(), "err");
+    } finally {
+      hardwareLock.unlock();
+    }
   }
 
   public void createDirectoryAsync(
@@ -643,9 +731,14 @@ public class DelugeFileSyncService {
 
   /** Delete a remote file or directory. */
   public int deleteBlocking(String remotePath) throws Exception {
-    String req = String.format("{\"delete\": {\"path\": \"%s\"}}", remotePath);
-    Reply r = sendWithRetry(req, null, 8, 800, "delete " + remotePath);
-    return getIntAttr(r.json(), "err");
+    hardwareLock.lock();
+    try {
+      String req = String.format("{\"delete\": {\"path\": \"%s\"}}", remotePath);
+      Reply r = sendWithRetry(req, null, 8, 800, "delete " + remotePath);
+      return getIntAttr(r.json(), "err");
+    } finally {
+      hardwareLock.unlock();
+    }
   }
 
   public void deleteAsync(String remotePath, FileOpCallback callback) {
@@ -668,10 +761,15 @@ public class DelugeFileSyncService {
 
   /** Rename a remote file or directory. */
   public int renameBlocking(String fromPath, String toPath) throws Exception {
-    String req =
-        String.format("{\"rename\": {\"from\": \"%s\", \"to\": \"%s\"}}", fromPath, toPath);
-    Reply r = sendWithRetry(req, null, 8, 800, "rename " + fromPath + " to " + toPath);
-    return getIntAttr(r.json(), "err");
+    hardwareLock.lock();
+    try {
+      String req =
+          String.format("{\"rename\": {\"from\": \"%s\", \"to\": \"%s\"}}", fromPath, toPath);
+      Reply r = sendWithRetry(req, null, 8, 800, "rename " + fromPath + " to " + toPath);
+      return getIntAttr(r.json(), "err");
+    } finally {
+      hardwareLock.unlock();
+    }
   }
 
   public void renameAsync(String fromPath, String toPath, FileOpCallback callback) {
@@ -695,13 +793,18 @@ public class DelugeFileSyncService {
   /** Copy a file natively on the Deluge SD card. */
   public int copyBlocking(String fromPath, String toPath, long lastModifiedMillis)
       throws Exception {
-    int[] fatDT = encodeFatDateTime(lastModifiedMillis);
-    String req =
-        String.format(
-            "{\"copy\": {\"from\": \"%s\", \"to\": \"%s\", \"date\": %d, \"time\": %d}}",
-            fromPath, toPath, fatDT[0], fatDT[1]);
-    Reply r = sendWithRetry(req, null, 15, 800, "copy " + fromPath);
-    return getIntAttr(r.json(), "err");
+    hardwareLock.lock();
+    try {
+      int[] fatDT = encodeFatDateTime(lastModifiedMillis);
+      String req =
+          String.format(
+              "{\"copy\": {\"from\": \"%s\", \"to\": \"%s\", \"date\": %d, \"time\": %d}}",
+              fromPath, toPath, fatDT[0], fatDT[1]);
+      Reply r = sendWithRetry(req, null, 15, 800, "copy " + fromPath);
+      return getIntAttr(r.json(), "err");
+    } finally {
+      hardwareLock.unlock();
+    }
   }
 
   public void copyAsync(
@@ -726,13 +829,18 @@ public class DelugeFileSyncService {
   /** Move a file natively on the Deluge SD card. */
   public int moveBlocking(String fromPath, String toPath, long lastModifiedMillis)
       throws Exception {
-    int[] fatDT = encodeFatDateTime(lastModifiedMillis);
-    String req =
-        String.format(
-            "{\"move\": {\"from\": \"%s\", \"to\": \"%s\", \"date\": %d, \"time\": %d}}",
-            fromPath, toPath, fatDT[0], fatDT[1]);
-    Reply r = sendWithRetry(req, null, 15, 800, "move " + fromPath);
-    return getIntAttr(r.json(), "err");
+    hardwareLock.lock();
+    try {
+      int[] fatDT = encodeFatDateTime(lastModifiedMillis);
+      String req =
+          String.format(
+              "{\"move\": {\"from\": \"%s\", \"to\": \"%s\", \"date\": %d, \"time\": %d}}",
+              fromPath, toPath, fatDT[0], fatDT[1]);
+      Reply r = sendWithRetry(req, null, 15, 800, "move " + fromPath);
+      return getIntAttr(r.json(), "err");
+    } finally {
+      hardwareLock.unlock();
+    }
   }
 
   public void moveAsync(
@@ -756,13 +864,18 @@ public class DelugeFileSyncService {
 
   /** Explicitly set a remote file or directory's modification timestamp. */
   public int setTimestampBlocking(String remotePath, long lastModifiedMillis) throws Exception {
-    int[] fatDT = encodeFatDateTime(lastModifiedMillis);
-    String req =
-        String.format(
-            "{\"utime\": {\"path\": \"%s\", \"date\": %d, \"time\": %d}}",
-            remotePath, fatDT[0], fatDT[1]);
-    Reply r = sendWithRetry(req, null, 8, 800, "utime " + remotePath);
-    return getIntAttr(r.json(), "err");
+    hardwareLock.lock();
+    try {
+      int[] fatDT = encodeFatDateTime(lastModifiedMillis);
+      String req =
+          String.format(
+              "{\"utime\": {\"path\": \"%s\", \"date\": %d, \"time\": %d}}",
+              remotePath, fatDT[0], fatDT[1]);
+      Reply r = sendWithRetry(req, null, 8, 800, "utime " + remotePath);
+      return getIntAttr(r.json(), "err");
+    } finally {
+      hardwareLock.unlock();
+    }
   }
 
   public void setTimestampAsync(

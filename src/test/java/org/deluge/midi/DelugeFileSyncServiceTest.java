@@ -241,7 +241,10 @@ public class DelugeFileSyncServiceTest {
               assertTrue(jsonPayload.contains("\"path\": \"/SONGS/A.XML\""));
               callback.onResponse("{\"^utime\": {\"err\": 0}}", null);
             } else if (jsonPayload.contains("\"dir\"")) {
-              assertTrue(jsonPayload.contains("\"path\": \"/SONGS\""));
+              // listDirectory is now paginated/retrying like listOneBlocking, so it sends the
+              // same compact (no-space) format with an offset, not the old spaced one-shot format.
+              assertTrue(jsonPayload.contains("\"path\":\"/SONGS\""));
+              assertTrue(jsonPayload.contains("\"offset\":0"));
               callback.onResponse(
                   "{\"^dir\": {\"list\": [{\"name\":\"S1.XML\",\"size\":123,\"date\":100,\"time\":100,\"attr\":32}], \"err\": 0}}",
                   null);
