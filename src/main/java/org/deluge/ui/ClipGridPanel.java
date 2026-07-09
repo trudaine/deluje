@@ -207,16 +207,15 @@ public class ClipGridPanel extends SwingGridPanel {
     // (X_ENC / the page-select bar above are the live ways to change scrollOffsetX).
     this.horizScrollBar = scrollController.getHorizontalScrollBar();
 
-    // Fixed row: KEYBOARD (mini isomorphic strip), matching SongGridPanel/ArrangerGridPanel where
-    // the same row is unconditional. MACROS was dropped here: its 16 sliders substantially overlap
-    // the faceplate's two physical gold knobs (LEVEL, PAN, FILTER, RESONANCE, DELAY, REVERB,
-    // STUTTER are reachable there), the on-screen-16-sliders-at-once design was never a real
-    // hardware feature to begin with, and making it unconditional caused the fixed-height row to
-    // overflow the non-scrollable center viewport (SwingDelugeApp's centerScroll has both
-    // scrollbars disabled), clipping content with no way to reach it.
-    int keyboardRowIdx = gridMode.rows + 2;
-    int keyboardHeight = (int) (padSz * 0.6);
-    add(buildFixedRow("KEYBOARD", keyboardRowIdx, padSz, Math.max(16, keyboardHeight)));
+    // Neither MACROS nor a mini KEYBOARD strip are appended here anymore: both were fixed rows
+    // added below the main voice area (unlike Song/Arranger, where the same rows are scrollable
+    // virtual rows within the existing viewport), and SwingDelugeApp's centerScroll has both
+    // scrollbars disabled -- so any extra fixed height just clips with no way to reach it. The
+    // dedicated GridViewMode.KEYPLAY view (reachable via the faceplate's own live KEYBOARD button)
+    // already provides full keyboard play without that layout cost, and the gold knobs already
+    // cover most of what MACROS's 16 sliders offered. Neither row was hardware-accurate to begin
+    // with -- the physical Deluge doesn't show a keyboard strip or 16 simultaneous sliders glued
+    // under the sequencer grid.
 
     revalidate();
     repaint();
