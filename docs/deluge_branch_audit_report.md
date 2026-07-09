@@ -111,3 +111,34 @@ graph TD
 
 > [!TIP]
 > This roadmap ensures we maintain 100% backward compatibility with standard 12-TET songs, while unlocking powerful microtonal synthesis capabilities that go beyond the official physical Deluge firmware!
+
+---
+
+## 5. Community Discussion Audit (DelugeFirmware GitHub Discussions)
+
+Following up on our own discussion post ([#4631](https://github.com/SynthstromAudible/DelugeFirmware/discussions/4631), "Testing AI tools with a Java Deluge emulator..."), we scanned the top of the community's Discussions board (`Ideas` + `General` categories) for open requests that either (a) are the actual community threads behind the 4 feature branches we already proposed, or (b) are new candidates worth prototyping in Deluge-Java before touching the C++ firmware. As with the microtuning branch above, our rule is: **build and validate it in Java first** — faster iteration, immediate JUnit/fidelity coverage, no embedded toolchain — then port the validated design back to C++.
+
+**Important context from the #4631 thread itself**: a firmware collaborator (seangoodvibes) noted the USB stack is migrating from C/C++ (tinyusb) to **Rust + embassy-usb**. Any USB-transport-level proposal (not the SysEx-over-MIDI layer we already have working — that's unaffected) should account for this before investing in it. Separately, `lopho` pointed to [`delugemu`](https://github.com/lopho/delugemu), a QEMU-based bare-metal emulator running the actual compiled firmware image — a fundamentally different approach from our from-scratch Java port, worth being aware of as a complementary (not competing) project.
+
+### 5.1 Discussions Behind Our Already-Proposed Feature Branches
+
+| Discussion | Comments | Maps to Our Proposed Branch | Deluge-Java Status |
+| :--- | :--- | :--- | :--- |
+| ["Song snapshot"](https://github.com/SynthstromAudible/DelugeFirmware/discussions) (bukru, Feb 2025) | 1 | `song snapshots` | **NOT YET STARTED**. We have the full `ProjectModel`/`UndoRedoStack` infrastructure to model a point-in-time snapshot (mute states, active clips, params) and recall it, but no snapshot feature exists yet. Good candidate to prototype here first — persistence and recall logic can be fully exercised without touching a device. |
+| ["midi track delay +/- for external hardware"](https://github.com/SynthstromAudible/DelugeFirmware/discussions) (Phexton, Mar 2024) | 1 | `MIDI track delay offset` | **NOT YET STARTED**. A per-track output-timing offset is a straightforward addition to our `SequencerClock`/`TickEventQueue` scheduling — we already own the full tick pipeline, so this is lower-risk to build and verify here than in the embedded scheduler. |
+| ["Enhancing the stutter function"](https://github.com/SynthstromAudible/DelugeFirmware/discussions) (n3ptun3s, Jul 2023) | 6 | `latching stutter` | **VERIFIED GAP**. Confirmed in code: our stutter (`TransportController.setStutterActive`, `BridgeContract.G_STUTTER_ON`) is momentary-only (Q key held = on, released = off), matching the C++ status quo. Adding a latch toggle (press once to lock stutter on, press again to release) is a small, self-contained change to `TransportController` + one new UI/keyboard binding — a clean first Deluge-Java prototype before proposing the C++ patch. |
+| ["New iterance option (every cycle except one)"](https://github.com/SynthstromAudible/DelugeFirmware/discussions) (nourileiner, Apr 2026) | 7 | `iteration skip conditions` | **PARTIALLY PORTED, NOT WIRED UP**. We already have [`Iterance.java`](../src/main/java/org/deluge/model/Iterance.java), a faithful bitmask port of the real play-condition system (`divisor` + an 8-bit `iteranceStep` mask, `passesCheck(repeatCount)`) — a bitmask *already generalizes* to "every cycle except the Nth" as one bit pattern among many, unlike a simple ratio preset. However, the UI/step-data path actually wired up today (`StepData.iterance`, `StepPropertiesDialog`'s "Repeats" spinner) is a **different, simpler 0–3 sub-trigger/ratchet count**, not the `Iterance` play-condition system — the two are easy to conflate by name but are not the same feature. The real gap is wiring the existing `Iterance` model into `StepData`/the step editor UI with a way to author arbitrary bit patterns, not inventing the underlying logic. |
+
+### 5.2 Other Notable Discussions Worth Prototyping Here First
+
+| Discussion | Comments | Notes |
+| :--- | :--- | :--- |
+| ["Grid view improvements"](https://github.com/SynthstromAudible/DelugeFirmware/discussions) (trappar, Aug 2023) | **44** | By far the highest-engagement open Idea. Not yet read in full detail — worth a dedicated follow-up pass, since Swing UI iteration here is far cheaper than embedded-firmware UI iteration for testing proposed grid UX changes. |
+| ["Recording sample into kit row resets kit row settings"](https://github.com/SynthstromAudible/DelugeFirmware/discussions) (seangoodvibes, Nov 2024) | 5 | Reads as an actual bug report, not a feature request. Worth reproducing against our `KitTrackModel`/sample-recording path as a parity check (same pattern as the unison-sync and sidechain bugs in §3) — either we're already immune the way we were to those two, or it's a real, reproducible logic bug worth confirming before it's proposed upstream. Not yet investigated. |
+| ["Send MIDI Clock during count-in and/or constantly"](https://github.com/SynthstromAudible/DelugeFirmware/discussions) (BM-01, Mar 2025) | 3 | We already have `MidiClockOutTest` and a working MIDI clock-out path; grepped for count-in handling specifically and found none. Likely a small, well-scoped addition to the existing clock-out code — not yet investigated in depth. |
+| ["'Hold' looping playback for samples in kit"](https://github.com/SynthstromAudible/DelugeFirmware/discussions) (Phonowav, Nov 2024) | 2 | Sample-engine playback-mode feature; not yet investigated against our sample playback code. |
+| ["Suggestion: More ARP modes"](https://github.com/SynthstromAudible/DelugeFirmware/discussions) (gramster, Nov 2025) | 0 | We already have `Arpeggiator.java` + `ArpParityTest`, so new arp modes are a natural fit to prototype and fidelity-test here before proposing upstream. Not yet investigated. |
+| ["midi 2.0"](https://github.com/SynthstromAudible/DelugeFirmware/discussions) (xophos-commits, Apr 2026) | 1 | Protocol-level modernization; large scope, hardware/transport-level rather than something we can meaningfully validate in Java first. Lowest priority of this list. |
+
+> [!NOTE]
+> This section reflects a first pass over discussion titles/metadata plus targeted code greps, not a full read of every thread — several rows above say "not yet investigated" deliberately. Before writing any actual PR (to this repo or upstream), each row should get the same full read + code verification treatment §§1–4 above got for the microtuning/bugfix branches.
