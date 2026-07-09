@@ -40,7 +40,10 @@ public class ClipGridPanel extends SwingGridPanel {
     int lw = currentLabelWidth();
     int rowW;
     if (isFaceplate) {
-      padSz = Math.max(16, (int) Math.round(78 * faceScale));
+      // Width alone would let padSz grow without bound on a wide window regardless of row count
+      // (faceScale only tracks width) -- cap it by cachedPadSz, the height-fitting value
+      // recomputePadSize() already solved for gridMode.rows, so taller grid modes actually shrink.
+      padSz = Math.min((int) Math.round(78 * faceScale), cachedPadSz);
       rowW = (int) Math.round(2270 * faceScale);
     } else {
       rowW = getGridWidth(padSz, lw);
@@ -1138,8 +1141,9 @@ public class ClipGridPanel extends SwingGridPanel {
     int lw = currentLabelWidth();
     int rowW;
     if (isFaceplate) {
-      // Match the CLIP faceplate grid sizing so the keyboard grid is the same pad size.
-      padSz = Math.max(16, (int) Math.round(78 * faceScale));
+      // Match the CLIP faceplate grid sizing so the keyboard grid is the same pad size. Capped by
+      // cachedPadSz (see rebuildUIComponents) so taller grid modes shrink instead of clipping.
+      padSz = Math.min((int) Math.round(78 * faceScale), cachedPadSz);
       rowW = (int) Math.round(2270 * faceScale);
     } else {
       rowW = getGridWidth(padSz, lw);

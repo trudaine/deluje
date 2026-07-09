@@ -48,7 +48,9 @@ public class ArrangerGridPanel extends SwingGridPanel {
     int lw = currentLabelWidth();
     int rowW;
     if (isFaceplate) {
-      padSz = Math.max(16, (int) Math.round(78 * faceScale));
+      // Width alone would let padSz grow without bound on a wide window regardless of row count --
+      // cap it by cachedPadSz, the height-fitting value recomputePadSize() already solved for.
+      padSz = Math.min((int) Math.round(78 * faceScale), cachedPadSz);
       rowW = (int) Math.round(2270 * faceScale);
     } else {
       rowW = getGridWidth(padSz, lw);

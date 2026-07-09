@@ -928,19 +928,15 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     // struts/buffer(~109).
     int widthOverhead = labelWidth + 130;
     int widthLimitedPadSz = (availWidth - widthOverhead) / columnCount - 5;
-    // Vertical budget: the fixed bars (track header, scroll row, optional clip/page bars, top
-    // margin ≈ 115px) plus the inter-row gaps don't scale with the cell; everything else does. The
-    // padSz-proportional row count is gridMode.rows (main grid) + 1.1 (MACROS row) + 0.6 (KEYBOARD
-    // row) = gridMode.rows + 1.7 — see rebuildUIComponents (macroHeight=padSz*1.1,
-    // keyboardHeight=padSz*0.6). Solving availHeight = K*padSz + overhead guarantees no clipping.
-    int totalGapsHeight = (gridMode.rows - 1) * 5;
-    // Base = the fixed CLIP chrome measured empirically (track header + clip/page/scroll bars + top
-    // margin ≈ 152px; was under-counted at 115, which clipped the bottom keyboard row in tall modes
-    // like 16x16/24x16). +4 leaves a small safety margin so the grid never clips.
-    int overhead = 156 + totalGapsHeight;
-    int remainingHeight = availHeight - overhead;
-    double divisor = gridMode.rows + 1.7;
-    int heightLimitedPadSz = (int) Math.floor(remainingHeight / divisor);
+    // Vertical budget: voiceWrapper's real height is exactly gridMode.rows*(padSz+5)-5 (measured
+    // directly — no header/track-info/MACROS/KEYBOARD rows contribute anymore, they were deleted).
+    // The panel itself adds ~8px of BoxLayout/insets overhead beyond voiceWrapper, plus up to ~30px
+    // more if an optional page-select bar is showing (multi-page clips) or a Song section bar is
+    // showing — 50px covers both with a safety margin. Solving
+    // availHeight = rows*padSz + 5*(rows-1) + overhead guarantees no clipping.
+    int overhead = 50;
+    int remainingHeight = availHeight - overhead - 5 * (gridMode.rows - 1);
+    int heightLimitedPadSz = (int) Math.floor((double) remainingHeight / gridMode.rows);
 
     int padSz = Math.min(widthLimitedPadSz, heightLimitedPadSz);
     // Never clip: shrink freely on tiny windows (clipping wouldn't help anyway), no upper cap so it

@@ -307,10 +307,19 @@ public class SwingHardwareTopPanel extends JPanel {
     drawY = (h - drawH) / 2;
   }
 
+  // Height is derived from width via the faceplate image's own aspect ratio, but capping the width
+  // used for that derivation keeps the top panel from claiming an ever-larger share of a wide/
+  // maximized window's height -- otherwise, on a 1920px+ wide window, it can balloon to ~490px+,
+  // squeezing the grid below it. The faceplate image itself still stretches to the full actual
+  // width; only the HEIGHT budget is capped, matching the panel's own reference width (see the
+  // constructor's setPreferredSize(1400, ...) call a few lines up).
+  private static final int MAX_HEIGHT_REFERENCE_WIDTH = 1400;
+
   @Override
   public Dimension getPreferredSize() {
     int w = getWidth() > 0 ? getWidth() : 1400;
-    int h = (int) Math.round(w * (ORIG_TOP_HEIGHT / (double) ORIG_WIDTH));
+    int heightRefW = Math.min(w, MAX_HEIGHT_REFERENCE_WIDTH);
+    int h = (int) Math.round(heightRefW * (ORIG_TOP_HEIGHT / (double) ORIG_WIDTH));
     return new Dimension(w, h);
   }
 
