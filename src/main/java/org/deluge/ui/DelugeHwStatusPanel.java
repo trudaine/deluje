@@ -196,6 +196,10 @@ public class DelugeHwStatusPanel extends JPanel {
       // (which already calls reconnect()) or a full app restart re-scans the MIDI ports. Retrying
       // reconnect() here on every heartbeat closes that gap automatically.
       midiService.reconnect();
+      if (!midiService.isOutputConnected()) {
+        SwingUtilities.invokeLater(() -> setConnected(false));
+        return;
+      }
     }
     DelugeSysExManager mgr = midiService.getSysExManager();
     long now = System.currentTimeMillis();

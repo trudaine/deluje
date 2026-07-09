@@ -934,7 +934,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     // more if an optional page-select bar is showing (multi-page clips) or a Song section bar is
     // showing — 50px covers both with a safety margin. Solving
     // availHeight = rows*padSz + 5*(rows-1) + overhead guarantees no clipping.
-    int overhead = 50;
+    int overhead = 54;
     int remainingHeight = availHeight - overhead - 5 * (gridMode.rows - 1);
     int heightLimitedPadSz = (int) Math.floor((double) remainingHeight / gridMode.rows);
 
