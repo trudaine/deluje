@@ -53,38 +53,42 @@ public class LibrarySidebarTab extends JScrollPane {
 
     SwingGridPanel.stylePopupMenu(localPopupMenu);
 
-    localCopyItem.addActionListener(
-        ev -> {
-          javax.swing.tree.TreePath path = libraryTree.getSelectionPath();
-          if (path != null) {
-            File file = getLocalFileForPath(path);
-            if (file != null && file.isFile()) {
-              parent.localClipboardFile = file;
-              parent.remoteClipboardPath = null;
-              parent.isRemoteSource = false;
-            }
-          }
-        });
+    localCopyItem.addActionListener(ev -> performLocalCopy());
+    localPasteItem.addActionListener(ev -> performLocalPaste());
 
-    localPasteItem.addActionListener(
-        ev -> {
-          javax.swing.tree.TreePath path = libraryTree.getSelectionPath();
-          if (path != null) {
-            File targetDir = getLocalFileForPath(path);
-            if (targetDir != null
-                && targetDir.isDirectory()
-                && parent.isRemoteSource
-                && parent.remoteClipboardPath != null) {
-              int lastSlash = parent.remoteClipboardPath.lastIndexOf('/');
-              String name =
-                  lastSlash != -1
-                      ? parent.remoteClipboardPath.substring(lastSlash + 1)
-                      : "downloaded.XML";
-              File destFile = new File(targetDir, name);
-              downloadRemoteFileToLocal(parent.remoteClipboardPath, destFile);
-            }
-          }
-        });
+    // Ctrl+C/Ctrl+V: every OS file manager supports these, so a right-click-only Copy/Paste reads
+    // as "doesn't have copy paste actions" even though the menu items work correctly.
+    int menuMask = java.awt.Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
+    libraryTree
+        .getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
+        .put(
+            javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_C, menuMask),
+            "localCopy");
+    libraryTree
+        .getActionMap()
+        .put(
+            "localCopy",
+            new javax.swing.AbstractAction() {
+              @Override
+              public void actionPerformed(java.awt.event.ActionEvent e) {
+                performLocalCopy();
+              }
+            });
+    libraryTree
+        .getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
+        .put(
+            javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_V, menuMask),
+            "localPaste");
+    libraryTree
+        .getActionMap()
+        .put(
+            "localPaste",
+            new javax.swing.AbstractAction() {
+              @Override
+              public void actionPerformed(java.awt.event.ActionEvent e) {
+                performLocalPaste();
+              }
+            });
 
     libraryTree.addMouseListener(
         new java.awt.event.MouseAdapter() {
@@ -414,6 +418,36 @@ public class LibrarySidebarTab extends JScrollPane {
       }
     }
     return directDir; // fallback
+  }
+
+  /** Copies the selected local file's path onto the shared (cross-tab) clipboard. */
+  private void performLocalCopy() {
+    javax.swing.tree.TreePath path = libraryTree.getSelectionPath();
+    if (path != null) {
+      File file = getLocalFileForPath(path);
+      if (file != null && file.isFile()) {
+        parent.localClipboardFile = file;
+        parent.remoteClipboardPath = null;
+        parent.isRemoteSource = false;
+      }
+    }
+  }
+
+  /** Pastes a remote clipboard path into the selected local folder (downloads it). */
+  private void performLocalPaste() {
+    javax.swing.tree.TreePath path = libraryTree.getSelectionPath();
+    if (path == null) return;
+    File targetDir = getLocalFileForPath(path);
+    if (targetDir != null
+        && targetDir.isDirectory()
+        && parent.isRemoteSource
+        && parent.remoteClipboardPath != null) {
+      int lastSlash = parent.remoteClipboardPath.lastIndexOf('/');
+      String name =
+          lastSlash != -1 ? parent.remoteClipboardPath.substring(lastSlash + 1) : "downloaded.XML";
+      File destFile = new File(targetDir, name);
+      downloadRemoteFileToLocal(parent.remoteClipboardPath, destFile);
+    }
   }
 
   private void downloadRemoteFileToLocal(String remotePath, File destFile) {

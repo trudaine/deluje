@@ -209,45 +209,42 @@ public class HardwareSidebarTab extends JPanel {
     popupMenu.add(deleteItem);
 
     JMenuItem copyItem = new JMenuItem("📋 Copy");
-    copyItem.addActionListener(
-        e -> {
-          int row = remoteTable.getSelectedRow();
-          if (row >= 0 && row < currentRemoteEntries.size()) {
-            RemoteFileEntry entry = currentRemoteEntries.get(row);
-            if (!entry.isDirectory()) {
-              parent.remoteClipboardPath =
-                  "/".equals(currentRemotePath)
-                      ? "/" + entry.name()
-                      : currentRemotePath + "/" + entry.name();
-              parent.isRemoteSource = true;
-              parent.localClipboardFile = null;
-            }
-          }
-        });
+    copyItem.addActionListener(e -> performCopy());
     popupMenu.add(copyItem);
 
     JMenuItem pasteItem = new JMenuItem("📋 Paste");
-    pasteItem.addActionListener(
-        e -> {
-          if (parent.isRemoteSource && parent.remoteClipboardPath != null) {
-            int slash = parent.remoteClipboardPath.lastIndexOf('/');
-            String name =
-                slash != -1 ? parent.remoteClipboardPath.substring(slash + 1) : "copy.XML";
-            String to = "/".equals(currentRemotePath) ? "/" + name : currentRemotePath + "/" + name;
-            if (to.equalsIgnoreCase(parent.remoteClipboardPath)) {
-              int extIdx = to.lastIndexOf('.');
-              if (extIdx != -1) {
-                to = to.substring(0, extIdx) + "_copy" + to.substring(extIdx);
-              } else {
-                to = to + "_copy";
-              }
-            }
-            copyRemoteFileToRemote(parent.remoteClipboardPath, to);
-          } else if (!parent.isRemoteSource && parent.localClipboardFile != null) {
-            uploadLocalFileToRemote(parent.localClipboardFile, currentRemotePath);
-          }
-        });
+    pasteItem.addActionListener(e -> performPaste());
     popupMenu.add(pasteItem);
+
+    // Ctrl+C/Ctrl+V: every OS file manager supports these, so a right-click-only Copy/Paste reads
+    // as "doesn't have copy paste actions" even though the menu items work correctly.
+    int menuMask = Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
+    remoteTable
+        .getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
+        .put(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_C, menuMask), "hwCopy");
+    remoteTable
+        .getActionMap()
+        .put(
+            "hwCopy",
+            new AbstractAction() {
+              @Override
+              public void actionPerformed(java.awt.event.ActionEvent e) {
+                performCopy();
+              }
+            });
+    remoteTable
+        .getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
+        .put(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_V, menuMask), "hwPaste");
+    remoteTable
+        .getActionMap()
+        .put(
+            "hwPaste",
+            new AbstractAction() {
+              @Override
+              public void actionPerformed(java.awt.event.ActionEvent e) {
+                performPaste();
+              }
+            });
 
     SwingGridPanel.stylePopupMenu(popupMenu);
 
@@ -1171,6 +1168,44 @@ public class HardwareSidebarTab extends JPanel {
           "Failed to read local file: " + ex.getMessage(),
           "Error",
           JOptionPane.ERROR_MESSAGE);
+    }
+  }
+
+  /** Copies the selected file's remote path onto the shared (cross-tab) clipboard. */
+  private void performCopy() {
+    int row = remoteTable.getSelectedRow();
+    if (row >= 0 && row < currentRemoteEntries.size()) {
+      RemoteFileEntry entry = currentRemoteEntries.get(row);
+      if (!entry.isDirectory()) {
+        parent.remoteClipboardPath =
+            "/".equals(currentRemotePath)
+                ? "/" + entry.name()
+                : currentRemotePath + "/" + entry.name();
+        parent.isRemoteSource = true;
+        parent.localClipboardFile = null;
+      }
+    }
+  }
+
+  /**
+   * Pastes whatever is on the shared clipboard (a remote path or a local file) into this folder.
+   */
+  private void performPaste() {
+    if (parent.isRemoteSource && parent.remoteClipboardPath != null) {
+      int slash = parent.remoteClipboardPath.lastIndexOf('/');
+      String name = slash != -1 ? parent.remoteClipboardPath.substring(slash + 1) : "copy.XML";
+      String to = "/".equals(currentRemotePath) ? "/" + name : currentRemotePath + "/" + name;
+      if (to.equalsIgnoreCase(parent.remoteClipboardPath)) {
+        int extIdx = to.lastIndexOf('.');
+        if (extIdx != -1) {
+          to = to.substring(0, extIdx) + "_copy" + to.substring(extIdx);
+        } else {
+          to = to + "_copy";
+        }
+      }
+      copyRemoteFileToRemote(parent.remoteClipboardPath, to);
+    } else if (!parent.isRemoteSource && parent.localClipboardFile != null) {
+      uploadLocalFileToRemote(parent.localClipboardFile, currentRemotePath);
     }
   }
 
