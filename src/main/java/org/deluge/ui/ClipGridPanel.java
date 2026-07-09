@@ -1016,6 +1016,9 @@ public class ClipGridPanel extends SwingGridPanel {
           Color cellBaseColor =
               getThemeColor(theme, trackColor, stepState, inScale, isRoot, modelRow);
           boolean isNudged = false;
+          boolean hasCond = false;
+          boolean hasProb = false;
+          boolean isFill = false;
           if (stepState) {
             org.deluge.model.ClipModel cModel = null;
             if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
@@ -1027,7 +1030,14 @@ public class ClipGridPanel extends SwingGridPanel {
             if (cModel != null) {
               org.deluge.model.StepData sd = getClipStep(cModel, modelRow, activeCol);
               if (sd != null && sd.active()) {
+                if (sd.iterance() != 0 && sd.iterance() != 0x0101) {
+                  hasCond = true;
+                }
+                if (sd.probability() < 0.999f) {
+                  hasProb = true;
+                }
                 if (sd.fill() > 0.0f) {
+                  isFill = true;
                   cellBaseColor =
                       new Color(0, 0, 255); // FILL note = colours::blue (note_row.cpp:1993)
                 } else if (sd.nudge() > 0.0f) {
@@ -1040,6 +1050,9 @@ public class ClipGridPanel extends SwingGridPanel {
               }
             }
           }
+          pad.setHasCondition(hasCond);
+          pad.setHasProbability(hasProb);
+          pad.setFillOnly(isFill);
           pad.setBaseColor(cellBaseColor);
           pad.setBlur(isNudged);
           pad.setApplicable(inScale || !isSynthMode);

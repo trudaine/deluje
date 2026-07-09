@@ -26,8 +26,44 @@ public class DelugePadButton extends JButton {
   private boolean isScaleRoot = false;
   private boolean isScaleNote = false;
   private boolean isBeatMarker = false;
+  private boolean hasCondition = false;
+  private boolean hasProbability = false;
+  private boolean isFillOnly = false;
   private org.deluge.project.PreferencesManager.GridColorTheme theme =
       org.deluge.project.PreferencesManager.GridColorTheme.HARDWARE;
+
+  public boolean hasCondition() {
+    return hasCondition;
+  }
+
+  public void setHasCondition(boolean hasCondition) {
+    if (this.hasCondition != hasCondition) {
+      this.hasCondition = hasCondition;
+      repaint();
+    }
+  }
+
+  public boolean hasProbability() {
+    return hasProbability;
+  }
+
+  public void setHasProbability(boolean hasProbability) {
+    if (this.hasProbability != hasProbability) {
+      this.hasProbability = hasProbability;
+      repaint();
+    }
+  }
+
+  public boolean isFillOnly() {
+    return isFillOnly;
+  }
+
+  public void setFillOnly(boolean fillOnly) {
+    if (this.isFillOnly != fillOnly) {
+      this.isFillOnly = fillOnly;
+      repaint();
+    }
+  }
 
   public boolean isScaleRoot() {
     return isScaleRoot;
@@ -551,6 +587,29 @@ public class DelugePadButton extends JButton {
               (int) (hoverIntensity * 80)));
       g2.setStroke(new BasicStroke(1.0f));
       g2.drawRoundRect(xPad, yPad, rw, rh, arc, arc);
+    }
+
+    // 5.8 Hardware-Parity Conditional & Parameter Step Visualizers
+    if (active && !muted) {
+      if (hasCondition) {
+        // Amber Conditional Corner Dot (upper right)
+        g2.setColor(new Color(0, 0, 0, 170));
+        g2.fillOval(xPad + rw - 10, yPad + 3, 7, 7);
+        g2.setColor(new Color(0xff, 0xb7, 0x03)); // Vibrant amber
+        g2.fillOval(xPad + rw - 9, yPad + 4, 5, 5);
+      }
+      if (hasProbability) {
+        // Cyan Probability Corner Dot (upper left)
+        g2.setColor(new Color(0, 0, 0, 170));
+        g2.fillOval(xPad + 3, yPad + 3, 7, 7);
+        g2.setColor(new Color(0x00, 0xd2, 0xff)); // Vibrant cyan
+        g2.fillOval(xPad + 4, yPad + 4, 5, 5);
+      }
+      if (isFillOnly) {
+        // Magenta Fill-Gate Bottom Pill Bar
+        g2.setColor(new Color(0xff, 0x00, 0x7f, 220));
+        g2.fillRoundRect(xPad + 3, yPad + rh - 5, rw - 6, 3, 2, 2);
+      }
     }
 
     // 6. Text Overlay: When SHIFT is active, overlay authentic printed faceplate shortcut text.
