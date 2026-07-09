@@ -2998,8 +2998,40 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     }
   }
 
+  void recordMacroStepLockIfRecording(int col, double v, org.deluge.model.TrackModel track) {
+    if (!isLiveRecordModeActive || track == null) return;
+    boolean isPlaying = bridge != null && bridge.getGlobalInt(BridgeContract.G_PLAY) == 1L;
+    if (!isPlaying) return;
+
+    if (track.getClips().isEmpty()) return;
+    org.deluge.model.ClipModel clip =
+        track.getClips().get(Math.max(0, Math.min(activeClipId, track.getClips().size() - 1)));
+    if (clip == null) return;
+
+    int playheadStep = 0;
+    if (bridge != null) {
+      playheadStep = (int) bridge.getGlobalInt(BridgeContract.G_CURRENT_STEP);
+    }
+    String paramName = null;
+    switch (col) {
+      case 0 -> paramName = org.deluge.model.AutomationParam.A_VOLUME;
+      case 1 -> paramName = org.deluge.model.AutomationParam.A_PAN;
+      case 3 -> paramName = org.deluge.model.AutomationParam.A_LPF_FREQ;
+      case 4 -> paramName = org.deluge.model.AutomationParam.A_LPF_RES;
+      case 7 -> paramName = org.deluge.model.AutomationParam.A_LFO_0_RATE;
+      case 8 -> paramName = org.deluge.model.AutomationParam.A_MOD_FX_RATE;
+      case 9 -> paramName = org.deluge.model.AutomationParam.A_DELAY;
+      case 10 -> paramName = org.deluge.model.AutomationParam.A_REVERB;
+      case 11 -> paramName = org.deluge.model.AutomationParam.A_STUTTER_RATE;
+    }
+    if (paramName != null) {
+      clip.setAutomation(paramName, Math.max(0, playheadStep), (float) v);
+    }
+  }
+
   void setMacroValue(int col, double v, org.deluge.model.TrackModel track) {
     if (track == null) return;
+    recordMacroStepLockIfRecording(col, v, track);
     switch (col) {
       case 0:
         track.setVolume((float) (v * 1.5));

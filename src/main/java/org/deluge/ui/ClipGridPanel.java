@@ -786,7 +786,8 @@ public class ClipGridPanel extends SwingGridPanel {
         clipBtn.setToolTipText(
             "Clip View: Row "
                 + (visibleRow + 1)
-                + " Mute / Unmute (Right-Click for Options / Shift-Click to Clear Steps)");
+                + " Mute / Unmute (Alt-Click Exclusive Solo / Un-Solo All / Shift-Click Clear"
+                + " Steps)");
         javax.swing.ToolTipManager.sharedInstance().registerComponent(clipBtn);
 
         clearActionListeners(clipBtn);
@@ -797,6 +798,37 @@ public class ClipGridPanel extends SwingGridPanel {
                   if (bridge != null) bridge.setStep(engineRow, s, false);
                 }
                 refresh();
+                return;
+              }
+              if ((e.getModifiers() & java.awt.event.ActionEvent.ALT_MASK) != 0) {
+                if (projectModel != null) {
+                  org.deluge.model.TrackModel targetTrack =
+                      (editedModelTrack < projectModel.getTracks().size())
+                          ? projectModel.getTracks().get(editedModelTrack)
+                          : null;
+                  if (targetTrack != null) {
+                    boolean alreadySolo = !targetTrack.isMuted();
+                    for (org.deluge.model.TrackModel t : projectModel.getTracks()) {
+                      if (t != targetTrack && !t.isMuted()) {
+                        alreadySolo = false;
+                        break;
+                      }
+                    }
+                    if (alreadySolo) {
+                      // Un-solo: unmute all tracks
+                      for (org.deluge.model.TrackModel t : projectModel.getTracks()) {
+                        t.setMuted(false);
+                      }
+                    } else {
+                      // Exclusive solo target track
+                      for (org.deluge.model.TrackModel t : projectModel.getTracks()) {
+                        t.setMuted(t != targetTrack);
+                      }
+                    }
+                    updateEngineMutes();
+                    refresh();
+                  }
+                }
                 return;
               }
               boolean nextMute;

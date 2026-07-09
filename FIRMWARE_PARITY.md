@@ -161,3 +161,6 @@ We created a custom Real-Time Direct Pure Java Waveform Comparative Test Suite i
 | **Mod FX** | `ModFXProcessor.java` | ✅ Fully Implemented | Flanger, Chorus, Phaser, Stereo Chorus, Warble, Dimension. |
 | **Step Iterance** | `Iterance.java`, `StepPropertiesDialog.java` | ✅ Fully Implemented | 35 Hardware Presets (`1of2`, `1of4`, etc.) + Custom 8-cycle bitmask play conditions. |
 | **Stutter Modes** | `Stutterer.java`, `StutterPanel.java`, `TransportController.java` | ✅ Fully Implemented | Quantized grid lock (`QUANTIZED`), reversed slice playback (`REVERSED`), Ping-Pong bounce (`PING PONG`), and Latching Stutter loop mode (`SHIFT + Q`). |
+| **Scala Microtuning** | `ScalaTuning.java`, `ScalaTuningParityTest.java` | ✅ Fully Implemented | Custom `.scl` file loader (ratio / cents format) overriding standard 12-TET tuning. |
+| **Live Step Recording** | `SwingGridPanel.java`, `LiveStepAutomationCaptureTest.java` | ✅ Fully Implemented | Real-time step parameter lock capture (`AutomationParam`) at `G_CURRENT_STEP` when `[RECORD]` is active during playback. |
+| **Exclusive Solo** | `ClipGridPanel.java`, `ExclusiveSoloParityTest.java` | ✅ Fully Implemented | Alt-Click Mute column pad for Exclusive Solo and Un-Solo All across track groups. |
