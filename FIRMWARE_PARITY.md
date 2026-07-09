@@ -160,4 +160,4 @@ We created a custom Real-Time Direct Pure Java Waveform Comparative Test Suite i
 | **Voice** | `VoiceAllocator.java`, `PolyphonyMode` | ✅ Fully Implemented | AUTO, POLY, MONO, LEGATO, CHOKE w/ power-normalized unison. |
 | **Mod FX** | `ModFXProcessor.java` | ✅ Fully Implemented | Flanger, Chorus, Phaser, Stereo Chorus, Warble, Dimension. |
 | **Step Iterance** | `Iterance.java`, `StepPropertiesDialog.java` | ✅ Fully Implemented | 35 Hardware Presets (`1of2`, `1of4`, etc.) + Custom 8-cycle bitmask play conditions. |
-| **Stutter Modes** | `Stutterer.java`, `StutterPanel.java` | ✅ Fully Implemented | Quantized grid lock (`QUANTIZED`), reversed slice playback (`REVERSED`), Ping-Pong bounce (`PING PONG`). |
+| **Stutter Modes** | `Stutterer.java`, `StutterPanel.java`, `TransportController.java` | ✅ Fully Implemented | Quantized grid lock (`QUANTIZED`), reversed slice playback (`REVERSED`), Ping-Pong bounce (`PING PONG`), and Latching Stutter loop mode (`SHIFT + Q`). |

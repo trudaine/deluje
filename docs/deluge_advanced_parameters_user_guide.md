@@ -160,9 +160,10 @@ Deluge-Java provides 100% C++ hardware parity for conditional step triggers (`It
 *   **Preset Conditions**: Choose standard multi-cycle play rules from the **Condition** menu (`Always (1 of 1)`, `1st of 2 (1 of 2)`, `2nd of 2 (2 of 2)`, `1st of 4 (1of4)`, `4th of 4 (4of4)`, `1st of 8 (1of8)`, etc.).
 *   **Custom Cycle Bitmasks**: Select **Custom (Cycle Bitmask)** to specify a custom loop length (`1 to 8 cycles`) and toggle interactive step boxes (`1 through 8`) to specify exact cycles where the note triggers.
 
-### Track Stutter Modes (`StutterPanel.java`)
-Synthesizer tracks support three real-time hardware stutter performance modes located under the **STUTTER** tab of the **Track Inspector** or via the OLED menu (**Track Stutter Modes (Quantize / Reverse / Ping-Pong)...**):
+### Track Stutter Modes (`StutterPanel.java` & `TransportController.java`)
+Synthesizer tracks support real-time hardware stutter performance modes located under the **STUTTER** tab of the **Track Inspector** or via the OLED menu (**Track Stutter Modes (Quantize / Reverse / Ping-Pong)...**):
 *   **Quantize to Grid**: Locks stutter repeat loop boundaries to the musical sequencer grid.
 *   **Reversed Playback**: Plays captured audio slices backward during stutter loops.
 *   **Ping-Pong Bounce**: Alternates forward and backward playback across consecutive stutter repeats.
+*   **Latching Stutter Mode**: While standard stutter is momentary (active while pressing `Q`), pressing `Shift + Q` (or selecting **Toggle Latched Stutter Loop (Shift + Q)** in the OLED menu) toggles **Latching Stutter Mode**, keeping the stutter repeat loop locked on hands-free. Pressing `Shift + Q` again toggles latched stutter off.
 

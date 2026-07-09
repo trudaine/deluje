@@ -25,6 +25,11 @@ public class TransportController {
     this.bridge = app.bridge;
   }
 
+  public TransportController(BridgeContract bridge) {
+    this.app = null;
+    this.bridge = bridge;
+  }
+
   public boolean isPlaying() {
     return bridge != null && bridge.getGlobalInt(BridgeContract.G_PLAY) == 1L;
   }
@@ -87,7 +92,9 @@ public class TransportController {
 
   /** Shows transient feedback on the real, visible faceplate OLED. */
   private void showOled(String banner, String value) {
-    if (app.hardwareTopPanel != null && app.hardwareTopPanel.getOledPanel() != null) {
+    if (app != null
+        && app.hardwareTopPanel != null
+        && app.hardwareTopPanel.getOledPanel() != null) {
       app.hardwareTopPanel.getOledPanel().showParamText(banner, value);
     }
   }
@@ -193,10 +200,33 @@ public class TransportController {
     bridge.setGlobalFloat(BridgeContract.G_MASTER_VOL, vol);
   }
 
-  /** Momentary live step-repeat, held while the Q key (or a future hardware button) is down. */
+  private boolean stutterLatched = false;
+  private boolean stutterMomentary = false;
+
+  public boolean isStutterLatched() {
+    return stutterLatched;
+  }
+
+  public void setStutterLatched(boolean latched) {
+    this.stutterLatched = latched;
+    updateEngineStutterState();
+    showOled("STUT LATCH", stutterLatched ? "LATCHED" : "OFF");
+  }
+
+  public void toggleStutterLatched() {
+    setStutterLatched(!stutterLatched);
+  }
+
+  /** Momentary live step-repeat, held while the stutter shortcut is down. */
   public void setStutterActive(boolean active) {
-    bridge.setGlobalInt(BridgeContract.G_STUTTER_ON, active ? 1L : 0L);
-    showOled("STUT", active ? "ON" : "OFF");
+    this.stutterMomentary = active;
+    updateEngineStutterState();
+    showOled("STUT", (stutterLatched || stutterMomentary) ? (stutterLatched ? "LATCHED" : "ON") : "OFF");
+  }
+
+  private void updateEngineStutterState() {
+    boolean effectiveOn = stutterLatched || stutterMomentary;
+    bridge.setGlobalInt(BridgeContract.G_STUTTER_ON, effectiveOn ? 1L : 0L);
   }
 
   public void toggleMetronome() {

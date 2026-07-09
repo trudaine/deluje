@@ -122,6 +122,17 @@ public class SwingOledPanel extends JPanel {
         });
     menu.add(stutterItem);
 
+    javax.swing.JMenuItem stutterLatchItem =
+        new javax.swing.JMenuItem("Toggle Latched Stutter Loop (Shift + Q)");
+    stutterLatchItem.addActionListener(
+        e -> {
+          if (SwingDelugeApp.mainInstance != null
+              && SwingDelugeApp.mainInstance.transportController != null) {
+            SwingDelugeApp.mainInstance.transportController.toggleStutterLatched();
+          }
+        });
+    menu.add(stutterLatchItem);
+
     menu.addSeparator();
 
     javax.swing.JMenuItem prefsItem = new javax.swing.JMenuItem("Preferences & UI Style...");
