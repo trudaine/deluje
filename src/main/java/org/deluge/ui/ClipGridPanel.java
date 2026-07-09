@@ -207,13 +207,15 @@ public class ClipGridPanel extends SwingGridPanel {
     // (X_ENC / the page-select bar above are the live ways to change scrollOffsetX).
     this.horizScrollBar = scrollController.getHorizontalScrollBar();
 
-    // Fixed rows: MACROS (16 macro-param sliders) and KEYBOARD (mini isomorphic strip), matching
-    // SongGridPanel/ArrangerGridPanel where the same rows are unconditional.
-    int macroRowIdx = gridMode.rows;
+    // Fixed row: KEYBOARD (mini isomorphic strip), matching SongGridPanel/ArrangerGridPanel where
+    // the same row is unconditional. MACROS was dropped here: its 16 sliders substantially overlap
+    // the faceplate's two physical gold knobs (LEVEL, PAN, FILTER, RESONANCE, DELAY, REVERB,
+    // STUTTER are reachable there), the on-screen-16-sliders-at-once design was never a real
+    // hardware feature to begin with, and making it unconditional caused the fixed-height row to
+    // overflow the non-scrollable center viewport (SwingDelugeApp's centerScroll has both
+    // scrollbars disabled), clipping content with no way to reach it.
     int keyboardRowIdx = gridMode.rows + 2;
-    int macroHeight = (int) (padSz * 1.1);
     int keyboardHeight = (int) (padSz * 0.6);
-    add(buildFixedRow("MACROS", macroRowIdx, padSz, Math.max(28, macroHeight)));
     add(buildFixedRow("KEYBOARD", keyboardRowIdx, padSz, Math.max(16, keyboardHeight)));
 
     revalidate();
