@@ -304,4 +304,51 @@ public class DelugeFileSyncServiceTest {
 
     opsFuture.get(); // block and verify no exceptions
   }
+
+  @Test
+  public void testListDirsWaitsForOledStreamToExpireBeforeFirstRequest() throws Exception {
+    // Regression: listSongs/listDirs/listDirectory never waited out the ~2.2s OLED-stream expiry
+    // window that downloadFileBlocking/uploadFileBlocking already do before their first request.
+    // Right after a fresh connection/session handshake the OLED stream is essentially guaranteed
+    // to be actively flowing (DelugeHwStatusPanel starts it immediately on connect), so a dir
+    // request fired without waiting races a genuinely active flood -- observed live as dir
+    // listings failing with "No reply after 8 attempts" right around a fresh reconnect.
+    long start = System.currentTimeMillis();
+    java.util.concurrent.atomic.AtomicLong firstSendAt =
+        new java.util.concurrent.atomic.AtomicLong(-1);
+    DelugeSysExManager mockManager =
+        new DelugeSysExManager() {
+          @Override
+          public void sendRequest(String jsonPayload, SysExCallback callback) {
+            firstSendAt.compareAndSet(-1, System.currentTimeMillis());
+            callback.onResponse(
+                "{\"^dir\": {\"list\": [{\"name\":\"S1.XML\",\"size\":1,\"date\":0,\"time\":0,\"attr\":32}], \"err\": 0}}",
+                null);
+          }
+        };
+
+    DelugeFileSyncService service = new DelugeFileSyncService(mockManager);
+    CompletableFuture<Void> future = new CompletableFuture<>();
+    service.listDirs(
+        List.of("/SONGS"),
+        new DelugeFileSyncService.DirListCallback() {
+          @Override
+          public void onDir(String path, List<String> files) {
+            future.complete(null);
+          }
+
+          @Override
+          public void onError(String path, Throwable t) {
+            future.completeExceptionally(t);
+          }
+        });
+
+    future.get(10, java.util.concurrent.TimeUnit.SECONDS);
+    long waitedMs = firstSendAt.get() - start;
+    assertTrue(
+        waitedMs >= 2000,
+        "listDirs must wait out the OLED expiry window before its first request, waited only "
+            + waitedMs
+            + "ms");
+  }
 }

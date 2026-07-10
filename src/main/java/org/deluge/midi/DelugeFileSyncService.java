@@ -98,6 +98,7 @@ public class DelugeFileSyncService {
               sysExManager.setOledStreamingEnabled(
                   false); // quiet the OLED flood during the listing
               try {
+                waitForOledStreamToExpire();
                 callback.onSuccess(listOneBlocking(remotePath));
               } catch (Exception e) {
                 callback.onFailure(e);
@@ -135,6 +136,7 @@ public class DelugeFileSyncService {
               transferActive = true;
               sysExManager.setOledStreamingEnabled(false);
               try {
+                waitForOledStreamToExpire();
                 for (String path : paths) {
                   try {
                     callback.onDir(path, listOneBlocking(path));
@@ -275,6 +277,28 @@ public class DelugeFileSyncService {
   }
 
   /**
+   * Waits out the Deluge's OLED display stream before the first request of a hardware operation.
+   *
+   * <p>The OLED stream is a self-expiring ~2s window (hid_sysex: {@code midiDisplayUntil =
+   * audioSampleTimer + 2*kSampleRate}). Disabling our own keep-alive (via {@code
+   * setOledStreamingEnabled(false)}, already done by every caller before this) only stops US from
+   * refreshing it -- it does not tell the device to stop transmitting, so frames already in flight
+   * keep flowing for up to 2 more seconds. Right after a connection/session is (re-)established the
+   * OLED stream is essentially guaranteed to be actively flowing (DelugeHwStatusPanel starts it
+   * immediately on connect and refreshes it every 1.5s), so a request fired without waiting races a
+   * genuinely active flood and can be lost -- observed live as dir listings failing right around a
+   * fresh reconnect/session handshake. Every hardware operation must wait out this window before
+   * its first request for a truly quiet channel.
+   */
+  private void waitForOledStreamToExpire() {
+    try {
+      Thread.sleep(2200);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+  }
+
+  /**
    * Sends a JSON (optionally + binary) request and waits for the reply, re-firing on timeout.
    *
    * <p>Larger host&rarr;Deluge SysEx messages are dropped intermittently by the USB-MIDI transport
@@ -329,12 +353,7 @@ public class DelugeFileSyncService {
     transferActive = true;
     sysExManager.setOledStreamingEnabled(false);
     try {
-      // The Deluge's OLED stream is a self-expiring ~2s window (hid_sysex:
-      // midiDisplayUntil = audioSampleTimer + 2*kSampleRate). Pausing our keep-alive only stops
-      // refreshing it, so we must wait out the full window before issuing the request, otherwise
-      // the
-      // reply lands amid an OLED flood and can be lost. Wait > 2s for a quiet channel.
-      Thread.sleep(2200);
+      waitForOledStreamToExpire();
 
       // 1. Open remote file
       Reply openReply =
@@ -413,12 +432,7 @@ public class DelugeFileSyncService {
     transferActive = true;
     sysExManager.setOledStreamingEnabled(false);
     try {
-      // The Deluge's OLED stream is a self-expiring ~2s window (hid_sysex:
-      // midiDisplayUntil = audioSampleTimer + 2*kSampleRate). Pausing our keep-alive only stops
-      // refreshing it, so we must wait out the full window before issuing the request, otherwise
-      // the
-      // reply lands amid an OLED flood and can be lost. Wait > 2s for a quiet channel.
-      Thread.sleep(2200);
+      waitForOledStreamToExpire();
 
       // Convert local epoch millisecond to FAT date/time format
       int[] fatDT = encodeFatDateTime(lastModifiedMillis);
@@ -687,6 +701,7 @@ public class DelugeFileSyncService {
               transferActive = true;
               sysExManager.setOledStreamingEnabled(false);
               try {
+                waitForOledStreamToExpire();
                 callback.onSuccess(listDirectoryBlocking(remotePath));
               } catch (Exception e) {
                 callback.onFailure(e);

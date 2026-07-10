@@ -118,21 +118,14 @@ public class ModKnobModeTest {
   }
 
   @Test
-  public void testSquareIndicatorSplitsAcrossUpperAndLowerColumns() throws Exception {
+  public void testSquareIndicatorPaintsForBothColumnsWithoutThrowing() throws Exception {
     setUp();
     try {
       Method selectMode =
           SwingHardwareTopPanel.class.getDeclaredMethod("selectModKnobMode", int.class);
       selectMode.setAccessible(true);
-
-      // Mode 2 (< 4) should map to the "upper" column at index 2; mode 6 (>= 4) to "lower" at
-      // index 2 (6-4). Verified indirectly via the track's stored mode, since
-      // drawModEncoderSquareLeds
-      // itself only paints -- the mapping logic lives in that method and is exercised by painting.
       selectMode.invoke(topPanel, 2);
-      assertEquals(2, track.getModKnobMode());
       selectMode.invoke(topPanel, 6);
-      assertEquals(6, track.getModKnobMode());
 
       Method draw =
           SwingHardwareTopPanel.class.getDeclaredMethod(
@@ -144,6 +137,47 @@ public class ModKnobModeTest {
       assertDoesNotThrow(
           () -> draw.invoke(topPanel, g2), "Painting the square indicators must not throw");
       g2.dispose();
+    } finally {
+      tearDown();
+    }
+  }
+
+  @Test
+  public void testSquareIndicatorShowsKnobValueBargraphNotModeSelection() throws Exception {
+    // Regression: the 4 squares next to each gold knob show that knob's CURRENT VALUE as a
+    // proportional bargraph (confirmed against real hardware: turning a knob partially fills the
+    // boundary square, e.g. 2 full + a half-lit 3rd) -- not which of the 8 modKnobModes is
+    // selected. The MOD0-7 buttons' own LEDs already show mode selection.
+    setUp();
+    try {
+      Method selectMode =
+          SwingHardwareTopPanel.class.getDeclaredMethod("selectModKnobMode", int.class);
+      selectMode.setAccessible(true);
+      Method fillLevel =
+          SwingHardwareTopPanel.class.getDeclaredMethod("currentModKnobFillLevel", int.class);
+      fillLevel.setAccessible(true);
+
+      // Mode 0: knob 0 = pan (-1..1 -> 0..1), knob 1 = volume (0..1 directly).
+      selectMode.invoke(topPanel, 0);
+      track.setPan(0.5f); // (0.5+1)/2 = 0.75
+      track.setVolume(0.3f);
+      assertEquals(0.75f, (float) fillLevel.invoke(topPanel, 0), 0.001f);
+      assertEquals(0.3f, (float) fillLevel.invoke(topPanel, 1), 0.001f);
+
+      // Turning the knob (not just setting the model directly) must move the same fill level.
+      Method adjust =
+          SwingHardwareTopPanel.class.getDeclaredMethod(
+              "adjustModKnobParam", int.class, int.class, boolean.class);
+      adjust.setAccessible(true);
+      float before = (float) fillLevel.invoke(topPanel, 1);
+      adjust.invoke(topPanel, 1, 5, false); // raise volume
+      float after = (float) fillLevel.invoke(topPanel, 1);
+      assertTrue(after > before, "Turning the knob must raise its own bargraph fill level");
+
+      // Mode 4 / knob 1 (sidechain) has no model+engine plumbing -- must render empty, not a
+      // fabricated value.
+      selectMode.invoke(topPanel, 4);
+      assertEquals(-1f, (float) fillLevel.invoke(topPanel, 1), 0.001f);
     } finally {
       tearDown();
     }

@@ -404,33 +404,77 @@ public class SwingHardwareTopPanel extends JPanel {
   private void drawModEncoderSquareLeds(Graphics2D g2) {
     int[] upperY = {251, 214, 177, 140}; // bottom -> top
     int[] lowerY = {523, 486, 449, 412}; // bottom -> top
-    // C: sound.cpp's modKnobMode is a single 0-7 state shared by both gold knobs together, but the
-    // physical MOD buttons are laid out as two columns of 4 (button.h ZmodButtonX: 1 for 0-3, 2 for
-    // 4-7) -- mirrored here as two 4-square columns, only one of which lights up depending on which
-    // half of the 8 modes is currently active.
-    org.deluge.model.SynthTrackModel st = currentSynthTrack();
-    int mode = st != null ? st.getModKnobMode() : -1;
-    int upperActive = (mode >= 0 && mode < 4) ? mode : -1;
-    int lowerActive = (mode >= 4) ? mode - 4 : -1;
-    drawSquareLedColumn(g2, 671, upperY, upperActive);
-    drawSquareLedColumn(g2, 446, lowerY, lowerActive);
+    // Each gold knob has its own 4-square LED bargraph showing the CURRENT VALUE of whichever real
+    // parameter modKnobMode currently maps that knob to -- NOT which of the 8 modes is selected
+    // (the MOD0-7 buttons' own LEDs already show that, per button.h ZmodButtonX/modLed[8]).
+    // Confirmed against real hardware: turning a knob fills the squares proportionally from the
+    // bottom, with the boundary square partially/dimly lit for sub-square precision (e.g. 2 full +
+    // a half-lit 3rd), not a discrete single-square jump.
+    drawSquareLedColumn(g2, 671, upperY, currentModKnobFillLevel(0));
+    drawSquareLedColumn(g2, 446, lowerY, currentModKnobFillLevel(1));
   }
 
-  private void drawSquareLedColumn(Graphics2D g2, int cx, int[] yTable, int activeRow) {
+  private void drawSquareLedColumn(Graphics2D g2, int cx, int[] yTable, float fillLevel) {
     int half = Math.max(4, (int) Math.round(9 * currentScale));
     int x = drawX + (int) Math.round(cx * currentScale);
+    float scaledFill = fillLevel < 0f ? 0f : fillLevel * yTable.length;
     for (int i = 0; i < yTable.length; i++) {
       int y = drawY + (int) Math.round(yTable[i] * currentScale);
-      if (i == activeRow) {
-        g2.setColor(new Color(255, 140, 15, 80));
-        g2.fillRect(x - half - 3, y - half - 3, (half + 3) * 2, (half + 3) * 2);
-        g2.setColor(new Color(255, 150, 20, 245));
+      float squareFill = Math.max(0f, Math.min(1f, scaledFill - i));
+      if (squareFill <= 0f) {
+        g2.setColor(new Color(60, 30, 5, 110));
         g2.fillRect(x - half, y - half, half * 2, half * 2);
       } else {
-        g2.setColor(new Color(60, 30, 5, 110));
+        int alpha = Math.round(110 + squareFill * (245 - 110));
+        g2.setColor(new Color(255, 140, 15, 80));
+        g2.fillRect(x - half - 3, y - half - 3, (half + 3) * 2, (half + 3) * 2);
+        g2.setColor(new Color(255, 150, 20, alpha));
         g2.fillRect(x - half, y - half, half * 2, half * 2);
       }
     }
+  }
+
+  /**
+   * Continuous 0..1 fill level for the knob-value bargraph, mirroring exactly which of the 16 real
+   * parameters (C: sound.cpp:97-122) {@link #adjustModKnobParam} writes to for the current
+   * modKnobMode. Returns -1 (renders as fully empty) if there's no current synth track, or the
+   * mapped slot has no model+engine plumbing yet (mode 4 / knob 1: sidechain).
+   */
+  private float currentModKnobFillLevel(int knobIndex) {
+    org.deluge.model.SynthTrackModel st = currentSynthTrack();
+    if (st == null) {
+      return -1f;
+    }
+    int mode = st.getModKnobMode();
+    return switch (mode * 2 + knobIndex) {
+      case 0 -> (st.getPan() + 1.0f) / 2.0f; // PAN -1..1
+      case 1 -> st.getVolume(); // 0..1
+      case 2 -> st.getLpfRes(); // 0..1
+      case 3 -> { // LPF CUTOFF, log-scaled 20..20000 matching the knob's own log feel
+        float freq = clamp(st.getLpfFreq(), 20.0f, 20000.0f);
+        double t = (Math.log(freq) - Math.log(20.0)) / (Math.log(20000.0) - Math.log(20.0));
+        yield (float) t;
+      }
+      case 4 -> clamp(st.getEnv(0).release() / 5.0f, 0f, 1f);
+      case 5 -> clamp(st.getEnv(0).attack() / 5.0f, 0f, 1f);
+      case 6 -> clamp(st.getDelayFeedbackQ31() / (float) Integer.MAX_VALUE, 0f, 1f);
+      case 7 -> st.getDelaySend();
+      case 8 -> st.getReverbSend();
+      case 9 -> -1f; // sidechain -- not yet wired, see adjustModKnobParam
+      case 10 -> st.getLfo(0).depth();
+      case 11 -> {
+        int cur = st.getRawKnobs().isLfoRateKnobSet(0) ? st.getRawKnobs().getLfoRateKnobQ31(0) : 0;
+        yield clamp(cur / (float) Integer.MAX_VALUE, 0f, 1f);
+      }
+      case 12 -> {
+        int cur = st.getPortamentoQ31() == Integer.MIN_VALUE ? 0 : st.getPortamentoQ31();
+        yield clamp(cur / (float) Integer.MAX_VALUE, 0f, 1f);
+      }
+      case 13 -> st.getStutter().getStutterRate();
+      case 14 -> st.getBitCrush();
+      case 15 -> st.getSampleRateReduction();
+      default -> -1f;
+    };
   }
 
   private void drawEncoderDial(Graphics2D g2, ControlDef c) {
