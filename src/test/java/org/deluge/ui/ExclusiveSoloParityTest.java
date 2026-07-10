@@ -2,9 +2,6 @@ package org.deluge.ui;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.awt.event.ActionEvent;
-import javax.swing.JButton;
-import org.deluge.BridgeContract;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
 import org.deluge.model.TrackModel;

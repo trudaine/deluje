@@ -165,16 +165,10 @@ Synthesizer tracks support real-time hardware stutter performance modes located 
 *   **Quantize to Grid**: Locks stutter repeat loop boundaries to the musical sequencer grid.
 *   **Reversed Playback**: Plays captured audio slices backward during stutter loops.
 *   **Ping-Pong Bounce**: Alternates forward and backward playback across consecutive stutter repeats.
-*   **Latching Stutter Mode**: While standard stutter is momentary (active while pressing `Q`), pressing `Shift + Q` (or selecting **Toggle Latched Stutter Loop (Shift + Q)** in the OLED menu) toggles **Latching Stutter Mode**, keeping the stutter repeat loop locked on hands-free. Pressing `Shift + Q` again toggles latched stutter off.
 
 ---
 
-## 12. Advanced Microtuning, Live Step Recording & Exclusive Solo
-
-### Scala (`.scl`) Custom Microtuning (`ScalaTuning.java`)
-Deluge-Java supports custom non-equal temperament scales (`// C microtuning.cpp`):
-*   **Loading a Scala File**: Select **Load Scala (.scl) Custom Microtuning...** from the OLED system menu (`SwingOledPanel.java`) and choose a `.scl` file (`5 to 64 intervals per period`, ratio or cents format).
-*   **Resetting Tuning**: Select **Reset to Standard 12-TET Tuning** to restore default equal temperament (`440 Hz A4`).
+## 12. Live Step Recording & Exclusive Solo
 
 ### Live Step Parameter Lock Recording (`[RECORD]` + Macro Tweaks)
 When **Live Record Mode** (`[RECORD]`) is engaged during sequencer playback (`isPlaying && isLiveRecordModeActive`), dragging a macro slider column (`LEVEL`, `PAN`, `FILTER`, `RESONANCE`, `LFO`, `MOD FX`, `DELAY`, `REVERB`, `STUTTER`) writes step parameter locks (`AutomationParam`) directly onto the sequence step currently under the playhead (`G_CURRENT_STEP`).

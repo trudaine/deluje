@@ -1289,8 +1289,7 @@ public class SwingSynthConfigDialog extends JDialog {
     fxTabs.addTab("EQ", scrollWrap(new EqPanel(model, bridge, trackIndex, projectModel)));
     fxTabs.addTab(
         "COMPRESSOR", scrollWrap(new CompressorPanel(model, bridge, trackIndex, projectModel)));
-    fxTabs.addTab(
-        "STUTTER", scrollWrap(new StutterPanel(model, bridge, trackIndex, projectModel)));
+    fxTabs.addTab("STUTTER", scrollWrap(new StutterPanel(model, bridge, trackIndex, projectModel)));
     tabs.addTab("FX", fxTabs);
 
     // ── Setup utilities (grouped) ──

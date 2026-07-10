@@ -122,49 +122,6 @@ public class SwingOledPanel extends JPanel {
         });
     menu.add(stutterItem);
 
-    javax.swing.JMenuItem stutterLatchItem =
-        new javax.swing.JMenuItem("Toggle Latched Stutter Loop (Shift + Q)");
-    stutterLatchItem.addActionListener(
-        e -> {
-          if (SwingDelugeApp.mainInstance != null
-              && SwingDelugeApp.mainInstance.transportController != null) {
-            SwingDelugeApp.mainInstance.transportController.toggleStutterLatched();
-          }
-        });
-    menu.add(stutterLatchItem);
-
-    javax.swing.JMenuItem importSclItem =
-        new javax.swing.JMenuItem("Load Scala (.scl) Custom Microtuning...");
-    importSclItem.addActionListener(
-        e -> {
-          javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
-          chooser.setDialogTitle("Select Scala (.scl) Custom Microtuning File");
-          if (chooser.showOpenDialog(this) == javax.swing.JFileChooser.APPROVE_OPTION) {
-            try {
-              String content = java.nio.file.Files.readString(chooser.getSelectedFile().toPath());
-              org.deluge.model.ScalaTuning tuning = org.deluge.model.ScalaTuning.parseScl(content);
-              org.deluge.model.ScalaTuning.setActiveTuning(tuning);
-              showParamText("SCALA", tuning.getDescription());
-            } catch (Exception ex) {
-              javax.swing.JOptionPane.showMessageDialog(
-                  this,
-                  "Failed to import Scala tuning file:\n" + ex.getMessage(),
-                  "Scala Import Error",
-                  javax.swing.JOptionPane.ERROR_MESSAGE);
-            }
-          }
-        });
-    menu.add(importSclItem);
-
-    javax.swing.JMenuItem resetSclItem =
-        new javax.swing.JMenuItem("Reset to Standard 12-TET Tuning");
-    resetSclItem.addActionListener(
-        e -> {
-          org.deluge.model.ScalaTuning.setActiveTuning(null);
-          showParamText("SCALA", "12-TET STANDARD");
-        });
-    menu.add(resetSclItem);
-
     menu.addSeparator();
 
     javax.swing.JMenuItem prefsItem = new javax.swing.JMenuItem("Preferences & UI Style...");

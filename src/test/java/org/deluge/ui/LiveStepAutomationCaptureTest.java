@@ -6,7 +6,6 @@ import org.deluge.BridgeContract;
 import org.deluge.model.AutomationParam;
 import org.deluge.model.ClipModel;
 import org.deluge.model.ProjectModel;
-import org.deluge.model.TrackModel;
 import org.junit.jupiter.api.Test;
 
 /**

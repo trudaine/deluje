@@ -26,8 +26,7 @@ public class StepPropertiesDialogIteranceTest {
   @Test
   public void testInitialConditionPreservedAndPackedToInt() {
     Iterance initCond = new Iterance((byte) 4, (byte) 0b0101); // 1st and 3rd cycle of 4
-    StepPropertiesDialog dlg =
-        new StepPropertiesDialog(null, 80, 0, 0, 100, 0.9, 0, initCond);
+    StepPropertiesDialog dlg = new StepPropertiesDialog(null, 80, 0, 0, 100, 0.9, 0, initCond);
 
     Iterance retrieved = dlg.getPlayCondition();
     assertEquals(4, retrieved.divisor);

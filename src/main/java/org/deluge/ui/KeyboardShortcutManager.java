@@ -117,13 +117,9 @@ public class KeyboardShortcutManager extends KeyAdapter {
       return;
     }
 
-    // Q — Stutter live step repeating (momentary or shift-latched)
+    // Q — Stutter live step repeating (momentary)
     if (!ctrl && kc == KeyEvent.VK_Q) {
-      if (shift) {
-        app.transportController.toggleStutterLatched();
-      } else {
-        app.transportController.setStutterActive(true);
-      }
+      app.transportController.setStutterActive(true);
       return;
     }
 

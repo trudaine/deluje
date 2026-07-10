@@ -34,7 +34,15 @@ public class StepPropertiesDialog extends JDialog {
   }
 
   public StepPropertiesDialog(Frame owner, int currentVelocity) {
-    this(owner, currentVelocity, 0, 0, 100, 0.9, 0, new org.deluge.model.Iterance((byte) 1, (byte) 1));
+    this(
+        owner,
+        currentVelocity,
+        0,
+        0,
+        100,
+        0.9,
+        0,
+        new org.deluge.model.Iterance((byte) 1, (byte) 1));
   }
 
   public StepPropertiesDialog(
