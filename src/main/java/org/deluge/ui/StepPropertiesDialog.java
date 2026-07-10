@@ -10,6 +10,29 @@ import javax.swing.border.EmptyBorder;
  */
 public class StepPropertiesDialog extends JDialog {
 
+  private record IterancePreset(String name, int divisor, int mask) {}
+
+  /**
+   * C: lookuptables.cpp:506 {@code iterancePresets} -- divisor 2..8, every bit position, in this
+   * exact order ({@code kNumIterancePresets = 35}). "Always (1 of 1)" is not itself one of the 35
+   * (there is no divisor-1 entry in the real table); it represents {@code kDefaultIteranceValue}/no
+   * restriction, kept here as a convenience first entry.
+   */
+  private static final java.util.List<IterancePreset> ITERANCE_PRESETS = buildIterancePresets();
+
+  private static java.util.List<IterancePreset> buildIterancePresets() {
+    java.util.List<IterancePreset> entries = new java.util.ArrayList<>();
+    entries.add(new IterancePreset("Always (1 of 1)", 1, 0b1));
+    String[] ordinals = {"1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"};
+    for (int divisor = 2; divisor <= 8; divisor++) {
+      for (int step = 1; step <= divisor; step++) {
+        String name = ordinals[step - 1] + " of " + divisor + " (" + step + " of " + divisor + ")";
+        entries.add(new IterancePreset(name, divisor, 1 << (step - 1)));
+      }
+    }
+    return java.util.List.copyOf(entries);
+  }
+
   private final JSlider velSlider;
   private final JSpinner velSpin;
   private final JSpinner iterSpin;
@@ -283,19 +306,11 @@ public class StepPropertiesDialog extends JDialog {
 
     gc.gridx = 1;
     gc.weightx = 0.8;
-    String[] presets = {
-      "Always (1 of 1)",
-      "1st of 2 (1 of 2)",
-      "2nd of 2 (2 of 2)",
-      "1st of 3 (1 of 3)",
-      "1st of 4 (1 of 4)",
-      "2nd of 4 (2 of 4)",
-      "3rd of 4 (3 of 4)",
-      "4th of 4 (4 of 4)",
-      "1st of 8 (1 of 8)",
-      "8th of 8 (8 of 8)",
-      "Custom (Cycle Bitmask)"
-    };
+    String[] presets = new String[ITERANCE_PRESETS.size() + 1];
+    for (int i = 0; i < ITERANCE_PRESETS.size(); i++) {
+      presets[i] = ITERANCE_PRESETS.get(i).name();
+    }
+    presets[presets.length - 1] = "Custom (Cycle Bitmask)";
     condCombo = new JComboBox<>(presets);
     condCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     condCombo.setForeground(Color.WHITE);
@@ -428,16 +443,12 @@ public class StepPropertiesDialog extends JDialog {
       int div = currentPlayCondition.divisor & 0xFF;
       int mask = currentPlayCondition.iteranceStep & 0xFF;
       String matchedPreset = null;
-      if (div == 1 && mask == 0b1) matchedPreset = "Always (1 of 1)";
-      else if (div == 2 && mask == 0b1) matchedPreset = "1st of 2 (1 of 2)";
-      else if (div == 2 && mask == 0b10) matchedPreset = "2nd of 2 (2 of 2)";
-      else if (div == 3 && mask == 0b1) matchedPreset = "1st of 3 (1 of 3)";
-      else if (div == 4 && mask == 0b1) matchedPreset = "1st of 4 (1 of 4)";
-      else if (div == 4 && mask == 0b10) matchedPreset = "2nd of 4 (2 of 4)";
-      else if (div == 4 && mask == 0b100) matchedPreset = "3rd of 4 (3 of 4)";
-      else if (div == 4 && mask == 0b1000) matchedPreset = "4th of 4 (4 of 4)";
-      else if (div == 8 && mask == 0b1) matchedPreset = "1st of 8 (1 of 8)";
-      else if (div == 8 && mask == 0b10000000) matchedPreset = "8th of 8 (8 of 8)";
+      for (IterancePreset preset : ITERANCE_PRESETS) {
+        if (preset.divisor() == div && preset.mask() == mask) {
+          matchedPreset = preset.name();
+          break;
+        }
+      }
 
       for (int i = 0; i < 8; i++) {
         if (condChecks[i] != null) {
@@ -459,27 +470,12 @@ public class StepPropertiesDialog extends JDialog {
   }
 
   private void applyPresetToPlayCondition(String sel) {
-    switch (sel) {
-      case "Always (1 of 1)" ->
-          currentPlayCondition = new org.deluge.model.Iterance((byte) 1, (byte) 0b1);
-      case "1st of 2 (1 of 2)" ->
-          currentPlayCondition = new org.deluge.model.Iterance((byte) 2, (byte) 0b1);
-      case "2nd of 2 (2 of 2)" ->
-          currentPlayCondition = new org.deluge.model.Iterance((byte) 2, (byte) 0b10);
-      case "1st of 3 (1 of 3)" ->
-          currentPlayCondition = new org.deluge.model.Iterance((byte) 3, (byte) 0b1);
-      case "1st of 4 (1 of 4)" ->
-          currentPlayCondition = new org.deluge.model.Iterance((byte) 4, (byte) 0b1);
-      case "2nd of 4 (2 of 4)" ->
-          currentPlayCondition = new org.deluge.model.Iterance((byte) 4, (byte) 0b10);
-      case "3rd of 4 (3 of 4)" ->
-          currentPlayCondition = new org.deluge.model.Iterance((byte) 4, (byte) 0b100);
-      case "4th of 4 (4 of 4)" ->
-          currentPlayCondition = new org.deluge.model.Iterance((byte) 4, (byte) 0b1000);
-      case "1st of 8 (1 of 8)" ->
-          currentPlayCondition = new org.deluge.model.Iterance((byte) 8, (byte) 0b1);
-      case "8th of 8 (8 of 8)" ->
-          currentPlayCondition = new org.deluge.model.Iterance((byte) 8, (byte) 0b10000000);
+    for (IterancePreset preset : ITERANCE_PRESETS) {
+      if (preset.name().equals(sel)) {
+        currentPlayCondition =
+            new org.deluge.model.Iterance((byte) preset.divisor(), (byte) preset.mask());
+        return;
+      }
     }
   }
 
