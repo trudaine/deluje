@@ -159,8 +159,6 @@ public final class BridgeContract {
   public static final String G_SWING = "g_swing";
   public static final String G_PLAY = "g_play";
   public static final String G_CURRENT_STEP = "g_current_step";
-  public static final String G_STUTTER_ON = "g_stutter_on";
-  public static final String G_STUTTER_DIV = "g_stutter_div";
   public static final String G_TRACK_ACTIVITY = "g_track_activity";
   public static final String G_STEP_RESOLUTION = "g_step_resolution";
 
@@ -723,8 +721,6 @@ public final class BridgeContract {
     setGlobalFloat(G_REVERB_DAMP, (double) reverbDamp);
     setGlobalInt(G_SCALE, 0L);
     setGlobalInt(G_ROOT_KEY, 0L);
-    setGlobalInt(G_STUTTER_ON, 0L);
-    setGlobalFloat(G_STUTTER_DIV, 1.0);
     setGlobalInt(G_PREVIEW_TRACK, 0L);
     setGlobalFloat(G_PREVIEW_PITCH, 60.0f);
     setGlobalObject(E_PREVIEW, new org.deluge.shadow.core.ChuckEvent());
@@ -3176,14 +3172,6 @@ public final class BridgeContract {
   public void setCurrentStep(int v) {
     this.javaCurrentStep = v;
     if (vm != null) setGlobalInt(G_CURRENT_STEP, (long) v);
-  }
-
-  public long getStutterOn() {
-    return vm != null ? getGlobalInt(G_STUTTER_ON) : 0L;
-  }
-
-  public double getStutterDiv() {
-    return vm != null ? getGlobalFloat(G_STUTTER_DIV) : 1.0;
   }
 
   public void processLaunchQueue() {

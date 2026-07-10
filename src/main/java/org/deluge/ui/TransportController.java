@@ -193,10 +193,54 @@ public class TransportController {
     bridge.setGlobalFloat(BridgeContract.G_MASTER_VOL, vol);
   }
 
-  /** Momentary live step-repeat, held while the Q key (or a future hardware button) is down. */
+  /**
+   * Momentary live stutter, held while the Q key (or a future hardware button) is down. C:
+   * triggered on real hardware by pressing the gold knob mapped to UNPATCHED_STUTTER_RATE
+   * (Sound::modEncoderButtonAction, sound.cpp:4449) -- calls the per-sound stutterer's
+   * beginStutter/endStutter directly (model/mod_controllable/mod_controllable_audio.cpp:1299-1323),
+   * not a sequencer-level flag. This used to just toggle a global bridge flag that SequencerClock
+   * read to fake a step-repeat; replaced with the real firmware2.Stutterer (buffer-capture
+   * loop/reverse/ping-pong) on the currently-edited track's live Sound.
+   */
   public void setStutterActive(boolean active) {
-    bridge.setGlobalInt(BridgeContract.G_STUTTER_ON, active ? 1L : 0L);
+    org.deluge.engine.FirmwareSound fs = currentTrackFirmwareSound();
+    if (fs == null) {
+      showOled("STUT", "NO SYNTH TRACK");
+      return;
+    }
+    if (active) {
+      org.deluge.firmware2.Stutterer.GLOBAL.beginStutter(
+          fs.fw2Sound,
+          fs.paramManager,
+          currentStutterConfig(),
+          fs.fw2Sound.timePerInternalTickInverse);
+    } else {
+      org.deluge.firmware2.Stutterer.GLOBAL.endStutter(fs.paramManager);
+    }
     showOled("STUT", active ? "ON" : "OFF");
+  }
+
+  private org.deluge.engine.FirmwareSound currentTrackFirmwareSound() {
+    if (app.clipPanel == null) return null;
+    return org.deluge.engine.DroneLabGenerator.getActiveTrackSound(
+        bridge, app.clipPanel.editedModelTrack);
+  }
+
+  /** Builds a Stutterer.Config from the current track's model.StutterConfig, if it's a synth. */
+  private org.deluge.firmware2.Stutterer.Config currentStutterConfig() {
+    org.deluge.firmware2.Stutterer.Config config = new org.deluge.firmware2.Stutterer.Config();
+    org.deluge.model.ProjectModel project = app.getCurrentProject();
+    int trackIndex = app.clipPanel.editedModelTrack;
+    if (project != null
+        && trackIndex >= 0
+        && trackIndex < project.getTracks().size()
+        && project.getTracks().get(trackIndex) instanceof org.deluge.model.SynthTrackModel st) {
+      org.deluge.model.StutterConfig sc = st.getStutter();
+      config.quantized = sc.isStutterQuantized();
+      config.reversed = sc.isStutterReversed();
+      config.pingPong = sc.isStutterPingPong();
+    }
+    return config;
   }
 
   public void toggleMetronome() {

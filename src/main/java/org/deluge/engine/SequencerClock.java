@@ -7,17 +7,22 @@ import org.deluge.BridgeContract;
  * Dedicated step sequencer clock thread for NativeJavaSequencer.
  *
  * <p>Replaces the {@link java.util.concurrent.ScheduledExecutorService}-based approach with a tight
- * spin-wait loop that delivers step ticks with swing-aware timing, stutter support, and
- * bar-boundary clip queue processing.
+ * spin-wait loop that delivers step ticks with swing-aware timing and bar-boundary clip queue
+ * processing.
  *
  * <p>Matching the behavior of the retired legacy DSL engine's {@code clock_shred()}:
  *
  * <ul>
  *   <li>Swing per even/odd step (same formula: {@code 1.0 ± (swing - 0.5) * 0.4})
- *   <li>Stutter mode: repeat current step at sub-division rate when {@code G_STUTTER_ON}
  *   <li>Transport-aware: stops advancing when {@code G_PLAY == 0}
  *   <li>Bar-boundary clip queue processing at {@code step % 16 == 0}
  * </ul>
+ *
+ * <p>Stutter is handled per-sound by {@link org.deluge.firmware2.Stutterer} (buffer-capture
+ * loop/reverse/ping-pong, faithful to the real firmware), not by this sequencer -- it previously
+ * had its own simplified "repeat the current step faster" approximation gated on a global {@code
+ * G_STUTTER_ON} flag, with no concept of the real DSP mechanism at all. Removed once the real
+ * per-sound stutter was wired up in {@link org.deluge.ui.TransportController#setStutterActive}.
  */
 public class SequencerClock implements Runnable {
 
@@ -121,68 +126,40 @@ public class SequencerClock implements Runnable {
       // Read current master state
       double bpm = bridge.getBpm();
       double swing = bridge.getSwing();
-      long stutter = (long) bridge.getStutterOn();
-      double stutterDiv = bridge.getStutterDiv();
 
-      if (stutter == 0) {
-        // Normal step advance
-        durNs = calculateStepDurationNs(step, bpm, swing);
+      durNs = calculateStepDurationNs(step, bpm, swing);
 
-        // Process bar-boundary clip queues (matching clock_shred: step % barSteps == 0)
-        // Do this before the tick so the new clip is active for this step
-        int barSteps = (bridge != null && bridge.getTrackLength(0) % 12 == 0) ? 12 : 16;
-        if (step % barSteps == 0) {
-          bridge.processLaunchQueue();
-        }
-
-        // Set current step visible to other threads (matching G_CURRENT_STEP)
-        bridge.setCurrentStep(step);
-
-        // Notify listener
-        listener.onTick(step, true);
-
-        // Wait for the step duration, compensating for drift
-        long elapsed = System.nanoTime() - lastStepStart;
-        long remaining = durNs - elapsed;
-        if (remaining > MIN_SLEEP_NS) {
-          sleepNs(remaining - MIN_SLEEP_NS / 2);
-          // Spin-wait the rest for precision
-          while (System.nanoTime() - lastStepStart < durNs) {
-            Thread.yield();
-          }
-        } else if (remaining > 0) {
-          while (System.nanoTime() - lastStepStart < durNs) {
-            Thread.yield();
-          }
-        }
-
-        lastStepStart += durNs;
-        step++;
-        masterStep++;
-      } else {
-        // Stutter mode: repeat same step at higher rate
-        durNs = calculateStepDurationNs(step, bpm, swing);
-        long subDurNs = (long) (durNs / Math.max(1.0, stutterDiv));
-
-        bridge.setCurrentStep(step);
-        listener.onTick(step, false);
-
-        long elapsed = System.nanoTime() - lastStepStart;
-        long remaining = subDurNs - elapsed;
-        if (remaining > MIN_SLEEP_NS) {
-          sleepNs(remaining - MIN_SLEEP_NS / 2);
-          while (System.nanoTime() - lastStepStart < subDurNs) {
-            Thread.yield();
-          }
-        } else if (remaining > 0) {
-          while (System.nanoTime() - lastStepStart < subDurNs) {
-            Thread.yield();
-          }
-        }
-
-        lastStepStart += subDurNs;
-        // Step doesn't advance during stutter — just masterStep keeps reference
+      // Process bar-boundary clip queues (matching clock_shred: step % barSteps == 0)
+      // Do this before the tick so the new clip is active for this step
+      int barSteps = (bridge != null && bridge.getTrackLength(0) % 12 == 0) ? 12 : 16;
+      if (step % barSteps == 0) {
+        bridge.processLaunchQueue();
       }
+
+      // Set current step visible to other threads (matching G_CURRENT_STEP)
+      bridge.setCurrentStep(step);
+
+      // Notify listener
+      listener.onTick(step, true);
+
+      // Wait for the step duration, compensating for drift
+      long elapsed = System.nanoTime() - lastStepStart;
+      long remaining = durNs - elapsed;
+      if (remaining > MIN_SLEEP_NS) {
+        sleepNs(remaining - MIN_SLEEP_NS / 2);
+        // Spin-wait the rest for precision
+        while (System.nanoTime() - lastStepStart < durNs) {
+          Thread.yield();
+        }
+      } else if (remaining > 0) {
+        while (System.nanoTime() - lastStepStart < durNs) {
+          Thread.yield();
+        }
+      }
+
+      lastStepStart += durNs;
+      step++;
+      masterStep++;
     }
   }
 

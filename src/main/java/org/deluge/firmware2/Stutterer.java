@@ -7,8 +7,39 @@ import org.deluge.modulation.params.ParamManager;
 /**
  * Port of the Deluge's Stutterer class. Implements real-time buffer-based stutter with bit-accurate
  * rate mapping. Moved to org.deluge.firmware2 for package decoupling.
+ *
+ * <p>C: "There's only one stutter effect active at a time, so we have a global stutterer to save
+ * memory" (stutterer.h: {@code extern Stutterer stutterer;}) -- matched here via {@link #GLOBAL},
+ * the single shared instance production code should use (mirroring {@code
+ * ModControllableAudio::beginStutter/processStutter/endStutter} calling the one global {@code
+ * stutterer}, gated by {@link #isStuttering}). The class itself stays instantiable for isolated
+ * unit tests, same as C's {@code Stutterer} class is usable on its own merits.
  */
 public class Stutterer {
+  /** The one shared stutter engine, matching the real firmware's global {@code stutterer}. */
+  public static final Stutterer GLOBAL = new Stutterer();
+
+  /**
+   * C: FlashStorage::defaultMagnitude (flash_storage.cpp:328) -- matches
+   * Sidechain.DEFAULT_MAGNITUDE.
+   */
+  private static final int DEFAULT_MAGNITUDE = 2;
+
+  /**
+   * C: {@code sync} (stutterer.h) -- "TODO: This is currently unused! It's set to 7 initially, and
+   * never modified." Real hardware runs with this same hardcoded 7 today, so the tempo-sync branch
+   * in {@link #getStutterRate} is unconditionally taken there too; ported as a fixed constant
+   * rather than a mutable field for that reason.
+   */
+  private static final int SYNC = 7;
+
+  /**
+   * C: {@code playbackHandler.getTimePerInternalTickInverse()} -- tempo-derived tick rate used by
+   * {@link #getStutterRate}'s sync scaling. No live tempo clock reaches this DSP layer yet; matches
+   * the same documented proxy {@link Sidechain#timePerInternalTickInverse} uses until one is wired.
+   */
+  private static final int DEFAULT_TIME_PER_TICK_INVERSE = 1 << 20;
+
   public enum Status {
     OFF,
     RECORDING,
@@ -31,6 +62,17 @@ public class Stutterer {
   private int lastQuantizedKnobDiff = 0;
   private Object stutterSource = null;
 
+  /**
+   * The ParamManager captured at {@link #beginStutter}, reused by the render-loop overload of
+   * {@link #processStutter} that takes no ParamManager of its own. C passes {@code paramManager}
+   * explicitly on every {@code processStutter}/{@code endStutter} call (it always has one in
+   * scope); this port's {@code firmware2.Sound} render loop does not carry a live {@code
+   * org.deluge.modulation.params.ParamManager} reference of its own (that lives on the engine
+   * wrapper, {@code engine.FirmwareSound}), so the reference captured here stands in for the render
+   * call site.
+   */
+  private ParamManager activeParamManager;
+
   public boolean isStuttering(Object source) {
     return stutterSource == source;
   }
@@ -40,6 +82,17 @@ public class Stutterer {
   }
 
   public void beginStutter(Object source, ParamManager paramManager, Config sc) {
+    beginStutter(source, paramManager, sc, DEFAULT_TIME_PER_TICK_INVERSE);
+  }
+
+  /**
+   * @param timePerTickInverse C: {@code playbackHandler.getTimePerInternalTickInverse()} -- pass
+   *     the caller's live tempo-tick value (e.g. {@code
+   *     firmware2.Sound#timePerInternalTickInverse}) for tempo-synced stutter timing.
+   */
+  public void beginStutter(
+      Object source, ParamManager paramManager, Config sc, int timePerTickInverse) {
+    this.activeParamManager = paramManager;
     this.config = sc;
     this.currentReverse = config.reversed;
 
@@ -63,7 +116,7 @@ public class Stutterer {
     }
 
     // ── Bit-Accurate Stutter Rate ──
-    int rate = getStutterRate(paramManager);
+    int rate = getStutterRate(paramManager, DEFAULT_MAGNITUDE, timePerTickInverse);
 
     if (buffer.init(rate) == DelayBuffer.Error.NONE) {
       status = Status.RECORDING;
@@ -72,10 +125,26 @@ public class Stutterer {
     }
   }
 
+  /**
+   * Render-loop overload: uses the ParamManager captured at {@link #beginStutter} (see {@link
+   * #activeParamManager}) since the caller (firmware2.Sound's render loop) has none of its own.
+   *
+   * @param timePerTickInverse C: {@code playbackHandler.getTimePerInternalTickInverse()}, e.g.
+   *     {@code firmware2.Sound#timePerInternalTickInverse}
+   */
+  public void processStutter(StereoSample[] audio, int timePerTickInverse) {
+    processStutter(audio, activeParamManager, DEFAULT_MAGNITUDE, timePerTickInverse);
+  }
+
   public void processStutter(StereoSample[] audio, ParamManager paramManager) {
+    processStutter(audio, paramManager, DEFAULT_MAGNITUDE, DEFAULT_TIME_PER_TICK_INVERSE);
+  }
+
+  public void processStutter(
+      StereoSample[] audio, ParamManager paramManager, int magnitude, int timePerTickInverse) {
     if (status == Status.OFF) return;
 
-    int rate = getStutterRate(paramManager);
+    int rate = getStutterRate(paramManager, magnitude, timePerTickInverse);
     buffer.setupForRender(rate);
 
     if (status == Status.RECORDING) {
@@ -175,9 +244,10 @@ public class Stutterer {
     lastQuantizedKnobDiff = 0;
     valueBeforeStuttering = 0;
     stutterSource = null;
+    activeParamManager = null;
   }
 
-  private int getStutterRate(ParamManager paramManager) {
+  private int getStutterRate(ParamManager paramManager, int magnitude, int timePerTickInverse) {
     int paramValue = paramManager.getUnpatchedValue(Param.UNPATCHED_STUTTER_RATE);
     int knobPos = paramValueToKnobPos(paramValue) + lastQuantizedKnobDiff;
     if (knobPos < -64) {
@@ -186,7 +256,26 @@ public class Stutterer {
       knobPos = 64;
     }
     int quantizedParamValue = knobPosToParamValue(knobPos);
-    int rate = Functions.getExp(1, quantizedParamValue);
+    // C: stutterer.cpp:44 -- getFinalParameterValueExp(paramNeutralValues[GLOBAL_DELAY_RATE],
+    // cableToExpParamShortcut(paramValue)). Was previously Functions.getExp(1, quantizedParamValue)
+    // -- the literal 1 (instead of the real ~2^29 neutral value) and the missing
+    // cableToExpParamShortcut shortcut made the computed rate collapse to ~0 for any input,
+    // silently floored to the 1000 fallback below; the stutter rate never actually tracked the
+    // rate knob at all.
+    int rate =
+        Functions.getExp(
+            Functions.getParamNeutralValue(Param.GLOBAL_DELAY_RATE),
+            Functions.cableToExpParamShortcut(quantizedParamValue));
+
+    // C: stutterer.cpp:47-56 -- sync is always 7 (see SYNC), so this branch is unconditionally
+    // taken on real hardware too. Was previously missing entirely from this port: the stutter
+    // rate never locked to song tempo at all.
+    rate = multiply_32x32_rshift32(rate, timePerTickInverse);
+    int lShiftAmount = SYNC + 6 - magnitude;
+    int limit = Integer.MAX_VALUE >> lShiftAmount;
+    rate = Math.min(rate, limit);
+    rate <<= lShiftAmount;
+
     return Math.max(rate, 1000);
   }
 

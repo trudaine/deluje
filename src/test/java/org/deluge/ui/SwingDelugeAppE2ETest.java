@@ -1372,21 +1372,42 @@ public class SwingDelugeAppE2ETest {
 
   @Test
   public void testStutterUIAndShortcutWorkflow() throws Exception {
+    // Regression: setStutterActive used to only toggle a global bridge flag that SequencerClock
+    // read to fake a step-repeat -- it never touched the real per-sound firmware2.Stutterer
+    // (buffer-capture loop/reverse/ping-pong), so real stutter audio never actually happened.
     System.setProperty("chuck.audio.dummy", "true");
     BridgeContract bridge = new BridgeContract(44100, 2);
-    SwingDelugeApp app = new SwingDelugeApp(bridge, null);
+    SwingDelugeApp app = new SwingDelugeApp(bridge, null, true);
 
     try {
+      org.deluge.model.ProjectModel project = app.getCurrentProject();
+      project.getTracks().clear();
+      org.deluge.model.SynthTrackModel track = new org.deluge.model.SynthTrackModel("STUT_TEST");
+      project.addTrack(track);
+      app.getClipPanel().editedModelTrack = 0;
+      app.syncHighFidelityEngine(
+          project, true); // compiles the DSP engine, wiring clip.setSound(...)
+
+      org.deluge.engine.FirmwareSound fs =
+          org.deluge.engine.DroneLabGenerator.getActiveTrackSound(bridge, 0);
+      assertNotNull(fs, "The edited synth track must resolve to a live FirmwareSound");
+
       // Verify initial state
-      assertEquals(0L, bridge.getStutterOn(), "Stutter should be off initially");
+      assertFalse(
+          org.deluge.firmware2.Stutterer.GLOBAL.isStuttering(fs.fw2Sound),
+          "Stutter should be off initially");
 
       // Activate stutter via the real (Q key) trigger path
       app.transportController.setStutterActive(true);
-      assertEquals(1L, bridge.getStutterOn(), "Stutter must be engaged in bridge");
+      assertTrue(
+          org.deluge.firmware2.Stutterer.GLOBAL.isStuttering(fs.fw2Sound),
+          "The real per-sound stutterer must be engaged for the edited track");
 
       // Deactivate stutter
       app.transportController.setStutterActive(false);
-      assertEquals(0L, bridge.getStutterOn(), "Stutter must be disengaged in bridge");
+      assertFalse(
+          org.deluge.firmware2.Stutterer.GLOBAL.isStuttering(fs.fw2Sound),
+          "The real per-sound stutterer must be disengaged");
     } finally {
       app.dispose();
       bridge.shutdown();

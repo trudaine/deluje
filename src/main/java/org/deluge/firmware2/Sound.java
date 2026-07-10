@@ -370,7 +370,6 @@ public class Sound extends GlobalEffectable {
   public final ModFx modFX = new ModFx();
   public final GranularProcessor granular = new GranularProcessor();
   public final Eq eq = new Eq();
-  public final Stutterer stutterer = new Stutterer();
   public final Compressor compressor = new Compressor();
 
   // Per-sound delay (C: ModControllableAudio::delay, applied in processFX after modFX). The
@@ -934,13 +933,16 @@ public class Sound extends GlobalEffectable {
     delay.process(fxIntBuffer, numSamples, delayState);
 
     // Stutter runs AFTER processFX (modFX → EQ → delay), so it chops the delayed/chorused
-    // signal like the C (sound.cpp:2589). Bypass entirely if inactive to save CPU.
-    if (stutterer.isActive()) {
+    // signal like the C (sound.cpp:2589). C: only one stutter effect is active at a time via a
+    // single global stutterer (stutterer.h), gated by isStuttering(this) matching
+    // ModControllableAudio::processStutter (mod_controllable_audio.cpp:1315) -- not a per-instance
+    // flag. Bypass entirely if this Sound isn't the one currently stuttering, to save CPU.
+    if (Stutterer.GLOBAL.isStuttering(this)) {
       for (int i = 0; i < numSamples; i++) {
         fxStereoBuffer[i].l = fxIntBuffer[i][0];
         fxStereoBuffer[i].r = fxIntBuffer[i][1];
       }
-      stutterer.processStutter(fxStereoBuffer, null);
+      Stutterer.GLOBAL.processStutter(fxStereoBuffer, timePerInternalTickInverse);
       for (int i = 0; i < numSamples; i++) {
         fxIntBuffer[i][0] = fxStereoBuffer[i].l;
         fxIntBuffer[i][1] = fxStereoBuffer[i].r;
