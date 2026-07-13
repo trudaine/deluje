@@ -104,12 +104,22 @@ uncovered TWO REAL parser bugs (now FIXED) — the synth's `<delay><syncLevel>` 
 `<delayFeedback>` child of `<sound>` were both read ATTRIBUTE-only while presets use child elements,
 so EVERY preset's delay config was lost (`delaySyncLevel=0`, `delayFeedbackQ31=0` → delay inert). Now
 parsed attribute-or-child; House's delay config reads correctly (`syncLevel=6`, `0xBA000000`).
-**Still OPEN (deeper, separate):** even with the config read, the per-sound delay produces no audible
-echo — when a zero-sustain note decays to silence the voice is culled and the sound stops rendering
-before the (2 s) echo, so the delay TAIL is cut off (`firmware2.Sound` delayTailActive / voice-lifetime
-vs `processFX` delay). That tail-continuation is the real delay fidelity gap to fix next. NOTE: it does
-NOT explain the House/Xylophone time-resolved droppers — those remain measurement artifacts (the HW
-"plateau" is smooth from frame 0, not a 2 s echo; Xylophone has no delay at all).
+**RESOLVED (2026-07-13) — was already fixed, just unverified/uncredited.** The tail-continuation
+gate this paragraph flagged as open (`Sound` culling voices before the delay echo plays) turned out
+to already be ported: `Sound.java`'s `delayTailActive = delay.repeatsUntilAbandon != 0` gate (with
+`Delay.repeatsUntilAbandon`/`setTimeToAbandon`/`hasWrapped`) is a faithful, byte-for-byte match of
+the C's `sound.cpp:2164-2166` skip condition — landed by commit `7ae7b83` ("port the per-sound delay
+into the Sound FX chain"), which predates this doc entry. What was actually missing was a
+**regression test for the reported scenario**: `PerSoundDelayTimingTest`'s only case used a
+full-sustain envelope, so the voice never died during the render and the "voice dies before its
+echo" path was never exercised end-to-end. Added
+`delayEchoSurvivesVoiceDeathBeforeEchoTime` (`PerSoundDelayTimingTest.java`) against a new fixture
+`TestDelayTailSurvival.xml` (= `TestDelayFidelity.xml` with `envelope1 sustain="0x80000000"`, so the
+124 ms note fully decays and the voice unassigns within ~0.3 s): asserts the dry voice is silent by
+0.5–0.85 s **and** the syncLevel-4 echo still lands at ~1.0 s. Passes — confirms the tail survives
+voice death exactly as the C does. NOTE: this does NOT explain the House/Xylophone time-resolved
+droppers — those remain measurement artifacts (the HW "plateau" is smooth from frame 0, not a 2 s
+echo; Xylophone has no delay at all).
 
 
 ### 4.0 ⭐ Systematic over-brightness of SUBTRACTIVE synths — the real high-leverage gap
