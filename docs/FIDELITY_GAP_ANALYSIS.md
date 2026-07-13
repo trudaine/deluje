@@ -467,10 +467,22 @@ default):** `133 80s Strings` time 0.601→0.612, `137 Epic Saw Modulation Pad` 
 at 0.756 — small but real, no regression anywhere checked (`114 Sootheerio`/`117 Belledy`/`141
 Ringmod Pad` all unchanged).
 
-**Still open, unaudited:** the reverb/delay/modFX *algorithm* residual itself (133/144/137 still
-sit at 0.61–0.80 despite a faithful Freeverb port) — likely in patch-cable-driven modulation of
-these FX (phaser rate/depth, delay sync interacting with reverb pre-delay) or in `Delay.java`'s own
-port, not yet audited to the same line-by-line standard as Freeverb.
+**`Delay.java` and the phaser branch of `ModFx.java` also audited (2026-07-13) — both bit-for-bit
+faithful, no bugs found.** Delay's read/write/feedback core, the 40Hz feedback-path HPF, analog-vs-
+digital saturation paths, and buffer-swap accounting all match `dsp/delay/delay.cpp` exactly (one
+inert micro-divergence: Java's ping-pong swap doesn't gate on `AudioEngine::renderInStereo` since
+this project's offline renderer always renders stereo — behaviorally a no-op, not a bug). Phaser's
+6-stage allpass topology, `a1` coefficient formula, feedback injection, and LFO sourcing all match
+`ModFXProcessor.cpp` exactly. **So delay and phaser are ruled out** as the cause of 133/144/137's
+residual gap.
+
+**Still open, unaudited:** the residual itself (133/144/137 still sit at 0.61–0.80 despite Freeverb,
+Delay, and phaser all being confirmed faithful) — with the three most-suspected DSP kernels cleared,
+the remaining gap is likely NOT one smoking-gun bug but something more diffuse: the chorus/flanger/
+warble/dimension branches of `ModFx.java` (not yet audited — only phaser was checked), the specific
+patch-cable-driven modulation depth/rate values these three presets use, or a compounding of several
+small, individually-faithful stages. Lower priority than a fresh single-subsystem bug hunt; revisit
+with a specific new hypothesis rather than another blind full-subsystem audit.
 
 ### 4.5 Master gain chain — BLOCKED on a C-execution / calibrated-hardware reference (2026-06-29)
 
