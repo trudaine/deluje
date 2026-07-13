@@ -67,8 +67,6 @@ public class RingModParityTest {
     return Math.sqrt(s / (to - from));
   }
 
-  @org.junit.jupiter.api.Disabled(
-      "Fails in suite due to test-order stale state; passes in isolation. Needs static-state isolation.")
   @Test
   public void ringModDoublesFundamental() {
     int total = 12000;
