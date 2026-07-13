@@ -361,12 +361,56 @@ Sync patches are badly off.
   handling. The band-limited PWM port (renderPulseWave) was recently fixed; the **sync** path is the
   next oscillator item.
 
-### 4.3 Resonant / distorted filter — moderate
-- `015 Resonant Filter Bass` **0.24**, `120 High Harsh Pad` **0.23**, `124 Filter Modulation Pad`
-  **0.30**, `059 Distorted Lead Guitar` **−0.01**.
-- Likely cause: filter resonance curve / self-oscillation, and the wavefolder/clipping
-  (`mod_controllable_audio` saturation, `LOCAL_FOLD`). Check `FirmwareFilter` resonance + drive vs
-  the C `dsp/filter/*`.
+### 4.3 Resonant / distorted filter — REAL BUG FOUND AND FIXED (2026-07-13); ladder/fold themselves are faithful
+
+`015 Resonant Filter Bass` and `059 Distorted Lead Guitar` are **not in the current 188-preset
+ALLSYN scorecard set at all** (grepped the full run output — no hit for either name; likely a
+stale reference from before the preset-numbering shift, e.g. the Iterance-preset expansion). Their
+old 0.24/−0.01 scores can't be re-verified against the live scorecard; don't chase them from this
+doc entry alone — re-derive from a fresh scorecard run if revisited.
+
+`120 High Harsh Pad` and `124 Filter Modulation Pad` **are** live and were audited line-by-line,
+Java vs C (`../DelugeFirmware/src/deluge/dsp/filter/*`): `LpLadderFilter`/`BasicFilterComponent`
+resonance-feedback math, the resonance-threshold/tan lookup tables, and the wavefolder
+(`Functions.foldBufferPolyApproximation`) are all **bit-for-bit faithful ports** — no divergence
+found (neither preset even uses the wavefolder). The real bug was one level up, in **patch-cable
+XML parsing**, not filter math:
+
+**Bug (FIXED): the pre-V3.2 legacy "range"-destination patch-cable encoding was not parsed at
+all.** Old-format presets encode "envelope/LFO X controls the DEPTH of cable Y" as two sibling
+cables — one flagged `<rangeAdjustable>1</rangeAdjustable>`, another with a bare
+`<destination>range</destination>` — which C's `PatchCableSet::readPatchCablesFromFile`
+(`patch_cable_set.cpp:807-950`) resolves at end-of-parse by rewriting the "range" cable's
+destination to target the flagged cable specifically (the same depth-modulation mechanism the
+*current*-format `<depthControlledBy>` nested tag expresses). `InstrumentXmlParser`'s
+`parseSinglePatchCable`/`parsePatchCables` only understood the new nested format; a legacy "range"
+cable's destination string never matched anything in `FirmwareFactory.mapPatchCables`'s
+if/else‑if ladder, so `paramId` stayed `-1` and the cable was **silently discarded** — meaning the
+depth-controlled LFO/pitch/filter sweep played at a constant full depth from note-on instead of
+being shaped by its controlling envelope. This is not a niche case: **19 of the ~190 bundled
+SYNTHS presets** use this encoding (`grep -rl rangeAdjustable src/main/resources/SYNTHS`),
+including two in the §6 "must not regress" faithful set (`114 Sootheerio`, `117 Belledy`).
+
+Fixed in `InstrumentXmlParser.parsePatchCableList` (new): collects top-level cables, holds aside
+any `destination="range"` cable, and folds it into the `rangeAdjustable`-flagged cable's
+`depthControlledBy` list — the same internal representation the new-format parser already
+produces, which the engine (`PatchCableSet.addRangeCable`, `Patcher.java` `targetSource`/
+`targetParamId`/`rangeValue` machinery) already consumed correctly end-to-end; only the XML
+parsing was missing. Added `LegacyRangeCablePatchTest` (asserts the range cable never survives as
+its own top-level cable and correctly attaches as `depthControlledBy` on the flagged cable).
+
+**Scorecard impact (confirmed, both single-window and time-resolved, before/after re-run on the
+live 188-preset ALLSYN set):**
+- `124 Filter Modulation Pad`: win 0.30 → **0.650**, time 0.30 → **0.824** (crosses the ≥0.80 bar).
+- `120 High Harsh Pad`: win 0.23 → **0.404**, time 0.23 → **0.488** (more than doubled; still
+  moderate — filter/fold math is faithful here, so 120's residual gap is elsewhere, likely
+  oscillator content at its extreme `lpfFrequency=0x7FFFFFFF` cutoff).
+- No regression: `114 Sootheerio` win 0.915→0.898, time 0.879→0.869; `117 Belledy` win 0.929→0.926,
+  time 0.898→0.908 — movements of ±0.01–0.02, within run-to-run noise, not a real regression (the
+  doc's old 0.96/0.97 figures for these two were already stale pre-fix, per a same-commit
+  pre/post-fix scorecard rerun).
+- Overall: time-resolved median held at **0.800**, mean **0.756**, ≥0.80 count **94→95**,
+  <0.60 count unchanged at **25** — a clean, isolated improvement.
 
 ### 4.4 Reverb / delay / modFX (pads) — moderate, partly a metric confound
 Reverb-heavy pads score 0.4–0.7. Our render **is** wet (master reverb is applied), so this is our

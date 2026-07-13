@@ -933,30 +933,64 @@ public class InstrumentXmlParser {
 
   private static void parsePatchCables(Element soundNode, SynthTrackModel synth) {
     Element pcContainer = getFirstChild(soundNode, "patchCables");
-    if (pcContainer != null) {
-      NodeList children = pcContainer.getChildNodes();
-      for (int i = 0; i < children.getLength(); i++) {
-        if (children.item(i) instanceof Element cableElem
-            && "patchCable".equals(cableElem.getTagName())) {
-          PatchCable pc = parseSinglePatchCable(cableElem);
-          if (pc != null) {
-            synth.getModulation().addPatchCable(pc);
-          }
-        }
+    Element scanRoot = pcContainer != null ? pcContainer : soundNode;
+    for (PatchCable pc : parsePatchCableList(scanRoot)) {
+      synth.getModulation().addPatchCable(pc);
+    }
+  }
+
+  /**
+   * Parses top-level {@code <patchCable>} children of {@code scanRoot}, resolving the pre-V3.2
+   * legacy range-modulation encoding: a cable with {@code <destination>range</destination>}
+   * modulates the DEPTH of whichever cable in the same file carries {@code
+   * <rangeAdjustable>1</rangeAdjustable>}, rather than targeting a literal "range" param. Ports C
+   * {@code PatchCableSet::readPatchCablesFromFile} (patch_cable_set.cpp:807-950): cables are
+   * collected first, "range"-destination cables are held aside, then folded into the
+   * rangeAdjustable-flagged cable's depthControlledBy list once the whole file is scanned.
+   */
+  private static List<PatchCable> parsePatchCableList(Element scanRoot) {
+    java.util.List<PatchCable> cables = new java.util.ArrayList<>();
+    java.util.List<PatchCable> legacyRangeCables = new java.util.ArrayList<>();
+    String rangeAdjustableSource = null;
+    String rangeAdjustableDest = null;
+    NodeList children = scanRoot.getChildNodes();
+    for (int i = 0; i < children.getLength(); i++) {
+      if (!(children.item(i) instanceof Element cableElem)
+          || !"patchCable".equals(cableElem.getTagName())) {
+        continue;
       }
-    } else {
-      // Fallback: direct child elements of soundNode named patchCable (before container format)
-      NodeList children = soundNode.getChildNodes();
-      for (int i = 0; i < children.getLength(); i++) {
-        if (children.item(i) instanceof Element cableElem
-            && "patchCable".equals(cableElem.getTagName())) {
-          PatchCable pc = parseSinglePatchCable(cableElem);
-          if (pc != null) {
-            synth.getModulation().addPatchCable(pc);
-          }
+      PatchCable pc = parseSinglePatchCable(cableElem);
+      if (pc == null) {
+        continue;
+      }
+      if ("range".equalsIgnoreCase(pc.destination().trim())) {
+        legacyRangeCables.add(pc);
+        continue;
+      }
+      String rangeAdjustableAttr = cableElem.getAttribute("rangeAdjustable");
+      if (rangeAdjustableAttr == null || rangeAdjustableAttr.isEmpty()) {
+        rangeAdjustableAttr = getChildText(cableElem, "rangeAdjustable");
+      }
+      if ("1".equals(rangeAdjustableAttr)) {
+        rangeAdjustableSource = pc.source();
+        rangeAdjustableDest = pc.destination();
+      }
+      cables.add(pc);
+    }
+    if (!legacyRangeCables.isEmpty() && rangeAdjustableSource != null) {
+      for (int i = 0; i < cables.size(); i++) {
+        PatchCable pc = cables.get(i);
+        if (pc.source().equals(rangeAdjustableSource)
+            && pc.destination().equals(rangeAdjustableDest)) {
+          java.util.List<PatchCable> merged = new java.util.ArrayList<>(pc.depthControlledBy());
+          merged.addAll(legacyRangeCables);
+          cables.set(
+              i, new PatchCable(pc.source(), pc.destination(), pc.amount(), pc.polarity(), merged));
+          break;
         }
       }
     }
+    return cables;
   }
 
   private static void parseModKnobs(Element soundNode, SynthTrackModel synth) {
