@@ -476,13 +476,27 @@ this project's offline renderer always renders stereo — behaviorally a no-op, 
 `ModFXProcessor.cpp` exactly. **So delay and phaser are ruled out** as the cause of 133/144/137's
 residual gap.
 
-**Still open, unaudited:** the residual itself (133/144/137 still sit at 0.61–0.80 despite Freeverb,
-Delay, and phaser all being confirmed faithful) — with the three most-suspected DSP kernels cleared,
-the remaining gap is likely NOT one smoking-gun bug but something more diffuse: the chorus/flanger/
-warble/dimension branches of `ModFx.java` (not yet audited — only phaser was checked), the specific
-patch-cable-driven modulation depth/rate values these three presets use, or a compounding of several
-small, individually-faithful stages. Lower priority than a fresh single-subsystem bug hunt; revisit
-with a specific new hypothesis rather than another blind full-subsystem audit.
+**The remaining modFX branches — chorus, chorus-stereo, flanger, warble, dimension — also audited
+(2026-07-13), also bit-for-bit faithful.** Setup (`setupChorus`/`setupModFXWFeedback`), the
+per-sample delay-line read with 16.16 fixed-point linear interpolation, the stereo/second-tap
+condition, all five write-back/feedback paths, the main-loop LFO routing (including warble's
+independent second LFO and the `TRIANGLE`/`SINE`/`WARBLER` wave selection per mode), and the
+`Lfo.java` `warble()` second-order filter all match `ModFXProcessor.cpp`/`lfo.h` term-for-term. So
+**every modFX mode, delay, and reverb are now confirmed faithful** — the entire FX chain audited to
+the same line-by-line standard, zero bugs found beyond the two already fixed (§ above: missing
+scorecard sync, missing model wiring).
+
+**Still open, unexplained:** the residual itself (133/144/137 still sit at 0.61–0.80 despite every
+individual DSP kernel in their signal path — osc, ladder filter, Freeverb, Delay, and now all of
+modFX — being confirmed faithful). With no single-subsystem bug left to find in the obvious places,
+the remaining gap is likely diffuse: the specific patch-cable-driven modulation depth/rate/send
+values these three presets use, a compounding of several individually-faithful stages, or something
+outside the FX chain entirely (e.g. the master gain/compressor chain, already flagged §4.5 as
+faithfulness debt). **Do not keep blind-auditing whole subsystems here** — the return on that
+approach has now gone to zero across seven consecutive audits (ladder, wavefolder, patch-cable
+math, ring-mod, Freeverb, Delay, all modFX modes); revisit only with a specific new, falsifiable
+hypothesis (e.g. a direct spectral probe of one preset's dry vs. wet signal to localize exactly
+which stage introduces the divergence) rather than another full-subsystem line audit.
 
 ### 4.5 Master gain chain — BLOCKED on a C-execution / calibrated-hardware reference (2026-06-29)
 
