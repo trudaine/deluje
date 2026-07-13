@@ -46,6 +46,12 @@ track progress and catch regressions.
 
 ## 3. Current score (TRUSTWORTHY baseline — gapped recordings + onset alignment)
 
+**Update 2026-07-13 (current, post Double-Bass fix):** n=184, time-resolved median **0.800**,
+mean 0.756, ≥0.90: 27, ≥0.80: 92 (50%), <0.60: 25. (The table below is the original §3 baseline
+from this doc's earlier history — see `docs/dsp_parity_review_2026-07-04.md` for the pass-by-pass
+progression from 0.77 to 0.80 that superseded it. Re-run `FidelityScorecardTest` for the live
+number; don't trust either static table indefinitely.)
+
 Two metrics now (FidelityScorecardTest prints both):
 
 | metric | median | mean | ≥0.80 | <0.60 |
@@ -762,13 +768,28 @@ the trustworthy instrument, and pitch-matching is mandatory.**
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:
-- **`107 FM LPG Percussion`** — non-sample FM patch, genuinely silent in our engine. Real bug.
-- (Investigate any other non-multisample entries flagged `n/a` by the scorecard; some may be
-  slow-attack/arp false-positives — confirm with a longer render before treating as a bug.)
-- **~14 multisamples** (`SawFifthFilter`, `SolidBass*`, `Vibraphone`, `Hang Drum`, `Sitar`,
-  `Soft Sax`, `Trompet`, …) are silent **only because the scorecard's in-engine render doesn't load
-  their sample files** — they sound on hardware. To make them measurable we must load multisample
-  samples in the engine test path. Not a synthesis bug; a test-harness/sample-loading gap.
+- **`107 FM LPG Percussion` — RESOLVED, stale entry.** Re-checked 2026-07-13: no longer silent
+  (win=0.491, time=0.743). Fixed as a side effect of one of the later passes (§4.6–§4.15); not
+  independently tracked. Leave the confirmation here so nobody re-investigates it as "silent."
+- **`169 Double Bass` — FIXED (2026-07-13).** Root cause: `AudioFileReader.readWavSample`'s
+  `smpl`-chunk parser (`src/main/java/org/deluge/storage/audio/AudioFileReader.java`) skipped the
+  real `NumSampleLoops` field, misread the adjacent `SamplerData` field as the loop count, and only
+  accounted for 16 of a loop entry's 24 bytes — desyncing the byte stream so the subsequent `data`
+  chunk was never recognized (`Sample.data` stayed `null`, no exception, silent render). Double
+  Bass's WAVs have a `smpl` chunk (per-note loop points) that every other ludocard multisample
+  lacks, which is why only this preset hit the bug. Fixed to the correct RIFF `smpl` layout
+  (36-byte header + 24-byte-per-loop entries). Scorecard: win=0.940 time=0.952 (one of the best
+  scores in the set); no regressions (median held 0.800, n 183→184, ≥0.80 91→92). One pre-existing
+  test (`AudioFileReaderTest`) had hand-authored a `smpl` chunk matching the OLD buggy byte layout,
+  not the real spec — corrected the test's synthetic WAV to a spec-compliant layout (assertions
+  unchanged).
+- **~13 other multisamples** (`SawFifthFilter`, `SolidBass*` variants, `Vibraphone`, `Sitar`,
+  `Soft Sax`, `Stone Skip`, `Tube Slap`, `Wood Flute Verb`, …) are silent **only because the
+  scorecard's in-engine render doesn't load their sample files** — they sound on hardware. To
+  make them measurable we must load multisample samples in the engine test path. Not a synthesis
+  bug; a test-harness/sample-loading gap. (Re-verified 2026-07-13: scorecard reports "not-
+  measurable: 4" now, down from the original ~16 after the §4.7 zone-parsing fix + the Double Bass
+  fix above.)
 
 ## 6. What is already faithful — DO NOT REGRESS
 

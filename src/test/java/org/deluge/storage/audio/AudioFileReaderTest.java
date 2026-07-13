@@ -35,21 +35,24 @@ public class AudioFileReaderTest {
       dos.writeShort(Short.reverseBytes((short) 3000));
       dos.writeShort(Short.reverseBytes((short) 4000));
 
-      // smpl
+      // smpl (RIFF spec layout: 36-byte header + one 24-byte loop entry = 60 bytes)
       dos.writeBytes("smpl");
       dos.writeInt(Integer.reverseBytes(60));
-      for (int i = 0; i < 3; i++) dos.writeInt(0);
-      dos.writeInt(Integer.reverseBytes(60)); // midi note
-      dos.writeInt(0); // fraction
-      for (int i = 0; i < 3; i++) dos.writeInt(0);
-      dos.writeInt(Integer.reverseBytes(1)); // 1 loop
-      dos.writeInt(0);
-      dos.writeInt(0); // loop id
-      dos.writeInt(0); // type
-      dos.writeInt(Integer.reverseBytes(10)); // start
-      dos.writeInt(Integer.reverseBytes(20)); // end
-      dos.writeInt(0);
-      dos.writeInt(0);
+      dos.writeInt(0); // Manufacturer
+      dos.writeInt(0); // Product
+      dos.writeInt(0); // SamplePeriod
+      dos.writeInt(Integer.reverseBytes(60)); // MIDIUnityNote
+      dos.writeInt(0); // MIDIPitchFraction
+      dos.writeInt(0); // SMPTEFormat
+      dos.writeInt(0); // SMPTEOffset
+      dos.writeInt(Integer.reverseBytes(1)); // NumSampleLoops
+      dos.writeInt(0); // SamplerData
+      dos.writeInt(0); // loop: CuePointID
+      dos.writeInt(0); // loop: Type
+      dos.writeInt(Integer.reverseBytes(10)); // loop: Start
+      dos.writeInt(Integer.reverseBytes(20)); // loop: End
+      dos.writeInt(0); // loop: Fraction
+      dos.writeInt(0); // loop: PlayCount
     }
 
     Sample s = AudioFileReader.readSample(temp.getAbsolutePath());

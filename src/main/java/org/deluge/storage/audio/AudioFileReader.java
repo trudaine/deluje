@@ -93,24 +93,26 @@ public class AudioFileReader {
             }
           }
         } else if (chunkId == 0x736d706c) { // 'smpl'
-          dis.skipBytes(12);
-          int midiNote = Integer.reverseBytes(dis.readInt());
-          int midiPitchFraction = Integer.reverseBytes(dis.readInt());
+          dis.skipBytes(12); // Manufacturer, Product, SamplePeriod
+          int midiNote = Integer.reverseBytes(dis.readInt()); // MIDIUnityNote
+          int midiPitchFraction = Integer.reverseBytes(dis.readInt()); // MIDIPitchFraction
           if (midiNote < 128) {
             sample.midiNoteFromFile = midiNote + (midiPitchFraction / 4294967296.0f);
           }
-          dis.skipBytes(12);
-          int numLoops = Integer.reverseBytes(dis.readInt());
-          dis.readInt(); // sampler data
+          dis.skipBytes(8); // SMPTEFormat, SMPTEOffset
+          int numLoops = Integer.reverseBytes(dis.readInt()); // NumSampleLoops
+          dis.readInt(); // SamplerData (trailing byte count, unused)
+          int consumed = 36; // fixed smpl header size up to and incl. SamplerData
           if (numLoops > 0) {
-            dis.readInt(); // loop id
-            dis.readInt(); // type
-            sample.fileLoopStartSamples = Integer.reverseBytes(dis.readInt());
-            sample.fileLoopEndSamples = Integer.reverseBytes(dis.readInt());
-            dis.skipBytes(chunkLen - 44);
-          } else {
-            dis.skipBytes(chunkLen - 36);
+            dis.readInt(); // CuePointID
+            dis.readInt(); // Type
+            sample.fileLoopStartSamples = Integer.reverseBytes(dis.readInt()); // Start
+            sample.fileLoopEndSamples = Integer.reverseBytes(dis.readInt()); // End
+            dis.readInt(); // Fraction
+            dis.readInt(); // PlayCount
+            consumed += 24; // one loop entry (24 bytes); only the first loop is used
           }
+          dis.skipBytes(chunkLen - consumed); // remaining loops + sampler-specific data
         } else if (chunkId == 0x696e7374) { // 'inst'
           int midiNote = dis.readByte() & 0xFF;
           int fineTune = dis.readByte();
