@@ -412,14 +412,65 @@ live 188-preset ALLSYN set):**
 - Overall: time-resolved median held at **0.800**, mean **0.756**, ≥0.80 count **94→95**,
   <0.60 count unchanged at **25** — a clean, isolated improvement.
 
-### 4.4 Reverb / delay / modFX (pads) — moderate, partly a metric confound
-Reverb-heavy pads score 0.4–0.7. Our render **is** wet (master reverb is applied), so this is our
-reverb/FX **algorithm differing** from the C, not missing FX.
-- `137 Epic Saw Modulation Pad` 0.44, `141 Ringmod Pad` 0.48, `144 Sweep Chords` 0.22,
-  `133 80s Strings` 0.62.
-- Likely cause: `dsp/reverb/*` (our `firmware2/Reverb.java`), `dsp/delay/*` (`Delay.java`), modFX.
-  Calibrate the reverb against the C; note that reverb-tail differences depress these scores beyond
-  the true dry-tone error.
+### 4.4 Reverb / delay / modFX (pads) — REAL BUGS FOUND AND FIXED (2026-07-13); a tempting C-fidelity "fix" was tried and REJECTED by the scorecard
+
+`141 Ringmod Pad`'s low score is **not an FX gap at all** — its XML has `modFXType=none`,
+`reverbAmount`/`delayFeedback` both at their off/minimum value. It uses `<mode>ringmod</mode>`
+(ring-modulation oscillator synthesis), so its gap belongs in a synthesis-mode bucket, not here.
+An audit of the ring-mod combine path (`Voice.java` `renderRingModPath` vs C `voice.cpp:1326-1396`)
+found the multiply/gain-compensation math **bit-for-bit faithful** (base `1<<27` constant,
+per-osc-type compensation shifts, two-stage `multiply_32x32_rshift32`/`..._rounded`, all matching,
+same signal-chain position). Not pinned further; likely upstream (PWM rendering or
+resonance-patch-cable interaction feeding the multiply, where small osc/filter errors get
+nonlinearly amplified rather than just summed) — leave for a future pass.
+
+Of the genuinely FX-driven presets — `133 80s Strings` (near-max reverb send, `reverbAmount=
+0x7FFFFFFF`), `144 Sweep Chords` (delay+reverb), `137 Epic Saw Modulation Pad` (phaser+delay+light
+reverb) — an audit of `Reverb.java`'s Freeverb port against C (`dsp/reverb/*`) found the comb/
+allpass tuning constants, scale constants, and `roomSize`/`damping` coefficient mapping **all
+bit-for-bit faithful** (buffer lengths, `SCALEWET`/`SCALEDRY`/`SCALEROOM`/`SCALEDAMP`, the Q31
+saturating arithmetic — no divergence).
+
+**But two REAL, unrelated bugs surfaced during that audit, both fixed:**
+
+1. **`FidelityScorecardTest` never called `engine.syncMasterEffects(project)` at all.** Every
+   preset's per-C4 render went through `masterReverb` with its raw Java field defaults
+   (`roomSize=0, damping=0, width=0` — `Reverb.Container`'s fields have no initializer) — a
+   near-degenerate reverb **regardless of the preset's actual `reverbAmount` send**. Fixed by
+   adding the missing call, matching what `FidelityTestRunner`-based tests already did.
+2. **`FirmwareAudioEngine.syncMasterEffects` never wired the reverb `model` (Freeverb/Mutable/
+   Digital) at all** — only `roomSize`/`damping`/`width` were synced. So even a saved song
+   explicitly specifying `<reverb model="1">` (Mutable) would silently render through Freeverb in
+   the offline engine. Fixed to mirror the mapping `PureFirmwareEngine` already used for the live
+   engine (`case 1 -> MUTABLE, case 2 -> DIGITAL, default -> FREEVERB`).
+
+**Along the way, a genuine C-fidelity claim was tested and REJECTED — a good example of this
+project's "verify via scorecard, don't trust the C-citation alone" rule paying off.** A fresh C
+song's real defaults (`song.cpp:179-188`) are `roomSize=0.6, damp=0.72, width=1, model=MUTABLE` —
+our `ProjectModel`/`BridgeContract` defaulted to `damping=0.5, width=0.5, model=FREEVERB` (0).
+Correcting `damping`→0.72 and `width`→1.0 (still keeping Freeverb) is neutral-to-slightly-positive
+(133: time 0.601→0.612; overall median 0.800→0.801) and was kept. **But also flipping the default
+model to MUTABLE (matching the C literally) was tried and REGRESSED the scorecard**: `133 80s
+Strings` time 0.601→0.536, `137 Epic Saw Modulation Pad` time 0.799→0.775, overall median
+0.800→0.798. Isolated via a 3-way rerun (original / Freeverb+corrected-damp-width / Mutable) to
+confirm the regression was specifically the model switch, not the sync-call or damping/width
+fixes. **Reverted the model default back to FREEVERB (0)** — kept as the default despite C's fresh-
+song default being MUTABLE, because either the reference recordings' actual song used Freeverb (it
+may predate the Mutable-reverb firmware feature) or our `MutableModel`/`DigitalModel` Java port
+has its own unaudited divergence from C; either way the scorecard is the objective gate and it says
+no. **Do not flip this default again without new evidence** (e.g. an audited, scorecard-confirmed
+`MutableModel` fix, or confirmation of what model the reference hardware session actually used).
+
+**Net scorecard effect of what was kept (sync-call fix + corrected damping/width, Freeverb
+default):** `133 80s Strings` time 0.601→0.612, `137 Epic Saw Modulation Pad` time 0.799→0.796,
+`144 Sweep Chords` time 0.774→0.774, overall time-resolved median 0.800→**0.801**, mean unchanged
+at 0.756 — small but real, no regression anywhere checked (`114 Sootheerio`/`117 Belledy`/`141
+Ringmod Pad` all unchanged).
+
+**Still open, unaudited:** the reverb/delay/modFX *algorithm* residual itself (133/144/137 still
+sit at 0.61–0.80 despite a faithful Freeverb port) — likely in patch-cable-driven modulation of
+these FX (phaser rate/depth, delay sync interacting with reverb pre-delay) or in `Delay.java`'s own
+port, not yet audited to the same line-by-line standard as Freeverb.
 
 ### 4.5 Master gain chain — BLOCKED on a C-execution / calibrated-hardware reference (2026-06-29)
 

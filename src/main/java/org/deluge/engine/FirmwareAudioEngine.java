@@ -223,9 +223,19 @@ public class FirmwareAudioEngine {
     this.masterDelay.analog = project.getDelayAnalog() != 0;
 
     // Sync Reverb
+    // C reverb.hpp:15-19 — enum order is FREEVERB=0, MUTABLE=1, DIGITAL=2 (song.cpp:1423 casts
+    // the raw XML int straight to this enum); this was previously never synced, so masterReverb
+    // stayed on its Java field default (FREEVERB) regardless of the song's actual model.
+    this.masterReverb.setModel(
+        switch (project.getReverbModel()) {
+          case 1 -> org.deluge.firmware2.Reverb.Model.MUTABLE;
+          case 2 -> org.deluge.firmware2.Reverb.Model.DIGITAL;
+          default -> org.deluge.firmware2.Reverb.Model.FREEVERB;
+        });
     this.masterReverb.setRoomSize(project.getReverbRoomSize());
     this.masterReverb.setDamping(project.getReverbDampening());
     this.masterReverb.setWidth(project.getReverbWidth());
+    this.masterReverb.setHPF(project.getReverbHpf());
 
     // Sync Master Volume
     float volFloat = project.getSongParamVolume();

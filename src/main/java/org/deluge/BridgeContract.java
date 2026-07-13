@@ -560,9 +560,9 @@ public final class BridgeContract {
   private float delayTime = 0.375f;
   private float delayFb = 0.4f;
   private float reverbRoom = 0.6f;
-  private float reverbDamp = 0.5f;
+  private float reverbDamp = 0.72f;
   // ── Extended reverb scalars ──
-  private float reverbWidth = 0.5f;
+  private float reverbWidth = 1.0f;
   private float reverbHpf = 0.0f;
   private float reverbPan = 0.0f;
   private int reverbModel = 0; // 0=FREEVERB, 1=MUTABLE, 2=DIGITAL

@@ -444,7 +444,7 @@
 			</columnControls>
 		</instrumentClip>
 	</sessionClips>
-	<reverb roomSize="1288490240" dampening="1073741824" width="1073741824" hpf="0" pan="0" model="0">
+	<reverb roomSize="1288490240" dampening="1546188288" width="2147483647" hpf="0" pan="0" model="0">
 		<compressor attack="0" release="0" syncLevel="0" compHPF="0" compBlend="1073741824" shape="0" volume="0" />
 	</reverb>
 	<delay pingPong="0" analog="0" syncLevel="6" syncType="0" />

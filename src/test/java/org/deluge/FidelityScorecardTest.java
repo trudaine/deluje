@@ -151,6 +151,10 @@ public class FidelityScorecardTest {
     fs.triggerNote(60, 110);
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
     engine.metronomeEnabled = false;
+    // Previously never called, so masterReverb rendered with roomSize/damping/width all at their
+    // raw Java field default (0), i.e. a near-degenerate reverb, regardless of the preset's
+    // reverbAmount send - every preset's reverb tail was effectively broken by omission.
+    engine.syncMasterEffects(project);
     engine.sounds.add(fs);
     int n = SR * 3;
     float[] out = new float[n];

@@ -34,8 +34,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
 
   // ── Song-level reverb params ──
   private float reverbRoomSize = 0.6f;
-  private float reverbDampening = 0.5f;
-  private float reverbWidth = 0.5f;
+  private float reverbDampening = 0.72f;
+  private float reverbWidth = 1.0f;
   private float reverbHpf = 0.0f;
   private float reverbPan = 0.0f;
   private int reverbModel = 0;
