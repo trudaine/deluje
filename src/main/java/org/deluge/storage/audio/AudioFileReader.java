@@ -8,6 +8,15 @@ public class AudioFileReader {
   private static final java.util.concurrent.ConcurrentHashMap<String, Sample> CACHE =
       new java.util.concurrent.ConcurrentHashMap<>();
 
+  /**
+   * Drops all cached decoded samples. The cache is unbounded and holds full float[] PCM data, so a
+   * process that walks many large/multisample presets in one JVM (e.g. FidelityScorecardTest) must
+   * call this periodically to avoid exhausting the heap.
+   */
+  public static void clearCache() {
+    CACHE.clear();
+  }
+
   public static Sample readSample(String path) throws IOException {
     File file = new File(path);
     if (!file.exists()) return null;

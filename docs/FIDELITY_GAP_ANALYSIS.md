@@ -46,11 +46,12 @@ track progress and catch regressions.
 
 ## 3. Current score (TRUSTWORTHY baseline — gapped recordings + onset alignment)
 
-**Update 2026-07-13 (current, post Double-Bass fix):** n=184, time-resolved median **0.800**,
-mean 0.756, ≥0.90: 27, ≥0.80: 92 (50%), <0.60: 25. (The table below is the original §3 baseline
-from this doc's earlier history — see `docs/dsp_parity_review_2026-07-04.md` for the pass-by-pass
-progression from 0.77 to 0.80 that superseded it. Re-run `FidelityScorecardTest` for the live
-number; don't trust either static table indefinitely.)
+**Update 2026-07-13 (current, post Double-Bass + multisample-OOM fixes):** n=188 (all presets now
+measurable, "not-measurable: 0"), time-resolved median **0.800**, mean 0.756, ≥0.90: 27, ≥0.80: 94
+(50%), <0.60: 25. (The table below is the original §3 baseline from this doc's earlier history —
+see `docs/dsp_parity_review_2026-07-04.md` for the pass-by-pass progression from 0.77 to 0.80 that
+superseded it. Re-run `FidelityScorecardTest` for the live number; don't trust either static table
+indefinitely.)
 
 Two metrics now (FidelityScorecardTest prints both):
 
@@ -436,9 +437,15 @@ loaded → silent. Fixes:
 
 Result: scorecard n/a **16 → 5**; n 172 → 183; recovered synths score well (Soft Sax 0.90, Hang Drum
 0.94, SolidBass* 0.76–0.84, Secret Choir 0.89 — the high cosines confirm correct pitch/transpose).
-Remaining 5 n/a: `169 Double Bass` (its `.WAV` files won't load — reader issue, separate) + 4 short/
-percussive (Vibraphone/Tube Slap/Stone Skip/Wood Flute Verb) that DO render in isolation but fall
-below the scorecard's 2 s-RMS "silent" threshold — a measurement-window detail, not an engine bug.
+Remaining 5 n/a (at the time): `169 Double Bass` (its `.WAV` files won't load — reader issue,
+separate) + 4 short/percussive (Vibraphone/Tube Slap/Stone Skip/Wood Flute Verb) that DO render in
+isolation but fall below the scorecard's 2 s-RMS "silent" threshold.
+
+**CORRECTION 2026-07-13: the "measurement-window, not an engine bug" verdict on those 4 was WRONG
+— see §5.** It was never a windowing issue (all 4 individually clear the threshold by a wide margin
+in isolation); it was `AudioFileReader`'s unbounded sample-decode cache exhausting the scorecard's
+JVM heap ~183 presets into the sequential run. Fixed; see §5 for the mechanism and evidence. Both
+the Double Bass and the 4-multisample entries are now closed.
 
 ### 4.8 Note-84 preset scorecard (2026-07-01): core faithful; one real saturation bug
 
@@ -783,12 +790,24 @@ These produce no sound in-engine but DO sound on hardware. Highest priority — 
   test (`AudioFileReaderTest`) had hand-authored a `smpl` chunk matching the OLD buggy byte layout,
   not the real spec — corrected the test's synthetic WAV to a spec-compliant layout (assertions
   unchanged).
-- **~13 other multisamples** (`SawFifthFilter`, `SolidBass*` variants, `Vibraphone`, `Sitar`,
-  `Soft Sax`, `Stone Skip`, `Tube Slap`, `Wood Flute Verb`, …) are silent **only because the
-  scorecard's in-engine render doesn't load their sample files** — they sound on hardware. To
-  make them measurable we must load multisample samples in the engine test path. Not a synthesis
-  bug; a test-harness/sample-loading gap. (Re-verified 2026-07-13: scorecard reports "not-
-  measurable: 4" now, down from the original ~16 after the §4.7 zone-parsing fix + the Double Bass
+- **`Stone Skip`/`Tube Slap`/`Vibraphone`/`Wood Flute Verb` — FIXED (2026-07-13), root cause was
+  NOT what §4.7 assumed.** These are the last 4 presets rendered in the ~188-preset sequential
+  scorecard run. Verified each renders loudly and clears the "silent" RMS threshold with a wide
+  margin **when rendered in isolation** (peaks 0.05–0.37, `ourMax` 0.012–0.14 vs the 0.002 gate) —
+  so "a measurement-window detail" (§4.7's original verdict) was false. Reproduced the real
+  failure by replaying the scorecard's exact sequential render order via reflection
+  (`renderSynth` called ~183+ times in one JVM): confirmed `OutOfMemoryError`, silently uncaught
+  because `FirmwareFactory.loadOscResources`'s sample-load `catch` blocks only catch `IOException`
+  (`OutOfMemoryError` is an `Error`, not an `Exception`). Cause: `AudioFileReader.CACHE` is an
+  unbounded `ConcurrentHashMap<String, Sample>` that never evicts — after ~183 presets' worth of
+  decoded multisample float arrays (many multisamples carry 10–36 zones), it exhausts the
+  scorecard's 2 GB surefire heap, and the last few multisample-heavy presets fail to load their
+  zones with zero error output. Fixed: added `AudioFileReader.clearCache()` and call it once per
+  preset in `FidelityScorecardTest`'s render loop (scoped to the test — the cache is intentional
+  and correct for normal app use, just wrong for a one-JVM 188-preset batch). Scorecard: all 4 now
+  score (Stone Skip 0.822, Tube Slap 0.843, Vibraphone 0.694, Wood Flute Verb 0.706 — time-
+  resolved); no regression elsewhere (median held 0.800). (Re-verified 2026-07-13: scorecard
+  reports "not-measurable: 0" now, down from the original ~16 after the §4.7 zone-parsing fix + the
   fix above.)
 
 ## 6. What is already faithful — DO NOT REGRESS

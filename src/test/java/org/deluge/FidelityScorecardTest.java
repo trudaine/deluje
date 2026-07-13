@@ -302,6 +302,11 @@ public class FidelityScorecardTest {
     for (int k = 0; k < synths.size(); k++) {
       String name = synths.get(k).getName().replace(".XML", "");
       float[] our = renderSynth(synths.get(k));
+      // AudioFileReader's decode cache is unbounded (full float[] PCM per file); walking ~190
+      // presets in one JVM without clearing it exhausts the heap partway through and makes the
+      // later multisample-heavy presets render silent with no error (OutOfMemoryError isn't an
+      // IOException, so the loader's catch never fires). See docs/FIDELITY_GAP_ANALYSIS.md §5.
+      org.deluge.storage.audio.AudioFileReader.clearCache();
       double ourMax = 0;
       for (int off = 0; off + win < our.length; off += SR / 4)
         ourMax = Math.max(ourMax, rms(our, off, win));
