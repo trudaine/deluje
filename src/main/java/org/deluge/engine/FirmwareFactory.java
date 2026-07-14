@@ -328,6 +328,16 @@ public class FirmwareFactory {
                       sound.fw2SampleCache[finalS] = fw2Smp;
                       sound.loadedOscPath[finalS] = key;
                       sound.sourceZones[finalS].clear();
+                      // Single-sample (non-multizone) playback settings — previously never read,
+                      // so a synth-track sample-based oscillator always played un-looped, forward,
+                      // and without time-stretch regardless of what the preset specified.
+                      var settings = sound.sampleSettings[finalS];
+                      settings.loopMode =
+                          (finalS == 0) ? model.getOsc1LoopMode() : model.getOsc2LoopMode();
+                      settings.reverse =
+                          (finalS == 0) ? model.isOsc1Reversed() : model.isOsc2Reversed();
+                      settings.timestretch =
+                          (finalS == 0) ? model.isOsc1TimeStretch() : model.isOsc2TimeStretch();
                     }
                     System.out.println(
                         "[FirmwareFactory] Loaded synth sample " + finalS + ": " + f.getName());
