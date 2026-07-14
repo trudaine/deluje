@@ -1000,13 +1000,46 @@ mix-ratio hypothesis.** Rendered each preset with reverb/delay force-zeroed vs. 
 entirely moved the hardware-similarity score by at most 0.07, and for `144 Sweep Chords` the wet and
 dry signals were nearly spectrally identical (cosine 0.999) yet both scored the same 0.774 — the FX
 mix isn't touching the outcome at all for that preset. For `133 80s Strings` (max reverb send),
-removing FX made the score *worse*, the opposite of an "FX too loud" bug. **New falsifiable
-hypothesis for the residual (untested):** either (a) preset-specific modulation depth/rate/patch-
-cable-routing amounts feeding the already-faithful stages diverge in a way no single-stage audit
-would catch, or (b) the reverb/delay *send-amount value itself* is parsed/scaled wrong for some
-presets — `144`'s send parses to ~19% of range but produces almost-zero audible wet signal, worth
-checking against what real hardware's own send actually contributes for that same knob value. Not
-yet investigated further.
+removing FX made the score *worse*, the opposite of an "FX too loud" bug.
+
+**Hypothesis (b) confirmed as a REAL BUG and FIXED (2026-07-14) — but doesn't move the scorecard.**
+Traced `144`'s near-silent reverb send fully: `FirmwareSound` inherited `GlobalEffectable`'s
+Kit/AudioOutput reverb-send formula (`getFinalParameterValueVolume` applied to a shortcut-scaled
+`reverbSendKnob`) instead of `Sound`'s own C formula (`sound.cpp:2428-2431`, a plain multiply
+against the already-Patcher-resolved `paramFinalValues[GLOBAL_REVERB_AMOUNT]`) — applying the
+volume curve a second time, and reading a stale, factory-build-time-only snapshot that never
+tracked patch-cable modulation. Fixed via a `computeReverbSendAmount` hook on `GlobalEffectable`
+(default = unchanged Kit/AudioOutput formula), overridden in `FirmwareSound` to read the live value
+through `Patcher.computeFinalValueForParam`. **Verified via direct pipeline probing and unit tests**
+(not scorecard, since it doesn't move — see below): confirmed `144`'s actual `paramKnobs`/
+`patchedParamValues[GLOBAL_REVERB_AMOUNT]` correctly carry the preset's raw knob value
+(-1342177280, ~14% of unity per the already-audited-faithful volume curve); `computeReverbSendAmount`
+now returns a real, non-collapsed value where the old formula returned something close to zero;
+`ReverbSendRoutingTest`'s release-tail energy went from ~1.28e8 to ~12.2e9 (~95×) — a dramatic, real
+change in actual rendered audio. **Scorecard: unchanged** (median 0.801, mean 0.756; 133/144/137 all
+identical to 3 decimals) — the onset-aligned spectral-cosine metric this project gates on isn't
+sensitive to a reverb tail's energy change, only its onset spectral shape, consistent with §7's own
+caveat that FX-tail differences are poorly captured by this metric. A real, demonstrated fix,
+verified by direct measurement rather than the scorecard — same shape as the sample-oscillator and
+reverb-pan fixes above. Two pre-existing tests (`ReverbSendParityTest`, `ReverbSendRoutingTest`) had
+encoded the bug as "expected" (they set the stale `reverbSendKnob`/a value `syncParamsToFw2()`
+silently discards) and needed correcting alongside the fix.
+
+**New finding, NOT fixed — sidechain auto-ducking on the reverb send is dead code.**
+`FirmwareAudioEngine.updateReverbParams()` (the "find the sound with the most reverb send, borrow
+its sidechain shape for auto-ducking" logic, C `audio_engine.cpp:1251-1317`) does `if (ge instanceof
+org.deluge.firmware2.Sound snd)` to find candidate sounds — but the engine's `sounds` list holds
+`FirmwareSound` instances, a *sibling* subclass of `GlobalEffectable` (not a subclass of
+`firmware2.Sound`), so this check can never match in production. `best` is always `null`,
+`reverbSidechainVolumeInEffect` stays 0, and auto-ducking never engages for any real sound. Net
+effect on level is benign (the code correctly falls back to a neutral, non-degenerate
+`reverbOutputVolume` when no ducking sound is found — verified by inspection, not just assumed), so
+this doesn't explain 133/144/137's residual; it's a distinct, separate feature gap (the actual
+sidechain-pumping *behavior* of a reverb-ducking sound never happens) queued for a future pass.
+
+Hypothesis (a) (preset-specific modulation depth/rate diverging in a way no single-stage audit
+would catch) remains untested and is now the more likely remaining explanation for 133/144/137's
+residual gap, since (b) turned out to be real but scorecard-invisible.
 
 ## 5. Real bugs: synths our engine renders SILENT
 
