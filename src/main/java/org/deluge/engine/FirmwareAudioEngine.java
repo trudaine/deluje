@@ -85,6 +85,9 @@ public class FirmwareAudioEngine {
   public final Delay masterDelay = new Delay();
   public final Reverb.Container masterReverb = new Reverb.Container();
   public final Delay.State delayState = new Delay.State();
+  // C: audio_engine.cpp:137,1366 — signed Q31-range pan for the reverb send (negative=left,
+  // positive=right); synced from the song in syncMasterEffects.
+  private int reverbPan = 0;
 
   // C: audio_engine.cpp — the global reverb's own sidechain ("reverb compressor") + the
   // in-effect params resolved by updateReverbParams (auto mode).
@@ -236,6 +239,9 @@ public class FirmwareAudioEngine {
     this.masterReverb.setDamping(project.getReverbDampening());
     this.masterReverb.setWidth(project.getReverbWidth());
     this.masterReverb.setHPF(project.getReverbHpf());
+    // C audio_engine.cpp:1366 (reverbPan = song->reverbPan) — previously parsed from XML but never
+    // read anywhere in the engine; the render loop always called setPanLevels symmetrically.
+    this.reverbPan = (int) (project.getReverbPan() * 2147483647.0);
 
     // Sync Master Volume
     float volFloat = project.getSongParamVolume();
@@ -344,7 +350,23 @@ public class FirmwareAudioEngine {
                 sidechainOutput, reverbSidechainVolumeInEffect)
             + 0x20000000;
     int reverbOutputVolume = (positivePatchedValue >> 15) * (positivePatchedValue >> 14); // C:833
-    masterReverb.setPanLevels(reverbOutputVolume, reverbOutputVolume); // C:836
+    // C:840-847 — reverbPan (previously ignored; see syncMasterEffects) skews the L/R send instead
+    // of always splitting it evenly. renderInStereo is unconditionally true in this offline/desktop
+    // engine, so the C's "renderInStereo &&" guard is always satisfied here.
+    int[] reverbAmplitudeLR = new int[2];
+    if (org.deluge.firmware2.Functions.shouldDoPanning(reverbPan, reverbAmplitudeLR)) {
+      int ampL =
+          org.deluge.firmware2.Functions.multiply_32x32_rshift32(
+                  reverbAmplitudeLR[0], reverbOutputVolume)
+              << 2;
+      int ampR =
+          org.deluge.firmware2.Functions.multiply_32x32_rshift32(
+                  reverbAmplitudeLR[1], reverbOutputVolume)
+              << 2;
+      masterReverb.setPanLevels(ampL, ampR);
+    } else {
+      masterReverb.setPanLevels(reverbOutputVolume, reverbOutputVolume); // C:836/847
+    }
 
     // fw2 reverb ACCUMULATES the wet signal onto the [l, r] frames, so it adds reverb on top of the
     // dry already in fxBuffer (matching the old firmware/ reverb's += into masterBuffer).

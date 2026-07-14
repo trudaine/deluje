@@ -59,6 +59,24 @@ public final class Functions {
   /** kMaxSampleValue = 1 << kBitDepth = 1 << 24. */
   public static final int K_MAX_SAMPLE_VALUE = 1 << 24;
 
+  /**
+   * shouldDoPanning: C functions.cpp:1487-1498. Writes the L/R amplitude for a stereo pan into
+   * {@code outAmplitudeLR} ({@code [0]}=L, {@code [1]}=R) and returns whether real (non-centre)
+   * panning was applied — {@code false} means both channels got the flat {@code 1073741823}
+   * amplitude and the caller should treat the source as unpanned.
+   */
+  public static boolean shouldDoPanning(int panAmount, int[] outAmplitudeLR) {
+    if (panAmount == 0) {
+      outAmplitudeLR[0] = 1073741823;
+      outAmplitudeLR[1] = 1073741823;
+      return false;
+    }
+    int panOffset = Math.max(-1073741824, Math.min(1073741824, panAmount));
+    outAmplitudeLR[1] = (panAmount >= 0) ? 1073741823 : (1073741824 + panOffset);
+    outAmplitudeLR[0] = (panAmount <= 0) ? 1073741823 : (1073741824 - panOffset);
+    return true;
+  }
+
   // ── signed_saturate (port of functions.h / fixedpoint.h) ──
 
   /** signed_saturate<bits>(val): ASM SSAT. bits 1-31, Java emulation. */

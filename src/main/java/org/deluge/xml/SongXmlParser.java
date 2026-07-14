@@ -1501,7 +1501,10 @@ public class SongXmlParser {
       readSongIntAttr(rev, "dampening", project::setReverbDampening, 0.5f);
       readSongRawAttr(rev, "width", project::setReverbWidth, 0.5f);
       readSongRawAttr(rev, "hpf", project::setReverbHpf, 0.0f);
-      readSongRawAttr(rev, "pan", project::setReverbPan, 0.0f);
+      // Pan is bipolar (negative=left, positive=right, matching C audio_engine.cpp's signed
+      // panAmount) - unlike width/hpf, it must NOT go through readSongRawAttr's Math.abs(), or a
+      // left-panned reverb would silently become right-panned instead.
+      readSongSignedRawAttr(rev, "pan", project::setReverbPan, 0.0f);
       if (rev.hasAttribute("model")) {
         project.setReverbModel(Integer.parseInt(rev.getAttribute("model")));
       }
@@ -1685,6 +1688,18 @@ public class SongXmlParser {
     if (val.isEmpty()) return;
     try {
       setter.accept(Math.abs(DelugeHexMapper.hexToFloat(val)));
+    } catch (Exception e) {
+    }
+  }
+
+  /** Like {@link #readSongRawAttr} but preserves sign - for bipolar values such as reverb pan. */
+  private static void readSongSignedRawAttr(
+      Element el, String attr, java.util.function.Consumer<Float> setter, float def) {
+    if (!el.hasAttribute(attr)) return;
+    String val = el.getAttribute(attr).trim();
+    if (val.isEmpty()) return;
+    try {
+      setter.accept(DelugeHexMapper.hexToFloat(val));
     } catch (Exception e) {
     }
   }
