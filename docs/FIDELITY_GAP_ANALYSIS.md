@@ -903,6 +903,88 @@ notes). The only real *bug* found was in tooling — the `DelugeSysExManager` se
 substantially more faithful than the amplitude-/alignment-sensitive scorecard implied; the tap is
 the trustworthy instrument, and pitch-matching is mandatory.**
 
+### 4.16 Supercharged parallel audit round (2026-07-13/14) — 9 subsystems clean, 1 new bug fixed, 2 documented for later
+
+After §4.3/4.4's line-by-line audits ran dry (7 subsystems clean in a row), ran a wider parallel
+fan-out covering: PWM/pulse-width oscillator rendering, the compressor + sidechain, a systematic
+sweep for MORE instances of the "parsed from XML but never read by the engine" bug shape (the exact
+shape of the reverb-model bug in §4.4), and an empirical dry-vs-wet probe of 133/144/137 (see below).
+
+**PWM/pulse-width oscillator — bit-for-bit faithful, no bug.** Both `SQUARE`'s ring-mod band-
+limiting and `ANALOG_SQUARE`'s phase-warp PW path (`Oscillator.java` vs `oscillator.cpp`/
+`basic_waves.cpp`) match exactly, including the deliberately-asymmetric phase/phaseIncrement
+divisor quirk (Java's own comment correctly flags it as intentional, matching C). Per-block (not
+per-sample) pulse-width update granularity also matches — this is architectural on real hardware,
+not a Java shortcut. Rules out PWM as `141 Ringmod Pad`'s cause, and closes CLAUDE.md's last named
+gap family from this list: FM, oscillator hard-sync, resonant/distorted filter, FX, and now PWM/PW
+envelope have all been investigated.
+
+**Compressor + sidechain — bit-for-bit faithful, no bug.** `Compressor.java`/`rms_feedback.cpp+h`
+(envelope follower, attack/release/threshold/ratio/blend formulas, gain curve, RMS/DC-blocking) and
+`Sidechain.java`/`sidechain.cpp+h` (hit detection, attack/release state machine, `GlobalSidechainBus`)
+both match exactly. Two audio-inert nits noted (float-vs-int32 clamp order on a debug meter; signed
+vs. unsigned-masked hit-strength combine that's behaviorally identical since values are always
+non-negative) — neither affects sound.
+
+**Orphaned-parameter sweep — found 3 real bugs (same shape as the §4.4 reverb-model miss): a getter
+is populated from XML but nothing in the engine ever reads it.**
+
+1. **FIXED (commit `860303d4`): synth-track sample oscillator settings never wired.**
+   `FirmwareFactory.loadOscResources`'s single-sample (non-multizone) path loaded the file but never
+   copied `loopMode`/`reversed`/`timeStretch` from `SynthTrackModel` into `sound.sampleSettings` — a
+   synth-track oscillator with a directly-assigned sample always played un-looped, forward, no
+   time-stretch, regardless of the preset. (The multisample/kit-zone path was already correct —
+   `KeyZone.looping` threads through fine.) Verified via a direct unit test
+   (`SynthSampleOscSettingsTest`), NOT the scorecard: checked all 4 ludocard presets referencing
+   `loopMode`/`reversed`/`timeStretch` and none actually exercise this path (3 are multisample
+   zone-based; 1 — `153 FM Modulation Pad` — has `type=sine` oscillators with vestigial unused
+   zone/loop XML fields). Scorecard confirmed unchanged (median 0.801, mean 0.756) — an honest,
+   real fix with no current scorecard-visible effect; matters for any preset actually using this
+   feature (future-authored or user-created presets).
+
+2. **NOT YET FIXED — a 12-getter `songParams` macro-knob cluster is silently a no-op.** These are
+   the Deluge's global "performance macro" knobs (`<songParams>` XML node → `ProjectModel.getSongParam*`
+   getters, lines ~1262-1584 → pushed to bridge globals `G_SP_*` by `EngineSyncCoordinator.java:483-518`
+   → **never read back** by `PureFirmwareEngine.syncFromBridge`, which only reads 9 of ~21:
+   `G_SP_VOLUME`, `G_SP_DELAY_RATE/FEEDBACK`, `G_SP_LPF_FREQ/RES/MORPH`, `G_SP_HPF_FREQ/RES/MORPH`.
+   Missing: `getSongParamPan`, `ReverbAmount`, `SidechainShape`, `StutterRate`,
+   `SampleRateReduction`, `BitCrush`, `ModFXRate/Depth/Offset/Feedback` (4), `CompressorThreshold`,
+   `EqBass/Treble/BassFrequency/TrebleFrequency` (4). Real, audible feature gap for live/full-song
+   use (reverb send, bitcrush, EQ, modFX depth/rate are all genuinely audible), likely NOT
+   scorecard-visible (the scorecard constructs a bare `new ProjectModel()` with neutral macro
+   defaults). **Why not fixed yet:** unlike the reverb-model fix (a one-line `setModel()` call), this
+   needs per-parameter care — the 9 already-wired song-params write directly into
+   `paramNeutralValues[Param.X]` with an ad-hoc formula that the code's own comment admits
+   "clobbers the per-track knobs" (a known simplification, not necessarily itself faithful), while
+   the corresponding PER-TRACK knobs for the missing 12 go through `paramKnobs[Param.X]` and each
+   parameter's own distinct knob→internal-value scaling helper (`lfoRateKnobFromHz`,
+   `normToLinearParamKnob`, `normToBipolarParam`, `dbToBipolarParam` — all different formulas, e.g.
+   `modFXRateIncrement = rate * 4294967296.0 / 44100.0`, a phase-increment formula, not a simple
+   scale). Wiring these 12 correctly requires first researching how the real C firmware's song-level
+   performance macros actually combine with each per-track parameter (override vs. additive) — a
+   materially bigger research task than the fixes above, deliberately deferred rather than guessed.
+
+3. **NOT YET FIXED — `ProjectModel.getReverbPan()` orphaned.** Parsed from `<rev pan="...">`
+   (`SongXmlParser.java:1504`), pushed to bridge global `G_REVERB_PAN` (`EngineSyncCoordinator.java:441`),
+   never read back. `FirmwareAudioEngine.masterReverb.setPanLevels(...)` is only ever called with the
+   symmetric sidechain-ducking volume for both channels, never a stereo split derived from
+   `reverbPan`. Confirmed as a real, active hardware feature via C (`audio_engine.cpp:841`,
+   `shouldDoPanning(reverbPan, ...)`), not a stub. Smaller, simpler fix than the macro-knob cluster
+   (single value, single call site) — a good candidate for a future short pass.
+
+**Empirical dry-vs-wet probe of 133/144/137 (throwaway diagnostic, not committed) — rules out the
+mix-ratio hypothesis.** Rendered each preset with reverb/delay force-zeroed vs. normal: removing FX
+entirely moved the hardware-similarity score by at most 0.07, and for `144 Sweep Chords` the wet and
+dry signals were nearly spectrally identical (cosine 0.999) yet both scored the same 0.774 — the FX
+mix isn't touching the outcome at all for that preset. For `133 80s Strings` (max reverb send),
+removing FX made the score *worse*, the opposite of an "FX too loud" bug. **New falsifiable
+hypothesis for the residual (untested):** either (a) preset-specific modulation depth/rate/patch-
+cable-routing amounts feeding the already-faithful stages diverge in a way no single-stage audit
+would catch, or (b) the reverb/delay *send-amount value itself* is parsed/scaled wrong for some
+presets — `144`'s send parses to ~19% of range but produces almost-zero audible wet signal, worth
+checking against what real hardware's own send actually contributes for that same knob value. Not
+yet investigated further.
+
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:
