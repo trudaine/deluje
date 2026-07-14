@@ -843,10 +843,12 @@ false "bug"** — fragile ALLSYN alignment, different notes (E6 vs C5), differen
 pitch-matched, same-offset, MIDI-controlled** capture is trustworthy, and it shows FM is largely
 faithful. When using the tap, always verify pitch first (compare carrier tails).
 
-**Side finding (separate, unverified):** the MIDI-Follow octave offset means a real Deluge plays
-incoming MIDI note N an octave below its sequencer note N. Whether our emulation's MIDI-input path
-replicates that is a distinct live-MIDI parity question (not DSP; not scorecard-covered) — worth a
-check of `MidiInputRouter` note handling.
+**Side finding — RETRACTED by §4.14 (2026-07-06):** this section speculated that a real Deluge
+plays incoming MIDI note N an octave below its sequencer note N, and flagged `MidiInputRouter` as
+worth checking. §4.14's clean (non-resonant, non-FM) T28 capture below shows there is **no octave
+offset** — the apparent one here was a measurement confound (T09's sub-harmonic / FM's sidebands
+corrupting the pitch read). §4.14 explicitly says **do not change `MidiInputRouter`**; nothing to
+fix here.
 
 ### 4.13 T09 ladder + the MIDI octave offset — tap-verified (2026-07-06)
 
