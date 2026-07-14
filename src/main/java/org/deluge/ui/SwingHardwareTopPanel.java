@@ -146,6 +146,12 @@ public class SwingHardwareTopPanel extends JPanel {
   private org.deluge.engine.FirmwareSound stutteringSound = null;
   private boolean selectingMidiCc = false;
   private int selectingMidiCcKnob = -1;
+  // C: instrument_clip_view.cpp:855-916 (handleScaleButtonAction) — SCALE_MODE toggles on
+  // button *release*, gated by a short-press check (isShortPress/FlashStorage::holdTime,
+  // default 100ms), not immediately on press.
+  private boolean scaleModeButtonPressPending = false;
+  private long scaleModeButtonPressTime = 0;
+  private static final long SCALE_MODE_SHORT_PRESS_MS = 100;
 
   // Cached aspect-ratio draw bounding box
   private int drawX = 0;
@@ -237,6 +243,13 @@ public class SwingHardwareTopPanel extends JPanel {
                   if (oledPanel != null) oledPanel.showParamText("STUTTER", "ACTIVE");
                 }
               }
+            } else if (hit != null && "SCALE_MODE".equals(hit.name)) {
+              // C: instrument_clip_view.cpp:892-899 — pressing SCALE_MODE doesn't toggle
+              // immediately; it only arms a short-press timer (real hardware also flashes the
+              // root-note pad and supports a hold+note-pad root-picker combo, neither of which
+              // is modeled here). The toggle itself happens on release below.
+              scaleModeButtonPressPending = true;
+              scaleModeButtonPressTime = System.currentTimeMillis();
             } else {
               handleMouseClick(e.getX(), e.getY());
             }
@@ -244,6 +257,18 @@ public class SwingHardwareTopPanel extends JPanel {
 
           @Override
           public void mouseReleased(MouseEvent e) {
+            if (scaleModeButtonPressPending) {
+              scaleModeButtonPressPending = false;
+              // C: instrument_clip_view.cpp:906-916 — toggle only fires if the press was short.
+              if (System.currentTimeMillis() - scaleModeButtonPressTime
+                  < SCALE_MODE_SHORT_PRESS_MS) {
+                isScaleMode = !isScaleMode;
+                if (listener != null) listener.onScaleModeToggle();
+                if (oledPanel != null) {
+                  oledPanel.showParamText("SCALE MODE", isScaleMode ? "ACTIVE" : "CHROMATIC");
+                }
+              }
+            }
             // C: midi_instrument.cpp:75-86 — releasing the gold knob exits MIDI-CC-assignment mode.
             // There's no explicit "commit" step: the CC assignment was already live-written on each
             // SELECT_ENC tick while the mode was active (see rotateEncoder).
@@ -1466,13 +1491,6 @@ public class SwingHardwareTopPanel extends JPanel {
         listener.onAffectEntireToggle();
         if (oledPanel != null) {
           oledPanel.showParamText("AFFECT ENTIRE", isAffectEntire ? "ALL CLIPS" : "SINGLE CLIP");
-        }
-      }
-      case "SCALE_MODE" -> {
-        isScaleMode = !isScaleMode;
-        listener.onScaleModeToggle();
-        if (oledPanel != null) {
-          oledPanel.showParamText("SCALE MODE", isScaleMode ? "ACTIVE" : "CHROMATIC");
         }
       }
       case "TRIPLETS" -> {
