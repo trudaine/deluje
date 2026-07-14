@@ -144,6 +144,8 @@ public class SwingHardwareTopPanel extends JPanel {
   private int lastDragY = 0;
   private boolean rotatedDuringPress = false;
   private org.deluge.engine.FirmwareSound stutteringSound = null;
+  private boolean selectingMidiCc = false;
+  private int selectingMidiCcKnob = -1;
 
   // Cached aspect-ratio draw bounding box
   private int drawX = 0;
@@ -192,12 +194,33 @@ public class SwingHardwareTopPanel extends JPanel {
               activeDragControl = hit;
               lastDragY = e.getY();
               rotatedDuringPress = false;
+              // C: buttons.cpp:235-238 -> ui.cpp:41 -> view.cpp:1316,1352 ->
+              // MIDIInstrument::modEncoderButtonAction (midi_instrument.cpp:49-60) — pressing
+              // either gold knob while on a MIDI track and idle (not Sound::modEncoderButtonAction,
+              // which handles the Synth-track stutter case below instead) enters MIDI-CC-assignment
+              // mode for that knob (UI_MODE_SELECTING_MIDI_CC, ui.h:55).
+              if ("MOD_ENCODER_0".equals(hit.name) || "MOD_ENCODER_1".equals(hit.name)) {
+                int knobIdx = "MOD_ENCODER_0".equals(hit.name) ? 0 : 1;
+                org.deluge.model.MidiTrackModel mt = currentMidiTrack();
+                if (mt != null && !isLearnMode) {
+                  selectingMidiCc = true;
+                  selectingMidiCcKnob = knobIdx;
+                  int cc = mt.getModKnobCc(mt.getModKnobMode(), knobIdx);
+                  if (oledPanel != null) {
+                    oledPanel.showParamText(
+                        "MOD KNOB " + knobIdx,
+                        cc == org.deluge.model.MidiTrackModel.CC_NUMBER_NONE
+                            ? "NO CC (TURN SELECT)"
+                            : "CC " + cc + " (TURN SELECT)");
+                  }
+                }
+              }
               // C: buttons.cpp:234-238 -> global_effectable.cpp:225-236 / sound.cpp:4440-4457 —
               // MOD_ENCODER_1's press (not release, and independent of any subsequent turn) begins
               // a stutter when that knob is currently mapped to the stutter rate (modKnobMode==6,
               // knob index 1 per sound.cpp:117-118's default modKnobs[6][1]=STUTTER_RATE). Turning
               // the knob while held still adjusts the rate live via the normal rotation path below.
-              if ("MOD_ENCODER_1".equals(hit.name)) {
+              if ("MOD_ENCODER_1".equals(hit.name) && !selectingMidiCc) {
                 org.deluge.model.SynthTrackModel st = currentSynthTrack();
                 if (st != null
                     && st.getModKnobMode() == 6
@@ -221,6 +244,13 @@ public class SwingHardwareTopPanel extends JPanel {
 
           @Override
           public void mouseReleased(MouseEvent e) {
+            // C: midi_instrument.cpp:75-86 — releasing the gold knob exits MIDI-CC-assignment mode.
+            // There's no explicit "commit" step: the CC assignment was already live-written on each
+            // SELECT_ENC tick while the mode was active (see rotateEncoder).
+            if (selectingMidiCc) {
+              selectingMidiCc = false;
+              selectingMidiCcKnob = -1;
+            }
             if (stutteringSound != null) {
               stutteringSound.endStutter();
               stutteringSound = null;
@@ -925,6 +955,17 @@ public class SwingHardwareTopPanel extends JPanel {
     return (t instanceof org.deluge.model.SynthTrackModel st) ? st : null;
   }
 
+  private org.deluge.model.MidiTrackModel currentMidiTrack() {
+    SwingGridPanel gp =
+        SwingDelugeApp.mainInstance != null ? SwingDelugeApp.mainInstance.activeGridPanel() : null;
+    if (gp == null || gp.getProjectModel() == null) return null;
+    int idx = gp.getEditedModelTrack();
+    java.util.List<org.deluge.model.TrackModel> tracks = gp.getProjectModel().getTracks();
+    if (idx < 0 || idx >= tracks.size()) return null;
+    org.deluge.model.TrackModel t = tracks.get(idx);
+    return (t instanceof org.deluge.model.MidiTrackModel mt) ? mt : null;
+  }
+
   // C: horizontal_menu.cpp:546-571, updateSelectedMenuItemLED — lights the SYNTH/KIT/MIDI/CV LED
   // matching the currently selected item's column within its horizontal-menu sibling group.
   private boolean isSelectedSiblingSlot(int slot) {
@@ -1026,6 +1067,24 @@ public class SwingHardwareTopPanel extends JPanel {
           oledPanel.showParamText("TEMPO", String.format("%.1f BPM", bpm));
         }
       }
+    } else if ("SELECT_ENC".equals(enc.name) && selectingMidiCc) {
+      // C: instrument_clip_minder.cpp:71-106 — while UI_MODE_SELECTING_MIDI_CC is active, turning
+      // SELECT_ENC scrolls the assigned CC number (mod 124) instead of cycling presets. Holding
+      // SELECT_ENC while turning instead relocates existing automation to the new CC
+      // (moveAutomationToDifferentCC) - not modeled here, this desktop UI has no per-CC automation
+      // lanes to relocate.
+      org.deluge.model.MidiTrackModel mt = currentMidiTrack();
+      if (mt != null) {
+        int mode = mt.getModKnobMode();
+        int newCc = mt.getModKnobCc(mode, selectingMidiCcKnob) + delta;
+        mt.setModKnobCc(mode, selectingMidiCcKnob, newCc);
+        int cc = mt.getModKnobCc(mode, selectingMidiCcKnob);
+        if (oledPanel != null) {
+          oledPanel.showParamText(
+              "MOD KNOB " + selectingMidiCcKnob,
+              cc == org.deluge.model.MidiTrackModel.CC_NUMBER_NONE ? "NO CC" : "CC " + cc);
+        }
+      }
     } else if ("SELECT_ENC".equals(enc.name)) {
       // C: sound_editor.cpp:1030-1035 — 5x acceleration is triggered by SHIFT, not by pushing
       // the encoder itself.
@@ -1095,11 +1154,47 @@ public class SwingHardwareTopPanel extends JPanel {
         oledPanel.showParamText("MASTER VOL", delta > 0 ? "VOLUME UP" : "VOLUME DOWN");
       }
     } else if ("MOD_ENCODER_0".equals(enc.name)) {
-      adjustModKnobParam(0, delta, pushMod);
+      org.deluge.model.MidiTrackModel mt0 = currentMidiTrack();
+      if (mt0 != null) {
+        sendMidiCcForKnob(mt0, 0, delta);
+      } else {
+        adjustModKnobParam(0, delta, pushMod);
+      }
     } else if ("MOD_ENCODER_1".equals(enc.name)) {
-      adjustModKnobParam(1, delta, pushMod);
+      org.deluge.model.MidiTrackModel mt1 = currentMidiTrack();
+      if (mt1 != null) {
+        sendMidiCcForKnob(mt1, 1, delta);
+      } else {
+        adjustModKnobParam(1, delta, pushMod);
+      }
     }
     repaint();
+  }
+
+  /**
+   * Turning a gold knob on a MIDI track sends its assigned CC's current value out, instead of
+   * adjusting a synth parameter. C: {@code MIDIParamCollection::notifyParamModifiedInSomeWay}
+   * (midi_param_collection.cpp:222-228) — the real firmware routes this through a full {@code
+   * AutoParam}; this tracks just the minimal 0-127 running value needed to send a sensible absolute
+   * CC from a relative knob turn (see {@link MidiTrackModel#getModKnobCcValue}).
+   */
+  private void sendMidiCcForKnob(org.deluge.model.MidiTrackModel mt, int knobIndex, int delta) {
+    int mode = mt.getModKnobMode();
+    int cc = mt.getModKnobCc(mode, knobIndex);
+    if (cc == org.deluge.model.MidiTrackModel.CC_NUMBER_NONE) {
+      if (oledPanel != null) oledPanel.showParamText("MOD KNOB " + knobIndex, "NO CC ASSIGNED");
+      return;
+    }
+    int newValue = mt.getModKnobCcValue(mode, knobIndex) + delta;
+    mt.setModKnobCcValue(mode, knobIndex, newValue);
+    int value = mt.getModKnobCcValue(mode, knobIndex);
+    if (mt.getActiveClip() != null
+        && mt.getActiveClip().getSound() instanceof org.deluge.engine.FirmwareMidiInstrument fmi) {
+      fmi.sendCc(cc, value);
+    }
+    if (oledPanel != null) {
+      oledPanel.showParamText("CC " + cc, String.valueOf(value));
+    }
   }
 
   /**

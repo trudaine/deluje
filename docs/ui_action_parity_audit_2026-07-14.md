@@ -36,7 +36,7 @@ In `SwingHardwareTopPanel.rotateEncoder()` (`lines 950–1047`) and `handleMouse
 | **`Y_ENC` (Push / Click)** | Falls into `default -> oledPanel.showParamText("Y_ENC", "ACTIVE")` | **RE-DERIVED FROM SCRATCH (2026-07-14) — CONFIRMED NO GAP.** `InstrumentClipView::buttonAction`'s `else if (b == Y_ENC)` (`instrument_clip_view.cpp:770-825`) only does anything when `UI_MODE_NOTES_PRESSED` or `UI_MODE_AUDITIONING` is active. Unlike the `X_ENC` branch, there is no trailing fallthrough for the idle case — with neither mode active, nothing in the branch runs and the event is consumed with zero effect (`return ActionResult::DEALT_WITH` at line 852). | **Nothing to fix.** A bare `Y_ENC` press with no notes held and nothing auditioned is a genuine no-op on real hardware too — Java's current behavior (do nothing) is already correct. The original "gap" claim for this row was fabricated. |
 | **`MASTER_VOL` (Rotation)** | Calls `bridge.setMasterVol(vol)` (`0.0` to `2.0`) + displays `vol * 100 + " %"` on OLED (`lines 1035-1044`) | Global master volume (`sound.cpp` / `bridge`) | **1:1 Parity Verified (Fixed Today).** |
 | **`MOD_ENCODER_0` / `MOD_ENCODER_1` (Rotation)** | Adjusts assigned parameter pair (`PAN/VOL`, `RES/CUTOFF`, etc.) + updates 4-square LED bargraphs on gold knobs (`lines 1054-1190`) | `Sound::modKnobs[mode][knob]` (`sound.cpp:97-122`) | **1:1 Parity Verified.** Matches ear-linear cutoff curves (`Math.pow(1.01, delta)`), Q31 delay feedbacks, and continuous sub-square LED fill levels (`currentModKnobFillLevel` at `lines 762-797`). |
-| **`MOD_ENCODER_1` (Push, stutter half only)** | `mousePressed`/`mouseReleased` in `SwingHardwareTopPanel.java` (fixed 2026-07-14) call `FirmwareSound.beginStutter(cfg)`/`endStutter()` when `modKnobMode==6` | Verified full chain (2026-07-14): `buttons.cpp:234-238` (press dispatch) → `global_effectable.cpp:225-236` / `sound.cpp:4440-4457` (the `modKnobMode==6` check, since `sound.cpp:117-118` sets `modKnobs[6][1]=UNPATCHED_STUTTER_RATE` by default) → `ModControllableAudio::beginStutter`/`endStutter` (`mod_controllable_audio.cpp:1299-1329`) → `Stutterer::beginStutter`/`endStutter` (`model/fx/stutterer.cpp:66-108,210-237`). | **Fixed.** `firmware2.Stutterer`'s DSP core was already a complete, wired port (called from `firmware2/Sound.java` render loop) — only the UI trigger was missing. Added `FirmwareSound.beginStutter(Stutterer.Config)`/`endStutter()` wrappers and wired `MOD_ENCODER_1`'s press/release in `SwingHardwareTopPanel`, gated on `modKnobMode==6`; turning the knob while held still adjusts the rate live via the existing rotation path. Guarded by `FirmwareSoundStutterTest`. MIDI-CC-assignment mode (the other `modEncoderButtonAction` branch) still not implemented — no MIDI-CC-learn UI mode exists in Java yet. |
+| **`MOD_ENCODER_0`/`1` (Push)** | `mousePressed`/`mouseReleased` in `SwingHardwareTopPanel.java`: Synth track + `modKnobMode==6` → `FirmwareSound.beginStutter`/`endStutter` (fixed 2026-07-14); MIDI track → enters MIDI-CC-assignment mode (fixed 2026-07-14) | Verified full chains (2026-07-14). Stutter: `buttons.cpp:234-238` → `global_effectable.cpp:225-236`/`sound.cpp:4440-4457` (`modKnobMode==6`, `sound.cpp:117-118`'s default `modKnobs[6][1]=UNPATCHED_STUTTER_RATE`) → `ModControllableAudio::beginStutter`/`endStutter` (`mod_controllable_audio.cpp:1299-1329`) → `Stutterer::beginStutter`/`endStutter` (`model/fx/stutterer.cpp:66-108,210-237`). MIDI-CC: `buttons.cpp:235-238` → `ui.cpp:41` → `view.cpp:1316,1352` → `MIDIInstrument::modEncoderButtonAction` (`midi_instrument.cpp:49-60`, enters `UI_MODE_SELECTING_MIDI_CC` when `toClipMinder()` non-null); CC picked via `SELECT_ENC` turn → `changeControlNumberForModKnob` (`midi_instrument.cpp:609`, mod-124 wrap); persisted live into `modKnobCCAssignments` (`midi_instrument.h:113`); turning the knob sends the assigned CC via `MIDIParamCollection::notifyParamModifiedInSomeWay` → `midiEngine.sendCC` (`midi_param_collection.cpp:222-301`). | **Both fixed.** Stutter: added `FirmwareSound.beginStutter(Stutterer.Config)`/`endStutter()`, guarded by `FirmwareSoundStutterTest`. MIDI-CC: added `MidiTrackModel.modKnobCcAssignments`/`modKnobCcValues` (in-memory only — not yet persisted to XML), `FirmwareMidiInstrument.sendCc(cc, value)`, and `SwingHardwareTopPanel` state (`selectingMidiCc`) wiring gold-knob press → enter mode, `SELECT_ENC` turn while held → adjust/wrap the CC, release → exit, and a normal (unheld) knob turn → send the assigned CC's running value. Guarded by `MidiTrackModelModKnobCcTest`; verified end-to-end against the live running app (dispatched real events into the running panel: press → `selectingMidiCc=true`, `SELECT_ENC` turn correctly wrapped the CC, release → `selectingMidiCc=false`, knob turn correctly updated the running CC value 64→67). |
 
 ---
 
@@ -71,15 +71,21 @@ In `ClipGridPanel.java`, `SongGridPanel.java`, `ArrangerGridPanel.java`, and `Sw
 implementing anything, per this project's "audit citations before trusting them" rule (see
 CLAUDE.md). Two of the three did not hold up:**
 
-1. ~~**Wire Gold Knob Push Clicks...**~~ **Stutter half FIXED (2026-07-14); MIDI-CC half still
-   deferred.** Re-derived the full call chain from scratch with fresh citations (see §2 row above) —
-   `modEncoderButtonAction`, `Stutterer::beginStutter`/`endStutter`, and `UI_MODE_SELECTING_MIDI_CC`
-   all genuinely exist. `firmware2.Stutterer`'s DSP core was already fully ported and wired into the
-   render loop; added `FirmwareSound.beginStutter`/`endStutter` wrappers plus a `MOD_ENCODER_1`
-   press/release handler in `SwingHardwareTopPanel` gated on `modKnobMode==6`. The MIDI-CC-assignment
-   half of the original proposal (automation-view gold-knob press → `UI_MODE_SELECTING_MIDI_CC`) is
-   NOT implemented — Java has no MIDI-CC-learn UI mode to enter yet; that's new UI/engine plumbing
-   beyond this pass's scope.
+1. ~~**Wire Gold Knob Push Clicks...**~~ **Both halves FIXED (2026-07-14).** Re-derived the full
+   call chains from scratch with fresh citations (see §2 row above) — `modEncoderButtonAction`,
+   `Stutterer::beginStutter`/`endStutter`, and `UI_MODE_SELECTING_MIDI_CC` all genuinely exist.
+   Stutter: `firmware2.Stutterer`'s DSP core was already fully ported and wired into the render
+   loop; added `FirmwareSound.beginStutter`/`endStutter` wrappers plus a `MOD_ENCODER_1`
+   press/release handler in `SwingHardwareTopPanel` gated on `modKnobMode==6`. MIDI-CC-assignment
+   (the other `modEncoderButtonAction` branch, for MIDI tracks): designed and implemented from
+   scratch — new `MidiTrackModel.modKnobCcAssignments`/`modKnobCcValues` state,
+   `FirmwareMidiInstrument.sendCc`, and `SwingHardwareTopPanel` press/`SELECT_ENC`-turn/release
+   wiring, matching the verified C mechanism (enter mode on gold-knob press while on a MIDI track →
+   pick CC via `SELECT_ENC` turn, wrapping mod 124 → exit on release, no explicit commit since the
+   assignment was already live-written → turning the knob afterward sends that CC's value). Verified
+   both against the live running app via direct event dispatch, not just unit tests. **Known
+   limitation:** the CC assignment is in-memory only, not yet persisted to song/preset XML — reload
+   loses it (a real follow-up, not attempted this pass).
 2. ~~**Wire Encoder Push Clicks (`SELECT_ENC`, `TEMPO_ENC`, `X_ENC`, `Y_ENC`)...**~~ **Original
    citations all fabricated; re-derived from scratch and mostly fixed.** `commandToggleTempoBlink`
    (cited for `TEMPO_ENC`), `horizontalEncoderButtonAction`, and `verticalEncoderButtonAction`

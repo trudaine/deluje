@@ -58,6 +58,20 @@ public class FirmwareMidiInstrument extends GlobalEffectable {
     }
   }
 
+  /**
+   * C: {@code MIDIParamCollection::notifyParamModifiedInSomeWay}
+   * (midi_param_collection.cpp:222-228) — sends a gold-knob-assigned CC's current value out to the
+   * instrument's channel. {@code cc == MidiTrackModel.CC_NUMBER_NONE} (123, "no CC assigned") is a
+   * caller-side guard, not checked here.
+   */
+  public void sendCc(int cc, int value) {
+    MidiEngine engine = MidiEngine.instance;
+    if (engine != null) {
+      int zeroIndexedChannel = Math.max(0, Math.min(15, midiChannel - 1));
+      engine.sendCC(zeroIndexedChannel, cc, value);
+    }
+  }
+
   @Override
   protected void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
     // MIDI instruments do not render raw digital audio signals.
