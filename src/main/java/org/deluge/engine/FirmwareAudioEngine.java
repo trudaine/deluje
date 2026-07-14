@@ -105,12 +105,17 @@ public class FirmwareAudioEngine {
    * modeled; hardware defaults to auto, song.cpp:185.)
    */
   private void updateReverbParams() {
-    org.deluge.firmware2.Sound best = null;
+    // Was `ge instanceof org.deluge.firmware2.Sound` - but the engine's `sounds` list holds
+    // FirmwareSound instances (a sibling GlobalEffectable subclass composing a firmware2.Sound,
+    // not a subclass of it), so that check never matched any real sound and auto-ducking never
+    // engaged in production.
+    FirmwareSound best = null;
     int highestReverbAmountFound = Integer.MIN_VALUE; // C seeds with the song's own send amount
     for (int i = 0; i < sounds.size(); i++) {
       GlobalEffectable ge = sounds.get(i);
-      if (ge instanceof org.deluge.firmware2.Sound snd) {
-        int amount = snd.patchedParamValues[org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT];
+      if (ge instanceof FirmwareSound snd) {
+        int amount =
+            snd.fw2Sound.patchedParamValues[org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT];
         if (amount != Integer.MIN_VALUE && amount > highestReverbAmountFound) {
           highestReverbAmountFound = amount;
           best = snd;
@@ -123,7 +128,7 @@ public class FirmwareAudioEngine {
     }
     int vol = 0; // C:1288-1291 — no SIDECHAIN cable on the send → no ducking
     java.util.List<org.deluge.firmware2.Patcher.Destination> dests =
-        best.patchCableSet.destinations;
+        best.fw2Sound.patchCableSet.destinations;
     for (int dIdx = 0; dIdx < dests.size(); dIdx++) {
       org.deluge.firmware2.Patcher.Destination dest = dests.get(dIdx);
       if (dest.paramId == org.deluge.firmware2.Param.GLOBAL_VOLUME_POST_REVERB_SEND) {
@@ -141,7 +146,7 @@ public class FirmwareAudioEngine {
     }
     reverbSidechainVolumeInEffect = vol;
     reverbSidechainShapeInEffect =
-        best.patchedParamValues[org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE];
+        best.fw2Sound.patchedParamValues[org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE];
     reverbSidechain.attack = best.sidechain.attack; // C:1304-1306
     reverbSidechain.release = best.sidechain.release;
     reverbSidechain.syncLevel = best.sidechain.syncLevel;
