@@ -53,11 +53,12 @@ jobs:
 
     - name: Prepare Release Assets
       run: |
-        mkdir -p release_assets
+        mkdir -p release_assets/scripts
         cp target/deluge-swing.jar release_assets/
         cp run.sh release_assets/
         cp run.bat release_assets/
-        chmod +x release_assets/run.sh
+        cp scripts/ensure-jdk27.sh release_assets/scripts/
+        chmod +x release_assets/run.sh release_assets/scripts/ensure-jdk27.sh
         cd release_assets && zip -r ../deluge-workstation.zip ./*
 
     - name: Create GitHub Release
@@ -73,5 +74,6 @@ jobs:
           release_assets/deluge-swing.jar
           release_assets/run.sh
           release_assets/run.bat
+          release_assets/scripts/ensure-jdk27.sh
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
