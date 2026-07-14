@@ -942,27 +942,43 @@ is populated from XML but nothing in the engine ever reads it.**
    real fix with no current scorecard-visible effect; matters for any preset actually using this
    feature (future-authored or user-created presets).
 
-2. **NOT YET FIXED — a 12-getter `songParams` macro-knob cluster is silently a no-op.** These are
-   the Deluge's global "performance macro" knobs (`<songParams>` XML node → `ProjectModel.getSongParam*`
-   getters, lines ~1262-1584 → pushed to bridge globals `G_SP_*` by `EngineSyncCoordinator.java:483-518`
-   → **never read back** by `PureFirmwareEngine.syncFromBridge`, which only reads 9 of ~21:
-   `G_SP_VOLUME`, `G_SP_DELAY_RATE/FEEDBACK`, `G_SP_LPF_FREQ/RES/MORPH`, `G_SP_HPF_FREQ/RES/MORPH`.
-   Missing: `getSongParamPan`, `ReverbAmount`, `SidechainShape`, `StutterRate`,
-   `SampleRateReduction`, `BitCrush`, `ModFXRate/Depth/Offset/Feedback` (4), `CompressorThreshold`,
-   `EqBass/Treble/BassFrequency/TrebleFrequency` (4). Real, audible feature gap for live/full-song
-   use (reverb send, bitcrush, EQ, modFX depth/rate are all genuinely audible), likely NOT
-   scorecard-visible (the scorecard constructs a bare `new ProjectModel()` with neutral macro
-   defaults). **Why not fixed yet:** unlike the reverb-model fix (a one-line `setModel()` call), this
-   needs per-parameter care — the 9 already-wired song-params write directly into
-   `paramNeutralValues[Param.X]` with an ad-hoc formula that the code's own comment admits
-   "clobbers the per-track knobs" (a known simplification, not necessarily itself faithful), while
-   the corresponding PER-TRACK knobs for the missing 12 go through `paramKnobs[Param.X]` and each
-   parameter's own distinct knob→internal-value scaling helper (`lfoRateKnobFromHz`,
-   `normToLinearParamKnob`, `normToBipolarParam`, `dbToBipolarParam` — all different formulas, e.g.
-   `modFXRateIncrement = rate * 4294967296.0 / 44100.0`, a phase-increment formula, not a simple
-   scale). Wiring these 12 correctly requires first researching how the real C firmware's song-level
-   performance macros actually combine with each per-track parameter (override vs. additive) — a
-   materially bigger research task than the fixes above, deliberately deferred rather than guessed.
+2. **STILL NOT FIXED — and the research to scope it (2026-07-14) found the problem is bigger and
+   different than originally framed.** These are the Deluge's `<songParams>` XML "performance macro"
+   knobs (`ProjectModel.getSongParam*` getters, lines ~1262-1584 → bridge globals `G_SP_*` via
+   `EngineSyncCoordinator.java:483-518` → **never read back** by `PureFirmwareEngine.syncFromBridge`
+   for 12 of ~21 of them). The original framing above ("wire these 12 the way the other 9 already
+   are") turned out to be wrong on two counts, verified against the real C (`Song`/
+   `PerformanceView`/`AudioEngine`, all citations grep-confirmed):
+
+   - **The 9 "already-wired" ones are themselves unfaithful, not a pattern to copy.** Real hardware's
+     Performance View writes song-level macro values into `Song`'s own single `paramManager`
+     (`song.h:83`), consumed **once**, post-summation, in a master-bus stage
+     (`Song::renderAudio:2498-2513`, `AudioEngine::renderSongFX`, `audio_engine.cpp:871-903`) —
+     **layered additively alongside** each track's own independent value for the same parameter
+     (traced for `reverbAmount` and `modFXRate`: each track sends its own reverb/modFX
+     independently in `GlobalEffectableForClip::renderOutput`/`processFXForGlobalEffectable`,
+     `global_effectable_for_clip.cpp:71-85,137`, and the song value is a *second*, separate
+     contribution, not a replacement). Java's existing 9-param wiring instead **broadcasts/
+     overwrites** every `FirmwareSound`'s own `paramNeutralValues[Param.LOCAL_X]` — clobbering the
+     per-track knob, exactly the "known simplification" the code's own comment already flags. This
+     is architecturally wrong for volume/LPF/HPF too, not just missing for the other 12.
+   - **4 of the 12 have no real Performance View mechanism to wire to at all.**
+     `UNPATCHED_COMPRESSOR_THRESHOLD`, `UNPATCHED_PAN`, `UNPATCHED_VOLUME`, and
+     `UNPATCHED_SIDECHAIN_SHAPE` all have **zero occurrences in `performance_view.cpp`** (grep-
+     confirmed) — `pan`/`volume`/`sidechainShape`/`compressorThreshold` are not Performance View
+     macros in this firmware version at all. (`compressorThreshold` on the master compressor is set
+     from an entirely separate one-time `masterCompressorThresh` XML tag, `song.cpp:1731-1732`, not
+     a per-buffer patched macro.) Wiring these as if they were performance macros would be inventing
+     behavior with no C equivalent, not fixing a gap.
+
+   **Recommendation, not yet acted on:** wiring `reverbAmount`/`modFXRate` (and by the same
+   evidence, the render-side FX macros) correctly needs a **new master-bus post-processing stage**
+   in the Java engine (analogous to `AudioEngine::renderSongFX`) applied once to the final mixed
+   stereo buffer — Java's per-`FirmwareSound` `paramNeutralValues` array has no slot for "song
+   add-on layered on top of the track's own value," so this is a real architectural addition, not a
+   wiring fix, and touches already-shipped (if unfaithful) behavior with real regression risk.
+   Deliberately not attempted without a scoped decision on how far to take the refactor — flagged
+   back to the user rather than guessed at.
 
 3. **FIXED (2026-07-14).** `ProjectModel.getReverbPan()` was parsed from `<rev pan="...">`
    (`SongXmlParser.java:1504`), pushed to bridge global `G_REVERB_PAN` (`EngineSyncCoordinator.java:441`),
