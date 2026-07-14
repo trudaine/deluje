@@ -1048,9 +1048,39 @@ inspection, not just assumed), so this was never the cause of 133/144/137's resi
 distinct, separate feature gap (the actual
 sidechain-pumping *behavior* of a reverb-ducking sound never happened) — now fixed above.
 
-Hypothesis (a) (preset-specific modulation depth/rate diverging in a way no single-stage audit
-would catch) remains untested and is now the more likely remaining explanation for 133/144/137's
-residual gap, since (b) turned out to be real but scorecard-invisible.
+**Hypothesis (a) — CONFIRMED REAL by direct probe (2026-07-14), root cause still unpinned.** Wrote a
+throwaway diagnostic (not committed) that zeroes each preset's `lfo1`/`lfo2`-sourced patch-cable
+amounts (`PatchSource.LFO_GLOBAL_1/2`, `LFO_LOCAL_1/2`) and re-scores against the same hardware
+slice `FidelityScorecardTest` uses. Result — disabling LFO modulation moves the time-resolved score:
+
+| preset | LFO1 config | cables zeroed | normal | LFO-zeroed | Δ |
+|---|---|---|---|---|---|
+| `133 80s Strings` | unsynced (`syncLevel=0`), `lfo1→pitch` only | 1 | 0.612 | 0.742 | **+0.130** |
+| `137 Epic Saw Modulation Pad` | unsynced, `lfo1→pitch`, `lfo1→lpfFreq`, `lfo2→lpfFreq` | 3 | 0.796 | 0.823 | +0.027 |
+| `144 Sweep Chords` | **tempo-synced** (`syncLevel=3`), `lfo1→lpfFreq`, `lfo1→oscAPhaseWidth` | 2 | 0.774 | 0.778 | +0.004 |
+
+This rules out the "no effect" possibility and pins the pattern precisely: the divergence is
+concentrated in **unsynced (free-running) LFO1 modulation**, not the tempo-synced path — 144 (synced)
+barely moves, while 133 (a *single*, small ~5.5%-depth `lfo1→pitch` vibrato and nothing else) moves
+the most. This also rules out LFO2/local-LFO as the culprit for 133 (it has none) and for 137's bulk
+of the effect (still moves when only its unsynced-LFO1 cables are considered).
+
+**Investigated and ruled out as the cause** (all confirmed correct/faithful before writing the
+probe, so the remaining bug is elsewhere): the `lfo1`/`lfo2` XML-tag→`PatchSource` source mapping
+(`FirmwareFactory.SOURCE_MAP`/`resolvePatchSource`, `lfo1`→`LFO_GLOBAL_1`, `lfo2`→`LFO_LOCAL_1`,
+matching C's `LFO1_ID`/`LFO2_ID`↔`PatchSource::LFO_GLOBAL_1`/`LFO_LOCAL_1`, `voice.cpp:156-159`);
+the global-vs-local render scope (`Sound.java:771` computes `LFO_GLOBAL_1` once per Sound, matching
+C `sound.cpp:2382`; `Voice.java:276` computes `LFO_LOCAL_1` per-voice, matching `voice.cpp:157`);
+and `Functions.getParamRange(LOCAL_PITCH_ADJUST)` (536870912, matching C `functions.cpp:153-158`
+bit-for-bit). **Not yet checked:** the actual unsynced LFO1 rate curve's numeric output for values
+other than the one specific hex already spot-checked against hardware
+(`FirmwareFactory.java:802-805`'s comment cites `0x1999997E`→3.79 Hz; 133's rate is a different hex,
+`0x1EB851CF`, unverified), and whether LFO1's rendered waveform shape/phase drifts over the
+scorecard's 2s analysis window in a way a single-instant tap wouldn't show. **Needs a
+hardware-controlled tap capture** (per §4.12quater/§4.13's proven methodology) isolating a single
+free-running LFO1→pitch cable at a known rate to pin the exact defect — Java-side reading alone
+found everything upstream faithful, so further progress needs a real measurement, not another
+read-audit.
 
 ## 5. Real bugs: synths our engine renders SILENT
 
