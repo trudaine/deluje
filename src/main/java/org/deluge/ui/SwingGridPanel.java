@@ -843,7 +843,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
    * same basis — otherwise on a narrow window the rows compute a wider label, getGridWidth
    * overshoots the viewport, and the right (sidebar) column clips.
    */
-  int currentLabelWidth() {
+  public int currentViewportWidth() {
     int vpW = 0;
     java.awt.Container p = getParent();
     while (p != null) {
@@ -853,7 +853,11 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       }
       p = p.getParent();
     }
-    int w = (vpW > 0) ? vpW : (getWidth() > 0 ? getWidth() : 1200);
+    return (vpW > 0) ? vpW : (getWidth() > 0 ? getWidth() : 1200);
+  }
+
+  int currentLabelWidth() {
+    int w = currentViewportWidth();
     return Math.max(60, Math.min(140, w / 12));
   }
 
@@ -920,13 +924,13 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     // axis is limiting fills exactly; the other keeps its slack (left-aligned horizontally, gap at
     // bottom vertically) — squares can't fill both unless the aspect ratio happens to match. Works
     // for every GridMode because everything below is expressed in terms of gridMode.rows/columns.
-    int availWidth = w;
+    int availWidth = currentViewportWidth();
     int availHeight = h;
     int labelWidth = Math.max(60, Math.min(140, availWidth / 12));
     // Match getGridWidth()'s footprint so the grid never overshoots the viewport width (which would
-    // pop a thin horizontal scrollbar): label + VU(17) + per-column (padSz+5) +
-    // struts/buffer(~109).
-    int widthOverhead = labelWidth + 130;
+    // pop a thin horizontal scrollbar): label + VU(17) + Kit gear button headroom(23) + per-column
+    // (padSz+5) + separator strut(20) + navPanel(34) + trailing(15) = label + 200.
+    int widthOverhead = labelWidth + 200;
     int widthLimitedPadSz = (availWidth - widthOverhead) / columnCount - 5;
     // Vertical budget: voiceWrapper's real height is exactly gridMode.rows*(padSz+5)-5 (measured
     // directly — no header/track-info/MACROS/KEYBOARD rows contribute anymore, they were deleted).
@@ -1726,6 +1730,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     int width = lw + 69 + 5;
     if (viewMode != GridViewMode.AUTOMATION) {
       width += 17; // VU (12) + strut (5)
+    }
+    if (viewMode == GridViewMode.CLIP) {
+      width += 23; // headroom for Kit track drum settings gear button (20 + strut 3)
     }
     width += columnCount * (padSz + 5);
     if (viewMode != GridViewMode.AUTOMATION && columnCount > 16) {
@@ -2858,11 +2865,114 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     org.deluge.model.ClipModel cModel = tModel.getActiveClip();
     if (cModel == null) return;
     if (delta > 0) {
-      cModel.doubleLength();
+      duplicateTrackContent();
     } else if (delta < 0) {
-      cModel.setStepCount(Math.max(1, cModel.getStepCount() / 2));
+      int newLen = Math.max(1, cModel.getStepCount() / 2);
+      cModel.setStepCount(newLen);
+      if (bridge != null) {
+        bridge.setTrackLength(baseTrackId, newLen);
+        int rows = cModel.getRowCount();
+        for (int r = 0; r < rows; r++) {
+          int pitchMidi = cModel.getRowYNote(r);
+          if (pitchMidi >= 0) {
+            for (int m = 0; m < 128; m++) {
+              if (getRowPitch(m) == pitchMidi) {
+                int engineRow = baseTrackId + m;
+                for (int s = newLen; s < 128; s++) {
+                  bridge.setStep(engineRow, s, false);
+                }
+                break;
+              }
+            }
+          }
+        }
+      }
+      refresh();
     }
-    refresh();
+  }
+
+  /**
+   * Cycles through the available Synth or Kit presets on the active track — the SELECT_ENC turn
+   * gesture during normal clip/sound editing (instrument_clip_minder.cpp:102-105).
+   */
+  public void cycleActiveTrackPreset(int step, SwingOledPanel oledPanel) {
+    if (projectModel == null
+        || editedModelTrack < 0
+        || editedModelTrack >= projectModel.getTracks().size()) {
+      if (oledPanel != null) oledPanel.showParamText("SELECT", "NO ACTIVE TRACK");
+      return;
+    }
+    org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+    org.deluge.model.AssetLibrary assetLibrary = new org.deluge.model.AssetLibrary();
+    java.util.List<org.deluge.model.AssetLibrary.AssetEntry> list;
+    boolean isSynth = t instanceof org.deluge.model.SynthTrackModel;
+    if (isSynth) {
+      list = assetLibrary.getSynths();
+    } else if (t instanceof org.deluge.model.KitTrackModel) {
+      list = assetLibrary.getKits();
+    } else {
+      if (oledPanel != null) oledPanel.showParamText("SELECT", t.getName());
+      return;
+    }
+    if (list.isEmpty()) {
+      if (oledPanel != null)
+        oledPanel.showParamText(isSynth ? "SYNTH PRESET" : "KIT PRESET", "NO PRESETS FOUND");
+      return;
+    }
+
+    int currentIndex = -1;
+    String curName = t.getName();
+    for (int i = 0; i < list.size(); i++) {
+      if (list.get(i).name().equalsIgnoreCase(curName)) {
+        currentIndex = i;
+        break;
+      }
+    }
+    if (currentIndex < 0) currentIndex = 0;
+    int newIndex = (currentIndex + step) % list.size();
+    if (newIndex < 0) newIndex += list.size();
+
+    org.deluge.model.AssetLibrary.AssetEntry newEntry = list.get(newIndex);
+    java.io.File f = new java.io.File(newEntry.path());
+    if (!f.exists()) {
+      if (oledPanel != null)
+        oledPanel.showParamText(isSynth ? "SYNTH PRESET" : "KIT PRESET", newEntry.name());
+      return;
+    }
+
+    try {
+      if (isSynth) {
+        org.deluge.model.SynthTrackModel old = (org.deluge.model.SynthTrackModel) t;
+        org.deluge.model.SynthTrackModel nt = org.deluge.xml.DelugeXmlParser.parseSynth(f);
+        nt.getClips().clear();
+        for (org.deluge.model.ClipModel cm : old.getClips()) nt.addClip(cm);
+        nt.setColourHex(old.getColourHex());
+        projectModel.getTracks().set(editedModelTrack, nt);
+      } else {
+        org.deluge.model.KitTrackModel old = (org.deluge.model.KitTrackModel) t;
+        org.deluge.model.KitTrackModel nt = org.deluge.xml.DelugeXmlParser.parseKit(f);
+        nt.getClips().clear();
+        for (org.deluge.model.ClipModel cm : old.getClips()) nt.addClip(cm);
+        nt.setColourHex(old.getColourHex());
+        projectModel.getTracks().set(editedModelTrack, nt);
+      }
+      if (SwingDelugeApp.mainInstance != null) {
+        SwingDelugeApp.mainInstance.propagateCurrentModel();
+        SwingDelugeApp.mainInstance.syncHighFidelityEngine(projectModel, true);
+        forceRebuild();
+        SwingDelugeApp.mainInstance.refreshParamRack();
+      } else {
+        refresh();
+      }
+      if (oledPanel != null) {
+        oledPanel.showParamText(isSynth ? "SYNTH PRESET" : "KIT PRESET", newEntry.name());
+      }
+    } catch (Exception ex) {
+      System.err.println("[cycleActiveTrackPreset] Failed to load " + f + ": " + ex.getMessage());
+      if (oledPanel != null) {
+        oledPanel.showParamText("SELECT ERROR", newEntry.name());
+      }
+    }
   }
 
   public boolean isNoteInScale(int note) {

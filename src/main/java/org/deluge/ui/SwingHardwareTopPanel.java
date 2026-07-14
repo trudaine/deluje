@@ -71,14 +71,21 @@ public class SwingHardwareTopPanel extends JPanel {
     public final int radius;
     public final boolean isEncoder;
     public final Color ledColor;
+    public final String tooltip;
 
-    public ControlDef(String name, int cx, int cy, int radius, boolean isEncoder, Color ledColor) {
+    public ControlDef(
+        String name, int cx, int cy, int radius, boolean isEncoder, Color ledColor, String tooltip) {
       this.name = name;
       this.cx = cx;
       this.cy = cy;
       this.radius = radius;
       this.isEncoder = isEncoder;
       this.ledColor = ledColor;
+      this.tooltip = tooltip;
+    }
+
+    public ControlDef(String name, int cx, int cy, int radius, boolean isEncoder, Color ledColor) {
+      this(name, cx, cy, radius, isEncoder, ledColor, null);
     }
   }
 
@@ -229,54 +236,366 @@ public class SwingHardwareTopPanel extends JPanel {
     Color blue = new Color(0, 175, 255);
 
     // Named function buttons
-    controls.add(new ControlDef("PLAY", 2072, 332, 32, false, green));
-    controls.add(new ControlDef("RECORD", 2072, 424, 32, false, red));
-    controls.add(new ControlDef("SHIFT", 2072, 515, 32, false, amber));
-    controls.add(new ControlDef("SESSION_VIEW", 865, 424, 28, false, blue));
-    controls.add(new ControlDef("CLIP_VIEW", 865, 515, 28, false, blue));
-    controls.add(new ControlDef("KEYBOARD", 1045, 516, 28, false, amber));
-    controls.add(new ControlDef("SYNTH", 1187, 424, 28, false, amber));
-    controls.add(new ControlDef("KIT", 1268, 424, 28, false, amber));
-    controls.add(new ControlDef("MIDI", 1350, 424, 28, false, amber));
-    controls.add(new ControlDef("CV", 1432, 424, 28, false, amber));
-    controls.add(new ControlDef("SCALE_MODE", 1205, 515, 28, false, amber));
-    controls.add(new ControlDef("AFFECT_ENTIRE", 690, 466, 24, false, red));
-    controls.add(new ControlDef("CROSS_SCREEN", 1350, 515, 28, false, amber));
-    controls.add(new ControlDef("TRIPLETS", 1812, 515, 28, false, amber));
-    controls.add(new ControlDef("SYNC_SCALING", 1812, 424, 28, false, blue));
-    controls.add(new ControlDef("BACK", 1529, 241, 28, false, amber));
-    controls.add(new ControlDef("LOAD", 1529, 332, 28, false, amber));
-    controls.add(new ControlDef("SAVE", 1529, 424, 28, false, amber));
-    controls.add(new ControlDef("LEARN", 1529, 515, 28, false, amber));
-    controls.add(new ControlDef("TAP_TEMPO", 1812, 332, 28, false, amber));
+    controls.add(
+        new ControlDef(
+            "PLAY",
+            2072,
+            332,
+            32,
+            false,
+            green,
+            "<html><b>PLAY</b> [Button]<br>• Click: Start/Stop playback</html>"));
+    controls.add(
+        new ControlDef(
+            "RECORD",
+            2072,
+            424,
+            32,
+            false,
+            red,
+            "<html><b>RECORD</b> [Button]<br>• Click: Toggle live recording / step recording mode</html>"));
+    controls.add(
+        new ControlDef(
+            "SHIFT",
+            2072,
+            515,
+            32,
+            false,
+            amber,
+            "<html><b>SHIFT</b> [Button]<br>• Click: Toggle modifier for secondary button/knob actions</html>"));
+    controls.add(
+        new ControlDef(
+            "SESSION_VIEW",
+            865,
+            424,
+            28,
+            false,
+            blue,
+            "<html><b>SESSION VIEW</b> [Button]<br>• Click: Switch between Song View and Arranger View</html>"));
+    controls.add(
+        new ControlDef(
+            "CLIP_VIEW",
+            865,
+            515,
+            28,
+            false,
+            blue,
+            "<html><b>CLIP VIEW</b> [Button]<br>• Click: Open sequence grid editor for the active track clip</html>"));
+    controls.add(
+        new ControlDef(
+            "KEYBOARD",
+            1045,
+            516,
+            28,
+            false,
+            amber,
+            "<html><b>KEYBOARD VIEW</b> [Button]<br>• Click: Open live isomorphic / chromatic playing keyboard (Keyplay)</html>"));
+    controls.add(
+        new ControlDef(
+            "SYNTH",
+            1187,
+            424,
+            28,
+            false,
+            amber,
+            "<html><b>SYNTH TRACK</b> [Button]<br>• Click: Switch to or add a Synth track (or toggle sibling tracks)</html>"));
+    controls.add(
+        new ControlDef(
+            "KIT",
+            1268,
+            424,
+            28,
+            false,
+            amber,
+            "<html><b>KIT TRACK</b> [Button]<br>• Click: Switch to or add a Kit track (drum machine)</html>"));
+    controls.add(
+        new ControlDef(
+            "MIDI",
+            1350,
+            424,
+            28,
+            false,
+            amber,
+            "<html><b>MIDI TRACK</b> [Button]<br>• Click: Switch to or add an external MIDI OUT track</html>"));
+    controls.add(
+        new ControlDef(
+            "CV",
+            1432,
+            424,
+            28,
+            false,
+            amber,
+            "<html><b>CV TRACK</b> [Button]<br>• Click: Switch to or add an analog CV/Gate track</html>"));
+    controls.add(
+        new ControlDef(
+            "SCALE_MODE",
+            1205,
+            515,
+            28,
+            false,
+            amber,
+            "<html><b>SCALE MODE</b> [Button]<br>• Click: Toggle grid between Scale/Key mode and Chromatic mode</html>"));
+    controls.add(
+        new ControlDef(
+            "AFFECT_ENTIRE",
+            690,
+            466,
+            24,
+            false,
+            red,
+            "<html><b>AFFECT ENTIRE</b> [Button]<br>• Click: Toggle whether parameter edits affect all clips in track or single clip</html>"));
+    controls.add(
+        new ControlDef(
+            "CROSS_SCREEN",
+            1350,
+            515,
+            28,
+            false,
+            amber,
+            "<html><b>CROSS SCREEN</b> [Button]<br>• Click: Toggle grid sequence continuous row wrapping across screen boundaries</html>"));
+    controls.add(
+        new ControlDef(
+            "TRIPLETS",
+            1812,
+            515,
+            28,
+            false,
+            amber,
+            "<html><b>TRIPLETS VIEW</b> [Button]<br>• Click: Toggle grid step time resolution between 1/16th notes and 1/12th triplets</html>"));
+    controls.add(
+        new ControlDef(
+            "SYNC_SCALING",
+            1812,
+            424,
+            28,
+            false,
+            blue,
+            "<html><b>SYNC SCALING</b> [Button]<br>• Click: Toggle automatic time-stretch scaling for audio clip sync</html>"));
+    controls.add(
+        new ControlDef(
+            "BACK",
+            1529,
+            241,
+            28,
+            false,
+            amber,
+            "<html><b>BACK / UNDO</b> [Button]<br>• Click: Undo last action<br>• Shift + Click: Redo last action</html>"));
+    controls.add(
+        new ControlDef(
+            "LOAD",
+            1529,
+            332,
+            28,
+            false,
+            amber,
+            "<html><b>LOAD</b> [Button]<br>• Click: Load song/project file from disk</html>"));
+    controls.add(
+        new ControlDef(
+            "SAVE",
+            1529,
+            424,
+            28,
+            false,
+            amber,
+            "<html><b>SAVE</b> [Button]<br>• Click: Save current project to disk</html>"));
+    controls.add(
+        new ControlDef(
+            "LEARN",
+            1529,
+            515,
+            28,
+            false,
+            amber,
+            "<html><b>MIDI LEARN</b> [Button]<br>• Click: Enter parameter MIDI CC mapping mode</html>"));
+    controls.add(
+        new ControlDef(
+            "TAP_TEMPO",
+            1812,
+            332,
+            28,
+            false,
+            amber,
+            "<html><b>TAP TEMPO</b> [Button]<br>• Click repeatedly: Tap to set project BPM tempo</html>"));
 
     // Gold MOD assignment buttons (MOD0..MOD7)
-    controls.add(new ControlDef("MOD0", 321, 332, 26, false, amber));
-    controls.add(new ControlDef("MOD1", 412, 332, 26, false, amber));
-    controls.add(new ControlDef("MOD2", 503, 332, 26, false, amber));
-    controls.add(new ControlDef("MOD3", 593, 332, 26, false, amber));
-    controls.add(new ControlDef("MOD4", 684, 332, 26, false, amber));
-    controls.add(new ControlDef("MOD5", 775, 332, 26, false, amber));
-    controls.add(new ControlDef("MOD6", 865, 332, 26, false, amber));
-    controls.add(new ControlDef("MOD7", 956, 332, 26, false, amber));
+    controls.add(
+        new ControlDef(
+            "MOD0",
+            321,
+            332,
+            26,
+            false,
+            amber,
+            "<html><b>MOD 0: ENVELOPE 1</b> [Button]<br>• Click: Assign Gold Knobs to Attack (Knob 0) & Decay (Knob 1)</html>"));
+    controls.add(
+        new ControlDef(
+            "MOD1",
+            412,
+            332,
+            26,
+            false,
+            amber,
+            "<html><b>MOD 1: ENVELOPE 2</b> [Button]<br>• Click: Assign Gold Knobs to Sustain (Knob 0) & Release (Knob 1)</html>"));
+    controls.add(
+        new ControlDef(
+            "MOD2",
+            503,
+            332,
+            26,
+            false,
+            amber,
+            "<html><b>MOD 2: LFOs</b> [Button]<br>• Click: Assign Gold Knobs to LFO 1 Rate (Knob 0) & LFO 2 Rate (Knob 1)</html>"));
+    controls.add(
+        new ControlDef(
+            "MOD3",
+            593,
+            332,
+            26,
+            false,
+            amber,
+            "<html><b>MOD 3: FILTER CUTOFF</b> [Button]<br>• Click: Assign Gold Knobs to Low-Pass (Knob 0) & High-Pass Cutoff (Knob 1)</html>"));
+    controls.add(
+        new ControlDef(
+            "MOD4",
+            684,
+            332,
+            26,
+            false,
+            amber,
+            "<html><b>MOD 4: FILTER RES / EQ</b> [Button]<br>• Click: Assign Gold Knobs to Resonance (Knob 0) & EQ Bass/Treble (Knob 1)</html>"));
+    controls.add(
+        new ControlDef(
+            "MOD5",
+            775,
+            332,
+            26,
+            false,
+            amber,
+            "<html><b>MOD 5: CUSTOM / OSC</b> [Button]<br>• Click: Assign Gold Knobs to Custom Mod 1 (Knob 0) & Custom Mod 2 (Knob 1)</html>"));
+    controls.add(
+        new ControlDef(
+            "MOD6",
+            865,
+            332,
+            26,
+            false,
+            amber,
+            "<html><b>MOD 6: REVERB / DELAY</b> [Button]<br>• Click: Assign Gold Knobs to Reverb Amount (Knob 0) & Delay Amount (Knob 1)</html>"));
+    controls.add(
+        new ControlDef(
+            "MOD7",
+            956,
+            332,
+            26,
+            false,
+            amber,
+            "<html><b>MOD 7: STUTTER / PAN</b> [Button]<br>• Click: Assign Gold Knobs to Stutter Rate (Knob 0) & Pan / Volume (Knob 1)</html>"));
 
     // Rotary encoders
-    controls.add(new ControlDef("SELECT_ENC", 1067, 331, 65, true, null));
-    controls.add(new ControlDef("TEMPO_ENC", 1811, 196, 65, true, null));
-    controls.add(new ControlDef("MASTER_VOL", 2073, 195, 65, true, null));
-    controls.add(new ControlDef("Y_ENC", 94, 469, 65, true, null));
-    controls.add(new ControlDef("X_ENC", 321, 196, 65, true, null));
-    controls.add(new ControlDef("MOD_ENCODER_0", 549, 469, 65, true, null));
-    controls.add(new ControlDef("MOD_ENCODER_1", 775, 196, 65, true, null));
+    controls.add(
+        new ControlDef(
+            "SELECT_ENC",
+            1067,
+            331,
+            65,
+            true,
+            null,
+            "<html><b>SELECT ENCODER</b> [Rotary Knob]<br>• Drag / Wheel: Select Preset or browse items<br>• Shift + Drag: Coarse preset jump (5x speed)</html>"));
+    controls.add(
+        new ControlDef(
+            "TEMPO_ENC",
+            1811,
+            196,
+            65,
+            true,
+            null,
+            "<html><b>TEMPO ENCODER</b> [Rotary Knob]<br>• Drag / Wheel: Fine BPM adjustment (+/- 1 BPM)<br>• Right-Click / Ctrl + Drag (Push): Coarse BPM adjustment (+/- 5 BPM)<br>• Shift + Drag: Adjust Swing percentage</html>"));
+    controls.add(
+        new ControlDef(
+            "MASTER_VOL",
+            2073,
+            195,
+            65,
+            true,
+            null,
+            "<html><b>MASTER VOLUME</b> [Rotary Knob]<br>• Drag / Wheel: Adjust main output volume level</html>"));
+    controls.add(
+        new ControlDef(
+            "Y_ENC",
+            94,
+            469,
+            65,
+            true,
+            null,
+            "<html><b>Y SCROLL / SELECT ENCODER</b> [Rotary Knob]<br>• Drag / Wheel: Scroll grid rows vertically up/down<br>• Right-Click / Ctrl + Drag (Push): Transpose all notes by an Octave (+/- 12 semitones)<br>• Shift + Drag: Adjust track note color spectrum<br>• Shift + Right-Click / Ctrl + Drag: Transpose all notes by 1 Row (+/- 1 semitone)</html>"));
+    controls.add(
+        new ControlDef(
+            "X_ENC",
+            321,
+            196,
+            65,
+            true,
+            null,
+            "<html><b>X SCROLL / LENGTH ENCODER</b> [Rotary Knob]<br>• Drag / Wheel: Scroll grid columns horizontally left/right<br>• Right-Click / Ctrl + Drag (Push): Adjust grid zoom resolution<br>• Shift + Drag: Adjust clip step length (shorter / longer)</html>"));
+    controls.add(
+        new ControlDef(
+            "MOD_ENCODER_0",
+            549,
+            469,
+            65,
+            true,
+            null,
+            "<html><b>UPPER GOLD KNOB (MOD 0)</b> [Rotary Knob]<br>• Drag / Wheel: Adjust primary parameter for current Mod assignment<br>• Right-Click / Ctrl + Drag (Push): Coarse / accelerated parameter adjustment</html>"));
+    controls.add(
+        new ControlDef(
+            "MOD_ENCODER_1",
+            775,
+            196,
+            65,
+            true,
+            null,
+            "<html><b>LOWER GOLD KNOB (MOD 1)</b> [Rotary Knob]<br>• Drag / Wheel: Adjust secondary parameter for current Mod assignment<br>• Right-Click / Ctrl + Drag (Push): Coarse / accelerated parameter adjustment</html>"));
 
     // Small printed arrow icons next to X_ENC (left/right, plain-turn equivalent = horizontal
     // scroll) and Y_ENC (up/down, plain-turn equivalent = vertical scroll). Desktop-only click
     // shortcuts for the same action already reachable via scrolling those encoders -- not a
     // separate physical control on real hardware, just printed artwork with no hit region before.
-    controls.add(new ControlDef("X_ENC_LEFT", 401, 196, 16, false, null));
-    controls.add(new ControlDef("X_ENC_RIGHT", 441, 196, 16, false, null));
-    controls.add(new ControlDef("Y_ENC_UP", 174, 449, 16, false, null));
-    controls.add(new ControlDef("Y_ENC_DOWN", 174, 489, 16, false, null));
+    controls.add(
+        new ControlDef(
+            "X_ENC_LEFT",
+            401,
+            196,
+            16,
+            false,
+            null,
+            "<html><b>X SCROLL LEFT</b> [Shortcut]<br>• Click: Scroll grid left by 1 column</html>"));
+    controls.add(
+        new ControlDef(
+            "X_ENC_RIGHT",
+            441,
+            196,
+            16,
+            false,
+            null,
+            "<html><b>X SCROLL RIGHT</b> [Shortcut]<br>• Click: Scroll grid right by 1 column</html>"));
+    controls.add(
+        new ControlDef(
+            "Y_ENC_UP",
+            174,
+            449,
+            16,
+            false,
+            null,
+            "<html><b>Y SCROLL UP</b> [Shortcut]<br>• Click: Scroll grid up by 1 row</html>"));
+    controls.add(
+        new ControlDef(
+            "Y_ENC_DOWN",
+            174,
+            489,
+            16,
+            false,
+            null,
+            "<html><b>Y SCROLL DOWN</b> [Shortcut]<br>• Click: Scroll grid down by 1 row</html>"));
 
     for (ControlDef c : controls) {
       if (c.isEncoder) {
@@ -606,10 +925,12 @@ public class SwingHardwareTopPanel extends JPanel {
       hoveredControl = hit;
       if (hoveredControl != null) {
         setToolTipText(
-            hoveredControl.name
-                + (hoveredControl.isEncoder
-                    ? " [Rotary Knob: Drag up/down or Scroll]"
-                    : " [Button]"));
+            hoveredControl.tooltip != null
+                ? hoveredControl.tooltip
+                : (hoveredControl.name
+                    + (hoveredControl.isEncoder
+                        ? " [Rotary Knob: Drag up/down or Scroll]"
+                        : " [Button]")));
       } else {
         setToolTipText(null);
       }
@@ -649,7 +970,7 @@ public class SwingHardwareTopPanel extends JPanel {
           oledPanel.showParamText("SWING", String.format("%d%%", Math.round(swing * 100)));
         }
       } else {
-        double step = pushMod ? 1.0 : 5.0;
+        double step = pushMod ? 5.0 : 1.0;
         double bpm = projectModel.getBpm() + delta * step;
         bpm = Math.max(40.0, Math.min(300.0, bpm));
         projectModel.setBpm((float) bpm);
@@ -661,7 +982,9 @@ public class SwingHardwareTopPanel extends JPanel {
       // C: sound_editor.cpp:1030-1035 — 5x acceleration is triggered by SHIFT, not by pushing
       // the encoder itself.
       int step = shiftMod ? delta * 5 : delta;
-      if (oledPanel != null) {
+      if (gp != null) {
+        gp.cycleActiveTrackPreset(step, oledPanel);
+      } else if (oledPanel != null) {
         oledPanel.showParamText(
             shiftMod ? "SELECT COARSE" : "SELECT",
             step > 0 ? ("+" + step + " PRESET") : (step + " PRESET"));
@@ -674,20 +997,20 @@ public class SwingHardwareTopPanel extends JPanel {
       // track's note colour (commandShiftColour, line 6168-6170). Neither combination is a
       // "scroll by an octave" — that was fabricated in an earlier revision of this method.
       if (pushMod && shiftMod && gp != null) {
-        gp.transposeTrack(-delta);
+        gp.transposeTrack(delta);
         if (oledPanel != null)
-          oledPanel.showParamText("TRANSPOSE", "ROW " + (-delta > 0 ? "+" : "") + (-delta));
+          oledPanel.showParamText("TRANSPOSE", "ROW " + (delta > 0 ? "+" : "") + (delta));
       } else if (pushMod && gp != null) {
-        gp.transposeTrack(-delta * 12);
+        gp.transposeTrack(delta * 12);
         if (oledPanel != null)
-          oledPanel.showParamText("TRANSPOSE", "OCTAVE " + (-delta > 0 ? "+" : "") + (-delta));
+          oledPanel.showParamText("TRANSPOSE", "OCTAVE " + (delta > 0 ? "+" : "") + (delta));
       } else if (shiftMod && gp != null) {
         gp.adjustTrackColorOffset(delta);
         if (oledPanel != null) oledPanel.showParamText("TRACK COLOR", "ADJUSTED");
       } else if (gp != null) {
-        gp.scrollVertically(-delta);
+        gp.scrollVertically(delta);
         if (oledPanel != null) {
-          oledPanel.showParamText("Y SCROLL", -delta > 0 ? "SCROLL DOWN" : "SCROLL UP");
+          oledPanel.showParamText("Y SCROLL", delta > 0 ? "SCROLL DOWN" : "SCROLL UP");
         }
       }
     } else if ("X_ENC".equals(enc.name)) {
@@ -695,7 +1018,11 @@ public class SwingHardwareTopPanel extends JPanel {
       // clip length (clip_view.cpp:145-176, simplified here to a step-count nudge rather than
       // the full quantized-to-zoom-level algorithm).
       if (gp != null) {
-        if (pushMod) {
+        if (pushMod && shiftMod) {
+          gp.adjustClipLength(delta);
+          if (oledPanel != null)
+            oledPanel.showParamText("CLIP LENGTH", delta > 0 ? "LONGER" : "SHORTER");
+        } else if (pushMod) {
           gp.adjustZoomResolution(delta);
           if (oledPanel != null) oledPanel.showParamText("ZOOM", "RESOLUTION");
         } else if (shiftMod) {
@@ -710,7 +1037,13 @@ public class SwingHardwareTopPanel extends JPanel {
         }
       }
     } else if ("MASTER_VOL".equals(enc.name)) {
-      if (oledPanel != null) {
+      if (bridge != null) {
+        float vol = clamp((float) bridge.getMasterVol() + delta * 0.05f, 0.0f, 2.0f);
+        bridge.setMasterVol(vol);
+        if (oledPanel != null) {
+          oledPanel.showParamText("MASTER VOL", String.format((int) Math.round(vol * 100) + " %%"));
+        }
+      } else if (oledPanel != null) {
         oledPanel.showParamText("MASTER VOL", delta > 0 ? "VOLUME UP" : "VOLUME DOWN");
       }
     } else if ("MOD_ENCODER_0".equals(enc.name)) {

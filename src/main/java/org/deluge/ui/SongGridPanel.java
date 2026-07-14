@@ -88,7 +88,8 @@ public class SongGridPanel extends SwingGridPanel {
     boolean isFaceplate =
         org.deluge.project.PreferencesManager.getTopPanelStyle()
             == org.deluge.project.PreferencesManager.TopPanelStyle.HARDWARE_FACEPLATE;
-    double faceScale = Math.max(800, getWidth()) / 2256.0;
+    int availWSong = currentViewportWidth();
+    double faceScale = Math.max(600, availWSong - 36) / 2270.0;
     int padSz = cachedPadSz;
     int lw = currentLabelWidth();
     int rowW;
