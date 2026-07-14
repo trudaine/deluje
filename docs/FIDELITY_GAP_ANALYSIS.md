@@ -964,13 +964,20 @@ is populated from XML but nothing in the engine ever reads it.**
    performance macros actually combine with each per-track parameter (override vs. additive) — a
    materially bigger research task than the fixes above, deliberately deferred rather than guessed.
 
-3. **NOT YET FIXED — `ProjectModel.getReverbPan()` orphaned.** Parsed from `<rev pan="...">`
+3. **FIXED (2026-07-14).** `ProjectModel.getReverbPan()` was parsed from `<rev pan="...">`
    (`SongXmlParser.java:1504`), pushed to bridge global `G_REVERB_PAN` (`EngineSyncCoordinator.java:441`),
-   never read back. `FirmwareAudioEngine.masterReverb.setPanLevels(...)` is only ever called with the
-   symmetric sidechain-ducking volume for both channels, never a stereo split derived from
-   `reverbPan`. Confirmed as a real, active hardware feature via C (`audio_engine.cpp:841`,
-   `shouldDoPanning(reverbPan, ...)`), not a stub. Smaller, simpler fix than the macro-knob cluster
-   (single value, single call site) — a good candidate for a future short pass.
+   but never read back — `FirmwareAudioEngine.masterReverb.setPanLevels(...)` always called with the
+   symmetric sidechain-ducking volume for both channels, never a stereo split. Ported C's
+   `shouldDoPanning` (`functions.cpp:1487-1498`, new `Functions.shouldDoPanning`) and wired it into
+   the reverb render exactly matching `audio_engine.cpp:840-847` (the C's `renderInStereo &&` guard
+   is always true here, so it's dropped). **Bonus bug found and fixed along the way:**
+   `SongXmlParser`'s `readSongRawAttr` applies `Math.abs()` to every value it reads, correct for
+   width/hpf (unsigned) but silently flipping a bipolar reverb pan's sign (hard-left → hard-right).
+   Added a sign-preserving `readSongSignedRawAttr` for pan specifically. Guarded by
+   `FunctionsPanningTest` + `ReverbPanSignTest`. Scorecard confirmed unchanged (median 0.801, mean
+   0.756) — reverbPan is song-level and the scorecard's bare `ProjectModel()` never sets it, so this
+   is a real correctness fix with no scorecard-visible effect, same shape as the sample-oscillator
+   fix above.
 
 **Empirical dry-vs-wet probe of 133/144/137 (throwaway diagnostic, not committed) — rules out the
 mix-ratio hypothesis.** Rendered each preset with reverb/delay force-zeroed vs. normal: removing FX
