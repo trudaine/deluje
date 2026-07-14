@@ -74,7 +74,13 @@ public class SwingHardwareTopPanel extends JPanel {
     public final String tooltip;
 
     public ControlDef(
-        String name, int cx, int cy, int radius, boolean isEncoder, Color ledColor, String tooltip) {
+        String name,
+        int cx,
+        int cy,
+        int radius,
+        boolean isEncoder,
+        Color ledColor,
+        String tooltip) {
       this.name = name;
       this.cx = cx;
       this.cy = cy;
@@ -1363,6 +1369,20 @@ public class SwingHardwareTopPanel extends JPanel {
       }
       case "TAP_TEMPO" -> {
         listener.onTapTempo();
+        if (projectModel != null && oledPanel != null) {
+          oledPanel.showParamText("TEMPO", String.format("%.1f BPM", projectModel.getBpm()));
+        }
+      }
+      // C: buttons.cpp:211-229 — a plain TEMPO_ENC press (no Shift, no TAP_TEMPO held) just
+      // displays the current tempo (commandDisplayTempo()); it is NOT the same as the dedicated
+      // TAP_TEMPO button, which actually taps in a new tempo. Shift+TEMPO_ENC clears tempo
+      // automation (commandClearTempoAutomation) and TEMPO_ENC+TAP_TEMPO shows the swing interval
+      // (commandDisplaySwingInterval) — both skipped here: Java's automation model doesn't have a
+      // clearable per-parameter automation track the way the C does (see
+      // docs/firmware_sync_audit.md),
+      // and the swing-interval combo is a rare two-button chord not worth the extra state tracking
+      // for a read-only popup.
+      case "TEMPO_ENC" -> {
         if (projectModel != null && oledPanel != null) {
           oledPanel.showParamText("TEMPO", String.format("%.1f BPM", projectModel.getBpm()));
         }

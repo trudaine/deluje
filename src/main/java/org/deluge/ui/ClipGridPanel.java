@@ -193,7 +193,14 @@ public class ClipGridPanel extends SwingGridPanel {
         final int pNum = i + 1;
         final int sStart = i * 16 + 1;
         final int sEnd = (i + 1) * 16;
-        pageBtn.setToolTipText("<html><b>STEP PAGE " + pNum + "</b><br>• Click: Jump horizontal view to steps " + sStart + "–" + sEnd + "</html>");
+        pageBtn.setToolTipText(
+            "<html><b>STEP PAGE "
+                + pNum
+                + "</b><br>• Click: Jump horizontal view to steps "
+                + sStart
+                + "–"
+                + sEnd
+                + "</html>");
 
         pageBtn.addActionListener(
             e -> {
