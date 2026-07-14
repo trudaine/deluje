@@ -6,13 +6,17 @@ cd "$(dirname "$0")"
 # shellcheck source=scripts/ensure-jdk27.sh
 . scripts/ensure-jdk27.sh
 
-JAR="target/deluge-swing.jar"
-
-# Build the self-contained Swing fat jar if it's missing OR any source changed since it was built
-# (so edits actually reach the launched app instead of reusing a stale jar).
-if [ ! -f "$JAR" ] || [ -n "$(find src pom.xml -newer "$JAR" \( -name '*.java' -o -name pom.xml \) -print -quit 2>/dev/null)" ]; then
-  echo "Building $JAR (missing or sources changed)..."
-  ./mvnw -q clean package -Pswing-dist -DskipTests
+# Locate the fat jar: root directory inside a release zip, or target/ inside a git repository.
+if [ -f "deluge-swing.jar" ]; then
+  JAR="deluge-swing.jar"
+else
+  JAR="target/deluge-swing.jar"
+  # Build the self-contained Swing fat jar if it's missing OR any source changed since it was built
+  # (so edits actually reach the launched app instead of reusing a stale jar).
+  if [ ! -f "$JAR" ] || [ -n "$(find src pom.xml -newer "$JAR" \( -name '*.java' -o -name pom.xml \) -print -quit 2>/dev/null)" ]; then
+    echo "Building $JAR (missing or sources changed)..."
+    ./mvnw -q clean package -Pswing-dist -DskipTests
+  fi
 fi
 
 echo "Launching Deluge ($JAR)..."

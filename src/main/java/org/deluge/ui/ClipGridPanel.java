@@ -35,7 +35,8 @@ public class ClipGridPanel extends SwingGridPanel {
     boolean isFaceplate =
         org.deluge.project.PreferencesManager.getTopPanelStyle()
             == org.deluge.project.PreferencesManager.TopPanelStyle.HARDWARE_FACEPLATE;
-    double faceScale = Math.max(800, getWidth()) / 2256.0;
+    int availW = currentViewportWidth();
+    double faceScale = Math.max(600, availW - 36) / 2270.0;
     int padSz = cachedPadSz;
     int lw = currentLabelWidth();
     int rowW;
@@ -188,6 +189,11 @@ public class ClipGridPanel extends SwingGridPanel {
           pageBtn.setForeground(Color.GRAY);
           pageBtn.setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
         }
+
+        final int pNum = i + 1;
+        final int sStart = i * 16 + 1;
+        final int sEnd = (i + 1) * 16;
+        pageBtn.setToolTipText("<html><b>STEP PAGE " + pNum + "</b><br>• Click: Jump horizontal view to steps " + sStart + "–" + sEnd + "</html>");
 
         pageBtn.addActionListener(
             e -> {
@@ -514,7 +520,8 @@ public class ClipGridPanel extends SwingGridPanel {
     boolean isFaceplateRow =
         org.deluge.project.PreferencesManager.getTopPanelStyle()
             == org.deluge.project.PreferencesManager.TopPanelStyle.HARDWARE_FACEPLATE;
-    double faceScaleRow = Math.max(800, getWidth()) / 2256.0;
+    int availWRow = currentViewportWidth();
+    double faceScaleRow = Math.max(600, availWRow - 36) / 2270.0;
     int lw = currentLabelWidth();
     int rowW = isFaceplateRow ? (int) Math.round(2270 * faceScaleRow) : getGridWidth(padSz, lw);
     rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
@@ -1138,6 +1145,9 @@ public class ClipGridPanel extends SwingGridPanel {
         }
       }
       rowPanel.add(clipBtn);
+      if (!isFaceplateRow) {
+        rowPanel.add(Box.createHorizontalStrut(5));
+      }
     }
     return rowPanel;
   }
@@ -1181,7 +1191,8 @@ public class ClipGridPanel extends SwingGridPanel {
     boolean isFaceplate =
         PreferencesManager.getTopPanelStyle()
             == PreferencesManager.TopPanelStyle.HARDWARE_FACEPLATE;
-    double faceScale = Math.max(800, getWidth()) / 2256.0;
+    int availWKey = currentViewportWidth();
+    double faceScale = Math.max(600, availWKey - 36) / 2270.0;
     int padSz = cachedPadSz;
     int lw = currentLabelWidth();
     int rowW;

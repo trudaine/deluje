@@ -3,7 +3,11 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 REM Provision JDK 27-ea per machine (mirrors build.bat / scripts/ensure-jdk27.sh), then launch.
-set "JAR=target\deluge-swing.jar"
+if exist "deluge-swing.jar" (
+    set "JAR=deluge-swing.jar"
+) else (
+    set "JAR=target\deluge-swing.jar"
+)
 
 if exist jdk27\bin\java.exe (
     set "JAVA_EXEC=jdk27\bin\java.exe"
