@@ -18,3 +18,8 @@
 - **Scorecard Validation**: Always validate DSP changes against the time-resolved spectral scorecard (`FidelityScorecardTest`) and reset the noise seed. Do not rely solely on passing unit tests or simple RMS/autocorrelation metrics, as they can mask timeline-shifted or timbre-shifted divergences.
 - **Strict Code Grounding for Citations**: Always cite the exact C++ source file and line number (e.g. `// C voice.cpp:1056`) inside the Java codebase for any ported logic or parity fix.
 
+## Zero-Fabrication Audit & Citation Rule (Strict Verification Protocol)
+- **Zero Hallucination of Method Names and Symbols**: Before writing ANY C++ or Java method name, class name, or symbol into an audit document, markdown report, code comment, or commit message (e.g. `commandToggleTempoBlink()` or `horizontalEncoderButtonAction()`), you **must** execute a literal terminal search (`grep`, `find`) across `../DelugeFirmware/src/deluge/` or `src/main/java/` to verify that the exact character sequence exists verbatim on disk.
+- **No Plausible Guessing**: If a terminal search for a suspected C++ or Java function returns zero results, **never** invent or guess a plausible-sounding name to fill in a table cell or explanation. Instead, search by behavior/keyword to find the real handler, or explicitly record that no direct function exists for that action.
+- **Mandatory Verification of Shift/Combo Gestures**: Never assume what a button combination (`Shift + [Button]` or `Press + Turn`) does based on what the single button does. Trace the exact `if (b == ... && Buttons::isShiftButtonPressed())` or `buttonState` branch inside `../DelugeFirmware/src/deluge/gui/` before making any claim about sub-menus, confirmations, or shortcuts.
+
