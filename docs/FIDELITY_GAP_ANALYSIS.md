@@ -1025,17 +1025,26 @@ reverb-pan fixes above. Two pre-existing tests (`ReverbSendParityTest`, `ReverbS
 encoded the bug as "expected" (they set the stale `reverbSendKnob`/a value `syncParamsToFw2()`
 silently discards) and needed correcting alongside the fix.
 
-**New finding, NOT fixed — sidechain auto-ducking on the reverb send is dead code.**
+**FIXED (2026-07-14) — sidechain auto-ducking on the reverb send was dead code.**
 `FirmwareAudioEngine.updateReverbParams()` (the "find the sound with the most reverb send, borrow
-its sidechain shape for auto-ducking" logic, C `audio_engine.cpp:1251-1317`) does `if (ge instanceof
+its sidechain shape for auto-ducking" logic, C `audio_engine.cpp:1251-1317`) did `if (ge instanceof
 org.deluge.firmware2.Sound snd)` to find candidate sounds — but the engine's `sounds` list holds
 `FirmwareSound` instances, a *sibling* subclass of `GlobalEffectable` (not a subclass of
-`firmware2.Sound`), so this check can never match in production. `best` is always `null`,
-`reverbSidechainVolumeInEffect` stays 0, and auto-ducking never engages for any real sound. Net
-effect on level is benign (the code correctly falls back to a neutral, non-degenerate
-`reverbOutputVolume` when no ducking sound is found — verified by inspection, not just assumed), so
-this doesn't explain 133/144/137's residual; it's a distinct, separate feature gap (the actual
-sidechain-pumping *behavior* of a reverb-ducking sound never happens) queued for a future pass.
+`firmware2.Sound`), so this check could never match in production. `best` was always `null`,
+`reverbSidechainVolumeInEffect` stayed 0, and auto-ducking never engaged for any real sound. Fixed
+the `instanceof` and field access to use `FirmwareSound` directly (routing through `fw2Sound` for
+`patchCableSet`/`patchedParamValues`). Guarded by `ReverbAutoDuckingTest` — getting the test right
+took an extra round: patch cables must go through `paramManager.getPatchCableSet()` (the model
+layer), not a direct `fw2Sound.patchCableSet` write, since `renderBlock`'s internal
+`syncParamsToFw2()` call rebuilds that array fresh every block and silently discards a direct
+write. Scorecard: no measurable change (every individual preset's score identical to 3 decimals) —
+none of the bundled ludocard presets happen to use the specific `SIDECHAIN`→
+`GLOBAL_VOLUME_POST_REVERB_SEND` patch-cable combo this activates, not evidence the fix is wrong.
+Net effect on level was already benign even while broken (the code correctly falls back to a
+neutral, non-degenerate `reverbOutputVolume` when no ducking sound is found — verified by
+inspection, not just assumed), so this was never the cause of 133/144/137's residual; it's a
+distinct, separate feature gap (the actual
+sidechain-pumping *behavior* of a reverb-ducking sound never happened) — now fixed above.
 
 Hypothesis (a) (preset-specific modulation depth/rate diverging in a way no single-stage audit
 would catch) remains untested and is now the more likely remaining explanation for 133/144/137's
