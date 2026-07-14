@@ -337,6 +337,40 @@ public class ProjectSerializer {
           }
           writer.writeClosingTag("ccLabels");
         }
+
+        // Gold-knob MIDI-CC assignments. C: MIDIInstrument::writeDataToFile
+        // (midi_instrument.cpp:298-334) - 16 <modKnob cc="..."/> entries in mode*2+knobIndex
+        // order; "none"/"bend"/"aftertouch" are the C's special sentinel strings
+        // (CC_NUMBER_NONE=123/PITCH_BEND=120/AFTERTOUCH=121, definitions_cxx.hpp:734-737).
+        boolean hasCcAssignments = false;
+        for (int mode = 0; mode < 8 && !hasCcAssignments; mode++) {
+          for (int knob = 0; knob < 2; knob++) {
+            if (midi.getModKnobCc(mode, knob) != MidiTrackModel.CC_NUMBER_NONE) {
+              hasCcAssignments = true;
+              break;
+            }
+          }
+        }
+        if (hasCcAssignments) {
+          writer.writeOpeningTagBeginning("modKnobs");
+          writer.writeOpeningTagEnd();
+          for (int mode = 0; mode < 8; mode++) {
+            for (int knob = 0; knob < 2; knob++) {
+              int cc = midi.getModKnobCc(mode, knob);
+              String ccAttr =
+                  switch (cc) {
+                    case MidiTrackModel.CC_NUMBER_NONE -> "none";
+                    case 120 -> "bend"; // CC_NUMBER_PITCH_BEND
+                    case 121 -> "aftertouch"; // CC_NUMBER_AFTERTOUCH
+                    default -> String.valueOf(cc);
+                  };
+              writer.writeOpeningTagBeginning("modKnob");
+              writer.writeAttribute("cc", ccAttr, false);
+              writer.closeTag();
+            }
+          }
+          writer.writeClosingTag("modKnobs");
+        }
         writer.writeClosingTag("sound");
 
       } else if (track instanceof SynthTrackModel) {

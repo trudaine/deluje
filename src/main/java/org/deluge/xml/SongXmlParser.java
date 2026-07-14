@@ -1195,6 +1195,40 @@ public class SongXmlParser {
       }
     }
 
+    // Parse gold-knob MIDI-CC assignments. C: MIDIInstrument::readModKnobsFromFile
+    // (midi_instrument.cpp readMIDIParamFromFile call site) - 16 <modKnob cc="..."/> children in
+    // mode*2+knobIndex order; "none"/"bend"/"aftertouch" are the C's special sentinel strings
+    // (CC_NUMBER_NONE=123/PITCH_BEND=120/AFTERTOUCH=121, definitions_cxx.hpp:734-737), anything
+    // else is a plain CC number 0-119 (or 122=CC_NUMBER_Y_AXIS, which the C also writes as a
+    // plain integer - see writeDataToFile, midi_instrument.cpp:298-334).
+    NodeList modKnobsList = soundNode.getElementsByTagName("modKnobs");
+    if (modKnobsList.getLength() > 0) {
+      Element mkNode = (Element) modKnobsList.item(0);
+      NodeList modKnobNodes = mkNode.getElementsByTagName("modKnob");
+      for (int m = 0;
+          m < modKnobNodes.getLength() && m < 8 * 2 /* NUM_MOD_KNOB_MODES * knobs-per-mode */;
+          m++) {
+        Element mk = (Element) modKnobNodes.item(m);
+        String cc = mk.getAttribute("cc");
+        int mode = m / 2;
+        int knobIndex = m % 2;
+        int ccValue =
+            switch (cc) {
+              case "none" -> org.deluge.model.MidiTrackModel.CC_NUMBER_NONE;
+              case "bend" -> 120; // CC_NUMBER_PITCH_BEND
+              case "aftertouch" -> 121; // CC_NUMBER_AFTERTOUCH
+              default -> {
+                try {
+                  yield Integer.parseInt(cc);
+                } catch (NumberFormatException e) {
+                  yield org.deluge.model.MidiTrackModel.CC_NUMBER_NONE;
+                }
+              }
+            };
+        midiTrack.setModKnobCc(mode, knobIndex, ccValue);
+      }
+    }
+
     return midiTrack;
   }
 

@@ -168,6 +168,49 @@ public class ProjectSerializerTest {
   }
 
   @Test
+  void testMidiTrackModKnobCcAssignmentsSurviveRoundtrip() throws Exception {
+    ProjectModel model = new ProjectModel();
+    model.setBpm(120.0f);
+
+    org.deluge.model.MidiTrackModel midi = new org.deluge.model.MidiTrackModel("Moog");
+    midi.setModKnobCc(0, 0, 74); // plain CC number
+    midi.setModKnobCc(0, 1, org.deluge.model.MidiTrackModel.CC_NUMBER_NONE); // "none"
+    midi.setModKnobCc(1, 0, 120); // "bend"
+    midi.setModKnobCc(2, 1, 121); // "aftertouch"
+    model.addTrack(midi);
+
+    File tempXml = File.createTempFile("deluge_test_modknobs", ".xml");
+    tempXml.deleteOnExit();
+
+    ProjectSerializer.save(model, tempXml);
+
+    String xmlContent = Files.readString(tempXml.toPath());
+    assertTrue(xmlContent.contains("<modKnobs>"), "should contain modKnobs\n" + xmlContent);
+    assertTrue(xmlContent.contains("<modKnob cc=\"74\""), "should contain cc=74\n" + xmlContent);
+    assertTrue(
+        xmlContent.contains("<modKnob cc=\"none\""), "should contain cc=none\n" + xmlContent);
+    assertTrue(
+        xmlContent.contains("<modKnob cc=\"bend\""), "should contain cc=bend\n" + xmlContent);
+    assertTrue(
+        xmlContent.contains("<modKnob cc=\"aftertouch\""),
+        "should contain cc=aftertouch\n" + xmlContent);
+
+    ProjectModel parsed = org.deluge.xml.DelugeXmlParser.parseSong(tempXml);
+    org.junit.jupiter.api.Assertions.assertEquals(1, parsed.getTracks().size());
+    org.deluge.model.MidiTrackModel parsedMidi =
+        (org.deluge.model.MidiTrackModel) parsed.getTracks().get(0);
+
+    org.junit.jupiter.api.Assertions.assertEquals(74, parsedMidi.getModKnobCc(0, 0));
+    org.junit.jupiter.api.Assertions.assertEquals(
+        org.deluge.model.MidiTrackModel.CC_NUMBER_NONE, parsedMidi.getModKnobCc(0, 1));
+    org.junit.jupiter.api.Assertions.assertEquals(120, parsedMidi.getModKnobCc(1, 0));
+    org.junit.jupiter.api.Assertions.assertEquals(121, parsedMidi.getModKnobCc(2, 1));
+    // Untouched slots stay at the default "none".
+    org.junit.jupiter.api.Assertions.assertEquals(
+        org.deluge.model.MidiTrackModel.CC_NUMBER_NONE, parsedMidi.getModKnobCc(1, 1));
+  }
+
+  @Test
   void testSerializeAudioTrack() throws Exception {
     ProjectModel model = new ProjectModel();
     model.setBpm(125.0f);
