@@ -1,6 +1,6 @@
 # Firmware Sync Audit — DelugeFirmware (last 3 weeks) vs. the Java port
 
-**Date:** 2026-07-04 (re-verified 2026-07-05: upstream tip unchanged at `9456095b`; two DSP-adjacent commits in the pulled range not previously named — #4538, #4576 — verified below) · **Upstream range:** ~55 commits from mid-June 2026 to 2026-07-04 on
+**Date:** 2026-07-04 (re-verified 2026-07-05: upstream tip unchanged at `9456095b`; two DSP-adjacent commits in the pulled range not previously named — #4538, #4576 — verified below · re-verified 2026-07-14: upstream advanced to `5762c4ba`, 33 new commits, see §5) · **Upstream range:** ~55 commits from mid-June 2026 to 2026-07-14 on
 `../DelugeFirmware` (community `main`).
 
 This audit reviews recent Synthstrom **DelugeFirmware** C/C++ commits and checks, for each one that
@@ -89,6 +89,23 @@ equivalent** — not workflow gaps:
 | #4541 (`089a1d5b`) | Don't reset custom knob mappings when swapping a wavetable osc's file | Operates on `modKnobs[7][x].paramDescriptor` / `modKnobMode` — the physical **gold-knob mod-knob auto-assignment** system. The Swing app has no `modKnobMode`/`paramDescriptor` mechanism at all (wavetable editing is a position-scan slider), so there is nothing to reset. |
 | #4587 (`f69525aa`) | Toggle the "fill" setting for *held* notes | Entirely in `gui/ui/sound_editor.cpp` + `gui/views/instrument_clip_view.cpp` — the `SYNC_SCALING` hardware button, edit-pad-press popups, and hardware note editor. The Swing app sets Fill via the Step Properties dialog slider; none of that gesture handling maps. |
 | #4540 / #4593 / #4615 | Tempo-automation undo, mod-encoder automation action, `homogenizeRegion` edit-drop | Our automation is a simpler `float[]` model, so these C `param_set`/`auto_param` structural fixes don't map. |
+
+## 5. Re-verified 2026-07-14 — upstream advanced to `5762c4ba` (33 new commits), no porting gaps
+
+Reset a stale local checkout (`feat/dsp-buffer-dump` had diverged from its own remote-tracking ref
+after a rebase, `git reset --hard fork/feat/dsp-buffer-dump` — unrelated housekeeping, no firmware
+content changed), then screened `9456095b..origin/main` (33 commits, 2026-07-06 to 2026-07-14).
+Nearly all are website/docs/UI/build-only (audio clip recording UI, OLED naming, sidebar fades, CI,
+macOS build fix, website redesign) — out of scope by this doc's own filter. Three looked DSP-adjacent
+enough to investigate fully:
+
+| Upstream | What | Verdict |
+| :--- | :--- | :--- |
+| #4635 (`15bdf097`) | `FilterSet::reset()` changed from zeroing only the filter-state unions to `memset(this, 0, ...)` (zeroing mode-tracking fields too) | **No-op cleanup, not a bug fix.** Traced the call sequence: `setConfig()` unconditionally overwrites `lpfMode_`/`hpfMode_`/`routing_`/`LPFOn`/`HPFOn` before anything reads them, and the one branch that *conditionally* uses stale `lastLPFMode_` never actually skips work that would produce a different result. Java's `FilterSet.reset()` (`FilterSet.java`) already explicitly resets these fields (to `OFF`, even cleaner than the C's zero-enum-index) — no change needed. |
+| #4663 (`17c7fa09`) | Real C++ footgun: `if constexpr (std::is_constant_evaluated())` always takes the constexpr branch, so real hardware silently used a "portable" float↔fixed-point conversion path instead of true ARM VFP `vcvt` instructions, for the `FixedPoint<>` template class and (separately) an asm operand-aliasing bug in `q31_from_float`/`q31_to_float` | **Confirmed no hot-path impact.** `FixedPoint<>` has zero production call sites anywhere in `src/deluge/` (dead code, test-only). `q31_from_float`/`q31_to_float` have exactly 2 call sites, both one-time sample/wavetable-load-time conversion of an uncommon 32-bit-float PCM format — never per-sample DSP. Java's `Sample.java` uses a plain `(int)` cast at the equivalent one-time conversion point, which already matches the theoretically-correct (round-toward-zero, saturating) semantics per JLS 5.1.3 — no change needed either way. |
+| #4658 (`85fed274`) | A note refused a voice under high `cpuDireness` (CPU load) gets stuck `PENDING` forever if the Sound has no active voices/arp to trigger a retry — triggered specifically by SD-card folder scanning stalling the audio engine during output recording | **Not pursued — no clear Java equivalent trigger.** Java's `handlePendingNotes` retry is only invoked from within the arpeggiator's own tick (`ArpeggiatorBase.java`), matching the same structural shape as C, but the *triggering scenario* (a blocking SD-card scan on the audio-render thread during recording) doesn't have an obvious Java analog — Java's file I/O for recording doesn't block the render path the same way. Low confidence this manifests; revisit only if live-recording note-loss is ever actually observed. |
+
+No commits in this range required a Java change. Upstream tip for the next re-check: `5762c4ba`.
 
 ## Method
 
