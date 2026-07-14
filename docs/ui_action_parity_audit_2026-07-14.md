@@ -36,7 +36,7 @@ In `SwingHardwareTopPanel.rotateEncoder()` (`lines 950–1047`) and `handleMouse
 | **`Y_ENC` (Push / Click)** | Falls into `default -> oledPanel.showParamText("Y_ENC", "ACTIVE")` | ~~`verticalEncoderButtonAction()` / `UI_MODE_HOLDING_VERTICAL_ENCODER_BUTTON`~~ **BOTH FABRICATED (2026-07-14 re-check):** neither symbol exists anywhere in the C++ source (zero grep matches for either). Same pattern as the `X_ENC` row above — no real C behavior for a bare push-with-no-turn was found. | **Not implemented** — cited symbols don't exist; needs fresh research before implementing. |
 | **`MASTER_VOL` (Rotation)** | Calls `bridge.setMasterVol(vol)` (`0.0` to `2.0`) + displays `vol * 100 + " %"` on OLED (`lines 1035-1044`) | Global master volume (`sound.cpp` / `bridge`) | **1:1 Parity Verified (Fixed Today).** |
 | **`MOD_ENCODER_0` / `MOD_ENCODER_1` (Rotation)** | Adjusts assigned parameter pair (`PAN/VOL`, `RES/CUTOFF`, etc.) + updates 4-square LED bargraphs on gold knobs (`lines 1054-1190`) | `Sound::modKnobs[mode][knob]` (`sound.cpp:97-122`) | **1:1 Parity Verified.** Matches ear-linear cutoff curves (`Math.pow(1.01, delta)`), Q31 delay feedbacks, and continuous sub-square LED fill levels (`currentModKnobFillLevel` at `lines 762-797`). |
-| **`MOD_ENCODER_0` / `MOD_ENCODER_1` (Push / Click)** | Falls into `default -> oledPanel.showParamText("MOD_ENCODER_X", "ACTIVE")` (`line 1410`) | `modEncoderButtonAction(whichModEncoder, on)` — **PARTIALLY RE-VERIFIED (2026-07-14):** the function is real but lives at `gui/ui/ui.cpp:41` and `gui/ui/sound_editor.cpp:1605`, not `sound.cpp:4371` (`sound.cpp` doesn't exist as a path at all — the real file is `processing/sound/sound.cpp`, and it's not there either). `Stutterer::beginStutter` (`model/fx/stutterer.cpp:66-67`) and `UI_MODE_SELECTING_MIDI_CC` (`automation_view.cpp`, `instrument_clip_minder.cpp:75`, `midi_instrument.cpp:56`) both genuinely exist. `mod_controllable_audio.cpp:1281` and `automation_view.cpp:4595` not re-checked. | **Not implemented.** Underlying C mechanisms are real (unlike the `X_ENC`/`Y_ENC` rows above), but line citations need re-verification and Java has no `beginStutter`-equivalent bridge hook or MIDI-CC-learn UI mode yet — this is new plumbing, not just wiring an existing button. |
+| **`MOD_ENCODER_1` (Push, stutter half only)** | `mousePressed`/`mouseReleased` in `SwingHardwareTopPanel.java` (fixed 2026-07-14) call `FirmwareSound.beginStutter(cfg)`/`endStutter()` when `modKnobMode==6` | Verified full chain (2026-07-14): `buttons.cpp:234-238` (press dispatch) → `global_effectable.cpp:225-236` / `sound.cpp:4440-4457` (the `modKnobMode==6` check, since `sound.cpp:117-118` sets `modKnobs[6][1]=UNPATCHED_STUTTER_RATE` by default) → `ModControllableAudio::beginStutter`/`endStutter` (`mod_controllable_audio.cpp:1299-1329`) → `Stutterer::beginStutter`/`endStutter` (`model/fx/stutterer.cpp:66-108,210-237`). | **Fixed.** `firmware2.Stutterer`'s DSP core was already a complete, wired port (called from `firmware2/Sound.java` render loop) — only the UI trigger was missing. Added `FirmwareSound.beginStutter(Stutterer.Config)`/`endStutter()` wrappers and wired `MOD_ENCODER_1`'s press/release in `SwingHardwareTopPanel`, gated on `modKnobMode==6`; turning the knob while held still adjusts the rate live via the existing rotation path. Guarded by `FirmwareSoundStutterTest`. MIDI-CC-assignment mode (the other `modEncoderButtonAction` branch) still not implemented — no MIDI-CC-learn UI mode exists in Java yet. |
 
 ---
 
@@ -71,14 +71,15 @@ In `ClipGridPanel.java`, `SongGridPanel.java`, `ArrangerGridPanel.java`, and `Sw
 implementing anything, per this project's "audit citations before trusting them" rule (see
 CLAUDE.md). Two of the three did not hold up:**
 
-1. ~~**Wire Gold Knob Push Clicks...**~~ **Partially real, not implemented.** `modEncoderButtonAction`,
-   `Stutterer::beginStutter`, and `UI_MODE_SELECTING_MIDI_CC` all genuinely exist in the C++ source
-   (see §2 row above), but at different locations than cited (`sound.cpp:4380` doesn't exist —
-   `sound.cpp` isn't even a real path; the real file is `processing/sound/sound.cpp`, and this
-   function isn't there either — it's in `gui/ui/ui.cpp`/`gui/ui/sound_editor.cpp`). More
-   importantly, Java has **no existing "begin stutter" bridge hook or MIDI-CC-learn UI mode** —
-   implementing this needs new engine/UI plumbing, not just wiring an existing button to an
-   existing handler. Deferred; worth doing as its own scoped task with fresh, verified citations.
+1. ~~**Wire Gold Knob Push Clicks...**~~ **Stutter half FIXED (2026-07-14); MIDI-CC half still
+   deferred.** Re-derived the full call chain from scratch with fresh citations (see §2 row above) —
+   `modEncoderButtonAction`, `Stutterer::beginStutter`/`endStutter`, and `UI_MODE_SELECTING_MIDI_CC`
+   all genuinely exist. `firmware2.Stutterer`'s DSP core was already fully ported and wired into the
+   render loop; added `FirmwareSound.beginStutter`/`endStutter` wrappers plus a `MOD_ENCODER_1`
+   press/release handler in `SwingHardwareTopPanel` gated on `modKnobMode==6`. The MIDI-CC-assignment
+   half of the original proposal (automation-view gold-knob press → `UI_MODE_SELECTING_MIDI_CC`) is
+   NOT implemented — Java has no MIDI-CC-learn UI mode to enter yet; that's new UI/engine plumbing
+   beyond this pass's scope.
 2. ~~**Wire Encoder Push Clicks (`SELECT_ENC`, `TEMPO_ENC`, `X_ENC`, `Y_ENC`)...**~~ **Mixed —
    TEMPO_ENC fixed, the rest retracted.** `commandToggleTempoBlink` (cited for `TEMPO_ENC`) does not
    exist anywhere in the C++ source; `horizontalEncoderButtonAction`/`verticalEncoderButtonAction`

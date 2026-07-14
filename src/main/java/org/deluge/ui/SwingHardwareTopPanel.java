@@ -142,6 +142,8 @@ public class SwingHardwareTopPanel extends JPanel {
   private ControlDef hoveredControl = null;
   private ControlDef activeDragControl = null;
   private int lastDragY = 0;
+  private boolean rotatedDuringPress = false;
+  private org.deluge.engine.FirmwareSound stutteringSound = null;
 
   // Cached aspect-ratio draw bounding box
   private int drawX = 0;
@@ -189,6 +191,29 @@ public class SwingHardwareTopPanel extends JPanel {
             if (hit != null && hit.isEncoder) {
               activeDragControl = hit;
               lastDragY = e.getY();
+              rotatedDuringPress = false;
+              // C: buttons.cpp:234-238 -> global_effectable.cpp:225-236 / sound.cpp:4440-4457 —
+              // MOD_ENCODER_1's press (not release, and independent of any subsequent turn) begins
+              // a stutter when that knob is currently mapped to the stutter rate (modKnobMode==6,
+              // knob index 1 per sound.cpp:117-118's default modKnobs[6][1]=STUTTER_RATE). Turning
+              // the knob while held still adjusts the rate live via the normal rotation path below.
+              if ("MOD_ENCODER_1".equals(hit.name)) {
+                org.deluge.model.SynthTrackModel st = currentSynthTrack();
+                if (st != null
+                    && st.getModKnobMode() == 6
+                    && st.getActiveClip() != null
+                    && st.getActiveClip().getSound()
+                        instanceof org.deluge.engine.FirmwareSound fs) {
+                  var cfg = new org.deluge.firmware2.Stutterer.Config();
+                  cfg.useSongStutter = false;
+                  cfg.quantized = st.getStutter().isStutterQuantized();
+                  cfg.reversed = st.getStutter().isStutterReversed();
+                  cfg.pingPong = st.getStutter().isStutterPingPong();
+                  fs.beginStutter(cfg);
+                  stutteringSound = fs;
+                  if (oledPanel != null) oledPanel.showParamText("STUTTER", "ACTIVE");
+                }
+              }
             } else {
               handleMouseClick(e.getX(), e.getY());
             }
@@ -196,6 +221,22 @@ public class SwingHardwareTopPanel extends JPanel {
 
           @Override
           public void mouseReleased(MouseEvent e) {
+            if (stutteringSound != null) {
+              stutteringSound.endStutter();
+              stutteringSound = null;
+              if (oledPanel != null) oledPanel.showParamText("STUTTER", "OFF");
+            }
+            // A press-and-release on an encoder with no intervening rotation is the encoder's own
+            // push-button click (e.g. C: buttons.cpp:234-238, MOD_ENCODER_0/1 press dispatches to
+            // modEncoderButtonAction; TEMPO_ENC/SELECT_ENC/X_ENC/Y_ENC pushes similarly).
+            // Previously
+            // this branch didn't exist at all, so no encoder's push-click ever reached
+            // handleMouseClick() - only a drag (rotation) did anything.
+            else if (activeDragControl != null
+                && activeDragControl.isEncoder
+                && !rotatedDuringPress) {
+              handleMouseClick(e.getX(), e.getY());
+            }
             activeDragControl = null;
           }
         });
@@ -212,6 +253,7 @@ public class SwingHardwareTopPanel extends JPanel {
             if (activeDragControl != null && activeDragControl.isEncoder) {
               int deltaY = lastDragY - e.getY();
               if (Math.abs(deltaY) >= 3) {
+                rotatedDuringPress = true;
                 int steps = deltaY / 3;
                 // C: on real hardware, holding an encoder's own push-button and holding the
                 // separate SHIFT button are independent inputs that often drive unrelated

@@ -500,6 +500,22 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     fw2Sound.releaseAllNotes();
   }
 
+  /**
+   * C: {@code ModControllableAudio::beginStutter} (mod_controllable_audio.cpp:1299-1312) — begins a
+   * momentary stutter on this sound, e.g. from a gold-knob press while {@code modKnobMode == 6}
+   * (Portamento/Stutter). {@code fw2Sound} (not this wrapper) is the {@code source} identity {@link
+   * org.deluge.firmware2.Sound#render} checks via {@code Stutterer.GLOBAL.isStuttering(this)}.
+   */
+  public void beginStutter(org.deluge.firmware2.Stutterer.Config sc) {
+    syncParamsToFw2();
+    org.deluge.firmware2.Stutterer.GLOBAL.beginStutter(fw2Sound, paramManager, sc);
+  }
+
+  /** C: {@code ModControllableAudio::endStutter} (mod_controllable_audio.cpp:1322-1329). */
+  public void endStutter() {
+    org.deluge.firmware2.Stutterer.GLOBAL.endStutter(paramManager);
+  }
+
   /** C: polyphonicExpressionEventOnChannelOrNote — pitch bend (X), immediate. */
   public void mpePitchBend(int midiChannel, int newValue) {
     int s = PatchSource.X.ordinal();
