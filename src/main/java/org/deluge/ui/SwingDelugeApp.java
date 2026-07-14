@@ -3114,6 +3114,28 @@ public class SwingDelugeApp extends JFrame {
     new SwingMasterFxDialog(this, currentProject, bridge, this).setVisible(true);
   }
 
+  /**
+   * C: {@code instrument_clip_minder.cpp:471-482} — a bare {@code SELECT_ENC} press in the idle
+   * instrument-clip view (not holding notes, not auditioning) opens the Sound Editor for the
+   * current clip. This is the general opener (no starting tab), unlike {@link
+   * #launchStutterConfig()} which jumps straight to the Stutter FX tab.
+   */
+  public void launchSoundEditorForActiveTrack() {
+    org.deluge.model.SynthTrackModel model = null;
+    SwingGridPanel a = activeGridPanel();
+    java.util.List<org.deluge.model.TrackModel> tl = currentProject.getTracks();
+    int trackIdx = a != null ? Math.max(0, a.getEditedModelTrack()) : 0;
+    if (tl != null && trackIdx >= 0 && trackIdx < tl.size()) {
+      org.deluge.model.TrackModel tm = tl.get(trackIdx);
+      if (tm instanceof org.deluge.model.SynthTrackModel sm) {
+        model = sm;
+      }
+    }
+    if (model != null) {
+      new SwingSynthConfigDialog(this, model, bridge, trackIdx, currentProject).setVisible(true);
+    }
+  }
+
   public void launchStutterConfig() {
     org.deluge.model.SynthTrackModel model = null;
     SwingGridPanel a = activeGridPanel();

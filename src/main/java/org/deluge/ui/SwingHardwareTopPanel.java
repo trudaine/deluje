@@ -1429,6 +1429,16 @@ public class SwingHardwareTopPanel extends JPanel {
           oledPanel.showParamText("TEMPO", String.format("%.1f BPM", projectModel.getBpm()));
         }
       }
+      // C: instrument_clip_minder.cpp:471-482 — a bare SELECT_ENC press in the idle instrument-clip
+      // view (not holding notes, not auditioning) opens the Sound Editor for the current clip.
+      // The NOTES_PRESSED/AUDITIONING special cases (instrument_clip_view.cpp:827-841) aren't
+      // modeled here - this desktop UI has no equivalent "holding a step pad" state for the top
+      // panel to query.
+      case "SELECT_ENC" -> {
+        if (SwingDelugeApp.mainInstance != null) {
+          SwingDelugeApp.mainInstance.launchSoundEditorForActiveTrack();
+        }
+      }
       case "X_ENC_LEFT" -> {
         SwingGridPanel gpLeft =
             SwingDelugeApp.mainInstance != null
