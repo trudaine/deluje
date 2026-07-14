@@ -140,9 +140,7 @@ public abstract class GlobalEffectable {
     // The song volume is applied at the master stage in this engine, so the neutral "1" is the
     // faithful adjust here. INT_MIN knob → curve returns 0, so an off/unset send stays dry.
     int reverbAmountAdjust = 67108864;
-    int reverbSendAmount =
-        Functions.getFinalParameterValueVolume(
-            reverbAmountAdjust, Functions.cableToLinearParamShortcut(reverbSendKnob));
+    int reverbSendAmount = computeReverbSendAmount(reverbAmountAdjust);
 
     int reverbSendAmountAndPostFXVolume =
         Functions.lshiftAndSaturate(
@@ -191,6 +189,21 @@ public abstract class GlobalEffectable {
    * processReverbSendAndVolume. Default no-op; {@link Sound} overrides.
    */
   protected void processPostVolumeDynamics(int[] interleaved, int numSamples, int postFXVolume) {}
+
+  /**
+   * Reverb-send-amount hook. Default (this class) matches C {@code GlobalEffectableForClip}'s
+   * Kit/AudioOutput formula (global_effectable_for_clip.cpp:84-86): {@code reverbSendAmount =
+   * getFinalParameterValueVolume(reverbAmountAdjust,
+   * cableToLinearParamShortcut(unpatchedParams->getValue(UNPATCHED_REVERB_SEND_AMOUNT)))} — correct
+   * here because Kit/AudioOutput's reverb send is an UNPATCHED knob needing the volume curve
+   * applied at render time. {@link Sound} overrides this: its reverb send is the PATCHED {@code
+   * GLOBAL_REVERB_AMOUNT}, already curve-resolved by the Patcher every block, so applying this same
+   * curve again there would double up on it.
+   */
+  protected int computeReverbSendAmount(int reverbAmountAdjust) {
+    return Functions.getFinalParameterValueVolume(
+        reverbAmountAdjust, Functions.cableToLinearParamShortcut(reverbSendKnob));
+  }
 
   public void renderOutput(int[] output, int numSamples, int[] reverbBuffer) {
     int requiredLen = numSamples * 2;

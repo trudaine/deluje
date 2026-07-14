@@ -516,6 +516,28 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     org.deluge.firmware2.Stutterer.GLOBAL.endStutter(paramManager);
   }
 
+  /**
+   * C: {@code Sound}'s reverb send is the PATCHED {@code GLOBAL_REVERB_AMOUNT} — already resolved
+   * by the Patcher every block (sound.cpp:2428-2431: {@code reverbSendAmount =
+   * multiply_32x32_rshift32_rounded(reverbAmountAdjust, paramFinalValues[GLOBAL_REVERB_AMOUNT]) <<
+   * 5}), a plain multiply against the already-curved value — unlike Kit/AudioOutput's UNPATCHED
+   * knob (the {@link org.deluge.firmware2.GlobalEffectable#computeReverbSendAmount} default), whose
+   * volume curve must be applied at render time. Before this override, every {@code FirmwareSound}
+   * inherited that Kit/AudioOutput formula against a stale {@code reverbSendKnob} snapshot (set
+   * once at factory build time, never refreshed) — re-applying the volume curve to a value that
+   * should already be curve-resolved, and ignoring any patch-cable modulation of the send amount.
+   */
+  @Override
+  protected int computeReverbSendAmount(int reverbAmountAdjust) {
+    int resolved =
+        org.deluge.firmware2.Patcher.computeFinalValueForParam(
+            Param.GLOBAL_REVERB_AMOUNT, fw2Sound.patchedParamValues[Param.GLOBAL_REVERB_AMOUNT]);
+    return org.deluge.firmware2.Functions.lshiftAndSaturate(
+        org.deluge.firmware2.Functions.multiply_32x32_rshift32_rounded(
+            reverbAmountAdjust, resolved),
+        5);
+  }
+
   /** C: polyphonicExpressionEventOnChannelOrNote — pitch bend (X), immediate. */
   public void mpePitchBend(int midiChannel, int newValue) {
     int s = PatchSource.X.ordinal();

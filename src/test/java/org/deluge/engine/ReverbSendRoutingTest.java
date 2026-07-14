@@ -12,6 +12,12 @@ import org.junit.jupiter.api.Test;
  * GlobalEffectable.processReverbSendAndVolume -> monoReverbBuffer -> FirmwareAudioEngine ->
  * masterReverb.process -> master output. Guards the full chain behind the reverb-output
  * (setPanLevels) fix; with reverb send 0 the output must match the no-reverb engine.
+ *
+ * <p>Setup uses {@code paramNeutralValues[GLOBAL_REVERB_AMOUNT]}, not the legacy {@code
+ * reverbSendKnob} field Sound no longer reads (see {@link FirmwareSoundReverbSendTest}) — and not a
+ * direct {@code fw2Sound.patchedParamValues} write either, since {@code triggerNote} calls {@code
+ * syncParamsToFw2()}, which rebuilds that array fresh from {@code paramNeutralValues}/{@code
+ * paramKnobs} and would silently discard a direct assignment made beforehand.
  */
 class ReverbSendRoutingTest {
 
@@ -25,7 +31,7 @@ class ReverbSendRoutingTest {
     synth.oscTypes[0] = OscType.SINE;
     synth.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
     synth.paramNeutralValues[Param.LOCAL_VOLUME] = org.deluge.firmware2.Functions.ONE_Q31;
-    synth.reverbSendKnob = reverbSendKnob;
+    synth.paramNeutralValues[Param.GLOBAL_REVERB_AMOUNT] = reverbSendKnob;
     engine.sounds.add(synth);
 
     synth.triggerNote(60, 127);
