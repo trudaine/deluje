@@ -157,7 +157,7 @@ class ShiftClickController {
     JSlider slider = new JSlider(0, 100, Math.max(0, Math.min(100, initVal)));
     slider.setBackground(new Color(0x12, 0x12, 0x14));
     slider.setForeground(new Color(0x00, 0xff, 0xcc));
-    slider.setPreferredSize(new Dimension(150, 18));
+    slider.setPreferredSize(new Dimension(150, 28));
     slider.setOpaque(false);
     slider.setFocusable(false);
     DarkSliderUI.styleSlider(slider, new Color(0x00, 0xff, 0xcc));

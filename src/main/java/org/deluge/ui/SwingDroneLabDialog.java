@@ -118,23 +118,31 @@ public class SwingDroneLabDialog extends JDialog {
     JPanel macrosPanel = new JPanel(new GridLayout(4, 1, 10, 10));
     macrosPanel.setBackground(BG_DARK);
 
-    frictionSlider =
-        createMacroSlider(
-            "Friction (Tension)", "Increase carrier detuning and digital decimation dissonance");
-    turbulenceSlider =
-        createMacroSlider(
-            "Turbulence (Evolve)", "Speed up drifting LFO modulations and panning sweeps");
-    atmosphereSlider =
-        createMacroSlider(
-            "Atmosphere (Space)", "Dissolve the drone into a deep, spacious delay/reverb void");
-    gritSlider =
-        createMacroSlider(
-            "Industrial Grit", "Inject analog noise grit and master tube overdrive drive");
+    frictionSlider = new JSlider(0, 100, 50);
+    turbulenceSlider = new JSlider(0, 100, 50);
+    atmosphereSlider = new JSlider(0, 100, 50);
+    gritSlider = new JSlider(0, 100, 50);
 
-    macrosPanel.add(frictionSlider);
-    macrosPanel.add(turbulenceSlider);
-    macrosPanel.add(atmosphereSlider);
-    macrosPanel.add(gritSlider);
+    macrosPanel.add(
+        createMacroCard(
+            frictionSlider,
+            "Friction (Tension)",
+            "Increase carrier detuning and digital decimation dissonance"));
+    macrosPanel.add(
+        createMacroCard(
+            turbulenceSlider,
+            "Turbulence (Evolve)",
+            "Speed up drifting LFO modulations and panning sweeps"));
+    macrosPanel.add(
+        createMacroCard(
+            atmosphereSlider,
+            "Atmosphere (Space)",
+            "Dissolve the drone into a deep, spacious delay/reverb void"));
+    macrosPanel.add(
+        createMacroCard(
+            gritSlider,
+            "Industrial Grit",
+            "Inject analog noise grit and master tube overdrive drive"));
 
     c.gridx = 0;
     c.gridy = 1;
@@ -234,7 +242,7 @@ public class SwingDroneLabDialog extends JDialog {
     }
   }
 
-  private JSlider createMacroSlider(String title, String tooltip) {
+  private JPanel createMacroCard(JSlider slider, String title, String tooltip) {
     JPanel card = new JPanel(new BorderLayout(5, 2));
     card.setBackground(BG_CARD);
     card.setBorder(
@@ -247,11 +255,10 @@ public class SwingDroneLabDialog extends JDialog {
     lbl.setForeground(TEXT_LIGHT);
     card.add(lbl, BorderLayout.NORTH);
 
-    JSlider slider = new JSlider(0, 100, 50);
     slider.setBackground(BG_CARD);
-    slider.setForeground(ACCENT_GLOW);
     slider.setToolTipText(tooltip);
     slider.setFocusable(false);
+    DarkSliderUI.styleSlider(slider, ACCENT_GLOW);
     slider.addChangeListener(
         e -> {
           if (slider.getValueIsAdjusting()) {
@@ -260,7 +267,7 @@ public class SwingDroneLabDialog extends JDialog {
         });
     card.add(slider, BorderLayout.CENTER);
 
-    return slider;
+    return card;
   }
 
   private static JLabel label(String text) {

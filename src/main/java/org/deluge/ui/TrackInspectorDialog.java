@@ -110,6 +110,7 @@ public class TrackInspectorDialog extends JDialog {
     gcm.gridx = 1;
     volumeSlider = new JSlider(0, 100, 80);
     volumeSlider.setPreferredSize(new Dimension(400, 50));
+    DarkSliderUI.styleSlider(volumeSlider, new Color(0xff, 0xb3, 0x00));
     volumeSlider.setToolTipText("Adjust master channel volume level (0-100%)");
     volumeSlider.addChangeListener(
         ev -> System.out.println("Track " + trackIndex + " Vol: " + volumeSlider.getValue()));
@@ -125,6 +126,7 @@ public class TrackInspectorDialog extends JDialog {
     gcm.gridx = 1;
     panSlider = new JSlider(0, 100, 50);
     panSlider.setPreferredSize(new Dimension(400, 50));
+    DarkSliderUI.styleSlider(panSlider, new Color(0x00, 0xff, 0xcc));
     panSlider.setToolTipText("Adjust stereo pan position (Left-Right)");
     p3.add(panSlider, gcm);
     tabs.addTab("MIXER", p3);
@@ -140,6 +142,7 @@ public class TrackInspectorDialog extends JDialog {
     lRatio.setForeground(Color.WHITE);
     ratioSlider = new JSlider(1, 10, 1);
     ratioSlider.setPreferredSize(new Dimension(300, 50));
+    DarkSliderUI.styleSlider(ratioSlider, new Color(0xff, 0x99, 0x33));
     ratioSlider.setToolTipText("Adjust FM modulator carrier harmonic ratio");
     p4.add(lAlgo);
     p4.add(lRatio);

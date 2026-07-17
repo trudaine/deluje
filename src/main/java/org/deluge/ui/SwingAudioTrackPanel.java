@@ -74,7 +74,8 @@ public class SwingAudioTrackPanel extends JPanel {
     c.gridwidth = 2;
     rateSlider.setMajorTickSpacing(75);
     rateSlider.setPaintTicks(true);
-    rateSlider.setForeground(Color.LIGHT_GRAY);
+    rateSlider.setPreferredSize(new Dimension(150, 30));
+    DarkSliderUI.styleSlider(rateSlider, new Color(0x00, 0xff, 0xcc));
     rateSlider.addChangeListener(e -> pushRate());
     add(rateSlider, c);
 

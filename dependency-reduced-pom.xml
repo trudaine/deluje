@@ -24,6 +24,7 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.6</version>
         <configuration>
+          <reuseForks>false</reuseForks>
           <argLine>--enable-preview --add-modules jdk.incubator.vector -Dchuck.audio.dummy=true -Ddeluge.audio.silent=true -Xmx2048m</argLine>
           <excludedGroups>slow</excludedGroups>
         </configuration>
@@ -150,7 +151,7 @@
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-api</artifactId>
-      <version>5.11.0</version>
+      <version>5.12.0</version>
       <scope>test</scope>
       <exclusions>
         <exclusion>
@@ -170,7 +171,7 @@
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-params</artifactId>
-      <version>5.11.0</version>
+      <version>5.12.0</version>
       <scope>test</scope>
       <exclusions>
         <exclusion>
@@ -194,6 +195,6 @@
   <properties>
     <maven.compiler.release>27</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <junit.version>5.11.0</junit.version>
+    <junit.version>5.12.0</junit.version>
   </properties>
 </project>

@@ -84,8 +84,7 @@ public class ThresholdRecordDialog extends JDialog {
     sliderPanel.add(sliderLabel, BorderLayout.NORTH);
 
     thresholdSlider = new JSlider(-60, 0, -26); // Default -26dB
-    thresholdSlider.setOpaque(false);
-    thresholdSlider.setForeground(new Color(0x00, 0xff, 0xcc));
+    DarkSliderUI.styleSlider(thresholdSlider, new Color(0x00, 0xff, 0xcc));
     thresholdSlider.addChangeListener(
         e -> {
           sliderLabel.setText("Trigger Threshold: " + thresholdSlider.getValue() + " dB");

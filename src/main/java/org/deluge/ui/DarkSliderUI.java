@@ -36,7 +36,7 @@ public class DarkSliderUI extends BasicSliderUI {
     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
     int cy;
-    int h = 4; // Sleek thin track line footprint
+    int h = 6; // Sleek modern track line footprint
     Color trackColor = new Color(0x45, 0x45, 0x4e); // Subtle high-contrast silver-charcoal
 
     if (slider.getOrientation() == JSlider.HORIZONTAL) {
@@ -71,19 +71,23 @@ public class DarkSliderUI extends BasicSliderUI {
     Graphics2D g2 = (Graphics2D) g.create();
     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-    // Draw circular outer glow shadow ring
+    // Draw circular outer glow shadow ring (wider neon glow for larger thumb)
     Color glowColor =
         new Color(accentColor.getRed(), accentColor.getGreen(), accentColor.getBlue(), 45);
     g2.setColor(glowColor);
-    g2.fillOval(thumbRect.x - 2, thumbRect.y - 2, thumbRect.width + 4, thumbRect.height + 4);
+    g2.fillOval(thumbRect.x - 3, thumbRect.y - 3, thumbRect.width + 6, thumbRect.height + 6);
 
     // Draw main circular white thumb face
     g2.setColor(Color.WHITE);
     g2.fillOval(thumbRect.x, thumbRect.y, thumbRect.width, thumbRect.height);
 
+    // Draw crisp dark outline around thumb face to make it pop against dark backgrounds
+    g2.setColor(new Color(0x33, 0x33, 0x3c));
+    g2.drawOval(thumbRect.x, thumbRect.y, thumbRect.width - 1, thumbRect.height - 1);
+
     // Draw active circular accent core
     g2.setColor(accentColor);
-    int cw = 6;
+    int cw = 8;
     g2.fillOval(
         thumbRect.x + (thumbRect.width / 2) - (cw / 2),
         thumbRect.y + (thumbRect.height / 2) - (cw / 2),
@@ -100,7 +104,7 @@ public class DarkSliderUI extends BasicSliderUI {
 
   @Override
   protected Dimension getThumbSize() {
-    // Set standard circular dimensions footprint for the thumb knob
-    return new Dimension(14, 14);
+    // Set larger circular dimensions footprint for the thumb knob
+    return new Dimension(22, 22);
   }
 }

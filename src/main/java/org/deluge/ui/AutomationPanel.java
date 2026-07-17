@@ -172,7 +172,7 @@ public class AutomationPanel extends JPanel {
         int val = hasAuto ? (int) (clip.getAutomation(paramName, s) * 127) : 0;
 
         JSlider slider = new JSlider(0, 127, val);
-        slider.setPreferredSize(new Dimension(80, 22));
+        slider.setPreferredSize(new Dimension(80, 28));
         slider.setPaintTicks(false);
         slider.setPaintLabels(false);
         slider.setEnabled(hasAuto);

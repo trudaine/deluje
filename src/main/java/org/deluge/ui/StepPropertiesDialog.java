@@ -156,8 +156,7 @@ public class StepPropertiesDialog extends JDialog {
     gc.gridx = 1;
     gc.weightx = 0.8;
     velSlider = new JSlider(0, 100, currentVelocity);
-    velSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
-    velSlider.setForeground(SwingSynthConfigDialog.ACCENT_BLUE);
+    DarkSliderUI.styleSlider(velSlider, SwingSynthConfigDialog.ACCENT_BLUE);
     gridPanel.add(velSlider, gc);
 
     gc.gridx = 2;
@@ -206,8 +205,7 @@ public class StepPropertiesDialog extends JDialog {
     gc.gridx = 1;
     gc.weightx = 0.8;
     fillSlider = new JSlider(0, 100, currentFill);
-    fillSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
-    fillSlider.setForeground(SwingSynthConfigDialog.ACCENT_BLUE);
+    DarkSliderUI.styleSlider(fillSlider, SwingSynthConfigDialog.ACCENT_BLUE);
     fillSlider.setToolTipText("0 = regular step, 1-100 = fill-only step with probability");
     gridPanel.add(fillSlider, gc);
 
@@ -230,8 +228,7 @@ public class StepPropertiesDialog extends JDialog {
     gc.gridx = 1;
     gc.weightx = 0.8;
     probSlider = new JSlider(0, 100, currentProbability);
-    probSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
-    probSlider.setForeground(SwingSynthConfigDialog.ACCENT_BLUE);
+    DarkSliderUI.styleSlider(probSlider, SwingSynthConfigDialog.ACCENT_BLUE);
     gridPanel.add(probSlider, gc);
 
     gc.gridx = 2;
@@ -280,8 +277,7 @@ public class StepPropertiesDialog extends JDialog {
     gc.gridx = 1;
     gc.weightx = 0.8;
     nudgeSlider = new JSlider(0, 99, currentNudge);
-    nudgeSlider.setBackground(SwingSynthConfigDialog.BG_CARD);
-    nudgeSlider.setForeground(SwingSynthConfigDialog.ACCENT_BLUE);
+    DarkSliderUI.styleSlider(nudgeSlider, SwingSynthConfigDialog.ACCENT_BLUE);
     nudgeSlider.setToolTipText("Microtiming offset forward (0 to 99% of step)");
     gridPanel.add(nudgeSlider, gc);
 
