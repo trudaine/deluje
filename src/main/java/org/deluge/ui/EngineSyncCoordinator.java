@@ -25,8 +25,8 @@ public class EngineSyncCoordinator {
   private final SwingDelugeApp app;
   private final BridgeContract bridge;
 
-  private int[] trackEngineStart;
-  private int[] trackVoiceCount;
+  private volatile int[] trackEngineStart;
+  private volatile int[] trackVoiceCount;
 
   public EngineSyncCoordinator(SwingDelugeApp app, BridgeContract bridge) {
     this.app = app;

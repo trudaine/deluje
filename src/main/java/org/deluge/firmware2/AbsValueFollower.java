@@ -56,6 +56,8 @@ public class AbsValueFollower {
     setRelease(r);
   }
 
+  private final float[] rmsResult = new float[2];
+
   /**
    * C: absolute_value.cpp:34-61 — calcApproxRMS. Returns log-mean of absolute values for L/R
    * channels.
@@ -74,6 +76,8 @@ public class AbsValueFollower {
     meanR = (meanR * ns + lastMeanR) / (1.0f + ns);
     lastMeanL = runEnvelope(lastMeanL, meanL, ns);
     lastMeanR = runEnvelope(lastMeanR, meanR, ns);
-    return new float[] {(float) Math.log(lastMeanL + 1e-24f), (float) Math.log(lastMeanR + 1e-24f)};
+    rmsResult[0] = (float) Math.log(lastMeanL + 1e-24f);
+    rmsResult[1] = (float) Math.log(lastMeanR + 1e-24f);
+    return rmsResult;
   }
 }

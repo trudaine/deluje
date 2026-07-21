@@ -29,19 +29,19 @@ public class AudioInputCaptureLine {
   private TargetDataLine inputLine = null;
   private final AtomicBoolean isRecording = new AtomicBoolean(false);
   private final AtomicBoolean isArmed = new AtomicBoolean(false);
-  private float threshold = 0.05f; // Peak amplitude threshold (default ~ -26dB)
+  private volatile float threshold = 0.05f; // Peak amplitude threshold (default ~ -26dB)
   private final ByteArrayOutputStream capturedStream = new ByteArrayOutputStream();
-  private Thread captureThread = null;
+  private volatile Thread captureThread = null;
   private volatile double lastRecordedDurationSec = 0.0;
 
   public double getLastRecordedDurationSec() {
     return lastRecordedDurationSec;
   }
 
-  private int targetTrackIndex = 0;
-  private int targetSlotIndex = 0;
-  private Runnable onTriggerCallback = null;
-  private Runnable onFinishedCallback = null;
+  private volatile int targetTrackIndex = 0;
+  private volatile int targetSlotIndex = 0;
+  private volatile Runnable onTriggerCallback = null;
+  private volatile Runnable onFinishedCallback = null;
 
   private volatile float currentLivePeak = 0f;
 
