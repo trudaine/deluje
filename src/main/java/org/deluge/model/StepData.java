@@ -44,4 +44,12 @@ public record StepData(
       boolean active, float velocity, float gate, float probability, int pitch) {
     return new StepData(active, velocity, gate, probability, pitch, 0, 0.0f, 0.0f);
   }
+
+  /**
+   * C note_row.cpp:2005 — returns true if probability, iterance, or fill settings
+   * differ from their defaults (non-default note parameter edit).
+   */
+  public boolean hasEditedNoteParameters() {
+    return probability < 0.999f || iterance != 0 || fill > 0.001f;
+  }
 }

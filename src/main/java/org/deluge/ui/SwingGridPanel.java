@@ -1133,6 +1133,12 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   Color getStepPadDefaultBg(int modelRow, int col) {
+    // C note_row.cpp:2005 — if note has non-default settings for probability, iterance or fill,
+    // highlight the step pad in yellow.
+    org.deluge.model.StepData step = getModelStep(modelRow, col);
+    if (step != null && step.active() && step.hasEditedNoteParameters()) {
+      return Color.YELLOW;
+    }
     boolean isSynth = false;
     if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
