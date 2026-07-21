@@ -381,23 +381,20 @@ $$V_{out}(t) = \text{Osc A}(t) \times \text{Osc B}(t)$$
 4. Go to the **`ENVELOPE`** tab (specifically Envelope 2 VCF). Set Attack to **`0ms`** (instant sharp strike), Decay to **`120ms`** (quick pluck decay), and Sustain to **`0%`**. Set the LPF Envelope Mod to a high **`+60%`** (plucky filter sweep).
 5. *Result*: Sequence a steps phrase: you will hear a sharp, ring-modulated pluck for industrial leads.
 
-### 2.7 Chord Keyboard (CORK & CORL Layouts)
+### 2.7 Chord Model & Progression Suite
 
-The Chord Keyboard maps pads to chords, scale degrees, and inversions. Access this workspace by selecting **`CHORD_LIBRARY`** or **`CHORD`** from the **KB** dropdown JComboBox at the top toolbar (or via Tab view cycles):
+The application implements full Community Firmware 1.3 chord specifications ([ChordModel.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/model/ChordModel.java)):
 
-* **Mode 1: PIANO Layout**: Standard isomorphic chromatic keyboard mapping. Pads in the current scale are highlighted in dim blue/slate, and root notes glow in mint-green.
-* **Mode 2: CORK (Chord Keyboard)**:
-  * **COLUMN Mode**: Harmonically similar chords are stacked vertically. Clicking a grid pad triggers scale-degree chords (I, ii, iii, IV, V, vi, vii) matching the selected key.
-  * **ROW Mode**: Spreads scale intervals horizontally (Launchpad Pro style).
-* **Mode 3: CORL (Chord Library)**: A comprehensive chord catalog. Columns represent the 12 chromatic root notes ($C \dots B$), and rows represent chord qualities (Major, Minor, Dominant 7th, Major 7th, Minor 7th, Diminished, Suspended, etc.). Scale-aware highlighting indicates in-key chords.
-* **Chords Voicings & Inversions**: Select the Voicing mode dropdown to instantly change the note spreads across the operators voice allocations:
-  1. *Close*: Standard tight stack.
-  2. *Drop 2*: Drops the second-highest note by an octave (classic jazz voicing).
-  3. *Open*: Spreads notes across wider octave intervals.
-  4. *Spread*: Spans multiple octaves.
-  5. *Rootless*: Plays only the 3rd, 5th, and extensions (7th, 9th) to leave room for bass tracks.
-  6. *Octave*: Standard root-plus-octaves voicing.
-* **Scroll Navigation**: Click the **`▲ / ▼`** buttons in the toolbar to shift the octave scale degree offset.
+* **26 Community Chord Types**: Complete chord interval specifications matching `CHORD_TYPES`:
+  * *Triads & Suspensions*: Major (`M`), Minor (`-`), Diminished (`DIM`), Augmented (`AUG`), Sus2 (`SUS2`), Sus4 (`SUS4`), Add9 (`add9`), Minor Add9 (`-add9`).
+  * *7ths & 9ths*: Dominant 7 (`7`), Major 7 (`M7`), Minor 7 (`-7`), Diminished 7 (`DIM7`), Augmented Major 7 (`M7#5`), Dominant 7b5 (`7b5`), Minor 7b5 (`-7b5`), Dominant 7#9 (`7#9`), Dominant 7b9 (`7b9`), Dominant 9 (`9`), Major 9 (`M9`), Minor 9 (`-9`), Major 6 (`6`), Minor 6 (`-6`), Lydian Dominant (`7#11`), Lydian (`M7#11`), Dominant 7 Sus 4 (`7sus4`), Dominant 13 (`13`).
+* **Scale-Aware Degree Substitutions**: Supports scale-degree chord mapping (`chordsForScaleDegree`) for I, ii, iii, IV, V, vi, and vii scale steps.
+* **Arpeggiator Chord Engine**: Open the Sound Sound Editor **`ARP`** tab ([ArpPanel.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/ui/ArpPanel.java#L227-L270)) to configure base **Chord Type**, **Chord Polyphony** (1–8 notes), and **Chord Probability** (0–100%).
+* **Chord Progression Generator**: Open **`Tools ➔ Delugeator Randomizer Suite`** and select **`🎹 Chord Progression Generator (Tab 4)`** ([SwingRandomizerDialog.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/ui/SwingRandomizerDialog.java#L96)):
+  1. *Progression Templates*: Select preset progressions (e.g., Pop I-V-vi-IV, Jazz ii-V-I, Minor i-VI-III-VII, Andalusian Cadence).
+  2. *Voicings*: Select voicing spreads (`Close`, `Drop 2`, `Open`, `Spread`, `Rootless`, `Octave`).
+  3. *Step Rhythm*: Set chord resolution (`Whole Notes`, `Half Notes`, `Quarter Notes`).
+  4. Click **`⚡ GENERATE & OVERWRITE CLIP`** to populate active track sequence steps with full chord stacks.
 
 ---
 
