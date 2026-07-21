@@ -449,6 +449,15 @@ Click the **⚙** button on a drum row to open that drum's settings editor, whic
   * **Loop End (Magenta - LE)**: Where continuous looping cycles wrap back to Loop Start.
 * **💾 Save & Apply Crop Button**: Commits the sample frame limits back to the model, writes the XML kit configuration, and triggers playback reload so boundaries update instantly.
 
+#### 🎛️ Tutorial N: Trimming Transients and Setting Loop Markers with the Waveform Deck
+1. Select a Drum Kit track and click the **`⚙`** button on a drum row (or double-click the drum row label) to open [SwingKitConfigDialog.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/ui/SwingKitConfigDialog.java).
+2. Look at the visual waveform display at the top deck ([SwingWaveformPanel.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/ui/SwingWaveformPanel.java)).
+3. Drag the **`Start` (Green - S)** slider to position the start marker directly in front of the audio file's initial attack transient.
+4. Drag the **`End` (Red - E)** slider leftward to cut off trailing room noise or unwanted silence.
+5. If sustained looping is desired, check **`Loop On`**, then set **`Loop Start` (Blue - LS)** and **`Loop End` (Magenta - LE)** to isolate the sustained body of the sample.
+6. Click **`💾 Save & Apply Crop`**.
+7. *Result*: The audio sample boundaries update instantly on disk and in playback.
+
 ---
 
 ## 5. Automatic Loop Slicer & Kit Splitter
@@ -670,6 +679,15 @@ The top menu action **`Tools ➔ Drone Lab & Texture Generator...`** (global sho
 *   **Parameter Sweeps**: Updates parameters in real-time on mouse drag.
 *   **⚡ Generate Evolving Drone Button**: Builds the preset, loads the microtonal tuning, sequences the 16-bar holding note, and starts playback.
 
+#### ⚡ Tutorial P: Creating a Microtonal Ambient Drone in Real-Time
+1. Select an active Synth track in the main sequencer grid.
+2. Select **`Tools ➔ Drone Lab & Texture Generator…`** (**`Ctrl + D`** / **`Cmd + D`**) to open [SwingDroneLabDialog.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/ui/SwingDroneLabDialog.java).
+3. In the **`Style`** dropdown, select **`Subtractive Octave Detune`** or **`6-Operator FM Metallic`**.
+4. In the **`Tonality`** dropdown, select **`C Minor Pentatonic`** or **`C Major Pentatonic`**.
+5. Click **`⚡ GENERATE DRONE PRESET`**. The generator programs a 16-bar tied note on C2, loads 5-limit Just Intonation microtuning, and starts playback.
+6. Drag your mouse inside the **Interactive X/Y Touch Expression Pad** to control **Friction** (detune/bitcrush) on the X-axis and **Turbulence** (LFO speed/depth) on the Y-axis.
+7. Adjust the 4 macro sliders (**Friction**, **Turbulence**, **Atmosphere**, **Industrial Grit**) to fine-tune the ambient space.
+
 ---
 
 ## 10. UI Panels & Shift Shortcuts System Behavior
@@ -814,6 +832,13 @@ The Settings Preferences Dialog provides preferences controls:
 * **Library Path Preferences**: Browse and set the mounted parent library root directory path folder for all sample loading.
 * **Grid Profiles Mode**: Standardize layout resolutions to `Grid 8x16` or `Grid 16x16`.
 * **Sequencer Engine Backend**: Toggle between HIGH_FIDELITY (high-resolution Java DSP synthesis engine) and LEGACY sequencer timing backends.
+
+#### ⚙️ Tutorial Q: Configuring SD Card Library Paths and Grid Profiles
+1. Open **`Settings ➔ Preferences…`** (**`Ctrl + ,`** / **`Cmd + ,`**).
+2. Under **Library Root Directory**, click **`Browse…`** and select your SD card or local Deluge folder containing `SAMPLES/`, `SYNTHS/`, and `KITS/`.
+3. In **Grid Profile Mode**, select your preferred layout size: **`Standard 8x16`** (compact desktop) or **`Expanded 16x16`** (full 256-pad matrix).
+4. Click **`💾 Save Preferences`**.
+5. *Result*: The grid layout updates immediately and all sample file dialogs default to your chosen library root.
 
 ---
 
