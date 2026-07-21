@@ -72,6 +72,7 @@ When you launch the Deluge-Java Workstation, it opens a blank song with a single
 *   **Audible Feedback**: When the transport is stopped, placing or auditioning a note sounds it immediately. While playing, that preview is suppressed so you don't hear stray notes during a performance.
 *   **Delete a Note**: Click a pad that already holds a note to remove it.
 *   **Change Track Color**: Click the colored swatch in the track's row header to recolor the track. (On the hardware this is `Shift` + the `▼▲` knob — see the mapping tables in §18–§19.)
+*   **Save & Load Pattern Presets**: Save active clip note phrases as reusable pattern XML presets under `PATTERNS/MELODIC/`, `PATTERNS/RHYTHMIC/DRUM/`, and `PATTERNS/RHYTHMIC/KIT/` ([PatternSerializer.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/project/PatternSerializer.java)). Load saved patterns directly onto any track.
 
 > [!TIP] **Undo & Redo.** Most note, step, automation, parameter, and clip/track edits are undoable: press **`Ctrl + Z`** to undo and **`Ctrl + Y`** to redo (also under the **Edit** menu). A few operations aren't yet on the undo stack — see the note in §21.
 
