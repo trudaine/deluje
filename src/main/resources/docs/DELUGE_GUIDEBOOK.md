@@ -389,12 +389,17 @@ The application implements full Community Firmware 1.3 chord specifications ([Ch
   * *Triads & Suspensions*: Major (`M`), Minor (`-`), Diminished (`DIM`), Augmented (`AUG`), Sus2 (`SUS2`), Sus4 (`SUS4`), Add9 (`add9`), Minor Add9 (`-add9`).
   * *7ths & 9ths*: Dominant 7 (`7`), Major 7 (`M7`), Minor 7 (`-7`), Diminished 7 (`DIM7`), Augmented Major 7 (`M7#5`), Dominant 7b5 (`7b5`), Minor 7b5 (`-7b5`), Dominant 7#9 (`7#9`), Dominant 7b9 (`7b9`), Dominant 9 (`9`), Major 9 (`M9`), Minor 9 (`-9`), Major 6 (`6`), Minor 6 (`-6`), Lydian Dominant (`7#11`), Lydian (`M7#11`), Dominant 7 Sus 4 (`7sus4`), Dominant 13 (`13`).
 * **Scale-Aware Degree Substitutions**: Supports scale-degree chord mapping (`chordsForScaleDegree`) for I, ii, iii, IV, V, vi, and vii scale steps.
-* **Arpeggiator Chord Engine**: Open the Sound Sound Editor **`ARP`** tab ([ArpPanel.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/ui/ArpPanel.java#L227-L270)) to configure base **Chord Type**, **Chord Polyphony** (1–8 notes), and **Chord Probability** (0–100%).
-* **Chord Progression Generator**: Open **`Tools ➔ Delugeator Randomizer Suite`** and select **`🎹 Chord Progression Generator (Tab 4)`** ([SwingRandomizerDialog.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/ui/SwingRandomizerDialog.java#L96)):
-  1. *Progression Templates*: Select preset progressions (e.g., Pop I-V-vi-IV, Jazz ii-V-I, Minor i-VI-III-VII, Andalusian Cadence).
-  2. *Voicings*: Select voicing spreads (`Close`, `Drop 2`, `Open`, `Spread`, `Rootless`, `Octave`).
-  3. *Step Rhythm*: Set chord resolution (`Whole Notes`, `Half Notes`, `Quarter Notes`).
-  4. Click **`⚡ GENERATE & OVERWRITE CLIP`** to populate active track sequence steps with full chord stacks.
+* **Arpeggiator Chord Engine**: Open the Sound Editor **`ARP`** tab ([ArpPanel.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/ui/ArpPanel.java#L227-L270)) to configure base **Chord Type**, **Chord Polyphony** (1–8 notes), and **Chord Probability** (0–100%).
+
+#### 🎹 Tutorial J: Generating a Jazz Chord Progression with Drop-2 Voicings
+1. Select an active Synth track in the main sequencer grid.
+2. Open **`Tools ➔ Delugeator Randomizer Suite`** (**`Ctrl + R`**).
+3. Switch to **`🎹 Chord Progression Generator (Tab 4)`** ([SwingRandomizerDialog.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/ui/SwingRandomizerDialog.java#L96)).
+4. In the **`Chords Progression`** dropdown, select **`Jazz ii-V-I-vi (Dm7 ➔ G7 ➔ Cmaj7 ➔ Am7)`**.
+5. In the **`Chords Voicing`** dropdown, select **`Drop 2`** (drops the 2nd highest note an octave down for rich jazz voice-leading).
+6. Set **`Chord Duration / Step Rhythm`** to **`Half Notes (2 chords per bar)`**.
+7. Click **`⚡ GENERATE & OVERWRITE CLIP`**.
+8. *Result*: The active track sequence clip is populated with 4-bar drop-2 chord stacks.
 
 ---
 
