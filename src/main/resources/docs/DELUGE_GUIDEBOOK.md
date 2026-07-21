@@ -778,6 +778,8 @@ Double-clicking a Synth track opens the sound editor, which displays parameter p
 ![Programmatic parameter automation list tab](images/deluge_synth_tab_automation.png)
 <!-- slide -->
 ![MIDI CC Learn controller map tab](images/deluge_synth_tab_midi_learn.png)
+<!-- slide -->
+![Stutter repeat rate and quantum tab](images/deluge_synth_tab_stutter.png)
 ```
 
 1. **OSC / FILTER / FM Panel (`deluge_synth_tab_osc___filter___fm.png`)**: The primary sound designer deck, featuring a unified overview of active oscillator shapes, resonant filter cutoffs/resonance, modulator FM depths, and quick-access decay times.
@@ -794,6 +796,7 @@ Double-clicking a Synth track opens the sound editor, which displays parameter p
 12. **HPF Panel (`deluge_synth_tab_hpf.png`)**: Adjusts high-pass filter cutoff frequencies and feedback ladder overdrive.
 13. **Automation Panel (`deluge_synth_tab_automation.png`)**: Lists all automate-able parameters with numeric draw step values for step-by-step tweaking.
 14. **MIDI Learn Panel (`deluge_synth_tab_midi_learn.png`)**: Maps sequencer parameters to incoming hardware MIDI controller CC knob events via dynamic listener hooks.
+15. **Stutter Panel (`deluge_synth_tab_stutter.png`)**: Configures repeat rate, stutter quantum sync, reverse stutter, and latching stutter modes.
 
 ---
 
@@ -2102,6 +2105,10 @@ These focused dialogs cover tuning, generative textures, rhythm generation, samp
 *   **Orphaned Recording Cleaner** — find and remove orphaned/unused recording files from the SD card.
 
     ![Orphaned Recording Cleaner dialog](images/deluge_recording_cleaner.png)
+
+*   **Audio Transcribe & Pitch-to-MIDI** (**`Tools ➔ Audio Transcribe…`**) — analyze audio recordings to detect pitch contours and transient beats, converting audio loops into sequenced grid steps.
+
+*   **MIDI Sequence Importer** (**`File ➔ Import MIDI File…`**) — parse Standard MIDI Files (`.MID`), split tracks/channels, and import notes onto the active track.
 
 ## 28. Application Menus
 
