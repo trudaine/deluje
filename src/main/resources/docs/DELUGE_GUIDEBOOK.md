@@ -810,7 +810,7 @@ Double-clicking a Synth track opens the sound editor, which displays parameter p
 3. **Algorithm Panel (`deluge_synth_tab_algorithm.png`)**: Displays a vector block diagram of the FM algorithm, illustrating operator relationships.
 4. **OSC Panel (`deluge_synth_tab_osc.png`)**: Adjusts pulse-width modulation, pitch detuning, and oscillator shapes.
 5. **LFO Panel (`deluge_synth_tab_lfo.png`)**: Configures rates, depths, and shapes (Sine, Saw, Triangle, Square, Random/S&H) for all 4 global and local low frequency oscillators.
-6. **Arpeggiator Panel (`deluge_synth_tab_arp.png`)**: A standard modular arpeggiator engine adjusting speed sub-clocks (1/4 to 1/32 notes), octave ranges (+1 to +4), gate lengths, and sorting paths (Up, Down, Order Played, Random).
+6. **Arpeggiator Panel (`deluge_synth_tab_arp.png`)**: Community 1.3 Arpeggiator 3.0 suite featuring Walk & Pattern note modes, Kit Row Arpeggiator, Chord Types & Polyphony (1–8 notes), Chord Probability, Reverse Probability, and Arp Spreads (Octave, Gate, and Velocity Spreads).
 7. **Envelope Panel (`deluge_synth_tab_envelope.png`)**: Configures ADSR times and target parameters settings for all 4 sound path envelopes.
 8. **Modulation Matrix Panel (`deluge_synth_tab_modulation.png`)**: Sleek routing table where sources are cabled to destinations with unipolar/bipolar sliders.
 9. **Compressor Panel (`deluge_synth_tab_compressor.png`)**: Adjusts dynamic compressor thresholds, ratios, attacks, release, and sidechain HPF filters.
