@@ -72,7 +72,7 @@ When you launch the Deluge-Java Workstation, it opens a blank song with a single
 *   **Audible Feedback**: When the transport is stopped, placing or auditioning a note sounds it immediately. While playing, that preview is suppressed so you don't hear stray notes during a performance.
 *   **Delete a Note**: Click a pad that already holds a note to remove it.
 *   **Change Track Color**: Click the colored swatch in the track's row header to recolor the track. (On the hardware this is `Shift` + the `▼▲` knob — see the mapping tables in §18–§19.)
-*   **Save & Load Pattern Presets**: Save active clip note phrases as reusable pattern XML presets under `PATTERNS/MELODIC/`, `PATTERNS/RHYTHMIC/DRUM/`, and `PATTERNS/RHYTHMIC/KIT/` ([PatternSerializer.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/project/PatternSerializer.java)). Load saved patterns directly onto any track.
+*   **Save & Load Pattern Presets**: Save active clip note phrases as reusable pattern XML presets under `PATTERNS/MELODIC/`, `PATTERNS/RHYTHMIC/DRUM/`, and `PATTERNS/RHYTHMIC/KIT/` ([PatternSerializer.java](../../java/org/deluge/project/PatternSerializer.java)). Load saved patterns directly onto any track.
 
 > [!TIP] **Undo & Redo.** Most note, step, automation, parameter, and clip/track edits are undoable: press **`Ctrl + Z`** to undo and **`Ctrl + Y`** to redo (also under the **Edit** menu). A few operations aren't yet on the undo stack — see the note in §21.
 
@@ -384,18 +384,18 @@ $$V_{out}(t) = \text{Osc A}(t) \times \text{Osc B}(t)$$
 
 ### 2.7 Chord Model & Progression Suite
 
-The application implements full Community Firmware 1.3 chord specifications ([ChordModel.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/model/ChordModel.java)):
+The application implements full Community Firmware 1.3 chord specifications ([ChordModel.java](../../java/org/deluge/model/ChordModel.java)):
 
 * **26 Community Chord Types**: Complete chord interval specifications matching `CHORD_TYPES`:
   * *Triads & Suspensions*: Major (`M`), Minor (`-`), Diminished (`DIM`), Augmented (`AUG`), Sus2 (`SUS2`), Sus4 (`SUS4`), Add9 (`add9`), Minor Add9 (`-add9`).
   * *7ths & 9ths*: Dominant 7 (`7`), Major 7 (`M7`), Minor 7 (`-7`), Diminished 7 (`DIM7`), Augmented Major 7 (`M7#5`), Dominant 7b5 (`7b5`), Minor 7b5 (`-7b5`), Dominant 7#9 (`7#9`), Dominant 7b9 (`7b9`), Dominant 9 (`9`), Major 9 (`M9`), Minor 9 (`-9`), Major 6 (`6`), Minor 6 (`-6`), Lydian Dominant (`7#11`), Lydian (`M7#11`), Dominant 7 Sus 4 (`7sus4`), Dominant 13 (`13`).
 * **Scale-Aware Degree Substitutions**: Supports scale-degree chord mapping (`chordsForScaleDegree`) for I, ii, iii, IV, V, vi, and vii scale steps.
-* **Arpeggiator Chord Engine**: Open the Sound Editor **`ARP`** tab ([ArpPanel.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/ui/ArpPanel.java#L227-L270)) to configure base **Chord Type**, **Chord Polyphony** (1–8 notes), and **Chord Probability** (0–100%).
+* **Arpeggiator Chord Engine**: Open the Sound Editor **`ARP`** tab ([ArpPanel.java](../../java/org/deluge/ui/ArpPanel.java#L227-L270)) to configure base **Chord Type**, **Chord Polyphony** (1–8 notes), and **Chord Probability** (0–100%).
 
 #### 🎹 Tutorial J: Generating a Jazz Chord Progression with Drop-2 Voicings
 1. Select an active Synth track in the main sequencer grid.
 2. Open **`Tools ➔ Delugeator Randomizer Suite`** (**`Ctrl + R`**).
-3. Switch to **`🎹 Chord Progression Generator (Tab 4)`** ([SwingRandomizerDialog.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/ui/SwingRandomizerDialog.java#L96)).
+3. Switch to **`🎹 Chord Progression Generator (Tab 4)`** ([SwingRandomizerDialog.java](../../java/org/deluge/ui/SwingRandomizerDialog.java#L96)).
 4. In the **`Chords Progression`** dropdown, select **`Jazz ii-V-I-vi (Dm7 ➔ G7 ➔ Cmaj7 ➔ Am7)`**.
 5. In the **`Chords Voicing`** dropdown, select **`Drop 2`** (drops the 2nd highest note an octave down for rich jazz voice-leading).
 6. Set **`Chord Duration / Step Rhythm`** to **`Half Notes (2 chords per bar)`**.
@@ -451,8 +451,8 @@ Click the **⚙** button on a drum row to open that drum's settings editor, whic
 * **💾 Save & Apply Crop Button**: Commits the sample frame limits back to the model, writes the XML kit configuration, and triggers playback reload so boundaries update instantly.
 
 #### 🎛️ Tutorial N: Trimming Transients and Setting Loop Markers with the Waveform Deck
-1. Select a Drum Kit track and click the **`⚙`** button on a drum row (or double-click the drum row label) to open [SwingKitConfigDialog.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/ui/SwingKitConfigDialog.java).
-2. Look at the visual waveform display at the top deck ([SwingWaveformPanel.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/ui/SwingWaveformPanel.java)).
+1. Select a Drum Kit track and click the **`⚙`** button on a drum row (or double-click the drum row label) to open [SwingKitConfigDialog.java](../../java/org/deluge/ui/SwingKitConfigDialog.java).
+2. Look at the visual waveform display at the top deck ([SwingWaveformPanel.java](../../java/org/deluge/ui/SwingWaveformPanel.java)).
 3. Drag the **`Start` (Green - S)** slider to position the start marker directly in front of the audio file's initial attack transient.
 4. Drag the **`End` (Red - E)** slider leftward to cut off trailing room noise or unwanted silence.
 5. If sustained looping is desired, check **`Loop On`**, then set **`Loop Start` (Blue - LS)** and **`Loop End` (Magenta - LE)** to isolate the sustained body of the sample.
@@ -682,7 +682,7 @@ The top menu action **`Tools ➔ Drone Lab & Texture Generator...`** (global sho
 
 #### ⚡ Tutorial P: Creating a Microtonal Ambient Drone in Real-Time
 1. Select an active Synth track in the main sequencer grid.
-2. Select **`Tools ➔ Drone Lab & Texture Generator…`** (**`Ctrl + D`** / **`Cmd + D`**) to open [SwingDroneLabDialog.java](file:///Users/ludo/a/deluje/src/main/java/org/deluge/ui/SwingDroneLabDialog.java).
+2. Select **`Tools ➔ Drone Lab & Texture Generator…`** (**`Ctrl + D`** / **`Cmd + D`**) to open [SwingDroneLabDialog.java](../../java/org/deluge/ui/SwingDroneLabDialog.java).
 3. In the **`Style`** dropdown, select **`Subtractive Octave Detune`** or **`6-Operator FM Metallic`**.
 4. In the **`Tonality`** dropdown, select **`C Minor Pentatonic`** or **`C Major Pentatonic`**.
 5. Click **`⚡ GENERATE DRONE PRESET`**. The generator programs a 16-bar tied note on C2, loads 5-limit Just Intonation microtuning, and starts playback.
