@@ -1,6 +1,6 @@
 # Firmware Sync Audit — DelugeFirmware (last 3 weeks) vs. the Java port
 
-**Date:** 2026-07-04 (re-verified 2026-07-05: upstream tip unchanged at `9456095b`; two DSP-adjacent commits in the pulled range not previously named — #4538, #4576 — verified below · re-verified 2026-07-14: upstream advanced to `5762c4ba`, 33 new commits, see §5) · **Upstream range:** ~55 commits from mid-June 2026 to 2026-07-14 on
+**Date:** 2026-07-04 (re-verified 2026-07-05: upstream tip unchanged at `9456095b`; two DSP-adjacent commits in the pulled range not previously named — #4538, #4576 — verified below · re-verified 2026-07-14: upstream advanced to `5762c4ba`, 33 new commits, see §5 · re-verified 2026-07-23: upstream advanced to `95b7acab`, 18 new commits, **one porting gap found** — filter mode `"Off"` XML compat, see §6) · **Upstream range:** ~73 commits from mid-June 2026 to 2026-07-22 on
 `../DelugeFirmware` (community `main`).
 
 This audit reviews recent Synthstrom **DelugeFirmware** C/C++ commits and checks, for each one that
@@ -106,6 +106,22 @@ enough to investigate fully:
 | #4658 (`85fed274`) | A note refused a voice under high `cpuDireness` (CPU load) gets stuck `PENDING` forever if the Sound has no active voices/arp to trigger a retry — triggered specifically by SD-card folder scanning stalling the audio engine during output recording | **Not pursued — no clear Java equivalent trigger.** Java's `handlePendingNotes` retry is only invoked from within the arpeggiator's own tick (`ArpeggiatorBase.java`), matching the same structural shape as C, but the *triggering scenario* (a blocking SD-card scan on the audio-render thread during recording) doesn't have an obvious Java analog — Java's file I/O for recording doesn't block the render path the same way. Low confidence this manifests; revisit only if live-recording note-loss is ever actually observed. |
 
 No commits in this range required a Java change. Upstream tip for the next re-check: `5762c4ba`.
+
+## 6. Re-verified 2026-07-23 — upstream advanced to `95b7acab` (18 new commits), one real porting gap
+
+Screened `5762c4ba..origin/main` (18 commits, 2026-07-14 to 2026-07-22). Fourteen are Deluge
+Companion web-app, website, CI, or dependency-bump commits with no `src/deluge` footprint. Four
+touched `src/deluge` (5 files total) and were read in full against the Java side:
+
+| Upstream | What | Verdict |
+| :--- | :--- | :--- |
+| #4688 (`a3f5b8a5`) | `filterMap` now includes `{FilterMode::OFF, "Off"}` and `kNumFilterModes` was bumped to cover it — current firmware can **write and parse `lpfMode="Off"` / `hpfMode="Off"`** in song/preset XML | **Real gap — needs porting.** `InstrumentXmlParser.parseFilterMode` and `KitXmlParser`'s lpf/hpf handlers map any unrecognized string (including `"Off"`) to `LADDER_12` via their `else` fallback, so a song saved on current firmware with a bypassed filter loads here with a 12dB ladder engaged — an audible divergence. `org.deluge.model.FilterMode` has no `OFF` constant (the firmware2 `FilterSet.FilterMode.OFF` exists and `FirmwareSound` already routes to it for `null`), and `ProjectSerializer` can't emit `"Off"`. Fix: add `OFF` last in the model enum (preserves existing ordinals), accept `"Off"` in both parsers, emit `"Off"` in the serializer, and map it in `FirmwareSound.setLpfMode`/`setHpfMode`. |
+| #4708 (`c8a9dc6f`) | MIDI-follow no longer sends notes / pitch bend / aftertouch / mode-CCs into **audio** clips (`clip->type != ClipType::INSTRUMENT` guards in `midi_follow.cpp`) | **N/A — different architecture.** Our `org.deluge.midi.MidiFollow` is a CC→parameter mapping reimplementation, not a port of the C clip-routing path; notes route through the sequencer/MIDI-looper (`MidiService`), which already treats `AudioTrackModel` specially (arming capture, not playing notes). There is no code path that injects follow notes into audio-clip playback. |
+| #4716 (`2173980b`) | OLED song naming: gate the digit-prefix predictive-text behavior in `Browser::predictExtendedText` to 7SEG displays only | **N/A.** The Swing app's save dialog has no port of the browser predictive-text system (no `predictExtendedText`/`filePrefix` equivalent exists in the Java tree). |
+| #4717 (`95b7acab`) | Song loader accepted only `channel < 16` for section launch MIDI commands, silently dropping CC-encoded (18-35) and MPE-zone (16-17) learns on load | **N/A, pre-existing scope limit noted.** `SongXmlParser.parseSongSections` reads only `id`/`numRepeats` and never parsed section `launchMIDICommand` data at all, so the range-check bug can't manifest. Corollary worth knowing: round-tripping a hardware song through our serializer drops section MIDI-launch learns entirely (serializer writes sections fresh with only `id`/`numRepeats`). |
+
+One commit in this range requires a Java change (#4688, filter mode `"Off"` XML compat). Upstream
+tip for the next re-check: `95b7acab`.
 
 ## Method
 
