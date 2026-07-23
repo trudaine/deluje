@@ -57,9 +57,8 @@ public class AutomationGridPanel extends SwingGridPanel {
     overviewToggle.setMargin(new Insets(0, 4, 0, 4));
     overviewToggle.addActionListener(
         e -> {
-          automationController.setOverviewMode(overviewToggle.isSelected());
+          setAutoOverviewMode(overviewToggle.isSelected());
           overviewToggle.setText(automationController.isOverviewMode() ? "OVERVIEW" : "EDITOR");
-          refresh();
         });
     autoHeader.add(overviewToggle);
 

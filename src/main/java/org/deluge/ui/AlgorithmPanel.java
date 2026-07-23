@@ -132,30 +132,28 @@ public class AlgorithmPanel extends JPanel {
     add(desc, BorderLayout.SOUTH);
   }
 
-  /** Produce a 3-line ASCII mini-representation of a DX7 algorithm (0-31). */
+  /**
+   * Produce a 3-line ASCII mini-representation of a DX7 algorithm (0-31) from the engine's real
+   * routing table ({@code FmCore.ALGORITHMS}; table index i is operator 6-i). Each operator shows C
+   * (carrier, adds to the audio output) or M (modulator, feeds another operator), plus F on the
+   * feedback operator.
+   */
   static String formatAlgorithmMini(int algo) {
-    int[] algos = org.deluge.shadow.audio.Dx7EngineLookupTables.ALGORITHMS;
-    int base = algo * 6;
+    int[][] table = org.deluge.firmware2.FmCore.ALGORITHMS;
+    if (algo < 0 || algo >= table.length) return "";
+    int[] ops = table[algo];
     StringBuilder sb = new StringBuilder();
-    for (int i = 0; i < 3; i++) {
-      int flags = algos[base + i];
-      String opLabel = "OP" + (i + 1);
-      char out =
-          (flags & 0x01) != 0 ? '1' : (flags & 0x02) != 0 ? '2' : (flags & 0x04) != 0 ? 'A' : '?';
-      char fb = (flags & 0x80) != 0 ? 'F' : ' ';
-      sb.append(String.format("%s%c%c ", opLabel, fb, out));
+    int fbOp = -1;
+    for (int op = 1; op <= 6; op++) {
+      int flags = ops[6 - op];
+      char role = (flags & 0x04) != 0 ? 'C' : 'M';
+      boolean fb = (flags & 0x80) != 0;
+      if (fb) fbOp = op;
+      sb.append(String.format("OP%d%c%c ", op, fb ? 'F' : ':', role));
+      if (op == 3) sb.append('\n');
     }
     sb.append('\n');
-    for (int i = 3; i < 6; i++) {
-      int flags = algos[base + i];
-      String opLabel = "OP" + (i + 1);
-      char out =
-          (flags & 0x01) != 0 ? '1' : (flags & 0x02) != 0 ? '2' : (flags & 0x04) != 0 ? 'A' : '?';
-      char fb = (flags & 0x80) != 0 ? 'F' : ' ';
-      sb.append(String.format("%s%c%c ", opLabel, fb, out));
-    }
-    sb.append('\n');
-    sb.append(String.format("FB=%d/7", algo < 10 ? 7 - algo : 0));
+    sb.append(fbOp > 0 ? "FB on OP" + fbOp : "no FB");
     return sb.toString();
   }
 

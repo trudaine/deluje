@@ -62,6 +62,9 @@ public class SwingMasterFxDialog extends JDialog {
     JLabel titleLabel = new JLabel("🎛️ MASTER EFFECTS CONSOLE", SwingConstants.LEFT);
     titleLabel.setFont(FONT_HEADER);
     titleLabel.setForeground(GLOW_BLUE);
+    // The emoji prefix under-measures on some fonts, clipping the final glyph ("CONSOLI");
+    // trailing padding gives the label slack to render the full title.
+    titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 16));
     headerPanel.add(titleLabel, BorderLayout.WEST);
 
     JLabel subtitleLabel = new JLabel("Global Mix & Spatial Sculpting Desk", SwingConstants.RIGHT);

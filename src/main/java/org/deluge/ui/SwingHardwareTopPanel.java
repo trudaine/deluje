@@ -159,6 +159,8 @@ public class SwingHardwareTopPanel extends JPanel {
   private int drawW = ORIG_WIDTH;
   private int drawH = ORIG_TOP_HEIGHT;
   private double currentScale = 1.0;
+  private double scaleXf = 1.0;
+  private double scaleYf = 1.0;
   private boolean isAffectEntire = true;
   // Matches SwingGridPanel.scaleModeEnabled's default of true (real Deluge hardware boots with
   // scale mode on).
@@ -727,13 +729,28 @@ public class SwingHardwareTopPanel extends JPanel {
 
   private void updateBoundingGeometry(int w, int h) {
     if (w <= 0 || h <= 0) return;
-    double scaleX = (double) w / ORIG_WIDTH;
-    double scaleY = (double) h / ORIG_TOP_HEIGHT;
-    currentScale = Math.min(scaleX, scaleY);
-    drawW = (int) Math.round(ORIG_WIDTH * currentScale);
-    drawH = (int) Math.round(ORIG_TOP_HEIGHT * currentScale);
-    drawX = (w - drawW) / 2;
-    drawY = (h - drawH) / 2;
+    // Stretch the faceplate across the full panel width instead of aspect-fitting it centered:
+    // on the real Deluge the top deck spans the same width as the pad grid, so the scroll
+    // encoders sit over the first pad columns and the gold knobs over the last ones. Centering
+    // broke that registration at any window wider than the aspect-fit width. Positions scale
+    // per-axis; circular controls keep the minor scale for their radius so knobs stay round.
+    scaleXf = (double) w / ORIG_WIDTH;
+    scaleYf = (double) h / ORIG_TOP_HEIGHT;
+    currentScale = Math.min(scaleXf, scaleYf);
+    drawW = w;
+    drawH = h;
+    drawX = 0;
+    drawY = 0;
+  }
+
+  /** Faceplate image x-coordinate → screen x under the current per-axis stretch. */
+  private int sx(double imgX) {
+    return drawX + (int) Math.round(imgX * scaleXf);
+  }
+
+  /** Faceplate image y-coordinate → screen y under the current per-axis stretch. */
+  private int sy(double imgY) {
+    return drawY + (int) Math.round(imgY * scaleYf);
   }
 
   // Height is derived from width via the faceplate image's own aspect ratio, but capping the width
@@ -757,10 +774,10 @@ public class SwingHardwareTopPanel extends JPanel {
     super.doLayout();
     updateBoundingGeometry(getWidth(), getHeight());
     if (oledPanel != null && currentScale > 0) {
-      int ox = drawX + (int) Math.round(1171 * currentScale);
-      int oy = drawY + (int) Math.round(268 * currentScale);
-      int ow = Math.max(120, (int) Math.round(256 * currentScale));
-      int oh = Math.max(36, (int) Math.round(96 * currentScale));
+      int ox = sx(1171);
+      int oy = sy(268);
+      int ow = Math.max(120, (int) Math.round(256 * scaleXf));
+      int oh = Math.max(36, (int) Math.round(96 * scaleYf));
       oledPanel.setBounds(ox, oy, ow, oh);
     }
   }
@@ -779,20 +796,17 @@ public class SwingHardwareTopPanel extends JPanel {
       g2.drawImage(faceplateImg, drawX, drawY, drawW, drawH, null);
 
       // Cleanly replace old logo on the faceplate with larger, bolder "delujemu"
-      int logoX = drawX + (int) Math.round(1015 * currentScale);
-      int logoY = drawY + (int) Math.round(128 * currentScale);
-      int logoW = (int) Math.round(425 * currentScale);
-      int logoH = (int) Math.round(95 * currentScale);
+      int logoX = sx(1015);
+      int logoY = sy(128);
+      int logoW = (int) Math.round(425 * scaleXf);
+      int logoH = (int) Math.round(95 * scaleYf);
       g2.setColor(Color.BLACK);
       g2.fillRect(logoX, logoY, logoW, logoH);
 
       g2.setFont(
           new Font("SansSerif", Font.BOLD, Math.max(16, (int) Math.round(68 * currentScale))));
       g2.setColor(Color.WHITE);
-      g2.drawString(
-          "delujemu",
-          drawX + (int) Math.round(1025 * currentScale),
-          drawY + (int) Math.round(198 * currentScale));
+      g2.drawString("delujemu", sx(1025), sy(198));
     } else {
       g2.setColor(new Color(0x20, 0x20, 0x24));
       g2.fillRect(drawX, drawY, drawW, drawH);
@@ -811,8 +825,8 @@ public class SwingHardwareTopPanel extends JPanel {
 
     // Draw interactive hover feedback ring over buttons / knobs
     if (hoveredControl != null) {
-      int screenX = drawX + (int) Math.round(hoveredControl.cx * currentScale);
-      int screenY = drawY + (int) Math.round(hoveredControl.cy * currentScale);
+      int screenX = sx(hoveredControl.cx);
+      int screenY = sy(hoveredControl.cy);
       int screenR = (int) Math.round(hoveredControl.radius * currentScale);
 
       g2.setColor(new Color(0x00, 0xd2, 0xff, 95));
@@ -838,10 +852,10 @@ public class SwingHardwareTopPanel extends JPanel {
 
   private void drawSquareLedColumn(Graphics2D g2, int cx, int[] yTable, float fillLevel) {
     int half = Math.max(4, (int) Math.round(9 * currentScale));
-    int x = drawX + (int) Math.round(cx * currentScale);
+    int x = sx(cx);
     float scaledFill = fillLevel < 0f ? 0f : fillLevel * yTable.length;
     for (int i = 0; i < yTable.length; i++) {
-      int y = drawY + (int) Math.round(yTable[i] * currentScale);
+      int y = sy(yTable[i]);
       float squareFill = Math.max(0f, Math.min(1f, scaledFill - i));
       if (squareFill <= 0f) {
         g2.setColor(new Color(60, 30, 5, 110));
@@ -901,8 +915,8 @@ public class SwingHardwareTopPanel extends JPanel {
 
   private void drawEncoderDial(Graphics2D g2, ControlDef c) {
     double angle = encoderAngles.getOrDefault(c.name, 0.0);
-    int screenX = drawX + (int) Math.round(c.cx * currentScale);
-    int screenY = drawY + (int) Math.round(c.cy * currentScale);
+    int screenX = sx(c.cx);
+    int screenY = sy(c.cy);
     int screenR = (int) Math.round((c.radius - 12) * currentScale);
 
     // Subtle position dot rotating with the encoder
@@ -1005,8 +1019,8 @@ public class SwingHardwareTopPanel extends JPanel {
   }
 
   private void drawIndicatorLed(Graphics2D g2, int origX, int origY, int btnRadius, Color c) {
-    int screenX = drawX + (int) Math.round(origX * currentScale);
-    int screenY = drawY + (int) Math.round(origY * currentScale);
+    int screenX = sx(origX);
+    int screenY = sy(origY);
     int ledRadius = Math.max(5, (int) Math.round(14 * currentScale));
     int bRadius = Math.max(10, (int) Math.round(btnRadius * currentScale));
 
@@ -1021,9 +1035,9 @@ public class SwingHardwareTopPanel extends JPanel {
   }
 
   private ControlDef hitTestControl(int mouseX, int mouseY) {
-    if (currentScale <= 0) return null;
-    double imgX = (mouseX - drawX) / currentScale;
-    double imgY = (mouseY - drawY) / currentScale;
+    if (scaleXf <= 0 || scaleYf <= 0) return null;
+    double imgX = (mouseX - drawX) / scaleXf;
+    double imgY = (mouseY - drawY) / scaleYf;
 
     for (ControlDef c : controls) {
       if (Math.hypot(imgX - c.cx, imgY - c.cy) <= c.radius) {

@@ -59,7 +59,10 @@ public class SwingRecordingCleanerDialog extends JDialog {
   }
 
   private void initializeUI() {
-    setSize(850, 580);
+    // Wide enough for the bottom action bar (status text + QUARANTINE ALL / DELETE ALL buttons)
+    // to render without truncating or overlapping.
+    setSize(1100, 620);
+    setMinimumSize(new Dimension(1000, 560));
     setLocationRelativeTo(getOwner());
     getContentPane().setBackground(BG_DARK);
     setLayout(new BorderLayout(10, 10));

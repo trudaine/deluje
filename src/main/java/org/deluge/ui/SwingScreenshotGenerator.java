@@ -32,6 +32,18 @@ public class SwingScreenshotGenerator {
                 System.out.println("[Screenshot] Capturing Main Sequencer grid...");
                 SwingUtilities.invokeAndWait(
                     () -> {
+                      // Force the CLIP workspace — a multi-track song boots into SONG/ARR view,
+                      // which is not what a "main sequencer" screenshot should show.
+                      app.setWorkspaceView("CLIP");
+                      var proj = app.getCurrentProject();
+                      if (proj != null) {
+                        for (int t = 0; t < proj.getTracks().size(); t++) {
+                          if (proj.getTracks().get(t) instanceof org.deluge.model.SynthTrackModel) {
+                            app.switchToTrackEdit(t, 0);
+                            break;
+                          }
+                        }
+                      }
                       app.getClipPanel().setShiftHeld(false);
                       app.repaint();
                     });
@@ -44,7 +56,12 @@ public class SwingScreenshotGenerator {
                     "[Screenshot] Capturing Sequencer Grid with Shift state active...");
                 SwingUtilities.invokeAndWait(
                     () -> {
+                      // The pad shortcut overlay reads SwingHardwareTopPanel.isShiftActive(),
+                      // so the top panel's shift state must be set too — the grid panel's own
+                      // flag alone draws nothing.
                       app.getClipPanel().setShiftHeld(true);
+                      if (app.hardwareTopPanel != null) app.hardwareTopPanel.setShiftHeld(true);
+                      app.getClipPanel().refresh();
                       app.repaint();
                     });
                 Thread.sleep(1500);
@@ -53,6 +70,8 @@ public class SwingScreenshotGenerator {
                 SwingUtilities.invokeAndWait(
                     () -> {
                       app.getClipPanel().setShiftHeld(false);
+                      if (app.hardwareTopPanel != null) app.hardwareTopPanel.setShiftHeld(false);
+                      app.getClipPanel().refresh();
                       app.repaint();
                     });
                 Thread.sleep(500);
@@ -61,8 +80,12 @@ public class SwingScreenshotGenerator {
                 System.out.println("[Screenshot] Switching to Automation Overview workspace...");
                 SwingUtilities.invokeAndWait(
                     () -> {
-                      app.setWorkspaceView("AUTOMATION");
+                      // NOTE: the automation workspace card is registered as "AUTO" —
+                      // "AUTOMATION" was a silent no-op that left the previous view on screen
+                      // (which is how the automation screenshots became duplicates of it).
+                      app.setWorkspaceView("AUTO");
                       app.getAutoPanel().setAutoOverviewMode(true);
+                      app.getAutoPanel().refresh();
                       app.repaint();
                     });
                 Thread.sleep(1500);
@@ -75,7 +98,9 @@ public class SwingScreenshotGenerator {
                     "[Screenshot] Switching to Automation Detail Editor workspace...");
                 SwingUtilities.invokeAndWait(
                     () -> {
+                      // setAutoOverviewMode only flips the flag; the view rebuilds on refresh().
                       app.getAutoPanel().setAutoOverviewMode(false);
+                      app.getAutoPanel().refresh();
                       app.repaint();
                     });
                 Thread.sleep(1500);

@@ -1380,7 +1380,14 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   public void setAutoOverviewMode(boolean overview) {
-    automationController.setOverviewMode(overview);
+    if (automationController.isOverviewMode() != overview) {
+      automationController.setOverviewMode(overview);
+      // The overview/editor flag isn't part of refresh()'s structureChanged fingerprint, so a
+      // plain refresh() takes the refreshInPlace() path and the view never switches. Force a
+      // full rebuild the same way setProjectModel does.
+      lastColumnCount = 0;
+      refresh();
+    }
   }
 
   public org.deluge.model.ProjectModel getProjectModel() {
