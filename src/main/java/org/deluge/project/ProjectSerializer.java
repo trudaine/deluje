@@ -671,6 +671,7 @@ public class ProjectSerializer {
             switch (synth.getFilterMode()) {
               case LADDER_24 -> "24dB";
               case SVF -> "SVF";
+              case OFF -> "Off";
               default -> "12dB";
             });
 
@@ -682,6 +683,7 @@ public class ProjectSerializer {
               case DRIVE -> "DRIVE";
               case SVF_BAND -> "SVF Band";
               case SVF_NOTCH -> "SVF Notch";
+              case OFF -> "Off";
               default -> "12dB";
             });
 

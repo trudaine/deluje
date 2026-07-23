@@ -180,6 +180,7 @@ public class KitSynthSerializer {
           switch (sound.getLpfMode()) {
             case LADDER_24 -> "24dB";
             case SVF -> "SVF";
+            case OFF -> "Off";
             default -> "12dB";
           };
       appendTextChild(doc, soundElem, "lpfMode", lpfModeStr);
@@ -192,6 +193,7 @@ public class KitSynthSerializer {
             case DRIVE -> "DRIVE";
             case SVF_BAND -> "SVF Band";
             case SVF_NOTCH -> "SVF Notch";
+            case OFF -> "Off";
             default -> "12dB";
           };
       appendTextChild(doc, soundElem, "hpfMode", hpfModeStr);
@@ -521,6 +523,7 @@ public class KitSynthSerializer {
         switch (synth.getFilterMode()) {
           case LADDER_24 -> "24dB";
           case SVF -> "SVF";
+          case OFF -> "Off";
           default -> "12dB";
         };
     appendTextChild(doc, root, "lpfMode", lpfModeStr);
@@ -533,6 +536,7 @@ public class KitSynthSerializer {
           case DRIVE -> "DRIVE";
           case SVF_BAND -> "SVF Band";
           case SVF_NOTCH -> "SVF Notch";
+          case OFF -> "Off";
           default -> "12dB";
         };
     appendTextChild(doc, root, "hpfMode", hpfModeSynthStr);

@@ -601,6 +601,9 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
       case SVF_BAND:
         fw2Sound.lpfMode = org.deluge.firmware2.FilterSet.FilterMode.SVF_BAND;
         break;
+      case OFF:
+        fw2Sound.lpfMode = org.deluge.firmware2.FilterSet.FilterMode.OFF;
+        break;
     }
   }
 
@@ -625,6 +628,7 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
       case SVF_NOTCH:
         fw2Sound.hpfMode = org.deluge.firmware2.FilterSet.FilterMode.SVF_NOTCH;
         break;
+      case OFF:
       default:
         fw2Sound.hpfMode = org.deluge.firmware2.FilterSet.FilterMode.OFF;
         break;

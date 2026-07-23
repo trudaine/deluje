@@ -7,5 +7,8 @@ public enum FilterMode {
   SVF,
   DRIVE,
   SVF_BAND,
-  SVF_NOTCH
+  SVF_NOTCH,
+  // C filter_config.h:31 — filter bypassed; serialized as "Off" since firmware #4688. Keep last
+  // so existing ordinals stay stable.
+  OFF
 }

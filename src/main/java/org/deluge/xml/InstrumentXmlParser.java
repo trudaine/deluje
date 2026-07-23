@@ -744,6 +744,8 @@ public class InstrumentXmlParser {
             synth.setFilterMode(FilterMode.SVF_BAND);
           } else if ("SVF_NOTCH".equalsIgnoreCase(v) || "SVF Notch".equalsIgnoreCase(v)) {
             synth.setFilterMode(FilterMode.SVF_NOTCH);
+          } else if ("Off".equalsIgnoreCase(v)) {
+            synth.setFilterMode(FilterMode.OFF);
           } else {
             synth.setFilterMode(FilterMode.LADDER_12);
           }
@@ -764,6 +766,8 @@ public class InstrumentXmlParser {
             synth.setHpfMode(FilterMode.SVF_BAND);
           } else if ("SVF_NOTCH".equalsIgnoreCase(v) || "SVF Notch".equalsIgnoreCase(v)) {
             synth.setHpfMode(FilterMode.SVF_NOTCH);
+          } else if ("Off".equalsIgnoreCase(v)) {
+            synth.setHpfMode(FilterMode.OFF);
           } else {
             synth.setHpfMode(FilterMode.LADDER_12);
           }

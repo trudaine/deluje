@@ -207,6 +207,7 @@ public class KitXmlParser {
         "lpfMode",
         v -> {
           if ("24dB".equals(v)) sound.setLpfMode(FilterMode.LADDER_24);
+          else if ("Off".equalsIgnoreCase(v)) sound.setLpfMode(FilterMode.OFF);
           else sound.setLpfMode(FilterMode.LADDER_12);
         });
     readAttrOrChildString(
@@ -220,6 +221,7 @@ public class KitXmlParser {
             sound.setHpfMode(FilterMode.SVF_BAND);
           else if ("SVF_NOTCH".equals(v) || "SVF Notch".equalsIgnoreCase(v))
             sound.setHpfMode(FilterMode.SVF_NOTCH);
+          else if ("Off".equalsIgnoreCase(v)) sound.setHpfMode(FilterMode.OFF);
           else sound.setHpfMode(FilterMode.LADDER_12);
         });
     readAttrOrChildString(
