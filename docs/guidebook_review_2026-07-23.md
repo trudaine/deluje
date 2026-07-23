@@ -175,8 +175,13 @@ kind: content clipped *without* a scrollbar, truncated labels, and wrong capture
   button made opaque (some look-and-feels painted white-on-white); algorithm list now opens
   scrolled to the top.
 
-### Still open (low value)
+### Third pass (fixed 2026-07-23, final follow-up)
 
-- Wavetable editor "Save wavetable to SD..." button label can ellipsize at narrow widths.
-- FM ratio unit label in the OSC/FILTER/FM tab can truncate ("×0…").
-- MIDI-settings channel spinners are very narrow; drone-lab Style dropdown is low-contrast.
+- Wavetable-editor buttons now size to their labels (fixed 150px width could ellipsize); the
+  "Save wavetable to SD..." trailing dots turned out to be part of the literal caption, not a
+  truncation.
+- Synth-dialog unit labels size to their text (the "×0.01" suffix clipped at a fixed 28px).
+- Preferences MIDI-follow channel combos widened; drone-lab Style dropdown given an
+  explicit-color renderer for look-and-feels that ignore combo foreground.
+
+**Nothing remains open from this review.**
