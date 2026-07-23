@@ -1133,7 +1133,8 @@ public class SwingSynthConfigDialog extends JDialog {
     JLabel unitLbl = new JLabel(unit);
     unitLbl.setFont(new Font("SansSerif", Font.PLAIN, 11));
     unitLbl.setForeground(Color.GRAY);
-    unitLbl.setPreferredSize(new Dimension(28, 20));
+    // Wide enough for the longest unit strings ("×0.01" clipped at a fixed 28px).
+    unitLbl.setPreferredSize(new Dimension(Math.max(28, unitLbl.getPreferredSize().width + 4), 20));
 
     valContainer.add(valField);
     valContainer.add(unitLbl);

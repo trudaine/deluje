@@ -98,6 +98,22 @@ public class SwingDroneLabDialog extends JDialog {
     styleCombo.setBackground(BG_CONTROL);
     styleCombo.setForeground(TEXT_LIGHT);
     styleCombo.setFocusable(false);
+    // Some look-and-feels ignore the combo's own foreground for the displayed value, leaving
+    // gray-on-gray; a renderer with explicit colors keeps the selection readable.
+    styleCombo.setRenderer(
+        new DefaultListCellRenderer() {
+          @Override
+          public Component getListCellRendererComponent(
+              JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+            Component c =
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            if (!isSelected) {
+              c.setBackground(BG_CONTROL);
+              c.setForeground(TEXT_LIGHT);
+            }
+            return c;
+          }
+        });
     configCard.add(styleCombo);
 
     configCard.add(label("Tonality:"));

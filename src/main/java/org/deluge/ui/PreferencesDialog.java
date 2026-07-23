@@ -451,7 +451,7 @@ public class PreferencesDialog extends JDialog {
       int savedCh = Integer.parseInt(PreferencesManager.get("midi.follow.ch" + fLabel, "1"));
       chCombo.setSelectedIndex(savedCh - 1);
       styleComboBox(chCombo);
-      chCombo.setPreferredSize(new Dimension(60, 22));
+      chCombo.setPreferredSize(new Dimension(72, 22));
       chCombo.addActionListener(
           e -> {
             PreferencesManager.set(
