@@ -26,7 +26,12 @@ reference):
 | 9 Delugeator | b | 19 Community Ref | c ✓ | 29 Premium UI | c |
 | 10 Panels/Shift | c | 20 Workflow Tips | a | | |
 
-Top rewrite candidates (should be scenario-driven but aren't):
+Top rewrite candidates (should be scenario-driven but aren't) — items 1, 2, 3, 6 and the jargon
+leaks below were addressed in the 2026-07-23 follow-up commits (§16, §13, §23 rewritten
+scenario-first; §14.8's developer calibration content moved to
+[hardware_dsp_tap_calibration.md](hardware_dsp_tap_calibration.md); duplicate 10.3 headings and
+duplicate tutorial letters L/N fixed). Items 4, 5, 7 (§10 pad inventory, §1.11/1.12 full
+restructure beyond the jargon fix, §17.3/§29 reframes) remain open:
 
 1. **§16 MPE** — pure concept; never says how to enable/route MPE. Open with the player's goal
    (per-finger bend/slide routed to filter cutoff) and give actual steps.
@@ -132,3 +137,40 @@ Prioritized screenshots to add (Swing app captures unless noted):
 
 Cross-cutting conventions worth adopting from the official book: an opening workflow flowchart
 (mermaid) per major chapter, and a pad-color legend under every grid screenshot.
+
+## 4. Screenshot quality audit (2026-07-23 follow-up) — scrollbars, clipping, accessibility
+
+All 56 images were visually audited (three parallel reviewers, every file opened and inspected)
+for scrollbars that betray a wrong default size, clipped/inaccessible controls, and readability.
+
+**Verdict on scrollbars:** none of the captures shows a "bad" scrollbar (a dialog whose controls
+are cut off behind one). The only scrollers visible are inherent ones — the grid's row scroller,
+the piano roll's pitch axis, the 32-item algorithm list. The failures found were the opposite
+kind: content clipped *without* a scrollbar, truncated labels, and wrong captures entirely.
+
+### Fixed same day (code + regenerated captures)
+
+| Problem | Root cause | Fix |
+| :--- | :--- | :--- |
+| `deluge_grid_automation_{overview,editor}.png` and `deluge_main_grid_shift.png` byte-identical to `deluge_main_sequencer.png` (4 copies of one Song-view shot) | Pipeline switched to card "AUTOMATION" but the card is registered "AUTO" (silent no-op); shift overlay reads `SwingHardwareTopPanel.isShiftActive()`, not the grid flag; `main_sequencer` never forced CLIP view | Generator fixed on all three counts; all four images now distinct and correct |
+| OVERVIEW/EDITOR toggle in the automation workspace did nothing (screenshot symptom of an app bug) | The overview/editor flag isn't part of `refresh()`'s structureChanged fingerprint, so toggling took the `refreshInPlace()` path | `setAutoOverviewMode` now forces a full rebuild; the panel's toggle routes through it |
+| `deluge_synth_tab_algorithm.png`: every routing string read "OP1 ? OP2 ? …" | Panel read `Dx7EngineLookupTables.ALGORITHMS` — a 2048-zero array no code ever fills — and its "FB=7-algo" formula was invented | `formatAlgorithmMini` now reads the engine's real `FmCore.ALGORITHMS` (index i = operator 6−i) and renders carrier/modulator roles + the actual feedback operator |
+| `deluge_recording_cleaner.png`: bottom buttons truncated/overlapping | Dialog fixed at 850×580, too narrow for its action bar | 1100×620 with a minimum size; action bar renders complete |
+| "MASTER EFFECTS CONSOLI" title on all four FX-console shots | Emoji-prefixed label under-measures, clipping the final glyph | Trailing padding on the title label |
+
+### Known remaining cosmetics (not yet fixed)
+
+- `deluge_synth_tab_modulation.png` — matrix column headers crushed/truncated (columns narrower
+  than their labels).
+- `deluge_waveform_crop.png` — "UTILITY & GROUPS" section clipped at the bottom with no
+  scrollbar (controls under it undiscoverable at this size).
+- `deluge_synth_tab_automation.png` — header text runs under the "Clear All Automation" button;
+  panel bottom cut in the capture.
+- `deluge_bar_automation.png` — tiny fragment crop; retake showing the whole dialog.
+- `deluge_project_explorer.png` — selected tab label unreadable (light pill on light background);
+  header button truncated.
+- Minor label truncations: keyzone mapper title, wavetable editor title/save button, wavetable
+  lab "NONE", FM ratio unit, performance-view "SIDECHAI" column, MIDI-settings channel spinners,
+  drone-lab "⚡" unlabeled button, euclidean dialog blank button.
+- The algorithm list opens pre-scrolled mid-list; scrolling to the top before capture would read
+  better.

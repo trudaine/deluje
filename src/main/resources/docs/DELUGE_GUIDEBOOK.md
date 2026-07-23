@@ -33,11 +33,11 @@ Welcome to the **Deluge-Java Workstation**, a software recreation and operations
 11. [Audio Tracks, Time-Stretching & Pitch-Shifting](#11-audio-tracks-time-stretching--pitch-shifting)
 12. [Advanced Wavetable Index Scan Editor](#12-advanced-wavetable-index-scan-editor)
 13. [Pedal Looper & Continuous Multi-Layer Overdubs](#13-pedal-looper--continuous-multi-layer-overdubs)
-14. [MIDI Hardware, Device Mappings & Pure SD File Explorer](#14-midi-hardware-device-mappings--pure-sd-file-explorer)
+14. [MIDI Hardware, Device Mappings & SD Card Explorer](#14-midi-hardware-device-mappings--sd-card-explorer)
     * [14.5 MIDI CC Parameter Takeover Algorithms](#145-midi-cc-parameter-takeover-algorithms)
     * [14.6 Bidirectional SysEx Command Protocol](#146-bidirectional-sysex-command-protocol)
     * [14.7 DAW Import & Export Suite: Ableton Live Sets (.als)](#147-daw-import--export-suite-ableton-live-sets-als)
-    * [14.8 Card Sync, Live DSP-Tap & Parity Calibration](#148-card-sync-live-dsp-tap--parity-calibration)
+    * [14.8 USB Card Sync (Push & Pull)](#148-usb-card-sync-push--pull)
 15. [Performance View & FX Touch-Pads Grid](#15-performance-view--fx-touch-pads-grid)
 16. [MPE & Multi-Dimensional Controller Expression](#16-mpe--multi-dimensional-controller-expression)
 17. [System Settings, Directories Preferences & Shortcuts Table](#17-system-settings-directories-preferences--shortcuts-table)
@@ -223,12 +223,9 @@ The grid resolution can be zoomed from anywhere inside the active window using s
 *   🔍 **Cycle every grid layout**: **`Alt + PageUp`** / **`Alt + PageDown`** steps through all available grid profiles (including the tall `16x24` layout) from anywhere in the app.
 
 #### Proportional Fixed-Row Scaling:
-The bottom fixed panels — **`MACROS`** (vertical DSP routing knobs) and **`KEYBOARD`** (the playhead note isomorphic keyboard) — are **decoupled from static row indexes and integrated into the layout system**:
-*   **Dynamic Positioning**: The fixed rows automatically calculate their positions based on `gridMode.rows` (Macros are placed at index `gridMode.rows`, and Keyboard at index `gridMode.rows + 2`). They do not overlap or hide sequencer notes when switching views.
-*   **Proportional Height Sync**: The height of these fixed rows scales in proportion to the voice pads size (`padSz`):
-    *   **Macros Height**: `(int) (padSz * 1.1)` (capped at a minimum of `28` pixels for usability).
-    *   **Keyboard Height**: `(int) (padSz * 0.6)` (capped at a minimum of `16` pixels).
-*   *Result*: As you zoom out to denser modes (like `24x16` or `16x24`), the keyboard keys and macro sliders shrink proportionally, maintaining layout balance and optimizing vertical screen space.
+The bottom panels — **`MACROS`** (the macro knobs row) and **`KEYBOARD`** (the playable keyboard strip) — stay in place below the grid at every zoom level:
+*   **They never cover your notes**: switching layouts repositions them under the last sequencer row automatically.
+*   **They scale with the pads**: zoom out to a denser layout (like `24x16` or `16x24`) and the keyboard keys and macro knobs shrink proportionally — never below a comfortably clickable minimum — so the grid keeps the lion's share of the screen.
 
 #### 🖥️ The Interactive "View" Menu:
 A View menu is located in the main menu bar. It provides:
@@ -260,13 +257,9 @@ graph TD
     D -->|Click UNFLD Button| A
 ```
 
-#### Key Features & System Architecture:
-* **The Unified Pitch Resolver**: 
-    * In a collapsed UI layout, note triggers must map back to their absolute pitches.
-    * The workstation implements a pitch resolver that maps step clicks on the folded view back to their absolute chromatic MIDI pitches, ensuring perfect data integrity.
-* **Auto-Hiding Scroll Controls**:
-    * If the active note rows fit on a single screen (8 rows or fewer), the vertical scrollbar, Page Up, and Page Down buttons **automatically hide** to maximize grid workspace.
-    * The side navigation panel remains locked at a fixed width of **32 pixels** to prevent horizontal pad shifting.
+#### What folding does — and doesn't — change:
+* **Your notes keep their true pitches**: folding only changes what's *displayed*. A step you click on the folded grid lands on exactly the pitch that row represents — playback and the saved song are identical folded or unfolded.
+* **Scroll controls get out of the way**: when the active note rows fit on one screen (8 rows or fewer), the vertical scrollbar and Page Up/Down buttons hide automatically to give the grid the full workspace.
 
 #### How to Use Fold Mode:
 1. Select a Synth track to enter its Track View.
@@ -567,7 +560,7 @@ Open the sound editor (double-click the track name) and select the **`MODULATION
 * **Connect a New Cable**: Click the green **`[+ Connect New Modulation Cable]`** button at the bottom. A new routing row is instantiated at the end of the scroll list.
 * **Configure Ports**: Select the source (e.g. `lfo1`) in the left combobox and the destination (e.g. `lpfFrequency`) in the right combobox.
 * **Toggle Polarity**: Click the **`[Bipolar]`** toggle button. When selected, it glows in warm amber indicating bipolar mode (amount range $-100\%$ to $+100\%$); when unselected, it styles in dark charcoal indicating unipolar mode (amount range $0\%$ to $100\%$).
-* **Adjust Slider Depth**: Drag the glowing cyan JSlider to set the modulation intensity. The numeric label displays the exact percentage (e.g. `+45%` or `-80%`). Changes are applied to the synthesis engine parameters.
+* **Adjust Slider Depth**: Drag the glowing cyan depth slider to set the modulation intensity. The numeric label displays the exact percentage (e.g. `+45%` or `-80%`). Changes are applied to the synthesis engine parameters.
 * **Disconnect / Delete Cable**: Click the red **`[✖]`** button on the right to instantly disconnect the cable, restoring the destination's default behavior.
 
 ---
@@ -818,7 +811,7 @@ In addition to the main grid pads, holding **[SHIFT]** while clicking faceplate 
 
 ---
 
-### 10.3 Synth Configuration Dialog Tabs
+### 10.4 Synth Configuration Dialog Tabs
 
 Double-clicking a Synth track opens the sound editor, which displays parameter panels:
 
@@ -872,7 +865,7 @@ Double-clicking a Synth track opens the sound editor, which displays parameter p
 
 ---
 
-### 10.4 Settings Preferences Dialog
+### 10.5 Settings Preferences Dialog
 
 The Settings Preferences Dialog provides preferences controls:
 
@@ -975,35 +968,37 @@ The **`Wavetable Index Laboratory`** provides an editor to slice, scan, and modu
 
 ## 13. Audio Track Overdubbing & PCM Layer Mixing
 
-The Deluge-Java Workstation provides support for recording, layering, and mixing multiple audio layers on Audio Tracks using external MIDI foot-pedals.
+You're holding a guitar (or standing at a mic) and want to build up a looped arrangement — record a chord progression, then layer a melody and a bassline over it — without ever touching the mouse. That's what the looper is for: bind a foot-pedal once, and from then on a single tap does the right thing at every stage.
 
-### 13.1 MIDI Looper Pedal Integration
-You can bind a physical foot-pedal (or MIDI fader/button) to control recording and overdubbing hands-free:
-*   **CC Mapping**: In the MIDI CC Learn section of Preferences (**`Settings ➔ MIDI Settings...`**), input the parameter name **`action_looper_pedal`** and sweep your controller fader or click the foot-pedal to automatically bind the CC action.
-*   **Looper State Machine**: A single foot-pedal tap cycles through the looper's active phases:
-    1.  **Idle / Armed**: Tapping the pedal immediately arms and starts recording on the active track (using a `-60 dB` threshold for instant trigger). If the workstation is not currently playing, it automatically toggles the master play clock.
-    2.  **Recording**: Tapping the pedal while recording finishes the current layer, stops recording, and begins looping the captured phrase.
-    3.  **Overdubbing**: On subsequent takes, the workstation automatically detects that a baseline WAV file exists. It enters overdub mode, mixing the incoming signal with the existing file in real-time. Tapping the pedal again stops overdub recording and preserves loop playback.
+### 13.1 Layer a Loop Hands-Free with a Foot-Pedal
 
-### 13.2 Auto-BPM Tempo Detection
-When you record your baseline loop without a click track, the workstation automatically estimates and sets the master tempo:
-*   **Tempo Parity Calculation**: When the first recording on an Audio Track stops, the engine calculates the duration of the captured PCM audio in seconds. It compares this duration against the track's configured clip length (expressed in beats) using the formula:
-    $$\text{BPM} = \frac{\text{beatsCount} \times 60}{\text{duration}}$$
-*   **Automatic Tempo Sync**: The project's BPM and play clock are updated to match the detected tempo (clamped between 40 and 280 BPM). The new tempo value is sent to the physical hardware display to confirm the sync.
+**One-time setup** — bind your pedal:
+1. Open **`Settings ➔ MIDI Settings...`** and go to the CC Learn section.
+2. Type **`action_looper_pedal`** as the parameter name, click **`[START LEARN]`**, and tap your foot-pedal (or press any MIDI button/fader). The binding registers automatically.
+
+**Then perform.** Each pedal tap advances the looper to whatever comes next:
+1.  **First tap — record.** Recording starts on the active audio track the instant you play (a very sensitive `-60 dB` trigger, so your first note isn't clipped). If the transport isn't running, it starts automatically.
+2.  **Second tap — loop.** The take you just played becomes a loop and starts playing back immediately. Keep playing along.
+3.  **Further taps — overdub.** With a loop already down, tapping drops you into overdub: what you play is mixed on top of the existing loop in real time. Tap again to close that layer while the loop keeps playing — then tap to overdub the next one.
+
+> [!NOTE]
+> Undoing just the *last* overdub layer isn't currently possible — layers are mixed into the loop as they're recorded.
+
+### 13.2 No Click Track Needed — the Tempo Follows You
+
+Record your first loop freely, without a metronome: when the take ends, the workstation measures how long it was, works out what tempo makes it fit the clip's length in beats, and sets the project BPM to match (anywhere from 40 to 280 BPM). Your loop is now *the* clock — everything you sequence afterwards lands in time with what you played. The detected tempo is also shown on the hardware display so you can confirm it.
 
 ### 13.3 Track Controls
-Real-time playback and recording are managed via the **`Audio Track`** panel inside the sidebar or track inspector:
-*   **REC**: Toggles microphone/line-in capture. If `overdubsShouldCloneAudioTrack` is active, it layers new input on top of the active clip.
+
+For mouse-driven control of the same machinery, the **`Audio Track`** panel (in the sidebar or Track Inspector) offers:
+*   **REC**: Toggles microphone/line-in capture; with a loop already recorded, it layers new input on top of the active clip.
 *   **PLAY**: Starts or stops playback of the track's audio clip.
 *   **LOOP**: Toggles loop wrap-around on or off.
 *   **Rate Slider**: Speeds up or slows down the playback rate (from `0.25x` to `4.00x`).
 
-> [!NOTE]
-> **Unimplemented Features**: Layer-by-layer looper undo/redo (reverting only the last overdub layer) is not currently implemented.
-
 ---
 
-## 14. MIDI Hardware, Device Mappings & Pure SD File Explorer
+## 14. MIDI Hardware, Device Mappings & SD Card Explorer
 
 The Deluge Workstation separates file-system assets browsing from hardware device settings. The **SD Card Explorer** is a directory tree, while physical MIDI controllers, inputs, CC learning, and sync channels are managed in a dedicated settings dialogue.
 
@@ -1026,7 +1021,7 @@ Connecting a physical Deluge hardware unit to the Deluge-Java Workstation provid
 
 ---
 
-### 14.1 Pure JTree SD Card Explorer (`deluge_project_explorer.png`)
+### 14.1 The SD Card Explorer
 * **The Interface**: Access the sidebar or float dialogue by pressing **`Command/Ctrl + E`** (or selecting **`File ➔ Show Explorer`**). The explorer is a file and preset tree panel scrolling through active SD Card paths:
   * **`KITS`**: Browse kit XML files and load them directly onto project tracks.
   * **`SYNTHS`**: Load individual voice presets.
@@ -1034,13 +1029,13 @@ Connecting a physical Deluge hardware unit to the Deluge-Java Workstation provid
   * **`PATTERNS`**: Double-click to load saved track clip sequences or load script files.
 * **Zero Clutter**: Mocked or static placeholder tabs have been removed.
 
-![Pure JTree Project File Explorer](images/deluge_project_explorer.png)
+![The SD Card Explorer sidebar](images/deluge_project_explorer.png)
 
 ---
 
 ### 14.1.1 Contextual Library Picker & Track Inspector (Scoped Preset / Sample Swapping)
 
-The global JTree explorer above is the "browse everything" view. For the common case of swapping a specific sound, the Workstation adds **contextual pickers** scoped to only the relevant assets.
+The explorer above is the "browse everything" view. For the common case of swapping a specific sound, the Workstation adds **contextual pickers** scoped to only the relevant assets.
 
 * **Fixed Track-Inspector Strip**: An always-visible strip sits **above the grid**, showing the **active track** as `ACTIVE TRACK · T<n> · <name> [TYPE]` with two controls:
   * **`⚙ Configure`** — opens the config dialog for the active track.
@@ -1179,7 +1174,7 @@ Because Ableton Live Sets can contain a mixture of native instruments and third-
 #### 🛰️ Core Audio Engine Patch Matrix Synthesis
 To make these imported parameters sound alive, the core audio engine dynamically compiles the imported envelope targets into the **Modulation Patch Matrix**:
 * **The Concept**: While Envelope 0 is hardwired to master volume, Envelopes 1, 2, and 3 must be patched dynamically in the DSP engine.
-* **The Execution**: If the importer maps an envelope to `"FILTER"` or `"PITCH"`, the engine physically synthesizes a virtual **PatchCable** connecting `PatchSource.ENVELOPE_1` to `Param.LOCAL_LPF_FREQ` or `Param.LOCAL_PITCH_ADJUST` in the voice mixer. This unlocks real-time, snappy filter sweeps and pitch modulations for the very first time!
+* **The Execution**: If the importer maps an envelope to `"FILTER"` or `"PITCH"`, the engine wires an internal modulation patch cable from Envelope 1 to the filter cutoff or to pitch — so imported patches keep their snappy filter sweeps and pitch modulations.
 
 #### 🎹 Step-by-Step Ableton Import Tutorial
 Follow these precise steps to import your Ableton Live Set and play it in the Deluge Workstation:
@@ -1192,36 +1187,12 @@ Follow these precise steps to import your Ableton Live Set and play it in the De
 
 ---
 
-### 14.8 Card Sync, Live DSP-Tap & Parity Calibration
+### 14.8 USB Card Sync (Push & Pull)
 
-The Workstation features a **Hardware Calibration & Sync Deck** designed for developers and power users who want to link their physical Deluge directly to the software workstation via USB for file transfers and sample-accurate DSP comparisons.
+Instead of ejecting and re-inserting the SD card continually, the workstation can talk to the physical Deluge's file system directly over USB:
 
-#### 🗂️ 1. USB SD Card Synchronization (Push & Pull)
-Instead of ejecting and inserting the SD card continually, the workstation communicates directly with the physical Deluge's file system over USB using the Card Sync utility:
-* **Pulling Songs/Presets**: Right-click the **Hardware Status Panel** (or the **Pure SD Card Explorer** sidebar) and select **"Pull Calibration Files"** or **"Sync Card Content"**. This reads XML files and samples directly from the physical Deluge's SD Card and clones them into the local directory.
-* **Pushing Workstation Edits**: Edit your song or synth parameters in the Java UI, then select **"Push Current Song to Card"** from the status panel. The workstation packages the XML payload and transfers it over USB, saving it instantly on the physical Deluge's SD Card.
-
-#### 🔭 2. Live DSP-Tap Hardware Capture
-For absolute audio-fidelity debugging, you can capture raw, sample-accurate, 32-bit floating-point audio data directly from the physical Deluge's hardware DSP rendering buffer over USB. This allows you to compare the physical hardware's audio output side-by-side with the Java emulation:
-* **Requirements**: Connect the physical Deluge via USB and ensure it is running the custom C++ firmware compiled from the `feat/dsp-buffer-dump` branch.
-* **Arming the Capture**: Run the hardware harness (`HardwareDspTapTest`) from your terminal:
-  ```bash
-  mvn test -Dtest=HardwareDspTapTest -Pslow-tests -Dgpg.skip=true
-  ```
-* **Triggering**: The harness communicates with the Deluge via SysEx, sends a MIDI note-on trigger, arms the capture on the hardware at note-onset to capture the exact attack transient, and reads back the 4096-sample rendering buffer chunk-by-chunk.
-* **Analysis**: The captured samples are stored locally to let you run spectral analysis and time-resolved cosine comparisons to calibrate envelopes, filters, and modulation indices.
-
-#### 🛠️ Example: Debugging & Calibrating an FM Bell Patch
-Here is how to run a live debugging session to calibrate the FM synthesis engine (e.g., `068 FM Bells 1`) to match the hardware:
-1. **Connect the Deluge**: Enable USB MIDI on your hardware running the debug firmware.
-2. **Synchronize the Patch**: Right-click the status panel and select **"Pull Calibration Files"**. This pulls the XML preset onto your computer.
-3. **Capture Hardware Output**: Run the tap harness with `-Dtap.onset=true`. Strike the note pad on the physical Deluge. The harness arms, captures the sound, and saves the raw DSP float buffer to `target/tap_capture.txt`.
-4. **Compare & Calibrate**: Run the FM Index Sweep test suite:
-   ```bash
-   mvn test -Pslow-tests -Dtest=FmIndexSweepTest
-   ```
-   This renders the patch inside the Java engine at different modulation index multiplier scales and compares each mathematically (log-spectral cosine similarity) against the hardware capture.
-5. **Adjust Engine Parameters**: Use the sweep results to identify whether the mismatch is a constant scaling difference (e.g., index multiplier needs to be scaled by 0.5) or an envelope decay issue, and adjust your synthesis coefficients in `org.deluge.firmware2` to achieve perfect parity.
+* **Pulling Songs/Presets**: Right-click the **Hardware Status Panel** (or the **SD Card Explorer** sidebar) and select **"Pull Calibration Files"** or **"Sync Card Content"**. This reads song files and samples straight from the physical Deluge's SD Card and clones them into your local library.
+* **Pushing Workstation Edits**: Edit your song or synth parameters in the workstation, then select **"Push Current Song to Card"** from the status panel. The song transfers over USB and is saved instantly on the physical Deluge's SD Card.
 
 ---
 
@@ -1259,7 +1230,7 @@ The **`Performance View (PERF)`** provides a hardware-inspired 18-column × 8-ro
 * **Mode Toggle**: Managed via the **`MODE`** toggle button in the panel's top bar (which displays the active state, `LATCH` or `MOMENTARY`).
 * **Column Section Mutes**: Pressing a column's header button acts as a group bypass/mute, instantly resetting all active values in that column block back to their safe baseline states.
 
-#### 🔊 Tutorial L: Live High-Pass Filtering & Stutter Sweeps during Drops
+#### 🔊 Tutorial R: Live High-Pass Filtering & Stutter Sweeps during Drops
 1. Press **`Spacebar`** to start playing a heavy, 4-bar drum beat sequence.
 2. Click the **`PERF`** button on the top toolbar to open the Performance touch-pads grid.
 3. Look at the Performance top bar: toggle the **`MODE`** button to **`MOMENTARY`** to activate live momentary triggers mode!
@@ -1271,7 +1242,17 @@ The **`Performance View (PERF)`** provides a hardware-inspired 18-column × 8-ro
 
 ## 16. MPE & Multi-Dimensional Controller Expression
 
-Multi-Dimensional Polyphonic Expression (MPE) is the modern standard for expressive controller tracking, supported natively by the sound engine:
+You've plugged in a Seaboard, LinnStrument, or another MPE controller, and you want each finger to shape its own note — bend one note of a held chord while the others stay put, swell a single voice with pressure, brighten just the melody note with a slide. The workstation supports this natively; there is no switch to flip.
+
+**To play expressively:**
+1. Connect your controller and select it as the input device (**`Settings ➔ MIDI Settings...`** ➔ Device Port Selector).
+2. Make sure your controller is in MPE mode (most send it by default), so each held note gets its own MIDI channel.
+3. Select the synth track you want to play. Every note you now play carries three independent gestures, applied *to that note only*:
+   * **Bend a finger sideways (X — pitch bend)**: bends that one voice's pitch while the rest of the chord holds steady.
+   * **Slide a finger up/down the key (Y — timbre)**: sweeps that voice's tone — brightness rises and falls under your finger.
+   * **Press deeper (Z — pressure)**: swells that single voice's intensity, letting you crescendo one note inside a sustained chord.
+
+**How it routes**: notes arriving on per-voice channels (channels 2–16 in MPE mode) are matched to their own sounding voice, so each gesture lands only on its note. Messages on the master channel (channel 1) behave like classic MIDI and shape all sounding notes together — bend the whole chord with the pitch wheel, for example. Both work at the same time.
 
 ```mermaid
 graph TD
@@ -1279,12 +1260,6 @@ graph TD
     A -->|Note On Channel 3| C[Voice 2 - Pitch/Pressure/Slide independent]
     A -->|Note On Channel 4| D[Voice 3 - Pitch/Pressure/Slide independent]
 ```
-
-* **Polyphonic Multi-Channel Routing**: Unlike standard MIDI where modulations (like pitch bend or mod wheel) affect ALL active sounding notes globally, MPE assigns each individual voice note to its own distinct MIDI Channel (Channels 2–15).
-* **Multi-Dimensional Voice Vectors**: Tracks three axes of movement independently per key pressed:
-  * **X-Axis (Pitch Bend)**: Horizontal key movement. Smoothly bends the individual voice pitch across custom ranges (from $\pm 2\text{ semitones}$ to full $\pm 48\text{ semitones}$ ranges).
-  * **Y-Axis (Timbre / Slide)**: Vertical key position slides. Routed directly to filter cutoffs, FM modulation rates, or pulse-widths to sweep sounds individually.
-  * **Z-Axis (Pressure / Aftertouch)**: Dynamic key pressure depth. Routed to virtual VCAs or envelope intensities to modulate volumes and swell single chords polyphonically!
 
 ---
 
@@ -1320,7 +1295,7 @@ Access the interface by selecting **`Settings ➔ Tuning & Temperaments...`** fr
 *   **Scala (.scl) File Import**: Click the **`Import Scala (.scl) File...`** button to open a file browser, select any standard `.scl` file on your disk, and import it. The parser reads the file, extracts step count and ratios, and updates the settings.
 
 #### 2. Note-by-Note Scaling Map
-*   **Cents Adjustments (Equal Temperament Mode)**: Displays a vertical list of rows for notes `00` to `N-1`. Each row has a **JSlider** and a **JSpinner** bound bidirectionally to detune that note class by up to **$\pm 100$ cents**.
+*   **Cents Adjustments (Equal Temperament Mode)**: Displays a vertical list of rows for notes `00` to `N-1`. Each row has a slider and a numeric field (kept in sync with each other) to detune that note class by up to **$\pm 100$ cents**.
 *   **Fractional Ratios (Custom Ratios Mode)**: Displays text fields to type custom ratios. Note 0 is locked to `1.0` (unison). Subsequent text fields support decimal entries and fractional ratios. Evaluated decimal values display next to each text field in real-time.
 
 #### 3. ⚡ Real-Time Live Auditioning
@@ -1338,7 +1313,7 @@ Microtuning configurations are serialized directly inside the song's `.XML` file
 | **`Ctrl + R` / `Cmd + R`** | Tools menu dropdown | Opens the **Delugeator Randomizer & Generators Suite** dialog window. |
 | **`Ctrl + L` / `Cmd + L`** | Tools menu dropdown | Opens the **Audio Loop Slicer & Kit Splitter** breakbeat tool dialog. |
 | **`Ctrl + O` / `Cmd + O`** | File menu dropdown | Spawns a file browser to load a `.XML` project Song/Kit from disk. |
-| **`Ctrl + S` / `Cmd + S`** | File menu dropdown | Overwrites and exports the current active `ProjectModel` structure back to XML. |
+| **`Ctrl + S` / `Cmd + S`** | File menu dropdown | Saves the current project back to its XML song file. |
 | **`Ctrl + Z` / `Cmd + Z`** | Edit action | Undoes the last grid step note change or gate timing adjustment. |
 | **`Ctrl + Y` / `Cmd + Y`** | Edit action | Redoes the last undone sequencer state change from the transaction history stack. |
 | **Hold `Tab` + Click step** | Step velocity | Cycles the clicked step's velocity through 100% → 75% → 50% → 25%. (Views are switched with the **CLIP VIEW** and **SONG** buttons on the hardware top deck — the SONG button toggles between Song and Arranger.) |
@@ -1454,9 +1429,9 @@ This chapter provides a direct, code-by-code mapping of every shortcut code from
 | **GL14** | Adjust Brightness | `Shift` + `Learn` + turn `▼▲` | Handled by OS settings, or layout colors in preferences |
 | **GL15** | Swing amount | `Shift` + turn `Tempo` knob | Drag Swing slider in top transport toolbar / `g_swing` |
 | **GL16** | QWERTY Keyboard Search | Automatic on name browse | Type directly in file browse filters or dialog text fields |
-| **GL17** | Pad Refresh Rate | Scroll menu ➔ refresh rate | Optimized dynamically in Java UI JViewport paint loops |
-| **GL18** | Firmware Update | Hold `Shift` + Power On | Managed by Maven compile and shade packages rebuilds |
-| **GL19** | File System Explorer | Press `Back` button in menus | Navigate Sidebar JTree explorer (`📁 SD CARD EXPLORER`). All subdirectories (grouped first) and candidate files (`.XML`, `.ck`) are automatically sorted alphabetically (`A–Z`)! |
+| **GL17** | Pad Refresh Rate | Scroll menu ➔ refresh rate | Not applicable — the desktop display repaints continuously |
+| **GL18** | Firmware Update | Hold `Shift` + Power On | N/A — updates ship as new application builds |
+| **GL19** | File System Explorer | Press `Back` button in menus | Navigate the sidebar `📁 SD CARD EXPLORER`. All subdirectories (grouped first) and candidate files (`.XML`, `.ck`) are automatically sorted alphabetically (`A–Z`)! |
 | **GL20** | Collect All Samples | Choose collect menu | Handled on Save Project serialization to SD card structure |
 
 ### 19.2 Step Sequencing Parity (SQ)
@@ -1728,8 +1703,8 @@ If you're about to run the Kit Super-Generator, save the project first (`Ctrl + 
 | GL15 | Set Samples Directory | **Settings > Set SD Card Root...** |
 | GL16 | Reverb Model | **Settings > Preferences… → Reverb Model** |
 | GL17 | MIDI Input Device | **Settings > Preferences… → MIDI Input** |
-| GL18 | Adjust UI Font Size | Controlled by `PreferencesManager` |
-| GL19 | Firmware Update | N/A — update the JAR file |
+| GL18 | Adjust UI Font Size | **Settings > Preferences…** ↪ Screen Resolution profile (QHD / FHD / Retina / Default) |
+| GL19 | Firmware Update | N/A — install a newer application build |
 | GL20 | Show/Hide Visualisers | **Settings > Preferences… → Show Visualizers** |
 
 ---
@@ -1919,57 +1894,21 @@ Macro scripts are line-based text files.
 
 ## 23. Interactive Synth Preset Designer
 
-Designing custom sounds is a key workflow in the Deluge-Java Workstation. The application features a comprehensive, multi-tab **Synth Track Editor** window that exposes every aspect of the synthesis engine, including oscillators, envelopes, modulation matrices, LFOs, and hardware-modeled filters.
+You have a sound in your head — say, a warm analog pluck for the hook — and you want to build it from scratch and keep it as a preset. Double-click the Synth Track's header name to open the **Synth Track Editor**, then work through its tabs in the same order the sound flows: pick the engine, shape the raw tone, carve it, give it a contour, add movement, polish, save.
 
-Double-click any Synth Track's header name in the sequencer grid to open the editor.
+### 23.1 Designing a Sound, Tab by Tab
 
-### 23.1 Detailed Synth Configurator Layout & Tabs
+Follow the pluck from idea to preset — each step names the tab where that stage of the sound lives:
 
-The editor organizes the parameters into logical tabs to keep the workflow clean and intuitive:
+1. **Pick the engine — `SOURCES ▸ ALGORITHM`.** Choose **`SUBTRACTIVE`** for the classic oscillators-through-a-filter path (or **`FM`** — Osc 2 modulating Osc 1's frequency — for metallic tones, **`RINGMOD`** for bells and clangs). Set the **Voice Polyphony Mode** to `POLY` so chords play as chords (`MONO`/`LEGATO` for basses and leads, `AUTO`, or `CHOKE` groups).
+2. **Shape the raw tone — `SOURCES ▸ OSC`.** Pick each oscillator's waveform (Sine, Saw, Square, Triangle, Noise, Sample, or Wavetable), then detune Osc 2 a few cents against Osc 1 for width. Square waves get a pulse-width control; oscillator sync is here too. *(For a DX7 sound instead, skip to `SOURCES ▸ DX7` and click **`Import DX7 Cartridge...`** to load a `.SYX` bank.)*
+3. **Carve it — the `OSC / FILTER / FM` main panel.** Pull the **LPF** cutoff down until the buzz becomes warmth, and add a touch of resonance. This consolidated panel (oscillator levels, LPF, FM intensity) is also the page to leave open for live tweaking. The **`HPF`** tab holds the separate high-pass — raise it to clear low-end mud from pads.
+4. **Give it a contour — `ENVELOPE`.** For a pluck: fast Attack, short Decay, low Sustain, short Release on **Envelope 1** (the volume envelope); the graphical ADSR curve redraws as you drag. **Envelope 2** (routed to LPF cutoff by default) makes the brightness follow the same snap.
+5. **Add movement — `LFO`, then `MODULATION`.** Pick an LFO shape (Sine, Triangle, Saw, Square, or Random Sample-and-Hold) and rate — the animated readout shows the cycle. Then wire it in the **MODULATION** patchbay matrix: connect sources (`ENV1`, `ENV2`, `LFO1`, `LFO2`, `VELOCITY`, `AFTERTOUCH`…) to destinations (`LPF Cutoff`, `Pitch`, `Volume`, `Pan`…), each with a bipolar depth slider. A slow LFO at a *small* depth into Pitch gives an analog-style drift.
+6. **Polish — `FX RACK`** (Mod FX chorus/flanger/phaser, EQ shelves, compressor) — and if the part should dance on its own, enable the arpeggiator on the **`ARP`** tab (rate, octave range, sync division, chord gating).
+7. **Housekeeping — `SETUP`.** The **AUTOMATION** table enables per-parameter step automation lanes; **MIDI LEARN** binds any synth parameter to a hardware knob (click **`[MIDI Learn]`**, click the slider, sweep your controller).
 
-#### 1. 🎛️ OSC / FILTER / FM (MAIN PANEL)
-A consolidated quick-access panel showing the core synthesis controls. Ideal for rapid wiggling during performances:
-*   **Oscillators**: Type and volume leveling for Osc 1 and Osc 2.
-*   **LPF (Low-Pass Filter)**: Cutoff frequency and resonance sliders.
-*   **FM Intensity**: Depth of frequency modulation between oscillators.
-
-#### 2. 🌊 SOURCES
-Detailed configurations for the synth's voice generators:
-*   **OSC Sub-Tab**: Waveform selectors (Sine, Saw, Square, Triangle, Noise, Sample, or Wavetable) for Osc 1 and Osc 2. Includes pulse-width modulation (PWM), oscillator sync, and frequency detuning.
-*   **ALGORITHM Sub-Tab**: Selects the active synthesis engine type:
-  *   **`SUBTRACTIVE`**: Traditional analog modeling using dual oscillators through a low-pass filter.
-  *   **`FM`**: Frequency modulation where Osc 2 modulates the frequency of Osc 1.
-  *   **`RINGMOD`**: Ring modulation multiplying the signals of Osc 1 and Osc 2.
-  *   **Voice Polyphony Mode**: Selects `POLY` (polyphonic play), `MONO` (monophonic), `LEGATO` (smooth sliding notes), `AUTO`, or `CHOKE` groups.
-*   **DX7 Sub-Tab**: A dedicated DX7 patch importer. Click **`Import DX7 Cartridge...`** to load a standard `.SYX` DX7 cartridge bank file and instantly convert its patch configurations to Deluge parameters!
-
-#### 3. 📉 HPF (HIGH-PASS FILTER)
-A dedicated panel to configure the high-pass filter cutoff frequency and resonance, letting you carve out muddy low frequencies from synth pads.
-
-#### 4. ✉️ ENVELOPE
-Exposes **Envelope 1** (typically routed to volume/VCA) and **Envelope 2** (typically routed to LPF cutoff) ADSR sliders. Drag sliders to adjust Attack, Decay, Sustain, and Release times, and watch the real-time ADSR curve update in the graphical readout.
-
-#### 5. 〰️ LFO
-Provides controls for **LFO 1** and **LFO 2**:
-*   Select LFO waveform shapes (Sine, Triangle, Saw, Square, or Random Sample-and-Hold).
-*   Adjust LFO frequency rate.
-*   A real-time animated oscillator visualizes the LFO frequency and wave cycle shape in real-time.
-
-#### 6. 🔌 MODULATION (THE PATCHBAY MATRIX)
-An interactive routing grid. Create custom patch cables connecting mod sources (e.g. `ENV1`, `ENV2`, `LFO1`, `LFO2`, `VELOCITY`, `AFTERTOUCH`) to destination parameters (e.g. `LPF Cutoff`, `Pitch`, `Volume`, `Pan`). Each connection has a bipolar slider adjusting the modulation depth.
-
-#### 7. 🎹 ARP (ARPEGGIATOR)
-Adjust the arpeggiator rate, octave range, sync division, chord gating modes, and click **`Enable Arpeggiator`** to sweep keys polyphonically.
-
-#### 8. 🎚️ FX RACK
-Exposes track-level effects processors:
-*   **MOD FX**: Select Chorus, Flanger, or Phaser, and adjust depth, feedback, and rate.
-*   **EQ**: Bass and Treble shelving gains.
-*   **COMPRESSOR**: Dynamic threshold and release compression controls.
-
-#### 9. ⚙️ SETUP UTILITIES
-*   **AUTOMATION**: An automation lanes table. Click the checkbox next to any automatable parameter to enable it, exposing a step-by-step slider grid to draw automation directly.
-*   **MIDI LEARN**: A table mapping synth parameters to physical MIDI CC signals. Click **`[MIDI Learn]`**, click a parameter slider in the UI, and sweep your hardware controller dial to map them instantly.
+The full parameter-by-parameter reference for these panels lives in §2 (per engine) and §10.3 (tab map) — this section is the *order* to visit them in.
 
 ---
 
@@ -2084,7 +2023,7 @@ The **Arranger Track Mutes, Solos & Live Capture** provides a high-fidelity, har
 graph TD
     A[Arranger View - ARR Tab] -->|Column 16 Pad| B[Toggle Arrangement Mute]
     A -->|Column 17 Pad| C[Toggle Arrangement Solo]
-    B -->|Model Update| D[ArrangerPlaybackScheduler]
+    B -->|Model Update| D[Arranger Playback Engine]
     C -->|Model Update| D
     D -->|Real-Time Silencing| E[Silences active synthesis voices]
 ```
@@ -2140,7 +2079,7 @@ When the red **`[🔴 CAPTURE]`** button is active during playback, muting/unmut
 
 ---
 
-### 🔊 Tutorial N: Recording and Sculpting a Linear Arrangement
+### 🔊 Tutorial S: Recording and Sculpting a Linear Arrangement
 
 Follow these steps to record a live performance and sculpt it with track-level mutes/solos in the Arranger:
 
