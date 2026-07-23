@@ -295,8 +295,14 @@ public class ArrangerGridPanel extends SwingGridPanel {
           for (java.awt.event.MouseListener ml : clipBtn.getMouseListeners()) {
             clipBtn.removeMouseListener(ml);
           }
+          // Same spacing as used rows (faceplate pad pitch + separator before the mute column) —
+          // a plain 5px strut compressed these rows leftward, misaligning every column.
+          if (c == stepCount) {
+            rowPanel.add(ClipGridPanel.createFaceplateSeparator(faceScale, padSz));
+          } else if (c > 0) {
+            rowPanel.add(Box.createRigidArea(new Dimension((int) Math.round(41 * faceScale), 1)));
+          }
           rowPanel.add(clipBtn);
-          rowPanel.add(Box.createHorizontalStrut(5));
           continue;
         }
 
@@ -543,10 +549,16 @@ public class ArrangerGridPanel extends SwingGridPanel {
           }
         }
         boolean isMuted = bridge != null && bridge.getMute(engineR);
+        // Lanes past the song's real tracks are inert filler — repainting live MUTE/SOLO
+        // buttons onto them (as this loop used to) made empty lanes look interactive.
+        boolean laneHasTrack = projectModel != null && modelRow < projectModel.getTracks().size();
 
         for (int c = 0; c < columnCount; c++) {
           JButton clipBtn = pads[v][c];
           if (clipBtn == null) continue;
+          if (!laneHasTrack && (isMuteColumn(c) || isSoloColumn(c))) {
+            continue;
+          }
 
           if (isMuteColumn(c)) {
             Color muteBg =
