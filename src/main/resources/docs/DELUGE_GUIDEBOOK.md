@@ -19,7 +19,7 @@ Welcome to the **Deluge-Java Workstation**, a software recreation and operations
    * [1.11 Sequencer Grid Zooming & Proportional Scaling](#111-sequencer-grid-zooming--proportional-scaling)
    * [1.12 Fold Mode & Vertical Space Optimization](#112-fold-mode--vertical-space-optimization)
 2. [Synthesizers & Sound Engines](#2-synthesizers--sound-engines)
-   * [2.7 Chord Keyboard (CORK & CORL Layouts)](#27-chord-keyboard-cork--corl-layouts)
+   * [2.7 Chord Model & Progression Suite](#27-chord-model--progression-suite)
 3. [Drum Kits & Smart Keyword Auto-Mapper](#3-drum-kits--smart-keyword-auto-mapper)
 4. [Visual Waveform Crop & Loop Markers Deck](#4-visual-waveform-crop--loop-markers-deck)
 5. [Automatic Loop Slicer & Kit Splitter](#5-automatic-loop-slicer--kit-splitter)
@@ -766,7 +766,7 @@ In addition to the main grid pads, holding **[SHIFT]** while clicking faceplate 
 *   **`Shift` + Turn `[SELECT Encoder]`**: Coarse preset / item jump (±5 items per detent). Pushing the encoder itself has no effect on the step size — only `Shift` does.
 *   **`Shift` + Turn `[TEMPO Encoder]`**: Adjusts swing amount, not tempo.
 *   **Push-and-Turn `[TEMPO Encoder]`**: Fine tempo adjustment (±1 BPM per detent). Turning without pushing adjusts tempo in larger (±5 BPM) steps.
-*   **Right-Click / Double-Click `[Track Name Label]`**: Spawns the multitrack Context Menu (`Clone Track`, `Delete Track`, `Change Swatch Color`).
+*   **Right-Click / Double-Click `[Track Name Label]`**: Spawns the multitrack Context Menu (`Duplicate Clip`, `Delete Track`, `Change Track Color...`).
 
 ---
 
@@ -835,9 +835,9 @@ The Settings Preferences Dialog provides preferences controls:
 * **Sequencer Engine Backend**: Toggle between HIGH_FIDELITY (high-resolution Java DSP synthesis engine) and LEGACY sequencer timing backends.
 
 #### ⚙️ Tutorial Q: Configuring SD Card Library Paths and Grid Profiles
-1. Open **`Settings ➔ Preferences…`** (**`Ctrl + ,`** / **`Cmd + ,`**).
+1. Open **`Settings ➔ Preferences…`** from the menu bar.
 2. Under **Library Root Directory**, click **`Browse…`** and select your SD card or local Deluge folder containing `SAMPLES/`, `SYNTHS/`, and `KITS/`.
-3. In **Grid Profile Mode**, select your preferred layout size: **`Standard 8x16`** (compact desktop) or **`Expanded 16x16`** (full 256-pad matrix).
+3. In **Grid Profile Mode**, select your preferred layout size: **`GRID_8x16`** (compact desktop), **`GRID_16x16`** (full 256-pad matrix), or the tall/wide **`GRID_24x16`** / **`GRID_16x24`** extended layouts.
 4. Click **`💾 Save Preferences`**.
 5. *Result*: The grid layout updates immediately and all sample file dialogs default to your chosen library root.
 
@@ -965,7 +965,7 @@ Connecting a physical Deluge hardware unit to the Deluge-Java Workstation provid
 
 #### 🛰️ Realized Hardware Features (What You Can Do Today):
 * **Live Device Screen Monitor**: Once connected, the **`📡 HARDWARE`** tab shows a **"LIVE DEVICE SCREEN"** panel with a small live mirror of your physical Deluge's own screen — menu scrolls, waveform draws, and parameter edits, exactly as they appear on the hardware — plus a scrolling debug log of messages the hardware reports in real time. This is separate from the Workstation's own on-screen faceplate display, so the two never interfere with each other.
-* **Stateful SD Card Explorer**: Open the SD Explorer (`Cmd+B` / `📁` icon) and click **`🔄 REFRESH`** on the **`📡 HARDWARE`** tab. The workstation processes SysEx packets to populate SONGS, SYNTHS, and KITS directories.
+* **Stateful SD Card Explorer**: Open the SD Explorer (`Ctrl+E`, or **`File ➔ Show Explorer`**) and click **`🔄 REFRESH`** on the **`📡 HARDWARE`** tab. The workstation processes SysEx packets to populate SONGS, SYNTHS, and KITS directories.
 * **Remote Song Audition & Load**: Double-click any song XML in the remote hardware tree. The Workstation sends SysEx requests to download the XML file, parse it, and load the song into the audio engine.
 * **Low-Latency Virtual Sound Triggering**: Play notes on the physical pads grid or keyboard layout to trigger the workstation's subtractive, FM, or ring-modulation voices.
 
@@ -1116,7 +1116,7 @@ To make these imported parameters sound alive, the core audio engine dynamically
 #### 🎹 Step-by-Step Ableton Import Tutorial
 Follow these precise steps to import your Ableton Live Set and play it in the Deluge Workstation:
 1. **Prepare Your Assets**: Save your Ableton Live Set (`.als`) and ensure all audio samples used in the project are collected into a single directory (e.g., using Ableton's *File ➔ Collect All and Save*).
-2. **Open the Importer**: In the Workstation, select **`File ➔ Import Ableton Project...`** (or press the global shortcut **`Cmd+Shift+I`** / **`Ctrl+Shift+I`**).
+2. **Open the Importer**: In the Workstation, select **`File ➔ Import Ableton Project...`**.
 3. **Select the Project File**: Browse and select your `.als` project file. (The workstation automatically decompresses the gzipped XML stream in the background in under 10ms!).
 4. **Select the Samples Folder**: Browse and select the folder containing your collected WAV samples.
 5. **Load the Project**: Click **`Import & Load Project`**. The workstation parses the tracks, extracts the clips, runs the hybrid parameter translator, writes the Deluge Song XML, and loads it directly into the audio engine.
@@ -1224,7 +1224,7 @@ graph TD
 
 The **`Settings ➔ Preferences...`** panel manages your paths and grid configurations without native hooks:
 * **SD Card Mounted Library Directory**: Set the root parent directory folder path representing your physical SD card library. All subdirectories (`SAMPLES/`, `KITS/`, `SYNTHS/`, `SONGS/`) are resolved relative to this parent root dynamically.
-* **Grid Layout Profiles**: Standardize your interface to **`Grid 8x16`** or extended **`Grid 16x16`** formats.
+* **Grid Layout Profiles**: Standardize your interface to **`GRID_8x16`**, **`GRID_16x16`**, **`GRID_24x16`**, or **`GRID_16x24`** formats.
 * **Microtuning & Custom Temperaments**: Fully integrated at the song-level, allowing you to break free from standard 12-TET tuning and explore dynamic, alternative temperaments, historical scales, and custom EDO microtonality (described in detail in [Section 17.2](#172-microtuning-custom-temperaments--scala-scl-imports) below).
 
 ### 17.1 Hardware Character Emulations & DSP FX Engines
@@ -1271,7 +1271,7 @@ Microtuning configurations are serialized directly inside the song's `.XML` file
 | **`Ctrl + S` / `Cmd + S`** | File menu dropdown | Overwrites and exports the current active `ProjectModel` structure back to XML. |
 | **`Ctrl + Z` / `Cmd + Z`** | Edit action | Undoes the last grid step note change or gate timing adjustment. |
 | **`Ctrl + Y` / `Cmd + Y`** | Edit action | Redoes the last undone sequencer state change from the transaction history stack. |
-| **`Tab` Key** | View Mode | Toggles active display focus between CLIP, SONG, and ARRANGEMENT grid views. |
+| **Hold `Tab` + Click step** | Step velocity | Cycles the clicked step's velocity through 100% → 75% → 50% → 25%. (Views are switched with the **CLIP VIEW** and **SONG** buttons on the hardware top deck — the SONG button toggles between Song and Arranger.) |
 | **`Escape` Key** | Dialog focus | Closes the active frontmost dialog instantly. |
 
 ### 17.3 Deluge-Java Workstation Exclusive Power Features
@@ -1335,7 +1335,7 @@ The following table maps the standard Deluge hardware button combinations (from 
 | **Song View** | Adjust Track parameter | Hold track pad + turn dial | Adjust dials directly on the track row, or double-click header to open **Sound Editor** |
 | | Launch Song Section | Press Section pad | Click colored Section launch buttons in **SONG view** |
 | | Section repeat length | Push section pad + turn Select | Click loop countdown combobox on song row |
-| | Clone track | Hold track pad + tap another row | Right-click track row header ➔ **`Clone Track`** |
+| | Clone track | Hold track pad + tap another row | Right-click track row header ➔ **`Duplicate Clip`**, or Track Inspector ➔ **`Clone Clip Variant`** |
 | | Solo track | `Hold ◄►` + press launch | Click the **`[S]`** button next to track name |
 | | Delete track | Hold track pad + `Save/Delete` | Right-click track row header ➔ **`Delete Track`** |
 | **Track View** | Adjust track length | `Shift` + turn `◄►` knob | **`Ctrl + [`** / **`Ctrl + ]`** (shorten / lengthen), or click the length badge (e.g. `[16]`) and type a step count (1–192) |
@@ -1415,7 +1415,7 @@ This chapter provides a direct, code-by-code mapping of every shortcut code from
 | **SV05** | Delete clip | Press `Shift` + `Save/Delete` | Right-click track row header ➔ **`Delete Track`** |
 | **SV06** | Create new clip | Click empty row button | Click empty grid row pad, or select `Add Track` |
 | **SV07** | Move clip row | Hold pad + turn `▼▲` knob | Click and drag track row header up or down |
-| **SV08** | Clone clip | Hold pad + press blank row pad | Right-click track row header ➔ **`Clone Track`** |
+| **SV08** | Clone clip | Hold pad + press blank row pad | Right-click track row header ➔ **`Duplicate Clip`** |
 | **SV09** | Clip section color | `Shift` + press section pad | Click colored Section launch buttons in SONG view |
 | **SV10** | Launch section | Press section pad | Click colored Section launch buttons in SONG view |
 | **SV11** | Section repeat | Hold section pad + turn `Select` | Select repeat loop count dropdown on song row |
@@ -1436,7 +1436,7 @@ This chapter provides a direct, code-by-code mapping of every shortcut code from
 
 | Code | Hardware Function | Hardware Button Sequence | Java Workstation Equivalent Action |
 | :--- | :--- | :--- | :--- |
-| **AC01** | Create audio clip | Click empty row + select Audio | Select **`File ➔ Load Audio Track...`** |
+| **AC01** | Create audio clip | Click empty row + select Audio | Click the **`AUDIO`** track-add button; load a file via **`File ➔ Import Audio File…`** or drag-and-drop |
 | **AC02** | Input source | Click input source menu | Select LEFT, RIGHt, STEReo, BALAnced, MIX, or OUTPut in crop panel |
 | **AC03** | Loop length | Click endpoint column | Adjust loop start/end crop markers in visual WAV crop panel |
 | **AC04** | Clear audio clip | Press `Shift` + `Save/Delete` | Click crop panel `[Delete]` button, or clear track |
@@ -1539,7 +1539,7 @@ Maps hardware buttons to keyboard shortcuts and mouse gestures. Sections marked 
 | **[○]** | Audition pad (row header) |
 | **[M]** | Mute button (row header) |
 | **[⚙]** | Config / Sound Editor button (row header) |
-| `Q` `W` | Gold Knob 1 / Gold Knob 2 (hold + wheel or drag) |
+| `Q` | Momentary stutter (hold) |
 | ⚠ | Feature not yet implemented in the desktop UI |
 
 ---
@@ -1569,7 +1569,7 @@ If you're about to run the Kit Super-Generator, save the project first (`Ctrl + 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ Menu Bar: File | Edit | Tools | View | Settings | Macro | Help                                  │
+│ Menu Bar: File | Edit | Macro | View | Tools | Settings | Help                                  │
 ├─────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ HARDWARE TOP DECK (Authentic Deluge Faceplate: Delugemu_Normal.png)                             │
 │  [AFFECT ENTIRE]  [SONG] [CLIP]  [KEYBOARD]  [SYNTH][KIT][MIDI][CV]    [OLED SCREEN]  [SELECT]  │
@@ -1602,7 +1602,7 @@ If you're about to run the Kit Super-Generator, save the project first (`Ctrl + 
 | PL08 | **Save Kit as preset** | Right-click Kit row header → Save as Kit preset… | File chooser opens in KITS/ with track name pre-filled |
 | PL09 | **Save Synth as preset** | Right-click Synth row header → Save as Synth preset… | File chooser opens in SYNTHS/ with track name pre-filled |
 
-> **Library directory:** Set once via Settings > Set Samples Directory… pointing to the SAMPLES folder. The app derives `SONGS/`, `KITS/`, `SYNTHS/` as sibling folders. Default: `~/Deluge/`.
+> **Library directory:** Set once via **Settings > Set SD Card Root...** pointing to your card's root folder. The app derives `SAMPLES/`, `SONGS/`, `KITS/`, `SYNTHS/` beneath it. Default: `~/Deluge/`.
 
 #### PL-B: Track management
 
@@ -1644,12 +1644,12 @@ If you're about to run the Kit Super-Generator, save the project first (`Ctrl + 
 | GL07b | Save Song As | `Ctrl+Shift+S` or File > Save Project As |
 | GL08 | New Song | `Ctrl+N` or File > New Project |
 | GL09 | Save + Collect All Samples | ⚠ not yet implemented |
-| GL10 | Change Tempo | BPM slider (toolbar), or `Ctrl+Up/Down` |
+| GL10 | Change Tempo | BPM slider (toolbar), or turn the TEMPO encoder on the hardware top deck |
 | GL11 | Tap Tempo | `T` (focus on main window) |
 | GL12 | Metronome On/Off | Shift+click tap tempo button, or press Shift+T |
 | GL13 | Swing | SWING slider (toolbar), default 50% = no swing |
 | GL14 | Settings / Preferences | **Settings > Preferences…** |
-| GL15 | Set Samples Directory | **Settings > Set Samples Directory…** |
+| GL15 | Set Samples Directory | **Settings > Set SD Card Root...** |
 | GL16 | Reverb Model | **Settings > Preferences… → Reverb Model** |
 | GL17 | MIDI Input Device | **Settings > Preferences… → MIDI Input** |
 | GL18 | Adjust UI Font Size | Controlled by `PreferencesManager` |
@@ -1682,7 +1682,7 @@ If you're about to run the Kit Super-Generator, save the project first (`Ctrl + 
 | SQ16 | Note nudge | Right-click step ➔ Step Editor ➔ nudge slider |
 | SQ17 | Reduce clip length | `Ctrl+[` |
 | SQ18 | Increase clip length | `Ctrl+]` |
-| SQ19 | Reset clip length to 16 | `Ctrl+Shift+L` |
+| SQ19 | Reset clip length to 16 | Click the clip length badge (e.g. `[32]`) and type `16` |
 | SQ20 | Poly Rhythms | Set each row's length independently via `Ctrl+[` / `Ctrl+]` when that row is focused. |
 | SQ21 | Move kit clip row | ⚠ not yet implemented |
 | SQ22 | Note repeat (stutter) | Right-click step ➔ Step Editor ➔ repeats slider |
@@ -1694,7 +1694,7 @@ If you're about to run the Kit Super-Generator, save the project first (`Ctrl + 
 
 ### F. SONG VIEW `SV`
 
-Switch to Song view: `F2` or click **[SONG]** tab.
+Switch to Song view: click the **[SONG]** button on the hardware top deck (click again to toggle into the Arranger).
 
 | # | Action | How |
 | :--- | :--- | :--- |
@@ -1708,7 +1708,7 @@ Switch to Song view: `F2` or click **[SONG]** tab.
 | SV08 | Solo track | `Click` **[S]** button on row header |
 | SV09 | Un-solo | `Click` **[S]** again |
 | SV10 | Mute / unmute track | `Click` **[M]** button on row header |
-| SV11 | Mute tracks 1–8 | `Alt+1` … `Alt+8` |
+| SV11 | Mute tracks 1–8 | `Click` **[M]** on each row header (no keyboard shortcut) |
 | SV12 | Arm clip for recording | ⚠ not yet implemented |
 | SV13 | Clip section colour | ⚠ not yet implemented |
 | SV14 | Section repeat count | ⚠ not yet implemented |
@@ -2107,9 +2107,9 @@ The **Track Inspector** is a compact, tabbed utility for inspecting and adjustin
 
 ## 27. Workstation Dialogs & Tools
 
-These focused dialogs cover tuning, generative textures, rhythm generation, sample zone mapping, wavetable creation, and housekeeping. **Tuning & Temperaments**, **Drone Lab**, and the **Orphaned Recording Cleaner** open from the **Tools** menu; the others open in context (from a step's right-click menu or the oscillator/sample settings).
+These focused dialogs cover tuning, generative textures, rhythm generation, sample zone mapping, wavetable creation, and housekeeping. **Drone Lab** and the **Orphaned Recording Cleaner** open from the **Tools** menu, **Tuning & Temperaments** from the **Settings** menu; the others open in context (from a step's right-click menu or the oscillator/sample settings).
 
-*   **Tuning & Temperaments** (Tools menu) — choose an equal or microtonal temperament, notes-per-octave, reference pitch (A), import a Scala `.scl` file, and set a per-note scaling map (cents offset for each of the 12 notes).
+*   **Tuning & Temperaments** (Settings menu) — choose an equal or microtonal temperament, notes-per-octave, reference pitch (A), import a Scala `.scl` file, and set a per-note scaling map (cents offset for each of the 12 notes).
 
     ![Tuning & Temperaments dialog](images/deluge_tuning.png)
 
@@ -2137,7 +2137,7 @@ These focused dialogs cover tuning, generative textures, rhythm generation, samp
 
     ![Orphaned Recording Cleaner dialog](images/deluge_recording_cleaner.png)
 
-*   **Audio Transcribe & Pitch-to-MIDI** (**`Tools ➔ Audio Transcribe…`**) — analyze audio recordings to detect pitch contours and transient beats, converting audio loops into sequenced grid steps.
+*   **Audio Transcribe & Pitch-to-MIDI** (**`File ➔ Import Audio File…`**) — analyze audio recordings to detect pitch contours and transient beats, converting audio loops into sequenced grid steps.
 
 *   **MIDI Sequence Importer** (**`File ➔ Import MIDI File…`**) — parse Standard MIDI Files (`.MID`), split tracks/channels, and import notes onto the active track.
 
