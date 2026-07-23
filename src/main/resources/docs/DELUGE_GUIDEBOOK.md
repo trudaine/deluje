@@ -36,7 +36,7 @@ Welcome to the **Deluge-Java Workstation**, a software recreation and operations
 14. [MIDI Hardware, Device Mappings & Pure SD File Explorer](#14-midi-hardware-device-mappings--pure-sd-file-explorer)
     * [14.5 MIDI CC Parameter Takeover Algorithms](#145-midi-cc-parameter-takeover-algorithms)
     * [14.6 Bidirectional SysEx Command Protocol](#146-bidirectional-sysex-command-protocol)
-    * [14.7 DAW Import Suite: Ableton Live Set (.als) Importer](#147-daw-import-suite-ableton-live-set-als-importer)
+    * [14.7 DAW Import & Export Suite: Ableton Live Sets (.als)](#147-daw-import--export-suite-ableton-live-sets-als)
     * [14.8 Card Sync, Live DSP-Tap & Parity Calibration](#148-card-sync-live-dsp-tap--parity-calibration)
 15. [Performance View & FX Touch-Pads Grid](#15-performance-view--fx-touch-pads-grid)
 16. [MPE & Multi-Dimensional Controller Expression](#16-mpe--multi-dimensional-controller-expression)
@@ -87,6 +87,17 @@ Instead of having a synth assigned, a track may have a "kit". For kit tracks, ea
 *   **Re-order Kit Rows**: Drag the row's header up or down to move it. The row and its notes move together.
 *   **Set Row Color**: Click the colored swatch on the drum row to recolor it.
 
+#### The Track Right-Click Menu
+
+Right-clicking a track's row header opens a context menu with quick actions beyond the basics:
+
+*   **Solo Exclusive (Unsolo Others)** — solo this track and clear every other solo in one click; **Unsolo All Tracks** clears them all.
+*   **Set Row Probability… / Set Row Velocity…** — apply one probability or velocity value to every note in the row at once.
+*   **Randomize Track Steps…** — scatter a fresh random pattern across the track, a quick way to break out of a rut.
+*   **Synth Dashboard…** — jump straight to the synth editor for that track.
+*   **Grid Color Theme** — restyle the pad grid's color scheme from a submenu of themes.
+*   Plus **Duplicate Clip**, **Delete Track**, **Change Track Color...**, and the preset save actions covered elsewhere in this guide.
+
 ---
 
 ### 1.3 Sound Parameters (Gold Dials & the Dials Deck)
@@ -119,6 +130,8 @@ Getting around the grid:
 *   **Move a note**: Drag a note pad along its row to slide it earlier or later in time, or up/down to change its pitch.
 *   **Shift the whole clip sideways**: press **`Alt + →`** or **`Alt + ←`** to move *every* note in the clip one step later or earlier. Notes that fall off one end wrap around to the other. It's a single, undoable action (`Ctrl + Z`).
 *   **Fine nudge**: Right-click a step ➔ **Edit Step Properties…** and use the **Nudge** slider to shift that note by a fine amount within its column — handy for humanizing timing without changing the grid resolution.
+*   **Quantize a whole row**: Right-click any step in the row ➔ **Quantize Row Notes** to snap every note in that row exactly onto the grid (clears all nudges).
+*   **Humanize a whole row**: Right-click any step in the row ➔ **Humanize Row Notes…**, then enter a maximum timing shift (1–99%). Every note in the row gets a small random nudge up to that amount, loosening a mechanical-sounding pattern in one action.
 
 ---
 
@@ -154,6 +167,14 @@ Right-click any step and choose **Edit Step Properties…** to open the Step Pro
 *   **Gate**: the note's sounding length as a fraction of its step.
 *   **Nudge**: fine timing offset within the column (see §1.5).
 
+For faster edits without opening the dialog, the step right-click menu also offers:
+
+*   **Quick Velocity / Quick Probability / Quick Gate** submenus — set common values (25% / 50% / 75% / 100%) in two clicks.
+*   **Copy Step / Paste Step** — copy one step's full setup (velocity, gate, probability, iteration, fill, pitch) onto another step.
+*   **Clear Step** — remove the step outright.
+
+And the fastest velocity edit of all: **hold `Tab` and click a step** to cycle its velocity 100% → 75% → 50% → 25% → back to 100%.
+
 To edit several notes at once, use the **Piano Roll editor** (§1.9) — a scrollable, whole-clip view with freehand drag editing.
 
 ---
@@ -164,6 +185,7 @@ The pad grid is perfect for building a pattern a step at a time, but for long, m
 
 *   **Open it**: **`Tools ➔ Piano Roll Editor…`** (**`Ctrl + P`**), or right-click any step ➔ **Open Piano Roll Editor…**.
 *   **What you get**: every note in the clip laid out on a scrollable pitch × time grid. Drag notes to move them, drag their ends to change length, and click to add or remove notes — across the full length of the clip, at any zoom.
+*   **Microtiming**: hold **`Alt`** while dragging a note to nudge it off the grid by a fine amount instead of snapping to the nearest step.
 *   **Grid alternative**: you can also **zoom out** (`Ctrl + -`, or pick a coarser rate) to fit the whole clip on the pad grid and edit any bar directly.
 
 > [!NOTE] The desktop workstation doesn't need the hardware's *cross-screen* mode (which mirrors an edit across every screen of a long clip): the Piano Roll and grid zoom-out already show the entire clip on one screen, so you edit any bar directly.
@@ -194,6 +216,7 @@ The grid resolution can be zoomed from anywhere inside the active window using s
     *   *Effect*: Scales the cell pads up, cycling the viewport layout: **`24x16 (Small)` $\rightarrow$ `16x16 (Medium)` $\rightarrow$ `8x16 (Large)`**.
 *   🔍 **Zoom Out (Smaller Pads / Denser Cells)**: **`Ctrl + -`** (or **`Cmd + -`** on macOS)
     *   *Effect*: Scales the cell pads down, cycling the viewport layout: **`8x16 (Large)` $\rightarrow$ `16x16 (Medium)` $\rightarrow$ `24x16 (Small)`**.
+*   🔍 **Cycle every grid layout**: **`Alt + PageUp`** / **`Alt + PageDown`** steps through all available grid profiles (including the tall `16x24` layout) from anywhere in the app.
 
 #### Proportional Fixed-Row Scaling:
 The bottom fixed panels — **`MACROS`** (vertical DSP routing knobs) and **`KEYBOARD`** (the playhead note isomorphic keyboard) — are **decoupled from static row indexes and integrated into the layout system**:
@@ -831,8 +854,13 @@ The Settings Preferences Dialog provides preferences controls:
 ![Settings Preferences configuration Dialog](images/deluge_preferences.png)
 
 * **Library Path Preferences**: Browse and set the mounted parent library root directory path folder for all sample loading.
-* **Grid Profiles Mode**: Standardize layout resolutions to `Grid 8x16` or `Grid 16x16`.
-* **Sequencer Engine Backend**: Toggle between HIGH_FIDELITY (high-resolution Java DSP synthesis engine) and LEGACY sequencer timing backends.
+* **Grid Profiles Mode**: Standardize layout resolutions to `GRID_8x16`, `GRID_16x16`, `GRID_24x16`, or `GRID_16x24`.
+* **Sequencer Engine Backend**: Toggle between the HIGH_FIDELITY synthesis engine and the LEGACY sequencer timing backend.
+* **Screen Resolution / UI Scale**: Pick **QHD**, **FHD**, **Retina**, or **Default** to match the interface size to your display.
+* **High-Fidelity Advanced Style UI**: Enable the enhanced grid look ("Enable High-Fidelity Advanced Style UI").
+* **Real-time Scopes**: "Enable GPU-Accelerated Real-time Scopes Visualizers" turns the live waveform/spectrum displays on or off.
+* **SELECT control style**: Choose between a **Desktop Slider Popup** and a **Hardware Rotary Dial SELECT** for value editing.
+* **Clock Source**: Run the sequencer from its own clock (**INTERNAL**) or follow an external MIDI clock (**EXTERNAL (MIDI Clock Sync)**).
 
 #### ⚙️ Tutorial Q: Configuring SD Card Library Paths and Grid Profiles
 1. Open **`Settings ➔ Preferences…`** from the menu bar.
@@ -871,6 +899,8 @@ graph TD
 ### 11.1 Threshold Loop Sampler & Real-Time Recording
 
 The **Threshold Loop Sampler** provides a dedicated real-time audio recording dashboard to capture live external audio (via microphone or line-in) and load it instantly into your workstation.
+
+> **Hear your input while you play**: enable **`Settings ➔ Monitor Audio Input`** to route the live line-in/microphone signal straight to the output at all times — useful for jamming over a project before you commit to recording. (Monitoring can't be switched on while the sampler is armed — the two share the input line.)
 
 ![Threshold Loop Sampler Dialog with Target Track Dropdown Open](images/deluge_threshold_record_dropdown.png)
 
@@ -1010,7 +1040,13 @@ The global JTree explorer above is the "browse everything" view. For the common 
   * **CC Mappings Table**: A scrollable list tracking active parameter bindings, CC signals, and connection states.
   * **Real-Time CC Learn**: Enter a parameter target name, click **`[START LEARN]`**, and sweep a physical knob/fader on your controller: the CC binding registers and updates the mappings.
 
-![Dedicated MIDI Settings & CC Mappings Table JDialog](images/deluge_midi_device_settings.png)
+![Dedicated MIDI Settings & CC Mappings dialog](images/deluge_midi_device_settings.png)
+
+#### MIDI Track Follow & Pad Controller Modes
+Two preferences in **`Settings ➔ Preferences…`** (MIDI section) change how incoming MIDI is routed:
+
+* **Enable Track Follow Modes**: route each incoming MIDI channel to a specific track using the **MIDI Ch: → Track:** assignments — play one hardware keyboard across several instruments by channel, without re-selecting tracks in the app.
+* **Enable MIDI Pad Controller Mode**: treat a connected pad controller's notes as grid-pad presses instead of musical notes, so an external pad grid can drive the sequencer directly.
 
 ---
 
@@ -1089,9 +1125,16 @@ Upcoming bidirectional capabilities include:
 
 ---
 
-### 14.7 DAW Import Suite: Ableton Live Set (.als) Importer
+### 14.7 DAW Import & Export Suite: Ableton Live Sets (.als)
 
 The Deluge Workstation features a **DAW Import Suite** that lets you import Ableton Live Sets (`.als` files) directly into the sequencer. It parses the Ableton project and reconstructs the track layout, mixer volume levels, MIDI clips, arranger timeline, and instrument parameters.
+
+#### Exporting your project back to Ableton
+The trip works both ways: **`File ➔ Export to Ableton Live Set...`** turns the current project into an `.als` file Ableton Live can open. Pick one of three export modes:
+
+1. **Portable Ableton Project (Collect all samples)** — writes the `.als` alongside a `Samples/Imported` folder containing every sample the project uses, so the export opens on any machine.
+2. **Render WAV Stems to Ableton Audio Tracks** — renders each track to a WAV stem and builds a Live Set of audio tracks, ready for mixing in Ableton.
+3. **Standalone Ableton Live Set (.als file only)** — just the `.als` file, with no samples collected.
 
 #### ⚙️ The Smart Hybrid Importer Architecture
 Because Ableton Live Sets can contain a mixture of native instruments and third-party VST plugins, the importer employs a **Hybrid Import Pipeline**:
@@ -1272,6 +1315,12 @@ Microtuning configurations are serialized directly inside the song's `.XML` file
 | **`Ctrl + Z` / `Cmd + Z`** | Edit action | Undoes the last grid step note change or gate timing adjustment. |
 | **`Ctrl + Y` / `Cmd + Y`** | Edit action | Redoes the last undone sequencer state change from the transaction history stack. |
 | **Hold `Tab` + Click step** | Step velocity | Cycles the clicked step's velocity through 100% → 75% → 50% → 25%. (Views are switched with the **CLIP VIEW** and **SONG** buttons on the hardware top deck — the SONG button toggles between Song and Arranger.) |
+| **`Z S X D C V G B H N J M`** | Play notes | A piano laid over the computer keyboard: `Z`=C4 rising chromatically to `M`=B4 (white keys on the bottom row, sharps on the home row). |
+| **Hold `Q`** | Momentary stutter | Engages the stutter/step-repeat effect while held; releases when you let go. |
+| **`Alt + PageUp` / `Alt + PageDown`** | Grid layout | Cycles through all grid profiles (8x16, 16x16, 24x16, 16x24). |
+| **`Ctrl + Shift + N`** | New Window | Launches a second, fully independent workstation window. |
+| **`Ctrl + M`** | Acoustics Monitor | Shows/hides the floating acoustics monitor visualizer panel. |
+| **`F1`** | Help | Opens the built-in Operations Manual. |
 | **`Escape` Key** | Dialog focus | Closes the active frontmost dialog instantly. |
 
 ### 17.3 Deluge-Java Workstation Exclusive Power Features
@@ -2093,7 +2142,7 @@ The **Track Inspector** is a compact, tabbed utility for inspecting and adjustin
 
     ![Track Inspector — Presets tab](images/deluge_track_inspector_presets.png)
 
-*   **Clipboard** — copy/paste of track and clip data.
+*   **Clipboard** — two one-click actions: **Clone Clip Variant** duplicates the current pattern into the track's next free clip slot (build alternate takes without losing the original), and **Export MIDI Sequence** writes the active sequence out as a standard MIDI file.
 
     ![Track Inspector — Clipboard tab](images/deluge_track_inspector_clipboard.png)
 
@@ -2145,7 +2194,7 @@ These focused dialogs cover tuning, generative textures, rhythm generation, samp
 
 The desktop menu bar exposes file, editing, tooling, view, settings, macro, and help commands (with keyboard shortcuts). These desktop menus have no direct equivalent on the hardware — they are conveniences for the Java workstation.
 
-*   **File** — new/open/save projects, show the explorer, export Audio / WAV stems / MIDI, assemble a kit from synths, import Ableton/MIDI/audio, run scripts.
+*   **File** — new/open/save projects, open a second independent window (**New Window**, `Ctrl+Shift+N`), show the explorer, export Audio / WAV stems / MIDI / Ableton Live Sets, assemble a kit from synths, import Ableton/MIDI/audio, run scripts.
 
     ![File menu](images/deluge_menu_file.png)
 
@@ -2169,7 +2218,7 @@ The desktop menu bar exposes file, editing, tooling, view, settings, macro, and 
 
     ![Macro menu](images/deluge_menu_macro.png)
 
-*   **Help** — documentation and about.
+*   **Help** — documentation and about, including the built-in **Operations Manual…** (`F1`), which opens this guide inside the app.
 
     ![Help menu](images/deluge_menu_help.png)
 
@@ -2193,11 +2242,15 @@ The Synth Sound Editor's wavetable visualizer includes:
 *   **3D Wireframe Mesh**: Displays a rotating 3D double sine-wave mesh in the theme's colors when no custom wavetable is loaded.
 *   **Real-Time Playhead Tracking**: A vertical slicing plane scans through the 3D wavetable in real-time, visualizing LFO sweeps, envelope morphs, and manual index changes.
 
-### 29.4 CRT Cathode LFO Monitor & Waveform Editor
+### 29.4 The Acoustics Monitor
+
+Press **`Ctrl + M`** (or check **`Settings ➔ Acoustics Monitor`**) to show or hide the floating acoustics monitor — a visualizer panel docked at the right edge of the window that displays the master output in real time while you play. Press `Ctrl + M` again to tuck it away.
+
+### 29.5 CRT Cathode LFO Monitor & Waveform Editor
 *   **CRT Cathode Oscilloscope**: Displays real-time LFO waveforms using neon-glow oscilloscope lanes, tracking LFO cycles and phase sweeps.
 *   **Interactive Node Drawer**: The custom LFO drawer highlights grid steps on hover and places handles on nodes to edit custom LFO shapes.
 
-### 29.5 Bipolar Modulation Matrix & Routing Highlights
+### 29.6 Bipolar Modulation Matrix & Routing Highlights
 The modulation matrix panel maps modulations visually:
 *   **Bipolar Connection Squares**: Active modulation routes show up as rounded indicators, colored by polarity (positive offsets glow in the primary theme accent color, while negative offsets use the secondary color).
 *   **Crosshair Hover Highlights**: Hovering over any cell in the grid draws a light highlight crosshair back to the source column and destination row labels, making complex modulation routings instantly readable.

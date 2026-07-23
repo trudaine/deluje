@@ -51,7 +51,7 @@ in a user-facing diagram). Also: duplicate "10.3" headings (L755, L773); duplica
 
 Big workflows are covered. Two problem clusters:
 
-### Missing (verified in code, absent or barely mentioned in the manual)
+### Missing (verified in code, absent or barely mentioned in the manual — all documented 2026-07-23, same-day follow-up commit)
 
 | Feature | Code evidence | Manual home |
 | :--- | :--- | :--- |
