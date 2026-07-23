@@ -101,10 +101,23 @@ public class SwingPianoRollDialog extends JDialog {
     buildUI();
     updateSizes();
 
-    // Scroll to C4 (MIDI Note 60) on open
+    // Scroll to the clip's notes on open (mean pitch of active notes; C4 for an empty clip)
     SwingUtilities.invokeLater(
         () -> {
-          int viewY = (127 - 60) * rowHeight - (gridScrollPane.getViewport().getHeight() / 2);
+          long pitchSum = 0;
+          int noteCount = 0;
+          for (int r = 0; r < clipModel.getRowCount(); r++) {
+            for (int s = 0; s < clipModel.getStepCount(); s++) {
+              StepData step = clipModel.getStep(r, s);
+              if (step != null && step.active()) {
+                pitchSum += step.pitch();
+                noteCount++;
+              }
+            }
+          }
+          int centerPitch = noteCount > 0 ? (int) (pitchSum / noteCount) : 60;
+          int viewY =
+              (127 - centerPitch) * rowHeight - (gridScrollPane.getViewport().getHeight() / 2);
           gridScrollPane.getVerticalScrollBar().setValue(Math.max(0, viewY));
         });
   }
@@ -411,18 +424,24 @@ public class SwingPianoRollDialog extends JDialog {
               }
 
               // Check if clicked on an existing note
-              StepData clickedNote = findNoteAt(rowIdx, e.getX());
-              int noteStepStart = findNoteStartStep(rowIdx, e.getX());
+              NoteRef hit = findNote(rowIdx, e.getX());
 
-              if (clickedNote != null && clickedNote.active()) {
+              if (hit != null) {
+                StepData clickedNote = hit.note();
+                int noteStepStart = hit.step();
                 if (SwingUtilities.isRightMouseButton(e)) {
                   showNotePopupMenu(
-                      e.getComponent(), e.getX(), e.getY(), rowIdx, noteStepStart, clickedNote);
+                      e.getComponent(),
+                      e.getX(),
+                      e.getY(),
+                      hit.clipRow(),
+                      noteStepStart,
+                      clickedNote);
                   return;
                 }
                 if (e.getClickCount() == 2) {
                   // Double click to delete
-                  deleteNote(rowIdx, noteStepStart);
+                  deleteNote(hit.clipRow(), noteStepStart);
                   return;
                 }
 
@@ -433,14 +452,15 @@ public class SwingPianoRollDialog extends JDialog {
 
                 dragInfo = new NoteDragInfo();
                 dragInfo.mode = isResizeHandle ? DRAG_RESIZE : DRAG_MOVE;
-                dragInfo.row = rowIdx;
+                dragInfo.row = hit.clipRow();
+                dragInfo.canvasRow = rowIdx;
                 dragInfo.startStep = noteStepStart;
                 dragInfo.note = clickedNote;
                 dragInfo.pressX = e.getX();
                 dragInfo.pressY = e.getY();
 
                 // Trigger acoustic pitch preview on drag start
-                playPreviewNote(127 - rowIdx);
+                playPreviewNote(clickedNote.pitch());
               } else {
                 if (SwingUtilities.isRightMouseButton(e)) {
                   showEmptySpacePopupMenu(e.getComponent(), e.getX(), e.getY(), rowIdx, stepIdx);
@@ -490,7 +510,7 @@ public class SwingPianoRollDialog extends JDialog {
                 int stepDelta = deltaX / stepWidth;
                 int rowDelta = deltaY / rowHeight;
 
-                int targetRow = Math.max(0, Math.min(127, dragInfo.row + rowDelta));
+                int targetCanvasRow = Math.max(0, Math.min(127, dragInfo.canvasRow + rowDelta));
                 int targetStep =
                     Math.max(
                         0, Math.min(clipModel.getStepCount() - 1, dragInfo.startStep + stepDelta));
@@ -504,15 +524,17 @@ public class SwingPianoRollDialog extends JDialog {
                   if (fill > 0.95f) fill = 0.95f;
                 }
 
-                int currentPitch = 127 - targetRow;
+                int currentPitch = 127 - targetCanvasRow;
                 if (currentPitch != activePreviewNote) {
                   playPreviewNote(currentPitch);
                 }
 
-                // Perform move in model/bridge
-                moveNote(dragInfo.row, dragInfo.startStep, targetRow, targetStep, fill);
-                dragInfo.row = targetRow;
+                // Perform move in model/bridge (the note keeps its storage row; only its
+                // step position and pitch change)
+                moveNote(dragInfo.row, dragInfo.startStep, targetStep, fill, currentPitch);
+                dragInfo.canvasRow = targetCanvasRow;
                 dragInfo.startStep = targetStep;
+                dragInfo.note = clipModel.getStep(dragInfo.row, targetStep);
                 dragInfo.pressX = e.getX();
                 dragInfo.pressY = e.getY();
               }
@@ -543,10 +565,10 @@ public class SwingPianoRollDialog extends JDialog {
                 return;
               }
 
-              StepData note = findNoteAt(rowIdx, e.getX());
-              if (note != null && note.active()) {
-                int noteStep = findNoteStartStep(rowIdx, e.getX());
-                int noteX = 5 + noteStep * stepWidth + (int) (note.nudge() * stepWidth);
+              NoteRef hover = findNote(rowIdx, e.getX());
+              if (hover != null) {
+                StepData note = hover.note();
+                int noteX = 5 + hover.step() * stepWidth + (int) (note.nudge() * stepWidth);
                 int noteW = (int) (note.gate() * stepWidth);
 
                 if (e.getX() >= noteX + noteW - 8) {
@@ -570,10 +592,11 @@ public class SwingPianoRollDialog extends JDialog {
       int rowIdx = event.getY() / rowHeight;
 
       if (stepIdx >= 0 && stepIdx < clipModel.getStepCount() && rowIdx >= 0 && rowIdx < 128) {
-        StepData note = findNoteAt(rowIdx, event.getX());
-        if (note != null && note.active()) {
-          String noteName = org.deluge.model.ScaleMapper.getNoteName(127 - rowIdx);
-          int noteStart = findNoteStartStep(rowIdx, event.getX());
+        NoteRef ref = findNote(rowIdx, event.getX());
+        if (ref != null) {
+          StepData note = ref.note();
+          String noteName = org.deluge.model.ScaleMapper.getNoteName(note.pitch());
+          int noteStart = ref.step();
           return "<html>Note: <b>"
               + noteName
               + "</b><br>"
@@ -746,36 +769,49 @@ public class SwingPianoRollDialog extends JDialog {
       menu.show(invoker, x, y);
     }
 
-    private StepData findNoteAt(int row, int mouseX) {
-      for (int s = 0; s < clipModel.getStepCount(); s++) {
-        StepData note = clipModel.getStep(row, s);
-        if (note.active()) {
-          int startX = 5 + s * stepWidth + (int) (note.nudge() * stepWidth);
-          int width = (int) (note.gate() * stepWidth);
-          if (mouseX >= startX && mouseX <= startX + width) {
-            return note;
+    /**
+     * Resolve the note under a canvas position back to where it lives in the clip. Notes are
+     * painted on the lane of their own {@link StepData#pitch()} (canvas row {@code 127 - pitch}),
+     * which for grid-authored clips is unrelated to their storage row — so hit-testing scans every
+     * clip row for an active note whose pitch matches the lane and whose bar covers {@code mouseX}.
+     */
+    private NoteRef findNote(int canvasRow, int mouseX) {
+      int pitch = 127 - canvasRow;
+      for (int r = 0; r < clipModel.getRowCount(); r++) {
+        for (int s = 0; s < clipModel.getStepCount(); s++) {
+          StepData note = clipModel.getStep(r, s);
+          if (note.active() && note.pitch() == pitch) {
+            int startX = 5 + s * stepWidth + (int) (note.nudge() * stepWidth);
+            int width = (int) (note.gate() * stepWidth);
+            if (mouseX >= startX && mouseX <= startX + width) {
+              return new NoteRef(r, s, note);
+            }
           }
         }
       }
       return null;
     }
 
-    private int findNoteStartStep(int row, int mouseX) {
-      for (int s = 0; s < clipModel.getStepCount(); s++) {
-        StepData note = clipModel.getStep(row, s);
-        if (note.active()) {
-          int startX = 5 + s * stepWidth + (int) (note.nudge() * stepWidth);
-          int width = (int) (note.gate() * stepWidth);
-          if (mouseX >= startX && mouseX <= startX + width) {
-            return s;
+    private void addNote(int canvasRow, int step) {
+      int pitch = 127 - canvasRow;
+
+      // Storage row: piano-roll-native clips (128 rows) index rows by lane; grid-authored clips
+      // keep their own row layout, so take the first row with a free slot at this step.
+      int row = -1;
+      if (clipModel.getRowCount() == 128) {
+        row = canvasRow;
+      } else {
+        for (int r = 0; r < clipModel.getRowCount(); r++) {
+          if (!clipModel.getStep(r, step).active()) {
+            row = r;
+            break;
           }
         }
       }
-      return -1;
-    }
-
-    private void addNote(int row, int step) {
-      int pitch = 127 - row;
+      if (row < 0) {
+        Toolkit.getDefaultToolkit().beep(); // every row already has a note at this step
+        return;
+      }
       int engineRow = baseTrackId + row;
 
       StepData newStep =
@@ -786,6 +822,7 @@ public class SwingPianoRollDialog extends JDialog {
       bridge.setGate(engineRow, step, StepData.DEFAULT_CLICK_GATE);
       bridge.setStepFill(engineRow, step, 0.0f);
       bridge.setStepNudge(engineRow, step, 0.0f);
+      bridge.setPitch(engineRow, step, pitch);
 
       clipModel.setStep(row, step, newStep);
       playPreviewNote(pitch);
@@ -802,27 +839,29 @@ public class SwingPianoRollDialog extends JDialog {
       fireProjectChanged();
     }
 
-    private void moveNote(int fromRow, int fromStep, int toRow, int toStep, float nudge) {
-      if (fromRow == toRow
-          && fromStep == toStep
-          && nudge == clipModel.getStep(fromRow, fromStep).nudge()) {
+    /**
+     * Move a note in time and/or pitch. The note stays on its clip storage row — a pitch change
+     * only rewrites {@link StepData#pitch()} (which is what the engine plays), exactly like the
+     * grid's per-step pitch editing.
+     */
+    private void moveNote(int row, int fromStep, int toStep, float nudge, int newPitch) {
+      StepData note = clipModel.getStep(row, fromStep);
+      if (fromStep == toStep && nudge == note.nudge() && newPitch == note.pitch()) {
         return;
       }
-
-      StepData note = clipModel.getStep(fromRow, fromStep);
-      int fromEngineRow = baseTrackId + fromRow;
-      int toEngineRow = baseTrackId + toRow;
+      int engineRow = baseTrackId + row;
 
       // Clear old position
-      bridge.setStep(fromEngineRow, fromStep, false);
-      clipModel.setStep(fromRow, fromStep, StepData.empty());
+      bridge.setStep(engineRow, fromStep, false);
+      clipModel.setStep(row, fromStep, StepData.empty());
 
       // Set new position
-      bridge.setStep(toEngineRow, toStep, true);
-      bridge.setVelocity(toEngineRow, toStep, note.velocity());
-      bridge.setGate(toEngineRow, toStep, note.gate());
-      bridge.setStepFill(toEngineRow, toStep, note.fill());
-      bridge.setStepNudge(toEngineRow, toStep, nudge);
+      bridge.setStep(engineRow, toStep, true);
+      bridge.setVelocity(engineRow, toStep, note.velocity());
+      bridge.setGate(engineRow, toStep, note.gate());
+      bridge.setStepFill(engineRow, toStep, note.fill());
+      bridge.setStepNudge(engineRow, toStep, nudge);
+      bridge.setPitch(engineRow, toStep, newPitch);
 
       StepData movedNote =
           new StepData(
@@ -830,11 +869,11 @@ public class SwingPianoRollDialog extends JDialog {
               note.velocity(),
               note.gate(),
               note.probability(),
-              127 - toRow,
+              newPitch,
               note.iterance(),
               note.fill(),
               nudge);
-      clipModel.setStep(toRow, toStep, movedNote);
+      clipModel.setStep(row, toStep, movedNote);
     }
 
     @Override
@@ -875,8 +914,10 @@ public class SwingPianoRollDialog extends JDialog {
         for (int s = 0; s < steps; s++) {
           StepData note = clipModel.getStep(r, s);
           if (note.active()) {
+            // Paint on the lane of the note's own pitch (canvas row 127 - pitch) — the clip
+            // storage row is unrelated to pitch for grid-authored clips.
             int noteX = 5 + s * stepWidth + (int) (note.nudge() * stepWidth) + 1;
-            int noteY = r * rowHeight + 2;
+            int noteY = (127 - note.pitch()) * rowHeight + 2;
             int noteW = (int) (note.gate() * stepWidth) - 2;
             int noteH = rowHeight - 4;
 
@@ -908,12 +949,16 @@ public class SwingPianoRollDialog extends JDialog {
 
   private static class NoteDragInfo {
     int mode;
-    int row;
+    int row; // clip storage row (where the StepData lives)
+    int canvasRow; // pitch lane on screen (127 - pitch)
     int startStep;
     StepData note;
     int pressX;
     int pressY;
   }
+
+  /** A note resolved from a canvas position back to its clip storage location. */
+  private record NoteRef(int clipRow, int step, StepData note) {}
 
   // ── Piano Keys Left RowHeader View ──
   private class PianoKeyboardPanel extends JPanel {

@@ -188,6 +188,8 @@ The pad grid is perfect for building a pattern a step at a time, but for long, m
 *   **Open it**: **`Tools ➔ Piano Roll Editor…`** (**`Ctrl + P`**), or right-click any step ➔ **Open Piano Roll Editor…**.
 *   **What you get**: every note in the clip laid out on a scrollable pitch × time grid. Drag notes to move them, drag their ends to change length, and click to add or remove notes — across the full length of the clip, at any zoom.
 *   **Microtiming**: hold **`Alt`** while dragging a note to nudge it off the grid by a fine amount instead of snapping to the nearest step.
+
+![The Piano Roll editor — notes on a scrollable pitch × time grid, with each note's velocity shown as a stem in the lane below](images/deluge_piano_roll.png)
 *   **Grid alternative**: you can also **zoom out** (`Ctrl + -`, or pick a coarser rate) to fit the whole clip on the pad grid and edit any bar directly.
 
 > [!NOTE] The desktop workstation doesn't need the hardware's *cross-screen* mode (which mirrors an edit across every screen of a long clip): the Piano Roll and grid zoom-out already show the entire clip on one screen, so you edit any bar directly.

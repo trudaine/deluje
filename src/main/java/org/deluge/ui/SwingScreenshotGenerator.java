@@ -562,33 +562,8 @@ public class SwingScreenshotGenerator {
                           prBox[0].pack();
                           prBox[0].setVisible(true);
                         });
-                    Thread.sleep(1200);
-                    // Scroll the pitch axis so the band of rows that actually contain notes is
-                    // centered (the dialog paints row r at r * rowHeight over a 128-row canvas).
-                    final var prClip = project.getTracks().get(fs).getClips().get(0);
-                    SwingUtilities.invokeAndWait(
-                        () -> {
-                          javax.swing.JScrollPane sp =
-                              findComponent(prBox[0], javax.swing.JScrollPane.class);
-                          if (sp == null) return;
-                          int minRow = Integer.MAX_VALUE, maxRow = -1;
-                          for (int r = 0; r < 128; r++) {
-                            for (int s = 0; s < prClip.getStepCount(); s++) {
-                              var step = prClip.getStep(r, s);
-                              if (step != null && step.active()) {
-                                minRow = Math.min(minRow, r);
-                                maxRow = Math.max(maxRow, r);
-                              }
-                            }
-                          }
-                          if (maxRow < 0) return;
-                          var vp = sp.getViewport();
-                          int rowH = vp.getView().getHeight() / 128;
-                          int bandCenter = ((minRow + maxRow) / 2) * rowH;
-                          int y = Math.max(0, bandCenter - vp.getExtentSize().height / 2);
-                          vp.setViewPosition(new java.awt.Point(0, y));
-                        });
-                    Thread.sleep(600);
+                    // The dialog auto-scrolls to the clip's notes on open.
+                    Thread.sleep(1800);
                     SwingUtilities.invokeAndWait(
                         () -> {
                           captureComponent(prBox[0], "deluge_piano_roll");
