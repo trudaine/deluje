@@ -489,6 +489,140 @@ public class SwingScreenshotGenerator {
   }
 
   /**
+   * Guidebook workflow captures (invoked by {@code --screenshot-guide}): Song view, Arranger view,
+   * a kit track's clip grid, and the Piano Roll editor — the workflow views the user manual lacked
+   * images for. Unlike {@link #runAutoScreenshots} this leaves every existing image untouched.
+   * Expects a multi-track song (with at least one kit track) to be loaded.
+   */
+  public static void runGuidebookCaptures(SwingDelugeApp app, final BridgeContract bridge) {
+    new Thread(
+            () -> {
+              try {
+                System.out.println("[Screenshot] Starting guidebook workflow captures...");
+
+                // ── Song view ──
+                SwingUtilities.invokeAndWait(
+                    () -> {
+                      app.setWorkspaceView("SONG");
+                      app.repaint();
+                    });
+                Thread.sleep(1500);
+                SwingUtilities.invokeAndWait(() -> captureComponent(app, "deluge_song_view"));
+
+                // ── Arranger view ──
+                SwingUtilities.invokeAndWait(
+                    () -> {
+                      app.setWorkspaceView("ARR");
+                      app.repaint();
+                    });
+                Thread.sleep(1500);
+                SwingUtilities.invokeAndWait(() -> captureComponent(app, "deluge_arranger_view"));
+
+                // ── Kit track clip grid ──
+                var project = app.getCurrentProject();
+                int kitIdx = -1, synthIdx = -1;
+                if (project != null) {
+                  for (int t = 0; t < project.getTracks().size(); t++) {
+                    var track = project.getTracks().get(t);
+                    if (kitIdx < 0 && track instanceof org.deluge.model.KitTrackModel) kitIdx = t;
+                    // For the piano roll, prefer a synth track whose first clip actually has
+                    // notes so the capture isn't an empty grid.
+                    if (synthIdx < 0
+                        && track instanceof org.deluge.model.SynthTrackModel
+                        && !track.getClips().isEmpty()
+                        && clipHasNotes(track.getClips().get(0))) {
+                      synthIdx = t;
+                    }
+                  }
+                }
+                if (kitIdx >= 0) {
+                  final int fk = kitIdx;
+                  SwingUtilities.invokeAndWait(
+                      () -> {
+                        app.setWorkspaceView("CLIP");
+                        app.switchToTrackEdit(fk, 0);
+                        app.repaint();
+                      });
+                  Thread.sleep(1500);
+                  SwingUtilities.invokeAndWait(() -> captureComponent(app, "deluge_kit_clip_grid"));
+                } else {
+                  System.out.println("[Screenshot] No kit track in song — kit grid skipped.");
+                }
+
+                // ── Piano Roll editor ──
+                if (synthIdx >= 0) {
+                  final int fs = synthIdx;
+                  try {
+                    final SwingPianoRollDialog[] prBox = new SwingPianoRollDialog[1];
+                    SwingUtilities.invokeAndWait(
+                        () -> {
+                          prBox[0] =
+                              new SwingPianoRollDialog(
+                                  app, app.getClipPanel(), fs, 0, project, bridge);
+                          prBox[0].pack();
+                          prBox[0].setVisible(true);
+                        });
+                    Thread.sleep(1200);
+                    // Scroll the pitch axis so the band of rows that actually contain notes is
+                    // centered (the dialog paints row r at r * rowHeight over a 128-row canvas).
+                    final var prClip = project.getTracks().get(fs).getClips().get(0);
+                    SwingUtilities.invokeAndWait(
+                        () -> {
+                          javax.swing.JScrollPane sp =
+                              findComponent(prBox[0], javax.swing.JScrollPane.class);
+                          if (sp == null) return;
+                          int minRow = Integer.MAX_VALUE, maxRow = -1;
+                          for (int r = 0; r < 128; r++) {
+                            for (int s = 0; s < prClip.getStepCount(); s++) {
+                              var step = prClip.getStep(r, s);
+                              if (step != null && step.active()) {
+                                minRow = Math.min(minRow, r);
+                                maxRow = Math.max(maxRow, r);
+                              }
+                            }
+                          }
+                          if (maxRow < 0) return;
+                          var vp = sp.getViewport();
+                          int rowH = vp.getView().getHeight() / 128;
+                          int bandCenter = ((minRow + maxRow) / 2) * rowH;
+                          int y = Math.max(0, bandCenter - vp.getExtentSize().height / 2);
+                          vp.setViewPosition(new java.awt.Point(0, y));
+                        });
+                    Thread.sleep(600);
+                    SwingUtilities.invokeAndWait(
+                        () -> {
+                          captureComponent(prBox[0], "deluge_piano_roll");
+                          prBox[0].dispose();
+                        });
+                  } catch (Exception ex) {
+                    System.err.println("[Screenshot] Piano Roll skipped: " + ex);
+                  }
+                } else {
+                  System.out.println("[Screenshot] No synth track in song — piano roll skipped.");
+                }
+
+                System.out.println("🎉 Guidebook workflow captures complete!");
+                System.exit(0);
+              } catch (Exception ex) {
+                System.err.println("[Screenshot] Guidebook capture error: " + ex.getMessage());
+                System.exit(1);
+              }
+            })
+        .start();
+  }
+
+  /** True if any step in the clip is active (used to pick a non-empty clip to photograph). */
+  private static boolean clipHasNotes(org.deluge.model.ClipModel clip) {
+    for (int r = 0; r < clip.getRowCount(); r++) {
+      for (int s = 0; s < clip.getStepCount(); s++) {
+        org.deluge.model.StepData step = clip.getStep(r, s);
+        if (step != null && step.active()) return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Tab title -> image-name slug, e.g. "MOD FX" -> "mod_fx", "OSC / FILTER / FM" ->
    * "osc___filter___fm".
    */

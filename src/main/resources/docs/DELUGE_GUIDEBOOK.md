@@ -82,6 +82,8 @@ When you launch the Deluge-Java Workstation, it opens a blank song with a single
 
 Instead of having a synth assigned, a track may have a "kit". For kit tracks, each row of pads represents an entirely different sound (e.g. Row 1 = Kick, Row 2 = Snare, Row 3 = Closed Hat).
 
+![A kit clip — each row is a named drum sound (labels at the right), steps show their velocity, and every row has its own MUTE button. The FOLD button at the bottom right collapses empty rows](images/deluge_kit_clip_grid.png)
+
 *   **Convert to Kit Track**: Add a kit track from the sidebar (right-click ➔ **Add Kit Track**), or click the **[KIT]** button. Each row now triggers a different drum sound.
 *   **Mute a Drum Row**: Click the row's mute pad (second from the right; green). It turns yellow to show the row is muted; click again to unmute.
 *   **Re-order Kit Rows**: Drag the row's header up or down to move it. The row and its notes move together.
@@ -294,6 +296,23 @@ Two things are often mistaken for separate modes: **wavetable** and **multi-samp
 
 ### 2.1 Subtractive Synthesizer Engine
 Subtractive synthesis models standard analog signal paths: Oscillators ➔ Resonant Filters ➔ VCA Amplifier.
+
+```mermaid
+flowchart LR
+    OA[Osc A] --> MIX((Mix))
+    OB[Osc B] --> MIX
+    NZ[Noise] --> MIX
+    MIX --> HPF[HPF]
+    HPF --> LPF[Resonant LPF]
+    LPF --> VCA[Amp / VCA]
+    VCA --> FX[FX & Sends]
+    ENV1[Envelope 1] -.-> VCA
+    ENV2[Envelope 2] -.-> LPF
+    LFO[LFOs] -.-> OA
+    LFO -.-> LPF
+```
+
+*Solid arrows carry audio; dotted arrows are modulation. Any modulation source can be re-routed in the Patchbay (§6).*
 * **Dual Detuned Oscillators (Osc A & Osc B)**: Selectable shapes:
   * *Sine, Triangle, Sawtooth, Square wave with adjustable Pulse-Width (PW)*.
   * *Noise generator* (white/pink) to sculpt transient cracks or ambient grit.
@@ -620,6 +639,8 @@ Switch between workspaces with the **view buttons in the top toolbar** — **CLI
 
 Each row shows a clip drawn as its own step pattern, tinted by its Song Section colour, so you can read the whole arrangement at a glance.
 
+![Song view — one clip per row with its step pattern, Section chips along the top, and each row's MUTE button and preset name at the right](images/deluge_song_view.png)
+
 * **Launch / mute a clip**: click a clip's launcher to start or stop it. The change is quantized to the loop boundary so it stays in time.
 * **Launch a whole Section**: click a Section pad to queue every clip in that section together.
 * **Status square** (in the sidebar): **green** = active, **red** = muted/stopped, **blue** = soloed; it dims when another track is soloing so the soloed one stands out. While a clip is *armed* and waiting for the loop boundary, the square **blinks white** — matching the hardware's blinking launch pad.
@@ -627,6 +648,8 @@ Each row shows a clip drawn as its own step pattern, tinted by its Song Section 
 ### 7.2 Arrangement View — Building the Timeline
 
 Lay clip blocks along each track's lane to compose the full song:
+
+![Arrangement view — clip blocks laid along each track's timeline lane, with per-lane MUTE and SOLO buttons at the right. A block's bright first pad marks where the clip starts; the dimmer pads after it show how long it plays](images/deluge_arranger_view.png)
 
 * **Add a block**: click an empty slot in a track's lane to open a menu of that track's clips (plus **Create New Pattern Clip (1 bar)**); pick one to drop a block there.
 * **Move a block**: drag a block horizontally. It snaps by whole columns (96 ticks / one bar), and can't move before the start of the timeline.
@@ -1283,6 +1306,8 @@ To reproduce the exact, iconic lo-fi and physical audio character of the vintage
 
 ### 17.2 Microtuning, Custom Temperaments & Scala (.scl) Imports
 The Deluge-Java Workstation features a microtuning engine that is fully integrated into the song structure and sound synthesis pipelines. You can configure custom temperaments, detune individual note classes, calibrate the base reference pitch, and import standard Scala `.scl` files.
+
+![Tuning & Temperaments dialog — temperament, notes-per-octave, reference pitch, Scala import, and the per-note scaling map](images/deluge_tuning.png)
 
 Access the interface by selecting **`Settings ➔ Tuning & Temperaments...`** from the global menu bar:
 

@@ -2434,12 +2434,17 @@ public class SwingDelugeApp extends JFrame {
         "[main] Pure Java (Pure Firmware) direct soundcard output ENABLED by default");
 
     boolean runScreenshots = false;
+    boolean runGuideScreenshots = false;
     for (String arg : args) {
       if ("--screenshot".equalsIgnoreCase(arg)) {
         runScreenshots = true;
       }
+      if ("--screenshot-guide".equalsIgnoreCase(arg)) {
+        runGuideScreenshots = true;
+      }
     }
     final boolean finalRunScreenshots = runScreenshots;
+    final boolean finalRunGuideScreenshots = runGuideScreenshots;
     // Gate the boot grid-mode-cycling screenshot pipeline (set before the app is constructed, since
     // the constructor runs the boot path).
     autoScreenshotOnBoot = runScreenshots;
@@ -2513,14 +2518,18 @@ public class SwingDelugeApp extends JFrame {
             bx.start();
           }
 
-          if (finalRunScreenshots) {
+          if (finalRunScreenshots || finalRunGuideScreenshots) {
             new Thread(
                     () -> {
                       try {
                         System.out.println(
                             "[Screenshot] Waiting 4 seconds for UI repaint and Loom threads...");
                         Thread.sleep(4000);
-                        SwingScreenshotGenerator.runAutoScreenshots(app, bridge);
+                        if (finalRunGuideScreenshots) {
+                          SwingScreenshotGenerator.runGuidebookCaptures(app, bridge);
+                        } else {
+                          SwingScreenshotGenerator.runAutoScreenshots(app, bridge);
+                        }
                       } catch (Exception ex) {
                         System.err.println("[Screenshot] Trigger thread error: " + ex.getMessage());
                       }
