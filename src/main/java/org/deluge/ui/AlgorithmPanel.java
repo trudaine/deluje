@@ -113,6 +113,8 @@ public class AlgorithmPanel extends JPanel {
       gridPanel.add(algoCard);
     }
     add(scroll, BorderLayout.CENTER);
+    // Open the list at the top (Algo 0) — adding cards can leave the viewport scrolled mid-list.
+    SwingUtilities.invokeLater(() -> scroll.getVerticalScrollBar().setValue(0));
 
     // ── Bottom: STK description ──
     JTextArea desc =

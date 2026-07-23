@@ -60,6 +60,8 @@ public class SwingWavetableDialog extends JDialog {
         new JLabel(
             String.format(
                 "🔬 DRUM WAVETABLE LABORATORY — Active File: %s", fileName.toUpperCase()));
+    // Emoji-prefixed labels under-measure on some fonts, clipping the last glyph ("NONE"->"NONI").
+    titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 16));
     titleLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
     titleLabel.setForeground(SwingSynthConfigDialog.ACCENT_MINT);
     headerPanel.add(titleLabel);

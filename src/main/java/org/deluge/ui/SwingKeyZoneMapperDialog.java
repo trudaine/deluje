@@ -69,6 +69,8 @@ public class SwingKeyZoneMapperDialog extends JDialog {
     toolbar.setBorder(new EmptyBorder(10, 15, 4, 15));
 
     JLabel titleLabel = new JLabel("🔬 MULTI-SAMPLE KEYZONE ROLL");
+    // Emoji-prefixed labels under-measure on some fonts, clipping the last glyph.
+    titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 16));
     titleLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
     titleLabel.setForeground(SwingSynthConfigDialog.ACCENT_MINT);
     toolbar.add(titleLabel);

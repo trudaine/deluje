@@ -23,12 +23,15 @@ public class AutomationPanel extends JPanel {
     int stepCount = (clip != null) ? clip.getStepCount() : 16;
 
     // ── Header with Clear All Button ──
-    JPanel topBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 4));
+    // BorderLayout keeps the title and the button in separate regions so a long clip name can
+    // never run underneath the button.
+    JPanel topBar = new JPanel(new BorderLayout(12, 0));
     topBar.setBackground(SwingSynthConfigDialog.BG_CARD);
     topBar.add(
         SwingSynthConfigDialog.sectionLabel(
             "🎛️ STEP AUTOMATION MATRIX — Active Clip: "
-                + (clip != null ? clip.getName() : "none")));
+                + (clip != null ? clip.getName() : "none")),
+        BorderLayout.CENTER);
 
     JButton clearAllBtn = new JButton("Clear All Automation");
     styleButton(clearAllBtn, new Color(0x3e, 0x0c, 0x0c), new Color(0xff, 0x55, 0x55));
@@ -62,7 +65,7 @@ public class AutomationPanel extends JPanel {
             }
           }
         });
-    topBar.add(clearAllBtn);
+    topBar.add(clearAllBtn, BorderLayout.EAST);
 
     if (clip == null) {
       clearAllBtn.setEnabled(false);
@@ -71,7 +74,7 @@ public class AutomationPanel extends JPanel {
               "⚠️ NO ACTIVE CLIP: Create a sequence pattern clip in Song view to enable step automation!");
       warnLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
       warnLabel.setForeground(new Color(0xff, 0x99, 0x00));
-      topBar.add(warnLabel);
+      topBar.add(warnLabel, BorderLayout.SOUTH);
     }
     add(topBar, BorderLayout.NORTH);
 

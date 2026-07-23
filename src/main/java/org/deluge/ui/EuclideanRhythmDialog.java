@@ -179,6 +179,10 @@ public class EuclideanRhythmDialog extends JDialog {
     JButton applyBtn = new JButton("Apply");
     applyBtn.setBackground(new Color(0x33, 0x44, 0x55));
     applyBtn.setForeground(Color.WHITE);
+    // Without these, some look-and-feels paint their own light button face under the white
+    // text, leaving an apparently blank button.
+    applyBtn.setOpaque(true);
+    applyBtn.setBorderPainted(false);
     applyBtn.addActionListener(
         e -> {
           if (patternConsumer != null) {

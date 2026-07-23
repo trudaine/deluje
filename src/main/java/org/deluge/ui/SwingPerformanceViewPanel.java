@@ -38,7 +38,7 @@ public class SwingPerformanceViewPanel extends JPanel {
     "VOLUME", "PAN", "LPF FREQ", "LPF RES",
     "HPF FREQ", "HPF RES", "MOD FX RATE", "MOD FX DEPTH",
     "DELAY", "REVERB", "STUTTER", "BITCRUSH",
-    "SRR", "SIDECHAIN", "COMP", "NOISE VOL",
+    "SRR", "SDCHN", "COMP", "NOISE VOL",
     "PERF MUTE", "SNAPSHOT"
   };
 

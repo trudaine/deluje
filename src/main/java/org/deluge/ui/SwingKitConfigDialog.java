@@ -868,7 +868,17 @@ public class SwingKitConfigDialog extends JDialog {
 
     cMain.gridx = 0;
     cMain.insets = new Insets(0, 0, 0, 15);
-    panel.add(leftPanel, cMain);
+    // Scroll wrapper: the left column (sample + waveform + filter + UTILITY & GROUPS) is taller
+    // than the dialog at common sizes and used to clip its bottom with no scrollbar at all.
+    JScrollPane leftScroll =
+        new JScrollPane(
+            leftPanel,
+            ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+            ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+    leftScroll.setBorder(null);
+    leftScroll.getViewport().setBackground(SwingSynthConfigDialog.BG_CARD);
+    leftScroll.getVerticalScrollBar().setUnitIncrement(16);
+    panel.add(leftScroll, cMain);
 
     cMain.gridx = 1;
     cMain.insets = new Insets(0, 15, 0, 0);

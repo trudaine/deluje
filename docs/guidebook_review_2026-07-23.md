@@ -158,19 +158,24 @@ kind: content clipped *without* a scrollbar, truncated labels, and wrong capture
 | `deluge_recording_cleaner.png`: bottom buttons truncated/overlapping | Dialog fixed at 850×580, too narrow for its action bar | 1100×620 with a minimum size; action bar renders complete |
 | "MASTER EFFECTS CONSOLI" title on all four FX-console shots | Emoji-prefixed label under-measures, clipping the final glyph | Trailing padding on the title label |
 
-### Known remaining cosmetics (not yet fixed)
+### Cosmetics — second pass (fixed 2026-07-23, follow-up commit)
 
-- `deluge_synth_tab_modulation.png` — matrix column headers crushed/truncated (columns narrower
-  than their labels).
-- `deluge_waveform_crop.png` — "UTILITY & GROUPS" section clipped at the bottom with no
-  scrollbar (controls under it undiscoverable at this size).
-- `deluge_synth_tab_automation.png` — header text runs under the "Clear All Automation" button;
-  panel bottom cut in the capture.
-- `deluge_bar_automation.png` — tiny fragment crop; retake showing the whole dialog.
-- `deluge_project_explorer.png` — selected tab label unreadable (light pill on light background);
-  header button truncated.
-- Minor label truncations: keyzone mapper title, wavetable editor title/save button, wavetable
-  lab "NONE", FM ratio unit, performance-view "SIDECHAI" column, MIDI-settings channel spinners,
-  drone-lab "⚡" unlabeled button, euclidean dialog blank button.
-- The algorithm list opens pre-scrolled mid-list; scrolling to the top before capture would read
-  better.
+- Modulation-matrix column headers now draw diagonally (were an unreadable run-on at 22px
+  columns); header band raised to fit.
+- Kit dialog's left column (sample/waveform/UTILITY & GROUPS) wrapped in a scroll pane — it
+  previously clipped its bottom with no scrollbar.
+- Automation tab header switched to BorderLayout so a long clip name can't run under the
+  "Clear All Automation" button.
+- BarAutomationDialog given a real preferred size + padding (pack() collapsed it to a 215×135
+  fragment in captures).
+- Sidebar explorer's selected tab now gets dark text on the light selected pill (was unreadable).
+- Emoji-title clipping ("KEYZONE ROLL"→"ROLI", wavetable "NONE"→"NONI") fixed with trailing
+  label padding; performance-view SIDECHAIN column relabeled SDCHN to fit; Euclidean Apply
+  button made opaque (some look-and-feels painted white-on-white); algorithm list now opens
+  scrolled to the top.
+
+### Still open (low value)
+
+- Wavetable editor "Save wavetable to SD..." button label can ellipsize at narrow widths.
+- FM ratio unit label in the OSC/FILTER/FM tab can truncate ("×0…").
+- MIDI-settings channel spinners are very narrow; drone-lab Style dropdown is low-contrast.

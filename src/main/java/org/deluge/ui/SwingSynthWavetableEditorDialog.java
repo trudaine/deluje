@@ -106,6 +106,8 @@ public class SwingSynthWavetableEditorDialog extends JDialog {
     JLabel titleLabel =
         new JLabel(
             String.format("🔬 3D WAVETABLE LABORATORY — Active File: %s", fileName.toUpperCase()));
+    // Emoji-prefixed labels under-measure on some fonts, clipping the last glyph.
+    titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 16));
     titleLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
     titleLabel.setForeground(SwingSynthConfigDialog.ACCENT_MINT);
     headerPanel.add(titleLabel, BorderLayout.WEST);

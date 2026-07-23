@@ -53,7 +53,9 @@ public class ModulationMatrixComponent extends JComponent {
 
   // Layout metrics
   private final int headerWidth = 90;
-  private final int headerHeight = 35;
+  // Tall enough for the diagonal column labels ("SDCHN" etc.) — horizontal labels at 22px
+  // columns overlapped into an unreadable run-on.
+  private final int headerHeight = 48;
   private final int cellSize = 22;
 
   // Interaction state
@@ -253,11 +255,14 @@ public class ModulationMatrixComponent extends JComponent {
 
       String label = SRC_LABELS[col];
 
-      // Center the label text horizontally in the cell column
-      FontMetrics fm = g2.getFontMetrics();
-      int labelW = fm.stringWidth(label);
-      int textX = cellX + (cellSize - labelW) / 2;
-      g2.drawString(label, textX, headerHeight - 12);
+      // Draw the label diagonally: the columns are narrower than the label text, so horizontal
+      // labels collide into an unreadable run-on. Rotate -45° around the column's base point.
+      Graphics2D gRot = (Graphics2D) g2.create();
+      int pivotX = cellX + cellSize / 2;
+      int pivotY = headerHeight - 8;
+      gRot.rotate(-Math.PI / 4, pivotX, pivotY);
+      gRot.drawString(label, pivotX - 2, pivotY);
+      gRot.dispose();
     }
 
     // Draw Row Headers and Cells

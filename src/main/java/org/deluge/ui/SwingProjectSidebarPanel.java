@@ -79,6 +79,19 @@ public class SwingProjectSidebarPanel extends JPanel {
     tabbedPane.setFont(new Font("SansSerif", Font.BOLD, 10));
 
     libraryTab = new LibrarySidebarTab(this);
+    // The look-and-feel paints the SELECTED tab as a light pill; a light-gray label on it is
+    // unreadable. Track selection and give the selected tab dark text.
+    tabbedPane.addChangeListener(
+        e -> {
+          for (int i = 0; i < tabbedPane.getTabCount(); i++) {
+            tabbedPane.setForegroundAt(
+                i,
+                i == tabbedPane.getSelectedIndex()
+                    ? new Color(0x20, 0x20, 0x24)
+                    : Color.LIGHT_GRAY);
+          }
+        });
+
     tabbedPane.addTab("📁 LOCAL", libraryTab);
 
     hardwareTab = new HardwareSidebarTab(this);
