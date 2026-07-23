@@ -25,8 +25,13 @@ public class EngineSyncCoordinator {
   private final SwingDelugeApp app;
   private final BridgeContract bridge;
 
-  private volatile int[] trackEngineStart;
-  private volatile int[] trackVoiceCount;
+  /**
+   * Immutable start/count pair published as a single volatile reference so concurrent readers
+   * always see a consistent, fully-populated mapping.
+   */
+  private record TrackEngineMapping(int[] engineStart, int[] voiceCount) {}
+
+  private volatile TrackEngineMapping mapping;
 
   public EngineSyncCoordinator(SwingDelugeApp app, BridgeContract bridge) {
     this.app = app;
@@ -35,16 +40,18 @@ public class EngineSyncCoordinator {
 
   /** Get the starting engine row index for a given track. */
   public int getTrackEngineStart(int trackId) {
-    if (trackEngineStart != null && trackId >= 0 && trackId < trackEngineStart.length) {
-      return trackEngineStart[trackId];
+    TrackEngineMapping m = mapping;
+    if (m != null && trackId >= 0 && trackId < m.engineStart.length) {
+      return m.engineStart[trackId];
     }
     return -1;
   }
 
   /** Get the engine voice/row count allocated for a given track. */
   public int getTrackVoiceCount(int trackId) {
-    if (trackVoiceCount != null && trackId >= 0 && trackId < trackVoiceCount.length) {
-      return trackVoiceCount[trackId];
+    TrackEngineMapping m = mapping;
+    if (m != null && trackId >= 0 && trackId < m.voiceCount.length) {
+      return m.voiceCount[trackId];
     }
     return 0;
   }
@@ -54,22 +61,25 @@ public class EngineSyncCoordinator {
     model.addProjectListener(new BridgeProjectListener(model));
   }
 
-  /** Recompute trackEngineStart and trackVoiceCount from the current project model. */
-  private void computeEngineMapping(ProjectModel project) {
+  /** Recompute the track→engine-row mapping from the current project model and publish it. */
+  private TrackEngineMapping computeEngineMapping(ProjectModel project) {
     List<TrackModel> tracks = project.getTracks();
     int n = tracks.size();
-    trackEngineStart = new int[n];
-    trackVoiceCount = new int[n];
+    int[] engineStart = new int[n];
+    int[] voiceCount = new int[n];
     int nextRow = 0;
     for (int t = 0; t < n && nextRow < BridgeContract.TRACKS; t++) {
-      trackEngineStart[t] = nextRow;
+      engineStart[t] = nextRow;
       boolean isKit = tracks.get(t) instanceof KitTrackModel;
       boolean isMidi = tracks.get(t) instanceof org.deluge.model.MidiTrackModel;
       int voices = isMidi ? 0 : (isKit ? ((KitTrackModel) tracks.get(t)).getDrums().size() : 8);
       int capped = Math.min(voices, BridgeContract.TRACKS - nextRow);
-      trackVoiceCount[t] = capped;
+      voiceCount[t] = capped;
       nextRow += capped;
     }
+    TrackEngineMapping m = new TrackEngineMapping(engineStart, voiceCount);
+    mapping = m;
+    return m;
   }
 
   /**
@@ -80,7 +90,7 @@ public class EngineSyncCoordinator {
     ProjectModel currentProject = app.getCurrentProject();
     if (currentProject == null) return;
 
-    computeEngineMapping(currentProject);
+    TrackEngineMapping m = computeEngineMapping(currentProject);
     List<TrackModel> tracks = currentProject.getTracks();
 
     // Clear all engine rows first
@@ -101,8 +111,8 @@ public class EngineSyncCoordinator {
 
     for (int t = 0; t < tracks.size(); t++) {
       TrackModel track = tracks.get(t);
-      int startRow = trackEngineStart[t];
-      int voiceCount = trackVoiceCount[t];
+      int startRow = m.engineStart[t];
+      int voiceCount = m.voiceCount[t];
 
       int rowsToSet = voiceCount;
       if (track instanceof SynthTrackModel synth) {
@@ -390,8 +400,8 @@ public class EngineSyncCoordinator {
     // ── Push ALL clips per track to clip-indexed C{n} bridge arrays ──
     for (int t = 0; t < tracks.size(); t++) {
       TrackModel track = tracks.get(t);
-      int startRow = trackEngineStart[t];
-      int voiceCount = trackVoiceCount[t];
+      int startRow = m.engineStart[t];
+      int voiceCount = m.voiceCount[t];
       List<ClipModel> clips = track.getClips();
 
       bridge.setClipCount(t, clips.size());

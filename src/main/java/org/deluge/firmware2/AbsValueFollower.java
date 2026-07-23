@@ -61,6 +61,10 @@ public class AbsValueFollower {
   /**
    * C: absolute_value.cpp:34-61 — calcApproxRMS. Returns log-mean of absolute values for L/R
    * channels.
+   *
+   * <p>The returned array is a single instance reused across calls (no per-call allocation on the
+   * audio thread). Callers must read the two values out immediately; do not retain the reference or
+   * share it across threads.
    */
   public float[] calcApproxRMS(int[][] buffer) {
     long l = 0, r = 0;

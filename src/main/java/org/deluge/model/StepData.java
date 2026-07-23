@@ -46,8 +46,8 @@ public record StepData(
   }
 
   /**
-   * C note_row.cpp:2005 — returns true if probability, iterance, or fill settings
-   * differ from their defaults (non-default note parameter edit).
+   * C note_row.cpp:2005 — returns true if probability, iterance, or fill settings differ from their
+   * defaults (non-default note parameter edit).
    */
   public boolean hasEditedNoteParameters() {
     return probability < 0.999f || iterance != 0 || fill > 0.001f;
