@@ -26,12 +26,13 @@ reference):
 | 9 Delugeator | b | 19 Community Ref | c ✓ | 29 Premium UI | c |
 | 10 Panels/Shift | c | 20 Workflow Tips | a | | |
 
-Top rewrite candidates (should be scenario-driven but aren't) — items 1, 2, 3, 6 and the jargon
-leaks below were addressed in the 2026-07-23 follow-up commits (§16, §13, §23 rewritten
-scenario-first; §14.8's developer calibration content moved to
-[hardware_dsp_tap_calibration.md](hardware_dsp_tap_calibration.md); duplicate 10.3 headings and
-duplicate tutorial letters L/N fixed). Items 4, 5, 7 (§10 pad inventory, §1.11/1.12 full
-restructure beyond the jargon fix, §17.3/§29 reframes) remain open:
+Top rewrite candidates (should be scenario-driven but aren't) — ALL addressed in the 2026-07-23
+follow-up commits: §16, §13, §23 rewritten scenario-first; §14.8's developer calibration content
+moved to [hardware_dsp_tap_calibration.md](hardware_dsp_tap_calibration.md); duplicate 10.3
+headings and duplicate tutorial letters L/N fixed; §10 opens with the live-tweak scenario and its
+panel list dropped the PNG-filename artifacts; §17.3 reframed job-first per feature; §29 intro
+reframed around what the player sees while performing. Original findings kept below for the
+record:
 
 1. **§16 MPE** — pure concept; never says how to enable/route MPE. Open with the player's goal
    (per-finger bend/slide routed to filter cutoff) and give actual steps.

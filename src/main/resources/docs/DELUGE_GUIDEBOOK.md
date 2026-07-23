@@ -734,7 +734,7 @@ The top menu action **`Tools ➔ Drone Lab & Texture Generator...`** (global sho
 
 ## 10. UI Panels & Shift Shortcuts System Behavior
 
-The Deluge Workstation features a deeply integrated Shift action system and sound configuration dialogs. Holding down the **[SHIFT]** key (or clicking the virtual Shift button) triggers shortcuts and sub-labels overlays directly across the main pads grid.
+You're mid-jam and want to nudge the filter cutoff — without stopping to open the sound editor, find the right tab, and lose the groove. That's what **Shift** is for: hold it (key or virtual button) and the whole pad grid becomes a sound-editor control surface, exactly like the gold-printed shortcut grid on the physical Deluge. This chapter maps everything Shift unlocks, then tours the sound-editor dialog and preferences panels behind it.
 
 ### 10.1 The Shift Grid Shortcuts Overlay (Sound Editor Shortcuts)
 
@@ -847,21 +847,21 @@ Double-clicking a Synth track opens the sound editor, which displays parameter p
 ![Stutter repeat rate and quantum tab](images/deluge_synth_tab_stutter.png)
 ```
 
-1. **OSC / FILTER / FM Panel (`deluge_synth_tab_osc___filter___fm.png`)**: The primary sound designer deck, featuring a unified overview of active oscillator shapes, resonant filter cutoffs/resonance, modulator FM depths, and quick-access decay times.
+1. **OSC / FILTER / FM Panel**: The primary sound designer deck, featuring a unified overview of active oscillator shapes, resonant filter cutoffs/resonance, modulator FM depths, and quick-access decay times.
 2. **DX7 FM Panel (`deluge_synth_tab_dx7.png`)**: Parses DX7 voice banks, allowing import of .SYX files, listing presets, selecting patch entries, and editing parameters.
-3. **Algorithm Panel (`deluge_synth_tab_algorithm.png`)**: Displays a vector block diagram of the FM algorithm, illustrating operator relationships.
-4. **OSC Panel (`deluge_synth_tab_osc.png`)**: Adjusts pulse-width modulation, pitch detuning, and oscillator shapes.
-5. **LFO Panel (`deluge_synth_tab_lfo.png`)**: Configures rates, depths, and shapes (Sine, Saw, Triangle, Square, Random/S&H) for all 4 global and local low frequency oscillators.
-6. **Arpeggiator Panel (`deluge_synth_tab_arp.png`)**: Community 1.3 Arpeggiator 3.0 suite featuring Walk & Pattern note modes, Kit Row Arpeggiator, Chord Types & Polyphony (1–8 notes), Chord Probability, Reverse Probability, and Arp Spreads (Octave, Gate, and Velocity Spreads).
-7. **Envelope Panel (`deluge_synth_tab_envelope.png`)**: Configures ADSR times and target parameters settings for all 4 sound path envelopes.
-8. **Modulation Matrix Panel (`deluge_synth_tab_modulation.png`)**: Sleek routing table where sources are cabled to destinations with unipolar/bipolar sliders.
-9. **Compressor Panel (`deluge_synth_tab_compressor.png`)**: Adjusts dynamic compressor thresholds, ratios, attacks, release, and sidechain HPF filters.
-10. **EQ Panel (`deluge_synth_tab_eq.png`)**: Adjusts master shelving EQ Bass and Treble boost/cut decibels.
-11. **Mod FX Panel (`deluge_synth_tab_mod_fx.png`)**: Configures modulation LFO speeds and feedback depths for active Chorus, Flanger, or Phaser lines.
-12. **HPF Panel (`deluge_synth_tab_hpf.png`)**: Adjusts high-pass filter cutoff frequencies and feedback ladder overdrive.
-13. **Automation Panel (`deluge_synth_tab_automation.png`)**: Lists all automate-able parameters with numeric draw step values for step-by-step tweaking.
-14. **MIDI Learn Panel (`deluge_synth_tab_midi_learn.png`)**: Maps sequencer parameters to incoming hardware MIDI controller CC knob events via dynamic listener hooks.
-15. **Stutter Panel (`deluge_synth_tab_stutter.png`)**: Configures repeat rate, stutter quantum sync, reverse stutter, and latching stutter modes.
+3. **Algorithm Panel**: Displays a vector block diagram of the FM algorithm, illustrating operator relationships.
+4. **OSC Panel**: Adjusts pulse-width modulation, pitch detuning, and oscillator shapes.
+5. **LFO Panel**: Configures rates, depths, and shapes (Sine, Saw, Triangle, Square, Random/S&H) for all 4 global and local low frequency oscillators.
+6. **Arpeggiator Panel**: Community 1.3 Arpeggiator 3.0 suite featuring Walk & Pattern note modes, Kit Row Arpeggiator, Chord Types & Polyphony (1–8 notes), Chord Probability, Reverse Probability, and Arp Spreads (Octave, Gate, and Velocity Spreads).
+7. **Envelope Panel**: Configures ADSR times and target parameters settings for all 4 sound path envelopes.
+8. **Modulation Matrix Panel**: Sleek routing table where sources are cabled to destinations with unipolar/bipolar sliders.
+9. **Compressor Panel**: Adjusts dynamic compressor thresholds, ratios, attacks, release, and sidechain HPF filters.
+10. **EQ Panel**: Adjusts master shelving EQ Bass and Treble boost/cut decibels.
+11. **Mod FX Panel**: Configures modulation LFO speeds and feedback depths for active Chorus, Flanger, or Phaser lines.
+12. **HPF Panel**: Adjusts high-pass filter cutoff frequencies and feedback ladder overdrive.
+13. **Automation Panel**: Lists all automate-able parameters with numeric draw step values for step-by-step tweaking.
+14. **MIDI Learn Panel**: Maps synth parameters to your hardware MIDI controller's CC knobs.
+15. **Stutter Panel**: Configures repeat rate, stutter quantum sync, reverse stutter, and latching stutter modes.
 
 ---
 
@@ -1327,33 +1327,30 @@ Microtuning configurations are serialized directly inside the song's `.XML` file
 
 ### 17.3 Deluge-Java Workstation Exclusive Power Features
 
-The Deluge-Java Workstation extends the capabilities of the original physical hardware, leveraging the desktop environment's processing power, high-resolution display, disk throughput, and robust JDK libraries. Below is an overview of these exclusive power features:
+Some things a desktop can simply do that the hardware can't. Each feature below starts from the job you're trying to get done:
 
-#### 1. 📦 Standalone WAV Stem Exporter (Offline Mixdown)
-Unlike the physical hardware—which only allows real-time stereo recording of a performance—Deluge-Java includes a high-performance **Offline WAV Stem Exporter**.
-*   **Background Multi-Threaded Rendering**: Utilizing a background rendering engine, Deluge-Java renders the entire song at maximum CPU speed without interrupting the user interface.
-*   **Track Isolation (Multi-Stem)**: The exporter runs a dedicated rendering pass for each individual track (Synth, Drum Kit, and Audio Track) by isolating its specific voice oscillators and filters. This outputs perfectly aligned, sample-accurate, phase-locked individual stem files (e.g. `Track_1_Drums_stem.wav`, `Track_2_Lead_stem.wav`) alongside a combined `Master_mix.wav` stem.
-*   **Arranger-Sync Duration**: The exporter automatically scans the arranger timeline to detect the precise length of your song, or falls back to a user-specified duration.
+#### 1. 📦 Get every track as its own WAV — Standalone Stem Exporter
+You've finished a song and want to mix it properly in a DAW, one fader per track. The hardware can only record its stereo output in real time; the workstation renders **offline stems** instead:
+*   Each track (synth, kit, audio) gets its own rendering pass, producing perfectly aligned, sample-accurate stem files (`Track_1_Drums_stem.wav`, `Track_2_Lead_stem.wav`, …) plus a combined `Master_mix.wav`.
+*   Rendering runs in the background at full CPU speed — the interface stays responsive, and a 4-minute song exports in far less than 4 minutes.
+*   The song length is read automatically from the arranger timeline (or you can specify a duration).
 
-#### 2. 🎹 Multi-Track MIDI Exporter
-Exporting your arrangements to a digital audio workstation (DAW) like Ableton Live, Logic Pro, or Reaper is completely seamless.
-*   **Arranger-Aligned MIDI tracks**: The MIDI exporter converts the song's arranger timeline into a standard multi-track MIDI file (`.mid`) with **96 PPQ** (Pulses Per Quarter Note) resolution.
-*   **Sequencer Step Conversion**: Sequencer note triggers and gates are mathematically converted to precise MIDI tick boundaries, mapping straight drum slots to standard General MIDI keys (starting at C3 / MIDI 36 for drum pads) and synth notes to chromatic channels.
-*   **Arranger Fallback**: If the arranger timeline is empty, the exporter automatically builds sequential blocks of your session clips (separated by a 1-bar gap) so you can easily import your patterns as clean, separate MIDI tracks!
+#### 2. 🎹 Move the notes to your DAW — Multi-Track MIDI Exporter
+To rebuild a song in Ableton Live, Logic, or Reaper with your own instruments, export it as a standard multi-track `.mid` file:
+*   The arranger timeline becomes one MIDI track per Deluge track, at 96 ticks per quarter-note, with every trigger and gate landing on its exact tick.
+*   Drum rows map to the standard General MIDI drum keys (from C3 / MIDI 36), synth notes stay chromatic — so kits drop straight onto a DAW drum rack.
+*   No arrangement yet? The exporter lays your session clips out sequentially (a 1-bar gap between them) so each pattern imports as its own clean MIDI clip.
 
-#### 3. ⏱️ MIDI Clock Sync (Master & Slave Modes)
-To bridge Deluge-Java with external hardware (such as drum machines, pocket operators, modular synthesizers, or secondary computers running DAWs), the workstation incorporates a dual-mode **System Real-Time MIDI Clock Sync** manager.
-*   **Master Mode (Clock Transmitter)**: When playing internally, Deluge-Java acts as the master clock. It sends MIDI Start (`0xFA`), Stop (`0xFC`), and Clock (`0xF8`) messages to the selected MIDI output port at a rate of 24 clocks per quarter note, allowing external gear to run in perfect tempo-phase sync.
-*   **Slave Mode (Clock Receiver)**: Locked to incoming MIDI clocks on the selected MIDI input port. Upon receiving a MIDI Start (`0xFA`) or Stop (`0xFC`), the transport state shifts instantly. The local playhead's advance rate is slaved exclusively to incoming Clock (`0xF8`) messages, disabling the local audio card sample clock driver to prevent double-triggering or phase drift!
+#### 3. ⏱️ Play in time with your other gear — MIDI Clock Sync
+Jamming with a drum machine, a pocket operator, a modular rig, or a second computer? The workstation can lead or follow:
+*   **As the master**: it transmits standard MIDI Start/Stop/Clock to the selected output at 24 clocks per quarter-note, so external gear locks to the workstation's tempo.
+*   **As the slave**: it follows incoming clock on the selected input — transport starts and stops with the external Start/Stop, and the playhead advances only on received clocks, so there's no drift between the two machines.
 
-#### 4. 🎚️ Fluid Viewport Grid Zooming & Proportional Layouts
-Physical Deluge grids are locked to an 8x16 matrix. Deluge-Java introduces **Fluid Viewport Grid Zooming**:
-*   **Pads Scaling**: Instantly scale the matrix grid (`Ctrl + =` or `Ctrl + -`) between **`8x16 (Large)`**, **`16x16 (Medium)`**, **`24x16 (Small)`**, and **`16x24 (Wide)`** grid resolutions. The pads automatically resize to fill the screen space perfectly.
-*   **Decoupled Layout Rows**: Fixed control rows (like macro knobs and the isomorphic keyboard) dynamically shift their positions and scale their heights in perfect proportion to the pad size, saving massive vertical screen space and ensuring the interface is always clean and legible.
+#### 4. 🎚️ Fit the grid to your screen — Fluid Viewport Zooming
+The hardware's grid is fixed at 8x16; on a desktop you choose. Scale between **`8x16 (Large)`**, **`16x16 (Medium)`**, **`24x16 (Small)`**, and **`16x24 (Wide)`** with `Ctrl + =` / `Ctrl + -`, and the pads resize to fill the window. The macro-knob row and keyboard strip scale along with the pads, so the layout stays balanced at every size (§1.11).
 
-#### 5. 🗂️ Unified Pitch Fold Mode
-*   For complex melodic parts, toggling **Fold Mode** collapses all empty chromatic rows, displaying *only* the lanes that contain active notes.
-*   The **Unified Pitch Resolver** ensures that note edits on the folded grid are mapped with 100% mathematical integrity back to their absolute MIDI pitches in the audio engine and XML saver, maintaining perfect data parity.
+#### 5. 🗂️ See only the notes that matter — Fold Mode
+Your bassline uses three pitches; why look at two octaves of empty rows? Press **FOLD** and the grid collapses to just the lanes that contain notes. Edits on the folded grid land on exactly the pitches those lanes represent — playback and the saved song are identical folded or unfolded (§1.12).
 
 ---
 
@@ -2191,7 +2188,7 @@ The desktop menu bar exposes file, editing, tooling, view, settings, macro, and 
 
 ## 29. Premium User Interface & Interactive Displays
 
-The Deluge-Java Workstation features a modern, dark-themed interface built for real-time visual feedback and intuitive navigation.
+Everything in this chapter is about *seeing what you're hearing*: while you play, the interface answers questions at a glance — which step is focused, where the LFO is in its cycle, how the wavetable is morphing, what the master output looks like. Here's what to expect on screen and how to make use of it.
 
 ### 29.1 Integrated Sidebar Browser Tab Layout
 The sidebar organizes project assets and remote MIDI connections into two distinct tabs:
