@@ -1678,6 +1678,7 @@ public class SwingDelugeApp extends JFrame {
     gridGroup.add(grid8x16Item);
     gridGroup.add(grid16x16Item);
     gridGroup.add(grid24x16Item);
+    gridGroup.add(grid16x24Item);
     grid8x16Item.addActionListener(
         e -> updateGlobalGridMode(org.deluge.project.PreferencesManager.GridMode.GRID_8x16));
     grid16x16Item.addActionListener(
