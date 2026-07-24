@@ -23,3 +23,16 @@
 - **No Plausible Guessing**: If a terminal search for a suspected C++ or Java function returns zero results, **never** invent or guess a plausible-sounding name to fill in a table cell or explanation. Instead, search by behavior/keyword to find the real handler, or explicitly record that no direct function exists for that action.
 - **Mandatory Verification of Shift/Combo Gestures**: Never assume what a button combination (`Shift + [Button]` or `Press + Turn`) does based on what the single button does. Trace the exact `if (b == ... && Buttons::isShiftButtonPressed())` or `buttonState` branch inside `../DelugeFirmware/src/deluge/gui/` before making any claim about sub-menus, confirmations, or shortcuts.
 
+## UI Control Wiring & Interactive Verification Protocol
+- **End-to-End Listener Tracing**: Never declare a UI control (button, slider, toggle, keyboard shortcut, dialog control) functional by layout inspection alone. You **must** trace its event handler to verify three distinct links:
+  1. The listener is registered and actively receiving events.
+  2. The listener mutates the underlying target model (`TrackModel`, `ClipModel`, `ProjectModel`).
+  3. The listener triggers the live audio engine/bridge synchronization call (`bridge.pushModelToBridge()`, `syncHighFidelityEngine()`).
+- **No Unsubscribed Event Broadcasts**: When using event buses or broadcast shortcuts (such as key press listeners), execute a terminal `grep_search` to verify at least one active subscriber exists and receives the payload.
+- **Variable Grid Layout Boundaries**: Never hardcode step/column index thresholds (such as `col >= 16`). Always test UI pad and utility column logic against all supported layout modes (16-step, 24-step, and transposed pitch-mapped views).
+
+## DSP Initialization & XML Default Alignment Protocol
+- **C++ Sound Initialization Line-by-Line Audit**: When investigating low preset scorecard scores, line-by-line audit parameter initialization and clip overlay rules in `SongXmlParser.java` / `InstrumentXmlParser.java` against `sound.cpp:146-210` before attributing discrepancies to external recordings or filter tuning.
+- **Verbatim C Integer Arithmetic**: Do not substitute saturating operators (`add_saturate`) or custom safety clamping where the reference C++ code uses standard 32-bit wrapping integer arithmetic (`+`, `<<`), unless explicitly required and documented for near-Nyquist audio safety.
+
+
