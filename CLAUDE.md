@@ -137,10 +137,12 @@ drift from them; old mode: `-Dscorecard.presets=true`). **Current baseline (embe
 time-resolved median ≈ 0.78, ~44% of synths ≥ 0.80 — several slots are suppressed by stale
 recordings (FM bells: hardware-verified our render is right, the recording is old — see
 `docs/FIDELITY_GAP_ANALYSIS.md` §4.1ter–sexies) pending an ALLSYN re-record on current firmware. The subtractive core (osc + ladder filter + ADSR) is
-faithful and scores 0.85–0.97; the gap is concentrated in **FM synthesis** (FM Bells/Distorted
-Bells ≈ 0.1–0.4 — biggest cluster), **oscillator hard-sync** (Saw/Square Sync ≈ 0.3–0.4),
-**PWM/PW envelope**, **resonant/distorted filter**, **FX (reverb/delay/modFX)**, and ~16
-multisample presets that render silent only because the test path doesn't load their samples.
+faithful and scores 0.85–0.97. Open gap families: **pads/tempo-synced patches** (embedded-mode
+regressions ≈ −0.15..−0.48 — suspected song-context/parse gaps, the current line of attack),
+**oscillator hard-sync** (Saw/Square Sync ≈ 0.3–0.4), **PWM/PW envelope**, **resonant/distorted
+filter**, **FX (reverb/delay/modFX)**, and ~16 multisample presets that render silent only
+because the test path doesn't load their samples. (FM was the former biggest cluster — resolved
+2026-07-24 as stale recordings, not engine divergence; hardware-verified.)
 
 Workflow for a fidelity fix: pick a family above → open the cited C subsystem under
 `../DelugeFirmware/src/deluge/` → port faithfully → re-run the scorecard and confirm the targeted
