@@ -187,6 +187,8 @@ public class SwingDroneLabDialog extends JDialog {
     generateBtn.setFont(new Font("SansSerif", Font.BOLD, 12));
     generateBtn.setBackground(new Color(0x00, 0x66, 0x55));
     generateBtn.setForeground(Color.WHITE);
+    generateBtn.setOpaque(true);
+    generateBtn.setContentAreaFilled(true);
     generateBtn.addActionListener(e -> generateDroneAction());
     southPanel.add(generateBtn);
 

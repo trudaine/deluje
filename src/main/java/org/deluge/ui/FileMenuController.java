@@ -603,9 +603,11 @@ public class FileMenuController {
     try {
       List<Integer> muteGroups = new ArrayList<>();
       List<Integer> pitchOffsets = new ArrayList<>();
+      List<String> laneNames = new ArrayList<>();
       for (int i = 0; i < selected.length; i++) {
         muteGroups.add((Integer) muteFields.get(i).getValue());
         pitchOffsets.add((Integer) pitchFields.get(i).getValue());
+        laneNames.add(nameFields.get(i).getText().trim());
       }
 
       String kitName = JOptionPane.showInputDialog(app, "Kit name:", "Kit from Synths");
@@ -613,7 +615,7 @@ public class FileMenuController {
 
       KitTrackModel kit =
           KitAssembler.assembleFromSynths(
-              kitName, Arrays.asList(selected), muteGroups, pitchOffsets);
+              kitName, Arrays.asList(selected), muteGroups, pitchOffsets, laneNames);
 
       JFileChooser saveChooser = new JFileChooser(PreferencesManager.getSongsDir());
       saveChooser.setDialogTitle("Save Kit As");

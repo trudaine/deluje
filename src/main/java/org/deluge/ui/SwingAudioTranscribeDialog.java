@@ -136,6 +136,8 @@ public class SwingAudioTranscribeDialog extends JDialog {
     btn.setFocusable(false);
     btn.setBackground(bg);
     btn.setForeground(fg);
+    btn.setOpaque(true);
+    btn.setContentAreaFilled(true);
     btn.setFont(new Font("SansSerif", Font.BOLD, 11));
     btn.setBorder(
         BorderFactory.createCompoundBorder(

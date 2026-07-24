@@ -1165,6 +1165,31 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     return ClipCellColour.resolve(theme, trackColor, active, inScale, isRoot);
   }
 
+  /**
+   * Keep every tab title readable regardless of how the look-and-feel paints the selected tab's
+   * pill (light on Metal/Ocean, dark elsewhere): unselected tabs get light-gray text, the selected
+   * tab gets the accent color, re-applied on every selection change.
+   */
+  public static void styleTabs(javax.swing.JTabbedPane tabs) {
+    Runnable apply =
+        () -> {
+          for (int i = 0; i < tabs.getTabCount(); i++) {
+            tabs.setForegroundAt(
+                i, i == tabs.getSelectedIndex() ? new Color(0x00, 0xcc, 0xa4) : Color.LIGHT_GRAY);
+          }
+        };
+    tabs.addChangeListener(e -> apply.run());
+    // Also on hierarchy/tab additions: run once now and once when the component is realized.
+    apply.run();
+    tabs.addContainerListener(
+        new java.awt.event.ContainerAdapter() {
+          @Override
+          public void componentAdded(java.awt.event.ContainerEvent e) {
+            apply.run();
+          }
+        });
+  }
+
   public static void stylePopupMenu(JPopupMenu menu) {
     GridContextMenuFactory.stylePopupMenu(menu);
   }
@@ -1945,20 +1970,8 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       LOG.warning("Hi-Fi keyboard trigger failed: " + ex.getMessage());
     }
 
-    try {
-      org.deluge.shadow.core.ChuckEvent noteEv =
-          (org.deluge.shadow.core.ChuckEvent) bridge.getGlobalObject("g_ck_noteOn");
-      if (noteEv != null) {
-        org.deluge.shadow.core.ChuckArray pitchArr =
-            (org.deluge.shadow.core.ChuckArray) bridge.getGlobalObject(BridgeContract.G_PITCH);
-        if (pitchArr != null) {
-          pitchArr.setInt(0, (long) (note - 60));
-          noteEv.broadcast();
-        }
-      }
-    } catch (Exception ex) {
-      LOG.warning("Standard keyboard trigger failed: " + ex.getMessage());
-    }
+    // (The old fallback broadcast a "g_ck_noteOn" event that is registered nowhere — dead code
+    // that silently dropped the note whenever the firmware-engine lookup failed.)
   }
 
   void triggerKeyboardNoteRelease(int note) {
@@ -2249,8 +2262,11 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       return;
     }
 
-    // Playhead Follow Auto-Scrolling Mode!
-    if (step >= 0 && trackLen > stepCount) {
+    // Playhead Follow Auto-Scrolling Mode — only while follow mode is on. Manually scrolling
+    // turns it off (GridScrollController); pressing PLAY re-arms it. Without this guard the
+    // next playhead tick snapped the view back, making it impossible to edit a non-playing
+    // page while the transport ran.
+    if (playheadFollowMode && step >= 0 && trackLen > stepCount) {
       int targetPageOffset = ((step % trackLen) / stepCount) * stepCount;
       if (targetPageOffset != scrollOffsetX) {
         final int fTargetPage = targetPageOffset;

@@ -18,7 +18,6 @@ import javax.swing.JSlider;
 import javax.swing.JTabbedPane;
 import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
-import javax.swing.UIManager;
 import org.deluge.BridgeContract;
 import org.deluge.model.ProjectModel;
 import org.deluge.project.PreferencesManager;
@@ -74,16 +73,14 @@ public class SwingMasterFxDialog extends JDialog {
 
     add(headerPanel, BorderLayout.NORTH);
 
-    // ── JTabbedPane Custom Styling ──
-    UIManager.put("TabbedPane.background", BG_DARK);
-    UIManager.put("TabbedPane.foreground", TEXT_LIGHT);
-    UIManager.put("TabbedPane.selected", BG_CARD);
-    UIManager.put("TabbedPane.shadow", Color.BLACK);
-    UIManager.put("TabbedPane.borderHighlightColor", GLOW_BLUE);
-
+    // Per-component styling only — the old UIManager.put("TabbedPane.*") calls here mutated
+    // GLOBAL look-and-feel state, so every tab bar in the app themed differently depending on
+    // whether this dialog had been opened first.
     JTabbedPane tabbedPane = new JTabbedPane();
     tabbedPane.setFont(FONT_LABEL);
     tabbedPane.setBackground(BG_DARK);
+    tabbedPane.setForeground(TEXT_LIGHT);
+    SwingGridPanel.styleTabs(tabbedPane);
 
     // Add Tabs
     tabbedPane.addTab("🌌 REVERB TANK", createReverbTab());
@@ -629,6 +626,8 @@ public class SwingMasterFxDialog extends JDialog {
   private void styleFooterButton(JButton btn, Color bg, Color fg) {
     btn.setBackground(bg);
     btn.setForeground(fg);
+    btn.setOpaque(true);
+    btn.setContentAreaFilled(true);
     btn.setFont(FONT_LABEL);
     btn.setFocusPainted(false);
     btn.setBorder(
@@ -642,6 +641,8 @@ public class SwingMasterFxDialog extends JDialog {
     Color border = active ? activeColor : new Color(0x71, 0x71, 0x7a);
     btn.setBackground(bg);
     btn.setForeground(TEXT_LIGHT);
+    btn.setOpaque(true);
+    btn.setContentAreaFilled(true);
     btn.setFont(FONT_LABEL);
     btn.setFocusPainted(false);
     btn.setBorder(

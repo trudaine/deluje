@@ -58,6 +58,8 @@ public class HardwareSidebarTab extends JPanel {
     testBtn.setFont(new Font("SansSerif", Font.BOLD, 9));
     testBtn.setBackground(new Color(0x2a, 0x2a, 0x30));
     testBtn.setForeground(new Color(0xff, 0xd7, 0x00));
+    testBtn.setOpaque(true);
+    testBtn.setContentAreaFilled(true);
     testBtn.setFocusPainted(false);
     testBtn.addActionListener(e -> runConnectionSelfTest());
     headBtns.add(testBtn);
@@ -66,6 +68,8 @@ public class HardwareSidebarTab extends JPanel {
     refreshBtn.setFont(new Font("SansSerif", Font.BOLD, 9));
     refreshBtn.setBackground(new Color(0x2a, 0x2a, 0x30));
     refreshBtn.setForeground(new Color(0x00, 0xff, 0xcc));
+    refreshBtn.setOpaque(true);
+    refreshBtn.setContentAreaFilled(true);
     refreshBtn.setFocusPainted(false);
     refreshBtn.addActionListener(
         e -> {

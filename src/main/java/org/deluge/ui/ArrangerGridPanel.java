@@ -64,7 +64,10 @@ public class ArrangerGridPanel extends SwingGridPanel {
 
     final java.util.List<GridRow> songRows = songDisplayRows(songVoiceRows);
 
-    for (int t = 0; t < songVoiceRows + 2; t++) {
+    // Track rows only — see SongGridPanel: the MACROS/KEYBOARD pseudo-rows were clipped
+    // below the viewport and unreachable (and this panel's unused-row branch disabled them
+    // anyway in any project with ≤8 tracks).
+    for (int t = 0; t < songVoiceRows; t++) {
       JPanel rowPanel = new JPanel();
       rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
       rowPanel.setBackground(new Color(0x22, 0x22, 0x22));
@@ -234,10 +237,13 @@ public class ArrangerGridPanel extends SwingGridPanel {
         JButton clipBtn;
         int macR = songVoiceRows, keyR = songVoiceRows + 1;
 
-        if (colId >= 16) {
+        if (colId >= stepCount) {
+          // Utility (mute/solo) columns sit after the step columns — "colId >= 16" broke in
+          // 24-step-wide grid modes, flattening real step columns 16-23.
           DelugePadButton pad = new DelugePadButton();
           pad.putClientProperty("row", t);
           pad.putClientProperty("col", c);
+          pad.putClientProperty("utility", Boolean.TRUE);
           pad.setDrawCenterCircle(false);
           clipBtn = pad;
         } else if (t == macR) {
@@ -662,7 +668,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
     }
 
     int songVoiceRows = gridMode.rows;
-    int rowsToScan = songVoiceRows + 2; // Include Macros and Keyboard rows
+    int rowsToScan = songVoiceRows;
     boolean isAdvanced =
         org.deluge.project.PreferencesManager.getGridPanelType()
             == org.deluge.project.PreferencesManager.GridPanelType.ADVANCED;

@@ -160,6 +160,8 @@ public class ThresholdRecordDialog extends JDialog {
     armBtn.setFont(new Font("SansSerif", Font.BOLD, 12));
     armBtn.setBackground(new Color(0x4a, 0x1a, 0x1a));
     armBtn.setForeground(Color.WHITE);
+    armBtn.setOpaque(true);
+    armBtn.setContentAreaFilled(true);
     armBtn.addActionListener(
         e -> {
           if (kitTracksIndices.isEmpty()) {
@@ -204,6 +206,8 @@ public class ThresholdRecordDialog extends JDialog {
     stopBtn.setFont(new Font("SansSerif", Font.BOLD, 12));
     stopBtn.setBackground(new Color(0x2d, 0x2d, 0x32));
     stopBtn.setForeground(Color.WHITE);
+    stopBtn.setOpaque(true);
+    stopBtn.setContentAreaFilled(true);
     stopBtn.setEnabled(false);
     stopBtn.addActionListener(
         e -> {

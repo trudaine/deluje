@@ -450,6 +450,8 @@ public class SwingKeyZoneMapperDialog extends JDialog {
     btn.setBackground(bg);
     btn.setForeground(fg);
     btn.setFocusPainted(false);
+    btn.setOpaque(true);
+    btn.setContentAreaFilled(true);
     btn.setBorder(BorderFactory.createLineBorder(fg.darker(), 1));
     btn.setPreferredSize(new Dimension(140, 26));
   }

@@ -123,6 +123,8 @@ public class Dx7Panel extends JPanel {
       activateBtn.setPreferredSize(new Dimension(320, 45));
       activateBtn.setBackground(new Color(0x0c, 0x38, 0x1f));
       activateBtn.setForeground(Color.GREEN);
+      activateBtn.setOpaque(true);
+      activateBtn.setContentAreaFilled(true);
       activateBtn.setFocusable(false);
 
       activateBtn.addActionListener(
@@ -988,6 +990,8 @@ public class Dx7Panel extends JPanel {
   private void styleActionBtn(JButton btn, Color bg, Color borderAccent) {
     btn.setBackground(bg);
     btn.setForeground(Color.WHITE);
+    btn.setOpaque(true);
+    btn.setContentAreaFilled(true);
     btn.setFocusPainted(false);
     btn.setBorder(
         BorderFactory.createCompoundBorder(

@@ -1698,7 +1698,7 @@ If you're about to run the Kit Super-Generator, save the project first (`Ctrl + 
 | GL13 | Swing | SWING slider (toolbar), default 50% = no swing |
 | GL14 | Settings / Preferences | **Settings > Preferences…** |
 | GL15 | Set Samples Directory | **Settings > Set SD Card Root...** |
-| GL16 | Reverb Model | **Settings > Preferences… → Reverb Model** |
+| GL16 | Reverb Model | **🎛️ MASTER FX → REVERB TANK** tab → Reverb Model selector |
 | GL17 | MIDI Input Device | **Settings > Preferences… → MIDI Input** |
 | GL18 | Adjust UI Font Size | **Settings > Preferences…** ↪ Screen Resolution profile (QHD / FHD / Retina / Default) |
 | GL19 | Firmware Update | N/A — install a newer application build |

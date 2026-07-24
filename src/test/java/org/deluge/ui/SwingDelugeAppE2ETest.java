@@ -1121,18 +1121,13 @@ public class SwingDelugeAppE2ETest {
           lastTrackSoloBtn.getText(),
           "Visual row 5 (bottom-up: track index 0) solo button should show TRACK_1 name");
 
-      // 5. Verify that the Macro row (visual row 8) and Keyboard row (visual row 9) do NOT show
-      // MUTE and SOLO buttons!
-      // They should be invisible and disabled!
-      assertFalse(pads[8][16].isVisible(), "Macro row mute button should be invisible");
-      assertFalse(pads[8][16].isEnabled(), "Macro row mute button should be disabled");
-      assertFalse(pads[8][17].isVisible(), "Macro row solo button should be invisible");
-      assertFalse(pads[8][17].isEnabled(), "Macro row solo button should be disabled");
-
-      assertFalse(pads[9][16].isVisible(), "Keyboard row mute button should be invisible");
-      assertFalse(pads[9][16].isEnabled(), "Keyboard row mute button should be disabled");
-      assertFalse(pads[9][17].isVisible(), "Keyboard row solo button should be invisible");
-      assertFalse(pads[9][17].isEnabled(), "Keyboard row solo button should be disabled");
+      // 5. The MACROS/KEYBOARD pseudo-rows are no longer built in Song view: they were sized
+      // out of the viewport (clipped below it, unreachable) and are covered by KEYPLAY view and
+      // the gold knobs. Rows beyond the 8 track rows must not exist at all.
+      assertNull(pads[8][16], "Macro pseudo-row must not be built in Song view");
+      assertNull(pads[8][17], "Macro pseudo-row must not be built in Song view");
+      assertNull(pads[9][16], "Keyboard pseudo-row must not be built in Song view");
+      assertNull(pads[9][17], "Keyboard pseudo-row must not be built in Song view");
 
     } finally {
       app.dispose();

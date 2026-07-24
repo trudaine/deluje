@@ -1641,11 +1641,9 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   }
 
   public void setKey(String key) {
-    String old = this.key;
     this.key = key;
-    if (!old.equals(key)) {
-      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "key", 0, 0));
-    }
+    // No undo push: ProjectParamConsequence carries floats, so a "key"(0,0) consequence
+    // consumed an undo step while reverting nothing.
     notifyKeyChanged(key);
   }
 
@@ -1654,11 +1652,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   }
 
   public void setScale(String scale) {
-    String old = this.scale;
     this.scale = scale;
-    if (!old.equals(scale)) {
-      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "scale", 0, 0));
-    }
+    // No undo push (see setKey).
     notifyScaleChanged(scale);
   }
 

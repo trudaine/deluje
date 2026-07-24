@@ -291,6 +291,8 @@ public class LibraryPicker extends JDialog {
     b.setBackground(bg);
     b.setForeground(fg);
     b.setFocusPainted(false);
+    b.setOpaque(true);
+    b.setContentAreaFilled(true);
     b.setFont(new Font("SansSerif", Font.BOLD, 11));
     b.setBorder(BorderFactory.createEmptyBorder(5, 12, 5, 12));
   }

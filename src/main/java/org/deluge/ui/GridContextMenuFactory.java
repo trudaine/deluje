@@ -255,7 +255,13 @@ public class GridContextMenuFactory {
       item.addActionListener(
           evt -> {
             org.deluge.project.PreferencesManager.setGridColorTheme(theme);
-            panel.refresh();
+            // All three grid panels cache pad theming — refreshing only the invoking panel
+            // left the other views rendering the old theme.
+            if (SwingDelugeApp.mainInstance != null) {
+              SwingDelugeApp.mainInstance.refreshGrids();
+            } else {
+              panel.refresh();
+            }
           });
       themeMenu.add(item);
     }

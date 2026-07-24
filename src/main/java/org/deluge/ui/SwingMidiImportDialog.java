@@ -187,6 +187,8 @@ public class SwingMidiImportDialog extends JDialog {
     btn.setBackground(bg);
     btn.setForeground(fg);
     btn.setFont(new Font("SansSerif", Font.BOLD, 11));
+    btn.setOpaque(true);
+    btn.setContentAreaFilled(true);
     btn.setBorder(
         BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(bg.brighter(), 1),

@@ -274,9 +274,39 @@ public class ArrangerTimelineController {
     JMenuItem editAuto = new JMenuItem("Edit Bar Automation...");
     editAuto.addActionListener(
         ev -> {
-          new BarAutomationDialog(
-                  (java.awt.Frame) javax.swing.SwingUtilities.getWindowAncestor(invoker), col)
-              .setVisible(true);
+          BarAutomationDialog dlg =
+              new BarAutomationDialog(
+                  (java.awt.Frame) javax.swing.SwingUtilities.getWindowAncestor(invoker), col);
+          dlg.setVisible(true); // modal
+          if (!dlg.isConfirmed()) {
+            return;
+          }
+          // Apply the chosen automations onto the clip arranged at this bar. (The dialog used
+          // to be pure decoration: no buttons, and nothing ever read its checkboxes.)
+          org.deluge.model.ArrangerClip ac = getArrangerClipAt(trackIdx, col);
+          if (ac == null || ac.clip() == null) {
+            javax.swing.JOptionPane.showMessageDialog(
+                invoker,
+                "No arranged clip at bar " + (col + 1) + " — place a clip there first.",
+                "Bar Automation",
+                javax.swing.JOptionPane.INFORMATION_MESSAGE);
+            return;
+          }
+          org.deluge.model.ClipModel clip = ac.clip();
+          int steps = Math.max(1, clip.getStepCount());
+          for (int s = 0; s < steps; s++) {
+            float ramp = steps > 1 ? (float) s / (steps - 1) : 1f;
+            if (dlg.isLpfSweepEnabled()) {
+              clip.setAutomation(org.deluge.model.AutomationParam.A_LPF_FREQ, s, 1f - ramp);
+            }
+            if (dlg.isVolumeFadeInEnabled()) {
+              clip.setAutomation(org.deluge.model.AutomationParam.A_VOLUME, s, ramp);
+            }
+          }
+          if (dlg.isLpfSweepEnabled() || dlg.isVolumeFadeInEnabled()) {
+            projectChangedCallback.run();
+            refreshCallback.run();
+          }
         });
     menu.add(editAuto);
 

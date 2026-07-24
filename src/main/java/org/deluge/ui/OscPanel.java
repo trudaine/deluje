@@ -634,6 +634,8 @@ public class OscPanel extends JPanel {
     btn.setBackground(bg);
     btn.setForeground(fg);
     btn.setFocusPainted(false);
+    btn.setOpaque(true);
+    btn.setContentAreaFilled(true);
     btn.setFont(new Font("SansSerif", Font.BOLD, 9));
     btn.setBorder(BorderFactory.createLineBorder(fg.darker(), 1));
     btn.setPreferredSize(new Dimension(85, 22));

@@ -205,6 +205,9 @@ public class ClipGridPanel extends SwingGridPanel {
         pageBtn.addActionListener(
             e -> {
               scrollOffsetX = pageIdx * 16;
+              // Picking a page is a manual navigation — stop the playhead from snapping the
+              // view back on its next tick (PLAY re-arms follow mode).
+              setPlayheadFollowMode(false);
               JScrollBar horizBar = scrollController.getHorizontalScrollBar();
               if (horizBar != null) {
                 horizBar.setValue(scrollOffsetX);
@@ -639,9 +642,20 @@ public class ClipGridPanel extends SwingGridPanel {
           }
         });
 
+    // Kit rows get a ⚙ config button (23px incl. strut) inserted before the pads; in
+    // faceplate mode that width comes out of the leading margin so pad columns start at the
+    // same x on every row and in every view (kit rows used to sit 23px right of synth rows).
+    boolean hasKitCfg = false;
+    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      org.deluge.model.TrackModel at = projectModel.getTracks().get(editedModelTrack);
+      hasKitCfg =
+          at instanceof org.deluge.model.KitTrackModel kt
+              && modelRow >= 0
+              && modelRow < kt.getDrums().size();
+    }
     if (isFaceplateRow) {
-      int leftMargin = (int) Math.round(58 * faceScaleRow);
-      rowPanel.add(Box.createRigidArea(new Dimension(leftMargin, 1)));
+      int leftMargin = (int) Math.round(58 * faceScaleRow) - (hasKitCfg ? 23 : 0);
+      rowPanel.add(Box.createRigidArea(new Dimension(Math.max(0, leftMargin), 1)));
     } else {
       rowPanel.add(label);
       if (modelRow < tracks.size() && modelRow < 8) {
@@ -718,13 +732,17 @@ public class ClipGridPanel extends SwingGridPanel {
                 dialog.setSelectedTab(soundIndex);
                 dialog.setVisible(true);
               });
+          // In faceplate mode these 23px were already subtracted from the leading margin
+          // above, keeping kit rows' pad columns aligned with synth rows and other views.
           rowPanel.add(Box.createHorizontalStrut(3));
           rowPanel.add(drumCfgBtn);
         }
       }
     }
 
-    rowPanel.add(Box.createHorizontalStrut(5));
+    if (!isFaceplateRow) {
+      rowPanel.add(Box.createHorizontalStrut(5));
+    }
 
     for (int c = 0; c < columnCount; c++) {
       final int colId = c;
@@ -736,6 +754,9 @@ public class ClipGridPanel extends SwingGridPanel {
         DelugePadButton pad = new DelugePadButton();
         pad.putClientProperty("row", visibleRow);
         pad.putClientProperty("col", c);
+        if (isMuteColumn(colId) || isSoloColumn(colId)) {
+          pad.putClientProperty("utility", Boolean.TRUE);
+        }
         clipBtn = pad;
       } else {
         clipBtn = new CleanJButton();
@@ -1253,8 +1274,6 @@ public class ClipGridPanel extends SwingGridPanel {
       label.setForeground(Color.LIGHT_GRAY);
       label.setFont(new Font("SansSerif", Font.BOLD, 10));
 
-      // In faceplate mode the CLIP grid omits the leading label + VU meter so pads start at the
-      // left edge; mirror that here so the keyboard grid lines up 1:1 with the clip grid.
       if (!isFaceplate) {
         rowPanel.add(label);
         rowPanel.add(Box.createRigidArea(new Dimension(69, 1)));
@@ -1267,6 +1286,11 @@ public class ClipGridPanel extends SwingGridPanel {
         rowPanel.add(Box.createHorizontalStrut(5));
 
         vuManager.registerTrackVu(t, vu);
+      } else {
+        // Same leading margin as the CLIP/SONG/ARR grids so the keyboard columns line up 1:1
+        // with the pad columns and the faceplate artwork (keys used to start at x=0, making
+        // the grid jump ~35px left when entering keyboard view).
+        rowPanel.add(Box.createRigidArea(new Dimension((int) Math.round(58 * faceScale), 1)));
       }
 
       for (int c = 0; c < columnCount; c++) {

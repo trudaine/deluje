@@ -181,6 +181,7 @@ public class SwingSynthConfigDialog extends JDialog {
 
     tabs.setBackground(BG_CARD);
     tabs.setForeground(Color.WHITE);
+    SwingGridPanel.styleTabs(tabs);
 
     populateTabs();
 
@@ -511,7 +512,8 @@ public class SwingSynthConfigDialog extends JDialog {
     String modeHelp =
         "<b>SYNTH MODE:</b> Sets the sound synthesis engine. SUBTRACTIVE: oscillator runs through filter. FM: frequency modulation (modulator modulates carrier). RINGMOD: ring modulator (carrier multiplied by modulator). — <i>Physical Deluge:</i> Press synth mode button combinations.";
     attachHoverHelp(modeToggle, modeHelp);
-    modeToggle.setPreferredSize(new Dimension(200, 26));
+    // (No forced 200px width: "SUBTRACTIVE" measures 72px per segment at the paint font,
+    // which overflowed 66px segments and clipped the leading glyph.)
     modeToggle.onChange(
         mode -> {
           model.setSynthMode(mode);
@@ -1339,6 +1341,7 @@ public class SwingSynthConfigDialog extends JDialog {
     JTabbedPane t = new JTabbedPane();
     t.setBackground(BG_CARD);
     t.setForeground(Color.WHITE);
+    SwingGridPanel.styleTabs(t);
     return t;
   }
 

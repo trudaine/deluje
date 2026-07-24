@@ -253,18 +253,67 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
     }
 
     private void apply(float value) {
+      // Every param name pushed by ProjectModel must have a case here, or undoing that edit
+      // consumes the undo step while reverting nothing (45 of 56 names used to be missing).
       switch (paramName) {
         case "BPM", "bpm" -> project.setBpm(value);
         case "Swing", "swing" -> project.setSwing(value);
         case "Volume", "masterVolume" -> project.setMasterVolume(value);
         case "Pan", "masterPan" -> project.setMasterPan(value);
+        case "masterDelay" -> project.setMasterDelay(value);
+        case "humanize" -> project.setHumanize(value);
         case "reverbRoomSize" -> project.setReverbRoomSize(value);
         case "reverbDampening" -> project.setReverbDampening(value);
         case "reverbWidth" -> project.setReverbWidth(value);
         case "reverbHpf" -> project.setReverbHpf(value);
         case "reverbPan" -> project.setReverbPan(value);
+        case "reverbModel" -> project.setReverbModel((int) value);
         case "reverbCompressorShape" -> project.setReverbCompressorShape(value);
         case "reverbCompressorVolume" -> project.setReverbCompressorVolume(value);
+        case "reverbCompressorAttack" -> project.setReverbCompressorAttack(value);
+        case "reverbCompressorRelease" -> project.setReverbCompressorRelease(value);
+        case "reverbCompHpf" -> project.setReverbCompHpf(value);
+        case "reverbCompBlend" -> project.setReverbCompBlend(value);
+        case "delayPingPong" -> project.setDelayPingPong((int) value);
+        case "delayAnalog" -> project.setDelayAnalog((int) value);
+        case "delaySyncLevel" -> project.setDelaySyncLevel((int) value);
+        case "delaySyncType" -> project.setDelaySyncType((int) value);
+        case "sidechainAttack" -> project.setSidechainAttack(value);
+        case "sidechainRelease" -> project.setSidechainRelease(value);
+        case "compressorAttack" -> project.setCompressorAttack(value);
+        case "compressorRelease" -> project.setCompressorRelease(value);
+        case "compressorThreshold" -> project.setCompressorThreshold(value);
+        case "compressorRatio" -> project.setCompressorRatio(value);
+        case "compressorBlend" -> project.setCompressorBlend(value);
+        case "userScale" -> project.setUserScale((int) value);
+        case "songParamVolume" -> project.setSongParamVolume(value);
+        case "songParamPan" -> project.setSongParamPan(value);
+        case "songParamReverbAmount" -> project.setSongParamReverbAmount(value);
+        case "songParamDelayRate" -> project.setSongParamDelayRate(value);
+        case "songParamDelayFeedback" -> project.setSongParamDelayFeedback(value);
+        case "songParamSidechainShape" -> project.setSongParamSidechainShape(value);
+        case "songParamSidechainVolume" -> project.setSongParamSidechainVolume(value);
+        case "songParamStutterRate" -> project.setSongParamStutterRate(value);
+        case "songParamSampleRateReduction" -> project.setSongParamSampleRateReduction(value);
+        case "songParamBitCrush" -> project.setSongParamBitCrush(value);
+        case "songParamModFXRate" -> project.setSongParamModFXRate(value);
+        case "songParamModFXDepth" -> project.setSongParamModFXDepth(value);
+        case "songParamModFXOffset" -> project.setSongParamModFXOffset(value);
+        case "songParamModFXFeedback" -> project.setSongParamModFXFeedback(value);
+        case "songParamCompressorThreshold" -> project.setSongParamCompressorThreshold(value);
+        case "songParamLpfMorph" -> project.setSongParamLpfMorph(value);
+        case "songParamHpfMorph" -> project.setSongParamHpfMorph(value);
+        case "songParamLpfFrequency" -> project.setSongParamLpfFrequency(value);
+        case "songParamLpfResonance" -> project.setSongParamLpfResonance(value);
+        case "songParamHpfFrequency" -> project.setSongParamHpfFrequency(value);
+        case "songParamHpfResonance" -> project.setSongParamHpfResonance(value);
+        case "songParamEqBass" -> project.setSongParamEqBass(value);
+        case "songParamEqTreble" -> project.setSongParamEqTreble(value);
+        case "songParamEqBassFrequency" -> project.setSongParamEqBassFrequency(value);
+        case "songParamEqTrebleFrequency" -> project.setSongParamEqTrebleFrequency(value);
+        default ->
+            java.util.logging.Logger.getLogger(Consequence.class.getName())
+                .warning("ProjectParamConsequence has no apply case for '" + paramName + "'");
       }
     }
 

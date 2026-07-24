@@ -231,6 +231,8 @@ public class SwingPianoRollDialog extends JDialog {
   private void styleButton(JButton btn) {
     btn.setBackground(new Color(0x25, 0x25, 0x2a));
     btn.setForeground(Color.WHITE);
+    btn.setOpaque(true);
+    btn.setContentAreaFilled(true);
     btn.setFont(new Font("SansSerif", Font.BOLD, 10));
     btn.setBorder(BorderFactory.createLineBorder(COLOR_BORDER, 1));
     btn.setPreferredSize(new Dimension(95, 24));

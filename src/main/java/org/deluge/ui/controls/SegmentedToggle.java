@@ -32,7 +32,16 @@ public class SegmentedToggle extends JComponent {
     this.selected = clamp(initial);
     setOpaque(false);
     setFocusable(false);
-    setPreferredSize(new Dimension(Math.max(120, this.options.length * 56), 28));
+    // Size segments to the widest label at the paint font (bold 11) plus padding — a fixed
+    // 56px/segment clipped "SUBTRACTIVE" (72px), bleeding it under the divider.
+    java.awt.FontMetrics fm =
+        getFontMetrics(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 11));
+    int widest = 0;
+    for (String opt : this.options) {
+      widest = Math.max(widest, fm.stringWidth(opt));
+    }
+    int segW = Math.max(56, widest + 14);
+    setPreferredSize(new Dimension(Math.max(120, this.options.length * segW), 28));
 
     addMouseListener(
         new MouseAdapter() {

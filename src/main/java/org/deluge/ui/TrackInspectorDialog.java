@@ -118,12 +118,21 @@ public class TrackInspectorDialog extends JDialog {
     vL.setForeground(Color.WHITE);
     p3.add(vL, gcm);
     gcm.gridx = 1;
-    volumeSlider = new JSlider(0, 100, 80);
+    org.deluge.model.SynthTrackModel synthTrack =
+        (currentTrack instanceof org.deluge.model.SynthTrackModel st) ? st : null;
+    volumeSlider =
+        new JSlider(0, 100, synthTrack != null ? (int) (synthTrack.getVolume() * 100) : 80);
     volumeSlider.setPreferredSize(new Dimension(340, 36));
     DarkSliderUI.styleSlider(volumeSlider, new Color(0xff, 0xb3, 0x00));
     volumeSlider.setToolTipText("Adjust master channel volume level (0-100%)");
+    volumeSlider.setEnabled(synthTrack != null);
     volumeSlider.addChangeListener(
-        ev -> System.out.println("Track " + trackIndex + " Vol: " + volumeSlider.getValue()));
+        ev -> {
+          if (synthTrack != null) {
+            synthTrack.setVolume(volumeSlider.getValue() / 100f);
+            pushLiveSound(synthTrack, trackIndex);
+          }
+        });
     p3.add(volumeSlider, gcm);
 
     gcm.gridx = 0;
@@ -133,10 +142,19 @@ public class TrackInspectorDialog extends JDialog {
     pL.setForeground(Color.WHITE);
     p3.add(pL, gcm);
     gcm.gridx = 1;
-    panSlider = new JSlider(0, 100, 50);
+    panSlider =
+        new JSlider(0, 100, synthTrack != null ? (int) ((synthTrack.getPan() + 1f) * 50) : 50);
     panSlider.setPreferredSize(new Dimension(340, 36));
     DarkSliderUI.styleSlider(panSlider, new Color(0x00, 0xff, 0xcc));
     panSlider.setToolTipText("Adjust stereo pan position (Left-Right)");
+    panSlider.setEnabled(synthTrack != null);
+    panSlider.addChangeListener(
+        ev -> {
+          if (synthTrack != null) {
+            synthTrack.setPan(panSlider.getValue() / 50f - 1f);
+            pushLiveSound(synthTrack, trackIndex);
+          }
+        });
     p3.add(panSlider, gcm);
     // NOTE: this tab used to be added TWICE with the same panel — Swing re-parents the panel to
     // the second tab, so the tab bar showed two MIXER entries with the first one empty.
@@ -145,16 +163,25 @@ public class TrackInspectorDialog extends JDialog {
     // Tab 4: FM Operators
     JPanel p4 = new JPanel(new FlowLayout(FlowLayout.LEFT, 30, 30));
     p4.setBackground(new Color(0x2b, 0x2b, 0x2b));
-    JLabel lAlgo = new JLabel("Algorithm Map: [Op 4] ➔ [Op 3] ➔ [Op 2] ➔ Output");
+    JLabel lAlgo = new JLabel("FM Routing: Osc 2 (modulator) ➔ Osc 1 (carrier) ➔ Output");
     lAlgo.setFont(new Font("SansSerif", Font.BOLD, 13));
     lAlgo.setForeground(Color.ORANGE);
     JLabel lRatio = new JLabel("Modulator Ratio (Harmonics):");
     lRatio.setFont(new Font("SansSerif", Font.BOLD, 13));
     lRatio.setForeground(Color.WHITE);
-    ratioSlider = new JSlider(1, 10, 1);
+    ratioSlider =
+        new JSlider(25, 400, synthTrack != null ? (int) (synthTrack.getFmRatio() * 100) : 100);
     ratioSlider.setPreferredSize(new Dimension(300, 36));
     DarkSliderUI.styleSlider(ratioSlider, new Color(0xff, 0x99, 0x33));
-    ratioSlider.setToolTipText("Adjust FM modulator carrier harmonic ratio");
+    ratioSlider.setToolTipText("FM modulator/carrier frequency ratio (0.25–4.00)");
+    ratioSlider.setEnabled(synthTrack != null);
+    ratioSlider.addChangeListener(
+        ev -> {
+          if (synthTrack != null) {
+            synthTrack.setFmRatio(ratioSlider.getValue() / 100f);
+            pushLiveSound(synthTrack, trackIndex);
+          }
+        });
     p4.add(lAlgo);
     p4.add(lRatio);
     p4.add(ratioSlider);
@@ -218,11 +245,22 @@ public class TrackInspectorDialog extends JDialog {
           if (trackIndex < tracks.size()) {
             org.deluge.model.TrackModel tModel = tracks.get(trackIndex);
             if (!tModel.getClips().isEmpty()) {
-              tModel.addClip(tModel.getClips().get(0));
+              // Deep copy — adding the same ClipModel reference made "clone" edits mutate the
+              // original clip too.
+              org.deluge.model.ClipModel src = tModel.getClips().get(0);
+              tModel.addClip(src.deepCopy(src.getName() + " (variant)"));
             }
           }
           dispose();
           onRefresh.run();
+        });
+
+    clearBtn.addActionListener(
+        ev -> {
+          if (SwingDelugeApp.mainInstance != null
+              && SwingDelugeApp.mainInstance.getClipPanel() != null) {
+            SwingDelugeApp.mainInstance.getClipPanel().convertTrackToMidi(trackIndex);
+          }
         });
 
     cb.addActionListener(
@@ -289,6 +327,24 @@ public class TrackInspectorDialog extends JDialog {
           i, i == tabs.getSelectedIndex() ? new Color(0x00, 0xcc, 0xa4) : Color.LIGHT_GRAY);
     }
     DarkComboBoxRenderer.styleComponentTree(this);
+  }
+
+  /** Push edited model params into the live firmware sound (same path SynthParamRack uses). */
+  private static void pushLiveSound(org.deluge.model.SynthTrackModel track, int trackIndex) {
+    if (SwingDelugeApp.mainInstance == null) return;
+    try {
+      Object eng =
+          SwingDelugeApp.mainInstance.bridge.getGlobalObject(
+              org.deluge.BridgeContract.G_FIRMWARE_ENGINE);
+      if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine
+          && trackIndex >= 0
+          && trackIndex < engine.sounds.size()
+          && engine.sounds.get(trackIndex) instanceof org.deluge.engine.FirmwareSound fs) {
+        org.deluge.engine.FirmwareFactory.applyModelToLiveSound(track, fs);
+      }
+    } catch (Exception ignored) {
+      // engine not running (e.g. tests) — the model edit still stands
+    }
   }
 
   /** House-style action button: dark face, accent text, compact size. */

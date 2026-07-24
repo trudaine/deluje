@@ -498,9 +498,9 @@ public class DelugePadButton extends JButton {
       // Blend color with dynamic velocity/probability intensity
       Color finalColor = blendWithBlack(ledColor, intensity);
 
-      boolean isUtilityCol =
-          Boolean.TRUE.equals(getClientProperty("utility"))
-              || (getClientProperty("col") instanceof Integer colIdx && colIdx >= 16);
+      // Only the explicit marker set at pad creation — the old "col >= 16" fallback
+      // flat-rendered real step columns 16-23 in 24-step-wide grid modes.
+      boolean isUtilityCol = Boolean.TRUE.equals(getClientProperty("utility"));
 
       if (isUtilityCol || (!drawCenterCircle && !isSiliconeLedStyle)) {
         g2.setColor(finalColor);

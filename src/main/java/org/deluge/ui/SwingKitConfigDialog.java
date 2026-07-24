@@ -42,6 +42,7 @@ public class SwingKitConfigDialog extends JDialog {
     tabs = new JTabbedPane();
     tabs.setBackground(new Color(0x25, 0x25, 0x25));
     tabs.setForeground(Color.WHITE);
+    SwingGridPanel.styleTabs(tabs);
 
     for (int i = 0; i < sounds.size(); i++) {
       tabs.addTab(

@@ -45,6 +45,7 @@ public class SwingAudioTrackPanel extends JPanel {
     c.gridy = 0;
     recordBtn.setBackground(new Color(0x66, 0x22, 0x22));
     recordBtn.setForeground(Color.WHITE);
+    recordBtn.setOpaque(true);
     recordBtn.setToolTipText("Toggle recording from audio input");
     recordBtn.addActionListener(e -> pushRecord());
     add(recordBtn, c);
@@ -54,6 +55,7 @@ public class SwingAudioTrackPanel extends JPanel {
     c.gridy = 0;
     playBtn.setBackground(new Color(0x22, 0x66, 0x22));
     playBtn.setForeground(Color.WHITE);
+    playBtn.setOpaque(true);
     playBtn.setToolTipText("Toggle playback");
     playBtn.addActionListener(e -> pushPlay());
     add(playBtn, c);
@@ -64,6 +66,7 @@ public class SwingAudioTrackPanel extends JPanel {
     loopBtn.setSelected(true);
     loopBtn.setBackground(new Color(0x44, 0x44, 0x22));
     loopBtn.setForeground(Color.WHITE);
+    loopBtn.setOpaque(true);
     loopBtn.setToolTipText("Loop playback on/off");
     loopBtn.addActionListener(e -> pushLoop());
     add(loopBtn, c);

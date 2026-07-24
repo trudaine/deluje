@@ -2,16 +2,7 @@ package org.deluge.ui;
 
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
-import java.io.File;
-import java.io.IOException;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Clip;
-import javax.sound.sampled.LineUnavailableException;
-import javax.sound.sampled.UnsupportedAudioFileException;
 import org.deluge.BridgeContract;
-import org.deluge.shadow.core.ChuckArray;
-import org.deluge.shadow.core.ChuckEvent;
 import org.deluge.shadow.hid.HidMsg;
 
 /**
@@ -142,6 +133,26 @@ public class KeyboardShortcutManager extends KeyAdapter {
     if (kc == KeyEvent.VK_Q) {
       app.transportController.setStutterActive(false);
     }
+    // Release the sustained firmware-engine voice for the isomorphic piano keys.
+    int releasedNote =
+        switch (kc) {
+          case KeyEvent.VK_Z -> 60;
+          case KeyEvent.VK_S -> 61;
+          case KeyEvent.VK_X -> 62;
+          case KeyEvent.VK_D -> 63;
+          case KeyEvent.VK_C -> 64;
+          case KeyEvent.VK_V -> 65;
+          case KeyEvent.VK_G -> 66;
+          case KeyEvent.VK_B -> 67;
+          case KeyEvent.VK_H -> 68;
+          case KeyEvent.VK_N -> 69;
+          case KeyEvent.VK_J -> 70;
+          case KeyEvent.VK_M -> 71;
+          default -> -1;
+        };
+    if (releasedNote != -1 && app.clipPanel != null) {
+      app.clipPanel.triggerKeyboardNoteRelease(releasedNote);
+    }
     HidMsg msg = new HidMsg();
     msg.deviceType = "keyboard";
     msg.type = HidMsg.BUTTON_UP;
@@ -155,46 +166,9 @@ public class KeyboardShortcutManager extends KeyAdapter {
       return;
     }
     app.clipPanel.flashIsomorphicNote(note);
-    int trackId = app.clipPanel.getFocusTrack();
-
-    boolean isSynth =
-        app.clipPanel.getProjectModel() != null
-            && !app.clipPanel.getProjectModel().getTracks().isEmpty()
-            && app.clipPanel.getProjectModel().getTracks().get(0)
-                instanceof org.deluge.model.SynthTrackModel;
-
-    if (isSynth) {
-      try {
-        ChuckEvent noteEv = (ChuckEvent) bridge.getGlobalObject("g_ck_noteOn");
-        if (noteEv != null) {
-          ChuckArray pitchArr = (ChuckArray) bridge.getGlobalObject(BridgeContract.G_PITCH);
-          pitchArr.setInt(0, (long) (note - 60));
-          noteEv.broadcast();
-        }
-      } catch (Exception ex) {
-        // ignore
-      }
-    } else {
-      String sp = (String) bridge.getGlobalObject("g_sample_" + trackId);
-      if (sp != null && !sp.isEmpty()) {
-        new Thread(
-                () -> {
-                  try {
-                    File file = new File(sp);
-                    if (file.exists()) {
-                      AudioInputStream stream = AudioSystem.getAudioInputStream(file);
-                      Clip c = AudioSystem.getClip();
-                      c.open(stream);
-                      c.start();
-                    }
-                  } catch (IOException
-                      | LineUnavailableException
-                      | UnsupportedAudioFileException ex) {
-                    // ignore
-                  }
-                })
-            .start();
-      }
-    }
+    // Route through the grid panel's firmware-engine note path — the old direct
+    // "g_ck_noteOn" broadcast fired an event that is registered nowhere, so synth
+    // tracks were completely silent on the computer-keyboard piano keys.
+    app.clipPanel.triggerKeyboardNote(note);
   }
 }

@@ -18,12 +18,26 @@ public class KitAssembler {
   public static KitTrackModel assembleFromSynths(
       String kitName, List<File> synthFiles, List<Integer> muteGroups, List<Integer> pitchOffsets)
       throws Exception {
+    return assembleFromSynths(kitName, synthFiles, muteGroups, pitchOffsets, null);
+  }
+
+  /** As above, with per-lane display names (the "Configure Kit Lanes" dialog's edited names). */
+  public static KitTrackModel assembleFromSynths(
+      String kitName,
+      List<File> synthFiles,
+      List<Integer> muteGroups,
+      List<Integer> pitchOffsets,
+      List<String> laneNames)
+      throws Exception {
 
     KitTrackModel kit = new KitTrackModel(kitName);
 
     for (int i = 0; i < synthFiles.size(); i++) {
       SynthTrackModel synth = DelugeXmlParser.parseSynth(synthFiles.get(i));
-      String laneName = synth.getName();
+      String laneName =
+          (laneNames != null && i < laneNames.size() && !laneNames.get(i).isBlank())
+              ? laneNames.get(i)
+              : synth.getName();
       if (laneName == null || laneName.isBlank()) {
         laneName = "Lane " + (i + 1);
       }

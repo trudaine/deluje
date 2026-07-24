@@ -31,7 +31,6 @@ public class PreferencesDialog extends JDialog {
   private final DefaultListModel<String> listModel = new DefaultListModel<>();
 
   // Retain identical field references for perfect caller compatibility
-  private JComboBox<String> reverbCombo;
   private JComboBox<String> monitorGainCombo;
   private JCheckBox masterSatCheck;
   private JCheckBox filterDriveCheck;
@@ -140,6 +139,7 @@ public class PreferencesDialog extends JDialog {
     tabPane.setBackground(BG_DARK);
     tabPane.setForeground(TEXT_LIGHT);
     tabPane.setFont(new Font("SansSerif", Font.BOLD, 11));
+    SwingGridPanel.styleTabs(tabPane);
     tabPane.setBorder(BorderFactory.createEmptyBorder());
 
     // Tab panels setup
@@ -174,12 +174,9 @@ public class PreferencesDialog extends JDialog {
     JPanel panel = createTabContainer();
     GridBagConstraints c = createGridConstraints();
 
-    reverbCombo =
-        new JComboBox<>(
-            new String[] {"JCRev", "FreeVerb", "MVerb", "ProceduralReverb", "RingsReverb"});
-    styleComboBox(reverbCombo);
-    addField(panel, "Reverb Model", reverbCombo, "Algorithmic hardware emulation bus.", c, 0);
-
+    // (The old "Reverb Model" combo was removed: it listed model names the engine doesn't
+    // have and saved to a preference key nothing read. The real selector is in the Master FX
+    // Console's Reverb Tank tab.)
     masterSatCheck = new JCheckBox("Enable Master Saturation Guard");
     styleCheckBox(masterSatCheck);
     addField(
@@ -866,7 +863,6 @@ public class PreferencesDialog extends JDialog {
   // --- ACTIONS & BUSINESS LOGIC PARSERS ---
 
   private void loadCurrentPreferences() {
-    reverbCombo.setSelectedItem(PreferencesManager.get("reverb.model", "JCRev"));
     masterSatCheck.setSelected(PreferencesManager.isMasterSaturationEnabled());
     filterDriveCheck.setSelected(PreferencesManager.isFilterDriveEnabled());
     bitCrunchCheck.setSelected(PreferencesManager.isBitCrunchEnabled());
@@ -1059,7 +1055,6 @@ public class PreferencesDialog extends JDialog {
     String oldRes = PreferencesManager.get("screen.resolution", "");
     String newRes = (String) screenResCombo.getSelectedItem();
 
-    PreferencesManager.set("reverb.model", (String) reverbCombo.getSelectedItem());
     PreferencesManager.setMasterSaturationEnabled(masterSatCheck.isSelected());
     PreferencesManager.setFilterDriveEnabled(filterDriveCheck.isSelected());
     PreferencesManager.setBitCrunchEnabled(bitCrunchCheck.isSelected());

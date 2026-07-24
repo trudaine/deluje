@@ -350,8 +350,10 @@ public class SwingDelugeApp extends JFrame {
         new java.awt.event.WindowAdapter() {
           @Override
           public void windowClosing(java.awt.event.WindowEvent e) {
-            org.deluge.project.PreferencesManager.set("window.width", String.valueOf(getWidth()));
-            org.deluge.project.PreferencesManager.set("window.height", String.valueOf(getHeight()));
+            // Saved through the keys computeWindowSize() reads back — the old "window.width"
+            // keys were written on every close and read by nothing.
+            org.deluge.project.PreferencesManager.setWindowWidth(getWidth());
+            org.deluge.project.PreferencesManager.setWindowHeight(getHeight());
             if (usbSyncService != null) {
               usbSyncService.stop();
             }
@@ -940,6 +942,13 @@ public class SwingDelugeApp extends JFrame {
   public void setWorkspaceView(String viewName) {
     activeViewMode = viewName;
     cardLayout.show(centerCardPanel, viewName);
+    // Same stale-view guard as onViewModeChanged: the panel may not have been refreshed since
+    // state it displays changed from another view.
+    if ("SONG".equals(viewName) && songPanel != null) {
+      songPanel.refresh();
+    } else if ("ARR".equals(viewName) && arrGridPanel != null) {
+      arrGridPanel.refresh();
+    }
     revalidate();
     repaint();
   }
@@ -2767,6 +2776,13 @@ public class SwingDelugeApp extends JFrame {
         cardLayout.show(centerCardPanel, "CLIP");
       } else {
         cardLayout.show(centerCardPanel, viewMode);
+        // Refresh the newly shown panel: state changed while another view was active (solo/mute,
+        // grid theme, edits) rendered stale here until some unrelated action refreshed it.
+        if ("SONG".equals(viewMode) && songPanel != null) {
+          songPanel.refresh();
+        } else if ("ARR".equals(viewMode) && arrGridPanel != null) {
+          arrGridPanel.refresh();
+        }
       }
 
       // Update High-Fidelity UI Stack
@@ -2976,6 +2992,14 @@ public class SwingDelugeApp extends JFrame {
 
   private static Dimension computeWindowSize() {
     Dimension screen = java.awt.Toolkit.getDefaultToolkit().getScreenSize();
+    // Honor the size the user left the window at (saved on close); the Screen Resolution
+    // profile is the fallback for first launch, and re-applying it from Preferences resizes
+    // the live window directly (applyWindowResolution).
+    int savedW = org.deluge.project.PreferencesManager.getWindowWidth(-1);
+    int savedH = org.deluge.project.PreferencesManager.getWindowHeight(-1);
+    if (savedW >= MIN_WINDOW_W && savedH >= MIN_WINDOW_H) {
+      return new Dimension(Math.min(savedW, screen.width), Math.min(savedH, screen.height));
+    }
     return windowSizeFor(
         org.deluge.project.PreferencesManager.get("screen.resolution", "QHD"),
         screen.width,

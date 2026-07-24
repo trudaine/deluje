@@ -614,6 +614,8 @@ public class SwingSynthWavetableEditorDialog extends JDialog {
     btn.setBackground(bg);
     btn.setForeground(fg);
     btn.setFocusPainted(false);
+    btn.setOpaque(true);
+    btn.setContentAreaFilled(true);
     btn.setBorder(BorderFactory.createLineBorder(fg.darker(), 1));
     // Never narrower than the label itself ("Save wavetable to SD..." used to ellipsize at a
     // fixed 150px).

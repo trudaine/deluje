@@ -90,6 +90,7 @@ public class SwingRandomizerDialog extends JDialog {
     tabPane.setBackground(new Color(0x1a, 0x1a, 0x1e));
     tabPane.setForeground(Color.WHITE);
     tabPane.setFont(new Font("SansSerif", Font.BOLD, 12));
+    SwingGridPanel.styleTabs(tabPane);
 
     tabPane.addTab("🎲 Synth Randomizer", buildSynthRandomizerTab());
     tabPane.addTab("🥁 Kit Super-Generator", buildKitGeneratorTab());

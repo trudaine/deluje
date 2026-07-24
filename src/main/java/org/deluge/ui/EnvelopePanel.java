@@ -20,6 +20,7 @@ public class EnvelopePanel extends JPanel {
     JTabbedPane envTabs = new JTabbedPane();
     envTabs.setBackground(new Color(0x25, 0x25, 0x25));
     envTabs.setForeground(Color.WHITE);
+    SwingGridPanel.styleTabs(envTabs);
 
     for (int e = 0; e < 4; e++) {
       final int envIdx = e;
