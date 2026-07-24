@@ -1159,3 +1159,40 @@ project (RMS is duty/pitch-invariant; autocorrelation mis-locks on harmonic-rich
 osc-B SINE once masqueraded as an osc-pitch bug). Always reset the noise seed
 (`Functions.resetNoiseSeed()`) and verify with a spectral metric. Never report a fidelity
 improvement the scorecard doesn't confirm.
+
+### 4.1ter FM bells — 2026-07-24: the §4.1bis "misaligned slice" write-off is REFUTED; divergence is real
+
+`FmBellsAlignmentProbeTest` (new, permanent) extracts the exact hardware slice the scorecard
+scores — replicating the scorecard's list construction byte-for-byte, which matters: a first
+probe with a naive file list was six slots off and looked at the wrong notes — and prints
+per-250 ms RMS + spectral-centroid curves for both sides (slices + renders also written to
+`target/fm_probe/*.wav`). Result for the correctly-mapped slices:
+
+| preset | HW slice | HW centroid over 4 s | our centroid over 3 s |
+|---|---|---|---|
+| 068 FM Bells 1 (k=68, 409.2 s) | clean onset, smooth RMS decay | **flat 513 Hz, zero drift** | 9222 → 3649 Hz |
+| 069 FM Bells 2 (k=69) | clean onset | flat ~365 Hz | 5544 → 1911 Hz |
+| 050 FM Basic Bass (k=50, control) | clean onset | flat ~263 Hz (≈C4) | 3960 → 473 Hz |
+
+The 068 slice is aligned (clean onset, exactly one 6.00 s grid slot, and the *control* preset
+in the same grid scores 0.884 — a shifted grid would break it too). The hardware genuinely
+renders FM Bells 1 as a near-static ~513 Hz tone; our render is a 9 kHz decaying buzz. So:
+**engine divergence, real, not measurement.** The §4.1bis instruction "do NOT lower the FM
+index" was built on a false premise (its trace verified sub-functions individually but never
+checked the end-to-end number against an aligned hardware slice).
+
+Sharpened target: hardware's effective modulation index for this patch must be β < ~0.5 rad
+(static carrier-dominant centroid, *no spectral decay despite an env1→modulator1Volume cable* —
+i.e. the modulator contributes ~nothing from the start), while ours is β ≈ 9 rad
+(§4.1bis: modVol ≈ 45.4M) — an effective modulator-amplitude discrepancy of roughly 20×
+(≈2^4.3). Same note (60) and velocity (127 vs our 110) on both sides, so the suspect is the
+**modulator-amplitude derivation chain**, audited end-to-end as one dataflow (not per
+sub-function): preset value → patcher cable combination (note −0.221FS / velocity / env1 →
+modulator1Volume) → `getFinalParameterValueVolume` domain → the shift/scale applied where the
+final param value becomes the `doFMNew` amplitude operand, Java vs `voice.cpp`/`patcher.cpp`
+side by side with 068's exact numbers as the test vector. A single wrong shift (`<<5`-class) or
+a linear-vs-exponential domain slip would produce exactly this signature.
+
+Also reconfirmed en passant: the "fine" family's steady-state is ~1.8× brighter than HW
+(473 vs 263 Hz on 050) with a much brighter attack — the "mild systematic over-brightness" of
+§4.1bis is visible in the same probe and may share the root cause.
