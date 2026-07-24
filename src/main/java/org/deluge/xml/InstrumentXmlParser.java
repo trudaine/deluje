@@ -19,7 +19,10 @@ public class InstrumentXmlParser {
       List.of(
           FieldBinding.attrOrChild(
               "osc1", "type", SynthTrackModel::setOsc1Type, String::toUpperCase),
-          FieldBinding.childText(
+          // attrOrChild like osc1 — the childText-only binding silently dropped attribute-style
+          // <osc2 type="..."> (song-embedded / newer preset format), leaving osc2 as NONE and
+          // muting the second oscillator of every two-osc patch parsed from a song.
+          FieldBinding.attrOrChild(
               "osc2", "type", SynthTrackModel::setOsc2Type, String::toUpperCase));
 
   private static final List<FieldBinding<?>> DEFAULT_PARAMS_BINDINGS =

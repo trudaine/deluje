@@ -1289,3 +1289,21 @@ the change vs the old (invalid) preset-mode 0.801 baseline:
   — likely song-context/parse gaps: the embedded render discards song BPM/sync context, and the
   song-parse path may drop LFO sync or similar fields the preset path keeps. This cluster is the
   next line-of-attack (it is real signal about OUR parse/render, unlike the FM slots).
+
+### 4.1septies 2026-07-24 — osc2-type parse bug fixed; pads/sync cluster adjudication blocked on re-record
+
+Model-level reflection diff (preset-parse vs song-embedded-parse of the same patch) found the
+osc2 TYPE binding was child-element-only, so attribute-style `<osc2 type="...">` — the
+song-embedded and newer preset format — parsed as NONE, silencing oscillator 2 of every
+two-oscillator patch loaded from a song (fix: attrOrChild like osc1; regression test
+`Osc2AttributeTypeTest`). Real bug, but NOT the pads-cluster driver: scores barely moved
+(080 House +0.05) because e.g. 078's embedded copy has oscB volume at minimum anyway.
+
+The cluster's actual signature is high single-window + low time-resolved (078 House win .80 /
+time .32): correct timbre, wrong time-evolution — the recordings carry delay tails / LFO
+movement that the embedded instrument state says should be off (078 embedded: delay feedback
+INT_MIN). Same class as the FM bells: the recording reflects an older device state. **Per-slot
+forensics against the current ALLSYN recordings is no longer productive — re-recording on
+current firmware is the gate for all further per-preset fidelity claims.** Until then the
+scorecard's value is as a regression tripwire (it did catch the osc2 and transpose parse bugs),
+not an absolute fidelity measure.
