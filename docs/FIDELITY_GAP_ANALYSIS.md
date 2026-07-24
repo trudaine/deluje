@@ -1234,3 +1234,36 @@ the live fw2 state mid-render, plus C-exact hand computation of the same chain:
    C-side scaling between `paramFinalValues` and the FM phase domain that reading hasn't caught.
    The DSP-tap harness (docs/hardware_dsp_tap_calibration.md) exists precisely for this: capture
    the device's real modulator amplitude for 068 and compare. Needs the physical Deluge.
+
+### 4.1quinquies 2026-07-24 — HARDWARE GROUND TRUTH: the engine is right; the recording is stale
+
+With the physical Deluge connected (debug firmware, PONG verified), the per-block
+modulator-amplitude tap (`HardwareDspTapTest -Dtap.mod=true -Dtap.note=true`, preset 068 loaded
+on the device, C4 @ vel 100) captured the device's actual
+`paramFinalValues[LOCAL_MODULATOR_0_VOLUME]` across an 11.9 s note
+(4096 blocks, saved as `docs/evidence_fm068_hw_modulator_tap_2026-07-24.txt`):
+
+| t | hardware modVol |
+|---|---|
+| 0 | 7.78M (attack ramp) |
+| 50 ms | **47.2M peak** |
+| 1 s | 40.6M |
+| 4 s | 27.2M |
+| 11 s | 15.6M |
+
+Our engine's runtime value for the same patch: **40.3M** (§4.1quater), C-paper band 21.9–54.7M.
+**The live hardware, today's C source, and our engine all agree** — 068 plays a bright β≈8 bell
+on the real device, exactly as the old ear-check reported ("METALLIC on the hardware").
+
+Conclusion: the ALLSYN recordings' static-soft ~513 Hz slice for the FM bells does not represent
+what current firmware/preset state produces — the recordings are stale or were made under a
+different firmware/state for (at least) these presets. Together with §4.1quater's finding that
+the recordings play song-embedded instrument copies that drift from the preset files, the path
+to a trustworthy scorecard is:
+
+1. **Re-record ALLSYN_1/2 on the current firmware** (procedure: HARDWARE_FIDELITY.md), and
+2. **Make the scorecard render the songs' embedded instruments** so the comparison is
+   apples-to-apples even if presets drift again.
+
+Until then, per-preset FM scores against the old recordings are not evidence of engine
+divergence, and the §4.1quater transpose-fix regressions (Glockenspiel etc.) cannot be judged.
