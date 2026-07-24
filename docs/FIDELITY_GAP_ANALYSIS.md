@@ -1196,3 +1196,41 @@ a linear-vs-exponential domain slip would produce exactly this signature.
 Also reconfirmed en passant: the "fine" family's steady-state is ~1.8× brighter than HW
 (473 vs 263 Hz on 050) with a much brighter attack — the "mild systematic over-brightness" of
 §4.1bis is visible in the same probe and may share the root cause.
+
+### 4.1quater 2026-07-24 — the parameter chain is C-exact; the scorecard's comparison target is not
+
+Continued from §4.1ter with a runtime probe (scratchpad `ParseProbe`) that renders 068 and reads
+the live fw2 state mid-render, plus C-exact hand computation of the same chain:
+
+1. **The Java modulator chain is numerically C-exact.** At render time for 068:
+   knob −738,197,504 (0xD4000000 ✓ signed), modulatorTranspose [34, −42] ✓, all cables present
+   with correct amounts, and the voice's `paramFinalValues[MODULATOR_0_VOLUME]` = 40.3M — inside
+   the C-exact envelope band (21.9M at env=0 → 54.7M at env=max) computed from patcher.cpp /
+   functions.cpp with the same inputs. §4.1bis's per-function verification is confirmed at the
+   dataflow level too. (Note: an early probe read fw2 fields BEFORE the knob→fw2 sync runs and
+   wrongly implicated FirmwareFactory — the sync happens on render, always probe mid-render.)
+2. **Real parser bug fixed: sound-level nested `<transpose>` was dropped** (old-format factory
+   presets; attribute-only parse). 068's `<transpose>-12` now flows to `fw2Sound.masterTranspose`
+   (regression test `SoundLevelTransposeTest`; the lookup is direct-child-only — a descendant
+   search would grab osc1's transpose).
+3. **Scorecard after the fix: targeted FM family up strongly** (068 .203→.375, 093 .448→.687,
+   084 .395→.548, 151 .569→.715, 164 Study Arp .606→.867, 072 Kyoto .774→.917) **but the overall
+   set regressed** (time-resolved median .801→.775; Glockenspiel .965→.542, Organ .900→.616…) —
+   the fix does NOT pass the fidelity gate on its own. Why:
+4. **The recordings did not play the preset files.** The ALLSYN songs embed their own full
+   instrument copies, and those demonstrably differ from the SYNTHS/ preset files. For 068:
+   embedded has sound-level transpose **0** (preset: −12) and modulator2Amount **0xD4000000,
+   ACTIVE** (preset: 0x80000000 = INT_MIN, which the C gate at voice.cpp:530 silences). The
+   clip's `<soundParams>` adds only volume/pan/filters (LPF wide open). So the scorecard has been
+   comparing our render of one patch against a recording of a different patch, per preset — and
+   any parse fix that moves us toward the preset file moves us away from the recording wherever
+   the embedded copy drifted. **The scorecard must render the songs' embedded instruments**
+   (parse ALLSYN_1/2.XML tracks in order) to be a valid metric; that rework is the next step,
+   and per-preset deltas from the transpose fix should be re-judged only against that.
+5. **Open contradiction needing hardware ground truth:** even for the exact embedded 068 patch,
+   current-C math predicts a bright bell (β≈8 from modVol≈40M in the 24-bit phase domain of
+   `SineOsc::doFMNew`), while the recording is a spectrally static ~513 Hz tone (β<0.5). Either
+   the device ran a different firmware than assumed when the recordings were made, or there is a
+   C-side scaling between `paramFinalValues` and the FM phase domain that reading hasn't caught.
+   The DSP-tap harness (docs/hardware_dsp_tap_calibration.md) exists precisely for this: capture
+   the device's real modulator amplitude for 068 and compare. Needs the physical Deluge.

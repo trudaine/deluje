@@ -384,12 +384,26 @@ public class InstrumentXmlParser {
       }
     }
 
-    // -- Transpose (attribute on <sound>, semitones) --
-    if (soundNode.hasAttribute("transpose")) {
+    // -- Transpose (semitones). New format: attribute on <sound>; old (pre-V3) factory presets
+    // carry it as a nested <transpose> child — which was silently dropped, shifting every source
+    // AND FM modulator of such presets by the missing amount (e.g. "068 FM Bells 1" plays a full
+    // octave high without its <transpose>-12).
+    String transposeStr = soundNode.getAttribute("transpose");
+    if (transposeStr == null || transposeStr.isBlank()) {
+      // DIRECT child only — attrOrChildText/getElementsByTagName would match the first
+      // descendant <transpose>, which is osc1's, not the sound's.
+      for (org.w3c.dom.Node n = soundNode.getFirstChild(); n != null; n = n.getNextSibling()) {
+        if (n instanceof Element ce && "transpose".equals(ce.getTagName())) {
+          transposeStr = ce.getTextContent();
+          break;
+        }
+      }
+    }
+    if (transposeStr != null && !transposeStr.isBlank()) {
       try {
-        synth.setTranspose(Integer.parseInt(soundNode.getAttribute("transpose")));
+        synth.setTranspose(Integer.parseInt(transposeStr.trim()));
       } catch (NumberFormatException e) {
-        LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
+        LOG.log(Level.FINE, "NumberFormatException parsing XML transpose", e);
       }
     }
 
