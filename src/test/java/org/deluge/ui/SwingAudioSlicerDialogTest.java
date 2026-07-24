@@ -42,19 +42,20 @@ public class SwingAudioSlicerDialogTest {
 
     BridgeContract bridge = new BridgeContract();
 
-    javax.swing.SwingUtilities.invokeAndWait(() -> {
-      SwingAudioSlicerDialog dialog = new SwingAudioSlicerDialog(null, bridge, project);
-      JSlider volSlider = findComponent(dialog, JSlider.class);
-      assertNotNull(volSlider, "volSlider must be present in SwingAudioSlicerDialog");
+    javax.swing.SwingUtilities.invokeAndWait(
+        () -> {
+          SwingAudioSlicerDialog dialog = new SwingAudioSlicerDialog(null, bridge, project);
+          JSlider volSlider = findComponent(dialog, JSlider.class);
+          assertNotNull(volSlider, "volSlider must be present in SwingAudioSlicerDialog");
 
-      // Move slider to 50%
-      volSlider.setValue(50);
+          // Move slider to 50%
+          volSlider.setValue(50);
 
-      // Verify model mutation across all drum slots
-      assertEquals(0.5f, drum1.getVolume(), 0.001f);
-      assertEquals(0.5f, drum2.getVolume(), 0.001f);
+          // Verify model mutation across all drum slots
+          assertEquals(0.5f, drum1.getVolume(), 0.001f);
+          assertEquals(0.5f, drum2.getVolume(), 0.001f);
 
-      dialog.dispose();
-    });
+          dialog.dispose();
+        });
   }
 }

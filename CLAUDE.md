@@ -135,13 +135,18 @@ It self-skips unless `~/ludocard/SYNTHS` and `~/ALL_SYNTHS_SONG/ALLSYN_{1,2}/out
 exist (recordings are ~150 MB each, not in git). Since 2026-07-24 it renders the ALLSYN songs'
 **embedded instrument copies** (what the recording actually played — the standalone preset files
 drift from them; old mode: `-Dscorecard.presets=true`). **Current baseline (embedded mode, fresh
-2026-07-24 recordings): time-resolved median ≈ 0.83, ~60% of synths ≥ 0.80.** The former FM-bells
-gap was clip-param semantics (a clip's soundParams replace the instrument defaults; FM modulator
-params default OFF — see `docs/FIDELITY_GAP_ANALYSIS.md` §4.1ter–octies for the full arc). The subtractive core (osc + ladder filter + ADSR) is
-faithful and scores 0.85–0.97. Open gap families: **per-voice saturation/clipping level** (016/059/120, see FIDELITY_GAP_ANALYSIS.md §4.2quater; the hard-sync engine itself audited faithful 2026-07-24), **PWM/PW envelope**, **resonant/distorted
-filter**, **FX (reverb/delay/modFX)**, and ~16 multisample presets that render silent only
-because the test path doesn't load their samples. (FM was the former biggest cluster — resolved
-2026-07-24 as stale recordings, not engine divergence; hardware-verified.)
+2026-07-24 recordings): time-resolved median ≈ 0.91, 90% of synths ≥ 0.80, 59% ≥ 0.90.** The
+big 2026-07-25 jump was **C-exact clip-param semantics** read from the C loader (a ≥1.2.0
+song's clip = fresh initParams ParamManager + ONLY the clip's listed tags — no instrument
+back-fill, ZERO patch cables; see `docs/FIDELITY_GAP_ANALYSIS.md` §4.2septies): this closed
+most of the former "saturation/PWM/sync/resonant-filter" bottom cluster (016/120/015/059/045…),
+which was never the DSP. The subtractive core (osc + ladder filter + ADSR) is faithful and
+scores 0.85–0.97. Open gap families now: **sample-voice lifetime** (unnumbered multisample
+presets at ALLSYN_2's tail die at ~0.3 s where hardware sustains — §4.2septies follow-up 1),
+**109's 12dB LP/HP band-gap level** (ours ≈ −65 dB vs hardware ≈ −30 dB — follow-up 2),
+**FX (reverb/delay/modFX)**, and two scoring artifacts (129/Xax: hardware slice genuinely
+near-silent — follow-up 3). (FM was the former biggest cluster — resolved 2026-07-24 as clip
+semantics + stale-recording confusion; hardware-verified.)
 
 Workflow for a fidelity fix: pick a family above → open the cited C subsystem under
 `../DelugeFirmware/src/deluge/` → port faithfully → re-run the scorecard and confirm the targeted

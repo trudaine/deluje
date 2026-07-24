@@ -1607,22 +1607,29 @@ public class InstrumentXmlParser {
   }
 
   /**
-   * C-faithful reset applied BEFORE a clip's {@code <soundParams>} overlay: in the firmware a
-   * clip's patched params come from {@code Sound::initParams} defaults (sound.cpp:146-210) overlaid
-   * with ONLY what the clip lists — the instrument's {@code <defaultParams>} are NOT consulted for
-   * clip playback, and the patch cables likewise reset to the firmware's four defaults
-   * (sound.cpp:239-243) unless the clip carries its own. Old-format songs (the ALLSYN test songs)
-   * list only a handful of params; inheriting the instrument's defaults made our render play FM
-   * modulators where the hardware plays none (hardware-verified — the fresh ALLSYN recording plays
-   * 068 as carrier-only, matching these defaults exactly).
+   * C-faithful reset applied BEFORE a clip's {@code <soundParams>} overlay. In the firmware, a
+   * {@code >=1.2.0} song's clip gets a FRESH ParamManager: AutoParam construction zeros
+   * (auto_param.cpp:53-58) + {@code ModControllableAudio::initParams}
+   * (mod_controllable_audio.cpp:104-140) + {@code Sound::initParams} (sound.cpp:131-210), then ONLY
+   * the clip's listed tags overlay (instrument_clip.cpp:2752-2778 → Sound::readParamsFromFile,
+   * sound.cpp:3198-3208). The instrument's {@code <defaultParams>} are never consulted, and the
+   * patch cable set starts EMPTY (PatchCableSet ctor, patch_cable_set.cpp:70-75) — there is no
+   * default velocity→volume cable in the clip path; the four-cable block at sound.cpp:239-243 is
+   * {@code setupAsDefaultSynth} (new-synth path), not clip loading. Hardware-verified for the FM
+   * modulator group (068/069 play carrier-only in the ALLSYN songs) and consistent with 109's
+   * smooth hardware decay despite its instrument's LFO1→lpfResonance cable (no cables exist in the
+   * clip path).
    *
-   * <p>Faithful subset: FM modulator/carrier params, HPF, sends, portamento, cables. Envelope / LFO
-   * user-value defaults (sound.cpp:184-199) are NOT yet reset — clips lacking envelope params still
-   * inherit the instrument envelope (documented divergence, see FIDELITY_GAP_ANALYSIS.md
-   * 4.1octies).
+   * <p>user→param: {@code u*85899345 - 2^31} (functions.cpp:1413-1444 default branch). Params the
+   * ALLSYN clips universally list (volume, pan, lpf/hpf freq+res, reverbAmount, delayRate,
+   * arpeggiatorRate) are left to the overlay's float channel and not reset here — resetting them
+   * through the raw-knob channel would clobber the overlay (raw wins over float in
+   * FirmwareFactory). Not modeled/reset: wave-index params, arp gate/probability params,
+   * GLOBAL_VOLUME_POST_REVERB_SEND, stutter rate.
    */
   public static void resetClipParamsToFirmwareDefaults(SynthTrackModel synth) {
     int off = Integer.MIN_VALUE;
+    RawKnobConfig knobs = synth.getRawKnobs();
     // sound.cpp:172-183 — FM modulators + all feedbacks default OFF
     synth.setModulator1AmountQ31(off);
     synth.setModulator2AmountQ31(off);
@@ -1630,35 +1637,127 @@ public class InstrumentXmlParser {
     synth.setModulator2FeedbackQ31(off);
     synth.setCarrier1FeedbackQ31(off);
     synth.setCarrier2FeedbackQ31(off);
-    // NOTE: osc volumes / HPF / sends / portamento are NOT reset. The C initParams table
-    // defaults them too, but the fresh hardware recording contradicts a full reset for these
-    // old-format songs (basses/leads regress sharply when osc mix + HPF are defaulted while
-    // they match when inherited) — the C old-song reader evidently back-fills those groups from
-    // the instrument. Only the FM param group + cables are hardware-proven to reset (068/069:
-    // static carrier-only tone, no cable movement). Empirically calibrated; see
-    // FIDELITY_GAP_ANALYSIS.md 4.1octies.
-    // Envelopes: in the clip path the C runs initParams (which sets only envelope 2's rates,
-    // user 20/20/25/20) over AutoParam construction defaults (param value 0 = user 25) —
-    // the instrument's envelope values are NOT consulted. user->param: u*85899345 - 2^31
-    // (functions.cpp getParamFromUserValue default branch).
+    // The instrument's <defaultParams> parse populates the raw Q31 knob map for every param in
+    // SOUNDPARAMS_RAW_PATCHED, and the factory applies that map LAST — so the reset must go
+    // through the same raw map or the instrument's values leak through (109's near-off raw
+    // oscBVolume did exactly that, silencing the render where hardware plays osc B at the
+    // initParams FULL volume). The clip overlay writes the same raw map after this reset, so
+    // clip-listed attrs still win. Values: AutoParam construction = raw 0 (auto_param.cpp:55),
+    // overlaid by Sound::initParams / ModControllableAudio::initParams / Stutterer::initParams.
+    knobs.setRawParamKnob(Param.LOCAL_VOLUME, 0); // sound.cpp:147
+    knobs.setRawParamKnob(Param.LOCAL_PAN, 0); // sound.cpp:199
+    knobs.setRawParamKnob(Param.LOCAL_OSC_A_VOLUME, Integer.MAX_VALUE); // sound.cpp:148
+    String o2t = synth.getOsc2Type();
+    boolean osc2Real =
+        o2t != null
+            && !o2t.isBlank()
+            && !o2t.equalsIgnoreCase("none")
+            && !o2t.equalsIgnoreCase("off");
+    // sound.cpp:149 — FULL in C; kept at OFF when our model has no real osc2 type (the C has no
+    // NONE osc type — see the factory's phantom-SINE guard, which this raw write would defeat).
+    knobs.setRawParamKnob(Param.LOCAL_OSC_B_VOLUME, osc2Real ? Integer.MAX_VALUE : off);
+    knobs.setRawParamKnob(Param.LOCAL_NOISE_VOLUME, off); // sound.cpp:200
+    knobs.setRawParamKnob(Param.LOCAL_FOLD, off); // sound.cpp:153
+    synth.setWaveFoldQ31(off);
+    // sound.cpp:154-158 — HPF off, morphs off; LPF freq/res are NOT in initParams → raw 0.
+    knobs.setRawParamKnob(Param.LOCAL_LPF_FREQ, 0);
+    knobs.setRawParamKnob(Param.LOCAL_LPF_RESONANCE, 0);
+    knobs.setRawParamKnob(Param.LOCAL_LPF_MORPH, off);
+    knobs.setRawParamKnob(Param.LOCAL_HPF_FREQ, off);
+    knobs.setRawParamKnob(Param.LOCAL_HPF_RESONANCE, off);
+    knobs.setRawParamKnob(Param.LOCAL_HPF_MORPH, off);
+    // sound.cpp:159/203-206 — all pitch adjusts neutral; :184-185 — phase widths 0. Model
+    // setters too so the factory's sentinel-guarded float channel agrees.
+    knobs.setRawParamKnob(Param.LOCAL_PITCH_ADJUST, 0);
+    knobs.setRawParamKnob(Param.LOCAL_OSC_A_PITCH_ADJUST, 0);
+    knobs.setRawParamKnob(Param.LOCAL_OSC_B_PITCH_ADJUST, 0);
+    knobs.setRawParamKnob(Param.LOCAL_MODULATOR_0_PITCH_ADJUST, 0);
+    knobs.setRawParamKnob(Param.LOCAL_MODULATOR_1_PITCH_ADJUST, 0);
+    synth.setPitchAdjustQ31(0);
+    synth.setOsc1PitchAdjustQ31(0);
+    synth.setOsc2PitchAdjustQ31(0);
+    knobs.setRawParamKnob(Param.LOCAL_OSC_A_PHASE_WIDTH, 0);
+    knobs.setRawParamKnob(Param.LOCAL_OSC_B_PHASE_WIDTH, 0);
+    synth.setOsc1PhaseWidthQ31(0);
+    synth.setOsc2PhaseWidthQ31(0);
+    // AutoParam base — wavetable positions.
+    knobs.setRawParamKnob(Param.LOCAL_OSC_A_WAVE_INDEX, 0);
+    knobs.setRawParamKnob(Param.LOCAL_OSC_B_WAVE_INDEX, 0);
+    // sound.cpp:160-163 — reverb send OFF, delay rate 0, delay feedback OFF, arp rate 0 (the
+    // ALLSYN clips list reverbAmount/delayRate/arpeggiatorRate, which overlay these).
+    knobs.setRawParamKnob(Param.GLOBAL_REVERB_AMOUNT, off);
+    knobs.setRawParamKnob(Param.GLOBAL_DELAY_RATE, 0);
+    knobs.setRawParamKnob(Param.GLOBAL_DELAY_FEEDBACK, off);
+    synth.setDelayFeedbackQ31(off);
+    // sound.cpp:201-202 — mod FX depth/rate 0; mod_controllable_audio.cpp:131-132 offset/feedback.
+    knobs.setRawParamKnob(Param.GLOBAL_MOD_FX_DEPTH, 0);
+    knobs.setRawParamKnob(Param.GLOBAL_MOD_FX_RATE, 0);
+    knobs.setRawParamKnob(Param.UNPATCHED_MOD_FX_OFFSET, 0);
+    knobs.setRawParamKnob(Param.UNPATCHED_MOD_FX_FEEDBACK, 0);
+    // mod_controllable_audio.cpp:108-111 — EQ flat; :134-136 — SRR/bitcrush off; :138 —
+    // sidechain shape; :139 — compressor threshold 0 (off); stutterer.cpp:27-29 — stutter rate 0.
+    knobs.setRawParamKnob(Param.UNPATCHED_BASS, 0);
+    knobs.setRawParamKnob(Param.UNPATCHED_TREBLE, 0);
+    knobs.setRawParamKnob(Param.UNPATCHED_BASS_FREQ, 0);
+    knobs.setRawParamKnob(Param.UNPATCHED_TREBLE_FREQ, 0);
+    knobs.setRawParamKnob(Param.UNPATCHED_SAMPLE_RATE_REDUCTION, off);
+    knobs.setRawParamKnob(Param.UNPATCHED_BITCRUSHING, off);
+    knobs.setRawParamKnob(Param.UNPATCHED_SIDECHAIN_SHAPE, -601295438);
+    knobs.setRawParamKnob(Param.UNPATCHED_STUTTER_RATE, 0);
+    synth.setCompressorThreshold(0.0f);
+    // sound.cpp:139 — portamento off.
+    synth.setPortamentoQ31(off);
+    // Envelopes. ENV_0 (XML envelope1) is NOT in initParams — AutoParam base = raw 0 for all of
+    // A/D/S/R (user-25 mids). ENV_1 (XML envelope2) = user 20/20/25/20 (sound.cpp:186-193).
+    // Envelopes 3/4 = construction zeros. Sustains additionally go through the raw param-knob
+    // map, which the factory applies after the env-knob arrays.
     int user20 = (int) (20L * 85899345L - 2147483648L); // -429496748
-    // Volume envelope (C ENV_0) defaults to the blank-synth shape (sound.cpp:297-306):
-    // instant attack, user-20 decay, full sustain — empirically the profile both regression
-    // populations' recordings agree with (mid-sustain construction defaults split them).
-    // Envelopes 2-4 stay inherited. NOTE (2026-07-24 calibration): the sustain written here is
-    // effectively a no-op — the envelope parse also stores sustains in the raw param-knob map
-    // (ids ENV_0..3_SUSTAIN) which FirmwareFactory applies AFTER the env-knob arrays, so ALL
-    // sustains are inherited from the instrument. That inheritance is empirically correct:
-    // making the full initParams env semantics actually apply (ENV_0 sustain full, ENV_1 rates
-    // 20/20/25/20, ENV_2/3 construction zeros) scored net-negative on the fresh recordings
-    // (mean -0.008, 011 Dubstep -0.29, 103 Sci-fi Chaos -0.40) and made even the motivating
-    // preset (109 Talking Arp) worse — the C old-song reader evidently back-fills envelopes
-    // from the instrument like the osc/HPF groups. The validated reset is rates-only.
-    synth.getRawKnobs().setEnvKnobsQ31(0, Integer.MIN_VALUE, user20, Integer.MAX_VALUE, 0);
-    // Cables: inherited from the instrument — replacing them with the firmware's four defaults
-    // regressed basses/leads sharply (their note/velocity->LPF tracking cables audibly matter
-    // and the recording matches the inherited set). Only the FM modulator param group above is
-    // hardware-proven to reset.
+    int user25 = (int) (25L * 85899345L - 2147483648L); // -23
+    knobs.setEnvKnobsQ31(0, 0, 0, 0, 0);
+    knobs.setEnvKnobsQ31(1, user20, user20, user25, user20);
+    knobs.setEnvKnobsQ31(2, 0, 0, 0, 0);
+    knobs.setEnvKnobsQ31(3, 0, 0, 0, 0);
+    knobs.setRawParamKnob(Param.LOCAL_ENV_0_SUSTAIN, 0);
+    knobs.setRawParamKnob(Param.LOCAL_ENV_1_SUSTAIN, user25);
+    knobs.setRawParamKnob(Param.LOCAL_ENV_2_SUSTAIN, 0);
+    knobs.setRawParamKnob(Param.LOCAL_ENV_3_SUSTAIN, 0);
+    // sound.cpp:194-199 — LFO rate params: global LFO1/2 = user-30, local LFO1/2 = 0. Slot
+    // order matches the factory (0=global1, 1=local1, 2=global2, 3=local2).
+    int user30 = (int) (30L * 85899345L - 2147483648L); // 429496702
+    knobs.setLfoRateKnobQ31(0, user30);
+    knobs.setLfoRateKnobQ31(1, 0);
+    knobs.setLfoRateKnobQ31(2, user30);
+    knobs.setLfoRateKnobQ31(3, 0);
+    // Patch cables: the clip path starts with ZERO cables (patch_cable_set.cpp:70-75) — no
+    // velocity→volume, no instrument modulation routing. Clear all three model channels the
+    // factory compiles cables from: the explicit cable list, LFO depth/target synthesis, and
+    // envelope-2..4 target synthesis. (LFO waveform/sync and envelope rates are kept — those
+    // reach the engine through the knob channels above, matching the C where waveform/sync are
+    // sound-level settings read from the instrument, not params.)
+    synth.getModulation().getPatchCables().clear();
+    for (int i = 0; i < 4; i++) {
+      LfoModel lm = synth.getLfo(i);
+      if (lm != null) {
+        synth.setLfo(
+            i,
+            new LfoModel(
+                lm.rateHz(),
+                lm.waveform(),
+                0.0f,
+                "NONE",
+                lm.isLocal(),
+                lm.syncLevel(),
+                lm.syncType()));
+      }
+    }
+    for (int i = 1; i < 4; i++) {
+      EnvelopeModel em = synth.getEnv(i);
+      if (em != null) {
+        synth.setEnv(
+            i,
+            new EnvelopeModel(em.attack(), em.decay(), em.sustain(), em.release(), "NONE", 0.0f));
+      }
+    }
   }
 
   public static void parseClipSoundParamsStatics(Element sp, SynthTrackModel synth) {

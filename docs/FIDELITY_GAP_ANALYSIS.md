@@ -1489,3 +1489,56 @@ the 4.2ter ladder audit and the 4.2quinquies C-exact input levels, the entire si
 osc → ladder(+drive tanh) → per-voice saturate is faithful end-to-end. The small dips on
 149/015/098 therefore reflect divergence elsewhere (clip-param/envelope semantics — see the
 unresolved 016-vs-011 contradiction in 4.2quater — or recording-side), not the drive DSP.
+
+### 4.2septies 2026-07-25 — C-exact clip-param semantics from the C SOURCE: median 0.83 → 0.91, ≥0.80 59% → 90%
+
+The 4.2quater "envelope semantics contradiction (needs hardware tap)" was resolved WITHOUT
+hardware — by reading the C loader instead of experimenting against the recording. For a
+`firmwareVersion >= 1.2.0` song (ALLSYN is c1.3.0), the clip path is instrument_clip.cpp:
+2752-2778: a FRESH ParamManager (`setupWithPatching` + `Sound::initParams`) overlaid with ONLY
+the clip's listed tags. AutoParam construction = raw 0 (auto_param.cpp:53-58); the PatchCableSet
+constructor starts with ZERO cables (patch_cable_set.cpp:70-75). There is NO old-song back-fill
+from the instrument (the clone-from-instrument branch is gated to < official 1.2.0), and no
+default velocity→volume cable in the clip path — the "four defaults" block (sound.cpp:239-243)
+is `setupAsDefaultSynth`, not clip loading. All 188 ALLSYN clips list exactly 9 attributes
+(volume, pan, lpf/hpf freq+res, reverbAmount, delayRate, arpeggiatorRate) — so the hardware
+played every preset with NO patch cables at all, modulators off, osc A/B FULL, noise off,
+ENV_0 = raw-0 mids, ENV_1 = user 20/20/25/20, delay feedback off, EQ flat.
+
+This resolves the paradoxes the empirical calibration got stuck on: 109's hardware render is
+smooth because its instrument's lfo1→lpfResonance cable DOESN'T EXIST in the song (4.2bis's
+observation, previously blamed on the filter); 016's darkness is its env2→lpfFrequency cable
+not existing; and the 4.2quater 016-vs-011 "contradiction" dissolves because the earlier
+experiments were channel-buggy (float setters shadowed by raw knobs; the "cables" experiment
+replaced with the WRONG four-cable set instead of the C's empty set). Implementation note (the
+trap that initially reproduced the old false negatives): the instrument parse populates the RAW
+Q31 knob map (`SOUNDPARAMS_RAW_PATCHED`) which the factory applies LAST — the reset must write
+that same raw map (plus clear all three cable channels: explicit list, LFO depth/target
+synthesis, env-2..4 target synthesis) or the instrument's values leak through.
+
+Scorecard (fresh baseline same day: time median 0.831, ≥0.80 59%, ≥0.90 27%, n=187):
+**time median 0.914, mean 0.892, ≥0.80: 90%, ≥0.90: 59%, <0.60: 3, n=185.** 107 presets
+improved >0.05 vs 11 regressed: 120 High Harsh Pad +0.69 (0.049→0.736), 016 Dark Saturated
+Bass +0.57 (→0.970), 059 Distorted Lead Guitar +0.46, 031 Nasal Choir +0.42, 027 PW Envelope
++0.41, 044 8-Bit Lead +0.37, 045 Square Sync +0.34, 015 Resonant Filter Bass +0.33 (→0.908),
+099 Overdrive Reese Sync +0.33 — the whole "saturation/PWM/sync/filter" bottom cluster was
+mostly THIS. Also fixed en route: the scorecard harness leaked every rendered preset's compiled
+FirmwareSound (decoded multisample float arrays retained via ClipModel across the 187-render
+run) — one layer above §5's reader-cache OOM, same silent-death symptom; renderSynthModel now
+releases the clip's sound after rendering.
+
+Exposed follow-ups (documented, NOT regressions of this change's semantics):
+1. **Sample-preset voice lifetime** — the 14 unnumbered multisample presets at ALLSYN_2's tail
+   regressed (SolidBassShort 0.938→0.230 worst): our sample voice dies at ~0.3 s (sustain-level
+   A/B proves it is NOT the envelope defaults) where the hardware sustains ~3 s. Suspect
+   loop/hold semantics of loopless zones in the sample path. Baseline scores relied on
+   inherited instrument params masking this.
+2. **109 Talking Arp renders silent** (was 0.024): with C-exact params its clip is a deep
+   band-gap (clip lpfFrequency ≈ user-30 vs hpfFrequency ≈ user-44, both 12dB modes). Hardware
+   passes a residual band at ≈ -30 dB; ours ≈ -65 dB — audit the 12dB LP/HP ladder mapping at
+   extreme band-gap next (filter family).
+3. **129 Sci-fi Scenic / 93 Xax Stacato time=0/n-a are scoring artifacts**: the hardware slice
+   for 129 is genuinely near-silent (peak 250 ms RMS 0.0008 — its clip cutoff is ~25 Hz with no
+   cables); our faithful quiet render now makes every frame-pair "both silent" → skipped →
+   cnt=0 → 0.000. The baseline 0.794 was our WRONG loud render cosine'd against noise floor.
+   Consider a "both-silent → n/a" rule for the metric (as a separate, non-DSP change).

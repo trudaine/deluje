@@ -176,6 +176,13 @@ public class FidelityScorecardTest {
       for (int i = 0; i < 128 && got < n; i++)
         out[got++] = (float) (engine.masterBuffer[i].l / 2.147483648e9);
     }
+    // The compiled FirmwareSound (holding decoded multisample float arrays) is attached to the
+    // ClipModel, and the track models are retained for the whole ~187-preset run — without this
+    // release the compiled sounds accumulate and the last few presets' sample loads die of heap
+    // exhaustion with no error (§5's OOM failure mode, one layer above the reader cache).
+    for (ClipModel c : synth.getClips()) {
+      c.setSound(null);
+    }
     return out;
   }
 
