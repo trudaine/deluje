@@ -140,7 +140,21 @@ public class SwingAudioSlicerDialog extends JDialog {
     volSlider = new JSlider(0, 100, 80);
     DarkSliderUI.styleSlider(volSlider, Color.CYAN);
     volSlider.setPreferredSize(new Dimension(150, 28));
-    volSlider.addChangeListener(e -> volLabel.setText(volSlider.getValue() + "%"));
+    volSlider.addChangeListener(
+        e -> {
+          int val = volSlider.getValue();
+          volLabel.setText(val + "%");
+          float vol = val / 100.0f;
+          if (projectModel != null) {
+            for (TrackModel tm : projectModel.getTracks()) {
+              if (tm instanceof KitTrackModel kit) {
+                for (org.deluge.model.Drum sd : kit.getDrums()) {
+                  sd.setVolume(vol);
+                }
+              }
+            }
+          }
+        });
     volRow.add(volSlider);
 
     volLabel = new JLabel("80%");

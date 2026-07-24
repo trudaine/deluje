@@ -1759,7 +1759,7 @@ public class Voice {
           int outputVal =
               Functions.getTanHAntialiased(
                   data, lastSaturationTanHWorkingValue[ch], saturationAmount);
-          stereoBuf[i * 2 + ch] = Functions.lshiftAndSaturate(outputVal, shiftAmount);
+          stereoBuf[i * 2 + ch] = outputVal << shiftAmount;
           lastSaturationTanHWorkingValue[ch] = newWorkingValue;
         }
       }

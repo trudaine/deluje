@@ -113,14 +113,14 @@ public abstract class GlobalEffectable {
         int l = trackBuffer[i * 2];
         int nextLastL = Functions.lshiftAndSaturateUnknown(l, saturationAmount) + 0x80000000;
         l = Functions.getTanHAntialiased(l, lastSaturationTanHWorkingValue[0], saturationAmount);
-        trackBuffer[i * 2] = Functions.lshiftAndSaturate(l, shiftAmount);
+        trackBuffer[i * 2] = l << shiftAmount;
         lastSaturationTanHWorkingValue[0] = nextLastL;
 
         // Right Channel
         int r = trackBuffer[i * 2 + 1];
         int nextLastR = Functions.lshiftAndSaturateUnknown(r, saturationAmount) + 0x80000000;
         r = Functions.getTanHAntialiased(r, lastSaturationTanHWorkingValue[1], saturationAmount);
-        trackBuffer[i * 2 + 1] = Functions.lshiftAndSaturate(r, shiftAmount);
+        trackBuffer[i * 2 + 1] = r << shiftAmount;
         lastSaturationTanHWorkingValue[1] = nextLastR;
       }
     }
