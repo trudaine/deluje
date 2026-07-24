@@ -1472,3 +1472,20 @@ fixtures — the harness calls renderOutput directly, bypassing the master compe
 DigitalAudioFidelityTest's kit ratio (0.078125 → /4). AutodispWorkstationDiagnostic's 3
 failures pre-date this change (broken synthetic paramNeutralValues harness — verified by
 stash-rerun at the prior commit).
+
+### 4.2sexies 2026-07-25 — drive/saturation primitive stack audited: bit-faithful; residual dips
+are not translation bugs
+
+Follow-up to 4.2quinquies's residual regressors (149 Cold 5th Pad, 015 Resonant Filter Bass,
+098 Saturated Sync): the suspicion that the C drive path hides another compensating divergence
+was checked and ELIMINATED. Verified side-by-side at the bit level: `getTanHUnknown` +
+`getTanH` (functions.h:273-293), `getTanHAntialiased` (functions.h:295-304),
+`lshiftAndSaturateUnknown` + `signed_saturate_operand_unknown` (functions.h:53-109 — the
+13..31-explicit/default-12 switch matches Java's clamp), `interpolateTableSigned`
+(waves.h:15-27) and `interpolateTableSigned2d` (functions.h:245-271), and the tables:
+`tanHSmall` (257) and `tanH2d` (8385) byte-identical to tanh.bin, and the LP-ladder
+`resonanceThresholdsForOversampling`/`resonanceLimitTable` (65 each) identical. Combined with
+the 4.2ter ladder audit and the 4.2quinquies C-exact input levels, the entire signal path
+osc → ladder(+drive tanh) → per-voice saturate is faithful end-to-end. The small dips on
+149/015/098 therefore reflect divergence elsewhere (clip-param/envelope semantics — see the
+unresolved 016-vs-011 contradiction in 4.2quater — or recording-side), not the drive DSP.
