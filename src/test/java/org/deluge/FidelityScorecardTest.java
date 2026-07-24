@@ -136,19 +136,31 @@ public class FidelityScorecardTest {
   }
 
   static float[] renderSynth(File xml) throws Exception {
-    FirmwareAudioEngine.cpuDireness = 0;
-    org.deluge.firmware2.Functions.resetNoiseSeed();
     SynthTrackModel synth = DelugeXmlParser.parseSynth(new FileInputStream(xml), xml.getName());
     synth.setName(xml.getName().replace(".XML", ""));
-    ClipModel clip = new ClipModel("c", 1, 16);
-    clip.setStep(0, 0, StepData.of(true, 1.0f, 16.0f, 1.0f, 60));
-    synth.addClip(clip);
+    return renderSynthModel(synth, 60, 110);
+  }
+
+  /**
+   * Render one C-note of a synth model through the pure engine. Used both for standalone preset
+   * files and for the ALLSYN songs' EMBEDDED instrument copies — the latter is what the hardware
+   * recordings actually played (see FIDELITY_GAP_ANALYSIS.md 4.1quater: embedded copies drift from
+   * the preset files, e.g. 068's transpose and modulator-2 gate).
+   */
+  static float[] renderSynthModel(SynthTrackModel synth, int note, int velocity) throws Exception {
+    FirmwareAudioEngine.cpuDireness = 0;
+    org.deluge.firmware2.Functions.resetNoiseSeed();
+    if (synth.getClips().isEmpty()) {
+      ClipModel clip = new ClipModel("c", 1, 16);
+      clip.setStep(0, 0, StepData.of(true, 1.0f, 16.0f, 1.0f, note));
+      synth.addClip(clip);
+    }
     ProjectModel project = new ProjectModel();
     project.setBpm(120.0f);
     project.addTrack(synth);
     ProjectModel song = FirmwareFactory.createSong(project);
     FirmwareSound fs = (FirmwareSound) song.getTracks().get(0).getActiveClip().getSound();
-    fs.triggerNote(60, 110);
+    fs.triggerNote(note, velocity);
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
     engine.metronomeEnabled = false;
     // Previously never called, so masterReverb rendered with roomSize/damping/width all at their
@@ -269,8 +281,46 @@ public class FidelityScorecardTest {
     return onset;
   }
 
+  /** One item to score: a display name plus how to render it. */
+  record Renderable(String name, java.util.concurrent.Callable<float[]> render) {}
+
+  static Renderable fromPresetFile(File xml) {
+    return new Renderable(xml.getName().replace(".XML", ""), () -> renderSynth(xml));
+  }
+
+  /**
+   * Score items from the song's embedded tracks — the patches the hardware recording actually
+   * played. Uses each clip's own first note pitch + velocity (the ALLSYN songs play y=60 vel 127).
+   */
+  static Renderable fromSongTrack(org.deluge.model.TrackModel track) {
+    String name = track.getName();
+    return new Renderable(
+        name,
+        () -> {
+          if (!(track instanceof SynthTrackModel st)) {
+            return new float[SR * 3]; // non-synth lane (shouldn't happen in ALLSYN) → silent
+          }
+          int note = 60, vel = 127;
+          if (!st.getClips().isEmpty()) {
+            ClipModel c = st.getClips().get(0);
+            outer:
+            for (int r = 0; r < c.getRowCount(); r++) {
+              for (int stp = 0; stp < c.getStepCount(); stp++) {
+                StepData sd = c.getStep(r, stp);
+                if (sd != null && sd.active()) {
+                  note = sd.pitch();
+                  vel = Math.max(1, Math.round(sd.velocity() * 127));
+                  break outer;
+                }
+              }
+            }
+          }
+          return renderSynthModel(st, note, vel);
+        });
+  }
+
   void scoreSong(
-      List<File> synths,
+      List<Renderable> synths,
       File recWav,
       String label,
       List<Double> all,
@@ -304,8 +354,8 @@ public class FidelityScorecardTest {
         minGap / (double) SR,
         maxGap / (double) SR);
     for (int k = 0; k < synths.size(); k++) {
-      String name = synths.get(k).getName().replace(".XML", "");
-      float[] our = renderSynth(synths.get(k));
+      String name = synths.get(k).name();
+      float[] our = synths.get(k).render().call();
       // AudioFileReader's decode cache is unbounded (full float[] PCM per file); walking ~190
       // presets in one JVM without clearing it exhausts the heap partway through and makes the
       // later multisample-heavy presets render silent with no error (OutOfMemoryError isn't an
@@ -361,22 +411,52 @@ public class FidelityScorecardTest {
         new File(SYNTH_DIR).isDirectory()
             && new File(HOME + "/ALL_SYNTHS_SONG/ALLSYN_1/output_000.wav").isFile(),
         "fidelity scorecard needs ~/ludocard SYNTHS + ~/ALL_SYNTHS_SONG recordings");
-    File[] files =
-        new File(SYNTH_DIR)
-            .listFiles(
-                (d, n) ->
-                    (n.endsWith(".XML") || n.endsWith(".xml"))
-                        && !n.toUpperCase().startsWith("SONG")
-                        // The CAL_SONG calibration presets (docs/HARDWARE_CALIBRATION_RECORDING.md)
-                        // live on the card for recording but are not in the ALLSYN recordings;
-                        // including them would shift every later preset's slice index.
-                        && !n.matches("\\d\\d CAL .*"));
-    Arrays.sort(files, Comparator.comparing(File::getName));
-    List<File> playable = new ArrayList<>();
-    for (File f : files) if (playable(f)) playable.add(f);
-    System.out.println("[Scorecard] playable synths: " + playable.size());
-    List<File> p1 = playable.subList(0, Math.min(94, playable.size()));
-    List<File> p2 = playable.size() > 94 ? playable.subList(94, playable.size()) : List.of();
+    List<Renderable> p1;
+    List<Renderable> p2;
+    if (Boolean.getBoolean("scorecard.presets")) {
+      // LEGACY mode: render the standalone SYNTHS/ preset files. Known-invalid as a fidelity
+      // gate: the recordings played the songs' EMBEDDED instrument copies, which drift from the
+      // preset files (FIDELITY_GAP_ANALYSIS.md 4.1quater). Kept for comparison runs.
+      File[] files =
+          new File(SYNTH_DIR)
+              .listFiles(
+                  (d, n) ->
+                      (n.endsWith(".XML") || n.endsWith(".xml"))
+                          && !n.toUpperCase().startsWith("SONG")
+                          && !n.matches("\\d\\d CAL .*"));
+      Arrays.sort(files, Comparator.comparing(File::getName));
+      List<File> playable = new ArrayList<>();
+      for (File f : files) if (playable(f)) playable.add(f);
+      System.out.println("[Scorecard] LEGACY preset-file mode; playable: " + playable.size());
+      p1 = new ArrayList<>();
+      p2 = new ArrayList<>();
+      for (int i = 0; i < playable.size(); i++) {
+        (i < 94 ? p1 : p2).add(fromPresetFile(playable.get(i)));
+      }
+    } else {
+      // DEFAULT: render the ALLSYN songs' embedded instruments — what the recording played.
+      p1 = new ArrayList<>();
+      p2 = new ArrayList<>();
+      for (int part = 1; part <= 2; part++) {
+        File songFile =
+            new File(SYNTH_DIR)
+                .getParentFile()
+                .toPath()
+                .resolve("SONGS")
+                .resolve("ALLSYN_" + part + ".XML")
+                .toFile();
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+            songFile.isFile(), "embedded mode needs " + songFile);
+        ProjectModel songModel =
+            DelugeXmlParser.parseSong(new FileInputStream(songFile), songFile.getName());
+        List<Renderable> target = (part == 1) ? p1 : p2;
+        for (org.deluge.model.TrackModel t : songModel.getTracks()) {
+          target.add(fromSongTrack(t));
+        }
+        System.out.println(
+            "[Scorecard] EMBEDDED mode: ALLSYN_" + part + " tracks: " + target.size());
+      }
+    }
 
     List<Double> all = new ArrayList<>();
     List<String> na = new ArrayList<>();

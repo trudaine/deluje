@@ -1267,3 +1267,25 @@ to a trustworthy scorecard is:
 
 Until then, per-preset FM scores against the old recordings are not evidence of engine
 divergence, and the §4.1quater transpose-fix regressions (Glockenspiel etc.) cannot be judged.
+
+### 4.1sexies 2026-07-24 — scorecard now renders the songs' EMBEDDED instruments (new default)
+
+`FidelityScorecardTest` now parses ALLSYN_1/2.XML and renders each track's embedded instrument
+with the clip's own note/velocity — the patches the hardware recording actually played. The old
+preset-file mode remains behind `-Dscorecard.presets=true` for comparison only.
+
+**New baseline (embedded mode): time-resolved median 0.777, ≥0.80: 44%, n=187.** Composition of
+the change vs the old (invalid) preset-mode 0.801 baseline:
+
+- Preset-file drift victims now score near-perfect: SolidBassShort .227→.972, Xax Stacato
+  .277→.972, SolidBassMidLong .555→.969, SawFifthFilter .675→.950, Wood Flute Verb .706→.947.
+  The §4.1quater transpose-fix "regressions" (Glockenspiel, Organ, Cello) also vanish — they
+  were pure drift artifacts.
+- The stale-recording FM slots (068/069/084/093…) now score LOWER because our render is
+  hardware-correct-bright (§4.1quinquies) while the recording is stale-soft. These slots are
+  unjudgeable until ALLSYN is re-recorded on current firmware.
+- NEW actionable cluster: pads/tempo-synced patches regressed (078 House .806→.324, 120 High
+  Harsh Pad, 158 Tempo-Synced LFO, 124 Filter Modulation Pad, several *Pad presets ~−0.15..−0.4)
+  — likely song-context/parse gaps: the embedded render discards song BPM/sync context, and the
+  song-parse path may drop LFO sync or similar fields the preset path keeps. This cluster is the
+  next line-of-attack (it is real signal about OUR parse/render, unlike the FM slots).

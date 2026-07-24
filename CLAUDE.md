@@ -131,8 +131,12 @@ mvn test -Dtest=FidelityScorecardTest -Dgpg.skip=true -Ddeluge.card=ludocard
 ```
 
 It self-skips unless `~/ludocard/SYNTHS` and `~/ALL_SYNTHS_SONG/ALLSYN_{1,2}/output_000.wav`
-exist (recordings are ~150 MB each, not in git). **Current baseline:** time-resolved
-median ≈ 0.79, ~49% of synths ≥ 0.80. The subtractive core (osc + ladder filter + ADSR) is
+exist (recordings are ~150 MB each, not in git). Since 2026-07-24 it renders the ALLSYN songs'
+**embedded instrument copies** (what the recording actually played — the standalone preset files
+drift from them; old mode: `-Dscorecard.presets=true`). **Current baseline (embedded mode):**
+time-resolved median ≈ 0.78, ~44% of synths ≥ 0.80 — several slots are suppressed by stale
+recordings (FM bells: hardware-verified our render is right, the recording is old — see
+`docs/FIDELITY_GAP_ANALYSIS.md` §4.1ter–sexies) pending an ALLSYN re-record on current firmware. The subtractive core (osc + ladder filter + ADSR) is
 faithful and scores 0.85–0.97; the gap is concentrated in **FM synthesis** (FM Bells/Distorted
 Bells ≈ 0.1–0.4 — biggest cluster), **oscillator hard-sync** (Saw/Square Sync ≈ 0.3–0.4),
 **PWM/PW envelope**, **resonant/distorted filter**, **FX (reverb/delay/modFX)**, and ~16

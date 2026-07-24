@@ -48,7 +48,13 @@ public class FmIndexSweepTest {
         List<Double> win = new ArrayList<>();
         List<String> na = new ArrayList<>();
         List<Double> ts = new ArrayList<>();
-        sc.scoreSong(presets, rec, "FM_CAL x" + SCALES[s], win, na, ts);
+        sc.scoreSong(
+            presets.stream().map(FidelityScorecardTest::fromPresetFile).toList(),
+            rec,
+            "FM_CAL x" + SCALES[s],
+            win,
+            na,
+            ts);
         scoresByScale[s] = ts.stream().mapToDouble(Double::doubleValue).toArray();
       }
     } finally {

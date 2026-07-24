@@ -61,7 +61,13 @@ public class FmCalibrationScorecardTest {
 
     // Reuse the exact scorecard comparison (onset-grid fit + single-window + time-resolved cosine).
     FidelityScorecardTest sc = new FidelityScorecardTest();
-    sc.scoreSong(presets, rec, "FM_CAL", win, na, ts);
+    sc.scoreSong(
+        presets.stream().map(FidelityScorecardTest::fromPresetFile).toList(),
+        rec,
+        "FM_CAL",
+        win,
+        na,
+        ts);
 
     FidelityScorecardTest.summarize("FM SINGLE-WINDOW", win);
     FidelityScorecardTest.summarize("FM TIME-RESOLVED", ts);
