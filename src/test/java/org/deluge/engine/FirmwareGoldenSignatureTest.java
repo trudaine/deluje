@@ -295,13 +295,16 @@ public class FirmwareGoldenSignatureTest {
     double darkH1 = goertzelMagnitude(dark, from, to, f0);
     double darkH5 = goertzelMagnitude(dark, from, to, f0 * 5.0);
 
-    assertClose("saw bright peak", 0.032189954, brightPeak, 0.30, 0.05);
+    // Re-baselined 2026-07-25: the wave-oscillator amplitude application became C-exact
+    // ((amp*val)>>32, was 4x hot at >>30; compensated at the engine master, which this
+    // direct-renderOutput harness bypasses) — wave/sine/DX7 fixtures scaled by /4.
+    assertClose("saw bright peak", 0.032189954 / 4, brightPeak, 0.30, 0.05);
     assertClose("saw bright rms", 0.014264459, brightRms, 0.30, 0.05);
     assertClose("saw bright brightness", 0.221090962, brightBrightness, 0.30, 0.05);
     assertClose("saw bright h1", 0.000086312, brightH1, 0.30, 0.05);
     assertClose("saw bright h5", 0.000013305, brightH5, 0.30, 0.05);
 
-    assertClose("saw dark peak", 0.021431219, darkPeak, 0.30, 0.05);
+    assertClose("saw dark peak", 0.021431219 / 4, darkPeak, 0.30, 0.05);
     assertClose("saw dark rms", 0.010708479, darkRms, 0.30, 0.05);
     assertClose("saw dark brightness", 0.050030530, darkBrightness, 0.30, 0.05);
     assertClose("saw dark h1", 0.000085476, darkH1, 0.30, 0.05);
@@ -339,9 +342,10 @@ public class FirmwareGoldenSignatureTest {
     double wobble = rmsWobble(tremolo, 2205);
 
     // Re-baselined 2026-07-04: sine osc amplitude undoubling (see envelopeShape note).
-    assertClose("lfo tremolo peak", 0.051292821764945984, peak, 0.30, 0.05);
+    // /4: 2026-07-25 C-exact osc amplitude (see saw signature note).
+    assertClose("lfo tremolo peak", 0.051292821764945984 / 4, peak, 0.30, 0.05);
     assertClose("lfo tremolo rms", 0.023192325, rms, 0.30, 0.05);
-    assertClose("lfo tremolo brightness", 0.037281974, brightness, 0.30, 0.05);
+    assertClose("lfo tremolo brightness", 0.037281974 / 4, brightness, 0.30, 0.05);
     // Re-baselined after the C-faithful volume-curve-neutral fix (Patcher uses
     // getParamNeutralValue,
     // not the 0 center knob): the voice is now correctly audible, so the tremolo depth is fuller.
@@ -361,12 +365,13 @@ public class FirmwareGoldenSignatureTest {
     double releaseTailPeak = peak(env, 145530, 149940);
     // Re-baselined 2026-07-04: sine osc no longer doubles its amplitude (C oscillator.cpp:147-151
     // jumps past the <<1 at :471-472), so the sine-based fixtures halved.
-    assertClose("env attack early", 0.009501531637691943, attackEarly, 0.10, 0.0005);
-    assertClose("env attack peak", 0.033917754118354924, attackPeak, 0.10, 0.0005);
-    assertClose("env decay body", 0.06317444278703321 / 2, decayBody, 0.10, 0.0005);
-    assertClose("env sustain", 0.03959552466236948 / 2, sustain, 0.10, 0.0005);
-    assertClose("env release start", 0.029970938478750042 / 2, releaseStart, 0.10, 0.0005);
-    assertClose("env release mid", 0.0041317333781902554 / 2, releaseMid, 0.10, 0.0005);
+    // /4: 2026-07-25 C-exact osc amplitude (see saw signature note).
+    assertClose("env attack early", 0.009501531637691943 / 4, attackEarly, 0.10, 0.0005);
+    assertClose("env attack peak", 0.033917754118354924 / 4, attackPeak, 0.10, 0.0005);
+    assertClose("env decay body", 0.06317444278703321 / 2 / 4, decayBody, 0.10, 0.0005);
+    assertClose("env sustain", 0.03959552466236948 / 2 / 4, sustain, 0.10, 0.0005);
+    assertClose("env release start", 0.029970938478750042 / 2 / 4, releaseStart, 0.10, 0.0005);
+    assertClose("env release mid", 0.0041317333781902554 / 2 / 4, releaseMid, 0.10, 0.0005);
     assertTrue(
         attackPeak > attackEarly * 1.5, "attack should rise clearly above its opening level");
     assertTrue(decayBody > sustain * 1.5, "decay body should stay well above sustain");
@@ -395,13 +400,14 @@ public class FirmwareGoldenSignatureTest {
     // Re-baselined 2026-07-05: the C filter-engagement bypass (sound.cpp:2506-2519) stops the
     // ring fixture's max-cutoff ladder from consuming per-sample noise draws, shifting the
     // shared CONG stream position for this render (the DX7 random detune/phases differ).
-    assertClose("dx7 peak", 0.019105032086372375, dx7Peak, 0.10, 0.0005);
-    assertClose("dx7 rms", 0.013321079207954802, dx7Rms, 0.10, 0.0005);
+    // /4: 2026-07-25 DX7 path shift 6->4, tracking the C-exact wave level (see above).
+    assertClose("dx7 peak", 0.019105032086372375 / 4, dx7Peak, 0.10, 0.0005);
+    assertClose("dx7 rms", 0.013321079207954802 / 4, dx7Rms, 0.10, 0.0005);
     // Updated 2026-06-28: DX7 pitch-envelope rates/levels-swap fix (Dx7Voice.PitchEnv) corrected a
     // spurious +4-octave offset on neutral pitch envelopes, shifting DX7 brightness.
     assertClose("dx7 brightness", 0.03731857465320066, dx7Brightness, 0.10, 0.05);
-    assertClose("dx7 h1", 0.009412460496958971, dx7H1, 0.10, 0.0005);
-    assertClose("dx7 h3", 0.000026857, dx7H3, 0.10, 0.0005);
+    assertClose("dx7 h1", 0.009412460496958971 / 4, dx7H1, 0.10, 0.0005);
+    assertClose("dx7 h3", 0.000026857 / 4, dx7H3, 0.10, 0.0005);
     assertTrue(dx7H3 > 0.000001, "dx7 patch should stay richer than a pure sine");
   }
 

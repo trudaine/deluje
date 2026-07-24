@@ -437,9 +437,14 @@ public class FirmwareAudioEngine {
     // stays negligible (< 0.0014 of full scale across saw/square/sine/triangle), so the invented
     // AC-coupling high-pass was removing essentially nothing while diverging from the firmware.)
 
+    // Shift 6 = the old compensating 4 plus 2 more since the oscillator amplitude application
+    // became C-exact (was 4x hot at (amp*val)>>30; now (amp*val)>>32 like the firmware). The
+    // whole voice chain up to and through the nonlinear stages (ladder drive, per-voice
+    // saturate, master compressor) now runs at C levels; this final linear stage carries the
+    // entire compensation.
     for (int i = 0; i < numSamples; i++) {
-      masterBuffer[i].l = org.deluge.firmware2.Functions.lshiftAndSaturate(fxBuffer[i][0], 4);
-      masterBuffer[i].r = org.deluge.firmware2.Functions.lshiftAndSaturate(fxBuffer[i][1], 4);
+      masterBuffer[i].l = org.deluge.firmware2.Functions.lshiftAndSaturate(fxBuffer[i][0], 6);
+      masterBuffer[i].r = org.deluge.firmware2.Functions.lshiftAndSaturate(fxBuffer[i][1], 6);
     }
   }
 

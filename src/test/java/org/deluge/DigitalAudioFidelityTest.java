@@ -194,7 +194,9 @@ public class DigitalAudioFidelityTest {
         float rawVal = rawKick[i];
         if (Math.abs(rawVal) > 0.02f) { // check non-silent active part
           float renderVal = outputWave[i];
-          float expectedRatio = 0.078125f;
+          // /4 since 2026-07-25: the sample path tracks the C-exact wave-oscillator level
+          // (compensated at the engine master, which this harness bypasses).
+          float expectedRatio = 0.078125f / 4;
           float actualRatio = renderVal / rawVal;
           assertEquals(
               expectedRatio,

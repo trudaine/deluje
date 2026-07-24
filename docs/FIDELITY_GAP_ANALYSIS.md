@@ -1444,3 +1444,31 @@ clipping/saturation presets (clippingAmount 1-8) and/or envelope2-cable presets.
    so the C's old-song envelope back-fill semantics remain unresolved. Next time the Deluge
    is connected: HardwareDspTapTest with the ALLSYN clip for 016/011 tapping LPF_FREQ and env
    levels per block will settle which shape each clip actually runs.
+
+### 4.2quinquies 2026-07-25 — C-exact oscillator amplitude: the nonlinear stages now see C levels
+
+The 4.2quater thread-1 project landed. The wave-oscillator amplitude application in
+`Oscillator.java` was a translation error: the port commented `vqdmulhq_s32(amplitude, val) ==
+(amplitude*val) >> 30`, but vqdmulh is `sat((2ab)>>32)` AND the C halves its amplitude vector
+first (`createAmplitudeVector`, basic_waves.cpp:34/43 + the "investigate where the doubling
+comes from" TODO) — net `(amp*val)>>32`. Our waves ran 4× hot into every nonlinear stage
+(ladder drive tanh, per-voice saturate, master compressor), with the master stage compensating
+linearly — exactly the wrong place. Fixed to the C-exact `sat(((amp>>1)*val)>>31)` with the C's
+wrapping accumulate; the crude/band-limited seam at ~72 Hz (crude paths were already C-exact,
+so 4× discontinuous) is gone as a side effect, and osc-vs-noise balance is now C-correct. The
+sample subsystem and DX7 path (both calibrated against the old hot waves — hybrid presets like
+Vibraphone/SolidBassLong regressed when only the waves moved) were brought down 4× to match;
+native FM was verified already C-exact (`mult_acc >>32`, voice.cpp:1748) and untouched. The
+master output shift went `lshiftAndSaturate(…,4)` → `(…,6)` so net output level is unchanged.
+
+Scorecard: net-neutral overall (median 0.830 → 0.831, mean delta +0.0005), with the motivating
+saturation preset up sharply (016 Dark Saturated Bass 0.234 → 0.398) and several mid presets
++0.03..+0.08 (038 Vapor Arp +0.078, 115 Sounds After Take-off +0.068, 140 Slow Aural Swells
++0.066). Residual regressors worth revisiting: 149 Cold 5th Pad (−0.067), 015 Resonant Filter
+Bass (−0.049), 098 Saturated Sync (−0.042) — resonant/drive-filter presets that apparently
+preferred the extra drive; whether the C drive path hides another compensating divergence is
+the open question. Rebaselined `/4`: FirmwareGoldenSignatureTest (sine/saw/tremolo/env/DX7
+fixtures — the harness calls renderOutput directly, bypassing the master compensation) and
+DigitalAudioFidelityTest's kit ratio (0.078125 → /4). AutodispWorkstationDiagnostic's 3
+failures pre-date this change (broken synthetic paramNeutralValues harness — verified by
+stash-rerun at the prior commit).

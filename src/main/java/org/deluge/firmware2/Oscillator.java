@@ -229,8 +229,10 @@ public final class Oscillator {
     int ampNow = amplitude;
     for (int i = 0; i < numSamples; i++) {
       ampNow += amplitudeIncrement;
-      int withAmp = sat32(((long) ampNow * raw[i]) >> 30);
-      out[outOff + i] = Functions.add_saturate(out[outOff + i], withAmp);
+      // C oscillator.cpp:516-521: vqdmulh(ampVector(halved), wave) + wrapping vaddq —
+      // net sat(((amp>>1)*val)>>31).
+      int withAmp = sat32(((long) (ampNow >> 1) * raw[i]) >> 31);
+      out[outOff + i] = out[outOff + i] + withAmp;
     }
   }
 
@@ -433,10 +435,14 @@ public final class Oscillator {
       int wet = val;
       if (applyAmplitude) {
         currentAmplitude += amplitudeIncrement;
-        // vqdmulhq_s32(amplitude, val) == saturating (amplitude*val) >> 30
-        wet = sat32(((long) currentAmplitude * val) >> 30);
+        // C basic_waves.cpp:34+43: createAmplitudeVector halves the amplitude, then
+        // vqdmulhq_s32(a,b) = sat((2ab)>>32) — net sat(((amp>>1)*val)>>31) = (amp*val)>>32.
+        // (The old ">>30" here mis-derived vqdmulh and dropped the halving: 4x the C level,
+        // which the master stage then compensated linearly — wrong into every nonlinear stage.)
+        wet = sat32(((long) (currentAmplitude >> 1) * val) >> 31);
       }
-      outputBuffer[offset + i] = Functions.add_saturate(outputBuffer[offset + i], wet);
+      // C accumulates with plain (wrapping) vaddq_s32.
+      outputBuffer[offset + i] = outputBuffer[offset + i] + wet;
     }
     return currentPhase;
   }
@@ -507,9 +513,10 @@ public final class Oscillator {
       int wet = val;
       if (applyAmplitude) {
         currentAmplitude += amplitudeIncrement;
-        wet = sat32(((long) currentAmplitude * val) >> 30);
+        // C-exact vqdmulh chain: sat(((amp>>1)*val)>>31) — see renderWave.
+        wet = sat32(((long) (currentAmplitude >> 1) * val) >> 31);
       }
-      outputBuffer[offset + i] = Functions.add_saturate(outputBuffer[offset + i], wet);
+      outputBuffer[offset + i] = outputBuffer[offset + i] + wet;
     }
     return currentPhase;
   }
@@ -548,9 +555,10 @@ public final class Oscillator {
       int wet = val;
       if (applyAmplitude) {
         currentAmplitude += amplitudeIncrement;
-        wet = sat32(((long) currentAmplitude * val) >> 30);
+        // C-exact vqdmulh chain: sat(((amp>>1)*val)>>31) — see renderWave.
+        wet = sat32(((long) (currentAmplitude >> 1) * val) >> 31);
       }
-      outputBuffer[offset + i] = Functions.add_saturate(outputBuffer[offset + i], wet);
+      outputBuffer[offset + i] = outputBuffer[offset + i] + wet;
     }
     return currentPhase;
   }

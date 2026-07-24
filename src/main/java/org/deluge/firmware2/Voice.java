@@ -1241,6 +1241,10 @@ public class Voice {
               (srcAmp > 0)
                   ? srcAmp
                   : Math.max(paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4, 1 << 26);
+          // The sample subsystem's net level was calibrated against the old 4x-hot wave
+          // oscillators; with the wave paths now C-exact ((amp*val)>>32), bring samples down
+          // by the same factor so hybrid sample+osc balance stays what the recordings match.
+          sampAmp = sampAmp >> 2;
           // C voice_sample.cpp:594 — numChannelsInOutputBuffer = 2 when the source sample is
           // stereo (this engine always renders in stereo downstream): stereo samples keep
           // their image instead of being mono-summed.
@@ -1381,11 +1385,13 @@ public class Voice {
           vs.dxVoice.compute(uniBuf, numSamples, adjpitch, vs.dxPatch, ampMod, 0, 0);
           // voice.cpp:2441-2444 — sourceAmplitudeNow += increment per sample.
           int dxAmpNow = srcAmpStart;
+          // Shift 4 (was 6): the DX7 engine's level was calibrated against the old 4x-hot wave
+          // oscillators; the wave paths are now C-exact, so drop this path by the same factor.
           for (int i = 0; i < numSamples; i++) {
             dxAmpNow += srcAmpInc;
             tempBuf[i] =
                 Functions.lshiftAndSaturate(
-                    Functions.multiply_32x32_rshift32(uniBuf[i], dxAmpNow), 6);
+                    Functions.multiply_32x32_rshift32(uniBuf[i], dxAmpNow), 4);
           }
         } else if (sound.oscTypes[s] == OscType.WAVETABLE && sound.waveTables[s] != null) {
           int waveIndex = paramFinalValues[Param.LOCAL_OSC_A_WAVE_INDEX + s];
