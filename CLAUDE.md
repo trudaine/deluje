@@ -137,7 +137,7 @@ drift from them; old mode: `-Dscorecard.presets=true`). **Current baseline (embe
 2026-07-24 recordings): time-resolved median ≈ 0.83, ~60% of synths ≥ 0.80.** The former FM-bells
 gap was clip-param semantics (a clip's soundParams replace the instrument defaults; FM modulator
 params default OFF — see `docs/FIDELITY_GAP_ANALYSIS.md` §4.1ter–octies for the full arc). The subtractive core (osc + ladder filter + ADSR) is
-faithful and scores 0.85–0.97. Open gap families: **oscillator hard-sync** (Saw/Square Sync ≈ 0.3–0.4), **PWM/PW envelope**, **resonant/distorted
+faithful and scores 0.85–0.97. Open gap families: **per-voice saturation/clipping level** (016/059/120, see FIDELITY_GAP_ANALYSIS.md §4.2quater; the hard-sync engine itself audited faithful 2026-07-24), **PWM/PW envelope**, **resonant/distorted
 filter**, **FX (reverb/delay/modFX)**, and ~16 multisample presets that render silent only
 because the test path doesn't load their samples. (FM was the former biggest cluster — resolved
 2026-07-24 as stale recordings, not engine divergence; hardware-verified.)

@@ -1409,3 +1409,38 @@ back-fills envelopes from the instrument like the osc/HPF groups. 109's residual
 (~3× hot, pumping vs hardware's flat sustained decay) therefore sits in the old-song
 load/back-fill semantics or a per-voice level path — not in the ladder DSP, which is now
 audited faithful.
+
+### 4.2quater 2026-07-24 — hard-sync audit clean; bottom-cluster reframed as saturation/env-semantics
+
+The oscillator hard-sync family was audited line-by-line Java→C and **found faithful**:
+`renderOsc` (oscillator.cpp:28-509 — retrigger offsets per type, the callRenderWave label
+placement that skips amplitude-doubling for sine/triangle, pulse pre-halving, crude/band-limited
+thresholds), `renderOscSync` (render_wave.h:25-90 — window chopping, crossover half-sine blend,
+resetter arithmetic in uint32), the scalar segment renderers vs waveRenderingFunctionGeneral/
+Pulse (one sub-LSB16 interp difference: C computes `2*(frac>>1)`, we use `frac` — inaudible),
+`applyAmplitudeVectorToBuffer`, and the Voice orchestration (voice.cpp:1107-1250 — resetter
+oscPos capture before render, phase-increment collection on osc A, pitch-too-high zeroing,
+`renderingOscillatorSyncCurrently`). Current sync scores (045 ≈ 0.59, 046 ≈ 0.76, 127_CAL ≈
+0.83) are far above the stale 0.3-0.4 claim; 045/046's remaining gap is not the sync engine
+(045's embedded instrument doesn't even enable oscillatorSync — the C file has no such tag
+there).
+
+Bottom-cluster triage (time-resolved): 109 (.01), 120 (.03), 016 (.23), 059 (.34) are ALL
+clipping/saturation presets (clippingAmount 1-8) and/or envelope2-cable presets. Two threads:
+
+1. **Nonlinear-stage level debt.** Per-voice saturate() (sound.h:290, getTanHAntialiased at
+   5+clippingAmount) is ported faithfully, but the engine's documented amplitude-chain debt
+   (osc amplitude at >>30 vs C's net >>32, compensated linearly at the master stage) means the
+   tanh sees a NON-C level — and tanh is level-dependent, so distortion amount diverges
+   exactly on these presets (059 renders dull/clean where hardware is bright/driven). This is
+   the CLAUDE.md "only attempt stage-faithful re-derivation for saturation reasons" case, now
+   with concrete motivating presets. Scorecard-gated re-derivation of the voice→saturate→master
+   chain is the identified next big fidelity project.
+
+2. **Envelope semantics contradiction (needs hardware tap).** 016 (env2→lpfFrequency, clip
+   cutoff user-13 "dark") renders 10× too bright — env2-driven filter opening; the initParams
+   env experiment fixed it (+0.31). But 011 Dubstep, which regressed −0.29 in that same
+   experiment, ALSO drives everything from envelope2 — one global rule cannot satisfy both,
+   so the C's old-song envelope back-fill semantics remain unresolved. Next time the Deluge
+   is connected: HardwareDspTapTest with the ALLSYN clip for 016/011 tapping LPF_FREQ and env
+   levels per block will settle which shape each clip actually runs.
