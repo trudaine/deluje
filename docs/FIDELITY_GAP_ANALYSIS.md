@@ -1372,3 +1372,40 @@ likely also underlies 120 High Harsh Pad (win −0.14: categorically different s
 other filter-heavy bottom scorers. Next line of attack: line-by-line LpLadderFilter resonance /
 gain-compensation audit vs dsp/filter in the C (the family was flagged in the 2026-07-04 review
 but the resonance-compensation path was not exhaustively audited).
+
+### 4.2ter 2026-07-24 — LP-ladder audit complete: filter is bit-faithful; 109's gap is load
+semantics, not DSP
+
+The line-by-line Java→C audit promised in 4.2bis ran the full chain and **found the filter
+clean**. Verified side-by-side at the bit level: `LpLadderFilter.setConfig` (incl. the
+cold-ladder resonance squaring, the `tannedFrequency <= 304587486` halving/boost branch and
+the resonance `gainModifier`) vs lpladder.cpp:53-171; `scaleInput` vs lpladder.h:52-70; all
+three per-sample render functions vs lpladder.cpp:327-411; `BasicFilterComponent` vs
+ladder_components.h; the `Filter` CRTP base (curveFrequency, dry/wet blend) vs filter.h;
+`Patcher.performPatching`/`combineCablesLinear`/`combineCablesExp`/`applyRangeAdjustment`
+vs patcher.cpp/patch_cable.h; `getParamRange`/`getParamNeutralValue`/`getExp` vs
+functions.cpp; and the synced-LFO increment (`getSyncedLFOPhaseIncrement`, SyncLevel enum,
+tick inverse 2^31/(1.5×timePerTimerTick)) vs sound.cpp:2711-2734 + song.cpp:2586. Hand-fed
+109's runtime inputs (lpfResonance 335544304 → procRes 988281208) reproduce identically.
+
+One true divergence found and fixed: `cableToExpParam*` used `add_saturate` where the C
+(patcher.cpp:164-173) uses plain wrapping `+`. Scorecard-neutral on the corpus (0 presets
+change >0.005) — kept for faithfulness.
+
+Two corrections to 4.2bis: (1) the clip's LPF cutoff is NOT wide open — soundParams says
+`lpfFrequency="0x1A000000"` (user ≈30, final ≈4.4M, cutoff a few hundred Hz, tanned ≤304M,
+so BOTH engines take the resonance-boost branch); (2) the pump in our render follows the
+lfo2→lpfFrequency sweep more than the resonance toggle (removing the resonance cable leaves
+most of the pumping).
+
+The initParams-envelope theory was tested and **refuted**: making the C initParams clip-env
+defaults actually apply (ENV_1 = 20/20/25/20, ENV_2/3 = construction zeros, ENV_0 sustain
+full) scored net-negative (mean −0.008; 103 Sci-fi Chaos −0.40, 160 Synthwave Bass Arp −0.34,
+011 Dubstep −0.29) and made 109 itself worse (0.009 → −0.022). Discovery along the way: the
+env *sustains* written by `resetClipParamsToFirmwareDefaults` were always overridden by the
+raw param-knob map (applied later in FirmwareFactory) — the empirically-validated "blank-synth
+ENV_0" reset is effectively rates-only, sustains inherited. The C old-song reader evidently
+back-fills envelopes from the instrument like the osc/HPF groups. 109's residual divergence
+(~3× hot, pumping vs hardware's flat sustained decay) therefore sits in the old-song
+load/back-fill semantics or a per-voice level path — not in the ladder DSP, which is now
+audited faithful.

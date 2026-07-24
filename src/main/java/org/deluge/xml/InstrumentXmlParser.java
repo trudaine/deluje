@@ -1645,7 +1645,15 @@ public class InstrumentXmlParser {
     // Volume envelope (C ENV_0) defaults to the blank-synth shape (sound.cpp:297-306):
     // instant attack, user-20 decay, full sustain — empirically the profile both regression
     // populations' recordings agree with (mid-sustain construction defaults split them).
-    // Envelopes 2-4 stay inherited.
+    // Envelopes 2-4 stay inherited. NOTE (2026-07-24 calibration): the sustain written here is
+    // effectively a no-op — the envelope parse also stores sustains in the raw param-knob map
+    // (ids ENV_0..3_SUSTAIN) which FirmwareFactory applies AFTER the env-knob arrays, so ALL
+    // sustains are inherited from the instrument. That inheritance is empirically correct:
+    // making the full initParams env semantics actually apply (ENV_0 sustain full, ENV_1 rates
+    // 20/20/25/20, ENV_2/3 construction zeros) scored net-negative on the fresh recordings
+    // (mean -0.008, 011 Dubstep -0.29, 103 Sci-fi Chaos -0.40) and made even the motivating
+    // preset (109 Talking Arp) worse — the C old-song reader evidently back-fills envelopes
+    // from the instrument like the osc/HPF groups. The validated reset is rates-only.
     synth.getRawKnobs().setEnvKnobsQ31(0, Integer.MIN_VALUE, user20, Integer.MAX_VALUE, 0);
     // Cables: inherited from the instrument — replacing them with the firmware's four defaults
     // regressed basses/leads sharply (their note/velocity->LPF tracking cables audibly matter

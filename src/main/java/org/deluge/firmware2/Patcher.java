@@ -228,16 +228,18 @@ public class Patcher {
 
   // ── cableToExpParam* (patcher.cpp:177-195) ──
 
+  // C (patcher.cpp:164-173): both exp accumulators use PLAIN wrapping addition, not a
+  // saturating add — saturating here diverges exactly when strong cables push a combo past
+  // int range, which is when hardware wraps.
   private static int cableToExpParamWithoutRangeAdjustment(
       int runningTotal, int source, int strength) {
-    return Functions.add_saturate(
-        runningTotal, Functions.multiply_32x32_rshift32(source, strength));
+    return runningTotal + Functions.multiply_32x32_rshift32(source, strength);
   }
 
   private static int cableToExpParam(int runningTotal, int source, int strength, int rangeValue) {
     int scaledSource = Functions.multiply_32x32_rshift32(source, strength);
     scaledSource = applyRangeAdjustment(scaledSource, rangeValue);
-    return Functions.add_saturate(runningTotal, scaledSource);
+    return runningTotal + scaledSource;
   }
 
   // ── applyRangeAdjustment (patcher.cpp) ──
