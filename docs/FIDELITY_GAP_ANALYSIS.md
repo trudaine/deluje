@@ -1358,3 +1358,17 @@ Talking Arp +.06). New baseline: **time-resolved median 0.830, ≥0.80: 60%, ≥
 <0.60: 19** — every summary metric at its historical best. Note the method: each candidate
 default profile was accepted or rejected purely on the fresh-recording scorecard delta
 (hardware-calibrated empiricism), with the C source narrowing the candidate space.
+
+### 4.2bis 2026-07-24 — 109 Talking Arp diagnosed: resonance-at-open-cutoff gain error (filter family)
+
+Bottom-scorer triage. 109 (time .01) is not an arp problem (its embedded arp is off) nor an LFO
+routing problem: probes show our synced square LFO1 → lpfResonance chain parses and renders
+(resonance final value toggles 335M↔0 at tempo). The decisive evidence is the RMS envelope:
+hardware decays perfectly smoothly while our render pumps >10× RMS with each LFO cycle — with
+the clip's LPF cutoff WIDE OPEN (0x7FFFFFFF). On the hardware, resonance modulation at a fully
+open cutoff is near-inaudible; our ladder filter's resonance changes gain massively at max
+cutoff. This is the known resonant/distorted-filter family expressed through modulation, and
+likely also underlies 120 High Harsh Pad (win −0.14: categorically different spectrum) and the
+other filter-heavy bottom scorers. Next line of attack: line-by-line LpLadderFilter resonance /
+gain-compensation audit vs dsp/filter in the C (the family was flagged in the 2026-07-04 review
+but the resonance-compensation path was not exhaustively audited).
