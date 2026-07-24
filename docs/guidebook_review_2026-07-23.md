@@ -185,3 +185,27 @@ kind: content clipped *without* a scrollbar, truncated labels, and wrong capture
   explicit-color renderer for look-and-feels that ignore combo foreground.
 
 **Nothing remains open from this review.**
+
+## 5. UI bug audit (2026-07-24) — pattern hunt seeded by this review's finds
+
+Four parallel reviewers swept all 95 files of `org.deluge.ui` for the bug classes this review
+had already proven (duplicate adds, no-op string keys, stub controls, dead data, invisible
+text, fixed-size truncation, stale-refresh, divergent layout paths). ~30 verified findings;
+fixed in commit `3ce56169` (see its message for the full list). Highlights: silent synth
+keyboard keys (never-registered event), undo covering 11 of 56 project params, playhead
+force-scroll defeating follow mode, Track Inspector clip-clone aliasing, Bar Automation and
+several buttons being pure decoration, MACROS/KEYBOARD pseudo-rows sized out of the Song and
+Arranger viewports, and selected-tab titles unreadable across six tab bars.
+
+### Deferred (documented, not fixed)
+
+- **Step Properties "Play Condition" section** is still discarded on APPLY: wiring it needs a
+  design decision first — the dialog has two competing iterance controls (the 0–3 `iterSpin`
+  that IS wired, and the preset/bitmask section that isn't) writing the same `StepData.iterance`
+  field. Reconcile them before wiring.
+- **VU meters** never light, but only in the non-faceplate layout branches — and
+  `PreferencesManager.getTopPanelStyle()` is hard-pinned to `HARDWARE_FACEPLATE`, so those
+  branches (and the meters) are currently unreachable UI. If the style is ever unpinned, call
+  `GridVuManager.spikeVu(row)` from the step-fire path; today there is nothing to see.
+- `util/HelpTextManager` (populated help dictionary, zero readers) and `SwingVelocityLanePanel`
+  (never instantiated) are dead code with no user-visible symptom.
