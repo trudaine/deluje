@@ -717,6 +717,9 @@ public class SongXmlParser {
             NodeList soundParamsList = clipElem.getElementsByTagName("soundParams");
             if (soundParamsList.getLength() > 0) {
               Element spEl = (Element) soundParamsList.item(0);
+              // C: a clip's params = initParams defaults + the clip's own soundParams; the
+              // instrument's defaultParams are not consulted (sound.cpp:146-210 + readParams).
+              InstrumentXmlParser.resetClipParamsToFirmwareDefaults(stm);
               InstrumentXmlParser.parseClipSoundParamsStatics(spEl, stm);
               parseAutomation(spEl, clip);
             }

@@ -133,13 +133,11 @@ mvn test -Dtest=FidelityScorecardTest -Dgpg.skip=true -Ddeluge.card=ludocard
 It self-skips unless `~/ludocard/SYNTHS` and `~/ALL_SYNTHS_SONG/ALLSYN_{1,2}/output_000.wav`
 exist (recordings are ~150 MB each, not in git). Since 2026-07-24 it renders the ALLSYN songs'
 **embedded instrument copies** (what the recording actually played — the standalone preset files
-drift from them; old mode: `-Dscorecard.presets=true`). **Current baseline (embedded mode):**
-time-resolved median ≈ 0.78, ~44% of synths ≥ 0.80 — several slots are suppressed by stale
-recordings (FM bells: hardware-verified our render is right, the recording is old — see
-`docs/FIDELITY_GAP_ANALYSIS.md` §4.1ter–sexies) pending an ALLSYN re-record on current firmware. The subtractive core (osc + ladder filter + ADSR) is
-faithful and scores 0.85–0.97. Open gap families: **pads/tempo-synced patches** (embedded-mode
-regressions ≈ −0.15..−0.48 — suspected song-context/parse gaps, the current line of attack),
-**oscillator hard-sync** (Saw/Square Sync ≈ 0.3–0.4), **PWM/PW envelope**, **resonant/distorted
+drift from them; old mode: `-Dscorecard.presets=true`). **Current baseline (embedded mode, fresh
+2026-07-24 recordings): time-resolved median ≈ 0.83, ~60% of synths ≥ 0.80.** The former FM-bells
+gap was clip-param semantics (a clip's soundParams replace the instrument defaults; FM modulator
+params default OFF — see `docs/FIDELITY_GAP_ANALYSIS.md` §4.1ter–octies for the full arc). The subtractive core (osc + ladder filter + ADSR) is
+faithful and scores 0.85–0.97. Open gap families: **oscillator hard-sync** (Saw/Square Sync ≈ 0.3–0.4), **PWM/PW envelope**, **resonant/distorted
 filter**, **FX (reverb/delay/modFX)**, and ~16 multisample presets that render silent only
 because the test path doesn't load their samples. (FM was the former biggest cluster — resolved
 2026-07-24 as stale recordings, not engine divergence; hardware-verified.)

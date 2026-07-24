@@ -1307,3 +1307,36 @@ forensics against the current ALLSYN recordings is no longer productive — re-r
 current firmware is the gate for all further per-preset fidelity claims.** Until then the
 scorecard's value is as a regression tripwire (it did catch the osc2 and transpose parse bugs),
 not an absolute fidelity measure.
+
+### 4.1octies 2026-07-24 — ROOT CAUSE FOUND AND FIXED: clip param semantics; median 0.83, 60% ≥0.80
+
+The user re-recorded ALLSYN_1/2 on current firmware (part 1 needed a trim: a stop-button pop at
+the file's end defeated trailing-silence trimming and stretched the onset grid — check `onset
+gaps ≈ 6s` in the header before trusting a run). The fresh recording reproduced the old one
+almost exactly — the recordings were never stale; §4.1quinquies's conclusion was wrong about
+that. The static ~513 Hz "bell" is what the hardware truly plays IN THE SONG — while the DSP
+tap (preset mode) plays bright. The difference is the clip-param semantics:
+
+**In the firmware, a clip with `<soundParams>` takes its patched params from initParams defaults
+overlaid with only what the clip lists (sound.cpp:146-210) — the instrument's `<defaultParams>`
+are not consulted.** The ALLSYN clips' soundParams lack all modulator params, and
+`LOCAL_MODULATOR_*_VOLUME` defaults to INT_MIN = modulator OFF → the hardware plays those FM
+presets as carrier-only sines in the song. Our song parser inherited the embedded instrument's
+defaults instead, rendering bright bells against a soft recording.
+
+Fix (`InstrumentXmlParser.resetClipParamsToFirmwareDefaults`, called from SongXmlParser before
+the clip soundParams overlay), **empirically calibrated against the fresh recording**:
+- Reset the FM modulator param group (modulator1/2 amounts + feedbacks, carrier feedbacks) to
+  INT_MIN — hardware-proven (068/069/084/093 snapped from 0.2-0.5 to 0.84-0.93).
+- Do NOT reset osc volumes / HPF / sends / portamento / patch cables: a full initParams reset
+  regressed basses/leads sharply (down to Panpipes −0.01) and the recording matches the
+  inherited values — the C old-song path evidently back-fills those groups from the instrument.
+  (The osc/HPF float resets were additionally no-ops in our pipeline: the factory prefers raw
+  Q31 knobs that the float setters don't touch.)
+
+**New baseline: time-resolved median 0.829, ≥0.80: 60%, ≥0.90: 27%, n=187** (from 0.78/45%
+before this arc; the pre-arc preset-mode "0.801" was measuring drifted patches). Only one
+regression < −0.05 across the calibration (096 FM Guitar Power Chord −0.09 — carries FM params
+in neither clip nor recording expectations cleanly; open). Remaining low scorers to attack
+next: 120 High Harsh Pad (.42), 078 House time-structure (.34 — likely the documented
+envelope-defaults omission), plus the known hard-sync/PWM/FX families.

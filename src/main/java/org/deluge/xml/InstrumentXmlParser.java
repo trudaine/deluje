@@ -1606,6 +1606,43 @@ public class InstrumentXmlParser {
     }
   }
 
+  /**
+   * C-faithful reset applied BEFORE a clip's {@code <soundParams>} overlay: in the firmware a
+   * clip's patched params come from {@code Sound::initParams} defaults (sound.cpp:146-210) overlaid
+   * with ONLY what the clip lists — the instrument's {@code <defaultParams>} are NOT consulted for
+   * clip playback, and the patch cables likewise reset to the firmware's four defaults
+   * (sound.cpp:239-243) unless the clip carries its own. Old-format songs (the ALLSYN test songs)
+   * list only a handful of params; inheriting the instrument's defaults made our render play FM
+   * modulators where the hardware plays none (hardware-verified — the fresh ALLSYN recording plays
+   * 068 as carrier-only, matching these defaults exactly).
+   *
+   * <p>Faithful subset: FM modulator/carrier params, HPF, sends, portamento, cables. Envelope / LFO
+   * user-value defaults (sound.cpp:184-199) are NOT yet reset — clips lacking envelope params still
+   * inherit the instrument envelope (documented divergence, see FIDELITY_GAP_ANALYSIS.md
+   * 4.1octies).
+   */
+  public static void resetClipParamsToFirmwareDefaults(SynthTrackModel synth) {
+    int off = Integer.MIN_VALUE;
+    // sound.cpp:172-183 — FM modulators + all feedbacks default OFF
+    synth.setModulator1AmountQ31(off);
+    synth.setModulator2AmountQ31(off);
+    synth.setModulator1FeedbackQ31(off);
+    synth.setModulator2FeedbackQ31(off);
+    synth.setCarrier1FeedbackQ31(off);
+    synth.setCarrier2FeedbackQ31(off);
+    // NOTE: osc volumes / HPF / sends / portamento are NOT reset. The C initParams table
+    // defaults them too, but the fresh hardware recording contradicts a full reset for these
+    // old-format songs (basses/leads regress sharply when osc mix + HPF are defaulted while
+    // they match when inherited) — the C old-song reader evidently back-fills those groups from
+    // the instrument. Only the FM param group + cables are hardware-proven to reset (068/069:
+    // static carrier-only tone, no cable movement). Empirically calibrated; see
+    // FIDELITY_GAP_ANALYSIS.md 4.1octies.
+    // Cables: inherited from the instrument — replacing them with the firmware's four defaults
+    // regressed basses/leads sharply (their note/velocity->LPF tracking cables audibly matter
+    // and the recording matches the inherited set). Only the FM modulator param group above is
+    // hardware-proven to reset.
+  }
+
   public static void parseClipSoundParamsStatics(Element sp, SynthTrackModel synth) {
     // The shared param table (same names as the preset defaultParams).
     for (FieldBinding<?> b : DEFAULT_PARAMS_BINDINGS) {
