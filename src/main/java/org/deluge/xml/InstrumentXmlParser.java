@@ -1637,6 +1637,16 @@ public class InstrumentXmlParser {
     // the instrument. Only the FM param group + cables are hardware-proven to reset (068/069:
     // static carrier-only tone, no cable movement). Empirically calibrated; see
     // FIDELITY_GAP_ANALYSIS.md 4.1octies.
+    // Envelopes: in the clip path the C runs initParams (which sets only envelope 2's rates,
+    // user 20/20/25/20) over AutoParam construction defaults (param value 0 = user 25) —
+    // the instrument's envelope values are NOT consulted. user->param: u*85899345 - 2^31
+    // (functions.cpp getParamFromUserValue default branch).
+    int user20 = (int) (20L * 85899345L - 2147483648L); // -429496748
+    // Volume envelope (C ENV_0) defaults to the blank-synth shape (sound.cpp:297-306):
+    // instant attack, user-20 decay, full sustain — empirically the profile both regression
+    // populations' recordings agree with (mid-sustain construction defaults split them).
+    // Envelopes 2-4 stay inherited.
+    synth.getRawKnobs().setEnvKnobsQ31(0, Integer.MIN_VALUE, user20, Integer.MAX_VALUE, 0);
     // Cables: inherited from the instrument — replacing them with the firmware's four defaults
     // regressed basses/leads sharply (their note/velocity->LPF tracking cables audibly matter
     // and the recording matches the inherited set). Only the FM modulator param group above is

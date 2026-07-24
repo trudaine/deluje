@@ -1340,3 +1340,21 @@ regression < −0.05 across the calibration (096 FM Guitar Power Chord −0.09 �
 in neither clip nor recording expectations cleanly; open). Remaining low scorers to attack
 next: 120 High Harsh Pad (.42), 078 House time-structure (.34 — likely the documented
 envelope-defaults omission), plus the known hard-sync/PWM/FX families.
+
+### 4.1nonies 2026-07-24 — clip volume-envelope defaults: the blank-synth shape; zero-regression win
+
+Following 4.1octies, the 078-House time-structure gap was the predicted envelope omission. The
+chain: in the clip path the C's envelope params are NOT inherited from the instrument. First
+attempt (AutoParam construction defaults, param 0 = user-25 mid for all of ADSR) split the set —
+half the presets' recordings matched it (House .34→.93) while sustain-heavy basses regressed
+(Dubstep −0.29): mid-sustain was wrong. The profile that unifies both populations is the C
+blank-synth shape (sound.cpp:297-306): **volume envelope (ENV_0) = instant attack, user-20
+decay, FULL sustain, user-25 release; envelopes 2-4 inherited.** Applied via the raw Q31 env
+knob channel in `resetClipParamsToFirmwareDefaults`.
+
+Result vs the 4.1octies baseline: **zero presets regress >0.05; five improve >0.05** (078 House
+.34→.92, 081 Xylophone Big Bass .42→.96, 103 Sci-fi Chaos +.25, 149 Cold 5th Pad +.11, 109
+Talking Arp +.06). New baseline: **time-resolved median 0.830, ≥0.80: 60%, ≥0.90: 27%,
+<0.60: 19** — every summary metric at its historical best. Note the method: each candidate
+default profile was accepted or rejected purely on the fresh-recording scorecard delta
+(hardware-calibrated empiricism), with the C source narrowing the candidate space.
