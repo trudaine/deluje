@@ -207,6 +207,13 @@ public class KitXmlParser {
         "lpfMode",
         v -> {
           if ("24dB".equals(v)) sound.setLpfMode(FilterMode.LADDER_24);
+          else if ("24dBDrive".equalsIgnoreCase(v) || "DRIVE".equalsIgnoreCase(v))
+            sound.setLpfMode(FilterMode.DRIVE);
+          else if ("SVF_Band".equalsIgnoreCase(v) || "SVF Band".equalsIgnoreCase(v))
+            sound.setLpfMode(FilterMode.SVF_BAND);
+          else if ("SVF_Notch".equalsIgnoreCase(v) || "SVF Notch".equalsIgnoreCase(v))
+            sound.setLpfMode(FilterMode.SVF_NOTCH);
+          else if ("SVF".equalsIgnoreCase(v)) sound.setLpfMode(FilterMode.SVF);
           else if ("Off".equalsIgnoreCase(v)) sound.setLpfMode(FilterMode.OFF);
           else sound.setLpfMode(FilterMode.LADDER_12);
         });
@@ -214,9 +221,12 @@ public class KitXmlParser {
         soundNode,
         "hpfMode",
         v -> {
-          if ("24dB".equals(v)) sound.setHpfMode(FilterMode.LADDER_24);
+          // C-faithful: LP-mode strings in hpfMode load as modes the HPF dispatch never renders
+          // (filter_set.cpp:26-41, 169-185) — an inert high-pass; see InstrumentXmlParser.
+          if ("12dB".equalsIgnoreCase(v)
+              || "24dB".equalsIgnoreCase(v)
+              || "24dBDrive".equalsIgnoreCase(v)) sound.setHpfMode(FilterMode.OFF);
           else if ("SVF".equals(v)) sound.setHpfMode(FilterMode.SVF);
-          else if ("DRIVE".equals(v)) sound.setHpfMode(FilterMode.DRIVE);
           else if ("SVF_BAND".equals(v) || "SVF Band".equalsIgnoreCase(v))
             sound.setHpfMode(FilterMode.SVF_BAND);
           else if ("SVF_NOTCH".equals(v) || "SVF Notch".equalsIgnoreCase(v))

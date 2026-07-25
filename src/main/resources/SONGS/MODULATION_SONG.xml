@@ -56,7 +56,7 @@
 				<chordProbability>0.0</chordProbability>
 			</arpeggiator>
 			<lpfMode>24dB</lpfMode>
-			<hpfMode>12dB</hpfMode>
+			<hpfMode>HPLadder</hpfMode>
 			<modFXType>none</modFXType>
 			<defaultParams>
 				<arpeggiatorGate>0x00000000</arpeggiatorGate>
@@ -197,7 +197,7 @@
 				<syncLevel>7</syncLevel>
 			</delay>
 			<lpfMode>24dB</lpfMode>
-			<hpfMode>12dB</hpfMode>
+			<hpfMode>HPLadder</hpfMode>
 			<modFXType>none</modFXType>
 			<defaultParams>
 				<arpeggiatorGate>0x00000000</arpeggiatorGate>

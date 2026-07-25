@@ -670,7 +670,9 @@ public class ProjectSerializer {
             "lpfMode",
             switch (synth.getFilterMode()) {
               case LADDER_24 -> "24dB";
-              case SVF -> "SVF";
+              case DRIVE -> "24dBDrive";
+              case SVF, SVF_BAND -> "SVF_Band";
+              case SVF_NOTCH -> "SVF_Notch";
               case OFF -> "Off";
               default -> "12dB";
             });
@@ -678,13 +680,12 @@ public class ProjectSerializer {
         writer.writeTag(
             "hpfMode",
             switch (synth.getHpfMode()) {
-              case LADDER_24 -> "24dB";
-              case SVF -> "SVF";
-              case DRIVE -> "DRIVE";
-              case SVF_BAND -> "SVF Band";
-              case SVF_NOTCH -> "SVF Notch";
+              // C: active HP ladder serializes as "HPLadder" (mod_controllable_audio.cpp:410);
+              // LP-mode strings would load as an inert HPF (filter_set.cpp:26-41).
+              case SVF, SVF_BAND -> "SVF_Band";
+              case SVF_NOTCH -> "SVF_Notch";
               case OFF -> "Off";
-              default -> "12dB";
+              default -> "HPLadder";
             });
 
         String mfx = synth.getModFxType() != null ? synth.getModFxType().toLowerCase() : "none";

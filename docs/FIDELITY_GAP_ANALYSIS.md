@@ -1575,3 +1575,33 @@ not-measurable. Only regression: 128_SYNTH_DUAL_MOD_C5 −0.058 (0.944→0.886, 
 (12dB band-gap level, 4.2septies follow-up 2) and 129 (hardware genuinely near-silent,
 follow-up 3). vs the pre-4.2septies baseline: mean +0.105, 106 presets improved >0.05, 3
 regressed (worst −0.072).
+
+### 4.2nonies 2026-07-25 — hpfMode "12dB" is an INERT high-pass in the C: 109 recovered; ≥0.80 hits 94%
+
+Follow-up 2 of 4.2septies (109 Talking Arp silent at ≈ −65 dB vs hardware ≈ −30 dB) is RESOLVED
+— and it was never a filter-DSP bug. The C parses the `hpfMode` tag with the SAME shared filter
+string map as lpfMode (`stringToLPFType`, mod_controllable_audio.cpp:727-729; map in
+filter_config.cpp:8-14), so an LP-mode string ("12dB"/"24dB"/"24dBDrive") loads VERBATIM into
+`hpfMode` — a value the HPF render/config dispatch has no branch for (filter_set.cpp:26-41 and
+169-185 handle only HPLADDER and SVF_*). Result: the high-pass is silently INERT — HPFOn is
+true but nothing processes, and hpfFrequency/hpfResonance are ignored. **Every one of the 188
+ALLSYN instruments carries `<hpfMode>12dB</hpfMode>`, so the hardware recording ran with NO
+high-pass corpus-wide.** Our parser collapsed "12dB" and "HPLadder" into one model value and
+activated the HP ladder for both — 109's clip hpfFrequency ≈ user-44 then band-gapped its
+user-30 LPF to −65 dB where hardware (inert HPF) passes the LPF band at −30 dB.
+
+Fixes (InstrumentXmlParser/KitXmlParser + the three serializer sites):
+- Parse: hpfMode "12dB"/"24dB"/"24dBDrive" → model OFF (render-equivalent to the C's inert
+  state); "HPLadder"/unknown → the active HP ladder as before. LPF parse now also accepts the
+  C's "24dBDrive" (previously fell through to 12dB — a real drive-mode loss).
+- Serialize: hpfMode now writes the C's "HPLadder" for the active ladder (we previously wrote
+  "12dB", which real hardware would load as INERT — a silent hardware-compat bug); SVF modes
+  write the C's "SVF_Band"/"SVF_Notch" (we wrote "SVF Band" with a space and plain "SVF",
+  which hit the C map's unknown fallback = OFF on hardware); LPF DRIVE writes "24dBDrive".
+  Model alias SVF canonicalizes to SVF_BAND on round-trip (KitSynthSerializerTest updated).
+
+Scorecard: **time median 0.919, mean 0.904, ≥0.80: 94%, ≥0.90: 64%, <0.60: 1, n=187** —
+109 n/a→0.788 (win 0.752; was 0.024 at the start of this arc), 107 FM LPG Percussion +0.109
+(→0.872), 120 High Harsh Pad +0.095 (→0.831), zero regressions beyond −0.035. The only
+remaining not-measurable is 129 (hardware slice genuinely near-silent — 4.2septies follow-up
+3, a metric artifact, not DSP). The last <0.60 preset is the sole open scorecard item.

@@ -69,8 +69,8 @@ public class ClipResetProbeTest {
     for (String[] spec :
         new String[][] {
           {"1", "011 Dubstep Bass"},
+          {"2", "109 Talking Arp"},
           {"2", "SolidBassShort"},
-          {"2", "SolidBassLong"},
         }) {
       java.io.File songFile = new java.io.File(home + "/ludocard/SONGS/ALLSYN_" + spec[0] + ".XML");
       ProjectModel song =

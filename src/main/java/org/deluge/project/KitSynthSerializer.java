@@ -178,8 +178,12 @@ public class KitSynthSerializer {
       // ── lpfMode ──
       String lpfModeStr =
           switch (sound.getLpfMode()) {
+            // C filterMap strings (filter_config.cpp:8-14) — anything else reads back as the
+            // map's unknown fallback (OFF) on real hardware.
             case LADDER_24 -> "24dB";
-            case SVF -> "SVF";
+            case DRIVE -> "24dBDrive";
+            case SVF, SVF_BAND -> "SVF_Band";
+            case SVF_NOTCH -> "SVF_Notch";
             case OFF -> "Off";
             default -> "12dB";
           };
@@ -188,13 +192,13 @@ public class KitSynthSerializer {
       // ── hpfMode ──
       String hpfModeStr =
           switch (sound.getHpfMode()) {
-            case LADDER_24 -> "24dB";
-            case SVF -> "SVF";
-            case DRIVE -> "DRIVE";
-            case SVF_BAND -> "SVF Band";
-            case SVF_NOTCH -> "SVF Notch";
+            // The C writes hpfMode via the same filterMap (mod_controllable_audio.cpp:410):
+            // the active HP ladder is "HPLadder" — an LP-mode string here would load as an
+            // INERT high-pass on hardware (filter_set.cpp:26-41).
+            case SVF, SVF_BAND -> "SVF_Band";
+            case SVF_NOTCH -> "SVF_Notch";
             case OFF -> "Off";
-            default -> "12dB";
+            default -> "HPLadder";
           };
       appendTextChild(doc, soundElem, "hpfMode", hpfModeStr);
 
@@ -522,7 +526,9 @@ public class KitSynthSerializer {
     String lpfModeStr =
         switch (synth.getFilterMode()) {
           case LADDER_24 -> "24dB";
-          case SVF -> "SVF";
+          case DRIVE -> "24dBDrive";
+          case SVF, SVF_BAND -> "SVF_Band";
+          case SVF_NOTCH -> "SVF_Notch";
           case OFF -> "Off";
           default -> "12dB";
         };
@@ -531,13 +537,10 @@ public class KitSynthSerializer {
     // ── hpfMode ──
     String hpfModeSynthStr =
         switch (synth.getHpfMode()) {
-          case LADDER_24 -> "24dB";
-          case SVF -> "SVF";
-          case DRIVE -> "DRIVE";
-          case SVF_BAND -> "SVF Band";
-          case SVF_NOTCH -> "SVF Notch";
+          case SVF, SVF_BAND -> "SVF_Band";
+          case SVF_NOTCH -> "SVF_Notch";
           case OFF -> "Off";
-          default -> "12dB";
+          default -> "HPLadder";
         };
     appendTextChild(doc, root, "hpfMode", hpfModeSynthStr);
 

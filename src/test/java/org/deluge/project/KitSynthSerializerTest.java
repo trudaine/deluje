@@ -162,8 +162,12 @@ public class KitSynthSerializerTest {
     // Polyphony (from parsePolyphony: <polyphonic> child element)
     assertEquals(original.getPolyphony(), parsed.getPolyphony());
 
-    // Filter mode (from parseFilterMode: <lpfMode> child)
-    assertEquals(original.getFilterMode(), parsed.getFilterMode());
+    // Filter mode (from parseFilterMode: <lpfMode> child). Serialization canonicalizes to the C
+    // filterMap strings (filter_config.cpp:8-14) — the C has no plain "SVF", so the model alias
+    // SVF round-trips as the canonical SVF_BAND (identical in the engine).
+    FilterMode expectedMode =
+        original.getFilterMode() == FilterMode.SVF ? FilterMode.SVF_BAND : original.getFilterMode();
+    assertEquals(expectedMode, parsed.getFilterMode());
     // LPF/HPF freq+res from defaultParams hex bindings
     assertEquals(original.getLpfFreq(), parsed.getLpfFreq(), 1.0f);
     assertEquals(original.getLpfRes(), parsed.getLpfRes(), 0.01f);

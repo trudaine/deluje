@@ -755,7 +755,8 @@ public class InstrumentXmlParser {
             synth.setFilterMode(FilterMode.LADDER_24);
           } else if ("SVF".equalsIgnoreCase(v)) {
             synth.setFilterMode(FilterMode.SVF);
-          } else if ("DRIVE".equalsIgnoreCase(v)) {
+          } else if ("DRIVE".equalsIgnoreCase(v) || "24dBDrive".equalsIgnoreCase(v)) {
+            // "24dBDrive" is the C's drive-ladder string (filter_config.cpp:10).
             synth.setFilterMode(FilterMode.DRIVE);
           } else if ("SVF_BAND".equalsIgnoreCase(v) || "SVF Band".equalsIgnoreCase(v)) {
             synth.setFilterMode(FilterMode.SVF_BAND);
@@ -769,16 +770,23 @@ public class InstrumentXmlParser {
         });
 
     // ── HPF Mode ──
+    // C-faithful: hpfMode is parsed with the SAME shared filter map as lpfMode
+    // (mod_controllable_audio.cpp:727-729 → stringToLPFType), so an LP-mode string ("12dB",
+    // "24dB", "24dBDrive") loads verbatim into hpfMode — where it matches NO branch of the HPF
+    // render/config dispatch (filter_set.cpp:26-41, 169-185: only HPLADDER and SVF_* render).
+    // The result on hardware is an INERT high-pass — hpfFrequency is ignored entirely. All 188
+    // ALLSYN instruments carry hpfMode=12dB, hardware-verified inert (109 Talking Arp's clip
+    // hpfFrequency ≈ user-44 is inaudible on the recording). Render-equivalent model: OFF.
     readAttrOrChildString(
         soundNode,
         "hpfMode",
         v -> {
-          if ("24dB".equalsIgnoreCase(v)) {
-            synth.setHpfMode(FilterMode.LADDER_24);
+          if ("12dB".equalsIgnoreCase(v)
+              || "24dB".equalsIgnoreCase(v)
+              || "24dBDrive".equalsIgnoreCase(v)) {
+            synth.setHpfMode(FilterMode.OFF);
           } else if ("SVF".equalsIgnoreCase(v)) {
             synth.setHpfMode(FilterMode.SVF);
-          } else if ("DRIVE".equalsIgnoreCase(v)) {
-            synth.setHpfMode(FilterMode.DRIVE);
           } else if ("SVF_BAND".equalsIgnoreCase(v) || "SVF Band".equalsIgnoreCase(v)) {
             synth.setHpfMode(FilterMode.SVF_BAND);
           } else if ("SVF_NOTCH".equalsIgnoreCase(v) || "SVF Notch".equalsIgnoreCase(v)) {
@@ -786,6 +794,8 @@ public class InstrumentXmlParser {
           } else if ("Off".equalsIgnoreCase(v)) {
             synth.setHpfMode(FilterMode.OFF);
           } else {
+            // "HPLadder" and anything else: the HP ladder (existing model convention LADDER_12
+            // → engine HPLADDER).
             synth.setHpfMode(FilterMode.LADDER_12);
           }
         });
