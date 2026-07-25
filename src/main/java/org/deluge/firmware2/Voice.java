@@ -1985,6 +1985,7 @@ public class Voice {
     return phaseIncrement;
   }
 
+  // C voice.cpp:2509-2525
   public int getPriorityRating() {
     int activeVoicesCount = 0;
     synchronized (sound.voices) {
