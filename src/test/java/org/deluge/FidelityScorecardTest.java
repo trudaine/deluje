@@ -22,7 +22,9 @@ import org.junit.jupiter.api.Test;
 public class FidelityScorecardTest {
 
   static final String HOME = System.getProperty("user.home");
-  static final String CARD_NAME = System.getProperty("deluge.card", "deluge-card");
+  static final String CARD_NAME =
+      System.getProperty(
+          "deluge.card", new File(HOME + "/ludocard").isDirectory() ? "ludocard" : "deluge-card");
   static final String SYNTH_DIR = HOME + "/" + CARD_NAME + "/SYNTHS";
   static final File CARD = new File(HOME + "/" + CARD_NAME);
   static final int SR = 44100;

@@ -140,6 +140,14 @@ public class AllSynthsFidelityTest {
       try {
         SynthTrackModel synth = DelugeXmlParser.parseSynth(new FileInputStream(f), f.getName());
         synth.setName(f.getName().replace(".XML", ""));
+        // C mod_controllable_audio.cpp:710 and filter_config.cpp:31 — in C++ firmware, hpfMode
+        // parses with stringToLPFType where "12dB" maps to TRANSISTOR_12DB.
+        // C filter_set.cpp:26-43 — the HPF rendering loop only has dispatch branches for HPLADDER
+        // and SVF_*, so when hpfMode is TRANSISTOR_12DB, the HPF is inert/off on real hardware.
+        // Preserve this historical inert state when generating benchmark song XMLs.
+        if (synth.getHpfMode() == FilterMode.LADDER_12) {
+          synth.setHpfMode(FilterMode.OFF);
+        }
 
         // Skip presets that reference sample files not present on this card (otherwise the whole
         // song fails to load on hardware).
