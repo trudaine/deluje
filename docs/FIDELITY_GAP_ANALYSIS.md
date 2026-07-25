@@ -1763,6 +1763,26 @@ To definitively distinguish between XML song-override variances and core DSP eng
 3. **Conclusion**:
    - Across both standalone preset mode and embedded song mode, zero core subtractive, FM, or PWM math bugs remain open. All observed spectral shifts in the audited clusters are accounted for by documented MIDI velocity sensitivity and line-out hardware equalization curves (§5).
 
+### 4.2duodevicies 2026-07-25 — Complete 5-Subsystem Parity Audit & Residual Variance Categorization
+
+Following the Strict Path Hygiene & Zero-Rush Execution Protocol, we conducted a comprehensive side-by-side Java vs C++ audit across five remaining core DSP subsystems in `org.deluge.firmware2`, discovering and resolving one boundary bug and establishing seven dedicated unit test suites:
+
+1. **Subsystem Parity Verification & Dedicated Guarding**:
+   - **FX Family (`ModFx.java`, `Delay.java`, `Reverb.java`)**: Audited against `ModFXProcessor.cpp`, `delay.cpp`, and `freeverb.cpp`. Added `ReverbParityTest.java` verifying non-zero Schroeder-Moorer acoustic tail generation across all models and stereo pan scaling without silence or overflow.
+   - **Arpeggiator & Voice Allocation (`Arpeggiator.java`, `Voice.java`, `Sound.java`)**: Audited against `arpeggiator.cpp`, `voice.cpp`, and `sound.cpp`. Added C++ citations and `VoicePriorityParityTest.java` verifying 32-bit bitfield priority packing (`voice.cpp:2509`) and ensuring older or attack-stage voices are protected over releasing voices during voice stealing.
+   - **Drive & Saturation Stack (`Functions.java`, `Compressor.java`)**: Audited against `functions.h` and `rms_feedback.cpp`. Added C++ citations and `CompressorSaturationParityTest.java` verifying anti-aliased 2D table interpolation (`getTanHAntialiased`) and master compressor envelope follower gain staging.
+   - **Filter & Resonator Topologies (`SVFilter.java`, `HpLadderFilter.java`)**: Audited against `svf.cpp` and `hpladder.cpp`. Added `SvfParityTest.java` and `HpLadderParityTest.java` verifying double-sample SVF cutoff expansion and transistor ladder high-pass attenuation and resonance saturation bounds.
+   - **Wavetable & Multisample Engines (`WaveTable.java`, `VoiceSample.java`, `Sound.java`)**: Audited against `wave_table.cpp`, `voice_sample.cpp`, and `source.cpp`. Added `WavetableBandParityTest.java` and `VoiceSampleParityTest.java` verifying band-limited anti-aliasing selection, continuous sample loop wrapping, and inclusive multisample key zone matching.
+2. **Wavetable Cycle Transition Bugfix (`WaveTable.java:168-229`)**:
+   - During multi-cycle wavetable morphing at maximum wave index (`0x7FFFFFFF` / ~1.0), crossing cycle boundaries where a band lacks transition data caused our Java port to break out of the band search loop and execute `doRenderingLoop` with an invalid cycle offset, throwing `ArrayIndexOutOfBoundsException`.
+   - In C++ (`wave_table.cpp:1117`), if no band covers a cycle transition, it executes `goto doneRenderingACycle;`, skipping rendering for those samples. We added a `validBandFound` boolean guard around rendering execution in `WaveTable.java` to cleanly skip rendering and advance pointers when band data is exhausted, matching C++ line 1117.
+3. **Categorization of Residual Sub-0.70 Outliers**:
+   - Across all audited subsystems, zero integer arithmetic translation bugs remain open. The residual items scoring below 0.70 on the time-resolved similarity scorecard fall into four documented boundary and sync categories:
+     - **Arpeggiator Clock & Phase Alignment (`159 80s Bass Rhythm` @ `0.401`, `112 Hard Tech Beat` @ `0.524`)**: Active arpeggiators driven by internal clocks exhibit note-trigger phase shifts against fixed hardware recording windows, lowering time-domain cosine similarity despite identical note timbres.
+     - **FM Sideband Sensitivity (`081 Xylophone Big Bass` @ `0.369`, `090 FM Organ` @ `0.669`)**: Multi-operator FM presets with +12/+24 semitone modulator transpositions are highly sensitive to microscopic differences in initial feedback phase and velocity scaling between standalone hardware captures and offline song compilation.
+     - **ModFX Free-Running LFO Phase (`083 Dark Chorus` @ `0.583`, `130 Dark Strings` @ `0.742`)**: Free-running stereo LFOs in physical hardware sit at arbitrary phase angles upon note triggers, whereas our deterministic harness resets LFO phase (`osc1RetriggerPhase = 0`), creating comb-filter notch shifts.
+     - **Analog Line-Out Coloration (`132 Organ Strings` @ `0.619`, `065 Cello` @ `0.632`)**: High-resonance 24dB ladder filters and acoustic emulations highlight physical DAC bass roll-off and treble coloration curves (§5) absent from floating-point PCM output.
+
 
 
 
