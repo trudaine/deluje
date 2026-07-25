@@ -717,6 +717,7 @@ public final class Functions {
     return multiply_32x32_rshift32(value1, strength1) + multiply_32x32_rshift32(value2, strength2);
   }
 
+  // C util/functions.h:275-284
   public static int getTanHUnknown(int input, int saturationAmount) {
     int workingValue;
     if (saturationAmount != 0) {
@@ -728,6 +729,7 @@ public final class Functions {
         >> (saturationAmount + 2);
   }
 
+  // C util/functions.h:286-295
   public static int getTanHAntialiased(int input, int lastWorkingValue, int saturationAmount) {
     int workingValue = lshiftAndSaturateUnknown(input, saturationAmount) + 0x80000000;
     return interpolateTableSigned2d(
