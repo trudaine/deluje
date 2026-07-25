@@ -2,6 +2,8 @@ package org.deluge.xml;
 
 import static org.deluge.xml.DelugeXmlUtil.*;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.List;
 import java.util.logging.Level;
@@ -126,7 +128,50 @@ public class InstrumentXmlParser {
     SOUNDPARAMS_RAW_PATCHED.put("sidechainCompressorVolume", Param.UNPATCHED_SIDECHAIN_VOLUME);
   }
 
+  private static File resolvePresetFile(String folder, String presetName) {
+    String synthDir = System.getProperty("synth.dir", "src/main/resources/SYNTHS");
+    File parent = new File(synthDir).getParentFile();
+    File[] searchDirs = {
+      new File(synthDir),
+      new File(parent, folder),
+      new File("src/main/resources", folder),
+      new File("/Users/ludo/ludocard", folder),
+      new File(folder)
+    };
+    for (File dir : searchDirs) {
+      if (dir != null && dir.isDirectory()) {
+        File f1 = new File(dir, presetName + ".XML");
+        if (f1.isFile()) return f1;
+        File f2 = new File(dir, presetName + ".xml");
+        if (f2.isFile()) return f2;
+      }
+    }
+    return null;
+  }
+
   public static void populateSynth(Element soundNode, SynthTrackModel synth) {
+    populateSynth(soundNode, synth, false);
+  }
+
+  public static void populateSynth(
+      Element soundNode, SynthTrackModel synth, boolean isPresetLoad) {
+    if (!isPresetLoad && soundNode.hasAttribute("presetName")) {
+      String presetName = soundNode.getAttribute("presetName");
+      String folder = soundNode.getAttribute("presetFolder");
+      if (folder == null || folder.isEmpty()) {
+        folder = "SYNTHS";
+      }
+      File presetFile = resolvePresetFile(folder, presetName);
+      if (presetFile != null && presetFile.isFile()) {
+        try {
+          Element presetRoot =
+              parseXml(new FileInputStream(presetFile)).getDocumentElement();
+          populateSynth(presetRoot, synth, true);
+        } catch (Exception e) {
+          LOG.log(Level.WARNING, "Failed to load referenced preset: " + presetFile, e);
+        }
+      }
+    }
     // Direct child bindings (osc1 attr/or child type, osc2 child type)
     applyDirectBindings(soundNode, synth);
 
@@ -1739,7 +1784,8 @@ public class InstrumentXmlParser {
     // envelope-2..4 target synthesis. (LFO waveform/sync and envelope rates are kept — those
     // reach the engine through the knob channels above, matching the C where waveform/sync are
     // sound-level settings read from the instrument, not params.)
-    synth.getModulation().getPatchCables().clear();
+    // Only clear patch cables if the clip explicitly defines its own patch cables (handled in parseClipSoundParamsStatics:1925).
+    // synth.getModulation().getPatchCables().clear();
     for (int i = 0; i < 4; i++) {
       LfoModel lm = synth.getLfo(i);
       if (lm != null) {
