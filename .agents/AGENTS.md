@@ -35,4 +35,10 @@
 - **C++ Sound Initialization Line-by-Line Audit**: When investigating low preset scorecard scores, line-by-line audit parameter initialization and clip overlay rules in `SongXmlParser.java` / `InstrumentXmlParser.java` against `sound.cpp:146-210` before attributing discrepancies to external recordings or filter tuning.
 - **Verbatim C Integer Arithmetic**: Do not substitute saturating operators (`add_saturate`) or custom safety clamping where the reference C++ code uses standard 32-bit wrapping integer arithmetic (`+`, `<<`), unless explicitly required and documented for near-Nyquist audio safety.
 
+## Strict Path Hygiene & Zero-Rush Execution Protocol
+- **Zero Hardcoded Machine Paths**: Under no circumstances should you ever write or commit hardcoded absolute machine paths (e.g., `/Users/...` or literal home directory strings) in production code, tests, or temporary scripts. All file and resource loading must use strictly relative project paths (`src/main/resources/...`, classloader resources) or documented system properties (e.g., `-Ddeluge.card`).
+- **Mandatory Pre-Commit Diff Audit**: Before executing any `git commit` command, you **must** review the full output of `git diff` to verify that zero hardcoded paths, zero temporary debug prints, and zero unverified shortcuts or hacks are included in the staged changes.
+- **Dedicated Test-Driven Validation**: When resolving a bug or implementing a parser feature, never rely solely on global regression suites. You **must** create and commit a dedicated, portable unit test in the appropriate test package to permanently guard and isolate the specific behavior.
+
+
 
