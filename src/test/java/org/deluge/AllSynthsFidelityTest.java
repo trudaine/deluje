@@ -145,6 +145,9 @@ public class AllSynthsFidelityTest {
         // C filter_set.cpp:26-43 — the HPF rendering loop only has dispatch branches for HPLADDER
         // and SVF_*, so when hpfMode is TRANSISTOR_12DB, the HPF is inert/off on real hardware.
         // Preserve this historical inert state when generating benchmark song XMLs.
+        // LIMITATION: this cannot distinguish "LADDER_12 because the hpfMode attribute was
+        // absent" (the model default) from a preset that explicitly said "HPLadder" — no preset
+        // in this corpus does, but one that did would silently lose its active HPF here.
         if (synth.getHpfMode() == FilterMode.LADDER_12) {
           synth.setHpfMode(FilterMode.OFF);
         }
