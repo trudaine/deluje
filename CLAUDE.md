@@ -135,7 +135,7 @@ It self-skips unless `~/ludocard/SYNTHS` and `~/ALL_SYNTHS_SONG/ALLSYN_{1,2}/out
 exist (recordings are ~150 MB each, not in git). Since 2026-07-24 it renders the ALLSYN songs'
 **embedded instrument copies** (what the recording actually played — the standalone preset files
 drift from them; old mode: `-Dscorecard.presets=true`). **Current baseline (embedded mode, fresh
-2026-07-24 recordings): time-resolved median ≈ 0.92, 93% of synths ≥ 0.80, 63% ≥ 0.90.** The
+2026-07-24 recordings): time-resolved median ≈ 0.92, 94% of synths ≥ 0.80, 64% ≥ 0.90.** The
 big 2026-07-25 jump was **C-exact clip-param semantics** read from the C loader (a ≥1.2.0
 song's clip = fresh initParams ParamManager + ONLY the clip's listed tags — no instrument
 back-fill, ZERO patch cables; see `docs/FIDELITY_GAP_ANALYSIS.md` §4.2septies): this closed
@@ -143,10 +143,13 @@ most of the former "saturation/PWM/sync/resonant-filter" bottom cluster (016/120
 which was never the DSP. A second fix the same day (§4.2octies): osc type `"none"` is the C's
 unrecognized-type **TRIANGLE fallback** (functions.cpp:812-814) — an osc is off only via its
 volume param, never its type; this recovered the whole unnumbered sample-preset family. The
-subtractive core (osc + ladder filter + ADSR) is faithful and scores 0.85–0.97. Open gap
-families now: **109's 12dB LP/HP band-gap level** (ours ≈ −65 dB vs hardware ≈ −30 dB —
-§4.2septies follow-up 2), **FX (reverb/delay/modFX)**, and one scoring artifact (129: hardware
-slice genuinely near-silent — follow-up 3). (FM was the former biggest cluster — resolved
+subtractive core (osc + ladder filter + ADSR) is faithful and scores 0.85–0.97. A third fix:
+`hpfMode` LP-mode strings ("12dB" — carried by ALL 188 ALLSYN instruments) load as an **inert
+high-pass** in the C (no dispatch branch, filter_set.cpp:26-41; §4.2nonies) — this recovered
+109 and fixed silent hardware-compat bugs in our filter-mode serialization. Open items now:
+the last few sub-0.70 scorers (100 Noise Lead .62, 149 Cold 5th Pad .59, 121 Tiny Lights .67),
+**FX (reverb/delay/modFX)**, and one scoring artifact (129: hardware slice genuinely
+near-silent — §4.2septies follow-up 3). (FM was the former biggest cluster — resolved
 2026-07-24 as clip semantics + stale-recording confusion; hardware-verified.)
 
 Workflow for a fidelity fix: pick a family above → open the cited C subsystem under
