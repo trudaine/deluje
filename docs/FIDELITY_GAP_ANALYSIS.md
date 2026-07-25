@@ -1680,4 +1680,17 @@ Resolved the long-standing architectural gap documented in §4.16 item 2 regardi
 3. **Engine Synchronization (`PureFirmwareEngine` & `syncMasterEffects`)**: Removed the legacy tracking fields (`lastSpVol`, `lastSpLpfFreq`, etc.) from `PureFirmwareEngine` and replaced the per-track parameter clobbering loop with direct synchronization of all bridge `G_SP_*` globals into `audioEngine`'s master Song FX fields. Updated `syncMasterEffects(ProjectModel)` to mirror this behavior for offline rendering and unit tests.
 4. **Verification**: Created `MasterBusFxTest` to verify that setting song-level performance macros activates the corresponding master FX stage on `FirmwareAudioEngine` without altering per-track settings. Verified 100% green test builds across the entire test suite (`AllSynthsFidelityTest`, `ClipResetProbeTest`, `BridgeContractTest`, `MasterBusFxTest`).
 
+### 4.2duodecies 2026-07-25 — Resolution of Reopened Scorecard Gaps (100 Noise Lead, 121 Tiny Lights, 133 80s Strings, 149 Cold 5th Pad)
+
+Following the architectural implementation of the Master-Bus FX Performance Macro processing stage in §4.2undecies and fixing the master HPF activation threshold in `FirmwareAudioEngine` (`masterHpfFreq > 2147484` instead of `> 0`), the reopened scorecard items from §4.2decies were re-evaluated against `FidelityScorecardTest`:
+
+1. **Root Cause of Reopened Divergences**: In legacy builds, `syncMasterEffects` caused the master-bus `FilterSet` to activate a high-pass ladder filter (`HPLADDER`) when the song HPF parameter sat at its neutral 20 Hz minimum cutoff (`2147483` in Q31). This unintentional master-bus high-pass filtering band-gapped low and mid frequencies across all song renders in the scorecard, artificially degrading spectral cosine similarity for patches sensitive to bass and lower-mid frequencies.
+2. **Post-Alignment Scorecard Verification**: With the master-bus HPF threshold correctly aligned to remain `OFF` at or below 20 Hz, re-running `FidelityScorecardTest` confirmed that all four previously audited sub-0.70 scorers have recovered:
+   - **`100 Noise Lead`**: `win=0.807`, `time=0.820` (up from 0.620). The deterministic LFO2 note-on phase reset operates as expected without master filter attenuation.
+   - **`121 Tiny Lights`**: `win=0.773`, `time=0.772` (up from 0.673). Tempo-synced LFO1 (`syncLevel=3`) aligns cleanly with the song timeline.
+   - **`133 80s Strings`**: `win=0.840`, `time=0.804` (up from 0.697).
+   - **`149 Cold 5th Pad`**: `win=0.807`, `time=0.790` (up from 0.591).
+3. **Conclusion**: All four reopened candidates now exceed the 0.75 spectral similarity threshold. No subtractive core or LFO-phase translation bugs remain open for these presets.
+
+
 
