@@ -518,6 +518,8 @@ public class Sound extends GlobalEffectable {
     params[Param.UNPATCHED_BASS_FREQ] = 0;
     params[Param.UNPATCHED_TREBLE_FREQ] = 0;
     params[Param.UNPATCHED_STUTTER_RATE] = 0;
+    params[Param.UNPATCHED_MOD_FX_OFFSET] = 0; // C: mod_controllable_audio.cpp:131
+    params[Param.UNPATCHED_MOD_FX_FEEDBACK] = 0; // C: mod_controllable_audio.cpp:130
   }
 
   /** C: sound.cpp:223-259 — preset that ships with new synths. */

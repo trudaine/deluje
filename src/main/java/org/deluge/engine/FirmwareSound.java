@@ -357,7 +357,7 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
         nextPatchedParamValues,
         0,
         Math.min(paramNeutralValues.length, nextPatchedParamValues.length));
-    for (int i = 0; i < Param.kNumParams; i++) {
+    for (int i = 0; i < paramNeutralValues.length; i++) {
       int newValue = paramNeutralValues[i];
       boolean fromAutomation = false;
       var auto = paramManager.getAutomatedParam(i);
