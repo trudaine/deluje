@@ -82,6 +82,38 @@ public class FirmwareAudioEngine {
     masterCompressor.setBaseGain(0.85f);
   }
 
+  // ── Master Song-level FX (post-summation stage, ported from C++ Song / AudioEngine) ──
+  public final org.deluge.firmware2.ModFx masterModFx = new org.deluge.firmware2.ModFx();
+  public final org.deluge.firmware2.Eq masterEq = new org.deluge.firmware2.Eq();
+  public final org.deluge.firmware2.SrrBitcrush masterSrrBitcrush =
+      new org.deluge.firmware2.SrrBitcrush();
+  public final org.deluge.firmware2.FilterSet masterFilterSet =
+      new org.deluge.firmware2.FilterSet();
+  public final org.deluge.firmware2.Stutterer masterStutterer =
+      new org.deluge.firmware2.Stutterer();
+  private final int[] flatFilterBuffer = new int[256];
+
+  public org.deluge.firmware2.ModFx.ModFXType masterModFxType =
+      org.deluge.firmware2.ModFx.ModFXType.NONE;
+  public int masterModFxRate = 0;
+  public int masterModFxDepth = 0;
+  public int masterModFxOffset = 0;
+  public int masterModFxFeedback = 0;
+  public int masterEqBass = 0;
+  public int masterEqTreble = 0;
+  public int masterEqBassFreq = 0;
+  public int masterEqTrebleFreq = 0;
+  public int masterSrr = Integer.MIN_VALUE;
+  public int masterBitcrush = Integer.MIN_VALUE;
+  public int masterStutterRate = 0;
+  public int masterLpfFreq = 2147483647;
+  public int masterLpfRes = 0;
+  public int masterLpfMorph = 0;
+  public int masterHpfFreq = 0;
+  public int masterHpfRes = 0;
+  public int masterHpfMorph = 0;
+  public int songReverbAmount = 0x20000000;
+
   public final Delay masterDelay = new Delay();
   public final Reverb.Container masterReverb = new Reverb.Container();
   public final Delay.State delayState = new Delay.State();
@@ -110,7 +142,7 @@ public class FirmwareAudioEngine {
     // not a subclass of it), so that check never matched any real sound and auto-ducking never
     // engaged in production.
     FirmwareSound best = null;
-    int highestReverbAmountFound = Integer.MIN_VALUE; // C seeds with the song's own send amount
+    int highestReverbAmountFound = this.songReverbAmount; // C seeds with the song's own send amount
     for (int i = 0; i < sounds.size(); i++) {
       GlobalEffectable ge = sounds.get(i);
       if (ge instanceof FirmwareSound snd) {
@@ -252,6 +284,51 @@ public class FirmwareAudioEngine {
     float volFloat = project.getSongParamVolume();
     float bipolar = (volFloat * 2.0f) - 1.0f;
     this.songVolume = (int) (bipolar * 2147483647.0f);
+
+    // Sync Song-level Master FX params (analogous to C++ Song / AudioEngine::renderSongFX)
+    this.masterModFxRate = (int) (project.getSongParamModFXRate() * 2147483647.0f);
+    this.masterModFxDepth = (int) (project.getSongParamModFXDepth() * 2147483647.0f);
+    this.masterModFxOffset = (int) (project.getSongParamModFXOffset() * 2147483647.0f);
+    this.masterModFxFeedback = (int) (project.getSongParamModFXFeedback() * 2147483647.0f);
+
+    this.masterEqBass = (int) (project.getSongParamEqBass() * 2147483647.0f);
+    this.masterEqTreble = (int) (project.getSongParamEqTreble() * 2147483647.0f);
+    this.masterEqBassFreq =
+        (int) (project.getSongParamEqBassFrequency() / 20000.0f * 2147483647.0f);
+    this.masterEqTrebleFreq =
+        (int) (project.getSongParamEqTrebleFrequency() / 20000.0f * 2147483647.0f);
+
+    this.masterSrr = (int) (project.getSongParamSampleRateReduction() * 2147483647.0f);
+    this.masterBitcrush = (int) (project.getSongParamBitCrush() * 2147483647.0f);
+    this.masterStutterRate = (int) (project.getSongParamStutterRate() * 2147483647.0f);
+    this.songReverbAmount = (int) (project.getSongParamReverbAmount() * 2.0f * 536870912.0f);
+
+    this.masterLpfFreq = (int) (project.getSongParamLpfFrequency() / 20000.0f * 2147483647.0f);
+    this.masterLpfRes = (int) (project.getSongParamLpfResonance() * 2147483647.0f);
+    this.masterLpfMorph = (int) (project.getSongParamLpfMorph() * 2147483647.0f);
+    this.masterHpfFreq = (int) (project.getSongParamHpfFrequency() / 20000.0f * 2147483647.0f);
+    this.masterHpfRes = (int) (project.getSongParamHpfResonance() * 2147483647.0f);
+    this.masterHpfMorph = (int) (project.getSongParamHpfMorph() * 2147483647.0f);
+
+    org.deluge.firmware2.FilterSet.FilterMode lpfModeVal =
+        (this.masterLpfFreq < 2147483602 || this.masterLpfMorph != 0)
+            ? org.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB
+            : org.deluge.firmware2.FilterSet.FilterMode.OFF;
+    org.deluge.firmware2.FilterSet.FilterMode hpfModeVal =
+        (this.masterHpfFreq > 2147484 || this.masterHpfMorph != 0)
+            ? org.deluge.firmware2.FilterSet.FilterMode.HPLADDER
+            : org.deluge.firmware2.FilterSet.FilterMode.OFF;
+    this.masterFilterSet.setConfig(
+        this.masterLpfFreq,
+        this.masterLpfRes,
+        lpfModeVal,
+        this.masterLpfMorph,
+        this.masterHpfFreq,
+        this.masterHpfRes,
+        hpfModeVal,
+        this.masterHpfMorph,
+        2147483647,
+        org.deluge.firmware2.FilterRoute.LOW_TO_HIGH);
   }
 
   private long[] summedFlatBufferLong = new long[256];
@@ -334,6 +411,9 @@ public class FirmwareAudioEngine {
       monoReverbBuffer[i] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, revVal));
     }
 
+    // ── Song-level ModFX and EQ (post-summation, pre-reverb/delay; C song.cpp:2397) ──
+    renderSongPreReverbFX(numSamples);
+
     // C: audio_engine.cpp:806-844 — the reverb's own sidechain ("reverb compressor") ducks the
     // wet level. In the C's default "auto" mode, updateReverbParams borrows the sidechain
     // volume/shape/attack/release from the sound with the most reverb send that has a
@@ -382,6 +462,9 @@ public class FirmwareAudioEngine {
     // delay's own sync disabled (syncLevel 0), so timePerInternalTickInverse is unused here.
     masterDelay.setupWorkingState(delayState, 1 << 20, true);
     masterDelay.process(fxBuffer, numSamples, delayState);
+
+    // ── Song-level FilterSet and SRR/Bitcrush (post-reverb/delay; C audio_engine.cpp:825-842) ──
+    renderSongPostReverbFX(numSamples);
 
     // Metronome click — added dry, before the master compressor (C: audio_engine.cpp:626).
     if (metronomeEnabled) {
@@ -487,6 +570,60 @@ public class FirmwareAudioEngine {
           // voice list removed (fw2 manages its own)
         }
       }
+    }
+  }
+
+  /**
+   * C song.cpp:2397 — Song-level ModFX and EQ processed post-summation on the master buffer,
+   * pre-reverb.
+   */
+  private void renderSongPreReverbFX(int numSamples) {
+    if (masterModFxType != org.deluge.firmware2.ModFx.ModFXType.NONE
+        && masterModFxType != org.deluge.firmware2.ModFx.ModFXType.GRAIN) {
+      int[] dummyVol = {134217728};
+      masterModFx.processModFX(
+          fxBuffer,
+          numSamples,
+          masterModFxType,
+          masterModFxRate,
+          masterModFxDepth,
+          dummyVol,
+          masterModFxOffset,
+          masterModFxFeedback,
+          true,
+          true);
+    }
+    if (masterEqBass != 0 || masterEqTreble != 0) {
+      masterEq.process(
+          fxBuffer,
+          numSamples,
+          masterEqBass,
+          masterEqTreble,
+          masterEqBassFreq,
+          masterEqTrebleFreq);
+    }
+  }
+
+  /**
+   * C audio_engine.cpp:825-842 — Song-level FilterSet (LPF/HPF) and SRR/Bitcrush processed after
+   * reverb/delay.
+   */
+  private void renderSongPostReverbFX(int numSamples) {
+    if (masterFilterSet.isOn()) {
+      for (int i = 0; i < numSamples; i++) {
+        flatFilterBuffer[i * 2] = fxBuffer[i][0];
+        flatFilterBuffer[i * 2 + 1] = fxBuffer[i][1];
+      }
+      masterFilterSet.renderLongStereo(flatFilterBuffer, numSamples);
+      for (int i = 0; i < numSamples; i++) {
+        fxBuffer[i][0] = flatFilterBuffer[i * 2];
+        fxBuffer[i][1] = flatFilterBuffer[i * 2 + 1];
+      }
+    }
+    if (masterSrrBitcrush.isSRREnabled(masterSrr)
+        || masterSrrBitcrush.isBitcrushingEnabled(masterBitcrush)) {
+      int[] dummyVol = {134217728};
+      masterSrrBitcrush.process(fxBuffer, numSamples, masterBitcrush, masterSrr, dummyVol);
     }
   }
 }

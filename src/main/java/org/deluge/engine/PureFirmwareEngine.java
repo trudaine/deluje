@@ -18,15 +18,6 @@ public class PureFirmwareEngine {
 
   private float currentBpm = 120.0f;
 
-  // Last-seen song-param globals (NaN = never synced, so the first pass always applies them).
-  private float lastSpVol = Float.NaN;
-  private float lastSpLpfFreq = Float.NaN;
-  private float lastSpLpfRes = Float.NaN;
-  private float lastSpLpfMorph = Float.NaN;
-  private float lastSpHpfFreq = Float.NaN;
-  private float lastSpHpfRes = Float.NaN;
-  private float lastSpHpfMorph = Float.NaN;
-
   public PureFirmwareEngine() {
     this.audioDriver = new JavaAudioDriver(audioEngine, playbackHandler);
   }
@@ -235,43 +226,61 @@ public class PureFirmwareEngine {
       }
     }
 
-    // Song-param overrides (performance sliders). Only pushed into the sounds when a global
-    // actually CHANGES: the previous unconditional write (every 20ms, every sound) clobbered the
-    // per-track knobs from the patch — and would instantly undo the dialogs' live-apply edits.
+    // Sync song-level master performance macros (G_SP_*) to the master bus (analogous to C++ Song / AudioEngine::renderSongFX).
+    // Instead of clobbering per-track paramNeutralValues, we apply global song macros post-summation on the master buffer.
+    audioEngine.masterModFxRate = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE) * 2147483647.0f);
+    audioEngine.masterModFxDepth = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH) * 2147483647.0f);
+    audioEngine.masterModFxOffset = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET) * 2147483647.0f);
+    audioEngine.masterModFxFeedback = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_FEEDBACK) * 2147483647.0f);
+
+    audioEngine.masterEqBass = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_EQ_BASS) * 2147483647.0f);
+    audioEngine.masterEqTreble = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_EQ_TREBLE) * 2147483647.0f);
+    audioEngine.masterEqBassFreq =
+        (int) ((float) bridge.getGlobalFloat(BridgeContract.G_SP_EQ_BASS_FREQ) / 20000.0f * 2147483647.0f);
+    audioEngine.masterEqTrebleFreq =
+        (int) ((float) bridge.getGlobalFloat(BridgeContract.G_SP_EQ_TREBLE_FREQ) / 20000.0f * 2147483647.0f);
+
+    audioEngine.masterSrr = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_SAMPLE_RATE_REDUCTION) * 2147483647.0f);
+    audioEngine.masterBitcrush = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_BITCRUSH) * 2147483647.0f);
+    audioEngine.masterStutterRate = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_STUTTER_RATE) * 2147483647.0f);
+    audioEngine.songReverbAmount = (int) ((float) bridge.getGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT) * 2.0f * 536870912.0f);
+
+    float bipolarVol = (spVol * 2.0f) - 1.0f;
+    audioEngine.songVolume = (int) (bipolarVol * 2147483647.0f);
+
     float spLpfFreq = (float) bridge.getGlobalFloat(BridgeContract.G_SP_LPF_FREQ);
     float spLpfRes = (float) bridge.getGlobalFloat(BridgeContract.G_SP_LPF_RES);
     float spLpfMorph = (float) bridge.getGlobalFloat(BridgeContract.G_SP_LPF_MORPH);
     float spHpfFreq = (float) bridge.getGlobalFloat(BridgeContract.G_SP_HPF_FREQ);
     float spHpfRes = (float) bridge.getGlobalFloat(BridgeContract.G_SP_HPF_RES);
     float spHpfMorph = (float) bridge.getGlobalFloat(BridgeContract.G_SP_HPF_MORPH);
-    boolean spChanged =
-        spVol != lastSpVol
-            || spLpfFreq != lastSpLpfFreq
-            || spLpfRes != lastSpLpfRes
-            || spLpfMorph != lastSpLpfMorph
-            || spHpfFreq != lastSpHpfFreq
-            || spHpfRes != lastSpHpfRes
-            || spHpfMorph != lastSpHpfMorph;
-    if (spChanged) {
-      lastSpVol = spVol;
-      lastSpLpfFreq = spLpfFreq;
-      lastSpLpfRes = spLpfRes;
-      lastSpLpfMorph = spLpfMorph;
-      lastSpHpfFreq = spHpfFreq;
-      lastSpHpfRes = spHpfRes;
-      lastSpHpfMorph = spHpfMorph;
-      for (org.deluge.firmware2.GlobalEffectable sound : audioEngine.sounds) {
-        if (sound instanceof org.deluge.engine.FirmwareSound fs) {
-          fs.paramNeutralValues[Param.LOCAL_VOLUME] = (int) (spVol * 2147483647.0);
-          fs.paramNeutralValues[Param.LOCAL_LPF_FREQ] = (int) (spLpfFreq / 20000.0f * 2147483647.0);
-          fs.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] = (int) (spLpfRes * 2147483647.0);
-          fs.paramNeutralValues[Param.LOCAL_LPF_MORPH] = (int) (spLpfMorph * 2147483647.0);
-          fs.paramNeutralValues[Param.LOCAL_HPF_FREQ] = (int) (spHpfFreq / 20000.0f * 2147483647.0);
-          fs.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] = (int) (spHpfRes * 2147483647.0);
-          fs.paramNeutralValues[Param.LOCAL_HPF_MORPH] = (int) (spHpfMorph * 2147483647.0);
-        }
-      }
-    }
+
+    audioEngine.masterLpfFreq = (int) (spLpfFreq / 20000.0f * 2147483647.0f);
+    audioEngine.masterLpfRes = (int) (spLpfRes * 2147483647.0f);
+    audioEngine.masterLpfMorph = (int) (spLpfMorph * 2147483647.0f);
+    audioEngine.masterHpfFreq = (int) (spHpfFreq / 20000.0f * 2147483647.0f);
+    audioEngine.masterHpfRes = (int) (spHpfRes * 2147483647.0f);
+    audioEngine.masterHpfMorph = (int) (spHpfMorph * 2147483647.0f);
+
+    org.deluge.firmware2.FilterSet.FilterMode lpfModeVal =
+        (audioEngine.masterLpfFreq < 2147483602 || audioEngine.masterLpfMorph != 0)
+            ? org.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB
+            : org.deluge.firmware2.FilterSet.FilterMode.OFF;
+    org.deluge.firmware2.FilterSet.FilterMode hpfModeVal =
+        (audioEngine.masterHpfFreq > 2147484 || audioEngine.masterHpfMorph != 0)
+            ? org.deluge.firmware2.FilterSet.FilterMode.HPLADDER
+            : org.deluge.firmware2.FilterSet.FilterMode.OFF;
+    audioEngine.masterFilterSet.setConfig(
+        audioEngine.masterLpfFreq,
+        audioEngine.masterLpfRes,
+        lpfModeVal,
+        audioEngine.masterLpfMorph,
+        audioEngine.masterHpfFreq,
+        audioEngine.masterHpfRes,
+        hpfModeVal,
+        audioEngine.masterHpfMorph,
+        2147483647,
+        org.deluge.firmware2.FilterRoute.LOW_TO_HIGH);
   }
 
   public void setProject(org.deluge.model.ProjectModel project) {
