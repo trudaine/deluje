@@ -135,7 +135,6 @@ public class InstrumentXmlParser {
       new File(synthDir),
       new File(parent, folder),
       new File("src/main/resources", folder),
-      new File("/Users/ludo/ludocard", folder),
       new File(folder)
     };
     for (File dir : searchDirs) {
