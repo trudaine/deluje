@@ -82,7 +82,7 @@ public final class ModFx {
     if (modFXType == ModFXType.FLANGER
         || modFXType == ModFXType.PHASER
         || modFXType == ModFXType.WARBLE) {
-      // setupModFXWFeedback (C:92-139)
+      // C ModFXProcessor.cpp:100-119 — setupModFXWFeedback (flanger/warble feedback & lfo type)
       int a = modFXFeedback >> 1;
       int b = 2147483647 - ((a + 1073741824) >> 2) * 3;
       int c = Functions.multiply_32x32_rshift32(b, b);
@@ -113,7 +113,7 @@ public final class ModFx {
     } else if (modFXType == ModFXType.CHORUS
         || modFXType == ModFXType.CHORUS_STEREO
         || modFXType == ModFXType.DIMENSION) {
-      // setupChorus (C:75-91)
+      // C ModFXProcessor.cpp:84-99 — setupChorus (delay offset, depth & volume sqrt(2) division)
       modFXDelayOffset =
           Functions.multiply_32x32_rshift32(kModFXMaxDelay, (modFXOffset >> 1) + 1073741824);
       thisModFXDelayDepth = Functions.multiply_32x32_rshift32(modFXDelayOffset, modFXDepth) << 2;
@@ -122,7 +122,7 @@ public final class ModFx {
           Functions.multiply_32x32_rshift32(postFXVolume[0], 1518500250) << 1; // /sqrt(2)
     }
 
-    // processModFXBuffer (C:141-160)
+    // C ModFXProcessor.cpp:140-164 — processModFXBuffer (per-sample stereo/mono LFO dispatch)
     if (modFXType == ModFXType.PHASER) {
       for (int i = 0; i < numSamples; i++) {
         int lfo = modFXLFO.render(1, modFXLFOWaveType, modFXRate);
@@ -133,7 +133,7 @@ public final class ModFx {
 
     final int width = (int) (0.97 * 2147483647.0); // 0.97 * ONE_Q31 (C:166)
     for (int i = 0; i < numSamples; i++) {
-      // processModLFOs (C:162-178)
+      // C ModFXProcessor.cpp:167-179 — processModLFOs (lfo1 and lfo2 rendering for stereo/warble)
       int lfo1 = modFXLFO.render(1, modFXLFOWaveType, modFXRate);
       int lfo2;
       if (modFXType == ModFXType.WARBLE) {
@@ -167,7 +167,7 @@ public final class ModFx {
     }
   }
 
-  /** processOneModFXSample (ModFXProcessor.cpp:180-243). sample = {l, r}, modified in place. */
+  /** C ModFXProcessor.cpp:184-247 — processOneModFXSample. sample = {l, r}, modified in place. */
   private void processOneModFXSample(
       int[] sample,
       int modFXDelayOffset,
@@ -233,7 +233,7 @@ public final class ModFx {
     modFXBufferWriteIndex = (modFXBufferWriteIndex + 1) & kModFXBufferIndexMask;
   }
 
-  /** processOnePhaserSample (ModFXProcessor.cpp:245-269). "1" ~ 1073741824 here. */
+  /** C ModFXProcessor.cpp:249-273 — processOnePhaserSample. "1" ~ 1073741824 here. */
   private void processOnePhaserSample(int[] sample, int modFXDepth, int feedback, int lfoOutput) {
     int a1 =
         1073741824
