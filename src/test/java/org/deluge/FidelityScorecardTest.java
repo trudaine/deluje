@@ -134,7 +134,7 @@ public class FidelityScorecardTest {
       sum += cosine(spectrum(a, ao, frame), spectrum(b, bo, frame));
       cnt++;
     }
-    return cnt > 0 ? sum / cnt : 0;
+    return cnt > 0 ? sum / cnt : Double.NaN;
   }
 
   static float[] renderSynth(File xml) throws Exception {
@@ -402,12 +402,19 @@ public class FidelityScorecardTest {
         }
       }
       double sim = cosine(ours, spectrum(rec, bestOff, win));
-      all.add(sim);
       // Time-resolved score: align our render's onset (first frame above 10% of its peak) to the
       // hardware onset, then average per-frame spectral cosine across the note.
       int aOn = 0;
       while (aOn + win < our.length && rms(our, aOn, SR / 4) < 0.1 * ourMax) aOn += SR / 8;
       double ts = timeResolvedScore(our, aOn, rec, sliceStart, sliceEnd);
+      // FIDELITY_GAP_ANALYSIS.md §4.2septies item 3: if all evaluation frames are both-silent
+      // (e.g. genuinely near-silent slices like 129 Sci-fi Scenic), report as n/a instead of 0.000.
+      if (Double.isNaN(ts) || Double.isNaN(sim)) {
+        na.add(name);
+        System.out.printf("  %3d  %-30s   n/a (both silent in evaluation window)%n", k, name);
+        continue;
+      }
+      all.add(sim);
       tsAll.add(ts);
       System.out.printf("  %3d  %-30s  win=%.3f  time=%.3f%n", k, name, sim, ts);
     }
