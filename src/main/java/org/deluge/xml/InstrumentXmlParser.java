@@ -128,10 +128,13 @@ public class InstrumentXmlParser {
     SOUNDPARAMS_RAW_PATCHED.put("sidechainCompressorVolume", Param.UNPATCHED_SIDECHAIN_VOLUME);
   }
 
-  private static File resolvePresetFile(String folder, String presetName) {
+  static File resolvePresetFile(String folder, String presetName) {
     String synthDir = System.getProperty("synth.dir", "src/main/resources/SYNTHS");
+    String delugeCard = System.getProperty("deluge.card");
     File parent = new File(synthDir).getParentFile();
     File[] searchDirs = {
+      delugeCard != null ? new File(delugeCard, folder) : null,
+      delugeCard != null ? new File(delugeCard, "SYNTHS") : null,
       new File(synthDir),
       new File(parent, folder),
       new File("src/main/resources", folder),
