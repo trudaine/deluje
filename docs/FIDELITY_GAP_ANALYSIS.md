@@ -1082,6 +1082,56 @@ free-running LFO1→pitch cable at a known rate to pin the exact defect — Java
 found everything upstream faithful, so further progress needs a real measurement, not another
 read-audit.
 
+### 4.17 Ladder is BIT-EXACT to C — offline golden-buffer harness (2026-07-06)
+
+Built the standalone C golden-buffer harness the earlier sections kept deferring to (§4.10 "needs
+sample-level C diffing", §4.5 "no desktop-buildable C level reference"). It turns out the ladder
+DSP **is** desktop-buildable: `tools/ladder_harness/` compiles the **real** firmware `lpladder.cpp`
++ `lookuptables.cpp` with system `g++` and emits per-sample golden buffers; `LadderGoldenBufferTest`
+(`@Tag("slow")`) bit-diffs the Java `LpLadderFilter` against them. Only `AudioEngine::cpuDireness`
+(=0) and a couple of globals are stubbed — the tables and all DSP math are the firmware's own, so
+nothing can drift.
+
+**Result: all 9 cases match the C firmware BIT-EXACT (`maxAbsDiff = 0`)** — 12dB / 24dB / drive
+modes, across cutoff/resonance points including the high-resonance self-oscillation regime (the T09
+stress case, `f400_r2000`) and drive/saturation (the T28 case). Every sample of every buffer is
+identical. This is a far stronger confirmation than the hardware tap: the Java ladder is
+sample-for-sample the C ladder, including the CONG-noise moveability dither.
+
+Two port lessons the harness surfaced (both cited in `tools/ladder_harness/README.md`):
+(1) `Filter::dryFade` starts at 0 at runtime (the `FilterSet` zeroes the filter memory), **not** the
+`= 1` member initializer — the Java `dryFade = 0.0f` is correct; a naive harness that constructs the
+filter directly gets the wrong blend path. (2) the ladder calls `getNoise()` (CONG) every sample, so
+bit-exactness requires the shared PRNG seed (380116160, `Functions.resetNoiseSeed()`).
+
+**Corollary for T09/T28:** with the ladder now proven bit-exact, any residual T09 sub-harmonic or
+T28 drive-timbre gap is definitively **not** in the `LpLadderFilter` DSP — it is upstream (input
+level/gain into the filter, §4.5) or in the reference. This retires the ladder itself as a parity
+suspect. The same harness pattern (link the real C unit, stub the ARM globals, bit-diff) is the
+template for the next units — saturation, FmCore.
+
+### 4.18 FM operator kernel is BIT-EXACT to C — the "too-bright FM" is NOT in the kernel (2026-07-06)
+
+Applied the §4.17 harness pattern to the FM sideband generator. `tools/fm_harness/` compiles the
+**real** firmware `fm_op_kernel.cpp` + `math_lut.cpp` on desktop `g++` (filling the real `sintab`
+via `dx_init_lut_data`, so `Sin::lookup` runs on the firmware's own SIN_DELTA table); only the ARM
+`neon_fm_kernel` asm (never called — harness passes `neon=false`) and the `dxEngine` global are
+stubbed. `FmKernelGoldenBufferTest` (`@Tag("slow")`) bit-diffs the Java `FmCore` kernel
+(`computeNormal`/`computePure`/`computeFb`, via reflection) against the goldens.
+
+**Result: all 3 operator modes match BIT-EXACT (`maxAbsDiff = 0`)** — feedback (`compute_fb`, the
+FM feedback recurrence), pure carrier (`compute_pure`), and modulated (`compute`). The FM operator
+math and `Sin::lookup`/`Dx7Tables.sinLookup` are sample-identical to the C.
+
+**This settles the biggest scorecard cluster's locus.** The "too-bright FM" (§4.12 arc; FM Bells
+0.1–0.4) is **definitively NOT in the FM operator kernel** — the sideband generation is bit-exact.
+The residual must be in the layers *above* the kernel: the operator **envelope** (level→gain via
+`exp2Lookup`, `Env`/`Dx7Voice`), **algorithm routing** (which op feeds which), operator
+**frequency/ratio** setup, or **pitch**. That is where FM auditing effort should now go — and each
+is itself harness-able (link `env.cpp`, `dx7note.cpp`) the same way. Matches the pitch-matched tap
+verdict (§4.12quater: attack faithful, only a modest decay residual) and localizes it further:
+decay lives in the envelope, not the kernel.
+
 ## 5. Real bugs: synths our engine renders SILENT
 
 These produce no sound in-engine but DO sound on hardware. Highest priority — they're 0 fidelity:

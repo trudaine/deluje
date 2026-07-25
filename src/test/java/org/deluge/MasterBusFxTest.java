@@ -3,15 +3,13 @@ package org.deluge;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.deluge.engine.FirmwareAudioEngine;
-import org.deluge.firmware2.FilterSet;
-import org.deluge.firmware2.ModFx;
 import org.deluge.model.ProjectModel;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit tests verifying master-bus FX performance macro wiring (§4.16 item 2).
- * Confirms that song-level performance macros configure master post-processing stages
- * without clobbering per-track parameter neutral values.
+ * Unit tests verifying master-bus FX performance macro wiring (§4.16 item 2). Confirms that
+ * song-level performance macros configure master post-processing stages without clobbering
+ * per-track parameter neutral values.
  */
 public class MasterBusFxTest {
 
@@ -27,7 +25,8 @@ public class MasterBusFxTest {
     // Set song-level LPF performance macro to 500 Hz
     project.setSongParamLpfFrequency(500.0f);
     engine.syncMasterEffects(project);
-    assertTrue(engine.masterFilterSet.isOn(), "Master filter should activate when LPF frequency lowered");
+    assertTrue(
+        engine.masterFilterSet.isOn(), "Master filter should activate when LPF frequency lowered");
   }
 
   @Test

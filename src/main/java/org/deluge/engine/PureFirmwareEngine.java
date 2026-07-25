@@ -1,7 +1,6 @@
 package org.deluge.engine;
 
 import org.deluge.BridgeContract;
-import org.deluge.firmware2.Param;
 import org.deluge.playback.PlaybackHandler;
 
 /**
@@ -226,24 +225,45 @@ public class PureFirmwareEngine {
       }
     }
 
-    // Sync song-level master performance macros (G_SP_*) to the master bus (analogous to C++ Song / AudioEngine::renderSongFX).
-    // Instead of clobbering per-track paramNeutralValues, we apply global song macros post-summation on the master buffer.
-    audioEngine.masterModFxRate = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE) * 2147483647.0f);
-    audioEngine.masterModFxDepth = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH) * 2147483647.0f);
-    audioEngine.masterModFxOffset = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET) * 2147483647.0f);
-    audioEngine.masterModFxFeedback = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_FEEDBACK) * 2147483647.0f);
+    // Sync song-level master performance macros (G_SP_*) to the master bus (analogous to C++ Song /
+    // AudioEngine::renderSongFX).
+    // Instead of clobbering per-track paramNeutralValues, we apply global song macros
+    // post-summation on the master buffer.
+    audioEngine.masterModFxRate =
+        (int) (bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE) * 2147483647.0f);
+    audioEngine.masterModFxDepth =
+        (int) (bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH) * 2147483647.0f);
+    audioEngine.masterModFxOffset =
+        (int) (bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET) * 2147483647.0f);
+    audioEngine.masterModFxFeedback =
+        (int) (bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_FEEDBACK) * 2147483647.0f);
 
-    audioEngine.masterEqBass = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_EQ_BASS) * 2147483647.0f);
-    audioEngine.masterEqTreble = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_EQ_TREBLE) * 2147483647.0f);
+    audioEngine.masterEqBass =
+        (int) (bridge.getGlobalFloat(BridgeContract.G_SP_EQ_BASS) * 2147483647.0f);
+    audioEngine.masterEqTreble =
+        (int) (bridge.getGlobalFloat(BridgeContract.G_SP_EQ_TREBLE) * 2147483647.0f);
     audioEngine.masterEqBassFreq =
-        (int) ((float) bridge.getGlobalFloat(BridgeContract.G_SP_EQ_BASS_FREQ) / 20000.0f * 2147483647.0f);
+        (int)
+            ((float) bridge.getGlobalFloat(BridgeContract.G_SP_EQ_BASS_FREQ)
+                / 20000.0f
+                * 2147483647.0f);
     audioEngine.masterEqTrebleFreq =
-        (int) ((float) bridge.getGlobalFloat(BridgeContract.G_SP_EQ_TREBLE_FREQ) / 20000.0f * 2147483647.0f);
+        (int)
+            ((float) bridge.getGlobalFloat(BridgeContract.G_SP_EQ_TREBLE_FREQ)
+                / 20000.0f
+                * 2147483647.0f);
 
-    audioEngine.masterSrr = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_SAMPLE_RATE_REDUCTION) * 2147483647.0f);
-    audioEngine.masterBitcrush = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_BITCRUSH) * 2147483647.0f);
-    audioEngine.masterStutterRate = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_STUTTER_RATE) * 2147483647.0f);
-    audioEngine.songReverbAmount = (int) ((float) bridge.getGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT) * 2.0f * 536870912.0f);
+    audioEngine.masterSrr =
+        (int) (bridge.getGlobalFloat(BridgeContract.G_SP_SAMPLE_RATE_REDUCTION) * 2147483647.0f);
+    audioEngine.masterBitcrush =
+        (int) (bridge.getGlobalFloat(BridgeContract.G_SP_BITCRUSH) * 2147483647.0f);
+    audioEngine.masterStutterRate =
+        (int) (bridge.getGlobalFloat(BridgeContract.G_SP_STUTTER_RATE) * 2147483647.0f);
+    audioEngine.songReverbAmount =
+        (int)
+            ((float) bridge.getGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT)
+                * 2.0f
+                * 536870912.0f);
 
     float bipolarVol = (spVol * 2.0f) - 1.0f;
     audioEngine.songVolume = (int) (bipolarVol * 2147483647.0f);

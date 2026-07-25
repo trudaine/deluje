@@ -595,12 +595,7 @@ public class FirmwareAudioEngine {
     }
     if (masterEqBass != 0 || masterEqTreble != 0) {
       masterEq.process(
-          fxBuffer,
-          numSamples,
-          masterEqBass,
-          masterEqTreble,
-          masterEqBassFreq,
-          masterEqTrebleFreq);
+          fxBuffer, numSamples, masterEqBass, masterEqTreble, masterEqBassFreq, masterEqTrebleFreq);
     }
   }
 
