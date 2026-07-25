@@ -1692,5 +1692,19 @@ Following the architectural implementation of the Master-Bus FX Performance Macr
    - **`149 Cold 5th Pad`**: `win=0.807`, `time=0.790` (up from 0.591).
 3. **Conclusion**: All four reopened candidates now exceed the 0.75 spectral similarity threshold. No subtractive core or LFO-phase translation bugs remain open for these presets.
 
+### 4.2terdecies 2026-07-25 — Unpatched Parameter Synchronization Bug & ModFX Default Initialization Fix
+
+During our systematic investigation into why **`083 Dark Chorus`** scored as an outlier on the time-resolved spectral scorecard (`0.499`), we uncovered and resolved a critical parameter synchronization truncation bug in `FirmwareSound.java` alongside missing unpatched parameter defaults in `Sound.java`.
+
+1. **Architectural Root Cause**:
+   - In native C++ firmware (`ParamManager`, `param_manager.h`), parameters are partitioned into patched parameters (`0` to `54`) and unpatched parameters (`90` to `131`, including stutter rate, EQ bass/treble, SRR/bitcrushing, ModFX offset/feedback, and compressor threshold).
+   - In our Java port, all parameter slots were unified into single 200-element arrays on `FirmwareSound` (`patchedParamValues`, `paramKnobs`, `paramNeutralValues`). However, `syncParamsToFw2()` looped ONLY over `for (int i = 0; i < Param.kNumParams; i++)` (`kNumParams = 55`), completely ignoring indices `55` to `199`.
+   - Before every block render, `syncParamsToFw2()` copied `paramNeutralValues` (initialized by default to `Integer.MIN_VALUE` / `-2147483648`) into `nextPatchedParamValues`, and then updated indices `0` to `54` from `paramKnobs`. Because the loop stopped at `54`, unpatched slots `90` to `131` were **never updated from knob overrides**, remaining permanently at `-2147483648`.
+   - Consequently, when rendering `083 Dark Chorus`, `fw2Sound.modFXOffset` and `fw2Sound.modFXFeedback` were overwritten to `-2147483648` (`OFF`) on every block render, silencing chorus delay modulation and feedback across the engine.
+2. **Resolution & Parity Alignment**:
+   - **`FirmwareSound.syncParamsToFw2()`**: Extended the parameter copying and knob override loop from `Param.kNumParams` to `paramNeutralValues.length` (`200`). This ensures all unpatched parameter knob overrides (indices `90` to `131`) are properly copied into `patchedParamValues` prior to rendering.
+   - **`Sound.initParams()`**: Added explicit initialization for `Param.UNPATCHED_MOD_FX_OFFSET = 0` and `Param.UNPATCHED_MOD_FX_FEEDBACK = 0`, matching native C++ `mod_controllable_audio.cpp:130-131` (`setCurrentValueBasicForSetup(0)`).
+3. **Verification**: Verified that unpatched ModFX parameters remain stable across block renders in `Preset083AuditTest`, and confirmed 100% green test builds across the entire regression suite (`AllSynthsFidelityTest`, `ClipResetProbeTest`, `BridgeContractTest`, `MasterBusFxTest`, `LadderGoldenBufferTest`).
+
 
 
