@@ -554,16 +554,11 @@ public class FirmwareFactory {
     // is carried separately in sound.fmModulatorAmount, no longer smuggled through OSC_B_VOLUME).
     sound.paramKnobs[Param.LOCAL_OSC_A_VOLUME] = normToBipolarParamVolume(model.getOscAVolume());
     sound.paramKnobs[Param.LOCAL_OSC_B_VOLUME] = normToBipolarParamVolume(model.getOscBVolume());
-    // Osc 2 "NONE"/off must silence osc B. The C has no NONE osc type — osc 2 is turned off by its
-    // volume param being MIN_VALUE (isSourceActiveCurrently). stringToOscType maps "NONE"→SINE, so
-    // without this a phantom SINE renders (audible whenever oscs differ in pitch).
-    String osc2t = model.getOsc2Type();
-    if (osc2t == null
-        || osc2t.isBlank()
-        || osc2t.equalsIgnoreCase("none")
-        || osc2t.equalsIgnoreCase("off")) {
-      sound.paramKnobs[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
-    }
+    // No "NONE"-type silencing here: the C has no NONE osc type — an unrecognized type string
+    // (including "none") renders as TRIANGLE (functions.cpp:812-814) and osc 2 is turned off by
+    // its volume param being MIN_VALUE (isSourceActiveCurrently). Internal "NONE" users (new
+    // tracks, Ableton import) already zero the osc-B volume via setOscMix(1). The former guard
+    // silenced hardware-audible triangles (ALLSYN_2 sample-preset tails).
     sound.paramKnobs[Param.LOCAL_NOISE_VOLUME] = normToBipolarParamVolume(model.getNoiseVol());
     if (model.getOsc1PitchAdjustQ31() != Integer.MIN_VALUE) {
       sound.paramKnobs[Param.LOCAL_OSC_A_PITCH_ADJUST] = model.getOsc1PitchAdjustQ31();
@@ -1007,7 +1002,7 @@ public class FirmwareFactory {
 
   private static OscType stringToOscType(String s) {
     if (s == null) return OscType.SINE;
-    // The Deluge XML names (C stringToOscType, functions.cpp:760-790) don't match the enum
+    // The Deluge XML names (C stringToOscType, functions.cpp:777-814) don't match the enum
     // constants for the analog models — map them explicitly (they silently became SINE before).
     String t = s.trim();
     if (t.equalsIgnoreCase("analogSaw")) return OscType.ANALOG_SAW_2;
@@ -1018,7 +1013,12 @@ public class FirmwareFactory {
     try {
       return OscType.valueOf(t.toUpperCase());
     } catch (Exception e) {
-      return OscType.SINE;
+      // C functions.cpp:812-814: the else branch of stringToOscType returns TRIANGLE for any
+      // unrecognized name — including "none", which the C enum doesn't have. Hardware-verified:
+      // instruments carrying osc2 type="none" play a TRIANGLE at the osc-B volume param (the
+      // ALLSYN_2 sample-preset tails), so an "off" osc type must come from volume MIN, not a
+      // silent fallback.
+      return OscType.TRIANGLE;
     }
   }
 

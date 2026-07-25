@@ -12,10 +12,14 @@ import org.deluge.model.SynthTrackModel;
 import org.junit.jupiter.api.Test;
 
 /**
- * Guards two osc-config bugs: (1) osc2 coarse transpose/cents must reach the DSP (faithful
- * sources[s].transpose / fineTuner), and (2) osc2Type="NONE" must silence osc B (no phantom SINE).
- * Uses Goertzel power at the C4 fundamental (261) vs the octave (522) — RMS/autocorrelation are
- * unreliable here (the latter is what previously masked a phantom osc-B SINE).
+ * Guards osc-config semantics: (1) osc2 coarse transpose/cents must reach the DSP (faithful
+ * sources[s].transpose / fineTuner), and (2) the C-faithful "NONE" contract — the C has no NONE osc
+ * type (stringToOscType's else branch returns TRIANGLE, functions.cpp:812-814), so an osc is turned
+ * off by its VOLUME param being MIN (isSourceActiveCurrently), never by a type-based silence.
+ * Hardware-verified via the ALLSYN_2 sample presets, whose osc2 type="none" audibly plays a
+ * triangle tail on the recording. Uses Goertzel power at the C4 fundamental (261) vs the octave
+ * (522) — RMS/autocorrelation are unreliable here (the latter is what previously masked a phantom
+ * osc-B SINE).
  */
 public class OscConfigFixTest {
 
@@ -81,10 +85,28 @@ public class OscConfigFixTest {
   }
 
   @Test
-  void osc2NoneSilencesPhantom() {
-    // osc1 +octave with osc2 NONE: the master must be a clean 522, NOT corrupted by a phantom oscB.
+  void osc2NoneWithVolumeOffIsSilent() {
+    // osc1 +octave with osc2 NONE and osc-B volume OFF (setOscMix(1) → volume 0 → param MIN, the
+    // C's isSourceActiveCurrently off state): the master must be a clean 522.
+    double r =
+        octaveRatio(
+            s -> {
+              s.setOscMix(1.0f);
+              s.setOsc1PitchAdjustQ31(0x20000000);
+            });
+    System.out.printf("[osc2 NONE, vol off] oscA+oct master 522/261=%.3f (=> >>1)%n", r);
+    assertTrue(r > 50.0, "osc B with volume MIN must be silent (ratio " + r + ")");
+  }
+
+  @Test
+  void osc2NoneWithVolumeUpPlaysTriangleLikeC() {
+    // C functions.cpp:812-814: an unrecognized osc type ("none" included) is TRIANGLE, audible
+    // whenever the osc-B volume param is up — there is no type-based silencing in the firmware.
+    // With osc A raised an octave (522) and osc B left at the default audible volume, the
+    // triangle's 261 fundamental must dominate the ratio.
     double r = octaveRatio(s -> s.setOsc1PitchAdjustQ31(0x20000000)); // osc2 stays NONE
-    System.out.printf("[osc2 NONE] oscA+oct master 522/261=%.3f (no phantom => >>1)%n", r);
-    assertTrue(r > 50.0, "phantom osc B corrupted osc-A pitch (ratio " + r + ")");
+    System.out.printf("[osc2 NONE, vol up] 522/261=%.3f (triangle at 261 => <1)%n", r);
+    assertTrue(
+        r < 1.0, "osc2 type=none with volume up must render the C's TRIANGLE (ratio " + r + ")");
   }
 }

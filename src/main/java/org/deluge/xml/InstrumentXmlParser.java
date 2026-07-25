@@ -1647,15 +1647,10 @@ public class InstrumentXmlParser {
     knobs.setRawParamKnob(Param.LOCAL_VOLUME, 0); // sound.cpp:147
     knobs.setRawParamKnob(Param.LOCAL_PAN, 0); // sound.cpp:199
     knobs.setRawParamKnob(Param.LOCAL_OSC_A_VOLUME, Integer.MAX_VALUE); // sound.cpp:148
-    String o2t = synth.getOsc2Type();
-    boolean osc2Real =
-        o2t != null
-            && !o2t.isBlank()
-            && !o2t.equalsIgnoreCase("none")
-            && !o2t.equalsIgnoreCase("off");
-    // sound.cpp:149 — FULL in C; kept at OFF when our model has no real osc2 type (the C has no
-    // NONE osc type — see the factory's phantom-SINE guard, which this raw write would defeat).
-    knobs.setRawParamKnob(Param.LOCAL_OSC_B_VOLUME, osc2Real ? Integer.MAX_VALUE : off);
+    // sound.cpp:149 — osc B volume FULL, unconditionally: the C has no NONE osc type (an
+    // unrecognized type renders TRIANGLE, functions.cpp:812-814), so there is no type-based
+    // silencing to preserve here.
+    knobs.setRawParamKnob(Param.LOCAL_OSC_B_VOLUME, Integer.MAX_VALUE);
     knobs.setRawParamKnob(Param.LOCAL_NOISE_VOLUME, off); // sound.cpp:200
     knobs.setRawParamKnob(Param.LOCAL_FOLD, off); // sound.cpp:153
     synth.setWaveFoldQ31(off);

@@ -1542,3 +1542,36 @@ Exposed follow-ups (documented, NOT regressions of this change's semantics):
    cables); our faithful quiet render now makes every frame-pair "both silent" → skipped →
    cnt=0 → 0.000. The baseline 0.794 was our WRONG loud render cosine'd against noise floor.
    Consider a "both-silent → n/a" rule for the metric (as a separate, non-DSP change).
+
+### 4.2octies 2026-07-25 — osc type "none" is the C's TRIANGLE fallback: sample family recovered; median 0.92
+
+Follow-up 1 of 4.2septies (the 14 unnumbered multisample presets at ALLSYN_2's tail, worst
+SolidBassShort 0.938→0.230) is RESOLVED, and the root cause was neither the sample path nor the
+envelope. Bisecting the C-exact reset group-by-group against SolidBassShort's dead-at-0.3s
+render isolated OSC_B_VOLUME; the sustaining 3-second layer in the hardware recording is
+**oscillator B rendering the C's fallback for an unrecognized osc type**. These instruments
+carry `<osc2 type="none">` (authored by our exporter — the C serializer can't write "none"),
+and the C's `stringToOscType` (functions.cpp:777-814) has no "none" case: its else branch
+returns **OscType::TRIANGLE**. So the hardware plays a full-volume triangle on osc B (clip-path
+initParams volume = MAX) under the default envelope — the identical slow-decay tails measured
+across all 14 recordings. Our engine mapped unknown types to SINE and then force-silenced
+"NONE" via a factory guard (added 2026-06 as the "phantom SINE" fidelity fix — a compensating
+hack, in hindsight: the phantom was real on hardware, just the wrong waveform).
+
+Fix: `FirmwareFactory.stringToOscType` unknown-type fallback SINE → TRIANGLE (C-exact), the
+NONE-silencing guard removed (an osc is off ONLY via its volume param = MIN,
+isSourceActiveCurrently — internal "NONE" users like Ableton import already zero osc-B volume
+via setOscMix(1)), and the clip reset's osc2-type special case removed (OSC_B_VOLUME = MAX
+unconditionally, sound.cpp:149). OscConfigFixTest updated to guard the C-faithful contract both
+ways (volume-off silence; none-with-volume plays triangle).
+
+Scorecard: **time median 0.919, mean 0.903, ≥0.80: 93%, ≥0.90: 63%, <0.60: 1, n=186** (from
+0.914/0.892/90%/59% before; original 2026-07-25 baseline 0.831/0.794/59%/27%). The whole
+sample family snapped back at or above its old scores: SolidBassShort 0.230→0.929,
+SolidBassMidLong 0.559→0.949, SawFifthFilter 0.676→0.924, Wood Flute Verb 0.702→0.924,
+Stone Skip →0.931, Tube Slap →0.932, Vibraphone →0.857; Xax Stacato recovered from
+not-measurable. Only regression: 128_SYNTH_DUAL_MOD_C5 −0.058 (0.944→0.886, also an osc2
+"none" preset — its recording detail prefers less osc-B; small, accepted). Remaining n/a: 109
+(12dB band-gap level, 4.2septies follow-up 2) and 129 (hardware genuinely near-silent,
+follow-up 3). vs the pre-4.2septies baseline: mean +0.105, 106 presets improved >0.05, 3
+regressed (worst −0.072).
