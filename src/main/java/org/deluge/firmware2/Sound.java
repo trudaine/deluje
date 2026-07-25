@@ -1072,6 +1072,7 @@ public class Sound extends GlobalEffectable {
           int zoneTranspose = Integer.MIN_VALUE; // INT_MIN = no zone (single sample)
           int zoneCents = 0;
 
+          // C source.cpp:127 / multisample_range.h — multisample key/velocity zone matching
           if (!sourceZones[s].isEmpty()) {
             CompiledKeyZone matchedZone = null;
             for (CompiledKeyZone kz : sourceZones[s]) {

@@ -165,65 +165,72 @@ public class WaveTable {
 
         int crossCycleStrength2 = currentWaveIndexScaled << lshiftAmountToGetCrossCycleStrength;
 
-        // Adjust band if we cross boundaries where it lacks data
+        // Adjust band if we cross boundaries where it lacks data (C wave_table.cpp:1113-1121).
+        boolean validBandFound = true;
         while (bandHere.fromCycleNumber > firstCycleNumber
             || bandHere.toCycleNumber <= firstCycleNumber + 1) {
           int idx = bands.indexOf(bandHere);
           if (idx < bands.size() - 1) {
             bandHere = bands.get(idx + 1);
           } else {
+            validBandFound = false;
             break;
           }
         }
 
-        int whichKernel = getKernelIndex(phaseIncrement, bandHere.maxPhaseIncrement);
-        short[][] kernel = SincKernel.windowedSincKernel[whichKernel];
+        if (validBandFound) {
+          int whichKernel = getKernelIndex(phaseIncrement, bandHere.maxPhaseIncrement);
+          short[][] kernel = SincKernel.windowedSincKernel[whichKernel];
 
-        if (doOscSync) {
-          // C wave_table.cpp:1128-1145 — the cycle chunk renders through renderOscSync with
-          // doRenderingLoop as the segment renderer; crossCycleStrength2 advances between
-          // sync sessions via the redo callback.
-          final WaveTableBand bandF = bandHere;
-          final int firstCycleF = firstCycleNumber;
-          final short[][] kernelF = kernel;
-          final int ccsInc = crossCycleStrength2Increment;
-          final int[] ccs = {crossCycleStrength2};
-          currentPhase =
-              renderOscSyncSessions(
-                  outputBuffer,
-                  currentOffset,
-                  numSamplesThisLoop,
-                  phaseIncrement,
-                  currentPhase,
-                  resetterPhaseThisCycle,
-                  resetterPhaseIncrement,
-                  resetterDivideByPhaseIncrement,
-                  retriggerPhase,
-                  (from, count, ph) ->
-                      doRenderingLoop(
-                          outputBuffer,
-                          from,
-                          count,
-                          firstCycleF,
-                          bandF,
-                          ph,
-                          phaseIncrement,
-                          ccs[0],
-                          ccsInc,
-                          kernelF),
-                  samplesIncl -> ccs[0] += ccsInc * (samplesIncl - 1));
+          if (doOscSync) {
+            // C wave_table.cpp:1128-1145 — the cycle chunk renders through renderOscSync with
+            // doRenderingLoop as the segment renderer; crossCycleStrength2 advances between
+            // sync sessions via the redo callback.
+            final WaveTableBand bandF = bandHere;
+            final int firstCycleF = firstCycleNumber;
+            final short[][] kernelF = kernel;
+            final int ccsInc = crossCycleStrength2Increment;
+            final int[] ccs = {crossCycleStrength2};
+            currentPhase =
+                renderOscSyncSessions(
+                    outputBuffer,
+                    currentOffset,
+                    numSamplesThisLoop,
+                    phaseIncrement,
+                    currentPhase,
+                    resetterPhaseThisCycle,
+                    resetterPhaseIncrement,
+                    resetterDivideByPhaseIncrement,
+                    retriggerPhase,
+                    (from, count, ph) ->
+                        doRenderingLoop(
+                            outputBuffer,
+                            from,
+                            count,
+                            firstCycleF,
+                            bandF,
+                            ph,
+                            phaseIncrement,
+                            ccs[0],
+                            ccsInc,
+                            kernelF),
+                    samplesIncl -> ccs[0] += ccsInc * (samplesIncl - 1));
+          } else {
+            doRenderingLoop(
+                outputBuffer,
+                currentOffset,
+                numSamplesThisLoop,
+                firstCycleNumber,
+                bandHere,
+                currentPhase,
+                phaseIncrement,
+                crossCycleStrength2,
+                crossCycleStrength2Increment,
+                kernel);
+            currentPhase += phaseIncrement * numSamplesThisLoop;
+          }
         } else {
-          doRenderingLoop(
-              outputBuffer,
-              currentOffset,
-              numSamplesThisLoop,
-              firstCycleNumber,
-              bandHere,
-              currentPhase,
-              phaseIncrement,
-              crossCycleStrength2,
-              crossCycleStrength2Increment,
-              kernel);
+          // C wave_table.cpp:1117 — goto doneRenderingACycle skips rendering when no band covers cycle transition
           currentPhase += phaseIncrement * numSamplesThisLoop;
         }
 
