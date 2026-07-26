@@ -1901,3 +1901,34 @@ Two harness lessons (real, cost me two failed runs):
    realistic reverb send levels). The 3 impulse cases were bit-exact throughout, isolating both issues to the
    harness input, not the DSP. Filter+reverb golden coverage now: LP (9), HP (5), SVF (5), Freeverb (4) —
    all bit-exact. The compressor remains structural-read-only (libm exp/log, §4.2vicessemel).
+
+### 4.2vicester 2026-07-26 — DelayBuffer resampled-write faithful; golden-harness desktop boundary mapped
+
+Continued the golden-harness sweep; two results.
+
+**DelayBuffer.writeResampled — read-audited faithful (a `>>>`-vs-`>>` that LOOKS like a bug but is
+provably safe).** In the fast-spin path (`actualSpinRate >= kMaxSampleValue`), the strength term is:
+- C (`delay_buffer.h`): `((distanceFromMainWrite - strength2) >> 4)` — signed arithmetic shift (both int32_t)
+- Java (`DelayBuffer.java`): `((distanceFromMainWrite - strength2) >>> 4)` — logical unsigned shift
+
+These would diverge wildly if the operand were negative (C sign-extends, Java zero-fills). But it is
+**provably non-negative**: `strength2` is `advance()`'s return `(longPos >> 8) & 65535` ≤ 65535, and in that
+loop `distanceFromMainWrite` is a positive multiple of 65536 (min 65536 when the body executes), so
+`distanceFromMainWrite - strength2 >= 1`. The left loop uses `distanceFromMainWrite + strength2` (starts 0,
+strength2 ≥ 0 → non-negative), and the slow-spin path gates `strength[i] >>> 2` behind `if (strength[i] > 0)`.
+So `>>>` == `>>` for all reachable values — faithful. **Do NOT "fix" the `>>>` to `>>`** (or vice versa);
+the invariant is the strength range, documented here.
+
+**Golden-harness desktop boundary (which firmware DSP units the bit-exact method can/can't reach):**
+- DONE, bit-exact: LP ladder (9), HP ladder (5, found+fixed a real init bug §4.2undevicies), SVF (5),
+  Freeverb (4), FM op kernel (earlier) — all self-contained, integer, non-SIMD, desktop-linkable.
+- Structural-read-only (not bit-exact-able): Compressor (libm exp/log, §4.2vicessemel), SrrBitcrush (faithful),
+  DelayBuffer resampled write (this).
+- BLOCKED from desktop harnessing: Oscillator and Wavetable render pull `render_wave.h` →
+  `vector_rendering_function.h` → **Argon (ARM-NEON SIMD, requires `arm/neon.h`, no x86 backend)** — cannot
+  compile on desktop g++. The full `Delay` class also fails on `std::views::zip` (g++-12 libstdc++ gap),
+  though `delay_buffer.cpp` compiles. For these, line-by-line read is the method (as done above for DelayBuffer).
+
+Net: the bit-exact golden method has covered every self-contained integer non-SIMD DSP leaf; remaining units
+are either float (structural read) or ARM-SIMD (blocked — read-audit only). One real bug found across the
+whole sweep (HP ladder init), everything else faithful.
