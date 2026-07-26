@@ -1842,3 +1842,41 @@ proxy) is now backed by a bit-exact guarantee. Filter family golden coverage now
 cases), HP ladder (§4.2undevicies, 5), SVF (this, 5) — all bit-exact. Next harness candidates by the same
 method: Compressor / `rms_feedback.cpp` and Reverb / `freeverb.cpp` (both currently guarded only by
 behavioral proxies; both carry float state, so expect harness care around FP determinism).
+
+### 4.2vicessemel 2026-07-26 — SRR/bitcrush faithful (100 Noise Lead lead cleared); compressor/reverb are float-domain — bit-exact golden is the wrong tool
+
+Read-audits (CLAUDE.md primary method) across three units the golden-buffer harness cannot cleanly cover:
+
+1. **SRR / bitcrush (`SrrBitcrush.java` vs `ModControllableAudio::processSRRAndBitcrushing`)** — the unit a
+   deleted scratch harness (`FidelityDebug`) was probing for `100 Noise Lead` (SRR `0xBE000000`, bitcrush
+   `0x58000000`). Verified **faithful line-by-line**: `isBitcrushingEnabled` threshold `>= -2113929216`,
+   `isSRREnabled` `!= -2147483648`, the `+2^31` (== `+ Integer.MIN_VALUE` mod 2^32) positivePreset trick,
+   unsigned shifts (`>>> 29`, `>>> 3`), the `19+preset` / `18+preset` masks, `getExp`, and the full SRR
+   down/up-conversion spinner (grabbedSample / lowSampleRatePos / highSampleRatePos) all match C exactly.
+   No bug — the preset legitimately has SRR+bitcrush active (both pass the C enable thresholds), so our
+   render matches what the C firmware produces. `100 Noise Lead`'s residual (already 0.843, above target)
+   is NOT in this path; the scratch probe was inconclusive/superseded and its file was removed.
+
+2. **Compressor (`Compressor.java` vs `rms_feedback.cpp`)** — **structurally faithful line-by-line**: the
+   `render` audio path (`updateER` → `over` → `runEnvelope` → `reduction` → `dbGain` → `exp` → `min(31)` →
+   `finalVolume` → `amplitudeIncrement`) and its fixed-point conversions (`>>9`, `>>8`, `<<8`) match C.
+   BUT the path is float-heavy — `std::exp(dbGain)` feeds the per-sample volume increment, plus
+   `std::log`/`std::sqrt`/`logf` in RMS/envelope/ER. Java `Math.exp/log` (double-then-cast) vs C ARM-libm
+   `expf/logf` (float-native) are **not** bit-identical (last-ULP), and Java has no float-native exp/log to
+   match with. So a bit-exact golden buffer here would report JVM-vs-libm ULP noise as false failures — the
+   wrong tool. The compressor is guarded by structural read + the behavioral `CompressorSaturationParityTest`;
+   bit-exact is not achievable for it without reimplementing libm (not worth it — sub-audible ULP).
+
+3. **Reverb** — the per-sample freeverb path IS integer (`comb.hpp`/`allpass.hpp`:
+   `int32_t process(int32_t)` via `multiply_32x32_rshift32_rounded`) and its coefficient setup uses only
+   deterministic float arithmetic (`update()`: `*`,`/`,`-`, no transcendentals), so the **freeverb model
+   specifically is a viable bit-exact golden target**. However the Java `Reverb.java` is a multi-model
+   subsystem whose primary class is a plate/mutable-style reverb (`FxEngine`/`LFO`/`onePole`), not a
+   straight freeverb port — so a bit-exact harness needs per-model construction and matching float precision
+   in setup. Left as a concrete next target (not a quick win like the single filters).
+
+**Meta-conclusion:** the golden-buffer bit-exact method is the right tool for pure-integer DSP (LP/HP/SVF
+ladders — all now bit-exact) but NOT for units whose audio path depends on libm transcendentals (the
+compressor's exp/log). For those, line-by-line structural read is the rigorous method; claiming bit-exact
+where libm differs would violate the honesty rules. Integer-per-sample units with only basic-float setup
+(freeverb) remain viable golden targets per specific model.
