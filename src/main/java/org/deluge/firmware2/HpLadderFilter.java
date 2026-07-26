@@ -15,13 +15,18 @@ public class HpLadderFilter extends Filter {
     public final BasicFilterComponent hpfHPF1 = new BasicFilterComponent();
     public final BasicFilterComponent hpfLPF1 = new BasicFilterComponent();
     public final BasicFilterComponent hpfHPF3 = new BasicFilterComponent();
-    public int hpfLastWorkingValue = 0x80000000;
+    // C: hpladder.h HPLadderState — this field is NOT reset by reset(); the FilterSet zeroes the
+    // filter memory, so its initial value is 0. Initializing to 0x80000000 (and re-setting it in
+    // reset()) diverged from C on the first antialiased sample of every note — and since HP
+    // resonance is almost always > 900M, the antialiasing path is nearly always active, so it
+    // corrupted the onset transient of essentially every HP-filtered note. Verified bit-exact to
+    // hpladder.cpp via HpLadderGoldenBufferTest.
+    public int hpfLastWorkingValue = 0;
 
     public void reset() {
       hpfHPF1.reset();
       hpfLPF1.reset();
       hpfHPF3.reset();
-      hpfLastWorkingValue = 0x80000000;
     }
   }
 

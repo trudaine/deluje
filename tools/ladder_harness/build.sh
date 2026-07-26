@@ -56,4 +56,27 @@ gen 400000000  2000000000 1 impulse c_24db_f400_r2000_impulse.bin
 gen 400000000  2000000000 2 impulse c_drive_f400_r2000_impulse.bin
 gen 1500000000 300000000  1 step    c_24db_f1500_r300_step.bin
 
-echo "done. golden buffers written to $OUT"
+echo "done. LP golden buffers written to $OUT"
+
+# --- HP ladder (sibling harness: hpladder.cpp; no cpuDireness, no getNoise) ---
+HPOUT="$REPO/src/test/resources/fidelity/hpladder"
+mkdir -p "$HPOUT"
+echo "linking harness against real hpladder.cpp ..."
+g++ $STD "${INC[@]}" \
+  "$HERE/main_hp.cpp" "$HERE/support.cpp" \
+  "$FW/src/deluge/dsp/filter/hpladder.cpp" \
+  "$BUILD/lookuptables.o" \
+  -o "$BUILD/gen_hp"
+
+HPGEN="$BUILD/gen_hp"
+# gen_hp: <freq_q31> <res_q31> <morph_q28> <gain> <nsamp> <signal> <out>
+hpgen() { "$HPGEN" "$1" "$2" 0 0 512 "$3" "$HPOUT/$4"; }
+
+echo "regenerating HP golden matrix -> $HPOUT"
+hpgen 800000000  1000000000 step    c_hp_f800_r1000_step.bin
+hpgen 800000000  1000000000 impulse c_hp_f800_r1000_impulse.bin
+hpgen 400000000  2000000000 impulse c_hp_f400_r2000_impulse.bin
+hpgen 1500000000 300000000  step    c_hp_f1500_r300_step.bin
+hpgen 600000000  1900000000 sine    c_hp_f600_r1900_sine.bin
+
+echo "done. HP golden buffers written to $HPOUT"

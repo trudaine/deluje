@@ -50,3 +50,25 @@ classpath and needs no C compiler.
 All 9 cases — 12dB / 24dB / drive ladder modes, across cutoff/resonance points
 including the high-resonance self-oscillation regime — match the C firmware
 **bit-exact** (`maxAbsDiff = 0`). The Java ladder is sample-identical to the C.
+
+## HP ladder sibling (`main_hp.cpp`, 2026-07-26)
+
+`build.sh` also builds an HP-ladder harness (`main_hp.cpp` → `hpladder.cpp`) and
+`HpLadderGoldenBufferTest` bit-diffs the Java `HpLadderFilter`. The HP ladder is
+even simpler to harness than the LP: it touches neither `AudioEngine::cpuDireness`
+nor `getNoise()`, so the C output is fully deterministic (no PRNG seeding).
+
+This immediately found a **real port bug**: Java initialized
+`HpLadderState.hpfLastWorkingValue` to `0x80000000` (and re-set it every note in
+`reset()`), but the C `HPLadderState::reset()` never touches it — the FilterSet
+zeroes filter memory, so C starts it at **0**. Because HP resonance is almost
+always > 900M (966M even at res 300M → the antialiasing `getTanHAntialiased` path
+is nearly always active), the wrong initial `lastWorkingValue` corrupted the onset
+transient of essentially every HP-filtered note. Fixed to init `0` and to not
+re-set in `reset()`; the harness confirms all 5 HP cases now `maxAbsDiff = 0`.
+
+Note: this fix is **scorecard-neutral** — the ALLSYN scorecard corpus runs the HP
+ladder inert (all 188 instruments carry `hpfMode "12dB"`, which loads as an inert
+high-pass; see `docs/FIDELITY_GAP_ANALYSIS.md` §4.2nonies), so the corpus never
+activates the HP ladder. It is a faithful bit-exact fix that matters for any real
+song with an *active* HP ladder filter.

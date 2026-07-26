@@ -1788,3 +1788,44 @@ Following the Strict Path Hygiene & Zero-Rush Execution Protocol, we conducted a
 
 
 
+
+### 4.2undevicies 2026-07-26 — HP-ladder golden-buffer harness finds a real onset bug (bit-exact fix; scorecard-neutral)
+
+Extended the standalone C golden-buffer harness (`tools/ladder_harness/`, previously LP-ladder
+and FM-kernel only) to the **HP ladder** — linking the real `hpladder.cpp` on desktop g++ and
+bit-diffing the Java `HpLadderFilter` (`HpLadderGoldenBufferTest`). The HP ladder is even cleaner
+to harness than the LP: it touches neither `AudioEngine::cpuDireness` nor `getNoise()`, so the C
+output is fully deterministic with no PRNG-seed coordination.
+
+**Real bug found (verified bit-exact, not a proxy):** Java initialized
+`HpLadderState.hpfLastWorkingValue` to `0x80000000` and re-set it every note in `reset()`. The C
+`HPLadderState::reset()` (`hpladder.h`) **never touches** this field — the FilterSet zeroes filter
+memory (`Filter`: "All zeroes must be a valid reset state as the filter data will be zeroed by the
+filterset"), so C starts it at **0**. This drives the antialiased tanh
+(`getTanHAntialiased(a, &hpfLastWorkingValue, 1)`, `hpladder.cpp:101`), and because HP resonance is
+almost always > 900M (966M even at res 300M → the antialiasing branch is nearly always active), the
+wrong initial value corrupted the onset transient of essentially every HP-ladder-filtered note.
+
+The instrumented harness proved it decisively: the Java `setConfig` output is **bit-identical** to
+C (fc, hpfProcessedResonance = 966404236, divideByTotalMoveability = 289508844, all internals), and
+forcing Java's `hpfLastWorkingValue = 0` made all 5 HP golden cases `maxAbsDiff = 0` (vs a
+large sign-flipped divergence at sample 0 with `0x80000000`). Fixed the field init to `0` and
+removed the `reset()` assignment to match C.
+
+**Scorecard-neutral, and honestly so:** the ALLSYN scorecard corpus runs the HP ladder **inert**
+(all 188 instruments carry `hpfMode "12dB"` → inert high-pass, §4.2nonies), so this fix does not
+move any scorecard number (verified by A/B: identical median/per-preset scores with and without the
+fix). It is a faithful, bit-exact fix that matters for any real song using an *active* HP ladder —
+exactly the class of bug the golden-buffer method catches that behavioral "attenuation-bounds"
+parity tests (e.g. the earlier `HpLadderParityTest`) structurally cannot. Corollary re: §4.2decies's
+"Analog Line-Out Coloration" category — 065 Cello / 132 Organ Strings there use inert HP filters,
+so their residual is *not* the HP ladder; those numbers were unaffected by this fix.
+
+**Side observation (not this fix, and left open):** the current embedded-mode scorecard median
+measured **0.862 / 82% ≥0.80** (time-resolved) at HEAD `025bf4ca`, stably below the §4.2nonies-era
+documented 0.92 / 94%. This gap is independent of the HP fix (A/B identical) and independent of the
+working tree's uncommitted `InstrumentXmlParser.parsePatchCables` change — reverting that change was
+tested and slightly *lowered* the median (0.862 → 0.858), disproving it as the cause. The
+0.92-vs-0.862 discrepancy therefore predates both and reflects either a regression between the 0.92
+documentation and `025bf4ca` or a difference in how 0.92 was measured; flagged for the scorecard
+owner, not chased here.
