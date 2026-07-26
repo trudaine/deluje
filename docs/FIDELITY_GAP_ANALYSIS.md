@@ -1932,3 +1932,28 @@ the invariant is the strength range, documented here.
 Net: the bit-exact golden method has covered every self-contained integer non-SIMD DSP leaf; remaining units
 are either float (structural read) or ARM-SIMD (blocked — read-audit only). One real bug found across the
 whole sweep (HP ladder init), everything else faithful.
+
+### 4.2vicesquater 2026-07-26 — modFX DSP read-audited faithful: the 083/130 residual is confirmed the LFO-phase artifact, not a bug
+
+Investigated the modFX residual family (083 Dark Chorus @ 0.583, 130 Dark Strings @ 0.742), which
+§4.2duodevicies categorized as "ModFX Free-Running LFO Phase" (measurement artifact). `ModFXProcessor.cpp`
+is clean integer DSP (no SIMD/Argon, no float, no getNoise on the SINE/TRIANGLE path) and compiles on
+desktop, but its per-sample methods are in the class's *implicit-private* section (no `private:` keyword,
+so `#define private public` can't reach them, and `#define class struct` breaks `template<class T>` in
+transitive headers) and the public entry needs the full ParamManager machinery — so a golden harness was
+not cleanly buildable. Used the line-by-line read instead (the delay/compressor method):
+
+- **`processOnePhaserSample`** — faithful. Incl. the subtle `_a1 = 1073741824 - mult((lfoOutput+2^31)>>1,
+  depth)` (C computes `(uint32)lfoOutput + 2^31` with uint32 wrap, Java `(long)lfoOutput + 2^31` — provably
+  equal for lfoOutput in int32 range), the phaser feedback update, and the 6-tap allpass loop with its
+  `whatWasInput` swap.
+- **`processOneModFXSample`** (chorus / flanger / warble / dimension comb) — faithful. Dual-tap interpolated
+  buffer read (`strength1/strength2`, `sample1Pos & kModFXBufferIndexMask`), the stereo/dimension/warble L/R
+  lfo2 recompute, per-type feedback writes, and the `modFXBufferWriteIndex` advance all match C exactly.
+- **`LFO::render`** (the shared component the residual points at) — faithful: SAW/SQUARE/SINE
+  (`getSine(phase,32)` == C's default-arg `getSine(phase)`)/TRIANGLE value paths identical.
+
+So the modFX DSP is comprehensively faithful; the 083/130 residual is confirmed NOT a modFX arithmetic bug
+but the free-running-LFO-phase artifact (hardware LFO at arbitrary phase on note-trigger vs our
+deterministic phase-0 start) — validating §4.2duodevicies's categorization by actual C comparison rather
+than assertion. This closes the modFX family as a DSP-parity suspect.
