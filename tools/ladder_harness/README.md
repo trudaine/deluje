@@ -72,3 +72,13 @@ ladder inert (all 188 instruments carry `hpfMode "12dB"`, which loads as an iner
 high-pass; see `docs/FIDELITY_GAP_ANALYSIS.md` §4.2nonies), so the corpus never
 activates the HP ladder. It is a faithful bit-exact fix that matters for any real
 song with an *active* HP ladder filter.
+
+## SVF sibling (`main_svf.cpp`, 2026-07-26)
+
+`build.sh` also builds an SVF harness (`main_svf.cpp` → `svf.cpp`) and
+`SvfGoldenBufferTest` bit-diffs the Java `SVFilter` across SVF_BAND / SVF_NOTCH modes
+and morph values. Like the HP ladder, the SVF is pure integer math (getTanHUnknown +
+fixed-point multiplies) with no `cpuDireness`, no `getNoise()`, and no float — fully
+deterministic. **Result: all 5 cases `maxAbsDiff = 0`** — the Java SVF is bit-exact to
+the C, upgrading the earlier behavioral `SvfParityTest` to a bit-exact guarantee (no
+bug found here, unlike the HP ladder).

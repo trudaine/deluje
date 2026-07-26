@@ -80,3 +80,26 @@ hpgen 1500000000 300000000  step    c_hp_f1500_r300_step.bin
 hpgen 600000000  1900000000 sine    c_hp_f600_r1900_sine.bin
 
 echo "done. HP golden buffers written to $HPOUT"
+
+# --- SVF (state-variable: svf.cpp; pure integer math, no cpuDireness/getNoise/float) ---
+SVFOUT="$REPO/src/test/resources/fidelity/svf"
+mkdir -p "$SVFOUT"
+echo "linking harness against real svf.cpp ..."
+g++ $STD "${INC[@]}" \
+  "$HERE/main_svf.cpp" "$HERE/support.cpp" \
+  "$FW/src/deluge/dsp/filter/svf.cpp" \
+  "$BUILD/lookuptables.o" \
+  -o "$BUILD/gen_svf"
+
+SVFGEN="$BUILD/gen_svf"
+# gen_svf: <freq_q31> <res_q31> <mode 3=SVF_BAND 4=SVF_NOTCH> <morph_q28> <gain> <nsamp> <signal> <out>
+svfgen() { "$SVFGEN" "$1" "$2" "$3" "$4" 0 512 "$5" "$SVFOUT/$6"; }
+
+echo "regenerating SVF golden matrix -> $SVFOUT"
+svfgen 800000000 1000000000 3 0         step    c_svf_band_f800_r1000_m0_step.bin
+svfgen 800000000 1000000000 3 134217728 impulse c_svf_band_f800_r1000_mhalf_impulse.bin
+svfgen 400000000 2000000000 3 268435455 impulse c_svf_band_f400_r2000_mfull_impulse.bin
+svfgen 800000000 1000000000 4 0         step    c_svf_notch_f800_r1000_m0_step.bin
+svfgen 600000000 1500000000 4 134217728 sine    c_svf_notch_f600_r1500_mhalf_sine.bin
+
+echo "done. SVF golden buffers written to $SVFOUT"

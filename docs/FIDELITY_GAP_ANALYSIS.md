@@ -1829,3 +1829,16 @@ tested and slightly *lowered* the median (0.862 → 0.858), disproving it as the
 0.92-vs-0.862 discrepancy therefore predates both and reflects either a regression between the 0.92
 documentation and `025bf4ca` or a difference in how 0.92 was measured; flagged for the scorecard
 owner, not chased here.
+
+### 4.2vicies 2026-07-26 — SVF golden-buffer harness: Java SVF is bit-exact to C (no bug; proxy upgraded)
+
+Applied the golden-buffer method (§4.2undevicies) to the state-variable filter: `tools/ladder_harness/main_svf.cpp`
+links the real `svf.cpp` on desktop g++, and `SvfGoldenBufferTest` bit-diffs the Java `SVFilter` across
+SVF_BAND / SVF_NOTCH modes and morph values. Like the HP ladder, the SVF is pure integer math
+(getTanHUnknown + fixed-point multiplies) with no `cpuDireness`, no `getNoise()`, and no float — fully
+deterministic. **Result: all 5 cases `maxAbsDiff = 0`.** The Java SVF is sample-identical to the C — no
+bug here (unlike the HP ladder), but the earlier behavioral `SvfParityTest` (a "cutoff expansion / bounds"
+proxy) is now backed by a bit-exact guarantee. Filter family golden coverage now: LP ladder (§4.16, 9
+cases), HP ladder (§4.2undevicies, 5), SVF (this, 5) — all bit-exact. Next harness candidates by the same
+method: Compressor / `rms_feedback.cpp` and Reverb / `freeverb.cpp` (both currently guarded only by
+behavioral proxies; both carry float state, so expect harness care around FP determinism).
