@@ -155,8 +155,7 @@ public class InstrumentXmlParser {
     populateSynth(soundNode, synth, false);
   }
 
-  public static void populateSynth(
-      Element soundNode, SynthTrackModel synth, boolean isPresetLoad) {
+  public static void populateSynth(Element soundNode, SynthTrackModel synth, boolean isPresetLoad) {
     if (!isPresetLoad && soundNode.hasAttribute("presetName")) {
       String presetName = soundNode.getAttribute("presetName");
       String folder = soundNode.getAttribute("presetFolder");
@@ -166,8 +165,7 @@ public class InstrumentXmlParser {
       File presetFile = resolvePresetFile(folder, presetName);
       if (presetFile != null && presetFile.isFile()) {
         try {
-          Element presetRoot =
-              parseXml(new FileInputStream(presetFile)).getDocumentElement();
+          Element presetRoot = parseXml(new FileInputStream(presetFile)).getDocumentElement();
           populateSynth(presetRoot, synth, true);
         } catch (Exception e) {
           LOG.log(Level.WARNING, "Failed to load referenced preset: " + presetFile, e);
@@ -1011,6 +1009,9 @@ public class InstrumentXmlParser {
 
   private static void parsePatchCables(Element soundNode, SynthTrackModel synth) {
     Element pcContainer = getFirstChild(soundNode, "patchCables");
+    if (pcContainer != null) {
+      synth.getModulation().getPatchCables().clear();
+    }
     Element scanRoot = pcContainer != null ? pcContainer : soundNode;
     for (PatchCable pc : parsePatchCableList(scanRoot)) {
       synth.getModulation().addPatchCable(pc);
@@ -1786,7 +1787,8 @@ public class InstrumentXmlParser {
     // envelope-2..4 target synthesis. (LFO waveform/sync and envelope rates are kept — those
     // reach the engine through the knob channels above, matching the C where waveform/sync are
     // sound-level settings read from the instrument, not params.)
-    // Only clear patch cables if the clip explicitly defines its own patch cables (handled in parseClipSoundParamsStatics:1925).
+    // Only clear patch cables if the clip explicitly defines its own patch cables (handled in
+    // parseClipSoundParamsStatics:1925).
     // synth.getModulation().getPatchCables().clear();
     for (int i = 0; i < 4; i++) {
       LfoModel lm = synth.getLfo(i);
