@@ -82,3 +82,26 @@ fixed-point multiplies) with no `cpuDireness`, no `getNoise()`, and no float —
 deterministic. **Result: all 5 cases `maxAbsDiff = 0`** — the Java SVF is bit-exact to
 the C, upgrading the earlier behavioral `SvfParityTest` to a bit-exact guarantee (no
 bug found here, unlike the HP ladder).
+
+## Freeverb reverb (`main_reverb.cpp`, 2026-07-26)
+
+`build.sh` also builds a Freeverb harness (`main_reverb.cpp` → `freeverb.cpp`) and
+`ReverbGoldenBufferTest` bit-diffs the Java `Freeverb` (the FREEVERB reverb model).
+The freeverb per-sample path is pure integer (comb/allpass `multiply_32x32_rshift32_rounded`)
+and its setup uses only deterministic float arithmetic (`*`,`/`,`-`, no transcendentals),
+with both sides using `(float)INT32_MAX == 2147483648.0f` — so it's a valid bit-exact
+target (unlike the compressor, whose audio path depends on libm exp/log).
+
+**Result: all 4 cases `maxAbsDiff = 0`** (4096-sample buffers — the comb delays are
+~1116-1617 samples, so shorter windows are all-zero before any tail emerges).
+
+Two harness lessons (both documented in `docs/FIDELITY_GAP_ANALYSIS.md`):
+1. `ProcessOne` mixes via `getPanLeft()/getPanRight()` (base-`Reverb` pan, default 0) —
+   the harness must `setPanLevels()` on both sides or the output is all zero.
+2. **Do not use a `sin`-generated test input for a cross-JVM/libm bit-diff:** Java
+   `Math.sin` is not bit-identical to C/libm `sin` at the last ULP, and near sine peaks
+   `AMP*sin` cast to int flips by 1 LSB — which under sustained drive tips a reverb
+   accumulator over an overflow boundary and diverges. Use a pure-integer signal. Also
+   keep sustained-signal amplitude in range: full-scale sustained drive overflows the
+   integer comb accumulators, where C signed-overflow (UB) and Java defined-wrap
+   legitimately differ (not a port bug; outside realistic reverb send levels).

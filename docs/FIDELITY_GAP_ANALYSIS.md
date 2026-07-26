@@ -1880,3 +1880,24 @@ ladders — all now bit-exact) but NOT for units whose audio path depends on lib
 compressor's exp/log). For those, line-by-line structural read is the rigorous method; claiming bit-exact
 where libm differs would violate the honesty rules. Integer-per-sample units with only basic-float setup
 (freeverb) remain viable golden targets per specific model.
+
+### 4.2vicesbis 2026-07-26 — Freeverb golden-buffer harness: Java Freeverb is bit-exact to C
+
+Built the reverb harness the §4.2vicessemel audit flagged as viable: `tools/ladder_harness/main_reverb.cpp`
+links the real `freeverb.cpp` on desktop g++, and `ReverbGoldenBufferTest` bit-diffs the Java `Freeverb`
+(the FREEVERB model). The per-sample path is pure integer (comb/allpass `multiply_32x32_rshift32_rounded`)
+and setup is deterministic-float (no transcendentals), so — unlike the compressor — it IS a valid bit-exact
+target. **Result: all 4 cases `maxAbsDiff = 0`** (4096-sample buffers; comb delays ~1116-1617 samples so
+shorter windows show no tail). The Java Freeverb is sample-identical to the C.
+
+Two harness lessons (real, cost me two failed runs):
+1. `ProcessOne` mixes via `getPanLeft()/getPanRight()` (base-Reverb pan, default 0) — must `setPanLevels()`
+   both sides or output is all-zero.
+2. A `sin`-generated input is INVALID for a cross-JVM/libm bit-diff: Java `Math.sin` ≠ C/libm `sin` at the
+   last ULP, and near peaks `AMP*sin` cast to int flips by 1 LSB, which under sustained drive tips a reverb
+   accumulator across an overflow boundary → large divergence. Switched to a pure-integer square; also kept
+   its amplitude in range, because full-scale sustained drive overflows the integer comb accumulators where
+   C signed-overflow (UB under -O2) and Java defined-wrap legitimately differ (not a port bug, and outside
+   realistic reverb send levels). The 3 impulse cases were bit-exact throughout, isolating both issues to the
+   harness input, not the DSP. Filter+reverb golden coverage now: LP (9), HP (5), SVF (5), Freeverb (4) —
+   all bit-exact. The compressor remains structural-read-only (libm exp/log, §4.2vicessemel).

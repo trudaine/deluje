@@ -103,3 +103,25 @@ svfgen 800000000 1000000000 4 0         step    c_svf_notch_f800_r1000_m0_step.b
 svfgen 600000000 1500000000 4 134217728 sine    c_svf_notch_f600_r1500_mhalf_sine.bin
 
 echo "done. SVF golden buffers written to $SVFOUT"
+
+# --- Freeverb reverb (freeverb.cpp; integer per-sample, deterministic-float setup) ---
+RVOUT="$REPO/src/test/resources/fidelity/reverb"
+mkdir -p "$RVOUT"
+echo "linking harness against real freeverb.cpp ..."
+g++ $STD "${INC[@]}" \
+  "$HERE/main_reverb.cpp" "$HERE/support.cpp" \
+  "$FW/src/deluge/dsp/reverb/freeverb/freeverb.cpp" \
+  "$BUILD/lookuptables.o" \
+  -o "$BUILD/gen_reverb"
+
+RVGEN="$BUILD/gen_reverb"
+# gen_reverb: <room_f> <damp_f> <width_f> <nsamp> <signal> <out>  (4096 samples: comb delays ~1116-1617)
+rvgen() { "$RVGEN" "$1" "$2" "$3" 4096 "$4" "$RVOUT/$5"; }
+
+echo "regenerating Freeverb golden matrix -> $RVOUT"
+rvgen 0.7 0.5 1.0 impulse c_reverb_r70_d50_w100_impulse.bin
+rvgen 0.9 0.2 1.0 impulse c_reverb_r90_d20_w100_impulse.bin
+rvgen 0.5 0.8 0.5 impulse c_reverb_r50_d80_w50_impulse.bin
+rvgen 0.7 0.5 1.0 square  c_reverb_r70_d50_w100_square.bin
+
+echo "done. Freeverb golden buffers written to $RVOUT"
