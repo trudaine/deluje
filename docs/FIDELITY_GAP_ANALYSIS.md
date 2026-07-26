@@ -1957,3 +1957,33 @@ So the modFX DSP is comprehensively faithful; the 083/130 residual is confirmed 
 but the free-running-LFO-phase artifact (hardware LFO at arbitrary phase on note-trigger vs our
 deterministic phase-0 start) — validating §4.2duodevicies's categorization by actual C comparison rather
 than assertion. This closes the modFX family as a DSP-parity suspect.
+
+### 4.2vicesquinquies 2026-07-26 — Arp DSP is faithful; the 159/112 residual is pinpointed to the synced-tempo proxy (not a note bug)
+
+Read-audited the arp residual family (159 80s Bass Rhythm @ 0.401, 112 Hard Tech Beat @ 0.524), the lowest
+non-FM scorers. The arp note-generation is faithful; the residual is a specific, actionable tempo-modeling
+gap, NOT an arp DSP arithmetic bug.
+
+Verified faithful vs `arpeggiator.cpp` / `arpeggiator_rhythms.h`:
+- **Rhythm patterns table** (`arpRhythmPatterns`, 51 entries of `{length, {6 steps}}`) — extracted both sides
+  and diffed: **BIT-IDENTICAL 51/51**. (This was the highest-risk spot — a single mis-transcribed pattern
+  would tank exactly the rhythm arps; it's clean.)
+- **`evaluateRhythm`** — faithful (Java adds only a harmless defensive out-of-range guard the C omits).
+- **`calculateNextNoteAndOrOctave`** — detailed port: note-mode direction advance, UP_DOWN/ALTERNATE octave
+  turnarounds, WALK dice, RANDOM all match.
+- **Non-synced `getPhaseIncrement`** — `arpRate >> 5`, matches C exactly.
+
+**Root cause of the residual — synced `getPhaseIncrement`:** C computes
+`phaseIncrement = playbackHandler.getTimePerInternalTickInverse() >> (9 - syncLevel)` (the ACTUAL song
+tempo), but the Java uses a **fixed `1 << 20` proxy** in place of `getTimePerInternalTickInverse()` (the
+port comment admits it: "C proxy for playbackHandler.getTimePerInternalTickInverse()"). 159/112 are
+tempo-synced arps; on hardware they ran at the song tempo, but the standalone scorecard render (no playback
+clock → `syncedNow=false`) free-runs the arp at the fixed-proxy rate. So the note SEQUENCE and RHYTHM are
+correct but the arp SPEED is a fixed approximation, not the song tempo → time-resolved misalignment vs the
+recording. This is an engine/tempo-modeling limitation of the standalone render, not an arp bug.
+
+**Fix path (engine, not DSP):** thread the song's tempo-derived tick-inverse into the synced
+`getPhaseIncrement` (replace the `1 << 20` proxy), OR drive synced arps via the clock path (`doTickForward`)
+at the song tempo in the scorecard harness. Both touch the tempo/clock wiring (Sound/engine + scorecard),
+so best done deliberately with scorecard verification — deferred here; the DSP-faithfulness finding is the
+banked result. This closes the arp as a DSP-parity suspect (like modFX, §4.2vicesquater).
