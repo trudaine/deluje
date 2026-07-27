@@ -40,6 +40,14 @@ public final class ModFx {
   private final Lfo modFXLFO = new Lfo();
   private final Lfo modFXLFOStereo = new Lfo();
 
+  public Lfo getModFXLFO() {
+    return modFXLFO;
+  }
+
+  public Lfo getModFXLFOStereo() {
+    return modFXLFOStereo;
+  }
+
   /** resetMemory (ModFXProcessor.cpp). */
   public void resetMemory() {
     for (int[] s : modFXBuffer) {
