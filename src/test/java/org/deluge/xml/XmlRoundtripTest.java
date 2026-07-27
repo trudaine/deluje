@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import org.deluge.model.ClipModel;
 import org.deluge.model.Drum;
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.Test;
  * files and programmatically generated projects.
  */
 public class XmlRoundtripTest {
+  private static final Logger LOGGER = Logger.getLogger(XmlRoundtripTest.class.getName());
 
   private static final float EPSILON = 0.01f;
 
@@ -45,8 +47,9 @@ public class XmlRoundtripTest {
       xmlFiles.addAll(findXmlFiles(testResources));
     }
 
-    System.out.printf(
-        "[Test] Found %d XML files to audit for loader/saver roundtrip.%n", xmlFiles.size());
+    LOGGER.fine(
+        String.format(
+            "[Test] Found %d XML files to audit for loader/saver roundtrip.", xmlFiles.size()));
     assertFalse(xmlFiles.isEmpty(), "No XML files found to audit!");
 
     List<String> discrepancies = new ArrayList<>();
@@ -56,15 +59,16 @@ public class XmlRoundtripTest {
     for (Path xmlPath : xmlFiles) {
       File originalFile = xmlPath.toFile();
       // Skip some specific skeleton/blank files if necessary, but audit all by default!
-      System.out.printf("[Test] Auditing: %s%n", originalFile.getName());
+      LOGGER.fine(String.format("[Test] Auditing: %s", originalFile.getName()));
 
       ProjectModel originalModel;
       try (FileInputStream fis = new FileInputStream(originalFile)) {
         originalModel = DelugeXmlParser.parseSong(fis, originalFile.getName());
       } catch (Exception e) {
-        System.err.printf(
-            "[WARN] Failed to parse original file %s: %s%n",
-            originalFile.getName(), e.getMessage());
+        LOGGER.warning(
+            String.format(
+                "[WARN] Failed to parse original file %s: %s",
+                originalFile.getName(), e.getMessage()));
         continue;
       }
 
@@ -98,18 +102,17 @@ public class XmlRoundtripTest {
 
     // Report results
     if (!discrepancies.isEmpty()) {
-      System.err.println("\n=== XML LOADER/SAVER ROUNDTRIP AUDIT DISCREPANCIES ===");
+      LOGGER.warning("\n=== XML LOADER/SAVER ROUNDTRIP AUDIT DISCREPANCIES ===");
       for (String d : discrepancies) {
-        System.err.println(" - " + d);
+        LOGGER.warning(" - " + d);
       }
-      System.err.println("======================================================\n");
+      LOGGER.warning("======================================================\n");
       fail(
           "Roundtrip audit failed with "
               + discrepancies.size()
               + " discrepancies! See logs above.");
     } else {
-      System.out.println(
-          "[Test] All XML files audited successfully with ZERO roundtrip discrepancies!");
+      LOGGER.fine("[Test] All XML files audited successfully with ZERO roundtrip discrepancies!");
     }
   }
 
@@ -185,8 +188,7 @@ public class XmlRoundtripTest {
     if (!discrepancies.isEmpty()) {
       fail("Programmatic complex project roundtrip failed with discrepancies: " + discrepancies);
     }
-    System.out.println(
-        "[Test] Programmatic complex project roundtrip completed with 100% value parity!");
+    LOGGER.fine("[Test] Programmatic complex project roundtrip completed with 100% value parity!");
   }
 
   private List<Path> findXmlFiles(Path dir) throws Exception {
