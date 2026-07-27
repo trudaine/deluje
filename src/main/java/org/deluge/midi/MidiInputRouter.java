@@ -243,6 +243,10 @@ public class MidiInputRouter {
 
               org.deluge.model.TrackModel activeTrack =
                   activeGrid.getProjectModel().getTracks().get(trackIndex);
+              if (!(activeTrack instanceof org.deluge.model.SynthTrackModel
+                  || activeTrack instanceof org.deluge.model.KitTrackModel)) {
+                return; // Upstream C++ commit c8a9dc6f (#4708): ignore audio & non-instrument tracks!
+              }
               if (activeTrack instanceof org.deluge.model.KitTrackModel) {
                 // Kit track: map note to row index (0-7)
                 row = midiNote - 36;
@@ -325,6 +329,10 @@ public class MidiInputRouter {
               int row = -1;
               org.deluge.model.TrackModel activeTrack =
                   activeGrid.getProjectModel().getTracks().get(trackIndex);
+              if (!(activeTrack instanceof org.deluge.model.SynthTrackModel
+                  || activeTrack instanceof org.deluge.model.KitTrackModel)) {
+                return; // Upstream C++ commit c8a9dc6f (#4708): ignore audio & non-instrument tracks!
+              }
               if (activeTrack instanceof org.deluge.model.KitTrackModel) {
                 row = midiNote - 36;
               } else {
