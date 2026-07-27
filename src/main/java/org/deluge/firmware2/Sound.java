@@ -776,11 +776,17 @@ public class Sound extends GlobalEffectable {
         globalLfos[1].render(numSamples, lfoConfig[2], phaseInc2);
 
     // 3. Arpeggiator clock & processing
-    if (arpEnabled() && arpPhaseIncrement > 0) {
-      // sound.cpp:2448 — (uint32_t)gate + 2147483648, passed FULL-SCALE (the arp itself does the
-      // single >> 8, arpeggiator.cpp:1457). Int add wraps exactly like the C uint32 add.
-      int gateThreshold = arpSettings.gate + Integer.MIN_VALUE;
-      arpeggiator.render(arpSettings, arpInstr, numSamples, gateThreshold, arpPhaseIncrement);
+    if (arpEnabled()) {
+      int phaseInc = (arpPhaseIncrement > 0)
+          ? arpPhaseIncrement
+          : arpSettings.getPhaseIncrement(
+              Patcher.computeFinalValueForParam(Param.GLOBAL_ARP_RATE, patchedParamValues[Param.GLOBAL_ARP_RATE]),
+              this.timePerInternalTickInverse);
+      if (phaseInc > 0) {
+        // sound.cpp:2448 — (uint32_t)gate + 2147483648, passed FULL-SCALE (the arp itself does the
+        // single >> 8, arpeggiator.cpp:1457). Int add wraps exactly like the C uint32 add.
+        int gateThreshold = arpSettings.gate + Integer.MIN_VALUE;
+        arpeggiator.render(arpSettings, arpInstr, numSamples, gateThreshold, phaseInc);
 
       for (int n = 0; n < 4; n++) {
         int noteOff = arpInstr.noteCodeOffPostArp[n];
@@ -801,6 +807,7 @@ public class Sound extends GlobalEffectable {
           arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
         }
         arpInstr.arpNoteOn = null;
+      }
       }
     }
 

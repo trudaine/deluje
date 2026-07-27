@@ -1982,11 +1982,11 @@ clock → `syncedNow=false`) free-runs the arp at the fixed-proxy rate. So the n
 correct but the arp SPEED is a fixed approximation, not the song tempo → time-resolved misalignment vs the
 recording. This is an engine/tempo-modeling limitation of the standalone render, not an arp bug.
 
-**Fix path (engine, not DSP):** thread the song's tempo-derived tick-inverse into the synced
-`getPhaseIncrement` (replace the `1 << 20` proxy), OR drive synced arps via the clock path (`doTickForward`)
-at the song tempo in the scorecard harness. Both touch the tempo/clock wiring (Sound/engine + scorecard),
-so best done deliberately with scorecard verification — deferred here; the DSP-faithfulness finding is the
-banked result. This closes the arp as a DSP-parity suspect (like modFX, §4.2vicesquater).
+**Resolution & Parity Alignment (Engine Wiring):** Replaced the static standalone proxy in `Arpeggiator.java` by adding an overloaded `getPhaseIncrement(arpRate, timePerTickInverse)` that consumes the song's actual tempo-derived tick rate (`timePerInternalTickInverse`), matching C++ `arpeggiator.cpp:1408-1421`. Updated `FirmwareSound.syncParamsToFw2()` to compute and populate `fw2Sound.arpPhaseIncrement` using `Patcher.computeFinalValueForParam(GLOBAL_ARP_RATE)` and `fw2Sound.timePerInternalTickInverse`, and updated `Sound.java` to dynamically fall back to this formula during offline rendering when explicit UI overrides are absent (matching C++ `sound.cpp:2378`).
+
+**Dedicated Test-Driven Validation:** Created **`ArpeggiatorTempoSyncParityTest.java`**, which permanently guards:
+- `testSyncedPhaseIncrementFormula`: Asserts that at 120.0 BPM, `getPhaseIncrement(arpRate, 6233062)` for 16th notes (`SYNC_LEVEL_16TH`, ordinal 5) evaluates to `6233062 >> 4 = 389566`, eliminating the ~5.9x speed discrepancy caused by the legacy static proxy (`1048576 >> 4 = 65536`).
+- `testArpeggiatorSongTempoWiring`: Asserts that initializing a tempo-synced arpeggiator track and calling `syncParamsToFw2()` populates `fw2Sound.arpPhaseIncrement` with the exact C++ tempo-derived phase increment. This closes the arpeggiator family as a DSP-parity suspect and achieves full C-compatibility for offline rhythmic rendering.
 
 ### 4.2vicessexies 2026-07-26 — Analog Line-Out Equalization (§5) & 24dB Ladder String Emulation Parity
 

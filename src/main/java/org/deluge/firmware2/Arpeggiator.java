@@ -264,17 +264,22 @@ public class Arpeggiator {
       generateNewNotePattern();
     }
 
-    /** C: arpeggiator.cpp:1559-1580 — getPhaseIncrement */
+    /** C: arpeggiator.cpp:1402-1422 — getPhaseIncrement (default proxy for backwards compatibility) */
     public int getPhaseIncrement(int arpRate) {
+      return getPhaseIncrement(arpRate, 1 << 20);
+    }
+
+    /** C: arpeggiator.cpp:1402-1422 — getPhaseIncrement with actual song tempo tick inverse */
+    public int getPhaseIncrement(int arpRate, int timePerTickInverse) {
       int phaseIncrement;
       if (syncLevel == SyncLevel.SYNC_LEVEL_NONE) { // syncLevel == 0
-        // C: arpeggiator.cpp:1562 — arpRate >> 5
+        // C: arpeggiator.cpp:1405 — arpRate >> 5
         phaseIncrement = arpRate >> 5;
       } else {
-        // C: 1565-1570
+        // C: arpeggiator.cpp:1408-1421
         int rightShiftAmount = 9 - syncLevel.ordinal();
         if (rightShiftAmount < 0) rightShiftAmount = 0;
-        phaseIncrement = 1 << 20; // C proxy for playbackHandler.getTimePerInternalTickInverse()
+        phaseIncrement = timePerTickInverse;
         phaseIncrement >>= rightShiftAmount;
         if (syncType == SyncType.TRIPLET) {
           phaseIncrement = phaseIncrement * 3 / 2;
