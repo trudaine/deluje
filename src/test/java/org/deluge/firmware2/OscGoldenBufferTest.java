@@ -36,14 +36,15 @@ class OscGoldenBufferTest {
 
   private record Case(String file, OscType type, int phaseInc, int pulseWidth) {}
 
-  // The bit-exact set. SAW and SINE are handled/characterized separately (see
-  // §4.2quaterquadragies):
-  //   - SAW: slope is bit-identical to C but the waveform is phase-shifted (a phase-convention
-  //     divergence, spectrally invisible — magnitude spectrum is phase-invariant).
-  //   - SINE: matches to within ~26 LSB, a rounding difference (SQUARE/TRIANGLE, also table-based,
-  //     are bit-exact, so this is most likely a SIMDE-vs-NEON rounding artifact in the golden).
+  // SINE is characterized separately (§4.2quaterquadragies): it matches to within ~26 LSB, a
+  // rounding difference — SQUARE/TRIANGLE (also table-based) are bit-exact, so this is most likely
+  // a
+  // SIMDE-vs-NEON rounding artifact in the golden, not a Java bug.
   private static java.util.stream.Stream<Arguments> cases() {
     return java.util.stream.Stream.of(
+            new Case(
+                "c_osc_saw_f5162220.bin", OscType.SAW, 0x004ec4ec, 0), // crude path (tableNum<6)
+            new Case("c_osc_saw_bandlimited.bin", OscType.SAW, 0x00a00000, 0), // band-limited (>=6)
             new Case("c_osc_square_f5162220.bin", OscType.SQUARE, 0x004ec4ec, 0),
             new Case("c_osc_triangle_f5162220.bin", OscType.TRIANGLE, 0x004ec4ec, 0),
             new Case("c_osc_analogsquare_f.bin", OscType.ANALOG_SQUARE, 0x00a00000, 0),

@@ -835,11 +835,17 @@ public final class Oscillator {
     if (type == OscType.SAW) {
       if (tableNumber < 6) { // cpuDireness + 6 where cpuDireness=0
         if (!doOscSync) {
+          // C oscillator.cpp:274-282 renders the crude saw from the LOCAL phase (the pre-advance
+          // value) and IGNORES its returned phase — *startPhase was already advanced at the top
+          // (line 37). Passing the `startPhase` array here instead read the already-advanced value
+          // (and double-advanced it), phase-shifting every crude saw. Use a throwaway holder seeded
+          // with the local phase so we render from the correct phase and don't clobber startPhase.
+          int[] sawPhase = {phase};
           if (applyAmplitude) {
             renderCrudeSawWithAmp(
-                buffer, off, numSamples, startPhase, phaseIncrement, amplitude, amplitudeIncrement);
+                buffer, off, numSamples, sawPhase, phaseIncrement, amplitude, amplitudeIncrement);
           } else {
-            renderCrudeSawNoAmp(buffer, off, numSamples, startPhase, phaseIncrement);
+            renderCrudeSawNoAmp(buffer, off, numSamples, sawPhase, phaseIncrement);
           }
           return;
         }

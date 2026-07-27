@@ -74,6 +74,7 @@ GEN="$BUILD/gen_osc"
 # gen_osc: type(0=SINE,1=TRI,2=SQ,3=ANSQ,4=SAW) phaseInc pulseWidth amplitude ampInc nsamp out
 echo "regenerating oscillator golden matrix -> $OUT"
 "$GEN" 4 0x004ec4ec 0          $((1<<27)) 0 512 "$OUT/c_osc_saw_f5162220.bin"
+"$GEN" 4 0x00a00000 0          $((1<<27)) 0 512 "$OUT/c_osc_saw_bandlimited.bin"
 "$GEN" 2 0x004ec4ec 0          $((1<<27)) 0 512 "$OUT/c_osc_square_f5162220.bin"
 "$GEN" 0 0x004ec4ec 0          $((1<<27)) 0 512 "$OUT/c_osc_sine_f5162220.bin"
 "$GEN" 1 0x004ec4ec 0          $((1<<27)) 0 512 "$OUT/c_osc_triangle_f5162220.bin"

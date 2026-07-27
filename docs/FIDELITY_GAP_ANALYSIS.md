@@ -2297,3 +2297,27 @@ the wrong waveform. Flagged for audit.
 
 This unblock also opens `wave_table.cpp`, `interpolate.cpp`, and `dx7note.cpp` (all Argon) to the same
 SIMDE-bridged golden method — the previously "blocked" frontier is now reachable.
+
+### 4.2quinquadragies 2026-07-27 — SAW was a REAL bug (crude-saw phase double-advance), fixed via the oscillator harness — now bit-exact
+
+Root-caused the §4.2quaterquadragies saw phase-offset: it is a genuine port bug, not a benign convention.
+`renderOsc` advances the shared phase at the top (`*startPhase += phaseIncrement * numSamples`, oscillator.cpp:37),
+then the C crude-saw path (`renderCrudeSawWaveWithAmplitude`, oscillator.cpp:274) renders from the *local*
+pre-advance `phase` and **ignores** the function's returned phase. The Java instead passed the `startPhase`
+**array** to `renderCrudeSawWithAmp`, so it (a) started from the already-advanced phase and (b) advanced it a
+second time and wrote it back — every crude saw rendered from `phase + phaseIncrement*numSamples` and the
+oscillator's stored phase was double-advanced. Confirmed numerically: buggy Java saw[0] = `amp·(advanced+inc)>>32`
+= −51460889 vs C `amp·inc>>32` = 161319.
+
+**Fix:** render the crude saw from a throwaway holder seeded with the local `phase` (matching C's ignore-the-return
+behavior). Result: **crude saw AND band-limited saw are now `maxAbsDiff = 0`** (added a band-limited case,
+`phaseInc=0x00a00000`, tableNumber 7 — the path C4 and most notes actually use). All 6 oscillator cases bit-exact
+now except SINE (~26 LSB, the SIMDE-vs-NEON golden-rounding artifact).
+
+**Impact:** the crude path is taken only for low `phaseIncrement` (bass notes; `tableNumber < 6`), so C4 — which
+uses the band-limited path (tableNumber 9) — was unaffected, which is why the scorecard median never flagged it.
+But on real *bass* saw notes the double-advance put a fixed extra `phaseIncrement*numSamples` phase step at every
+render-block boundary — a block-rate phase discontinuity that adds audible buzz absent from the hardware. This is
+a real audible fix for bass saws, found by the just-unblocked SIMDE oscillator harness (the same way the HP-ladder
+init bug fell out of the filter harness) — 22 osc/fidelity tests green. `AllSynthsFidelity`/`DigitalAudioFidelity`
+unaffected (they render C4-ish, band-limited).
