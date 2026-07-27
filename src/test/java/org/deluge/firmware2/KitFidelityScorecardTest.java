@@ -25,10 +25,7 @@ import org.junit.jupiter.api.Test;
  */
 public class KitFidelityScorecardTest {
 
-  private static final String HOME = System.getProperty("user.home");
-  private static final String CARD_NAME =
-      System.getProperty("deluge.card", new File(HOME + "/ludocard").isDirectory() ? "ludocard" : "deluge-card");
-  private static final File KIT_DIR = new File(HOME + "/" + CARD_NAME + "/KITS");
+  private static final File KIT_DIR = new File(System.getProperty("deluge.card", "src/main/resources"), "KITS");
 
   @Test
   public void testDrumKitParsingAndAudioRenderingParity() throws Exception {

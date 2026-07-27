@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
  * clean onset and stays near ~500 Hz, the softness is real hardware behavior (engine divergence);
  * if the slice has no onset or contains neighbouring content, the misalignment story holds.
  *
- * <p>Self-skips without the ludocard recordings, like FidelityScorecardTest.
+ * <p>Self-skips without hardware recordings, like FidelityScorecardTest.
  */
 public class FmBellsAlignmentProbeTest {
 
@@ -25,9 +25,9 @@ public class FmBellsAlignmentProbeTest {
   void probe() throws Exception {
     org.junit.jupiter.api.Assumptions.assumeTrue(
         new File(FidelityScorecardTest.SYNTH_DIR).isDirectory()
-            && new File(FidelityScorecardTest.HOME + "/ALL_SYNTHS_SONG/ALLSYN_1/output_000.wav")
+            && new File(FidelityScorecardTest.RECORDINGS_DIR, "ALLSYN_1/output_000.wav")
                 .isFile(),
-        "needs ~/ludocard SYNTHS + ~/ALL_SYNTHS_SONG recordings");
+        "needs hardware calibration recordings (set via -Dscorecard.recordings)");
 
     // EXACT same list construction as the scorecard — including the SONG/CAL exclusions and
     // the playable() filter, or every slice index shifts and we compare the wrong notes.
@@ -45,7 +45,7 @@ public class FmBellsAlignmentProbeTest {
 
     float[] rec =
         FidelityScorecardTest.readWavMono(
-            new File(FidelityScorecardTest.HOME + "/ALL_SYNTHS_SONG/ALLSYN_1/output_000.wav"));
+            new File(FidelityScorecardTest.RECORDINGS_DIR, "ALLSYN_1/output_000.wav"));
     int lead = 0;
     while (lead < rec.length && Math.abs(rec[lead]) < 0.003) lead++;
     int tail = rec.length;

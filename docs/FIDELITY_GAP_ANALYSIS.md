@@ -12,7 +12,7 @@ Last measured: commit `296716b4` (2026-06-26).
 
 ## 1. Ground truth: the reference recordings
 
-Two arranger songs, each playing ~94 ludocard synth presets one-by-one (one sustained C4 per
+Two arranger songs, each playing ~94 SD card synth presets one-by-one (one sustained C4 per
 synth, ~4 s each), resampled on real hardware:
 
 | recording | format | duration | content |
@@ -21,10 +21,10 @@ synth, ~4 s each), resampled on real hardware:
 | `ALLSYN_2/output_000.wav` | 24-bit stereo 44.1 kHz | ~379 s | playable synths 94–187 (incl. 16 multisamples) |
 
 - **Not in git** (95 MB each — over GitHub's practical limit). They live on the dev machine at
-  `~/ALL_SYNTHS_SONG/ALLSYN_{1,2}/output_000.wav`. Keep a copy; they are irreplaceable ground truth.
+  `~/ALL_SYNTHS_SONG/ALLSYN_{1,2}/output_000.wav` (configured via `-Dscorecard.recordings`). Keep a copy; they are irreplaceable ground truth.
 - The matching songs are generated, not hand-made: `AllSynthsFidelityTest#generateAllSynthsSong`
-  with `-Dsynth.dir=~/ludocard/SYNTHS -Dsynth.offset=N -Dsynth.max=M`, written to
-  `~/ludocard/SONGS/ALLSYN_{1,2}.XML`. Each synth's clip holds one C4; the synths are sorted by
+  with `-Dsynth.dir=src/main/resources/SYNTHS -Dsynth.offset=N -Dsynth.max=M`, written to
+  `src/main/resources/SONGS/ALLSYN_{1,2}.XML`. Each synth's clip holds one C4; the synths are sorted by
   filename and missing-sample presets are skipped (see [[all-synths-arranger-hardware]] / the memory).
 - **Why two songs of 94, not one of 188:** the Deluge can't hold ~188 instruments — RAM exhaustion
   makes synths progressively silent past ~120 and stalls the playhead entirely at 188. ≤~94 plays
@@ -348,7 +348,7 @@ Clincher: **049 Basic FM** (a NATIVE-format patch with real `<modulator1Amount>`
 **index-insensitive (~0.86 flat)** — the native FM path is faithful. Combined with the byte-for-byte
 sub-function verification above, **the FM engine is faithful; the C5 FM fixtures are unusable for
 hardware FM-index calibration.** `FmIndexAbHarness` now only includes native-format cases. To
-calibrate FM index against real hardware in future, add NATIVE ludocard FM presets (e.g.
+calibrate FM index against real hardware in future, add NATIVE SD card FM presets (e.g.
 `068 FM Bells 1`) + re-recorded references, or re-author 103/117 in native `<modulator1Amount>` form.
 
 ### 4.2 Oscillator hard sync — RESOLVED: clean-reference test passes (was a scorecard artifact)
@@ -710,7 +710,7 @@ median 0.800 (n=183)** — confirmed timbre-neutral.
 
 ### 4.12 FM is a CONFIRMED real gap on valid ground truth — §4.1bis "artifact" verdict OVERTURNED (2026-07-06)
 
-A purpose-built isolated FM recording (`FM_CAL`: 7 native ludocard FM presets, one C4 each, 4 s
+A purpose-built isolated FM recording (`FM_CAL`: 7 native SD card FM presets, one C4 each, 4 s
 gap so bell tails decay; `FmCalibrationScorecardTest`) gives the FIRST alignment-unambiguous FM
 ground truth — recorded on firmware nightly `9456095b` (= our port reference). Onset detection is
 clean (gaps 7.98–8.02 s) and the **anchor `050 FM Basic Bass` scores time=0.863**, a known-faithful
@@ -937,7 +937,7 @@ is populated from XML but nothing in the engine ever reads it.**
    synth-track oscillator with a directly-assigned sample always played un-looped, forward, no
    time-stretch, regardless of the preset. (The multisample/kit-zone path was already correct —
    `KeyZone.looping` threads through fine.) Verified via a direct unit test
-   (`SynthSampleOscSettingsTest`), NOT the scorecard: checked all 4 ludocard presets referencing
+   (`SynthSampleOscSettingsTest`), NOT the scorecard: checked all 4 SD card presets referencing
    `loopMode`/`reversed`/`timeStretch` and none actually exercise this path (3 are multisample
    zone-based; 1 — `153 FM Modulation Pad` — has `type=sine` oscillators with vestigial unused
    zone/loop XML fields). Scorecard confirmed unchanged (median 0.801, mean 0.756) — an honest,
@@ -1040,7 +1040,7 @@ took an extra round: patch cables must go through `paramManager.getPatchCableSet
 layer), not a direct `fw2Sound.patchCableSet` write, since `renderBlock`'s internal
 `syncParamsToFw2()` call rebuilds that array fresh every block and silently discards a direct
 write. Scorecard: no measurable change (every individual preset's score identical to 3 decimals) —
-none of the bundled ludocard presets happen to use the specific `SIDECHAIN`→
+none of the bundled SD card presets happen to use the specific `SIDECHAIN`→
 `GLOBAL_VOLUME_POST_REVERB_SEND` patch-cable combo this activates, not evidence the fix is wrong.
 Net effect on level was already benign even while broken (the code correctly falls back to a
 neutral, non-degenerate `reverbOutputVolume` when no ducking sound is found — verified by
@@ -1143,7 +1143,7 @@ These produce no sound in-engine but DO sound on hardware. Highest priority — 
   real `NumSampleLoops` field, misread the adjacent `SamplerData` field as the loop count, and only
   accounted for 16 of a loop entry's 24 bytes — desyncing the byte stream so the subsequent `data`
   chunk was never recognized (`Sample.data` stayed `null`, no exception, silent render). Double
-  Bass's WAVs have a `smpl` chunk (per-note loop points) that every other ludocard multisample
+  Bass's WAVs have a `smpl` chunk (per-note loop points) that every other SD card multisample
   lacks, which is why only this preset hit the bug. Fixed to the correct RIFF `smpl` layout
   (36-byte header + 24-byte-per-loop entries). Scorecard: win=0.940 time=0.952 (one of the best
   scores in the set); no regressions (median held 0.800, n 183→184, ≥0.80 91→92). One pre-existing

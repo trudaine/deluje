@@ -24,12 +24,12 @@ public class FmIndexSweepTest {
     File rec =
         new File(
             System.getProperty(
-                "fm.wav", System.getProperty("user.home") + "/a/FM_CAL/output_000.wav"));
+                "fm.wav", "src/test/resources/fidelity/reference_fm_simple_c5.wav"));
     Assumptions.assumeTrue(rec.isFile(), "no FM_CAL hardware recording at " + rec);
 
     File synthDir =
         new File(
-            System.getProperty("fm.synths", System.getProperty("user.home") + "/ludocard/SYNTHS"));
+            System.getProperty("fm.synths", "src/main/resources/SYNTHS"));
     Assumptions.assumeTrue(synthDir.isDirectory(), "no FM preset dir at " + synthDir);
 
     List<File> presets = new ArrayList<>();

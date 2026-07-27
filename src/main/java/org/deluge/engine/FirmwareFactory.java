@@ -1252,9 +1252,12 @@ public class FirmwareFactory {
       if (fallbackSd.exists()) return fallbackSd;
     }
 
-    // 5. Try under user's home "deluge-card" directory (or custom path via -Ddeluge.card)
-    String cardName = System.getProperty("deluge.card", "deluge-card");
-    File sdCard = new File(System.getProperty("user.home"), cardName);
+    // 5. Try self-contained resources directory (or custom path via -Ddeluge.card)
+    String cardName = System.getProperty("deluge.card", "src/main/resources");
+    File sdCard = new File(cardName);
+    if (!sdCard.isAbsolute() && !sdCard.exists()) {
+      sdCard = new File(System.getProperty("user.home"), cardName);
+    }
     if (sdCard.isDirectory()) {
       File fallback = new File(sdCard, normPath);
       if (fallback.exists()) return fallback;

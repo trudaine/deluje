@@ -25,10 +25,7 @@ import org.junit.jupiter.api.Test;
  */
 public class FreeRunningModulationParityTest {
 
-  private static final String HOME = System.getProperty("user.home");
-  private static final String CARD_NAME =
-      System.getProperty("deluge.card", new File(HOME + "/ludocard").isDirectory() ? "ludocard" : "deluge-card");
-  private static final File SYNTH_DIR = new File(HOME + "/" + CARD_NAME + "/SYNTHS");
+  private static final File SYNTH_DIR = new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
 
   private float[] renderPresetWithLfoOffset(String xmlName, int modFxPhaseOffset, int globalLfoPhaseOffset) throws Exception {
     File xml = new File(SYNTH_DIR, xmlName);

@@ -32,7 +32,7 @@ public class FmIndexAbHarness {
   // <modulator1Amount> etc.) are valid here: the 103/117 "_C5" fixtures use the non-native
   // mode="fm" fmRatio/fmAmount attributes, which the hardware can't read — it falls back to the
   // default modulator amount (INT_MIN = FM off), so those recordings are a near-pure carrier and
-  // can't validate our FM-on render (see FIDELITY_GAP_ANALYSIS 4.1quater). Add native ludocard FM
+  // can't validate our FM-on render (see FIDELITY_GAP_ANALYSIS 4.1quater). Add native SD card FM
   // presets + their re-recorded references here to calibrate FM index against real hardware.
   static final String[][] CASES = {
     {"src/test/resources/fidelity/049 Basic FM.XML", "/fidelity/REC00010.WAV", "60"},
@@ -41,7 +41,7 @@ public class FmIndexAbHarness {
   @Test
   @Tag("slow")
   void sweep() throws Exception {
-    File outDir = new File(System.getProperty("java.io.tmpdir"), "deluge-fm-ab");
+    File outDir = new File(System.getProperty("fm.ab.dir", "target/deluge-fm-ab"));
     outDir.mkdirs();
     boolean any = false;
     System.out.printf("%nFM-index A/B harness — WAVs in %s%n", outDir.getAbsolutePath());

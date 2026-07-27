@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 /**
- * FM-family hardware calibration scorecard. Renders the 7 native-format ludocard FM presets that
+ * FM-family hardware calibration scorecard. Renders the 7 native-format SD card FM presets that
  * make up FM_CAL.XML (generated via AllSynthsFidelityTest#generateAllSynthsSong) through the clean
  * single-note path (FidelityScorecardTest.renderSynth — one C4, unclipped) and scores each against
  * the matching segment of a clean, alignment-unambiguous hardware recording of that song.
@@ -18,8 +18,8 @@ import org.junit.jupiter.api.Test;
  * trustworthy per-preset FM ground truth, to finally settle whether our FM index is faithful-to-C
  * or genuinely too hot.
  *
- * <p>Recording at {@code -Dfm.wav} (default {@code ~/a/FM_CAL/output_000.wav}); presets read from
- * the card at {@code -Dfm.synths} (default {@code ~/ludocard/SYNTHS}). Self-skips if either is
+ * <p>Recording at {@code -Dfm.wav} (default {@code src/test/resources/fidelity/reference_fm_simple_c5.wav}); presets read from
+ * the card at {@code -Dfm.synths} (default {@code src/main/resources/SYNTHS}). Self-skips if either is
  * absent. The preset list + order MUST match FM_CAL.XML (filename sort).
  */
 public class FmCalibrationScorecardTest {
@@ -40,12 +40,12 @@ public class FmCalibrationScorecardTest {
     File rec =
         new File(
             System.getProperty(
-                "fm.wav", System.getProperty("user.home") + "/a/FM_CAL/output_000.wav"));
+                "fm.wav", "src/test/resources/fidelity/reference_fm_simple_c5.wav"));
     Assumptions.assumeTrue(rec.isFile(), "no FM_CAL hardware recording at " + rec);
 
     File synthDir =
         new File(
-            System.getProperty("fm.synths", System.getProperty("user.home") + "/ludocard/SYNTHS"));
+            System.getProperty("fm.synths", "src/main/resources/SYNTHS"));
     Assumptions.assumeTrue(synthDir.isDirectory(), "no FM preset dir at " + synthDir);
 
     List<File> presets = new ArrayList<>();

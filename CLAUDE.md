@@ -122,16 +122,16 @@ model and reading back state. Despite mentions of ChucK in older design docs, th
 
 ## Fidelity scorecard — the objective gate for any DSP change
 
-`FidelityScorecardTest` is the project's fidelity gate. It renders ~190 ludocard synth presets
+`FidelityScorecardTest` is the project's fidelity gate. It renders ~190 SD card synth presets
 through our engine (one C4) and compares a normalized log-magnitude spectrum against the real
 hardware recordings, reporting per-synth + summary cosine similarity (1.0 = identical timbre),
 both single-window and **time-resolved** (the headline metric).
 
 ```bash
-mvn test -Dtest=FidelityScorecardTest -Dgpg.skip=true -Ddeluge.card=ludocard
+mvn test -Dtest=FidelityScorecardTest -Dgpg.skip=true
 ```
 
-It self-skips unless `~/ludocard/SYNTHS` and `~/ALL_SYNTHS_SONG/ALLSYN_{1,2}/output_000.wav`
+It self-skips unless `src/main/resources/SYNTHS` and hardware calibration recordings (configured via `-Dscorecard.recordings`)
 exist (recordings are ~150 MB each, not in git). Since 2026-07-24 it renders the ALLSYN songs'
 **embedded instrument copies** (what the recording actually played — the standalone preset files
 drift from them; old mode: `-Dscorecard.presets=true`). **Current baseline (embedded mode, fresh

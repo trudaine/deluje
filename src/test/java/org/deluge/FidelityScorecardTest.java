@@ -21,12 +21,11 @@ import org.junit.jupiter.api.Test;
  */
 public class FidelityScorecardTest {
 
-  static final String HOME = System.getProperty("user.home");
-  static final String CARD_NAME =
-      System.getProperty(
-          "deluge.card", new File(HOME + "/ludocard").isDirectory() ? "ludocard" : "deluge-card");
-  static final String SYNTH_DIR = HOME + "/" + CARD_NAME + "/SYNTHS";
-  static final File CARD = new File(HOME + "/" + CARD_NAME);
+  static final String CARD_NAME = System.getProperty("deluge.card", "src/main/resources");
+  static final File CARD = new File(CARD_NAME);
+  static final String SYNTH_DIR = new File(CARD, "SYNTHS").getPath();
+  static final File RECORDINGS_DIR =
+      new File(System.getProperty("scorecard.recordings", "src/test/resources/fidelity/hardware-recordings"));
   static final int SR = 44100;
 
   // ---- WAV (16/24-bit, stereo->mono float) ----
@@ -447,11 +446,11 @@ public class FidelityScorecardTest {
 
   @Test
   void scorecard() throws Exception {
-    // Local analysis tool: needs the ludocard SYNTHS + the hardware resamplings. Skip otherwise.
+    // Local analysis tool: needs the SYNTHS dir + the hardware resamplings. Skip otherwise.
     org.junit.jupiter.api.Assumptions.assumeTrue(
         new File(SYNTH_DIR).isDirectory()
-            && new File(HOME + "/ALL_SYNTHS_SONG/ALLSYN_1/output_000.wav").isFile(),
-        "fidelity scorecard needs ~/ludocard SYNTHS + ~/ALL_SYNTHS_SONG recordings");
+            && new File(RECORDINGS_DIR, "ALLSYN_1/output_000.wav").isFile(),
+        "fidelity scorecard needs hardware calibration recordings (set via -Dscorecard.recordings)");
     List<Renderable> p1;
     List<Renderable> p2;
     if (Boolean.getBoolean("scorecard.presets")) {
@@ -504,14 +503,14 @@ public class FidelityScorecardTest {
     List<Double> tsAll = new ArrayList<>();
     scoreSong(
         new ArrayList<>(p1),
-        new File(HOME + "/ALL_SYNTHS_SONG/ALLSYN_1/output_000.wav"),
+        new File(RECORDINGS_DIR, "ALLSYN_1/output_000.wav"),
         "ALLSYN_1",
         all,
         na,
         tsAll);
     scoreSong(
         new ArrayList<>(p2),
-        new File(HOME + "/ALL_SYNTHS_SONG/ALLSYN_2/output_000.wav"),
+        new File(RECORDINGS_DIR, "ALLSYN_2/output_000.wav"),
         "ALLSYN_2",
         all,
         na,

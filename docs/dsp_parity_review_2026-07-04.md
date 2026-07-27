@@ -192,8 +192,8 @@ All three model cores verified essentially perfect; the container/wiring breaks 
   Mutable/Digital output **exact silence** (`Reverb.java:552-581`; C always loads
   `reverbLPF = 50/50` → ~open, song.cpp:181). No `setLPF/setHPF` call site exists in the engine.
 - **CRITICAL** default model: hardware c1.2.0 new songs use **MUTABLE** (song.cpp:188); Java
-  defaults FREEVERB (`Reverb.java:549`) — FREEVERB is only the legacy-file fallback. All ludocard
-  hardware recordings went through Mutable.
+  defaults FREEVERB (`Reverb.java:549`) — FREEVERB is only the legacy-file fallback. All hardware calibration
+  recordings went through Mutable.
 - **MAJOR** `PureFirmwareEngine.java:144-148` swaps cases 1/2: selecting Mutable runs Digital and
   vice versa.
 - **MAJOR** reverb sidechain ducking missing (`FirmwareAudioEngine.java:248` hardcodes 0; C
@@ -312,7 +312,7 @@ All three model cores verified essentially perfect; the container/wiring breaks 
    patcher-driven global FX params, sidechain rate tables + cross-thread hit bus, compressor
    position/length, loop-wrap preservation, timestretch init.
 
-Validation per family: `mvn test -Dtest=FidelityScorecardTest -Dgpg.skip=true -Ddeluge.card=ludocard`
+Validation per family: `mvn test -Dtest=FidelityScorecardTest -Dgpg.skip=true`
 (time-resolved median is the headline; reset the noise seed; confirm the target family rises and
 the faithful set doesn't regress), plus the clean single-note `-Pslow-tests` references for
 FM/sync/PWM go-no-go.
@@ -364,7 +364,7 @@ Also applied and gated — **final: median 0.797, mean 0.757, ≥0.90: 26, ≥0.
 - Per-sample source-amplitude ramps in the subtractive path (osc/wavetable/DX7 consumers),
   faithful to voice.cpp:1042-1069/1119-1121 incl. `shouldAvoidIncrementing`.
 - Square pulse+sync render branch ported (renderOscSync with waveRenderingFunctionPulse,
-  oscillator.cpp:417-449) — no ludocard preset exercises it, correct by construction.
+  oscillator.cpp:417-449) — no bundled SD card preset exercises it, correct by construction.
 - Per-sound compressor moved to the C position (after processReverbSendAndVolume, on the
   volume-applied signal; reverb send now taps the uncompressed signal) via a
   `processPostVolumeDynamics` hook in GlobalEffectable.

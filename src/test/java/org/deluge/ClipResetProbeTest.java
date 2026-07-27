@@ -25,10 +25,11 @@ public class ClipResetProbeTest {
   @Test
   @EnabledIfSystemProperty(named = "clipreset.seq", matches = "true")
   public void sequential() throws Exception {
-    String home = System.getProperty("user.home");
+    String cardName = System.getProperty("deluge.card", "src/main/resources");
     List<TrackModel> tracks = new java.util.ArrayList<>();
     for (int part = 1; part <= 2; part++) {
-      java.io.File songFile = new java.io.File(home + "/ludocard/SONGS/ALLSYN_" + part + ".XML");
+      java.io.File songFile = new java.io.File(cardName, "SONGS/ALLSYN_" + part + ".XML");
+      org.junit.jupiter.api.Assumptions.assumeTrue(songFile.exists(), "song file missing: " + songFile);
       ProjectModel song =
           DelugeXmlParser.parseSong(new FileInputStream(songFile), songFile.getName());
       tracks.addAll(song.getTracks());
@@ -65,14 +66,15 @@ public class ClipResetProbeTest {
   @Test
   @EnabledIfSystemProperty(named = "clipreset.probe", matches = "true")
   public void probe() throws Exception {
-    String home = System.getProperty("user.home");
+    String cardName = System.getProperty("deluge.card", "src/main/resources");
     for (String[] spec :
         new String[][] {
           {"1", "011 Dubstep Bass"},
           {"2", "109 Talking Arp"},
           {"2", "SolidBassShort"},
         }) {
-      java.io.File songFile = new java.io.File(home + "/ludocard/SONGS/ALLSYN_" + spec[0] + ".XML");
+      java.io.File songFile = new java.io.File(cardName, "SONGS/ALLSYN_" + spec[0] + ".XML");
+      org.junit.jupiter.api.Assumptions.assumeTrue(songFile.exists(), "song file missing: " + songFile);
       ProjectModel song =
           DelugeXmlParser.parseSong(new FileInputStream(songFile), songFile.getName());
       TrackModel track = null;

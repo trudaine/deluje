@@ -3,7 +3,7 @@
 
 Each preset isolates ONE DSP feature that the 2026-07 parity fixes touched, so a single
 hardware recording of the generated calibration song gives clean per-family ground truth.
-The XML structure is copied from known-good ludocard presets (the hardware provably loads
+The XML structure is copied from known-good SD card presets (the hardware provably loads
 that shape); only parameter values differ per preset.
 
 Usage:  python3 scripts/generate_calibration_presets.py

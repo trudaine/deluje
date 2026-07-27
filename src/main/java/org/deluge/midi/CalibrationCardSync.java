@@ -50,7 +50,7 @@ public class CalibrationCardSync {
 
   /**
    * Upload just the song to {@code /SONGS} (for calibration songs whose synth presets are already
-   * on the card, e.g. stock ludocard presets). Convenience for {@code pushCalibration(song, [])}.
+   * on the card, e.g. stock SD card presets). Convenience for {@code pushCalibration(song, [])}.
    *
    * @return the remote song path written
    */

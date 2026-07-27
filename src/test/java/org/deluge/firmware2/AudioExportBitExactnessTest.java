@@ -32,10 +32,7 @@ import org.junit.jupiter.api.Test;
  */
 public class AudioExportBitExactnessTest {
 
-  private static final String HOME = System.getProperty("user.home");
-  private static final String CARD_NAME =
-      System.getProperty("deluge.card", new File(HOME + "/ludocard").isDirectory() ? "ludocard" : "deluge-card");
-  private static final File SYNTH_DIR = new File(HOME + "/" + CARD_NAME + "/SYNTHS");
+  private static final File SYNTH_DIR = new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
 
   /** Write a 24-bit stereo PCM WAV file from normalized floating point stereo buffers. */
   private static Path exportStemTo24BitWav(float[] left, float[] right, int sampleRate) throws IOException {
