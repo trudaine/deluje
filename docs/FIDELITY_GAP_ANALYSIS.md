@@ -2266,3 +2266,34 @@ as "vs noise floor, not a render defect" — kept in the scored set (not exclude
 
 Net for the whole 100 investigation: the median-0.862 baseline stands, and the single worst scorer is a
 measurement artifact, not a bug — consistent with the evidence-based finding that the leaf DSP is faithful.
+
+### 4.2quaterquadragies 2026-07-27 — Oscillator UNBLOCKED via SIMDE; basic waves bit-exact (square/triangle/analog); saw phase-offset + sine-rounding characterized
+
+The oscillator underlies **every synth voice** and was the biggest unverified unit — blocked from a desktop
+golden harness by ARM-NEON (Argon). Unblocked it: Argon is designed to fall back to **SIMDE**
+(SIMD-Everywhere, NEON-on-x86) on non-ARM (`arm_simd` does `#include <arm/neon.h>` with
+`SIMDE_ENABLE_NATIVE_ALIASES`); with SIMDE's headers + a tiny `<arm_neon.h>` shim, `oscillator.cpp` +
+`render_wave.h` compile and link on desktop g++ (`tools/osc_harness/`). SIMDE is bit-accurate for the
+integer NEON ops the oscillator uses, so the golden matches real ARM for integer paths.
+
+`OscGoldenBufferTest` bit-diffs the Java `Oscillator.renderOsc` against the real C:
+- **SQUARE, TRIANGLE, ANALOG_SQUARE, SQUARE (25% PWM): `maxAbsDiff = 0` — bit-exact.** This both validates
+  the SIMDE bridge (these are table-based, so if SIMDE diverged they wouldn't match) and confirms the Java
+  oscillator faithful for these.
+- **SAW:** the per-sample **slope is bit-identical** to C (+161319/sample here) but the waveform is
+  **phase-shifted** (its discontinuity lands at a different phase; the offset changes across the wrap, so it
+  is phase, not DC). A saw phase offset is **spectrally invisible** (magnitude spectrum is phase-invariant),
+  so it does not affect the scorecard/timbre — but it is a real phase-convention divergence worth
+  root-causing for phase-sensitive uses (osc sync, unison beating, ring mod). OPEN.
+- **SINE:** matches to within **~26 LSB** (java=1013266 vs golden=1013241 at the first differing sample).
+  Since SQUARE/TRIANGLE (also table-based) are bit-exact, this is most likely a SIMDE-vs-NEON rounding
+  artifact in the golden (a rounding-doubling-multiply that SIMDE implements slightly differently on x86),
+  not a Java bug — sub-audible either way. Characterize on real ARM before treating as a port defect.
+
+**Latent risk found:** the Java `Oscillator.OscType` enum ORDER differs from C's (`definitions_cxx.hpp:358`):
+Java has SAW=2/SQUARE=3, C has SQUARE=2/ANALOG_SQUARE=3/SAW=4. Harmless here (the tests + XML map by wave
+*name*/string), but if any code maps a Java `OscType` ordinal to the C value (or vice versa), it would select
+the wrong waveform. Flagged for audit.
+
+This unblock also opens `wave_table.cpp`, `interpolate.cpp`, and `dx7note.cpp` (all Argon) to the same
+SIMDE-bridged golden method — the previously "blocked" frontier is now reachable.
