@@ -11,9 +11,28 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public class PresetResolutionTest {
+
+  private String origCard;
+
+  @BeforeEach
+  void setUp() {
+    origCard = System.getProperty("deluge.card");
+    System.setProperty("deluge.card", "src/main/resources");
+  }
+
+  @AfterEach
+  void tearDown() {
+    if (origCard != null) {
+      System.setProperty("deluge.card", origCard);
+    } else {
+      System.clearProperty("deluge.card");
+    }
+  }
 
   @Test
   public void testDirectPresetFileResolution() {
@@ -33,19 +52,9 @@ public class PresetResolutionTest {
     assertNull(nonExistent, "Non-existent preset should return null");
 
     // 3. Verify dynamic deluge.card property override (per CLAUDE.md)
-    String origCard = System.getProperty("deluge.card");
-    try {
-      System.setProperty("deluge.card", "src/main/resources");
-      File cardResolved = InstrumentXmlParser.resolvePresetFile("SYNTHS", "027 PW Envelope");
-      assertNotNull(cardResolved, "Should resolve using deluge.card system property");
-      assertEquals("027 PW Envelope.XML", cardResolved.getName());
-    } finally {
-      if (origCard != null) {
-        System.setProperty("deluge.card", origCard);
-      } else {
-        System.clearProperty("deluge.card");
-      }
-    }
+    File cardResolved = InstrumentXmlParser.resolvePresetFile("SYNTHS", "027 PW Envelope");
+    assertNotNull(cardResolved, "Should resolve using deluge.card system property");
+    assertEquals("027 PW Envelope.XML", cardResolved.getName());
   }
 
   @Test
