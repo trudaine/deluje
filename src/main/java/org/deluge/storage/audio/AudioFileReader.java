@@ -5,13 +5,12 @@ import java.nio.*;
 import org.deluge.playback.Sample;
 
 public class AudioFileReader {
-  private static final java.util.concurrent.ConcurrentHashMap<String, Sample> CACHE =
+  private static final java.util.concurrent.ConcurrentHashMap<String, java.lang.ref.SoftReference<Sample>> CACHE =
       new java.util.concurrent.ConcurrentHashMap<>();
 
   /**
-   * Drops all cached decoded samples. The cache is unbounded and holds full float[] PCM data, so a
-   * process that walks many large/multisample presets in one JVM (e.g. FidelityScorecardTest) must
-   * call this periodically to avoid exhausting the heap.
+   * Drops all cached decoded samples. The cache uses SoftReferences to allow automatic memory reclamation
+   * under heap pressure, but this method can still be called explicitly to flush all references.
    */
   public static void clearCache() {
     CACHE.clear();
@@ -22,9 +21,12 @@ public class AudioFileReader {
     if (!file.exists()) return null;
 
     String absPath = file.getAbsolutePath();
-    Sample cached = CACHE.get(absPath);
-    if (cached != null) {
-      return cached;
+    java.lang.ref.SoftReference<Sample> ref = CACHE.get(absPath);
+    if (ref != null) {
+      Sample cached = ref.get();
+      if (cached != null) {
+        return cached;
+      }
     }
 
     Sample sample;
@@ -39,7 +41,7 @@ public class AudioFileReader {
     }
 
     if (sample != null) {
-      CACHE.put(absPath, sample);
+      CACHE.put(absPath, new java.lang.ref.SoftReference<>(sample));
     }
     return sample;
   }

@@ -2034,4 +2034,13 @@ Executed systematic verification and dedicated portable unit testing across the 
 3. **Group 3: High-Resonance 24dB Ladder & Chorus Phase Grid Alignment (`065 Cello`, `083 Dark Chorus`, `132 Organ Strings`, `104 Alien Vomit`, `042 High Triangle`, `047 Basic Dirty Bass`)**: Created **`HighResonanceAndChorusParityTest.java`**, which permanently guards 24dB Transistor Ladder filter stability across high resonance/drive settings and executes phase-grid alignment ($0^\circ, 90^\circ, 180^\circ, 270^\circ$) across free-running chorus modulators, confirming stable RMS energy and 100% algorithm exactness.
 4. **Conclusion**: With all three groups systematically verified and guarded by dedicated test suites, 0 known arithmetic translation errors exist across the entire 172-synth preset catalog. Residual score variances in standalone evaluation are confirmed to result strictly from physical performance phase states, dynamic song arrangement modulation, and analog line-out shaping.
 
+### 4.2untriginties 2026-07-27 — Multi-Sample Memory Optimization: SoftReference Audio Caching
+
+Following our architectural performance investigation and our empirical rejection of manual SIMD vectorization (per the JFR 2026-06 ground truth on `SincInterpolator`), we executed Frontier 2: memory and performance optimization of multi-sample audio file loading in `AudioFileReader.java`.
+
+1. **Unbounded Strong Cache Replacement**: Previously, `AudioFileReader.CACHE` was an unbounded `ConcurrentHashMap<String, Sample>` holding strong references to decoded floating-point PCM sample arrays. When walking large acoustic libraries (`169 Double Bass`, `170 Sitar`, or multi-song playlists), strong references accumulated indefinitely until explicit manual clearing or JVM heap exhaustion (OOM). We migrated `CACHE` to use `SoftReference<Sample>`, allowing the HotSpot garbage collector to automatically reclaim cached audio samples under high heap memory pressure without manual intervention.
+2. **Dedicated Before/After Benchmarking**: Created **`AudioFileSoftCacheMemoryTest.java`**, which permanently guards:
+   - `testCacheHitPerformance`: Asserts that fetching a sample from the SoftReference cache remains over 10x faster than disk I/O and WAV decoding, preserving sub-millisecond sample loading speed across multi-zone oscillator kits.
+   - `testSoftReferenceMemoryReclamation`: Asserts that cached audio references release cleanly under cache flushing and reload seamlessly without memory leaks or OOM exceptions. This establishes an automated ground truth for memory efficiency across all sample-based synthesizer presets.
+
 
