@@ -21,7 +21,7 @@ public class WaveTable {
   public List<WaveTableBand> bands = new ArrayList<>();
 
   private static class WaveTableScratch {
-    final int[] interpolatedKernel = new int[16];
+    final short[] kernelVector = new short[16]; // int16 vqdmulh taps (C wave_table.cpp:979-986)
     final int[] vals = new int[2];
   }
 
@@ -397,22 +397,35 @@ public class WaveTable {
       short[] k1 = kernel[progressSmall];
       short[] k2 = kernel[progressSmall + 1];
 
-      WaveTableScratch scratch = scratchHolder.get();
-      int[] interpolatedKernel = scratch.interpolatedKernel;
-      for (int k = 0; k < 16; k++) {
-        int diff = k2[k] - k1[k];
-        interpolatedKernel[k] = (k1[k] << 16) + diff * strength2 * 2;
-      }
-
       int whichValueCentral = (currentPhase >>> (32 - bandCycleSizeMagnitude));
       int startValue = whichValueCentral - 8;
+      int mask = (1 << bandCycleSizeMagnitude) - 1;
 
-      long sum = 0;
+      // C wave_table.cpp:875-905: kernelVector = vaddq_s16(value1, vqdmulhq_n_s16(value2-value1,
+      // strength2)) — every step is an int16-lane op (vsub/vqdmulh/vadd wrap-or-saturate to int16),
+      // NOT full-precision Q16. Then the taps are combined with vmull_s16/vmlal_s16
+      // (int16×int16→int32)
+      // across a 4-lane int32 accumulator with NO final >>16. The former full-precision kernel
+      // ((v1<<16)+2·diff·s2) then >>16 was ~0.03% (−66 dB) brighter than hardware — golden-verified
+      // (WaveTableGoldenBufferTest). Replicate C exactly: int16 vqdmulh + int16 wrap, then the same
+      // lane-structured int32 accumulation (lane j = Σ_b kv[4b+j]·data[4b+j], j=k&3), summed as C
+      // does.
+      int l0 = 0, l1 = 0, l2 = 0, l3 = 0;
       for (int k = 0; k < 16; k++) {
-        int idx = (startValue + k) & ((1 << bandCycleSizeMagnitude) - 1);
-        sum += (long) bandData[idx] * interpolatedKernel[k];
+        int v1 = k1[k];
+        int diff = (short) (k2[k] - v1); // vsubq_s16 wraps to int16
+        int md = (2 * diff * strength2) >> 16; // vqdmulhq_n_s16: doubling multiply, high half
+        md = md > 32767 ? 32767 : (md < -32768 ? -32768 : md); // …saturating to int16
+        int kv = (short) (v1 + md); // vaddq_s16 wraps to int16
+        int prod = kv * bandData[(startValue + k) & mask]; // vmull_s16: int16×int16 → int32
+        switch (k & 3) {
+          case 0 -> l0 += prod;
+          case 1 -> l1 += prod;
+          case 2 -> l2 += prod;
+          default -> l3 += prod;
+        }
       }
-      outputBuffer[offset + i] = (int) (sum >> 16);
+      outputBuffer[offset + i] = (l0 + l2) + (l1 + l3); // vadd_s32 then vpadd_s32
     }
   }
 
@@ -474,25 +487,40 @@ public class WaveTable {
       short[] k1 = kernel[progressSmall];
       short[] k2 = kernel[progressSmall + 1];
 
+      // Faithful int16 vqdmulh kernel — same fix as doRenderingLoopSingleCycle
+      // (wave_table.cpp:979-986):
+      // int16 vsub/vqdmulh/vadd, NOT full-precision Q16. The kernelVector taps are shared by both
+      // cycles; each cycle then accumulates with the same lane-structured int32 sum (lane j=k&3),
+      // NO final >>16 (C:988-1007). Fixed the ~0.03% (−66 dB) over-bright drift on wavetable
+      // voices.
       WaveTableScratch scratch = scratchHolder.get();
-      int[] interpolatedKernel = scratch.interpolatedKernel;
+      short[] kv = scratch.kernelVector;
       for (int k = 0; k < 16; k++) {
-        int diff = k2[k] - k1[k];
-        interpolatedKernel[k] = (k1[k] << 16) + diff * strength2 * 2;
+        int v1 = k1[k];
+        int d = (short) (k2[k] - v1); // vsubq_s16 wraps to int16
+        int md = (2 * d * strength2) >> 16; // vqdmulhq_n_s16
+        md = md > 32767 ? 32767 : (md < -32768 ? -32768 : md); // …saturating to int16
+        kv[k] = (short) (v1 + md); // vaddq_s16 wraps to int16
       }
+
+      int mask = (1 << bandCycleSizeMagnitude) - 1;
+      int whichValueCentral = (currentPhase >>> (32 - bandCycleSizeMagnitude));
+      int startValue = whichValueCentral - 8;
 
       int[] vals = scratch.vals;
       for (int c = 0; c < 2; c++) {
         int tableOffset = (c == 0) ? table1Offset : table2Offset;
-        int whichValueCentral = (currentPhase >>> (32 - bandCycleSizeMagnitude));
-        int startValue = whichValueCentral - 8;
-
-        long sum = 0;
+        int l0 = 0, l1 = 0, l2 = 0, l3 = 0; // vmull_s16 int32 lanes
         for (int k = 0; k < 16; k++) {
-          int idx = (startValue + k) & ((1 << bandCycleSizeMagnitude) - 1);
-          sum += (long) bandData[tableOffset + idx] * interpolatedKernel[k];
+          int prod = kv[k] * bandData[tableOffset + ((startValue + k) & mask)];
+          switch (k & 3) {
+            case 0 -> l0 += prod;
+            case 1 -> l1 += prod;
+            case 2 -> l2 += prod;
+            default -> l3 += prod;
+          }
         }
-        vals[c] = (int) (sum >> 16);
+        vals[c] = (l0 + l2) + (l1 + l3); // vadd_s32 (twosies[c])
       }
 
       int diff = vals[1] - vals[0];

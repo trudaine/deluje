@@ -2345,3 +2345,23 @@ green. OPEN follow-up: C truncates each interpolated kernel tap to int16 via vqd
 >>16))`) before the int32 vmull accumulation with NO final >>16; Java keeps the full-precision Q16 kernel
 (`(v1<<16)+2·diff·s2`) and does one final `>>16` — a sub-LSB-per-tap precision divergence to nail with a render
 golden (the vqdmulh truncation + saturation is the faithful behavior).
+
+### 4.2septquinquagies 2026-07-27 — wave_table.cpp vqdmulh follow-up CLOSED: single-cycle render now bit-exact (golden)
+
+Built the wavetable render golden harness (tools/wt_harness/): the real wave_table.cpp can't compile standalone
+(NE10/FFT + allocator + Sample + storage), so getKernel + doRenderingLoopSingleCycle are re-hosted VERBATIM as
+free functions, the real windowedSincKernel table is linked from interpolate.cpp data, and the genuine NEON
+intrinsics run via SIMDE (NEON-on-x86) — same bridge as the oscillator harness. A hand-built single band
+(setStaticMemory not even needed: Java's bands is a plain List) is rendered on both sides and bit-diffed
+(WaveTableGoldenBufferTest, 4 cases spanning mag 9/10/11 and kernel rows 0/2).
+
+The golden immediately confirmed the §4.2sexquinquagies vqdmulh gap was REAL: with a phaseIncrement carrying rich
+low bits (a round 2^k phaseInc leaves strength2==0 and never exercises interpolation — first goldens were a false
+pass), the full-precision Java kernel ((v1<<16)+2·diff·s2 then final >>16) diverged from C by ~1.0e5 on ~3e8
+outputs (~0.03%, −66 dB, over-bright). Fixed to the faithful C path: kernelVector = sat16(v1 + sat16((2·diff·s2)
+>>16)) (int16 vsub/vqdmulh/vadd wrap+saturate), then the lane-structured int32 vmull accumulation (lane j=k&3,
+result=(l0+l2)+(l1+l3)) with NO final >>16. Result: all 4 single-cycle goldens maxAbsDiff=0. The identical fix
+was mirrored into the multi-cycle doRenderingLoop (cross-cycle blend already faithful); its 6 behavioral tests +
+26 osc/ladder/fidelity regression tests stay green. Wavetable single-cycle render is now bit-exact with the C;
+the multi-cycle cross-cycle path shares the same (now golden-verified) kernel math but isn't yet golden-covered
+(would need the cross-cycle metadata scaffolding). OscType.WAVETABLE voices are now faithful.
