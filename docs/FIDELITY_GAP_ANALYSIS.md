@@ -2321,3 +2321,27 @@ render-block boundary — a block-rate phase discontinuity that adds audible buz
 a real audible fix for bass saws, found by the just-unblocked SIMDE oscillator harness (the same way the HP-ladder
 init bug fell out of the filter harness) — 22 osc/fidelity tests green. `AllSynthsFidelity`/`DigitalAudioFidelity`
 unaffected (they render C4-ish, band-limited).
+
+### 4.2sexquinquagies 2026-07-27 — wave_table.cpp: WRONG windowed-sinc kernel ROW selected (real bug, both render loops)
+
+Auditing WaveTable.doRenderingLoopSingleCycle / doRenderingLoop line-by-line against wave_table.cpp:854-861
+(the "known to have harbored a bug" unit) found a genuine port bug in the sinc kernel-row selection. The C
+computes a BYTE offset `windowedSincTableLineOffsetBytes = (-phase) >> (23-mag)`, masks it to a multiple of 32
+(`& 0b111100000`), then adds it to an `int16_t*` **as bytes** — the `-5` in the shift is a byte-vs-line artifact
+(32 bytes = 16 int16 per kernel row). The C's effective ROW index is `byteOff/32 = ((-phase) >> (28-mag)) & 0xF`,
+sitting right above strength2's 15-bit field [13-mag..27-mag]. The Java indexes the kernel by ROW
+(`kernel[progressSmall]`), so the ÷32 is already implicit — but it **kept the C's `-5`**, computing
+`((-phase) >> (23-mag)) & 0xF`, i.e. row bits [23-mag..26-mag] which fall *inside* strength2's own field. Result:
+nearly every wavetable sample used the WRONG windowed-sinc row (verified: for mag∈{9,10,11} and arbitrary phases,
+Java-row ≠ C-row in ~90% of cases; the fix `(28-mag)&0xF` reproduces C's `byteOff/32` **exactly in all cases**).
+
+**Fix:** drop the `-5` from the progressSmall shift in BOTH render loops (single-cycle + multi-cycle). This makes
+the row selection bit-exact with C. Impact: every `OscType.WAVETABLE` voice (live in Voice.java:1049+) — the sinc
+interpolation was picking a phase-dependent wrong row, coloring/aliasing all wavetable oscillators. Not caught
+earlier because (a) the scorecard C4 corpus is subtractive/FM/sample-heavy, and (b) the wavetable behavioral
+tests only assert non-silence/phase-advance, never a C-reference sample (the classic proxy-vs-parity gap). Found
+by the Java↔C line-by-line method (CLAUDE.md), same as the 2026-07-04 batch. 6 wavetable behavioral tests stay
+green. OPEN follow-up: C truncates each interpolated kernel tap to int16 via vqdmulh (`sat16(v1+sat16((2·diff·s2)
+>>16))`) before the int32 vmull accumulation with NO final >>16; Java keeps the full-precision Q16 kernel
+(`(v1<<16)+2·diff·s2`) and does one final `>>16` — a sub-LSB-per-tap precision divergence to nail with a render
+golden (the vqdmulh truncation + saturation is the faithful behavior).

@@ -378,9 +378,20 @@ public class WaveTable {
       int rshifted = ((-currentPhase) >>> (rshiftAmount - bandCycleSizeMagnitude));
       int strength2 = rshifted & 32767;
 
+      // C wave_table.cpp:854-861 forms windowedSincTableLineOffsetBytes = (-phase)>>(23-mag), masks
+      // it to a multiple of 32 (0b111100000), then adds it to an int16* as BYTES — i.e. the C -5 is
+      // a
+      // byte-vs-line (32 bytes = 16 int16 per kernel row) artifact of pointer arithmetic. Java
+      // indexes
+      // the kernel by ROW (kernel[progressSmall]), so that ÷32 is already implicit: the faithful
+      // shift
+      // is (28-mag) with & 0xF, NOT (23-mag). Carrying the -5 selected a row 5 bits too low —
+      // landing
+      // inside strength2's own bit field — so nearly every sample used the wrong sinc kernel row.
+      // Verified: (-phase)>>(28-mag)&0xF reproduces C's byteOff/32 row exactly for all phases.
       int progressSmall =
           ((-currentPhase)
-              >>> (32 + kInterpolationMaxNumSamplesMagnitude - 8 - 5 - bandCycleSizeMagnitude));
+              >>> (32 + kInterpolationMaxNumSamplesMagnitude - 8 - bandCycleSizeMagnitude));
       progressSmall &= 0xF;
 
       short[] k1 = kernel[progressSmall];
@@ -449,9 +460,15 @@ public class WaveTable {
       int rshifted = ((-currentPhase) >>> (rshiftAmount - bandCycleSizeMagnitude));
       int strength2 = rshifted & 32767;
 
+      // Same kernel-row fix as doRenderingLoopSingleCycle: the C -5 is a byte-vs-line (32
+      // bytes/row)
+      // pointer-arithmetic artifact (wave_table.cpp:854-861); a row-indexed port must drop it,
+      // giving
+      // the faithful shift (28-mag)&0xF instead of (23-mag), which was landing inside strength2's
+      // bits.
       int progressSmall =
           ((-currentPhase)
-              >>> (32 + kInterpolationMaxNumSamplesMagnitude - 8 - 5 - bandCycleSizeMagnitude));
+              >>> (32 + kInterpolationMaxNumSamplesMagnitude - 8 - bandCycleSizeMagnitude));
       progressSmall &= 0xF; // 16 lines in kernel table
 
       short[] k1 = kernel[progressSmall];
