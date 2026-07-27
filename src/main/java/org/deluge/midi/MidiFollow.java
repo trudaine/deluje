@@ -2,6 +2,7 @@ package org.deluge.midi;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Logger;
 
 /**
  * Port of the C++ midi_follow.cpp (~1394 lines). Maps incoming MIDI messages (CC, Note, Pitch Bend,
@@ -14,6 +15,7 @@ import java.util.Map;
  * parameter routing, per-clip MIDI Follow routing.
  */
 public class MidiFollow {
+  private static final Logger LOGGER = Logger.getLogger(MidiFollow.class.getName());
 
   /**
    * A registered parameter: keyed by CC number, with the global float name and metadata used for
@@ -203,7 +205,7 @@ public class MidiFollow {
     int rawValue = msg.data2();
 
     if (logLevel >= 2) {
-      System.out.println("[MidiFollow] CC " + cc + " = " + rawValue + " ch=" + msg.channel());
+      LOGGER.fine("[MidiFollow] CC " + cc + " = " + rawValue + " ch=" + msg.channel());
     }
 
     // Look up target parameter name to resolve current virtual level
@@ -235,7 +237,7 @@ public class MidiFollow {
       effectiveValue = takeover.process(cc, rawValue, currentVirtual);
       if (effectiveValue < 0) {
         if (logLevel >= 2) {
-          System.out.println("[MidiFollow] Takeover blocked CC " + cc);
+          LOGGER.fine("[MidiFollow] Takeover blocked CC " + cc);
         }
         return; // Takeover says ignore this message
       }
@@ -250,7 +252,7 @@ public class MidiFollow {
           onSetParam.accept(mapping.paramName(), normalized);
         }
         if (logLevel >= 1) {
-          System.out.println(
+          LOGGER.fine(
               "[MidiFollow] Device "
                   + currentDevice.getName()
                   + " → "
@@ -270,8 +272,7 @@ public class MidiFollow {
         onSetParam.accept(pm.globalName(), value);
       }
       if (logLevel >= 1) {
-        System.out.println(
-            "[MidiFollow] " + pm.displayName() + " = " + String.format("%.3f", value));
+        LOGGER.fine("[MidiFollow] " + pm.displayName() + " = " + String.format("%.3f", value));
       }
       return;
     }

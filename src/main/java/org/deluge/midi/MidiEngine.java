@@ -3,6 +3,7 @@ package org.deluge.midi;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
 import org.deluge.shadow.midi.MidiMsg;
 
 /**
@@ -15,6 +16,7 @@ import org.deluge.shadow.midi.MidiMsg;
  * <p>Transport is abstracted via {@link MidiTransport} — no javax.sound.midi dependency.
  */
 public class MidiEngine {
+  private static final Logger LOGGER = Logger.getLogger(MidiEngine.class.getName());
   public static volatile MidiEngine instance;
 
   // --- Constants ---
@@ -244,7 +246,7 @@ public class MidiEngine {
   public void midiMessageReceived(MIDIMessage msg, Object source) {
     if (containsSource(source)) {
       if (logLevel >= 1) {
-        System.out.println("[MidiEngine] Loop detected, ignoring message from " + source);
+        LOGGER.fine("[MidiEngine] Loop detected, ignoring message from " + source);
       }
       return;
     }
@@ -271,7 +273,7 @@ public class MidiEngine {
             handleSystem(msg);
         default -> {
           if (logLevel >= 1) {
-            System.out.println("[MidiEngine] Unknown status type: " + msg.statusType());
+            LOGGER.fine("[MidiEngine] Unknown status type: " + msg.statusType());
           }
         }
       }

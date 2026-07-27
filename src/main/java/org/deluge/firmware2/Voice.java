@@ -1,5 +1,6 @@
 package org.deluge.firmware2;
 
+import java.util.logging.Logger;
 import org.deluge.firmware2.Oscillator.OscType;
 
 /**
@@ -16,6 +17,7 @@ import org.deluge.firmware2.Oscillator.OscType;
  * <p>Firmware reference: {@code voice.cpp} lines 710-1670 (render function).
  */
 public class Voice {
+  private static final Logger LOGGER = Logger.getLogger(Voice.class.getName());
 
   // ── Voice state ──
 
@@ -1751,9 +1753,10 @@ public class Voice {
     }
 
     if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry && maxBeforeFilter > 0) {
-      System.out.printf(
-          "[TELEMETRY DEBUG Voice] beforeFilter=%d, afterFilter=%d, afterAmp=%d (overallAmp=%d)\n",
-          maxBeforeFilter, maxAfterFilter, maxAfterAmp, overallOscAmplitudeLastTime);
+      LOGGER.fine(
+          String.format(
+              "[TELEMETRY DEBUG Voice] beforeFilter=%d, afterFilter=%d, afterAmp=%d (overallAmp=%d)",
+              maxBeforeFilter, maxAfterFilter, maxAfterAmp, overallOscAmplitudeLastTime));
     }
 
     // Saturation/clipping (voice.cpp:1535-1565 "Yes clipping" branch): after the overall

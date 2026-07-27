@@ -1,6 +1,7 @@
 package org.deluge.engine;
 
 import java.util.List;
+import java.util.logging.Logger;
 import org.deluge.firmware2.Compressor;
 import org.deluge.firmware2.Delay;
 import org.deluge.firmware2.GlobalEffectable;
@@ -23,6 +24,7 @@ import org.deluge.model.ProjectModel;
  * faithful-to-C.
  */
 public class FirmwareAudioEngine {
+  private static final Logger LOGGER = Logger.getLogger(FirmwareAudioEngine.class.getName());
   public static boolean debugTelemetry = false;
 
   // ── CPU direness (audio_engine.cpp) — adaptive resampling-quality fallback ──
@@ -498,9 +500,10 @@ public class FirmwareAudioEngine {
         maxAfterL = Math.max(maxAfterL, Math.abs(fxBuffer[i][0]));
       }
       if (maxBeforeL > 1000) {
-        System.out.printf(
-            "[TELEMETRY Engine] fxBuffer L max absolute value: Before=%d, After=%d\n",
-            maxBeforeL, maxAfterL);
+        LOGGER.fine(
+            String.format(
+                "[TELEMETRY Engine] fxBuffer L max absolute value: Before=%d, After=%d",
+                maxBeforeL, maxAfterL));
       }
     }
 

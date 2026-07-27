@@ -1,5 +1,6 @@
 package org.deluge.engine;
 
+import java.util.logging.Logger;
 import org.deluge.firmware2.Param;
 import org.deluge.firmware2.Sidechain;
 import org.deluge.firmware2.StereoSample;
@@ -13,6 +14,8 @@ import org.deluge.modulation.patch.PatchSource;
  * instrument or kit.
  */
 public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
+  private static final Logger LOGGER = Logger.getLogger(FirmwareSound.class.getName());
+
   public enum SynthMode {
     SUBTRACTIVE,
     FM,
@@ -381,12 +384,13 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
 
     if (FirmwareAudioEngine.debugTelemetry
         && nextPatchedParamValues[org.deluge.firmware2.Param.LOCAL_VOLUME] < 10000000) {
-      System.out.printf(
-          "[TELEMETRY DEBUG syncParamsToFw2] paramKnobsPopulated=%b, neutral=%d, knob=%d, nextPatched=%d\n",
-          paramKnobsPopulated,
-          paramNeutralValues[org.deluge.firmware2.Param.LOCAL_VOLUME],
-          paramKnobs[org.deluge.firmware2.Param.LOCAL_VOLUME],
-          nextPatchedParamValues[org.deluge.firmware2.Param.LOCAL_VOLUME]);
+      LOGGER.fine(
+          String.format(
+              "[TELEMETRY DEBUG syncParamsToFw2] paramKnobsPopulated=%b, neutral=%d, knob=%d, nextPatched=%d",
+              paramKnobsPopulated,
+              paramNeutralValues[org.deluge.firmware2.Param.LOCAL_VOLUME],
+              paramKnobs[org.deluge.firmware2.Param.LOCAL_VOLUME],
+              nextPatchedParamValues[org.deluge.firmware2.Param.LOCAL_VOLUME]));
     }
 
     fw2Sound.patchedParamValues = nextPatchedParamValues;

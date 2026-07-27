@@ -83,8 +83,7 @@ public class MidiService {
           if (bridge != null && paramName != null) {
             bridge.setGlobalFloat(paramName, (double) value);
             if (bridge.getLogLevel() >= 2) {
-              System.out.println(
-                  "[MidiFollow] Set " + paramName + " = " + String.format("%.3f", value));
+              LOGGER.fine("[MidiFollow] Set " + paramName + " = " + String.format("%.3f", value));
             }
           }
         });
@@ -138,7 +137,7 @@ public class MidiService {
   public void start() {
     String portName = PreferencesManager.get("midi.input", "None");
     if (portName.equals("None")) {
-      System.out.println("MIDI: No input port selected.");
+      LOGGER.fine("MIDI: No input port selected.");
       return;
     }
 
@@ -147,7 +146,7 @@ public class MidiService {
     if (!deviceId.isEmpty()) {
       currentDevice = MidiDeviceDefinitionLoader.findById(deviceId);
       if (currentDevice != null) {
-        System.out.println("MIDI: Loaded device definition: " + currentDevice.getName());
+        LOGGER.fine("MIDI: Loaded device definition: " + currentDevice.getName());
         router.setDeviceDefinition(currentDevice);
       }
     }
@@ -178,7 +177,7 @@ public class MidiService {
       if (portIdx >= 0) {
         midiIn.open(portIdx);
         midiIn.ignoreTypes(false, false, false);
-        System.out.println("MIDI: Opened input port and allowed SysEx: " + portName);
+        LOGGER.fine("MIDI: Opened input port and allowed SysEx: " + portName);
 
         // Try to open matching output port for SysEx
         try {
@@ -194,8 +193,7 @@ public class MidiService {
           if (outPortIdx >= 0) {
             midiOut.open(outPortIdx);
             sysExManager.setMidiOut(midiOut);
-            System.out.println(
-                "MIDI: Automatically opened matching output port for SysEx: " + portName);
+            LOGGER.fine("MIDI: Automatically opened matching output port for SysEx: " + portName);
             sysExManager
                 .negotiateSession("Deluge-Java Workstation")
                 .thenRun(
@@ -316,7 +314,7 @@ public class MidiService {
     // MIDI Learn intercept — take over before MidiFollow routes
     if (learning) {
       String portName = PreferencesManager.get("midi.input", "None");
-      System.out.println(
+      LOGGER.fine(
           "MIDI LEARN: Bound CC " + cc + " to " + learnTargetParam + " on device " + portName);
       PreferencesManager.set("midi.learn." + portName + "." + learnTargetParam, String.valueOf(cc));
       learning = false;
@@ -433,7 +431,7 @@ public class MidiService {
 
     if (!captureLine.isArmed() && !captureLine.isRecording()) {
       // Start recording!
-      System.out.println("MIDI LOOPER: Arming immediate recording on track " + (trackIdx + 1));
+      LOGGER.fine("MIDI LOOPER: Arming immediate recording on track " + (trackIdx + 1));
 
       if (track instanceof org.deluge.model.AudioTrackModel audioTrack) {
         if (!audioTrack.getAudioClips().isEmpty()) {
@@ -476,7 +474,7 @@ public class MidiService {
                     }
                     float estimatedBpm = (float) ((beats * 60.0) / dur);
                     if (estimatedBpm >= 40.0f && estimatedBpm <= 280.0f) {
-                      System.out.println(
+                      LOGGER.fine(
                           String.format(
                               "AUTO-BPM: Detected tempo %.2f BPM from %.3f seconds (beats=%s)",
                               estimatedBpm, dur, beats));
@@ -491,7 +489,7 @@ public class MidiService {
           });
     } else {
       // Stop recording!
-      System.out.println("MIDI LOOPER: Stopping recording on track " + (trackIdx + 1));
+      LOGGER.fine("MIDI LOOPER: Stopping recording on track " + (trackIdx + 1));
       captureLine.stop();
       if (SwingDelugeApp.mainInstance != null) {
         SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("PLAY", "LOOP");
@@ -562,12 +560,12 @@ public class MidiService {
       if (msg.isMidiStart() || msg.isMidiContinue()) {
         playbackHandler.start();
         if (bridge.getLogLevel() >= 2) {
-          System.out.println("[MidiService] Real-Time Transport: START");
+          LOGGER.fine("[MidiService] Real-Time Transport: START");
         }
       } else if (msg.isMidiStop()) {
         playbackHandler.stop();
         if (bridge.getLogLevel() >= 2) {
-          System.out.println("[MidiService] Real-Time Transport: STOP");
+          LOGGER.fine("[MidiService] Real-Time Transport: STOP");
         }
       } else if (msg.isClock()) {
         if (playbackHandler.getSyncMode() == 1) { // Only advance if EXTERNAL sync mode
@@ -625,7 +623,7 @@ public class MidiService {
     this.learning = true;
     this.learnTargetParam = param;
     String portName = PreferencesManager.get("midi.input", "None");
-    System.out.println("MIDI LEARN: Listening for CC for " + param + " on device " + portName);
+    LOGGER.fine("MIDI LEARN: Listening for CC for " + param + " on device " + portName);
   }
 
   public boolean isLearning() {
@@ -635,7 +633,7 @@ public class MidiService {
   public void cancelLearn() {
     this.learning = false;
     this.learnTargetParam = null;
-    System.out.println("MIDI LEARN: Cancelled active learning loop hook.");
+    LOGGER.fine("MIDI LEARN: Cancelled active learning loop hook.");
   }
 
   public void setRecording(boolean active) {

@@ -647,7 +647,7 @@ public class AbletonTrackMapper {
           track.setReverbSend(0.20f); // Snare plate/clap room reverb
         }
       }
-      System.out.println(
+      LOGGER.fine(
           "[AbletonTrackMapper] Successfully mapped track '"
               + name
               + "' to studio WAV sample: "
@@ -928,7 +928,7 @@ public class AbletonTrackMapper {
       return false; // No Simpler device found
     }
     Element simplerEl = (Element) simplerNodes.item(0);
-    System.out.println(
+    LOGGER.fine(
         "🤖 [GENERIC PARSER] Found native Ableton Simpler device on track: " + track.getName());
 
     // 1. Parse Transposition / Tuning (Ableton semitones -> Deluge transpose; cents -> Deluge
@@ -959,7 +959,7 @@ public class AbletonTrackMapper {
 
       // Env 0 is hardwired to volume in the Deluge engine
       track.setEnv(0, new EnvelopeModel(a, d, s, r, "NONE", 0.0f));
-      System.out.println(
+      LOGGER.fine(
           String.format(
               "   -> Volume Envelope (Env 0): A=%.3fs, D=%.3fs, S=%.2f, R=%.3fs", a, d, s, r));
     }
@@ -995,7 +995,7 @@ public class AbletonTrackMapper {
           track.setLpfRes(normRes);
         }
 
-        System.out.println(
+        LOGGER.fine(
             String.format(
                 "   -> Filter LPF: Cutoff=%.1fHz (norm=%.2f), Resonance=%.2f (norm=%.2f)",
                 freq != null ? freq : 22000.0f, normFreq, res != null ? res : 0.0f, normRes));
@@ -1024,7 +1024,7 @@ public class AbletonTrackMapper {
 
             // Env 1 is patched dynamically to the filter cutoff in the engine
             track.setEnv(1, new EnvelopeModel(fa, fd, fs, fr, "FILTER", depth));
-            System.out.println(
+            LOGGER.fine(
                 String.format(
                     "   -> Filter Envelope (Env 1): A=%.3fs, D=%.3fs, S=%.2f, R=%.3fs, Depth=%.2f",
                     fa, fd, fs, fr, depth));

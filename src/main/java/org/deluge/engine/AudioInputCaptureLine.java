@@ -176,7 +176,7 @@ public class AudioInputCaptureLine {
           Thread.startVirtualThread(
               () -> {
                 byte[] buffer = new byte[1024];
-                System.out.println(
+                LOGGER.fine(
                     "[Capture] Audio input capture armed, listening below threshold limit...");
 
                 while (isArmed.get()) {
@@ -203,8 +203,7 @@ public class AudioInputCaptureLine {
                     if (maxPeak >= threshold) {
                       // Threshold hit! Transition to active recording states!
                       isRecording.set(true);
-                      System.out.println(
-                          "[Capture] Threshold triggered! Peak raw amplitude=" + maxPeak);
+                      LOGGER.fine("[Capture] Threshold triggered! Peak raw amplitude=" + maxPeak);
                       if (onTriggerCallback != null) {
                         javax.swing.SwingUtilities.invokeLater(onTriggerCallback);
                       }
@@ -254,7 +253,7 @@ public class AudioInputCaptureLine {
 
       File targetWav = new File(samplesDir, "Rec_" + System.currentTimeMillis() + ".wav");
       JavaAudioDriver.saveWavFile(pcmData, targetWav);
-      System.out.println("[Capture] Saved threshold recording to: " + targetWav.getAbsolutePath());
+      LOGGER.fine("[Capture] Saved threshold recording to: " + targetWav.getAbsolutePath());
 
       // Update JApp project model kits targets references
       if (SwingDelugeApp.mainInstance != null) {
@@ -266,7 +265,7 @@ public class AudioInputCaptureLine {
               org.deluge.model.Drum drum = kitTrack.getDrums().get(targetSlotIndex);
               if (drum instanceof org.deluge.model.SoundDrum sd) {
                 sd.setSamplePath(targetWav.getAbsolutePath());
-                System.out.println(
+                LOGGER.fine(
                     "[Capture] Successfully loaded recorded sample to slot: " + targetSlotIndex);
               }
             }
@@ -275,8 +274,7 @@ public class AudioInputCaptureLine {
             // SAMPLE oscillator source, playable as a pitched instrument.
             synthTrack.setOsc1Type("SAMPLE");
             synthTrack.setOsc1SamplePath(targetWav.getAbsolutePath());
-            System.out.println(
-                "[Capture] Loaded recorded sample to synth osc1: " + synthTrack.getName());
+            LOGGER.fine("[Capture] Loaded recorded sample to synth osc1: " + synthTrack.getName());
           } else if (track instanceof org.deluge.model.AudioTrackModel audioTrack) {
             // Record into an audio track: the captured WAV becomes the track's audio clip, which
             // the
@@ -306,10 +304,10 @@ public class AudioInputCaptureLine {
                   new File(samplesDir, "Overdub_" + System.currentTimeMillis() + ".wav");
               JavaAudioDriver.saveWavFile(mixed, overdubWav);
               clip.setFilePath(overdubWav.getAbsolutePath());
-              System.out.println("[Capture] Overdubbed audio track: " + audioTrack.getName());
+              LOGGER.fine("[Capture] Overdubbed audio track: " + audioTrack.getName());
             } else {
               clip.setFilePath(targetWav.getAbsolutePath());
-              System.out.println("[Capture] Recorded into audio track: " + audioTrack.getName());
+              LOGGER.fine("[Capture] Recorded into audio track: " + audioTrack.getName());
             }
           }
         }

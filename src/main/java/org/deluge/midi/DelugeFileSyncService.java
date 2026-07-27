@@ -224,7 +224,7 @@ public class DelugeFileSyncService {
         break; // short page => end of directory
       }
     }
-    System.out.println(
+    LOGGER.fine(
         "[FileSyncService] listOneBlocking " + remotePath + " -> " + files.size() + " files");
     return files;
   }
@@ -678,7 +678,7 @@ public class DelugeFileSyncService {
         break; // short page => end of directory
       }
     }
-    System.out.println(
+    LOGGER.fine(
         "[FileSyncService] listDirectory " + remotePath + " -> " + entries.size() + " entries");
     return entries;
   }

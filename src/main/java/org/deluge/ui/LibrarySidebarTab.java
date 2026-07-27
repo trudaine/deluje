@@ -169,8 +169,7 @@ public class LibrarySidebarTab extends JScrollPane {
                   String fileName = leafFile.getName().toLowerCase();
 
                   if (fileName.endsWith(".ck")) {
-                    System.out.println(
-                        "Swing: Loading ChucK script: " + leafFile.getAbsolutePath());
+                    LOGGER.fine("Swing: Loading ChucK script: " + leafFile.getAbsolutePath());
                     if (parent.onPatternLoad != null) {
                       parent.onPatternLoad.accept(leafFile);
                     }
@@ -183,7 +182,7 @@ public class LibrarySidebarTab extends JScrollPane {
                   Thread.startVirtualThread(
                       () -> {
                         try {
-                          System.out.println(
+                          LOGGER.fine(
                               "Swing: Loading Preset in background: "
                                   + finalLeafFile.getAbsolutePath());
                           try (java.io.InputStream is =

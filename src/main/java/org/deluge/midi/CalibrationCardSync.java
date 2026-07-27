@@ -3,6 +3,7 @@ package org.deluge.midi;
 import java.io.File;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Orchestrates the calibration hardware-capture file workflow over USB, on top of a {@link
@@ -19,6 +20,7 @@ import java.util.List;
  * resampled output in {@code /SAMPLES/output_000.wav} (incrementing index per recording).
  */
 public class CalibrationCardSync {
+  private static final Logger LOGGER = Logger.getLogger(CalibrationCardSync.class.getName());
   public static final String SONGS_DIR = "/SONGS";
   public static final String SYNTHS_DIR = "/SYNTHS";
   public static final String SAMPLES_DIR = "/SAMPLES";
@@ -35,7 +37,7 @@ public class CalibrationCardSync {
   }
 
   private static final Progress STDOUT =
-      (path, i, total) -> System.out.printf("  [%d/%d] %s%n", i, total, path);
+      (path, i, total) -> LOGGER.fine(String.format("  [%d/%d] %s", i, total, path));
 
   /**
    * Upload the song's synth presets to {@code /SYNTHS} and the song to {@code /SONGS}. Presets go
@@ -85,7 +87,9 @@ public class CalibrationCardSync {
       localDest.getParentFile().mkdirs();
     }
     Files.write(localDest.toPath(), data);
-    System.out.printf(
-        "  pulled %s -> %s (%d bytes)%n", SAMPLES_DIR + "/" + remoteName, localDest, data.length);
+    LOGGER.fine(
+        String.format(
+            "  pulled %s -> %s (%d bytes)",
+            SAMPLES_DIR + "/" + remoteName, localDest, data.length));
   }
 }

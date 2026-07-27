@@ -2,9 +2,11 @@ package org.deluge.storage.audio;
 
 import java.io.*;
 import java.nio.*;
+import java.util.logging.Logger;
 import org.deluge.playback.Sample;
 
 public class AudioFileReader {
+  private static final Logger LOGGER = Logger.getLogger(AudioFileReader.class.getName());
   private static final java.util.concurrent.ConcurrentHashMap<
           String, java.lang.ref.SoftReference<Sample>>
       CACHE = new java.util.concurrent.ConcurrentHashMap<>();
@@ -58,13 +60,13 @@ public class AudioFileReader {
       // RIFF header
       int riff = Integer.reverseBytes(dis.readInt());
       if (riff != 0x46464952) { // "RIFF" in little-endian as seen by big-endian read
-        System.out.println("Invalid RIFF: " + Integer.toHexString(riff));
+        LOGGER.warning("Invalid RIFF: " + Integer.toHexString(riff));
         return null;
       }
       dis.readInt(); // size
       int wave = Integer.reverseBytes(dis.readInt());
       if (wave != 0x45564157) { // "WAVE"
-        System.out.println("Invalid WAVE: " + Integer.toHexString(wave));
+        LOGGER.warning("Invalid WAVE: " + Integer.toHexString(wave));
         return null;
       }
 

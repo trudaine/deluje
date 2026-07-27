@@ -626,7 +626,7 @@ public class HardwareSidebarTab extends JPanel {
   }
 
   private void showSelfTestResult(String text) {
-    System.out.println("[Deluge Self-Test]\n" + text);
+    LOGGER.fine("[Deluge Self-Test]\n" + text);
     SwingUtilities.invokeLater(
         () ->
             JOptionPane.showMessageDialog(

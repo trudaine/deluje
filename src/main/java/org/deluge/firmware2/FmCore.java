@@ -1,5 +1,7 @@
 package org.deluge.firmware2;
 
+import java.util.logging.Logger;
+
 /**
  * Faithful line-by-line port of the Deluge {@code fm_core.cpp/h} and {@code fm_op_kernel.h} DX7
  * 6-operator FM engine. Renders one block through one of the 32 DX7 algorithms.
@@ -10,6 +12,7 @@ package org.deluge.firmware2;
  * <p>Firmware reference: {@code dsp/dx/fm_core.cpp} (119 lines), {@code fm_core.h} (63 lines).
  */
 public final class FmCore {
+  private static final Logger LOGGER = Logger.getLogger(FmCore.class.getName());
   public static boolean debugRender = false;
 
   private FmCore() {}
@@ -157,9 +160,10 @@ public final class FmCore {
     hasContents[2] = false;
 
     if (debugRender) {
-      System.out.printf(
-          "[FMCORE DEBUG] render algorithm=%d n=%d feedbackShift=%d%n",
-          algorithm, n, feedbackShift);
+      LOGGER.fine(
+          String.format(
+              "[FMCORE DEBUG] render algorithm=%d n=%d feedbackShift=%d",
+              algorithm, n, feedbackShift));
     }
 
     for (int op = 0; op < 6; op++) {
@@ -167,9 +171,10 @@ public final class FmCore {
       boolean add = (flags & OUT_BUS_ADD) != 0;
       FmOpParams param = params[op];
       if (debugRender) {
-        System.out.printf(
-            "  op=%d (Op %d) freq=%d level_in=%d gain_out=%d flags=0x%02X%n",
-            op, 6 - op, param.freq, param.level_in, param.gain_out, flags);
+        LOGGER.fine(
+            String.format(
+                "  op=%d (Op %d) freq=%d level_in=%d gain_out=%d flags=0x%02X",
+                op, 6 - op, param.freq, param.level_in, param.gain_out, flags));
       }
       int inbus = (flags >> 4) & 3;
       int outbus = flags & 3;

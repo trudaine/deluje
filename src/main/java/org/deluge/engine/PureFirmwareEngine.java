@@ -179,7 +179,7 @@ public class PureFirmwareEngine {
     // Sync individual track params
     float spVol = (float) bridge.getGlobalFloat(BridgeContract.G_SP_VOLUME);
     if (spVol < 0.01f && System.currentTimeMillis() % 2000 < 50) {
-      System.out.println("[PureFirmwareEngine] WARNING: G_SP_VOLUME is very low: " + spVol);
+      LOGGER.warning("[PureFirmwareEngine] WARNING: G_SP_VOLUME is very low: " + spVol);
     }
 
     // Sync track mute states from the bridge globals to Java engine sounds safely on EDT

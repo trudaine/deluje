@@ -229,7 +229,7 @@ public class JavaAudioDriver implements Runnable {
                   + " uptime="
                   + up
                   + "ms\n";
-          System.out.print("[BOOTBENCH] " + line);
+          LOGGER.fine("[BOOTBENCH] " + line.trim());
           try {
             java.nio.file.Files.writeString(
                 new java.io.File(System.getProperty("user.home"), ".deluge/bootbench.txt").toPath(),

@@ -1,6 +1,7 @@
 package org.deluge.ui;
 
 import java.util.List;
+import java.util.logging.Logger;
 import javax.swing.SwingUtilities;
 import org.deluge.BridgeContract;
 import org.deluge.model.ArrangerClip;
@@ -14,6 +15,7 @@ import org.deluge.model.StepData;
  * Listens to real-time session grid launches and automatically logs Arranger placements.
  */
 public class ArrangerPlaybackScheduler implements Runnable {
+  private static final Logger LOGGER = Logger.getLogger(ArrangerPlaybackScheduler.class.getName());
   private final BridgeContract bridge;
 
   private ProjectModel project;
@@ -219,7 +221,7 @@ public class ArrangerPlaybackScheduler implements Runnable {
     ArrangerClip newPlacement = new ArrangerClip(trackIndex, clip, startTicks, durationTicks);
     project.addArrangerClip(newPlacement);
 
-    System.out.println(
+    LOGGER.fine(
         "[Capture] Logged Arranger Placement on track "
             + trackIndex
             + " at startBar="

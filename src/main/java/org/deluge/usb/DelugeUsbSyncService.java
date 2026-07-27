@@ -191,7 +191,7 @@ public class DelugeUsbSyncService {
             Thread.sleep(2000);
             continue;
           }
-          System.out.println(
+          LOGGER.fine(
               "[USB] Successfully connected to Deluge CDC Serial port: "
                   + serialPort.getSystemPortName());
         }
@@ -201,7 +201,7 @@ public class DelugeUsbSyncService {
         while (running) {
           int read = readFully(in, header);
           if (read < 0) {
-            System.out.println("[USB] Deluge disconnected (stream closed).");
+            LOGGER.fine("[USB] Deluge disconnected (stream closed).");
             closePort();
             break;
           }
@@ -221,14 +221,14 @@ public class DelugeUsbSyncService {
 
           byte[] payload = new byte[len];
           if (readFully(in, payload) < 0) {
-            System.out.println("[USB] Deluge disconnected during payload read.");
+            LOGGER.fine("[USB] Deluge disconnected during payload read.");
             closePort();
             break;
           }
 
           int checksumByte = in.read();
           if (checksumByte < 0) {
-            System.out.println("[USB] Deluge disconnected during checksum read.");
+            LOGGER.fine("[USB] Deluge disconnected during checksum read.");
             closePort();
             break;
           }
