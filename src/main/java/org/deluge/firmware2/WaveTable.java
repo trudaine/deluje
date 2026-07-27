@@ -524,9 +524,12 @@ public class WaveTable {
       }
 
       int diff = vals[1] - vals[0];
+      // C wave_table.cpp:1014-1016: crossCycleStrength2 is uint32_t, so `>> 1` is LOGICAL. Java's
+      // arithmetic >> on a high-bit-set value (e.g. 0x80000000) would give a negative half → wrong
+      // cross-cycle blend. Use >>> to match the C's unsigned shift.
       outputBuffer[offset + i] =
           Functions.multiply_accumulate_32x32_rshift32_rounded(
-              vals[0] >> 1, diff, currentCrossCycleStrength2 >> 1);
+              vals[0] >> 1, diff, currentCrossCycleStrength2 >>> 1);
 
       currentCrossCycleStrength2 += crossCycleStrength2Increment;
     }

@@ -34,20 +34,33 @@ class WaveTableGoldenBufferTest {
   private static final int NSAMP = 512;
   private static final int GUARD = WaveTable.WAVETABLE_NUM_DUPLICATE_SAMPLES_AT_END_OF_CYCLE;
 
-  private record Case(String file, int mag, int phaseInc) {}
+  private record Case(String file, int mag, int phaseInc, int numCycles, int waveIndex) {}
 
   private static java.util.stream.Stream<Arguments> cases() {
     return java.util.stream.Stream.of(
-            new Case("c_wt_mag11_low.bin", 11, 0x00123456),
-            new Case("c_wt_mag11_mid.bin", 11, 0x002ABCDE),
-            new Case("c_wt_mag10.bin", 10, 0x001ABCDE),
-            new Case("c_wt_mag9.bin", 9, 0x0034ABCD))
+            new Case("c_wt_mag11_low.bin", 11, 0x00123456, 1, 0),
+            new Case("c_wt_mag11_mid.bin", 11, 0x002ABCDE, 1, 0),
+            new Case("c_wt_mag10.bin", 10, 0x001ABCDE, 1, 0),
+            new Case("c_wt_mag9.bin", 9, 0x0034ABCD, 1, 0),
+            // multi-cycle (cross-cycle interpolation) — exercises doRenderingLoop + the render()
+            // numCycles>1 cross-cycle setup (waveIndexScaled / firstCycleNumber /
+            // crossCycleStrength2).
+            new Case("c_wt_multi_nc4.bin", 10, 0x001ABCDE, 4, 0x30000000),
+            new Case("c_wt_multi_nc2.bin", 11, 0x00123456, 2, 0x40000000))
         .map(c -> Arguments.of(c.file, c));
   }
 
   /** Bit-identical to the harness synthCycle(): uint32 wrap arithmetic + logical shift. */
   private static short synthCycle(int i) {
     int x = i * 1103515245 + 12345;
+    x ^= x >>> 16;
+    return (short) (x & 0xFFFF);
+  }
+
+  /** Bit-identical to the harness synthCycleMulti(): distinct waveform per cycle. */
+  private static short synthCycleMulti(int c, int i) {
+    int x = i * 1103515245 + 12345;
+    x ^= c * 0x9E3779B1; // 2654435761u as int32
     x ^= x >>> 16;
     return (short) (x & 0xFFFF);
   }
@@ -69,6 +82,34 @@ class WaveTableGoldenBufferTest {
     return wt;
   }
 
+  private static WaveTable multiCycleTable(int mag, int numCycles) {
+    int cycleSize = 1 << mag;
+    int stride = cycleSize + GUARD;
+    WaveTable wt = new WaveTable();
+    wt.numCycles = numCycles;
+    // render() numCycles>1 setup metadata (wave_table.cpp:749-752) — getMagnitudeOld = 32 - clz.
+    int numCycleTransitions = numCycles - 1;
+    wt.numCycleTransitionsNextPowerOf2Magnitude =
+        32 - Integer.numberOfLeadingZeros(numCycleTransitions);
+    wt.numCycleTransitionsNextPowerOf2 = 1 << wt.numCycleTransitionsNextPowerOf2Magnitude;
+    wt.waveIndexMultiplier =
+        numCycleTransitions << (31 - wt.numCycleTransitionsNextPowerOf2Magnitude);
+    WaveTableBand band = new WaveTableBand();
+    band.cycleSizeMagnitude = (byte) mag;
+    band.cycleSizeNoDuplicates = cycleSize;
+    band.maxPhaseIncrement = (int) ((0xFFFFFFFFL >>> mag) * 1.25);
+    band.fromCycleNumber = 0;
+    band.toCycleNumber = numCycles;
+    band.data = new short[numCycles * stride];
+    for (int c = 0; c < numCycles; c++) {
+      for (int i = 0; i < cycleSize; i++) band.data[c * stride + i] = synthCycleMulti(c, i);
+      for (int g = 0; g < GUARD; g++)
+        band.data[c * stride + cycleSize + g] = band.data[c * stride + g];
+    }
+    wt.bands.add(band);
+    return wt;
+  }
+
   @ParameterizedTest(name = "{0}")
   @MethodSource("cases")
   void javaWaveTableMatchesCGolden(String name, Case c) throws IOException {
@@ -76,9 +117,10 @@ class WaveTableGoldenBufferTest {
     Assumptions.assumeTrue(expected != null, "missing golden resource: " + c.file());
     assertEquals(NSAMP, expected.length, "golden size");
 
-    WaveTable wt = singleCycleTable(c.mag());
+    WaveTable wt =
+        c.numCycles() > 1 ? multiCycleTable(c.mag(), c.numCycles()) : singleCycleTable(c.mag());
     int[] buf = new int[NSAMP];
-    wt.render(buf, 0, NSAMP, c.phaseInc(), 0, false, 0, 0, 0, 0, 0, 0);
+    wt.render(buf, 0, NSAMP, c.phaseInc(), 0, false, 0, 0, 0, 0, c.waveIndex(), 0);
 
     int firstDiff = -1;
     long maxAbs = 0;

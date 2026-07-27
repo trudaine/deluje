@@ -57,4 +57,8 @@ echo "regenerating wavetable golden matrix -> $OUT"
 "$GEN" 10 0x001ABCDE 0 0 512 "$OUT/c_wt_mag10.bin"
 "$GEN"  9 0x0034ABCD 0 0 512 "$OUT/c_wt_mag9.bin"
 
+# multi-cycle (cross-cycle interpolation): multi mag phaseInc numCycles waveIndex nsamp out
+"$GEN" multi 10 0x001ABCDE 4 0x30000000 512 "$OUT/c_wt_multi_nc4.bin"
+"$GEN" multi 11 0x00123456 2 0x40000000 512 "$OUT/c_wt_multi_nc2.bin"
+
 echo "done. wavetable golden buffers written to $OUT"

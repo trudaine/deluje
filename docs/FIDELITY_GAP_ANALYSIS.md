@@ -2365,3 +2365,20 @@ was mirrored into the multi-cycle doRenderingLoop (cross-cycle blend already fai
 26 osc/ladder/fidelity regression tests stay green. Wavetable single-cycle render is now bit-exact with the C;
 the multi-cycle cross-cycle path shares the same (now golden-verified) kernel math but isn't yet golden-covered
 (would need the cross-cycle metadata scaffolding). OscType.WAVETABLE voices are now faithful.
+
+### 4.2octoquinquagies 2026-07-27 — wavetable multi-cycle now golden-covered; a 4th real bug (uint32 shift)
+
+Extended the wt_harness to the multi-cycle doRenderingLoop (re-hosted verbatim, wave_table.cpp:913-1024) plus the
+render() numCycles>1 cross-cycle setup (waveIndexScaled / firstCycleNumber / crossCycleStrength2, waveIndexIncrement
+=0). Two golden cases (numCycles 2 & 4, distinct waveform per cycle) drive the cross-cycle blend. This exposed a
+REAL bug: the C's cross-cycle blend does `crossCycleStrength2 >> 1` where crossCycleStrength2 is **uint32_t** (a
+LOGICAL shift); the Java did an arithmetic `>>` on the signed int, so whenever waveIndex placed crossCycleStrength2's
+high bit (≥0x80000000) the blend proportion went negative — corrupting the interpolation between adjacent wavetable
+cycles for the upper half of every cycle transition. Fixed to `>>> 1`. Both multi-cycle goldens now maxAbsDiff=0;
+34 wavetable/osc/ladder/fidelity tests green.
+
+(A second issue was in the harness TEST generator only, not shipped code: synthCycleMulti used `int i*1103515245`
+— signed-overflow UB that -O2 diverges from Java's defined int wrap, corrupting the C multi band data and masking
+the real result until the generator was moved to uint32_t. Lesson for interp goldens: generate synthetic test data
+with unsigned arithmetic so C -O2 and Java agree bit-for-bit.) Wavetable render is now bit-exact with the C on both
+the single-cycle and multi-cycle paths.
