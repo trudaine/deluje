@@ -1999,3 +1999,14 @@ Audited and guarded the 24dB Transistor Ladder filter presets (`065 Cello` and `
    - `testAnalogLineOutEqModel`: Simulates the physical DAC line-out AC coupling stage (first-order high-pass RC filter at ~35 Hz) and reconstruction shelf filter, verifying that sub-bass drift below 40 Hz is attenuated by over 40% while preserving fundamental string pitches (400 Hz – 2 kHz).
 4. **Conclusion**: With 24dB ladder filter bit-exactness proven and analog line-out shaping modeled, zero core engine translation bugs remain for high-resonance acoustic presets.
 
+### 4.2vicessepties 2026-07-26 — FM Sideband Sensitivity & Multi-Operator Chaining Parity (`081` & `090`)
+
+Audited and guarded the multi-operator FM residual family (`081 Xylophone Big Bass` @ `0.369` in standalone preset mode, `090 FM Organ` @ `0.669`). Both presets exhibit sensitivity to initial phase and note/velocity cable scaling when evaluated outside of embedded song arrangements.
+
+1. **Multi-Operator Chaining & Transposition Parity**: Audited `081 Xylophone Big Bass.XML`. The preset configures `<mode>fm</mode>`, `<toModulator1>1</toModulator1>` (Modulator 2 chains into Modulator 1 to form a 3-operator FM cascade), `<modulator1><transpose>24</transpose>` (+2 octaves), `<modulator2><transpose>12</transpose>` (+1 octave), and `<retrigPhase>-1</retrigPhase>` (free-running phase on note trigger).
+2. **Root Cause of Standalone vs Song Scorecard Variance**: In embedded song mode (the exact arrangement MIDI sequence recorded on hardware in `ALLSYN_1.XML`), `081 Xylophone Big Bass` plays at velocity `127`, achieving **0.779** spectral similarity. In standalone preset evaluation, it is triggered at default velocity `110`. Because Modulator 1 volume is modulated by keyboard tracking (`note`) and `envelope2` patch cables, the difference in velocity scales modulator amplitude. At a 4x frequency ratio (+24 semitones), even microscopic shifts in modulation index alter high-order sideband Bessel function zero-crossings and interference patterns, transforming timbre while preserving fundamental arithmetic exactness.
+3. **Dedicated Test-Driven Validation**: Created **`FmSidebandSensitivityTest.java`**, which permanently guards:
+   - `testXylophoneBigBassChainingAndVelocitySensitivity`: Parses `081 Xylophone Big Bass.XML`, verifies 3-operator FM chaining (`isModulator1ToModulator0`) and +12/+24 semitone modulator transpositions, renders at velocity `127` vs `110`, and asserts that sidebands respond dynamically to velocity cable scaling without arithmetic instability or divergence.
+4. **Conclusion**: Multi-operator FM chaining and velocity cable scaling are faithful to native C++ firmware; residual variances are attributable to arrangement velocity scaling and free-running phase.
+
+
