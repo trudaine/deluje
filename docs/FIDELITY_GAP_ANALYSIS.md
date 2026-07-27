@@ -2162,3 +2162,29 @@ So the DX7 envelope is **not** the 081 residual. The remaining non-kernel FM sus
 ARM-NEON-blocked from a desktop harness, so the next step there is a line-by-line Java↔C read of the
 `Dx7Voice` operator setup vs `dx7note.cpp` (the delay/modFX method), not another smoke test. Golden coverage
 now spans: LP/HP/SVF ladders, Freeverb, FM op kernel, and DX7 envelope — all bit-exact.
+
+### 4.2quadragies 2026-07-27 — 081/FM operator setup fully verified faithful: envelope, levels, freq ratio, and routing (residual is the phase/detune measurement artifact)
+
+Continued the 081 Xylophone (0.369) investigation from §4.2novemtriginties (envelope bit-exact) with a
+line-by-line + table-diff audit of the rest of the DX7 operator setup against `dx7note.cpp` / `fm_core.cpp`.
+Every testable part is faithful:
+
+- **Operator output-level sequence** (`DxVoice::init`): `scaleoutlevel → +ScaleLevel → min(127) → <<5 →
+  +ScaleVelocity → max(0)` — Java `Dx7Voice` matches C exactly.
+- **`ScaleVelocity` / `ScaleRate` / `ScaleCurve` / `ScaleLevel`** — identical. `ScaleRate` correctly omits
+  the `SUPER_PRECISE` block (not `#define`d in the firmware).
+- **Tables diffed bit-identical:** `velocity_data` (64), `exp_scale_data` (33), `coarsemul`/`COARSE_MUL`
+  (32, the coarse frequency ratio where 081's +12/+24 modulator transpose lives), and the **32-algorithm FM
+  routing table** (192 bytes) — all match byte-for-byte.
+- Combined with the **bit-exact DX7 envelope** (§4.2novemtriginties) and the **bit-exact FM op kernel**
+  (fm_harness), the entire DX7 operator amplitude + frequency-ratio + routing + kernel chain is verified.
+
+**Conclusion (evidence-based, not assertion):** the 081 residual is NOT a DSP arithmetic or table-transcription
+bug. The only non-faithful-by-construction elements are (a) `osc_freq`'s float detune (`exp`/`log` → JVM-vs-libm
+ULP, a sub-audible detune term) and (b) the random per-voice `detune_per_voice = getNoise()>>16` and random
+initial operator/feedback **phase** (`getNoise()` on a fresh voice) — which differ between the deterministic
+offline render and the hardware capture. This confirms the §4.2vicessepties "FM sideband sensitivity to
+initial feedback phase / velocity" categorization by actual C verification. (Contrast the batch's
+`FmSidebandSensitivity`/`FmFeedback` *BehaviorTests, which asserted only bounded/velocity-responsive output
+and verified none of the above.) Closes the DX7/FM operator path as a DSP-parity suspect; any further 081 gain
+requires phase/detune-seed alignment with the recording, not a DSP fix.
