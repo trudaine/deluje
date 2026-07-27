@@ -64,8 +64,6 @@ public class PureFirmwareEngine {
                     }
                   }
                 });
-
-    System.out.println("[PureFirmwareEngine] Workstation Started (Pure Java Mode)");
   }
 
   private long lastPlayStateVal = -1;
@@ -341,8 +339,6 @@ public class PureFirmwareEngine {
                   }
                   audioDriver.run();
                 });
-
-    System.out.println("[PureFirmwareEngine] Workstation Started (Pure Java Mode)");
   }
 
   public void stop() {

@@ -73,10 +73,6 @@ public class FirmwareFactory {
   public static ProjectModel createSong(ProjectModel model) {
     model.calculateNoteFrequencies();
 
-    System.out.println(
-        "[FirmwareFactory] Compiling DSP Sound Engines on unified ProjectModel. Tracks: "
-            + model.getTracks().size());
-
     for (TrackModel track : model.getTracks()) {
       if (track.getClips().isEmpty()) {
         track.addClip(new ClipModel("Default Clip", 8, 16));
@@ -196,12 +192,6 @@ public class FirmwareFactory {
                 double samplesPerTick = 44100.0 / (bpm / 60.0 * 96.0);
                 out.setLoopLengthSamples((int) Math.round(clip.getLength() * samplesPerTick));
               }
-              // Phase 3a: the engine starts/stops it on the transport play edge (not at load time).
-              System.out.println(
-                  "[FirmwareFactory] Audio track '"
-                      + model.getName()
-                      + "' streaming clip: "
-                      + f.getName());
             }
           } catch (Exception e) {
             System.err.println("[FirmwareFactory] Audio clip load failed: " + path + " — " + e);
@@ -286,12 +276,6 @@ public class FirmwareFactory {
                   sound.sourceZones[finalS].addAll(compiledZones);
                   sound.loadedOscPath[finalS] = "MULTISAMPLE:" + zones.size();
                 }
-                System.out.println(
-                    "[FirmwareFactory] Loaded multisample oscillator "
-                        + finalS
-                        + " with "
-                        + compiledZones.size()
-                        + " zones.");
                 return;
               }
 
@@ -339,8 +323,6 @@ public class FirmwareFactory {
                       settings.timestretch =
                           (finalS == 0) ? model.isOsc1TimeStretch() : model.isOsc2TimeStretch();
                     }
-                    System.out.println(
-                        "[FirmwareFactory] Loaded synth sample " + finalS + ": " + f.getName());
                   }
                 } catch (IOException e) {
                   System.err.println(
@@ -355,8 +337,6 @@ public class FirmwareFactory {
                     sound.loadedOscPath[finalS] = key;
                     sound.sourceZones[finalS].clear();
                   }
-                  System.out.println(
-                      "[FirmwareFactory] Loaded synth wavetable " + finalS + ": " + f.getName());
                 } catch (IOException e) {
                   System.err.println(
                       "[FirmwareFactory] Failed to load synth wavetable " + finalS + ": " + path);
@@ -1602,7 +1582,6 @@ public class FirmwareFactory {
           drumSound.fw2SampleCache[0] = fw2Smp;
           drumSound.loadedOscPath[0] = key;
         }
-        System.out.println("[FirmwareFactory] Loaded drum sample: " + f.getAbsolutePath());
       }
     } catch (IOException e) {
       System.err.println("[FirmwareFactory] Failed to load drum sample: " + path);

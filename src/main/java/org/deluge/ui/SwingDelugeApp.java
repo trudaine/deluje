@@ -172,7 +172,6 @@ public class SwingDelugeApp extends JFrame {
     this.fileMenuController = new FileMenuController(this);
 
     if (pureMode) {
-      System.out.println("[UI] Initializing Pure Java High-Fidelity Engine...");
       this.pureEngine = new org.deluge.engine.PureFirmwareEngine();
       this.pureEngine.start(bridge);
       // Register in bridge for components that poll it
@@ -210,9 +209,6 @@ public class SwingDelugeApp extends JFrame {
                   }
                 });
       }
-      System.out.println(
-          "[UI] Boot Sync Mode applied to PlaybackHandler: "
-              + (syncMode == 1 ? "EXTERNAL" : "INTERNAL"));
 
       // Start real-time USB playhead sync service
       this.usbSyncService =
@@ -587,22 +583,11 @@ public class SwingDelugeApp extends JFrame {
                 ? (org.deluge.firmware2.GlobalEffectable) activeClip.getSound()
                 : null;
         fwEngine.sounds.add(sound);
-        if (sound != null) {
-          System.out.println(
-              "[UI] Registered track " + i + " sound: " + sound.getClass().getSimpleName());
-        }
       }
 
       float masterVol = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_VOL);
-      System.out.println("[UI] Engine Sync - MasterVol Global: " + masterVol);
       fwEngine.masterVolumeAdjustmentL = (int) (masterVol * 2147483647.0);
       fwEngine.masterVolumeAdjustmentR = fwEngine.masterVolumeAdjustmentL;
-
-      System.out.println(
-          "[UI] Synchronized "
-              + fwEngine.sounds.size()
-              + " track slots for Hi-Fi Rendering. MasterVol: "
-              + masterVol);
     }
     if (!model.getTracks().isEmpty()) {
       int activeTrk = clipPanel != null ? clipPanel.getEditedModelTrack() : 0;

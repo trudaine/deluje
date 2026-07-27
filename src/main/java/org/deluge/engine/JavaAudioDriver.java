@@ -159,10 +159,6 @@ public class JavaAudioDriver implements Runnable {
         // compilation latency spikes!
         byte[] priming = new byte[BLOCK_SIZE * 16 * 4];
         line.write(priming, 0, priming.length);
-
-        System.out.println("[JavaAudioDriver] Opened SUCCESS: " + line.getLineInfo());
-      } else {
-        System.out.println("[JavaAudioDriver] silentMode — capture only, no soundcard output.");
       }
       int peak = 0;
       this.blockCounter = 0;

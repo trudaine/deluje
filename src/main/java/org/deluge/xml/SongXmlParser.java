@@ -1072,51 +1072,6 @@ public class SongXmlParser {
       }
     }
 
-    // DIAGNOSTIC: final ProjectModel summary
-    System.out.println(
-        "  tracks="
-            + project.getTracks().size()
-            + " bpm="
-            + project.getBpm()
-            + " swing="
-            + project.getSwing());
-    for (int t = 0; t < project.getTracks().size(); t++) {
-      TrackModel tr = project.getTracks().get(t);
-      System.out.println(
-          "  track["
-              + t
-              + "]="
-              + tr.getName()
-              + " type="
-              + tr.getClass().getSimpleName()
-              + " clips="
-              + tr.getClips().size());
-      for (int c = 0; c < tr.getClips().size(); c++) {
-        ClipModel cl = tr.getClips().get(c);
-        System.out.println(
-            "    clip["
-                + c
-                + "]="
-                + cl.getName()
-                + " rows="
-                + cl.getRowCount()
-                + " steps="
-                + cl.getStepCount());
-        for (int r = 0; r < cl.getRowCount() && r < 3; r++) {
-          StringBuilder rowSb = new StringBuilder("      row[" + r + "]: ");
-          for (int s = 0; s < cl.getStepCount() && s < 16; s++) {
-            StepData sd = cl.getStep(r, s);
-            rowSb.append(sd != null && sd.active() ? "X" : ".");
-          }
-          System.out.println(rowSb);
-        }
-        if (cl.getRowCount() > 3) {
-          System.out.println("      ... +" + (cl.getRowCount() - 3) + " more rows");
-        }
-      }
-    }
-    System.out.println("=== PARSER END ===");
-
     return project;
   }
 
