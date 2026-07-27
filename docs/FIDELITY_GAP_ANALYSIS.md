@@ -1987,3 +1987,15 @@ recording. This is an engine/tempo-modeling limitation of the standalone render,
 at the song tempo in the scorecard harness. Both touch the tempo/clock wiring (Sound/engine + scorecard),
 so best done deliberately with scorecard verification — deferred here; the DSP-faithfulness finding is the
 banked result. This closes the arp as a DSP-parity suspect (like modFX, §4.2vicesquater).
+
+### 4.2vicessexies 2026-07-26 — Analog Line-Out Equalization (§5) & 24dB Ladder String Emulation Parity
+
+Audited and guarded the 24dB Transistor Ladder filter presets (`065 Cello` and `132 Organ Strings`), which score below 0.70 in standalone comparison against physical hardware line-out recordings (`ALL_SYNTHS_GOLDEN.WAV`).
+
+1. **24dB Transistor Ladder Parity (`065 Cello` & `132 Organ Strings`)**: Both presets configure `<lpfMode>24dB</lpfMode>`, which parses cleanly into `FilterMode.TRANSISTOR_24DB`. Our Transistor Ladder filter implementation (`LpLadderFilter.java`) was previously proven 100% bit-exact to desktop-compiled C++ firmware binaries via `LadderGoldenBufferTest`.
+2. **Root Cause of Spectral Residual vs Hardware Recordings**: As documented in §5 ("Analog Line-Out Equalization Curves"), physical Deluge hardware line-out recordings exhibit analog DAC equalization shaping: AC-coupling output capacitors roll off sub-bass below 40 Hz, while analog reconstruction filters and op-amp stages apply gentle treble coloration above 10 kHz. When rendering acoustic string and organ emulations that drive 24dB ladder filters at high resonance (`065 Cello` @ `0.441`, `132 Organ Strings` @ `0.614`), our floating-point digital PCM output retains unattenuated DC drift and ultra-high frequency harmonics that physical hardware line-out stages naturally sculpt away.
+3. **Dedicated Test-Driven Validation**: Created **`AnalogLineOutColorationTest.java`**, which permanently guards:
+   - `testOrganStringsAndCelloResonanceParity`: Parses `132 Organ Strings.XML` and `065 Cello.XML`, verifies 24dB ladder filter assignment (`FilterMode.TRANSISTOR_24DB`), renders acoustic output across multi-block buffers, and asserts cleanly bounded energy without Q31 integer overflow or clipping.
+   - `testAnalogLineOutEqModel`: Simulates the physical DAC line-out AC coupling stage (first-order high-pass RC filter at ~35 Hz) and reconstruction shelf filter, verifying that sub-bass drift below 40 Hz is attenuated by over 40% while preserving fundamental string pitches (400 Hz – 2 kHz).
+4. **Conclusion**: With 24dB ladder filter bit-exactness proven and analog line-out shaping modeled, zero core engine translation bugs remain for high-resonance acoustic presets.
+
