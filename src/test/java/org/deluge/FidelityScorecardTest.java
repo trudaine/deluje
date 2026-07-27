@@ -541,9 +541,13 @@ public class FidelityScorecardTest {
     long ge9 = all.stream().filter(d -> d >= 0.9).count();
     long ge8 = all.stream().filter(d -> d >= 0.8).count();
     long lt6 = all.stream().filter(d -> d < 0.6).count();
-    LOGGER.fine(String.format("\n=== FIDELITY SUMMARY (%s cosine vs hardware) ===", label));
-    LOGGER.fine(String.format("  n=%d  mean=%.3f  median=%.3f", all.size(), mean, median));
-    LOGGER.fine(
+    // The scorecard's summary is its entire purpose — keep it visible at the default log level (a
+    // 2026-07-27 logging refactor had demoted it to FINE, making a bare scorecard run print
+    // nothing).
+    // Per-preset lines above stay at FINE (verbose).
+    LOGGER.info(String.format("%n=== FIDELITY SUMMARY (%s cosine vs hardware) ===", label));
+    LOGGER.info(String.format("  n=%d  mean=%.3f  median=%.3f", all.size(), mean, median));
+    LOGGER.info(
         String.format(
             "  >=0.90: %d (%.0f%%)   >=0.80: %d (%.0f%%)   <0.60: %d",
             ge9, 100.0 * ge9 / all.size(), ge8, 100.0 * ge8 / all.size(), lt6));

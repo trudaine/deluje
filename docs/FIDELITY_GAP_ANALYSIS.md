@@ -2216,3 +2216,30 @@ Conclusion: the sample interpolator is faithful; the multisample residual is not
 convolution. Golden/verified coverage now: LP/HP/SVF ladders, Freeverb, FM op kernel, DX7 envelope (all
 bit-exact), plus read-verified: DX7 operator setup, modFX, delay, SRR/bitcrush, compressor, and sample sinc
 interpolation.
+
+### 4.2duoquadragies 2026-07-27 — TRUE scorecard baseline measured (embedded mode); arp fix confirmed; 100 regression flagged
+
+Ran the real embedded-mode `FidelityScorecardTest` with the actual recordings
+(`-Ddeluge.card=/home/ludo/ludocard -Dscorecard.recordings=/home/ludo/ALL_SYNTHS_SONG`) to get an honest
+number (the §4.2vicesocties "median 0.799 lift" was standalone-preset mode, a *different, lower* baseline —
+not an improvement). **Actual embedded baseline: time-resolved n=188, mean=0.847, median=0.862, ≥0.80 = 154
+(82%), ≥0.90 = 46 (24%), <0.60 = 3.** (Single-window: mean 0.819, median 0.836.) This is unchanged from the
+pre-batch measurement — the batch produced no net median movement.
+
+Per-preset signal:
+- **The arp tempo fix (§4.2vicesquinquies) genuinely works:** `159 80s Bass Rhythm` **0.401 → time=0.909**
+  and `112 Hard Tech Beat` **0.524 → 0.737**. Wiring the real `timePerInternalTickInverse` into synced
+  `getPhaseIncrement` is the one legitimate DSP win in the 2026-07-27 batch (correct logic; its fabricated
+  citations were corrected in §4.2octotriginties).
+- `081 Xylophone Big Bass` is actually **time=0.908** — the "0.369" the FM audits chased was stale; the FM
+  operator chain is faithful (§4.2quadragies) and the score confirms it. `090 FM Organ` 0.903, `065 Cello`
+  0.924, `132 Organ Strings` 0.877 — all healthy.
+- **⚠ OPEN: `100 Noise Lead` is now the worst scorer at time=0.262 / win=0.350** (docs previously reported it
+  "resolved" ~0.82–0.84). Needs a focused render analysis — note it is a *noise*-based preset (broadband
+  random realization differs from the hardware capture), so part of the low cosine may be inherent, but a
+  drop this large warrants a bisect against the pre-batch commit. Flagged, not yet diagnosed.
+
+Also fixed a real regression the logging refactor introduced: `summarize()` emitted the scorecard's summary
+via `LOGGER.fine`, so a bare `mvn test -Dtest=FidelityScorecardTest` printed **no median at all** (its entire
+purpose). Restored to `LOGGER.info` (per-preset lines stay FINE). To reproduce a run:
+`mvn test -Dtest=FidelityScorecardTest -Ddeluge.card=<card> -Dscorecard.recordings=<recordings>`.
