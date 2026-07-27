@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.util.logging.Logger;
 import org.deluge.model.AudioTrackModel;
 import org.deluge.model.KitTrackModel;
 import org.deluge.model.ProjectModel;
@@ -13,6 +14,7 @@ import org.deluge.model.SynthTrackModel;
 import org.junit.jupiter.api.Test;
 
 public class ProjectSerializerTest {
+  private static final Logger LOGGER = Logger.getLogger(ProjectSerializerTest.class.getName());
 
   @Test
   void testSerializeProject() throws Exception {
@@ -351,29 +353,21 @@ public class ProjectSerializerTest {
   }
 
   @Test
-  @org.junit.jupiter.api.Disabled(
-      "Local diagnostic test requiring external Billie Jean project in Downloads")
-  void testExportBillieJeanStemsForAnalysis() throws Exception {
-    String userHome = System.getProperty("user.home");
-    File alsFile =
-        new File(
-            userHome
-                + "/Downloads/Michael Jackson - Billie Jean (Ableton Remake)/Project/Michael Jackson - Billie Jean.als");
+  void testExportAbletonStemsForAnalysis() throws Exception {
+    File alsFile = new File("src/test/resources/fidelity/test_project.als");
     if (!alsFile.exists()) {
-      System.out.println("Billie Jean ALS file not found!");
-      return;
+      alsFile = new File("../deluge/src/test/resources/fidelity/test_project.als");
     }
+    assertTrue(alsFile.exists(), "test_project.als test fixture must exist in git repo!");
 
     org.w3c.dom.Document doc = org.deluge.ableton.AbletonProjectManager.parseAlsToXml(alsFile);
     ProjectModel project = new ProjectModel();
     org.deluge.ableton.AbletonTrackMapper.importAbletonSet(doc, project, alsFile);
 
-    File targetDir = new File(userHome + "/Downloads/BillieJean_Stems_Analysis");
-    targetDir.mkdirs();
+    File targetDir = Files.createTempDirectory("deluge_stems_analysis_test").toFile();
+    targetDir.deleteOnExit();
 
-    System.out.println("==================================================");
-    System.out.println("PROJECT TRACK & ARRANGEMENT DIAGNOSTICS:");
-    System.out.println("==================================================");
+    LOGGER.fine("PROJECT TRACK & ARRANGEMENT DIAGNOSTICS:");
     double bpm = project.getBpm();
     for (int i = 0; i < project.getTracks().size(); i++) {
       org.deluge.model.TrackModel track = project.getTracks().get(i);
@@ -390,37 +384,33 @@ public class ProjectSerializerTest {
           }
         }
       }
-      System.out.println(
+      LOGGER.fine(
           String.format(
               "  Track %d: [%s] '%s' - Arranger Clips: %d, Session Notes: %d",
               i + 1, track.getClass().getSimpleName(), track.getName(), acList.size(), totalNotes));
 
-      // Print start and duration for arranger clips on this track
       for (var ac : acList) {
         double startSec = ac.startTicks() * (60.0 / (bpm * 96.0));
         double durSec = ac.durationTicks() * (60.0 / (bpm * 96.0));
-        System.out.println(
+        LOGGER.fine(
             String.format(
                 "    -> Arranger Clip: start=%d ticks (%.2f s), duration=%d ticks (%.2f s)",
                 ac.startTicks(), startSec, ac.durationTicks(), durSec));
       }
     }
-    System.out.println("==================================================");
 
-    System.out.println("==================================================");
-    System.out.println("RENDERING 80.0 SECONDS OF BILLIE JEAN STEMS...");
-    System.out.println("==================================================");
+    LOGGER.fine("RENDERING 0.5 SECONDS OF STEMS FOR ANALYSIS...");
     org.deluge.project.ExportHelper.exportStems(
         project,
         targetDir,
-        80.0,
-        "Michael Jackson - Billie Jean",
+        0.5,
+        "Ableton Test Project",
         (status, percent) -> {
-          System.out.println(String.format("  [%d%%] %s", percent, status));
+          LOGGER.fine(String.format("  [%d%%] %s", percent, status));
         });
-    System.out.println("==================================================");
-    System.out.println(
-        "REPORTS: Render complete. Stems written to: " + targetDir.getAbsolutePath());
-    System.out.println("==================================================");
+    LOGGER.fine("REPORTS: Render complete. Stems written to: " + targetDir.getAbsolutePath());
+    assertTrue(
+        targetDir.exists() && targetDir.listFiles() != null && targetDir.listFiles().length > 0,
+        "Stems must be rendered successfully to temporary target folder!");
   }
 }
