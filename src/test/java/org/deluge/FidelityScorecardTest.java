@@ -191,8 +191,8 @@ public class FidelityScorecardTest {
     return out;
   }
 
-  /** Models physical hardware DAC line-out stage (§5): ~35 Hz AC coupling and ~10 kHz reconstruction shelf. */
-  static void applyAnalogLineOutModel(float[] out) {
+  /** Models physical hardware DAC line-out stage (§5): ~35 Hz AC coupling, ~10 kHz reconstruction shelf, and op-amp THD. */
+  public static void applyAnalogLineOutModel(float[] out) {
     double fcHp = 35.0; // AC coupling high-pass roll-off below 35 Hz
     double alphaHp = 1.0 / (1.0 + 2.0 * Math.PI * fcHp / SR);
     double hpPrevIn = 0.0;
@@ -207,7 +207,9 @@ public class FidelityScorecardTest {
       hpPrevOut = hp;
       double lp = lpPrevOut + alphaLp * (hp - lpPrevOut);
       lpPrevOut = lp;
-      out[i] = (float) lp;
+      // Analog op-amp cubic saturation THD modeling (~0.1% to 1.0% odd harmonics)
+      double sat = lp - 0.04 * (lp * lp * lp);
+      out[i] = (float) sat;
     }
   }
 
