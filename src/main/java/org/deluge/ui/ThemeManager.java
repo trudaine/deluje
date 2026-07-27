@@ -3,12 +3,16 @@ package org.deluge.ui;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Centrally manages the global studio UI accent themes (Neon Cyan, Solar Orange, Matrix Green, Acid
  * Pink), notifying listeners in real-time when the theme changes.
  */
 public class ThemeManager {
+
+  private static final Logger LOGGER = Logger.getLogger(ThemeManager.class.getName());
 
   public enum Theme {
     NEON_CYAN("Neon Cyan", new Color(0x00, 0xcc, 0xff), new Color(0x00, 0xff, 0xcc)),
@@ -63,7 +67,7 @@ public class ThemeManager {
       try {
         l.run();
       } catch (Exception e) {
-        e.printStackTrace();
+        LOGGER.log(Level.WARNING, "Error in theme change listener", e);
       }
     }
   }

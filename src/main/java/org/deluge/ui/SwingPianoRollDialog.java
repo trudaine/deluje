@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.sound.midi.*;
 import javax.swing.*;
 import org.deluge.BridgeContract;
@@ -23,6 +25,8 @@ import org.deluge.model.TrackType;
  * note previews, and a built-in standard MIDI file importer.
  */
 public class SwingPianoRollDialog extends JDialog {
+  private static final Logger LOGGER = Logger.getLogger(SwingPianoRollDialog.class.getName());
+  public static volatile SwingPianoRollDialog activeInstance = null;
 
   private static final Color BG_DARK = new Color(0x11, 0x11, 0x13);
   private static final Color BG_GRID = new Color(0x17, 0x17, 0x1a);
@@ -375,7 +379,7 @@ public class SwingPianoRollDialog extends JDialog {
           JOptionPane.INFORMATION_MESSAGE);
 
     } catch (Exception ex) {
-      ex.printStackTrace();
+      LOGGER.log(Level.WARNING, "Error reading MIDI file in piano roll import", ex);
       JOptionPane.showMessageDialog(
           this,
           "Error reading MIDI file:\n" + ex.getMessage(),

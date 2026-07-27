@@ -1,6 +1,8 @@
 package org.deluge.ui;
 
 import java.awt.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.*;
 import org.deluge.BridgeContract;
 import org.deluge.engine.FirmwareFactory;
@@ -14,6 +16,7 @@ import org.deluge.model.SynthTrackModel;
 
 /** Alternative lightweight UI running purely on Java Swing (no native libs). */
 public class SwingDelugeApp extends JFrame {
+  private static final Logger LOGGER = Logger.getLogger(SwingDelugeApp.class.getName());
   public static SwingDelugeApp mainInstance;
   public static boolean pureModeActive = false;
   final BridgeContract bridge;
@@ -530,15 +533,15 @@ public class SwingDelugeApp extends JFrame {
             org.deluge.firmware2.Functions.ONE_Q31;
         drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_VOLUME] =
             org.deluge.firmware2.Functions.ONE_Q31;
-        System.err.println("[applyKitDrumSampleLive] OK loaded " + s.getNumSamples() + " samples");
+        LOGGER.fine("[applyKitDrumSampleLive] OK loaded " + s.getNumSamples() + " samples");
       } else {
-        System.err.println(
+        LOGGER.warning(
             "[applyKitDrumSampleLive] FAIL readSample returned "
                 + (s != null ? "null data" : "null"));
       }
     } catch (Exception ex) {
-      System.err.println("[KitConfig] live drum sample apply failed: " + ex.getMessage());
-      ex.printStackTrace();
+      LOGGER.log(
+          Level.WARNING, "[KitConfig] live drum sample apply failed: " + ex.getMessage(), ex);
     }
   }
 
@@ -1241,7 +1244,7 @@ public class SwingDelugeApp extends JFrame {
                       }
                       return "Samples/Imported/" + dest.getName();
                     } catch (Exception ex) {
-                      ex.printStackTrace();
+                      LOGGER.log(Level.WARNING, "Failed to copy sample for Ableton export", ex);
                       return originalPath;
                     }
                   };
@@ -1254,7 +1257,7 @@ public class SwingDelugeApp extends JFrame {
                   "Export Successful",
                   JOptionPane.INFORMATION_MESSAGE);
             } catch (Exception ex) {
-              ex.printStackTrace();
+              LOGGER.log(Level.WARNING, "Failed to export project to Ableton", ex);
               JOptionPane.showMessageDialog(
                   this,
                   "Failed to export project:\n" + ex.getMessage(),
@@ -1335,7 +1338,8 @@ public class SwingDelugeApp extends JFrame {
                   "Export Successful",
                   JOptionPane.INFORMATION_MESSAGE);
             } catch (Exception ex) {
-              ex.printStackTrace();
+              LOGGER.log(
+                  Level.WARNING, "Failed to export project as standalone Ableton Live Set", ex);
               JOptionPane.showMessageDialog(
                   this,
                   "Failed to export project:\n" + ex.getMessage(),
@@ -1870,7 +1874,7 @@ public class SwingDelugeApp extends JFrame {
                   g.dispose();
 
                   javax.imageio.ImageIO.write(img, "png", file);
-                  System.out.println(
+                  LOGGER.fine(
                       "[Debug] Screenshot captured successfully to: " + file.getAbsolutePath());
 
                   JOptionPane.showMessageDialog(
@@ -1879,7 +1883,7 @@ public class SwingDelugeApp extends JFrame {
                       "Screenshot Captured",
                       JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception ex) {
-                  ex.printStackTrace();
+                  LOGGER.log(Level.WARNING, "Failed to capture screenshot", ex);
                 }
               }
             });

@@ -2,6 +2,8 @@ package org.deluge.ui;
 
 import java.awt.*;
 import java.io.File;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeCellRenderer;
@@ -11,7 +13,7 @@ import org.deluge.project.PreferencesManager;
 import org.deluge.xml.DelugeXmlParser;
 
 public class HardwareSidebarTab extends JPanel {
-
+  private static final Logger LOGGER = Logger.getLogger(HardwareSidebarTab.class.getName());
   private final SwingProjectSidebarPanel parent;
 
   private DefaultMutableTreeNode hardwareRoot;
@@ -814,7 +816,7 @@ public class HardwareSidebarTab extends JPanel {
                       parent.bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
                     }
                   } catch (Exception ex) {
-                    ex.printStackTrace();
+                    LOGGER.log(Level.WARNING, "Failed to load/parse remote file", ex);
                     JOptionPane.showMessageDialog(
                         SwingDelugeApp.mainInstance,
                         "Failed to load/parse remote file:\n" + ex.getMessage(),
@@ -826,7 +828,7 @@ public class HardwareSidebarTab extends JPanel {
 
           @Override
           public void onFailure(Throwable t) {
-            t.printStackTrace();
+            LOGGER.log(Level.WARNING, "Failed to download remote file", t);
             SwingUtilities.invokeLater(
                 () -> {
                   progress.dispose();

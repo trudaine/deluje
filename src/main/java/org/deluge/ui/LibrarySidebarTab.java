@@ -2,6 +2,8 @@ package org.deluge.ui;
 
 import java.awt.*;
 import java.io.File;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.*;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeCellRenderer;
@@ -10,7 +12,7 @@ import org.deluge.project.PreferencesManager;
 import org.deluge.xml.DelugeXmlParser;
 
 public class LibrarySidebarTab extends JScrollPane {
-
+  private static final Logger LOGGER = Logger.getLogger(LibrarySidebarTab.class.getName());
   private final SwingProjectSidebarPanel parent;
   private DefaultMutableTreeNode libraryRoot;
   private JTree libraryTree;
@@ -294,9 +296,10 @@ public class LibrarySidebarTab extends JScrollPane {
                             }
                           }
                         } catch (Exception ex) {
-                          System.err.println(
-                              "Error loading preset in background: " + ex.getMessage());
-                          ex.printStackTrace();
+                          LOGGER.log(
+                              Level.WARNING,
+                              "Error loading preset in background: " + ex.getMessage(),
+                              ex);
                           javax.swing.SwingUtilities.invokeLater(
                               () -> {
                                 JOptionPane.showMessageDialog(
@@ -517,7 +520,7 @@ public class LibrarySidebarTab extends JScrollPane {
                         JOptionPane.INFORMATION_MESSAGE);
                   });
             } catch (Exception saveEx) {
-              saveEx.printStackTrace();
+              LOGGER.log(Level.WARNING, "Failed to save downloaded file", saveEx);
               SwingUtilities.invokeLater(
                   () -> {
                     progress.dispose();
@@ -532,7 +535,7 @@ public class LibrarySidebarTab extends JScrollPane {
 
           @Override
           public void onFailure(Throwable t) {
-            t.printStackTrace();
+            LOGGER.log(Level.WARNING, "Failed to download remote file", t);
             SwingUtilities.invokeLater(
                 () -> {
                   progress.dispose();

@@ -1,5 +1,7 @@
 package org.deluge.midi;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.deluge.BridgeContract;
 import org.deluge.project.PreferencesManager;
 import org.deluge.shadow.midi.MidiIn;
@@ -13,6 +15,7 @@ import org.deluge.ui.SwingDelugeApp;
  * management at this layer. Uses rtmidijava via MidiIn — no javax.sound.midi dependency.
  */
 public class MidiService {
+  private static final Logger LOGGER = Logger.getLogger(MidiService.class.getName());
   private final BridgeContract bridge;
 
   private final MidiInputRouter router;
@@ -275,11 +278,10 @@ public class MidiService {
                 });
 
       } else {
-        System.err.println("MIDI: Port not found: " + portName);
+        LOGGER.warning("MIDI: Port not found: " + portName);
       }
     } catch (Exception e) {
-      System.err.println("MIDI: Failed to open port: " + portName);
-      e.printStackTrace();
+      LOGGER.log(Level.SEVERE, "MIDI: Failed to open port: " + portName, e);
     }
   }
 

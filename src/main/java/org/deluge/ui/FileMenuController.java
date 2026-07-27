@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.logging.Level;
 import javax.swing.BorderFactory;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
@@ -235,7 +236,10 @@ public class FileMenuController {
               }
             } catch (Exception ex) {
               Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
-              cause.printStackTrace();
+              LOGGER.log(
+                  Level.WARNING,
+                  "Failed to load/import project file: " + file.getAbsolutePath(),
+                  cause);
               JOptionPane.showMessageDialog(
                   app,
                   "Failed to "

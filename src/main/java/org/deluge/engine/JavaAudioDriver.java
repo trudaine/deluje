@@ -3,12 +3,15 @@ package org.deluge.engine;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.sound.sampled.*;
 import org.deluge.firmware2.StereoSample;
 import org.deluge.playback.PlaybackHandler;
 
 /** Pure Java audio driver using javax.sound.sampled. */
 public class JavaAudioDriver implements Runnable {
+  private static final Logger LOGGER = Logger.getLogger(JavaAudioDriver.class.getName());
   public static volatile boolean isResamplingActive = false;
 
   /**
@@ -26,7 +29,7 @@ public class JavaAudioDriver implements Runnable {
       recordedBytes.reset();
     }
     isResamplingActive = true;
-    System.out.println("[Resampler] Recording started...");
+    LOGGER.fine("[Resampler] Recording started...");
   }
 
   public static byte[] stopResampling() {
@@ -34,7 +37,7 @@ public class JavaAudioDriver implements Runnable {
     synchronized (recordedBytes) {
       byte[] data = recordedBytes.toByteArray();
       recordedBytes.reset();
-      System.out.println("[Resampler] Recording stopped. Captured " + data.length + " bytes.");
+      LOGGER.fine("[Resampler] Recording stopped. Captured " + data.length + " bytes.");
       return data;
     }
   }
@@ -65,7 +68,7 @@ public class JavaAudioDriver implements Runnable {
       writeIntLE(fos, dataSize);
       fos.write(pcmData);
     }
-    System.out.println("[Resampler] Saved WAV loop successfully: " + targetFile.getAbsolutePath());
+    LOGGER.fine("[Resampler] Saved WAV loop successfully: " + targetFile.getAbsolutePath());
   }
 
   private static void writeIntLE(java.io.OutputStream os, int v) throws IOException {
@@ -148,7 +151,7 @@ public class JavaAudioDriver implements Runnable {
       // Capture-only mode: render + resample still run, but never open/write the soundcard. Used by
       // tests (SwingDelugeAppE2ETest) so the suite is silent instead of blasting the speakers.
       if (!silentMode) {
-        System.out.println("[JavaAudioDriver] Searching for audio line...");
+        LOGGER.fine("[JavaAudioDriver] Searching for audio line...");
         AudioFormat format = new AudioFormat(44100, 16, 2, true, false);
         DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
         line = (SourceDataLine) AudioSystem.getLine(info);
@@ -241,7 +244,7 @@ public class JavaAudioDriver implements Runnable {
         org.deluge.engine.FirmwareAudioEngine.updateDireness(
             duration, BLOCK_SIZE, blockCounter * (long) BLOCK_SIZE);
         if (duration > 2900000) {
-          System.out.println(
+          LOGGER.warning(
               "[WARN] Audio block render took too long: " + (duration / 1000000.0) + " ms");
         }
 
@@ -286,7 +289,7 @@ public class JavaAudioDriver implements Runnable {
         }
 
         if (debugPeak && blockCounter % 200 == 0 && peak > 1000) {
-          System.out.println("[JavaAudioDriver] LIVE SIGNAL PEAK: " + peak);
+          LOGGER.fine("[JavaAudioDriver] LIVE SIGNAL PEAK: " + peak);
         }
         if (blockCounter % 200 == 0) peak = 0;
         blockCounter++;
@@ -318,8 +321,7 @@ public class JavaAudioDriver implements Runnable {
         line.close();
       }
     } catch (Exception e) {
-      System.err.println("[JavaAudioDriver] Error: " + e.getMessage());
-      e.printStackTrace();
+      LOGGER.log(Level.SEVERE, "[JavaAudioDriver] Error: " + e.getMessage(), e);
     }
   }
 
