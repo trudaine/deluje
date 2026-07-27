@@ -46,8 +46,7 @@ public class SaveNameSuggester {
         String currentSubslot = m.group(2); // might be null
 
         // Loop from A to Z to find the first unused name
-        char nextLetter =
-            currentSubslot == null ? 'A' : (char) (currentSubslot.toUpperCase().charAt(0));
+        char nextLetter = currentSubslot == null ? 'A' : currentSubslot.toUpperCase().charAt(0);
         if (currentSubslot != null) {
           nextLetter++; // Start from next letter
         }

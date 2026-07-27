@@ -29,7 +29,8 @@ public class ClipResetProbeTest {
     List<TrackModel> tracks = new java.util.ArrayList<>();
     for (int part = 1; part <= 2; part++) {
       java.io.File songFile = new java.io.File(cardName, "SONGS/ALLSYN_" + part + ".XML");
-      org.junit.jupiter.api.Assumptions.assumeTrue(songFile.exists(), "song file missing: " + songFile);
+      org.junit.jupiter.api.Assumptions.assumeTrue(
+          songFile.exists(), "song file missing: " + songFile);
       ProjectModel song =
           DelugeXmlParser.parseSong(new FileInputStream(songFile), songFile.getName());
       tracks.addAll(song.getTracks());
@@ -74,7 +75,8 @@ public class ClipResetProbeTest {
           {"2", "SolidBassShort"},
         }) {
       java.io.File songFile = new java.io.File(cardName, "SONGS/ALLSYN_" + spec[0] + ".XML");
-      org.junit.jupiter.api.Assumptions.assumeTrue(songFile.exists(), "song file missing: " + songFile);
+      org.junit.jupiter.api.Assumptions.assumeTrue(
+          songFile.exists(), "song file missing: " + songFile);
       ProjectModel song =
           DelugeXmlParser.parseSong(new FileInputStream(songFile), songFile.getName());
       TrackModel track = null;

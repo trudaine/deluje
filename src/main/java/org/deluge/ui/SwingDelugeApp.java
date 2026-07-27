@@ -2971,12 +2971,6 @@ public class SwingDelugeApp extends JFrame {
   }
 
   /**
-   * Window size from the Screen Resolution preference, clamped to the physical screen (minus
-   * margins for the title bar / taskbar) and floored to {@link #MIN_WINDOW_W}x{@link
-   * #MIN_WINDOW_H}. This is what makes us actually comply with the preference while still fitting
-   * low-res laptops.
-   */
-  /**
    * Pure window-size policy: a resolution profile clamped to the given screen (minus title/taskbar
    * margins) and floored to the minimum. Package-private + screen-size-injected so it is testable
    * headlessly.

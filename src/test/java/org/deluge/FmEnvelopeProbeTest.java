@@ -27,9 +27,7 @@ public class FmEnvelopeProbeTest {
 
   @Test
   void dumpFmRender() throws Exception {
-    File dir =
-        new File(
-            System.getProperty("fm.synths", "src/main/resources/SYNTHS"));
+    File dir = new File(System.getProperty("fm.synths", "src/main/resources/SYNTHS"));
     String name = System.getProperty("fm.preset", "068 FM Bells 1.XML");
     int note = Integer.getInteger("fm.note", 60);
     File xml = new File(dir, name);

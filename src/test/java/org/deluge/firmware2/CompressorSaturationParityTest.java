@@ -74,7 +74,8 @@ public class CompressorSaturationParityTest {
         hasEnergy = true;
       }
       maxPeak = Math.max(maxPeak, Math.abs(l));
-      assertEquals(l, r, "Stereo compressor processing identical inputs must maintain channel symmetry");
+      assertEquals(
+          l, r, "Stereo compressor processing identical inputs must maintain channel symmetry");
     }
 
     assertTrue(hasEnergy, "Compressor must generate non-zero output from high-level excitation");

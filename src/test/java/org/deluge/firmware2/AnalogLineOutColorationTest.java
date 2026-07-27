@@ -73,7 +73,8 @@ public class AnalogLineOutColorationTest {
             name + " must generate non-zero acoustic output through 24dB ladder filter");
         assertTrue(
             maxSample < 2.147483648e9,
-            name + " output must remain cleanly bounded within Q31 integer limits without clipping");
+            name
+                + " output must remain cleanly bounded within Q31 integer limits without clipping");
       }
     }
   }
@@ -89,9 +90,14 @@ public class AnalogLineOutColorationTest {
     for (int i = 0; i < numSamples; i++) {
       double t = i / sampleRate;
       input[i] =
-          1.0 * Math.sin(2.0 * Math.PI * 15.0 * t) // 15 Hz sub-bass (should be rolled off by AC coupling)
+          1.0
+                  * Math.sin(
+                      2.0 * Math.PI * 15.0
+                          * t) // 15 Hz sub-bass (should be rolled off by AC coupling)
               + 2.0 * Math.sin(2.0 * Math.PI * 500.0 * t) // 500 Hz string fundamental (preserved)
-              + 0.5 * Math.sin(2.0 * Math.PI * 15000.0 * t); // 15 kHz treble (gentle shelf attenuation)
+              + 0.5
+                  * Math.sin(
+                      2.0 * Math.PI * 15000.0 * t); // 15 kHz treble (gentle shelf attenuation)
     }
 
     // First-order high-pass RC filter at ~35 Hz (simulating physical line-out coupling capacitor)
@@ -102,7 +108,8 @@ public class AnalogLineOutColorationTest {
 
     // Gentle low-pass shelf at ~10 kHz (simulating DAC reconstruction filter / analog stage)
     double fcLp = 10000.0;
-    double alphaLp = (2.0 * Math.PI * fcLp / sampleRate) / (1.0 + 2.0 * Math.PI * fcLp / sampleRate);
+    double alphaLp =
+        (2.0 * Math.PI * fcLp / sampleRate) / (1.0 + 2.0 * Math.PI * fcLp / sampleRate);
     double lpPrevOut = 0.0;
 
     for (int i = 0; i < numSamples; i++) {

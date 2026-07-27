@@ -72,7 +72,7 @@ public class FilterGraphComponent extends JComponent {
             float baseY = paddingY + drawH;
 
             // 1. Map mouse X back to cutoff parameter (0.0 to 1.0)
-            float u = (float) (e.getX() - startX) / drawW;
+            float u = (e.getX() - startX) / drawW;
             u = Math.max(0.0f, Math.min(1.0f, u));
 
             // fc = 0.01 + 3.99 * u * u
@@ -81,12 +81,12 @@ public class FilterGraphComponent extends JComponent {
             cutoffVal = Math.max(0.0f, Math.min(1.0f, cutoffVal));
 
             // 2. Map mouse Y back to resonance parameter (0.0 to 1.0)
-            float hRatio = (float) (baseY - e.getY()) / drawH;
+            float hRatio = (baseY - e.getY()) / drawH;
             hRatio = Math.max(0.01f, Math.min(1.2f, hRatio)); // clamp to prevent division by zero
 
             // hRatio = 1.0 / (1.0 + resonance * 2.5)
             // resonance = ((1.0 / hRatio) - 1.0) / 2.5
-            float resonanceVal = (float) (((1.0f / hRatio) - 1.0f) / 2.5f);
+            float resonanceVal = ((1.0f / hRatio) - 1.0f) / 2.5f;
             resonanceVal = Math.max(0.0f, Math.min(1.0f, resonanceVal));
 
             // 3. Find and update parent sliders to trigger the centralized updates & audio sync

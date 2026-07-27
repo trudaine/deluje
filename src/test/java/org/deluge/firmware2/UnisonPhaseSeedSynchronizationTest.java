@@ -18,14 +18,16 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test and verification for Frontier B: Unison Phase Synchronization (§4.2quattuortriginties).
- * Verifies that multi-voice unison presets (e.g. 018 Rich Saw Lead, 039 Detuned Retriggering Saws) disperse initial
- * oscillator phases across unison parts when deterministic phase overrides are active, preventing constructive
- * interference transient spikes and matching analog hardware time-domain phase distribution against C++ voice.cpp:399-411.
+ * Dedicated portable unit test and verification for Frontier B: Unison Phase Synchronization
+ * (§4.2quattuortriginties). Verifies that multi-voice unison presets (e.g. 018 Rich Saw Lead, 039
+ * Detuned Retriggering Saws) disperse initial oscillator phases across unison parts when
+ * deterministic phase overrides are active, preventing constructive interference transient spikes
+ * and matching analog hardware time-domain phase distribution against C++ voice.cpp:399-411.
  */
 public class UnisonPhaseSeedSynchronizationTest {
 
-  private static final File SYNTH_DIR = new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
+  private static final File SYNTH_DIR =
+      new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
 
   @Test
   public void testUnisonPhaseSeedDispersion() throws Exception {
@@ -46,7 +48,9 @@ public class UnisonPhaseSeedSynchronizationTest {
     ProjectModel song = FirmwareFactory.createSong(project);
     FirmwareSound fs = (FirmwareSound) song.getTracks().get(0).getActiveClip().getSound();
 
-    assertTrue(fs.fw2Sound.numUnison > 1, "018 Rich Saw Lead must be configured as a multi-voice unison preset");
+    assertTrue(
+        fs.fw2Sound.numUnison > 1,
+        "018 Rich Saw Lead must be configured as a multi-voice unison preset");
 
     try {
       // Activate deterministic start phase override for offline evaluation
@@ -65,10 +69,17 @@ public class UnisonPhaseSeedSynchronizationTest {
       assertNotEquals(
           phasePart0,
           phasePart1,
-          "Unison parts must receive dispersed initial starting phases (part0=" + phasePart0 + ", part1=" + phasePart1 + ")");
+          "Unison parts must receive dispersed initial starting phases (part0="
+              + phasePart0
+              + ", part1="
+              + phasePart1
+              + ")");
 
       int expectedStep = (int) (2147483647L / fs.fw2Sound.numUnison);
-      assertEquals(expectedStep, phasePart1 - phasePart0, "Unison phase dispersion step must divide Q31 space evenly by numUnison");
+      assertEquals(
+          expectedStep,
+          phasePart1 - phasePart0,
+          "Unison phase dispersion step must divide Q31 space evenly by numUnison");
 
       FirmwareAudioEngine engine = new FirmwareAudioEngine();
       engine.metronomeEnabled = false;
@@ -88,7 +99,9 @@ public class UnisonPhaseSeedSynchronizationTest {
       double rms = 0.0;
       for (float f : out) {
         assertFalse(Float.isNaN(f) || Float.isInfinite(f), "Unison audio sample must be valid");
-        assertTrue(Math.abs(f) <= 2.0f, "Unison audio sample must remain bounded without constructive interference spikes");
+        assertTrue(
+            Math.abs(f) <= 2.0f,
+            "Unison audio sample must remain bounded without constructive interference spikes");
         rms += f * (double) f;
       }
       rms = Math.sqrt(rms / numSamples);

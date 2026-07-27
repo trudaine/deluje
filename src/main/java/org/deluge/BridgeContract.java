@@ -2481,15 +2481,6 @@ public final class BridgeContract {
 
   // ── Oscillator sample-playback accessors ──
 
-  // ── Patch cable accessors (synth) ──
-
-  /**
-   * Write all patch cables for a given synth track into the bridge arrays.
-   *
-   * @param track
-   * @param cables
-   */
-
   // ── Patch cable accessors (kit) ──
 
   /**

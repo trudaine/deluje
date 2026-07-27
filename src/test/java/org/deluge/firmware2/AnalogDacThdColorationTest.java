@@ -7,10 +7,11 @@ import org.deluge.FidelityScorecardTest;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test and verification for Frontier A: Analog DAC THD Coloration (§4.2quattuortriginties).
- * Verifies that applying the physical analog line-out model (AC coupling high-pass, op-amp reconstruction shelf,
- * and cubic THD saturation) generates bounded odd-harmonic coloration on high-amplitude audio without numerical
- * instability, clipping, or NaN generation, mirroring analog hardware output stages against C++ audio output stages.
+ * Dedicated portable unit test and verification for Frontier A: Analog DAC THD Coloration
+ * (§4.2quattuortriginties). Verifies that applying the physical analog line-out model (AC coupling
+ * high-pass, op-amp reconstruction shelf, and cubic THD saturation) generates bounded odd-harmonic
+ * coloration on high-amplitude audio without numerical instability, clipping, or NaN generation,
+ * mirroring analog hardware output stages against C++ audio output stages.
  */
 public class AnalogDacThdColorationTest {
 
@@ -20,7 +21,8 @@ public class AnalogDacThdColorationTest {
     int numSamples = sr; // 1 second
     float[] out = new float[numSamples];
 
-    // Generate high-amplitude 500 Hz pure sine wave (1.5 max amplitude to exercise op-amp saturation)
+    // Generate high-amplitude 500 Hz pure sine wave (1.5 max amplitude to exercise op-amp
+    // saturation)
     double freq = 500.0;
     for (int i = 0; i < numSamples; i++) {
       out[i] = (float) (1.5 * Math.sin(2.0 * Math.PI * freq * i / sr));
@@ -31,14 +33,17 @@ public class AnalogDacThdColorationTest {
     double rms = 0.0;
     double maxAbs = 0.0;
     for (float f : out) {
-      assertFalse(Float.isNaN(f) || Float.isInfinite(f), "DAC THD coloration output must remain valid");
+      assertFalse(
+          Float.isNaN(f) || Float.isInfinite(f), "DAC THD coloration output must remain valid");
       double abs = Math.abs(f);
       if (abs > maxAbs) maxAbs = abs;
       rms += f * (double) f;
     }
     rms = Math.sqrt(rms / numSamples);
 
-    assertTrue(maxAbs < 1.5, "Op-amp cubic saturation THD must smoothly compress peak amplitudes below linear 1.5 input");
+    assertTrue(
+        maxAbs < 1.5,
+        "Op-amp cubic saturation THD must smoothly compress peak amplitudes below linear 1.5 input");
     assertTrue(rms > 0.5, "Must preserve strong RMS signal energy through line-out equalization");
   }
 }

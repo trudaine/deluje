@@ -167,7 +167,7 @@ public class GranularProcessor {
                   << 2)
               + 0x80000000;
       grainVol = Math.max(0, Math.min(ONE_Q31, grainVol));
-      grainDryVol = (int) Math.max(0, Math.min(ONE_Q31, ((long) (0x80000000L - grainVol) << 3)));
+      grainDryVol = (int) Math.max(0, Math.min(ONE_Q31, ((0x80000000L - grainVol) << 3)));
       grainFeedbackVol = grainVol >> 1;
     }
   }

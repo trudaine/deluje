@@ -30,9 +30,13 @@ public class FidelityGenerator {
     org.deluge.firmware2.Functions.resetNoiseSeed();
 
     // 1. Load the default UI synth
-    File synthFile = new File(org.deluge.project.PreferencesManager.getSynthsDir(), "000 Rich Saw Bass.XML");
+    File synthFile =
+        new File(org.deluge.project.PreferencesManager.getSynthsDir(), "000 Rich Saw Bass.XML");
     if (!synthFile.exists()) {
-      System.err.println("Error: 000 Rich Saw Bass.XML not found in " + org.deluge.project.PreferencesManager.getSynthsDir() + "!");
+      System.err.println(
+          "Error: 000 Rich Saw Bass.XML not found in "
+              + org.deluge.project.PreferencesManager.getSynthsDir()
+              + "!");
       System.exit(1);
     }
     System.out.println("[Generator] Loaded synth: " + synthFile.getName());

@@ -16,14 +16,16 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test for Pulse-Width and Hard Sync band-limited oscillator parity (§4.2triginties).
- * Verifies that pulse-width modulated presets (026 PW Organ, 027 PW Envelope) and hard-sync presets (046 Saw Sync)
- * render cleanly across multi-block buffers without Q31 integer overflow, clipping, or NaN generation,
- * permanently guarding band-limited pulse multiplication and sync reset phase tracking against C++ oscillator.cpp.
+ * Dedicated portable unit test for Pulse-Width and Hard Sync band-limited oscillator parity
+ * (§4.2triginties). Verifies that pulse-width modulated presets (026 PW Organ, 027 PW Envelope) and
+ * hard-sync presets (046 Saw Sync) render cleanly across multi-block buffers without Q31 integer
+ * overflow, clipping, or NaN generation, permanently guarding band-limited pulse multiplication and
+ * sync reset phase tracking against C++ oscillator.cpp.
  */
 public class PulseWidthAndSyncParityTest {
 
-  private static final File SYNTH_DIR = new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
+  private static final File SYNTH_DIR =
+      new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
 
   private float[] renderPresetAudio(String xmlName, int numSamples) throws Exception {
     File xml = new File(SYNTH_DIR, xmlName);
@@ -68,12 +70,15 @@ public class PulseWidthAndSyncParityTest {
 
     double rms = 0.0;
     for (float f : out) {
-      assertFalse(Float.isNaN(f) || Float.isInfinite(f), "026 PW Organ sample must not be NaN or Infinite");
+      assertFalse(
+          Float.isNaN(f) || Float.isInfinite(f), "026 PW Organ sample must not be NaN or Infinite");
       assertTrue(Math.abs(f) <= 2.0f, "026 PW Organ sample must remain bounded within headroom");
       rms += f * (double) f;
     }
     rms = Math.sqrt(rms / out.length);
-    assertTrue(rms > 0.05, "026 PW Organ must produce strong audible output through pulse-width modulation");
+    assertTrue(
+        rms > 0.05,
+        "026 PW Organ must produce strong audible output through pulse-width modulation");
   }
 
   @Test
@@ -83,12 +88,15 @@ public class PulseWidthAndSyncParityTest {
 
     double rms = 0.0;
     for (float f : out) {
-      assertFalse(Float.isNaN(f) || Float.isInfinite(f), "027 PW Envelope sample must not be NaN or Infinite");
+      assertFalse(
+          Float.isNaN(f) || Float.isInfinite(f),
+          "027 PW Envelope sample must not be NaN or Infinite");
       assertTrue(Math.abs(f) <= 2.0f, "027 PW Envelope sample must remain bounded");
       rms += f * (double) f;
     }
     rms = Math.sqrt(rms / out.length);
-    assertTrue(rms > 0.05, "027 PW Envelope must produce audible output as envelope sweeps pulse width");
+    assertTrue(
+        rms > 0.05, "027 PW Envelope must produce audible output as envelope sweeps pulse width");
   }
 
   @Test
@@ -98,11 +106,14 @@ public class PulseWidthAndSyncParityTest {
 
     double rms = 0.0;
     for (float f : out) {
-      assertFalse(Float.isNaN(f) || Float.isInfinite(f), "046 Saw Sync sample must not be NaN or Infinite");
-      assertTrue(Math.abs(f) <= 2.0f, "046 Saw Sync sample must remain bounded across oscillator resets");
+      assertFalse(
+          Float.isNaN(f) || Float.isInfinite(f), "046 Saw Sync sample must not be NaN or Infinite");
+      assertTrue(
+          Math.abs(f) <= 2.0f, "046 Saw Sync sample must remain bounded across oscillator resets");
       rms += f * (double) f;
     }
     rms = Math.sqrt(rms / out.length);
-    assertTrue(rms > 0.05, "046 Saw Sync must produce audible output through hard sync phase resets");
+    assertTrue(
+        rms > 0.05, "046 Saw Sync must produce audible output through hard sync phase resets");
   }
 }

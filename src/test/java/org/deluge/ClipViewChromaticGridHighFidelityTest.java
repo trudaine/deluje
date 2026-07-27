@@ -640,8 +640,7 @@ public class ClipViewChromaticGridHighFidelityTest {
               app,
               java.awt.event.KeyEvent.KEY_PRESSED,
               System.currentTimeMillis(),
-              java.awt.event.InputEvent.CTRL_DOWN_MASK
-                  | java.awt.event.InputEvent.SHIFT_DOWN_MASK,
+              java.awt.event.InputEvent.CTRL_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK,
               java.awt.event.KeyEvent.VK_C,
               'C');
       for (java.awt.event.KeyListener kl : app.getKeyListeners()) {
@@ -660,8 +659,7 @@ public class ClipViewChromaticGridHighFidelityTest {
               app,
               java.awt.event.KeyEvent.KEY_PRESSED,
               System.currentTimeMillis(),
-              java.awt.event.InputEvent.CTRL_DOWN_MASK
-                  | java.awt.event.InputEvent.SHIFT_DOWN_MASK,
+              java.awt.event.InputEvent.CTRL_DOWN_MASK | java.awt.event.InputEvent.SHIFT_DOWN_MASK,
               java.awt.event.KeyEvent.VK_V,
               'V');
       for (java.awt.event.KeyListener kl : app.getKeyListeners()) {

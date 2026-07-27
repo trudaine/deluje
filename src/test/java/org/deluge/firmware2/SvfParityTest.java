@@ -1,6 +1,5 @@
 package org.deluge.firmware2;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -32,7 +31,8 @@ public class SvfParityTest {
             sample >= Integer.MIN_VALUE && sample <= Integer.MAX_VALUE,
             "SVF sample out of bounds for mode " + mode);
       }
-      assertTrue(hasEnergy, "SVF filter mode " + mode + " must generate acoustic output from impulse");
+      assertTrue(
+          hasEnergy, "SVF filter mode " + mode + " must generate acoustic output from impulse");
     }
   }
 
@@ -56,6 +56,7 @@ public class SvfParityTest {
     }
     assertTrue(maxAmplitude > 0, "High resonance SVF must produce signal energy");
     assertTrue(
-        maxAmplitude < Integer.MAX_VALUE, "SVF double-sample tanh saturation must prevent overflow");
+        maxAmplitude < Integer.MAX_VALUE,
+        "SVF double-sample tanh saturation must prevent overflow");
   }
 }

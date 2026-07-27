@@ -19,14 +19,16 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test and verification for Next Area 1: XML Round-Trip Parity (§4.2quinquatriginties).
- * Verifies that modifying a synthesizer track model in Java and saving it to XML via KitSynthSerializer preserves 100%
- * of all DSP parameters, automation curves, and patch cables without corruption against C++ song_save.cpp, proving
- * bit-exact identical audio rendering before and after XML serialization round-trip.
+ * Dedicated portable unit test and verification for Next Area 1: XML Round-Trip Parity
+ * (§4.2quinquatriginties). Verifies that modifying a synthesizer track model in Java and saving it
+ * to XML via KitSynthSerializer preserves 100% of all DSP parameters, automation curves, and patch
+ * cables without corruption against C++ song_save.cpp, proving bit-exact identical audio rendering
+ * before and after XML serialization round-trip.
  */
 public class XmlSerializationDspParityTest {
 
-  private static final File SYNTH_DIR = new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
+  private static final File SYNTH_DIR =
+      new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
 
   @Test
   public void testXmlSerializationPreservesDspAudioParity() throws Exception {
@@ -39,7 +41,8 @@ public class XmlSerializationDspParityTest {
       Voice.testStartPhaseOverrideOsc2.set(0);
 
       // 1. Parse baseline preset and modify parameter values
-      SynthTrackModel origSynth = DelugeXmlParser.parseSynth(new FileInputStream(xml), xml.getName());
+      SynthTrackModel origSynth =
+          DelugeXmlParser.parseSynth(new FileInputStream(xml), xml.getName());
       origSynth.setName("ROUNDTRIP_TEST_SYNTH");
       origSynth.setVolume(0.85f); // Modify volume
 
@@ -76,15 +79,18 @@ public class XmlSerializationDspParityTest {
         origRms += f * (double) f;
       }
       origRms = Math.sqrt(origRms / numSamples);
-      assertTrue(origRms > 0.05, "Original preset must produce audible audio (RMS=" + origRms + ")");
+      assertTrue(
+          origRms > 0.05, "Original preset must produce audible audio (RMS=" + origRms + ")");
 
       // 2. Serialize modified synth to temporary XML file and re-parse
       File tempXml = Files.createTempFile("deluge_roundtrip_test", ".XML").toFile();
       try {
         KitSynthSerializer.saveSynth(origSynth, tempXml);
-        assertTrue(tempXml.exists() && tempXml.length() > 0, "Serialized XML file must be non-empty");
+        assertTrue(
+            tempXml.exists() && tempXml.length() > 0, "Serialized XML file must be non-empty");
 
-        SynthTrackModel roundtripSynth = DelugeXmlParser.parseSynth(new FileInputStream(tempXml), "ROUNDTRIP_TEST_SYNTH.XML");
+        SynthTrackModel roundtripSynth =
+            DelugeXmlParser.parseSynth(new FileInputStream(tempXml), "ROUNDTRIP_TEST_SYNTH.XML");
         roundtripSynth.setName("ROUNDTRIP_TEST_SYNTH");
         roundtripSynth.addClip(clip); // add clip back for audio render test
 
@@ -93,7 +99,8 @@ public class XmlSerializationDspParityTest {
         roundtripProject.addTrack(roundtripSynth);
 
         ProjectModel roundtripSong = FirmwareFactory.createSong(roundtripProject);
-        FirmwareSound roundtripFs = (FirmwareSound) roundtripSong.getTracks().get(0).getActiveClip().getSound();
+        FirmwareSound roundtripFs =
+            (FirmwareSound) roundtripSong.getTracks().get(0).getActiveClip().getSound();
 
         FirmwareAudioEngine roundtripEngine = new FirmwareAudioEngine();
         roundtripEngine.metronomeEnabled = false;

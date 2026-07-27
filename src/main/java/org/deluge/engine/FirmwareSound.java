@@ -39,7 +39,8 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   public final int[] customLfoWave = new int[256];
   public final org.deluge.playback.Sample[] samples = new org.deluge.playback.Sample[2];
   public final org.deluge.firmware2.Sample[] fw2SampleCache = new org.deluge.firmware2.Sample[2];
-  @SuppressWarnings("unchecked")
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
   public final java.util.List<org.deluge.firmware2.Sound.CompiledKeyZone>[] sourceZones =
       new java.util.List[] {
         new java.util.ArrayList<org.deluge.firmware2.Sound.CompiledKeyZone>(),
@@ -301,8 +302,8 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     int m1Transpose = fmModulator1Transpose;
     int m1Cents = fmModulator1Cents;
     if (m1Transpose == 0 && m1Cents == 0 && fmRatio1 > 0.0f) {
-      int totalCents = (int) Math.round(1200f * (float) (Math.log(fmRatio1) / Math.log(2)));
-      m1Transpose = (int) Math.round(totalCents / 100f);
+      int totalCents = Math.round(1200f * (float) (Math.log(fmRatio1) / Math.log(2)));
+      m1Transpose = Math.round(totalCents / 100f);
       m1Cents = totalCents - m1Transpose * 100;
     }
     fw2Sound.modulatorTranspose[0] = m1Transpose;
@@ -311,8 +312,8 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     int m2Transpose = fmModulator2Transpose;
     int m2Cents = fmModulator2Cents;
     if (m2Transpose == 0 && m2Cents == 0 && fmRatio2 > 0.0f) {
-      int totalCents = (int) Math.round(1200f * (float) (Math.log(fmRatio2) / Math.log(2)));
-      m2Transpose = (int) Math.round(totalCents / 100f);
+      int totalCents = Math.round(1200f * (float) (Math.log(fmRatio2) / Math.log(2)));
+      m2Transpose = Math.round(totalCents / 100f);
       m2Cents = totalCents - m2Transpose * 100;
     }
     fw2Sound.modulatorTranspose[1] = m2Transpose;
@@ -453,14 +454,16 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
           (int) Math.min(2147483647.0, 2147483648.0 / samplesPerInternalTick);
       // The sidechain's synced release uses the same tick inverse (sidechain.cpp:102/121).
       fw2Sound.sidechain.timePerInternalTickInverse = fw2Sound.timePerInternalTickInverse;
-      // Wire timePerInternalTickInverse into arpeggiator phase increment (C arpeggiator.cpp:1408-1421 / sound.cpp:2378)
+      // Wire timePerInternalTickInverse into arpeggiator phase increment (C
+      // arpeggiator.cpp:1408-1421 / sound.cpp:2378)
       if (fw2Sound.arpPhaseIncrement == 0) {
-        int arpRateFinal = org.deluge.firmware2.Patcher.computeFinalValueForParam(
-            org.deluge.firmware2.Param.GLOBAL_ARP_RATE,
-            fw2Sound.patchedParamValues[org.deluge.firmware2.Param.GLOBAL_ARP_RATE]);
-        fw2Sound.arpPhaseIncrement = fw2Sound.arpSettings.getPhaseIncrement(
-            arpRateFinal,
-            fw2Sound.timePerInternalTickInverse);
+        int arpRateFinal =
+            org.deluge.firmware2.Patcher.computeFinalValueForParam(
+                org.deluge.firmware2.Param.GLOBAL_ARP_RATE,
+                fw2Sound.patchedParamValues[org.deluge.firmware2.Param.GLOBAL_ARP_RATE]);
+        fw2Sound.arpPhaseIncrement =
+            fw2Sound.arpSettings.getPhaseIncrement(
+                arpRateFinal, fw2Sound.timePerInternalTickInverse);
       }
     }
 

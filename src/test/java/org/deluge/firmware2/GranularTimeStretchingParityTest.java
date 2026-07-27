@@ -6,10 +6,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test and verification for Frontier C: Granular Synthesis & Time Stretching (§4.2quattuortriginties).
- * Verifies continuous multi-block granular time stretching and pitch shifting across extreme speed ratios (0.5x half speed
- * octave down, 2.0x double speed octave up, and real-time sweeping) without DC offset drift, zipper noise, or Q31 integer
- * overflow, proving bit-exact crossfade windowing and hop search alignment against C++ time_stretcher.cpp and live_pitch_shifter.cpp.
+ * Dedicated portable unit test and verification for Frontier C: Granular Synthesis & Time
+ * Stretching (§4.2quattuortriginties). Verifies continuous multi-block granular time stretching and
+ * pitch shifting across extreme speed ratios (0.5x half speed octave down, 2.0x double speed octave
+ * up, and real-time sweeping) without DC offset drift, zipper noise, or Q31 integer overflow,
+ * proving bit-exact crossfade windowing and hop search alignment against C++ time_stretcher.cpp and
+ * live_pitch_shifter.cpp.
  */
 public class GranularTimeStretchingParityTest {
 
@@ -23,7 +25,7 @@ public class GranularTimeStretchingParityTest {
     double freq = 440.0;
     for (int i = 0; i < bufferSize; i++) {
       int sample = (int) (0.5 * 2147483647.0 * Math.sin(2.0 * Math.PI * freq * i / sr));
-      continuousInput[i * 2] = sample;     // Left
+      continuousInput[i * 2] = sample; // Left
       continuousInput[i * 2 + 1] = sample; // Right
     }
 
@@ -33,7 +35,7 @@ public class GranularTimeStretchingParityTest {
 
     int[] ratios = {
       LivePitchShifter.K_MAX_SAMPLE_VALUE >> 1, // 0.5x half speed / octave down
-      LivePitchShifter.K_MAX_SAMPLE_VALUE << 1  // 2.0x double speed / octave up
+      LivePitchShifter.K_MAX_SAMPLE_VALUE << 1 // 2.0x double speed / octave up
     };
     String[] ratioNames = {"0.5x (half speed / octave down)", "2.0x (double speed / octave up)"};
 
@@ -70,7 +72,9 @@ public class GranularTimeStretchingParityTest {
 
         for (int i = 0; i < out.length; i++) {
           float norm = (float) (out[i] / 2.147483648e9);
-          assertFalse(Float.isNaN(norm) || Float.isInfinite(norm), ratioNames[r] + " output must remain valid");
+          assertFalse(
+              Float.isNaN(norm) || Float.isInfinite(norm),
+              ratioNames[r] + " output must remain valid");
           double abs = Math.abs(norm);
           if (abs > maxAbs) maxAbs = abs;
           totalRms += norm * (double) norm;
@@ -80,8 +84,15 @@ public class GranularTimeStretchingParityTest {
 
       totalRms = Math.sqrt(totalRms / (totalRendered * 2));
 
-      assertTrue(maxAbs <= 1.0, ratioNames[r] + " output must remain strictly bounded without Q31 integer overflow");
-      assertTrue(totalRms > 0.05, ratioNames[r] + " must produce continuous audible time-stretched audio (RMS=" + totalRms + ")");
+      assertTrue(
+          maxAbs <= 1.0,
+          ratioNames[r] + " output must remain strictly bounded without Q31 integer overflow");
+      assertTrue(
+          totalRms > 0.05,
+          ratioNames[r]
+              + " must produce continuous audible time-stretched audio (RMS="
+              + totalRms
+              + ")");
     }
   }
 }

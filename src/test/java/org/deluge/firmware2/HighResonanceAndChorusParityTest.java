@@ -17,16 +17,19 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test for high-resonance 24dB ladder filters and chorus phase alignment (§4.2triginties).
- * Verifies that high-resonance presets (065 Cello, 132 Organ Strings, 104 Alien Vomit, 042 High Triangle,
- * 047 Basic Dirty Bass) and free-running chorus presets (083 Dark Chorus) render cleanly across multi-block buffers
- * without Q31 integer overflow, clipping, or NaN generation, guarding 24dB ladder stability and phase alignment.
+ * Dedicated portable unit test for high-resonance 24dB ladder filters and chorus phase alignment
+ * (§4.2triginties). Verifies that high-resonance presets (065 Cello, 132 Organ Strings, 104 Alien
+ * Vomit, 042 High Triangle, 047 Basic Dirty Bass) and free-running chorus presets (083 Dark Chorus)
+ * render cleanly across multi-block buffers without Q31 integer overflow, clipping, or NaN
+ * generation, guarding 24dB ladder stability and phase alignment.
  */
 public class HighResonanceAndChorusParityTest {
 
-  private static final File SYNTH_DIR = new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
+  private static final File SYNTH_DIR =
+      new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
 
-  private float[] renderPresetAudio(String xmlName, int note, int modFxPhaseOffset, int numSamples) throws Exception {
+  private float[] renderPresetAudio(String xmlName, int note, int modFxPhaseOffset, int numSamples)
+      throws Exception {
     File xml = new File(SYNTH_DIR, xmlName);
     if (!xml.exists()) {
       return new float[0];
@@ -76,8 +79,11 @@ public class HighResonanceAndChorusParityTest {
 
       double rms = 0.0;
       for (float f : out) {
-        assertFalse(Float.isNaN(f) || Float.isInfinite(f), preset + " sample must not be NaN or Infinite");
-        assertTrue(Math.abs(f) <= 2.0f, preset + " sample must remain bounded across high filter resonance");
+        assertFalse(
+            Float.isNaN(f) || Float.isInfinite(f), preset + " sample must not be NaN or Infinite");
+        assertTrue(
+            Math.abs(f) <= 2.0f,
+            preset + " sample must remain bounded across high filter resonance");
         rms += f * (double) f;
       }
       rms = Math.sqrt(rms / out.length);
@@ -106,7 +112,11 @@ public class HighResonanceAndChorusParityTest {
       if (baseRms < 0) {
         baseRms = rms;
       } else {
-        assertEquals(baseRms, rms, baseRms * 0.05, "Total RMS energy must remain stable across all 4 grid phase offsets");
+        assertEquals(
+            baseRms,
+            rms,
+            baseRms * 0.05,
+            "Total RMS energy must remain stable across all 4 grid phase offsets");
       }
     }
   }

@@ -17,16 +17,21 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test and verification for Suggestion 3: Microtuning Parity (§4.2sextriginties).
- * Verifies that modifying song-level microtuning cents tables (e.g. 5-limit Just Intonation -14 cents on E4)
- * dynamically modulates active voice oscillator phase increments and shifts output audio fundamental frequencies
- * with sub-cent precision without numerical instability, clipping, or DC drift against C++ voice.cpp and song.cpp.
+ * Dedicated portable unit test and verification for Suggestion 3: Microtuning Parity
+ * (§4.2sextriginties). Verifies that modifying song-level microtuning cents tables (e.g. 5-limit
+ * Just Intonation -14 cents on E4) dynamically modulates active voice oscillator phase increments
+ * and shifts output audio fundamental frequencies with sub-cent precision without numerical
+ * instability, clipping, or DC drift against C++ voice.cpp and song.cpp.
  */
 public class MicrotuningAudioRenderingParityTest {
 
-  private static final File SYNTH_DIR = new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
+  private static final File SYNTH_DIR =
+      new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
 
-  /** Estimate fundamental frequency in Hz using positive zero-crossing counting across stable render window. */
+  /**
+   * Estimate fundamental frequency in Hz using positive zero-crossing counting across stable render
+   * window.
+   */
   private static double estimateFrequencyHz(float[] samples, int sampleRate) {
     int startIdx = sampleRate / 4; // skip initial attack transient (250 ms)
     int endIdx = samples.length;
@@ -51,7 +56,8 @@ public class MicrotuningAudioRenderingParityTest {
       Voice.testStartPhaseOverrideOsc2.set(0);
 
       // 1. Render baseline 12-TET audio for Note 64 (E4, ~329.63 Hz in 12-TET)
-      SynthTrackModel synth12Tet = DelugeXmlParser.parseSynth(new FileInputStream(xml), xml.getName());
+      SynthTrackModel synth12Tet =
+          DelugeXmlParser.parseSynth(new FileInputStream(xml), xml.getName());
       synth12Tet.setName("MICROTUNE_12TET");
 
       ClipModel clip = new ClipModel("c", 1, 16);
@@ -64,7 +70,8 @@ public class MicrotuningAudioRenderingParityTest {
       project12Tet.calculateNoteFrequencies(); // Standard 12-TET
 
       ProjectModel song12Tet = FirmwareFactory.createSong(project12Tet);
-      FirmwareSound fs12Tet = (FirmwareSound) song12Tet.getTracks().get(0).getActiveClip().getSound();
+      FirmwareSound fs12Tet =
+          (FirmwareSound) song12Tet.getTracks().get(0).getActiveClip().getSound();
 
       FirmwareAudioEngine engine12Tet = new FirmwareAudioEngine();
       engine12Tet.metronomeEnabled = false;
@@ -92,7 +99,8 @@ public class MicrotuningAudioRenderingParityTest {
       double freq12Tet = estimateFrequencyHz(out12Tet, 44100);
 
       // 2. Render microtonally detuned audio (detune index 1 by -14 cents)
-      SynthTrackModel synthJust = DelugeXmlParser.parseSynth(new FileInputStream(xml), xml.getName());
+      SynthTrackModel synthJust =
+          DelugeXmlParser.parseSynth(new FileInputStream(xml), xml.getName());
       synthJust.setName("MICROTUNE_JUST");
       synthJust.addClip(clip);
 
@@ -129,11 +137,22 @@ public class MicrotuningAudioRenderingParityTest {
       rmsJust = Math.sqrt(rmsJust / numSamples);
       double freqJust = estimateFrequencyHz(outJust, 44100);
 
-      // 3. Assert that -14 cents detuning lowers output fundamental frequency with sub-cent precision
-      assertTrue(freqJust < freq12Tet, "Microtonal -14 cents detuning must shift fundamental frequency downward (12TET=" + freq12Tet + " Hz, Just=" + freqJust + " Hz)");
+      // 3. Assert that -14 cents detuning lowers output fundamental frequency with sub-cent
+      // precision
+      assertTrue(
+          freqJust < freq12Tet,
+          "Microtonal -14 cents detuning must shift fundamental frequency downward (12TET="
+              + freq12Tet
+              + " Hz, Just="
+              + freqJust
+              + " Hz)");
       double expectedRatio = Math.pow(2.0, -14.0 / 1200.0); // ~0.99195
       double actualRatio = freqJust / freq12Tet;
-      assertEquals(expectedRatio, actualRatio, 0.05, "Frequency shift ratio must match microtonal cents detuning formula within zero-crossing estimation precision");
+      assertEquals(
+          expectedRatio,
+          actualRatio,
+          0.05,
+          "Frequency shift ratio must match microtonal cents detuning formula within zero-crossing estimation precision");
 
     } finally {
       Voice.testStartPhaseOverrideOsc1.set(-2);

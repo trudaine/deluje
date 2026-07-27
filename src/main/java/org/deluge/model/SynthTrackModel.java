@@ -78,7 +78,6 @@ public class SynthTrackModel extends TrackModel {
   }
 
   /** Synth mode: 0=SUBTRACTIVE, 1=FM, 2=RINGMOD. Maps to XML `<mode>` tag content. */
-  /** Synth mode: 0=SUBTRACTIVE, 1=FM, 2=RINGMOD. Maps to XML `<mode>` tag content. */
   private int synthMode = 0;
 
   private final FmConfig fm = new FmConfig();

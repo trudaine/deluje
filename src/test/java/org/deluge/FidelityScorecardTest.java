@@ -25,7 +25,9 @@ public class FidelityScorecardTest {
   static final File CARD = new File(CARD_NAME);
   static final String SYNTH_DIR = new File(CARD, "SYNTHS").getPath();
   static final File RECORDINGS_DIR =
-      new File(System.getProperty("scorecard.recordings", "src/test/resources/fidelity/hardware-recordings"));
+      new File(
+          System.getProperty(
+              "scorecard.recordings", "src/test/resources/fidelity/hardware-recordings"));
   static final int SR = 44100;
 
   // ---- WAV (16/24-bit, stereo->mono float) ----
@@ -190,7 +192,10 @@ public class FidelityScorecardTest {
     return out;
   }
 
-  /** Models physical hardware DAC line-out stage (§5): ~35 Hz AC coupling, ~10 kHz reconstruction shelf, and op-amp THD. */
+  /**
+   * Models physical hardware DAC line-out stage (§5): ~35 Hz AC coupling, ~10 kHz reconstruction
+   * shelf, and op-amp THD.
+   */
   public static void applyAnalogLineOutModel(float[] out) {
     double fcHp = 35.0; // AC coupling high-pass roll-off below 35 Hz
     double alphaHp = 1.0 / (1.0 + 2.0 * Math.PI * fcHp / SR);

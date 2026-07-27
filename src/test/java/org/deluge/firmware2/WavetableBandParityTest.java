@@ -38,9 +38,7 @@ public class WavetableBandParityTest {
 
     // Test low pitch (low phaseIncrement -> selects highest resolution band)
     int lowInc = 1000000;
-    int endPhaseLow =
-        wt.render(
-            outputBuffer, 0, numSamples, lowInc, 0, false, 0, 0, 0, 0, 0, 0);
+    int endPhaseLow = wt.render(outputBuffer, 0, numSamples, lowInc, 0, false, 0, 0, 0, 0, 0, 0);
 
     boolean hasEnergy = false;
     for (int i = 0; i < numSamples; i++) {
@@ -50,13 +48,14 @@ public class WavetableBandParityTest {
           "Wavetable output must remain bounded within Q31");
     }
     assertTrue(hasEnergy, "Low pitch wavetable rendering must produce acoustic signal");
-    assertEquals(numSamples * lowInc, endPhaseLow, "Phase must advance monotonically by phaseIncrement * numSamples");
+    assertEquals(
+        numSamples * lowInc,
+        endPhaseLow,
+        "Phase must advance monotonically by phaseIncrement * numSamples");
 
     // Test high pitch (high phaseIncrement -> selects band-limited anti-aliasing table)
     int highInc = 50000000;
-    int endPhaseHigh =
-        wt.render(
-            outputBuffer, 0, numSamples, highInc, 0, false, 0, 0, 0, 0, 0, 0);
+    int endPhaseHigh = wt.render(outputBuffer, 0, numSamples, highInc, 0, false, 0, 0, 0, 0, 0, 0);
     assertEquals(numSamples * highInc, endPhaseHigh, "Phase must advance correctly at high pitch");
   }
 

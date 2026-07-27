@@ -16,14 +16,16 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test for subtractive PWM and sub-sample BLEP timing parity (§4.2untriginties).
- * Verifies that pulse-width modulated and hard-sync presets (028 PWM, 033 Rich Square, 043 Square Porta,
- * 044 8-Bit Lead, 045 Square Sync) render cleanly across multi-block buffers without Q31 integer overflow,
- * clipping, or DC offset drift, permanently guarding sub-sample BLEP step timing against C++ oscillator.cpp.
+ * Dedicated portable unit test for subtractive PWM and sub-sample BLEP timing parity
+ * (§4.2untriginties). Verifies that pulse-width modulated and hard-sync presets (028 PWM, 033 Rich
+ * Square, 043 Square Porta, 044 8-Bit Lead, 045 Square Sync) render cleanly across multi-block
+ * buffers without Q31 integer overflow, clipping, or DC offset drift, permanently guarding
+ * sub-sample BLEP step timing against C++ oscillator.cpp.
  */
 public class SubtractivePwmAndSyncTimingParityTest {
 
-  private static final File SYNTH_DIR = new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
+  private static final File SYNTH_DIR =
+      new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
 
   private float[] renderPresetAudio(String xmlName, int note, int numSamples) throws Exception {
     File xml = new File(SYNTH_DIR, xmlName);

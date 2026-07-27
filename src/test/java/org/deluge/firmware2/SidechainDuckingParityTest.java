@@ -16,14 +16,16 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test and empirical verification for Opportunity 3: Master Sidechain Ducking (§4.2tritriginties).
- * Verifies that registering global sidechain trigger hits dynamically ducks the volume and filter cutoff of synthesizer
- * pads and basslines across multi-track renders without Q31 integer overflow, clipping, or NaN generation,
- * proving >40% rhythmic attenuation when kick drums fire against C++ sidechain.cpp:57-120.
+ * Dedicated portable unit test and empirical verification for Opportunity 3: Master Sidechain
+ * Ducking (§4.2tritriginties). Verifies that registering global sidechain trigger hits dynamically
+ * ducks the volume and filter cutoff of synthesizer pads and basslines across multi-track renders
+ * without Q31 integer overflow, clipping, or NaN generation, proving >40% rhythmic attenuation when
+ * kick drums fire against C++ sidechain.cpp:57-120.
  */
 public class SidechainDuckingParityTest {
 
-  private static final File SYNTH_DIR = new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
+  private static final File SYNTH_DIR =
+      new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
 
   @Test
   public void testSidechainHitRegistrationAndDucking() throws Exception {
@@ -93,13 +95,18 @@ public class SidechainDuckingParityTest {
     double rmsDucked = 0.0;
     for (float f : outDucked) {
       assertFalse(Float.isNaN(f) || Float.isInfinite(f), "Ducked sample must be valid");
-      assertTrue(Math.abs(f) <= 2.0f, "Ducked sample must remain bounded under sidechain compression");
+      assertTrue(
+          Math.abs(f) <= 2.0f, "Ducked sample must remain bounded under sidechain compression");
       rmsDucked += f * (double) f;
     }
     rmsDucked = Math.sqrt(rmsDucked / numSamples);
 
     assertTrue(
         rmsDucked < rmsBaseline * 0.70,
-        "Sidechain trigger hit must dynamically duck volume by >30% (baseline=" + rmsBaseline + ", ducked=" + rmsDucked + ")");
+        "Sidechain trigger hit must dynamically duck volume by >30% (baseline="
+            + rmsBaseline
+            + ", ducked="
+            + rmsDucked
+            + ")");
   }
 }

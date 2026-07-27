@@ -25,17 +25,20 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test and verification for Next Area 3: Audio Export & Stem Rendering (§4.2quinquatriginties).
- * Verifies offline stem rendering and 24-bit PCM WAV export for project tracks (e.g. 018 Rich Saw Lead), asserting that
- * exporting floating-point render buffers to disk and re-importing via AudioFileReader preserves bit-exact audio
- * fidelity within 24-bit quantization limits without clipping, truncation artifacts, or buffer overruns.
+ * Dedicated portable unit test and verification for Next Area 3: Audio Export & Stem Rendering
+ * (§4.2quinquatriginties). Verifies offline stem rendering and 24-bit PCM WAV export for project
+ * tracks (e.g. 018 Rich Saw Lead), asserting that exporting floating-point render buffers to disk
+ * and re-importing via AudioFileReader preserves bit-exact audio fidelity within 24-bit
+ * quantization limits without clipping, truncation artifacts, or buffer overruns.
  */
 public class AudioExportBitExactnessTest {
 
-  private static final File SYNTH_DIR = new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
+  private static final File SYNTH_DIR =
+      new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
 
   /** Write a 24-bit stereo PCM WAV file from normalized floating point stereo buffers. */
-  private static Path exportStemTo24BitWav(float[] left, float[] right, int sampleRate) throws IOException {
+  private static Path exportStemTo24BitWav(float[] left, float[] right, int sampleRate)
+      throws IOException {
     int n = Math.min(left.length, right.length);
     int byteDepth = 3; // 24-bit
     int channels = 2;
@@ -44,7 +47,9 @@ public class AudioExportBitExactnessTest {
 
     bb.put("RIFF".getBytes()).putInt(36 + dataLen).put("WAVE".getBytes());
     bb.put("fmt ".getBytes()).putInt(16).putShort((short) 1).putShort((short) channels);
-    bb.putInt(sampleRate).putInt(sampleRate * channels * byteDepth).putShort((short) (channels * byteDepth));
+    bb.putInt(sampleRate)
+        .putInt(sampleRate * channels * byteDepth)
+        .putShort((short) (channels * byteDepth));
     bb.putShort((short) (byteDepth * 8));
     bb.put("data".getBytes()).putInt(dataLen);
 
@@ -101,22 +106,31 @@ public class AudioExportBitExactnessTest {
 
     double renderedRms = 0.0;
     for (int i = 0; i < numSamples; i++) {
-      assertFalse(Float.isNaN(leftBuf[i]) || Float.isInfinite(leftBuf[i]), "Rendered left stem sample must be valid");
+      assertFalse(
+          Float.isNaN(leftBuf[i]) || Float.isInfinite(leftBuf[i]),
+          "Rendered left stem sample must be valid");
       renderedRms += leftBuf[i] * (double) leftBuf[i];
     }
     renderedRms = Math.sqrt(renderedRms / numSamples);
-    assertTrue(renderedRms > 0.05, "Rendered stem must produce audible audio (RMS=" + renderedRms + ")");
+    assertTrue(
+        renderedRms > 0.05, "Rendered stem must produce audible audio (RMS=" + renderedRms + ")");
 
     // Export offline stem to 24-bit PCM WAV file
     Path exportedWav = exportStemTo24BitWav(leftBuf, rightBuf, 44100);
-    assertTrue(Files.exists(exportedWav) && Files.size(exportedWav) > 44, "Exported stem WAV file must contain valid PCM header and data");
+    assertTrue(
+        Files.exists(exportedWav) && Files.size(exportedWav) > 44,
+        "Exported stem WAV file must contain valid PCM header and data");
 
     try {
       // Re-import exported stem via AudioFileReader
       Sample reimportedStem = AudioFileReader.readSample(exportedWav.toString());
-      assertNotNull(reimportedStem, "AudioFileReader must successfully re-import exported 24-bit stem WAV");
+      assertNotNull(
+          reimportedStem, "AudioFileReader must successfully re-import exported 24-bit stem WAV");
       assertEquals(3, reimportedStem.byteDepth, "Re-imported stem must preserve 24-bit PCM depth");
-      assertEquals(numSamples * 2, reimportedStem.data.length, "Re-imported stem must preserve exact stereo sample frame count");
+      assertEquals(
+          numSamples * 2,
+          reimportedStem.data.length,
+          "Re-imported stem must preserve exact stereo sample frame count");
 
       double reimportedRms = 0.0;
       for (int i = 0; i < numSamples; i++) {

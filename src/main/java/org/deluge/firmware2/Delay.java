@@ -782,7 +782,7 @@ public class Delay {
         else moveOn();
         shortPosDiff--;
       }
-      return (int) ((longPos >> 8) & 0xFFFF);
+      return (longPos >> 8) & 0xFFFF;
     }
 
     /**
@@ -801,7 +801,7 @@ public class Delay {
         callback.run();
         shortPosDiff--;
       }
-      return (int) ((longPos >> 8) & 0xFFFF);
+      return (longPos >> 8) & 0xFFFF;
     }
 
     /** C: delay_buffer.cpp:126-191 — setupForRender. C: delay_buffer.cpp:99-124 — setupResample. */

@@ -8,10 +8,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test and verification for Suggestion 1: Interactive Real-Time Oscilloscope
- * & Spectrum Visualizer (§4.2sextriginties).
- * Verifies that Radix-2 FFT spectrum calculations and time-domain oscilloscope windowing in SwingVisualizerPanel
- * accurately resolve harmonic peak frequencies (e.g. 430 Hz sine wave at FFT bin 10) without spectral leakage,
+ * Dedicated portable unit test and verification for Suggestion 1: Interactive Real-Time
+ * Oscilloscope & Spectrum Visualizer (§4.2sextriginties). Verifies that Radix-2 FFT spectrum
+ * calculations and time-domain oscilloscope windowing in SwingVisualizerPanel accurately resolve
+ * harmonic peak frequencies (e.g. 430 Hz sine wave at FFT bin 10) without spectral leakage,
  * numerical overflow, or NaN generation across 512 magnitude frequency bands.
  */
 public class VisualizerParityTest {
@@ -32,7 +32,8 @@ public class VisualizerParityTest {
     // Compute FFT via SwingVisualizerPanel
     float[] magnitudes = SwingVisualizerPanel.computeFFT(sineWave);
     assertNotNull(magnitudes, "computeFFT must return 512 magnitude bins");
-    assertEquals(512, magnitudes.length, "FFT magnitude array must contain exactly 512 half-spectrum bins");
+    assertEquals(
+        512, magnitudes.length, "FFT magnitude array must contain exactly 512 half-spectrum bins");
 
     int peakBin = -1;
     float maxMag = 0.0f;
@@ -40,7 +41,9 @@ public class VisualizerParityTest {
 
     for (int bin = 0; bin < magnitudes.length; bin++) {
       float mag = magnitudes[bin];
-      assertFalse(Float.isNaN(mag) || Float.isInfinite(mag), "FFT magnitude bin " + bin + " must remain valid");
+      assertFalse(
+          Float.isNaN(mag) || Float.isInfinite(mag),
+          "FFT magnitude bin " + bin + " must remain valid");
       assertTrue(mag >= 0.0f, "FFT magnitude bin " + bin + " must be non-negative");
 
       if (mag > maxMag) {
@@ -53,14 +56,23 @@ public class VisualizerParityTest {
     }
 
     // 1. Verify exact harmonic frequency bin resolution
-    assertEquals(10, peakBin, "FFT spectrum analyzer must resolve 430.66 Hz sine wave peak precisely at bin index 10");
-    assertTrue(maxMag > 100.0f, "Peak magnitude at bin 10 must be strong and prominent (was " + maxMag + ")");
+    assertEquals(
+        10,
+        peakBin,
+        "FFT spectrum analyzer must resolve 430.66 Hz sine wave peak precisely at bin index 10");
+    assertTrue(
+        maxMag > 100.0f,
+        "Peak magnitude at bin 10 must be strong and prominent (was " + maxMag + ")");
 
     // 2. Verify windowing sideband suppression (peak must dominate background noise bins by > 20x)
     float avgOtherMag = sumOtherMags / (magnitudes.length - 1);
     assertTrue(
         maxMag > avgOtherMag * 20.0f,
-        "Hamming windowing must suppress spectral sideband leakage (peak=" + maxMag + ", avgNoise=" + avgOtherMag + ")");
+        "Hamming windowing must suppress spectral sideband leakage (peak="
+            + maxMag
+            + ", avgNoise="
+            + avgOtherMag
+            + ")");
   }
 
   @Test
@@ -85,8 +97,12 @@ public class VisualizerParityTest {
     assertEquals(512, fftRight.length);
 
     for (int i = 0; i < 512; i++) {
-      assertFalse(Float.isNaN(fftLeft[i]) || Float.isInfinite(fftLeft[i]), "Stereo left FFT bin " + i + " must remain valid");
-      assertFalse(Float.isNaN(fftRight[i]) || Float.isInfinite(fftRight[i]), "Stereo right FFT bin " + i + " must remain valid");
+      assertFalse(
+          Float.isNaN(fftLeft[i]) || Float.isInfinite(fftLeft[i]),
+          "Stereo left FFT bin " + i + " must remain valid");
+      assertFalse(
+          Float.isNaN(fftRight[i]) || Float.isInfinite(fftRight[i]),
+          "Stereo right FFT bin " + i + " must remain valid");
     }
   }
 }

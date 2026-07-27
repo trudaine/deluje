@@ -69,9 +69,11 @@ public class PreferencesDialog extends JDialog {
   private JLabel learnStatus;
   private JComboBox<org.deluge.midi.MidiDeviceDefinition> deviceCombo;
   private JCheckBox followEnable;
-  @SuppressWarnings("unchecked")
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
   private final JComboBox<String>[] chCombos = new JComboBox[3];
-  @SuppressWarnings("unchecked")
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
   private final JComboBox<String>[] trCombos = new JComboBox[3];
 
   public PreferencesDialog(

@@ -202,10 +202,7 @@ public class DelugeDownloader {
 
           // Re-read first bytes to verify it's a zip (PK..)
           byte[] zipHeader = new byte[4];
-          try (InputStream is = response.body()) {
-            // We need to write the rest to a file if it is a zip
-            // Actually, let's just use BodyHandlers.ofFile for the final attempt
-          }
+          response.body().close();
           // Restarting request for BodyHandlers.ofFile
           response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
         } else if (bodyPart.startsWith("PK")) {

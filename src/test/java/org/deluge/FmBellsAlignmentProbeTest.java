@@ -25,8 +25,7 @@ public class FmBellsAlignmentProbeTest {
   void probe() throws Exception {
     org.junit.jupiter.api.Assumptions.assumeTrue(
         new File(FidelityScorecardTest.SYNTH_DIR).isDirectory()
-            && new File(FidelityScorecardTest.RECORDINGS_DIR, "ALLSYN_1/output_000.wav")
-                .isFile(),
+            && new File(FidelityScorecardTest.RECORDINGS_DIR, "ALLSYN_1/output_000.wav").isFile(),
         "needs hardware calibration recordings (set via -Dscorecard.recordings)");
 
     // EXACT same list construction as the scorecard — including the SONG/CAL exclusions and

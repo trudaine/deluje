@@ -65,8 +65,10 @@ public class SwingRandomizerDialog extends JDialog {
     "Extra 1 (Row M)", "Extra 2 (Row N)", "Extra 3 (Row O)", "Extra 4 (Row P)"
   };
   private JTextField kitFolderField;
-  @SuppressWarnings("unchecked")
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
   private final JComboBox<Object>[] kitCombos = new JComboBox[16];
+
   private final JButton[] kitPlayBtns = new JButton[16];
   private JCheckBox kitAutoChokeBox;
   private JSlider kitVolSlider;

@@ -5,12 +5,14 @@ import java.nio.*;
 import org.deluge.playback.Sample;
 
 public class AudioFileReader {
-  private static final java.util.concurrent.ConcurrentHashMap<String, java.lang.ref.SoftReference<Sample>> CACHE =
-      new java.util.concurrent.ConcurrentHashMap<>();
+  private static final java.util.concurrent.ConcurrentHashMap<
+          String, java.lang.ref.SoftReference<Sample>>
+      CACHE = new java.util.concurrent.ConcurrentHashMap<>();
 
   /**
-   * Drops all cached decoded samples. The cache uses SoftReferences to allow automatic memory reclamation
-   * under heap pressure, but this method can still be called explicitly to flush all references.
+   * Drops all cached decoded samples. The cache uses SoftReferences to allow automatic memory
+   * reclamation under heap pressure, but this method can still be called explicitly to flush all
+   * references.
    */
   public static void clearCache() {
     CACHE.clear();

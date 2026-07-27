@@ -18,23 +18,21 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test and verification for Suggestion 2: Drum Kit & Loop Evaluation (§4.2sextriginties).
- * Verifies that classic multi-pad drum kits (e.g. 000 TR-808, 001 DDD-1, 003 TR-909) parse from XML cleanly and
- * render sample-accurate multi-drum audio without memory leaks, Q31 integer overflow, clipping, or NaN generation
- * against C++ sample_loader.cpp and sound.cpp:146-210.
+ * Dedicated portable unit test and verification for Suggestion 2: Drum Kit & Loop Evaluation
+ * (§4.2sextriginties). Verifies that classic multi-pad drum kits (e.g. 000 TR-808, 001 DDD-1, 003
+ * TR-909) parse from XML cleanly and render sample-accurate multi-drum audio without memory leaks,
+ * Q31 integer overflow, clipping, or NaN generation against C++ sample_loader.cpp and
+ * sound.cpp:146-210.
  */
 public class KitFidelityScorecardTest {
 
-  private static final File KIT_DIR = new File(System.getProperty("deluge.card", "src/main/resources"), "KITS");
+  private static final File KIT_DIR =
+      new File(System.getProperty("deluge.card", "src/main/resources"), "KITS");
 
   @Test
   public void testDrumKitParsingAndAudioRenderingParity() throws Exception {
     String[] kitsToTest = {
-      "000 TR-808.XML",
-      "001 DDD-1.XML",
-      "002 SDS-5.XML",
-      "003 TR-909.XML",
-      "004 R-50.XML"
+      "000 TR-808.XML", "001 DDD-1.XML", "002 SDS-5.XML", "003 TR-909.XML", "004 R-50.XML"
     };
 
     for (String kitName : kitsToTest) {
@@ -86,15 +84,20 @@ public class KitFidelityScorecardTest {
       double rms = 0.0;
       double maxAbs = 0.0;
       for (float f : out) {
-        assertFalse(Float.isNaN(f) || Float.isInfinite(f), kitName + " rendered drum audio must remain valid");
+        assertFalse(
+            Float.isNaN(f) || Float.isInfinite(f),
+            kitName + " rendered drum audio must remain valid");
         double abs = Math.abs(f);
         if (abs > maxAbs) maxAbs = abs;
         rms += f * (double) f;
       }
       rms = Math.sqrt(rms / numSamples);
 
-      assertTrue(maxAbs <= 2.0, kitName + " drum output must remain bounded without Q31 integer overflow");
-      assertTrue(rms > 0.01, kitName + " must produce strong audible multi-drum audio output (RMS=" + rms + ")");
+      assertTrue(
+          maxAbs <= 2.0, kitName + " drum output must remain bounded without Q31 integer overflow");
+      assertTrue(
+          rms > 0.01,
+          kitName + " must produce strong audible multi-drum audio output (RMS=" + rms + ")");
     }
   }
 }

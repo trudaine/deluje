@@ -31,7 +31,7 @@ public class DelugeNoteDataMapper {
     for (int s = 0; s < row.size(); s++) {
       StepData step = row.get(s);
       if (step.active()) {
-        int pos = (int) Math.round((s + step.nudge()) * ticksPerStep);
+        int pos = Math.round((s + step.nudge()) * ticksPerStep);
         int len = (int) (step.gate() * ticksPerStep);
         if (len == 0) len = 1;
 
@@ -54,7 +54,7 @@ public class DelugeNoteDataMapper {
     for (int s = 0; s < row.size(); s++) {
       StepData step = row.get(s);
       if (step.active()) {
-        int pos = (int) Math.round((s + step.nudge()) * ticksPerStep);
+        int pos = Math.round((s + step.nudge()) * ticksPerStep);
         int len = (int) (step.gate() * ticksPerStep);
         if (len == 0) len = 1;
 

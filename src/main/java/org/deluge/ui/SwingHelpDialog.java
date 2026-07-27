@@ -111,7 +111,9 @@ public class SwingHelpDialog extends JDialog {
   private String loadGuidebookContent() throws Exception {
     InputStream is = SwingHelpDialog.class.getResourceAsStream("/docs/DELUGE_GUIDEBOOK.md");
     if (is == null) {
-      File devFile = new File(org.deluge.project.PreferencesManager.getLibraryDir(), "docs/DELUGE_GUIDEBOOK.md");
+      File devFile =
+          new File(
+              org.deluge.project.PreferencesManager.getLibraryDir(), "docs/DELUGE_GUIDEBOOK.md");
       if (devFile.exists()) {
         is = new FileInputStream(devFile);
       }

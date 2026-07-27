@@ -82,20 +82,22 @@ public class FirmwareFactory {
         track.addClip(new ClipModel("Default Clip", 8, 16));
       }
       int trackIndex = model.getTracks().indexOf(track);
-      org.deluge.firmware2.GlobalEffectable sound = switch (track) {
-        case SynthTrackModel synthTrack -> {
-          FirmwareSound synth = new FirmwareSound();
-          synth.fw2Sound.tuning = model; // project is the tuning provider
-          synth.inputTickMagnitude = model.getInputTickMagnitude(); // for file→internal sync levels
-          mapModelToSound(synthTrack, synth);
-          loadOscResources(synthTrack, synth);
-          yield synth;
-        }
-        case KitTrackModel kitTrack -> createKitSound(kitTrack, model);
-        case MidiTrackModel midiTrack -> createMidiSound(midiTrack);
-        case AudioTrackModel audioTrack -> createAudioSound(audioTrack, trackIndex, model);
-        case null, default -> null;
-      };
+      org.deluge.firmware2.GlobalEffectable sound =
+          switch (track) {
+            case SynthTrackModel synthTrack -> {
+              FirmwareSound synth = new FirmwareSound();
+              synth.fw2Sound.tuning = model; // project is the tuning provider
+              synth.inputTickMagnitude =
+                  model.getInputTickMagnitude(); // for file→internal sync levels
+              mapModelToSound(synthTrack, synth);
+              loadOscResources(synthTrack, synth);
+              yield synth;
+            }
+            case KitTrackModel kitTrack -> createKitSound(kitTrack, model);
+            case MidiTrackModel midiTrack -> createMidiSound(midiTrack);
+            case AudioTrackModel audioTrack -> createAudioSound(audioTrack, trackIndex, model);
+            case null, default -> null;
+          };
 
       if (sound != null) {
         for (ClipModel clip : track.getClips()) {

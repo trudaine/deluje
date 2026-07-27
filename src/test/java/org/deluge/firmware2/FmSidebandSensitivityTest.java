@@ -16,10 +16,10 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test for FM sideband sensitivity and multi-operator chaining (§4.2vicessepties).
- * Verifies that presets like 081 Xylophone Big Bass (Mod1 -> Mod0 chaining with +12/+24 semitone
- * transpositions and free-running phase) respond dynamically to note/velocity cable scaling and produce
- * bounded, faithful FM synthesis.
+ * Dedicated portable unit test for FM sideband sensitivity and multi-operator chaining
+ * (§4.2vicessepties). Verifies that presets like 081 Xylophone Big Bass (Mod1 -> Mod0 chaining with
+ * +12/+24 semitone transpositions and free-running phase) respond dynamically to note/velocity
+ * cable scaling and produce bounded, faithful FM synthesis.
  */
 public class FmSidebandSensitivityTest {
 
@@ -34,8 +34,14 @@ public class FmSidebandSensitivityTest {
       assertTrue(
           synth.isModulator1ToModulator0(),
           "081 must chain Modulator 1 into Modulator 0 (multi-op FM synthesis)");
-      assertEquals(24, synth.getModulator1Transpose(), "Modulator 1 must be transposed +24 semitones (+2 octaves)");
-      assertEquals(12, synth.getModulator2Transpose(), "Modulator 2 must be transposed +12 semitones (+1 octave)");
+      assertEquals(
+          24,
+          synth.getModulator1Transpose(),
+          "Modulator 1 must be transposed +24 semitones (+2 octaves)");
+      assertEquals(
+          12,
+          synth.getModulator2Transpose(),
+          "Modulator 2 must be transposed +12 semitones (+1 octave)");
 
       // Test rendering at vel=127 (embedded song mode, where hardware recorded 0.779 similarity)
       // vs vel=110 (standalone default velocity)

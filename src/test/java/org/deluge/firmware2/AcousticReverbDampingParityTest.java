@@ -16,22 +16,21 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test for acoustic instrument reverb room damping and envelope absorption (§4.2untriginties).
- * Verifies that acoustic emulations (066 Violin, 073 Piano, 076 Organ, 061 Blown-Staccato-Panpipes) decay cleanly
- * through multi-stage filter envelopes and global Freeverb/Mutable room damping filters without arithmetic instability
- * or Q31 integer overflow, permanently guarding acoustic high-frequency absorption against C++ reverb.cpp.
+ * Dedicated portable unit test for acoustic instrument reverb room damping and envelope absorption
+ * (§4.2untriginties). Verifies that acoustic emulations (066 Violin, 073 Piano, 076 Organ, 061
+ * Blown-Staccato-Panpipes) decay cleanly through multi-stage filter envelopes and global
+ * Freeverb/Mutable room damping filters without arithmetic instability or Q31 integer overflow,
+ * permanently guarding acoustic high-frequency absorption against C++ reverb.cpp.
  */
 public class AcousticReverbDampingParityTest {
 
-  private static final File SYNTH_DIR = new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
+  private static final File SYNTH_DIR =
+      new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
 
   @Test
   public void testAcousticInstrumentReverbAbsorption() throws Exception {
     String[] presets = {
-      "066 Violin.XML",
-      "073 Piano.XML",
-      "076 Organ.XML",
-      "061 Blown-Staccato-Panpipes.XML"
+      "066 Violin.XML", "073 Piano.XML", "076 Organ.XML", "061 Blown-Staccato-Panpipes.XML"
     };
 
     for (String preset : presets) {
@@ -81,7 +80,8 @@ public class AcousticReverbDampingParityTest {
 
       double rmsOn = 0.0;
       for (float f : outOn) {
-        assertFalse(Float.isNaN(f) || Float.isInfinite(f), preset + " sustain sample must be valid");
+        assertFalse(
+            Float.isNaN(f) || Float.isInfinite(f), preset + " sustain sample must be valid");
         assertTrue(Math.abs(f) <= 2.0f, preset + " sustain sample must remain bounded");
         rmsOn += f * (double) f;
       }
@@ -91,9 +91,12 @@ public class AcousticReverbDampingParityTest {
       double initialTailEnergy = 0.0;
       double finalTailEnergy = 0.0;
       for (int i = 0; i < 1000; i++) initialTailEnergy += outTail[i] * (double) outTail[i];
-      for (int i = tailSamples - 1000; i < tailSamples; i++) finalTailEnergy += outTail[i] * (double) outTail[i];
+      for (int i = tailSamples - 1000; i < tailSamples; i++)
+        finalTailEnergy += outTail[i] * (double) outTail[i];
 
-      assertTrue(finalTailEnergy <= initialTailEnergy, preset + " reverb tail must decay through room damping absorption");
+      assertTrue(
+          finalTailEnergy <= initialTailEnergy,
+          preset + " reverb tail must decay through room damping absorption");
     }
   }
 }

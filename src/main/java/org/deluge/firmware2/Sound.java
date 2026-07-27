@@ -328,7 +328,7 @@ public class Sound extends GlobalEffectable {
     public int cents; // C SampleHolderForVoice cents (applied via fineTuner, voice.cpp:505)
   }
 
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked", "rawtypes"})
   public final java.util.List<CompiledKeyZone>[] sourceZones =
       new java.util.List[] {
         new java.util.ArrayList<CompiledKeyZone>(), new java.util.ArrayList<CompiledKeyZone>()
@@ -778,37 +778,39 @@ public class Sound extends GlobalEffectable {
 
     // 3. Arpeggiator clock & processing
     if (arpEnabled()) {
-      int phaseInc = (arpPhaseIncrement > 0)
-          ? arpPhaseIncrement
-          : arpSettings.getPhaseIncrement(
-              Patcher.computeFinalValueForParam(Param.GLOBAL_ARP_RATE, patchedParamValues[Param.GLOBAL_ARP_RATE]),
-              this.timePerInternalTickInverse);
+      int phaseInc =
+          (arpPhaseIncrement > 0)
+              ? arpPhaseIncrement
+              : arpSettings.getPhaseIncrement(
+                  Patcher.computeFinalValueForParam(
+                      Param.GLOBAL_ARP_RATE, patchedParamValues[Param.GLOBAL_ARP_RATE]),
+                  this.timePerInternalTickInverse);
       if (phaseInc > 0) {
         // sound.cpp:2448 — (uint32_t)gate + 2147483648, passed FULL-SCALE (the arp itself does the
         // single >> 8, arpeggiator.cpp:1457). Int add wraps exactly like the C uint32 add.
         int gateThreshold = arpSettings.gate + Integer.MIN_VALUE;
         arpeggiator.render(arpSettings, arpInstr, numSamples, gateThreshold, phaseInc);
 
-      for (int n = 0; n < 4; n++) {
-        int noteOff = arpInstr.noteCodeOffPostArp[n];
-        if (noteOff != Arpeggiator.ARP_NOTE_NONE) {
-          releaseVoice(noteOff, -1);
-        }
-      }
-
-      if (arpInstr.arpNoteOn != null) {
-        // C process_postarp_notes (sound.cpp:2340-2360) — EVERY entry until ARP_NOTE_NONE plays
-        // (chord/octave arp modes emit several), each at the arp note's real velocity.
-        for (int n = 0; n < arpInstr.arpNoteOn.noteCodeOnPostArp.length; n++) {
-          int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[n];
-          if (noteOn == Arpeggiator.ARP_NOTE_NONE) {
-            break;
+        for (int n = 0; n < 4; n++) {
+          int noteOff = arpInstr.noteCodeOffPostArp[n];
+          if (noteOff != Arpeggiator.ARP_NOTE_NONE) {
+            releaseVoice(noteOff, -1);
           }
-          triggerVoice(noteOn, arpInstr.arpNoteOn.velocity, -1);
-          arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
         }
-        arpInstr.arpNoteOn = null;
-      }
+
+        if (arpInstr.arpNoteOn != null) {
+          // C process_postarp_notes (sound.cpp:2340-2360) — EVERY entry until ARP_NOTE_NONE plays
+          // (chord/octave arp modes emit several), each at the arp note's real velocity.
+          for (int n = 0; n < arpInstr.arpNoteOn.noteCodeOnPostArp.length; n++) {
+            int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[n];
+            if (noteOn == Arpeggiator.ARP_NOTE_NONE) {
+              break;
+            }
+            triggerVoice(noteOn, arpInstr.arpNoteOn.velocity, -1);
+            arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
+          }
+          arpInstr.arpNoteOn = null;
+        }
       }
     }
 

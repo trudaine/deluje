@@ -230,7 +230,8 @@ public class WaveTable {
             currentPhase += phaseIncrement * numSamplesThisLoop;
           }
         } else {
-          // C wave_table.cpp:1117 — goto doneRenderingACycle skips rendering when no band covers cycle transition
+          // C wave_table.cpp:1117 — goto doneRenderingACycle skips rendering when no band covers
+          // cycle transition
           currentPhase += phaseIncrement * numSamplesThisLoop;
         }
 

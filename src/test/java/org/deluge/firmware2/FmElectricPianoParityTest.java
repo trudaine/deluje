@@ -1,8 +1,6 @@
 package org.deluge.firmware2;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
@@ -18,16 +16,19 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test for FM Electric Piano decay curves and keyboard tracking (§4.2triginties).
- * Verifies that 2-op and 3-op FM electric piano emulations (074 Electric Piano, 075 EP With Strings) render
- * clean percussive tine decay trajectories without arithmetic instability or Q31 integer overflow,
- * permanently guarding FM modulator envelope release tables and keyboard tracking scaling against C++ envelope.cpp.
+ * Dedicated portable unit test for FM Electric Piano decay curves and keyboard tracking
+ * (§4.2triginties). Verifies that 2-op and 3-op FM electric piano emulations (074 Electric Piano,
+ * 075 EP With Strings) render clean percussive tine decay trajectories without arithmetic
+ * instability or Q31 integer overflow, permanently guarding FM modulator envelope release tables
+ * and keyboard tracking scaling against C++ envelope.cpp.
  */
 public class FmElectricPianoParityTest {
 
-  private static final File SYNTH_DIR = new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
+  private static final File SYNTH_DIR =
+      new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
 
-  private float[] renderPresetAudio(String xmlName, int note, int velocity, int numSamples) throws Exception {
+  private float[] renderPresetAudio(String xmlName, int note, int velocity, int numSamples)
+      throws Exception {
     File xml = new File(SYNTH_DIR, xmlName);
     if (!xml.exists()) {
       return new float[0];
@@ -76,15 +77,20 @@ public class FmElectricPianoParityTest {
       float fL = outLowVel[i];
       assertFalse(Float.isNaN(fH) || Float.isInfinite(fH), "074 EP high vel sample must be valid");
       assertFalse(Float.isNaN(fL) || Float.isInfinite(fL), "074 EP low vel sample must be valid");
-      assertTrue(Math.abs(fH) <= 2.0f && Math.abs(fL) <= 2.0f, "074 EP samples must remain bounded");
+      assertTrue(
+          Math.abs(fH) <= 2.0f && Math.abs(fL) <= 2.0f, "074 EP samples must remain bounded");
       rmsHigh += fH * (double) fH;
       rmsLow += fL * (double) fL;
     }
     rmsHigh = Math.sqrt(rmsHigh / outHighVel.length);
     rmsLow = Math.sqrt(rmsLow / outLowVel.length);
 
-    assertTrue(rmsHigh > 0.01, "074 Electric Piano must produce audible percussive tine audio at velocity 127");
-    assertTrue(rmsHigh > rmsLow * 1.2, "High velocity must produce significantly stronger FM tine modulation than low velocity");
+    assertTrue(
+        rmsHigh > 0.01,
+        "074 Electric Piano must produce audible percussive tine audio at velocity 127");
+    assertTrue(
+        rmsHigh > rmsLow * 1.2,
+        "High velocity must produce significantly stronger FM tine modulation than low velocity");
   }
 
   @Test
@@ -94,7 +100,8 @@ public class FmElectricPianoParityTest {
 
     double rms = 0.0;
     for (float f : out) {
-      assertFalse(Float.isNaN(f) || Float.isInfinite(f), "075 EP With Strings sample must be valid");
+      assertFalse(
+          Float.isNaN(f) || Float.isInfinite(f), "075 EP With Strings sample must be valid");
       assertTrue(Math.abs(f) <= 2.0f, "075 EP With Strings sample must remain bounded");
       rms += f * (double) f;
     }

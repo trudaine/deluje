@@ -70,11 +70,15 @@ public class ModFxNegativeScalingParityTest {
     int depth = 50000000;
 
     // Run enough samples to populate delay lines and advance LFO
-    pPos.processModFX(bufPos, numSamples, ModFx.ModFXType.CHORUS, rate, depth, volPos, 0, 0, false, true);
-    pPos.processModFX(bufPos, numSamples, ModFx.ModFXType.CHORUS, rate, depth, volPos, 0, 0, false, true);
+    pPos.processModFX(
+        bufPos, numSamples, ModFx.ModFXType.CHORUS, rate, depth, volPos, 0, 0, false, true);
+    pPos.processModFX(
+        bufPos, numSamples, ModFx.ModFXType.CHORUS, rate, depth, volPos, 0, 0, false, true);
 
-    pNeg.processModFX(bufNeg, numSamples, ModFx.ModFXType.CHORUS, rate, -depth, volNeg, 0, 0, false, true);
-    pNeg.processModFX(bufNeg, numSamples, ModFx.ModFXType.CHORUS, rate, -depth, volNeg, 0, 0, false, true);
+    pNeg.processModFX(
+        bufNeg, numSamples, ModFx.ModFXType.CHORUS, rate, -depth, volNeg, 0, 0, false, true);
+    pNeg.processModFX(
+        bufNeg, numSamples, ModFx.ModFXType.CHORUS, rate, -depth, volNeg, 0, 0, false, true);
 
     boolean differed = false;
     for (int i = 0; i < numSamples; i++) {
@@ -83,7 +87,8 @@ public class ModFxNegativeScalingParityTest {
         break;
       }
     }
-    assertTrue(differed, "Positive vs negative depth must produce distinct delay modulation trajectories");
+    assertTrue(
+        differed, "Positive vs negative depth must produce distinct delay modulation trajectories");
   }
 
   @Test
@@ -111,7 +116,10 @@ public class ModFxNegativeScalingParityTest {
         false,
         true);
 
-    assertNotEquals(initialVol, postFXVolume[0], "Extreme flanger feedback must attenuate post-FX volume");
-    assertTrue(postFXVolume[0] < initialVol, "Volume compensation must reduce gain to prevent runaway oscillation");
+    assertNotEquals(
+        initialVol, postFXVolume[0], "Extreme flanger feedback must attenuate post-FX volume");
+    assertTrue(
+        postFXVolume[0] < initialVol,
+        "Volume compensation must reduce gain to prevent runaway oscillation");
   }
 }

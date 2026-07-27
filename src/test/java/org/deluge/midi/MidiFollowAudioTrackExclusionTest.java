@@ -17,11 +17,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test and verification for upstream C++ commit c8a9dc6f (#4708):
- * "Fix midi follow sending irrelevant midi to audio tracks".
- * Verifies that when MIDI follow is active during live recording, incoming Note On and Note Off messages
- * are safely ignored when an AudioTrackModel is selected, preventing accidental note recording into audio clips
- * or runtime class cast exceptions, while continuing to record cleanly when a SynthTrackModel is selected.
+ * Dedicated portable unit test and verification for upstream C++ commit c8a9dc6f (#4708): "Fix midi
+ * follow sending irrelevant midi to audio tracks". Verifies that when MIDI follow is active during
+ * live recording, incoming Note On and Note Off messages are safely ignored when an AudioTrackModel
+ * is selected, preventing accidental note recording into audio clips or runtime class cast
+ * exceptions, while continuing to record cleanly when a SynthTrackModel is selected.
  */
 public class MidiFollowAudioTrackExclusionTest {
 
@@ -82,22 +82,26 @@ public class MidiFollowAudioTrackExclusionTest {
 
     MidiMsg noteOnMsg = new MidiMsg();
     noteOnMsg.data1 = 0x90; // Note On, CH 1
-    noteOnMsg.data2 = 60;   // Note 60
-    noteOnMsg.data3 = 100;  // Velocity 100
+    noteOnMsg.data2 = 60; // Note 60
+    noteOnMsg.data3 = 100; // Velocity 100
 
     router.handleMidiMessage(noteOnMsg);
 
     // Verify note step WAS recorded into the synth clip
     ClipModel editedClip = activeGrid.getEditedActiveClip();
     assertNotNull(editedClip, "Edited active clip must be non-null when synth track is selected");
-    
+
     boolean foundActiveStep = false;
     for (int r = 0; r < editedClip.getRowCount(); r++) {
       for (int c = 0; c < editedClip.getStepCount(); c++) {
         StepData s = editedClip.getStep(r, c);
         if (s != null && s.active()) {
           foundActiveStep = true;
-          assertEquals(100.0f / 127.0f, s.velocity(), 0.05f, "Recorded note velocity must match incoming MIDI message");
+          assertEquals(
+              100.0f / 127.0f,
+              s.velocity(),
+              0.05f,
+              "Recorded note velocity must match incoming MIDI message");
         }
       }
     }

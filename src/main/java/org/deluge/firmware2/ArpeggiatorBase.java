@@ -380,7 +380,7 @@ public abstract class ArpeggiatorBase {
           || settings.lastLockedSpreadVelocityParameterValue != settings.spreadVelocity) {
         for (int i = 0; i < N; i++) {
           settings.lockedSpreadVelocityValues[i] =
-              (byte) getRandomBipolarProbabilityAmount(settings.spreadVelocity);
+              getRandomBipolarProbabilityAmount(settings.spreadVelocity);
         }
         settings.lastLockedSpreadVelocityParameterValue = settings.spreadVelocity;
       }
@@ -388,7 +388,7 @@ public abstract class ArpeggiatorBase {
           || settings.lastLockedSpreadGateParameterValue != settings.spreadGate) {
         for (int i = 0; i < N; i++) {
           settings.lockedSpreadGateValues[i] =
-              (byte) getRandomBipolarProbabilityAmount(settings.spreadGate);
+              getRandomBipolarProbabilityAmount(settings.spreadGate);
         }
         settings.lastLockedSpreadGateParameterValue = settings.spreadGate;
       }

@@ -1,8 +1,6 @@
 package org.deluge.firmware2;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.deluge.BridgeContract;
 import org.deluge.midi.MidiInputRouter;
@@ -12,10 +10,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test and verification for Next Area 2: MIDI Clock & Routing Jitter (§4.2quinquatriginties).
- * Verifies that MidiInputRouter routes Note On, Note Off, and CC messages across follow channels with sample-accurate
- * timestamping and zero routing jitter against C++ midi_engine.cpp, proving deterministic gate length calculations and
- * cross-thread parameter modulation without race conditions.
+ * Dedicated portable unit test and verification for Next Area 2: MIDI Clock & Routing Jitter
+ * (§4.2quinquatriginties). Verifies that MidiInputRouter routes Note On, Note Off, and CC messages
+ * across follow channels with sample-accurate timestamping and zero routing jitter against C++
+ * midi_engine.cpp, proving deterministic gate length calculations and cross-thread parameter
+ * modulation without race conditions.
  */
 public class MidiClockJitterParityTest {
 
@@ -71,17 +70,24 @@ public class MidiClockJitterParityTest {
     noteOn.data3 = 100;
     router.handleMidiMessage(noteOn);
 
-    assertEquals(60, triggeredNote[0], "Note On must route immediately to active track sound without jitter");
+    assertEquals(
+        60,
+        triggeredNote[0],
+        "Note On must route immediately to active track sound without jitter");
     assertEquals(100, triggeredNote[1], "Note On velocity must be preserved exactly");
 
     // Test unmapped CC broadcasting for live parameter modulation without jitter
     MidiMsg ccMsg = new MidiMsg();
     ccMsg.data1 = 0xB0; // CC on CH 0
-    ccMsg.data2 = 71;   // CC 71 (LPF cutoff in default mappings)
-    ccMsg.data3 = 96;   // value
+    ccMsg.data2 = 71; // CC 71 (LPF cutoff in default mappings)
+    ccMsg.data3 = 96; // value
     router.handleMidiMessage(ccMsg);
 
     double globalLpf = bridge.getGlobalFloat("g_sp_lpf_freq");
-    assertEquals(96.0 / 127.0, globalLpf, 0.001, "CC message must modulate target global parameter with sample-accurate precision");
+    assertEquals(
+        96.0 / 127.0,
+        globalLpf,
+        0.001,
+        "CC message must modulate target global parameter with sample-accurate precision");
   }
 }

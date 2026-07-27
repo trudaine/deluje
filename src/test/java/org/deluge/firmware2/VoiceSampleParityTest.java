@@ -29,7 +29,8 @@ public class VoiceSampleParityTest {
     int unityPitch = 16777216; // 1 << 24
     v.render(osc, numSamples, 1, unityPitch, new int[] {1 << 27}, 0);
 
-    assertTrue(v.active, "Looping VoiceSample must remain active indefinitely across wrap boundaries");
+    assertTrue(
+        v.active, "Looping VoiceSample must remain active indefinitely across wrap boundaries");
 
     // Check samples past the loop end (frame > 100) wrap back to loopStart (40)
     // At sample 120, 100 frames elapsed, wrapped to 40 + (120 - 100) = 60
@@ -69,7 +70,9 @@ public class VoiceSampleParityTest {
     vFast.render(oscFast, numSamples, 1, doublePitch, new int[] {1 << 27}, 0);
     vSlow.render(oscSlow, numSamples, 1, halfPitch, new int[] {1 << 27}, 0);
 
-    assertTrue(vFast.active && vSlow.active, "Both voices remain active before reaching end of sample buffer");
+    assertTrue(
+        vFast.active && vSlow.active,
+        "Both voices remain active before reaching end of sample buffer");
   }
 
   @Test
@@ -103,11 +106,13 @@ public class VoiceSampleParityTest {
     // Trigger note 48 (C3 -> low zone)
     sound.triggerVoice(48, 100, 0);
     Voice v1 = sound.voices.get(sound.voices.size() - 1);
-    assertEquals(sLow, v1.unisonParts[0].sources[0].sampleRef, "Note 48 must match low key zone sample");
+    assertEquals(
+        sLow, v1.unisonParts[0].sources[0].sampleRef, "Note 48 must match low key zone sample");
 
     // Trigger note 72 (C5 -> high zone)
     sound.triggerVoice(72, 100, 0);
     Voice v2 = sound.voices.get(sound.voices.size() - 1);
-    assertEquals(sHigh, v2.unisonParts[0].sources[0].sampleRef, "Note 72 must match high key zone sample");
+    assertEquals(
+        sHigh, v2.unisonParts[0].sources[0].sampleRef, "Note 72 must match high key zone sample");
   }
 }

@@ -217,7 +217,8 @@ public class Voice {
         vs.active = true;
         int ovr = (s == 0) ? testStartPhaseOverrideOsc1.get() : testStartPhaseOverrideOsc2.get();
         if (ovr != -2) {
-          // Disperse unison starting phases across the cycle to match analog hardware phase distribution
+          // Disperse unison starting phases across the cycle to match analog hardware phase
+          // distribution
           vs.oscPos = ovr + (int) ((long) u * 2147483647L / Math.max(1, sound.numUnison));
         } else {
           vs.oscPos = Functions.getNoise(); // random initial phase
@@ -231,10 +232,12 @@ public class Voice {
         vs.carrierFeedback = 0;
       }
       for (int m = 0; m < 2; m++) {
-        // C voice.cpp:405-407 — FM modulator phases are random on a fresh voice; pinned to dispersed 0 under
+        // C voice.cpp:405-407 — FM modulator phases are random on a fresh voice; pinned to
+        // dispersed 0 under
         // the test override (so FM fidelity tests stay deterministic without unison phase spikes).
         if (testStartPhaseOverrideOsc1.get() != -2) {
-          unisonParts[u].modulatorPhase[m] = (int) ((long) u * 2147483647L / Math.max(1, sound.numUnison));
+          unisonParts[u].modulatorPhase[m] =
+              (int) ((long) u * 2147483647L / Math.max(1, sound.numUnison));
         } else {
           unisonParts[u].modulatorPhase[m] = Functions.getNoise();
         }

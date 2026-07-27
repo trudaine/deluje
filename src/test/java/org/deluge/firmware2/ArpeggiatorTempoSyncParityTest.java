@@ -13,10 +13,11 @@ import org.deluge.model.SynthTrackModel;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test for arpeggiator tempo synchronization and clock wiring (§4.2vicesquinquies).
- * Verifies that tempo-synced arpeggiators (e.g. 159 80s Bass Rhythm and 112 Hard Tech Beat) derive their
- * phase increment from the song's actual timePerInternalTickInverse rather than fixed standalone proxies,
- * maintaining 100% C-compatibility with arpeggiator.cpp:1402-1422 and sound.cpp:2378.
+ * Dedicated portable unit test for arpeggiator tempo synchronization and clock wiring
+ * (§4.2vicesquinquies). Verifies that tempo-synced arpeggiators (e.g. 159 80s Bass Rhythm and 112
+ * Hard Tech Beat) derive their phase increment from the song's actual timePerInternalTickInverse
+ * rather than fixed standalone proxies, maintaining 100% C-compatibility with
+ * arpeggiator.cpp:1402-1422 and sound.cpp:2378.
  */
 public class ArpeggiatorTempoSyncParityTest {
 
@@ -35,7 +36,10 @@ public class ArpeggiatorTempoSyncParityTest {
 
     // rightShiftAmount = 9 - 5 = 4
     assertEquals(1048576 >> 4, proxyInc, "Proxy phase increment must match right-shifted 2^20");
-    assertEquals(6233062 >> 4, actualInc, "Actual phase increment must match right-shifted timePerInternalTickInverse");
+    assertEquals(
+        6233062 >> 4,
+        actualInc,
+        "Actual phase increment must match right-shifted timePerInternalTickInverse");
     assertTrue(
         actualInc > proxyInc * 5,
         "Actual 120 BPM tempo-synced increment is ~5.9x faster than the legacy static proxy");
@@ -64,7 +68,8 @@ public class ArpeggiatorTempoSyncParityTest {
         fs.fw2Sound.arpPhaseIncrement,
         "syncParamsToFw2 must populate fw2Sound.arpPhaseIncrement for synced arpeggiators");
 
-    int expectedInc = fs.fw2Sound.arpSettings.getPhaseIncrement(0, fs.fw2Sound.timePerInternalTickInverse);
+    int expectedInc =
+        fs.fw2Sound.arpSettings.getPhaseIncrement(0, fs.fw2Sound.timePerInternalTickInverse);
     assertEquals(
         expectedInc,
         fs.fw2Sound.arpPhaseIncrement,

@@ -871,8 +871,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   public void addNotify() {
     super.addNotify();
     java.awt.Container vp =
-        (java.awt.Container)
-            javax.swing.SwingUtilities.getAncestorOfClass(javax.swing.JViewport.class, this);
+        javax.swing.SwingUtilities.getAncestorOfClass(javax.swing.JViewport.class, this);
     if (vp != null && vp != listeningViewport) {
       listeningViewport = vp;
       vp.addComponentListener(

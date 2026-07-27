@@ -1187,7 +1187,7 @@ public class SwingHardwareTopPanel extends JPanel {
         float vol = clamp((float) bridge.getMasterVol() + delta * 0.05f, 0.0f, 2.0f);
         bridge.setMasterVol(vol);
         if (oledPanel != null) {
-          oledPanel.showParamText("MASTER VOL", String.format((int) Math.round(vol * 100) + " %%"));
+          oledPanel.showParamText("MASTER VOL", String.format(Math.round(vol * 100) + " %%"));
         }
       } else if (oledPanel != null) {
         oledPanel.showParamText("MASTER VOL", delta > 0 ? "VOLUME UP" : "VOLUME DOWN");

@@ -18,9 +18,10 @@ import org.junit.jupiter.api.Test;
  * trustworthy per-preset FM ground truth, to finally settle whether our FM index is faithful-to-C
  * or genuinely too hot.
  *
- * <p>Recording at {@code -Dfm.wav} (default {@code src/test/resources/fidelity/reference_fm_simple_c5.wav}); presets read from
- * the card at {@code -Dfm.synths} (default {@code src/main/resources/SYNTHS}). Self-skips if either is
- * absent. The preset list + order MUST match FM_CAL.XML (filename sort).
+ * <p>Recording at {@code -Dfm.wav} (default {@code
+ * src/test/resources/fidelity/reference_fm_simple_c5.wav}); presets read from the card at {@code
+ * -Dfm.synths} (default {@code src/main/resources/SYNTHS}). Self-skips if either is absent. The
+ * preset list + order MUST match FM_CAL.XML (filename sort).
  */
 public class FmCalibrationScorecardTest {
 
@@ -39,13 +40,10 @@ public class FmCalibrationScorecardTest {
   void calibrate() throws Exception {
     File rec =
         new File(
-            System.getProperty(
-                "fm.wav", "src/test/resources/fidelity/reference_fm_simple_c5.wav"));
+            System.getProperty("fm.wav", "src/test/resources/fidelity/reference_fm_simple_c5.wav"));
     Assumptions.assumeTrue(rec.isFile(), "no FM_CAL hardware recording at " + rec);
 
-    File synthDir =
-        new File(
-            System.getProperty("fm.synths", "src/main/resources/SYNTHS"));
+    File synthDir = new File(System.getProperty("fm.synths", "src/main/resources/SYNTHS"));
     Assumptions.assumeTrue(synthDir.isDirectory(), "no FM preset dir at " + synthDir);
 
     List<File> presets = new ArrayList<>();

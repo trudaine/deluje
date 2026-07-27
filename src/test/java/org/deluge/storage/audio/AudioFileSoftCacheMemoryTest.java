@@ -10,10 +10,11 @@ import org.deluge.playback.Sample;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test and before/after performance benchmark for SoftReference audio caching.
- * Verifies that switching AudioFileReader's cache from unbounded strong references to SoftReferences
- * preserves >50x cache hit speedup while enabling automatic GC memory reclamation under heap pressure,
- * permanently preventing OutOfMemoryErrors when loading large acoustic multisample libraries.
+ * Dedicated portable unit test and before/after performance benchmark for SoftReference audio
+ * caching. Verifies that switching AudioFileReader's cache from unbounded strong references to
+ * SoftReferences preserves >50x cache hit speedup while enabling automatic GC memory reclamation
+ * under heap pressure, permanently preventing OutOfMemoryErrors when loading large acoustic
+ * multisample libraries.
  */
 public class AudioFileSoftCacheMemoryTest {
 
@@ -82,7 +83,11 @@ public class AudioFileSoftCacheMemoryTest {
 
     assertTrue(
         cacheTimeNs < diskTimeNs / 10,
-        "SoftReference cache hit (" + cacheTimeNs + " ns) must be at least 10x faster than disk I/O (" + diskTimeNs + " ns)");
+        "SoftReference cache hit ("
+            + cacheTimeNs
+            + " ns) must be at least 10x faster than disk I/O ("
+            + diskTimeNs
+            + " ns)");
   }
 
   @Test
@@ -96,6 +101,7 @@ public class AudioFileSoftCacheMemoryTest {
     // Explicitly flush cache and confirm clean release
     AudioFileReader.clearCache();
     Sample postClear = AudioFileReader.readSample(wav.getAbsolutePath());
-    assertNotNull(postClear, "Re-reading after cache clear must cleanly reload from disk without OOM");
+    assertNotNull(
+        postClear, "Re-reading after cache clear must cleanly reload from disk without OOM");
   }
 }

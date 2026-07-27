@@ -16,16 +16,19 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test for FM operator feedback and self-modulation stability (§4.2untriginties).
- * Verifies that high-feedback FM presets (095 Harsh FM Feedback, 008 FM Rich Distorted Bass, 057 FM Lead, 090 FM Organ)
- * render cleanly across multi-block buffers without Q31 integer overflow, clipping, or NaN generation,
- * permanently guarding operator self-modulation saturation and amplitude ramping against C++ voice.cpp:1703-1859.
+ * Dedicated portable unit test for FM operator feedback and self-modulation stability
+ * (§4.2untriginties). Verifies that high-feedback FM presets (095 Harsh FM Feedback, 008 FM Rich
+ * Distorted Bass, 057 FM Lead, 090 FM Organ) render cleanly across multi-block buffers without Q31
+ * integer overflow, clipping, or NaN generation, permanently guarding operator self-modulation
+ * saturation and amplitude ramping against C++ voice.cpp:1703-1859.
  */
 public class FmFeedbackAndSelfModulationParityTest {
 
-  private static final File SYNTH_DIR = new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
+  private static final File SYNTH_DIR =
+      new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
 
-  private float[] renderPresetAudio(String xmlName, int note, int velocity, int numSamples) throws Exception {
+  private float[] renderPresetAudio(String xmlName, int note, int velocity, int numSamples)
+      throws Exception {
     File xml = new File(SYNTH_DIR, xmlName);
     if (!xml.exists()) {
       return new float[0];
@@ -68,12 +71,17 @@ public class FmFeedbackAndSelfModulationParityTest {
 
     double rms = 0.0;
     for (float f : out) {
-      assertFalse(Float.isNaN(f) || Float.isInfinite(f), "095 Harsh FM Feedback sample must be valid");
-      assertTrue(Math.abs(f) <= 2.0f, "095 Harsh FM Feedback sample must remain bounded across operator self-modulation");
+      assertFalse(
+          Float.isNaN(f) || Float.isInfinite(f), "095 Harsh FM Feedback sample must be valid");
+      assertTrue(
+          Math.abs(f) <= 2.0f,
+          "095 Harsh FM Feedback sample must remain bounded across operator self-modulation");
       rms += f * (double) f;
     }
     rms = Math.sqrt(rms / out.length);
-    assertTrue(rms > 0.05, "095 Harsh FM Feedback must produce strong audible output through self-modulating feedback");
+    assertTrue(
+        rms > 0.05,
+        "095 Harsh FM Feedback must produce strong audible output through self-modulating feedback");
   }
 
   @Test

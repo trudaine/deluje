@@ -615,8 +615,8 @@ public class FirmwareAudioEngine {
         fxBuffer[i][1] = flatFilterBuffer[i * 2 + 1];
       }
     }
-    if (masterSrrBitcrush.isSRREnabled(masterSrr)
-        || masterSrrBitcrush.isBitcrushingEnabled(masterBitcrush)) {
+    if (org.deluge.firmware2.SrrBitcrush.isSRREnabled(masterSrr)
+        || org.deluge.firmware2.SrrBitcrush.isBitcrushingEnabled(masterBitcrush)) {
       int[] dummyVol = {134217728};
       masterSrrBitcrush.process(fxBuffer, numSamples, masterBitcrush, masterSrr, dummyVol);
     }

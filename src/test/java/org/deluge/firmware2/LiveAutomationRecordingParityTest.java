@@ -17,14 +17,16 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test and verification for Opportunity 1: Live Automation (§4.2tritriginties).
- * Verifies that recording multi-step live parameter automation curves into sequencer steps and advancing
- * playback ticks dynamically tracks target parameter values with bit-exact precision against C++ param_manager.cpp,
- * proving real-time sequencer automation recording and multi-step trajectory playback without zipper noise.
+ * Dedicated portable unit test and verification for Opportunity 1: Live Automation
+ * (§4.2tritriginties). Verifies that recording multi-step live parameter automation curves into
+ * sequencer steps and advancing playback ticks dynamically tracks target parameter values with
+ * bit-exact precision against C++ param_manager.cpp, proving real-time sequencer automation
+ * recording and multi-step trajectory playback without zipper noise.
  */
 public class LiveAutomationRecordingParityTest {
 
-  private static final File SYNTH_DIR = new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
+  private static final File SYNTH_DIR =
+      new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
 
   @Test
   public void testLiveAutomationRecordingAndPlaybackParity() throws Exception {
@@ -55,7 +57,8 @@ public class LiveAutomationRecordingParityTest {
     };
 
     for (int step = 0; step < recordedValues.length; step++) {
-      fs.paramManager.recordParamValue(Param.LOCAL_LPF_FREQ, recordedValues[step], step * stepTicks);
+      fs.paramManager.recordParamValue(
+          Param.LOCAL_LPF_FREQ, recordedValues[step], step * stepTicks);
     }
 
     AutoParam ap = fs.paramManager.getAutomatedParam(Param.LOCAL_LPF_FREQ);

@@ -264,7 +264,9 @@ public class Arpeggiator {
       generateNewNotePattern();
     }
 
-    /** C: arpeggiator.cpp:1402-1422 — getPhaseIncrement (default proxy for backwards compatibility) */
+    /**
+     * C: arpeggiator.cpp:1402-1422 — getPhaseIncrement (default proxy for backwards compatibility)
+     */
     public int getPhaseIncrement(int arpRate) {
       return getPhaseIncrement(arpRate, 1 << 20);
     }

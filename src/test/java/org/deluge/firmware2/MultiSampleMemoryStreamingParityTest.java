@@ -17,14 +17,16 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 /**
- * Dedicated portable unit test and empirical verification for Opportunity 2: Multi-Sample Memory (§4.2tritriginties).
- * Verifies that acoustic multisample libraries (169 Double Bass, 170 Sitar) resolve keyzone sample buffers cleanly
- * across multi-octave note triggers without JVM heap exhaustion or GC latency spikes, proving continuous audio
- * boundedness and sub-millisecond zone resolution against C++ sample_loader.cpp / sound.cpp:146-210.
+ * Dedicated portable unit test and empirical verification for Opportunity 2: Multi-Sample Memory
+ * (§4.2tritriginties). Verifies that acoustic multisample libraries (169 Double Bass, 170 Sitar)
+ * resolve keyzone sample buffers cleanly across multi-octave note triggers without JVM heap
+ * exhaustion or GC latency spikes, proving continuous audio boundedness and sub-millisecond zone
+ * resolution against C++ sample_loader.cpp / sound.cpp:146-210.
  */
 public class MultiSampleMemoryStreamingParityTest {
 
-  private static final File SYNTH_DIR = new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
+  private static final File SYNTH_DIR =
+      new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
 
   @Test
   public void testMultiSampleZoneMemoryResolution() throws Exception {
@@ -52,7 +54,8 @@ public class MultiSampleMemoryStreamingParityTest {
       assertNotNull(fs.fw2Sound, "fw2Sound must be initialized for multisample preset");
       assertTrue(
           !fs.sourceZones[0].isEmpty() || !fs.sourceZones[1].isEmpty(),
-          preset + " must load compiled keyzone sample buffers into memory without heap exhaustion");
+          preset
+              + " must load compiled keyzone sample buffers into memory without heap exhaustion");
 
       FirmwareAudioEngine engine = new FirmwareAudioEngine();
       engine.metronomeEnabled = false;
@@ -67,7 +70,12 @@ public class MultiSampleMemoryStreamingParityTest {
 
         assertTrue(
             resolveTimeNs < 5000000,
-            preset + " note " + note + " must resolve keyzone sample buffer in <5 ms (took " + (resolveTimeNs / 1e6) + " ms)");
+            preset
+                + " note "
+                + note
+                + " must resolve keyzone sample buffer in <5 ms (took "
+                + (resolveTimeNs / 1e6)
+                + " ms)");
 
         int numSamples = 22050; // 0.5s audio render
         float[] out = new float[numSamples];
@@ -81,12 +89,15 @@ public class MultiSampleMemoryStreamingParityTest {
 
         double rms = 0.0;
         for (float f : out) {
-          assertFalse(Float.isNaN(f) || Float.isInfinite(f), preset + " note " + note + " sample must be valid");
+          assertFalse(
+              Float.isNaN(f) || Float.isInfinite(f),
+              preset + " note " + note + " sample must be valid");
           assertTrue(Math.abs(f) <= 2.0f, preset + " note " + note + " sample must remain bounded");
           rms += f * (double) f;
         }
         rms = Math.sqrt(rms / numSamples);
-        assertTrue(rms > 0.01, preset + " note " + note + " must produce audible multisample audio");
+        assertTrue(
+            rms > 0.01, preset + " note " + note + " must produce audible multisample audio");
 
         fs.releaseNote(note);
       }
