@@ -2143,3 +2143,22 @@ claims did not survive verification, and the following corrections were made:
    real, correctly-cited port of upstream `c8a9dc6f (#4708)`; the arp tempo wiring (§4.2vicesquinquies) is
    the correct fix for the synced-tempo proxy; the logging/print-cleanup and SoftReference cache commits are
    mechanical and pass build+tests.
+
+### 4.2novemtriginties 2026-07-27 — DX7 operator envelope golden harness: Java Dx7Env is bit-exact to C (narrows the 081 FM residual)
+
+Applied the golden-buffer method to the FM residual family (`081 Xylophone Big Bass` @ 0.369, the lowest
+scorer) the right way. The FM op kernel is already bit-exact (§FM harness) and `dx7note.cpp` is
+ARM-SIMD-blocked, but `env.cpp` — the per-operator DX7 QRATE/QLEVEL envelope that sets operator amplitude
+over time (hence FM sideband brightness/decay) — is self-contained (only `<math.h>`, `levellut` +
+`scaleoutlevel` inline), pure-integer per-sample, no SIMD, and compiles clean on desktop. Built
+`tools/env_harness/main_env.cpp` linking the real `env.cpp`; `Dx7EnvGoldenBufferTest` bit-diffs the Java
+`Dx7Voice.Dx7Env` (init/keydown/getsample) across default / slow-rate / high-rate-scaling envelope shapes
+including release. **Result: all 3 cases `maxAbsDiff = 0`.** Verified faithful: the `ACCURATE_ENVELOPE`
+`staticCount` sub-sample path, the 77-entry `statics[]` table (extracted and diffed bit-identical), the
+20-entry `levellut`, `scaleoutlevel`, the rising/falling level updates, and `advance`.
+
+So the DX7 envelope is **not** the 081 residual. The remaining non-kernel FM suspects are in `dx7note.cpp`
+(operator level/rate scaling, keyboard level scaling, velocity sensitivity, algorithm routing) — which is
+ARM-NEON-blocked from a desktop harness, so the next step there is a line-by-line Java↔C read of the
+`Dx7Voice` operator setup vs `dx7note.cpp` (the delay/modFX method), not another smoke test. Golden coverage
+now spans: LP/HP/SVF ladders, Freeverb, FM op kernel, and DX7 envelope — all bit-exact.
