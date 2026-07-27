@@ -480,13 +480,13 @@ public class SwingDelugeApp extends JFrame {
    */
   public void applyKitDrumSampleLive(
       org.deluge.model.KitTrackModel kit, int drumIdx, String absPath) {
-    System.err.println(
+    LOGGER.fine(
         "[applyKitDrumSampleLive] ENTER drumIdx="
             + drumIdx
             + " path="
             + (absPath != null ? absPath.substring(Math.max(0, absPath.length() - 40)) : "null"));
     if (currentProject == null || pureEngine == null || absPath == null || absPath.isBlank()) {
-      System.err.println("[applyKitDrumSampleLive] EARLY EXIT null");
+      LOGGER.warning("[applyKitDrumSampleLive] EARLY EXIT null");
       return;
     }
     int trackIdx = -1;
@@ -497,29 +497,28 @@ public class SwingDelugeApp extends JFrame {
         break;
       }
     }
-    System.err.println(
-        "[applyKitDrumSampleLive] trackIdx=" + trackIdx + " tracks=" + tracks.size());
+    LOGGER.fine("[applyKitDrumSampleLive] trackIdx=" + trackIdx + " tracks=" + tracks.size());
     if (trackIdx < 0) {
-      System.err.println("[applyKitDrumSampleLive] EARLY EXIT trackIdx");
+      LOGGER.warning("[applyKitDrumSampleLive] EARLY EXIT trackIdx");
       return;
     }
     org.deluge.engine.FirmwareAudioEngine eng = pureEngine.getAudioEngine();
     if (eng == null || trackIdx >= eng.sounds.size()) {
-      System.err.println("[applyKitDrumSampleLive] EARLY EXIT eng");
+      LOGGER.warning("[applyKitDrumSampleLive] EARLY EXIT eng");
       return;
     }
     var sound = eng.sounds.get(trackIdx);
-    System.err.println(
+    LOGGER.fine(
         "[applyKitDrumSampleLive] sound@"
             + trackIdx
             + " = "
             + (sound != null ? sound.getClass().getSimpleName() : "null"));
     if (!(sound instanceof org.deluge.engine.FirmwareKit fkit)) {
-      System.err.println("[applyKitDrumSampleLive] EARLY EXIT not kit");
+      LOGGER.warning("[applyKitDrumSampleLive] EARLY EXIT not kit");
       return;
     }
     if (drumIdx < 0 || drumIdx >= fkit.drumSounds.size()) {
-      System.err.println("[applyKitDrumSampleLive] EARLY EXIT drumIdx oob");
+      LOGGER.warning("[applyKitDrumSampleLive] EARLY EXIT drumIdx oob");
       return;
     }
     org.deluge.engine.FirmwareSound drum = fkit.drumSounds.get(drumIdx);
@@ -2042,7 +2041,7 @@ public class SwingDelugeApp extends JFrame {
             a.forceRebuild(); // structure unchanged on a swap → force header/name rebuild
             synthParamRack.refresh();
           } catch (Exception ex) {
-            System.err.println("[PresetChip] replace failed: " + ex.getMessage());
+            LOGGER.warning("[PresetChip] replace failed: " + ex.getMessage());
           }
         },
         f -> { // Load the preset as a brand-new synth track.
@@ -2054,7 +2053,7 @@ public class SwingDelugeApp extends JFrame {
             if (clipPanel != null) clipPanel.refresh();
             synthParamRack.refresh();
           } catch (Exception ex) {
-            System.err.println("[PresetChip] load-new failed: " + ex.getMessage());
+            LOGGER.warning("[PresetChip] load-new failed: " + ex.getMessage());
           }
         });
     rackScroll =
@@ -2190,10 +2189,9 @@ public class SwingDelugeApp extends JFrame {
           org.deluge.model.ProjectModel loaded = org.deluge.xml.DelugeXmlParser.parseSong(file);
           currentProjectFile = file;
           loadProject(loaded);
-          System.out.println(
-              "[main] Successfully pre-loaded startup song project: " + file.getName());
+          LOGGER.fine("[main] Successfully pre-loaded startup song project: " + file.getName());
         } catch (Exception ex) {
-          System.err.println("[main] Startup load failed: " + ex.getMessage());
+          LOGGER.warning("[main] Startup load failed: " + ex.getMessage());
         }
       }
     }
@@ -2242,9 +2240,9 @@ public class SwingDelugeApp extends JFrame {
       pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
       pb.redirectError(ProcessBuilder.Redirect.DISCARD);
       pb.start();
-      System.out.println("[NewInstance] Launched a second Deluge process: " + cmd);
+      LOGGER.fine("[NewInstance] Launched a second Deluge process: " + cmd);
     } catch (Exception ex) {
-      System.err.println("[NewInstance] Failed to launch: " + ex.getMessage());
+      LOGGER.warning("[NewInstance] Failed to launch: " + ex.getMessage());
       JOptionPane.showMessageDialog(
           this,
           "Could not launch a new Deluge window:\n" + ex.getMessage(),
@@ -2428,8 +2426,7 @@ public class SwingDelugeApp extends JFrame {
 
     // The pure Java firmware engine (PureFirmwareEngine) is the only audio path; the legacy
     // ChucK DSL engine (--hifi) was deleted.
-    System.out.println(
-        "[main] Pure Java (Pure Firmware) direct soundcard output ENABLED by default");
+    LOGGER.fine("[main] Pure Java (Pure Firmware) direct soundcard output ENABLED by default");
 
     boolean runScreenshots = false;
     boolean runGuideScreenshots = false;
@@ -2454,7 +2451,7 @@ public class SwingDelugeApp extends JFrame {
       Thread.sleep(200);
     } catch (InterruptedException ie) {
     }
-    System.out.println("[main] after 200ms sleep, activeShreds=" + bridge.getActiveShredCount());
+    LOGGER.fine("[main] after 200ms sleep, activeShreds=" + bridge.getActiveShredCount());
 
     org.deluge.midi.MidiInputRouter router = new org.deluge.midi.MidiInputRouter(bridge);
     org.deluge.midi.MidiService midiService = new org.deluge.midi.MidiService(bridge, router);
@@ -2520,7 +2517,7 @@ public class SwingDelugeApp extends JFrame {
             new Thread(
                     () -> {
                       try {
-                        System.out.println(
+                        LOGGER.fine(
                             "[Screenshot] Waiting 4 seconds for UI repaint and Loom threads...");
                         Thread.sleep(4000);
                         if (finalRunGuideScreenshots) {
@@ -2529,7 +2526,7 @@ public class SwingDelugeApp extends JFrame {
                           SwingScreenshotGenerator.runAutoScreenshots(app, bridge);
                         }
                       } catch (Exception ex) {
-                        System.err.println("[Screenshot] Trigger thread error: " + ex.getMessage());
+                        LOGGER.warning("[Screenshot] Trigger thread error: " + ex.getMessage());
                       }
                     })
                 .start();
@@ -2539,7 +2536,7 @@ public class SwingDelugeApp extends JFrame {
             try {
               java.io.File f = new java.io.File(args[0]);
               if (f.exists()) {
-                System.out.println("[main] Auto-loading: " + f.getAbsolutePath());
+                LOGGER.fine("[main] Auto-loading: " + f.getAbsolutePath());
                 org.deluge.model.ProjectModel model =
                     org.deluge.xml.DelugeXmlParser.parseSong(
                         new java.io.FileInputStream(f), f.getName());
@@ -2547,7 +2544,7 @@ public class SwingDelugeApp extends JFrame {
                 app.loadProject(model);
               }
             } catch (Exception ex) {
-              System.err.println("[main] Auto-load failed: " + ex.getMessage());
+              LOGGER.warning("[main] Auto-load failed: " + ex.getMessage());
             }
           }
         });
