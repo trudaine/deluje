@@ -282,6 +282,10 @@ public class PreferencesManager {
 
   /** Root of the Deluge library (contains SONGS, KITS, SYNTHS, SAMPLES subdirectories). */
   public static java.io.File getLibraryDir() {
+    String sysCard = System.getProperty("deluge.card");
+    if (sysCard != null && !sysCard.isEmpty()) {
+      return new java.io.File(sysCard);
+    }
     String path = prefs.get(KEY_LIBRARY_DIR, "");
     if (!path.isEmpty()) {
       return new java.io.File(path);

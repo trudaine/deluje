@@ -60,10 +60,10 @@ public class SwingHelpDialog extends JDialog {
     URL base = SwingHelpDialog.class.getResource("/docs/");
     if (base == null) {
       try {
-        // Dev CWD file fallback
-        File devDir = new File("deluge/src/main/resources/docs/");
-        if (!devDir.exists()) devDir = new File("src/main/resources/docs/");
-        base = devDir.toURI().toURL();
+        File devDir = new File(org.deluge.project.PreferencesManager.getLibraryDir(), "docs");
+        if (devDir.exists()) {
+          base = devDir.toURI().toURL();
+        }
       } catch (Exception ex) {
         System.err.println("[HelpDialog] Dev base URL fallback failed: " + ex.getMessage());
       }
@@ -111,8 +111,7 @@ public class SwingHelpDialog extends JDialog {
   private String loadGuidebookContent() throws Exception {
     InputStream is = SwingHelpDialog.class.getResourceAsStream("/docs/DELUGE_GUIDEBOOK.md");
     if (is == null) {
-      File devFile = new File("deluge/src/main/resources/docs/DELUGE_GUIDEBOOK.md");
-      if (!devFile.exists()) devFile = new File("src/main/resources/docs/DELUGE_GUIDEBOOK.md");
+      File devFile = new File(org.deluge.project.PreferencesManager.getLibraryDir(), "docs/DELUGE_GUIDEBOOK.md");
       if (devFile.exists()) {
         is = new FileInputStream(devFile);
       }

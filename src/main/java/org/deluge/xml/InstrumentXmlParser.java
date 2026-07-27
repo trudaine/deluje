@@ -129,15 +129,18 @@ public class InstrumentXmlParser {
   }
 
   static File resolvePresetFile(String folder, String presetName) {
-    String synthDir = System.getProperty("synth.dir", "src/main/resources/SYNTHS");
+    String synthDir = System.getProperty("synth.dir");
     String delugeCard = System.getProperty("deluge.card");
-    File parent = new File(synthDir).getParentFile();
+    File libraryDir = org.deluge.project.PreferencesManager.getLibraryDir();
     File[] searchDirs = {
       delugeCard != null ? new File(delugeCard, folder) : null,
       delugeCard != null ? new File(delugeCard, "SYNTHS") : null,
-      new File(synthDir),
-      new File(parent, folder),
-      new File("src/main/resources", folder),
+      synthDir != null ? new File(synthDir) : null,
+      synthDir != null && new File(synthDir).getParentFile() != null
+          ? new File(new File(synthDir).getParentFile(), folder)
+          : null,
+      new File(libraryDir, folder),
+      new File(libraryDir, "SYNTHS"),
       new File(folder)
     };
     for (File dir : searchDirs) {

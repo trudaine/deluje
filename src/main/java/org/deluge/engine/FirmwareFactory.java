@@ -1221,24 +1221,11 @@ public class FirmwareFactory {
     String normPath = path.replace('\\', '/');
 
     File f = new File(normPath);
-    if (f.exists()) return f;
+    if (f.isAbsolute() && f.exists()) return f;
 
-    // 1. Try directly under local src/main/resources
-    File localRes = new File("src/main/resources", normPath);
-    if (localRes.exists()) return localRes;
-
-    // 2. Try directly under local target/classes
-    File localTarget = new File("target/classes", normPath);
-    if (localTarget.exists()) return localTarget;
-
-    // 3. Try under neighbor deluge module src/main/resources (for multi-module tests)
-    File delugeRes = new File("../deluge/src/main/resources", normPath);
-    if (delugeRes.exists()) return delugeRes;
-
-    // 4. Try under neighbor deluge module target/classes
-    File delugeTarget = new File("../deluge/target/classes", normPath);
-    if (delugeTarget.exists()) return delugeTarget;
-
+    if (sdRoot == null) {
+      sdRoot = PreferencesManager.getLibraryDir();
+    }
     if (sdRoot != null) {
       f = new File(sdRoot, normPath);
       if (f.exists()) return f;
@@ -1248,27 +1235,9 @@ public class FirmwareFactory {
       // CI.
       File ciSd = resolveCaseInsensitive(sdRoot, normPath);
       if (ciSd != null) return ciSd;
-      File fallbackSd = new File("../deluge/" + sdRoot.getPath(), normPath);
-      if (fallbackSd.exists()) return fallbackSd;
     }
 
-    // 5. Try self-contained resources directory (or custom path via -Ddeluge.card)
-    String cardName = System.getProperty("deluge.card", "src/main/resources");
-    File sdCard = new File(cardName);
-    if (!sdCard.isAbsolute() && !sdCard.exists()) {
-      sdCard = new File(System.getProperty("user.home"), cardName);
-    }
-    if (sdCard.isDirectory()) {
-      File fallback = new File(sdCard, normPath);
-      if (fallback.exists()) return fallback;
-      // Case-insensitive fallback: real hardware (FAT32) is case-insensitive, but Deluge presets
-      // often store a different case than the on-disk dir (e.g. "Multisamples" vs "MULTISAMPLES").
-      // On case-sensitive filesystems (Linux) File.exists fails; resolve each path component CI.
-      File ci = resolveCaseInsensitive(sdCard, normPath);
-      if (ci != null) return ci;
-    }
-
-    return f;
+    return new File(normPath);
   }
 
   /** Walk {@code relPath} under {@code root}, matching each component case-insensitively. */

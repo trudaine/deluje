@@ -567,7 +567,7 @@ public class SwingSynthWavetableEditorDialog extends JDialog {
     File defaultFile =
         (defaultPath != null && !defaultPath.isBlank())
             ? new File(defaultPath)
-            : new File("SD/SYNTHS/CUSTOM_WT.WAV");
+            : new File(org.deluge.project.PreferencesManager.getSynthsDir(), "CUSTOM_WT.WAV");
 
     JFileChooser fileChooser = new JFileChooser(defaultFile.getParentFile());
     fileChooser.setDialogTitle("Save Custom Wavetable (.WAV)");
