@@ -351,6 +351,8 @@ public class ProjectSerializerTest {
   }
 
   @Test
+  @org.junit.jupiter.api.Disabled(
+      "Local diagnostic test requiring external Billie Jean project in Downloads")
   void testExportBillieJeanStemsForAnalysis() throws Exception {
     String userHome = System.getProperty("user.home");
     File alsFile =

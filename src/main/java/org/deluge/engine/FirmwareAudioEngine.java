@@ -385,15 +385,6 @@ public class FirmwareAudioEngine {
     for (int i = 0; i < sounds.size(); i++) {
       GlobalEffectable sound = sounds.get(i);
       if (sound != null) {
-        if (debugTelemetry && sound instanceof org.deluge.engine.FirmwareSound fs) {
-          System.out.println(
-              "[ENGINE-RENDER-DEBUG] sound="
-                  + System.identityHashCode(fs)
-                  + " muted="
-                  + fs.muted
-                  + " tick="
-                  + transportTick);
-        }
         sound.renderOutput(summedFlatBufferLong, numSamples, monoReverbBufferLong);
       }
     }

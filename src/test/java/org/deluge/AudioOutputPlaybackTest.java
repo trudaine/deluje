@@ -96,9 +96,6 @@ public class AudioOutputPlaybackTest {
       else if (tick < 768) peakInside = Math.max(peakInside, blockPeak);
       else if (tick >= 1300) peakAfterLate = Math.max(peakAfterLate, blockPeak); // tail decayed
     }
-    System.out.printf(
-        "[AudioOutput] arrangement before=%d inside=%d afterLate=%d%n",
-        peakBefore, peakInside, peakAfterLate);
     // Silent before the placement; audible inside; well after the end only the FX tail remains
     // (the clip itself is gated off), so the late window is a small fraction of the inside level.
     assertEquals(0, peakBefore, "audio clip played before its arrangement start");
@@ -143,7 +140,6 @@ public class AudioOutputPlaybackTest {
       else if (tick >= 936 && tick < 1148) peakGap = Math.max(peakGap, blockPeak);
       else if (tick >= 1152 && tick < 1536) peakWin2 = Math.max(peakWin2, blockPeak);
     }
-    System.out.printf("[AudioOutput] multi win1=%d gap=%d win2=%d%n", peakWin1, peakGap, peakWin2);
     assertTrue(peakWin1 > 0, "first arrangement instance silent");
     assertTrue(peakWin2 > 0, "second arrangement instance silent");
     assertTrue(peakGap < peakWin1 / 8, "audio played in the gap between instances");
@@ -187,7 +183,6 @@ public class AudioOutputPlaybackTest {
       }
     }
     double tailRms = Math.sqrt(tailSumSq / tailCount);
-    System.out.printf("[AudioOutput] tail RMS (loop check)=%.5f%n", tailRms);
     assertTrue(tailRms > 1e-4, "clip stopped instead of looping (tail was silent)");
   }
 
@@ -201,7 +196,6 @@ public class AudioOutputPlaybackTest {
     at.addAudioClip(ac);
     at.setPlayRate(1.5f);
     double rms = renderRms(at);
-    System.out.printf("[AudioOutput] pitched(1.5x) RMS=%.5f%n", rms);
     assertTrue(rms > 1e-4, "pitched (resampled) audio render was silent");
   }
 
@@ -213,7 +207,6 @@ public class AudioOutputPlaybackTest {
     ac.setReversed(true);
     at.addAudioClip(ac);
     double rms = renderRms(at);
-    System.out.printf("[AudioOutput] reversed RMS=%.5f%n", rms);
     assertTrue(rms > 1e-4, "reversed audio render was silent");
   }
 
@@ -227,7 +220,6 @@ public class AudioOutputPlaybackTest {
     at.addAudioClip(ac);
     at.setPlayRate(0.75f);
     double rms = renderRms(at);
-    System.out.printf("[AudioOutput] timestretch(0.75x) RMS=%.5f%n", rms);
     assertTrue(rms > 1e-4, "time-stretched audio render was silent");
   }
 
@@ -291,7 +283,6 @@ public class AudioOutputPlaybackTest {
       }
     }
     double rms = Math.sqrt(sumSq / count);
-    System.out.printf("[AudioOutput] RMS=%.5f peak=%d%n", rms, peak);
     assertTrue(rms > 1e-4, "audio track render was silent (RMS=" + rms + ")");
     assertTrue(peak < Integer.MAX_VALUE, "audio track render hard-clipped every sample");
   }

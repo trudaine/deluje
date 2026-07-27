@@ -478,7 +478,6 @@ public class SwingDelugeAppE2ETest {
   @Test
   public void testEndToEndMuteFidelityAndVisuals() throws Exception {
     System.setProperty("chuck.audio.dummy", "true");
-    org.deluge.engine.FirmwareAudioEngine.debugTelemetry = true;
 
     // 1. Setup VM and Bridge Contract
     BridgeContract bridge = new BridgeContract(44100, 2);
@@ -624,7 +623,6 @@ public class SwingDelugeAppE2ETest {
       }
       assertFalse(isSilentAfterUnmute, "Sound should return after unmute");
     } finally {
-      org.deluge.engine.FirmwareAudioEngine.debugTelemetry = false;
       app.dispose();
       bridge.shutdown();
     }
