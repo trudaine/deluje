@@ -2382,3 +2382,29 @@ cycles for the upper half of every cycle transition. Fixed to `>>> 1`. Both mult
 the real result until the generator was moved to uint32_t. Lesson for interp goldens: generate synthetic test data
 with unsigned arithmetic so C -O2 and Java agree bit-for-bit.) Wavetable render is now bit-exact with the C on both
 the single-cycle and multi-cycle paths.
+
+### 4.2novemquinquagies 2026-07-27 — OPEN: osc-sync square/saw diverge at the crossover (triangle bit-exact)
+
+Chasing the scorecard's low-scoring sync cluster (045 Square Sync 0.587, 046 Saw Sync 0.733, 127 Hard Sync 0.687)
+I extended the oscillator SIMDE harness to the doOscSync path (renderOsc computes resetterDivideByPhaseIncrement
+itself; render RAW / applyAmplitude=false into a padded buffer to avoid the firmware's global
+oscSyncRenderingBuffer + the vst1q 4-wide overrun). Findings, well-characterized but NOT yet fixed (nothing shipped
+— the code changes were reverted rather than commit an unverified DSP change):
+
+- **Sync TRIANGLE is bit-exact** (maxAbsDiff=0) → the renderOscSync crossover loop + half-sine crossfade port is
+  substantially faithful.
+- **Sync SQUARE and SAW diverge at exactly sample 136** (resetterPhaseIncrement=0x00400000 for both; triangle used
+  0x00380000). Evidence pins it to a **crossover/reset**, not the interpolation or saturation: golden[130..135] are
+  exact multiples of 65536 = Java's pure table-steps (this saw's frac is always 0: phaseInc 0x00a00000 is a multiple
+  of 2^21, mag 11 → the 16 frac bits are always zero), but golden[136] is NOT a multiple of 65536 — i.e. C's phase
+  gains fractional low bits at 136 (the `phase = multiply_32x32_rshift32(fadeBetweenSyncs, phaseIncrement) +
+  retriggerPhase` reset), which Java does not reproduce at that sample. So Java's crossover fires at a different
+  sample or computes a different post-reset phase for these params.
+- A separate real faithfulness gap noticed in passing (also reverted, unverified by these non-saturating goldens):
+  `renderWaveRawSegment` uses plain long `diff·frac` where C `waveRenderingFunctionGeneral` uses
+  `MultiplyDoubleAddSaturateLong` (vqdmlal: value1<<16 + SAT32(2·diff·strength2), strength2=(uint16 frac)>>1). This
+  only manifests at loud discontinuities (which these C4/−? goldens don't hit), so it needs a saturating test case.
+
+NEXT: instrument the Java renderOscSync session boundaries for resetterInc=0x00400000, compare the crossover sample
+index + post-reset phase against a C-harness dump; the harness sync mode (main_osc.cpp `argv[8]=resetterPhaseInc`,
+raw render) reproduces it in one command. This is the likely lever for the sync-preset scores.
