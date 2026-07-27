@@ -2188,3 +2188,31 @@ initial feedback phase / velocity" categorization by actual C verification. (Con
 `FmSidebandSensitivity`/`FmFeedback` *BehaviorTests, which asserted only bounded/velocity-responsive output
 and verified none of the above.) Closes the DX7/FM operator path as a DSP-parity suspect; any further 081 gain
 requires phase/detune-seed alignment with the recording, not a DSP fix.
+
+### 4.2unquadragies 2026-07-27 — Sample interpolation (windowed-sinc + linear) verified faithful — the multisample-playback core
+
+Attacked the multisample residual family the right way. The interpolation is in `dsp/interpolate/interpolate.cpp`,
+which is ARM-NEON (Argon) SIMD — so no desktop golden harness — but the SIMD only parallelizes a deterministic
+integer convolution, so a kernel-table diff + line-by-line read (the oscillator/wavetable method) settles it.
+
+- **`windowedSincKernel[7][17][16]` (1904 int16 entries)** extracted from both sides and diffed:
+  **BIT-IDENTICAL 1904/1904** (the high-quality sample kernel — a single wrong entry would color every
+  repitched multisample note). The only apparent mismatch was 28 comment-annotation numbers in the Java table.
+- **Sinc convolution** (`SincInterpolator.interpolate` vs `Interpolator::interpolate`): the shift constants
+  (`rshiftAmount=5` → `strength2=(oscPos>>5)&0x7FFF`, `progressSmall=oscPos>>20`), the per-tap kernel-row
+  interpolation, and the `MultiplyAddLong`+`ReduceAdd` accumulation all match. Critically, traced Argon's
+  `MultiplyAddFixedQMax` → `Add(MultiplyFixedQMax)` → `multiply_double_saturate_high` = **vqdmulh
+  (non-rounding)**, confirming the Java's `sat16((diff*strength2)>>15)` (no rounding term) is the correct op —
+  a rounding variant would have been a 1-LSB-per-tap error on every interpolated sample.
+- **Linear fallback** (`interpolateLinear`): `strength2=phase>>9`, `strength1=0x7FFF-strength2`,
+  `buf[1]*s1+buf[0]*s2` — identical.
+
+**One benign caveat (documented, not a bug):** the kernel-row interpolation's final accumulate — Java uses
+saturating `sat16(k1+prod)`, and Argon's generic `Add` may wrap — differs only on int16 overflow, which a
+valid windowed-sinc kernel interpolation (result stays between two adjacent kernel rows) never reaches.
+Sub-audible / never-triggered.
+
+Conclusion: the sample interpolator is faithful; the multisample residual is not in the interpolation kernel or
+convolution. Golden/verified coverage now: LP/HP/SVF ladders, Freeverb, FM op kernel, DX7 envelope (all
+bit-exact), plus read-verified: DX7 operator setup, modFX, delay, SRR/bitcrush, compressor, and sample sinc
+interpolation.
