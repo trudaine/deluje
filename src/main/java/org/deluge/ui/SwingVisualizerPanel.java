@@ -117,7 +117,7 @@ public class SwingVisualizerPanel extends JPanel {
     g2.drawString("LIVE TIME OSCILLOSCOPE (L)", 12, 16);
   }
 
-  private float[] computeFFT(float[] data) {
+  public static float[] computeFFT(float[] data) {
     if (data == null || data.length < 1024) {
       return new float[512];
     }
