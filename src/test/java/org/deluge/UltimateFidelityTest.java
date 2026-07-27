@@ -3,6 +3,7 @@ package org.deluge;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
+import java.util.logging.Logger;
 import org.deluge.engine.FirmwareAudioEngine;
 import org.deluge.engine.FirmwareFactory;
 import org.deluge.engine.FirmwareSound;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.Test;
  * renders it to a high-fidelity WAV file.
  */
 public class UltimateFidelityTest {
+  private static final Logger LOGGER = Logger.getLogger(UltimateFidelityTest.class.getName());
 
   private static final int BLOCK_SIZE = 128;
 
@@ -194,13 +196,14 @@ public class UltimateFidelityTest {
     // ==================================================================================
     File songXmlFile = new File("src/main/resources/SONGS/ULTIMATE_SONG.xml");
     org.deluge.project.ProjectSerializer.save(project, songXmlFile);
-    System.out.printf(
-        "[UltimateTest] Saved E2E complex song XML (STREAM) to: %s%n",
-        songXmlFile.getAbsolutePath());
+    LOGGER.fine(
+        String.format(
+            "[UltimateTest] Saved E2E complex song XML (STREAM) to: %s",
+            songXmlFile.getAbsolutePath()));
 
     // Load the saved XML back using DelugeXmlParser to verify E2E roundtrip!
     ProjectModel reloadedProject = DelugeXmlParser.parseSong(songXmlFile);
-    System.out.println("[UltimateTest] Successfully parsed back and validated song XML!");
+    LOGGER.fine("[UltimateTest] Successfully parsed back and validated song XML!");
 
     // ==================================================================================
     // 3. RENDER MIX TO MULTI-TRACK AUDIO WAV
@@ -230,7 +233,7 @@ public class UltimateFidelityTest {
     double ticksPerSample = (120.0f / 60.0 * 96.0) / 44100.0;
     double accumulatedTicks = 0;
 
-    System.out.println("[UltimateTest] Starting E2E rendering of arrangement timeline...");
+    LOGGER.fine("[UltimateTest] Starting E2E rendering of arrangement timeline...");
     for (int b = 0; b < totalBlocks; b++) {
       accumulatedTicks += ticksPerSample * BLOCK_SIZE;
       int toAdvance = (int) accumulatedTicks;
@@ -278,9 +281,10 @@ public class UltimateFidelityTest {
       javax.sound.sampled.AudioSystem.write(
           ais, javax.sound.sampled.AudioFileFormat.Type.WAVE, renderedWavFile);
     }
-    System.out.printf(
-        "[UltimateTest] SUCCESS: Rendered WAV file saved to: %s%n",
-        renderedWavFile.getAbsolutePath());
+    LOGGER.fine(
+        String.format(
+            "[UltimateTest] SUCCESS: Rendered WAV file saved to: %s",
+            renderedWavFile.getAbsolutePath()));
 
     assertTrue(renderedWavFile.exists(), "Rendered WAV file does not exist!");
     assertTrue(renderedWavFile.length() > 100000, "Rendered WAV file is too small!");

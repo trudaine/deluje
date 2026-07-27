@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.util.logging.Logger;
 import org.deluge.firmware2.Oscillator.OscType;
 import org.deluge.firmware2.Param;
 import org.deluge.model.KitTrackModel;
@@ -12,9 +13,10 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 public class AudioIntegrityTest {
+  private static final Logger LOGGER = Logger.getLogger(AudioIntegrityTest.class.getName());
 
   public AudioIntegrityTest() {
-    System.out.println("DEBUG: AudioIntegrityTest instantiated!");
+    LOGGER.fine("DEBUG: AudioIntegrityTest instantiated!");
   }
 
   private File findKit() {
@@ -63,7 +65,7 @@ public class AudioIntegrityTest {
         if (absL != 0) foundSignal = true;
       }
     }
-    System.out.println("Kit Peak: " + kitPeak);
+    LOGGER.fine("Kit Peak: " + kitPeak);
     assertTrue(foundSignal, "Kit should produce signal after trigger");
 
     // Check for decay
@@ -94,7 +96,7 @@ public class AudioIntegrityTest {
       failBlock = blk;
     }
     if (!returnedToZero) {
-      System.out.println(
+      LOGGER.fine(
           "FAILURE: Kit sound did not return to zero. Last block: "
               + failBlock
               + " Sample 0: "
@@ -120,14 +122,14 @@ public class AudioIntegrityTest {
     for (int blk = 0; blk < 100; blk++) {
       engine.renderBlock(128);
       if (blk == 50) {
-        System.out.println("DEBUG: Block 50 sample 0=" + engine.masterBuffer[0].l);
+        LOGGER.fine("DEBUG: Block 50 sample 0=" + engine.masterBuffer[0].l);
       }
       for (int i = 0; i < 128; i++) {
         int absL = Math.abs(engine.masterBuffer[i].l);
         if (absL > peak1) peak1 = absL;
       }
     }
-    System.out.println("Synth C4 Peak: " + peak1);
+    LOGGER.fine("Synth C4 Peak: " + peak1);
     assertTrue(peak1 > 0, "Synth C4 should produce signal");
 
     // Release. With the C-faithful volume-curve neutral (getParamNeutralValue, not the 0 center

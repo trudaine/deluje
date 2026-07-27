@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.logging.Logger;
 import org.deluge.engine.FirmwareAudioEngine;
 import org.deluge.engine.FirmwareFactory;
 import org.deluge.engine.FirmwareSound;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.Test;
  * FIDELITY_GAP_ANALYSIS §4.12.
  */
 public class FmEnvelopeProbeTest {
+  private static final Logger LOGGER = Logger.getLogger(FmEnvelopeProbeTest.class.getName());
 
   static final int SR = 44100;
 
@@ -55,8 +57,9 @@ public class FmEnvelopeProbeTest {
     int pMod0Vol = org.deluge.firmware2.Param.LOCAL_MODULATOR_0_VOLUME;
     int pMod0Fb = org.deluge.firmware2.Param.LOCAL_MODULATOR_0_FEEDBACK;
     if (trace)
-      System.out.printf(
-          "%6s %12s %12s %12s %12s%n", "t(ms)", "env1", "carrierAmp", "modVol", "modFb");
+      LOGGER.fine(
+          String.format(
+              "%6s %12s %12s %12s %12s", "t(ms)", "env1", "carrierAmp", "modVol", "modFb"));
     StringBuilder sb = new StringBuilder();
     int got = 0;
     int blk = 0;
@@ -64,13 +67,14 @@ public class FmEnvelopeProbeTest {
       engine.renderBlock(128);
       if (trace && (blk % 30 == 0) && !fs.fw2Sound.voices.isEmpty()) {
         var v = fs.fw2Sound.voices.get(0);
-        System.out.printf(
-            "%6d %12d %12d %12d %12d%n",
-            got * 1000 / SR,
-            v.sourceValues[env0],
-            v.sourceAmplitudesLastTime[0],
-            v.paramFinalValues[pMod0Vol],
-            v.paramFinalValues[pMod0Fb]);
+        LOGGER.fine(
+            String.format(
+                "%6d %12d %12d %12d %12d",
+                got * 1000 / SR,
+                v.sourceValues[env0],
+                v.sourceAmplitudesLastTime[0],
+                v.paramFinalValues[pMod0Vol],
+                v.paramFinalValues[pMod0Fb]));
       }
       blk++;
       for (int i = 0; i < 128 && got < n; i++, got++) {
@@ -79,6 +83,6 @@ public class FmEnvelopeProbeTest {
     }
     String outPath = System.getProperty("fm.out", "target/fm_render.txt");
     Files.writeString(Path.of(outPath), sb.toString());
-    System.out.println("wrote " + n + " samples of " + name + " @note " + note + " -> " + outPath);
+    LOGGER.fine(String.format("wrote %d samples of %s @note %d -> %s", n, name, note, outPath));
   }
 }

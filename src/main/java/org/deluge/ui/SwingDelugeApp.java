@@ -2275,9 +2275,9 @@ public class SwingDelugeApp extends JFrame {
       g.dispose();
 
       javax.imageio.ImageIO.write(img, "png", file);
-      System.out.println("[AutoScreenshot] Captured successfully: " + file.getAbsolutePath());
+      LOGGER.fine("[AutoScreenshot] Captured successfully: " + file.getAbsolutePath());
     } catch (Exception ex) {
-      System.err.println("[AutoScreenshot] Failed: " + ex.getMessage());
+      LOGGER.warning("[AutoScreenshot] Failed: " + ex.getMessage());
     }
   }
 
@@ -2339,7 +2339,7 @@ public class SwingDelugeApp extends JFrame {
                                         clipPanel.refresh();
                                         revalidate();
                                         repaint();
-                                        System.out.println(
+                                        LOGGER.fine(
                                             "[AutoScreenshot] Complete visual capture pipeline finished!");
                                       });
                               t3.setRepeats(false);

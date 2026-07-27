@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.RandomAccessFile;
 import java.util.*;
+import java.util.logging.Logger;
 import org.deluge.engine.FirmwareAudioEngine;
 import org.deluge.engine.FirmwareFactory;
 import org.deluge.engine.FirmwareSound;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.Test;
  * alignment/level-tolerant) and reports cosine similarity. THROWAWAY analysis tool.
  */
 public class FidelityScorecardTest {
+  private static final Logger LOGGER = Logger.getLogger(FidelityScorecardTest.class.getName());
 
   static final String CARD_NAME = System.getProperty("deluge.card", "src/main/resources");
   static final File CARD = new File(CARD_NAME);
@@ -381,16 +383,17 @@ public class FidelityScorecardTest {
       minGap = Math.min(minGap, g);
       maxGap = Math.max(maxGap, g);
     }
-    System.out.printf(
-        "%n=== %s : %d synths, rec %.1fs, content %.1fs, lead %.2fs, %.2fs/synth, onset gaps %.2f-%.2fs ===%n",
-        label,
-        synths.size(),
-        rec.length / (double) SR,
-        (tail - lead) / (double) SR,
-        lead / (double) SR,
-        per / (double) SR,
-        minGap / (double) SR,
-        maxGap / (double) SR);
+    LOGGER.fine(
+        String.format(
+            "\n=== %s : %d synths, rec %.1fs, content %.1fs, lead %.2fs, %.2fs/synth, onset gaps %.2f-%.2fs ===",
+            label,
+            synths.size(),
+            rec.length / (double) SR,
+            (tail - lead) / (double) SR,
+            lead / (double) SR,
+            per / (double) SR,
+            minGap / (double) SR,
+            maxGap / (double) SR));
     for (int k = 0; k < synths.size(); k++) {
       String name = synths.get(k).name();
       float[] our = synths.get(k).render().call();
@@ -404,7 +407,7 @@ public class FidelityScorecardTest {
         ourMax = Math.max(ourMax, rms(our, off, win));
       if (ourMax < 0.002) { // genuinely silent in our engine (e.g. multisample w/o samples loaded)
         na.add(name);
-        System.out.printf("  %3d  %-30s   n/a (our render silent)%n", k, name);
+        LOGGER.fine(String.format("  %3d  %-30s   n/a (our render silent)", k, name));
         continue;
       }
       // spectrum from our loudest 2s window (handles slow attack / arp gaps)
@@ -440,12 +443,13 @@ public class FidelityScorecardTest {
       // (e.g. genuinely near-silent slices like 129 Sci-fi Scenic), report as n/a instead of 0.000.
       if (Double.isNaN(ts) || Double.isNaN(sim)) {
         na.add(name);
-        System.out.printf("  %3d  %-30s   n/a (both silent in evaluation window)%n", k, name);
+        LOGGER.fine(
+            String.format("  %3d  %-30s   n/a (both silent in evaluation window)", k, name));
         continue;
       }
       all.add(sim);
       tsAll.add(ts);
-      System.out.printf("  %3d  %-30s  win=%.3f  time=%.3f%n", k, name, sim, ts);
+      LOGGER.fine(String.format("  %3d  %-30s  win=%.3f  time=%.3f", k, name, sim, ts));
     }
   }
 
@@ -472,7 +476,7 @@ public class FidelityScorecardTest {
       Arrays.sort(files, Comparator.comparing(File::getName));
       List<File> playable = new ArrayList<>();
       for (File f : files) if (playable(f)) playable.add(f);
-      System.out.println("[Scorecard] LEGACY preset-file mode; playable: " + playable.size());
+      LOGGER.fine("[Scorecard] LEGACY preset-file mode; playable: " + playable.size());
       p1 = new ArrayList<>();
       p2 = new ArrayList<>();
       for (int i = 0; i < playable.size(); i++) {
@@ -498,8 +502,7 @@ public class FidelityScorecardTest {
         for (org.deluge.model.TrackModel t : songModel.getTracks()) {
           target.add(fromSongTrack(t));
         }
-        System.out.println(
-            "[Scorecard] EMBEDDED mode: ALLSYN_" + part + " tracks: " + target.size());
+        LOGGER.fine("[Scorecard] EMBEDDED mode: ALLSYN_" + part + " tracks: " + target.size());
       }
     }
 
@@ -520,8 +523,9 @@ public class FidelityScorecardTest {
         all,
         na,
         tsAll);
-    System.out.printf(
-        "%n  not-measurable (our render silent, multisamples need samples): %d%n", na.size());
+    LOGGER.fine(
+        String.format(
+            "\n  not-measurable (our render silent, multisamples need samples): %d", na.size()));
 
     summarize("SINGLE-WINDOW", all);
     summarize("TIME-RESOLVED", tsAll);
@@ -535,10 +539,11 @@ public class FidelityScorecardTest {
     long ge9 = all.stream().filter(d -> d >= 0.9).count();
     long ge8 = all.stream().filter(d -> d >= 0.8).count();
     long lt6 = all.stream().filter(d -> d < 0.6).count();
-    System.out.printf("%n=== FIDELITY SUMMARY (%s cosine vs hardware) ===%n", label);
-    System.out.printf("  n=%d  mean=%.3f  median=%.3f%n", all.size(), mean, median);
-    System.out.printf(
-        "  >=0.90: %d (%.0f%%)   >=0.80: %d (%.0f%%)   <0.60: %d%n",
-        ge9, 100.0 * ge9 / all.size(), ge8, 100.0 * ge8 / all.size(), lt6);
+    LOGGER.fine(String.format("\n=== FIDELITY SUMMARY (%s cosine vs hardware) ===", label));
+    LOGGER.fine(String.format("  n=%d  mean=%.3f  median=%.3f", all.size(), mean, median));
+    LOGGER.fine(
+        String.format(
+            "  >=0.90: %d (%.0f%%)   >=0.80: %d (%.0f%%)   <0.60: %d",
+            ge9, 100.0 * ge9 / all.size(), ge8, 100.0 * ge8 / all.size(), lt6));
   }
 }

@@ -3,6 +3,7 @@ package org.deluge;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.awt.Color;
+import java.util.logging.Logger;
 import javax.swing.JButton;
 import org.deluge.model.ProjectModel;
 import org.deluge.ui.DelugePadButton;
@@ -11,6 +12,8 @@ import org.deluge.ui.SwingGridPanel;
 import org.junit.jupiter.api.Test;
 
 public class ClipViewChromaticGridHighFidelityTest {
+  private static final Logger LOGGER =
+      Logger.getLogger(ClipViewChromaticGridHighFidelityTest.class.getName());
 
   @Test
   public void testChromaticGridAndScaleHighlighting() throws Exception {
@@ -704,12 +707,12 @@ public class ClipViewChromaticGridHighFidelityTest {
       assertNotNull(gridPanel, "Grid panel must be initialized");
 
       int initialOffset = gridPanel.getScrollOffset();
-      System.out.println("[TEST-SCROLL] Initial scroll offset: " + initialOffset);
+      LOGGER.fine("[TEST-SCROLL] Initial scroll offset: " + initialOffset);
 
       // 1. Scroll vertically by an octave (12 rows) down
       gridPanel.scrollVertically(12);
       int offsetAfterScrollDown = gridPanel.getScrollOffset();
-      System.out.println("[TEST-SCROLL] Offset after scroll down 12: " + offsetAfterScrollDown);
+      LOGGER.fine("[TEST-SCROLL] Offset after scroll down 12: " + offsetAfterScrollDown);
       assertEquals(
           initialOffset + 12,
           offsetAfterScrollDown,
@@ -718,7 +721,7 @@ public class ClipViewChromaticGridHighFidelityTest {
       // 2. Scroll vertically by an octave (12 rows) up
       gridPanel.scrollVertically(-12);
       int offsetAfterScrollUp = gridPanel.getScrollOffset();
-      System.out.println("[TEST-SCROLL] Offset after scroll up 12: " + offsetAfterScrollUp);
+      LOGGER.fine("[TEST-SCROLL] Offset after scroll up 12: " + offsetAfterScrollUp);
       assertEquals(
           initialOffset, offsetAfterScrollUp, "Scroll offset must return to the initial offset");
 

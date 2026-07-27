@@ -3,6 +3,7 @@ package org.deluge.firmware2;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
+import java.util.logging.Logger;
 import org.deluge.engine.FirmwareAudioEngine;
 import org.deluge.engine.FirmwareFactory;
 import org.deluge.engine.FirmwareSound;
@@ -14,10 +15,11 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 public class HardSyncDiagnosticTest {
+  private static final Logger LOGGER = Logger.getLogger(HardSyncDiagnosticTest.class.getName());
 
   @Test
   public void diagnoseHardSyncPreset() throws Exception {
-    System.out.println("=== DIAGNOSING PRESET: 046 Saw Sync ===");
+    LOGGER.fine("=== DIAGNOSING PRESET: 046 Saw Sync ===");
 
     // Locate the XML preset in target or resources
     File songFile = new File("target/ALL_SYNTHS_SONG.xml");
@@ -46,7 +48,7 @@ public class HardSyncDiagnosticTest {
     }
 
     assertTrue(targetTrack != null, "Could not find 046 Saw Sync track in ALL_SYNTHS_SONG.xml");
-    System.out.println("Loaded track: " + targetTrack.getName());
+    LOGGER.fine("Loaded track: " + targetTrack.getName());
 
     // Setup clip to trigger a note (C5 / 72)
     ClipModel clip = new ClipModel("diag_clip", 1, 16);
@@ -77,10 +79,10 @@ public class HardSyncDiagnosticTest {
     float[] sw = new float[totalSamples];
     int got = 0;
 
-    System.out.println("\nBlock-by-Block Diagnostic:");
-    System.out.println(
+    LOGGER.fine("\nBlock-by-Block Diagnostic:");
+    LOGGER.fine(
         "Block | Osc 1 Pos | Osc 2 Pos | Osc 1 Freq | Osc 2 Freq | Env 0 State | Env 0 Val  | Env 2 Val  | Output RMS");
-    System.out.println(
+    LOGGER.fine(
         "----------------------------------------------------------------------------------------------------------------");
 
     for (int b = 0; b < totalSamples / blockSize; b++) {
@@ -117,20 +119,22 @@ public class HardSyncDiagnosticTest {
         int env0Val = voice.envelopes[0].lastValue;
         int env2Val = voice.envelopes[2].lastValue;
 
-        System.out.printf(
-            "  %2d  | 0x%08X | 0x%08X | %10.2f | %10.2f | %-11s | 0x%08X | 0x%08X | %.6f%n",
-            b, osc1Pos, osc2Pos, freqA, freqB, env0State, env0Val, env2Val, rms);
+        LOGGER.fine(
+            String.format(
+                "  %2d  | 0x%08X | 0x%08X | %10.2f | %10.2f | %-11s | 0x%08X | 0x%08X | %.6f",
+                b, osc1Pos, osc2Pos, freqA, freqB, env0State, env0Val, env2Val, rms));
       } else {
-        System.out.printf(
-            "  %2d  | (no active voice)                                                                            | %.6f%n",
-            b, rms);
+        LOGGER.fine(
+            String.format(
+                "  %2d  | (no active voice)                                                                            | %.6f",
+                b, rms));
       }
     }
 
     double totalRms = 0;
     for (float v : sw) totalRms += v * v;
     totalRms = Math.sqrt(totalRms / sw.length);
-    System.out.println("\nTotal rendered RMS: " + totalRms);
+    LOGGER.fine("\nTotal rendered RMS: " + totalRms);
     assertTrue(totalRms > 0.001, "Rendered output must not be silent");
   }
 }

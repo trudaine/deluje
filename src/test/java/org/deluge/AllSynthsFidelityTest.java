@@ -8,6 +8,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.ShortBuffer;
 import java.util.*;
+import java.util.logging.Logger;
 import javax.sound.sampled.*;
 import org.deluge.engine.FirmwareAudioEngine;
 import org.deluge.engine.FirmwareFactory;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.Test;
  * bar and compare per-synth.
  */
 public class AllSynthsFidelityTest {
+  private static final Logger LOGGER = Logger.getLogger(AllSynthsFidelityTest.class.getName());
 
   private static final int BLOCK_SIZE = 128;
   private static final int SAMPLE_RATE = 44100;
@@ -94,7 +96,7 @@ public class AllSynthsFidelityTest {
                         && !n.toUpperCase().startsWith("SONG"));
     assertTrue(synthFiles != null && synthFiles.length > 0, "No synth XML files in " + synthDir);
     Arrays.sort(synthFiles, Comparator.comparing(File::getName));
-    System.out.println("[AllSynths] Found " + synthFiles.length + " synth presets");
+    LOGGER.fine("[AllSynths] Found " + synthFiles.length + " synth presets");
 
     ProjectModel project = new ProjectModel();
     project.setBpm(120.0f);
@@ -157,7 +159,7 @@ public class AllSynthsFidelityTest {
         java.util.List<String> missing = missingSamples(synth, cardRoot);
         if (!missing.isEmpty()) {
           skippedMissingSamples++;
-          System.out.println(
+          LOGGER.fine(
               "[AllSynths] SKIP "
                   + synth.getName()
                   + " — "
@@ -200,17 +202,17 @@ public class AllSynthsFidelityTest {
         project.addSongSection(new SongSection(String.valueOf(barIdx))); // numRepeats defaults to 0
         barIdx++;
       } catch (Exception e) {
-        System.out.println("[AllSynths] Skipping " + f.getName() + ": " + e.getMessage());
+        LOGGER.fine("[AllSynths] Skipping " + f.getName() + ": " + e.getMessage());
       }
     }
 
-    System.out.println("[AllSynths] Generated song with " + project.getTracks().size() + " tracks");
+    LOGGER.fine("[AllSynths] Generated song with " + project.getTracks().size() + " tracks");
 
     // Save song XML. Override with -Dsong.out=/path (e.g. the card's SONGS/ALL_SYNTHS_SONG.XML).
     File songFile = new File(System.getProperty("song.out", "target/ALL_SYNTHS_SONG.xml"));
     songFile.getParentFile().mkdirs();
     ProjectSerializer.save(project, songFile);
-    System.out.println(
+    LOGGER.fine(
         "[AllSynths] Saved song to "
             + songFile.getAbsolutePath()
             + " ("
@@ -251,7 +253,7 @@ public class AllSynthsFidelityTest {
     ClipModel firstReparsed = reparsed.getTracks().get(0).getClips().get(0);
     assertEquals(
         0, firstReparsed.getSection(), "section did not round-trip through save/parse (synth 0)");
-    System.out.println(
+    LOGGER.fine(
         "[AllSynths] Arranger song OK: "
             + ciCount
             + " sequential clipInstances, boots in arranger, 0 active session clips");
@@ -315,22 +317,23 @@ public class AllSynthsFidelityTest {
     }
 
     double avgRms = sumRms / engineMaxRms.length;
-    System.out.printf(
-        "%n[AllSynths] Summary: %d synths (%d multisample-verbatim, %d skipped: missing samples),"
-            + " avg RMS=%.6f, max=%.6f, non-multisample silent=%d%n",
-        engineMaxRms.length,
-        multisampleCount,
-        skippedMissingSamples,
-        avgRms,
-        maxRmsAll,
-        silentCount);
+    LOGGER.fine(
+        String.format(
+            "\n[AllSynths] Summary: %d synths (%d multisample-verbatim, %d skipped: missing samples),"
+                + " avg RMS=%.6f, max=%.6f, non-multisample silent=%d",
+            engineMaxRms.length,
+            multisampleCount,
+            skippedMissingSamples,
+            avgRms,
+            maxRmsAll,
+            silentCount));
 
     // Subtractive synths must render; multisample ones are excluded (no WAVs in the repo env).
     int subtractive = engineMaxRms.length - multisampleCount;
     assertTrue(
         silentCount < subtractive * 0.1,
         silentCount + " of " + subtractive + " subtractive synths are silent!");
-    System.out.println(
+    LOGGER.fine(
         "[AllSynths] PASSED: "
             + (subtractive - silentCount)
             + "/"
@@ -361,7 +364,7 @@ public class AllSynthsFidelityTest {
     }
     // Skip if no golden file — the test is a framework for when the recording exists
     if (!goldenFile.exists()) {
-      System.out.println(
+      LOGGER.fine(
           "[AllSynths] SKIP: no golden WAV at "
               + goldenFile.getAbsolutePath()
               + " — run generateAllSynthsSong first, record on hardware, then re-run");
@@ -369,7 +372,7 @@ public class AllSynthsFidelityTest {
     }
 
     double[] goldenSegments = sliceGoldenWav(goldenFile);
-    System.out.println("[AllSynths] Golden WAV: " + goldenSegments.length + " segments");
+    LOGGER.fine("[AllSynths] Golden WAV: " + goldenSegments.length + " segments");
 
     // Re-render each synth and compare
     File[] synthFiles =
@@ -417,19 +420,20 @@ public class AllSynthsFidelityTest {
         double goldenRms = goldenSegments[segIdx];
         double ratio = maxRms / Math.max(goldenRms, 1e-10);
         if (ratio < 0.1 || ratio > 10.0) {
-          System.out.printf(
-              "[MISMATCH] %-40s engine=%.6f golden=%.6f ratio=%.2f%n",
-              f.getName(), maxRms, goldenRms, ratio);
+          LOGGER.fine(
+              String.format(
+                  "[MISMATCH] %-40s engine=%.6f golden=%.6f ratio=%.2f",
+                  f.getName(), maxRms, goldenRms, ratio));
           mismatches++;
         }
         segIdx++;
       } catch (Exception e) {
-        System.out.println("[AllSynths] Error on " + f.getName() + ": " + e.getMessage());
+        LOGGER.fine("[AllSynths] Error on " + f.getName() + ": " + e.getMessage());
         segIdx++;
       }
     }
 
-    System.out.println("[AllSynths] Mismatches: " + mismatches + " / " + segIdx);
+    LOGGER.fine("[AllSynths] Mismatches: " + mismatches + " / " + segIdx);
     // Allow some mismatch — gain staging differences are expected (-28 dB gap)
     assertTrue(mismatches < segIdx * 0.5, "Too many mismatches: " + mismatches + " / " + segIdx);
   }

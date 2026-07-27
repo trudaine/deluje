@@ -7,6 +7,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 import org.deluge.engine.FirmwareAudioEngine;
 import org.deluge.engine.FirmwareFactory;
 import org.deluge.engine.FirmwareSound;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.Test;
  * Compares against the real Deluge hardware recording {@code REC00003.WAV}.
  */
 public class ResampleFidelityTest {
+  private static final Logger LOGGER = Logger.getLogger(ResampleFidelityTest.class.getName());
 
   @BeforeEach
   void setUp() {
@@ -51,7 +53,7 @@ public class ResampleFidelityTest {
     File synthFile = new File("src/main/resources/SYNTHS/000 Rich Saw Bass.XML");
     assertTrue(
         synthFile.exists(), "000 Rich Saw Bass.XML not found at " + synthFile.getAbsolutePath());
-    System.out.println("[Test] Using synth: " + synthFile.getName());
+    LOGGER.fine("[Test] Using synth: " + synthFile.getName());
 
     SynthTrackModel synthModel = DelugeXmlParser.parseSynth(synthFile);
     // Clear spatial effects to prevent master FX tails from leaking into silent gaps between notes
@@ -101,17 +103,16 @@ public class ResampleFidelityTest {
 
     // Debug: verify notes were created
     var clip0 = fwSong.getTracks().get(0).getActiveClip();
-    System.out.println("[Test] Clip noteRows: " + clip0.getNoteRowsList().size());
+    LOGGER.fine("[Test] Clip noteRows: " + clip0.getNoteRowsList().size());
     int totalNotes = 0;
     for (var nr : clip0.getNoteRowsList()) {
-      System.out.println("[Test]   Row y=" + nr.y + " notes=" + nr.notes.size());
+      LOGGER.fine("[Test]   Row y=" + nr.y + " notes=" + nr.notes.size());
       for (var n : nr.notes) {
-        System.out.println(
-            "[Test]     Note: pos=" + n.pos + " length=" + n.length + " vel=" + n.velocity);
+        LOGGER.fine("[Test]     Note: pos=" + n.pos + " length=" + n.length + " vel=" + n.velocity);
         totalNotes++;
       }
     }
-    System.out.println("[Test] Total notes in firmware song: " + totalNotes);
+    LOGGER.fine("[Test] Total notes in firmware song: " + totalNotes);
     assertTrue(totalNotes >= 5, "Expected >= 5 notes in firmware song, got " + totalNotes);
 
     FirmwareSound fwSound = (FirmwareSound) clip0.getSound();
@@ -188,7 +189,7 @@ public class ResampleFidelityTest {
         wasSilent = true;
       }
     }
-    System.out.printf("[Test] Detected attacks: %d (expected >= 5)%n", attacks);
+    LOGGER.fine(String.format("[Test] Detected attacks: %d (expected >= 5)", attacks));
     assertTrue(attacks >= 5, "Expected >= 5 note attacks, got " + attacks);
 
     // 6c. Verify silence between notes (at least some blocks should be very quiet)
@@ -197,13 +198,14 @@ public class ResampleFidelityTest {
       if (rms < silenceThreshold) silentBlocks++;
     }
     double silenceRatio = (double) silentBlocks / totalBlocks;
-    System.out.printf(
-        "[Test] Silent blocks: %d/%d (%.0f%%)%n", silentBlocks, totalBlocks, 100 * silenceRatio);
+    LOGGER.fine(
+        String.format(
+            "[Test] Silent blocks: %d/%d (%.0f%%)", silentBlocks, totalBlocks, 100 * silenceRatio));
     assertTrue(
         silenceRatio > 0.10,
         "Expected > 10% silence between notes, got " + (100 * silenceRatio) + "%");
 
-    System.out.println("[Test] PASSED: 5-note sequence has proper attacks and silence");
+    LOGGER.fine("[Test] PASSED: 5-note sequence has proper attacks and silence");
   }
 
   /** Render a single sustained note and check the boosted, soft-clipped output level. */
@@ -242,9 +244,10 @@ public class ResampleFidelityTest {
       }
     }
 
-    System.out.printf(
-        "[Test] Single subtractive note max float (boosted & soft-clipped): %.6f (dB: %.1f)%n",
-        maxFloat, 20 * Math.log10(Math.max(maxFloat, 1e-10)));
+    LOGGER.fine(
+        String.format(
+            "[Test] Single subtractive note max float (boosted & soft-clipped): %.6f (dB: %.1f)",
+            maxFloat, 20 * Math.log10(Math.max(maxFloat, 1e-10))));
 
     // With the monitorGainMul=24 boost and soft-clipping, the output level of a single
     // full-velocity
@@ -267,8 +270,9 @@ public class ResampleFidelityTest {
 
     assertTrue(goldenFile.exists(), "Golden WAV not found at " + goldenFile.getAbsolutePath());
     double[] goldenEnv = loadWavEnvelope(goldenFile);
-    System.out.printf(
-        "[Test] Golden WAV: %d blocks, max RMS=%.6f%n", goldenEnv.length, maxOf(goldenEnv));
+    LOGGER.fine(
+        String.format(
+            "[Test] Golden WAV: %d blocks, max RMS=%.6f", goldenEnv.length, maxOf(goldenEnv)));
 
     // 2. Load 000 Rich Saw Bass (the default UI synth)
     File synthFile = new File("src/main/resources/SYNTHS/000 Rich Saw Bass.XML");
@@ -324,9 +328,10 @@ public class ResampleFidelityTest {
     double engineMax = maxOf(engineEnv);
     double goldenMax = maxOf(goldenEnv);
     double gainRatio = engineMax / Math.max(goldenMax, 1e-10);
-    System.out.printf(
-        "[Test] Engine max RMS: %.6f  Golden max RMS: %.6f  Ratio: %.2f (%.1f dB)%n",
-        engineMax, goldenMax, gainRatio, 20 * Math.log10(Math.max(gainRatio, 1e-10)));
+    LOGGER.fine(
+        String.format(
+            "[Test] Engine max RMS: %.6f  Golden max RMS: %.6f  Ratio: %.2f (%.1f dB)",
+            engineMax, goldenMax, gainRatio, 20 * Math.log10(Math.max(gainRatio, 1e-10))));
 
     // 6. Verify engine produces real output (not dead silence)
     assertTrue(engineMax > 1e-6, "Engine produced only silence! Max RMS=" + engineMax);

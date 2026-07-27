@@ -1,6 +1,7 @@
 package org.deluge;
 
 import java.io.File;
+import java.util.logging.Logger;
 import org.deluge.engine.FirmwareAudioEngine;
 import org.deluge.engine.FirmwareFactory;
 import org.deluge.engine.JavaAudioDriver;
@@ -11,21 +12,22 @@ import org.deluge.xml.DelugeXmlParser;
 
 /** Renders Deluge XML song files to WAV files offline for comparison testing. */
 public class FidelityTestRunner {
+  private static final Logger LOGGER = Logger.getLogger(FidelityTestRunner.class.getName());
 
   public static void renderSongToWav(File xmlFile, File targetWavFile, double durationSeconds)
       throws Exception {
     ProjectModel project = DelugeXmlParser.parseSong(xmlFile);
     ProjectModel song = FirmwareFactory.createSong(project);
 
-    System.out.println("=== DUMPING PARSED NOTES FOR " + xmlFile.getName() + " ===");
+    LOGGER.fine("=== DUMPING PARSED NOTES FOR " + xmlFile.getName() + " ===");
     for (var clip : song.getClips()) {
       if (clip instanceof org.deluge.model.ClipModel cm) {
-        System.out.println("  Clip: " + cm.getName() + " isKit=" + cm.isKit());
+        LOGGER.fine("  Clip: " + cm.getName() + " isKit=" + cm.isKit());
         for (var entry : cm.noteRows.entrySet()) {
           var row = entry.getValue();
-          System.out.println("    Row " + entry.getKey() + " (pitch=" + row.getPitch() + "):");
+          LOGGER.fine("    Row " + entry.getKey() + " (pitch=" + row.getPitch() + "):");
           for (var note : row.getNotes()) {
-            System.out.println(
+            LOGGER.fine(
                 "      Note: pos="
                     + note.getPos()
                     + " len="

@@ -3,6 +3,7 @@ package org.deluge.firmware2;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
+import java.util.logging.Logger;
 import org.deluge.engine.FirmwareAudioEngine;
 import org.deluge.engine.FirmwareFactory;
 import org.deluge.engine.FirmwareSound;
@@ -14,10 +15,11 @@ import org.deluge.xml.DelugeXmlParser;
 import org.junit.jupiter.api.Test;
 
 public class FmLpgDiagnosticTest {
+  private static final Logger LOGGER = Logger.getLogger(FmLpgDiagnosticTest.class.getName());
 
   @Test
   public void diagnoseFmLpgPreset() throws Exception {
-    System.out.println("=== DIAGNOSING PRESET: 107 FM LPG Percussion ===");
+    LOGGER.fine("=== DIAGNOSING PRESET: 107 FM LPG Percussion ===");
 
     // Locate the XML preset in resources
     File presetFile = new File("src/main/resources/SYNTHS/107 FM LPG Percussion.XML");
@@ -25,7 +27,7 @@ public class FmLpgDiagnosticTest {
 
     // Load the single synth track model
     SynthTrackModel targetTrack = DelugeXmlParser.parseSynth(presetFile);
-    System.out.println("Loaded track: " + targetTrack.getName());
+    LOGGER.fine("Loaded track: " + targetTrack.getName());
 
     // Setup clip to trigger a note (C5 / 72)
     ClipModel clip = new ClipModel("diag_clip", 1, 16);
@@ -53,10 +55,10 @@ public class FmLpgDiagnosticTest {
     float[] sw = new float[totalSamples];
     int got = 0;
 
-    System.out.println("\nBlock-by-Block Diagnostic:");
-    System.out.println(
+    LOGGER.fine("\nBlock-by-Block Diagnostic:");
+    LOGGER.fine(
         "Block | Osc 1 Freq | Osc 2 Freq | Env 0 State | Env 0 Val  | Env 1 Val  | LPF Cutoff | HPF Cutoff | Output RMS");
-    System.out.println(
+    LOGGER.fine(
         "----------------------------------------------------------------------------------------------------------------");
 
     for (int b = 0; b < totalSamples / blockSize; b++) {
@@ -94,26 +96,28 @@ public class FmLpgDiagnosticTest {
         int lpfCutoff = voice.paramFinalValues[Param.LOCAL_LPF_FREQ];
         int hpfCutoff = voice.paramFinalValues[Param.LOCAL_HPF_FREQ];
 
-        System.out.printf(
-            "  %2d  | %10.2f | %10.2f | %-11s | 0x%08X | 0x%08X | 0x%08X | 0x%08X | %.6f%n",
-            b, freqA, freqB, env0State, env0Val, env1Val, lpfCutoff, hpfCutoff, rms);
+        LOGGER.fine(
+            String.format(
+                "  %2d  | %10.2f | %10.2f | %-11s | 0x%08X | 0x%08X | 0x%08X | 0x%08X | %.6f",
+                b, freqA, freqB, env0State, env0Val, env1Val, lpfCutoff, hpfCutoff, rms));
       } else {
-        System.out.printf(
-            "  %2d  | (no active voice)                                                                            | %.6f%n",
-            b, rms);
+        LOGGER.fine(
+            String.format(
+                "  %2d  | (no active voice)                                                                            | %.6f",
+                b, rms));
       }
     }
 
     double totalRms = 0;
     for (float v : sw) totalRms += v * v;
     totalRms = Math.sqrt(totalRms / sw.length);
-    System.out.println("\nTotal rendered RMS: " + totalRms);
+    LOGGER.fine("\nTotal rendered RMS: " + totalRms);
     assertTrue(totalRms > 0.001, "Rendered output must not be silent");
   }
 
   @Test
   public void testFmLpgAsKitDrumSlot() throws Exception {
-    System.out.println("\n=== TESTING PRESET 107 AS A DRUM KIT SLOT ===");
+    LOGGER.fine("\n=== TESTING PRESET 107 AS A DRUM KIT SLOT ===");
 
     // 1. Locate the XML preset in resources
     File presetFile = new File("src/main/resources/SYNTHS/107 FM LPG Percussion.XML");
@@ -121,10 +125,10 @@ public class FmLpgDiagnosticTest {
 
     // 2. Parse the XML preset directly into a SoundDrum model (our new public API!)
     org.deluge.model.SoundDrum sd = DelugeXmlParser.parseSoundDrum(presetFile);
-    System.out.println("Parsed SoundDrum: " + sd.getName());
-    System.out.println("  - Osc 1 Type: " + sd.getOsc1Type());
-    System.out.println("  - Osc 2 Type: " + sd.getOsc2Type());
-    System.out.println("  - Synth Mode: " + sd.getSynthMode() + " (1 = FM)");
+    LOGGER.fine("Parsed SoundDrum: " + sd.getName());
+    LOGGER.fine("  - Osc 1 Type: " + sd.getOsc1Type());
+    LOGGER.fine("  - Osc 2 Type: " + sd.getOsc2Type());
+    LOGGER.fine("  - Synth Mode: " + sd.getSynthMode() + " (1 = FM)");
 
     // 3. Create a KitTrackModel and add the drum slot
     org.deluge.model.KitTrackModel kitTrack = new org.deluge.model.KitTrackModel("Diag Kit");
@@ -170,7 +174,7 @@ public class FmLpgDiagnosticTest {
     double totalRms = 0;
     for (float v : sw) totalRms += v * v;
     totalRms = Math.sqrt(totalRms / sw.length);
-    System.out.println("Rendered Kit Drum Slot RMS: " + totalRms);
+    LOGGER.fine("Rendered Kit Drum Slot RMS: " + totalRms);
     assertTrue(totalRms > 0.001, "Drum synthesis slot output must not be silent!");
   }
 }

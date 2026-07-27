@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Logger;
 import org.deluge.firmware2.Oscillator.OscType;
 import org.deluge.firmware2.Param;
 import org.deluge.firmware2.WaveTable;
@@ -29,6 +30,7 @@ import org.deluge.storage.audio.AudioFileReader;
 
 /** Glue code to convert the existing XML-loaded models into the high-fidelity firmware engine. */
 public class FirmwareFactory {
+  private static final Logger LOGGER = Logger.getLogger(FirmwareFactory.class.getName());
   private static final Map<String, PatchSource> SOURCE_MAP = new HashMap<>();
 
   /**
@@ -194,7 +196,7 @@ public class FirmwareFactory {
               }
             }
           } catch (Exception e) {
-            System.err.println("[FirmwareFactory] Audio clip load failed: " + path + " — " + e);
+            LOGGER.warning("[FirmwareFactory] Audio clip load failed: " + path + " — " + e);
           }
         }
       }
@@ -241,7 +243,7 @@ public class FirmwareFactory {
                   }
                   File f = resolveSample(kz.samplePath, sdRoot);
                   if (f == null || !f.exists()) {
-                    System.err.println(
+                    LOGGER.warning(
                         "[FirmwareFactory] Warning: keyzone sample not found: " + kz.samplePath);
                     continue;
                   }
@@ -267,7 +269,7 @@ public class FirmwareFactory {
                       compiledZones.add(ckz);
                     }
                   } catch (IOException e) {
-                    System.err.println(
+                    LOGGER.warning(
                         "[FirmwareFactory] Failed to load keyzone sample: " + kz.samplePath);
                   }
                 }
@@ -325,7 +327,7 @@ public class FirmwareFactory {
                     }
                   }
                 } catch (IOException e) {
-                  System.err.println(
+                  LOGGER.warning(
                       "[FirmwareFactory] Failed to load synth sample " + finalS + ": " + path);
                 }
               } else {
@@ -338,7 +340,7 @@ public class FirmwareFactory {
                     sound.sourceZones[finalS].clear();
                   }
                 } catch (IOException e) {
-                  System.err.println(
+                  LOGGER.warning(
                       "[FirmwareFactory] Failed to load synth wavetable " + finalS + ": " + path);
                 }
               }
@@ -1397,7 +1399,7 @@ public class FirmwareFactory {
       drumSound.sampleSettings[0].startPoint = sd.getStartSamplePos();
     }
     if (sd.getEndSamplePos() >= 0) {
-      System.out.println(
+      LOGGER.fine(
           "[FirmwareFactory] Drum "
               + drumIdx
               + " ("
@@ -1584,7 +1586,7 @@ public class FirmwareFactory {
         }
       }
     } catch (IOException e) {
-      System.err.println("[FirmwareFactory] Failed to load drum sample: " + path);
+      LOGGER.warning("[FirmwareFactory] Failed to load drum sample: " + path);
     }
   }
 

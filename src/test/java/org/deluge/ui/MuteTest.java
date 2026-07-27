@@ -14,7 +14,6 @@ public class MuteTest {
     org.deluge.model.ProjectModel model = org.deluge.xml.DelugeXmlParser.parseSong(is, "song3");
 
     assertNotNull(model);
-    System.out.println("Test tracks parsed: " + model.getTracks().size());
 
     int trackIdx = 0;
     for (org.deluge.model.TrackModel track : model.getTracks()) {
@@ -24,8 +23,6 @@ public class MuteTest {
             org.deluge.model.StepData sd = clip.getStep(r, s);
             if (sd != null && sd.active()) {
               bridge.setStep(trackIdx * 8 + r, s, true);
-              System.out.println(
-                  "Active step placed in Audio Track slot: " + (trackIdx * 8 + r) + " Step: " + s);
             }
           }
         }
@@ -46,6 +43,5 @@ public class MuteTest {
         activeTracksFound++;
       }
     }
-    System.out.println("Total audio tracks populated with steps: " + activeTracksFound);
   }
 }
