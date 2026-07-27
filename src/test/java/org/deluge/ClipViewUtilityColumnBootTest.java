@@ -44,18 +44,6 @@ public class ClipViewUtilityColumnBootTest {
           audBtnTop.getToolTipText().startsWith("Clip View: Audition"),
           "Column 18 tooltip should describe Clip View Audition preview");
 
-      System.out.println(
-          "TEST-DEBUG-BOOT: trackColorHex="
-              + project.getTracks().get(0).getColourHex()
-              + " trackCount="
-              + project.getTracks().size()
-              + " viewMode="
-              + app.getClipPanel().getViewMode()
-              + " audBtnTopText="
-              + audBtnTop.getText()
-              + " audBtnTopColor="
-              + (audBtnTop instanceof DelugePadButton pad ? pad.getBaseColor() : "null"));
-
       if (audBtnTop instanceof DelugePadButton pad) {
         assertFalse(
             pad.isDrawCenterCircle(), "Center circle must be strictly blocked on Column 18");

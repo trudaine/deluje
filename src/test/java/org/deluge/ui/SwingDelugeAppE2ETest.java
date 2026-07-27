@@ -540,10 +540,6 @@ public class SwingDelugeAppE2ETest {
       // Give it a short moment to warm up and start rendering
       Thread.sleep(200);
 
-      System.out.println(
-          "TEST-DEBUG: [Before Mute] Playhead tick = "
-              + app.getPureEngine().getPlaybackHandler().lastSwungTickActioned);
-
       // Start resampling to capture active sound
       org.deluge.engine.JavaAudioDriver.startResampling();
       Thread.sleep(500);
@@ -559,13 +555,6 @@ public class SwingDelugeAppE2ETest {
           isSilentBeforeMute = false;
         }
       }
-      System.out.println(
-          "TEST-DEBUG: [Before Mute] Captured bytes = "
-              + pcmBeforeMute.length
-              + ", Peak = "
-              + maxBefore
-              + ", Playhead tick = "
-              + app.getPureEngine().getPlaybackHandler().lastSwungTickActioned);
       assertFalse(isSilentBeforeMute, "Should capture non-zero audio bytes before mute");
 
       int muteCol = songGrid.columnCount - 2;
@@ -575,32 +564,18 @@ public class SwingDelugeAppE2ETest {
       // Click the mute button on the EDT WITHOUT Shift modifier
       javax.swing.SwingUtilities.invokeAndWait(
           () -> {
-            System.out.println(
-                "TEST-DEBUG: songPanel muteBtn action listeners count = "
-                    + muteBtn.getActionListeners().length);
             for (java.awt.event.ActionListener al : muteBtn.getActionListeners()) {
-              System.out.println("TEST-DEBUG: Invoking songPanel action listener: " + al);
               al.actionPerformed(
                   new java.awt.event.ActionEvent(
                       muteBtn, java.awt.event.ActionEvent.ACTION_PERFORMED, ""));
             }
           });
 
-      System.out.println(
-          "TEST-DEBUG: songPanel bridge.getMute(0) = "
-              + bridge.getMute(0)
-              + " bridgeHash="
-              + System.identityHashCode(bridge));
-
       // Verify bridge says it is muted
       assertTrue(bridge.getMute(0), "Bridge should report track 0 as muted after left-click");
 
       // Give background sync thread and audio driver a moment to process the mute
       Thread.sleep(200);
-
-      System.out.println(
-          "TEST-DEBUG: [During Mute] Playhead tick = "
-              + app.getPureEngine().getPlaybackHandler().lastSwungTickActioned);
 
       // Start resampling to capture muted (silent) sound
       org.deluge.engine.JavaAudioDriver.startResampling();
@@ -617,13 +592,6 @@ public class SwingDelugeAppE2ETest {
           isSilentDuringMute = false;
         }
       }
-      System.out.println(
-          "TEST-DEBUG: [During Mute] Captured bytes = "
-              + pcmDuringMute.length
-              + ", Peak = "
-              + maxDuring
-              + ", Playhead tick = "
-              + app.getPureEngine().getPlaybackHandler().lastSwungTickActioned);
       assertTrue(isSilentDuringMute, "Output must be completely silent during mute!");
 
       // Click mute button again to unmute
@@ -638,10 +606,6 @@ public class SwingDelugeAppE2ETest {
       assertFalse(bridge.getMute(0), "Bridge should report track 0 as unmuted");
 
       Thread.sleep(200);
-
-      System.out.println(
-          "TEST-DEBUG: [After Unmute] Playhead tick = "
-              + app.getPureEngine().getPlaybackHandler().lastSwungTickActioned);
 
       // Start resampling to verify sound is restored
       org.deluge.engine.JavaAudioDriver.startResampling();
@@ -658,13 +622,6 @@ public class SwingDelugeAppE2ETest {
           isSilentAfterUnmute = false;
         }
       }
-      System.out.println(
-          "TEST-DEBUG: [After Unmute] Captured bytes = "
-              + pcmAfterUnmute.length
-              + ", Peak = "
-              + maxAfter
-              + ", Playhead tick = "
-              + app.getPureEngine().getPlaybackHandler().lastSwungTickActioned);
       assertFalse(isSilentAfterUnmute, "Sound should return after unmute");
     } finally {
       org.deluge.engine.FirmwareAudioEngine.debugTelemetry = false;
@@ -1200,38 +1157,12 @@ public class SwingDelugeAppE2ETest {
       assertEquals(57, pitch2, "Model Row 69 must map to MIDI 57 (A3)");
 
       // 6. Program a note by simulating a step click on visual row 2 (A3), step column 0
-      org.deluge.model.TrackModel debugTm = app.getCurrentProject().getTracks().get(trackIdx);
-      org.deluge.model.ClipModel debugCm = debugTm.getClips().get(grid.getActiveClipId());
-      System.out.println(
-          "TEST-DEBUG-DIATONIC: Before click. trackIdx="
-              + trackIdx
-              + " activeClipId="
-              + grid.getActiveClipId()
-              + " clipsCount="
-              + debugTm.getClips().size()
-              + " cmStepCount="
-              + debugCm.getStepCount()
-              + " cmRowCount="
-              + debugCm.getRowCount()
-              + " modelRow2="
-              + modelRow2
-              + " stepBefore="
-              + grid.getClipStep(debugCm, modelRow2, 0).active());
-
       grid.handleStepToggled(2, 0);
 
       // 7. Read the programmed note from the ClipModel and assert it is exactly pitch 57 (A3)
       org.deluge.model.TrackModel tm = app.getCurrentProject().getTracks().get(trackIdx);
       org.deluge.model.ClipModel cm = tm.getClips().get(grid.getActiveClipId());
       org.deluge.model.StepData step = grid.getClipStep(cm, modelRow2, 0);
-
-      System.out.println(
-          "TEST-DEBUG-DIATONIC: After click. stepActive="
-              + step.active()
-              + " pitch="
-              + step.pitch()
-              + " velocity="
-              + step.velocity());
 
       assertTrue(step.active(), "Programmed step must be active");
       assertEquals(

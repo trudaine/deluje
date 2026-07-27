@@ -401,17 +401,7 @@ public class SongGridPanel extends SwingGridPanel {
             clearActionListeners(clipBtn);
             clipBtn.addActionListener(
                 e -> {
-                  System.out.println(
-                      "DEBUG-MUTE: listener track hash="
-                          + System.identityHashCode(track)
-                          + " before="
-                          + track.isMuted());
                   track.setMuted(!track.isMuted());
-                  System.out.println(
-                      "DEBUG-MUTE: listener track hash="
-                          + System.identityHashCode(track)
-                          + " after="
-                          + track.isMuted());
                   updateEngineMutes();
                   refresh();
                 });

@@ -1308,7 +1308,6 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
 
   public void updateEngineMutes() {
     if (bridge == null || projectModel == null) {
-      System.out.println("TEST-DEBUG: updateEngineMutes: bridge or projectModel is null!");
       return;
     }
     EngineSyncCoordinator sync = null;
@@ -1318,8 +1317,6 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     }
     java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
     int n = tracks.size();
-    System.out.println(
-        "TEST-DEBUG: updateEngineMutes: tracks count=" + n + " sync=" + (sync != null));
     int[] trackEngineStart = new int[n];
     int[] trackVoiceCount = new int[n];
 
@@ -1327,13 +1324,6 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       for (int t = 0; t < n; t++) {
         trackEngineStart[t] = sync.getTrackEngineStart(t);
         trackVoiceCount[t] = sync.getTrackVoiceCount(t);
-        System.out.println(
-            "TEST-DEBUG:   Track "
-                + t
-                + " from sync: start="
-                + trackEngineStart[t]
-                + " count="
-                + trackVoiceCount[t]);
       }
     } else {
       int nextRow = 0;
@@ -1350,35 +1340,19 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
           capped = Math.min(voices, 128 - nextRow);
         }
         trackVoiceCount[t] = capped;
-        System.out.println(
-            "TEST-DEBUG:   Track "
-                + t
-                + " fallback: start="
-                + trackEngineStart[t]
-                + " count="
-                + trackVoiceCount[t]);
         nextRow += capped;
       }
     }
 
     boolean anySoloing = !soloedTracks.isEmpty();
-    System.out.println("TEST-DEBUG: updateEngineMutes: anySoloing=" + anySoloing);
     for (int t = 0; t < n; t++) {
       org.deluge.model.TrackModel track = tracks.get(t);
       int baseId = trackEngineStart[t];
       int voiceCount = trackVoiceCount[t];
       if (baseId < 0) {
-        System.out.println("TEST-DEBUG:   Track " + t + " skipped (baseId < 0)");
         continue;
       }
       boolean trackMuted = anySoloing ? !soloedTracks.contains(t) : track.isMuted();
-      System.out.println(
-          "DEBUG-MUTE: update loop track hash="
-              + System.identityHashCode(track)
-              + " isMuted="
-              + track.isMuted()
-              + " resolvedMuted="
-              + trackMuted);
 
       for (int i = 0; i < voiceCount; i++) {
         boolean voiceMuted = trackMuted;
@@ -1392,8 +1366,6 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
             }
           }
         }
-        System.out.println(
-            "TEST-DEBUG:     Setting voice " + (baseId + i) + " to mute=" + voiceMuted);
         setTrackMuteWithCapture(baseId + i, voiceMuted);
       }
     }
