@@ -2,6 +2,7 @@ package org.deluge.ui;
 
 import java.awt.*;
 import java.io.File;
+import java.util.logging.Logger;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
@@ -15,6 +16,7 @@ import org.deluge.project.PreferencesManager;
  * waterfall projection of consecutive surrounding cycles.
  */
 public class SwingWavetableVisualizer extends JComponent {
+  private static final Logger LOGGER = Logger.getLogger(SwingWavetableVisualizer.class.getName());
 
   private float[] floatSamples = null;
   private int cycleSize = 2048; // Default standard wavetable cycle size
@@ -51,8 +53,7 @@ public class SwingWavetableVisualizer extends JComponent {
                       repaint();
                     });
               } catch (Exception ex) {
-                System.err.println(
-                    "[WavetableVisualizer] Decoding thread error: " + ex.getMessage());
+                LOGGER.warning("[WavetableVisualizer] Decoding thread error: " + ex.getMessage());
                 SwingUtilities.invokeLater(
                     () -> {
                       this.loading = false;
@@ -276,7 +277,7 @@ public class SwingWavetableVisualizer extends JComponent {
       }
       return floatSamples;
     } catch (Exception ex) {
-      System.err.println("[Wavetable] Full PCM decode error: " + ex.getMessage());
+      LOGGER.warning("[Wavetable] Full PCM decode error: " + ex.getMessage());
       return null;
     }
   }

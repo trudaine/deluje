@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import org.deluge.BridgeContract;
@@ -22,6 +23,7 @@ import org.deluge.model.ProjectModel;
  * physical buttons, LED indicators, and rotary encoders.
  */
 public class SwingHardwareTopPanel extends JPanel {
+  private static final Logger LOGGER = Logger.getLogger(SwingHardwareTopPanel.class.getName());
   private static final int ORIG_WIDTH = 2256;
   private static final int ORIG_TOP_HEIGHT = 574;
 
@@ -721,8 +723,7 @@ public class SwingHardwareTopPanel extends JPanel {
         }
       }
     } catch (Exception ex) {
-      System.err.println(
-          "[SwingHardwareTopPanel] Could not load faceplate image: " + ex.getMessage());
+      LOGGER.warning("[SwingHardwareTopPanel] Could not load faceplate image: " + ex.getMessage());
     }
     repaint();
   }

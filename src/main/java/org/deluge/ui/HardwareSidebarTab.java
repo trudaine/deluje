@@ -668,7 +668,7 @@ public class HardwareSidebarTab extends JPanel {
 
           @Override
           public void onError(String path, Throwable t) {
-            System.err.println("[Sidebar] Failed to fetch remote " + path + ": " + t.getMessage());
+            LOGGER.warning("[Sidebar] Failed to fetch remote " + path + ": " + t.getMessage());
           }
         });
   }
@@ -734,7 +734,7 @@ public class HardwareSidebarTab extends JPanel {
               destDir.mkdirs();
               java.nio.file.Files.write(destFile.toPath(), content);
             } catch (Exception saveEx) {
-              System.err.println(
+              LOGGER.warning(
                   "[Sidebar] Warning: could not save downloaded file to "
                       + destFile.getAbsolutePath()
                       + ": "
@@ -885,7 +885,7 @@ public class HardwareSidebarTab extends JPanel {
 
           @Override
           public void onFailure(Throwable t) {
-            System.err.println("[Sidebar] Failed to list remote directory: " + t.getMessage());
+            LOGGER.warning("[Sidebar] Failed to list remote directory: " + t.getMessage());
             SwingUtilities.invokeLater(() -> transferProgressBar.setVisible(false));
           }
         });

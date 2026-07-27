@@ -3,6 +3,7 @@ package org.deluge.midi;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.transform.OutputKeys;
@@ -17,6 +18,7 @@ import org.w3c.dom.NodeList;
 
 /** Loads/saves MidiDeviceDefinition to/from XML files in the MIDI_DEVICES/DEFINITION/ directory. */
 public class MidiDeviceDefinitionLoader {
+  private static final Logger LOGGER = Logger.getLogger(MidiDeviceDefinitionLoader.class.getName());
 
   /** Returns the MIDI_DEVICES/DEFINITION/ directory, creating it if missing. */
   public static File getDefinitionsDir() {
@@ -34,7 +36,7 @@ public class MidiDeviceDefinitionLoader {
         MidiDeviceDefinition def = load(f);
         if (def != null) result.add(def);
       } catch (Exception e) {
-        System.err.println(
+        LOGGER.warning(
             "MIDI: Failed to load device definition: " + f.getName() + " - " + e.getMessage());
       }
     }

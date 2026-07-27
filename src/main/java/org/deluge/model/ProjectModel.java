@@ -4,10 +4,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 import org.deluge.project.PresetFinder;
 
 /** The root model for a full Deluge project/song. */
 public class ProjectModel implements org.deluge.firmware2.TuningProvider {
+  private static final Logger LOGGER = Logger.getLogger(ProjectModel.class.getName());
 
   // Undo/redo stack — cleared on new project load
   private final UndoRedoStack undoRedoStack = new UndoRedoStack(64);
@@ -275,7 +277,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
         synthTrack = org.deluge.xml.DelugeXmlParser.parseSynth(firstSynthFile);
       }
     } catch (Exception e) {
-      System.err.println("[ProjectModel] Could not parse first Synth preset: " + e.getMessage());
+      LOGGER.warning("[ProjectModel] Could not parse first Synth preset: " + e.getMessage());
     }
 
     if (synthTrack == null) {

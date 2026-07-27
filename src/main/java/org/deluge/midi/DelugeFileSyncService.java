@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -14,6 +15,7 @@ import java.util.regex.Pattern;
  * chunked file uploads using Java Virtual Threads.
  */
 public class DelugeFileSyncService {
+  private static final Logger LOGGER = Logger.getLogger(DelugeFileSyncService.class.getName());
 
   public interface FileListCallback {
     void onSuccess(List<String> files);
@@ -197,7 +199,7 @@ public class DelugeFileSyncService {
         if (offset == 0) {
           throw e;
         }
-        System.err.println(
+        LOGGER.warning(
             "[FileSyncService] "
                 + remotePath
                 + " listing truncated at offset "
@@ -510,10 +512,10 @@ public class DelugeFileSyncService {
                 "utime");
         int utimeErr = getIntAttr(utimeReply.json(), "err");
         if (utimeErr != 0) {
-          System.err.println("[FileSync] Warning: Failed to set file timestamp, err=" + utimeErr);
+          LOGGER.warning("[FileSync] Warning: Failed to set file timestamp, err=" + utimeErr);
         }
       } catch (Exception e) {
-        System.err.println("[FileSync] Warning: Error setting file timestamp: " + e.getMessage());
+        LOGGER.warning("[FileSync] Warning: Error setting file timestamp: " + e.getMessage());
       }
 
     } finally {
@@ -651,7 +653,7 @@ public class DelugeFileSyncService {
         if (offset == 0) {
           throw e;
         }
-        System.err.println(
+        LOGGER.warning(
             "[FileSyncService] "
                 + remotePath
                 + " listing truncated at offset "

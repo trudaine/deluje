@@ -3,6 +3,7 @@ package org.deluge.ui;
 import java.awt.*;
 import java.io.File;
 import java.util.List;
+import java.util.logging.Logger;
 import javax.swing.*;
 import org.deluge.BridgeContract;
 import org.deluge.model.ClipModel;
@@ -19,6 +20,7 @@ import org.deluge.project.PreferencesManager;
  * automatic MPC-style track split generation and live hot-swaps!
  */
 public class SwingAudioSlicerDialog extends JDialog {
+  private static final Logger LOGGER = Logger.getLogger(SwingAudioSlicerDialog.class.getName());
 
   private final Frame parentFrame;
   private final BridgeContract bridge;
@@ -316,7 +318,7 @@ public class SwingAudioSlicerDialog extends JDialog {
     try {
       KitSynthSerializer.saveKit(kit, exportFile);
     } catch (Exception ex) {
-      System.err.println("[KitSlicer] Export XML slices kit failed: " + ex.getMessage());
+      LOGGER.warning("[KitSlicer] Export XML slices kit failed: " + ex.getMessage());
     }
 
     // Real-time playback reloading pipeline

@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 import org.deluge.model.ArrangerClip;
 import org.deluge.model.AudioTrackModel;
 import org.deluge.model.ClipModel;
@@ -26,6 +27,7 @@ import org.w3c.dom.NodeList;
  * <DrumGroupDevice>) into corresponding high-fidelity Deluge track, drum slot, and clip models.
  */
 public class AbletonTrackMapper {
+  private static final Logger LOGGER = Logger.getLogger(AbletonTrackMapper.class.getName());
 
   /**
    * Main entry point: parses the entire Ableton DOM Document, extracts the tempo, iterates through
@@ -62,7 +64,7 @@ public class AbletonTrackMapper {
         }
       }
     } catch (Exception e) {
-      System.err.println("[AbletonTrackMapper] Failed to parse tempo: " + e.getMessage());
+      LOGGER.warning("[AbletonTrackMapper] Failed to parse tempo: " + e.getMessage());
     }
 
     // 2. Import Tracks
@@ -82,7 +84,7 @@ public class AbletonTrackMapper {
             importAudioTrack(trackEl, project, samplesDir);
           }
         } catch (Exception e) {
-          System.err.println(
+          LOGGER.warning(
               "[AbletonTrackMapper] Failed to import track '"
                   + getTrackName(trackEl, "?")
                   + "': "
@@ -293,7 +295,7 @@ public class AbletonTrackMapper {
 
       return clip;
     } catch (Exception e) {
-      System.err.println("[AbletonTrackMapper] Failed to parse MIDI clip: " + e.getMessage());
+      LOGGER.warning("[AbletonTrackMapper] Failed to parse MIDI clip: " + e.getMessage());
       return null;
     }
   }
@@ -342,7 +344,7 @@ public class AbletonTrackMapper {
               samplePath = resolved.getAbsolutePath();
             }
           } catch (Exception e) {
-            System.err.println(
+            LOGGER.warning(
                 "[AbletonTrackMapper] Drum pad sample resolution failed: " + e.getMessage());
           }
         }
@@ -443,7 +445,7 @@ public class AbletonTrackMapper {
 
       return clip;
     } catch (Exception e) {
-      System.err.println("[AbletonTrackMapper] Failed to parse drum clip: " + e.getMessage());
+      LOGGER.warning("[AbletonTrackMapper] Failed to parse drum clip: " + e.getMessage());
       return null;
     }
   }
@@ -527,7 +529,7 @@ public class AbletonTrackMapper {
 
       return delugeClip;
     } catch (Exception e) {
-      System.err.println("[AbletonTrackMapper] Failed to parse audio clip: " + e.getMessage());
+      LOGGER.warning("[AbletonTrackMapper] Failed to parse audio clip: " + e.getMessage());
       return null;
     }
   }

@@ -668,9 +668,9 @@ public class FileMenuController {
       pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
       pb.redirectError(ProcessBuilder.Redirect.DISCARD);
       pb.start();
-      System.out.println("[NewInstance] Launched a second Deluge process: " + cmd);
+      LOGGER.fine("[NewInstance] Launched a second Deluge process: " + cmd);
     } catch (Exception ex) {
-      System.err.println("[NewInstance] Failed to launch: " + ex.getMessage());
+      LOGGER.warning("[NewInstance] Failed to launch: " + ex.getMessage());
       JOptionPane.showMessageDialog(
           app,
           "Could not launch a new Deluge window:\n" + ex.getMessage(),

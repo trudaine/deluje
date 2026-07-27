@@ -4,10 +4,12 @@ import java.io.File;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 import org.deluge.model.ProjectModel;
 
 /** Periodically saves the project model to an autosave file. */
 public class AutoSaveService {
+  private static final Logger LOGGER = Logger.getLogger(AutoSaveService.class.getName());
 
   private final ScheduledExecutorService executor;
   private final ProjectModel projectModel;
@@ -50,10 +52,10 @@ public class AutoSaveService {
 
   public void performSave() {
     try {
-      System.out.println("[AutoSave] Saving project to " + autoSaveFile.getAbsolutePath());
+      LOGGER.fine("[AutoSave] Saving project to " + autoSaveFile.getAbsolutePath());
       ProjectSerializer.save(projectModel, autoSaveFile);
     } catch (Exception e) {
-      System.err.println("[AutoSave] Failed: " + e.getMessage());
+      LOGGER.warning("[AutoSave] Failed: " + e.getMessage());
     }
   }
 }

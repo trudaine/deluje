@@ -1228,7 +1228,7 @@ public class PreferencesDialog extends JDialog {
         }
       }
     } catch (Throwable t) {
-      System.err.println("[DIAG friendly] Error matching port: " + t.getMessage());
+      LOG.warning("[DIAG friendly] Error matching port: " + t.getMessage());
     }
     return portName;
   }

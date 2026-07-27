@@ -2968,7 +2968,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
         oledPanel.showParamText(isSynth ? "SYNTH PRESET" : "KIT PRESET", newEntry.name());
       }
     } catch (Exception ex) {
-      System.err.println("[cycleActiveTrackPreset] Failed to load " + f + ": " + ex.getMessage());
+      LOG.warning("[cycleActiveTrackPreset] Failed to load " + f + ": " + ex.getMessage());
       if (oledPanel != null) {
         oledPanel.showParamText("SELECT ERROR", newEntry.name());
       }

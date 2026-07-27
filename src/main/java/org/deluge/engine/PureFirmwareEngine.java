@@ -1,5 +1,6 @@
 package org.deluge.engine;
 
+import java.util.logging.Logger;
 import org.deluge.BridgeContract;
 import org.deluge.playback.PlaybackHandler;
 
@@ -8,6 +9,7 @@ import org.deluge.playback.PlaybackHandler;
  * synthesis engine and the sequencer, running entirely independent of ChucK and the DSL.
  */
 public class PureFirmwareEngine {
+  private static final Logger LOGGER = Logger.getLogger(PureFirmwareEngine.class.getName());
   private final FirmwareAudioEngine audioEngine = new FirmwareAudioEngine();
   private final PlaybackHandler playbackHandler = new PlaybackHandler();
   private final JavaAudioDriver audioDriver;
@@ -55,7 +57,7 @@ public class PureFirmwareEngine {
                     try {
                       syncFromBridge(bridge);
                     } catch (Exception e) {
-                      System.err.println("[PureFirmwareEngine] Sync Error: " + e.getMessage());
+                      LOGGER.warning("[PureFirmwareEngine] Sync Error: " + e.getMessage());
                     }
                     try {
                       Thread.sleep(20);

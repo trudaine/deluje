@@ -230,7 +230,7 @@ public class EngineSyncCoordinator {
               pushKitEnv(engineRow, 3, snd.getEnv4());
 
             } catch (Exception ex) {
-              System.err.println(
+              LOG.warning(
                   "[pushModel] kit param error at row " + engineRow + ": " + ex.getMessage());
             }
           }
@@ -587,13 +587,12 @@ public class EngineSyncCoordinator {
             org.deluge.model.tuning.ScalaScale scale =
                 org.deluge.model.tuning.ScalaScaleParser.parse(fis, file.getName());
             org.deluge.model.tuning.ScalaScale.setActiveScale(scale);
-            System.out.println(
-                "[Preferences] Successfully cabled tuning scale: " + scale.getName());
+            LOG.fine("[Preferences] Successfully cabled tuning scale: " + scale.getName());
           }
         }
       }
     } catch (Exception e) {
-      System.err.println("[Preferences] Failed to load startup Scala scale: " + e.getMessage());
+      LOG.warning("[Preferences] Failed to load startup Scala scale: " + e.getMessage());
     }
   }
 

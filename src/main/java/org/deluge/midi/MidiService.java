@@ -200,19 +200,19 @@ public class MidiService {
                 .negotiateSession("Deluge-Java Workstation")
                 .thenRun(
                     () ->
-                        System.out.println(
+                        LOGGER.fine(
                             "MIDI: Session handshake completed. Active SID="
                                 + sysExManager.getSessionId()))
                 .exceptionally(
                     ex -> {
-                      System.err.println(
+                      LOGGER.warning(
                           "MIDI: Session negotiation failed, falling back to session 0: "
                               + ex.getMessage());
                       return null;
                     });
           }
         } catch (Exception e) {
-          System.err.println(
+          LOGGER.warning(
               "MIDI: Failed to auto-open output port for SysEx: "
                   + portName
                   + " - "

@@ -11,6 +11,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
 import java.util.stream.Stream;
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
@@ -36,6 +37,7 @@ import org.deluge.project.PreferencesManager;
  * model).
  */
 public class LibraryPicker extends JDialog {
+  private static final Logger LOGGER = Logger.getLogger(LibraryPicker.class.getName());
 
   /** What the picker browses — fixes the root directory, file filter, and preview type. */
   public enum Scope {
@@ -207,7 +209,7 @@ public class LibraryPicker extends JDialog {
           .limit(4000)
           .forEach(allFiles::add);
     } catch (Exception ex) {
-      System.err.println("[LibraryPicker] scan failed: " + ex.getMessage());
+      LOGGER.warning("[LibraryPicker] scan failed: " + ex.getMessage());
     }
     allFiles.sort((a, b) -> rel(a).compareToIgnoreCase(rel(b)));
   }
@@ -268,7 +270,7 @@ public class LibraryPicker extends JDialog {
             Thread.sleep(2000);
             clip.close();
           } catch (Exception ex) {
-            System.err.println("[LibraryPicker] audition failed: " + ex.getMessage());
+            LOGGER.warning("[LibraryPicker] audition failed: " + ex.getMessage());
           }
         });
   }

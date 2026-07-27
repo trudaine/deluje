@@ -3,6 +3,7 @@ package org.deluge.ui;
 import java.awt.Color;
 import java.io.File;
 import java.util.ArrayDeque;
+import java.util.logging.Logger;
 import javax.swing.JButton;
 import org.deluge.BridgeContract;
 import org.deluge.model.ClipModel;
@@ -16,6 +17,7 @@ import org.deluge.model.StepData;
  * calculation, and metronome volume.
  */
 public class TransportController {
+  private static final Logger LOGGER = Logger.getLogger(TransportController.class.getName());
   private final SwingDelugeApp app;
   private final BridgeContract bridge;
   private final ArrayDeque<Long> tapTimes = new ArrayDeque<>();
@@ -163,7 +165,7 @@ public class TransportController {
           app.clipPanel.refresh();
         }
       } catch (Exception ex) {
-        System.err.println("Failed to save and load master resample: " + ex.getMessage());
+        LOGGER.warning("Failed to save and load master resample: " + ex.getMessage());
       }
     }
   }

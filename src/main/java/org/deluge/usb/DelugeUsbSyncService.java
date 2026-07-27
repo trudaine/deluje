@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.logging.Logger;
 import org.deluge.model.ClipModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.playback.PlaybackHandler;
@@ -22,6 +23,7 @@ import org.deluge.playback.PlaybackHandler;
  * workstation engine in real-time. Also supports file system listing and file reading over USB.
  */
 public class DelugeUsbSyncService {
+  private static final Logger LOGGER = Logger.getLogger(DelugeUsbSyncService.class.getName());
   private static final int USB_VID = 0x16D0;
   private static final int USB_PID = 0x0CE2;
 
@@ -308,7 +310,7 @@ public class DelugeUsbSyncService {
       } catch (InterruptedException e) {
         break;
       } catch (Exception e) {
-        System.err.println("[USB] Error in serial reading loop: " + e.getMessage());
+        LOGGER.warning("[USB] Error in serial reading loop: " + e.getMessage());
         closePort();
         try {
           Thread.sleep(2000);

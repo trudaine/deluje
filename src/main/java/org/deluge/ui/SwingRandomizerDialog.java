@@ -6,6 +6,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.logging.Logger;
 import javax.swing.*;
 import org.deluge.BridgeContract;
 import org.deluge.engine.DelugeatorRandomizer;
@@ -25,6 +26,7 @@ import org.deluge.xml.DelugeXmlExporter;
  * Randomizer (Tab 1) and the Super Kit Generator (Tab 2) for folders drum auto-assembly.
  */
 public class SwingRandomizerDialog extends JDialog {
+  private static final Logger LOGGER = Logger.getLogger(SwingRandomizerDialog.class.getName());
 
   private final BridgeContract bridge;
 
@@ -552,7 +554,7 @@ public class SwingRandomizerDialog extends JDialog {
               clip.close();
             }
           } catch (Exception ex) {
-            System.err.println("[KitGenerator] Preview failed: " + ex.getMessage());
+            LOGGER.warning("[KitGenerator] Preview failed: " + ex.getMessage());
           }
         });
   }
@@ -642,7 +644,7 @@ public class SwingRandomizerDialog extends JDialog {
     try {
       KitSynthSerializer.saveKit(kit, exportFile);
     } catch (Exception ex) {
-      System.err.println("[KitGenerator] Export XML kit failed: " + ex.getMessage());
+      LOGGER.warning("[KitGenerator] Export XML kit failed: " + ex.getMessage());
     }
 
     // Dynamic Live Playback reload and synchronization
@@ -842,7 +844,7 @@ public class SwingRandomizerDialog extends JDialog {
     try {
       DelugeXmlExporter.saveSynthPreset(synth, bridge, activeTrackIdx, exportFile);
     } catch (Exception ex) {
-      System.err.println("[Randomizer] Export XML preset failed: " + ex.getMessage());
+      LOGGER.warning("[Randomizer] Export XML preset failed: " + ex.getMessage());
     }
 
     SwingDelugeApp.mainInstance.pushModelToBridge();

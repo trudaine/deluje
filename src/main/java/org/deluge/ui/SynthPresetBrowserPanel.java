@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Logger;
 import javax.swing.*;
 import org.deluge.model.SynthTrackModel;
 import org.deluge.project.PreferencesManager;
@@ -21,6 +22,7 @@ import org.deluge.project.PreferencesManager;
  * single-click hot-swap auditioning.
  */
 public class SynthPresetBrowserPanel extends JPanel {
+  private static final Logger LOGGER = Logger.getLogger(SynthPresetBrowserPanel.class.getName());
 
   public static record PresetEntry(File file, String name, String category) {
     @Override
@@ -206,7 +208,7 @@ public class SynthPresetBrowserPanel extends JPanel {
         onPresetLoaded.run();
       }
     } catch (Exception ex) {
-      System.err.println("[PresetBrowser] Failed to load preset: " + ex.getMessage());
+      LOGGER.warning("[PresetBrowser] Failed to load preset: " + ex.getMessage());
     }
   }
 

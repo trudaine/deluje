@@ -2,14 +2,16 @@ package org.deluge.firmware2;
 
 import java.io.DataInputStream;
 import java.io.InputStream;
+import java.util.logging.Logger;
 
 public class WavetableLoader {
+  private static final Logger LOGGER = Logger.getLogger(WavetableLoader.class.getName());
 
   public static short[] loadTable(String resourcePath, int size) {
     short[] table = new short[size];
     try (InputStream is = WavetableLoader.class.getResourceAsStream(resourcePath)) {
       if (is == null) {
-        System.err.println("[WavetableLoader] Could not find resource: " + resourcePath);
+        LOGGER.warning("[WavetableLoader] Could not find resource: " + resourcePath);
         return table;
       }
       try (DataInputStream dis = new DataInputStream(is)) {
@@ -18,7 +20,7 @@ public class WavetableLoader {
         }
       }
     } catch (Exception e) {
-      System.err.println(
+      LOGGER.warning(
           "[WavetableLoader] Failed to load resource: "
               + resourcePath
               + " ("

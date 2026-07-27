@@ -1,5 +1,6 @@
 package org.deluge.midi;
 
+import java.util.logging.Logger;
 import org.deluge.BridgeContract;
 
 /**
@@ -20,6 +21,7 @@ import org.deluge.BridgeContract;
  * </ul>
  */
 public class MidiFeedbackService {
+  private static final Logger LOGGER = Logger.getLogger(MidiFeedbackService.class.getName());
 
   private final BridgeContract bridge;
 
@@ -58,12 +60,12 @@ public class MidiFeedbackService {
       if (portIdx >= 0) {
         midiOut.open(portIdx);
         available = true;
-        System.out.println("MIDI FB: Opened output port: " + portName);
+        LOGGER.fine("MIDI FB: Opened output port: " + portName);
       } else {
-        System.err.println("MIDI FB: Port not found: " + portName);
+        LOGGER.warning("MIDI FB: Port not found: " + portName);
       }
     } catch (Exception e) {
-      System.err.println("MIDI FB: Failed to open port: " + portName + " - " + e.getMessage());
+      LOGGER.warning("MIDI FB: Failed to open port: " + portName + " - " + e.getMessage());
     }
   }
 
@@ -106,7 +108,7 @@ public class MidiFeedbackService {
     try {
       midiOut.controlChange(channel, cc, value);
     } catch (Exception e) {
-      System.err.println("MIDI FB: sendCc failed: " + e.getMessage());
+      LOGGER.warning("MIDI FB: sendCc failed: " + e.getMessage());
     }
   }
 

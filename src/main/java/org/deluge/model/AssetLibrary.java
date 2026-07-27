@@ -4,9 +4,11 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 /** Manages the library of User assets, loaded from the filesystem via PreferencesManager paths. */
 public class AssetLibrary {
+  private static final Logger LOGGER = Logger.getLogger(AssetLibrary.class.getName());
 
   public record AssetEntry(String category, String name, String path, boolean isFactory) {
     @Override
@@ -33,7 +35,7 @@ public class AssetLibrary {
     try {
       scanRecursive(category, dir, dir, list, isFactory);
     } catch (IOException e) {
-      System.err.println("AssetLibrary: Failed to scan " + dir + ": " + e.getMessage());
+      LOGGER.warning("AssetLibrary: Failed to scan " + dir + ": " + e.getMessage());
     }
   }
 

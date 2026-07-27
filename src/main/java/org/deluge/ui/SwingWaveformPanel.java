@@ -2,6 +2,7 @@ package org.deluge.ui;
 
 import java.awt.*;
 import java.io.File;
+import java.util.logging.Logger;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
@@ -13,6 +14,7 @@ import org.deluge.project.PreferencesManager;
  * parallel background virtual threads and renders a glowing, symmetric HSL gradient wave shape.
  */
 public class SwingWaveformPanel extends JPanel {
+  private static final Logger LOGGER = Logger.getLogger(SwingWaveformPanel.class.getName());
 
   private float[] wavePoints = null;
   private String metadataText = "No Sample Loaded";
@@ -165,7 +167,7 @@ public class SwingWaveformPanel extends JPanel {
 
       return smoothed;
     } catch (Exception ex) {
-      System.err.println("[WaveformPanel] Decode error: " + ex.getMessage());
+      LOGGER.warning("[WaveformPanel] Decode error: " + ex.getMessage());
       return null;
     }
   }

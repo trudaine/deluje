@@ -10,6 +10,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.*;
@@ -22,6 +23,7 @@ import javax.swing.text.html.HTMLEditorKit;
  * line-by-line natively, and displays it with high-contrast styles and dynamic JAR image loading.
  */
 public class SwingHelpDialog extends JDialog {
+  private static final Logger LOGGER = Logger.getLogger(SwingHelpDialog.class.getName());
 
   public SwingHelpDialog(Frame parent) {
     super(parent, "Deluge-Java Workstation — Operations Manual", false);
@@ -65,7 +67,7 @@ public class SwingHelpDialog extends JDialog {
           base = devDir.toURI().toURL();
         }
       } catch (Exception ex) {
-        System.err.println("[HelpDialog] Dev base URL fallback failed: " + ex.getMessage());
+        LOGGER.warning("[HelpDialog] Dev base URL fallback failed: " + ex.getMessage());
       }
     }
     if (base != null) {

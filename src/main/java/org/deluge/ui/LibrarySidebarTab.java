@@ -273,7 +273,7 @@ public class LibrarySidebarTab extends JScrollPane {
                                       for (String mf : missingFiles) {
                                         sb.append("  - ").append(mf).append("\n");
                                       }
-                                      System.err.println(sb.toString());
+                                      LOGGER.warning(sb.toString());
                                       JOptionPane.showMessageDialog(
                                           LibrarySidebarTab.this,
                                           sb.toString(),

@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Logger;
 
 /**
  * Manages JSON-over-SysEx and HID SysEx communication with the physical Deluge hardware. Provides
@@ -11,6 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * real-time OLED and 7-segment display stream decoding.
  */
 public class DelugeSysExManager {
+  private static final Logger LOGGER = Logger.getLogger(DelugeSysExManager.class.getName());
 
   public interface SysExCallback {
     void onResponse(String jsonStr, byte[] binaryData);
@@ -113,7 +115,7 @@ public class DelugeSysExManager {
   public void sendRequest(String jsonPayload, byte[] binaryPayload, SysExCallback callback) {
     if (activeMidiOut == null) {
       if (!hasWarnedNoMidiOut) {
-        System.err.println("[SysExManager] Cannot send request: No MidiOut configured.");
+        LOGGER.warning("[SysExManager] Cannot send request: No MidiOut configured.");
         hasWarnedNoMidiOut = true;
       }
       return;
@@ -165,7 +167,7 @@ public class DelugeSysExManager {
     try {
       activeMidiOut.send(msg);
     } catch (Exception e) {
-      System.err.println("[SysExManager] Failed to send SysEx: " + e.getMessage());
+      LOGGER.warning("[SysExManager] Failed to send SysEx: " + e.getMessage());
       pendingCallbacks.remove(seq);
     }
   }
@@ -192,7 +194,7 @@ public class DelugeSysExManager {
     try {
       activeMidiOut.send(msg);
     } catch (Exception e) {
-      System.err.println("[SysExManager] Failed to send OLED stream request: " + e.getMessage());
+      LOGGER.warning("[SysExManager] Failed to send OLED stream request: " + e.getMessage());
     }
   }
 
@@ -219,7 +221,7 @@ public class DelugeSysExManager {
     try {
       activeMidiOut.send(msg);
     } catch (Exception e) {
-      System.err.println("[SysExManager] Failed to toggle debug streaming: " + e.getMessage());
+      LOGGER.warning("[SysExManager] Failed to toggle debug streaming: " + e.getMessage());
     }
   }
 
@@ -339,7 +341,7 @@ public class DelugeSysExManager {
             sessionNegotiationFuture.complete(null);
           }
         } catch (Exception e) {
-          System.err.println("[SysExManager] Failed to parse session response: " + e.getMessage());
+          LOGGER.warning("[SysExManager] Failed to parse session response: " + e.getMessage());
           if (sessionNegotiationFuture != null) {
             sessionNegotiationFuture.completeExceptionally(e);
           }

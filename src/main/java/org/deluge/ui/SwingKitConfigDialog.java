@@ -2,6 +2,7 @@ package org.deluge.ui;
 
 import java.awt.*;
 import java.util.List;
+import java.util.logging.Logger;
 import javax.swing.*;
 import org.deluge.BridgeContract;
 import org.deluge.model.Drum;
@@ -14,6 +15,7 @@ import org.deluge.shadow.core.ChuckArray;
  * preventing vertical scrolling and providing an integrated quick help status guide.
  */
 public class SwingKitConfigDialog extends JDialog {
+  private static final Logger LOGGER = Logger.getLogger(SwingKitConfigDialog.class.getName());
 
   private JLabel helpLabel;
   private JTabbedPane tabs;
@@ -196,7 +198,7 @@ public class SwingKitConfigDialog extends JDialog {
               bridge.setGlobalString("g_sample_" + idx, path);
               bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
             } catch (Exception ex) {
-              System.err.println("[KitConfig] sample load error: " + ex.getMessage());
+              LOGGER.warning("[KitConfig] sample load error: " + ex.getMessage());
             }
           }
         };

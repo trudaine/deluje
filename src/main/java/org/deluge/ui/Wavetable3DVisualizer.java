@@ -4,6 +4,7 @@ import java.awt.*;
 import java.awt.geom.Path2D;
 import java.io.File;
 import java.io.IOException;
+import java.util.logging.Logger;
 import javax.swing.*;
 import org.deluge.BridgeContract;
 import org.deluge.firmware2.WaveTable;
@@ -17,6 +18,7 @@ import org.deluge.model.SynthTrackModel;
  * glowing neon playhead plane tracking the real-time waveIndex position.
  */
 public class Wavetable3DVisualizer extends JPanel {
+  private static final Logger LOGGER = Logger.getLogger(Wavetable3DVisualizer.class.getName());
 
   private final SynthTrackModel model;
   private final int oscIndex; // 0 = Osc A, 1 = Osc B
@@ -133,7 +135,7 @@ public class Wavetable3DVisualizer extends JPanel {
                       }
                     });
               } catch (IOException e) {
-                System.err.println("[Wavetable3D] Failed to read wavetable: " + e.getMessage());
+                LOGGER.warning("[Wavetable3D] Failed to read wavetable: " + e.getMessage());
                 SwingUtilities.invokeLater(() -> this.loadedWavetable = null);
               }
             })

@@ -3,6 +3,7 @@ package org.deluge.engine;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Logger;
 import javax.sound.sampled.*;
 import org.deluge.model.ProjectModel;
 import org.deluge.ui.SwingDelugeApp;
@@ -13,6 +14,7 @@ import org.deluge.ui.SwingDelugeApp;
  * auto-starts main workstation play clocks, and records loop PCM frames straight to track slots.
  */
 public class AudioInputCaptureLine {
+  private static final Logger LOGGER = Logger.getLogger(AudioInputCaptureLine.class.getName());
   private static volatile AudioInputCaptureLine instance = null;
 
   public static AudioInputCaptureLine getInstance() {
@@ -163,7 +165,7 @@ public class AudioInputCaptureLine {
       AudioFormat format = new AudioFormat(44100, 16, 2, true, false);
       DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);
       if (!AudioSystem.isLineSupported(info)) {
-        System.err.println("[Capture] Microphone line TargetDataLine not supported by system!");
+        LOGGER.warning("[Capture] Microphone line TargetDataLine not supported by system!");
         return;
       }
       inputLine = (TargetDataLine) AudioSystem.getLine(info);
@@ -215,7 +217,7 @@ public class AudioInputCaptureLine {
                 }
               });
     } catch (Exception ex) {
-      System.err.println("[Capture] Failed to open TargetDataLine: " + ex.getMessage());
+      LOGGER.warning("[Capture] Failed to open TargetDataLine: " + ex.getMessage());
     }
   }
 
@@ -230,7 +232,7 @@ public class AudioInputCaptureLine {
           in.getFormat().matches(target) ? in : AudioSystem.getAudioInputStream(target, in);
       return pcm.readAllBytes();
     } catch (Exception e) {
-      System.err.println("[Capture] Overdub base read failed: " + path + " — " + e);
+      LOGGER.warning("[Capture] Overdub base read failed: " + path + " — " + e);
       return null;
     }
   }
@@ -316,7 +318,7 @@ public class AudioInputCaptureLine {
         }
       }
     } catch (Exception ex) {
-      System.err.println("[Capture] Failed to finalize WAV recording: " + ex.getMessage());
+      LOGGER.warning("[Capture] Failed to finalize WAV recording: " + ex.getMessage());
     }
   }
 }

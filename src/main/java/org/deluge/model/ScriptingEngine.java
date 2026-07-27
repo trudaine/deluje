@@ -8,6 +8,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * A highly portable, line-based Scripting and Macro Engine for the Deluge application. Allows
@@ -15,6 +16,7 @@ import java.util.List;
  * them back to automate workflows.
  */
 public class ScriptingEngine {
+  private static final Logger LOGGER = Logger.getLogger(ScriptingEngine.class.getName());
   private final List<Consequence> recordedActions = new ArrayList<>();
   private boolean recording = false;
 
@@ -245,17 +247,16 @@ public class ScriptingEngine {
                 project.getTracks().set(trackIdx, loadedSynth);
               }
             } else {
-              System.err.println("Preset file not found: " + presetName);
+              LOGGER.warning("Preset file not found: " + presetName);
             }
           } catch (Exception ex) {
-            System.err.println("Error loading preset " + presetName + ": " + ex.getMessage());
+            LOGGER.warning("Error loading preset " + presetName + ": " + ex.getMessage());
           }
           return null;
         }
       }
     } catch (Exception e) {
-      System.err.println(
-          "ScriptingEngine failed to parse line: " + line + " Error: " + e.getMessage());
+      LOGGER.warning("ScriptingEngine failed to parse line: " + line + " Error: " + e.getMessage());
     }
     return null;
   }
