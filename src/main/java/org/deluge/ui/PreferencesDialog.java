@@ -69,8 +69,10 @@ public class PreferencesDialog extends JDialog {
   private JLabel learnStatus;
   private JComboBox<org.deluge.midi.MidiDeviceDefinition> deviceCombo;
   private JCheckBox followEnable;
-  private JComboBox<String>[] chCombos;
-  private JComboBox<String>[] trCombos;
+  @SuppressWarnings("unchecked")
+  private final JComboBox<String>[] chCombos = new JComboBox[3];
+  @SuppressWarnings("unchecked")
+  private final JComboBox<String>[] trCombos = new JComboBox[3];
 
   public PreferencesDialog(
       java.awt.Frame owner,
@@ -432,9 +434,6 @@ public class PreferencesDialog extends JDialog {
       "Track 9", "Track 10", "Track 11", "Track 12", "Track 13", "Track 14", "Track 15", "Track 16"
     };
     char[] followLabels = {'A', 'B', 'C'};
-
-    chCombos = new JComboBox[3];
-    trCombos = new JComboBox[3];
 
     for (int i = 0; i < 3; i++) {
       final char fLabel = followLabels[i];

@@ -895,8 +895,10 @@ public class SwingDelugeAppE2ETest {
       Thread.sleep(100);
 
       // Re-retrieve page buttons list to avoid stale detached button references since rebuilding on
-      // scroll recreates them
-      buttons = (java.util.List<javax.swing.JButton>) field.get(clipGrid);
+      @SuppressWarnings("unchecked")
+      java.util.List<javax.swing.JButton> newButtons =
+          (java.util.List<javax.swing.JButton>) field.get(clipGrid);
+      buttons = newButtons;
       btn1 = buttons.get(0);
       btn2 = buttons.get(1);
 

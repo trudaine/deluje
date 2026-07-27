@@ -139,6 +139,7 @@ public class FieldBinding<T> {
   }
 
   /** Attribute of a direct child element. */
+  @SuppressWarnings("unchecked")
   public static <T> FieldBinding<T> attr(
       String childTag,
       String attrName,
@@ -157,13 +158,13 @@ public class FieldBinding<T> {
           if (!child.hasAttribute(attrName)) return;
           String raw = child.getAttribute(attrName);
           if (raw == null || raw.isBlank()) return;
-          @SuppressWarnings("unchecked")
-          T val = (T) binding.converter().apply(raw.trim());
-          ((BiConsumer<SynthTrackModel, T>) binding.setter()).accept(synth, val);
+          ((BiConsumer<SynthTrackModel, T>) binding.setter())
+              .accept(synth, (T) binding.converter().apply(raw.trim()));
         });
   }
 
   /** Attribute OR child element for a child of soundNode. Tries attribute first. */
+  @SuppressWarnings("unchecked")
   public static FieldBinding<String> attrOrChild(
       String childTag,
       String attrName,
@@ -197,6 +198,7 @@ public class FieldBinding<T> {
    * Reads text content from a named child element of a container element. E.g. {@code
    * childText("osc2", "type", setter, toUpper)} reads {@code <osc2><type>TEXT</type></osc2>}.
    */
+  @SuppressWarnings("unchecked")
   public static FieldBinding<String> childText(
       String containerTag,
       String childTag,

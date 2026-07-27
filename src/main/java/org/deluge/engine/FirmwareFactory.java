@@ -1033,7 +1033,6 @@ public class FirmwareFactory {
     return (v < 0f) ? 0f : (v > 1f ? 1f : v);
   }
 
-  /** Map a 0..1 knob to the firmware's bipolar Q31 param range; 0 -> MIN_VALUE ("off"). */
   /**
    * Map a 0..1 knob to a bipolar Q31 knob for non-volume params. 0 -> MIN_VALUE, 1 -> MAX_VALUE.
    */

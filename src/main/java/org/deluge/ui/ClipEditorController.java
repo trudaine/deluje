@@ -247,7 +247,7 @@ public class ClipEditorController {
                   double velS = bridge.getVelocity(engineRow, colId);
                   clipBtn.setBackground(
                       !stepState
-                          ? parent.velocityBlend(
+                          ? SwingGridPanel.velocityBlend(
                               getTrackColors()[modelRow % getTrackColors().length], velS)
                           : new Color(0x33, 0x33, 0x33));
 

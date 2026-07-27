@@ -39,6 +39,7 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   public final int[] customLfoWave = new int[256];
   public final org.deluge.playback.Sample[] samples = new org.deluge.playback.Sample[2];
   public final org.deluge.firmware2.Sample[] fw2SampleCache = new org.deluge.firmware2.Sample[2];
+  @SuppressWarnings("unchecked")
   public final java.util.List<org.deluge.firmware2.Sound.CompiledKeyZone>[] sourceZones =
       new java.util.List[] {
         new java.util.ArrayList<org.deluge.firmware2.Sound.CompiledKeyZone>(),

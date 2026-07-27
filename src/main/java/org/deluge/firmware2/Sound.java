@@ -328,6 +328,7 @@ public class Sound extends GlobalEffectable {
     public int cents; // C SampleHolderForVoice cents (applied via fineTuner, voice.cpp:505)
   }
 
+  @SuppressWarnings("unchecked")
   public final java.util.List<CompiledKeyZone>[] sourceZones =
       new java.util.List[] {
         new java.util.ArrayList<CompiledKeyZone>(), new java.util.ArrayList<CompiledKeyZone>()

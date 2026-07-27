@@ -31,6 +31,9 @@ final class SongProjector {
    */
   record Row(ClipModel clip, int colourOffset) {}
 
+  /** colours::grey = RGB::monochrome(7) — the "undefined area" beyond the clip's length. */
+  static final Color UNDEFINED_AREA = new Color(7, 7, 7);
+
   /**
    * @param rows per-display-row descriptors, top-to-bottom (already in the caller's bottom-up
    *     order)
@@ -38,9 +41,6 @@ final class SongProjector {
    * @param cols framebuffer width (main pad columns)
    * @param scrollX step scroll offset (column {@code c} shows step {@code scrollX + c})
    */
-  /** colours::grey = RGB::monochrome(7) — the "undefined area" beyond the clip's length. */
-  static final Color UNDEFINED_AREA = new Color(7, 7, 7);
-
   static PadCell[][] project(List<Row> rows, int rowCount, int cols, int scrollX) {
     PadCell[][] out = new PadCell[rowCount][cols];
     for (int r = 0; r < rowCount; r++) {
