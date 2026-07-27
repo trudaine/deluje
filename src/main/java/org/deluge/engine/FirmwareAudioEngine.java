@@ -561,14 +561,14 @@ public class FirmwareAudioEngine {
 
   public void panic() {
     for (GlobalEffectable sound : sounds) {
-      if (sound instanceof FirmwareSound synth) {
-        synth.releaseAllNotes();
-        // voice list removed (fw2 manages its own)
-      } else if (sound instanceof FirmwareKit kit) {
-        for (FirmwareSound drum : kit.drumSounds) {
-          drum.releaseAllNotes();
-          // voice list removed (fw2 manages its own)
+      switch (sound) {
+        case FirmwareSound synth -> synth.releaseAllNotes();
+        case FirmwareKit kit -> {
+          for (FirmwareSound drum : kit.drumSounds) {
+            drum.releaseAllNotes();
+          }
         }
+        case null, default -> {}
       }
     }
   }

@@ -83,12 +83,11 @@ public class AbletonTrackExporter {
     List<TrackModel> tracks = project.getTracks();
     for (int id = 0; id < tracks.size(); id++) {
       TrackModel track = tracks.get(id);
-      if (track instanceof SynthTrackModel stm) {
-        exportSynthTrack(doc, tracksContainer, stm, id);
-      } else if (track instanceof KitTrackModel ktm) {
-        exportKitTrack(doc, tracksContainer, ktm, id, pathRewriter);
-      } else if (track instanceof AudioTrackModel atm) {
-        exportAudioTrack(doc, tracksContainer, atm, id, pathRewriter);
+      switch (track) {
+        case SynthTrackModel stm -> exportSynthTrack(doc, tracksContainer, stm, id);
+        case KitTrackModel ktm -> exportKitTrack(doc, tracksContainer, ktm, id, pathRewriter);
+        case AudioTrackModel atm -> exportAudioTrack(doc, tracksContainer, atm, id, pathRewriter);
+        case null, default -> {}
       }
     }
 

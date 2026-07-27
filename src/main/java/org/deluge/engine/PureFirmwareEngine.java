@@ -93,12 +93,14 @@ public class PureFirmwareEngine {
       if (playbackHandler.isPlaying()) {
         playbackHandler.stop();
         for (var sound : audioEngine.sounds) {
-          if (sound instanceof org.deluge.engine.FirmwareSound fs) {
-            fs.releaseAllNotes();
-          } else if (sound instanceof org.deluge.engine.FirmwareKit fk) {
-            for (var ds : fk.drumSounds) {
-              ds.releaseAllNotes();
+          switch (sound) {
+            case org.deluge.engine.FirmwareSound fs -> fs.releaseAllNotes();
+            case org.deluge.engine.FirmwareKit fk -> {
+              for (var ds : fk.drumSounds) {
+                ds.releaseAllNotes();
+              }
             }
+            case null, default -> {}
           }
         }
       }
