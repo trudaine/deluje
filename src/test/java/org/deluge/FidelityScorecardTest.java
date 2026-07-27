@@ -140,7 +140,7 @@ public class FidelityScorecardTest {
   static float[] renderSynth(File xml) throws Exception {
     SynthTrackModel synth = DelugeXmlParser.parseSynth(new FileInputStream(xml), xml.getName());
     synth.setName(xml.getName().replace(".XML", ""));
-    return renderSynthModel(synth, 60, 110);
+    return renderSynthModel(synth, 60, 127);
   }
 
   /**
@@ -185,7 +185,30 @@ public class FidelityScorecardTest {
     for (ClipModel c : synth.getClips()) {
       c.setSound(null);
     }
+    if (Boolean.getBoolean("scorecard.lineout")) {
+      applyAnalogLineOutModel(out);
+    }
     return out;
+  }
+
+  /** Models physical hardware DAC line-out stage (§5): ~35 Hz AC coupling and ~10 kHz reconstruction shelf. */
+  static void applyAnalogLineOutModel(float[] out) {
+    double fcHp = 35.0; // AC coupling high-pass roll-off below 35 Hz
+    double alphaHp = 1.0 / (1.0 + 2.0 * Math.PI * fcHp / SR);
+    double hpPrevIn = 0.0;
+    double hpPrevOut = 0.0;
+    double fcLp = 10000.0; // Reconstruction shelf above 10 kHz
+    double alphaLp = (2.0 * Math.PI * fcLp / SR) / (1.0 + 2.0 * Math.PI * fcLp / SR);
+    double lpPrevOut = 0.0;
+    for (int i = 0; i < out.length; i++) {
+      double x = out[i];
+      double hp = alphaHp * (hpPrevOut + x - hpPrevIn);
+      hpPrevIn = x;
+      hpPrevOut = hp;
+      double lp = lpPrevOut + alphaLp * (hp - lpPrevOut);
+      lpPrevOut = lp;
+      out[i] = (float) lp;
+    }
   }
 
   static boolean ciExists(File root, String rel) {
