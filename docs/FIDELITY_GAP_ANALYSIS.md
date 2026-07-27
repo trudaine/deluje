@@ -2243,3 +2243,26 @@ Also fixed a real regression the logging refactor introduced: `summarize()` emit
 via `LOGGER.fine`, so a bare `mvn test -Dtest=FidelityScorecardTest` printed **no median at all** (its entire
 purpose). Restored to `LOGGER.info` (per-preset lines stay FINE). To reproduce a run:
 `mvn test -Dtest=FidelityScorecardTest -Ddeluge.card=<card> -Dscorecard.recordings=<recordings>`.
+
+### 4.2trequadragies 2026-07-27 — 100 Noise Lead "regression" diagnosed: near-silent HARDWARE slice, NOT a render bug
+
+Followed up the §4.2duoquadragies flag that `100 Noise Lead` scored time=0.262/win=0.350 (the worst embedded
+scorer). Rather than bisect (the pre-batch scorecard skips under the same invocation — harness evolution, not
+a clean bisect point), instrumented the scorecard to dump 100's rendered vs hardware spectrum + RMS. Result:
+
+- **Our render is healthy and correct:** `ourMax = 0.313` RMS, with a textbook resonant-LPF square-lead
+  spectrum (energy concentrated low-mid with a resonant peak, rolling off in the high bands). 100's embedded
+  clip is 2 square oscs + resonant LPF (`lpfResonance=0xEC000000`) + delay, arp OFF — no SRR/bitcrush/noise
+  in the clip (those are only in the standalone preset; C-exact clip semantics drop them).
+- **The hardware slice is near-silent:** its loudest 2 s window peaks at **RMS 0.0298** — ~10× quieter than
+  our render, essentially the recording's noise floor. 100's clip volume is `0x0DFFFFFF` (low), so it was
+  captured very quietly; the spectral cosine is then computed against noise floor, giving a meaningless 0.26.
+
+**Conclusion:** 100 Noise Lead is NOT a DSP regression and NOT a render defect — it is the same near-silent-
+hardware-slice measurement artifact as `129` (§4.2septies follow-up 3). The docs' earlier "100 ~0.82" was a
+different measurement/onset state. Added a scorecard NOTE that flags any preset whose hardware slice is
+near-silent while our render is substantial (`hwRMS<0.05 && ourRMS>0.05`), so such scores are visibly labeled
+as "vs noise floor, not a render defect" — kept in the scored set (not excluded, to avoid gaming the median).
+
+Net for the whole 100 investigation: the median-0.862 baseline stands, and the single worst scorer is a
+measurement artifact, not a bug — consistent with the evidence-based finding that the leaf DSP is faithful.

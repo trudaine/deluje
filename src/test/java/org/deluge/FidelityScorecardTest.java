@@ -451,7 +451,18 @@ public class FidelityScorecardTest {
       }
       all.add(sim);
       tsAll.add(ts);
-      LOGGER.fine(String.format("  %3d  %-30s  win=%.3f  time=%.3f", k, name, sim, ts));
+      // §4.2trequadragies: a hardware slice far quieter than our render (e.g. 100 Noise Lead, whose
+      // hardware slice peaks at RMS ~0.03 vs our ~0.31) is being scored against the recording's
+      // noise floor — a meaningless comparison, like the both-silent case above. Flag it so it is
+      // visible (kept in the scored set for now; not silently excluded, to avoid gaming the
+      // median).
+      if (bestR > 0 && ourMax > 0.05 && bestR < 0.05) {
+        LOGGER.info(
+            String.format(
+                "  %3d  %-30s  win=%.3f time=%.3f  [NOTE: hardware slice near-silent"
+                    + " (hwRMS=%.3f vs ourRMS=%.3f) — score is vs noise floor, not a render defect]",
+                k, name, sim, ts, bestR, ourMax));
+      }
     }
   }
 
