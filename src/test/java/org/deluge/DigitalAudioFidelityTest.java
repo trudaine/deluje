@@ -3,6 +3,7 @@ package org.deluge;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
+import java.util.logging.Logger;
 import org.deluge.engine.FirmwareFactory;
 import org.deluge.engine.FirmwareKit;
 import org.deluge.engine.FirmwareSound;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.Test;
  * decay envelopes).
  */
 public class DigitalAudioFidelityTest {
+  private static final Logger LOGGER = Logger.getLogger(DigitalAudioFidelityTest.class.getName());
 
   @BeforeEach
   void setUp() {
@@ -75,12 +77,12 @@ public class DigitalAudioFidelityTest {
     double meanVal = calculateMean(outputWave);
     int zeroCrossings = countZeroCrossings(outputWave, 0.001);
 
-    System.out.println("\n=== FM SYNTH DIRECT RENDERING FIDELITY REPORT ===");
-    System.out.println("  RMS power: " + rmsVal);
-    System.out.println("  Peak amplitude: " + peakVal);
-    System.out.println("  Mean (DC Offset): " + meanVal);
-    System.out.println("  Zero Crossings count: " + zeroCrossings);
-    System.out.println("=================================================");
+    LOGGER.fine("\n=== FM SYNTH DIRECT RENDERING FIDELITY REPORT ===");
+    LOGGER.fine("  RMS power: " + rmsVal);
+    LOGGER.fine("  Peak amplitude: " + peakVal);
+    LOGGER.fine("  Mean (DC Offset): " + meanVal);
+    LOGGER.fine("  Zero Crossings count: " + zeroCrossings);
+    LOGGER.fine("=================================================");
 
     // Wave assertions:
     assertTrue(rmsVal > 0.0, "Audio signal is too quiet or silent!");
@@ -112,7 +114,7 @@ public class DigitalAudioFidelityTest {
     for (int i = 0; i < 16; i++) {
       FirmwareSound drum = kit.drumSounds.get(i);
       if (drum.samples[0] != null) {
-        System.out.println(
+        LOGGER.fine(
             "[DIAG-METADATA] Lane "
                 + i
                 + ": name="
@@ -157,13 +159,13 @@ public class DigitalAudioFidelityTest {
     double meanVal = calculateMean(outputWave);
     double ratio = firstRMS / Math.max(1E-6, secondRMS);
 
-    System.out.println("\n=== DRUM KIT DIRECT RENDERING FIDELITY REPORT ===");
-    System.out.println("  Total Peak amplitude: " + peakVal);
-    System.out.println("  First Half RMS (Attack): " + firstRMS);
-    System.out.println("  Second Half RMS (Decay): " + secondRMS);
-    System.out.println("  Mean (DC Offset): " + meanVal);
-    System.out.println("  Attack/Decay Energy Ratio: " + ratio);
-    System.out.println("=================================================");
+    LOGGER.fine("\n=== DRUM KIT DIRECT RENDERING FIDELITY REPORT ===");
+    LOGGER.fine("  Total Peak amplitude: " + peakVal);
+    LOGGER.fine("  First Half RMS (Attack): " + firstRMS);
+    LOGGER.fine("  Second Half RMS (Decay): " + secondRMS);
+    LOGGER.fine("  Mean (DC Offset): " + meanVal);
+    LOGGER.fine("  Attack/Decay Energy Ratio: " + ratio);
+    LOGGER.fine("=================================================");
 
     // Direct side-by-side raw vs render comparison
     try {
@@ -172,9 +174,9 @@ public class DigitalAudioFidelityTest {
         rawFile = new File("../deluge/src/main/resources/SAMPLES/DRUMS/Kick/808 Kick.wav");
       }
       float[] rawKick = loadMonoWavChannel(rawFile, 0);
-      System.out.println("=== KICK RENDER VS RAW SIDE-BY-SIDE ===");
+      LOGGER.fine("=== KICK RENDER VS RAW SIDE-BY-SIDE ===");
       for (int i = 0; i < 10; i++) {
-        System.out.println(
+        LOGGER.fine(
             "  i="
                 + i
                 + " raw="
@@ -184,7 +186,7 @@ public class DigitalAudioFidelityTest {
                 + " ratio="
                 + (outputWave[i] / (rawKick[i] == 0 ? 1E-6f : rawKick[i])));
       }
-      System.out.println("=========================================");
+      LOGGER.fine("=========================================");
 
       // Enforce strict sample-by-sample ratio parity over the active sounding part of the kick.
       // The expected ratio is 0.125f (unity track gain scaling by 1/8). Any overflow, folding,
@@ -216,7 +218,7 @@ public class DigitalAudioFidelityTest {
       assertTrue(
           checkedSamplesCount > 1000,
           "Should have checked at least 1000 active samples for ratio parity!");
-      System.out.println(
+      LOGGER.fine(
           "[TEST] Successfully verified strict sample-by-sample ratio parity over "
               + checkedSamplesCount
               + " active samples!");
@@ -390,10 +392,10 @@ public class DigitalAudioFidelityTest {
       postHitPeak = Math.max(postHitPeak, Math.abs(engine.masterBuffer[i].l / 2147483648.0));
     }
 
-    System.out.println("=== HIGH-FIDELITY SIDECHAIN ROUTING FIDELITY CHECK ===");
-    System.out.println("  Pre-Hit Steady State Peak: " + preHitPeak);
-    System.out.println("  Post-Hit Ducked Peak Level: " + postHitPeak);
-    System.out.println("  Ducking Ratio (Ducked / Pre): " + (postHitPeak / preHitPeak));
+    LOGGER.fine("=== HIGH-FIDELITY SIDECHAIN ROUTING FIDELITY CHECK ===");
+    LOGGER.fine("  Pre-Hit Steady State Peak: " + preHitPeak);
+    LOGGER.fine("  Post-Hit Ducked Peak Level: " + postHitPeak);
+    LOGGER.fine("  Ducking Ratio (Ducked / Pre): " + (postHitPeak / preHitPeak));
 
     // Assert that ducking successfully suppressed the audio level. The master compressor adds
     // gentle makeup gain, relaxing the ducking ratio from the original 65% drop threshold.
@@ -411,8 +413,8 @@ public class DigitalAudioFidelityTest {
     for (int i = 0; i < 128; i++) {
       recoveredPeak = Math.max(recoveredPeak, Math.abs(engine.masterBuffer[i].l / 2147483648.0));
     }
-    System.out.println("  Recovered Post-Decay Peak Level: " + recoveredPeak);
-    System.out.println("======================================================");
+    LOGGER.fine("  Recovered Post-Decay Peak Level: " + recoveredPeak);
+    LOGGER.fine("======================================================");
 
     // Assert that output gain successfully recovered back to near original level (at least 80%
     // original level!)

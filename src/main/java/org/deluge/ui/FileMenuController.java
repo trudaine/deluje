@@ -19,6 +19,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.BorderFactory;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
@@ -58,6 +59,7 @@ import org.w3c.dom.Document;
  * ChUCk scripting, and Ableton project importing.
  */
 public class FileMenuController {
+  private static final Logger LOGGER = Logger.getLogger(FileMenuController.class.getName());
   private final SwingDelugeApp app;
   private final BridgeContract bridge;
   private volatile boolean exportInProgress = false;

@@ -172,10 +172,6 @@ public class ResampleFidelityTest {
     for (double rms : envelope) {
       if (rms > maxRms) maxRms = rms;
     }
-    System.out.printf("[Test] Max boosted block RMS: %.6f%n", maxRms);
-    for (int b = 0; b < totalBlocks; b++) {
-      System.out.printf("Block %d: RMS=%.6f\n", b, envelope[b]);
-    }
     assertTrue(maxRms > 0.1, "Engine output too quiet! Max RMS=" + maxRms + " (expected > 0.1)");
 
     // 6b. Count distinct note attacks (RMS rising above a threshold after being below it)

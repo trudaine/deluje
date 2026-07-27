@@ -297,8 +297,7 @@ public class AllSynthsFidelityTest {
       engineMaxRms[i] = maxRms;
     }
 
-    // Report
-    System.out.println("\n[AllSynths] === PER-SYNTH RMS REPORT ===");
+    // Calculate stats
     double minRms = Double.MAX_VALUE, maxRmsAll = 0, sumRms = 0;
     int silentCount = 0; // non-multisample silent (a real engine miss)
     int multisampleCount = 0;
@@ -306,14 +305,10 @@ public class AllSynthsFidelityTest {
       double rms = engineMaxRms[i];
       // Multisample (<sampleRanges>) presets reference SAMPLES/Multisamples WAVs that aren't in the
       // repo, so they legitimately render silent HERE (they round-trip verbatim for hardware).
-      // Don't
-      // count them as engine misses.
+      // Don't count them as engine misses.
       boolean multisample = ((SynthTrackModel) project.getTracks().get(i)).getOsc1RawXml() != null;
       if (multisample) multisampleCount++;
       else if (rms < 0.001) silentCount++;
-      System.out.printf(
-          "  %3d %-40s RMS=%.6f%s%n",
-          i, synthNames.get(i), rms, multisample ? "  [multisample-verbatim]" : "");
       if (rms < minRms && rms > 0) minRms = rms;
       if (rms > maxRmsAll) maxRmsAll = rms;
       sumRms += rms;
