@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
  * render cleanly across multi-block buffers without Q31 integer overflow, clipping, or NaN
  * generation, guarding 24dB ladder stability and phase alignment.
  */
-public class HighResonanceAndChorusParityTest {
+public class HighResonanceAndChorusBehaviorTest {
 
   private static final File SYNTH_DIR =
       new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");

@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
  * buffers without Q31 integer overflow, clipping, or DC offset drift, permanently guarding
  * sub-sample BLEP step timing against C++ oscillator.cpp.
  */
-public class SubtractivePwmAndSyncTimingParityTest {
+public class SubtractivePwmAndSyncTimingBehaviorTest {
 
   private static final File SYNTH_DIR =
       new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");

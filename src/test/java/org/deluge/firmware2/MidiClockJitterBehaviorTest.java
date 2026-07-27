@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
  * midi_engine.cpp, proving deterministic gate length calculations and cross-thread parameter
  * modulation without race conditions.
  */
-public class MidiClockJitterParityTest {
+public class MidiClockJitterBehaviorTest {
 
   private BridgeContract bridge;
   private MidiInputRouter router;

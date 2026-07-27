@@ -265,20 +265,24 @@ public class Arpeggiator {
     }
 
     /**
-     * C: arpeggiator.cpp:1402-1422 — getPhaseIncrement (default proxy for backwards compatibility)
+     * C: arpeggiator.cpp:1592-1613 — getPhaseIncrement. This no-tempo overload keeps the old fixed
+     * {@code 1 << 20} proxy for callers without a playback clock (e.g. standalone renders).
      */
     public int getPhaseIncrement(int arpRate) {
       return getPhaseIncrement(arpRate, 1 << 20);
     }
 
-    /** C: arpeggiator.cpp:1402-1422 — getPhaseIncrement with actual song tempo tick inverse */
+    /**
+     * C: arpeggiator.cpp:1592-1613 — getPhaseIncrement. {@code timePerTickInverse} is the C's
+     * {@code playbackHandler.getTimePerInternalTickInverse()} (arpeggiator.cpp:1600-1601).
+     */
     public int getPhaseIncrement(int arpRate, int timePerTickInverse) {
       int phaseIncrement;
       if (syncLevel == SyncLevel.SYNC_LEVEL_NONE) { // syncLevel == 0
-        // C: arpeggiator.cpp:1405 — arpRate >> 5
+        // C: arpeggiator.cpp:1595 — arpRate >> 5
         phaseIncrement = arpRate >> 5;
       } else {
-        // C: arpeggiator.cpp:1408-1421
+        // C: arpeggiator.cpp:1598-1610
         int rightShiftAmount = 9 - syncLevel.ordinal();
         if (rightShiftAmount < 0) rightShiftAmount = 0;
         phaseIncrement = timePerTickInverse;

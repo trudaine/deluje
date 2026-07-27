@@ -459,7 +459,7 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
       // The sidechain's synced release uses the same tick inverse (sidechain.cpp:102/121).
       fw2Sound.sidechain.timePerInternalTickInverse = fw2Sound.timePerInternalTickInverse;
       // Wire timePerInternalTickInverse into arpeggiator phase increment (C
-      // arpeggiator.cpp:1408-1421 / sound.cpp:2378)
+      // arpeggiator.cpp:1592-1613 getPhaseIncrement / sound.cpp:2458 call site)
       if (fw2Sound.arpPhaseIncrement == 0) {
         int arpRateFinal =
             org.deluge.firmware2.Patcher.computeFinalValueForParam(

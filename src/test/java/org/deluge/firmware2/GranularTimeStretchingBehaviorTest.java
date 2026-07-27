@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
  * proving bit-exact crossfade windowing and hop search alignment against C++ time_stretcher.cpp and
  * live_pitch_shifter.cpp.
  */
-public class GranularTimeStretchingParityTest {
+public class GranularTimeStretchingBehaviorTest {
 
   @Test
   public void testContinuousGranularTimeStretchingAndPitchShifting() {

@@ -786,7 +786,7 @@ public class Sound extends GlobalEffectable {
                       Param.GLOBAL_ARP_RATE, patchedParamValues[Param.GLOBAL_ARP_RATE]),
                   this.timePerInternalTickInverse);
       if (phaseInc > 0) {
-        // sound.cpp:2448 — (uint32_t)gate + 2147483648, passed FULL-SCALE (the arp itself does the
+        // sound.cpp:2456 — (uint32_t)gate + 2147483648, passed FULL-SCALE (the arp itself does the
         // single >> 8, arpeggiator.cpp:1457). Int add wraps exactly like the C uint32 add.
         int gateThreshold = arpSettings.gate + Integer.MIN_VALUE;
         arpeggiator.render(arpSettings, arpInstr, numSamples, gateThreshold, phaseInc);

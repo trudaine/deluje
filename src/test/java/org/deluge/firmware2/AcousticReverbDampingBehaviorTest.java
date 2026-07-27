@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
  * Freeverb/Mutable room damping filters without arithmetic instability or Q31 integer overflow,
  * permanently guarding acoustic high-frequency absorption against C++ reverb.cpp.
  */
-public class AcousticReverbDampingParityTest {
+public class AcousticReverbDampingBehaviorTest {
 
   private static final File SYNTH_DIR =
       new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");

@@ -218,13 +218,7 @@ public class Voice {
         VoiceSource vs = unisonParts[u].sources[s];
         vs.active = true;
         int ovr = (s == 0) ? testStartPhaseOverrideOsc1.get() : testStartPhaseOverrideOsc2.get();
-        if (ovr != -2) {
-          // Disperse unison starting phases across the cycle to match analog hardware phase
-          // distribution
-          vs.oscPos = ovr + (int) ((long) u * 2147483647L / Math.max(1, sound.numUnison));
-        } else {
-          vs.oscPos = Functions.getNoise(); // random initial phase
-        }
+        vs.oscPos = (ovr != -2) ? ovr : Functions.getNoise(); // random initial phase
         // C vups:79-82 — retrigger overrides the random phase: zero-phase base for the wave type
         // plus the configured offset. 0xFFFFFFFF (-1) = off.
         if (sound.oscRetriggerPhase[s] != 0xFFFFFFFF) {
@@ -234,15 +228,10 @@ public class Voice {
         vs.carrierFeedback = 0;
       }
       for (int m = 0; m < 2; m++) {
-        // C voice.cpp:405-407 — FM modulator phases are random on a fresh voice; pinned to
-        // dispersed 0 under
-        // the test override (so FM fidelity tests stay deterministic without unison phase spikes).
-        if (testStartPhaseOverrideOsc1.get() != -2) {
-          unisonParts[u].modulatorPhase[m] =
-              (int) ((long) u * 2147483647L / Math.max(1, sound.numUnison));
-        } else {
-          unisonParts[u].modulatorPhase[m] = Functions.getNoise();
-        }
+        // C voice.cpp:405-407 — FM modulator phases are random on a fresh voice; pinned to 0 under
+        // the test override (so FM fidelity tests stay deterministic).
+        unisonParts[u].modulatorPhase[m] =
+            (testStartPhaseOverrideOsc1.get() != -2) ? 0 : Functions.getNoise();
         // C voice.cpp:321-324 — modulator retrigger: getOscInitialPhaseForZero(SINE)=0 + offset.
         if (sound.synthMode == 1 && sound.modulatorRetriggerPhase[m] != 0xFFFFFFFF) {
           unisonParts[u].modulatorPhase[m] = sound.modulatorRetriggerPhase[m];

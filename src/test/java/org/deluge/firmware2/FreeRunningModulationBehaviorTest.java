@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
  * instability or energy divergence, proving that standalone scorecard variances result from
  * starting clock phase offsets rather than DSP bugs.
  */
-public class FreeRunningModulationParityTest {
+public class FreeRunningModulationBehaviorTest {
 
   private static final File SYNTH_DIR =
       new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");

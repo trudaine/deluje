@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
  * overflow, clipping, or NaN generation, permanently guarding band-limited pulse multiplication and
  * sync reset phase tracking against C++ oscillator.cpp.
  */
-public class PulseWidthAndSyncParityTest {
+public class PulseWidthAndSyncBehaviorTest {
 
   private static final File SYNTH_DIR =
       new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");

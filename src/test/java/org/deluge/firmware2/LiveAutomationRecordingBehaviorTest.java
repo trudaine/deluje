@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
  * bit-exact precision against C++ param_manager.cpp, proving real-time sequencer automation
  * recording and multi-step trajectory playback without zipper noise.
  */
-public class LiveAutomationRecordingParityTest {
+public class LiveAutomationRecordingBehaviorTest {
 
   private static final File SYNTH_DIR =
       new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");

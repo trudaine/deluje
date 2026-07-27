@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
  * instability or Q31 integer overflow, permanently guarding FM modulator envelope release tables
  * and keyboard tracking scaling against C++ envelope.cpp.
  */
-public class FmElectricPianoParityTest {
+public class FmElectricPianoBehaviorTest {
 
   private static final File SYNTH_DIR =
       new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");

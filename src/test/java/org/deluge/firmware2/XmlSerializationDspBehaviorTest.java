@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test;
  * cables without corruption against C++ song_save.cpp, proving bit-exact identical audio rendering
  * before and after XML serialization round-trip.
  */
-public class XmlSerializationDspParityTest {
+public class XmlSerializationDspBehaviorTest {
 
   private static final File SYNTH_DIR =
       new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");

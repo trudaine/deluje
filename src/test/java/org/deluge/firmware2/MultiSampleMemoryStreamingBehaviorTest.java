@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
  * exhaustion or GC latency spikes, proving continuous audio boundedness and sub-millisecond zone
  * resolution against C++ sample_loader.cpp / sound.cpp:146-210.
  */
-public class MultiSampleMemoryStreamingParityTest {
+public class MultiSampleMemoryStreamingBehaviorTest {
 
   private static final File SYNTH_DIR =
       new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");

@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
  * without Q31 integer overflow, clipping, or NaN generation, proving >40% rhythmic attenuation when
  * kick drums fire against C++ sidechain.cpp:57-120.
  */
-public class SidechainDuckingParityTest {
+public class SidechainDuckingBehaviorTest {
 
   private static final File SYNTH_DIR =
       new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");

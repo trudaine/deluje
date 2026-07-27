@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
  * rather than fixed standalone proxies, maintaining 100% C-compatibility with
  * arpeggiator.cpp:1402-1422 and sound.cpp:2378.
  */
-public class ArpeggiatorTempoSyncParityTest {
+public class ArpeggiatorTempoSyncBehaviorTest {
 
   @Test
   public void testSyncedPhaseIncrementFormula() {

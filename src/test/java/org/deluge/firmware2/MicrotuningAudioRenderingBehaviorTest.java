@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
  * and shifts output audio fundamental frequencies with sub-cent precision without numerical
  * instability, clipping, or DC drift against C++ voice.cpp and song.cpp.
  */
-public class MicrotuningAudioRenderingParityTest {
+public class MicrotuningAudioRenderingBehaviorTest {
 
   private static final File SYNTH_DIR =
       new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");

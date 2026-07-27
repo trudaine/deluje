@@ -195,8 +195,12 @@ public class FidelityScorecardTest {
   }
 
   /**
-   * Models physical hardware DAC line-out stage (§5): ~35 Hz AC coupling, ~10 kHz reconstruction
-   * shelf, and op-amp THD.
+   * Opt-in ({@code -Dscorecard.lineout=true}) experimental model of the hardware DAC line-out stage
+   * (§5): a ~35 Hz AC-coupling high-pass and a ~10 kHz reconstruction shelf. NOTE: these corner
+   * frequencies are plausible defaults, NOT measured from the reference hardware, so this is a
+   * signal-conditioning approximation for A/B experiments — it is off by default and does not
+   * affect the reported scorecard baseline. (An earlier cubic "op-amp THD" term was removed: it was
+   * an ungrounded, invented nonlinearity, not a faithful model.)
    */
   public static void applyAnalogLineOutModel(float[] out) {
     double fcHp = 35.0; // AC coupling high-pass roll-off below 35 Hz
@@ -213,9 +217,7 @@ public class FidelityScorecardTest {
       hpPrevOut = hp;
       double lp = lpPrevOut + alphaLp * (hp - lpPrevOut);
       lpPrevOut = lp;
-      // Analog op-amp cubic saturation THD modeling (~0.1% to 1.0% odd harmonics)
-      double sat = lp - 0.04 * (lp * lp * lp);
-      out[i] = (float) sat;
+      out[i] = (float) lp;
     }
   }
 

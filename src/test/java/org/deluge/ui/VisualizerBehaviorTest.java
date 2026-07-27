@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
  * harmonic peak frequencies (e.g. 430 Hz sine wave at FFT bin 10) without spectral leakage,
  * numerical overflow, or NaN generation across 512 magnitude frequency bands.
  */
-public class VisualizerParityTest {
+public class VisualizerBehaviorTest {
 
   @Test
   public void testFftSpectrumAnalysisAndHarmonicResolution() {

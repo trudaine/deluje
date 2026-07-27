@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
  * integer overflow, clipping, or NaN generation, permanently guarding operator self-modulation
  * saturation and amplitude ramping against C++ voice.cpp:1703-1859.
  */
-public class FmFeedbackAndSelfModulationParityTest {
+public class FmFeedbackAndSelfModulationBehaviorTest {
 
   private static final File SYNTH_DIR =
       new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
