@@ -340,6 +340,22 @@ public class DelugeXmlUtil {
     }
   }
 
+  /**
+   * Boolean counterpart of {@link #attrOrChildText}. The firmware reads every {@code <sound>} /
+   * source field with {@code readTagOrAttributeValueInt()} (sound.cpp:3300-3400), so both {@code
+   * <osc2 oscillatorSync="1"/>} and {@code <osc2><oscillatorSync>1</oscillatorSync></osc2>} are
+   * valid on hardware. Attribute-only reads silently drop the element form — which is what the
+   * older, hand-written preset files on real SD cards actually use.
+   */
+  public static void readBoolAttrOrChild(
+      Element el, String name, java.util.function.Consumer<Boolean> setter) {
+    String val = attrOrChildText(el, name);
+    if (val != null && !val.isBlank()) {
+      String v = val.trim();
+      setter.accept("true".equalsIgnoreCase(v) || "1".equals(v));
+    }
+  }
+
   public static String attrOrChildText(Element el, String name) {
     String val = readAttr(el, name);
     if (val == null || val.isEmpty()) {

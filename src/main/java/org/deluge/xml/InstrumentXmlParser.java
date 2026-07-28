@@ -225,22 +225,21 @@ public class InstrumentXmlParser {
         }
       }
 
-      // Osc1 sample playback params (loopMode, reversed, timeStretch)
-      String lmStr = osc1.getAttribute("loopMode");
+      // Osc1 sample playback params (loopMode, reversed, timeStretch). The firmware reads these
+      // with readTagOrAttributeValueInt (sound.cpp:3300-3400), so the child-element form is just as
+      // valid as the attribute form and real preset files use both.
+      String lmStr = attrOrChildText(osc1, "loopMode");
       if (lmStr != null && !lmStr.isBlank()) {
         try {
-          synth.setOsc1LoopMode(Integer.parseInt(lmStr));
+          synth.setOsc1LoopMode(Integer.parseInt(lmStr.trim()));
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
       }
-      readAttrBool(osc1, "reversed", synth::setOsc1Reversed);
-      String tsStr = osc1.getAttribute("timeStretchEnable");
-      if (tsStr != null && !tsStr.isBlank()) {
-        synth.setOsc1TimeStretch("true".equalsIgnoreCase(tsStr) || "1".equals(tsStr));
-      }
+      readBoolAttrOrChild(osc1, "reversed", synth::setOsc1Reversed);
+      readBoolAttrOrChild(osc1, "timeStretchEnable", synth::setOsc1TimeStretch);
       readAttrFloatHex(osc1, "timeStretchAmount", synth::setOsc1TimeStretchAmount, true);
-      readAttrBool(osc1, "linearInterpolation", v -> synth.setOsc1LinearInterpolation(v));
+      readBoolAttrOrChild(osc1, "linearInterpolation", v -> synth.setOsc1LinearInterpolation(v));
       // Osc1 transpose (semitones) + cents (fine detune). Presets use the CHILD-element form
       // (<osc1><transpose>12</transpose>), so read attribute-or-child. Carrier-A transpose is
       // common
@@ -307,21 +306,24 @@ public class InstrumentXmlParser {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
       }
-      // Osc2 oscillatorSync (hard sync on osc2, firmware writes only when s==1 && oscillatorSync)
-      readAttrBool(osc2, "oscillatorSync", v -> synth.setOscillatorSync(v));
+      // Osc2 oscillatorSync (hard sync on osc2, firmware writes only when s==1 && oscillatorSync).
+      // Attribute-or-child: the firmware parses it with readTagOrAttributeValueInt
+      // (sound.cpp:3365-3369) and hand-written preset files overwhelmingly use the element form —
+      // reading only the attribute silently loaded every one of those patches with sync OFF.
+      readBoolAttrOrChild(osc2, "oscillatorSync", v -> synth.setOscillatorSync(v));
       // Osc2 sample-playback attrs (loopMode, reversed, timeStretch, linearInterpolation)
-      String osc2lm = osc2.getAttribute("loopMode");
+      String osc2lm = attrOrChildText(osc2, "loopMode");
       if (osc2lm != null && !osc2lm.isBlank()) {
         try {
-          synth.setOsc2LoopMode(Integer.parseInt(osc2lm));
+          synth.setOsc2LoopMode(Integer.parseInt(osc2lm.trim()));
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
       }
-      readAttrBool(osc2, "reversed", synth::setOsc2Reversed);
-      readAttrBool(osc2, "timeStretchEnable", synth::setOsc2TimeStretch);
+      readBoolAttrOrChild(osc2, "reversed", synth::setOsc2Reversed);
+      readBoolAttrOrChild(osc2, "timeStretchEnable", synth::setOsc2TimeStretch);
       readAttrFloatHex(osc2, "timeStretchAmount", synth::setOsc2TimeStretchAmount, true);
-      readAttrBool(osc2, "linearInterpolation", synth::setOsc2LinearInterpolation);
+      readBoolAttrOrChild(osc2, "linearInterpolation", synth::setOsc2LinearInterpolation);
       // Osc2 sample fileName (attribute or child element)
       String osc2fn = osc2.getAttribute("fileName");
       if (osc2fn == null || osc2fn.isBlank()) {

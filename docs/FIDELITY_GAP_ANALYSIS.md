@@ -2477,3 +2477,45 @@ compared samples, *and* the scratch runner was reading a stale `target/classes` 
 class after I reverted the source. Two independent stale-state errors agreed with each other and produced a
 confident, wrong "no change" verdict on a fix that was correct. **Rebuild before measuring, and never trust a
 comparison whose reference you have not re-derived.**
+
+### 4.2unsexagies 2026-07-28 — the "sync cluster" is not a sync problem; but `oscillatorSync` never loaded from tag-form presets
+
+Following §4.2sexagies (renderOscSync proven bit-exact) the remaining suspect was how the *resetter* is derived in
+voice.cpp. Audited that wiring against the C and found it faithful:
+
+- `oscSyncPos[u] = unisonParts[u].sources[0].oscPos` captured **before** rendering (voice.cpp:1111-1113) — osc A is
+  the resetter, captured at block start. Java Voice.java:867-870 matches.
+- `getPhaseIncrements = oscSyncPhaseIncrement` only when `s == 0 && doingOscSync`; the synced source is
+  `s == 1 && doingOscSync` (voice.cpp:1191-1211). Java Voice.java:1187-1196 matches, including the subtle
+  `getOutAfterGettingPhaseIncrements` branch that still advances osc A's phase when osc A is inaudible
+  (voice.cpp:1198-1207 / :2013-2019 → Java :1189-1221).
+- `renderingOscillatorSyncCurrently` (sound.cpp:2119-2128) matches Sound.java:101-115.
+
+**So why do 045/046/127 score low? They are not syncing — on either side.** The scorecard renders the ALLSYN songs'
+*embedded* instrument copies, and there the 045 sound is literally:
+
+```xml
+<osc2 type="square" transpose="7" cents="0" retrigPhase="-1" />
+```
+
+The firmware writes the attribute only `if (s == 1 && oscillatorSync)` (sound.cpp:3677-3678), so its absence means
+sync was **off in the song**. `oscillatorSync` appears **zero times in either ALLSYN song**. The hardware recording
+of "045 Square Sync" is two detuned squares with no sync at all, and we render the same. **The sync-cluster lead
+from §4.2novemquinquagies is dead: those scores must be explained by something else (they are +7-semitone
+two-oscillator patches — look at unison/detune/source mix, not sync).**
+
+**Real bug found on the way (hardware-compat, not scorecard).** The firmware parses every `<sound>`/source field
+with `readTagOrAttributeValueInt()`, so `<osc2><oscillatorSync>1</oscillatorSync></osc2>` and
+`<osc2 oscillatorSync="1"/>` are equally valid. Our parser used attribute-only `readAttrBool`, so the **tag form was
+silently dropped and the patch loaded with sync OFF** — a completely different sound, no warning. On the reference
+card **23 of the 36** presets that set `oscillatorSync` use the tag form, including "045 Square Sync" and "046 Saw
+Sync" themselves. Same for `reversed` / `loopMode` / `timeStretchEnable` / `linearInterpolation` (8 tag-form presets
+each). Fixed with a new `DelugeXmlUtil.readBoolAttrOrChild` + `attrOrChildText` for `loopMode`; verified
+045/046 flip `false` → `true`. Regression test: `OscTagOrAttributeBoolTest`.
+
+This is the third instance of the same class (osc2 `type` binding, `hpfMode` §4.2nonies, now these): **anything the
+C reads with `readTagOrAttributeValue*` must be read attribute-or-child in our parser.** Worth a sweep.
+
+**Scorecard unchanged** (time-resolved n=188 mean=0.847 median=0.862) — necessarily so, since the embedded copies
+the scorecard renders carry no `oscillatorSync` in either form. The fix matters for loading real presets from a
+card, which the scorecard does not exercise.
