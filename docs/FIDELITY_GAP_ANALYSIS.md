@@ -2704,3 +2704,47 @@ seven modFX types ignoring depth and rate entirely.
 
 Priority order from this data: **HPF >> noise level > delay > modFX**. The subtractive core, the
 wavetable path and the low register are all in good shape.
+
+### 4.2quinsexagies 2026-07-28 — OPEN: HPF investigation, narrowed to the config path (NOT the filter cores)
+
+Chasing the -0.690 HPF result (§4.2quattuorsexagies). Ruled out, each with evidence:
+
+- **The filter cores are faithful.** `HpLadderGoldenBufferTest` 5/5 and `SvfGoldenBufferTest` /
+  `LadderGoldenBufferTest` all bit-exact (maxAbsDiff=0) against the C harness.
+- **`adjustVolumeForHPFResonance` / `overallOscAmplitude`** are in the C `setConfig` *signature* but
+  unused in its body, so our shorter signature is not the gap.
+- **The `doHPF` gate is faithful** (sound.cpp:2521-2527 vs Sound.java:822-832), as is the
+  `setConfig` call site (voice.cpp:998-1003 vs Voice.java:831-842).
+- **Neither side transforms morph in the patcher** — `paramFinalValues[LOCAL_HPF_MORPH]` is a raw
+  q31 on both sides.
+
+Two concrete symptoms, measured on our renders of the failing CALIB cases (C4, saw, LPF bypassed):
+
+1. **`HPF SVF_Band f75 q00` has an inverted response.** Our output has 100 Hz at **-57.6 dB, ABOVE**
+   the 262 Hz fundamental at -66.9 dB — it is passing lows. A high-pass at a high cutoff must do the
+   opposite. An inverted spectral tilt against a correctly high-passed hardware slice is exactly
+   what produces the observed *negative* cosine.
+2. **`HPF HPLadder f75 q00/q50`: hardware is SILENT, we output rms 0.024.** (Confirmed by per-slot
+   energy analysis of the recording — slots 37/38 of CALIB2 are the only silent ones.) Our
+   high-pass attenuates far less than the hardware's at high cutoff. Directionally our HPLadder does
+   work: the 262 Hz fundamental falls -22.4 / -31.5 / -43.2 dB across f25 / f50 / f75. It just does
+   not go far enough.
+
+**Leading hypothesis, NOT yet confirmed:** the HPF-slot morph inversion
+`((1 << 29) - 1) - hpfMorph` (filter_set.cpp:180, mirrored at FilterSet.java:129). The constant
+implies morph is expected in `[0, 2^29)`, but the value supplied is a raw q31, so at the initParams
+default (`LOCAL_HPF_MORPH = -2^31`) the subtraction overflows int32 and wraps to -1610612737. In
+`SVFilter::setConfig` (svf.cpp:68-71) the non-band branch then sets `c_low = ONE_Q31 - morph` (huge)
+and `c_high = morph` (negative) — i.e. it selects a LOW-pass, matching symptom 1. **The catch: the C
+performs the identical wrapping arithmetic, so this alone does not explain a divergence** — either
+the C's `hpfMorph` reaching that line differs from ours, or the real cause is elsewhere. That is the
+open question.
+
+NEXT: dump `paramFinalValues[LOCAL_HPF_MORPH]`, `LOCAL_HPF_FREQ` and `LOCAL_HPF_RESONANCE` at the
+`setConfig` call for one failing case and compare against a C harness run of the same values through
+`FilterSet::setConfig` + `renderHPFLong`. The filter cores being bit-exact means a golden harness at
+the *FilterSet* level (not the individual filters) will isolate this in one pass — that harness does
+not exist yet and is the thing to build.
+
+**No fix shipped.** The mechanism is not confirmed, and this session has twice shown that shipping a
+plausible-but-unverified DSP change costs more than it saves.
