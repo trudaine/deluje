@@ -2836,3 +2836,44 @@ confident "the port is wrong" reading that was actually harness/test state — t
 in the oscillator sync harness, the stale `target/classes`, and now an unreset PRNG. The tell is
 always the same and always available: check whether the two sides are being compared from the same
 initial state before believing the diff.
+
+### 4.2octosexagies 2026-07-28 — the modFX "dead knobs" were a corpus bug; the engine is fine
+
+Chased the §4.2tresexagies pre-flight finding that five of seven modFX types ignore depth and rate.
+**It was my calibration matrix, not the engine.** Corrected chain of evidence:
+
+1. **The DSP responds.** Calling `ModFx.processModFX` directly with swept depth/rate gives distinct
+   output for CHORUS, CHORUS_STEREO, DIMENSION and PHASER.
+2. **The params arrive.** Tracing the real call site shows
+   `type=CHORUS depth=131533344/526133472/2104341280 rate=1441/40159/3391296` — correct and
+   distinct on every case.
+3. **Yet the rendered audio was bit-identical** across all nine chorus depth/rate combinations.
+
+The reconciling detail is in the trace: `off=-2147483648`. `modFXOffset` is the chorus/dimension
+**base delay**, not a trim. At its minimum,
+`multiply_32x32_rshift32(kModFXMaxDelay, (offset >> 1) + 1073741824)` evaluates to **zero**
+(ModFXProcessor.cpp:86-92), so `thisModFXDelayDepth = offset * depth = 0` and the effect is bypassed
+regardless of depth. The corpus left `modFXOffset` at OFF, silently disabling **every chorus,
+StereoChorus and dimension case**. Defaulting it to mid takes modFX distinctness from **16/71 to
+35/71**, and every chorus depth/rate pair now renders differently (up to 123k differing samples).
+
+Two other pre-flight claims from §4.2tresexagies also retracted:
+
+- **"FLANGER ignores depth" is CORRECT behaviour.** The C sets `thisModFXDelayDepth =
+  kFlangerAmplitude`, a constant (ModFXProcessor.cpp:121-125). Depth genuinely does not apply to the
+  flanger. Our port matches.
+- **"WARBLE outputs silence" was a probe artifact.** The WARBLER LFO seeds `target = CONG` only on a
+  phase overflow (lfo.h:112-114), so it returns 0 for the first ~127 renders by design; over 2048
+  samples it produces normal output. Our port matches.
+
+**Consequence: CALIB1 must be re-recorded.** All 94 of its cases are modFX, and every
+chorus-family one had the effect bypassed — those recordings measure a dry signal. CALIB2/CALIB3
+already needed re-recording for the negative-cutoff bug (§4.2septensexagies), so the whole corpus
+should be regenerated and re-recorded before its scores are trusted.
+
+**Pattern worth naming.** Three corpus bugs now, all the same shape: a parameter written at a value
+that is *legal but degenerate* — filter mode strings the firmware doesn't have, negative cutoffs
+that index out of bounds, and a modFX offset that zeroes the delay line. Each produced a confident
+"the engine ignores this knob" reading. **When a knob appears dead, verify the DSP directly and dump
+the value at the call site before concluding anything about the port** — all three were caught that
+way in minutes, and none was an engine defect.

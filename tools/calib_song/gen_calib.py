@@ -129,7 +129,12 @@ PARAM_DEFAULTS = [
     ("reverbAmount", OFF),
     ("arpeggiatorRate", q31(0.5)),
     ("stutterRate", q31(0.5)), ("sampleRateReduction", OFF), ("bitCrush", OFF),
-    ("modFXOffset", OFF), ("modFXFeedback", OFF),
+    # modFXOffset is the chorus/dimension BASE DELAY, not a trim: at its minimum
+    # `multiply_32x32_rshift32(kModFXMaxDelay, (offset >> 1) + 1073741824)` evaluates to ZERO
+    # (ModFXProcessor.cpp:86-92), so thisModFXDelayDepth = offset * depth = 0 and the effect is
+    # bypassed no matter what depth says. Leaving it at OFF silently disabled every chorus,
+    # StereoChorus and dimension case in the first cut of this corpus. Default to mid.
+    ("modFXOffset", q31(0.5)), ("modFXFeedback", q31(0.5)),
     ("lpfMorph", OFF), ("hpfMorph", OFF), ("waveFold", OFF),
 ]
 
