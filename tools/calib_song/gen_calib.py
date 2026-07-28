@@ -306,7 +306,7 @@ def build_cases():
             cases.append(Case("noise", "NSE a%02d f%02d" % (amt * 100, lpf * 100),
                               osc1="saw", osc2="none",
                               params={"noiseVolume": q31(amt), "oscAVolume": OFF,
-                                      "lpfFrequency": q31(lpf), "lpfResonance": q31(0.3)},
+                                      "lpfFrequency": q31freq(lpf), "lpfResonance": q31(0.3)},
                               vary={"noiseVolume": amt, "lpfFrequency": lpf,
                                     "nondeterministic": True}))
     return cases
