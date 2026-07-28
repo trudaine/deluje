@@ -2787,3 +2787,43 @@ The 7 still-failing cases are genuine open divergences the workaround does not m
 f25/f50 (incl. q75), SVF_Band/SVF_Notch at f25, and both non-default routings (L2H, PARALLEL). The
 test is `@Tag("slow")` so `mvn test` stays green; it is committed **knowingly red** as a gate on
 those, not as a passing check.
+
+### 4.2septensexagies 2026-07-28 — filter cutoffs must be non-negative: 7 golden failures -> 1, and a corpus bug
+
+Chasing the 7 remaining FilterSet golden failures (§4.2sexsexagies). They clustered at the low
+cutoff (`hpFreq = -1073741824`), while the high cutoff passed — and the pre-existing HP ladder
+goldens had only ever used *positive* frequencies.
+
+**Root cause: filter cutoffs are not full-range q31; they must be NON-NEGATIVE.**
+`Filter::curveFrequency` (filter.h:128-136) calls `instantTan`, which indexes `tanTable` with
+`input >> 25` — an *arithmetic* shift. A negative frequency is therefore a negative index and the
+firmware reads out of bounds. There is no clamp anywhere on the path
+(`FilterSet::setConfig` -> `Filter::configure` -> `HpLadderFilter::setConfig` -> `curveFrequency`).
+Our `Functions.instantTan` clamps the index for array safety — a deliberate, already-documented
+deviation — so **negative-cutoff behaviour is unportable by construction** and must not be
+golden-tested. (The C's reads there are deterministic on desktop only because they hit whatever
+`.rodata` precedes the table; ARM's layout differs.)
+
+Real presets only ever carry non-negative cutoffs — ALLSYN uses `lpfFrequency="0x10000000"` /
+`"0x50000000"` — with `0x80000000` acting as the "off" sentinel that `doHPF` filters out before the
+filter is ever configured.
+
+Retargeting the golden matrix to valid cutoffs (0x10000000 / 0x40000000 / 0x70000000) takes
+**FilterSetGoldenBufferTest from 7 failures to 1**. Twenty-two of 23 cases — all three HPF modes
+across three cutoffs and two resonances, the full morph sweep, and the L2H routing — are bit-exact.
+
+**Same bug in the calibration corpus.** `gen_calib.py` used the plain `q31()` mapping for
+`hpfFrequency` / `lpfFrequency`, and `q31(0.25)` is `0xC0000000` — negative. So the recorded
+`HPF ... f25` cases, and the `register` group's swept-LPF cases, measured *undefined firmware
+behaviour* rather than the filter: the hardware read OOB from its `tanTable`, we clamped, and the
+two cannot agree. Fixed with a `q31freq()` helper that maps into `[0, 2^31)`; the regenerated songs
+now use only `0x20000000 / 0x40000000 / 0x5FFFFFFF`. **The affected cases need re-recording before
+their scores mean anything** — which also means the CALIB HPF median of 0.677 is partly measuring
+this artifact, not only real defects.
+
+**Still open: the PARALLEL routing** (`c_fs_route_PARA`), which diverges by ~0.4% and growing
+(sample 1: java 2166544 vs golden 2156940). Not the shared `blendBuffer` — the C's is a single
+global while ours is per-filter-instance, but `filterMono`/`filterStereo` skip the blend entirely
+when `dryFade < 0.001` (filter.h:60-63), which is now the state after the §4.2sexsexagies fix. The
+HIGH_TO_LOW and LOW_TO_HIGH routings are both bit-exact, so the defect is specific to the parallel
+sum path.

@@ -65,29 +65,35 @@ class FilterSetGoldenBufferTest {
 
   private static java.util.stream.Stream<Arguments> cases() {
     java.util.List<Case> cs = new java.util.ArrayList<>();
-    // The three cutoffs the CALIB matrix uses, at the initParams-default morph — the exact
-    // configuration whose hardware score is negative.
+    // Cutoffs are NON-NEGATIVE. curveFrequency (filter.h:128-136) feeds instantTan, which indexes
+    // tanTable with `input >> 25`; a negative frequency is a negative index and the C reads out of
+    // bounds. Our Functions.instantTan clamps for array safety, so negative-cutoff behaviour is
+    // unportable by construction and deliberately not golden-tested. Real presets only use
+    // non-negative cutoffs (0x80000000 is the "off" sentinel doHPF filters out first).
     for (FilterMode m :
         new FilterMode[] {FilterMode.HPLADDER, FilterMode.SVF_BAND, FilterMode.SVF_NOTCH}) {
       String n = name(m);
-      cs.add(Case.hp("c_fs_" + n + "_f25_q00.bin", -1073741824, MIN, m, MIN));
-      cs.add(Case.hp("c_fs_" + n + "_f50_q00.bin", 0, MIN, m, MIN));
-      cs.add(Case.hp("c_fs_" + n + "_f75_q00.bin", 1073741824, MIN, m, MIN));
-      cs.add(Case.hp("c_fs_" + n + "_f75_q50.bin", 1073741824, 0, m, MIN));
+      cs.add(Case.hp("c_fs_" + n + "_flow_q00.bin", 268435456, MIN, m, MIN));
+      cs.add(Case.hp("c_fs_" + n + "_fmid_q00.bin", 1073741824, MIN, m, MIN));
+      cs.add(Case.hp("c_fs_" + n + "_fhigh_q00.bin", 1879048192, MIN, m, MIN));
+      cs.add(Case.hp("c_fs_" + n + "_fhigh_q50.bin", 1879048192, 0, m, MIN));
     }
     // Morph sweep — the HPF slot inverts morph, and the inversion's constant implies a [0,2^29)
     // range while the value supplied is a raw q31.
     for (int morph : new int[] {-1073741824, 0, 536870911, 1073741824}) {
       String tag = morph < 0 ? "n" + (-(long) morph) : String.valueOf(morph);
-      cs.add(Case.hp("c_fs_SVF_Band_morph" + tag + ".bin", 0, 0, FilterMode.SVF_BAND, morph));
-      cs.add(Case.hp("c_fs_SVF_Notch_morph" + tag + ".bin", 0, 0, FilterMode.SVF_NOTCH, morph));
+      cs.add(
+          Case.hp("c_fs_SVF_Band_morph" + tag + ".bin", 1073741824, 0, FilterMode.SVF_BAND, morph));
+      cs.add(
+          Case.hp(
+              "c_fs_SVF_Notch_morph" + tag + ".bin", 1073741824, 0, FilterMode.SVF_NOTCH, morph));
     }
-    cs.add(Case.hp("c_fs_HPLadder_f50_q75.bin", 0, 1073741824, FilterMode.HPLADDER, MIN));
+    cs.add(Case.hp("c_fs_HPLadder_fmid_q75.bin", 1073741824, 1073741824, FilterMode.HPLADDER, MIN));
     // Both filters live, exercising the two non-default routings.
     cs.add(
         new Case(
             "c_fs_route_L2H.bin",
-            0,
+            1073741824,
             0,
             FilterMode.HPLADDER,
             MIN,
@@ -98,7 +104,7 @@ class FilterSetGoldenBufferTest {
     cs.add(
         new Case(
             "c_fs_route_PARA.bin",
-            0,
+            1073741824,
             0,
             FilterMode.HPLADDER,
             MIN,

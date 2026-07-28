@@ -87,6 +87,22 @@ def q31(frac: float) -> str:
     return "0x%08X" % (v & 0xFFFFFFFF)
 
 
+def q31freq(frac: float) -> str:
+    """Fraction in [0,1] -> a filter CUTOFF value, which must be NON-NEGATIVE.
+
+    Filter frequencies are not full-range q31. `Filter::curveFrequency` (filter.h:128-136) feeds
+    `instantTan`, which indexes `tanTable` with `input >> 25` — an arithmetic shift, so a negative
+    frequency is a negative index and the firmware reads out of bounds. Real presets only ever carry
+    non-negative cutoffs (ALLSYN uses e.g. lpfFrequency="0x10000000"/"0x50000000"), with
+    0x80000000 acting as the "off" sentinel that doHPF filters out before the filter is configured.
+
+    Using the plain q31() mapping here was a bug: q31(0.25) is 0xC0000000, i.e. NEGATIVE, so those
+    cases measured undefined firmware behaviour rather than the filter.
+    """
+    v = int(round(frac * 2147483647.0))
+    return "0x%08X" % max(0, min(2147483647, v))
+
+
 OFF = q31(0.0)
 MAX = q31(1.0)
 
@@ -203,7 +219,7 @@ def build_cases():
         for f in (0.25, 0.5):
             cases.append(Case("register", "REG lpf%02d %s" % (f * 100, tag),
                               note=note, osc2="none",
-                              params={"lpfFrequency": q31(f), "lpfResonance": q31(0.6)},
+                              params={"lpfFrequency": q31freq(f), "lpfResonance": q31(0.6)},
                               vary={"note": tag, "lpfFrequency": f, "lpfResonance": 0.6}))
 
     # ── 4. Audible HPF — every existing preset's HPF is inert ────────────────────────────────────
@@ -222,14 +238,14 @@ def build_cases():
                 cases.append(Case(
                     "hpf", "HPF %s f%02d q%02d" % (mode, freq * 100, res * 100),
                     osc2="none", hpf_mode=mode,
-                    params={"hpfFrequency": q31(freq), "hpfResonance": q31(res)},
+                    params={"hpfFrequency": q31freq(freq), "hpfResonance": q31(res)},
                     vary={"hpfMode": mode, "hpfFrequency": freq, "hpfResonance": res}))
     for mode in ["SVF_Band", "SVF_Notch"]:
         for morph in (0.25, 0.5, 0.75):
             cases.append(Case(
                 "hpf", "HPF %s morph%02d" % (mode, morph * 100),
                 osc2="none", hpf_mode=mode,
-                params={"hpfFrequency": q31(0.5), "hpfResonance": q31(0.5),
+                params={"hpfFrequency": q31freq(0.5), "hpfResonance": q31(0.5),
                         "hpfMorph": q31(morph)},
                 vary={"hpfMode": mode, "hpfMorph": morph}))
 
@@ -273,7 +289,7 @@ def build_cases():
         for morph in (0.0, 0.25, 0.5, 0.75, 1.0):
             cases.append(Case("morph", "MRP %s m%03d" % (mode, morph * 100),
                               osc2="none", lpf_mode=mode,
-                              params={"lpfFrequency": q31(0.5), "lpfResonance": q31(0.5),
+                              params={"lpfFrequency": q31freq(0.5), "lpfResonance": q31(0.5),
                                       "lpfMorph": q31(morph)},
                               vary={"lpfMode": mode, "lpfMorph": morph}))
 

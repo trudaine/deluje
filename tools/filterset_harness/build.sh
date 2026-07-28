@@ -72,23 +72,28 @@ gen() {
 }
 
 echo "regenerating FilterSet golden matrix -> $OUT"
-# The three cutoffs the CALIB matrix uses (q31 25/50/75%), at the initParams-default morph — this is
-# the exact configuration whose hardware score is negative.
+# Cutoffs must be NON-NEGATIVE. curveFrequency (filter.h:128-136) feeds instantTan, which indexes
+# tanTable with `input >> 25` — an arithmetic shift, so a negative frequency is a negative index and
+# the C reads out of bounds (deterministic on desktop, but it is reading whatever .rodata precedes
+# the table, which differs on ARM). Our port clamps that index for array safety
+# (Functions.instantTan), so negative-cutoff behaviour is unportable by construction and must not be
+# golden-tested. Real presets only ever use non-negative cutoffs; 0x80000000 is the "off" sentinel
+# that doHPF filters out before the filter is ever configured.
 for m in HPLadder SVF_Band SVF_Notch; do
-  gen -1073741824 $MIN        "$m" $MIN "${m}_f25_q00"
-  gen 0           $MIN        "$m" $MIN "${m}_f50_q00"
-  gen 1073741824  $MIN        "$m" $MIN "${m}_f75_q00"
-  gen 1073741824  0           "$m" $MIN "${m}_f75_q50"
+  gen 268435456   $MIN        "$m" $MIN "${m}_flow_q00"
+  gen 1073741824  $MIN        "$m" $MIN "${m}_fmid_q00"
+  gen 1879048192  $MIN        "$m" $MIN "${m}_fhigh_q00"
+  gen 1879048192  0           "$m" $MIN "${m}_fhigh_q50"
 done
 # Morph sweep: the leading hypothesis is that the HPF morph inversion ((1<<29)-1 - morph) overflows
 # at the q31 minimum, so sweep morph explicitly across its range.
 for mo in -1073741824 0 536870911 1073741824; do
-  gen 0 0 SVF_Band  "$mo" "SVF_Band_morph$( [ "$mo" -lt 0 ] && echo n${mo#-} || echo $mo )"
-  gen 0 0 SVF_Notch "$mo" "SVF_Notch_morph$( [ "$mo" -lt 0 ] && echo n${mo#-} || echo $mo )"
+  gen 1073741824 0 SVF_Band  "$mo" "SVF_Band_morph$( [ "$mo" -lt 0 ] && echo n${mo#-} || echo $mo )"
+  gen 1073741824 0 SVF_Notch "$mo" "SVF_Notch_morph$( [ "$mo" -lt 0 ] && echo n${mo#-} || echo $mo )"
 done
 # Resonance sweep on the ladder, plus the two routings with both filters live.
-gen 0 1073741824 HPLadder $MIN "HPLadder_f50_q75"
-"$GEN" 1073741824 0 24dB $MIN 0 0 HPLadder $MIN 0 1 128 saw "$OUT/c_fs_route_L2H.bin"
-"$GEN" 1073741824 0 24dB $MIN 0 0 HPLadder $MIN 0 2 128 saw "$OUT/c_fs_route_PARA.bin"
+gen 1073741824 1073741824 HPLadder $MIN "HPLadder_fmid_q75"
+"$GEN" 1073741824 0 24dB $MIN 1073741824 0 HPLadder $MIN 0 1 128 saw "$OUT/c_fs_route_L2H.bin"
+"$GEN" 1073741824 0 24dB $MIN 1073741824 0 HPLadder $MIN 0 2 128 saw "$OUT/c_fs_route_PARA.bin"
 
 echo "done. FilterSet golden buffers written to $OUT"
