@@ -2576,3 +2576,57 @@ should target, in priority order:
    (`tableNumber < 6`) and the low bands are entirely unmeasured.
 4. **Audible HPF** — presets written with a real `hpfMode` (`HPLadder`/`SVF`), since every existing one is inert.
 5. **Delay + modFX under feedback/saturation**, where the nonlinear stages interact.
+
+### 4.2tresexagies 2026-07-28 — CALIB: a second calibration corpus for the measured blind spots
+
+Acting on the census (§4.2duosexagies), `tools/calib_song/` generates a second calibration corpus
+targeting everything the ALLSYN songs cannot see. **243 cases across 3 songs, ~12 minutes of
+recording**, in the same geometry the scorecard already slices (clip length 768 ticks, one sound
+every 1152 ticks = a 2 s note + 1 s gap at 120 BPM).
+
+Coverage: modFX 71 (7 types x 3 depths x 3 rates + offset/feedback sweeps), HPF 36 (4 *real* modes x
+3 freqs x 3 resonances — every existing preset's HPF is inert), delay 36 (rate x feedback x pingPong
+x analog), wavetable 30 (3 generated tables x 5 positions x 2 registers), register 22 (6 osc types at
+C1/C2/C3), drive 17, LPF morph 15, noise 9, reverb send 5, dry controls 2.
+
+Design decisions worth recording:
+
+- **One variable at a time** from a fixed base voice, so a divergence points at one subsystem.
+- **Skeleton copied verbatim** from a hardware-written ALLSYN song (`template_blocks.py`: song
+  attributes, `<sections>`, reverb/delay/sidechain/songParams tail, LFO/arp/defaultParams/modKnobs).
+  Generated files therefore share the exact structure of a file the Deluge itself wrote — the surest
+  defence against `FILE_CORRUPTED`. Regenerate with `extract_template.py` if the format moves.
+- **Every param written explicitly.** Under the >=1.2.0 clip semantics (§4.2septies) a clip is a
+  fresh initParams ParamManager plus ONLY its listed tags, so each clip carries the full attribute
+  set in `Sound::writeParamsToFile` order (sound.cpp:4032-4100). Nothing depends on a default.
+- **Wavetables are generated** (`SAMPLES/WAVETABLES/*.WAV`, 2048-sample power-of-two cycles per
+  wave_table.cpp:175-204) because the card has none at all — so that group is self-contained.
+- **A manifest** (`calib_manifest.csv`) maps every case to its subsystem and varied knob values, for
+  joining against the scorecard's `-Dscorecard.csv` output.
+
+Verified before any recording exists: all three songs parse, instrument<->clip name linkage holds,
+arrangement positions are strictly increasing with matching clip indices, generation is
+byte-reproducible, and our own loader reads back 94/94/55 tracks.
+
+**Pre-flight finding — rendering all 243 through our engine and fingerprinting them (32 log-spaced
+spectral bands + 8 amplitude bins) found three groups where a knob does nothing at all:**
+
+- **modFX: only 16 of 71 distinct.** `chorus`, `StereoChorus`, `dimension`, `TapeWarble` and
+  `grainFX` do not respond to depth or rate; only `flanger` and `phaser` vary at all, and
+  `modFXOffset` changes nothing even for those. Given modFX has 0/188 coverage in ALLSYN, this has
+  never been measurable.
+- **HPF: only 18 of 36 distinct.** `SVF`, `SVF_BAND` and `SVF_NOTCH` render identically. This one is
+  **already confirmed against the C without hardware**: `renderHPFLong` dispatches only `HPLADDER`,
+  `SVF_BAND` and `SVF_NOTCH` (filter_set.cpp:26-33), so plain `SVF` in the HPF slot must be *inert*,
+  and band vs notch differ by `band_mode` (svf.cpp:48). Both distinctions are missing in our port.
+  `HPLadder` responds correctly across all 9 freq/res points.
+- **drive: 11 of 17 distinct.** `waveFold` at 25/50/75% is bit-identical — the fold param appears
+  unimplemented. (The `clippingAmount`-vs-level equivalences such as `c2 v100` == `c4 v050` are
+  plausibly correct drive-law behaviour, not necessarily a defect.)
+
+Everything else — wavetable, register, delay, morph, noise, reverb — responds to every knob.
+
+Note the asymmetry that makes this corpus worth recording: these are gaps against *expectation*, and
+only the HPF one is settled by the C source. The rest need the hardware pass. But the exercise
+already demonstrates the point of §4.2duosexagies — the moment you point a test at an unmeasured
+subsystem, unimplemented knobs fall out immediately.
