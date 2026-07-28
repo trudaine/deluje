@@ -140,13 +140,35 @@ public final class Oscillator {
       currentPhase += phaseIncrement;
       int p = currentPhase + phaseToAdd;
       int whichValue = p >>> (32 - tableSizeMagnitude);
-      long v1 = table[whichValue];
-      long v2 = table[whichValue + 1];
-      long frac = (p >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
-      long v1_32 = v1 << 16;
-      long interpolatedDiff = (((v2 << 16) - v1_32) * frac) >> 16;
-      buf[i] = (int) (v1_32 + interpolatedDiff);
+      buf[i] =
+          interpolateTableValue(table[whichValue], table[whichValue + 1], p, tableSizeMagnitude);
     }
+  }
+
+  /**
+   * The interpolation core of C {@code waveRenderingFunctionGeneral}
+   * (processing/vector_rendering_function.h:24-47), scalarised for one lane.
+   *
+   * <p>Faithfulness matters in three places that a "nicer" full-precision lerp gets wrong:
+   *
+   * <ul>
+   *   <li>{@code strength2} is an {@code ArgonHalf<uint16_t>} lane assigned from a uint32, i.e.
+   *       <b>truncated to 16 bits</b>, and is then {@code >> 1} — so the fraction's low bit is
+   *       DROPPED before the vqdmlal doubling puts it back (line 39).
+   *   <li>{@code difference = value2 - value1} is an <b>int16</b> subtract (line 44) and therefore
+   *       WRAPS. At a table discontinuity (e.g. the saw wrap, +32000 → -32000) the C's difference
+   *       is a small positive number, not the huge negative one full precision would give.
+   *   <li>{@code MultiplyDoubleAddSaturateLong} is {@code vqdmlal_s16}: {@code SAT32(acc +
+   *       SAT32(2*a*b))} — the accumulate <b>saturates</b> where a plain int add would wrap.
+   * </ul>
+   */
+  private static int interpolateTableValue(
+      int value1, int value2, int phase, int tableSizeMagnitude) {
+    // strength2[i] = (uint16_t)(phase >> (32 - 16 - mag)); strength2 >>= 1;
+    int strength2 = ((phase >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF) >>> 1;
+    int difference = (short) (value2 - value1); // int16 subtract — wraps
+    // vqdmlal_s16(value1 << 16, difference, strength2)
+    return sat32(((long) value1 << 16) + sat32(2L * difference * strength2));
   }
 
   /** {@code int[]}-table overload of {@link #renderWaveRawSegment} (e.g. sineWaveSmall). */
@@ -164,12 +186,8 @@ public final class Oscillator {
       currentPhase += phaseIncrement;
       int p = currentPhase + phaseToAdd;
       int whichValue = p >>> (32 - tableSizeMagnitude);
-      long v1 = table[whichValue];
-      long v2 = table[whichValue + 1];
-      long frac = (p >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
-      long v1_32 = v1 << 16;
-      long interpolatedDiff = (((v2 << 16) - v1_32) * frac) >> 16;
-      buf[i] = (int) (v1_32 + interpolatedDiff);
+      buf[i] =
+          interpolateTableValue(table[whichValue], table[whichValue + 1], p, tableSizeMagnitude);
     }
   }
 
@@ -423,14 +441,11 @@ public final class Oscillator {
       int p = currentPhase + phaseToAdd;
 
       int whichValue = p >>> (32 - tableSizeMagnitude);
-      long v1 = table[whichValue]; // signed int16, sign-extended
-      long v2 = table[whichValue + 1];
-
-      // 16-bit interpolation fraction (waveRenderingFunctionGeneral: strength2)
-      long frac = (p >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
-      long v1_32 = v1 << 16;
-      long interpolatedDiff = (((v2 << 16) - v1_32) * frac) >> 16;
-      int val = (int) (v1_32 + interpolatedDiff);
+      // waveRenderingFunctionGeneral's int16 lerp — see interpolateTableValue for why this is not a
+      // plain full-precision lerp (uint16 strength >>1, int16-wrapping difference, saturating
+      // accumulate).
+      int val =
+          interpolateTableValue(table[whichValue], table[whichValue + 1], p, tableSizeMagnitude);
 
       int wet = val;
       if (applyAmplitude) {

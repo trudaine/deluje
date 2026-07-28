@@ -81,4 +81,38 @@ echo "regenerating oscillator golden matrix -> $OUT"
 "$GEN" 3 0x00a00000 0          $((1<<27)) 0 512 "$OUT/c_osc_analogsquare_f.bin"
 "$GEN" 2 0x004ec4ec 0x40000000 $((1<<27)) 0 512 "$OUT/c_osc_square_pw25.bin"
 
+# Band-limited (tableNumber>=6) at pitches with rich low bits. The cases above do NOT exercise the
+# band interpolation: 0x004ec4ec lands in the crude tableNumber<6 path for saw/square, and
+# 0x00a00000 is a multiple of 2^21 so at tableSizeMagnitude 11 the interpolation fraction is 0 on
+# every sample. Without these, waveRenderingFunctionGeneral's int16 lerp is untested.
+"$GEN" 4 0x00a12345 0 $((1<<27)) 0 512 "$OUT/c_osc_saw_interp.bin"
+"$GEN" 2 0x00a12345 0 $((1<<27)) 0 512 "$OUT/c_osc_square_interp.bin"
+"$GEN" 3 0x0212abcd 0 $((1<<27)) 0 512 "$OUT/c_osc_analogsquare_interp.bin"
+"$GEN" 1 0x0212abcd 0 $((1<<27)) 0 512 "$OUT/c_osc_triangle_interp.bin"
+"$GEN" 0 0x0212abcd 0 $((1<<27)) 0 512 "$OUT/c_osc_sine_interp.bin"
+
+# ── Oscillator hard sync (render_wave.h renderOscSync + the crude per-sample reset loops) ──
+# gen_osc: ... nsamp out resetterPhaseInc [resetterPhase [retriggerPhase [applyAmp]]]
+#
+# nsamp is 128, NOT 512: the sync path reads the firmware global oscSyncRenderingBuffer
+# (SSI_TX_BUFFER_NUM_SAMPLES+4 == 132 int32) over numSamples, so a longer render walks off the end
+# of it and produces nondeterministic goldens. gen_osc hard-errors above 128.
+#
+# The pitches matter. 0x00a00000 is a multiple of 2^21, so at tableSizeMagnitude 11 the
+# interpolation fraction is 0 on EVERY sample — the band interpolation is never exercised and the
+# case passes vacuously (0/128 samples with a non-zero fraction). The pitches below carry rich low
+# bits (>=95% of samples interpolate) and span the crude (tableNumber<6) and band-limited paths.
+SYNC_PITCHES="0x00a12345 0x004ec4ec 0x0212abcd"
+SYNC_RESETTERS="0x04000000 0x02000000 0x0a000000"
+for pi in $SYNC_PITCHES; do
+  for r in $SYNC_RESETTERS; do
+    for t in 1 2 3 4; do
+      "$GEN" $t $pi 0 $((1<<27)) 0 128 "$OUT/c_osc_sync_t${t}_p${pi}_r${r}.bin" $r 0 0 0
+    done
+  done
+done
+# Same, with the amplitude stage applied (applyAmp=1) — the way the firmware actually calls it.
+"$GEN" 4 0x00a12345 0 $((1<<27)) 0 128 "$OUT/c_osc_sync_amp_saw.bin"    0x04000000 0 0 1
+"$GEN" 2 0x0212abcd 0 $((1<<27)) 0 128 "$OUT/c_osc_sync_amp_square.bin" 0x02000000 0 0 1
+
 echo "done. oscillator golden buffers written to $OUT"

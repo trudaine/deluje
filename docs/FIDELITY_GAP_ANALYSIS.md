@@ -2408,3 +2408,72 @@ oscSyncRenderingBuffer + the vst1q 4-wide overrun). Findings, well-characterized
 NEXT: instrument the Java renderOscSync session boundaries for resetterInc=0x00400000, compare the crossover sample
 index + post-reset phase against a C-harness dump; the harness sync mode (main_osc.cpp `argv[8]=resetterPhaseInc`,
 raw render) reproduces it in one command. This is the likely lever for the sync-preset scores.
+
+> **RESOLVED 2026-07-28 — see §4.2sexagies. The "sample 136 crossover divergence" above was NOT REAL: it was my
+> harness reading off the end of a 132-sample firmware global. The renderOscSync port is bit-exact. The
+> "separate gap noticed in passing" (the third bullet) WAS real, and is now fixed and golden-covered.**
+
+### 4.2sexagies 2026-07-28 — osc-sync is bit-exact; the real bug was the int16 lerp (and the "sample 136" ghost)
+
+Root-caused §4.2novemquinquagies. Two separate things were tangled together, and **the headline finding there was an
+artifact of my own harness**, not a port bug.
+
+**1. The "sample 136 crossover divergence" does not exist.** The C sync branches
+(oscillator.cpp:427-449 pulse, :475-498 general) end with an *unconditional*
+`applyAmplitudeVectorToBuffer(amplitude, numSamples, amplitudeIncrement, bufferStart, oscSyncRenderingBuffer)` —
+it reads the **global** `oscSyncRenderingBuffer`, which is `SSI_TX_BUFFER_NUM_SAMPLES + 4` = **132** int32
+(oscillator.cpp:25; definitions.h:51), because the firmware never renders more than one 128-sample audio block per
+call. My harness asked for **512** samples, so from index ~132 on the C read past the end of that global and
+accumulated whatever was there. Diagnostics that nailed it:
+
+- The C harness output was **nondeterministic across identical runs at exactly indices 136-137** (ASLR), which no
+  DSP can be. *A golden that differs from itself is a broken harness, not a port bug.*
+- Tracing `waveRenderingFunctionGeneral` showed C computing exactly Java's value for sample 136 (v1=16762,
+  strength2=0 → 16762<<16), so the divergence was introduced *after* rendering.
+- ASan: `SEGV ... in simde_vld1q_s32 ... applyAmplitudeVectorToBuffer (oscillator.cpp:518)`.
+
+With `numSamples = 128`, **all 38 sync goldens are bit-exact**: 4 wave types x 3 pitches x 3 resetter rates, plus 2
+amplitude-applied cases. `renderOscSync` (render_wave.h:26-90) — crossover search, half-sine crossfade,
+`fadeBetweenSyncs`, post-reset phase — **is a faithful port.** The harness now hard-errors above 128 samples in sync
+mode so this cannot recur. (Also: the earlier "sync TRIANGLE is bit-exact, so the crossover loop is fine" inference
+was worthless — at those pitches TRIANGLE takes the *crude per-sample* path (oscillator.cpp:176-196) and never
+enters renderOscSync at all.)
+
+**2. The real bug: `waveRenderingFunctionGeneral`'s int16 lerp was reconstructed, not translated.** Java's
+`renderWave` / `renderWaveRawSegment` did a full-precision `((v2-v1)<<16 * frac) >> 16`. The C
+(vector_rendering_function.h:24-47) does three things that differ:
+
+| C (vector_rendering_function.h) | Java (was) |
+|---|---|
+| `strength2` is an `ArgonHalf<uint16_t>` lane assigned from uint32 → truncated to 16 bits, then `>> 1` (:39) — the fraction's **low bit is dropped** before vqdmlal's doubling restores it | used the full 16-bit `frac` |
+| `difference = value2 - value1` is an **int16** subtract (:44) → **wraps** at a table discontinuity | full-precision difference |
+| `MultiplyDoubleAddSaturateLong` = `vqdmlal_s16` = `SAT32(acc + SAT32(2*a*b))` (:45) — the accumulate **saturates** | plain wrapping add |
+
+Now ported as `Oscillator.interpolateTableValue`, shared by both call sites. 62 of 128 samples per case were wrong
+before; all 48 osc goldens pass after.
+
+**Why this survived so long — the false-pass trap, again (cf. the wavetable goldens, §4.2septquinquagies).** Every
+pre-existing osc golden used a pitch that *cannot* exercise this code: `0x004ec4ec` lands in the crude
+`tableNumber<6` path for saw/square, and `0x00a00000` is a multiple of 2^21, so at `tableSizeMagnitude` 11 the
+interpolation fraction is **0 on every single sample** (measured: 0/128 samples with a non-zero fraction). The
+band-limited lerp was formally "covered" by six green goldens and actually never executed once. The matrix now uses
+pitches with rich low bits (`0x00a12345`, `0x0212abcd`: >=95% of samples interpolate), for sync *and* non-sync.
+**Rule: for any interpolating unit, assert that the fraction is non-zero, or the golden proves nothing.**
+
+**Impact: correctness only — no measured fidelity change.** Scorecard before and after this fix:
+time-resolved n=188 mean=**0.847** median=**0.862** (single-window 0.819/0.839) — *identical*. The band-limited
+tables are smooth by construction, so `difference` never overflows int16 and the error is confined to the dropped
+fraction LSB: maxAbsDiff <= 3645 out of ~1.1e9 full scale (~-110 dB). Real bit-level divergence, inaudible. It is
+recorded as a faithfulness fix, **not** a fidelity win.
+
+**The sync cluster (045 / 046 / 127) therefore remains unexplained and OPEN.** The oscillator's sync path is now
+proven bit-exact, so the cause is upstream of it — candidates: how the *resetter* phase/increment and
+`retriggerPhase` are derived per unison voice in voice.cpp:1965+/:2460-2493, or the sync-source pitch itself.
+That is where to look next, not in `renderOscSync`.
+
+**Process note (this one cost real time).** Last session I hypothesised the vqdmlal gap above, implemented it, saw
+"zero change", and reverted it as unverified. The measurement was wrong twice over: the goldens were garbage at the
+compared samples, *and* the scratch runner was reading a stale `target/classes` that still contained the patched
+class after I reverted the source. Two independent stale-state errors agreed with each other and produced a
+confident, wrong "no change" verdict on a fix that was correct. **Rebuild before measuring, and never trust a
+comparison whose reference you have not re-derived.**
