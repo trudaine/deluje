@@ -43,9 +43,19 @@ public final class FilterSet {
   public final SVFilter hpSvf = new SVFilter();
 
   private FilterMode lpfMode_ = FilterMode.OFF;
-  private FilterMode lastLPFMode_ = FilterMode.OFF;
+  // C filter_set.h:46-47 — `FilterSet() { reset(); }` and `reset()` is
+  // `memset(this, 0, sizeof(FilterSet))`, so lastLPFMode_/lastHPFMode_ start as enum value 0 ==
+  // TRANSISTOR_12DB, NOT OFF. That difference is load-bearing: on the first setConfig the C sees
+  // `lastMode != mode` and calls `filter.reset(lastMode == OFF)` => reset(FALSE), which leaves
+  // dryFade at 0, i.e. FULLY WET from sample 0. Starting these at OFF instead made it reset(TRUE),
+  // which sets dryFade=1/wetLevel=0 and fades the filter in over ~500 samples (filter.h:110-122) —
+  // so the first ~11 ms of every note came out unfiltered. On the short single notes the
+  // calibration corpus plays that dominates: it is why the CALIB HPF group scored a median of
+  // 0.677 with nine NEGATIVE-cosine cases (dry signal bleeding through an otherwise correct
+  // high-pass reads as an inverted spectral tilt). See §4.2sexsexagies.
+  private FilterMode lastLPFMode_ = FilterMode.TRANSISTOR_12DB;
   private FilterMode hpfMode_ = FilterMode.OFF;
-  private FilterMode lastHPFMode_ = FilterMode.OFF;
+  private FilterMode lastHPFMode_ = FilterMode.TRANSISTOR_12DB;
   private FilterRoute routing_ = FilterRoute.HIGH_TO_LOW;
 
   private boolean LPFOn;
@@ -59,15 +69,30 @@ public final class FilterSet {
     }
   }
 
+  /**
+   * C filter_set.h:47 — {@code void reset() { memset(this, 0, sizeof(FilterSet)); }}. Every field
+   * goes to zero, which for the filters means state cleared AND {@code dryFade = 0} / {@code
+   * wetLevel = 0} (i.e. the no-fade state, so the next configure renders fully wet), and for the
+   * mode fields means enum value 0 — {@code TRANSISTOR_12DB}, not {@code OFF}.
+   */
   public void reset() {
     lpLadder.reset(false);
     hpLadder.reset(false);
-    lpSvf.reset(true);
-    hpSvf.reset(true);
-    lpfMode_ = FilterMode.OFF;
-    lastLPFMode_ = FilterMode.OFF;
-    hpfMode_ = FilterMode.OFF;
-    lastHPFMode_ = FilterMode.OFF;
+    lpSvf.reset(false);
+    hpSvf.reset(false);
+    lpLadder.dryFade = 0.0f;
+    lpLadder.wetLevel = 0;
+    hpLadder.dryFade = 0.0f;
+    hpLadder.wetLevel = 0;
+    lpSvf.dryFade = 0.0f;
+    lpSvf.wetLevel = 0;
+    hpSvf.dryFade = 0.0f;
+    hpSvf.wetLevel = 0;
+    lpfMode_ = FilterMode.TRANSISTOR_12DB;
+    lastLPFMode_ = FilterMode.TRANSISTOR_12DB;
+    hpfMode_ = FilterMode.TRANSISTOR_12DB;
+    lastHPFMode_ = FilterMode.TRANSISTOR_12DB;
+    routing_ = FilterRoute.HIGH_TO_LOW;
     LPFOn = false;
     HPFOn = false;
   }

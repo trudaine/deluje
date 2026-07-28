@@ -2748,3 +2748,42 @@ not exist yet and is the thing to build.
 
 **No fix shipped.** The mechanism is not confirmed, and this session has twice shown that shipping a
 plausible-but-unverified DSP change costs more than it saves.
+
+### 4.2sexsexagies 2026-07-28 — FilterSet-level golden harness: found the reset-fade divergence (23 -> 7 failures)
+
+Built the harness §4.2quinsexagies called for: `tools/filterset_harness/` links the real firmware
+`filter_set.cpp` + `lpladder.cpp` + `hpladder.cpp` + `svf.cpp` and drives the whole control path
+(`setConfig` + `renderLongStereo`) with a 262 Hz saw — the C4 the calibration corpus plays. Guarded
+at one 128-sample audio block: the PARALLEL route copies through the global `tempRenderBuffer`,
+sized `SSI_TX_BUFFER_NUM_SAMPLES * 2`, and asking for more segfaults (the same class of trap as the
+oscillator sync harness, caught immediately this time). `FilterSetGoldenBufferTest`, 23 cases.
+
+**First run: 23/23 failed. Found a real divergence:**
+
+The C's `FilterSet()` calls `reset()`, which is `memset(this, 0, sizeof(FilterSet))`
+(filter_set.h:46-47). So `lastLPFMode_`/`lastHPFMode_` start at enum value **0 == TRANSISTOR_12DB,
+not OFF**. That is load-bearing: on the first `setConfig` the C sees `lastMode != mode` and calls
+`filter.reset(lastMode == OFF)` => `reset(FALSE)`, leaving `dryFade` at 0 — **fully wet from sample
+0**. Our fields started at `OFF`, making it `reset(TRUE)`, which sets `dryFade=1 / wetLevel=0` and
+fades the filter in over ~500 samples (filter.h:110-122). Our `reset()` was also non-faithful
+(it faded the SVFs in rather than zeroing). Both fixed; **23 failures -> 7**, with every morph-sweep
+case now bit-exact.
+
+**Impact on fidelity: none. Scorecards unchanged** — CALIB 0.739/0.789, ALLSYN 0.847/0.862, all
+identical to three decimals. The reason is `Voice.java:845-853`, which already forced all four
+filters to `dryFade=0 / wetLevel=ONE_Q31` on the first render. That workaround masked the defect in
+the rendering path, so correcting the root cause changes no audio. (The workaround is now redundant;
+removing it is a separate change that needs its own verification.)
+
+**So this does NOT explain the CALIB HPF result, and that stays open.** Note the f75 cases — the
+ones scoring negative against hardware — now pass in the golden. The likely reason the harness does
+not reproduce them: it drives raw q31 cutoffs (25/50/75%), whereas the voice passes
+`paramFinalValues[LOCAL_HPF_FREQ]`, a *patched* value. **The harness matrix therefore may not cover
+the actual runtime operating point.** Closing that is the next step: dump the real
+`hpFreq/hpRes/hpMorph` triple at the `setConfig` call for a failing CALIB case and add exactly those
+values to the matrix.
+
+The 7 still-failing cases are genuine open divergences the workaround does not mask — HPLadder at
+f25/f50 (incl. q75), SVF_Band/SVF_Notch at f25, and both non-default routings (L2H, PARALLEL). The
+test is `@Tag("slow")` so `mvn test` stays green; it is committed **knowingly red** as a gate on
+those, not as a passing check.
