@@ -143,6 +143,12 @@ class FilterSetGoldenBufferTest {
     Assumptions.assumeTrue(expected != null, "missing golden resource: " + c.file());
     assertEquals(NSAMP, expected.length, "golden size");
 
+    // The LP ladder's moveability is noise-modulated (LpLadderFilter: getNoise() per sample), and
+    // the C harness seeds jcong to a fixed value at process start (ladder_harness/support.cpp), so
+    // every golden was generated from the SAME PRNG state. These cases share one JVM and one static
+    // PRNG, so without this reset each case after the first LP-ladder render starts mid-stream and
+    // diverges — which is exactly what made c_fs_route_PARA fail while c_fs_route_L2H passed.
+    Functions.resetNoiseSeed();
     int[] buf = sawStereo(NSAMP);
     FilterSet fs = new FilterSet();
     fs.setConfig(

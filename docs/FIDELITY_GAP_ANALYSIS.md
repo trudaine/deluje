@@ -2821,9 +2821,18 @@ now use only `0x20000000 / 0x40000000 / 0x5FFFFFFF`. **The affected cases need r
 their scores mean anything** — which also means the CALIB HPF median of 0.677 is partly measuring
 this artifact, not only real defects.
 
-**Still open: the PARALLEL routing** (`c_fs_route_PARA`), which diverges by ~0.4% and growing
-(sample 1: java 2166544 vs golden 2156940). Not the shared `blendBuffer` — the C's is a single
-global while ours is per-filter-instance, but `filterMono`/`filterStereo` skip the blend entirely
-when `dryFade < 0.001` (filter.h:60-63), which is now the state after the §4.2sexsexagies fix. The
-HIGH_TO_LOW and LOW_TO_HIGH routings are both bit-exact, so the defect is specific to the parallel
-sum path.
+**RESOLVED — and it was my test, not the port.** Isolating the halves showed our LP-only and HP-only
+outputs each match the C exactly, and their sum equals the C's PARALLEL golden precisely — yet our
+PARALLEL render did not equal that sum. The cause: the LP ladder's moveability is noise-modulated
+(`getNoise()` per sample) and the C harness seeds `jcong` to a fixed value at process start, so
+every golden came from the same PRNG state. The Java cases share one JVM and one static PRNG, so
+each case after the first LP-ladder render started mid-stream. `route_L2H` passed only because it
+ran while the stream was still at the seed; `route_PARA` ran next and diverged. Adding
+`Functions.resetNoiseSeed()` per case — the project's own long-standing rule — makes it
+**23/23 bit-exact**.
+
+Worth naming as a recurring trap: three separate times now this harness work has produced a
+confident "the port is wrong" reading that was actually harness/test state — the 132-sample global
+in the oscillator sync harness, the stale `target/classes`, and now an unreset PRNG. The tell is
+always the same and always available: check whether the two sides are being compared from the same
+initial state before believing the diff.
