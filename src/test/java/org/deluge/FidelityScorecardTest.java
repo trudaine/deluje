@@ -494,6 +494,53 @@ public class FidelityScorecardTest {
     }
   }
 
+  /**
+   * Scores the CALIB corpus — the second calibration set that covers what ALLSYN structurally
+   * cannot see (modFX, delay, noise, wavetable oscillators, an audible HPF, and the bass register;
+   * see docs/FIDELITY_GAP_ANALYSIS.md §4.2duosexagies and tools/calib_song/).
+   *
+   * <p>Kept as its own test rather than folded into {@link #scorecard()} so the ALLSYN median stays
+   * a stable, comparable number across the whole project history — mixing in 250 new cases would
+   * silently redefine the headline metric.
+   *
+   * <p>Songs come from {@code -Dcalib.songs} (default {@code ~/a/deluge_calib/SONGS}), recordings
+   * from {@code -Dcalib.recordings} (default: the normal recordings dir). Self-skips when absent.
+   */
+  @Test
+  void calibScorecard() throws Exception {
+    File songDir =
+        new File(
+            System.getProperty(
+                "calib.songs", System.getProperty("user.home") + "/a/deluge_calib/SONGS"));
+    File recDir = new File(System.getProperty("calib.recordings", RECORDINGS_DIR.getPath()));
+    org.junit.jupiter.api.Assumptions.assumeTrue(
+        songDir.isDirectory() && new File(recDir, "CALIB1/output_000.wav").isFile(),
+        "CALIB scorecard needs the generated songs (-Dcalib.songs) and recordings"
+            + " (-Dcalib.recordings); generate with tools/calib_song/gen_calib.py");
+
+    List<Double> all = new ArrayList<>();
+    List<String> na = new ArrayList<>();
+    List<Double> tsAll = new ArrayList<>();
+    for (int part = 1; ; part++) {
+      File songFile = new File(songDir, "CALIB" + part + ".XML");
+      File recWav = new File(recDir, "CALIB" + part + "/output_000.wav");
+      if (!songFile.isFile() || !recWav.isFile()) {
+        break;
+      }
+      ProjectModel songModel =
+          DelugeXmlParser.parseSong(new FileInputStream(songFile), songFile.getName());
+      List<Renderable> items = new ArrayList<>();
+      for (org.deluge.model.TrackModel t : songModel.getTracks()) {
+        items.add(fromSongTrack(t));
+      }
+      scoreSong(items, recWav, "CALIB" + part, all, na, tsAll);
+    }
+    org.junit.jupiter.api.Assumptions.assumeTrue(!all.isEmpty(), "no CALIB songs scored");
+    LOGGER.fine(String.format("%n  CALIB not-measurable: %d", na.size()));
+    summarize("CALIB SINGLE-WINDOW", all);
+    summarize("CALIB TIME-RESOLVED", tsAll);
+  }
+
   @Test
   void scorecard() throws Exception {
     // Local analysis tool: needs the SYNTHS dir + the hardware resamplings. Skip otherwise.

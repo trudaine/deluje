@@ -2654,3 +2654,53 @@ implementation or matches the firmware. But the exercise already demonstrates th
 §4.2duosexagies — the moment you point a test at an unmeasured subsystem, dead knobs fall out
 immediately, and a generator aimed at one turns up firmware-format details (the mode-string table)
 that a corpus built from existing presets would never have exercised.
+
+### 4.2quattuorsexagies 2026-07-28 — CALIB first results: HPF is badly broken; wavetable and bass register are our BEST scores
+
+Hardware recordings of all three CALIB songs (§4.2tresexagies) arrived and are scored by the new
+`FidelityScorecardTest#calibScorecard` (songs from `-Dcalib.songs`, recordings from
+`-Dcalib.recordings`; kept as a separate test so the ALLSYN median stays a stable historical
+number). Recording geometry validated first: step 6.05 s/sound against ALLSYN's 6.13 — note the
+long-standing README claim of "3 s spacing" was wrong, it is ~6 s (768-tick note + 384-tick gap).
+CALIB2's file is 27 min because the recorder was left running; content ends at 561 s exactly like
+CALIB1, so it is unaffected.
+
+**CALIB overall: n=250, time-resolved mean 0.739, median 0.789** (ALLSYN: 0.847 / 0.862). Per group:
+
+| group | n | median | mean | min |
+|---|---|---|---|---|
+| **hpf** | 33 | **0.677** | **0.399** | **-0.690** |
+| delay | 36 | 0.738 | 0.699 | 0.494 |
+| noise | 9 | 0.768 | 0.603 | 0.132 |
+| modfx | 71 | 0.784 | 0.779 | 0.570 |
+| reverb | 5 | 0.809 | 0.800 | 0.782 |
+| drive | 17 | 0.816 | 0.800 | 0.745 |
+| morph | 25 | 0.841 | 0.805 | 0.539 |
+| **wavetable** | 30 | **0.889** | 0.873 | 0.765 |
+| **register** | 22 | **0.908** | 0.907 | 0.855 |
+
+**1. The HPF is the worst defect ever measured in this project.** Nine cases score *negative*
+cosine — our spectrum is anti-correlated with the hardware's — bottoming at **-0.690** for
+`HPF SVF_Notch f75 q50`. All nine are the `f75` (high cutoff) row across HPLadder, SVF_Band and
+SVF_Notch. This is **not** a near-silence artifact: of the f50/f75 cases only `HPLadder f50 q00` was
+flagged near-silent, so hardware produced real audio at those settings and we produce something
+spectrally opposite. Every ALLSYN preset carries the inert `hpfMode="12dB"`, so the high-pass has
+never once been compared against hardware — and it turns out to be badly wrong. **This is the single
+highest-value lead available.**
+
+**2. Wavetable (0.889) and bass register (0.908) are our two BEST groups — better than the ALLSYN
+median of 0.862.** This is the first hardware confirmation that the July 2026 wavetable fixes (the
+windowed-sinc kernel-row selection, the `vqdmulh` int16 interpolation, the cross-cycle `>>>`) and the
+crude-saw phase double-advance fix were correct. Those changes moved the ALLSYN median by 0.000
+purely because ALLSYN contains no wavetable oscillator and no note below C4 — exactly the argument
+of §4.2duosexagies, now demonstrated rather than asserted.
+
+**3. Noise: hardware is 3-10x quieter than us.** `NSE a25 f100` (hwRMS 0.005 vs ourRMS 0.059) and
+`NSE a50 f100` (0.020 vs 0.083) tripped the near-silent flag, so those cosines are unreliable — but
+the *level* gap is itself the finding: our noise source appears far too loud with the LPF open.
+
+**4. delay 0.738 and modFX 0.784** are genuine gaps, consistent with the pre-flight showing five of
+seven modFX types ignoring depth and rate entirely.
+
+Priority order from this data: **HPF >> noise level > delay > modFX**. The subtractive core, the
+wavetable path and the low register are all in good shape.
