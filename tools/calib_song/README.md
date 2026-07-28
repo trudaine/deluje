@@ -33,7 +33,7 @@ Produces:
 
 ```
 /tmp/calib_out/SONGS/CALIB1.XML  CALIB2.XML  CALIB3.XML   # 94 + 94 + 55 sounds
-/tmp/calib_out/SYNTHS/*.XML                               # 243 standalone presets
+/tmp/calib_out/SYNTHS/*.XML                               # 250 standalone presets
 /tmp/calib_out/SAMPLES/WAVETABLES/WTSAWSQ.WAV  WTHARM.WAV  WTFORM.WAV
 /tmp/calib_out/calib_manifest.csv                         # one row per case + every varied knob
 ```
@@ -41,7 +41,7 @@ Produces:
 Copy `SONGS/`, `SYNTHS/` and `SAMPLES/WAVETABLES/` onto the SD card, preserving those paths (the
 wavetable presets reference `SAMPLES/WAVETABLES/*.WAV`).
 
-## The matrix — 243 cases, ~12 min of recording
+## The matrix — 250 cases, ~12.5 min of recording
 
 Every case is a fixed base voice with **one knob moved**, so a hardware-vs-us difference points at a
 single subsystem. Interaction cases are separate and labelled in the manifest.
@@ -49,12 +49,12 @@ single subsystem. Interaction cases are separate and labelled in the manifest.
 | group | n | what it covers |
 | --- | --- | --- |
 | `modfx` | 71 | 7 types (chorus, StereoChorus, flanger, phaser, TapeWarble, dimension, grainFX) × 3 depths × 3 rates, plus offset/feedback sweeps for flanger and phaser |
-| `hpf` | 36 | 4 real HPF modes (HPLadder, SVF, SVF_BAND, SVF_NOTCH) × 3 frequencies × 3 resonances — every existing preset's HPF is inert |
+| `hpf` | 33 | 3 real HPF modes (HPLadder, SVF_Band, SVF_Notch) × 3 frequencies × 3 resonances, plus a morph sweep — every existing preset's HPF is inert |
 | `delay` | 36 | rate × feedback × pingPong × analog |
 | `wavetable` | 30 | 3 generated tables (16/8/64 cycles) × 5 positions × 2 registers |
 | `register` | 22 | 6 osc types at C1/C2/C3 — below ~C3 the oscillators leave the band-limited tables for the crude `tableNumber<6` paths, never once compared to hardware |
 | `drive` | 17 | clippingAmount 1–7 × 2 levels, plus waveFold |
-| `morph` | 15 | 3 LPF modes × 5 morph positions |
+| `morph` | 25 | 5 LPF modes × 5 morph positions |
 | `noise` | 9 | noise volume × LPF cutoff |
 | `reverb` | 5 | send amount |
 | `control` | 2 | dry saw at C4 and C2, to separate session-level drift from the effect under test |
@@ -84,20 +84,21 @@ and 1 s of silence at 120 BPM — so the scorecard's onset detection works uncha
 ## Pre-flight: what our engine already does with these cases
 
 Before any hardware exists, every case was rendered through our engine and fingerprinted
-(32 log-spaced spectral bands + 8 amplitude bins). All 243 render **non-silent**. Cases that produce
+(32 log-spaced spectral bands + 8 amplitude bins). All 250 render **non-silent**. Cases that produce
 a *bit-identical* fingerprint to another case in their group mean the knob does nothing in our
 engine — which is worth knowing before spending time in front of the hardware:
 
 | group | distinct / n | finding |
 | --- | --- | --- |
-| `wavetable`, `register`, `delay`, `morph`, `noise`, `reverb` | all distinct | every knob is wired |
-| `modfx` | **16 / 71** | `chorus`, `StereoChorus`, `dimension`, `TapeWarble`, `grainFX` do not respond to depth or rate at all; only `flanger` and `phaser` vary. `modFXOffset` changes nothing for either (`o25` ≡ `o75` at equal feedback). |
-| `hpf` | **18 / 36** | `SVF`, `SVF_BAND` and `SVF_NOTCH` render **identically**. In the C only `SVF_BAND` and `SVF_NOTCH` are dispatched by `renderHPFLong` (filter_set.cpp:26-33) — plain `SVF` in the HPF slot should be *inert* — and band vs notch differ by `band_mode` (svf.cpp:48). Both distinctions appear to be missing. `HPLadder` responds correctly. |
-| `drive` | **11 / 17** | `waveFold` at 25/50/75 % is bit-identical — the fold param appears unimplemented. The `clippingAmount` ≡ level equivalences (`c2 v100` ≡ `c4 v050`) are plausibly correct drive-law behaviour, not necessarily a bug. |
+| `wavetable`, `register`, `delay`, `noise`, `reverb` | all distinct | every knob is wired |
+| `modfx` | **16 / 71** | `chorus`, `StereoChorus`, `dimension`, `TapeWarble`, `grainFX` do not respond to depth or rate at all; only `flanger` and `phaser` vary. `modFXOffset` changes nothing for either (`o25` ≡ `o75` at equal feedback). **The one real lead here.** |
+| `drive` | **11 / 17** | `waveFold` at 25/50/75 % is bit-identical — the fold param appears unimplemented. The `clippingAmount` ≡ level equivalences (`c2 v100` ≡ `c4 v050`) are plausibly correct drive-law behaviour, not a bug. |
+| `hpf` | 24 / 33 | `SVF_Band` ≡ `SVF_Notch` **only at the morph endpoints**, where their coefficient sets genuinely coincide (svf.cpp:59-77). The morph sweep separates them. Not a defect. |
+| `morph` | 23 / 25 | Same endpoint degeneracy: `SVF_Band` ≡ `SVF_Notch` at morph 0 % and 100 % only. Not a defect. |
 
-These are gaps between our engine and *expectation*; only the HPF `SVF`/`SVF_BAND`/`SVF_NOTCH` one is
-already confirmed against the C source. The rest need the hardware recording to settle — which is
-the entire point of the corpus.
+Only the modFX and `waveFold` rows are real leads; the HPF/morph collisions are correct behaviour at
+degenerate coefficient points. All of these are gaps against *expectation* — the hardware pass is
+what settles them, which is the entire point of the corpus.
 
 ## Joining scores back to the matrix
 

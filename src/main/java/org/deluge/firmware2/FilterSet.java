@@ -179,7 +179,13 @@ public final class FilterSet {
     if (HPFOn) {
       if (hpfMode_ == FilterMode.HPLADDER) {
         hpLadder.filterStereo(buf, startIdx, endIdx);
-      } else {
+      } else if ((hpfMode_ == FilterMode.SVF_BAND) || (hpfMode_ == FilterMode.SVF_NOTCH)) {
+        // C filter_set.cpp:36-43 guards this branch on SVF_BAND/SVF_NOTCH. It is NOT an unqualified
+        // else: HPFOn is `hpfmode != OFF` (filter_set.cpp:139), so an LP-mode string carried in the
+        // hpfMode slot ("12dB"/"24dB"/"24dBDrive" — which is what every ALLSYN instrument has)
+        // leaves HPFOn true while matching no render branch. On hardware that is an INERT
+        // high-pass; rendering it through the SVF here would apply a filter the firmware never
+        // applies. See docs/FIDELITY_GAP_ANALYSIS.md §4.2nonies.
         hpSvf.filterStereo(buf, startIdx, endIdx);
       }
     }

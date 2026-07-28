@@ -2580,14 +2580,14 @@ should target, in priority order:
 ### 4.2tresexagies 2026-07-28 — CALIB: a second calibration corpus for the measured blind spots
 
 Acting on the census (§4.2duosexagies), `tools/calib_song/` generates a second calibration corpus
-targeting everything the ALLSYN songs cannot see. **243 cases across 3 songs, ~12 minutes of
+targeting everything the ALLSYN songs cannot see. **250 cases across 3 songs, ~12.5 minutes of
 recording**, in the same geometry the scorecard already slices (clip length 768 ticks, one sound
 every 1152 ticks = a 2 s note + 1 s gap at 120 BPM).
 
-Coverage: modFX 71 (7 types x 3 depths x 3 rates + offset/feedback sweeps), HPF 36 (4 *real* modes x
-3 freqs x 3 resonances — every existing preset's HPF is inert), delay 36 (rate x feedback x pingPong
+Coverage: modFX 71 (7 types x 3 depths x 3 rates + offset/feedback sweeps), HPF 33 (3 *real* modes x
+3 freqs x 3 resonances + a morph sweep — every existing preset's HPF is inert), delay 36 (rate x feedback x pingPong
 x analog), wavetable 30 (3 generated tables x 5 positions x 2 registers), register 22 (6 osc types at
-C1/C2/C3), drive 17, LPF morph 15, noise 9, reverb send 5, dry controls 2.
+C1/C2/C3), drive 17, LPF morph 25, noise 9, reverb send 5, dry controls 2.
 
 Design decisions worth recording:
 
@@ -2608,25 +2608,49 @@ Verified before any recording exists: all three songs parse, instrument<->clip n
 arrangement positions are strictly increasing with matching clip indices, generation is
 byte-reproducible, and our own loader reads back 94/94/55 tracks.
 
-**Pre-flight finding — rendering all 243 through our engine and fingerprinting them (32 log-spaced
-spectral bands + 8 amplitude bins) found three groups where a knob does nothing at all:**
+**Pre-flight finding — rendering all cases through our engine and fingerprinting them (32 log-spaced
+spectral bands + 8 amplitude bins). All 250 render non-silent. Cases with a bit-identical
+fingerprint to a group-mate mean the knob does nothing:**
 
 - **modFX: only 16 of 71 distinct.** `chorus`, `StereoChorus`, `dimension`, `TapeWarble` and
   `grainFX` do not respond to depth or rate; only `flanger` and `phaser` vary at all, and
-  `modFXOffset` changes nothing even for those. Given modFX has 0/188 coverage in ALLSYN, this has
-  never been measurable.
-- **HPF: only 18 of 36 distinct.** `SVF`, `SVF_BAND` and `SVF_NOTCH` render identically. This one is
-  **already confirmed against the C without hardware**: `renderHPFLong` dispatches only `HPLADDER`,
-  `SVF_BAND` and `SVF_NOTCH` (filter_set.cpp:26-33), so plain `SVF` in the HPF slot must be *inert*,
-  and band vs notch differ by `band_mode` (svf.cpp:48). Both distinctions are missing in our port.
-  `HPLadder` responds correctly across all 9 freq/res points.
+  `modFXOffset` changes nothing even for those. With 0/188 coverage in ALLSYN this has never been
+  measurable. **This is the one substantial lead.**
 - **drive: 11 of 17 distinct.** `waveFold` at 25/50/75% is bit-identical — the fold param appears
   unimplemented. (The `clippingAmount`-vs-level equivalences such as `c2 v100` == `c4 v050` are
-  plausibly correct drive-law behaviour, not necessarily a defect.)
+  plausibly correct drive-law behaviour, not a defect.)
+- **hpf 24/33 and morph 23/25**: `SVF_Band` == `SVF_Notch`, but **only at the morph endpoints**,
+  where the two coefficient sets genuinely coincide (svf.cpp:59-77 — at morph 0 the band branch
+  gives c_low=ONE, c_band=0, c_high=0, identical to the non-band branch). The added morph sweep
+  separates them everywhere else. **Not a defect.**
 
-Everything else — wavetable, register, delay, morph, noise, reverb — responds to every knob.
+Everything else — wavetable, register, delay, noise, reverb — responds to every knob.
 
-Note the asymmetry that makes this corpus worth recording: these are gaps against *expectation*, and
-only the HPF one is settled by the C source. The rest need the hardware pass. But the exercise
-already demonstrates the point of §4.2duosexagies — the moment you point a test at an unmeasured
-subsystem, unimplemented knobs fall out immediately.
+**Two corrections to the first cut of this section, both worth recording as process lessons:**
+
+1. *The generator used mode strings the firmware does not have.* The canonical spellings live in an
+   `EnumStringMap` (filter_config.cpp:8-14): `"12dB"`, `"24dB"`, `"24dBDrive"`, `"SVF_Band"`,
+   `"SVF_Notch"`, `"HPLadder"`, `"Off"`. There is **no plain `"SVF"` mode at all**, and the map is
+   case-sensitive, so the first cut's `"SVF"`, `"SVF_BAND"`, `"SVF_NOTCH"` would have matched
+   nothing on hardware and silently measured a fallback — a wasted recording session. Fixed to the
+   exact spellings; the lesson generalises: **any string written into a calibration file must be
+   copied from the firmware's own serialisation table, never guessed from our enum names.**
+2. *The "band vs notch distinction is missing" claim was wrong.* A direct FilterSet probe
+   (SVF_BAND vs SVF_NOTCH over the same buffer) shows sumAbsDiff=0 only at `hpfMorph=0` and large
+   differences at 0x80000000 and 0x40000000 — the modes are correctly distinct. The observed
+   collapse was caused by (1) plus morph sitting at a degenerate point. Retracted.
+
+**One real C divergence was found and fixed while checking this:** `FilterSet.renderHPFLongStereo`
+had an unqualified `else` falling through to the SVF, where the C guards it on
+`(SVF_BAND || SVF_NOTCH)` (filter_set.cpp:36-43). Since `HPFOn` is `hpfmode != OFF`
+(filter_set.cpp:139), any hpfMode that is neither OFF nor a rendered mode must be an **inert**
+high-pass; our version would have filtered. Today it is unreachable (our loader maps the LP-mode
+strings straight to OFF, §4.2nonies), so the scorecard is unchanged at mean 0.847 / median 0.862 —
+this closes a latent divergence rather than altering current output.
+
+Note the asymmetry that makes this corpus worth recording: modFX and `waveFold` are gaps against
+*expectation*, and only the hardware pass can settle whether our silence-on-depth is a missing
+implementation or matches the firmware. But the exercise already demonstrates the point of
+§4.2duosexagies — the moment you point a test at an unmeasured subsystem, dead knobs fall out
+immediately, and a generator aimed at one turns up firmware-format details (the mode-string table)
+that a corpus built from existing presets would never have exercised.

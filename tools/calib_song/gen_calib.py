@@ -210,14 +210,28 @@ def build_cases():
     # All 188 ALLSYN sounds carry hpfMode="12dB", an LP-mode string that matches no branch of the
     # HPF dispatch (filter_set.cpp:26-41), so hpfFrequency is ignored on hardware. These use real
     # HPF modes so the high-pass actually renders.
-    for mode in ["HPLadder", "SVF", "SVF_BAND", "SVF_NOTCH"]:
+    # Mode strings MUST be the firmware's exact spellings from the EnumStringMap in
+    # filter_config.cpp:8-14 — "12dB", "24dB", "24dBDrive", "SVF_Band", "SVF_Notch", "HPLadder",
+    # "Off". There is no plain "SVF" mode, and the map is case-sensitive, so "SVF_BAND" would not
+    # match on hardware and the case would silently measure some fallback instead.
+    # hpfMorph is swept too: at morph 0 the band and notch coefficient sets coincide, so a matrix
+    # that left morph at its default could not tell those two modes apart.
+    for mode in ["HPLadder", "SVF_Band", "SVF_Notch"]:
         for freq in (0.25, 0.5, 0.75):
             for res in (0.0, 0.5, 0.9):
                 cases.append(Case(
-                    "hpf", "HPF %s f%02d q%02d" % (mode[:8], freq * 100, res * 100),
+                    "hpf", "HPF %s f%02d q%02d" % (mode, freq * 100, res * 100),
                     osc2="none", hpf_mode=mode,
                     params={"hpfFrequency": q31(freq), "hpfResonance": q31(res)},
                     vary={"hpfMode": mode, "hpfFrequency": freq, "hpfResonance": res}))
+    for mode in ["SVF_Band", "SVF_Notch"]:
+        for morph in (0.25, 0.5, 0.75):
+            cases.append(Case(
+                "hpf", "HPF %s morph%02d" % (mode, morph * 100),
+                osc2="none", hpf_mode=mode,
+                params={"hpfFrequency": q31(0.5), "hpfResonance": q31(0.5),
+                        "hpfMorph": q31(morph)},
+                vary={"hpfMode": mode, "hpfMorph": morph}))
 
     # ── 5. Delay — 0/188 coverage ───────────────────────────────────────────────────────────────
     # pingPong and analog are structural (instrument <delay> tag); rate/feedback are clip params.
@@ -254,9 +268,10 @@ def build_cases():
                           vary={"waveFold": fold}))
 
     # ── 8. Filter morph + LPF modes ─────────────────────────────────────────────────────────────
-    for mode in ["12dB", "24dB", "SVF"]:
+    # Same rule as the HPF group: exact firmware spellings only (filter_config.cpp:8-14).
+    for mode in ["12dB", "24dB", "24dBDrive", "SVF_Band", "SVF_Notch"]:
         for morph in (0.0, 0.25, 0.5, 0.75, 1.0):
-            cases.append(Case("morph", "MRP %s m%03d" % (mode[:4], morph * 100),
+            cases.append(Case("morph", "MRP %s m%03d" % (mode, morph * 100),
                               osc2="none", lpf_mode=mode,
                               params={"lpfFrequency": q31(0.5), "lpfResonance": q31(0.5),
                                       "lpfMorph": q31(morph)},
