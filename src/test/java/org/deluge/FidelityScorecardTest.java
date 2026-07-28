@@ -32,6 +32,29 @@ public class FidelityScorecardTest {
               "scorecard.recordings", "src/test/resources/fidelity/hardware-recordings"));
   static final int SR = 44100;
 
+  /**
+   * Optional per-synth CSV ({@code name,singleWindow,timeResolved}), enabled with {@code
+   * -Dscorecard.csv=/path/out.csv}. The summary median alone cannot tell you <em>which</em>
+   * subsystem is costing fidelity; a per-synth table can be joined against preset features (osc
+   * type, FX enabled, unison, ...) to find the systematic gaps instead of guessing at families.
+   */
+  private static final java.io.PrintWriter CSV = openCsv();
+
+  private static java.io.PrintWriter openCsv() {
+    String path = System.getProperty("scorecard.csv");
+    if (path == null || path.isBlank()) {
+      return null;
+    }
+    try {
+      java.io.PrintWriter w = new java.io.PrintWriter(new java.io.FileWriter(path), true);
+      w.println("name,single_window,time_resolved");
+      return w;
+    } catch (java.io.IOException e) {
+      LOGGER.warning("cannot open scorecard.csv: " + e);
+      return null;
+    }
+  }
+
   // ---- WAV (16/24-bit, stereo->mono float) ----
   static float[] readWavMono(File f) throws Exception {
     try (RandomAccessFile raf = new RandomAccessFile(f, "r")) {
@@ -451,6 +474,11 @@ public class FidelityScorecardTest {
       }
       all.add(sim);
       tsAll.add(ts);
+      // Per-synth row, for correlating scores against preset features (which subsystem is actually
+      // costing us). Enable with -Dscorecard.csv=/path/out.csv.
+      if (CSV != null) {
+        CSV.printf("%s,%.4f,%.4f%n", name.replace(',', ' '), sim, ts);
+      }
       // §4.2trequadragies: a hardware slice far quieter than our render (e.g. 100 Noise Lead, whose
       // hardware slice peaks at RMS ~0.03 vs our ~0.31) is being scored against the recording's
       // noise floor — a meaningless comparison, like the both-silent case above. Flag it so it is

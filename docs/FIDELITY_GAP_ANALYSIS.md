@@ -2519,3 +2519,60 @@ C reads with `readTagOrAttributeValue*` must be read attribute-or-child in our p
 **Scorecard unchanged** (time-resolved n=188 mean=0.847 median=0.862) — necessarily so, since the embedded copies
 the scorecard renders carry no `oscillatorSync` in either form. The fix matters for loading real presets from a
 card, which the scorecard does not exercise.
+
+### 4.2duosexagies 2026-07-28 — corpus census: what the scorecard actually exercises (and what it cannot see)
+
+Two sessions of real, golden-verified DSP fixes moved the scorecard median by **0.000**. Rather than pick another
+family by intuition, I dumped a per-synth CSV (new `-Dscorecard.csv=<path>` option on `FidelityScorecardTest`) and
+joined it against each clip's `<soundParams>`, applying the C `initParams` defaults (sound.cpp:131-190) for absent
+tags — which is what the ≥1.2.0 clip semantics of §4.2septies actually produce.
+
+**What is active across the 188-preset ALLSYN corpus:**
+
+| subsystem | presets exercising it |
+|---|---|
+| reverb (`reverbAmount` > OFF) | 43 / 188 |
+| HPF (`hpfFrequency` > OFF) | 27 / 188 — but **all 188** carry `hpfMode="12dB"`, which is inert (§4.2nonies) |
+| delay (`delayFeedback` > OFF) | **0 / 188** |
+| modFX (`modFXDepth` > 0) | **0 / 188** |
+| noise (`noiseVolume` > OFF) | **0 / 188** |
+| wavetable oscillator | **0 / 188** |
+
+So **`CLAUDE.md`'s "Open items: ... FX (reverb/delay/modFX)" is wrong for delay and modFX**: the scorecard cannot
+observe them at all. Only reverb is real. Likewise the noise source is never exercised — note that "100 Noise Lead"
+(our worst score, 0.262) has **no `noiseVolume` tag**, so it renders with noise OFF on both sides; its score is
+already flagged as scored-against-the-noise-floor (§4.2trequadragies), not a render defect.
+
+**Score by feature** (time-resolved medians; overall 0.862):
+
+| cohort | n | median | vs. rest |
+|---|---|---|---|
+| HPF active | 27 | 0.834 | **-0.036** |
+| reverb active | 43 | 0.848 | -0.018 |
+| FM | 56 | 0.906 | +0.063 |
+| both oscs square-family | 64 | 0.871 | +0.013 |
+
+No dominant subsystem remains. The HPF cohort is the worst, but it is **not** a filter bug: `hpfMode="12dB"` sets
+`HPFOn = true` (filter_set.cpp:139) and the HPF `else` branch is unguarded, so the C calls
+`hpfilter.svf.configure(...)` with an LP mode — however `SVFilter::setConfig` (svf.cpp:41-79) **returns `filterGain`
+unchanged** and only mutates SVF state that `renderHPFLong` (filter_set.cpp:26-33) never renders. Our
+`12dB → FilterMode.OFF` mapping is therefore genuinely render-equivalent. That cohort is simply pads/strings/arps.
+
+**Distribution:** 2 below 0.50, 6 in [0.50,0.70), 26 in [0.70,0.80), 107 in [0.80,0.90), 47 at 0.90+. The mass is
+0.85-0.90. Lifting *every* sub-0.80 preset to 0.90 would move the median only 0.862 → 0.891. **There is no big
+lever left in this corpus** — the remaining gap is a long, heterogeneous tail.
+
+**Conclusion — the gate needs widening more than the DSP needs fixing.** The scorecard plays one C4 note per preset
+through a corpus that never enables delay, modFX, noise, or a wavetable oscillator, and whose HPF is inert
+throughout. The existing clean-reference suites help but share the gaps: `test_presets/T01-T28` and the `*_C5`
+suite cover noise, delay, reverb, PWM, unison, LFO, sync and FM — but **neither covers modFX (chorus/flanger/
+phaser), wavetable oscillators, or any register below C5/C4**. A new calibration song + hardware recording pass
+should target, in priority order:
+
+1. **modFX** — chorus, flanger, phaser, each at 2-3 depth/rate points (0 coverage anywhere today).
+2. **Wavetable oscillator** — several tables, static and with `waveIndex` sweeping (0 coverage; we shipped two
+   wavetable bug fixes in July that no gate could confirm).
+3. **Bass register** — the same primitives at C1/C2. Everything today is C4/C5; the crude-saw path
+   (`tableNumber < 6`) and the low bands are entirely unmeasured.
+4. **Audible HPF** — presets written with a real `hpfMode` (`HPLadder`/`SVF`), since every existing one is inert.
+5. **Delay + modFX under feedback/saturation**, where the nonlinear stages interact.
