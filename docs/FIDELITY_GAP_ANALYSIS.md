@@ -2877,3 +2877,61 @@ that index out of bounds, and a modFX offset that zeroes the delay line. Each pr
 "the engine ignores this knob" reading. **When a knob appears dead, verify the DSP directly and dump
 the value at the call site before concluding anything about the port** — all three were caught that
 way in minutes, and none was an engine defect.
+
+### 4.2novemsexagies 2026-07-29 — CALIB re-recorded: first VALID scores; HPF under-attenuates massively
+
+The corpus was regenerated with all three corpus bugs fixed (firmware mode spellings, non-negative
+cutoffs, non-degenerate modFXOffset) and all three songs re-recorded. Recordings validate: step
+6.05-6.07 s matching the arrangement, and **CALIB1 now has ZERO silent slots** — all 94 modFX cases
+sounded, where previously the chorus family was bypassed.
+
+**First valid CALIB measurement: n=250, time-resolved mean 0.638, median 0.769** (ALLSYN
+0.847/0.862). Lower than the previous run's 0.789, and that is expected and correct: the earlier
+corpus had many effects silently bypassed, so it was scoring dry-against-dry. Per group:
+
+| group | n | median | mean | min |
+|---|---|---|---|---|
+| **hpf** | 33 | **-0.265** | **-0.140** | **-0.692** |
+| noise | 9 | 0.572 | 0.540 | 0.141 |
+| delay | 36 | 0.739 | 0.699 | 0.444 |
+| morph | 25 | 0.759 | 0.601 | -0.532 |
+| modfx | 71 | 0.763 | 0.753 | 0.595 |
+| reverb | 5 | 0.794 | 0.798 | 0.781 |
+| drive | 17 | 0.810 | 0.802 | 0.745 |
+| **wavetable** | 30 | **0.900** | 0.874 | 0.770 |
+| **register** | 22 | **0.910** | 0.910 | 0.856 |
+
+**1. Wavetable (0.900) and bass register (0.910) remain our best groups, both above the ALLSYN
+median** — re-confirmed on a corrected corpus. July's wavetable fixes and the crude-saw phase fix
+were right; they moved the ALLSYN median by 0.000 only because ALLSYN contains neither.
+
+**2. modFX now scores across all seven types** (dimension 0.816, grainFX 0.773, chorus 0.768,
+TapeWarble 0.763, StereoChorus 0.759, flanger 0.734, phaser 0.730) — a real baseline where before
+there was no measurement at all.
+
+**3. The HPF defect is real, large, and now precisely located — but NOT in FilterSet.**
+
+- Instrumenting the actual `setConfig` call for a failing case gives the true operating point:
+  `lpMode=TRANSISTOR_24DB lpF=164928768 lpR=0 lpMorph=0 | hpMode=SVF_BAND hpF=42767104
+  hpR=268435448 hpMorph=0 | gain=268435456 route=HIGH_TO_LOW`. Note the LPF is ON (my golden matrix
+  had it off) and hpF is far lower than anything the matrix covered.
+- Generating goldens at *exactly* those values: **bit-exact for SVF_Band, SVF_Notch AND HPLadder.**
+  So the filter and its whole control path are faithful at the real runtime point.
+- The param constants are also verified identical: `getParamNeutralValue` gives LPF_FREQ 2000000 and
+  HPF_FREQ 2672947 on both sides (functions.cpp:101-104).
+- **The hardware tells the real story**: its HPF slices sit **40-64 dB below the dry control** (dry
+  C4 fundamental -34.6 dB; `HPF SVF_Band f25 q00` -75.8; `f50 q50` -98.3), with everything else at
+  the recording's noise floor. On hardware these settings essentially annihilate the signal. We
+  render something much louder.
+
+So the negative cosines are largely a **near-silence scoring artifact** — comparing our real output
+against a noise floor — and the scorecard's existing near-silent detector does not catch them
+because it thresholds absolute RMS, not level relative to a control. **But the underlying defect is
+real: our HPF attenuates far less than the hardware's.** Since the filter is bit-exact at the values
+we pass it, the remaining suspect is the value itself — our param->cutoff mapping appears to produce
+a LOWER cutoff than the firmware's, so we pass signal the hardware removes.
+
+NEXT: compare `getFinalParameterValueExp` end to end for LOCAL_HPF_FREQ — same patched input, same
+neutral value, both sides — rather than only the neutral constant. That is the one link in the chain
+not yet verified. Also worth adding: a near-silence guard that compares a slice against the session's
+dry control rather than an absolute RMS threshold, so artifacts like this are flagged not scored.
