@@ -2935,3 +2935,90 @@ NEXT: compare `getFinalParameterValueExp` end to end for LOCAL_HPF_FREQ — same
 neutral value, both sides — rather than only the neutral constant. That is the one link in the chain
 not yet verified. Also worth adding: a near-silence guard that compares a slice against the session's
 dry control rather than an absolute RMS threshold, so artifacts like this are flagged not scored.
+
+### 4.2septuagies 2026-07-30 — the guard landed, and it says the near-silence story was WRONG
+
+Built the near-silence guard §4.2novemsexagies asked for, plus a level census. Both overturned the
+conclusion above. Recording this bluntly because the retracted claim is the useful part.
+
+**The guard.** `FidelityScorecardTest` now measures each hardware slice against the run's **dry
+control** (`CTL dry saw C4/C2`, the two lanes CALIB1 opens with) instead of an absolute RMS
+threshold. Two distinct flags, deliberately not merged:
+
+- **NEAR-SILENT** — slice is >34 dB below the control. Nothing in the recording to compare against,
+  so the cosine describes the noise floor. Reported in the headline median *and* in a separate
+  "clean" median; never silently dropped.
+- **LEVEL** — slice is audible but our render's level is off by >6 dB **relative to the control's own
+  offset**. Not excluded from anything: a level error is a real defect.
+
+The reference is run-wide, not per-song: CALIB1/2/3 were recorded back to back at one gain and only
+CALIB1 carries the control lane, so a per-song reference left CALIB2/3 — which hold the entire HPF
+group — falling back to their own median slice level.
+
+**Retraction 1: the negative cosines are NOT "largely a near-silence artifact."** The guard flags
+only **5 of 220** cases, and excluding them moves the time-resolved median from 0.756 to 0.759.
+§4.2novemsexagies got this wrong by reasoning from the 40-64 dB figure without checking how many
+cases it actually covered.
+
+**Retraction 2: the HPF is not "under-attenuating massively."** That claim came from a raw
+our-vs-hardware level ratio. But the **dry control itself measures +8.0 dB** — the hardware's output
+chain is quieter than our float render by a constant that every group inherits. Subtract it and the
+census reads:
+
+| group | n | raw dB hot | **vs control** | verdict |
+|---|---|---|---|---|
+| noise | 9 | +15.4 | **+7.0** | real defect, and see below |
+| hpf | 33 | +11.3 | **+2.9** | mild, not "massive" |
+| register | 22 | +9.3 | +0.9 | fine |
+| modfx | 71 | +8.6 | +0.2 | fine |
+| morph | 25 | +7.3 | -1.1 | fine |
+| reverb | 5 | +6.4 | -2.0 | fine |
+| drive | 17 | +5.9 | **-2.5** | see below |
+| delay | 36 | +4.0 | **-4.4** | real defect |
+
+A raw ratio flags all 250 cases and localises nothing; normalised, seven of nine groups sit inside
+±2.5 dB. **Lesson: an uncalibrated absolute level is not a measurement.** Same failure mode as the
+absolute-RMS threshold it replaced.
+
+**`getExp` is faithful — the §4.2novemsexagies "NEXT" is closed, negative.** Verified end to end for
+`LOCAL_HPF_FREQ`: `expTableSmall` identical (257/257 entries), `getExp` body line-for-line,
+`interpolateTable` signature and clamps unreachable for a 26-bit input, `increaseMagnitudeAndSaturate`
+identical, and `lshiftAndSaturateUnknown` agrees with the C's `signed_saturate_operand_unknown` at
+every reachable `bits` (the C's `switch` has no `case 12` and falls to `default: signed_saturate<12>`,
+which is what our `[12,31]` clamp computes; `bits==32` from `lshift==0` also agrees). The param→cutoff
+mapping is not the bug. With the HPF now measured at only +2.9 dB, there may be no large HPF bug left.
+
+**A real bug class found while chasing it: `lshiftAndSaturate` where the C does a raw shift.** The C
+uses `lshiftAndSaturate` in exactly four places in `voice.cpp` (83, 989, 1344, 2482 — 989 even
+carries the comment *"Important that we use lshiftAndSaturate here - otherwise, number can
+overflow"*). Where it writes a bare `<<`, wrapping **is** the hardware behaviour. Our port used the
+saturating helper at seven of those raw-shift sites. Corrected, with citations:
+
+- `voice.cpp:1146` noise amplitude `<< 4` — **measured bit-identical on CALIB**, so the saturation
+  never triggers at these operating points. A faithful correction that does *not* explain the noise
+  level error. Recorded so the candidate is not re-investigated.
+- `voice.cpp:1362-1366` ringmod `amplitudeForRingMod <<= 1` / `<<= 2` — no CALIB coverage (the corpus
+  has no ringmod cases), so unmeasurable; justified by the C text alone.
+
+Deliberately **not** changed: `Voice.java:1395` (DX7) and `1436` (wavetable) carry explicit
+"calibrated, not ported" comments and the wavetable group is our best scorer (0.900); and the
+audio-input sites (`voice.cpp:2351/2368/2398/2402`, plus `livePitchShifter` at 2303/2312 where the C
+passes `sourceAmplitude` with **no** shift at all while we pass `lshiftAndSaturate(srcAmp, 4)`) are
+line-in paths with no corpus coverage. Both groups are still-open divergences, listed here rather
+than changed blind.
+
+**OPEN — two concrete leads, both from the level census:**
+
+1. **Noise: our level barely responds to the LPF cutoff.** The NSE cases are saw+noise through a
+   swept 24 dB LPF. Hardware moves cleanly with cutoff (RMS 0.0024 / 0.0038 / 0.0051 at
+   `lpfFrequency` 0.25 / 0.5 / 1.0); we render **0.0592 / 0.0585 / 0.0588** — flat to within 1%. The
+   excess is also worst at the *lowest* noise setting (a25 +19.7 dB, a50 +10.1, a100 +7.4), i.e. our
+   quiet settings do not get quiet. Something in our render holds a ~0.059 floor that neither the
+   noise volume nor the cutoff reaches.
+2. **Delay is 4.4 dB quiet, and the shape differs.** Hardware DLY slices run near full scale (RMS
+   0.82-0.99 — the feedback path is building into clipping); ours reach 0.21-0.99. Suspect the
+   feedback gain.
+
+**Corpus gap noted:** there is no dedicated LPF-cutoff sweep group. `lpfFrequency` is varied only
+inside the 9-case noise group, which is why a cutoff-mapping error could hide here. Any regenerated
+corpus should add one.

@@ -159,6 +159,16 @@ detailed, per-family working reference. **Honesty rule (hard-won): RMS and autoc
 false readings here — always verify with the spectral scorecard and reset the noise seed
 (`Functions.resetNoiseSeed()`); never claim a fidelity fix the scorecard doesn't confirm.**
 
+**Corollary — the cosine is blind to level, and absolute levels lie (2026-07-30, §4.2septuagies).**
+`spectrum()` subtracts the mean log-magnitude, so the score deliberately ignores overall gain: a
+family can sit at 0.85 while rendering 15 dB hot. But a raw our-vs-hardware ratio is not a
+measurement either — the CALIB **dry control** itself reads +8.0 dB (the hardware's output chain is
+quieter than our float render), a constant every group inherits, so uncalibrated ratios flag all 250
+cases and localise nothing. Always express level as **excess over the dry control**; the scorecard
+now does (`-Dscorecard.csv` adds `hw_rms,our_rms,level_db`, the run logs a `dry-control baseline`,
+and NEAR-SILENT / LEVEL guards fire off it). Two claims made from uncalibrated levels the day before
+had to be retracted.
+
 Other fidelity tests in `src/test/resources/fidelity/` (`AllSynthsFidelityTest`, `Dx7ParityTest`,
 `DelayParityTest`, `ArpParityTest`, `DigitalAudioFidelityTest`) compare against reference WAVs.
 `FIRMWARE_PARITY.md` tracks the subsystem gap vs. the native firmware; `HARDWARE_FIDELITY.md`
