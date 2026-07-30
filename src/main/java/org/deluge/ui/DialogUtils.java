@@ -16,17 +16,31 @@ public final class DialogUtils {
   private DialogUtils() {}
 
   /**
-   * Responsively sizes and centers a dialog within the usable screen work area. Clamps dimensions
-   * so the dialog never exceeds maximum screen bounds (accounting for taskbars and display
-   * scaling), and strictly positions the window so its top title bar (Y >= screen.y) and bottom
-   * action buttons are always on-screen.
+   * Responsively sizes and centers a dialog within the usable screen work area, accounting for
+   * taskbars and display scaling.
    *
-   * @param dialog the dialog to size and position
-   * @param owner the owner window/frame (may be null)
+   * <p><b>Size:</b> clamped to the work area <em>unless</em> {@code minW}/{@code minH} exceed it,
+   * in which case the minimum wins and the dialog is deliberately allowed to overflow — a dialog
+   * below its minimum is unusable, so overflowing is the lesser failure. On a screen wide enough
+   * for {@code minW} the clamp is absolute. Callers targeting very small displays should therefore
+   * keep {@code minW}/{@code minH} genuinely minimal, not merely "small".
+   *
+   * <p><b>Position:</b> always clamped to the work area, with no exception, so the title bar
+   * ({@code y >= work.y}) and the bottom action buttons stay on-screen even when the size
+   * overflowed. When the owner is showing, the dialog is centred on it first and then clamped;
+   * otherwise it is centred on the work area. The owner's {@code GraphicsConfiguration} selects the
+   * display, so a dialog opened from a window on a secondary or differently-scaled monitor is
+   * measured against <em>that</em> monitor, not the default one.
+   *
+   * <p>Prefer this over {@code setSize} + {@code setLocationRelativeTo}: the latter centres on the
+   * owner without clamping, which is what pushes dialogs off-screen on small displays.
+   *
+   * @param dialog the dialog to size and position; no-op if null
+   * @param owner the owner window/frame, used for display selection and centring (may be null)
    * @param targetW preferred width in logical pixels
    * @param targetH preferred height in logical pixels
-   * @param minW minimum required width
-   * @param minH minimum required height
+   * @param minW minimum usable width; may exceed the screen, see above
+   * @param minH minimum usable height; may exceed the screen, see above
    */
   public static void fitToScreenAndCenter(
       JDialog dialog, Window owner, int targetW, int targetH, int minW, int minH) {
@@ -53,8 +67,13 @@ public final class DialogUtils {
       }
     }
 
-    int clampedW = Math.min(targetW, Math.max(minW, maxBounds.width - 24));
-    int clampedH = Math.min(targetH, Math.max(minH, maxBounds.height - 32));
+    // Leave a small margin inside the work area so the dialog never sits flush against the screen
+    // edge, where window-manager decorations and drop shadows can make the frame look clipped. The
+    // height margin is larger because the title bar is part of the frame on most window managers.
+    final int marginX = 24;
+    final int marginY = 32;
+    int clampedW = Math.min(targetW, Math.max(minW, maxBounds.width - marginX));
+    int clampedH = Math.min(targetH, Math.max(minH, maxBounds.height - marginY));
     dialog.setSize(clampedW, clampedH);
     dialog.setMinimumSize(new Dimension(Math.min(minW, clampedW), Math.min(minH, clampedH)));
 

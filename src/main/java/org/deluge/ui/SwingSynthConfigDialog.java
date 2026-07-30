@@ -1327,12 +1327,15 @@ public class SwingSynthConfigDialog extends JDialog {
    * scroll panes ({@link #scrollWrap}) scroll only those outliers. Re-centers on the owner.
    */
   private void sizeToFitContent(Frame owner) {
-    java.awt.Rectangle screen =
-        java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-    int w = Math.min(1380, screen.width - 40);
-    int h = Math.min(1000, screen.height - 60);
-    setSize(w, h);
-    setLocationRelativeTo(owner);
+    // Routed through the shared helper rather than doing its own screen math. The previous version
+    // sized against getMaximumWindowBounds() (the DEFAULT screen, ignoring the owner's
+    // GraphicsConfiguration and its per-display insets) and then called
+    // setLocationRelativeTo(owner),
+    // which centres on the owner with NO clamping — so on a small or scaled display, or a secondary
+    // monitor with a non-zero origin, this dialog could still be positioned with its title bar or
+    // bottom buttons off-screen. That is the exact failure the DialogUtils sweep set out to remove,
+    // and this method silently opted out of it by running after the constructor's clamp.
+    DialogUtils.fitToScreenAndCenter(this, owner, 1380, 1000, 600, 400);
   }
 
   /** A dark-styled inner JTabbedPane for grouping related sub-editors. */

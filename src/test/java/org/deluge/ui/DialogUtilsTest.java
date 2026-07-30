@@ -65,6 +65,36 @@ public class DialogUtilsTest {
     frame.dispose();
   }
 
+  /**
+   * POSITION must be clamped unconditionally, even when the requested minimum forces the SIZE to
+   * overflow the work area. This is the guarantee the sweep exists for: a dialog may be too big,
+   * but its title bar and bottom buttons must still be reachable.
+   */
+  @Test
+  public void testPositionClampedEvenWhenMinimumOverflowsScreen() {
+    if (GraphicsEnvironment.isHeadless()) return;
+
+    Rectangle work = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+    JDialog dialog = new JDialog((Frame) null, "Oversized", false);
+    // Minimum deliberately larger than the screen: the size is allowed to overflow, the POSITION is
+    // not.
+    DialogUtils.fitToScreenAndCenter(
+        dialog, null, work.width * 2, work.height * 2, work.width * 2, work.height * 2);
+
+    assertTrue(
+        dialog.getX() >= work.x,
+        "left edge must stay within the work area (x="
+            + dialog.getX()
+            + ", work.x="
+            + work.x
+            + ")");
+    assertTrue(
+        dialog.getY() >= work.y,
+        "title bar must stay on-screen (y=" + dialog.getY() + ", work.y=" + work.y + ")");
+
+    dialog.dispose();
+  }
+
   @Test
   public void testFitToScreenAndCenterClamping() {
     if (GraphicsEnvironment.isHeadless()) return;
