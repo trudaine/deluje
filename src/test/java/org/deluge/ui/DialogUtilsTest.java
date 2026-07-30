@@ -27,6 +27,44 @@ public class DialogUtilsTest {
     frame.dispose();
   }
 
+  /**
+   * ESC must close the dialog the way the title-bar button does — running {@code windowClosing}
+   * listeners, not just {@code windowClosed}.
+   *
+   * <p>Regression test: the helper originally called {@code dispose()} directly, which fires only
+   * {@code windowClosed}. Dialogs that release resources in {@code windowClosing} were silently
+   * skipped — SwingRecordingCleanerDialog stops playback there ("Stop playback on window close to
+   * avoid leaks!"), so ESC leaked the active clip.
+   */
+  @Test
+  public void testEscapeRunsWindowClosingListeners() {
+    if (GraphicsEnvironment.isHeadless()) return;
+
+    JFrame frame = new JFrame("Owner");
+    JDialog dialog = new JDialog(frame, "Cleanup Dialog", false);
+    final boolean[] cleanedUp = {false};
+    dialog.addWindowListener(
+        new java.awt.event.WindowAdapter() {
+          @Override
+          public void windowClosing(java.awt.event.WindowEvent e) {
+            cleanedUp[0] = true;
+          }
+        });
+
+    DialogUtils.installEscapeKeyClose(dialog);
+    KeyStroke esc = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0);
+    ActionListener action = dialog.getRootPane().getActionForKeyStroke(esc);
+    assertNotNull(action, "Escape key action must be bound");
+    action.actionPerformed(new java.awt.event.ActionEvent(dialog, 0, "ESC"));
+
+    assertTrue(
+        cleanedUp[0],
+        "ESC must dispatch WINDOW_CLOSING so dialogs that release resources there are not skipped");
+    assertFalse(dialog.isDisplayable(), "ESC must still dispose the dialog, not merely hide it");
+
+    frame.dispose();
+  }
+
   @Test
   public void testFitToScreenAndCenterClamping() {
     if (GraphicsEnvironment.isHeadless()) return;

@@ -2,6 +2,7 @@ package org.deluge.ui;
 
 import java.awt.*;
 import java.awt.event.KeyEvent;
+import java.awt.event.WindowEvent;
 import javax.swing.*;
 
 /**
@@ -74,7 +75,21 @@ public final class DialogUtils {
   }
 
   /**
-   * Installs an ESC key action on the dialog's root pane that automatically disposes the dialog.
+   * Installs an ESC key action on the dialog's root pane that closes the dialog the same way its
+   * title-bar close button does: {@code windowClosing} listeners run first, then it is disposed.
+   *
+   * <p>Dispatching {@code WINDOW_CLOSING} is not decoration. A bare {@code dispose()} fires only
+   * {@code windowClosed}, so any dialog that cleans up in a {@code windowClosing} handler is
+   * skipped — {@code SwingRecordingCleanerDialog} stops playback there ("Stop playback on window
+   * close to avoid leaks!"), and ESC leaked the active clip until this dispatched the event.
+   * Dialogs that instead override {@code dispose()} (e.g. {@code ThresholdRecordDialog}, which
+   * stops its meter timer and capture line) were always fine and stay fine.
+   *
+   * <p>The explicit {@code dispose()} afterwards is deliberate: no dialog here sets a close
+   * operation, so they all default to {@code HIDE_ON_CLOSE} and the dispatched event alone would
+   * merely hide them. Note this means a {@code windowClosing} handler cannot veto an ESC close — no
+   * current dialog tries to, but a future one wanting a confirm-on-discard prompt must handle ESC
+   * itself rather than rely on this helper.
    *
    * @param dialog the dialog to attach the ESC shortcut to
    */
@@ -83,7 +98,10 @@ public final class DialogUtils {
     dialog
         .getRootPane()
         .registerKeyboardAction(
-            e -> dialog.dispose(),
+            e -> {
+              dialog.dispatchEvent(new WindowEvent(dialog, WindowEvent.WINDOW_CLOSING));
+              dialog.dispose();
+            },
             KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
             JComponent.WHEN_IN_FOCUSED_WINDOW);
   }
