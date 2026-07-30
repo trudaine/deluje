@@ -1,6 +1,5 @@
 package org.deluge.firmware2;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -19,9 +18,13 @@ import org.junit.jupiter.api.Test;
 /**
  * Dedicated portable unit test and verification for Suggestion 3: Microtuning Parity
  * (§4.2sextriginties). Verifies that modifying song-level microtuning cents tables (e.g. 5-limit
- * Just Intonation -14 cents on E4) dynamically modulates active voice oscillator phase increments
- * and shifts output audio fundamental frequencies with sub-cent precision without numerical
- * instability, clipping, or DC drift against C++ voice.cpp and song.cpp.
+ * Just Intonation) dynamically modulates active voice oscillator phase increments and shifts the
+ * rendered audio's fundamental downward, without numerical instability, clipping, or DC drift,
+ * against C++ voice.cpp and song.cpp.
+ *
+ * <p>The note played is 65 (F4) and the temperament entry exercised is index 1; the former "-14
+ * cents on E4" description matched neither. Nor is the shift "sub-cent precise" — see the magnitude
+ * assertion for why a multi-oscillator preset cannot produce an exact cents ratio.
  */
 public class MicrotuningAudioRenderingBehaviorTest {
 
@@ -29,20 +32,62 @@ public class MicrotuningAudioRenderingBehaviorTest {
       new File(System.getProperty("deluge.card", "src/main/resources"), "SYNTHS");
 
   /**
-   * Estimate fundamental frequency in Hz using positive zero-crossing counting across stable render
-   * window.
+   * Estimates the fundamental frequency by autocorrelation, refining the peak lag with parabolic
+   * interpolation for sub-sample precision.
+   *
+   * <p>Replaces a positive-zero-crossing counter, which could not measure what this test asserts.
+   * The preset is a <em>rich</em> saw lead — multiple oscillators plus unison detune — so its
+   * waveform crosses zero several times per cycle and the crossing rate is not the fundamental: for
+   * note 65 (F4, 349.2 Hz) it reported 581-591 Hz. Worse, the count changes with waveform shape, so
+   * a 14-cent shift (0.8%) sat well inside the estimator's own noise and the comparison came out
+   * arbitrarily. That is why this test failed intermittently on an unmodified tree.
+   *
+   * <p>Autocorrelation is the right instrument here despite the project's standing warning about it
+   * (CLAUDE.md): that warning is about judging fidelity against hardware recordings, where it gives
+   * false readings. This is a controlled A/B of two of our own renders that differ only in tuning,
+   * where relative period is exactly what needs measuring. Parabolic interpolation is required, not
+   * optional — at 349 Hz one period is ~126 samples, so 0.8% is under one sample and integer-lag
+   * resolution alone would quantise the effect away.
    */
   private static double estimateFrequencyHz(float[] samples, int sampleRate) {
-    int startIdx = sampleRate / 4; // skip initial attack transient (250 ms)
-    int endIdx = samples.length;
-    int crossings = 0;
-    for (int i = startIdx + 1; i < endIdx; i++) {
-      if (samples[i - 1] < 0.0f && samples[i] >= 0.0f) {
-        crossings++;
+    int startIdx = sampleRate / 4; // skip the attack transient (250 ms)
+    int n = samples.length - startIdx;
+
+    // Search lags spanning ~80 Hz to ~1 kHz, comfortably bracketing the notes under test.
+    int minLag = sampleRate / 1000;
+    int maxLag = Math.min(sampleRate / 80, n / 2);
+
+    double bestScore = Double.NEGATIVE_INFINITY;
+    int bestLag = minLag;
+    double[] score = new double[maxLag + 1];
+    for (int lag = minLag; lag <= maxLag; lag++) {
+      double sum = 0.0;
+      double energy = 1e-12;
+      for (int i = 0; i < n - lag; i++) {
+        double a = samples[startIdx + i];
+        double b = samples[startIdx + i + lag];
+        sum += a * b;
+        energy += b * b;
+      }
+      // Normalise so long lags are not penalised purely by having fewer overlapping terms.
+      score[lag] = sum / Math.sqrt(energy);
+      if (score[lag] > bestScore) {
+        bestScore = score[lag];
+        bestLag = lag;
       }
     }
-    double durationSec = (double) (endIdx - startIdx) / sampleRate;
-    return crossings / durationSec;
+
+    double refined = bestLag;
+    if (bestLag > minLag && bestLag < maxLag) {
+      double y0 = score[bestLag - 1];
+      double y1 = score[bestLag];
+      double y2 = score[bestLag + 1];
+      double denom = 2.0 * (2.0 * y1 - y0 - y2);
+      if (Math.abs(denom) > 1e-12) {
+        refined = bestLag + (y2 - y0) / denom;
+      }
+    }
+    return sampleRate / refined;
   }
 
   @Test
@@ -107,7 +152,9 @@ public class MicrotuningAudioRenderingBehaviorTest {
       ProjectModel projectJust = new ProjectModel();
       projectJust.setBpm(120.0f);
       projectJust.addTrack(synthJust);
-      // Detune index 1 by -14 cents for pure microtonal parity test
+      // Index 1 is correct and was verified by sweeping all 12 entries against this preset and this
+      // note: only index 1 moves the pitch at all (every other entry lands within +-0.12 cents,
+      // i.e. measurement noise). It is not 65 % 12 = 5 because the preset transposes.
       projectJust.getCentAdjustForNotesInTemperament()[1] = -14;
       projectJust.calculateNoteFrequencies();
 
@@ -146,13 +193,24 @@ public class MicrotuningAudioRenderingBehaviorTest {
               + " Hz, Just="
               + freqJust
               + " Hz)");
-      double expectedRatio = Math.pow(2.0, -14.0 / 1200.0); // ~0.99195
-      double actualRatio = freqJust / freq12Tet;
-      assertEquals(
-          expectedRatio,
-          actualRatio,
-          0.05,
-          "Frequency shift ratio must match microtonal cents detuning formula within zero-crossing estimation precision");
+      // MAGNITUDE. An exact -14 cent ratio is NOT obtainable from this preset and asserting one was
+      // the second defect here: "018 Rich Saw Lead" is a multi-oscillator patch, the temperament
+      // entry detunes only the oscillator sitting on that pitch class, and the composite period
+      // therefore moves by less than the full amount. Sweeping the table measures -7.98 cents for a
+      // -14 cent entry, deterministically. So the honest bound is: the shift is real, downward, and
+      // cannot exceed the requested detune — which still catches a sign error, a no-op microtuning
+      // path, or a gross scaling error. An exact ratio would need a single-oscillator preset.
+      double shiftCents = 1200.0 * Math.log(freqJust / freq12Tet) / Math.log(2.0);
+      assertTrue(
+          shiftCents < -1.0 && shiftCents > -14.5,
+          "A -14 cent temperament entry must shift the rendered pitch audibly downward without"
+              + " exceeding the requested detune (measured "
+              + shiftCents
+              + " cents; 12TET="
+              + freq12Tet
+              + " Hz, Just="
+              + freqJust
+              + " Hz)");
 
     } finally {
       Voice.testStartPhaseOverrideOsc1.set(-2);
