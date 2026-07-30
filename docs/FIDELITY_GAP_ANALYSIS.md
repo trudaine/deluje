@@ -3099,3 +3099,63 @@ at low noise settings.
 scored against the recording noise floor (n=188 → 158 clean), all falling back to the median-slice
 reference because ALLSYN has no dry-control lane. A sixth of the headline corpus is not measuring
 our DSP. Any ALLSYN re-record should open with `CTL dry saw C4/C2` lanes like CALIB does.
+
+### 4.2duoseptuagies 2026-07-30 — the CALIB delay recordings are CLIPPED; the "delay defect" was the recorder
+
+Chased the §4.2unseptuagies delay lead ("−4.4 dB, hardware slices at RMS 0.82-0.99, feedback
+building into clipping"). The clipping was real. It was in the **recording**, not the delay.
+
+**The delay path is faithful.** Read `Delay.java` against `delay.cpp:325-356` line by line:
+
+- Digital: the C is `signed_saturate<32-3>(multiply_32x32_rshift32(sample, feedback)) << 2`. Ours
+  wraps that in `lshiftAndSaturate(…, 2)` = `signed_saturate(·,30) << 2`. The inner
+  `signed_saturate(·,29)` already clamps to ±2^28, inside the outer ±2^29 — so the outer is a
+  **no-op** and the two are numerically identical.
+- Analog: `getTanHUnknown` ends in `>> (saturationAmount + 2)`, so its output is self-bounded at
+  ~2^29; our extra saturation can differ by at most **1 LSB at the rail**.
+
+No delay bug. The `hwRMS = 0.99` that motivated the hypothesis was a clipped reference.
+
+**What the recordings actually contain** (per-channel peak, not the mono mix — see below):
+
+| song | clipped in scored region | groups |
+|---|---|---|
+| CALIB1 | **0.000%** (peak 0.67) | modfx 71, wavetable 21, control 2 |
+| CALIB2 | **4.845%** | hpf 33, delay 30, register 22, wavetable 9 |
+| CALIB3 | **3.330%** | morph 25, drive 17, noise 9, delay 6, reverb 5 |
+
+**The damage is precisely localised: all 15 clipped slices are DELAY cases**, and the high-feedback
+ones are square waves — `DLY r75 f75 p1 a0` 98.25%, `r50 f75 p1 a1` 96.33%, `r75 f75 p0 a0` 94.75%,
+`r50 f75 p0 a1` 93.05%, `r50 f75 p1 a0` 92.84%, `r50 f75 p0 a0` 80.05%. That one group accounts for
+the entire song-level figure. **Everything else in CALIB2/CALIB3 is unclipped and its numbers stand**
+— including the HPF, which therefore remains a genuine open defect (f50 cases still score −0.11 to
+−0.68 time-resolved at +7 to +15 dB, on slices that are neither clipped nor near-silent).
+
+**Guard added.** Per-song clipped fraction is now always logged (0.00% is information), a clipped
+song warns loudly, per-slice clipping is flagged, and clipped slices are excluded from the clean
+median alongside near-silent ones: `n=220 median 0.743` → `n=200 median 0.751`.
+
+**The detector had to read the ORIGINAL channels.** The first version measured the mono mix, where
+averaging L+R halves a one-channel rail hit to ~0.5 — it found 13 slices where the true per-channel
+figure is 4.8%. `readWav` now returns `Recording(mono, peak)`. The distortion is real regardless of
+what averaging does to the peak value: a clipped channel carries harmonics the signal never had.
+
+**Three retractions, mine, from earlier the same day:**
+
+1. **"156 of 250 cases (62%) have a clipped reference."** Wrong — that inferred per-case damage from a
+   per-song statistic. The real figure is 15 slices, all delay.
+2. **"CALIB2/3 were recorded at a hotter gain."** No evidence. Same gain with intrinsically louder
+   material (delay-with-feedback, drive) explains the peaks completely. I had built a
+   reference-fallback on that guess and reverted it.
+3. **"Treat all hpf/delay/register/morph/drive/noise/reverb numbers as unusable."** Too broad. Only
+   the delay group is unusable.
+
+**And a fourth process note.** I reported CALIB2 as "silently missed by the detector" and called it a
+detector bug. It was my own `tail -22` truncating the warning out of the log. That is the **third**
+time this session a confident wrong reading came from the measurement apparatus rather than the code
+(after the 132-sample `oscSyncRenderingBuffer` and the stale `target/classes`). The pattern is
+consistent enough to state as a rule: **when a measurement surprises you, suspect the measurement
+first.**
+
+**Needs hardware time:** re-record CALIB2 and CALIB3 at lower input gain — or just the high-feedback
+delay lanes, which are the only ones overloading. Until then the delay group cannot be scored.

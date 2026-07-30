@@ -60,8 +60,24 @@ public class FidelityScorecardTest {
     }
   }
 
+  /**
+   * A decoded recording: the mono mix everything is scored against, plus the per-frame peak across
+   * the ORIGINAL channels.
+   *
+   * <p>The peak channel exists because clipping cannot be detected on the mono mix: averaging L+R
+   * halves a one-channel rail hit to ~0.5, so a detector reading {@link #mono} sees almost nothing
+   * where the true per-channel figure is 4.8% (CALIB2) and 3.3% (CALIB3). The distortion is real
+   * either way — a clipped channel carries harmonics the signal never had, and averaging keeps
+   * them. See docs/FIDELITY_GAP_ANALYSIS.md §4.2duoseptuagies.
+   */
+  record Recording(float[] mono, float[] peak) {}
+
   // ---- WAV (16/24-bit, stereo->mono float) ----
   static float[] readWavMono(File f) throws Exception {
+    return readWav(f).mono();
+  }
+
+  static Recording readWav(File f) throws Exception {
     try (RandomAccessFile raf = new RandomAccessFile(f, "r")) {
       byte[] hdr = new byte[12];
       raf.readFully(hdr);
@@ -92,26 +108,32 @@ public class FidelityScorecardTest {
       int bytesPer = bits / 8;
       int frames = (int) (dataLen / (bytesPer * ch));
       float[] out = new float[frames];
+      float[] peak = new float[frames];
       raf.seek(dataOff);
       byte[] buf = new byte[(int) Math.min(dataLen, (long) frames * bytesPer * ch)];
       raf.readFully(buf);
       int i = 0;
       for (int fr = 0; fr < frames; fr++) {
         double sum = 0;
+        double mx = 0;
         for (int c = 0; c < ch; c++) {
           int v;
+          double scaled;
           if (bytesPer == 3) {
             v = (buf[i] & 0xFF) | ((buf[i + 1] & 0xFF) << 8) | (buf[i + 2] << 16);
-            sum += v / (double) (1 << 23);
+            scaled = v / (double) (1 << 23);
           } else {
             v = (buf[i] & 0xFF) | (buf[i + 1] << 8);
-            sum += v / 32768.0;
+            scaled = v / 32768.0;
           }
+          sum += scaled;
+          mx = Math.max(mx, Math.abs(scaled));
           i += bytesPer;
         }
         out[fr] = (float) (sum / ch);
+        peak[fr] = (float) mx;
       }
-      return out;
+      return new Recording(out, peak);
     }
   }
 
@@ -387,6 +409,21 @@ public class FidelityScorecardTest {
     final List<String> levelMismatch = new ArrayList<>();
 
     /**
+     * Slices whose HARDWARE recording is clipped at the digital rail. Nothing downstream of a
+     * clipped reference is trustworthy: the level is wrong (clipping raises RMS toward the rail)
+     * and so is the spectrum (clipping manufactures harmonics that were never in the signal), so
+     * both the cosine and the level guard are measuring the recorder, not our DSP.
+     *
+     * <p>This is the counterpart to {@link #nearSilent} and exists because its absence burned us:
+     * CALIB2 and CALIB3 turned out to be recorded 3.8% and 3.1% at the rail, which is 156 of the
+     * 250 cases (every hpf, delay, register, morph, drive, noise and reverb case), and a whole
+     * session's worth of "the delay is 4.4 dB quiet" / "the HPF is 2.9 dB hot" conclusions were
+     * drawn off them before anyone checked the recording. See docs/FIDELITY_GAP_ANALYSIS.md
+     * §4.2duoseptuagies.
+     */
+    final List<String> clipped = new ArrayList<>();
+
+    /**
      * The run's 0 dB mark: the loudest dry-control slice seen in any of its songs, or -1 until one
      * turns up. Deliberately run-wide rather than per-song — CALIB1/2/3 are three arrangements
      * recorded back to back at one gain setting, and only CALIB1 carries the control lane, so a
@@ -409,6 +446,25 @@ public class FidelityScorecardTest {
      * dB.
      */
     double controlOurLevel = -1;
+  }
+
+  /**
+   * A sample this close to full scale is treated as clipped. Not 1.0: {@link #readWavMono} averages
+   * the channels, so a sample that hit the rail in both reads back a hair under 1.0 after the
+   * divide, and a one-channel clip reads lower still.
+   */
+  private static final double CLIP_LEVEL = 0.98;
+
+  /** Fraction of samples in {@code [from, to)} sitting at the digital rail. */
+  private static double clippedFraction(float[] x, int from, int to) {
+    int hits = 0;
+    int n = 0;
+    for (int i = Math.max(0, from); i < Math.min(to, x.length); i++, n++) {
+      if (Math.abs(x[i]) >= CLIP_LEVEL) {
+        hits++;
+      }
+    }
+    return n > 0 ? hits / (double) n : 0.0;
   }
 
   /** Loudest {@code win}-sample RMS inside synth {@code k}'s slice of the hardware recording. */
@@ -457,7 +513,9 @@ public class FidelityScorecardTest {
   }
 
   void scoreSong(List<Renderable> synths, File recWav, String label, Scores s) throws Exception {
-    float[] rec = readWavMono(recWav);
+    Recording recording = readWav(recWav);
+    float[] rec = recording.mono();
+    float[] recPeak = recording.peak();
     // Trim BOTH leading and trailing silence — manual recordings have variable lead/tail, and
     // dividing total length by N otherwise drifts the per-synth slices (artificially low scores).
     int lead = 0;
@@ -467,6 +525,33 @@ public class FidelityScorecardTest {
     int per = (tail - lead) / synths.size();
     int win = SR * 2; // 2s analysis window
     int[] onset = detectOnsets(rec, lead, tail, synths.size());
+
+    // Is this whole recording clipped? Checked FIRST because it invalidates everything below it,
+    // and
+    // because not checking it cost a session: CALIB2/CALIB3 sit 3.8%/3.1% at the rail while CALIB1
+    // is
+    // clean (peak 0.67), and every level conclusion drawn across those songs was really measuring
+    // the
+    // recorder's input gain. A clipped song is also recorded at a DIFFERENT gain from a clean one,
+    // so
+    // the run-wide dry-control reference (which lives in CALIB1) must not be used to normalise it.
+    double songClipped = clippedFraction(recPeak, lead, tail);
+    boolean songIsClipped = songClipped > 0.001;
+    // Always report it, not only when it trips: the recording's health is a precondition for every
+    // number below, so "0.00%" is information worth printing.
+    LOGGER.info(
+        String.format(
+            "  %s recording: %.3f%% of samples at the digital rail (frames %d..%d of %d)",
+            label, 100 * songClipped, lead, tail, rec.length));
+    if (songIsClipped) {
+      LOGGER.warning(
+          String.format(
+              "%n  *** %s IS CLIPPED: %.2f%% of samples at the digital rail. Cosines are polluted by"
+                  + " clipping harmonics and levels are pinned toward full scale — scores for this"
+                  + " song measure the RECORDING, not the engine. Re-record at lower input gain. ***",
+              label, 100 * songClipped));
+    }
+
     int minGap = Integer.MAX_VALUE, maxGap = 0;
     for (int k = 1; k < onset.length; k++) {
       int g = onset[k] - onset[k - 1];
@@ -502,13 +587,20 @@ public class FidelityScorecardTest {
         s.controlSource = "dry control (" + label + ")";
       }
     }
-    double reference = s.controlLevel;
-    String refSource = s.controlSource;
+    // A clipped song was recorded at a different input gain than the clean song holding the
+    // control,
+    // so cross-song normalisation would compare two different gain staircases. Fall back to this
+    // song's own median slice.
+    double reference = songIsClipped ? -1 : s.controlLevel;
+    String refSource = songIsClipped ? "" : s.controlSource;
     if (reference <= 0) {
       double[] sorted = sliceRms.clone();
       Arrays.sort(sorted);
       reference = sorted[sorted.length / 2];
-      refSource = "median slice — no dry control seen yet";
+      refSource =
+          songIsClipped
+              ? "median slice — song is CLIPPED"
+              : "median slice — no dry control seen yet";
     }
     final double silenceFloor = reference * NEAR_SILENCE_FLOOR;
     LOGGER.fine(
@@ -586,6 +678,19 @@ public class FidelityScorecardTest {
             ourMax,
             (bestR > 0 && ourMax > 0) ? 20 * Math.log10(ourMax / bestR) : Double.NaN);
       }
+      // GUARD 0 — the hardware slice is clipped. Checked before the others because a clipped
+      // reference makes both of them meaningless: the level is pinned toward the rail and the
+      // spectrum carries harmonics the signal never had.
+      double sliceClipped =
+          clippedFraction(recPeak, sliceStart, Math.min(sliceEnd, sliceStart + 4 * win));
+      if (sliceClipped > 0.0005) {
+        s.clipped.add(name);
+        LOGGER.info(
+            String.format(
+                "  %3d  %-30s  win=%.3f time=%.3f  [CLIPPED: %.2f%% of the hardware slice is at the"
+                    + " rail — this score measures the recording, not the engine]",
+                k, name, sim, ts, 100 * sliceClipped));
+      }
       // GUARD 1 — the hardware slice sits below this session's near-silence floor. There is nothing
       // in the recording to compare against, so whatever cosine came out is a property of the noise
       // floor, not of our DSP. This is what made the CALIB HPF group look catastrophic (median
@@ -600,7 +705,7 @@ public class FidelityScorecardTest {
                 "  %3d  %-30s  win=%.3f time=%.3f  [NEAR-SILENT: hwRMS=%.4f is %.0f dB below this"
                     + " song's %s (%.4f) — scored against the noise floor, not a render defect]",
                 k, name, sim, ts, bestR, 20 * Math.log10(bestR / reference), refSource, reference));
-      } else {
+      } else if (sliceClipped <= 0.0005) {
         s.timeResolvedClean.add(ts);
       }
       // GUARD 2 — the slice is audible but our render's level is wrong by more than the run's
@@ -676,8 +781,13 @@ public class FidelityScorecardTest {
   static void report(String label, Scores s) {
     LOGGER.info(
         String.format(
-            "%n  %s: not-measurable %d, near-silent %d (excluded from clean), level-mismatch %d",
-            label, s.notMeasurable.size(), s.nearSilent.size(), s.levelMismatch.size()));
+            "%n  %s: not-measurable %d, near-silent %d (excluded from clean), level-mismatch %d,"
+                + " CLIPPED reference %d",
+            label,
+            s.notMeasurable.size(),
+            s.nearSilent.size(),
+            s.levelMismatch.size(),
+            s.clipped.size()));
     if (s.controlOurLevel > 0 && s.controlLevel > 0) {
       LOGGER.info(
           String.format(
@@ -689,6 +799,14 @@ public class FidelityScorecardTest {
     }
     if (!s.nearSilent.isEmpty()) {
       LOGGER.info("  near-silent slices: " + String.join(", ", s.nearSilent));
+    }
+    if (!s.clipped.isEmpty()) {
+      LOGGER.warning(
+          String.format(
+              "  *** %d of %d scored slices have a CLIPPED hardware reference — their cosines and"
+                  + " levels describe the recording, not the engine. Do not draw DSP conclusions"
+                  + " from them. ***",
+              s.clipped.size(), s.timeResolved.size()));
     }
     summarize(label + " SINGLE-WINDOW", s.window);
     summarize(label + " TIME-RESOLVED", s.timeResolved);
