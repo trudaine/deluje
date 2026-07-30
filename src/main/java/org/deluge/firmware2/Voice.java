@@ -937,7 +937,17 @@ public class Voice {
     if (sound.synthMode != 1 && paramFinalValues[Param.LOCAL_NOISE_VOLUME] != 0) {
       int n = paramFinalValues[Param.LOCAL_NOISE_VOLUME] >> 1;
       if (hasFilters) {
-        n = Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(n, filterGain), 4);
+        // voice.cpp:1146 — `n = multiply_32x32_rshift32(n, filterGain) << 4;`. A RAW shift that is
+        // allowed to overflow, NOT lshiftAndSaturate. The distinction is load-bearing and the C
+        // draws it deliberately: the four sites where the firmware wants clamping spell it out
+        // (voice.cpp:83, 989, 1344, 2482 — 989 even carries the comment "Important that we use
+        // lshiftAndSaturate here - otherwise, number can overflow"), so a bare `<< 4` means
+        // wrapping
+        // IS the hardware behaviour. Saturating here instead pins a wrapped-and-therefore-small
+        // amplitude to the +2^31 rail, which then survives the std::min below as the maximum
+        // 268435455 — i.e. full-scale noise where hardware emits little. That is the CALIB NSE
+        // group: spectrum right (0.80-0.85 cosine) but 15-28 dB hot.
+        n = Functions.multiply_32x32_rshift32(n, filterGain) << 4;
       }
       int noiseAmplitude = Math.min(n, 268435455) >> 2;
       for (int i = 0; i < numSamples; i++) {
@@ -1089,10 +1099,14 @@ public class Voice {
             sound.oscRetriggerPhase[0]);
         vsA.oscPos = phaseA[0];
       }
+      // voice.cpp:1362-1367 — "Sine and triangle waves come out bigger in fixed-amplitude rendering
+      // (for arbitrary reasons), so we need to compensate": `amplitudeForRingMod <<= 1;` / `<<=
+      // 2;`,
+      // RAW shifts, not lshiftAndSaturate. Same distinction as the noise path above.
       if (sound.oscTypes[0] == OscType.SAW || sound.oscTypes[0] == OscType.ANALOG_SAW_2) {
-        amplitudeForRingMod = Functions.lshiftAndSaturate(amplitudeForRingMod, 1);
+        amplitudeForRingMod <<= 1;
       } else if (sound.oscTypes[0] == OscType.WAVETABLE) {
-        amplitudeForRingMod = Functions.lshiftAndSaturate(amplitudeForRingMod, 2);
+        amplitudeForRingMod <<= 2;
       }
 
       if (sound.oscTypes[1] == OscType.WAVETABLE && sound.waveTables[1] != null) {
@@ -1146,9 +1160,9 @@ public class Voice {
         vsB.oscPos = phaseB[0];
       }
       if (sound.oscTypes[1] == OscType.SAW || sound.oscTypes[1] == OscType.ANALOG_SAW_2) {
-        amplitudeForRingMod = Functions.lshiftAndSaturate(amplitudeForRingMod, 1);
+        amplitudeForRingMod <<= 1;
       } else if (sound.oscTypes[1] == OscType.WAVETABLE) {
-        amplitudeForRingMod = Functions.lshiftAndSaturate(amplitudeForRingMod, 2);
+        amplitudeForRingMod <<= 2;
       }
 
       for (int i = 0; i < numSamples; i++) {
