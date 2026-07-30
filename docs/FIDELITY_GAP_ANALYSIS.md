@@ -3207,3 +3207,47 @@ and it settles this without any more DSP archaeology.
 **A retraction:** earlier today I wrote that the HPF "under-attenuates" and treated it as our
 strongest open DSP defect. The under-attenuation is real as a *measurement*, but it is not ours: the
 filter, its cutoff, its resonance, its morph, its mode dispatch and its gates are all faithful.
+
+### 4.2quattuorseptuagies 2026-07-30 — self-review of the clip-cable fix; ALLSYN is clipped too
+
+Reviewed this session's own commits. Two defects in `c8fe3c0d` (the clip-cable fix), both the same
+mistake — introducing state with a non-obvious invariant and wiring it at only the call site I was
+looking at:
+
+1. **The guard had a hole.** `FirmwareFactory` has THREE cable sources, and I guarded one.
+   `mapPatchCables` was skipped for a clip-fresh track, but the **LFO→cable** and **envelope→cable**
+   synthesis blocks immediately after it (`FirmwareFactory:861-925`) still ran, inventing cables from
+   `LfoModel`/`EnvelopeModel` targets. A cable we synthesise is no more legitimate than one we read
+   off the instrument. Neither corpus populates those model fields, which is why the original
+   measurement looked clean — the hole was real but unexercised.
+2. **`clipParamsFresh` did not survive `copyParametersFrom`.** That method copies `modulation` — the
+   cable list — but dropped the flag qualifying it, so undo/redo (`Consequence.java:566/585`) would
+   restore the cables and lose their suppression. Latent, not measured, but a snapshot that drops a
+   field is simply wrong.
+
+Both fixed. **ALLSYN unchanged at 0.805 / 0.827 / 0.842**, confirming the fix is defensive.
+
+**Left open deliberately:** `SynthPresetBrowserPanel:204` copies a parsed preset over a track and now
+inherits `clipParamsFresh=true`, which would suppress the preset's own cables. Arguably it should
+clear the flag, since a preset load re-establishes instrument semantics — but that is UI behaviour
+neither corpus can validate, so it is raised rather than guessed at.
+
+**Incidental and more important: the ALLSYN recordings are clipped too.**
+
+| recording | peak | samples ≥98% FS |
+|---|---|---|
+| ALLSYN_1 | 1.0000 | **0.652%** |
+| ALLSYN_2 | 1.0000 | **0.148%** |
+
+The new guard flags 13 ALLSYN presets (`147 Resonant Filter Pad` 2.72% of its slice at the rail,
+`137 Epic Saw Modulation Pad` 0.18%, …), dropping the clean set from **158 to 145**. Together with
+the 30 already flagged near-silent, roughly **43 of 188** ALLSYN scores are measuring the recording
+rather than the engine — in the corpus that is the project's **headline gate**.
+
+**This does NOT invalidate the 0.814 → 0.827 improvement** from the clip-cable fix: that was an A/B
+with identical inputs, so the recording's flaws were constant across both sides. It does mean the
+*absolute* ALLSYN median is softer than it looks, and that a re-record would move it.
+
+**Hardware wish-list, now consolidated:** re-record ALLSYN_1/ALLSYN_2 and CALIB2/CALIB3 at lower input
+gain, and open ALLSYN with `CTL dry saw C4/C2` control lanes so its levels can be normalised the way
+CALIB's are.

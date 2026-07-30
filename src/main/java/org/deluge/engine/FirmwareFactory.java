@@ -854,79 +854,84 @@ public class FirmwareFactory {
     // — including setupAsDefaultSynth's NOTE/ENVELOPE_1/VELOCITY -> LPF_FREQ trio, which is
     // new-synth-only (song.cpp:444) — must not reach the render graph. See
     // SynthTrackModel.isClipParamsFresh and InstrumentXmlParser.resetClipParamsToFirmwareDefaults.
+    // The LFO/envelope blocks below SYNTHESIZE cables from model targets, so they belong inside the
+    // same guard: a >=1.2.0 clip renders with an empty cable set, and a cable we invented is no
+    // more
+    // legitimate than one we read from the instrument. Guarding only mapPatchCables left that hole.
     if (!model.isClipParamsFresh()) {
       mapPatchCables(model.getModulation().getPatchCables(), sound);
-    }
 
-    // ── LFO depth/target → synthesized patch cables ──
-    // The LfoModel carries a depth + target (the UI's LFO tab) but only the rate/waveform were
-    // mapped, so the depth/target controls were dead. An LFO modulating a destination IS a patch
-    // cable on the Deluge — synthesize one per configured LFO slot (0=global1, 1=local1,
-    // 2=global2, 3=local2, matching the rate mapping above).
-    for (int i = 0; i < 4; i++) {
-      LfoModel lm = model.getLfo(i);
-      if (lm == null || lm.target() == null || lm.depth() == 0f) {
-        continue;
+      // ── LFO depth/target → synthesized patch cables ──
+      // The LfoModel carries a depth + target (the UI's LFO tab) but only the rate/waveform were
+      // mapped, so the depth/target controls were dead. An LFO modulating a destination IS a patch
+      // cable on the Deluge — synthesize one per configured LFO slot (0=global1, 1=local1,
+      // 2=global2, 3=local2, matching the rate mapping above).
+      for (int i = 0; i < 4; i++) {
+        LfoModel lm = model.getLfo(i);
+        if (lm == null || lm.target() == null || lm.depth() == 0f) {
+          continue;
+        }
+        int paramId =
+            switch (lm.target().trim().toUpperCase()) {
+              case "FILTER", "LPF", "LPFFREQUENCY" -> Param.LOCAL_LPF_FREQ;
+              case "RES", "RESONANCE" -> Param.LOCAL_LPF_RESONANCE;
+              case "PAN" -> Param.LOCAL_PAN;
+              case "PITCH" -> Param.LOCAL_PITCH_ADJUST;
+              case "VOL", "VOLUME" -> Param.LOCAL_VOLUME;
+              case "FM" -> Param.LOCAL_MODULATOR_0_VOLUME;
+              default -> -1;
+            };
+        if (paramId == -1) {
+          continue;
+        }
+        PatchCable cable = new PatchCable();
+        cable.from =
+            switch (i) {
+              case 0 -> PatchSource.LFO_GLOBAL_1;
+              case 1 -> PatchSource.LFO_LOCAL_1;
+              case 2 -> PatchSource.LFO_GLOBAL_2;
+              default -> PatchSource.LFO_LOCAL_2;
+            };
+        cable.amount = (int) (Math.max(-1f, Math.min(1f, lm.depth())) * 2147483647.0);
+        sound.paramManager.getPatchCableSet().addCable(paramId, cable);
       }
-      int paramId =
-          switch (lm.target().trim().toUpperCase()) {
-            case "FILTER", "LPF", "LPFFREQUENCY" -> Param.LOCAL_LPF_FREQ;
-            case "RES", "RESONANCE" -> Param.LOCAL_LPF_RESONANCE;
-            case "PAN" -> Param.LOCAL_PAN;
-            case "PITCH" -> Param.LOCAL_PITCH_ADJUST;
-            case "VOL", "VOLUME" -> Param.LOCAL_VOLUME;
-            case "FM" -> Param.LOCAL_MODULATOR_0_VOLUME;
-            default -> -1;
-          };
-      if (paramId == -1) {
-        continue;
-      }
-      PatchCable cable = new PatchCable();
-      cable.from =
-          switch (i) {
-            case 0 -> PatchSource.LFO_GLOBAL_1;
-            case 1 -> PatchSource.LFO_LOCAL_1;
-            case 2 -> PatchSource.LFO_GLOBAL_2;
-            default -> PatchSource.LFO_LOCAL_2;
-          };
-      cable.amount = (int) (Math.max(-1f, Math.min(1f, lm.depth())) * 2147483647.0);
-      sound.paramManager.getPatchCableSet().addCable(paramId, cable);
-    }
 
-    // ── Envelope depth/target → synthesized patch cables ──
-    // In the Deluge architecture, only Envelope 0 is hardwired (to master voice volume).
-    // Envelopes 1, 2, and 3 are routed dynamically via the Patch Matrix (Modulation Matrix).
-    // Without synthesizing these virtual "patch cables", filter envelopes and pitch sweeps
-    // configured in the project model remain completely dead and disconnected in the DSP engine.
-    // Here we dynamically compile any active Env 1, 2, or 3 targets into engine-level PatchCables.
-    for (int i = 1; i < 4; i++) {
-      EnvelopeModel em = model.getEnv(i);
-      if (em == null || em.target() == null || "NONE".equalsIgnoreCase(em.target())) {
-        continue;
+      // ── Envelope depth/target → synthesized patch cables ──
+      // In the Deluge architecture, only Envelope 0 is hardwired (to master voice volume).
+      // Envelopes 1, 2, and 3 are routed dynamically via the Patch Matrix (Modulation Matrix).
+      // Without synthesizing these virtual "patch cables", filter envelopes and pitch sweeps
+      // configured in the project model remain completely dead and disconnected in the DSP engine.
+      // Here we dynamically compile any active Env 1, 2, or 3 targets into engine-level
+      // PatchCables.
+      for (int i = 1; i < 4; i++) {
+        EnvelopeModel em = model.getEnv(i);
+        if (em == null || em.target() == null || "NONE".equalsIgnoreCase(em.target())) {
+          continue;
+        }
+        int paramId =
+            switch (em.target().trim().toUpperCase()) {
+              case "FILTER", "LPF", "LPFFREQUENCY" -> Param.LOCAL_LPF_FREQ;
+              case "RES", "RESONANCE" -> Param.LOCAL_LPF_RESONANCE;
+              case "PAN" -> Param.LOCAL_PAN;
+              case "PITCH" -> Param.LOCAL_PITCH_ADJUST;
+              case "VOL", "VOLUME" -> Param.LOCAL_VOLUME;
+              case "FM" -> Param.LOCAL_MODULATOR_0_VOLUME;
+              default -> -1;
+            };
+        if (paramId == -1) {
+          continue;
+        }
+        PatchCable cable = new PatchCable();
+        cable.from =
+            switch (i) {
+              case 1 -> PatchSource.ENVELOPE_1;
+              case 2 -> PatchSource.ENVELOPE_2;
+              default -> PatchSource.ENVELOPE_3;
+            };
+        float amt = em.amount() != 0.0f ? em.amount() : 1.0f;
+        cable.amount = (int) (Math.max(-1f, Math.min(1f, amt)) * 2147483647.0);
+        sound.paramManager.getPatchCableSet().addCable(paramId, cable);
       }
-      int paramId =
-          switch (em.target().trim().toUpperCase()) {
-            case "FILTER", "LPF", "LPFFREQUENCY" -> Param.LOCAL_LPF_FREQ;
-            case "RES", "RESONANCE" -> Param.LOCAL_LPF_RESONANCE;
-            case "PAN" -> Param.LOCAL_PAN;
-            case "PITCH" -> Param.LOCAL_PITCH_ADJUST;
-            case "VOL", "VOLUME" -> Param.LOCAL_VOLUME;
-            case "FM" -> Param.LOCAL_MODULATOR_0_VOLUME;
-            default -> -1;
-          };
-      if (paramId == -1) {
-        continue;
-      }
-      PatchCable cable = new PatchCable();
-      cable.from =
-          switch (i) {
-            case 1 -> PatchSource.ENVELOPE_1;
-            case 2 -> PatchSource.ENVELOPE_2;
-            default -> PatchSource.ENVELOPE_3;
-          };
-      float amt = em.amount() != 0.0f ? em.amount() : 1.0f;
-      cable.amount = (int) (Math.max(-1f, Math.min(1f, amt)) * 2147483647.0);
-      sound.paramManager.getPatchCableSet().addCable(paramId, cable);
     }
 
     // Map step automation from the active clip

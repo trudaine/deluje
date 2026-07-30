@@ -1158,6 +1158,10 @@ public class SynthTrackModel extends TrackModel {
     // New configs
     this.stutter.copyFrom(other.getStutter());
     this.modulation.copyFrom(other.getModulation());
+    // Must travel with the cable list it qualifies. Undo/redo snapshots a track through here
+    // (Consequence.java:566/585), and a snapshot that carries the cables but drops the flag saying
+    // "the clip renders without them" resurrects the instrument's cables on restore.
+    this.clipParamsFresh = other.clipParamsFresh;
     this.rawKnobs.copyFrom(other.getRawKnobs());
     this.keyZones.copyFrom(other.getKeyZones());
 
