@@ -89,14 +89,8 @@ public class PreferencesDialog extends JDialog {
     initComponentsProgrammatic();
     loadCurrentPreferences();
 
-    fitToScreenAndCenter(owner);
-
-    // Register Escape key to dismiss dialog safely without trapping the user
-    getRootPane()
-        .registerKeyboardAction(
-            e -> dispose(),
-            KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0),
-            JComponent.WHEN_IN_FOCUSED_WINDOW);
+    DialogUtils.fitToScreenAndCenter(this, owner, 680, 800, 380, 320);
+    DialogUtils.installEscapeKeyClose(this);
 
     // Start background port-scanning timer for dynamic hot-plug support
     portScanTimer = new javax.swing.Timer(2000, e -> updateMidiPortsListDynamic());
@@ -121,46 +115,7 @@ public class PreferencesDialog extends JDialog {
    * action buttons are always strictly on-screen.
    */
   public void fitToScreenAndCenter(Window owner) {
-    Rectangle maxBounds = null;
-    if (owner != null && owner.getGraphicsConfiguration() != null) {
-      GraphicsConfiguration gc = owner.getGraphicsConfiguration();
-      Rectangle gcBounds = gc.getBounds();
-      Insets insets = Toolkit.getDefaultToolkit().getScreenInsets(gc);
-      maxBounds =
-          new Rectangle(
-              gcBounds.x + insets.left,
-              gcBounds.y + insets.top,
-              gcBounds.width - insets.left - insets.right,
-              gcBounds.height - insets.top - insets.bottom);
-    }
-    if (maxBounds == null || maxBounds.width <= 0 || maxBounds.height <= 0) {
-      try {
-        maxBounds = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-      } catch (Exception e) {
-        Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
-        maxBounds = new Rectangle(0, 0, screen.width, screen.height);
-      }
-    }
-
-    int targetW = Math.min(680, Math.max(380, maxBounds.width - 24));
-    int targetH = Math.min(800, Math.max(320, maxBounds.height - 32));
-    setSize(targetW, targetH);
-    setMinimumSize(new Dimension(Math.min(480, targetW), Math.min(320, targetH)));
-
-    int posX;
-    int posY;
-    if (owner != null && owner.isShowing()) {
-      posX = owner.getX() + (owner.getWidth() - targetW) / 2;
-      posY = owner.getY() + (owner.getHeight() - targetH) / 2;
-    } else {
-      posX = maxBounds.x + (maxBounds.width - targetW) / 2;
-      posY = maxBounds.y + (maxBounds.height - targetH) / 2;
-    }
-
-    // Strictly clamp within usable screen bounds so title bar and bottom buttons are never clipped
-    posX = Math.max(maxBounds.x, Math.min(posX, maxBounds.x + maxBounds.width - targetW));
-    posY = Math.max(maxBounds.y, Math.min(posY, maxBounds.y + maxBounds.height - targetH));
-    setLocation(posX, posY);
+    DialogUtils.fitToScreenAndCenter(this, owner, 680, 800, 380, 320);
   }
 
   private void initComponentsProgrammatic() {

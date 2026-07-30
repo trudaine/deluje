@@ -103,9 +103,9 @@ public class SwingMasterFxDialog extends JDialog {
 
     add(footerPanel, BorderLayout.SOUTH);
 
-    setSize(640, 480);
-    setLocationRelativeTo(owner);
-    setResizable(false);
+    DialogUtils.fitToScreenAndCenter(this, owner, 640, 480, 480, 360);
+    DialogUtils.installEscapeKeyClose(this);
+    setResizable(true);
   }
 
   // ── Tab 1: Reverb Tank 🌌 ──

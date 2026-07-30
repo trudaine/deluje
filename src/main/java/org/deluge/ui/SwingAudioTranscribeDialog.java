@@ -46,8 +46,8 @@ public class SwingAudioTranscribeDialog extends JDialog {
   }
 
   private void initializeUI() {
-    setSize(720, 480);
-    setLocationRelativeTo(owner);
+    DialogUtils.fitToScreenAndCenter(this, owner, 720, 480, 480, 360);
+    DialogUtils.installEscapeKeyClose(this);
     getContentPane().setBackground(BG_DARK);
     setLayout(new BorderLayout(10, 10));
 

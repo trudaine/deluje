@@ -55,8 +55,8 @@ public class SwingDroneLabDialog extends JDialog {
     this.trackIndex = trackIndex;
     this.project = project;
 
-    setSize(720, 620);
-    setLocationRelativeTo(owner);
+    DialogUtils.fitToScreenAndCenter(this, owner, 720, 620, 480, 360);
+    DialogUtils.installEscapeKeyClose(this);
     setLayout(new BorderLayout());
     getContentPane().setBackground(BG_DARK);
 

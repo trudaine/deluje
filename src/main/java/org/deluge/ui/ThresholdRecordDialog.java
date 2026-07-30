@@ -37,9 +37,9 @@ public class ThresholdRecordDialog extends JDialog {
   }
 
   private void buildUI() {
-    setSize(480, 360);
-    setLocationRelativeTo(getParent());
-    setResizable(false);
+    DialogUtils.fitToScreenAndCenter(this, (Window) getParent(), 480, 360, 360, 260);
+    DialogUtils.installEscapeKeyClose(this);
+    setResizable(true);
 
     JPanel mainPanel = new JPanel();
     mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));

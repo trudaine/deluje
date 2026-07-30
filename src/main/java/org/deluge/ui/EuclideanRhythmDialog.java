@@ -63,8 +63,8 @@ public class EuclideanRhythmDialog extends JDialog {
     this.onApply = onApply;
     this.patternConsumer = patternConsumer;
 
-    setSize(600, 520);
-    setLocationRelativeTo(owner);
+    DialogUtils.fitToScreenAndCenter(this, owner, 600, 520, 420, 320);
+    DialogUtils.installEscapeKeyClose(this);
     setLayout(new BorderLayout());
     getContentPane().setBackground(new Color(0x1a, 0x1a, 0x1a));
 

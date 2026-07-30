@@ -17,9 +17,8 @@ public class TrackInspectorDialog extends JDialog {
       java.util.List<org.deluge.model.TrackModel> tracks,
       Runnable onRefresh) {
     super(owner, "Track Inspector", true);
-    setSize(760, 420);
-    setLocationRelativeTo(owner);
-
+    DialogUtils.fitToScreenAndCenter(this, owner, 760, 420, 480, 320);
+    DialogUtils.installEscapeKeyClose(this);
     getContentPane().setBackground(new Color(0x1d, 0x1d, 0x20));
     JTabbedPane tabs = new JTabbedPane();
     tabs.setFont(new Font("SansSerif", Font.BOLD, 12));

@@ -44,8 +44,8 @@ public class SwingAudioSlicerDialog extends JDialog {
 
     this.projectModel = projectModel;
 
-    setSize(800, 500);
-    setLocationRelativeTo(parent);
+    DialogUtils.fitToScreenAndCenter(this, parent, 800, 500, 480, 360);
+    DialogUtils.installEscapeKeyClose(this);
     setLayout(new BorderLayout(10, 10));
     getContentPane().setBackground(new Color(0x12, 0x12, 0x14));
 

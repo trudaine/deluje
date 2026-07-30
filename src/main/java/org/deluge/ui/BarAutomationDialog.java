@@ -12,11 +12,8 @@ public class BarAutomationDialog extends JDialog {
 
   public BarAutomationDialog(Frame owner, int barIndex) {
     super(owner, "Bar Automation", true);
-    setSize(600, 350);
-    // pack() (used e.g. by the screenshot pipeline) must not collapse the dialog to a tiny
-    // fragment — keep the designed size as the preferred size.
-    setPreferredSize(new Dimension(600, 350));
-    setLocationRelativeTo(owner);
+    DialogUtils.fitToScreenAndCenter(this, owner, 600, 350, 420, 260);
+    DialogUtils.installEscapeKeyClose(this);
     JPanel content = new JPanel(new BorderLayout(0, 10));
     content.setBorder(BorderFactory.createEmptyBorder(16, 20, 12, 20));
     JPanel checks = new JPanel(new GridLayout(3, 1, 20, 20));

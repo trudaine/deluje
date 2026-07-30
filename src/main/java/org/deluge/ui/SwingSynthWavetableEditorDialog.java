@@ -62,9 +62,8 @@ public class SwingSynthWavetableEditorDialog extends JDialog {
     this.bridge = bridge;
     this.cycleEdited = new boolean[numCycles];
 
-    setSize(1100, 600);
-    setMinimumSize(new Dimension(950, 500));
-    setLocationRelativeTo(owner);
+    DialogUtils.fitToScreenAndCenter(this, owner, 1100, 600, 500, 360);
+    DialogUtils.installEscapeKeyClose(this);
     setResizable(true);
     getContentPane().setBackground(SwingSynthConfigDialog.BG_DARK);
     setLayout(new BorderLayout(10, 10));

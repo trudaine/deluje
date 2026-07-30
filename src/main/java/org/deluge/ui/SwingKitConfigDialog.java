@@ -35,8 +35,8 @@ public class SwingKitConfigDialog extends JDialog {
       Frame owner, KitTrackModel kit, final BridgeContract bridge, int trackIndex) {
     super(owner, "Kit Track Editor: " + kit.getName() + " (Track " + (trackIndex + 1) + ")", false);
     this.trackIndex = trackIndex;
-    setSize(1280, 800);
-    setLocationRelativeTo(owner);
+    DialogUtils.fitToScreenAndCenter(this, owner, 1280, 800, 600, 400);
+    DialogUtils.installEscapeKeyClose(this);
     setLayout(new BorderLayout());
     getContentPane().setBackground(new Color(0x1a, 0x1a, 0x1a));
 

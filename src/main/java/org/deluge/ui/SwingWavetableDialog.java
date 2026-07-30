@@ -38,9 +38,8 @@ public class SwingWavetableDialog extends JDialog {
     this.trackIndex = trackIndex;
     this.oscIndex = 1; // Default Osc 1 for drum kits!
 
-    setSize(900, 480);
-    setMinimumSize(new Dimension(750, 400));
-    setLocationRelativeTo(owner);
+    DialogUtils.fitToScreenAndCenter(this, owner, 900, 480, 480, 360);
+    DialogUtils.installEscapeKeyClose(this);
     setResizable(true);
     getContentPane().setBackground(SwingSynthConfigDialog.BG_DARK);
     setLayout(new BorderLayout(10, 10));

@@ -50,9 +50,8 @@ public class SwingTuningDialog extends JDialog {
     System.arraycopy(project.getCentAdjustForNotesInTemperament(), 0, origCents, 0, 64);
     System.arraycopy(project.getCustomRatios(), 0, origRatios, 0, 64);
 
-    setSize(650, 600);
-    setMinimumSize(new Dimension(500, 400));
-    setLocationRelativeTo(owner);
+    DialogUtils.fitToScreenAndCenter(this, owner, 650, 600, 480, 360);
+    DialogUtils.installEscapeKeyClose(this);
     setLayout(new BorderLayout());
 
     // 1. Top Panel: Global settings

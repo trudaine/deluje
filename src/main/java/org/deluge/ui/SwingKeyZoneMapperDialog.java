@@ -57,9 +57,8 @@ public class SwingKeyZoneMapperDialog extends JDialog {
     this.zones =
         (oscIndex == 0) ? model.getKeyZones().getOsc1Zones() : model.getKeyZones().getOsc2Zones();
 
-    setSize(1000, 550);
-    setMinimumSize(new Dimension(850, 450));
-    setLocationRelativeTo(owner);
+    DialogUtils.fitToScreenAndCenter(this, owner, 1000, 550, 500, 360);
+    DialogUtils.installEscapeKeyClose(this);
     getContentPane().setBackground(SwingSynthConfigDialog.BG_DARK);
     setLayout(new BorderLayout(8, 8));
 

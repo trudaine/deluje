@@ -115,10 +115,9 @@ public class StepPropertiesDialog extends JDialog {
           new org.deluge.model.Iterance(initialCondition.divisor, initialCondition.iteranceStep);
     }
 
-    // Set modern slate background and size
     getContentPane().setBackground(SwingSynthConfigDialog.BG_DARK);
-    setSize(760, 610);
-    setLocationRelativeTo(owner);
+    DialogUtils.fitToScreenAndCenter(this, owner, 760, 610, 480, 360);
+    DialogUtils.installEscapeKeyClose(this);
 
     // Set standard title layout
     JPanel mainContainer = new JPanel(new BorderLayout(15, 15));

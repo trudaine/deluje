@@ -99,8 +99,8 @@ public class SwingMidiImportDialog extends JDialog {
   }
 
   private void initializeUI() {
-    setSize(920, 600);
-    setLocationRelativeTo(owner);
+    DialogUtils.fitToScreenAndCenter(this, owner, 920, 600, 480, 360);
+    DialogUtils.installEscapeKeyClose(this);
     getContentPane().setBackground(BG_DARK);
     setLayout(new BorderLayout(10, 10));
 

@@ -70,9 +70,8 @@ public class SwingSynthConfigDialog extends JDialog {
     this.projectModel = projectModel;
     this.trackIndex = trackIndex;
     this.bridge = bridge;
-
-    setSize(1300, 750);
-    setLocationRelativeTo(owner);
+    DialogUtils.fitToScreenAndCenter(this, owner, 1300, 750, 600, 400);
+    DialogUtils.installEscapeKeyClose(this);
     setLayout(new BorderLayout());
     getContentPane().setBackground(BG_DARK);
 

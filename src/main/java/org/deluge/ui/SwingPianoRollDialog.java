@@ -97,8 +97,8 @@ public class SwingPianoRollDialog extends JDialog {
     }
 
     setTitle("Piano Roll Editor - Track " + (trackIndex + 1) + ": " + trackModel.getName());
-    setSize(1150, 780);
-    setLocationRelativeTo(owner);
+    DialogUtils.fitToScreenAndCenter(this, owner, 1150, 780, 600, 400);
+    DialogUtils.installEscapeKeyClose(this);
     setLayout(new BorderLayout());
     getContentPane().setBackground(BG_DARK);
 

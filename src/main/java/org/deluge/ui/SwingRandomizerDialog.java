@@ -86,8 +86,8 @@ public class SwingRandomizerDialog extends JDialog {
 
     this.projectModel = projectModel;
 
-    setSize(840, 940);
-    setLocationRelativeTo(parent);
+    DialogUtils.fitToScreenAndCenter(this, parent, 840, 940, 500, 400);
+    DialogUtils.installEscapeKeyClose(this);
     setLayout(new BorderLayout(5, 5));
     getContentPane().setBackground(new Color(0x12, 0x12, 0x14));
 
