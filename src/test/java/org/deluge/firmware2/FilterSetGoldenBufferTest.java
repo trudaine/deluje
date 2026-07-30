@@ -47,6 +47,7 @@ class FilterSetGoldenBufferTest {
       int lpFreq,
       int lpRes,
       FilterMode lpMode,
+      int lpMorph,
       FilterRoute route) {
 
     static Case hp(String file, int freq, int res, FilterMode mode, int morph) {
@@ -59,7 +60,14 @@ class FilterSetGoldenBufferTest {
           Integer.MAX_VALUE,
           MIN,
           FilterMode.OFF,
+          MIN,
           FilterRoute.HIGH_TO_LOW);
+    }
+
+    /** LPF-only case: HPF off, so the low-pass path is what is under test. */
+    static Case lp(String file, int freq, int res, FilterMode mode, int morph) {
+      return new Case(
+          file, 0, MIN, FilterMode.OFF, MIN, freq, res, mode, morph, FilterRoute.HIGH_TO_LOW);
     }
   }
 
@@ -100,6 +108,7 @@ class FilterSetGoldenBufferTest {
             1073741824,
             0,
             FilterMode.TRANSISTOR_24DB,
+            MIN,
             FilterRoute.LOW_TO_HIGH));
     cs.add(
         new Case(
@@ -111,7 +120,17 @@ class FilterSetGoldenBufferTest {
             1073741824,
             0,
             FilterMode.TRANSISTOR_24DB,
+            MIN,
             FilterRoute.PARALLEL));
+    // The REAL runtime LPF operating points, read off an instrumented Voice.setConfig for the CALIB
+    // noise lanes (lpfFrequency 0.25/0.5/1.0 -> these three, with lpR=0 lpMorph=0 TRANSISTOR_24DB).
+    // The lowest is ~30x below the smallest cutoff above: the matrix simply never covered the range
+    // real presets use, which is the same blind spot that kept the HPF question open. The CALIB
+    // symptom under investigation is that our render barely responds to cutoff (hardware RMS moves
+    // 0.0024/0.0038/0.0051 across these; ours is flat at 0.0592/0.0585/0.0588).
+    for (int f : new int[] {8973792, 23681920, 164928768}) {
+      cs.add(Case.lp("c_fs_lp24_f" + f + ".bin", f, 0, FilterMode.TRANSISTOR_24DB, 0));
+    }
     return cs.stream().map(c -> Arguments.of(c.file(), c));
   }
 
@@ -155,7 +174,7 @@ class FilterSetGoldenBufferTest {
         c.lpFreq(),
         c.lpRes(),
         c.lpMode(),
-        MIN,
+        c.lpMorph(),
         c.hpFreq(),
         c.hpRes(),
         c.hpMode(),

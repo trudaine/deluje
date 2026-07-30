@@ -96,4 +96,15 @@ gen 1073741824 1073741824 HPLadder $MIN "HPLadder_fmid_q75"
 "$GEN" 1073741824 0 24dB $MIN 1073741824 0 HPLadder $MIN 0 1 128 saw "$OUT/c_fs_route_L2H.bin"
 "$GEN" 1073741824 0 24dB $MIN 1073741824 0 HPLadder $MIN 0 2 128 saw "$OUT/c_fs_route_PARA.bin"
 
+# LPF at the REAL runtime operating points, measured by instrumenting Voice's setConfig call for the
+# CALIB noise lanes: lpF = 8973792 / 23681920 / 164928768 for lpfFrequency 0.25 / 0.5 / 1.0, with
+# lpR=0 lpMorph=0 TRANSISTOR_24DB. The lowest of those is ~30x BELOW the smallest cutoff in the
+# matrix above — exactly the blind spot that let the HPF question stay open for two days. The CALIB
+# noise group's symptom is that our render barely responds to cutoff at all (hardware RMS moves
+# 0.0024/0.0038/0.0051 across these three; ours is flat at 0.0592/0.0585/0.0588), so the filter's
+# behaviour at these specific values is the thing to pin down.
+for f in 8973792 23681920 164928768; do
+  "$GEN" "$f" 0 24dB 0 0 $MIN off $MIN 0 0 128 saw "$OUT/c_fs_lp24_f$f.bin"
+done
+
 echo "done. FilterSet golden buffers written to $OUT"
