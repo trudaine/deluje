@@ -53,24 +53,18 @@ public class FmCalibrationScorecardTest {
       presets.add(f);
     }
 
-    List<Double> win = new ArrayList<>();
-    List<String> na = new ArrayList<>();
-    List<Double> ts = new ArrayList<>();
-
     // Reuse the exact scorecard comparison (onset-grid fit + single-window + time-resolved cosine).
     FidelityScorecardTest sc = new FidelityScorecardTest();
+    FidelityScorecardTest.Scores scores = new FidelityScorecardTest.Scores();
     sc.scoreSong(
         presets.stream().map(FidelityScorecardTest::fromPresetFile).toList(),
         rec,
         "FM_CAL",
-        win,
-        na,
-        ts);
+        scores);
 
-    FidelityScorecardTest.summarize("FM SINGLE-WINDOW", win);
-    FidelityScorecardTest.summarize("FM TIME-RESOLVED", ts);
-    if (!na.isEmpty()) System.out.println("  not-measurable (our render silent): " + na);
+    FidelityScorecardTest.report("FM", scores);
 
-    org.junit.jupiter.api.Assertions.assertFalse(ts.isEmpty(), "no FM segments scored");
+    org.junit.jupiter.api.Assertions.assertFalse(
+        scores.timeResolved.isEmpty(), "no FM segments scored");
   }
 }

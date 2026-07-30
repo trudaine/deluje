@@ -47,7 +47,12 @@ public class FidelityScorecardTest {
     }
     try {
       java.io.PrintWriter w = new java.io.PrintWriter(new java.io.FileWriter(path), true);
-      w.println("name,single_window,time_resolved");
+      // hw_rms/our_rms turn the CSV into a LEVEL census as well as a timbre one. The cosine is
+      // normalised (it deliberately ignores overall level), so a whole family can be 15 dB hot with
+      // no effect on the score — which is exactly the CALIB noise/HPF/modFX situation. Without
+      // these
+      // columns that error is invisible in the very table meant to localise it.
+      w.println("name,single_window,time_resolved,hw_rms,our_rms,level_db");
       return w;
     } catch (java.io.IOException e) {
       LOGGER.warning("cannot open scorecard.csv: " + e);
@@ -349,6 +354,73 @@ public class FidelityScorecardTest {
   /** One item to score: a display name plus how to render it. */
   record Renderable(String name, java.util.concurrent.Callable<float[]> render) {}
 
+  /**
+   * How far below the session's reference level a hardware slice may sit before its score is
+   * considered meaningless. 0.02 ≈ -34 dB: at that point the recording holds essentially nothing in
+   * that slice and the cosine is computed against the recording's noise floor, which can land
+   * anywhere including negative. Chosen from the CALIB HPF group, whose hardware slices measured
+   * 40-64 dB below the dry control (docs/FIDELITY_GAP_ANALYSIS.md §4.2novemsexagies).
+   */
+  private static final double NEAR_SILENCE_FLOOR = 0.02;
+
+  /**
+   * Accumulators for one scorecard run, spanning its songs.
+   *
+   * <p>{@code window}/{@code timeResolved} hold <em>every</em> measurable synth, so the headline
+   * median stays comparable across the whole project history. {@code timeResolvedClean}
+   * additionally drops the near-silent slices (see {@link #NEAR_SILENCE_FLOOR}) — reported
+   * alongside, never instead, so improving the number by excluding more cases stays visible rather
+   * than silent.
+   */
+  static final class Scores {
+    final List<Double> window = new ArrayList<>();
+    final List<Double> timeResolved = new ArrayList<>();
+    final List<Double> timeResolvedClean = new ArrayList<>();
+
+    /** Our render produced silence — nothing to compare (e.g. multisamples with no samples). */
+    final List<String> notMeasurable = new ArrayList<>();
+
+    /** Scored, but the hardware slice is below the near-silence floor. */
+    final List<String> nearSilent = new ArrayList<>();
+
+    /** Hardware slice far quieter than our render — a level defect OR a bad slice. */
+    final List<String> levelMismatch = new ArrayList<>();
+
+    /**
+     * The run's 0 dB mark: the loudest dry-control slice seen in any of its songs, or -1 until one
+     * turns up. Deliberately run-wide rather than per-song — CALIB1/2/3 are three arrangements
+     * recorded back to back at one gain setting, and only CALIB1 carries the control lane, so a
+     * per-song reference left CALIB2/3 (which hold the entire HPF group) falling back to their own
+     * median slice level.
+     */
+    double controlLevel = -1;
+
+    String controlSource = "";
+
+    /**
+     * Our own render level for the same dry-control slice, so {@code controlOurLevel /
+     * controlLevel} is the run's baseline our-vs-hardware gain offset.
+     *
+     * <p>This exists because the offset is NOT zero and is NOT a defect: the CALIB session measured
+     * +8.4 dB on the dry control, i.e. the hardware's output-to-interface chain was quieter than
+     * our float render by a constant. Every group inherits that constant, so a raw our-vs-hw ratio
+     * flags all 250 cases and localises nothing. Subtracting the control turns the same numbers
+     * into a real signal: noise +7.0 dB, HPF +2.9 dB, delay -4.4 dB, everything else inside ±2.5
+     * dB.
+     */
+    double controlOurLevel = -1;
+  }
+
+  /** Loudest {@code win}-sample RMS inside synth {@code k}'s slice of the hardware recording. */
+  private static double hwSliceRms(float[] rec, int[] onset, int k, int tail, int win) {
+    int sliceEnd = (k + 1 < onset.length) ? onset[k + 1] : tail;
+    double best = -1;
+    for (int off = onset[k]; off + win < sliceEnd && off + win < rec.length; off += SR / 4) {
+      best = Math.max(best, rms(rec, off, win));
+    }
+    return best;
+  }
+
   static Renderable fromPresetFile(File xml) {
     return new Renderable(xml.getName().replace(".XML", ""), () -> renderSynth(xml));
   }
@@ -384,14 +456,7 @@ public class FidelityScorecardTest {
         });
   }
 
-  void scoreSong(
-      List<Renderable> synths,
-      File recWav,
-      String label,
-      List<Double> all,
-      List<String> na,
-      List<Double> tsAll)
-      throws Exception {
+  void scoreSong(List<Renderable> synths, File recWav, String label, Scores s) throws Exception {
     float[] rec = readWavMono(recWav);
     // Trim BOTH leading and trailing silence — manual recordings have variable lead/tail, and
     // dividing total length by N otherwise drifts the per-synth slices (artificially low scores).
@@ -419,6 +484,38 @@ public class FidelityScorecardTest {
             per / (double) SR,
             minGap / (double) SR,
             maxGap / (double) SR));
+
+    // Reference level for the near-silence guard. An ABSOLUTE RMS threshold cannot tell "the
+    // hardware genuinely emitted almost nothing in this slice" apart from "this session was
+    // recorded 12 dB quieter", and the two demand opposite conclusions. So the floor is relative to
+    // the session's own DRY CONTROL: the CALIB corpus opens each song with unfiltered, un-FX'd saw
+    // notes ("CTL dry saw C4"/"C2") for exactly this purpose, giving a per-recording 0 dB mark.
+    // ALLSYN has no control lane, so there we fall back to the song's MEDIAN slice level — less
+    // principled but still relative to the session, and robust to a few silent outliers.
+    double[] sliceRms = new double[synths.size()];
+    for (int k = 0; k < synths.size(); k++) {
+      sliceRms[k] = hwSliceRms(rec, onset, k, tail, win);
+    }
+    for (int k = 0; k < synths.size(); k++) {
+      if (synths.get(k).name().startsWith("CTL dry") && sliceRms[k] > s.controlLevel) {
+        s.controlLevel = sliceRms[k];
+        s.controlSource = "dry control (" + label + ")";
+      }
+    }
+    double reference = s.controlLevel;
+    String refSource = s.controlSource;
+    if (reference <= 0) {
+      double[] sorted = sliceRms.clone();
+      Arrays.sort(sorted);
+      reference = sorted[sorted.length / 2];
+      refSource = "median slice — no dry control seen yet";
+    }
+    final double silenceFloor = reference * NEAR_SILENCE_FLOOR;
+    LOGGER.fine(
+        String.format(
+            "  reference level %.4f (%s); near-silence floor %.4f (%.0f dB down)",
+            reference, refSource, silenceFloor, 20 * Math.log10(NEAR_SILENCE_FLOOR)));
+
     for (int k = 0; k < synths.size(); k++) {
       String name = synths.get(k).name();
       float[] our = synths.get(k).render().call();
@@ -431,7 +528,7 @@ public class FidelityScorecardTest {
       for (int off = 0; off + win < our.length; off += SR / 4)
         ourMax = Math.max(ourMax, rms(our, off, win));
       if (ourMax < 0.002) { // genuinely silent in our engine (e.g. multisample w/o samples loaded)
-        na.add(name);
+        s.notMeasurable.add(name);
         LOGGER.fine(String.format("  %3d  %-30s   n/a (our render silent)", k, name));
         continue;
       }
@@ -467,29 +564,64 @@ public class FidelityScorecardTest {
       // FIDELITY_GAP_ANALYSIS.md §4.2septies item 3: if all evaluation frames are both-silent
       // (e.g. genuinely near-silent slices like 129 Sci-fi Scenic), report as n/a instead of 0.000.
       if (Double.isNaN(ts) || Double.isNaN(sim)) {
-        na.add(name);
+        s.notMeasurable.add(name);
         LOGGER.fine(
             String.format("  %3d  %-30s   n/a (both silent in evaluation window)", k, name));
         continue;
       }
-      all.add(sim);
-      tsAll.add(ts);
+      s.window.add(sim);
+      s.timeResolved.add(ts);
+      if (name.startsWith("CTL dry") && bestR > 0 && ourMax > s.controlOurLevel) {
+        s.controlOurLevel = ourMax;
+      }
       // Per-synth row, for correlating scores against preset features (which subsystem is actually
       // costing us). Enable with -Dscorecard.csv=/path/out.csv.
       if (CSV != null) {
-        CSV.printf("%s,%.4f,%.4f%n", name.replace(',', ' '), sim, ts);
+        CSV.printf(
+            "%s,%.4f,%.4f,%.5f,%.5f,%.1f%n",
+            name.replace(',', ' '),
+            sim,
+            ts,
+            bestR,
+            ourMax,
+            (bestR > 0 && ourMax > 0) ? 20 * Math.log10(ourMax / bestR) : Double.NaN);
       }
-      // §4.2trequadragies: a hardware slice far quieter than our render (e.g. 100 Noise Lead, whose
-      // hardware slice peaks at RMS ~0.03 vs our ~0.31) is being scored against the recording's
-      // noise floor — a meaningless comparison, like the both-silent case above. Flag it so it is
-      // visible (kept in the scored set for now; not silently excluded, to avoid gaming the
-      // median).
-      if (bestR > 0 && ourMax > 0.05 && bestR < 0.05) {
+      // GUARD 1 — the hardware slice sits below this session's near-silence floor. There is nothing
+      // in the recording to compare against, so whatever cosine came out is a property of the noise
+      // floor, not of our DSP. This is what made the CALIB HPF group look catastrophic (median
+      // 0.677
+      // with nine NEGATIVE cosines) while FilterSet was proven bit-exact at the operating point.
+      // Kept in the headline median and reported separately in the clean one — never silently
+      // dropped, because "exclude the hard cases" is the easiest way to fake progress here.
+      if (bestR >= 0 && bestR < silenceFloor) {
+        s.nearSilent.add(name);
         LOGGER.info(
             String.format(
-                "  %3d  %-30s  win=%.3f time=%.3f  [NOTE: hardware slice near-silent"
-                    + " (hwRMS=%.3f vs ourRMS=%.3f) — score is vs noise floor, not a render defect]",
-                k, name, sim, ts, bestR, ourMax));
+                "  %3d  %-30s  win=%.3f time=%.3f  [NEAR-SILENT: hwRMS=%.4f is %.0f dB below this"
+                    + " song's %s (%.4f) — scored against the noise floor, not a render defect]",
+                k, name, sim, ts, bestR, 20 * Math.log10(bestR / reference), refSource, reference));
+      } else {
+        s.timeResolvedClean.add(ts);
+      }
+      // GUARD 2 — the slice is audible but our render's level is wrong by more than the run's
+      // baseline offset. The baseline matters: the dry control itself measures +8.4 dB (the
+      // hardware's output chain is quieter than our float render by a constant), so comparing raw
+      // our-vs-hw ratios flags every case in the corpus and localises nothing. What is diagnostic
+      // is
+      // the EXCESS over the control — noise sits +7 dB above it, delay -4 dB below, and the rest
+      // land inside ±2.5 dB. Not excluded from any median: a genuine level error is a real defect.
+      double excessDb = Double.NaN;
+      if (bestR >= silenceFloor && s.controlOurLevel > 0 && s.controlLevel > 0 && ourMax > 0) {
+        excessDb =
+            20 * Math.log10(ourMax / bestR) - 20 * Math.log10(s.controlOurLevel / s.controlLevel);
+      }
+      if (Math.abs(excessDb) > 6.0) {
+        s.levelMismatch.add(name);
+        LOGGER.info(
+            String.format(
+                "  %3d  %-30s  win=%.3f time=%.3f  [LEVEL: %+.1f dB vs the dry control"
+                    + " (hwRMS=%.4f ourRMS=%.4f) — level defect, kept in the median]",
+                k, name, sim, ts, excessDb, bestR, ourMax));
       }
     }
   }
@@ -518,9 +650,7 @@ public class FidelityScorecardTest {
         "CALIB scorecard needs the generated songs (-Dcalib.songs) and recordings"
             + " (-Dcalib.recordings); generate with tools/calib_song/gen_calib.py");
 
-    List<Double> all = new ArrayList<>();
-    List<String> na = new ArrayList<>();
-    List<Double> tsAll = new ArrayList<>();
+    Scores s = new Scores();
     for (int part = 1; ; part++) {
       File songFile = new File(songDir, "CALIB" + part + ".XML");
       File recWav = new File(recDir, "CALIB" + part + "/output_000.wav");
@@ -533,12 +663,41 @@ public class FidelityScorecardTest {
       for (org.deluge.model.TrackModel t : songModel.getTracks()) {
         items.add(fromSongTrack(t));
       }
-      scoreSong(items, recWav, "CALIB" + part, all, na, tsAll);
+      scoreSong(items, recWav, "CALIB" + part, s);
     }
-    org.junit.jupiter.api.Assumptions.assumeTrue(!all.isEmpty(), "no CALIB songs scored");
-    LOGGER.fine(String.format("%n  CALIB not-measurable: %d", na.size()));
-    summarize("CALIB SINGLE-WINDOW", all);
-    summarize("CALIB TIME-RESOLVED", tsAll);
+    org.junit.jupiter.api.Assumptions.assumeTrue(!s.window.isEmpty(), "no CALIB songs scored");
+    report("CALIB", s);
+  }
+
+  /**
+   * Prints both medians — over every measurable synth, and over only those whose hardware slice
+   * cleared the near-silence floor — plus the flag counts behind the difference.
+   */
+  static void report(String label, Scores s) {
+    LOGGER.info(
+        String.format(
+            "%n  %s: not-measurable %d, near-silent %d (excluded from clean), level-mismatch %d",
+            label, s.notMeasurable.size(), s.nearSilent.size(), s.levelMismatch.size()));
+    if (s.controlOurLevel > 0 && s.controlLevel > 0) {
+      LOGGER.info(
+          String.format(
+              "  dry-control baseline: hwRMS=%.4f ourRMS=%.4f (%+.1f dB) — the run's zero for the"
+                  + " level guard, not a defect",
+              s.controlLevel,
+              s.controlOurLevel,
+              20 * Math.log10(s.controlOurLevel / s.controlLevel)));
+    }
+    if (!s.nearSilent.isEmpty()) {
+      LOGGER.info("  near-silent slices: " + String.join(", ", s.nearSilent));
+    }
+    summarize(label + " SINGLE-WINDOW", s.window);
+    summarize(label + " TIME-RESOLVED", s.timeResolved);
+    // Only worth printing when the guard actually removed something and left something.
+    if (!s.nearSilent.isEmpty() && !s.timeResolvedClean.isEmpty()) {
+      summarize(
+          label + " TIME-RESOLVED (clean: hardware slice above the near-silence floor)",
+          s.timeResolvedClean);
+    }
   }
 
   @Test
@@ -594,29 +753,12 @@ public class FidelityScorecardTest {
       }
     }
 
-    List<Double> all = new ArrayList<>();
-    List<String> na = new ArrayList<>();
-    List<Double> tsAll = new ArrayList<>();
+    Scores s = new Scores();
     scoreSong(
-        new ArrayList<>(p1),
-        new File(RECORDINGS_DIR, "ALLSYN_1/output_000.wav"),
-        "ALLSYN_1",
-        all,
-        na,
-        tsAll);
+        new ArrayList<>(p1), new File(RECORDINGS_DIR, "ALLSYN_1/output_000.wav"), "ALLSYN_1", s);
     scoreSong(
-        new ArrayList<>(p2),
-        new File(RECORDINGS_DIR, "ALLSYN_2/output_000.wav"),
-        "ALLSYN_2",
-        all,
-        na,
-        tsAll);
-    LOGGER.fine(
-        String.format(
-            "\n  not-measurable (our render silent, multisamples need samples): %d", na.size()));
-
-    summarize("SINGLE-WINDOW", all);
-    summarize("TIME-RESOLVED", tsAll);
+        new ArrayList<>(p2), new File(RECORDINGS_DIR, "ALLSYN_2/output_000.wav"), "ALLSYN_2", s);
+    report("ALLSYN", s);
   }
 
   static void summarize(String label, List<Double> scores) {

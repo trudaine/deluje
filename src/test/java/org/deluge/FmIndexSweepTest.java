@@ -44,17 +44,13 @@ public class FmIndexSweepTest {
     try {
       for (int s = 0; s < SCALES.length; s++) {
         Voice.testFmIndexScale = SCALES[s];
-        List<Double> win = new ArrayList<>();
-        List<String> na = new ArrayList<>();
-        List<Double> ts = new ArrayList<>();
+        FidelityScorecardTest.Scores scores = new FidelityScorecardTest.Scores();
         sc.scoreSong(
             presets.stream().map(FidelityScorecardTest::fromPresetFile).toList(),
             rec,
             "FM_CAL x" + SCALES[s],
-            win,
-            na,
-            ts);
-        scoresByScale[s] = ts.stream().mapToDouble(Double::doubleValue).toArray();
+            scores);
+        scoresByScale[s] = scores.timeResolved.stream().mapToDouble(Double::doubleValue).toArray();
       }
     } finally {
       Voice.testFmIndexScale = 1.0; // never leak into other tests
