@@ -3022,3 +3022,80 @@ than changed blind.
 **Corpus gap noted:** there is no dedicated LPF-cutoff sweep group. `lpfFrequency` is varied only
 inside the 9-case noise group, which is why a cutoff-mapping error could hide here. Any regenerated
 corpus should add one.
+
+### 4.2unseptuagies 2026-07-30 — the clip cable half of §4.2septies, found by chasing the noise group
+
+§4.2septuagies left "our noise level barely responds to LPF cutoff" as the sharpest open lead. It
+turned out not to be the noise, and not the filter. Recording the elimination chain because the
+symptom pointed at two subsystems that were both innocent.
+
+**1. Not the noise path.** The C's `voice.cpp:1146` raw `<< 4` correction (§4.2septuagies) measured
+bit-identical. The noise render is faithful.
+
+**2. Not the filter.** Instrumenting `Voice.setConfig` gave the real operating points —
+`lpfFrequency` 0.25/0.5/1.0 → `lpF` 8973792 / 23681920 / 164928768, `lpR=0 lpMorph=0
+TRANSISTOR_24DB`. Goldened all three: **26/26 bit-exact**. Note the lowest is ~30× BELOW the old
+matrix floor of 268435456 — the matrix had never covered the range real presets use, which is the
+same blind spot that kept the HPF open for two days. Those goldens are now committed
+(`c_fs_lp24_f*`) so the range stays pinned.
+
+**3. Not the param→cutoff mapping.** Modelled the C by hand from `paramRanges[LOCAL_LPF_FREQ] =
+536870912 * 1.4` (= 751619276, which our `getParamRange` matches exactly) through
+`cableToExpParamWithoutRangeAdjustment` and `getExp`. Predicted **5278048**; we rendered
+**8973792** — a **constant 1.700×** across all three cases, i.e. a fixed additive term in
+`adjustment`, not a shape error.
+
+**4. It was the patch cables.** Probing the patcher: the no-cable path computes **exactly 5278048**
+(mapping confirmed faithful), but the render path reported `cables=3` — sources 4/13/12 =
+**ENVELOPE_1 / NOTE / VELOCITY → LOCAL_LPF_FREQ**, with amounts matching `sound.cpp:239-241`, i.e.
+precisely `setupAsDefaultSynth`'s trio. `FirmwareFactory:853` was feeding the *instrument's* cables
+into the *clip's* render graph. The C reaches `setupAsDefaultSynth` only from `Song::createNewSong`
+(`song.cpp:444`, the default synth named "0"), and `PatchCableSet`'s ctor leaves the set empty
+(`patch_cable_set.cpp:70-75`). **The 2026-07-25 clip-semantics work implemented the param half of
+§4.2septies and missed the cable half** — and `InstrumentXmlParser.java:1681` had documented the
+correct rule the whole time.
+
+**Implemented as a flag, not a clear.** First attempt cleared the model's cable list inside
+`resetClipParamsToFirmwareDefaults` and broke
+`PresetResolutionTest.testDirectPresetFileResolution` — whose message reads *"must not wipe resolved
+preset patch cables"*. That test encodes a distinction worth keeping: the list is the INSTRUMENT's,
+and preset resolution legitimately fills it (a song `<sound>` referencing a preset inherits the
+preset's cables unless it carries its own `<patchCables>` container). The model holds one cable set
+per TRACK, so the clip path now sets `SynthTrackModel.clipParamsFresh` and `FirmwareFactory` skips
+`mapPatchCables`. Re-verified after the redesign: both corpora byte-identical to the destructive
+version, so the render effect is the same.
+
+| metric | before | after |
+|---|---|---|
+| ALLSYN time-resolved median | 0.814 | **0.827** |
+| ALLSYN single-window | 0.800 | 0.805 |
+| ALLSYN clean time-resolved | 0.831 | 0.842 |
+| CALIB single-window | 0.714 | 0.728 |
+| CALIB time-resolved | 0.756 | **0.743** |
+| CALIB dry-control level offset | +8.0 dB | **+5.4 dB** |
+
+The noise lanes regained their cutoff response (a100 now 0.063/0.090/0.177 across the sweep,
+previously flat at 0.221/0.255/0.259).
+
+**Two things I cannot explain, stated rather than buried:** CALIB's time-resolved median **dropped
+0.013** (every CALIB instrument carries this same trio, so the change moves all 250 synthetic cases
+at once); and the **a25 noise lanes remain flat** across cutoff, so a second mechanism holds a floor
+at low noise settings.
+
+**OPEN, in rough order of evidence:**
+
+1. **Delay: −4.4 dB and a different shape.** Hardware DLY slices sit at RMS 0.82-0.99 — the feedback
+   path is building into clipping — while ours reach 0.21-0.99. Feedback gain is the suspect; the
+   write-back is `delay.cpp:388`. Not yet read side by side.
+2. **a25 noise flatness** (above).
+3. **Per-clip `<patchCables>` parsing** — the deliberate limitation introduced here.
+4. **Unaudited raw-shift sites** — DX7 (`Voice.java:1395`) and wavetable (`:1436`) carry explicit
+   "calibrated, not ported" comments and wavetable is our best group (0.900); the line-in paths
+   (`voice.cpp:2351/2368/2398/2402`) plus `livePitchShifter`, where the C passes `sourceAmplitude`
+   with **no** shift and we pass `lshiftAndSaturate(srcAmp, 4)`.
+5. **`waveFold`** — still unexplained.
+
+**Corpus gap, needs hardware time:** the near-silence guard flags **30 of 188** ALLSYN presets as
+scored against the recording noise floor (n=188 → 158 clean), all falling back to the median-slice
+reference because ALLSYN has no dry-control lane. A sixth of the headline corpus is not measuring
+our DSP. Any ALLSYN re-record should open with `CTL dry saw C4/C2` lanes like CALIB does.
