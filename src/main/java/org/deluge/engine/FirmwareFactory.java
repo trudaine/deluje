@@ -849,8 +849,14 @@ public class FirmwareFactory {
     sound.fw2Sound.eqBassParam = sound.paramKnobs[Param.UNPATCHED_BASS];
     sound.fw2Sound.eqTrebleParam = sound.paramKnobs[Param.UNPATCHED_TREBLE];
 
-    // Patch Cables
-    mapPatchCables(model.getModulation().getPatchCables(), sound);
+    // Patch Cables. Skipped for a >=1.2.0 song clip: the firmware gives such a clip a FRESH
+    // ParamManager whose cable set is empty (patch_cable_set.cpp:70-75), so the instrument's cables
+    // — including setupAsDefaultSynth's NOTE/ENVELOPE_1/VELOCITY -> LPF_FREQ trio, which is
+    // new-synth-only (song.cpp:444) — must not reach the render graph. See
+    // SynthTrackModel.isClipParamsFresh and InstrumentXmlParser.resetClipParamsToFirmwareDefaults.
+    if (!model.isClipParamsFresh()) {
+      mapPatchCables(model.getModulation().getPatchCables(), sound);
+    }
 
     // ── LFO depth/target → synthesized patch cables ──
     // The LfoModel carries a depth + target (the UI's LFO tab) but only the rate/waveform were

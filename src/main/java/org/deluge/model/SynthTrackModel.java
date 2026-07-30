@@ -54,6 +54,28 @@ public class SynthTrackModel extends TrackModel {
 
   private final ModulationConfig modulation = new ModulationConfig();
 
+  /**
+   * True when this track was populated from a {@code >=1.2.0} song clip's own {@code
+   * <soundParams>}, i.e. the firmware would have given the clip a FRESH ParamManager whose patch
+   * cable set is empty (PatchCableSet ctor, patch_cable_set.cpp:70-75).
+   *
+   * <p>A flag rather than clearing {@link #modulation}: that cable list belongs to the INSTRUMENT
+   * and preset resolution legitimately fills it (a song {@code <sound>} referencing a preset
+   * inherits the preset's cables unless it carries its own {@code <patchCables>}), which {@code
+   * PresetResolutionTest} guards. The model keeps one cable set per track, not per clip, so the
+   * clip path records its intent here and {@code FirmwareFactory} honours it when building the
+   * render graph. See {@code InstrumentXmlParser.resetClipParamsToFirmwareDefaults}.
+   */
+  private boolean clipParamsFresh;
+
+  public boolean isClipParamsFresh() {
+    return clipParamsFresh;
+  }
+
+  public void setClipParamsFresh(boolean fresh) {
+    this.clipParamsFresh = fresh;
+  }
+
   // FX and EQ
   // Master volume, pan
   private float volume = 0.5f;

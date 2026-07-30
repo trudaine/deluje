@@ -1693,6 +1693,50 @@ public class InstrumentXmlParser {
   public static void resetClipParamsToFirmwareDefaults(SynthTrackModel synth) {
     int off = Integer.MIN_VALUE;
     RawKnobConfig knobs = synth.getRawKnobs();
+
+    // The cable set the CLIP renders through starts EMPTY (PatchCableSet ctor,
+    // patch_cable_set.cpp:70-75) — the half of this method's documented contract above that was
+    // never implemented, so the instrument's cables kept leaking into the clip render.
+    //
+    // What that cost: the CALIB noise lanes carry setupAsDefaultSynth's trio (NOTE + ENVELOPE_1 +
+    // VELOCITY -> LOCAL_LPF_FREQ, sound.cpp:239-241) on their INSTRUMENT. With those applied,
+    // LOCAL_LPF_FREQ came out at 8973792 where the C's knob-only path gives 5278048 — a constant
+    // 1.700x too open, and swept by envelope 1 instead of static. That is why our render barely
+    // responded to a cutoff sweep (hardware RMS moves 0.0024/0.0038/0.0051 across lpfFrequency
+    // 0.25/0.5/1.0; ours sat flat at 0.0592/0.0585/0.0588) and read ~7 dB hot. The filter is
+    // bit-exact at those cutoffs (FilterSetGoldenBufferTest c_fs_lp24_f*) and the knob->cutoff
+    // mapping matches the C exactly, so the cables were what broke it. Verified against the C:
+    // setupAsDefaultSynth is reachable only from Song::createNewSong (song.cpp:444, the default
+    // synth named "0"); the clip path never calls it.
+    //
+    // We must NOT clear the model's cable list to achieve this. That list is the INSTRUMENT's and
+    // preset resolution legitimately fills it (a song <sound> referencing a preset inherits the
+    // preset's cables unless it carries its own <patchCables> container) — a contract
+    // PresetResolutionTest guards explicitly, and clearing here broke it. The model holds one cable
+    // set per TRACK, not per clip, so record the intent and let FirmwareFactory skip the cables
+    // when
+    // it builds the render graph.
+    //
+    // Measured (A/B, identical card + recordings + flags):
+    //   ALLSYN time-resolved median 0.814 -> 0.827, single-window 0.800 -> 0.805
+    //   CALIB  single-window 0.714 -> 0.728, but time-resolved 0.756 -> 0.743
+    //   CALIB  dry-control level offset +8.0 dB -> +5.4 dB (2.6 dB closer to hardware)
+    // The noise lanes regained their cutoff response (a100 now 0.063/0.090/0.177 across the sweep,
+    // previously flat at 0.221/0.255/0.259). Kept because the corpus of REAL presets improves on
+    // both medians and the change is C-verified, but noting honestly that CALIB's time-resolved
+    // median DROPPED 0.013 and that decline is unexplained — every CALIB instrument carries this
+    // same trio, so removing it moves all 250 synthetic cases at once. The a25 noise lanes also
+    // stay
+    // flat across cutoff, so the flatness is not fully accounted for.
+    //
+    // LIMITATION, deliberate: a >=1.2.0 clip MAY carry its own <patchCables> and the C would honour
+    // them. SongXmlParser parses none today and there is nowhere per-clip to put them without a
+    // wider change; for such a song we now render no cables where we rendered the instrument's —
+    // both wrong, but "none" matches the C for a clip with no cable tags, which is 100% of both
+    // corpora (ALLSYN 599 cables, CALIB 310: all instrument-level, 0 inside any instrumentClip).
+    // Per-clip cable parsing is the follow-up.
+    synth.setClipParamsFresh(true);
+
     // sound.cpp:172-183 — FM modulators + all feedbacks default OFF
     synth.setModulator1AmountQ31(off);
     synth.setModulator2AmountQ31(off);
