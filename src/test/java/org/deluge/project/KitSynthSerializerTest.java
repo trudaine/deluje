@@ -266,7 +266,13 @@ public class KitSynthSerializerTest {
     SoundDrum s = new SoundDrum("SNARE", "/samples/snare.wav");
     s.setOsc2Type("TRIANGLE");
     s.setUnisonNum(2);
-    s.setUnisonDetune(0.1f);
+    // Detune is an INTEGER 0-50 in the Deluge format (stock presets write "<detune>24</detune>")
+    // and the engine consumes it as one (FirmwareFactory:727 clamps `(int) getUnisonDetune()` to
+    // 0-50). The former fractional fixtures only survived a round-trip because the serializer wrote
+    // a hex Q31, which is not what the hardware reads; such a value truncates to 0 before it ever
+    // reaches the DSP. Use representative integers so the fixture exercises a value the format can
+    // actually carry.
+    s.setUnisonDetune(8);
     kit.addDrum(s);
 
     File temp = File.createTempFile("deluge_kit_struct", ".xml");
@@ -426,7 +432,7 @@ public class KitSynthSerializerTest {
     s.setVoicePriority(0);
     s.setClippingAmount(0.0f); // keep default, parser doesn't round-trip this
     s.setUnisonNum(3);
-    s.setUnisonDetune(0.15f);
+    s.setUnisonDetune(16);
     s.setSidechainSend(0.8f);
     s.setModFxType("FLANGER");
     s.setLpfFreq(8000.0f);
@@ -469,7 +475,7 @@ public class KitSynthSerializerTest {
     synth.setOscMix(0.4f);
     synth.setNoiseVol(0.05f);
     synth.getUnison().setUnisonNum(4);
-    synth.getUnison().setUnisonDetune(0.2f);
+    synth.getUnison().setUnisonDetune(24);
     synth.setPolyphony(PolyphonyMode.LEGATO);
     synth.setFilterMode(FilterMode.SVF);
     synth.setModFxType("CHORUS");

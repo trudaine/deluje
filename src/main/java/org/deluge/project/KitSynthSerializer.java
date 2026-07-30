@@ -89,7 +89,7 @@ public class KitSynthSerializer {
 
         // ── osc2 (always present, often empty) ──
         Element osc2 = doc.createElement("osc2");
-        osc2.setAttribute("type", sound.getOsc2Type().toLowerCase());
+        osc2.setAttribute("type", oscTypeToFirmwareString(sound.getOsc2Type()));
         appendTextChild(doc, osc2, "transpose", "0");
         appendTextChild(doc, osc2, "cents", "0");
         appendTextChild(doc, osc2, "loopMode", "1");
@@ -146,7 +146,9 @@ public class KitSynthSerializer {
       // ── unison ──
       Element unison = doc.createElement("unison");
       appendTextAttr(unison, "num", String.valueOf(sound.getUnisonNum()));
-      appendTextAttr(unison, "detune", DelugeHexMapper.floatToHex(sound.getUnisonDetune()));
+      // Plain integer, matching the format and the synth path below — see the note there. Writing a
+      // hex Q31 here mangled a detune of 16 back into 1 on re-read.
+      appendTextAttr(unison, "detune", String.valueOf(Math.round(sound.getUnisonDetune())));
       soundElem.appendChild(unison);
 
       // ── compressor ──
@@ -330,9 +332,12 @@ public class KitSynthSerializer {
 
     // ── osc1 ──
     Element osc1 = doc.createElement("osc1");
-    appendTextChild(doc, osc1, "type", synth.getOsc1Type().toLowerCase());
-    appendTextChild(doc, osc1, "transpose", "0");
-    appendTextChild(doc, osc1, "cents", "0");
+    appendTextChild(doc, osc1, "type", oscTypeToFirmwareString(synth.getOsc1Type()));
+    // Were hardcoded "0", silently discarding the oscillator's tuning: "018 Rich Saw Lead" has
+    // osc2 transpose=12, and saving it collapsed both oscillators onto the same pitch — which is
+    // what made an XML round-trip render 1.77x louder (the two saws then summed coherently).
+    appendTextChild(doc, osc1, "transpose", String.valueOf(synth.getOsc1().getTranspose()));
+    appendTextChild(doc, osc1, "cents", String.valueOf(synth.getOsc1().getCents()));
     appendTextChild(doc, osc1, "retrigPhase", String.valueOf(synth.getOsc1RetrigPhase()));
     if (synth.getDx7Patch() != null && !synth.getDx7Patch().isEmpty()) {
       osc1.setAttribute("dx7patch", synth.getDx7Patch());
@@ -341,9 +346,9 @@ public class KitSynthSerializer {
 
     // ── osc2 ──
     Element osc2 = doc.createElement("osc2");
-    appendTextChild(doc, osc2, "type", synth.getOsc2Type().toLowerCase());
-    appendTextChild(doc, osc2, "transpose", "0");
-    appendTextChild(doc, osc2, "cents", "0");
+    appendTextChild(doc, osc2, "type", oscTypeToFirmwareString(synth.getOsc2Type()));
+    appendTextChild(doc, osc2, "transpose", String.valueOf(synth.getOsc2().getTranspose()));
+    appendTextChild(doc, osc2, "cents", String.valueOf(synth.getOsc2().getCents()));
     appendTextChild(doc, osc2, "retrigPhase", String.valueOf(synth.getOsc2RetrigPhase()));
     root.appendChild(osc2);
 
@@ -408,7 +413,13 @@ public class KitSynthSerializer {
     Element unison = doc.createElement("unison");
     appendTextChild(doc, unison, "num", String.valueOf(synth.getUnison().getUnisonNum()));
     appendTextChild(
-        doc, unison, "detune", DelugeHexMapper.floatToHex(synth.getUnison().getUnisonDetune()));
+        doc,
+        unison,
+        "detune",
+        // The card writes a PLAIN INTEGER here ("<detune>24</detune>" in the stock presets), not a
+        // hex Q31. Writing hex made a re-parse read detune 24 back as 1, collapsing the unison
+        // spread so the voices summed coherently instead of beating.
+        String.valueOf(Math.round(synth.getUnison().getUnisonDetune())));
     appendTextChild(
         doc,
         unison,
@@ -565,9 +576,14 @@ public class KitSynthSerializer {
     appendHexChildUnipolar(doc, dp, "arpeggiatorGate", synth.getArp().gate());
     appendHexChildUnipolar(doc, dp, "portamento", synth.getPortamento());
     appendHexChildUnipolar(doc, dp, "compressorShape", synth.getCompressorShape());
-    appendHexChildUnipolar(doc, dp, "oscAVolume", synth.getOscMix());
+    // Write the oscillators' ACTUAL volumes. These were derived from oscMix as (mix, 1 - mix),
+    // which models a crossfade — but the Deluge's two oscillator volumes are independent, and
+    // setOscAVolume also assigns oscMix. So a patch with both oscillators at full ("018 Rich Saw
+    // Lead") saved oscBVolume as 1 - 1 = 0, silencing osc B on reload. The kit path a few hundred
+    // lines up already wrote the real values; only this preset path derived them.
+    appendHexChildUnipolar(doc, dp, "oscAVolume", synth.getOscAVolume());
     appendHexChildUnipolar(doc, dp, "oscAPulseWidth", 0f);
-    appendHexChildUnipolar(doc, dp, "oscBVolume", 1.0f - synth.getOscMix());
+    appendHexChildUnipolar(doc, dp, "oscBVolume", synth.getOscBVolume());
     appendHexChildUnipolar(doc, dp, "oscBPulseWidth", 0f);
     if (synth.getPitchAdjustQ31() != Integer.MIN_VALUE) {
       appendRawQ31Child(doc, dp, "pitchAdjust", synth.getPitchAdjustQ31());
@@ -825,5 +841,36 @@ public class KitSynthSerializer {
     } else {
       parent.appendChild(doc.createElement("midiKnobs"));
     }
+  }
+
+  /**
+   * Maps a model oscillator-type string to the EXACT spelling the firmware expects.
+   *
+   * <p>{@code stringToOscType} (functions.cpp:777-815) compares with {@code strcmp}, so the match
+   * is case-sensitive, and an unrecognised string falls through to {@code OscType::TRIANGLE}
+   * (functions.cpp:813) rather than erroring. This serializer previously wrote {@code
+   * getOscNType().toLowerCase()}, so an "analogSaw" oscillator was saved as "analogsaw" and would
+   * load on hardware as a TRIANGLE — silent corruption of every preset we write, invisible until
+   * the file is opened on a Deluge. Spellings below are copied from oscTypeToString
+   * (functions.cpp:734-774).
+   */
+  private static String oscTypeToFirmwareString(String modelType) {
+    if (modelType == null) {
+      return "square";
+    }
+    return switch (modelType.trim().toUpperCase().replace("_", "").replace(" ", "")) {
+      case "SAW" -> "saw";
+      case "ANALOGSAW", "ANALOGSAW2" -> "analogSaw";
+      case "ANALOGSQUARE" -> "analogSquare";
+      case "SINE" -> "sine";
+      case "TRIANGLE" -> "triangle";
+      case "SAMPLE" -> "sample";
+      case "WAVETABLE" -> "wavetable";
+      case "INPUTL", "INLEFT" -> "inLeft";
+      case "INPUTR", "INRIGHT" -> "inRight";
+      case "INPUTSTEREO", "INSTEREO" -> "inStereo";
+      case "DX7" -> "dx7";
+      default -> "square";
+    };
   }
 }

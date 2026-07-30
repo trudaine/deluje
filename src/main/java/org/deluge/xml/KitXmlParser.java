@@ -369,10 +369,19 @@ public class KitXmlParser {
     Element unisonEl = getFirstChild(soundNode, "unison");
     if (unisonEl != null) {
       sound.setUnisonNum(readIntAttr(unisonEl, "num", 1));
-      sound.setUnisonDetune(Math.abs(DelugeHexMapper.hexToFloat(readAttr(unisonEl, "detune"))));
-      String spreadStr = readAttr(unisonEl, "spread");
-      if (spreadStr != null && !spreadStr.isEmpty()) {
-        sound.setUnisonStereoSpread(Math.abs(DelugeHexMapper.hexToFloat(spreadStr)));
+      // detune/spread are PLAIN INTEGERS in the Deluge format, read as tag OR attribute: the C does
+      // readTagOrAttributeValueInt + clamp (sound.cpp:619-626), and real card kits carry both forms
+      // — `<unison num="1" detune="8" />` in the Afterlife kits, `<detune>8</detune>` in 016
+      // Electronisounds. This unconditionally ran the value through hexToFloat and only looked at
+      // the attribute, so a detune of 8 was read as 7.45e-9 and every real kit lost its unison
+      // detune silently. The synth parser already handled both encodings; this is the same logic.
+      Float detune = unisonIntOrHex(unisonEl, "detune");
+      if (detune != null) {
+        sound.setUnisonDetune(detune);
+      }
+      Float spread = unisonIntOrHex(unisonEl, "spread");
+      if (spread != null) {
+        sound.setUnisonStereoSpread(spread);
       }
     }
 
@@ -761,5 +770,29 @@ public class KitXmlParser {
     readAttrBool(stut, "quantized", sound::setStutterQuantized);
     readAttrBool(stut, "reverse", sound::setStutterReversed);
     readAttrBool(stut, "pingPong", sound::setStutterPingPong);
+  }
+
+  /**
+   * Reads a unison field as tag or attribute, accepting the format's plain integer and tolerating a
+   * legacy {@code 0x...} hex Q31 (which older builds of our own serializer emitted). Returns null
+   * when absent so the caller can leave the model default alone.
+   */
+  private static Float unisonIntOrHex(Element unisonEl, String name) {
+    String raw = readAttr(unisonEl, name);
+    if (raw == null || raw.isBlank()) {
+      raw = getChildText(unisonEl, name);
+    }
+    if (raw == null || raw.isBlank()) {
+      return null;
+    }
+    String val = raw.trim();
+    try {
+      if (val.startsWith("0x") || val.startsWith("0X")) {
+        return Math.abs(DelugeHexMapper.hexToFloat(val));
+      }
+      return Math.abs(Float.parseFloat(val));
+    } catch (NumberFormatException e) {
+      return null;
+    }
   }
 }
