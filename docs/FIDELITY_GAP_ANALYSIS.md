@@ -3159,3 +3159,51 @@ first.**
 
 **Needs hardware time:** re-record CALIB2 and CALIB3 at lower input gain — or just the high-feedback
 delay lanes, which are the only ones overloading. Until then the delay group cannot be scored.
+
+### 4.2treseptuagies 2026-07-30 — the HPF port is FAITHFUL at the failing point; the gap is corpus-vs-hardware
+
+Went after the HPF with the method that cracked the LPF (§4.2unseptuagies). Result: every link is
+faithful, including the one that had never been tested, so the negative cosines are **not** an HPF
+port bug.
+
+**First, the defect is real, not a reference artifact.** CALIB2's noise floor measures 0.00022 (1st-5th
+percentile of 100 ms block RMS). The failing HPF slices sit at hwRMS 0.005-0.015 — **27-36 dB above
+the floor** — and are neither clipped nor near-silent. `HPF SVF_Band f50 q00` scores -0.573
+single-window / **-0.637** time-resolved. A negative cosine means our spectral tilt is inverted
+against hardware's.
+
+**Every link verified:**
+
+| link | verdict |
+|---|---|
+| `hpfMode` string → FilterMode | `"SVF_Band"`→SVF_BAND, `"SVF_Notch"`→SVF_NOTCH, `"HPLadder"`→HPLADDER. Correct. |
+| param → cutoff, end to end | C predicts **42767104** from `paramRanges[HPF_FREQ]=1073741824` (the `default:` case) + neutral 2672947; our engine produces **exactly 42767104**. |
+| param → resonance | knob `0x80000000` → C gives **0**; probe confirms our runtime gives **0**. |
+| morph | 0 both sides; inversion `((1<<29)-1) - morph` applied in the HPF slot only. |
+| `doLPF`/`doHPF` gates | match `sound.cpp:2521-2528` line for line. `lpMode=OFF` here is CORRECT: the LPF knob is at max so `lpfFreq < 0x7FFFFFD2` is false and the C bypasses it too. |
+| FilterSet + cores at the failing point | **bit-exact** — new goldens `c_fs_{HPLadder,SVF_Band,SVF_Notch}_rt_q00` at hpF=42767104 hpR=0 hpMorph=0, 29/29 maxAbsDiff=0. |
+
+**The gap the goldens had.** The earlier "real operating point" goldens (§4.2novemsexagies) used
+**hpR=268435448**, which is the **q50** value — I had carried it forward and misattributed it to q00.
+So the q00 point that actually fails had never been covered. It is now, and it is bit-exact. This is
+the second time today a bit-exact golden certified the wrong operating point (the first: the LPF
+matrix floored at 268435456, ~30x above what presets use). **A golden proves the code faithful GIVEN
+its inputs; it says nothing about whether those inputs are the ones that occur.**
+
+**Where that leaves the discrepancy.** The C *is* the hardware firmware, and our FilterSet is
+bit-identical to it given inputs we have now verified against the C individually. So the hardware must
+have rendered with **different parameters than the corpus specifies** — it is not a DSP divergence.
+Candidate causes, in order of likelihood:
+
+1. The Deluge's own parse of the generated CALIB XML differs from ours (a tag it reads elsewhere, or
+   an instrument-vs-clip precedence difference).
+2. The unit's firmware version predates the `SVF_Band`/`SVF_Notch`/`HPLadder` `EnumStringMap`
+   spellings, so its `hpfMode` resolved to something else.
+
+**Concrete hardware step, cheap and decisive:** load one CALIB2 HPF preset on the Deluge, re-save it,
+and diff the saved XML against the generated one. That shows exactly what the hardware understood —
+and it settles this without any more DSP archaeology.
+
+**A retraction:** earlier today I wrote that the HPF "under-attenuates" and treated it as our
+strongest open DSP defect. The under-attenuation is real as a *measurement*, but it is not ours: the
+filter, its cutoff, its resonance, its morph, its mode dispatch and its gates are all faithful.

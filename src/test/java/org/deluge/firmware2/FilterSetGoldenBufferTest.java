@@ -122,6 +122,15 @@ class FilterSetGoldenBufferTest {
             FilterMode.TRANSISTOR_24DB,
             MIN,
             FilterRoute.PARALLEL));
+    // The REAL runtime HPF operating point for the FAILING CALIB cases: hpF=42767104 (the C's own
+    // prediction from paramRanges[HPF_FREQ]=1073741824 + neutral 2672947, which our engine matches
+    // exactly), hpR=0, hpMorph=0, LPF bypassed. The previous "real operating point" goldens used
+    // hpR=268435448 — which turns out to be the q50 value, misattributed to q00 — so the q00 point
+    // that actually scores -0.11 to -0.68 against hardware had never been covered.
+    for (FilterMode m :
+        new FilterMode[] {FilterMode.HPLADDER, FilterMode.SVF_BAND, FilterMode.SVF_NOTCH}) {
+      cs.add(Case.hp("c_fs_" + name(m) + "_rt_q00.bin", 42767104, 0, m, 0));
+    }
     // The REAL runtime LPF operating points, read off an instrumented Voice.setConfig for the CALIB
     // noise lanes (lpfFrequency 0.25/0.5/1.0 -> these three, with lpR=0 lpMorph=0 TRANSISTOR_24DB).
     // The lowest is ~30x below the smallest cutoff above: the matrix simply never covered the range
