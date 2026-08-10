@@ -123,6 +123,22 @@ touched `src/deluge` (5 files total) and were read in full against the Java side
 One commit in this range requires a Java change (#4688, filter mode `"Off"` XML compat). Upstream
 tip for the next re-check: `95b7acab`.
 
+## 7. Re-verified 2026-08-10 — upstream advanced to `8943de364` (25 new commits), clip transpose ported
+
+Screened `95b7acab..origin/main` (25 commits, July 2026 to 2026-08-10). Eighteen are Deluge Companion web-app, website documentation, SDRAM placement scripts (`task-annotate_sdram.py`), or hardware OLED rendering (`canvas.cpp`, `qwerty_ui.cpp`). Seven touched `src/deluge` core model/clip/UI:
+
+| Upstream | What | Verdict |
+| :--- | :--- | :--- |
+| #4661 (`0c6f0d1b8`) | Transposing a clip vertically via `nudgeNotesVertically()` lacked MIDI pitch range bounds checks (allowing note codes to exceed $0\text{--}127$) and transposed out-of-scale notes in wrong directions because `degreeOf()` returned `-1` | **Ported to Java (commit `ea5f4270`).** Added `Scales.degreeOf`, `Scales.degreesBelow` (ported from `NoteSet::degreesBelow` in `note_set.cpp:53-60`), `Scales.computeTransposeShiftTable` (ported from `instrument_clip.cpp:1362-1388`), and `ClipModel.nudgeNotesVertically` (ported from `instrument_clip.cpp:1327-1418`). Rejects transposition if any pitch would overflow $0\text{--}127$ or if the clip is a drum Kit. |
+| #4739 (`a05cb6c9c`) | Section launch armed outgoing audio clips to stop early, triggering an envelope release before loop end resulting in audible clicks; added sample margin check in `audio_clip.cpp` and pre-arm takeover logic in `session.cpp` | **N/A for offline model.** `AudioInputCaptureLine` and engine playback do not use section pre-arming. |
+| #4782 (`76c9a885a`) | C++ out-of-bounds write in `browser.cpp` when formatting 4+ char file prefixes (`MIDIDEVICE`, `PATTERN`) | **N/A.** Java uses heap-allocated `String`s; zero risk of buffer overrun. |
+| #4787 (`fe3430adb`) | Added `hide_unlabeled` CC toggle in `midi_instrument.cpp` | **N/A.** Hardware OLED menu navigation feature. |
+| #4775 (`b472f94b1`) | Added Actions > Reset Settings menu in `reset_settings.cpp` | **N/A.** Hardware OLED eeprom/flash reset actions. |
+| #4777 (`4fee90a51`) | Holding mod buttons displays CC assignments in MIDI clips | **N/A.** Hardware OLED button popup interaction. |
+| #4793 (`2991d5d83`) | Added toggle for rounded corners on hardware OLED canvas (`canvas.cpp`) | **N/A.** Pixel-level OLED canvas drawing. |
+
+Upstream tip for next re-check: `8943de364`.
+
 ## Method
 
 For each upstream commit touching `src/deluge/{dsp,model/voice,model/song,processing,modulation}`,
