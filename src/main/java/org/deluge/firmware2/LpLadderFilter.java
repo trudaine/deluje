@@ -160,7 +160,9 @@ public class LpLadderFilter extends Filter {
       int gainModifier = 268435456 + a;
       filterGain = Functions.multiply_32x32_rshift32(filterGain, gainModifier) << 3;
     } else {
-      filterGain = (int) (filterGain * 0.8f);
+      // C lpladder.cpp:169 `filterGain *= 0.8` — the literal is a double, so the q31 filterGain
+      // promotes to double, not float. float's 24-bit mantissa would drop low bits first.
+      filterGain = (int) (filterGain * 0.8);
     }
 
     return filterGain;

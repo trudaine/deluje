@@ -1978,9 +1978,16 @@ public class Voice {
       }
       return 0; // inactive / too high
     } else {
-      // C voice.cpp:534-536
-      int noteWithinOctave = (noteCode + 240 - 4) % 12;
+      // C voice.cpp:533-534. Unlike the carrier path (voice.cpp:489, which casts to uint16_t and
+      // therefore biases by 240), this one has no cast and biases by 120 on both lines.
+      int noteWithinOctave = (noteCode + 120 - 4) % 12;
       int octave = (noteCode + 120 - 4) / 12;
+      // Below noteCode -116 the C's noteWithinOctave goes negative and voice.cpp:540 indexes
+      // noteFrequencyTable out of bounds — undefined behaviour, so there is no C result to be
+      // faithful to. Treat it as inactive rather than reproducing a garbage read.
+      if (noteWithinOctave < 0) {
+        return 0;
+      }
       int shiftRightAmount = 20 - octave;
       if (shiftRightAmount >= 0) {
         return (shiftRightAmount >= 32)
