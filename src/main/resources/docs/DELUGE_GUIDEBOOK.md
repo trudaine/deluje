@@ -803,6 +803,7 @@ In addition to the main grid pads, holding **[SHIFT]** while clicking faceplate 
 *   **`Shift` + Turn `[X Encoder]`**: Grows/shrinks the active clip's length.
 *   **Push-and-Turn `[Y Encoder]`**: Transposes the clip's notes up/down by one octave per detent.
 *   **Push-and-Turn + `Shift` `[Y Encoder]`** (both held together): Transposes by a single semitone per detent instead of a full octave.
+    Either transpose moves the whole clip or none of it: if even one note would land outside the playable range, the clip is left exactly as it was and the display shows `RANGE LIMIT`. Nothing is dropped at the edges, so the intervals between your notes are always preserved.
 *   **`Shift` + Turn `[Y Encoder]`** (encoder not pushed): Shifts the track's note colour instead of transposing.
 *   **`Shift` + Turn `[SELECT Encoder]`**: Coarse preset / item jump (±5 items per detent). Pushing the encoder itself has no effect on the step size — only `Shift` does.
 *   **`Shift` + Turn `[TEMPO Encoder]`**: Adjusts swing amount, not tempo.
@@ -1368,7 +1369,7 @@ The following table maps the standard Deluge hardware button combinations (from 
 | | Scroll grid horizontally | Turn `◄►` knob | Turn horizontal encoder knob in top toolbar / encoder strip, scroll mouse wheel horizontally, drag bottom scroll bar, or glide cursor near borders |
 | | Zoom resolution / rate | Push-and-turn `◄►` knob | Hold the horizontal scroll encoder down while turning it to scale sequencer rate (`Shift` + turn instead adjusts clip length — see Track View below) |
 | | Scroll grid vertically | Turn `▼▲` knob | Turn vertical encoder knob in top toolbar / encoder strip, or scroll mouse wheel vertically |
-| | Octave-transpose notes | Push-and-turn `▼▲` knob | Hold the vertical scroll encoder down while turning it to transpose the clip's notes by an octave per detent (hold `Shift` at the same time to transpose by a semitone instead) |
+| | Octave-transpose notes | Push-and-turn `▼▲` knob | Hold the vertical scroll encoder down while turning it to transpose the clip's notes by an octave per detent (hold `Shift` at the same time to transpose by a semitone instead). All-or-nothing: a move that would push any note past the playable range is refused outright and shows `RANGE LIMIT` |
 | | Shift note colour | `Shift` + turn `▼▲` knob | Hold **`Shift`** (without pushing the encoder) + turn the vertical scroll encoder to shift the track's note colour |
 | | Metronome toggle | `Shift` + `Tap Tempo` | Check **`[✓] Metronome`** in transport toolbar or hold `Shift` + `T` |
 | | Delete song | `Shift` + `Save/Delete` | Right-click Song XML file in Sidebar Explorer ➔ Delete |
