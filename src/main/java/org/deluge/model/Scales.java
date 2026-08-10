@@ -73,4 +73,85 @@ public class Scales {
     }
     return notes;
   }
+
+  /**
+   * Returns the scale degree (0-based index) of a pitch interval relative to the scale root, or -1
+   * if the interval is out of scale.
+   *
+   * @see "C++ NoteSet::degreeOf in note_set.cpp:61-66"
+   */
+  public static int degreeOf(int[] modeNotes, int interval) {
+    if (modeNotes == null) return -1;
+    int normalized = Math.floorMod(interval, 12);
+    for (int i = 0; i < modeNotes.length; i++) {
+      if (modeNotes[i] == normalized) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Returns the number of scale notes in modeNotes strictly lower than the given interval (0-11).
+   * Unlike degreeOf(), an interval absent from modeNotes returns the degree index it would occupy
+   * if added (i.e., the degree of the note immediately above it).
+   *
+   * @see "C++ NoteSet::degreesBelow in note_set.cpp:53-60"
+   */
+  public static int degreesBelow(int[] modeNotes, int interval) {
+    if (modeNotes == null) return 0;
+    int normalized = Math.floorMod(interval, 12);
+    int count = 0;
+    for (int note : modeNotes) {
+      if (note < normalized) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Precomputes the 12-entry semitone shift lookup table for vertical note row transposition,
+   * matching hardware scale transposition behavior.
+   *
+   * @param modeNotes semitone intervals of the current scale (e.g. [0, 2, 4, 5, 7, 9, 11])
+   * @param change direction/amount of degree or semitone change (+1/-1, or
+   *     +numModeNotes/-numModeNotes for octave)
+   * @param isScaleMode true if scale mode is enabled, false for chromatic semitone steps
+   * @return 12-entry array mapping pitch class interval (0-11) to semitone shift
+   * @see "C++ InstrumentClip::nudgeNotesVertically in instrument_clip.cpp:1362-1388"
+   */
+  public static int[] computeTransposeShiftTable(int[] modeNotes, int change, boolean isScaleMode) {
+    int[] shiftForInterval = new int[12];
+    int numModeNotes = (modeNotes != null && modeNotes.length > 0) ? modeNotes.length : 12;
+
+    if (!isScaleMode || Math.abs(change) == numModeNotes) {
+      int fixedShift = isScaleMode ? ((change > 0) ? 12 : -12) : change;
+      java.util.Arrays.fill(shiftForInterval, fixedShift);
+    } else {
+      for (int interval = 0; interval < 12; interval++) {
+        int degree = degreeOf(modeNotes, interval);
+        int newDegree;
+        if (degree >= 0) {
+          newDegree = degree + change;
+        } else {
+          int below = degreesBelow(modeNotes, interval);
+          newDegree = (change > 0) ? (below + change - 1) : (below + change);
+        }
+        int wrappedDegree = Math.floorMod(newDegree, numModeNotes);
+        int octaves = (newDegree - wrappedDegree) / numModeNotes;
+        shiftForInterval[interval] = modeNotes[wrappedDegree] + 12 * octaves - interval;
+      }
+    }
+    return shiftForInterval;
+  }
+
+  /**
+   * Checks if a new transposed pitch stays within the playable MIDI range (0 to 127).
+   *
+   * @see "C++ InstrumentClip::isScrollWithinRange in instrument_clip.cpp:3637-3682"
+   */
+  public static boolean isPitchWithinPlayableRange(int pitch) {
+    return pitch >= 0 && pitch <= 127;
+  }
 }

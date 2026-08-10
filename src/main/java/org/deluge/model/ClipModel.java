@@ -97,6 +97,73 @@ public class ClipModel extends TimelineCounter {
     return new ArrayList<>(noteRows.values());
   }
 
+  /**
+   * Transposes all note rows in this clip vertically by scale degrees or octaves, matching hardware
+   * encoder-nudge transposition. Rejects the entire operation (returning false without modifying
+   * any pitches) if any note would be pushed outside the 0-127 MIDI range or if the clip is a drum
+   * Kit.
+   *
+   * @param direction +1 for up, -1 for down
+   * @param isOctave true for octave nudge (Shift + Turn), false for degree/semitone nudge
+   * @param isScaleMode true if diatonic scale mode is active, false for chromatic
+   * @param modeNotes scale intervals (e.g. [0, 2, 4, 5, 7, 9, 11])
+   * @param rootKey MIDI root pitch class (0 = C, 1 = C#, etc.)
+   * @return true if notes were successfully transposed; false if rejected or no-op
+   * @see "C++ InstrumentClip::nudgeNotesVertically in instrument_clip.cpp:1327-1418"
+   */
+  public boolean nudgeNotesVertically(
+      int direction, boolean isOctave, boolean isScaleMode, int[] modeNotes, int rootKey) {
+    if (direction == 0 || isKit || noteRows.isEmpty()) {
+      return false;
+    }
+
+    int[] intervals =
+        (modeNotes != null && modeNotes.length > 0)
+            ? modeNotes
+            : Scales.ScaleType.CHROMATIC.getIntervals();
+    int numModeNotes = intervals.length;
+
+    int change = direction > 0 ? 1 : -1;
+    if (isOctave) {
+      change *= isScaleMode ? numModeNotes : 12;
+    }
+
+    int[] shiftForInterval = Scales.computeTransposeShiftTable(intervals, change, isScaleMode);
+
+    // Scan all note rows for extreme resulting pitches to enforce 0-127 range bounds
+    // C++ instrument_clip.cpp:1396-1406
+    int extremeNewPitch = 0;
+    boolean first = true;
+    for (NoteRowModel row : noteRows.values()) {
+      int currentPitch = row.getPitch();
+      int interval = Math.floorMod(currentPitch - rootKey, 12);
+      int newPitch = currentPitch + shiftForInterval[interval];
+      if (first || (change > 0 ? newPitch > extremeNewPitch : newPitch < extremeNewPitch)) {
+        extremeNewPitch = newPitch;
+        first = false;
+      }
+    }
+
+    if (!Scales.isPitchWithinPlayableRange(extremeNewPitch)) {
+      return false;
+    }
+
+    // Apply transpose to all note rows while preserving row indices in the map
+    // C++ instrument_clip.cpp:1411-1417
+    Map<Integer, NoteRowModel> updatedRows = new HashMap<>();
+    for (NoteRowModel row : noteRows.values()) {
+      int currentPitch = row.getPitch();
+      int interval = Math.floorMod(currentPitch - rootKey, 12);
+      int newPitch = currentPitch + shiftForInterval[interval];
+      row.setPitch(newPitch);
+      updatedRows.put(newPitch, row);
+    }
+    noteRows.clear();
+    noteRows.putAll(updatedRows);
+
+    return true;
+  }
+
   public ClipModel(String name, int rowCount, int stepCount) {
     this.name = name;
     this.rowCount = Math.max(1, rowCount);
