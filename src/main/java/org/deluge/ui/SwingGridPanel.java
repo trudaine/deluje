@@ -3610,11 +3610,26 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     return null;
   }
 
-  public void transposeTrack(int semitones) {
-    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return;
+  /**
+   * Transposes every active step of the edited clip by {@code semitones}, all-or-nothing.
+   *
+   * <p>Returns false and changes nothing if any active step would leave the playable range or has
+   * no grid row to land on. That check is the point of this method's rewrite: it used to compute
+   * the destinations, drop the ones that did not resolve, then wipe the clip with {@code
+   * setRowCount(0)} and write back only the survivors — so transposing a clip whose top note was
+   * near G8 destroyed those notes outright while moving the rest. Upstream hit the same bug in
+   * {@code InstrumentClip::nudgeNotesVertically} and fixed it the same way (#4661, "Reject the
+   * whole transpose when it would push any note out of range"): rejecting wholesale also keeps the
+   * intervals between the moved notes intact, which partial application does not.
+   *
+   * @return true if the clip was transposed; false if the move was rejected
+   * @see org.deluge.model.Scales#isPitchWithinPlayableRange(int)
+   */
+  public boolean transposeTrack(int semitones) {
+    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return false;
     org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
     org.deluge.model.ClipModel cModel = tModel.getActiveClip();
-    if (cModel == null) return;
+    if (cModel == null) return false;
 
     // 1. Collect active steps with transposed pitches and resolved modelRows
     java.util.List<TransposedStep> list = new java.util.ArrayList<>();
@@ -3629,6 +3644,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
         org.deluge.model.StepData sd = cModel.getStep(r, s);
         if (sd.active()) {
           int newPitch = sd.pitch() + semitones;
+          if (!org.deluge.model.Scales.isPitchWithinPlayableRange(newPitch)) {
+            return false;
+          }
           // Map new pitch back to a grid modelRow across the full 128 MIDI range
           int targetModelRow = -1;
           for (int mr = 0; mr < 128; mr++) {
@@ -3637,20 +3655,23 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
               break;
             }
           }
-
-          if (targetModelRow >= 0) {
-            org.deluge.model.StepData transposed =
-                new org.deluge.model.StepData(
-                    true,
-                    sd.velocity(),
-                    sd.gate(),
-                    sd.probability(),
-                    newPitch,
-                    sd.iterance(),
-                    sd.fill(),
-                    sd.nudge());
-            list.add(new TransposedStep(targetModelRow, s, transposed));
+          if (targetModelRow < 0) {
+            // In range but off this grid (e.g. a scale-mode row map that does not contain the
+            // destination pitch). Still all-or-nothing — do not silently drop the step.
+            return false;
           }
+
+          org.deluge.model.StepData transposed =
+              new org.deluge.model.StepData(
+                  true,
+                  sd.velocity(),
+                  sd.gate(),
+                  sd.probability(),
+                  newPitch,
+                  sd.iterance(),
+                  sd.fill(),
+                  sd.nudge());
+          list.add(new TransposedStep(targetModelRow, s, transposed));
         }
       }
     }
@@ -3695,6 +3716,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
 
     fireProjectChanged();
     refresh();
+    return true;
   }
 
   /**

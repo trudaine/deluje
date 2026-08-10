@@ -1144,13 +1144,17 @@ public class SwingHardwareTopPanel extends JPanel {
       // track's note colour (commandShiftColour, line 6168-6170). Neither combination is a
       // "scroll by an octave" — that was fabricated in an earlier revision of this method.
       if (pushMod && shiftMod && gp != null) {
-        gp.transposeTrack(delta);
+        // transposeTrack is all-or-nothing: it reports false rather than pushing notes past the
+        // playable range, matching the C's isScrollWithinRange gate (instrument_clip.cpp:1404).
+        boolean moved = gp.transposeTrack(delta);
         if (oledPanel != null)
-          oledPanel.showParamText("TRANSPOSE", "ROW " + (delta > 0 ? "+" : "") + (delta));
+          oledPanel.showParamText(
+              "TRANSPOSE", moved ? "ROW " + (delta > 0 ? "+" : "") + (delta) : "RANGE LIMIT");
       } else if (pushMod && gp != null) {
-        gp.transposeTrack(delta * 12);
+        boolean moved = gp.transposeTrack(delta * 12);
         if (oledPanel != null)
-          oledPanel.showParamText("TRANSPOSE", "OCTAVE " + (delta > 0 ? "+" : "") + (delta));
+          oledPanel.showParamText(
+              "TRANSPOSE", moved ? "OCTAVE " + (delta > 0 ? "+" : "") + (delta) : "RANGE LIMIT");
       } else if (shiftMod && gp != null) {
         gp.adjustTrackColorOffset(delta);
         if (oledPanel != null) oledPanel.showParamText("TRACK COLOR", "ADJUSTED");

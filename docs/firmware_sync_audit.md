@@ -139,6 +139,47 @@ Screened `95b7acab..origin/main` (25 commits, July 2026 to 2026-08-10). Eighteen
 
 Upstream tip for next re-check: `8943de364`.
 
+### 7a. Correction and follow-up, same day
+
+Two things were wrong with §7 as first written.
+
+**The tip was already stale.** The local checkout was at `d0935dec` — one commit past `8943de364`
+— and that commit is *"fix: bound screen transpose to the playable note range (#4794)"*, the same
+author's direct follow-up in the same area, missed by the screen.
+
+| Upstream | What | Verdict |
+| :--- | :--- | :--- |
+| #4794 (`d0935dec`) | `commandTransposeScreen()` (`<>` + vertical encoder) took its destination straight from `Song::incrementYNoteInKey()`, which does not clamp, and never validated it — unlike `scrollVertical()` and `nudgeNotesVertically()`, which both gate on `isScrollWithinRange()`. Rows moved past G8 / C-2 and then became the clip's top/bottom note, so the usable range looked permanently widened. Fixed by checking every row that has a note on the visible screen, before the action is created, all-or-nothing | **No literal counterpart: we have no screen-scoped transpose.** Our multi-row transposes are whole-clip (`SwingGridPanel.transposeTrack`, Y_ENC + push) and single-row (`ClipGridPanel.transposeRow`, mouse wheel), and both carried the same defect this commit fixes. Both now reject out-of-range moves whole rather than clamping or partially applying. |
+
+**The port itself had three defects**, found by reading it against the C rather than against the
+upstream diff — the standing lesson in `CLAUDE.md` §"How to actually find parity bugs", which
+applies to a fresh port just as much as to an old one:
+
+1. `ClipModel.nudgeNotesVertically` re-keyed `noteRows` by the new pitch. The map is keyed by
+   **row index** — the same index that addresses `grid`, `getStep` and `getRowYNote` — with pitch
+   as a separate property, whereas the C's `noteRows` is an array in which `y` is an ordinary
+   field. Re-keying decoupled the rows from the step grid, and additionally destroyed a row
+   outright whenever two landed on the same pitch, which scale mode makes routine (major scale,
+   +1 degree: C shifts +2, out-of-scale C# shifts +1, both arrive at D). Reproduced: rows
+   `[60, 61]` became `[62]`, one row and all its notes gone. Now transposes in place.
+2. `StepData` carries its own copy of the pitch, and that copy — not the row's — is what
+   `EngineSyncCoordinator` pushes to the audio bridge and what `ProjectSerializer` writes as
+   `yNote`. It was left stale, so a transpose moved the model while the engine and the saved file
+   kept the old notes.
+3. `Scales.isPitchWithinPlayableRange` was cited as a port of `isScrollWithinRange`
+   (`instrument_clip.cpp:3637-3682`). It is a flat 0-127 test; the C is output-type aware (synth
+   osc transpose, CV voltage) and additionally requires the destination to be beyond the clip's
+   current top/bottom note, which lets an already-out-of-range clip be nudged back inward. The
+   simplification stands — we model neither — but the citation now says so.
+
+Also fixed: a latent NPE in `computeTransposeShiftTable` for a null/empty scale, and two
+assertions in `ClipNudgeNotesVerticallyTest` that could not fail
+(`assertEquals(127, clip.getOrCreateRow(127).getPitch())` — `getOrCreateRow` constructs
+`new NoteRowModel(key)` when the key is absent, so it held whether or not the nudge mutated
+anything).
+
+Upstream tip for next re-check: `d0935dec`.
+
 ## Method
 
 For each upstream commit touching `src/deluge/{dsp,model/voice,model/song,processing,modulation}`,

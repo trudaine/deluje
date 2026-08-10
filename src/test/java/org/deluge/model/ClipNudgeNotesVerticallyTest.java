@@ -70,11 +70,17 @@ public class ClipNudgeNotesVerticallyTest {
     clip.getOrCreateRow(127);
     clip.getOrCreateRow(60);
 
-    // Attempt to nudge up when top note is 127
+    // Attempt to nudge up when top note is 127.
+    // Assert against the map itself, never getOrCreateRow(): that helper constructs
+    // new NoteRowModel(key) when the key is absent, so "getOrCreateRow(127).getPitch() == 127"
+    // holds whether or not the nudge mutated anything. It cannot fail, and the earlier revision
+    // of this test relied on it.
     boolean successUp = clip.nudgeNotesVertically(1, false, true, majorScale, 0);
     assertFalse(successUp, "Nudging up when max pitch is 127 must return false");
-    assertEquals(127, clip.getOrCreateRow(127).getPitch(), "Row 127 pitch must remain untouched");
-    assertEquals(60, clip.getOrCreateRow(60).getPitch(), "Row 60 pitch must remain untouched");
+    assertEquals(
+        java.util.Set.of(127, 60), clip.getNoteRowsMap().keySet(), "Rows must be untouched");
+    assertEquals(127, clip.getNoteRowsMap().get(127).getPitch(), "Row 127 pitch must be untouched");
+    assertEquals(60, clip.getNoteRowsMap().get(60).getPitch(), "Row 60 pitch must be untouched");
 
     // Add note row near bottom boundary (0)
     ClipModel lowClip = new ClipModel("Low Clip", 128, 16);
@@ -83,8 +89,10 @@ public class ClipNudgeNotesVerticallyTest {
 
     boolean successDown = lowClip.nudgeNotesVertically(-1, false, true, majorScale, 0);
     assertFalse(successDown, "Nudging down when min pitch is 0 must return false");
-    assertEquals(0, lowClip.getOrCreateRow(0).getPitch(), "Row 0 pitch must remain untouched");
-    assertEquals(60, lowClip.getOrCreateRow(60).getPitch(), "Row 60 pitch must remain untouched");
+    assertEquals(
+        java.util.Set.of(0, 60), lowClip.getNoteRowsMap().keySet(), "Rows must be untouched");
+    assertEquals(0, lowClip.getNoteRowsMap().get(0).getPitch(), "Row 0 pitch must be untouched");
+    assertEquals(60, lowClip.getNoteRowsMap().get(60).getPitch(), "Row 60 pitch must be untouched");
   }
 
   @Test
@@ -128,10 +136,56 @@ public class ClipNudgeNotesVerticallyTest {
     boolean moved = clip.nudgeNotesVertically(1, false, true, majorScale, 0);
     assertTrue(moved, "Valid transposition must return true");
 
-    // Check new pitches (C->D=62, D->E=64, E->F=65)
-    assertNotNull(clip.getNoteRowsMap().get(62), "C4 (60) transposed +2 -> D4 (62)");
-    assertNotNull(clip.getNoteRowsMap().get(64), "D4 (62) transposed +2 -> E4 (64)");
-    assertNotNull(clip.getNoteRowsMap().get(65), "E4 (64) transposed +1 -> F4 (65)");
-    assertEquals(3, clip.getNoteRowsMap().size(), "Total note row count must remain 3");
+    // Row identity (the map key, which addresses the step grid) is unchanged; only pitch moves.
+    assertEquals(
+        java.util.Set.of(60, 62, 64),
+        clip.getNoteRowsMap().keySet(),
+        "Row indices must survive a transpose — they address the step grid");
+    assertEquals(62, clip.getNoteRowsMap().get(60).getPitch(), "C4 (60) -> D4 (62)");
+    assertEquals(64, clip.getNoteRowsMap().get(62).getPitch(), "D4 (62) -> E4 (64)");
+    assertEquals(65, clip.getNoteRowsMap().get(64).getPitch(), "E4 (64) -> F4 (65)");
+  }
+
+  @Test
+  @DisplayName("Rows that land on the same pitch both survive the transpose")
+  public void testCollidingRowsAreNotDestroyed() {
+    ClipModel clip = new ClipModel("Collide Clip", 128, 16);
+    int[] majorScale = Scales.ScaleType.MAJOR.getIntervals();
+
+    // C (in scale, shifts +2) and C# (out of scale, shifts +1) both arrive at D. The C keeps
+    // both rows because its noteRows is an array and y is a plain field; a map re-keyed by pitch
+    // would silently drop one of them, taking every note in it.
+    clip.getOrCreateRow(60);
+    clip.getOrCreateRow(61);
+
+    assertTrue(clip.nudgeNotesVertically(1, false, true, majorScale, 0));
+
+    assertEquals(
+        java.util.Set.of(60, 61), clip.getNoteRowsMap().keySet(), "Both rows must still exist");
+    assertEquals(62, clip.getNoteRowsMap().get(60).getPitch(), "C -> D");
+    assertEquals(62, clip.getNoteRowsMap().get(61).getPitch(), "C# -> D (same pitch, own row)");
+  }
+
+  @Test
+  @DisplayName("Transposing rewrites the pitch carried by each active step")
+  public void testStepPitchFollowsTheRow() {
+    ClipModel clip = new ClipModel("Step Clip", 128, 16);
+    int[] majorScale = Scales.ScaleType.MAJOR.getIntervals();
+
+    clip.setStep(60, 0, new StepData(true, 0.9f, 1.0f, 1.0f, 60, 2, 0.5f, 0.25f));
+    clip.setStep(60, 4, new StepData(true, 0.5f, 0.5f, 1.0f, 60, 0, 0.0f, 0.0f));
+    assertEquals(60, clip.getStep(60, 0).pitch());
+
+    assertTrue(clip.nudgeNotesVertically(1, false, true, majorScale, 0));
+
+    // StepData carries its own pitch, and that copy — not the row's — is what reaches the audio
+    // bridge and the saved file. A stale one transposes the model while the engine keeps playing
+    // the old note.
+    assertEquals(62, clip.getStep(60, 0).pitch(), "Active step must follow its row");
+    assertEquals(62, clip.getStep(60, 4).pitch(), "Every active step, not just the first");
+    // Everything other than pitch survives; StepData.of() would have zeroed these.
+    assertEquals(2, clip.getStep(60, 0).iterance(), "Iterance must survive the transpose");
+    assertEquals(0.5f, clip.getStep(60, 0).fill(), "Fill must survive the transpose");
+    assertEquals(0.25f, clip.getStep(60, 0).nudge(), "Nudge must survive the transpose");
   }
 }

@@ -114,7 +114,12 @@ public class Scales {
    * Precomputes the 12-entry semitone shift lookup table for vertical note row transposition,
    * matching hardware scale transposition behavior.
    *
-   * @param modeNotes semitone intervals of the current scale (e.g. [0, 2, 4, 5, 7, 9, 11])
+   * <p>The C reads the scale from {@code MusicalKey::modeNotes}, a NoteSet that is always populated
+   * (its constructor adds note 0), so it has no empty case to handle. A null or empty {@code
+   * modeNotes} here falls back to the chromatic scale rather than indexing into nothing.
+   *
+   * @param modeNotes semitone intervals of the current scale (e.g. [0, 2, 4, 5, 7, 9, 11]); null or
+   *     empty is treated as chromatic
    * @param change direction/amount of degree or semitone change (+1/-1, or
    *     +numModeNotes/-numModeNotes for octave)
    * @param isScaleMode true if scale mode is enabled, false for chromatic semitone steps
@@ -123,24 +128,28 @@ public class Scales {
    */
   public static int[] computeTransposeShiftTable(int[] modeNotes, int change, boolean isScaleMode) {
     int[] shiftForInterval = new int[12];
-    int numModeNotes = (modeNotes != null && modeNotes.length > 0) ? modeNotes.length : 12;
+    int[] intervals =
+        (modeNotes != null && modeNotes.length > 0)
+            ? modeNotes
+            : ScaleType.CHROMATIC.getIntervals();
+    int numModeNotes = intervals.length;
 
     if (!isScaleMode || Math.abs(change) == numModeNotes) {
       int fixedShift = isScaleMode ? ((change > 0) ? 12 : -12) : change;
       java.util.Arrays.fill(shiftForInterval, fixedShift);
     } else {
       for (int interval = 0; interval < 12; interval++) {
-        int degree = degreeOf(modeNotes, interval);
+        int degree = degreeOf(intervals, interval);
         int newDegree;
         if (degree >= 0) {
           newDegree = degree + change;
         } else {
-          int below = degreesBelow(modeNotes, interval);
+          int below = degreesBelow(intervals, interval);
           newDegree = (change > 0) ? (below + change - 1) : (below + change);
         }
         int wrappedDegree = Math.floorMod(newDegree, numModeNotes);
         int octaves = (newDegree - wrappedDegree) / numModeNotes;
-        shiftForInterval[interval] = modeNotes[wrappedDegree] + 12 * octaves - interval;
+        shiftForInterval[interval] = intervals[wrappedDegree] + 12 * octaves - interval;
       }
     }
     return shiftForInterval;
@@ -148,6 +157,15 @@ public class Scales {
 
   /**
    * Checks if a new transposed pitch stays within the playable MIDI range (0 to 127).
+   *
+   * <p>This is a <em>simplification</em> of the C's gate, not a transcription of it. {@code
+   * InstrumentClip::isScrollWithinRange} is output-type aware: for a SYNTH it adds {@code
+   * getMinOscTranspose()}/{@code getMaxOscTranspose()} to the destination before comparing (so a
+   * patch whose oscillators transpose up rejects moves this accepts), for CV it converts to a
+   * voltage, and every branch additionally requires the destination to be beyond the clip's current
+   * {@code getTopYNote()}/{@code getBottomYNote()} — which lets an already-out-of-range clip be
+   * nudged back inward. None of that is modelled here; we have neither per-output osc transpose
+   * limits nor a CV voltage table at this layer.
    *
    * @see "C++ InstrumentClip::isScrollWithinRange in instrument_clip.cpp:3637-3682"
    */

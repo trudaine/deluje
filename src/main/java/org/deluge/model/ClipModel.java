@@ -103,6 +103,20 @@ public class ClipModel extends TimelineCounter {
    * any pitches) if any note would be pushed outside the 0-127 MIDI range or if the clip is a drum
    * Kit.
    *
+   * <p><b>Row identity is untouched.</b> The C's {@code noteRows} is an array in which {@code y} is
+   * an ordinary field, so transposing only writes {@code y}. Ours is a map keyed by <em>row
+   * index</em> — the same index that addresses {@link #grid}, {@link #getStep} and {@link
+   * #getRowYNote} — with pitch as a separate per-row property. Re-keying it by the new pitch would
+   * therefore decouple the rows from the step grid, and would additionally destroy a row outright
+   * whenever two rows land on the same pitch, which scale mode makes routine: with a major scale
+   * and a +1 degree nudge, C shifts +2 and out-of-scale C# shifts +1, so both arrive at D. Rows
+   * keep their keys and only their pitch changes; two rows sharing a pitch is legal here exactly as
+   * it is on hardware.
+   *
+   * <p>Two things the C does at this point have no counterpart at this layer and are the caller's
+   * responsibility: {@code stopAllNotesPlaying()} (instrument_clip.cpp:1408) before the pitches
+   * move, and {@code yScroll += change} (:1416) so the view follows.
+   *
    * @param direction +1 for up, -1 for down
    * @param isOctave true for octave nudge (Shift + Turn), false for degree/semitone nudge
    * @param isScaleMode true if diatonic scale mode is active, false for chromatic
@@ -148,20 +162,48 @@ public class ClipModel extends TimelineCounter {
       return false;
     }
 
-    // Apply transpose to all note rows while preserving row indices in the map
-    // C++ instrument_clip.cpp:1411-1417
-    Map<Integer, NoteRowModel> updatedRows = new HashMap<>();
-    for (NoteRowModel row : noteRows.values()) {
+    // Apply the transpose in place: only the pitch moves, the map keys do not.
+    // C++ instrument_clip.cpp:1411-1414
+    for (Map.Entry<Integer, NoteRowModel> entry : noteRows.entrySet()) {
+      NoteRowModel row = entry.getValue();
       int currentPitch = row.getPitch();
       int interval = Math.floorMod(currentPitch - rootKey, 12);
       int newPitch = currentPitch + shiftForInterval[interval];
       row.setPitch(newPitch);
-      updatedRows.put(newPitch, row);
+      retuneGridRow(entry.getKey(), newPitch);
     }
-    noteRows.clear();
-    noteRows.putAll(updatedRows);
 
     return true;
+  }
+
+  /**
+   * Rewrites the pitch carried by every active step of one grid row after its {@link NoteRowModel}
+   * has been retuned.
+   *
+   * <p>{@link StepData} keeps its own copy of the pitch, and that copy — not the row's — is what
+   * {@code EngineSyncCoordinator} pushes to the audio bridge and what {@code ProjectSerializer}
+   * writes as the row's {@code yNote}. Leaving it stale would transpose the model while the engine
+   * and the saved file kept playing the old notes. Every other per-step property is preserved;
+   * {@code StepData.of()} would reset iterance/fill/nudge to 0.
+   */
+  private void retuneGridRow(int rowIndex, int newPitch) {
+    if (rowIndex < 0 || rowIndex >= grid.size()) return;
+    List<StepData> steps = grid.get(rowIndex);
+    for (int s = 0; s < steps.size(); s++) {
+      StepData step = steps.get(s);
+      if (!step.active() || step.pitch() == newPitch) continue;
+      steps.set(
+          s,
+          new StepData(
+              step.active(),
+              step.velocity(),
+              step.gate(),
+              step.probability(),
+              newPitch,
+              step.iterance(),
+              step.fill(),
+              step.nudge()));
+    }
   }
 
   public ClipModel(String name, int rowCount, int stepCount) {

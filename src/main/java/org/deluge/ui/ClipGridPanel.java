@@ -1657,7 +1657,17 @@ public class ClipGridPanel extends SwingGridPanel {
     }
 
     int newPitch = currentPitch + (up ? 1 : -1);
-    newPitch = Math.max(0, Math.min(newPitch, 127));
+    // Reject rather than clamp. Clamping made the row silently stop moving at the rail while
+    // still rewriting every step, so a wheel-flick at G8 rewrote the clip to no effect; worse,
+    // repeated flicks past the edge are indistinguishable from a row that simply will not move.
+    // The C gates the same edit on isScrollWithinRange (instrument_clip.cpp:3637) and abandons
+    // the transpose when it fails.
+    if (!org.deluge.model.Scales.isPitchWithinPlayableRange(newPitch)) {
+      if (SwingDelugeApp.mainInstance != null) {
+        SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("TRSP", "----");
+      }
+      return;
+    }
 
     clip.setRowYNote(modelRow, newPitch);
 
