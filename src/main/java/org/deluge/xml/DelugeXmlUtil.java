@@ -179,75 +179,73 @@ public class DelugeXmlUtil {
     setter.accept(defaultValue);
   }
 
+  /**
+   * The C's {@code readTagOrAttributeValue*} semantics (sound.cpp:3300-3400), in one place: the
+   * firmware's reader surfaces an attribute and a child element as the same "tag", so {@code <p
+   * volume="0x40"/>} and {@code <p><volume>0x40</volume></p>} are equally valid for EVERY field.
+   *
+   * <p>Resolution order: an attribute on {@code parent}, then a child element's {@code value}
+   * attribute, then that child's text. Returns null when the field is absent in all three forms.
+   *
+   * <p>Reading only one form is a silent-data-loss bug that no render test can see — the setting
+   * simply keeps its default. That has bitten this port four times (osc2 {@code type}, {@code
+   * hpfMode}, {@code oscillatorSync}, the osc bool flags); routing every reader through here is
+   * what stops a fifth.
+   */
+  public static String tagOrAttributeValue(Element parent, String name) {
+    String val = parent.getAttribute(name);
+    if (val != null && !val.isEmpty()) {
+      return val.trim();
+    }
+    NodeList nodes = parent.getElementsByTagName(name);
+    if (nodes.getLength() == 0) return null;
+    Element child = (Element) nodes.item(0);
+    String childVal = child.getAttribute("value");
+    if (childVal == null || childVal.isEmpty()) {
+      childVal = child.getTextContent();
+    }
+    return (childVal == null || childVal.isBlank()) ? null : childVal.trim();
+  }
+
   public static void readHexFloat(
       Element parent, String tag, java.util.function.Consumer<Float> setter) {
-    NodeList nodes = parent.getElementsByTagName(tag);
-    if (nodes.getLength() == 0) return;
-    Element child = (Element) nodes.item(0);
-    String val = child.getAttribute("value");
-    if (val == null || val.isEmpty()) {
-      val = child.getTextContent();
-    }
-    if (val != null && !val.isBlank()) {
-      float f = DelugeHexMapper.hexToFloat(val.trim());
-      setter.accept(f);
+    String val = tagOrAttributeValue(parent, tag);
+    if (val != null) {
+      setter.accept(DelugeHexMapper.hexToFloat(val));
     }
   }
 
   public static void readHexFloatUnipolar(
       Element parent, String tag, java.util.function.Consumer<Float> setter) {
-    NodeList nodes = parent.getElementsByTagName(tag);
-    if (nodes.getLength() == 0) return;
-    Element child = (Element) nodes.item(0);
-    String val = child.getAttribute("value");
-    if (val == null || val.isEmpty()) {
-      val = child.getTextContent();
-    }
-    if (val != null && !val.isBlank()) {
-      float f = toUnipolar(DelugeHexMapper.hexToFloat(val.trim()));
-      setter.accept(f);
+    String val = tagOrAttributeValue(parent, tag);
+    if (val != null) {
+      setter.accept(toUnipolar(DelugeHexMapper.hexToFloat(val)));
     }
   }
 
   public static void readHexHz(
       Element parent, String tag, java.util.function.Consumer<Float> setter) {
-    NodeList nodes = parent.getElementsByTagName(tag);
-    if (nodes.getLength() == 0) return;
-    Element child = (Element) nodes.item(0);
-    String val = child.getAttribute("value");
-    if (val == null || val.isEmpty()) {
-      val = child.getTextContent();
-    }
-    if (val != null && !val.isBlank()) {
-      setter.accept(DelugeHexMapper.hexToHz(val.trim()));
+    String val = tagOrAttributeValue(parent, tag);
+    if (val != null) {
+      setter.accept(DelugeHexMapper.hexToHz(val));
     }
   }
 
   public static float readHexFloatVal(Element el, String tag, float def) {
-    NodeList nodes = el.getElementsByTagName(tag);
-    if (nodes.getLength() == 0) return def;
-    Element child = (Element) nodes.item(0);
-    String val = child.getAttribute("value");
-    if (val == null || val.isEmpty()) val = child.getTextContent();
-    if (val != null && !val.isBlank()) {
-      try {
-        return toUnipolar(DelugeHexMapper.hexToFloat(val.trim()));
-      } catch (Exception e) {
-        return def;
-      }
+    String val = tagOrAttributeValue(el, tag);
+    if (val == null) return def;
+    try {
+      return toUnipolar(DelugeHexMapper.hexToFloat(val));
+    } catch (Exception e) {
+      return def;
     }
-    return def;
   }
 
   public static float readHexEnvTime(Element el, String tag, float def) {
-    NodeList nodes = el.getElementsByTagName(tag);
-    if (nodes.getLength() == 0) return def;
-    Element child = (Element) nodes.item(0);
-    String val = child.getAttribute("value");
-    if (val == null || val.isEmpty()) val = child.getTextContent();
-    if (val == null || val.isBlank()) return def;
+    String val = tagOrAttributeValue(el, tag);
+    if (val == null) return def;
     try {
-      return DelugeHexMapper.hexToEnvTime(val.trim());
+      return DelugeHexMapper.hexToEnvTime(val);
     } catch (Exception e) {
       return def;
     }
