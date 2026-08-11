@@ -51,8 +51,12 @@ int main(int argc, char** argv) {
   // we take the same direct path the Java port (dryFade=0.0f) does.
   memset(&filt, 0, sizeof(filt));
   filt.reset();
-  // configure() maps user params -> internal (mirrors Voice's call site).
-  filt.configure((q31_t)freq, (q31_t)res, (FilterMode)mode, (q31_t)morph, (q31_t)gain);
+  // configure() maps user params -> internal (mirrors Voice's call site) and RETURNS the adjusted
+  // filterGain. That return is part of the port's contract and diverged unnoticed once already
+  // (drive mode's `filterGain *= 0.8` had been translated with a float literal), so it is written
+  // to a sidecar ".gain" file and asserted alongside the sample buffer.
+  q31_t outGain =
+      filt.configure((q31_t)freq, (q31_t)res, (FilterMode)mode, (q31_t)morph, (q31_t)gain);
 
   // Filter in place, mono, increment 1 — same entry the voice uses.
   filt.filterMono(buf.data(), buf.data() + nsamp, 1);
@@ -61,7 +65,17 @@ int main(int argc, char** argv) {
   if (!f) { perror("fopen"); return 1; }
   fwrite(buf.data(), sizeof(int32_t), nsamp, f);
   fclose(f);
-  fprintf(stderr, "wrote %d samples to %s (freq=%lld res=%lld mode=%d morph=%lld signal=%s)\n",
-          nsamp, outpath, (long long)freq, (long long)res, mode, (long long)morph, signal);
+
+  char gainpath[4096];
+  snprintf(gainpath, sizeof(gainpath), "%s.gain", outpath);
+  FILE* g = fopen(gainpath, "w");
+  if (!g) { perror("fopen gain"); return 1; }
+  fprintf(g, "%d\n", (int)outGain);
+  fclose(g);
+
+  fprintf(stderr,
+          "wrote %d samples to %s (freq=%lld res=%lld mode=%d morph=%lld signal=%s gain->%d)\n",
+          nsamp, outpath, (long long)freq, (long long)res, mode, (long long)morph, signal,
+          (int)outGain);
   return 0;
 }

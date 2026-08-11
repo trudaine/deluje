@@ -3251,3 +3251,41 @@ with identical inputs, so the recording's flaws were constant across both sides.
 **Hardware wish-list, now consolidated:** re-record ALLSYN_1/ALLSYN_2 and CALIB2/CALIB3 at lower input
 gain, and open ALLSYN with `CTL dry saw C4/C2` control lanes so its levels can be normalised the way
 CALIB's are.
+
+### 4.2quinseptuagies 2026-08-11 — the drive ladder's OVERSAMPLED branch is now goldened (it never was)
+
+Re-checked the five open GitHub issues against HEAD. Issue #5 ("LPF Drive diverges, 0.742 — check for
+the sibling `BasicFilterComponent` saturate-vs-wrap bug") asked for a Java→C audit of the drive path
+that had never been carried out. Done now, and it **refutes the saturate-vs-wrap hypothesis**:
+`setConfig`'s drive branch (`lpladder.cpp:57-93`), the oversampling engage decision, the 2x loop, the
+decimation and `doDriveLPFOnSample` itself (`lpladder.cpp:378-411`) all match line for line. Note the
+C's oversampled loop does **not** interpolate despite its comment — it calls `doDriveLPFOnSample`
+twice on the *same* input and discards the first result, which is exactly what we do.
+
+One real divergence in item 5 of that checklist: drive's output gain was `filterGain * 0.8f` where
+`lpladder.cpp:169` does `filterGain *= 0.8` — a **double**. float's 24-bit mantissa rounds a q31
+operand before multiplying. Fixed in `038e0134`.
+
+**The coverage finding matters more than the audit.** A first pass claimed drive had *zero* golden
+coverage; that was wrong — `LadderGoldenBufferTest` has had three drive cases since the harness
+landed, referenced as `m(2)` rather than by the enum name, which is why a grep for
+`TRANSISTOR_24DB_DRIVE` missed them. But instrumenting `setConfig` showed all three configure to
+**`doOversampling=false`**. So the entire oversampled branch — the `>>= 1` frequency halving and the
+`* 34` logFreq correction, the 39056384 cap, the `resonanceLimitTable` clamp, the doubled
+`doDriveLPFOnSample` call and the every-second-sample decimation (`lpladder.cpp:198-229`) — had never
+been compared to C. That is precisely the branch CALIB "14 LPF DRIVE" runs in, so the one part of the
+drive path the failing preset exercises was the one part with no golden.
+
+Four oversampled cases added (`f1500/r300`, `f1200/r1500`, across step/impulse/sine); all
+**maxAbsDiff=0**. The drive ladder is now bit-exact to C in *both* branches.
+
+**`configure()`'s return is now golden too.** Every existing ladder case passed `gain=0`, which makes
+drive's `filterGain *= 0.8` return 0 whether the literal is float or double — the goldens structurally
+could not see the bug above. The harness now writes the returned gain to a `<golden>.bin.gain`
+sidecar, and three cases pass a gain with low bits (`1234567891`) that float would round away.
+Verified as a real guard, not a vacuous one: reverting the fix fails exactly the two drive-gain cases
+with `expected 987654312, was 987654336`, while the plain-24dB gain case (no `0.8`) still passes.
+
+**Consequence for issue #5:** 14 LPF DRIVE's 0.742 is now *not* attributable to the drive DSP, which is
+bit-exact end to end. Same shape as the HPF result in §4.2treseptuagies — the remaining candidates are
+corpus-vs-hardware, or the level/param path feeding the filter, not the filter.

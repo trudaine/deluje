@@ -35,7 +35,13 @@ class LadderGoldenBufferTest {
   private static final int NSAMP = 512;
 
   /** One golden case: filename encodes mode + cutoff/1e6 + resonance/1e6 + signal. */
-  private record Case(String file, FilterSet.FilterMode mode, int freq, int res, String signal) {}
+  private record Case(
+      String file, FilterSet.FilterMode mode, int freq, int res, String signal, int gain) {
+    /** The common case: filterGain 0. */
+    Case(String file, FilterSet.FilterMode mode, int freq, int res, String signal) {
+      this(file, mode, freq, res, signal, 0);
+    }
+  }
 
   private static java.util.stream.Stream<Arguments> cases() {
     return java.util.stream.Stream.of(
@@ -47,7 +53,41 @@ class LadderGoldenBufferTest {
             new Case("c_drive_f800_r1000_impulse.bin", m(2), 800000000, 1000000000, "impulse"),
             new Case("c_24db_f400_r2000_impulse.bin", m(1), 400000000, 2000000000, "impulse"),
             new Case("c_drive_f400_r2000_impulse.bin", m(2), 400000000, 2000000000, "impulse"),
-            new Case("c_24db_f1500_r300_step.bin", m(1), 1500000000, 300000000, "step"))
+            new Case("c_24db_f1500_r300_step.bin", m(1), 1500000000, 300000000, "step"),
+            // Drive WITH 2x oversampling engaged. The three drive cases above all configure to
+            // doOversampling=false, so the oversampled branch (lpladder.cpp:198-229 — frequency
+            // halving + `* 34` correction, the 39056384 cap, resonanceLimitTable clamp, the double
+            // doDriveLPFOnSample call and the every-second-sample decimation) had no coverage at
+            // all. That is the branch CALIB "14 LPF DRIVE" runs in.
+            new Case("c_drive_os_f1500_r300_step.bin", m(2), 1500000000, 300000000, "step"),
+            new Case("c_drive_os_f1500_r300_impulse.bin", m(2), 1500000000, 300000000, "impulse"),
+            new Case("c_drive_os_f1200_r1500_impulse.bin", m(2), 1200000000, 1500000000, "impulse"),
+            new Case("c_drive_os_f1200_r1500_sine.bin", m(2), 1200000000, 1500000000, "sine"),
+            // Non-zero filterGain, so configure()'s RETURN is under test. With gain 0, drive mode's
+            // `filterGain *= 0.8` (lpladder.cpp:169) returns 0 whether the literal is a float or a
+            // double — which is why the port carried a `0.8f` here undetected. 1234567891 has low
+            // bits that float's 24-bit mantissa would round away, so these cases discriminate.
+            new Case(
+                "c_drive_os_gain_f1200_r1500_impulse.bin",
+                m(2),
+                1200000000,
+                1500000000,
+                "impulse",
+                1234567891),
+            new Case(
+                "c_drive_gain_f800_r1000_impulse.bin",
+                m(2),
+                800000000,
+                1000000000,
+                "impulse",
+                1234567891),
+            new Case(
+                "c_24db_gain_f800_r1000_impulse.bin",
+                m(1),
+                800000000,
+                1000000000,
+                "impulse",
+                1234567891))
         .map(c -> Arguments.of(c.file, c));
   }
 
@@ -66,8 +106,18 @@ class LadderGoldenBufferTest {
     int[] buf = makeInput(c.signal());
     LpLadderFilter filt = new LpLadderFilter();
     filt.reset(false);
-    filt.configure(c.freq(), c.res(), c.mode(), 0, 0);
+    int actualGain = filt.configure(c.freq(), c.res(), c.mode(), 0, c.gain());
     filt.filterMono(buf, 0, NSAMP, 1);
+
+    // configure()'s return is part of the contract, and diverged unnoticed once (the drive-mode
+    // `0.8f`-vs-`0.8` literal). The C harness writes it to a "<golden>.gain" sidecar.
+    Integer expectedGain = readGoldenGain(c.file());
+    if (expectedGain != null) {
+      assertEquals(
+          expectedGain.intValue(),
+          actualGain,
+          () -> "configure() filterGain diverges from C golden for " + c.file());
+    }
 
     int firstDiff = -1;
     long maxAbs = 0;
@@ -93,6 +143,15 @@ class LadderGoldenBufferTest {
                 + " golden="
                 + gv
                 + ")");
+  }
+
+  /** The filterGain the C harness's configure() returned, or null if the sidecar is absent. */
+  private static Integer readGoldenGain(String file) throws IOException {
+    try (InputStream in =
+        LadderGoldenBufferTest.class.getResourceAsStream("/fidelity/ladder/" + file + ".gain")) {
+      if (in == null) return null;
+      return Integer.valueOf(new String(in.readAllBytes()).trim());
+    }
   }
 
   private static int[] readGolden(String file) throws IOException {
