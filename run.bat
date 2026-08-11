@@ -12,7 +12,10 @@ if exist "deluge-swing.jar" (
 if exist jdk27\bin\java.exe (
     set "JAVA_EXEC=jdk27\bin\java.exe"
 ) else (
-    java -version 2>&1 | findstr /C:"version \"27" >nul
+    REM NOTE: no embedded quote in the search string -- cmd's quote pairing would swallow the
+    REM trailing `>nul` into the argument (findstr then reports `Cannot open >nul` and always
+    REM fails, so a system JDK 27 would never be detected). `/R` + `.` matches the quote instead.
+    java -version 2>&1 | findstr /R /C:"version .27" >nul
     if !errorlevel! equ 0 (
         set "JAVA_EXEC=java"
     ) else (
@@ -41,7 +44,9 @@ if exist jdk27\bin\java.exe (
 REM Build the self-contained Swing fat jar if it isn't present yet (via the mvnw.cmd wrapper).
 if not exist "%JAR%" (
     echo %JAR% not found -- building it ^(first run^)...
-    call mvnw.cmd -q clean package -Pswing-dist -DskipTests
+    REM Full path: cmd only searches the current directory when NoDefaultCurrentDirectoryInExePath
+    REM is unset, so a bare `mvnw.cmd` is not reliably found.
+    call "%~dp0mvnw.cmd" -q clean package -Pswing-dist -DskipTests
 )
 
 echo Launching Deluge (%JAR%)...

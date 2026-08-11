@@ -10,7 +10,10 @@ REM   build.bat test            -> passes goals/args through to mvnw.cmd
 if exist jdk27\bin\java.exe (
     set "JAVA_HOME=%CD%\jdk27"
 ) else (
-    java -version 2>&1 | findstr /C:"version \"27" >nul
+    REM NOTE: no embedded quote in the search string -- cmd's quote pairing would swallow the
+    REM trailing `>nul` into the argument (findstr then reports `Cannot open >nul` and always
+    REM fails, so a system JDK 27 would never be detected). `/R` + `.` matches the quote instead.
+    java -version 2>&1 | findstr /R /C:"version .27" >nul
     if !errorlevel! equ 0 (
         echo Using system Java 27.
     ) else (
@@ -39,5 +42,7 @@ if exist jdk27\bin\java.exe (
 set "GOALS=%*"
 if "%GOALS%"=="" set "GOALS=clean package"
 
+REM Call the wrapper by full path: cmd only searches the current directory when
+REM NoDefaultCurrentDirectoryInExePath is unset, so a bare `mvnw.cmd` is not reliably found.
 echo Building with mvnw.cmd (%GOALS%)...
-call mvnw.cmd %GOALS%
+call "%~dp0mvnw.cmd" %GOALS%
