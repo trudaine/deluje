@@ -156,12 +156,13 @@ public class Lfo {
 
       case RANDOM_WALK:
         {
-          // uint32_t range = 4294967295u / 20;  // (line 77)
-          int range = 214748365; // 4294967295 / 20 ≈ 214748364
+          // uint32_t range = 4294967295u / 20;  // (line 77) — integer division: exactly 214748364.
+          int range = 214748364;
           if (phase == 0) {
             // value = (range / 2) - CONG % range;  // (line 79)
-            int noise = Functions.getNoise() & 0x7FFFFFFF; // positive noise
-            value = (range / 2) - (noise % range);
+            // CONG is uint32_t (waves.h:5-7) and range is uint32_t, so `%` is an UNSIGNED modulo of
+            // the raw 32-bit pattern. Masking the sign bit instead would be a different operation.
+            value = (range / 2) - Integer.remainderUnsigned(Functions.getNoise(), range);
             holdValue = value;
           }
           // else if (phase + phaseIncrement * numSamples < phase)  // (line 82)
@@ -170,11 +171,13 @@ public class Lfo {
                   phase)
               < 0) {
             // holdValue = add_saturate((holdValue / -16) + (range / 2) - CONG % range, holdValue);
-            // (line 93)
-            int noise = Functions.getNoise() & 0x7FFFFFFF;
+            // (line 93) — same unsigned `CONG % range` as above.
             holdValue =
                 Functions.add_saturate(
-                    (holdValue / -16) + (range / 2) - (noise % range), holdValue);
+                    (holdValue / -16)
+                        + (range / 2)
+                        - Integer.remainderUnsigned(Functions.getNoise(), range),
+                    holdValue);
             value = holdValue;
           } else {
             value = holdValue; // (line 97)

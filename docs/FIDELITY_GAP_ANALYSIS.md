@@ -3289,3 +3289,46 @@ with `expected 987654312, was 987654336`, while the plain-24dB gain case (no `0.
 **Consequence for issue #5:** 14 LPF DRIVE's 0.742 is now *not* attributable to the drive DSP, which is
 bit-exact end to end. Same shape as the HPF result in §4.2treseptuagies — the remaining candidates are
 corpus-vs-hardware, or the level/param path feeding the filter, not the filter.
+
+### 4.2sexseptuagies 2026-08-11 — the LFO is goldened at last, and RANDOM_WALK was wrong
+
+Issue #3 (moving pulse-width) named two unverified suspects: the exp-cable math (audited and fixed in
+`f7c68dcc`) and **LFO waveform accuracy**. The LFO was the last major DSP block with no golden
+harness — the nine existing ones cover Dx7Env, FilterSet, FmKernel, HpLadder, Ladder, Osc, Reverb,
+Svf and WaveTable, none modulation-side. Built `tools/lfo_harness/` (compiles the real header-only
+`modulation/lfo.h` plus `lfo.cpp`; jcong seeded to 380116160 so the random shapes are comparable) and
+`LfoGoldenBufferTest`: 14 cases over all 7 wave types, local and global initial phase, two rates.
+
+Each case diffs **two** arrays — the value `render()` returns per block *and* the phase accumulator
+after each block, since a phase divergence can hide behind an agreeing value on a flat part of a
+waveform. The random types additionally pin the CONG call **count and order**: one extra `getNoise()`
+anywhere desynchronises every later value.
+
+**Result: 12 of 14 bit-exact on the first run; `RANDOM_WALK` failed at block 0** with
+`expected -75576813, was -75576800`. Two real divergences, both in the same expression:
+
+| C (`lfo.h:77-93`) | Java (was) |
+|---|---|
+| `uint32_t range = 4294967295u / 20` = **214748364** | `int range = 214748365` — off by one, and its own comment said "≈ 214748364" |
+| `CONG % range` — `CONG` and `range` are both `uint32_t` (waves.h:5-7), so this is an **unsigned** modulo of the raw 32-bit pattern | `getNoise() & 0x7FFFFFFF` then `%` — masking the sign bit is a different operation |
+
+Fixed with the exact constant and `Integer.remainderUnsigned`. All 14 now bit-exact, values and
+phases. This is the first hard evidence about the LFO in either direction: the other six wave types,
+the phase accumulator, the wrap detection and the WARBLER second-order filter are now *proven*
+faithful rather than presumed.
+
+**Two adjacent suspicions checked and cleared** (recording them so they are not re-investigated):
+
+1. `LFOType`'s enum order differs between C (SINE, TRIANGLE, SQUARE, SAW, …) and our
+   `firmware2.Lfo.LfoType` (SAW, SQUARE, SINE, TRIANGLE, …). Harmless: the C serialises the type as a
+   **string** (`lfoTypeToString`, sound.cpp:4172), and `FirmwareFactory.mapLfoType` converts by
+   `valueOf(type.name())`, not by ordinal. Not a repeat of the osc2-type / hpfMode / oscillatorSync
+   class.
+2. `LfoPanel`'s shape combo indexes `LfoType.values()[selectedIndex]`, which looks like an
+   ordinal bug against the firmware2 enum — but the panel imports `org.deluge.model.LfoType`, whose
+   order (SINE, SAW, SQUARE, TRIANGLE, S_AND_H, …) matches its label array exactly. Correct as-is.
+
+**Scope of the claim:** RANDOM_WALK's effect on the scorecard is unmeasured here (no recordings on
+this machine). It is bit-exactness against the C, which is the stronger criterion; but no fidelity
+claim is being made. Issue #3's remaining suspect is the `Patcher::evaluate()`-vs-Java LFO render
+cadence, which this harness does not address — it tests the LFO in isolation, not its call cadence.

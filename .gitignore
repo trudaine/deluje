@@ -43,3 +43,6 @@ target/
 /jdk27_temp/
 /openjdk27.tar.gz
 /openjdk27.zip
+
+# Golden-buffer harness build artifacts (regenerate with tools/<name>_harness/build.sh)
+tools/*_harness/build/
