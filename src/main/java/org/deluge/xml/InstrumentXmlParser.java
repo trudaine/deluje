@@ -66,7 +66,11 @@ public class InstrumentXmlParser {
           FieldBinding.hexFloat("defaultParams", "arpeggiatorRate", SynthTrackModel::setArpRate));
 
   public static SynthTrackModel parseSynth(java.io.File xmlFile) throws Exception {
-    return parseSynth(new java.io.FileInputStream(xmlFile), xmlFile.getName().replace(".XML", ""));
+    // try-with-resources: see the note in SongXmlParser.parseSong(File) -- an unclosed stream here
+    // leaks a descriptor and locks the file on Windows.
+    try (java.io.InputStream is = new java.io.FileInputStream(xmlFile)) {
+      return parseSynth(is, xmlFile.getName().replace(".XML", ""));
+    }
   }
 
   public static SynthTrackModel parseSynth(InputStream is, String name) throws Exception {
@@ -167,8 +171,8 @@ public class InstrumentXmlParser {
       }
       File presetFile = resolvePresetFile(folder, presetName);
       if (presetFile != null && presetFile.isFile()) {
-        try {
-          Element presetRoot = parseXml(new FileInputStream(presetFile)).getDocumentElement();
+        try (java.io.InputStream presetIs = new FileInputStream(presetFile)) {
+          Element presetRoot = parseXml(presetIs).getDocumentElement();
           populateSynth(presetRoot, synth, true);
         } catch (Exception e) {
           LOG.log(Level.WARNING, "Failed to load referenced preset: " + presetFile, e);

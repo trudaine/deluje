@@ -17,7 +17,12 @@ public class SongXmlParser {
   private static final Logger LOG = Logger.getLogger(SongXmlParser.class.getName());
 
   public static ProjectModel parseSong(java.io.File xmlFile) throws Exception {
-    return parseSong(new java.io.FileInputStream(xmlFile), xmlFile.getName().replace(".XML", ""));
+    // try-with-resources: parseSong(InputStream, ...) reads the whole document into a DOM, so the
+    // stream is finished by the time we return. Leaving it open leaks a descriptor per load and,
+    // on Windows, keeps the file locked until GC (breaks delete/rename/save-over).
+    try (java.io.InputStream is = new java.io.FileInputStream(xmlFile)) {
+      return parseSong(is, xmlFile.getName().replace(".XML", ""));
+    }
   }
 
   public static ProjectModel parseSong(InputStream is, String name) throws Exception {

@@ -15,7 +15,11 @@ public class KitXmlParser {
   private static final Logger LOG = Logger.getLogger(KitXmlParser.class.getName());
 
   public static KitTrackModel parseKit(java.io.File xmlFile) throws Exception {
-    return parseKit(new java.io.FileInputStream(xmlFile), xmlFile.getName().replace(".XML", ""));
+    // try-with-resources: see the note in SongXmlParser.parseSong(File) -- an unclosed stream here
+    // leaks a descriptor and locks the file on Windows.
+    try (java.io.InputStream is = new java.io.FileInputStream(xmlFile)) {
+      return parseKit(is, xmlFile.getName().replace(".XML", ""));
+    }
   }
 
   public static KitTrackModel parseKit(InputStream is, String name) throws Exception {
