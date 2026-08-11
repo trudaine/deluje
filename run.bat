@@ -9,7 +9,13 @@ if exist "deluge-swing.jar" (
     set "JAR=target\deluge-swing.jar"
 )
 
+REM JAVA_HOME must be set alongside JAVA_EXEC, not just JAVA_EXEC: the build step below shells out
+REM to mvnw.cmd, which resolves Java via JAVA_HOME (falling back to PATH). Without it, the very
+REM path that provisions a JDK here -- no system Java 27, download into .\jdk27, build the jar --
+REM would then build with whatever java is on PATH, i.e. the one we just established is missing or
+REM wrong. run.sh gets this right by sourcing ensure-jdk27.sh, which exports JAVA_HOME.
 if exist jdk27\bin\java.exe (
+    set "JAVA_HOME=%CD%\jdk27"
     set "JAVA_EXEC=jdk27\bin\java.exe"
 ) else (
     REM NOTE: no embedded quote in the search string -- cmd's quote pairing would swallow the
@@ -37,13 +43,27 @@ if exist jdk27\bin\java.exe (
         rd /s /q jdk27_temp
         del openjdk27.zip
 
+        set "JAVA_HOME=%CD%\jdk27"
         set "JAVA_EXEC=jdk27\bin\java.exe"
     )
 )
 
-REM Build the self-contained Swing fat jar if it isn't present yet (via the mvnw.cmd wrapper).
+REM Build the self-contained Swing fat jar if it's missing OR any source changed since it was built,
+REM so edits actually reach the launched app instead of reusing a stale jar (run.sh does the same
+REM with `find -newer`; batch has no equivalent, so the timestamp compare is done in PowerShell).
+set "NEEDS_BUILD="
 if not exist "%JAR%" (
-    echo %JAR% not found -- building it ^(first run^)...
+    set "NEEDS_BUILD=1"
+) else (
+    powershell -NoProfile -Command ^
+      "$j=(Get-Item '%JAR%').LastWriteTimeUtc;" ^
+      "$newer=Get-ChildItem -Path 'src' -Recurse -Filter '*.java' -ErrorAction SilentlyContinue |" ^
+      "  Where-Object { $_.LastWriteTimeUtc -gt $j } | Select-Object -First 1;" ^
+      "if ($newer -or (Get-Item 'pom.xml').LastWriteTimeUtc -gt $j) { exit 1 } else { exit 0 }"
+    if !errorlevel! equ 1 set "NEEDS_BUILD=1"
+)
+if defined NEEDS_BUILD (
+    echo Building %JAR% ^(missing or sources changed^)...
     REM Full path: cmd only searches the current directory when NoDefaultCurrentDirectoryInExePath
     REM is unset, so a bare `mvnw.cmd` is not reliably found.
     call "%~dp0mvnw.cmd" -q clean package -Pswing-dist -DskipTests

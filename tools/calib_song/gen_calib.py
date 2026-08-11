@@ -114,7 +114,21 @@ PARAM_DEFAULTS = [
     ("oscAVolume", MAX), ("oscAPulseWidth", q31(0.5)), ("oscAWavetablePosition", q31(0.5)),
     ("oscBVolume", OFF), ("oscBPulseWidth", q31(0.5)), ("oscBWavetablePosition", q31(0.5)),
     ("noiseVolume", OFF),
-    ("volume", q31(0.75)), ("pan", q31(0.5)),
+    # 0.25 rather than 0.75 for headroom. NOTE what this did and did not fix, because the first
+    # diagnosis was wrong: dropping 0.75 -> 0.25 moved CALIB2's RMS by only ~3 dB and the take still
+    # peaked at exactly 0 dBFS. Per-case analysis of the 2026-08-11 recording showed the clipping is
+    # NOT a corpus-wide level problem at all — 244 of 250 cases are clean, and every clipped one is a
+    # runaway-feedback delay (DLY r50 f75, DLY r75 f75) whose feedback self-oscillates into the rail
+    # regardless of volume. That is the CASE design, not the gain.
+    #
+    # Kept at 0.25 anyway for two reasons: it costs nothing (the scorecard cosine is level-blind and
+    # its level guard is control-relative), and the current reference recordings under
+    # src/test/resources/fidelity/hardware-recordings/CALIB{1,2,3} were made from songs generated at
+    # this value — changing it would desynchronise the level diagnostics from those takes.
+    #
+    # The real fix for the 6 clipped cases is to cap delay feedback below f75 in the delay group,
+    # which requires a re-record and so is deliberately not done here.
+    ("volume", q31(0.25)), ("pan", q31(0.5)),
     ("lpfFrequency", MAX), ("lpfResonance", OFF),
     ("hpfFrequency", OFF), ("hpfResonance", OFF),
     ("lfo1Rate", q31(0.5)), ("lfo2Rate", q31(0.5)),
