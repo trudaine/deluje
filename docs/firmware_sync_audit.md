@@ -180,6 +180,33 @@ anything).
 
 Upstream tip for next re-check: `d0935dec`.
 
+## 8. Re-verified 2026-08-12 — upstream advanced to `2d7cdf82` (3 new commits), no porting gaps
+
+Resumed from the tip §7a recorded (`d0935dec`, which §7a itself reviewed). Three
+commits are new since then. **All three are out of scope; nothing to port.**
+
+| commit | subject | verdict |
+| --- | --- | --- |
+| `4fa34391` | "Oops this shoulda been a max" (#4803) | **N/A** — the fix is `minThresholdMargin = std::max<uint32_t>(sample->fileLoopStartSamples, 256)` in `sample_recorder.cpp:339` (was `std::min`), governing the hardware's threshold-triggered *sample recording*. We do not port `SampleRecorder` at all (`grep -rl minThresholdMargin src/main/java` is empty; only `SampleReader.java` exists, which reads files). The rest of the commit disables `-save-temps` in CMakeLists. |
+| `b93a9cfc` | Fix USB MIDI receive packet loss + chainload corruption (#4633) | **N/A** — touches the Renesas USB stack (`r_usb_basic/src/driver/r_usb_pdriver.c`, `r_usb_plibusbip.c`) and `midi_device_manager`. That is the hardware USB transport; our MIDI arrives over the desktop stack, so there is no corresponding code path. |
+| `2d7cdf82` | add error messages (#4806) | **N/A** — adds `FREEZE_WITH_ERROR("E99x")` calls to the *dev-sysex firmware upload* path (`Debug::loadPacketReceived`, `Debug::loadCheckAndRun` in `sysex.cpp`) and to `chainload_from_buf`. We emulate neither firmware chainloading nor the dev firmware-upload handshake. |
+
+**Note on `d0935dec` (reviewed in §7a, restated because it is easy to misread as new work):** upstream's
+`commandTransposeScreen` now rejects a transpose that would push any note past the playable range,
+all-or-nothing. Our `SwingGridPanel.transposeTrack` already does the equivalent — it returns `false`
+before mutating anything when `Scales.isPitchWithinPlayableRange` fails for any active step, and the
+UI surfaces `RANGE LIMIT`. Two **pre-existing** semantic deltas remain, neither introduced by this
+commit and neither a fidelity concern (this is grid-editing behaviour, not DSP):
+
+- **Scope.** Upstream gates only rows that have a note on the *current screen*
+  (`rowHasNoteOnScreen`, using `xScroll`/`xZoom`); ours considers every active step in the clip.
+- **Scale awareness.** Upstream derives the destination from
+  `Song::incrementYNoteInKey(y, offset, inOctave, inScaleMode)`, which is scale-aware and can wrap
+  individual rows the *opposite* way to the encoder offset when staying within the octave — hence
+  its per-row direction check. Ours adds a flat semitone offset.
+
+Upstream tip for next re-check: `2d7cdf82`.
+
 ## Method
 
 For each upstream commit touching `src/deluge/{dsp,model/voice,model/song,processing,modulation}`,
