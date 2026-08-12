@@ -201,10 +201,30 @@ near-silent — §4.2septies follow-up 3). (FM was the former biggest cluster �
    with this corpus and metric. A high-corner high-pass on a C4 saw removes nearly everything, and
    testing it needs a source with energy up where the filter passes — a corpus change, not a code
    change.
-2. **The newly-exposed regressions**, which the bit-crusher had been hiding: 059 Distorted Lead
-   Guitar (0.312), 030 Distant Porta (0.513), 040 Spacer Leader (0.529), 070 Glockenspiel (0.573),
-   087 Define Leader (0.579), 021 80s TV Lead (0.583), 083 Dark Chorus (0.595), 035 Bell Lead &
-   Bass (0.596). These are now the real bottom cluster.
+2. **The newly-exposed regressions**, which the bit-crusher had been hiding. Real members:
+   **059 Distorted Lead Guitar (0.312)**, 030 Distant Porta (0.513), 040 Spacer Leader (0.529),
+   021 80s TV Lead (0.583), 035 Bell Lead & Bass (0.596).
+
+   **Not real members — near-silent hardware references:** 070 Glockenspiel, 087 Define Leader and
+   083 Dark Chorus all sit at `hw_rms=0.00035`, the *identical* value and exactly the corpus's 10th
+   percentile, i.e. the recording's noise floor. Their cosines describe the recording, not the
+   engine — the same artifact class as the documented 129. Do not chase them; ~10% of ALLSYN slices
+   are at that floor and the scorecard's near-silence guard is control-relative to CALIB's dry lane,
+   which ALLSYN does not have (see the ALLSYN control-lane item in the recording runbook).
+
+   **The sharpest one is 059**, and its diagnosis is already narrowed. Its defining parameter is
+   `<clippingAmount>8</clippingAmount>` — the maximum per-voice saturation. Audited the whole
+   saturation path Java→C and it is **faithful**: `getShiftAmountForSaturation`
+   (`(clippingAmount >= 2) ? clippingAmount - 2 : 0`), the `5 + clippingAmount` drive, and
+   `getTanHAntialiased` including its working-value state all match `sound.h:286-294` /
+   `functions.h:295-304` line for line. What is telling is the direction of the change: with the
+   bit-crush fix its **level got BETTER** (−3.8 → −1.4 dB against a hardware slice of 0.257) while
+   its **cosine got much worse** (0.768 → 0.312). Right level, wrong harmonics, faithful saturator —
+   which points at the LEVEL DRIVING the saturator, since tanh harmonic content is level-dependent.
+   That makes CLAUDE.md's own claim that "the whole voice chain up to and through the nonlinear
+   stages (ladder drive, per-voice saturate, master compressor) runs at C-exact levels" the thing to
+   re-verify; a whole master-bus stage turned out to be wrong on 2026-08-12, so that claim should not
+   be inherited on trust.
 3. **Noise scored worse** after the fix on CALIB (0.643 → 0.422 over 4 measurable cases) — plausibly
    it was being flattered by quantisation noise resembling the hardware's own floor.
 4. **Which recordings back the historical 0.92** — unresolved, and needed before any doc rewrite
