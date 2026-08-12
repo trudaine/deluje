@@ -134,8 +134,33 @@ mvn test -Dtest=FidelityScorecardTest -Dgpg.skip=true
 It self-skips unless `src/main/resources/SYNTHS` and hardware calibration recordings (configured via `-Dscorecard.recordings`)
 exist (recordings are ~150 MB each, not in git). Since 2026-07-24 it renders the ALLSYN songs'
 **embedded instrument copies** (what the recording actually played — the standalone preset files
-drift from them; old mode: `-Dscorecard.presets=true`). **Current baseline (embedded mode, fresh
-2026-07-24 recordings): time-resolved median ≈ 0.92, 94% of synths ≥ 0.80, 64% ≥ 0.90.** The
+drift from them; old mode: `-Dscorecard.presets=true`).
+
+> **⚠ EVERY SCORE BELOW THIS LINE PREDATES 2026-08-12 AND WAS MEASURED THROUGH A BIT-CRUSHER.**
+> `syncMasterEffects` mapped the song's sample-rate-reduction and bitcrush params so that "off"
+> became the q31 *midpoint*, leaving both effects ~50% ON for **every** render the scorecard ever
+> made (commit `0f17dc61`, `docs/FIDELITY_GAP_ANALYSIS.md` §4.2septseptuagies). Treat every
+> per-family verdict in this section as provisional until re-measured — including the bottom
+> cluster named below, which has since changed membership entirely.
+>
+> **Post-fix measurements (2026-08-12).** CALIB, same recordings: time-resolved median
+> **0.735 → 0.860**, negative cosines **15 → 2**, and the level excess collapsing from ~+20 dB to
+> ~+5 dB in every group (the dry control itself went **+19.4 → +4.6 dB**). ALLSYN, a true A/B on
+> identical inputs (n=188 both sides): median **0.827 → 0.847**, but presets scoring **≥0.90 went
+> 23 → 62** — quantisation noise had been capping how well a *good* match could score.
+>
+> Two caveats. The CALIB median is **not** like-for-like: removing the noise floor pushed quiet
+> slices under the measurability guard, so the scored set shrank 220 → 191 (hpf 33 → 13, noise
+> 9 → 4). And **the fix exposed defects it had been masking** — 059 Distorted Lead Guitar fell
+> 0.768 → 0.312, 121 Tiny Lights 0.822 → 0.681, 035 Bell Lead & Bass 0.779 → 0.596, while 100 Noise
+> Lead rose 0.225 → 0.620. The current ALLSYN bottom cluster is **059, 030, 040, 070, 087, 021,
+> 083, 035** — not the one named below.
+>
+> The ~0.92 figure below could not be reproduced from the recordings in `~/ALLSYN_{1,2}`; both
+> sides of the A/B landed near 0.83–0.85, so which recordings produced it is unresolved.
+
+**Superseded baseline (embedded mode, 2026-07-24 recordings): time-resolved median ≈ 0.92, 94% of
+synths ≥ 0.80, 64% ≥ 0.90.** The
 big 2026-07-25 jump was **C-exact clip-param semantics** read from the C loader (a ≥1.2.0
 song's clip = fresh initParams ParamManager + ONLY the clip's listed tags — no instrument
 back-fill, ZERO patch cables; see `docs/FIDELITY_GAP_ANALYSIS.md` §4.2septies): this closed
@@ -146,11 +171,26 @@ volume param, never its type; this recovered the whole unnumbered sample-preset 
 subtractive core (osc + ladder filter + ADSR) is faithful and scores 0.85–0.97. A third fix:
 `hpfMode` LP-mode strings ("12dB" — carried by ALL 188 ALLSYN instruments) load as an **inert
 high-pass** in the C (no dispatch branch, filter_set.cpp:26-41; §4.2nonies) — this recovered
-109 and fixed silent hardware-compat bugs in our filter-mode serialization. Open items now:
-the last few sub-0.70 scorers (100 Noise Lead .62, 149 Cold 5th Pad .59, 121 Tiny Lights .67),
+109 and fixed silent hardware-compat bugs in our filter-mode serialization. Open items as of that
+era: the then sub-0.70 scorers (100 Noise Lead .62, 149 Cold 5th Pad .59, 121 Tiny Lights .67),
 **FX (reverb/delay/modFX)**, and one scoring artifact (129: hardware slice genuinely
 near-silent — §4.2septies follow-up 3). (FM was the former biggest cluster — resolved
 2026-07-24 as clip semantics + stale-recording confusion; hardware-verified.)
+
+**Open items now (post bit-crush fix, 2026-08-12), in priority order:**
+
+1. **The measurability threshold.** Removing the quantisation noise floor pushed genuinely quiet
+   slices below the scorecard's near-silence guard — CALIB went 220 → 191 scored, the HPF group
+   33 → 13. Until that is resolved, before/after comparisons on quiet families are not clean, and
+   any verdict drawn from them (including the HPF's 0.698) is from a biased sample.
+2. **The newly-exposed regressions**, which the bit-crusher had been hiding: 059 Distorted Lead
+   Guitar (0.312), 030 Distant Porta (0.513), 040 Spacer Leader (0.529), 070 Glockenspiel (0.573),
+   087 Define Leader (0.579), 021 80s TV Lead (0.583), 083 Dark Chorus (0.595), 035 Bell Lead &
+   Bass (0.596). These are now the real bottom cluster.
+3. **Noise scored worse** after the fix on CALIB (0.643 → 0.422 over 4 measurable cases) — plausibly
+   it was being flattered by quantisation noise resembling the hardware's own floor.
+4. **Which recordings back the historical 0.92** — unresolved, and needed before any doc rewrite
+   claims a regression or an improvement against it.
 
 Workflow for a fidelity fix: pick a family above → open the cited C subsystem under
 `../DelugeFirmware/src/deluge/` → port faithfully → re-run the scorecard and confirm the targeted
