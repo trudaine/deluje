@@ -300,8 +300,17 @@ public class FirmwareAudioEngine {
     this.masterEqTrebleFreq =
         (int) (project.getSongParamEqTrebleFrequency() / 20000.0f * 2147483647.0f);
 
-    this.masterSrr = (int) (project.getSongParamSampleRateReduction() * 2147483647.0f);
-    this.masterBitcrush = (int) (project.getSongParamBitCrush() * 2147483647.0f);
+    // SRR and bitcrush are OFF at the q31 MINIMUM (0x80000000), not at zero — and their enable
+    // predicates key on exactly that (SrrBitcrush.isSRREnabled: `!= 0x80000000`;
+    // isBitcrushingEnabled: `>= -2113929216`, i.e. anything above the bottom eighth). The model
+    // stores these unipolar, 0.0 meaning "no reduction" (SongXmlParser.readSongHexAttr maps the
+    // file's 0x80000000 through toUnipolar to 0.0f). Multiplying that by 2147483647 produced q31
+    // ZERO — which is the MIDDLE of the range, i.e. ~50% — so both effects were permanently ON for
+    // every render that called this method, including every FidelityScorecardTest render. The
+    // symptom was a master bus that quantised the signal to ~2^23 and buried quiet material in
+    // quantisation noise. Map the unipolar value across the FULL q31 span instead.
+    this.masterSrr = unipolarToQ31Param(project.getSongParamSampleRateReduction());
+    this.masterBitcrush = unipolarToQ31Param(project.getSongParamBitCrush());
     this.masterStutterRate = (int) (project.getSongParamStutterRate() * 2147483647.0f);
     this.songReverbAmount = (int) (project.getSongParamReverbAmount() * 2.0f * 536870912.0f);
 
@@ -331,6 +340,18 @@ public class FirmwareAudioEngine {
         this.masterHpfMorph,
         2147483647,
         org.deluge.firmware2.FilterRoute.LOW_TO_HIGH);
+  }
+
+  /**
+   * A unipolar 0..1 model value to the firmware's full-range q31 unpatched param, where the MINIMUM
+   * (0x80000000) is "off" and zero is the midpoint. Several sibling conversions in
+   * syncMasterEffects still use the `v * 2147483647` form, which only spans 0..max and therefore
+   * cannot express "off"; they are left alone here because SRR/bitcrush are the two whose enable
+   * predicates test for the minimum directly, so those are the two with demonstrated breakage.
+   */
+  private static int unipolarToQ31Param(float v) {
+    double d = Math.max(0.0f, Math.min(1.0f, v)) * 4294967295.0 - 2147483648.0;
+    return (int) Math.max(-2147483648.0, Math.min(2147483647.0, d));
   }
 
   private long[] summedFlatBufferLong = new long[256];

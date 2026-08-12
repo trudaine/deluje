@@ -3332,3 +3332,57 @@ faithful rather than presumed.
 this machine). It is bit-exactness against the C, which is the stronger criterion; but no fidelity
 claim is being made. Issue #3's remaining suspect is the `Patcher::evaluate()`-vs-Java LFO render
 cadence, which this harness does not address — it tests the LFO in isolation, not its call cadence.
+
+### 4.2septseptuagies 2026-08-12 — the master bus was BIT-CRUSHING every render (CALIB median 0.74 -> 0.86)
+
+Chasing issue #2's HPF gap to its root found a defect far larger than the HPF: **`syncMasterEffects`
+turned the song-level sample-rate reducer and bit-crusher ON for every render.**
+
+`FirmwareAudioEngine:317-318` converted the model's unipolar 0..1 value with `v * 2147483647`. The
+model stores 0.0 for "no reduction" (`SongXmlParser.readSongHexAttr` maps the file's `0x80000000`
+through `toUnipolar` to 0.0f), but these params are **full-range** q31 where the MINIMUM
+(`0x80000000`) is off and **zero is the midpoint**. So the default 0.0 became q31 0 — roughly 50% —
+and `SrrBitcrush.isSRREnabled` / `isBitcrushingEnabled`, which test for the minimum directly, both
+returned true. The fields were *declared* correctly as `Integer.MIN_VALUE`; the sync overwrote them.
+
+Every `FidelityScorecardTest` render went through it, because `renderSynthModel` calls
+`syncMasterEffects`.
+
+**How it was found, after four failed attempts.** Aggregate probes kept producing readings that could
+not be true (one said the buffer changed across 35 lines that never write it). Two instrumentation
+bugs were behind that: `static` probe fields, which `PureFirmwareEngine`'s own `FirmwareAudioEngine`
+also incremented, interleaving a silent engine's blocks; and comparing a peak against an RMS. What
+finally worked was **snapshotting the actual buffer samples at each stage of one block and diffing
+them** — the quantisation was then unmistakable in the data: 127 of 128 samples changed inside
+`renderSongPostReverbFX`, leading samples went to exactly 0, and the peak pinned at 8,388,604 ~ 2^23.
+
+**Effect on the CALIB corpus** (same recordings, same songs, time-resolved):
+
+| group | before | after | negatives | level vs control |
+| --- | --- | --- | --- | --- |
+| hpf | 0.158 | **0.698** | 13 -> **0** | +24.6 -> +4.5 dB |
+| morph | 0.718 | 0.919 | 2 -> 2 | +18.7 -> +2.6 dB |
+| control | 0.801 | 0.940 | 0 | +20.0 -> +5.3 dB |
+| drive | 0.789 | 0.924 | 0 | +17.8 -> +5.1 dB |
+| delay | 0.701 | 0.825 | 0 | +13.8 -> +2.5 dB |
+| modfx | 0.736 | 0.838 | 0 | +19.2 -> +5.9 dB |
+| register | 0.890 | 0.947 | 0 | +20.0 -> +6.0 dB |
+| noise | 0.643 | **0.422** | 0 | +30.9 -> +4.2 dB |
+| **overall median** | **0.735** | **0.860** | 15 -> **2** | dry control +19.4 -> **+4.6 dB** |
+
+**Read the median comparison with care — it is NOT like-for-like.** The scored set shrank from 220 to
+191 because removing the quantisation noise floor left genuinely quiet slices below the
+measurability threshold: the HPF group went from 33 scored to 13, and noise from 9 to 4. So the HPF's
++0.540 is partly a change in *which* cases are scored. What does NOT depend on the set, and is
+unambiguous: **negatives 15 -> 2**, and the level excess collapsing from ~+20 dB to ~+5 dB in every
+single group, with the dry control itself going +19.4 -> +4.6 dB. The engine's absolute level is now
+far closer to the hardware's.
+
+**Noise got worse** (0.643 -> 0.422 over 4 cases). Untouched and unexplained; plausibly the group was
+previously being flattered by quantisation noise resembling the hardware's noise floor.
+
+**Sibling risk, deliberately not changed.** Several conversions beside these two still use the
+`v * 2147483647` form (modFX rate/depth/offset/feedback, LPF/HPF resonance and morph, stutter). The
+same reasoning suggests they cannot express "off" either. SRR and bitcrush were fixed alone because
+their enable predicates test the minimum directly, which is what made the breakage provable. The rest
+need their own evidence before being touched.

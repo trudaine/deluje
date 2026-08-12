@@ -55,7 +55,26 @@ public class MasterBusFxTest {
 
     assertEquals((int) (0.8f * 2147483647.0f), engine.masterEqBass);
     assertEquals((int) (0.2f * 2147483647.0f), engine.masterEqTreble);
-    assertEquals((int) (0.25f * 2147483647.0f), engine.masterSrr);
-    assertEquals((int) (0.5f * 2147483647.0f), engine.masterBitcrush);
+    // SRR and bitcrush span the FULL q31 param range, where the MINIMUM (0x80000000) is "off" —
+    // their enable predicates test for it directly (SrrBitcrush.isSRREnabled /
+    // isBitcrushingEnabled).
+    // This previously asserted `v * 2147483647`, which maps 0.0 to q31 ZERO — the MIDDLE of the
+    // range, ~50% — so both effects were permanently ON for every render that synced a song,
+    // including every FidelityScorecardTest render. The expectations below match the firmware's own
+    // anchors: 0.25 -> 0xC0000000, 0.5 -> 0x00000000 (see gen_calib.py:81-82 for the same table).
+    assertEquals(0xC0000000, engine.masterSrr, "0.25 must be q31 0xC0000000");
+    assertEquals(0x00000000, engine.masterBitcrush, "0.5 must be q31 0x00000000 (midpoint)");
+
+    // And the case that actually mattered: the model's default of 0.0 means OFF, and must disable.
+    ProjectModel fresh = new ProjectModel();
+    FirmwareAudioEngine e2 = new FirmwareAudioEngine();
+    e2.syncMasterEffects(fresh);
+    assertEquals(Integer.MIN_VALUE, e2.masterSrr, "default 0.0 must map to the off sentinel");
+    assertEquals(Integer.MIN_VALUE, e2.masterBitcrush, "default 0.0 must map to the off sentinel");
+    org.junit.jupiter.api.Assertions.assertFalse(
+        org.deluge.firmware2.SrrBitcrush.isSRREnabled(e2.masterSrr), "SRR must be off by default");
+    org.junit.jupiter.api.Assertions.assertFalse(
+        org.deluge.firmware2.SrrBitcrush.isBitcrushingEnabled(e2.masterBitcrush),
+        "bitcrushing must be off by default");
   }
 }
