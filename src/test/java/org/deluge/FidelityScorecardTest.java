@@ -629,7 +629,16 @@ public class FidelityScorecardTest {
       double ourMax = 0;
       for (int off = 0; off + win < our.length; off += SR / 4)
         ourMax = Math.max(ourMax, rms(our, off, win));
-      if (ourMax < 0.002) { // genuinely silent in our engine (e.g. multisample w/o samples loaded)
+      // This guard exists to catch OUR OWN render failures — a preset whose samples could not be
+      // loaded emits literally nothing. It is not a quietness filter. It used to test `< 0.002`,
+      // which is far above "silent": on 2026-08-12 that absolute floor was discarding 12 HPF and 4
+      // noise CALIB cases whose renders were real but quiet (ourMax 3e-5 .. 1.5e-3 — a high-pass at
+      // a high corner is SUPPOSED to remove nearly everything), while the genuine failures, the
+      // 30-case wavetable group, sat at exactly 0.0. Dropping the quiet ones biased the median
+      // upward by removing precisely the cases where the filter does the most work. Quiet-but-real
+      // slices are the near-silence guard's job (it is control-relative, and feeds the "clean"
+      // subset); this one only rejects true silence.
+      if (ourMax < 1e-6) {
         s.notMeasurable.add(name);
         s.ourRenderSilent.add(name);
         LOGGER.fine(String.format("  %3d  %-30s   n/a (our render silent)", k, name));

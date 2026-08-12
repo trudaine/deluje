@@ -185,10 +185,22 @@ near-silent — §4.2septies follow-up 3). (FM was the former biggest cluster �
    which has no `SAMPLES/WAVETABLES` — pass `-Ddeluge.card=<gen_calib.py output>` and they score a
    median of **0.902**, one of the best groups in the corpus (CALIB then reads n=221, median 0.862).
    The scorecard now warns loudly when >10% of items render silent on our side, so a whole group
-   cannot hide behind an aggregate count again. **What remains is a real defect: 12 HPF and 4 noise
-   cases render EXACTLY ZERO in our engine** — not quiet, zero — which the bit-crusher's noise was
-   previously masking. That is the thing to chase, and it is a much sharper target than the old
-   "HPF diverges" framing.
+   cannot hide behind an aggregate count again.
+
+   **Correction to the first version of this entry:** it claimed 12 HPF and 4 noise cases "render
+   EXACTLY ZERO". They do not. Their `ourMax` is 3e-5 .. 1.5e-3 — small but real; only the 30
+   wavetable cases were truly 0.0. (The error: all 46 values were printed, the first 25 read, and
+   "exactly zero" extrapolated from a screenful that happened to be all wavetable.) The guard's
+   absolute `< 0.002` floor was discarding them, so it now rejects only true silence (`< 1e-6`),
+   matching its stated purpose of catching our own render failures.
+
+   That change is **scorecard-neutral**, and the reason is worth knowing: those 16 cases are still
+   excluded, just via the both-silent path instead. For `HPF HPLadder f75 q00` the HARDWARE slice is
+   `hw_rms=0.00043` against a dry control of 0.0069 — 24 dB down. Both sides sit on the noise floor,
+   so there is genuinely nothing to compare. They are not a measurement bias; they are unmeasurable
+   with this corpus and metric. A high-corner high-pass on a C4 saw removes nearly everything, and
+   testing it needs a source with energy up where the filter passes — a corpus change, not a code
+   change.
 2. **The newly-exposed regressions**, which the bit-crusher had been hiding: 059 Distorted Lead
    Guitar (0.312), 030 Distant Porta (0.513), 040 Spacer Leader (0.529), 070 Glockenspiel (0.573),
    087 Define Leader (0.579), 021 80s TV Lead (0.583), 083 Dark Chorus (0.595), 035 Bell Lead &
