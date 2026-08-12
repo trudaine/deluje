@@ -270,8 +270,21 @@ def build_cases():
 
     # ── 5. Delay — 0/188 coverage ───────────────────────────────────────────────────────────────
     # pingPong and analog are structural (instrument <delay> tag); rate/feedback are clip params.
+    #
+    # Feedback tops out at 0.65, not 0.75. At 0.75 the delay runs away: in the 2026-08-11 hardware
+    # recording the six `DLY r50 f75 *` and `DLY r75 f75 *` cases self-oscillated into the digital
+    # rail (48-75% of those slices at full scale), and a railed slice measures the recorder, not the
+    # engine — the scorecard flags them CLIPPED and they are unusable. Lowering the corpus volume
+    # does NOT help, because the runaway is a feedback-loop property, not a level one: dropping the
+    # whole corpus 0.75 -> 0.25 left those same six still pinned at 0 dBFS. 0.65 keeps a long,
+    # clearly audible tail while staying stable.
+    #
+    # NOTE FOR WHOEVER REGENERATES: this renames 12 cases (f75 -> f65) and changes what they play,
+    # so the CALIB2/CALIB3 recordings made before 2026-08-12 no longer match the delay group. Those
+    # 12 cases will score nonsense until CALIB is re-recorded. Everything else is untouched, so
+    # there is no need to re-record on account of this alone — fold it in next time CALIB is cut.
     for rate in (0.25, 0.5, 0.75):
-        for fb in (0.25, 0.5, 0.75):
+        for fb in (0.25, 0.5, 0.65):
             for pp in (0, 1):
                 for an in (0, 1):
                     cases.append(Case(
