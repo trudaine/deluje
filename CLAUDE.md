@@ -201,16 +201,22 @@ near-silent — §4.2septies follow-up 3). (FM was the former biggest cluster �
    with this corpus and metric. A high-corner high-pass on a C4 saw removes nearly everything, and
    testing it needs a source with energy up where the filter passes — a corpus change, not a code
    change.
-2. **The newly-exposed regressions**, which the bit-crusher had been hiding. Real members:
-   **059 Distorted Lead Guitar (0.312)**, 030 Distant Porta (0.513), 040 Spacer Leader (0.529),
-   021 80s TV Lead (0.583), 035 Bell Lead & Bass (0.596).
+2. **The newly-exposed regressions**, which the bit-crusher had been hiding. After removing every
+   slice the scorecard itself flags, the real members are: **059 Distorted Lead Guitar (0.312)**,
+   030 Distant Porta (0.513), 021 80s TV Lead (0.583), 035 Bell Lead & Bass (0.596).
 
-   **Not real members — near-silent hardware references:** 070 Glockenspiel, 087 Define Leader and
-   083 Dark Chorus all sit at `hw_rms=0.00035`, the *identical* value and exactly the corpus's 10th
-   percentile, i.e. the recording's noise floor. Their cosines describe the recording, not the
-   engine — the same artifact class as the documented 129. Do not chase them; ~10% of ALLSYN slices
-   are at that floor and the scorecard's near-silence guard is control-relative to CALIB's dry lane,
-   which ALLSYN does not have (see the ALLSYN control-lane item in the recording runbook).
+   **READ THE SCORECARD'S PER-SLICE ANNOTATIONS BEFORE BUILDING ANY LIST FROM ITS CSV.** This entry
+   was wrong twice because I ranked raw `time_resolved` numbers and ignored the labels sitting right
+   next to them. Four of the eight presets first listed here are not defects at all: 070
+   Glockenspiel, 083 Dark Chorus and 087 Define Leader are **NEAR-SILENT** (−51 dB below the song's
+   median slice), and 040 Spacer Leader has a **CLIPPED** reference with 41.45% of the slice at the
+   rail. The scorecard prints exactly that for each of them, plus a run-level "Do not draw DSP
+   conclusions from them". The `-Dscorecard.csv` dump does not carry those labels — the console does.
+   Prefer the **TIME-RESOLVED (clean)** summary, which already excludes the near-silent set.
+
+   The near-silence guard needs no ALLSYN control lane, contrary to an earlier note here: its median
+   fallback correctly flagged all 30 near-silent slices. A dry-control lane would be more principled
+   but is not blocking anything.
 
    **The sharpest one is 059**, and its diagnosis is already narrowed. Its defining parameter is
    `<clippingAmount>8</clippingAmount>` — the maximum per-voice saturation. Audited the whole
@@ -227,8 +233,13 @@ near-silent — §4.2septies follow-up 3). (FM was the former biggest cluster �
    be inherited on trust.
 3. **Noise scored worse** after the fix on CALIB (0.643 → 0.422 over 4 measurable cases) — plausibly
    it was being flattered by quantisation noise resembling the hardware's own floor.
-4. **Which recordings back the historical 0.92** — unresolved, and needed before any doc rewrite
-   claims a regression or an improvement against it.
+4. **BOTH ALLSYN recordings on this machine are CLIPPED** — `~/ALLSYN_1` at 0.66% of samples at the
+   rail, `~/ALLSYN_2` at 0.15%, with 13 slices carrying clipped references. Every ALLSYN absolute
+   number in this file therefore describes the recording as much as the engine, which also explains
+   why nothing here reproduces the historical 0.92 (both sides of the 2026-08-12 A/B landed near
+   0.83–0.85). The A/B *delta* is still valid — same recording on both sides — but the levels are
+   not. **Re-recording ALLSYN at lower input gain is the single highest-value hardware task**; see
+   track 2 of the recording runbook, and fold in the CALIB delay-feedback cap while at the device.
 
 Workflow for a fidelity fix: pick a family above → open the cited C subsystem under
 `../DelugeFirmware/src/deluge/` → port faithfully → re-run the scorecard and confirm the targeted
