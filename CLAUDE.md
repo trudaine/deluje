@@ -145,19 +145,32 @@ drift from them; old mode: `-Dscorecard.presets=true`).
 >
 > **Post-fix measurements (2026-08-12).** CALIB, same recordings: time-resolved median
 > **0.735 → 0.860**, negative cosines **15 → 2**, and the level excess collapsing from ~+20 dB to
-> ~+5 dB in every group (the dry control itself went **+19.4 → +4.6 dB**). ALLSYN, a true A/B on
-> identical inputs (n=188 both sides): median **0.827 → 0.847**, but presets scoring **≥0.90 went
-> 23 → 62** — quantisation noise had been capping how well a *good* match could score.
->
-> Two caveats. The CALIB median is **not** like-for-like: removing the noise floor pushed quiet
-> slices under the measurability guard, so the scored set shrank 220 → 191 (hpf 33 → 13, noise
-> 9 → 4). And **the fix exposed defects it had been masking** — 059 Distorted Lead Guitar fell
-> 0.768 → 0.312, 121 Tiny Lights 0.822 → 0.681, 035 Bell Lead & Bass 0.779 → 0.596, while 100 Noise
-> Lead rose 0.225 → 0.620. The current ALLSYN bottom cluster is **059, 030, 040, 070, 087, 021,
-> 083, 035** — not the one named below.
->
-> The ~0.92 figure below could not be reproduced from the recordings in `~/ALLSYN_{1,2}`; both
-> sides of the A/B landed near 0.83–0.85, so which recordings produced it is unresolved.
+> ~+5 dB in every group (the dry control itself went **+19.4 → +4.6 dB**). The CALIB median is not
+> like-for-like — removing the noise floor pushed quiet slices under the measurability guard, so the
+> scored set shrank 220 → 191 (hpf 33 → 13, noise 9 → 4).
+
+**CURRENT ALLSYN BASELINE (2026-08-12, re-recorded unclipped): time-resolved median 0.919,
+mean 0.907, 93% ≥ 0.80, 66% ≥ 0.90, and NOTHING below 0.60** (n=188; clean subset n=185, same
+median). Single-window: median 0.912. This reproduces the historical ≈0.92 and settles that
+question — it was always reproducible, it just needed a recording that was not clipped.
+
+Getting there required a **recording-procedure fix worth knowing**: the Deluge's resample-to-SD
+capture happens BEFORE the master volume knob, so no knob at record time can stop it clipping —
+monitoring quietly still wrote 0 dBFS. The lever is `songParams volume` inside the song, which was
+at maximum. Note the volume curve saturates: `getFinalParameterValueVolume` clamps `temp` at 2^30,
+so anything at or above ~75% renders identically to maximum — `0x40000000` would have changed
+nothing. Set to **`0x00000000`** (the midpoint, ≈ −12 dB) both songs came back usable: ALLSYN_2 at
+−2.1 dBFS with **0.0000%** at the rail, ALLSYN_1 with zero slices over the CLIPPED threshold.
+`src/main/resources/SONGS/ALLSYN_{1,2}.XML` now hold exactly the songs those recordings were made
+from, so song and recording match by default.
+
+> **RETRACTED: the "newly-exposed bottom cluster".** Earlier entries here listed 059 Distorted Lead
+> Guitar (0.312), 030, 040, 021, 035 and others as regressions the bit-crush fix had uncovered. They
+> were artifacts of the CLIPPED recording, and every one of them recovers on the clean take: 059
+> **0.312 → 0.764**, 030 **0.513 → 0.959**, 021 **0.583 → 0.915**, 035 **0.596 → 0.890**, 040
+> **0.529 → 0.896**. The 059 "right level, wrong harmonics" investigation was chasing a clipped
+> reference; its one durable result is that the per-voice saturation path is faithful to the C.
+> Near-silent slices fell 30 → 1 and clipped references 13 → 2 on the new take.
 
 **Superseded baseline (embedded mode, 2026-07-24 recordings): time-resolved median ≈ 0.92, 94% of
 synths ≥ 0.80, 64% ≥ 0.90.** The
@@ -201,9 +214,10 @@ near-silent — §4.2septies follow-up 3). (FM was the former biggest cluster �
    with this corpus and metric. A high-corner high-pass on a C4 saw removes nearly everything, and
    testing it needs a source with energy up where the filter passes — a corpus change, not a code
    change.
-2. **The newly-exposed regressions**, which the bit-crusher had been hiding. After removing every
-   slice the scorecard itself flags, the real members are: **059 Distorted Lead Guitar (0.312)**,
-   030 Distant Porta (0.513), 021 80s TV Lead (0.583), 035 Bell Lead & Bass (0.596).
+2. **The current bottom scorers** (clean 2026-08-12 take, nothing below 0.60): 045 Square Sync
+   0.663, 121 Tiny Lights 0.718, 134 Melody String 0.725, 149 Cold 5th Pad 0.744, 098 Saturated
+   Sync 0.751, 142 Phaser 0.755, 139 Detuned Saw Pad 0.762, 059 Distorted Lead Guitar 0.764. Note
+   two SYNC presets at the very bottom (045, 098), which is the one family that keeps reappearing.
 
    **READ THE SCORECARD'S PER-SLICE ANNOTATIONS BEFORE BUILDING ANY LIST FROM ITS CSV.** This entry
    was wrong twice because I ranked raw `time_resolved` numbers and ignored the labels sitting right
@@ -233,7 +247,9 @@ near-silent — §4.2septies follow-up 3). (FM was the former biggest cluster �
    be inherited on trust.
 3. **Noise scored worse** after the fix on CALIB (0.643 → 0.422 over 4 measurable cases) — plausibly
    it was being flattered by quantisation noise resembling the hardware's own floor.
-4. **BOTH ALLSYN recordings on this machine are CLIPPED** — `~/ALLSYN_1` at 0.66% of samples at the
+4. ~~BOTH ALLSYN recordings are CLIPPED~~ — **fixed 2026-08-12 by re-recording**; see the baseline
+   block above. Historical note, since it explains a lot of earlier confusion: the old takes were
+   clipped — `~/ALLSYN_1` at 0.66% of samples at the
    rail, `~/ALLSYN_2` at 0.15%, with 13 slices carrying clipped references. Every ALLSYN absolute
    number in this file therefore describes the recording as much as the engine, which also explains
    why nothing here reproduces the historical 0.92 (both sides of the 2026-08-12 A/B landed near
