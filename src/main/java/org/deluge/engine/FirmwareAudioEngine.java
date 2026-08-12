@@ -288,10 +288,10 @@ public class FirmwareAudioEngine {
     this.songVolume = (int) (bipolar * 2147483647.0f);
 
     // Sync Song-level Master FX params (analogous to C++ Song / AudioEngine::renderSongFX)
-    this.masterModFxRate = (int) (project.getSongParamModFXRate() * 2147483647.0f);
-    this.masterModFxDepth = (int) (project.getSongParamModFXDepth() * 2147483647.0f);
-    this.masterModFxOffset = (int) (project.getSongParamModFXOffset() * 2147483647.0f);
-    this.masterModFxFeedback = (int) (project.getSongParamModFXFeedback() * 2147483647.0f);
+    this.masterModFxRate = unipolarToQ31Param(project.getSongParamModFXRate());
+    this.masterModFxDepth = unipolarToQ31Param(project.getSongParamModFXDepth());
+    this.masterModFxOffset = unipolarToQ31Param(project.getSongParamModFXOffset());
+    this.masterModFxFeedback = unipolarToQ31Param(project.getSongParamModFXFeedback());
 
     this.masterEqBass = (int) (project.getSongParamEqBass() * 2147483647.0f);
     this.masterEqTreble = (int) (project.getSongParamEqTreble() * 2147483647.0f);
@@ -311,22 +311,22 @@ public class FirmwareAudioEngine {
     // quantisation noise. Map the unipolar value across the FULL q31 span instead.
     this.masterSrr = unipolarToQ31Param(project.getSongParamSampleRateReduction());
     this.masterBitcrush = unipolarToQ31Param(project.getSongParamBitCrush());
-    this.masterStutterRate = (int) (project.getSongParamStutterRate() * 2147483647.0f);
+    this.masterStutterRate = unipolarToQ31Param(project.getSongParamStutterRate());
     this.songReverbAmount = (int) (project.getSongParamReverbAmount() * 2.0f * 536870912.0f);
 
     this.masterLpfFreq = (int) (project.getSongParamLpfFrequency() / 20000.0f * 2147483647.0f);
-    this.masterLpfRes = (int) (project.getSongParamLpfResonance() * 2147483647.0f);
-    this.masterLpfMorph = (int) (project.getSongParamLpfMorph() * 2147483647.0f);
+    this.masterLpfRes = unipolarToQ31Param(project.getSongParamLpfResonance());
+    this.masterLpfMorph = unipolarToQ31Param(project.getSongParamLpfMorph());
     this.masterHpfFreq = (int) (project.getSongParamHpfFrequency() / 20000.0f * 2147483647.0f);
-    this.masterHpfRes = (int) (project.getSongParamHpfResonance() * 2147483647.0f);
-    this.masterHpfMorph = (int) (project.getSongParamHpfMorph() * 2147483647.0f);
+    this.masterHpfRes = unipolarToQ31Param(project.getSongParamHpfResonance());
+    this.masterHpfMorph = unipolarToQ31Param(project.getSongParamHpfMorph());
 
     org.deluge.firmware2.FilterSet.FilterMode lpfModeVal =
-        (this.masterLpfFreq < 2147483602 || this.masterLpfMorph != 0)
+        (this.masterLpfFreq < 2147483602 || this.masterLpfMorph > Integer.MIN_VALUE)
             ? org.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB
             : org.deluge.firmware2.FilterSet.FilterMode.OFF;
     org.deluge.firmware2.FilterSet.FilterMode hpfModeVal =
-        (this.masterHpfFreq > 2147484 || this.masterHpfMorph != 0)
+        (this.masterHpfFreq > 2147484 || this.masterHpfMorph > Integer.MIN_VALUE)
             ? org.deluge.firmware2.FilterSet.FilterMode.HPLADDER
             : org.deluge.firmware2.FilterSet.FilterMode.OFF;
     this.masterFilterSet.setConfig(
@@ -350,6 +350,10 @@ public class FirmwareAudioEngine {
    * predicates test for the minimum directly, so those are the two with demonstrated breakage.
    */
   private static int unipolarToQ31Param(float v) {
+    // eqBass/eqTreble and pan are read BIPOLAR (SongXmlParser passes unipolar=false), so their
+    // `v * 2147483647` conversions are correct and are deliberately left alone. songVolume already
+    // does this same full-range mapping by hand. The Hz-domain conversions (lpf/hpf/eq frequency)
+    // and songReverbAmount use their own scaling and are untouched.
     double d = Math.max(0.0f, Math.min(1.0f, v)) * 4294967295.0 - 2147483648.0;
     return (int) Math.max(-2147483648.0, Math.min(2147483647.0, d));
   }

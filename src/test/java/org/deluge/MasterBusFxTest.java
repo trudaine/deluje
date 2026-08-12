@@ -38,8 +38,23 @@ public class MasterBusFxTest {
     project.setSongParamModFXDepth(0.75f);
     engine.syncMasterEffects(project);
 
-    assertEquals((int) (0.5f * 2147483647.0f), engine.masterModFxRate);
-    assertEquals((int) (0.75f * 2147483647.0f), engine.masterModFxDepth);
+    // modFX rate/depth are unipolar params spanning the FULL q31 range, where the minimum
+    // (0x80000000) is "off" and ZERO is the midpoint — SongXmlParser reads them with unipolar=true,
+    // so the model's 0.0 is the file's 0x80000000. This previously asserted `v * 2147483647`, which
+    // squeezes 0..1 into midpoint..max and cannot express "off" at all.
+    // (1 LSB below the firmware's 0x40000000 anchor: the scale is 2^32-1, not 2^32.)
+    assertEquals(0, engine.masterModFxRate, "0.5 is the q31 midpoint");
+    assertEquals(1073741823, engine.masterModFxDepth, "0.75 is ~0x40000000");
+
+    ProjectModel fresh = new ProjectModel();
+    FirmwareAudioEngine e2 = new FirmwareAudioEngine();
+    e2.syncMasterEffects(fresh);
+    assertEquals(Integer.MIN_VALUE, e2.masterModFxRate, "default 0.0 must be the off sentinel");
+    assertEquals(Integer.MIN_VALUE, e2.masterModFxDepth, "default 0.0 must be the off sentinel");
+    // The morph gates key off the minimum (as sound.cpp:2521-2528 does), so a default song must
+    // still leave the master filter OFF now that morph maps to MIN_VALUE rather than 0.
+    org.junit.jupiter.api.Assertions.assertFalse(
+        e2.masterFilterSet.isOn(), "a default song must not engage the master filter");
   }
 
   @Test
