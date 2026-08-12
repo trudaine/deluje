@@ -78,6 +78,22 @@ $SCORECARD_RECORDINGS/CALIB2/output_000.wav
 $SCORECARD_RECORDINGS/CALIB3/output_000.wav
 ```
 
+## Score
+
+**`-Ddeluge.card` must point at this generator's output directory**, not the default
+`src/main/resources`. The wavetable cases reference `SAMPLES/WAVETABLES/*.WAV`, which only exist
+here — without it all 30 of them render silent, are dropped from the median as "not-measurable",
+and the whole group goes unmeasured. That is exactly what happened until 2026-08-12; once the path
+was right the group scored a median of **0.902**, one of the best in the corpus. The scorecard now
+prints a loud warning when more than 10% of items render silent on our side.
+
+```bash
+./mvnw test -Dtest='FidelityScorecardTest#calibScorecard' \
+  -Dcalib.songs=/tmp/calib_out/SONGS \
+  -Ddeluge.card=/tmp/calib_out \
+  -Dscorecard.csv=/tmp/calib_scores.csv
+```
+
 Geometry matches ALLSYN exactly — clip length 768 ticks, one sound every 1152 ticks, i.e. a 2 s note
 and 1 s of silence at 120 BPM — so the scorecard's onset detection works unchanged.
 

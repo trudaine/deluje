@@ -179,10 +179,16 @@ near-silent — §4.2septies follow-up 3). (FM was the former biggest cluster �
 
 **Open items now (post bit-crush fix, 2026-08-12), in priority order:**
 
-1. **The measurability threshold.** Removing the quantisation noise floor pushed genuinely quiet
-   slices below the scorecard's near-silence guard — CALIB went 220 → 191 scored, the HPF group
-   33 → 13. Until that is resolved, before/after comparisons on quiet families are not clean, and
-   any verdict drawn from them (including the HPF's 0.698) is from a biased sample.
+1. ~~The measurability threshold.~~ **Resolved 2026-08-12, and it was not a threshold problem.**
+   Of the 59 excluded CALIB cases, 46 rendered **exactly zero** on our side. 30 of those were the
+   entire wavetable group, silent only because `-Ddeluge.card` pointed at `src/main/resources`,
+   which has no `SAMPLES/WAVETABLES` — pass `-Ddeluge.card=<gen_calib.py output>` and they score a
+   median of **0.902**, one of the best groups in the corpus (CALIB then reads n=221, median 0.862).
+   The scorecard now warns loudly when >10% of items render silent on our side, so a whole group
+   cannot hide behind an aggregate count again. **What remains is a real defect: 12 HPF and 4 noise
+   cases render EXACTLY ZERO in our engine** — not quiet, zero — which the bit-crusher's noise was
+   previously masking. That is the thing to chase, and it is a much sharper target than the old
+   "HPF diverges" framing.
 2. **The newly-exposed regressions**, which the bit-crusher had been hiding: 059 Distorted Lead
    Guitar (0.312), 030 Distant Porta (0.513), 040 Spacer Leader (0.529), 070 Glockenspiel (0.573),
    087 Define Leader (0.579), 021 80s TV Lead (0.583), 083 Dark Chorus (0.595), 035 Bell Lead &

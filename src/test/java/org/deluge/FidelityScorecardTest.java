@@ -402,6 +402,16 @@ public class FidelityScorecardTest {
     /** Our render produced silence — nothing to compare (e.g. multisamples with no samples). */
     final List<String> notMeasurable = new ArrayList<>();
 
+    /**
+     * Subset of {@link #notMeasurable} where OUR render was exactly silent. Tracked separately
+     * because it has a wholly different meaning from a both-silent slice: it is us producing
+     * nothing, either a real engine defect or — as happened with the entire 30-case CALIB wavetable
+     * group — samples the render could not find because the card path lacked them. That group sat
+     * unmeasured and unnoticed behind an aggregate "not-measurable" count; once the wavetables were
+     * reachable it scored a median of 0.902, one of the best groups in the corpus.
+     */
+    final List<String> ourRenderSilent = new ArrayList<>();
+
     /** Scored, but the hardware slice is below the near-silence floor. */
     final List<String> nearSilent = new ArrayList<>();
 
@@ -621,6 +631,7 @@ public class FidelityScorecardTest {
         ourMax = Math.max(ourMax, rms(our, off, win));
       if (ourMax < 0.002) { // genuinely silent in our engine (e.g. multisample w/o samples loaded)
         s.notMeasurable.add(name);
+        s.ourRenderSilent.add(name);
         LOGGER.fine(String.format("  %3d  %-30s   n/a (our render silent)", k, name));
         continue;
       }
@@ -781,10 +792,12 @@ public class FidelityScorecardTest {
   static void report(String label, Scores s) {
     LOGGER.info(
         String.format(
-            "%n  %s: not-measurable %d, near-silent %d (excluded from clean), level-mismatch %d,"
+            "%n  %s: not-measurable %d (of which %d rendered SILENT on our side),"
+                + " near-silent %d (excluded from clean), level-mismatch %d,"
                 + " CLIPPED reference %d",
             label,
             s.notMeasurable.size(),
+            s.ourRenderSilent.size(),
             s.nearSilent.size(),
             s.levelMismatch.size(),
             s.clipped.size()));
@@ -796,6 +809,22 @@ public class FidelityScorecardTest {
               s.controlLevel,
               s.controlOurLevel,
               20 * Math.log10(s.controlOurLevel / s.controlLevel)));
+    }
+    int scoredPlusSilent = s.timeResolved.size() + s.ourRenderSilent.size();
+    if (scoredPlusSilent > 0 && s.ourRenderSilent.size() * 10 > scoredPlusSilent) {
+      LOGGER.warning(
+          String.format(
+              "%n  *** %d of %d %s items rendered SILENT in our engine (>10%%). That is us"
+                  + " producing nothing, not a fidelity result, and it silently removes them from"
+                  + " the median. The usual cause is samples the render cannot find: check that"
+                  + " -Ddeluge.card points at a card containing the SAMPLES/ this corpus"
+                  + " references (for CALIB that is the gen_calib.py output directory, which"
+                  + " carries SAMPLES/WAVETABLES). The entire 30-case wavetable group hid here"
+                  + " until 2026-08-12. First few: %s ***",
+              s.ourRenderSilent.size(),
+              scoredPlusSilent,
+              label,
+              s.ourRenderSilent.subList(0, Math.min(5, s.ourRenderSilent.size()))));
     }
     if (!s.nearSilent.isEmpty()) {
       LOGGER.info("  near-silent slices: " + String.join(", ", s.nearSilent));
