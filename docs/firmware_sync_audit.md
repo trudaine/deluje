@@ -207,6 +207,103 @@ commit and neither a fidelity concern (this is grid-editing behaviour, not DSP):
 
 Upstream tip for next re-check: `2d7cdf82`.
 
+## 9. Re-verified 2026-09-13 — upstream advanced to `9e3132dc1` (59 new commits)
+
+Resumed from the tip §8 recorded (`2d7cdf82`). 59 commits, of which 26 touch `src/deluge`. Every
+verdict below was reached by reading the Java, not the commit message. Note the limit CLAUDE.md
+spells out: a delta audit cannot find bugs baked into the port from day one — but reading each
+changed C function against its Java counterpart surfaced several such pre-existing gaps anyway,
+listed separately in 9b.
+
+### 9a. Retrofit — upstream fixed a bug the Java shares
+
+| commit | what | Java | priority |
+| --- | --- | --- | --- |
+| `f36ae0809` | Digital (Dattorro) reverb's RIGHT channel HPF/LPF ran on the LEFT channel's one-pole state (`hp_l_`/`lp_l_`), cross-coupling the channels and running both filters at double rate, ~1 octave high | `Reverb.java:547-548` ported the bug verbatim — `onePole(hpSt, 1, …)` / `onePole(lpSt, 1, …)`, annotated "sic — kept faithful". Index `1` is `hp_l_`/`lp_l_` (per the `hpSt[0]`=right convention at `:321`); must be `0` | **High** — DSP, audible in stereo, a two-index fix |
+| `7064d10b9` | Live-input pitch shifter could spin forever when the search span came out ≤ 0 | `LivePitchShifter.java:626` computes `endOffset = Math.min(searchSize, searchSizeBoundary) * searchDirection` with **no** `<= 0` guard. The C now jumps to `searchNextDirection` (`live_pitch_shifter.cpp:669-673`). The commit's other four fixes are **already** in Java: the `K_INPUT_PERC_BUFFER_SIZE` mask (`:481`), the divide-by-zero guard (`LiveInputBuffer.java:95`), the buffer-state reset (`LiveInputBuffer.java:51-54`) and the out-of-bounds `readPos[kNumMovingAverages + 1]` read (`:620-623`) | **Medium** — freeze, live input only |
+| `685b4fb9d` (MIDI half) | CC and aftertouch data bytes now clamp to 0..127 | `MIDIMessage.cc` does `value & 0x7F`, which **wraps**: 128 → 0, −6 → 122 — the wrong-direction value upstream's clamp prevents | Low |
+
+### 9b. Pre-existing gaps surfaced by reading these commits
+
+Not deltas — these were already absent — but each was found by opening the C function a commit
+touched and reading its Java counterpart.
+
+1. **Probability, iterance and fill are never evaluated during playback.** Found following `3ce3d41df`.
+   The live path is `PlaybackHandler.java:209` → `ClipModel.processCurrentPos` →
+   `NoteRowModel.processCurrentPos`. `NoteRowModel` queues a `PendingNoteOn` for every note with no
+   evaluation, and `ClipModel` then triggers every queued note unconditionally
+   (`for (PendingNoteOn noteOn : pendingNoteOns) triggerNote(noteOn);`). The C evaluates all three
+   before triggering (`instrument_clip.cpp:840-890`: probability, then `iterance.passesCheck`, then
+   fill mode). `Iterance.passesCheck` exists in Java but has no callers, and the bridge's
+   `step.probability[]` / `step.iterance[]` / `step.fill[]` are read only by their own accessors,
+   whose only callers are `StepPropertiesEditor` (UI). **Scope of the claim:** this is static
+   evidence — every reader in `src/main/java` was enumerated — not an observed render. Confirm with a
+   test that plays a 0%-probability note before building on it. If it holds, every song using these
+   conditions plays every note on every pass. **Highest behavioural impact in this audit.**
+2. **Arp octave modes `"alt"` and `"random"` are mis-parsed.** Found following `e07844d64`.
+   `FirmwareFactory.stringToArpOctaveMode` (`:1190-1197`) folds `"ALT"` into `UP_DOWN` and has no
+   `"RANDOM"` case, so it falls to `UP`. The C maps them to `ALTERNATE` and `RANDOM`
+   (`functions.cpp`, `stringToArpOctaveMode`); the Java enum already has both values, and the C
+   arpeggiator treats `ALTERNATE` differently from `UP_DOWN` in at least seven places
+   (`arpeggiator.cpp:1123, 1143, 1181, 1191, 1245, 1954, 1960`). (Upstream's own bug — `"upDown"` →
+   `RANDOM` — never existed in Java.) **Medium**, audible on any arp using those modes.
+3. **Audio tracks have no attack/release envelope.** Found following `ad036ab38`.
+   `AudioOutput.java:44` says outright "no per-note envelope on an audio track"; the C runs one
+   (`audio_output.cpp:111` `resetEnvelope`, `:148-165`, attack derived through `getExp`). Upstream's
+   click fix lives entirely inside that unported path. **Medium.**
+4. **Automation interpolation is an approximation, not a port.** Found following `685b4fb9d`.
+   `AutoParam.tickSamples` (`org.deluge.modulation.automation`, outside `firmware2`) computes
+   `((long) valueIncrementPerHalfTick * numSamples) >> 32` and **ignores** its
+   `timePerTimerTickInverse` argument, where the C does
+   `multiply_32x32_rshift32_rounded(valueIncrementPerHalfTick, timePerInternalTickInverse) * 6 * numSamples`
+   — so the ramp rate does not track tempo. There is no `tickTicks` and no `ticksSkipped` mechanism,
+   so upstream's two fixes (skipped ticks applied to the *new* ramp; int32 overflow wrapping the
+   increment) have nothing to land on. **Medium.**
+5. **First / Last iterance** (`3ce3d41df`, `4606fb0be`) is a genuine new sequencer feature:
+   `divisor == 0, step == 1` plays only on the first pass (`repeatCount == 0`); `step == 2` only on the
+   pass where `willClipContinuePlayingAtEnd` is false; two presets are prepended to
+   `iterancePresets`. It is **blocked on item 1**. Note meanwhile that `Iterance.passesCheck` does
+   `if (divisor == 0) return false`, so once gating is wired up, a song saved with First/Last would
+   silence those notes rather than falling back; and `StepPropertiesDialog`'s preset list lacks both.
+6. **Transposing an empty clip.** `6cd2afbfa`: the C now returns false and changes nothing when a clip
+   holds no notes. `SwingGridPanel.transposeTrack` returns `true` and runs `setRowCount(0)`,
+   deleting the empty rows. The commit's main point — empty rows must not veto — Java already gets
+   right, since it only inspects active steps. **Low**, UI only.
+
+### 9c. Already correct in Java (verified)
+
+- `e07844d64` `"upDown"` → `UP_DOWN`: `FirmwareFactory:1194` already maps it correctly.
+- `52ee3623d` nested cable polarity written with the outer cable's index: `ProjectSerializer` recurses
+  `writePatchCable(writer, dc)` for each `depthControlledBy` cable, so each writes its own polarity.
+- `2506643fa` audio clip names: `clipName` is already read (`SongXmlParser.java:597, 935`) and written
+  (`ProjectSerializer.java:1208`).
+- `ad036ab38` synth-voice path: a refactor; `Envelope.noteOn(int, Sound, Voice)` already sets
+  `smoothedSustain` first, exactly as the new C does.
+
+### 9d. Not applicable
+
+- `efa0eab00` / `2440482fb` / `c44e51e8d` and their reverts `9e3132dc1` / `232e4ab9b` / `0c575117a` —
+  `git diff 9ed7483de 9e3132dc1` is empty; they cancel.
+- `8481f0be9` DX7 memory-allocation refactor (object pool, slow-heap patches) — no DSP change.
+- `9f42f7954`, `81bc59fed` — voice counting and culling; the desktop engine does not cull.
+- `5a0ba4896` — include cleanup and JSON (de)serializer fixes; the XML serializer changes are header
+  includes only.
+- `9ed7483de`, `ff4d7f7ee`, `83013cb4e`, `a23d06ee1` — clip-type conversion guard, sound-editor
+  colours, per-device MIDI thru, expression-param backup across output-type changes. Hardware UI or
+  features without a Swing counterpart; `83013cb4e` and `a23d06ee1` were **not** checked against the
+  Java in depth and are low priority.
+- USB/MIDI transport, OLED, encoders, 7-seg, docs, website, companion and CI commits.
+
+**One worth knowing although nothing ports:** `dc0c74916` builds the firmware with `-ffast-math`
+(from 2026-08-22). Integer fixed-point DSP is unaffected, but the float paths — the master compressor
+and the Mutable/Digital reverbs — may now compute slightly differently on hardware than a strict-IEEE
+build, and Java cannot reproduce the compiler's float reordering. Golden harnesses should keep
+compiling without it, since they test the C *source*. The current CALIB/ALLSYN recordings predate it
+(the card's firmware is `deluge-v1_3_0-beta+2026_07_23`); note the firmware build date on any future
+recording.
+
+Upstream tip for next re-check: `9e3132dc1`.
+
 ## Method
 
 For each upstream commit touching `src/deluge/{dsp,model/voice,model/song,processing,modulation}`,
