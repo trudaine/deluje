@@ -12,8 +12,10 @@ package org.deluge.firmware2;
  *   <li>{@code dsp/reverb/mutable.hpp} (193 lines) — Mutable Instruments (Dattorro Griesinger)
  * </ul>
  *
- * <p>Three models: Freeverb (faithful, default), Mutable (Griesinger topology), Digital (extends
- * Mutable). Only Freeverb and Mutable are ported.
+ * <p>Three models, all ported: Freeverb (default), Mutable (Griesinger topology) and Digital
+ * (Dattorro, extends Mutable). Freeverb is pinned bit-exact by {@code ReverbGoldenBufferTest};
+ * Mutable and Digital by {@code MutableReverbGoldenBufferTest}. Note the scorecard corpora (ALLSYN,
+ * CALIB) all use Freeverb, so the scorecard cannot see a defect in the other two.
  */
 public class Reverb {
 
@@ -330,9 +332,22 @@ public class Reverb {
       engine.clear();
     }
 
-    /** C:126-128 */
+    /**
+     * C util/misc.h:84-86 — {@code util::map}, in the C's exact float operation order. Not a
+     * convenience: the precomputed spans this replaced are NOT what float arithmetic produces. For
+     * setWidth, {@code 0.9f - 0.1f} is 0.79999995f, not 0.8f, so {@code 0.1f + v * 0.8f} gave width
+     * 1.0 -> 0.90000004 where the C gives 0.89999998 — a different diffusion coefficient feeding
+     * the input allpasses from the first sample. MutableReverbGoldenBufferTest found it.
+     */
+    static float map(float x, float inMin, float inMax, float outMin, float outMax) {
+      return outMin + ((x - inMin) * (outMax - outMin)) / (inMax - inMin);
+    }
+
+    /** C mutable.hpp:126-128 — util::map(value, 0, 1, kReverbTimeMin, kReverbTimeMax). */
     public void setRoomSize(float v) {
-      reverbTime = 0.01f + v * 0.97f;
+      // 0.98f - 0.01f happens to round to exactly 0.97f, so the old literal agreed here — by luck
+      // of the endpoints rather than by construction. Use the C form regardless.
+      reverbTime = map(v, 0f, 1f, 0.01f, 0.98f);
     }
 
     /** C:133-135 */
@@ -347,7 +362,8 @@ public class Reverb {
 
     /** C:139 */
     public void setWidth(float v) {
-      diffusion = 0.1f + v * 0.8f;
+      // C mutable.hpp:139 — util::map(value, 0, 1, kWidthMin, kWidthMax). See map() above.
+      diffusion = map(v, 0f, 1f, 0.1f, 0.9f);
     }
 
     /** C:142-145 */
@@ -535,7 +551,7 @@ public class Reverb {
         leftSum -= onePole(hpSt, 1, leftSum, hpCutoff); // C:113
         leftSum = onePole(lpSt, 1, leftSum, lpCutoff); // C:114
 
-        // C:116-125 — right output taps (the C also uses hp_l_/lp_l_ here, sic — kept faithful)
+        // C:116-125 — right output taps
         float rightSum = 0;
         rightSum += 0.6f * del1a.at((int) (353 * K_RATIO));
         rightSum += 0.6f * del1a.at((int) (3627 * K_RATIO));
@@ -544,8 +560,14 @@ public class Reverb {
         rightSum -= 0.6f * del2a.at((int) (2111 * K_RATIO));
         rightSum -= 0.6f * dap2b.at((int) (335 * K_RATIO));
         rightSum -= 0.6f * del2b.at((int) (121 * K_RATIO));
-        rightSum -= onePole(hpSt, 1, rightSum, hpCutoff); // C:124 (hp_l_, sic)
-        rightSum = onePole(lpSt, 1, rightSum, lpCutoff); // C:125 (lp_l_, sic)
+        // C digital.hpp:124-125 — the RIGHT channel's own filter state, hp_r_/lp_r_ (index 0, per
+        // the hpSt[0]=right convention at :321). This used index 1 (hp_l_/lp_l_), faithfully
+        // porting a C bug fixed upstream in f36ae0809: sharing the left channel's one-pole state
+        // cross-coupled the two outputs and advanced that state twice per frame, so both filters
+        // ran at double rate, roughly an octave above their cutoffs. MutableReverbGoldenBufferTest
+        // pins it — both channels diverged from C by ~36M, right at frame 179, left at 180.
+        rightSum -= onePole(hpSt, 0, rightSum, hpCutoff);
+        rightSum = onePole(lpSt, 0, rightSum, lpCutoff);
 
         // C digital.hpp:127-135 — output (uint32 max scale), then pan applied on mix like the
         // Mutable model: output[frame] += multiply_32x32_rshift32_rounded(out, getPan*()).
