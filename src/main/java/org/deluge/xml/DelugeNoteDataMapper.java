@@ -144,10 +144,73 @@ public class DelugeNoteDataMapper {
         velocity = velInt / 127.0f;
       }
 
-      list.add(new org.deluge.model.NoteModel(pos, len, velocity, 1.0f, 0));
+      org.deluge.model.NoteModel note = new org.deluge.model.NoteModel(pos, len, velocity, 1.0f, 0);
+      decodePlayConditions(data.substring(idx, idx + hexCharsPerNote), hexCharsPerNote, note);
+      list.add(note);
       idx += hexCharsPerNote;
     }
     return list;
+  }
+
+  private static int hexByte(String h, int at, int chars) {
+    return Integer.parseInt(h.substring(at, at + chars), 16);
+  }
+
+  /**
+   * Port of the per-note decode in NoteRow::readFromFile (note_row.cpp:3384-3440): probability,
+   * iterance, fill and lift for each of the four note encodings, including the older files that
+   * packed fill and iterance presets into the probability byte.
+   */
+  public static void decodePlayConditions(
+      String h, int noteHexLength, org.deluge.model.NoteModel note) {
+    final int kNumProbabilityValues = org.deluge.model.NoteModel.NUM_PROBABILITY_VALUES;
+    final int kDefaultLiftValue = 64; // definitions_cxx.hpp:724
+    int lift;
+    int probability;
+    int fill;
+    org.deluge.model.Iterance iterance;
+
+    if (noteHexLength == 28) { // if reading custom iterance and fill
+      fill = hexByte(h, 26, 2);
+      iterance = org.deluge.model.Iterance.fromInt(hexByte(h, 22, 4));
+      probability = hexByte(h, 20, 2);
+      lift = hexByte(h, 18, 2);
+    } else if (noteHexLength == 26) { // if nightly firmware 1.3 with no custom iterances
+      fill = hexByte(h, 24, 2);
+      iterance = org.deluge.model.Iterance.fromPresetIndex(hexByte(h, 22, 2));
+      probability = hexByte(h, 20, 2);
+      lift = hexByte(h, 18, 2);
+    } else {
+      // 22: lift then probability. 20 (no lift): the probability byte sits where lift would, and
+      // the C always falls through to the default lift (note_row.cpp:3432-3440).
+      probability = hexByte(h, noteHexLength == 22 ? 20 : 18, 2);
+
+      if (probability == 0 || probability == 128) { // kOldFillProbabilityValue / kOldNotFill…
+        fill =
+            (probability == 0)
+                ? org.deluge.model.NoteModel.FILL_MODE_FILL
+                : org.deluge.model.NoteModel.FILL_MODE_NOT_FILL;
+        iterance = new org.deluge.model.Iterance(); // iterance off
+        probability = kNumProbabilityValues; // 100% probability
+      } else if (probability > kNumProbabilityValues
+          && probability <= kNumProbabilityValues + org.deluge.model.Iterance.NUM_PRESETS) {
+        fill = org.deluge.model.NoteModel.FILL_MODE_OFF;
+        iterance = org.deluge.model.Iterance.fromPresetIndex(probability - kNumProbabilityValues);
+        probability = kNumProbabilityValues; // 100% probability
+      } else {
+        fill = org.deluge.model.NoteModel.FILL_MODE_OFF;
+        iterance = new org.deluge.model.Iterance(); // iterance off
+      }
+      lift = (noteHexLength == 22) ? hexByte(h, 18, 2) : 0;
+    }
+    if (lift == 0 || lift > 127) {
+      lift = kDefaultLiftValue;
+    }
+
+    note.setProbabilityValue(probability);
+    note.setIterance(iterance);
+    note.setFill(fill);
+    note.setLift(lift);
   }
 
   /**

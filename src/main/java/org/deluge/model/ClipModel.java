@@ -248,6 +248,7 @@ public class ClipModel extends TimelineCounter {
                 nm.getVelocity(),
                 nm.getProbability(),
                 nm.getSubTriggers());
+        copyNote.setProbabilityValue(nm.getProbabilityValue());
         copyNote.setFill(nm.getFill());
         copyNote.setLift(nm.getLift());
         copyNote.setIterance(new Iterance(nm.getIterance().divisor, nm.getIterance().iteranceStep));
@@ -492,6 +493,7 @@ public class ClipModel extends TimelineCounter {
         step = StepData.of(step.active(), step.velocity(), step.gate(), step.probability(), pitch);
       }
 
+      StepData previousStep = grid.get(r).get(s);
       grid.get(r).set(s, step);
 
       NoteRowModel row = getOrCreateRow(r);
@@ -517,7 +519,13 @@ public class ClipModel extends TimelineCounter {
         } else {
           existingNote.setLength((int) (step.gate() * stepTicks));
           existingNote.setVelocity((int) (step.velocity() * 127.0f));
-          existingNote.setProbability((int) (step.probability() * 100.0f));
+          // Only a real edit of the grid's probability rewrites the note's. The loader re-sets
+          // every
+          // step (e.g. to apply row pitch) after installing the file's notes, and the grid holds no
+          // C probability value, so an unconditional write reset every loaded note to 100%.
+          if (previousStep == null || previousStep.probability() != step.probability()) {
+            existingNote.setProbability((int) (step.probability() * 100.0f));
+          }
         }
       } else {
         if (existingNote != null) {
@@ -794,10 +802,13 @@ public class ClipModel extends TimelineCounter {
       }
     }
 
-    int endPos = currentlyPlayingReversed ? 0 : effectiveLength;
-    if (lastProcessedPos == endPos && repeatCount >= 0) {
-      lastProcessedPos %= effectiveLength;
-    }
+    // C clip.cpp:244-251 calls posReachedEnd() here, which only extends a linearly-recording clip
+    // (clip.cpp:808) — not ported. It must NOT touch lastProcessedPos: an earlier translation did
+    // `lastProcessedPos %= effectiveLength`, which zeroed the position before the wrap below could
+    // see it, so repeatCount never advanced (breaking iterance) and the forward pingpong branch was
+    // unreachable. (Separately, nothing in the app assigns sequenceDirectionMode yet —
+    // setPlayDirection
+    // writes a different field — so pingpong still cannot be enabled from the UI.)
 
     int ticksTilEnd;
     boolean didPingpong = false;
@@ -881,7 +892,205 @@ public class ClipModel extends TimelineCounter {
         releaseNote(pitchToRelease);
       }
 
-      for (org.deluge.model.PendingNoteOn noteOn : pendingNoteOns) {
+      evaluatePlayConditionsAndTrigger(pendingNoteOns);
+    }
+  }
+
+  // C InstrumentClip::lastProbabilities / lastProbabiltyPos (instrument_clip.h:259-260), sized
+  // kNumProbabilityValues there. Every value the firmware itself produces indexes 0..19 (plain
+  // 1..20, follow-previous 128|1..19 — instrument_clip_view.cpp:3070-3077 only latches below the
+  // max). 128 slots here, so a corrupt file's out-of-range byte (undefined behaviour in the C)
+  // cannot
+  // throw.
+  private final boolean[] lastProbabilities = new boolean[128];
+  private final int[] lastProbabiltyPos = new int[128];
+
+  /** C: util/functions.h:313-315 getRandom255() = CONG >> 24, on the firmware's shared CONG. */
+  private static int getRandom255() {
+    return org.deluge.firmware2.Functions.getNoise() >>> 24;
+  }
+
+  /**
+   * C {@code currentPlaybackMode->willClipContinuePlayingAtEnd(modelStack)}, which feeds iterance's
+   * LAST condition (instrument_clip.cpp:716-717). The session answer needs launch scheduling and
+   * soloing (session.cpp:2719-2760) and is not ported; this defaults to its no-launch-scheduled
+   * answer, "it will loop", so LAST notes stay silent until a caller sets it.
+   */
+  public transient volatile boolean willContinuePlayingAtEnd = true;
+
+  /**
+   * Port of the play-condition half of InstrumentClip::processCurrentPos
+   * (instrument_clip.cpp:738-905): probability (including follow-previous and sum-to-100), then
+   * iterance, then fill, and only a note passing all three sounds.
+   */
+  private void evaluatePlayConditionsAndTrigger(
+      List<org.deluge.model.PendingNoteOn> pendingNoteOns) {
+    final int kNumProbabilityValues = NoteModel.NUM_PROBABILITY_VALUES;
+    // see if it's starting or ending - might be needed for iterance
+    boolean ending = !willContinuePlayingAtEnd; // C :716-717
+    int count = pendingNoteOns.size();
+
+    // Count up how many of each probability there are
+    int[] probabilityCount = new int[128]; // uint8_t[kNumProbabilityValues], C :740-741
+
+    // Check whether special case where all probability adds up to 100%
+    int probabilitySum = 0;
+
+    boolean doingSumTo100 = false;
+    int winningI = -1;
+
+    sumTo100:
+    {
+      for (int i = 0; i < count; i++) {
+        int p = pendingNoteOns.get(i).probability;
+
+        // If we found a 100%, we know we're not doing sum-to-100
+        if (p == kNumProbabilityValues) {
+          break sumTo100; // C: goto skipDoingSumTo100
+        }
+
+        // If any follow-previous-probability, skip this statistics-grabbing
+        if ((p & 128) != 0) {
+          continue;
+        }
+
+        probabilitySum += p;
+
+        probabilityCount[p - 1]++;
+      }
+
+      doingSumTo100 = (probabilitySum == kNumProbabilityValues);
+
+      if (doingSumTo100) {
+        int probabilityValueForSummers = (getRandom255() * kNumProbabilityValues) >> 8;
+
+        int probabilitySumSecondPass = 0;
+
+        boolean foundWinner = false;
+
+        for (int i = 0; i < count; i++) {
+
+          // If any follow-previous-probability, skip this statistics-grabbing
+          if ((pendingNoteOns.get(i).probability & 128) != 0) {
+            continue;
+          }
+
+          int probability = pendingNoteOns.get(i).probability;
+
+          probabilitySumSecondPass += probability;
+
+          lastProbabiltyPos[probability] = lastProcessedPos;
+
+          if (!foundWinner && probabilitySumSecondPass > probabilityValueForSummers) {
+            winningI = i;
+            lastProbabilities[probability] = true;
+
+            foundWinner = true;
+          } else {
+            // Mark down this "loser"
+            lastProbabilities[probability] = false;
+          }
+        }
+      }
+    }
+
+    // Go through each pending note-on
+    for (int i = 0; i < count; i++) {
+      org.deluge.model.PendingNoteOn noteOn = pendingNoteOns.get(i);
+
+      boolean conditionPassed;
+
+      // If it's a 100%, which usually will be the case...
+      if (noteOn.probability == kNumProbabilityValues) {
+        conditionPassed = true;
+      }
+
+      // Otherwise...
+      else {
+        int probability = noteOn.probability & 127;
+        boolean doNewProbability = false;
+
+        // If based on a previous probability...
+        if ((noteOn.probability & 128) != 0) {
+
+          // Check that that previous probability value is still valid. It normally should be,
+          // unless
+          // the user has changed the probability of that "previous" note
+          if (lastProbabiltyPos[probability] == -1
+              || lastProbabiltyPos[probability] == lastProcessedPos) {
+            doNewProbability = true; // C: goto doNewProbability
+            conditionPassed = false;
+          } else {
+            conditionPassed = lastProbabilities[probability];
+          }
+        }
+
+        // Or if not based on a previous probability...
+        else {
+
+          // If we're summing to 100...
+          if (doingSumTo100) {
+            conditionPassed = (i == winningI);
+          }
+
+          // Or if not summing to 100...
+          else {
+            doNewProbability = true;
+            conditionPassed = false;
+          }
+        }
+
+        if (doNewProbability) {
+          // If the outcome of this probability has already been decided (by another note with same
+          // probability)
+          if (probabilityCount[probability - 1] >= 254) {
+            conditionPassed = probabilityCount[probability - 1] == 255;
+          }
+
+          // Otherwise, decide it now
+          else {
+            int probabilityValue = (getRandom255() * kNumProbabilityValues) >> 8;
+            conditionPassed = (probabilityValue < probability);
+
+            lastProbabilities[kNumProbabilityValues - probability] = !conditionPassed;
+            lastProbabiltyPos[kNumProbabilityValues - probability] = lastProcessedPos;
+
+            lastProbabilities[probability] = conditionPassed;
+            lastProbabiltyPos[probability] = lastProcessedPos;
+
+            // Store the outcome, for any neighbouring notes
+            probabilityCount[probability - 1] = conditionPassed ? 255 : 254;
+          }
+        }
+      }
+
+      // if probably setting has resulted in a note on
+      if (conditionPassed) {
+        // now we check if we should skip note based on iteration condition
+        Iterance iterance = noteOn.iterance;
+
+        // If it's an iteration dependence...
+        if (iterance != null && !iterance.isDefault()) {
+          conditionPassed =
+              iterance.passesCheck(noteOn.noteRow.getRepeatCount(repeatCount), ending);
+        }
+
+        // lastly, if after checking iteration we still have a note on
+        // we'll check if that note should be sounded based on fill state
+        if (conditionPassed) {
+          // check if it's a FILL note and SYNC_SCALING is *not* pressed
+          if (noteOn.fill == NoteModel.FILL_MODE_FILL && !ProjectModel.isFillModeActive()) {
+            conditionPassed = false;
+          }
+          // check if it's a NOT FILL note and SYNC_SCALING is pressed
+          else if (noteOn.fill == NoteModel.FILL_MODE_NOT_FILL && ProjectModel.isFillModeActive()) {
+            conditionPassed = false;
+          }
+        }
+      }
+
+      // probability, iterance and fill conditions have passed
+      if (conditionPassed) {
         triggerNote(noteOn);
       }
     }

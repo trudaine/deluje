@@ -344,10 +344,15 @@ public class SongXmlParser {
               // Check for noteDataWithLift attribute (c1.2.0+ firmware format)
               String liftAttr = noteRowElem.getAttribute("noteDataWithLift");
               String splitAttr = noteRowElem.getAttribute("noteDataWithSplitProb");
-              if (liftAttr != null && !liftAttr.isEmpty()) {
-                hexData = liftAttr;
-              } else if (splitAttr != null && !splitAttr.isEmpty()) {
+              // Prefer noteDataWithSplitProb: the C reads noteDataWithLift only for songs older
+              // than 1.3.0
+              // (note_row.cpp:3504-3508) but always reads noteDataWithSplitProb (:3518-3520), and
+              // our
+              // own serializer writes both — the lift stream cannot carry iterance or fill.
+              if (splitAttr != null && !splitAttr.isEmpty()) {
                 hexData = splitAttr;
+              } else if (liftAttr != null && !liftAttr.isEmpty()) {
+                hexData = liftAttr;
               }
 
               // Check for noteData attribute directly on noteRow (kit rows)
@@ -369,10 +374,10 @@ public class SongXmlParser {
               if (hexData != null && !hexData.isEmpty()) {
                 // Detect format: noteDataWithLift = 22 chars/note, noteDataWithSplitProb = 28
                 int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
-                if (liftAttr != null && !liftAttr.isEmpty()) {
-                  hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
-                } else if (splitAttr != null && !splitAttr.isEmpty()) {
+                if (splitAttr != null && !splitAttr.isEmpty()) {
                   hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
+                } else if (liftAttr != null && !liftAttr.isEmpty()) {
+                  hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
                 } else if (hexData.startsWith("0x")) {
                   int dataLen = hexData.length() - 2;
                   if (dataLen > 0 && dataLen % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT == 0) {
@@ -557,8 +562,9 @@ public class SongXmlParser {
             String hd = null;
             String la = nr.getAttribute("noteDataWithLift");
             String sa = nr.getAttribute("noteDataWithSplitProb");
-            if (la != null && !la.isEmpty()) hd = la;
-            else if (sa != null && !sa.isEmpty()) hd = sa;
+            if (sa != null && !sa.isEmpty())
+              hd = sa; // split first, as the C (note_row.cpp:3504-3520)
+            else if (la != null && !la.isEmpty()) hd = la;
             if (hd == null) {
               String da = nr.getAttribute("noteData");
               if (da != null && !da.isEmpty()) hd = da;
@@ -571,9 +577,9 @@ public class SongXmlParser {
               String data = hd.substring(2);
               // Detect hex chars per note based on which attribute was used
               int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
-              if (la != null && !la.isEmpty()) hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
-              else if (sa != null && !sa.isEmpty())
-                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
+              if (sa != null && !sa.isEmpty()) hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
+              else if (la != null && !la.isEmpty())
+                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
               else if (data.length() > 0
                   && data.length() % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT == 0)
                 hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
@@ -626,10 +632,11 @@ public class SongXmlParser {
 
             String liftAttr = noteRowElem.getAttribute("noteDataWithLift");
             String splitAttr = noteRowElem.getAttribute("noteDataWithSplitProb");
-            if (liftAttr != null && !liftAttr.isEmpty()) {
-              hexData = liftAttr;
-            } else if (splitAttr != null && !splitAttr.isEmpty()) {
+            // split first, as the C (note_row.cpp:3504-3520) — see the first note-row loader above
+            if (splitAttr != null && !splitAttr.isEmpty()) {
               hexData = splitAttr;
+            } else if (liftAttr != null && !liftAttr.isEmpty()) {
+              hexData = liftAttr;
             }
 
             // Check for noteData attribute directly on noteRow (kit rows)
@@ -651,10 +658,10 @@ public class SongXmlParser {
               // Detect format: noteDataWithLift = 22 chars/note, noteDataWithSplitProb = 28,
               // default = 20
               int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
-              if (liftAttr != null && !liftAttr.isEmpty()) {
-                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
-              } else if (splitAttr != null && !splitAttr.isEmpty()) {
+              if (splitAttr != null && !splitAttr.isEmpty()) {
                 hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
+              } else if (liftAttr != null && !liftAttr.isEmpty()) {
+                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
               } else {
                 String da = noteRowElem.getAttribute("noteData");
                 if (da != null && !da.isEmpty() && da.startsWith("0x")) {
@@ -898,8 +905,9 @@ public class SongXmlParser {
             String la = nr.getAttribute("liftActions");
             if (la == null || la.isEmpty()) la = nr.getAttribute("noteDataWithLift");
             String sa = nr.getAttribute("noteDataWithSplitProb");
-            if (la != null && !la.isEmpty()) hd = la;
-            else if (sa != null && !sa.isEmpty()) hd = sa;
+            if (sa != null && !sa.isEmpty())
+              hd = sa; // split first, as the C (note_row.cpp:3504-3520)
+            else if (la != null && !la.isEmpty()) hd = la;
             if (hd == null) {
               String da = nr.getAttribute("noteData");
               if (da != null && !da.isEmpty()) hd = da;
@@ -911,9 +919,9 @@ public class SongXmlParser {
             if (hd != null && hd.startsWith("0x")) {
               String data = hd.substring(2);
               int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
-              if (la != null && !la.isEmpty()) hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
-              else if (sa != null && !sa.isEmpty())
-                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
+              if (sa != null && !sa.isEmpty()) hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
+              else if (la != null && !la.isEmpty())
+                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
               else if (data.length() > 0
                   && data.length() % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT == 0) {
                 hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
@@ -948,8 +956,9 @@ public class SongXmlParser {
             String la = nr.getAttribute("liftActions");
             if (la == null || la.isEmpty()) la = nr.getAttribute("noteDataWithLift");
             String sa = nr.getAttribute("noteDataWithSplitProb");
-            if (la != null && !la.isEmpty()) hd = la;
-            else if (sa != null && !sa.isEmpty()) hd = sa;
+            if (sa != null && !sa.isEmpty())
+              hd = sa; // split first, as the C (note_row.cpp:3504-3520)
+            else if (la != null && !la.isEmpty()) hd = la;
             if (hd == null) {
               String da = nr.getAttribute("noteData");
               if (da != null && !da.isEmpty()) hd = da;
@@ -963,9 +972,9 @@ public class SongXmlParser {
               // read
               // the split-velocity offset even on lift-format data → StringIndexOutOfBounds).
               int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
-              if (la != null && !la.isEmpty()) hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
-              else if (sa != null && !sa.isEmpty())
-                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
+              if (sa != null && !sa.isEmpty()) hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
+              else if (la != null && !la.isEmpty())
+                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
               else {
                 int dataLen = hd.length() - 2;
                 if (dataLen > 0 && dataLen % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT == 0) {
@@ -983,6 +992,9 @@ public class SongXmlParser {
                     StepData.of(
                         base.active(), base.velocity(), base.gate(), base.probability(), noteVal));
               }
+              // Install the file's notes (with their play conditions) after the grid pass, as the
+              // session loader does; the step grid carries no probability/iterance/fill.
+              clip.setRawNoteEvents(r, DelugeNoteDataMapper.decodeRawNotes(hd, hcpn));
             }
           }
 
