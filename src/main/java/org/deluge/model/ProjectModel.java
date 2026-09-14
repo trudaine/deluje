@@ -11,6 +11,18 @@ import org.deluge.project.PresetFinder;
 public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   private static final Logger LOGGER = Logger.getLogger(ProjectModel.class.getName());
 
+  // C Song::fillModeActive (song.h:272-273), read by the sequencer's fill condition
+  // (instrument_clip.cpp:878-886). Static because the C reads it through the global currentSong.
+  private static volatile boolean fillModeActive = false;
+
+  public static boolean isFillModeActive() {
+    return fillModeActive;
+  }
+
+  public static void changeFillMode(boolean on) {
+    fillModeActive = on;
+  }
+
   // Undo/redo stack — cleared on new project load
   private final UndoRedoStack undoRedoStack = new UndoRedoStack(64);
 

@@ -11,6 +11,27 @@ public class NoteModel {
   public int length; // Alias for tickLen for Note parity
   public float velocity = 0.8f;
   public float probability = 1.0f;
+
+  /**
+   * C Note::probability (note.h:40-42), the value the sequencer evaluates: 1..20 in 5% steps
+   * ({@link #NUM_PROBABILITY_VALUES} = 100%), OR'ed with {@link #PROBABILITY_FOLLOW_PREVIOUS} to
+   * mean "play if the previous note with this probability played" (the "latched" values the note
+   * menu exposes up to {@code kNumProbabilityValues | 127}, gui/menu_item/note/probability.h:36).
+   */
+  private int probabilityValue = NUM_PROBABILITY_VALUES;
+
+  /** C: definitions_cxx.hpp:708 kNumProbabilityValues. */
+  public static final int NUM_PROBABILITY_VALUES = 20;
+
+  /** Flag bit on {@link #getProbabilityValue()}; instrument_clip.cpp:821. */
+  public static final int PROBABILITY_FOLLOW_PREVIOUS = 128;
+
+  /** C: definitions_cxx.hpp:726-730 enum FillMode. */
+  public static final int FILL_MODE_OFF = 0;
+
+  public static final int FILL_MODE_NOT_FILL = 1;
+  public static final int FILL_MODE_FILL = 2;
+
   private Iterance iterance = new Iterance();
   private byte fill = 0;
   private byte lift = 0;
@@ -23,6 +44,7 @@ public class NoteModel {
     this.length = tickLen;
     this.velocity = velocity;
     this.probability = probability;
+    this.probabilityValue = percentToProbabilityValue(Math.round(probability * 100.0f));
     this.subTriggers = subTriggers;
   }
 
@@ -83,8 +105,29 @@ public class NoteModel {
     return Math.max(0, Math.min(127, (int) (velocity * 127.0f)));
   }
 
+  /** UI-facing percent. Also sets the C value the sequencer plays by. */
   public void setProbability(int prob) {
     this.probability = prob / 100.0f;
+    this.probabilityValue = percentToProbabilityValue(prob);
+  }
+
+  /**
+   * Nearest C probability value to a percent. The C has no 0%: its minimum is 1 = 5%
+   * (gui/menu_item/note/probability.h:37), so 0..2% lands there rather than inventing a value.
+   */
+  static int percentToProbabilityValue(int percent) {
+    return Math.max(1, Math.min(NUM_PROBABILITY_VALUES, Math.round(percent / 5.0f)));
+  }
+
+  /** C Note::setProbability (note.h:40): the raw value, follow-previous flag included. */
+  public void setProbabilityValue(int value) {
+    this.probabilityValue = value;
+    this.probability = Math.min(value & 127, NUM_PROBABILITY_VALUES) * 5 / 100.0f;
+  }
+
+  /** C Note::getProbability (note.h:42). */
+  public int getProbabilityValue() {
+    return probabilityValue;
   }
 
   public int getProbabilityPercent() {
