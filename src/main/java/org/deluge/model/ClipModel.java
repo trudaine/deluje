@@ -805,7 +805,10 @@ public class ClipModel extends TimelineCounter {
     // C clip.cpp:244-251 calls posReachedEnd() here, which only extends a linearly-recording clip
     // (clip.cpp:808) — not ported. It must NOT touch lastProcessedPos: an earlier translation did
     // `lastProcessedPos %= effectiveLength`, which zeroed the position before the wrap below could
-    // see it, so repeatCount never advanced (breaking iterance) and forward pingpong never fired.
+    // see it, so repeatCount never advanced (breaking iterance) and the forward pingpong branch was
+    // unreachable. (Separately, nothing in the app assigns sequenceDirectionMode yet —
+    // setPlayDirection
+    // writes a different field — so pingpong still cannot be enabled from the UI.)
 
     int ticksTilEnd;
     boolean didPingpong = false;

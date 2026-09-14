@@ -225,6 +225,23 @@ class PlayConditionsTest {
   }
 
   @Test
+  void decodesBetaIteranceAndFillFormat() {
+    // 26 chars (note_row.cpp:3395-3402): lift 30, prob 0c, iterance PRESET index 04 (= 2of2), fill
+    // 01
+    assertArrayEquals(
+        new int[] {0x0C, 0x0202, 1, 0x30},
+        conditions(decode("00000000" + "00000018" + "64" + "30" + "0C" + "04" + "01")));
+  }
+
+  @Test
+  void percentProbabilityReadsBackAsWhatPlays() {
+    NoteModel n = new NoteModel();
+    n.setProbability(0); // the C has no 0%: minimum value 1 = 5%
+    assertEquals(1, n.getProbabilityValue());
+    assertEquals(5, n.getProbabilityPercent());
+  }
+
+  @Test
   void decodesOldFormatAlwaysWithDefaultLift() {
     assertArrayEquals(
         new int[] {20, 0, 0, 64}, conditions(decode("00000000" + "00000018" + "40" + "14")));

@@ -107,8 +107,9 @@ public class NoteModel {
 
   /** UI-facing percent. Also sets the C value the sequencer plays by. */
   public void setProbability(int prob) {
-    this.probability = prob / 100.0f;
-    this.probabilityValue = percentToProbabilityValue(prob);
+    // Store the canonical C value and derive the percent from it, so what is reported is what plays
+    // (0% reads back as 5%, the C minimum).
+    setProbabilityValue(percentToProbabilityValue(prob));
   }
 
   /**

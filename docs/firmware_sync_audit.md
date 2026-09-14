@@ -219,7 +219,7 @@ listed separately in 9b.
 
 | commit | what | Java | priority |
 | --- | --- | --- | --- |
-| `f36ae0809` | Digital (Dattorro) reverb's RIGHT channel HPF/LPF ran on the LEFT channel's one-pole state (`hp_l_`/`lp_l_`), cross-coupling the channels and running both filters at double rate, ~1 octave high | `Reverb.java:547-548` ported the bug verbatim — `onePole(hpSt, 1, …)` / `onePole(lpSt, 1, …)`, annotated "sic — kept faithful". Index `1` is `hp_l_`/`lp_l_` (per the `hpSt[0]`=right convention at `:321`); must be `0` | **High** — DSP, audible in stereo, a two-index fix |
+| `f36ae0809` | Digital (Dattorro) reverb's RIGHT channel HPF/LPF ran on the LEFT channel's one-pole state (`hp_l_`/`lp_l_`), cross-coupling the channels and running both filters at double rate, ~1 octave high | **Fixed 2026-09-13 (`dffcc9b9`).** The Java had ported the bug verbatim — `onePole(hpSt, 1, …)` / `onePole(lpSt, 1, …)`; now index `0`, and `MutableReverbGoldenBufferTest` proves Digital and Mutable bit-exact against the C (L and R separately) | ~~High~~ done |
 | `7064d10b9` | Live-input pitch shifter could spin forever when the search span came out ≤ 0 | `LivePitchShifter.java:626` computes `endOffset = Math.min(searchSize, searchSizeBoundary) * searchDirection` with **no** `<= 0` guard. The C now jumps to `searchNextDirection` (`live_pitch_shifter.cpp:669-673`). The commit's other four fixes are **already** in Java: the `K_INPUT_PERC_BUFFER_SIZE` mask (`:481`), the divide-by-zero guard (`LiveInputBuffer.java:95`), the buffer-state reset (`LiveInputBuffer.java:51-54`) and the out-of-bounds `readPos[kNumMovingAverages + 1]` read (`:620-623`) | **Medium** — freeze, live input only |
 | `685b4fb9d` (MIDI half) | CC and aftertouch data bytes now clamp to 0..127 | `MIDIMessage.cc` does `value & 0x7F`, which **wraps**: 128 → 0, −6 → 122 — the wrong-direction value upstream's clamp prevents | Low |
 
@@ -228,7 +228,13 @@ listed separately in 9b.
 Not deltas — these were already absent — but each was found by opening the C function a commit
 touched and reading its Java counterpart.
 
-1. **Probability, iterance and fill are never evaluated during playback.** Found following `3ce3d41df`.
+1. **Fixed 2026-09-13 (`faad11f5`)** — confirmed by a render test first (4/4/4/4 where the C gives
+   4/0/2/0), then ported; `PlayConditionsTest` covers it. The fix also needed two more defects that
+   sat behind this one: `repeatCount` never advanced (a `lastProcessedPos %= loopLength` where the C
+   calls `posReachedEnd()`), and the XML loader discarded all three conditions. **Still open:** the
+   save path writes default conditions, nothing in the UI calls `ProjectModel.changeFillMode`, and
+   the Swing step editor's conditions do not reach `NoteModel`. The original finding, for the record:
+   **Probability, iterance and fill are never evaluated during playback.** Found following `3ce3d41df`.
    The live path is `PlaybackHandler.java:209` → `ClipModel.processCurrentPos` →
    `NoteRowModel.processCurrentPos`. `NoteRowModel` queues a `PendingNoteOn` for every note with no
    evaluation, and `ClipModel` then triggers every queued note unconditionally
@@ -262,9 +268,10 @@ touched and reading its Java counterpart.
 5. **First / Last iterance** (`3ce3d41df`, `4606fb0be`) is a genuine new sequencer feature:
    `divisor == 0, step == 1` plays only on the first pass (`repeatCount == 0`); `step == 2` only on the
    pass where `willClipContinuePlayingAtEnd` is false; two presets are prepended to
-   `iterancePresets`. It is **blocked on item 1**. Note meanwhile that `Iterance.passesCheck` does
-   `if (divisor == 0) return false`, so once gating is wired up, a song saved with First/Last would
-   silence those notes rather than falling back; and `StepPropertiesDialog`'s preset list lacks both.
+   `iterancePresets`. **Ported 2026-09-13 with item 1:** `Iterance.passesCheck(repeatCount, ending)`
+   follows `iterance.h:46-57` and the 37-entry preset table is in. **Still open:** LAST never plays,
+   because `Session::willClipContinuePlayingAtEnd` is not ported (`ClipModel.willContinuePlayingAtEnd`
+   is the hook), and `StepPropertiesDialog`'s preset list lacks both entries.
 6. **Transposing an empty clip.** `6cd2afbfa`: the C now returns false and changes nothing when a clip
    holds no notes. `SwingGridPanel.transposeTrack` returns `true` and runs `setRowCount(0)`,
    deleting the empty rows. The commit's main point — empty rows must not veto — Java already gets
