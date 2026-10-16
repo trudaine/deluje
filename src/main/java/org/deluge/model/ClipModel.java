@@ -144,35 +144,68 @@ public class ClipModel extends TimelineCounter {
 
     int[] shiftForInterval = Scales.computeTransposeShiftTable(intervals, change, isScaleMode);
 
-    // Scan all note rows for extreme resulting pitches to enforce 0-127 range bounds
-    // C++ instrument_clip.cpp:1396-1406
+    // Scan only note rows that hold notes for extreme resulting pitches to enforce 0-127 bounds.
+    // Empty rows do not get a vote (and stale out-of-range empty rows from old songs must not veto
+    // every transpose forever). C instrument_clip.cpp:1407-1427.
     int extremeNewPitch = 0;
-    boolean first = true;
-    for (NoteRowModel row : noteRows.values()) {
+    boolean anyNotesFound = false;
+    for (Map.Entry<Integer, NoteRowModel> entry : noteRows.entrySet()) {
+      NoteRowModel row = entry.getValue();
+      if (rowHasNoNotes(entry.getKey(), row)) {
+        continue;
+      }
       int currentPitch = row.getPitch();
       int interval = Math.floorMod(currentPitch - rootKey, 12);
       int newPitch = currentPitch + shiftForInterval[interval];
-      if (first || (change > 0 ? newPitch > extremeNewPitch : newPitch < extremeNewPitch)) {
+      if (!anyNotesFound
+          || (change > 0 ? newPitch > extremeNewPitch : newPitch < extremeNewPitch)) {
         extremeNewPitch = newPitch;
-        first = false;
+        anyNotesFound = true;
       }
     }
 
-    if (!Scales.isPitchWithinPlayableRange(extremeNewPitch)) {
+    if (!anyNotesFound || !Scales.isPitchWithinPlayableRange(extremeNewPitch)) {
       return false;
     }
 
     // Apply the transpose in place: only the pitch moves, the map keys do not.
-    // C++ instrument_clip.cpp:1411-1414
-    for (Map.Entry<Integer, NoteRowModel> entry : noteRows.entrySet()) {
+    // Drop empty rows carried outside 0-127 (C instrument_clip.cpp:1432-1446).
+    var it = noteRows.entrySet().iterator();
+    while (it.hasNext()) {
+      Map.Entry<Integer, NoteRowModel> entry = it.next();
+      int rowIndex = entry.getKey();
       NoteRowModel row = entry.getValue();
       int currentPitch = row.getPitch();
       int interval = Math.floorMod(currentPitch - rootKey, 12);
       int newPitch = currentPitch + shiftForInterval[interval];
+      if (rowHasNoNotes(rowIndex, row) && !Scales.isPitchWithinPlayableRange(newPitch)) {
+        it.remove();
+        continue;
+      }
       row.setPitch(newPitch);
-      retuneGridRow(entry.getKey(), newPitch);
+      retuneGridRow(rowIndex, newPitch);
     }
 
+    return true;
+  }
+
+  /**
+   * True when the row has neither raw note events nor active grid steps. C {@code
+   * NoteRow::hasNoNotes()} checks {@code notes.getNumElements() == 0}; in {@code ClipModel} notes
+   * can live in {@link NoteRowModel#getNotes()} or in {@link #grid}.
+   */
+  private boolean rowHasNoNotes(int rowIndex, NoteRowModel row) {
+    if (row != null && !row.hasNoNotes()) {
+      return false;
+    }
+    if (rowIndex >= 0 && rowIndex < grid.size()) {
+      List<StepData> steps = grid.get(rowIndex);
+      for (int s = 0; s < steps.size(); s++) {
+        if (steps.get(s).active()) {
+          return false;
+        }
+      }
+    }
     return true;
   }
 

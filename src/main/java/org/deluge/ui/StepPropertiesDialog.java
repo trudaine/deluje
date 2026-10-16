@@ -13,16 +13,18 @@ public class StepPropertiesDialog extends JDialog {
   private record IterancePreset(String name, int divisor, int mask) {}
 
   /**
-   * C: lookuptables.cpp:506 {@code iterancePresets} -- divisor 2..8, every bit position, in this
-   * exact order ({@code kNumIterancePresets = 35}). "Always (1 of 1)" is not itself one of the 35
-   * (there is no divisor-1 entry in the real table); it represents {@code kDefaultIteranceValue}/no
-   * restriction, kept here as a convenience first entry.
+   * C: lookuptables.cpp:506 {@code iterancePresets} -- FIRST (0,1), LAST (0,2), then divisor 2..8
+   * every bit position, in this exact order ({@code kNumIterancePresets = 37}). "Always (1 of 1)"
+   * is not itself one of the 37 (there is no divisor-1 entry in the real table); it represents
+   * {@code kDefaultIteranceValue}/no restriction, kept here as a convenience first entry.
    */
   private static final java.util.List<IterancePreset> ITERANCE_PRESETS = buildIterancePresets();
 
   private static java.util.List<IterancePreset> buildIterancePresets() {
     java.util.List<IterancePreset> entries = new java.util.ArrayList<>();
     entries.add(new IterancePreset("Always (1 of 1)", 1, 0b1));
+    entries.add(new IterancePreset("First (1st time only)", 0, 1));
+    entries.add(new IterancePreset("Last (Last time only)", 0, 2));
     String[] ordinals = {"1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"};
     for (int divisor = 2; divisor <= 8; divisor++) {
       for (int step = 1; step <= divisor; step++) {

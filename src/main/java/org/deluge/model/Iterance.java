@@ -1,10 +1,45 @@
 package org.deluge.model;
 
 /**
- * Port of the Deluge's Iterance (play condition) class. Manages playback check logic based on
- * repeats (e.g. 1:2, 2:4).
+ * Port of the Deluge's Iterance (play condition) class (C model/iterance/iterance.h,
+ * model/iterance/iterance.cpp, model/iterance/iterance_migration.cpp). Manages playback check logic
+ * based on repeats (e.g. FIRST, LAST, 1:2, 2:4).
  */
 public class Iterance {
+  /** 0, 0 = OFF / unrestricted (C definitions_cxx.hpp:712 kDefaultIteranceValue). */
+  public static final Iterance OFF = new Iterance((byte) 0, (byte) 0);
+
+  /** 0, 1 = play on first iteration only (C definitions_cxx.hpp:716 kFirstIteranceValue). */
+  public static final Iterance FIRST = new Iterance((byte) 0, (byte) 1);
+
+  /** 0, 2 = play on last iteration only (C definitions_cxx.hpp:717 kLastIteranceValue). */
+  public static final Iterance LAST = new Iterance((byte) 0, (byte) 2);
+
+  /** 1, 1 = "1of1" custom default (C definitions_cxx.hpp:711 kCustomIteranceValue). */
+  public static final Iterance CUSTOM_DEFAULT = new Iterance((byte) 1, (byte) 1);
+
+  /** C definitions_cxx.hpp:708-710. */
+  public static final int NUM_PROBABILITY_VALUES = 20;
+
+  public static final int NUM_ITERANCE_PRESETS = 37;
+  public static final int CUSTOM_ITERANCE_PRESET = NUM_ITERANCE_PRESETS + 1;
+
+  /** C lookuptables.cpp:506 iterancePresets — FIRST, LAST, then 1of2 through 8of8 (37 entries). */
+  public static final Iterance[] PRESETS = buildPresets();
+
+  private static Iterance[] buildPresets() {
+    Iterance[] table = new Iterance[NUM_ITERANCE_PRESETS];
+    table[0] = FIRST;
+    table[1] = LAST;
+    int idx = 2;
+    for (int div = 2; div <= 8; div++) {
+      for (int step = 0; step < div; step++) {
+        table[idx++] = new Iterance((byte) div, (byte) (1 << step));
+      }
+    }
+    return table;
+  }
+
   public byte divisor;
   public byte iteranceStep; // Using byte as a bitset of 8 bits
 
@@ -19,16 +54,97 @@ public class Iterance {
   }
 
   public boolean passesCheck(int repeatCount) {
-    if (divisor == 0) return false;
-    int index = repeatCount % divisor;
-    return (iteranceStep & (1 << index)) != 0;
+    return passesCheck(repeatCount, false);
+  }
+
+  /**
+   * Evaluates whether this iterance condition passes on the given repeat count.
+   *
+   * <p>C iterance.h:46-57 — divisor 0 overloads step 1 as FIRST ({@code repeatCount == 0}) and step
+   * 2 as LAST ({@code ending}).
+   */
+  public boolean passesCheck(int repeatCount, boolean ending) {
+    int div = divisor & 0xFF;
+    int step = iteranceStep & 0xFF;
+    if (div == 0) {
+      if (step == 1) {
+        return repeatCount == 0;
+      } else if (step == 2) {
+        return ending;
+      }
+      return false;
+    }
+    int index = Math.floorMod(repeatCount, div);
+    return (step & (1 << index)) != 0;
   }
 
   public int toInt() {
     return ((divisor & 0xFF) << 8) | (iteranceStep & 0xFF);
   }
 
+  /** Decodes a 16-bit packed iterance value with firmware validation (C iterance.cpp:62-70). */
   public static Iterance fromInt(int value) {
-    return new Iterance((byte) ((value >> 8) & 0xFF), (byte) (value & 0xFF));
+    int div = (value >> 8) & 0xFF;
+    int step = value & 0xFF;
+    if ((div == 0 && step != 1 && step != 2) || div > 8) {
+      return new Iterance(OFF.divisor, OFF.iteranceStep);
+    }
+    return new Iterance((byte) div, (byte) step);
+  }
+
+  /** C iterance.cpp:94-105 — 1-based preset index (1..37) or 38 for custom. */
+  public static Iterance fromPresetIndex(int presetIndex) {
+    if (presetIndex > 0 && presetIndex <= NUM_ITERANCE_PRESETS) {
+      Iterance p = PRESETS[presetIndex - 1];
+      return new Iterance(p.divisor, p.iteranceStep);
+    } else if (presetIndex == CUSTOM_ITERANCE_PRESET) {
+      return new Iterance(CUSTOM_DEFAULT.divisor, CUSTOM_DEFAULT.iteranceStep);
+    }
+    return new Iterance(OFF.divisor, OFF.iteranceStep);
+  }
+
+  /**
+   * Legacy C1.2 probability byte migration (C iterance_migration.cpp:26-36). Prepended FIRST/LAST
+   * shifted old 1-based preset index {@code probability - 20} to array index {@code probability -
+   * 19} (2..36).
+   */
+  public static Iterance fromLegacyProbabilityByte(int probability) {
+    int idx = probability - NUM_PROBABILITY_VALUES + 1;
+    if (idx < 2 || idx >= NUM_ITERANCE_PRESETS) {
+      return new Iterance(OFF.divisor, OFF.iteranceStep);
+    }
+    Iterance p = PRESETS[idx];
+    return new Iterance(p.divisor, p.iteranceStep);
+  }
+
+  /**
+   * Legacy C1.3-nightly 26-char preset index migration (C iterance_migration.cpp:38-51). Shifts
+   * non-zero preset index by +2 to skip prepended FIRST and LAST.
+   */
+  public static Iterance fromLegacyPresetIndex(int presetIndex) {
+    if (presetIndex == 0) {
+      return new Iterance(OFF.divisor, OFF.iteranceStep);
+    }
+    int newIndex = presetIndex + 2;
+    if (newIndex <= NUM_ITERANCE_PRESETS) {
+      Iterance p = PRESETS[newIndex - 1];
+      return new Iterance(p.divisor, p.iteranceStep);
+    }
+    if (newIndex == CUSTOM_ITERANCE_PRESET) {
+      return new Iterance(CUSTOM_DEFAULT.divisor, CUSTOM_DEFAULT.iteranceStep);
+    }
+    return new Iterance(OFF.divisor, OFF.iteranceStep);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (!(o instanceof Iterance other)) return false;
+    return divisor == other.divisor && iteranceStep == other.iteranceStep;
+  }
+
+  @Override
+  public int hashCode() {
+    return toInt();
   }
 }

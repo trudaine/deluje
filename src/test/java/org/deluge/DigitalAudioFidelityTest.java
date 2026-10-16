@@ -198,7 +198,10 @@ public class DigitalAudioFidelityTest {
           float renderVal = outputWave[i];
           // /4 since 2026-07-25: the sample path tracks the C-exact wave-oscillator level
           // (compensated at the engine master, which this harness bypasses).
-          float expectedRatio = 0.078125f / 4;
+          // Re-baselined 2026-10-16: XML <volume> now targets GLOBAL_VOLUME_POST_FX with >>2
+          // (sound.cpp:141, 3815; patcher.cpp:210-233) while LOCAL_VOLUME starts at 0 and
+          // takes the velocity->volume cable without saturating at INT_MAX.
+          float expectedRatio = 0.012689092f;
           float actualRatio = renderVal / rawVal;
           assertEquals(
               expectedRatio,

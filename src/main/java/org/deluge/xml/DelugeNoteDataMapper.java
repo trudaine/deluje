@@ -136,15 +136,68 @@ public class DelugeNoteDataMapper {
 
       int pos = (int) Long.parseLong(hexPos, 16);
       int len = (int) Long.parseLong(hexLen, 16);
+      int velInt = Integer.parseInt(data.substring(idx + 16, idx + 18), 16);
+      float velocity = velInt / 127.0f;
 
-      float velocity = 0.8f;
-      if (hexCharsPerNote >= 22) {
-        String hexVel = data.substring(idx + 16, idx + 18);
-        int velInt = Integer.parseInt(hexVel, 16);
-        velocity = velInt / 127.0f;
+      int lift = 64; // C definitions_cxx.hpp:724 kDefaultLiftValue
+      float probability = 1.0f;
+      int fill = 0;
+      org.deluge.model.Iterance iterance =
+          new org.deluge.model.Iterance((byte) 0, (byte) 0); // kDefaultIteranceValue (OFF)
+
+      // C note_row.cpp:3405-3482 — decode lift, probability, iterance, and fill by note length.
+      if (hexCharsPerNote == 28) {
+        int rawLift = Integer.parseInt(data.substring(idx + 18, idx + 20), 16);
+        lift = (rawLift > 0 && rawLift <= 127) ? rawLift : 64;
+        int probByte = Integer.parseInt(data.substring(idx + 20, idx + 22), 16) & 0x7F;
+        probability = (probByte >= 1 && probByte <= 20) ? (probByte / 20.0f) : 1.0f;
+        iterance =
+            org.deluge.model.Iterance.fromInt(
+                Integer.parseInt(data.substring(idx + 22, idx + 26), 16));
+        fill = Integer.parseInt(data.substring(idx + 26, idx + 28), 16);
+      } else if (hexCharsPerNote == 26) {
+        int rawLift = Integer.parseInt(data.substring(idx + 18, idx + 20), 16);
+        lift = (rawLift > 0 && rawLift <= 127) ? rawLift : 64;
+        int probByte = Integer.parseInt(data.substring(idx + 20, idx + 22), 16) & 0x7F;
+        probability = (probByte >= 1 && probByte <= 20) ? (probByte / 20.0f) : 1.0f;
+        iterance =
+            org.deluge.model.Iterance.fromLegacyPresetIndex(
+                Integer.parseInt(data.substring(idx + 22, idx + 24), 16));
+        fill = Integer.parseInt(data.substring(idx + 24, idx + 26), 16);
+      } else if (hexCharsPerNote == 22) {
+        int rawLift = Integer.parseInt(data.substring(idx + 18, idx + 20), 16);
+        lift = (rawLift > 0 && rawLift <= 127) ? rawLift : 64;
+        int probByte = Integer.parseInt(data.substring(idx + 20, idx + 22), 16);
+        if (probByte == 0 || probByte == 128) {
+          fill = (probByte == 0) ? 1 : 2; // FILL : NOT_FILL
+          probability = 1.0f;
+        } else if (probByte > 20 && probByte <= 20 + 35) {
+          iterance = org.deluge.model.Iterance.fromLegacyProbabilityByte(probByte);
+          probability = 1.0f;
+        } else {
+          int pb = probByte & 0x7F;
+          probability = (pb >= 1 && pb <= 20) ? (pb / 20.0f) : 1.0f;
+        }
+      } else if (hexCharsPerNote >= 20) {
+        int probByte = Integer.parseInt(data.substring(idx + 18, idx + 20), 16);
+        if (probByte == 0 || probByte == 128) {
+          fill = (probByte == 0) ? 1 : 2;
+          probability = 1.0f;
+        } else if (probByte > 20 && probByte <= 20 + 35) {
+          iterance = org.deluge.model.Iterance.fromLegacyProbabilityByte(probByte);
+          probability = 1.0f;
+        } else {
+          int pb = probByte & 0x7F;
+          probability = (pb >= 1 && pb <= 20) ? (pb / 20.0f) : 1.0f;
+        }
       }
 
-      list.add(new org.deluge.model.NoteModel(pos, len, velocity, 1.0f, 0));
+      org.deluge.model.NoteModel nm =
+          new org.deluge.model.NoteModel(pos, len, velocity, probability, 0);
+      nm.setLift(lift);
+      nm.setFill(fill);
+      nm.setIterance(iterance);
+      list.add(nm);
       idx += hexCharsPerNote;
     }
     return list;

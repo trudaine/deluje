@@ -3386,3 +3386,46 @@ previously being flattered by quantisation noise resembling the hardware's noise
 same reasoning suggests they cannot express "off" either. SRR and bitcrush were fixed alone because
 their enable predicates test the minimum directly, which is what made the breakage provable. The rest
 need their own evidence before being touched.
+
+### 4.2octoseptuagies 2026-10-16 — C-exact volume routing, filterGain gating, unison detune XML, and master output stage (time-resolved median 0.824 -> 0.832, mean 0.809 -> 0.820)
+
+Porting upstream `2d7cdf82..a616dd8e6` (145 commits, see `docs/firmware_sync_audit.md` §9) and auditing the level, filter-gain, and XML parameter pipeline side-by-side against C++ uncovered five parity defects in how preset XML parameters reach the DSP output bus:
+
+1. **XML `<volume>` targeted `LOCAL_VOLUME` instead of `GLOBAL_VOLUME_POST_FX`.**
+   - In C++ (`sound.cpp:141, 819, 3815`), `<defaultParams><volume>` reads into `Param::GLOBAL_VOLUME_POST_FX` while `Param::LOCAL_VOLUME` stays at `0` (neutral).
+   - Java's `InstrumentXmlParser.java` and `FirmwareFactory.java` had mapped `<volume>` into `Param.LOCAL_VOLUME`. Because `LOCAL_VOLUME` feeds into voice pre-filter and FM modulator routing differently than post-FX volume, preset levels diverged whenever `<volume>` was non-zero.
+2. **Uncabled `GLOBAL_VOLUME_POST_FX` and `GLOBAL_VOLUME_POST_REVERB_SEND` skipped `Patcher::computeFinalValueForParam`.**
+   - In C++ (`patcher.cpp:210-233`), uncabled hybrid/volume params still pass through `computeFinalValueForParam`, which applies `paramLinear >> 2` (neutral `0x08000000` -> `0x02000000`).
+   - `Sound.java` had copied the raw linear value directly when no cable targeted those two global params, making uncabled post-FX volume 4x (+12 dB) too hot relative to cabled params and pre-filter stages.
+3. **`FirmwareAudioEngine` master output stage used `<< 6` (64x) instead of C++ `* ONE_Q31 >> 32` + `lshiftAndSaturate<8>` (128x).**
+   - In C++ (`audio_engine.cpp:1122-1123, 1330-1365`), `renderSongFX` sets `masterVolumeAdjustmentL = ONE_Q31` (`2^31 - 1`), and `doSomeOutputting()` multiplies each post-compressor sample by `ONE_Q31` (`>> 32`, i.e. `>> 1`) before `lshiftAndSaturate<AUDIO_OUTPUT_GAIN_DOUBLINGS>` (`8`). The net post-compressor gain is `(x >> 1) << 8 = x << 7` (128x).
+   - Java had used `<< 6` (64x). Using `<< 8` without the `* ONE_Q31 >> 32` step clipped loud presets 6 dB early (`032 Bandpass Choir`, `130 Dark Strings`, `015 Resonant Filter Bass`). Implementing the exact two-step C++ output stage resolved the early clipping while matching hardware output level.
+4. **`Voice.hasFilters()` checked active cutoff gates instead of configured filter modes.**
+   - In C++ (`sound.cpp:3218-3220`), `Sound::hasFilters()` returns `(lpfMode != FilterMode::OFF) || (hpfMode != FilterMode::OFF)`, so `filterGain` (`sound.volumeNeutralValueForUnison`) always scales voices on any preset whose LPF/HPF mode is not `OFF`, even when the cutoff knob is wide open and `doLPF`/`doHPF` evaluates false for the block.
+   - `Voice.java:859` had checked `filterSetConfig.doLPF || filterSetConfig.doHPF`, dropping `filterGain` whenever the filter opened fully.
+5. **Unison `<detune>` and `<spread>` XML format + legacy hex parse mismatch.**
+   - C++ writes `<unison><detune>` and `<spread>` as plain decimal integers `0..50` (`sound.cpp:4243-4246`), and `Deserializer::readTagOrAttributeValueInt()` (`Deserializer.cpp:553-574`) parses digits until the first non-digit character.
+   - Our legacy `ALLSYN_1.XML` / `ALLSYN_2.XML` files contained `<detune>0x7FFFFFFF</detune>` from an older `ProjectSerializer` bug that wrote `writeHexTagUnipolar`. On real Deluge hardware, `readTagOrAttributeValueInt` stops at `'x'` and returns `0` (zero detune). Java's `InstrumentXmlParser.java` had parsed `0x7FFFFFFF` as `50` (maximum detune!), heavily detuning every unison preset in `ALLSYN_1` and `ALLSYN_2`. Fixed both the serializer (`ProjectSerializer.java`, `KitSynthSerializer.java` now emit decimal ints) and the parser (matching C++ `readTagOrAttributeValueInt` on `0x...` strings). Also fixed `oscAPulseWidth` / `oscBPulseWidth` default fallback from `0x80000000` to `0`.
+
+**Scorecard impact (`FidelityScorecardTest`, `n=188`, `~/ALL_SYNTHS_SONG`):**
+
+| Metric | After upstream sync | After 5 parity fixes | Delta |
+| :--- | :--- | :--- | :--- |
+| Single-window mean | 0.808 | **0.814** | +0.006 |
+| Single-window median | 0.834 | **0.835** | +0.001 |
+| Single-window >= 0.90 | 47 (25%) | **54 (29%)** | +7 |
+| **Time-resolved mean** | 0.809 | **0.820** | **+0.011** |
+| **Time-resolved median** | 0.824 | **0.832** | **+0.008** |
+| **Time-resolved >= 0.90** | 43 (23%) | **51 (27%)** | **+8** |
+| **Time-resolved >= 0.80** | 112 (60%) | **117 (62%)** | **+5** |
+| **Time-resolved < 0.60** | 11 | **10** | -1 |
+
+**Top per-synth time-resolved improvements:**
+- `151 Radiant FM Pad`: +0.152
+- `092 Degraded Tremolo`: +0.147
+- `051 FM Rich Brass`: +0.144
+- `057 FM Lead`: +0.131
+- `091 FM Ricochet`: +0.128
+- `155 Rich FM Pad 2`: +0.106
+
+**Verification:** Guarded by `UpstreamSyncOct2026ParityTest` (11 unit tests), updated `DroneLabIntegrationTest` and `ResampleFidelityTest#testSingleNoteOutputLevel` to render through `FirmwareAudioEngine.renderBlock` (matching `JavaAudioDriver.java:215`), and re-baselined direct-`renderOutput` assertions in `DigitalAudioFidelityTest` and `FirmwareGoldenSignatureTest` with explicit C++ citations.

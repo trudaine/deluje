@@ -27,9 +27,16 @@ public class Reverb {
   static final int ONE_Q31 = 2147483647;
 
   /**
-   * C: std::numeric_limits<uint32_t>::max() — the MutableModel output scale (mutable.hpp:92,107).
+   * C: mutable.hpp:115 — kOutputGain = 15.f * 4294967296.f (lifts normalised loop signal into Q31).
    */
-  static final float UINT32_MAX_F = 4294967295.0f;
+  static final float K_OUTPUT_GAIN = 15.0f * 4294967296.0f;
+
+  /** C: dsp/util.hpp:104-110 — saturating float-to-Q31 conversion (ceiling 0x7FFFFF80). */
+  static int toQ31Saturating(float scaled) {
+    final float kMax = 2147483520.0f; // 0x7FFFFF80
+    final float kMin = -2147483648.0f;
+    return (int) Math.max(kMin, Math.min(kMax, scaled));
+  }
 
   // ── OnePole + Interpolate (fx_engine.hpp:13-21) ──
 
@@ -110,13 +117,16 @@ public class Reverb {
     }
   }
 
-  // ── FxEngine (fx_engine.hpp:29-78) ──
+  // ── FxEngine (fx_engine.hpp:37-96) ──
 
   /**
-   * C: fx_engine.hpp:29-78 — circular buffer engine for delay networks. write_ptr_ decrements on
-   * Advance(); at(index) = buffer[(write_ptr_ + index) & mask].
+   * C: fx_engine.hpp:37-96 — circular buffer engine for delay networks. write_ptr_ decrements on
+   * Advance(); at(index) = buffer[(write_ptr_ + index) & mask]. The LFOs step once every 32 frames,
+   * so configured frequencies are scaled by {@code kLFOStride = 32.0f}.
    */
   static class FxEngine {
+    static final float K_LFO_STRIDE = 32.0f;
+
     float[] buf;
     int mask, writePtr;
     LFO lfo;
@@ -126,34 +136,40 @@ public class Reverb {
       while (sz < size) sz <<= 1;
       buf = new float[sz];
       mask = sz - 1;
-      lfo = new LFO(lfoF1, lfoF2);
+      lfo = new LFO(lfoF1 * K_LFO_STRIDE, lfoF2 * K_LFO_STRIDE);
     }
 
-    /** C:35-38 */
+    /** C:50-53 */
     void clear() {
       java.util.Arrays.fill(buf, 0);
       writePtr = 0;
     }
 
-    /** C:44-49 — decrement write pointer */
+    /** C:56 — SetLFOFrequency */
+    void setLfoFrequency(int index, float frequency) {
+      lfo.setFreq(index, frequency * K_LFO_STRIDE);
+    }
+
+    /** C:59-65, 85-89 — decrement write pointer and step LFOs once every 32 frames */
     void advance() {
       writePtr--;
       if (writePtr < 0) writePtr += buf.length;
+      if ((writePtr & 31) == 0) {
+        lfo.next();
+      }
     }
 
-    /** C:52 — read at offset from write pointer */
+    /** C:68 — read at offset from write pointer */
     float at(int index) {
       return buf[(writePtr + index) & mask];
     }
 
-    /** C:54 — write at offset */
     void setAt(int index, float v) {
       buf[(writePtr + index) & mask] = v;
     }
 
-    /** C:55-69 — LFO access */
+    /** C:73-81 — read current LFO value (stepping happens in advance) */
     float lfoVal(int idx) {
-      if ((writePtr & 31) == 0) lfo.next();
       return lfo.value(idx);
     }
   }
@@ -335,14 +351,12 @@ public class Reverb {
       reverbTime = 0.01f + v * 0.97f;
     }
 
-    /** C:133-135 */
+    /** C: mutable.hpp:136-140 — 0 is no damping (lp = 1.0), 1 is darkest (lp = 0.01). */
     public void setDamping(float v) {
-      lp =
-          (v == 0)
-              ? 1
-              : 1
-                  - Math.min(
-                      1, Math.max(0, (float) (Math.log(((1 - v) * 50) + 1) / Math.log(2)) / 5.7f));
+      float damping =
+          Math.max(
+              0.0f, Math.min(1.0f, (float) (Math.log(v * 50.0f + 1.0f) / Math.log(2.0)) / 5.7f));
+      lp = 0.01f + (1.0f - damping) * 0.99f;
     }
 
     /** C:139 */
@@ -417,57 +431,64 @@ public class Reverb {
         dap1b.process(c, kap);
         del1.write(c, 0, 2.0f);
         float wetR = c.get();
-        wetR -= onePole(hpSt, 0, wetR, hpCutoff); // HP right
-        wetR = onePole(lpSt, 0, wetR, lpCutoff); // LP right
-        int outputRight = (int) (wetR * UINT32_MAX_F * 0xF); // C:91-92 (uint32 max, NOT int32)
-        // C mutable.hpp:111 — s.r += multiply_32x32_rshift32_rounded(output_right, getPanRight())
+        wetR -= onePole(hpSt, 0, wetR, hpCutoff); // HP right (hp_r_)
+        wetR = onePole(lpSt, 0, wetR, lpCutoff); // LP right (lp_r_)
+        int outputRight = toQ31Saturating(wetR * K_OUTPUT_GAIN); // C:88
+        // C mutable.hpp:104 — s.r += multiply_32x32_rshift32_rounded(output_right, getPanRight())
         outputLR[frame][1] += Functions.multiply_32x32_rshift32_rounded(outputRight, panR);
 
-        // C:94-107 — left channel loop
+        // C:90-100 — left channel loop
         c.set(apout);
         del1.interpRead(c, 4460, 0 /*LFO_1*/, 40, krt);
         c.lp(
             lpDecay, 1,
-            klp); // C:96 — c.Lp(lp_2, klp), decay damping (separate from output LP lp_l_)
+            klp); // C:92 — c.Lp(lp_2, klp), decay damping (separate from output LP lp_l_)
         dap2a.process(c, -kap);
         dap2b.process(c, kap);
         del2.write(c, 0, 2.0f);
         float wetL = c.get();
-        wetL -= onePole(hpSt, 1, wetL, hpCutoff); // HP left
-        wetL = onePole(lpSt, 1, wetL, lpCutoff); // LP left
-        int outputLeft = (int) (wetL * UINT32_MAX_F * 0xF); // C:106-107 (uint32 max, NOT int32)
-        // C mutable.hpp:110 — s.l += multiply_32x32_rshift32_rounded(output_left, getPanLeft())
+        wetL -= onePole(hpSt, 1, wetL, hpCutoff); // HP left (hp_l_)
+        wetL = onePole(lpSt, 1, wetL, lpCutoff); // LP left (lp_l_)
+        int outputLeft = toQ31Saturating(wetL * K_OUTPUT_GAIN); // C:100
+        // C mutable.hpp:103 — s.l += multiply_32x32_rshift32_rounded(output_left, getPanLeft())
         outputLR[frame][0] += Functions.multiply_32x32_rshift32_rounded(outputLeft, panL);
       }
     }
   }
 
-  // ── Digital model (digital.hpp:24-145) ──
+  // ── Digital model (digital.hpp:25-157) ──
 
   /**
-   * C: digital.hpp:24-145 — the Griesinger topology from Dattorro's "Effect Design" Part 1,
-   * modelled on the Lexicon 224. Extends {@link MutableModel}; only {@code process()} differs (the
-   * param setters are identical and inherited). Reuses the inherited persistent states: {@code
-   * lpDecay[0]} = lp_decay_1_, {@code hpSt[1]}/{@code lpSt[1]} = hp_l_/lp_l_; adds {@code lpBandSt}
-   * = lp_band_.
+   * C: digital.hpp:25-157 — the Griesinger topology from Dattorro's "Effect Design" Part 1,
+   * modelled on the Lexicon 224. Extends {@link MutableModel}; overrides {@code process()} and
+   * {@code setRoomSize()} (decay range [0.1, 0.9]).
    */
   public static class DigitalModel extends MutableModel {
-    static final float K_RATIO = 29761.0f / 44100.0f; // C:25 — Lexicon→Deluge sample-rate ratio
-    static final int MAX_EXCURSION = (int) (16.0f * K_RATIO); // C:27
-    final float[] lpBandSt = {0}; // C: lp_band_ (digital.hpp:144)
+    static final float K_RATIO = 29761.0f / 44100.0f; // C:26 — Lexicon→Deluge sample-rate ratio
+    static final int MAX_EXCURSION = (int) (16.0f * K_RATIO); // C:29
+    static final int K_INTERPOLATION_GUARD = 1; // C:34
+    static final float K_DECAY_MIN = 0.1f; // C:39
+    static final float K_DECAY_MAX = 0.9f; // C:40
+    final float[] lpBandSt = {0}; // C: lp_band_ (digital.hpp:156)
+
+    @Override
+    public void setRoomSize(float v) {
+      // C digital.hpp:150 — util::map(value, 0.f, 1.f, kDecayMin, kDecayMax)
+      reverbTime = K_DECAY_MIN + v * (K_DECAY_MAX - K_DECAY_MIN);
+    }
 
     @Override
     public void process(int[] input, int[][] outputLR, int numSamples) {
       Context c = new Context();
 
-      // C:33-46 — delay-line network (dap* are AllPass; del* are plain DelayLine)
+      // C:46-59 — delay-line network (dap* are AllPass; del* are plain DelayLine)
       AllPass ap1 = new AllPass((int) (142 * K_RATIO)), ap2 = new AllPass((int) (107 * K_RATIO));
       AllPass ap3 = new AllPass((int) (379 * K_RATIO)), ap4 = new AllPass((int) (277 * K_RATIO));
-      AllPass dap1a = new AllPass((int) (672 * K_RATIO) + MAX_EXCURSION);
+      AllPass dap1a = new AllPass((int) ((672 * K_RATIO) + MAX_EXCURSION + K_INTERPOLATION_GUARD));
       DelayLine del1a = new DelayLine((int) (4453 * K_RATIO));
       AllPass dap1b = new AllPass((int) (1800 * K_RATIO));
       DelayLine del1b = new DelayLine((int) (3720 * K_RATIO));
-      AllPass dap2a = new AllPass((int) (908 * K_RATIO) + MAX_EXCURSION);
+      AllPass dap2a = new AllPass((int) ((908 * K_RATIO) + MAX_EXCURSION + K_INTERPOLATION_GUARD));
       DelayLine del2a = new DelayLine((int) (4217 * K_RATIO));
       AllPass dap2b = new AllPass((int) (2656 * K_RATIO));
       DelayLine del2b = new DelayLine((int) (3163 * K_RATIO));
@@ -478,52 +499,48 @@ public class Reverb {
             ap1, ap2, ap3, ap4, dap1a, del1a, dap1b, del1b, dap2a, del2a, dap2b, del2b
           });
 
-      float kdecay = reverbTime; // C:52
-      float kid1 = 0.750f, kid2 = 0.625f; // C:53-54 — input diffusion
-      float kdd1 = 0.70f; // C:55 — decay diffusion 1
-      float kdd2 = Math.max(0.25f, Math.min(0.5f, kdecay + 0.15f)); // C:56
-      float kdamp = lp; // C:58
-      float kbandwidth = 0.9995f; // C:59
+      float kdecay = reverbTime; // C:65
+      float kid1 = 0.750f, kid2 = 0.625f; // C:66-67 — input diffusion
+      float kdd1 = 0.70f; // C:68 — decay diffusion 1
+      float kdd2 = Math.max(0.25f, Math.min(0.5f, kdecay + 0.15f)); // C:69
+      float kdamp = lp; // C:71
+      float kbandwidth = 0.9995f; // C:72
 
       for (int frame = 0; frame < numSamples; frame++) {
-        engine.advance(); // C:68
+        engine.advance(); // C:79
 
-        float inSample = input[frame] / ONE_Q31_F; // C:70
-        c.set(inSample); // C:71
-        c.lp(lpBandSt, 0, kbandwidth); // C:73 — bandwidth limit
+        float inSample = input[frame] / ONE_Q31_F; // C:81
+        c.set(inSample); // C:82
+        c.lp(lpBandSt, 0, kbandwidth); // C:84 — bandwidth limit
 
-        // C:76-79 — 4 input diffusers
+        // C:87-91 — 4 input diffusers
         ap1.process(c, kid1);
         ap2.process(c, kid1);
         ap3.process(c, kid2);
         ap4.process(c, kid2);
-        float apout = c.get(); // C:80
+        float apout = c.get(); // C:91
 
-        // C:83-92 — first half of the figure-8 loop
+        // C:96-103 — first half of the figure-8 loop (closes on del2b tail)
         c.set(apout);
-        dap1a.interpRead(c, 672f * K_RATIO, 1 /*LFO_2*/, MAX_EXCURSION, -kdd1); // C:84
-        del1a.process(c, 0); // C:85
-        c.lp(lpDecay, 0, kdamp); // C:86 — lp_1 damping
-        c.multiply(kdecay); // C:87
-        dap1b.process(c, kdd2); // C:88
-        del1b.process(c, 0); // C:89
-        c.multiply(kdecay); // C:90
-        c.add(apout); // C:91
-        dap2a.write(c, 0, kdd2); // C:92
-
-        // C:94-103 — second half
-        c.set(apout);
-        dap2a.interpRead(c, 908f * K_RATIO, 0 /*LFO_1*/, MAX_EXCURSION, -kdd1); // C:95
-        del2a.process(c, 0); // C:96
-        c.lp(lpDecay, 0, kdamp); // C:97 — lp_1 again (C reuses the same state)
-        c.multiply(kdecay); // C:98
-        dap2b.process(c, kdd2); // C:99
-        del2b.process(c, 0); // C:100
+        c.add(kdecay * del2b.read(del2b.length)); // C:97
+        dap1a.processInterp(c, 672.0f * K_RATIO, 1 /*LFO_2*/, MAX_EXCURSION, -kdd1); // C:98
+        del1a.process(c, 0); // C:99
+        c.lp(lpDecay, 0, kdamp); // C:100 — lp_1 damping
         c.multiply(kdecay); // C:101
-        c.add(apout); // C:102
-        dap1a.write(c, 0, kdd1); // C:103
+        dap1b.process(c, kdd2); // C:102
+        del1b.process(c, 0); // C:103
 
-        // C:105-114 — left output taps (C uses hp_l_/lp_l_ = index 1)
+        // C:105-112 — second half continues from branch 1's accumulator
+        c.multiply(kdecay); // C:105
+        c.add(apout); // C:106
+        dap2a.processInterp(c, 908.0f * K_RATIO, 0 /*LFO_1*/, MAX_EXCURSION, -kdd1); // C:107
+        del2a.process(c, 0); // C:108
+        c.lp(lpDecay, 1, kdamp); // C:109 — lp_2 damping
+        c.multiply(kdecay); // C:110
+        dap2b.process(c, kdd2); // C:111
+        del2b.process(c, 0); // C:112
+
+        // C:114-123 — left output taps (hp_l_/lp_l_ = index 1)
         float leftSum = 0;
         leftSum += 0.6f * del2a.at((int) (266 * K_RATIO));
         leftSum += 0.6f * del2a.at((int) (2974 * K_RATIO));
@@ -532,10 +549,10 @@ public class Reverb {
         leftSum -= 0.6f * del1a.at((int) (1990 * K_RATIO));
         leftSum -= 0.6f * dap1b.at((int) (187 * K_RATIO));
         leftSum -= 0.6f * del1b.at((int) (1066 * K_RATIO));
-        leftSum -= onePole(hpSt, 1, leftSum, hpCutoff); // C:113
-        leftSum = onePole(lpSt, 1, leftSum, lpCutoff); // C:114
+        leftSum -= onePole(hpSt, 1, leftSum, hpCutoff); // C:122
+        leftSum = onePole(lpSt, 1, leftSum, lpCutoff); // C:123
 
-        // C:116-125 — right output taps (the C also uses hp_l_/lp_l_ here, sic — kept faithful)
+        // C:125-134 — right output taps (hp_r_/lp_r_ = index 0)
         float rightSum = 0;
         rightSum += 0.6f * del1a.at((int) (353 * K_RATIO));
         rightSum += 0.6f * del1a.at((int) (3627 * K_RATIO));
@@ -544,13 +561,12 @@ public class Reverb {
         rightSum -= 0.6f * del2a.at((int) (2111 * K_RATIO));
         rightSum -= 0.6f * dap2b.at((int) (335 * K_RATIO));
         rightSum -= 0.6f * del2b.at((int) (121 * K_RATIO));
-        rightSum -= onePole(hpSt, 1, rightSum, hpCutoff); // C:124 (hp_l_, sic)
-        rightSum = onePole(lpSt, 1, rightSum, lpCutoff); // C:125 (lp_l_, sic)
+        rightSum -= onePole(hpSt, 0, rightSum, hpCutoff); // C:133
+        rightSum = onePole(lpSt, 0, rightSum, lpCutoff); // C:134
 
-        // C digital.hpp:127-135 — output (uint32 max scale), then pan applied on mix like the
-        // Mutable model: output[frame] += multiply_32x32_rshift32_rounded(out, getPan*()).
-        int outputLeft = (int) (leftSum * UINT32_MAX_F * 0xF);
-        int outputRight = (int) (rightSum * UINT32_MAX_F * 0xF);
+        // C digital.hpp:136-141 — toQ31Saturating(sum * kOutputGain) + pan mix
+        int outputLeft = toQ31Saturating(leftSum * K_OUTPUT_GAIN);
+        int outputRight = toQ31Saturating(rightSum * K_OUTPUT_GAIN);
         outputLR[frame][0] += Functions.multiply_32x32_rshift32_rounded(outputLeft, panL);
         outputLR[frame][1] += Functions.multiply_32x32_rshift32_rounded(outputRight, panR);
       }

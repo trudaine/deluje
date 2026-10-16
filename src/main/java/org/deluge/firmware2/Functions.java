@@ -324,8 +324,67 @@ public final class Functions {
     return sourceValue >> 2;
   }
 
-  // ── shiftVolumeByDB (functions.cpp:443-490) ──
-  // (used by song-level volume; port on demand — currently not used in DSP)
+  // ── shiftVolumeByDB (util/db_shift.h:1-61) ──
+
+  /**
+   * C: dbIntervals (util/db_shift.h:8-11) — dB spanned by each of the 16 intervals a volume param
+   * value is divided into. Interval 0 is not a real dB interval.
+   */
+  private static final float[] DB_INTERVALS = {
+    24.0f, // Not really real
+    12.1f, 7.0f, 5.0f, 3.9f, 3.2f, 2.6f, 2.4f, 2.0f, 1.8f, 1.7f, 1.5f, 1.4f, 1.3f, 1.2f, 1.1f
+  };
+
+  /**
+   * Shift a volume param value by {@code offset} dB. Positive offsets raise it, negative offsets
+   * lower it; both saturate. Port of {@code shiftVolumeByDB} ({@code util/db_shift.h:15-61}).
+   */
+  public static int shiftVolumeByDB(int oldValue, float offset) {
+    long oldValuePositive = Integer.toUnsignedLong(oldValue + 0x80000000);
+    int currentInterval = (int) (oldValuePositive >>> 28);
+
+    // Interval 0 is not a real dB interval - nothing to shift within it.
+    if (currentInterval < 1) {
+      return oldValue;
+    }
+
+    float howFarUpInterval = (float) (oldValuePositive & 268435455L) / 268435456.0f;
+
+    while (true) {
+      float dbThisInterval = DB_INTERVALS[currentInterval];
+
+      if (offset >= 0.0f) {
+        float dbLeftThisInterval = (1.0f - howFarUpInterval) * dbThisInterval;
+        if (dbLeftThisInterval > offset) {
+          howFarUpInterval += offset / dbThisInterval;
+          break;
+        }
+        if (currentInterval == 15) {
+          return Integer.MAX_VALUE;
+        }
+        offset -= dbLeftThisInterval;
+        currentInterval++;
+        howFarUpInterval = 0.0f;
+      } else {
+        float dbLeftThisInterval = howFarUpInterval * dbThisInterval;
+        if (dbLeftThisInterval > -offset) {
+          howFarUpInterval += offset / dbThisInterval;
+          break;
+        }
+        if (currentInterval == 1) {
+          return Integer.MIN_VALUE;
+        }
+        offset += dbLeftThisInterval;
+        currentInterval--;
+        howFarUpInterval = 1.0f;
+      }
+    }
+
+    howFarUpInterval = Math.max(0.0f, Math.min(0.99999994f, howFarUpInterval));
+    long newValuePositive =
+        ((long) currentInterval << 28) + (long) (howFarUpInterval * 268435456.0f);
+    return (int) (newValuePositive - 0x80000000L);
+  }
 
   // ── interpolateTable (functions.cpp:492-509) ──
 

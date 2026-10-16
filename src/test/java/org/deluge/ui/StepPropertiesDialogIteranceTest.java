@@ -44,21 +44,27 @@ public class StepPropertiesDialogIteranceTest {
   }
 
   @Test
-  public void testAllThirtyFiveRealIterancePresetsAreExposed() throws Exception {
-    // Regression: only 10 of the 35 real hardware presets (C: lookuptables.cpp:506
-    // iterancePresets -- divisor 2..8, every bit position) were exposed in the dropdown; the
-    // other 25 were reachable only via the generic Custom bitmask editor, not as a named preset.
+  public void testAllThirtySevenRealIterancePresetsAreExposed() throws Exception {
+    // Regression: only 10 of the real hardware presets (C: lookuptables.cpp:506
+    // iterancePresets -- FIRST, LAST, then divisor 2..8 every bit position, kNumIterancePresets=37)
+    // were exposed in the dropdown; the others were reachable only via the generic Custom bitmask
+    // editor, not as a named preset.
     java.lang.reflect.Field field = StepPropertiesDialog.class.getDeclaredField("ITERANCE_PRESETS");
     field.setAccessible(true);
     java.util.List<?> presets = (java.util.List<?>) field.get(null);
-    // 35 real presets + the "Always (1 of 1)" convenience entry (not itself one of the 35 --
-    // there is no divisor-1 entry in the real table) = 36.
-    assertEquals(36, presets.size());
+    // 37 real presets (FIRST, LAST, 1of2..8of8) + the "Always (1 of 1)" convenience entry = 38.
+    assertEquals(38, presets.size());
 
     java.lang.reflect.Method divisorM = presets.get(0).getClass().getDeclaredMethod("divisor");
     java.lang.reflect.Method maskM = presets.get(0).getClass().getDeclaredMethod("mask");
     divisorM.setAccessible(true);
     maskM.setAccessible(true);
+
+    // FIRST (0, 1) and LAST (0, 2) must be present.
+    assertEquals(0, (int) divisorM.invoke(presets.get(1)));
+    assertEquals(1, (int) maskM.invoke(presets.get(1)));
+    assertEquals(0, (int) divisorM.invoke(presets.get(2)));
+    assertEquals(2, (int) maskM.invoke(presets.get(2)));
 
     int total = 0;
     for (int divisor = 2; divisor <= 8; divisor++) {
@@ -75,7 +81,7 @@ public class StepPropertiesDialogIteranceTest {
         total++;
       }
     }
-    assertEquals(35, total, "must cover exactly the real firmware's 35 presets");
+    assertEquals(35, total, "must cover all 35 cycle presets (1of2..8of8) plus FIRST and LAST");
   }
 
   @Test

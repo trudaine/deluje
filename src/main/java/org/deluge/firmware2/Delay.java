@@ -90,6 +90,16 @@ public class Delay {
    */
   public int repeatsUntilAbandon;
 
+  // ── clone / copy settings (delay.h:40-47) ──
+
+  /** C: Delay::operator= (delay.h:40-47) — copies delay mode and sync settings. */
+  public void copySettingsFrom(Delay rhs) {
+    pingPong = rhs.pingPong;
+    analog = rhs.analog;
+    syncLevel = rhs.syncLevel;
+    syncType = rhs.syncType;
+  }
+
   // ── isActive (delay.h:48) ──
 
   /** C: delay.h:48 */
@@ -187,18 +197,19 @@ public class Delay {
             Functions.multiply_32x32_rshift32_rounded(
                 workingState.userDelayRate, timePerInternalTickInverse);
 
-        // C:108 — the literal INT_MAX ("the biggest number we can store"), NOT kMaxSampleValue.
-        int limit = 2147483647 >> (syncLevel + 5);
-        workingState.userDelayRate = Math.min(workingState.userDelayRate, limit);
-
+        // C delay.cpp:107-118 — apply syncType adjustment in 64-bit first, then clamp to
+        // INT_MAX >> (syncLevel + 5) so the final shift cannot overflow into a negative rate.
+        long adjustedRate = workingState.userDelayRate;
         if (syncType == 0) {
           /* EVEN — do nothing */
         } else if (syncType == 1) { // TRIPLET
-          workingState.userDelayRate = workingState.userDelayRate * 3 / 2;
+          adjustedRate = adjustedRate * 3 / 2;
         } else if (syncType == 2) { // DOTTED
-          workingState.userDelayRate = workingState.userDelayRate * 2 / 3;
+          adjustedRate = adjustedRate * 2 / 3;
         }
-        workingState.userDelayRate <<= (syncLevel + 5); // C:117
+        int limit = 2147483647 >> (syncLevel + 5);
+        workingState.userDelayRate = (int) Math.min(adjustedRate, (long) limit);
+        workingState.userDelayRate <<= (syncLevel + 5); // C:118
       }
     }
 

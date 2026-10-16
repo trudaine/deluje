@@ -780,6 +780,7 @@ public class SongXmlParser {
         }
 
         AudioTrackModel.AudioClip clip = new AudioTrackModel.AudioClip();
+        if (clipElem.hasAttribute("clipName")) clip.setClipName(clipElem.getAttribute("clipName"));
         clip.setTrackName(trackName);
         if (clipElem.hasAttribute("filePath")) clip.setFilePath(clipElem.getAttribute("filePath"));
         if (clipElem.hasAttribute("reversed"))

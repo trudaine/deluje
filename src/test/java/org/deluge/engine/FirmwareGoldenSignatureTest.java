@@ -324,10 +324,14 @@ public class FirmwareGoldenSignatureTest {
     double brightness = brightness(fm, from, to);
     double h1 = goertzelMagnitude(fm, from, to, refF0);
 
-    assertClose("fm peak", 0.085970670, peak, 0.30, 0.05);
-    assertClose("fm rms", 0.056966717, rms, 0.30, 0.05);
+    // Re-baselined 2026-10-16: model.getVolume() now targets GLOBAL_VOLUME_POST_FX with >>2
+    // (sound.cpp:141, 3815; patcher.cpp:210-233) while LOCAL_VOLUME stays 0, so the FM carrier
+    // ceiling (134217727, voice.cpp:1032) is no longer clipped (/2) and post-FX volume applies
+    // >>2 (/4) -> net /8 in this direct-renderOutput harness.
+    assertClose("fm peak", 0.085970670 / 8, peak, 0.30, 0.05);
+    assertClose("fm rms", 0.056966717 / 8, rms, 0.30, 0.05);
     assertClose("fm brightness", 0.513303217, brightness, 0.30, 0.05);
-    assertTrue(h1 > 0.000001, "fm carrier bin should stay clearly present");
+    assertTrue(h1 > 0.000001 / 8, "fm carrier bin should stay clearly present");
     assertClose("fm f0", 262.500000000, f0, 0.30, 0.05);
   }
 
@@ -346,10 +350,10 @@ public class FirmwareGoldenSignatureTest {
     assertClose("lfo tremolo peak", 0.051292821764945984 / 4, peak, 0.30, 0.05);
     assertClose("lfo tremolo rms", 0.023192325, rms, 0.30, 0.05);
     assertClose("lfo tremolo brightness", 0.037281974 / 4, brightness, 0.30, 0.05);
-    // Re-baselined after the C-faithful volume-curve-neutral fix (Patcher uses
-    // getParamNeutralValue,
-    // not the 0 center knob): the voice is now correctly audible, so the tremolo depth is fuller.
-    assertClose("lfo tremolo wobble", 1.856690683, wobble, 0.30, 0.05);
+    // Re-baselined 2026-10-16: LOCAL_VOLUME knob stays 0 (sound.cpp:141) while track volume goes
+    // to GLOBAL_VOLUME_POST_FX (sound.cpp:3815), so LFO->LOCAL_VOLUME modulates symmetrically
+    // without clipping against INT_MAX.
+    assertClose("lfo tremolo wobble", 2.596091145, wobble, 0.30, 0.05);
     assertTrue(wobble > 1.0, "tremolo should stay obviously modulated");
   }
 
@@ -366,12 +370,13 @@ public class FirmwareGoldenSignatureTest {
     // Re-baselined 2026-07-04: sine osc no longer doubles its amplitude (C oscillator.cpp:147-151
     // jumps past the <<1 at :471-472), so the sine-based fixtures halved.
     // /4: 2026-07-25 C-exact osc amplitude (see saw signature note).
-    assertClose("env attack early", 0.009501531637691943 / 4, attackEarly, 0.10, 0.0005);
-    assertClose("env attack peak", 0.033917754118354924 / 4, attackPeak, 0.10, 0.0005);
-    assertClose("env decay body", 0.06317444278703321 / 2 / 4, decayBody, 0.10, 0.0005);
-    assertClose("env sustain", 0.03959552466236948 / 2 / 4, sustain, 0.10, 0.0005);
-    assertClose("env release start", 0.029970938478750042 / 2 / 4, releaseStart, 0.10, 0.0005);
-    assertClose("env release mid", 0.0041317333781902554 / 2 / 4, releaseMid, 0.10, 0.0005);
+    // /4: 2026-10-16 C-exact GLOBAL_VOLUME_POST_FX >>2 (patcher.cpp:210-233).
+    assertClose("env attack early", 0.009501531637691943 / 4 / 4, attackEarly, 0.10, 0.0005);
+    assertClose("env attack peak", 0.033917754118354924 / 4 / 4, attackPeak, 0.10, 0.0005);
+    assertClose("env decay body", 0.06317444278703321 / 2 / 4 / 4, decayBody, 0.10, 0.0005);
+    assertClose("env sustain", 0.03959552466236948 / 2 / 4 / 4, sustain, 0.10, 0.0005);
+    assertClose("env release start", 0.029970938478750042 / 2 / 4 / 4, releaseStart, 0.10, 0.0005);
+    assertClose("env release mid", 0.0041317333781902554 / 2 / 4 / 4, releaseMid, 0.10, 0.0005);
     assertTrue(
         attackPeak > attackEarly * 1.5, "attack should rise clearly above its opening level");
     assertTrue(decayBody > sustain * 1.5, "decay body should stay well above sustain");
@@ -393,22 +398,26 @@ public class FirmwareGoldenSignatureTest {
     double dx7Brightness = brightness(dx7, from, to);
     double dx7H1 = goertzelMagnitude(dx7, from, to, 261.625565);
     double dx7H3 = goertzelMagnitude(dx7, from, to, 261.625565 * 3.0);
-    assertClose("ring peak", 0.015608668, ringPeak, 0.10, 0.0005);
-    assertClose("ring rms", 0.009261414, ringRms, 0.10, 0.0005);
+    // /4: 2026-10-16 C-exact GLOBAL_VOLUME_POST_FX >>2 (patcher.cpp:210-233).
+    assertClose("ring peak", 0.015608668 / 4, ringPeak, 0.10, 0.0005);
+    assertClose("ring rms", 0.009261414 / 4, ringRms, 0.10, 0.0005);
     assertClose("ring brightness", 0.074440891, ringBrightness, 0.10, 0.0005);
 
     // Re-baselined 2026-07-05: the C filter-engagement bypass (sound.cpp:2506-2519) stops the
     // ring fixture's max-cutoff ladder from consuming per-sample noise draws, shifting the
     // shared CONG stream position for this render (the DX7 random detune/phases differ).
     // /4: 2026-07-25 DX7 path shift 6->4, tracking the C-exact wave level (see above).
-    assertClose("dx7 peak", 0.019105032086372375 / 4, dx7Peak, 0.10, 0.0005);
-    assertClose("dx7 rms", 0.013321079207954802 / 4, dx7Rms, 0.10, 0.0005);
+    // * 0.64: 2026-10-16 C-exact GLOBAL_VOLUME_POST_FX >>2 (patcher.cpp:210-233) evaluates the
+    // default user-40 knob (0x4CCCCC48 >> 2 -> 2.56x) instead of clamping at 4.0x (2.56 / 4 =
+    // 0.64).
+    assertClose("dx7 peak", 0.019105032086372375 / 4 * 0.64, dx7Peak, 0.10, 0.0005);
+    assertClose("dx7 rms", 0.013321079207954802 / 4 * 0.64, dx7Rms, 0.10, 0.0005);
     // Updated 2026-06-28: DX7 pitch-envelope rates/levels-swap fix (Dx7Voice.PitchEnv) corrected a
     // spurious +4-octave offset on neutral pitch envelopes, shifting DX7 brightness.
     assertClose("dx7 brightness", 0.03731857465320066, dx7Brightness, 0.10, 0.05);
-    assertClose("dx7 h1", 0.009412460496958971 / 4, dx7H1, 0.10, 0.0005);
-    assertClose("dx7 h3", 0.000026857 / 4, dx7H3, 0.10, 0.0005);
-    assertTrue(dx7H3 > 0.000001, "dx7 patch should stay richer than a pure sine");
+    assertClose("dx7 h1", 0.009412460496958971 / 4 * 0.64, dx7H1, 0.10, 0.0005);
+    assertClose("dx7 h3", 0.000026857 / 4 * 0.64, dx7H3, 0.10, 0.0005);
+    assertTrue(dx7H3 > 0.000001 * 0.64, "dx7 patch should stay richer than a pure sine");
   }
 
   @Test
@@ -424,12 +433,13 @@ public class FirmwareGoldenSignatureTest {
     double peak = peak(xmlFm, from, to);
     double rms = rms(xmlFm, from, to);
     double brightness = brightness(xmlFm, from, to);
-    assertClose("049 peak", 0.032087833, peak, 0.10, 0.0005);
-    assertClose("049 rms", 0.017439031, rms, 0.10, 0.0005);
+    // /4: 2026-10-16 C-exact GLOBAL_VOLUME_POST_FX >>2 (sound.cpp:141, 3815; patcher.cpp:210-233).
+    assertClose("049 peak", 0.032087833 / 4, peak, 0.10, 0.0005);
+    assertClose("049 rms", 0.017439031 / 4, rms, 0.10, 0.0005);
     assertClose("049 brightness", 0.037263413, brightness, 0.10, 0.0005);
-    assertClose("049 h1", 0.000106584, h1, 0.10, 0.0005);
-    assertClose("049 h3", 0.000031248, h3, 0.10, 0.0005);
-    assertClose("049 h5", 0.000008095, h5, 0.10, 0.0005);
+    assertClose("049 h1", 0.000106584 / 4, h1, 0.10, 0.0005);
+    assertClose("049 h3", 0.000031248 / 4, h3, 0.10, 0.0005);
+    assertClose("049 h5", 0.000008095 / 4, h5, 0.10, 0.0005);
     assertClose("049 f0", 277.358490566, f0, 0.10, 0.05);
     assertTrue(h3 > 1e-6, "049 Basic FM should have active FM sidebands");
   }

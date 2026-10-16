@@ -136,22 +136,23 @@ public class GranularProcessor {
     // C:95-96 — grain shift (~300ms base)
     grainShift = 44 * 300;
 
-    // C:98-104 — grain size from density
-    if (densityKnobPos != density || rateKnobPos != rate) {
-      densityKnobPos = density;
-      int densityQ31 = (density / 2) + 1073741824; // convert to 0..2^31
-      // C:103 — q31_mult(_grainRate << 3, density). q31_mult is smmul*2, i.e. multiply_..._rshift32
-      // << 1.
-      grainSize = 1760 + (Functions.multiply_32x32_rshift32(grainRate << 3, densityQ31) << 1);
-    }
-
-    // C:106-113 — grain rate
+    // C GranularProcessor.cpp:98-115 — grain size depends on both density and rate; update
+    // grainRate first so grainSize never uses a stale rate from the previous block.
+    boolean grainSizeChanged = (densityKnobPos != density || rateKnobPos != rate);
     if (rateKnobPos != rate) {
       rateKnobPos = rate;
       int raw = Math.max(0, Math.min(256, (Functions.quickLog(rate) - 364249088) >> 21));
       grainRate = ((360 * raw >> 8) * raw >> 8);
       grainRate = Math.max(1, grainRate);
       grainRate = (K_SAMPLE_RATE << 1) / grainRate;
+    }
+
+    if (grainSizeChanged) {
+      densityKnobPos = density;
+      int densityQ31 = (density / 2) + 1073741824; // convert to 0..2^31
+      // C:114 — q31_mult(_grainRate << 3, density). q31_mult is smmul*2, i.e. multiply_..._rshift32
+      // << 1.
+      grainSize = 1760 + (Functions.multiply_32x32_rshift32(grainRate << 3, densityQ31) << 1);
     }
 
     // C:115

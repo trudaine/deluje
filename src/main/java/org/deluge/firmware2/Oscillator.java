@@ -205,14 +205,16 @@ public final class Oscillator {
       int phaseIncrement,
       int phase,
       int phaseToAdd) {
+    final int rshiftAmount = 32 - tableSizeMagnitude - 16;
     int currentPhase = phase;
     for (int i = from; i < toExclusive; i++) {
       currentPhase += phaseIncrement;
       int pa = currentPhase;
       int pb = currentPhase + phaseToAdd;
 
+      // C vector_rendering_function.h:61-62 — keep fractional phase bits below the table index.
       int idxA = pa >>> (32 - tableSizeMagnitude);
-      int rshiftedA = (idxA >>> 16) & 0x7FFF;
+      int rshiftedA = (pa >>> rshiftAmount) & 0x7FFF;
       int valueA1 = table[idxA];
       int valueA2 = table[idxA + 1];
       int strengthA1 = (rshiftedA | 0x8000) - 0x10000;
@@ -221,7 +223,7 @@ public final class Oscillator {
       outA = sat32(outA + sat32(2L * strengthA1 * valueA1));
 
       int idxB = pb >>> (32 - tableSizeMagnitude);
-      int rshiftedB = (idxB >>> 16) & 0x7FFF;
+      int rshiftedB = (pb >>> rshiftAmount) & 0x7FFF;
       int valueB1 = table[idxB];
       int valueB2 = table[idxB + 1];
       int strengthB2 = rshiftedB;
@@ -487,6 +489,7 @@ public final class Oscillator {
       boolean applyAmplitude,
       int phaseToAdd,
       int amplitudeIncrement) {
+    final int rshiftAmount = 32 - tableSizeMagnitude - 16;
     int currentPhase = phase;
     int currentAmplitude = amplitude;
     for (int i = 0; i < numSamples; i++) {
@@ -494,12 +497,10 @@ public final class Oscillator {
       int pa = currentPhase;
       int pb = currentPhase + phaseToAdd;
 
-      // Read A (gather + "sneaky backwards" strengths → flips polarity). indicesX =
-      // phase>>(32-mag);
-      // rshiftedX = (indicesX>>16) & int16_max (0 for mag<=16). C
-      // vector_rendering_function.h:60-76.
+      // Read A (gather + "sneaky backwards" strengths → flips polarity).
+      // C vector_rendering_function.h:55-86 — rshiftedX = (phase >> (32 - mag - 16)) & int16_max.
       int idxA = pa >>> (32 - tableSizeMagnitude);
-      int rshiftedA = (idxA >>> 16) & 0x7FFF;
+      int rshiftedA = (pa >>> rshiftAmount) & 0x7FFF;
       int valueA1 = table[idxA];
       int valueA2 = table[idxA + 1];
       int strengthA1 = (rshiftedA | 0x8000) - 0x10000; // rshiftedA | int16_min, as int16 (negative)
@@ -507,9 +508,9 @@ public final class Oscillator {
       long outA = sat32(2L * strengthA2 * valueA2);
       outA = sat32(outA + sat32(2L * strengthA1 * valueA1));
 
-      // Read B (forward strengths). C:65-83.
+      // Read B (forward strengths). C vector_rendering_function.h:62, 88-93.
       int idxB = pb >>> (32 - tableSizeMagnitude);
-      int rshiftedB = (idxB >>> 16) & 0x7FFF;
+      int rshiftedB = (pb >>> rshiftAmount) & 0x7FFF;
       int valueB1 = table[idxB];
       int valueB2 = table[idxB + 1];
       int strengthB2 = rshiftedB; // already & int16_max
@@ -690,10 +691,12 @@ public final class Oscillator {
           if (Integer.compareUnsigned(resetterPhase, -(resetterPhaseInc >>> 1)) >= 0) {
             rtpMul -= 1 << 31;
           }
-          phase = Functions.multiply_32x32_rshift32_rounded((pwAbs >> 1) + 1073741824, rtpMul) << 3;
+          // C oscillator.cpp:91, 122-127 — pulseWidthAbsolute is uint32_t, so >> 1 is unsigned.
+          phase =
+              Functions.multiply_32x32_rshift32_rounded((pwAbs >>> 1) + 1073741824, rtpMul) << 3;
           phaseIncrement =
               Functions.multiply_32x32_rshift32_rounded(
-                      (pwAbs >> 1) + 1073741824, phaseIncrement >>> 1)
+                      (pwAbs >>> 1) + 1073741824, phaseIncrement >>> 1)
                   << 3;
         }
         phase += retriggerPhase;

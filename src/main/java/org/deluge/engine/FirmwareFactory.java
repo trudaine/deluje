@@ -407,14 +407,14 @@ public class FirmwareFactory {
                 Param.LOCAL_HPF_FREQ, q31Val, currentStep * stepTicks);
           }
 
-          // 4. Volume
+          // 4. Volume (C sound.cpp:819, 3815 — <volume> targets GLOBAL_VOLUME_POST_FX)
           int newVolQ31 = normToBipolarParamVolume(model.getVolume());
-          if (newVolQ31 != sound.paramNeutralValues[Param.LOCAL_VOLUME]) {
+          if (newVolQ31 != sound.paramNeutralValues[Param.GLOBAL_VOLUME_POST_FX]) {
             float normVal = Math.max(0.0f, Math.min(1.0f, model.getVolume() / 1.5f));
             clip.setAutomation("volume", currentStep, normVal);
             int q31Val = (int) (normVal * 2147483647.0);
             sound.paramManager.recordParamValue(
-                Param.LOCAL_VOLUME, q31Val, currentStep * stepTicks);
+                Param.GLOBAL_VOLUME_POST_FX, q31Val, currentStep * stepTicks);
           }
 
           // 5. Pan
@@ -525,8 +525,10 @@ public class FirmwareFactory {
       sound.paramKnobs[Param.LOCAL_PITCH_ADJUST] = model.getPitchAdjustQ31();
     }
 
-    // Volume/Pan
-    sound.paramKnobs[Param.LOCAL_VOLUME] = normToBipolarParamVolume(model.getVolume());
+    // Volume/Pan (C sound.cpp:141, 819, 3815 — LOCAL_VOLUME stays 0; track <volume> sets
+    // GLOBAL_VOLUME_POST_FX).
+    sound.paramKnobs[Param.LOCAL_VOLUME] = 0;
+    sound.paramKnobs[Param.GLOBAL_VOLUME_POST_FX] = normToBipolarParamVolume(model.getVolume());
     // LOCAL_PAN is BIPOLAR (0 = centre, ±2^30 = hard L/R), matching the firmware shouldDoPanning
     // input.
     sound.paramKnobs[Param.LOCAL_PAN] =
@@ -555,8 +557,10 @@ public class FirmwareFactory {
     } else {
       sound.paramKnobs[Param.LOCAL_OSC_B_PITCH_ADJUST] = 0;
     }
-    // Sound-level master transpose (C sound.transpose, voice.cpp:419) — applies to all sources.
+    // Sound-level master transpose + cents (C sound.transpose / sound.cents, voice.cpp:419, 509,
+    // 554).
     sound.fw2Sound.masterTranspose = model.getTranspose();
+    sound.fw2Sound.setMasterCents(model.getCents());
     // Per-osc coarse transpose (semitones) + cents detune — C sources[s].transpose / fineTuner.
     sound.fw2Sound.sourceTranspose[0] = model.getOsc1Transpose();
     sound.fw2Sound.sourceTranspose[1] = model.getOsc2Transpose();
@@ -605,6 +609,8 @@ public class FirmwareFactory {
     sound.paramKnobs[Param.UNPATCHED_SIDECHAIN_SHAPE] =
         normToLinearParamKnob(model.getCompressorShape());
     sound.paramKnobs[Param.UNPATCHED_SIDECHAIN_VOLUME] = 0; // default/flat
+    sound.paramKnobs[Param.UNPATCHED_COMPRESSOR_THRESHOLD] =
+        (int) (model.getCompressorThreshold() * 2147483647.0);
 
     // Delay static configuration
     sound.delaySyncLevel = model.getDelaySyncLevel();
@@ -1266,7 +1272,7 @@ public class FirmwareFactory {
 
   private static int getParamIdFromName(String name) {
     return switch (name) {
-      case "volume" -> Param.LOCAL_VOLUME;
+      case "volume" -> Param.GLOBAL_VOLUME_POST_FX;
       case "pan" -> Param.LOCAL_PAN;
       case "lpfFrequency" -> Param.LOCAL_LPF_FREQ;
       case "lpfResonance" -> Param.LOCAL_LPF_RESONANCE;
@@ -1352,8 +1358,9 @@ public class FirmwareFactory {
     drumSound.paramNeutralValues[Param.LOCAL_CARRIER_0_FEEDBACK] = sd.getCarrier1FeedbackQ31();
     drumSound.paramNeutralValues[Param.LOCAL_CARRIER_1_FEEDBACK] = sd.getCarrier2FeedbackQ31();
 
-    // Map oscillator coarse transpose and cents detune
+    // Map oscillator coarse transpose and cents detune (plus sound-level master transpose/cents)
     drumSound.fw2Sound.masterTranspose = (int) sd.getPitchSemitones();
+    drumSound.fw2Sound.setMasterCents(sd.getCents());
     drumSound.fw2Sound.sourceTranspose[0] = sd.getOsc1Transpose();
     drumSound.fw2Sound.sourceTranspose[1] = sd.getOsc2Transpose();
     drumSound.fw2Sound.setSourceCents(0, sd.getOsc1Cents());
@@ -1365,7 +1372,9 @@ public class FirmwareFactory {
       oscAVol = 1.0f; // Legacy sample-based row default
     }
     drumSound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = normToBipolarParamVolume(oscAVol);
-    drumSound.paramNeutralValues[Param.LOCAL_VOLUME] = normToBipolarParamVolume(sd.getVolume());
+    drumSound.paramNeutralValues[Param.LOCAL_VOLUME] = 0;
+    drumSound.paramNeutralValues[Param.GLOBAL_VOLUME_POST_FX] =
+        normToBipolarParamVolume(sd.getVolume());
     drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] =
         normToBipolarParamVolume(sd.getOscBVolume());
     drumSound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] =
@@ -1510,7 +1519,8 @@ public class FirmwareFactory {
       if (val == null) continue;
       switch (param) {
         case "volume" ->
-            drumSound.paramNeutralValues[Param.LOCAL_VOLUME] = normToBipolarParamVolume(val);
+            drumSound.paramNeutralValues[Param.GLOBAL_VOLUME_POST_FX] =
+                normToBipolarParamVolume(val);
         case "oscAVolume" ->
             drumSound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = normToBipolarParamVolume(val);
         case "oscBVolume" ->

@@ -146,12 +146,18 @@ public class Envelope {
 
   public int noteOn(int envelopeIndex, Sound sound, Voice voice) {
     int attack = voice.paramFinalValues[Param.LOCAL_ENV_0_ATTACK + envelopeIndex];
-    smoothedSustain = voice.paramFinalValues[Param.LOCAL_ENV_0_SUSTAIN + envelopeIndex];
+    int sustain = voice.paramFinalValues[Param.LOCAL_ENV_0_SUSTAIN + envelopeIndex];
     boolean directlyToDecay = (Integer.compareUnsigned(attack, 245632) > 0);
-    return noteOn(directlyToDecay);
+    return noteOn(directlyToDecay, sustain);
   }
 
   public int noteOn(boolean directlyToDecay) {
+    return noteOn(directlyToDecay, 2147483647);
+  }
+
+  /** C: Envelope::noteOn(bool directlyToDecay, int32_t sustain) (envelope.cpp:120-134). */
+  public int noteOn(boolean directlyToDecay, int sustain) {
+    smoothedSustain = sustain;
     ignoredNoteOff = false;
     pos = 0;
     if (!directlyToDecay) {

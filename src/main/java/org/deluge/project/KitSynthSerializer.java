@@ -214,9 +214,9 @@ public class KitSynthSerializer {
       appendHexChildUnipolar(doc, dp, "portamento", sound.getPortamento());
       appendHexChildUnipolar(doc, dp, "compressorShape", sound.getCompressorShape());
       appendHexChildUnipolar(doc, dp, "oscAVolume", sound.getOscAVolume());
-      appendHexChildUnipolar(doc, dp, "oscAPulseWidth", 0f);
+      appendRawQ31Child(doc, dp, "oscAPulseWidth", 0);
       appendHexChildUnipolar(doc, dp, "oscBVolume", sound.getOscBVolume());
-      appendHexChildUnipolar(doc, dp, "oscBPulseWidth", 0f);
+      appendRawQ31Child(doc, dp, "oscBPulseWidth", 0);
       appendHexChildUnipolar(doc, dp, "noiseVolume", sound.getNoiseVolume());
       appendHexChildUnipolar(doc, dp, "volume", sound.getVolume());
       appendHexChild(doc, dp, "pan", sound.getPan());
@@ -391,8 +391,11 @@ public class KitSynthSerializer {
         };
     appendTextChild(doc, root, "mode", mode);
 
-    // ── transpose (global synth transpose) ──
-    appendTextChild(doc, root, "transpose", "0");
+    // ── transpose + cents (global synth master transpose, C sound.cpp:4169-4174) ──
+    appendTextChild(doc, root, "transpose", String.valueOf(synth.getTranspose()));
+    if (synth.getCents() != 0) {
+      appendTextChild(doc, root, "cents", String.valueOf(synth.getCents()));
+    }
 
     // ── modulator1 ──
     Element mod1 = doc.createElement("modulator1");
@@ -582,9 +585,17 @@ public class KitSynthSerializer {
     // Lead") saved oscBVolume as 1 - 1 = 0, silencing osc B on reload. The kit path a few hundred
     // lines up already wrote the real values; only this preset path derived them.
     appendHexChildUnipolar(doc, dp, "oscAVolume", synth.getOscAVolume());
-    appendHexChildUnipolar(doc, dp, "oscAPulseWidth", 0f);
+    appendRawQ31Child(
+        doc,
+        dp,
+        "oscAPulseWidth",
+        synth.getOsc1PhaseWidthQ31() != Integer.MIN_VALUE ? synth.getOsc1PhaseWidthQ31() : 0);
     appendHexChildUnipolar(doc, dp, "oscBVolume", synth.getOscBVolume());
-    appendHexChildUnipolar(doc, dp, "oscBPulseWidth", 0f);
+    appendRawQ31Child(
+        doc,
+        dp,
+        "oscBPulseWidth",
+        synth.getOsc2PhaseWidthQ31() != Integer.MIN_VALUE ? synth.getOsc2PhaseWidthQ31() : 0);
     if (synth.getPitchAdjustQ31() != Integer.MIN_VALUE) {
       appendRawQ31Child(doc, dp, "pitchAdjust", synth.getPitchAdjustQ31());
     }

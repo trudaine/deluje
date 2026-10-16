@@ -197,7 +197,8 @@ public class ProjectSerializer {
           writer.writeOpeningTagBeginning("unison");
           writer.writeOpeningTagEnd();
           writer.writeTag("num", String.valueOf(sound.getUnisonNum()));
-          writer.writeTag("detune", DelugeHexMapper.floatToHex(sound.getUnisonDetune()));
+          // C sound.cpp:4243-4246 — unison detune/spread are plain decimal integers (0..50).
+          writer.writeTag("detune", String.valueOf(Math.round(sound.getUnisonDetune())));
           writer.writeClosingTag("unison");
 
           writer.writeOpeningTagBeginning("defaultParams");
@@ -525,8 +526,11 @@ public class ProjectSerializer {
               default -> "subtractive";
             };
         writer.writeTag("mode", mode);
-        // Sound-level master transpose — was hardcoded "0" (lost the preset's transpose).
+        // Sound-level master transpose + cents (C sound.cpp:4169-4174).
         writer.writeTag("transpose", String.valueOf(synth.getTranspose()));
+        if (synth.getCents() != 0) {
+          writer.writeTag("cents", String.valueOf(synth.getCents()));
+        }
 
         // modulator1
         writer.writeOpeningTagBeginning("modulator1");
@@ -547,9 +551,10 @@ public class ProjectSerializer {
         writer.writeOpeningTagBeginning("unison");
         writer.writeOpeningTagEnd();
         writer.writeTag("num", String.valueOf(synth.getUnison().getUnisonNum()));
-        writer.writeTag("detune", DelugeHexMapper.floatToHex(synth.getUnison().getUnisonDetune()));
+        // C sound.cpp:4243-4246 — unison detune/spread are plain decimal integers (0..50).
+        writer.writeTag("detune", String.valueOf(Math.round(synth.getUnison().getUnisonDetune())));
         writer.writeTag(
-            "spread", DelugeHexMapper.floatToHex(synth.getUnison().getUnisonStereoSpread()));
+            "spread", String.valueOf(Math.round(synth.getUnison().getUnisonStereoSpread())));
         writer.writeClosingTag("unison");
 
         // arpeggiator
@@ -712,17 +717,16 @@ public class ProjectSerializer {
         writeHexTagUnipolar(writer, "portamento", synth.getPortamento());
         writeHexTagUnipolar(writer, "compressorShape", synth.getCompressorShape());
         writeHexTagUnipolar(writer, "oscAVolume", synth.getOscMix());
-        if (synth.getOsc1PhaseWidthQ31() != Integer.MIN_VALUE) {
-          writeRawQ31Tag(writer, "oscAPulseWidth", synth.getOsc1PhaseWidthQ31());
-        } else {
-          writeHexTagUnipolar(writer, "oscAPulseWidth", 0f);
-        }
+        // C sound.cpp:163-164 / functions.cpp:640-644 — phase width is 0..0x7FFFFFFF (0 = off).
+        writeRawQ31Tag(
+            writer,
+            "oscAPulseWidth",
+            synth.getOsc1PhaseWidthQ31() != Integer.MIN_VALUE ? synth.getOsc1PhaseWidthQ31() : 0);
         writeHexTagUnipolar(writer, "oscBVolume", 1.0f - synth.getOscMix());
-        if (synth.getOsc2PhaseWidthQ31() != Integer.MIN_VALUE) {
-          writeRawQ31Tag(writer, "oscBPulseWidth", synth.getOsc2PhaseWidthQ31());
-        } else {
-          writeHexTagUnipolar(writer, "oscBPulseWidth", 0f);
-        }
+        writeRawQ31Tag(
+            writer,
+            "oscBPulseWidth",
+            synth.getOsc2PhaseWidthQ31() != Integer.MIN_VALUE ? synth.getOsc2PhaseWidthQ31() : 0);
         if (synth.getPitchAdjustQ31() != Integer.MIN_VALUE) {
           writeRawQ31Tag(writer, "pitchAdjust", synth.getPitchAdjustQ31());
         }
@@ -1411,6 +1415,10 @@ public class ProjectSerializer {
   private static void serializeAudioClip(
       XMLSerializer writer, AudioTrackModel.AudioClip clip, String ci) throws IOException {
     writer.writeOpeningTagBeginning("audioClip");
+    // C audio_clip.cpp:1056 — persist audio clip name when set.
+    if (clip.getClipName() != null && !clip.getClipName().isEmpty()) {
+      writer.writeAttribute("clipName", clip.getClipName(), false);
+    }
     writer.writeAttribute("trackName", clip.getTrackName(), false);
     if (clip.getFilePath() != null) {
       writer.writeAttribute("filePath", clip.getFilePath(), false);

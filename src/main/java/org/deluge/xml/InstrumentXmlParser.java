@@ -100,20 +100,33 @@ public class InstrumentXmlParser {
     SOUNDPARAMS_RAW_PATCHED.put("hpfFrequency", Param.LOCAL_HPF_FREQ);
     SOUNDPARAMS_RAW_PATCHED.put("hpfResonance", Param.LOCAL_HPF_RESONANCE);
     SOUNDPARAMS_RAW_PATCHED.put("hpfMorph", Param.LOCAL_HPF_MORPH);
-    SOUNDPARAMS_RAW_PATCHED.put("volume", Param.LOCAL_VOLUME);
+    // C: sound.cpp:3814-3816 / 4075 — <volume> in <defaultParams>/<soundParams> reads and writes
+    // params::GLOBAL_VOLUME_POST_FX. LOCAL_VOLUME stays 0 (sound.cpp:141) and is only modulated by
+    // patch cables with destination="volume" (param.cpp:623-624).
+    SOUNDPARAMS_RAW_PATCHED.put("volume", Param.GLOBAL_VOLUME_POST_FX);
+    SOUNDPARAMS_RAW_PATCHED.put("volumePostFX", Param.GLOBAL_VOLUME_POST_FX);
+    SOUNDPARAMS_RAW_PATCHED.put("volumePostReverbSend", Param.GLOBAL_VOLUME_POST_REVERB_SEND);
     SOUNDPARAMS_RAW_PATCHED.put("pan", Param.LOCAL_PAN);
     SOUNDPARAMS_RAW_PATCHED.put("oscAVolume", Param.LOCAL_OSC_A_VOLUME);
     SOUNDPARAMS_RAW_PATCHED.put("oscBVolume", Param.LOCAL_OSC_B_VOLUME);
     SOUNDPARAMS_RAW_PATCHED.put("noiseVolume", Param.LOCAL_NOISE_VOLUME);
+    SOUNDPARAMS_RAW_PATCHED.put("oscAPulseWidth", Param.LOCAL_OSC_A_PHASE_WIDTH);
+    SOUNDPARAMS_RAW_PATCHED.put("oscBPulseWidth", Param.LOCAL_OSC_B_PHASE_WIDTH);
     SOUNDPARAMS_RAW_PATCHED.put("oscAPhaseWidth", Param.LOCAL_OSC_A_PHASE_WIDTH);
     SOUNDPARAMS_RAW_PATCHED.put("oscBPhaseWidth", Param.LOCAL_OSC_B_PHASE_WIDTH);
     SOUNDPARAMS_RAW_PATCHED.put("oscAWavetablePosition", Param.LOCAL_OSC_A_WAVE_INDEX);
     SOUNDPARAMS_RAW_PATCHED.put("oscBWavetablePosition", Param.LOCAL_OSC_B_WAVE_INDEX);
+    SOUNDPARAMS_RAW_PATCHED.put("oscAPitchAdjust", Param.LOCAL_OSC_A_PITCH_ADJUST);
+    SOUNDPARAMS_RAW_PATCHED.put("oscBPitchAdjust", Param.LOCAL_OSC_B_PITCH_ADJUST);
+    SOUNDPARAMS_RAW_PATCHED.put("pitchAdjust", Param.LOCAL_PITCH_ADJUST);
+    SOUNDPARAMS_RAW_PATCHED.put("mod1PitchAdjust", Param.LOCAL_MODULATOR_0_PITCH_ADJUST);
+    SOUNDPARAMS_RAW_PATCHED.put("mod2PitchAdjust", Param.LOCAL_MODULATOR_1_PITCH_ADJUST);
     SOUNDPARAMS_RAW_PATCHED.put("oscAPitch", Param.LOCAL_OSC_A_PITCH_ADJUST);
     SOUNDPARAMS_RAW_PATCHED.put("oscBPitch", Param.LOCAL_OSC_B_PITCH_ADJUST);
     SOUNDPARAMS_RAW_PATCHED.put("pitch", Param.LOCAL_PITCH_ADJUST);
     SOUNDPARAMS_RAW_PATCHED.put("modulator1Pitch", Param.LOCAL_MODULATOR_0_PITCH_ADJUST);
     SOUNDPARAMS_RAW_PATCHED.put("modulator2Pitch", Param.LOCAL_MODULATOR_1_PITCH_ADJUST);
+    SOUNDPARAMS_RAW_PATCHED.put("waveFold", Param.LOCAL_FOLD);
     SOUNDPARAMS_RAW_PATCHED.put("modFXRate", Param.GLOBAL_MOD_FX_RATE);
     SOUNDPARAMS_RAW_PATCHED.put("modFXDepth", Param.GLOBAL_MOD_FX_DEPTH);
     SOUNDPARAMS_RAW_PATCHED.put("modFXOffset", Param.UNPATCHED_MOD_FX_OFFSET);
@@ -128,8 +141,10 @@ public class InstrumentXmlParser {
     SOUNDPARAMS_RAW_PATCHED.put("eqTreble", Param.UNPATCHED_TREBLE);
     SOUNDPARAMS_RAW_PATCHED.put("eqBassFrequency", Param.UNPATCHED_BASS_FREQ);
     SOUNDPARAMS_RAW_PATCHED.put("eqTrebleFrequency", Param.UNPATCHED_TREBLE_FREQ);
+    SOUNDPARAMS_RAW_PATCHED.put("compressorShape", Param.UNPATCHED_SIDECHAIN_SHAPE);
     SOUNDPARAMS_RAW_PATCHED.put("sidechainCompressorShape", Param.UNPATCHED_SIDECHAIN_SHAPE);
     SOUNDPARAMS_RAW_PATCHED.put("sidechainCompressorVolume", Param.UNPATCHED_SIDECHAIN_VOLUME);
+    SOUNDPARAMS_RAW_PATCHED.put("compressorThreshold", Param.UNPATCHED_COMPRESSOR_THRESHOLD);
   }
 
   static File resolvePresetFile(String folder, String presetName) {
@@ -366,8 +381,11 @@ public class InstrumentXmlParser {
         try {
           String val = detuneStr.trim();
           float dVal;
+          // C sound.cpp:625 / Deserializer.cpp:553 — readTagOrAttributeValueInt stops at 'x', so
+          // a legacy hex string ("0x7FFFFFFF" written by older ProjectSerializer) reads as 0 on
+          // real Deluge hardware.
           if (val.startsWith("0x") || val.startsWith("0X")) {
-            dVal = Math.abs(DelugeHexMapper.hexToFloat(val));
+            dVal = 0.0f;
           } else {
             dVal = Float.parseFloat(val);
           }
@@ -385,7 +403,7 @@ public class InstrumentXmlParser {
           String val = spreadStr.trim();
           float sVal;
           if (val.startsWith("0x") || val.startsWith("0X")) {
-            sVal = Math.abs(DelugeHexMapper.hexToFloat(val));
+            sVal = 0.0f;
           } else {
             sVal = Float.parseFloat(val);
           }
@@ -461,6 +479,25 @@ public class InstrumentXmlParser {
         synth.setTranspose(Integer.parseInt(transposeStr.trim()));
       } catch (NumberFormatException e) {
         LOG.log(Level.FINE, "NumberFormatException parsing XML transpose", e);
+      }
+    }
+
+    // -- Master cents detune (C sound.cpp:582-585, 4172-4174). Attribute on <sound> or direct
+    // <cents> child element (not osc1/osc2/modulator <cents>).
+    String centsStr = soundNode.getAttribute("cents");
+    if (centsStr == null || centsStr.isBlank()) {
+      for (org.w3c.dom.Node n = soundNode.getFirstChild(); n != null; n = n.getNextSibling()) {
+        if (n instanceof Element ce && "cents".equals(ce.getTagName())) {
+          centsStr = ce.getTextContent();
+          break;
+        }
+      }
+    }
+    if (centsStr != null && !centsStr.isBlank()) {
+      try {
+        synth.setCents(Integer.parseInt(centsStr.trim()));
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "NumberFormatException parsing XML cents", e);
       }
     }
 
@@ -695,9 +732,14 @@ public class InstrumentXmlParser {
     }
     Element dpEl = getFirstChild(soundNode, "defaultParams");
     if (dpEl != null) {
+      // C: sound.cpp:141 — LOCAL_VOLUME knob is 0; <volume> in <defaultParams> sets
+      // GLOBAL_VOLUME_POST_FX (sound.cpp:3815). Seed LOCAL_VOLUME to 0 in the raw map so
+      // FirmwareFactory's float model.getVolume() fallback does not overwrite LOCAL_VOLUME.
+      synth.getRawKnobs().setRawParamKnob(Param.LOCAL_VOLUME, 0);
       for (var e : SOUNDPARAMS_RAW_PATCHED.entrySet()) {
         rawKnob(dpEl, e.getKey(), synth, e.getValue());
       }
+      parseEqualizerRawKnobs(dpEl, synth);
       String v;
       if ((v = attrOrChildText(dpEl, "modulator1Amount")) != null && !v.isBlank()) {
         synth.setModulator1AmountQ31(DelugeHexMapper.hexToQ31(v));
@@ -1755,7 +1797,12 @@ public class InstrumentXmlParser {
     // initParams FULL volume). The clip overlay writes the same raw map after this reset, so
     // clip-listed attrs still win. Values: AutoParam construction = raw 0 (auto_param.cpp:55),
     // overlaid by Sound::initParams / ModControllableAudio::initParams / Stutterer::initParams.
-    knobs.setRawParamKnob(Param.LOCAL_VOLUME, 0); // sound.cpp:147
+    knobs.setRawParamKnob(Param.LOCAL_VOLUME, 0); // sound.cpp:141
+    knobs.setRawParamKnob(
+        Param.GLOBAL_VOLUME_POST_FX,
+        org.deluge.firmware2.Functions.getParamFromUserValue(
+            Param.GLOBAL_VOLUME_POST_FX, 40)); // sound.cpp:144-145
+    knobs.setRawParamKnob(Param.GLOBAL_VOLUME_POST_REVERB_SEND, 0); // sound.cpp:146
     knobs.setRawParamKnob(Param.LOCAL_PAN, 0); // sound.cpp:199
     knobs.setRawParamKnob(Param.LOCAL_OSC_A_VOLUME, Integer.MAX_VALUE); // sound.cpp:148
     // sound.cpp:149 — osc B volume FULL, unconditionally: the C has no NONE osc type (an
@@ -1809,6 +1856,7 @@ public class InstrumentXmlParser {
     knobs.setRawParamKnob(Param.UNPATCHED_SAMPLE_RATE_REDUCTION, off);
     knobs.setRawParamKnob(Param.UNPATCHED_BITCRUSHING, off);
     knobs.setRawParamKnob(Param.UNPATCHED_SIDECHAIN_SHAPE, -601295438);
+    knobs.setRawParamKnob(Param.UNPATCHED_COMPRESSOR_THRESHOLD, 0);
     knobs.setRawParamKnob(Param.UNPATCHED_STUTTER_RATE, 0);
     synth.setCompressorThreshold(0.0f);
     // sound.cpp:139 — portamento off.
@@ -1876,51 +1924,58 @@ public class InstrumentXmlParser {
 
     // Raw Q31 knobs the factory prefers over the float views.
     String v;
-    if (!(v = sp.getAttribute("modulator1Amount")).isEmpty()) {
+    if ((v = attrOrChildText(sp, "modulator1Amount")) != null && !v.isBlank()) {
       synth.setModulator1AmountQ31(DelugeHexMapper.hexToQ31(v));
     }
-    if (!(v = sp.getAttribute("modulator2Amount")).isEmpty()) {
+    if ((v = attrOrChildText(sp, "modulator2Amount")) != null && !v.isBlank()) {
       synth.setModulator2AmountQ31(DelugeHexMapper.hexToQ31(v));
     }
-    if (!(v = sp.getAttribute("modulator1Feedback")).isEmpty()) {
+    if ((v = attrOrChildText(sp, "modulator1Feedback")) != null && !v.isBlank()) {
       synth.setModulator1FeedbackQ31(DelugeHexMapper.hexToQ31(v));
     }
-    if (!(v = sp.getAttribute("modulator2Feedback")).isEmpty()) {
+    if ((v = attrOrChildText(sp, "modulator2Feedback")) != null && !v.isBlank()) {
       synth.setModulator2FeedbackQ31(DelugeHexMapper.hexToQ31(v));
     }
-    if (!(v = sp.getAttribute("carrier1Feedback")).isEmpty()) {
+    if ((v = attrOrChildText(sp, "carrier1Feedback")) != null && !v.isBlank()) {
       synth.setCarrier1FeedbackQ31(DelugeHexMapper.hexToQ31(v));
     }
-    if (!(v = sp.getAttribute("carrier2Feedback")).isEmpty()) {
+    if ((v = attrOrChildText(sp, "carrier2Feedback")) != null && !v.isBlank()) {
       synth.setCarrier2FeedbackQ31(DelugeHexMapper.hexToQ31(v));
     }
-    if (!(v = sp.getAttribute("pitchAdjust")).isEmpty()) {
+    if ((v = attrOrChildText(sp, "pitchAdjust")) != null && !v.isBlank()) {
       synth.setPitchAdjustQ31(DelugeHexMapper.hexToQ31(v));
     }
-    if (!(v = sp.getAttribute("oscAPitchAdjust")).isEmpty()) {
+    if ((v = attrOrChildText(sp, "oscAPitchAdjust")) != null && !v.isBlank()) {
       synth.setOsc1PitchAdjustQ31(DelugeHexMapper.hexToQ31(v));
     }
-    if (!(v = sp.getAttribute("oscBPitchAdjust")).isEmpty()) {
+    if ((v = attrOrChildText(sp, "oscBPitchAdjust")) != null && !v.isBlank()) {
       synth.setOsc2PitchAdjustQ31(DelugeHexMapper.hexToQ31(v));
     }
-    if (!(v = sp.getAttribute("oscAPulseWidth")).isEmpty()) {
+    if ((v = attrOrChildText(sp, "oscAPulseWidth")) != null && !v.isBlank()) {
       synth.setOsc1PhaseWidthQ31(DelugeHexMapper.hexToQ31(v));
     }
-    if (!(v = sp.getAttribute("oscBPulseWidth")).isEmpty()) {
+    if ((v = attrOrChildText(sp, "oscBPulseWidth")) != null && !v.isBlank()) {
       synth.setOsc2PhaseWidthQ31(DelugeHexMapper.hexToQ31(v));
     }
-    if (!(v = sp.getAttribute("portamento")).isEmpty()) {
+    if ((v = attrOrChildText(sp, "portamento")) != null && !v.isBlank()) {
       synth.setPortamentoQ31(DelugeHexMapper.hexToQ31(v));
     }
-    if (!(v = sp.getAttribute("waveFold")).isEmpty()) {
+    if ((v = attrOrChildText(sp, "waveFold")) != null && !v.isBlank()) {
       synth.setWaveFoldQ31(DelugeHexMapper.hexToQ31(v));
     }
-    // LFO rate knobs: firmware lfo1 = global (slot 0), lfo2 = local (slot 1).
-    if (!(v = sp.getAttribute("lfo1Rate")).isEmpty()) {
+    // LFO rate knobs: firmware lfo1 = global1 (slot 0), lfo2 = local1 (slot 1),
+    // lfo3 = global2 (slot 2), lfo4 = local2 (slot 3).
+    if ((v = attrOrChildText(sp, "lfo1Rate")) != null && !v.isBlank()) {
       synth.getRawKnobs().setLfoRateKnobQ31(0, DelugeHexMapper.hexToQ31(v));
     }
-    if (!(v = sp.getAttribute("lfo2Rate")).isEmpty()) {
+    if ((v = attrOrChildText(sp, "lfo2Rate")) != null && !v.isBlank()) {
       synth.getRawKnobs().setLfoRateKnobQ31(1, DelugeHexMapper.hexToQ31(v));
+    }
+    if ((v = attrOrChildText(sp, "lfo3Rate")) != null && !v.isBlank()) {
+      synth.getRawKnobs().setLfoRateKnobQ31(2, DelugeHexMapper.hexToQ31(v));
+    }
+    if ((v = attrOrChildText(sp, "lfo4Rate")) != null && !v.isBlank()) {
+      synth.getRawKnobs().setLfoRateKnobQ31(3, DelugeHexMapper.hexToQ31(v));
     }
 
     // Patched params the firmware reads as RAW Q31 from <soundParams> (readParamsFromFile copies
@@ -1929,12 +1984,11 @@ public class InstrumentXmlParser {
     // floored a linear minimum at -2^29 not INT_MIN, so a song's minimum resonance became moderate
     // and pushed the ladder past its tanh threshold (gross distortion, found via hardware
     // comparison). Reading raw matches the firmware; the factory overlays these over the float
-    // mapping. (Envelopes, LFO rates, FM modulator volumes/feedbacks, portamento, waveFold are read
-    // raw elsewhere in this method; the unpatched FX params — bitcrush/srr/stutter/modFX-offset/eq/
-    // sidechain/reverb-send — use dedicated scalar fields and are out of scope here.)
+    // mapping.
     for (var e : SOUNDPARAMS_RAW_PATCHED.entrySet()) {
       rawKnob(sp, e.getKey(), synth, e.getValue());
     }
+    parseEqualizerRawKnobs(sp, synth);
 
     // Envelopes: <envelope1..4 attack="0x..." .../> children (attribute style).
     String[] envTags = {"envelope1", "envelope2", "envelope3", "envelope4"};
@@ -2028,10 +2082,34 @@ public class InstrumentXmlParser {
     }
   }
 
+  private static void parseEqualizerRawKnobs(Element paramsEl, SynthTrackModel synth) {
+    Element eqEl = getFirstChild(paramsEl, "equalizer");
+    if (eqEl == null) {
+      eqEl = getFirstChild(paramsEl, "eq");
+    }
+    if (eqEl == null) {
+      return;
+    }
+    readHexFloat(eqEl, "bass", synth::setEqBass);
+    readHexFloat(eqEl, "treble", synth::setEqTreble);
+    rawKnob(eqEl, "bass", synth, Param.UNPATCHED_BASS);
+    rawKnob(eqEl, "treble", synth, Param.UNPATCHED_TREBLE);
+    rawKnob(eqEl, "bassFrequency", synth, Param.UNPATCHED_BASS_FREQ);
+    rawKnob(eqEl, "trebleFrequency", synth, Param.UNPATCHED_TREBLE_FREQ);
+  }
+
   private static void rawKnob(Element sp, String attr, SynthTrackModel synth, int paramId) {
     String v = attrOrChildText(sp, attr);
     if (v != null && !v.isBlank()) {
-      synth.getRawKnobs().setRawParamKnob(paramId, DelugeHexMapper.hexToQ31(v));
+      int q31 = DelugeHexMapper.hexToQ31(v);
+      // C sound.cpp:163-164 / functions.cpp:640-644 — LOCAL_OSC_A/B_PHASE_WIDTH is a hybrid
+      // unsigned-user-value param (0..0x7FFFFFFF, neutral 0). Older Java serializers wrote
+      // 0x80000000 (Integer.MIN_VALUE, the unset sentinel) for 0; map that sentinel back to 0.
+      if ((paramId == Param.LOCAL_OSC_A_PHASE_WIDTH || paramId == Param.LOCAL_OSC_B_PHASE_WIDTH)
+          && q31 == Integer.MIN_VALUE) {
+        q31 = 0;
+      }
+      synth.getRawKnobs().setRawParamKnob(paramId, q31);
     }
   }
 }

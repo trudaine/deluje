@@ -11,6 +11,7 @@ public abstract class Drum {
 
   protected String name;
   protected float pitchSemitones = 0.0f;
+  protected int cents = 0; // C sound.h:168 — master transpose cents (-50..50)
   protected int muteGroup = 0;
 
   // Per-sound shaping
@@ -141,6 +142,14 @@ public abstract class Drum {
 
   public void setPitchSemitones(float v) {
     this.pitchSemitones = v;
+  }
+
+  public int getCents() {
+    return cents;
+  }
+
+  public void setCents(int v) {
+    this.cents = Math.max(-50, Math.min(50, v));
   }
 
   public int getMuteGroup() {
