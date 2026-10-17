@@ -531,7 +531,8 @@ public class ClipModel extends TimelineCounter {
 
       if (step.active()) {
         Iterance cond = Iterance.fromInt(step.playCondition());
-        int fillMode = step.fill() > 0.001f ? 2 : 0; // C FillMode::FILL=2, FillMode::OFF=0
+        // C definitions_cxx.hpp:727 — OFF=0, NOT_FILL=1, FILL=2.
+        int fillMode = step.fillMode() != 0 ? step.fillMode() : (step.fill() > 0.001f ? 2 : 0);
         if (existingNote == null) {
           NoteModel note = new NoteModel();
           note.setPos(notePos);
@@ -570,7 +571,7 @@ public class ClipModel extends TimelineCounter {
           note.setVelocity((int) (step.velocity() * 127.0f));
           note.setProbability((int) (step.probability() * 100.0f));
           note.setIterance(Iterance.fromInt(step.playCondition()));
-          note.setFill(step.fill() > 0.001f ? 2 : 0);
+          note.setFill(step.fillMode() != 0 ? step.fillMode() : (step.fill() > 0.001f ? 2 : 0));
           row.getNotes().add(note);
         }
       }
@@ -694,7 +695,7 @@ public class ClipModel extends TimelineCounter {
             note.setVelocity((int) (step.velocity() * 127.0f));
             note.setProbability((int) (step.probability() * 100.0f));
             note.setIterance(Iterance.fromInt(step.playCondition()));
-            note.setFill(step.fill() > 0.001f ? 2 : 0);
+            note.setFill(step.fillMode() != 0 ? step.fillMode() : (step.fill() > 0.001f ? 2 : 0));
             row.getNotes().add(note);
           }
         }

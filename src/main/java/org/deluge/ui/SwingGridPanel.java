@@ -304,17 +304,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       if (oldStep == null || !oldStep.active()) continue;
       if (oldStep.nudge() == 0.0f) continue;
 
-      org.deluge.model.StepData newStep =
-          new org.deluge.model.StepData(
-              oldStep.active(),
-              oldStep.velocity(),
-              oldStep.gate(),
-              oldStep.probability(),
-              oldStep.pitch(),
-              oldStep.iterance(),
-              oldStep.fill(),
-              0.0f,
-              oldStep.playCondition()); // Clear nudge
+      org.deluge.model.StepData newStep = oldStep.withNudge(0.0f); // Clear nudge
       bridge.setStepNudge(engineRow, s, 0.0);
       setClipStep(cModel, visualModelRow, s, newStep);
       steps.add(
@@ -355,17 +345,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       if (oldStep == null || !oldStep.active()) continue;
 
       float randNudge = rand.nextFloat() * maxNudgeFraction;
-      org.deluge.model.StepData newStep =
-          new org.deluge.model.StepData(
-              oldStep.active(),
-              oldStep.velocity(),
-              oldStep.gate(),
-              oldStep.probability(),
-              oldStep.pitch(),
-              oldStep.iterance(),
-              oldStep.fill(),
-              randNudge,
-              oldStep.playCondition());
+      org.deluge.model.StepData newStep = oldStep.withNudge(randNudge);
       bridge.setStepNudge(engineRow, s, randNudge);
       setClipStep(cModel, visualModelRow, s, newStep);
       steps.add(
@@ -1550,11 +1530,24 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       if (activeClipId < tModel.getClips().size()) {
         org.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
         int originalPitch = oldStep != null ? oldStep.pitch() : 60;
+        int resolvedFillMode =
+            (oldStep != null && Math.abs(fill - oldStep.fill()) < 0.001f)
+                ? oldStep.fillMode()
+                : (fill > 0.001f ? 2 : 0);
         cModel.setStep(
             row,
             col,
             new org.deluge.model.StepData(
-                state, vel, gate, prob, originalPitch, iterance, fill, nudge, playCondition));
+                state,
+                vel,
+                gate,
+                prob,
+                originalPitch,
+                iterance,
+                fill,
+                nudge,
+                playCondition,
+                resolvedFillMode));
         if (oldStep != null) {
           projectModel
               .getUndoRedoStack()
@@ -1617,7 +1610,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
               (int) (curProb * 100),
               curGate,
               (int) (curNudge * 100),
-              org.deluge.model.Iterance.fromInt(curCond));
+              curCond != 0
+                  ? org.deluge.model.Iterance.fromInt(curCond)
+                  : org.deluge.model.Iterance.CUSTOM_DEFAULT);
       dlg.setVisible(true);
       if (dlg.isConfirmed()) {
         int newVel = dlg.getVelocity();
@@ -3229,11 +3224,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
             for (int s = 0; s < clip.getStepCount(); s++) {
               org.deluge.model.StepData step = clip.getStep(r, s);
               if (step.active()) {
-                clip.setStep(
-                    r,
-                    s,
-                    org.deluge.model.StepData.of(
-                        step.active(), step.velocity(), step.gate(), (float) v, step.pitch()));
+                clip.setStep(r, s, step.withProbability((float) v));
               }
             }
           }
@@ -3246,15 +3237,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
             for (int s = 0; s < clip.getStepCount(); s++) {
               org.deluge.model.StepData step = clip.getStep(r, s);
               if (step.active()) {
-                clip.setStep(
-                    r,
-                    s,
-                    org.deluge.model.StepData.of(
-                        step.active(),
-                        step.velocity(),
-                        (float) (v * 2.0f),
-                        step.probability(),
-                        step.pitch()));
+                clip.setStep(r, s, step.withGate((float) (v * 2.0f)));
               }
             }
           }
@@ -3267,11 +3250,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
             for (int s = 0; s < clip.getStepCount(); s++) {
               org.deluge.model.StepData step = clip.getStep(r, s);
               if (step.active()) {
-                clip.setStep(
-                    r,
-                    s,
-                    org.deluge.model.StepData.of(
-                        step.active(), (float) v, step.gate(), step.probability(), step.pitch()));
+                clip.setStep(r, s, step.withVelocity((float) v));
               }
             }
           }

@@ -67,10 +67,10 @@ public class DelugeNoteDataMapper {
         int velInt = Math.round(step.velocity() * 127.0f);
         String hexVel = String.format("%02X", Math.max(0, Math.min(127, velInt)));
         // C note_row.cpp:3607-3617 — lift (1B, default 0x40), probability (1B, 1..20),
-        // iterance.toInt() (2B, 0x0000 when OFF/1of1), fill (1B, FillMode::OFF=0, FillMode::FILL=2)
+        // iterance.toInt() (2B, 0x0000 when OFF/1of1), fill (1B, OFF=0, NOT_FILL=1, FILL=2)
         int probByte = Math.max(1, Math.min(20, Math.round(step.probability() * 20.0f)));
         int iteranceInt = step.playCondition() == 0x0101 ? 0 : (step.playCondition() & 0xFFFF);
-        int fillByte = step.fill() > 0.001f ? 2 : 0;
+        int fillByte = step.fillMode() != 0 ? step.fillMode() : (step.fill() > 0.001f ? 2 : 0);
         String hexTail = String.format("40%02X%04X%02X", probByte, iteranceInt, fillByte);
 
         sb.append(hexPos).append(hexLen).append(hexVel).append(hexTail);
@@ -103,14 +103,24 @@ public class DelugeNoteDataMapper {
       float nudge = (float) (pos % ticksPerStep) / ticksPerStep;
       float gate = (float) len / ticksPerStep;
       float velocity = hexCharsPerNote >= 22 ? nm.getVelocity() : 0.8f;
-      float fill = nm.getFill() != 0 ? 1.0f : 0.0f;
+      int fillMode = nm.getFill();
+      float fill = fillMode == 2 ? 1.0f : 0.0f;
       int playCondition = nm.getIterance() != null ? nm.getIterance().toInt() : 0;
 
       if (step >= 0 && step < stepCount) {
         row.set(
             step,
             new org.deluge.model.StepData(
-                true, velocity, gate, nm.getProbability(), 0, 0, fill, nudge, playCondition));
+                true,
+                velocity,
+                gate,
+                nm.getProbability(),
+                0,
+                0,
+                fill,
+                nudge,
+                playCondition,
+                fillMode));
       }
     }
 

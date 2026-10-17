@@ -112,9 +112,13 @@ public class StepPropertiesDialog extends JDialog {
       int currentNudge,
       org.deluge.model.Iterance initialCondition) {
     super(owner, "Step Properties", true);
-    if (initialCondition != null) {
+    if (initialCondition != null && initialCondition.toInt() != 0) {
       this.currentPlayCondition =
           new org.deluge.model.Iterance(initialCondition.divisor, initialCondition.iteranceStep);
+    } else {
+      // C definitions_cxx.hpp:720 — kDefaultIteranceValue (0,0 / OFF) means unconditional
+      // ("Always").
+      this.currentPlayCondition = org.deluge.model.Iterance.CUSTOM_DEFAULT;
     }
 
     getContentPane().setBackground(SwingSynthConfigDialog.BG_DARK);

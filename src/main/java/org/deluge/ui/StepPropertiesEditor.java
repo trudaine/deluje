@@ -134,6 +134,10 @@ class StepPropertiesEditor {
                 boolean isSynthMode = trackType == 1 || trackType == 0;
                 int pitch = isSynthMode ? parent.getRowPitch(visualModelRow) : 0;
 
+                int resolvedFillMode =
+                    (oldStep != null && Math.abs((float) fill - oldStep.fill()) < 0.001f)
+                        ? oldStep.fillMode()
+                        : (fill > 0.001 ? 2 : 0);
                 StepData newStep =
                     new StepData(
                         st,
@@ -144,7 +148,8 @@ class StepPropertiesEditor {
                         iter,
                         (float) fill,
                         oldStep != null ? oldStep.nudge() : 0.0f,
-                        oldStep != null ? oldStep.playCondition() : 0);
+                        oldStep != null ? oldStep.playCondition() : 0,
+                        resolvedFillMode);
                 parent.setClipStep(cModel, visualModelRow, activeCol, newStep);
                 if (oldStep != null && parent.getProjectModel() != null) {
                   parent
@@ -193,6 +198,10 @@ class StepPropertiesEditor {
                       tModel.getClips().get(activeClipId), visualModelRow, activeCol);
             }
           }
+          int copiedFillMode =
+              (existing != null && Math.abs((float) fill - existing.fill()) < 0.001f)
+                  ? existing.fillMode()
+                  : (fill > 0.001 ? 2 : 0);
           controller.copiedStep =
               new StepData(
                   st,
@@ -203,7 +212,8 @@ class StepPropertiesEditor {
                   iter,
                   (float) fill,
                   existing != null ? existing.nudge() : 0.0f,
-                  existing != null ? existing.playCondition() : 0);
+                  existing != null ? existing.playCondition() : 0,
+                  copiedFillMode);
         });
     popup.add(copyItem);
 
@@ -230,17 +240,7 @@ class StepPropertiesEditor {
                 StepData oldStep = parent.getClipStep(cModel, visualModelRow, activeCol);
                 boolean isSynthMode = trackType == 1 || trackType == 0;
                 int pitch = isSynthMode ? parent.getRowPitch(visualModelRow) : 0;
-                StepData newStep =
-                    new StepData(
-                        controller.copiedStep.active(),
-                        controller.copiedStep.velocity(),
-                        controller.copiedStep.gate(),
-                        controller.copiedStep.probability(),
-                        pitch,
-                        controller.copiedStep.iterance(),
-                        controller.copiedStep.fill(),
-                        controller.copiedStep.nudge(),
-                        controller.copiedStep.playCondition());
+                StepData newStep = controller.copiedStep.withPitch(pitch);
                 parent.setClipStep(cModel, visualModelRow, activeCol, newStep);
                 if (oldStep != null && parent.getProjectModel() != null) {
                   parent
@@ -418,6 +418,10 @@ class StepPropertiesEditor {
           }
 
           int resolvedPlayCond = playCondition >= 0 ? playCondition : oldSt.playCondition();
+          int resolvedFillMode =
+              Math.abs((float) fill - oldSt.fill()) < 0.001f
+                  ? oldSt.fillMode()
+                  : (fill > 0.001 ? 2 : 0);
           StepData newStep =
               new StepData(
                   true,
@@ -428,7 +432,8 @@ class StepPropertiesEditor {
                   iterance,
                   (float) fill,
                   (float) nudge,
-                  resolvedPlayCond);
+                  resolvedPlayCond,
+                  resolvedFillMode);
           parent.setClipStep(cModel, visualModelRow, c, newStep);
           if (oldSt != null && parent.getProjectModel() != null) {
             steps.add(
@@ -463,6 +468,10 @@ class StepPropertiesEditor {
         boolean st = bridge != null ? bridge.getStep(engineRow, activeCol) : true;
         int resolvedPlayCond =
             playCondition >= 0 ? playCondition : (oldStep != null ? oldStep.playCondition() : 0);
+        int resolvedFillMode =
+            (oldStep != null && Math.abs((float) fill - oldStep.fill()) < 0.001f)
+                ? oldStep.fillMode()
+                : (fill > 0.001 ? 2 : 0);
         StepData newStep =
             new StepData(
                 st,
@@ -473,7 +482,8 @@ class StepPropertiesEditor {
                 iterance,
                 (float) fill,
                 (float) nudge,
-                resolvedPlayCond);
+                resolvedPlayCond,
+                resolvedFillMode);
         parent.setClipStep(cModel, visualModelRow, activeCol, newStep);
         if (oldStep != null && parent.getProjectModel() != null) {
           parent
@@ -567,6 +577,10 @@ class StepPropertiesEditor {
           double gate = bridge != null ? bridge.getGate(engineRow, c) : oldSt.gate();
           int iter = bridge != null ? bridge.getIterance(engineRow, c) : oldSt.iterance();
           double fill = bridge != null ? bridge.getStepFill(engineRow, c) : oldSt.fill();
+          int resolvedFillMode =
+              Math.abs((float) fill - oldSt.fill()) < 0.001f
+                  ? oldSt.fillMode()
+                  : (fill > 0.001 ? 2 : 0);
           StepData newStep =
               new StepData(
                   true,
@@ -577,7 +591,8 @@ class StepPropertiesEditor {
                   iter,
                   (float) fill,
                   oldSt.nudge(),
-                  oldSt.playCondition());
+                  oldSt.playCondition(),
+                  resolvedFillMode);
           parent.setClipStep(cModel, visualModelRow, c, newStep);
           if (oldSt != null && parent.getProjectModel() != null) {
             steps.add(
@@ -609,6 +624,10 @@ class StepPropertiesEditor {
         double gate = bridge != null ? bridge.getGate(engineRow, activeCol) : 0.9;
         int iter = bridge != null ? bridge.getIterance(engineRow, activeCol) : 0;
         double fill = bridge != null ? bridge.getStepFill(engineRow, activeCol) : 0.0;
+        int resolvedFillMode =
+            (oldStep != null && Math.abs((float) fill - oldStep.fill()) < 0.001f)
+                ? oldStep.fillMode()
+                : (fill > 0.001 ? 2 : 0);
         StepData newStep =
             new StepData(
                 st,
@@ -619,7 +638,8 @@ class StepPropertiesEditor {
                 iter,
                 (float) fill,
                 oldStep != null ? oldStep.nudge() : 0.0f,
-                oldStep != null ? oldStep.playCondition() : 0);
+                oldStep != null ? oldStep.playCondition() : 0,
+                resolvedFillMode);
         parent.setClipStep(cModel, visualModelRow, activeCol, newStep);
         if (oldStep != null && parent.getProjectModel() != null) {
           parent

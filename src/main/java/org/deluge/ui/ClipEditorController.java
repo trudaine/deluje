@@ -674,8 +674,25 @@ public class ClipEditorController {
         // Apply start tie step
         StepData oldStart = parent.getClipStep(cModel, visualModelRow, sCol);
         boolean sSt = true;
+        int startPlayCond = (oldStart != null && oldStart.active()) ? oldStart.playCondition() : 0;
+        int startFillMode =
+            (oldStart != null
+                    && oldStart.active()
+                    && Math.abs((float) fill - oldStart.fill()) < 0.001f)
+                ? oldStart.fillMode()
+                : (fill > 0.001 ? 2 : 0);
         StepData startStep =
-            new StepData(sSt, (float) vel, newGate, (float) prob, pitch, iter, (float) fill);
+            new StepData(
+                sSt,
+                (float) vel,
+                newGate,
+                (float) prob,
+                pitch,
+                iter,
+                (float) fill,
+                0.0f,
+                startPlayCond,
+                startFillMode);
         parent.setClipStep(cModel, visualModelRow, sCol, startStep);
 
         if (bridge != null) {
@@ -744,8 +761,25 @@ public class ClipEditorController {
       if (cModel != null) {
         StepData oldStart = parent.getClipStep(cModel, visualModelRow, startModelCol);
         boolean startSt = true;
+        int startPlayCond = (oldStart != null && oldStart.active()) ? oldStart.playCondition() : 0;
+        int startFillMode =
+            (oldStart != null
+                    && oldStart.active()
+                    && Math.abs((float) fill - oldStart.fill()) < 0.001f)
+                ? oldStart.fillMode()
+                : (fill > 0.001 ? 2 : 0);
         StepData startStep =
-            new StepData(startSt, (float) vel, newGate, (float) prob, pitch, iter, (float) fill);
+            new StepData(
+                startSt,
+                (float) vel,
+                newGate,
+                (float) prob,
+                pitch,
+                iter,
+                (float) fill,
+                0.0f,
+                startPlayCond,
+                startFillMode);
         parent.setClipStep(cModel, visualModelRow, startModelCol, startStep);
         if (oldStart != null && getProjectModel() != null) {
           getProjectModel()
@@ -1526,47 +1560,20 @@ public class ClipEditorController {
       // Shift + Alt held = Adjust note fill (0% to 100%, 5% increments)
       float newFill = Math.max(0.0f, Math.min(1.0f, sd.fill() + dir * 0.05f));
       newFill = Math.round(newFill * 100.0f) / 100.0f;
-      updated =
-          new org.deluge.model.StepData(
-              true,
-              sd.velocity(),
-              sd.gate(),
-              sd.probability(),
-              sd.pitch(),
-              sd.iterance(),
-              newFill,
-              sd.nudge());
+      updated = sd.withFill(newFill);
       oledParam = "FILL";
       oledValue = (newFill == 0.0f) ? "OFF" : (int) (newFill * 100) + "%";
     } else if (parent.isShiftHeld()) {
       // Shift held = Adjust note probability (0% to 100%, 5% increments)
       float newProb = Math.max(0.0f, Math.min(1.0f, sd.probability() + dir * 0.05f));
       newProb = Math.round(newProb * 100.0f) / 100.0f;
-      updated =
-          new org.deluge.model.StepData(
-              true,
-              sd.velocity(),
-              sd.gate(),
-              newProb,
-              sd.pitch(),
-              sd.iterance(),
-              sd.fill(),
-              sd.nudge());
+      updated = sd.withProbability(newProb);
       oledParam = "PROB";
       oledValue = (int) (newProb * 100) + "%";
     } else if (e.isAltDown()) {
       // Alt held = Adjust note gate/length (0.125 to 64.0 steps, 0.25 step increments)
       float newGate = Math.max(0.125f, Math.min(64.0f, sd.gate() + dir * 0.25f));
-      updated =
-          new org.deluge.model.StepData(
-              true,
-              sd.velocity(),
-              newGate,
-              sd.probability(),
-              sd.pitch(),
-              sd.iterance(),
-              sd.fill(),
-              sd.nudge());
+      updated = sd.withGate(newGate);
       oledParam = "GATE";
       oledValue = String.format("%.2f", newGate);
     } else if (e.isControlDown()) {
@@ -1584,16 +1591,7 @@ public class ClipEditorController {
         }
         int newModelRow = parent.getRowFromPitch(newPitch);
         if (newModelRow >= 0) {
-          updated =
-              new org.deluge.model.StepData(
-                  true,
-                  sd.velocity(),
-                  sd.gate(),
-                  sd.probability(),
-                  newPitch,
-                  sd.iterance(),
-                  sd.fill(),
-                  sd.nudge());
+          updated = sd.withPitch(newPitch);
           modelRow =
               newModelRow; // Update modelRow reference for subsequent setClipStep/bridge sync
         }
@@ -1604,16 +1602,7 @@ public class ClipEditorController {
       // No modifiers = Adjust note velocity (0.0 to 1.0, 0.05 increments, displayed as 0..127)
       float newVel = Math.max(0.0f, Math.min(1.0f, sd.velocity() + dir * 0.05f));
       newVel = Math.round(newVel * 100.0f) / 100.0f;
-      updated =
-          new org.deluge.model.StepData(
-              true,
-              newVel,
-              sd.gate(),
-              sd.probability(),
-              sd.pitch(),
-              sd.iterance(),
-              sd.fill(),
-              sd.nudge());
+      updated = sd.withVelocity(newVel);
       oledParam = "VEL";
       oledValue = String.valueOf((int) (newVel * 127));
     }
@@ -1641,18 +1630,15 @@ public class ClipEditorController {
                   }
                 }
               }
-              newSt =
-                  new org.deluge.model.StepData(
-                      true,
-                      targetSd.velocity(),
-                      targetSd.gate(),
-                      targetSd.probability(),
-                      newPitch,
-                      targetSd.iterance(),
-                      targetSd.fill(),
-                      targetSd.nudge());
+              newSt = targetSd.withPitch(newPitch);
+            } else if (parent.isShiftHeld() && e.isAltDown()) {
+              newSt = targetSd.withFill(updated.fill());
+            } else if (parent.isShiftHeld()) {
+              newSt = targetSd.withProbability(updated.probability());
+            } else if (e.isAltDown()) {
+              newSt = targetSd.withGate(updated.gate());
             } else {
-              newSt = updated;
+              newSt = targetSd.withVelocity(updated.velocity());
             }
 
             parent.setClipStep(cModel, targetModelRow, c, newSt);

@@ -226,4 +226,100 @@ class CopilotPr8FixesTest {
     assertEquals(15, songDrum.getCents());
     assertEquals(25.0f, songDrum.getUnisonStereoSpread(), 0.001f);
   }
+
+  @Test
+  void notFillRoundTripsThroughProjectSerializerWithoutTurningIntoFill(@TempDir Path tempDir)
+      throws Exception {
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel synth = new SynthTrackModel("NOT_FILL_SYNTH");
+    ClipModel clip = new ClipModel("Clip 1", 8, 16);
+    clip.setRowYNote(0, 60);
+    // fillMode == 1 (C FillMode::NOT_FILL), playCondition == 0x0201 (1 of 2)
+    StepData notFillStep = new StepData(true, 0.8f, 1.0f, 0.75f, 60, 0, 0.0f, 0.0f, 0x0201, 1);
+    assertEquals(1, notFillStep.fillMode());
+    assertEquals(0.0f, notFillStep.fill(), 0.001f);
+    assertTrue(notFillStep.hasEditedNoteParameters());
+
+    clip.setStep(0, 3, notFillStep);
+    assertEquals(1, clip.noteRows.get(0).notes.get(0).getFill());
+    synth.addClip(clip);
+    project.addTrack(synth);
+
+    File songFile = tempDir.resolve("roundtrip_not_fill.xml").toFile();
+    ProjectSerializer.save(project, songFile);
+
+    String savedXml = Files.readString(songFile.toPath());
+    assertTrue(
+        savedXml.contains("020101\""),
+        "28-char noteDataWithSplitProb tail must end with iterance 0201 and fill 01 (NOT_FILL)");
+
+    ProjectModel reloaded = SongXmlParser.parseSong(songFile);
+    ClipModel reloadedClip = reloaded.getTracks().get(0).getClips().get(0);
+    StepData step = null;
+    int activeRow = -1;
+    for (int r = 0; r < reloadedClip.getRowCount(); r++) {
+      StepData candidate = reloadedClip.getStep(r, 3);
+      if (candidate.active()) {
+        step = candidate;
+        activeRow = r;
+        break;
+      }
+    }
+    assertTrue(step != null && step.active(), "Step 3 should survive save/load round-trip");
+    assertEquals(1, step.fillMode(), "NOT_FILL (1) must not flip to FILL (2)");
+    assertEquals(0.0f, step.fill(), 0.001f);
+    assertEquals(0x0201, step.playCondition());
+    assertEquals(0.75f, step.probability(), 0.001f);
+    assertEquals(1, reloadedClip.getRawNoteEvents(activeRow).get(0).getFill());
+  }
+
+  @Test
+  void stepDataWithHelpersPreservePlayConditionAndFillMode() {
+    StepData base = new StepData(true, 0.8f, 1.0f, 0.5f, 60, 2, 0.0f, 0.1f, 0x0405, 1);
+    StepData edited =
+        base.withVelocity(0.4f).withGate(2.5f).withProbability(0.25f).withPitch(67).withNudge(0.2f);
+    assertEquals(0.4f, edited.velocity(), 0.001f);
+    assertEquals(2.5f, edited.gate(), 0.001f);
+    assertEquals(0.25f, edited.probability(), 0.001f);
+    assertEquals(67, edited.pitch());
+    assertEquals(0.2f, edited.nudge(), 0.001f);
+    assertEquals(2, edited.iterance());
+    assertEquals(0x0405, edited.playCondition());
+    assertEquals(1, edited.fillMode());
+    assertEquals(0.0f, edited.fill(), 0.001f);
+  }
+
+  @Test
+  void songXmlParserPreservesRawNoteLiftWhenApplyingRowPitch() throws Exception {
+    // Lift = 0x55 (85) in 28-char noteDataWithSplitProb on row y="64".
+    String xml =
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <song firmwareVersion="c1.3.0" earliestCompatibleFirmware="4.1.0-alpha">
+          <instruments>
+            <sound presetName="INIT" mode="subtractive" polyphonic="1" voicePriority="1">
+              <osc1 type="saw" transpose="0" cents="0" retrigPhase="-1" />
+              <osc2 type="saw" transpose="0" cents="0" retrigPhase="-1" />
+              <defaultParams lpfFrequency="0x7FFFFFFF" lpfResonance="0x80000000" volume="0x4CCCCCA8" />
+            </sound>
+          </instruments>
+          <sessionClips>
+            <instrumentClip length="384" instrumentPresetName="INIT">
+              <noteRows>
+                <noteRow y="64" noteDataWithSplitProb="0x000000300000001866550A020101" />
+              </noteRows>
+            </instrumentClip>
+          </sessionClips>
+        </song>
+        """;
+
+    ProjectModel project =
+        SongXmlParser.parseSong(
+            new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)), "RawLiftSong");
+    ClipModel clip = project.getTracks().get(0).getClips().get(0);
+    assertEquals(64, clip.getStep(0, 2).pitch());
+    assertEquals(1, clip.getStep(0, 2).fillMode());
+    assertEquals(0x55, clip.getRawNoteEvents(0).get(0).getLift());
+    assertEquals(1, clip.getRawNoteEvents(0).get(0).getFill());
+  }
 }

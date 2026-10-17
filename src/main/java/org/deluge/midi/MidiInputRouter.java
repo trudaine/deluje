@@ -345,15 +345,7 @@ public class MidiInputRouter {
                 if (clipRow >= 0) {
                   org.deluge.model.StepData oldStep = clip.getStep(clipRow, start.step);
                   if (oldStep != null && oldStep.active()) {
-                    org.deluge.model.StepData newStep =
-                        new org.deluge.model.StepData(
-                            true,
-                            oldStep.velocity(),
-                            (float) gate,
-                            oldStep.probability(),
-                            oldStep.pitch(),
-                            oldStep.iterance(),
-                            oldStep.fill());
+                    org.deluge.model.StepData newStep = oldStep.withGate((float) gate);
                     activeGrid.setClipStep(clip, row, start.step, newStep);
 
                     // Update low-level ChucK bridge gate

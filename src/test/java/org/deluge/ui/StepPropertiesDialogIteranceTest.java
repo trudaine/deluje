@@ -85,6 +85,18 @@ public class StepPropertiesDialogIteranceTest {
   }
 
   @Test
+  public void testOffIteranceZeroNormalizesToAlways1Of1() {
+    // Default unconditional steps carry playCondition == 0 (Iterance(0, 0) / OFF).
+    // StepPropertiesDialog must normalize OFF to Always (0x0101) instead of Custom with no checks.
+    StepPropertiesDialog dlg =
+        new StepPropertiesDialog(null, 80, 0, 0, 100, 0.9, 0, Iterance.fromInt(0));
+    Iterance cond = dlg.getPlayCondition();
+    assertEquals(1, cond.divisor & 0xFF, "divisor should normalize from 0 to 1");
+    assertEquals(1, cond.iteranceStep & 0xFF, "iteranceStep should normalize from 0 to 1");
+    assertEquals(0x0101, dlg.getPlayConditionInt());
+  }
+
+  @Test
   public void testPreviouslyMissingIterancePresetsRoundTripThroughTheDialog() {
     // 3 of the 25 presets that used to be reachable only via the Custom bitmask editor, not as a
     // named dropdown preset -- verified end-to-end through the dialog's public API.

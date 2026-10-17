@@ -341,6 +341,12 @@ public class SongXmlParser {
                 }
               }
 
+              // Apply per-row pitch from y attribute before setting grid steps and raw notes so
+              // clip.setStep never overwrites rawNotes after clip.setRawNoteEvents.
+              if (notePitch >= 0) {
+                clip.setRowYNote(r, notePitch);
+              }
+
               NoteDataSource noteSrc = readNoteDataSource(noteRowElem, false);
               hexData = noteSrc.hex();
               if (hexData != null && !hexData.isEmpty()) {
@@ -350,22 +356,16 @@ public class SongXmlParser {
                     DelugeNoteDataMapper.decodeRow(hexData, stepCount, stepTicks, hcpn);
 
                 for (int s = 0; s < stepCount; s++) {
-                  clip.setStep(r, s, row.get(s));
+                  StepData step = row.get(s);
+                  if (notePitch >= 0) {
+                    step = step.withPitch(notePitch);
+                  }
+                  clip.setStep(r, s, step);
                 }
 
                 java.util.List<org.deluge.model.NoteModel> rawNotes =
                     DelugeNoteDataMapper.decodeRawNotes(hexData, hcpn);
                 clip.setRawNoteEvents(r, rawNotes);
-              }
-
-              // Apply per-row pitch from y attribute to all steps in this row
-              // (the hex note data encodes on/off/gate but not pitch)
-              if (notePitch >= 0) {
-                clip.setRowYNote(r, notePitch);
-                for (int s = 0; s < stepCount; s++) {
-                  StepData existing = clip.getStep(r, s);
-                  clip.setStep(r, s, existing.withPitch(notePitch));
-                }
               }
 
               // Parse per-noteRow <soundParams> (35+ hex param overrides)
@@ -564,6 +564,12 @@ public class SongXmlParser {
               }
             }
 
+            // Apply per-row pitch from y attribute before setting grid steps and raw notes so
+            // clip.setStep never overwrites rawNotes after clip.setRawNoteEvents.
+            if (notePitch >= 0) {
+              clip.setRowYNote(r, notePitch);
+            }
+
             NoteDataSource noteSrc = readNoteDataSource(noteRowElem, false);
             hexData = noteSrc.hex();
             if (hexData != null && !hexData.isEmpty()) {
@@ -572,7 +578,11 @@ public class SongXmlParser {
               java.util.List<StepData> row =
                   DelugeNoteDataMapper.decodeRow(hexData, stepCount, stepTicks, hcpn);
               for (int s = 0; s < stepCount; s++) {
-                clip.setStep(r, s, row.get(s));
+                StepData step = row.get(s);
+                if (notePitch >= 0) {
+                  step = step.withPitch(notePitch);
+                }
+                clip.setStep(r, s, step);
               }
 
               java.util.List<org.deluge.model.NoteModel> rawNotes =
@@ -588,15 +598,6 @@ public class SongXmlParser {
                   drumIdx >= 0 ? "drumIndex=" + drumIdx : "noteRow[" + r + "] y=" + notePitch;
               String hexPrefix = hexData.length() > 30 ? hexData.substring(0, 30) + "..." : hexData;
             } else if (drumIdx >= 0) {
-            }
-
-            // Apply per-row pitch from y attribute to all steps in this row
-            if (notePitch >= 0) {
-              clip.setRowYNote(r, notePitch);
-              for (int s = 0; s < stepCount; s++) {
-                StepData existing = clip.getStep(r, s);
-                clip.setStep(r, s, existing.withPitch(notePitch));
-              }
             }
 
             // Parse per-noteRow <soundParams> (35+ hex param overrides)
