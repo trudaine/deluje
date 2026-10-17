@@ -76,6 +76,12 @@ public class GridSizingNoClippingTest {
     java.awt.Dimension vpSize = sizes[1];
     assertNotNull(vpSize, label + ": grid must be inside a JViewport");
     assertTrue(
+        vpSize.width > 0 && vpSize.height > 0,
+        label + ": viewport must have positive size, was " + vpSize);
+    assertTrue(
+        gridSize.width > 0 && gridSize.height > 0,
+        label + ": grid must have positive size, was " + gridSize);
+    assertTrue(
         gridSize.height <= vpSize.height,
         label
             + ": grid height "
