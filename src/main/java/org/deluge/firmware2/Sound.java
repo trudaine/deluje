@@ -203,16 +203,18 @@ public class Sound extends GlobalEffectable {
     return false;
   }
 
-  /** C: sound.cpp:1966-1986 — true if any active sample source has time-stretch syncing enabled. */
+  /**
+   * C: sound.cpp:1966-1986 — true if any active sample source uses STRETCH repeat mode
+   * (SampleRepeatMode::STRETCH == 3). Independent pitch/speed (sampleTimestretch) is a separate
+   * control (sound.cpp:3419-3420) and does not imply tempo-synced STRETCH repeat mode.
+   */
   public boolean hasAnyTimeStretchSyncing() {
     if (synthMode == 1) { // FM
       return false;
     }
     for (int s = 0; s < 2; s++) {
       boolean sourceEverActive = isSourceActiveEver(s, hasAnySampleLoaded(s));
-      if (sourceEverActive
-          && oscTypes[s] == OscType.SAMPLE
-          && (sampleTimestretch[s] || sampleLoopMode[s] == 3)) {
+      if (sourceEverActive && oscTypes[s] == OscType.SAMPLE && sampleLoopMode[s] == 3) {
         return true;
       }
     }
@@ -221,7 +223,7 @@ public class Sound extends GlobalEffectable {
 
   /**
    * C: sound.cpp:2030-2053 — true if this sound is non-FM, has no noise, and every active source is
-   * a loaded CUT-mode sample.
+   * a loaded CUT-mode sample (SampleRepeatMode::CUT == 0).
    */
   public boolean hasCutModeSamples() {
     if (synthMode == 1) { // FM
@@ -237,10 +239,7 @@ public class Sound extends GlobalEffectable {
       if (!sourceEverActive) {
         continue;
       }
-      if (oscTypes[s] != OscType.SAMPLE
-          || !hasSample
-          || sampleLoopMode[s] != 0
-          || sampleTimestretch[s]) {
+      if (oscTypes[s] != OscType.SAMPLE || !hasSample || sampleLoopMode[s] != 0) {
         return false;
       }
       for (CompiledKeyZone kz : sourceZones[s]) {

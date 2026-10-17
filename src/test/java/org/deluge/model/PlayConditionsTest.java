@@ -891,9 +891,30 @@ class PlayConditionsTest {
         cutSound.releaseCount,
         "CUT-mode full-row sample must release before restarting at each wrap");
 
-    // 2. Time-stretched sample (timestretch = true) with arp off also stops and restarts at wrap.
+    // 2. CUT-mode sample with independent pitch/speed (timestretch = true) also restarts at wrap.
+    ClipModel cutTsClip = new ClipModel("cut-ts-drone", 1, 1);
+    CountingLiveSound cutTsSound = createSampleLiveSound(0, true);
+    cutTsClip.setSound(cutTsSound);
+    NoteRowModel cutTsRow = cutTsClip.getOrCreateRow(0);
+    cutTsRow.setPitch(60);
+    cutTsRow.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0));
+    cutTsClip.setPos(0);
+    for (int t = 0; t < 72; t++) {
+      cutTsClip.incrementPos(1);
+      cutTsClip.processCurrentPos(1);
+    }
+    assertEquals(
+        3,
+        cutTsSound.triggerCount,
+        "CUT-mode sample with independent pitch/speed must restart on each bar");
+    assertEquals(
+        3,
+        cutTsSound.releaseCount,
+        "CUT-mode sample with independent pitch/speed must release before restarting at wrap");
+
+    // 3. STRETCH repeat-mode sample (loopMode = 3) with arp off stops and restarts at wrap.
     ClipModel stretchClip = new ClipModel("stretch-drone", 1, 1);
-    CountingLiveSound stretchSound = createSampleLiveSound(0, true);
+    CountingLiveSound stretchSound = createSampleLiveSound(3, false);
     stretchClip.setSound(stretchSound);
     NoteRowModel stretchRow = stretchClip.getOrCreateRow(0);
     stretchRow.setPitch(60);
@@ -906,32 +927,43 @@ class PlayConditionsTest {
     assertEquals(
         3,
         stretchSound.triggerCount,
-        "time-stretched full-row sample must restart on each of the 3 bars");
+        "STRETCH repeat-mode full-row sample must restart on each of the 3 bars");
     assertEquals(
         3,
         stretchSound.releaseCount,
-        "time-stretched full-row sample must release before restarting at each wrap");
+        "STRETCH repeat-mode full-row sample must release before restarting at each wrap");
 
-    // 3. LOOP-mode sample (loopMode = 1) sustains across loop wraps as a true drone.
-    ClipModel loopClip = new ClipModel("loop-drone", 1, 1);
-    CountingLiveSound loopSound = createSampleLiveSound(1, false);
-    loopClip.setSound(loopSound);
-    NoteRowModel loopRow = loopClip.getOrCreateRow(0);
-    loopRow.setPitch(60);
-    loopRow.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0));
-    loopClip.setPos(0);
-    for (int t = 0; t < 72; t++) {
-      loopClip.incrementPos(1);
-      loopClip.processCurrentPos(1);
+    // 4. LOOP-mode sample (loopMode = 1) sustains across loop wraps, even when independent
+    // pitch/speed (timestretch = true) is enabled.
+    for (boolean independentPitchSpeed : new boolean[] {false, true}) {
+      ClipModel loopClip = new ClipModel("loop-drone-" + independentPitchSpeed, 1, 1);
+      CountingLiveSound loopSound = createSampleLiveSound(1, independentPitchSpeed);
+      loopClip.setSound(loopSound);
+      NoteRowModel loopRow = loopClip.getOrCreateRow(0);
+      loopRow.setPitch(60);
+      loopRow.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0));
+      loopClip.setPos(0);
+      for (int t = 0; t < 72; t++) {
+        loopClip.incrementPos(1);
+        loopClip.processCurrentPos(1);
+      }
+      assertEquals(
+          1,
+          loopSound.triggerCount,
+          "LOOP-mode full-row sample must trigger once and stay on (timestretch="
+              + independentPitchSpeed
+              + ")");
+      assertEquals(
+          0,
+          loopSound.releaseCount,
+          "LOOP-mode full-row sample must not release at loop wrap (timestretch="
+              + independentPitchSpeed
+              + ")");
+      assertTrue(
+          loopSound.fw2Sound.noteIsOn(60, false), "LOOP-mode drone voice must still be sounding");
     }
-    assertEquals(
-        1, loopSound.triggerCount, "LOOP-mode full-row sample must trigger once and stay on");
-    assertEquals(
-        0, loopSound.releaseCount, "LOOP-mode full-row sample must not release at loop wrap");
-    assertTrue(
-        loopSound.fw2Sound.noteIsOn(60, false), "LOOP-mode drone voice must still be sounding");
 
-    // 4. CUT-mode sample with arpeggiator ON stays held into the arpeggiator across wraps.
+    // 5. CUT-mode sample with arpeggiator ON stays held into the arpeggiator across wraps.
     ClipModel arpClip = new ClipModel("arp-cut-drone", 1, 1);
     CountingLiveSound arpCutSound = createSampleLiveSound(0, false);
     arpCutSound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.ARP;
