@@ -1325,6 +1325,9 @@ public class FirmwareFactory {
     // Neither was parsed or applied, so every drum played as CUT. (Reverse is set below.)
     drumSound.sampleSettings[0].loopMode = sd.getOsc1LoopMode();
     drumSound.sampleSettings[0].timestretch = sd.isOsc1TimeStretch();
+    // As the synth mapping does (above): C sampleControls.interpolationMode per source.
+    drumSound.fw2Sound.sourceLinearInterpolation[0] = sd.isOsc1LinearInterpolation();
+    drumSound.fw2Sound.sourceLinearInterpolation[1] = sd.isOsc2LinearInterpolation();
 
     drumSound.fw2Sound.maxPolyphony =
         sd.getMaxVoiceCount(); // C: sound.h:116 (per-drum voice cap, default 8)

@@ -47,8 +47,9 @@ class SampleRepeatModeTest {
     FirmwareSound drum = fk.drumSounds.get(0);
     assertEquals(Sound.REPEAT_ONCE, drum.sampleSettings[0].loopMode);
     drum.syncParamsToFw2();
-    assertEquals(Sound.REPEAT_ONCE, drum.fw2Sound.sampleLoopMode[0]);
+    // syncParamsToFw2 copies the repeat mode only for a loaded sample.
     Assumptions.assumeTrue(drum.fw2Sound.hasAnySampleLoaded(0), "808 samples not on disk");
+    assertEquals(Sound.REPEAT_ONCE, drum.fw2Sound.sampleLoopMode[0]);
     assertFalse(
         drum.fw2Sound.allowNoteTails(false),
         "a ONCE drum plays to its end: the C ignores its note-off (sound.cpp:1957)");
@@ -82,5 +83,33 @@ class SampleRepeatModeTest {
     SynthTrackModel back = DelugeXmlParser.parseSynth(f);
     assertEquals("SAMPLES/DRUMS/Kick/808 Kick.wav", back.getOsc1SamplePath());
     assertEquals(2, back.getOsc1LoopMode());
+  }
+
+  @Test
+  void songSaveKeepsDrumFlagsWhereTheCReadsThem() throws Exception {
+    Assumptions.assumeTrue(KIT_808.isFile());
+    KitTrackModel kit = DelugeXmlParser.parseKit(KIT_808);
+    SoundDrum kick = (SoundDrum) kit.getDrums().get(0);
+    kick.setOsc1LoopMode(2);
+    kick.setOsc1LinearInterpolation(true);
+    ProjectModel project = new ProjectModel();
+    project.addTrack(kit);
+    String xml = org.deluge.project.ProjectSerializer.serializeToString(project);
+    // fileName and the flags sit on <osc1>, where sound.cpp reads them — not a <sample> child.
+    assertTrue(xml.contains("fileName=\"" + kick.getSamplePath() + "\""), "fileName on osc1");
+    assertFalse(xml.contains("<sample "), "no <sample> element inside a drum's <sound>");
+    KitTrackModel back =
+        (KitTrackModel)
+            DelugeXmlParser.parseSong(
+                    new java.io.ByteArrayInputStream(
+                        xml.getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                    "rt")
+                .getTracks()
+                .get(0);
+    SoundDrum kickBack = (SoundDrum) back.getDrums().get(0);
+    assertEquals(kick.getSamplePath(), kickBack.getSamplePath());
+    assertEquals(2, kickBack.getOsc1LoopMode());
+    assertTrue(kickBack.isOsc1LinearInterpolation());
+    assertEquals(1, ((SoundDrum) back.getDrums().get(1)).getOsc1LoopMode(), "snare stays ONCE");
   }
 }

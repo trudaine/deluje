@@ -77,6 +77,8 @@ public class KitSynthSerializer {
         appendTextChild(doc, osc1, "loopMode", String.valueOf(sound.getOsc1LoopMode()));
         appendTextChild(doc, osc1, "reversed", sound.isReverse() ? "1" : "0");
         appendTextChild(doc, osc1, "timeStretchEnable", sound.isOsc1TimeStretch() ? "1" : "0");
+        appendTextChild(
+            doc, osc1, "linearInterpolation", sound.isOsc1LinearInterpolation() ? "1" : "0");
         appendTextChild(doc, osc1, "timeStretchAmount", "0");
         appendTextChild(
             doc, osc1, "wavetableIndexPct", String.valueOf(sound.getWavetableIndexPct()));
@@ -96,6 +98,8 @@ public class KitSynthSerializer {
         appendTextChild(doc, osc2, "loopMode", String.valueOf(sound.getOsc2LoopMode()));
         appendTextChild(doc, osc2, "reversed", sound.isOsc2Reversed() ? "1" : "0");
         appendTextChild(doc, osc2, "timeStretchEnable", sound.isOsc2TimeStretch() ? "1" : "0");
+        appendTextChild(
+            doc, osc2, "linearInterpolation", sound.isOsc2LinearInterpolation() ? "1" : "0");
         appendTextChild(doc, osc2, "timeStretchAmount", "0");
         appendTextChild(
             doc,
