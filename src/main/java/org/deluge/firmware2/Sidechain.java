@@ -152,8 +152,8 @@ public class Sidechain {
       int newOffset = ONE_Q31 - pendingHitStrength;
       pendingHitStrength = 0; // C:132
 
-      // C:136 — only if deeper than current dip
-      if (Integer.compareUnsigned(newOffset, lastValue) < 0) {
+      // C: sidechain.cpp:136 — signed int32_t comparison (newOffset < lastValue).
+      if (newOffset < lastValue) {
         envelopeOffset = newOffset; // C:137
 
         // C:140-146 — if attack is max, jump to release; otherwise start attack
@@ -175,7 +175,8 @@ public class Sidechain {
     if (status == Envelope.Stage.ATTACK) {
       pos += numSamples * getActualAttackRate(); // C:151
 
-      if (pos >= 8388608) { // C:153
+      // C: sidechain.cpp:153, sidechain.h:33 — pos is uint32_t.
+      if (Integer.compareUnsigned(pos, 8388608) >= 0) {
         // prepareForRelease: (C:154-158)
         pos = 0;
         status = Envelope.Stage.RELEASE;
@@ -198,7 +199,8 @@ public class Sidechain {
       // doRelease: (C:173)
       pos += numSamples * getActualReleaseRate(); // C:174
 
-      if (pos >= 8388608) { // C:176
+      // C: sidechain.cpp:176, sidechain.h:33 — pos is uint32_t.
+      if (Integer.compareUnsigned(pos, 8388608) >= 0) {
         status = Envelope.Stage.OFF; // C:177
         // goto doOff
       } else {
@@ -209,8 +211,8 @@ public class Sidechain {
 
         int preValue;
 
-        // C:189-199 — complex curve
-        int curvedness16 = (positiveShapeValue >>> 15) - (pos >> 7);
+        // C: sidechain.cpp:189-199 — pos is uint32_t, so pos >> 7 and pos >> 8 are unsigned.
+        int curvedness16 = (positiveShapeValue >>> 15) - (pos >>> 7);
         if (curvedness16 < 0) {
           preValue = pos << 8; // C:191
         } else {
@@ -221,7 +223,7 @@ public class Sidechain {
           // C:198
           int decayInput = 8388608 - pos;
           int decayVal = Functions.getDecay8(decayInput, 23);
-          preValue = straightness * (pos >> 8) + (decayVal >> 16) * curvedness16;
+          preValue = straightness * (pos >>> 8) + (decayVal >> 16) * curvedness16;
         }
 
         // C:201
@@ -248,8 +250,8 @@ public class Sidechain {
     pendingHitStrength = 0; // C:62
     envelopeOffset = ONE_Q31 - strength; // C:63
 
-    int alteredAttack = getActualAttackRate(); // C:65
-    int attackStageLengthInSamples = 8388608 / alteredAttack; // C:66
+    int alteredAttack = getActualAttackRate(); // C: sidechain.cpp:65 (uint32_t)
+    int attackStageLengthInSamples = Integer.divideUnsigned(8388608, alteredAttack); // C:66
 
     envelopeHeight = ONE_Q31 - envelopeOffset; // C:68
 
@@ -260,8 +262,8 @@ public class Sidechain {
     } else {
       // C:77-92 — past attack stage
       int numSamplesSinceRelease = numSamplesAgo - attackStageLengthInSamples; // C:78
-      int alteredRelease = getActualReleaseRate(); // C:79
-      int releaseStageLengthInSamples = 8388608 / alteredRelease; // C:80
+      int alteredRelease = getActualReleaseRate(); // C: sidechain.cpp:79 (uint32_t)
+      int releaseStageLengthInSamples = Integer.divideUnsigned(8388608, alteredRelease); // C:80
 
       // C:83 — if still in release
       if (Integer.compareUnsigned(numSamplesSinceRelease, releaseStageLengthInSamples) < 0) {
