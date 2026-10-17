@@ -495,6 +495,7 @@ public class KitSynthSerializerTest {
         ArpModel.defaultConfig().toBuilder()
             .active(true)
             .mode("DOWN")
+            .noteMode("DOWN")
             .rate(0.5f)
             .octaves(2)
             .gate(0.7f)
@@ -598,7 +599,9 @@ public class KitSynthSerializerTest {
 
   private static void assertArpEquals(ArpModel expected, ArpModel actual) {
     assertEquals(expected.active(), actual.active());
-    assertEquals(expected.mode(), actual.mode());
+    // "mode" in the file is the C ArpMode ("arp"/"off", writeCommonParamsToFile), not the panel's
+    // legacy direction box; the direction that plays is noteMode.
+    assertEquals(expected.noteMode(), actual.noteMode());
     assertEquals(expected.rate(), actual.rate(), 0.01f);
     assertEquals(expected.octaves(), actual.octaves());
     assertEquals(expected.gate(), actual.gate(), 0.01f);

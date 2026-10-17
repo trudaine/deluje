@@ -631,7 +631,9 @@ public class FirmwareFactory {
         (int) (model.getCompressorBlend() * 2147483647.0),
         1.35f);
 
-    // Arpeggiator
+    // Arpeggiator. GLOBAL_ARP_RATE is a patched param (sound.cpp:155, :4040) that sets an unsynced
+    // arp's speed; it was parsed but never reached the sound, which ran at the neutral 0.
+    sound.paramKnobs[Param.GLOBAL_ARP_RATE] = model.getArpRateQ31();
     configureArp(sound, model.getArp());
 
     // DX7 (Dexed) patch — render via the real DX7 engine instead of the native FM mapping.
@@ -1104,7 +1106,15 @@ public class FirmwareFactory {
     rhythmIdx = Math.max(0, Math.min(org.deluge.firmware2.Functions.K_MAX_MENU_VALUE, rhythmIdx));
     s.rhythm = org.deluge.firmware2.Functions.computeFinalValueForUnsignedMenuItem(rhythmIdx);
     // syncLevel here is a note-division denominator (1=whole, 4=quarter, 16=16th); default 16th.
-    sound.arpDivision = (arp.syncLevel() > 0) ? arp.syncLevel() : 16;
+    // 0 = not synced (the ARP panel's "OFF"): the engine then leaves arpPhaseIncrement at 0 and
+    // fw2 runs the C's free-rate path from the arp-rate param (arpeggiator.cpp:1594-1596).
+    sound.arpDivision = Math.max(0, arp.syncLevel());
+    // The C internal SyncLevel for that division, read by getPhaseIncrement, the ratchet limits
+    // and ticks-per-period (arpeggiator.cpp).
+    s.syncLevel =
+        org.deluge.firmware2.Arpeggiator.SyncLevel.values()[
+            org.deluge.xml.ArpXmlCodec.internalSyncLevelFromDenominator(
+                arp.syncLevel(), sound.inputTickMagnitude)];
     // Free-rate multiplier on the BPM-derived arp clock (PureFirmwareEngine divides the step
     // length by it). 1.0 = nominal.
     sound.arpRateMultiplier = (arp.rate() > 0.01f) ? arp.rate() : 1.0f;
@@ -1117,10 +1127,13 @@ public class FirmwareFactory {
         org.deluge.firmware2.Arpeggiator.SyncType.values()[
             Math.max(0, arp.syncType())
                 % org.deluge.firmware2.Arpeggiator.SyncType.values().length];
+    // Model: 0 off, 1 aftertouch ("z"), 2 MPE Y ("y") — see ArpXmlCodec.mpeVelocityFromFile.
     s.mpeVelocity =
-        (arp.mpeVelocity() == 1)
-            ? org.deluge.firmware2.Arpeggiator.ArpMpeModSource.AFTERTOUCH
-            : org.deluge.firmware2.Arpeggiator.ArpMpeModSource.OFF;
+        switch (arp.mpeVelocity()) {
+          case 1 -> org.deluge.firmware2.Arpeggiator.ArpMpeModSource.AFTERTOUCH;
+          case 2 -> org.deluge.firmware2.Arpeggiator.ArpMpeModSource.MPE_Y;
+          default -> org.deluge.firmware2.Arpeggiator.ArpMpeModSource.OFF;
+        };
     // Probabilities + spreads + ratchet are raw uint32 menu values in fw2 (value_scaling.cpp:18 —
     // user 0..50 × 85899345); the model carries them as 0..1 floats.
     s.noteProbability =
@@ -1197,8 +1210,10 @@ public class FirmwareFactory {
     if (m == null) return org.deluge.firmware2.Arpeggiator.ArpOctaveMode.UP;
     return switch (m.trim().toUpperCase()) {
       case "DOWN" -> org.deluge.firmware2.Arpeggiator.ArpOctaveMode.DOWN;
-      case "UP_DOWN", "UPDN", "UPDOWN", "ALT" ->
-          org.deluge.firmware2.Arpeggiator.ArpOctaveMode.UP_DOWN;
+      case "UP_DOWN", "UPDN", "UPDOWN" -> org.deluge.firmware2.Arpeggiator.ArpOctaveMode.UP_DOWN;
+      // C stringToArpOctaveMode: "alt" is ALTERNATE, not up-down; "random" is RANDOM.
+      case "ALT", "ALTERNATE" -> org.deluge.firmware2.Arpeggiator.ArpOctaveMode.ALTERNATE;
+      case "RAND", "RANDOM" -> org.deluge.firmware2.Arpeggiator.ArpOctaveMode.RANDOM;
       default -> org.deluge.firmware2.Arpeggiator.ArpOctaveMode.UP;
     };
   }

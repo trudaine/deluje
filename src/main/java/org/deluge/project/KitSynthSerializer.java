@@ -441,7 +441,8 @@ public class KitSynthSerializer {
 
     // ── arpeggiator ──
     Element arp = doc.createElement("arpeggiator");
-    arp.setAttribute("mode", synth.getArp().mode().toLowerCase());
+    // C writeCommonParamsToFile (arpeggiator.cpp): "mode" = arpModeToString, "arp" or "off".
+    arp.setAttribute("mode", synth.getArp().active() ? "arp" : "off");
     arp.setAttribute("active", synth.getArp().active() ? "1" : "0");
     arp.setAttribute("sequenceLength", String.valueOf(synth.getArp().seqLength()));
     arp.setAttribute("arpMode", synth.getArp().active() ? "arp" : "off");
@@ -450,7 +451,11 @@ public class KitSynthSerializer {
     }
     arp.setAttribute("chordType", String.valueOf(synth.getArp().chordType()));
 
-    arp.setAttribute("numOctaves", String.valueOf(synth.getArp().numOctaves()));
+    // The ARP panel edits octaves(); numOctaves() is only what was last parsed.
+    arp.setAttribute("numOctaves", String.valueOf(synth.getArp().octaves()));
+    arp.setAttribute("syncType", String.valueOf(synth.getArp().syncType()));
+    arp.setAttribute(
+        "mpeVelocity", org.deluge.xml.ArpXmlCodec.mpeVelocityToFile(synth.getArp().mpeVelocity()));
     arp.setAttribute("kitArp", String.valueOf(synth.getArp().kitArp()));
     arp.setAttribute("randomizerLock", String.valueOf(synth.getArp().randomizerLock()));
 
@@ -520,9 +525,22 @@ public class KitSynthSerializer {
     appendHexChild(doc, arp, "rate", synth.getArp().rate());
     appendTextChild(doc, arp, "octaves", String.valueOf(synth.getArp().octaves()));
     appendHexChild(doc, arp, "gate", synth.getArp().gate());
-    appendTextChild(doc, arp, "syncLevel", String.valueOf(synth.getArp().syncLevel()));
-    appendTextChild(doc, arp, "noteMode", synth.getArp().noteMode().toLowerCase());
-    appendTextChild(doc, arp, "octaveMode", synth.getArp().octaveMode().toLowerCase());
+    // A preset is written without a song; the C would use the current song's magnitude.
+    appendTextChild(
+        doc,
+        arp,
+        "syncLevel",
+        String.valueOf(
+            org.deluge.xml.ArpXmlCodec.syncFileValueFromDenominator(
+                synth.getArp().syncLevel(),
+                org.deluge.xml.ArpXmlCodec.DEFAULT_INPUT_TICK_MAGNITUDE)));
+    appendTextChild(
+        doc, arp, "noteMode", org.deluge.xml.ArpXmlCodec.noteModeToFile(synth.getArp().noteMode()));
+    appendTextChild(
+        doc,
+        arp,
+        "octaveMode",
+        org.deluge.xml.ArpXmlCodec.octaveModeToFile(synth.getArp().octaveMode()));
     appendTextChild(doc, arp, "stepRepeat", String.valueOf(synth.getArp().stepRepeat()));
     appendTextChild(doc, arp, "rhythmIndex", String.valueOf(synth.getArp().rhythmIndex()));
     appendTextChild(doc, arp, "seqLength", String.valueOf(synth.getArp().seqLength()));

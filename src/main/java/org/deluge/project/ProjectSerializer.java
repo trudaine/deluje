@@ -567,7 +567,9 @@ public class ProjectSerializer {
 
         // arpeggiator
         writer.writeOpeningTagBeginning("arpeggiator");
-        writer.writeAttribute("mode", synth.getArp().mode().toLowerCase(), false);
+        // C writeCommonParamsToFile (arpeggiator.cpp): "mode" and "arpMode" both carry
+        // arpModeToString — "arp" or "off".
+        writer.writeAttribute("mode", synth.getArp().active() ? "arp" : "off", false);
         writer.writeAttribute("active", synth.getArp().active() ? "1" : "0", false);
         writer.writeAttribute("sequenceLength", synth.getArp().seqLength(), false);
         writer.writeAttribute("arpMode", synth.getArp().active() ? "arp" : "off", false);
@@ -576,7 +578,13 @@ public class ProjectSerializer {
         }
         writer.writeAttribute("chordType", synth.getArp().chordType(), false);
 
-        writer.writeAttribute("numOctaves", synth.getArp().numOctaves(), false);
+        // The ARP panel edits octaves(); numOctaves() is only what was last parsed.
+        writer.writeAttribute("numOctaves", synth.getArp().octaves(), false);
+        writer.writeAttribute("syncType", synth.getArp().syncType(), false);
+        writer.writeAttribute(
+            "mpeVelocity",
+            org.deluge.xml.ArpXmlCodec.mpeVelocityToFile(synth.getArp().mpeVelocity()),
+            false);
         writer.writeAttribute("kitArp", synth.getArp().kitArp(), false);
         writer.writeAttribute("randomizerLock", synth.getArp().randomizerLock(), false);
 
@@ -654,9 +662,15 @@ public class ProjectSerializer {
         writeHexTag(writer, "rate", synth.getArp().rate());
         writer.writeTag("octaves", String.valueOf(synth.getArp().octaves()));
         writeHexTag(writer, "gate", synth.getArp().gate());
-        writer.writeTag("syncLevel", String.valueOf(synth.getArp().syncLevel()));
-        writer.writeTag("noteMode", synth.getArp().noteMode().toLowerCase());
-        writer.writeTag("octaveMode", synth.getArp().octaveMode().toLowerCase());
+        writer.writeTag(
+            "syncLevel",
+            String.valueOf(
+                org.deluge.xml.ArpXmlCodec.syncFileValueFromDenominator(
+                    synth.getArp().syncLevel(), model.getInputTickMagnitude())));
+        writer.writeTag(
+            "noteMode", org.deluge.xml.ArpXmlCodec.noteModeToFile(synth.getArp().noteMode()));
+        writer.writeTag(
+            "octaveMode", org.deluge.xml.ArpXmlCodec.octaveModeToFile(synth.getArp().octaveMode()));
         writer.writeTag("stepRepeat", String.valueOf(synth.getArp().stepRepeat()));
         writer.writeTag("rhythmIndex", String.valueOf(synth.getArp().rhythmIndex()));
         writer.writeTag("seqLength", String.valueOf(synth.getArp().seqLength()));

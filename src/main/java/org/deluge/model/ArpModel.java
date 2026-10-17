@@ -62,7 +62,7 @@ public record ArpModel(
         1.0f,
         1,
         0.5f,
-        0,
+        16, // C ArpeggiatorSettings default sync: a 16th (arpeggiator.cpp:51-54); 0 = not synced
         "UP",
         "UP",
         1,
