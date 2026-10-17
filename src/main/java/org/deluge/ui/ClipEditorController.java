@@ -921,18 +921,13 @@ public class ClipEditorController {
     int editedModelTrack = getEditedModelTrack();
     int activeClipId = getActiveClipId();
 
-    int srcRow =
-        baseTrackId
-            + (parent.getViewMode() == SwingGridPanel.GridViewMode.CLIP
-                ? scrollOffset + startRow
-                : startRow);
+    int srcModelRow = parent.getModelRow(startRow);
+    int dstModelRow = parent.getModelRow(targetRow);
+
+    int srcRow = baseTrackId + parent.getEngineRowOffset(srcModelRow);
     int srcCol = (trackLen < stepCount) ? (startCol % trackLen) : (startCol + scrollOffsetX);
 
-    int dstRow =
-        baseTrackId
-            + (parent.getViewMode() == SwingGridPanel.GridViewMode.CLIP
-                ? scrollOffset + targetRow
-                : targetRow);
+    int dstRow = baseTrackId + parent.getEngineRowOffset(dstModelRow);
     int dstCol = (trackLen < stepCount) ? (targetCol % trackLen) : (targetCol + scrollOffsetX);
 
     // Read step parameters
@@ -968,13 +963,11 @@ public class ClipEditorController {
     StepData clonedStep =
         new StepData(
             active, (float) vel, (float) gate, (float) prob, pitch, 0, (float) fill, (float) nudge);
-    int dstClipRow = parent.getModelRow(targetRow);
+    int dstClipRow = dstModelRow;
     if (getProjectModel() != null && editedModelTrack < getProjectModel().getTracks().size()) {
       TrackModel tModel = getProjectModel().getTracks().get(editedModelTrack);
       if (activeClipId < tModel.getClips().size()) {
         ClipModel cModel = tModel.getClips().get(activeClipId);
-        int srcModelRow = parent.getModelRow(startRow);
-        int dstModelRow = parent.getModelRow(targetRow);
         StepData srcModelStep = parent.getClipStep(cModel, srcModelRow, srcCol);
         dstClipRow = parent.getClipRowIndex(cModel, dstModelRow, true);
         oldTargetStep = cModel.getStep(dstClipRow, dstCol);

@@ -19,7 +19,14 @@ import org.deluge.model.TrackModel;
  * Extracted properties editing logic for step sequencer cells. Accesses companion properties
  * package-privately to minimize ClipEditorController's size.
  */
-class StepPropertiesEditor {
+public class StepPropertiesEditor {
+
+  private static int resolveStepPitch(SwingGridPanel parent, int trackType, int visualModelRow) {
+    if (trackType == 0) {
+      return visualModelRow;
+    }
+    return trackType == 1 ? parent.getRowPitch(visualModelRow) : 0;
+  }
 
   public static void handleStepLongPressed(
       ClipEditorController controller, int row, int col, Point screenPos) {
@@ -131,8 +138,7 @@ class StepPropertiesEditor {
                 double prob = bridge.getStepProbability(engineRow, activeCol);
                 int iter = bridge.getIterance(engineRow, activeCol);
                 double fill = bridge.getStepFill(engineRow, activeCol);
-                boolean isSynthMode = trackType == 1 || trackType == 0;
-                int pitch = isSynthMode ? parent.getRowPitch(visualModelRow) : 0;
+                int pitch = resolveStepPitch(parent, trackType, visualModelRow);
 
                 int resolvedFillMode =
                     (oldStep != null && Math.abs((float) fill - oldStep.fill()) < 0.001f)
@@ -184,8 +190,7 @@ class StepPropertiesEditor {
           double prob = bridge.getStepProbability(engineRow, activeCol);
           int iter = bridge.getIterance(engineRow, activeCol);
           double fill = bridge.getStepFill(engineRow, activeCol);
-          boolean isSynthMode = trackType == 1 || trackType == 0;
-          int pitch = isSynthMode ? parent.getRowPitch(visualModelRow) : 0;
+          int pitch = resolveStepPitch(parent, trackType, visualModelRow);
           StepData existing = null;
           int editedModelTrack = parent.getEditedModelTrack();
           int activeClipId = parent.getActiveClipId();
@@ -238,8 +243,7 @@ class StepPropertiesEditor {
               if (activeClipId < tModel.getClips().size()) {
                 ClipModel cModel = tModel.getClips().get(activeClipId);
                 StepData oldStep = parent.getClipStep(cModel, visualModelRow, activeCol);
-                boolean isSynthMode = trackType == 1 || trackType == 0;
-                int pitch = isSynthMode ? parent.getRowPitch(visualModelRow) : 0;
+                int pitch = resolveStepPitch(parent, trackType, visualModelRow);
                 StepData newStep = controller.copiedStep.withPitch(pitch);
                 parent.setClipStep(cModel, visualModelRow, activeCol, newStep);
                 if (oldStep != null && parent.getProjectModel() != null) {
@@ -383,9 +387,8 @@ class StepPropertiesEditor {
     int activeCol = parent.getActiveCol(row, col);
     int baseTrackId = parent.getBaseTrackId();
     int engineRow = baseTrackId + engineRowOffset;
-    boolean isSynthMode =
-        bridge.getTrackType(baseTrackId) == 1 || bridge.getTrackType(baseTrackId) == 0;
-    int pitch = isSynthMode ? parent.getRowPitch(visualModelRow) : 0;
+    int trackType = bridge.getTrackType(baseTrackId);
+    int pitch = resolveStepPitch(parent, trackType, visualModelRow);
 
     StepData oldStep = null;
     TrackModel tModel = null;
@@ -544,9 +547,8 @@ class StepPropertiesEditor {
     int activeCol = parent.getActiveCol(row, col);
     int baseTrackId = parent.getBaseTrackId();
     int engineRow = baseTrackId + engineRowOffset;
-    boolean isSynthMode =
-        bridge.getTrackType(baseTrackId) == 1 || bridge.getTrackType(baseTrackId) == 0;
-    int pitch = isSynthMode ? parent.getRowPitch(visualModelRow) : 0;
+    int trackType = bridge.getTrackType(baseTrackId);
+    int pitch = resolveStepPitch(parent, trackType, visualModelRow);
 
     StepData oldStep = null;
     TrackModel tModel = null;

@@ -532,6 +532,24 @@ class CopilotPr8FixesTest {
     assertEquals(0x0201, cloned.playCondition());
     assertEquals(1, cloned.fillMode());
 
+    int kitBaseEngineRow = sync.getTrackEngineStart(0);
+    assertTrue(
+        bridge.getStep(kitBaseEngineRow + 3, 5),
+        "Bridge must mark destination drum 3 step 5 active");
+    assertFalse(
+        bridge.getStep(kitBaseEngineRow + 0, 5),
+        "Bridge must not write cloned drum 3 step onto drum 0");
+
+    // A subsequent properties edit on visual row 0 (drum 3) must read the active bridge step and
+    // preserve the cloned note's active state, drum pitch, playCondition, and fillMode.
+    org.deluge.ui.StepPropertiesEditor.applyVelocity(controller, 0, 5, 0.9);
+    StepData edited = clip.getStep(3, 5);
+    assertTrue(edited.active(), "Cloned kit step must remain active after properties edit");
+    assertEquals(0.9f, edited.velocity(), 0.001f);
+    assertEquals(3, edited.pitch(), "Edited kit step pitch must remain drum index 3");
+    assertEquals(0x0201, edited.playCondition());
+    assertEquals(1, edited.fillMode());
+
     clip.syncNoteRowsFromGrid();
     assertEquals(
         3,
