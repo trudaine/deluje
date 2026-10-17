@@ -347,8 +347,16 @@ public class ClipModel extends TimelineCounter {
 
   public void setRowAutomation(int rowIndex, String paramName, int stepIndex, float value) {
     NoteRowModel row = getOrCreateRow(rowIndex);
-    float[] array = row.getRowAutomation().computeIfAbsent(paramName, k -> new float[stepCount]);
-    if (stepIndex >= 0 && stepIndex < stepCount) {
+    float[] array =
+        row.getRowAutomation()
+            .computeIfAbsent(
+                paramName,
+                k -> {
+                  float[] a = new float[stepCount];
+                  java.util.Arrays.fill(a, -1f);
+                  return a;
+                });
+    if (stepIndex >= 0 && stepIndex < array.length) {
       array[stepIndex] = value;
     }
   }
@@ -356,6 +364,16 @@ public class ClipModel extends TimelineCounter {
   public float[] getRowAutomation(int rowIndex, String paramName) {
     NoteRowModel row = noteRows.get(rowIndex);
     return row != null ? row.getRowAutomation().get(paramName) : null;
+  }
+
+  public float getRowAutomationValue(int rowIndex, String paramName, int stepIndex) {
+    float[] array = getRowAutomation(rowIndex, paramName);
+    if (array == null || stepIndex < 0 || stepIndex >= array.length) return -1f;
+    return array[stepIndex];
+  }
+
+  public boolean hasRowAutomation(int rowIndex, String paramName, int stepIndex) {
+    return getRowAutomationValue(rowIndex, paramName, stepIndex) >= 0.0f;
   }
 
   public void setRawNoteEvents(int rowIndex, List<NoteModel> notes) {

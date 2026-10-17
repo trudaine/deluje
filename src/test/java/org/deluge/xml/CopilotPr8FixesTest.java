@@ -2046,4 +2046,140 @@ class CopilotPr8FixesTest {
       bridge.shutdown();
     }
   }
+
+  @Test
+  void switchToTrackEditSetsMinusOneBaseTrackIdForZeroVoiceMidiTrackFollowedBySynth()
+      throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract(44100, 2);
+    org.deluge.ui.SwingDelugeApp app = new org.deluge.ui.SwingDelugeApp(bridge, null);
+    try {
+      ProjectModel project = new ProjectModel();
+      org.deluge.model.MidiTrackModel midi = new org.deluge.model.MidiTrackModel("Midi0");
+      midi.addClip(new ClipModel("MidiClip", 8, 24));
+      SynthTrackModel synth = new SynthTrackModel("Synth1");
+      synth.addClip(new ClipModel("SynthClip", 8, 16));
+      project.addTrack(midi);
+      project.addTrack(synth);
+
+      app.loadProject(project);
+      app.switchToTrackEdit(0, 0);
+
+      org.deluge.ui.SwingGridPanel clipPanel = app.getClipPanel();
+      assertEquals(0, clipPanel.getEditedModelTrack());
+      assertEquals(
+          -1,
+          clipPanel.getBaseTrackId(),
+          "Zero-voice MIDI track must have baseTrackId -1 so it does not read following synth row");
+      assertEquals(
+          24,
+          clipPanel.getTrackLength(),
+          "MIDI track length must come from its own clip (24) instead of following synth (16)");
+    } finally {
+      app.dispose();
+      bridge.shutdown();
+    }
+  }
+
+  @Test
+  void duplicateStepPersistsClonedAutomationAndRestoresItOnResyncAndUndo() {
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel synth = new SynthTrackModel("AutoCloneSynth");
+    ClipModel clip = new ClipModel("Clip", 8, 16);
+    for (int r = 0; r < 8; r++) {
+      clip.setRowYNote(r, 60 + r);
+    }
+    clip.setStep(0, 1, StepData.of(true, 0.8f, 1.0f, 1.0f, 60));
+    clip.setAutomation(org.deluge.model.AutomationParam.A_LPF_FREQ, 1, 0.72f);
+    clip.setAutomation(org.deluge.model.AutomationParam.A_DELAY, 1, 0.35f);
+    synth.addClip(clip);
+    project.addTrack(synth);
+
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    org.deluge.ui.EngineSyncCoordinator sync =
+        new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+    sync.pushModelToBridge(project);
+
+    org.deluge.ui.ClipGridPanel panel = new org.deluge.ui.ClipGridPanel(bridge);
+    panel.setScaleModeEnabled(false);
+    panel.setEditedModelTrack(0);
+    panel.setBaseTrackId(0);
+    panel.setActiveClipId(0);
+    panel.setProjectModel(project);
+
+    // Clone from pitch 60 (modelRow 67, stored row 0) step 1 to pitch 63 (modelRow 64, stored row
+    // 3) step 5
+    int srcVisibleRow = (127 - 60) - panel.getScrollOffset();
+    int dstVisibleRow = (127 - 63) - panel.getScrollOffset();
+    org.deluge.ui.ClipEditorController controller =
+        new org.deluge.ui.ClipEditorController(panel, () -> {}, () -> {});
+    controller.duplicateStep(srcVisibleRow, 1, dstVisibleRow, 5);
+
+    assertEquals(
+        0.72f,
+        clip.getRowAutomationValue(3, org.deluge.model.AutomationParam.A_LPF_FREQ, 5),
+        1e-6f,
+        "Cloned step filter automation must persist on destination row 3");
+    assertEquals(
+        0.35f,
+        clip.getRowAutomationValue(3, org.deluge.model.AutomationParam.A_DELAY, 5),
+        1e-6f,
+        "Cloned step delay automation must persist on destination row 3");
+
+    // Re-sync model to bridge (clears all rows then restores from model)
+    sync.pushModelToBridge(project);
+    assertEquals(
+        0.72,
+        bridge.getStepFilter(3, 5),
+        1e-5,
+        "pushModelToBridge must restore cloned filter automation to destination row 3");
+    assertEquals(
+        0.35,
+        bridge.getStepDelay(3, 5),
+        1e-5,
+        "pushModelToBridge must restore cloned delay automation to destination row 3");
+
+    // Undo must clear both step and cloned row automation
+    project.getUndoRedoStack().undo();
+    assertEquals(
+        -1f,
+        clip.getRowAutomationValue(3, org.deluge.model.AutomationParam.A_LPF_FREQ, 5),
+        1e-6f,
+        "Undo must restore destination row automation to unset (-1)");
+  }
+
+  @Test
+  void refreshInPlaceShowsUnmuteLabelOnAllRowsOfMutedSynthTrack() {
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel synth = new SynthTrackModel("MutedSynth");
+    synth.setMuted(true);
+    ClipModel clip = new ClipModel("Clip", 1, 16);
+    clip.setRowYNote(0, 60);
+    clip.setStep(0, 0, StepData.of(true, 0.8f, 1.0f, 1.0f, 60));
+    synth.addClip(clip);
+    project.addTrack(synth);
+
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    org.deluge.ui.EngineSyncCoordinator sync =
+        new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+    sync.pushModelToBridge(project);
+
+    org.deluge.ui.ClipGridPanel panel = new org.deluge.ui.ClipGridPanel(bridge);
+    panel.setScaleModeEnabled(false);
+    panel.setEditedModelTrack(0);
+    panel.setBaseTrackId(0);
+    panel.setActiveClipId(0);
+    panel.setProjectModel(project);
+    panel.refreshInPlace();
+
+    javax.swing.JButton[][] pads = panel.getPads();
+    for (int v = 0; v < pads.length; v++) {
+      if (pads[v][16] != null) {
+        assertEquals(
+            "UNMUTE",
+            pads[v][16].getText(),
+            "All visible rows of a muted synth track must show UNMUTE at row " + v);
+      }
+    }
+  }
 }

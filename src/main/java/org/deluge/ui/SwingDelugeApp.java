@@ -442,9 +442,11 @@ public class SwingDelugeApp extends JFrame {
       boolean firstIsSynth =
           !model.getTracks().isEmpty()
               && model.getTracks().get(0) instanceof org.deluge.model.SynthTrackModel;
-      int firstStart = syncCoordinator.getTrackEngineStart(0);
+      int firstVoices = syncCoordinator.getTrackVoiceCount(0);
+      int firstStart = firstVoices > 0 ? syncCoordinator.getTrackEngineStart(0) : -1;
       if (clipPanel != null) {
-        clipPanel.setBaseTrackId(firstStart >= 0 ? firstStart : (firstIsSynth ? 4 : 0));
+        clipPanel.setBaseTrackId(
+            syncCoordinator.hasMapping() ? firstStart : (firstIsSynth ? 4 : 0));
       }
     } else if (!model.getArrangerTimeline().isEmpty()) {
       // A song that has an arrangement opens in the arranger view on hardware (the Deluge boots
@@ -2119,7 +2121,8 @@ public class SwingDelugeApp extends JFrame {
           syncHighFidelityEngine(currentProject);
           refreshGrids();
 
-          int engineBase = syncCoordinator.getTrackEngineStart(idx);
+          int voiceCount = syncCoordinator.getTrackVoiceCount(idx);
+          int engineBase = voiceCount > 0 ? syncCoordinator.getTrackEngineStart(idx) : -1;
           clipPanel.setBaseTrackId(engineBase);
           clipPanel.setEditedModelTrack(idx);
           clipPanel.setActiveClipId(0);
@@ -2599,8 +2602,8 @@ public class SwingDelugeApp extends JFrame {
     }
 
     if (clipPanel != null) {
-      int engineBase = syncCoordinator.getTrackEngineStart(trackId);
       int voiceCount = syncCoordinator.getTrackVoiceCount(trackId);
+      int engineBase = voiceCount > 0 ? syncCoordinator.getTrackEngineStart(trackId) : -1;
       clipPanel.setActiveClipId(clipId);
       clipPanel.setBaseTrackId(engineBase);
       clipPanel.setEditedModelTrack(trackId);

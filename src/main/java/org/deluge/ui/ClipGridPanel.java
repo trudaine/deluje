@@ -261,7 +261,7 @@ public class ClipGridPanel extends SwingGridPanel {
       int modelRow = getModelRow(v);
       if (modelRow >= 0 && modelRow < voiceRowCount) {
         int engineR = getAllocatedEngineRow(modelRow);
-        boolean isMuted = engineR >= 0 && bridge != null && bridge.getMute(engineR);
+        boolean isMuted = isClipRowMuted(modelRow);
 
         for (int c = 0; c < columnCount; c++) {
           JButton clipBtn = pads[v][c];
@@ -372,7 +372,7 @@ public class ClipGridPanel extends SwingGridPanel {
                       isNudged = true;
                     }
                   }
-                } else if (bridge != null) {
+                } else if (bridge != null && engineR >= 0) {
                   if (bridge.getStepFill(engineR, activeCol) > 0.0) {
                     isNudged = true;
                   }
@@ -1052,7 +1052,7 @@ public class ClipGridPanel extends SwingGridPanel {
             });
       } else {
         int engineRow = getAllocatedEngineRow(modelRow);
-        boolean isMuted = engineRow >= 0 && bridge != null && bridge.getMute(engineRow);
+        boolean isMuted = isClipRowMuted(modelRow);
 
         int activeCol;
         int curTrackLen = resolveEditedTrackLength();
@@ -1619,6 +1619,28 @@ public class ClipGridPanel extends SwingGridPanel {
       return null;
     }
     return track.getClips().get(idx);
+  }
+
+  private boolean isClipRowMuted(int modelRow) {
+    if (isEditedTrackKit()) {
+      int engineR = getAllocatedEngineRow(modelRow);
+      if (engineR >= 0 && bridge != null) {
+        return bridge.getMute(engineR);
+      }
+      org.deluge.model.ClipModel clip = activeEditedClip();
+      org.deluge.model.NoteRowModel noteRow =
+          (clip != null) ? clip.getNoteRowsMap().get(modelRow) : null;
+      return noteRow != null && noteRow.isMuted();
+    }
+    if (baseTrackId >= 0 && bridge != null) {
+      return bridge.getMute(baseTrackId);
+    }
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
+      return projectModel.getTracks().get(editedModelTrack).isMuted();
+    }
+    return false;
   }
 
   private void rotateRow(int modelRow, boolean right) {

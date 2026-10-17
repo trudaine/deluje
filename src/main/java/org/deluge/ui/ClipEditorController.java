@@ -1067,11 +1067,46 @@ public class ClipEditorController {
         srcRow >= 0
             ? bridge.getStepNudge(srcRow, srcCol)
             : (srcModelStep != null ? srcModelStep.nudge() : 0.0);
-    double stepFilterVal = srcRow >= 0 ? bridge.getStepFilter(srcRow, srcCol) : -1.0;
-    double stepResVal = srcRow >= 0 ? bridge.getStepRes(srcRow, srcCol) : -1.0;
-    double stepPanVal = srcRow >= 0 ? bridge.getStepPan(srcRow, srcCol) : -1.0;
-    double stepDelayVal = srcRow >= 0 ? bridge.getStepDelay(srcRow, srcCol) : -1.0;
-    double stepReverbVal = srcRow >= 0 ? bridge.getStepReverb(srcRow, srcCol) : -1.0;
+    float stepFilterVal =
+        readSourceStepAuto(
+            cModel,
+            srcClipRow,
+            srcRow,
+            srcCol,
+            org.deluge.model.AutomationParam.A_LPF_FREQ,
+            srcRow >= 0 ? bridge.getStepFilter(srcRow, srcCol) : -1.0);
+    float stepResVal =
+        readSourceStepAuto(
+            cModel,
+            srcClipRow,
+            srcRow,
+            srcCol,
+            org.deluge.model.AutomationParam.A_LPF_RES,
+            srcRow >= 0 ? bridge.getStepRes(srcRow, srcCol) : -1.0);
+    float stepPanVal =
+        readSourceStepAuto(
+            cModel,
+            srcClipRow,
+            srcRow,
+            srcCol,
+            org.deluge.model.AutomationParam.A_PAN,
+            srcRow >= 0 ? bridge.getStepPan(srcRow, srcCol) : -1.0);
+    float stepDelayVal =
+        readSourceStepAuto(
+            cModel,
+            srcClipRow,
+            srcRow,
+            srcCol,
+            org.deluge.model.AutomationParam.A_DELAY,
+            srcRow >= 0 ? bridge.getStepDelay(srcRow, srcCol) : -1.0);
+    float stepReverbVal =
+        readSourceStepAuto(
+            cModel,
+            srcClipRow,
+            srcRow,
+            srcCol,
+            org.deluge.model.AutomationParam.A_REVERB,
+            srcRow >= 0 ? bridge.getStepReverb(srcRow, srcCol) : -1.0);
 
     // Push Undo/Redo step copy event and sync ClipModel first so destination synth row capacity is
     // reserved before writing to the bridge.
@@ -1087,6 +1122,7 @@ public class ClipEditorController {
             (float) fill,
             (float) nudge);
     int dstClipRow = dstModelRow;
+    ArrayList<Consequence> steps = new ArrayList<>();
     if (cModel != null) {
       dstClipRow = parent.getClipRowIndex(cModel, dstModelRow, true);
       if (dstClipRow < 0) {
@@ -1107,6 +1143,51 @@ public class ClipEditorController {
         clonedStep = srcModelStep.withPitch(dstPitch);
       }
       cModel.setStep(dstClipRow, dstCol, clonedStep);
+      applyClonedRowAuto(
+          cModel,
+          editedModelTrack,
+          activeClipId,
+          dstClipRow,
+          dstCol,
+          org.deluge.model.AutomationParam.A_LPF_FREQ,
+          stepFilterVal,
+          steps);
+      applyClonedRowAuto(
+          cModel,
+          editedModelTrack,
+          activeClipId,
+          dstClipRow,
+          dstCol,
+          org.deluge.model.AutomationParam.A_LPF_RES,
+          stepResVal,
+          steps);
+      applyClonedRowAuto(
+          cModel,
+          editedModelTrack,
+          activeClipId,
+          dstClipRow,
+          dstCol,
+          org.deluge.model.AutomationParam.A_PAN,
+          stepPanVal,
+          steps);
+      applyClonedRowAuto(
+          cModel,
+          editedModelTrack,
+          activeClipId,
+          dstClipRow,
+          dstCol,
+          org.deluge.model.AutomationParam.A_DELAY,
+          stepDelayVal,
+          steps);
+      applyClonedRowAuto(
+          cModel,
+          editedModelTrack,
+          activeClipId,
+          dstClipRow,
+          dstCol,
+          org.deluge.model.AutomationParam.A_REVERB,
+          stepReverbVal,
+          steps);
     }
 
     int dstRow =
@@ -1122,14 +1203,14 @@ public class ClipEditorController {
       bridge.setIterance(dstRow, dstCol, clonedStep.iterance());
       bridge.setStepFill(dstRow, dstCol, clonedStep.fill());
       bridge.setStepNudge(dstRow, dstCol, clonedStep.nudge());
-      bridge.setStepFilter(dstRow, dstCol, stepFilterVal);
-      bridge.setStepRes(dstRow, dstCol, stepResVal);
-      bridge.setStepPan(dstRow, dstCol, stepPanVal);
-      bridge.setStepDelay(dstRow, dstCol, stepDelayVal);
-      bridge.setStepReverb(dstRow, dstCol, stepReverbVal);
+      bridge.setStepFilter(dstRow, dstCol, stepFilterVal >= 0f ? stepFilterVal : 0.0);
+      bridge.setStepRes(dstRow, dstCol, stepResVal >= 0f ? stepResVal : 0.0);
+      bridge.setStepPan(dstRow, dstCol, stepPanVal >= 0f ? stepPanVal : 0.0);
+      bridge.setStepDelay(dstRow, dstCol, stepDelayVal >= 0f ? stepDelayVal : 0.0);
+      bridge.setStepReverb(dstRow, dstCol, stepReverbVal >= 0f ? stepReverbVal : 0.0);
     }
-    ArrayList<Consequence> steps = new ArrayList<>();
     steps.add(
+        0,
         new Consequence.StepConsequence(
             getProjectModel(),
             editedModelTrack,
@@ -1146,6 +1227,40 @@ public class ClipEditorController {
 
     projectChangedCallback.run();
     refreshCallback.run();
+  }
+
+  private static float readSourceStepAuto(
+      ClipModel clip, int clipRow, int engineRow, int col, String param, double bridgeVal) {
+    if (clip != null && clipRow >= 0 && clip.hasRowAutomation(clipRow, param, col)) {
+      return clip.getRowAutomationValue(clipRow, param, col);
+    }
+    if (clip != null && clipRow == 0 && clip.hasAutomation(param, col)) {
+      return clip.getAutomation(param, col);
+    }
+    if (engineRow >= 0 && bridgeVal > 0.0) {
+      return (float) bridgeVal;
+    }
+    return -1f;
+  }
+
+  private void applyClonedRowAuto(
+      ClipModel clip,
+      int trackIdx,
+      int clipIdx,
+      int dstClipRow,
+      int dstCol,
+      String param,
+      float newVal,
+      java.util.List<Consequence> steps) {
+    if (clip == null || dstClipRow < 0) return;
+    float oldVal = clip.getRowAutomationValue(dstClipRow, param, dstCol);
+    if (oldVal < 0f && newVal < 0f) return;
+    clip.setRowAutomation(dstClipRow, param, dstCol, newVal);
+    if (getProjectModel() != null) {
+      steps.add(
+          new Consequence.RowAutomationConsequence(
+              getProjectModel(), trackIdx, clipIdx, dstClipRow, param, dstCol, oldVal, newVal));
+    }
   }
 
   public void hotSwapTrackSample(int modelRow, int visibleRow, java.io.File soundFile) {

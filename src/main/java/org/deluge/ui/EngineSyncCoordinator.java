@@ -1079,6 +1079,55 @@ public class EngineSyncCoordinator {
             clip.getAutomation(org.deluge.model.AutomationParam.A_SAMPLE_RATE_RED, s),
             clipIdx);
     }
+
+    int maxRows =
+        hasMapping() && trackIdx >= 0 && trackIdx < getMappedTrackCount()
+            ? getTrackVoiceCount(trackIdx)
+            : (startRow >= 0 ? Math.max(0, BridgeContract.TRACKS - startRow) : 0);
+    for (Integer rowIdxObj : clip.getNoteRowsMap().keySet()) {
+      int r = rowIdxObj != null ? rowIdxObj : -1;
+      if (r < 0 || r >= maxRows || startRow < 0 || startRow + r >= BridgeContract.TRACKS) {
+        continue;
+      }
+      int rowEng = startRow + r;
+      for (int s = 0; s < stepCount; s++) {
+        if (clip.hasRowAutomation(r, org.deluge.model.AutomationParam.A_LPF_FREQ, s)) {
+          br.setStepFilter(
+              rowEng,
+              s,
+              clip.getRowAutomationValue(r, org.deluge.model.AutomationParam.A_LPF_FREQ, s),
+              clipIdx);
+        }
+        if (clip.hasRowAutomation(r, org.deluge.model.AutomationParam.A_LPF_RES, s)) {
+          br.setStepRes(
+              rowEng,
+              s,
+              clip.getRowAutomationValue(r, org.deluge.model.AutomationParam.A_LPF_RES, s),
+              clipIdx);
+        }
+        if (clip.hasRowAutomation(r, org.deluge.model.AutomationParam.A_PAN, s)) {
+          br.setStepPan(
+              rowEng,
+              s,
+              clip.getRowAutomationValue(r, org.deluge.model.AutomationParam.A_PAN, s),
+              clipIdx);
+        }
+        if (clip.hasRowAutomation(r, org.deluge.model.AutomationParam.A_DELAY, s)) {
+          br.setStepDelay(
+              rowEng,
+              s,
+              clip.getRowAutomationValue(r, org.deluge.model.AutomationParam.A_DELAY, s),
+              clipIdx);
+        }
+        if (clip.hasRowAutomation(r, org.deluge.model.AutomationParam.A_REVERB, s)) {
+          br.setStepReverb(
+              rowEng,
+              s,
+              clip.getRowAutomationValue(r, org.deluge.model.AutomationParam.A_REVERB, s),
+              clipIdx);
+        }
+      }
+    }
   }
 
   private void pushKitEnv(int engineRow, int envIndex, EnvelopeModel env) {
