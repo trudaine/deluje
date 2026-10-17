@@ -3013,6 +3013,11 @@ public final class BridgeContract {
     for (int i = 0; i < PATTERN_SIZE; i++) step.pattern[i] = 0;
   }
 
+  public void resetStepAutomationDefaults(int track, int sidx) {
+    if (track < 0 || track >= TRACKS || sidx < 0 || sidx >= STEPS) return;
+    step.resetAutomationDefaultsAt(track * STEPS + sidx);
+  }
+
   public void setSamplePath(int track, String path) {
     samplePaths[track] = path;
   }

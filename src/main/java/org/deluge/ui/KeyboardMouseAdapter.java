@@ -41,24 +41,22 @@ class KeyboardMouseAdapter extends MouseAdapter {
     if (SwingGridPanel.lockArmedTrack == panel.editedModelTrack
         && SwingGridPanel.lockArmedStep != -1
         && panel.projectModel != null) {
-      int trkIndex = panel.scrollOffset - note;
-      if (trkIndex >= 0 && trkIndex < panel.voiceRowCount) {
-        int engineRow = panel.baseTrackId + trkIndex;
-        boolean st = panel.bridge.getStep(engineRow, SwingGridPanel.lockArmedStep);
-        panel.bridge.setStep(engineRow, SwingGridPanel.lockArmedStep, !st);
-        if (panel.bridge != null) {
+      TrackModel tModel = panel.projectModel.getTracks().get(SwingGridPanel.lockArmedTrack);
+      if (panel.activeClipId >= 0 && panel.activeClipId < tModel.getClips().size()) {
+        ClipModel cModel = tModel.getClips().get(panel.activeClipId);
+        int clipRow = panel.getOrCreateSynthClipRowForPitch(cModel, note);
+        int engineRow = panel.getEngineRowForStoredClipRow(clipRow);
+        if (clipRow >= 0 && engineRow >= 0) {
+          boolean st = panel.bridge.getStep(engineRow, SwingGridPanel.lockArmedStep);
+          panel.bridge.setStep(engineRow, SwingGridPanel.lockArmedStep, !st);
           panel.bridge.setVelocity(engineRow, SwingGridPanel.lockArmedStep, velFloat);
-        }
-
-        TrackModel tModel = panel.projectModel.getTracks().get(SwingGridPanel.lockArmedTrack);
-        if (panel.activeClipId < tModel.getClips().size()) {
-          ClipModel cModel = tModel.getClips().get(panel.activeClipId);
+          panel.bridge.setPitch(engineRow, SwingGridPanel.lockArmedStep, note);
           cModel.setStep(
-              trkIndex,
+              clipRow,
               SwingGridPanel.lockArmedStep,
-              new StepData(!st, velFloat, 0.5f, 1.0f, 0, 1, 1.0f));
+              new StepData(!st, velFloat, 0.5f, 1.0f, note, 1, 1.0f));
+          panel.fireProjectChanged();
         }
-        panel.fireProjectChanged();
       }
     }
     panel.triggerKeyboardNote(note, velocity);

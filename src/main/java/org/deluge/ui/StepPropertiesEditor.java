@@ -99,11 +99,13 @@ public class StepPropertiesEditor {
           ClipModel cModel = resolveClipModel(parent);
           StepData existing =
               cModel != null ? parent.getClipStep(cModel, visualModelRow, activeCol) : null;
-          int er = parent.getAllocatedEngineRow(visualModelRow);
-          boolean wasActive =
-              cModel != null
-                  ? (existing != null && existing.active())
-                  : (er >= 0 && bridge.getStep(er, activeCol));
+          boolean wasActive;
+          if (cModel != null) {
+            wasActive = existing != null && existing.active();
+          } else {
+            int er = parent.getAllocatedEngineRow(visualModelRow);
+            wasActive = er >= 0 && bridge.getStep(er, activeCol);
+          }
           if (wasActive) {
             controller.handleStepToggled(row, col);
           }

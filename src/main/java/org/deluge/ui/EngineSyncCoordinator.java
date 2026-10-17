@@ -70,6 +70,25 @@ public class EngineSyncCoordinator {
     return 0;
   }
 
+  /**
+   * Resolve the starting engine row for a model track, consulting the live coordinator published on
+   * the bridge when available and falling back to computing the layout from the project model.
+   */
+  public static int resolveTrackEngineStart(
+      BridgeContract bridge, ProjectModel project, int trackId) {
+    if (project == null || trackId < 0 || trackId >= project.getTracks().size()) {
+      return -1;
+    }
+    if (bridge != null
+        && bridge.getGlobalObject("g_sync_coordinator") instanceof EngineSyncCoordinator sc
+        && sc.hasMapping()
+        && sc.getMappedTrackCount() == project.getTracks().size()) {
+      return sc.getTrackEngineStart(trackId);
+    }
+    TrackEngineMapping layout = computeLayout(project);
+    return trackId < layout.engineStart.length ? layout.engineStart[trackId] : -1;
+  }
+
   /** Register the project listener to propagate real-time edits to the engine. */
   public void registerProject(ProjectModel model) {
     model.addProjectListener(new BridgeProjectListener(model));
@@ -142,6 +161,7 @@ public class EngineSyncCoordinator {
     bridge.setIterance(engineRow, stepIdx, 0);
     bridge.setStepFill(engineRow, stepIdx, 0.0f);
     bridge.setStepNudge(engineRow, stepIdx, 0.0f);
+    bridge.resetStepAutomationDefaults(engineRow, stepIdx);
   }
 
   private void applyProjectMutes(ProjectModel currentProject, TrackEngineMapping m) {
@@ -512,6 +532,9 @@ public class EngineSyncCoordinator {
 
       // Track length and stepCount for all allocated rows of this track
       int activeIdx = track.getActiveClipIndex();
+      if (activeIdx >= 0 && activeIdx < track.getClips().size()) {
+        pushClipAutomation(t, bridge, track.getClips().get(activeIdx), 0, startRow);
+      }
       int rowLen =
           (activeIdx >= 0 && activeIdx < track.getClips().size())
               ? track.getClips().get(activeIdx).getStepCount()
@@ -791,7 +814,7 @@ public class EngineSyncCoordinator {
   }
 
   /** Push per-step automation data for a single clip to the bridge. */
-  private void pushClipAutomation(
+  void pushClipAutomation(
       int trackIdx, BridgeContract br, ClipModel clip, int clipIdx, int startRow) {
     int stepCount = clip.getStepCount();
     int engRow = startRow;

@@ -771,8 +771,8 @@ public class ClipGridPanel extends SwingGridPanel {
       pads[visibleRow][c] = clipBtn;
 
       if (isMuteColumn(colId)) {
-        final int trackToMute = isEditedTrackKit() ? (baseTrackId + modelRow) : editedModelTrack;
-        final int engineRow = baseTrackId + modelRow;
+        final int trackToMute =
+            isEditedTrackKit() ? getAllocatedEngineRow(modelRow) : editedModelTrack;
         boolean isMuted;
         if (isEditedTrackKit()) {
           org.deluge.model.ClipModel clip = activeEditedClip();
@@ -781,12 +781,12 @@ public class ClipGridPanel extends SwingGridPanel {
           isMuted =
               (noteRow != null)
                   ? noteRow.isMuted()
-                  : (bridge != null && bridge.getMute(trackToMute));
+                  : (bridge != null && trackToMute >= 0 && bridge.getMute(trackToMute));
         } else {
           if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
             isMuted = projectModel.getTracks().get(editedModelTrack).isMuted();
           } else {
-            isMuted = bridge != null && bridge.getMute(trackToMute);
+            isMuted = bridge != null && trackToMute >= 0 && bridge.getMute(trackToMute);
           }
         }
 
@@ -829,8 +829,17 @@ public class ClipGridPanel extends SwingGridPanel {
         clipBtn.addActionListener(
             e -> {
               if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
-                for (int s = 0; s < stepCount; s++) {
-                  if (bridge != null) bridge.setStep(engineRow, s, false);
+                org.deluge.model.ClipModel curClip = getEditedActiveClip();
+                int clipRow = curClip != null ? getClipRowIndex(curClip, modelRow, false) : -1;
+                int er = getAllocatedEngineRow(modelRow);
+                int clearLen = curClip != null ? curClip.getStepCount() : stepCount;
+                for (int s = 0; s < clearLen; s++) {
+                  if (curClip != null && clipRow >= 0) {
+                    curClip.setStep(clipRow, s, org.deluge.model.StepData.empty());
+                  }
+                  if (bridge != null && er >= 0 && s < BridgeContract.STEPS) {
+                    bridge.setStep(er, s, false);
+                  }
                 }
                 refresh();
                 return;
@@ -875,7 +884,7 @@ public class ClipGridPanel extends SwingGridPanel {
                   nextMute = !noteRow.isMuted();
                   noteRow.setMuted(nextMute);
                 } else {
-                  nextMute = bridge != null && !bridge.getMute(trackToMute);
+                  nextMute = bridge != null && trackToMute >= 0 && !bridge.getMute(trackToMute);
                 }
               } else {
                 if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
@@ -884,7 +893,7 @@ public class ClipGridPanel extends SwingGridPanel {
                   nextMute = !track.isMuted();
                   track.setMuted(nextMute);
                 } else {
-                  nextMute = bridge != null && !bridge.getMute(trackToMute);
+                  nextMute = bridge != null && trackToMute >= 0 && !bridge.getMute(trackToMute);
                 }
               }
               updateEngineMutes();
@@ -1594,6 +1603,10 @@ public class ClipGridPanel extends SwingGridPanel {
 
   /** The clip currently being edited on this grid, or {@code null} if none is resolvable. */
   private org.deluge.model.ClipModel activeEditedClip() {
+    org.deluge.model.ClipModel edited = getEditedActiveClip();
+    if (edited != null) {
+      return edited;
+    }
     if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) {
       return null;
     }

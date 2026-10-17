@@ -1519,4 +1519,271 @@ class CopilotPr8FixesTest {
     assertEquals(62, bridge.getPitch(0, 1));
     assertFalse(bridge.getStep(65, 1), "transposeTrack must not write to display row 65");
   }
+
+  @Test
+  void shiftClickOnMutePadClearsStoredClipRowAndAllocatedEngineRow() {
+    System.setProperty("chuck.audio.dummy", "true");
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel synth = new SynthTrackModel("MUTE_CLEAR");
+    ClipModel clip = new ClipModel("Sparse", 1, 16);
+    clip.setRowYNote(0, 60);
+    clip.setStep(0, 2, StepData.of(true, 0.8f, 1.0f, 1.0f, 60));
+    synth.addClip(clip);
+    project.addTrack(synth);
+
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    org.deluge.ui.EngineSyncCoordinator sync =
+        new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+    sync.pushModelToBridge(project);
+    bridge.setStep(67, 2, true); // sentinel on display row 67
+
+    org.deluge.ui.ClipGridPanel panel = new org.deluge.ui.ClipGridPanel(bridge);
+    panel.setScaleModeEnabled(false);
+    panel.setEditedModelTrack(0);
+    panel.setBaseTrackId(0);
+    panel.setProjectModel(project);
+    panel.setScrollOffset(60); // visible row 7 -> modelRow 67 -> MIDI 60 -> stored row 0
+    panel.rebuildUIComponents();
+
+    javax.swing.JButton muteBtn = panel.getPads()[7][16];
+    for (java.awt.event.ActionListener al : muteBtn.getActionListeners()) {
+      al.actionPerformed(
+          new java.awt.event.ActionEvent(
+              muteBtn,
+              java.awt.event.ActionEvent.ACTION_PERFORMED,
+              "clear",
+              java.awt.event.ActionEvent.SHIFT_MASK));
+    }
+
+    assertFalse(clip.getStep(0, 2).active(), "Shift-click mute must clear stored clip row 0");
+    assertFalse(bridge.getStep(0, 2), "Shift-click mute must clear allocated engine row 0");
+    assertTrue(bridge.getStep(67, 2), "Shift-click mute must not clear unrelated display row 67");
+  }
+
+  @Test
+  void transposeTrackPreservesNoteRowSoundOverridesAutomationMuteAndRawNotes() {
+    System.setProperty("chuck.audio.dummy", "true");
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel synth = new SynthTrackModel("TRANSPOSE_KEEP");
+    ClipModel clip = new ClipModel("WithProps", 1, 16);
+    clip.setRowYNote(0, 60);
+    clip.setStep(0, 0, StepData.of(true, 0.9f, 1.0f, 1.0f, 60));
+    org.deluge.model.NoteRowModel rowModel = clip.getOrCreateRow(0);
+    rowModel.setMuted(true);
+    rowModel.setLoopLengthIfIndependent(192);
+    rowModel.getNotes().add(new org.deluge.model.NoteModel(12, 12, 0.8f, 1.0f, 0));
+    int expectedRawNotes = rowModel.getNotes().size();
+    clip.setRowAutomation(0, "lpfFrequency", 3, 0.42f);
+    synth.addClip(clip);
+    project.addTrack(synth);
+
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    org.deluge.ui.EngineSyncCoordinator sync =
+        new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+    sync.pushModelToBridge(project);
+
+    org.deluge.ui.ClipGridPanel panel = new org.deluge.ui.ClipGridPanel(bridge);
+    panel.setScaleModeEnabled(false);
+    panel.setEditedModelTrack(0);
+    panel.setBaseTrackId(0);
+    panel.setProjectModel(project);
+
+    assertTrue(panel.transposeTrack(2));
+
+    org.deluge.model.NoteRowModel after = clip.getNoteRowsMap().get(0);
+    org.junit.jupiter.api.Assertions.assertNotNull(
+        after, "Stored NoteRowModel 0 must remain attached after transposeTrack");
+    assertEquals(62, after.getPitch(), "NoteRowModel pitch must move to 62");
+    assertTrue(after.isMuted(), "NoteRowModel mute flag must be preserved");
+    assertEquals(192, after.getLoopLengthIfIndependent(), "Independent loop length must stay 192");
+    assertEquals(
+        expectedRawNotes, after.getNotes().size(), "Raw NoteModel list must remain intact");
+    assertEquals(
+        0.42f,
+        after.getRowAutomation().get("lpfFrequency")[3],
+        1e-6f,
+        "Per-row automation must be preserved");
+    assertEquals(62, clip.getStep(0, 0).pitch());
+  }
+
+  @Test
+  void midiInputRecordingMonitorsNoteImmediatelyAndReleasesOnNoteOff() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    org.deluge.project.PreferencesManager.set("midi.grid.mode", "false");
+    org.deluge.ui.SwingDelugeApp oldApp = org.deluge.ui.SwingDelugeApp.mainInstance;
+    boolean oldRecordMode = org.deluge.ui.SwingGridPanel.isLiveRecordModeActive;
+    try {
+      ProjectModel project = new ProjectModel();
+      SynthTrackModel synth = new SynthTrackModel("MIDI_MON");
+      ClipModel clip = new ClipModel("Clip", 8, 16);
+      for (int r = 0; r < 8; r++) {
+        clip.setRowYNote(r, 60 + r);
+      }
+      synth.addClip(clip);
+      project.addTrack(synth);
+
+      org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+      org.deluge.ui.EngineSyncCoordinator sync =
+          new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+      sync.pushModelToBridge(project);
+
+      org.deluge.engine.FirmwareAudioEngine fwEngine = new org.deluge.engine.FirmwareAudioEngine();
+      final int[] triggered = {-1, -1};
+      final int[] released = {-1};
+      org.deluge.engine.FirmwareSound mockSound =
+          new org.deluge.engine.FirmwareSound() {
+            @Override
+            public void triggerNote(int note, int velocity) {
+              triggered[0] = note;
+              triggered[1] = velocity;
+            }
+
+            @Override
+            public void releaseNote(int note) {
+              released[0] = note;
+            }
+          };
+      fwEngine.sounds.add(mockSound);
+      bridge.setGlobalObject(org.deluge.BridgeContract.G_FIRMWARE_ENGINE, fwEngine);
+
+      org.deluge.ui.ClipGridPanel panel = new org.deluge.ui.ClipGridPanel(bridge);
+      panel.setScaleModeEnabled(false);
+      panel.setViewMode(org.deluge.ui.SwingGridPanel.GridViewMode.CLIP);
+      panel.setEditedModelTrack(0);
+      panel.setBaseTrackId(0);
+      panel.setActiveClipId(0);
+      panel.setProjectModel(project);
+      panel.updatePlayhead(3);
+
+      java.lang.reflect.Field f = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
+      f.setAccessible(true);
+      sun.misc.Unsafe unsafe = (sun.misc.Unsafe) f.get(null);
+      org.deluge.ui.SwingDelugeApp dummyApp =
+          (org.deluge.ui.SwingDelugeApp)
+              unsafe.allocateInstance(org.deluge.ui.SwingDelugeApp.class);
+      java.lang.reflect.Field clipPanelField =
+          org.deluge.ui.SwingDelugeApp.class.getDeclaredField("clipPanel");
+      clipPanelField.setAccessible(true);
+      clipPanelField.set(dummyApp, panel);
+      java.lang.reflect.Field currentProjectField =
+          org.deluge.ui.SwingDelugeApp.class.getDeclaredField("currentProject");
+      currentProjectField.setAccessible(true);
+      currentProjectField.set(dummyApp, project);
+      org.deluge.ui.SwingDelugeApp.mainInstance = dummyApp;
+
+      org.deluge.ui.SwingGridPanel.isLiveRecordModeActive = true;
+      bridge.setGlobalInt(org.deluge.BridgeContract.G_PLAY, 1L);
+
+      org.deluge.midi.MidiInputRouter router = new org.deluge.midi.MidiInputRouter(bridge);
+
+      org.deluge.shadow.midi.MidiMsg noteOn = new org.deluge.shadow.midi.MidiMsg();
+      noteOn.status = 0x90;
+      noteOn.data1 = 0x90;
+      noteOn.data2 = 64;
+      noteOn.data3 = 100;
+      router.handleMidiMessage(noteOn);
+
+      assertEquals(
+          64, triggered[0], "Recorded MIDI NoteOn must trigger live monitoring immediately");
+      assertEquals(100, triggered[1]);
+      assertTrue(clip.getStep(4, 3).active(), "Recorded MIDI NoteOn must write to stored row 4");
+
+      org.deluge.shadow.midi.MidiMsg noteOff = new org.deluge.shadow.midi.MidiMsg();
+      noteOff.status = 0x80;
+      noteOff.data1 = 0x80;
+      noteOff.data2 = 64;
+      noteOff.data3 = 0;
+      router.handleMidiMessage(noteOff);
+
+      assertEquals(64, released[0], "MIDI NoteOff during recording must release monitored note");
+    } finally {
+      org.deluge.ui.SwingGridPanel.isLiveRecordModeActive = oldRecordMode;
+      org.deluge.ui.SwingDelugeApp.mainInstance = oldApp;
+    }
+  }
+
+  @Test
+  void pureFirmwareEngineSyncFromBridgeReadsTrackMuteFromAllocatedStartRow() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    ProjectModel project = new ProjectModel();
+
+    SynthTrackModel synth0 = new SynthTrackModel("T0_MUTED");
+    synth0.setMuted(true);
+    ClipModel clip0 = new ClipModel("Clip 0", 8, 16);
+    org.deluge.engine.FirmwareSound sound0 = new org.deluge.engine.FirmwareSound();
+    clip0.setSound(sound0);
+    synth0.addClip(clip0);
+    project.addTrack(synth0);
+
+    SynthTrackModel synth1 = new SynthTrackModel("T1_UNMUTED");
+    synth1.setMuted(false);
+    ClipModel clip1 = new ClipModel("Clip 1", 8, 16);
+    org.deluge.engine.FirmwareSound sound1 = new org.deluge.engine.FirmwareSound();
+    clip1.setSound(sound1);
+    synth1.addClip(clip1);
+    project.addTrack(synth1);
+
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    org.deluge.ui.EngineSyncCoordinator sync =
+        new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+    sync.pushModelToBridge(project);
+
+    org.deluge.engine.PureFirmwareEngine engine = new org.deluge.engine.PureFirmwareEngine();
+    engine.setProject(project);
+    engine.syncFromBridge(bridge);
+    javax.swing.SwingUtilities.invokeAndWait(() -> {});
+
+    assertTrue(sound0.muted, "Track 0 FirmwareSound must be muted from startRow 0");
+    assertFalse(sound1.muted, "Track 1 FirmwareSound must read startRow 8 and stay unmuted");
+  }
+
+  @Test
+  void pushModelToBridgeAndRestoreEditedClipDoNotMixStepAutomationAcrossClips() {
+    System.setProperty("chuck.audio.dummy", "true");
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel synth = new SynthTrackModel("AUTO_ISOLATION");
+    int[] cMajorPitches = {60, 62, 64, 65, 67, 69, 71, 72};
+
+    ClipModel clip0 = new ClipModel("Clip 0", 8, 16);
+    ClipModel clip1 = new ClipModel("Clip 1 Active", 8, 16);
+    for (int r = 0; r < 8; r++) {
+      clip0.setRowYNote(r, cMajorPitches[r]);
+      clip1.setRowYNote(r, cMajorPitches[r]);
+    }
+    clip0.setAutomation(org.deluge.model.AutomationParam.A_LPF_FREQ, 2, 0.25f);
+    clip1.setAutomation(org.deluge.model.AutomationParam.A_LPF_FREQ, 4, 0.85f);
+    synth.addClip(clip0);
+    synth.addClip(clip1);
+    synth.setActiveClipIndex(1);
+    project.addTrack(synth);
+
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    org.deluge.ui.EngineSyncCoordinator sync =
+        new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+    sync.pushModelToBridge(project);
+
+    assertEquals(
+        0.0,
+        bridge.getStepFilter(0, 2),
+        1e-6,
+        "Clip 0 automation at step 2 must not leak into Clip 1 primary stepFilter");
+    assertEquals(
+        0.85,
+        bridge.getStepFilter(0, 4),
+        1e-6,
+        "Active Clip 1 automation at step 4 must be present in primary stepFilter");
+
+    org.deluge.ui.ClipGridPanel panel = new org.deluge.ui.ClipGridPanel(bridge);
+    panel.setViewMode(org.deluge.ui.SwingGridPanel.GridViewMode.CLIP);
+    panel.setActiveClipId(1);
+    panel.setProjectModel(project);
+    panel.setScrollOffset(59);
+
+    org.deluge.ui.ClipEditorController controller =
+        new org.deluge.ui.ClipEditorController(panel, () -> {}, () -> {});
+    controller.handleStepToggled(0, 5); // allocates 9th row and calls restoreEditedClipInBridge()
+
+    assertEquals(0.0, bridge.getStepFilter(0, 2), 1e-6);
+    assertEquals(0.85, bridge.getStepFilter(0, 4), 1e-6);
+  }
 }

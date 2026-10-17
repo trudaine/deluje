@@ -203,6 +203,13 @@ public class ArrangerPlaybackScheduler implements Runnable {
           int engineRow = startRow + r;
           if (engineRow < 0 || engineRow >= BridgeContract.TRACKS) continue;
           bridge.setStep(engineRow, col, false);
+          bridge.setVelocity(engineRow, col, 0.8f);
+          bridge.setGate(engineRow, col, StepData.DEFAULT_CLICK_GATE);
+          bridge.setPitch(engineRow, col, 0);
+          bridge.setStepProbability(engineRow, col, 1.0f);
+          bridge.setIterance(engineRow, col, 0);
+          bridge.setStepFill(engineRow, col, 0.0f);
+          bridge.setStepNudge(engineRow, col, 0.0f);
         }
       }
     }

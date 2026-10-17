@@ -219,6 +219,11 @@ public class ClipModel extends TimelineCounter {
    * and the saved file kept playing the old notes. Every other per-step property is preserved;
    * {@code StepData.of()} would reset iterance/fill/nudge to 0.
    */
+  public void retuneRowInPlace(int rowIndex, int newPitch) {
+    getOrCreateRow(rowIndex).setPitch(newPitch);
+    retuneGridRow(rowIndex, newPitch);
+  }
+
   private void retuneGridRow(int rowIndex, int newPitch) {
     if (rowIndex < 0 || rowIndex >= grid.size()) return;
     List<StepData> steps = grid.get(rowIndex);

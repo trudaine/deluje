@@ -265,6 +265,9 @@ public class MidiInputRouter {
 
               int engineRow = activeGrid.getEngineRowForStoredClipRow(clipRow);
               if (clipRow < 0 || engineRow < 0) {
+                triggerLiveNote(trackIndex, midiNote, velocity);
+                activeNoteStarts.put(
+                    midiNote, new NoteStartInfo(bridge.getCurrentTime(), -1, trackIndex));
                 return;
               }
 
@@ -293,6 +296,9 @@ public class MidiInputRouter {
               bridge.setGate(engineRow, col, 1.0);
               bridge.setPitch(engineRow, col, pitch);
 
+              // Monitor the recorded note immediately so playback does not wait for the next loop
+              triggerLiveNote(trackIndex, midiNote, velocity);
+
               // Store start time and step for Note Off gate calculation
               activeNoteStarts.put(
                   midiNote, new NoteStartInfo(bridge.getCurrentTime(), col, trackIndex));
@@ -307,10 +313,7 @@ public class MidiInputRouter {
 
       // Fallback: live auditioning if recording is off or no active grid
       int targetTrack = resolveTrackFromChannel(midiChannel);
-      org.deluge.engine.FirmwareSound liveSound = getLiveSound(targetTrack);
-      if (liveSound != null) {
-        liveSound.triggerNote(midiNote, velocity);
-      }
+      triggerLiveNote(targetTrack, midiNote, velocity);
       activeNoteStarts.put(midiNote, new NoteStartInfo(bridge.getCurrentTime(), -1, targetTrack));
 
     } else if (msg.isNoteOff()) {
@@ -325,53 +328,73 @@ public class MidiInputRouter {
         double gate = (double) duration / (bridge.getSampleRate() * (15.0 / bpm));
 
         // If recording is active, update the gate length in the high-level model!
-        if (isRecording && isPlaying && SwingDelugeApp.mainInstance != null) {
+        if (isRecording && isPlaying && start.step >= 0 && SwingDelugeApp.mainInstance != null) {
           SwingGridPanel activeGrid = SwingDelugeApp.mainInstance.getActiveGridPanel();
           if (activeGrid != null) {
             org.deluge.model.ClipModel clip = activeGrid.getEditedActiveClip();
-            if (clip != null && start.step >= 0 && start.step < clip.getStepCount()) {
+            if (clip != null && start.step < clip.getStepCount()) {
               int trackIndex = activeGrid.getEditedModelTrack();
-              int row = -1;
               org.deluge.model.TrackModel activeTrack =
                   activeGrid.getProjectModel().getTracks().get(trackIndex);
-              if (!(activeTrack instanceof org.deluge.model.SynthTrackModel
-                  || activeTrack instanceof org.deluge.model.KitTrackModel)) {
-                return; // Upstream C++ commit c8a9dc6f (#4708): ignore audio & non-instrument
-                // tracks!
-              }
-              int clipRow;
-              if (activeTrack instanceof org.deluge.model.KitTrackModel) {
-                int drumRow = midiNote - 36;
-                clipRow = drumRow >= 0 ? activeGrid.getClipRowIndex(clip, drumRow, false) : -1;
-              } else {
-                clipRow = activeGrid.findSynthClipRowForPitch(clip, midiNote);
-              }
-              if (clipRow >= 0) {
-                org.deluge.model.StepData oldStep = clip.getStep(clipRow, start.step);
-                if (oldStep != null && oldStep.active()) {
-                  org.deluge.model.StepData newStep = oldStep.withGate((float) gate);
-                  clip.setStep(clipRow, start.step, newStep);
+              if (activeTrack instanceof org.deluge.model.SynthTrackModel
+                  || activeTrack instanceof org.deluge.model.KitTrackModel) {
+                int clipRow;
+                if (activeTrack instanceof org.deluge.model.KitTrackModel) {
+                  int drumRow = midiNote - 36;
+                  clipRow = drumRow >= 0 ? activeGrid.getClipRowIndex(clip, drumRow, false) : -1;
+                } else {
+                  clipRow = activeGrid.findSynthClipRowForPitch(clip, midiNote);
+                }
+                if (clipRow >= 0) {
+                  org.deluge.model.StepData oldStep = clip.getStep(clipRow, start.step);
+                  if (oldStep != null && oldStep.active()) {
+                    org.deluge.model.StepData newStep = oldStep.withGate((float) gate);
+                    clip.setStep(clipRow, start.step, newStep);
 
-                  // Update low-level ChucK bridge gate
-                  int engineRow = activeGrid.getEngineRowForStoredClipRow(clipRow);
-                  if (engineRow >= 0) {
-                    bridge.setGate(engineRow, start.step, gate);
+                    // Update low-level ChucK bridge gate
+                    int engineRow = activeGrid.getEngineRowForStoredClipRow(clipRow);
+                    if (engineRow >= 0) {
+                      bridge.setGate(engineRow, start.step, gate);
+                    }
+
+                    // Refresh UI grid
+                    javax.swing.SwingUtilities.invokeLater(() -> activeGrid.refresh());
                   }
-
-                  // Refresh UI grid
-                  javax.swing.SwingUtilities.invokeLater(() -> activeGrid.refresh());
                 }
               }
             }
           }
-        } else {
-          // Auditioning fallback: release the note live
-          org.deluge.engine.FirmwareSound liveSound = getLiveSound(start.track);
-          if (liveSound != null) {
-            liveSound.releaseNote(midiNote);
+        }
+        // Always release any monitored live note
+        releaseLiveNote(start.track, midiNote);
+      }
+    }
+  }
+
+  private void triggerLiveNote(int trackIndex, int midiNote, int velocity) {
+    try {
+      Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine) {
+        if (trackIndex >= 0 && trackIndex < engine.sounds.size()) {
+          var sound = engine.sounds.get(trackIndex);
+          if (sound instanceof org.deluge.engine.FirmwareSound liveSound) {
+            liveSound.triggerNote(midiNote, velocity);
+          } else if (sound instanceof org.deluge.engine.FirmwareKit liveKit) {
+            int drumRow = midiNote - 36;
+            if (drumRow >= 0 && drumRow < liveKit.drumSounds.size()) {
+              liveKit.triggerDrum(drumRow, velocity);
+            }
           }
         }
       }
+    } catch (Exception ignored) {
+    }
+  }
+
+  private void releaseLiveNote(int trackIndex, int midiNote) {
+    org.deluge.engine.FirmwareSound liveSound = getLiveSound(trackIndex);
+    if (liveSound != null) {
+      liveSound.releaseNote(midiNote);
     }
   }
 
