@@ -395,4 +395,57 @@ class CopilotPr8FixesTest {
     assertEquals(0x0201, redone.playCondition());
     assertEquals(1, redone.fillMode());
   }
+
+  @Test
+  void engineSyncCoordinatorPushesStepProbabilityForSynthAndKit() throws Exception {
+    String xml =
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <song firmwareVersion="c1.3.0" earliestCompatibleFirmware="4.1.0-alpha">
+          <instruments>
+            <sound presetName="INIT" mode="subtractive" polyphonic="1" voicePriority="1">
+              <osc1 type="saw" transpose="0" cents="0" retrigPhase="-1" />
+              <osc2 type="saw" transpose="0" cents="0" retrigPhase="-1" />
+              <defaultParams lpfFrequency="0x7FFFFFFF" lpfResonance="0x80000000" volume="0x4CCCCCA8" />
+            </sound>
+            <kit presetName="KIT1">
+              <soundSources>
+                <sound name="KICK" mode="subtractive" polyphonic="0" voicePriority="1">
+                  <osc1 type="saw" transpose="0" cents="0" retrigPhase="-1" />
+                  <osc2 type="saw" transpose="0" cents="0" retrigPhase="-1" />
+                  <defaultParams lpfFrequency="0x7FFFFFFF" lpfResonance="0x80000000" volume="0x4CCCCCA8" />
+                </sound>
+              </soundSources>
+            </kit>
+          </instruments>
+          <sessionClips>
+            <instrumentClip length="384" instrumentPresetName="INIT">
+              <noteRows>
+                <noteRow y="60" noteDataWithSplitProb="0x0000003000000018664005020100" />
+              </noteRows>
+            </instrumentClip>
+            <instrumentClip length="384" instrumentPresetFolder="KITS" instrumentPresetName="KIT1">
+              <noteRows>
+                <noteRow drumIndex="0" noteDataWithSplitProb="0x000000480000001866400F000000" />
+              </noteRows>
+            </instrumentClip>
+          </sessionClips>
+        </song>
+        """;
+
+    ProjectModel project =
+        SongXmlParser.parseSong(
+            new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)), "BridgeProbSong");
+
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    org.deluge.ui.EngineSyncCoordinator sync =
+        new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+    sync.pushModelToBridge(project);
+
+    // Synth track (row 0, step 2) -> probByte 0x05 = 5/20 = 0.25
+    assertEquals(0.25, bridge.getStepProbability(0, 2), 0.001);
+    // Kit track (startRow 8, row 0, step 3) -> probByte 0x0F = 15/20 = 0.75
+    int kitStartRow = sync.getTrackEngineStart(1);
+    assertEquals(0.75, bridge.getStepProbability(kitStartRow, 3), 0.001);
+  }
 }

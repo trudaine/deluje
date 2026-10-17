@@ -87,7 +87,10 @@ public class EngineSyncCoordinator {
    * patterns).
    */
   public void pushModelToBridge() {
-    ProjectModel currentProject = app.getCurrentProject();
+    pushModelToBridge(app != null ? app.getCurrentProject() : null);
+  }
+
+  public void pushModelToBridge(ProjectModel currentProject) {
     if (currentProject == null) return;
 
     TrackEngineMapping m = computeEngineMapping(currentProject);
@@ -247,6 +250,8 @@ public class EngineSyncCoordinator {
               if (step != null && step.active() && r < voiceCount) {
                 bridge.setStep(startRow + r, s, true);
                 bridge.setVelocity(startRow + r, s, step.velocity());
+                bridge.setGate(startRow + r, s, step.gate());
+                bridge.setStepProbability(startRow + r, s, step.probability());
                 bridge.setIterance(startRow + r, s, step.iterance());
                 bridge.setStepFill(startRow + r, s, step.fill());
                 bridge.setStepNudge(startRow + r, s, step.nudge());
@@ -281,6 +286,7 @@ public class EngineSyncCoordinator {
                 bridge.setVelocity(engineRow, s, step.velocity());
                 bridge.setGate(engineRow, s, step.gate());
                 bridge.setPitch(engineRow, s, step.pitch());
+                bridge.setStepProbability(engineRow, s, step.probability());
                 bridge.setIterance(engineRow, s, step.iterance());
                 bridge.setStepFill(engineRow, s, step.fill());
                 bridge.setStepNudge(engineRow, s, step.nudge());
@@ -539,7 +545,7 @@ public class EngineSyncCoordinator {
     }
 
     // ── MIDI Follow Mode globals ──
-    org.deluge.midi.MidiService midiService = app.getMidiService();
+    org.deluge.midi.MidiService midiService = app != null ? app.getMidiService() : null;
     bridge.setFollowEnabled(midiService != null && midiService.isRecording());
     bridge.setGlobalInt(BridgeContract.G_FOLLOW_CH_A, bridge.getFollowMidChannel('A'));
     bridge.setGlobalInt(BridgeContract.G_FOLLOW_CH_B, bridge.getFollowMidChannel('B'));
@@ -554,10 +560,10 @@ public class EngineSyncCoordinator {
       int clipIdx = track.getActiveClipIndex();
       if (track instanceof AudioTrackModel audioTrk) {
         if (clipIdx >= 0 && clipIdx < audioTrk.getAudioClips().size()) {
-          applyClipFxOverrides(t, clipIdx);
+          applyClipFxOverrides(currentProject, t, clipIdx);
         }
       } else if (clipIdx >= 0 && clipIdx < track.getClips().size()) {
-        applyClipFxOverrides(t, clipIdx);
+        applyClipFxOverrides(currentProject, t, clipIdx);
       }
     }
 
@@ -600,7 +606,10 @@ public class EngineSyncCoordinator {
    * Override song-level FX parameters (G_SP_* globals) with the active clip's per-clip FX params.
    */
   public void applyClipFxOverrides(int track, int clipIdx) {
-    ProjectModel currentProject = app.getCurrentProject();
+    applyClipFxOverrides(app != null ? app.getCurrentProject() : null, track, clipIdx);
+  }
+
+  public void applyClipFxOverrides(ProjectModel currentProject, int track, int clipIdx) {
     if (currentProject == null) return;
 
     List<TrackModel> tracks = currentProject.getTracks();
