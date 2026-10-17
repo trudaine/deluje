@@ -40,6 +40,7 @@ public class PlaybackHandler {
   private static final int INTERNAL_TICKS_PER_MIDI_CLOCK = 4;
   private MidiClockSink midiClockOut;
   private int lastClockTick = 0; // internal tick at which the last 0xF8 was emitted
+  private int swingSubTicks = 0; // fractional swing progress in fiftieths of an input tick
 
   public void setMidiClockOut(MidiClockSink sink) {
     this.midiClockOut = sink;
@@ -154,6 +155,7 @@ public class PlaybackHandler {
     playing = true;
     lastSwungTickActioned = 0;
     swungTicksTilNextEvent = 0;
+    swingSubTicks = 0;
     launchEventAtSwungTickCount = 0;
     numRepeatsTilLaunch = 0;
     lastClockTick = 0;
@@ -171,6 +173,7 @@ public class PlaybackHandler {
 
   public synchronized void stop() {
     playing = false;
+    swingSubTicks = 0;
     launchEventAtSwungTickCount = 0;
     numRepeatsTilLaunch = 0;
     if (midiClockOut != null) midiClockOut.stop(); // 0xFC
@@ -183,39 +186,67 @@ public class PlaybackHandler {
     if (!playing || currentProject == null) return;
 
     int ticksRemaining = numTicks;
-    while (ticksRemaining > 0) {
-      int toAdvance = Math.min(ticksRemaining, swungTicksTilNextEvent);
-      if (toAdvance <= 0) toAdvance = 1;
+    while (true) {
+      int nextDeadline = swungTicksTilNextEvent;
+      for (ClipModel clip : currentProject.getClips()) {
+        nextDeadline = Math.min(nextDeadline, clip.getTicksTilNextEvent());
+      }
+      int deadlineTicks = Math.max(1, nextDeadline);
 
-      // ── Bit-Accurate Swing Math ──
-      int effectiveAdvance = toAdvance;
-      if (currentProject.getSwingAmount() != 0) {
+      // ── Bit-Accurate Swing Math (C playback_handler.cpp:1768-1790) ──
+      // Each input tick contributes 50 sub-ticks. One swung tick costs (50 + swingAmount) sub-ticks
+      // in the first half of the swing pair and (50 - swingAmount) sub-ticks in the second half, so
+      // a complete pair of (2 * swingTicks) swung ticks always costs (2 * swingTicks * 50)
+      // sub-ticks (= 2 * swingTicks input ticks) and preserves overall playback tempo.
+      int effectiveAdvance;
+      int swingAmount = Math.max(-49, Math.min(49, currentProject.getSwingAmount()));
+      if (swingAmount == 0) {
+        swingSubTicks = 0;
+        if (ticksRemaining <= 0) break;
+        int toAdvance = Math.min(ticksRemaining, deadlineTicks);
+        effectiveAdvance = toAdvance;
+        ticksRemaining -= toAdvance;
+      } else {
         int leftShift =
-            6
-                - currentProject
-                    .getSwingInterval(); // Offset 6 for 96 PPQN (C++ uses 9/10 for 1536 PPQN)
+            Math.max(
+                0,
+                6
+                    - currentProject
+                        .getSwingInterval()); // Offset 6 for 96 PPQN (C++ uses 9/10 for 1536 PPQN)
         int swingTicks = 3 << leftShift;
-        if ((lastSwungTickActioned % (swingTicks * 2)) < swingTicks) {
-          effectiveAdvance = (toAdvance * (50 + currentProject.getSwingAmount())) / 50;
-        } else {
-          effectiveAdvance = (toAdvance * (50 - currentProject.getSwingAmount())) / 50;
+        boolean firstHalf = Math.floorMod(lastSwungTickActioned, swingTicks * 2) < swingTicks;
+        int costPerSwungTick = firstHalf ? (50 + swingAmount) : (50 - swingAmount);
+        int swungLeftInHalf = swingTicks - Math.floorMod(lastSwungTickActioned, swingTicks);
+        int maxSwungAdvance = Math.min(deadlineTicks, swungLeftInHalf);
+        int targetSubTicks = maxSwungAdvance * costPerSwungTick;
+
+        if (swingSubTicks < targetSubTicks && ticksRemaining > 0) {
+          int neededSubTicks = targetSubTicks - swingSubTicks;
+          int inputTicksNeeded = (neededSubTicks + 49) / 50;
+          int toConsume = Math.min(ticksRemaining, inputTicksNeeded);
+          swingSubTicks += toConsume * 50;
+          ticksRemaining -= toConsume;
         }
+
+        effectiveAdvance = Math.min(maxSwungAdvance, swingSubTicks / costPerSwungTick);
+        if (effectiveAdvance <= 0) {
+          break; // Fractional progress preserved in swingSubTicks for next advanceTicks call.
+        }
+        swingSubTicks -= effectiveAdvance * costPerSwungTick;
       }
 
       lastSwungTickActioned += effectiveAdvance;
       arrangement.advance(effectiveAdvance);
 
+      int nextEventTicks = currentProject.getSwungTicksTilNextEvent();
       for (ClipModel clip : currentProject.getClips()) {
-        clip.lastProcessedPos += effectiveAdvance;
+        clip.incrementPos(effectiveAdvance); // C clip.cpp:1173-1178, instrument_clip.cpp:4728-4750
         clip.processCurrentPos(effectiveAdvance);
+        nextEventTicks = Math.min(nextEventTicks, clip.getTicksTilNextEvent());
       }
 
-      // Update next event distance
-      if (currentProject != null) {
-        swungTicksTilNextEvent = currentProject.getSwungTicksTilNextEvent();
-      }
-
-      ticksRemaining -= toAdvance;
+      // Update next event distance (C playback_handler.cpp:1095-1097 clamps >= 1).
+      swungTicksTilNextEvent = Math.max(1, nextEventTicks);
     }
 
     // Outbound MIDI clock (24 PPQN): emit one 0xF8 per 4 internal ticks crossed, following the
