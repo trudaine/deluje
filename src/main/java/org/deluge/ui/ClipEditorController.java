@@ -576,8 +576,8 @@ public class ClipEditorController {
         baseTrackId = getBaseTrackId();
         isSynthMode =
             baseTrackId >= 0 ? isSynthOrKit(bridge.getTrackType(baseTrackId)) : isSynthMode;
-        engineRow = parent.getAllocatedEngineRow(visualModelRow);
       }
+      engineRow = parent.getEngineRowForStoredClipRow(clipRow);
     } else if (engineRow < 0) {
       return;
     }
@@ -681,7 +681,10 @@ public class ClipEditorController {
       return;
     }
     int baseTrackId = getBaseTrackId();
-    int engineRow = parent.getAllocatedEngineRow(visualModelRow);
+    int engineRow =
+        cModel != null
+            ? parent.getEngineRowForStoredClipRow(clipRow)
+            : parent.getAllocatedEngineRow(visualModelRow);
     if (cModel == null && engineRow < 0) {
       return;
     }
@@ -985,21 +988,25 @@ public class ClipEditorController {
 
     int srcModelRow = parent.getModelRow(startRow);
     int dstModelRow = parent.getModelRow(targetRow);
-
-    int srcRow = parent.getAllocatedEngineRow(srcModelRow);
     int srcCol = (trackLen < stepCount) ? (startCol % trackLen) : (startCol + scrollOffsetX);
     int dstCol = (trackLen < stepCount) ? (targetCol % trackLen) : (targetCol + scrollOffsetX);
 
     TrackModel tModel = null;
     ClipModel cModel = null;
     StepData srcModelStep = null;
+    int srcClipRow = -1;
     if (getProjectModel() != null && editedModelTrack < getProjectModel().getTracks().size()) {
       tModel = getProjectModel().getTracks().get(editedModelTrack);
       if (activeClipId < tModel.getClips().size()) {
         cModel = tModel.getClips().get(activeClipId);
-        srcModelStep = parent.getClipStep(cModel, srcModelRow, srcCol);
+        srcClipRow = parent.getClipRowIndex(cModel, srcModelRow, false);
+        srcModelStep = srcClipRow >= 0 ? cModel.getStep(srcClipRow, srcCol) : StepData.empty();
       }
     }
+    int srcRow =
+        cModel != null
+            ? parent.getEngineRowForStoredClipRow(srcClipRow)
+            : parent.getAllocatedEngineRow(srcModelRow);
     if (srcRow < 0 && srcModelStep == null) {
       return;
     }
@@ -1079,7 +1086,10 @@ public class ClipEditorController {
       cModel.setStep(dstClipRow, dstCol, clonedStep);
     }
 
-    int dstRow = parent.getAllocatedEngineRow(dstModelRow);
+    int dstRow =
+        cModel != null
+            ? parent.getEngineRowForStoredClipRow(dstClipRow)
+            : parent.getAllocatedEngineRow(dstModelRow);
     if (dstRow >= 0) {
       bridge.setStep(dstRow, dstCol, clonedStep.active());
       bridge.setVelocity(dstRow, dstCol, clonedStep.velocity());
@@ -1747,8 +1757,8 @@ public class ClipEditorController {
             return;
           }
         }
-        int srcEngineRow = parent.getAllocatedEngineRow(srcModelRow);
-        int dstEngineRow = parent.getAllocatedEngineRow(dstModelRow);
+        int srcEngineRow = parent.getEngineRowForStoredClipRow(srcClipRow);
+        int dstEngineRow = parent.getEngineRowForStoredClipRow(dstClipRow);
         int baseCol = activeCol % 16;
         int trackLen = cModel.getStepCount();
         java.util.List<Consequence> steps = new java.util.ArrayList<>();
@@ -1844,14 +1854,14 @@ public class ClipEditorController {
             movedRow = true;
             oldDstSd = cModel.getStep(dstClipRow, activeCol);
             cModel.setStep(srcClipRow, activeCol, org.deluge.model.StepData.empty());
-            int srcEngineRow = parent.getAllocatedEngineRow(srcModelRow);
+            int srcEngineRow = parent.getEngineRowForStoredClipRow(srcClipRow);
             if (parent.bridge != null && srcEngineRow >= 0) {
               parent.bridge.setStep(srcEngineRow, activeCol, false);
             }
           }
         }
         cModel.setStep(dstClipRow, activeCol, updated);
-        int dstEngineRow = parent.getAllocatedEngineRow(dstModelRow);
+        int dstEngineRow = parent.getEngineRowForStoredClipRow(dstClipRow);
         if (parent.bridge != null && dstEngineRow >= 0) {
           parent.bridge.setStep(dstEngineRow, activeCol, updated.active());
           parent.bridge.setVelocity(dstEngineRow, activeCol, updated.velocity());

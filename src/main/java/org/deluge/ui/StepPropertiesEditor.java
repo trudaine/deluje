@@ -145,7 +145,10 @@ public class StepPropertiesEditor {
               return;
             }
             StepData oldStep = cModel != null ? cModel.getStep(clipRow, activeCol) : null;
-            int er = parent.getAllocatedEngineRow(visualModelRow);
+            int er =
+                cModel != null
+                    ? parent.getEngineRowForStoredClipRow(clipRow)
+                    : parent.getAllocatedEngineRow(visualModelRow);
             if (er >= 0) {
               bridge.setGate(er, activeCol, g);
             }
@@ -219,7 +222,10 @@ public class StepPropertiesEditor {
             return;
           }
           StepData existing = cModel != null ? cModel.getStep(clipRow, activeCol) : null;
-          int er = parent.getAllocatedEngineRow(visualModelRow);
+          int er =
+              cModel != null
+                  ? parent.getEngineRowForStoredClipRow(clipRow)
+                  : parent.getAllocatedEngineRow(visualModelRow);
           if (er < 0 && existing == null) {
             return;
           }
@@ -301,7 +307,10 @@ public class StepPropertiesEditor {
                             cModel.getStep(dstClipRow, activeCol)));
               }
             }
-            int dstEngineRow = parent.getAllocatedEngineRow(visualModelRow);
+            int dstEngineRow =
+                cModel != null
+                    ? parent.getEngineRowForStoredClipRow(dstClipRow)
+                    : parent.getAllocatedEngineRow(visualModelRow);
             if (dstEngineRow >= 0) {
               bridge.setStep(dstEngineRow, activeCol, newStep.active());
               bridge.setVelocity(dstEngineRow, activeCol, newStep.velocity());
@@ -351,11 +360,15 @@ public class StepPropertiesEditor {
     int visualModelRow = parent.getModelRow(row);
     int activeCol = parent.getActiveCol(row, col);
     ClipModel cm = resolveClipModel(parent);
-    if (cm != null && parent.getClipRowIndex(cm, visualModelRow, false) < 0) {
+    int clipRow = cm != null ? parent.getClipRowIndex(cm, visualModelRow, false) : -1;
+    if (cm != null && clipRow < 0) {
       return;
     }
-    StepData sd = cm != null ? parent.getClipStep(cm, visualModelRow, activeCol) : null;
-    int engineRow = parent.getAllocatedEngineRow(visualModelRow);
+    StepData sd = cm != null ? cm.getStep(clipRow, activeCol) : null;
+    int engineRow =
+        cm != null
+            ? parent.getEngineRowForStoredClipRow(clipRow)
+            : parent.getAllocatedEngineRow(visualModelRow);
     double curVel =
         engineRow >= 0
             ? bridge.getVelocity(engineRow, activeCol)
@@ -466,7 +479,10 @@ public class StepPropertiesEditor {
     int baseTrackId = parent.getBaseTrackId();
     int trackType = baseTrackId >= 0 ? bridge.getTrackType(baseTrackId) : 1;
     int pitch = resolveStepPitch(parent, trackType, visualModelRow);
-    int engineRow = parent.getAllocatedEngineRow(visualModelRow);
+    int engineRow =
+        cModel != null
+            ? parent.getEngineRowForStoredClipRow(clipRow)
+            : parent.getAllocatedEngineRow(visualModelRow);
 
     if (cModel != null && SwingGridPanel.isCrossScreenWrapActive) {
       int baseCol = activeCol % 16;
@@ -581,11 +597,15 @@ public class StepPropertiesEditor {
     int visualModelRow = parent.getModelRow(row);
     int activeCol = parent.getActiveCol(row, col);
     ClipModel cm = resolveClipModel(parent);
-    if (cm != null && parent.getClipRowIndex(cm, visualModelRow, false) < 0) {
+    int clipRow = cm != null ? parent.getClipRowIndex(cm, visualModelRow, false) : -1;
+    if (cm != null && clipRow < 0) {
       return;
     }
-    StepData sd = cm != null ? parent.getClipStep(cm, visualModelRow, activeCol) : null;
-    int engineRow = parent.getAllocatedEngineRow(visualModelRow);
+    StepData sd = cm != null ? cm.getStep(clipRow, activeCol) : null;
+    int engineRow =
+        cm != null
+            ? parent.getEngineRowForStoredClipRow(clipRow)
+            : parent.getAllocatedEngineRow(visualModelRow);
     int iter =
         engineRow >= 0
             ? bridge.getIterance(engineRow, activeCol)
@@ -619,7 +639,10 @@ public class StepPropertiesEditor {
     int baseTrackId = parent.getBaseTrackId();
     int trackType = baseTrackId >= 0 ? bridge.getTrackType(baseTrackId) : 1;
     int pitch = resolveStepPitch(parent, trackType, visualModelRow);
-    int engineRow = parent.getAllocatedEngineRow(visualModelRow);
+    int engineRow =
+        cModel != null
+            ? parent.getEngineRowForStoredClipRow(clipRow)
+            : parent.getAllocatedEngineRow(visualModelRow);
 
     if (cModel != null && SwingGridPanel.isCrossScreenWrapActive) {
       int baseCol = activeCol % 16;

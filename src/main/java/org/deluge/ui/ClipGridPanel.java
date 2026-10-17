@@ -12,6 +12,7 @@ public class ClipGridPanel extends SwingGridPanel {
 
   public ClipGridPanel(BridgeContract bridge) {
     super(bridge);
+    this.viewMode = GridViewMode.CLIP;
   }
 
   @Override

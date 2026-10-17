@@ -46,6 +46,12 @@ public class EngineSyncCoordinator {
     return mapping != null;
   }
 
+  /** Number of tracks represented in the current published mapping. */
+  public int getMappedTrackCount() {
+    TrackEngineMapping m = mapping;
+    return m != null ? m.engineStart.length : 0;
+  }
+
   /** Get the starting engine row index for a given track. */
   public int getTrackEngineStart(int trackId) {
     TrackEngineMapping m = mapping;
@@ -104,6 +110,11 @@ public class EngineSyncCoordinator {
             voices = Math.max(voices, clip.getRowCount());
           }
         }
+        for (org.deluge.model.ArrangerClip placement : project.getArrangerTimeline()) {
+          if (placement != null && placement.trackIndex() == t && placement.clip() != null) {
+            voices = Math.max(voices, placement.clip().getRowCount());
+          }
+        }
       } else {
         voices = 8;
       }
@@ -122,17 +133,62 @@ public class EngineSyncCoordinator {
     pushModelToBridge(app != null ? app.getCurrentProject() : null);
   }
 
+  private void resetBridgeStepDefaults(int engineRow, int stepIdx) {
+    bridge.setStep(engineRow, stepIdx, false);
+    bridge.setVelocity(engineRow, stepIdx, 0.8f);
+    bridge.setGate(engineRow, stepIdx, org.deluge.model.StepData.DEFAULT_CLICK_GATE);
+    bridge.setPitch(engineRow, stepIdx, 0);
+    bridge.setStepProbability(engineRow, stepIdx, 1.0f);
+    bridge.setIterance(engineRow, stepIdx, 0);
+    bridge.setStepFill(engineRow, stepIdx, 0.0f);
+    bridge.setStepNudge(engineRow, stepIdx, 0.0f);
+  }
+
+  private void applyProjectMutes(ProjectModel currentProject, TrackEngineMapping m) {
+    List<TrackModel> tracks = currentProject.getTracks();
+    int n = tracks.size();
+    boolean anySoloing =
+        !SwingGridPanel.soloedTracks.isEmpty()
+            && SwingGridPanel.soloedTracks.stream().anyMatch(idx -> idx >= 0 && idx < n);
+    for (int t = 0; t < n; t++) {
+      TrackModel track = tracks.get(t);
+      int startRow = m.engineStart[t];
+      int voiceCount = m.voiceCount[t];
+      if (startRow < 0 || voiceCount <= 0) {
+        continue;
+      }
+      boolean trackMuted = anySoloing ? !SwingGridPanel.soloedTracks.contains(t) : track.isMuted();
+      for (int i = 0; i < voiceCount; i++) {
+        boolean voiceMuted = trackMuted;
+        if (!trackMuted && track instanceof KitTrackModel) {
+          int activeClipIdx = track.getActiveClipIndex();
+          if (activeClipIdx >= 0 && activeClipIdx < track.getClips().size()) {
+            ClipModel clip = track.getClips().get(activeClipIdx);
+            org.deluge.model.NoteRowModel noteRow = clip.getNoteRowsMap().get(i);
+            if (noteRow != null && noteRow.isMuted()) {
+              voiceMuted = true;
+            }
+          }
+        }
+        bridge.setMute(startRow + i, voiceMuted);
+      }
+    }
+  }
+
   public void pushModelToBridge(ProjectModel currentProject) {
     if (currentProject == null) return;
 
     TrackEngineMapping m = computeEngineMapping(currentProject);
     List<TrackModel> tracks = currentProject.getTracks();
 
-    // Clear all engine rows first
+    // Clear all engine rows first, including per-step parameters on reassigned rows
     bridge.clearPattern();
     for (int i = 0; i < BridgeContract.TRACKS; i++) {
       bridge.setMute(i, false);
       bridge.setTrackLength(i, 16);
+      for (int s = 0; s < BridgeContract.STEPS; s++) {
+        resetBridgeStepDefaults(i, s);
+      }
     }
 
     // Initialize both local bridge and VM global track types to -1 (unused)
@@ -147,6 +203,44 @@ public class EngineSyncCoordinator {
       for (int i = 0; i < BridgeContract.TRACKS; i++) trackTypeArr.setInt(i, -1L);
     }
 
+    // ── Push ALL clips per track to clip-indexed C{n} bridge arrays first ──
+    // Note: BridgeContract.setStep(..., 0) and setVelocity(..., 0) write into the primary
+    // step.pattern / step.velocity arrays, so this loop must run BEFORE the primary active-clip
+    // pass below.
+    for (int t = 0; t < tracks.size(); t++) {
+      TrackModel track = tracks.get(t);
+      int startRow = m.engineStart[t];
+      int voiceCount = m.voiceCount[t];
+      List<ClipModel> clips = track.getClips();
+
+      if (t < BridgeContract.TRACKS) {
+        bridge.setClipCount(t, clips.size());
+        bridge.setCurrentClip(t, track.getActiveClipIndex());
+      }
+      if (voiceCount <= 0) continue;
+
+      for (int c = 0; c < clips.size() && c < BridgeContract.MAX_CLIPS_PER_TRACK; c++) {
+        ClipModel clip = clips.get(c);
+        int stepCount = Math.min(clip.getStepCount(), BridgeContract.STEPS);
+        for (int r = 0; r < voiceCount; r++) {
+          int engineRow = startRow + r;
+          for (int s = 0; s < stepCount; s++) {
+            org.deluge.model.StepData step = r < clip.getRowCount() ? clip.getStep(r, s) : null;
+            boolean active = step != null && step.active();
+            bridge.setStep(engineRow, s, active, c);
+            bridge.setVelocity(engineRow, s, active ? step.velocity() : 0.8f, c);
+          }
+        }
+        // Push per-step automation for this clip to clip-indexed _C{n} arrays
+        pushClipAutomation(t, bridge, clip, c, startRow);
+
+        // Push per-clip play mode
+        bridge.setClipPlayMode(t, c, clip.getPlayMode().ordinal());
+        // Push per-clip play direction
+        bridge.setClipPlayDirection(t, c, clip.getPlayDirection().ordinal());
+      }
+    }
+
     for (int t = 0; t < tracks.size(); t++) {
       TrackModel track = tracks.get(t);
       int startRow = m.engineStart[t];
@@ -155,6 +249,9 @@ public class EngineSyncCoordinator {
 
       for (int v = 0; v < voiceCount; v++) {
         bridge.setTrackId(startRow + v, t);
+        for (int s = 0; s < BridgeContract.STEPS; s++) {
+          resetBridgeStepDefaults(startRow + v, s);
+        }
       }
 
       if (track instanceof KitTrackModel kit) {
@@ -414,46 +511,13 @@ public class EngineSyncCoordinator {
       }
 
       // Track length and stepCount for all allocated rows of this track
-      int rowLen = track.getClips().isEmpty() ? 16 : track.getClips().get(0).getStepCount();
+      int activeIdx = track.getActiveClipIndex();
+      int rowLen =
+          (activeIdx >= 0 && activeIdx < track.getClips().size())
+              ? track.getClips().get(activeIdx).getStepCount()
+              : (track.getClips().isEmpty() ? 16 : track.getClips().get(0).getStepCount());
       for (int v = 0; v < voiceCount; v++) {
         bridge.setTrackLength(startRow + v, rowLen);
-      }
-    }
-
-    // ── Push ALL clips per track to clip-indexed C{n} bridge arrays ──
-    for (int t = 0; t < tracks.size(); t++) {
-      TrackModel track = tracks.get(t);
-      int startRow = m.engineStart[t];
-      int voiceCount = m.voiceCount[t];
-      List<ClipModel> clips = track.getClips();
-
-      if (t < BridgeContract.TRACKS) {
-        bridge.setClipCount(t, clips.size());
-        bridge.setCurrentClip(t, track.getActiveClipIndex());
-      }
-      if (voiceCount <= 0) continue;
-
-      for (int c = 0; c < clips.size() && c < BridgeContract.MAX_CLIPS_PER_TRACK; c++) {
-        ClipModel clip = clips.get(c);
-        int stepCount = clip.getStepCount();
-        for (int r = 0; r < clip.getRowCount(); r++) {
-          int engineRow = startRow + r;
-          for (int s = 0; s < stepCount; s++) {
-            org.deluge.model.StepData step = clip.getStep(r, s);
-            if (step != null && step.active() && r < voiceCount) {
-              bridge.setStep(engineRow, s, true, c);
-              bridge.setVelocity(engineRow, s, step.velocity(), c);
-              bridge.setPitch(engineRow, s, step.pitch());
-            }
-          }
-        }
-        // Push per-step automation for this clip to clip-indexed _C{n} arrays
-        pushClipAutomation(t, bridge, clip, c, startRow);
-
-        // Push per-clip play mode
-        bridge.setClipPlayMode(t, c, clip.getPlayMode().ordinal());
-        // Push per-clip play direction
-        bridge.setClipPlayDirection(t, c, clip.getPlayDirection().ordinal());
       }
     }
 
@@ -620,6 +684,8 @@ public class EngineSyncCoordinator {
     } catch (Exception e) {
       LOG.warning("[Preferences] Failed to load startup Scala scale: " + e.getMessage());
     }
+
+    applyProjectMutes(currentProject, m);
   }
 
   /**

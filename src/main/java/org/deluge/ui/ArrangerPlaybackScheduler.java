@@ -119,7 +119,9 @@ public class ArrangerPlaybackScheduler implements Runnable {
                 ? SwingDelugeApp.mainInstance.getSyncCoordinator()
                 : null);
     EngineSyncCoordinator.TrackEngineMapping fallbackLayout =
-        (sync != null && sync.hasMapping()) ? null : EngineSyncCoordinator.computeLayout(project);
+        (sync != null && sync.hasMapping() && sync.getMappedTrackCount() == tracks.size())
+            ? null
+            : EngineSyncCoordinator.computeLayout(project);
 
     // Check if any track in the project is soloed in Arranger mode
     boolean anySoloed = false;
@@ -162,16 +164,36 @@ public class ArrangerPlaybackScheduler implements Runnable {
 
           if (r < clip.getRowCount()) {
             StepData sd = clip.getStep(r, localStep);
-            if (sd != null) {
-              bridge.setStep(engineRow, col, sd.active());
+            if (sd != null && sd.active()) {
+              bridge.setStep(engineRow, col, true);
+              bridge.setPitch(engineRow, col, sd.pitch());
               bridge.setStepPitch(engineRow, col, sd.pitch());
+              bridge.setVelocity(engineRow, col, sd.velocity());
               bridge.setStepVolume(engineRow, col, sd.velocity());
               bridge.setGate(engineRow, col, sd.gate());
+              bridge.setStepProbability(engineRow, col, sd.probability());
+              bridge.setIterance(engineRow, col, sd.iterance());
+              bridge.setStepFill(engineRow, col, sd.fill());
+              bridge.setStepNudge(engineRow, col, sd.nudge());
             } else {
               bridge.setStep(engineRow, col, false);
+              bridge.setVelocity(engineRow, col, 0.8f);
+              bridge.setGate(engineRow, col, StepData.DEFAULT_CLICK_GATE);
+              bridge.setPitch(engineRow, col, 0);
+              bridge.setStepProbability(engineRow, col, 1.0f);
+              bridge.setIterance(engineRow, col, 0);
+              bridge.setStepFill(engineRow, col, 0.0f);
+              bridge.setStepNudge(engineRow, col, 0.0f);
             }
           } else {
             bridge.setStep(engineRow, col, false);
+            bridge.setVelocity(engineRow, col, 0.8f);
+            bridge.setGate(engineRow, col, StepData.DEFAULT_CLICK_GATE);
+            bridge.setPitch(engineRow, col, 0);
+            bridge.setStepProbability(engineRow, col, 1.0f);
+            bridge.setIterance(engineRow, col, 0);
+            bridge.setStepFill(engineRow, col, 0.0f);
+            bridge.setStepNudge(engineRow, col, 0.0f);
           }
         }
       } else {

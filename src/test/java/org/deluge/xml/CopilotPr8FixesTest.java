@@ -1300,4 +1300,223 @@ class CopilotPr8FixesTest {
       org.deluge.ui.SwingDelugeApp.mainInstance = oldApp;
     }
   }
+
+  @Test
+  void ninthSynthRowAllocationDoesNotMixClipZeroIntoOtherTracksNonZeroActiveClip() {
+    System.setProperty("chuck.audio.dummy", "true");
+    ProjectModel project = new ProjectModel();
+    int[] cMajorPitches = {60, 62, 64, 65, 67, 69, 71, 72};
+
+    SynthTrackModel synth0 = new SynthTrackModel("TRACK_0");
+    ClipModel t0Clip = new ClipModel("T0 Clip", 8, 16);
+    for (int r = 0; r < 8; r++) {
+      t0Clip.setRowYNote(r, cMajorPitches[r]);
+    }
+    synth0.addClip(t0Clip);
+    project.addTrack(synth0);
+
+    SynthTrackModel synth1 = new SynthTrackModel("TRACK_1_DUAL");
+    ClipModel t1Clip0 = new ClipModel("T1 Clip 0", 8, 16);
+    ClipModel t1Clip1 = new ClipModel("T1 Clip 1 Active", 8, 16);
+    for (int r = 0; r < 8; r++) {
+      t1Clip0.setRowYNote(r, cMajorPitches[r]);
+      t1Clip1.setRowYNote(r, cMajorPitches[r]);
+    }
+    t1Clip0.setStep(0, 1, StepData.of(true, 0.9f, 1.0f, 1.0f, 60));
+    t1Clip1.setStep(0, 4, StepData.of(true, 0.7f, 1.0f, 1.0f, 60));
+    synth1.addClip(t1Clip0);
+    synth1.addClip(t1Clip1);
+    synth1.setActiveClipIndex(1);
+    project.addTrack(synth1);
+
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    org.deluge.ui.EngineSyncCoordinator sync =
+        new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+    sync.pushModelToBridge(project);
+
+    org.deluge.ui.ClipGridPanel panel = new org.deluge.ui.ClipGridPanel(bridge);
+    panel.setProjectModel(project);
+    panel.setEditedModelTrack(0);
+    panel.setBaseTrackId(0);
+    panel.setScrollOffset(59);
+
+    org.deluge.ui.ClipEditorController controller =
+        new org.deluge.ui.ClipEditorController(panel, () -> {}, () -> {});
+
+    // Adding a 9th row on Track 0 triggers pushModelToBridge; Track 1 must keep only Clip 1 active.
+    controller.handleStepToggled(0, 5);
+
+    int track1Start = sync.getTrackEngineStart(1);
+    assertEquals(9, track1Start);
+    assertTrue(bridge.getStep(track1Start, 4), "Track 1 active Clip 1 step 4 must stay active");
+    assertFalse(
+        bridge.getStep(track1Start, 1),
+        "Track 1 inactive Clip 0 step 1 must not leak into Track 1 primary bridge pattern");
+  }
+
+  @Test
+  void ninthSynthRowAllocationPreservesTrackMuteKitRowMuteAndSoloState() {
+    System.setProperty("chuck.audio.dummy", "true");
+    org.deluge.ui.SwingGridPanel.soloedTracks.clear();
+    try {
+      ProjectModel project = new ProjectModel();
+      int[] cMajorPitches = {60, 62, 64, 65, 67, 69, 71, 72};
+
+      SynthTrackModel synth0 = new SynthTrackModel("TRACK_0");
+      ClipModel t0Clip = new ClipModel("T0 Clip", 8, 16);
+      for (int r = 0; r < 8; r++) {
+        t0Clip.setRowYNote(r, cMajorPitches[r]);
+      }
+      synth0.addClip(t0Clip);
+      project.addTrack(synth0);
+
+      KitTrackModel kit1 = new KitTrackModel("MUTED_ROW_KIT");
+      for (int i = 0; i < 4; i++) {
+        kit1.getDrums().add(new SoundDrum("DRUM_" + i));
+      }
+      ClipModel kitClip = new ClipModel("Kit Clip", 4, 16);
+      kitClip.setIsKit(true);
+      kitClip.getOrCreateRow(1).setMuted(true);
+      kit1.addClip(kitClip);
+      project.addTrack(kit1);
+
+      SynthTrackModel synth2 = new SynthTrackModel("MUTED_TRACK");
+      synth2.setMuted(true);
+      ClipModel t2Clip = new ClipModel("T2 Clip", 8, 16);
+      for (int r = 0; r < 8; r++) {
+        t2Clip.setRowYNote(r, cMajorPitches[r]);
+      }
+      synth2.addClip(t2Clip);
+      project.addTrack(synth2);
+
+      org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+      org.deluge.ui.EngineSyncCoordinator sync =
+          new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+      sync.pushModelToBridge(project);
+
+      org.deluge.ui.ClipGridPanel panel = new org.deluge.ui.ClipGridPanel(bridge);
+      panel.setProjectModel(project);
+      panel.setEditedModelTrack(0);
+      panel.setBaseTrackId(0);
+      panel.setScrollOffset(59);
+
+      org.deluge.ui.ClipEditorController controller =
+          new org.deluge.ui.ClipEditorController(panel, () -> {}, () -> {});
+
+      controller.handleStepToggled(0, 5);
+
+      int kitStart = sync.getTrackEngineStart(1);
+      int synth2Start = sync.getTrackEngineStart(2);
+      assertEquals(9, kitStart);
+      assertEquals(13, synth2Start);
+      assertFalse(bridge.getMute(kitStart + 0), "Unmuted drum 0 must remain unmuted");
+      assertTrue(bridge.getMute(kitStart + 1), "Muted drum 1 must stay muted after shift");
+      assertTrue(bridge.getMute(synth2Start), "Muted Track 2 must stay muted after shift");
+    } finally {
+      org.deluge.ui.SwingGridPanel.soloedTracks.clear();
+    }
+  }
+
+  @Test
+  void ninthSynthRowAllocationClearsStaleZeroProbabilityFromReassignedRow() {
+    System.setProperty("chuck.audio.dummy", "true");
+    ProjectModel project = new ProjectModel();
+    int[] cMajorPitches = {60, 62, 64, 65, 67, 69, 71, 72};
+
+    SynthTrackModel synth = new SynthTrackModel("SYNTH_8");
+    ClipModel synthClip = new ClipModel("Synth Clip", 8, 16);
+    for (int r = 0; r < 8; r++) {
+      synthClip.setRowYNote(r, cMajorPitches[r]);
+    }
+    synth.addClip(synthClip);
+    project.addTrack(synth);
+
+    KitTrackModel kit = new KitTrackModel("NEXT_KIT");
+    for (int i = 0; i < 4; i++) {
+      kit.getDrums().add(new SoundDrum("DRUM_" + i));
+    }
+    ClipModel kitClip = new ClipModel("Kit Clip", 4, 16);
+    kitClip.setIsKit(true);
+    // Drum 0 (initially at engine row 8) has 0% probability and 20% velocity at step 5.
+    kitClip.setStep(0, 5, StepData.of(true, 0.2f, 1.0f, 0.0f, 0));
+    kit.addClip(kitClip);
+    project.addTrack(kit);
+
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    org.deluge.ui.EngineSyncCoordinator sync =
+        new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+    sync.pushModelToBridge(project);
+
+    assertEquals(0.0, bridge.getStepProbability(8, 5), 0.001);
+    assertEquals(0.2, bridge.getVelocity(8, 5), 0.001);
+
+    org.deluge.ui.ClipGridPanel panel = new org.deluge.ui.ClipGridPanel(bridge);
+    panel.setProjectModel(project);
+    panel.setEditedModelTrack(0);
+    panel.setBaseTrackId(0);
+    panel.setScrollOffset(59);
+
+    org.deluge.ui.ClipEditorController controller =
+        new org.deluge.ui.ClipEditorController(panel, () -> {}, () -> {});
+
+    // Adding a 9th synth row at step 5 shifts the kit to row 9 and reassigns row 8 to the synth.
+    controller.handleStepToggled(0, 5);
+
+    StepData ninthStep = synthClip.getStep(8, 5);
+    assertTrue(ninthStep.active());
+    assertEquals(1.0f, ninthStep.probability(), 0.001f, "Reassigned row must default to 100% prob");
+    assertEquals(0.8f, ninthStep.velocity(), 0.001f, "Reassigned row must default to 0.8 velocity");
+    assertEquals(1.0, bridge.getStepProbability(8, 5), 0.001);
+    assertEquals(0.0, bridge.getStepProbability(9, 5), 0.001, "Shifted kit row 9 keeps 0% prob");
+  }
+
+  @Test
+  void bulkEditsOnSparseChromaticSynthClipSyncStoredRowZeroInsteadOfDisplayRow() {
+    System.setProperty("chuck.audio.dummy", "true");
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel synth = new SynthTrackModel("SPARSE_BULK");
+    ClipModel clip = new ClipModel("Sparse Clip", 1, 16);
+    clip.setRowYNote(0, 60);
+    clip.setStep(0, 1, StepData.of(true, 0.75f, 1.0f, 0.9f, 60));
+    synth.addClip(clip);
+    project.addTrack(synth);
+
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    org.deluge.ui.EngineSyncCoordinator sync =
+        new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+    sync.pushModelToBridge(project);
+
+    org.deluge.ui.ClipGridPanel panel = new org.deluge.ui.ClipGridPanel(bridge);
+    panel.setScaleModeEnabled(false);
+    panel.setEditedModelTrack(0);
+    panel.setBaseTrackId(0);
+    panel.setProjectModel(project);
+
+    // 1. Copy + Paste into a fresh 1-row sparse clip at MIDI 60 (display row 67, stored row 0).
+    assertTrue(panel.copyClipNotes());
+    clip.setStep(0, 1, StepData.empty());
+    bridge.setStep(0, 1, false);
+    assertTrue(panel.pasteClipNotes());
+    assertTrue(bridge.getStep(0, 1), "pasteClipNotes must write to stored row 0");
+    assertFalse(bridge.getStep(67, 1), "pasteClipNotes must not write to display row 67");
+
+    // 2. duplicateTrackContent must copy step 1 to step 17 on stored row 0.
+    panel.duplicateTrackContent();
+    assertEquals(32, clip.getStepCount());
+    assertTrue(bridge.getStep(0, 17), "duplicateTrackContent must write to stored row 0 step 17");
+    assertFalse(bridge.getStep(67, 17), "duplicateTrackContent must not touch display row 67");
+
+    // 3. adjustClipLength(-1) halves stepCount to 16 and clears stored row 0 step 17 in bridge.
+    panel.adjustClipLength(-1);
+    assertEquals(16, clip.getStepCount());
+    assertFalse(bridge.getStep(0, 17), "adjustClipLength(-1) must clear stored row 0 step 17");
+
+    // 4. transposeTrack(+2) moves MIDI 60 -> 62 on stored row 0 and updates bridge row 0.
+    assertTrue(panel.transposeTrack(2));
+    assertEquals(1, clip.getRowCount());
+    assertEquals(62, clip.getRowYNote(0));
+    assertTrue(bridge.getStep(0, 1), "transposeTrack must sync stored row 0");
+    assertEquals(62, bridge.getPitch(0, 1));
+    assertFalse(bridge.getStep(65, 1), "transposeTrack must not write to display row 65");
+  }
 }
