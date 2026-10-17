@@ -96,7 +96,8 @@ public class ScriptingEngine {
     } else if (c instanceof Consequence.StepConsequence sc) {
       StepData d = sc.newData();
       return String.format(
-          "STEP|%d|%d|%d|%d|%b|%.6f|%.6f|%.6f|%d|%d|%.6f|%.6f",
+          java.util.Locale.US,
+          "STEP|%d|%d|%d|%d|%b|%.6f|%.6f|%.6f|%d|%d|%.6f|%.6f|%d|%d",
           sc.trackIndex(),
           sc.clipIndex(),
           sc.row(),
@@ -108,7 +109,9 @@ public class ScriptingEngine {
           d.pitch(),
           d.iterance(),
           d.fill(),
-          d.nudge());
+          d.nudge(),
+          d.playCondition(),
+          d.fillMode());
     } else if (c instanceof Consequence.SynthParamConsequence spc) {
       return String.format(
           "SYNTH_PARAM|%d|%s|%.6f", spc.trackIndex(), spc.paramName(), spc.newValue());
@@ -116,6 +119,16 @@ public class ScriptingEngine {
       return String.format(
           "AUTOMATION|%d|%d|%s|%d|%.6f",
           ac.trackIndex(), ac.clipIndex(), ac.paramName(), ac.step(), ac.newValue());
+    } else if (c instanceof Consequence.RowAutomationConsequence rac) {
+      return String.format(
+          java.util.Locale.US,
+          "ROW_AUTOMATION|%d|%d|%d|%s|%d|%.6f",
+          rac.trackIndex(),
+          rac.clipIndex(),
+          rac.rowIndex(),
+          rac.paramName(),
+          rac.step(),
+          rac.newValue());
     } else if (c instanceof Consequence.TrackStructureConsequence tsc) {
       if (tsc.operation() == Consequence.TrackStructureConsequence.ADD) {
         String type = "SYNTH";
@@ -165,8 +178,12 @@ public class ScriptingEngine {
           int iter = Integer.parseInt(parts[10]);
           float fill = Float.parseFloat(parts[11]);
           float nudge = Float.parseFloat(parts[12]);
+          int playCondition = parts.length > 13 ? Integer.parseInt(parts[13]) : 0;
+          int fillMode = parts.length > 14 ? Integer.parseInt(parts[14]) : (fill > 0.001f ? 2 : 0);
 
-          StepData newData = new StepData(active, vel, gate, prob, pitch, iter, fill, nudge);
+          StepData newData =
+              new StepData(
+                  active, vel, gate, prob, pitch, iter, fill, nudge, playCondition, fillMode);
           // Retrieve old step data if track/clip exist
           StepData oldData = StepData.empty();
           if (trackIdx < project.getTracks().size()) {
@@ -195,6 +212,23 @@ public class ScriptingEngine {
           float oldVal = 0.0f; // placeholder
           return new Consequence.AutomationConsequence(
               project, trackIdx, clipIdx, paramName, step, oldVal, val);
+        }
+        case "ROW_AUTOMATION" -> {
+          int trackIdx = Integer.parseInt(parts[1]);
+          int clipIdx = Integer.parseInt(parts[2]);
+          int rowIdx = Integer.parseInt(parts[3]);
+          String paramName = parts[4];
+          int step = Integer.parseInt(parts[5]);
+          float val = Float.parseFloat(parts[6]);
+          float oldVal = -1.0f;
+          if (trackIdx >= 0 && trackIdx < project.getTracks().size()) {
+            var track = project.getTracks().get(trackIdx);
+            if (clipIdx >= 0 && clipIdx < track.getClips().size()) {
+              oldVal = track.getClips().get(clipIdx).getRowAutomationValue(rowIdx, paramName, step);
+            }
+          }
+          return new Consequence.RowAutomationConsequence(
+              project, trackIdx, clipIdx, rowIdx, paramName, step, oldVal, val);
         }
         case "TRACK_STRUCT" -> {
           String opStr = parts[1];

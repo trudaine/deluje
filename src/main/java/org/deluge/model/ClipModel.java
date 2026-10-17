@@ -219,23 +219,31 @@ public class ClipModel extends TimelineCounter {
    * and the saved file kept playing the old notes. Every other per-step property is preserved;
    * {@code StepData.of()} would reset iterance/fill/nudge to 0.
    */
+  public void retuneRowInPlace(int rowIndex, int newPitch) {
+    getOrCreateRow(rowIndex).setPitch(newPitch);
+    retuneGridRow(rowIndex, newPitch);
+  }
+
+  /**
+   * Replaces a row's visual grid steps in place without mutating {@link NoteRowModel#getNotes()},
+   * for callers (such as row rotation) that have already updated the authoritative raw note list.
+   */
+  public void replaceGridRowInPlace(int rowIndex, StepData[] steps) {
+    if (rowIndex < 0 || rowIndex >= grid.size() || steps == null) return;
+    List<StepData> row = grid.get(rowIndex);
+    int limit = Math.min(row.size(), steps.length);
+    for (int s = 0; s < limit; s++) {
+      row.set(s, steps[s] != null ? steps[s] : StepData.empty());
+    }
+  }
+
   private void retuneGridRow(int rowIndex, int newPitch) {
     if (rowIndex < 0 || rowIndex >= grid.size()) return;
     List<StepData> steps = grid.get(rowIndex);
     for (int s = 0; s < steps.size(); s++) {
       StepData step = steps.get(s);
       if (!step.active() || step.pitch() == newPitch) continue;
-      steps.set(
-          s,
-          new StepData(
-              step.active(),
-              step.velocity(),
-              step.gate(),
-              step.probability(),
-              newPitch,
-              step.iterance(),
-              step.fill(),
-              step.nudge()));
+      steps.set(s, step.withPitch(newPitch));
     }
   }
 
@@ -339,8 +347,16 @@ public class ClipModel extends TimelineCounter {
 
   public void setRowAutomation(int rowIndex, String paramName, int stepIndex, float value) {
     NoteRowModel row = getOrCreateRow(rowIndex);
-    float[] array = row.getRowAutomation().computeIfAbsent(paramName, k -> new float[stepCount]);
-    if (stepIndex >= 0 && stepIndex < stepCount) {
+    float[] array =
+        row.getRowAutomation()
+            .computeIfAbsent(
+                paramName,
+                k -> {
+                  float[] a = new float[stepCount];
+                  java.util.Arrays.fill(a, -1f);
+                  return a;
+                });
+    if (stepIndex >= 0 && stepIndex < array.length) {
       array[stepIndex] = value;
     }
   }
@@ -348,6 +364,16 @@ public class ClipModel extends TimelineCounter {
   public float[] getRowAutomation(int rowIndex, String paramName) {
     NoteRowModel row = noteRows.get(rowIndex);
     return row != null ? row.getRowAutomation().get(paramName) : null;
+  }
+
+  public float getRowAutomationValue(int rowIndex, String paramName, int stepIndex) {
+    float[] array = getRowAutomation(rowIndex, paramName);
+    if (array == null || stepIndex < 0 || stepIndex >= array.length) return -1f;
+    return array[stepIndex];
+  }
+
+  public boolean hasRowAutomation(int rowIndex, String paramName, int stepIndex) {
+    return getRowAutomationValue(rowIndex, paramName, stepIndex) >= 0.0f;
   }
 
   public void setRawNoteEvents(int rowIndex, List<NoteModel> notes) {
@@ -522,7 +548,7 @@ public class ClipModel extends TimelineCounter {
                   : ((step.active() && step.pitch() > 0) ? step.pitch() : (rowCount - 1 - r)));
 
       if (!isKit && step.pitch() != pitch) {
-        step = StepData.of(step.active(), step.velocity(), step.gate(), step.probability(), pitch);
+        step = step.withPitch(pitch);
       }
 
       grid.get(r).set(s, step);
@@ -540,17 +566,24 @@ public class ClipModel extends TimelineCounter {
       }
 
       if (step.active()) {
+        Iterance cond = Iterance.fromInt(step.playCondition());
+        // C definitions_cxx.hpp:727 — OFF=0, NOT_FILL=1, FILL=2.
+        int fillMode = step.fillMode() != 0 ? step.fillMode() : (step.fill() > 0.001f ? 2 : 0);
         if (existingNote == null) {
           NoteModel note = new NoteModel();
           note.setPos(notePos);
           note.setLength((int) (step.gate() * stepTicks));
           note.setVelocity((int) (step.velocity() * 127.0f));
           note.setProbability((int) (step.probability() * 100.0f));
+          note.setIterance(cond);
+          note.setFill(fillMode);
           row.getNotes().add(note);
         } else {
           existingNote.setLength((int) (step.gate() * stepTicks));
           existingNote.setVelocity((int) (step.velocity() * 127.0f));
           existingNote.setProbability((int) (step.probability() * 100.0f));
+          existingNote.setIterance(cond);
+          existingNote.setFill(fillMode);
         }
       } else {
         if (existingNote != null) {
@@ -573,6 +606,8 @@ public class ClipModel extends TimelineCounter {
           note.setLength((int) (step.gate() * stepTicks));
           note.setVelocity((int) (step.velocity() * 127.0f));
           note.setProbability((int) (step.probability() * 100.0f));
+          note.setIterance(Iterance.fromInt(step.playCondition()));
+          note.setFill(step.fillMode() != 0 ? step.fillMode() : (step.fill() > 0.001f ? 2 : 0));
           row.getNotes().add(note);
         }
       }
@@ -695,6 +730,8 @@ public class ClipModel extends TimelineCounter {
             note.setLength((int) (step.gate() * stepTicks));
             note.setVelocity((int) (step.velocity() * 127.0f));
             note.setProbability((int) (step.probability() * 100.0f));
+            note.setIterance(Iterance.fromInt(step.playCondition()));
+            note.setFill(step.fillMode() != 0 ? step.fillMode() : (step.fill() > 0.001f ? 2 : 0));
             row.getNotes().add(note);
           }
         }
