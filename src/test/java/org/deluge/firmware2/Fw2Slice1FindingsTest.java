@@ -1311,4 +1311,105 @@ class Fw2Slice1FindingsTest {
         vNew.active && vNew.envelopes[0].state.compareTo(Envelope.Stage.RELEASE) < 0,
         "New note must stay held and must not be prematurely released by stale deferred note-off");
   }
+
+  @Test
+  void round9_oscSyncClearsCachedIncrementWhenOscillatorADisabledByPitch() {
+    Sound sound = makeInitializedSound();
+    sound.oscTypes[0] = Oscillator.OscType.SAW;
+    sound.oscTypes[1] = Oscillator.OscType.SAW;
+    sound.oscillatorSync = true;
+    // Mute Osc A so only Osc B's audio is written into the output buffer.
+    sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MIN_VALUE;
+    sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MAX_VALUE;
+    sound.patchedParamValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
+
+    sound.triggerNote(60, 100);
+    int[] buf = new int[128];
+    int[] rev = new int[64];
+    sound.renderInternal(buf, 64, rev);
+
+    long energyValid = 0;
+    for (int s : buf) {
+      energyValid += Math.abs((long) s);
+    }
+    assertTrue(energyValid > 0, "Synced Osc B must render audio when Osc A is below Nyquist");
+
+    Voice v = sound.voices.get(0);
+    int posBeforeDisable = v.unisonParts[0].sources[1].oscPos;
+
+    // Transpose Osc A above Nyquist while Osc B stays in range.
+    sound.sourceTranspose[0] = 84;
+    Arrays.fill(buf, 0);
+    sound.renderInternal(buf, 64, rev);
+
+    assertFalse(v.unisonParts[0].sources[0].active, "Osc A must be disabled above Nyquist");
+    assertTrue(v.unisonParts[0].sources[0].disabledByPitch);
+    assertEquals(
+        posBeforeDisable,
+        v.unisonParts[0].sources[1].oscPos,
+        "Synced Osc B must skip rendering when Osc A's sync increment is cleared to 0");
+    long energyDisabled = 0;
+    for (int s : buf) {
+      energyDisabled += Math.abs((long) s);
+    }
+    assertEquals(0L, energyDisabled, "Synced Osc B must not render using a stale sync increment");
+
+    // Bring Osc A back below Nyquist; Osc B must resume synced rendering.
+    sound.sourceTranspose[0] = 0;
+    Arrays.fill(buf, 0);
+    sound.renderInternal(buf, 64, rev);
+    long energyRestored = 0;
+    for (int s : buf) {
+      energyRestored += Math.abs((long) s);
+    }
+    assertTrue(energyRestored > 0, "Synced Osc B must resume rendering once Osc A recovers");
+  }
+
+  @Test
+  void round9_eightOctaveDownPitchShiftDoesNotOverflowTimeStretchRatioToZero() {
+    assertEquals(
+        Integer.MAX_VALUE,
+        Voice.computePitchCompensatedTimeStretchRatio(16777216, 65536),
+        "8-octave downward shift (pInc=65536) must clamp ratio to Integer.MAX_VALUE, not wrap to 0");
+
+    Sound sound = makeInitializedSound();
+    sound.oscTypes[0] = Oscillator.OscType.SAMPLE;
+    Sample sample = makeRampSample(1024, 44100);
+    sound.samples[0] = sample;
+    sound.sampleTimestretch[0] = true;
+    sound.sampleLoopMode[0] = 0; // CUT
+    Sound.CompiledKeyZone kz = new Sound.CompiledKeyZone();
+    kz.minPitch = 0;
+    kz.maxPitch = 127;
+    kz.minVelocity = 0;
+    kz.maxVelocity = 127;
+    kz.sample = sample;
+    kz.transpose = -48; // Root note MIDI 108 (60 - 108 = -48)
+    kz.endSamplePos = 1024;
+    sound.sourceZones[0].add(kz);
+    sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
+    sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+    sound.patchedParamValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
+
+    // Trigger MIDI 12 -> 96 semitones (8 octaves) below root MIDI 108 -> pInc = 65536.
+    sound.triggerNote(12, 100);
+    int[] buf = new int[128];
+    int[] rev = new int[64];
+    sound.renderInternal(buf, 64, rev);
+
+    Voice v = sound.voices.get(0);
+    VoiceSource vs = v.unisonParts[0].sources[0];
+    assertEquals(
+        Integer.MAX_VALUE,
+        vs.timeStretchRatio,
+        "Time-stretch ratio must clamp to Integer.MAX_VALUE instead of wrapping to 0");
+    long posAfterBlock1 = vs.voiceSample.timeStretcher.samplePosBig;
+    assertTrue(posAfterBlock1 > 0L, "samplePosBig must advance on block 1 instead of freezing");
+
+    sound.renderInternal(buf, 64, rev);
+    long posAfterBlock2 = vs.voiceSample.timeStretcher.samplePosBig;
+    assertTrue(
+        posAfterBlock2 > posAfterBlock1,
+        "samplePosBig must continue advancing across blocks under 8-octave downward pitch shift");
+  }
 }
