@@ -280,8 +280,8 @@ public class ClipModel extends TimelineCounter {
     copy.copyNoteRowsFrom(this);
 
     copy.playMode = this.playMode;
-    copy.setPlayDirection(this.playDirection);
     copy.tripletMode = this.tripletMode;
+    copy.setPlayDirection(this.playDirection);
     copy.isArrangementOnly = this.isArrangementOnly;
     return copy;
   }
