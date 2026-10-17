@@ -83,6 +83,9 @@ public class ClipModel extends TimelineCounter {
   private transient org.deluge.modulation.params.ParamManager paramManager =
       new org.deluge.modulation.params.ParamManager();
   private transient int ticksTilNextEvent = Integer.MAX_VALUE;
+  private transient int ticksTilNextNoteRowEvent = 0; // C instrument_clip.h:114
+  private transient int noteRowsNumTicksBehindClip = 0; // C instrument_clip.h:115
+  private transient boolean reverseStartAtZeroPending = false;
   public transient Object sound; // The transient DSP engine reference (FirmwareSound / FirmwareKit)
 
   public NoteRowModel getOrCreateRow(int rowIndex) {
@@ -270,16 +273,27 @@ public class ClipModel extends TimelineCounter {
     copy.leftCol = this.leftCol;
     copy.rightCol = this.rightCol;
 
-    // Deep-copy note rows
-    for (Map.Entry<Integer, NoteRowModel> e : this.noteRows.entrySet()) {
+    copy.copyNoteRowsFrom(this);
+
+    copy.playMode = this.playMode;
+    copy.setPlayDirection(this.playDirection);
+    copy.tripletMode = this.tripletMode;
+    copy.isArrangementOnly = this.isArrangementOnly;
+    return copy;
+  }
+
+  private void copyNoteRowsFrom(ClipModel src) {
+    this.noteRows.clear();
+    for (Map.Entry<Integer, NoteRowModel> e : src.noteRows.entrySet()) {
       NoteRowModel oldRow = e.getValue();
-      NoteRowModel newRow = copy.getOrCreateRow(e.getKey());
+      NoteRowModel newRow = this.getOrCreateRow(e.getKey());
       newRow.setPitch(oldRow.getPitch());
       newRow.setMuted(oldRow.isMuted());
       newRow.setMutedBeforeStemExport(oldRow.isMutedBeforeStemExport());
       newRow.setExportStem(oldRow.isExportStem());
+      newRow.setLoopLengthIfIndependent(oldRow.getLoopLengthIfIndependent());
 
-      // Copy notes
+      // Copy notes with exact C play conditions (probabilityValue, fill, lift, iterance)
       List<NoteModel> copiedNotes = new ArrayList<>();
       for (NoteModel nm : oldRow.getNotes()) {
         NoteModel copyNote =
@@ -303,12 +317,6 @@ public class ClipModel extends TimelineCounter {
         newRow.getRowAutomation().put(autoEntry.getKey(), autoEntry.getValue().clone());
       }
     }
-
-    copy.playMode = this.playMode;
-    copy.playDirection = this.playDirection;
-    copy.tripletMode = this.tripletMode;
-    copy.isArrangementOnly = this.isArrangementOnly;
-    return copy;
   }
 
   private void initGrid() {
@@ -442,7 +450,48 @@ public class ClipModel extends TimelineCounter {
   }
 
   public void setPlayDirection(PlayDirection playDirection) {
-    this.playDirection = playDirection;
+    this.playDirection = playDirection != null ? playDirection : PlayDirection.FORWARD;
+    SequenceDirection mode =
+        switch (this.playDirection) {
+          case REVERSE -> SequenceDirection.REVERSE;
+          case PING_PONG -> SequenceDirection.PINGPONG;
+          case FORWARD, RANDOM -> SequenceDirection.FORWARD;
+        };
+    setSequenceDirectionMode(mode);
+  }
+
+  /**
+   * C Clip::setSequenceDirectionMode (clip.cpp:1041-1055): updates {@link #sequenceDirectionMode}
+   * and, when not switching to {@link SequenceDirection#PINGPONG}, sets {@link
+   * #currentlyPlayingReversed} and mirrors {@link #lastProcessedPos} if the playing direction
+   * flipped.
+   */
+  public void setSequenceDirectionMode(SequenceDirection newMode) {
+    boolean reversedBefore = currentlyPlayingReversed;
+    sequenceDirectionMode = newMode != null ? newMode : SequenceDirection.FORWARD;
+    this.playDirection =
+        switch (sequenceDirectionMode) {
+          case REVERSE -> PlayDirection.REVERSE;
+          case PINGPONG -> PlayDirection.PING_PONG;
+          case FORWARD ->
+              (this.playDirection == PlayDirection.RANDOM)
+                  ? PlayDirection.RANDOM
+                  : PlayDirection.FORWARD;
+        };
+
+    if (sequenceDirectionMode != SequenceDirection.PINGPONG) {
+      currentlyPlayingReversed = (sequenceDirectionMode == SequenceDirection.REVERSE);
+
+      if (reversedBefore != currentlyPlayingReversed) {
+        int len = getLoopLength();
+        if (len > 0 && lastProcessedPos != 0) {
+          lastProcessedPos = len - lastProcessedPos;
+        }
+      }
+    }
+    for (NoteRowModel row : noteRows.values()) {
+      row.syncDirectionWithClip(sequenceDirectionMode);
+    }
   }
 
   public boolean isTripletMode() {
@@ -678,6 +727,7 @@ public class ClipModel extends TimelineCounter {
    */
   public void restoreFrom(ClipModel src) {
     if (src == null) return;
+    tripletMode = src.tripletMode;
     setStepCount(src.stepCount);
     for (int r = 0; r < rowCount; r++) {
       for (int s = 0; s < stepCount; s++) {
@@ -691,10 +741,14 @@ public class ClipModel extends TimelineCounter {
     kitParams.clear();
     kitParams.putAll(src.kitParams);
     playMode = src.playMode;
-    playDirection = src.playDirection;
-    tripletMode = src.tripletMode;
+    setPlayDirection(src.playDirection);
     isArrangementOnly = src.isArrangementOnly;
     rebuildNotesFromGrid();
+    // Restore exact C play conditions (probabilityValue, follow-previous bit 128, lift, fill,
+    // iterance) that StepData cannot hold.
+    if (!src.noteRows.isEmpty()) {
+      copyNoteRowsFrom(src);
+    }
   }
 
   public void syncNoteRowsFromGrid() {
@@ -817,11 +871,14 @@ public class ClipModel extends TimelineCounter {
   /**
    * C Clip::setPos (clip.cpp:353-388) + InstrumentClip::setPos (instrument_clip.cpp:379-436): move
    * the play position, re-deriving repeatCount and the playing direction, and the same for every
-   * note row with an independent play position. The param-manager halves and expectEvent() have no
-   * counterpart here.
+   * note row with an independent play position. Resets {@code ticksTilNextNoteRowEvent}
+   * (expectEvent(), instrument_clip.cpp:4404) and {@code noteRowsNumTicksBehindClip} (:383).
    */
   public void setPos(int newPos) {
     int loopLength = getLoopLength();
+    ticksTilNextNoteRowEvent = 0; // C instrument_clip.cpp:381 -> expectEvent() :4404
+    noteRowsNumTicksBehindClip = 0; // C instrument_clip.cpp:383
+    reverseStartAtZeroPending = false;
     if (loopLength <= 0) {
       // A C clip always has loopLength > 0; this model can be built with zero steps. Keep the reset
       // that PlaybackHandler.start() did before this port rather than divide by zero.
@@ -848,6 +905,7 @@ public class ClipModel extends TimelineCounter {
       } else {
         repeatCount--; // Cos it's going to get incremented as a side effect of reversed clips
         // starting at pos 0 after which they'll immediately wrap
+        reverseStartAtZeroPending = true;
       }
     }
 
@@ -857,6 +915,41 @@ public class ClipModel extends TimelineCounter {
     // value AFTER Clip::setPos reduced it, exactly as in the C (it passes the same variable).
     for (NoteRowModel row : noteRows.values()) {
       row.setPosIfIndependent(newPos, sequenceDirectionMode);
+    }
+  }
+
+  /**
+   * C Clip::incrementPos (clip.cpp:1173-1178) + InstrumentClip::incrementPos
+   * (instrument_clip.cpp:4728-4750): advances {@link #lastProcessedPos} (negating {@code numTicks}
+   * when playing in reverse) and, once {@code ticksTilNextNoteRowEvent <= 0}, advances every note
+   * row with an independent play position by {@code noteRowsNumTicksBehindClip} (negated for rows
+   * playing in reverse).
+   */
+  public void incrementPos(int numTicks) {
+    if (numTicks > 0 && reverseStartAtZeroPending) {
+      // C runs processCurrentPos(0) at pos 0 before the first non-zero increment, which increments
+      // repeatCount from -1 to 0 (clip.cpp:260-261).
+      repeatCount++;
+      reverseStartAtZeroPending = false;
+    }
+    int clipTicks = currentlyPlayingReversed ? -numTicks : numTicks;
+    lastProcessedPos += clipTicks;
+
+    if (type == ClipType.INSTRUMENT) {
+      advanceNoteRowSchedule(numTicks);
+    }
+  }
+
+  private void advanceNoteRowSchedule(int numTicks) {
+    ticksTilNextNoteRowEvent -= numTicks; // C instrument_clip.cpp:4731
+    noteRowsNumTicksBehindClip += numTicks; // C instrument_clip.cpp:4732
+
+    if (ticksTilNextNoteRowEvent <= 0) { // C instrument_clip.cpp:4734
+      for (NoteRowModel row : noteRows.values()) {
+        if (row.hasIndependentPlayPos()) {
+          row.incrementPosIfIndependent(noteRowsNumTicksBehindClip);
+        }
+      }
     }
   }
 
@@ -928,9 +1021,7 @@ public class ClipModel extends TimelineCounter {
     // (clip.cpp:808) — not ported. It must NOT touch lastProcessedPos: an earlier translation did
     // `lastProcessedPos %= effectiveLength`, which zeroed the position before the wrap below could
     // see it, so repeatCount never advanced (breaking iterance) and the forward pingpong branch was
-    // unreachable. (Separately, nothing in the app assigns sequenceDirectionMode yet —
-    // setPlayDirection
-    // writes a different field — so pingpong still cannot be enabled from the UI.)
+    // unreachable.
 
     int ticksTilEnd;
     boolean didPingpong = false;
@@ -938,6 +1029,7 @@ public class ClipModel extends TimelineCounter {
     if (currentlyPlayingReversed) {
       if (lastProcessedPos == 0) {
         repeatCount++;
+        reverseStartAtZeroPending = false;
         if (sequenceDirectionMode == SequenceDirection.PINGPONG) {
           lastProcessedPos = -lastProcessedPos;
           currentlyPlayingReversed = !currentlyPlayingReversed;
@@ -945,7 +1037,7 @@ public class ClipModel extends TimelineCounter {
           didPingpong = true;
           ticksTilEnd = effectiveLength - lastProcessedPos;
         } else {
-          ticksTilEnd = lastProcessedPos;
+          ticksTilEnd = effectiveLength; // C clip.cpp:271-274 (!ticksTilEnd -> loopLength)
         }
       } else {
         ticksTilEnd = lastProcessedPos;
@@ -968,10 +1060,15 @@ public class ClipModel extends TimelineCounter {
       }
     }
 
+    ticksTilNextEvent = ticksTilEnd;
+
     if (paramManager.mightContainAutomation()) {
       boolean mayInterpolate = (type == ClipType.INSTRUMENT || type == ClipType.AUDIO);
       paramManager.processCurrentPos(
           lastProcessedPos, effectiveLength, currentlyPlayingReversed, didPingpong, mayInterpolate);
+      if (paramManager.ticksTilNextEvent < ticksTilNextEvent) {
+        ticksTilNextEvent = paramManager.ticksTilNextEvent;
+      }
     }
 
     // ── Sequencer Note Processing (CLIP type) ──
@@ -986,35 +1083,53 @@ public class ClipModel extends TimelineCounter {
         }
       }
 
-      List<org.deluge.model.PendingNoteOn> pendingNoteOns = new ArrayList<>();
-      List<Integer> pendingNoteOffs = new ArrayList<>();
-      ticksTilNextEvent = Integer.MAX_VALUE;
+      // If a legacy caller advanced lastProcessedPos directly without calling incrementPos(),
+      // apply the note-row half of InstrumentClip::incrementPos (instrument_clip.cpp:4731-4749).
+      if (noteRowsNumTicksBehindClip == 0 && ticksSinceLast > 0) {
+        advanceNoteRowSchedule(ticksSinceLast);
+      }
 
-      for (NoteRowModel noteRow : noteRows.values()) {
-        int dist =
-            noteRow.processCurrentPos(
-                ticksSinceLast,
-                pendingNoteOns,
-                pendingNoteOffs,
-                lastProcessedPos,
-                effectiveLength,
-                currentlyPlayingReversed,
-                sound);
-        if (dist < ticksTilNextEvent) {
-          ticksTilNextEvent = dist;
+      // C instrument_clip.cpp:706-737 — only process NoteRows when ticksTilNextNoteRowEvent <= 0.
+      if (ticksTilNextNoteRowEvent <= 0) {
+        if (lastProcessedPos != 0 && currentlyPlayingReversed) {
+          ticksTilNextNoteRowEvent = lastProcessedPos;
+        } else {
+          ticksTilNextNoteRowEvent = effectiveLength - lastProcessedPos;
         }
+
+        List<org.deluge.model.PendingNoteOn> pendingNoteOns = new ArrayList<>();
+        List<Integer> pendingNoteOffs = new ArrayList<>();
+
+        for (NoteRowModel noteRow : noteRows.values()) {
+          int dist =
+              noteRow.processCurrentPos(
+                  noteRowsNumTicksBehindClip,
+                  pendingNoteOns,
+                  pendingNoteOffs,
+                  lastProcessedPos,
+                  effectiveLength,
+                  currentlyPlayingReversed,
+                  didPingpong,
+                  sequenceDirectionMode,
+                  sound);
+          if (dist < ticksTilNextNoteRowEvent) {
+            ticksTilNextNoteRowEvent = dist;
+          }
+        }
+
+        noteRowsNumTicksBehindClip = 0;
+
+        for (int pitchToRelease : pendingNoteOffs) {
+          releaseNote(pitchToRelease);
+        }
+
+        evaluatePlayConditionsAndTrigger(pendingNoteOns);
       }
 
-      int ticksTilEndVal =
-          currentlyPlayingReversed ? lastProcessedPos : (effectiveLength - lastProcessedPos);
-      if (ticksTilEndVal <= 0) ticksTilEndVal = effectiveLength;
-      if (ticksTilEndVal < ticksTilNextEvent) ticksTilNextEvent = ticksTilEndVal;
-
-      for (int pitchToRelease : pendingNoteOffs) {
-        releaseNote(pitchToRelease);
+      // C instrument_clip.cpp:910-912
+      if (ticksTilNextNoteRowEvent < ticksTilNextEvent) {
+        ticksTilNextEvent = ticksTilNextNoteRowEvent;
       }
-
-      evaluatePlayConditionsAndTrigger(pendingNoteOns);
     }
   }
 

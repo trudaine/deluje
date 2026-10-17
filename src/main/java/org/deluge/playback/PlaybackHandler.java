@@ -206,7 +206,7 @@ public class PlaybackHandler {
       arrangement.advance(effectiveAdvance);
 
       for (ClipModel clip : currentProject.getClips()) {
-        clip.lastProcessedPos += effectiveAdvance;
+        clip.incrementPos(effectiveAdvance); // C clip.cpp:1173-1178, instrument_clip.cpp:4728-4750
         clip.processCurrentPos(effectiveAdvance);
       }
 

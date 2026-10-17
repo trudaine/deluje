@@ -28,11 +28,13 @@ class PlayConditionsTest {
   /** Counts note-ons per pitch, and which loop each happened in, instead of rendering. */
   static final class CountingSound extends FirmwareSound {
     final Map<Integer, List<Integer>> loopsByPitch = new HashMap<>();
+    final List<Integer> pitchOrder = new ArrayList<>();
     int currentLoop;
 
     @Override
     public void triggerNote(int note, int vel) {
       loopsByPitch.computeIfAbsent(note, k -> new ArrayList<>()).add(currentLoop);
+      pitchOrder.add(note);
     }
 
     int count(int pitch) {
@@ -64,13 +66,13 @@ class PlayConditionsTest {
     return n;
   }
 
-  /** Drive as PlaybackHandler.java:208-209 does: the caller advances lastProcessedPos. */
+  /** Drive as PlaybackHandler.java:209-210 does: incrementPos then processCurrentPos. */
   private void play(int loops) {
     Functions.resetNoiseSeed();
     int len = clip.getLoopLength();
     for (int t = 0; t < loops * len; t++) {
       sound.currentLoop = t / len;
-      clip.lastProcessedPos += 1;
+      clip.incrementPos(1);
       clip.processCurrentPos(1);
     }
   }
@@ -330,5 +332,87 @@ class PlayConditionsTest {
   void decodesOldFormatAlwaysWithDefaultLift() {
     assertArrayEquals(
         new int[] {20, 0, 0, 64}, conditions(decode("00000000" + "00000018" + "40" + "14")));
+  }
+
+  @Test
+  void setPlayDirectionDrivesReverseAndPingPongPlayback() {
+    // Issue #18: setPlayDirection must update sequenceDirectionMode so Reverse and Ping-Pong clips
+    // actually run in reverse / ping-pong through incrementPos + processCurrentPos.
+    addNote(0, 60, 0).setIterance(Iterance.FIRST);
+    addNote(1, 62, 2);
+
+    clip.setPlayDirection(ClipModel.PlayDirection.REVERSE);
+    assertEquals(SequenceDirection.REVERSE, clip.sequenceDirectionMode);
+    clip.setPos(0);
+    play(2);
+    // In reverse, step 2 (pitch 62) fires before step 0 (pitch 60); pitch 60 has FIRST iterance so
+    // it fires only in loop 0.
+    assertEquals(List.of(62, 60, 62), sound.pitchOrder);
+    assertEquals(List.of(0), sound.loops(60));
+    assertEquals(List.of(0, 1), sound.loops(62));
+
+    // Now switch to PING_PONG and run 3 loops: forward (60, 62), reverse (62), forward (62).
+    // (Pitch 60 has FIRST iterance so it fires only on loop 0.)
+    sound.loopsByPitch.clear();
+    sound.pitchOrder.clear();
+    clip.getOrCreateRow(0).getNotes().get(0).setIterance(Iterance.OFF);
+    clip.setPlayDirection(ClipModel.PlayDirection.PING_PONG);
+    assertEquals(SequenceDirection.PINGPONG, clip.sequenceDirectionMode);
+    clip.setPos(0);
+    play(3);
+    assertEquals(List.of(60, 62, 62, 60, 60, 62), sound.pitchOrder);
+  }
+
+  @Test
+  void restoreFromPreservesFollowPreviousProbabilityAndLift() {
+    // Issue #19: restoreFrom must preserve raw NoteModel conditions (follow-previous bit 128, lift)
+    // that StepData cannot represent.
+    clip.setStep(0, 0, true);
+    NoteModel note = clip.getOrCreateRow(0).getNotes().get(0);
+    note.setProbabilityValue(128 | 10);
+    note.setLift(99);
+    note.setFill(NoteModel.FILL_MODE_FILL);
+    note.setIterance(new Iterance((byte) 3, (byte) 0b010));
+    clip.setPlayDirection(ClipModel.PlayDirection.REVERSE);
+
+    ClipModel snapshot = clip.deepCopy("snap");
+
+    clip.setStep(0, 0, false);
+    clip.setStepCount(2);
+    clip.setPlayDirection(ClipModel.PlayDirection.FORWARD);
+
+    clip.restoreFrom(snapshot);
+
+    assertEquals(4, clip.getStepCount());
+    assertEquals(ClipModel.PlayDirection.REVERSE, clip.getPlayDirection());
+    assertEquals(SequenceDirection.REVERSE, clip.sequenceDirectionMode);
+    NoteModel restored = clip.getOrCreateRow(0).getNotes().get(0);
+    assertEquals(128 | 10, restored.getProbabilityValue());
+    assertEquals(99, restored.getLift());
+    assertEquals(NoteModel.FILL_MODE_FILL, restored.getFill());
+    assertEquals(0x0302, restored.getIterance().toInt());
+  }
+
+  @Test
+  void independentLengthNoteRowAdvancesOwnLoopAndIterance() {
+    // Issue #16: InstrumentClip::incrementPos (instrument_clip.cpp:4728-4750) advances
+    // lastProcessedPosIfIndependent on rows with loopLengthIfIndependent > 0.
+    // Clip is 96 ticks (4 steps). Row 0 is 48 ticks (2 steps), plain note. Row 1 is 48 ticks, 1of2.
+    NoteRowModel row0 = clip.getOrCreateRow(0);
+    row0.setLoopLengthIfIndependent(48);
+    addNote(0, 60, 0);
+
+    NoteRowModel row1 = clip.getOrCreateRow(1);
+    row1.setLoopLengthIfIndependent(48);
+    addNote(1, 62, 0).setIterance(new Iterance((byte) 2, (byte) 0b01)); // 1of2
+
+    clip.setPos(0);
+    // 2 clip loops = 192 ticks = 4 passes of the 48-tick independent rows.
+    play(2);
+
+    assertEquals(4, sound.count(60), "48-tick row must loop 4 times in 192 ticks");
+    assertEquals(2, sound.count(62), "1of2 on 48-tick row must fire on row passes 0 and 2");
+    assertEquals(4, row0.getRepeatCount(clip.repeatCount));
+    assertEquals(2, clip.repeatCount);
   }
 }
