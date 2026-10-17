@@ -40,6 +40,7 @@ public class PlaybackHandler {
   private static final int INTERNAL_TICKS_PER_MIDI_CLOCK = 4;
   private MidiClockSink midiClockOut;
   private int lastClockTick = 0; // internal tick at which the last 0xF8 was emitted
+  private int swingSubTicks = 0; // fractional swing progress in fiftieths of a swung tick
 
   public void setMidiClockOut(MidiClockSink sink) {
     this.midiClockOut = sink;
@@ -154,6 +155,7 @@ public class PlaybackHandler {
     playing = true;
     lastSwungTickActioned = 0;
     swungTicksTilNextEvent = 0;
+    swingSubTicks = 0;
     launchEventAtSwungTickCount = 0;
     numRepeatsTilLaunch = 0;
     lastClockTick = 0;
@@ -171,6 +173,7 @@ public class PlaybackHandler {
 
   public synchronized void stop() {
     playing = false;
+    swingSubTicks = 0;
     launchEventAtSwungTickCount = 0;
     numRepeatsTilLaunch = 0;
     if (midiClockOut != null) midiClockOut.stop(); // 0xFC
@@ -183,17 +186,23 @@ public class PlaybackHandler {
     if (!playing || currentProject == null) return;
 
     int ticksRemaining = numTicks;
-    while (ticksRemaining > 0) {
+    while (ticksRemaining > 0 || (currentProject.getSwingAmount() != 0 && swingSubTicks >= 50)) {
       int nextDeadline = swungTicksTilNextEvent;
       for (ClipModel clip : currentProject.getClips()) {
         nextDeadline = Math.min(nextDeadline, clip.getTicksTilNextEvent());
       }
-      int toAdvance = Math.min(ticksRemaining, nextDeadline);
-      if (toAdvance <= 0) toAdvance = 1;
+      int deadlineTicks = Math.max(1, nextDeadline);
 
       // ── Bit-Accurate Swing Math ──
-      int effectiveAdvance = toAdvance;
-      if (currentProject.getSwingAmount() != 0) {
+      int effectiveAdvance;
+      int swingAmount = Math.max(-49, Math.min(49, currentProject.getSwingAmount()));
+      if (swingAmount == 0) {
+        swingSubTicks = 0;
+        int toAdvance = Math.min(ticksRemaining, deadlineTicks);
+        if (toAdvance <= 0) break;
+        effectiveAdvance = toAdvance;
+        ticksRemaining -= toAdvance;
+      } else {
         int leftShift =
             Math.max(
                 0,
@@ -202,19 +211,27 @@ public class PlaybackHandler {
                         .getSwingInterval()); // Offset 6 for 96 PPQN (C++ uses 9/10 for 1536 PPQN)
         int swingTicks = 3 << leftShift;
         boolean firstHalf = Math.floorMod(lastSwungTickActioned, swingTicks * 2) < swingTicks;
-        int swingFactor =
-            Math.max(
-                1,
-                firstHalf
-                    ? (50 + currentProject.getSwingAmount())
-                    : (50 - currentProject.getSwingAmount()));
+        int swingFactor = firstHalf ? (50 + swingAmount) : (50 - swingAmount);
         int swungLeftInHalf = swingTicks - Math.floorMod(lastSwungTickActioned, swingTicks);
-        int maxSwungAdvance =
-            nextDeadline > 0 ? Math.min(nextDeadline, swungLeftInHalf) : swungLeftInHalf;
-        effectiveAdvance = (toAdvance * swingFactor) / 50;
-        if (effectiveAdvance > maxSwungAdvance && maxSwungAdvance > 0) {
-          toAdvance = Math.max(1, (maxSwungAdvance * 50) / swingFactor);
-          effectiveAdvance = (toAdvance * swingFactor) / 50;
+        int maxSwungAdvance = Math.min(deadlineTicks, swungLeftInHalf);
+        int targetSubTicks = maxSwungAdvance * 50;
+
+        if (swingSubTicks < targetSubTicks && ticksRemaining > 0) {
+          int neededSubTicks = targetSubTicks - swingSubTicks;
+          int inputTicksNeeded = (neededSubTicks + swingFactor - 1) / swingFactor;
+          int toConsume = Math.min(ticksRemaining, inputTicksNeeded);
+          swingSubTicks += toConsume * swingFactor;
+          ticksRemaining -= toConsume;
+        }
+
+        effectiveAdvance = Math.min(maxSwungAdvance, swingSubTicks / 50);
+        if (effectiveAdvance <= 0) {
+          break; // Fractional progress preserved in swingSubTicks for next advanceTicks call.
+        }
+        swingSubTicks -= effectiveAdvance * 50;
+        if (effectiveAdvance == swungLeftInHalf && swingSubTicks > 0) {
+          // Rescale leftover fraction of the crossing input tick into the new swing half.
+          swingSubTicks = (swingSubTicks * (100 - swingFactor)) / swingFactor;
         }
       }
 
@@ -230,8 +247,6 @@ public class PlaybackHandler {
 
       // Update next event distance (C playback_handler.cpp:1095-1097 clamps >= 1).
       swungTicksTilNextEvent = Math.max(1, nextEventTicks);
-
-      ticksRemaining -= toAdvance;
     }
 
     // Outbound MIDI clock (24 PPQN): emit one 0xF8 per 4 internal ticks crossed, following the

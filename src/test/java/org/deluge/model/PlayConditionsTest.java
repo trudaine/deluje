@@ -524,4 +524,65 @@ class PlayConditionsTest {
     }
     assertEquals(1, sound.count(60), "one-shot synth in reverse must trigger at note.pos (24)");
   }
+
+  @Test
+  void swingSlowHalfSingleTickAdvancesDoNotStallAcrossHalfBoundary() {
+    ProjectModel project = new ProjectModel();
+    project.setSwingAmount(15);
+    project.setSwingInterval(6); // swingTicks = 3; positions 3..5 run at swingFactor = 35
+    SynthTrackModel track = new SynthTrackModel("Synth");
+    track.addClip(clip);
+    track.setActiveClipIndex(0);
+    project.addTrack(track);
+
+    NoteRowModel row = clip.getOrCreateRow(0);
+    row.setPitch(60);
+    row.getNotes().add(new NoteModel(6, 1, 1.0f, 1.0f, 0));
+    clip.expectEvent();
+
+    org.deluge.playback.PlaybackHandler pb = new org.deluge.playback.PlaybackHandler();
+    pb.setProject(project);
+    pb.start();
+
+    for (int i = 0; i < 12; i++) {
+      pb.advanceTicks(1);
+    }
+    assertTrue(
+        clip.lastProcessedPos >= 7,
+        "1-tick advances must cross slow swing half without stalling (pos="
+            + clip.lastProcessedPos
+            + ")");
+    assertEquals(1, sound.count(60), "note at swung pos 6 must fire after crossing slow half");
+  }
+
+  @Test
+  void swingSlowHalfOneTickDeadlineDoesNotStall() {
+    ProjectModel project = new ProjectModel();
+    project.setSwingAmount(15);
+    project.setSwingInterval(6); // swingTicks = 3; positions 3..5 run at swingFactor = 35
+    SynthTrackModel track = new SynthTrackModel("Synth");
+    track.addClip(clip);
+    track.setActiveClipIndex(0);
+    project.addTrack(track);
+
+    NoteRowModel row = clip.getOrCreateRow(0);
+    row.setPitch(60);
+    // Note at pos 3 (triggers at tick 4, 1-tick deadline from start of slow half at tick 3)
+    // and note at pos 4 (triggers at tick 5, another 1-tick deadline inside the slow half).
+    row.getNotes().add(new NoteModel(3, 1, 1.0f, 1.0f, 0));
+    row.getNotes().add(new NoteModel(4, 1, 1.0f, 1.0f, 0));
+    clip.expectEvent();
+
+    org.deluge.playback.PlaybackHandler pb = new org.deluge.playback.PlaybackHandler();
+    pb.setProject(project);
+    pb.start();
+
+    for (int i = 0; i < 12; i++) {
+      pb.advanceTicks(1);
+    }
+    assertEquals(
+        2,
+        sound.count(60),
+        "consecutive 1-tick deadlines in slow swing half must both fire without stalling");
+  }
 }
