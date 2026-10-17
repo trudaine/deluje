@@ -164,9 +164,10 @@ public final class FilterSet {
       if (hpfMode_ == FilterMode.HPLADDER) {
         filterGain = hpLadder.configure(hpfFrequency, hpfResonance, hpfMode_, hpfMorph, filterGain);
         if (lastHPFMode_ != hpfMode_) {
-          // C filter_set.h:38-42 — HighPass is a union, so switching SVF -> HPLADDER while
-          // lastHPFMode_ != OFF shares the base Filter blend state (dryFade, wetLevel).
-          if (lastHPFMode_ != FilterMode.OFF && getFilterFamily(lastHPFMode_) == FilterFamily.SVF) {
+          // C filter_set.cpp:173-181, filter_set.h:38-42 — HighPass is a union; any non-OFF,
+          // non-HPLADDER mode writes hpfilter.svf, so switching to HPLADDER shares
+          // dryFade/wetLevel.
+          if (lastHPFMode_ != FilterMode.OFF) {
             hpLadder.dryFade = hpSvf.dryFade;
             hpLadder.wetLevel = hpSvf.wetLevel;
           }

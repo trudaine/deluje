@@ -91,6 +91,110 @@ class Fw2Slice2FindingsTest {
     int[] negOut = new int[4];
     FmCore.render(negOut, 4, negParams, 31, new int[2], 16, true);
     assertEquals((1 << 23) ^ -1, negOut[0], "NEON negative half-cycle uses 1's-complement veor");
+
+    // Verify non-peak phases and multi-group gain ramps (16 samples = 4 NEON quads) for both
+    // pure (algo 31, op 5) and phase-modulated (algo 0, op 5 -> op 4) operators against
+    // independent neon_fm_kernel.s arithmetic.
+    int lgN = 4; // 16 samples
+    int n = 1 << lgN;
+    int testPhase0 = 0x00135790;
+    int testFreq = 0x00097530;
+    int testGain1 = 0x00246800;
+    int testLevelIn = 14 << 24; // gain2 = 1 << 24
+    int testDgain = ((1 << 24) - testGain1 + (n >> 1)) >> lgN;
+
+    FmCore.FmOpParams[] pureRefParams = makeSilentFmParams();
+    pureRefParams[5].gain_out = testGain1;
+    pureRefParams[5].level_in = testLevelIn;
+    pureRefParams[5].phase = testPhase0;
+    pureRefParams[5].freq = testFreq;
+    int[] pureOut = new int[n];
+    FmCore.render(pureOut, n, pureRefParams, 31, new int[2], n, true);
+
+    float dgainStep = (float) testDgain / (1 << 22);
+    float[] pureLaneGain = {
+      (float) testGain1 / (1 << 24),
+      (float) (testGain1 + testDgain) / (1 << 24),
+      (float) (testGain1 + 2 * testDgain) / (1 << 24),
+      (float) (testGain1 + 3 * testDgain) / (1 << 24)
+    };
+    for (int i = 0; i < n; i++) {
+      int p = testPhase0 + i * testFreq;
+      int xInt = (p & 0x7fffff) - 0x400000;
+      float x = (float) xInt / (1 << 22);
+      float x2 = x * x;
+      // Cortex-A9 vmla.f32 is non-fused multiply-add; vadd.f32 steps each lane sequentially.
+      float poly = 0.25215253f + x2 * -0.01880853f;
+      poly = -1.233344f + x2 * poly;
+      poly = 1.0f + x2 * poly;
+      int lane = i & 3;
+      float g = pureLaneGain[lane];
+      pureLaneGain[lane] += dgainStep;
+      int expectedY = (int) ((poly * g) * (1 << 24));
+      if ((p & 0x800000) != 0) {
+        expectedY ^= -1;
+      }
+      assertEquals(
+          expectedY, pureOut[i], "Pure NEON sample " + i + " mismatch vs neon_fm_kernel.s");
+    }
+
+    // Phase-modulated operator: algo 0 routes op 4 (0x01) -> bus 1 -> op 5 (0x14) -> output.
+    FmCore.FmOpParams[] modParams = makeSilentFmParams();
+    modParams[4].gain_out = 1 << 22;
+    modParams[4].level_in = 13 << 24;
+    modParams[4].phase = 0x00210000;
+    modParams[4].freq = 0x00070000;
+    modParams[5].gain_out = testGain1;
+    modParams[5].level_in = testLevelIn;
+    modParams[5].phase = testPhase0;
+    modParams[5].freq = testFreq;
+    int[] modOut = new int[n];
+    FmCore.render(modOut, n, modParams, 0, new int[2], n, true);
+
+    int modGain2 = 1 << (24 + (modParams[4].level_in >> 24) - 14);
+    int modDgain = (modGain2 - (1 << 22) + (n >> 1)) >> lgN;
+    float modDgainStep = (float) modDgain / (1 << 22);
+    float[] modLaneGain = {
+      (float) (1 << 22) / (1 << 24),
+      (float) ((1 << 22) + modDgain) / (1 << 24),
+      (float) ((1 << 22) + 2 * modDgain) / (1 << 24),
+      (float) ((1 << 22) + 3 * modDgain) / (1 << 24)
+    };
+    float[] carLaneGain = {
+      (float) testGain1 / (1 << 24),
+      (float) (testGain1 + testDgain) / (1 << 24),
+      (float) (testGain1 + 2 * testDgain) / (1 << 24),
+      (float) (testGain1 + 3 * testDgain) / (1 << 24)
+    };
+    for (int i = 0; i < n; i++) {
+      int lane = i & 3;
+      int mp = 0x00210000 + i * 0x00070000;
+      float mx = (float) ((mp & 0x7fffff) - 0x400000) / (1 << 22);
+      float mx2 = mx * mx;
+      float mpoly = 0.25215253f + mx2 * -0.01880853f;
+      mpoly = -1.233344f + mx2 * mpoly;
+      mpoly = 1.0f + mx2 * mpoly;
+      float mg = modLaneGain[lane];
+      modLaneGain[lane] += modDgainStep;
+      int busVal = (int) ((mpoly * mg) * (1 << 24));
+      if ((mp & 0x800000) != 0) {
+        busVal ^= -1;
+      }
+
+      int cp = (testPhase0 + i * testFreq) + busVal;
+      float cx = (float) ((cp & 0x7fffff) - 0x400000) / (1 << 22);
+      float cx2 = cx * cx;
+      float cpoly = 0.25215253f + cx2 * -0.01880853f;
+      cpoly = -1.233344f + cx2 * cpoly;
+      cpoly = 1.0f + cx2 * cpoly;
+      float cg = carLaneGain[lane];
+      carLaneGain[lane] += dgainStep;
+      int expectedModY = (int) ((cpoly * cg) * (1 << 24));
+      if ((cp & 0x800000) != 0) {
+        expectedModY ^= -1;
+      }
+      assertEquals(expectedModY, modOut[i], "Modulated NEON sample " + i + " mismatch");
+    }
   }
 
   // ── Finding 3: Dx7Voice.oscFreq float intermediate & fine constant ──
@@ -244,6 +348,46 @@ class Fw2Slice2FindingsTest {
     assertEquals(555555555, fs.lpLadder.wetLevel);
     assertEquals(0.25f, fs.hpLadder.dryFade, 1e-7f);
     assertEquals(444444444, fs.hpLadder.wetLevel);
+
+    // Also verify HPF OFF -> TRANSISTOR_12DB (inert LP mode in HPF slot) -> HPLADDER transfers
+    // hpSvf's blend state (dryFade = 1.0f, wetLevel = 0) into hpLadder.
+    fs.setConfig(
+        1 << 24,
+        1 << 27,
+        FilterSet.FilterMode.OFF,
+        0,
+        1 << 24,
+        1 << 27,
+        FilterSet.FilterMode.OFF,
+        0,
+        1 << 28,
+        FilterRoute.HIGH_TO_LOW);
+    fs.setConfig(
+        1 << 24,
+        1 << 27,
+        FilterSet.FilterMode.OFF,
+        0,
+        1 << 24,
+        1 << 27,
+        FilterSet.FilterMode.TRANSISTOR_12DB,
+        0,
+        1 << 28,
+        FilterRoute.HIGH_TO_LOW);
+    assertEquals(1.0f, fs.hpSvf.dryFade, 1e-7f);
+    fs.hpLadder.dryFade = 0.0f;
+    fs.setConfig(
+        1 << 24,
+        1 << 27,
+        FilterSet.FilterMode.OFF,
+        0,
+        1 << 24,
+        1 << 27,
+        FilterSet.FilterMode.HPLADDER,
+        0,
+        1 << 28,
+        FilterRoute.HIGH_TO_LOW);
+    assertEquals(1.0f, fs.hpLadder.dryFade, 1e-7f);
+    assertEquals(0, fs.hpLadder.wetLevel);
   }
 
   // ── Finding 7: FilterSet.reset() clears hpfLastWorkingValue ──
