@@ -1181,6 +1181,19 @@ public class Sound extends GlobalEffectable {
       if (polyphonic == PolyphonyMode.LEGATO && allowNoteTails(true)) {
         for (var v : voices) {
           if (v.active && v.envelopes[0].state.compareTo(Envelope.Stage.RELEASE) < 0) {
+            for (int s = 0; s < 2; s++) {
+              if (synthMode != 1
+                  && oscTypes[s] == OscType.SAMPLE
+                  && v.sources[s].sampleRef == null
+                  && (samples[s] != null || !sourceZones[s].isEmpty())) {
+                setupVoiceSampleSource(v, s, note, vel, samplesLate);
+                boolean activeNow = v.sources[s].sampleRef != null && isSourceActiveEver(s, true);
+                for (int u = 0; u < numUnison; u++) {
+                  v.unisonParts[u].sources[s].active = activeNow;
+                  v.unisonParts[u].sources[s].disabledByPitch = false;
+                }
+              }
+            }
             v.changeNoteCode(note, midiChannel, mpeValues);
             return;
           }
@@ -1221,112 +1234,124 @@ public class Sound extends GlobalEffectable {
       if (targetVoice != null) {
         // Setup/Update samples on targetVoice's sources before triggering
         for (int s = 0; s < 2; s++) {
-          Sample targetSample = null;
-          int startFrame = sampleStartPoint[s];
-          int len = 0;
-          int endFrame = sampleEndPoint[s];
-          boolean looping = sampleLoopMode[s] == 1;
-          int loopStartFrame = sampleLoopStart[s];
-          int loopEndPos = 0;
-          int zoneTranspose = Integer.MIN_VALUE; // INT_MIN = no zone (single sample)
-          int zoneCents = 0;
-
-          // C source.cpp:127 / multisample_range.h — multisample key/velocity zone matching
-          if (!sourceZones[s].isEmpty()) {
-            CompiledKeyZone matchedZone = null;
-            for (CompiledKeyZone kz : sourceZones[s]) {
-              if (kz.sample != null
-                  && note >= kz.minPitch
-                  && note <= kz.maxPitch
-                  && vel >= kz.minVelocity
-                  && vel <= kz.maxVelocity) {
-                matchedZone = kz;
-                break;
-              }
-            }
-            if (matchedZone != null) {
-              targetSample = matchedZone.sample;
-              len = (int) targetSample.lengthInSamples;
-              startFrame = matchedZone.startSamplePos;
-              endFrame =
-                  matchedZone.endSamplePos == -1 ? len : Math.min(matchedZone.endSamplePos, len);
-              looping = matchedZone.looping;
-              loopStartFrame = matchedZone.startLoopPos;
-              loopEndPos = matchedZone.endLoopPos > 0 ? Math.min(matchedZone.endLoopPos, len) : 0;
-              zoneTranspose = matchedZone.transpose;
-              zoneCents = matchedZone.cents;
-            }
-          }
-
-          if (targetSample == null) {
-            targetSample = samples[s];
-            if (targetSample != null) {
-              len = (int) targetSample.lengthInSamples;
-              endFrame = sampleEndPoint[s] == 65535 ? len : Math.min(sampleEndPoint[s], len);
-              loopEndPos = sampleLoopEnd[s] > 0 ? Math.min(sampleLoopEnd[s], len) : 0;
-            }
-          }
-
-          if (targetSample != null) {
-            // Carry the matched multisample zone's transpose (authoritative tuning) onto the
-            // source;
-            // INT_MIN = single sample / no zone → pitch falls back to the WAV-root-derived
-            // transpose.
-            targetVoice.sources[s].zoneTranspose = zoneTranspose;
-            targetVoice.sources[s].zoneCents = zoneCents;
-            // C SampleControls.interpolationMode — per-source lo-fi linear interpolation across
-            // every unison part.
-            targetVoice.sources[s].setLinearInterpolation(sourceLinearInterpolation[s]);
-
-            // C sample_playback_guide.cpp:71-81, voice_sample_playback_guide.cpp:36-68 — convert
-            // file-coordinate start/end and loop points into directional playback bounds.
-            boolean reversed = sampleReverse[s];
-            int playDir = reversed ? -1 : 1;
-            int dirStart = !reversed ? startFrame : (endFrame - 1);
-            int dirEnd = !reversed ? endFrame : (startFrame - 1);
-            int rawLoopStart = loopStartFrame > 0 ? loopStartFrame : 0;
-            int rawLoopEnd = loopEndPos > 0 ? loopEndPos : 0;
-            int loopStartPlaybackAtSample = !reversed ? rawLoopStart : rawLoopEnd;
-            int loopEndPlaybackAtSample = !reversed ? rawLoopEnd : rawLoopStart;
-            boolean hasLoopStart = loopStartPlaybackAtSample > 0;
-            boolean hasLoopEnd = loopEndPlaybackAtSample > 0;
-            if (reversed) {
-              if (hasLoopStart) loopStartPlaybackAtSample--;
-              if (hasLoopEnd) loopEndPlaybackAtSample--;
-            }
-            int dirLoopStart = hasLoopStart ? loopStartPlaybackAtSample : dirStart;
-            int dirLoopEnd = hasLoopEnd ? loopEndPlaybackAtSample : dirEnd;
-
-            boolean ts = sampleTimestretch[s];
-            if (ts) {
-              targetVoice.sources[s].setupSampleTimeStretch(
-                  targetSample,
-                  dirStart,
-                  dirEnd,
-                  playDir,
-                  looping,
-                  dirLoopStart,
-                  hasLoopEnd,
-                  dirLoopEnd,
-                  16777216);
-            } else {
-              targetVoice.sources[s].setupSample(
-                  targetSample,
-                  dirStart,
-                  dirEnd,
-                  playDir,
-                  looping,
-                  dirLoopStart,
-                  hasLoopEnd,
-                  dirLoopEnd,
-                  samplesLate);
-            }
-          } else {
-            targetVoice.sources[s].clearSample();
-          }
+          setupVoiceSampleSource(targetVoice, s, note, vel, samplesLate);
         }
         targetVoice.noteOn(note, vel, midiChannel, mpeValues);
       }
+    }
+  }
+
+  /**
+   * Initializes or clears sample playback state on {@code targetVoice.sources[s]} for {@code note}.
+   * Mirrors C {@code Voice::noteOn} (voice.cpp:226-256), which only attaches an audioFileHolder and
+   * sample reader when {@code oscType == OscType::SAMPLE && synthMode != SynthMode::FM}.
+   */
+  private void setupVoiceSampleSource(
+      Voice targetVoice, int s, int note, int vel, int samplesLate) {
+    if (synthMode == 1 || oscTypes[s] != OscType.SAMPLE) {
+      targetVoice.sources[s].clearSample();
+      return;
+    }
+
+    Sample targetSample = null;
+    int startFrame = sampleStartPoint[s];
+    int len = 0;
+    int endFrame = sampleEndPoint[s];
+    boolean looping = sampleLoopMode[s] == 1;
+    int loopStartFrame = sampleLoopStart[s];
+    int loopEndPos = 0;
+    int zoneTranspose = Integer.MIN_VALUE; // INT_MIN = no zone (single sample)
+    int zoneCents = 0;
+
+    // C source.cpp:127 / multisample_range.h — multisample key/velocity zone matching
+    if (!sourceZones[s].isEmpty()) {
+      CompiledKeyZone matchedZone = null;
+      for (CompiledKeyZone kz : sourceZones[s]) {
+        if (kz.sample != null
+            && note >= kz.minPitch
+            && note <= kz.maxPitch
+            && vel >= kz.minVelocity
+            && vel <= kz.maxVelocity) {
+          matchedZone = kz;
+          break;
+        }
+      }
+      if (matchedZone != null) {
+        targetSample = matchedZone.sample;
+        len = (int) targetSample.lengthInSamples;
+        startFrame = matchedZone.startSamplePos;
+        endFrame = matchedZone.endSamplePos == -1 ? len : Math.min(matchedZone.endSamplePos, len);
+        looping = matchedZone.looping;
+        loopStartFrame = matchedZone.startLoopPos;
+        loopEndPos = matchedZone.endLoopPos > 0 ? Math.min(matchedZone.endLoopPos, len) : 0;
+        zoneTranspose = matchedZone.transpose;
+        zoneCents = matchedZone.cents;
+      }
+    }
+
+    if (targetSample == null) {
+      targetSample = samples[s];
+      if (targetSample != null) {
+        len = (int) targetSample.lengthInSamples;
+        endFrame = sampleEndPoint[s] == 65535 ? len : Math.min(sampleEndPoint[s], len);
+        loopEndPos = sampleLoopEnd[s] > 0 ? Math.min(sampleLoopEnd[s], len) : 0;
+      }
+    }
+
+    if (targetSample != null) {
+      // Carry the matched multisample zone's transpose (authoritative tuning) onto the source;
+      // INT_MIN = single sample / no zone -> pitch falls back to the WAV-root-derived transpose.
+      targetVoice.sources[s].zoneTranspose = zoneTranspose;
+      targetVoice.sources[s].zoneCents = zoneCents;
+      // C SampleControls.interpolationMode — per-source lo-fi linear interpolation across every
+      // unison part.
+      targetVoice.sources[s].setLinearInterpolation(sourceLinearInterpolation[s]);
+
+      // C sample_playback_guide.cpp:71-81, voice_sample_playback_guide.cpp:36-68 — convert
+      // file-coordinate start/end and loop points into directional playback bounds.
+      boolean reversed = sampleReverse[s];
+      int playDir = reversed ? -1 : 1;
+      int dirStart = !reversed ? startFrame : (endFrame - 1);
+      int dirEnd = !reversed ? endFrame : (startFrame - 1);
+      int rawLoopStart = loopStartFrame > 0 ? loopStartFrame : 0;
+      int rawLoopEnd = loopEndPos > 0 ? loopEndPos : 0;
+      int loopStartPlaybackAtSample = !reversed ? rawLoopStart : rawLoopEnd;
+      int loopEndPlaybackAtSample = !reversed ? rawLoopEnd : rawLoopStart;
+      boolean hasLoopStart = loopStartPlaybackAtSample > 0;
+      boolean hasLoopEnd = loopEndPlaybackAtSample > 0;
+      if (reversed) {
+        if (hasLoopStart) loopStartPlaybackAtSample--;
+        if (hasLoopEnd) loopEndPlaybackAtSample--;
+      }
+      int dirLoopStart = hasLoopStart ? loopStartPlaybackAtSample : dirStart;
+      int dirLoopEnd = hasLoopEnd ? loopEndPlaybackAtSample : dirEnd;
+
+      boolean ts = sampleTimestretch[s];
+      if (ts) {
+        targetVoice.sources[s].setupSampleTimeStretch(
+            targetSample,
+            dirStart,
+            dirEnd,
+            playDir,
+            looping,
+            dirLoopStart,
+            hasLoopEnd,
+            dirLoopEnd,
+            16777216);
+      } else {
+        targetVoice.sources[s].setupSample(
+            targetSample,
+            dirStart,
+            dirEnd,
+            playDir,
+            looping,
+            dirLoopStart,
+            hasLoopEnd,
+            dirLoopEnd,
+            samplesLate);
+      }
+    } else {
+      targetVoice.sources[s].clearSample();
     }
   }
 

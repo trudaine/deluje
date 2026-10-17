@@ -437,6 +437,28 @@ public class VoiceSample {
       int loopStartFrame,
       boolean hasLoopEnd,
       int loopEndFrame) {
+    setup(
+        sample,
+        startFrame,
+        endFrame,
+        playDirection,
+        looping,
+        loopStartFrame,
+        hasLoopEnd,
+        loopEndFrame,
+        false);
+  }
+
+  private void setup(
+      Sample sample,
+      int startFrame,
+      int endFrame,
+      int playDirection,
+      boolean looping,
+      int loopStartFrame,
+      boolean hasLoopEnd,
+      int loopEndFrame,
+      boolean noteOffAlreadyReceived) {
     // C voice_sample.cpp:39, 52 — clear any prior time-stretcher active state on voice reuse.
     timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER] = false;
     timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER] = false;
@@ -446,7 +468,7 @@ public class VoiceSample {
     this.loopStartFrame = loopStartFrame;
     this.hasLoopEnd = hasLoopEnd;
     this.loopEndFrame = loopEndFrame;
-    this.noteOffReceived = false;
+    this.noteOffReceived = noteOffAlreadyReceived;
     this.pendingSamplesLate = 0;
 
     int dir = (playDirection < 0) ? -1 : 1;
@@ -454,6 +476,8 @@ public class VoiceSample {
     reader.playDirection = dir;
     // Wrap any late-start frame past the active loop end into [loopStartFrame, loopEndFrame)
     // before priming the 16-tap history, matching the time-stretch hop path (lines 279-281).
+    // When noteOffAlreadyReceived is true on a sustain-loop sample, syncReaderBounds uses the
+    // release bounds so a deferred start past loopEndFrame stays in the release tail.
     reader.playPos = startFrame;
     syncReaderBounds();
     boolean wrappedOnSetup = reader.hasWrappedLoop;
@@ -527,10 +551,8 @@ public class VoiceSample {
         pendingLooping,
         pendingLoopStartFrame,
         pendingHasLoopEnd,
-        pendingLoopEndFrame);
-    if (savedNoteOff) {
-      onNoteOff();
-    }
+        pendingLoopEndFrame,
+        savedNoteOff);
     pendingSamplesLate = 0;
     return true; // success
   }

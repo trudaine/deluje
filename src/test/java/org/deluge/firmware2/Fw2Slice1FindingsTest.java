@@ -781,4 +781,70 @@ class Fw2Slice1FindingsTest {
           "Late-start 16-tap history tap " + i + " must not contain post-loop audio");
     }
   }
+
+  @Test
+  void round5_deferredSampleStartPreservesNoteOffReleaseTail() {
+    Sample sample = new Sample();
+    sample.numChannels = 1;
+    sample.byteDepth = 2;
+    sample.sampleRate = 44100;
+    sample.audioDataStartPosBytes = 0;
+    sample.lengthInSamples = 64;
+    sample.audioDataLengthBytes = 128;
+    sample.data = new int[64];
+    Arrays.fill(sample.data, 0, 20, 111_111);
+    Arrays.fill(sample.data, 20, 64, 777_777);
+
+    VoiceSample vs = new VoiceSample();
+    // Sample end 64, sustain loop [10, 20), late start by 40 frames -> startAtFrame = 40.
+    vs.setupLate(sample, 0, 64, 1, false, 10, true, 20, 40);
+    // Note-off arrives before attemptLateSampleStart runs.
+    vs.onNoteOff();
+    assertTrue(vs.attemptLateSampleStart(40));
+    assertTrue(vs.noteOffReceived);
+    assertEquals(
+        40,
+        vs.reader.playPos,
+        "Deferred sample start after note-off must stay in release tail at frame 40, not wrap to 10");
+    assertEquals(64, vs.reader.endFrame);
+    assertFalse(vs.reader.looping);
+  }
+
+  @Test
+  void round5_legatoVoiceSwitchedFromWaveformToSampleInitializesSampleSource() {
+    Sound sound = makeInitializedSound();
+    sound.polyphonic = Sound.PolyphonyMode.LEGATO;
+    sound.oscTypes[0] = Oscillator.OscType.SAW;
+    sound.oscTypes[1] = Oscillator.OscType.SINE;
+    sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
+    sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+
+    sound.triggerNote(60, 100);
+    int[] buf = new int[128];
+    int[] rev = new int[64];
+    sound.renderInternal(buf, 64, rev);
+    assertEquals(1, sound.voices.size());
+    assertEquals(null, sound.voices.get(0).sources[0].sampleRef);
+
+    // Switch Osc A to SAMPLE while Note 60 is still held in LEGATO mode.
+    sound.oscTypes[0] = Oscillator.OscType.SAMPLE;
+    sound.samples[0] = makeRampSample(128, 44100);
+    sound.sampleLoopMode[0] = 1;
+
+    sound.triggerNote(64, 100);
+    Voice v = sound.voices.get(0);
+    assertNotEquals(
+        null,
+        v.sources[0].sampleRef,
+        "Overlapping legato note after waveform->SAMPLE switch must initialize sampleRef");
+    assertTrue(v.sources[0].voiceSample.active, "Newly initialized sample source must be active");
+
+    Arrays.fill(buf, 0);
+    sound.renderInternal(buf, 64, rev);
+    long energy = 0;
+    for (int sampleVal : buf) {
+      energy += Math.abs((long) sampleVal);
+    }
+    assertTrue(energy > 0, "Legato note after waveform->SAMPLE switch must render audible audio");
+  }
 }
