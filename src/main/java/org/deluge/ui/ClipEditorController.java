@@ -963,17 +963,38 @@ public class ClipEditorController {
     bridge.setStepDelay(dstRow, dstCol, stepDelayVal);
     bridge.setStepReverb(dstRow, dstCol, stepReverbVal);
 
-    // Push Undo/Redo step copy event!
+    // Push Undo/Redo step copy event and sync ClipModel!
+    StepData oldTargetStep = StepData.empty();
+    StepData clonedStep =
+        new StepData(
+            active, (float) vel, (float) gate, (float) prob, pitch, 0, (float) fill, (float) nudge);
+    if (getProjectModel() != null && editedModelTrack < getProjectModel().getTracks().size()) {
+      TrackModel tModel = getProjectModel().getTracks().get(editedModelTrack);
+      if (activeClipId < tModel.getClips().size()) {
+        ClipModel cModel = tModel.getClips().get(activeClipId);
+        int srcModelRow = parent.getModelRow(startRow);
+        int dstModelRow = parent.getModelRow(targetRow);
+        StepData srcModelStep = parent.getClipStep(cModel, srcModelRow, srcCol);
+        oldTargetStep = parent.getClipStep(cModel, dstModelRow, dstCol);
+        if (srcModelStep != null) {
+          boolean isSynthMode =
+              bridge.getTrackType(baseTrackId) == 0 || bridge.getTrackType(baseTrackId) == 1;
+          int dstPitch = isSynthMode ? parent.getRowPitch(dstModelRow) : srcModelStep.pitch();
+          clonedStep = srcModelStep.withPitch(dstPitch);
+        }
+        parent.setClipStep(cModel, dstModelRow, dstCol, clonedStep);
+      }
+    }
     ArrayList<Consequence> steps = new ArrayList<>();
     steps.add(
         new Consequence.StepConsequence(
             getProjectModel(),
             editedModelTrack,
             activeClipId,
-            targetRow,
-            targetCol,
-            StepData.of(active, (float) vel, (float) gate, (float) prob, (int) fill),
-            StepData.empty()));
+            parent.getModelRow(targetRow),
+            dstCol,
+            oldTargetStep != null ? oldTargetStep : StepData.empty(),
+            clonedStep));
     if (getProjectModel() != null) {
       getProjectModel()
           .getUndoRedoStack()

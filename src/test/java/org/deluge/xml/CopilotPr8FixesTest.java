@@ -322,4 +322,49 @@ class CopilotPr8FixesTest {
     assertEquals(0x55, clip.getRawNoteEvents(0).get(0).getLift());
     assertEquals(1, clip.getRawNoteEvents(0).get(0).getFill());
   }
+
+  @Test
+  void scriptingEngineRoundTripsPlayConditionAndFillMode(@TempDir Path tempDir) throws Exception {
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel synth = new SynthTrackModel("MACRO_SYNTH");
+    ClipModel clip = new ClipModel("Clip 1", 8, 16);
+    clip.setRowYNote(0, 60);
+    synth.addClip(clip);
+    project.addTrack(synth);
+
+    StepData stepWithCondAndNotFill =
+        new StepData(true, 0.7f, 1.5f, 0.5f, 60, 1, 0.0f, 0.1f, 0x0302, 1);
+
+    org.deluge.model.ScriptingEngine engine = new org.deluge.model.ScriptingEngine();
+    engine.startRecording();
+    engine.record(
+        new org.deluge.model.Consequence.StepConsequence(
+            project, 0, 0, 0, 4, StepData.empty(), stepWithCondAndNotFill));
+    engine.stopRecording();
+
+    File scriptFile = tempDir.resolve("cond_macro.txt").toFile();
+    engine.saveScript(scriptFile);
+
+    // Clear clip and replay macro script
+    clip.setStep(0, 4, StepData.empty());
+    engine.loadAndExecuteScript(scriptFile, project);
+
+    StepData replayed = clip.getStep(0, 4);
+    assertTrue(replayed.active());
+    assertEquals(0x0302, replayed.playCondition(), "Macro replay must preserve playCondition");
+    assertEquals(1, replayed.fillMode(), "Macro replay must preserve NOT_FILL (fillMode == 1)");
+    assertEquals(0.0f, replayed.fill(), 0.001f);
+    assertEquals(1, clip.noteRows.get(0).notes.get(0).getFill());
+
+    // Legacy 13-token STEP macro lines (without playCondition/fillMode) must still load cleanly.
+    File legacyFile = tempDir.resolve("legacy_macro.txt").toFile();
+    Files.writeString(
+        legacyFile.toPath(),
+        "STEP|0|0|0|5|true|0.800000|1.000000|1.000000|60|0|1.000000|0.000000\n");
+    engine.loadAndExecuteScript(legacyFile, project);
+    StepData legacyReplayed = clip.getStep(0, 5);
+    assertTrue(legacyReplayed.active());
+    assertEquals(0, legacyReplayed.playCondition());
+    assertEquals(2, legacyReplayed.fillMode());
+  }
 }

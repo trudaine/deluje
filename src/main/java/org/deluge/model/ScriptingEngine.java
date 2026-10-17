@@ -96,7 +96,7 @@ public class ScriptingEngine {
     } else if (c instanceof Consequence.StepConsequence sc) {
       StepData d = sc.newData();
       return String.format(
-          "STEP|%d|%d|%d|%d|%b|%.6f|%.6f|%.6f|%d|%d|%.6f|%.6f",
+          "STEP|%d|%d|%d|%d|%b|%.6f|%.6f|%.6f|%d|%d|%.6f|%.6f|%d|%d",
           sc.trackIndex(),
           sc.clipIndex(),
           sc.row(),
@@ -108,7 +108,9 @@ public class ScriptingEngine {
           d.pitch(),
           d.iterance(),
           d.fill(),
-          d.nudge());
+          d.nudge(),
+          d.playCondition(),
+          d.fillMode());
     } else if (c instanceof Consequence.SynthParamConsequence spc) {
       return String.format(
           "SYNTH_PARAM|%d|%s|%.6f", spc.trackIndex(), spc.paramName(), spc.newValue());
@@ -165,8 +167,12 @@ public class ScriptingEngine {
           int iter = Integer.parseInt(parts[10]);
           float fill = Float.parseFloat(parts[11]);
           float nudge = Float.parseFloat(parts[12]);
+          int playCondition = parts.length > 13 ? Integer.parseInt(parts[13]) : 0;
+          int fillMode = parts.length > 14 ? Integer.parseInt(parts[14]) : (fill > 0.001f ? 2 : 0);
 
-          StepData newData = new StepData(active, vel, gate, prob, pitch, iter, fill, nudge);
+          StepData newData =
+              new StepData(
+                  active, vel, gate, prob, pitch, iter, fill, nudge, playCondition, fillMode);
           // Retrieve old step data if track/clip exist
           StepData oldData = StepData.empty();
           if (trackIdx < project.getTracks().size()) {
