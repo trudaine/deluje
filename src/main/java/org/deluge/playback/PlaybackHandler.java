@@ -167,6 +167,18 @@ public class PlaybackHandler {
         // whose repeat count drives iterance (model_stack.cpp:100-107).
         clip.setPos(0);
       }
+      // C: playback starts with swungTicksTilNextEvent = 0, so the first actioned tick has a zero
+      // increment and every clip runs processCurrentPos(…, 0) before any position moves
+      // (playback_handler.cpp:533 in setupPlayback, then Session::doTickForward →
+      // session.cpp:2502).
+      // That is what takes a reversed clip's repeatCount from setPos's -1 to 0 (clip.cpp:259-260)
+      // and sounds the notes at pos 0.
+      int next = Integer.MAX_VALUE;
+      for (ClipModel clip : currentProject.getClips()) {
+        clip.processCurrentPos(0);
+        next = Math.min(next, clip.getTicksTilNextEvent());
+      }
+      swungTicksTilNextEvent = Math.max(1, next);
     }
     arrangement.resetPlayPos(0);
   }
