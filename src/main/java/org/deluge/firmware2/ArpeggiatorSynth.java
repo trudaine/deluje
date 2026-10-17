@@ -24,7 +24,11 @@ public class ArpeggiatorSynth extends ArpeggiatorBase {
   public void reset() {
     notes.clear();
     notesAsPlayed.clear();
-    notesByPattern.clear(); // C:119-123
+    notesByPattern.clear();
+    // C arpeggiator.cpp:122-129 — also clear pending state and active_note post-arp arrays.
+    anyPending = false;
+    active_note.resetPostArpArrays();
+    active_note.velocity = 0;
   }
 
   @Override
@@ -180,11 +184,13 @@ public class ArpeggiatorSynth extends ArpeggiatorBase {
         }
         notes.remove(notesKey); // C:422
 
-        // C:425-449 — remove from notesAsPlayed
-        for (int i = 0; i < notesAsPlayed.size(); i++) {
+        // C arpeggiator.cpp:435-441 — capture numNotes before deleteAtIndex so i == numNotes - 1
+        // checks whether the released note was the most recently played note.
+        int numNotes = notesAsPlayed.size();
+        for (int i = 0; i < numNotes; i++) {
           if (notesAsPlayed.get(i).noteCode == noteCodePreArp) {
             notesAsPlayed.remove(i);
-            if (arpOff && i == notesAsPlayed.size() - 1 && i > 0) {
+            if (arpOff && i == numNotes - 1 && i > 0) {
               // snap back to previous note (mono behavior)
               ArpJustNoteCode lastAsPlayed = notesAsPlayed.get(i - 1);
               int newNotesKey = findNoteIndex(lastAsPlayed.noteCode);
@@ -229,7 +235,9 @@ public class ArpeggiatorSynth extends ArpeggiatorBase {
 
   @Override
   boolean handlePendingNotes(Settings settings, ArpReturnInstruction instruction) {
-    if (settings != null && settings.mode == ArpMode.OFF) {
+    // C arpeggiator.cpp:487, arpeggiator.h:247-249 — arpIsOff(settings) is true when settings ==
+    // null.
+    if (settings == null || settings.mode == ArpMode.OFF) {
       if (anyPending) {
         for (int i = 0; i < notes.size(); i++) {
           ArpNote arpNote = notes.get(i);
