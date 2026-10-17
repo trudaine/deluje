@@ -127,7 +127,7 @@ class Fw2Slice1FindingsTest {
     Sound sound = makeInitializedSound();
     sound.oscTypes[0] = Oscillator.OscType.SAMPLE;
     sound.sampleTimestretch[0] = true;
-    sound.sampleLoopMode[0] = 1; // LOOP
+    sound.sampleLoopMode[0] = Sound.REPEAT_LOOP;
     sound.sampleLoopStart[0] = 10;
     sound.sampleLoopEnd[0] = 30;
     Sample sample = makeRampSample(128, 44100);
@@ -162,7 +162,7 @@ class Fw2Slice1FindingsTest {
     sound.sampleReverse[0] = true;
     sound.sampleStartPoint[0] = 10;
     sound.sampleEndPoint[0] = 100;
-    sound.sampleLoopMode[0] = 1;
+    sound.sampleLoopMode[0] = Sound.REPEAT_LOOP;
     sound.sampleLoopStart[0] = 20;
     sound.sampleLoopEnd[0] = 80;
     sound.samples[0] = makeRampSample(128, 44100);
@@ -511,7 +511,7 @@ class Fw2Slice1FindingsTest {
     sound.sampleEndPoint[0] = 64;
     sound.sampleLoopStart[0] = 1; // In reverse, rawLoopStart=1 -> loopEndPlaybackAtSample = 0
     sound.sampleLoopEnd[0] = 20;
-    sound.sampleLoopMode[0] = 1;
+    sound.sampleLoopMode[0] = Sound.REPEAT_LOOP;
 
     sound.triggerNote(60, 100);
     Voice v = sound.voices.get(0);
@@ -572,7 +572,7 @@ class Fw2Slice1FindingsTest {
     sound.polyphonic = Sound.PolyphonyMode.LEGATO;
     sound.oscTypes[0] = Oscillator.OscType.SAMPLE;
     sound.samples[0] = makeRampSample(256, 44100);
-    sound.sampleLoopMode[0] = 1; // LOOP
+    sound.sampleLoopMode[0] = Sound.REPEAT_LOOP;
     sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
     sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
 
@@ -655,7 +655,7 @@ class Fw2Slice1FindingsTest {
     sound.oscTypes[0] = Oscillator.OscType.SAMPLE;
     sound.samples[0] = makeRampSample(16, 44100);
     sound.sampleEndPoint[0] = 16;
-    sound.sampleLoopMode[0] = 0; // ONCE
+    sound.sampleLoopMode[0] = Sound.REPEAT_CUT; // not looping, plays to its end
     sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
     sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
     sound.patchedParamValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
@@ -688,7 +688,7 @@ class Fw2Slice1FindingsTest {
     filtered.oscTypes[0] = Oscillator.OscType.SAMPLE;
     filtered.samples[0] = makeRampSample(16, 44100);
     filtered.sampleEndPoint[0] = 16;
-    filtered.sampleLoopMode[0] = 0; // ONCE
+    filtered.sampleLoopMode[0] = Sound.REPEAT_CUT; // not looping, plays to its end
     filtered.lpfMode = FilterSet.FilterMode.TRANSISTOR_24DB;
     filtered.patchedParamValues[Param.LOCAL_LPF_FREQ] = 0;
     filtered.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
@@ -713,7 +713,7 @@ class Fw2Slice1FindingsTest {
     dual.oscTypes[1] = Oscillator.OscType.SAW;
     dual.samples[0] = makeRampSample(16, 44100);
     dual.sampleEndPoint[0] = 16;
-    dual.sampleLoopMode[0] = 0; // ONCE
+    dual.sampleLoopMode[0] = Sound.REPEAT_CUT; // not looping, plays to its end
     dual.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
     dual.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MAX_VALUE;
     dual.patchedParamValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
@@ -842,7 +842,7 @@ class Fw2Slice1FindingsTest {
     // Switch Osc A to SAMPLE while Note 60 is still held in LEGATO mode.
     sound.oscTypes[0] = Oscillator.OscType.SAMPLE;
     sound.samples[0] = makeRampSample(128, 44100);
-    sound.sampleLoopMode[0] = 1;
+    sound.sampleLoopMode[0] = Sound.REPEAT_LOOP;
 
     sound.triggerNote(64, 100);
     Voice v = sound.voices.get(0);
@@ -867,7 +867,7 @@ class Fw2Slice1FindingsTest {
     sound.polyphonic = Sound.PolyphonyMode.LEGATO;
     sound.oscTypes[0] = Oscillator.OscType.SAMPLE;
     sound.samples[0] = makeRampSample(16, 44100);
-    sound.sampleLoopMode[0] = 0;
+    sound.sampleLoopMode[0] = Sound.REPEAT_CUT;
     sound.oscTypes[1] = Oscillator.OscType.SINE;
     sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
     sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MAX_VALUE;
@@ -934,7 +934,7 @@ class Fw2Slice1FindingsTest {
     Sound sound = makeInitializedSound();
     sound.oscTypes[0] = Oscillator.OscType.SAMPLE;
     sound.samples[0] = makeRampSample(512, 44100);
-    sound.sampleLoopMode[0] = 2; // SampleRepeatMode::ONCE
+    sound.sampleLoopMode[0] = Sound.REPEAT_ONCE;
     sound.sampleLoopStart[0] = 10;
     sound.sampleLoopEnd[0] = 20;
     sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
@@ -1057,7 +1057,7 @@ class Fw2Slice1FindingsTest {
       Sound sound = makeInitializedSound();
       sound.oscTypes[sampleOsc] = Oscillator.OscType.SAMPLE;
       sound.samples[sampleOsc] = makeRampSample(256, 44100);
-      sound.sampleLoopMode[sampleOsc] = 1; // LOOP
+      sound.sampleLoopMode[sampleOsc] = Sound.REPEAT_LOOP;
       sound.oscTypes[otherOsc] = Oscillator.OscType.SINE;
       sound.sourceTranspose[otherOsc] = -84; // Keep otherOsc below Nyquist when masterTranspose=84
       sound.masterTranspose = 84; // Puts sampleOsc over Nyquist on note 60
@@ -1186,7 +1186,7 @@ class Fw2Slice1FindingsTest {
     sampleSound.polyphonic = Sound.PolyphonyMode.LEGATO;
     sampleSound.oscTypes[0] = Oscillator.OscType.SAMPLE;
     sampleSound.samples[0] = makeRampSample(256, 44100);
-    sampleSound.sampleLoopMode[0] = 1; // LOOP
+    sampleSound.sampleLoopMode[0] = Sound.REPEAT_LOOP;
     sampleSound.numUnison = 1;
     sampleSound.unisonDetune = 15;
     sampleSound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
@@ -1230,8 +1230,8 @@ class Fw2Slice1FindingsTest {
     sound.oscTypes[1] = Oscillator.OscType.SAMPLE;
     sound.samples[0] = makeRampSample(512, 44100);
     sound.samples[1] = null; // Osc B is SAMPLE with no file loaded
-    sound.sampleLoopMode[0] = 2; // ONCE on Osc A
-    sound.sampleLoopMode[1] = 0; // Default loop mode on unloaded Osc B
+    sound.sampleLoopMode[0] = Sound.REPEAT_ONCE; // ONCE on Osc A
+    sound.sampleLoopMode[1] = Sound.REPEAT_CUT; // default (source.cpp:39) on unloaded Osc B
     sound.sampleLoopStart[0] = 10;
     sound.sampleLoopEnd[0] = 20;
     sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
@@ -1278,7 +1278,7 @@ class Fw2Slice1FindingsTest {
     sound.polyphonic = Sound.PolyphonyMode.LEGATO;
     sound.oscTypes[0] = Oscillator.OscType.SAMPLE;
     sound.samples[0] = makeRampSample(512, 44100);
-    sound.sampleLoopMode[0] = 2; // ONCE -> allowNoteTails(true) is false
+    sound.sampleLoopMode[0] = Sound.REPEAT_ONCE; // ONCE -> allowNoteTails(true) is false
     sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
     sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
     sound.patchedParamValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
@@ -1377,7 +1377,7 @@ class Fw2Slice1FindingsTest {
     Sample sample = makeRampSample(1024, 44100);
     sound.samples[0] = sample;
     sound.sampleTimestretch[0] = true;
-    sound.sampleLoopMode[0] = 0; // CUT
+    sound.sampleLoopMode[0] = Sound.REPEAT_CUT;
     Sound.CompiledKeyZone kz = new Sound.CompiledKeyZone();
     kz.minPitch = 0;
     kz.maxPitch = 127;

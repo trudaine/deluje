@@ -20,6 +20,12 @@ public class SoundDrum extends Drum {
   private int osc2StartSamplePos = -1;
   private int osc2EndSamplePos = -1;
   // Osc2 sample-playback params
+  // osc1 sample flags (C Source::repeatMode / sampleControls, sound.cpp:3392-3430). A drum's
+  // sample is osc1; these were never parsed, so every drum played as CUT, forward.
+  // (osc1 "reversed" is the existing reverse field.)
+  private int osc1LoopMode = 0;
+  private boolean osc1TimeStretch = false;
+  private boolean osc1LinearInterpolation = false;
   private int osc2LoopMode = 0;
   private boolean osc2Reversed = false;
   private boolean osc2TimeStretch = false;
@@ -138,6 +144,30 @@ public class SoundDrum extends Drum {
 
   public void setOsc2EndSamplePos(int v) {
     this.osc2EndSamplePos = v;
+  }
+
+  public int getOsc1LoopMode() {
+    return osc1LoopMode;
+  }
+
+  public void setOsc1LoopMode(int v) {
+    this.osc1LoopMode = v;
+  }
+
+  public boolean isOsc1TimeStretch() {
+    return osc1TimeStretch;
+  }
+
+  public void setOsc1TimeStretch(boolean v) {
+    this.osc1TimeStretch = v;
+  }
+
+  public boolean isOsc1LinearInterpolation() {
+    return osc1LinearInterpolation;
+  }
+
+  public void setOsc1LinearInterpolation(boolean v) {
+    this.osc1LinearInterpolation = v;
   }
 
   public int getOsc2LoopMode() {

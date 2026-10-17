@@ -44,7 +44,8 @@ public class OscPanel extends JPanel {
     int rightRow = 0;
 
     // ── Pre-Instance custom loop mode combos & checkboxes ──
-    String[] loopModes = {"OFF", "LOOP", "ONESHOT"};
+    // Index = the C SampleRepeatMode the model and the file carry (definitions_cxx.hpp:493-498).
+    String[] loopModes = {"CUT", "ONCE", "LOOP", "STRETCH"};
 
     JComboBox<String> osc1LoopCombo = new JComboBox<>(loopModes);
     osc1LoopCombo.setSelectedIndex(model.getOsc1LoopMode());

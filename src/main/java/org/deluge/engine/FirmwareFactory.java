@@ -1320,6 +1320,12 @@ public class FirmwareFactory {
     drumSound.paramManager.automatedParams.clear();
     drumSound.paramManager.getPatchCableSet().destinations.clear();
 
+    // The drum's sample is osc1: its repeat mode (C SampleRepeatMode — ONCE for most stock drums)
+    // decides whether a note-off cuts it (sound.cpp:1957 allowNoteTails), and time-stretch.
+    // Neither was parsed or applied, so every drum played as CUT. (Reverse is set below.)
+    drumSound.sampleSettings[0].loopMode = sd.getOsc1LoopMode();
+    drumSound.sampleSettings[0].timestretch = sd.isOsc1TimeStretch();
+
     drumSound.fw2Sound.maxPolyphony =
         sd.getMaxVoiceCount(); // C: sound.h:116 (per-drum voice cap, default 8)
     drumSound.fw2Sound.voicePriority =

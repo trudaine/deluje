@@ -447,6 +447,11 @@ public class ProjectSerializer {
           writer.writeAttribute("retrigPhase", String.valueOf(synth.getOsc1RetrigPhase()), false);
           if (synth.getOsc1SamplePath() != null && !synth.getOsc1SamplePath().isEmpty()) {
             writer.writeAttribute("fileName", synth.getOsc1SamplePath(), false);
+            // C sound.cpp source keys; the repeat mode was never saved (C SampleRepeatMode).
+            writer.writeAttribute("loopMode", String.valueOf(synth.getOsc1LoopMode()), false);
+            writer.writeAttribute("reversed", synth.isOsc1Reversed() ? "1" : "0", false);
+            writer.writeAttribute(
+                "timeStretchEnable", synth.isOsc1TimeStretch() ? "1" : "0", false);
           }
           if (synth.getDx7Patch() != null) {
             writer.writeAttribute("dx7patch", synth.getDx7Patch(), false);
@@ -497,6 +502,10 @@ public class ProjectSerializer {
           writer.writeAttribute("retrigPhase", String.valueOf(synth.getOsc2RetrigPhase()), false);
           if (synth.getOsc2SamplePath() != null && !synth.getOsc2SamplePath().isEmpty()) {
             writer.writeAttribute("fileName", synth.getOsc2SamplePath(), false);
+            writer.writeAttribute("loopMode", String.valueOf(synth.getOsc2LoopMode()), false);
+            writer.writeAttribute("reversed", synth.isOsc2Reversed() ? "1" : "0", false);
+            writer.writeAttribute(
+                "timeStretchEnable", synth.isOsc2TimeStretch() ? "1" : "0", false);
           }
           writer.closeTag();
         }

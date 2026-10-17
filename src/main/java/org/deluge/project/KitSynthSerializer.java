@@ -73,9 +73,10 @@ public class KitSynthSerializer {
         }
         appendTextChild(doc, osc1, "transpose", "0");
         appendTextChild(doc, osc1, "cents", "0");
-        appendTextChild(doc, osc1, "loopMode", "1");
+        // C SampleRepeatMode as parsed (was hardcoded 1 = ONCE for every drum).
+        appendTextChild(doc, osc1, "loopMode", String.valueOf(sound.getOsc1LoopMode()));
         appendTextChild(doc, osc1, "reversed", sound.isReverse() ? "1" : "0");
-        appendTextChild(doc, osc1, "timeStretchEnable", "0");
+        appendTextChild(doc, osc1, "timeStretchEnable", sound.isOsc1TimeStretch() ? "1" : "0");
         appendTextChild(doc, osc1, "timeStretchAmount", "0");
         appendTextChild(
             doc, osc1, "wavetableIndexPct", String.valueOf(sound.getWavetableIndexPct()));
@@ -92,9 +93,9 @@ public class KitSynthSerializer {
         osc2.setAttribute("type", oscTypeToFirmwareString(sound.getOsc2Type()));
         appendTextChild(doc, osc2, "transpose", "0");
         appendTextChild(doc, osc2, "cents", "0");
-        appendTextChild(doc, osc2, "loopMode", "1");
-        appendTextChild(doc, osc2, "reversed", "0");
-        appendTextChild(doc, osc2, "timeStretchEnable", "0");
+        appendTextChild(doc, osc2, "loopMode", String.valueOf(sound.getOsc2LoopMode()));
+        appendTextChild(doc, osc2, "reversed", sound.isOsc2Reversed() ? "1" : "0");
+        appendTextChild(doc, osc2, "timeStretchEnable", sound.isOsc2TimeStretch() ? "1" : "0");
         appendTextChild(doc, osc2, "timeStretchAmount", "0");
         appendTextChild(
             doc,
@@ -347,6 +348,13 @@ public class KitSynthSerializer {
     appendTextChild(doc, osc1, "transpose", String.valueOf(synth.getOsc1().getTranspose()));
     appendTextChild(doc, osc1, "cents", String.valueOf(synth.getOsc1().getCents()));
     appendTextChild(doc, osc1, "retrigPhase", String.valueOf(synth.getOsc1RetrigPhase()));
+    appendSampleSource(
+        doc,
+        osc1,
+        synth.getOsc1SamplePath(),
+        synth.getOsc1LoopMode(),
+        synth.isOsc1Reversed(),
+        synth.isOsc1TimeStretch());
     if (synth.getDx7Patch() != null && !synth.getDx7Patch().isEmpty()) {
       osc1.setAttribute("dx7patch", synth.getDx7Patch());
     }
@@ -358,6 +366,13 @@ public class KitSynthSerializer {
     appendTextChild(doc, osc2, "transpose", String.valueOf(synth.getOsc2().getTranspose()));
     appendTextChild(doc, osc2, "cents", String.valueOf(synth.getOsc2().getCents()));
     appendTextChild(doc, osc2, "retrigPhase", String.valueOf(synth.getOsc2RetrigPhase()));
+    appendSampleSource(
+        doc,
+        osc2,
+        synth.getOsc2SamplePath(),
+        synth.getOsc2LoopMode(),
+        synth.isOsc2Reversed(),
+        synth.isOsc2TimeStretch());
     root.appendChild(osc2);
 
     // ── polyphonic ──
@@ -892,5 +907,18 @@ public class KitSynthSerializer {
       case "DX7" -> "dx7";
       default -> "square";
     };
+  }
+
+  /**
+   * A single-sample source's file and flags (C sound.cpp source tags). saveSynth wrote none of
+   * them, so a sample synth saved as a preset lost its sample and its repeat mode.
+   */
+  private static void appendSampleSource(
+      Document doc, Element osc, String path, int loopMode, boolean reversed, boolean timeStretch) {
+    if (path == null || path.isEmpty()) return;
+    appendTextChild(doc, osc, "fileName", path);
+    appendTextChild(doc, osc, "loopMode", String.valueOf(loopMode)); // C SampleRepeatMode
+    appendTextChild(doc, osc, "reversed", reversed ? "1" : "0");
+    appendTextChild(doc, osc, "timeStretchEnable", timeStretch ? "1" : "0");
   }
 }
