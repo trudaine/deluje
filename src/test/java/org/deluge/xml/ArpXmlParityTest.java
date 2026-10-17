@@ -87,13 +87,13 @@ public class ArpXmlParityTest {
   void firmwareWrittenAttributesUseTheCStrings() throws Exception {
     ArpModel arp =
         arpOf(
-            "<arpeggiator mode=\"arp\" syncLevel=\"6\" numOctaves=\"3\" syncType=\"1\""
+            "<arpeggiator mode=\"arp\" syncLevel=\"6\" numOctaves=\"3\" syncType=\"10\""
                 + " arpMode=\"arp\" chordType=\"2\" noteMode=\"asPlayed\" octaveMode=\"alt\""
                 + " mpeVelocity=\"z\" stepRepeat=\"2\"/>");
     assertTrue(arp.active());
     assertEquals(3, arp.octaves());
     assertEquals(8, arp.syncLevel(), "file 6 → an 8th (2^(F-3)) at any magnitude");
-    assertEquals(1, arp.syncType());
+    assertEquals(1, arp.syncType(), "file 10 = SYNC_TYPE_TRIPLET (sync.h:12)");
     assertEquals(2, arp.chordType());
     assertEquals("PLAY", arp.noteMode(), "asPlayed was upper-cased to ASPLAYED and lost");
     assertEquals("ALT", arp.octaveMode());
@@ -277,5 +277,40 @@ public class ArpXmlParityTest {
     assertEquals(Integer.MIN_VALUE, SynthTrackModel.arpRateQ31FromUnit(0.0));
     assertEquals(Integer.MAX_VALUE, SynthTrackModel.arpRateQ31FromUnit(1.0));
     assertEquals(0, SynthTrackModel.arpRateQ31FromUnit(0.5));
+  }
+
+  @Test
+  void syncTypeUsesTheCFileValues() throws Exception {
+    assertEquals(2, arpOf("<arpeggiator arpMode=\"arp\" syncType=\"19\"/>").syncType(), "DOTTED");
+    assertEquals(0, arpOf("<arpeggiator arpMode=\"arp\" syncType=\"0\"/>").syncType());
+    // An old app save holds the model value.
+    assertEquals(2, arpOf("<arpeggiator active=\"1\" arpMode=\"arp\" syncType=\"2\"/>").syncType());
+
+    SynthTrackModel synth = new SynthTrackModel("T");
+    synth.setArp(ArpModel.defaultConfig().toBuilder().active(true).syncType(2).build());
+    synth.addClip(new ClipModel("c", 1, 16));
+    ProjectModel project = new ProjectModel();
+    project.addTrack(synth);
+    String xml = ProjectSerializer.serializeToString(project);
+    assertTrue(xml.contains("syncType=\"19\""), "dotted is written as the C value 19");
+    java.io.File f = java.io.File.createTempFile("synctype", ".XML");
+    f.deleteOnExit();
+    org.deluge.project.KitSynthSerializer.saveSynth(synth, f);
+    assertEquals(2, DelugeXmlParser.parseSynth(f).getArp().syncType());
+    DelugeXmlExporter.saveSynthPreset(synth, new org.deluge.BridgeContract(), 0, f);
+    assertTrue(java.nio.file.Files.readString(f.toPath()).contains("syncType=\"19\""));
+    assertEquals(2, DelugeXmlParser.parseSynth(f).getArp().syncType());
+  }
+
+  @Test
+  void oldAppWritersLowercasedPanelTokensLoad() throws Exception {
+    ArpModel arp =
+        arpOf(
+            "<arpeggiator active=\"1\" arpMode=\"arp\"><noteMode>play</noteMode>"
+                + "<octaveMode>rand</octaveMode></arpeggiator>");
+    assertEquals("PLAY", arp.noteMode());
+    assertEquals("RAND", arp.octaveMode());
+    // Not lower-cased tokens in a firmware file: "random" there is the C string.
+    assertEquals("RAND", arpOf("<arpeggiator octaveMode=\"random\"/>").octaveMode());
   }
 }

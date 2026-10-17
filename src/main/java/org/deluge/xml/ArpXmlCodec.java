@@ -31,6 +31,25 @@ public final class ArpXmlCodec {
     return arpEl.hasAttribute("active") && !FORMAT_C.equals(arpEl.getAttribute(FORMAT_ATTR));
   }
 
+  /**
+   * C SyncType as a file value (model/sync.h:11-13: EVEN 0, TRIPLET 10, DOTTED 19, written raw by
+   * writeSyncTypeToFile, storage_manager.h:148-150) → the model's 0 / 1 / 2.
+   */
+  public static int syncTypeFromFile(int fileValue) {
+    if (fileValue == 10) return 1;
+    if (fileValue == 19) return 2;
+    return 0;
+  }
+
+  /** The model's 0 even / 1 triplet / 2 dotted → the C SyncType file value. */
+  public static int syncTypeToFile(int modelValue) {
+    return switch (modelValue) {
+      case 1 -> 10;
+      case 2 -> 19;
+      default -> 0;
+    };
+  }
+
   /** C FlashStorage::defaultMagnitude (flash_storage.cpp:350), used for a standalone preset. */
   public static final int DEFAULT_INPUT_TICK_MAGNITUDE = 2;
 

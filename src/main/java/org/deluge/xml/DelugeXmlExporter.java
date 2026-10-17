@@ -75,7 +75,7 @@ public class DelugeXmlExporter {
     arp.setAttribute("mode", arpModel.active() ? "arp" : "off");
     arp.setAttribute("arpMode", arpModel.active() ? "arp" : "off");
     arp.setAttribute("numOctaves", String.valueOf(arpModel.octaves()));
-    arp.setAttribute("syncType", String.valueOf(arpModel.syncType()));
+    arp.setAttribute("syncType", String.valueOf(ArpXmlCodec.syncTypeToFile(arpModel.syncType())));
     arp.setAttribute("mpeVelocity", ArpXmlCodec.mpeVelocityToFile(arpModel.mpeVelocity()));
     arp.setAttribute("rate", String.valueOf(arpModel.rate()));
     arp.setAttribute("octaves", String.valueOf(arpModel.octaves()));

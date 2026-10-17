@@ -582,7 +582,10 @@ public class ProjectSerializer {
 
         // The ARP panel edits octaves(); numOctaves() is only what was last parsed.
         writer.writeAttribute("numOctaves", synth.getArp().octaves(), false);
-        writer.writeAttribute("syncType", synth.getArp().syncType(), false);
+        writer.writeAttribute(
+            "syncType",
+            org.deluge.xml.ArpXmlCodec.syncTypeToFile(synth.getArp().syncType()),
+            false);
         writer.writeAttribute(
             "mpeVelocity",
             org.deluge.xml.ArpXmlCodec.mpeVelocityToFile(synth.getArp().mpeVelocity()),

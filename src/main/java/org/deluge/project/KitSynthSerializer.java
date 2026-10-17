@@ -454,7 +454,9 @@ public class KitSynthSerializer {
 
     // The ARP panel edits octaves(); numOctaves() is only what was last parsed.
     arp.setAttribute("numOctaves", String.valueOf(synth.getArp().octaves()));
-    arp.setAttribute("syncType", String.valueOf(synth.getArp().syncType()));
+    arp.setAttribute(
+        "syncType",
+        String.valueOf(org.deluge.xml.ArpXmlCodec.syncTypeToFile(synth.getArp().syncType())));
     arp.setAttribute(
         "mpeVelocity", org.deluge.xml.ArpXmlCodec.mpeVelocityToFile(synth.getArp().mpeVelocity()));
     arp.setAttribute("kitArp", String.valueOf(synth.getArp().kitArp()));

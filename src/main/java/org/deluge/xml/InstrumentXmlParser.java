@@ -1308,8 +1308,13 @@ public class InstrumentXmlParser {
       }
     }
     String noteModeStr = attrOrDirectChildText(arpEl, "noteMode"); // C :1775-1778
-    if (noteModeStr != null) noteMode = ArpXmlCodec.noteModeFromFile(noteModeStr);
     String octModeStr = attrOrDirectChildText(arpEl, "octaveMode"); // C :1765-1768
+    if (legacyApp) {
+      // Old app writers lower-cased the panel tokens ("play", "rand", "alt"); restore them.
+      if (noteModeStr != null) noteModeStr = noteModeStr.toUpperCase();
+      if (octModeStr != null) octModeStr = octModeStr.toUpperCase();
+    }
+    if (noteModeStr != null) noteMode = ArpXmlCodec.noteModeFromFile(noteModeStr);
     if (octModeStr != null) octaveMode = ArpXmlCodec.octaveModeFromFile(octModeStr);
     int stepRepeat = attrOrDirectChildInt(arpEl, "stepRepeat", 1); // C :1653
     String rhythmStr = getChildText(arpEl, "rhythm");
@@ -1336,7 +1341,9 @@ public class InstrumentXmlParser {
 
     // C "mpeVelocity" (:1779-1781): "z" aftertouch, "y" MPE Y.
     int mpeVelocity = ArpXmlCodec.mpeVelocityFromFile(attrOrDirectChildText(arpEl, "mpeVelocity"));
-    int syncType = attrOrDirectChildInt(arpEl, "syncType", 0); // C :1744-1746
+    // C :1744-1746 reads the raw SyncType (0/10/19); an old app save holds the model's 0/1/2.
+    int syncTypeRaw = attrOrDirectChildInt(arpEl, "syncType", 0);
+    int syncType = legacyApp ? syncTypeRaw : ArpXmlCodec.syncTypeFromFile(syncTypeRaw);
 
     String notePattern = attrOrDirectChildText(arpEl, "notePattern"); // C :1732-1734
     if (notePattern == null || notePattern.isBlank()) {
