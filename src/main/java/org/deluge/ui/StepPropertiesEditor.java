@@ -22,10 +22,19 @@ import org.deluge.model.TrackModel;
 public class StepPropertiesEditor {
 
   private static int resolveStepPitch(SwingGridPanel parent, int trackType, int visualModelRow) {
-    if (trackType == 0) {
+    org.deluge.model.ProjectModel project = parent.getProjectModel();
+    int editedTrack = parent.getEditedModelTrack();
+    TrackModel tModel =
+        (project != null && editedTrack >= 0 && editedTrack < project.getTracks().size())
+            ? project.getTracks().get(editedTrack)
+            : null;
+    if (tModel instanceof org.deluge.model.KitTrackModel || trackType == 0) {
       return visualModelRow;
     }
-    return trackType == 1 ? parent.getRowPitch(visualModelRow) : 0;
+    if (tModel instanceof org.deluge.model.SynthTrackModel || trackType == 1) {
+      return parent.getRowPitch(visualModelRow);
+    }
+    return 0;
   }
 
   public static void handleStepLongPressed(

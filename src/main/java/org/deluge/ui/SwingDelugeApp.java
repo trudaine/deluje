@@ -2637,14 +2637,20 @@ public class SwingDelugeApp extends JFrame {
           if (clipId < tModel.getClips().size()) {
             org.deluge.model.ClipModel cModel = tModel.getClips().get(clipId);
             int clipSteps = cModel.getStepCount();
-            boolean isSynth = tModel instanceof org.deluge.model.SynthTrackModel;
             for (int r = 0; r < cModel.getRowCount(); r++) {
               for (int s = 0; s < clipSteps; s++) {
                 org.deluge.model.StepData sd = cModel.getStep(r, s);
                 if (sd != null && sd.active()) {
-                  int targetRow = isSynth ? (127 - sd.pitch()) : r;
-                  if (targetRow >= 0 && targetRow < voiceCount) {
-                    bridge.setStep(engineBase + targetRow, s, true);
+                  if (r >= 0 && r < voiceCount) {
+                    int engineRow = engineBase + r;
+                    bridge.setStep(engineRow, s, true);
+                    bridge.setVelocity(engineRow, s, sd.velocity());
+                    bridge.setGate(engineRow, s, sd.gate());
+                    bridge.setPitch(engineRow, s, sd.pitch());
+                    bridge.setStepProbability(engineRow, s, sd.probability());
+                    bridge.setIterance(engineRow, s, sd.iterance());
+                    bridge.setStepFill(engineRow, s, sd.fill());
+                    bridge.setStepNudge(engineRow, s, sd.nudge());
                   }
                 }
               }

@@ -2561,14 +2561,19 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   int getEngineRowOffset(int visualModelRow) {
-    boolean isSynth = false;
     if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
-      isSynth =
-          projectModel.getTracks().get(editedModelTrack)
-              instanceof org.deluge.model.SynthTrackModel;
-    }
-    if (isSynth && viewMode == GridViewMode.CLIP) {
-      return 127 - getRowPitch(visualModelRow);
+      org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
+      if (track instanceof org.deluge.model.SynthTrackModel && viewMode == GridViewMode.CLIP) {
+        if (activeClipId >= 0 && activeClipId < track.getClips().size()) {
+          org.deluge.model.ClipModel cModel = track.getClips().get(activeClipId);
+          int clipRow = getClipRowIndex(cModel, visualModelRow, false);
+          if (clipRow >= 0) {
+            return clipRow;
+          }
+          return cModel.getRowCount();
+        }
+        return 127 - getRowPitch(visualModelRow);
+      }
     }
     return visualModelRow;
   }

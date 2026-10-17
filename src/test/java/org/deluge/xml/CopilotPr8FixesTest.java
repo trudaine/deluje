@@ -556,4 +556,111 @@ class CopilotPr8FixesTest {
         clip.getOrCreateRow(3).getPitch(),
         "NoteRowModel pitch for drum row 3 must stay 3 (not 60)");
   }
+
+  @Test
+  void duplicateStepOnSparseSynthClipSyncsBridgeAndSurvivesVelocityEdit() {
+    System.setProperty("chuck.audio.dummy", "true");
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel synth = new SynthTrackModel("SPARSE_SYNTH");
+    // Sparse synth clip: only 1 stored row (row 0) at MIDI 60.
+    ClipModel clip = new ClipModel("Sparse Clip", 1, 16);
+    clip.setRowYNote(0, 60);
+    clip.setStep(0, 1, new StepData(true, 0.8f, 1.0f, 0.75f, 60, 0, 0.0f, 0.0f, 0x0201, 1));
+    synth.addClip(clip);
+    project.addTrack(synth);
+
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    org.deluge.ui.EngineSyncCoordinator sync =
+        new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+    sync.pushModelToBridge(project);
+
+    org.deluge.ui.ClipGridPanel panel = new org.deluge.ui.ClipGridPanel(bridge);
+    panel.setViewMode(org.deluge.ui.SwingGridPanel.GridViewMode.CLIP);
+    panel.setProjectModel(project);
+    // With scrollOffset=64, visual row 3 maps to modelRow 67 (MIDI 60) and visual row 1 maps to
+    // modelRow 65 (MIDI 64 in C major).
+    panel.setScrollOffset(64);
+    assertEquals(60, panel.getRowPitch(67));
+    int dstPitch = panel.getRowPitch(65);
+    assertEquals(64, dstPitch);
+
+    org.deluge.ui.ClipEditorController controller =
+        new org.deluge.ui.ClipEditorController(panel, () -> {}, () -> {});
+
+    controller.duplicateStep(3, 1, 1, 5);
+
+    assertEquals(2, clip.getRowCount(), "Cloning to a new pitch must append stored row 1");
+    assertEquals(dstPitch, clip.getRowYNote(1));
+    StepData cloned = clip.getStep(1, 5);
+    assertTrue(cloned.active(), "Cloned sparse synth step must be active in ClipModel");
+    assertEquals(dstPitch, cloned.pitch());
+    assertEquals(0x0201, cloned.playCondition());
+    assertEquals(1, cloned.fillMode());
+
+    int synthBaseEngineRow = sync.getTrackEngineStart(0);
+    assertTrue(
+        bridge.getStep(synthBaseEngineRow + 1, 5),
+        "Bridge must mark stored row 1 step 5 active for the cloned synth note");
+    assertEquals(dstPitch, bridge.getPitch(synthBaseEngineRow + 1, 5));
+
+    // A subsequent Quick Velocity edit on visual row 1 step 5 must find the active bridge entry at
+    // stored row 1 and keep the cloned note active.
+    org.deluge.ui.StepPropertiesEditor.applyVelocity(controller, 1, 5, 0.45);
+    StepData edited = clip.getStep(1, 5);
+    assertTrue(edited.active(), "Cloned sparse synth step must survive Quick Velocity edit");
+    assertEquals(0.45f, edited.velocity(), 0.001f);
+    assertEquals(dstPitch, edited.pitch());
+    assertEquals(0x0201, edited.playCondition());
+    assertEquals(1, edited.fillMode());
+  }
+
+  @Test
+  void duplicateStepPreservesNonzeroIteranceRepeatsAcrossVelocityEdit() {
+    System.setProperty("chuck.audio.dummy", "true");
+    ProjectModel project = new ProjectModel();
+    KitTrackModel kit = new KitTrackModel("REPEAT_DRUMS");
+    for (int i = 0; i < 4; i++) {
+      kit.getDrums().add(new SoundDrum("DRUM_" + i));
+    }
+    ClipModel clip = new ClipModel("Repeat Clip", 4, 16);
+    clip.setIsKit(true);
+    // Source step on drum 0 step 2 has iterance=2 (2 repeats / 3 subtriggers) and condition 0x0302.
+    clip.setStep(0, 2, new StepData(true, 0.8f, 1.0f, 0.75f, 0, 2, 0.0f, 0.0f, 0x0302, 0));
+    kit.addClip(clip);
+    project.addTrack(kit);
+
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    org.deluge.ui.EngineSyncCoordinator sync =
+        new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+    sync.pushModelToBridge(project);
+
+    org.deluge.ui.ClipGridPanel panel = new org.deluge.ui.ClipGridPanel(bridge);
+    panel.setViewMode(org.deluge.ui.SwingGridPanel.GridViewMode.CLIP);
+    panel.setProjectModel(project);
+    org.deluge.ui.ClipEditorController controller =
+        new org.deluge.ui.ClipEditorController(panel, () -> {}, () -> {});
+
+    // Clone from visual row 3 (drum 0) step 2 to visual row 1 (drum 2) step 6.
+    controller.duplicateStep(3, 2, 1, 6);
+
+    StepData cloned = clip.getStep(2, 6);
+    assertTrue(cloned.active());
+    assertEquals(2, cloned.iterance(), "Cloned step must keep iterance repeats in ClipModel");
+    assertEquals(0x0302, cloned.playCondition());
+
+    int kitBaseEngineRow = sync.getTrackEngineStart(0);
+    assertEquals(
+        2,
+        bridge.getIterance(kitBaseEngineRow + 2, 6),
+        "Bridge must receive cloned iterance repeat count");
+
+    // A subsequent Quick Velocity edit on visual row 1 (drum 2) step 6 must preserve iterance=2.
+    org.deluge.ui.StepPropertiesEditor.applyVelocity(controller, 1, 6, 0.6);
+    StepData edited = clip.getStep(2, 6);
+    assertTrue(edited.active(), "Cloned step must stay active after Quick Velocity edit");
+    assertEquals(0.6f, edited.velocity(), 0.001f);
+    assertEquals(2, edited.iterance(), "Quick Velocity edit must not erase cloned repeats");
+    assertEquals(2, bridge.getIterance(kitBaseEngineRow + 2, 6));
+    assertEquals(0x0302, edited.playCondition());
+  }
 }

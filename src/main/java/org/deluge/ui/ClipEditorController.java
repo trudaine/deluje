@@ -936,6 +936,7 @@ public class ClipEditorController {
     double gate = bridge.getGate(srcRow, srcCol);
     int pitch = bridge.getPitch(srcRow, srcCol);
     double prob = bridge.getStepProbability(srcRow, srcCol);
+    int iter = bridge.getIterance(srcRow, srcCol);
     double fill = bridge.getStepFill(srcRow, srcCol);
     double nudge = bridge.getStepNudge(srcRow, srcCol);
     double stepFilterVal = bridge.getStepFilter(srcRow, srcCol);
@@ -950,6 +951,7 @@ public class ClipEditorController {
     bridge.setGate(dstRow, dstCol, gate);
     bridge.setPitch(dstRow, dstCol, pitch);
     bridge.setStepProbability(dstRow, dstCol, prob);
+    bridge.setIterance(dstRow, dstCol, iter);
     bridge.setStepFill(dstRow, dstCol, fill);
     bridge.setStepNudge(dstRow, dstCol, nudge);
     bridge.setStepFilter(dstRow, dstCol, stepFilterVal);
@@ -962,7 +964,14 @@ public class ClipEditorController {
     StepData oldTargetStep = StepData.empty();
     StepData clonedStep =
         new StepData(
-            active, (float) vel, (float) gate, (float) prob, pitch, 0, (float) fill, (float) nudge);
+            active,
+            (float) vel,
+            (float) gate,
+            (float) prob,
+            pitch,
+            iter,
+            (float) fill,
+            (float) nudge);
     int dstClipRow = dstModelRow;
     if (getProjectModel() != null && editedModelTrack < getProjectModel().getTracks().size()) {
       TrackModel tModel = getProjectModel().getTracks().get(editedModelTrack);
@@ -970,19 +979,27 @@ public class ClipEditorController {
         ClipModel cModel = tModel.getClips().get(activeClipId);
         StepData srcModelStep = parent.getClipStep(cModel, srcModelRow, srcCol);
         dstClipRow = parent.getClipRowIndex(cModel, dstModelRow, true);
+        dstRow = baseTrackId + parent.getEngineRowOffset(dstModelRow);
         oldTargetStep = cModel.getStep(dstClipRow, dstCol);
         if (srcModelStep != null) {
           int trackType = bridge.getTrackType(baseTrackId);
           int dstPitch;
           if (tModel instanceof org.deluge.model.KitTrackModel || trackType == 0) {
             dstPitch = dstClipRow;
-          } else if (trackType == 1) {
+          } else if (tModel instanceof org.deluge.model.SynthTrackModel || trackType == 1) {
             dstPitch = parent.getRowPitch(dstModelRow);
           } else {
             dstPitch = srcModelStep.pitch();
           }
           clonedStep = srcModelStep.withPitch(dstPitch);
-          bridge.setPitch(dstRow, dstCol, dstPitch);
+          bridge.setStep(dstRow, dstCol, clonedStep.active());
+          bridge.setVelocity(dstRow, dstCol, clonedStep.velocity());
+          bridge.setGate(dstRow, dstCol, clonedStep.gate());
+          bridge.setPitch(dstRow, dstCol, clonedStep.pitch());
+          bridge.setStepProbability(dstRow, dstCol, clonedStep.probability());
+          bridge.setIterance(dstRow, dstCol, clonedStep.iterance());
+          bridge.setStepFill(dstRow, dstCol, clonedStep.fill());
+          bridge.setStepNudge(dstRow, dstCol, clonedStep.nudge());
         }
         cModel.setStep(dstClipRow, dstCol, clonedStep);
       }

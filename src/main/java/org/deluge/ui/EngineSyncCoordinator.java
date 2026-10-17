@@ -72,7 +72,20 @@ public class EngineSyncCoordinator {
       engineStart[t] = nextRow;
       boolean isKit = tracks.get(t) instanceof KitTrackModel;
       boolean isMidi = tracks.get(t) instanceof org.deluge.model.MidiTrackModel;
-      int voices = isMidi ? 0 : (isKit ? ((KitTrackModel) tracks.get(t)).getDrums().size() : 8);
+      int voices;
+      if (isMidi) {
+        voices = 0;
+      } else if (isKit) {
+        voices = ((KitTrackModel) tracks.get(t)).getDrums().size();
+      } else if (tracks.get(t) instanceof SynthTrackModel synth) {
+        voices = 8;
+        int activeClipIdx = synth.getActiveClipIndex();
+        if (activeClipIdx >= 0 && activeClipIdx < synth.getClips().size()) {
+          voices = Math.max(voices, synth.getClips().get(activeClipIdx).getRowCount());
+        }
+      } else {
+        voices = 8;
+      }
       int capped = Math.min(voices, BridgeContract.TRACKS - nextRow);
       voiceCount[t] = capped;
       nextRow += capped;
