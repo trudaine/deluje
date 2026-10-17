@@ -421,8 +421,8 @@ public class NoteRowModel {
     }
 
     boolean playingReversedDuringStep = playingReversedNow ^ didPingpong;
-    boolean allowNoteTails =
-        (playingReversedDuringStep || playingReversedNow) && allowsNoteTails(sound, pitch);
+    boolean soundAllowsTails = allowsNoteTails(sound, pitch);
+    boolean allowNoteTails = (playingReversedDuringStep || playingReversedNow) && soundAllowsTails;
     int ticksTilNextNoteEvent = Integer.MAX_VALUE;
     int startTick =
         playingReversedDuringStep
@@ -431,6 +431,31 @@ public class NoteRowModel {
     boolean steppedLeftFromZero =
         playingReversedDuringStep && (currentPos + ticksSinceLast >= effectiveLength);
 
+    // C note_row.cpp:2242-2279, 2510-2539 — process due releases on this row before checking
+    // note-ons. A full-row drone (note.h:52: pos == 0 && length == effectiveLength) with note tails
+    // does not send a note-off at the loop wrap; any non-drone release queues pendingNoteOffs and
+    // clears the legato check so an adjacent note-on on the same tick still fires.
+    boolean rowReleasingNow = false;
+    for (NoteModel note : notes) {
+      boolean isDroneWithTails =
+          soundAllowsTails && note.getPos() == 0 && note.getLength() == effectiveLength;
+      if (isDroneWithTails) {
+        continue;
+      }
+      boolean reverseTailedDuringStep =
+          playingReversedDuringStep && allowNoteTails && note.getLength() > 0;
+      int releasePos =
+          reverseTailedDuringStep
+              ? note.getPos()
+              : Math.floorMod(note.getPos() + note.getLength(), effectiveLength);
+      if (isTickReached(startTick, ticksSinceLast, releasePos, effectiveLength)) {
+        if (!rowReleasingNow) {
+          pendingNoteOffs.add(pitch);
+          rowReleasingNow = true;
+        }
+      }
+    }
+
     for (NoteModel note : notes) {
       boolean reverseTailedDuringStep =
           playingReversedDuringStep && allowNoteTails && note.getLength() > 0;
@@ -438,14 +463,7 @@ public class NoteRowModel {
           reverseTailedDuringStep
               ? Math.floorMod(note.getPos() + note.getLength(), effectiveLength)
               : note.getPos();
-      int releasePos =
-          reverseTailedDuringStep
-              ? note.getPos()
-              : Math.floorMod(note.getPos() + note.getLength(), effectiveLength);
 
-      if (isTickReached(startTick, ticksSinceLast, releasePos, effectiveLength)) {
-        pendingNoteOffs.add(pitch);
-      }
       // C note_row.cpp:2308-2317, 2350-2361 — a reverse note-on whose edge lands on 0 (either a
       // full-bar tailed note ending at effectiveLength or a one-shot at pos 0) fires when stepping
       // left from 0 at the start of the reverse pass, before pos 0 wraps repeatCount at pass end.
@@ -456,8 +474,8 @@ public class NoteRowModel {
       if (triggerReached) {
         if (currentPos >= ignoreNoteOnsBefore_) {
           boolean legato = false;
-          if (sound instanceof org.deluge.engine.FirmwareSound) {
-            legato = ((org.deluge.engine.FirmwareSound) sound).fw2Sound.noteIsOn(pitch, true);
+          if (!rowReleasingNow && sound instanceof org.deluge.engine.FirmwareSound fs) {
+            legato = soundAllowsTails && fs.fw2Sound.noteIsOn(pitch, true);
           }
 
           if (!legato) {

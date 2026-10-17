@@ -672,4 +672,110 @@ class PlayConditionsTest {
     assertEquals(1, sound.count(60), "1of2 note at pos 0 must fire on repeatCount=2 after wrap");
     assertEquals(0, sound.count(62), "2of2 note at pos 0 must not fire on repeatCount=2");
   }
+
+  /**
+   * Real {@link FirmwareSound} subclass that delegates to {@code super.triggerNote}/{@code
+   * super.releaseNote} so {@code fw2Sound.voices} is populated and {@code fw2Sound.noteIsOn} is
+   * live during sequencer ticks.
+   */
+  static final class CountingLiveSound extends FirmwareSound {
+    int triggerCount;
+    int releaseCount;
+
+    @Override
+    public void triggerNote(int note, int vel) {
+      triggerCount++;
+      super.triggerNote(note, vel);
+    }
+
+    @Override
+    public void releaseNote(int note) {
+      releaseCount++;
+      super.releaseNote(note);
+    }
+  }
+
+  @Test
+  void deepCopyReverseTripletClipPreservesMirroredPositionZero() {
+    ClipModel tripletClip = new ClipModel("triplet", 1, 4);
+    tripletClip.setTripletMode(true);
+    tripletClip.setPlayDirection(ClipModel.PlayDirection.REVERSE);
+    assertEquals(128, tripletClip.getLoopLength());
+    assertEquals(128, tripletClip.lastProcessedPos);
+
+    ClipModel copy = tripletClip.deepCopy("triplet-copy");
+    assertTrue(copy.isTripletMode());
+    assertEquals(128, copy.getLoopLength());
+    assertEquals(
+        128,
+        copy.lastProcessedPos,
+        "deepCopy must set tripletMode before setPlayDirection so pos 0 mirrors to 128, not 96");
+
+    copy.incrementPos(1);
+    copy.processCurrentPos(1);
+    assertEquals(127, copy.lastProcessedPos);
+  }
+
+  @Test
+  void adjacentSustainedNotesFireInForwardAndReverseWithRealFirmwareSound() {
+    ClipModel adjClip = new ClipModel("adj", 1, 1); // 24 ticks
+    CountingLiveSound liveSound = new CountingLiveSound();
+    adjClip.setSound(liveSound);
+
+    NoteRowModel row = adjClip.getOrCreateRow(0);
+    row.setPitch(60);
+    row.getNotes().add(new NoteModel(0, 12, 1.0f, 1.0f, 0));
+    row.getNotes().add(new NoteModel(12, 12, 1.0f, 1.0f, 0));
+
+    // Forward pass (24 ticks): both [0, 12) and [12, 24) must trigger and release.
+    adjClip.setPlayDirection(ClipModel.PlayDirection.FORWARD);
+    adjClip.setPos(0);
+    for (int t = 0; t < 24; t++) {
+      adjClip.incrementPos(1);
+      adjClip.processCurrentPos(1);
+    }
+    assertEquals(
+        2,
+        liveSound.triggerCount,
+        "both adjacent forward notes must fire even when release and note-on share tick 12");
+    assertEquals(2, liveSound.releaseCount, "both forward notes must release");
+
+    // Reverse pass (24 ticks): [12, 24) triggers at 0->23 and releases at 12, where [0, 12)
+    // triggers at 12 and releases at 1->0. Use a fresh live sound so the forward pass's still-held
+    // [12, 24) voice (which releases on 0->1 of the next forward bar) is not already active.
+    CountingLiveSound reverseSound = new CountingLiveSound();
+    adjClip.setSound(reverseSound);
+    adjClip.setPlayDirection(ClipModel.PlayDirection.REVERSE);
+    adjClip.setPos(0);
+    for (int t = 0; t < 24; t++) {
+      adjClip.incrementPos(1);
+      adjClip.processCurrentPos(1);
+    }
+    assertEquals(
+        2,
+        reverseSound.triggerCount,
+        "both adjacent reverse notes must fire when [12, 24) releases at tick 12 before [0, 12)");
+    assertEquals(2, reverseSound.releaseCount, "both reverse notes must release");
+  }
+
+  @Test
+  void fullBarDroneNoteSustainsAcrossLoopWrapWithoutReleaseOrRetrigger() {
+    ClipModel droneClip = new ClipModel("drone", 1, 1); // 24 ticks
+    CountingLiveSound liveSound = new CountingLiveSound();
+    droneClip.setSound(liveSound);
+
+    NoteRowModel row = droneClip.getOrCreateRow(0);
+    row.setPitch(60);
+    // C note.h:52 — isDrone(effectiveLength): pos == 0 && length == effectiveLength.
+    row.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0));
+
+    droneClip.setPos(0);
+    for (int t = 0; t < 72; t++) { // 3 bars
+      droneClip.incrementPos(1);
+      droneClip.processCurrentPos(1);
+    }
+    assertEquals(1, liveSound.triggerCount, "drone note must trigger once on bar 1 and stay on");
+    assertEquals(0, liveSound.releaseCount, "drone note must not release at loop wrap");
+    assertTrue(liveSound.fw2Sound.noteIsOn(60, false), "drone voice must still be sounding");
+  }
 }
