@@ -222,11 +222,70 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     }
     if (createIfMissing) {
       int newRowIdx = cModel.getRowCount();
+      if (!canAllocateSynthEngineRow(newRowIdx)) {
+        return -1;
+      }
       cModel.setRowCount(newRowIdx + 1);
       cModel.setRowYNote(newRowIdx, pitchMidi);
+      ensureSynthEngineRowAllocated(newRowIdx);
       return newRowIdx;
     }
     return -1;
+  }
+
+  private EngineSyncCoordinator findSyncCoordinator() {
+    if (bridge != null
+        && bridge.getGlobalObject("g_sync_coordinator") instanceof EngineSyncCoordinator sync) {
+      return sync;
+    }
+    if (SwingDelugeApp.mainInstance != null) {
+      return SwingDelugeApp.mainInstance.getSyncCoordinator();
+    }
+    return null;
+  }
+
+  private int getReservedEngineRowCount(int trackIdx) {
+    EngineSyncCoordinator sync = findSyncCoordinator();
+    if (sync != null) {
+      int vc = sync.getTrackVoiceCount(trackIdx);
+      if (vc > 0) return vc;
+    }
+    return Math.max(0, BridgeContract.TRACKS - baseTrackId);
+  }
+
+  private boolean canAllocateSynthEngineRow(int newRowIdx) {
+    if (baseTrackId + newRowIdx >= BridgeContract.TRACKS) {
+      return false;
+    }
+    EngineSyncCoordinator sync = findSyncCoordinator();
+    if (sync == null || projectModel == null) {
+      return true;
+    }
+    int currentReserved = sync.getTrackVoiceCount(editedModelTrack);
+    if (newRowIdx < currentReserved) {
+      return true;
+    }
+    int totalUsed = 0;
+    for (int t = 0; t < projectModel.getTracks().size(); t++) {
+      totalUsed += sync.getTrackVoiceCount(t);
+    }
+    int neededExtra = (newRowIdx + 1) - currentReserved;
+    return totalUsed + neededExtra <= BridgeContract.TRACKS;
+  }
+
+  private void ensureSynthEngineRowAllocated(int newRowIdx) {
+    if (bridge == null || projectModel == null) return;
+    EngineSyncCoordinator sync = findSyncCoordinator();
+    if (sync == null && projectModel.getTracks().size() > 1) {
+      sync = new EngineSyncCoordinator(null, bridge);
+    }
+    if (sync != null && newRowIdx >= sync.getTrackVoiceCount(editedModelTrack)) {
+      sync.pushModelToBridge(projectModel);
+      int updatedStart = sync.getTrackEngineStart(editedModelTrack);
+      if (updatedStart >= 0) {
+        this.baseTrackId = updatedStart;
+      }
+    }
   }
 
   public int getActiveClipId() {
@@ -250,6 +309,16 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     org.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
 
     int visualModelRow = getModelRow(visualRow);
+    boolean hasAnyActive = false;
+    for (boolean b : pattern) {
+      if (b) {
+        hasAnyActive = true;
+        break;
+      }
+    }
+    if (hasAnyActive && getClipRowIndex(cModel, visualModelRow, true) < 0) {
+      return;
+    }
     int engineRow = getBaseTrackId() + getEngineRowOffset(visualModelRow);
     int trackType = bridge.getTrackType(getBaseTrackId());
     boolean isSynthMode = trackType == 0 || trackType == 1;
@@ -2570,7 +2639,11 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
           if (clipRow >= 0) {
             return clipRow;
           }
-          return cModel.getRowCount();
+          int reserved = getReservedEngineRowCount(editedModelTrack);
+          if (cModel.getRowCount() < reserved) {
+            return cModel.getRowCount();
+          }
+          return Math.max(0, reserved - 1);
         }
         return 127 - getRowPitch(visualModelRow);
       }
