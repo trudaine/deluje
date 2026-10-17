@@ -347,7 +347,9 @@ public class Compressor {
       int l = buffer[i][0] - hpfL.doFilter(buffer[i][0], hpfA_); // C:149
       int r = buffer[i][1] - hpfR.doFilter(buffer[i][1], hpfA_); // C:150
       int s = Math.max(Math.abs(l), Math.abs(r)); // C:151
-      sum += Functions.multiply_32x32_rshift32(s, s); // C:152
+      // C rms_feedback.cpp:144, 152 — saturate q31_t sum so hot blended buffers cannot wrap
+      // negative and produce NaN from Math.sqrt(mean).
+      sum = Functions.add_saturate(sum, Functions.multiply_32x32_rshift32(s, s));
     }
 
     float ns = (float) (numSamples * 2); // C:155

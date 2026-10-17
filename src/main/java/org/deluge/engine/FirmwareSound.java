@@ -546,13 +546,7 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
    */
   @Override
   protected int computeReverbSendAmount(int reverbAmountAdjust) {
-    int resolved =
-        org.deluge.firmware2.Patcher.computeFinalValueForParam(
-            Param.GLOBAL_REVERB_AMOUNT, fw2Sound.patchedParamValues[Param.GLOBAL_REVERB_AMOUNT]);
-    return org.deluge.firmware2.Functions.lshiftAndSaturate(
-        org.deluge.firmware2.Functions.multiply_32x32_rshift32_rounded(
-            reverbAmountAdjust, resolved),
-        5);
+    return fw2Sound.computeReverbSendAmount(reverbAmountAdjust);
   }
 
   /** C: polyphonicExpressionEventOnChannelOrNote — pitch bend (X), immediate. */

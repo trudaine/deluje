@@ -868,7 +868,12 @@ public class Sound extends GlobalEffectable {
     // C sound.cpp:2165 — keep rendering the FX tail while the per-sound delay still has repeats
     // pending, so the delay tail isn't cut when the note's voices end.
     boolean delayTailActive = delay.repeatsUntilAbandon != 0;
-    if (!hasActiveVoices && !arpHolding && !delayTailActive) {
+    // C sound.cpp:2207-2209 — keep rendering the grain FX tail until wrapsToShutdown < 0.
+    boolean grainTailActive =
+        modFXType == ModFx.ModFXType.GRAIN
+            && granular.grainInitialized
+            && granular.wrapsToShutdown >= 0;
+    if (!hasActiveVoices && !arpHolding && !delayTailActive && !grainTailActive) {
       return;
     }
 
@@ -917,17 +922,13 @@ public class Sound extends GlobalEffectable {
     srrBitcrush.process(fxIntBuffer, numSamples, bitcrushParam, srrParam, postFXVolumeHolder);
 
     if (modFXType == ModFx.ModFXType.GRAIN) {
-      // C mod_controllable_audio.cpp:206-210, sound.cpp:2428-2431 — reverbAmount passed to
-      // processGrainFX is (postFXVolume * reverbSendAmount) << 5.
+      // C sound.cpp:2450-2453, 2610, mod_controllable_audio.cpp:206-210 — Sound::render passes
+      // reverbSendAmount >> 1 into processFX, and processGrainFX scales that halved send by
+      // postFXVolume << 5.
       int reverbAmountAdjust = 67108864;
-      int resolvedReverb =
-          Patcher.computeFinalValueForParam(
-              Param.GLOBAL_REVERB_AMOUNT, patchedParamValues[Param.GLOBAL_REVERB_AMOUNT]);
-      int reverbSendAmount =
-          Functions.lshiftAndSaturate(
-              Functions.multiply_32x32_rshift32_rounded(reverbAmountAdjust, resolvedReverb), 5);
+      int reverbSendAmount = computeReverbSendAmount(reverbAmountAdjust);
       int grainReverbAmount =
-          Functions.multiply_32x32_rshift32(postFXVolumeHolder[0], reverbSendAmount) << 5;
+          Functions.multiply_32x32_rshift32(postFXVolumeHolder[0], reverbSendAmount >> 1) << 5;
       granular.processGrainFX(
           fxIntBuffer,
           numSamples,
@@ -1228,6 +1229,28 @@ public class Sound extends GlobalEffectable {
         }
       }
     }
+  }
+
+  @Override
+  public int computeReverbSendAmount(int reverbAmountAdjust) {
+    // C sound.cpp:2450-2453, patcher.cpp:133-137 — resolve GLOBAL_REVERB_AMOUNT with active
+    // patch cables (globalSourceValues) before scaling by reverbAmountAdjust << 5.
+    int reverbKnob = patchedParamValues[Param.GLOBAL_REVERB_AMOUNT];
+    Patcher.Destination dRev = null;
+    for (var dest : patchCableSet.destinations) {
+      if (dest.paramId == Param.GLOBAL_REVERB_AMOUNT) {
+        dRev = dest;
+        break;
+      }
+    }
+    int resolvedReverb =
+        (dRev != null)
+            ? Functions.getFinalParameterValueVolume(
+                Functions.getParamNeutralValue(Param.GLOBAL_REVERB_AMOUNT),
+                Patcher.combineCablesLinear(dRev, reverbKnob, globalSourceValues))
+            : Patcher.computeFinalValueForParam(Param.GLOBAL_REVERB_AMOUNT, reverbKnob);
+    return Functions.lshiftAndSaturate(
+        Functions.multiply_32x32_rshift32_rounded(reverbAmountAdjust, resolvedReverb), 5);
   }
 
   public boolean noteIsOn(int note, boolean resetTimeEntered) {

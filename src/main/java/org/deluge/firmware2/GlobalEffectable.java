@@ -94,11 +94,13 @@ public abstract class GlobalEffectable {
     // track buffer, every track every block. max-of-abs is order-independent, so the SIMD reduction
     // is bit-identical to the scalar loop (including the Math.abs(MIN_VALUE)==MIN_VALUE edge).
     int maxValTrack = absMax(trackBuffer, numSamples * 2);
+    int maxValReverb = reverbBuffer != null ? absMax(trackReverbBuffer, numSamples) : 0;
     if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry && maxValTrack > 1000) {}
 
-    // Surgical Optimization: If the track is silent and has no active filter to decay,
-    // skip the entire FX, panning, and summing loop to reclaim massive CPU cycles!
-    if (maxValTrack == 0 && !filterSet.isOn()) {
+    // Surgical Optimization: If the track is silent, has no child/grain reverb contribution, and
+    // has no active filter to decay, skip the entire FX, panning, and summing loop to reclaim
+    // massive CPU cycles!
+    if (maxValTrack == 0 && maxValReverb == 0 && !filterSet.isOn()) {
       return;
     }
 
@@ -156,12 +158,15 @@ public abstract class GlobalEffectable {
       int l = trackBuffer[i * 2];
       int r = trackBuffer[i * 2 + 1];
 
-      if (reverbSendAmount != 0 && reverbBuffer != null) {
-        int mono = Functions.add_saturate(l, r);
-        int revSend =
-            Functions.lshiftAndSaturate(
-                Functions.multiply_32x32_rshift32(mono, reverbSendAmountAndPostFXVolume), 1);
-        // Sum reverb send in 64-bit
+      if (reverbBuffer != null) {
+        int revSend = 0;
+        if (reverbSendAmount != 0) {
+          int mono = Functions.add_saturate(l, r);
+          revSend =
+              Functions.lshiftAndSaturate(
+                  Functions.multiply_32x32_rshift32(mono, reverbSendAmountAndPostFXVolume), 1);
+        }
+        // Sum child/grain reverb (trackReverbBuffer) plus dry/post-FX reverb send in 64-bit
         reverbBuffer[i] += (long) trackReverbBuffer[i] + revSend;
       }
 

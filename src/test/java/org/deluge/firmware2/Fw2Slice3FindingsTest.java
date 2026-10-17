@@ -111,13 +111,21 @@ class Fw2Slice3FindingsTest {
     delay.primaryBuffer.setupForRender(highRate);
 
     int expectedActualSpinRate =
-        (int)
-            (long)
-                (((double) ((highRate & 0xFFFFFFFFL) << 24))
-                    / (double) (standalone.nativeRate() & 0xFFFFFFFFL));
+        (int) (((highRate & 0xFFFFFFFFL) << 24) / (standalone.nativeRate() & 0xFFFFFFFFL));
     assertTrue(expectedActualSpinRate < 0, "Test rate must set sign bit of actualSpinRate");
     assertEquals(expectedActualSpinRate, standalone.resampleConfig.actualSpinRate);
     assertEquals(expectedActualSpinRate, delay.primaryBuffer.actualSpinRate);
+
+    // Boundary case where double division rounds up by 1 while uint64 division stays exact.
+    DelayBuffer boundaryBuf = new DelayBuffer();
+    assertEquals(DelayBuffer.Error.NONE, boundaryBuf.init(16_777_217));
+    boundaryBuf.setupForRender(2_130_706_560);
+    assertEquals(0x7f000000, boundaryBuf.resampleConfig.actualSpinRate);
+
+    Delay boundaryDelay = new Delay();
+    assertTrue(boundaryDelay.primaryBuffer.init(16_777_217));
+    boundaryDelay.primaryBuffer.setupForRender(2_130_706_560);
+    assertEquals(0x7f000000, boundaryDelay.primaryBuffer.actualSpinRate);
 
     int expectedCappedFastSpin = (DelayBuffer.K_MAX_SAMPLE_VALUE * 8) << 1;
     assertEquals(
@@ -144,16 +152,18 @@ class Fw2Slice3FindingsTest {
 
     Delay.State state = new Delay.State();
     state.delayFeedbackAmount = 1 << 20;
-    state.userDelayRate = 2_400_000;
+    state.userDelayRate = 12_000_000;
 
     // Neutralize multiply_32x32_rshift32_rounded(rate, tickInv) by choosing tickInv = 1 << 30
-    // and checking against the exact C++ order.
+    // and checking against the exact C++ order (afterTick = 3_000_000 > limit 2_097_151, while
+    // dottedAfter = 2_000_000 < limit 2_097_151).
     int tickInv = 1 << 30;
     delay.setupWorkingState(state, tickInv, true);
 
-    int afterTick = Functions.multiply_32x32_rshift32_rounded(2_400_000, tickInv);
+    int afterTick = Functions.multiply_32x32_rshift32_rounded(12_000_000, tickInv);
     long dottedAfter = (long) afterTick * 2L / 3L;
     int limit = 2147483647 >> (delay.syncLevel + 5);
+    assertTrue(afterTick > limit && dottedAfter < limit);
     int expected = ((int) Math.min(dottedAfter, (long) limit)) << (delay.syncLevel + 5);
     assertEquals(expected, state.userDelayRate);
   }
@@ -329,5 +339,116 @@ class Fw2Slice3FindingsTest {
 
     assertFalse(gp.grainRate == 550, "Test rate should change grainRate away from constructor 550");
     assertEquals(expectedGrainSize, gp.grainSize);
+  }
+
+  @Test
+  void compressorHotBlendedInputDoesNotOverflowRmsToNan() {
+    // C rms_feedback.cpp:144, 152: hot blended input (128 frames at 500_000_000) must not wrap
+    // sum negative and produce NaN from Math.sqrt(mean).
+    Compressor comp = new Compressor();
+    comp.setSidechain(0); // hpfA_ = 0
+    comp.hpfA_ = 0;
+    comp.wet = 1 << 29;
+    comp.dry = ONE_Q31 - comp.wet;
+
+    int[][] buffer = new int[128][2];
+    for (int i = 0; i < 128; i++) {
+      buffer[i][0] = 500_000_000;
+      buffer[i][1] = 500_000_000;
+    }
+
+    float rmsOut = comp.calcRMS(buffer, 128);
+    assertTrue(Float.isFinite(comp.mean), "Compressor mean must stay finite on hot input");
+    assertTrue(comp.mean > 0.0f, "Compressor mean must stay positive on hot input");
+    assertTrue(Float.isFinite(rmsOut), "Compressor calcRMS must not return NaN on hot input");
+  }
+
+  @Test
+  void soundGrainReverbUsesModulatedSendAndHalvesBeforeScaling() {
+    // C sound.cpp:2450-2453, 2610, mod_controllable_audio.cpp:206-210: Sound::render resolves
+    // GLOBAL_REVERB_AMOUNT with active patch cables, passes reverbSendAmount >> 1 into processFX,
+    // and preserves grain reverb in GlobalEffectable.renderOutput even when the unpatched knob is
+    // off.
+    Sound sound = new Sound();
+    sound.reverbSendKnob = Integer.MIN_VALUE; // GlobalEffectable base knob off
+    sound.modFXType = ModFx.ModFXType.GRAIN;
+    sound.modFXDepth = 1 << 29;
+    sound.modFXRateIncrement = 1 << 24;
+    sound.patchedParamValues[Param.GLOBAL_REVERB_AMOUNT] = -1073741824;
+    sound.patchedParamValues[Param.GLOBAL_VOLUME_POST_FX] = 0;
+    sound.patchedParamValues[Param.GLOBAL_MOD_FX_DEPTH] = 1 << 30;
+    sound.patchedParamValues[Param.GLOBAL_MOD_FX_RATE] = 0;
+
+    int reverbAmountAdjust = 67108864;
+    int unmodulatedSend = sound.computeReverbSendAmount(reverbAmountAdjust);
+
+    // Square LFO_GLOBAL_1 at phase 0 outputs +ONE_Q31; patch it to GLOBAL_REVERB_AMOUNT.
+    sound.lfoConfig[0].waveType = Lfo.LfoType.SQUARE;
+    sound.globalLfos[0].phase = 0;
+    Patcher.Destination dest = new Patcher.Destination(Param.GLOBAL_REVERB_AMOUNT);
+    Patcher.PatchCable cable = new Patcher.PatchCable();
+    cable.source = PatchSource.LFO_GLOBAL_1.ordinal();
+    cable.amount = 1 << 30;
+    cable.rangeValue = 536870912;
+    cable.polarity = Patcher.PatchCable.UNIPOLAR;
+    dest.cables.add(cable);
+    sound.patchCableSet.destinations.add(dest);
+
+    // Prime an active grain inside sound.granular so renderInternal produces wet grain audio.
+    sound.granular.grainInitialized = true;
+    sound.granular.bufferFull = true;
+    sound.granular.bufferWriteIndex = 70000;
+    sound.granular.wrapsToShutdown = 1;
+    for (int i = 0; i < 1024; i++) {
+      sound.granular.grainBuffer[i][0] = 200_000_000;
+      sound.granular.grainBuffer[i][1] = 200_000_000;
+    }
+    sound.granular.grains[0].length = 1024;
+    sound.granular.grains[0].startPoint = 256;
+    sound.granular.grains[0].counter = 256;
+    sound.granular.grains[0].pitch = 1024;
+    sound.granular.grains[0].volScale = ONE_Q31 / 512;
+    sound.granular.grains[0].volScaleMax = ONE_Q31;
+    sound.granular.grains[0].rev = false;
+    sound.granular.grains[0].panVolL = 1 << 30;
+    sound.granular.grains[0].panVolR = 1 << 30;
+
+    // 1. Verify computeReverbSendAmount resolves the modulated cable.
+    sound.globalSourceValues[PatchSource.LFO_GLOBAL_1.ordinal()] = ONE_Q31;
+    int modulatedSend = sound.computeReverbSendAmount(reverbAmountAdjust);
+    assertTrue(
+        modulatedSend > unmodulatedSend,
+        "Patch cable on GLOBAL_REVERB_AMOUNT must raise reverbSendAmount above unmodulated knob");
+
+    // 2. Verify Sound.renderInternal scales grain reverb by (reverbSendAmount >> 1) * postFXVolume.
+    int[] outBuf = new int[2];
+    int[] revBuf = new int[1];
+    sound.renderInternal(outBuf, 1, revBuf);
+    assertNotEquals(0, revBuf[0], "Modulated grain reverb must write into trackReverbBuffer");
+
+    int postFXVolume =
+        Patcher.computeFinalValueForParam(
+            Param.GLOBAL_VOLUME_POST_FX, sound.patchedParamValues[Param.GLOBAL_VOLUME_POST_FX]);
+    int[] postFxAfterSrr = {postFXVolume};
+    int expectedGrainReverbAmount =
+        Functions.multiply_32x32_rshift32(postFxAfterSrr[0], modulatedSend >> 1) << 5;
+    int expectedRevFeed =
+        Functions.multiply_32x32_rshift32(outBuf[0] + outBuf[1], expectedGrainReverbAmount) << 1;
+    assertEquals(
+        expectedRevFeed,
+        revBuf[0],
+        "Sound.renderInternal must halve reverbSendAmount before scaling by postFXVolume");
+
+    // 3. Verify GlobalEffectable.renderOutput preserves grain reverb in the caller's reverbBuffer.
+    long[] callerOut = new long[2];
+    long[] callerRev = new long[1];
+    sound.granular.grains[0].length = 1024;
+    sound.granular.grains[0].startPoint = 256;
+    sound.granular.grains[0].counter = 256;
+    sound.renderOutput(callerOut, 1, callerRev);
+    assertNotEquals(
+        0L,
+        callerRev[0],
+        "GlobalEffectable.renderOutput must preserve modulated grain reverb when base knob is off");
   }
 }
