@@ -80,6 +80,12 @@ public final class FilterSet {
     hpLadder.reset(false);
     lpSvf.reset(false);
     hpSvf.reset(false);
+    // C filter_set.h:47 — memset(this, 0, sizeof(FilterSet)) clears fields that per-filter
+    // resetFilter() intentionally leaves intact (lpladder.h:45-50, hpladder.h:44-48).
+    lpLadder.l.noiseLastValue = 0;
+    lpLadder.r.noiseLastValue = 0;
+    hpLadder.l.hpfLastWorkingValue = 0;
+    hpLadder.r.hpfLastWorkingValue = 0;
     lpLadder.dryFade = 0.0f;
     lpLadder.wetLevel = 0;
     hpLadder.dryFade = 0.0f;
@@ -124,11 +130,22 @@ public final class FilterSet {
     if (LPFOn) {
       if ((lpfMode_ == FilterMode.SVF_BAND) || (lpfMode_ == FilterMode.SVF_NOTCH)) {
         if (getFilterFamily(lastLPFMode_) != FilterFamily.SVF) {
+          // C filter_set.h:32-36 — LowPass is a union, so switching LP_LADDER -> SVF while
+          // lastLPFMode_ != OFF shares the base Filter blend state (dryFade, wetLevel).
+          if (lastLPFMode_ != FilterMode.OFF) {
+            lpSvf.dryFade = lpLadder.dryFade;
+            lpSvf.wetLevel = lpLadder.wetLevel;
+          }
           lpSvf.reset(lastLPFMode_ == FilterMode.OFF);
         }
         filterGain = lpSvf.configure(lpfFrequency, lpfResonance, lpfMode_, lpfMorph, filterGain);
       } else {
         if (getFilterFamily(lastLPFMode_) != FilterFamily.LP_LADDER) {
+          // C filter_set.h:32-36 — LowPass union shares dryFade and wetLevel on SVF -> LP_LADDER.
+          if (lastLPFMode_ != FilterMode.OFF) {
+            lpLadder.dryFade = lpSvf.dryFade;
+            lpLadder.wetLevel = lpSvf.wetLevel;
+          }
           lpLadder.reset(lastLPFMode_ == FilterMode.OFF);
         }
         filterGain = lpLadder.configure(lpfFrequency, lpfResonance, lpfMode_, lpfMorph, filterGain);
@@ -147,6 +164,13 @@ public final class FilterSet {
       if (hpfMode_ == FilterMode.HPLADDER) {
         filterGain = hpLadder.configure(hpfFrequency, hpfResonance, hpfMode_, hpfMorph, filterGain);
         if (lastHPFMode_ != hpfMode_) {
+          // C filter_set.cpp:173-181, filter_set.h:38-42 — HighPass is a union; any non-OFF,
+          // non-HPLADDER mode writes hpfilter.svf, so switching to HPLADDER shares
+          // dryFade/wetLevel.
+          if (lastHPFMode_ != FilterMode.OFF) {
+            hpLadder.dryFade = hpSvf.dryFade;
+            hpLadder.wetLevel = hpSvf.wetLevel;
+          }
           hpLadder.reset(lastHPFMode_ == FilterMode.OFF);
         }
       } else {
@@ -155,6 +179,10 @@ public final class FilterSet {
         filterGain =
             hpSvf.configure(hpfFrequency, hpfResonance, hpfMode_, invertedMorph, filterGain);
         if (lastHPFMode_ != hpfMode_) {
+          if (lastHPFMode_ == FilterMode.HPLADDER) {
+            hpSvf.dryFade = hpLadder.dryFade;
+            hpSvf.wetLevel = hpLadder.wetLevel;
+          }
           hpSvf.reset(lastHPFMode_ == FilterMode.OFF);
         }
       }

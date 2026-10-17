@@ -134,26 +134,44 @@ public final class FmCore {
   /**
    * Port of FmCore::render. Renders n samples of the 6-operator DX7 algorithm. (fm_core.cpp:65-118)
    *
+   * <p>C {@code DxPatch::setEngineMode} (dx7note.h:64, dx7note.cpp:81-83) defaults {@code neon =
+   * true} on hardware. When {@code neon} is true, non-feedback operators use the NEON polynomial
+   * sine kernel and sample-0 {@code gain1} timing ({@code neon_fm_kernel.s:49-206}).
+   *
    * @param output output buffer (samples accumulated)
    * @param n number of samples to render
    * @param params 6 operator params (phase, freq, gain_out, level_in)
    * @param algorithm algorithm index 0-31
-   * @param fbBuf feedback buffer (2 entries for stereo?) — firmware uses 2 ints
-   * @param feedbackShift feedback amount (0-15)
+   * @param fbBuf feedback buffer (2 entries) — firmware uses 2 ints
+   * @param feedbackShift feedback amount (0-16)
    */
   public static void render(
       int[] output, int n, FmOpParams[] params, int algorithm, int[] fbBuf, int feedbackShift) {
+    render(output, n, params, algorithm, fbBuf, feedbackShift, true);
+  }
+
+  /** Port of FmCore::render with explicit {@code neon} selector (fm_core.cpp:65-118). */
+  public static void render(
+      int[] output,
+      int n,
+      FmOpParams[] params,
+      int algorithm,
+      int[] fbBuf,
+      int feedbackShift,
+      boolean neon) {
+    if (n <= 0) {
+      return;
+    }
     int[] alg = ALGORITHMS[algorithm];
-    int simdN = (n + 3) & ~3;
     int invN = (1 << 30) / n;
     FmScratch scratch = scratchHolder.get();
-    if (scratch.buf[0].length < simdN) {
-      scratch.buf[0] = new int[simdN];
-      scratch.buf[1] = new int[simdN];
+    if (scratch.buf[0].length < n) {
+      scratch.buf[0] = new int[n];
+      scratch.buf[1] = new int[n];
     }
     int[][] buf = scratch.buf;
-    java.util.Arrays.fill(buf[0], 0, simdN, 0);
-    java.util.Arrays.fill(buf[1], 0, simdN, 0);
+    java.util.Arrays.fill(buf[0], 0, n, 0);
+    java.util.Arrays.fill(buf[1], 0, n, 0);
     boolean[] hasContents = scratch.hasContents;
     hasContents[0] = true;
     hasContents[1] = false;
@@ -162,8 +180,8 @@ public final class FmCore {
     if (debugRender) {
       LOGGER.fine(
           String.format(
-              "[FMCORE DEBUG] render algorithm=%d n=%d feedbackShift=%d",
-              algorithm, n, feedbackShift));
+              "[FMCORE DEBUG] render algorithm=%d n=%d feedbackShift=%d neon=%b",
+              algorithm, n, feedbackShift, neon));
     }
 
     for (int op = 0; op < 6; op++) {
@@ -196,11 +214,15 @@ public final class FmCore {
         if (inbus == 0 || inptr == null || !hasContents[inbus]) {
           if ((flags & 0xc0) == 0xc0 && feedbackShift < 16) {
             computeFb(outptr, n, param, gain1, gain2, dgain, fbBuf, feedbackShift, add);
+          } else if (neon) {
+            computePureNeon(outptr, n, param, gain1, dgain, add);
           } else {
-            computePure(outptr, simdN, param, gain1, gain2, dgain, add);
+            computePure(outptr, n, param, gain1, gain2, dgain, add);
           }
+        } else if (neon) {
+          computeNormalNeon(outptr, n, inptr, param, gain1, dgain, add);
         } else {
-          computeNormal(outptr, simdN, inptr, param, gain1, gain2, dgain, add);
+          computeNormal(outptr, n, inptr, param, gain1, gain2, dgain, add);
         }
         hasContents[outbus] = true;
       } else if (!add) {
@@ -208,6 +230,93 @@ public final class FmCore {
       }
       // param.phase += param.freq * n; (line 117)
       param.phase += param.freq * n;
+    }
+  }
+
+  // C neon_fm_kernel.s:206 — 7th-order sine polynomial coefficients (d6[0], d6[1], d7[0], d7[1]).
+  private static final float NEON_SIN_C0 = -0.01880853017455781f;
+  private static final float NEON_SIN_C1 = 0.25215252666796095f;
+  private static final float NEON_SIN_C2 = -1.2333439964934032f;
+  private static final float NEON_SIN_C3 = 1.0f;
+  private static final float Q24_TO_FLOAT = 1.0f / (1 << 24);
+  private static final float Q22_TO_FLOAT = 1.0f / (1 << 22);
+  private static final float FLOAT_TO_Q24 = (float) (1 << 24);
+
+  // C neon_fm_kernel.s:80-155 — evaluates one sample of the ARM NEON FM polynomial kernel.
+  private static int evalNeonSample(int p, float gainFloat) {
+    int signMask = (p & 0x800000) != 0 ? -1 : 0; // vtst.32 q13, q4, #0x800000
+    float x = ((p & 0x7fffff) - 0x400000) * Q22_TO_FLOAT; // vand, vsub #0x400000, vcvt.f32.s32 #22
+    float x2 = x * x; // vmul.f32
+    float poly = NEON_SIN_C1 + x2 * NEON_SIN_C0; // vmla.f32
+    poly = NEON_SIN_C2 + x2 * poly; // vmla.f32
+    poly = NEON_SIN_C3 + x2 * poly; // vmla.f32
+    int y1 = (int) ((poly * gainFloat) * FLOAT_TO_Q24); // vmul.f32, vcvt.s32.f32 #24
+    return y1 ^ signMask; // veor
+  }
+
+  // C fm_op_kernel.cpp:73-76 + neon_fm_kernel.s:49-206 — NEON pure-sine operator kernel.
+  // Gain starts at gain1 on sample 0 (lane k initialized to gain1 + k*dgain, stepped by 4*dgain
+  // in float Q24 via vcvt.f32.s32 dgain, #22).
+  private static void computePureNeon(
+      int[] out, int n, FmOpParams param, int gain1, int dgain, boolean add) {
+    int phase = param.phase;
+    float g0 = gain1 * Q24_TO_FLOAT;
+    float g1 = (gain1 + dgain) * Q24_TO_FLOAT;
+    float g2 = (gain1 + 2 * dgain) * Q24_TO_FLOAT;
+    float g3 = (gain1 + 3 * dgain) * Q24_TO_FLOAT;
+    float dgainStep4 = dgain * Q22_TO_FLOAT;
+    for (int i = 0; i < n; i++) {
+      int lane = i & 3;
+      float g;
+      if (lane == 0) {
+        g = g0;
+        g0 += dgainStep4;
+      } else if (lane == 1) {
+        g = g1;
+        g1 += dgainStep4;
+      } else if (lane == 2) {
+        g = g2;
+        g2 += dgainStep4;
+      } else {
+        g = g3;
+        g3 += dgainStep4;
+      }
+      int y1 = evalNeonSample(phase, g);
+      if (add) out[i] += y1;
+      else out[i] = y1;
+      phase += param.freq;
+    }
+  }
+
+  // C fm_op_kernel.cpp:42-45 + neon_fm_kernel.s:49-206 — NEON phase-modulated operator kernel.
+  private static void computeNormalNeon(
+      int[] out, int n, int[] inbuf, FmOpParams param, int gain1, int dgain, boolean add) {
+    int phase = param.phase;
+    float g0 = gain1 * Q24_TO_FLOAT;
+    float g1 = (gain1 + dgain) * Q24_TO_FLOAT;
+    float g2 = (gain1 + 2 * dgain) * Q24_TO_FLOAT;
+    float g3 = (gain1 + 3 * dgain) * Q24_TO_FLOAT;
+    float dgainStep4 = dgain * Q22_TO_FLOAT;
+    for (int i = 0; i < n; i++) {
+      int lane = i & 3;
+      float g;
+      if (lane == 0) {
+        g = g0;
+        g0 += dgainStep4;
+      } else if (lane == 1) {
+        g = g1;
+        g1 += dgainStep4;
+      } else if (lane == 2) {
+        g = g2;
+        g2 += dgainStep4;
+      } else {
+        g = g3;
+        g3 += dgainStep4;
+      }
+      int y1 = evalNeonSample(phase + inbuf[i], g);
+      if (add) out[i] += y1;
+      else out[i] = y1;
+      phase += param.freq;
     }
   }
 

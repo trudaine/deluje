@@ -23,7 +23,8 @@ public class LpLadderFilter extends Filter {
     public final BasicFilterComponent lpfLPF4 = new BasicFilterComponent();
 
     public void reset() {
-      noiseLastValue = 0;
+      // C lpladder.h:45-50 — LpLadderState::reset() resets only lpfLPF1..4 and preserves
+      // noiseLastValue (which is zeroed only when FilterSet::reset() zeroes the FilterSet).
       lpfLPF1.reset();
       lpfLPF2.reset();
       lpfLPF3.reset();
@@ -72,7 +73,8 @@ public class LpLadderFilter extends Filter {
 
       logFreq = Math.min(logFreq, 63 << 24);
 
-      if ((logFreq >> 24) > 51) {
+      // C lpladder.cpp:69 — AudioEngine::cpuDireness < 14 && (logFreq >> 24) > 51
+      if (org.deluge.engine.FirmwareAudioEngine.cpuDireness < 14 && (logFreq >> 24) > 51) {
         int resonanceThreshold =
             Functions.interpolateTableSigned(
                 logFreq, 30, LookupTables.resonanceThresholdsForOversampling, 6);
