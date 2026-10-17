@@ -96,6 +96,7 @@ public class ScriptingEngine {
     } else if (c instanceof Consequence.StepConsequence sc) {
       StepData d = sc.newData();
       return String.format(
+          java.util.Locale.US,
           "STEP|%d|%d|%d|%d|%b|%.6f|%.6f|%.6f|%d|%d|%.6f|%.6f|%d|%d",
           sc.trackIndex(),
           sc.clipIndex(),

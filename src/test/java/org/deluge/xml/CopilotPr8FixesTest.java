@@ -367,4 +367,32 @@ class CopilotPr8FixesTest {
     assertEquals(0, legacyReplayed.playCondition());
     assertEquals(2, legacyReplayed.fillMode());
   }
+
+  @Test
+  void stepConsequenceUsesStoredClipRowIndexForSparseSynthClip() {
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel synth = new SynthTrackModel("SPARSE_SYNTH");
+    // Sparse synth clip: only 1 stored row (index 0) tuned to MIDI pitch 72 (display row 55).
+    ClipModel clip = new ClipModel("Sparse Clip", 1, 16);
+    clip.setRowYNote(0, 72);
+    synth.addClip(clip);
+    project.addTrack(synth);
+
+    StepData cloned = new StepData(true, 0.8f, 1.0f, 0.5f, 72, 0, 0.0f, 0.0f, 0x0201, 1);
+    clip.setStep(0, 4, cloned);
+
+    // StepConsequence must store clip row 0 (not visual pitch row 55) so undo/redo hit row 0.
+    org.deluge.model.Consequence.StepConsequence cons =
+        new org.deluge.model.Consequence.StepConsequence(
+            project, 0, 0, 0, 4, StepData.empty(), cloned);
+    cons.undo();
+    assertFalse(clip.getStep(0, 4).active(), "Undo must clear stored row 0");
+
+    cons.redo();
+    StepData redone = clip.getStep(0, 4);
+    assertTrue(redone.active(), "Redo must restore stored row 0");
+    assertEquals(72, redone.pitch());
+    assertEquals(0x0201, redone.playCondition());
+    assertEquals(1, redone.fillMode());
+  }
 }
