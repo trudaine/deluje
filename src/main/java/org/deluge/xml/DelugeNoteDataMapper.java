@@ -141,7 +141,7 @@ public class DelugeNoteDataMapper {
     int idx = 0;
     while (idx + hexCharsPerNote <= data.length()) {
       String hexPos = data.substring(idx, idx + 8);
-      String hexLen = data.substring(idx, idx + 16);
+      String hexLen = data.substring(idx + 8, idx + 16);
 
       int pos = (int) Long.parseLong(hexPos, 16);
       int len = (int) Long.parseLong(hexLen, 16);

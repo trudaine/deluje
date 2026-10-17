@@ -979,10 +979,17 @@ public class ClipEditorController {
         dstClipRow = parent.getClipRowIndex(cModel, dstModelRow, true);
         oldTargetStep = cModel.getStep(dstClipRow, dstCol);
         if (srcModelStep != null) {
-          boolean isSynthMode =
-              bridge.getTrackType(baseTrackId) == 0 || bridge.getTrackType(baseTrackId) == 1;
-          int dstPitch = isSynthMode ? parent.getRowPitch(dstModelRow) : srcModelStep.pitch();
+          int trackType = bridge.getTrackType(baseTrackId);
+          int dstPitch;
+          if (tModel instanceof org.deluge.model.KitTrackModel || trackType == 0) {
+            dstPitch = dstClipRow;
+          } else if (trackType == 1) {
+            dstPitch = parent.getRowPitch(dstModelRow);
+          } else {
+            dstPitch = srcModelStep.pitch();
+          }
           clonedStep = srcModelStep.withPitch(dstPitch);
+          bridge.setPitch(dstRow, dstCol, dstPitch);
         }
         cModel.setStep(dstClipRow, dstCol, clonedStep);
       }

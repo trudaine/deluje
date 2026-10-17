@@ -480,4 +480,62 @@ class CopilotPr8FixesTest {
     assertTrue(step3.active(), "Step 3 must remain active");
     assertEquals(0.05f, step3.probability(), 0.001f, "Positive <5% probability clamps up to 5%");
   }
+
+  @Test
+  void decodeRowHandlesHighBitPositionWithoutOverflowingLong() {
+    // Position 0x80000000 has bit 31 set; slicing length from idx+8 avoids 16-digit Long overflow.
+    String hex = "0x800000000000000C664014000000";
+    var rawNotes = DelugeNoteDataMapper.decodeRawNotes(hex, 28);
+    assertEquals(1, rawNotes.size());
+    assertEquals(0x80000000, rawNotes.get(0).getPos());
+    assertEquals(12, rawNotes.get(0).getLength());
+
+    var row = DelugeNoteDataMapper.decodeRow(hex, 16, 12, 28);
+    assertEquals(16, row.size());
+    for (StepData step : row) {
+      assertFalse(step.active(), "Out-of-range negative step position must be ignored cleanly");
+    }
+  }
+
+  @Test
+  void duplicateStepOnKitTrackUsesDestinationDrumRowIndex() {
+    System.setProperty("chuck.audio.dummy", "true");
+    ProjectModel project = new ProjectModel();
+    KitTrackModel kit = new KitTrackModel("DRUMS");
+    for (int i = 0; i < 4; i++) {
+      kit.getDrums().add(new SoundDrum("DRUM_" + i));
+    }
+    ClipModel clip = new ClipModel("Kit Clip", 4, 16);
+    clip.setIsKit(true);
+    clip.setStep(0, 1, new StepData(true, 0.8f, 1.0f, 0.75f, 0, 0, 0.0f, 0.0f, 0x0201, 1));
+    kit.addClip(clip);
+    project.addTrack(kit);
+
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    org.deluge.ui.EngineSyncCoordinator sync =
+        new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+    sync.pushModelToBridge(project);
+
+    org.deluge.ui.ClipGridPanel panel = new org.deluge.ui.ClipGridPanel(bridge);
+    panel.setViewMode(org.deluge.ui.SwingGridPanel.GridViewMode.CLIP);
+    panel.setProjectModel(project);
+    org.deluge.ui.ClipEditorController controller =
+        new org.deluge.ui.ClipEditorController(panel, () -> {}, () -> {});
+
+    // In a 4-drum kit CLIP view (bottom-up), visual row 3 maps to drum 0 and visual row 0 maps to
+    // drum 3.
+    controller.duplicateStep(3, 1, 0, 5);
+
+    StepData cloned = clip.getStep(3, 5);
+    assertTrue(cloned.active(), "Destination drum 3 step 5 must be active");
+    assertEquals(3, cloned.pitch(), "Cloned kit step pitch must equal destination drum index 3");
+    assertEquals(0x0201, cloned.playCondition());
+    assertEquals(1, cloned.fillMode());
+
+    clip.syncNoteRowsFromGrid();
+    assertEquals(
+        3,
+        clip.getOrCreateRow(3).getPitch(),
+        "NoteRowModel pitch for drum row 3 must stay 3 (not 60)");
+  }
 }
