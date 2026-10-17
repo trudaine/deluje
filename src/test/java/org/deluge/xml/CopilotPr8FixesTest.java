@@ -1894,4 +1894,41 @@ class CopilotPr8FixesTest {
       org.deluge.ui.SwingGridPanel.lockArmedStep = oldLockStep;
     }
   }
+
+  @Test
+  void resolveTrackEngineStartReturnsMinusOneForZeroVoiceMidiTrack() {
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel synthA = new SynthTrackModel("SynthA");
+    synthA.addClip(new ClipModel("ClipA", 8, 16));
+    org.deluge.model.MidiTrackModel midi = new org.deluge.model.MidiTrackModel("Midi1");
+    midi.addClip(new ClipModel("MidiClip", 8, 16));
+    SynthTrackModel synthB = new SynthTrackModel("SynthB");
+    synthB.addClip(new ClipModel("ClipB", 8, 16));
+    project.addTrack(synthA);
+    project.addTrack(midi);
+    project.addTrack(synthB);
+
+    // Fallback layout path (bridge == null)
+    assertEquals(0, org.deluge.ui.EngineSyncCoordinator.resolveTrackEngineStart(null, project, 0));
+    assertEquals(
+        -1,
+        org.deluge.ui.EngineSyncCoordinator.resolveTrackEngineStart(null, project, 1),
+        "Zero-voice MIDI track must resolve to -1 in fallback layout path");
+    assertEquals(8, org.deluge.ui.EngineSyncCoordinator.resolveTrackEngineStart(null, project, 2));
+
+    // Live coordinator path
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    org.deluge.ui.EngineSyncCoordinator sync =
+        new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+    sync.pushModelToBridge(project);
+
+    assertEquals(
+        0, org.deluge.ui.EngineSyncCoordinator.resolveTrackEngineStart(bridge, project, 0));
+    assertEquals(
+        -1,
+        org.deluge.ui.EngineSyncCoordinator.resolveTrackEngineStart(bridge, project, 1),
+        "Zero-voice MIDI track must resolve to -1 in live coordinator path");
+    assertEquals(
+        8, org.deluge.ui.EngineSyncCoordinator.resolveTrackEngineStart(bridge, project, 2));
+  }
 }

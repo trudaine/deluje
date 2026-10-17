@@ -73,6 +73,8 @@ public class EngineSyncCoordinator {
   /**
    * Resolve the starting engine row for a model track, consulting the live coordinator published on
    * the bridge when available and falling back to computing the layout from the project model.
+   * Returns -1 when the track has no allocated engine rows (such as a MIDI track or an overflowed
+   * track) so callers fall back to the track model's mute state.
    */
   public static int resolveTrackEngineStart(
       BridgeContract bridge, ProjectModel project, int trackId) {
@@ -83,10 +85,12 @@ public class EngineSyncCoordinator {
         && bridge.getGlobalObject("g_sync_coordinator") instanceof EngineSyncCoordinator sc
         && sc.hasMapping()
         && sc.getMappedTrackCount() == project.getTracks().size()) {
-      return sc.getTrackEngineStart(trackId);
+      return sc.getTrackVoiceCount(trackId) > 0 ? sc.getTrackEngineStart(trackId) : -1;
     }
     TrackEngineMapping layout = computeLayout(project);
-    return trackId < layout.engineStart.length ? layout.engineStart[trackId] : -1;
+    return trackId < layout.engineStart.length && layout.voiceCount[trackId] > 0
+        ? layout.engineStart[trackId]
+        : -1;
   }
 
   /** Register the project listener to propagate real-time edits to the engine. */
