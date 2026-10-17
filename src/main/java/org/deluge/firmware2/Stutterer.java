@@ -133,22 +133,43 @@ public class Stutterer {
    *     {@code firmware2.Sound#timePerInternalTickInverse}
    */
   public void processStutter(StereoSample[] audio, int timePerTickInverse) {
-    processStutter(audio, activeParamManager, DEFAULT_MAGNITUDE, timePerTickInverse);
+    processStutter(audio, audio.length, activeParamManager, DEFAULT_MAGNITUDE, timePerTickInverse);
+  }
+
+  /**
+   * Render-loop overload bounded to {@code numSamples} (C stutterer.cpp:109 {@code
+   * processStutter(StereoSample* buffer, int32_t numSamples, ...)}).
+   */
+  public void processStutter(StereoSample[] audio, int numSamples, int timePerTickInverse) {
+    processStutter(audio, numSamples, activeParamManager, DEFAULT_MAGNITUDE, timePerTickInverse);
   }
 
   public void processStutter(StereoSample[] audio, ParamManager paramManager) {
-    processStutter(audio, paramManager, DEFAULT_MAGNITUDE, DEFAULT_TIME_PER_TICK_INVERSE);
+    processStutter(
+        audio, audio.length, paramManager, DEFAULT_MAGNITUDE, DEFAULT_TIME_PER_TICK_INVERSE);
   }
 
   public void processStutter(
       StereoSample[] audio, ParamManager paramManager, int magnitude, int timePerTickInverse) {
+    processStutter(audio, audio.length, paramManager, magnitude, timePerTickInverse);
+  }
+
+  public void processStutter(
+      StereoSample[] audio,
+      int numSamples,
+      ParamManager paramManager,
+      int magnitude,
+      int timePerTickInverse) {
     if (status == Status.OFF) return;
 
+    int count = Math.min(numSamples, audio.length);
     int rate = getStutterRate(paramManager, magnitude, timePerTickInverse);
     buffer.setupForRender(rate);
 
     if (status == Status.RECORDING) {
-      for (StereoSample sample : audio) {
+      // C stutterer.cpp:118 — iterate over the rendered block length, not buffer capacity.
+      for (int i = 0; i < count; i++) {
+        StereoSample sample = audio[i];
         if (buffer.isNative()) {
           buffer.clearAndMoveOn();
           sizeLeftUntilRecordFinished--;
@@ -174,7 +195,8 @@ public class Stutterer {
         status = Status.PLAYING;
       }
     } else { // PLAYING
-      for (int i = 0; i < audio.length; i++) {
+      // C stutterer.cpp:152 — iterate over the rendered block length, not buffer capacity.
+      for (int i = 0; i < count; i++) {
         if (buffer.isNative()) {
           if (currentReverse) buffer.moveBack();
           else buffer.moveOn();

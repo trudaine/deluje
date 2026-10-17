@@ -65,6 +65,7 @@ class Fw2SyncCompletenessTest {
           "sampleEndPoint",
           "sampleLoopMode",
           "sampleLoopStart",
+          "sampleLoopEnd",
           "sampleReverse",
           "sampleTimestretch",
           "arpPhaseIncrement",

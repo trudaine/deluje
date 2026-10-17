@@ -560,13 +560,10 @@ public final class Oscillator {
       int p = currentPhase + phaseToAdd;
 
       int whichValue = p >>> (32 - tableSizeMagnitude);
-      long v1 = table[whichValue];
-      long v2 = table[whichValue + 1];
-
-      long frac = (p >>> (32 - 16 - tableSizeMagnitude)) & 0xFFFF;
-      long v1_32 = v1 << 16;
-      long interpolatedDiff = (((v2 << 16) - v1_32) * frac) >> 16;
-      int val = (int) (v1_32 + interpolatedDiff);
+      // C vector_rendering_function.h:24-47 — use the same int16 lerp as short[] renderWave
+      // (uint16 strength >> 1, wrapping int16 difference, saturating vqdmlal_s16 accumulate).
+      int val =
+          interpolateTableValue(table[whichValue], table[whichValue + 1], p, tableSizeMagnitude);
 
       int wet = val;
       if (applyAmplitude) {

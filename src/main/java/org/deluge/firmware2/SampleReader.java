@@ -34,6 +34,18 @@ public class SampleReader {
   /** C: interpolationBufferSizeLastTime — sinc taps engaged on the last read (0 = native/none). */
   int interpolationBufferSizeLastTime;
 
+  /**
+   * Directional playback bounds (C SampleLowLevelReader / SamplePlaybackGuide). When {@link
+   * #hasBounds} is true, {@link #pushFrame()} and {@link #readNative} wrap at {@link #endFrame}
+   * back to {@link #loopStartFrame} when {@link #looping}, or inject zeroes beyond {@link
+   * #endFrame} when not looping (sample_low_level_reader.cpp:402-434, 489, 680-699).
+   */
+  public boolean hasBounds;
+
+  public int endFrame;
+  public boolean looping;
+  public int loopStartFrame;
+
   // Full-precision interpolation history; [0] is the newest frame (matches SincInterpolator order).
   final int[] bufL = new int[K_TAPS];
   final int[] bufR = new int[K_TAPS];
@@ -42,6 +54,19 @@ public class SampleReader {
 
   private int numFrames() {
     return sample.data.length / sample.numChannels;
+  }
+
+  public void setBounds(int endFrame, boolean looping, int loopStartFrame) {
+    this.hasBounds = true;
+    this.endFrame = endFrame;
+    this.looping = looping;
+    this.loopStartFrame = loopStartFrame;
+    wrapPlayPosIfNeeded();
+  }
+
+  public void clearBounds() {
+    this.hasBounds = false;
+    this.looping = false;
   }
 
   /**
@@ -55,6 +80,10 @@ public class SampleReader {
     this.playPos = other.playPos;
     this.doneAnySamplesYet = other.doneAnySamplesYet;
     this.interpolationBufferSizeLastTime = other.interpolationBufferSizeLastTime;
+    this.hasBounds = other.hasBounds;
+    this.endFrame = other.endFrame;
+    this.looping = other.looping;
+    this.loopStartFrame = other.loopStartFrame;
     System.arraycopy(other.bufL, 0, bufL, 0, K_TAPS);
     System.arraycopy(other.bufR, 0, bufR, 0, K_TAPS);
   }
@@ -75,34 +104,66 @@ public class SampleReader {
     return sample.audioDataStartPosBytes + withinAudioData;
   }
 
+  // C sample_low_level_reader.cpp:402-434 — normalize playPos across loop boundaries in O(1),
+  // preserving multi-period overshoot across very short loops or fast pitch shifts.
+  private void wrapPlayPosIfNeeded() {
+    if (!hasBounds || !looping) {
+      return;
+    }
+    int loopSpan = endFrame - loopStartFrame;
+    if (loopSpan * playDirection <= 0) {
+      return;
+    }
+    if ((playPos - endFrame) * playDirection >= 0) {
+      long overshoot = (long) (playPos - loopStartFrame) * playDirection;
+      long span = (long) loopSpan * playDirection;
+      playPos = loopStartFrame + (int) (overshoot % span) * playDirection;
+    }
+  }
+
+  private boolean isPastNonLoopingEnd() {
+    return hasBounds && !looping && (playPos - endFrame) * playDirection >= 0;
+  }
+
+  private void readFrameAtPlayPos(int[] dstL, int[] dstR, int idx) {
+    wrapPlayPosIfNeeded();
+    if (!isPastNonLoopingEnd() && playPos >= 0 && playPos < numFrames()) {
+      int base = playPos * sample.numChannels;
+      dstL[idx] = sample.data[base];
+      dstR[idx] = (sample.numChannels == 2) ? sample.data[base + 1] : sample.data[base];
+    } else {
+      dstL[idx] = 0;
+      dstR[idx] = 0;
+    }
+    playPos += playDirection;
+    wrapPlayPosIfNeeded();
+  }
+
   /**
-   * Read the frame at {@link #playPos} (0 outside the sample), shift it into the history, advance.
+   * Read the frame at {@link #playPos} (0 outside the sample or past a non-looping trim end), shift
+   * it into the history, advance.
    */
   private void pushFrame() {
     System.arraycopy(bufL, 0, bufL, 1, K_TAPS - 1);
     System.arraycopy(bufR, 0, bufR, 1, K_TAPS - 1);
-    if (playPos >= 0 && playPos < numFrames()) {
-      int base = playPos * sample.numChannels;
-      bufL[0] = sample.data[base];
-      bufR[0] = (sample.numChannels == 2) ? sample.data[base + 1] : sample.data[base];
-    } else {
-      bufL[0] = 0;
-      bufR[0] = 0;
-    }
-    playPos += playDirection;
+    readFrameAtPlayPos(bufL, bufR, 0);
   }
 
   /**
    * Prime the interpolation history with the {@value #K_TAPS} frames BEFORE {@code startFrame},
    * leaving {@link #playPos} at {@code startFrame} — so the native and resampled paths start
    * consistently (native reads {@code startFrame} first; resampled has real context, no zero
-   * transient). Adapter-level start; the C does a cluster-based retrospective fill.
+   * transient). C fillInterpolationBufferRetrospectively (sample_low_level_reader.cpp:446-481)
+   * reads backwards through the audio file without loop-wrapping.
    */
   public void init(int startFrame) {
+    boolean savedHasBounds = hasBounds;
+    hasBounds = false;
     playPos = startFrame - K_TAPS * playDirection;
     for (int i = 0; i < K_TAPS; i++) {
       pushFrame();
     }
+    hasBounds = savedHasBounds;
     // playPos is now startFrame; buf[0] = the frame just before it.
     oscPos = 0;
     doneAnySamplesYet = false;
@@ -116,6 +177,7 @@ public class SampleReader {
    */
   public void wrapBy(int loopLengthFrames) {
     playPos -= loopLengthFrames;
+    wrapPlayPosIfNeeded();
   }
 
   /**
@@ -134,11 +196,39 @@ public class SampleReader {
       int interpolationBufferSize,
       int[] amplitude,
       int amplitudeIncrement) {
+    // C sample_low_level_reader.cpp:553-659 — prime or resize the engaged interpolation buffer.
     if (interpolationBufferSizeLastTime == 0) {
-      for (int i = 0; i < 9; i++) {
+      int primeCount = (interpolationBufferSize >> 1) + 1;
+      for (int i = 0; i < primeCount; i++) {
         pushFrame();
       }
-      interpolationBufferSizeLastTime = K_TAPS;
+      interpolationBufferSizeLastTime = interpolationBufferSize;
+    } else if (interpolationBufferSizeLastTime != interpolationBufferSize) {
+      if (interpolationBufferSize < interpolationBufferSizeLastTime) {
+        // C:582-602 — shrink buffer (e.g. 16-tap sinc -> 2-tap linear).
+        int offset = (interpolationBufferSizeLastTime - interpolationBufferSize) >> 1;
+        for (int i = 0; i < interpolationBufferSize; i++) {
+          bufL[i] = bufL[i + offset];
+          bufR[i] = bufR[i + offset];
+        }
+        playPos -= offset * playDirection;
+        wrapPlayPosIfNeeded();
+      } else {
+        // C:614-647 — expand buffer (e.g. 2-tap linear -> 16-tap sinc).
+        int offset = (interpolationBufferSize - interpolationBufferSizeLastTime) >> 1;
+        for (int i = interpolationBufferSizeLastTime - 1; i >= 0; i--) {
+          bufL[i + offset] = bufL[i];
+          bufR[i + offset] = bufR[i];
+        }
+        for (int i = offset - 1; i >= 0; i--) {
+          readFrameAtPlayPos(bufL, bufR, i);
+        }
+        for (int i = interpolationBufferSize - offset; i < interpolationBufferSize; i++) {
+          bufL[i] = 0;
+          bufR[i] = 0;
+        }
+      }
+      interpolationBufferSizeLastTime = interpolationBufferSize;
     }
     int o = 0;
     for (int s = 0; s < numSamples; s++) {
@@ -149,10 +239,12 @@ public class SampleReader {
         int numSamplesToJumpForward = oscPos >>> 24; // C:976
         if (numSamplesToJumpForward != 0) {
           oscPos &= 16777215; // C:978
-          // C:982-985 — only the last kInterpolationMaxNumSamples matter for the kernel.
-          if (numSamplesToJumpForward > K_TAPS) {
-            playPos += (numSamplesToJumpForward - K_TAPS) * playDirection;
-            numSamplesToJumpForward = K_TAPS;
+          // C:671-675 — only the last interpolationBufferSize samples matter for the engaged
+          // kernel.
+          if (numSamplesToJumpForward > interpolationBufferSize) {
+            playPos += (numSamplesToJumpForward - interpolationBufferSize) * playDirection;
+            wrapPlayPosIfNeeded();
+            numSamplesToJumpForward = interpolationBufferSize;
           }
           for (int k = 0; k < numSamplesToJumpForward; k++) {
             pushFrame();
@@ -193,7 +285,7 @@ public class SampleReader {
       readResampledTail(oscBuffer, numChannels, amplitude, amplitudeIncrement, interpOut, o);
       o += numChannels;
     }
-    interpolationBufferSizeLastTime = K_TAPS; // C:568/672 — windowed-sinc taps engaged
+    interpolationBufferSizeLastTime = interpolationBufferSize; // C:554/658 — engaged tap count
   }
 
   // shared C:1048-1052 tail (amplitude ramp + MAC), so readNative/readResampled stay identical
@@ -230,15 +322,17 @@ public class SampleReader {
     if (interpolationBufferSizeLastTime != 0) {
       int numToJumpBack = (interpolationBufferSizeLastTime >> 1) - (oscPos >>> 23);
       playPos -= numToJumpBack * playDirection;
+      wrapPlayPosIfNeeded();
       interpolationBufferSizeLastTime = 0;
       oscPos = 0;
     }
     int o = 0;
     int n = numFrames();
     for (int s = 0; s < numSamples; s++) {
+      wrapPlayPosIfNeeded();
       int sampleReadL = 0;
       int sampleReadR = 0;
-      if (playPos >= 0 && playPos < n) {
+      if (!isPastNonLoopingEnd() && playPos >= 0 && playPos < n) {
         int base = playPos * sample.numChannels;
         sampleReadL = sample.data[base]; // C:1125
         if (sample.numChannels == 2) {
@@ -253,6 +347,7 @@ public class SampleReader {
         }
       }
       playPos += playDirection; // C:1141 (jumpAmount = bytesPerSample * playDirection ⇒ ±1 frame)
+      wrapPlayPosIfNeeded();
 
       amplitude[0] += amplitudeIncrement; // C:1128
       oscBuffer[o] =

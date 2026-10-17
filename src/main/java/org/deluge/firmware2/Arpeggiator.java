@@ -189,6 +189,14 @@ public class Arpeggiator {
     public final int[] glideNoteCodeOffPostArp = new int[ARP_MAX_INSTRUCTION_NOTES];
 
     public ArpReturnInstruction() {
+      reset();
+    }
+
+    /** C: arpeggiator.h:192-200 — reset shared instruction state before each arp call. */
+    public void reset() {
+      sampleSyncLengthOn = 0;
+      invertReversed = false;
+      arpNoteOn = null;
       Arrays.fill(outputMIDIChannelOff, MIDI_CHANNEL_NONE);
       Arrays.fill(noteCodeOffPostArp, ARP_NOTE_NONE);
       Arrays.fill(glideOutputMIDIChannelOff, MIDI_CHANNEL_NONE);
