@@ -433,16 +433,22 @@ public class NoteRowModel {
 
     // C note_row.cpp:2242-2279, 2510-2539 — process due releases on this row before checking
     // note-ons. A full-row drone (note.h:52: pos == 0 && length == effectiveLength) with note tails
-    // does not send a note-off at the loop wrap on FirmwareSound (where noteIsOn below suppresses
-    // the wrap retrigger); Kit and MIDI routes pair a release before retrigger until they track
-    // held notes in processCurrentPos.
+    // skips the wrap release on FirmwareSound unless the arpeggiator is off and the sound uses
+    // CUT-mode or time-stretched samples, which must stop and retrigger from the start of each bar.
+    // Kit and MIDI routes pair a release before retrigger until they track held notes in
+    // processCurrentPos.
+    boolean soundAllowsDroneSustain = false;
+    if (sound instanceof org.deluge.engine.FirmwareSound fs && soundAllowsTails) {
+      boolean restartDroneSample =
+          !fs.fw2Sound.arpEnabled()
+              && (fs.fw2Sound.hasCutModeSamples() || fs.fw2Sound.hasAnyTimeStretchSyncing());
+      soundAllowsDroneSustain = !restartDroneSample;
+    }
+
     boolean rowReleasingNow = false;
     for (NoteModel note : notes) {
       boolean isDroneWithTails =
-          sound instanceof org.deluge.engine.FirmwareSound
-              && soundAllowsTails
-              && note.getPos() == 0
-              && note.getLength() == effectiveLength;
+          soundAllowsDroneSustain && note.getPos() == 0 && note.getLength() == effectiveLength;
       if (isDroneWithTails) {
         continue;
       }

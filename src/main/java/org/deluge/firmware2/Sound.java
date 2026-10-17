@@ -203,6 +203,55 @@ public class Sound extends GlobalEffectable {
     return false;
   }
 
+  /** C: sound.cpp:1966-1986 — true if any active sample source has time-stretch syncing enabled. */
+  public boolean hasAnyTimeStretchSyncing() {
+    if (synthMode == 1) { // FM
+      return false;
+    }
+    for (int s = 0; s < 2; s++) {
+      boolean sourceEverActive = isSourceActiveEver(s, hasAnySampleLoaded(s));
+      if (sourceEverActive
+          && oscTypes[s] == OscType.SAMPLE
+          && (sampleTimestretch[s] || sampleLoopMode[s] == 3)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * C: sound.cpp:2030-2053 — true if this sound is non-FM, has no noise, and every active source is
+   * a loaded CUT-mode sample.
+   */
+  public boolean hasCutModeSamples() {
+    if (synthMode == 1) { // FM
+      return false;
+    }
+    if (patchedParamValues[Param.LOCAL_NOISE_VOLUME] != Integer.MIN_VALUE
+        || doesParamHaveSomethingPatchedToIt(Param.LOCAL_NOISE_VOLUME)) {
+      return false;
+    }
+    for (int s = 0; s < 2; s++) {
+      boolean hasSample = hasAnySampleLoaded(s);
+      boolean sourceEverActive = isSourceActiveEver(s, hasSample);
+      if (!sourceEverActive) {
+        continue;
+      }
+      if (oscTypes[s] != OscType.SAMPLE
+          || !hasSample
+          || sampleLoopMode[s] != 0
+          || sampleTimestretch[s]) {
+        return false;
+      }
+      for (CompiledKeyZone kz : sourceZones[s]) {
+        if (kz.looping) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
   /** FM modulator transpose in semitones (voice.cpp modulatorTranspose[m]). */
   public final int[] modulatorTranspose = new int[2];
 

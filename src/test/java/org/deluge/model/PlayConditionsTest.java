@@ -853,4 +853,104 @@ class PlayConditionsTest {
         midi.events,
         "MIDI full-row note must release before each retrigger instead of sending unpaired note-ons");
   }
+
+  private static CountingLiveSound createSampleLiveSound(int loopMode, boolean timestretch) {
+    CountingLiveSound sampleSound = new CountingLiveSound();
+    sampleSound.oscTypes[0] = org.deluge.firmware2.Oscillator.OscType.SAMPLE;
+    sampleSound.oscTypes[1] = org.deluge.firmware2.Oscillator.OscType.SAMPLE;
+    sampleSound.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_OSC_B_VOLUME] =
+        Integer.MIN_VALUE;
+    org.deluge.playback.Sample pbSample = new org.deluge.playback.Sample();
+    pbSample.data = new float[2048];
+    pbSample.numChannels = 1;
+    pbSample.sampleRate = 44100;
+    sampleSound.samples[0] = pbSample;
+    sampleSound.sampleSettings[0].loopMode = loopMode;
+    sampleSound.sampleSettings[0].timestretch = timestretch;
+    return sampleSound;
+  }
+
+  @Test
+  void fullBarCutAndTimeStretchedSamplesRestartAtWrapWhileLoopSamplesSustain() {
+    // 1. CUT-mode sample (loopMode = 0) with arp off stops and restarts at each bar wrap.
+    ClipModel cutClip = new ClipModel("cut-drone", 1, 1); // 24 ticks
+    CountingLiveSound cutSound = createSampleLiveSound(0, false);
+    cutClip.setSound(cutSound);
+    NoteRowModel cutRow = cutClip.getOrCreateRow(0);
+    cutRow.setPitch(60);
+    cutRow.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0));
+    cutClip.setPos(0);
+    for (int t = 0; t < 72; t++) { // 3 bars
+      cutClip.incrementPos(1);
+      cutClip.processCurrentPos(1);
+    }
+    assertEquals(
+        3, cutSound.triggerCount, "CUT-mode full-row sample must restart on each of the 3 bars");
+    assertEquals(
+        3,
+        cutSound.releaseCount,
+        "CUT-mode full-row sample must release before restarting at each wrap");
+
+    // 2. Time-stretched sample (timestretch = true) with arp off also stops and restarts at wrap.
+    ClipModel stretchClip = new ClipModel("stretch-drone", 1, 1);
+    CountingLiveSound stretchSound = createSampleLiveSound(0, true);
+    stretchClip.setSound(stretchSound);
+    NoteRowModel stretchRow = stretchClip.getOrCreateRow(0);
+    stretchRow.setPitch(60);
+    stretchRow.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0));
+    stretchClip.setPos(0);
+    for (int t = 0; t < 72; t++) {
+      stretchClip.incrementPos(1);
+      stretchClip.processCurrentPos(1);
+    }
+    assertEquals(
+        3,
+        stretchSound.triggerCount,
+        "time-stretched full-row sample must restart on each of the 3 bars");
+    assertEquals(
+        3,
+        stretchSound.releaseCount,
+        "time-stretched full-row sample must release before restarting at each wrap");
+
+    // 3. LOOP-mode sample (loopMode = 1) sustains across loop wraps as a true drone.
+    ClipModel loopClip = new ClipModel("loop-drone", 1, 1);
+    CountingLiveSound loopSound = createSampleLiveSound(1, false);
+    loopClip.setSound(loopSound);
+    NoteRowModel loopRow = loopClip.getOrCreateRow(0);
+    loopRow.setPitch(60);
+    loopRow.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0));
+    loopClip.setPos(0);
+    for (int t = 0; t < 72; t++) {
+      loopClip.incrementPos(1);
+      loopClip.processCurrentPos(1);
+    }
+    assertEquals(
+        1, loopSound.triggerCount, "LOOP-mode full-row sample must trigger once and stay on");
+    assertEquals(
+        0, loopSound.releaseCount, "LOOP-mode full-row sample must not release at loop wrap");
+    assertTrue(
+        loopSound.fw2Sound.noteIsOn(60, false), "LOOP-mode drone voice must still be sounding");
+
+    // 4. CUT-mode sample with arpeggiator ON stays held into the arpeggiator across wraps.
+    ClipModel arpClip = new ClipModel("arp-cut-drone", 1, 1);
+    CountingLiveSound arpCutSound = createSampleLiveSound(0, false);
+    arpCutSound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.ARP;
+    arpClip.setSound(arpCutSound);
+    NoteRowModel arpRow = arpClip.getOrCreateRow(0);
+    arpRow.setPitch(60);
+    arpRow.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0));
+    arpClip.setPos(0);
+    for (int t = 0; t < 72; t++) {
+      arpClip.incrementPos(1);
+      arpClip.processCurrentPos(1);
+    }
+    assertEquals(
+        1,
+        arpCutSound.triggerCount,
+        "CUT-mode sample with arpeggiator on must stay held into the arpeggiator across wraps");
+    assertEquals(
+        0,
+        arpCutSound.releaseCount,
+        "CUT-mode sample with arpeggiator on must not release at loop wrap");
+  }
 }
