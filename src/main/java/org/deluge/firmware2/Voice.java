@@ -217,6 +217,7 @@ public class Voice {
       for (int s = 0; s < 2; s++) {
         VoiceSource vs = unisonParts[u].sources[s];
         vs.active = true;
+        vs.disabledByPitch = false;
         int ovr = (s == 0) ? testStartPhaseOverrideOsc1.get() : testStartPhaseOverrideOsc2.get();
         vs.oscPos = (ovr != -2) ? ovr : Functions.getNoise(); // random initial phase
         // C vups:79-82 — retrigger overrides the random phase: zero-phase base for the wave type
@@ -341,9 +342,21 @@ public class Voice {
     }
     expressionSourcesCurrentlySmoothing = 0b111;
 
-    // C voice.cpp:371-373 — checks only UNPATCHED_PORTAMENTO != -2147483648.
-    // C voice.cpp:268, 424-428 — unisonParts[u].sources[s].active is set only in noteOn;
-    // calculatePhaseIncrements (voice.cpp:375) only ever clears active on over-Nyquist.
+    // C voice.cpp:371-375 — checks UNPATCHED_PORTAMENTO != -2147483648, then recalculates phase
+    // increments. Restore any source that was disabled solely for exceeding Nyquist on the
+    // previous note, while keeping completed sample readers inactive.
+    for (int u = 0; u < sound.numUnison; u++) {
+      for (int s = 0; s < 2; s++) {
+        VoiceSource vs = unisonParts[u].sources[s];
+        if (vs.disabledByPitch) {
+          if (sound.oscTypes[s] != OscType.SAMPLE
+              || (vs.sampleRef != null && vs.voiceSample.active)) {
+            vs.active = true;
+          }
+          vs.disabledByPitch = false;
+        }
+      }
+    }
     if (sound.portamentoKnob != Integer.MIN_VALUE) {
       setupPorta();
     }
@@ -671,7 +684,10 @@ public class Voice {
           int shiftLeftAmount = -shiftRightAmount;
           if (carrierIncA >= (2026954652 >> shiftLeftAmount)) {
             for (int u = 0; u < sound.numUnison; u++) {
-              unisonParts[u].sources[0].active = false;
+              if (unisonParts[u].sources[0].active) {
+                unisonParts[u].sources[0].active = false;
+                unisonParts[u].sources[0].disabledByPitch = true;
+              }
             }
             carrierIncA = 1; // unused while the source is inactive
           } else {
@@ -702,7 +718,10 @@ public class Voice {
     // NOT the entire voice (so source 1 or noise can still sound).
     if (carrierIncA <= 0) {
       for (int u = 0; u < sound.numUnison; u++) {
-        unisonParts[u].sources[0].active = false;
+        if (unisonParts[u].sources[0].active) {
+          unisonParts[u].sources[0].active = false;
+          unisonParts[u].sources[0].disabledByPitch = true;
+        }
       }
       carrierIncA = 0;
     }
@@ -763,7 +782,10 @@ public class Voice {
           int shiftLeftAmount = -shiftRightAmount;
           if (carrierIncB >= (2026954652 >> shiftLeftAmount)) {
             for (int u = 0; u < sound.numUnison; u++) {
-              unisonParts[u].sources[1].active = false;
+              if (unisonParts[u].sources[1].active) {
+                unisonParts[u].sources[1].active = false;
+                unisonParts[u].sources[1].disabledByPitch = true;
+              }
             }
             carrierIncB = 1; // unused while the source is inactive
           } else {
@@ -792,7 +814,10 @@ public class Voice {
     }
     if (carrierIncB <= 0) {
       for (int u = 0; u < sound.numUnison; u++) {
-        unisonParts[u].sources[1].active = false;
+        if (unisonParts[u].sources[1].active) {
+          unisonParts[u].sources[1].active = false;
+          unisonParts[u].sources[1].disabledByPitch = true;
+        }
       }
       carrierIncB = 0;
     }
@@ -971,6 +996,7 @@ public class Voice {
     }
 
     // ── FM path (voice.cpp:1400-1560) ──
+    boolean unassignFromSources = false;
     if (sound.synthMode == 1) { // FM
       renderFmPath(mixBuf, numSamples, overallOscAmplitude, overallPitchAdjust);
       // voice.cpp:1674-1676 — next block ramps from this block's targets.
@@ -980,8 +1006,9 @@ public class Voice {
       renderRingModPath(
           mixBuf, numSamples, overallPitchAdjust, hasFilters, filterGain, doingOscSync);
     } else {
-      renderSubtractivePath(
-          mixBuf, numSamples, overallPitchAdjust, hasFilters, filterGain, doingOscSync);
+      unassignFromSources =
+          renderSubtractivePath(
+              mixBuf, numSamples, overallPitchAdjust, hasFilters, filterGain, doingOscSync);
     }
 
     // Noise (voice.cpp:1131-1149): add the noise source into the mono mix before the filter +
@@ -1031,9 +1058,10 @@ public class Voice {
     }
 
     // Port of voice.cpp:1664 — return false if voice should be unassigned
-    // unassignVoiceAfter = envelope OFF OR (past DECAY AND env source == MIN)
+    // unassignVoiceAfter = source exhaustion OR envelope OFF OR (past DECAY AND env source == MIN)
     unassignVoiceAfter =
-        (envelopes[0].state == Envelope.Stage.OFF)
+        unassignFromSources
+            || (envelopes[0].state == Envelope.Stage.OFF)
             || (envelopes[0].state.compareTo(Envelope.Stage.DECAY) > 0
                 && sourceValues[PatchSource.ENVELOPE_0.ordinal()] == Integer.MIN_VALUE);
     if (unassignVoiceAfter) {
@@ -1238,7 +1266,7 @@ public class Voice {
     }
   }
 
-  private void renderSubtractivePath(
+  private boolean renderSubtractivePath(
       int[] mixBuf,
       int numSamples,
       int overallPitchAdjust,
@@ -1249,6 +1277,7 @@ public class Voice {
       tempBuf = new int[numSamples];
     }
     boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
+    boolean unisonPartBecameInactive = false; // C voice.cpp:1177
 
     // Per-source amplitude targets + ramp increments are set up in render() (voice.cpp:1042-1069)
     // before dispatching here.
@@ -1322,6 +1351,8 @@ public class Voice {
             boolean success = vs.voiceSample.attemptLateSampleStart((int) rawSamplesLate);
             if (!success) {
               vs.active = false;
+              vs.disabledByPitch = false;
+              unisonPartBecameInactive = true;
               continue;
             }
           }
@@ -1356,7 +1387,11 @@ public class Voice {
                 tempBuf[i] = (tsBuf[i * 2] + tsBuf[i * 2 + 1]) >> 1;
               }
             }
-            if (!vs.voiceSample.active) vs.active = false;
+            if (!vs.voiceSample.active) {
+              vs.active = false;
+              vs.disabledByPitch = false;
+              unisonPartBecameInactive = true;
+            }
           } else if (vs.voiceSample.active) {
             int[] ampArr = {sampAmp};
             if (stereoSample) {
@@ -1365,8 +1400,15 @@ public class Voice {
             } else {
               vs.voiceSample.render(tempBuf, numSamples, 1, pInc, ampArr, sampAmpInc);
             }
-            if (!vs.voiceSample.active) vs.active = false;
+            if (!vs.voiceSample.active) {
+              vs.active = false;
+              vs.disabledByPitch = false;
+              unisonPartBecameInactive = true;
+            }
           } else {
+            vs.active = false;
+            vs.disabledByPitch = false;
+            unisonPartBecameInactive = true;
             stereoSample = false; // nothing rendered
           }
           if (stereoSample) {
@@ -1567,9 +1609,47 @@ public class Voice {
       }
     }
 
+    boolean unassignVoiceAfter = false;
+    // C voice.cpp:1257-1270 — if a unison part finished and no active unison parts or noise remain,
+    // unassign the voice (or fast-release when filters are active to avoid a click).
+    if (unisonPartBecameInactive && areAllUnisonPartsInactive()) {
+      if (!filterSet.isOn()) {
+        unassignVoiceAfter = true;
+      } else if (envelopes[0].state.compareTo(Envelope.Stage.FAST_RELEASE) < 0) {
+        envelopes[0].unconditionalRelease(Envelope.Stage.FAST_RELEASE, 65536);
+      }
+    }
+
     // voice.cpp:1674-1676 — next block ramps from this block's targets.
     sourceAmplitudesLastTime[0] = sourceAmplitudes[0];
     sourceAmplitudesLastTime[1] = sourceAmplitudes[1];
+    return unassignVoiceAfter;
+  }
+
+  /**
+   * C: Voice::areAllUnisonPartsInactive (voice.cpp:1686-1708) — true when noise is off and no
+   * unison part of any ever-active source remains active.
+   */
+  private boolean areAllUnisonPartsInactive() {
+    if (sound.patchedParamValues[Param.LOCAL_NOISE_VOLUME] != Integer.MIN_VALUE
+        || sound.doesParamHaveSomethingPatchedToIt(Param.LOCAL_NOISE_VOLUME)) {
+      return false;
+    }
+    for (int s = 0; s < 2; s++) {
+      boolean hasSample =
+          sources[s].sampleRef != null
+              || sound.samples[s] != null
+              || !sound.sourceZones[s].isEmpty();
+      if (!sound.isSourceActiveEver(s, hasSample)) {
+        continue;
+      }
+      for (int u = 0; u < sound.numUnison; u++) {
+        if (unisonParts[u].sources[s].active) {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
   private void renderFmPath(

@@ -613,6 +613,20 @@ public class TimeStretcher {
           (int) Integer.toUnsignedLong(K_MAX_SAMPLE_VALUE) / crossfadeLengthSamples; // C:584
       crossfadeProgress = 0;
 
+      // C time_stretcher.cpp:1007-1009 — for looping playback, wrap hop candidates past the loop
+      // end back into [loopStartSample, loopEndSample) before checking against waveformEndSample.
+      if (loopingType != LoopType.NONE && guide != null) {
+        int loopStartSample =
+            (guide.startPlaybackAtByte - sample.audioDataStartPosBytes) / bytesPerSample;
+        int loopEndSample =
+            (guide.endPlaybackAtByte - sample.audioDataStartPosBytes) / bytesPerSample;
+        int loopSpan = (loopEndSample - loopStartSample) * playDirection;
+        if (loopSpan > 0 && (beamBackEdge - loopEndSample) * playDirection >= 0) {
+          int rel = (beamBackEdge - loopStartSample) * playDirection;
+          beamBackEdge = loopStartSample + (rel % loopSpan) * playDirection;
+        }
+      }
+
       if ((beamBackEdge - waveformEndSample) * playDirection >= 0) { // C:588-591
         playHeadStillActive[PLAY_HEAD_NEWER] = false;
         newHeadBytePosResult = 0;

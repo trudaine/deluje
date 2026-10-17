@@ -108,6 +108,19 @@ public class Sound extends GlobalEffectable {
     return patchedParamValues[Param.LOCAL_OSC_B_VOLUME] != Integer.MIN_VALUE || synthMode == 2;
   }
 
+  /** C: sound.cpp:2135-2144 — true if oscillator sync can ever render on this sound. */
+  public boolean renderingOscillatorSyncEver() {
+    if (!oscillatorSync) {
+      return false;
+    }
+    if (synthMode == 1) { // FM
+      return false;
+    }
+    return patchedParamValues[Param.LOCAL_OSC_B_VOLUME] != Integer.MIN_VALUE
+        || doesParamHaveSomethingPatchedToIt(Param.LOCAL_OSC_B_VOLUME)
+        || synthMode == 2;
+  }
+
   /** C PatchCableSet::doesParamHaveSomethingPatchedToIt — any real cable lands on this param. */
   public boolean doesParamHaveSomethingPatchedToIt(int p) {
     java.util.List<Patcher.Destination> dests = patchCableSet.destinations;
@@ -652,6 +665,20 @@ public class Sound extends GlobalEffectable {
     boolean ampActive =
         (synthMode == 2) // RINGMOD
             || patchedParamValues[Param.LOCAL_OSC_A_VOLUME + s] != Integer.MIN_VALUE;
+    boolean typeActive =
+        (synthMode == 1) // FM
+            || oscTypes[s] != OscType.SAMPLE
+            || hasSample;
+    return ampActive && typeActive;
+  }
+
+  /** C: sound.cpp:2107-2117 — true if source {@code s} can ever sound. */
+  public boolean isSourceActiveEver(int s, boolean hasSample) {
+    boolean ampActive =
+        (synthMode == 2) // RINGMOD
+            || patchedParamValues[Param.LOCAL_OSC_A_VOLUME + s] != Integer.MIN_VALUE
+            || doesParamHaveSomethingPatchedToIt(Param.LOCAL_OSC_A_VOLUME + s)
+            || renderingOscillatorSyncEver();
     boolean typeActive =
         (synthMode == 1) // FM
             || oscTypes[s] != OscType.SAMPLE

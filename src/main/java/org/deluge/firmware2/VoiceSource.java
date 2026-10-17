@@ -17,6 +17,7 @@ public class VoiceSource {
   public int phaseIncrementStoredValue;
   public int waveIndexLastTime;
   public boolean active;
+  public boolean disabledByPitch;
 
   // Sample playback (when oscType == SAMPLE or source is sample-based).
   public final VoiceSample voiceSample = new VoiceSample();

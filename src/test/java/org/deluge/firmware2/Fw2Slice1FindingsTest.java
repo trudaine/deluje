@@ -45,6 +45,8 @@ class Fw2Slice1FindingsTest {
     Sound sound = new Sound();
     Sound.initParams(sound.patchedParamValues);
     Sound.setupAsBlankSynth(sound.patchedParamValues, sound, false);
+    sound.bitcrushParam = Integer.MIN_VALUE;
+    sound.srrParam = Integer.MIN_VALUE;
     return sound;
   }
 
@@ -291,7 +293,13 @@ class Fw2Slice1FindingsTest {
     // tableSizeMagnitude = 4 (16 entries). Halfway between index 0 and index 1 -> phase = 1 << 27.
     int[] out = new int[1];
     Oscillator.renderWave(table, 4, (1 << 30), out, 0, 1, 0, 1 << 27, false, 0, 0);
-    assertTrue(out[0] > 0, "Half-step phase must interpolate between table[0]=0 and table[1]>0");
+    assertEquals(32_768_000, out[0], "Half-step phase must interpolate to exact midpoint");
+
+    // Odd 16-bit fraction (1 << 12): C drops the low bit via strength2 = uint16 >> 1 -> 0,
+    // whereas the old formula kept the odd bit and produced 1000.
+    out[0] = 0;
+    Oscillator.renderWave(table, 4, (1 << 30), out, 0, 1, 0, 1 << 12, false, 0, 0);
+    assertEquals(0, out[0], "Odd low fraction bit must be dropped per C vector_rendering_function");
   }
 
   @Test
@@ -453,13 +461,15 @@ class Fw2Slice1FindingsTest {
   }
 
   @Test
-  void finding22_legatoRetunePreservesLatchedNotePatchSourceAndDoesNotReenableInactiveSource() {
+  void finding22_legatoRetunePreservesLatchedNotePatchSourceAndRestoresPitchDisabledSource() {
     Sound sound = makeInitializedSound();
     sound.polyphonic = Sound.PolyphonyMode.LEGATO;
     sound.oscTypes[0] = Oscillator.OscType.SAW;
     sound.oscTypes[1] = Oscillator.OscType.SAW;
     sound.sourceTranspose[0] = 84;
     sound.sourceTranspose[1] = 0;
+    sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
+    sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MAX_VALUE;
 
     sound.triggerNote(60, 100);
     Voice v = sound.voices.get(0);
@@ -470,18 +480,23 @@ class Fw2Slice1FindingsTest {
     assertFalse(
         v.unisonParts[0].sources[0].active,
         "Osc A must be disabled as over-Nyquist on note 60 (+84 transpose)");
+    assertTrue(v.unisonParts[0].sources[0].disabledByPitch);
     assertTrue(v.unisonParts[0].sources[1].active);
 
-    // Legato retune down to note 24: C voice.cpp:268, 353-376, 424-428 keeps NOTE latched from
-    // noteOn and never sets unisonParts[u].sources[s].active = true outside noteOn.
+    // Legato retune down to note 24: NOTE patch source stays latched from noteOn, while Osc A
+    // (disabled solely by pitch) is re-enabled and renders at the valid lower pitch.
     sound.triggerNote(24, 100);
     assertEquals(
         latchedNoteSource,
         v.sourceValues[PatchSource.NOTE.ordinal()],
         "Legato changeNoteCode must leave NOTE patch source latched from noteOn");
-    assertFalse(
+    assertTrue(
         v.unisonParts[0].sources[0].active,
-        "Legato changeNoteCode must not re-enable inactive source (C sets active only in noteOn)");
+        "Legato changeNoteCode must restore a pitch-disabled source when retuning below Nyquist");
+    sound.renderInternal(new int[128], 64, new int[128]);
+    assertTrue(
+        v.unisonParts[0].sources[0].active,
+        "Osc A must remain active after rendering at valid note 24 (+84 transpose)");
   }
 
   @Test
@@ -616,6 +631,154 @@ class Fw2Slice1FindingsTest {
           999_999,
           vs.reader.bufL[i],
           "Wrapped hop history tap " + i + " must not contain frames from outside loop [100, 200)");
+    }
+  }
+
+  @Test
+  void round4_exhaustedSampleOnlyVoiceRetiresOrFastReleasesSoLegatoNoteRetriggers() {
+    // 1. Filters OFF: exhausted sample-only voice retires immediately (active = false).
+    Sound sound = makeInitializedSound();
+    sound.polyphonic = Sound.PolyphonyMode.LEGATO;
+    sound.oscTypes[0] = Oscillator.OscType.SAMPLE;
+    sound.samples[0] = makeRampSample(16, 44100);
+    sound.sampleEndPoint[0] = 16;
+    sound.sampleLoopMode[0] = 0; // ONCE
+    sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
+    sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+    sound.patchedParamValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
+
+    sound.triggerNote(60, 100);
+    Voice v = sound.voices.get(0);
+    sound.renderInternal(new int[128], 64, new int[128]);
+    assertFalse(v.active, "Exhausted sample-only voice with filters off must unassign");
+
+    // Next overlapping legato note must retrigger instead of reusing the silent dead voice.
+    sound.triggerNote(64, 100);
+    Voice vNext = sound.voices.get(0);
+    assertTrue(vNext.active);
+    assertTrue(vNext.unisonParts[0].sources[0].voiceSample.active);
+    int[] out = new int[128];
+    sound.renderInternal(out, 64, new int[128]);
+    boolean anyNonZero = false;
+    for (int sampleVal : out) {
+      if (sampleVal != 0) {
+        anyNonZero = true;
+        break;
+      }
+    }
+    assertTrue(anyNonZero, "Retriggered legato note after sample exhaustion must render audio");
+
+    // 2. Filters ON: exhausted sample-only voice enters FAST_RELEASE (>= RELEASE), so legato
+    // note also falls through to retrigger instead of reusing it.
+    Sound filtered = makeInitializedSound();
+    filtered.polyphonic = Sound.PolyphonyMode.LEGATO;
+    filtered.oscTypes[0] = Oscillator.OscType.SAMPLE;
+    filtered.samples[0] = makeRampSample(16, 44100);
+    filtered.sampleEndPoint[0] = 16;
+    filtered.sampleLoopMode[0] = 0; // ONCE
+    filtered.lpfMode = FilterSet.FilterMode.TRANSISTOR_24DB;
+    filtered.patchedParamValues[Param.LOCAL_LPF_FREQ] = 0;
+    filtered.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
+    filtered.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+    filtered.patchedParamValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
+
+    filtered.triggerNote(60, 100);
+    Voice vf = filtered.voices.get(0);
+    filtered.renderInternal(new int[128], 64, new int[128]);
+    assertTrue(
+        vf.envelopes[0].state.compareTo(Envelope.Stage.RELEASE) >= 0,
+        "Exhausted sample-only voice with filter on must enter FAST_RELEASE");
+    filtered.triggerNote(64, 100);
+    assertEquals(64, filtered.voices.get(0).noteCode);
+    assertTrue(filtered.voices.get(0).unisonParts[0].sources[0].voiceSample.active);
+
+    // 3. When Osc B can still sound, sample exhaustion on Osc A must NOT retire the legato voice,
+    // and legato retune must NOT re-enable the completed Osc A sample source.
+    Sound dual = makeInitializedSound();
+    dual.polyphonic = Sound.PolyphonyMode.LEGATO;
+    dual.oscTypes[0] = Oscillator.OscType.SAMPLE;
+    dual.oscTypes[1] = Oscillator.OscType.SAW;
+    dual.samples[0] = makeRampSample(16, 44100);
+    dual.sampleEndPoint[0] = 16;
+    dual.sampleLoopMode[0] = 0; // ONCE
+    dual.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
+    dual.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MAX_VALUE;
+    dual.patchedParamValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
+
+    dual.triggerNote(60, 100);
+    Voice vd = dual.voices.get(0);
+    dual.renderInternal(new int[128], 64, new int[128]);
+    assertTrue(vd.active, "Voice must remain active when Osc B can still sound");
+    assertFalse(vd.unisonParts[0].sources[0].active, "Completed sample source must be inactive");
+
+    dual.triggerNote(62, 100);
+    assertSame(vd, dual.voices.get(0), "Legato reuse must be preserved when Osc B still sounds");
+    assertFalse(
+        vd.unisonParts[0].sources[0].active,
+        "Legato retune must not re-enable a completed sample source");
+  }
+
+  @Test
+  void round4_shortOctaveDownLoopedTimeStretchSurvivesMultipleHops() {
+    Sample sample = new Sample();
+    sample.numChannels = 1;
+    sample.byteDepth = 2;
+    sample.sampleRate = 44100;
+    sample.audioDataStartPosBytes = 0;
+    sample.lengthInSamples = 128;
+    sample.audioDataLengthBytes = 256;
+    sample.data = new int[128];
+    for (int i = 0; i < 128; i++) {
+      sample.data[i] = (i - 64) * (1 << 20);
+    }
+
+    VoiceSample vs = new VoiceSample();
+    vs.setupTimeStretch(sample, 0, 128, 1, true, 0, false, 128);
+
+    // Octave down (phaseIncrement = 1 << 23) with pitch-independent speed (timeStretchRatio = 1 <<
+    // 25). Render enough blocks to cross multiple hops and loops without losing both heads.
+    int[] out = new int[128];
+    int[] amp = new int[] {1 << 24};
+    for (int block = 0; block < 40; block++) {
+      Arrays.fill(out, 0);
+      amp[0] = 1 << 24;
+      vs.renderTimeStretched(out, 64, 1, 1 << 23, 1 << 25, amp, 0);
+      assertTrue(vs.active, "Looped time-stretch must stay active at block " + block);
+      assertTrue(
+          vs.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]
+              || vs.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER],
+          "At least one time-stretch playhead must stay active at block " + block);
+    }
+  }
+
+  @Test
+  void round4_resampledLateStartPastSustainLoopEndWrapsBeforePrimingHistory() {
+    Sample sample = new Sample();
+    sample.numChannels = 1;
+    sample.byteDepth = 2;
+    sample.sampleRate = 44100;
+    sample.audioDataStartPosBytes = 0;
+    sample.lengthInSamples = 64;
+    sample.audioDataLengthBytes = 128;
+    sample.data = new int[64];
+    Arrays.fill(sample.data, 0, 20, 111_111);
+    Arrays.fill(sample.data, 20, 64, 999_999);
+
+    VoiceSample vs = new VoiceSample();
+    // Sample end 64, sustain loop [10, 20), late start by 40 frames -> startAtFrame = 40.
+    vs.setupLate(sample, 0, 64, 1, false, 10, true, 20, 40);
+    assertTrue(vs.attemptLateSampleStart(40));
+    assertEquals(10, vs.reader.playPos, "Late start at 40 must wrap into sustain loop [10, 20)");
+
+    int[] out = new int[8];
+    int[] amp = new int[] {1 << 24};
+    // Resampled read (phaseIncrement = 20_000_000 != 1<<24) uses 16-tap sinc window.
+    vs.render(out, 2, 1, 20_000_000, amp, 0);
+    for (int i = 0; i < SampleReader.K_TAPS; i++) {
+      assertNotEquals(
+          999_999,
+          vs.reader.bufL[i],
+          "Late-start 16-tap history tap " + i + " must not contain post-loop audio");
     }
   }
 }

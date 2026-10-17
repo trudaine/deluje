@@ -137,10 +137,13 @@ public class VoiceSample {
     int dir = (playDirection < 0) ? -1 : 1;
     reader.sample = sample;
     reader.playDirection = dir;
-    reader.init(startFrame);
+    reader.playPos = startFrame;
     syncReaderBounds();
+    boolean wrappedOnSetup = reader.hasWrappedLoop;
+    reader.init(reader.playPos);
+    reader.hasWrappedLoop = wrappedOnSetup;
 
-    timeStretcher.samplePosBig = (long) startFrame << 24;
+    timeStretcher.samplePosBig = (long) reader.playPos << 24;
     // C:136 — samplesTilHopEnd = kDefaultFirstHopLength + ((int8_t)getRandom255() >> 2)
     timeStretcher.samplesTilHopEnd = 200 + (((byte) Arpeggiator.getRandom255()) >> 2);
     timeStretcher.crossfadeProgress = K_MAX_SAMPLE_VALUE; // C:138
@@ -449,8 +452,13 @@ public class VoiceSample {
     int dir = (playDirection < 0) ? -1 : 1;
     reader.sample = sample;
     reader.playDirection = dir;
-    reader.init(startFrame);
+    // Wrap any late-start frame past the active loop end into [loopStartFrame, loopEndFrame)
+    // before priming the 16-tap history, matching the time-stretch hop path (lines 279-281).
+    reader.playPos = startFrame;
     syncReaderBounds();
+    boolean wrappedOnSetup = reader.hasWrappedLoop;
+    reader.init(reader.playPos);
+    reader.hasWrappedLoop = wrappedOnSetup;
     active = true;
   }
 
