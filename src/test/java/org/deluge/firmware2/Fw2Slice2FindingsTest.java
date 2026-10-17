@@ -1,5 +1,6 @@
 package org.deluge.firmware2;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -94,14 +95,13 @@ class Fw2Slice2FindingsTest {
 
     // Verify non-peak phases and multi-group gain ramps (16 samples = 4 NEON quads) for both
     // pure (algo 31, op 5) and phase-modulated (algo 0, op 5 -> op 4) operators against
-    // independent neon_fm_kernel.s arithmetic.
+    // independently computed neon_fm_kernel.s IEEE-754 float32 reference samples.
     int lgN = 4; // 16 samples
     int n = 1 << lgN;
     int testPhase0 = 0x00135790;
     int testFreq = 0x00097530;
     int testGain1 = 0x00246800;
     int testLevelIn = 14 << 24; // gain2 = 1 << 24
-    int testDgain = ((1 << 24) - testGain1 + (n >> 1)) >> lgN;
 
     FmCore.FmOpParams[] pureRefParams = makeSilentFmParams();
     pureRefParams[5].gain_out = testGain1;
@@ -111,32 +111,11 @@ class Fw2Slice2FindingsTest {
     int[] pureOut = new int[n];
     FmCore.render(pureOut, n, pureRefParams, 31, new int[2], n, true);
 
-    float dgainStep = (float) testDgain / (1 << 22);
-    float[] pureLaneGain = {
-      (float) testGain1 / (1 << 24),
-      (float) (testGain1 + testDgain) / (1 << 24),
-      (float) (testGain1 + 2 * testDgain) / (1 << 24),
-      (float) (testGain1 + 3 * testDgain) / (1 << 24)
+    int[] expectedPure = {
+      1090590, 2133729, 3377089, 4683648, 5899965, 6868860, 7442690, 7496333, 6938979, 5723860,
+      3855021, 1390236, -1560385, -4838136, -8245282, -11555681
     };
-    for (int i = 0; i < n; i++) {
-      int p = testPhase0 + i * testFreq;
-      int xInt = (p & 0x7fffff) - 0x400000;
-      float x = (float) xInt / (1 << 22);
-      float x2 = x * x;
-      // Cortex-A9 vmla.f32 is non-fused multiply-add; vadd.f32 steps each lane sequentially.
-      float poly = 0.25215253f + x2 * -0.01880853f;
-      poly = -1.233344f + x2 * poly;
-      poly = 1.0f + x2 * poly;
-      int lane = i & 3;
-      float g = pureLaneGain[lane];
-      pureLaneGain[lane] += dgainStep;
-      int expectedY = (int) ((poly * g) * (1 << 24));
-      if ((p & 0x800000) != 0) {
-        expectedY ^= -1;
-      }
-      assertEquals(
-          expectedY, pureOut[i], "Pure NEON sample " + i + " mismatch vs neon_fm_kernel.s");
-    }
+    assertArrayEquals(expectedPure, pureOut, "Pure NEON output must match neon_fm_kernel.s");
 
     // Phase-modulated operator: algo 0 routes op 4 (0x01) -> bus 1 -> op 5 (0x14) -> output.
     FmCore.FmOpParams[] modParams = makeSilentFmParams();
@@ -151,50 +130,11 @@ class Fw2Slice2FindingsTest {
     int[] modOut = new int[n];
     FmCore.render(modOut, n, modParams, 0, new int[2], n, true);
 
-    int modGain2 = 1 << (24 + (modParams[4].level_in >> 24) - 14);
-    int modDgain = (modGain2 - (1 << 22) + (n >> 1)) >> lgN;
-    float modDgainStep = (float) modDgain / (1 << 22);
-    float[] modLaneGain = {
-      (float) (1 << 22) / (1 << 24),
-      (float) ((1 << 22) + modDgain) / (1 << 24),
-      (float) ((1 << 22) + 2 * modDgain) / (1 << 24),
-      (float) ((1 << 22) + 3 * modDgain) / (1 << 24)
+    int[] expectedMod = {
+      2383855, 2844968, 2317999, 815273, -1304771, -3571475, -5623793, -7302686, -8610368, -9600187,
+      -10264641, -10463291, -9917593, -8293142, -5364033, -1198995
     };
-    float[] carLaneGain = {
-      (float) testGain1 / (1 << 24),
-      (float) (testGain1 + testDgain) / (1 << 24),
-      (float) (testGain1 + 2 * testDgain) / (1 << 24),
-      (float) (testGain1 + 3 * testDgain) / (1 << 24)
-    };
-    for (int i = 0; i < n; i++) {
-      int lane = i & 3;
-      int mp = 0x00210000 + i * 0x00070000;
-      float mx = (float) ((mp & 0x7fffff) - 0x400000) / (1 << 22);
-      float mx2 = mx * mx;
-      float mpoly = 0.25215253f + mx2 * -0.01880853f;
-      mpoly = -1.233344f + mx2 * mpoly;
-      mpoly = 1.0f + mx2 * mpoly;
-      float mg = modLaneGain[lane];
-      modLaneGain[lane] += modDgainStep;
-      int busVal = (int) ((mpoly * mg) * (1 << 24));
-      if ((mp & 0x800000) != 0) {
-        busVal ^= -1;
-      }
-
-      int cp = (testPhase0 + i * testFreq) + busVal;
-      float cx = (float) ((cp & 0x7fffff) - 0x400000) / (1 << 22);
-      float cx2 = cx * cx;
-      float cpoly = 0.25215253f + cx2 * -0.01880853f;
-      cpoly = -1.233344f + cx2 * cpoly;
-      cpoly = 1.0f + cx2 * cpoly;
-      float cg = carLaneGain[lane];
-      carLaneGain[lane] += dgainStep;
-      int expectedModY = (int) ((cpoly * cg) * (1 << 24));
-      if ((cp & 0x800000) != 0) {
-        expectedModY ^= -1;
-      }
-      assertEquals(expectedModY, modOut[i], "Modulated NEON sample " + i + " mismatch");
-    }
+    assertArrayEquals(expectedMod, modOut, "Modulated NEON output must match neon_fm_kernel.s");
   }
 
   // ── Finding 3: Dx7Voice.oscFreq float intermediate & fine constant ──
@@ -388,6 +328,162 @@ class Fw2Slice2FindingsTest {
         FilterRoute.HIGH_TO_LOW);
     assertEquals(1.0f, fs.hpLadder.dryFade, 1e-7f);
     assertEquals(0, fs.hpLadder.wetLevel);
+  }
+
+  @Test
+  void finding6b_filterSetLowPassUnionSharesNoiseStateAcrossSvfAndLadderTransitions() {
+    FilterSet fs = new FilterSet();
+    fs.reset();
+
+    int freq = 1 << 24;
+    int res = 1 << 26;
+    int gain = 1 << 28;
+
+    // 1. Start in TRANSISTOR_24DB and seed stale ladder noise values.
+    fs.setConfig(
+        freq,
+        res,
+        FilterSet.FilterMode.TRANSISTOR_24DB,
+        0,
+        freq,
+        res,
+        FilterSet.FilterMode.OFF,
+        0,
+        gain,
+        FilterRoute.HIGH_TO_LOW);
+    fs.lpLadder.l.noiseLastValue = 0x11111111;
+    fs.lpLadder.r.noiseLastValue = 0x22222222;
+
+    // 2. Switch to SVF_NOTCH at morph 0 (c_low = ONE_Q31) and render stereo to populate svf.l.band.
+    fs.setConfig(
+        freq,
+        res,
+        FilterSet.FilterMode.SVF_NOTCH,
+        0,
+        freq,
+        res,
+        FilterSet.FilterMode.OFF,
+        0,
+        gain,
+        FilterRoute.HIGH_TO_LOW);
+    int[] svfBuf = {1 << 26, -(1 << 26), 1 << 26, -(1 << 26)};
+    fs.renderLongStereo(svfBuf, 2);
+    int expectedLeftNoise = fs.lpSvf.l.band;
+    int expectedRightNoise = fs.lpSvf.c_low;
+    assertNotEquals(0, expectedLeftNoise, "SVF stereo render must populate svf.l.band");
+    assertEquals(
+        Functions.ONE_Q31, expectedRightNoise, "SVF_NOTCH at morph 0 sets c_low = ONE_Q31");
+
+    // 3. Switch SVF_NOTCH -> TRANSISTOR_24DB: LowPass union must expose svf.l.band / svf.c_low as
+    // ladder.l.noiseLastValue / ladder.r.noiseLastValue.
+    fs.setConfig(
+        freq,
+        res,
+        FilterSet.FilterMode.TRANSISTOR_24DB,
+        0,
+        freq,
+        res,
+        FilterSet.FilterMode.OFF,
+        0,
+        gain,
+        FilterRoute.HIGH_TO_LOW);
+    assertEquals(expectedLeftNoise, fs.lpLadder.l.noiseLastValue);
+    assertEquals(expectedRightNoise, fs.lpLadder.r.noiseLastValue);
+
+    // Rendered output must match a reference LpLadderFilter initialized with those union words.
+    FilterSet ref = new FilterSet();
+    ref.reset();
+    ref.setConfig(
+        freq,
+        res,
+        FilterSet.FilterMode.TRANSISTOR_24DB,
+        0,
+        freq,
+        res,
+        FilterSet.FilterMode.OFF,
+        0,
+        gain,
+        FilterRoute.HIGH_TO_LOW);
+    ref.lpLadder.l.noiseLastValue = expectedLeftNoise;
+    ref.lpLadder.r.noiseLastValue = expectedRightNoise;
+
+    int[] actualStereo = {1 << 25, -(1 << 25), 1 << 24, -(1 << 24)};
+    int[] expectedStereo = actualStereo.clone();
+    Functions.resetNoiseSeed();
+    fs.renderLongStereo(actualStereo, 2);
+    Functions.resetNoiseSeed();
+    ref.renderLongStereo(expectedStereo, 2);
+    assertArrayEquals(expectedStereo, actualStereo);
+
+    // 4. Switch SVF_NOTCH -> OFF -> TRANSISTOR_24DB: OFF leaves the C LowPass union untouched, so
+    // the SVF words still carry into the ladder while reset(true) fades dry->wet.
+    fs.setConfig(
+        freq,
+        res,
+        FilterSet.FilterMode.SVF_NOTCH,
+        0,
+        freq,
+        res,
+        FilterSet.FilterMode.OFF,
+        0,
+        gain,
+        FilterRoute.HIGH_TO_LOW);
+    fs.lpSvf.l.band = 0x33333333;
+    fs.setConfig(
+        freq,
+        res,
+        FilterSet.FilterMode.OFF,
+        0,
+        freq,
+        res,
+        FilterSet.FilterMode.OFF,
+        0,
+        gain,
+        FilterRoute.HIGH_TO_LOW);
+    fs.setConfig(
+        freq,
+        res,
+        FilterSet.FilterMode.TRANSISTOR_24DB,
+        0,
+        freq,
+        res,
+        FilterSet.FilterMode.OFF,
+        0,
+        gain,
+        FilterRoute.HIGH_TO_LOW);
+    assertEquals(0x33333333, fs.lpLadder.l.noiseLastValue);
+    assertEquals(Functions.ONE_Q31, fs.lpLadder.r.noiseLastValue);
+    assertEquals(1.0f, fs.lpLadder.dryFade, 1e-7f);
+    assertEquals(0, fs.lpLadder.wetLevel);
+
+    // 5. Switch LP_LADDER -> OFF -> LP_LADDER without SVF in between: ladder preserves its own
+    // noiseLastValue words across OFF.
+    fs.lpLadder.l.noiseLastValue = 0x44444444;
+    fs.lpLadder.r.noiseLastValue = 0x55555555;
+    fs.setConfig(
+        freq,
+        res,
+        FilterSet.FilterMode.OFF,
+        0,
+        freq,
+        res,
+        FilterSet.FilterMode.OFF,
+        0,
+        gain,
+        FilterRoute.HIGH_TO_LOW);
+    fs.setConfig(
+        freq,
+        res,
+        FilterSet.FilterMode.TRANSISTOR_12DB,
+        0,
+        freq,
+        res,
+        FilterSet.FilterMode.OFF,
+        0,
+        gain,
+        FilterRoute.HIGH_TO_LOW);
+    assertEquals(0x44444444, fs.lpLadder.l.noiseLastValue);
+    assertEquals(0x55555555, fs.lpLadder.r.noiseLastValue);
   }
 
   // ── Finding 7: FilterSet.reset() clears hpfLastWorkingValue ──

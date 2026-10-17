@@ -54,6 +54,9 @@ public final class FilterSet {
   // 0.677 with nine NEGATIVE-cosine cases (dry signal bleeding through an otherwise correct
   // high-pass reads as an inverted spectral tilt). See §4.2sexsexagies.
   private FilterMode lastLPFMode_ = FilterMode.TRANSISTOR_12DB;
+  // Tracks which LowPass union member (filter_set.h:32-36) last wrote the shared union memory,
+  // because FilterMode.OFF leaves lpfilter untouched (filter_set.cpp:161-163).
+  private FilterFamily lastActiveLPFamily_ = FilterFamily.LP_LADDER;
   private FilterMode hpfMode_ = FilterMode.OFF;
   private FilterMode lastHPFMode_ = FilterMode.TRANSISTOR_12DB;
   private FilterRoute routing_ = FilterRoute.HIGH_TO_LOW;
@@ -96,6 +99,7 @@ public final class FilterSet {
     hpSvf.wetLevel = 0;
     lpfMode_ = FilterMode.TRANSISTOR_12DB;
     lastLPFMode_ = FilterMode.TRANSISTOR_12DB;
+    lastActiveLPFamily_ = FilterFamily.LP_LADDER;
     hpfMode_ = FilterMode.TRANSISTOR_12DB;
     lastHPFMode_ = FilterMode.TRANSISTOR_12DB;
     routing_ = FilterRoute.HIGH_TO_LOW;
@@ -139,9 +143,18 @@ public final class FilterSet {
           lpSvf.reset(lastLPFMode_ == FilterMode.OFF);
         }
         filterGain = lpSvf.configure(lpfFrequency, lpfResonance, lpfMode_, lpfMorph, filterGain);
+        lastActiveLPFamily_ = FilterFamily.SVF;
       } else {
         if (getFilterFamily(lastLPFMode_) != FilterFamily.LP_LADDER) {
-          // C filter_set.h:32-36 — LowPass union shares dryFade and wetLevel on SVF -> LP_LADDER.
+          // C filter_set.h:32-36, lpladder.h:40,79-80, svf.h:39-44,48 — LowPass union overlaps
+          // ladder.l.noiseLastValue with svf.l.band (+24) and ladder.r.noiseLastValue with
+          // svf.c_low (+44). LpLadderState::reset() preserves noiseLastValue, and OFF leaves the
+          // union untouched (filter_set.cpp:161-163), so switching from SVF (directly or via OFF)
+          // exposes those SVF words to the ladder.
+          if (lastActiveLPFamily_ == FilterFamily.SVF) {
+            lpLadder.l.noiseLastValue = lpSvf.l.band;
+            lpLadder.r.noiseLastValue = lpSvf.c_low;
+          }
           if (lastLPFMode_ != FilterMode.OFF) {
             lpLadder.dryFade = lpSvf.dryFade;
             lpLadder.wetLevel = lpSvf.wetLevel;
@@ -149,6 +162,7 @@ public final class FilterSet {
           lpLadder.reset(lastLPFMode_ == FilterMode.OFF);
         }
         filterGain = lpLadder.configure(lpfFrequency, lpfResonance, lpfMode_, lpfMorph, filterGain);
+        lastActiveLPFamily_ = FilterFamily.LP_LADDER;
       }
       lastLPFMode_ = lpfMode_;
     } else {
