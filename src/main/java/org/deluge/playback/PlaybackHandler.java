@@ -161,8 +161,9 @@ public class PlaybackHandler {
     FirmwareDisplay.get().setText(" PLAYING ");
     if (currentProject != null) {
       for (ClipModel clip : currentProject.getClips()) {
-        clip.lastProcessedPos = 0;
-        clip.repeatCount = 0;
+        // C InstrumentClip::setPos(…, 0): also resets rows with independent play positions,
+        // whose repeat count drives iterance (model_stack.cpp:100-107).
+        clip.setPos(0);
       }
     }
     arrangement.resetPlayPos(0);

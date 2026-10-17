@@ -46,6 +46,36 @@ public class NoteRowModel {
     }
   }
 
+  /**
+   * The note-row half of InstrumentClip::setPos (instrument_clip.cpp:405-436). This model has no
+   * per-row sequence direction, so the effective mode is always the clip's (the C's OBEY_PARENT,
+   * note_row.cpp:2022-2029) and only the independent-length half of hasIndependentPlayPos
+   * (note_row.cpp:4335-4337) applies.
+   */
+  public void setPosIfIndependent(int newPos, SequenceDirection effectiveSequenceDirectionMode) {
+    if (loopLengthIfIndependent == 0) {
+      return;
+    }
+    int effectiveLoopLength = loopLengthIfIndependent;
+
+    // The below basically mirrors the code / logic in Clip::setPos()
+    repeatCountIfIndependent = Integer.divideUnsigned(newPos, effectiveLoopLength);
+
+    currentlyPlayingReversedIfIndependent =
+        (effectiveSequenceDirectionMode == SequenceDirection.REVERSE
+            || (effectiveSequenceDirectionMode == SequenceDirection.PINGPONG
+                && (repeatCountIfIndependent & 1) != 0));
+
+    lastProcessedPosIfIndependent = newPos - repeatCountIfIndependent * effectiveLoopLength;
+    if (currentlyPlayingReversedIfIndependent) {
+      if (lastProcessedPosIfIndependent != 0) {
+        lastProcessedPosIfIndependent = effectiveLoopLength - lastProcessedPosIfIndependent;
+      } else {
+        repeatCountIfIndependent--;
+      }
+    }
+  }
+
   public NoteRowModel(int pitch) {
     this.pitch = pitch;
     this.y = pitch;

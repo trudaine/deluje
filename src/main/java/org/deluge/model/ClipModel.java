@@ -814,6 +814,52 @@ public class ClipModel extends TimelineCounter {
     this.type = type;
   }
 
+  /**
+   * C Clip::setPos (clip.cpp:353-388) + InstrumentClip::setPos (instrument_clip.cpp:379-436): move
+   * the play position, re-deriving repeatCount and the playing direction, and the same for every
+   * note row with an independent play position. The param-manager halves and expectEvent() have no
+   * counterpart here.
+   */
+  public void setPos(int newPos) {
+    int loopLength = getLoopLength();
+    if (loopLength <= 0) {
+      // A C clip always has loopLength > 0; this model can be built with zero steps. Keep the reset
+      // that PlaybackHandler.start() did before this port rather than divide by zero.
+      lastProcessedPos = 0;
+      repeatCount = 0;
+      return;
+    }
+    // newPos may be negative (C: Session::armClipToStartOrSoloUsingQuantization subtracts)
+    if (newPos < 0) {
+      newPos += loopLength;
+      repeatCount = -1;
+    } else {
+      repeatCount = Integer.divideUnsigned(newPos, loopLength);
+      newPos -= repeatCount * loopLength;
+    }
+
+    currentlyPlayingReversed =
+        (sequenceDirectionMode == SequenceDirection.REVERSE
+            || (sequenceDirectionMode == SequenceDirection.PINGPONG && (repeatCount & 1) != 0));
+
+    if (currentlyPlayingReversed) {
+      if (newPos != 0) {
+        newPos = loopLength - newPos;
+      } else {
+        repeatCount--; // Cos it's going to get incremented as a side effect of reversed clips
+        // starting at pos 0 after which they'll immediately wrap
+      }
+    }
+
+    lastProcessedPos = newPos;
+
+    // instrument_clip.cpp:404-436 — rows with independent play positions. The row's newPos is the
+    // value AFTER Clip::setPos reduced it, exactly as in the C (it passes the same variable).
+    for (NoteRowModel row : noteRows.values()) {
+      row.setPosIfIndependent(newPos, sequenceDirectionMode);
+    }
+  }
+
   @Override
   public int getLoopLength() {
     return loopLength > 0 ? loopLength : (stepCount * (tripletMode ? 32 : 24));

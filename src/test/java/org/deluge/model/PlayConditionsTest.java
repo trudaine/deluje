@@ -123,6 +123,47 @@ class PlayConditionsTest {
   }
 
   @Test
+  void restartingResetsIndependentRowRepeatCount() {
+    // A row with its own loop length counts its own passes (model_stack.cpp:100-107), and iterance
+    // reads that count. C InstrumentClip::setPos re-derives it on start (instrument_clip.cpp:412).
+    // (Its state is put there with setPos, not playback: playback does not yet advance independent
+    // rows at all — InstrumentClip::incrementPos is unported, see issue #16.)
+    NoteRowModel row = clip.getOrCreateRow(0);
+    row.setLoopLengthIfIndependent(48); // 2 steps, against the clip's 4
+    clip.setPos(144); // clip: 1 pass + 48; row: 48 / 48 = 1 pass
+    assertEquals(1, row.getRepeatCount(clip.repeatCount), "control: the row must hold a count");
+
+    clip.setPos(0); // what PlaybackHandler.start() now does
+    assertEquals(0, clip.repeatCount);
+    assertEquals(0, clip.lastProcessedPos);
+    assertEquals(0, row.getRepeatCount(clip.repeatCount));
+  }
+
+  @Test
+  void setPosMatchesTheCArithmetic() {
+    // Clip::setPos (clip.cpp:363-366): 130 over a 96-tick loop -> repeatCount 1, pos 34. The row's
+    // half (instrument_clip.cpp:412, 425) gets that reduced 34: 34 / 48 = 0 passes.
+    NoteRowModel row = clip.getOrCreateRow(0);
+    row.setLoopLengthIfIndependent(48);
+    clip.setPos(130);
+    assertEquals(1, clip.repeatCount);
+    assertEquals(34, clip.lastProcessedPos);
+    assertEquals(0, row.getRepeatCount(clip.repeatCount));
+
+    // PINGPONG on an odd pass plays reversed, from the mirrored position (clip.cpp:369-378).
+    clip.sequenceDirectionMode = SequenceDirection.PINGPONG;
+    clip.setPos(130);
+    assertTrue(clip.currentlyPlayingReversed);
+    assertEquals(96 - 34, clip.lastProcessedPos);
+
+    // Negative newPos (clip.cpp:359-362): wraps once, repeatCount -1.
+    clip.sequenceDirectionMode = SequenceDirection.FORWARD;
+    clip.setPos(-10);
+    assertEquals(-1, clip.repeatCount);
+    assertEquals(86, clip.lastProcessedPos);
+  }
+
+  @Test
   void neighboursWithTheSameProbabilityShareOneOutcome() {
     // C :846-862 — probabilityCount stores the first note's result (255/254) for the rest. 25% +
     // 25%: two 50% notes would sum to 100 and take the one-winner path instead (C :769).
