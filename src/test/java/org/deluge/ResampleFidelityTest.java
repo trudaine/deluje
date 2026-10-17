@@ -221,22 +221,20 @@ public class ResampleFidelityTest {
     var clip = fwSong.getTracks().get(0).getActiveClip();
     FirmwareSound fwSound = (FirmwareSound) clip.getSound();
 
-    // Trigger C4 at max velocity
+    // Trigger C4 at max velocity and render through FirmwareAudioEngine (matching
+    // JavaAudioDriver's real renderBlock -> masterBuffer -> monitorGainMul path).
     fwSound.triggerNote(60, 127);
 
-    // Render blocks to let envelope attack
-    StereoSample[] block = new StereoSample[128];
-    for (int i = 0; i < 128; i++) block[i] = new StereoSample();
+    FirmwareAudioEngine engine = new FirmwareAudioEngine();
+    engine.metronomeEnabled = false;
+    engine.syncMasterEffects(project);
+    engine.sounds.add(fwSound);
 
     double maxFloat = 0;
     for (int b = 0; b < 100; b++) { // ~300ms
+      engine.renderBlock(128);
       for (int i = 0; i < 128; i++) {
-        block[i].l = 0;
-        block[i].r = 0;
-      }
-      fwSound.renderOutput(block, 128, null);
-      for (int i = 0; i < 128; i++) {
-        float xL = (float) block[i].l / 2147483648.0f;
+        float xL = (float) engine.masterBuffer[i].l / 2147483648.0f;
         float boostedL = xL * org.deluge.engine.JavaAudioDriver.monitorGainMul;
         float saturatedL = org.deluge.engine.JavaAudioDriver.softClip(boostedL);
         float absVal = Math.abs(saturatedL);

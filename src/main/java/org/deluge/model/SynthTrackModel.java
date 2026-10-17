@@ -117,6 +117,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setOsc1PitchAdjustQ31(int v) {
     osc1.setPitchAdjustQ31(v);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_A_PITCH_ADJUST);
   }
 
   public int getOsc2PitchAdjustQ31() {
@@ -125,6 +126,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setOsc2PitchAdjustQ31(int v) {
     osc2.setPitchAdjustQ31(v);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_B_PITCH_ADJUST);
   }
 
   /** Wavefolder knob (raw Q31, C LOCAL_FOLD / XML "waveFold"); INT_MIN = off (sound.cpp:147). */
@@ -169,10 +171,16 @@ public class SynthTrackModel extends TrackModel {
   private int modKnobMode = 1;
 
   /**
-   * Semitone transpose of the entire sound, typically -24 to 24. Maps to XML `<sound>` transpose
-   * attr.
+   * Semitone transpose of the entire sound, -96 to 96 (C gui/menu_item/transpose.h:34-35). Maps to
+   * XML `<sound>` transpose attr or tag.
    */
   private int transpose = 0;
+
+  /**
+   * Cents detune of the entire sound, -50 to 50 (C sound.h:168, sound.cpp:2991). Maps to XML
+   * `<sound>` cents attr or tag.
+   */
+  private int cents = 0;
 
   // Synthesis algorithm: 0=FM, 10=Mandolin, 11=Rhodey, 12=ModalBar, 13=Moog
   private int synthAlgorithm = 0;
@@ -346,7 +354,8 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public void setOsc1Transpose(int v) {
-    osc1.setTranspose(Math.max(-24, Math.min(24, v)));
+    // C gui/menu_item/transpose.h:34-35 — min -9600, max 9600 hundredths (-96..96 semitones).
+    osc1.setTranspose(Math.max(-96, Math.min(96, v)));
   }
 
   public boolean isOsc1LinearInterpolation() {
@@ -362,7 +371,8 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public void setOsc2Transpose(int v) {
-    osc2.setTranspose(Math.max(-24, Math.min(24, v)));
+    // C gui/menu_item/transpose.h:34-35 — min -9600, max 9600 hundredths (-96..96 semitones).
+    osc2.setTranspose(Math.max(-96, Math.min(96, v)));
   }
 
   public int getOsc2Cents() {
@@ -659,6 +669,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setEqBass(float eqBass) {
     fx.setEqBass(eqBass);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.UNPATCHED_BASS);
   }
 
   public float getEqTreble() {
@@ -667,6 +678,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setEqTreble(float eqTreble) {
     fx.setEqTreble(eqTreble);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.UNPATCHED_TREBLE);
   }
 
   @Override
@@ -677,6 +689,7 @@ public class SynthTrackModel extends TrackModel {
   @Override
   public void setVolume(float v) {
     this.volume = v;
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.GLOBAL_VOLUME_POST_FX);
   }
 
   public int getModKnobMode() {
@@ -847,7 +860,17 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public void setTranspose(int transpose) {
-    this.transpose = Math.max(-24, Math.min(24, transpose));
+    // C gui/menu_item/transpose.h:34-35 — min -9600, max 9600 hundredths (-96..96 semitones).
+    this.transpose = Math.max(-96, Math.min(96, transpose));
+  }
+
+  public int getCents() {
+    return cents;
+  }
+
+  public void setCents(int cents) {
+    // C sound.cpp:2991 — master transpose cents (-50..50).
+    this.cents = Math.max(-50, Math.min(50, cents));
   }
 
   public String getDx7Patch() {
@@ -1008,6 +1031,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setPitchAdjustQ31(int v) {
     this.pitchAdjustQ31 = v;
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_PITCH_ADJUST);
   }
 
   public int getOsc1PhaseWidthQ31() {
@@ -1152,6 +1176,7 @@ public class SynthTrackModel extends TrackModel {
     this.voicePriority = other.getVoicePriority();
     this.modKnobMode = other.getModKnobMode();
     this.transpose = other.getTranspose();
+    this.cents = other.getCents();
     this.synthAlgorithm = other.getSynthAlgorithm();
     this.oscillatorSync = other.oscillatorSync;
 

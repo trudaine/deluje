@@ -1,6 +1,6 @@
 # Firmware Sync Audit — DelugeFirmware (last 3 weeks) vs. the Java port
 
-**Date:** 2026-07-04 (re-verified 2026-07-05: upstream tip unchanged at `9456095b`; two DSP-adjacent commits in the pulled range not previously named — #4538, #4576 — verified below · re-verified 2026-07-14: upstream advanced to `5762c4ba`, 33 new commits, see §5 · re-verified 2026-07-23: upstream advanced to `95b7acab`, 18 new commits, **one porting gap found** — filter mode `"Off"` XML compat, see §6) · **Upstream range:** ~73 commits from mid-June 2026 to 2026-07-22 on
+**Date:** 2026-07-04 (re-verified 2026-07-05: upstream tip unchanged at `9456095b`; two DSP-adjacent commits in the pulled range not previously named — #4538, #4576 — verified below · re-verified 2026-07-14: upstream advanced to `5762c4ba`, 33 new commits, see §5 · re-verified 2026-07-23: upstream advanced to `95b7acab`, 18 new commits, **one porting gap found** — filter mode `"Off"` XML compat, see §6 · re-verified 2026-10-16: upstream advanced to `a616dd8e6`, 145 new commits, all sound/model items ported, see §9) · **Upstream range:** mid-June 2026 to 2026-10-16 on
 `../DelugeFirmware` (community `main`).
 
 This audit reviews recent Synthstrom **DelugeFirmware** C/C++ commits and checks, for each one that
@@ -207,15 +207,47 @@ commit and neither a fidelity concern (this is grid-editing behaviour, not DSP):
 
 Upstream tip for next re-check: `2d7cdf82`.
 
-## 9. Re-verified 2026-09-13 — upstream advanced to `9e3132dc1` (59 new commits)
+## 9. Re-verified 2026-10-16 — upstream advanced to `a616dd8e6` (145 new commits), all sound/model items ported
+
+Screened `2d7cdf82..a616dd8e6` (145 commits). Every commit affecting DSP, modulation, voice pitch, clip model, or song/instrument XML was ported side-by-side against `../DelugeFirmware/src/deluge/`. The remaining commits are hardware UI, OLED canvas, USB/MIDI transport, build/CI, or documentation changes.
+
+| Upstream | What | Java location & C citation |
+| :--- | :--- | :--- |
+| #5006 (`214ecccbd`) | `Delay::copySettingsFrom` helper copying `pingPong`, `analog`, `syncLevel`, `syncType` | [`Delay.java`](../src/main/java/org/deluge/firmware2/Delay.java) — `copySettingsFrom(Delay)` (`delay.h:40-47`) |
+| #5025 (`efa77b02b`) | Triplet synced delay (`syncType == 1`) could overflow 32-bit int negative before `<< (syncLevel + 5)` | [`Delay.java`](../src/main/java/org/deluge/firmware2/Delay.java) — 64-bit clamp to `Integer.MAX_VALUE >> (syncLevel + 5)` before left shift (`delay.cpp:107-118`) |
+| #5007 (`7a8366002`) | `GranularProcessor::setupGrainFX` computed `grainSize` before updating `grainRate`, delaying rate changes by one block | [`GranularProcessor.java`](../src/main/java/org/deluge/firmware2/GranularProcessor.java) — compute `grainRate` before `grainSize` (`GranularProcessor.cpp:98-115`) |
+| #5026 (`bf49c9552`) | Reverse resampled stutter linear interpolation read `currentOffset - 1` instead of `currentOffset + 1` | [`Stutterer.java`](../src/main/java/org/deluge/firmware2/Stutterer.java) — read `currentOffset + 1` in reverse direction (`stutterer.cpp:170-175`) |
+| #4885 (`7064d10b9`) | `LivePitchShifter::hopEnd` crash/UB when `searchSizeHere <= 0` | [`LivePitchShifter.java`](../src/main/java/org/deluge/firmware2/LivePitchShifter.java) — `searchSizeHere <= 0` guard (`live_pitch_shifter.cpp:667-671`) |
+| #4858 (`ad036ab38`) | `Envelope::noteOn(bool directlyToDecay, int32_t sustain)` overload seeding `smoothedSustain` on direct-to-decay note-on | [`Envelope.java`](../src/main/java/org/deluge/firmware2/Envelope.java) — `noteOn(boolean, int)` (`envelope.cpp:120-134`) |
+| #4987 (`3c9806d38`) | `shiftVolumeByDB(int32_t oldValue, float offset)` piecewise dB volume knob helper | [`Functions.java`](../src/main/java/org/deluge/firmware2/Functions.java) — `shiftVolumeByDB` (`util/db_shift.h:15-61`) |
+| #5023 (`db412a129`) | Pulse wave fractional interpolation shifted `idx` instead of `phase`, dropping low bits; non-square PW needed unsigned `pwAbs >>> 1` | [`Oscillator.java`](../src/main/java/org/deluge/firmware2/Oscillator.java) — `phase >>> (32 - tableSizeMagnitude - 16)` (`vector_rendering_function.h:55-96`) and `pwAbs >>> 1` (`oscillator.cpp:91, 122-127`) |
+| #4856 (`f36ae0809`), #4936 (`d735e7a65`), #4990 (`4087ca1ba`) | Reverb tank fixes: LFO stride `32.0f` stepped once per frame in `advance()`, `MutableModel::setDamping` polarity, `DigitalModel` right-channel `hpSt[0]`/`lpSt[0]`, `K_INTERPOLATION_GUARD = 1` on `dap1a`/`dap2a`, closed figure-8 loop on `del2b.read(del2b.length)` with `processInterp`, independent `lpDecay[1]`, `DigitalModel::setRoomSize` (`[0.1f, 0.9f]`), and `toQ31Saturating` | [`Reverb.java`](../src/main/java/org/deluge/firmware2/Reverb.java) (`fx_engine.hpp:90-135`, `mutable.hpp`, `digital.hpp`, `dsp/util.hpp:104-110`) |
+| #5022 (`95c3f3b79`) | `Voice::adjustPitch` Nyquist gate lowered to `output >= (1 << 23)` so subsequent `<< 8` cannot wrap negative | [`Voice.java`](../src/main/java/org/deluge/firmware2/Voice.java) — `adjustPitch` (`voice.cpp:1714`) |
+| #4930 (`449d6ce12`) & `transpose.h` | Sound master `cents` (`-50..50`) via `masterFineTuner` + widened master/osc transpose range to `[-96, 96]` | [`Sound.java`](../src/main/java/org/deluge/firmware2/Sound.java), [`Voice.java`](../src/main/java/org/deluge/firmware2/Voice.java), [`SynthTrackModel.java`](../src/main/java/org/deluge/model/SynthTrackModel.java), [`Drum.java`](../src/main/java/org/deluge/model/Drum.java), [`FirmwareFactory.java`](../src/main/java/org/deluge/engine/FirmwareFactory.java), [`InstrumentXmlParser.java`](../src/main/java/org/deluge/xml/InstrumentXmlParser.java), [`KitXmlParser.java`](../src/main/java/org/deluge/xml/KitXmlParser.java), [`ProjectSerializer.java`](../src/main/java/org/deluge/project/ProjectSerializer.java), [`KitSynthSerializer.java`](../src/main/java/org/deluge/project/KitSynthSerializer.java) (`sound.cpp:2979-2999`, `voice.cpp:509,554`, `transpose.h:34-35`) |
+| #4922 (`b76ed3976`) | Pending arp notes preserve note status across ticks | [`ArpeggiatorSynth.java`](../src/main/java/org/deluge/firmware2/ArpeggiatorSynth.java), [`Sound.java`](../src/main/java/org/deluge/firmware2/Sound.java) (`arpeggiator.cpp:495-499`, `sound.cpp:2354-2375`) |
+| #4823 / #4824 (`6cd2afbfa`) | `nudgeNotesVertically` scale-mode degree wrapping and bounds check refinements | [`ClipModel.java`](../src/main/java/org/deluge/model/ClipModel.java), [`ClipNudgeNotesVerticallyTest.java`](../src/test/java/org/deluge/model/ClipNudgeNotesVerticallyTest.java) (`instrument_clip.cpp:1407-1446`) |
+| #4844 (`3ce3d41df`), #4891 (`5c6229ef5`) | `FIRST` / `LAST` note iterance presets and +2 legacy preset index migration | [`Iterance.java`](../src/main/java/org/deluge/model/Iterance.java), [`DelugeNoteDataMapper.java`](../src/main/java/org/deluge/xml/DelugeNoteDataMapper.java), [`StepPropertiesDialog.java`](../src/main/java/org/deluge/ui/StepPropertiesDialog.java), [`StepPropertiesDialogIteranceTest.java`](../src/test/java/org/deluge/ui/StepPropertiesDialogIteranceTest.java) |
+| #4867 (`2506643fa`) | Persist `clipName` attribute on `<audioClip>` in song XML | [`AudioTrackModel.java`](../src/main/java/org/deluge/model/AudioTrackModel.java), [`SongXmlParser.java`](../src/main/java/org/deluge/xml/SongXmlParser.java), [`ProjectSerializer.java`](../src/main/java/org/deluge/project/ProjectSerializer.java) |
+
+All ported items are guarded by [`UpstreamSyncOct2026ParityTest.java`](../src/test/java/org/deluge/firmware2/UpstreamSyncOct2026ParityTest.java) and [`ClipNudgeNotesVerticallyTest.java`](../src/test/java/org/deluge/model/ClipNudgeNotesVerticallyTest.java).
+
+Upstream tip for next re-check: `a616dd8e6`.
+
+## 10. Re-verified 2026-09-13 — upstream advanced to `9e3132dc1` (59 new commits)
+
+> **An earlier, overlapping pass, kept for its 10b findings.** It was written on a branch before §9
+> landed; §9 covers a superset of this range (`9e3132dc1` is an ancestor of `a616dd8e6`), and some
+> items below are now ported there — notably `7064d10b9` (#4885) and the Digital reverb right
+> channel. Its **10b** items (pre-existing gaps, not deltas) were found by reading the C each commit
+> touched and are not covered by §9's delta port. The re-check tip is §9's.
 
 Resumed from the tip §8 recorded (`2d7cdf82`). 59 commits, of which 26 touch `src/deluge`. Every
 verdict below was reached by reading the Java, not the commit message. Note the limit CLAUDE.md
 spells out: a delta audit cannot find bugs baked into the port from day one — but reading each
 changed C function against its Java counterpart surfaced several such pre-existing gaps anyway,
-listed separately in 9b.
+listed separately in 10b.
 
-### 9a. Retrofit — upstream fixed a bug the Java shares
+### 10a. Retrofit — upstream fixed a bug the Java shares
 
 | commit | what | Java | priority |
 | --- | --- | --- | --- |
@@ -223,7 +255,7 @@ listed separately in 9b.
 | `7064d10b9` | Live-input pitch shifter could spin forever when the search span came out ≤ 0 | `LivePitchShifter.java:626` computes `endOffset = Math.min(searchSize, searchSizeBoundary) * searchDirection` with **no** `<= 0` guard. The C now jumps to `searchNextDirection` (`live_pitch_shifter.cpp:669-673`). The commit's other four fixes are **already** in Java: the `K_INPUT_PERC_BUFFER_SIZE` mask (`:481`), the divide-by-zero guard (`LiveInputBuffer.java:95`), the buffer-state reset (`LiveInputBuffer.java:51-54`) and the out-of-bounds `readPos[kNumMovingAverages + 1]` read (`:620-623`) | **Medium** — freeze, live input only |
 | `685b4fb9d` (MIDI half) | CC and aftertouch data bytes now clamp to 0..127 | `MIDIMessage.cc` does `value & 0x7F`, which **wraps**: 128 → 0, −6 → 122 — the wrong-direction value upstream's clamp prevents | Low |
 
-### 9b. Pre-existing gaps surfaced by reading these commits
+### 10b. Pre-existing gaps surfaced by reading these commits
 
 Not deltas — these were already absent — but each was found by opening the C function a commit
 touched and reading its Java counterpart.
@@ -277,7 +309,7 @@ touched and reading its Java counterpart.
    deleting the empty rows. The commit's main point — empty rows must not veto — Java already gets
    right, since it only inspects active steps. **Low**, UI only.
 
-### 9c. Already correct in Java (verified)
+### 10c. Already correct in Java (verified)
 
 - `e07844d64` `"upDown"` → `UP_DOWN`: `FirmwareFactory:1194` already maps it correctly.
 - `52ee3623d` nested cable polarity written with the outer cable's index: `ProjectSerializer` recurses
@@ -287,7 +319,7 @@ touched and reading its Java counterpart.
 - `ad036ab38` synth-voice path: a refactor; `Envelope.noteOn(int, Sound, Voice)` already sets
   `smoothedSustain` first, exactly as the new C does.
 
-### 9d. Not applicable
+### 10d. Not applicable
 
 - `efa0eab00` / `2440482fb` / `c44e51e8d` and their reverts `9e3132dc1` / `232e4ab9b` / `0c575117a` —
   `git diff 9ed7483de 9e3132dc1` is empty; they cancel.
@@ -309,7 +341,7 @@ compiling without it, since they test the C *source*. The current CALIB/ALLSYN r
 (the card's firmware is `deluge-v1_3_0-beta+2026_07_23`); note the firmware build date on any future
 recording.
 
-Upstream tip for next re-check: `9e3132dc1`.
+(Superseded tip; see §9.)
 
 ## Method
 

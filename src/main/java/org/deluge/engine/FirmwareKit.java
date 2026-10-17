@@ -41,4 +41,10 @@ public class FirmwareKit extends org.deluge.firmware2.Kit {
       drumSounds.get(row).triggerNote(60, vel);
     }
   }
+
+  public void releaseDrum(int row) {
+    if (row >= 0 && row < drumSounds.size()) {
+      drumSounds.get(row).releaseNote(60);
+    }
+  }
 }

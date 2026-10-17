@@ -94,6 +94,48 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
     }
   }
 
+  /** A per-row automation point set or cleared. */
+  record RowAutomationConsequence(
+      ProjectModel project,
+      int trackIndex,
+      int clipIndex,
+      int rowIndex,
+      String paramName,
+      int step,
+      float oldValue,
+      float newValue)
+      implements Consequence {
+    @Override
+    public void undo() {
+      project
+          .getTracks()
+          .get(trackIndex)
+          .getClips()
+          .get(clipIndex)
+          .setRowAutomation(rowIndex, paramName, step, oldValue);
+    }
+
+    @Override
+    public void redo() {
+      project
+          .getTracks()
+          .get(trackIndex)
+          .getClips()
+          .get(clipIndex)
+          .setRowAutomation(rowIndex, paramName, step, newValue);
+    }
+
+    @Override
+    public String getDescription() {
+      return "Edit row automation " + paramName + " row " + (rowIndex + 1) + " step " + (step + 1);
+    }
+
+    @Override
+    public Category category() {
+      return Category.AUTOMATION;
+    }
+  }
+
   /** A single synth/kit parameter slider change. {@code timestamp} enables coalescing. */
   record SynthParamConsequence(
       ProjectModel project,

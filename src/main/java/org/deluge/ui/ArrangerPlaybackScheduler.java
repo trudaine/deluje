@@ -112,6 +112,16 @@ public class ArrangerPlaybackScheduler implements Runnable {
 
     int col = Math.floorMod(upcomingStep, 16);
     List<org.deluge.model.TrackModel> tracks = project.getTracks();
+    EngineSyncCoordinator sync =
+        bridge.getGlobalObject("g_sync_coordinator") instanceof EngineSyncCoordinator sc
+            ? sc
+            : (SwingDelugeApp.mainInstance != null
+                ? SwingDelugeApp.mainInstance.getSyncCoordinator()
+                : null);
+    EngineSyncCoordinator.TrackEngineMapping fallbackLayout =
+        (sync != null && sync.hasMapping() && sync.getMappedTrackCount() == tracks.size())
+            ? null
+            : EngineSyncCoordinator.computeLayout(project);
 
     // Check if any track in the project is soloed in Arranger mode
     boolean anySoloed = false;
@@ -124,6 +134,13 @@ public class ArrangerPlaybackScheduler implements Runnable {
 
     for (int t = 0; t < tracks.size(); t++) {
       org.deluge.model.TrackModel track = tracks.get(t);
+      int startRow =
+          fallbackLayout == null ? sync.getTrackEngineStart(t) : fallbackLayout.engineStart()[t];
+      int voiceCount =
+          fallbackLayout == null ? sync.getTrackVoiceCount(t) : fallbackLayout.voiceCount()[t];
+      if (startRow < 0 || voiceCount <= 0) {
+        continue;
+      }
 
       // Determine if track should be silent due to mute or solo rules in Arrangement
       boolean silent = false;
@@ -141,27 +158,58 @@ public class ArrangerPlaybackScheduler implements Runnable {
             Math.floorMod(upcomingStep - (activePlacement.startTicks() / 24), clip.getStepCount());
 
         // Transfer step parameter states straight to the bridge circular index
-        for (int r = 0; r < clip.getRowCount(); r++) {
-          int engineRow = t * 8 + r; // Map visual track grid lanes offsets
-          if (engineRow >= BridgeContract.TRACKS) continue;
+        for (int r = 0; r < voiceCount; r++) {
+          int engineRow = startRow + r;
+          if (engineRow < 0 || engineRow >= BridgeContract.TRACKS) continue;
 
-          StepData sd = clip.getStep(r, localStep);
-          if (sd != null) {
-            bridge.setStep(engineRow, col, sd.active());
-            bridge.setStepPitch(engineRow, col, sd.pitch());
-            bridge.setStepVolume(engineRow, col, sd.velocity());
-            bridge.setGate(engineRow, col, sd.gate());
+          if (r < clip.getRowCount()) {
+            StepData sd = clip.getStep(r, localStep);
+            if (sd != null && sd.active()) {
+              bridge.setStep(engineRow, col, true);
+              bridge.setPitch(engineRow, col, sd.pitch());
+              bridge.setStepPitch(engineRow, col, sd.pitch());
+              bridge.setVelocity(engineRow, col, sd.velocity());
+              bridge.setStepVolume(engineRow, col, sd.velocity());
+              bridge.setGate(engineRow, col, sd.gate());
+              bridge.setStepProbability(engineRow, col, sd.probability());
+              bridge.setIterance(engineRow, col, sd.iterance());
+              bridge.setStepFill(engineRow, col, sd.fill());
+              bridge.setStepNudge(engineRow, col, sd.nudge());
+            } else {
+              bridge.setStep(engineRow, col, false);
+              bridge.setVelocity(engineRow, col, 0.8f);
+              bridge.setGate(engineRow, col, StepData.DEFAULT_CLICK_GATE);
+              bridge.setPitch(engineRow, col, 0);
+              bridge.setStepProbability(engineRow, col, 1.0f);
+              bridge.setIterance(engineRow, col, 0);
+              bridge.setStepFill(engineRow, col, 0.0f);
+              bridge.setStepNudge(engineRow, col, 0.0f);
+            }
           } else {
             bridge.setStep(engineRow, col, false);
+            bridge.setVelocity(engineRow, col, 0.8f);
+            bridge.setGate(engineRow, col, StepData.DEFAULT_CLICK_GATE);
+            bridge.setPitch(engineRow, col, 0);
+            bridge.setStepProbability(engineRow, col, 1.0f);
+            bridge.setIterance(engineRow, col, 0);
+            bridge.setStepFill(engineRow, col, 0.0f);
+            bridge.setStepNudge(engineRow, col, 0.0f);
           }
         }
       } else {
         // No arranger placement active -> clear/mute circular step slot to keep background audio
         // quiet
-        for (int r = 0; r < 8; r++) {
-          int engineRow = t * 8 + r;
-          if (engineRow >= BridgeContract.TRACKS) continue;
+        for (int r = 0; r < voiceCount; r++) {
+          int engineRow = startRow + r;
+          if (engineRow < 0 || engineRow >= BridgeContract.TRACKS) continue;
           bridge.setStep(engineRow, col, false);
+          bridge.setVelocity(engineRow, col, 0.8f);
+          bridge.setGate(engineRow, col, StepData.DEFAULT_CLICK_GATE);
+          bridge.setPitch(engineRow, col, 0);
+          bridge.setStepProbability(engineRow, col, 1.0f);
+          bridge.setIterance(engineRow, col, 0);
+          bridge.setStepFill(engineRow, col, 0.0f);
+          bridge.setStepNudge(engineRow, col, 0.0f);
         }
       }
     }

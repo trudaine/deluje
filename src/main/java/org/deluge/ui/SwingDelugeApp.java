@@ -442,9 +442,11 @@ public class SwingDelugeApp extends JFrame {
       boolean firstIsSynth =
           !model.getTracks().isEmpty()
               && model.getTracks().get(0) instanceof org.deluge.model.SynthTrackModel;
-      int firstStart = syncCoordinator.getTrackEngineStart(0);
+      int firstVoices = syncCoordinator.getTrackVoiceCount(0);
+      int firstStart = firstVoices > 0 ? syncCoordinator.getTrackEngineStart(0) : -1;
       if (clipPanel != null) {
-        clipPanel.setBaseTrackId(firstStart >= 0 ? firstStart : (firstIsSynth ? 4 : 0));
+        clipPanel.setBaseTrackId(
+            syncCoordinator.hasMapping() ? firstStart : (firstIsSynth ? 4 : 0));
       }
     } else if (!model.getArrangerTimeline().isEmpty()) {
       // A song that has an arrangement opens in the arranger view on hardware (the Deluge boots
@@ -2119,13 +2121,12 @@ public class SwingDelugeApp extends JFrame {
           syncHighFidelityEngine(currentProject);
           refreshGrids();
 
-          int engineBase = syncCoordinator.getTrackEngineStart(idx);
-          if (engineBase >= 0) {
-            clipPanel.setBaseTrackId(engineBase);
-            clipPanel.setEditedModelTrack(idx);
-            clipPanel.setActiveClipId(0);
-            clipPanel.refresh();
-          }
+          int voiceCount = syncCoordinator.getTrackVoiceCount(idx);
+          int engineBase = voiceCount > 0 ? syncCoordinator.getTrackEngineStart(idx) : -1;
+          clipPanel.setBaseTrackId(engineBase);
+          clipPanel.setEditedModelTrack(idx);
+          clipPanel.setActiveClipId(0);
+          clipPanel.refresh();
 
           cardLayout.show(centerCardPanel, "CLIP");
         };
@@ -2601,22 +2602,18 @@ public class SwingDelugeApp extends JFrame {
     }
 
     if (clipPanel != null) {
-      int engineBase = syncCoordinator.getTrackEngineStart(trackId);
       int voiceCount = syncCoordinator.getTrackVoiceCount(trackId);
-      if (engineBase >= 0) {
-        clipPanel.setActiveClipId(clipId);
-        clipPanel.setBaseTrackId(engineBase);
-        clipPanel.setEditedModelTrack(trackId);
-        clipPanel.resetScrollOffset();
+      int engineBase = voiceCount > 0 ? syncCoordinator.getTrackEngineStart(trackId) : -1;
+      clipPanel.setActiveClipId(clipId);
+      clipPanel.setBaseTrackId(engineBase);
+      clipPanel.setEditedModelTrack(trackId);
+      clipPanel.resetScrollOffset();
 
+      if (engineBase >= 0 && voiceCount > 0) {
         java.util.List<org.deluge.model.TrackModel> allTrks =
             clipPanel.getProjectModel() != null
                 ? clipPanel.getProjectModel().getTracks()
                 : java.util.List.of();
-
-        boolean editIsSynth =
-            trackId < allTrks.size()
-                && allTrks.get(trackId) instanceof org.deluge.model.SynthTrackModel;
 
         // Determine step count for clearing and re-pushing
         int clearSteps = 16;
@@ -2637,23 +2634,29 @@ public class SwingDelugeApp extends JFrame {
           if (clipId < tModel.getClips().size()) {
             org.deluge.model.ClipModel cModel = tModel.getClips().get(clipId);
             int clipSteps = cModel.getStepCount();
-            boolean isSynth = tModel instanceof org.deluge.model.SynthTrackModel;
             for (int r = 0; r < cModel.getRowCount(); r++) {
               for (int s = 0; s < clipSteps; s++) {
                 org.deluge.model.StepData sd = cModel.getStep(r, s);
                 if (sd != null && sd.active()) {
-                  int targetRow = isSynth ? (127 - sd.pitch()) : r;
-                  if (targetRow >= 0 && targetRow < voiceCount) {
-                    bridge.setStep(engineBase + targetRow, s, true);
+                  if (r >= 0 && r < voiceCount) {
+                    int engineRow = engineBase + r;
+                    bridge.setStep(engineRow, s, true);
+                    bridge.setVelocity(engineRow, s, sd.velocity());
+                    bridge.setGate(engineRow, s, sd.gate());
+                    bridge.setPitch(engineRow, s, sd.pitch());
+                    bridge.setStepProbability(engineRow, s, sd.probability());
+                    bridge.setIterance(engineRow, s, sd.iterance());
+                    bridge.setStepFill(engineRow, s, sd.fill());
+                    bridge.setStepNudge(engineRow, s, sd.nudge());
                   }
                 }
               }
             }
           }
         }
-
-        clipPanel.refresh();
       }
+
+      clipPanel.refresh();
     }
 
     activeViewMode = "CLIP";

@@ -66,9 +66,12 @@ public class ClipNudgeNotesVerticallyTest {
     ClipModel clip = new ClipModel("Test Clip", 128, 16);
     int[] majorScale = Scales.ScaleType.MAJOR.getIntervals();
 
-    // Add note row near top boundary (127)
+    // Add note rows with notes near top boundary (127). Create the row first so its pitch is
+    // 127 rather than setStep's default pitch 60 for an uninitialized row.
     clip.getOrCreateRow(127);
     clip.getOrCreateRow(60);
+    clip.setStep(127, 0, true);
+    clip.setStep(60, 0, true);
 
     // Attempt to nudge up when top note is 127.
     // Assert against the map itself, never getOrCreateRow(): that helper constructs
@@ -82,10 +85,12 @@ public class ClipNudgeNotesVerticallyTest {
     assertEquals(127, clip.getNoteRowsMap().get(127).getPitch(), "Row 127 pitch must be untouched");
     assertEquals(60, clip.getNoteRowsMap().get(60).getPitch(), "Row 60 pitch must be untouched");
 
-    // Add note row near bottom boundary (0)
+    // Add note row with notes near bottom boundary (0)
     ClipModel lowClip = new ClipModel("Low Clip", 128, 16);
     lowClip.getOrCreateRow(0);
     lowClip.getOrCreateRow(60);
+    lowClip.setStep(0, 0, true);
+    lowClip.setStep(60, 0, true);
 
     boolean successDown = lowClip.nudgeNotesVertically(-1, false, true, majorScale, 0);
     assertFalse(successDown, "Nudging down when min pitch is 0 must return false");
@@ -128,10 +133,13 @@ public class ClipNudgeNotesVerticallyTest {
     ClipModel clip = new ClipModel("Diatonic Clip", 128, 16);
     int[] majorScale = Scales.ScaleType.MAJOR.getIntervals(); // C major
 
-    // C4 (60), D4 (62), E4 (64)
+    // C4 (60), D4 (62), E4 (64) with notes
     clip.getOrCreateRow(60);
     clip.getOrCreateRow(62);
     clip.getOrCreateRow(64);
+    clip.setStep(60, 0, true);
+    clip.setStep(62, 0, true);
+    clip.setStep(64, 0, true);
 
     boolean moved = clip.nudgeNotesVertically(1, false, true, majorScale, 0);
     assertTrue(moved, "Valid transposition must return true");
@@ -157,6 +165,8 @@ public class ClipNudgeNotesVerticallyTest {
     // would silently drop one of them, taking every note in it.
     clip.getOrCreateRow(60);
     clip.getOrCreateRow(61);
+    clip.setStep(60, 0, true);
+    clip.setStep(61, 0, true);
 
     assertTrue(clip.nudgeNotesVertically(1, false, true, majorScale, 0));
 
@@ -164,6 +174,27 @@ public class ClipNudgeNotesVerticallyTest {
         java.util.Set.of(60, 61), clip.getNoteRowsMap().keySet(), "Both rows must still exist");
     assertEquals(62, clip.getNoteRowsMap().get(60).getPitch(), "C -> D");
     assertEquals(62, clip.getNoteRowsMap().get(61).getPitch(), "C# -> D (same pitch, own row)");
+  }
+
+  @Test
+  @DisplayName("Empty rows do not veto transpose and are dropped when pushed out of 0..127")
+  public void testEmptyRowsDoNotVetoAndAreDroppedOutsideBounds() {
+    ClipModel clip = new ClipModel("Empty Row Clip", 128, 16);
+    int[] majorScale = Scales.ScaleType.MAJOR.getIntervals();
+
+    // Empty row at pitch 127 (would overflow to 128 if it had notes), plus a real note at C4 (60)
+    clip.getOrCreateRow(127);
+    clip.getOrCreateRow(60);
+    clip.setStep(60, 0, true);
+
+    // Transpose up by 1 scale step: empty row at 127 must not block, and must be dropped
+    // once its pitch moves above 127 (C instrument_clip.cpp:1407-1446).
+    assertTrue(clip.nudgeNotesVertically(1, false, true, majorScale, 0));
+    assertEquals(
+        java.util.Set.of(60),
+        clip.getNoteRowsMap().keySet(),
+        "Empty row carried above 127 must be removed");
+    assertEquals(62, clip.getNoteRowsMap().get(60).getPitch(), "C4 (60) -> D4 (62)");
   }
 
   @Test

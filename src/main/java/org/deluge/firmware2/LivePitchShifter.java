@@ -623,7 +623,18 @@ public class LivePitchShifter {
                   & (LiveInputBuffer.K_INPUT_RAW_BUFFER_SIZE - 1);
         }
 
-        int endOffset = Math.min(searchSize, searchSizeBoundary) * searchDirection;
+        // C live_pitch_shifter.cpp:667-671 — guard against searchSizeHere <= 0, which would leave
+        // endOffset == 0 and spin the do/while loop below until 32-bit wrap-around.
+        int searchSizeHere = Math.min(searchSize, searchSizeBoundary);
+        if (searchSizeHere <= 0) {
+          numFullDirectionsSearched++;
+          if (numFullDirectionsSearched < 2) {
+            searchDirection = -searchDirection;
+            continue directionLoop;
+          }
+          break directionLoop;
+        }
+        int endOffset = searchSizeHere * searchDirection;
         boolean restartOther = false;
 
         // ── slide loop (C:670-742) ──

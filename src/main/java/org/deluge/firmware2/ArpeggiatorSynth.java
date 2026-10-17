@@ -237,8 +237,8 @@ public class ArpeggiatorSynth extends ArpeggiatorBase {
             if (arpNote.noteCodeOnPostArp[0] == Arpeggiator.ARP_NOTE_NONE) {
               arpNote.noteStatus[0] = ArpNoteStatus.OFF;
             } else {
+              // C arpeggiator.cpp:495-499 — noteStatus is marked PLAYING by Sound after starting.
               instruction.arpNoteOn = arpNote;
-              arpNote.noteStatus[0] = ArpNoteStatus.PLAYING;
               return true;
             }
           }

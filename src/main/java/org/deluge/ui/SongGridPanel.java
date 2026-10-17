@@ -36,7 +36,8 @@ public class SongGridPanel extends SwingGridPanel {
       int modelRow = songRowIndex(v);
       if (modelRow >= 0
           && modelRow < voiceRowCount
-          && bridge.getLaunchQueue(baseTrackId + modelRow) >= 0) {
+          && modelRow < BridgeContract.TRACKS
+          && bridge.getLaunchQueue(modelRow) >= 0) {
         return true;
       }
     }
@@ -721,7 +722,9 @@ public class SongGridPanel extends SwingGridPanel {
             : SongProjector.cellColour(clip, track.getColourOffset(), c + scrollOffsetX);
     boolean lit = cell != null;
     Color base = lit ? cell : Color.BLACK;
-    boolean isMuted = bridge != null && bridge.getMute(baseTrackId + modelRow);
+    int engineStart = EngineSyncCoordinator.resolveTrackEngineStart(bridge, projectModel, modelRow);
+    boolean isMuted =
+        bridge != null && engineStart >= 0 ? bridge.getMute(engineStart) : track.isMuted();
     if (clipBtn instanceof DelugePadButton pad) {
       pad.setBaseColor(base);
       pad.setTheme(org.deluge.project.PreferencesManager.getGridColorTheme());
@@ -828,7 +831,10 @@ public class SongGridPanel extends SwingGridPanel {
             }
             // Armed for launch (queued for the next bar boundary): fast-blink the pad, matching the
             // hardware's blinking "launch" pad, until the queue is consumed.
-            boolean armed = bridge != null && bridge.getLaunchQueue(engineRow) >= 0;
+            boolean armed =
+                bridge != null
+                    && modelRow < BridgeContract.TRACKS
+                    && bridge.getLaunchQueue(modelRow) >= 0;
             if (armed && !launchBlinkOn) {
               statusBg = Color.BLACK;
             }

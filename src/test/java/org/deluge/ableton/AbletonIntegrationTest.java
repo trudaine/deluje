@@ -59,8 +59,9 @@ public class AbletonIntegrationTest {
         String absPath = getElementValueByTagName(fileRef, "Path");
         String packName = getElementValueByTagName(fileRef, "LivePackName");
 
-        if (relPath != null && !relPath.isBlank()) {
-          // Resolve sample path
+        if (packName != null && !packName.isBlank() && relPath != null && !relPath.isBlank()) {
+          // Resolve sample path from the installed Factory Pack (builtin samples require the
+          // Ableton Live .app bundle in /Applications, which may not be installed alongside packs).
           File resolvedFile = AbletonAssetResolver.resolveSamplePath(packName, relPath, absPath);
           assertNotNull(resolvedFile, "Resolved file must not be null for relPath: " + relPath);
           assertTrue(

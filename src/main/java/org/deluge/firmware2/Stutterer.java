@@ -195,11 +195,11 @@ public class Stutterer {
                       });
           int strength1 = 65536 - strength2;
 
+          // C stutterer.cpp:170-175 — both advance() and retreat() return a fraction toward the
+          // next sample (currentOffset + 1), wrapping at sizeIncludingExtra.
           int currentOffset = buffer.getCurrentOffset();
-          int neighborOffset = currentReverse ? currentOffset - 1 : currentOffset + 1;
-          if (neighborOffset < 0) {
-            neighborOffset = buffer.sizeIncludingExtra - 1;
-          } else if (neighborOffset == buffer.sizeIncludingExtra) {
+          int neighborOffset = currentOffset + 1;
+          if (neighborOffset == buffer.sizeIncludingExtra) {
             neighborOffset = 0;
           }
 

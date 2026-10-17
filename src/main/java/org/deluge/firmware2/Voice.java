@@ -654,11 +654,13 @@ public class Voice {
       } else {
         carrierIncA = sound.sourceFineTuners[0].detune(carrierIncA);
       }
+      carrierIncA = sound.masterFineTuner.detune(carrierIncA); // C voice.cpp:509
     } else {
-      // C voice.cpp:442 — transposedNoteCode = note + source transpose; then cents (line 505).
+      // C voice.cpp:442 — transposedNoteCode = note + source transpose; then cents (lines 505,509).
       carrierIncA =
           calculateBasePhaseIncrement(noteCode + sound.masterTranspose + sound.sourceTranspose[0]);
       carrierIncA = sound.sourceFineTuners[0].detune(carrierIncA);
+      carrierIncA = sound.masterFineTuner.detune(carrierIncA);
     }
     if (carrierIncA <= 0) {
       active = false;
@@ -739,12 +741,14 @@ public class Voice {
       } else {
         carrierIncB = sound.sourceFineTuners[1].detune(carrierIncB);
       }
+      carrierIncB = sound.masterFineTuner.detune(carrierIncB); // C voice.cpp:509
     } else {
-      // C voice.cpp:442 — osc B uses its OWN source transpose + cents (was: copied osc A, so osc 2
-      // transpose/cents were silently ignored).
+      // C voice.cpp:442 — osc B uses its OWN source transpose + cents + master cents (lines
+      // 505,509).
       carrierIncB =
           calculateBasePhaseIncrement(noteCode + sound.masterTranspose + sound.sourceTranspose[1]);
       carrierIncB = sound.sourceFineTuners[1].detune(carrierIncB);
+      carrierIncB = sound.masterFineTuner.detune(carrierIncB);
     }
 
     // Apply unison detune
@@ -794,6 +798,7 @@ public class Voice {
         }
 
         modInc = sound.modulatorTransposers[m].detune(modInc);
+        modInc = sound.masterFineTuner.detune(modInc); // C voice.cpp:554
 
         for (int u = 0; u < sound.numUnison; u++) {
           if (sound.numUnison == 1) {
@@ -852,8 +857,11 @@ public class Voice {
       filterSet.hpSvf.dryFade = 0.0f;
       filterSet.hpSvf.wetLevel = Functions.ONE_Q31;
     }
+    // C sound.cpp:3218-3220 / voice.cpp:1045,1142,1326 — sound.hasFilters() checks sound.lpfMode
+    // and sound.hpfMode, NOT doLPF / doHPF, so filterGain (which carries
+    // sound.volumeNeutralValueForUnison) still applies when cutoff is wide open.
     boolean hasFilters =
-        (lpfModeVal != FilterSet.FilterMode.OFF) || (hpfModeVal != FilterSet.FilterMode.OFF);
+        (sound.lpfMode != FilterSet.FilterMode.OFF) || (sound.hpfMode != FilterSet.FilterMode.OFF);
 
     // Prepare scratch buffers: stereo output buffer
     int requiredLen = numSamples * 2;
@@ -1998,10 +2006,12 @@ public class Voice {
     }
   }
 
+  // C voice.cpp:1711-1720 — returns -1 (false) when output >= (1 << 23) so output << 8 stays
+  // strictly below 2^31 (above 22.05 kHz Nyquist).
   public static int adjustPitch(int phaseIncrement, int adjustment) {
     if (adjustment != 16777216) {
       int output = Functions.multiply_32x32_rshift32_rounded(phaseIncrement, adjustment);
-      if (Integer.compareUnsigned(output, 16777216) >= 0) {
+      if (output >= (1 << 23)) {
         return -1; // inactive / too high
       }
       return output << 8;

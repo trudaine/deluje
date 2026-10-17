@@ -217,8 +217,9 @@ class PlayConditionsTest {
     String head = "00000000" + "00000018" + "64" + "40";
     assertArrayEquals(new int[] {20, 0, 2, 0x40}, conditions(decode(head + "00"))); // old FILL
     assertArrayEquals(new int[] {20, 0, 1, 0x40}, conditions(decode(head + "80"))); // old NOT_FILL
-    // 20 + 3 = preset 3 = 1of2 (lookuptables.cpp:509)
-    assertArrayEquals(new int[] {20, 0x0201, 0, 0x40}, conditions(decode(head + "17")));
+    // 20 + 3 = old preset 3 = "1of3"; iteranceFromLegacyProbabilityByte shifts it past FIRST/LAST
+    // to iterancePresets[4] = {3, 0b001} (iterance_migration.cpp:26-36)
+    assertArrayEquals(new int[] {20, 0x0301, 0, 0x40}, conditions(decode(head + "17")));
     assertArrayEquals(new int[] {7, 0, 0, 0x40}, conditions(decode(head + "07")));
     // lift 0 → kDefaultLiftValue
     assertEquals(64, decode("00000000" + "00000018" + "64" + "00" + "14").getLift());
@@ -226,11 +227,42 @@ class PlayConditionsTest {
 
   @Test
   void decodesBetaIteranceAndFillFormat() {
-    // 26 chars (note_row.cpp:3395-3402): lift 30, prob 0c, iterance PRESET index 04 (= 2of2), fill
-    // 01
+    // 26 chars (note_row.cpp:3414-3421): lift 30, prob 0c, legacy preset index 04, fill 01. The
+    // index predates the FIRST/LAST prepend, so iteranceFromLegacyPresetIndex shifts it by +2
+    // (iterance_migration.cpp:38-51): old 4 = "2of3" = iterancePresets[5] = {3, 0b010}.
     assertArrayEquals(
-        new int[] {0x0C, 0x0202, 1, 0x30},
+        new int[] {0x0C, 0x0302, 1, 0x30},
         conditions(decode("00000000" + "00000018" + "64" + "30" + "0C" + "04" + "01")));
+  }
+
+  @Test
+  void legacyProbabilityByteMigratesPastFirstAndLast() {
+    // 22 chars, probability byte 0x16 = 20 + old preset 2 ("2of2").
+    // iteranceFromLegacyProbabilityByte
+    // (iterance_migration.cpp:26-36) reads iterancePresets[3] = {2, 0b10}; reading the new table
+    // without the shift would give LAST.
+    assertArrayEquals(
+        new int[] {20, 0x0202, NoteModel.FILL_MODE_OFF, 0x40},
+        conditions(decode("00000000" + "00000018" + "64" + "40" + "16")));
+  }
+
+  @Test
+  void outOfRangeProbabilityAndFillAreClampedAsTheC() {
+    // note_row.cpp:3494-3499: probability 0x7F -> 20 (100%), fill 05 -> OFF.
+    assertArrayEquals(
+        new int[] {20, 0, NoteModel.FILL_MODE_OFF, 0x40},
+        conditions(decode("00000000" + "00000018" + "64" + "40" + "7F" + "0000" + "05")));
+    // (20 | 128) is past the follow-previous range too.
+    assertEquals(
+        20,
+        decode("00000000" + "00000018" + "64" + "40" + "94" + "0000" + "00").getProbabilityValue());
+  }
+
+  @Test
+  void newNoteIteranceIsOffLikeTheC() {
+    // note.h: a fresh note carries kDefaultIteranceValue {0, 0} (OFF), not "1of1".
+    assertTrue(new NoteModel().getIterance().isDefault());
+    assertEquals(0, new NoteModel().getIterance().toInt());
   }
 
   @Test

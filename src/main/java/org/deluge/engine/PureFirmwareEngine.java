@@ -70,7 +70,7 @@ public class PureFirmwareEngine {
 
   private long lastPlayStateVal = -1;
 
-  private void syncFromBridge(BridgeContract bridge) {
+  public void syncFromBridge(BridgeContract bridge) {
     if (bridge == null) return;
 
     long play = bridge.getGlobalInt(BridgeContract.G_PLAY);
@@ -201,7 +201,10 @@ public class PureFirmwareEngine {
               }
 
               org.deluge.model.ClipModel clip = track.getActiveClip();
-              boolean isMuted = bridge.getMute(t);
+              int startRow =
+                  org.deluge.ui.EngineSyncCoordinator.resolveTrackEngineStart(
+                      bridge, activeProject, t);
+              boolean isMuted = startRow >= 0 ? bridge.getMute(startRow) : track.isMuted();
               if (clip != null && clip.getSound() instanceof org.deluge.engine.FirmwareSound fs) {
                 fs.muted = isMuted;
               }

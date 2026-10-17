@@ -12,6 +12,7 @@ public class ClipGridPanel extends SwingGridPanel {
 
   public ClipGridPanel(BridgeContract bridge) {
     super(bridge);
+    this.viewMode = GridViewMode.CLIP;
   }
 
   @Override
@@ -151,7 +152,7 @@ public class ClipGridPanel extends SwingGridPanel {
     add(voiceWrapper);
 
     // Page Selection Bar in CLIP mode
-    int trackLen = (bridge != null) ? bridge.getTrackLength(baseTrackId) : stepCount;
+    int trackLen = resolveEditedTrackLength();
     int numPages = Math.max(1, (trackLen + 15) / 16);
     if (numPages > 1) {
       JPanel pageBar = new JPanel();
@@ -253,15 +254,14 @@ public class ClipGridPanel extends SwingGridPanel {
     scrollController.syncScrollBarValues();
 
     java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
-    int curTrackLen = bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount;
-    boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
+    int curTrackLen = resolveEditedTrackLength();
+    boolean isSynthMode = resolveEditedTrackType() == 1;
 
     for (int v = 0; v < gridMode.rows; v++) {
       int modelRow = getModelRow(v);
       if (modelRow >= 0 && modelRow < voiceRowCount) {
-        int engineROffset = getEngineRowOffset(modelRow);
-        int engineR = baseTrackId + engineROffset;
-        boolean isMuted = bridge != null && bridge.getMute(engineR);
+        int engineR = getAllocatedEngineRow(modelRow);
+        boolean isMuted = isClipRowMuted(modelRow);
 
         for (int c = 0; c < columnCount; c++) {
           JButton clipBtn = pads[v][c];
@@ -372,7 +372,7 @@ public class ClipGridPanel extends SwingGridPanel {
                       isNudged = true;
                     }
                   }
-                } else if (bridge != null) {
+                } else if (bridge != null && engineR >= 0) {
                   if (bridge.getStepFill(engineR, activeCol) > 0.0) {
                     isNudged = true;
                   }
@@ -430,7 +430,9 @@ public class ClipGridPanel extends SwingGridPanel {
       fActiveClip.setStepCount(nextTrip ? 12 : 16);
       fActiveClip.rebuildNotesFromGrid();
       if (bridge != null) {
-        bridge.setTrackLength(baseTrackId, nextTrip ? 12 : 16);
+        if (baseTrackId >= 0) {
+          bridge.setTrackLength(baseTrackId, nextTrip ? 12 : 16);
+        }
         bridge.setStepResolution(nextTrip ? (1.0 / 3.0) : 0.25);
       }
       refresh();
@@ -771,8 +773,8 @@ public class ClipGridPanel extends SwingGridPanel {
       pads[visibleRow][c] = clipBtn;
 
       if (isMuteColumn(colId)) {
-        final int trackToMute = isEditedTrackKit() ? (baseTrackId + modelRow) : editedModelTrack;
-        final int engineRow = baseTrackId + modelRow;
+        final int trackToMute =
+            isEditedTrackKit() ? getAllocatedEngineRow(modelRow) : editedModelTrack;
         boolean isMuted;
         if (isEditedTrackKit()) {
           org.deluge.model.ClipModel clip = activeEditedClip();
@@ -781,12 +783,12 @@ public class ClipGridPanel extends SwingGridPanel {
           isMuted =
               (noteRow != null)
                   ? noteRow.isMuted()
-                  : (bridge != null && bridge.getMute(trackToMute));
+                  : (bridge != null && trackToMute >= 0 && bridge.getMute(trackToMute));
         } else {
           if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
             isMuted = projectModel.getTracks().get(editedModelTrack).isMuted();
           } else {
-            isMuted = bridge != null && bridge.getMute(trackToMute);
+            isMuted = bridge != null && trackToMute >= 0 && bridge.getMute(trackToMute);
           }
         }
 
@@ -829,8 +831,17 @@ public class ClipGridPanel extends SwingGridPanel {
         clipBtn.addActionListener(
             e -> {
               if ((e.getModifiers() & java.awt.event.ActionEvent.SHIFT_MASK) != 0) {
-                for (int s = 0; s < stepCount; s++) {
-                  if (bridge != null) bridge.setStep(engineRow, s, false);
+                org.deluge.model.ClipModel curClip = getEditedActiveClip();
+                int clipRow = curClip != null ? getClipRowIndex(curClip, modelRow, false) : -1;
+                int er = getAllocatedEngineRow(modelRow);
+                int clearLen = curClip != null ? curClip.getStepCount() : stepCount;
+                for (int s = 0; s < clearLen; s++) {
+                  if (curClip != null && clipRow >= 0) {
+                    curClip.setStep(clipRow, s, org.deluge.model.StepData.empty());
+                  }
+                  if (bridge != null && er >= 0 && s < BridgeContract.STEPS) {
+                    bridge.setStep(er, s, false);
+                  }
                 }
                 refresh();
                 return;
@@ -875,7 +886,7 @@ public class ClipGridPanel extends SwingGridPanel {
                   nextMute = !noteRow.isMuted();
                   noteRow.setMuted(nextMute);
                 } else {
-                  nextMute = bridge != null && !bridge.getMute(trackToMute);
+                  nextMute = bridge != null && trackToMute >= 0 && !bridge.getMute(trackToMute);
                 }
               } else {
                 if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
@@ -884,7 +895,7 @@ public class ClipGridPanel extends SwingGridPanel {
                   nextMute = !track.isMuted();
                   track.setMuted(nextMute);
                 } else {
-                  nextMute = bridge != null && !bridge.getMute(trackToMute);
+                  nextMute = bridge != null && trackToMute >= 0 && !bridge.getMute(trackToMute);
                 }
               }
               updateEngineMutes();
@@ -956,7 +967,7 @@ public class ClipGridPanel extends SwingGridPanel {
                   return;
                 }
 
-                boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
+                boolean isSynthMode = resolveEditedTrackType() == 1;
                 int pitchMidi = isSynthMode ? getRowPitch(modelRow) : 60;
 
                 if (SwingDelugeApp.mainInstance != null) {
@@ -992,7 +1003,7 @@ public class ClipGridPanel extends SwingGridPanel {
                 if (!auditionSounded) return;
                 auditionSounded = false;
 
-                boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
+                boolean isSynthMode = resolveEditedTrackType() == 1;
                 int pitchMidi = isSynthMode ? getRowPitch(modelRow) : 60;
 
                 Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
@@ -1040,11 +1051,11 @@ public class ClipGridPanel extends SwingGridPanel {
               }
             });
       } else {
-        int engineRow = baseTrackId + modelRow;
-        boolean isMuted = bridge != null && bridge.getMute(engineRow);
+        int engineRow = getAllocatedEngineRow(modelRow);
+        boolean isMuted = isClipRowMuted(modelRow);
 
         int activeCol;
-        int curTrackLen = bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount;
+        int curTrackLen = resolveEditedTrackLength();
         if (curTrackLen > 0 && curTrackLen < stepCount) {
           activeCol = colId % curTrackLen;
         } else if (curTrackLen > stepCount) {
@@ -1071,7 +1082,7 @@ public class ClipGridPanel extends SwingGridPanel {
           boolean inScale = true;
           boolean isRoot = false;
 
-          boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
+          boolean isSynthMode = resolveEditedTrackType() == 1;
           if (isSynthMode) {
             int pitchMidi = getRowPitch(modelRow);
             isRoot = ScaleMapper.isRootNote(pitchMidi, projectModel.getKey());
@@ -1097,7 +1108,8 @@ public class ClipGridPanel extends SwingGridPanel {
             if (cModel != null) {
               org.deluge.model.StepData sd = getClipStep(cModel, modelRow, activeCol);
               if (sd != null && sd.active()) {
-                if (sd.iterance() != 0 && sd.iterance() != 0x0101) {
+                if (sd.iterance() != 0
+                    || (sd.playCondition() != 0 && sd.playCondition() != 0x0101)) {
                   hasCond = true;
                 }
                 if (sd.probability() < 0.999f) {
@@ -1504,6 +1516,7 @@ public class ClipGridPanel extends SwingGridPanel {
             boolean drumPlayable = drumIdx < editedKitDrumCount();
             boolean isPlaying =
                 bridge != null
+                    && baseTrackId >= 0
                     && bridge.getGlobalInt(BridgeContract.G_PREVIEW_TRACK)
                         == (long) (baseTrackId + (v % 8));
 
@@ -1593,6 +1606,10 @@ public class ClipGridPanel extends SwingGridPanel {
 
   /** The clip currently being edited on this grid, or {@code null} if none is resolvable. */
   private org.deluge.model.ClipModel activeEditedClip() {
+    org.deluge.model.ClipModel edited = getEditedActiveClip();
+    if (edited != null) {
+      return edited;
+    }
     if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) {
       return null;
     }
@@ -1604,39 +1621,63 @@ public class ClipGridPanel extends SwingGridPanel {
     return track.getClips().get(idx);
   }
 
+  private boolean isClipRowMuted(int modelRow) {
+    if (isEditedTrackKit()) {
+      int engineR = getAllocatedEngineRow(modelRow);
+      if (engineR >= 0 && bridge != null) {
+        return bridge.getMute(engineR);
+      }
+      org.deluge.model.ClipModel clip = activeEditedClip();
+      org.deluge.model.NoteRowModel noteRow =
+          (clip != null) ? clip.getNoteRowsMap().get(modelRow) : null;
+      return noteRow != null && noteRow.isMuted();
+    }
+    if (baseTrackId >= 0 && bridge != null) {
+      return bridge.getMute(baseTrackId);
+    }
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
+      return projectModel.getTracks().get(editedModelTrack).isMuted();
+    }
+    return false;
+  }
+
   private void rotateRow(int modelRow, boolean right) {
     if (projectModel == null) return;
     org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
     if (activeClipId >= track.getClips().size()) return;
     org.deluge.model.ClipModel clip = track.getClips().get(activeClipId);
+    int clipRow = getClipRowIndex(clip, modelRow, false);
+    if (clipRow < 0) return;
 
     // Get the NoteRowModel
-    org.deluge.model.NoteRowModel rowModel = clip.noteRows.get(modelRow);
+    org.deluge.model.NoteRowModel rowModel = clip.noteRows.get(clipRow);
     if (rowModel == null || rowModel.notes.isEmpty()) return;
 
-    int stepTicks = 24; // Sixteenth note step
+    int stepTicks = clip.isTripletMode() ? 32 : 24;
     int totalTicks = clip.getStepCount() * stepTicks;
-    int shift = right ? stepTicks : -stepTicks;
+    int stepShift = right ? 1 : -1;
+    int shift = stepShift * stepTicks;
 
     for (org.deluge.model.NoteModel note : rowModel.notes) {
       int newPos = (note.getPos() + shift + totalTicks) % totalTicks;
       note.setPos(newPos);
     }
 
-    // Update the visual step data grid as well
+    // Update the visual step data grid in place without mutating raw note events again
     org.deluge.model.StepData[] shiftedSteps = new org.deluge.model.StepData[clip.getStepCount()];
     for (int s = 0; s < clip.getStepCount(); s++) {
-      int srcIdx = (s - (shift / 24) + clip.getStepCount()) % clip.getStepCount();
-      shiftedSteps[s] = clip.getStep(modelRow, srcIdx);
+      int srcIdx = (s - stepShift + clip.getStepCount()) % clip.getStepCount();
+      shiftedSteps[s] = clip.getStep(clipRow, srcIdx);
     }
-    for (int s = 0; s < clip.getStepCount(); s++) {
-      clip.setStep(modelRow, s, shiftedSteps[s]);
-    }
+    clip.replaceGridRowInPlace(clipRow, shiftedSteps);
 
     if (SwingDelugeApp.mainInstance != null) {
       SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
           "ROTA", right ? "RGHT" : "LEFT");
       SwingDelugeApp.mainInstance.getSyncCoordinator().pushModelToBridge();
+      restoreEditedClipInBridge();
     }
 
     refreshKeyplayInPlace();
@@ -1650,8 +1691,10 @@ public class ClipGridPanel extends SwingGridPanel {
     org.deluge.model.ClipModel clip = track.getClips().get(activeClipId);
 
     if (track instanceof org.deluge.model.KitTrackModel) return;
+    int clipRow = getClipRowIndex(clip, modelRow, false);
+    if (clipRow < 0) return;
 
-    int currentPitch = clip.getRowYNote(modelRow);
+    int currentPitch = clip.getRowYNote(clipRow);
     if (currentPitch == -1) {
       currentPitch = getRowPitch(modelRow);
     }
@@ -1669,28 +1712,7 @@ public class ClipGridPanel extends SwingGridPanel {
       return;
     }
 
-    clip.setRowYNote(modelRow, newPitch);
-
-    for (int s = 0; s < clip.getStepCount(); s++) {
-      org.deluge.model.StepData step = clip.getStep(modelRow, s);
-      if (step != null && step.active()) {
-        // Only the pitch changes — preserve every other per-step property (iterance, fill,
-        // nudge as well as velocity/gate/probability). The 5-arg StepData.of() resets
-        // iterance/fill/nudge to 0, silently discarding them on transpose.
-        clip.setStep(
-            modelRow,
-            s,
-            new org.deluge.model.StepData(
-                true,
-                step.velocity(),
-                step.gate(),
-                step.probability(),
-                newPitch,
-                step.iterance(),
-                step.fill(),
-                step.nudge()));
-      }
-    }
+    clip.retuneRowInPlace(clipRow, newPitch);
 
     String[] keyNames = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
     int oct = (newPitch / 12) - 1;
@@ -1698,6 +1720,7 @@ public class ClipGridPanel extends SwingGridPanel {
     if (SwingDelugeApp.mainInstance != null) {
       SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("TRSP", noteName);
       SwingDelugeApp.mainInstance.getSyncCoordinator().pushModelToBridge();
+      restoreEditedClipInBridge();
     }
 
     refreshKeyplayInPlace();

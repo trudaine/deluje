@@ -258,6 +258,36 @@ public class KitXmlParser {
         });
     readAttrOrChildHexFloat(soundNode, "clippingAmount", sound::setClippingAmount);
 
+    // Sound-level master transpose & cents (C sound.cpp:579-585). Check attribute or DIRECT child
+    // only so we do not match <osc1>/<osc2> <transpose>/<cents> descendants.
+    String soundTransStr = soundNode.getAttribute("transpose");
+    String soundCentsStr = soundNode.getAttribute("cents");
+    for (org.w3c.dom.Node n = soundNode.getFirstChild(); n != null; n = n.getNextSibling()) {
+      if (n instanceof Element ce) {
+        if ((soundTransStr == null || soundTransStr.isBlank())
+            && "transpose".equals(ce.getTagName())) {
+          soundTransStr = ce.getTextContent();
+        } else if ((soundCentsStr == null || soundCentsStr.isBlank())
+            && "cents".equals(ce.getTagName())) {
+          soundCentsStr = ce.getTextContent();
+        }
+      }
+    }
+    if (soundTransStr != null && !soundTransStr.isBlank()) {
+      try {
+        sound.setPitchSemitones(Integer.parseInt(soundTransStr.trim()));
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "NumberFormatException parsing kit sound transpose", e);
+      }
+    }
+    if (soundCentsStr != null && !soundCentsStr.isBlank()) {
+      try {
+        sound.setCents(Integer.parseInt(soundCentsStr.trim()));
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "NumberFormatException parsing kit sound cents", e);
+      }
+    }
+
     // -- oscillatorReset (compatibility, tag or attribute) --
     String oscReset = attrOrChildText(soundNode, "oscillatorReset");
     if (oscReset != null && !oscReset.isEmpty()) {

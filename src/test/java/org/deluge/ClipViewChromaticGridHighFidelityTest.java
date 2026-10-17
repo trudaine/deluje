@@ -358,12 +358,13 @@ public class ClipViewChromaticGridHighFidelityTest {
         gridPanel.getClipStep(c, 65, 0).active(), "Transposed step must be active at row 65");
     assertEquals(62, gridPanel.getClipStep(c, 65, 0).pitch(), "Transposed pitch must be 62 (D4)");
 
-    // 4. Verify that the bridge is also updated!
-    assertFalse(
-        bridge.getStep(gridPanel.getBaseTrackId() + 67, 0), "Bridge old step must be inactive");
-    assertTrue(
-        bridge.getStep(gridPanel.getBaseTrackId() + 65, 0),
-        "Bridge transposed step must be active");
+    // 4. Verify that the bridge is also updated at the allocated stored row!
+    assertEquals(
+        -1, gridPanel.getClipRowIndex(c, 67, false), "Old pitch row 67 must no longer exist");
+    int row65Engine = gridPanel.getAllocatedEngineRow(65);
+    assertTrue(row65Engine >= 0, "Transposed pitch row 65 must have an allocated engine row");
+    assertTrue(bridge.getStep(row65Engine, 0), "Bridge transposed step must be active");
+    assertEquals(62, bridge.getPitch(row65Engine, 0), "Bridge transposed pitch must be 62");
 
     // 5. Transpose up by an octave (12 semitones) (to D5, pitch 74, row 53!)
     gridPanel.transposeTrack(12);
@@ -376,11 +377,12 @@ public class ClipViewChromaticGridHighFidelityTest {
         74, gridPanel.getClipStep(c, 53, 0).pitch(), "Octave transposed pitch must be 74 (D5)");
 
     // 7. Verify octave shift in bridge
-    assertFalse(
-        bridge.getStep(gridPanel.getBaseTrackId() + 65, 0),
-        "Bridge D4 step must be inactive after octave shift");
-    assertTrue(
-        bridge.getStep(gridPanel.getBaseTrackId() + 53, 0), "Bridge D5 octave step must be active");
+    assertEquals(
+        -1, gridPanel.getClipRowIndex(c, 65, false), "D4 pitch row 65 must no longer exist");
+    int row53Engine = gridPanel.getAllocatedEngineRow(53);
+    assertTrue(row53Engine >= 0, "Octave pitch row 53 must have an allocated engine row");
+    assertTrue(bridge.getStep(row53Engine, 0), "Bridge D5 octave step must be active");
+    assertEquals(74, bridge.getPitch(row53Engine, 0), "Bridge octave pitch must be 74");
 
     bridge.shutdown();
   }
@@ -422,9 +424,9 @@ public class ClipViewChromaticGridHighFidelityTest {
     assertTrue(
         gridPanel.getClipStep(c, 67, 16).active(), "Duplicated step at index 16 must be active");
     assertEquals(60, gridPanel.getClipStep(c, 67, 16).pitch(), "Duplicated step pitch must be 60");
-    assertTrue(
-        bridge.getStep(gridPanel.getBaseTrackId() + 67, 16),
-        "Bridge duplicated step must be active");
+    int row67Engine = gridPanel.getAllocatedEngineRow(67);
+    assertTrue(row67Engine >= 0, "Row 67 must have an allocated engine row");
+    assertTrue(bridge.getStep(row67Engine, 16), "Bridge duplicated step must be active");
 
     bridge.shutdown();
   }
@@ -527,9 +529,11 @@ public class ClipViewChromaticGridHighFidelityTest {
           gridPanel.getClipStep(c, 67, 0).velocity(),
           0.001f,
           "Velocity must decrease to 0.75");
+      int storedRow67 = gridPanel.getClipRowIndex(c, 67, false);
+      assertTrue(storedRow67 >= 0, "Stored clip row for model row 67 must exist");
       assertEquals(
           0.75f,
-          bridge.getVelocity(gridPanel.getBaseTrackId() + 67, 0),
+          bridge.getVelocity(gridPanel.getBaseTrackId() + storedRow67, 0),
           0.001f,
           "Bridge velocity must sync to 0.75");
 
@@ -579,7 +583,7 @@ public class ClipViewChromaticGridHighFidelityTest {
           "Probability must decrease to 0.85");
       assertEquals(
           0.85f,
-          bridge.getStepProbability(gridPanel.getBaseTrackId() + 67, 0),
+          bridge.getStepProbability(gridPanel.getBaseTrackId() + storedRow67, 0),
           0.001f,
           "Bridge probability must sync to 0.85");
       gridPanel.setShiftHeld(false);
@@ -604,7 +608,7 @@ public class ClipViewChromaticGridHighFidelityTest {
           1.25f, gridPanel.getClipStep(c, 67, 0).gate(), 0.001f, "Gate must increase to 1.25");
       assertEquals(
           1.25f,
-          bridge.getGate(gridPanel.getBaseTrackId() + 67, 0),
+          bridge.getGate(gridPanel.getBaseTrackId() + storedRow67, 0),
           0.001f,
           "Bridge gate must sync to 1.25");
     } finally {
@@ -676,17 +680,16 @@ public class ClipViewChromaticGridHighFidelityTest {
       assertEquals(1.0f, restored.gate(), 0.001f, "Gate must be restored to 1.0");
       assertEquals(0.9f, restored.probability(), 0.001f, "Probability must be restored to 0.9");
 
-      // Verify audio bridge synchronization
+      // Verify audio bridge synchronization at the allocated stored row
+      int row67Engine = gridPanel.getAllocatedEngineRow(67);
+      assertTrue(row67Engine >= 0, "Row 67 must have an allocated engine row");
       assertEquals(
           0.8f,
-          bridge.getVelocity(gridPanel.getBaseTrackId() + 67, 0),
+          bridge.getVelocity(row67Engine, 0),
           0.001f,
           "Bridge velocity must sync after paste");
       assertEquals(
-          1.0f,
-          bridge.getGate(gridPanel.getBaseTrackId() + 67, 0),
-          0.001f,
-          "Bridge gate must sync after paste");
+          1.0f, bridge.getGate(row67Engine, 0), 0.001f, "Bridge gate must sync after paste");
     } finally {
       app.dispose();
       bridge.shutdown();
@@ -758,6 +761,8 @@ public class ClipViewChromaticGridHighFidelityTest {
       gridPanel.refresh();
 
       assertTrue(gridPanel.getClipStep(c, 67, 0).active(), "Original step must be active");
+      int oldStoredRow = gridPanel.getClipRowIndex(c, 67, false);
+      assertTrue(oldStoredRow >= 0, "Old stored clip row for model row 67 must exist");
 
       // Dynamically calculate the visual row for model row 67 based on the panel's scroll offset
       int visualRow = 67 - gridPanel.getScrollOffset();
@@ -788,20 +793,28 @@ public class ClipViewChromaticGridHighFidelityTest {
       assertEquals(1.0f, transposed.gate(), 0.001f, "Gate must be preserved");
 
       // 4. Assert note channel migration and parameter synchronization in the ChucK DSP bridge
+      int newStoredRow = gridPanel.getClipRowIndex(c, 65, false);
+      assertTrue(newStoredRow >= 0, "New stored clip row for model row 65 must exist");
       assertFalse(
-          bridge.getStep(gridPanel.getBaseTrackId() + 67, 0), "Bridge old step must be cleared");
+          bridge.getStep(gridPanel.getBaseTrackId() + oldStoredRow, 0),
+          "Bridge old step must be cleared");
       assertTrue(
-          bridge.getStep(gridPanel.getBaseTrackId() + 65, 0), "Bridge new step must be active");
+          bridge.getStep(gridPanel.getBaseTrackId() + newStoredRow, 0),
+          "Bridge new step must be active");
       assertEquals(
           0.8f,
-          bridge.getVelocity(gridPanel.getBaseTrackId() + 65, 0),
+          bridge.getVelocity(gridPanel.getBaseTrackId() + newStoredRow, 0),
           0.001f,
           "Bridge velocity must sync to new channel");
       assertEquals(
           1.0f,
-          bridge.getGate(gridPanel.getBaseTrackId() + 65, 0),
+          bridge.getGate(gridPanel.getBaseTrackId() + newStoredRow, 0),
           0.001f,
           "Bridge gate must sync to new channel");
+      assertEquals(
+          62,
+          bridge.getPitch(gridPanel.getBaseTrackId() + newStoredRow, 0),
+          "Bridge pitch must sync to 62");
     } finally {
       app.dispose();
       bridge.shutdown();

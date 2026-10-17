@@ -14,6 +14,7 @@ public class AudioTrackModel extends TrackModel {
 
   /** A single audio clip within this track. Mirrors the &lt;audioClip&gt; XML element. */
   public static class AudioClip {
+    private String clipName;
     private String trackName;
     private String filePath;
     private int startSamplePos;
@@ -56,6 +57,14 @@ public class AudioTrackModel extends TrackModel {
     private float eqTrebleFrequency = 0.0f;
 
     public AudioClip() {}
+
+    public String getClipName() {
+      return clipName;
+    }
+
+    public void setClipName(String v) {
+      this.clipName = v;
+    }
 
     public String getTrackName() {
       return trackName;

@@ -16,6 +16,9 @@ public class DelugeNoteDataMapper {
   /** noteDataWithLift format (c1.2.0): 11 bytes per note (22 hex chars). */
   public static final int HEX_CHARS_PER_NOTE_LIFT = 22;
 
+  /** noteDataWithIteranceAndFill format (c1.3-nightly): 13 bytes per note (26 hex chars). */
+  public static final int HEX_CHARS_PER_NOTE_ITERANCE_AND_FILL = 26;
+
   /** noteDataWithSplitProb format (1.3+): 14 bytes per note (28 hex chars). */
   public static final int HEX_CHARS_PER_NOTE_SPLIT = 28;
 
@@ -63,10 +66,18 @@ public class DelugeNoteDataMapper {
 
         int velInt = Math.round(step.velocity() * 127.0f);
         String hexVel = String.format("%02X", Math.max(0, Math.min(127, velInt)));
-        String hexFlags = "4014"; // Default flags/lift
-        String hexExtra = "000000"; // Split probability and iterance defaults
+        // C note_row.cpp:3607-3617 — lift (1B, default 0x40), probability (1B, 0..20 in split
+        // format where fill is in its own byte; positive values clamp to 1..20),
+        // iterance.toInt() (2B, 0x0000 when OFF/1of1), fill (1B, OFF=0, NOT_FILL=1, FILL=2)
+        int probByte =
+            step.probability() <= 0.0f
+                ? 0
+                : Math.max(1, Math.min(20, Math.round(step.probability() * 20.0f)));
+        int iteranceInt = step.playCondition() == 0x0101 ? 0 : (step.playCondition() & 0xFFFF);
+        int fillByte = step.fillMode() != 0 ? step.fillMode() : (step.fill() > 0.001f ? 2 : 0);
+        String hexTail = String.format("40%02X%04X%02X", probByte, iteranceInt, fillByte);
 
-        sb.append(hexPos).append(hexLen).append(hexVel).append(hexFlags).append(hexExtra);
+        sb.append(hexPos).append(hexLen).append(hexVel).append(hexTail);
       }
     }
     return sb.toString();
@@ -78,8 +89,8 @@ public class DelugeNoteDataMapper {
    * @param hex the hex-encoded noteData string
    * @param stepCount total steps in the clip (determines output list size)
    * @param ticksPerStep tick-per-step ratio of the source data (24 for firmware, 12 for our format)
-   * @param hexCharsPerNote number of hex chars per note (20 for old, 22 for noteDataWithLift, 28
-   *     for noteDataWithSplitProb)
+   * @param hexCharsPerNote number of hex chars per note (20 for old, 22 for noteDataWithLift, 26
+   *     for noteDataWithIteranceAndFill, 28 for noteDataWithSplitProb)
    */
   public static List<StepData> decodeRow(
       String hex, int stepCount, int ticksPerStep, int hexCharsPerNote) {
@@ -88,35 +99,33 @@ public class DelugeNoteDataMapper {
       row.add(StepData.empty());
     }
 
-    if (hex == null || !hex.startsWith("0x") || hex.length() < 2 + hexCharsPerNote) {
-      return row;
-    }
-
-    String data = hex.substring(2);
-    int idx = 0;
-    while (idx + hexCharsPerNote <= data.length()) {
-      String hexPos = data.substring(idx, idx + 8);
-      String hexLen = data.substring(idx + 8, idx + 16);
-      int pos = (int) Long.parseLong(hexPos, 16);
-      int len = (int) Long.parseLong(hexLen, 16);
-
+    List<org.deluge.model.NoteModel> rawNotes = decodeRawNotes(hex, hexCharsPerNote);
+    for (org.deluge.model.NoteModel nm : rawNotes) {
+      int pos = nm.getPos();
+      int len = nm.getLength();
       int step = pos / ticksPerStep;
       float nudge = (float) (pos % ticksPerStep) / ticksPerStep;
       float gate = (float) len / ticksPerStep;
-
-      // Parse velocity if available (byte at offset 16-17 in hex, i.e. hex chars 16-18)
-      float velocity = 0.8f;
-      if (hexCharsPerNote >= 22) {
-        String hexVel = data.substring(idx + 16, idx + 18);
-        int velInt = Integer.parseInt(hexVel, 16);
-        velocity = velInt / 127.0f;
-      }
+      float velocity = hexCharsPerNote >= 22 ? nm.getVelocity() : 0.8f;
+      int fillMode = nm.getFill();
+      float fill = fillMode == 2 ? 1.0f : 0.0f;
+      int playCondition = nm.getIterance() != null ? nm.getIterance().toInt() : 0;
 
       if (step >= 0 && step < stepCount) {
-        row.set(step, new org.deluge.model.StepData(true, velocity, gate, 1.0f, 0, 0, 0.0f, nudge));
+        row.set(
+            step,
+            new org.deluge.model.StepData(
+                true,
+                velocity,
+                gate,
+                nm.getProbability(),
+                0,
+                0,
+                fill,
+                nudge,
+                playCondition,
+                fillMode));
       }
-
-      idx += hexCharsPerNote;
     }
 
     return row;
@@ -136,14 +145,12 @@ public class DelugeNoteDataMapper {
 
       int pos = (int) Long.parseLong(hexPos, 16);
       int len = (int) Long.parseLong(hexLen, 16);
+      int velInt = Integer.parseInt(data.substring(idx + 16, idx + 18), 16);
+      float velocity = velInt / 127.0f;
 
-      float velocity = 0.8f;
-      if (hexCharsPerNote >= 22) {
-        String hexVel = data.substring(idx + 16, idx + 18);
-        int velInt = Integer.parseInt(hexVel, 16);
-        velocity = velInt / 127.0f;
-      }
-
+      // Probability, iterance, fill and lift: the one C port, decodePlayConditions
+      // (note_row.cpp:3384-3495), which keeps the C probability value including the
+      // follow-previous bit 128 that a float percentage cannot carry.
       org.deluge.model.NoteModel note = new org.deluge.model.NoteModel(pos, len, velocity, 1.0f, 0);
       decodePlayConditions(data.substring(idx, idx + hexCharsPerNote), hexCharsPerNote, note);
       list.add(note);
@@ -177,7 +184,8 @@ public class DelugeNoteDataMapper {
       lift = hexByte(h, 18, 2);
     } else if (noteHexLength == 26) { // if nightly firmware 1.3 with no custom iterances
       fill = hexByte(h, 24, 2);
-      iterance = org.deluge.model.Iterance.fromPresetIndex(hexByte(h, 22, 2));
+      iterance =
+          org.deluge.model.Iterance.fromLegacyPresetIndex(hexByte(h, 22, 2)); // note_row.cpp:3416
       probability = hexByte(h, 20, 2);
       lift = hexByte(h, 18, 2);
     } else {
@@ -195,7 +203,9 @@ public class DelugeNoteDataMapper {
       } else if (probability > kNumProbabilityValues
           && probability <= kNumProbabilityValues + org.deluge.model.Iterance.NUM_PRESETS) {
         fill = org.deluge.model.NoteModel.FILL_MODE_OFF;
-        iterance = org.deluge.model.Iterance.fromPresetIndex(probability - kNumProbabilityValues);
+        iterance =
+            org.deluge.model.Iterance.fromLegacyProbabilityByte(
+                probability); // note_row.cpp:3439, 3467
         probability = kNumProbabilityValues; // 100% probability
       } else {
         fill = org.deluge.model.NoteModel.FILL_MODE_OFF;
@@ -205,6 +215,16 @@ public class DelugeNoteDataMapper {
     }
     if (lift == 0 || lift > 127) {
       lift = kDefaultLiftValue;
+    }
+    // C note_row.cpp:3494-3499 — out-of-range probability falls back to 100%, fill to OFF. A value
+    // of 0 passes this clamp in the C too.
+    if ((probability & 127) > kNumProbabilityValues
+        || probability >= (kNumProbabilityValues | 128)) {
+      probability = kNumProbabilityValues;
+    }
+    if (fill < org.deluge.model.NoteModel.FILL_MODE_OFF
+        || fill > org.deluge.model.NoteModel.FILL_MODE_FILL) {
+      fill = org.deluge.model.NoteModel.FILL_MODE_OFF;
     }
 
     note.setProbabilityValue(probability);

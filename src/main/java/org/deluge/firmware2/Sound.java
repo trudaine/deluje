@@ -150,6 +150,19 @@ public class Sound extends GlobalEffectable {
   public int masterTranspose = 0;
 
   /**
+   * Sound-level master cents fine-tune (C {@code sound.cents} / {@code sound.fineTuner},
+   * sound.cpp:2979-2984, voice.cpp:509, 554).
+   */
+  public int masterCents = 0;
+
+  public final PhaseIncrementFineTuner masterFineTuner = new PhaseIncrementFineTuner();
+
+  public void setMasterCents(int cents) {
+    this.masterCents = cents;
+    masterFineTuner.setup(cents * 42949672);
+  }
+
+  /**
    * Per-oscillator semitone transpose (C {@code sources[s].transpose}, voice.cpp:439-442). Added to
    * the note code per source before computing the phase increment.
    */
@@ -520,7 +533,9 @@ public class Sound extends GlobalEffectable {
     params[Param.UNPATCHED_TREBLE_FREQ] = 0;
     params[Param.UNPATCHED_STUTTER_RATE] = 0;
     params[Param.UNPATCHED_MOD_FX_OFFSET] = 0; // C: mod_controllable_audio.cpp:131
-    params[Param.UNPATCHED_MOD_FX_FEEDBACK] = 0; // C: mod_controllable_audio.cpp:130
+    params[Param.UNPATCHED_MOD_FX_FEEDBACK] = 0; // C: mod_controllable_audio.cpp:132
+    params[Param.UNPATCHED_SIDECHAIN_SHAPE] = -601295438; // C: mod_controllable_audio.cpp:138
+    params[Param.UNPATCHED_COMPRESSOR_THRESHOLD] = 0; // C: mod_controllable_audio.cpp:139
   }
 
   /** C: sound.cpp:223-259 — preset that ships with new synths. */
@@ -799,12 +814,15 @@ public class Sound extends GlobalEffectable {
         }
 
         if (arpInstr.arpNoteOn != null) {
-          // C process_postarp_notes (sound.cpp:2340-2360) — EVERY entry until ARP_NOTE_NONE plays
-          // (chord/octave arp modes emit several), each at the arp note's real velocity.
+          // C process_postarp_notes (sound.cpp:2354-2375) — EVERY pending entry until ARP_NOTE_NONE
+          // plays (chord/octave arp modes emit several), each at the arp note's real velocity.
           for (int n = 0; n < arpInstr.arpNoteOn.noteCodeOnPostArp.length; n++) {
             int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[n];
             if (noteOn == Arpeggiator.ARP_NOTE_NONE) {
               break;
+            }
+            if (arpInstr.arpNoteOn.noteStatus[n] != Arpeggiator.ArpNoteStatus.PENDING) {
+              continue;
             }
             triggerVoice(noteOn, arpInstr.arpNoteOn.velocity, -1);
             arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
@@ -883,12 +901,17 @@ public class Sound extends GlobalEffectable {
         break;
       }
     }
-    int postFXVal =
+    // C: patcher.cpp:210-233 — even with no patch cables (destination == nullptr),
+    // combineCablesLinear folds the stored knob through cableToLinearParamWithoutRangeAdjustment
+    // (range = 2^30, shifting knob >> 2 into [-2^29, +2^29]) before getFinalParameterValueVolume.
+    // Passing postFXKnob raw skipped that >> 2 and clamped every knob >= 0x20000000 to max.
+    int postFXVolume =
         (dFx != null)
-            ? Patcher.combineCablesLinear(dFx, postFXKnob, globalSourceValues)
-            : postFXKnob;
-    int neutralFX = Functions.getParamNeutralValue(Param.GLOBAL_VOLUME_POST_FX);
-    int[] postFXVolumeHolder = {Functions.getFinalParameterValueVolume(neutralFX, postFXVal)};
+            ? Functions.getFinalParameterValueVolume(
+                Functions.getParamNeutralValue(Param.GLOBAL_VOLUME_POST_FX),
+                Patcher.combineCablesLinear(dFx, postFXKnob, globalSourceValues))
+            : Patcher.computeFinalValueForParam(Param.GLOBAL_VOLUME_POST_FX, postFXKnob);
+    int[] postFXVolumeHolder = {postFXVolume};
     int[] postReverbVolumeHolder = {2147483647};
 
     srrBitcrush.process(fxIntBuffer, numSamples, bitcrushParam, srrParam, postFXVolumeHolder);
@@ -972,13 +995,13 @@ public class Sound extends GlobalEffectable {
         break;
       }
     }
-    int postReverbVal =
-        (dReverb != null)
-            ? Patcher.combineCablesLinear(dReverb, postReverbKnob, globalSourceValues)
-            : postReverbKnob;
-    int neutralReverb = Functions.getParamNeutralValue(Param.GLOBAL_VOLUME_POST_REVERB_SEND);
     postReverbVolumeHolder[0] =
-        Functions.getFinalParameterValueVolume(neutralReverb, postReverbVal);
+        (dReverb != null)
+            ? Functions.getFinalParameterValueVolume(
+                Functions.getParamNeutralValue(Param.GLOBAL_VOLUME_POST_REVERB_SEND),
+                Patcher.combineCablesLinear(dReverb, postReverbKnob, globalSourceValues))
+            : Patcher.computeFinalValueForParam(
+                Param.GLOBAL_VOLUME_POST_REVERB_SEND, postReverbKnob);
 
     super.postFXVolume = postFXVolumeHolder[0];
     super.postReverbVolume = postReverbVolumeHolder[0];

@@ -6,7 +6,6 @@ import java.util.List;
 import org.deluge.engine.DroneLabGenerator;
 import org.deluge.engine.FirmwareFactory;
 import org.deluge.engine.FirmwareSound;
-import org.deluge.firmware2.StereoSample;
 import org.deluge.model.ClipModel;
 import org.deluge.model.NoteModel;
 import org.deluge.model.ProjectModel;
@@ -76,21 +75,22 @@ public class DroneLabIntegrationTest {
     assertEquals(1, totalNotesInFw, "Sequencer must detect exactly 1 compiled note event");
 
     // ── ASSERTION 5: Audio Output, Headroom & Soft-Clipping Saturation (Bug #5) ──
-    // Instantiate the DSP synthesizer voice and render 1 second of audio.
+    // Instantiate the DSP synthesizer voice and render 1 second of audio through
+    // FirmwareAudioEngine (matching JavaAudioDriver's real renderBlock -> masterBuffer path).
     FirmwareSound sound = (FirmwareSound) fwClip.sound;
     FirmwareFactory.applyModelToLiveSound(track, sound);
     sound.syncParamsToFw2();
     sound.triggerNote(36, 108); // Trigger the C2 drone note
 
+    org.deluge.engine.FirmwareAudioEngine engine = new org.deluge.engine.FirmwareAudioEngine();
+    engine.metronomeEnabled = false;
+    engine.syncMasterEffects(project);
+    engine.sounds.add(sound);
+
     int sampleRate = 44100;
     int blockSamples = 128;
     int totalSamples = sampleRate * 1; // 1 second
     int blocksToRender = totalSamples / blockSamples;
-
-    StereoSample[] block = new StereoSample[blockSamples];
-    for (int i = 0; i < blockSamples; i++) {
-      block[i] = new StereoSample();
-    }
 
     double peakL = 0.0;
     double peakR = 0.0;
@@ -101,17 +101,12 @@ public class DroneLabIntegrationTest {
     int monitorGainMul = 128;
 
     for (int b = 0; b < blocksToRender; b++) {
-      for (int i = 0; i < blockSamples; i++) {
-        block[i].l = 0;
-        block[i].r = 0;
-      }
-
-      sound.renderOutput(block, blockSamples, null);
+      engine.renderBlock(blockSamples);
 
       for (int i = 0; i < blockSamples; i++) {
         // Convert internal Q31 to float
-        float xL = (float) block[i].l / 2147483648.0f;
-        float xR = (float) block[i].r / 2147483648.0f;
+        float xL = (float) engine.masterBuffer[i].l / 2147483648.0f;
+        float xR = (float) engine.masterBuffer[i].r / 2147483648.0f;
 
         // Apply 128x boost in the float domain
         float boostedL = xL * monitorGainMul;
