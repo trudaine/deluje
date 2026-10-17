@@ -19,6 +19,17 @@ import org.junit.jupiter.api.Test;
  */
 public class GridSizingNoClippingTest {
 
+  private static java.awt.Dimension findViewportSize(SwingGridPanel grid) {
+    java.awt.Container p = grid.getParent();
+    while (p != null) {
+      if (p instanceof javax.swing.JViewport vp) {
+        return vp.getSize();
+      }
+      p = p.getParent();
+    }
+    return null;
+  }
+
   private void assertNoClipping(SwingGridPanel grid, String label) throws Exception {
     // Force a real resize event (matching what an interactive window resize triggers), since a
     // one-shot setSize() before the frame settles can leave stale, pre-final-layout measurements.
@@ -30,19 +41,46 @@ public class GridSizingNoClippingTest {
           app.setSize(app.getWidth() + 1, app.getHeight());
           app.validate();
         });
-    Thread.sleep(150);
 
-    java.awt.Dimension gridSize = grid.getSize();
-    java.awt.Container p = grid.getParent();
-    java.awt.Dimension vpSize = null;
-    while (p != null) {
-      if (p instanceof javax.swing.JViewport vp) {
-        vpSize = vp.getSize();
+    // Poll until the async window-manager resize event settles on the EDT (or 2 s passes) instead
+    // of sleeping a fixed 150 ms, which flakes on loaded CI runners (issue #26).
+    java.awt.Dimension[] sizes = new java.awt.Dimension[2];
+    int[] padSzRef = new int[1];
+    long deadline = System.nanoTime() + 2_000_000_000L;
+    while (true) {
+      javax.swing.SwingUtilities.invokeAndWait(
+          () -> {
+            app.validate();
+            sizes[0] = grid.getSize();
+            sizes[1] = findViewportSize(grid);
+            padSzRef[0] = grid.cachedPadSz;
+          });
+      java.awt.Dimension gridSize = sizes[0];
+      java.awt.Dimension vpSize = sizes[1];
+      if (vpSize != null
+          && vpSize.width > 0
+          && vpSize.height > 0
+          && gridSize.width > 0
+          && gridSize.height > 0
+          && gridSize.height <= vpSize.height
+          && gridSize.width <= vpSize.width) {
         break;
       }
-      p = p.getParent();
+      if (System.nanoTime() >= deadline) {
+        break;
+      }
+      Thread.sleep(15);
     }
+
+    java.awt.Dimension gridSize = sizes[0];
+    java.awt.Dimension vpSize = sizes[1];
     assertNotNull(vpSize, label + ": grid must be inside a JViewport");
+    assertTrue(
+        vpSize.width > 0 && vpSize.height > 0,
+        label + ": viewport must have positive size, was " + vpSize);
+    assertTrue(
+        gridSize.width > 0 && gridSize.height > 0,
+        label + ": grid must have positive size, was " + gridSize);
     assertTrue(
         gridSize.height <= vpSize.height,
         label
@@ -51,7 +89,7 @@ public class GridSizingNoClippingTest {
             + " must not exceed viewport height "
             + vpSize.height
             + " (cachedPadSz="
-            + grid.cachedPadSz
+            + padSzRef[0]
             + ")");
     assertTrue(
         gridSize.width <= vpSize.width,
@@ -66,7 +104,9 @@ public class GridSizingNoClippingTest {
   public void testNoClippingAcrossGridModesAndWindowSizes() throws Exception {
     System.setProperty("chuck.audio.dummy", "true");
     BridgeContract bridge = new BridgeContract();
-    SwingDelugeApp app = new SwingDelugeApp(bridge, null);
+    SwingDelugeApp[] appRef = new SwingDelugeApp[1];
+    javax.swing.SwingUtilities.invokeAndWait(() -> appRef[0] = new SwingDelugeApp(bridge, null));
+    SwingDelugeApp app = appRef[0];
     try {
       SwingGridPanel grid = app.getClipPanel();
       PreferencesManager.GridMode[] modes = {
@@ -75,20 +115,23 @@ public class GridSizingNoClippingTest {
         PreferencesManager.GridMode.GRID_24x16
       };
 
-      app.setSize(1920, 1080);
-      app.setVisible(true);
+      javax.swing.SwingUtilities.invokeAndWait(
+          () -> {
+            app.setSize(1920, 1080);
+            app.setVisible(true);
+          });
       for (PreferencesManager.GridMode mode : modes) {
-        app.updateGlobalGridMode(mode);
+        javax.swing.SwingUtilities.invokeAndWait(() -> app.updateGlobalGridMode(mode));
         assertNoClipping(grid, "1920x1080 " + mode);
       }
 
       javax.swing.SwingUtilities.invokeAndWait(() -> app.setSize(1280, 800));
       for (PreferencesManager.GridMode mode : modes) {
-        app.updateGlobalGridMode(mode);
+        javax.swing.SwingUtilities.invokeAndWait(() -> app.updateGlobalGridMode(mode));
         assertNoClipping(grid, "1280x800 " + mode);
       }
     } finally {
-      app.dispose();
+      javax.swing.SwingUtilities.invokeAndWait(app::dispose);
       bridge.shutdown();
     }
   }
@@ -139,25 +182,43 @@ public class GridSizingNoClippingTest {
   public void testTopPanelHeightIsCappedOnWideWindows() throws Exception {
     System.setProperty("chuck.audio.dummy", "true");
     BridgeContract bridge = new BridgeContract();
-    SwingDelugeApp app = new SwingDelugeApp(bridge, null);
+    SwingDelugeApp[] appRef = new SwingDelugeApp[1];
+    javax.swing.SwingUtilities.invokeAndWait(() -> appRef[0] = new SwingDelugeApp(bridge, null));
+    SwingDelugeApp app = appRef[0];
     try {
-      app.setSize(1920, 1080);
-      app.setVisible(true);
       javax.swing.SwingUtilities.invokeAndWait(
           () -> {
+            app.setSize(1920, 1080);
+            app.setVisible(true);
             app.setSize(1919, 1079);
             app.validate();
             app.setSize(1920, 1080);
             app.validate();
           });
-      Thread.sleep(150);
 
-      int topHeight = app.hardwareTopPanel.getHeight();
+      int[] topHeightRef = new int[1];
+      long deadline = System.nanoTime() + 2_000_000_000L;
+      while (true) {
+        javax.swing.SwingUtilities.invokeAndWait(
+            () -> {
+              app.validate();
+              topHeightRef[0] = app.hardwareTopPanel.getHeight();
+            });
+        if (topHeightRef[0] > 0 && topHeightRef[0] <= 400) {
+          break;
+        }
+        if (System.nanoTime() >= deadline) {
+          break;
+        }
+        Thread.sleep(15);
+      }
+
+      int topHeight = topHeightRef[0];
       assertTrue(
-          topHeight <= 400,
+          topHeight > 0 && topHeight <= 400,
           "Top faceplate panel height must be capped on wide windows, was " + topHeight);
     } finally {
-      app.dispose();
+      javax.swing.SwingUtilities.invokeAndWait(app::dispose);
       bridge.shutdown();
     }
   }
