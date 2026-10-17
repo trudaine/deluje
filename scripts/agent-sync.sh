@@ -50,22 +50,22 @@ truncated() { # $1 = label, $2 = JSON array
 # Copilot reports findings in THREE places, and line comments are only one:
 #   1. line comments            gh api repos/R/pulls/N/comments
 #   2. a collapsed "Suppressed comments" block in the review body
-#   3. the overview in the review body: "Open (N)" and "Previously missed (N)".
-#      "Previously missed" items have NO line comment at all.
+#   3. the overview in the review body: "Open (N)" / "N open issue(s)" and
+#      "Previously missed (N)". "Previously missed" items have NO line comment.
 # Counting line comments alone can report a review as clean while its body
 # carries an open or previously missed finding. So read the counts from the body.
 review_counts() { # $1 = one review as JSON -> "OPEN MISSED"
-  jq -r '((.body | capture("Open \\((?<x>[0-9]+)\\)") | .x)? // "0") + " "
+  jq -r '((.body | capture("(Open \\((?<x>[0-9]+)\\)|(?<x>[0-9]+) open issues?)") | .x)? // "0") + " "
        + ((.body | capture("Previously missed \\((?<x>[0-9]+)\\)") | .x)? // "0")' <<<"$1"
 }
 review_titles() { # $1 = one review as JSON: titles of the OPEN and PREVIOUSLY MISSED items only
-  # The body lists Open, then "Resolved since last review", then Previously missed.
-  # Resolved items are not open, so skip that section.
+  # The body lists Open ("Open (N)" or "N open issue(s)"), then "Resolved since last review",
+  # then "Previously missed". Resolved items are not open, so skip that section.
   jq -r '.body' <<<"$1" |
-    awk '/<strong>Open \(/ {sec="o"} /Resolved since last review/ {sec="r"} /Previously missed/ {sec="m"}
+    awk '/<strong>([0-9]+ )?[Oo]pen( issues?|\()/ {sec="o"} /Resolved since last review/ {sec="r"} /Previously missed/ {sec="m"}
          /<strong>What changed|<strong>Walkthrough/ {sec="x"} sec=="o" || sec=="m" {print}' |
-    { grep -oE '\[[^]]{6,160}\]\(#discussion|</picture> [^<]{6,160}</summary>' || true; } |
-    sed -E 's/^\[//; s/\]\(#discussion$//; s/^<\/picture> //; s/<\/summary>$//' |
+    { grep -oE '\[[^]]{6,160}\]\((https://github\.com/[^)]+)?#discussion|</picture> [^<]{6,160}</summary>' || true; } |
+    sed -E 's/^\[//; s/\]\((https:\/\/github\.com\/[^)]+)?#discussion$//; s/^<\/picture> //; s/<\/summary>$//' |
     awk '!seen[$0]++' | head -12 | sed 's/^/      - /'
 }
 # Last Copilot review in a JSON array of reviews (oldest first, as GitHub returns them).
@@ -106,22 +106,29 @@ if OPEN="$(gh api "repos/$REPO/pulls?state=open&per_page=100" --paginate | jq -s
       fi
       if ! RAW="$(gh api "repos/$REPO/pulls/$N/reviews" --paginate)"; then
         unverified "#$N reviews"
-        echo "#$N $BRANCH | $TITLE | last push ${PUSHED:11:5}"
+        echo "#$N $BRANCH | $TITLE | head ${SHA:0:8} (${PUSHED:11:5})"
         continue
       fi
       REVIEWS="$(jq -s '[.[][] | select(.user.login | test("copilot"; "i"))]' <<<"$RAW")"
       LAST="$(last_review "$REVIEWS")"
       if [ -z "$LAST" ]; then
-        echo "#$N $BRANCH | $TITLE | last push ${PUSHED:11:5} | NO Copilot review yet"
+        echo "#$N $BRANCH | $TITLE | head ${SHA:0:8} (${PUSHED:11:5}) | NO Copilot review yet"
       else
-        read -r O M <<<"$(review_counts "$LAST")"
-        HEADLINE="$(review_headline "$LAST")"
         RAT="$(jq -r '.submitted_at' <<<"$LAST")"
+        REVIEW_SHA="$(jq -r '.commit_id // ""' <<<"$LAST")"
         STALE=""
-        [ "$PUSHED" \> "$RAT" ] && STALE="  <-- latest push has NOT been reviewed"
-        echo "#$N $BRANCH | $TITLE | last push ${PUSHED:11:5}, last Copilot review ${RAT:11:5} | open=$O missed=$M$STALE"
-        if [ "$O" -gt 0 ] || [ "$M" -gt 0 ]; then review_titles "$LAST"; fi
-        [ -n "$HEADLINE" ] && echo "      overview: $HEADLINE"
+        if [ -n "$REVIEW_SHA" ] && [ "$REVIEW_SHA" != "$SHA" ]; then
+          STALE="  <-- latest push has NOT been reviewed (reviewed ${REVIEW_SHA:0:8}, head is ${SHA:0:8})"
+        fi
+        if jq -e '.body | test("unable to review")' >/dev/null <<<"$LAST"; then
+          echo "#$N $BRANCH | $TITLE | head ${SHA:0:8}, last Copilot review ${RAT:11:5} | ERRORED (unable to review — request another Copilot review)$STALE"
+        else
+          read -r O M <<<"$(review_counts "$LAST")"
+          HEADLINE="$(review_headline "$LAST")"
+          echo "#$N $BRANCH | $TITLE | head ${SHA:0:8}, last Copilot review ${RAT:11:5} | open=$O missed=$M$STALE"
+          if [ "$O" -gt 0 ] || [ "$M" -gt 0 ]; then review_titles "$LAST"; fi
+          [ -n "$HEADLINE" ] && echo "      overview: $HEADLINE"
+        fi
       fi
     done < <(jq -r '.[] | [.number, .head.ref, .title[0:70], .head.sha] | @tsv' <<<"$OPEN")
   fi

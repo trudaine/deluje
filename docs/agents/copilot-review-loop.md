@@ -62,17 +62,17 @@ gh api repos/trudaine/deluje/pulls/$N/reviews \
   | sed -n '/Suppressed/,/<\/details>/p'
 ```
 
-### 3. The overview (`Open (N)` and `Previously missed (N)`)
+### 3. The overview (`Open (N)` / `N open issues` and `Previously missed (N)`)
 Every review body starts with an overview (`<!-- ccr-overview-v2 -->`) that lists findings by title
-under `Open (N)`, `Resolved since last review`, and `Previously missed (N)`. Items under
-*Previously missed* have **no line comment at all**, so reading only line comments and the
-suppressed block will not show them.
+under `Open (N)` (or `N open issue(s)`), `Resolved since last review`, and `Previously missed (N)`.
+Items under *Previously missed* have **no line comment at all**, so reading only line comments and
+the suppressed block will not show them.
 
 ```bash
 N=6
 gh api repos/trudaine/deluje/pulls/$N/reviews \
   --jq '[.[]|select(.user.login|test("copilot";"i"))]|.[-1].body' \
-  | grep -E 'Approval recommended|Changes recommended|Needs a closer look|Open \(|Previously missed \('
+  | grep -E 'Approval recommended|Changes recommended|Needs a closer look|open issues?|Open \(|Previously missed \('
 ```
 
 `scripts/agent-sync.sh` prints these counts and titles for every open PR and every PR merged in the
