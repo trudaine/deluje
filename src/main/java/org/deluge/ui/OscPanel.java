@@ -49,19 +49,18 @@ public class OscPanel extends JPanel {
     // STRETCH stays listed so files carrying it load and save unchanged, but its tempo-synced
     // stretch is not ported yet (issue #33): it plays like CUT. Say so where it is chosen.
     String loopModeTip =
-        "Sample repeat mode. STRETCH (fit to note length) is not implemented yet and plays like"
-            + " CUT (issue #33).";
+        "Sample repeat mode: CUT stops at note-off, ONCE plays to the end ignoring note-off, LOOP"
+            + " repeats. STRETCH (fit to note length) is not implemented yet and plays like CUT"
+            + " (issue #33).";
 
     JComboBox<String> osc1LoopCombo = new JComboBox<>(loopModes);
-    osc1LoopCombo.setToolTipText(loopModeTip);
     osc1LoopCombo.setSelectedIndex(model.getOsc1LoopMode());
     osc1LoopCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     osc1LoopCombo.setForeground(Color.WHITE);
-    osc1LoopCombo.setToolTipText(
-        "Sample playback loop mode: OFF = play once, LOOP = repeat, ONESHOT = play entire sample ignoring note-off");
+    osc1LoopCombo.setToolTipText(loopModeTip);
     SwingSynthConfigDialog.attachHoverHelp(
         osc1LoopCombo,
-        "<b>OSC 1 LOOP MODE:</b> Sample playback loop mode (OFF = play once, LOOP = repeat, ONESHOT = play entire sample ignoring note-off). — <i>Physical Deluge:</i> Press shift + turn first top encoder in sample editor.");
+        "<b>OSC 1 LOOP MODE:</b> Sample repeat mode (CUT = stops at note-off, ONCE = plays to the end ignoring note-off, LOOP = repeats, STRETCH = fit to note length, not implemented yet: plays like CUT). — <i>Physical Deluge:</i> Press shift + turn first top encoder in sample editor.");
     osc1LoopCombo.addActionListener(
         e -> {
           int idx = osc1LoopCombo.getSelectedIndex();
@@ -112,15 +111,13 @@ public class OscPanel extends JPanel {
         });
 
     JComboBox<String> osc2LoopCombo = new JComboBox<>(loopModes);
-    osc2LoopCombo.setToolTipText(loopModeTip);
     osc2LoopCombo.setSelectedIndex(model.getOsc2LoopMode());
     osc2LoopCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     osc2LoopCombo.setForeground(Color.WHITE);
-    osc2LoopCombo.setToolTipText(
-        "Sample playback loop mode: OFF = play once, LOOP = repeat, ONESHOT = play entire sample ignoring note-off");
+    osc2LoopCombo.setToolTipText(loopModeTip);
     SwingSynthConfigDialog.attachHoverHelp(
         osc2LoopCombo,
-        "<b>OSC 2 LOOP MODE:</b> Sample playback loop mode (OFF = play once, LOOP = repeat, ONESHOT = play entire sample ignoring note-off). — <i>Physical Deluge:</i> Press shift + turn first top encoder in sample editor.");
+        "<b>OSC 2 LOOP MODE:</b> Sample repeat mode (CUT = stops at note-off, ONCE = plays to the end ignoring note-off, LOOP = repeats, STRETCH = fit to note length, not implemented yet: plays like CUT). — <i>Physical Deluge:</i> Press shift + turn first top encoder in sample editor.");
     osc2LoopCombo.addActionListener(
         e -> {
           int idx = osc2LoopCombo.getSelectedIndex();
@@ -276,7 +273,7 @@ public class OscPanel extends JPanel {
     osc1LoopLabel.setToolTipText(osc1LoopCombo.getToolTipText());
     SwingSynthConfigDialog.attachHoverHelp(
         osc1LoopLabel,
-        "<b>OSC 1 LOOP MODE:</b> Sample playback loop mode (OFF = play once, LOOP = repeat, ONESHOT = play entire sample ignoring note-off). — <i>Physical Deluge:</i> Press shift + turn first top encoder in sample editor.");
+        "<b>OSC 1 LOOP MODE:</b> Sample repeat mode (CUT = stops at note-off, ONCE = plays to the end ignoring note-off, LOOP = repeats, STRETCH = fit to note length, not implemented yet: plays like CUT). — <i>Physical Deluge:</i> Press shift + turn first top encoder in sample editor.");
     leftPanel.add(osc1LoopLabel, cLeft);
     cLeft.gridx = 1;
     cLeft.gridwidth = 2;
@@ -399,7 +396,7 @@ public class OscPanel extends JPanel {
     osc2LoopLabel.setToolTipText(osc2LoopCombo.getToolTipText());
     SwingSynthConfigDialog.attachHoverHelp(
         osc2LoopLabel,
-        "<b>OSC 2 LOOP MODE:</b> Sample playback loop mode (OFF = play once, LOOP = repeat, ONESHOT = play entire sample ignoring note-off). — <i>Physical Deluge:</i> Press shift + turn first top encoder in sample editor.");
+        "<b>OSC 2 LOOP MODE:</b> Sample repeat mode (CUT = stops at note-off, ONCE = plays to the end ignoring note-off, LOOP = repeats, STRETCH = fit to note length, not implemented yet: plays like CUT). — <i>Physical Deluge:</i> Press shift + turn first top encoder in sample editor.");
     rightPanel.add(osc2LoopLabel, cRight);
     cRight.gridx = 1;
     cRight.gridwidth = 2;
