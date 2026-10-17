@@ -41,6 +41,11 @@ public class EngineSyncCoordinator {
     }
   }
 
+  /** Whether an engine row mapping has been computed for the current project. */
+  public boolean hasMapping() {
+    return mapping != null;
+  }
+
   /** Get the starting engine row index for a given track. */
   public int getTrackEngineStart(int trackId) {
     TrackEngineMapping m = mapping;
@@ -87,9 +92,10 @@ public class EngineSyncCoordinator {
         voices = ((KitTrackModel) tracks.get(t)).getDrums().size();
       } else if (tracks.get(t) instanceof SynthTrackModel synth) {
         voices = 8;
-        int activeClipIdx = synth.getActiveClipIndex();
-        if (activeClipIdx >= 0 && activeClipIdx < synth.getClips().size()) {
-          voices = Math.max(voices, synth.getClips().get(activeClipIdx).getRowCount());
+        for (ClipModel clip : synth.getClips()) {
+          if (clip != null) {
+            voices = Math.max(voices, clip.getRowCount());
+          }
         }
       } else {
         voices = 8;

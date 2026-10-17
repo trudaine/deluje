@@ -259,9 +259,8 @@ public class ClipGridPanel extends SwingGridPanel {
     for (int v = 0; v < gridMode.rows; v++) {
       int modelRow = getModelRow(v);
       if (modelRow >= 0 && modelRow < voiceRowCount) {
-        int engineROffset = getEngineRowOffset(modelRow);
-        int engineR = baseTrackId + engineROffset;
-        boolean isMuted = bridge != null && bridge.getMute(engineR);
+        int engineR = getAllocatedEngineRow(modelRow);
+        boolean isMuted = engineR >= 0 && bridge != null && bridge.getMute(engineR);
 
         for (int c = 0; c < columnCount; c++) {
           JButton clipBtn = pads[v][c];
@@ -1040,8 +1039,8 @@ public class ClipGridPanel extends SwingGridPanel {
               }
             });
       } else {
-        int engineRow = baseTrackId + modelRow;
-        boolean isMuted = bridge != null && bridge.getMute(engineRow);
+        int engineRow = getAllocatedEngineRow(modelRow);
+        boolean isMuted = engineRow >= 0 && bridge != null && bridge.getMute(engineRow);
 
         int activeCol;
         int curTrackLen = bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount;
@@ -1610,9 +1609,11 @@ public class ClipGridPanel extends SwingGridPanel {
     org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
     if (activeClipId >= track.getClips().size()) return;
     org.deluge.model.ClipModel clip = track.getClips().get(activeClipId);
+    int clipRow = getClipRowIndex(clip, modelRow, false);
+    if (clipRow < 0) return;
 
     // Get the NoteRowModel
-    org.deluge.model.NoteRowModel rowModel = clip.noteRows.get(modelRow);
+    org.deluge.model.NoteRowModel rowModel = clip.noteRows.get(clipRow);
     if (rowModel == null || rowModel.notes.isEmpty()) return;
 
     int stepTicks = 24; // Sixteenth note step
@@ -1628,16 +1629,17 @@ public class ClipGridPanel extends SwingGridPanel {
     org.deluge.model.StepData[] shiftedSteps = new org.deluge.model.StepData[clip.getStepCount()];
     for (int s = 0; s < clip.getStepCount(); s++) {
       int srcIdx = (s - (shift / 24) + clip.getStepCount()) % clip.getStepCount();
-      shiftedSteps[s] = clip.getStep(modelRow, srcIdx);
+      shiftedSteps[s] = clip.getStep(clipRow, srcIdx);
     }
     for (int s = 0; s < clip.getStepCount(); s++) {
-      clip.setStep(modelRow, s, shiftedSteps[s]);
+      clip.setStep(clipRow, s, shiftedSteps[s]);
     }
 
     if (SwingDelugeApp.mainInstance != null) {
       SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(
           "ROTA", right ? "RGHT" : "LEFT");
       SwingDelugeApp.mainInstance.getSyncCoordinator().pushModelToBridge();
+      restoreEditedClipInBridge();
     }
 
     refreshKeyplayInPlace();
@@ -1651,8 +1653,10 @@ public class ClipGridPanel extends SwingGridPanel {
     org.deluge.model.ClipModel clip = track.getClips().get(activeClipId);
 
     if (track instanceof org.deluge.model.KitTrackModel) return;
+    int clipRow = getClipRowIndex(clip, modelRow, false);
+    if (clipRow < 0) return;
 
-    int currentPitch = clip.getRowYNote(modelRow);
+    int currentPitch = clip.getRowYNote(clipRow);
     if (currentPitch == -1) {
       currentPitch = getRowPitch(modelRow);
     }
@@ -1670,14 +1674,14 @@ public class ClipGridPanel extends SwingGridPanel {
       return;
     }
 
-    clip.setRowYNote(modelRow, newPitch);
+    clip.setRowYNote(clipRow, newPitch);
 
     for (int s = 0; s < clip.getStepCount(); s++) {
-      org.deluge.model.StepData step = clip.getStep(modelRow, s);
+      org.deluge.model.StepData step = clip.getStep(clipRow, s);
       if (step != null && step.active()) {
         // Only the pitch changes — preserve every other per-step property (iterance, fill,
         // nudge, playCondition as well as velocity/gate/probability).
-        clip.setStep(modelRow, s, step.withPitch(newPitch));
+        clip.setStep(clipRow, s, step.withPitch(newPitch));
       }
     }
 
@@ -1687,6 +1691,7 @@ public class ClipGridPanel extends SwingGridPanel {
     if (SwingDelugeApp.mainInstance != null) {
       SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient("TRSP", noteName);
       SwingDelugeApp.mainInstance.getSyncCoordinator().pushModelToBridge();
+      restoreEditedClipInBridge();
     }
 
     refreshKeyplayInPlace();

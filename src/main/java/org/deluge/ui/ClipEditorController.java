@@ -507,7 +507,9 @@ public class ClipEditorController {
         if (editedModelTrack < fwEngine.sounds.size() && !parent.isSequencerPlaying()) {
           GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
           if (sound instanceof FirmwareKit kit) {
-            kit.triggerDrum(engineRowOffset, 127);
+            if (engineRowOffset >= 0 && engineRowOffset < kit.drumSounds.size()) {
+              kit.triggerDrum(engineRowOffset, 127);
+            }
           }
         }
       }
@@ -526,7 +528,7 @@ public class ClipEditorController {
       if (editedModelTrack < fwEngine.sounds.size()) {
         GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
         if (sound instanceof FirmwareKit kit) {
-          if (engineRowOffset < kit.drumSounds.size()) {
+          if (engineRowOffset >= 0 && engineRowOffset < kit.drumSounds.size()) {
             kit.drumSounds.get(engineRowOffset).releaseNote(60);
           }
         } else if (sound instanceof FirmwareSound synth) {
@@ -543,7 +545,7 @@ public class ClipEditorController {
     int visualModelRow = parent.getModelRow(row);
     int activeCol = parent.getActiveCol(row, col);
     int baseTrackId = getBaseTrackId();
-    boolean isSynthMode = isSynthOrKit(bridge.getTrackType(baseTrackId));
+    boolean isSynthMode = baseTrackId >= 0 ? isSynthOrKit(bridge.getTrackType(baseTrackId)) : true;
 
     StepData oldStep = null;
     ClipModel cModel = null;
@@ -557,12 +559,11 @@ public class ClipEditorController {
       }
     }
 
-    int engineRowOffset = parent.getEngineRowOffset(visualModelRow);
-    int engineRow = baseTrackId + engineRowOffset;
+    int engineRow = parent.getAllocatedEngineRow(visualModelRow);
     boolean stepState =
         cModel != null
             ? (oldStep != null && oldStep.active())
-            : bridge.getStep(engineRow, activeCol);
+            : (engineRow >= 0 && bridge.getStep(engineRow, activeCol));
     boolean nextState = !stepState;
 
     if (nextState && cModel != null) {
@@ -570,8 +571,10 @@ public class ClipEditorController {
         return;
       }
       baseTrackId = getBaseTrackId();
-      engineRowOffset = parent.getEngineRowOffset(visualModelRow);
-      engineRow = baseTrackId + engineRowOffset;
+      isSynthMode = baseTrackId >= 0 ? isSynthOrKit(bridge.getTrackType(baseTrackId)) : isSynthMode;
+      engineRow = parent.getAllocatedEngineRow(visualModelRow);
+    } else if (cModel == null && engineRow < 0) {
+      return;
     }
 
     if (cModel != null && SwingGridPanel.isCrossScreenWrapActive) {
@@ -581,14 +584,19 @@ public class ClipEditorController {
       int pitch = isSynthMode ? parent.getRowPitch(visualModelRow) : 0;
       for (int c = baseCol; c < trackLen; c += 16) {
         StepData oldSt = parent.getClipStep(cModel, visualModelRow, c);
-        bridge.setStep(engineRow, c, nextState);
+        if (engineRow >= 0) {
+          bridge.setStep(engineRow, c, nextState);
+        }
+        float curVel =
+            engineRow >= 0
+                ? (float) bridge.getVelocity(engineRow, c)
+                : (oldSt != null && oldSt.active() ? oldSt.velocity() : 0.8f);
+        float curProb =
+            engineRow >= 0
+                ? (float) bridge.getStepProbability(engineRow, c)
+                : (oldSt != null && oldSt.active() ? oldSt.probability() : 1.0f);
         StepData newSt =
-            StepData.of(
-                nextState,
-                (float) bridge.getVelocity(engineRow, c),
-                StepData.DEFAULT_CLICK_GATE,
-                (float) bridge.getStepProbability(engineRow, c),
-                pitch);
+            StepData.of(nextState, curVel, StepData.DEFAULT_CLICK_GATE, curProb, pitch);
         parent.setClipStep(cModel, visualModelRow, c, newSt);
         if (oldSt != null && getProjectModel() != null) {
           steps.add(
@@ -608,10 +616,18 @@ public class ClipEditorController {
             .push(new Consequence.CompoundConsequence("Toggle Step Wrap", steps));
       }
     } else {
-      bridge.setStep(engineRow, activeCol, nextState);
+      if (engineRow >= 0) {
+        bridge.setStep(engineRow, activeCol, nextState);
+      }
       if (cModel != null) {
-        double curVel = bridge.getVelocity(engineRow, activeCol);
-        double curProb = bridge.getStepProbability(engineRow, activeCol);
+        double curVel =
+            engineRow >= 0
+                ? bridge.getVelocity(engineRow, activeCol)
+                : (oldStep != null && oldStep.active() ? oldStep.velocity() : 0.8);
+        double curProb =
+            engineRow >= 0
+                ? bridge.getStepProbability(engineRow, activeCol)
+                : (oldStep != null && oldStep.active() ? oldStep.probability() : 1.0);
         int pitch = isSynthMode ? parent.getRowPitch(visualModelRow) : 0;
         StepData newStep =
             StepData.of(
@@ -665,19 +681,41 @@ public class ClipEditorController {
       return;
     }
     int baseTrackId = getBaseTrackId();
-    int engineRowOffset = parent.getEngineRowOffset(visualModelRow);
-    int engineRow = baseTrackId + engineRowOffset;
-    boolean isSynthMode = isSynthOrKit(bridge.getTrackType(baseTrackId));
+    int engineRow = parent.getAllocatedEngineRow(visualModelRow);
+    if (cModel == null && engineRow < 0) {
+      return;
+    }
+    boolean isSynthMode = baseTrackId >= 0 ? isSynthOrKit(bridge.getTrackType(baseTrackId)) : true;
 
     boolean startActive =
         cModel != null
             ? (existingStart != null && existingStart.active())
-            : bridge.getStep(engineRow, startModelCol);
-    double vel = startActive ? bridge.getVelocity(engineRow, startModelCol) : 0.8;
-    double prob = startActive ? bridge.getStepProbability(engineRow, startModelCol) : 1.0;
+            : (engineRow >= 0 && bridge.getStep(engineRow, startModelCol));
+    double vel =
+        startActive
+            ? (engineRow >= 0
+                ? bridge.getVelocity(engineRow, startModelCol)
+                : (existingStart != null ? existingStart.velocity() : 0.8))
+            : 0.8;
+    double prob =
+        startActive
+            ? (engineRow >= 0
+                ? bridge.getStepProbability(engineRow, startModelCol)
+                : (existingStart != null ? existingStart.probability() : 1.0))
+            : 1.0;
     int pitch = isSynthMode ? parent.getRowPitch(visualModelRow) : 0;
-    int iter = startActive ? bridge.getIterance(engineRow, startModelCol) : 0;
-    double fill = startActive ? bridge.getStepFill(engineRow, startModelCol) : 0.0;
+    int iter =
+        startActive
+            ? (engineRow >= 0
+                ? bridge.getIterance(engineRow, startModelCol)
+                : (existingStart != null ? existingStart.iterance() : 0))
+            : 0;
+    double fill =
+        startActive
+            ? (engineRow >= 0
+                ? bridge.getStepFill(engineRow, startModelCol)
+                : (existingStart != null ? existingStart.fill() : 0.0))
+            : 0.0;
 
     float newGate = (end - start) + 0.9f;
 
@@ -715,7 +753,7 @@ public class ClipEditorController {
                 startFillMode);
         parent.setClipStep(cModel, visualModelRow, sCol, startStep);
 
-        if (bridge != null) {
+        if (bridge != null && engineRow >= 0) {
           bridge.setStep(engineRow, sCol, true);
           bridge.setVelocity(engineRow, sCol, vel);
           bridge.setGate(engineRow, sCol, (double) newGate);
@@ -744,7 +782,7 @@ public class ClipEditorController {
             StepData newStep = new StepData(false, 0.8f, 0.0f, 1.0f, 0, 0, 0.0f);
             parent.setClipStep(cModel, visualModelRow, c, newStep);
 
-            if (bridge != null) {
+            if (bridge != null && engineRow >= 0) {
               bridge.setStep(engineRow, c, false);
               bridge.setGate(engineRow, c, 0.0);
             }
@@ -770,13 +808,15 @@ public class ClipEditorController {
             .push(new Consequence.CompoundConsequence("Tie Step Wrap", steps));
       }
     } else {
-      bridge.setStep(engineRow, startModelCol, true);
-      bridge.setVelocity(engineRow, startModelCol, vel);
-      bridge.setGate(engineRow, startModelCol, (double) newGate);
-      bridge.setStepProbability(engineRow, startModelCol, prob);
-      bridge.setIterance(engineRow, startModelCol, iter);
-      bridge.setStepFill(engineRow, startModelCol, fill);
-      bridge.setStepNudge(engineRow, startModelCol, 0.0);
+      if (engineRow >= 0) {
+        bridge.setStep(engineRow, startModelCol, true);
+        bridge.setVelocity(engineRow, startModelCol, vel);
+        bridge.setGate(engineRow, startModelCol, (double) newGate);
+        bridge.setStepProbability(engineRow, startModelCol, prob);
+        bridge.setIterance(engineRow, startModelCol, iter);
+        bridge.setStepFill(engineRow, startModelCol, fill);
+        bridge.setStepNudge(engineRow, startModelCol, 0.0);
+      }
 
       if (cModel != null) {
         StepData oldStart = parent.getClipStep(cModel, visualModelRow, startModelCol);
@@ -818,8 +858,10 @@ public class ClipEditorController {
 
       for (int c = start + 1; c <= end; c++) {
         int activeCol = parent.getActiveCol(row, c);
-        bridge.setStep(engineRow, activeCol, false);
-        bridge.setGate(engineRow, activeCol, 0.0);
+        if (engineRow >= 0) {
+          bridge.setStep(engineRow, activeCol, false);
+          bridge.setGate(engineRow, activeCol, 0.0);
+        }
 
         if (cModel != null) {
           StepData oldStep = parent.getClipStep(cModel, visualModelRow, activeCol);
@@ -944,24 +986,62 @@ public class ClipEditorController {
     int srcModelRow = parent.getModelRow(startRow);
     int dstModelRow = parent.getModelRow(targetRow);
 
-    int srcRow = baseTrackId + parent.getEngineRowOffset(srcModelRow);
+    int srcRow = parent.getAllocatedEngineRow(srcModelRow);
     int srcCol = (trackLen < stepCount) ? (startCol % trackLen) : (startCol + scrollOffsetX);
     int dstCol = (trackLen < stepCount) ? (targetCol % trackLen) : (targetCol + scrollOffsetX);
 
+    TrackModel tModel = null;
+    ClipModel cModel = null;
+    StepData srcModelStep = null;
+    if (getProjectModel() != null && editedModelTrack < getProjectModel().getTracks().size()) {
+      tModel = getProjectModel().getTracks().get(editedModelTrack);
+      if (activeClipId < tModel.getClips().size()) {
+        cModel = tModel.getClips().get(activeClipId);
+        srcModelStep = parent.getClipStep(cModel, srcModelRow, srcCol);
+      }
+    }
+    if (srcRow < 0 && srcModelStep == null) {
+      return;
+    }
+
     // Read step parameters from source row before any destination row creation shifts baseTrackId
-    boolean active = bridge.getStep(srcRow, srcCol);
-    double vel = bridge.getVelocity(srcRow, srcCol);
-    double gate = bridge.getGate(srcRow, srcCol);
-    int pitch = bridge.getPitch(srcRow, srcCol);
-    double prob = bridge.getStepProbability(srcRow, srcCol);
-    int iter = bridge.getIterance(srcRow, srcCol);
-    double fill = bridge.getStepFill(srcRow, srcCol);
-    double nudge = bridge.getStepNudge(srcRow, srcCol);
-    double stepFilterVal = bridge.getStepFilter(srcRow, srcCol);
-    double stepResVal = bridge.getStepRes(srcRow, srcCol);
-    double stepPanVal = bridge.getStepPan(srcRow, srcCol);
-    double stepDelayVal = bridge.getStepDelay(srcRow, srcCol);
-    double stepReverbVal = bridge.getStepReverb(srcRow, srcCol);
+    boolean active =
+        srcRow >= 0
+            ? bridge.getStep(srcRow, srcCol)
+            : (srcModelStep != null && srcModelStep.active());
+    double vel =
+        srcRow >= 0
+            ? bridge.getVelocity(srcRow, srcCol)
+            : (srcModelStep != null ? srcModelStep.velocity() : 0.8);
+    double gate =
+        srcRow >= 0
+            ? bridge.getGate(srcRow, srcCol)
+            : (srcModelStep != null ? srcModelStep.gate() : 1.0);
+    int pitch =
+        srcRow >= 0
+            ? bridge.getPitch(srcRow, srcCol)
+            : (srcModelStep != null ? srcModelStep.pitch() : 60);
+    double prob =
+        srcRow >= 0
+            ? bridge.getStepProbability(srcRow, srcCol)
+            : (srcModelStep != null ? srcModelStep.probability() : 1.0);
+    int iter =
+        srcRow >= 0
+            ? bridge.getIterance(srcRow, srcCol)
+            : (srcModelStep != null ? srcModelStep.iterance() : 0);
+    double fill =
+        srcRow >= 0
+            ? bridge.getStepFill(srcRow, srcCol)
+            : (srcModelStep != null ? srcModelStep.fill() : 0.0);
+    double nudge =
+        srcRow >= 0
+            ? bridge.getStepNudge(srcRow, srcCol)
+            : (srcModelStep != null ? srcModelStep.nudge() : 0.0);
+    double stepFilterVal = srcRow >= 0 ? bridge.getStepFilter(srcRow, srcCol) : -1.0;
+    double stepResVal = srcRow >= 0 ? bridge.getStepRes(srcRow, srcCol) : -1.0;
+    double stepPanVal = srcRow >= 0 ? bridge.getStepPan(srcRow, srcCol) : -1.0;
+    double stepDelayVal = srcRow >= 0 ? bridge.getStepDelay(srcRow, srcCol) : -1.0;
+    double stepReverbVal = srcRow >= 0 ? bridge.getStepReverb(srcRow, srcCol) : -1.0;
 
     // Push Undo/Redo step copy event and sync ClipModel first so destination synth row capacity is
     // reserved before writing to the bridge.
@@ -977,47 +1057,44 @@ public class ClipEditorController {
             (float) fill,
             (float) nudge);
     int dstClipRow = dstModelRow;
-    if (getProjectModel() != null && editedModelTrack < getProjectModel().getTracks().size()) {
-      TrackModel tModel = getProjectModel().getTracks().get(editedModelTrack);
-      if (activeClipId < tModel.getClips().size()) {
-        ClipModel cModel = tModel.getClips().get(activeClipId);
-        StepData srcModelStep = parent.getClipStep(cModel, srcModelRow, srcCol);
-        dstClipRow = parent.getClipRowIndex(cModel, dstModelRow, true);
-        if (dstClipRow < 0) {
-          return;
-        }
-        baseTrackId = getBaseTrackId();
-        oldTargetStep = cModel.getStep(dstClipRow, dstCol);
-        if (srcModelStep != null) {
-          int trackType = bridge.getTrackType(baseTrackId);
-          int dstPitch;
-          if (tModel instanceof org.deluge.model.KitTrackModel || trackType == 0) {
-            dstPitch = dstClipRow;
-          } else if (tModel instanceof org.deluge.model.SynthTrackModel || trackType == 1) {
-            dstPitch = parent.getRowPitch(dstModelRow);
-          } else {
-            dstPitch = srcModelStep.pitch();
-          }
-          clonedStep = srcModelStep.withPitch(dstPitch);
-        }
-        cModel.setStep(dstClipRow, dstCol, clonedStep);
+    if (cModel != null) {
+      dstClipRow = parent.getClipRowIndex(cModel, dstModelRow, true);
+      if (dstClipRow < 0) {
+        return;
       }
+      baseTrackId = getBaseTrackId();
+      oldTargetStep = cModel.getStep(dstClipRow, dstCol);
+      if (srcModelStep != null) {
+        int trackType = baseTrackId >= 0 ? bridge.getTrackType(baseTrackId) : 1;
+        int dstPitch;
+        if (tModel instanceof org.deluge.model.KitTrackModel || trackType == 0) {
+          dstPitch = dstClipRow;
+        } else if (tModel instanceof org.deluge.model.SynthTrackModel || trackType == 1) {
+          dstPitch = parent.getRowPitch(dstModelRow);
+        } else {
+          dstPitch = srcModelStep.pitch();
+        }
+        clonedStep = srcModelStep.withPitch(dstPitch);
+      }
+      cModel.setStep(dstClipRow, dstCol, clonedStep);
     }
 
-    int dstRow = baseTrackId + parent.getEngineRowOffset(dstModelRow);
-    bridge.setStep(dstRow, dstCol, clonedStep.active());
-    bridge.setVelocity(dstRow, dstCol, clonedStep.velocity());
-    bridge.setGate(dstRow, dstCol, clonedStep.gate());
-    bridge.setPitch(dstRow, dstCol, clonedStep.pitch());
-    bridge.setStepProbability(dstRow, dstCol, clonedStep.probability());
-    bridge.setIterance(dstRow, dstCol, clonedStep.iterance());
-    bridge.setStepFill(dstRow, dstCol, clonedStep.fill());
-    bridge.setStepNudge(dstRow, dstCol, clonedStep.nudge());
-    bridge.setStepFilter(dstRow, dstCol, stepFilterVal);
-    bridge.setStepRes(dstRow, dstCol, stepResVal);
-    bridge.setStepPan(dstRow, dstCol, stepPanVal);
-    bridge.setStepDelay(dstRow, dstCol, stepDelayVal);
-    bridge.setStepReverb(dstRow, dstCol, stepReverbVal);
+    int dstRow = parent.getAllocatedEngineRow(dstModelRow);
+    if (dstRow >= 0) {
+      bridge.setStep(dstRow, dstCol, clonedStep.active());
+      bridge.setVelocity(dstRow, dstCol, clonedStep.velocity());
+      bridge.setGate(dstRow, dstCol, clonedStep.gate());
+      bridge.setPitch(dstRow, dstCol, clonedStep.pitch());
+      bridge.setStepProbability(dstRow, dstCol, clonedStep.probability());
+      bridge.setIterance(dstRow, dstCol, clonedStep.iterance());
+      bridge.setStepFill(dstRow, dstCol, clonedStep.fill());
+      bridge.setStepNudge(dstRow, dstCol, clonedStep.nudge());
+      bridge.setStepFilter(dstRow, dstCol, stepFilterVal);
+      bridge.setStepRes(dstRow, dstCol, stepResVal);
+      bridge.setStepPan(dstRow, dstCol, stepPanVal);
+      bridge.setStepDelay(dstRow, dstCol, stepDelayVal);
+      bridge.setStepReverb(dstRow, dstCol, stepReverbVal);
+    }
     ArrayList<Consequence> steps = new ArrayList<>();
     steps.add(
         new Consequence.StepConsequence(
@@ -1585,22 +1662,28 @@ public class ClipEditorController {
   }
 
   public void handlePadMouseWheel(int visibleRow, int visualCol, java.awt.event.MouseWheelEvent e) {
-    if (parent.projectModel == null
-        || parent.editedModelTrack >= parent.projectModel.getTracks().size()) return;
-    org.deluge.model.TrackModel tModel =
-        parent.projectModel.getTracks().get(parent.editedModelTrack);
-    org.deluge.model.ClipModel cModel = tModel.getActiveClip();
-    if (cModel == null) return;
-
     int editedModelTrack = getEditedModelTrack();
     int activeClipId = getActiveClipId();
+    if (parent.projectModel == null
+        || editedModelTrack < 0
+        || editedModelTrack >= parent.projectModel.getTracks().size()) return;
+    org.deluge.model.TrackModel tModel = parent.projectModel.getTracks().get(editedModelTrack);
+    org.deluge.model.ClipModel cModel =
+        (activeClipId >= 0 && activeClipId < tModel.getClips().size())
+            ? tModel.getClips().get(activeClipId)
+            : tModel.getActiveClip();
+    if (cModel == null) return;
 
     final int srcModelRow = parent.getModelRow(visibleRow);
-    int modelRow = srcModelRow;
+    final int srcClipRow = parent.getClipRowIndex(cModel, srcModelRow, false);
+    if (srcClipRow < 0) {
+      return;
+    }
+    int dstModelRow = srcModelRow;
     int activeCol = parent.getActiveCol(visibleRow, visualCol);
 
-    org.deluge.model.StepData sd = parent.getClipStep(cModel, srcModelRow, activeCol);
-    if (!sd.active()) {
+    org.deluge.model.StepData sd = cModel.getStep(srcClipRow, activeCol);
+    if (sd == null || !sd.active()) {
       return; // Gestural pad adjustments only apply to active (programmed) notes!
     }
 
@@ -1641,7 +1724,7 @@ public class ClipEditorController {
         int newModelRow = parent.getRowFromPitch(newPitch);
         if (newModelRow >= 0) {
           updated = sd.withPitch(newPitch);
-          modelRow = newModelRow;
+          dstModelRow = newModelRow;
         }
       }
       oledParam = "PITCH";
@@ -1657,29 +1740,30 @@ public class ClipEditorController {
 
     if (updated != null) {
       if (SwingGridPanel.isCrossScreenWrapActive) {
+        int dstClipRow = srcClipRow;
+        if (isTranspose && dstModelRow != srcModelRow) {
+          dstClipRow = parent.getClipRowIndex(cModel, dstModelRow, true);
+          if (dstClipRow < 0) {
+            return;
+          }
+        }
         int baseCol = activeCol % 16;
         int trackLen = cModel.getStepCount();
         java.util.List<Consequence> steps = new java.util.ArrayList<>();
         for (int c = baseCol; c < trackLen; c += 16) {
-          StepData targetSd = parent.getClipStep(cModel, srcModelRow, c);
-          if (targetSd.active()) {
+          StepData targetSd = cModel.getStep(srcClipRow, c);
+          if (targetSd != null && targetSd.active()) {
             StepData newSt;
             int targetModelRow = srcModelRow;
             if (isTranspose) {
               int oldPitch = targetSd.pitch();
               int newPitch = updated.pitch();
-              targetModelRow = modelRow;
-              if (newPitch != oldPitch) {
-                int oldClipRow = parent.getClipRowIndex(cModel, srcModelRow, false);
-                if (parent.getClipRowIndex(cModel, targetModelRow, true) < 0) {
-                  continue;
-                }
-                if (oldClipRow >= 0) {
-                  cModel.setStep(oldClipRow, c, org.deluge.model.StepData.empty());
-                  if (parent.bridge != null) {
-                    int oldEngineRow = parent.getBaseTrackId() + oldClipRow;
-                    parent.bridge.setStep(oldEngineRow, c, false);
-                  }
+              targetModelRow = dstModelRow;
+              if (newPitch != oldPitch && dstModelRow != srcModelRow) {
+                cModel.setStep(srcClipRow, c, org.deluge.model.StepData.empty());
+                int srcEngineRow = parent.getAllocatedEngineRow(srcModelRow);
+                if (parent.bridge != null && srcEngineRow >= 0) {
+                  parent.bridge.setStep(srcEngineRow, c, false);
                 }
               }
               newSt = targetSd.withPitch(newPitch);
@@ -1693,21 +1777,18 @@ public class ClipEditorController {
               newSt = targetSd.withVelocity(updated.velocity());
             }
 
-            if (parent.getClipRowIndex(cModel, targetModelRow, true) < 0) {
-              continue;
-            }
-            parent.setClipStep(cModel, targetModelRow, c, newSt);
+            cModel.setStep(dstClipRow, c, newSt);
 
-            if (parent.bridge != null) {
-              int engineRow = parent.getBaseTrackId() + parent.getEngineRowOffset(targetModelRow);
-              parent.bridge.setStep(engineRow, c, newSt.active());
-              parent.bridge.setVelocity(engineRow, c, newSt.velocity());
-              parent.bridge.setGate(engineRow, c, newSt.gate());
-              parent.bridge.setPitch(engineRow, c, newSt.pitch());
-              parent.bridge.setStepProbability(engineRow, c, newSt.probability());
-              parent.bridge.setIterance(engineRow, c, newSt.iterance());
-              parent.bridge.setStepFill(engineRow, c, newSt.fill());
-              parent.bridge.setStepNudge(engineRow, c, newSt.nudge());
+            int dstEngineRow = parent.getAllocatedEngineRow(targetModelRow);
+            if (parent.bridge != null && dstEngineRow >= 0) {
+              parent.bridge.setStep(dstEngineRow, c, newSt.active());
+              parent.bridge.setVelocity(dstEngineRow, c, newSt.velocity());
+              parent.bridge.setGate(dstEngineRow, c, newSt.gate());
+              parent.bridge.setPitch(dstEngineRow, c, newSt.pitch());
+              parent.bridge.setStepProbability(dstEngineRow, c, newSt.probability());
+              parent.bridge.setIterance(dstEngineRow, c, newSt.iterance());
+              parent.bridge.setStepFill(dstEngineRow, c, newSt.fill());
+              parent.bridge.setStepNudge(dstEngineRow, c, newSt.nudge());
             }
 
             if (getProjectModel() != null) {
@@ -1729,32 +1810,29 @@ public class ClipEditorController {
               .push(new Consequence.CompoundConsequence("Adjust Step Wrap", steps));
         }
       } else {
-        if (isTranspose && modelRow != srcModelRow) {
-          int oldClipRow = parent.getClipRowIndex(cModel, srcModelRow, false);
-          if (parent.getClipRowIndex(cModel, modelRow, true) < 0) {
+        int dstClipRow = srcClipRow;
+        if (isTranspose && dstModelRow != srcModelRow) {
+          dstClipRow = parent.getClipRowIndex(cModel, dstModelRow, true);
+          if (dstClipRow < 0) {
             return;
           }
-          if (oldClipRow >= 0) {
-            cModel.setStep(oldClipRow, activeCol, org.deluge.model.StepData.empty());
-            if (parent.bridge != null) {
-              int oldEngineRow = parent.getBaseTrackId() + oldClipRow;
-              parent.bridge.setStep(oldEngineRow, activeCol, false);
-            }
+          cModel.setStep(srcClipRow, activeCol, org.deluge.model.StepData.empty());
+          int srcEngineRow = parent.getAllocatedEngineRow(srcModelRow);
+          if (parent.bridge != null && srcEngineRow >= 0) {
+            parent.bridge.setStep(srcEngineRow, activeCol, false);
           }
-        } else if (parent.getClipRowIndex(cModel, modelRow, true) < 0) {
-          return;
         }
-        parent.setClipStep(cModel, modelRow, activeCol, updated);
-        if (parent.bridge != null) {
-          int engineRow = parent.getBaseTrackId() + parent.getEngineRowOffset(modelRow);
-          parent.bridge.setStep(engineRow, activeCol, updated.active());
-          parent.bridge.setVelocity(engineRow, activeCol, updated.velocity());
-          parent.bridge.setGate(engineRow, activeCol, updated.gate());
-          parent.bridge.setPitch(engineRow, activeCol, updated.pitch());
-          parent.bridge.setStepProbability(engineRow, activeCol, updated.probability());
-          parent.bridge.setIterance(engineRow, activeCol, updated.iterance());
-          parent.bridge.setStepFill(engineRow, activeCol, updated.fill());
-          parent.bridge.setStepNudge(engineRow, activeCol, updated.nudge());
+        cModel.setStep(dstClipRow, activeCol, updated);
+        int dstEngineRow = parent.getAllocatedEngineRow(dstModelRow);
+        if (parent.bridge != null && dstEngineRow >= 0) {
+          parent.bridge.setStep(dstEngineRow, activeCol, updated.active());
+          parent.bridge.setVelocity(dstEngineRow, activeCol, updated.velocity());
+          parent.bridge.setGate(dstEngineRow, activeCol, updated.gate());
+          parent.bridge.setPitch(dstEngineRow, activeCol, updated.pitch());
+          parent.bridge.setStepProbability(dstEngineRow, activeCol, updated.probability());
+          parent.bridge.setIterance(dstEngineRow, activeCol, updated.iterance());
+          parent.bridge.setStepFill(dstEngineRow, activeCol, updated.fill());
+          parent.bridge.setStepNudge(dstEngineRow, activeCol, updated.nudge());
         }
         if (getProjectModel() != null) {
           getProjectModel()
@@ -1764,7 +1842,7 @@ public class ClipEditorController {
                       getProjectModel(),
                       editedModelTrack,
                       activeClipId,
-                      modelRow,
+                      dstModelRow,
                       activeCol,
                       sd,
                       updated));

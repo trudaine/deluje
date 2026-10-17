@@ -112,6 +112,11 @@ public class ArrangerPlaybackScheduler implements Runnable {
 
     int col = Math.floorMod(upcomingStep, 16);
     List<org.deluge.model.TrackModel> tracks = project.getTracks();
+    EngineSyncCoordinator sync =
+        bridge.getGlobalObject("g_sync_coordinator") instanceof EngineSyncCoordinator sc
+            ? sc
+            : null;
+    boolean hasSyncMapping = sync != null && sync.hasMapping();
 
     // Check if any track in the project is soloed in Arranger mode
     boolean anySoloed = false;
@@ -124,6 +129,14 @@ public class ArrangerPlaybackScheduler implements Runnable {
 
     for (int t = 0; t < tracks.size(); t++) {
       org.deluge.model.TrackModel track = tracks.get(t);
+      int startRow = hasSyncMapping ? sync.getTrackEngineStart(t) : t * 8;
+      int voiceCount =
+          hasSyncMapping
+              ? sync.getTrackVoiceCount(t)
+              : Math.max(0, Math.min(8, BridgeContract.TRACKS - startRow));
+      if (startRow < 0 || voiceCount <= 0) {
+        continue;
+      }
 
       // Determine if track should be silent due to mute or solo rules in Arrangement
       boolean silent = false;
@@ -141,16 +154,20 @@ public class ArrangerPlaybackScheduler implements Runnable {
             Math.floorMod(upcomingStep - (activePlacement.startTicks() / 24), clip.getStepCount());
 
         // Transfer step parameter states straight to the bridge circular index
-        for (int r = 0; r < clip.getRowCount(); r++) {
-          int engineRow = t * 8 + r; // Map visual track grid lanes offsets
-          if (engineRow >= BridgeContract.TRACKS) continue;
+        for (int r = 0; r < voiceCount; r++) {
+          int engineRow = startRow + r;
+          if (engineRow < 0 || engineRow >= BridgeContract.TRACKS) continue;
 
-          StepData sd = clip.getStep(r, localStep);
-          if (sd != null) {
-            bridge.setStep(engineRow, col, sd.active());
-            bridge.setStepPitch(engineRow, col, sd.pitch());
-            bridge.setStepVolume(engineRow, col, sd.velocity());
-            bridge.setGate(engineRow, col, sd.gate());
+          if (r < clip.getRowCount()) {
+            StepData sd = clip.getStep(r, localStep);
+            if (sd != null) {
+              bridge.setStep(engineRow, col, sd.active());
+              bridge.setStepPitch(engineRow, col, sd.pitch());
+              bridge.setStepVolume(engineRow, col, sd.velocity());
+              bridge.setGate(engineRow, col, sd.gate());
+            } else {
+              bridge.setStep(engineRow, col, false);
+            }
           } else {
             bridge.setStep(engineRow, col, false);
           }
@@ -158,9 +175,9 @@ public class ArrangerPlaybackScheduler implements Runnable {
       } else {
         // No arranger placement active -> clear/mute circular step slot to keep background audio
         // quiet
-        for (int r = 0; r < 8; r++) {
-          int engineRow = t * 8 + r;
-          if (engineRow >= BridgeContract.TRACKS) continue;
+        for (int r = 0; r < voiceCount; r++) {
+          int engineRow = startRow + r;
+          if (engineRow < 0 || engineRow >= BridgeContract.TRACKS) continue;
           bridge.setStep(engineRow, col, false);
         }
       }
