@@ -275,6 +275,32 @@ public class PreferencesManager {
     prefs.put(KEY_SHIFT_INTERACTION_MODE, mode.name());
   }
 
+  /**
+   * C RuntimeFeatureStateSyncScalingAction (runtime_feature_settings.h): what the SYNC_SCALING
+   * button does. The community setting defaults to {@code SyncScaling}
+   * (runtime_feature_settings.cpp:131-133); {@code Fill} turns it into the held FILL button
+   * (view.cpp:331-357).
+   */
+  public enum SyncScalingAction {
+    SYNC_SCALING,
+    FILL
+  }
+
+  private static final String KEY_SYNC_SCALING_ACTION = "community.syncScalingAction";
+
+  public static SyncScalingAction getSyncScalingAction() {
+    try {
+      return SyncScalingAction.valueOf(
+          prefs.get(KEY_SYNC_SCALING_ACTION, SyncScalingAction.SYNC_SCALING.name()));
+    } catch (IllegalArgumentException e) {
+      return SyncScalingAction.SYNC_SCALING;
+    }
+  }
+
+  public static void setSyncScalingAction(SyncScalingAction action) {
+    prefs.put(KEY_SYNC_SCALING_ACTION, action.name());
+  }
+
   private static final String KEY_LIBRARY_DIR = "library_dir";
   private static final String KEY_RECENT_FILES =
       "recent_files"; // Comma-separated for simplicity MVP
