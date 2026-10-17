@@ -664,7 +664,8 @@ public class InstrumentXmlParser {
       }
       if (sc.hasAttribute("syncType")) {
         try {
-          synth.setSidechainSyncType(Integer.parseInt(sc.getAttribute("syncType")));
+          synth.setSidechainSyncType(
+              syncTypeFromFile(Integer.parseInt(sc.getAttribute("syncType"))));
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
@@ -1193,7 +1194,7 @@ public class InstrumentXmlParser {
     String syncTypeStr = lfoEl.getAttribute("syncType");
     if (syncTypeStr != null && !syncTypeStr.isBlank()) {
       try {
-        syncType = Integer.parseInt(syncTypeStr);
+        syncType = syncTypeFromFile(Integer.parseInt(syncTypeStr)); // C sound.cpp:912/945
       } catch (NumberFormatException e) {
         LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
       }
@@ -1512,7 +1513,7 @@ public class InstrumentXmlParser {
       String syncTypeStr = soundNode.getAttribute("compressorSyncType");
       if (syncTypeStr != null && !syncTypeStr.isBlank()) {
         try {
-          synth.setCompressorSyncType(Integer.parseInt(syncTypeStr));
+          synth.setCompressorSyncType(syncTypeFromFile(Integer.parseInt(syncTypeStr)));
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
@@ -1526,7 +1527,8 @@ public class InstrumentXmlParser {
     readAttrOrChildHexFloat(compEl, "threshold", v -> synth.setCompressorThreshold(Math.abs(v)));
     readAttrOrChildHexFloat(compEl, "ratio", v -> synth.setCompressorRatio(Math.abs(v)));
     readAttrOrChildHexFloat(compEl, "blend", v -> synth.setCompressorBlend(Math.abs(v)));
-    readAttrOrChildInt(compEl, "syncType", 0, synth::setCompressorSyncType);
+    readAttrOrChildInt(
+        compEl, "syncType", 0, v -> synth.setCompressorSyncType(syncTypeFromFile(v))); // :900
   }
 
   private static void parseStutter(Element soundNode, SynthTrackModel synth) {
@@ -2091,7 +2093,7 @@ public class InstrumentXmlParser {
     String syncType = attrOrChildText(del, "syncType");
     if (syncType != null && !syncType.isBlank()) {
       try {
-        synth.setDelaySyncType(Integer.parseInt(syncType.trim()));
+        synth.setDelaySyncType(syncTypeFromFile(Integer.parseInt(syncType.trim()))); // C :828
       } catch (NumberFormatException ignored) {
       }
     }

@@ -630,6 +630,29 @@ public class DelugeXmlUtil {
     }
   }
 
+  /**
+   * File syncType → the 0 even / 1 triplet / 2 dotted every model and fw2 field uses. The C writes
+   * its SyncType raw: EVEN 0, TRIPLET 10, DOTTED 19 (model/sync.h:11-13,
+   * storage_manager.h:148-150). This app's older saves wrote 1 and 2, which the C never writes, so
+   * both decode without ambiguity; anything else is EVEN.
+   */
+  public static int syncTypeFromFile(int fileValue) {
+    return switch (fileValue) {
+      case 10, 1 -> 1;
+      case 19, 2 -> 2;
+      default -> 0;
+    };
+  }
+
+  /** The model's 0 / 1 / 2 → the C SyncType file value 0 / 10 / 19. */
+  public static int syncTypeToFile(int modelValue) {
+    return switch (modelValue) {
+      case 1 -> 10;
+      case 2 -> 19;
+      default -> 0;
+    };
+  }
+
   public static int convertSyncLevelFromFileValueToInternalValue(
       int fileValue, int inputTickMagnitude) {
     if (fileValue == 0) {
