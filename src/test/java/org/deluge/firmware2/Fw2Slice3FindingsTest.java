@@ -695,4 +695,91 @@ class Fw2Slice3FindingsTest {
         Math.abs(revWithRange[0]) < Math.abs(revNoRange[0]),
         "Global range cable must attenuate GLOBAL_REVERB_AMOUNT modulation during voice-free FX tail");
   }
+
+  @Test
+  void reverbSmoothingCompletionBlockKeepsGrainAndOrdinarySendsConsistent() {
+    // C sound.cpp:2450-2453, 2646: when doParamLPF hits diff == 0 and calls stopParamLPF at the
+    // end of the block, both the grain send and the ordinary dry send in that block must still use
+    // the block's initial smoothed value (oldValue), not snap mid-block to targetValue.
+    Sound smoothed = new Sound();
+    Sound fixed = new Sound();
+    Sound targetSnap = new Sound();
+
+    for (Sound s : new Sound[] {smoothed, fixed, targetSnap}) {
+      Sound.initParams(s.patchedParamValues);
+      s.srrParam = Integer.MIN_VALUE;
+      s.bitcrushParam = Integer.MIN_VALUE;
+      s.modFXType = ModFx.ModFXType.GRAIN;
+      s.modFXDepth = 1 << 29;
+      s.modFXRateIncrement = 1 << 24;
+      s.patchedParamValues[Param.GLOBAL_LFO_FREQ_1] = Integer.MIN_VALUE;
+      s.lfoConfig[0].waveType = Lfo.LfoType.SQUARE;
+      s.globalLfos[0].phase = 0; // SQUARE outputs +ONE_Q31
+      s.granular.grainInitialized = true;
+      s.granular.bufferFull = true;
+      s.granular.bufferWriteIndex = 40_000;
+      s.granular.wrapsToShutdown = 2;
+      for (int i = 0; i < 1024; i++) {
+        s.granular.grainBuffer[i][0] = 200_000_000;
+        s.granular.grainBuffer[i][1] = 200_000_000;
+      }
+      s.granular.grains[0].length = 1024;
+      s.granular.grains[0].startPoint = 256;
+      s.granular.grains[0].counter = 256;
+      s.granular.grains[0].pitch = 1024;
+      s.granular.grains[0].volScale = ONE_Q31 / 512;
+      s.granular.grains[0].volScaleMax = ONE_Q31;
+      s.granular.grains[0].rev = false;
+      s.granular.grains[0].panVolL = 1 << 30;
+      s.granular.grains[0].panVolR = 1 << 30;
+
+      // Add a small LFO_GLOBAL_1 -> GLOBAL_REVERB_AMOUNT cable whose contribution sits right below
+      // a 2^15 volume-curve step, so oldValue = 0 vs targetValue = 252 (diff == 0 in >> 8) crosses
+      // the step and produces measurably different reverb sends.
+      Patcher.Destination dest = new Patcher.Destination(Param.GLOBAL_REVERB_AMOUNT);
+      Patcher.PatchCable cable = new Patcher.PatchCable();
+      cable.source = PatchSource.LFO_GLOBAL_1.ordinal();
+      cable.amount = 0x0003FFF0;
+      cable.polarity = Patcher.PatchCable.UNIPOLAR;
+      cable.rangeValue = 536870912;
+      dest.cables.add(cable);
+      s.patchCableSet.destinations.add(dest);
+    }
+
+    int oldReverbKnob = 0;
+    int targetReverbKnob = 252; // (252 >> 8) == (0 >> 8) -> diff == 0 in doParamLPF
+    fixed.patchedParamValues[Param.GLOBAL_REVERB_AMOUNT] = oldReverbKnob;
+    targetSnap.patchedParamValues[Param.GLOBAL_REVERB_AMOUNT] = targetReverbKnob;
+    smoothed.patchedParamValues[Param.GLOBAL_REVERB_AMOUNT] = targetReverbKnob;
+    smoothed.notifyValueChangeViaLPF(
+        Param.GLOBAL_REVERB_AMOUNT, true, oldReverbKnob, targetReverbKnob, false);
+
+    long[] outFixed = new long[128];
+    long[] revFixed = new long[64];
+    long[] outTarget = new long[128];
+    long[] revTarget = new long[64];
+    long[] outSmoothed = new long[128];
+    long[] revSmoothed = new long[64];
+
+    Functions.resetNoiseSeed();
+    fixed.renderOutput(outFixed, 64, revFixed);
+    Functions.resetNoiseSeed();
+    targetSnap.renderOutput(outTarget, 64, revTarget);
+    Functions.resetNoiseSeed();
+    smoothed.renderOutput(outSmoothed, 64, revSmoothed);
+
+    assertEquals(
+        -1, smoothed.paramLPF.p, "doParamLPF must finish smoothing (stopParamLPF) at block end");
+    assertNotEquals(
+        revFixed[0],
+        revTarget[0],
+        "Test setup must cross a volume-curve step between oldReverbKnob and targetReverbKnob");
+    for (int i = 0; i < 64; i++) {
+      assertEquals(
+          revFixed[i],
+          revSmoothed[i],
+          "Smoothing-completion block must keep grain and ordinary sends at oldReverbKnob at sample "
+              + i);
+    }
+  }
 }

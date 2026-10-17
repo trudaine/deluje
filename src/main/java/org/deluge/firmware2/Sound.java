@@ -218,23 +218,30 @@ public class Sound extends GlobalEffectable {
   public final ParamLPF paramLPF = new ParamLPF();
 
   // Per-block reverb send cache (sound.cpp:2450-2453, 2610, 2613, 2646): during a renderOutput
-  // block, both the grain reverb send (inside renderInternal, before doParamLPF) and the ordinary
-  // dry reverb send (inside GlobalEffectable.renderOutput, after doParamLPF) must use the same
-  // resolved GLOBAL_REVERB_AMOUNT value from before doParamLPF advances paramLPF.currentValue.
+  // block, both the grain reverb send (inside renderInternal) and the ordinary dry reverb send
+  // (inside GlobalEffectable.renderOutput) must use the same resolved GLOBAL_REVERB_AMOUNT value,
+  // and doParamLPF runs at the end of the full block (endRenderOutput) like sound.cpp:2646.
   private boolean inRenderOutputBlock = false;
   private boolean hasBlockResolvedReverbValue = false;
   private int blockResolvedReverbValue = 0;
+  private int pendingParamLPFSamples = 0;
 
   @Override
   public void beginRenderOutput() {
     inRenderOutputBlock = true;
     hasBlockResolvedReverbValue = false;
+    pendingParamLPFSamples = 0;
   }
 
   @Override
   public void endRenderOutput() {
+    int lpfSamples = pendingParamLPFSamples;
+    pendingParamLPFSamples = 0;
     inRenderOutputBlock = false;
     hasBlockResolvedReverbValue = false;
+    if (lpfSamples > 0) {
+      doParamLPF(lpfSamples);
+    }
   }
 
   /**
@@ -325,7 +332,9 @@ public class Sound extends GlobalEffectable {
 
   /** Stops the active parameter LPF smoothing, snapping the parameter immediately to its target. */
   public void stopParamLPF() {
-    hasBlockResolvedReverbValue = false;
+    if (!inRenderOutputBlock) {
+      hasBlockResolvedReverbValue = false;
+    }
     if (paramLPF.p != -1) {
       paramLPF.p = -1;
     }
@@ -1058,7 +1067,13 @@ public class Sound extends GlobalEffectable {
       buffer[i * 2] = fxIntBuffer[i][0];
       buffer[i * 2 + 1] = fxIntBuffer[i][1];
     }
-    doParamLPF(numSamples);
+    // C sound.cpp:2646 — doParamLPF runs at the very end of Sound::render, AFTER
+    // processReverbSendAndVolume (sound.cpp:2613) and compressor (sound.cpp:2618).
+    if (inRenderOutputBlock) {
+      pendingParamLPFSamples = numSamples;
+    } else {
+      doParamLPF(numSamples);
+    }
   }
 
   public boolean arpEnabled() {
