@@ -1261,8 +1261,14 @@ public class ProjectSerializer {
     }
     if (clip.getPlayDirection() != null
         && clip.getPlayDirection() != ClipModel.PlayDirection.FORWARD) {
-      writer.writeAttribute(
-          "sequenceDirection", clip.getPlayDirection().name().toLowerCase(), false);
+      // C sequenceDirectionModeToString (util/functions.cpp): "reverse" / "pingpong". The enum
+      // name lower-cased gave "ping_pong", which stringToSequenceDirectionMode reads as FORWARD.
+      String dir =
+          switch (clip.getPlayDirection()) {
+            case PING_PONG -> "pingpong";
+            default -> clip.getPlayDirection().name().toLowerCase();
+          };
+      writer.writeAttribute("sequenceDirection", dir, false);
     }
     writer.writeOpeningTagEnd();
 
