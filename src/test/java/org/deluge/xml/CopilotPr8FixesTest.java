@@ -448,4 +448,36 @@ class CopilotPr8FixesTest {
     int kitStartRow = sync.getTrackEngineStart(1);
     assertEquals(0.75, bridge.getStepProbability(kitStartRow, 3), 0.001);
   }
+
+  @Test
+  void zeroProbabilityStepRoundTripsThroughProjectSaveAndLoad(@TempDir Path tempDir)
+      throws Exception {
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel synth = new SynthTrackModel("ZERO_PROB_SYNTH");
+    ClipModel clip = new ClipModel("Clip 1", 8, 16);
+    clip.setRowYNote(0, 60);
+    // Step 2: 0% probability (silent), step 3: 2% probability (positive, clamps up to 5%)
+    clip.setStep(0, 2, new StepData(true, 0.8f, 1.0f, 0.0f, 60, 0, 0.0f, 0.0f, 0x0201, 1));
+    clip.setStep(0, 3, new StepData(true, 0.8f, 1.0f, 0.02f, 60, 0, 0.0f, 0.0f, 0, 0));
+    synth.addClip(clip);
+    project.addTrack(synth);
+
+    File songFile = tempDir.resolve("zero_prob_song.xml").toFile();
+    ProjectSerializer.save(project, songFile);
+
+    ProjectModel loaded = SongXmlParser.parseSong(songFile);
+    ClipModel loadedClip = loaded.getTracks().get(0).getClips().get(0);
+
+    StepData step2 = loadedClip.getStep(0, 2);
+    assertTrue(step2.active(), "Step 2 must remain active");
+    assertEquals(
+        0.0f, step2.probability(), 0.001f, "0% probability must remain 0% after save/load");
+    assertEquals(0x0201, step2.playCondition(), "Step 2 playCondition must be preserved");
+    assertEquals(1, step2.fillMode(), "Step 2 NOT_FILL must be preserved");
+    assertEquals(0.0f, loadedClip.getRawNoteEvents(0).get(0).getProbability(), 0.001f);
+
+    StepData step3 = loadedClip.getStep(0, 3);
+    assertTrue(step3.active(), "Step 3 must remain active");
+    assertEquals(0.05f, step3.probability(), 0.001f, "Positive <5% probability clamps up to 5%");
+  }
 }

@@ -66,9 +66,13 @@ public class DelugeNoteDataMapper {
 
         int velInt = Math.round(step.velocity() * 127.0f);
         String hexVel = String.format("%02X", Math.max(0, Math.min(127, velInt)));
-        // C note_row.cpp:3607-3617 — lift (1B, default 0x40), probability (1B, 1..20),
+        // C note_row.cpp:3607-3617 — lift (1B, default 0x40), probability (1B, 0..20 in split
+        // format where fill is in its own byte; positive values clamp to 1..20),
         // iterance.toInt() (2B, 0x0000 when OFF/1of1), fill (1B, OFF=0, NOT_FILL=1, FILL=2)
-        int probByte = Math.max(1, Math.min(20, Math.round(step.probability() * 20.0f)));
+        int probByte =
+            step.probability() <= 0.0f
+                ? 0
+                : Math.max(1, Math.min(20, Math.round(step.probability() * 20.0f)));
         int iteranceInt = step.playCondition() == 0x0101 ? 0 : (step.playCondition() & 0xFFFF);
         int fillByte = step.fillMode() != 0 ? step.fillMode() : (step.fill() > 0.001f ? 2 : 0);
         String hexTail = String.format("40%02X%04X%02X", probByte, iteranceInt, fillByte);
@@ -154,8 +158,11 @@ public class DelugeNoteDataMapper {
       if (hexCharsPerNote == 28) {
         int rawLift = Integer.parseInt(data.substring(idx + 18, idx + 20), 16);
         lift = (rawLift > 0 && rawLift <= 127) ? rawLift : 64;
-        int probByte = Integer.parseInt(data.substring(idx + 20, idx + 22), 16) & 0x7F;
-        probability = (probByte >= 1 && probByte <= 20) ? (probByte / 20.0f) : 1.0f;
+        int rawProb = Integer.parseInt(data.substring(idx + 20, idx + 22), 16);
+        int probByte = rawProb & 0x7F;
+        // C note_row.cpp:3494 — only (probability & 127) > 20 or >= (20 | 128) resets to 20 (100%);
+        // byte 00 in 26/28-char split-fill formats preserves a 0% silent step.
+        probability = (probByte <= 20 && rawProb < (20 | 128)) ? (probByte / 20.0f) : 1.0f;
         iterance =
             org.deluge.model.Iterance.fromInt(
                 Integer.parseInt(data.substring(idx + 22, idx + 26), 16));
@@ -163,8 +170,9 @@ public class DelugeNoteDataMapper {
       } else if (hexCharsPerNote == 26) {
         int rawLift = Integer.parseInt(data.substring(idx + 18, idx + 20), 16);
         lift = (rawLift > 0 && rawLift <= 127) ? rawLift : 64;
-        int probByte = Integer.parseInt(data.substring(idx + 20, idx + 22), 16) & 0x7F;
-        probability = (probByte >= 1 && probByte <= 20) ? (probByte / 20.0f) : 1.0f;
+        int rawProb = Integer.parseInt(data.substring(idx + 20, idx + 22), 16);
+        int probByte = rawProb & 0x7F;
+        probability = (probByte <= 20 && rawProb < (20 | 128)) ? (probByte / 20.0f) : 1.0f;
         iterance =
             org.deluge.model.Iterance.fromLegacyPresetIndex(
                 Integer.parseInt(data.substring(idx + 22, idx + 24), 16));
