@@ -32,11 +32,25 @@ public class VoiceSample {
    */
   public boolean linearInterpolation;
 
+  /** Directional start frame in the play direction. */
+  public int startFrame;
+
   /** Exclusive end frame in the play direction (forwards: end > start; reverse: end < start). */
   public int endFrame;
 
   public boolean looping;
   public int loopStartFrame;
+
+  /**
+   * C VoiceSamplePlaybackGuide::loopEndPlaybackAtByte / noteOffReceived
+   * (voice_sample_playback_guide.cpp:38-101): when {@link #hasLoopEnd} is true, the sample loops at
+   * {@link #loopEndFrame} while held, then exits the loop on {@link #onNoteOff()} and plays out
+   * through {@link #endFrame}.
+   */
+  public boolean hasLoopEnd;
+
+  public int loopEndFrame;
+  public boolean noteOffReceived;
 
   public int pendingSamplesLate;
   public Sample pendingSample;
@@ -45,22 +59,119 @@ public class VoiceSample {
   public int pendingPlayDirection;
   public boolean pendingLooping;
   public int pendingLoopStartFrame;
+  public boolean pendingHasLoopEnd;
+  public int pendingLoopEndFrame;
 
   // ── Time-stretch state (the two-play-head crossfade) ──
   public final TimeStretcher timeStretcher = new TimeStretcher();
   public final SampleReader olderReader = new SampleReader();
+  private final SamplePlaybackGuide guide = new SamplePlaybackGuide();
 
   /**
-   * Begin time-stretched playback from {@code startFrame}. C TimeStretcher::init
-   * (time_stretcher.cpp:54-56, 130-139): both heads start active, and the existing head plays the
-   * REAL attack for kDefaultFirstHopLength (200) ± a small random element before the first hop —
-   * hopping immediately displaced/skipped every stretched attack transient.
+   * C: VoiceSamplePlaybackGuide::shouldObeyLoopEndPointNow (voice_sample_playback_guide.cpp:73).
+   */
+  public boolean shouldObeyLoopEndPointNow() {
+    return hasLoopEnd && !noteOffReceived;
+  }
+
+  /** C: VoiceSamplePlaybackGuide::getBytePosToEndOrLoopPlayback (:87-94), in frames. */
+  public int currentEndOrLoopFrame() {
+    return shouldObeyLoopEndPointNow() ? loopEndFrame : endFrame;
+  }
+
+  /** C: VoiceSamplePlaybackGuide::getLoopingType (:96-101) == LOW_LEVEL. */
+  public boolean isLoopingNow() {
+    return hasLoopEnd ? !noteOffReceived : looping;
+  }
+
+  private void syncReaderBounds() {
+    reader.setBounds(currentEndOrLoopFrame(), isLoopingNow(), loopStartFrame);
+  }
+
+  /**
+   * C: Voice::noteOff + VoiceSample::noteOffWhenLoopEndPointExists (voice.cpp:573-575, 608-619;
+   * voice_sample.cpp:58-75).
+   */
+  public void onNoteOff() {
+    noteOffReceived = true;
+    if (reader.sample != null) {
+      syncReaderBounds();
+      if (timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]
+          && olderReader.sample != null) {
+        olderReader.setBounds(currentEndOrLoopFrame(), isLoopingNow(), loopStartFrame);
+      }
+    }
+  }
+
+  /**
+   * Copies playback and reader state from an existing unison part onto a newly enabled unison part
+   * (C: Sound::setNumUnison, sound.cpp:3166-3176).
+   */
+  public void copyStateFrom(VoiceSample other) {
+    this.active = other.active;
+    this.linearInterpolation = other.linearInterpolation;
+    this.startFrame = other.startFrame;
+    this.endFrame = other.endFrame;
+    this.looping = other.looping;
+    this.loopStartFrame = other.loopStartFrame;
+    this.hasLoopEnd = other.hasLoopEnd;
+    this.loopEndFrame = other.loopEndFrame;
+    this.noteOffReceived = other.noteOffReceived;
+    this.pendingSamplesLate = other.pendingSamplesLate;
+    this.pendingSample = other.pendingSample;
+    this.pendingStartFrame = other.pendingStartFrame;
+    this.pendingEndFrame = other.pendingEndFrame;
+    this.pendingPlayDirection = other.pendingPlayDirection;
+    this.pendingLooping = other.pendingLooping;
+    this.pendingLoopStartFrame = other.pendingLoopStartFrame;
+    this.pendingHasLoopEnd = other.pendingHasLoopEnd;
+    this.pendingLoopEndFrame = other.pendingLoopEndFrame;
+    this.reader.copyStateFrom(other.reader);
+    this.olderReader.copyStateFrom(other.olderReader);
+    this.timeStretcher.copyStateFrom(other.timeStretcher);
+  }
+
+  /**
+   * Begin time-stretched playback from {@code startFrame} (one-shot to waveform end). C
+   * TimeStretcher::init (time_stretcher.cpp:54-56, 130-139).
    */
   public void setupTimeStretch(Sample sample, int startFrame, int playDirection) {
+    int end = (playDirection == 1) ? (int) sample.lengthInSamples : -1;
+    setupTimeStretch(sample, startFrame, end, playDirection, false, startFrame, false, end);
+  }
+
+  /**
+   * Begin time-stretched playback with directional bounds and optional loop/loop-end markers (C
+   * TimeStretcher::init, time_stretcher.cpp:54-56, 130-139).
+   */
+  public void setupTimeStretch(
+      Sample sample,
+      int startFrame,
+      int endFrame,
+      int playDirection,
+      boolean looping,
+      int loopStartFrame,
+      boolean hasLoopEnd,
+      int loopEndFrame) {
+    this.startFrame = startFrame;
+    this.endFrame = endFrame;
+    this.looping = looping;
+    this.loopStartFrame = loopStartFrame;
+    this.hasLoopEnd = hasLoopEnd;
+    this.loopEndFrame = loopEndFrame;
+    this.noteOffReceived = false;
+    this.pendingSamplesLate = 0;
+
+    int dir = (playDirection < 0) ? -1 : 1;
     reader.sample = sample;
-    reader.playDirection = playDirection;
-    reader.init(startFrame);
-    timeStretcher.samplePosBig = (long) startFrame << 24;
+    reader.playDirection = dir;
+    reader.playPos = startFrame;
+    syncReaderBounds();
+    boolean wrappedOnSetup = reader.hasWrappedLoop;
+    reader.init(reader.playPos);
+    reader.hasWrappedLoop = wrappedOnSetup;
+
+    timeStretcher.samplePosBig = (long) reader.playPos << 24;
     // C:136 — samplesTilHopEnd = kDefaultFirstHopLength + ((int8_t)getRandom255() >> 2)
     timeStretcher.samplesTilHopEnd = 200 + (((byte) Arpeggiator.getRandom255()) >> 2);
     timeStretcher.crossfadeProgress = K_MAX_SAMPLE_VALUE; // C:138
@@ -73,7 +184,7 @@ public class VoiceSample {
   /**
    * Time-stretched render (pitch decoupled from speed): the two-play-head crossfade assembly that
    * ties {@link TimeStretcher#hopEnd} together with the older/newer {@link SampleReader}s
-   * (voice_sample.cpp:1160-1432, the in-RAM / no-cache / TIME_STRETCH_ENABLE_BUFFER=0 path).
+   * (voice_sample.cpp:974-1435, the in-RAM / no-cache / TIME_STRETCH_ENABLE_BUFFER=0 path).
    *
    * <p>{@code samplePosBig} advances at the combined (pitch × stretch) rate and drives hop
    * placement; each head reads at {@code phaseIncrement} (pitch). At each hop the newer head is
@@ -115,8 +226,63 @@ public class VoiceSample {
     ampVal = Functions.lshiftAndSaturate(ampVal, 1);
     ampInc = Functions.lshiftAndSaturate(ampInc, 1);
 
+    syncReaderBounds();
+
     int produced = 0;
     while (produced < numSamples) {
+      int reassessmentFrame = currentEndOrLoopFrame();
+      boolean loopingNow = isLoopingNow();
+      TimeStretcher.LoopType loopingType =
+          loopingNow ? TimeStretcher.LoopType.LOW_LEVEL : TimeStretcher.LoopType.NONE;
+
+      guide.playDirection = reader.playDirection;
+      guide.startPlaybackAtByte =
+          sample.audioDataStartPosBytes + (loopingNow ? loopStartFrame : startFrame) * bps;
+      guide.endPlaybackAtByte = sample.audioDataStartPosBytes + reassessmentFrame * bps;
+
+      // C voice_sample.cpp:974-1059 + time_stretcher.cpp:147-167 — reassess samplePosBig against
+      // the loop/end point before hopping or reading.
+      int numToRead = numSamples - produced;
+      if (combinedIncrement > 0) {
+        long loopEndBig = (long) reassessmentFrame << 24;
+        int loopGuard = 0;
+        while (true) {
+          long samplePosBigAfter =
+              timeStretcher.samplePosBig + combinedIncrement * numToRead * reader.playDirection;
+          if (reader.playDirection == -1) {
+            samplePosBigAfter += 16777215L;
+          }
+          long frameAfter = samplePosBigAfter >> 24;
+          long overshootFrames = (frameAfter - reassessmentFrame) * reader.playDirection;
+          if (overshootFrames <= 0) {
+            break;
+          }
+          long leftToDo = loopEndBig - timeStretcher.samplePosBig;
+          long leftToDoAbs = leftToDo * reader.playDirection;
+          if (leftToDoAbs < combinedIncrement) {
+            if (loopingNow) {
+              int loopSpan = reassessmentFrame - loopStartFrame;
+              if (loopSpan * reader.playDirection <= 0 || ++loopGuard >= 1024) {
+                active = false;
+                return;
+              }
+              timeStretcher.samplePosBig = ((long) loopStartFrame << 24) - leftToDo; // C:1023-1024
+              if (!timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]) {
+                timeStretcher.samplesTilHopEnd = 0; // C time_stretcher.cpp:163 — force hop
+              }
+              continue;
+            } else {
+              active = false; // C:1042 — one-shot reached end
+              return;
+            }
+          } else {
+            int combinedIncrementsLeft = (int) Long.divideUnsigned(leftToDoAbs, combinedIncrement);
+            numToRead = Math.min(numToRead, Math.max(1, combinedIncrementsLeft)); // C:1049-1056
+            break;
+          }
+        }
+      }
+
       // C:1162-1173 — time to hop?
       if (timeStretcher.samplesTilHopEnd <= 0) {
         int samplePos = timeStretcher.getSamplePos(reader.playDirection);
@@ -125,8 +291,8 @@ public class VoiceSample {
         olderReader.copyStateFrom(reader); // fork the older head before repositioning the newer one
         timeStretcher.hopEndVoid(
             sample,
-            null,
-            TimeStretcher.LoopType.NONE,
+            guide,
+            loopingType,
             oldHeadBytePos,
             samplePos,
             phaseIncrement,
@@ -139,21 +305,26 @@ public class VoiceSample {
           int newFrame =
               (timeStretcher.newHeadBytePosResult - sample.audioDataStartPosBytes)
                   / bps; // setupNewPlayHead (in-RAM)
-          reader.init(newFrame);
-          reader.oscPos = timeStretcher.additionalOscPosResult; // C:998
+          // C time_stretcher.cpp:1001-1014 — changeClusterIfNecessary wraps currentPlayPos into
+          // the loop before interpolationBufferSizeLastTime = 0 primes history on the next block.
+          reader.playPos = newFrame;
+          syncReaderBounds();
+          reader.init(reader.playPos);
+          reader.oscPos = timeStretcher.additionalOscPosResult; // C:1014
         }
       }
 
-      // C voice_sample.cpp:1427-1430 — one-shot: when both stretch heads have died (newer killed
+      // C voice_sample.cpp:1434-1438 — one-shot: when both stretch heads have died (newer killed
       // past the waveform end, older's crossfade finished), the voice ends instead of re-hopping
       // and rendering silence forever.
-      if (!timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]
+      if (loopingType == TimeStretcher.LoopType.NONE
+          && !timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]
           && !timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]) {
         active = false;
         return;
       }
 
-      int numThis = Math.min(numSamples - produced, timeStretcher.samplesTilHopEnd);
+      int numThis = Math.min(numToRead, timeStretcher.samplesTilHopEnd);
       if (numThis <= 0) {
         break;
       }
@@ -175,15 +346,20 @@ public class VoiceSample {
         timeStretcher.crossfadeProgress += timeStretcher.crossfadeIncrement * numThis;
         int newerHopAmplitudeAfter =
             Functions.lshiftAndSaturateUnknown(timeStretcher.crossfadeProgress, 7);
-        int newerHopAmplitudeIncrement = (newerHopAmplitudeAfter - newerHopAmplitudeNow) / numThis;
-        int hopAmplitudeChange =
-            Functions.multiply_32x32_rshift32(preCacheAmplitude, newerHopAmplitudeIncrement) << 1;
-        newerAmplitudeIncrementNow = preCacheAmplitudeIncrement + hopAmplitudeChange;
+        int olderHopAmplitudeAfter = 2147483647 - newerHopAmplitudeAfter;
+        int preCacheAmplitudeAfter = (ampVal + ampInc * numThis) >> 1;
         newerSourceAmplitudeNow =
             Functions.multiply_32x32_rshift32(preCacheAmplitude, newerHopAmplitudeNow) << 1;
-        olderAmplitudeIncrementNow = preCacheAmplitudeIncrement - hopAmplitudeChange;
+        int newerSourceAmplitudeAfter =
+            Functions.multiply_32x32_rshift32(preCacheAmplitudeAfter, newerHopAmplitudeAfter) << 1;
+        newerAmplitudeIncrementNow =
+            (newerSourceAmplitudeAfter - newerSourceAmplitudeNow) / numThis;
         olderSourceAmplitudeNow =
             Functions.multiply_32x32_rshift32(preCacheAmplitude, olderHopAmplitudeNow) << 1;
+        int olderSourceAmplitudeAfter =
+            Functions.multiply_32x32_rshift32(preCacheAmplitudeAfter, olderHopAmplitudeAfter) << 1;
+        olderAmplitudeIncrementNow =
+            (olderSourceAmplitudeAfter - olderSourceAmplitudeNow) / numThis;
       } else {
         newerSourceAmplitudeNow = preCacheAmplitude;
         newerAmplitudeIncrementNow = preCacheAmplitudeIncrement;
@@ -267,7 +443,7 @@ public class VoiceSample {
   /** One-shot, no loop — plays {@code sample} from {@code startFrame} to the sample end. */
   public void setup(Sample sample, int startFrame, int playDirection) {
     int end = (playDirection == 1) ? (int) sample.lengthInSamples : -1;
-    setup(sample, startFrame, end, playDirection, false, startFrame);
+    setup(sample, startFrame, end, playDirection, false, startFrame, false, end);
   }
 
   /** Full setup with explicit end + optional looping. */
@@ -278,12 +454,68 @@ public class VoiceSample {
       int playDirection,
       boolean looping,
       int loopStartFrame) {
-    reader.sample = sample;
-    reader.playDirection = playDirection;
-    reader.init(startFrame);
+    setup(sample, startFrame, endFrame, playDirection, looping, loopStartFrame, false, endFrame);
+  }
+
+  /**
+   * Full setup with explicit end, optional looping, and optional distinct loop-end point (C
+   * VoiceSample::noteOn + VoiceSamplePlaybackGuide::setupPlaybackBounds, voice_sample.cpp:43-55).
+   */
+  public void setup(
+      Sample sample,
+      int startFrame,
+      int endFrame,
+      int playDirection,
+      boolean looping,
+      int loopStartFrame,
+      boolean hasLoopEnd,
+      int loopEndFrame) {
+    setup(
+        sample,
+        startFrame,
+        endFrame,
+        playDirection,
+        looping,
+        loopStartFrame,
+        hasLoopEnd,
+        loopEndFrame,
+        false);
+  }
+
+  private void setup(
+      Sample sample,
+      int startFrame,
+      int endFrame,
+      int playDirection,
+      boolean looping,
+      int loopStartFrame,
+      boolean hasLoopEnd,
+      int loopEndFrame,
+      boolean noteOffAlreadyReceived) {
+    // C voice_sample.cpp:39, 52 — clear any prior time-stretcher active state on voice reuse.
+    timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER] = false;
+    timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER] = false;
+    this.startFrame = startFrame;
     this.endFrame = endFrame;
     this.looping = looping;
     this.loopStartFrame = loopStartFrame;
+    this.hasLoopEnd = hasLoopEnd;
+    this.loopEndFrame = loopEndFrame;
+    this.noteOffReceived = noteOffAlreadyReceived;
+    this.pendingSamplesLate = 0;
+
+    int dir = (playDirection < 0) ? -1 : 1;
+    reader.sample = sample;
+    reader.playDirection = dir;
+    // Wrap any late-start frame past the active loop end into [loopStartFrame, loopEndFrame)
+    // before priming the 16-tap history, matching the time-stretch hop path (lines 279-281).
+    // When noteOffAlreadyReceived is true on a sustain-loop sample, syncReaderBounds uses the
+    // release bounds so a deferred start past loopEndFrame stays in the release tail.
+    reader.playPos = startFrame;
+    syncReaderBounds();
+    boolean wrappedOnSetup = reader.hasWrappedLoop;
+    reader.init(reader.playPos);
+    reader.hasWrappedLoop = wrappedOnSetup;
     active = true;
   }
 
@@ -295,48 +527,73 @@ public class VoiceSample {
       boolean looping,
       int loopStartFrame,
       int samplesLate) {
+    setupLate(
+        sample,
+        startFrame,
+        endFrame,
+        playDirection,
+        looping,
+        loopStartFrame,
+        false,
+        endFrame,
+        samplesLate);
+  }
+
+  public void setupLate(
+      Sample sample,
+      int startFrame,
+      int endFrame,
+      int playDirection,
+      boolean looping,
+      int loopStartFrame,
+      boolean hasLoopEnd,
+      int loopEndFrame,
+      int samplesLate) {
+    // C voice_sample.cpp:52 — timeStretcher = nullptr on noteOn.
+    timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER] = false;
+    timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER] = false;
     this.pendingSample = sample;
     this.pendingStartFrame = startFrame;
     this.pendingEndFrame = endFrame;
-    this.pendingPlayDirection = playDirection;
+    this.pendingPlayDirection = (playDirection < 0) ? -1 : 1;
     this.pendingLooping = looping;
     this.pendingLoopStartFrame = loopStartFrame;
+    this.pendingHasLoopEnd = hasLoopEnd;
+    this.pendingLoopEndFrame = loopEndFrame;
     this.pendingSamplesLate = samplesLate;
+    this.noteOffReceived = false;
     this.active = true;
   }
 
   public boolean attemptLateSampleStart(int rawSamplesSinceStart) {
     int startAtFrame = rawSamplesSinceStart * pendingPlayDirection + pendingStartFrame;
 
-    // Check if we've already passed the end frame
+    // Check if we've already passed the end frame (C voice_sample.cpp:176).
     if ((startAtFrame - pendingEndFrame) * pendingPlayDirection >= 0) {
       active = false;
       pendingSamplesLate = 0;
       return false; // failure
     }
 
+    boolean savedNoteOff = noteOffReceived;
     setup(
         pendingSample,
         startAtFrame,
         pendingEndFrame,
         pendingPlayDirection,
         pendingLooping,
-        pendingLoopStartFrame);
+        pendingLoopStartFrame,
+        pendingHasLoopEnd,
+        pendingLoopEndFrame,
+        savedNoteOff);
     pendingSamplesLate = 0;
     return true; // success
-  }
-
-  /** Input frames remaining before the end, in the play direction. */
-  private long framesUntilEnd() {
-    return (long) (endFrame - reader.playPos) * reader.playDirection;
   }
 
   /**
    * Render {@code numSamples} into {@code osc} (interleaved when stereo), accumulating, with the
    * given pitch and amplitude ramp. Picks native vs resampled like the C, and stops (one-shot) or
-   * wraps (looping) at {@link #endFrame}. Block-chunked so a render never reads past the end; the
-   * exact sample-accurate window math is the C considerUpcomingWindow's job (adapter approximation
-   * here for the resampled case).
+   * wraps (looping) at {@link #currentEndOrLoopFrame()} (sample_low_level_reader.cpp:402-765).
    */
   public void render(
       int[] osc,
@@ -360,46 +617,52 @@ public class VoiceSample {
     int[] ampArr = {ampVal};
 
     // whichKernel and interpolationBufferSize depend only on phaseIncrement (constant for this
-    // render call), so compute once instead of per output chunk (getInterpolationBufferSize showed
-    // up in the resampler profile because it ran in the inner loop).
+    // render call), so compute once instead of per output chunk.
     int whichKernel = native_ ? 0 : Functions.getWhichKernel(phaseIncrement);
     int interpBufSize =
         native_
             ? 0
             : (linearInterpolation ? 2 : Functions.getInterpolationBufferSize(phaseIncrement));
 
+    syncReaderBounds();
+    if (!native_) {
+      reader.realignInterpolationBuffer(interpBufSize);
+    }
+
     int produced = 0;
     while (produced < numSamples) {
-      long left = framesUntilEnd();
-      if (left <= 0) {
-        if (looping) {
-          // C sample_low_level_reader.cpp:404-433 — the wrap preserves the overshoot, the
-          // fractional phase, and the 16-tap history; re-initing here dropped up to one input
-          // frame + the fraction per cycle (audible pitch drift on short sustain loops).
-          reader.wrapBy(endFrame - loopStartFrame);
-          left = framesUntilEnd();
-        }
-        if (left <= 0) { // one-shot ended, or degenerate loop
-          // C doZeroes (sample_low_level_reader.cpp:692-699): the resampled path keeps feeding
-          // zeroes through the interpolation buffer until it has fully drained — the reader's
-          // playPos leads the audible sinc center, so stopping at endFrame cut the last ~9 real
-          // frames and the windowed-sinc ring-out (a click on samples ending at non-zero
-          // amplitude). pushFrame already yields zeroes past the sample data.
-          long tailLeft = native_ ? 0 : interpBufSize - (-left);
-          if (tailLeft <= 0) {
-            active = false;
-            return;
-          }
-          left = tailLeft;
-        }
-      }
+      int endOrLoop = currentEndOrLoopFrame();
+      boolean loopingNow = isLoopingNow();
+      int chunk;
 
-      // How many output samples we can emit before consuming `left` input frames.
-      long outAvail =
-          native_
-              ? left
-              : (phaseIncrement == 0 ? numSamples : Math.max(1, (left << 24) / phaseIncrement));
-      int chunk = (int) Math.min(numSamples - produced, outAvail);
+      if (loopingNow) {
+        if ((endOrLoop - loopStartFrame) * reader.playDirection <= 0) {
+          active = false;
+          break;
+        }
+        // SampleReader wraps playPos seamlessly inside pushFrame() / readNative() across
+        // [loopStartFrame, endOrLoop), preserving history and fractional oscPos.
+        chunk = numSamples - produced;
+      } else {
+        // C doZeroes (sample_low_level_reader.cpp:680-685, 759): resampled playback drains
+        // interpBufSize zeroes past endFrame so the sinc/linear kernel rings out cleanly.
+        long stopFrame = endOrLoop + (long) (native_ ? 0 : interpBufSize) * reader.playDirection;
+        long left = (stopFrame - reader.playPos) * reader.playDirection;
+        if (left <= 0) {
+          active = false;
+          break;
+        }
+        long outAvail =
+            native_
+                ? left
+                : (phaseIncrement <= 0
+                    ? (numSamples - produced)
+                    : Math.max(
+                        1L,
+                        ((left << 24) + (phaseIncrement & 0xFFFFFFFFL) - 1)
+                            / (phaseIncrement & 0xFFFFFFFFL)));
+        chunk = (int) Math.min(numSamples - produced, outAvail);
+      }
 
       int[] tmp = getScratchBuffer(chunk * numChannels);
       java.util.Arrays.fill(tmp, 0, chunk * numChannels, 0);
@@ -415,6 +678,14 @@ public class VoiceSample {
         osc[base + i] += tmp[i];
       }
       produced += chunk;
+
+      if (!loopingNow) {
+        long stopFrame = endOrLoop + (long) (native_ ? 0 : interpBufSize) * reader.playDirection;
+        if ((stopFrame - reader.playPos) * reader.playDirection <= 0) {
+          active = false;
+          break;
+        }
+      }
     }
     amplitude[0] = native_ ? (ampArr[0] >> 3) : (ampArr[0] >> 4);
   }

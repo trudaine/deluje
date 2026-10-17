@@ -236,6 +236,12 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     }
   }
 
+  // C sound.cpp:2591-2600 — delegate per-sound post-volume dynamics (compressor) to fw2Sound.
+  @Override
+  protected void processPostVolumeDynamics(int[] interleaved, int numSamples, int postFXVolume) {
+    fw2Sound.processPostVolumeDynamics(interleaved, numSamples, postFXVolume);
+  }
+
   // Legacy test support:
   public void renderInternal(StereoSample[] buffer, int numSamples, Object unused) {
     int[] flat = new int[numSamples * 2];
@@ -335,9 +341,11 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
         fw2Sound.sampleEndPoint[s] = sampleSettings[s].endPoint;
         fw2Sound.sampleLoopMode[s] = sampleSettings[s].loopMode;
         fw2Sound.sampleLoopStart[s] = sampleSettings[s].loopStart;
+        fw2Sound.sampleLoopEnd[s] = sampleSettings[s].loopEnd > 0 ? sampleSettings[s].loopEnd : 0;
         fw2Sound.sampleTimestretch[s] = sampleSettings[s].timestretch;
       } else {
         fw2Sound.samples[s] = null;
+        fw2Sound.sampleLoopEnd[s] = 0;
       }
     }
 

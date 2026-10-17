@@ -128,6 +128,16 @@ public class Voice {
   // For the envelope center (return value)
   public int env0LastValue;
 
+  /** C: voice.h:85 — true when a note-off was deferred because !sound.allowNoteTails(true). */
+  public boolean previouslyIgnoredNoteOff = false;
+
+  /**
+   * Number of unison parts initialized on this voice (C: Sound::setNumUnison, sound.cpp:3130-3195).
+   * Tracks parts initialized at {@link #noteOn} so increasing unison during a held legato note
+   * initializes newly participating parts without resetting existing parts.
+   */
+  public int initializedUnisonParts = 0;
+
   public final Sound sound;
   public final Lfo lfo2 = new Lfo();
   public final Lfo lfo4 = new Lfo();
@@ -208,15 +218,19 @@ public class Voice {
     this.noteCode = midiNote;
     this.velocity = velocity;
     this.active = true;
+    this.previouslyIgnoredNoteOff = false;
+    this.initializedUnisonParts = Math.max(0, Math.min(Sound.kMaxNumVoicesUnison, sound.numUnison));
+    java.util.Arrays.fill(oscSyncPhaseIncrement, 0);
 
     // C: a freshly acquired voice randomizes all part phases (Voice::randomizeOscPhases,
     // voice.cpp:399-411, called from sound.cpp:1654); noteOn then pins any source/modulator with a
     // retrigger phase set (voice_unison_part_source.cpp:79-82, voice.cpp:319-327). The test
     // override pins everything to a fixed phase for deterministic renders.
-    for (int u = 0; u < sound.numUnison; u++) {
+    for (int u = 0; u < this.initializedUnisonParts; u++) {
       for (int s = 0; s < 2; s++) {
         VoiceSource vs = unisonParts[u].sources[s];
         vs.active = true;
+        vs.disabledByPitch = false;
         int ovr = (s == 0) ? testStartPhaseOverrideOsc1.get() : testStartPhaseOverrideOsc2.get();
         vs.oscPos = (ovr != -2) ? ovr : Functions.getNoise(); // random initial phase
         // C vups:79-82 — retrigger overrides the random phase: zero-phase base for the wave type
@@ -237,6 +251,12 @@ public class Voice {
           unisonParts[u].modulatorPhase[m] = sound.modulatorRetriggerPhase[m];
         }
         unisonParts[u].modulatorFeedback[m] = 0;
+      }
+    }
+    for (int u = this.initializedUnisonParts; u < Sound.kMaxNumVoicesUnison; u++) {
+      for (int s = 0; s < 2; s++) {
+        unisonParts[u].sources[s].active = false;
+        unisonParts[u].sources[s].disabledByPitch = false;
       }
     }
     overallOscAmplitudeLastTime = 0;
@@ -321,6 +341,149 @@ public class Voice {
     noteOn(midiNote, velocity, -1, null);
   }
 
+  // ── changeNoteCode (voice.cpp:353-376) ──
+
+  /**
+   * C: voice.cpp:353-376 — legato pitch transition on an already-sounding voice. Updates the note
+   * code, MIDI channel, MPE smoothing targets, and portamento glide without resetting envelopes,
+   * oscillator phases, filters, the latched NOTE patch source, or active sample readers.
+   */
+  public void changeNoteCode(int newNoteCode, int fromMidiChannel, int[] mpeValues) {
+    inputCharacteristics[0] = newNoteCode;
+    inputCharacteristics[1] = fromMidiChannel;
+    this.note = newNoteCode;
+    this.noteCode = newNoteCode;
+
+    // C voice.cpp:362-366 — always updates all 3 local expression targets and smoothing flags.
+    for (int m = 0; m < 3; m++) {
+      localExpressionSourceValuesBeforeSmoothing[m] =
+          (mpeValues != null) ? (mpeValues[m] << 16) : 0;
+    }
+    expressionSourcesCurrentlySmoothing = 0b111;
+
+    // C voice.cpp:371-375 — checks UNPATCHED_PORTAMENTO != -2147483648, then recalculates phase
+    // increments. Restore any source that was disabled solely for exceeding Nyquist on the
+    // previous note, while keeping completed sample readers inactive.
+    restorePitchDisabledSource(0);
+    restorePitchDisabledSource(1);
+    if (sound.portamentoKnob != Integer.MIN_VALUE) {
+      setupPorta();
+    }
+    sound.lastNoteCode = newNoteCode;
+  }
+
+  /**
+   * C: Sound::setNumUnison (sound.cpp:3130-3195) + Voice::randomizeOscPhases (voice.cpp:399-411) —
+   * initializes any unison parts added after {@link #noteOn} (e.g. when unison increases during a
+   * held legato note) while preserving envelopes and playback state on existing parts.
+   */
+  public void ensureUnisonPartsInitialized(int targetNote, int velocity) {
+    int targetUnison = Math.max(0, Math.min(Sound.kMaxNumVoicesUnison, sound.numUnison));
+    if (targetUnison < initializedUnisonParts) {
+      for (int u = targetUnison; u < initializedUnisonParts; u++) {
+        for (int s = 0; s < 2; s++) {
+          VoiceSource vs = unisonParts[u].sources[s];
+          vs.active = false;
+          vs.disabledByPitch = false;
+          vs.sampleRef = null;
+          vs.voiceSample.active = false;
+          vs.voiceSample.pendingSamplesLate = 0;
+          vs.voiceSample.timeStretcher.playHeadStillActive[0] = false;
+          vs.voiceSample.timeStretcher.playHeadStillActive[1] = false;
+          vs.livePitchShifter = null;
+          vs.liveInputBuffer = null;
+        }
+      }
+      initializedUnisonParts = targetUnison;
+      return;
+    }
+    if (targetUnison <= initializedUnisonParts) {
+      return;
+    }
+    boolean hasExistingPart = initializedUnisonParts > 0;
+    int refIdx = hasExistingPart ? (initializedUnisonParts - 1) : 0;
+    for (int u = initializedUnisonParts; u < targetUnison; u++) {
+      for (int m = 0; m < 2; m++) {
+        unisonParts[u].modulatorPhase[m] =
+            (testStartPhaseOverrideOsc1.get() != -2) ? 0 : Functions.getNoise();
+        if (sound.synthMode == 1 && sound.modulatorRetriggerPhase[m] != 0xFFFFFFFF) {
+          unisonParts[u].modulatorPhase[m] = sound.modulatorRetriggerPhase[m];
+        }
+        unisonParts[u].modulatorFeedback[m] = 0;
+      }
+      for (int s = 0; s < 2; s++) {
+        VoiceSource vs = unisonParts[u].sources[s];
+        int ovr = (s == 0) ? testStartPhaseOverrideOsc1.get() : testStartPhaseOverrideOsc2.get();
+        vs.oscPos = (ovr != -2) ? ovr : Functions.getNoise();
+        if (sound.oscRetriggerPhase[s] != 0xFFFFFFFF) {
+          vs.oscPos =
+              Functions.getOscInitialPhaseForZero(sound.oscTypes[s]) + sound.oscRetriggerPhase[s];
+        }
+        vs.carrierFeedback = 0;
+        if (sound.synthMode != 1 && sound.oscTypes[s] == OscType.SAMPLE) {
+          VoiceSource ref = hasExistingPart ? unisonParts[refIdx].sources[s] : vs;
+          if (ref.sampleRef != null && ref.voiceSample.active) {
+            if (ref != vs) {
+              vs.sampleRef = ref.sampleRef;
+              vs.zoneTranspose = ref.zoneTranspose;
+              vs.zoneCents = ref.zoneCents;
+              vs.timeStretchRatio = ref.timeStretchRatio;
+              vs.voiceSample.copyStateFrom(ref.voiceSample);
+              vs.active = ref.active;
+              vs.disabledByPitch = ref.disabledByPitch;
+            }
+          } else {
+            vs.sampleRef = null;
+            vs.voiceSample.active = false;
+            vs.active = false;
+            vs.disabledByPitch = false;
+          }
+        } else {
+          if (sound.synthMode != 1
+              && sound.oscTypes[s] == OscType.DX7
+              && sound.sourceDx7Patch[s] != null) {
+            System.arraycopy(sound.sourceDx7Patch[s], 0, vs.dxPatch.params, 0, 156);
+            vs.dxPatch.setEngineMode(sound.sourceDx7EngineType[s]);
+            vs.dxPatch.randomDetune = sound.sourceDx7RandomDetune[s];
+            vs.dxVoice.init(vs.dxPatch, targetNote, velocity);
+          }
+          if (hasExistingPart && unisonParts[refIdx].sources[s].disabledByPitch) {
+            vs.active = false;
+            vs.disabledByPitch = true;
+          } else {
+            boolean refActive = hasExistingPart && unisonParts[refIdx].sources[s].active;
+            vs.active = refActive || sound.isSourceActiveEver(s, false);
+            vs.disabledByPitch = false;
+          }
+        }
+      }
+    }
+    initializedUnisonParts = targetUnison;
+  }
+
+  /**
+   * C: voice.cpp:422 / sound.cpp:358-371 — restores unison parts on source {@code s} that were
+   * deactivated solely for exceeding Nyquist once pitch drops back below the limit and the source
+   * is able to sound, without restarting completed sample readers.
+   */
+  private void restorePitchDisabledSource(int s) {
+    boolean nonFmSample = sound.synthMode != 1 && sound.oscTypes[s] == Oscillator.OscType.SAMPLE;
+    for (int u = 0; u < sound.numUnison; u++) {
+      VoiceSource vs = unisonParts[u].sources[s];
+      if (!vs.disabledByPitch) {
+        continue;
+      }
+      if (nonFmSample && (vs.sampleRef == null || !vs.voiceSample.active)) {
+        vs.disabledByPitch = false;
+        continue;
+      }
+      if (sound.isSourceActiveEver(s, vs.sampleRef != null)) {
+        vs.active = true;
+        vs.disabledByPitch = false;
+      }
+    }
+  }
+
   // ── Portamento pitch adjust (voice.cpp:840-856) ──
 
   /**
@@ -398,20 +561,35 @@ public class Voice {
   }
 
   // ── noteOff (voice.cpp:570-634) ──
-  // allowNoteTails / allowReleaseStage are true for every caller in this engine (synth voices);
-  // the C's sample loop-end handling (voice.cpp:605-618) has no Java counterpart yet.
+  // allowNoteTails / allowReleaseStage are true for every caller in this engine (synth voices).
 
   public void noteOff() {
-    // voice.cpp:583-585 — no release stage: stop as soon as we can.
-    if (!hasReleaseStage()) {
-      envelopes[0].unconditionalRelease(Envelope.Stage.FAST_RELEASE, 65536); // SOFT_CULL_INCREMENT
-    } else {
-      // voice.cpp:589-597 — env0 gets the conditional noteOff (ignoredNoteOff when no sustain);
-      // env1 only if its release final value >= 9; envelopes 2-3 are NOT released.
-      envelopes[0].noteOff(0, sound);
-      if (paramFinalValues[Param.LOCAL_ENV_1_RELEASE] >= 9) {
-        envelopes[1].noteOff(1, sound);
+    // C voice.cpp:573-575, 608-619 — notify sample playback guides/readers that note-off arrived
+    // so any sustain loop-end point (loopEndPos) releases into the sample tail.
+    for (int s = 0; s < 2; s++) {
+      for (int u = 0; u < sound.numUnison; u++) {
+        unisonParts[u].sources[s].voiceSample.onNoteOff();
       }
+    }
+
+    // C voice.cpp:581-604 — only release envelopes when note tails are allowed (e.g. not an ONCE
+    // sample with only a sustain loop-end tail); otherwise remember the ignored note-off.
+    if (sound.allowNoteTails(true)) {
+      previouslyIgnoredNoteOff = false;
+      // voice.cpp:583-585 — no release stage: stop as soon as we can.
+      if (!hasReleaseStage()) {
+        envelopes[0].unconditionalRelease(
+            Envelope.Stage.FAST_RELEASE, 65536); // SOFT_CULL_INCREMENT
+      } else {
+        // voice.cpp:589-597 — env0 gets the conditional noteOff (ignoredNoteOff when no sustain);
+        // env1 only if its release final value >= 9; envelopes 2-3 are NOT released.
+        envelopes[0].noteOff(0, sound);
+        if (paramFinalValues[Param.LOCAL_ENV_1_RELEASE] >= 9) {
+          envelopes[1].noteOff(1, sound);
+        }
+      }
+    } else {
+      previouslyIgnoredNoteOff = true;
     }
 
     // voice.cpp:619-625 — DX7 operator/pitch envelopes enter their release segments.
@@ -499,6 +677,12 @@ public class Voice {
     // Copy global sources from sound
     System.arraycopy(sound.globalSourceValues, 0, sourceValues, 0, 3);
 
+    // C voice.cpp:732-734 — if a note-off was deferred while allowNoteTails(true) was false,
+    // process it as soon as preset/mode changes allow note tails again.
+    if (previouslyIgnoredNoteOff && sound.allowNoteTails(true)) {
+      noteOff();
+    }
+
     // ── 1. Envelopes (voice.cpp:740-800) ──
 
     // Envelope 0 (amplitude) always renders
@@ -574,9 +758,14 @@ public class Voice {
     //       (patcher.cpp performPatching) ──
     Patcher.performPatching(sound, sourceValues, sound.patchCableSet, paramFinalValues);
 
+    if (sound.numUnison != initializedUnisonParts) {
+      ensureUnisonPartsInitialized(noteCode, velocity);
+    }
+
     // ── 5. Phase increments (voice.cpp:414-560) ──
     // C voice.cpp:447-458 — SAMPLE and INPUT_* sources use ratio-style increments (2^24 = unity);
     // for INPUT the neutral is kMaxSampleValue (live input has no file sample rate).
+    boolean pitchTooHighA = false;
     int carrierIncA;
     if (sound.synthMode != 1
         && (sound.oscTypes[0] == Oscillator.OscType.SAMPLE || isInputType(sound.oscTypes[0]))) {
@@ -634,8 +823,13 @@ public class Voice {
           // cents + unison detune); the C makes the source inactive.
           int shiftLeftAmount = -shiftRightAmount;
           if (carrierIncA >= (2026954652 >> shiftLeftAmount)) {
+            pitchTooHighA = true;
             for (int u = 0; u < sound.numUnison; u++) {
-              unisonParts[u].sources[0].active = false;
+              oscSyncPhaseIncrement[u] = 0;
+              if (unisonParts[u].sources[0].active) {
+                unisonParts[u].sources[0].active = false;
+                unisonParts[u].sources[0].disabledByPitch = true;
+              }
             }
             carrierIncA = 1; // unused while the source is inactive
           } else {
@@ -662,11 +856,25 @@ public class Voice {
       carrierIncA = sound.sourceFineTuners[0].detune(carrierIncA);
       carrierIncA = sound.masterFineTuner.detune(carrierIncA);
     }
+    // C voice.cpp:424-428, 498 — frequency too high (> 22.05 kHz) deactivates only this source,
+    // NOT the entire voice (so source 1 or noise can still sound).
     if (carrierIncA <= 0) {
-      active = false;
-      return false;
+      pitchTooHighA = true;
+      for (int u = 0; u < sound.numUnison; u++) {
+        oscSyncPhaseIncrement[u] = 0;
+        if (unisonParts[u].sources[0].active) {
+          unisonParts[u].sources[0].active = false;
+          unisonParts[u].sources[0].disabledByPitch = true;
+        }
+      }
+      carrierIncA = 0;
+    } else if (!pitchTooHighA) {
+      // C voice.cpp:422 / sound.cpp:1132 — restore sources disabled solely by pitch when transpose
+      // or tuning changes bring the base increment back below Nyquist on a held voice.
+      restorePitchDisabledSource(0);
     }
 
+    boolean pitchTooHighB = false;
     int carrierIncB;
     if (sound.synthMode != 1
         && (sound.oscTypes[1] == Oscillator.OscType.SAMPLE || isInputType(sound.oscTypes[1]))) {
@@ -722,8 +930,12 @@ public class Voice {
           // C voice.cpp:471-481 — frequency-too-high guard; the C makes the source inactive.
           int shiftLeftAmount = -shiftRightAmount;
           if (carrierIncB >= (2026954652 >> shiftLeftAmount)) {
+            pitchTooHighB = true;
             for (int u = 0; u < sound.numUnison; u++) {
-              unisonParts[u].sources[1].active = false;
+              if (unisonParts[u].sources[1].active) {
+                unisonParts[u].sources[1].active = false;
+                unisonParts[u].sources[1].disabledByPitch = true;
+              }
             }
             carrierIncB = 1; // unused while the source is inactive
           } else {
@@ -749,6 +961,18 @@ public class Voice {
           calculateBasePhaseIncrement(noteCode + sound.masterTranspose + sound.sourceTranspose[1]);
       carrierIncB = sound.sourceFineTuners[1].detune(carrierIncB);
       carrierIncB = sound.masterFineTuner.detune(carrierIncB);
+    }
+    if (carrierIncB <= 0) {
+      pitchTooHighB = true;
+      for (int u = 0; u < sound.numUnison; u++) {
+        if (unisonParts[u].sources[1].active) {
+          unisonParts[u].sources[1].active = false;
+          unisonParts[u].sources[1].disabledByPitch = true;
+        }
+      }
+      carrierIncB = 0;
+    } else if (!pitchTooHighB) {
+      restorePitchDisabledSource(1);
     }
 
     // Apply unison detune
@@ -925,6 +1149,7 @@ public class Voice {
     }
 
     // ── FM path (voice.cpp:1400-1560) ──
+    boolean unassignFromSources = false;
     if (sound.synthMode == 1) { // FM
       renderFmPath(mixBuf, numSamples, overallOscAmplitude, overallPitchAdjust);
       // voice.cpp:1674-1676 — next block ramps from this block's targets.
@@ -934,8 +1159,9 @@ public class Voice {
       renderRingModPath(
           mixBuf, numSamples, overallPitchAdjust, hasFilters, filterGain, doingOscSync);
     } else {
-      renderSubtractivePath(
-          mixBuf, numSamples, overallPitchAdjust, hasFilters, filterGain, doingOscSync);
+      unassignFromSources =
+          renderSubtractivePath(
+              mixBuf, numSamples, overallPitchAdjust, hasFilters, filterGain, doingOscSync);
     }
 
     // Noise (voice.cpp:1131-1149): add the noise source into the mono mix before the filter +
@@ -985,9 +1211,10 @@ public class Voice {
     }
 
     // Port of voice.cpp:1664 — return false if voice should be unassigned
-    // unassignVoiceAfter = envelope OFF OR (past DECAY AND env source == MIN)
+    // unassignVoiceAfter = source exhaustion OR envelope OFF OR (past DECAY AND env source == MIN)
     unassignVoiceAfter =
-        (envelopes[0].state == Envelope.Stage.OFF)
+        unassignFromSources
+            || (envelopes[0].state == Envelope.Stage.OFF)
             || (envelopes[0].state.compareTo(Envelope.Stage.DECAY) > 0
                 && sourceValues[PatchSource.ENVELOPE_0.ordinal()] == Integer.MIN_VALUE);
     if (unassignVoiceAfter) {
@@ -1037,9 +1264,11 @@ public class Voice {
 
       VoiceSource vsA = unisonParts[u].sources[0];
       VoiceSource vsB = unisonParts[u].sources[1];
+      if (!vsA.active || !vsB.active) continue;
 
       int pIncA = vsA.phaseIncrementStoredValue;
       int pIncB = vsB.phaseIncrementStoredValue;
+      if (pIncA <= 0 || pIncB <= 0) continue;
 
       pIncA = adjustPitch(pIncA, overallPitchAdjust);
       if (pIncA < 0) continue;
@@ -1190,7 +1419,28 @@ public class Voice {
     }
   }
 
-  private void renderSubtractivePath(
+  // C voice_unison_part_source.cpp:197-207 — pitchAndSpeedAreIndependent counteracts phaseIncrement
+  // so playback duration stays independent of pitch. TimeStretcher.hopEnd and VoiceSample.render
+  // take a signed int32_t timeStretchRatio (time_stretcher.cpp:243, 557), so clamp the 64-bit
+  // unsigned quotient to Integer.MAX_VALUE (0x7FFFFFFF, ~128x speed / +7 octaves; compare
+  // audio_clip.cpp:587, 650) before narrowing to int so an 8-octave downward shift does not wrap to
+  // 0 and freeze playback.
+  static int computePitchCompensatedTimeStretchRatio(
+      int pitchAdjustNeutralValue, int phaseIncrement) {
+    if (phaseIncrement == pitchAdjustNeutralValue || phaseIncrement <= 0) {
+      return 16777216;
+    }
+    long rawRatio = (((long) pitchAdjustNeutralValue) << 24) / (phaseIncrement & 0xFFFFFFFFL);
+    if (rawRatio > Integer.MAX_VALUE) {
+      return Integer.MAX_VALUE;
+    }
+    if (rawRatio < 1L) {
+      return 1;
+    }
+    return (int) rawRatio;
+  }
+
+  private boolean renderSubtractivePath(
       int[] mixBuf,
       int numSamples,
       int overallPitchAdjust,
@@ -1201,6 +1451,7 @@ public class Voice {
       tempBuf = new int[numSamples];
     }
     boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
+    boolean unisonPartBecameInactive = false; // C voice.cpp:1177
 
     // Per-source amplitude targets + ramp increments are set up in render() (voice.cpp:1042-1069)
     // before dispatching here.
@@ -1224,7 +1475,10 @@ public class Voice {
 
       for (int u = 0; u < sound.numUnison; u++) {
         VoiceSource vs = unisonParts[u].sources[s];
-        if (!vs.active) continue;
+        if (!vs.active) {
+          if (getPhaseIncrements) oscSyncPhaseIncrement[u] = 0;
+          continue;
+        }
 
         int pInc = vs.phaseIncrementStoredValue;
         pInc = adjustPitch(pInc, overallPitchAdjust);
@@ -1249,26 +1503,39 @@ public class Voice {
 
         java.util.Arrays.fill(tempBuf, 0, numSamples, 0);
 
-        if (vs.sampleRef != null) {
+        if (sound.oscTypes[s] == Oscillator.OscType.SAMPLE && vs.sampleRef != null) {
+          // C voice.cpp:2022, 2061, voice_unison_part_source.cpp:197-215 — sample branch runs only
+          // when oscType == SAMPLE; neutral phase increment for this sample's native rate, and
+          // pitch-compensated timeStretchRatio per block.
+          int pitchAdjustNeutralValue = (int) ((vs.sampleRef.sampleRate * 16777216L) / 44100);
           if (vs.voiceSample.pendingSamplesLate > 0) {
+            // C voice.cpp:2092-2102 — late start ignores pitch modulation (uses
+            // phaseIncrementStoredValue) and computes timeStretchRatioWithoutModulation.
+            long tsRatioNoMod =
+                sound.sampleTimestretch[s]
+                    ? (computePitchCompensatedTimeStretchRatio(
+                            pitchAdjustNeutralValue, vs.phaseIncrementStoredValue)
+                        & 0xFFFFFFFFL)
+                    : 16777216L;
             long rawSamplesLate =
-                ((((long) vs.voiceSample.pendingSamplesLate * vs.phaseIncrementStoredValue) >> 24)
-                        * vs.timeStretchRatio)
+                ((((long) vs.voiceSample.pendingSamplesLate
+                                * (vs.phaseIncrementStoredValue & 0xFFFFFFFFL))
+                            >> 24)
+                        * tsRatioNoMod)
                     >> 24;
             boolean success = vs.voiceSample.attemptLateSampleStart((int) rawSamplesLate);
             if (!success) {
               vs.active = false;
+              vs.disabledByPitch = false;
+              unisonPartBecameInactive = true;
               continue;
             }
           }
-          int sampAmp =
-              (srcAmp > 0)
-                  ? srcAmp
-                  : Math.max(paramFinalValues[Param.LOCAL_OSC_A_VOLUME + s] >> 4, 1 << 26);
-          // The sample subsystem's net level was calibrated against the old 4x-hot wave
-          // oscillators; with the wave paths now C-exact ((amp*val)>>32), bring samples down
-          // by the same factor so hybrid sample+osc balance stays what the recordings match.
-          sampAmp = sampAmp >> 2;
+          // C voice.cpp:1045-1054, 1121, 2223 — use the ramped per-source amplitude and increment
+          // (no non-zero floor, which previously stopped LOCAL_OSC_A/B_VOLUME = off from muting).
+          // Keep the >> 2 scaling so sample+osc balance matches the C-exact wave paths.
+          int sampAmp = srcAmpStart >> 2;
+          int sampAmpInc = srcAmpInc >> 2;
           // C voice_sample.cpp:594 — numChannelsInOutputBuffer = 2 when the source sample is
           // stereo (this engine always renders in stereo downstream): stereo samples keep
           // their image instead of being mono-summed.
@@ -1280,26 +1547,41 @@ public class Voice {
           int[] tsBuf = vs.tsBuf;
           if (vs.voiceSample.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]
               || vs.voiceSample.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]) {
+            // C voice_unison_part_source.cpp:203-207 — pitchAndSpeedAreIndependent counteracts
+            // modulated pInc each block so playback duration stays independent of note pitch.
+            vs.timeStretchRatio =
+                computePitchCompensatedTimeStretchRatio(pitchAdjustNeutralValue, pInc);
             java.util.Arrays.fill(tsBuf, 0, requiredTsLen, 0);
             int[] ampArr = {sampAmp};
             vs.voiceSample.renderTimeStretched(
-                tsBuf, numSamples, 2, pInc, vs.timeStretchRatio, ampArr, 0);
+                tsBuf, numSamples, 2, pInc, vs.timeStretchRatio, ampArr, sampAmpInc);
             if (!stereoSample) {
               for (int i = 0; i < numSamples; i++) {
                 tempBuf[i] = (tsBuf[i * 2] + tsBuf[i * 2 + 1]) >> 1;
               }
             }
-            if (!vs.voiceSample.active) vs.active = false;
+            if (!vs.voiceSample.active) {
+              vs.active = false;
+              vs.disabledByPitch = false;
+              unisonPartBecameInactive = true;
+            }
           } else if (vs.voiceSample.active) {
             int[] ampArr = {sampAmp};
             if (stereoSample) {
               java.util.Arrays.fill(tsBuf, 0, requiredTsLen, 0);
-              vs.voiceSample.render(tsBuf, numSamples, 2, pInc, ampArr, 0);
+              vs.voiceSample.render(tsBuf, numSamples, 2, pInc, ampArr, sampAmpInc);
             } else {
-              vs.voiceSample.render(tempBuf, numSamples, 1, pInc, ampArr, 0);
+              vs.voiceSample.render(tempBuf, numSamples, 1, pInc, ampArr, sampAmpInc);
             }
-            if (!vs.voiceSample.active) vs.active = false;
+            if (!vs.voiceSample.active) {
+              vs.active = false;
+              vs.disabledByPitch = false;
+              unisonPartBecameInactive = true;
+            }
           } else {
+            vs.active = false;
+            vs.disabledByPitch = false;
+            unisonPartBecameInactive = true;
             stereoSample = false; // nothing rendered
           }
           if (stereoSample) {
@@ -1320,7 +1602,8 @@ public class Voice {
             continue;
           }
         } else if (isInputType(sound.oscTypes[s])) {
-          pInc = vs.phaseIncrementStoredValue;
+          // C voice.cpp:1991-2006, 2255 — pInc already includes overallPitchAdjust + per-source
+          // pitch adjust, so live-input pitch shifting responds to pitch bend, porta, and LFO/env.
           int[] input = LiveInput.currentBlock;
           if (input != null) {
             OscType inputTypeNow = sound.oscTypes[s];
@@ -1499,9 +1782,44 @@ public class Voice {
       }
     }
 
+    boolean unassignVoiceAfter = false;
+    // C voice.cpp:1257-1270 — if a unison part finished and no active unison parts or noise remain,
+    // unassign the voice (or fast-release when filters are active to avoid a click).
+    if (unisonPartBecameInactive && areAllUnisonPartsInactive()) {
+      if (!filterSet.isOn()) {
+        unassignVoiceAfter = true;
+      } else if (envelopes[0].state.compareTo(Envelope.Stage.FAST_RELEASE) < 0) {
+        envelopes[0].unconditionalRelease(Envelope.Stage.FAST_RELEASE, 65536);
+      }
+    }
+
     // voice.cpp:1674-1676 — next block ramps from this block's targets.
     sourceAmplitudesLastTime[0] = sourceAmplitudes[0];
     sourceAmplitudesLastTime[1] = sourceAmplitudes[1];
+    return unassignVoiceAfter;
+  }
+
+  /**
+   * C: Voice::areAllUnisonPartsInactive (voice.cpp:1686-1708) — true when noise is off and no
+   * unison part of any ever-active source remains active.
+   */
+  private boolean areAllUnisonPartsInactive() {
+    if (sound.patchedParamValues[Param.LOCAL_NOISE_VOLUME] != Integer.MIN_VALUE
+        || sound.doesParamHaveSomethingPatchedToIt(Param.LOCAL_NOISE_VOLUME)) {
+      return false;
+    }
+    for (int s = 0; s < 2; s++) {
+      boolean hasSample = sources[s].sampleRef != null || sound.hasAnySampleLoaded(s);
+      if (!sound.isSourceActiveEver(s, hasSample)) {
+        continue;
+      }
+      for (int u = 0; u < sound.numUnison; u++) {
+        if (unisonParts[u].sources[s].active) {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
   private void renderFmPath(
@@ -1636,11 +1954,11 @@ public class Voice {
       int carrierAmp1 = sourceAmplitudesLastTime[1];
       int carrierAmpInc1 = sourceAmplitudeIncrements[1];
 
-      if (carrierIncA < 0) {
+      if (!unisonParts[u].sources[0].active || carrierIncA <= 0) {
         carrierAmp0 = 0;
         carrierAmpInc0 = 0;
       }
-      if (carrierIncB < 0) {
+      if (!unisonParts[u].sources[1].active || carrierIncB <= 0) {
         carrierAmp1 = 0;
         carrierAmpInc1 = 0;
       }

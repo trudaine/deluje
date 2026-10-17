@@ -67,7 +67,7 @@ public class Sound extends GlobalEffectable {
    * volume-applied signal, with the postFX volume as its neutral reference.
    */
   @Override
-  protected void processPostVolumeDynamics(int[] interleaved, int numSamples, int postFXVolume) {
+  public void processPostVolumeDynamics(int[] interleaved, int numSamples, int postFXVolume) {
     int compThreshold = patchedParamValues[Param.UNPATCHED_COMPRESSOR_THRESHOLD];
     compressor.setThreshold(compThreshold);
     if (compThreshold <= 0) {
@@ -108,6 +108,19 @@ public class Sound extends GlobalEffectable {
     return patchedParamValues[Param.LOCAL_OSC_B_VOLUME] != Integer.MIN_VALUE || synthMode == 2;
   }
 
+  /** C: sound.cpp:2135-2144 — true if oscillator sync can ever render on this sound. */
+  public boolean renderingOscillatorSyncEver() {
+    if (!oscillatorSync) {
+      return false;
+    }
+    if (synthMode == 1) { // FM
+      return false;
+    }
+    return patchedParamValues[Param.LOCAL_OSC_B_VOLUME] != Integer.MIN_VALUE
+        || doesParamHaveSomethingPatchedToIt(Param.LOCAL_OSC_B_VOLUME)
+        || synthMode == 2;
+  }
+
   /** C PatchCableSet::doesParamHaveSomethingPatchedToIt — any real cable lands on this param. */
   public boolean doesParamHaveSomethingPatchedToIt(int p) {
     java.util.List<Patcher.Destination> dests = patchCableSet.destinations;
@@ -128,6 +141,66 @@ public class Sound extends GlobalEffectable {
     return patchedParamValues[Param.LOCAL_ENV_0_SUSTAIN + e] != -2147483648
         || patchedParamValues[Param.LOCAL_ENV_0_DECAY + e]
             > patchedParamValues[Param.LOCAL_ENV_0_RELEASE + e];
+  }
+
+  /** C: sound.cpp:4367-4376 — true if envelope {@code e} can ever sustain. */
+  public boolean envelopeHasSustainEver(int e) {
+    return patchedParamValues[Param.LOCAL_ENV_0_SUSTAIN + e] != Integer.MIN_VALUE
+        || doesParamHaveSomethingPatchedToIt(Param.LOCAL_ENV_0_SUSTAIN + e)
+        || patchedParamValues[Param.LOCAL_ENV_0_DECAY + e]
+            > patchedParamValues[Param.LOCAL_ENV_0_RELEASE + e];
+  }
+
+  /**
+   * C: sound.cpp:1927-1964 — returns true unless all active sources are play-once samples (without
+   * a sustain loop-end point when {@code !disregardSampleLoop}) or envelope 0 has no sustain.
+   */
+  public boolean allowNoteTails(boolean disregardSampleLoop) {
+    if (arpEnabled()) {
+      return true;
+    }
+    if (!envelopeHasSustainEver(0)) {
+      return false;
+    }
+    if (synthMode != 0
+        || patchedParamValues[Param.LOCAL_NOISE_VOLUME] != Integer.MIN_VALUE
+        || doesParamHaveSomethingPatchedToIt(Param.LOCAL_NOISE_VOLUME)) {
+      return true;
+    }
+    boolean anyActiveSources = false;
+    for (int s = 0; s < 2; s++) {
+      boolean sourceEverActive = isSourceActiveEver(s, hasAnySampleLoaded(s));
+      anyActiveSources = sourceEverActive || anyActiveSources;
+      boolean hasLoopEnd = sampleLoopEnd[s] > 0;
+      if (!hasLoopEnd) {
+        for (CompiledKeyZone kz : sourceZones[s]) {
+          if (kz.endLoopPos > 0) {
+            hasLoopEnd = true;
+            break;
+          }
+        }
+      }
+      if (sourceEverActive
+          && (oscTypes[s] != OscType.SAMPLE
+              || sampleLoopMode[s] != 2
+              || (!disregardSampleLoop && hasLoopEnd))) {
+        return true;
+      }
+    }
+    return !anyActiveSources;
+  }
+
+  /** C: Source::hasAtLeastOneAudioFileLoaded (source.cpp:324-334). */
+  public boolean hasAnySampleLoaded(int s) {
+    if (samples[s] != null) {
+      return true;
+    }
+    for (CompiledKeyZone kz : sourceZones[s]) {
+      if (kz.sample != null) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** FM modulator transpose in semitones (voice.cpp modulatorTranspose[m]). */
@@ -383,8 +456,9 @@ public class Sound extends GlobalEffectable {
   public final Sample[] samples = new Sample[2];
   public final int[] sampleStartPoint = {0, 0};
   public final int[] sampleEndPoint = {65535, 65535};
-  public final int[] sampleLoopMode = {0, 0}; // 0 = off, 1 = loop
+  public final int[] sampleLoopMode = {0, 0}; // 0 = off, 1 = loop, 2 = once
   public final int[] sampleLoopStart = {0, 0};
+  public final int[] sampleLoopEnd = {0, 0}; // 0 = no loop-end point (C loopEndPos)
   public final boolean[] sampleReverse = {false, false};
   public final boolean[] sampleTimestretch = {false, false};
 
@@ -641,6 +715,20 @@ public class Sound extends GlobalEffectable {
     return ampActive && typeActive;
   }
 
+  /** C: sound.cpp:2107-2117 — true if source {@code s} can ever sound. */
+  public boolean isSourceActiveEver(int s, boolean hasSample) {
+    boolean ampActive =
+        (synthMode == 2) // RINGMOD
+            || patchedParamValues[Param.LOCAL_OSC_A_VOLUME + s] != Integer.MIN_VALUE
+            || doesParamHaveSomethingPatchedToIt(Param.LOCAL_OSC_A_VOLUME + s)
+            || renderingOscillatorSyncEver();
+    boolean typeActive =
+        (synthMode == 1) // FM
+            || oscTypes[s] != OscType.SAMPLE
+            || hasSample;
+    return ampActive && typeActive;
+  }
+
   private static void addCable(Sound cfg, PatchSource source, int paramId, int amount) {
     Patcher.PatchCable cable = new Patcher.PatchCable();
     cable.source = source.ordinal();
@@ -819,6 +907,8 @@ public class Sound extends GlobalEffectable {
     int phaseInc1 = getGlobalLFOPhaseIncrement(lfoConfig[0], Param.GLOBAL_LFO_FREQ_1);
     int phaseInc2 = getGlobalLFOPhaseIncrement(lfoConfig[2], Param.GLOBAL_LFO_FREQ_2);
 
+    globalLfos[0].customWave = customLfoWave;
+    globalLfos[1].customWave = customLfoWave;
     globalSourceValues[PatchSource.LFO_GLOBAL_1.ordinal()] =
         globalLfos[0].render(numSamples, lfoConfig[0], phaseInc1);
     globalSourceValues[PatchSource.LFO_GLOBAL_2.ordinal()] =
@@ -844,13 +934,23 @@ public class Sound extends GlobalEffectable {
         // sound.cpp:2456 — (uint32_t)gate + 2147483648, passed FULL-SCALE (the arp itself does the
         // single >> 8, arpeggiator.cpp:1457). Int add wraps exactly like the C uint32 add.
         int gateThreshold = arpSettings.gate + Integer.MIN_VALUE;
+        arpInstr.reset();
         arpeggiator.render(arpSettings, arpInstr, numSamples, gateThreshold, phaseInc);
 
+        // C sound.cpp:2478-2491 — release glide notes first, then post-arp note-offs.
+        for (int n = 0; n < 4; n++) {
+          int glideOff = arpInstr.glideNoteCodeOffPostArp[n];
+          if (glideOff == Arpeggiator.ARP_NOTE_NONE) {
+            break;
+          }
+          releaseVoice(glideOff, -1);
+        }
         for (int n = 0; n < 4; n++) {
           int noteOff = arpInstr.noteCodeOffPostArp[n];
-          if (noteOff != Arpeggiator.ARP_NOTE_NONE) {
-            releaseVoice(noteOff, -1);
+          if (noteOff == Arpeggiator.ARP_NOTE_NONE) {
+            break;
           }
+          releaseVoice(noteOff, -1);
         }
 
         if (arpInstr.arpNoteOn != null) {
@@ -1034,7 +1134,7 @@ public class Sound extends GlobalEffectable {
         fxStereoBuffer[i].l = fxIntBuffer[i][0];
         fxStereoBuffer[i].r = fxIntBuffer[i][1];
       }
-      Stutterer.GLOBAL.processStutter(fxStereoBuffer, timePerInternalTickInverse);
+      Stutterer.GLOBAL.processStutter(fxStereoBuffer, numSamples, timePerInternalTickInverse);
       for (int i = 0; i < numSamples; i++) {
         fxIntBuffer[i][0] = fxStereoBuffer[i].l;
         fxIntBuffer[i][1] = fxStereoBuffer[i].r;
@@ -1086,13 +1186,36 @@ public class Sound extends GlobalEffectable {
 
   public void triggerNote(int note, int vel, int midiChannel) {
     if (arpEnabled()) {
+      arpInstr.reset();
       arpeggiator.noteOn(arpSettings, note, vel, arpInstr, midiChannel, null);
+      for (int n = 0; n < 4; n++) {
+        int glideOff = arpInstr.glideNoteCodeOffPostArp[n];
+        if (glideOff == Arpeggiator.ARP_NOTE_NONE) {
+          break;
+        }
+        releaseVoice(glideOff, -1);
+      }
+      for (int n = 0; n < 4; n++) {
+        int noteOff = arpInstr.noteCodeOffPostArp[n];
+        if (noteOff == Arpeggiator.ARP_NOTE_NONE) {
+          break;
+        }
+        releaseVoice(noteOff, -1);
+      }
       if (arpInstr.arpNoteOn != null) {
-        int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[0];
         int v = arpInstr.arpNoteOn.velocity;
         if (v <= 0) v = 64;
-        triggerVoice(noteOn, v, midiChannel);
-        arpInstr.arpNoteOn.noteStatus[0] = Arpeggiator.ArpNoteStatus.PLAYING;
+        for (int n = 0; n < arpInstr.arpNoteOn.noteCodeOnPostArp.length; n++) {
+          int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[n];
+          if (noteOn == Arpeggiator.ARP_NOTE_NONE) {
+            break;
+          }
+          if (arpInstr.arpNoteOn.noteStatus[n] != Arpeggiator.ArpNoteStatus.PENDING) {
+            continue;
+          }
+          triggerVoice(noteOn, v, midiChannel);
+          arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
+        }
         arpInstr.arpNoteOn = null;
       }
       return;
@@ -1124,6 +1247,42 @@ public class Sound extends GlobalEffectable {
       setupUnisonDetuners();
       setupUnisonStereoSpread();
       calculateEffectiveVolume();
+
+      // C sound.cpp:1618-1622, 1649-1651 — in LEGATO mode, if an active voice is still before
+      // RELEASE and note tails are allowed, glide/re-pitch via changeNoteCode without resetting
+      // envelopes, oscillator phases, filters, or active sample readers.
+      if (polyphonic == PolyphonyMode.LEGATO && allowNoteTails(true)) {
+        for (var v : voices) {
+          if (v.active
+              && !v.previouslyIgnoredNoteOff
+              && v.envelopes[0].state.compareTo(Envelope.Stage.RELEASE) < 0) {
+            for (int s = 0; s < 2; s++) {
+              if (synthMode != 1 && oscTypes[s] == OscType.SAMPLE) {
+                if (v.sources[s].sampleRef == null && hasAnySampleLoaded(s)) {
+                  setupVoiceSampleSource(v, s, note, vel, samplesLate);
+                  boolean activeNow = v.sources[s].sampleRef != null && isSourceActiveEver(s, true);
+                  for (int u = 0; u < numUnison; u++) {
+                    v.unisonParts[u].sources[s].active = activeNow;
+                    v.unisonParts[u].sources[s].disabledByPitch = false;
+                  }
+                }
+              } else if (v.sources[s].sampleRef != null) {
+                // C voice.cpp:422 / sound.cpp:1232 — source transitioned away from SAMPLE while
+                // held; clear retained sample state and restore waveform activity.
+                v.sources[s].clearSample();
+                boolean activeNow = isSourceActiveEver(s, false);
+                for (int u = 0; u < numUnison; u++) {
+                  v.unisonParts[u].sources[s].active = activeNow;
+                  v.unisonParts[u].sources[s].disabledByPitch = false;
+                }
+              }
+            }
+            v.ensureUnisonPartsInitialized(note, vel);
+            v.changeNoteCode(note, midiChannel, mpeValues);
+            return;
+          }
+        }
+      }
 
       Voice targetVoice = null;
       if (polyphonic != PolyphonyMode.POLY) {
@@ -1159,81 +1318,126 @@ public class Sound extends GlobalEffectable {
       if (targetVoice != null) {
         // Setup/Update samples on targetVoice's sources before triggering
         for (int s = 0; s < 2; s++) {
-          Sample targetSample = null;
-          int startFrame = sampleStartPoint[s];
-          int len = 0;
-          int endFrame = sampleEndPoint[s];
-          boolean looping = sampleLoopMode[s] == 1;
-          int loopStartFrame = sampleLoopStart[s];
-          int zoneTranspose = Integer.MIN_VALUE; // INT_MIN = no zone (single sample)
-          int zoneCents = 0;
-
-          // C source.cpp:127 / multisample_range.h — multisample key/velocity zone matching
-          if (!sourceZones[s].isEmpty()) {
-            CompiledKeyZone matchedZone = null;
-            for (CompiledKeyZone kz : sourceZones[s]) {
-              if (kz.sample != null
-                  && note >= kz.minPitch
-                  && note <= kz.maxPitch
-                  && vel >= kz.minVelocity
-                  && vel <= kz.maxVelocity) {
-                matchedZone = kz;
-                break;
-              }
-            }
-            if (matchedZone != null) {
-              targetSample = matchedZone.sample;
-              len = (int) targetSample.lengthInSamples;
-              startFrame = matchedZone.startSamplePos;
-              endFrame =
-                  matchedZone.endSamplePos == -1 ? len : Math.min(matchedZone.endSamplePos, len);
-              looping = matchedZone.looping;
-              loopStartFrame = matchedZone.startLoopPos;
-              zoneTranspose = matchedZone.transpose;
-              zoneCents = matchedZone.cents;
-            }
-          }
-
-          if (targetSample == null) {
-            targetSample = samples[s];
-            if (targetSample != null) {
-              len = (int) targetSample.lengthInSamples;
-              endFrame = sampleEndPoint[s] == 65535 ? len : Math.min(sampleEndPoint[s], len);
-            }
-          }
-
-          if (targetSample != null) {
-            // Carry the matched multisample zone's transpose (authoritative tuning) onto the
-            // source;
-            // INT_MIN = single sample / no zone → pitch falls back to the WAV-root-derived
-            // transpose.
-            targetVoice.sources[s].zoneTranspose = zoneTranspose;
-            targetVoice.sources[s].zoneCents = zoneCents;
-            // C SampleControls.interpolationMode — per-source lo-fi linear interpolation.
-            targetVoice.sources[s].voiceSample.linearInterpolation = sourceLinearInterpolation[s];
-            boolean ts = sampleTimestretch[s] && !sampleReverse[s];
-            int playDir = sampleReverse[s] ? -1 : 1;
-            if (ts) {
-              int tsRatio = (int) Math.max(1, 16777216.0 * (targetSample.sampleRate / 44100.0));
-              targetVoice.sources[s].setupSampleTimeStretch(
-                  targetSample, startFrame, playDir, tsRatio);
-            } else {
-              targetVoice.sources[s].setupSample(
-                  targetSample,
-                  startFrame,
-                  endFrame,
-                  playDir,
-                  looping,
-                  loopStartFrame,
-                  samplesLate);
-            }
-          } else {
-            targetVoice.sources[s].sampleRef = null;
-            targetVoice.sources[s].voiceSample.active = false;
-          }
+          setupVoiceSampleSource(targetVoice, s, note, vel, samplesLate);
         }
         targetVoice.noteOn(note, vel, midiChannel, mpeValues);
       }
+    }
+  }
+
+  /**
+   * Initializes or clears sample playback state on {@code targetVoice.sources[s]} for {@code note}.
+   * Mirrors C {@code Voice::noteOn} (voice.cpp:226-256), which only attaches an audioFileHolder and
+   * sample reader when {@code oscType == OscType::SAMPLE && synthMode != SynthMode::FM}.
+   */
+  private void setupVoiceSampleSource(
+      Voice targetVoice, int s, int note, int vel, int samplesLate) {
+    if (synthMode == 1 || oscTypes[s] != OscType.SAMPLE) {
+      targetVoice.sources[s].clearSample();
+      return;
+    }
+
+    Sample targetSample = null;
+    int startFrame = sampleStartPoint[s];
+    int len = 0;
+    int endFrame = sampleEndPoint[s];
+    boolean looping = sampleLoopMode[s] == 1;
+    int loopStartFrame = sampleLoopStart[s];
+    int loopEndPos = 0;
+    int zoneTranspose = Integer.MIN_VALUE; // INT_MIN = no zone (single sample)
+    int zoneCents = 0;
+
+    // C source.cpp:127 / multisample_range.h — multisample key/velocity zone matching
+    if (!sourceZones[s].isEmpty()) {
+      CompiledKeyZone matchedZone = null;
+      for (CompiledKeyZone kz : sourceZones[s]) {
+        if (kz.sample != null
+            && note >= kz.minPitch
+            && note <= kz.maxPitch
+            && vel >= kz.minVelocity
+            && vel <= kz.maxVelocity) {
+          matchedZone = kz;
+          break;
+        }
+      }
+      if (matchedZone != null) {
+        targetSample = matchedZone.sample;
+        len = (int) targetSample.lengthInSamples;
+        startFrame = matchedZone.startSamplePos;
+        endFrame = matchedZone.endSamplePos == -1 ? len : Math.min(matchedZone.endSamplePos, len);
+        looping = matchedZone.looping;
+        loopStartFrame = matchedZone.startLoopPos;
+        loopEndPos = matchedZone.endLoopPos > 0 ? Math.min(matchedZone.endLoopPos, len) : 0;
+        zoneTranspose = matchedZone.transpose;
+        zoneCents = matchedZone.cents;
+      }
+    }
+
+    if (targetSample == null) {
+      targetSample = samples[s];
+      if (targetSample != null) {
+        len = (int) targetSample.lengthInSamples;
+        endFrame = sampleEndPoint[s] == 65535 ? len : Math.min(sampleEndPoint[s], len);
+        loopEndPos = sampleLoopEnd[s] > 0 ? Math.min(sampleLoopEnd[s], len) : 0;
+      }
+    }
+
+    if (targetSample != null) {
+      // Carry the matched multisample zone's transpose (authoritative tuning) onto the source;
+      // INT_MIN = single sample / no zone -> pitch falls back to the WAV-root-derived transpose.
+      targetVoice.sources[s].zoneTranspose = zoneTranspose;
+      targetVoice.sources[s].zoneCents = zoneCents;
+      // C SampleControls.interpolationMode — per-source lo-fi linear interpolation across every
+      // unison part.
+      targetVoice.sources[s].setLinearInterpolation(sourceLinearInterpolation[s]);
+
+      // C sample_playback_guide.cpp:71-81, voice_sample_playback_guide.cpp:36-68 — convert
+      // file-coordinate start/end and loop points into directional playback bounds.
+      boolean reversed = sampleReverse[s];
+      int playDir = reversed ? -1 : 1;
+      int dirStart = !reversed ? startFrame : (endFrame - 1);
+      int dirEnd = !reversed ? endFrame : (startFrame - 1);
+      int rawLoopStart = loopStartFrame > 0 ? loopStartFrame : 0;
+      int rawLoopEnd = loopEndPos > 0 ? loopEndPos : 0;
+      // C voice_sample_playback_guide.cpp:38-68 — decrement reversed markers first (keeping 0 as 0)
+      // and check marker presence (!= 0) AFTER conversion so raw position 1 -> 0 means no marker.
+      int loopStartPlaybackAtSample = !reversed ? rawLoopStart : rawLoopEnd;
+      int loopEndPlaybackAtSample = !reversed ? rawLoopEnd : rawLoopStart;
+      if (reversed) {
+        if (loopStartPlaybackAtSample != 0) loopStartPlaybackAtSample--;
+        if (loopEndPlaybackAtSample != 0) loopEndPlaybackAtSample--;
+      }
+      boolean hasLoopStart = loopStartPlaybackAtSample != 0;
+      boolean hasLoopEnd = loopEndPlaybackAtSample != 0;
+      int dirLoopStart = hasLoopStart ? loopStartPlaybackAtSample : dirStart;
+      int dirLoopEnd = hasLoopEnd ? loopEndPlaybackAtSample : dirEnd;
+
+      boolean ts = sampleTimestretch[s];
+      if (ts) {
+        targetVoice.sources[s].setupSampleTimeStretch(
+            targetSample,
+            dirStart,
+            dirEnd,
+            playDir,
+            looping,
+            dirLoopStart,
+            hasLoopEnd,
+            dirLoopEnd,
+            16777216);
+      } else {
+        targetVoice.sources[s].setupSample(
+            targetSample,
+            dirStart,
+            dirEnd,
+            playDir,
+            looping,
+            dirLoopStart,
+            hasLoopEnd,
+            dirLoopEnd,
+            samplesLate);
+      }
+    } else {
+      targetVoice.sources[s].clearSample();
     }
   }
 
@@ -1243,17 +1447,39 @@ public class Sound extends GlobalEffectable {
 
   public void releaseNote(int note, int midiChannel) {
     if (arpEnabled()) {
+      arpInstr.reset();
       arpeggiator.noteOff(arpSettings, note, arpInstr);
+      // C sound.cpp:1588-1599 — release glide notes first, then post-arp note-offs.
+      for (int n = 0; n < 4; n++) {
+        int glideOff = arpInstr.glideNoteCodeOffPostArp[n];
+        if (glideOff == Arpeggiator.ARP_NOTE_NONE) {
+          break;
+        }
+        releaseVoice(glideOff, -1);
+      }
       for (int n = 0; n < 4; n++) {
         int noteOff = arpInstr.noteCodeOffPostArp[n];
-        if (noteOff != Arpeggiator.ARP_NOTE_NONE) {
-          releaseVoice(noteOff, -1);
+        if (noteOff == Arpeggiator.ARP_NOTE_NONE) {
+          break;
         }
+        releaseVoice(noteOff, -1);
       }
       if (arpInstr.arpNoteOn != null) {
-        int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[0];
         int v = arpInstr.arpNoteOn.velocity;
-        if (v > 0) triggerVoice(noteOn, v, -1);
+        if (v > 0) {
+          for (int n = 0; n < arpInstr.arpNoteOn.noteCodeOnPostArp.length; n++) {
+            int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[n];
+            if (noteOn == Arpeggiator.ARP_NOTE_NONE) {
+              break;
+            }
+            if (arpInstr.arpNoteOn.noteStatus[n] != Arpeggiator.ArpNoteStatus.PENDING) {
+              continue;
+            }
+            triggerVoice(noteOn, v, -1);
+            arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
+          }
+        }
+        arpInstr.arpNoteOn = null;
       }
       return;
     }
@@ -1263,7 +1489,12 @@ public class Sound extends GlobalEffectable {
   public void releaseVoice(int note, int midiChannel) {
     synchronized (voices) {
       for (var v : voices) {
-        if (v.active && v.note == note) {
+        // C sound.cpp:1874-1876 — Sound::noteOffPostArpeggiator matches voices by
+        // noteCodeAfterArpeggiation == noteCode and envelopes[0].state < EnvelopeStage::RELEASE,
+        // with no MIDI channel test.
+        if (v.active
+            && v.note == note
+            && v.envelopes[0].state.compareTo(Envelope.Stage.RELEASE) < 0) {
           v.noteOff();
         }
       }

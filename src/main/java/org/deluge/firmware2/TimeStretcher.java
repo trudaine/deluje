@@ -57,6 +57,19 @@ public class TimeStretcher {
   private final int[] hopParameters = new int[5];
   private final int[] searchParameters = new int[2];
 
+  /** Copies active hop and playhead state when cloning a unison part (C: sound.cpp:3166-3176). */
+  public void copyStateFrom(TimeStretcher other) {
+    this.samplePosBig = other.samplePosBig;
+    this.samplesTilHopEnd = other.samplesTilHopEnd;
+    this.crossfadeProgress = other.crossfadeProgress;
+    this.crossfadeIncrement = other.crossfadeIncrement;
+    this.playHeadStillActive[0] = other.playHeadStillActive[0];
+    this.playHeadStillActive[1] = other.playHeadStillActive[1];
+    this.hasLoopedBackIntoPreMargin = other.hasLoopedBackIntoPreMargin;
+    this.newHeadBytePosResult = other.newHeadBytePosResult;
+    this.additionalOscPosResult = other.additionalOscPosResult;
+  }
+
   /** C: kAntiClickCrossfadeLength (definitions_cxx.hpp:834). */
   public static final int K_ANTI_CLICK_CROSSFADE_LENGTH = 100;
 
@@ -612,6 +625,20 @@ public class TimeStretcher {
       crossfadeIncrement =
           (int) Integer.toUnsignedLong(K_MAX_SAMPLE_VALUE) / crossfadeLengthSamples; // C:584
       crossfadeProgress = 0;
+
+      // C time_stretcher.cpp:1007-1009 — for looping playback, wrap hop candidates past the loop
+      // end back into [loopStartSample, loopEndSample) before checking against waveformEndSample.
+      if (loopingType != LoopType.NONE && guide != null) {
+        int loopStartSample =
+            (guide.startPlaybackAtByte - sample.audioDataStartPosBytes) / bytesPerSample;
+        int loopEndSample =
+            (guide.endPlaybackAtByte - sample.audioDataStartPosBytes) / bytesPerSample;
+        int loopSpan = (loopEndSample - loopStartSample) * playDirection;
+        if (loopSpan > 0 && (beamBackEdge - loopEndSample) * playDirection >= 0) {
+          int rel = (beamBackEdge - loopStartSample) * playDirection;
+          beamBackEdge = loopStartSample + (rel % loopSpan) * playDirection;
+        }
+      }
 
       if ((beamBackEdge - waveformEndSample) * playDirection >= 0) { // C:588-591
         playHeadStillActive[PLAY_HEAD_NEWER] = false;
