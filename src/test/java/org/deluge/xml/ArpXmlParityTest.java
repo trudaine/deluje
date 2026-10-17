@@ -181,4 +181,58 @@ public class ArpXmlParityTest {
     assertEquals("ALT", back.octaveMode());
     assertEquals(2, back.mpeVelocity());
   }
+
+  @Test
+  void multiBarSyncLevelsRoundTrip() {
+    // At magnitude 2, file 2 is internal 1: eight quarter notes, i.e. two whole notes.
+    assertEquals(-2, ArpXmlCodec.syncDenominatorFromFile(2, 2));
+    assertEquals(2, ArpXmlCodec.syncFileValueFromDenominator(-2, 2));
+    assertEquals(1, ArpXmlCodec.internalSyncLevelFromDenominator(-2, 2));
+    assertEquals(1, ArpXmlCodec.syncDenominatorFromFile(3, 2), "file 3 is a whole note");
+  }
+
+  @Test
+  void thisAppsOldExporterTokensStillLoad() throws Exception {
+    // DelugeXmlExporter used to write the panel tokens verbatim. The C never writes them.
+    ArpModel arp = arpOf("<arpeggiator arpMode=\"arp\" noteMode=\"PLAY\" octaveMode=\"ALT\"/>");
+    assertEquals("PLAY", arp.noteMode());
+    assertEquals("ALT", arp.octaveMode());
+  }
+
+  @Test
+  void arpRateParamIsSavedRawAndReloads() throws Exception {
+    SynthTrackModel synth = new SynthTrackModel("R");
+    synth.setArpRateQ31(0x12345678);
+    synth.addClip(new ClipModel("c", 1, 16));
+    ProjectModel project = new ProjectModel();
+    project.addTrack(synth);
+    String xml = ProjectSerializer.serializeToString(project);
+    assertTrue(xml.contains("arpeggiatorRate=\"0x12345678\""), "the raw GLOBAL_ARP_RATE param");
+    SynthTrackModel back =
+        (SynthTrackModel)
+            DelugeXmlParser.parseSong(
+                    new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)), "rt")
+                .getTracks()
+                .get(0);
+    assertEquals(0x12345678, back.getArpRateQ31());
+
+    java.io.File f = java.io.File.createTempFile("arprate", ".XML");
+    f.deleteOnExit();
+    org.deluge.project.KitSynthSerializer.saveSynth(synth, f);
+    assertEquals(0x12345678, DelugeXmlParser.parseSynth(f).getArpRateQ31());
+  }
+
+  @Test
+  void standardMenuConversionsMatchValueScaling() {
+    assertEquals(
+        Integer.MIN_VALUE, org.deluge.firmware2.Functions.computeFinalValueForStandardMenuItem(0));
+    assertEquals(
+        Integer.MAX_VALUE, org.deluge.firmware2.Functions.computeFinalValueForStandardMenuItem(50));
+    for (int v = 0; v <= 50; v++) {
+      assertEquals(
+          v,
+          org.deluge.firmware2.Functions.computeCurrentValueForStandardMenuItem(
+              org.deluge.firmware2.Functions.computeFinalValueForStandardMenuItem(v)));
+    }
+  }
 }

@@ -1108,16 +1108,16 @@ public class FirmwareFactory {
     // syncLevel here is a note-division denominator (1=whole, 4=quarter, 16=16th); default 16th.
     // 0 = not synced (the ARP panel's "OFF"): the engine then leaves arpPhaseIncrement at 0 and
     // fw2 runs the C's free-rate path from the arp-rate param (arpeggiator.cpp:1594-1596).
-    sound.arpDivision = Math.max(0, arp.syncLevel());
+    sound.arpDivision = arp.syncLevel(); // < 0: that many whole notes (ArpXmlCodec)
     // The C internal SyncLevel for that division, read by getPhaseIncrement, the ratchet limits
     // and ticks-per-period (arpeggiator.cpp).
     s.syncLevel =
         org.deluge.firmware2.Arpeggiator.SyncLevel.values()[
             org.deluge.xml.ArpXmlCodec.internalSyncLevelFromDenominator(
                 arp.syncLevel(), sound.inputTickMagnitude)];
-    // Free-rate multiplier on the BPM-derived arp clock (PureFirmwareEngine divides the step
-    // length by it). 1.0 = nominal.
-    sound.arpRateMultiplier = (arp.rate() > 0.01f) ? arp.rate() : 1.0f;
+    // A synced arp's speed is the sync level alone: the C getPhaseIncrement ignores the rate
+    // param when synced (arpeggiator.cpp:1597-1610). The rate is GLOBAL_ARP_RATE, used unsynced.
+    sound.arpRateMultiplier = 1.0f;
 
     // ── Full Settings mapping (previously only mode/octaves/repeat/gate/rhythm were wired, so
     // the ARP tab's note-mode/seq-length/spread/probability/ratchet/chord controls were dead) ──

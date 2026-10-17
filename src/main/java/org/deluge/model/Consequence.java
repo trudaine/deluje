@@ -173,7 +173,11 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
           case "mod2Fb" -> synth.setModulator2Feedback(value / 100.0f);
           case "noiseVol" -> synth.setNoiseVol(value / 100.0f);
           // Arpeggiator / Randomizer parameters
-          case "arpRate" -> synth.setArp(synth.getArp().toBuilder().rate(value / 100.0f).build());
+          // The ARP panel's Rate slider is the C arp-rate knob (0-50) → GLOBAL_ARP_RATE.
+          case "arpRate" ->
+              synth.setArpRateQ31(
+                  org.deluge.firmware2.Functions.computeFinalValueForStandardMenuItem(
+                      Math.round(value)));
           case "arpGate" -> synth.setArp(synth.getArp().toBuilder().gate(value / 100.0f).build());
           case "arpStepRepeat" ->
               synth.setArp(synth.getArp().toBuilder().stepRepeat((int) value).build());

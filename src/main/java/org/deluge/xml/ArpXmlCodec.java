@@ -16,9 +16,17 @@ public final class ArpXmlCodec {
   /** C FlashStorage::defaultMagnitude (flash_storage.cpp:350), used for a standalone preset. */
   public static final int DEFAULT_INPUT_TICK_MAGNITUDE = 2;
 
-  /** C stringToArpNoteMode (functions.cpp): unknown strings are UP. */
+  /**
+   * C stringToArpNoteMode (functions.cpp): unknown strings are UP. Also accepts this app's own
+   * panel tokens ("PLAY", "UPDN", …), which its DelugeXmlExporter used to write verbatim; the C
+   * never writes them, so firmware files decode exactly as the C does.
+   */
   public static String noteModeFromFile(String s) {
     if (s == null) return "UP";
+    if (java.util.List.of("UP", "DOWN", "UPDN", "RAND", "WLK1", "WLK2", "WLK3", "PLAY", "PATT")
+        .contains(s)) {
+      return s;
+    }
     return switch (s) {
       case "down" -> "DOWN";
       case "upDown" -> "UPDN";
@@ -48,9 +56,10 @@ public final class ArpXmlCodec {
     };
   }
 
-  /** C stringToArpOctaveMode (functions.cpp): unknown strings are UP. */
+  /** C stringToArpOctaveMode (functions.cpp); also this app's legacy tokens, as above. */
   public static String octaveModeFromFile(String s) {
     if (s == null) return "UP";
+    if (java.util.List.of("UP", "DOWN", "UPDN", "ALT", "RAND").contains(s)) return s;
     return switch (s) {
       case "down" -> "DOWN";
       case "upDown" -> "UPDN";
@@ -122,21 +131,24 @@ public final class ArpXmlCodec {
    * (song.cpp:5842-5859) gives the internal level L, clamped to 1..9. The arp's period is {@code 3
    * << (9 - L)} timer ticks (arpeggiator.cpp ticksPerPeriod), and a quarter note is {@code 24 <<
    * magnitude} timer ticks (song.h BPM formula), so the note is 1 / 2^(L + magnitude - 4) — a 16th
-   * for the constructor default {@code 8 - magnitude}. 0 stays 0 (not synced). A level slower than
-   * a whole note clamps to 1.
+   * for the constructor default {@code 8 - magnitude}. 0 stays 0 (not synced). A period longer than
+   * a whole note (possible at magnitude 2 and up) is returned negated: -N is N whole notes.
    */
   public static int syncDenominatorFromFile(int fileValue, int inputTickMagnitude) {
     int level =
         DelugeXmlUtil.convertSyncLevelFromFileValueToInternalValue(fileValue, inputTickMagnitude);
     if (level == 0) return 0;
     int exp = level + inputTickMagnitude - 4;
-    return exp <= 0 ? 1 : 1 << exp;
+    return exp >= 0 ? 1 << exp : -(1 << -exp);
   }
 
   /** Model denominator → the C internal SyncLevel (1..9, 0 = none), the inverse of the above. */
   public static int internalSyncLevelFromDenominator(int denominator, int inputTickMagnitude) {
-    if (denominator <= 0) return 0;
-    int log2 = 31 - Integer.numberOfLeadingZeros(denominator);
+    if (denominator == 0) return 0;
+    int log2 =
+        denominator > 0
+            ? 31 - Integer.numberOfLeadingZeros(denominator)
+            : -(31 - Integer.numberOfLeadingZeros(-denominator)); // -N: N whole notes
     return Math.max(1, Math.min(9, log2 + 4 - inputTickMagnitude));
   }
 

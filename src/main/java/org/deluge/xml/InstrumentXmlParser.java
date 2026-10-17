@@ -62,8 +62,9 @@ public class InstrumentXmlParser {
               "defaultParams", "sampleRateReduction", SynthTrackModel::setSampleRateReduction),
           FieldBinding.hexFloat("defaultParams", "bitCrush", SynthTrackModel::setBitCrush),
           FieldBinding.hexFloat("defaultParams", "delayRate", SynthTrackModel::setDelaySend),
-          FieldBinding.hexFloat("defaultParams", "waveIndex", SynthTrackModel::setWaveIndex),
-          FieldBinding.hexFloat("defaultParams", "arpeggiatorRate", SynthTrackModel::setArpRate));
+          // "arpeggiatorRate" is the GLOBAL_ARP_RATE param, read exactly into arpRateQ31 below; it
+          // is not the panel's speed multiplier (which the C has no equivalent of).
+          FieldBinding.hexFloat("defaultParams", "waveIndex", SynthTrackModel::setWaveIndex));
 
   public static SynthTrackModel parseSynth(java.io.File xmlFile) throws Exception {
     // try-with-resources: see the note in SongXmlParser.parseSong(File) -- an unclosed stream here

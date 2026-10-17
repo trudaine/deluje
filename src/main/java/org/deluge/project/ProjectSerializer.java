@@ -1366,8 +1366,8 @@ public class ProjectSerializer {
         "reverbAmount", DelugeHexMapper.unipolarFloatToHexUnified(synth.getReverbSend()), false);
     writer.writeAttribute(
         "delayRate", DelugeHexMapper.unipolarFloatToHexUnified(synth.getDelaySend()), false);
-    writer.writeAttribute(
-        "arpeggiatorRate", DelugeHexMapper.unipolarFloatToHexUnified(synth.getArpRate()), false);
+    // GLOBAL_ARP_RATE (sound.cpp:4117) — the raw param, not the panel's old multiplier.
+    writer.writeAttribute("arpeggiatorRate", String.format("0x%08X", synth.getArpRateQ31()), false);
 
     // Write any raw patched parameters (like sidechain shape)
     for (var entry : synth.getRawKnobs().getRawParamKnobs().entrySet()) {

@@ -104,13 +104,17 @@ public class ArpPanel extends JPanel {
             leftPanel,
             lc,
             leftRow,
-            "Rate (×):",
-            "Arpeggiator speed multiplier (0.25× to 4.00×)",
-            25,
-            400,
-            (int) (arp.rate() * 100),
-            val -> model.setArp(model.getArp().toBuilder().rate((float) (val / 100.0)).build()),
-            "×0.01",
+            "Rate:",
+            "Arpeggiator rate when Sync is OFF (the C arp-rate knob, 0-50)",
+            0,
+            org.deluge.firmware2.Functions.K_MAX_MENU_VALUE,
+            org.deluge.firmware2.Functions.computeCurrentValueForStandardMenuItem(
+                model.getArpRateQ31()),
+            // GLOBAL_ARP_RATE: only an unsynced arp uses it (arpeggiator.cpp:1594-1596).
+            val ->
+                model.setArpRateQ31(
+                    org.deluge.firmware2.Functions.computeFinalValueForStandardMenuItem(val)),
+            "",
             "arpRate",
             projectModel,
             trackIndex);

@@ -661,7 +661,8 @@ public class KitSynthSerializer {
     appendHexChildUnipolar(doc, dp, "delayRate", synth.getDelaySend());
     appendHexChildUnipolar(doc, dp, "delayFeedback", 0f);
     appendHexChildUnipolar(doc, dp, "reverbAmount", synth.getReverbSend());
-    appendHexChildUnipolar(doc, dp, "arpeggiatorRate", synth.getArpRate());
+    // GLOBAL_ARP_RATE (sound.cpp:4117) — the raw param, not the panel's old multiplier.
+    appendTextChild(doc, dp, "arpeggiatorRate", String.format("0x%08X", synth.getArpRateQ31()));
     appendHexChildUnipolar(doc, dp, "stutterRate", synth.getStutter().getStutterRate());
     appendHexChildUnipolar(doc, dp, "sampleRateReduction", synth.getSampleRateReduction());
     appendHexChildUnipolar(doc, dp, "bitCrush", synth.getBitCrush());
