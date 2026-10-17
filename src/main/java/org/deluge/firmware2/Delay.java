@@ -375,9 +375,14 @@ public class Delay {
           workingBuf[i][1] = primaryBuffer.data[primaryBuffer.currentIdx][1];
         }
       } else {
-        // C:303-325 — resampling read
+        // C delay.cpp:303-325 — resampling read clears every consumed cell and tracks wraps.
+        final boolean[] w = {wrapped};
         for (int i = 0; i < numSamples; i++) {
-          int primaryStrength2 = primaryBuffer.advanceRead(i == 0);
+          int primaryStrength2 =
+              primaryBuffer.advance(
+                  () -> {
+                    w[0] = primaryBuffer.clearAndMoveOn() || w[0]; // C:307
+                  });
           int primaryStrength1 = 65536 - primaryStrength2; // C:310
 
           int nextIdx = (primaryBuffer.currentIdx + 1) % primaryBuffer.sizeIncludingExtra;
@@ -403,6 +408,7 @@ public class Delay {
                   fromDelay2R, Functions.lshiftAndSaturate(primaryStrength2, 14));
           workingBuf[i][1] = Functions.lshiftAndSaturate(Functions.add_saturate(term1R, term2R), 2);
         }
+        wrapped = w[0];
       }
     }
 
@@ -474,9 +480,9 @@ public class Delay {
         workingBuf[i][1] = buffer[i][1] + currentR; // C:381
       }
 
-      // C:385 — output mix
-      buffer[i][0] = Functions.add_saturate(buffer[i][0], currentL);
-      buffer[i][1] = Functions.add_saturate(buffer[i][1], currentR);
+      // C delay.cpp:385 — output += current (plain StereoSample::operator+=).
+      buffer[i][0] += currentL;
+      buffer[i][1] += currentR;
     }
 
     // C:389-418 — write feedback back to primary buffer
@@ -823,21 +829,31 @@ public class Delay {
         setupResample(); // C:134
       }
 
-      // C:143-144
-      actualSpinRate = (int) (((double) ((long) rate << 24)) / (double) native_rate_);
-      divideByRate = (int) ((double) 0xFFFFFFFFL / (double) (actualSpinRate >> 8));
+      // C delay_buffer.cpp:143-182 — double division narrowed through uint64_t -> uint32_t.
+      actualSpinRate =
+          (int)
+              (long)
+                  ((double) ((rate & 0xFFFFFFFFL) << 24) / (double) (native_rate_ & 0xFFFFFFFFL));
+      divideByRate = (int) (long) ((double) 0xFFFFFFFFL / (double) (actualSpinRate >>> 8));
 
-      if (actualSpinRate < K_MAX_SAMPLE_VALUE) {
+      if (Integer.compareUnsigned(actualSpinRate, K_MAX_SAMPLE_VALUE) < 0) {
         // C:147-163 — buffer spinning slow
-        int timesSlowerRead = divideByRate >> 16;
-        rateMultiple = (actualSpinRate >> 8) * (timesSlowerRead + 1);
+        int timesSlowerRead = divideByRate >>> 16;
+        rateMultiple = (actualSpinRate >>> 8) * (timesSlowerRead + 1);
         writeSizeAdjustment =
-            (int) ((double) 0xFFFFFFFFL / (double) (rateMultiple * (timesSlowerRead + 1)));
+            (int)
+                (long)
+                    ((double) 0xFFFFFFFFL
+                        / (double) ((rateMultiple * (timesSlowerRead + 1)) & 0xFFFFFFFFL));
       } else {
         // C:167-183 — buffer spinning fast
-        spinRateForSpedUpWriting = Math.min(actualSpinRate, K_MAX_SAMPLE_VALUE * 8);
+        int maxFastSpin = K_MAX_SAMPLE_VALUE * 8;
+        spinRateForSpedUpWriting =
+            Integer.compareUnsigned(actualSpinRate, maxFastSpin) <= 0
+                ? actualSpinRate
+                : maxFastSpin;
         spinRateForSpedUpWriting <<= 1;
-        divideByRate >>= 1;
+        divideByRate >>>= 1;
       }
       resampling = true; // C:184-190
     }
@@ -859,13 +875,13 @@ public class Delay {
       data[writeIdx][1] -= data[writePlusOne][1]; // C:123
     }
 
-    /** C: delay_buffer.h:127-139 — write (native path). */
+    /** C: delay_buffer.h:142-265 — writeResampled. */
     void writeResampled(int sampleL, int sampleR, int strength1, int strength2) {
       if (!resampling) return; // C:143-145
 
-      // C:147-207 — sped up writing
-      if (actualSpinRate >= K_MAX_SAMPLE_VALUE) {
-        int howFarRightToStart = (strength2 + (spinRateForSpedUpWriting >> 8)) >> 16; // C:158
+      // C:147-207 — sped up writing (uint32 actualSpinRate >= kMaxSampleValue)
+      if (Integer.compareUnsigned(actualSpinRate, K_MAX_SAMPLE_VALUE) >= 0) {
+        int howFarRightToStart = (strength2 + (spinRateForSpedUpWriting >>> 8)) >>> 16; // C:158
         int distanceFromMainWrite = howFarRightToStart << 16; // C:162
 
         int writeIdx = currentIdx - DELAY_SPACE_BETWEEN_READ_AND_WRITE + howFarRightToStart;
@@ -877,14 +893,10 @@ public class Delay {
           int strengthThisWrite =
               (0xFFFFFFFF >>> 4)
                   - (((distanceFromMainWrite - strength2) >> 4) * divideByRate); // C:176-177
-          int valL =
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32(sampleL, strengthThisWrite), 3);
-          int valR =
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32(sampleR, strengthThisWrite), 3);
-          data[writeIdx][0] = Functions.add_saturate(data[writeIdx][0], valL);
-          data[writeIdx][1] = Functions.add_saturate(data[writeIdx][1], valR);
+          data[writeIdx][0] +=
+              Functions.multiply_32x32_rshift32(sampleL, strengthThisWrite) << 3; // C:179
+          data[writeIdx][1] +=
+              Functions.multiply_32x32_rshift32(sampleR, strengthThisWrite) << 3; // C:180
           writeIdx--;
           if (writeIdx < 0) writeIdx = end_ - 1;
           distanceFromMainWrite -= 65536; // C:186
@@ -896,14 +908,10 @@ public class Delay {
               (0xFFFFFFFF >>> 4)
                   - (((distanceFromMainWrite + strength2) >> 4) * divideByRate); // C:191-192
           if (strengthThisWrite <= 0) break; // C:193-194
-          int valL =
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32(sampleL, strengthThisWrite), 3);
-          int valR =
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32(sampleR, strengthThisWrite), 3);
-          data[writeIdx][0] = Functions.add_saturate(data[writeIdx][0], valL);
-          data[writeIdx][1] = Functions.add_saturate(data[writeIdx][1], valR);
+          data[writeIdx][0] +=
+              Functions.multiply_32x32_rshift32(sampleL, strengthThisWrite) << 3; // C:197
+          data[writeIdx][1] +=
+              Functions.multiply_32x32_rshift32(sampleR, strengthThisWrite) << 3; // C:198
           writeIdx--;
           if (writeIdx < 0) writeIdx = end_ - 1;
           distanceFromMainWrite += 65536;
@@ -922,12 +930,10 @@ public class Delay {
         while (true) {
           if (strength[i] > 0) {
             int adjust = (strength[i] >> 2) * writeSizeAdjustment;
-            int valL =
-                Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(sampleL, adjust), 2);
-            int valR =
-                Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(sampleR, adjust), 2);
-            data[writeIdx][0] = Functions.add_saturate(data[writeIdx][0], valL);
-            data[writeIdx][1] = Functions.add_saturate(data[writeIdx][1], valR);
+            data[writeIdx][0] +=
+                Functions.multiply_32x32_rshift32(sampleL, adjust) << 2; // C:246-248
+            data[writeIdx][1] +=
+                Functions.multiply_32x32_rshift32(sampleR, adjust) << 2; // C:249-251
           }
           if (--i < 0) break; // C:253-254
           writeIdx--;

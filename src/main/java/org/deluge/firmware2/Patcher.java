@@ -63,7 +63,7 @@ public class Patcher {
     public void addCable(int paramId, PatchCable cable) {
       Destination dest = null;
       for (Destination d : destinations) {
-        if (d.paramId == paramId) {
+        if (d.paramId == paramId && d.targetSource < 0) {
           dest = d;
           break;
         }
@@ -74,6 +74,63 @@ public class Patcher {
       }
       dest.cables.add(cable);
       dest.sourcesMask |= (1 << cable.source);
+    }
+
+    public void addRangeCable(int targetParamId, int targetSource, PatchCable cable) {
+      Destination dest = null;
+      for (Destination d : destinations) {
+        if (d.targetParamId == targetParamId && d.targetSource == targetSource) {
+          dest = d;
+          break;
+        }
+      }
+      if (dest == null) {
+        dest = new Destination(targetParamId);
+        dest.targetSource = targetSource;
+        dest.targetParamId = targetParamId;
+        destinations.add(dest);
+      }
+      dest.cables.add(cable);
+      dest.sourcesMask |= (1 << cable.source);
+    }
+  }
+
+  /**
+   * Evaluates range/depth destinations targeting global parameters ({@code >= Param.FIRST_GLOBAL})
+   * using {@code globalSourceValues}. Mirrors C {@code Patcher::performPatching} on the Sound's
+   * global patcher (sound.cpp:2446, patcher.cpp:85-105), which runs every block even when {@code
+   * voices_.empty()}.
+   */
+  public static void evaluateGlobalRangeDestinations(
+      PatchCableSet patchCableSet, int[] globalSourceValues) {
+    java.util.List<Destination> dests = patchCableSet.destinations;
+    for (int i = 0; i < dests.size(); i++) {
+      Destination dest = dests.get(i);
+      if (dest.targetSource < 0 && dest.paramId >= Param.FIRST_GLOBAL) {
+        java.util.ArrayList<PatchCable> cables = dest.cables;
+        for (int j = 0; j < cables.size(); j++) {
+          cables.get(j).rangeValue = 536870912;
+        }
+      }
+    }
+    for (int i = 0; i < dests.size(); i++) {
+      Destination dest = dests.get(i);
+      if (dest.targetSource >= 0 && dest.targetParamId >= Param.FIRST_GLOBAL) {
+        int combo = combineCablesLinearForRangeParam(dest, globalSourceValues, null);
+        int val = Functions.getFinalParameterValueLinear(536870912, combo);
+        for (int k = 0; k < dests.size(); k++) {
+          Destination targetDest = dests.get(k);
+          if (targetDest.paramId == dest.targetParamId && targetDest.targetSource < 0) {
+            java.util.ArrayList<PatchCable> targetCables = targetDest.cables;
+            for (int l = 0; l < targetCables.size(); l++) {
+              PatchCable targetCable = targetCables.get(l);
+              if (targetCable.source == dest.targetSource) {
+                targetCable.rangeValue = val;
+              }
+            }
+          }
+        }
+      }
     }
   }
 
@@ -171,6 +228,21 @@ public class Patcher {
   // ── combineCablesLinear (patcher.cpp:143-180) ──
 
   /**
+   * Returns whether {@code source} is allowed to patch to {@code paramId}. Mirrors C {@code
+   * Sound::maySourcePatchToParam} (sound.cpp:1346-1348), which disallows local sources ({@code >=
+   * kFirstLocalSource}) on global parameters ({@code >= Param.FIRST_GLOBAL}).
+   */
+  public static boolean maySourcePatchToParam(int source, int paramId) {
+    if (source < 0 || source >= PatchSource.kNumPatchSources) {
+      return false;
+    }
+    if (paramId >= Param.FIRST_GLOBAL && source >= PatchSource.kFirstLocalSource) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
    * Fold the stored knob into a multiplicative cable combination. (patcher.cpp combineCablesLinear
    * + cableToLinearParamWithoutRangeAdjustment)
    */
@@ -181,6 +253,11 @@ public class Patcher {
     runningTotal = cableToLinearParamWithoutRangeAdjustment(runningTotal, knobValue, range);
     // Then each cable
     for (PatchCable cable : dest.cables) {
+      // C sound.cpp:1346-1348 — ignore disallowed local-to-global cables or out-of-range sources.
+      if (!maySourcePatchToParam(cable.source, dest.paramId)
+          || cable.source >= sourceValues.length) {
+        continue;
+      }
       int srcVal = sourceValues[cable.source];
       srcVal = cable.toPolarity(srcVal);
       runningTotal = cableToLinearParam(runningTotal, srcVal, cable.amount, cable.rangeValue);
@@ -194,6 +271,10 @@ public class Patcher {
     int runningTotal = 0;
     // Cables first. Exp cables take the *modified* (per-param squared) strength (patcher.cpp:253).
     for (PatchCable cable : dest.cables) {
+      if (!maySourcePatchToParam(cable.source, dest.paramId)
+          || cable.source >= sourceValues.length) {
+        continue;
+      }
       int srcVal = sourceValues[cable.source];
       srcVal = cable.toPolarity(srcVal);
       runningTotal =
@@ -316,7 +397,13 @@ public class Patcher {
   public static int combineCablesLinearForRangeParam(
       Destination destination, int[] sourceValues, ParamManager paramManager) {
     int runningTotal = 536870912;
+    int targetParamId =
+        destination.targetSource >= 0 ? destination.targetParamId : destination.paramId;
     for (PatchCable cable : destination.cables) {
+      if (!maySourcePatchToParam(cable.source, targetParamId)
+          || cable.source >= sourceValues.length) {
+        continue;
+      }
       int srcVal = sourceValues[cable.source];
       // Special exception: If we're patching aftertouch to range
       if (cable.source == PatchSource.AFTERTOUCH.ordinal()) {

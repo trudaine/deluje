@@ -13,7 +13,7 @@ public class PatchCableSet {
   public void addCable(int paramId, PatchCable cable) {
     Destination dest = null;
     for (Destination d : destinations) {
-      if (d.paramId == paramId) {
+      if (d.paramId == paramId && d.targetSource < 0) {
         dest = d;
         break;
       }

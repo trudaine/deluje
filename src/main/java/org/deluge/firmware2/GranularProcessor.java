@@ -92,7 +92,34 @@ public class GranularProcessor {
       int[] postFXVolume,
       boolean anySoundComingIn,
       float tempoBPM) {
-    if (anySoundComingIn || wrapsToShutdown > 0) {
+    processGrainFX(
+        buffer,
+        numSamples,
+        rate,
+        mix,
+        density,
+        pitchRand,
+        postFXVolume,
+        anySoundComingIn,
+        tempoBPM,
+        0,
+        null);
+  }
+
+  public void processGrainFX(
+      int[][] buffer,
+      int numSamples,
+      int rate,
+      int mix,
+      int density,
+      int pitchRand,
+      int[] postFXVolume,
+      boolean anySoundComingIn,
+      float tempoBPM,
+      int reverbAmount,
+      int[] reverbBuffer) {
+    // C GranularProcessor.cpp:50 — wrapsToShutdown >= 0 (inclusive of 0).
+    if (anySoundComingIn || wrapsToShutdown >= 0) {
       if (anySoundComingIn) setWrapsToShutdown();
 
       setupGrainFX(rate, mix, density, pitchRand, postFXVolume);
@@ -101,22 +128,26 @@ public class GranularProcessor {
         processOneGrainSample(buffer[i], scratchWet);
         int[] grainWet = scratchWet;
 
-        // C:64-65 — apply grain volume
-        int wetL = Functions.multiply_32x32_rshift32(grainWet[0], grainVol);
-        int wetR = Functions.multiply_32x32_rshift32(grainWet[1], grainVol);
+        // C GranularProcessor.cpp:64-65, fixedpoint.h:62-67 — q31_mult = multiply_32x32_rshift32 <<
+        // 1
+        int wetL = Functions.multiply_32x32_rshift32(grainWet[0], grainVol) << 1;
+        int wetR = Functions.multiply_32x32_rshift32(grainWet[1], grainVol) << 1;
 
         // C:68-69 — 12kHz LPF
         wetL = lpfL.doFilter(wetL, 1 << 29);
         wetR = lpfR.doFilter(wetR, 1 << 29);
 
-        // C:72-73 — wet/dry mix
+        // C GranularProcessor.cpp:72-73 — wet/dry mix (q31_mult on dry gain)
         buffer[i][0] =
             Functions.add_saturate(
-                Functions.multiply_32x32_rshift32(buffer[i][0], grainDryVol), wetL);
+                Functions.multiply_32x32_rshift32(buffer[i][0], grainDryVol) << 1, wetL);
         buffer[i][1] =
             Functions.add_saturate(
-                Functions.multiply_32x32_rshift32(buffer[i][1], grainDryVol), wetR);
-        // C:76 — reverb backdoor feed (skipped — needs AudioEngine integration)
+                Functions.multiply_32x32_rshift32(buffer[i][1], grainDryVol) << 1, wetR);
+        // C GranularProcessor.cpp:76, audio_engine.cpp:1010-1012 — feedReverbBackdoorForGrain
+        if (reverbBuffer != null && reverbAmount != 0) {
+          reverbBuffer[i] += Functions.multiply_32x32_rshift32(wetL + wetR, reverbAmount) << 1;
+        }
       }
     }
     if (bufferWriteIndex > K_MOD_FX_GRAIN_BUFFER_SIZE / 2) {

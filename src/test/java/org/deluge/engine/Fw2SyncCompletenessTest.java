@@ -100,7 +100,11 @@ class Fw2SyncCompletenessTest {
           "expressionSourcesChangedAtSynthLevel", // runtime MPE flag
           "shouldLimitDelayFeedback", // fixed default, not model-driven
           "globalSourceValues", // runtime modulation output (LFO/sidechain), recomputed per block
-          "trackParamFinalValues"); // runtime parameters cache, recomputed per block
+          "trackParamFinalValues", // runtime parameters cache, recomputed per block
+          "inRenderOutputBlock", // runtime per-block reverb send cache guard
+          "hasBlockResolvedReverbValue", // runtime per-block reverb send cache flag
+          "blockResolvedReverbValue", // runtime per-block resolved GLOBAL_REVERB_AMOUNT
+          "pendingParamLPFSamples"); // runtime deferred doParamLPF sample count for renderOutput
 
   @Test
   void everyScalarFw2SoundFieldIsClassified() {

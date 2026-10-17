@@ -67,16 +67,9 @@ public final class Eq {
     if (doTreble) {
       int distanceToGoL = inL - withoutTrebleL;
       int distanceToGoR = inR - withoutTrebleR;
-      withoutTrebleL =
-          Functions.add_saturate(
-              withoutTrebleL,
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32(distanceToGoL, trebleFreq), 1));
-      withoutTrebleR =
-          Functions.add_saturate(
-              withoutTrebleR,
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32(distanceToGoR, trebleFreq), 1));
+      // C mod_controllable_audio.cpp:378-379 — plain int32 shifts and additions.
+      withoutTrebleL += Functions.multiply_32x32_rshift32(distanceToGoL, trebleFreq) << 1;
+      withoutTrebleR += Functions.multiply_32x32_rshift32(distanceToGoR, trebleFreq) << 1;
       trebleOnlyL = inL - withoutTrebleL;
       trebleOnlyR = inR - withoutTrebleR;
       inL = withoutTrebleL; // input now has the treble removed
@@ -86,37 +79,20 @@ public final class Eq {
     if (doBass) {
       int distanceToGoL = inL - bassOnlyL;
       int distanceToGoR = inR - bassOnlyR;
-      bassOnlyL =
-          Functions.add_saturate(
-              bassOnlyL, Functions.multiply_32x32_rshift32(distanceToGoL, bassFreq));
-      bassOnlyR =
-          Functions.add_saturate(
-              bassOnlyR, Functions.multiply_32x32_rshift32(distanceToGoR, bassFreq));
+      // C mod_controllable_audio.cpp:389-390
+      bassOnlyL += Functions.multiply_32x32_rshift32(distanceToGoL, bassFreq);
+      bassOnlyR += Functions.multiply_32x32_rshift32(distanceToGoR, bassFreq);
     }
 
     if (doTreble) {
-      inL =
-          Functions.add_saturate(
-              inL,
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32(trebleOnlyL, trebleAmount), 3));
-      inR =
-          Functions.add_saturate(
-              inR,
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32(trebleOnlyR, trebleAmount), 3));
+      // C mod_controllable_audio.cpp:394-395
+      inL += Functions.multiply_32x32_rshift32(trebleOnlyL, trebleAmount) << 3;
+      inR += Functions.multiply_32x32_rshift32(trebleOnlyR, trebleAmount) << 3;
     }
     if (doBass) {
-      inL =
-          Functions.add_saturate(
-              inL,
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32(bassOnlyL, bassAmount), 3));
-      inR =
-          Functions.add_saturate(
-              inR,
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32(bassOnlyR, bassAmount), 3));
+      // C mod_controllable_audio.cpp:398-399
+      inL += Functions.multiply_32x32_rshift32(bassOnlyL, bassAmount) << 3;
+      inR += Functions.multiply_32x32_rshift32(bassOnlyR, bassAmount) << 3;
     }
 
     sample[0] = inL;

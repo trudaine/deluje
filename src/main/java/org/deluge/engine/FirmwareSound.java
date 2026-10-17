@@ -411,7 +411,13 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
           new org.deluge.firmware2.Patcher.Destination(d.paramId);
       dest.targetSource = d.targetSource;
       dest.targetParamId = d.targetParamId;
+      int effectiveParamId = d.targetSource >= 0 ? d.targetParamId : d.paramId;
       for (PatchCable c : d.cables) {
+        // C sound.cpp:1346-1348 — skip disallowed local-to-global patch cables.
+        if (!org.deluge.firmware2.Patcher.maySourcePatchToParam(
+            c.from.ordinal(), effectiveParamId)) {
+          continue;
+        }
         var fc = new org.deluge.firmware2.Patcher.PatchCable();
         fc.source = c.from.ordinal();
         fc.amount = c.getAmount();
@@ -422,7 +428,9 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
         dest.cables.add(fc);
         dest.sourcesMask |= (1 << fc.source);
       }
-      nextDestinations.add(dest);
+      if (!dest.cables.isEmpty()) {
+        nextDestinations.add(dest);
+      }
     }
     fw2Sound.patchCableSet.destinations = nextDestinations;
 
@@ -545,14 +553,18 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
    * should already be curve-resolved, and ignoring any patch-cable modulation of the send amount.
    */
   @Override
+  protected void beginRenderOutput() {
+    fw2Sound.beginRenderOutput();
+  }
+
+  @Override
+  protected void endRenderOutput() {
+    fw2Sound.endRenderOutput();
+  }
+
+  @Override
   protected int computeReverbSendAmount(int reverbAmountAdjust) {
-    int resolved =
-        org.deluge.firmware2.Patcher.computeFinalValueForParam(
-            Param.GLOBAL_REVERB_AMOUNT, fw2Sound.patchedParamValues[Param.GLOBAL_REVERB_AMOUNT]);
-    return org.deluge.firmware2.Functions.lshiftAndSaturate(
-        org.deluge.firmware2.Functions.multiply_32x32_rshift32_rounded(
-            reverbAmountAdjust, resolved),
-        5);
+    return fw2Sound.computeReverbSendAmount(reverbAmountAdjust);
   }
 
   /** C: polyphonicExpressionEventOnChannelOrNote — pitch bend (X), immediate. */

@@ -90,8 +90,9 @@ public class Compressor {
 
   /** C: rms_feedback.h:80-84 — exp map 0..2^31 to 0.5..70ms */
   public int setAttack(int attack) {
-    attackMS = (float) (0.5 + (Math.exp(2.0 * (double) attack / ONE_Q31f) - 1.0) * 10.0);
-    a_ = (float) ((-1000.0 / K_SAMPLE_RATE) / attackMS);
+    float expTerm = (float) Math.exp(2.0f * (float) attack / ONE_Q31f);
+    attackMS = (float) (0.5 + (expTerm - 1.0f) * 10.0f);
+    a_ = (-1000.0f / K_SAMPLE_RATE) / attackMS;
     attackKnobPos = attack;
     return (int) attackMS;
   }
@@ -100,8 +101,9 @@ public class Compressor {
 
   /** C: rms_feedback.h:95-101 — exp map 0..2^31 to 50..400ms */
   public int setRelease(int release) {
-    releaseMS = (float) (50.0 + (Math.exp(2.0 * (double) release / ONE_Q31f) - 1.0) * 50.0);
-    r_ = (float) ((-1000.0 / K_SAMPLE_RATE) / releaseMS);
+    float expTerm = (float) Math.exp(2.0f * (float) release / ONE_Q31f);
+    releaseMS = 50.0f + (expTerm - 1.0f) * 50.0f;
+    r_ = (-1000.0f / K_SAMPLE_RATE) / releaseMS;
     releaseKnobPos = release;
     return (int) releaseMS;
   }
@@ -111,7 +113,7 @@ public class Compressor {
   /** C: rms_feedback.h:108-111 — 0→0.2, 2^31→1.0 */
   public void setThreshold(int t) {
     thresholdKnobPos = t;
-    threshold = (float) (1.0 - 0.8 * ((double) t / ONE_Q31f));
+    threshold = 1.0f - 0.8f * ((float) t / ONE_Q31f);
   }
 
   // ── setRatio (rms_feedback.h:122-127) ──
@@ -119,8 +121,8 @@ public class Compressor {
   /** C: rms_feedback.h:122-127 — inverse mapping, 0→2:1, max→256:1 */
   public int setRatio(int rat) {
     ratioKnobPos = rat;
-    fraction = (float) (0.5 + ((double) rat / ONE_Q31f) / 2.0);
-    ratio = (float) (1.0 / (1.0 - fraction));
+    fraction = 0.5f + ((float) rat / ONE_Q31f) / 2.0f;
+    ratio = 1.0f / (1.0f - fraction);
     return (int) ratio;
   }
 
@@ -129,7 +131,7 @@ public class Compressor {
   /** C: rms_feedback.h:138-147 — exp map 0..2^31 to 0..100Hz */
   int setSidechain(int f) {
     sideChainKnobPos = f;
-    fc_hz = (float) ((Math.exp(1.5 * (double) f / ONE_Q31f) - 1.0) * 30.0);
+    fc_hz = (float) ((Math.exp(1.5 * (double) ((float) f) / (double) ONE_Q31f) - 1.0) * 30.0);
     float fc = fc_hz / (float) K_SAMPLE_RATE;
     float wc = fc / (1.0f + fc);
     hpfA_ = (int) (wc * ONE_Q31);
@@ -194,10 +196,10 @@ public class Compressor {
 
   /** C: rms_feedback.cpp:34-50 */
   void updateER(float numSamples, int finalVolume) {
-    float songVolumedB = (float) Math.log(finalVolume + 1e-10); // C:41
+    float songVolumedB = (float) Math.log((float) (finalVolume + 1e-10)); // C:41 logf(...)
     threshdb = songVolumedB * threshold; // C:43
     float lastER = er; // C:46
-    er = Math.max((songVolumedB - threshdb - 1) * fraction, 0); // C:47
+    er = Math.max((songVolumedB - threshdb - 1.0f) * fraction, 0.0f); // C:47
     er = runEnvelope(lastER, er, numSamples); // C:49
   }
 
@@ -325,11 +327,11 @@ public class Compressor {
   float runEnvelope(float current, float desired, float numSamples) {
     float s;
     if (desired > current) {
-      // C:133 — attack: desired + exp(a*samples) * (current - desired)
-      s = (float) (desired + Math.exp(a_ * numSamples) * (current - desired));
+      // C:133 — attack: desired + std::exp(a_ * numSamples) * (current - desired)
+      s = desired + (float) Math.exp(a_ * numSamples) * (current - desired);
     } else {
       // C:136 — release
-      s = (float) (desired + Math.exp(r_ * numSamples) * (current - desired));
+      s = desired + (float) Math.exp(r_ * numSamples) * (current - desired);
     }
     return s;
   }
@@ -345,13 +347,15 @@ public class Compressor {
       int l = buffer[i][0] - hpfL.doFilter(buffer[i][0], hpfA_); // C:149
       int r = buffer[i][1] - hpfR.doFilter(buffer[i][1], hpfA_); // C:150
       int s = Math.max(Math.abs(l), Math.abs(r)); // C:151
-      sum = Functions.add_saturate(sum, Functions.multiply_32x32_rshift32(s, s)); // C:152
+      // C rms_feedback.cpp:144, 152 — saturate q31_t sum so hot blended buffers cannot wrap
+      // negative and produce NaN from Math.sqrt(mean).
+      sum = Functions.add_saturate(sum, Functions.multiply_32x32_rshift32(s, s));
     }
 
     float ns = (float) (numSamples * 2); // C:155
-    mean = (float) ((double) sum / ONE_Q31f) / ns; // C:156
-    mean = (float) ((mean * ns + lastMean) / (1.0 + ns)); // C:161
-    float rmsVal = (float) (ONE_Q31 * Math.sqrt(mean)); // C:162
+    mean = ((float) sum / ONE_Q31f) / ns; // C:156
+    mean = (mean * ns + lastMean) / (1.0f + ns); // C:161
+    float rmsVal = ONE_Q31f * (float) Math.sqrt(mean); // C:162
     float logmean = (float) Math.log(Math.max(rmsVal, 1.0f)); // C:164
 
     return logmean;
