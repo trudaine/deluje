@@ -155,7 +155,6 @@ public class NoteRowModel {
       if (reversedBefore != currentlyPlayingReversedIfIndependent) {
         // C note_row.cpp:4472-4473 — mirrors position zero too (0 -> loopLengthIfIndependent).
         lastProcessedPosIfIndependent = loopLengthIfIndependent - lastProcessedPosIfIndependent;
-        if (!currentlyPlayingReversedIfIndependent) {}
       }
     }
   }

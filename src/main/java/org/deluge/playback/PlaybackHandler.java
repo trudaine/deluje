@@ -171,8 +171,9 @@ public class PlaybackHandler {
       // increment and every clip runs processCurrentPos(…, 0) before any position moves
       // (playback_handler.cpp:533 in setupPlayback, then Session::doTickForward →
       // session.cpp:2502).
-      // That is what takes a reversed clip's repeatCount from setPos's -1 to 0 (clip.cpp:259-260)
-      // and sounds the notes at pos 0.
+      // That is what takes a reversed clip's repeatCount from setPos's -1 to 0 (clip.cpp:259-260).
+      // In the C it also sounds the notes at pos 0 (note_row.cpp:2373); Java's window scan still
+      // fires those on the first non-zero tick, until the search-based note scan is ported (#29).
       int next = Integer.MAX_VALUE;
       for (ClipModel clip : currentProject.getClips()) {
         clip.processCurrentPos(0);
