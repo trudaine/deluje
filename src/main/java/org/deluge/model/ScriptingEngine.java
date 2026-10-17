@@ -119,6 +119,16 @@ public class ScriptingEngine {
       return String.format(
           "AUTOMATION|%d|%d|%s|%d|%.6f",
           ac.trackIndex(), ac.clipIndex(), ac.paramName(), ac.step(), ac.newValue());
+    } else if (c instanceof Consequence.RowAutomationConsequence rac) {
+      return String.format(
+          java.util.Locale.US,
+          "ROW_AUTOMATION|%d|%d|%d|%s|%d|%.6f",
+          rac.trackIndex(),
+          rac.clipIndex(),
+          rac.rowIndex(),
+          rac.paramName(),
+          rac.step(),
+          rac.newValue());
     } else if (c instanceof Consequence.TrackStructureConsequence tsc) {
       if (tsc.operation() == Consequence.TrackStructureConsequence.ADD) {
         String type = "SYNTH";
@@ -202,6 +212,23 @@ public class ScriptingEngine {
           float oldVal = 0.0f; // placeholder
           return new Consequence.AutomationConsequence(
               project, trackIdx, clipIdx, paramName, step, oldVal, val);
+        }
+        case "ROW_AUTOMATION" -> {
+          int trackIdx = Integer.parseInt(parts[1]);
+          int clipIdx = Integer.parseInt(parts[2]);
+          int rowIdx = Integer.parseInt(parts[3]);
+          String paramName = parts[4];
+          int step = Integer.parseInt(parts[5]);
+          float val = Float.parseFloat(parts[6]);
+          float oldVal = -1.0f;
+          if (trackIdx >= 0 && trackIdx < project.getTracks().size()) {
+            var track = project.getTracks().get(trackIdx);
+            if (clipIdx >= 0 && clipIdx < track.getClips().size()) {
+              oldVal = track.getClips().get(clipIdx).getRowAutomationValue(rowIdx, paramName, step);
+            }
+          }
+          return new Consequence.RowAutomationConsequence(
+              project, trackIdx, clipIdx, rowIdx, paramName, step, oldVal, val);
         }
         case "TRACK_STRUCT" -> {
           String opStr = parts[1];

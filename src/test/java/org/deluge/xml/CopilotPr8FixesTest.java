@@ -2182,4 +2182,80 @@ class CopilotPr8FixesTest {
       }
     }
   }
+
+  @Test
+  void scriptingEngineSavesAndReplaysClonedRowAutomation(@TempDir Path tempDir) throws Exception {
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel synth = new SynthTrackModel("ScriptCloneSynth");
+    ClipModel clip = new ClipModel("Clip", 8, 16);
+    for (int r = 0; r < 8; r++) {
+      clip.setRowYNote(r, 60 + r);
+    }
+    clip.setStep(0, 1, StepData.of(true, 0.8f, 1.0f, 1.0f, 60));
+    clip.setAutomation(org.deluge.model.AutomationParam.A_LPF_FREQ, 1, 0.64f);
+    clip.setAutomation(org.deluge.model.AutomationParam.A_REVERB, 1, 0.48f);
+    synth.addClip(clip);
+    project.addTrack(synth);
+
+    org.deluge.model.ScriptingEngine scriptingEngine = new org.deluge.model.ScriptingEngine();
+    project
+        .getUndoRedoStack()
+        .setListener(
+            action -> {
+              if (action instanceof org.deluge.model.Consequence c) {
+                scriptingEngine.record(c);
+              }
+            });
+
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    org.deluge.ui.EngineSyncCoordinator sync =
+        new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+    sync.pushModelToBridge(project);
+
+    org.deluge.ui.ClipGridPanel panel = new org.deluge.ui.ClipGridPanel(bridge);
+    panel.setScaleModeEnabled(false);
+    panel.setEditedModelTrack(0);
+    panel.setBaseTrackId(0);
+    panel.setActiveClipId(0);
+    panel.setProjectModel(project);
+
+    scriptingEngine.startRecording();
+    int srcVisibleRow = (127 - 60) - panel.getScrollOffset();
+    int dstVisibleRow = (127 - 62) - panel.getScrollOffset();
+    org.deluge.ui.ClipEditorController controller =
+        new org.deluge.ui.ClipEditorController(panel, () -> {}, () -> {});
+    controller.duplicateStep(srcVisibleRow, 1, dstVisibleRow, 6);
+    scriptingEngine.stopRecording();
+
+    File scriptFile = tempDir.resolve("clone_row_auto.txt").toFile();
+    scriptingEngine.saveScript(scriptFile);
+
+    // Build a fresh target project without the cloned step or row automation and replay the script
+    ProjectModel replayProject = new ProjectModel();
+    SynthTrackModel replaySynth = new SynthTrackModel("ScriptCloneSynth");
+    ClipModel replayClip = new ClipModel("Clip", 8, 16);
+    for (int r = 0; r < 8; r++) {
+      replayClip.setRowYNote(r, 60 + r);
+    }
+    replayClip.setStep(0, 1, StepData.of(true, 0.8f, 1.0f, 1.0f, 60));
+    replaySynth.addClip(replayClip);
+    replayProject.addTrack(replaySynth);
+
+    org.deluge.model.ScriptingEngine playback = new org.deluge.model.ScriptingEngine();
+    playback.loadAndExecuteScript(scriptFile, replayProject);
+
+    assertTrue(replayClip.getStep(2, 6).active(), "Replayed clone must activate destination step");
+    assertEquals(
+        62, replayClip.getStep(2, 6).pitch(), "Replayed clone must keep destination pitch");
+    assertEquals(
+        0.64f,
+        replayClip.getRowAutomationValue(2, org.deluge.model.AutomationParam.A_LPF_FREQ, 6),
+        1e-5f,
+        "Replayed script must restore cloned LPF row automation");
+    assertEquals(
+        0.48f,
+        replayClip.getRowAutomationValue(2, org.deluge.model.AutomationParam.A_REVERB, 6),
+        1e-5f,
+        "Replayed script must restore cloned reverb row automation");
+  }
 }
