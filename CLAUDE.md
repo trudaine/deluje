@@ -61,6 +61,29 @@ method that structurally could not find them. The lessons:
 
 See `docs/dsp_parity_review_2026-07-04.md` for the review that used this method and what it found.
 
+## Pull request & Copilot review loop (mandatory — never push to `main`)
+
+**Do not push directly to `main`.** `main` is protected by a GitHub ruleset. Every change — code,
+tests, scripts, or docs — goes on a branch, through a pull request, and through the automatic
+Copilot review loop ([docs/agents/copilot-review-loop.md](docs/agents/copilot-review-loop.md)).
+Start every session and pre-merge check with `scripts/agent-sync.sh` (Claude Code: `/sync`), and end
+every commit message with an `Agent:` trailer (`Agent: claude`, `Agent: agy`, or `Agent: human`;
+see [docs/agents/session-sync.md](docs/agents/session-sync.md)).
+
+1. Branch from `main`: `git checkout -b <branch>`
+2. Run local checks (`./build.sh spotless:apply && ./build.sh test -B -Dgpg.skip=true` for code;
+   `bash scripts/check-doc-links.sh` for docs; `bash -n <script.sh>` for shell scripts).
+3. Commit (ending with `Agent: claude`) and push: `git push -u origin <branch>`
+4. Open PR: `gh pr create --base main --head <branch> --title "..." --body "..."`
+5. **Copilot Review Loop**: Copilot reviews automatically when a PR opens and on every push
+   (`review_on_push: true`). Read all three places in every review: line comments, the collapsed
+   `<details>Suppressed comments</details>` block, and the overview's `Open (N)` / `Previously
+   missed (N)` counts.
+6. Verify every finding against the Java code, `../DelugeFirmware/src/deluge/` C++ reference, and
+   tests before changing anything. Push fixes and iterate until clean (see
+   [docs/agents/multi-agent-review.md](docs/agents/multi-agent-review.md) for round budgets and
+   stopping rules).
+
 ## Build, test, run
 
 Requires **JDK 27 early-access** and **Maven 3.9+**. The codebase uses preview features
@@ -304,4 +327,4 @@ on community firmware c1.2.0 and has since been brought up to head; see `SONG_XM
 - **Guidebook & User Manual rules**: When editing the user manual ([DELUGE_GUIDEBOOK.md](src/main/resources/docs/DELUGE_GUIDEBOOK.md)):
   * **Strict Code Grounding**: Never guess or invent UI buttons, keyboard shortcuts, config options, or parameter keywords. Verify them directly in the Java UI classes (`SwingGridPanel.java`, `ClipGridPanel.java`, `StepPropertiesEditor.java`, etc.).
   * **Strict User-Facing Tone**: Maintain a clean, user-centric manual. Avoid developer jargon such as "virtual threads", "daemon schedulers", "Swing classes", or "JNI playback thread clock".
-  * **Skip Builds for Doc-Only Changes**: Do *not* run a full test compilation (`mvn clean test`) if only markdown (`.md`) or text documentation files were modified. Commit and push directly.
+  * **Skip Builds for Doc-Only Changes**: Do *not* run a full test compilation (`mvn clean test`) if only markdown (`.md`) or text documentation files were modified. Run `bash scripts/check-doc-links.sh` and open a PR on a branch.
