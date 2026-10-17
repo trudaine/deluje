@@ -218,7 +218,7 @@ class Fw2Slice3FindingsTest {
   void eqUsesPlainWrappingShiftsAndAdditions() {
     // C mod_controllable_audio.cpp:378-402: plain << 1, << 3, and += (no saturating helpers).
     Eq eq = new Eq();
-    int[][] buffer = new int[][] {{1_600_000_000, -1_600_000_000}};
+    int[][] buffer = new int[][] {{1_900_000_000, -1_900_000_000}};
     int bassParam = 1 << 29;
     int trebleParam = 1 << 29;
     int bassFreqParam = 1 << 28;
@@ -233,7 +233,7 @@ class Fw2Slice3FindingsTest {
     int bassFreq = Functions.getExp(120000000, (bassFreqParam >> 5) * 6);
     int trebleFreq = Functions.getExp(700000000, (trebleFreqParam >> 5) * 6);
 
-    int inL = 1_600_000_000;
+    int inL = 1_900_000_000;
     int withoutTrebleL = Functions.multiply_32x32_rshift32(inL, trebleFreq) << 1;
     int trebleOnlyL = inL - withoutTrebleL;
     int afterTrebleRemoveL = withoutTrebleL;
@@ -243,6 +243,7 @@ class Fw2Slice3FindingsTest {
             + (Functions.multiply_32x32_rshift32(trebleOnlyL, trebleAmount) << 3)
             + (Functions.multiply_32x32_rshift32(bassOnlyL, bassAmount) << 3);
 
+    assertTrue(expectedL < 0, "Test input must cross 32-bit signed overflow to test wrapping");
     assertEquals(expectedL, buffer[0][0]);
   }
 
