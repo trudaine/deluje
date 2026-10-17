@@ -1222,4 +1222,93 @@ class Fw2Slice1FindingsTest {
           "Sample unison part " + u + " reader must advance during render");
     }
   }
+
+  @Test
+  void round8_unloadedSampleOscillatorDoesNotEnableNoteTailsOrTruncateOnceSample() {
+    Sound sound = makeInitializedSound();
+    sound.oscTypes[0] = Oscillator.OscType.SAMPLE;
+    sound.oscTypes[1] = Oscillator.OscType.SAMPLE;
+    sound.samples[0] = makeRampSample(512, 44100);
+    sound.samples[1] = null; // Osc B is SAMPLE with no file loaded
+    sound.sampleLoopMode[0] = 2; // ONCE on Osc A
+    sound.sampleLoopMode[1] = 0; // Default loop mode on unloaded Osc B
+    sound.sampleLoopStart[0] = 10;
+    sound.sampleLoopEnd[0] = 20;
+    sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
+    sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MAX_VALUE;
+    sound.patchedParamValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
+    sound.patchedParamValues[Param.LOCAL_ENV_0_SUSTAIN] = Integer.MAX_VALUE;
+    sound.patchedParamValues[Param.LOCAL_ENV_0_RELEASE] = Integer.MAX_VALUE;
+
+    assertFalse(
+        sound.allowNoteTails(true),
+        "Unloaded Osc B SAMPLE source must not make allowNoteTails(true) return true");
+
+    sound.triggerNote(60, 100);
+    int[] buf = new int[128];
+    int[] rev = new int[64];
+    sound.renderInternal(buf, 64, rev);
+
+    Voice v = sound.voices.get(0);
+    sound.releaseNote(60);
+    assertTrue(
+        v.previouslyIgnoredNoteOff,
+        "Unloaded Osc B must not cause Voice.noteOff to release Osc A's ONCE tail");
+    assertTrue(v.envelopes[0].state.compareTo(Envelope.Stage.RELEASE) < 0);
+
+    Arrays.fill(buf, 0);
+    sound.renderInternal(buf, 64, rev);
+    long energy = 0;
+    for (int s : buf) {
+      energy += Math.abs((long) s);
+    }
+    assertTrue(energy > 0, "Osc A ONCE tail must continue sounding after note-off");
+
+    // Loading a key zone sample on Osc B makes Osc B a real active source, enabling note tails.
+    Sound.CompiledKeyZone kz = new Sound.CompiledKeyZone();
+    kz.sample = makeRampSample(64, 44100);
+    sound.sourceZones[1].add(kz);
+    assertTrue(sound.hasAnySampleLoaded(1));
+    assertTrue(sound.allowNoteTails(true));
+  }
+
+  @Test
+  void round8_legatoDoesNotReuseVoiceWithDeferredNoteOff() {
+    Sound sound = makeInitializedSound();
+    sound.polyphonic = Sound.PolyphonyMode.LEGATO;
+    sound.oscTypes[0] = Oscillator.OscType.SAMPLE;
+    sound.samples[0] = makeRampSample(512, 44100);
+    sound.sampleLoopMode[0] = 2; // ONCE -> allowNoteTails(true) is false
+    sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
+    sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+    sound.patchedParamValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
+    sound.patchedParamValues[Param.LOCAL_ENV_0_SUSTAIN] = Integer.MAX_VALUE;
+    sound.patchedParamValues[Param.LOCAL_ENV_0_RELEASE] = Integer.MAX_VALUE;
+
+    sound.triggerNote(60, 100);
+    int[] buf = new int[128];
+    int[] rev = new int[64];
+    sound.renderInternal(buf, 64, rev);
+
+    Voice v = sound.voices.get(0);
+    sound.releaseNote(60);
+    assertTrue(v.previouslyIgnoredNoteOff, "ONCE note-off must set previouslyIgnoredNoteOff");
+    assertTrue(v.envelopes[0].state.compareTo(Envelope.Stage.RELEASE) < 0);
+
+    // Before the next render, switch to SAW (so allowNoteTails(true) is now true) and trigger a
+    // new note. It must NOT take the held-legato reuse path with previouslyIgnoredNoteOff still
+    // set.
+    sound.oscTypes[0] = Oscillator.OscType.SAW;
+    sound.triggerNote(64, 100);
+    Voice vNew = sound.voices.get(0);
+    assertEquals(64, vNew.noteCode);
+    assertFalse(
+        vNew.previouslyIgnoredNoteOff,
+        "New note after released ONCE note must clear previouslyIgnoredNoteOff via full noteOn");
+
+    sound.renderInternal(buf, 64, rev);
+    assertTrue(
+        vNew.active && vNew.envelopes[0].state.compareTo(Envelope.Stage.RELEASE) < 0,
+        "New note must stay held and must not be prematurely released by stale deferred note-off");
+  }
 }

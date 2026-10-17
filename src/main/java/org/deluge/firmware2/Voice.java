@@ -1786,10 +1786,7 @@ public class Voice {
       return false;
     }
     for (int s = 0; s < 2; s++) {
-      boolean hasSample =
-          sources[s].sampleRef != null
-              || sound.samples[s] != null
-              || !sound.sourceZones[s].isEmpty();
+      boolean hasSample = sources[s].sampleRef != null || sound.hasAnySampleLoaded(s);
       if (!sound.isSourceActiveEver(s, hasSample)) {
         continue;
       }

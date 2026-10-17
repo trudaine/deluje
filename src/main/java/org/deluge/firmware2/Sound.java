@@ -169,10 +169,7 @@ public class Sound extends GlobalEffectable {
     }
     boolean anyActiveSources = false;
     for (int s = 0; s < 2; s++) {
-      boolean sourceEverActive =
-          (synthMode == 2)
-              || patchedParamValues[Param.LOCAL_OSC_A_VOLUME + s] != Integer.MIN_VALUE
-              || doesParamHaveSomethingPatchedToIt(Param.LOCAL_OSC_A_VOLUME + s);
+      boolean sourceEverActive = isSourceActiveEver(s, hasAnySampleLoaded(s));
       anyActiveSources = sourceEverActive || anyActiveSources;
       boolean hasLoopEnd = sampleLoopEnd[s] > 0;
       if (!hasLoopEnd) {
@@ -191,6 +188,19 @@ public class Sound extends GlobalEffectable {
       }
     }
     return !anyActiveSources;
+  }
+
+  /** C: Source::hasAtLeastOneAudioFileLoaded (source.cpp:324-334). */
+  public boolean hasAnySampleLoaded(int s) {
+    if (samples[s] != null) {
+      return true;
+    }
+    for (CompiledKeyZone kz : sourceZones[s]) {
+      if (kz.sample != null) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** FM modulator transpose in semitones (voice.cpp modulatorTranspose[m]). */
@@ -1180,11 +1190,12 @@ public class Sound extends GlobalEffectable {
       // envelopes, oscillator phases, filters, or active sample readers.
       if (polyphonic == PolyphonyMode.LEGATO && allowNoteTails(true)) {
         for (var v : voices) {
-          if (v.active && v.envelopes[0].state.compareTo(Envelope.Stage.RELEASE) < 0) {
+          if (v.active
+              && !v.previouslyIgnoredNoteOff
+              && v.envelopes[0].state.compareTo(Envelope.Stage.RELEASE) < 0) {
             for (int s = 0; s < 2; s++) {
               if (synthMode != 1 && oscTypes[s] == OscType.SAMPLE) {
-                if (v.sources[s].sampleRef == null
-                    && (samples[s] != null || !sourceZones[s].isEmpty())) {
+                if (v.sources[s].sampleRef == null && hasAnySampleLoaded(s)) {
                   setupVoiceSampleSource(v, s, note, vel, samplesLate);
                   boolean activeNow = v.sources[s].sampleRef != null && isSourceActiveEver(s, true);
                   for (int u = 0; u < numUnison; u++) {
