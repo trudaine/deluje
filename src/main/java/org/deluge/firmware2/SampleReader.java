@@ -232,6 +232,45 @@ public class SampleReader {
   }
 
   /**
+   * Realigns the interpolation history and {@link #playPos} when switching between tap counts (e.g.
+   * 16-tap sinc and 2-tap linear) on an already-primed reader
+   * (sample_low_level_reader.cpp:582-658).
+   */
+  public void realignInterpolationBuffer(int interpolationBufferSize) {
+    if (interpolationBufferSizeLastTime == 0
+        || interpolationBufferSizeLastTime == interpolationBufferSize) {
+      return;
+    }
+    if (interpolationBufferSize < interpolationBufferSizeLastTime) {
+      // C:582-602 — shrink buffer (e.g. 16-tap sinc -> 2-tap linear).
+      int offset = (interpolationBufferSizeLastTime - interpolationBufferSize) >> 1;
+      jumpBackFrames(offset);
+      for (int i = 0; i < interpolationBufferSize; i++) {
+        bufL[i] = bufL[i + offset];
+        bufR[i] = bufR[i + offset];
+        posHistory[i] = posHistory[i + offset];
+      }
+      posHistoryHead = playPos;
+    } else {
+      // C:614-647 — expand buffer (e.g. 2-tap linear -> 16-tap sinc).
+      int offset = (interpolationBufferSize - interpolationBufferSizeLastTime) >> 1;
+      for (int i = interpolationBufferSizeLastTime - 1; i >= 0; i--) {
+        bufL[i + offset] = bufL[i];
+        bufR[i + offset] = bufR[i];
+        posHistory[i + offset] = posHistory[i];
+      }
+      for (int i = offset - 1; i >= 0; i--) {
+        readFrameAtPlayPos(bufL, bufR, i);
+      }
+      for (int i = interpolationBufferSize - offset; i < interpolationBufferSize; i++) {
+        bufL[i] = 0;
+        bufR[i] = 0;
+      }
+    }
+    interpolationBufferSizeLastTime = interpolationBufferSize;
+  }
+
+  /**
    * C: readSamplesResampled (sample_low_level_reader.cpp:943-1110), forward/reverse, full-precision
    * (b). Accumulates {@code numSamples} interpolated, amplitude-ramped samples into {@code
    * oscBuffer} (interleaved when {@code numChannels == 2}).
@@ -255,33 +294,7 @@ public class SampleReader {
       }
       interpolationBufferSizeLastTime = interpolationBufferSize;
     } else if (interpolationBufferSizeLastTime != interpolationBufferSize) {
-      if (interpolationBufferSize < interpolationBufferSizeLastTime) {
-        // C:582-602 — shrink buffer (e.g. 16-tap sinc -> 2-tap linear).
-        int offset = (interpolationBufferSizeLastTime - interpolationBufferSize) >> 1;
-        jumpBackFrames(offset);
-        for (int i = 0; i < interpolationBufferSize; i++) {
-          bufL[i] = bufL[i + offset];
-          bufR[i] = bufR[i + offset];
-          posHistory[i] = posHistory[i + offset];
-        }
-        posHistoryHead = playPos;
-      } else {
-        // C:614-647 — expand buffer (e.g. 2-tap linear -> 16-tap sinc).
-        int offset = (interpolationBufferSize - interpolationBufferSizeLastTime) >> 1;
-        for (int i = interpolationBufferSizeLastTime - 1; i >= 0; i--) {
-          bufL[i + offset] = bufL[i];
-          bufR[i + offset] = bufR[i];
-          posHistory[i + offset] = posHistory[i];
-        }
-        for (int i = offset - 1; i >= 0; i--) {
-          readFrameAtPlayPos(bufL, bufR, i);
-        }
-        for (int i = interpolationBufferSize - offset; i < interpolationBufferSize; i++) {
-          bufL[i] = 0;
-          bufR[i] = 0;
-        }
-      }
-      interpolationBufferSizeLastTime = interpolationBufferSize;
+      realignInterpolationBuffer(interpolationBufferSize);
     }
     int o = 0;
     for (int s = 0; s < numSamples; s++) {

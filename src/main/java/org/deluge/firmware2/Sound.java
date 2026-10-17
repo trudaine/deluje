@@ -1182,12 +1182,21 @@ public class Sound extends GlobalEffectable {
         for (var v : voices) {
           if (v.active && v.envelopes[0].state.compareTo(Envelope.Stage.RELEASE) < 0) {
             for (int s = 0; s < 2; s++) {
-              if (synthMode != 1
-                  && oscTypes[s] == OscType.SAMPLE
-                  && v.sources[s].sampleRef == null
-                  && (samples[s] != null || !sourceZones[s].isEmpty())) {
-                setupVoiceSampleSource(v, s, note, vel, samplesLate);
-                boolean activeNow = v.sources[s].sampleRef != null && isSourceActiveEver(s, true);
+              if (synthMode != 1 && oscTypes[s] == OscType.SAMPLE) {
+                if (v.sources[s].sampleRef == null
+                    && (samples[s] != null || !sourceZones[s].isEmpty())) {
+                  setupVoiceSampleSource(v, s, note, vel, samplesLate);
+                  boolean activeNow = v.sources[s].sampleRef != null && isSourceActiveEver(s, true);
+                  for (int u = 0; u < numUnison; u++) {
+                    v.unisonParts[u].sources[s].active = activeNow;
+                    v.unisonParts[u].sources[s].disabledByPitch = false;
+                  }
+                }
+              } else if (v.sources[s].sampleRef != null) {
+                // C voice.cpp:422 / sound.cpp:1232 — source transitioned away from SAMPLE while
+                // held; clear retained sample state and restore waveform activity.
+                v.sources[s].clearSample();
+                boolean activeNow = isSourceActiveEver(s, false);
                 for (int u = 0; u < numUnison; u++) {
                   v.unisonParts[u].sources[s].active = activeNow;
                   v.unisonParts[u].sources[s].disabledByPitch = false;
@@ -1315,14 +1324,16 @@ public class Sound extends GlobalEffectable {
       int dirEnd = !reversed ? endFrame : (startFrame - 1);
       int rawLoopStart = loopStartFrame > 0 ? loopStartFrame : 0;
       int rawLoopEnd = loopEndPos > 0 ? loopEndPos : 0;
+      // C voice_sample_playback_guide.cpp:38-68 — decrement reversed markers first (keeping 0 as 0)
+      // and check marker presence (!= 0) AFTER conversion so raw position 1 -> 0 means no marker.
       int loopStartPlaybackAtSample = !reversed ? rawLoopStart : rawLoopEnd;
       int loopEndPlaybackAtSample = !reversed ? rawLoopEnd : rawLoopStart;
-      boolean hasLoopStart = loopStartPlaybackAtSample > 0;
-      boolean hasLoopEnd = loopEndPlaybackAtSample > 0;
       if (reversed) {
-        if (hasLoopStart) loopStartPlaybackAtSample--;
-        if (hasLoopEnd) loopEndPlaybackAtSample--;
+        if (loopStartPlaybackAtSample != 0) loopStartPlaybackAtSample--;
+        if (loopEndPlaybackAtSample != 0) loopEndPlaybackAtSample--;
       }
+      boolean hasLoopStart = loopStartPlaybackAtSample != 0;
+      boolean hasLoopEnd = loopEndPlaybackAtSample != 0;
       int dirLoopStart = hasLoopStart ? loopStartPlaybackAtSample : dirStart;
       int dirLoopEnd = hasLoopEnd ? loopEndPlaybackAtSample : dirEnd;
 

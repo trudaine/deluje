@@ -318,15 +318,20 @@ public class VoiceSample {
         timeStretcher.crossfadeProgress += timeStretcher.crossfadeIncrement * numThis;
         int newerHopAmplitudeAfter =
             Functions.lshiftAndSaturateUnknown(timeStretcher.crossfadeProgress, 7);
-        int newerHopAmplitudeIncrement = (newerHopAmplitudeAfter - newerHopAmplitudeNow) / numThis;
-        int hopAmplitudeChange =
-            Functions.multiply_32x32_rshift32(preCacheAmplitude, newerHopAmplitudeIncrement) << 1;
-        newerAmplitudeIncrementNow = preCacheAmplitudeIncrement + hopAmplitudeChange;
+        int olderHopAmplitudeAfter = 2147483647 - newerHopAmplitudeAfter;
+        int preCacheAmplitudeAfter = (ampVal + ampInc * numThis) >> 1;
         newerSourceAmplitudeNow =
             Functions.multiply_32x32_rshift32(preCacheAmplitude, newerHopAmplitudeNow) << 1;
-        olderAmplitudeIncrementNow = preCacheAmplitudeIncrement - hopAmplitudeChange;
+        int newerSourceAmplitudeAfter =
+            Functions.multiply_32x32_rshift32(preCacheAmplitudeAfter, newerHopAmplitudeAfter) << 1;
+        newerAmplitudeIncrementNow =
+            (newerSourceAmplitudeAfter - newerSourceAmplitudeNow) / numThis;
         olderSourceAmplitudeNow =
             Functions.multiply_32x32_rshift32(preCacheAmplitude, olderHopAmplitudeNow) << 1;
+        int olderSourceAmplitudeAfter =
+            Functions.multiply_32x32_rshift32(preCacheAmplitudeAfter, olderHopAmplitudeAfter) << 1;
+        olderAmplitudeIncrementNow =
+            (olderSourceAmplitudeAfter - olderSourceAmplitudeNow) / numThis;
       } else {
         newerSourceAmplitudeNow = preCacheAmplitude;
         newerAmplitudeIncrementNow = preCacheAmplitudeIncrement;
@@ -592,6 +597,9 @@ public class VoiceSample {
             : (linearInterpolation ? 2 : Functions.getInterpolationBufferSize(phaseIncrement));
 
     syncReaderBounds();
+    if (!native_) {
+      reader.realignInterpolationBuffer(interpBufSize);
+    }
 
     int produced = 0;
     while (produced < numSamples) {

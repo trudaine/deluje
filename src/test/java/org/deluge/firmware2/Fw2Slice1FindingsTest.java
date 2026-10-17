@@ -500,7 +500,9 @@ class Fw2Slice1FindingsTest {
   }
 
   @Test
-  void finding23_reverseSampleLoopMarkerAtPositionOneIsPreservedNotTreatedAsAbsent() {
+  void finding23_reverseSampleLoopMarkerCheckedAfterDecrement() {
+    // C voice_sample_playback_guide.cpp:38-68: reverse conversion decrements nonzero raw markers
+    // BEFORE checking marker presence (!= 0). Raw position 1 becomes 0 (no directional marker).
     Sound sound = makeInitializedSound();
     sound.oscTypes[0] = Oscillator.OscType.SAMPLE;
     sound.samples[0] = makeRampSample(64, 44100);
@@ -514,9 +516,20 @@ class Fw2Slice1FindingsTest {
     sound.triggerNote(60, 100);
     Voice v = sound.voices.get(0);
     VoiceSample vs = v.unisonParts[0].sources[0].voiceSample;
-    assertTrue(vs.hasLoopEnd, "Raw loop marker at position 1 must be recognized as present");
-    assertEquals(0, vs.loopEndFrame, "Reverse conversion of position 1 must land at frame 0");
+    assertFalse(
+        vs.hasLoopEnd, "Raw loop marker at position 1 converts to 0 in reverse -> no loop-end");
+    assertEquals(
+        -1, vs.loopEndFrame, "With no directional loop-end marker, reverse playback runs to -1");
     assertEquals(19, vs.loopStartFrame, "Reverse conversion of position 20 must land at frame 19");
+
+    // Raw position 2 converts to 1 in reverse -> valid directional loop-end marker at frame 1.
+    sound.releaseAllNotes();
+    sound.voices.clear();
+    sound.sampleLoopStart[0] = 2;
+    sound.triggerNote(60, 100);
+    VoiceSample vs2 = sound.voices.get(0).unisonParts[0].sources[0].voiceSample;
+    assertTrue(vs2.hasLoopEnd);
+    assertEquals(1, vs2.loopEndFrame);
   }
 
   @Test
@@ -846,5 +859,194 @@ class Fw2Slice1FindingsTest {
       energy += Math.abs((long) sampleVal);
     }
     assertTrue(energy > 0, "Legato note after waveform->SAMPLE switch must render audible audio");
+  }
+
+  @Test
+  void round6_legatoVoiceSwitchedFromExhaustedSampleToWaveformReactivatesSource() {
+    Sound sound = makeInitializedSound();
+    sound.polyphonic = Sound.PolyphonyMode.LEGATO;
+    sound.oscTypes[0] = Oscillator.OscType.SAMPLE;
+    sound.samples[0] = makeRampSample(16, 44100);
+    sound.sampleLoopMode[0] = 0;
+    sound.oscTypes[1] = Oscillator.OscType.SINE;
+    sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
+    sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MAX_VALUE;
+
+    sound.triggerNote(60, 100);
+    int[] buf = new int[128];
+    int[] rev = new int[64];
+    sound.renderInternal(buf, 64, rev);
+    sound.renderInternal(buf, 64, rev);
+
+    Voice v = sound.voices.get(0);
+    assertTrue(v.active, "Osc B must keep the legato voice alive after Osc A sample finishes");
+    assertFalse(
+        v.unisonParts[0].sources[0].active, "Osc A sample must be exhausted and inactive now");
+
+    // Switch Osc A to SAW and silence Osc B, then trigger an overlapping legato note.
+    sound.oscTypes[0] = Oscillator.OscType.SAW;
+    sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+    sound.triggerNote(64, 100);
+
+    assertEquals(null, v.sources[0].sampleRef, "Transition away from SAMPLE must clear sampleRef");
+    assertTrue(
+        v.unisonParts[0].sources[0].active,
+        "Transition from exhausted SAMPLE to SAW on legato note must reactivate Osc A");
+    Arrays.fill(buf, 0);
+    sound.renderInternal(buf, 64, rev);
+    long energy = 0;
+    for (int sampleVal : buf) {
+      energy += Math.abs((long) sampleVal);
+    }
+    assertTrue(energy > 0, "Reactivated SAW source must produce audible output");
+  }
+
+  @Test
+  void round6_liveTransposeLoweredOnHeldVoiceRestoresPitchDisabledSource() {
+    Sound sound = makeInitializedSound();
+    sound.oscTypes[0] = Oscillator.OscType.SAW;
+    sound.oscTypes[1] = Oscillator.OscType.SINE;
+    sound.sourceTranspose[0] = 84; // Over-Nyquist on note 60
+    sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
+    sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MAX_VALUE;
+
+    sound.triggerNote(60, 100);
+    int[] buf = new int[128];
+    int[] rev = new int[64];
+    sound.renderInternal(buf, 64, rev);
+
+    Voice v = sound.voices.get(0);
+    assertFalse(v.unisonParts[0].sources[0].active);
+    assertTrue(v.unisonParts[0].sources[0].disabledByPitch);
+
+    // Lower transpose live on the held voice without triggering a new note.
+    sound.sourceTranspose[0] = 0;
+    sound.renderInternal(buf, 64, rev);
+
+    assertTrue(
+        v.unisonParts[0].sources[0].active,
+        "Voice.render must restore a pitch-disabled source once transpose drops below Nyquist");
+    assertFalse(v.unisonParts[0].sources[0].disabledByPitch);
+  }
+
+  @Test
+  void round6_onceSampleWithSustainLoopEndDoesNotReleaseEnvelopeOnNoteOff() {
+    Sound sound = makeInitializedSound();
+    sound.oscTypes[0] = Oscillator.OscType.SAMPLE;
+    sound.samples[0] = makeRampSample(512, 44100);
+    sound.sampleLoopMode[0] = 2; // SampleRepeatMode::ONCE
+    sound.sampleLoopStart[0] = 10;
+    sound.sampleLoopEnd[0] = 20;
+    sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
+    sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+    sound.patchedParamValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
+    sound.patchedParamValues[Param.LOCAL_ENV_0_SUSTAIN] = Integer.MAX_VALUE;
+    // Fast release so if envelope 0 released on noteOff, the voice would cut off immediately.
+    sound.patchedParamValues[Param.LOCAL_ENV_0_RELEASE] = Integer.MAX_VALUE;
+
+    sound.triggerNote(60, 100);
+    int[] buf = new int[128];
+    int[] rev = new int[64];
+    sound.renderInternal(buf, 64, rev);
+
+    Voice v = sound.voices.get(0);
+    VoiceSample vs = v.unisonParts[0].sources[0].voiceSample;
+    assertTrue(vs.shouldObeyLoopEndPointNow(), "Held ONCE sample must loop at sustain loop-end");
+
+    sound.releaseNote(60);
+    assertTrue(vs.noteOffReceived, "Note-off must notify sample reader to exit sustain loop");
+    assertTrue(
+        v.previouslyIgnoredNoteOff,
+        "Note-off on ONCE sample must record previouslyIgnoredNoteOff instead of releasing env0");
+    assertTrue(
+        v.envelopes[0].state.compareTo(Envelope.Stage.RELEASE) < 0,
+        "Envelope 0 must stay pre-release so the ONCE sample tail plays out in full");
+
+    for (int b = 0; b < 4; b++) {
+      Arrays.fill(buf, 0);
+      sound.renderInternal(buf, 64, rev);
+      long energy = 0;
+      for (int s : buf) {
+        energy += Math.abs((long) s);
+      }
+      assertTrue(energy > 0, "ONCE sample tail past loopEnd must keep sounding on block " + b);
+    }
+  }
+
+  @Test
+  void round6_timeStretchCrossfadeWithNonzeroAmplitudeIncrementMatchesRamp() {
+    Sample sample = new Sample();
+    sample.numChannels = 1;
+    sample.byteDepth = 4;
+    sample.sampleRate = 44100;
+    sample.lengthInSamples = 1024;
+    sample.audioDataStartPosBytes = 0;
+    sample.audioDataLengthBytes = 1024 * 4;
+    sample.data = new int[1024];
+    Arrays.fill(sample.data, 1 << 29);
+
+    for (int dir : new int[] {1, -1}) {
+      VoiceSample vs = new VoiceSample();
+      vs.setupTimeStretch(sample, 0, 1024, 1, false, 0, false, 1024);
+      vs.olderReader.copyStateFrom(vs.reader);
+      vs.olderReader.init(64);
+      vs.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER] = true;
+      vs.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER] = true;
+      vs.timeStretcher.crossfadeProgress = 0;
+      vs.timeStretcher.crossfadeIncrement = (1 << 24) / 32;
+      vs.timeStretcher.samplesTilHopEnd = 32;
+
+      int startAmp = dir > 0 ? (1 << 24) : (1 << 26);
+      int ampInc = dir * (1 << 18);
+      int[] ampHolder = {startAmp};
+      int[] out = new int[32];
+      vs.renderTimeStretched(out, 32, 1, 1 << 24, 1 << 23, ampHolder, ampInc);
+
+      // Compare against a non-crossfading single head with the exact same amplitude ramp.
+      VoiceSample single = new VoiceSample();
+      single.setupTimeStretch(sample, 0, 1024, 1, false, 0, false, 1024);
+      single.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER] = false;
+      single.timeStretcher.crossfadeProgress = 1 << 24;
+      single.timeStretcher.samplesTilHopEnd = 32;
+      int[] singleAmpHolder = {startAmp};
+      int[] singleOut = new int[32];
+      single.renderTimeStretched(singleOut, 32, 1, 1 << 24, 1 << 23, singleAmpHolder, ampInc);
+
+      assertEquals(singleAmpHolder[0], ampHolder[0]);
+      // On a constant-valued sample, the crossfade sum at the end of the chunk must closely track
+      // the single-head ramped level (within rounding tolerance), NOT drift by 2x the ramp slope.
+      long diffEnd = Math.abs((long) out[31] - singleOut[31]);
+      long rampChange = Math.abs((long) singleOut[31] - singleOut[0]);
+      assertTrue(
+          diffEnd < rampChange / 4,
+          "Crossfade end amplitude must follow the requested ramp slope (dir=" + dir + ")");
+    }
+  }
+
+  @Test
+  void round6_oneShotQualityFallbackFromSincToLinearDoesNotTruncateEnd() {
+    Sample sample = makeRampSample(130, 44100);
+    VoiceSample vs = new VoiceSample();
+    vs.setup(sample, 0, 130, 1, false, 0, false, 130);
+    int phaseInc = 2 << 24; // 2x pitch
+    int[] amp = {1 << 26};
+
+    // Block 1: 64 output samples with 16-tap sinc leaves playPos at 135 (< stopFrame 146).
+    int[] out1 = new int[64];
+    vs.linearInterpolation = false;
+    vs.render(out1, 64, 1, phaseInc, amp, 0);
+    assertTrue(vs.active, "VoiceSample must still be active after block 1");
+    assertEquals(135, vs.reader.playPos);
+
+    // Block 2: switch to 2-tap linear. Reader must rewind 7 frames to 128 before checking
+    // stopFrame = 132, so the remaining frames render instead of truncating immediately.
+    int[] out2 = new int[64];
+    vs.linearInterpolation = true;
+    vs.render(out2, 64, 1, phaseInc, amp, 0);
+    long energy2 = 0;
+    for (int s : out2) {
+      energy2 += Math.abs((long) s);
+    }
+    assertTrue(energy2 > 0, "16->2 tap fallback near sample end must render remaining frames");
   }
 }

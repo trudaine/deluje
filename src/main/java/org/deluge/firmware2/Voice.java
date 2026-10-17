@@ -128,6 +128,9 @@ public class Voice {
   // For the envelope center (return value)
   public int env0LastValue;
 
+  /** C: voice.h:85 — true when a note-off was deferred because !sound.allowNoteTails(true). */
+  public boolean previouslyIgnoredNoteOff = false;
+
   public final Sound sound;
   public final Lfo lfo2 = new Lfo();
   public final Lfo lfo4 = new Lfo();
@@ -208,6 +211,7 @@ public class Voice {
     this.noteCode = midiNote;
     this.velocity = velocity;
     this.active = true;
+    this.previouslyIgnoredNoteOff = false;
 
     // C: a freshly acquired voice randomizes all part phases (Voice::randomizeOscPhases,
     // voice.cpp:399-411, called from sound.cpp:1654); noteOn then pins any source/modulator with a
@@ -451,16 +455,24 @@ public class Voice {
       }
     }
 
-    // voice.cpp:583-585 — no release stage: stop as soon as we can.
-    if (!hasReleaseStage()) {
-      envelopes[0].unconditionalRelease(Envelope.Stage.FAST_RELEASE, 65536); // SOFT_CULL_INCREMENT
-    } else {
-      // voice.cpp:589-597 — env0 gets the conditional noteOff (ignoredNoteOff when no sustain);
-      // env1 only if its release final value >= 9; envelopes 2-3 are NOT released.
-      envelopes[0].noteOff(0, sound);
-      if (paramFinalValues[Param.LOCAL_ENV_1_RELEASE] >= 9) {
-        envelopes[1].noteOff(1, sound);
+    // C voice.cpp:581-604 — only release envelopes when note tails are allowed (e.g. not an ONCE
+    // sample with only a sustain loop-end tail); otherwise remember the ignored note-off.
+    if (sound.allowNoteTails(true)) {
+      previouslyIgnoredNoteOff = false;
+      // voice.cpp:583-585 — no release stage: stop as soon as we can.
+      if (!hasReleaseStage()) {
+        envelopes[0].unconditionalRelease(
+            Envelope.Stage.FAST_RELEASE, 65536); // SOFT_CULL_INCREMENT
+      } else {
+        // voice.cpp:589-597 — env0 gets the conditional noteOff (ignoredNoteOff when no sustain);
+        // env1 only if its release final value >= 9; envelopes 2-3 are NOT released.
+        envelopes[0].noteOff(0, sound);
+        if (paramFinalValues[Param.LOCAL_ENV_1_RELEASE] >= 9) {
+          envelopes[1].noteOff(1, sound);
+        }
       }
+    } else {
+      previouslyIgnoredNoteOff = true;
     }
 
     // voice.cpp:619-625 — DX7 operator/pitch envelopes enter their release segments.
@@ -548,6 +560,12 @@ public class Voice {
     // Copy global sources from sound
     System.arraycopy(sound.globalSourceValues, 0, sourceValues, 0, 3);
 
+    // C voice.cpp:732-734 — if a note-off was deferred while allowNoteTails(true) was false,
+    // process it as soon as preset/mode changes allow note tails again.
+    if (previouslyIgnoredNoteOff && sound.allowNoteTails(true)) {
+      noteOff();
+    }
+
     // ── 1. Envelopes (voice.cpp:740-800) ──
 
     // Envelope 0 (amplitude) always renders
@@ -626,6 +644,7 @@ public class Voice {
     // ── 5. Phase increments (voice.cpp:414-560) ──
     // C voice.cpp:447-458 — SAMPLE and INPUT_* sources use ratio-style increments (2^24 = unity);
     // for INPUT the neutral is kMaxSampleValue (live input has no file sample rate).
+    boolean pitchTooHighA = false;
     int carrierIncA;
     if (sound.synthMode != 1
         && (sound.oscTypes[0] == Oscillator.OscType.SAMPLE || isInputType(sound.oscTypes[0]))) {
@@ -683,6 +702,7 @@ public class Voice {
           // cents + unison detune); the C makes the source inactive.
           int shiftLeftAmount = -shiftRightAmount;
           if (carrierIncA >= (2026954652 >> shiftLeftAmount)) {
+            pitchTooHighA = true;
             for (int u = 0; u < sound.numUnison; u++) {
               if (unisonParts[u].sources[0].active) {
                 unisonParts[u].sources[0].active = false;
@@ -717,6 +737,7 @@ public class Voice {
     // C voice.cpp:424-428, 498 — frequency too high (> 22.05 kHz) deactivates only this source,
     // NOT the entire voice (so source 1 or noise can still sound).
     if (carrierIncA <= 0) {
+      pitchTooHighA = true;
       for (int u = 0; u < sound.numUnison; u++) {
         if (unisonParts[u].sources[0].active) {
           unisonParts[u].sources[0].active = false;
@@ -724,8 +745,25 @@ public class Voice {
         }
       }
       carrierIncA = 0;
+    } else if (!pitchTooHighA) {
+      // C voice.cpp:422 / sound.cpp:1132 — restore sources disabled solely by pitch when transpose
+      // or tuning changes bring the base increment back below Nyquist on a held voice.
+      boolean sourceEverActive = sound.isSourceActiveEver(0, false);
+      for (int u = 0; u < sound.numUnison; u++) {
+        VoiceSource vs = unisonParts[u].sources[0];
+        if (vs.disabledByPitch) {
+          if (sourceEverActive
+              && (sound.synthMode == 1
+                  || sound.oscTypes[0] != Oscillator.OscType.SAMPLE
+                  || (vs.sampleRef != null && vs.voiceSample.active))) {
+            vs.active = true;
+          }
+          vs.disabledByPitch = false;
+        }
+      }
     }
 
+    boolean pitchTooHighB = false;
     int carrierIncB;
     if (sound.synthMode != 1
         && (sound.oscTypes[1] == Oscillator.OscType.SAMPLE || isInputType(sound.oscTypes[1]))) {
@@ -781,6 +819,7 @@ public class Voice {
           // C voice.cpp:471-481 — frequency-too-high guard; the C makes the source inactive.
           int shiftLeftAmount = -shiftRightAmount;
           if (carrierIncB >= (2026954652 >> shiftLeftAmount)) {
+            pitchTooHighB = true;
             for (int u = 0; u < sound.numUnison; u++) {
               if (unisonParts[u].sources[1].active) {
                 unisonParts[u].sources[1].active = false;
@@ -813,6 +852,7 @@ public class Voice {
       carrierIncB = sound.masterFineTuner.detune(carrierIncB);
     }
     if (carrierIncB <= 0) {
+      pitchTooHighB = true;
       for (int u = 0; u < sound.numUnison; u++) {
         if (unisonParts[u].sources[1].active) {
           unisonParts[u].sources[1].active = false;
@@ -820,6 +860,20 @@ public class Voice {
         }
       }
       carrierIncB = 0;
+    } else if (!pitchTooHighB) {
+      boolean sourceEverActive = sound.isSourceActiveEver(1, false);
+      for (int u = 0; u < sound.numUnison; u++) {
+        VoiceSource vs = unisonParts[u].sources[1];
+        if (vs.disabledByPitch) {
+          if (sourceEverActive
+              && (sound.synthMode == 1
+                  || sound.oscTypes[1] != Oscillator.OscType.SAMPLE
+                  || (vs.sampleRef != null && vs.voiceSample.active))) {
+            vs.active = true;
+          }
+          vs.disabledByPitch = false;
+        }
+      }
     }
 
     // Apply unison detune
