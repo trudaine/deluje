@@ -267,7 +267,7 @@ public class Patcher {
 
   // ── combineCablesExp (patcher.cpp:220-245) ──
 
-  private static int combineCablesExp(Destination dest, int knobValue, int[] sourceValues) {
+  static int combineCablesExp(Destination dest, int knobValue, int[] sourceValues) {
     int runningTotal = 0;
     // Cables first. Exp cables take the *modified* (per-param squared) strength (patcher.cpp:253).
     for (PatchCable cable : dest.cables) {

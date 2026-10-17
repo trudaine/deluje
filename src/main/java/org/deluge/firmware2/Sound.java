@@ -790,6 +790,15 @@ public class Sound extends GlobalEffectable {
    */
   public int getGlobalLFOPhaseIncrement(LfoConfig config, int param) {
     if (config.syncLevel == Lfo.SyncLevel.NONE) {
+      // C returns paramFinalValues[param] (sound.cpp:2723-2729), which includes any patch cable
+      // whose destination is the LFO rate (an exp param: combineCablesExp, patcher.cpp:240-272).
+      for (var dest : patchCableSet.destinations) {
+        if (dest.paramId == param && dest.targetSource < 0 && !dest.cables.isEmpty()) {
+          return Functions.getFinalParameterValueExp(
+              Functions.getParamNeutralValue(param),
+              Patcher.combineCablesExp(dest, patchedParamValues[param], globalSourceValues));
+        }
+      }
       return Patcher.computeFinalValueForParam(param, patchedParamValues[param]);
     }
     return getSyncedLFOPhaseIncrement(config);
