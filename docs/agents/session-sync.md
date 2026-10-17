@@ -54,5 +54,5 @@ Uncommitted local work is invisible to other agents. Commit to a branch and push
   [copilot-review-loop.md](copilot-review-loop.md)).
 - **Do not push to another agent's open branch** unless the human explicitly asks you to take it
   over.
-- Do not merge on a review that arrived before the latest push. Compare the review timestamp with
-  the head commit timestamp (`scripts/agent-sync.sh` flags this automatically).
+- Do not merge on a review that arrived before the latest push. Compare the review `commit_id`
+  with the PR `head.sha` (`scripts/agent-sync.sh` flags this automatically).

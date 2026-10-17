@@ -51,9 +51,10 @@ A PR is **done** when both hold:
    ([copilot-review-loop.md](copilot-review-loop.md) — all three places read).
 2. No reviewer has an unretracted `REVIEW: BLOCK`, and CI checks (`unit-tests`, `docs-lint`) pass.
 
-**Or the round budget above is spent** — whichever comes first. At that point any remaining
-`NON-BLOCKING` finding becomes a GitHub issue linked from the PR, and the PR merges. Only a `BLOCK`
-holds a PR past its round budget.
+**Or the round budget above is spent for non-blocking findings** — whichever comes first. At that
+point any remaining `NON-BLOCKING` finding becomes a GitHub issue linked from the PR, and the PR
+may merge once CI checks (`unit-tests`, `docs-lint`) pass and no reviewer holds an unretracted
+`REVIEW: BLOCK`. Passing CI and zero `BLOCK` items are always mandatory.
 
 ## Findings Are Hypotheses Until Verified
 

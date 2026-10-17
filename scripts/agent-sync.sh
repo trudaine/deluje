@@ -55,14 +55,15 @@ truncated() { # $1 = label, $2 = JSON array
 # Counting line comments alone can report a review as clean while its body
 # carries an open or previously missed finding. So read the counts from the body.
 review_counts() { # $1 = one review as JSON -> "OPEN MISSED"
-  jq -r '((.body | capture("(Open \\((?<x>[0-9]+)\\)|(?<x>[0-9]+) open issues?)") | .x)? // "0") + " "
-       + ((.body | capture("Previously missed \\((?<x>[0-9]+)\\)") | .x)? // "0")' <<<"$1"
+  jq -r '((.body | capture("(Open \\((?<a>[0-9]+)\\)|(?<b>[0-9]+) open issues?)") | (.a // .b))? // "0") + " "
+       + ((.body | capture("(Previously missed \\((?<a>[0-9]+)\\)|(?<b>[0-9]+) previously missed issues?)") | (.a // .b))? // "0")' <<<"$1"
 }
 review_titles() { # $1 = one review as JSON: titles of the OPEN and PREVIOUSLY MISSED items only
   # The body lists Open ("Open (N)" or "N open issue(s)"), then "Resolved since last review",
-  # then "Previously missed". Resolved items are not open, so skip that section.
+  # then "Previously missed" ("Previously missed (N)" or "N previously missed issue(s)").
+  # Resolved items are not open, so skip that section.
   jq -r '.body' <<<"$1" |
-    awk '/<strong>([0-9]+ )?[Oo]pen( issues?|\()/ {sec="o"} /Resolved since last review/ {sec="r"} /Previously missed/ {sec="m"}
+    awk '/<strong>([0-9]+ )?[Oo]pen( issues?| *\()/ {sec="o"} /Resolved since last review/ {sec="r"} /[Pp]reviously missed/ {sec="m"}
          /<strong>What changed|<strong>Walkthrough/ {sec="x"} sec=="o" || sec=="m" {print}' |
     { grep -oE '\[[^]]{6,160}\]\((https://github\.com/[^)]+)?#discussion|</picture> [^<]{6,160}</summary>' || true; } |
     sed -E 's/^\[//; s/\]\((https:\/\/github\.com\/[^)]+)?#discussion$//; s/^<\/picture> //; s/<\/summary>$//' |
