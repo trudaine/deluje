@@ -225,17 +225,7 @@ public class ClipModel extends TimelineCounter {
     for (int s = 0; s < steps.size(); s++) {
       StepData step = steps.get(s);
       if (!step.active() || step.pitch() == newPitch) continue;
-      steps.set(
-          s,
-          new StepData(
-              step.active(),
-              step.velocity(),
-              step.gate(),
-              step.probability(),
-              newPitch,
-              step.iterance(),
-              step.fill(),
-              step.nudge()));
+      steps.set(s, step.withPitch(newPitch));
     }
   }
 
@@ -522,7 +512,7 @@ public class ClipModel extends TimelineCounter {
                   : ((step.active() && step.pitch() > 0) ? step.pitch() : (rowCount - 1 - r)));
 
       if (!isKit && step.pitch() != pitch) {
-        step = StepData.of(step.active(), step.velocity(), step.gate(), step.probability(), pitch);
+        step = step.withPitch(pitch);
       }
 
       grid.get(r).set(s, step);
@@ -540,17 +530,23 @@ public class ClipModel extends TimelineCounter {
       }
 
       if (step.active()) {
+        Iterance cond = Iterance.fromInt(step.playCondition());
+        int fillMode = step.fill() > 0.001f ? 2 : 0; // C FillMode::FILL=2, FillMode::OFF=0
         if (existingNote == null) {
           NoteModel note = new NoteModel();
           note.setPos(notePos);
           note.setLength((int) (step.gate() * stepTicks));
           note.setVelocity((int) (step.velocity() * 127.0f));
           note.setProbability((int) (step.probability() * 100.0f));
+          note.setIterance(cond);
+          note.setFill(fillMode);
           row.getNotes().add(note);
         } else {
           existingNote.setLength((int) (step.gate() * stepTicks));
           existingNote.setVelocity((int) (step.velocity() * 127.0f));
           existingNote.setProbability((int) (step.probability() * 100.0f));
+          existingNote.setIterance(cond);
+          existingNote.setFill(fillMode);
         }
       } else {
         if (existingNote != null) {
@@ -573,6 +569,8 @@ public class ClipModel extends TimelineCounter {
           note.setLength((int) (step.gate() * stepTicks));
           note.setVelocity((int) (step.velocity() * 127.0f));
           note.setProbability((int) (step.probability() * 100.0f));
+          note.setIterance(Iterance.fromInt(step.playCondition()));
+          note.setFill(step.fill() > 0.001f ? 2 : 0);
           row.getNotes().add(note);
         }
       }
@@ -695,6 +693,8 @@ public class ClipModel extends TimelineCounter {
             note.setLength((int) (step.gate() * stepTicks));
             note.setVelocity((int) (step.velocity() * 127.0f));
             note.setProbability((int) (step.probability() * 100.0f));
+            note.setIterance(Iterance.fromInt(step.playCondition()));
+            note.setFill(step.fill() > 0.001f ? 2 : 0);
             row.getNotes().add(note);
           }
         }

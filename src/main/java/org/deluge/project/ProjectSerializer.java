@@ -168,6 +168,13 @@ public class ProjectSerializer {
                 "sideChainSend", (int) (sound.getSidechainSend() * Integer.MAX_VALUE), false);
           }
           writer.writeAttribute("mode", "subtractive", false);
+          if (Math.round(sound.getPitchSemitones()) != 0) {
+            writer.writeAttribute(
+                "transpose", String.valueOf(Math.round(sound.getPitchSemitones())), false);
+          }
+          if (sound.getCents() != 0) {
+            writer.writeAttribute("cents", String.valueOf(sound.getCents()), false);
+          }
           writer.writeAttribute("lpfMode", "24dB", false);
           writer.writeAttribute("hpfMode", "HPLadder", false);
           writer.writeAttribute("filterRoute", "H2L", false);
@@ -199,6 +206,7 @@ public class ProjectSerializer {
           writer.writeTag("num", String.valueOf(sound.getUnisonNum()));
           // C sound.cpp:4243-4246 — unison detune/spread are plain decimal integers (0..50).
           writer.writeTag("detune", String.valueOf(Math.round(sound.getUnisonDetune())));
+          writer.writeTag("spread", String.valueOf(Math.round(sound.getUnisonStereoSpread())));
           writer.writeClosingTag("unison");
 
           writer.writeOpeningTagBeginning("defaultParams");

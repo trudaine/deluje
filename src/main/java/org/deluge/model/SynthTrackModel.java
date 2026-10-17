@@ -117,6 +117,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setOsc1PitchAdjustQ31(int v) {
     osc1.setPitchAdjustQ31(v);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_A_PITCH_ADJUST);
   }
 
   public int getOsc2PitchAdjustQ31() {
@@ -125,6 +126,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setOsc2PitchAdjustQ31(int v) {
     osc2.setPitchAdjustQ31(v);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_B_PITCH_ADJUST);
   }
 
   /** Wavefolder knob (raw Q31, C LOCAL_FOLD / XML "waveFold"); INT_MIN = off (sound.cpp:147). */
@@ -667,6 +669,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setEqBass(float eqBass) {
     fx.setEqBass(eqBass);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.UNPATCHED_BASS);
   }
 
   public float getEqTreble() {
@@ -675,6 +678,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setEqTreble(float eqTreble) {
     fx.setEqTreble(eqTreble);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.UNPATCHED_TREBLE);
   }
 
   @Override
@@ -1027,6 +1031,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setPitchAdjustQ31(int v) {
     this.pitchAdjustQ31 = v;
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_PITCH_ADJUST);
   }
 
   public int getOsc1PhaseWidthQ31() {

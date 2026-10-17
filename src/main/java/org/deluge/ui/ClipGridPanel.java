@@ -1097,7 +1097,8 @@ public class ClipGridPanel extends SwingGridPanel {
             if (cModel != null) {
               org.deluge.model.StepData sd = getClipStep(cModel, modelRow, activeCol);
               if (sd != null && sd.active()) {
-                if (sd.iterance() != 0 && sd.iterance() != 0x0101) {
+                if (sd.iterance() != 0
+                    || (sd.playCondition() != 0 && sd.playCondition() != 0x0101)) {
                   hasCond = true;
                 }
                 if (sd.probability() < 0.999f) {
@@ -1675,20 +1676,8 @@ public class ClipGridPanel extends SwingGridPanel {
       org.deluge.model.StepData step = clip.getStep(modelRow, s);
       if (step != null && step.active()) {
         // Only the pitch changes — preserve every other per-step property (iterance, fill,
-        // nudge as well as velocity/gate/probability). The 5-arg StepData.of() resets
-        // iterance/fill/nudge to 0, silently discarding them on transpose.
-        clip.setStep(
-            modelRow,
-            s,
-            new org.deluge.model.StepData(
-                true,
-                step.velocity(),
-                step.gate(),
-                step.probability(),
-                newPitch,
-                step.iterance(),
-                step.fill(),
-                step.nudge()));
+        // nudge, playCondition as well as velocity/gate/probability).
+        clip.setStep(modelRow, s, step.withPitch(newPitch));
       }
     }
 

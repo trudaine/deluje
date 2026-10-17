@@ -686,19 +686,6 @@ public class InstrumentXmlParser {
     // ── Per-sound delay (the instrument's own <delay> element) ──
     parseSynthDelay(soundNode, synth);
 
-    // ── Equalizer inside defaultParams ──
-    Element dpEl = getFirstChild(soundNode, "defaultParams");
-    if (dpEl != null) {
-      Element eqEl = getFirstChild(dpEl, "equalizer");
-      if (eqEl == null) {
-        eqEl = getFirstChild(dpEl, "eq");
-      }
-      if (eqEl != null) {
-        readHexFloat(eqEl, "bass", synth::setEqBass);
-        readHexFloat(eqEl, "treble", synth::setEqTreble);
-      }
-    }
-
     // ── Mod FX Type ──
     String mfxVal = soundNode.getAttribute("modFXType");
     if (mfxVal == null || mfxVal.isEmpty()) {
@@ -736,10 +723,6 @@ public class InstrumentXmlParser {
       // GLOBAL_VOLUME_POST_FX (sound.cpp:3815). Seed LOCAL_VOLUME to 0 in the raw map so
       // FirmwareFactory's float model.getVolume() fallback does not overwrite LOCAL_VOLUME.
       synth.getRawKnobs().setRawParamKnob(Param.LOCAL_VOLUME, 0);
-      for (var e : SOUNDPARAMS_RAW_PATCHED.entrySet()) {
-        rawKnob(dpEl, e.getKey(), synth, e.getValue());
-      }
-      parseEqualizerRawKnobs(dpEl, synth);
       String v;
       if ((v = attrOrChildText(dpEl, "modulator1Amount")) != null && !v.isBlank()) {
         synth.setModulator1AmountQ31(DelugeHexMapper.hexToQ31(v));
@@ -795,6 +778,11 @@ public class InstrumentXmlParser {
       if ((v = attrOrChildText(dpEl, "lfo4Rate")) != null && !v.isBlank()) {
         synth.getRawKnobs().setLfoRateKnobQ31(3, DelugeHexMapper.hexToQ31(v));
       }
+      // Run raw-knob population last so model setters above do not clear rawParamKnobs entries.
+      for (var e : SOUNDPARAMS_RAW_PATCHED.entrySet()) {
+        rawKnob(dpEl, e.getKey(), synth, e.getValue());
+      }
+      parseEqualizerRawKnobs(dpEl, synth);
     }
   }
 
@@ -1820,15 +1808,15 @@ public class InstrumentXmlParser {
     knobs.setRawParamKnob(Param.LOCAL_HPF_RESONANCE, off);
     knobs.setRawParamKnob(Param.LOCAL_HPF_MORPH, off);
     // sound.cpp:159/203-206 — all pitch adjusts neutral; :184-185 — phase widths 0. Model
-    // setters too so the factory's sentinel-guarded float channel agrees.
+    // setters first so the factory's sentinel-guarded channel agrees without clearing rawKnobs.
+    synth.setPitchAdjustQ31(0);
+    synth.setOsc1PitchAdjustQ31(0);
+    synth.setOsc2PitchAdjustQ31(0);
     knobs.setRawParamKnob(Param.LOCAL_PITCH_ADJUST, 0);
     knobs.setRawParamKnob(Param.LOCAL_OSC_A_PITCH_ADJUST, 0);
     knobs.setRawParamKnob(Param.LOCAL_OSC_B_PITCH_ADJUST, 0);
     knobs.setRawParamKnob(Param.LOCAL_MODULATOR_0_PITCH_ADJUST, 0);
     knobs.setRawParamKnob(Param.LOCAL_MODULATOR_1_PITCH_ADJUST, 0);
-    synth.setPitchAdjustQ31(0);
-    synth.setOsc1PitchAdjustQ31(0);
-    synth.setOsc2PitchAdjustQ31(0);
     knobs.setRawParamKnob(Param.LOCAL_OSC_A_PHASE_WIDTH, 0);
     knobs.setRawParamKnob(Param.LOCAL_OSC_B_PHASE_WIDTH, 0);
     synth.setOsc1PhaseWidthQ31(0);

@@ -508,7 +508,8 @@ public class SwingPianoRollDialog extends JDialog {
                         dragInfo.note.pitch(),
                         dragInfo.note.iterance(),
                         dragInfo.note.fill(),
-                        dragInfo.note.nudge());
+                        dragInfo.note.nudge(),
+                        dragInfo.note.playCondition());
                 clipModel.setStep(dragInfo.row, dragInfo.startStep, updated);
 
               } else if (dragInfo.mode == DRAG_MOVE) {
@@ -663,7 +664,8 @@ public class SwingPianoRollDialog extends JDialog {
                       note.pitch(),
                       note.iterance(),
                       note.fill(),
-                      note.nudge());
+                      note.nudge(),
+                      note.playCondition());
               clipModel.setStep(row, step, updated);
               repaint();
               velocityLane.repaint();
@@ -691,7 +693,8 @@ public class SwingPianoRollDialog extends JDialog {
                       note.pitch(),
                       note.iterance(),
                       note.fill(),
-                      note.nudge());
+                      note.nudge(),
+                      note.playCondition());
               clipModel.setStep(row, step, updated);
               repaint();
               velocityLane.repaint();
@@ -722,7 +725,8 @@ public class SwingPianoRollDialog extends JDialog {
               (int) (note.fill() * 100),
               (int) (note.probability() * 100),
               note.gate(),
-              (int) (note.nudge() * 100));
+              (int) (note.nudge() * 100),
+              org.deluge.model.Iterance.fromInt(note.playCondition()));
       dlg.setVisible(true);
       if (dlg.isConfirmed()) {
         int engineRow = baseTrackId + row;
@@ -732,6 +736,7 @@ public class SwingPianoRollDialog extends JDialog {
         double newProb = dlg.getProbability() / 100.0;
         double newGate = dlg.getGate();
         double newNudge = dlg.getNudge() / 100.0;
+        int newCond = dlg.getPlayConditionInt();
 
         bridge.setVelocity(engineRow, step, newVel);
         bridge.setIterance(engineRow, step, newIt);
@@ -749,7 +754,8 @@ public class SwingPianoRollDialog extends JDialog {
                 note.pitch(),
                 newIt,
                 (float) newFill,
-                (float) newNudge);
+                (float) newNudge,
+                newCond);
         clipModel.setStep(row, step, updated);
         repaint();
         velocityLane.repaint();
@@ -878,7 +884,8 @@ public class SwingPianoRollDialog extends JDialog {
               newPitch,
               note.iterance(),
               note.fill(),
-              nudge);
+              nudge,
+              note.playCondition());
       clipModel.setStep(row, toStep, movedNote);
     }
 
@@ -1081,7 +1088,8 @@ public class SwingPianoRollDialog extends JDialog {
                   note.pitch(),
                   note.iterance(),
                   note.fill(),
-                  note.nudge());
+                  note.nudge(),
+                  note.playCondition());
           clipModel.setStep(r, step, updated);
         }
       }

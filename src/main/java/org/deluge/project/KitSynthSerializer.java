@@ -142,6 +142,13 @@ public class KitSynthSerializer {
 
       // ── mode (subtractive for all kit sounds) ──
       appendTextChild(doc, soundElem, "mode", "subtractive");
+      if (Math.round(sound.getPitchSemitones()) != 0) {
+        appendTextChild(
+            doc, soundElem, "transpose", String.valueOf(Math.round(sound.getPitchSemitones())));
+      }
+      if (sound.getCents() != 0) {
+        appendTextChild(doc, soundElem, "cents", String.valueOf(sound.getCents()));
+      }
 
       // ── unison ──
       Element unison = doc.createElement("unison");
@@ -149,6 +156,7 @@ public class KitSynthSerializer {
       // Plain integer, matching the format and the synth path below — see the note there. Writing a
       // hex Q31 here mangled a detune of 16 back into 1 on re-read.
       appendTextAttr(unison, "detune", String.valueOf(Math.round(sound.getUnisonDetune())));
+      appendTextAttr(unison, "spread", String.valueOf(Math.round(sound.getUnisonStereoSpread())));
       soundElem.appendChild(unison);
 
       // ── compressor ──
@@ -427,7 +435,8 @@ public class KitSynthSerializer {
         doc,
         unison,
         "spread",
-        DelugeHexMapper.floatToHex(synth.getUnison().getUnisonStereoSpread()));
+        // C sound.cpp:4246 — unison stereo spread is a plain decimal integer (0..50), not hex Q31.
+        String.valueOf(Math.round(synth.getUnison().getUnisonStereoSpread())));
     root.appendChild(unison);
 
     // ── arpeggiator ──

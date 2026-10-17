@@ -341,44 +341,10 @@ public class SongXmlParser {
                 }
               }
 
-              // Check for noteDataWithLift attribute (c1.2.0+ firmware format)
-              String liftAttr = noteRowElem.getAttribute("noteDataWithLift");
-              String splitAttr = noteRowElem.getAttribute("noteDataWithSplitProb");
-              if (liftAttr != null && !liftAttr.isEmpty()) {
-                hexData = liftAttr;
-              } else if (splitAttr != null && !splitAttr.isEmpty()) {
-                hexData = splitAttr;
-              }
-
-              // Check for noteData attribute directly on noteRow (kit rows)
-              if (hexData == null) {
-                String dataAttr = noteRowElem.getAttribute("noteData");
-                if (dataAttr != null && !dataAttr.isEmpty()) {
-                  hexData = dataAttr;
-                }
-              }
-
-              // Fall back to <noteData> child element (older format)
-              if (hexData == null) {
-                NodeList noteDataList = noteRowElem.getElementsByTagName("noteData");
-                if (noteDataList.getLength() > 0) {
-                  hexData = noteDataList.item(0).getTextContent();
-                }
-              }
-
+              NoteDataSource noteSrc = readNoteDataSource(noteRowElem, false);
+              hexData = noteSrc.hex();
               if (hexData != null && !hexData.isEmpty()) {
-                // Detect format: noteDataWithLift = 22 chars/note, noteDataWithSplitProb = 28
-                int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
-                if (liftAttr != null && !liftAttr.isEmpty()) {
-                  hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
-                } else if (splitAttr != null && !splitAttr.isEmpty()) {
-                  hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
-                } else if (hexData.startsWith("0x")) {
-                  int dataLen = hexData.length() - 2;
-                  if (dataLen > 0 && dataLen % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT == 0) {
-                    hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
-                  }
-                }
+                int hcpn = noteSrc.hexCharsPerNote();
                 // Firmware XML uses dynamic ticks per grid step (triplet alignment check!)
                 java.util.List<StepData> row =
                     DelugeNoteDataMapper.decodeRow(hexData, stepCount, stepTicks, hcpn);
@@ -398,15 +364,7 @@ public class SongXmlParser {
                 clip.setRowYNote(r, notePitch);
                 for (int s = 0; s < stepCount; s++) {
                   StepData existing = clip.getStep(r, s);
-                  clip.setStep(
-                      r,
-                      s,
-                      StepData.of(
-                          existing.active(),
-                          existing.velocity(),
-                          existing.gate(),
-                          existing.probability(),
-                          notePitch));
+                  clip.setStep(r, s, existing.withPitch(notePitch));
                 }
               }
 
@@ -554,29 +512,11 @@ public class SongXmlParser {
         if (noteRowList != null) {
           for (int r = 0; r < rowCount; r++) {
             Element nr = (Element) noteRowList.item(r);
-            String hd = null;
-            String la = nr.getAttribute("noteDataWithLift");
-            String sa = nr.getAttribute("noteDataWithSplitProb");
-            if (la != null && !la.isEmpty()) hd = la;
-            else if (sa != null && !sa.isEmpty()) hd = sa;
-            if (hd == null) {
-              String da = nr.getAttribute("noteData");
-              if (da != null && !da.isEmpty()) hd = da;
-            }
-            if (hd == null) {
-              NodeList ndl = nr.getElementsByTagName("noteData");
-              if (ndl.getLength() > 0) hd = ndl.item(0).getTextContent();
-            }
+            NoteDataSource noteSrc = readNoteDataSource(nr, false);
+            String hd = noteSrc.hex();
             if (hd != null && hd.startsWith("0x")) {
               String data = hd.substring(2);
-              // Detect hex chars per note based on which attribute was used
-              int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
-              if (la != null && !la.isEmpty()) hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
-              else if (sa != null && !sa.isEmpty())
-                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
-              else if (data.length() > 0
-                  && data.length() % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT == 0)
-                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
+              int hcpn = noteSrc.hexCharsPerNote();
               for (int p = 0; p + hcpn <= data.length(); p += hcpn) {
                 int pos = (int) Long.parseLong(data.substring(p, p + 8), 16);
                 if (pos > 2000) {
@@ -624,47 +564,10 @@ public class SongXmlParser {
               }
             }
 
-            String liftAttr = noteRowElem.getAttribute("noteDataWithLift");
-            String splitAttr = noteRowElem.getAttribute("noteDataWithSplitProb");
-            if (liftAttr != null && !liftAttr.isEmpty()) {
-              hexData = liftAttr;
-            } else if (splitAttr != null && !splitAttr.isEmpty()) {
-              hexData = splitAttr;
-            }
-
-            // Check for noteData attribute directly on noteRow (kit rows)
-            if (hexData == null) {
-              String dataAttr = noteRowElem.getAttribute("noteData");
-              if (dataAttr != null && !dataAttr.isEmpty()) {
-                hexData = dataAttr;
-              }
-            }
-
-            if (hexData == null) {
-              NodeList noteDataList = noteRowElem.getElementsByTagName("noteData");
-              if (noteDataList.getLength() > 0) {
-                hexData = noteDataList.item(0).getTextContent();
-              }
-            }
-
+            NoteDataSource noteSrc = readNoteDataSource(noteRowElem, false);
+            hexData = noteSrc.hex();
             if (hexData != null && !hexData.isEmpty()) {
-              // Detect format: noteDataWithLift = 22 chars/note, noteDataWithSplitProb = 28,
-              // default = 20
-              int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
-              if (liftAttr != null && !liftAttr.isEmpty()) {
-                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
-              } else if (splitAttr != null && !splitAttr.isEmpty()) {
-                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
-              } else {
-                String da = noteRowElem.getAttribute("noteData");
-                if (da != null && !da.isEmpty() && da.startsWith("0x")) {
-                  // Check length heuristic: if hex data has split/prob fields
-                  int dataLen = da.length() - 2; // strip "0x"
-                  if (dataLen > 0 && dataLen % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT == 0) {
-                    hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
-                  }
-                }
-              }
+              int hcpn = noteSrc.hexCharsPerNote();
               // Firmware XML uses dynamic ticks per grid step (triplet alignment check!)
               java.util.List<StepData> row =
                   DelugeNoteDataMapper.decodeRow(hexData, stepCount, stepTicks, hcpn);
@@ -692,15 +595,7 @@ public class SongXmlParser {
               clip.setRowYNote(r, notePitch);
               for (int s = 0; s < stepCount; s++) {
                 StepData existing = clip.getStep(r, s);
-                clip.setStep(
-                    r,
-                    s,
-                    StepData.of(
-                        existing.active(),
-                        existing.velocity(),
-                        existing.gate(),
-                        existing.probability(),
-                        notePitch));
+                clip.setStep(r, s, existing.withPitch(notePitch));
               }
             }
 
@@ -895,30 +790,11 @@ public class SongXmlParser {
           int maxPos = 0;
           for (int r = 0; r < rowCount; r++) {
             Element nr = (Element) noteRowList.item(r);
-            String hd = null;
-            String la = nr.getAttribute("liftActions");
-            if (la == null || la.isEmpty()) la = nr.getAttribute("noteDataWithLift");
-            String sa = nr.getAttribute("noteDataWithSplitProb");
-            if (la != null && !la.isEmpty()) hd = la;
-            else if (sa != null && !sa.isEmpty()) hd = sa;
-            if (hd == null) {
-              String da = nr.getAttribute("noteData");
-              if (da != null && !da.isEmpty()) hd = da;
-            }
-            if (hd == null) {
-              NodeList ndl = nr.getElementsByTagName("noteData");
-              if (ndl.getLength() > 0) hd = ndl.item(0).getTextContent();
-            }
+            NoteDataSource noteSrc = readNoteDataSource(nr, true);
+            String hd = noteSrc.hex();
             if (hd != null && hd.startsWith("0x")) {
               String data = hd.substring(2);
-              int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
-              if (la != null && !la.isEmpty()) hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
-              else if (sa != null && !sa.isEmpty())
-                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
-              else if (data.length() > 0
-                  && data.length() % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT == 0) {
-                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
-              }
+              int hcpn = noteSrc.hexCharsPerNote();
               for (int p = 0; p + hcpn <= data.length(); p += hcpn) {
                 try {
                   int pos = (int) Long.parseLong(data.substring(p, p + 8), 16);
@@ -945,45 +821,18 @@ public class SongXmlParser {
             String noteStr = nr.getAttribute("note");
             int noteVal = noteStr != null && !noteStr.isEmpty() ? Integer.parseInt(noteStr) : 60;
 
-            String hd = null;
-            String la = nr.getAttribute("liftActions");
-            if (la == null || la.isEmpty()) la = nr.getAttribute("noteDataWithLift");
-            String sa = nr.getAttribute("noteDataWithSplitProb");
-            if (la != null && !la.isEmpty()) hd = la;
-            else if (sa != null && !sa.isEmpty()) hd = sa;
-            if (hd == null) {
-              String da = nr.getAttribute("noteData");
-              if (da != null && !da.isEmpty()) hd = da;
-            }
-            if (hd == null) {
-              NodeList ndl = nr.getElementsByTagName("noteData");
-              if (ndl.getLength() > 0) hd = ndl.item(0).getTextContent();
-            }
+            NoteDataSource noteSrc = readNoteDataSource(nr, true);
+            String hd = noteSrc.hex();
             if (hd != null && hd.startsWith("0x") && hd.length() > 2) {
-              // Use the same robust decoder as session clips (was a buggy hand-rolled loop that
-              // read
-              // the split-velocity offset even on lift-format data → StringIndexOutOfBounds).
-              int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
-              if (la != null && !la.isEmpty()) hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT;
-              else if (sa != null && !sa.isEmpty())
-                hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
-              else {
-                int dataLen = hd.length() - 2;
-                if (dataLen > 0 && dataLen % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT == 0) {
-                  hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
-                }
-              }
+              int hcpn = noteSrc.hexCharsPerNote();
               java.util.List<StepData> row =
                   DelugeNoteDataMapper.decodeRow(hd, stepCount, stepTicks, hcpn);
               clip.setRowYNote(r, noteVal);
               for (int s = 0; s < stepCount && s < row.size(); s++) {
                 StepData base = row.get(s);
-                clip.setStep(
-                    r,
-                    s,
-                    StepData.of(
-                        base.active(), base.velocity(), base.gate(), base.probability(), noteVal));
+                clip.setStep(r, s, base.withPitch(noteVal));
               }
+              clip.setRawNoteEvents(r, DelugeNoteDataMapper.decodeRawNotes(hd, hcpn));
             }
           }
 
@@ -1787,6 +1636,62 @@ public class SongXmlParser {
       readKitHexAttr(eqEl, "bassFrequency", clip, "eqBassFrequency");
       readKitHexAttr(eqEl, "trebleFrequency", clip, "eqTrebleFrequency");
     }
+  }
+
+  private record NoteDataSource(String hex, int hexCharsPerNote) {}
+
+  private static String readNoteTagOrAttr(Element el, String name) {
+    String attr = el.getAttribute(name);
+    if (attr != null && !attr.isEmpty()) return attr.trim();
+    NodeList list = el.getElementsByTagName(name);
+    if (list.getLength() > 0) {
+      String txt = list.item(0).getTextContent();
+      if (txt != null && !txt.isEmpty()) return txt.trim();
+    }
+    return null;
+  }
+
+  /**
+   * C note_row.cpp:3521-3537 — reads note hex data from {@code noteDataWithSplitProb} (28), {@code
+   * noteDataWithIteranceAndFill} (26), {@code noteDataWithLift} (22), or {@code noteData} (20).
+   * Prefers the richest format present so round-tripped files carrying both {@code
+   * noteDataWithLift} and {@code noteDataWithSplitProb} retain conditions and split probability.
+   */
+  private static NoteDataSource readNoteDataSource(
+      Element noteRowElem, boolean allowLiftActionsAttr) {
+    String split = readNoteTagOrAttr(noteRowElem, "noteDataWithSplitProb");
+    if (split != null) {
+      return new NoteDataSource(split, DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT);
+    }
+    String iterFill = readNoteTagOrAttr(noteRowElem, "noteDataWithIteranceAndFill");
+    if (iterFill != null) {
+      return new NoteDataSource(
+          iterFill, DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_ITERANCE_AND_FILL);
+    }
+    if (allowLiftActionsAttr) {
+      String liftActions = noteRowElem.getAttribute("liftActions");
+      if (liftActions != null && !liftActions.isEmpty()) {
+        return new NoteDataSource(liftActions.trim(), DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT);
+      }
+    }
+    String lift = readNoteTagOrAttr(noteRowElem, "noteDataWithLift");
+    if (lift != null) {
+      return new NoteDataSource(lift, DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT);
+    }
+    String old = readNoteTagOrAttr(noteRowElem, "noteData");
+    if (old != null) {
+      int hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
+      if (old.startsWith("0x")) {
+        int dataLen = old.length() - 2;
+        if (dataLen > 0
+            && dataLen % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT == 0
+            && dataLen % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD != 0) {
+          hcpn = DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT;
+        }
+      }
+      return new NoteDataSource(old, hcpn);
+    }
+    return new NoteDataSource(null, DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD);
   }
 
   private static void readKitHexAttr(Element el, String attr, ClipModel clip, String paramName) {
