@@ -188,8 +188,8 @@ public class ClipEditorController {
                 handleStepLongPressed(visualRow, colId, e.getLocationOnScreen());
               } else if (SwingUtilities.isLeftMouseButton(e)) {
                 if (bridge == null) return;
-                boolean isSynthMode = isSynthOrKit(bridge.getTrackType(baseTrackId));
-                int trackType = bridge.getTrackType(baseTrackId);
+                int trackType = parent.resolveEditedTrackType();
+                boolean isSynthMode = isSynthOrKit(trackType);
 
                 if (trackType == 2) {
                   // MIDI Track
@@ -274,9 +274,11 @@ public class ClipEditorController {
 
                   // Audition via engine preview
                   int slot = engineRow >= 0 ? engineRow : baseTrackId;
-                  bridge.setGlobalFloat(BridgeContract.G_PREVIEW_PITCH, (float) midiPitch);
-                  bridge.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) slot);
-                  bridge.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+                  if (slot >= 0) {
+                    bridge.setGlobalFloat(BridgeContract.G_PREVIEW_PITCH, (float) midiPitch);
+                    bridge.setGlobalInt(BridgeContract.G_PREVIEW_TRACK, (long) slot);
+                    bridge.broadcastGlobalEvent(BridgeContract.E_PREVIEW);
+                  }
 
                   try {
                     String[] noteNames = {
@@ -437,8 +439,7 @@ public class ClipEditorController {
                         kit.drumSounds.get(modelRow).releaseNote(60);
                       }
                     } else if (sound instanceof FirmwareSound synth) {
-                      boolean isSynthModeLocal =
-                          isSynthOrKit(bridge.getTrackType(getBaseTrackId()));
+                      boolean isSynthModeLocal = isSynthOrKit(parent.resolveEditedTrackType());
                       int pitchMidi = isSynthModeLocal ? (((128 - 1) - modelRow) + 0) : 60;
                       synth.releaseNote(pitchMidi);
                     }
@@ -504,8 +505,8 @@ public class ClipEditorController {
     int visualModelRow = parent.getModelRow(row);
     int engineRowOffset = parent.getEngineRowOffset(visualModelRow);
     int baseTrackId = getBaseTrackId();
-    boolean isSynthMode = isSynthOrKit(bridge.getTrackType(baseTrackId));
-    int trackType = bridge.getTrackType(baseTrackId);
+    int trackType = parent.resolveEditedTrackType();
+    boolean isSynthMode = isSynthOrKit(trackType);
 
     if (trackType == 2) {
       if (getMidiOut() != null) {
@@ -568,7 +569,7 @@ public class ClipEditorController {
     int visualModelRow = parent.getModelRow(row);
     int activeCol = parent.getActiveCol(row, col);
     int baseTrackId = getBaseTrackId();
-    boolean isSynthMode = baseTrackId >= 0 ? isSynthOrKit(bridge.getTrackType(baseTrackId)) : true;
+    boolean isSynthMode = isSynthOrKit(parent.resolveEditedTrackType());
 
     StepData oldStep = null;
     ClipModel cModel = null;
@@ -597,8 +598,7 @@ public class ClipEditorController {
       }
       if (nextState) {
         baseTrackId = getBaseTrackId();
-        isSynthMode =
-            baseTrackId >= 0 ? isSynthOrKit(bridge.getTrackType(baseTrackId)) : isSynthMode;
+        isSynthMode = isSynthOrKit(parent.resolveEditedTrackType());
       }
       engineRow = parent.getEngineRowForStoredClipRow(clipRow);
     } else if (engineRow < 0) {
@@ -711,7 +711,7 @@ public class ClipEditorController {
     if (cModel == null && engineRow < 0) {
       return;
     }
-    boolean isSynthMode = baseTrackId >= 0 ? isSynthOrKit(bridge.getTrackType(baseTrackId)) : true;
+    boolean isSynthMode = isSynthOrKit(parent.resolveEditedTrackType());
 
     boolean startActive =
         cModel != null
@@ -1001,7 +1001,7 @@ public class ClipEditorController {
   public void duplicateStep(int startRow, int startCol, int targetRow, int targetCol) {
     BridgeContract bridge = getBridge();
     if (bridge == null) return;
-    int trackLen = bridge.getTrackLength(getBaseTrackId());
+    int trackLen = parent.resolveEditedTrackLength();
     int baseTrackId = getBaseTrackId();
     int scrollOffset = getScrollOffset();
     int scrollOffsetX = getScrollOffsetX();
@@ -1095,7 +1095,7 @@ public class ClipEditorController {
       baseTrackId = getBaseTrackId();
       oldTargetStep = cModel.getStep(dstClipRow, dstCol);
       if (srcModelStep != null) {
-        int trackType = baseTrackId >= 0 ? bridge.getTrackType(baseTrackId) : 1;
+        int trackType = parent.resolveEditedTrackType();
         int dstPitch;
         if (tModel instanceof org.deluge.model.KitTrackModel || trackType == 0) {
           dstPitch = dstClipRow;

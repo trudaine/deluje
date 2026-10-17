@@ -1715,20 +1715,24 @@ public final class BridgeContract {
   }
 
   public void setMute(int t, boolean val) {
+    if (t < 0 || t >= TRACKS) return;
     track.mute[t] = val ? 1 : 0;
     if (vm != null) setGlobalInt("g_mute_" + t, val ? 1L : 0L);
   }
 
   public boolean getMute(int t) {
+    if (t < 0 || t >= TRACKS) return false;
     if (vm != null) return getGlobalInt("g_mute_" + t) > 0;
     return track.mute[t] > 0;
   }
 
   public int getTrackType(int t) {
+    if (t < 0 || t >= TRACKS) return -1;
     return track.trackType[t];
   }
 
   public void setTrackType(int t, int type) {
+    if (t < 0 || t >= TRACKS) return;
     track.trackType[t] = type;
   }
 
@@ -1799,10 +1803,12 @@ public final class BridgeContract {
   }
 
   public void setTrackLength(int t, int steps) {
+    if (t < 0 || t >= TRACKS) return;
     track.trackLength[t] = steps;
   }
 
   public int getTrackLength(int t) {
+    if (t < 0 || t >= TRACKS) return 16;
     return track.trackLength[t];
   }
 

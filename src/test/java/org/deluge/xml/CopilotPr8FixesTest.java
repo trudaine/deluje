@@ -1931,4 +1931,119 @@ class CopilotPr8FixesTest {
     assertEquals(
         8, org.deluge.ui.EngineSyncCoordinator.resolveTrackEngineStart(bridge, project, 2));
   }
+
+  @Test
+  void rotateRowPreservesOffGridRawNotesWithoutDuplicatingEvents() throws Exception {
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel synth = new SynthTrackModel("RotSynth");
+    ClipModel clip = new ClipModel("Clip", 1, 16);
+    clip.setRowYNote(0, 60);
+    clip.setStep(0, 0, StepData.of(true, 0.8f, 1.0f, 1.0f, 60));
+    org.deluge.model.NoteRowModel row = clip.getNoteRowsMap().get(0);
+    row.getNotes().clear();
+    org.deluge.model.NoteModel offGridNote = new org.deluge.model.NoteModel();
+    offGridNote.setPos(12);
+    offGridNote.setLength(18);
+    offGridNote.setVelocity(100);
+    offGridNote.setProbability(100);
+    offGridNote.setLift(73);
+    row.getNotes().add(offGridNote);
+    synth.addClip(clip);
+    project.addTrack(synth);
+
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    org.deluge.ui.ClipGridPanel panel = new org.deluge.ui.ClipGridPanel(bridge);
+    panel.setScaleModeEnabled(false);
+    panel.setEditedModelTrack(0);
+    panel.setBaseTrackId(0);
+    panel.setActiveClipId(0);
+    panel.setProjectModel(project);
+
+    java.lang.reflect.Method m =
+        org.deluge.ui.ClipGridPanel.class.getDeclaredMethod("rotateRow", int.class, boolean.class);
+    m.setAccessible(true);
+    m.invoke(panel, 127 - 60, true);
+
+    assertEquals(1, row.getNotes().size(), "Rotating off-grid note must not create duplicate note");
+    assertEquals(36, row.getNotes().get(0).getPos(), "Off-grid note must shift from tick 12 to 36");
+    assertEquals(73, row.getNotes().get(0).getLift(), "Note lift property must be preserved");
+    assertTrue(!clip.getStep(0, 0).active(), "Grid step 0 must clear after rotating right");
+    assertTrue(clip.getStep(0, 1).active(), "Grid step 1 must activate after rotating right");
+  }
+
+  @Test
+  void transposeRowPreservesOffGridRawNotesWithoutDuplicatingEvents() throws Exception {
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel synth = new SynthTrackModel("TrspSynth");
+    ClipModel clip = new ClipModel("Clip", 1, 16);
+    clip.setRowYNote(0, 60);
+    clip.setStep(0, 0, StepData.of(true, 0.8f, 1.0f, 1.0f, 60));
+    org.deluge.model.NoteRowModel row = clip.getNoteRowsMap().get(0);
+    row.getNotes().clear();
+    org.deluge.model.NoteModel offGridNote = new org.deluge.model.NoteModel();
+    offGridNote.setPos(12);
+    offGridNote.setLength(18);
+    offGridNote.setVelocity(100);
+    offGridNote.setProbability(100);
+    row.getNotes().add(offGridNote);
+    synth.addClip(clip);
+    project.addTrack(synth);
+
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    org.deluge.ui.ClipGridPanel panel = new org.deluge.ui.ClipGridPanel(bridge);
+    panel.setScaleModeEnabled(false);
+    panel.setEditedModelTrack(0);
+    panel.setBaseTrackId(0);
+    panel.setActiveClipId(0);
+    panel.setProjectModel(project);
+
+    java.lang.reflect.Method m =
+        org.deluge.ui.ClipGridPanel.class.getDeclaredMethod(
+            "transposeRow", int.class, boolean.class);
+    m.setAccessible(true);
+    m.invoke(panel, 127 - 60, true);
+
+    assertEquals(
+        1, row.getNotes().size(), "Transposing off-grid note must not create duplicate note");
+    assertEquals(12, row.getNotes().get(0).getPos(), "Off-grid note timing must remain at tick 12");
+    assertEquals(61, row.getPitch(), "NoteRowModel pitch must move to 61");
+    assertEquals(61, clip.getStep(0, 0).pitch(), "Grid step pitch must move to 61");
+  }
+
+  @Test
+  void switchToTrackEditSelectsOverflowedTrackEvenWhenEngineBaseIsMinusOne() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract(44100, 2);
+    org.deluge.ui.SwingDelugeApp app = new org.deluge.ui.SwingDelugeApp(bridge, null);
+    try {
+      ProjectModel project = new ProjectModel();
+      // Fill 128 bridge rows with 16 x 8-voice synth tracks
+      for (int i = 0; i < 16; i++) {
+        SynthTrackModel s = new SynthTrackModel("Synth" + i);
+        s.addClip(new ClipModel("Clip" + i, 8, 16));
+        project.addTrack(s);
+      }
+      // Track 16 overflows the 128-row bridge limit (engineStart == -1)
+      SynthTrackModel overflow = new SynthTrackModel("OverflowSynth");
+      overflow.addClip(new ClipModel("OverflowClip0", 8, 16));
+      overflow.addClip(new ClipModel("OverflowClip1", 8, 16));
+      project.addTrack(overflow);
+
+      app.loadProject(project);
+      assertEquals(-1, app.getSyncCoordinator().getTrackEngineStart(16));
+
+      app.switchToTrackEdit(16, 1);
+      org.deluge.ui.SwingGridPanel clipPanel = app.getClipPanel();
+      assertEquals(
+          16, clipPanel.getEditedModelTrack(), "switchToTrackEdit must select overflowed track 16");
+      assertEquals(1, clipPanel.getActiveClipId(), "switchToTrackEdit must select clip 1");
+      assertEquals(
+          -1,
+          clipPanel.getBaseTrackId(),
+          "Overflowed track must record sentinel baseTrackId -1 without failing");
+    } finally {
+      app.dispose();
+      bridge.shutdown();
+    }
+  }
 }

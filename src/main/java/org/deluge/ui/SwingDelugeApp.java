@@ -2120,12 +2120,10 @@ public class SwingDelugeApp extends JFrame {
           refreshGrids();
 
           int engineBase = syncCoordinator.getTrackEngineStart(idx);
-          if (engineBase >= 0) {
-            clipPanel.setBaseTrackId(engineBase);
-            clipPanel.setEditedModelTrack(idx);
-            clipPanel.setActiveClipId(0);
-            clipPanel.refresh();
-          }
+          clipPanel.setBaseTrackId(engineBase);
+          clipPanel.setEditedModelTrack(idx);
+          clipPanel.setActiveClipId(0);
+          clipPanel.refresh();
 
           cardLayout.show(centerCardPanel, "CLIP");
         };
@@ -2603,20 +2601,16 @@ public class SwingDelugeApp extends JFrame {
     if (clipPanel != null) {
       int engineBase = syncCoordinator.getTrackEngineStart(trackId);
       int voiceCount = syncCoordinator.getTrackVoiceCount(trackId);
-      if (engineBase >= 0) {
-        clipPanel.setActiveClipId(clipId);
-        clipPanel.setBaseTrackId(engineBase);
-        clipPanel.setEditedModelTrack(trackId);
-        clipPanel.resetScrollOffset();
+      clipPanel.setActiveClipId(clipId);
+      clipPanel.setBaseTrackId(engineBase);
+      clipPanel.setEditedModelTrack(trackId);
+      clipPanel.resetScrollOffset();
 
+      if (engineBase >= 0 && voiceCount > 0) {
         java.util.List<org.deluge.model.TrackModel> allTrks =
             clipPanel.getProjectModel() != null
                 ? clipPanel.getProjectModel().getTracks()
                 : java.util.List.of();
-
-        boolean editIsSynth =
-            trackId < allTrks.size()
-                && allTrks.get(trackId) instanceof org.deluge.model.SynthTrackModel;
 
         // Determine step count for clearing and re-pushing
         int clearSteps = 16;
@@ -2657,9 +2651,9 @@ public class SwingDelugeApp extends JFrame {
             }
           }
         }
-
-        clipPanel.refresh();
       }
+
+      clipPanel.refresh();
     }
 
     activeViewMode = "CLIP";

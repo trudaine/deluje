@@ -278,7 +278,40 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
         && sync.getMappedTrackCount() == projectModel.getTracks().size()) {
       return sync.getTrackVoiceCount(trackIdx);
     }
-    return Math.max(0, BridgeContract.TRACKS - baseTrackId);
+    return baseTrackId < 0 ? 0 : Math.max(0, BridgeContract.TRACKS - baseTrackId);
+  }
+
+  int resolveEditedTrackType() {
+    if (bridge != null && baseTrackId >= 0 && baseTrackId < BridgeContract.TRACKS) {
+      int bt = bridge.getTrackType(baseTrackId);
+      if (bt >= 0) {
+        return bt;
+      }
+    }
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
+      org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+      if (t instanceof org.deluge.model.KitTrackModel) return 0;
+      if (t instanceof org.deluge.model.MidiTrackModel) return 2;
+      if (t instanceof org.deluge.model.SynthTrackModel) return 1;
+    }
+    return 1;
+  }
+
+  int resolveEditedTrackLength() {
+    if (bridge != null && baseTrackId >= 0 && baseTrackId < BridgeContract.TRACKS) {
+      return bridge.getTrackLength(baseTrackId);
+    }
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
+      org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+      if (activeClipId >= 0 && activeClipId < t.getClips().size()) {
+        return t.getClips().get(activeClipId).getStepCount();
+      }
+    }
+    return stepCount;
   }
 
   public int getEngineRowForStoredClipRow(int clipRow) {
@@ -1671,7 +1704,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       }
     }
     if (trackLen <= 0) {
-      trackLen = bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount;
+      trackLen = resolveEditedTrackLength();
     }
     if (trackLen > 0 && trackLen < stepCount) {
       return col % trackLen;
@@ -2347,7 +2380,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   /** Flash a pad cell to indicate a note-on event from the isomorphic / QWERTY keyboard. */
   public void flashIsomorphicNote(int note) {
     if (viewMode != GridViewMode.CLIP || voicePanel == null) return;
-    boolean isSynthMode = bridge != null && bridge.getTrackType(baseTrackId) == 1;
+    boolean isSynthMode = resolveEditedTrackType() == 1;
 
     int modelRow;
     if (isSynthMode) {
@@ -2401,7 +2434,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
 
   public void updatePlayhead(int step) {
     this.currentPlayheadStep = step;
-    int trackLen = bridge != null ? bridge.getTrackLength(baseTrackId) : stepCount;
+    int trackLen = resolveEditedTrackLength();
     int rowsToScan = (viewMode == GridViewMode.CLIP) ? voiceRowCount : gridMode.rows;
     boolean isAdvanced =
         org.deluge.project.PreferencesManager.getGridPanelType()
@@ -2831,7 +2864,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
           }
         }
       }
-      if (trackLen <= 0) trackLen = bridge.getTrackLength(baseTrackId);
+      if (trackLen <= 0) trackLen = resolveEditedTrackLength();
       if (trackLen > 0 && trackLen < stepCount) {
         activeCol = visualCol % trackLen;
       } else if (trackLen > stepCount) {
@@ -4066,7 +4099,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
 
   @Override
   public int getTrackLength() {
-    return (bridge != null) ? bridge.getTrackLength(baseTrackId) : stepCount;
+    return resolveEditedTrackLength();
   }
 
   @Override

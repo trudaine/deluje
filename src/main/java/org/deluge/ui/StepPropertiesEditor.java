@@ -45,7 +45,7 @@ public class StepPropertiesEditor {
     int visualModelRow = parent.getModelRow(row);
     int activeCol = parent.getActiveCol(row, col);
     int baseTrackId = parent.getBaseTrackId();
-    int trackType = baseTrackId >= 0 ? bridge.getTrackType(baseTrackId) : 1;
+    int trackType = parent.resolveEditedTrackType();
     boolean synthModeActive = trackType == 1 || trackType == 0;
     JPopupMenu popup = new JPopupMenu();
 
@@ -479,7 +479,7 @@ public class StepPropertiesEditor {
     }
     StepData oldStep = cModel != null ? cModel.getStep(clipRow, activeCol) : null;
     int baseTrackId = parent.getBaseTrackId();
-    int trackType = baseTrackId >= 0 ? bridge.getTrackType(baseTrackId) : 1;
+    int trackType = parent.resolveEditedTrackType();
     int pitch = resolveStepPitch(parent, trackType, visualModelRow);
     int engineRow =
         cModel != null
@@ -639,7 +639,7 @@ public class StepPropertiesEditor {
     }
     StepData oldStep = cModel != null ? cModel.getStep(clipRow, activeCol) : null;
     int baseTrackId = parent.getBaseTrackId();
-    int trackType = baseTrackId >= 0 ? bridge.getTrackType(baseTrackId) : 1;
+    int trackType = parent.resolveEditedTrackType();
     int pitch = resolveStepPitch(parent, trackType, visualModelRow);
     int engineRow =
         cModel != null

@@ -224,6 +224,19 @@ public class ClipModel extends TimelineCounter {
     retuneGridRow(rowIndex, newPitch);
   }
 
+  /**
+   * Replaces a row's visual grid steps in place without mutating {@link NoteRowModel#getNotes()},
+   * for callers (such as row rotation) that have already updated the authoritative raw note list.
+   */
+  public void replaceGridRowInPlace(int rowIndex, StepData[] steps) {
+    if (rowIndex < 0 || rowIndex >= grid.size() || steps == null) return;
+    List<StepData> row = grid.get(rowIndex);
+    int limit = Math.min(row.size(), steps.length);
+    for (int s = 0; s < limit; s++) {
+      row.set(s, steps[s] != null ? steps[s] : StepData.empty());
+    }
+  }
+
   private void retuneGridRow(int rowIndex, int newPitch) {
     if (rowIndex < 0 || rowIndex >= grid.size()) return;
     List<StepData> steps = grid.get(rowIndex);
