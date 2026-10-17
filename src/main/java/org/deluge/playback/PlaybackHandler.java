@@ -184,36 +184,52 @@ public class PlaybackHandler {
 
     int ticksRemaining = numTicks;
     while (ticksRemaining > 0) {
-      int toAdvance = Math.min(ticksRemaining, swungTicksTilNextEvent);
+      int nextDeadline = swungTicksTilNextEvent;
+      for (ClipModel clip : currentProject.getClips()) {
+        nextDeadline = Math.min(nextDeadline, clip.getTicksTilNextEvent());
+      }
+      int toAdvance = Math.min(ticksRemaining, nextDeadline);
       if (toAdvance <= 0) toAdvance = 1;
 
       // ── Bit-Accurate Swing Math ──
       int effectiveAdvance = toAdvance;
       if (currentProject.getSwingAmount() != 0) {
         int leftShift =
-            6
-                - currentProject
-                    .getSwingInterval(); // Offset 6 for 96 PPQN (C++ uses 9/10 for 1536 PPQN)
+            Math.max(
+                0,
+                6
+                    - currentProject
+                        .getSwingInterval()); // Offset 6 for 96 PPQN (C++ uses 9/10 for 1536 PPQN)
         int swingTicks = 3 << leftShift;
-        if ((lastSwungTickActioned % (swingTicks * 2)) < swingTicks) {
-          effectiveAdvance = (toAdvance * (50 + currentProject.getSwingAmount())) / 50;
-        } else {
-          effectiveAdvance = (toAdvance * (50 - currentProject.getSwingAmount())) / 50;
+        boolean firstHalf = Math.floorMod(lastSwungTickActioned, swingTicks * 2) < swingTicks;
+        int swingFactor =
+            Math.max(
+                1,
+                firstHalf
+                    ? (50 + currentProject.getSwingAmount())
+                    : (50 - currentProject.getSwingAmount()));
+        int swungLeftInHalf = swingTicks - Math.floorMod(lastSwungTickActioned, swingTicks);
+        int maxSwungAdvance =
+            nextDeadline > 0 ? Math.min(nextDeadline, swungLeftInHalf) : swungLeftInHalf;
+        effectiveAdvance = (toAdvance * swingFactor) / 50;
+        if (effectiveAdvance > maxSwungAdvance && maxSwungAdvance > 0) {
+          toAdvance = Math.max(1, (maxSwungAdvance * 50) / swingFactor);
+          effectiveAdvance = (toAdvance * swingFactor) / 50;
         }
       }
 
       lastSwungTickActioned += effectiveAdvance;
       arrangement.advance(effectiveAdvance);
 
+      int nextEventTicks = currentProject.getSwungTicksTilNextEvent();
       for (ClipModel clip : currentProject.getClips()) {
         clip.incrementPos(effectiveAdvance); // C clip.cpp:1173-1178, instrument_clip.cpp:4728-4750
         clip.processCurrentPos(effectiveAdvance);
+        nextEventTicks = Math.min(nextEventTicks, clip.getTicksTilNextEvent());
       }
 
-      // Update next event distance
-      if (currentProject != null) {
-        swungTicksTilNextEvent = currentProject.getSwungTicksTilNextEvent();
-      }
+      // Update next event distance (C playback_handler.cpp:1095-1097 clamps >= 1).
+      swungTicksTilNextEvent = Math.max(1, nextEventTicks);
 
       ticksRemaining -= toAdvance;
     }

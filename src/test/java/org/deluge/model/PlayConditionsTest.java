@@ -415,4 +415,113 @@ class PlayConditionsTest {
     assertEquals(4, row0.getRepeatCount(clip.repeatCount));
     assertEquals(2, clip.repeatCount);
   }
+
+  @Test
+  void restoreFromDuringLiveReversePlaybackPreservesIndependentRowTransport() {
+    NoteRowModel row0 = clip.getOrCreateRow(0);
+    row0.setLoopLengthIfIndependent(48);
+    addNote(0, 60, 0);
+    clip.setPlayDirection(ClipModel.PlayDirection.REVERSE);
+
+    ClipModel snapshot = clip.deepCopy("snap");
+
+    clip.setPos(0);
+    for (int t = 0; t < 60; t++) {
+      clip.incrementPos(1);
+      clip.processCurrentPos(1);
+    }
+    // After 60 reverse ticks on a 48-tick row, 1 full pass (48 ticks) completed and the row is 12
+    // ticks into its second reverse pass (position 48 - 12 = 36, repeatCount = 1).
+    int liveRowRepeats = row0.getRepeatCount(clip.repeatCount);
+    assertEquals(1, liveRowRepeats);
+    assertTrue(row0.isCurrentlyPlayingReversed(clip.currentlyPlayingReversed));
+
+    // Mutate then undo mid-playback.
+    clip.setStep(0, 1, true);
+    clip.restoreFrom(snapshot);
+
+    NoteRowModel restoredRow = clip.getOrCreateRow(0);
+    assertEquals(48, restoredRow.getLoopLengthIfIndependent());
+    assertEquals(36, restoredRow.getLastProcessedPosIfIndependent());
+    assertEquals(liveRowRepeats, restoredRow.getRepeatCount(clip.repeatCount));
+    assertTrue(restoredRow.isCurrentlyPlayingReversed(clip.currentlyPlayingReversed));
+  }
+
+  @Test
+  void midPlaybackStepAndMuteMutationsInvalidateRowSchedule() {
+    clip.setPos(0);
+    // Tick 1 on an empty 96-tick clip schedules ticksTilNextNoteRowEvent = 95.
+    for (int t = 0; t < 10; t++) {
+      clip.incrementPos(1);
+      clip.processCurrentPos(1);
+    }
+    // Add a note at step 1 (pos 24) and another behind the playhead at step 0 (pos 0).
+    clip.setStep(0, 1, StepData.of(true, 1.0f, 1.0f, 1.0f, 60));
+    clip.setStep(1, 0, StepData.of(true, 1.0f, 1.0f, 1.0f, 62));
+
+    for (int t = 10; t < 25; t++) {
+      clip.incrementPos(1);
+      clip.processCurrentPos(1);
+    }
+    assertEquals(1, sound.count(60), "note added ahead of playhead must fire at tick 25");
+    assertEquals(
+        0, sound.count(62), "note added behind playhead must not misfire before next loop");
+  }
+
+  @Test
+  void playbackHandlerMultiTickAdvanceStopsAtRowAndReverseBoundaries() {
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel track = new SynthTrackModel("Synth");
+    track.addClip(clip);
+    track.setActiveClipIndex(0);
+    project.addTrack(track);
+
+    NoteRowModel row0 = clip.getOrCreateRow(0);
+    row0.setLoopLengthIfIndependent(48);
+    addNote(0, 60, 0);
+
+    org.deluge.playback.PlaybackHandler pb = new org.deluge.playback.PlaybackHandler();
+    pb.setProject(project);
+    pb.start();
+
+    pb.advanceTicks(97);
+    assertEquals(1, row0.getLastProcessedPosIfIndependent());
+    assertEquals(2, row0.getRepeatCount(clip.repeatCount));
+    assertEquals(3, sound.count(60), "pos 0 on 48-tick row fires on ticks 1, 49, and 97");
+
+    // Reverse multi-tick advance must stop at 0 and bounce in PING_PONG.
+    sound.loopsByPitch.clear();
+    sound.pitchOrder.clear();
+    row0.setLoopLengthIfIndependent(0);
+    clip.setPlayDirection(ClipModel.PlayDirection.PING_PONG);
+    pb.start();
+    pb.advanceTicks(192);
+    assertEquals(2, clip.repeatCount);
+    assertEquals(SequenceDirection.PINGPONG, clip.sequenceDirectionMode);
+  }
+
+  @Test
+  void reverseTriggerUsesFirmwareAllowNoteTails() {
+    // A one-shot synth (envelope 0 sustain = MIN_VALUE, decay <= release) does not allow tails, so
+    // in reverse a note at pos 24 length 24 triggers at its starting edge (pos 24), not pos 48.
+    addNote(0, 60, 1); // pos 24, length 24
+    sound.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_SUSTAIN] = Integer.MIN_VALUE;
+    sound.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_DECAY] = 0;
+    sound.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_RELEASE] = 0;
+
+    clip.setPlayDirection(ClipModel.PlayDirection.REVERSE);
+    clip.setPos(0);
+    // Advance 48 reverse ticks (96 -> 48): tailed note would have fired at 48, one-shot must not.
+    for (int t = 0; t < 48; t++) {
+      clip.incrementPos(1);
+      clip.processCurrentPos(1);
+    }
+    assertEquals(0, sound.count(60), "one-shot synth in reverse must not trigger at note end");
+    // Advance 24 more reverse ticks (48 -> 24): one-shot triggers at pos 24.
+    for (int t = 0; t < 24; t++) {
+      clip.incrementPos(1);
+      clip.processCurrentPos(1);
+    }
+    assertEquals(1, sound.count(60), "one-shot synth in reverse must trigger at note.pos (24)");
+  }
 }

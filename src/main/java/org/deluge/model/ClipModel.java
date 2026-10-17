@@ -89,7 +89,9 @@ public class ClipModel extends TimelineCounter {
   public transient Object sound; // The transient DSP engine reference (FirmwareSound / FirmwareKit)
 
   public NoteRowModel getOrCreateRow(int rowIndex) {
-    return noteRows.computeIfAbsent(rowIndex, idx -> new NoteRowModel(idx));
+    NoteRowModel row = noteRows.computeIfAbsent(rowIndex, idx -> new NoteRowModel(idx));
+    row.setOnScheduleInvalidated(this::expectEvent);
+    return row;
   }
 
   public Map<Integer, NoteRowModel> getNoteRowsMap() {
@@ -238,6 +240,7 @@ public class ClipModel extends TimelineCounter {
     for (int s = 0; s < limit; s++) {
       row.set(s, steps[s] != null ? steps[s] : StepData.empty());
     }
+    expectEvent();
   }
 
   private void retuneGridRow(int rowIndex, int newPitch) {
@@ -388,6 +391,7 @@ public class ClipModel extends TimelineCounter {
   public void setRawNoteEvents(int rowIndex, List<NoteModel> notes) {
     if (notes == null) {
       noteRows.remove(rowIndex);
+      expectEvent();
     } else {
       getOrCreateRow(rowIndex).setNotes(new ArrayList<>(notes));
     }
@@ -467,6 +471,7 @@ public class ClipModel extends TimelineCounter {
    * flipped.
    */
   public void setSequenceDirectionMode(SequenceDirection newMode) {
+    flushPendingNoteRowTicks();
     boolean reversedBefore = currentlyPlayingReversed;
     sequenceDirectionMode = newMode != null ? newMode : SequenceDirection.FORWARD;
     this.playDirection =
@@ -492,6 +497,7 @@ public class ClipModel extends TimelineCounter {
     for (NoteRowModel row : noteRows.values()) {
       row.syncDirectionWithClip(sequenceDirectionMode);
     }
+    expectEvent();
   }
 
   public boolean isTripletMode() {
@@ -500,6 +506,7 @@ public class ClipModel extends TimelineCounter {
 
   public void setTripletMode(boolean tripletMode) {
     this.tripletMode = tripletMode;
+    expectEvent();
   }
 
   public boolean isArrangementOnly() {
@@ -562,6 +569,7 @@ public class ClipModel extends TimelineCounter {
     this.stepCount = Math.max(1, stepCount);
     resizeAutomationArrays(old, this.stepCount);
     initGrid();
+    expectEvent();
   }
 
   public void clearAutomation(String param) {
@@ -653,6 +661,7 @@ public class ClipModel extends TimelineCounter {
           row.getNotes().remove(existingNote);
         }
       }
+      expectEvent();
     }
   }
 
@@ -675,6 +684,7 @@ public class ClipModel extends TimelineCounter {
         }
       }
     }
+    expectEvent();
   }
 
   /**
@@ -727,6 +737,8 @@ public class ClipModel extends TimelineCounter {
    */
   public void restoreFrom(ClipModel src) {
     if (src == null) return;
+    flushPendingNoteRowTicks();
+    Map<Integer, NoteRowModel> liveRows = new HashMap<>(this.noteRows);
     tripletMode = src.tripletMode;
     setStepCount(src.stepCount);
     for (int r = 0; r < rowCount; r++) {
@@ -741,7 +753,6 @@ public class ClipModel extends TimelineCounter {
     kitParams.clear();
     kitParams.putAll(src.kitParams);
     playMode = src.playMode;
-    setPlayDirection(src.playDirection);
     isArrangementOnly = src.isArrangementOnly;
     rebuildNotesFromGrid();
     // Restore exact C play conditions (probabilityValue, follow-previous bit 128, lift, fill,
@@ -749,6 +760,23 @@ public class ClipModel extends TimelineCounter {
     if (!src.noteRows.isEmpty()) {
       copyNoteRowsFrom(src);
     }
+    // Preserve live transport state (phase, repeat count, direction) for independent-length rows,
+    // and initialize newly independent rows from the clip's current play position.
+    for (Map.Entry<Integer, NoteRowModel> e : this.noteRows.entrySet()) {
+      NoteRowModel row = e.getValue();
+      if (!row.hasIndependentPlayPos()) {
+        continue;
+      }
+      NoteRowModel liveRow = liveRows.get(e.getKey());
+      if (liveRow != null
+          && liveRow.getLoopLengthIfIndependent() == row.getLoopLengthIfIndependent()) {
+        row.copyLiveTransportFrom(liveRow);
+      } else {
+        row.setPosIfIndependent(lastProcessedPos, sequenceDirectionMode);
+      }
+    }
+    setPlayDirection(src.playDirection);
+    expectEvent();
   }
 
   public void syncNoteRowsFromGrid() {
@@ -805,6 +833,7 @@ public class ClipModel extends TimelineCounter {
         }
       }
     }
+    expectEvent();
   }
 
   public Map<String, float[]> getAutomationData() {
@@ -953,6 +982,27 @@ public class ClipModel extends TimelineCounter {
     }
   }
 
+  /**
+   * C InstrumentClip::expectEvent (instrument_clip.cpp:4403-4406): flushes any quiet ticks already
+   * elapsed for independent rows and forces the next tick to re-evaluate row scheduling.
+   */
+  public void expectEvent() {
+    flushPendingNoteRowTicks();
+    ticksTilNextNoteRowEvent = 0;
+    ticksTilNextEvent = 0;
+  }
+
+  private void flushPendingNoteRowTicks() {
+    if (noteRowsNumTicksBehindClip > 0) {
+      for (NoteRowModel row : noteRows.values()) {
+        if (row.hasIndependentPlayPos()) {
+          row.flushIndependentPos(noteRowsNumTicksBehindClip);
+        }
+      }
+      noteRowsNumTicksBehindClip = 0;
+    }
+  }
+
   @Override
   public int getLoopLength() {
     return loopLength > 0 ? loopLength : (stepCount * (tripletMode ? 32 : 24));
@@ -960,6 +1010,7 @@ public class ClipModel extends TimelineCounter {
 
   public void setLoopLength(int loopLength) {
     this.loopLength = loopLength;
+    expectEvent();
   }
 
   public Object getSound() {
@@ -982,6 +1033,7 @@ public class ClipModel extends TimelineCounter {
     for (NoteRowModel row : noteRows.values()) {
       row.resumePlayback(lastProcessedPos, getLoopLength(), mayMakeSound);
     }
+    expectEvent(); // C instrument_clip.cpp:1144
   }
 
   public void expectNoFurtherTicks(boolean actuallySoundChange) {

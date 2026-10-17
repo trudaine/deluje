@@ -33,6 +33,28 @@ public class NoteRowModel {
   private transient boolean reverseStartAtZeroPending = false;
   private transient int ignoreNoteOnsBefore_ = 0;
   private transient ParamManager paramManager = new ParamManager();
+  private transient Runnable onScheduleInvalidated;
+
+  void setOnScheduleInvalidated(Runnable onScheduleInvalidated) {
+    this.onScheduleInvalidated = onScheduleInvalidated;
+  }
+
+  private void invalidateSchedule() {
+    if (onScheduleInvalidated != null) {
+      onScheduleInvalidated.run();
+    }
+  }
+
+  void copyLiveTransportFrom(NoteRowModel live) {
+    this.lastProcessedPosIfIndependent = live.lastProcessedPosIfIndependent;
+    this.repeatCountIfIndependent = live.repeatCountIfIndependent;
+    this.currentlyPlayingReversedIfIndependent = live.currentlyPlayingReversedIfIndependent;
+    this.reverseStartAtZeroPending = live.reverseStartAtZeroPending;
+  }
+
+  public int getLastProcessedPosIfIndependent() {
+    return lastProcessedPosIfIndependent;
+  }
 
   /**
    * C NoteRow::hasIndependentPlayPos (note_row.cpp:4335-4337). In the C, this is also true when a
@@ -115,6 +137,21 @@ public class NoteRowModel {
   }
 
   /**
+   * Advances {@code lastProcessedPosIfIndependent} for quiet ticks flushed outside {@link
+   * #processCurrentPos}, normalizing negative reverse positions into {@code [0,
+   * loopLengthIfIndependent)}.
+   */
+  void flushIndependentPos(int numTicks) {
+    incrementPosIfIndependent(numTicks);
+    if (loopLengthIfIndependent > 0
+        && currentlyPlayingReversedIfIndependent
+        && lastProcessedPosIfIndependent < 0) {
+      lastProcessedPosIfIndependent =
+          Math.floorMod(lastProcessedPosIfIndependent, loopLengthIfIndependent);
+    }
+  }
+
+  /**
    * Mirrors {@code lastProcessedPosIfIndependent} when the parent clip changes direction while this
    * row obeys the parent (C NoteRow::setSequenceDirectionMode, note_row.cpp:4453-4480).
    */
@@ -156,6 +193,7 @@ public class NoteRowModel {
 
   public void setMuted(boolean muted) {
     this.muted = muted;
+    invalidateSchedule();
   }
 
   public boolean isMutedBeforeStemExport() {
@@ -180,6 +218,7 @@ public class NoteRowModel {
 
   public void setNotes(List<NoteModel> notes) {
     this.notes = notes;
+    invalidateSchedule();
   }
 
   public Map<String, Float> getSoundParams() {
@@ -202,6 +241,7 @@ public class NoteRowModel {
 
   public void setLoopLengthIfIndependent(int len) {
     this.loopLengthIfIndependent = len;
+    invalidateSchedule();
   }
 
   public ParamManager getParamManager() {
@@ -233,6 +273,7 @@ public class NoteRowModel {
     note.setIterance(iterance);
     note.setFill(fill);
     notes.add(note);
+    invalidateSchedule();
     return 0;
   }
 
@@ -269,6 +310,7 @@ public class NoteRowModel {
 
     notes.clear();
     notes.addAll(newNotes);
+    invalidateSchedule();
   }
 
   // ── Sequencer Playback Tick Logic ──
@@ -376,7 +418,8 @@ public class NoteRowModel {
     }
 
     boolean playingReversedDuringStep = playingReversedNow ^ didPingpong;
-    boolean allowNoteTails = !(sound instanceof org.deluge.engine.FirmwareKit);
+    boolean allowNoteTails =
+        (playingReversedDuringStep || playingReversedNow) && allowsNoteTails(sound, pitch);
     int ticksTilNextNoteEvent = Integer.MAX_VALUE;
     int startTick =
         playingReversedDuringStep
@@ -471,6 +514,24 @@ public class NoteRowModel {
     }
 
     return Math.min(ticksTilNextNoteEvent, paramManager.ticksTilNextEvent);
+  }
+
+  // C InstrumentClip::allowNoteTails (instrument_clip.cpp:3350-3371) ->
+  // Sound::allowNoteTails (sound.cpp:1927-1964).
+  private static boolean allowsNoteTails(Object sound, int pitch) {
+    if (sound instanceof org.deluge.engine.FirmwareSound fs) {
+      fs.syncParamsToFw2();
+      return fs.fw2Sound.allowNoteTails(false);
+    }
+    if (sound instanceof org.deluge.engine.FirmwareKit kit) {
+      if (pitch >= 0 && pitch < kit.drumSounds.size()) {
+        org.deluge.engine.FirmwareSound drum = kit.drumSounds.get(pitch);
+        drum.syncParamsToFw2();
+        return drum.fw2Sound.allowNoteTails(false);
+      }
+      return true;
+    }
+    return true;
   }
 
   private static boolean isTickReached(
