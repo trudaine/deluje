@@ -278,7 +278,8 @@ public class DelayBuffer {
     if (resampleConfig == null) {
       return;
     }
-    if (resampleConfig.actualSpinRate >= K_MAX_SAMPLE_VALUE) { // C:147 — spinning fast
+    // C delay_buffer.h:147 — uint32 actualSpinRate >= kMaxSampleValue
+    if (Integer.compareUnsigned(resampleConfig.actualSpinRate, K_MAX_SAMPLE_VALUE) >= 0) {
       int howFarRightToStart =
           (strength2 + (resampleConfig.spinRateForSpedUpWriting >>> 8)) >>> 16; // C:158
       int distanceFromMainWrite = howFarRightToStart << 16; // C:162
@@ -292,7 +293,7 @@ public class DelayBuffer {
       while (distanceFromMainWrite != 0) {
         int strengthThisWrite =
             (0xFFFFFFFF >>> 4)
-                - (((distanceFromMainWrite - strength2) >>> 4)
+                - (((distanceFromMainWrite - strength2) >> 4)
                     * resampleConfig.divideByRate); // C:176-177
         buffer[writePos][0] +=
             Functions.multiply_32x32_rshift32(sampleL, strengthThisWrite) << 3; // C:179
@@ -307,7 +308,7 @@ public class DelayBuffer {
       while (true) {
         int strengthThisWrite =
             (0xFFFFFFFF >>> 4)
-                - (((distanceFromMainWrite + strength2) >>> 4)
+                - (((distanceFromMainWrite + strength2) >> 4)
                     * resampleConfig.divideByRate); // C:191-192
         if (strengthThisWrite <= 0) break; // C:193-195
         buffer[writePos][0] +=
@@ -333,11 +334,11 @@ public class DelayBuffer {
         if (strength[i] > 0) { // C:245
           buffer[writePos][0] +=
               Functions.multiply_32x32_rshift32(
-                      sampleL, (strength[i] >>> 2) * resampleConfig.writeSizeAdjustment)
+                      sampleL, (strength[i] >> 2) * resampleConfig.writeSizeAdjustment)
                   << 2; // C:246-248
           buffer[writePos][1] +=
               Functions.multiply_32x32_rshift32(
-                      sampleR, (strength[i] >>> 2) * resampleConfig.writeSizeAdjustment)
+                      sampleR, (strength[i] >> 2) * resampleConfig.writeSizeAdjustment)
                   << 2; // C:249-251
         }
         if (--i < 0) break; // C:253-255
@@ -380,23 +381,30 @@ public class DelayBuffer {
 
     int actualSpinRate =
         (int)
-            ((((rate & 0xFFFFFFFFL) << 24)
-                / (nativeRate & 0xFFFFFFFFL))); // C:143 (uint64 division)
-    int divideByRate = (int) ((double) 0xFFFFFFFFL / (double) (actualSpinRate >>> 8)); // C:144
+            (long)
+                (((double) ((rate & 0xFFFFFFFFL) << 24))
+                    / (double) (nativeRate & 0xFFFFFFFFL)); // C delay_buffer.cpp:143
+    int divideByRate =
+        (int) (long) ((double) 0xFFFFFFFFL / (double) (actualSpinRate >>> 8)); // C:144
 
     int spinRateForSpedUpWriting = 0;
     int rateMultiple = 0;
     int writeSizeAdjustment = 0;
 
-    if (actualSpinRate < K_MAX_SAMPLE_VALUE) { // C:147 — spinning slow
+    if (Integer.compareUnsigned(actualSpinRate, K_MAX_SAMPLE_VALUE) < 0) { // C:147 — spinning slow
       int timesSlowerRead = divideByRate >>> 16; // C:149
       rateMultiple = (actualSpinRate >>> 8) * (timesSlowerRead + 1); // C:154
       writeSizeAdjustment =
           (int)
-              ((double) 0xFFFFFFFFL
-                  / (double) ((long) rateMultiple * (timesSlowerRead + 1))); // C:163
+              (long)
+                  ((double) 0xFFFFFFFFL
+                      / (double) ((rateMultiple * (timesSlowerRead + 1)) & 0xFFFFFFFFL)); // C:163
     } else { // C:166 — spinning fast
-      spinRateForSpedUpWriting = Math.min(actualSpinRate, K_MAX_SAMPLE_VALUE * 8); // C:171
+      int maxFastSpin = K_MAX_SAMPLE_VALUE * 8;
+      spinRateForSpedUpWriting =
+          Integer.compareUnsigned(actualSpinRate, maxFastSpin) <= 0
+              ? actualSpinRate
+              : maxFastSpin; // C:171
       spinRateForSpedUpWriting <<= 1; // C:180
       divideByRate >>>= 1; // C:182
     }

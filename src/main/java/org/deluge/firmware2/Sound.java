@@ -917,6 +917,17 @@ public class Sound extends GlobalEffectable {
     srrBitcrush.process(fxIntBuffer, numSamples, bitcrushParam, srrParam, postFXVolumeHolder);
 
     if (modFXType == ModFx.ModFXType.GRAIN) {
+      // C mod_controllable_audio.cpp:206-210, sound.cpp:2428-2431 — reverbAmount passed to
+      // processGrainFX is (postFXVolume * reverbSendAmount) << 5.
+      int reverbAmountAdjust = 67108864;
+      int resolvedReverb =
+          Patcher.computeFinalValueForParam(
+              Param.GLOBAL_REVERB_AMOUNT, patchedParamValues[Param.GLOBAL_REVERB_AMOUNT]);
+      int reverbSendAmount =
+          Functions.lshiftAndSaturate(
+              Functions.multiply_32x32_rshift32_rounded(reverbAmountAdjust, resolvedReverb), 5);
+      int grainReverbAmount =
+          Functions.multiply_32x32_rshift32(postFXVolumeHolder[0], reverbSendAmount) << 5;
       granular.processGrainFX(
           fxIntBuffer,
           numSamples,
@@ -925,8 +936,10 @@ public class Sound extends GlobalEffectable {
           modFXOffset,
           modFXFeedback,
           postFXVolumeHolder,
-          true,
-          (float) currentBpm);
+          hasActiveVoices,
+          (float) currentBpm,
+          grainReverbAmount,
+          reverbBuffer);
     } else {
       modFX.processModFX(
           fxIntBuffer,

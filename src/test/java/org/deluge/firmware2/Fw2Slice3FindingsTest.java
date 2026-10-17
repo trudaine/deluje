@@ -1,0 +1,333 @@
+package org.deluge.firmware2;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
+
+/**
+ * Dedicated C++ parity regression tests for firmware2 Slice 3 (Delay, DelayBuffer, Compressor, Eq,
+ * GranularProcessor).
+ */
+class Fw2Slice3FindingsTest {
+
+  private static final int ONE_Q31 = 2147483647;
+  private static final float ONE_Q31F = 2147483647.0f;
+  private static final int K_SAMPLE_RATE = 44100;
+
+  @Test
+  void delayResamplingReadClearsEveryConsumedCellAndTracksWrap() {
+    // C delay.cpp:304-308: primaryBuffer.advance([&]() { wrapped =
+    // primaryBuffer.clearAndMoveOn() || wrapped; })
+    Delay delay = new Delay();
+    int nativeRate = Delay.K_MAX_SAMPLE_VALUE;
+    assertTrue(delay.primaryBuffer.init(nativeRate));
+
+    int sizeIncludingExtra = delay.primaryBuffer.sizeIncludingExtra;
+    for (int i = 0; i < sizeIncludingExtra; i++) {
+      delay.primaryBuffer.data[i][0] = 10000 + i;
+      delay.primaryBuffer.data[i][1] = 20000 + i;
+    }
+
+    // Position two cells before end_ and spin at 1.75x native rate (< 2x so secondaryBuffer is not
+    // auto-spawned) for 2 samples (= 3.5 cells, crossing two cell boundaries on sample 1 and
+    // wrapping end_ -> 0).
+    int fastRate = nativeRate + (nativeRate >> 1) + (nativeRate >> 2);
+    delay.primaryBuffer.currentIdx = delay.primaryBuffer.end_ - 2;
+    delay.primaryBuffer.setupForRender(fastRate);
+
+    Delay.State state = new Delay.State();
+    state.doDelay = true;
+    state.userDelayRate = fastRate;
+    state.delayFeedbackAmount = 1 << 29;
+    delay.repeatsUntilAbandon = 2;
+
+    int startIdx = delay.primaryBuffer.currentIdx;
+    int secondIdx = startIdx + 1;
+    int[][] buf = new int[][] {{0, 0}, {0, 0}};
+    delay.process(buf, 2, state);
+
+    assertEquals(
+        0,
+        delay.primaryBuffer.data[startIdx][0],
+        "First consumed cell must be cleared during >1x resampling read (delay.cpp:307)");
+    assertEquals(
+        0,
+        delay.primaryBuffer.data[secondIdx][0],
+        "Second consumed cell must also be cleared during >1x resampling read (delay.cpp:307)");
+    assertEquals(
+        1,
+        delay.repeatsUntilAbandon,
+        "Ring wrap during primary resampling read must decrement repeatsUntilAbandon (delay.cpp:447)");
+  }
+
+  @Test
+  void delayEchoMixUsesPlainWrappingAddition() {
+    // C delay.cpp:385: output += current (plain StereoSample::operator+=).
+    Delay delay = new Delay();
+    int rate = Delay.K_MAX_SAMPLE_VALUE;
+    assertTrue(delay.primaryBuffer.init(rate));
+
+    int readIdx = (delay.primaryBuffer.currentIdx + 1) % delay.primaryBuffer.sizeIncludingExtra;
+    delay.primaryBuffer.data[readIdx][0] = 1_500_000_000;
+    delay.primaryBuffer.data[readIdx][1] = -1_500_000_000;
+
+    Delay.State state = new Delay.State();
+    state.doDelay = true;
+    state.userDelayRate = rate;
+    state.delayFeedbackAmount = 1 << 29;
+
+    int[][] buf = new int[][] {{1_500_000_000, -1_500_000_000}};
+    delay.process(buf, 1, state);
+
+    // Compute the exact echo after digital feedback + 1-pole HPF (delay.cpp:348-368) and verify
+    // plain += (delay.cpp:385).
+    int afterFeedbackL =
+        Functions.lshiftAndSaturate(
+            Functions.signed_saturate(
+                Functions.multiply_32x32_rshift32(1_500_000_000, state.delayFeedbackAmount), 29),
+            2);
+    int postLpfL = afterFeedbackL >> 11;
+    int currentL = afterFeedbackL - postLpfL;
+
+    assertEquals(1_500_000_000 + currentL, buf[0][0]);
+  }
+
+  @Test
+  void delayBufferHighSpinRateUsesUnsignedComparisonAndShift() {
+    // C delay_buffer.cpp:143-182: actualSpinRate, spinRateForSpedUpWriting, and divideByRate are
+    // uint32_t; high-bit actualSpinRate (>= 0x80000000) must take the fast-spin branch.
+    int nativeRate = DelayBuffer.K_MAX_SAMPLE_VALUE;
+    int highRate = nativeRate * 140; // actualSpinRate = 140 * 2^24 = 0x8C000000 (negative in int32)
+
+    DelayBuffer standalone = new DelayBuffer();
+    assertEquals(DelayBuffer.Error.NONE, standalone.init(nativeRate));
+    standalone.setupForRender(highRate);
+
+    Delay delay = new Delay();
+    assertTrue(delay.primaryBuffer.init(nativeRate));
+    delay.primaryBuffer.setupForRender(highRate);
+
+    int expectedActualSpinRate =
+        (int)
+            (long)
+                (((double) ((highRate & 0xFFFFFFFFL) << 24))
+                    / (double) (standalone.nativeRate() & 0xFFFFFFFFL));
+    assertTrue(expectedActualSpinRate < 0, "Test rate must set sign bit of actualSpinRate");
+    assertEquals(expectedActualSpinRate, standalone.resampleConfig.actualSpinRate);
+    assertEquals(expectedActualSpinRate, delay.primaryBuffer.actualSpinRate);
+
+    int expectedCappedFastSpin = (DelayBuffer.K_MAX_SAMPLE_VALUE * 8) << 1;
+    assertEquals(
+        expectedCappedFastSpin,
+        standalone.resampleConfig.spinRateForSpedUpWriting,
+        "Standalone DelayBuffer must take fast-spin branch and cap at 8 * kMaxSampleValue");
+    assertEquals(
+        expectedCappedFastSpin,
+        delay.primaryBuffer.spinRateForSpedUpWriting,
+        "Delay.DelayBuffer must take fast-spin branch and cap at 8 * kMaxSampleValue");
+
+    int rawDivide = (int) (long) ((double) 0xFFFFFFFFL / (double) (expectedActualSpinRate >>> 8));
+    assertEquals(rawDivide >>> 1, standalone.resampleConfig.divideByRate);
+    assertEquals(rawDivide >>> 1, delay.primaryBuffer.divideByRate);
+  }
+
+  @Test
+  void delayDottedSyncClampsAfterSyncTypeAdjustment() {
+    // C delay.cpp:107-118: adjustedRate = adjustedRate * 2 / 3 BEFORE std::min<int64_t>(...,
+    // limit).
+    Delay delay = new Delay();
+    delay.syncLevel = 5; // shift = 10, limit = INT_MAX >> 10 = 2097151
+    delay.syncType = 2; // DOTTED (* 2 / 3)
+
+    Delay.State state = new Delay.State();
+    state.delayFeedbackAmount = 1 << 20;
+    state.userDelayRate = 2_400_000;
+
+    // Neutralize multiply_32x32_rshift32_rounded(rate, tickInv) by choosing tickInv = 1 << 30
+    // and checking against the exact C++ order.
+    int tickInv = 1 << 30;
+    delay.setupWorkingState(state, tickInv, true);
+
+    int afterTick = Functions.multiply_32x32_rshift32_rounded(2_400_000, tickInv);
+    long dottedAfter = (long) afterTick * 2L / 3L;
+    int limit = 2147483647 >> (delay.syncLevel + 5);
+    int expected = ((int) Math.min(dottedAfter, (long) limit)) << (delay.syncLevel + 5);
+    assertEquals(expected, state.userDelayRate);
+  }
+
+  @Test
+  void compressorFloatPrecisionMatchesCpp() {
+    // C rms_feedback.h:80-147, rms_feedback.cpp:41, 133, 152-164.
+    Compressor comp = new Compressor();
+    int knob = 1234567890;
+
+    comp.setAttack(knob);
+    float expAttack = (float) Math.exp(2.0f * (float) knob / ONE_Q31F);
+    float expectedAttackMs = (float) (0.5 + (expAttack - 1.0f) * 10.0f);
+    float expectedA = (-1000.0f / K_SAMPLE_RATE) / expectedAttackMs;
+    assertEquals(Float.floatToRawIntBits(expectedAttackMs), Float.floatToRawIntBits(comp.attackMS));
+    assertEquals(Float.floatToRawIntBits(expectedA), Float.floatToRawIntBits(comp.a_));
+
+    comp.setRelease(knob);
+    float expRelease = (float) Math.exp(2.0f * (float) knob / ONE_Q31F);
+    float expectedReleaseMs = 50.0f + (expRelease - 1.0f) * 50.0f;
+    float expectedR = (-1000.0f / K_SAMPLE_RATE) / expectedReleaseMs;
+    assertEquals(
+        Float.floatToRawIntBits(expectedReleaseMs), Float.floatToRawIntBits(comp.releaseMS));
+    assertEquals(Float.floatToRawIntBits(expectedR), Float.floatToRawIntBits(comp.r_));
+
+    comp.setThreshold(knob);
+    float expectedThreshold = 1.0f - 0.8f * ((float) knob / ONE_Q31F);
+    assertEquals(
+        Float.floatToRawIntBits(expectedThreshold), Float.floatToRawIntBits(comp.threshold));
+
+    comp.setRatio(knob);
+    float expectedFraction = 0.5f + ((float) knob / ONE_Q31F) / 2.0f;
+    float expectedRatio = 1.0f / (1.0f - expectedFraction);
+    assertEquals(Float.floatToRawIntBits(expectedFraction), Float.floatToRawIntBits(comp.fraction));
+    assertEquals(Float.floatToRawIntBits(expectedRatio), Float.floatToRawIntBits(comp.ratio));
+
+    comp.setSidechain(knob);
+    float expectedFcHz =
+        (float) ((Math.exp(1.5 * (double) ((float) knob) / (double) ONE_Q31F) - 1.0) * 30.0);
+    assertEquals(Float.floatToRawIntBits(expectedFcHz), Float.floatToRawIntBits(comp.fc_hz));
+
+    float env = comp.runEnvelope(0.25f, 1.75f, 32.0f);
+    float expectedEnv = 1.75f + (float) Math.exp(comp.a_ * 32.0f) * (0.25f - 1.75f);
+    assertEquals(Float.floatToRawIntBits(expectedEnv), Float.floatToRawIntBits(env));
+  }
+
+  @Test
+  void eqUsesPlainWrappingShiftsAndAdditions() {
+    // C mod_controllable_audio.cpp:378-402: plain << 1, << 3, and += (no saturating helpers).
+    Eq eq = new Eq();
+    int[][] buffer = new int[][] {{1_600_000_000, -1_600_000_000}};
+    int bassParam = 1 << 29;
+    int trebleParam = 1 << 29;
+    int bassFreqParam = 1 << 28;
+    int trebleFreqParam = 1 << 28;
+
+    eq.process(buffer, 1, bassParam, trebleParam, bassFreqParam, trebleFreqParam);
+
+    int posBass = (bassParam >> 1) + 1073741824;
+    int bassAmount = (Functions.multiply_32x32_rshift32_rounded(posBass, posBass) << 1) - 536870912;
+    int posTreble = (trebleParam >> 1) + 1073741824;
+    int trebleAmount = Functions.multiply_32x32_rshift32_rounded(posTreble, posTreble) << 1;
+    int bassFreq = Functions.getExp(120000000, (bassFreqParam >> 5) * 6);
+    int trebleFreq = Functions.getExp(700000000, (trebleFreqParam >> 5) * 6);
+
+    int inL = 1_600_000_000;
+    int withoutTrebleL = Functions.multiply_32x32_rshift32(inL, trebleFreq) << 1;
+    int trebleOnlyL = inL - withoutTrebleL;
+    int afterTrebleRemoveL = withoutTrebleL;
+    int bassOnlyL = Functions.multiply_32x32_rshift32(afterTrebleRemoveL, bassFreq);
+    int expectedL =
+        afterTrebleRemoveL
+            + (Functions.multiply_32x32_rshift32(trebleOnlyL, trebleAmount) << 3)
+            + (Functions.multiply_32x32_rshift32(bassOnlyL, bassAmount) << 3);
+
+    assertEquals(expectedL, buffer[0][0]);
+  }
+
+  @Test
+  void granularProcessesFinalWrapWhenWrapsToShutdownIsZero() {
+    // C GranularProcessor.cpp:50: if (anySoundComingIn || wrapsToShutdown >= 0).
+    GranularProcessor gp = new GranularProcessor();
+    gp.wrapsToShutdown = 0;
+
+    int[][] buffer = new int[][] {{1 << 26, -(1 << 26)}};
+    int[] postFxVolume = new int[] {1 << 28};
+
+    gp.processGrainFX(buffer, 1, 1 << 24, 1 << 29, 1 << 28, 0, postFxVolume, false, 120.0f);
+    assertNotEquals(
+        1 << 28,
+        postFxVolume[0],
+        "wrapsToShutdown == 0 must still execute setupGrainFX/processGrainFX (GranularProcessor.cpp:50)");
+
+    int[] postFxStopped = new int[] {1 << 28};
+    gp.wrapsToShutdown = -1;
+    gp.processGrainFX(buffer, 1, 1 << 24, 1 << 29, 1 << 28, 0, postFxStopped, false, 120.0f);
+    assertEquals(
+        1 << 28,
+        postFxStopped[0],
+        "wrapsToShutdown < 0 with no sound coming in must skip processGrainFX");
+  }
+
+  @Test
+  void granularWetDryAndReverbBackdoorUseQ31Mult() {
+    // C GranularProcessor.cpp:64-76, fixedpoint.h:62-67, audio_engine.cpp:1010-1012.
+    GranularProcessor gp = new GranularProcessor();
+
+    // Prime 1 sample with mix = 0 (100% dry, grainDryVol = ONE_Q31, grainVol = 0) and check dry
+    // q31_mult (multiply_32x32_rshift32 << 1).
+    int drySample = 500_000_000;
+    int[][] dryBuf = new int[][] {{drySample, -drySample}};
+    int[] postFx = new int[] {1 << 28};
+    gp.processGrainFX(dryBuf, 1, 1 << 24, 0, 1 << 28, 0, postFx, true, 120.0f);
+
+    int expectedDry = Functions.multiply_32x32_rshift32(drySample, gp.grainDryVol) << 1;
+    assertEquals(expectedDry, dryBuf[0][0], "Dry path must use q31_mult (<< 1)");
+
+    // Now initialize grain buffer and force an active grain + reverb backdoor send.
+    gp.grainInitialized = true;
+    gp.bufferFull = true;
+    gp.bufferWriteIndex = 70000;
+    for (int i = 0; i < 1024; i++) {
+      gp.grainBuffer[i][0] = 200_000_000;
+      gp.grainBuffer[i][1] = 200_000_000;
+    }
+    gp.grains[0].length = 1024;
+    gp.grains[0].startPoint = 256;
+    gp.grains[0].counter = 256;
+    gp.grains[0].pitch = 1024;
+    gp.grains[0].volScale = ONE_Q31 / 512;
+    gp.grains[0].volScaleMax = ONE_Q31;
+    gp.grains[0].rev = false;
+    gp.grains[0].panVolL = 1 << 30;
+    gp.grains[0].panVolR = 1 << 30;
+
+    int[][] wetBuf = new int[][] {{0, 0}};
+    int[] reverbBuf = new int[] {0};
+    int reverbAmount = 1 << 28;
+    gp.processGrainFX(
+        wetBuf,
+        1,
+        1 << 24,
+        1 << 30,
+        1 << 28,
+        0,
+        new int[] {1 << 28},
+        true,
+        120.0f,
+        reverbAmount,
+        reverbBuf);
+
+    assertNotEquals(0, wetBuf[0][0], "Active grain should produce non-zero wet output");
+    int expectedReverbFeed =
+        Functions.multiply_32x32_rshift32(wetBuf[0][0] + wetBuf[0][1], reverbAmount) << 1;
+    assertEquals(
+        expectedReverbFeed,
+        reverbBuf[0],
+        "Reverb backdoor must add q31_mult(wetL + wetR, reverbAmount) into reverbBuffer");
+  }
+
+  @Test
+  void granularUpdatesGrainRateBeforeGrainSize() {
+    // C GranularProcessor.cpp:98-115: _grainRate is updated BEFORE _grainSize = q31_mult(_grainRate
+    // << 3, density).
+    GranularProcessor gp = new GranularProcessor();
+    int rate = 1 << 27;
+    int density = 1 << 28;
+    gp.setupGrainFX(rate, 1 << 28, density, 0, new int[] {1 << 28});
+
+    int densityQ31 = (density / 2) + 1073741824;
+    int expectedGrainSize =
+        1760 + (Functions.multiply_32x32_rshift32(gp.grainRate << 3, densityQ31) << 1);
+
+    assertFalse(gp.grainRate == 550, "Test rate should change grainRate away from constructor 550");
+    assertEquals(expectedGrainSize, gp.grainSize);
+  }
+}
