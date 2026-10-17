@@ -23,7 +23,7 @@ public class Envelope {
   public int lastValuePreCurrentStage;
   public int pos;
   public int smoothedSustain;
-  public int fastReleaseIncrement;
+  public int fastReleaseIncrement = 1024; // C envelope.h:37 — uint32_t fastReleaseIncrement{1024}
   public boolean ignoredNoteOff;
   public int timeEnteredState; // for voice-stealing priority
 
@@ -93,7 +93,7 @@ public class Envelope {
 
         case RELEASE:
           pos = (int) (((pos & 0xFFFFFFFFL) + (release & 0xFFFFFFFFL) * numSamples) & 0xFFFFFFFFL);
-          if (pos >= 8388608) {
+          if (Integer.compareUnsigned(pos, 8388608) >= 0) { // C envelope.cpp:82 — pos is uint32_t
             setState(Stage.OFF); // (line 83)
             lastValue = 0;
             return -2147483648; // (line 85)
@@ -112,8 +112,8 @@ public class Envelope {
         case FAST_RELEASE:
           // if (fastReleaseIncrement < 2 * release) { release = 2 * release; fastReleaseIncrement =
           // release; }
-          // (lines 94-97)
-          if (fastReleaseIncrement < 2 * release) {
+          // C envelope.cpp:94-97 — fastReleaseIncrement and release are uint32_t
+          if (Integer.compareUnsigned(fastReleaseIncrement, 2 * release) < 0) {
             release = 2 * release;
             fastReleaseIncrement = release;
           }
@@ -121,7 +121,7 @@ public class Envelope {
               (int)
                   (((pos & 0xFFFFFFFFL) + (fastReleaseIncrement & 0xFFFFFFFFL) * numSamples)
                       & 0xFFFFFFFFL);
-          if (pos >= 8388608) {
+          if (Integer.compareUnsigned(pos, 8388608) >= 0) { // C envelope.cpp:99 — pos is uint32_t
             setState(Stage.OFF); // (line 100)
             return -2147483648; // (line 101)
           }

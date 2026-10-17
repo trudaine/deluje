@@ -228,9 +228,9 @@ public class Lfo {
     // int targetSpeed = target - holdValue;  // (line 118)
     int targetSpeed = target - holdValue;
     // speed = speed + numSamples * (multiply_32x32_rshift32(targetSpeed, phaseIncrement >> 8));
-    // (line 119)
+    // C lfo.h:111, 119 — phaseIncrement is uint32_t, so >> 8 is an unsigned right shift.
     speed =
-        speed + numSamples * Functions.multiply_32x32_rshift32(targetSpeed, phaseIncrement >> 8);
+        speed + numSamples * Functions.multiply_32x32_rshift32(targetSpeed, phaseIncrement >>> 8);
     // holdValue = add_saturate(holdValue, speed);  // (line 120)
     holdValue = Functions.add_saturate(holdValue, speed);
   }

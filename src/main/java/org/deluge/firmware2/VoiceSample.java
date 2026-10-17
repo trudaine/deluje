@@ -170,6 +170,8 @@ public class VoiceSample {
     boolean wrappedOnSetup = reader.hasWrappedLoop;
     reader.init(reader.playPos);
     reader.hasWrappedLoop = wrappedOnSetup;
+    olderReader.copyStateFrom(reader); // C time_stretcher.cpp:83
+    olderReader.interpolationBufferSizeLastTime = 0; // C time_stretcher.cpp:130
 
     timeStretcher.samplePosBig = (long) reader.playPos << 24;
     // C:136 — samplesTilHopEnd = kDefaultFirstHopLength + ((int8_t)getRandom255() >> 2)
@@ -268,7 +270,10 @@ public class VoiceSample {
               }
               timeStretcher.samplePosBig = ((long) loopStartFrame << 24) - leftToDo; // C:1023-1024
               if (!timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]) {
-                timeStretcher.samplesTilHopEnd = 0; // C time_stretcher.cpp:163 — force hop
+                // C time_stretcher.cpp:163-165 — reInit calls hopEnd directly when PLAY_HEAD_NEWER
+                // is inactive.
+                doTimeStretchHop(
+                    sample, bps, loopingType, phaseIncrement, timeStretchRatio, combinedIncrement);
               }
               continue;
             } else {
@@ -283,40 +288,20 @@ public class VoiceSample {
         }
       }
 
-      // C:1162-1173 — time to hop?
-      if (timeStretcher.samplesTilHopEnd <= 0) {
-        int samplePos = timeStretcher.getSamplePos(reader.playDirection);
-        int oldHeadBytePos =
-            reader.getPlayByteLowLevel(true); // C:284 (compensates for the interp buffer)
-        olderReader.copyStateFrom(reader); // fork the older head before repositioning the newer one
-        timeStretcher.hopEndVoid(
-            sample,
-            guide,
-            loopingType,
-            oldHeadBytePos,
-            samplePos,
-            phaseIncrement,
-            timeStretchRatio,
-            combinedIncrement,
-            reader.playDirection,
-            Functions.getNoise(),
-            olderReader.oscPos);
-        if (timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]) {
-          int newFrame =
-              (timeStretcher.newHeadBytePosResult - sample.audioDataStartPosBytes)
-                  / bps; // setupNewPlayHead (in-RAM)
-          // C time_stretcher.cpp:1001-1014 — changeClusterIfNecessary wraps currentPlayPos into
-          // the loop before interpolationBufferSizeLastTime = 0 primes history on the next block.
-          reader.playPos = newFrame;
-          syncReaderBounds();
-          reader.init(reader.playPos);
-          reader.oscPos = timeStretcher.additionalOscPosResult; // C:1014
+      // C voice_sample.cpp:1167-1205 — only hop or clamp to samplesTilHopEnd while PLAY_HEAD_NEWER
+      // is active.
+      int numThis = numToRead;
+      if (timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]) {
+        if (timeStretcher.samplesTilHopEnd <= 0) {
+          doTimeStretchHop(
+              sample, bps, loopingType, phaseIncrement, timeStretchRatio, combinedIncrement);
         }
+        numThis = Math.min(numThis, timeStretcher.samplesTilHopEnd); // C:1202-1203
       }
 
-      // C voice_sample.cpp:1434-1438 — one-shot: when both stretch heads have died (newer killed
-      // past the waveform end, older's crossfade finished), the voice ends instead of re-hopping
-      // and rendering silence forever.
+      // C voice_sample.cpp:1190-1194, 1434-1438 — one-shot: when both stretch heads have died
+      // (newer killed past the waveform end, older's crossfade finished), the voice ends instead
+      // of rendering silence forever.
       if (loopingType == TimeStretcher.LoopType.NONE
           && !timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]
           && !timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]) {
@@ -324,7 +309,6 @@ public class VoiceSample {
         return;
       }
 
-      int numThis = Math.min(numToRead, timeStretcher.samplesTilHopEnd);
       if (numThis <= 0) {
         break;
       }
@@ -406,11 +390,55 @@ public class VoiceSample {
       }
 
       timeStretcher.samplePosBig += combinedIncrement * numThis * reader.playDirection; // C:1396
-      timeStretcher.samplesTilHopEnd -= numThis; // C:1432
+      if (loopingType == TimeStretcher.LoopType.NONE
+          && !timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]
+          && !timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]) {
+        active = false; // C voice_sample.cpp:1434-1437
+        produced += numThis;
+        ampVal += ampInc * numThis;
+        break;
+      }
+      timeStretcher.samplesTilHopEnd -= numThis; // C:1439
       produced += numThis;
       ampVal += ampInc * numThis;
     }
     amplitude[0] = native_ ? (ampVal >> 3) : (ampVal >> 5);
+  }
+
+  private void doTimeStretchHop(
+      Sample sample,
+      int bps,
+      TimeStretcher.LoopType loopingType,
+      int phaseIncrement,
+      int timeStretchRatio,
+      long combinedIncrement) {
+    int samplePos = timeStretcher.getSamplePos(reader.playDirection);
+    int oldHeadBytePos =
+        reader.getPlayByteLowLevel(true); // C:285 (compensates for the interp buffer)
+    olderReader.copyStateFrom(reader); // C:286 — fork the older head before repositioning newer
+    timeStretcher.hopEndVoid(
+        sample,
+        guide,
+        loopingType,
+        oldHeadBytePos,
+        samplePos,
+        phaseIncrement,
+        timeStretchRatio,
+        combinedIncrement,
+        reader.playDirection,
+        Functions.getNoise(),
+        olderReader.oscPos);
+    if (timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]) {
+      int newFrame =
+          (timeStretcher.newHeadBytePosResult - sample.audioDataStartPosBytes)
+              / bps; // setupNewPlayHead (in-RAM)
+      // C time_stretcher.cpp:1001-1015 — changeClusterIfNecessary wraps currentPlayPos into
+      // the loop before interpolationBufferSizeLastTime = 0 primes history on the next block.
+      reader.playPos = newFrame;
+      syncReaderBounds();
+      reader.init(reader.playPos);
+      reader.oscPos = timeStretcher.additionalOscPosResult; // C:1015
+    }
   }
 
   private static void readHead(
