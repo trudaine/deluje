@@ -162,9 +162,12 @@ public class NoteRowModel {
     if (clipDirectionMode != SequenceDirection.PINGPONG) {
       boolean reversedBefore = currentlyPlayingReversedIfIndependent;
       currentlyPlayingReversedIfIndependent = (clipDirectionMode == SequenceDirection.REVERSE);
-      if (reversedBefore != currentlyPlayingReversedIfIndependent
-          && lastProcessedPosIfIndependent != 0) {
+      if (reversedBefore != currentlyPlayingReversedIfIndependent) {
+        // C note_row.cpp:4472-4473 — mirrors position zero too (0 -> loopLengthIfIndependent).
         lastProcessedPosIfIndependent = loopLengthIfIndependent - lastProcessedPosIfIndependent;
+        if (!currentlyPlayingReversedIfIndependent) {
+          reverseStartAtZeroPending = false;
+        }
       }
     }
   }

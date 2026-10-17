@@ -40,7 +40,7 @@ public class PlaybackHandler {
   private static final int INTERNAL_TICKS_PER_MIDI_CLOCK = 4;
   private MidiClockSink midiClockOut;
   private int lastClockTick = 0; // internal tick at which the last 0xF8 was emitted
-  private int swingSubTicks = 0; // fractional swing progress in fiftieths of a swung tick
+  private int swingSubTicks = 0; // fractional swing progress in fiftieths of an input tick
 
   public void setMidiClockOut(MidiClockSink sink) {
     this.midiClockOut = sink;
@@ -186,20 +186,24 @@ public class PlaybackHandler {
     if (!playing || currentProject == null) return;
 
     int ticksRemaining = numTicks;
-    while (ticksRemaining > 0 || (currentProject.getSwingAmount() != 0 && swingSubTicks >= 50)) {
+    while (true) {
       int nextDeadline = swungTicksTilNextEvent;
       for (ClipModel clip : currentProject.getClips()) {
         nextDeadline = Math.min(nextDeadline, clip.getTicksTilNextEvent());
       }
       int deadlineTicks = Math.max(1, nextDeadline);
 
-      // ── Bit-Accurate Swing Math ──
+      // ── Bit-Accurate Swing Math (C playback_handler.cpp:1768-1790) ──
+      // Each input tick contributes 50 sub-ticks. One swung tick costs (50 + swingAmount) sub-ticks
+      // in the first half of the swing pair and (50 - swingAmount) sub-ticks in the second half, so
+      // a complete pair of (2 * swingTicks) swung ticks always costs (2 * swingTicks * 50)
+      // sub-ticks (= 2 * swingTicks input ticks) and preserves overall playback tempo.
       int effectiveAdvance;
       int swingAmount = Math.max(-49, Math.min(49, currentProject.getSwingAmount()));
       if (swingAmount == 0) {
         swingSubTicks = 0;
+        if (ticksRemaining <= 0) break;
         int toAdvance = Math.min(ticksRemaining, deadlineTicks);
-        if (toAdvance <= 0) break;
         effectiveAdvance = toAdvance;
         ticksRemaining -= toAdvance;
       } else {
@@ -211,28 +215,24 @@ public class PlaybackHandler {
                         .getSwingInterval()); // Offset 6 for 96 PPQN (C++ uses 9/10 for 1536 PPQN)
         int swingTicks = 3 << leftShift;
         boolean firstHalf = Math.floorMod(lastSwungTickActioned, swingTicks * 2) < swingTicks;
-        int swingFactor = firstHalf ? (50 + swingAmount) : (50 - swingAmount);
+        int costPerSwungTick = firstHalf ? (50 + swingAmount) : (50 - swingAmount);
         int swungLeftInHalf = swingTicks - Math.floorMod(lastSwungTickActioned, swingTicks);
         int maxSwungAdvance = Math.min(deadlineTicks, swungLeftInHalf);
-        int targetSubTicks = maxSwungAdvance * 50;
+        int targetSubTicks = maxSwungAdvance * costPerSwungTick;
 
         if (swingSubTicks < targetSubTicks && ticksRemaining > 0) {
           int neededSubTicks = targetSubTicks - swingSubTicks;
-          int inputTicksNeeded = (neededSubTicks + swingFactor - 1) / swingFactor;
+          int inputTicksNeeded = (neededSubTicks + 49) / 50;
           int toConsume = Math.min(ticksRemaining, inputTicksNeeded);
-          swingSubTicks += toConsume * swingFactor;
+          swingSubTicks += toConsume * 50;
           ticksRemaining -= toConsume;
         }
 
-        effectiveAdvance = Math.min(maxSwungAdvance, swingSubTicks / 50);
+        effectiveAdvance = Math.min(maxSwungAdvance, swingSubTicks / costPerSwungTick);
         if (effectiveAdvance <= 0) {
           break; // Fractional progress preserved in swingSubTicks for next advanceTicks call.
         }
-        swingSubTicks -= effectiveAdvance * 50;
-        if (effectiveAdvance == swungLeftInHalf && swingSubTicks > 0) {
-          // Rescale leftover fraction of the crossing input tick into the new swing half.
-          swingSubTicks = (swingSubTicks * (100 - swingFactor)) / swingFactor;
-        }
+        swingSubTicks -= effectiveAdvance * costPerSwungTick;
       }
 
       lastSwungTickActioned += effectiveAdvance;

@@ -29,12 +29,18 @@ class PlayConditionsTest {
   static final class CountingSound extends FirmwareSound {
     final Map<Integer, List<Integer>> loopsByPitch = new HashMap<>();
     final List<Integer> pitchOrder = new ArrayList<>();
+    int releaseCount;
     int currentLoop;
 
     @Override
     public void triggerNote(int note, int vel) {
       loopsByPitch.computeIfAbsent(note, k -> new ArrayList<>()).add(currentLoop);
       pitchOrder.add(note);
+    }
+
+    @Override
+    public void releaseNote(int note) {
+      releaseCount++;
     }
 
     int count(int pitch) {
@@ -559,7 +565,7 @@ class PlayConditionsTest {
   void swingSlowHalfOneTickDeadlineDoesNotStall() {
     ProjectModel project = new ProjectModel();
     project.setSwingAmount(15);
-    project.setSwingInterval(6); // swingTicks = 3; positions 3..5 run at swingFactor = 35
+    project.setSwingInterval(6); // swingTicks = 3; positions 0..2 cost 65, positions 3..5 cost 35
     SynthTrackModel track = new SynthTrackModel("Synth");
     track.addClip(clip);
     track.setActiveClipIndex(0);
@@ -567,8 +573,10 @@ class PlayConditionsTest {
 
     NoteRowModel row = clip.getOrCreateRow(0);
     row.setPitch(60);
-    // Note at pos 3 (triggers at tick 4, 1-tick deadline from start of slow half at tick 3)
-    // and note at pos 4 (triggers at tick 5, another 1-tick deadline inside the slow half).
+    // Consecutive 1-tick deadlines in both the slow first half (pos 1, 2) and fast second half (3,
+    // 4).
+    row.getNotes().add(new NoteModel(1, 1, 1.0f, 1.0f, 0));
+    row.getNotes().add(new NoteModel(2, 1, 1.0f, 1.0f, 0));
     row.getNotes().add(new NoteModel(3, 1, 1.0f, 1.0f, 0));
     row.getNotes().add(new NoteModel(4, 1, 1.0f, 1.0f, 0));
     clip.expectEvent();
@@ -581,8 +589,87 @@ class PlayConditionsTest {
       pb.advanceTicks(1);
     }
     assertEquals(
-        2,
+        4,
         sound.count(60),
-        "consecutive 1-tick deadlines in slow swing half must both fire without stalling");
+        "consecutive 1-tick deadlines across slow and fast swing halves must all fire");
+  }
+
+  @Test
+  void swingPairsPreserveOverallPlaybackTempo() {
+    // C playback_handler.cpp:1768-1790 — a full pair of (2 * swingTicks) swung ticks costs
+    // swingTicks * (50 + swingAmount) + swingTicks * (50 - swingAmount) = 2 * swingTicks * 50
+    // input-tick fiftieths, so complete swing pairs preserve overall playback tempo for any swing
+    // amount.
+    for (int amount : new int[] {-30, 15, 49}) {
+      ProjectModel project = new ProjectModel();
+      project.setSwingAmount(amount);
+      project.setSwingInterval(6); // swingTicks = 3, pair = 6 ticks
+
+      org.deluge.playback.PlaybackHandler pb = new org.deluge.playback.PlaybackHandler();
+      pb.setProject(project);
+      pb.start();
+
+      for (int i = 0; i < 6000; i++) {
+        pb.advanceTicks(1);
+      }
+      assertEquals(
+          6000,
+          pb.lastSwungTickActioned,
+          "6000 input ticks across 1000 swing pairs must advance exactly 6000 swung ticks at swing="
+              + amount);
+    }
+  }
+
+  @Test
+  void legacyDirectPositionCallsDoNotStallQuietTicks() {
+    NoteRowModel row = clip.getOrCreateRow(0);
+    row.setPitch(60);
+    row.getNotes().add(new NoteModel(0, 12, 1.0f, 1.0f, 0));
+    row.getNotes().add(new NoteModel(24, 12, 1.0f, 1.0f, 0));
+    clip.setPos(0);
+
+    for (int t = 0; t < 48; t++) {
+      clip.lastProcessedPos += 1;
+      clip.processCurrentPos(1);
+    }
+
+    assertEquals(
+        2, sound.count(60), "legacy direct-position caller must fire both notes without stalling");
+    assertEquals(
+        2,
+        sound.releaseCount,
+        "both notes must also receive their note-offs during quiet-tick advancement");
+  }
+
+  @Test
+  void reverseToForwardAtPositionZeroMirrorsAndIncrementsRepeatCount() {
+    // C clip.cpp:1049 — Clip::setSequenceDirectionMode mirrors lastProcessedPos = loopLength -
+    // lastProcessedPos even when lastProcessedPos == 0.
+    addNote(0, 60, 0).setIterance(new Iterance((byte) 2, (byte) 0b01)); // 1of2
+    addNote(1, 62, 0).setIterance(new Iterance((byte) 2, (byte) 0b10)); // 2of2
+
+    clip.setPlayDirection(ClipModel.PlayDirection.REVERSE);
+    clip.setPos(0);
+    // Advance exactly 1 full reverse pass (96 ticks) so lastProcessedPos lands back on 0.
+    for (int t = 0; t < 96; t++) {
+      clip.incrementPos(1);
+      clip.processCurrentPos(1);
+    }
+    assertEquals(0, clip.lastProcessedPos);
+    assertEquals(1, clip.repeatCount);
+
+    // Switch Reverse -> Forward at position 0.
+    clip.setPlayDirection(ClipModel.PlayDirection.FORWARD);
+    assertEquals(96, clip.lastProcessedPos, "position 0 must mirror to loopLength (96)");
+
+    // Next forward tick wraps 97 -> 1 and increments repeatCount from 1 to 2 (even pass -> 1of2).
+    sound.loopsByPitch.clear();
+    sound.pitchOrder.clear();
+    clip.incrementPos(1);
+    clip.processCurrentPos(1);
+    assertEquals(1, clip.lastProcessedPos);
+    assertEquals(2, clip.repeatCount);
+    assertEquals(1, sound.count(60), "1of2 note at pos 0 must fire on repeatCount=2 after wrap");
+    assertEquals(0, sound.count(62), "2of2 note at pos 0 must not fire on repeatCount=2");
   }
 }

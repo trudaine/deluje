@@ -86,6 +86,7 @@ public class ClipModel extends TimelineCounter {
   private transient int ticksTilNextNoteRowEvent = 0; // C instrument_clip.h:114
   private transient int noteRowsNumTicksBehindClip = 0; // C instrument_clip.h:115
   private transient boolean reverseStartAtZeroPending = false;
+  private transient boolean posIncrementedForCurrentTick = false;
   public transient Object sound; // The transient DSP engine reference (FirmwareSound / FirmwareKit)
 
   public NoteRowModel getOrCreateRow(int rowIndex) {
@@ -489,8 +490,12 @@ public class ClipModel extends TimelineCounter {
 
       if (reversedBefore != currentlyPlayingReversed) {
         int len = getLoopLength();
-        if (len > 0 && lastProcessedPos != 0) {
+        if (len > 0) {
+          // C clip.cpp:1049 — mirrors position zero too (0 -> loopLength).
           lastProcessedPos = len - lastProcessedPos;
+        }
+        if (!currentlyPlayingReversed) {
+          reverseStartAtZeroPending = false;
         }
       }
     }
@@ -939,6 +944,7 @@ public class ClipModel extends TimelineCounter {
     }
 
     lastProcessedPos = newPos;
+    posIncrementedForCurrentTick = false;
 
     // instrument_clip.cpp:404-436 — rows with independent play positions. The row's newPos is the
     // value AFTER Clip::setPos reduced it, exactly as in the C (it passes the same variable).
@@ -955,6 +961,7 @@ public class ClipModel extends TimelineCounter {
    * playing in reverse).
    */
   public void incrementPos(int numTicks) {
+    posIncrementedForCurrentTick = true;
     if (numTicks > 0 && reverseStartAtZeroPending) {
       // C runs processCurrentPos(0) at pos 0 before the first non-zero increment, which increments
       // repeatCount from -1 to 0 (clip.cpp:260-261).
@@ -1060,6 +1067,8 @@ public class ClipModel extends TimelineCounter {
   }
 
   public void processCurrentPos(int ticksSinceLast) {
+    boolean wasIncremented = posIncrementedForCurrentTick;
+    posIncrementedForCurrentTick = false;
     int effectiveLength = getLoopLength();
     if (effectiveLength <= 0) return;
 
@@ -1137,7 +1146,7 @@ public class ClipModel extends TimelineCounter {
 
       // If a legacy caller advanced lastProcessedPos directly without calling incrementPos(),
       // apply the note-row half of InstrumentClip::incrementPos (instrument_clip.cpp:4731-4749).
-      if (noteRowsNumTicksBehindClip == 0 && ticksSinceLast > 0) {
+      if (!wasIncremented && ticksSinceLast > 0) {
         advanceNoteRowSchedule(ticksSinceLast);
       }
 
