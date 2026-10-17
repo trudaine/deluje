@@ -133,4 +133,51 @@ public class SwingHardwareTopPanelTest {
     assertEquals(
         0, listener.scaleModeToggles, "a held-down long press on SCALE_MODE must not toggle it");
   }
+
+  // C view.cpp:331-357 — with the "Sync-scaling action" community setting on Fill, SYNC_SCALING is
+  // a held FILL button: changeFillMode(true) on press, changeFillMode(false) on release.
+  private static MouseEvent syncScalingMouseEvent(SwingHardwareTopPanel panel, int id) {
+    return new MouseEvent(
+        panel, id, System.currentTimeMillis(), 0, 1812, 424, 1, false, MouseEvent.BUTTON1);
+  }
+
+  private static boolean pressAndReport(SwingHardwareTopPanel panel) {
+    for (MouseListener ml : panel.getMouseListeners()) {
+      ml.mousePressed(syncScalingMouseEvent(panel, MouseEvent.MOUSE_PRESSED));
+    }
+    boolean whileHeld = org.deluge.model.ProjectModel.isFillModeActive();
+    for (MouseListener ml : panel.getMouseListeners()) {
+      ml.mouseReleased(syncScalingMouseEvent(panel, MouseEvent.MOUSE_RELEASED));
+    }
+    return whileHeld;
+  }
+
+  @Test
+  public void testSyncScalingIsAHeldFillButtonWhenSetToFill() {
+    PreferencesManager.SyncScalingAction old = PreferencesManager.getSyncScalingAction();
+    try {
+      PreferencesManager.setSyncScalingAction(PreferencesManager.SyncScalingAction.FILL);
+      SwingHardwareTopPanel panel = new SwingHardwareTopPanel(null, null, null, null);
+      assertEquals(true, pressAndReport(panel), "FILL must be active while the button is held");
+      assertEquals(
+          false, org.deluge.model.ProjectModel.isFillModeActive(), "FILL must turn off on release");
+    } finally {
+      PreferencesManager.setSyncScalingAction(old);
+      org.deluge.model.ProjectModel.changeFillMode(false);
+    }
+  }
+
+  @Test
+  public void testSyncScalingDoesNotFillByDefault() {
+    PreferencesManager.SyncScalingAction old = PreferencesManager.getSyncScalingAction();
+    try {
+      // C runtime_feature_settings.cpp:131-133 — the setting defaults to SyncScaling.
+      PreferencesManager.setSyncScalingAction(PreferencesManager.SyncScalingAction.SYNC_SCALING);
+      SwingHardwareTopPanel panel = new SwingHardwareTopPanel(null, null, null, null);
+      assertEquals(false, pressAndReport(panel), "SYNC_SCALING must not engage FILL by default");
+    } finally {
+      PreferencesManager.setSyncScalingAction(old);
+      org.deluge.model.ProjectModel.changeFillMode(false);
+    }
+  }
 }

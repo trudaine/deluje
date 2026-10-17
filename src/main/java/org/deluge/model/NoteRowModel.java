@@ -30,8 +30,47 @@ public class NoteRowModel {
   private transient int lastProcessedPosIfIndependent = 0;
   private transient int repeatCountIfIndependent = 0;
   private transient boolean currentlyPlayingReversedIfIndependent = false;
+  private transient boolean reverseStartAtZeroPending = false;
   private transient int ignoreNoteOnsBefore_ = 0;
   private transient ParamManager paramManager = new ParamManager();
+  private transient Runnable onScheduleInvalidated;
+
+  void setOnScheduleInvalidated(Runnable onScheduleInvalidated) {
+    this.onScheduleInvalidated = onScheduleInvalidated;
+  }
+
+  private void invalidateSchedule() {
+    if (onScheduleInvalidated != null) {
+      onScheduleInvalidated.run();
+    }
+  }
+
+  void copyLiveTransportFrom(NoteRowModel live) {
+    this.lastProcessedPosIfIndependent = live.lastProcessedPosIfIndependent;
+    this.repeatCountIfIndependent = live.repeatCountIfIndependent;
+    this.currentlyPlayingReversedIfIndependent = live.currentlyPlayingReversedIfIndependent;
+    this.reverseStartAtZeroPending = live.reverseStartAtZeroPending;
+  }
+
+  public int getLastProcessedPosIfIndependent() {
+    return lastProcessedPosIfIndependent;
+  }
+
+  /**
+   * C NoteRow::hasIndependentPlayPos (note_row.cpp:4335-4337). In the C, this is also true when a
+   * row overrides its sequence direction; this model has no per-row direction, so only the
+   * independent-length half applies.
+   */
+  public boolean hasIndependentPlayPos() {
+    return loopLengthIfIndependent != 0;
+  }
+
+  /** C ModelStackWithNoteRow::isCurrentlyPlayingReversed (model_stack.cpp:64-73). */
+  public boolean isCurrentlyPlayingReversed(boolean clipCurrentlyPlayingReversed) {
+    return hasIndependentPlayPos()
+        ? currentlyPlayingReversedIfIndependent
+        : clipCurrentlyPlayingReversed;
+  }
 
   /**
    * C ModelStackWithNoteRow::getRepeatCount (model_stack.cpp:102-109). The C's
@@ -67,11 +106,68 @@ public class NoteRowModel {
                 && (repeatCountIfIndependent & 1) != 0));
 
     lastProcessedPosIfIndependent = newPos - repeatCountIfIndependent * effectiveLoopLength;
+    reverseStartAtZeroPending = false;
     if (currentlyPlayingReversedIfIndependent) {
       if (lastProcessedPosIfIndependent != 0) {
         lastProcessedPosIfIndependent = effectiveLoopLength - lastProcessedPosIfIndependent;
       } else {
         repeatCountIfIndependent--;
+        reverseStartAtZeroPending = true;
+      }
+    }
+  }
+
+  /**
+   * The per-row half of InstrumentClip::incrementPos (instrument_clip.cpp:4738-4747): advances
+   * {@code lastProcessedPosIfIndependent} by {@code numTicks}, negated when this row is currently
+   * playing in reverse.
+   */
+  public void incrementPosIfIndependent(int numTicks) {
+    if (!hasIndependentPlayPos()) {
+      return;
+    }
+    if (numTicks > 0 && reverseStartAtZeroPending) {
+      // C runs processCurrentPos(0) at pos 0 before the first non-zero increment, which
+      // increments repeatCountIfIndependent from -1 to 0 (note_row.cpp:2084-2085).
+      repeatCountIfIndependent++;
+      reverseStartAtZeroPending = false;
+    }
+    int movement = currentlyPlayingReversedIfIndependent ? -numTicks : numTicks;
+    lastProcessedPosIfIndependent += movement;
+  }
+
+  /**
+   * Advances {@code lastProcessedPosIfIndependent} for quiet ticks flushed outside {@link
+   * #processCurrentPos}, normalizing negative reverse positions into {@code [0,
+   * loopLengthIfIndependent)}.
+   */
+  void flushIndependentPos(int numTicks) {
+    incrementPosIfIndependent(numTicks);
+    if (loopLengthIfIndependent > 0
+        && currentlyPlayingReversedIfIndependent
+        && lastProcessedPosIfIndependent < 0) {
+      lastProcessedPosIfIndependent =
+          Math.floorMod(lastProcessedPosIfIndependent, loopLengthIfIndependent);
+    }
+  }
+
+  /**
+   * Mirrors {@code lastProcessedPosIfIndependent} when the parent clip changes direction while this
+   * row obeys the parent (C NoteRow::setSequenceDirectionMode, note_row.cpp:4453-4480).
+   */
+  public void syncDirectionWithClip(SequenceDirection clipDirectionMode) {
+    if (!hasIndependentPlayPos()) {
+      return;
+    }
+    if (clipDirectionMode != SequenceDirection.PINGPONG) {
+      boolean reversedBefore = currentlyPlayingReversedIfIndependent;
+      currentlyPlayingReversedIfIndependent = (clipDirectionMode == SequenceDirection.REVERSE);
+      if (reversedBefore != currentlyPlayingReversedIfIndependent) {
+        // C note_row.cpp:4472-4473 — mirrors position zero too (0 -> loopLengthIfIndependent).
+        lastProcessedPosIfIndependent = loopLengthIfIndependent - lastProcessedPosIfIndependent;
+        if (!currentlyPlayingReversedIfIndependent) {
+          reverseStartAtZeroPending = false;
+        }
       }
     }
   }
@@ -100,6 +196,7 @@ public class NoteRowModel {
 
   public void setMuted(boolean muted) {
     this.muted = muted;
+    invalidateSchedule();
   }
 
   public boolean isMutedBeforeStemExport() {
@@ -124,6 +221,7 @@ public class NoteRowModel {
 
   public void setNotes(List<NoteModel> notes) {
     this.notes = notes;
+    invalidateSchedule();
   }
 
   public Map<String, Float> getSoundParams() {
@@ -146,6 +244,7 @@ public class NoteRowModel {
 
   public void setLoopLengthIfIndependent(int len) {
     this.loopLengthIfIndependent = len;
+    invalidateSchedule();
   }
 
   public ParamManager getParamManager() {
@@ -177,6 +276,7 @@ public class NoteRowModel {
     note.setIterance(iterance);
     note.setFill(fill);
     notes.add(note);
+    invalidateSchedule();
     return 0;
   }
 
@@ -213,6 +313,7 @@ public class NoteRowModel {
 
     notes.clear();
     notes.addAll(newNotes);
+    invalidateSchedule();
   }
 
   // ── Sequencer Playback Tick Logic ──
@@ -237,14 +338,38 @@ public class NoteRowModel {
       int clipLoopLength,
       boolean clipCurrentlyPlayingReversed,
       Object sound) {
+    return processCurrentPos(
+        ticksSinceLast,
+        pendingNoteOns,
+        pendingNoteOffs,
+        clipLastProcessedPos,
+        clipLoopLength,
+        clipCurrentlyPlayingReversed,
+        false,
+        SequenceDirection.FORWARD,
+        sound);
+  }
+
+  public int processCurrentPos(
+      int ticksSinceLast,
+      List<org.deluge.model.PendingNoteOn> pendingNoteOns,
+      List<Integer> pendingNoteOffs,
+      int clipLastProcessedPos,
+      int clipLoopLength,
+      boolean clipCurrentlyPlayingReversed,
+      boolean clipDidPingpong,
+      SequenceDirection clipSequenceDirectionMode,
+      Object sound) {
 
     int effectiveLength = (loopLengthIfIndependent > 0) ? loopLengthIfIndependent : clipLoopLength;
+    if (effectiveLength <= 0) return Integer.MAX_VALUE;
     boolean playingReversedNow =
         (loopLengthIfIndependent > 0)
             ? currentlyPlayingReversedIfIndependent
             : clipCurrentlyPlayingReversed;
-    boolean didPingpong = false;
+    boolean didPingpong = (loopLengthIfIndependent > 0) ? false : clipDidPingpong;
 
+    // C note_row.cpp:2072-2117 — independent-row wrap and ping-pong.
     if (loopLengthIfIndependent > 0) {
       if (playingReversedNow) {
         if (lastProcessedPosIfIndependent < 0) {
@@ -252,13 +377,25 @@ public class NoteRowModel {
         }
         if (lastProcessedPosIfIndependent == 0) {
           repeatCountIfIndependent++;
-          lastProcessedPosIfIndependent = 0;
+          reverseStartAtZeroPending = false;
+          if (clipSequenceDirectionMode == SequenceDirection.PINGPONG) {
+            lastProcessedPosIfIndependent = -lastProcessedPosIfIndependent;
+            currentlyPlayingReversedIfIndependent = playingReversedNow = !playingReversedNow;
+            didPingpong = true;
+          }
         }
       } else {
         int ticksTilEnd = effectiveLength - lastProcessedPosIfIndependent;
         if (ticksTilEnd <= 0) {
           lastProcessedPosIfIndependent -= effectiveLength;
           repeatCountIfIndependent++;
+          if (clipSequenceDirectionMode == SequenceDirection.PINGPONG) {
+            if (lastProcessedPosIfIndependent > 0) {
+              lastProcessedPosIfIndependent = effectiveLength - lastProcessedPosIfIndependent;
+            }
+            currentlyPlayingReversedIfIndependent = playingReversedNow = !playingReversedNow;
+            didPingpong = true;
+          }
         }
       }
     }
@@ -271,17 +408,52 @@ public class NoteRowModel {
           currentPos, effectiveLength, playingReversedNow, didPingpong, true);
     }
 
-    if (muted) return Integer.MAX_VALUE;
+    if (muted) {
+      // C note_row.cpp:2155-2164 — keep waking at the end of an independent row even when muted.
+      if (loopLengthIfIndependent > 0) {
+        int ticksTilEnd =
+            playingReversedNow
+                ? (currentPos == 0 ? effectiveLength : currentPos)
+                : (effectiveLength - currentPos);
+        return Math.min(ticksTilEnd, paramManager.ticksTilNextEvent);
+      }
+      return Integer.MAX_VALUE;
+    }
 
+    boolean playingReversedDuringStep = playingReversedNow ^ didPingpong;
+    boolean allowNoteTails =
+        (playingReversedDuringStep || playingReversedNow) && allowsNoteTails(sound, pitch);
     int ticksTilNextNoteEvent = Integer.MAX_VALUE;
-    int startTick = (currentPos - ticksSinceLast + effectiveLength) % effectiveLength;
+    int startTick =
+        playingReversedDuringStep
+            ? Math.floorMod(currentPos, effectiveLength)
+            : Math.floorMod(currentPos - ticksSinceLast, effectiveLength);
+    boolean steppedLeftFromZero =
+        playingReversedDuringStep && (currentPos + ticksSinceLast >= effectiveLength);
 
     for (NoteModel note : notes) {
-      int releasePos = (note.getPos() + note.getLength()) % effectiveLength;
+      boolean reverseTailedDuringStep =
+          playingReversedDuringStep && allowNoteTails && note.getLength() > 0;
+      int triggerPos =
+          reverseTailedDuringStep
+              ? Math.floorMod(note.getPos() + note.getLength(), effectiveLength)
+              : note.getPos();
+      int releasePos =
+          reverseTailedDuringStep
+              ? note.getPos()
+              : Math.floorMod(note.getPos() + note.getLength(), effectiveLength);
+
       if (isTickReached(startTick, ticksSinceLast, releasePos, effectiveLength)) {
         pendingNoteOffs.add(pitch);
       }
-      if (isTickReached(startTick, ticksSinceLast, note.getPos(), effectiveLength)) {
+      // C note_row.cpp:2308-2317, 2350-2361 — a reverse note-on whose edge lands on 0 (either a
+      // full-bar tailed note ending at effectiveLength or a one-shot at pos 0) fires when stepping
+      // left from 0 at the start of the reverse pass, before pos 0 wraps repeatCount at pass end.
+      boolean triggerReached =
+          (playingReversedDuringStep && triggerPos == 0)
+              ? (ticksSinceLast > 0 && steppedLeftFromZero)
+              : isTickReached(startTick, ticksSinceLast, triggerPos, effectiveLength);
+      if (triggerReached) {
         if (currentPos >= ignoreNoteOnsBefore_) {
           boolean legato = false;
           if (sound instanceof org.deluge.engine.FirmwareSound) {
@@ -300,15 +472,69 @@ public class NoteRowModel {
         }
       }
 
-      int dist = note.getPos() - currentPos;
-      if (playingReversedNow) dist = -dist;
-      if (dist <= 0) dist += effectiveLength;
+      boolean reverseTailedNow = playingReversedNow && allowNoteTails && note.getLength() > 0;
+      int triggerPosNow =
+          reverseTailedNow
+              ? Math.floorMod(note.getPos() + note.getLength(), effectiveLength)
+              : note.getPos();
+      int releasePosNow =
+          reverseTailedNow
+              ? note.getPos()
+              : Math.floorMod(note.getPos() + note.getLength(), effectiveLength);
+
+      int distTrigger;
+      if (playingReversedNow) {
+        distTrigger =
+            (triggerPosNow == 0)
+                ? (currentPos == 0 ? 1 : currentPos + 1)
+                : currentPos - triggerPosNow;
+      } else {
+        // In forward mode isTickReached checks [currentPos - ticksSinceLast, currentPos), so an
+        // event at target fires when currentPos steps past target to target + 1.
+        distTrigger = (triggerPosNow + 1) - currentPos;
+      }
+      if (distTrigger <= 0) distTrigger += effectiveLength;
+
+      int distRelease =
+          playingReversedNow ? (currentPos - releasePosNow) : ((releasePosNow + 1) - currentPos);
+      if (distRelease <= 0) distRelease += effectiveLength;
+
+      int dist = Math.min(distTrigger, distRelease);
       if (dist < ticksTilNextNoteEvent) {
         ticksTilNextNoteEvent = dist;
       }
     }
 
+    // C note_row.cpp:2155-2164 — wake at the end of an independent row's own loop.
+    if (loopLengthIfIndependent > 0) {
+      int ticksTilRowEnd =
+          playingReversedNow
+              ? (currentPos == 0 ? effectiveLength : currentPos)
+              : (effectiveLength - currentPos);
+      if (ticksTilRowEnd < ticksTilNextNoteEvent) {
+        ticksTilNextNoteEvent = ticksTilRowEnd;
+      }
+    }
+
     return Math.min(ticksTilNextNoteEvent, paramManager.ticksTilNextEvent);
+  }
+
+  // C InstrumentClip::allowNoteTails (instrument_clip.cpp:3350-3371) ->
+  // Sound::allowNoteTails (sound.cpp:1927-1964).
+  private static boolean allowsNoteTails(Object sound, int pitch) {
+    if (sound instanceof org.deluge.engine.FirmwareSound fs) {
+      fs.syncParamsToFw2();
+      return fs.fw2Sound.allowNoteTails(false);
+    }
+    if (sound instanceof org.deluge.engine.FirmwareKit kit) {
+      if (pitch >= 0 && pitch < kit.drumSounds.size()) {
+        org.deluge.engine.FirmwareSound drum = kit.drumSounds.get(pitch);
+        drum.syncParamsToFw2();
+        return drum.fw2Sound.allowNoteTails(false);
+      }
+      return true;
+    }
+    return true;
   }
 
   private static boolean isTickReached(

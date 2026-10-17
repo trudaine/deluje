@@ -51,6 +51,7 @@ public class PreferencesDialog extends JDialog {
   private JCheckBox advancedGridStyleCheck;
   private JComboBox<String> padRenderStyleCombo;
   private JComboBox<String> interactionModeCombo;
+  private JComboBox<String> syncScalingActionCombo;
   private JLabel dirLabel;
   private JList<String> mappingList;
   private JButton browseBtn;
@@ -601,6 +602,17 @@ public class PreferencesDialog extends JDialog {
         c,
         6);
 
+    // C community setting "Sync-scaling action" (runtime_feature_settings.cpp:131-133).
+    syncScalingActionCombo = new JComboBox<>(new String[] {"Sync Scaling", "Fill mode"});
+    styleComboBox(syncScalingActionCombo);
+    addField(
+        panel,
+        "Sync-Scaling Button Action",
+        syncScalingActionCombo,
+        "Fill mode: hold SYNC-SCALING to play FILL notes and mute NOT FILL notes.",
+        c,
+        7);
+
     return panel;
   }
 
@@ -921,6 +933,11 @@ public class PreferencesDialog extends JDialog {
       interactionModeCombo.setSelectedIndex(1);
     }
 
+    syncScalingActionCombo.setSelectedIndex(
+        PreferencesManager.getSyncScalingAction() == PreferencesManager.SyncScalingAction.FILL
+            ? 1
+            : 0);
+
     // MIDI input ports
     String[] ports = org.deluge.shadow.midi.MidiIn.list();
     midiCombo.removeAllItems();
@@ -1114,6 +1131,11 @@ public class PreferencesDialog extends JDialog {
         interactionModeCombo.getSelectedIndex() == 0
             ? PreferencesManager.ShiftInteractionMode.POPUP_SLIDER
             : PreferencesManager.ShiftInteractionMode.ROTARY_ENCODER);
+
+    PreferencesManager.setSyncScalingAction(
+        syncScalingActionCombo.getSelectedIndex() == 1
+            ? PreferencesManager.SyncScalingAction.FILL
+            : PreferencesManager.SyncScalingAction.SYNC_SCALING);
 
     int selectedSyncMode = syncModeCombo.getSelectedIndex();
     PreferencesManager.set(

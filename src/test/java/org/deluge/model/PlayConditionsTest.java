@@ -28,11 +28,19 @@ class PlayConditionsTest {
   /** Counts note-ons per pitch, and which loop each happened in, instead of rendering. */
   static final class CountingSound extends FirmwareSound {
     final Map<Integer, List<Integer>> loopsByPitch = new HashMap<>();
+    final List<Integer> pitchOrder = new ArrayList<>();
+    int releaseCount;
     int currentLoop;
 
     @Override
     public void triggerNote(int note, int vel) {
       loopsByPitch.computeIfAbsent(note, k -> new ArrayList<>()).add(currentLoop);
+      pitchOrder.add(note);
+    }
+
+    @Override
+    public void releaseNote(int note) {
+      releaseCount++;
     }
 
     int count(int pitch) {
@@ -64,13 +72,13 @@ class PlayConditionsTest {
     return n;
   }
 
-  /** Drive as PlaybackHandler.java:208-209 does: the caller advances lastProcessedPos. */
+  /** Drive as PlaybackHandler.java:209-210 does: incrementPos then processCurrentPos. */
   private void play(int loops) {
     Functions.resetNoiseSeed();
     int len = clip.getLoopLength();
     for (int t = 0; t < loops * len; t++) {
       sound.currentLoop = t / len;
-      clip.lastProcessedPos += 1;
+      clip.incrementPos(1);
       clip.processCurrentPos(1);
     }
   }
@@ -330,5 +338,338 @@ class PlayConditionsTest {
   void decodesOldFormatAlwaysWithDefaultLift() {
     assertArrayEquals(
         new int[] {20, 0, 0, 64}, conditions(decode("00000000" + "00000018" + "40" + "14")));
+  }
+
+  @Test
+  void setPlayDirectionDrivesReverseAndPingPongPlayback() {
+    // Issue #18: setPlayDirection must update sequenceDirectionMode so Reverse and Ping-Pong clips
+    // actually run in reverse / ping-pong through incrementPos + processCurrentPos.
+    addNote(0, 60, 0).setIterance(Iterance.FIRST);
+    addNote(1, 62, 2);
+
+    clip.setPlayDirection(ClipModel.PlayDirection.REVERSE);
+    assertEquals(SequenceDirection.REVERSE, clip.sequenceDirectionMode);
+    clip.setPos(0);
+    play(2);
+    // In reverse, step 2 (pitch 62) fires before step 0 (pitch 60); pitch 60 has FIRST iterance so
+    // it fires only in loop 0.
+    assertEquals(List.of(62, 60, 62), sound.pitchOrder);
+    assertEquals(List.of(0), sound.loops(60));
+    assertEquals(List.of(0, 1), sound.loops(62));
+
+    // Now switch to PING_PONG and run 3 loops: forward (60, 62), reverse (62), forward (62).
+    // (Pitch 60 has FIRST iterance so it fires only on loop 0.)
+    sound.loopsByPitch.clear();
+    sound.pitchOrder.clear();
+    clip.getOrCreateRow(0).getNotes().get(0).setIterance(Iterance.OFF);
+    clip.setPlayDirection(ClipModel.PlayDirection.PING_PONG);
+    assertEquals(SequenceDirection.PINGPONG, clip.sequenceDirectionMode);
+    clip.setPos(0);
+    play(3);
+    assertEquals(List.of(60, 62, 62, 60, 60, 62), sound.pitchOrder);
+  }
+
+  @Test
+  void restoreFromPreservesFollowPreviousProbabilityAndLift() {
+    // Issue #19: restoreFrom must preserve raw NoteModel conditions (follow-previous bit 128, lift)
+    // that StepData cannot represent.
+    clip.setStep(0, 0, true);
+    NoteModel note = clip.getOrCreateRow(0).getNotes().get(0);
+    note.setProbabilityValue(128 | 10);
+    note.setLift(99);
+    note.setFill(NoteModel.FILL_MODE_FILL);
+    note.setIterance(new Iterance((byte) 3, (byte) 0b010));
+    clip.setPlayDirection(ClipModel.PlayDirection.REVERSE);
+
+    ClipModel snapshot = clip.deepCopy("snap");
+
+    clip.setStep(0, 0, false);
+    clip.setStepCount(2);
+    clip.setPlayDirection(ClipModel.PlayDirection.FORWARD);
+
+    clip.restoreFrom(snapshot);
+
+    assertEquals(4, clip.getStepCount());
+    assertEquals(ClipModel.PlayDirection.REVERSE, clip.getPlayDirection());
+    assertEquals(SequenceDirection.REVERSE, clip.sequenceDirectionMode);
+    NoteModel restored = clip.getOrCreateRow(0).getNotes().get(0);
+    assertEquals(128 | 10, restored.getProbabilityValue());
+    assertEquals(99, restored.getLift());
+    assertEquals(NoteModel.FILL_MODE_FILL, restored.getFill());
+    assertEquals(0x0302, restored.getIterance().toInt());
+  }
+
+  @Test
+  void independentLengthNoteRowAdvancesOwnLoopAndIterance() {
+    // Issue #16: InstrumentClip::incrementPos (instrument_clip.cpp:4728-4750) advances
+    // lastProcessedPosIfIndependent on rows with loopLengthIfIndependent > 0.
+    // Clip is 96 ticks (4 steps). Row 0 is 48 ticks (2 steps), plain note. Row 1 is 48 ticks, 1of2.
+    NoteRowModel row0 = clip.getOrCreateRow(0);
+    row0.setLoopLengthIfIndependent(48);
+    addNote(0, 60, 0);
+
+    NoteRowModel row1 = clip.getOrCreateRow(1);
+    row1.setLoopLengthIfIndependent(48);
+    addNote(1, 62, 0).setIterance(new Iterance((byte) 2, (byte) 0b01)); // 1of2
+
+    clip.setPos(0);
+    // 2 clip loops = 192 ticks = 4 passes of the 48-tick independent rows.
+    play(2);
+
+    assertEquals(4, sound.count(60), "48-tick row must loop 4 times in 192 ticks");
+    assertEquals(2, sound.count(62), "1of2 on 48-tick row must fire on row passes 0 and 2");
+    assertEquals(4, row0.getRepeatCount(clip.repeatCount));
+    assertEquals(2, clip.repeatCount);
+  }
+
+  @Test
+  void restoreFromDuringLiveReversePlaybackPreservesIndependentRowTransport() {
+    NoteRowModel row0 = clip.getOrCreateRow(0);
+    row0.setLoopLengthIfIndependent(48);
+    addNote(0, 60, 0);
+    clip.setPlayDirection(ClipModel.PlayDirection.REVERSE);
+
+    ClipModel snapshot = clip.deepCopy("snap");
+
+    clip.setPos(0);
+    for (int t = 0; t < 60; t++) {
+      clip.incrementPos(1);
+      clip.processCurrentPos(1);
+    }
+    // After 60 reverse ticks on a 48-tick row, 1 full pass (48 ticks) completed and the row is 12
+    // ticks into its second reverse pass (position 48 - 12 = 36, repeatCount = 1).
+    int liveRowRepeats = row0.getRepeatCount(clip.repeatCount);
+    assertEquals(1, liveRowRepeats);
+    assertTrue(row0.isCurrentlyPlayingReversed(clip.currentlyPlayingReversed));
+
+    // Mutate then undo mid-playback.
+    clip.setStep(0, 1, true);
+    clip.restoreFrom(snapshot);
+
+    NoteRowModel restoredRow = clip.getOrCreateRow(0);
+    assertEquals(48, restoredRow.getLoopLengthIfIndependent());
+    assertEquals(36, restoredRow.getLastProcessedPosIfIndependent());
+    assertEquals(liveRowRepeats, restoredRow.getRepeatCount(clip.repeatCount));
+    assertTrue(restoredRow.isCurrentlyPlayingReversed(clip.currentlyPlayingReversed));
+  }
+
+  @Test
+  void midPlaybackStepAndMuteMutationsInvalidateRowSchedule() {
+    clip.setPos(0);
+    // Tick 1 on an empty 96-tick clip schedules ticksTilNextNoteRowEvent = 95.
+    for (int t = 0; t < 10; t++) {
+      clip.incrementPos(1);
+      clip.processCurrentPos(1);
+    }
+    // Add a note at step 1 (pos 24) and another behind the playhead at step 0 (pos 0).
+    clip.setStep(0, 1, StepData.of(true, 1.0f, 1.0f, 1.0f, 60));
+    clip.setStep(1, 0, StepData.of(true, 1.0f, 1.0f, 1.0f, 62));
+
+    for (int t = 10; t < 25; t++) {
+      clip.incrementPos(1);
+      clip.processCurrentPos(1);
+    }
+    assertEquals(1, sound.count(60), "note added ahead of playhead must fire at tick 25");
+    assertEquals(
+        0, sound.count(62), "note added behind playhead must not misfire before next loop");
+  }
+
+  @Test
+  void playbackHandlerMultiTickAdvanceStopsAtRowAndReverseBoundaries() {
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel track = new SynthTrackModel("Synth");
+    track.addClip(clip);
+    track.setActiveClipIndex(0);
+    project.addTrack(track);
+
+    NoteRowModel row0 = clip.getOrCreateRow(0);
+    row0.setLoopLengthIfIndependent(48);
+    addNote(0, 60, 0);
+
+    org.deluge.playback.PlaybackHandler pb = new org.deluge.playback.PlaybackHandler();
+    pb.setProject(project);
+    pb.start();
+
+    pb.advanceTicks(97);
+    assertEquals(1, row0.getLastProcessedPosIfIndependent());
+    assertEquals(2, row0.getRepeatCount(clip.repeatCount));
+    assertEquals(3, sound.count(60), "pos 0 on 48-tick row fires on ticks 1, 49, and 97");
+
+    // Reverse multi-tick advance must stop at 0 and bounce in PING_PONG.
+    sound.loopsByPitch.clear();
+    sound.pitchOrder.clear();
+    row0.setLoopLengthIfIndependent(0);
+    clip.setPlayDirection(ClipModel.PlayDirection.PING_PONG);
+    pb.start();
+    pb.advanceTicks(192);
+    assertEquals(2, clip.repeatCount);
+    assertEquals(SequenceDirection.PINGPONG, clip.sequenceDirectionMode);
+  }
+
+  @Test
+  void reverseTriggerUsesFirmwareAllowNoteTails() {
+    // A one-shot synth (envelope 0 sustain = MIN_VALUE, decay <= release) does not allow tails, so
+    // in reverse a note at pos 24 length 24 triggers at its starting edge (pos 24), not pos 48.
+    addNote(0, 60, 1); // pos 24, length 24
+    sound.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_SUSTAIN] = Integer.MIN_VALUE;
+    sound.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_DECAY] = 0;
+    sound.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_RELEASE] = 0;
+
+    clip.setPlayDirection(ClipModel.PlayDirection.REVERSE);
+    clip.setPos(0);
+    // Advance 48 reverse ticks (96 -> 48): tailed note would have fired at 48, one-shot must not.
+    for (int t = 0; t < 48; t++) {
+      clip.incrementPos(1);
+      clip.processCurrentPos(1);
+    }
+    assertEquals(0, sound.count(60), "one-shot synth in reverse must not trigger at note end");
+    // Advance 24 more reverse ticks (48 -> 24): one-shot triggers at pos 24.
+    for (int t = 0; t < 24; t++) {
+      clip.incrementPos(1);
+      clip.processCurrentPos(1);
+    }
+    assertEquals(1, sound.count(60), "one-shot synth in reverse must trigger at note.pos (24)");
+  }
+
+  @Test
+  void swingSlowHalfSingleTickAdvancesDoNotStallAcrossHalfBoundary() {
+    ProjectModel project = new ProjectModel();
+    project.setSwingAmount(15);
+    project.setSwingInterval(6); // swingTicks = 3; positions 3..5 run at swingFactor = 35
+    SynthTrackModel track = new SynthTrackModel("Synth");
+    track.addClip(clip);
+    track.setActiveClipIndex(0);
+    project.addTrack(track);
+
+    NoteRowModel row = clip.getOrCreateRow(0);
+    row.setPitch(60);
+    row.getNotes().add(new NoteModel(6, 1, 1.0f, 1.0f, 0));
+    clip.expectEvent();
+
+    org.deluge.playback.PlaybackHandler pb = new org.deluge.playback.PlaybackHandler();
+    pb.setProject(project);
+    pb.start();
+
+    for (int i = 0; i < 12; i++) {
+      pb.advanceTicks(1);
+    }
+    assertTrue(
+        clip.lastProcessedPos >= 7,
+        "1-tick advances must cross slow swing half without stalling (pos="
+            + clip.lastProcessedPos
+            + ")");
+    assertEquals(1, sound.count(60), "note at swung pos 6 must fire after crossing slow half");
+  }
+
+  @Test
+  void swingSlowHalfOneTickDeadlineDoesNotStall() {
+    ProjectModel project = new ProjectModel();
+    project.setSwingAmount(15);
+    project.setSwingInterval(6); // swingTicks = 3; positions 0..2 cost 65, positions 3..5 cost 35
+    SynthTrackModel track = new SynthTrackModel("Synth");
+    track.addClip(clip);
+    track.setActiveClipIndex(0);
+    project.addTrack(track);
+
+    NoteRowModel row = clip.getOrCreateRow(0);
+    row.setPitch(60);
+    // Consecutive 1-tick deadlines in both the slow first half (pos 1, 2) and fast second half (3,
+    // 4).
+    row.getNotes().add(new NoteModel(1, 1, 1.0f, 1.0f, 0));
+    row.getNotes().add(new NoteModel(2, 1, 1.0f, 1.0f, 0));
+    row.getNotes().add(new NoteModel(3, 1, 1.0f, 1.0f, 0));
+    row.getNotes().add(new NoteModel(4, 1, 1.0f, 1.0f, 0));
+    clip.expectEvent();
+
+    org.deluge.playback.PlaybackHandler pb = new org.deluge.playback.PlaybackHandler();
+    pb.setProject(project);
+    pb.start();
+
+    for (int i = 0; i < 12; i++) {
+      pb.advanceTicks(1);
+    }
+    assertEquals(
+        4,
+        sound.count(60),
+        "consecutive 1-tick deadlines across slow and fast swing halves must all fire");
+  }
+
+  @Test
+  void swingPairsPreserveOverallPlaybackTempo() {
+    // C playback_handler.cpp:1768-1790 — a full pair of (2 * swingTicks) swung ticks costs
+    // swingTicks * (50 + swingAmount) + swingTicks * (50 - swingAmount) = 2 * swingTicks * 50
+    // input-tick fiftieths, so complete swing pairs preserve overall playback tempo for any swing
+    // amount.
+    for (int amount : new int[] {-30, 15, 49}) {
+      ProjectModel project = new ProjectModel();
+      project.setSwingAmount(amount);
+      project.setSwingInterval(6); // swingTicks = 3, pair = 6 ticks
+
+      org.deluge.playback.PlaybackHandler pb = new org.deluge.playback.PlaybackHandler();
+      pb.setProject(project);
+      pb.start();
+
+      for (int i = 0; i < 6000; i++) {
+        pb.advanceTicks(1);
+      }
+      assertEquals(
+          6000,
+          pb.lastSwungTickActioned,
+          "6000 input ticks across 1000 swing pairs must advance exactly 6000 swung ticks at swing="
+              + amount);
+    }
+  }
+
+  @Test
+  void legacyDirectPositionCallsDoNotStallQuietTicks() {
+    NoteRowModel row = clip.getOrCreateRow(0);
+    row.setPitch(60);
+    row.getNotes().add(new NoteModel(0, 12, 1.0f, 1.0f, 0));
+    row.getNotes().add(new NoteModel(24, 12, 1.0f, 1.0f, 0));
+    clip.setPos(0);
+
+    for (int t = 0; t < 48; t++) {
+      clip.lastProcessedPos += 1;
+      clip.processCurrentPos(1);
+    }
+
+    assertEquals(
+        2, sound.count(60), "legacy direct-position caller must fire both notes without stalling");
+    assertEquals(
+        2,
+        sound.releaseCount,
+        "both notes must also receive their note-offs during quiet-tick advancement");
+  }
+
+  @Test
+  void reverseToForwardAtPositionZeroMirrorsAndIncrementsRepeatCount() {
+    // C clip.cpp:1049 — Clip::setSequenceDirectionMode mirrors lastProcessedPos = loopLength -
+    // lastProcessedPos even when lastProcessedPos == 0.
+    addNote(0, 60, 0).setIterance(new Iterance((byte) 2, (byte) 0b01)); // 1of2
+    addNote(1, 62, 0).setIterance(new Iterance((byte) 2, (byte) 0b10)); // 2of2
+
+    clip.setPlayDirection(ClipModel.PlayDirection.REVERSE);
+    clip.setPos(0);
+    // Advance exactly 1 full reverse pass (96 ticks) so lastProcessedPos lands back on 0.
+    for (int t = 0; t < 96; t++) {
+      clip.incrementPos(1);
+      clip.processCurrentPos(1);
+    }
+    assertEquals(0, clip.lastProcessedPos);
+    assertEquals(1, clip.repeatCount);
+
+    // Switch Reverse -> Forward at position 0.
+    clip.setPlayDirection(ClipModel.PlayDirection.FORWARD);
+    assertEquals(96, clip.lastProcessedPos, "position 0 must mirror to loopLength (96)");
+
+    // Next forward tick wraps 97 -> 1 and increments repeatCount from 1 to 2 (even pass -> 1of2).
+    sound.loopsByPitch.clear();
+    sound.pitchOrder.clear();
+    clip.incrementPos(1);
+    clip.processCurrentPos(1);
+    assertEquals(1, clip.lastProcessedPos);
+    assertEquals(2, clip.repeatCount);
+    assertEquals(1, sound.count(60), "1of2 note at pos 0 must fire on repeatCount=2 after wrap");
+    assertEquals(0, sound.count(62), "2of2 note at pos 0 must not fire on repeatCount=2");
   }
 }
