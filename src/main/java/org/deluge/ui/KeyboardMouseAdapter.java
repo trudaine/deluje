@@ -52,9 +52,7 @@ class KeyboardMouseAdapter extends MouseAdapter {
           panel.bridge.setVelocity(engineRow, SwingGridPanel.lockArmedStep, velFloat);
           panel.bridge.setPitch(engineRow, SwingGridPanel.lockArmedStep, note);
           cModel.setStep(
-              clipRow,
-              SwingGridPanel.lockArmedStep,
-              new StepData(!st, velFloat, 0.5f, 1.0f, note, 1, 1.0f));
+              clipRow, SwingGridPanel.lockArmedStep, StepData.of(!st, velFloat, 0.5f, 1.0f, note));
           panel.fireProjectChanged();
         }
       }

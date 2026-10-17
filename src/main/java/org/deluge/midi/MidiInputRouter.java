@@ -392,9 +392,22 @@ public class MidiInputRouter {
   }
 
   private void releaseLiveNote(int trackIndex, int midiNote) {
-    org.deluge.engine.FirmwareSound liveSound = getLiveSound(trackIndex);
-    if (liveSound != null) {
-      liveSound.releaseNote(midiNote);
+    try {
+      Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+      if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine) {
+        if (trackIndex >= 0 && trackIndex < engine.sounds.size()) {
+          var sound = engine.sounds.get(trackIndex);
+          if (sound instanceof org.deluge.engine.FirmwareSound liveSound) {
+            liveSound.releaseNote(midiNote);
+          } else if (sound instanceof org.deluge.engine.FirmwareKit liveKit) {
+            int drumRow = midiNote - 36;
+            if (drumRow >= 0 && drumRow < liveKit.drumSounds.size()) {
+              liveKit.releaseDrum(drumRow);
+            }
+          }
+        }
+      }
+    } catch (Exception ignored) {
     }
   }
 

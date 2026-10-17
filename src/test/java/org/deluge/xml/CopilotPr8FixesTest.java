@@ -1786,4 +1786,112 @@ class CopilotPr8FixesTest {
     assertEquals(0.0, bridge.getStepFilter(0, 2), 1e-6);
     assertEquals(0.85, bridge.getStepFilter(0, 4), 1e-6);
   }
+
+  @Test
+  void midiInputKitNoteOffReleasesDrumVoiceAtNote60() {
+    System.setProperty("chuck.audio.dummy", "true");
+    org.deluge.project.PreferencesManager.set("midi.grid.mode", "false");
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+
+    org.deluge.engine.FirmwareAudioEngine fwEngine = new org.deluge.engine.FirmwareAudioEngine();
+    final int[] triggered = {-1, -1};
+    final int[] released = {-1};
+    org.deluge.engine.FirmwareKit mockKit = new org.deluge.engine.FirmwareKit();
+    org.deluge.engine.FirmwareSound mockDrum2 =
+        new org.deluge.engine.FirmwareSound() {
+          @Override
+          public void triggerNote(int note, int velocity) {
+            triggered[0] = note;
+            triggered[1] = velocity;
+          }
+
+          @Override
+          public void releaseNote(int note) {
+            released[0] = note;
+          }
+        };
+    mockKit.drumSounds.set(2, mockDrum2);
+    fwEngine.sounds.add(mockKit);
+    bridge.setGlobalObject(org.deluge.BridgeContract.G_FIRMWARE_ENGINE, fwEngine);
+
+    org.deluge.midi.MidiInputRouter router = new org.deluge.midi.MidiInputRouter(bridge);
+    router.setActiveTrack(0);
+
+    org.deluge.shadow.midi.MidiMsg noteOn = new org.deluge.shadow.midi.MidiMsg();
+    noteOn.status = 0x90;
+    noteOn.data1 = 0x90;
+    noteOn.data2 = 38; // drum 2 (38 - 36)
+    noteOn.data3 = 110;
+    router.handleMidiMessage(noteOn);
+
+    assertEquals(60, triggered[0], "Kit MIDI NoteOn must trigger drum 2 at note 60");
+    assertEquals(110, triggered[1]);
+
+    org.deluge.shadow.midi.MidiMsg noteOff = new org.deluge.shadow.midi.MidiMsg();
+    noteOff.status = 0x80;
+    noteOff.data1 = 0x80;
+    noteOff.data2 = 38;
+    noteOff.data3 = 0;
+    router.handleMidiMessage(noteOff);
+
+    assertEquals(60, released[0], "Kit MIDI NoteOff must release drum 2 at note 60");
+  }
+
+  @Test
+  void keyboardMouseAdapterArmedStepDoesNotMarkOrdinaryNotesAsFillOnly() throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    int oldLockTrack = org.deluge.ui.SwingGridPanel.lockArmedTrack;
+    int oldLockStep = org.deluge.ui.SwingGridPanel.lockArmedStep;
+    try {
+      ProjectModel project = new ProjectModel();
+      SynthTrackModel synth = new SynthTrackModel("KEY_ARM");
+      ClipModel clip = new ClipModel("Clip", 1, 16);
+      clip.setRowYNote(0, 60);
+      synth.addClip(clip);
+      project.addTrack(synth);
+
+      org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+      org.deluge.ui.EngineSyncCoordinator sync =
+          new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+      sync.pushModelToBridge(project);
+
+      org.deluge.ui.ClipGridPanel panel = new org.deluge.ui.ClipGridPanel(bridge);
+      panel.setScaleModeEnabled(false);
+      panel.setEditedModelTrack(0);
+      panel.setBaseTrackId(0);
+      panel.setProjectModel(project);
+
+      org.deluge.ui.SwingGridPanel.lockArmedTrack = 0;
+      org.deluge.ui.SwingGridPanel.lockArmedStep = 2;
+
+      Class<?> adapterClass = Class.forName("org.deluge.ui.KeyboardMouseAdapter");
+      java.lang.reflect.Constructor<?> ctor =
+          adapterClass.getDeclaredConstructor(org.deluge.ui.SwingGridPanel.class, int.class);
+      ctor.setAccessible(true);
+      java.awt.event.MouseAdapter adapter =
+          (java.awt.event.MouseAdapter) ctor.newInstance(panel, 60);
+
+      javax.swing.JButton dummyBtn = new javax.swing.JButton();
+      dummyBtn.setSize(40, 40);
+      adapter.mousePressed(
+          new java.awt.event.MouseEvent(
+              dummyBtn,
+              java.awt.event.MouseEvent.MOUSE_PRESSED,
+              System.currentTimeMillis(),
+              0,
+              10,
+              10,
+              1,
+              false,
+              java.awt.event.MouseEvent.BUTTON1));
+
+      StepData step = clip.getStep(0, 2);
+      assertTrue(step.active(), "Armed-step keyboard press must activate step");
+      assertEquals(0.0f, step.fill(), 1e-6f, "Ordinary keyboard step must have zero fill");
+      assertEquals(0, step.fillMode(), "Ordinary keyboard step must have fillMode OFF (0)");
+    } finally {
+      org.deluge.ui.SwingGridPanel.lockArmedTrack = oldLockTrack;
+      org.deluge.ui.SwingGridPanel.lockArmedStep = oldLockStep;
+    }
+  }
 }
