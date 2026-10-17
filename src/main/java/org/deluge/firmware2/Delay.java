@@ -829,8 +829,11 @@ public class Delay {
         setupResample(); // C:134
       }
 
-      // C delay_buffer.cpp:143-182 — uint64/uint32 spin-rate division and unsigned comparisons.
-      actualSpinRate = (int) (((rate & 0xFFFFFFFFL) << 24) / (native_rate_ & 0xFFFFFFFFL));
+      // C delay_buffer.cpp:143-182 — double division narrowed through uint64_t -> uint32_t.
+      actualSpinRate =
+          (int)
+              (long)
+                  ((double) ((rate & 0xFFFFFFFFL) << 24) / (double) (native_rate_ & 0xFFFFFFFFL));
       divideByRate = (int) (long) ((double) 0xFFFFFFFFL / (double) (actualSpinRate >>> 8));
 
       if (Integer.compareUnsigned(actualSpinRate, K_MAX_SAMPLE_VALUE) < 0) {

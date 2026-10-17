@@ -381,8 +381,11 @@ public class DelayBuffer {
 
     int actualSpinRate =
         (int)
-            (((rate & 0xFFFFFFFFL) << 24)
-                / (nativeRate & 0xFFFFFFFFL)); // C delay_buffer.cpp:143 (uint64 division)
+            (long)
+                ((double) ((rate & 0xFFFFFFFFL) << 24)
+                    / (double)
+                        (nativeRate
+                            & 0xFFFFFFFFL)); // C delay_buffer.cpp:143 ((uint64_t)((double)...))
     int divideByRate =
         (int) (long) ((double) 0xFFFFFFFFL / (double) (actualSpinRate >>> 8)); // C:144
 

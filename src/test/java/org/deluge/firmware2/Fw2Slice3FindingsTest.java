@@ -111,21 +111,25 @@ class Fw2Slice3FindingsTest {
     delay.primaryBuffer.setupForRender(highRate);
 
     int expectedActualSpinRate =
-        (int) (((highRate & 0xFFFFFFFFL) << 24) / (standalone.nativeRate() & 0xFFFFFFFFL));
+        (int)
+            (long)
+                ((double) ((highRate & 0xFFFFFFFFL) << 24)
+                    / (double) (standalone.nativeRate() & 0xFFFFFFFFL));
     assertTrue(expectedActualSpinRate < 0, "Test rate must set sign bit of actualSpinRate");
     assertEquals(expectedActualSpinRate, standalone.resampleConfig.actualSpinRate);
     assertEquals(expectedActualSpinRate, delay.primaryBuffer.actualSpinRate);
 
-    // Boundary case where double division rounds up by 1 while uint64 division stays exact.
+    // Boundary case where C double division ((uint64_t)((double)...)) rounds up to 0x7f000001
+    // while integer uint64 division yields 0x7f000000 (delay_buffer.cpp:143).
     DelayBuffer boundaryBuf = new DelayBuffer();
     assertEquals(DelayBuffer.Error.NONE, boundaryBuf.init(16_777_217));
     boundaryBuf.setupForRender(2_130_706_560);
-    assertEquals(0x7f000000, boundaryBuf.resampleConfig.actualSpinRate);
+    assertEquals(0x7f000001, boundaryBuf.resampleConfig.actualSpinRate);
 
     Delay boundaryDelay = new Delay();
     assertTrue(boundaryDelay.primaryBuffer.init(16_777_217));
     boundaryDelay.primaryBuffer.setupForRender(2_130_706_560);
-    assertEquals(0x7f000000, boundaryDelay.primaryBuffer.actualSpinRate);
+    assertEquals(0x7f000001, boundaryDelay.primaryBuffer.actualSpinRate);
 
     int expectedCappedFastSpin = (DelayBuffer.K_MAX_SAMPLE_VALUE * 8) << 1;
     assertEquals(
@@ -450,5 +454,103 @@ class Fw2Slice3FindingsTest {
         0L,
         callerRev[0],
         "GlobalEffectable.renderOutput must preserve modulated grain reverb when base knob is off");
+  }
+
+  @Test
+  void reverbSendSkipsLocalSourcesAndUsesSmoothedParamValue() {
+    // C sound.cpp:1346-1348, patcher.cpp:219: local sources (>= kFirstLocalSource) must be skipped
+    // on global params instead of throwing ArrayIndexOutOfBoundsException, and GLOBAL_REVERB_AMOUNT
+    // must read getSmoothedPatchedParamValue.
+    Sound sound = new Sound();
+    Sound.initParams(sound.patchedParamValues);
+    sound.patchedParamValues[Param.GLOBAL_REVERB_AMOUNT] = -1073741824;
+
+    int reverbAmountAdjust = 67108864;
+    int baselineSend = sound.computeReverbSendAmount(reverbAmountAdjust);
+
+    // 1. Add disallowed local cables (ENVELOPE_1 and VELOCITY) directly onto GLOBAL_REVERB_AMOUNT.
+    Patcher.Destination dest = new Patcher.Destination(Param.GLOBAL_REVERB_AMOUNT);
+    Patcher.PatchCable envCable = new Patcher.PatchCable();
+    envCable.source = PatchSource.ENVELOPE_1.ordinal();
+    envCable.amount = 1 << 30;
+    envCable.rangeValue = 536870912;
+    dest.cables.add(envCable);
+    Patcher.PatchCable velCable = new Patcher.PatchCable();
+    velCable.source = PatchSource.VELOCITY.ordinal();
+    velCable.amount = 1 << 30;
+    velCable.rangeValue = 536870912;
+    dest.cables.add(velCable);
+    sound.patchCableSet.destinations.add(dest);
+
+    assertEquals(
+        baselineSend,
+        sound.computeReverbSendAmount(reverbAmountAdjust),
+        "Disallowed local patch sources on GLOBAL_REVERB_AMOUNT must be ignored safely");
+
+    // 2. Also verify FirmwareSound.syncParamsToFw2 filters out local-to-global cables.
+    org.deluge.engine.FirmwareSound fwSound = new org.deluge.engine.FirmwareSound();
+    org.deluge.modulation.patch.PatchCable bridgeCable =
+        new org.deluge.modulation.patch.PatchCable();
+    bridgeCable.from = org.deluge.modulation.patch.PatchSource.ENVELOPE_1;
+    bridgeCable.amount = 1 << 30;
+    fwSound.paramManager.getPatchCableSet().addCable(Param.GLOBAL_REVERB_AMOUNT, bridgeCable);
+    fwSound.syncParamsToFw2();
+    assertTrue(
+        fwSound.fw2Sound.patchCableSet.destinations.isEmpty(),
+        "FirmwareSound.syncParamsToFw2 must filter out disallowed local-to-global cables");
+
+    // 3. Verify computeReverbSendAmount reads the smoothed parameter value during LPF ramping.
+    sound.patchedParamValues[Param.GLOBAL_REVERB_AMOUNT] = 0;
+    int unsmoothedTargetSend = sound.computeReverbSendAmount(reverbAmountAdjust);
+    assertTrue(unsmoothedTargetSend > baselineSend);
+
+    sound.notifyValueChangeViaLPF(Param.GLOBAL_REVERB_AMOUNT, true, -1073741824, 0, false);
+    assertEquals(
+        baselineSend,
+        sound.computeReverbSendAmount(reverbAmountAdjust),
+        "computeReverbSendAmount must use getSmoothedPatchedParamValue while LPF is active");
+  }
+
+  @Test
+  void shortNoteGrainTailRendersBeforeFullBufferWrap() {
+    // C sound.cpp:2207-2209, GranularProcessor.cpp:50, 84-86: grain tail must keep rendering once
+    // audio has entered the grain buffer, even if the note ended before 65,536 samples set
+    // grainInitialized.
+    Sound sound = new Sound();
+    Sound.initParams(sound.patchedParamValues);
+    sound.srrParam = Integer.MIN_VALUE;
+    sound.bitcrushParam = Integer.MIN_VALUE;
+    sound.modFXType = ModFx.ModFXType.GRAIN;
+    sound.modFXDepth = 1 << 29;
+    sound.modFXRateIncrement = 1 << 24;
+
+    // Simulate a short note (~0.9s = 40,000 samples) that filled > half the buffer (bufferFull =
+    // true) and spawned an active grain, but ended before 65,536 samples (grainInitialized =
+    // false).
+    sound.granular.grainInitialized = false;
+    sound.granular.bufferFull = true;
+    sound.granular.bufferWriteIndex = 40_000;
+    sound.granular.wrapsToShutdown = 1;
+    for (int i = 0; i < 1024; i++) {
+      sound.granular.grainBuffer[i][0] = 200_000_000;
+      sound.granular.grainBuffer[i][1] = 200_000_000;
+    }
+    sound.granular.grains[0].length = 1024;
+    sound.granular.grains[0].startPoint = 256;
+    sound.granular.grains[0].counter = 256;
+    sound.granular.grains[0].pitch = 1024;
+    sound.granular.grains[0].volScale = ONE_Q31 / 512;
+    sound.granular.grains[0].volScaleMax = ONE_Q31;
+    sound.granular.grains[0].rev = false;
+    sound.granular.grains[0].panVolL = 1 << 30;
+    sound.granular.grains[0].panVolR = 1 << 30;
+
+    int[] outBuf = new int[2];
+    int[] revBuf = new int[1];
+    sound.renderInternal(outBuf, 1, revBuf);
+    assertNotEquals(
+        0,
+        outBuf[0],
+        "Short-note grain tail must continue rendering before grainInitialized reaches 65,536 samples");
   }
 }

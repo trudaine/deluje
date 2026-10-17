@@ -868,10 +868,12 @@ public class Sound extends GlobalEffectable {
     // C sound.cpp:2165 — keep rendering the FX tail while the per-sound delay still has repeats
     // pending, so the delay tail isn't cut when the note's voices end.
     boolean delayTailActive = delay.repeatsUntilAbandon != 0;
-    // C sound.cpp:2207-2209 — keep rendering the grain FX tail until wrapsToShutdown < 0.
+    // C sound.cpp:2207-2209, GranularProcessor.cpp:50, 84-86 — keep rendering the grain FX tail
+    // once any audio has been written into the grain buffer until wrapsToShutdown < 0, even if
+    // the note ended before the first full 65,536-sample ring wrap set grainInitialized.
     boolean grainTailActive =
         modFXType == ModFx.ModFXType.GRAIN
-            && granular.grainInitialized
+            && (granular.bufferWriteIndex > 0 || granular.bufferFull || granular.grainInitialized)
             && granular.wrapsToShutdown >= 0;
     if (!hasActiveVoices && !arpHolding && !delayTailActive && !grainTailActive) {
       return;
@@ -898,7 +900,8 @@ public class Sound extends GlobalEffectable {
       fxIntBuffer[i][1] = buffer[i * 2 + 1];
     }
 
-    int postFXKnob = patchedParamValues[Param.GLOBAL_VOLUME_POST_FX];
+    // C patcher.cpp:219 — use getSmoothedPatchedParamValue so manual knob changes ramp smoothly.
+    int postFXKnob = getSmoothedPatchedParamValue(Param.GLOBAL_VOLUME_POST_FX);
     Patcher.Destination dFx = null;
     for (var dest : patchCableSet.destinations) {
       if (dest.paramId == Param.GLOBAL_VOLUME_POST_FX) {
@@ -1001,7 +1004,7 @@ public class Sound extends GlobalEffectable {
     // Per-sound compressor moved to processPostVolumeDynamics — C runs it AFTER
     // processReverbSendAndVolume (sound.cpp:2591-2600), so it must see the volume-applied signal.
 
-    int postReverbKnob = patchedParamValues[Param.GLOBAL_VOLUME_POST_REVERB_SEND];
+    int postReverbKnob = getSmoothedPatchedParamValue(Param.GLOBAL_VOLUME_POST_REVERB_SEND);
     Patcher.Destination dReverb = null;
     for (var dest : patchCableSet.destinations) {
       if (dest.paramId == Param.GLOBAL_VOLUME_POST_REVERB_SEND) {
@@ -1233,9 +1236,9 @@ public class Sound extends GlobalEffectable {
 
   @Override
   public int computeReverbSendAmount(int reverbAmountAdjust) {
-    // C sound.cpp:2450-2453, patcher.cpp:133-137 — resolve GLOBAL_REVERB_AMOUNT with active
-    // patch cables (globalSourceValues) before scaling by reverbAmountAdjust << 5.
-    int reverbKnob = patchedParamValues[Param.GLOBAL_REVERB_AMOUNT];
+    // C sound.cpp:2450-2453, patcher.cpp:133-137, 219 — resolve smoothed GLOBAL_REVERB_AMOUNT with
+    // active patch cables (globalSourceValues) before scaling by reverbAmountAdjust << 5.
+    int reverbKnob = getSmoothedPatchedParamValue(Param.GLOBAL_REVERB_AMOUNT);
     Patcher.Destination dRev = null;
     for (var dest : patchCableSet.destinations) {
       if (dest.paramId == Param.GLOBAL_REVERB_AMOUNT) {

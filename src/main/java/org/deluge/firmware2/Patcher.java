@@ -164,6 +164,21 @@ public class Patcher {
   // ── combineCablesLinear (patcher.cpp:143-180) ──
 
   /**
+   * Returns whether {@code source} is allowed to patch to {@code paramId}. Mirrors C {@code
+   * Sound::maySourcePatchToParam} (sound.cpp:1346-1348), which disallows local sources ({@code >=
+   * kFirstLocalSource}) on global parameters ({@code >= Param.FIRST_GLOBAL}).
+   */
+  public static boolean maySourcePatchToParam(int source, int paramId) {
+    if (source < 0 || source >= PatchSource.kNumPatchSources) {
+      return false;
+    }
+    if (paramId >= Param.FIRST_GLOBAL && source >= PatchSource.kFirstLocalSource) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
    * Fold the stored knob into a multiplicative cable combination. (patcher.cpp combineCablesLinear
    * + cableToLinearParamWithoutRangeAdjustment)
    */
@@ -174,6 +189,11 @@ public class Patcher {
     runningTotal = cableToLinearParamWithoutRangeAdjustment(runningTotal, knobValue, range);
     // Then each cable
     for (PatchCable cable : dest.cables) {
+      // C sound.cpp:1346-1348 — ignore disallowed local-to-global cables or out-of-range sources.
+      if (!maySourcePatchToParam(cable.source, dest.paramId)
+          || cable.source >= sourceValues.length) {
+        continue;
+      }
       int srcVal = sourceValues[cable.source];
       srcVal = cable.toPolarity(srcVal);
       runningTotal = cableToLinearParam(runningTotal, srcVal, cable.amount, cable.rangeValue);
@@ -187,6 +207,10 @@ public class Patcher {
     int runningTotal = 0;
     // Cables first. Exp cables take the *modified* (per-param squared) strength (patcher.cpp:253).
     for (PatchCable cable : dest.cables) {
+      if (!maySourcePatchToParam(cable.source, dest.paramId)
+          || cable.source >= sourceValues.length) {
+        continue;
+      }
       int srcVal = sourceValues[cable.source];
       srcVal = cable.toPolarity(srcVal);
       runningTotal =
@@ -309,7 +333,13 @@ public class Patcher {
   public static int combineCablesLinearForRangeParam(
       Destination destination, int[] sourceValues, ParamManager paramManager) {
     int runningTotal = 536870912;
+    int targetParamId =
+        destination.targetSource >= 0 ? destination.targetParamId : destination.paramId;
     for (PatchCable cable : destination.cables) {
+      if (!maySourcePatchToParam(cable.source, targetParamId)
+          || cable.source >= sourceValues.length) {
+        continue;
+      }
       int srcVal = sourceValues[cable.source];
       // Special exception: If we're patching aftertouch to range
       if (cable.source == PatchSource.AFTERTOUCH.ordinal()) {
