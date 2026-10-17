@@ -29,7 +29,7 @@ public class EngineSyncCoordinator {
    * Immutable start/count pair published as a single volatile reference so concurrent readers
    * always see a consistent, fully-populated mapping.
    */
-  private record TrackEngineMapping(int[] engineStart, int[] voiceCount) {}
+  record TrackEngineMapping(int[] engineStart, int[] voiceCount) {}
 
   private volatile TrackEngineMapping mapping;
 
@@ -71,6 +71,13 @@ public class EngineSyncCoordinator {
 
   /** Recompute the track→engine-row mapping from the current project model and publish it. */
   private TrackEngineMapping computeEngineMapping(ProjectModel project) {
+    TrackEngineMapping m = computeLayout(project);
+    mapping = m;
+    return m;
+  }
+
+  /** Compute the track→engine-row layout for a project without mutating coordinator state. */
+  static TrackEngineMapping computeLayout(ProjectModel project) {
     List<TrackModel> tracks = project.getTracks();
     int n = tracks.size();
     int[] engineStart = new int[n];
@@ -104,9 +111,7 @@ public class EngineSyncCoordinator {
       voiceCount[t] = capped;
       nextRow += capped;
     }
-    TrackEngineMapping m = new TrackEngineMapping(engineStart, voiceCount);
-    mapping = m;
-    return m;
+    return new TrackEngineMapping(engineStart, voiceCount);
   }
 
   /**

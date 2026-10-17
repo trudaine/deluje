@@ -115,8 +115,11 @@ public class ArrangerPlaybackScheduler implements Runnable {
     EngineSyncCoordinator sync =
         bridge.getGlobalObject("g_sync_coordinator") instanceof EngineSyncCoordinator sc
             ? sc
-            : null;
-    boolean hasSyncMapping = sync != null && sync.hasMapping();
+            : (SwingDelugeApp.mainInstance != null
+                ? SwingDelugeApp.mainInstance.getSyncCoordinator()
+                : null);
+    EngineSyncCoordinator.TrackEngineMapping fallbackLayout =
+        (sync != null && sync.hasMapping()) ? null : EngineSyncCoordinator.computeLayout(project);
 
     // Check if any track in the project is soloed in Arranger mode
     boolean anySoloed = false;
@@ -129,11 +132,10 @@ public class ArrangerPlaybackScheduler implements Runnable {
 
     for (int t = 0; t < tracks.size(); t++) {
       org.deluge.model.TrackModel track = tracks.get(t);
-      int startRow = hasSyncMapping ? sync.getTrackEngineStart(t) : t * 8;
+      int startRow =
+          fallbackLayout == null ? sync.getTrackEngineStart(t) : fallbackLayout.engineStart()[t];
       int voiceCount =
-          hasSyncMapping
-              ? sync.getTrackVoiceCount(t)
-              : Math.max(0, Math.min(8, BridgeContract.TRACKS - startRow));
+          fallbackLayout == null ? sync.getTrackVoiceCount(t) : fallbackLayout.voiceCount()[t];
       if (startRow < 0 || voiceCount <= 0) {
         continue;
       }

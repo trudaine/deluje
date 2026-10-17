@@ -275,10 +275,10 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   private void ensureSynthEngineRowAllocated(int newRowIdx) {
     if (bridge == null || projectModel == null) return;
     EngineSyncCoordinator sync = findSyncCoordinator();
-    if (sync == null && projectModel.getTracks().size() > 1) {
+    if (sync == null) {
       sync = new EngineSyncCoordinator(null, bridge);
     }
-    if (sync != null && newRowIdx >= sync.getTrackVoiceCount(editedModelTrack)) {
+    if (newRowIdx >= sync.getTrackVoiceCount(editedModelTrack)) {
       sync.pushModelToBridge(projectModel);
       int updatedStart = sync.getTrackEngineStart(editedModelTrack);
       if (updatedStart >= 0) {
@@ -296,9 +296,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       return;
     }
     org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
-    if (activeClipId < 0
-        || activeClipId >= tModel.getClips().size()
-        || activeClipId == tModel.getActiveClipIndex()) {
+    if (activeClipId < 0 || activeClipId >= tModel.getClips().size()) {
       return;
     }
     int reserved = getReservedEngineRowCount(editedModelTrack);
@@ -359,10 +357,8 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
         break;
       }
     }
-    if (hasAnyActive && getClipRowIndex(cModel, visualModelRow, true) < 0) {
-      return;
-    }
-    if (!hasAnyActive && getClipRowIndex(cModel, visualModelRow, false) < 0) {
+    int clipRow = getClipRowIndex(cModel, visualModelRow, hasAnyActive);
+    if (clipRow < 0) {
       return;
     }
     int engineRow = getAllocatedEngineRow(visualModelRow);
@@ -374,7 +370,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     int n = Math.min(cModel.getStepCount(), pattern.length);
     for (int s = 0; s < n; s++) {
       boolean active = pattern[s];
-      org.deluge.model.StepData oldStep = getClipStep(cModel, visualModelRow, s);
+      org.deluge.model.StepData oldStep = cModel.getStep(clipRow, s);
       if (oldStep.active() == active) continue; // no change on this step
       org.deluge.model.StepData newStep =
           org.deluge.model.StepData.of(
@@ -387,10 +383,10 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
         bridge.setStep(engineRow, s, active);
         if (active) bridge.setVelocity(engineRow, s, 0.8);
       }
-      setClipStep(cModel, visualModelRow, s, newStep);
+      cModel.setStep(clipRow, s, newStep);
       steps.add(
           new org.deluge.model.Consequence.StepConsequence(
-              project, editedTrack, activeClipId, visualModelRow, s, oldStep, newStep));
+              project, editedTrack, activeClipId, clipRow, s, oldStep, newStep));
     }
     if (!steps.isEmpty()) {
       project
@@ -413,12 +409,13 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     org.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
 
     int visualModelRow = getModelRow(visualRow);
-    if (getClipRowIndex(cModel, visualModelRow, false) < 0) return;
+    int clipRow = getClipRowIndex(cModel, visualModelRow, false);
+    if (clipRow < 0) return;
     int engineRow = getAllocatedEngineRow(visualModelRow);
 
     java.util.List<org.deluge.model.Consequence> steps = new java.util.ArrayList<>();
     for (int s = 0; s < cModel.getStepCount(); s++) {
-      org.deluge.model.StepData oldStep = getClipStep(cModel, visualModelRow, s);
+      org.deluge.model.StepData oldStep = cModel.getStep(clipRow, s);
       if (oldStep == null || !oldStep.active()) continue;
       if (oldStep.nudge() == 0.0f) continue;
 
@@ -426,10 +423,10 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       if (engineRow >= 0) {
         bridge.setStepNudge(engineRow, s, 0.0);
       }
-      setClipStep(cModel, visualModelRow, s, newStep);
+      cModel.setStep(clipRow, s, newStep);
       steps.add(
           new org.deluge.model.Consequence.StepConsequence(
-              project, editedTrack, activeClipId, visualModelRow, s, oldStep, newStep));
+              project, editedTrack, activeClipId, clipRow, s, oldStep, newStep));
     }
     if (!steps.isEmpty()) {
       project
@@ -456,13 +453,14 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     org.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
 
     int visualModelRow = getModelRow(visualRow);
-    if (getClipRowIndex(cModel, visualModelRow, false) < 0) return;
+    int clipRow = getClipRowIndex(cModel, visualModelRow, false);
+    if (clipRow < 0) return;
     int engineRow = getAllocatedEngineRow(visualModelRow);
 
     java.util.List<org.deluge.model.Consequence> steps = new java.util.ArrayList<>();
     java.util.Random rand = new java.util.Random();
     for (int s = 0; s < cModel.getStepCount(); s++) {
-      org.deluge.model.StepData oldStep = getClipStep(cModel, visualModelRow, s);
+      org.deluge.model.StepData oldStep = cModel.getStep(clipRow, s);
       if (oldStep == null || !oldStep.active()) continue;
 
       float randNudge = rand.nextFloat() * maxNudgeFraction;
@@ -470,10 +468,10 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       if (engineRow >= 0) {
         bridge.setStepNudge(engineRow, s, randNudge);
       }
-      setClipStep(cModel, visualModelRow, s, newStep);
+      cModel.setStep(clipRow, s, newStep);
       steps.add(
           new org.deluge.model.Consequence.StepConsequence(
-              project, editedTrack, activeClipId, visualModelRow, s, oldStep, newStep));
+              project, editedTrack, activeClipId, clipRow, s, oldStep, newStep));
     }
     if (!steps.isEmpty()) {
       project
@@ -547,7 +545,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   public void setClipStep(
       org.deluge.model.ClipModel cModel, int modelRow, int col, org.deluge.model.StepData data) {
     int r = getClipRowIndex(cModel, modelRow, true);
-    cModel.setStep(r, col, data);
+    if (r >= 0) {
+      cModel.setStep(r, col, data);
+    }
   }
 
   public void updateFoldedPitches() {
@@ -2684,10 +2684,13 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   int getEngineRowOffset(int visualModelRow) {
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && viewMode == GridViewMode.CLIP
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
       int reserved = getReservedEngineRowCount(editedModelTrack);
-      if (track instanceof org.deluge.model.SynthTrackModel && viewMode == GridViewMode.CLIP) {
+      if (track instanceof org.deluge.model.SynthTrackModel) {
         if (activeClipId >= 0 && activeClipId < track.getClips().size()) {
           org.deluge.model.ClipModel cModel = track.getClips().get(activeClipId);
           int clipRow = getClipRowIndex(cModel, visualModelRow, false);
@@ -2715,7 +2718,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     return visualModelRow;
   }
 
-  int getAllocatedEngineRow(int visualModelRow) {
+  public int getAllocatedEngineRow(int visualModelRow) {
     int offset = getEngineRowOffset(visualModelRow);
     if (offset < 0 || baseTrackId < 0 || baseTrackId + offset >= BridgeContract.TRACKS) {
       return -1;

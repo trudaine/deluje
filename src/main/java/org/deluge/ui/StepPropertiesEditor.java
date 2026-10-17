@@ -139,11 +139,12 @@ public class StepPropertiesEditor {
       gItem.addActionListener(
           e -> {
             ClipModel cModel = resolveClipModel(parent);
-            if (cModel != null && parent.getClipRowIndex(cModel, visualModelRow, false) < 0) {
+            int clipRow =
+                cModel != null ? parent.getClipRowIndex(cModel, visualModelRow, false) : -1;
+            if (cModel != null && clipRow < 0) {
               return;
             }
-            StepData oldStep =
-                cModel != null ? parent.getClipStep(cModel, visualModelRow, activeCol) : null;
+            StepData oldStep = cModel != null ? cModel.getStep(clipRow, activeCol) : null;
             int er = parent.getAllocatedEngineRow(visualModelRow);
             if (er >= 0) {
               bridge.setGate(er, activeCol, g);
@@ -185,7 +186,7 @@ public class StepPropertiesEditor {
                       oldStep != null ? oldStep.nudge() : 0.0f,
                       oldStep != null ? oldStep.playCondition() : 0,
                       resolvedFillMode);
-              parent.setClipStep(cModel, visualModelRow, activeCol, newStep);
+              cModel.setStep(clipRow, activeCol, newStep);
               if (oldStep != null && parent.getProjectModel() != null) {
                 parent
                     .getProjectModel()
@@ -195,10 +196,10 @@ public class StepPropertiesEditor {
                             parent.getProjectModel(),
                             parent.getEditedModelTrack(),
                             parent.getActiveClipId(),
-                            visualModelRow,
+                            clipRow,
                             activeCol,
                             oldStep,
-                            parent.getClipStep(cModel, visualModelRow, activeCol)));
+                            cModel.getStep(clipRow, activeCol)));
               }
             }
             controller.refreshCallback.run();
@@ -213,8 +214,11 @@ public class StepPropertiesEditor {
     copyItem.addActionListener(
         e -> {
           ClipModel cModel = resolveClipModel(parent);
-          StepData existing =
-              cModel != null ? parent.getClipStep(cModel, visualModelRow, activeCol) : null;
+          int clipRow = cModel != null ? parent.getClipRowIndex(cModel, visualModelRow, false) : -1;
+          if (cModel != null && clipRow < 0) {
+            return;
+          }
+          StepData existing = cModel != null ? cModel.getStep(clipRow, activeCol) : null;
           int er = parent.getAllocatedEngineRow(visualModelRow);
           if (er < 0 && existing == null) {
             return;
@@ -265,10 +269,14 @@ public class StepPropertiesEditor {
         e -> {
           if (controller.copiedStep != null) {
             ClipModel cModel = resolveClipModel(parent);
-            StepData oldStep =
-                cModel != null ? parent.getClipStep(cModel, visualModelRow, activeCol) : null;
-            if (cModel != null && parent.getClipRowIndex(cModel, visualModelRow, true) < 0) {
-              return;
+            int dstClipRow = -1;
+            StepData oldStep = null;
+            if (cModel != null) {
+              dstClipRow = parent.getClipRowIndex(cModel, visualModelRow, true);
+              if (dstClipRow < 0) {
+                return;
+              }
+              oldStep = cModel.getStep(dstClipRow, activeCol);
             }
             int curTrackType =
                 parent.getBaseTrackId() >= 0
@@ -277,7 +285,7 @@ public class StepPropertiesEditor {
             int pitch = resolveStepPitch(parent, curTrackType, visualModelRow);
             StepData newStep = controller.copiedStep.withPitch(pitch);
             if (cModel != null) {
-              parent.setClipStep(cModel, visualModelRow, activeCol, newStep);
+              cModel.setStep(dstClipRow, activeCol, newStep);
               if (oldStep != null && parent.getProjectModel() != null) {
                 parent
                     .getProjectModel()
@@ -287,10 +295,10 @@ public class StepPropertiesEditor {
                             parent.getProjectModel(),
                             parent.getEditedModelTrack(),
                             parent.getActiveClipId(),
-                            visualModelRow,
+                            dstClipRow,
                             activeCol,
                             oldStep,
-                            parent.getClipStep(cModel, visualModelRow, activeCol)));
+                            cModel.getStep(dstClipRow, activeCol)));
               }
             }
             int dstEngineRow = parent.getAllocatedEngineRow(visualModelRow);
@@ -343,6 +351,9 @@ public class StepPropertiesEditor {
     int visualModelRow = parent.getModelRow(row);
     int activeCol = parent.getActiveCol(row, col);
     ClipModel cm = resolveClipModel(parent);
+    if (cm != null && parent.getClipRowIndex(cm, visualModelRow, false) < 0) {
+      return;
+    }
     StepData sd = cm != null ? parent.getClipStep(cm, visualModelRow, activeCol) : null;
     int engineRow = parent.getAllocatedEngineRow(visualModelRow);
     double curVel =
@@ -447,11 +458,11 @@ public class StepPropertiesEditor {
     ClipModel cModel = resolveClipModel(parent);
     int editedModelTrack = parent.getEditedModelTrack();
     int activeClipId = parent.getActiveClipId();
-    if (cModel != null && parent.getClipRowIndex(cModel, visualModelRow, false) < 0) {
+    int clipRow = cModel != null ? parent.getClipRowIndex(cModel, visualModelRow, false) : -1;
+    if (cModel != null && clipRow < 0) {
       return;
     }
-    StepData oldStep =
-        cModel != null ? parent.getClipStep(cModel, visualModelRow, activeCol) : null;
+    StepData oldStep = cModel != null ? cModel.getStep(clipRow, activeCol) : null;
     int baseTrackId = parent.getBaseTrackId();
     int trackType = baseTrackId >= 0 ? bridge.getTrackType(baseTrackId) : 1;
     int pitch = resolveStepPitch(parent, trackType, visualModelRow);
@@ -462,7 +473,7 @@ public class StepPropertiesEditor {
       int trackLen = cModel.getStepCount();
       java.util.List<Consequence> steps = new java.util.ArrayList<>();
       for (int c = baseCol; c < trackLen; c += 16) {
-        StepData oldSt = parent.getClipStep(cModel, visualModelRow, c);
+        StepData oldSt = cModel.getStep(clipRow, c);
         if (oldSt.active()) {
           if (bridge != null && engineRow >= 0) {
             bridge.setVelocity(engineRow, c, vel);
@@ -490,14 +501,14 @@ public class StepPropertiesEditor {
                   (float) nudge,
                   resolvedPlayCond,
                   resolvedFillMode);
-          parent.setClipStep(cModel, visualModelRow, c, newStep);
+          cModel.setStep(clipRow, c, newStep);
           if (oldSt != null && parent.getProjectModel() != null) {
             steps.add(
                 new Consequence.StepConsequence(
                     parent.getProjectModel(),
                     editedModelTrack,
                     activeClipId,
-                    visualModelRow,
+                    clipRow,
                     c,
                     oldSt,
                     newStep));
@@ -543,7 +554,7 @@ public class StepPropertiesEditor {
                 (float) nudge,
                 resolvedPlayCond,
                 resolvedFillMode);
-        parent.setClipStep(cModel, visualModelRow, activeCol, newStep);
+        cModel.setStep(clipRow, activeCol, newStep);
         if (oldStep != null && parent.getProjectModel() != null) {
           parent
               .getProjectModel()
@@ -553,10 +564,10 @@ public class StepPropertiesEditor {
                       parent.getProjectModel(),
                       editedModelTrack,
                       activeClipId,
-                      visualModelRow,
+                      clipRow,
                       activeCol,
                       oldStep,
-                      parent.getClipStep(cModel, visualModelRow, activeCol)));
+                      cModel.getStep(clipRow, activeCol)));
         }
       }
     }
@@ -600,11 +611,11 @@ public class StepPropertiesEditor {
     ClipModel cModel = resolveClipModel(parent);
     int editedModelTrack = parent.getEditedModelTrack();
     int activeClipId = parent.getActiveClipId();
-    if (cModel != null && parent.getClipRowIndex(cModel, visualModelRow, false) < 0) {
+    int clipRow = cModel != null ? parent.getClipRowIndex(cModel, visualModelRow, false) : -1;
+    if (cModel != null && clipRow < 0) {
       return;
     }
-    StepData oldStep =
-        cModel != null ? parent.getClipStep(cModel, visualModelRow, activeCol) : null;
+    StepData oldStep = cModel != null ? cModel.getStep(clipRow, activeCol) : null;
     int baseTrackId = parent.getBaseTrackId();
     int trackType = baseTrackId >= 0 ? bridge.getTrackType(baseTrackId) : 1;
     int pitch = resolveStepPitch(parent, trackType, visualModelRow);
@@ -615,7 +626,7 @@ public class StepPropertiesEditor {
       int trackLen = cModel.getStepCount();
       java.util.List<Consequence> steps = new java.util.ArrayList<>();
       for (int c = baseCol; c < trackLen; c += 16) {
-        StepData oldSt = parent.getClipStep(cModel, visualModelRow, c);
+        StepData oldSt = cModel.getStep(clipRow, c);
         if (oldSt.active()) {
           if (bridge != null && engineRow >= 0) {
             bridge.setStepProbability(engineRow, c, prob);
@@ -649,14 +660,14 @@ public class StepPropertiesEditor {
                   oldSt.nudge(),
                   oldSt.playCondition(),
                   resolvedFillMode);
-          parent.setClipStep(cModel, visualModelRow, c, newStep);
+          cModel.setStep(clipRow, c, newStep);
           if (oldSt != null && parent.getProjectModel() != null) {
             steps.add(
                 new Consequence.StepConsequence(
                     parent.getProjectModel(),
                     editedModelTrack,
                     activeClipId,
-                    visualModelRow,
+                    clipRow,
                     c,
                     oldSt,
                     newStep));
@@ -711,7 +722,7 @@ public class StepPropertiesEditor {
                 oldStep != null ? oldStep.nudge() : 0.0f,
                 oldStep != null ? oldStep.playCondition() : 0,
                 resolvedFillMode);
-        parent.setClipStep(cModel, visualModelRow, activeCol, newStep);
+        cModel.setStep(clipRow, activeCol, newStep);
         if (oldStep != null && parent.getProjectModel() != null) {
           parent
               .getProjectModel()
@@ -721,10 +732,10 @@ public class StepPropertiesEditor {
                       parent.getProjectModel(),
                       editedModelTrack,
                       activeClipId,
-                      visualModelRow,
+                      clipRow,
                       activeCol,
                       oldStep,
-                      parent.getClipStep(cModel, visualModelRow, activeCol)));
+                      cModel.getStep(clipRow, activeCol)));
         }
       }
     }

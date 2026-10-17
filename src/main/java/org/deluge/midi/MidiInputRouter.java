@@ -259,11 +259,14 @@ public class MidiInputRouter {
 
               if (row >= 0) {
                 int clipRow = activeGrid.getClipRowIndex(clip, row, true);
+                if (clipRow < 0) {
+                  return;
+                }
                 org.deluge.model.StepData oldStep = clip.getStep(clipRow, col);
                 org.deluge.model.StepData newStep =
                     org.deluge.model.StepData.of(
                         true, (float) (velocity / 127.0), 1.0f, 1.0f, pitch);
-                activeGrid.setClipStep(clip, row, col, newStep);
+                clip.setStep(clipRow, col, newStep);
 
                 // Push StepConsequence to the undo/redo stack & trigger macro recording!
                 activeGrid
@@ -280,12 +283,14 @@ public class MidiInputRouter {
                             newStep));
 
                 // Update low-level ChucK bridge
-                int engineRow = activeGrid.getBaseTrackId() + clipRow;
-                bridge.setStep(engineRow, col, true);
-                bridge.setVelocity(engineRow, col, (float) (velocity / 127.0));
-                bridge.setGate(engineRow, col, 1.0);
-                if (trackIndex >= 4) {
-                  bridge.setPitch(engineRow, col, pitch);
+                int engineRow = activeGrid.getAllocatedEngineRow(row);
+                if (engineRow >= 0) {
+                  bridge.setStep(engineRow, col, true);
+                  bridge.setVelocity(engineRow, col, (float) (velocity / 127.0));
+                  bridge.setGate(engineRow, col, 1.0);
+                  if (trackIndex >= 4) {
+                    bridge.setPitch(engineRow, col, pitch);
+                  }
                 }
 
                 // Store start time and step for Note Off gate calculation
@@ -346,11 +351,13 @@ public class MidiInputRouter {
                   org.deluge.model.StepData oldStep = clip.getStep(clipRow, start.step);
                   if (oldStep != null && oldStep.active()) {
                     org.deluge.model.StepData newStep = oldStep.withGate((float) gate);
-                    activeGrid.setClipStep(clip, row, start.step, newStep);
+                    clip.setStep(clipRow, start.step, newStep);
 
                     // Update low-level ChucK bridge gate
-                    int engineRow = activeGrid.getBaseTrackId() + clipRow;
-                    bridge.setGate(engineRow, start.step, gate);
+                    int engineRow = activeGrid.getAllocatedEngineRow(row);
+                    if (engineRow >= 0) {
+                      bridge.setGate(engineRow, start.step, gate);
+                    }
 
                     // Refresh UI grid
                     javax.swing.SwingUtilities.invokeLater(() -> activeGrid.refresh());
