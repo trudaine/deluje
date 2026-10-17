@@ -7,13 +7,11 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.nio.file.Files;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.deluge.engine.FirmwareAudioEngine;
 import org.deluge.engine.FirmwareFactory;
 import org.deluge.engine.FirmwareSound;
 import org.deluge.model.ClipModel;
+import org.deluge.model.KeyZone;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.StepData;
 import org.deluge.model.SynthTrackModel;
@@ -62,10 +60,11 @@ public class MultiSampleMemoryStreamingBehaviorTest {
     int tested = 0;
     for (String preset : multisamples) {
       File xml = new File(SYNTH_DIR, preset);
-      if (!xml.exists() || !firstSampleExists(xml)) continue;
-      tested++;
+      if (!xml.exists()) continue;
 
       SynthTrackModel synth = DelugeXmlParser.parseSynth(new FileInputStream(xml), xml.getName());
+      if (!anyKeyZoneSampleExists(synth)) continue;
+      tested++;
       synth.setName(xml.getName().replace(".XML", ""));
 
       ClipModel clip = new ClipModel("c", 1, 16);
@@ -136,14 +135,18 @@ public class MultiSampleMemoryStreamingBehaviorTest {
   }
 
   /**
-   * The multisample WAVs live on a real SD card, not in git (issue #20). Skip a preset whose first
-   * keyzone sample does not resolve under {@code deluge.card}, as FidelityScorecardTest does.
+   * The multisample WAVs live on a real SD card, not in git (issue #20). Skip a preset none of
+   * whose parsed keyzone samples resolve under {@code deluge.card}, as FidelityScorecardTest does.
+   * Uses the parser's keyzones, so tag- and attribute-form {@code fileName} are both covered.
    */
-  private static boolean firstSampleExists(File xml) throws Exception {
-    Matcher m =
-        Pattern.compile("<fileName>([^<]+)</fileName>").matcher(Files.readString(xml.toPath()));
-    if (!m.find()) return false;
-    File f = FirmwareFactory.resolveSample(m.group(1), SYNTH_DIR.getParentFile());
-    return f != null && f.isFile();
+  private static boolean anyKeyZoneSampleExists(SynthTrackModel synth) {
+    var zones = new java.util.ArrayList<KeyZone>(synth.getKeyZones().getOsc1Zones());
+    zones.addAll(synth.getKeyZones().getOsc2Zones());
+    for (KeyZone kz : zones) {
+      if (kz.samplePath == null || kz.samplePath.isEmpty()) continue;
+      File f = FirmwareFactory.resolveSample(kz.samplePath, SYNTH_DIR.getParentFile());
+      if (f != null && f.isFile()) return true;
+    }
+    return false;
   }
 }
