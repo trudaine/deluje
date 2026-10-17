@@ -104,6 +104,34 @@ public class VoiceSample {
   }
 
   /**
+   * Copies playback and reader state from an existing unison part onto a newly enabled unison part
+   * (C: Sound::setNumUnison, sound.cpp:3166-3176).
+   */
+  public void copyStateFrom(VoiceSample other) {
+    this.active = other.active;
+    this.linearInterpolation = other.linearInterpolation;
+    this.startFrame = other.startFrame;
+    this.endFrame = other.endFrame;
+    this.looping = other.looping;
+    this.loopStartFrame = other.loopStartFrame;
+    this.hasLoopEnd = other.hasLoopEnd;
+    this.loopEndFrame = other.loopEndFrame;
+    this.noteOffReceived = other.noteOffReceived;
+    this.pendingSamplesLate = other.pendingSamplesLate;
+    this.pendingSample = other.pendingSample;
+    this.pendingStartFrame = other.pendingStartFrame;
+    this.pendingEndFrame = other.pendingEndFrame;
+    this.pendingPlayDirection = other.pendingPlayDirection;
+    this.pendingLooping = other.pendingLooping;
+    this.pendingLoopStartFrame = other.pendingLoopStartFrame;
+    this.pendingHasLoopEnd = other.pendingHasLoopEnd;
+    this.pendingLoopEndFrame = other.pendingLoopEndFrame;
+    this.reader.copyStateFrom(other.reader);
+    this.olderReader.copyStateFrom(other.olderReader);
+    this.timeStretcher.copyStateFrom(other.timeStretcher);
+  }
+
+  /**
    * Begin time-stretched playback from {@code startFrame} (one-shot to waveform end). C
    * TimeStretcher::init (time_stretcher.cpp:54-56, 130-139).
    */

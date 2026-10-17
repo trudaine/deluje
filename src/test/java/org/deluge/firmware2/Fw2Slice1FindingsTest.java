@@ -1049,4 +1049,177 @@ class Fw2Slice1FindingsTest {
     }
     assertTrue(energy2 > 0, "16->2 tap fallback near sample end must render remaining frames");
   }
+
+  @Test
+  void round7_heldSampleVoiceRecoversWhenExcessiveTransposeIsLowered() {
+    for (int sampleOsc = 0; sampleOsc < 2; sampleOsc++) {
+      int otherOsc = 1 - sampleOsc;
+      Sound sound = makeInitializedSound();
+      sound.oscTypes[sampleOsc] = Oscillator.OscType.SAMPLE;
+      sound.samples[sampleOsc] = makeRampSample(256, 44100);
+      sound.sampleLoopMode[sampleOsc] = 1; // LOOP
+      sound.oscTypes[otherOsc] = Oscillator.OscType.SINE;
+      sound.sourceTranspose[otherOsc] = -84; // Keep otherOsc below Nyquist when masterTranspose=84
+      sound.masterTranspose = 84; // Puts sampleOsc over Nyquist on note 60
+      sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
+      sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MAX_VALUE;
+
+      sound.triggerNote(60, 100);
+      int[] buf = new int[128];
+      int[] rev = new int[64];
+      sound.renderInternal(buf, 64, rev);
+
+      Voice v = sound.voices.get(0);
+      VoiceSource vs = v.unisonParts[0].sources[sampleOsc];
+      assertFalse(vs.active, "Sample osc " + sampleOsc + " must be pitch-disabled at +84");
+      assertTrue(vs.disabledByPitch);
+      assertTrue(vs.voiceSample.active, "Underlying sample reader must stay active");
+
+      // Lower masterTranspose on the held voice and mute otherOsc so only sampleOsc can sound.
+      sound.masterTranspose = 0;
+      sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME + otherOsc] = Integer.MIN_VALUE;
+      Arrays.fill(buf, 0);
+      sound.renderInternal(buf, 64, rev);
+
+      assertTrue(vs.active, "Held sample osc " + sampleOsc + " must recover when transpose drops");
+      assertFalse(vs.disabledByPitch);
+      long energy = 0;
+      for (int s : buf) {
+        energy += Math.abs((long) s);
+      }
+      assertTrue(energy > 0, "Recovered sample osc " + sampleOsc + " must output audio");
+    }
+  }
+
+  @Test
+  void round7_pitchDisabledWaveformMutedDuringPitchDropRecoversAfterUnmuting() {
+    Sound sound = makeInitializedSound();
+    sound.oscTypes[0] = Oscillator.OscType.SAW;
+    sound.oscTypes[1] = Oscillator.OscType.SINE;
+    sound.sourceTranspose[0] = 84; // Over-Nyquist on note 60
+    sound.sourceTranspose[1] = 0;
+    sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
+    sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MAX_VALUE;
+
+    sound.triggerNote(60, 100);
+    int[] buf = new int[128];
+    int[] rev = new int[64];
+    sound.renderInternal(buf, 64, rev);
+
+    Voice v = sound.voices.get(0);
+    VoiceSource vsA = v.unisonParts[0].sources[0];
+    assertFalse(vsA.active);
+    assertTrue(vsA.disabledByPitch);
+
+    // Mute Osc A while lowering transpose below Nyquist.
+    sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MIN_VALUE;
+    sound.sourceTranspose[0] = 0;
+    sound.renderInternal(buf, 64, rev);
+    assertFalse(vsA.active, "Muted source must not activate while volume is MIN_VALUE");
+    assertTrue(
+        vsA.disabledByPitch,
+        "disabledByPitch must remain set while muted so unmuting later can restore the source");
+
+    // Unmute Osc A and mute Osc B on the held voice.
+    sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
+    sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+    Arrays.fill(buf, 0);
+    sound.renderInternal(buf, 64, rev);
+
+    assertTrue(vsA.active, "Pitch-disabled waveform must recover once unmuted below Nyquist");
+    assertFalse(vsA.disabledByPitch);
+    long energy = 0;
+    for (int s : buf) {
+      energy += Math.abs((long) s);
+    }
+    assertTrue(energy > 0, "Unmuted recovered waveform must output audio");
+  }
+
+  @Test
+  void round7_increasingUnisonDuringHeldLegatoNoteInitializesNewParts() {
+    // 1. Waveform (SAW) legato voice: numUnison 1 -> 4 during held note.
+    Sound sawSound = makeInitializedSound();
+    sawSound.polyphonic = Sound.PolyphonyMode.LEGATO;
+    sawSound.oscTypes[0] = Oscillator.OscType.SAW;
+    sawSound.numUnison = 1;
+    sawSound.unisonDetune = 20;
+    sawSound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
+    sawSound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+
+    sawSound.triggerNote(60, 100);
+    int[] buf = new int[128];
+    int[] rev = new int[64];
+    sawSound.renderInternal(buf, 64, rev);
+    Voice vSaw = sawSound.voices.get(0);
+    assertEquals(1, vSaw.initializedUnisonParts);
+    int part0PhaseBefore = vSaw.unisonParts[0].sources[0].oscPos;
+
+    // Increase unison to 4 and trigger an overlapping legato note.
+    sawSound.numUnison = 4;
+    sawSound.triggerNote(64, 100);
+    assertSame(vSaw, sawSound.voices.get(0));
+    assertEquals(4, vSaw.initializedUnisonParts);
+    assertEquals(
+        part0PhaseBefore,
+        vSaw.unisonParts[0].sources[0].oscPos,
+        "Existing unison part 0 phase must not be reset by legato unison increase");
+    for (int u = 0; u < 4; u++) {
+      assertTrue(
+          vSaw.unisonParts[u].sources[0].active, "Unison part " + u + " must be active on SAW");
+    }
+
+    int[] phasesBeforeRender = new int[4];
+    for (int u = 0; u < 4; u++) {
+      phasesBeforeRender[u] = vSaw.unisonParts[u].sources[0].oscPos;
+    }
+    Arrays.fill(buf, 0);
+    sawSound.renderInternal(buf, 64, rev);
+    for (int u = 0; u < 4; u++) {
+      assertNotEquals(
+          phasesBeforeRender[u],
+          vSaw.unisonParts[u].sources[0].oscPos,
+          "Unison part " + u + " must render and advance oscPos");
+    }
+
+    // 2. Sample legato voice: numUnison 1 -> 4 during held note clones active sample state.
+    Sound sampleSound = makeInitializedSound();
+    sampleSound.polyphonic = Sound.PolyphonyMode.LEGATO;
+    sampleSound.oscTypes[0] = Oscillator.OscType.SAMPLE;
+    sampleSound.samples[0] = makeRampSample(256, 44100);
+    sampleSound.sampleLoopMode[0] = 1; // LOOP
+    sampleSound.numUnison = 1;
+    sampleSound.unisonDetune = 15;
+    sampleSound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
+    sampleSound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+
+    sampleSound.triggerNote(60, 100);
+    sampleSound.renderInternal(buf, 64, rev);
+    Voice vSample = sampleSound.voices.get(0);
+    int part0PlayPos = vSample.unisonParts[0].sources[0].voiceSample.reader.playPos;
+    assertTrue(part0PlayPos > 0);
+
+    sampleSound.numUnison = 4;
+    sampleSound.triggerNote(64, 100);
+    assertSame(vSample, sampleSound.voices.get(0));
+    assertEquals(4, vSample.initializedUnisonParts);
+    for (int u = 0; u < 4; u++) {
+      VoiceSource vs = vSample.unisonParts[u].sources[0];
+      assertTrue(vs.active, "Sample unison part " + u + " must be active");
+      assertNotEquals(null, vs.sampleRef, "Sample unison part " + u + " must have sampleRef");
+      assertTrue(vs.voiceSample.active, "Sample unison part " + u + " reader must be active");
+      assertEquals(
+          part0PlayPos,
+          vs.voiceSample.reader.playPos,
+          "Newly added sample unison part " + u + " must clone current playPos");
+    }
+
+    Arrays.fill(buf, 0);
+    sampleSound.renderInternal(buf, 64, rev);
+    for (int u = 0; u < 4; u++) {
+      assertNotEquals(
+          part0PlayPos,
+          vSample.unisonParts[u].sources[0].voiceSample.reader.playPos,
+          "Sample unison part " + u + " reader must advance during render");
+    }
+  }
 }

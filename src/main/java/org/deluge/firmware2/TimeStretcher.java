@@ -57,6 +57,19 @@ public class TimeStretcher {
   private final int[] hopParameters = new int[5];
   private final int[] searchParameters = new int[2];
 
+  /** Copies active hop and playhead state when cloning a unison part (C: sound.cpp:3166-3176). */
+  public void copyStateFrom(TimeStretcher other) {
+    this.samplePosBig = other.samplePosBig;
+    this.samplesTilHopEnd = other.samplesTilHopEnd;
+    this.crossfadeProgress = other.crossfadeProgress;
+    this.crossfadeIncrement = other.crossfadeIncrement;
+    this.playHeadStillActive[0] = other.playHeadStillActive[0];
+    this.playHeadStillActive[1] = other.playHeadStillActive[1];
+    this.hasLoopedBackIntoPreMargin = other.hasLoopedBackIntoPreMargin;
+    this.newHeadBytePosResult = other.newHeadBytePosResult;
+    this.additionalOscPosResult = other.additionalOscPosResult;
+  }
+
   /** C: kAntiClickCrossfadeLength (definitions_cxx.hpp:834). */
   public static final int K_ANTI_CLICK_CROSSFADE_LENGTH = 100;
 

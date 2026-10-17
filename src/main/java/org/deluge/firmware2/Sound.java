@@ -1203,6 +1203,7 @@ public class Sound extends GlobalEffectable {
                 }
               }
             }
+            v.ensureUnisonPartsInitialized(note, vel);
             v.changeNoteCode(note, midiChannel, mpeValues);
             return;
           }
