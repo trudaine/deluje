@@ -444,6 +444,7 @@ public class KitSynthSerializer {
     // C writeCommonParamsToFile (arpeggiator.cpp): "mode" = arpModeToString, "arp" or "off".
     arp.setAttribute("mode", synth.getArp().active() ? "arp" : "off");
     arp.setAttribute("active", synth.getArp().active() ? "1" : "0");
+    arp.setAttribute(org.deluge.xml.ArpXmlCodec.FORMAT_ATTR, org.deluge.xml.ArpXmlCodec.FORMAT_C);
     arp.setAttribute("sequenceLength", String.valueOf(synth.getArp().seqLength()));
     arp.setAttribute("arpMode", synth.getArp().active() ? "arp" : "off");
     if (synth.getArp().notePattern() != null && !synth.getArp().notePattern().isEmpty()) {

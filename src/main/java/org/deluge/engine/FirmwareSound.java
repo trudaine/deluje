@@ -476,7 +476,12 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
       fw2Sound.sidechain.timePerInternalTickInverse = fw2Sound.timePerInternalTickInverse;
       // Wire timePerInternalTickInverse into arpeggiator phase increment (C
       // arpeggiator.cpp:1592-1613 getPhaseIncrement / sound.cpp:2458 call site)
-      if (fw2Sound.arpPhaseIncrement == 0) {
+      if (fw2Sound.arpSettings.syncLevel
+          == org.deluge.firmware2.Arpeggiator.SyncLevel.SYNC_LEVEL_NONE) {
+        // Unsynced: leave 0 so fw2 Sound recomputes the C free-rate increment from the current
+        // GLOBAL_ARP_RATE every block (arpeggiator.cpp:1594-1596). Caching it froze rate edits.
+        fw2Sound.arpPhaseIncrement = 0;
+      } else if (fw2Sound.arpPhaseIncrement == 0) {
         int arpRateFinal =
             org.deluge.firmware2.Patcher.computeFinalValueForParam(
                 org.deluge.firmware2.Param.GLOBAL_ARP_RATE,

@@ -571,6 +571,8 @@ public class ProjectSerializer {
         // arpModeToString — "arp" or "off".
         writer.writeAttribute("mode", synth.getArp().active() ? "arp" : "off", false);
         writer.writeAttribute("active", synth.getArp().active() ? "1" : "0", false);
+        writer.writeAttribute(
+            org.deluge.xml.ArpXmlCodec.FORMAT_ATTR, org.deluge.xml.ArpXmlCodec.FORMAT_C, false);
         writer.writeAttribute("sequenceLength", synth.getArp().seqLength(), false);
         writer.writeAttribute("arpMode", synth.getArp().active() ? "arp" : "off", false);
         if (synth.getArp().notePattern() != null && !synth.getArp().notePattern().isEmpty()) {

@@ -199,4 +199,18 @@ public class LiveApplyTest {
         drumSound.paramNeutralValues[Param.LOCAL_LPF_FREQ],
         drumSound.fw2Sound.patchedParamValues[org.deluge.firmware2.Param.LOCAL_LPF_FREQ]);
   }
+
+  @Test
+  void unsyncedArpIncrementIsNotCachedSoRateEditsApply() {
+    SynthTrackModel m = model();
+    m.setArp(
+        org.deluge.model.ArpModel.defaultConfig().toBuilder().active(true).syncLevel(0).build());
+    m.setArpRateQ31(0);
+    FirmwareSound sound = build(m);
+    sound.syncParamsToFw2();
+    // 0 makes fw2 Sound recompute the C free-rate increment from GLOBAL_ARP_RATE every block.
+    assertEquals(0, sound.fw2Sound.arpPhaseIncrement);
+    assertEquals(
+        org.deluge.firmware2.Arpeggiator.SyncLevel.SYNC_LEVEL_NONE, sound.arpSettings.syncLevel);
+  }
 }

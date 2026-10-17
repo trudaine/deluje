@@ -265,7 +265,7 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
                     lfo0.syncLevel(),
                     lfo0.syncType()));
           }
-          case "goldArpRate" -> synth.setArp(synth.getArp().toBuilder().rate(value).build());
+          case "goldArpRate" -> synth.setArpRateQ31(SynthTrackModel.arpRateQ31FromUnit(value));
           case "goldPortamento" -> synth.setPortamento(value);
           case "goldOscMix" -> synth.setOscMix(value);
           case "goldBitcrusher" -> synth.setClippingAmount((int) value);

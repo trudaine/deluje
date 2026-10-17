@@ -235,4 +235,47 @@ public class ArpXmlParityTest {
               org.deluge.firmware2.Functions.computeFinalValueForStandardMenuItem(v)));
     }
   }
+
+  @Test
+  void anOldSaveOfThisAppKeepsItsDenominatorAndEditedOctaves() throws Exception {
+    // The old writers: "active" attribute, syncLevel = the model's denominator, a stale numOctaves
+    // beside the edited <octaves>. No arpSyncFormat marker.
+    ArpModel arp =
+        arpOf(
+            "<arpeggiator active=\"1\" arpMode=\"arp\" numOctaves=\"1\">"
+                + "<octaves>3</octaves><syncLevel>16</syncLevel></arpeggiator>");
+    assertEquals(16, arp.syncLevel(), "a 16th, not the C reading of file value 16 (a 128th)");
+    assertEquals(3, arp.octaves());
+    // Its 0 stays "not synced" (what the hardware plays for SONG003.xml).
+    assertEquals(
+        0,
+        arpOf("<arpeggiator active=\"0\" mode=\"up\"><syncLevel>0</syncLevel></arpeggiator>")
+            .syncLevel());
+    // A current save carries the marker and the C value.
+    assertEquals(
+        16,
+        arpOf("<arpeggiator active=\"1\" arpSyncFormat=\"c\" arpMode=\"arp\" syncLevel=\"7\"/>")
+            .syncLevel());
+  }
+
+  @Test
+  void synthPresetExporterSavesTheRawArpRate() throws Exception {
+    SynthTrackModel synth = new SynthTrackModel("E");
+    synth.setArpRateQ31(-0x20000000);
+    synth.setArp(ArpModel.defaultConfig().toBuilder().active(true).syncLevel(32).build());
+    java.io.File f = java.io.File.createTempFile("exp", ".XML");
+    f.deleteOnExit();
+    DelugeXmlExporter.saveSynthPreset(synth, new org.deluge.BridgeContract(), 0, f);
+    SynthTrackModel back = DelugeXmlParser.parseSynth(f);
+    assertEquals(-0x20000000, back.getArpRateQ31());
+    assertEquals(32, back.getArp().syncLevel());
+    assertTrue(back.getArp().active());
+  }
+
+  @Test
+  void gridMacroUnitMapsOntoTheBipolarKnob() {
+    assertEquals(Integer.MIN_VALUE, SynthTrackModel.arpRateQ31FromUnit(0.0));
+    assertEquals(Integer.MAX_VALUE, SynthTrackModel.arpRateQ31FromUnit(1.0));
+    assertEquals(0, SynthTrackModel.arpRateQ31FromUnit(0.5));
+  }
 }

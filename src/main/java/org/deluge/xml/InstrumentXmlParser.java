@@ -1280,9 +1280,13 @@ public class InstrumentXmlParser {
     }
     String rateStr = getChildText(arpEl, "rate");
     if (rateStr != null) rate = Math.abs(DelugeHexMapper.hexToFloat(rateStr));
-    // C "numOctaves" (:1650). "octaves" is this app's older tag name.
+    boolean legacyApp = ArpXmlCodec.isLegacyAppArp(arpEl);
+    // C "numOctaves" (:1650). "octaves" is this app's older tag; its old writers saved a stale
+    // numOctaves beside it, so an old app file prefers <octaves>.
     int octaves =
-        attrOrDirectChildInt(arpEl, "numOctaves", attrOrDirectChildInt(arpEl, "octaves", 1));
+        legacyApp
+            ? attrOrDirectChildInt(arpEl, "octaves", attrOrDirectChildInt(arpEl, "numOctaves", 1))
+            : attrOrDirectChildInt(arpEl, "numOctaves", attrOrDirectChildInt(arpEl, "octaves", 1));
     String gateStr = getChildText(arpEl, "gate");
     if (gateStr != null) gate = Math.abs(DelugeHexMapper.hexToFloat(gateStr));
 
@@ -1294,8 +1298,11 @@ public class InstrumentXmlParser {
     int syncLevel = ArpXmlCodec.DEFAULT_SYNC_DENOMINATOR;
     if (syncStr != null) {
       try {
+        int v = Integer.parseInt(syncStr.trim());
+        // An old save of this app stored the model's denominator. Its 0 stays "not synced":
+        // that is what the hardware plays for such a file (Song000FidelityTest, REC00004).
         syncLevel =
-            ArpXmlCodec.syncDenominatorFromFile(Integer.parseInt(syncStr), inputTickMagnitude);
+            legacyApp ? Math.max(0, v) : ArpXmlCodec.syncDenominatorFromFile(v, inputTickMagnitude);
       } catch (NumberFormatException e) {
         LOG.log(Level.FINE, "NumberFormatException parsing arpeggiator syncLevel", e);
       }

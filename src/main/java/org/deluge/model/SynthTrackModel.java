@@ -157,6 +157,12 @@ public class SynthTrackModel extends TrackModel {
     this.arpRateQ31 = v;
   }
 
+  /** A 0..1 control position (grid macro) → the bipolar q31 GLOBAL_ARP_RATE knob. */
+  public static int arpRateQ31FromUnit(double unit) {
+    double q = Math.max(0.0, Math.min(1.0, unit)) * 4294967296.0 - 2147483648.0;
+    return (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, Math.round(q)));
+  }
+
   public int getPortamentoQ31() {
     return portamentoQ31;
   }

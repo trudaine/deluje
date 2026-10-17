@@ -13,6 +13,24 @@ package org.deluge.xml;
 public final class ArpXmlCodec {
   private ArpXmlCodec() {}
 
+  /**
+   * Written by this app's arp writers next to the C keys. The C ignores unknown attributes; the
+   * parser uses it to tell a current save (C-encoded syncLevel) from an older save of this app,
+   * which carried the model's note denominator in syncLevel.
+   */
+  public static final String FORMAT_ATTR = "arpSyncFormat";
+
+  public static final String FORMAT_C = "c";
+
+  /**
+   * An older save of this app: it wrote the "active" attribute (never a C key) and not {@link
+   * #FORMAT_ATTR}. Its syncLevel is the model's denominator, and numOctaves may be stale next to
+   * the edited &lt;octaves&gt; tag.
+   */
+  public static boolean isLegacyAppArp(org.w3c.dom.Element arpEl) {
+    return arpEl.hasAttribute("active") && !FORMAT_C.equals(arpEl.getAttribute(FORMAT_ATTR));
+  }
+
   /** C FlashStorage::defaultMagnitude (flash_storage.cpp:350), used for a standalone preset. */
   public static final int DEFAULT_INPUT_TICK_MAGNITUDE = 2;
 

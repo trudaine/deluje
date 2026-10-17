@@ -29,6 +29,13 @@ public class DelugeXmlExporter {
     rootElement.setAttribute("name", model.getName());
     rootElement.setAttribute("polyphonic", "auto");
 
+    // GLOBAL_ARP_RATE (sound.cpp:4040/4117): the raw param a preset carries in <defaultParams>.
+    Element defaultParams = doc.createElement("defaultParams");
+    Element arpRate = doc.createElement("arpeggiatorRate");
+    arpRate.setTextContent(String.format("0x%08X", model.getArpRateQ31()));
+    defaultParams.appendChild(arpRate);
+    rootElement.appendChild(defaultParams);
+
     // Oscillator 1
     Element osc1 = doc.createElement("osc1");
     osc1.setAttribute("type", model.getOsc1Type());
@@ -62,6 +69,7 @@ public class DelugeXmlExporter {
     org.deluge.model.ArpModel arpModel =
         model.getArp() != null ? model.getArp() : org.deluge.model.ArpModel.defaultConfig();
     arp.setAttribute("active", arpModel.active() ? "1" : "0");
+    arp.setAttribute(ArpXmlCodec.FORMAT_ATTR, ArpXmlCodec.FORMAT_C);
     // The C keys (writeCommonParamsToFile, arpeggiator.cpp): without "arpMode" the firmware loads
     // the arp OFF, and without "numOctaves" at 1 octave.
     arp.setAttribute("mode", arpModel.active() ? "arp" : "off");
