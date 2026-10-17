@@ -16,6 +16,11 @@
         <maven.compiler.release>27</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>5.12.0</junit.version>
+        <!-- Library root the tests resolve samples/kits against. Defaults to the repo's own
+             resources so tests are hermetic: without it PreferencesManager.getLibraryDir() falls
+             back to the developer's saved library_dir preference or ~/Deluge, which CI has not got
+             (issue #20). Override with -Ddeluge.card=/path/to/card. -->
+        <deluge.card>${project.basedir}/src/main/resources</deluge.card>
     </properties>
 
     <dependencyManagement>
@@ -86,6 +91,9 @@
                     <reuseForks>false</reuseForks>
                     <argLine>--enable-preview --add-modules jdk.incubator.vector -Dchuck.audio.dummy=true -Ddeluge.audio.silent=true -Xmx2048m</argLine>
                     <excludedGroups>slow</excludedGroups>
+                    <systemPropertyVariables>
+                        <deluge.card>${deluge.card}</deluge.card>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
             <plugin>

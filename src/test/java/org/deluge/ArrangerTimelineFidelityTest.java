@@ -86,12 +86,15 @@ public class ArrangerTimelineFidelityTest {
     bridge.setGlobalInt(BridgeContract.G_PLAY, 1L);
     bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, 3L);
 
-    // Wait for the fast thread polling loop to register step updates
-    Thread.sleep(20);
-
     // Upcoming step 4 % 16 = 4. Local step = (4 - 2) = 2. Since clip step 2 is active, bridge pad 4
     // must be true!
+    // Poll rather than sleep a fixed 20 ms: the scheduler thread may not have been scheduled yet
+    // on a loaded machine, which made this fail about two runs in three (issue #20).
     int col = 4;
+    long deadline = System.nanoTime() + 2_000_000_000L;
+    while (!bridge.getStep(0, col) && System.nanoTime() < deadline) {
+      Thread.sleep(5);
+    }
     assertTrue(bridge.getStep(0, col));
 
     scheduler.shutdown();
