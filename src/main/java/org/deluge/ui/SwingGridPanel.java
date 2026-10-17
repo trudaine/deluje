@@ -3354,7 +3354,8 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
         return 0.8;
       case 15:
         if (track instanceof org.deluge.model.SynthTrackModel st) {
-          return Math.max(0.0, Math.min(1.0, st.getArp().rate() / 2.0f));
+          // GLOBAL_ARP_RATE (the C arp-rate knob), bipolar q31 shown as 0..1.
+          return (st.getArpRateQ31() + 2147483648.0) / 4294967296.0;
         }
         return 0.5;
       default:
@@ -3529,8 +3530,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
         break;
       case 15:
         if (track instanceof org.deluge.model.SynthTrackModel st) {
-          org.deluge.model.ArpModel oldArp = st.getArp();
-          st.setArp(oldArp.toBuilder().rate((float) (v * 2.0f)).build());
+          st.setArpRateQ31(org.deluge.model.SynthTrackModel.arpRateQ31FromUnit(v));
         }
     }
     applyTrackModelToLiveSound(track);

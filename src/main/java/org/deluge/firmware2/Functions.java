@@ -476,6 +476,18 @@ public final class Functions {
     return value * 85899345;
   }
 
+  /** computeCurrentValueForStandardMenuItem (value_scaling.cpp:6-8): q31 knob → 0..50. */
+  public static int computeCurrentValueForStandardMenuItem(int value) {
+    return (int) (((value + 2147483648L) * K_MAX_MENU_VALUE + 2147483648L) >> 32);
+  }
+
+  /** computeFinalValueForStandardMenuItem (value_scaling.cpp:22-33): 0..50 → q31 knob. */
+  public static int computeFinalValueForStandardMenuItem(int value) {
+    if (value == K_MAX_MENU_VALUE) return 2147483647;
+    if (value == 0) return -2147483648; // kMinMenuValue
+    return value * 85899345 + Integer.MIN_VALUE; // (uint32_t)value * 85899345 - 2147483648
+  }
+
   // ── getExp (functions.cpp:556-565) ──
 
   /** Exponential mapping: presetValue * 2^(adjustment). (functions.cpp:556-565) */

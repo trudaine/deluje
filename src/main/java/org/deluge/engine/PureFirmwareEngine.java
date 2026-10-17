@@ -221,11 +221,19 @@ public class PureFirmwareEngine {
     double beatSec = (currentBpm > 0) ? 60.0 / currentBpm : 0.5;
     for (org.deluge.firmware2.GlobalEffectable sound : audioEngine.sounds) {
       if (sound instanceof org.deluge.engine.FirmwareSound fsArp) {
-        int div = fsArp.arpDivision > 0 ? fsArp.arpDivision : 16;
-        double rateMul = (fsArp.arpRateMultiplier > 0.01f) ? fsArp.arpRateMultiplier : 1.0;
-        double stepSamples = (4.0 / div) * beatSec * 44100.0 / rateMul;
-        fsArp.fw2Sound.arpPhaseIncrement =
-            (stepSamples > 1) ? (int) (4294967296.0 / stepSamples) : 0;
+        int div = fsArp.arpDivision;
+        if (div == 0) {
+          // Not synced: 0 lets fw2 Sound compute the C free-rate increment from the arp-rate
+          // param every block (getPhaseIncrement, SYNC_LEVEL_NONE → arpRate >> 5).
+          fsArp.fw2Sound.arpPhaseIncrement = 0;
+        } else {
+          double rateMul = (fsArp.arpRateMultiplier > 0.01f) ? fsArp.arpRateMultiplier : 1.0;
+          // div > 0: a 1/div note; div < 0: -div whole notes (ArpXmlCodec).
+          double quarters = div > 0 ? 4.0 / div : 4.0 * -div;
+          double stepSamples = quarters * beatSec * 44100.0 / rateMul;
+          fsArp.fw2Sound.arpPhaseIncrement =
+              (stepSamples > 1) ? (int) (4294967296.0 / stepSamples) : 0;
+        }
         fsArp.currentBpm = currentBpm; // for granular grain timing
       }
     }

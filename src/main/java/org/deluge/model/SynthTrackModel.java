@@ -143,6 +143,26 @@ public class SynthTrackModel extends TrackModel {
   /** Portamento knob (raw Q31, C UNPATCHED_PORTAMENTO / XML "portamento"); INT_MIN = off. */
   private int portamentoQ31 = Integer.MIN_VALUE;
 
+  /**
+   * Exact GLOBAL_ARP_RATE param ("arpeggiatorRate", sound.cpp:4040). The C initParams value is 0
+   * (sound.cpp:155). It drives an unsynced arp (getPhaseIncrement, arpeggiator.cpp:1594-1596).
+   */
+  private int arpRateQ31 = 0;
+
+  public int getArpRateQ31() {
+    return arpRateQ31;
+  }
+
+  public void setArpRateQ31(int v) {
+    this.arpRateQ31 = v;
+  }
+
+  /** A 0..1 control position (grid macro) → the bipolar q31 GLOBAL_ARP_RATE knob. */
+  public static int arpRateQ31FromUnit(double unit) {
+    double q = Math.max(0.0, Math.min(1.0, unit)) * 4294967296.0 - 2147483648.0;
+    return (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, Math.round(q)));
+  }
+
   public int getPortamentoQ31() {
     return portamentoQ31;
   }
@@ -1171,6 +1191,7 @@ public class SynthTrackModel extends TrackModel {
     this.waveFoldQ31 = other.getWaveFoldQ31();
     this.setClippingAmount(other.getClippingAmount());
     this.portamentoQ31 = other.getPortamentoQ31();
+    this.arpRateQ31 = other.getArpRateQ31();
     this.polyphony = other.getPolyphony();
     this.maxVoiceCount = other.getMaxVoiceCount();
     this.voicePriority = other.getVoicePriority();

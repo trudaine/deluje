@@ -441,8 +441,10 @@ public class KitSynthSerializer {
 
     // ── arpeggiator ──
     Element arp = doc.createElement("arpeggiator");
-    arp.setAttribute("mode", synth.getArp().mode().toLowerCase());
+    // C writeCommonParamsToFile (arpeggiator.cpp): "mode" = arpModeToString, "arp" or "off".
+    arp.setAttribute("mode", synth.getArp().active() ? "arp" : "off");
     arp.setAttribute("active", synth.getArp().active() ? "1" : "0");
+    arp.setAttribute(org.deluge.xml.ArpXmlCodec.FORMAT_ATTR, org.deluge.xml.ArpXmlCodec.FORMAT_C);
     arp.setAttribute("sequenceLength", String.valueOf(synth.getArp().seqLength()));
     arp.setAttribute("arpMode", synth.getArp().active() ? "arp" : "off");
     if (synth.getArp().notePattern() != null && !synth.getArp().notePattern().isEmpty()) {
@@ -450,7 +452,13 @@ public class KitSynthSerializer {
     }
     arp.setAttribute("chordType", String.valueOf(synth.getArp().chordType()));
 
-    arp.setAttribute("numOctaves", String.valueOf(synth.getArp().numOctaves()));
+    // The ARP panel edits octaves(); numOctaves() is only what was last parsed.
+    arp.setAttribute("numOctaves", String.valueOf(synth.getArp().octaves()));
+    arp.setAttribute(
+        "syncType",
+        String.valueOf(org.deluge.xml.ArpXmlCodec.syncTypeToFile(synth.getArp().syncType())));
+    arp.setAttribute(
+        "mpeVelocity", org.deluge.xml.ArpXmlCodec.mpeVelocityToFile(synth.getArp().mpeVelocity()));
     arp.setAttribute("kitArp", String.valueOf(synth.getArp().kitArp()));
     arp.setAttribute("randomizerLock", String.valueOf(synth.getArp().randomizerLock()));
 
@@ -520,9 +528,22 @@ public class KitSynthSerializer {
     appendHexChild(doc, arp, "rate", synth.getArp().rate());
     appendTextChild(doc, arp, "octaves", String.valueOf(synth.getArp().octaves()));
     appendHexChild(doc, arp, "gate", synth.getArp().gate());
-    appendTextChild(doc, arp, "syncLevel", String.valueOf(synth.getArp().syncLevel()));
-    appendTextChild(doc, arp, "noteMode", synth.getArp().noteMode().toLowerCase());
-    appendTextChild(doc, arp, "octaveMode", synth.getArp().octaveMode().toLowerCase());
+    // A preset is written without a song; the C would use the current song's magnitude.
+    appendTextChild(
+        doc,
+        arp,
+        "syncLevel",
+        String.valueOf(
+            org.deluge.xml.ArpXmlCodec.syncFileValueFromDenominator(
+                synth.getArp().syncLevel(),
+                org.deluge.xml.ArpXmlCodec.DEFAULT_INPUT_TICK_MAGNITUDE)));
+    appendTextChild(
+        doc, arp, "noteMode", org.deluge.xml.ArpXmlCodec.noteModeToFile(synth.getArp().noteMode()));
+    appendTextChild(
+        doc,
+        arp,
+        "octaveMode",
+        org.deluge.xml.ArpXmlCodec.octaveModeToFile(synth.getArp().octaveMode()));
     appendTextChild(doc, arp, "stepRepeat", String.valueOf(synth.getArp().stepRepeat()));
     appendTextChild(doc, arp, "rhythmIndex", String.valueOf(synth.getArp().rhythmIndex()));
     appendTextChild(doc, arp, "seqLength", String.valueOf(synth.getArp().seqLength()));
@@ -643,7 +664,8 @@ public class KitSynthSerializer {
     appendHexChildUnipolar(doc, dp, "delayRate", synth.getDelaySend());
     appendHexChildUnipolar(doc, dp, "delayFeedback", 0f);
     appendHexChildUnipolar(doc, dp, "reverbAmount", synth.getReverbSend());
-    appendHexChildUnipolar(doc, dp, "arpeggiatorRate", synth.getArpRate());
+    // GLOBAL_ARP_RATE (sound.cpp:4117) — the raw param, not the panel's old multiplier.
+    appendTextChild(doc, dp, "arpeggiatorRate", String.format("0x%08X", synth.getArpRateQ31()));
     appendHexChildUnipolar(doc, dp, "stutterRate", synth.getStutter().getStutterRate());
     appendHexChildUnipolar(doc, dp, "sampleRateReduction", synth.getSampleRateReduction());
     appendHexChildUnipolar(doc, dp, "bitCrush", synth.getBitCrush());

@@ -62,8 +62,9 @@ public class InstrumentXmlParser {
               "defaultParams", "sampleRateReduction", SynthTrackModel::setSampleRateReduction),
           FieldBinding.hexFloat("defaultParams", "bitCrush", SynthTrackModel::setBitCrush),
           FieldBinding.hexFloat("defaultParams", "delayRate", SynthTrackModel::setDelaySend),
-          FieldBinding.hexFloat("defaultParams", "waveIndex", SynthTrackModel::setWaveIndex),
-          FieldBinding.hexFloat("defaultParams", "arpeggiatorRate", SynthTrackModel::setArpRate));
+          // "arpeggiatorRate" is the GLOBAL_ARP_RATE param, read exactly into arpRateQ31 below; it
+          // is not the panel's speed multiplier (which the C has no equivalent of).
+          FieldBinding.hexFloat("defaultParams", "waveIndex", SynthTrackModel::setWaveIndex));
 
   public static SynthTrackModel parseSynth(java.io.File xmlFile) throws Exception {
     // try-with-resources: see the note in SongXmlParser.parseSong(File) -- an unclosed stream here
@@ -763,6 +764,10 @@ public class InstrumentXmlParser {
       if ((v = attrOrChildText(dpEl, "portamento")) != null && !v.isBlank()) {
         synth.setPortamentoQ31(DelugeHexMapper.hexToQ31(v));
       }
+      // sound.cpp:4040 — GLOBAL_ARP_RATE.
+      if ((v = attrOrChildText(dpEl, "arpeggiatorRate")) != null && !v.isBlank()) {
+        synth.setArpRateQ31(DelugeHexMapper.hexToQ31(v));
+      }
       if ((v = attrOrChildText(dpEl, "waveFold")) != null && !v.isBlank()) {
         synth.setWaveFoldQ31(DelugeHexMapper.hexToQ31(v));
       }
@@ -1212,59 +1217,106 @@ public class InstrumentXmlParser {
     }
   }
 
+  /**
+   * C ArpeggiatorSettings::readCommonTagsFromFile (arpeggiator.cpp:1648-1788), which is all a Sound
+   * reads from its {@code <arpeggiator>} (mod_controllable_audio.cpp:749). Every key is
+   * tag-or-attribute ({@code readTagOrAttributeValue*}), one level down only. A Sound's rate, gate,
+   * rhythm, sequence length, spreads and probabilities are params in the C, not keys here; the
+   * reads of those below are this app's own fields, kept for its saved files.
+   */
   private static void parseSynthArp(Element soundNode, SynthTrackModel synth) {
-    NodeList arpNodes = soundNode.getElementsByTagName("arpeggiator");
-    if (arpNodes.getLength() == 0) return;
-    Element arpEl = (Element) arpNodes.item(0);
+    parseSynthArp(soundNode, synth, SONG_INPUT_TICK_MAGNITUDE.get());
+  }
+
+  /**
+   * The input tick magnitude of the song being parsed. The C converts a sound's sync levels with
+   * the current song's (mod_controllable_audio.cpp:749 passes {@code song}); a standalone preset
+   * load gets the firmware default (FlashStorage::defaultMagnitude).
+   */
+  static final ThreadLocal<Integer> SONG_INPUT_TICK_MAGNITUDE =
+      ThreadLocal.withInitial(() -> ArpXmlCodec.DEFAULT_INPUT_TICK_MAGNITUDE);
+
+  private static void parseSynthArp(
+      Element soundNode, SynthTrackModel synth, int inputTickMagnitude) {
+    Element arpEl = null;
+    for (org.w3c.dom.Node n = soundNode.getFirstChild(); n != null; n = n.getNextSibling()) {
+      if (n instanceof Element e && "arpeggiator".equals(e.getTagName())) {
+        arpEl = e;
+        break;
+      }
+    }
+    if (arpEl == null) return;
 
     String mode = "UP";
     float rate = 1.0f;
-    int octaves = 1;
     float gate = 0.5f;
-    boolean active = false;
+    boolean active;
+    String noteMode = "UP";
+    String octaveMode = "UP";
 
-    String modeStr = arpEl.getAttribute("mode");
-    if (modeStr != null && !modeStr.isBlank()) mode = modeStr.toUpperCase();
+    // On/off is the C ArpMode alone: "arpMode" (stringToArpMode, :1761-1764). Files older than
+    // community 1.1.0 carry only "mode" (up/down/both/random/off), which the C converts into
+    // mode + noteMode + octaveMode (:1747-1760). A C-written file from 1.1.0 on always writes
+    // "arpMode" (writeCommonParamsToFile), so "no arpMode" identifies the legacy case without
+    // the firmware-version check.
+    String arpModeStr = attrOrDirectChildText(arpEl, "arpMode");
+    String legacyMode = attrOrDirectChildText(arpEl, "mode");
+    if (arpModeStr != null) {
+      active = "arp".equals(arpModeStr);
+    } else if (legacyMode != null) {
+      active = ArpXmlCodec.legacyModeIsOn(legacyMode);
+      noteMode = ArpXmlCodec.legacyModeToNoteMode(legacyMode);
+      octaveMode = ArpXmlCodec.legacyModeToOctaveMode(legacyMode);
+    } else {
+      // Neither key: not a C-written file. This app's early saves wrote only "active".
+      active =
+          "1".equals(arpEl.getAttribute("active"))
+              || "true".equalsIgnoreCase(arpEl.getAttribute("active"));
+    }
+    // The model's "mode" is the ARP panel's legacy direction box; only a legacy direction value
+    // belongs there ("arp"/"off" in a 1.1.0+ file is the ArpMode, already in "active").
+    if (legacyMode != null && ArpXmlCodec.legacyModeIsOn(legacyMode)) {
+      mode = legacyMode.toUpperCase();
+    }
     String rateStr = getChildText(arpEl, "rate");
     if (rateStr != null) rate = Math.abs(DelugeHexMapper.hexToFloat(rateStr));
-    String octStr = getChildText(arpEl, "octaves");
-    if (octStr != null) {
-      try {
-        octaves = Integer.parseInt(octStr);
-      } catch (NumberFormatException e) {
-        LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
-      }
-    }
+    boolean legacyApp = ArpXmlCodec.isLegacyAppArp(arpEl);
+    // C "numOctaves" (:1650). "octaves" is this app's older tag; its old writers saved a stale
+    // numOctaves beside it, so an old app file prefers <octaves>.
+    int octaves =
+        legacyApp
+            ? attrOrDirectChildInt(arpEl, "octaves", attrOrDirectChildInt(arpEl, "numOctaves", 1))
+            : attrOrDirectChildInt(arpEl, "numOctaves", attrOrDirectChildInt(arpEl, "octaves", 1));
     String gateStr = getChildText(arpEl, "gate");
     if (gateStr != null) gate = Math.abs(DelugeHexMapper.hexToFloat(gateStr));
 
-    // Parse new arp fields
-    int syncLevel = 0;
-    String noteMode = "UP";
-    String octaveMode = "UP";
-    int stepRepeat = 1;
     int rhythmIndex = 0;
     int seqLength = 8;
-    String syncStr = getChildText(arpEl, "sync");
+    // C "syncLevel" (:1735-1743): a file value relative to the song's input tick magnitude.
+    // Absent: the constructor default, a 16th. An explicit 0 is "not synced".
+    String syncStr = attrOrDirectChildText(arpEl, "syncLevel");
+    int syncLevel = ArpXmlCodec.DEFAULT_SYNC_DENOMINATOR;
     if (syncStr != null) {
       try {
-        syncLevel = Integer.parseInt(syncStr);
+        int v = Integer.parseInt(syncStr.trim());
+        // An old save of this app stored the model's denominator. Its 0 stays "not synced":
+        // that is what the hardware plays for such a file (Song000FidelityTest, REC00004).
+        syncLevel =
+            legacyApp ? Math.max(0, v) : ArpXmlCodec.syncDenominatorFromFile(v, inputTickMagnitude);
       } catch (NumberFormatException e) {
-        LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
+        LOG.log(Level.FINE, "NumberFormatException parsing arpeggiator syncLevel", e);
       }
     }
-    String noteModeStr = arpEl.getAttribute("noteMode");
-    if (noteModeStr != null && !noteModeStr.isBlank()) noteMode = noteModeStr.toUpperCase();
-    String octModeStr = arpEl.getAttribute("octaveMode");
-    if (octModeStr != null && !octModeStr.isBlank()) octaveMode = octModeStr.toUpperCase();
-    String repeatStr = getChildText(arpEl, "stepRepeat");
-    if (repeatStr != null) {
-      try {
-        stepRepeat = Integer.parseInt(repeatStr);
-      } catch (NumberFormatException e) {
-        LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
-      }
+    String noteModeStr = attrOrDirectChildText(arpEl, "noteMode"); // C :1775-1778
+    String octModeStr = attrOrDirectChildText(arpEl, "octaveMode"); // C :1765-1768
+    if (legacyApp) {
+      // Old app writers lower-cased the panel tokens ("play", "rand", "alt"); restore them.
+      if (noteModeStr != null) noteModeStr = noteModeStr.toUpperCase();
+      if (octModeStr != null) octModeStr = octModeStr.toUpperCase();
     }
+    if (noteModeStr != null) noteMode = ArpXmlCodec.noteModeFromFile(noteModeStr);
+    if (octModeStr != null) octaveMode = ArpXmlCodec.octaveModeFromFile(octModeStr);
+    int stepRepeat = attrOrDirectChildInt(arpEl, "stepRepeat", 1); // C :1653
     String rhythmStr = getChildText(arpEl, "rhythm");
     if (rhythmStr != null) {
       try {
@@ -1287,36 +1339,13 @@ public class InstrumentXmlParser {
       }
     }
 
-    // mpeVelocity: attribute on arpeggiator element
-    int mpeVelocity = 0;
-    String mpeVelStr = arpEl.getAttribute("mpeVelocity");
-    if (mpeVelStr != null && !mpeVelStr.isBlank()) {
-      try {
-        mpeVelocity = Integer.parseInt(mpeVelStr);
-      } catch (NumberFormatException e) {
-        LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
-      }
-    }
+    // C "mpeVelocity" (:1779-1781): "z" aftertouch, "y" MPE Y.
+    int mpeVelocity = ArpXmlCodec.mpeVelocityFromFile(attrOrDirectChildText(arpEl, "mpeVelocity"));
+    // C :1744-1746 reads the raw SyncType (0/10/19); an old app save holds the model's 0/1/2.
+    int syncTypeRaw = attrOrDirectChildInt(arpEl, "syncType", 0);
+    int syncType = legacyApp ? syncTypeRaw : ArpXmlCodec.syncTypeFromFile(syncTypeRaw);
 
-    // syncType: attribute on arpeggiator element (firmware ArpSyncType enum)
-    int syncType = 0;
-    String syncTypeStr = arpEl.getAttribute("syncType");
-    if (syncTypeStr != null && !syncTypeStr.isBlank()) {
-      try {
-        syncType = Integer.parseInt(syncTypeStr);
-      } catch (NumberFormatException e) {
-        LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
-      }
-    }
-
-    // Parse new arp fields
-    active =
-        "1".equals(arpEl.getAttribute("active"))
-            || "true".equalsIgnoreCase(arpEl.getAttribute("active"));
-
-    String arpMode = arpEl.getAttribute("arpMode");
-
-    String notePattern = arpEl.getAttribute("notePattern");
+    String notePattern = attrOrDirectChildText(arpEl, "notePattern"); // C :1732-1734
     if (notePattern == null || notePattern.isBlank()) {
       notePattern = "00000000000000000000000000000000";
     }
@@ -1335,68 +1364,70 @@ public class InstrumentXmlParser {
     float chordProb = readAttrFloatWithDefault(arpEl, "chordProbability", 0f, false);
     float ratchetProb = readAttrFloatWithDefault(arpEl, "ratchetProbability", 0f, false);
     int chordPolyphony = readIntAttrWithDefault(arpEl, "chordPolyphony", 0);
-    int chordType = readIntAttrWithDefault(arpEl, "chordType", 0);
+    // C :1769-1774 — an out-of-range value is ignored (MAX_CHORD_TYPES = 9, lookuptables.h:139).
+    int chordTypeRaw = attrOrDirectChildInt(arpEl, "chordType", 0) & 0xFF; // C casts to uint8_t
+    int chordType = chordTypeRaw < 9 ? chordTypeRaw : 0;
 
-    int numOctaves = readIntAttrWithDefault(arpEl, "numOctaves", octaves);
-    int kitArp = readIntAttrWithDefault(arpEl, "kitArp", 0);
-    int randomizerLock = readIntAttrWithDefault(arpEl, "randomizerLock", 0);
+    int numOctaves = octaves;
+    int kitArp = attrOrDirectChildInt(arpEl, "kitArp", 0);
+    int randomizerLock = attrOrDirectChildInt(arpEl, "randomizerLock", 0);
 
-    int lastLockedNoteProb = readIntAttrWithDefault(arpEl, "lastLockedNoteProb", 0);
-    String lockedNoteProbArray = arpEl.getAttribute("lockedNoteProbArray");
+    int lastLockedNoteProb = attrOrDirectChildInt(arpEl, "lastLockedNoteProb", 0);
+    String lockedNoteProbArray = attrOrDirectChildText(arpEl, "lockedNoteProbArray");
     if (lockedNoteProbArray == null || lockedNoteProbArray.isBlank()) {
       lockedNoteProbArray = "00000000000000000000000000000000";
     }
 
-    int lastLockedBassProb = readIntAttrWithDefault(arpEl, "lastLockedBassProb", 0);
-    String lockedBassProbArray = arpEl.getAttribute("lockedBassProbArray");
+    int lastLockedBassProb = attrOrDirectChildInt(arpEl, "lastLockedBassProb", 0);
+    String lockedBassProbArray = attrOrDirectChildText(arpEl, "lockedBassProbArray");
     if (lockedBassProbArray == null || lockedBassProbArray.isBlank()) {
       lockedBassProbArray = "00000000000000000000000000000000";
     }
 
-    int lastLockedSwapProb = readIntAttrWithDefault(arpEl, "lastLockedSwapProb", 0);
-    String lockedSwapProbArray = arpEl.getAttribute("lockedSwapProbArray");
+    int lastLockedSwapProb = attrOrDirectChildInt(arpEl, "lastLockedSwapProb", 0);
+    String lockedSwapProbArray = attrOrDirectChildText(arpEl, "lockedSwapProbArray");
     if (lockedSwapProbArray == null || lockedSwapProbArray.isBlank()) {
       lockedSwapProbArray = "00000000000000000000000000000000";
     }
 
-    int lastLockedGlideProb = readIntAttrWithDefault(arpEl, "lastLockedGlideProb", 0);
-    String lockedGlideProbArray = arpEl.getAttribute("lockedGlideProbArray");
+    int lastLockedGlideProb = attrOrDirectChildInt(arpEl, "lastLockedGlideProb", 0);
+    String lockedGlideProbArray = attrOrDirectChildText(arpEl, "lockedGlideProbArray");
     if (lockedGlideProbArray == null || lockedGlideProbArray.isBlank()) {
       lockedGlideProbArray = "00000000000000000000000000000000";
     }
 
-    int lastLockedReverseProb = readIntAttrWithDefault(arpEl, "lastLockedReverseProb", 0);
-    String lockedReverseProbArray = arpEl.getAttribute("lockedReverseProbArray");
+    int lastLockedReverseProb = attrOrDirectChildInt(arpEl, "lastLockedReverseProb", 0);
+    String lockedReverseProbArray = attrOrDirectChildText(arpEl, "lockedReverseProbArray");
     if (lockedReverseProbArray == null || lockedReverseProbArray.isBlank()) {
       lockedReverseProbArray = "00000000000000000000000000000000";
     }
 
-    int lastLockedChordProb = readIntAttrWithDefault(arpEl, "lastLockedChordProb", 0);
-    String lockedChordProbArray = arpEl.getAttribute("lockedChordProbArray");
+    int lastLockedChordProb = attrOrDirectChildInt(arpEl, "lastLockedChordProb", 0);
+    String lockedChordProbArray = attrOrDirectChildText(arpEl, "lockedChordProbArray");
     if (lockedChordProbArray == null || lockedChordProbArray.isBlank()) {
       lockedChordProbArray = "00000000000000000000000000000000";
     }
 
-    int lastLockedRatchetProb = readIntAttrWithDefault(arpEl, "lastLockedRatchetProb", 0);
-    String lockedRatchetProbArray = arpEl.getAttribute("lockedRatchetProbArray");
+    int lastLockedRatchetProb = attrOrDirectChildInt(arpEl, "lastLockedRatchetProb", 0);
+    String lockedRatchetProbArray = attrOrDirectChildText(arpEl, "lockedRatchetProbArray");
     if (lockedRatchetProbArray == null || lockedRatchetProbArray.isBlank()) {
       lockedRatchetProbArray = "00000000000000000000000000000000";
     }
 
-    int lastLockedVelocitySpread = readIntAttrWithDefault(arpEl, "lastLockedVelocitySpread", 0);
-    String lockedVelocitySpreadArray = arpEl.getAttribute("lockedVelocitySpreadArray");
+    int lastLockedVelocitySpread = attrOrDirectChildInt(arpEl, "lastLockedVelocitySpread", 0);
+    String lockedVelocitySpreadArray = attrOrDirectChildText(arpEl, "lockedVelocitySpreadArray");
     if (lockedVelocitySpreadArray == null || lockedVelocitySpreadArray.isBlank()) {
       lockedVelocitySpreadArray = "00000000000000000000000000000000";
     }
 
-    int lastLockedGateSpread = readIntAttrWithDefault(arpEl, "lastLockedGateSpread", 0);
-    String lockedGateSpreadArray = arpEl.getAttribute("lockedGateSpreadArray");
+    int lastLockedGateSpread = attrOrDirectChildInt(arpEl, "lastLockedGateSpread", 0);
+    String lockedGateSpreadArray = attrOrDirectChildText(arpEl, "lockedGateSpreadArray");
     if (lockedGateSpreadArray == null || lockedGateSpreadArray.isBlank()) {
       lockedGateSpreadArray = "00000000000000000000000000000000";
     }
 
-    int lastLockedOctaveSpread = readIntAttrWithDefault(arpEl, "lastLockedOctaveSpread", 0);
-    String lockedOctaveSpreadArray = arpEl.getAttribute("lockedOctaveSpreadArray");
+    int lastLockedOctaveSpread = attrOrDirectChildInt(arpEl, "lastLockedOctaveSpread", 0);
+    String lockedOctaveSpreadArray = attrOrDirectChildText(arpEl, "lockedOctaveSpreadArray");
     if (lockedOctaveSpreadArray == null || lockedOctaveSpreadArray.isBlank()) {
       lockedOctaveSpreadArray = "00000000000000000000000000000000";
     }
@@ -1849,6 +1880,7 @@ public class InstrumentXmlParser {
     synth.setCompressorThreshold(0.0f);
     // sound.cpp:139 — portamento off.
     synth.setPortamentoQ31(off);
+    synth.setArpRateQ31(0); // sound.cpp:155
     // Envelopes. ENV_0 (XML envelope1) is NOT in initParams — AutoParam base = raw 0 for all of
     // A/D/S/R (user-25 mids). ENV_1 (XML envelope2) = user 20/20/25/20 (sound.cpp:186-193).
     // Envelopes 3/4 = construction zeros. Sustains additionally go through the raw param-knob
@@ -1947,6 +1979,9 @@ public class InstrumentXmlParser {
     }
     if ((v = attrOrChildText(sp, "portamento")) != null && !v.isBlank()) {
       synth.setPortamentoQ31(DelugeHexMapper.hexToQ31(v));
+    }
+    if ((v = attrOrChildText(sp, "arpeggiatorRate")) != null && !v.isBlank()) {
+      synth.setArpRateQ31(DelugeHexMapper.hexToQ31(v)); // sound.cpp:4040
     }
     if ((v = attrOrChildText(sp, "waveFold")) != null && !v.isBlank()) {
       synth.setWaveFoldQ31(DelugeHexMapper.hexToQ31(v));

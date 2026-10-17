@@ -354,6 +354,35 @@ public class DelugeXmlUtil {
     }
   }
 
+  /**
+   * The C {@code Deserializer} reads a key as an attribute of the current element or as a tag one
+   * level down ({@code readTagOrAttributeValue*}); it never looks at deeper descendants. Unlike
+   * {@link #attrOrChildText}, whose child lookup uses {@code getElementsByTagName} and so matches a
+   * same-named tag anywhere below, this only accepts a direct child.
+   */
+  public static String attrOrDirectChildText(Element el, String name) {
+    String val = readAttr(el, name);
+    if (val != null && !val.isEmpty()) return val;
+    for (org.w3c.dom.Node n = el.getFirstChild(); n != null; n = n.getNextSibling()) {
+      if (n instanceof Element child && name.equals(child.getTagName())) {
+        String text = child.getTextContent();
+        return (text == null || text.isBlank()) ? null : text.trim();
+      }
+    }
+    return null;
+  }
+
+  /** {@link #attrOrDirectChildText} parsed as an int; {@code def} when absent or malformed. */
+  public static int attrOrDirectChildInt(Element el, String name, int def) {
+    String val = attrOrDirectChildText(el, name);
+    if (val == null) return def;
+    try {
+      return Integer.parseInt(val.trim());
+    } catch (NumberFormatException e) {
+      return def;
+    }
+  }
+
   public static String attrOrChildText(Element el, String name) {
     String val = readAttr(el, name);
     if (val == null || val.isEmpty()) {

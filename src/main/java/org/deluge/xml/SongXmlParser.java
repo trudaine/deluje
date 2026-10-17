@@ -26,6 +26,14 @@ public class SongXmlParser {
   }
 
   public static ProjectModel parseSong(InputStream is, String name) throws Exception {
+    try {
+      return parseSongImpl(is, name);
+    } finally {
+      InstrumentXmlParser.SONG_INPUT_TICK_MAGNITUDE.remove();
+    }
+  }
+
+  private static ProjectModel parseSongImpl(InputStream is, String name) throws Exception {
     Document doc = parseXml(is);
     Element root = doc.getDocumentElement();
 
@@ -68,6 +76,8 @@ public class SongXmlParser {
     }
     if (songNode.hasAttribute("inputTickMagnitude")) {
       project.setInputTickMagnitude(Integer.parseInt(songNode.getAttribute("inputTickMagnitude")));
+      // The C converts every sound's sync levels with the current song's magnitude.
+      InstrumentXmlParser.SONG_INPUT_TICK_MAGNITUDE.set(project.getInputTickMagnitude());
     }
     if (songNode.hasAttribute("rootNote")) {
       project.setKey(songNode.getAttribute("rootNote"));

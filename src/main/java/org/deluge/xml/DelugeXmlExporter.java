@@ -29,6 +29,13 @@ public class DelugeXmlExporter {
     rootElement.setAttribute("name", model.getName());
     rootElement.setAttribute("polyphonic", "auto");
 
+    // GLOBAL_ARP_RATE (sound.cpp:4040/4117): the raw param a preset carries in <defaultParams>.
+    Element defaultParams = doc.createElement("defaultParams");
+    Element arpRate = doc.createElement("arpeggiatorRate");
+    arpRate.setTextContent(String.format("0x%08X", model.getArpRateQ31()));
+    defaultParams.appendChild(arpRate);
+    rootElement.appendChild(defaultParams);
+
     // Oscillator 1
     Element osc1 = doc.createElement("osc1");
     osc1.setAttribute("type", model.getOsc1Type());
@@ -62,12 +69,24 @@ public class DelugeXmlExporter {
     org.deluge.model.ArpModel arpModel =
         model.getArp() != null ? model.getArp() : org.deluge.model.ArpModel.defaultConfig();
     arp.setAttribute("active", arpModel.active() ? "1" : "0");
+    arp.setAttribute(ArpXmlCodec.FORMAT_ATTR, ArpXmlCodec.FORMAT_C);
+    // The C keys (writeCommonParamsToFile, arpeggiator.cpp): without "arpMode" the firmware loads
+    // the arp OFF, and without "numOctaves" at 1 octave.
+    arp.setAttribute("mode", arpModel.active() ? "arp" : "off");
+    arp.setAttribute("arpMode", arpModel.active() ? "arp" : "off");
+    arp.setAttribute("numOctaves", String.valueOf(arpModel.octaves()));
+    arp.setAttribute("syncType", String.valueOf(ArpXmlCodec.syncTypeToFile(arpModel.syncType())));
+    arp.setAttribute("mpeVelocity", ArpXmlCodec.mpeVelocityToFile(arpModel.mpeVelocity()));
     arp.setAttribute("rate", String.valueOf(arpModel.rate()));
     arp.setAttribute("octaves", String.valueOf(arpModel.octaves()));
     arp.setAttribute("gate", String.valueOf(arpModel.gate()));
-    arp.setAttribute("syncLevel", String.valueOf(arpModel.syncLevel()));
-    arp.setAttribute("noteMode", arpModel.noteMode());
-    arp.setAttribute("octaveMode", arpModel.octaveMode());
+    arp.setAttribute(
+        "syncLevel",
+        String.valueOf(
+            ArpXmlCodec.syncFileValueFromDenominator(
+                arpModel.syncLevel(), ArpXmlCodec.DEFAULT_INPUT_TICK_MAGNITUDE)));
+    arp.setAttribute("noteMode", ArpXmlCodec.noteModeToFile(arpModel.noteMode()));
+    arp.setAttribute("octaveMode", ArpXmlCodec.octaveModeToFile(arpModel.octaveMode()));
     arp.setAttribute("stepRepeat", String.valueOf(arpModel.stepRepeat()));
     arp.setAttribute("rhythmIndex", String.valueOf(arpModel.rhythmIndex()));
     arp.setAttribute("seqLength", String.valueOf(arpModel.seqLength()));

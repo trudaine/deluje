@@ -100,8 +100,8 @@ public class LiveApplyTest {
             .seqLength(12)
             .velSpread(0.5f)
             .chordPolyphony(3)
-            .rate(2.0f)
             .build());
+    m.setArpRateQ31(0x10000000);
     FirmwareSound sound = build(m);
 
     assertEquals(org.deluge.firmware2.Arpeggiator.ArpMode.ARP, sound.arpSettings.mode, "arp on");
@@ -112,7 +112,10 @@ public class LiveApplyTest {
     assertEquals(25 * 85899345, sound.arpSettings.spreadVelocity);
     // noteProbability unset (0) must mean "always play", not "never"
     assertEquals(50 * 85899345, sound.arpSettings.noteProbability);
-    assertEquals(2.0f, sound.arpRateMultiplier, 1e-6f);
+    // The rate is the GLOBAL_ARP_RATE param (used unsynced, arpeggiator.cpp:1594-1596); a synced
+    // arp has no speed multiplier in the C.
+    assertEquals(0x10000000, sound.paramKnobs[org.deluge.firmware2.Param.GLOBAL_ARP_RATE]);
+    assertEquals(1.0f, sound.arpRateMultiplier, 1e-6f);
   }
 
   @Test
@@ -195,5 +198,19 @@ public class LiveApplyTest {
     assertEquals(
         drumSound.paramNeutralValues[Param.LOCAL_LPF_FREQ],
         drumSound.fw2Sound.patchedParamValues[org.deluge.firmware2.Param.LOCAL_LPF_FREQ]);
+  }
+
+  @Test
+  void unsyncedArpIncrementIsNotCachedSoRateEditsApply() {
+    SynthTrackModel m = model();
+    m.setArp(
+        org.deluge.model.ArpModel.defaultConfig().toBuilder().active(true).syncLevel(0).build());
+    m.setArpRateQ31(0);
+    FirmwareSound sound = build(m);
+    sound.syncParamsToFw2();
+    // 0 makes fw2 Sound recompute the C free-rate increment from GLOBAL_ARP_RATE every block.
+    assertEquals(0, sound.fw2Sound.arpPhaseIncrement);
+    assertEquals(
+        org.deluge.firmware2.Arpeggiator.SyncLevel.SYNC_LEVEL_NONE, sound.arpSettings.syncLevel);
   }
 }
