@@ -758,6 +758,24 @@ class PlayConditionsTest {
     assertEquals(2, reverseSound.releaseCount, "both reverse notes must release");
   }
 
+  static final class CountingMidiInstrument extends org.deluge.engine.FirmwareMidiInstrument {
+    final List<String> events = new ArrayList<>();
+
+    CountingMidiInstrument() {
+      super(1, false);
+    }
+
+    @Override
+    public void triggerNote(int note, int vel) {
+      events.add("ON:" + note);
+    }
+
+    @Override
+    public void releaseNote(int note) {
+      events.add("OFF:" + note);
+    }
+  }
+
   @Test
   void fullBarDroneNoteSustainsAcrossLoopWrapWithoutReleaseOrRetrigger() {
     ClipModel droneClip = new ClipModel("drone", 1, 1); // 24 ticks
@@ -777,5 +795,62 @@ class PlayConditionsTest {
     assertEquals(1, liveSound.triggerCount, "drone note must trigger once on bar 1 and stay on");
     assertEquals(0, liveSound.releaseCount, "drone note must not release at loop wrap");
     assertTrue(liveSound.fw2Sound.noteIsOn(60, false), "drone voice must still be sounding");
+  }
+
+  @Test
+  void fullBarKitNotePairsReleaseBeforeRetriggerAcrossLoopWrap() {
+    ClipModel kitClip = new ClipModel("kit-drone", 1, 1); // 24 ticks
+    org.deluge.engine.FirmwareKit kit = new org.deluge.engine.FirmwareKit();
+    CountingLiveSound drum0 = new CountingLiveSound();
+    drum0.isDrum = true;
+    drum0.oscTypes[0] = org.deluge.firmware2.Oscillator.OscType.SQUARE;
+    drum0.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME] = 0x7FFFFFFF;
+    drum0.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_SUSTAIN] = 0x7FFFFFFF;
+    kit.drumSounds.set(0, drum0);
+    kit.drums.set(0, drum0.fw2Sound);
+    kitClip.setSound(kit);
+
+    NoteRowModel row = kitClip.getOrCreateRow(0);
+    row.setPitch(0);
+    row.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0));
+
+    kitClip.setPos(0);
+    for (int t = 0; t < 72; t++) { // 3 bars
+      kitClip.incrementPos(1);
+      kitClip.processCurrentPos(1);
+    }
+    assertEquals(3, drum0.triggerCount, "kit full-row note must retrigger on each of the 3 bars");
+    assertEquals(
+        3,
+        drum0.releaseCount,
+        "kit full-row note must preserve paired release before each trigger across wraps");
+    long heldVoices =
+        drum0.fw2Sound.voices.stream()
+            .filter(
+                v ->
+                    v.envelopes[0].state.compareTo(org.deluge.firmware2.Envelope.Stage.RELEASE) < 0)
+            .count();
+    assertEquals(1L, heldVoices, "sustained kit voices must not stack held voices across wraps");
+  }
+
+  @Test
+  void fullBarMidiNotePairsReleaseBeforeRetriggerAcrossLoopWrap() {
+    ClipModel midiClip = new ClipModel("midi-drone", 1, 1); // 24 ticks
+    CountingMidiInstrument midi = new CountingMidiInstrument();
+    midiClip.setSound(midi);
+
+    NoteRowModel row = midiClip.getOrCreateRow(0);
+    row.setPitch(60);
+    row.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0));
+
+    midiClip.setPos(0);
+    for (int t = 0; t < 72; t++) { // 3 bars
+      midiClip.incrementPos(1);
+      midiClip.processCurrentPos(1);
+    }
+    assertEquals(
+        List.of("OFF:60", "ON:60", "OFF:60", "ON:60", "OFF:60", "ON:60"),
+        midi.events,
+        "MIDI full-row note must release before each retrigger instead of sending unpaired note-ons");
   }
 }
