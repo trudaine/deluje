@@ -164,7 +164,7 @@ Right-click any step and choose **Edit Step Properties…** to open the Step Pro
 ![Step Properties dialog — velocity, probability, iteration, gate & nudge](images/deluge_step_properties.png)
 
 *   **Velocity** (1–127): how hard the note is struck. Drag the slider or type a value; louder notes are drawn brighter on the grid.
-*   **Probability / Fill**: the chance the note fires on any given pass — great for evolving, non-repetitive patterns.
+*   **Probability / Fill**: the chance the note fires on any given pass — great for evolving, non-repetitive patterns. A **Fill %** above 0 makes the step fill-only: it plays only while FILL is held (set **Sync-Scaling Button Action** to **Fill mode** in Preferences, then hold **SYNC-SCALING**; see §10.5).
 *   **Iteration**: play the note only on specific repeats of the loop (for example, "1 of 4").
 *   **Gate**: the note's sounding length as a fraction of its step.
 *   **Nudge**: fine timing offset within the column (see §1.5).
@@ -880,6 +880,7 @@ The Settings Preferences Dialog provides preferences controls:
 * **Real-time Scopes**: "Enable GPU-Accelerated Real-time Scopes Visualizers" turns the live waveform/spectrum displays on or off.
 * **SELECT control style**: Choose between a **Desktop Slider Popup** and a **Hardware Rotary Dial SELECT** for value editing.
 * **Clock Source**: Run the sequencer from its own clock (**INTERNAL**) or follow an external MIDI clock (**EXTERNAL (MIDI Clock Sync)**).
+* **Sync-Scaling Button Action** (SEQUENCER tab): **Sync Scaling** (the default, as on the hardware) or **Fill mode**. In Fill mode, hold the **SYNC-SCALING** button to play fill-only steps; they stay silent while it is released.
 
 #### ⚙️ Tutorial Q: Configuring SD Card Library Paths and Grid Profiles
 1. Open **`Settings ➔ Preferences…`** from the menu bar.

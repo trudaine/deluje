@@ -247,6 +247,18 @@ public class SwingHardwareTopPanel extends JPanel {
                   if (oledPanel != null) oledPanel.showParamText("STUTTER", "ACTIVE");
                 }
               }
+            } else if (hit != null
+                && "SYNC_SCALING".equals(hit.name)
+                && org.deluge.project.PreferencesManager.getSyncScalingAction()
+                    == org.deluge.project.PreferencesManager.SyncScalingAction.FILL) {
+              // C view.cpp:331-357 — with the community setting "Sync-scaling action" = Fill, the
+              // button is a held FILL: Song::changeFillMode(on) on press, (off) on release. The
+              // note-pressed / audition-pressed branches that adjust a note's or row's fill
+              // (instrumentClipView.adjustNoteFillWithOffset / setNoteRowFillWithOffset) are not
+              // ported; fill per note is edited in the step properties dialog instead.
+              fillButtonHeld = true;
+              ProjectModel.changeFillMode(true);
+              if (oledPanel != null) oledPanel.showParamText("FILL", "ON");
             } else if (hit != null && "SCALE_MODE".equals(hit.name)) {
               // C: instrument_clip_view.cpp:892-899 — pressing SCALE_MODE doesn't toggle
               // immediately; it only arms a short-press timer (real hardware also flashes the
@@ -261,6 +273,11 @@ public class SwingHardwareTopPanel extends JPanel {
 
           @Override
           public void mouseReleased(MouseEvent e) {
+            if (fillButtonHeld) {
+              fillButtonHeld = false;
+              ProjectModel.changeFillMode(false); // C view.cpp:356 — changeFillMode(on=false)
+              if (oledPanel != null) oledPanel.showParamText("FILL", "OFF");
+            }
             if (scaleModeButtonPressPending) {
               scaleModeButtonPressPending = false;
               // C: instrument_clip_view.cpp:906-916 — toggle only fires if the press was short.
@@ -931,6 +948,7 @@ public class SwingHardwareTopPanel extends JPanel {
 
   private boolean isLearnMode = false;
   private boolean isSyncScaling = false;
+  private boolean fillButtonHeld = false;
 
   private javax.swing.Timer blinkTimer;
 
