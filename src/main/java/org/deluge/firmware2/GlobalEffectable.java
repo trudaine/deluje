@@ -66,128 +66,138 @@ public abstract class GlobalEffectable {
     if (muted) {
       return;
     }
-    int requiredLen = numSamples * 2;
-    if (trackBuffer.length < requiredLen) {
-      trackBuffer = new int[requiredLen];
-    }
-    Arrays.fill(trackBuffer, 0, requiredLen, 0);
-
-    if (trackReverbBuffer.length < numSamples) {
-      trackReverbBuffer = new int[numSamples];
-    }
-    Arrays.fill(trackReverbBuffer, 0, numSamples, 0);
-
-    // Render actual voices or child elements into trackBuffer (32-bit)
-    int a = Functions.cableToLinearParamShortcut(this.kitVolume);
-    int volumeAdjustment = Functions.getFinalParameterValueVolume(134217728, a) >> 1;
-    int volumePostFX = volumeAdjustment;
-    if (isKit()) {
-      volumePostFX += (volumeAdjustment >> 2);
-    } else {
-      volumePostFX += Functions.multiply_32x32_rshift32_rounded(volumeAdjustment, 471633397);
-    }
-    postFXVolume = volumePostFX;
-    postReverbVolume = 134217728;
-    renderInternal(trackBuffer, numSamples, trackReverbBuffer);
-
-    // Silence-detection scan (a Java-side optimization, not faithful-C math): abs-max over the
-    // track buffer, every track every block. max-of-abs is order-independent, so the SIMD reduction
-    // is bit-identical to the scalar loop (including the Math.abs(MIN_VALUE)==MIN_VALUE edge).
-    int maxValTrack = absMax(trackBuffer, numSamples * 2);
-    int maxValReverb = reverbBuffer != null ? absMax(trackReverbBuffer, numSamples) : 0;
-    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry && maxValTrack > 1000) {}
-
-    // Surgical Optimization: If the track is silent, has no child/grain reverb contribution, and
-    // has no active filter to decay, skip the entire FX, panning, and summing loop to reclaim
-    // massive CPU cycles!
-    if (maxValTrack == 0 && maxValReverb == 0 && !filterSet.isOn()) {
-      return;
-    }
-
-    // Apply track-level saturation (C: global_effectable_for_clip.cpp:121-127). This pass exists
-    // ONLY for GlobalEffectableForClip (kits, audio clips) — a Sound saturates per-voice
-    // (voice.cpp:1553-1565) and must NOT be saturated a second time here.
-    if (hasTrackLevelSaturation() && clippingAmount > 0) {
-      int saturationAmount = 3 + clippingAmount;
-      int shiftAmount = getShiftAmountForSaturation();
-      for (int i = 0; i < numSamples; i++) {
-        // Left Channel
-        int l = trackBuffer[i * 2];
-        int nextLastL = Functions.lshiftAndSaturateUnknown(l, saturationAmount) + 0x80000000;
-        l = Functions.getTanHAntialiased(l, lastSaturationTanHWorkingValue[0], saturationAmount);
-        trackBuffer[i * 2] = l << shiftAmount;
-        lastSaturationTanHWorkingValue[0] = nextLastL;
-
-        // Right Channel
-        int r = trackBuffer[i * 2 + 1];
-        int nextLastR = Functions.lshiftAndSaturateUnknown(r, saturationAmount) + 0x80000000;
-        r = Functions.getTanHAntialiased(r, lastSaturationTanHWorkingValue[1], saturationAmount);
-        trackBuffer[i * 2 + 1] = r << shiftAmount;
-        lastSaturationTanHWorkingValue[1] = nextLastR;
+    beginRenderOutput();
+    try {
+      int requiredLen = numSamples * 2;
+      if (trackBuffer.length < requiredLen) {
+        trackBuffer = new int[requiredLen];
       }
-    }
+      Arrays.fill(trackBuffer, 0, requiredLen, 0);
 
-    // Apply FilterSet
-    if (filterSet.isOn()) {
-      filterSet.renderLongStereo(trackBuffer, numSamples);
-    }
+      if (trackReverbBuffer.length < numSamples) {
+        trackReverbBuffer = new int[numSamples];
+      }
+      Arrays.fill(trackReverbBuffer, 0, numSamples, 0);
 
-    if (muted) {
-      postFXVolume = 0;
-    }
+      // Render actual voices or child elements into trackBuffer (32-bit)
+      int a = Functions.cableToLinearParamShortcut(this.kitVolume);
+      int volumeAdjustment = Functions.getFinalParameterValueVolume(134217728, a) >> 1;
+      int volumePostFX = volumeAdjustment;
+      if (isKit()) {
+        volumePostFX += (volumeAdjustment >> 2);
+      } else {
+        volumePostFX += Functions.multiply_32x32_rshift32_rounded(volumeAdjustment, 471633397);
+      }
+      postFXVolume = volumePostFX;
+      postReverbVolume = 134217728;
+      renderInternal(trackBuffer, numSamples, trackReverbBuffer);
 
-    // C: song.cpp:2453-2475 — reverbAmountAdjust derives from the SONG's post-FX volume
-    // ("reverbAmountAdjust has '1' as 67108864", output.h:113), NOT this track's own postFXVolume
-    // (which multiplies the send separately below — using it here double-counted track volume).
-    // The song volume is applied at the master stage in this engine, so the neutral "1" is the
-    // faithful adjust here. INT_MIN knob → curve returns 0, so an off/unset send stays dry.
-    int reverbAmountAdjust = 67108864;
-    int reverbSendAmount = computeReverbSendAmount(reverbAmountAdjust);
+      // Silence-detection scan (a Java-side optimization, not faithful-C math): abs-max over the
+      // track buffer, every track every block. max-of-abs is order-independent, so the SIMD
+      // reduction
+      // is bit-identical to the scalar loop (including the Math.abs(MIN_VALUE)==MIN_VALUE edge).
+      int maxValTrack = absMax(trackBuffer, numSamples * 2);
+      int maxValReverb = reverbBuffer != null ? absMax(trackReverbBuffer, numSamples) : 0;
+      if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry && maxValTrack > 1000) {}
 
-    int reverbSendAmountAndPostFXVolume =
-        Functions.lshiftAndSaturate(
-            Functions.multiply_32x32_rshift32(postFXVolume, reverbSendAmount), 5);
-    int postFXAndReverbVolumeL =
-        Functions.lshiftAndSaturate(
-            Functions.multiply_32x32_rshift32(postReverbVolume, postFXVolume), 5);
+      // Surgical Optimization: If the track is silent, has no child/grain reverb contribution, and
+      // has no active filter to decay, skip the entire FX, panning, and summing loop to reclaim
+      // massive CPU cycles!
+      if (maxValTrack == 0 && maxValReverb == 0 && !filterSet.isOn()) {
+        return;
+      }
 
-    // C mod_controllable_audio.cpp:219-267 (processReverbSendAndVolume): per sample, the reverb
-    // send is taken from the RAW (pre-volume) signal and the post-FX×post-reverb volume is
-    // applied to the dry buffer IN PLACE...
-    for (int i = 0; i < numSamples; i++) {
-      int l = trackBuffer[i * 2];
-      int r = trackBuffer[i * 2 + 1];
+      // Apply track-level saturation (C: global_effectable_for_clip.cpp:121-127). This pass exists
+      // ONLY for GlobalEffectableForClip (kits, audio clips) — a Sound saturates per-voice
+      // (voice.cpp:1553-1565) and must NOT be saturated a second time here.
+      if (hasTrackLevelSaturation() && clippingAmount > 0) {
+        int saturationAmount = 3 + clippingAmount;
+        int shiftAmount = getShiftAmountForSaturation();
+        for (int i = 0; i < numSamples; i++) {
+          // Left Channel
+          int l = trackBuffer[i * 2];
+          int nextLastL = Functions.lshiftAndSaturateUnknown(l, saturationAmount) + 0x80000000;
+          l = Functions.getTanHAntialiased(l, lastSaturationTanHWorkingValue[0], saturationAmount);
+          trackBuffer[i * 2] = l << shiftAmount;
+          lastSaturationTanHWorkingValue[0] = nextLastL;
 
-      if (reverbBuffer != null) {
-        int revSend = 0;
-        if (reverbSendAmount != 0) {
-          int mono = Functions.add_saturate(l, r);
-          revSend =
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32(mono, reverbSendAmountAndPostFXVolume), 1);
+          // Right Channel
+          int r = trackBuffer[i * 2 + 1];
+          int nextLastR = Functions.lshiftAndSaturateUnknown(r, saturationAmount) + 0x80000000;
+          r = Functions.getTanHAntialiased(r, lastSaturationTanHWorkingValue[1], saturationAmount);
+          trackBuffer[i * 2 + 1] = r << shiftAmount;
+          lastSaturationTanHWorkingValue[1] = nextLastR;
         }
-        // Sum child/grain reverb (trackReverbBuffer) plus dry/post-FX reverb send in 64-bit
-        reverbBuffer[i] += (long) trackReverbBuffer[i] + revSend;
       }
 
-      trackBuffer[i * 2] =
-          Functions.lshiftAndSaturate(
-              Functions.multiply_32x32_rshift32(l, postFXAndReverbVolumeL), 5);
-      trackBuffer[i * 2 + 1] =
-          Functions.lshiftAndSaturate(
-              Functions.multiply_32x32_rshift32(r, postFXAndReverbVolumeL), 5);
-    }
+      // Apply FilterSet
+      if (filterSet.isOn()) {
+        filterSet.renderLongStereo(trackBuffer, numSamples);
+      }
 
-    // ...then the compressor sees the volume-applied signal (C sound.cpp:2591-2600 /
-    // global_effectable_for_clip.cpp:148-153 — the RMS feedback design depends on absolute
-    // level, and the reverb send taps the UNCOMPRESSED signal above).
-    processPostVolumeDynamics(trackBuffer, numSamples, postFXVolume);
+      if (muted) {
+        postFXVolume = 0;
+      }
 
-    // Sum to main output in 64-bit (infinite headroom!)
-    for (int i = 0; i < numSamples * 2; i++) {
-      output[i] += trackBuffer[i];
+      // C: song.cpp:2453-2475 — reverbAmountAdjust derives from the SONG's post-FX volume
+      // ("reverbAmountAdjust has '1' as 67108864", output.h:113), NOT this track's own postFXVolume
+      // (which multiplies the send separately below — using it here double-counted track volume).
+      // The song volume is applied at the master stage in this engine, so the neutral "1" is the
+      // faithful adjust here. INT_MIN knob → curve returns 0, so an off/unset send stays dry.
+      int reverbAmountAdjust = 67108864;
+      int reverbSendAmount = computeReverbSendAmount(reverbAmountAdjust);
+
+      int reverbSendAmountAndPostFXVolume =
+          Functions.lshiftAndSaturate(
+              Functions.multiply_32x32_rshift32(postFXVolume, reverbSendAmount), 5);
+      int postFXAndReverbVolumeL =
+          Functions.lshiftAndSaturate(
+              Functions.multiply_32x32_rshift32(postReverbVolume, postFXVolume), 5);
+
+      // C mod_controllable_audio.cpp:219-267 (processReverbSendAndVolume): per sample, the reverb
+      // send is taken from the RAW (pre-volume) signal and the post-FX×post-reverb volume is
+      // applied to the dry buffer IN PLACE...
+      for (int i = 0; i < numSamples; i++) {
+        int l = trackBuffer[i * 2];
+        int r = trackBuffer[i * 2 + 1];
+
+        if (reverbBuffer != null) {
+          int revSend = 0;
+          if (reverbSendAmount != 0) {
+            int mono = Functions.add_saturate(l, r);
+            revSend =
+                Functions.lshiftAndSaturate(
+                    Functions.multiply_32x32_rshift32(mono, reverbSendAmountAndPostFXVolume), 1);
+          }
+          // Sum child/grain reverb (trackReverbBuffer) plus dry/post-FX reverb send in 64-bit
+          reverbBuffer[i] += (long) trackReverbBuffer[i] + revSend;
+        }
+
+        trackBuffer[i * 2] =
+            Functions.lshiftAndSaturate(
+                Functions.multiply_32x32_rshift32(l, postFXAndReverbVolumeL), 5);
+        trackBuffer[i * 2 + 1] =
+            Functions.lshiftAndSaturate(
+                Functions.multiply_32x32_rshift32(r, postFXAndReverbVolumeL), 5);
+      }
+
+      // ...then the compressor sees the volume-applied signal (C sound.cpp:2591-2600 /
+      // global_effectable_for_clip.cpp:148-153 — the RMS feedback design depends on absolute
+      // level, and the reverb send taps the UNCOMPRESSED signal above).
+      processPostVolumeDynamics(trackBuffer, numSamples, postFXVolume);
+
+      // Sum to main output in 64-bit (infinite headroom!)
+      for (int i = 0; i < numSamples * 2; i++) {
+        output[i] += trackBuffer[i];
+      }
+    } finally {
+      endRenderOutput();
     }
   }
+
+  protected void beginRenderOutput() {}
+
+  protected void endRenderOutput() {}
 
   /**
    * Post-volume dynamics hook — the C runs the per-sound/per-clip compressor here, after

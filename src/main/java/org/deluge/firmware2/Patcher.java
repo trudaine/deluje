@@ -56,7 +56,7 @@ public class Patcher {
     public void addCable(int paramId, PatchCable cable) {
       Destination dest = null;
       for (Destination d : destinations) {
-        if (d.paramId == paramId) {
+        if (d.paramId == paramId && d.targetSource < 0) {
           dest = d;
           break;
         }
@@ -67,6 +67,63 @@ public class Patcher {
       }
       dest.cables.add(cable);
       dest.sourcesMask |= (1 << cable.source);
+    }
+
+    public void addRangeCable(int targetParamId, int targetSource, PatchCable cable) {
+      Destination dest = null;
+      for (Destination d : destinations) {
+        if (d.targetParamId == targetParamId && d.targetSource == targetSource) {
+          dest = d;
+          break;
+        }
+      }
+      if (dest == null) {
+        dest = new Destination(targetParamId);
+        dest.targetSource = targetSource;
+        dest.targetParamId = targetParamId;
+        destinations.add(dest);
+      }
+      dest.cables.add(cable);
+      dest.sourcesMask |= (1 << cable.source);
+    }
+  }
+
+  /**
+   * Evaluates range/depth destinations targeting global parameters ({@code >= Param.FIRST_GLOBAL})
+   * using {@code globalSourceValues}. Mirrors C {@code Patcher::performPatching} on the Sound's
+   * global patcher (sound.cpp:2446, patcher.cpp:85-105), which runs every block even when {@code
+   * voices_.empty()}.
+   */
+  public static void evaluateGlobalRangeDestinations(
+      PatchCableSet patchCableSet, int[] globalSourceValues) {
+    java.util.List<Destination> dests = patchCableSet.destinations;
+    for (int i = 0; i < dests.size(); i++) {
+      Destination dest = dests.get(i);
+      if (dest.targetSource < 0 && dest.paramId >= Param.FIRST_GLOBAL) {
+        java.util.ArrayList<PatchCable> cables = dest.cables;
+        for (int j = 0; j < cables.size(); j++) {
+          cables.get(j).rangeValue = 536870912;
+        }
+      }
+    }
+    for (int i = 0; i < dests.size(); i++) {
+      Destination dest = dests.get(i);
+      if (dest.targetSource >= 0 && dest.targetParamId >= Param.FIRST_GLOBAL) {
+        int combo = combineCablesLinearForRangeParam(dest, globalSourceValues, null);
+        int val = Functions.getFinalParameterValueLinear(536870912, combo);
+        for (int k = 0; k < dests.size(); k++) {
+          Destination targetDest = dests.get(k);
+          if (targetDest.paramId == dest.targetParamId && targetDest.targetSource < 0) {
+            java.util.ArrayList<PatchCable> targetCables = targetDest.cables;
+            for (int l = 0; l < targetCables.size(); l++) {
+              PatchCable targetCable = targetCables.get(l);
+              if (targetCable.source == dest.targetSource) {
+                targetCable.rangeValue = val;
+              }
+            }
+          }
+        }
+      }
     }
   }
 

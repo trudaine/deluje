@@ -553,6 +553,16 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
    * should already be curve-resolved, and ignoring any patch-cable modulation of the send amount.
    */
   @Override
+  protected void beginRenderOutput() {
+    fw2Sound.beginRenderOutput();
+  }
+
+  @Override
+  protected void endRenderOutput() {
+    fw2Sound.endRenderOutput();
+  }
+
+  @Override
   protected int computeReverbSendAmount(int reverbAmountAdjust) {
     return fw2Sound.computeReverbSendAmount(reverbAmountAdjust);
   }

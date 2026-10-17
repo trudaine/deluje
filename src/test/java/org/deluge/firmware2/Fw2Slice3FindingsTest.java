@@ -553,4 +553,146 @@ class Fw2Slice3FindingsTest {
         outBuf[0],
         "Short-note grain tail must continue rendering before grainInitialized reaches 65,536 samples");
   }
+
+  @Test
+  void grainAndOrdinaryReverbSendsUseSameSmoothedValueWithinBlock() {
+    // C sound.cpp:2450-2453, 2610, 2613, 2646: reverbSendAmount is resolved once per block before
+    // doParamLPF advances paramLPF.currentValue, so grain and ordinary sends see the same value.
+    Sound smoothed = new Sound();
+    Sound fixed = new Sound();
+    for (Sound s : new Sound[] {smoothed, fixed}) {
+      Sound.initParams(s.patchedParamValues);
+      s.srrParam = Integer.MIN_VALUE;
+      s.bitcrushParam = Integer.MIN_VALUE;
+      s.modFXType = ModFx.ModFXType.GRAIN;
+      s.modFXDepth = 1 << 29;
+      s.modFXRateIncrement = 1 << 24;
+      s.granular.grainInitialized = true;
+      s.granular.bufferFull = true;
+      s.granular.bufferWriteIndex = 40_000;
+      s.granular.wrapsToShutdown = 2;
+      for (int i = 0; i < 1024; i++) {
+        s.granular.grainBuffer[i][0] = 200_000_000;
+        s.granular.grainBuffer[i][1] = 200_000_000;
+      }
+      s.granular.grains[0].length = 1024;
+      s.granular.grains[0].startPoint = 256;
+      s.granular.grains[0].counter = 256;
+      s.granular.grains[0].pitch = 1024;
+      s.granular.grains[0].volScale = ONE_Q31 / 512;
+      s.granular.grains[0].volScaleMax = ONE_Q31;
+      s.granular.grains[0].rev = false;
+      s.granular.grains[0].panVolL = 1 << 30;
+      s.granular.grains[0].panVolR = 1 << 30;
+    }
+
+    int startReverbKnob = -1073741824;
+    fixed.patchedParamValues[Param.GLOBAL_REVERB_AMOUNT] = startReverbKnob;
+    smoothed.patchedParamValues[Param.GLOBAL_REVERB_AMOUNT] = 0;
+    smoothed.notifyValueChangeViaLPF(Param.GLOBAL_REVERB_AMOUNT, true, startReverbKnob, 0, false);
+
+    long[] outFixed = new long[128];
+    long[] revFixed = new long[64];
+    long[] outSmoothed = new long[128];
+    long[] revSmoothed = new long[64];
+
+    Functions.resetNoiseSeed();
+    fixed.renderOutput(outFixed, 64, revFixed);
+    Functions.resetNoiseSeed();
+    smoothed.renderOutput(outSmoothed, 64, revSmoothed);
+
+    assertTrue(
+        smoothed.paramLPF.currentValue > startReverbKnob,
+        "doParamLPF must advance paramLPF.currentValue at the end of the block");
+    assertNotEquals(0L, revSmoothed[0], "Reverb buffer must receive non-zero send");
+    for (int i = 0; i < 64; i++) {
+      assertEquals(
+          revFixed[i],
+          revSmoothed[i],
+          "Grain and ordinary reverb sends must both use the pre-doParamLPF smoothed value at sample "
+              + i);
+    }
+  }
+
+  @Test
+  void reverbTailPreservesGlobalRangeDepthModulationAfterVoicesEnd() {
+    // C sound.cpp:2446, patcher.cpp:85-105: global range/depth cables on GLOBAL_REVERB_AMOUNT must
+    // be evaluated every block even when voices_.empty() (tail-only rendering).
+    org.deluge.engine.FirmwareSound withoutRange = new org.deluge.engine.FirmwareSound();
+    org.deluge.engine.FirmwareSound withRange = new org.deluge.engine.FirmwareSound();
+
+    for (org.deluge.engine.FirmwareSound fs :
+        new org.deluge.engine.FirmwareSound[] {withoutRange, withRange}) {
+      Sound.initParams(fs.paramNeutralValues);
+      Sound.initParams(fs.paramKnobs);
+      fs.paramKnobsPopulated = true;
+      fs.paramKnobs[Param.GLOBAL_REVERB_AMOUNT] = -1073741824;
+      fs.paramKnobs[Param.GLOBAL_LFO_FREQ_1] = Integer.MIN_VALUE;
+      fs.paramKnobs[Param.GLOBAL_LFO_FREQ_2] = Integer.MIN_VALUE;
+      fs.lfoWaveforms[0] = Lfo.LfoType.SQUARE;
+      fs.lfoWaveforms[2] = Lfo.LfoType.SQUARE;
+      fs.globalLfos[0].phase = 0; // SQUARE outputs +ONE_Q31
+      fs.globalLfos[1].phase = 0; // SQUARE outputs +ONE_Q31
+      fs.fw2Sound.srrParam = Integer.MIN_VALUE;
+      fs.fw2Sound.bitcrushParam = Integer.MIN_VALUE;
+      fs.fw2Sound.modFXType = ModFx.ModFXType.GRAIN;
+      fs.fw2Sound.modFXDepth = 1 << 29;
+      fs.fw2Sound.modFXRateIncrement = 1 << 24;
+      fs.fw2Sound.granular.grainInitialized = true;
+      fs.fw2Sound.granular.bufferFull = true;
+      fs.fw2Sound.granular.bufferWriteIndex = 40_000;
+      fs.fw2Sound.granular.wrapsToShutdown = 2;
+      for (int i = 0; i < 1024; i++) {
+        fs.fw2Sound.granular.grainBuffer[i][0] = 200_000_000;
+        fs.fw2Sound.granular.grainBuffer[i][1] = 200_000_000;
+      }
+      fs.fw2Sound.granular.grains[0].length = 1024;
+      fs.fw2Sound.granular.grains[0].startPoint = 256;
+      fs.fw2Sound.granular.grains[0].counter = 256;
+      fs.fw2Sound.granular.grains[0].pitch = 1024;
+      fs.fw2Sound.granular.grains[0].volScale = ONE_Q31 / 512;
+      fs.fw2Sound.granular.grains[0].volScaleMax = ONE_Q31;
+      fs.fw2Sound.granular.grains[0].rev = false;
+      fs.fw2Sound.granular.grains[0].panVolL = 1 << 30;
+      fs.fw2Sound.granular.grains[0].panVolR = 1 << 30;
+
+      org.deluge.modulation.patch.PatchCable revCable =
+          new org.deluge.modulation.patch.PatchCable();
+      revCable.from = org.deluge.modulation.patch.PatchSource.LFO_GLOBAL_1;
+      revCable.amount = 1 << 30;
+      revCable.polarity = org.deluge.modulation.patch.PatchCable.Polarity.UNIPOLAR;
+      fs.paramManager.getPatchCableSet().addCable(Param.GLOBAL_REVERB_AMOUNT, revCable);
+    }
+
+    // Add a negative range/depth cable (LFO_GLOBAL_2 -> depth of LFO_GLOBAL_1 ->
+    // GLOBAL_REVERB_AMOUNT) so the reverb cable's depth is attenuated during the tail block.
+    org.deluge.modulation.patch.PatchCable rangeCable =
+        new org.deluge.modulation.patch.PatchCable();
+    rangeCable.from = org.deluge.modulation.patch.PatchSource.LFO_GLOBAL_2;
+    rangeCable.amount = -(1 << 30);
+    withRange
+        .paramManager
+        .getPatchCableSet()
+        .addRangeCable(
+            Param.GLOBAL_REVERB_AMOUNT,
+            org.deluge.modulation.patch.PatchSource.LFO_GLOBAL_1,
+            rangeCable);
+
+    assertTrue(withoutRange.fw2Sound.voices.isEmpty());
+    assertTrue(withRange.fw2Sound.voices.isEmpty());
+
+    long[] outNoRange = new long[16];
+    long[] revNoRange = new long[8];
+    long[] outWithRange = new long[16];
+    long[] revWithRange = new long[8];
+
+    Functions.resetNoiseSeed();
+    withoutRange.renderOutput(outNoRange, 8, revNoRange);
+    Functions.resetNoiseSeed();
+    withRange.renderOutput(outWithRange, 8, revWithRange);
+
+    assertTrue(
+        Math.abs(revWithRange[0]) < Math.abs(revNoRange[0]),
+        "Global range cable must attenuate GLOBAL_REVERB_AMOUNT modulation during voice-free FX tail");
+  }
 }
