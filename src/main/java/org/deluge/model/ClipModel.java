@@ -1007,7 +1007,13 @@ public class ClipModel extends TimelineCounter {
     int count = pendingNoteOns.size();
 
     // Count up how many of each probability there are
-    int[] probabilityCount = new int[128]; // uint8_t[kNumProbabilityValues], C :740-741
+    // uint8_t[kNumProbabilityValues], C :740-741, indexed ONE HIGHER than the C: C
+    // probabilityCount[p] is Java probabilityCount[p]. A file can carry probability 0 (the
+    // loader clamp at note_row.cpp:3494 lets it through), and the C then reads and writes
+    // probabilityCount[-1] — undefined behaviour on a stack byte. Slot 0 is that byte made
+    // defined (zero-initialised), so a 0% note takes the C's own path: it consumes the same random
+    // draw and fails `probabilityValue < 0`, i.e. never plays, instead of throwing here.
+    int[] probabilityCount = new int[128];
 
     // Check whether special case where all probability adds up to 100%
     int probabilitySum = 0;
@@ -1032,7 +1038,7 @@ public class ClipModel extends TimelineCounter {
 
         probabilitySum += p;
 
-        probabilityCount[p - 1]++;
+        probabilityCount[p]++;
       }
 
       doingSumTo100 = (probabilitySum == kNumProbabilityValues);
@@ -1119,8 +1125,8 @@ public class ClipModel extends TimelineCounter {
         if (doNewProbability) {
           // If the outcome of this probability has already been decided (by another note with same
           // probability)
-          if (probabilityCount[probability - 1] >= 254) {
-            conditionPassed = probabilityCount[probability - 1] == 255;
+          if (probabilityCount[probability] >= 254) {
+            conditionPassed = probabilityCount[probability] == 255;
           }
 
           // Otherwise, decide it now
@@ -1135,7 +1141,7 @@ public class ClipModel extends TimelineCounter {
             lastProbabiltyPos[probability] = lastProcessedPos;
 
             // Store the outcome, for any neighbouring notes
-            probabilityCount[probability - 1] = conditionPassed ? 255 : 254;
+            probabilityCount[probability] = conditionPassed ? 255 : 254;
           }
         }
       }

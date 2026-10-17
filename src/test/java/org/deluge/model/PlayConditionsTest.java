@@ -111,6 +111,18 @@ class PlayConditionsTest {
   }
 
   @Test
+  void zeroProbabilityFromAFileNeverPlaysAndDoesNotThrow() {
+    // The loader keeps probability 0 as the C does (note_row.cpp:3494), and the C then indexes
+    // probabilityCount[-1]. Here it must take the C's path to its observable result — the draw
+    // fails `probabilityValue < 0` — rather than throw on the playback thread.
+    addNote(0, 60, 0); // control
+    addNote(1, 62, 0).setProbabilityValue(0);
+    play(8);
+    assertEquals(8, sound.count(60));
+    assertEquals(0, sound.count(62));
+  }
+
+  @Test
   void neighboursWithTheSameProbabilityShareOneOutcome() {
     // C :846-862 — probabilityCount stores the first note's result (255/254) for the rest. 25% +
     // 25%: two 50% notes would sum to 100 and take the one-winner path instead (C :769).
