@@ -67,14 +67,16 @@ public abstract class Filter {
       ensureBlendBufferCapacity(len);
       System.arraycopy(buf, startIdx, blendBuffer, 0, len);
       doFilter(buf, startIdx, endIdx, step);
+      // C filter.h:68-77 — blend and updateBlend() step 1 buffer element at a time across
+      // [startSample, endSample), regardless of sampleIncrement.
       int currentDryIdx = 0;
-      for (int i = startIdx; i < endIdx; i += step) {
+      for (int i = startIdx; i < endIdx; i++) {
         int wet = Functions.multiply_32x32_rshift32(buf[i], wetLevel);
         buf[i] =
             Functions.multiply_accumulate_32x32_rshift32_rounded(
                     wet, blendBuffer[currentDryIdx], Functions.ONE_Q31 - wetLevel)
                 << 1;
-        currentDryIdx += step;
+        currentDryIdx++;
         updateBlend();
       }
     }
@@ -88,21 +90,16 @@ public abstract class Filter {
       ensureBlendBufferCapacity(len);
       System.arraycopy(buf, startIdx, blendBuffer, 0, len);
       doFilterStereo(buf, startIdx, endIdx);
+      // C filter.h:94-103 — blend and updateBlend() step 1 buffer element at a time across
+      // [startSample, endSample), so L and R each advance the 512-element dry/wet fade.
       int currentDryIdx = 0;
-      for (int i = startIdx; i < endIdx; i += 2) {
-        int wetL = Functions.multiply_32x32_rshift32(buf[i], wetLevel);
+      for (int i = startIdx; i < endIdx; i++) {
+        int wet = Functions.multiply_32x32_rshift32(buf[i], wetLevel);
         buf[i] =
             Functions.multiply_accumulate_32x32_rshift32_rounded(
-                    wetL, blendBuffer[currentDryIdx], Functions.ONE_Q31 - wetLevel)
+                    wet, blendBuffer[currentDryIdx], Functions.ONE_Q31 - wetLevel)
                 << 1;
-
-        int wetR = Functions.multiply_32x32_rshift32(buf[i + 1], wetLevel);
-        buf[i + 1] =
-            Functions.multiply_accumulate_32x32_rshift32_rounded(
-                    wetR, blendBuffer[currentDryIdx + 1], Functions.ONE_Q31 - wetLevel)
-                << 1;
-
-        currentDryIdx += 2;
+        currentDryIdx++;
         updateBlend();
       }
     }

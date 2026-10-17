@@ -37,8 +37,9 @@ public class SVFilter extends Filter {
       int freq, int res, FilterSet.FilterMode lpfMode, int lpfMorph, int filterGain) {
     curveFrequency(freq);
 
-    // multiply by 1.25 to loosely correct for equivalency to ladders
-    int POINT_25 = (int) (Functions.ONE_Q31 * 0.25f);
+    // C svf.cpp:45 — constexpr q31_t POINT_25 = ONE_Q31 * 0.25 (double literal truncates to
+    // 536870911, whereas 0.25f rounded ONE_Q31 up in float to 536870912).
+    int POINT_25 = (int) (Functions.ONE_Q31 * 0.25);
     fc = fc + Functions.multiply_32x32_rshift32(fc, POINT_25);
 
     band_mode = (lpfMode == FilterSet.FilterMode.SVF_BAND);

@@ -126,6 +126,7 @@ public class Dx7Voice {
     public final byte[] params = new byte[156];
     public FmCore core; // set by engine
     public int engineMode;
+    public boolean neon = true; // dx7note.h:64 — setEngineMode defaults neon = true
     public boolean useMkI; // updateEngineMode result: true -> EngineMkI, false -> modern FmCore
     public int randomDetune;
     public int pitchMod;
@@ -158,9 +159,14 @@ public class Dx7Voice {
       }
     }
 
-    // setEngineMode (dx7note.cpp:81-88)
+    // setEngineMode (dx7note.h:64, dx7note.cpp:81-88)
     public void setEngineMode(int mode) {
-      engineMode = mode;
+      setEngineMode(mode, true);
+    }
+
+    public void setEngineMode(int mode, boolean neon) {
+      this.neon = neon;
+      engineMode = mode & 0xFF;
       updateEngineMode();
     }
 
@@ -498,12 +504,14 @@ public class Dx7Voice {
     int logfreq;
     if (mode == 0) {
       logfreq = 0;
-      double detuneRatio = 0.0209 * Math.exp(-0.396 * (logFreqForDetune / (double) (1 << 24))) / 7;
+      // C dx7note.cpp:138 — float intermediate on ((float)logFreq_for_detune) / (1 << 24).
+      double detuneRatio = 0.0209 * Math.exp(-0.396 * (((float) logFreqForDetune) / (1 << 24))) / 7;
       int randomScaled = (randomDetune * randomDetuneScale) >> 17;
       logfreq += (int) (detuneRatio * logFreqForDetune * (detune - 7 + randomScaled));
       logfreq += COARSE_MUL[coarse & 31];
       if (fine != 0) {
-        logfreq += (int) Math.floor(24204406.323 * Math.log(1 + 0.01 * fine) + 0.5);
+        // C dx7note.cpp:146 — 24204406.323123 * log(1 + 0.01 * fine) + 0.5
+        logfreq += (int) Math.floor(24204406.323123 * Math.log(1 + 0.01 * fine) + 0.5);
       }
     } else {
       logfreq = (4458616 * ((coarse & 3) * 100 + fine)) >> 3;
@@ -514,9 +522,11 @@ public class Dx7Voice {
 
   // getdelay (dx7note.cpp:293-306)
   int getDelay(int n) {
-    // dx7note.cpp:294 — "delaystate_ < (1U << 31)" on uint32 means the top bit is clear.
-    long delta = (delayState >= 0) ? (delayInc & 0xFFFFFFFFL) : (delayInc2 & 0xFFFFFFFFL);
-    long d = (delayState & 0xFFFFFFFFL) + delta * n;
+    // C dx7note.cpp:294-295 — delta is uint32_t and delta * n wraps in uint32_t before widening
+    // to uint64_t and adding to delaystate_.
+    int delta = (delayState >= 0) ? delayInc : delayInc2;
+    long deltaTimesN = (delta * n) & 0xFFFFFFFFL;
+    long d = (delayState & 0xFFFFFFFFL) + deltaTimesN;
     if (d > 0xFFFFFFFFL) return 1 << 24;
     delayState = (int) d;
     if (d < (1L << 31)) return 0;
@@ -588,7 +598,7 @@ public class Dx7Voice {
     if (ctrls.useMkI) {
       EngineMkI.render(buf, n, params, algorithm, fbBuf, fbShift);
     } else {
-      FmCore.render(buf, n, params, algorithm, fbBuf, fbShift);
+      FmCore.render(buf, n, params, algorithm, fbBuf, fbShift, ctrls.neon);
     }
 
     boolean anyActive = false;
