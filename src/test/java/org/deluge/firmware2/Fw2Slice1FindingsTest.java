@@ -519,4 +519,103 @@ class Fw2Slice1FindingsTest {
     assertFalse(vs.isLoopingNow(), "Non-repeating source must stop looping on noteOff");
     assertEquals(64, vs.currentEndOrLoopFrame());
   }
+
+  @Test
+  void round3_firmwareSoundPreservesExplicitLoopEndAtFrame65535() {
+    FirmwareSound fs = new FirmwareSound();
+    fs.oscTypes[0] = Oscillator.OscType.SAMPLE;
+    org.deluge.playback.Sample pbSample = new org.deluge.playback.Sample();
+    pbSample.data = new float[70000];
+    fs.samples[0] = pbSample;
+
+    // Default SampleVoiceSettings.loopEnd = 0 means no explicit loop-end marker.
+    fs.syncParamsToFw2();
+    assertEquals(0, fs.fw2Sound.sampleLoopEnd[0], "Absent loopEnd marker must sync as 0");
+
+    // Explicit frame 65535 must be preserved instead of being discarded as a sentinel.
+    fs.sampleSettings[0].loopEnd = 65535;
+    fs.syncParamsToFw2();
+    assertEquals(65535, fs.fw2Sound.sampleLoopEnd[0], "Explicit loopEnd=65535 must be preserved");
+  }
+
+  @Test
+  void round3_legatoOscTypeChangeStopsRenderingOldSampleRef() {
+    Sound sound = makeInitializedSound();
+    sound.polyphonic = Sound.PolyphonyMode.LEGATO;
+    sound.oscTypes[0] = Oscillator.OscType.SAMPLE;
+    sound.samples[0] = makeRampSample(256, 44100);
+    sound.sampleLoopMode[0] = 1; // LOOP
+    sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
+    sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+
+    sound.triggerVoice(60, 100, 0);
+    Voice v = sound.voices.get(0);
+    assertTrue(v.unisonParts[0].sources[0].sampleRef != null);
+
+    // Switch oscillator A from SAMPLE to SAW while the legato voice is held, then legato-retune.
+    sound.oscTypes[0] = Oscillator.OscType.SAW;
+    sound.triggerVoice(64, 100, 0);
+    assertSame(v, sound.voices.get(0));
+
+    int playPosBefore = v.unisonParts[0].sources[0].voiceSample.reader.playPos;
+    int[] out = new int[64];
+    v.render(out, 32, false, false);
+    int playPosAfter = v.unisonParts[0].sources[0].voiceSample.reader.playPos;
+    assertEquals(
+        playPosBefore,
+        playPosAfter,
+        "Non-SAMPLE oscType must not advance the retained sample reader during legato");
+  }
+
+  @Test
+  void round3_changeNoteCodeWithNullMpeResetsExpressionTargets() {
+    Sound sound = makeInitializedSound();
+    sound.polyphonic = Sound.PolyphonyMode.LEGATO;
+    Voice v = new Voice(sound);
+    v.noteOn(60, 100, 2, new int[] {1000, 2000, 3000});
+    assertNotEquals(0, v.localExpressionSourceValuesBeforeSmoothing[0]);
+
+    // Legato note from a channel with no MPE values must smooth expression targets back to 0.
+    v.changeNoteCode(64, 3, null);
+    assertEquals(0, v.localExpressionSourceValuesBeforeSmoothing[0]);
+    assertEquals(0, v.localExpressionSourceValuesBeforeSmoothing[1]);
+    assertEquals(0, v.localExpressionSourceValuesBeforeSmoothing[2]);
+    assertEquals(0b111, v.expressionSourcesCurrentlySmoothing);
+  }
+
+  @Test
+  void round3_timeStretchHopWrapsCursorBeforePrimingReaderHistory() {
+    Sample sample = new Sample();
+    sample.numChannels = 1;
+    sample.byteDepth = 2;
+    sample.sampleRate = 44100;
+    sample.audioDataStartPosBytes = 0;
+    sample.lengthInSamples = 4000;
+    sample.audioDataLengthBytes = 8000;
+    sample.data = new int[4000];
+    // Mark frames [100, 200) distinctly from frames outside the loop [200, 4000).
+    Arrays.fill(sample.data, 100, 200, 111_111);
+    Arrays.fill(sample.data, 200, 4000, 999_999);
+
+    VoiceSample vs = new VoiceSample();
+    vs.setupTimeStretch(sample, 100, 200, 1, true, 100, true, 200);
+    // Place samplePosBig near loop end (195) with samplesTilHopEnd = 0 and 2x timeStretchRatio so
+    // hopEndVoid places newHeadBytePos past loopEnd (200) before VoiceSample wraps it.
+    vs.timeStretcher.samplePosBig = 195L << 24;
+    vs.timeStretcher.samplesTilHopEnd = 0;
+
+    int[] out = new int[8];
+    int[] amp = new int[] {1 << 24};
+    vs.renderTimeStretched(out, 1, 1, 1 << 24, 1 << 25, amp, 0);
+
+    assertTrue(
+        vs.reader.playPos >= 100 && vs.reader.playPos < 200,
+        "Wrapped hop playPos must stay inside [100, 200), got " + vs.reader.playPos);
+    for (int i = 0; i < SampleReader.K_TAPS; i++) {
+      assertNotEquals(
+          999_999,
+          vs.reader.bufL[i],
+          "Wrapped hop history tap " + i + " must not contain frames from outside loop [100, 200)");
+    }
+  }
 }

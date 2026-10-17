@@ -274,9 +274,12 @@ public class VoiceSample {
           int newFrame =
               (timeStretcher.newHeadBytePosResult - sample.audioDataStartPosBytes)
                   / bps; // setupNewPlayHead (in-RAM)
-          reader.init(newFrame);
+          // C time_stretcher.cpp:1001-1014 — changeClusterIfNecessary wraps currentPlayPos into
+          // the loop before interpolationBufferSizeLastTime = 0 primes history on the next block.
+          reader.playPos = newFrame;
           syncReaderBounds();
-          reader.oscPos = timeStretcher.additionalOscPosResult; // C:998
+          reader.init(reader.playPos);
+          reader.oscPos = timeStretcher.additionalOscPosResult; // C:1014
         }
       }
 

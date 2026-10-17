@@ -341,10 +341,7 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
         fw2Sound.sampleEndPoint[s] = sampleSettings[s].endPoint;
         fw2Sound.sampleLoopMode[s] = sampleSettings[s].loopMode;
         fw2Sound.sampleLoopStart[s] = sampleSettings[s].loopStart;
-        fw2Sound.sampleLoopEnd[s] =
-            (sampleSettings[s].loopEnd > 0 && sampleSettings[s].loopEnd != 65535)
-                ? sampleSettings[s].loopEnd
-                : 0;
+        fw2Sound.sampleLoopEnd[s] = sampleSettings[s].loopEnd > 0 ? sampleSettings[s].loopEnd : 0;
         fw2Sound.sampleTimestretch[s] = sampleSettings[s].timestretch;
       } else {
         fw2Sound.samples[s] = null;

@@ -334,12 +334,12 @@ public class Voice {
     this.note = newNoteCode;
     this.noteCode = newNoteCode;
 
-    if (mpeValues != null) {
-      for (int m = 0; m < 3; m++) {
-        localExpressionSourceValuesBeforeSmoothing[m] = mpeValues[m] << 16;
-      }
-      expressionSourcesCurrentlySmoothing = 0b111;
+    // C voice.cpp:362-366 — always updates all 3 local expression targets and smoothing flags.
+    for (int m = 0; m < 3; m++) {
+      localExpressionSourceValuesBeforeSmoothing[m] =
+          (mpeValues != null) ? (mpeValues[m] << 16) : 0;
     }
+    expressionSourcesCurrentlySmoothing = 0b111;
 
     // C voice.cpp:371-373 — checks only UNPATCHED_PORTAMENTO != -2147483648.
     // C voice.cpp:268, 424-428 — unisonParts[u].sources[s].active is set only in noteOn;
@@ -1297,9 +1297,10 @@ public class Voice {
 
         java.util.Arrays.fill(tempBuf, 0, numSamples, 0);
 
-        if (vs.sampleRef != null) {
-          // C voice.cpp:2061, voice_unison_part_source.cpp:197-215 — neutral phase increment for
-          // this sample's native rate, and pitch-compensated timeStretchRatio per block.
+        if (sound.oscTypes[s] == Oscillator.OscType.SAMPLE && vs.sampleRef != null) {
+          // C voice.cpp:2022, 2061, voice_unison_part_source.cpp:197-215 — sample branch runs only
+          // when oscType == SAMPLE; neutral phase increment for this sample's native rate, and
+          // pitch-compensated timeStretchRatio per block.
           int pitchAdjustNeutralValue = (int) ((vs.sampleRef.sampleRate * 16777216L) / 44100);
           if (vs.voiceSample.pendingSamplesLate > 0) {
             // C voice.cpp:2092-2102 — late start ignores pitch modulation (uses
