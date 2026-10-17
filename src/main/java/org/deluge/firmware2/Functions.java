@@ -269,25 +269,18 @@ public final class Functions {
 
   /** getFinalParameterValueVolume. Parabola curve for volume params. (functions.cpp:191-226) */
   public static int getFinalParameterValueVolume(int paramNeutralValue, int patchedValue) {
-    long temp = (long) patchedValue + 536870912L;
-    if (temp < 0L) {
-      temp = 0L;
-    } else if (temp > 1073741824L) {
-      temp = 1073741824L;
-    }
-    int positivePatchedValue = (int) ((temp >> 16) * (temp >> 15));
+    // C functions.cpp:199-226 — no input ceiling at 2^30; preserve multi-cable headroom and
+    // saturate only on the final << 5 shift.
+    int positivePatchedValue = patchedValue + 536870912;
+    positivePatchedValue = (positivePatchedValue >> 16) * (positivePatchedValue >> 15);
     return lshiftAndSaturate(multiply_32x32_rshift32(positivePatchedValue, paramNeutralValue), 5);
   }
 
   /** getFinalParameterValueLinear. Linear curve for non-volume params. (functions.cpp:228-242) */
   public static int getFinalParameterValueLinear(int paramNeutralValue, int patchedValue) {
-    long temp = (long) patchedValue + 536870912L;
-    if (temp < 0L) {
-      temp = 0L;
-    } else if (temp > 1073741824L) {
-      temp = 1073741824L;
-    }
-    return lshiftAndSaturate(multiply_32x32_rshift32((int) temp, paramNeutralValue), 3);
+    // C functions.cpp:236-242 — no input ceiling at 2^30; saturate on the final << 3 shift.
+    int positivePatchedValue = patchedValue + 536870912;
+    return lshiftAndSaturate(multiply_32x32_rshift32(positivePatchedValue, paramNeutralValue), 3);
   }
 
   /** getFinalParameterValueExp. Delegates to getExp. (functions.cpp:244-246) */
@@ -443,11 +436,12 @@ public final class Functions {
     }
 
     int output = rangeStart << (numBitsInLookupOutput - numBitsInTableSize);
-    output +=
-        (int)
-            ((long) (tableValueBig - ((table[rangeStart] & 0xFFFF) << 15))
-                * (1 << (numBitsInLookupOutput - numBitsInTableSize))
-                / (long) (((table[rangeStart + 1] & 0xFFFF) - (table[rangeStart] & 0xFFFF)) << 15));
+    // C functions.cpp:488-490 — numerator is (uint64_t), so the division is unsigned 64-bit.
+    long num =
+        (long) (tableValueBig - ((table[rangeStart] & 0xFFFF) << 15))
+            * (1L << (numBitsInLookupOutput - numBitsInTableSize));
+    long den = (long) (((table[rangeStart + 1] & 0xFFFF) - (table[rangeStart] & 0xFFFF)) << 15);
+    output += (int) Long.divideUnsigned(num, den);
     return output;
   }
 

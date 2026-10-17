@@ -20,6 +20,7 @@ public class SincInterpolator {
   // C: interpolate.h:41-42 — state buffers (circular history)
   final short[] bufferL = new short[K_INTERPOLATION_MAX_NUM_SAMPLES];
   final short[] bufferR = new short[K_INTERPOLATION_MAX_NUM_SAMPLES];
+  private final short[] kernelScratch = new short[K_INTERPOLATION_MAX_NUM_SAMPLES];
 
   // ── pushL / pushR (interpolate.h:16-21, 24-29) ──
 
@@ -70,7 +71,7 @@ public class SincInterpolator {
     // C:27-35 — interpolate kernel between two adjacent phases. kernelVector is Argon<int16_t>, so
     // the
     // lerp is stored as a SATURATED int16 (scalarized here).
-    short[] kernel = new short[K_INTERPOLATION_MAX_NUM_SAMPLES];
+    short[] kernel = kernelScratch;
     short[] k1 = WINDOWED_SINC_KERNEL[whichKernel][progressSmall];
     short[] k2 = WINDOWED_SINC_KERNEL[whichKernel][progressSmall + 1];
 

@@ -29,6 +29,10 @@ public class WaveTable {
       ThreadLocal.withInitial(WaveTableScratch::new);
 
   public void setup(int rawFileCycleSize, int totalSamples) {
+    // C wave_table.cpp:161-163 — clamp cycle size to available samples before minimum-size check.
+    if (rawFileCycleSize > totalSamples) {
+      rawFileCycleSize = totalSamples;
+    }
     if (rawFileCycleSize < kWavetableMinCycleSize) return;
 
     int initialBandCycleMagnitude = getMagnitude(rawFileCycleSize);
