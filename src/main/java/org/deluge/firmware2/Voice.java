@@ -341,21 +341,13 @@ public class Voice {
       expressionSourcesCurrentlySmoothing = 0b111;
     }
 
-    if (sound.portamentoKnob != Integer.MIN_VALUE && sound.lastNoteCode != Integer.MIN_VALUE) {
+    // C voice.cpp:371-373 — checks only UNPATCHED_PORTAMENTO != -2147483648.
+    // C voice.cpp:268, 424-428 — unisonParts[u].sources[s].active is set only in noteOn;
+    // calculatePhaseIncrements (voice.cpp:375) only ever clears active on over-Nyquist.
+    if (sound.portamentoKnob != Integer.MIN_VALUE) {
       setupPorta();
     }
     sound.lastNoteCode = newNoteCode;
-
-    // C voice.cpp:375, 420-522 — calculatePhaseIncrements reassesses Nyquist source activity on
-    // retune; re-enable pitch-disabled sources while keeping finished sample readers inactive.
-    for (int u = 0; u < sound.numUnison; u++) {
-      for (int s = 0; s < 2; s++) {
-        VoiceSource vs = unisonParts[u].sources[s];
-        if (vs.sampleRef == null || vs.voiceSample.active) {
-          vs.active = true;
-        }
-      }
-    }
   }
 
   // ── Portamento pitch adjust (voice.cpp:840-856) ──

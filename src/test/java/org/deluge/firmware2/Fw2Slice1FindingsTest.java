@@ -372,7 +372,7 @@ class Fw2Slice1FindingsTest {
   }
 
   @Test
-  void finding19_releaseVoiceMatchesMidiChannelForMpeSamePitchNotes() {
+  void finding19_releaseVoiceMatchesNoteWithoutChannelFilterAndSkipsReleasingVoices() {
     Sound sound = makeInitializedSound();
     sound.polyphonic = Sound.PolyphonyMode.POLY;
 
@@ -380,16 +380,19 @@ class Fw2Slice1FindingsTest {
     sound.triggerNote(60, 100, 3); // MPE member channel 3
     assertEquals(2, sound.voices.size());
 
-    // Release note 60 on channel 2 only.
-    sound.releaseNote(60, 2);
+    // C sound.cpp:1874-1876 — noteOffPostArpeggiator matches noteCode without channel filtering
+    // and only acts on voices with envelopes[0].state < RELEASE.
     Voice vCh2 = sound.voices.get(0);
     Voice vCh3 = sound.voices.get(1);
+    vCh2.envelopes[0].state = Envelope.Stage.RELEASE;
+    vCh2.envelopes[0].pos = 12345;
+
+    sound.releaseNote(60, 2);
+    assertEquals(
+        12345, vCh2.envelopes[0].pos, "Already-releasing voice must be skipped on noteOff");
     assertTrue(
-        vCh2.envelopes[0].state.compareTo(Envelope.Stage.RELEASE) >= 0,
-        "Channel 2 voice must enter release/fast-release");
-    assertTrue(
-        vCh3.envelopes[0].state.compareTo(Envelope.Stage.RELEASE) < 0,
-        "Note 60 on MPE channel 3 must stay held when channel 2 releases");
+        vCh3.envelopes[0].state.compareTo(Envelope.Stage.RELEASE) >= 0,
+        "Non-releasing voice on same note must release regardless of MIDI channel");
   }
 
   @Test
@@ -450,7 +453,7 @@ class Fw2Slice1FindingsTest {
   }
 
   @Test
-  void finding22_legatoRetuneReassessesNyquistDisabledSourceAndPreservesNotePatchSource() {
+  void finding22_legatoRetunePreservesLatchedNotePatchSourceAndDoesNotReenableInactiveSource() {
     Sound sound = makeInitializedSound();
     sound.polyphonic = Sound.PolyphonyMode.LEGATO;
     sound.oscTypes[0] = Oscillator.OscType.SAW;
@@ -469,19 +472,16 @@ class Fw2Slice1FindingsTest {
         "Osc A must be disabled as over-Nyquist on note 60 (+84 transpose)");
     assertTrue(v.unisonParts[0].sources[1].active);
 
-    // Legato retune down to note 24 where Osc A (24 + 84 = 108) is well below Nyquist.
+    // Legato retune down to note 24: C voice.cpp:268, 353-376, 424-428 keeps NOTE latched from
+    // noteOn and never sets unisonParts[u].sources[s].active = true outside noteOn.
     sound.triggerNote(24, 100);
     assertEquals(
         latchedNoteSource,
         v.sourceValues[PatchSource.NOTE.ordinal()],
         "Legato changeNoteCode must leave NOTE patch source latched from noteOn");
-    assertTrue(
+    assertFalse(
         v.unisonParts[0].sources[0].active,
-        "Legato retune must re-enable pitch-disabled Osc A before reassessing phase increments");
-    sound.renderInternal(new int[128], 64, new int[128]);
-    assertTrue(
-        v.unisonParts[0].sources[0].active,
-        "Osc A must stay active after rendering at valid legato pitch");
+        "Legato changeNoteCode must not re-enable inactive source (C sets active only in noteOn)");
   }
 
   @Test

@@ -1351,13 +1351,12 @@ public class Sound extends GlobalEffectable {
   public void releaseVoice(int note, int midiChannel) {
     synchronized (voices) {
       for (var v : voices) {
+        // C sound.cpp:1874-1876 — Sound::noteOffPostArpeggiator matches voices by
+        // noteCodeAfterArpeggiation == noteCode and envelopes[0].state < EnvelopeStage::RELEASE,
+        // with no MIDI channel test.
         if (v.active
             && v.note == note
-            && (midiChannel == -1
-                || midiChannel == Arpeggiator.MIDI_CHANNEL_NONE
-                || v.inputCharacteristics[1] == -1
-                || v.inputCharacteristics[1] == Arpeggiator.MIDI_CHANNEL_NONE
-                || v.inputCharacteristics[1] == midiChannel)) {
+            && v.envelopes[0].state.compareTo(Envelope.Stage.RELEASE) < 0) {
           v.noteOff();
         }
       }
