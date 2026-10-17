@@ -33,6 +33,49 @@ public class NoteRowModel {
   private transient int ignoreNoteOnsBefore_ = 0;
   private transient ParamManager paramManager = new ParamManager();
 
+  /**
+   * C ModelStackWithNoteRow::getRepeatCount (model_stack.cpp:102-109). The C's
+   * hasIndependentPlayPos (note_row.cpp:4374-4376) is also true for a row with its own sequence
+   * direction; this model has no per-row direction, so only the independent-length half applies.
+   */
+  public int getRepeatCount(int clipRepeatCount) {
+    if (loopLengthIfIndependent != 0) {
+      return repeatCountIfIndependent;
+    } else {
+      return clipRepeatCount;
+    }
+  }
+
+  /**
+   * The note-row half of InstrumentClip::setPos (instrument_clip.cpp:405-436). This model has no
+   * per-row sequence direction, so the effective mode is always the clip's (the C's OBEY_PARENT,
+   * note_row.cpp:2022-2029) and only the independent-length half of hasIndependentPlayPos
+   * (note_row.cpp:4335-4337) applies.
+   */
+  public void setPosIfIndependent(int newPos, SequenceDirection effectiveSequenceDirectionMode) {
+    if (loopLengthIfIndependent == 0) {
+      return;
+    }
+    int effectiveLoopLength = loopLengthIfIndependent;
+
+    // The below basically mirrors the code / logic in Clip::setPos()
+    repeatCountIfIndependent = Integer.divideUnsigned(newPos, effectiveLoopLength);
+
+    currentlyPlayingReversedIfIndependent =
+        (effectiveSequenceDirectionMode == SequenceDirection.REVERSE
+            || (effectiveSequenceDirectionMode == SequenceDirection.PINGPONG
+                && (repeatCountIfIndependent & 1) != 0));
+
+    lastProcessedPosIfIndependent = newPos - repeatCountIfIndependent * effectiveLoopLength;
+    if (currentlyPlayingReversedIfIndependent) {
+      if (lastProcessedPosIfIndependent != 0) {
+        lastProcessedPosIfIndependent = effectiveLoopLength - lastProcessedPosIfIndependent;
+      } else {
+        repeatCountIfIndependent--;
+      }
+    }
+  }
+
   public NoteRowModel(int pitch) {
     this.pitch = pitch;
     this.y = pitch;
@@ -160,7 +203,7 @@ public class NoteRowModel {
         writeNote.setPos(newPos);
         writeNote.setLength(note.getLength());
         writeNote.setVelocity(note.getVelocityByte());
-        writeNote.setProbability(note.getProbabilityPercent());
+        writeNote.setProbabilityValue(note.getProbabilityValue());
         writeNote.setIterance(note.getIterance());
         writeNote.setFill(note.getFill());
         newNotes.add(writeNote);
@@ -250,7 +293,7 @@ public class NoteRowModel {
                 new org.deluge.model.PendingNoteOn(
                     this,
                     note.getVelocityByte(),
-                    note.getProbabilityPercent(),
+                    note.getProbabilityValue(), // C note_row.cpp:2554-2555
                     note.getIterance(),
                     note.getFill()));
           }

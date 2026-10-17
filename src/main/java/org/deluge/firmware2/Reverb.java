@@ -12,8 +12,10 @@ package org.deluge.firmware2;
  *   <li>{@code dsp/reverb/mutable.hpp} (193 lines) — Mutable Instruments (Dattorro Griesinger)
  * </ul>
  *
- * <p>Three models: Freeverb (faithful, default), Mutable (Griesinger topology), Digital (extends
- * Mutable). Only Freeverb and Mutable are ported.
+ * <p>Three models, all ported: Freeverb (default), Mutable (Griesinger topology) and Digital
+ * (Dattorro, extends Mutable). Freeverb is pinned bit-exact by {@code ReverbGoldenBufferTest};
+ * Mutable and Digital by {@code MutableReverbGoldenBufferTest}. Note the scorecard corpora (ALLSYN,
+ * CALIB) all use Freeverb, so the scorecard cannot see a defect in the other two.
  */
 public class Reverb {
 
@@ -346,9 +348,22 @@ public class Reverb {
       engine.clear();
     }
 
-    /** C:126-128 */
+    /**
+     * C util/misc.h:84-86 — {@code util::map}, in the C's exact float operation order. Not a
+     * convenience: the precomputed spans this replaced are NOT what float arithmetic produces. For
+     * setWidth, {@code 0.9f - 0.1f} is 0.79999995f, not 0.8f, so {@code 0.1f + v * 0.8f} gave width
+     * 1.0 -> 0.90000004 where the C gives 0.89999998 — a different diffusion coefficient feeding
+     * the input allpasses from the first sample. MutableReverbGoldenBufferTest found it.
+     */
+    static float map(float x, float inMin, float inMax, float outMin, float outMax) {
+      return outMin + ((x - inMin) * (outMax - outMin)) / (inMax - inMin);
+    }
+
+    /** C mutable.hpp:126-128 — util::map(value, 0, 1, kReverbTimeMin, kReverbTimeMax). */
     public void setRoomSize(float v) {
-      reverbTime = 0.01f + v * 0.97f;
+      // 0.98f - 0.01f happens to round to exactly 0.97f, so the old literal agreed here — by luck
+      // of the endpoints rather than by construction. Use the C form regardless.
+      reverbTime = map(v, 0f, 1f, 0.01f, 0.98f);
     }
 
     /** C: mutable.hpp:136-140 — 0 is no damping (lp = 1.0), 1 is darkest (lp = 0.01). */
@@ -361,7 +376,8 @@ public class Reverb {
 
     /** C:139 */
     public void setWidth(float v) {
-      diffusion = 0.1f + v * 0.8f;
+      // C mutable.hpp:139 — util::map(value, 0, 1, kWidthMin, kWidthMax). See map() above.
+      diffusion = map(v, 0f, 1f, 0.1f, 0.9f);
     }
 
     /** C:142-145 */

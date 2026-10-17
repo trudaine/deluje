@@ -22,6 +22,10 @@ public class Iterance {
   public static final int NUM_PROBABILITY_VALUES = 20;
 
   public static final int NUM_ITERANCE_PRESETS = 37;
+
+  /** Alias of {@link #NUM_ITERANCE_PRESETS} (C kNumIterancePresets). */
+  public static final int NUM_PRESETS = NUM_ITERANCE_PRESETS;
+
   public static final int CUSTOM_ITERANCE_PRESET = NUM_ITERANCE_PRESETS + 1;
 
   /** C lookuptables.cpp:506 iterancePresets — FIRST, LAST, then 1of2 through 8of8 (37 entries). */
@@ -41,11 +45,12 @@ public class Iterance {
   }
 
   public byte divisor;
-  public byte iteranceStep; // Using byte as a bitset of 8 bits
+  public byte iteranceStep; // std::bitset<8> in the C
 
+  /** Defaults to OFF, like a C note's {@code iterance} (note.h, kDefaultIteranceValue). */
   public Iterance() {
-    this.divisor = 1;
-    this.iteranceStep = 1;
+    this.divisor = 0;
+    this.iteranceStep = 0;
   }
 
   public Iterance(byte divisor, byte iteranceStep) {
@@ -58,26 +63,27 @@ public class Iterance {
   }
 
   /**
-   * Evaluates whether this iterance condition passes on the given repeat count.
-   *
-   * <p>C iterance.h:46-57 — divisor 0 overloads step 1 as FIRST ({@code repeatCount == 0}) and step
-   * 2 as LAST ({@code ending}).
+   * C iterance.h:46-57. Divisor 0 is not a divisor: step 1 is overloaded as FIRST ({@code
+   * repeatCount == 0}) and every other step as LAST ({@code ending}) — the C's {@code else}.
    */
   public boolean passesCheck(int repeatCount, boolean ending) {
-    int div = divisor & 0xFF;
-    int step = iteranceStep & 0xFF;
-    if (div == 0) {
-      if (step == 1) {
+    // these aren't valid divisors so overloaded to be first/last instead
+    if (divisor == 0) {
+      if ((iteranceStep & 0xFF) == 1) {
         return repeatCount == 0;
-      } else if (step == 2) {
+      } else {
         return ending;
       }
-      return false;
     }
-    int index = Math.floorMod(repeatCount, div);
-    return (step & (1 << index)) != 0;
+    return (iteranceStep & (1 << (repeatCount % (divisor & 0xFF)))) != 0;
   }
 
+  /** C {@code iterance != kDefaultIteranceValue} (instrument_clip.cpp:870). */
+  public boolean isDefault() {
+    return divisor == 0 && iteranceStep == 0;
+  }
+
+  /** C iterance.cpp:58-60. */
   public int toInt() {
     return ((divisor & 0xFF) << 8) | (iteranceStep & 0xFF);
   }

@@ -18,9 +18,9 @@ public class StepPropertiesDialogIteranceTest {
     assertNotNull(cond);
     assertEquals(1, cond.divisor, "Default divisor should be 1");
     assertEquals(1, cond.iteranceStep, "Default iteranceStep bitmask should be 0b1");
-    assertTrue(cond.passesCheck(0));
-    assertTrue(cond.passesCheck(1));
-    assertTrue(cond.passesCheck(99));
+    assertTrue(cond.passesCheck(0, false));
+    assertTrue(cond.passesCheck(1, false));
+    assertTrue(cond.passesCheck(99, false));
   }
 
   @Test
@@ -33,11 +33,11 @@ public class StepPropertiesDialogIteranceTest {
     assertEquals(0b0101, retrieved.iteranceStep);
 
     // Verify evaluation across 8 cycles (0..7)
-    assertTrue(retrieved.passesCheck(0), "Cycle 0 (1st of 4) should pass");
-    assertFalse(retrieved.passesCheck(1), "Cycle 1 (2nd of 4) should not pass");
-    assertTrue(retrieved.passesCheck(2), "Cycle 2 (3rd of 4) should pass");
-    assertFalse(retrieved.passesCheck(3), "Cycle 3 (4th of 4) should not pass");
-    assertTrue(retrieved.passesCheck(4), "Cycle 4 (1st of next 4) should pass");
+    assertTrue(retrieved.passesCheck(0, false), "Cycle 0 (1st of 4) should pass");
+    assertFalse(retrieved.passesCheck(1, false), "Cycle 1 (2nd of 4) should not pass");
+    assertTrue(retrieved.passesCheck(2, false), "Cycle 2 (3rd of 4) should pass");
+    assertFalse(retrieved.passesCheck(3, false), "Cycle 3 (4th of 4) should not pass");
+    assertTrue(retrieved.passesCheck(4, false), "Cycle 4 (1st of next 4) should pass");
 
     int packed = dlg.getPlayConditionInt();
     assertEquals(((4 << 8) | 0b0101), packed, "Must match 16-bit packed Iterance format");
