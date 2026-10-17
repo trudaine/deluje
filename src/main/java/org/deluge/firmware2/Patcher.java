@@ -42,11 +42,18 @@ public class Patcher {
     public static final int UNIPOLAR = 1;
 
     public int toPolarity(int srcVal) {
-      if (polarity == UNIPOLAR) {
-        return (int)
-            (((long) srcVal + 2147483647L) >> 1); // convert bipolar to unipolar positive safely
+      // C patch_cable.h:50-63 — aftertouch is stored unipolar; Y is shared with mod wheel and
+      // bypasses conversion; all other sources are stored bipolar.
+      if (source == PatchSource.AFTERTOUCH.ordinal()) {
+        if (polarity == UNIPOLAR) {
+          return srcVal;
+        }
+        return (srcVal - (Integer.MAX_VALUE / 2)) * 2;
       }
-      return srcVal;
+      if (source == PatchSource.Y.ordinal() || polarity == BIPOLAR) {
+        return srcVal;
+      }
+      return (srcVal / 2) + (Integer.MAX_VALUE / 2);
     }
   }
 

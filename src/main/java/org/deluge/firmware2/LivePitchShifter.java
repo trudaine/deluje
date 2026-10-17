@@ -397,13 +397,16 @@ public class LivePitchShifter {
 
     // C:379 — "What was new is now old" (struct copy by value).
     playHeads[TimeStretcher.PLAY_HEAD_OLDER].copyFrom(playHeads[TimeStretcher.PLAY_HEAD_NEWER]);
+    // C live_pitch_shifter.cpp:383 — snapshot pending nextCrossfadeLength for THIS fade before
+    // replacing nextCrossfadeLength with the table value for the following hop.
+    int thisCrossfadeLength = nextCrossfadeLength;
 
     computeLiveHopParameters(phaseIncrement, hopParameters); // C:382-420
     int[] hp = hopParameters;
     int minSearch = hp[LHP_MIN_SEARCH];
     int maxSearch = hp[LHP_MAX_SEARCH];
     percThresholdForCut = hp[LHP_PERC_THRESHOLD];
-    int thisCrossfadeLength = hp[LHP_NEXT_CROSSFADE];
+    nextCrossfadeLength = hp[LHP_NEXT_CROSSFADE];
     int maxHopLength = hp[LHP_MAX_HOP_LENGTH];
     int randomElement = hp[LHP_RANDOM];
 
@@ -497,7 +500,7 @@ public class LivePitchShifter {
           (int)
                   (((howFarBack & 0xFFFFFFFFL) << 24)
                       / ((phaseIncrement - K_MAX_SAMPLE_VALUE) & 0xFFFFFFFFL))
-              - thisCrossfadeLength; // C:543-544
+              - nextCrossfadeLength; // C live_pitch_shifter.cpp:546-547
       samplesTilHopEnd = Math.max(100, Math.min(samplesTilHopEnd, maxHopLength)); // C:545-551
 
       int minDistanceBack =
@@ -740,8 +743,6 @@ public class LivePitchShifter {
     }
 
     playHeads[TimeStretcher.PLAY_HEAD_NEWER].percPos = 0xFFFFFFFF; // C:797
-
-    nextCrossfadeLength = thisCrossfadeLength;
 
     if (thisCrossfadeLength != 0) { // C:799
       crossfadeProgress = 0; // C:800
