@@ -3,9 +3,13 @@ package org.deluge.firmware2;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.nio.file.Files;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.deluge.engine.FirmwareAudioEngine;
 import org.deluge.engine.FirmwareFactory;
 import org.deluge.engine.FirmwareSound;
@@ -55,9 +59,11 @@ public class MultiSampleMemoryStreamingBehaviorTest {
     String[] multisamples = {"169 Double Bass.XML", "170 Sitar.XML"};
     int[] testNotes = {36, 60, 72}; // Multiple octave zones across multisample keyzones
 
+    int tested = 0;
     for (String preset : multisamples) {
       File xml = new File(SYNTH_DIR, preset);
-      if (!xml.exists()) continue;
+      if (!xml.exists() || !firstSampleExists(xml)) continue;
+      tested++;
 
       SynthTrackModel synth = DelugeXmlParser.parseSynth(new FileInputStream(xml), xml.getName());
       synth.setName(xml.getName().replace(".XML", ""));
@@ -126,5 +132,18 @@ public class MultiSampleMemoryStreamingBehaviorTest {
         fs.releaseNote(note);
       }
     }
+    assumeTrue(tested > 0, "no multisample preset's SAMPLES found under deluge.card");
+  }
+
+  /**
+   * The multisample WAVs live on a real SD card, not in git (issue #20). Skip a preset whose first
+   * keyzone sample does not resolve under {@code deluge.card}, as FidelityScorecardTest does.
+   */
+  private static boolean firstSampleExists(File xml) throws Exception {
+    Matcher m =
+        Pattern.compile("<fileName>([^<]+)</fileName>").matcher(Files.readString(xml.toPath()));
+    if (!m.find()) return false;
+    File f = FirmwareFactory.resolveSample(m.group(1), SYNTH_DIR.getParentFile());
+    return f != null && f.isFile();
   }
 }

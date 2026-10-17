@@ -21,7 +21,8 @@ jobs:
           cache: maven
           server-id: github
 
+      # The Swing UI tests need a display; GitHub runners have none (issue #20).
       - name: Run JVM tests
-        run: mvn test -B
+        run: xvfb-run --auto-servernum mvn test -B
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

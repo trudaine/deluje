@@ -8,7 +8,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
-import org.deluge.project.PreferencesManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,17 +17,19 @@ public class DelugeRecordingCleanerTest {
 
   @TempDir Path tempDir;
 
-  private File originalLibraryDir;
+  private String originalCardProperty;
   private File mockLibraryDir;
 
   @BeforeEach
   public void setUp() throws IOException {
-    // Save original preference
-    originalLibraryDir = PreferencesManager.getLibraryDir();
+    // Point the library at the mock folder through the deluge.card property, which
+    // PreferencesManager.getLibraryDir() checks first. Never write the persisted library_dir
+    // preference: that is the developer's real setting, and surefire sets deluge.card anyway.
+    originalCardProperty = System.getProperty("deluge.card");
 
     // Set up mock library folder structure
     mockLibraryDir = tempDir.toFile();
-    PreferencesManager.setLibraryDir(mockLibraryDir.getAbsolutePath());
+    System.setProperty("deluge.card", mockLibraryDir.getAbsolutePath());
 
     File songsDir = new File(mockLibraryDir, "SONGS");
     File kitsDir = new File(mockLibraryDir, "KITS");
@@ -81,9 +82,10 @@ public class DelugeRecordingCleanerTest {
 
   @AfterEach
   public void tearDown() {
-    // Restore original library directory preference
-    if (originalLibraryDir != null) {
-      PreferencesManager.setLibraryDir(originalLibraryDir.getAbsolutePath());
+    if (originalCardProperty != null) {
+      System.setProperty("deluge.card", originalCardProperty);
+    } else {
+      System.clearProperty("deluge.card");
     }
   }
 
