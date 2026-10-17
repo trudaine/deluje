@@ -325,22 +325,14 @@ public class Voice {
 
   /**
    * C: voice.cpp:353-376 — legato pitch transition on an already-sounding voice. Updates the note
-   * code, MIDI channel, NOTE patch source, MPE smoothing targets, and portamento glide without
-   * resetting envelopes, oscillator phases, filters, or active sample readers.
+   * code, MIDI channel, MPE smoothing targets, and portamento glide without resetting envelopes,
+   * oscillator phases, filters, the latched NOTE patch source, or active sample readers.
    */
   public void changeNoteCode(int newNoteCode, int fromMidiChannel, int[] mpeValues) {
     inputCharacteristics[0] = newNoteCode;
     inputCharacteristics[1] = fromMidiChannel;
     this.note = newNoteCode;
     this.noteCode = newNoteCode;
-
-    if (noteCode >= 128) {
-      sourceValues[PatchSource.NOTE.ordinal()] = 2147483647;
-    } else if (noteCode <= 0) {
-      sourceValues[PatchSource.NOTE.ordinal()] = -2147483648;
-    } else {
-      sourceValues[PatchSource.NOTE.ordinal()] = (noteCode - 64) * 33554432;
-    }
 
     if (mpeValues != null) {
       for (int m = 0; m < 3; m++) {
@@ -353,6 +345,17 @@ public class Voice {
       setupPorta();
     }
     sound.lastNoteCode = newNoteCode;
+
+    // C voice.cpp:375, 420-522 — calculatePhaseIncrements reassesses Nyquist source activity on
+    // retune; re-enable pitch-disabled sources while keeping finished sample readers inactive.
+    for (int u = 0; u < sound.numUnison; u++) {
+      for (int s = 0; s < 2; s++) {
+        VoiceSource vs = unisonParts[u].sources[s];
+        if (vs.sampleRef == null || vs.voiceSample.active) {
+          vs.active = true;
+        }
+      }
+    }
   }
 
   // ── Portamento pitch adjust (voice.cpp:840-856) ──

@@ -206,17 +206,24 @@ class Fw2Slice1FindingsTest {
     Sound sound = makeInitializedSound();
     sound.oscTypes[0] = Oscillator.OscType.SAMPLE;
     sound.samples[0] = makeRampSample(256, 44100);
-    sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MIN_VALUE;
+    // Keep the knob enabled so Sound.isSourceActiveCurrently(0) stays true, then zero the final
+    // patched amplitude so renderSubtractivePath reaches the sample-amplitude calculation.
+    sound.patchedParamValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MIN_VALUE + 1;
     sound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
     sound.patchedParamValues[Param.LOCAL_NOISE_VOLUME] = Integer.MIN_VALUE;
 
     sound.triggerNote(60, 100);
     Voice v = sound.voices.get(0);
     Patcher.performInitialPatching(sound, v.sourceValues, v.paramFinalValues);
+    v.paramFinalValues[Param.LOCAL_OSC_A_VOLUME] = 0;
     int[] buf = new int[128];
     v.render(buf, 64, false, false);
+    assertTrue(
+        v.unisonParts[0].sources[0].voiceSample.reader.playPos > 0,
+        "Sample reader must advance while source is active");
     for (int sample : buf) {
-      assertEquals(0, sample, "Muted sample oscillator must render silence (no 1<<26 floor)");
+      assertEquals(
+          0, sample, "Zero-amplitude sample oscillator must render silence (no 1<<26 floor)");
     }
   }
 
@@ -400,5 +407,116 @@ class Fw2Slice1FindingsTest {
     assertFalse(
         vs.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER],
         "VoiceSample.setup must clear timeStretcher OLDER playhead");
+  }
+
+  @Test
+  void finding21_sampleReaderModeSwitchAfterLoopWrapRewindsInsideLoopNotAttack() {
+    Sample sample = makeRampSample(128, 44100);
+    SampleReader reader = new SampleReader();
+    reader.sample = sample;
+    reader.playDirection = 1;
+    reader.setBounds(100, true, 40);
+    reader.init(90);
+
+    int[] out = new int[4];
+    int[] amp = {1 << 26};
+    // Prime 16-tap (9 pushes: 90..98 -> playPos=99) + 3 advances (99, 40 -> playPos=41, oscPos=0).
+    reader.readResampled(out, 3, 1, 0, 16777216, 16, amp, 0);
+    assertEquals(41, reader.playPos);
+    assertEquals(0, reader.oscPos);
+
+    // Switch 16-tap -> native: must rewind to 93 (inside [40, 100)), not 33 (pre-loop attack).
+    SampleReader toNative = new SampleReader();
+    toNative.copyStateFrom(reader);
+    toNative.readNative(out, 1, 1, amp, 0);
+    assertEquals(94, toNative.playPos, "Native read must start at 93 and advance to 94");
+
+    // Shrink 16-tap -> 2-tap: must rewind to 94, not 34.
+    SampleReader toTwoTap = new SampleReader();
+    toTwoTap.copyStateFrom(reader);
+    toTwoTap.readResampled(out, 1, 1, 0, 8388608, 2, amp, 0);
+    assertEquals(94, toTwoTap.posHistory[0] + 1, "2-tap shrink must realign cursor to 94");
+
+    // Pre-loop initial attack (no wrap yet): playPos=41 must rewind to 33, NOT wrap into [40, 100).
+    SampleReader preLoop = new SampleReader();
+    preLoop.sample = sample;
+    preLoop.playDirection = 1;
+    preLoop.setBounds(100, true, 40);
+    preLoop.init(30);
+    preLoop.readResampled(out, 3, 1, 0, 16777216, 16, amp, 0);
+    assertEquals(41, preLoop.playPos);
+    preLoop.readNative(out, 1, 1, amp, 0);
+    assertEquals(34, preLoop.playPos, "Pre-loop attack must rewind to 33 and advance to 34");
+  }
+
+  @Test
+  void finding22_legatoRetuneReassessesNyquistDisabledSourceAndPreservesNotePatchSource() {
+    Sound sound = makeInitializedSound();
+    sound.polyphonic = Sound.PolyphonyMode.LEGATO;
+    sound.oscTypes[0] = Oscillator.OscType.SAW;
+    sound.oscTypes[1] = Oscillator.OscType.SAW;
+    sound.sourceTranspose[0] = 84;
+    sound.sourceTranspose[1] = 0;
+
+    sound.triggerNote(60, 100);
+    Voice v = sound.voices.get(0);
+    int latchedNoteSource = v.sourceValues[PatchSource.NOTE.ordinal()];
+    assertEquals((60 - 64) * 33554432, latchedNoteSource);
+
+    sound.renderInternal(new int[128], 64, new int[128]);
+    assertFalse(
+        v.unisonParts[0].sources[0].active,
+        "Osc A must be disabled as over-Nyquist on note 60 (+84 transpose)");
+    assertTrue(v.unisonParts[0].sources[1].active);
+
+    // Legato retune down to note 24 where Osc A (24 + 84 = 108) is well below Nyquist.
+    sound.triggerNote(24, 100);
+    assertEquals(
+        latchedNoteSource,
+        v.sourceValues[PatchSource.NOTE.ordinal()],
+        "Legato changeNoteCode must leave NOTE patch source latched from noteOn");
+    assertTrue(
+        v.unisonParts[0].sources[0].active,
+        "Legato retune must re-enable pitch-disabled Osc A before reassessing phase increments");
+    sound.renderInternal(new int[128], 64, new int[128]);
+    assertTrue(
+        v.unisonParts[0].sources[0].active,
+        "Osc A must stay active after rendering at valid legato pitch");
+  }
+
+  @Test
+  void finding23_reverseSampleLoopMarkerAtPositionOneIsPreservedNotTreatedAsAbsent() {
+    Sound sound = makeInitializedSound();
+    sound.oscTypes[0] = Oscillator.OscType.SAMPLE;
+    sound.samples[0] = makeRampSample(64, 44100);
+    sound.sampleReverse[0] = true;
+    sound.sampleStartPoint[0] = 0;
+    sound.sampleEndPoint[0] = 64;
+    sound.sampleLoopStart[0] = 1; // In reverse, rawLoopStart=1 -> loopEndPlaybackAtSample = 0
+    sound.sampleLoopEnd[0] = 20;
+    sound.sampleLoopMode[0] = 1;
+
+    sound.triggerNote(60, 100);
+    Voice v = sound.voices.get(0);
+    VoiceSample vs = v.unisonParts[0].sources[0].voiceSample;
+    assertTrue(vs.hasLoopEnd, "Raw loop marker at position 1 must be recognized as present");
+    assertEquals(0, vs.loopEndFrame, "Reverse conversion of position 1 must land at frame 0");
+    assertEquals(19, vs.loopStartFrame, "Reverse conversion of position 20 must land at frame 19");
+  }
+
+  @Test
+  void finding24_sustainLoopEndLoopsForNonRepeatingSourceUntilNoteOff() {
+    Sample sample = makeRampSample(64, 44100);
+    VoiceSample vs = new VoiceSample();
+    // looping = false (SampleRepeatMode::ONCE / CUT), but hasLoopEnd = true (sustain loop marker).
+    vs.setup(sample, 0, 64, 1, false, 10, true, 20);
+    assertTrue(vs.shouldObeyLoopEndPointNow(), "Sustain loop-end must be obeyed while held");
+    assertTrue(vs.isLoopingNow(), "Sustain loop-end must loop while held even when looping=false");
+    assertEquals(20, vs.currentEndOrLoopFrame());
+
+    vs.onNoteOff();
+    assertFalse(vs.shouldObeyLoopEndPointNow(), "Sustain loop-end must release on noteOff");
+    assertFalse(vs.isLoopingNow(), "Non-repeating source must stop looping on noteOff");
+    assertEquals(64, vs.currentEndOrLoopFrame());
   }
 }

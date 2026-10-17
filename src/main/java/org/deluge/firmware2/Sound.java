@@ -1261,13 +1261,13 @@ public class Sound extends GlobalEffectable {
             int rawLoopEnd = loopEndPos > 0 ? loopEndPos : 0;
             int loopStartPlaybackAtSample = !reversed ? rawLoopStart : rawLoopEnd;
             int loopEndPlaybackAtSample = !reversed ? rawLoopEnd : rawLoopStart;
+            boolean hasLoopStart = loopStartPlaybackAtSample > 0;
+            boolean hasLoopEnd = loopEndPlaybackAtSample > 0;
             if (reversed) {
-              if (loopStartPlaybackAtSample != 0) loopStartPlaybackAtSample--;
-              if (loopEndPlaybackAtSample != 0) loopEndPlaybackAtSample--;
+              if (hasLoopStart) loopStartPlaybackAtSample--;
+              if (hasLoopEnd) loopEndPlaybackAtSample--;
             }
-            int dirLoopStart =
-                (loopStartPlaybackAtSample != 0) ? loopStartPlaybackAtSample : dirStart;
-            boolean hasLoopEnd = (loopEndPlaybackAtSample != 0);
+            int dirLoopStart = hasLoopStart ? loopStartPlaybackAtSample : dirStart;
             int dirLoopEnd = hasLoopEnd ? loopEndPlaybackAtSample : dirEnd;
 
             boolean ts = sampleTimestretch[s];

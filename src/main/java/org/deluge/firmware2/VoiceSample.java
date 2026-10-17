@@ -71,7 +71,7 @@ public class VoiceSample {
    * C: VoiceSamplePlaybackGuide::shouldObeyLoopEndPointNow (voice_sample_playback_guide.cpp:73).
    */
   public boolean shouldObeyLoopEndPointNow() {
-    return looping && hasLoopEnd && !noteOffReceived;
+    return hasLoopEnd && !noteOffReceived;
   }
 
   /** C: VoiceSamplePlaybackGuide::getBytePosToEndOrLoopPlayback (:87-94), in frames. */
@@ -81,7 +81,7 @@ public class VoiceSample {
 
   /** C: VoiceSamplePlaybackGuide::getLoopingType (:96-101) == LOW_LEVEL. */
   public boolean isLoopingNow() {
-    return looping && (!hasLoopEnd || !noteOffReceived);
+    return hasLoopEnd ? !noteOffReceived : looping;
   }
 
   private void syncReaderBounds() {

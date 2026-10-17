@@ -46,9 +46,20 @@ public class SampleReader {
   public boolean looping;
   public int loopStartFrame;
 
+  /**
+   * True once playback has wrapped at {@link #endFrame} back to {@link #loopStartFrame}, so
+   * backward cursor realignment on interpolation-mode changes wraps back into the loop instead of
+   * rewinding into the pre-loop attack.
+   */
+  public boolean hasWrappedLoop;
+
   // Full-precision interpolation history; [0] is the newest frame (matches SincInterpolator order).
   final int[] bufL = new int[K_TAPS];
   final int[] bufR = new int[K_TAPS];
+
+  // Loop-aware frame index history matching bufL/bufR ([0] is the frame index of bufL[0]).
+  final int[] posHistory = new int[K_TAPS];
+  private int posHistoryHead = Integer.MIN_VALUE;
 
   private final int[] interpOut = new int[2];
 
@@ -61,12 +72,16 @@ public class SampleReader {
     this.endFrame = endFrame;
     this.looping = looping;
     this.loopStartFrame = loopStartFrame;
+    if (!looping) {
+      this.hasWrappedLoop = false;
+    }
     wrapPlayPosIfNeeded();
   }
 
   public void clearBounds() {
     this.hasBounds = false;
     this.looping = false;
+    this.hasWrappedLoop = false;
   }
 
   /**
@@ -84,8 +99,11 @@ public class SampleReader {
     this.endFrame = other.endFrame;
     this.looping = other.looping;
     this.loopStartFrame = other.loopStartFrame;
+    this.hasWrappedLoop = other.hasWrappedLoop;
+    this.posHistoryHead = other.posHistoryHead;
     System.arraycopy(other.bufL, 0, bufL, 0, K_TAPS);
     System.arraycopy(other.bufR, 0, bufR, 0, K_TAPS);
+    System.arraycopy(other.posHistory, 0, posHistory, 0, K_TAPS);
   }
 
   /**
@@ -118,7 +136,35 @@ public class SampleReader {
       long overshoot = (long) (playPos - loopStartFrame) * playDirection;
       long span = (long) loopSpan * playDirection;
       playPos = loopStartFrame + (int) (overshoot % span) * playDirection;
+      hasWrappedLoop = true;
     }
+  }
+
+  /**
+   * Rewind {@link #playPos} by {@code count} frames along the actual playback trajectory (using
+   * {@link #posHistory} when valid, or wrapping backwards around {@code [loopStartFrame, endFrame)}
+   * if a loop has already wrapped). Initial pre-loop attack stays unwrapped.
+   */
+  private void jumpBackFrames(int count) {
+    if (count <= 0) {
+      return;
+    }
+    if (playPos == posHistoryHead && count <= K_TAPS) {
+      playPos = posHistory[count - 1];
+      return;
+    }
+    playPos -= count * playDirection;
+    if (hasBounds && looping && hasWrappedLoop) {
+      int loopSpan = endFrame - loopStartFrame;
+      if (loopSpan * playDirection > 0 && (playPos - loopStartFrame) * playDirection < 0) {
+        long underflow = (long) (loopStartFrame - playPos) * playDirection;
+        long span = (long) loopSpan * playDirection;
+        long rem = underflow % span;
+        playPos = (rem == 0) ? loopStartFrame : (endFrame - (int) rem * playDirection);
+        return;
+      }
+    }
+    wrapPlayPosIfNeeded();
   }
 
   private boolean isPastNonLoopingEnd() {
@@ -127,6 +173,7 @@ public class SampleReader {
 
   private void readFrameAtPlayPos(int[] dstL, int[] dstR, int idx) {
     wrapPlayPosIfNeeded();
+    posHistory[idx] = playPos;
     if (!isPastNonLoopingEnd() && playPos >= 0 && playPos < numFrames()) {
       int base = playPos * sample.numChannels;
       dstL[idx] = sample.data[base];
@@ -137,6 +184,7 @@ public class SampleReader {
     }
     playPos += playDirection;
     wrapPlayPosIfNeeded();
+    posHistoryHead = playPos;
   }
 
   /**
@@ -146,6 +194,7 @@ public class SampleReader {
   private void pushFrame() {
     System.arraycopy(bufL, 0, bufL, 1, K_TAPS - 1);
     System.arraycopy(bufR, 0, bufR, 1, K_TAPS - 1);
+    System.arraycopy(posHistory, 0, posHistory, 1, K_TAPS - 1);
     readFrameAtPlayPos(bufL, bufR, 0);
   }
 
@@ -157,6 +206,7 @@ public class SampleReader {
    * reads backwards through the audio file without loop-wrapping.
    */
   public void init(int startFrame) {
+    hasWrappedLoop = false;
     boolean savedHasBounds = hasBounds;
     hasBounds = false;
     playPos = startFrame - K_TAPS * playDirection;
@@ -177,6 +227,7 @@ public class SampleReader {
    */
   public void wrapBy(int loopLengthFrames) {
     playPos -= loopLengthFrames;
+    hasWrappedLoop = true;
     wrapPlayPosIfNeeded();
   }
 
@@ -207,18 +258,20 @@ public class SampleReader {
       if (interpolationBufferSize < interpolationBufferSizeLastTime) {
         // C:582-602 — shrink buffer (e.g. 16-tap sinc -> 2-tap linear).
         int offset = (interpolationBufferSizeLastTime - interpolationBufferSize) >> 1;
+        jumpBackFrames(offset);
         for (int i = 0; i < interpolationBufferSize; i++) {
           bufL[i] = bufL[i + offset];
           bufR[i] = bufR[i + offset];
+          posHistory[i] = posHistory[i + offset];
         }
-        playPos -= offset * playDirection;
-        wrapPlayPosIfNeeded();
+        posHistoryHead = playPos;
       } else {
         // C:614-647 — expand buffer (e.g. 2-tap linear -> 16-tap sinc).
         int offset = (interpolationBufferSize - interpolationBufferSizeLastTime) >> 1;
         for (int i = interpolationBufferSizeLastTime - 1; i >= 0; i--) {
           bufL[i + offset] = bufL[i];
           bufR[i + offset] = bufR[i];
+          posHistory[i + offset] = posHistory[i];
         }
         for (int i = offset - 1; i >= 0; i--) {
           readFrameAtPlayPos(bufL, bufR, i);
@@ -321,9 +374,9 @@ public class SampleReader {
     // pitch modulation crossing unity) doesn't drift ~half a buffer of source frames.
     if (interpolationBufferSizeLastTime != 0) {
       int numToJumpBack = (interpolationBufferSizeLastTime >> 1) - (oscPos >>> 23);
-      playPos -= numToJumpBack * playDirection;
-      wrapPlayPosIfNeeded();
+      jumpBackFrames(numToJumpBack);
       interpolationBufferSizeLastTime = 0;
+      posHistoryHead = Integer.MIN_VALUE;
       oscPos = 0;
     }
     int o = 0;
