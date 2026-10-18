@@ -41,10 +41,28 @@ public class DelugeNoteDataMapper {
         String hexPos = String.format("%08X", pos);
         String hexLen = String.format("%08X", len);
 
-        // Encode velocity in 1 byte (2 hex chars) at offset 16-17
+        // Encode velocity in 1 byte (2 hex chars) at offset 16-17 (C note_row.cpp:3311, 3491-3493)
         int velInt = Math.round(step.velocity() * 127.0f);
-        String hexVel = String.format("%02X", Math.max(0, Math.min(127, velInt)));
-        String hexFlags = "4014"; // Default flags/lift
+        String hexVel = String.format("%02X", Math.max(1, Math.min(127, velInt)));
+        // C note_row.cpp:3424-3447 & definitions_cxx.hpp:709, 722-725 — 22-char noteDataWithLift
+        // carries lift (default 0x40 = 64) and probability (0x00 = FILL, 0x80 = NOT_FILL, 1..20,
+        // or 21..55 for legacy iterance presets 1of2..8of8).
+        int fillMode = step.fillMode() != 0 ? step.fillMode() : (step.fill() > 0.001f ? 2 : 0);
+        int legacyIteranceByte =
+            (step.playCondition() != 0 && step.playCondition() != 0x0101)
+                ? org.deluge.model.Iterance.fromInt(step.playCondition()).toLegacyProbabilityByte()
+                : 0;
+        int probByte;
+        if (fillMode == org.deluge.model.NoteModel.FILL_MODE_FILL) {
+          probByte = 0; // kOldFillProbabilityValue
+        } else if (fillMode == org.deluge.model.NoteModel.FILL_MODE_NOT_FILL) {
+          probByte = 128; // kOldNotFillProbabilityValue
+        } else if (legacyIteranceByte > 0) {
+          probByte = legacyIteranceByte; // 21..55 (note_row.cpp:3436-3440)
+        } else {
+          probByte = Math.max(1, Math.min(20, Math.round(step.probability() * 20.0f)));
+        }
+        String hexFlags = String.format("40%02X", probByte);
 
         sb.append(hexPos).append(hexLen).append(hexVel).append(hexFlags);
       }
@@ -65,7 +83,7 @@ public class DelugeNoteDataMapper {
         String hexLen = String.format("%08X", len);
 
         int velInt = Math.round(step.velocity() * 127.0f);
-        String hexVel = String.format("%02X", Math.max(0, Math.min(127, velInt)));
+        String hexVel = String.format("%02X", Math.max(1, Math.min(127, velInt)));
         // C note_row.cpp:3607-3617 — lift (1B, default 0x40), probability (1B, 0..20 in split
         // format where fill is in its own byte; positive values clamp to 1..20),
         // iterance.toInt() (2B, 0x0000 when OFF/1of1), fill (1B, OFF=0, NOT_FILL=1, FILL=2)
@@ -106,7 +124,8 @@ public class DelugeNoteDataMapper {
       int step = pos / ticksPerStep;
       float nudge = (float) (pos % ticksPerStep) / ticksPerStep;
       float gate = (float) len / ticksPerStep;
-      float velocity = hexCharsPerNote >= 22 ? nm.getVelocity() : 0.8f;
+      // C note_row.cpp:3401 — velocity sits at hex offset 16..17 in all four noteData formats.
+      float velocity = nm.getVelocity();
       int fillMode = nm.getFill();
       float fill = fillMode == 2 ? 1.0f : 0.0f;
       int playCondition = nm.getIterance() != null ? nm.getIterance().toInt() : 0;
@@ -145,7 +164,13 @@ public class DelugeNoteDataMapper {
 
       int pos = (int) Long.parseLong(hexPos, 16);
       int len = (int) Long.parseLong(hexLen, 16);
+      if (len <= 0) {
+        len = 1; // C note_row.cpp:3485-3487
+      }
       int velInt = Integer.parseInt(data.substring(idx + 16, idx + 18), 16);
+      if (velInt == 0 || velInt > 127) {
+        velInt = 64; // C note_row.cpp:3491-3493
+      }
       float velocity = velInt / 127.0f;
 
       // Probability, iterance, fill and lift: the one C port, decodePlayConditions
@@ -241,13 +266,89 @@ public class DelugeNoteDataMapper {
     return String.format("%08X%08X4014", tickPos, Math.max(1, tickLen));
   }
 
-  /** Backward-compatible decode using 20-char notes and internal ticks-per-step. */
+  /**
+   * Decode a tagless Java-only pattern hex string using inferred stride and internal {@link
+   * #TICKS_PER_STEP}. XML parsers ({@code SongXmlParser}, {@code PatternSerializer}) must call
+   * {@link #decodeRow(String, int, int, int)} with the stride determined by the XML tag name
+   * ({@code noteData}=20, {@code noteDataWithLift}=22, {@code noteDataWithIteranceAndFill}=26,
+   * {@code noteDataWithSplitProb}=28; C {@code note_row.cpp:3359-3534}).
+   */
   public static List<StepData> decodeRow(String hex, int stepCount) {
-    return decodeRow(hex, stepCount, TICKS_PER_STEP, HEX_CHARS_PER_NOTE_OLD);
+    return decodeRow(hex, stepCount, TICKS_PER_STEP, inferHexCharsPerNote(hex));
   }
 
-  /** Backward-compatible decode with ticksPerStep and default 20-char notes. */
+  /**
+   * Decode a tagless Java-only pattern hex string with {@code ticksPerStep} and inferred stride.
+   * XML parsers must pass the stride from the XML tag name to {@link #decodeRow(String, int, int,
+   * int)}.
+   */
   public static List<StepData> decodeRow(String hex, int stepCount, int ticksPerStep) {
-    return decodeRow(hex, stepCount, ticksPerStep, HEX_CHARS_PER_NOTE_OLD);
+    return decodeRow(hex, stepCount, ticksPerStep, inferHexCharsPerNote(hex));
+  }
+
+  /**
+   * Infers the per-note hex stride (20, 22, 26, or 28 chars) only for tagless Java-only pattern
+   * strings (e.g. {@link #encodeRow} roundtrips). Firmware XML readers never guess stride and
+   * always select it from the XML tag name.
+   */
+  static int inferHexCharsPerNote(String hex) {
+    if (hex == null || !hex.startsWith("0x") || hex.length() <= 2) {
+      return HEX_CHARS_PER_NOTE_OLD;
+    }
+    String data = hex.substring(2);
+    int len = data.length();
+    boolean div22 = len % HEX_CHARS_PER_NOTE_LIFT == 0;
+    boolean div20 = len % HEX_CHARS_PER_NOTE_OLD == 0;
+    boolean div28 = len % HEX_CHARS_PER_NOTE_SPLIT == 0;
+    boolean div26 = len % HEX_CHARS_PER_NOTE_ITERANCE_AND_FILL == 0;
+
+    if (div22 && !div20) {
+      return HEX_CHARS_PER_NOTE_LIFT;
+    }
+    if (div20 && !div22 && !div28 && !div26) {
+      return HEX_CHARS_PER_NOTE_OLD;
+    }
+    if (div22 && div20) {
+      boolean valid22 = isValidNoteStride(data, HEX_CHARS_PER_NOTE_LIFT);
+      boolean valid20 = isValidNoteStride(data, HEX_CHARS_PER_NOTE_OLD);
+      if (valid22 && !valid20) {
+        return HEX_CHARS_PER_NOTE_LIFT;
+      }
+      if (valid20 && !valid22) {
+        return HEX_CHARS_PER_NOTE_OLD;
+      }
+      return HEX_CHARS_PER_NOTE_LIFT;
+    }
+    if (div28) {
+      return HEX_CHARS_PER_NOTE_SPLIT;
+    }
+    if (div26) {
+      return HEX_CHARS_PER_NOTE_ITERANCE_AND_FILL;
+    }
+    return HEX_CHARS_PER_NOTE_OLD;
+  }
+
+  private static boolean isValidNoteStride(String data, int stride) {
+    long minPos = 0;
+    for (int idx = 0; idx + stride <= data.length(); idx += stride) {
+      long pos = Long.parseLong(data.substring(idx, idx + 8), 16);
+      long len = Long.parseLong(data.substring(idx + 8, idx + 16), 16);
+      int vel = Integer.parseInt(data.substring(idx + 16, idx + 18), 16);
+      // C note_row.cpp:3488-3501 — note positions must be non-overlapping and non-negative.
+      if (pos < minPos || pos > 0x7FFFFFFFL || len <= 0 || len > 0x7FFFFFFFL) {
+        return false;
+      }
+      if (vel <= 0 || vel > 127) {
+        return false;
+      }
+      if (stride >= HEX_CHARS_PER_NOTE_LIFT) {
+        int lift = Integer.parseInt(data.substring(idx + 18, idx + 20), 16);
+        if (lift <= 0 || lift > 127) {
+          return false;
+        }
+      }
+      minPos = pos + len;
+    }
+    return true;
   }
 }

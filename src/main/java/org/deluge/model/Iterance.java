@@ -141,6 +141,24 @@ public class Iterance {
   }
 
   /**
+   * Inverse of {@link #fromLegacyProbabilityByte}: encodes a legacy C1.2 iterance preset (1of2 ..
+   * 8of8, {@link #PRESETS} indices 2..36) as {@code idx + NUM_PROBABILITY_VALUES - 1} (21..55; C
+   * {@code note_row.cpp:3436-3440}, {@code iterance_migration.cpp:26-36}), or 0 when OFF / not a
+   * legacy preset.
+   */
+  public int toLegacyProbabilityByte() {
+    if (isDefault()) {
+      return 0;
+    }
+    for (int idx = 2; idx < NUM_ITERANCE_PRESETS; idx++) {
+      if (PRESETS[idx].divisor == divisor && PRESETS[idx].iteranceStep == iteranceStep) {
+        return idx + NUM_PROBABILITY_VALUES - 1;
+      }
+    }
+    return 0;
+  }
+
+  /**
    * Legacy C1.3-nightly 26-char preset index migration (C iterance_migration.cpp:38-51). Shifts
    * non-zero preset index by +2 to skip prepended FIRST and LAST.
    */

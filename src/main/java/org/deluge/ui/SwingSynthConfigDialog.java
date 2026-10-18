@@ -158,7 +158,7 @@ public class SwingSynthConfigDialog extends JDialog {
             }
           }
           try {
-            org.deluge.xml.DelugeXmlExporter.saveSynthPreset(model, bridge, trackIndex, file);
+            org.deluge.xml.DelugeXmlExporter.saveSynthPreset(model, file);
             JOptionPane.showMessageDialog(
                 this,
                 "Preset successfully saved as:\n" + file.getName(),

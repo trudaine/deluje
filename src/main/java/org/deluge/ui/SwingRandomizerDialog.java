@@ -845,7 +845,7 @@ public class SwingRandomizerDialog extends JDialog {
 
     File exportFile = new File(PreferencesManager.getSynthsDir(), synthName + ".XML");
     try {
-      DelugeXmlExporter.saveSynthPreset(synth, bridge, activeTrackIdx, exportFile);
+      DelugeXmlExporter.saveSynthPreset(synth, exportFile);
     } catch (Exception ex) {
       LOGGER.warning("[Randomizer] Export XML preset failed: " + ex.getMessage());
     }

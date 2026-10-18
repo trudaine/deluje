@@ -13,11 +13,28 @@ import org.deluge.model.SynthTrackModel;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-/** Exports SynthTrackModel or Bridge state to Deluge-compatible XML files. */
+/**
+ * Exports a core subset of {@link SynthTrackModel} state (oscillator types, polyphony, synth mode,
+ * filter/mixer/envelope {@code <defaultParams>}, and {@code <arpeggiator>}) to a Deluge-compatible
+ * {@code <sound>} XML preset file. Callers that need the complete preset tree (LFOs, FM modulators,
+ * unison, FX, patch cables, mod knobs, and sample zones) should use {@link
+ * KitSynthSerializer#saveSynth(SynthTrackModel, File)}.
+ */
 public class DelugeXmlExporter {
 
+  /**
+   * Writes a core-subset {@code <sound>} XML preset from {@code model} to {@code file}.
+   *
+   * @deprecated {@code bridge} and {@code trackIndex} are unused; call {@link
+   *     #saveSynthPreset(SynthTrackModel, File)} instead.
+   */
+  @Deprecated
   public static void saveSynthPreset(
       SynthTrackModel model, BridgeContract bridge, int trackIndex, File file) throws Exception {
+    saveSynthPreset(model, file);
+  }
+
+  public static void saveSynthPreset(SynthTrackModel model, File file) throws Exception {
     DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
     DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
 
@@ -27,42 +44,68 @@ public class DelugeXmlExporter {
     doc.appendChild(rootElement);
 
     rootElement.setAttribute("name", model.getName());
-    rootElement.setAttribute("polyphonic", "auto");
+    // C sound.cpp:4167, 4175 & functions.cpp:810-852 — polyphony and synth mode strings.
+    rootElement.setAttribute("polyphonic", polyphonyToFirmwareString(model.getPolyphony()));
+    rootElement.setAttribute("mode", synthModeToFirmwareString(model.getSynthMode()));
 
-    // GLOBAL_ARP_RATE (sound.cpp:4040/4117): the raw param a preset carries in <defaultParams>.
-    Element defaultParams = doc.createElement("defaultParams");
-    Element arpRate = doc.createElement("arpeggiatorRate");
-    arpRate.setTextContent(String.format("0x%08X", model.getArpRateQ31()));
-    defaultParams.appendChild(arpRate);
-    rootElement.appendChild(defaultParams);
-
-    // Oscillator 1
+    // Oscillator 1 & 2 (C sound.cpp:4194-4195 & functions.cpp:680-721)
     Element osc1 = doc.createElement("osc1");
-    osc1.setAttribute("type", model.getOsc1Type());
+    osc1.setAttribute("type", oscTypeToFirmwareString(model.getOsc1Type()));
     rootElement.appendChild(osc1);
 
-    // Envelopes (we extract current live values from Bridge)
-    // Bridge maps synth tracks 4-7 to Env indices 0-3 for Amp
-    int envIdx = trackIndex - 4;
-    // Note: BridgeContract might need getEnv methods for individual parameters
-    // For now we use the values stored in the model, or add getters to bridge
-    for (int i = 0; i < 2; i++) {
-      Element env = doc.createElement("envelope");
-      // Use model values for persistence
-      env.setAttribute("attack", DelugeHexMapper.envTimeToHex(model.getEnv(i).attack()));
-      env.setAttribute("decay", DelugeHexMapper.envTimeToHex(model.getEnv(i).decay()));
-      env.setAttribute("sustain", DelugeHexMapper.sustainToHex(model.getEnv(i).sustain()));
-      env.setAttribute("release", DelugeHexMapper.envTimeToHex(model.getEnv(i).release()));
-      rootElement.appendChild(env);
+    if (model.getOsc2Type() != null && !"NONE".equalsIgnoreCase(model.getOsc2Type().trim())) {
+      Element osc2 = doc.createElement("osc2");
+      osc2.setAttribute("type", oscTypeToFirmwareString(model.getOsc2Type()));
+      rootElement.appendChild(osc2);
     }
 
-    // Filter
-    Element lpf = doc.createElement("lpf");
-    lpf.setAttribute(
-        "frequency", DelugeHexMapper.floatToHex((float) bridge.getTrackFilterFreq(trackIndex)));
-    lpf.setAttribute(
-        "resonance", DelugeHexMapper.floatToHex((float) bridge.getTrackFilterRes(trackIndex)));
-    rootElement.appendChild(lpf);
+    // <defaultParams> (C sound.cpp:4056-4157): filter, mixer, arp rate, and envelopes 1..4.
+    Element defaultParams = doc.createElement("defaultParams");
+    appendTextChild(
+        doc, defaultParams, "arpeggiatorRate", String.format("0x%08X", model.getArpRateQ31()));
+    appendTextChild(
+        doc, defaultParams, "lpfFrequency", DelugeHexMapper.hzToHex(model.getLpfFreq()));
+    appendTextChild(
+        doc,
+        defaultParams,
+        "lpfResonance",
+        DelugeHexMapper.unipolarFloatToHexUnified(model.getLpfRes()));
+    appendTextChild(
+        doc, defaultParams, "hpfFrequency", DelugeHexMapper.hzToHex(model.getHpfFreq()));
+    appendTextChild(
+        doc,
+        defaultParams,
+        "hpfResonance",
+        DelugeHexMapper.unipolarFloatToHexUnified(model.getHpfRes()));
+    appendTextChild(
+        doc,
+        defaultParams,
+        "oscAVolume",
+        DelugeHexMapper.unipolarFloatToHexUnified(model.getOscAVolume()));
+    appendTextChild(
+        doc,
+        defaultParams,
+        "oscBVolume",
+        DelugeHexMapper.unipolarFloatToHexUnified(model.getOscBVolume()));
+    appendTextChild(
+        doc,
+        defaultParams,
+        "noiseVolume",
+        DelugeHexMapper.unipolarFloatToHexUnified(model.getNoiseVol()));
+    appendTextChild(
+        doc, defaultParams, "volume", DelugeHexMapper.unipolarFloatToHexUnified(model.getVolume()));
+    appendTextChild(doc, defaultParams, "pan", DelugeHexMapper.floatToHex(model.getPan()));
+
+    for (int i = 0; i < 4; i++) {
+      Element env = doc.createElement("envelope" + (i + 1));
+      org.deluge.model.EnvelopeModel envModel = model.getEnv(i);
+      appendTextChild(doc, env, "attack", DelugeHexMapper.envTimeToHex(envModel.attack()));
+      appendTextChild(doc, env, "decay", DelugeHexMapper.envTimeToHex(envModel.decay()));
+      appendTextChild(doc, env, "sustain", DelugeHexMapper.sustainToHex(envModel.sustain()));
+      appendTextChild(doc, env, "release", DelugeHexMapper.envTimeToHex(envModel.release()));
+      defaultParams.appendChild(env);
+    }
+    rootElement.appendChild(defaultParams);
 
     // Arp (Custom attributes for our emulator, or mapping to official ones)
     Element arp = doc.createElement("arpeggiator");
@@ -107,5 +150,55 @@ public class DelugeXmlExporter {
     StreamResult result = new StreamResult(file);
 
     transformer.transform(source, result);
+  }
+
+  private static void appendTextChild(Document doc, Element parent, String tag, String text) {
+    Element child = doc.createElement(tag);
+    child.setTextContent(text);
+    parent.appendChild(child);
+  }
+
+  /** C polyphonyModeToString (functions.cpp:835-852). */
+  private static String polyphonyToFirmwareString(SynthTrackModel.PolyphonyMode polyphony) {
+    if (polyphony == null) {
+      return "poly";
+    }
+    return switch (polyphony) {
+      case MONO -> "mono";
+      case AUTO -> "auto";
+      case LEGATO -> "legato";
+      case CHOKE -> "choke";
+      default -> "poly";
+    };
+  }
+
+  /** C synthModeToString (functions.cpp:810-821). */
+  private static String synthModeToFirmwareString(int synthMode) {
+    return switch (synthMode) {
+      case 1 -> "fm";
+      case 2 -> "ringmod";
+      default -> "subtractive";
+    };
+  }
+
+  /** C oscTypeToString (functions.cpp:680-721). */
+  private static String oscTypeToFirmwareString(String modelType) {
+    if (modelType == null) {
+      return "square";
+    }
+    return switch (modelType.trim().toUpperCase().replace("_", "").replace(" ", "")) {
+      case "SAW" -> "saw";
+      case "ANALOGSAW", "ANALOGSAW2" -> "analogSaw";
+      case "ANALOGSQUARE" -> "analogSquare";
+      case "SINE" -> "sine";
+      case "TRIANGLE" -> "triangle";
+      case "SAMPLE" -> "sample";
+      case "WAVETABLE" -> "wavetable";
+      case "INPUTL", "INLEFT" -> "inLeft";
+      case "INPUTR", "INRIGHT" -> "inRight";
+      case "INPUTSTEREO", "INSTEREO" -> "inStereo";
+      case "DX7" -> "dx7";
+      default -> "square";
+    };
   }
 }
