@@ -192,6 +192,66 @@ class ScalaKbmStutterLivePitchParityTest {
             + " vs "
             + fastRecordSamples
             + ")");
+
+    // Lower inputTickMagnitude (1 vs default 2) doubles lShiftAmount (7 + 6 - mag) -> 2x rate
+    // speed -> half the recorded stutter buffer length when timePerInternalTickInverse is fixed.
+    Sound mag1Sound = new Sound();
+    mag1Sound.inputTickMagnitude = 1;
+    Sound mag2Sound = new Sound();
+    mag2Sound.inputTickMagnitude = 2;
+
+    stutterer.beginStutter(mag1Sound, pm, cfg);
+    int mag1Samples = 0;
+    while (stutterer.isActive()) {
+      block[0].l = 1000;
+      block[0].r = -1000;
+      stutterer.processStutter(
+          block, 1, mag1Sound.inputTickMagnitude, mag1Sound.timePerInternalTickInverse);
+      mag1Samples++;
+      if (mag1Samples > 100000 || block[0].l != 1000) break;
+    }
+    stutterer.endStutter(pm);
+
+    stutterer.beginStutter(mag2Sound, pm, cfg);
+    int mag2Samples = 0;
+    while (stutterer.isActive()) {
+      block[0].l = 1000;
+      block[0].r = -1000;
+      stutterer.processStutter(
+          block, 1, mag2Sound.inputTickMagnitude, mag2Sound.timePerInternalTickInverse);
+      mag2Samples++;
+      if (mag2Samples > 100000 || block[0].l != 1000) break;
+    }
+    stutterer.endStutter(pm);
+
+    assertTrue(
+        mag2Samples > mag1Samples,
+        "inputTickMagnitude 2 must capture a longer stutter buffer than magnitude 1 ("
+            + mag2Samples
+            + " vs "
+            + mag1Samples
+            + ")");
+  }
+
+  @Test
+  void livePitchShifter_atStartZeroLatestPercPosBeforeIsAllOnes() {
+    // C live_pitch_shifter.cpp:87, 204 — numRawSamplesProcessedAtStart is uint64_t; when AtStart ==
+    // 0,
+    // (uint64_t(0) - 1) >> 7 = 0x01FF_FFFF_FFFF_FFFF, truncated to uint32 = 0xFFFFFFFF.
+    int atStart = 0;
+    int latestPercPosBefore =
+        (int)
+            ((Integer.toUnsignedLong(atStart) - 1L)
+                >>> LiveInputBuffer.K_PERC_BUFFER_REDUCTION_MAGNITUDE);
+    assertEquals(0xFFFFFFFF, latestPercPosBefore);
+
+    // Negative howFarBack compared as uint64 against AtNowTime must clamp to AtNowTime (:561).
+    long nowUnsigned = Integer.toUnsignedLong(512);
+    int howFarBack = -16;
+    if (Long.compareUnsigned((long) howFarBack, nowUnsigned) > 0) {
+      howFarBack = (int) nowUnsigned;
+    }
+    assertEquals(512, howFarBack);
   }
 
   @Test

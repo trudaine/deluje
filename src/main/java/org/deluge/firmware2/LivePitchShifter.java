@@ -257,18 +257,20 @@ public class LivePitchShifter {
             playHeads[TimeStretcher.PLAY_HEAD_NEWER].getNumRawSamplesBehindInput(
                 liveInputBuffer, phaseIncrement); // C:195-196
 
-        // C live_pitch_shifter.cpp:201-205 — numRawSamplesProcessed and
-        // numRawSamplesProcessedAtStart are uint32_t / uint64_t, so >>
-        // kPercBufferReductionMagnitude
-        // is an unsigned shift (>>> in Java); signed >> 7 produces -1 (0xFFFFFFFF) during early
-        // blocks and collides with the 0xFFFFFFFF percPos sentinel.
+        // C live_pitch_shifter.cpp:87, 200-205 — numRawSamplesProcessed is uint32_t, while
+        // numRawSamplesProcessedAtStart is uint64_t (widened from uint32_t). So
+        // newerPlayHeadPercPos
+        // and latestPercPosNow shift in 32-bit unsigned (>>> 7), while latestPercPosBefore shifts
+        // in 64-bit unsigned ((uint64 - 1) >> 7, truncated to uint32 = 0xFFFFFFFF when AtStart ==
+        // 0).
         int newerPlayHeadPercPos =
             (liveInputBuffer.numRawSamplesProcessed - howFarBack - 1)
                 >>> LiveInputBuffer.K_PERC_BUFFER_REDUCTION_MAGNITUDE;
 
         int latestPercPosBefore =
-            (numRawSamplesProcessedAtStart - 1)
-                >>> LiveInputBuffer.K_PERC_BUFFER_REDUCTION_MAGNITUDE;
+            (int)
+                ((Integer.toUnsignedLong(numRawSamplesProcessedAtStart) - 1L)
+                    >>> LiveInputBuffer.K_PERC_BUFFER_REDUCTION_MAGNITUDE);
         int latestPercPosNow =
             (liveInputBuffer.numRawSamplesProcessed - 1)
                 >>> LiveInputBuffer.K_PERC_BUFFER_REDUCTION_MAGNITUDE;
@@ -516,7 +518,9 @@ public class LivePitchShifter {
               + averagesStartOffsetFromHead
               + lengthPerMovingAverage * TimeStretcher.K_NUM_MOVING_AVERAGES; // C:553-555
       howFarBack = Math.max(howFarBack, minDistanceBack); // C:556
-      if (howFarBack > nowUnsigned) { // C:561 (uint64 comparison)
+      // C live_pitch_shifter.cpp:561 — int32 howFarBack compared against uint64 AtNowTime
+      // converts negative howFarBack to a huge uint64, clamping it to AtNowTime.
+      if (Long.compareUnsigned((long) howFarBack, nowUnsigned) > 0) {
         howFarBack = (int) nowUnsigned;
       }
 
