@@ -14,7 +14,10 @@ public class PatchCable {
   public Polarity polarity = Polarity.BIPOLAR;
 
   public int getAmount() {
-    // In full firmware, this would combine static amount + automation
+    // C patch_cable.h:72 / patch_cable.cpp:89-92 — use automated AutoParam value when automated.
+    if (!param.nodes.isEmpty()) {
+      return param.currentValue;
+    }
     return amount;
   }
 

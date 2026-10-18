@@ -30,6 +30,8 @@ public class ParamManager {
     for (AutoParam param : automatedParams) {
       param.notifyPingpongOccurred();
     }
+    // C param_manager.cpp:605 — wake on the very next tick after a ping-pong bounce.
+    ticksTilNextEvent = 0;
   }
 
   public PatchCableSet getPatchCableSet() {
@@ -37,6 +39,10 @@ public class ParamManager {
   }
 
   public void recordParamValue(int paramId, int value, int currentPos) {
+    recordParamValue(paramId, value, currentPos, false);
+  }
+
+  public void recordParamValue(int paramId, int value, int currentPos, boolean interpolated) {
     AutoParam target = null;
     for (AutoParam p : automatedParams) {
       if (p.paramId == paramId) {
@@ -48,7 +54,7 @@ public class ParamManager {
       target = new AutoParam(paramId);
       automatedParams.add(target);
     }
-    target.addNode(currentPos, value);
+    target.addNode(currentPos, value, interpolated);
   }
 
   public AutoParam getAutomatedParam(int paramId) {
@@ -79,6 +85,13 @@ public class ParamManager {
   public void tickSamples(int numSamples, int timePerTimerTickInverse) {
     for (AutoParam param : automatedParams) {
       param.tickSamples(numSamples, timePerTimerTickInverse);
+    }
+  }
+
+  /** C param_set.cpp:150-164 (ParamSet::tickTicks). */
+  public void tickTicks(int numTicks) {
+    for (AutoParam param : automatedParams) {
+      param.tickTicks(numTicks);
     }
   }
 }
