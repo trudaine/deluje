@@ -73,11 +73,19 @@ class PlayConditionsTest {
     return n;
   }
 
-  /** Drive as PlaybackHandler.java:209-210 does: incrementPos then processCurrentPos. */
+  /**
+   * Drive as PlaybackHandler does: start() runs setPos(0) and a zero-increment
+   * processCurrentPos(0), which sounds the notes at pos 0 (note_row.cpp:2373); each later tick is
+   * incrementPos then processCurrentPos. {@code currentLoop} is the pass the processed position
+   * belongs to.
+   */
   private void play(int loops) {
     Functions.resetNoiseSeed();
     int len = clip.getLoopLength();
-    for (int t = 0; t < loops * len; t++) {
+    clip.setPos(0);
+    sound.currentLoop = 0;
+    clip.processCurrentPos(0);
+    for (int t = 1; t < loops * len; t++) {
       sound.currentLoop = t / len;
       clip.incrementPos(1);
       clip.processCurrentPos(1);
@@ -351,8 +359,6 @@ class PlayConditionsTest {
 
     clip.setPlayDirection(ClipModel.PlayDirection.REVERSE);
     assertEquals(SequenceDirection.REVERSE, clip.sequenceDirectionMode);
-    clip.setPos(0);
-    clip.processCurrentPos(0); // the zero-increment start tick (PlaybackHandler.start)
     play(2);
     // In reverse, step 2 (pitch 62) fires before step 0 (pitch 60); pitch 60 has FIRST iterance so
     // it fires only in loop 0.
@@ -367,8 +373,6 @@ class PlayConditionsTest {
     clip.getOrCreateRow(0).getNotes().get(0).setIterance(Iterance.OFF);
     clip.setPlayDirection(ClipModel.PlayDirection.PING_PONG);
     assertEquals(SequenceDirection.PINGPONG, clip.sequenceDirectionMode);
-    clip.setPos(0);
-    clip.processCurrentPos(0); // the zero-increment start tick (PlaybackHandler.start)
     play(3);
     assertEquals(List.of(60, 62, 62, 60, 60, 62), sound.pitchOrder);
   }
@@ -415,16 +419,14 @@ class PlayConditionsTest {
     NoteRowModel row1 = clip.getOrCreateRow(1);
     row1.setLoopLengthIfIndependent(48);
     addNote(1, 62, 0).setIterance(new Iterance((byte) 2, (byte) 0b01)); // 1of2
-
-    clip.setPos(0);
-    clip.processCurrentPos(0); // the zero-increment start tick (PlaybackHandler.start)
     // 2 clip loops = 192 ticks = 4 passes of the 48-tick independent rows.
     play(2);
 
     assertEquals(4, sound.count(60), "48-tick row must loop 4 times in 192 ticks");
     assertEquals(2, sound.count(62), "1of2 on 48-tick row must fire on row passes 0 and 2");
-    assertEquals(4, row0.getRepeatCount(clip.repeatCount));
-    assertEquals(2, clip.repeatCount);
+    // play(2) processes positions 0..191: the row is in its 4th pass (repeat 3), the clip its 2nd.
+    assertEquals(3, row0.getRepeatCount(clip.repeatCount));
+    assertEquals(1, clip.repeatCount);
   }
 
   @Test
@@ -497,10 +499,10 @@ class PlayConditionsTest {
     pb.setProject(project);
     pb.start();
 
-    pb.advanceTicks(97);
-    assertEquals(1, row0.getLastProcessedPosIfIndependent());
+    pb.advanceTicks(96);
+    assertEquals(0, row0.getLastProcessedPosIfIndependent());
     assertEquals(2, row0.getRepeatCount(clip.repeatCount));
-    assertEquals(3, sound.count(60), "pos 0 on 48-tick row fires on ticks 1, 49, and 97");
+    assertEquals(3, sound.count(60), "pos 0 on 48-tick row fires at ticks 0 (start), 48 and 96");
 
     // Reverse multi-tick advance must stop at 0 and bounce in PING_PONG.
     sound.loopsByPitch.clear();
@@ -671,14 +673,15 @@ class PlayConditionsTest {
     clip.setPlayDirection(ClipModel.PlayDirection.FORWARD);
     assertEquals(96, clip.lastProcessedPos, "position 0 must mirror to loopLength (96)");
 
-    // Next forward tick wraps 97 -> 1 and increments repeatCount from 1 to 2 (even pass -> 1of2).
+    // Next forward tick wraps 97 -> 1 and increments repeatCount from 1 to 2. Pos 0 itself is never
+    // processed (the C searches from pos 1, note_row.cpp:2340), so neither pos-0 note sounds.
     sound.loopsByPitch.clear();
     sound.pitchOrder.clear();
     clip.incrementPos(1);
     clip.processCurrentPos(1);
     assertEquals(1, clip.lastProcessedPos);
     assertEquals(2, clip.repeatCount);
-    assertEquals(1, sound.count(60), "1of2 note at pos 0 must fire on repeatCount=2 after wrap");
+    assertEquals(0, sound.count(60), "pos 0 is skipped by the 96 -> 1 wrap");
     assertEquals(0, sound.count(62), "2of2 note at pos 0 must not fire on repeatCount=2");
   }
 
@@ -736,35 +739,35 @@ class PlayConditionsTest {
     row.getNotes().add(new NoteModel(0, 12, 1.0f, 1.0f, 0));
     row.getNotes().add(new NoteModel(12, 12, 1.0f, 1.0f, 0));
 
-    // Forward pass (24 ticks): both [0, 12) and [12, 24) must trigger and release.
+    // Forward, start tick + 24 ticks (C note_row.cpp:2187-2283 then 2285-2386): [0, 12) starts at
+    // 0; at 12 it stops and [12, 24) starts; at 24 (= 0) that stops and [0, 12) starts again.
     adjClip.setPlayDirection(ClipModel.PlayDirection.FORWARD);
     adjClip.setPos(0);
+    adjClip.processCurrentPos(0); // start tick (PlaybackHandler.start)
     for (int t = 0; t < 24; t++) {
       adjClip.incrementPos(1);
       adjClip.processCurrentPos(1);
     }
     assertEquals(
-        2,
+        3,
         liveSound.triggerCount,
-        "both adjacent forward notes must fire even when release and note-on share tick 12");
-    assertEquals(2, liveSound.releaseCount, "both forward notes must release");
+        "adjacent forward notes must fire even when release and note-on share tick 12");
+    assertEquals(2, liveSound.releaseCount, "each note releases where the next one starts");
 
-    // Reverse pass (24 ticks): [12, 24) triggers at 0->23 and releases at 12, where [0, 12)
-    // triggers at 12 and releases at 1->0. Use a fresh live sound so the forward pass's still-held
-    // [12, 24) voice (which releases on 0->1 of the next forward bar) is not already active.
+    // Reverse with tails: [12, 24) starts at the start tick (its right edge, C :2316-2327), stops
+    // at 12 where [0, 12) starts, which stops at 0 where [12, 24) starts again.
+    adjClip.stopAllNotesPlaying(false); // playback stop between the passes
     CountingLiveSound reverseSound = new CountingLiveSound();
     adjClip.setSound(reverseSound);
     adjClip.setPlayDirection(ClipModel.PlayDirection.REVERSE);
     adjClip.setPos(0);
+    adjClip.processCurrentPos(0);
     for (int t = 0; t < 24; t++) {
       adjClip.incrementPos(1);
       adjClip.processCurrentPos(1);
     }
-    assertEquals(
-        2,
-        reverseSound.triggerCount,
-        "both adjacent reverse notes must fire when [12, 24) releases at tick 12 before [0, 12)");
-    assertEquals(2, reverseSound.releaseCount, "both reverse notes must release");
+    assertEquals(3, reverseSound.triggerCount, "adjacent reverse notes must both fire");
+    assertEquals(2, reverseSound.releaseCount, "each reverse note releases where the next starts");
   }
 
   static final class CountingMidiInstrument extends org.deluge.engine.FirmwareMidiInstrument {
@@ -797,7 +800,9 @@ class PlayConditionsTest {
     row.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0));
 
     droneClip.setPos(0);
-    for (int t = 0; t < 72; t++) { // 3 bars
+
+    droneClip.processCurrentPos(0); // start tick (PlaybackHandler.start)
+    for (int t = 1; t < 72; t++) { // 3 bars
       droneClip.incrementPos(1);
       droneClip.processCurrentPos(1);
     }
@@ -807,7 +812,12 @@ class PlayConditionsTest {
   }
 
   @Test
-  void fullBarKitNotePairsReleaseBeforeRetriggerAcrossLoopWrap() {
+  /**
+   * C note_row.cpp:2245-2273 + playNote :2604-2609 — a sustaining sound drum's full-row note is a
+   * drone: at the wrap it is marked constant, and the replay is skipped while the drum still has
+   * active voices that allow tails.
+   */
+  void fullBarKitSoundDrumDronesAcrossLoopWrap() {
     ClipModel kitClip = new ClipModel("kit-drone", 1, 1); // 24 ticks
     org.deluge.engine.FirmwareKit kit = new org.deluge.engine.FirmwareKit();
     CountingLiveSound drum0 = new CountingLiveSound();
@@ -824,15 +834,14 @@ class PlayConditionsTest {
     row.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0));
 
     kitClip.setPos(0);
-    for (int t = 0; t < 72; t++) { // 3 bars
+
+    kitClip.processCurrentPos(0); // start tick (PlaybackHandler.start)
+    for (int t = 1; t < 72; t++) { // 3 bars
       kitClip.incrementPos(1);
       kitClip.processCurrentPos(1);
     }
-    assertEquals(3, drum0.triggerCount, "kit full-row note must retrigger on each of the 3 bars");
-    assertEquals(
-        3,
-        drum0.releaseCount,
-        "kit full-row note must preserve paired release before each trigger across wraps");
+    assertEquals(1, drum0.triggerCount, "kit full-row drone must trigger once and stay on");
+    assertEquals(0, drum0.releaseCount, "kit full-row drone must not release at loop wraps");
     long heldVoices =
         drum0.fw2Sound.voices.stream()
             .filter(
@@ -843,7 +852,12 @@ class PlayConditionsTest {
   }
 
   @Test
-  void fullBarMidiNotePairsReleaseBeforeRetriggerAcrossLoopWrap() {
+  /**
+   * C InstrumentClip::allowNoteTails is true for MIDI (instrument_clip.cpp:3351-3353), so a
+   * full-row MIDI note drones: playNote does not resend a constant note to a MIDI output
+   * (note_row.cpp:2542).
+   */
+  void fullBarMidiNoteDronesAcrossLoopWrap() {
     ClipModel midiClip = new ClipModel("midi-drone", 1, 1); // 24 ticks
     CountingMidiInstrument midi = new CountingMidiInstrument();
     midiClip.setSound(midi);
@@ -853,14 +867,13 @@ class PlayConditionsTest {
     row.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0));
 
     midiClip.setPos(0);
-    for (int t = 0; t < 72; t++) { // 3 bars
+
+    midiClip.processCurrentPos(0); // start tick (PlaybackHandler.start)
+    for (int t = 1; t < 72; t++) { // 3 bars
       midiClip.incrementPos(1);
       midiClip.processCurrentPos(1);
     }
-    assertEquals(
-        List.of("OFF:60", "ON:60", "OFF:60", "ON:60", "OFF:60", "ON:60"),
-        midi.events,
-        "MIDI full-row note must release before each retrigger instead of sending unpaired note-ons");
+    assertEquals(List.of("ON:60"), midi.events, "MIDI full-row drone: one note-on, held");
   }
 
   private static CountingLiveSound createSampleLiveSound(int loopMode, boolean timestretch) {
@@ -889,14 +902,15 @@ class PlayConditionsTest {
     cutRow.setPitch(60);
     cutRow.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0));
     cutClip.setPos(0);
-    for (int t = 0; t < 72; t++) { // 3 bars
+    cutClip.processCurrentPos(0); // start tick (PlaybackHandler.start)
+    for (int t = 1; t < 72; t++) { // 3 bars
       cutClip.incrementPos(1);
       cutClip.processCurrentPos(1);
     }
     assertEquals(
         3, cutSound.triggerCount, "CUT-mode full-row sample must restart on each of the 3 bars");
     assertEquals(
-        3,
+        2, // one release at each of the 2 wraps (pos 24, 48)
         cutSound.releaseCount,
         "CUT-mode full-row sample must release before restarting at each wrap");
 
@@ -908,7 +922,8 @@ class PlayConditionsTest {
     cutTsRow.setPitch(60);
     cutTsRow.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0));
     cutTsClip.setPos(0);
-    for (int t = 0; t < 72; t++) {
+    cutTsClip.processCurrentPos(0); // start tick (PlaybackHandler.start)
+    for (int t = 1; t < 72; t++) {
       cutTsClip.incrementPos(1);
       cutTsClip.processCurrentPos(1);
     }
@@ -917,7 +932,7 @@ class PlayConditionsTest {
         cutTsSound.triggerCount,
         "CUT-mode sample with independent pitch/speed must restart on each bar");
     assertEquals(
-        3,
+        2, // one release at each of the 2 wraps (pos 24, 48)
         cutTsSound.releaseCount,
         "CUT-mode sample with independent pitch/speed must release before restarting at wrap");
 
@@ -929,7 +944,8 @@ class PlayConditionsTest {
     stretchRow.setPitch(60);
     stretchRow.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0));
     stretchClip.setPos(0);
-    for (int t = 0; t < 72; t++) {
+    stretchClip.processCurrentPos(0); // start tick (PlaybackHandler.start)
+    for (int t = 1; t < 72; t++) {
       stretchClip.incrementPos(1);
       stretchClip.processCurrentPos(1);
     }
@@ -938,7 +954,7 @@ class PlayConditionsTest {
         stretchSound.triggerCount,
         "STRETCH repeat-mode full-row sample must restart on each of the 3 bars");
     assertEquals(
-        3,
+        2, // one release at each of the 2 wraps (pos 24, 48)
         stretchSound.releaseCount,
         "STRETCH repeat-mode full-row sample must release before restarting at each wrap");
 
@@ -952,7 +968,8 @@ class PlayConditionsTest {
       loopRow.setPitch(60);
       loopRow.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0));
       loopClip.setPos(0);
-      for (int t = 0; t < 72; t++) {
+      loopClip.processCurrentPos(0); // start tick (PlaybackHandler.start)
+      for (int t = 1; t < 72; t++) {
         loopClip.incrementPos(1);
         loopClip.processCurrentPos(1);
       }
@@ -981,7 +998,8 @@ class PlayConditionsTest {
     arpRow.setPitch(60);
     arpRow.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0));
     arpClip.setPos(0);
-    for (int t = 0; t < 72; t++) {
+    arpClip.processCurrentPos(0); // start tick (PlaybackHandler.start)
+    for (int t = 1; t < 72; t++) {
       arpClip.incrementPos(1);
       arpClip.processCurrentPos(1);
     }

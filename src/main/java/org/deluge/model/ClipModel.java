@@ -843,6 +843,22 @@ public class ClipModel extends TimelineCounter {
         row.setPosIfIndependent(lastProcessedPos, sequenceDirectionMode);
       }
     }
+    // NoteRow::sequenced is playback state, not data: keep it across the restore so the sounding
+    // note still gets its note-off; a row the restore drops or re-pitches stops its note now (C
+    // stopCurrentlyPlayingNote before a row goes away, note_row.cpp:1869-1877).
+    for (Map.Entry<Integer, NoteRowModel> e : liveRows.entrySet()) {
+      NoteRowModel live = e.getValue();
+      if (!live.isSequenced()) {
+        continue;
+      }
+      NoteRowModel row = this.noteRows.get(e.getKey());
+      if (row != null && row.getPitch() == live.getPitch()) {
+        row.copySequencedFrom(live);
+      } else {
+        releaseNote(live.getPitch());
+        live.stopCurrentlyPlayingNoteSilently();
+      }
+    }
     setPlayDirection(src.playDirection);
     expectEvent();
   }
@@ -1450,7 +1466,23 @@ public class ClipModel extends TimelineCounter {
       // probability, iterance and fill conditions have passed
       if (conditionPassed) {
         triggerNote(noteOn);
+      } else {
+        noteOn.noteRow.clearSequenced(); // C instrument_clip.cpp:901, 905
       }
+    }
+  }
+
+  /**
+   * C InstrumentClip::stopAllNotesPlaying (instrument_clip.cpp:1198-1205), reached from
+   * expectNoFurtherTicks when playback ends or the clip stops. With {@code actuallySoundChange}
+   * each row's sounding note gets its note-off.
+   */
+  public void stopAllNotesPlaying(boolean actuallySoundChange) {
+    for (NoteRowModel row : noteRows.values()) {
+      if (actuallySoundChange && row.isSequenced()) {
+        releaseNote(row.getPitch());
+      }
+      row.stopCurrentlyPlayingNoteSilently();
     }
   }
 

@@ -31,6 +31,8 @@ public class NoteRowModel {
   private transient int repeatCountIfIndependent = 0;
   private transient boolean currentlyPlayingReversedIfIndependent = false;
   private transient int ignoreNoteOnsBefore_ = 0;
+  // C NoteRow::sequenced (note_row.h) — a sequenced note is currently sounding on this row.
+  private transient boolean sequenced = false;
   private transient ParamManager paramManager = new ParamManager();
   private transient Runnable onScheduleInvalidated;
 
@@ -376,145 +378,296 @@ public class NoteRowModel {
           currentPos, effectiveLength, playingReversedNow, didPingpong, true);
     }
 
-    if (muted) {
-      // C note_row.cpp:2155-2164 — keep waking at the end of an independent row even when muted.
-      if (loopLengthIfIndependent > 0) {
-        int ticksTilEnd =
-            playingReversedNow
-                ? (currentPos == 0 ? effectiveLength : currentPos)
-                : (effectiveLength - currentPos);
-        return Math.min(ticksTilEnd, paramManager.ticksTilNextEvent);
-      }
-      return Integer.MAX_VALUE;
-    }
-
-    boolean playingReversedDuringStep = playingReversedNow ^ didPingpong;
-    boolean soundAllowsTails = allowsNoteTails(sound, pitch);
-    boolean allowNoteTails = (playingReversedDuringStep || playingReversedNow) && soundAllowsTails;
+    // C note_row.cpp:2135-2147
     int ticksTilNextNoteEvent = Integer.MAX_VALUE;
-    int startTick =
-        playingReversedDuringStep
-            ? Math.floorMod(currentPos, effectiveLength)
-            : Math.floorMod(currentPos - ticksSinceLast, effectiveLength);
-    boolean steppedLeftFromZero =
-        playingReversedDuringStep && (currentPos + ticksSinceLast >= effectiveLength);
-
-    // C note_row.cpp:2242-2279, 2510-2539 — process due releases on this row before checking
-    // note-ons. A full-row drone (note.h:52: pos == 0 && length == effectiveLength) with note tails
-    // skips the wrap release on FirmwareSound unless the arpeggiator is off and the sound uses
-    // CUT-mode or time-stretched samples, which must stop and retrigger from the start of each bar.
-    // Kit and MIDI routes pair a release before retrigger until they track held notes in
-    // processCurrentPos.
-    boolean soundAllowsDroneSustain = false;
-    if (sound instanceof org.deluge.engine.FirmwareSound fs && soundAllowsTails) {
-      boolean restartDroneSample =
-          !fs.fw2Sound.arpEnabled()
-              && (fs.fw2Sound.hasCutModeSamples() || fs.fw2Sound.hasAnyTimeStretchSyncing());
-      soundAllowsDroneSustain = !restartDroneSample;
+    int effectiveCurrentPos = currentPos;
+    int effectiveForwardPos =
+        playingReversedNow ? (effectiveLength - effectiveCurrentPos - 1) : effectiveCurrentPos;
+    if (effectiveForwardPos >= ignoreNoteOnsBefore_
+        || (effectiveForwardPos < ticksSinceLast
+            && (effectiveForwardPos + effectiveLength - ticksSinceLast) >= ignoreNoteOnsBefore_)) {
+      ignoreNoteOnsBefore_ = 0;
     }
 
-    boolean rowReleasingNow = false;
-    for (NoteModel note : notes) {
-      boolean isDroneWithTails =
-          soundAllowsDroneSustain && note.getPos() == 0 && note.getLength() == effectiveLength;
-      if (isDroneWithTails) {
-        continue;
-      }
-      boolean reverseTailedDuringStep =
-          playingReversedDuringStep && allowNoteTails && note.getLength() > 0;
-      int releasePos =
-          reverseTailedDuringStep
-              ? note.getPos()
-              : Math.floorMod(note.getPos() + note.getLength(), effectiveLength);
-      if (isTickReached(startTick, ticksSinceLast, releasePos, effectiveLength)) {
-        if (!rowReleasingNow) {
-          pendingNoteOffs.add(pitch);
-          rowReleasingNow = true;
-        }
-      }
-    }
+    boolean noFurtherNotes = muted;
+    if (!muted) {
+      List<NoteModel> notes = notesSortedByPos();
+      int numNotes = notes.size();
+      boolean justStoppedConstantNote = false;
+      boolean alreadySearchedBackwards = false;
+      NoteModel thisNote = null;
+      boolean stopNote = false;
 
-    for (NoteModel note : notes) {
-      boolean reverseTailedDuringStep =
-          playingReversedDuringStep && allowNoteTails && note.getLength() > 0;
-      int triggerPos =
-          reverseTailedDuringStep
-              ? Math.floorMod(note.getPos() + note.getLength(), effectiveLength)
-              : note.getPos();
+      // C :2171-2181 isAuditioning() — not ported: rows here have no audition state while playing.
 
-      // C note_row.cpp:2308-2317, 2350-2361 — a reverse note-on whose edge lands on 0 (either a
-      // full-bar tailed note ending at effectiveLength or a one-shot at pos 0) fires when stepping
-      // left from 0 at the start of the reverse pass, before pos 0 wraps repeatCount at pass end.
-      boolean triggerReached =
-          (playingReversedDuringStep && triggerPos == 0)
-              ? (ticksSinceLast > 0 && steppedLeftFromZero)
-              : isTickReached(startTick, ticksSinceLast, triggerPos, effectiveLength);
-      if (triggerReached) {
-        if (currentPos >= ignoreNoteOnsBefore_) {
-          boolean legato = false;
-          if (!rowReleasingNow && sound instanceof org.deluge.engine.FirmwareSound fs) {
-            legato = soundAllowsTails && fs.fw2Sound.noteIsOn(pitch, true);
+      // C :2184-2283 — if a note is currently playing, all we can do is see if it's stopped yet.
+      if (sequenced) {
+        if (numNotes == 0) {
+          stopNote = true;
+        } else {
+          int searchLessThan = effectiveCurrentPos;
+          if (playingReversedNow) {
+            searchLessThan += 1; // C :2199
+          }
+          int i = searchNotes(notes, searchLessThan, LESS);
+          boolean wrapping = (i == -1);
+          if (wrapping) {
+            i = numNotes - 1;
+          }
+          thisNote = notes.get(i);
+
+          boolean reachedThisNote = true;
+          if (playingReversedNow) { // C :2214-2223
+            int posRelativeToNoteLeftEdge = effectiveCurrentPos - thisNote.getPos();
+            if (posRelativeToNoteLeftEdge < 0) {
+              posRelativeToNoteLeftEdge += effectiveLength;
+            }
+            if (posRelativeToNoteLeftEdge >= thisNote.getLength()) {
+              stopNote = true;
+              reachedThisNote = false;
+            }
           }
 
-          if (!legato) {
-            pendingNoteOns.add(
-                new org.deluge.model.PendingNoteOn(
-                    this,
-                    note.getVelocityByte(),
-                    note.getProbabilityValue(), // C note_row.cpp:2554-2555
-                    note.getIterance(),
-                    note.getFill()));
-            // C note_row.cpp:2557-2558 — sampleSyncLength = the note's length (STRETCH sync)
-            pendingNoteOns.get(pendingNoteOns.size() - 1).sampleSyncLength = note.getLength();
+          if (reachedThisNote) {
+            int noteLateEdgePos = thisNote.getPos(); // C :2225-2233
+            if (!playingReversedNow) {
+              noteLateEdgePos += thisNote.getLength();
+            }
+            if (wrapping) {
+              noteLateEdgePos -= effectiveLength;
+            }
+            ticksTilNextNoteEvent = noteLateEdgePos - effectiveCurrentPos;
+            if (playingReversedNow) {
+              ticksTilNextNoteEvent = -ticksTilNextNoteEvent;
+            }
+
+            if (ticksTilNextNoteEvent <= 0) { // C :2241-2280
+              boolean isDrone = thisNote.getPos() == 0 && thisNote.getLength() == effectiveLength;
+              if (isDrone && !droneMustRestart(sound, pitch)) {
+                justStoppedConstantNote = true;
+                sequenced = false;
+              } else {
+                stopNote = true;
+              }
+            }
           }
         }
       }
 
-      boolean reverseTailedNow = playingReversedNow && allowNoteTails && note.getLength() > 0;
-      int triggerPosNow =
-          reverseTailedNow
-              ? Math.floorMod(note.getPos() + note.getLength(), effectiveLength)
-              : note.getPos();
-      int releasePosNow =
-          reverseTailedNow
-              ? note.getPos()
-              : Math.floorMod(note.getPos() + note.getLength(), effectiveLength);
+      while (true) {
+        if (stopNote) { // C :2189-2192 stopNote:
+          stopCurrentlyPlayingNote(pendingNoteOffs);
+          stopNote = false;
+        }
+        if (sequenced) {
+          break;
+        }
 
-      int distTrigger;
-      if (playingReversedNow) {
-        distTrigger =
-            (triggerPosNow == 0)
-                ? (currentPos == 0 ? 1 : currentPos + 1)
-                : currentPos - triggerPosNow;
-      } else {
-        // In forward mode isTickReached checks [currentPos - ticksSinceLast, currentPos), so an
-        // event at target fires when currentPos steps past target to target + 1.
-        distTrigger = (triggerPosNow + 1) - currentPos;
-      }
-      if (distTrigger <= 0) distTrigger += effectiveLength;
+        // C :2285-2390 currentlyOff:
+        ticksTilNextNoteEvent = Integer.MAX_VALUE;
+        if (numNotes == 0) {
+          noFurtherNotes = true;
+          break;
+        }
 
-      int distRelease =
-          playingReversedNow ? (currentPos - releasePosNow) : ((releasePosNow + 1) - currentPos);
-      if (distRelease <= 0) distRelease += effectiveLength;
+        int searchPos = effectiveCurrentPos;
+        int nextNoteI = -1;
+        boolean gotValidNoteIndex = false;
+        boolean allowingNoteTailsNow = false;
+        if (playingReversedNow) {
+          allowingNoteTailsNow = allowsNoteTails(sound, pitch);
+          if (searchPos == 0) { // C :2316-2327
+            if (!allowingNoteTailsNow && !alreadySearchedBackwards && notes.get(0).getPos() == 0) {
+              nextNoteI = 0;
+              gotValidNoteIndex = true;
+            } else {
+              effectiveCurrentPos = effectiveLength;
+              searchPos = effectiveLength;
+            }
+          } else {
+            // C :2337
+            searchPos += (!allowingNoteTailsNow && !alreadySearchedBackwards) ? 1 : 0;
+          }
+        }
 
-      int dist = Math.min(distTrigger, distRelease);
-      if (dist < ticksTilNextNoteEvent) {
-        ticksTilNextNoteEvent = dist;
+        if (!gotValidNoteIndex) {
+          nextNoteI = searchNotes(notes, searchPos, playingReversedNow ? LESS : GREATER_OR_EQUAL);
+          if (nextNoteI < 0 || nextNoteI >= numNotes) { // C :2343-2355
+            if (playingReversedNow && allowingNoteTailsNow) {
+              nextNoteI = numNotes - 1;
+            } else {
+              noFurtherNotes = true;
+              break;
+            }
+          }
+        }
+
+        // C :2358-2386 gotValidNoteIndex:
+        NoteModel nextNote = notes.get(nextNoteI);
+        int newTicksTil = nextNote.getPos() - effectiveCurrentPos;
+        if (playingReversedNow) {
+          newTicksTil = -newTicksTil;
+          if (allowingNoteTailsNow) {
+            newTicksTil -= nextNote.getLength();
+          }
+          if (newTicksTil < 0) {
+            noFurtherNotes = true;
+            break;
+          }
+        }
+
+        if (newTicksTil <= 0) {
+          if (effectiveForwardPos >= ignoreNoteOnsBefore_) {
+            playNote(nextNote, justStoppedConstantNote, pendingNoteOns, sound);
+          }
+          if (playingReversedNow && !allowingNoteTailsNow) {
+            alreadySearchedBackwards = true;
+            thisNote = nextNote;
+            stopNote = true;
+            continue;
+          }
+          newTicksTil = nextNote.getLength();
+        }
+        ticksTilNextNoteEvent = newTicksTil;
+        break;
       }
     }
 
-    // C note_row.cpp:2155-2164 — wake at the end of an independent row's own loop.
-    if (loopLengthIfIndependent > 0) {
-      int ticksTilRowEnd =
-          playingReversedNow
-              ? (currentPos == 0 ? effectiveLength : currentPos)
-              : (effectiveLength - currentPos);
-      if (ticksTilRowEnd < ticksTilNextNoteEvent) {
-        ticksTilNextNoteEvent = ticksTilRowEnd;
+    if (noFurtherNotes) { // C :2152-2164 noFurtherNotes:
+      if (loopLengthIfIndependent > 0) {
+        ticksTilNextNoteEvent = effectiveCurrentPos;
+        if (!playingReversedNow) {
+          ticksTilNextNoteEvent = loopLengthIfIndependent - ticksTilNextNoteEvent;
+        } else if (ticksTilNextNoteEvent == 0) {
+          ticksTilNextNoteEvent = loopLengthIfIndependent;
+        }
       }
     }
 
     return Math.min(ticksTilNextNoteEvent, paramManager.ticksTilNextEvent);
+  }
+
+  // C OrderedResizeableArray::search (ordered_resizeable_array.cpp:36-52): lower bound +
+  // comparison.
+  private static final int GREATER_OR_EQUAL = 0;
+  private static final int LESS = -1;
+
+  private static int searchNotes(List<NoteModel> notes, int searchKey, int comparison) {
+    int rangeBegin = 0;
+    int rangeEnd = notes.size();
+    while (rangeBegin != rangeEnd) {
+      int proposedIndex = (rangeBegin + rangeEnd) >> 1;
+      if (notes.get(proposedIndex).getPos() < searchKey) {
+        rangeBegin = proposedIndex + 1;
+      } else {
+        rangeEnd = proposedIndex;
+      }
+    }
+    return rangeBegin + comparison;
+  }
+
+  /**
+   * The C keeps a NoteRow's notes ordered by pos (NoteVector); this model appends, so the search
+   * runs on a sorted view. Returns the list itself when it is already ordered.
+   */
+  private List<NoteModel> notesSortedByPos() {
+    List<NoteModel> list = notes;
+    for (int i = 1; i < list.size(); i++) {
+      if (list.get(i - 1).getPos() > list.get(i).getPos()) {
+        List<NoteModel> sorted = new ArrayList<>(list);
+        sorted.sort(java.util.Comparator.comparingInt(NoteModel::getPos));
+        return sorted;
+      }
+    }
+    return list;
+  }
+
+  /**
+   * C note_row.cpp:2248-2269 — a droning full-length note sustains across the loop point, unless
+   * the arpeggiator is off and the sound has CUT-mode or time-stretch-synced samples, which must
+   * stop and retrigger from the start.
+   */
+  private static boolean droneMustRestart(Object sound, int pitch) {
+    org.deluge.firmware2.Sound s = null;
+    if (sound instanceof org.deluge.engine.FirmwareSound fs) {
+      fs.syncParamsToFw2();
+      if (fs.fw2Sound.arpEnabled()) return false; // clip->arpSettings.mode == ArpMode::OFF
+      s = fs.fw2Sound;
+    } else if (sound instanceof org.deluge.engine.FirmwareKit kit) {
+      // The kit clip's arpSettings is the kit-level arp, not ported (#96) — always OFF here.
+      if (pitch >= 0 && pitch < kit.drumSounds.size()) {
+        s = kit.drumSounds.get(pitch).fw2Sound;
+      }
+    }
+    return s != null && (s.hasCutModeSamples() || s.hasAnyTimeStretchSyncing());
+  }
+
+  /** C NoteRow::stopCurrentlyPlayingNote (note_row.cpp:1869-1877), actuallySoundChange = true. */
+  private void stopCurrentlyPlayingNote(List<Integer> pendingNoteOffs) {
+    if (!sequenced) {
+      return;
+    }
+    pendingNoteOffs.add(pitch); // playNote(false, …) — sent before the pending note-ons
+    sequenced = false;
+  }
+
+  /**
+   * C NoteRow::stopCurrentlyPlayingNote with actuallySoundChange = false (note_row.cpp:1869-1877):
+   * forgets the sounding note without sending its note-off.
+   */
+  public boolean isSequenced() {
+    return sequenced;
+  }
+
+  public void stopCurrentlyPlayingNoteSilently() {
+    sequenced = false;
+  }
+
+  void copySequencedFrom(NoteRowModel live) {
+    this.sequenced = live.sequenced;
+  }
+
+  /** Called when a pending note-on fails its play conditions (instrument_clip.cpp:901, 905). */
+  void clearSequenced() {
+    sequenced = false;
+  }
+
+  /** C NoteRow::playNote(true, …) (note_row.cpp:2519-2637). */
+  private void playNote(
+      NoteModel thisNote,
+      boolean noteMightBeConstant,
+      List<org.deluge.model.PendingNoteOn> pendingNoteOns,
+      Object sound) {
+    boolean send;
+    if (sound instanceof org.deluge.engine.FirmwareKit kit) { // C :2604-2613
+      send = true;
+      if (noteMightBeConstant && pitch >= 0 && pitch < kit.drumSounds.size()) {
+        org.deluge.engine.FirmwareSound drum = kit.drumSounds.get(pitch);
+        if (!drum.fw2Sound.voices.isEmpty() && allowsNoteTails(sound, pitch)) {
+          send = false; // still sounding; C also resetTimeEnteredState(), not ported
+        }
+      }
+    } else if (sound instanceof org.deluge.engine.FirmwareSound fs) { // C :2528-2541
+      // check_for_note_still_sounding (note_row.cpp:2510-2517)
+      send =
+          !(noteMightBeConstant && fs.fw2Sound.noteIsOn(pitch, true) && allowsNoteTails(fs, pitch));
+    } else {
+      send = !noteMightBeConstant; // other melodic instruments just don't resend (C :2542)
+    }
+    if (send) {
+      org.deluge.model.PendingNoteOn on =
+          new org.deluge.model.PendingNoteOn(
+              this,
+              thisNote.getVelocityByte(),
+              thisNote.getProbabilityValue(), // C note_row.cpp:2554-2555
+              thisNote.getIterance(),
+              thisNote.getFill());
+      on.sampleSyncLength = thisNote.getLength(); // C :2557-2558
+      pendingNoteOns.add(on);
+    }
+    if (allowsNoteTails(sound, pitch)) { // C :2633-2637
+      sequenced = true;
+    }
   }
 
   // C InstrumentClip::allowNoteTails (instrument_clip.cpp:3350-3371) ->
@@ -533,16 +686,5 @@ public class NoteRowModel {
       return true;
     }
     return true;
-  }
-
-  private static boolean isTickReached(
-      int startTick, int ticksSinceLast, int target, int effectiveLength) {
-    if (ticksSinceLast <= 0) return false;
-    int endTick = (startTick + ticksSinceLast) % effectiveLength;
-    if (startTick < endTick) {
-      return startTick <= target && target < endTick;
-    } else {
-      return target >= startTick || target < endTick;
-    }
   }
 }
