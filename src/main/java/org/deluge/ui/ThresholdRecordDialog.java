@@ -140,6 +140,18 @@ public class ThresholdRecordDialog extends JDialog {
     slotCombo.setBackground(new Color(0x2d, 0x2d, 0x32));
     slotCombo.setForeground(Color.WHITE);
     destPanel.add(slotCombo);
+    Runnable updateSlotEnabled =
+        () -> {
+          int sel = trackCombo.getSelectedIndex();
+          boolean isKitTrack =
+              project != null
+                  && sel >= 0
+                  && sel < kitTracksIndices.size()
+                  && project.getTracks().get(kitTracksIndices.get(sel)) instanceof KitTrackModel;
+          slotCombo.setEnabled(isKitTrack);
+        };
+    trackCombo.addActionListener(ev -> updateSlotEnabled.run());
+    updateSlotEnabled.run();
     mainPanel.add(destPanel);
     mainPanel.add(Box.createVerticalStrut(15));
 
@@ -164,12 +176,13 @@ public class ThresholdRecordDialog extends JDialog {
     armBtn.setContentAreaFilled(true);
     armBtn.addActionListener(
         e -> {
-          if (kitTracksIndices.isEmpty()) {
+          int sel = trackCombo.getSelectedIndex();
+          if (kitTracksIndices.isEmpty() || sel < 0 || sel >= kitTracksIndices.size()) {
             JOptionPane.showMessageDialog(
                 this, "Error: No Kit or Synth track exists to map samples onto!");
             return;
           }
-          int targetTrk = kitTracksIndices.get(trackCombo.getSelectedIndex());
+          int targetTrk = kitTracksIndices.get(sel);
           int targetSlt = slotCombo.getSelectedIndex();
 
           captureLine.arm(

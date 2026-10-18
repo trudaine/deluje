@@ -15,6 +15,7 @@ public class SwingAudioTrackPanel extends JPanel {
 
   private int engineRow = -1;
   private AudioTrackModel model;
+  private boolean isSyncing = false;
 
   private final JToggleButton recordBtn = new JToggleButton("REC");
   private final JToggleButton playBtn = new JToggleButton("PLAY");
@@ -96,40 +97,54 @@ public class SwingAudioTrackPanel extends JPanel {
     this.model = model;
 
     if (model != null) {
-      recordBtn.setSelected(model.isRecording());
-      playBtn.setSelected(model.isPlaying());
-      loopBtn.setSelected(model.isLooping());
-      rateSlider.setValue((int) (model.getPlayRate() * 100));
-      rateLabel.setText(String.format("%.2fx", model.getPlayRate()));
+      isSyncing = true;
+      try {
+        recordBtn.setSelected(model.isRecording());
+        playBtn.setSelected(model.isPlaying());
+        loopBtn.setSelected(model.isLooping());
+        int clampedRate = Math.max(25, Math.min(400, Math.round(model.getPlayRate() * 100f)));
+        rateSlider.setValue(clampedRate);
+        rateLabel.setText(String.format("%.2fx", model.getPlayRate()));
+      } finally {
+        isSyncing = false;
+      }
     }
   }
 
   private void pushRecord() {
-    if (model == null || engineRow < 0) return;
+    if (isSyncing || model == null || engineRow < 0) return;
     boolean rec = recordBtn.isSelected();
     model.setRecording(rec);
-    bridge.setAudioRec(engineRow, rec ? 1 : 0);
+    if (bridge != null) {
+      bridge.setAudioRec(engineRow, rec ? 1 : 0);
+    }
   }
 
   private void pushPlay() {
-    if (model == null || engineRow < 0) return;
+    if (isSyncing || model == null || engineRow < 0) return;
     boolean play = playBtn.isSelected();
     model.setPlaying(play);
-    bridge.setAudioPlay(engineRow, play ? 1 : 0);
+    if (bridge != null) {
+      bridge.setAudioPlay(engineRow, play ? 1 : 0);
+    }
   }
 
   private void pushLoop() {
-    if (model == null || engineRow < 0) return;
+    if (isSyncing || model == null || engineRow < 0) return;
     boolean loop = loopBtn.isSelected();
     model.setLooping(loop);
-    bridge.setAudioLoop(engineRow, loop ? 1 : 0);
+    if (bridge != null) {
+      bridge.setAudioLoop(engineRow, loop ? 1 : 0);
+    }
   }
 
   private void pushRate() {
-    if (model == null || engineRow < 0) return;
+    if (isSyncing || model == null || engineRow < 0) return;
     float rate = rateSlider.getValue() / 100.0f;
     model.setPlayRate(rate);
-    bridge.setAudioRate(engineRow, rate);
+    if (bridge != null) {
+      bridge.setAudioRate(engineRow, rate);
+    }
     rateLabel.setText(String.format("%.2fx", rate));
   }
 }

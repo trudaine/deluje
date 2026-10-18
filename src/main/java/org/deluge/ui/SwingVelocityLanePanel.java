@@ -41,6 +41,7 @@ public class SwingVelocityLanePanel extends JPanel {
     int padSz = isHd ? 70 : 120;
 
     int h = getHeight();
+    if (h <= 0) return;
     int step = (e.getX() - 172) / padSz;
 
     if (step >= 0 && step < stepCount) {
@@ -69,10 +70,12 @@ public class SwingVelocityLanePanel extends JPanel {
     }
   }
 
-  private void updateValue(int step, double val) {
-    if (bridge == null || bridge == null) return;
+  void updateValue(int step, double val) {
+    if (bridge == null) return;
     if ("VELOCITY".equals(currentMode)) {
       bridge.setVelocity(0, step, val);
+    } else if ("GATE".equals(currentMode)) {
+      bridge.setGate(0, step, val);
     } else if ("PAN".equals(currentMode)) {
       Object obj = bridge.getGlobalObject(BridgeContract.G_STEP_PAN);
       if (obj instanceof org.deluge.shadow.core.ChuckArray arr)
@@ -86,10 +89,39 @@ public class SwingVelocityLanePanel extends JPanel {
     }
   }
 
+  double readValue(int step) {
+    if (bridge == null) return 0.5;
+    double v =
+        switch (currentMode != null ? currentMode : "VELOCITY") {
+          case "GATE" -> bridge.getGate(0, step);
+          case "PAN" -> {
+            Object obj = bridge.getGlobalObject(BridgeContract.G_STEP_PAN);
+            yield (obj instanceof org.deluge.shadow.core.ChuckArray arr)
+                ? (arr.getFloat(step) + 1.0) / 2.0
+                : 0.5;
+          }
+          case "FILTER" -> {
+            Object obj = bridge.getGlobalObject(BridgeContract.G_STEP_FILTER);
+            yield (obj instanceof org.deluge.shadow.core.ChuckArray arr) ? arr.getFloat(step) : 0.5;
+          }
+          case "RESONANCE" -> {
+            Object obj = bridge.getGlobalObject(BridgeContract.G_STEP_RES);
+            yield (obj instanceof org.deluge.shadow.core.ChuckArray arr) ? arr.getFloat(step) : 0.5;
+          }
+          default -> bridge.getVelocity(0, step);
+        };
+    return Math.max(0.0, Math.min(1.0, v));
+  }
+
   private String currentMode = "VELOCITY";
 
   public void setMode(String mode) {
-    this.currentMode = mode;
+    this.currentMode = mode != null ? mode : "VELOCITY";
+    repaint();
+  }
+
+  public void setStepCount(int stepCount) {
+    this.stepCount = Math.max(1, stepCount);
     repaint();
   }
 
@@ -115,7 +147,7 @@ public class SwingVelocityLanePanel extends JPanel {
     int padSz = isHd ? 70 : 120;
 
     for (int i = 0; i < stepCount; i++) {
-      double val = (bridge != null) ? bridge.getVelocity(0, i) : 0.5;
+      double val = readValue(i);
       int barH = (int) (val * (h - 20));
 
       int barX = 172 + i * padSz;
