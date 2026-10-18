@@ -124,6 +124,10 @@ public class XMLSerializer {
     writeAttributeHexBytes(name, data, numBytes, true);
   }
 
+  /**
+   * Writes raw hex bytes without a {@code 0x} prefix (C XMLSerializer::writeAttributeHexBytes,
+   * Serializer.cpp:98-116).
+   */
   public void writeAttributeHexBytes(String name, byte[] data, int numBytes, boolean onNewLine)
       throws IOException {
     if (onNewLine) {
@@ -133,8 +137,9 @@ public class XMLSerializer {
       write(" ");
     }
     write(name);
-    write("=\"0x");
-    for (int i = 0; i < numBytes; i++) {
+    write("=\"");
+    int limit = data == null ? 0 : Math.min(numBytes, data.length);
+    for (int i = 0; i < limit; i++) {
       write(String.format("%02X", data[i]));
     }
     write("\"");

@@ -5,12 +5,19 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Automates the incremental naming scheme of original Deluge: - Unsaved New Song -> SONG000,
- * SONG001... (finding next unused main slot number). - Existing Song -> SONG003 -> SONG003A,
- * SONG003B... (finding next unused alphabetical subslot).
+ * Automates the incremental naming scheme of the Deluge firmware (C default_name.cpp:38-183):
+ *
+ * <ul>
+ *   <li>Unsaved New Song -> SONG000, SONG001... (next unused main slot number).
+ *   <li>Existing Slot Song -> SONG003 -> SONG003A, SONG003B... (next unused letter A..Z).
+ *   <li>Existing Custom Song -> MYTRACK -> MYTRACK 2 -> MYTRACK 3 (or TRACK_1 -> TRACK_2).
+ * </ul>
  */
 public class SaveNameSuggester {
-  private static final Pattern SONG_PATTERN = Pattern.compile("(?i)^SONG(\\d{3})([A-Z])?\\.xml$");
+  private static final Pattern SONG_PATTERN =
+      Pattern.compile("(?i)^SONG(\\d{1,3})([A-Z])?\\.(?:xml|json)$");
+  private static final Pattern EXTENSION_PATTERN = Pattern.compile("(?i)\\.(?:xml|json)$");
+  private static final int MAX_NUMERIC_SUFFIX = 9999;
 
   public static File suggestNextSaveFile(File songsDir, File currentFile) {
     if (songsDir == null) return null;
@@ -18,10 +25,11 @@ public class SaveNameSuggester {
       songsDir.mkdirs();
     }
 
+    File[] files = songsDir.listFiles();
+
     if (currentFile == null) {
       // Unsaved new song: scan directory for highest index and suggest next slot
       int maxNumber = -1;
-      File[] files = songsDir.listFiles();
       if (files != null) {
         for (File f : files) {
           Matcher m = SONG_PATTERN.matcher(f.getName());
@@ -36,32 +44,90 @@ public class SaveNameSuggester {
       int nextNumber = maxNumber == -1 ? 0 : maxNumber + 1;
       return new File(songsDir, String.format("SONG%03d.xml", nextNumber));
     } else {
-      // Existing song: parse current name and find the next available subslot letter (e.g.
-      // SONG003A)
       String currentName = currentFile.getName();
       Matcher m = SONG_PATTERN.matcher(currentName);
       if (m.matches()) {
+        // Slot-form song name ("SONG185" / "SONG003A", C default_name.cpp:155-164)
         String numberStr = m.group(1);
-        int num = Integer.parseInt(numberStr);
-        String currentSubslot = m.group(2); // might be null
+        String currentSubslot = m.group(2);
+        String stem = "SONG" + numberStr;
+        int takenMask = takenLetterSuffixes(files, stem);
 
-        // Loop from A to Z to find the first unused name
-        char nextLetter = currentSubslot == null ? 'A' : currentSubslot.toUpperCase().charAt(0);
-        if (currentSubslot != null) {
-          nextLetter++; // Start from next letter
-        }
-
-        while (nextLetter <= 'Z') {
-          String candidateName = String.format("SONG%03d%c.xml", num, nextLetter);
-          File candidateFile = new File(songsDir, candidateName);
-          if (!candidateFile.exists()) {
-            return candidateFile;
+        char from =
+            currentSubslot == null
+                ? 'A'
+                : (char) (Character.toUpperCase(currentSubslot.charAt(0)) + 1);
+        for (char c = from; c <= 'Z'; c++) {
+          if ((takenMask & (1 << (c - 'A'))) == 0) {
+            return new File(songsDir, stem + c + ".xml");
           }
-          nextLetter++;
+        }
+        return currentFile; // Letters exhausted past Z
+      }
+
+      // Custom song name ("MYTRACK.xml" -> "MYTRACK 2.xml", C default_name.cpp:170-183)
+      String stem = EXTENSION_PATTERN.matcher(currentName).replaceFirst("");
+      char delimiter = ' ';
+      String base = stem;
+      for (char candidate : new char[] {'_', ' '}) {
+        int at = stem.lastIndexOf(candidate);
+        if (at <= 0 || at + 1 >= stem.length()) continue;
+        boolean allDigits = true;
+        for (int i = at + 1; i < stem.length(); i++) {
+          if (!Character.isDigit(stem.charAt(i))) {
+            allDigits = false;
+            break;
+          }
+        }
+        if (allDigits) {
+          delimiter = candidate;
+          base = stem.substring(0, at);
+          break;
         }
       }
-      // Fallback if patterns do not match or slots are filled: return the original file
-      return currentFile;
+
+      String prefix = base + delimiter;
+      int highest = numberOfSibling(stem, prefix);
+      if (files != null) {
+        for (File f : files) {
+          String fStem = EXTENSION_PATTERN.matcher(f.getName()).replaceFirst("");
+          highest = Math.max(highest, numberOfSibling(fStem, prefix));
+        }
+      }
+      if (highest >= MAX_NUMERIC_SUFFIX) {
+        return currentFile;
+      }
+      int nextNum = Math.max(highest, 1) + 1;
+      return new File(songsDir, prefix + nextNum + ".xml");
     }
+  }
+
+  private static int takenLetterSuffixes(File[] files, String stem) {
+    if (files == null) return 0;
+    int mask = 0;
+    for (File f : files) {
+      String nameNoExt = EXTENSION_PATTERN.matcher(f.getName()).replaceFirst("");
+      if (nameNoExt.length() == stem.length() + 1
+          && nameNoExt.regionMatches(true, 0, stem, 0, stem.length())) {
+        char c = Character.toUpperCase(nameNoExt.charAt(stem.length()));
+        if (c >= 'A' && c <= 'Z') {
+          mask |= (1 << (c - 'A'));
+        }
+      }
+    }
+    return mask;
+  }
+
+  private static int numberOfSibling(String nameNoExt, String prefix) {
+    if (nameNoExt.length() <= prefix.length()) return 0;
+    if (!nameNoExt.regionMatches(true, 0, prefix, 0, prefix.length())) return 0;
+    int number = 0;
+    for (int i = prefix.length(); i < nameNoExt.length(); i++) {
+      char ch = nameNoExt.charAt(i);
+      if (!Character.isDigit(ch)) return 0;
+      number = number * 10 + (ch - '0');
+      if (number > MAX_NUMERIC_SUFFIX) return MAX_NUMERIC_SUFFIX;
+    }
+    return number;
   }
 }
