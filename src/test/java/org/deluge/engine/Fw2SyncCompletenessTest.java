@@ -86,6 +86,7 @@ class Fw2SyncCompletenessTest {
           "eqBassParam",
           "eqTrebleParam",
           "currentBpm",
+          "inputTickMagnitude",
           "patchedParamValues");
 
   /** fw2Sound fields that are NOT directly model-driven (runtime, transport, or derived). */
