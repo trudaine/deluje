@@ -311,7 +311,8 @@ public class Dx7Voice {
       outlevel = ol;
       this.rateScaling = rateScaling;
       if (down) {
-        int newlevel = patch[opOff + 2] & 0xFF;
+        // C env.cpp:147 — int newlevel = p.levels[2]; levels[0..3] sit at opOff + 4..7.
+        int newlevel = patch[opOff + 4 + 2] & 0xFF;
         int actuallevel = scaleOutlevel(newlevel) >> 1;
         actuallevel = (actuallevel << 6) - 4256;
         if (actuallevel < 16) actuallevel = 16;

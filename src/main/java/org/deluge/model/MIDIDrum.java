@@ -21,8 +21,8 @@ public class MIDIDrum extends Drum {
 
   public MIDIDrum(String name, int midiChannel, int midiNote) {
     super(name);
-    this.midiChannel = midiChannel;
-    this.midiNote = midiNote;
+    this.midiChannel = clamp(midiChannel, 1, 16);
+    this.midiNote = clamp(midiNote, 0, 127);
   }
 
   public MidiMessageType getMessageType() {
@@ -30,7 +30,7 @@ public class MIDIDrum extends Drum {
   }
 
   public void setMessageType(MidiMessageType v) {
-    this.messageType = v;
+    this.messageType = v != null ? v : MidiMessageType.NOTE;
   }
 
   public int getMidiChannel() {

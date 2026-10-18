@@ -14,11 +14,19 @@ public final class AudioRecordingUtil {
    * contribution is silence (so a short overdub layers onto a longer base, or vice-versa).
    */
   public static byte[] mixPcm16LE(byte[] base, byte[] overdub) {
-    int n = Math.max(base.length, overdub.length) & ~1; // whole 16-bit samples
+    byte[] baseBytes = base != null ? base : new byte[0];
+    byte[] overdubBytes = overdub != null ? overdub : new byte[0];
+    int n = Math.max(baseBytes.length, overdubBytes.length) & ~1; // whole 16-bit samples
     byte[] out = new byte[n];
     for (int i = 0; i + 1 < n; i += 2) {
-      int a = (i + 1 < base.length) ? (short) ((base[i + 1] << 8) | (base[i] & 0xff)) : 0;
-      int b = (i + 1 < overdub.length) ? (short) ((overdub[i + 1] << 8) | (overdub[i] & 0xff)) : 0;
+      int a =
+          (i + 1 < baseBytes.length)
+              ? (short) ((baseBytes[i + 1] << 8) | (baseBytes[i] & 0xff))
+              : 0;
+      int b =
+          (i + 1 < overdubBytes.length)
+              ? (short) ((overdubBytes[i + 1] << 8) | (overdubBytes[i] & 0xff))
+              : 0;
       int s = a + b;
       if (s > 32767) s = 32767;
       else if (s < -32768) s = -32768;
