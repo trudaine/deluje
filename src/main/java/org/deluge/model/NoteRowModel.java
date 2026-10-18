@@ -23,6 +23,7 @@ public class NoteRowModel {
   private Map<String, Float> soundParams = new HashMap<>();
   private Map<String, List<org.deluge.modulation.automation.ParamNode>> automationCurves =
       new HashMap<>();
+  private List<PatchCable> patchCables = new ArrayList<>();
   private Map<String, float[]> rowAutomation = new HashMap<>();
 
   // ── Transient Transport / Sequencer States ──
@@ -386,6 +387,11 @@ public class NoteRowModel {
 
   public Map<String, List<org.deluge.modulation.automation.ParamNode>> getAutomationCurves() {
     return automationCurves;
+  }
+
+  /** C {@code Sound::readParamsFromFile} ({@code sound.cpp:4043-4046}) per-row patch cables. */
+  public List<PatchCable> getPatchCables() {
+    return patchCables;
   }
 
   public Map<String, float[]> getRowAutomation() {

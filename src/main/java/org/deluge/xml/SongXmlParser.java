@@ -673,17 +673,22 @@ public class SongXmlParser {
             NodeList soundParamsList = clipElem.getElementsByTagName("soundParams");
             if (soundParamsList.getLength() > 0) {
               Element spEl = (Element) soundParamsList.item(0);
-              // C: a clip's params = initParams defaults + the clip's own soundParams; the
-              // instrument's defaultParams are not consulted (sound.cpp:146-210 + readParams).
-              InstrumentXmlParser.resetClipParamsToFirmwareDefaults(stm);
-              InstrumentXmlParser.parseClipSoundParamsStatics(spEl, stm);
-              parseAutomation(spEl, clip);
               // C instrument_clip.cpp:2517-2523, 2656 — bound automation at the clip's own XML
               // length (not stepCount expanded by longer independent noteRows).
               int readUpTo =
                   clipXmlLengthTicks > 0
                       ? clipXmlLengthTicks
                       : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
+              // C: a clip's params = initParams defaults + the clip's own soundParams; the
+              // instrument's defaultParams are not consulted (sound.cpp:146-210 + readParams).
+              InstrumentXmlParser.resetClipParamsToFirmwareDefaults(stm);
+              InstrumentXmlParser.parseClipSoundParamsStatics(spEl, stm, readUpTo);
+              if (spEl.getElementsByTagName("patchCable").getLength() > 0) {
+                clip.getPatchCables().clear();
+                clip.getPatchCables()
+                    .addAll(InstrumentXmlParser.parsePatchCablesFromContainer(spEl, readUpTo));
+              }
+              parseAutomation(spEl, clip);
               parseHexSoundParamsAutomation(spEl, clip.getAutomationCurves(), readUpTo);
             }
             NodeList paramsList2 = clipElem.getElementsByTagName("params");
@@ -1447,6 +1452,13 @@ public class SongXmlParser {
             ? rowModel.getLoopLengthIfIndependent()
             : fallbackClipLen;
     parseHexSoundParamsAutomation(sp, rowModel.getAutomationCurves(), rowReadUpTo);
+    // C note_row.cpp:3292 -> Sound::readParamsFromFile (sound.cpp:4043-4046) — kit row patchCables.
+    if (sp.getElementsByTagName("patchCable").getLength() > 0) {
+      rowModel.getPatchCables().clear();
+      rowModel
+          .getPatchCables()
+          .addAll(InstrumentXmlParser.parsePatchCablesFromContainer(sp, rowReadUpTo));
+    }
   }
 
   /**

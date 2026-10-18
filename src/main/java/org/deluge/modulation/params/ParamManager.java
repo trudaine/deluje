@@ -26,7 +26,7 @@ public class ParamManager {
   }
 
   public boolean mightContainAutomation() {
-    return !automatedParams.isEmpty();
+    return !automatedParams.isEmpty() || patchCableSet.mightContainAutomation();
   }
 
   /** C param_manager.cpp:393, 401 — whether any automated parameter is currently ramping. */
@@ -36,13 +36,15 @@ public class ParamManager {
         return true;
       }
     }
-    return false;
+    return patchCableSet.isAnyCableInterpolating();
   }
 
   public void notifyPingpongOccurred() {
     for (AutoParam param : automatedParams) {
       param.notifyPingpongOccurred();
     }
+    // C patch_cable_set.cpp:1181-1189 — flip interpolating patch cable slopes on bounce.
+    patchCableSet.notifyPingpongOccurred();
     // C param_manager.cpp:605 — wake on the very next tick after a ping-pong bounce.
     ticksTilNextEvent = 0;
   }
@@ -86,6 +88,8 @@ public class ParamManager {
     for (AutoParam param : automatedParams) {
       param.setPlayPos(pos, loopLength, reversed);
     }
+    // C patch_cable_set.cpp:594-608 (PatchCableSet::setPlayPos).
+    patchCableSet.setPlayPos(pos, loopLength, reversed);
     ticksTilNextEvent = 0;
     ticksSkipped = 0;
   }
@@ -128,6 +132,12 @@ public class ParamManager {
           ticksTilNextEvent = dist;
         }
       }
+      // C patch_cable_set.cpp:727-752 — step automated patch cables on the same timeline.
+      int cableDist =
+          patchCableSet.processCurrentPos(currentPos, loopLength, reversed, didPingpong);
+      if (cableDist < ticksTilNextEvent) {
+        ticksTilNextEvent = cableDist;
+      }
 
       // C param_manager.cpp:401-403 — wake every tick while tick-domain interpolation is active.
       if (!mayInterpolate && isAnyParamInterpolating()) {
@@ -142,6 +152,8 @@ public class ParamManager {
     for (AutoParam param : automatedParams) {
       param.tickSamples(numSamples, timePerTimerTickInverse);
     }
+    // C patch_cable_set.cpp:576-592 (PatchCableSet::tickSamples).
+    patchCableSet.tickSamples(numSamples, timePerTimerTickInverse);
   }
 
   /** C param_set.cpp:150-164 (ParamSet::tickTicks). */
@@ -149,5 +161,6 @@ public class ParamManager {
     for (AutoParam param : automatedParams) {
       param.tickTicks(numTicks);
     }
+    patchCableSet.tickTicks(numTicks);
   }
 }

@@ -1083,20 +1083,30 @@ public class ProjectSerializer {
   }
 
   private static void writePatchCable(XMLSerializer writer, PatchCable pc) throws IOException {
+    writePatchCable(writer, pc, false);
+  }
+
+  private static void writePatchCable(XMLSerializer writer, PatchCable pc, boolean writeAutomation)
+      throws IOException {
     writer.writeOpeningTagBeginning("patchCable");
     writer.writeOpeningTagEnd();
     writer.writeTag("source", pc.source());
     if (pc.destination() != null && !pc.destination().isEmpty()) {
       writer.writeTag("destination", pc.destination());
     }
-    writeHexTag(writer, "amount", pc.amount());
+    String baseHex = pc.resolveBaseHex();
+    String amountHex =
+        writeAutomation
+            ? DelugeHexMapper.formatHexWithAutomationNodes(baseHex, pc.automationNodes())
+            : baseHex;
+    writer.writeTag("amount", amountHex);
     if (pc.polarity() != null) {
       writer.writeTag("polarity", pc.polarity().name().toLowerCase());
     }
     if (pc.depthControlledBy() != null && !pc.depthControlledBy().isEmpty()) {
       writer.writeArrayStart("depthControlledBy");
       for (PatchCable dc : pc.depthControlledBy()) {
-        writePatchCable(writer, dc);
+        writePatchCable(writer, dc, writeAutomation);
       }
       writer.writeArrayEnding("depthControlledBy");
     }
@@ -1392,7 +1402,10 @@ public class ProjectSerializer {
       }
       if (!hasNotes && track instanceof KitTrackModel) {
         org.deluge.model.NoteRowModel rm = clip.getNoteRowsMap().get(r);
-        if (rm != null && (!rm.getAutomationCurves().isEmpty() || !rm.getSoundParams().isEmpty())) {
+        if (rm != null
+            && (!rm.getAutomationCurves().isEmpty()
+                || !rm.getSoundParams().isEmpty()
+                || !rm.getPatchCables().isEmpty())) {
           hasNotes = true;
         }
       }
@@ -1455,7 +1468,8 @@ public class ProjectSerializer {
         if (track instanceof KitTrackModel
             && rowModel != null
             && (!rowModel.getAutomationCurves().isEmpty()
-                || !rowModel.getSoundParams().isEmpty())) {
+                || !rowModel.getSoundParams().isEmpty()
+                || !rowModel.getPatchCables().isEmpty())) {
           // C note_row.cpp:3629-3653 — kit row with soundParams writes a child <soundParams> tag.
           writer.writeOpeningTagEnd();
           serializeKitRowSoundParams(writer, rowModel);
@@ -1655,7 +1669,8 @@ public class ProjectSerializer {
       written.add(key);
     }
 
-    writeSoundParamsSubElementsAndClose(writer, curves, null, synth);
+    writeSoundParamsSubElementsAndClose(
+        writer, curves, null, synth, clip != null ? clip.getPatchCables() : List.of());
   }
 
   private static void serializeKitRowSoundParams(
@@ -1685,7 +1700,7 @@ public class ProjectSerializer {
       written.add(key);
     }
 
-    writeSoundParamsSubElementsAndClose(writer, curves, rowParams, null);
+    writeSoundParamsSubElementsAndClose(writer, curves, rowParams, null, rowModel.getPatchCables());
   }
 
   private static String resolveSynthBaseHex(SynthTrackModel synth, String key, String fallbackHex) {
@@ -1762,9 +1777,11 @@ public class ProjectSerializer {
       XMLSerializer writer,
       Map<String, List<org.deluge.modulation.automation.ParamNode>> curves,
       Map<String, Float> rowParams,
-      SynthTrackModel synth)
+      SynthTrackModel synth,
+      List<PatchCable> patchCables)
       throws IOException {
-    boolean hasSubElements = false;
+    boolean hasPatchCables = patchCables != null && !patchCables.isEmpty();
+    boolean hasSubElements = hasPatchCables;
     for (String key : curves.keySet()) {
       if (isSubElementParamKey(key)) {
         hasSubElements = true;
@@ -1808,6 +1825,15 @@ public class ProjectSerializer {
             sub, DelugeHexMapper.formatHexWithAutomationNodes(baseHex, nodes), false);
       }
       writer.closeTag();
+    }
+
+    if (hasPatchCables) {
+      // C sound.cpp:4159 -> PatchCableSet::writePatchCablesToFile(writer, writeAutomation=true).
+      writer.writeArrayStart("patchCables");
+      for (PatchCable pc : patchCables) {
+        writePatchCable(writer, pc, true);
+      }
+      writer.writeArrayEnding("patchCables");
     }
 
     String[][] eqMap = {

@@ -157,6 +157,7 @@ public class ClipModel extends TimelineCounter {
   private final Map<String, float[]> automationData = new HashMap<>();
   private final Map<String, List<org.deluge.modulation.automation.ParamNode>> automationCurves =
       new HashMap<>();
+  private final List<PatchCable> patchCables = new ArrayList<>();
   private final Map<String, Float> kitParams = new HashMap<>();
 
   // ── Unified NoteRowModel map replacing parallel maps ──
@@ -384,6 +385,9 @@ public class ClipModel extends TimelineCounter {
       }
       copy.automationCurves.put(e.getKey(), copiedCurve);
     }
+    for (PatchCable pc : this.patchCables) {
+      copy.patchCables.add(pc.deepCopy());
+    }
     // Deep-copy kit params
     copy.kitParams.putAll(this.kitParams);
     copy.leftCol = this.leftCol;
@@ -448,6 +452,10 @@ public class ClipModel extends TimelineCounter {
               new org.deluge.modulation.automation.ParamNode(n.pos, n.value, n.interpolated));
         }
         newRow.getAutomationCurves().put(curveEntry.getKey(), copiedCurve);
+      }
+      newRow.getPatchCables().clear();
+      for (PatchCable pc : oldRow.getPatchCables()) {
+        newRow.getPatchCables().add(pc.deepCopy());
       }
     }
   }
@@ -728,6 +736,11 @@ public class ClipModel extends TimelineCounter {
     return automationCurves;
   }
 
+  /** C {@code Sound::readParamsFromFile} ({@code sound.cpp:4043-4046}) clip-level patch cables. */
+  public List<PatchCable> getPatchCables() {
+    return patchCables;
+  }
+
   public void setAutomationCurve(
       String param, List<org.deluge.modulation.automation.ParamNode> nodes) {
     if (nodes == null || nodes.isEmpty()) {
@@ -919,6 +932,10 @@ public class ClipModel extends TimelineCounter {
             new org.deluge.modulation.automation.ParamNode(n.pos, n.value, n.interpolated));
       }
       automationCurves.put(e.getKey(), copiedCurve);
+    }
+    patchCables.clear();
+    for (PatchCable pc : src.patchCables) {
+      patchCables.add(pc.deepCopy());
     }
     kitParams.clear();
     kitParams.putAll(src.kitParams);
