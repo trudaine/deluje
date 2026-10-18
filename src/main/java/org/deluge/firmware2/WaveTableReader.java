@@ -1,67 +1,195 @@
 package org.deluge.firmware2;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.file.Files;
 
+/**
+ * WAV wavetable reader aligned with C++ {@code AudioFile::loadFile} ({@code audio_file.cpp:34-279})
+ * for {@code AudioFileType::WAVETABLE}.
+ */
 public class WaveTableReader {
+
+  private static final int RIFF_MAGIC = 0x46464952; // "RIFF"
+  private static final int WAVE_MAGIC = 0x45564157; // "WAVE"
+  private static final int CHUNK_FMT = 0x20746D66; // "fmt "
+  private static final int CHUNK_DATA = 0x61746164; // "data"
+  private static final int CHUNK_CLM = 0x206D6C63; // "clm "
+  private static final int WAV_FORMAT_PCM = 1;
+  private static final int WAV_FORMAT_FLOAT = 3;
+  private static final int DEFAULT_WAVETABLE_CYCLE_SIZE = 2048;
+
   public static void readWavetable(WaveTable waveTable, String path) throws IOException {
     File file = new File(path);
     if (!file.exists()) return;
 
-    try (FileInputStream fis = new FileInputStream(file)) {
-      byte[] header = new byte[44];
-      fis.read(header);
+    byte[] allBytes = Files.readAllBytes(file.toPath());
+    if (allBytes.length < 12) return;
 
-      ByteBuffer bb = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN);
-      // Simple WAV check
-      if (bb.getInt(0) != 0x46464952) return; // "RIFF"
+    ByteBuffer bb = ByteBuffer.wrap(allBytes).order(ByteOrder.LITTLE_ENDIAN);
+    if (bb.getInt(0) != RIFF_MAGIC || bb.getInt(8) != WAVE_MAGIC) {
+      return;
+    }
 
-      int dataSize = bb.getInt(40);
-      int cycleSize = 2048; // Assume default if not metadata present
+    // C audio_file.cpp:48-89 — walk all RIFF chunks to find fmt, data, and optional Serum "clm ".
+    boolean foundFmt = false;
+    boolean foundData = false;
+    int audioFormat = 0;
+    int numChannels = 0;
+    int bitsPerSample = 0;
+    int cycleSize = DEFAULT_WAVETABLE_CYCLE_SIZE;
+    int dataOffset = 0;
+    int dataLength = 0;
 
-      waveTable.setup(cycleSize, dataSize / 2); // 16-bit mono
+    int pos = 12;
+    while (pos <= allBytes.length - 8) {
+      int chunkName = bb.getInt(pos);
+      int chunkLen = bb.getInt(pos + 4);
+      if (chunkLen < 0) {
+        break;
+      }
+      int chunkDataStart = pos + 8;
+      int availableInFile = allBytes.length - chunkDataStart;
+      int usableLen = Math.min(chunkLen, availableInFile);
 
-      byte[] data = new byte[dataSize];
-      fis.read(data);
-      ByteBuffer dataBB = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
-
-      float[] samples = new float[dataSize / 2];
-      for (int i = 0; i < samples.length; i++) {
-        samples[i] = dataBB.getShort() / 32768.0f;
+      switch (chunkName) {
+        case CHUNK_FMT -> {
+          // C audio_file.cpp:131-173
+          if (usableLen >= 16) {
+            audioFormat = bb.getShort(chunkDataStart) & 0xFFFF;
+            numChannels = bb.getShort(chunkDataStart + 2) & 0xFFFF;
+            bitsPerSample = bb.getShort(chunkDataStart + 14) & 0xFFFF;
+            foundFmt = true;
+          }
+        }
+        case CHUNK_DATA -> {
+          // C audio_file.cpp:96-100
+          dataOffset = chunkDataStart;
+          dataLength = usableLen;
+          foundData = true;
+        }
+        case CHUNK_CLM -> {
+          // C audio_file.cpp:259-277 — Serum wavetable tag "<!>NNNN" (e.g. "<!>2048").
+          if (usableLen >= 7
+              && allBytes[chunkDataStart] == '<'
+              && allBytes[chunkDataStart + 1] == '!'
+              && allBytes[chunkDataStart + 2] == '>') {
+            int parsed = parseAsciiUInt(allBytes, chunkDataStart + 3, chunkDataStart + 7);
+            if (parsed >= 1) {
+              cycleSize = parsed;
+            }
+          }
+        }
+        default -> {}
       }
 
-      WavetableGenerator.generateBands(waveTable, samples);
+      // C audio_file.cpp:81-83 — odd-sized RIFF chunks carry 1 pad byte after their payload.
+      long paddedLen = ((Integer.toUnsignedLong(chunkLen) + 1L) & ~1L);
+      long nextPos = chunkDataStart + paddedLen;
+      if (nextPos <= pos || nextPos > allBytes.length) {
+        break;
+      }
+      pos = (int) nextPos;
+    }
 
-      // ── Ported Metadata Parsing ──
-      while (fis.available() > 8) {
-        byte[] chunkHeader = new byte[8];
-        fis.read(chunkHeader);
-        ByteBuffer chunkBB = ByteBuffer.wrap(chunkHeader).order(ByteOrder.LITTLE_ENDIAN);
-        int chunkName = chunkBB.getInt(0);
-        int chunkLen = chunkBB.getInt(4);
+    if (!foundFmt || !foundData) {
+      return;
+    }
 
-        if (chunkName == 0x6C706D73) { // 'smpl'
-          byte[] smplData = new byte[chunkLen];
-          fis.read(smplData);
-          ByteBuffer smplBB = ByteBuffer.wrap(smplData).order(ByteOrder.LITTLE_ENDIAN);
-          int rootNote = smplBB.getInt(12);
-          int numLoops = smplBB.getInt(28);
-          if (numLoops > 0) {
-            int loopStart = smplBB.getInt(44);
-            int loopEnd = smplBB.getInt(48);
-            // Store in waveTable/sample model
-          }
-        } else if (chunkName == 0x74736E69) { // 'inst'
-          byte[] instData = new byte[chunkLen];
-          fis.read(instData);
-          int rootNote = instData[0] & 0xFF;
-        } else {
-          fis.skip(chunkLen);
-        }
+    // C audio_file.cpp:107-110 — stereo files are never loadable as a WaveTable.
+    if (numChannels != 1) {
+      return;
+    }
+
+    // C audio_file.cpp:143-166 — validate PCM (8/16/24/32-bit) or IEEE float (32-bit).
+    if (audioFormat == WAV_FORMAT_PCM) {
+      if (bitsPerSample != 8 && bitsPerSample != 16 && bitsPerSample != 24 && bitsPerSample != 32) {
+        return;
+      }
+    } else if (audioFormat == WAV_FORMAT_FLOAT) {
+      if (bitsPerSample != 32) {
+        return;
+      }
+    } else {
+      return;
+    }
+
+    int byteDepth = bitsPerSample >> 3;
+    int numSamples = dataLength / byteDepth;
+    if (numSamples < WaveTable.kWavetableMinCycleSize) {
+      return;
+    }
+
+    float[] samples = decodeSamples(allBytes, bb, dataOffset, numSamples, audioFormat, byteDepth);
+
+    waveTable.bands.clear();
+    waveTable.setup(cycleSize, samples.length);
+    WavetableGenerator.generateBands(waveTable, samples);
+  }
+
+  // C functions.cpp:654-666 — memToUIntOrError(mem, memEnd): returns -1 on any non-digit byte.
+  private static int parseAsciiUInt(byte[] bytes, int start, int end) {
+    long number = 0;
+    for (int i = start; i < end; i++) {
+      int b = bytes[i] & 0xFF;
+      if (b < '0' || b > '9') {
+        return -1;
+      }
+      number = number * 10L + (b - '0');
+      if (number > Integer.MAX_VALUE) {
+        return -1;
       }
     }
+    return (int) number;
+  }
+
+  // C wave_table.cpp:421-439 — convert 8/16/24/32-bit PCM or 32-bit float into normalized [-1, 1].
+  private static float[] decodeSamples(
+      byte[] bytes, ByteBuffer bb, int dataOffset, int numSamples, int audioFormat, int byteDepth) {
+    float[] samples = new float[numSamples];
+    if (audioFormat == WAV_FORMAT_FLOAT) {
+      for (int i = 0; i < numSamples; i++) {
+        float v = bb.getFloat(dataOffset + i * 4);
+        if (Float.isNaN(v)) {
+          v = 0.0f;
+        } else if (v > 1.0f) {
+          v = 1.0f;
+        } else if (v < -1.0f) {
+          v = -1.0f;
+        }
+        samples[i] = v;
+      }
+      return samples;
+    }
+
+    switch (byteDepth) {
+      case 1 -> {
+        for (int i = 0; i < numSamples; i++) {
+          int unsignedByte = bytes[dataOffset + i] & 0xFF;
+          samples[i] = (unsignedByte - 128) / 128.0f;
+        }
+      }
+      case 2 -> {
+        for (int i = 0; i < numSamples; i++) {
+          samples[i] = bb.getShort(dataOffset + i * 2) / 32768.0f;
+        }
+      }
+      case 3 -> {
+        for (int i = 0; i < numSamples; i++) {
+          int o = dataOffset + i * 3;
+          int signed24 = (bytes[o] & 0xFF) | ((bytes[o + 1] & 0xFF) << 8) | (bytes[o + 2] << 16);
+          samples[i] = signed24 / 8388608.0f;
+        }
+      }
+      case 4 -> {
+        for (int i = 0; i < numSamples; i++) {
+          samples[i] = bb.getInt(dataOffset + i * 4) / 2147483648.0f;
+        }
+      }
+      default -> {}
+    }
+    return samples;
   }
 }
