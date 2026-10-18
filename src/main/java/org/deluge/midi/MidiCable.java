@@ -38,6 +38,18 @@ public class MidiCable {
     public boolean isMasterChannel(int channel) {
       return channel == masterChannel;
     }
+
+    /** Returns the number of active member channels in this zone (excluding masterChannel). */
+    public int getMemberChannelCount() {
+      if (lastMemberChannel < memberChannel) {
+        return 0;
+      }
+      int count = lastMemberChannel - memberChannel + 1;
+      if (masterChannel >= memberChannel && masterChannel <= lastMemberChannel) {
+        count--;
+      }
+      return Math.max(0, count);
+    }
   }
 
   /** Lower zone (channels 1-14 typically). */
@@ -60,12 +72,62 @@ public class MidiCable {
 
   // --- MPE Zone API ---
 
+  /**
+   * Configures the lower MPE zone and moves the upper zone out of the way if they overlap (C
+   * MIDIPort::moveUpperZoneOutOfWayOfLowerZone, midi_device.cpp:97-98, 266-275).
+   */
   public void setLowerZone(int memberFrom, int memberTo, int masterChannel) {
+    if (memberFrom > memberTo) {
+      this.lowerZone = null;
+      return;
+    }
     this.lowerZone = new MpeZone(memberFrom, memberTo, masterChannel);
+    if (this.lowerZone.getMemberChannelCount() <= 0) {
+      this.lowerZone = null;
+      return;
+    }
+    moveUpperZoneOutOfWayOfLowerZone();
   }
 
+  /**
+   * Configures the upper MPE zone and moves the lower zone out of the way if they overlap (C
+   * MIDIPort::moveLowerZoneOutOfWayOfUpperZone, midi_device.cpp:128, 277-286).
+   */
   public void setUpperZone(int memberFrom, int memberTo, int masterChannel) {
+    if (memberFrom > memberTo) {
+      this.upperZone = null;
+      return;
+    }
     this.upperZone = new MpeZone(memberFrom, memberTo, masterChannel);
+    if (this.upperZone.getMemberChannelCount() <= 0) {
+      this.upperZone = null;
+      return;
+    }
+    moveLowerZoneOutOfWayOfUpperZone();
+  }
+
+  private void moveUpperZoneOutOfWayOfLowerZone() {
+    if (lowerZone == null || upperZone == null) {
+      return;
+    }
+    if (upperZone.memberChannel <= lowerZone.lastMemberChannel) {
+      upperZone.memberChannel = lowerZone.lastMemberChannel + 1;
+      if (upperZone.getMemberChannelCount() <= 0) {
+        upperZone = null;
+      }
+    }
+  }
+
+  private void moveLowerZoneOutOfWayOfUpperZone() {
+    if (upperZone == null || lowerZone == null) {
+      return;
+    }
+    if (lowerZone.lastMemberChannel >= upperZone.memberChannel) {
+      lowerZone.lastMemberChannel = upperZone.memberChannel - 1;
+      if (lowerZone.getMemberChannelCount() <= 0) {
+        lowerZone = null;
+      }
+    }
   }
 
   public void clearLowerZone() {
@@ -104,10 +166,10 @@ public class MidiCable {
   public int getMemberChannelCount() {
     int count = 0;
     if (lowerZone != null) {
-      count += Math.max(0, lowerZone.lastMemberChannel - lowerZone.memberChannel + 1);
+      count += lowerZone.getMemberChannelCount();
     }
     if (upperZone != null) {
-      count += Math.max(0, upperZone.lastMemberChannel - upperZone.memberChannel + 1);
+      count += upperZone.getMemberChannelCount();
     }
     return count;
   }
