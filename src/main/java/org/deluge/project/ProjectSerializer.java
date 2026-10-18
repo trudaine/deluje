@@ -1712,7 +1712,30 @@ public class ProjectSerializer {
     if (paramId != -1 && raw.getRawParamKnobs().containsKey(paramId)) {
       return String.format("0x%08X", raw.getRawParamKnobs().get(paramId));
     }
-    return fallbackHex;
+    // C sound.cpp:139, 172-177, 4061-4126 — dedicated Q31 fields parsed by
+    // InstrumentXmlParser.parseClipSoundParamsStatics.
+    return switch (key) {
+      case "modulator1Amount", "modulator1Volume" ->
+          String.format("0x%08X", synth.getModulator1AmountQ31());
+      case "modulator2Amount", "modulator2Volume" ->
+          String.format("0x%08X", synth.getModulator2AmountQ31());
+      case "modulator1Feedback" -> String.format("0x%08X", synth.getModulator1FeedbackQ31());
+      case "modulator2Feedback" -> String.format("0x%08X", synth.getModulator2FeedbackQ31());
+      case "carrier1Feedback" -> String.format("0x%08X", synth.getCarrier1FeedbackQ31());
+      case "carrier2Feedback" -> String.format("0x%08X", synth.getCarrier2FeedbackQ31());
+      case "pitchAdjust" -> String.format("0x%08X", synth.getPitchAdjustQ31());
+      case "oscAPitchAdjust" -> String.format("0x%08X", synth.getOsc1PitchAdjustQ31());
+      case "oscBPitchAdjust" -> String.format("0x%08X", synth.getOsc2PitchAdjustQ31());
+      case "oscAPulseWidth", "oscAPhaseWidth" ->
+          String.format("0x%08X", synth.getOsc1PhaseWidthQ31());
+      case "oscBPulseWidth", "oscBPhaseWidth" ->
+          String.format("0x%08X", synth.getOsc2PhaseWidthQ31());
+      case "portamento" -> String.format("0x%08X", synth.getPortamentoQ31());
+      case "arpeggiatorRate", "arpRate" -> String.format("0x%08X", synth.getArpRateQ31());
+      case "waveFold" -> String.format("0x%08X", synth.getWaveFoldQ31());
+      case "delayFeedback" -> String.format("0x%08X", synth.getDelayFeedbackQ31());
+      default -> fallbackHex;
+    };
   }
 
   private static void writeSoundParamAttr(
@@ -1801,15 +1824,20 @@ public class ProjectSerializer {
       }
     }
     if (hasEq) {
+      // C mod_controllable_audio.cpp:540-549 — write all four equalizer attributes when emitting
+      // <equalizer>.
       writer.writeOpeningTagBeginning("equalizer");
       for (String[] pair : eqMap) {
-        Float staticVal = rowParams != null ? rowParams.get(pair[1]) : null;
-        List<org.deluge.modulation.automation.ParamNode> nodes = curves.get(pair[1]);
-        if (staticVal == null && (nodes == null || nodes.isEmpty())) continue;
+        String key = pair[1];
+        Float staticVal = rowParams != null ? rowParams.get(key) : null;
+        List<org.deluge.modulation.automation.ParamNode> nodes = curves.get(key);
+        boolean isBipolarGain = "eqBass".equals(key) || "eqTreble".equals(key);
         String baseHex =
             staticVal != null
-                ? DelugeHexMapper.unipolarFloatToHexUnified(staticVal)
-                : resolveSynthBaseHex(synth, pair[1], "0x00000000");
+                ? (isBipolarGain
+                    ? DelugeHexMapper.floatToHex(staticVal)
+                    : DelugeHexMapper.unipolarFloatToHexUnified(staticVal))
+                : resolveSynthBaseHex(synth, key, "0x00000000");
         writer.writeAttribute(
             pair[0], DelugeHexMapper.formatHexWithAutomationNodes(baseHex, nodes), false);
       }

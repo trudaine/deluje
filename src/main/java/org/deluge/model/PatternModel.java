@@ -23,6 +23,8 @@ public class PatternModel {
     private int stepCount;
     private final List<List<StepData>> grid = new ArrayList<>();
     private final Map<String, float[]> automationData = new HashMap<>();
+    private final Map<String, List<org.deluge.modulation.automation.ParamNode>> automationCurves =
+        new HashMap<>();
     private final Map<Integer, Map<String, Float>> rowSoundParams = new HashMap<>();
     private final Map<String, Float> kitParams = new HashMap<>();
     private String instrumentSlot = "";
@@ -69,6 +71,16 @@ public class PatternModel {
           snap.automationData.put(param, arr.clone());
         }
       }
+      for (var curveEntry : clip.getAutomationCurves().entrySet()) {
+        List<org.deluge.modulation.automation.ParamNode> copiedCurve =
+            new ArrayList<>(curveEntry.getValue().size());
+        for (var node : curveEntry.getValue()) {
+          copiedCurve.add(
+              new org.deluge.modulation.automation.ParamNode(
+                  node.pos, node.value, node.interpolated));
+        }
+        snap.automationCurves.put(curveEntry.getKey(), copiedCurve);
+      }
       // Deep-copy row sound params
       for (int r = 0; r < clip.getRowCount(); r++) {
         if (clip.hasRowSoundParams(r)) {
@@ -106,6 +118,17 @@ public class PatternModel {
         java.util.Arrays.fill(dst, -1f);
         System.arraycopy(src, 0, dst, 0, Math.min(src.length, dst.length));
         clip.getAutomationData().put(e.getKey(), dst);
+      }
+      clip.getAutomationCurves().clear();
+      for (var curveEntry : automationCurves.entrySet()) {
+        List<org.deluge.modulation.automation.ParamNode> copiedCurve =
+            new ArrayList<>(curveEntry.getValue().size());
+        for (var node : curveEntry.getValue()) {
+          copiedCurve.add(
+              new org.deluge.modulation.automation.ParamNode(
+                  node.pos, node.value, node.interpolated));
+        }
+        clip.getAutomationCurves().put(curveEntry.getKey(), copiedCurve);
       }
       // Clear and apply row sound params
       for (int r = 0; r < rows; r++) {

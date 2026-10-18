@@ -241,6 +241,99 @@ class XmlHexAutomationNodesTest {
     assertEquals(0x22222222, reloadedCurve.get(0).value);
   }
 
+  @Test
+  void synthDedicatedQ31EqAndKitEqRoundTripWithoutClobbering(@TempDir Path tempDir)
+      throws Exception {
+    System.setProperty("chuck.audio.dummy", "true");
+    // Synth clip length="48" with an independent noteRow length="96" (note at pos=72 = 0x48).
+    // Clip's own portamento (static 0x80000000) and modulator1Amount (static 0x80000000) have
+    // automation at pos=24 and pos=60; pos=60 must be dropped because clip length is 48.
+    // Synth <equalizer> has automated bass and static treble="0x40000000".
+    // Kit <equalizer> has flat static bass="0x00000000" + automation.
+    String xml =
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <song firmwareVersion="4.1.0-alpha">
+          <instruments>
+            <sound name="FMSYNTH" presetSlot="0" />
+            <kit name="EQKIT" presetSlot="1">
+              <soundSources>
+                <sound name="SNARE" osc1Type="sine" />
+              </soundSources>
+            </kit>
+          </instruments>
+          <sessionClips>
+            <instrumentClip instrumentPresetSlot="0" length="48">
+              <soundParams
+                  portamento="0x800000001000000080000018200000000000003C"
+                  modulator1Amount="0x800000003000000080000018">
+                <equalizer
+                    bass="0x000000002500000080000018"
+                    treble="0x40000000"
+                    bassFrequency="0x10000000"
+                    trebleFrequency="0x20000000" />
+              </soundParams>
+              <noteRows>
+                <noteRow y="60" length="96" noteData="0x0000004800000018407F" />
+              </noteRows>
+            </instrumentClip>
+            <instrumentClip instrumentPresetSlot="1" length="48">
+              <noteRows>
+                <noteRow drumIndex="0" noteData="0x0000000000000018407F">
+                  <soundParams>
+                    <equalizer
+                        bass="0x000000001500000080000018"
+                        treble="0x00000000"
+                        bassFrequency="0x00000000"
+                        trebleFrequency="0x00000000" />
+                  </soundParams>
+                </noteRow>
+              </noteRows>
+            </instrumentClip>
+          </sessionClips>
+        </song>
+        """;
+
+    ProjectModel parsed =
+        SongXmlParser.parseSong(
+            new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)), "ReviewFixesSong");
+    ClipModel synthClip = parsed.getTracks().get(0).getClips().get(0);
+    assertEquals(
+        1,
+        synthClip.getAutomationCurves().get("portamento").size(),
+        "Clip length=48 must drop automation at pos=60 even when independent noteRow expands stepCount");
+
+    // PatternModel.ClipSnapshot must preserve automationCurves.
+    org.deluge.model.PatternModel.ClipSnapshot snap =
+        org.deluge.model.PatternModel.ClipSnapshot.fromClipModel(synthClip, 0, "FMSYNTH");
+    ClipModel restoredClip = new ClipModel("Restored", 1, 4);
+    snap.applyTo(restoredClip);
+    assertEquals(1, restoredClip.getAutomationCurves().get("portamento").size());
+
+    File savedFile = tempDir.resolve("roundtrip_review_fixes.xml").toFile();
+    ProjectSerializer.save(parsed, savedFile);
+    String savedXml = Files.readString(savedFile.toPath());
+
+    assertTrue(
+        savedXml.contains("portamento=\"0x800000001000000080000018\""),
+        "Saved synth portamento must preserve 0x80000000 static baseHex");
+    assertTrue(
+        savedXml.contains("modulator1Amount=\"0x800000003000000080000018\""),
+        "Saved synth modulator1Amount must preserve 0x80000000 static baseHex");
+    assertTrue(
+        savedXml.contains("treble=\"0x40000000\""),
+        "Saved synth <equalizer> must preserve sibling static treble attribute");
+    assertTrue(
+        savedXml.contains("bass=\"0x000000001500000080000018\""),
+        "Saved kit row <equalizer> must preserve flat 0x00000000 static bass");
+
+    ProjectModel reloaded = SongXmlParser.parseSong(savedFile);
+    org.deluge.model.SynthTrackModel reloadedSynth =
+        (org.deluge.model.SynthTrackModel) reloaded.getTracks().get(0);
+    assertEquals(0x80000000, reloadedSynth.getPortamentoQ31());
+    assertEquals(0x80000000, reloadedSynth.getModulator1AmountQ31());
+  }
+
   private static AutoParam findAutoParam(
       org.deluge.modulation.params.ParamManager pm, int paramId) {
     for (AutoParam p : pm.automatedParams) {

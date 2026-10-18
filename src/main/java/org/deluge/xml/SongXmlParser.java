@@ -330,10 +330,11 @@ public class SongXmlParser {
                   || "true".equalsIgnoreCase(trackElem.getAttribute("triplet"));
           int stepTicks = tripletMode ? 32 : 24;
           int stepCount = 16;
+          int trackXmlLengthTicks = 0;
           if (trackElem.hasAttribute("length")) {
             try {
-              int lengthTicks = Integer.parseInt(trackElem.getAttribute("length"));
-              stepCount = lengthTicks / stepTicks;
+              trackXmlLengthTicks = Integer.parseInt(trackElem.getAttribute("length"));
+              stepCount = trackXmlLengthTicks / stepTicks;
               if (stepCount < 1) stepCount = 16;
             } catch (Exception ignored) {
             }
@@ -392,7 +393,7 @@ public class SongXmlParser {
               NodeList rowSoundParamsList = noteRowElem.getElementsByTagName("soundParams");
               if (rowSoundParamsList.getLength() > 0) {
                 Element sp = (Element) rowSoundParamsList.item(0);
-                parseNoteRowSoundParams(sp, clip, r);
+                parseNoteRowSoundParams(sp, clip, r, trackXmlLengthTicks);
               }
             }
           }
@@ -531,9 +532,10 @@ public class SongXmlParser {
                 || "true".equalsIgnoreCase(clipElem.getAttribute("triplet"));
         int stepTicks = tripletMode ? 32 : 24;
         int stepCount = 16;
+        int clipXmlLengthTicks = 0;
         if (clipElem.hasAttribute("length")) {
-          int lengthTicks = Integer.parseInt(clipElem.getAttribute("length"));
-          stepCount = lengthTicks / stepTicks;
+          clipXmlLengthTicks = Integer.parseInt(clipElem.getAttribute("length"));
+          stepCount = clipXmlLengthTicks / stepTicks;
           if (stepCount < 1) stepCount = 16;
         }
         // Expand stepCount to cover max position found in noteData (pos in 12-tick units)
@@ -649,7 +651,7 @@ public class SongXmlParser {
             NodeList rowSoundParamsList = noteRowElem.getElementsByTagName("soundParams");
             if (rowSoundParamsList.getLength() > 0) {
               Element sp = (Element) rowSoundParamsList.item(0);
-              parseNoteRowSoundParams(sp, clip, r);
+              parseNoteRowSoundParams(sp, clip, r, clipXmlLengthTicks);
             }
           }
         }
@@ -676,7 +678,12 @@ public class SongXmlParser {
               InstrumentXmlParser.resetClipParamsToFirmwareDefaults(stm);
               InstrumentXmlParser.parseClipSoundParamsStatics(spEl, stm);
               parseAutomation(spEl, clip);
-              int readUpTo = clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE;
+              // C instrument_clip.cpp:2517-2523, 2656 — bound automation at the clip's own XML
+              // length (not stepCount expanded by longer independent noteRows).
+              int readUpTo =
+                  clipXmlLengthTicks > 0
+                      ? clipXmlLengthTicks
+                      : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
               parseHexSoundParamsAutomation(spEl, clip.getAutomationCurves(), readUpTo);
             }
             NodeList paramsList2 = clipElem.getElementsByTagName("params");
@@ -1344,7 +1351,8 @@ public class SongXmlParser {
     }
   }
 
-  private static void parseNoteRowSoundParams(Element sp, ClipModel clip, int row) {
+  private static void parseNoteRowSoundParams(
+      Element sp, ClipModel clip, int row, int clipXmlLengthTicks) {
     // List of known hex float parameter attributes in <soundParams>
     String[] hexParams = {
       "oscAVolume",
@@ -1408,23 +1416,36 @@ public class SongXmlParser {
         clip.setRowSoundParam(row, envTag + "_release", env.release());
       }
     }
-    // equalizer child element
+    // equalizer child element (C mod_controllable_audio.cpp:557-582: bass/treble are bipolar,
+    // bassFrequency/trebleFrequency are unipolar).
     NodeList eqNodes = sp.getElementsByTagName("equalizer");
     if (eqNodes.getLength() > 0) {
       Element eq = (Element) eqNodes.item(0);
-      String bassVal = eq.getAttribute("bass");
+      String bassVal = readDirectAttrOrChild(eq, "bass");
       if (bassVal != null && !bassVal.isBlank())
-        clip.setRowSoundParam(row, "eqBass", Math.abs(DelugeHexMapper.hexToFloat(bassVal)));
-      String trebleVal = eq.getAttribute("treble");
+        clip.setRowSoundParam(row, "eqBass", DelugeHexMapper.hexToFloat(bassVal));
+      String trebleVal = readDirectAttrOrChild(eq, "treble");
       if (trebleVal != null && !trebleVal.isBlank())
-        clip.setRowSoundParam(row, "eqTreble", Math.abs(DelugeHexMapper.hexToFloat(trebleVal)));
+        clip.setRowSoundParam(row, "eqTreble", DelugeHexMapper.hexToFloat(trebleVal));
+      String bassFreqVal = readDirectAttrOrChild(eq, "bassFrequency");
+      if (bassFreqVal != null && !bassFreqVal.isBlank())
+        clip.setRowSoundParam(
+            row, "eqBassFrequency", toUnipolar(DelugeHexMapper.hexToFloat(bassFreqVal)));
+      String trebleFreqVal = readDirectAttrOrChild(eq, "trebleFrequency");
+      if (trebleFreqVal != null && !trebleFreqVal.isBlank())
+        clip.setRowSoundParam(
+            row, "eqTrebleFrequency", toUnipolar(DelugeHexMapper.hexToFloat(trebleFreqVal)));
     }
     parseNoteRowAutomation(sp, clip, row);
     NoteRowModel rowModel = clip.getOrCreateRow(row);
+    int fallbackClipLen =
+        clipXmlLengthTicks > 0
+            ? clipXmlLengthTicks
+            : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
     int rowReadUpTo =
         rowModel.getLoopLengthIfIndependent() > 0
             ? rowModel.getLoopLengthIfIndependent()
-            : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
+            : fallbackClipLen;
     parseHexSoundParamsAutomation(sp, rowModel.getAutomationCurves(), rowReadUpTo);
   }
 
