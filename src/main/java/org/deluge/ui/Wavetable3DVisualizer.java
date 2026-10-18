@@ -90,7 +90,7 @@ public class Wavetable3DVisualizer extends JPanel {
     }
   }
 
-  private void checkWavetableReload() {
+  void checkWavetableReload() {
     String path = (oscIndex == 0) ? model.getOsc1SamplePath() : model.getOsc2SamplePath();
     boolean isWavetableMode =
         (oscIndex == 0)
@@ -114,8 +114,9 @@ public class Wavetable3DVisualizer extends JPanel {
     }
 
     lastLoadedPath = path;
-    File f = new File(path);
-    if (!f.exists() || !f.isFile()) {
+    final String requestedPath = path;
+    File f = resolveWavetableFile(path);
+    if (f == null || !f.exists() || !f.isFile()) {
       loadedWavetable = null;
       return;
     }
@@ -128,8 +129,9 @@ public class Wavetable3DVisualizer extends JPanel {
                 WaveTableReader.readWavetable(wt, f.getAbsolutePath());
                 SwingUtilities.invokeLater(
                     () -> {
-                      // Verify path hasn't changed in the meantime
-                      if (f.getAbsolutePath().equals(lastLoadedPath)) {
+                      // Verify path hasn't changed in the meantime (compare against requestedPath
+                      // so relative SD library paths also match).
+                      if (requestedPath.equals(lastLoadedPath)) {
                         this.loadedWavetable = wt;
                         repaint();
                       }
@@ -140,6 +142,27 @@ public class Wavetable3DVisualizer extends JPanel {
               }
             })
         .start();
+  }
+
+  static File resolveWavetableFile(String path) {
+    if (path == null || path.isBlank()) return null;
+    File f = new File(path);
+    if (f.exists() && f.isFile()) return f;
+
+    File sdRoot = org.deluge.project.PreferencesManager.getLibraryDir();
+    if (sdRoot != null && sdRoot.exists()) {
+      File fSub = new File(sdRoot, path);
+      if (fSub.exists() && fSub.isFile()) return fSub;
+      // C resolves sample paths from the SD card root (XML paths already begin with "SAMPLES/");
+      // checking sdRoot/SAMPLES/path is a Java desktop convenience for bare filenames.
+      fSub = new File(new File(sdRoot, "SAMPLES"), path);
+      if (fSub.exists() && fSub.isFile()) return fSub;
+    }
+    return null;
+  }
+
+  void setLoadedWavetableForTest(WaveTable wt) {
+    this.loadedWavetable = wt;
   }
 
   @Override
@@ -182,13 +205,15 @@ public class Wavetable3DVisualizer extends JPanel {
     int cycleStep = Math.max(1, numCycles / maxDrawCycles);
 
     // Current playhead wave index position (0.0 to 1.0)
-    float waveIndex = model.getWaveIndex();
-    int playheadCycleIdx = Math.round(waveIndex * (numCycles - 1));
+    // C wave_table.cpp:179-182 allows single-cycle wavetables (numCycles == 1); guard (numCycles -
+    // 1) == 0.
+    float waveIndex = Math.max(0.0f, Math.min(1.0f, model.getWaveIndex()));
+    int playheadCycleIdx = (numCycles > 1) ? Math.round(waveIndex * (numCycles - 1)) : 0;
 
     // ── 3. Draw Stacked Curves from Back to Front (Painter's Algorithm) ──
     for (int i = numCycles - 1; i >= 0; i -= cycleStep) {
       // Normalize depth (0.0 at front, 1.0 at back)
-      double depthNorm = (double) i / (numCycles - 1);
+      double depthNorm = (numCycles > 1) ? (double) i / (numCycles - 1) : 0.0;
 
       // Calculate screen projection coordinates for this cycle
       Path2D.Double path = new Path2D.Double();
@@ -200,7 +225,7 @@ public class Wavetable3DVisualizer extends JPanel {
         if (cycleStartIndex + s >= data.length) break;
 
         // Get normalized coordinates (-1.0 to 1.0)
-        double normX = -1.0 + 2.0 * s / (cycleSize - 1);
+        double normX = (cycleSize > 1) ? (-1.0 + 2.0 * s / (cycleSize - 1)) : 0.0;
         double normY = (double) data[cycleStartIndex + s] / 32768.0;
 
         // Apply 3D perspective projection
@@ -243,7 +268,7 @@ public class Wavetable3DVisualizer extends JPanel {
     }
 
     // ── 4. Draw Glowing Playhead Plane ──
-    double playheadDepthNorm = (double) playheadCycleIdx / (numCycles - 1);
+    double playheadDepthNorm = (numCycles > 1) ? (double) playheadCycleIdx / (numCycles - 1) : 0.0;
     double pZ = 1.0 - playheadDepthNorm;
     double pScale = 0.55 + 0.45 * pZ;
 

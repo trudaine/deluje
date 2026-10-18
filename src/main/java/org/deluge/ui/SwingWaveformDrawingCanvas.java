@@ -26,16 +26,17 @@ public class SwingWaveformDrawingCanvas extends JComponent {
   private Runnable onUpdateListener = null;
 
   public SwingWaveformDrawingCanvas(int cycleSize) {
-    this.cycleSize = cycleSize;
-    this.cycleBuffer = new float[cycleSize];
+    // C wave_table.cpp:168 (kWavetableMinCycleSize = 8)
+    this.cycleSize = Math.max(8, cycleSize);
+    this.cycleBuffer = new float[this.cycleSize];
 
     setBackground(new Color(0x10, 0x10, 0x12));
     setPreferredSize(new Dimension(400, 240));
     setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
 
     // Initialize with a simple sine wave as default
-    for (int i = 0; i < cycleSize; i++) {
-      cycleBuffer[i] = (float) Math.sin(2.0 * Math.PI * i / cycleSize);
+    for (int i = 0; i < this.cycleSize; i++) {
+      cycleBuffer[i] = (float) Math.sin(2.0 * Math.PI * i / this.cycleSize);
     }
 
     MouseAdapter mouseHandler =
@@ -75,10 +76,10 @@ public class SwingWaveformDrawingCanvas extends JComponent {
     this.onUpdateListener = listener;
   }
 
-  private void drawAtMouse(int x, int y, boolean isStart) {
+  void drawAtMouse(int x, int y, boolean isStart) {
     int w = getWidth();
     int h = getHeight();
-    if (w <= 0 || h <= 0) return;
+    if (w <= 1 || h <= 1 || cycleSize <= 1) return;
 
     // Constrain mouse coordinates to component bounds
     x = Math.max(0, Math.min(w - 1, x));
@@ -154,11 +155,11 @@ public class SwingWaveformDrawingCanvas extends JComponent {
     Path2D.Double path = new Path2D.Double();
     boolean first = true;
     for (int i = 0; i < cycleSize; i++) {
-      double normX = (double) i / (cycleSize - 1);
+      double normX = (cycleSize > 1) ? (double) i / (cycleSize - 1) : 0.0;
       double normY = cycleBuffer[i]; // [-1.0, 1.0]
 
-      double x = normX * (w - 1);
-      double y = (1.0 - normY) * 0.5 * (h - 1); // map to screen coords
+      double x = (w > 1) ? normX * (w - 1) : 0.0;
+      double y = (h > 1) ? (1.0 - normY) * 0.5 * (h - 1) : 0.0; // map to screen coords
 
       if (first) {
         path.moveTo(x, y);
