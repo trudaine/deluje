@@ -1419,6 +1419,11 @@ public class ProjectSerializer {
         writer.writeOpeningTagBeginning("noteRow");
         if (track instanceof KitTrackModel) {
           writer.writeAttribute("drumIndex", r, false);
+          // C note_row.cpp:3622-3625 — a kit row with expression params writes its bend range.
+          org.deluge.model.NoteRowModel bendRow = clip.getNoteRowsMap().get(r);
+          if (bendRow != null && bendRow.getBendRange() != -1) {
+            writer.writeAttribute("bendRange", bendRow.getBendRange(), false);
+          }
         } else {
           writer.writeAttribute("y", Math.max(yNote, 0), false);
         }
@@ -1439,6 +1444,14 @@ public class ProjectSerializer {
         writer.closeTag();
       }
       writer.writeArrayEnding("noteRows");
+    }
+
+    // C instrument_clip.cpp:2427-2434 — a non-kit clip with expression params writes both ranges.
+    if (!(track instanceof KitTrackModel) && clip.getBendRange() != -1) {
+      writer.writeTag("bendRange", String.valueOf(clip.getBendRange()));
+      writer.writeTag(
+          "bendRangeMPE",
+          String.valueOf(clip.getBendRangeMPE() != -1 ? clip.getBendRangeMPE() : 48));
     }
 
     // C instrument_clip.cpp:2404-2412 — every instrument clip carries its own <arpeggiator>: a

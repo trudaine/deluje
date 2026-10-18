@@ -561,6 +561,16 @@ public class Sound extends GlobalEffectable {
   public int pendingSampleSyncLength = 0;
 
   /**
+   * C ExpressionParamSet::bendRanges of the paramManager the voice renders with (voice.cpp:830-
+   * 835): BEND_RANGE_MAIN (MIDI pitch bend) and BEND_RANGE_FINGER_LEVEL (MPE per-note bend), in
+   * semitones. Defaults are FlashStorage::defaultBendRange {2, 48} (flash_storage.cpp:231), used
+   * when the clip or kit row has no expression params. Set per note-on from the clip / row.
+   */
+  public int bendRangeMain = 2;
+
+  public int bendRangeFingerLevel = 48;
+
+  /**
    * Samples per sequencer (clip) tick — 96 per quarter note — for STRETCH note lengths (the C's
    * playbackHandler.getTimePerInternalTickBig(), voice_unison_part_source.cpp:129-130).
    */

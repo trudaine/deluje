@@ -586,6 +586,14 @@ public class SongXmlParser {
             int drumIdx = -1;
             if (noteRowElem.hasAttribute("drumIndex")) {
               drumIdx = Integer.parseInt(noteRowElem.getAttribute("drumIndex"));
+              // C note_row.cpp:3263, 3554-3559 — a kit row's finger-level bend range.
+              String br = DelugeXmlUtil.attrOrDirectChildText(noteRowElem, "bendRange");
+              if (br != null && !br.isBlank()) {
+                try {
+                  clip.getOrCreateRow(r).setBendRange(Integer.parseInt(br.trim()));
+                } catch (NumberFormatException ignored) {
+                }
+              }
             }
             int notePitch = -1;
             if (noteRowElem.hasAttribute("y")) {
@@ -650,6 +658,7 @@ public class SongXmlParser {
         // keeps all sound params here), then automation.
         switch (targetTrack) {
           case SynthTrackModel stm -> {
+            readClipBendRanges(clipElem, clip);
             // C instrument_clip.cpp:2676-2689 — the clip's own arpeggiator (internal syncLevel).
             Element clipArpEl = getFirstChild(clipElem, "arpeggiator");
             if (clipArpEl != null) {
@@ -672,6 +681,7 @@ public class SongXmlParser {
             }
           }
           case MidiTrackModel mtm -> {
+            readClipBendRanges(clipElem, clip);
             NodeList soundParamsList = clipElem.getElementsByTagName("soundParams");
             if (soundParamsList.getLength() > 0) {
               Element spEl = (Element) soundParamsList.item(0);
@@ -1946,6 +1956,17 @@ public class SongXmlParser {
   private static void applyRowMute(Element noteRowElem, ClipModel clip, int r) {
     if (DelugeXmlUtil.attrOrDirectChildInt(noteRowElem, "muted", 0) != 0) {
       clip.getOrCreateRow(r).setMuted(true);
+    }
+  }
+
+  /** C instrument_clip.cpp:2888-2898 — non-kit clips' "bendRange" / "bendRangeMPE". */
+  private static void readClipBendRanges(Element clipElem, ClipModel clip) {
+    String main = DelugeXmlUtil.attrOrDirectChildText(clipElem, "bendRange");
+    String mpe = DelugeXmlUtil.attrOrDirectChildText(clipElem, "bendRangeMPE");
+    try {
+      if (main != null && !main.isBlank()) clip.setBendRange(Integer.parseInt(main.trim()));
+      if (mpe != null && !mpe.isBlank()) clip.setBendRangeMPE(Integer.parseInt(mpe.trim()));
+    } catch (NumberFormatException ignored) {
     }
   }
 }
