@@ -524,6 +524,8 @@ public class Sound extends GlobalEffectable {
   public final Arpeggiator.Synth arpeggiator = new Arpeggiator.Synth();
   public final Arpeggiator.Settings arpSettings = new Arpeggiator.Settings();
   public final Arpeggiator.ArpReturnInstruction arpInstr = new Arpeggiator.ArpReturnInstruction();
+  private final Arpeggiator.ArpReturnInstruction arpTickInstr =
+      new Arpeggiator.ArpReturnInstruction();
   public int arpPhaseIncrement = 0;
 
   public final Lfo[] globalLfos = {new Lfo(), new Lfo()};
@@ -1005,38 +1007,7 @@ public class Sound extends GlobalEffectable {
         arpInstr.reset();
         arpeggiator.render(arpSettings, arpInstr, numSamples, gateThreshold, phaseInc);
 
-        // C sound.cpp:2478-2491 — release glide notes first, then post-arp note-offs.
-        for (int n = 0; n < 4; n++) {
-          int glideOff = arpInstr.glideNoteCodeOffPostArp[n];
-          if (glideOff == Arpeggiator.ARP_NOTE_NONE) {
-            break;
-          }
-          releaseVoice(glideOff, -1);
-        }
-        for (int n = 0; n < 4; n++) {
-          int noteOff = arpInstr.noteCodeOffPostArp[n];
-          if (noteOff == Arpeggiator.ARP_NOTE_NONE) {
-            break;
-          }
-          releaseVoice(noteOff, -1);
-        }
-
-        if (arpInstr.arpNoteOn != null) {
-          // C process_postarp_notes (sound.cpp:2354-2375) — EVERY pending entry until ARP_NOTE_NONE
-          // plays (chord/octave arp modes emit several), each at the arp note's real velocity.
-          for (int n = 0; n < arpInstr.arpNoteOn.noteCodeOnPostArp.length; n++) {
-            int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[n];
-            if (noteOn == Arpeggiator.ARP_NOTE_NONE) {
-              break;
-            }
-            if (arpInstr.arpNoteOn.noteStatus[n] != Arpeggiator.ArpNoteStatus.PENDING) {
-              continue;
-            }
-            triggerVoice(noteOn, arpInstr.arpNoteOn.velocity, -1);
-            arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
-          }
-          arpInstr.arpNoteOn = null;
-        }
+        processArpInstruction(arpInstr);
       }
     }
 
@@ -1309,6 +1280,60 @@ public class Sound extends GlobalEffectable {
     }
     startSkippingRenderingAtTime = 0; // C :2240
     return !skippingRendering;
+  }
+
+  /**
+   * C sound.cpp:2478-2491 + process_postarp_notes (sound.cpp:2354-2375) — act on an arpeggiator
+   * instruction: glide note-offs, post-arp note-offs, then pending note-ons.
+   */
+  private void processArpInstruction(Arpeggiator.ArpReturnInstruction arpInstr) {
+    // C sound.cpp:2478-2491 — release glide notes first, then post-arp note-offs.
+    for (int n = 0; n < 4; n++) {
+      int glideOff = arpInstr.glideNoteCodeOffPostArp[n];
+      if (glideOff == Arpeggiator.ARP_NOTE_NONE) {
+        break;
+      }
+      releaseVoice(glideOff, -1);
+    }
+    for (int n = 0; n < 4; n++) {
+      int noteOff = arpInstr.noteCodeOffPostArp[n];
+      if (noteOff == Arpeggiator.ARP_NOTE_NONE) {
+        break;
+      }
+      releaseVoice(noteOff, -1);
+    }
+
+    if (arpInstr.arpNoteOn != null) {
+      // C process_postarp_notes (sound.cpp:2354-2375) — EVERY pending entry until ARP_NOTE_NONE
+      // plays (chord/octave arp modes emit several), each at the arp note's real velocity.
+      for (int n = 0; n < arpInstr.arpNoteOn.noteCodeOnPostArp.length; n++) {
+        int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[n];
+        if (noteOn == Arpeggiator.ARP_NOTE_NONE) {
+          break;
+        }
+        if (arpInstr.arpNoteOn.noteStatus[n] != Arpeggiator.ArpNoteStatus.PENDING) {
+          continue;
+        }
+        triggerVoice(noteOn, arpInstr.arpNoteOn.velocity, -1);
+        arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
+      }
+      arpInstr.arpNoteOn = null;
+    }
+  }
+
+  /**
+   * C SoundInstrument::doTickForwardForArp (sound_instrument.cpp:413-456), called from the
+   * sequencer at every playback event (session.cpp:2522-2535) with the active clip's position. A
+   * synced arp switches its notes on here, on the beat grid; its render only times the gate.
+   *
+   * @return ticks until the arpeggiator's next event
+   */
+  public int doTickForwardForArp(int currentPos, boolean currentlyPlayingReversed) {
+    arpTickInstr.reset();
+    int ticksTilNextArpEvent =
+        arpeggiator.doTickForward(arpSettings, arpTickInstr, currentPos, currentlyPlayingReversed);
+    processArpInstruction(arpTickInstr);
+    return ticksTilNextArpEvent;
   }
 
   public boolean arpEnabled() {

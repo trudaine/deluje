@@ -174,11 +174,13 @@ public class PlaybackHandler {
       // That is what takes a reversed clip's repeatCount from setPos's -1 to 0 (clip.cpp:259-260).
       // In the C it also sounds the notes at pos 0 (note_row.cpp:2373); Java's window scan still
       // fires those on the first non-zero tick, until the search-based note scan is ported (#29).
+      setArpClockActive(true);
       int next = Integer.MAX_VALUE;
       for (ClipModel clip : currentProject.getClips()) {
         clip.processCurrentPos(0);
         next = Math.min(next, clip.getTicksTilNextEvent());
       }
+      next = Math.min(next, doTickForwardForArps());
       swungTicksTilNextEvent = Math.max(1, next);
     }
     arrangement.resetPlayPos(0);
@@ -186,6 +188,7 @@ public class PlaybackHandler {
 
   public synchronized void stop() {
     playing = false;
+    setArpClockActive(false);
     swingSubTicks = 0;
     launchEventAtSwungTickCount = 0;
     numRepeatsTilLaunch = 0;
@@ -257,6 +260,7 @@ public class PlaybackHandler {
         clip.processCurrentPos(effectiveAdvance);
         nextEventTicks = Math.min(nextEventTicks, clip.getTicksTilNextEvent());
       }
+      nextEventTicks = Math.min(nextEventTicks, doTickForwardForArps());
 
       // Update next event distance (C playback_handler.cpp:1095-1097 clamps >= 1).
       swungTicksTilNextEvent = Math.max(1, nextEventTicks);
@@ -282,5 +286,34 @@ public class PlaybackHandler {
     int beats = ((lastSwungTickActioned / stepTicks) % stepCount) + 1;
     int ticks = (lastSwungTickActioned % stepTicks) + 1;
     FirmwareDisplay.get().setText(String.format(" %02d:%02d:%02d ", bars, beats, ticks));
+  }
+
+  /**
+   * C Session::doTickForward (session.cpp:2522-2535): at every playback event, each output's
+   * arpeggiator gets doTickForwardForArp with its active clip's position; the result joins the
+   * next-event deadline. Synth sounds only for now; per-drum kit arps (kit.cpp:1136-1240) are not
+   * yet wired.
+   */
+  private int doTickForwardForArps() {
+    int next = Integer.MAX_VALUE;
+    if (currentProject == null) return next;
+    for (ClipModel clip : currentProject.getClips()) {
+      if (clip.getSound() instanceof org.deluge.engine.FirmwareSound fs) {
+        int t =
+            fs.fw2Sound.doTickForwardForArp(clip.lastProcessedPos, clip.currentlyPlayingReversed);
+        next = Math.min(next, t);
+      }
+    }
+    return next;
+  }
+
+  /** C playbackHandler.isEitherClockActive(), as the arpeggiator sees it (arpeggiator.cpp:1523). */
+  private void setArpClockActive(boolean active) {
+    if (currentProject == null) return;
+    for (ClipModel clip : currentProject.getClips()) {
+      if (clip.getSound() instanceof org.deluge.engine.FirmwareSound fs) {
+        fs.fw2Sound.arpeggiator.playbackClockActive = active;
+      }
+    }
   }
 }
