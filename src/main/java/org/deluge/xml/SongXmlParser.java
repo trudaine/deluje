@@ -378,6 +378,8 @@ public class SongXmlParser {
                 clip.setRawNoteEvents(r, rawNotes);
               }
 
+              applyRowMute(noteRowElem, clip, r);
+
               // Parse per-noteRow <soundParams> (35+ hex param overrides)
               NodeList rowSoundParamsList = noteRowElem.getElementsByTagName("soundParams");
               if (rowSoundParamsList.getLength() > 0) {
@@ -609,6 +611,8 @@ public class SongXmlParser {
               String hexPrefix = hexData.length() > 30 ? hexData.substring(0, 30) + "..." : hexData;
             } else if (drumIdx >= 0) {
             }
+
+            applyRowMute(noteRowElem, clip, r);
 
             // Parse per-noteRow <soundParams> (35+ hex param overrides)
             NodeList rowSoundParamsList = noteRowElem.getElementsByTagName("soundParams");
@@ -845,6 +849,7 @@ public class SongXmlParser {
               }
               clip.setRawNoteEvents(r, DelugeNoteDataMapper.decodeRawNotes(hd, hcpn));
             }
+            applyRowMute(nr, clip, r);
           }
 
           parseColumnControls(clipElem, clip);
@@ -1712,6 +1717,17 @@ public class SongXmlParser {
     try {
       clip.setKitParam(paramName, Math.abs(DelugeHexMapper.hexToFloat(val)));
     } catch (Exception e) {
+    }
+  }
+
+  /**
+   * C note_row.cpp:3220-3221 reads "muted" tag-or-attribute; the row then plays nothing
+   * (NoteRow::processCurrentPos's muted branch). It was never read, so a row muted on the hardware
+   * played here.
+   */
+  private static void applyRowMute(Element noteRowElem, ClipModel clip, int r) {
+    if (DelugeXmlUtil.attrOrDirectChildInt(noteRowElem, "muted", 0) != 0) {
+      clip.getOrCreateRow(r).setMuted(true);
     }
   }
 }
