@@ -77,9 +77,6 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
    */
   public boolean paramKnobsPopulated = false;
 
-  public int[] globalSourceValues = new int[PatchSource.kNumPatchSources];
-  private final int[] globalParamFinalValues = new int[Param.kNumParams];
-
   // ── Ported High-Fidelity Logic ──
   public final int[] monophonicExpressionValues = new int[3]; // X, Y, Z
 
@@ -364,10 +361,9 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
       fw2Sound.sourceZones[s].addAll(sourceZones[s]);
     }
 
-    int[] nextGlobalSourceValues = new int[3];
-    System.arraycopy(globalSourceValues, 0, nextGlobalSourceValues, 0, 3);
-    fw2Sound.globalSourceValues = nextGlobalSourceValues;
-
+    // C sound.cpp:2396-2442 — globalSourceValues holds the running LFO_GLOBAL_1, LFO_GLOBAL_2,
+    // and SIDECHAIN outputs across blocks and into Voice::noteOn (voice.cpp:197-199); do not wipe
+    // it.
     fw2Sound.lfoConfig[0].waveType = lfoWaveforms[0];
     fw2Sound.lfoConfig[1].waveType = lfoWaveforms[1];
     fw2Sound.lfoConfig[2].waveType = lfoWaveforms[2];
