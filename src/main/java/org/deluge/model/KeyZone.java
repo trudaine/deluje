@@ -18,4 +18,22 @@ public class KeyZone {
 
   /** Per-sampleRange cents fine-tune (C SampleHolderForVoice cents, applied via fineTuner). */
   public int cents = 0;
+
+  /** Returns an independent copy of this key zone. */
+  public KeyZone copy() {
+    KeyZone copy = new KeyZone();
+    copy.samplePath = this.samplePath;
+    copy.minPitch = this.minPitch;
+    copy.maxPitch = this.maxPitch;
+    copy.minVelocity = this.minVelocity;
+    copy.maxVelocity = this.maxVelocity;
+    copy.startSamplePos = this.startSamplePos;
+    copy.endSamplePos = this.endSamplePos;
+    copy.startLoopPos = this.startLoopPos;
+    copy.endLoopPos = this.endLoopPos;
+    copy.looping = this.looping;
+    copy.transpose = this.transpose;
+    copy.cents = this.cents;
+    return copy;
+  }
 }

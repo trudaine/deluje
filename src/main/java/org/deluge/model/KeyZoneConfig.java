@@ -18,8 +18,12 @@ public class KeyZoneConfig {
 
   public void copyFrom(KeyZoneConfig other) {
     this.osc1Zones.clear();
-    this.osc1Zones.addAll(other.osc1Zones);
+    for (KeyZone z : other.osc1Zones) {
+      this.osc1Zones.add(z != null ? z.copy() : null);
+    }
     this.osc2Zones.clear();
-    this.osc2Zones.addAll(other.osc2Zones);
+    for (KeyZone z : other.osc2Zones) {
+      this.osc2Zones.add(z != null ? z.copy() : null);
+    }
   }
 }
