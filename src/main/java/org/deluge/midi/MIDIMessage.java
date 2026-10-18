@@ -23,6 +23,14 @@ public record MIDIMessage(int statusType, int channel, int data1, int data2) {
 
   // --- Static factories ---
 
+  /**
+   * C {@code toDataByte} (message.h:107-110, message.cpp:21-23): saturates an internal 32-bit value
+   * into the 7 bits (0..127) a MIDI data byte gets, instead of wrapping via {@code & 0x7F}.
+   */
+  public static int toDataByte(int value) {
+    return Math.max(0, Math.min(127, value));
+  }
+
   public static MIDIMessage noteOn(int channel, int pitch, int velocity) {
     return new MIDIMessage(0x09, channel & 0x0F, pitch & 0x7F, velocity & 0x7F);
   }
@@ -31,8 +39,9 @@ public record MIDIMessage(int statusType, int channel, int data1, int data2) {
     return new MIDIMessage(0x08, channel & 0x0F, pitch & 0x7F, velocity & 0x7F);
   }
 
+  /** C {@code MidiEngine::sendCC} (midi_engine.cpp:444-446) clamps {@code value} via toDataByte. */
   public static MIDIMessage cc(int channel, int ccNum, int value) {
-    return new MIDIMessage(0x0B, channel & 0x0F, ccNum & 0x7F, value & 0x7F);
+    return new MIDIMessage(0x0B, channel & 0x0F, ccNum & 0x7F, toDataByte(value));
   }
 
   public static MIDIMessage pitchBend(int channel, int lsb, int msb) {
@@ -47,12 +56,20 @@ public record MIDIMessage(int statusType, int channel, int data1, int data2) {
     return new MIDIMessage(0x0C, channel & 0x0F, program & 0x7F, 0);
   }
 
+  /**
+   * C {@code MidiEngine::sendPolyphonicAftertouch} (midi_engine.cpp:492-495) clamps {@code value}
+   * via toDataByte.
+   */
   public static MIDIMessage polyAftertouch(int channel, int note, int value) {
-    return new MIDIMessage(0x0A, channel & 0x0F, note & 0x7F, value & 0x7F);
+    return new MIDIMessage(0x0A, channel & 0x0F, note & 0x7F, toDataByte(value));
   }
 
+  /**
+   * C {@code MidiEngine::sendChannelAftertouch} (midi_engine.cpp:488-490) clamps {@code value} via
+   * toDataByte.
+   */
   public static MIDIMessage channelAftertouch(int channel, int value) {
-    return new MIDIMessage(0x0D, channel & 0x0F, value & 0x7F, 0);
+    return new MIDIMessage(0x0D, channel & 0x0F, toDataByte(value), 0);
   }
 
   // --- System Real-Time messages (statusType=0x0F, channel encodes sub-type) ---

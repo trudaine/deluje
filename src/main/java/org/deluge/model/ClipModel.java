@@ -1192,6 +1192,11 @@ public class ClipModel extends TimelineCounter {
   }
 
   public void processCurrentPos(int ticksSinceLast) {
+    processCurrentPos(ticksSinceLast, null, null);
+  }
+
+  public void processCurrentPos(
+      int ticksSinceLast, TrackModel track, org.deluge.playback.PlaybackHandler session) {
     int effectiveLength = getLoopLength();
     if (effectiveLength <= 0) return;
 
@@ -1273,6 +1278,12 @@ public class ClipModel extends TimelineCounter {
           ticksTilNextNoteRowEvent = lastProcessedPos;
         } else {
           ticksTilNextNoteRowEvent = effectiveLength - lastProcessedPos;
+        }
+
+        // C instrument_clip.cpp:718-719 — evaluate after Clip::processCurrentPos wrapped
+        // lastProcessedPos so ticksTilReachLoopPoint reflects the current iteration.
+        if (session != null && track != null) {
+          willContinuePlayingAtEnd = session.willClipContinuePlayingAtEnd(track, this);
         }
 
         List<org.deluge.model.PendingNoteOn> pendingNoteOns = new ArrayList<>();
@@ -1366,9 +1377,10 @@ public class ClipModel extends TimelineCounter {
 
   /**
    * C {@code currentPlaybackMode->willClipContinuePlayingAtEnd(modelStack)}, which feeds iterance's
-   * LAST condition (instrument_clip.cpp:716-717). The session answer needs launch scheduling and
-   * soloing (session.cpp:2719-2760) and is not ported; this defaults to its no-launch-scheduled
-   * answer, "it will loop", so LAST notes stay silent until a caller sets it.
+   * LAST condition (instrument_clip.cpp:718-719). Updated by {@link
+   * org.deluge.playback.PlaybackHandler#willClipContinuePlayingAtEnd} (session.cpp:2730-2762) at
+   * every note-row event tick; defaults to {@code true} ("it will loop") when no session handler is
+   * driving the clip.
    */
   public transient volatile boolean willContinuePlayingAtEnd = true;
 
