@@ -64,9 +64,12 @@ public class ExportHelper {
             : "Master_mix.wav";
     renderWav(model, null, new File(targetDir, masterName), totalBlocks, blockSize, sampleRate);
 
-    // 2. Render each track individually
+    // 2. Render each audio track individually (MIDI tracks have no audio stem)
     for (int t = 0; t < totalTracks; t++) {
       TrackModel track = model.getTracks().get(t);
+      if (track instanceof MidiTrackModel) {
+        continue;
+      }
       String trackName = track.getName();
       if (trackName == null || trackName.trim().isEmpty()) {
         trackName = "Track_" + (t + 1);
@@ -108,22 +111,11 @@ public class ExportHelper {
     // Build FW Song from model
     ProjectModel project = FirmwareFactory.createSong(model);
 
-    // Populate compileable tracks list to match active clips to original tracks
-    java.util.List<TrackModel> compileableTracks = new java.util.ArrayList<>();
-    for (TrackModel track : model.getTracks()) {
-      if (track instanceof SynthTrackModel
-          || track instanceof KitTrackModel
-          || track instanceof MidiTrackModel
-          || track instanceof AudioTrackModel) {
-        compileableTracks.add(track);
-      }
-    }
-
-    int targetClipIdx = -1;
     if (targetTrackIndex != null) {
       TrackModel targetTrack = model.getTracks().get(targetTrackIndex);
-      targetClipIdx = compileableTracks.indexOf(targetTrack);
-      if (targetClipIdx == -1) {
+      if (!(targetTrack instanceof SynthTrackModel
+          || targetTrack instanceof KitTrackModel
+          || targetTrack instanceof AudioTrackModel)) {
         throw new IllegalArgumentException(
             "Cannot export track of type "
                 + targetTrack.getClass().getSimpleName()
@@ -131,13 +123,17 @@ public class ExportHelper {
       }
     }
 
-    // Populate sounds:
+    // Populate sounds (Synth FirmwareSound, Kit FirmwareKit, Audio AudioOutput all extend
+    // GlobalEffectable). Exclude FirmwareMidiInstrument so offline audio export never renders or
+    // emits MIDI tracks.
     for (int i = 0; i < project.getTracks().size(); i++) {
       TrackModel tm = project.getTracks().get(i);
       ClipModel activeClip = tm.getActiveClip();
-      if (activeClip != null && activeClip.getSound() instanceof FirmwareSound fs) {
-        if (targetTrackIndex == null || targetClipIdx == i) {
-          engine.sounds.add(fs);
+      if (activeClip != null
+          && activeClip.getSound() instanceof org.deluge.firmware2.GlobalEffectable ge
+          && !(ge instanceof FirmwareMidiInstrument)) {
+        if (targetTrackIndex == null || targetTrackIndex == i) {
+          engine.sounds.add(ge);
         }
       }
     }
@@ -163,14 +159,36 @@ public class ExportHelper {
     // 96 PPQ (Pulses Per Quarter Note)
     Sequence sequence = new Sequence(Sequence.PPQ, 96);
 
+    int microsPerQuarter = Math.round(60_000_000.0f / Math.max(1.0f, model.getBpm()));
+    byte[] tempoData =
+        new byte[] {
+          (byte) ((microsPerQuarter >> 16) & 0xFF),
+          (byte) ((microsPerQuarter >> 8) & 0xFF),
+          (byte) (microsPerQuarter & 0xFF)
+        };
+
+    if (model.getTracks().isEmpty()) {
+      Track tempoTrack = sequence.createTrack();
+      MetaMessage tempoMsg = new MetaMessage();
+      tempoMsg.setMessage(0x51, tempoData, 3);
+      tempoTrack.add(new MidiEvent(tempoMsg, 0));
+    }
+
     int trackIndex = 0;
     for (TrackModel track : model.getTracks()) {
       Track midiTrack = sequence.createTrack();
 
-      // Set Track Name
+      if (trackIndex == 0) {
+        MetaMessage tempoMsg = new MetaMessage();
+        tempoMsg.setMessage(0x51, tempoData, 3);
+        midiTrack.add(new MidiEvent(tempoMsg, 0));
+      }
+
+      // Set Track Name using UTF-8 byte length (not char count)
       MetaMessage nameMsg = new MetaMessage();
-      String trackName = track.getName();
-      nameMsg.setMessage(0x03, trackName.getBytes(), trackName.length());
+      String trackName = track.getName() != null ? track.getName() : ("Track " + (trackIndex + 1));
+      byte[] nameBytes = trackName.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+      nameMsg.setMessage(0x03, nameBytes, nameBytes.length);
       midiTrack.add(new MidiEvent(nameMsg, 0));
 
       boolean isKit = track instanceof KitTrackModel;
@@ -187,45 +205,7 @@ public class ExportHelper {
           ClipModel clip = ac.clip();
           long clipStartTick = ac.startTicks();
           long clipDuration = ac.durationTicks();
-
-          int stepTicks = clip.isTripletMode() ? 32 : 24;
-
-          // Loop over note rows
-          for (int r = 0; r < clip.getRowCount(); r++) {
-            int pitch = clip.getRowYNote(r);
-            if (pitch == -1) {
-              pitch = clip.getRowCount() - 1 - r;
-            }
-            if (isKit) {
-              pitch = 36 + r; // Map Pad 0 to C3 (36), Pad 1 to C#3 (37), etc.
-            }
-
-            for (int s = 0; s < clip.getStepCount(); s++) {
-              StepData step = clip.getStep(r, s);
-              if (step != null && step.active()) {
-                long noteStartTick = clipStartTick + ((long) s * stepTicks);
-                if (noteStartTick >= clipStartTick + clipDuration) {
-                  continue; // Past arranger clip boundary
-                }
-
-                long gateLength = (long) (step.gate() * stepTicks);
-                long noteEndTick = noteStartTick + gateLength;
-
-                int velocity = (int) (step.velocity() * 127.0f);
-                velocity = Math.max(1, Math.min(127, velocity));
-
-                // Note On
-                ShortMessage onMsg = new ShortMessage();
-                onMsg.setMessage(ShortMessage.NOTE_ON, 0, pitch, velocity);
-                midiTrack.add(new MidiEvent(onMsg, noteStartTick));
-
-                // Note Off
-                ShortMessage offMsg = new ShortMessage();
-                offMsg.setMessage(ShortMessage.NOTE_OFF, 0, pitch, 0);
-                midiTrack.add(new MidiEvent(offMsg, noteEndTick));
-              }
-            }
-          }
+          exportClipNotesToMidiTrack(midiTrack, clip, isKit, clipStartTick, clipDuration);
         }
       } else {
         // Fallback: If arranger timeline is empty, export session clips sequentially
@@ -233,36 +213,7 @@ public class ExportHelper {
         for (ClipModel clip : track.getClips()) {
           int stepTicks = clip.isTripletMode() ? 32 : 24;
           long clipLength = (long) clip.getStepCount() * stepTicks;
-
-          for (int r = 0; r < clip.getRowCount(); r++) {
-            int pitch = clip.getRowYNote(r);
-            if (pitch == -1) {
-              pitch = clip.getRowCount() - 1 - r;
-            }
-            if (isKit) {
-              pitch = 36 + r;
-            }
-
-            for (int s = 0; s < clip.getStepCount(); s++) {
-              StepData step = clip.getStep(r, s);
-              if (step != null && step.active()) {
-                long noteStartTick = currentStartTick + ((long) s * stepTicks);
-                long gateLength = (long) (step.gate() * stepTicks);
-                long noteEndTick = noteStartTick + gateLength;
-
-                int velocity = (int) (step.velocity() * 127.0f);
-                velocity = Math.max(1, Math.min(127, velocity));
-
-                ShortMessage onMsg = new ShortMessage();
-                onMsg.setMessage(ShortMessage.NOTE_ON, 0, pitch, velocity);
-                midiTrack.add(new MidiEvent(onMsg, noteStartTick));
-
-                ShortMessage offMsg = new ShortMessage();
-                offMsg.setMessage(ShortMessage.NOTE_OFF, 0, pitch, 0);
-                midiTrack.add(new MidiEvent(offMsg, noteEndTick));
-              }
-            }
-          }
+          exportClipNotesToMidiTrack(midiTrack, clip, isKit, currentStartTick, -1L);
           currentStartTick += clipLength + 96; // add 1 bar gap between clips
         }
       }
@@ -271,6 +222,73 @@ public class ExportHelper {
     }
 
     MidiSystem.write(sequence, 1, file);
+  }
+
+  private static void exportClipNotesToMidiTrack(
+      Track midiTrack, ClipModel clip, boolean isKit, long clipStartTick, long maxDurationTicks)
+      throws InvalidMidiDataException {
+    int stepTicks = clip.isTripletMode() ? 32 : 24;
+
+    for (int r = 0; r < clip.getRowCount(); r++) {
+      int pitch = clip.getRowYNote(r);
+      if (pitch == -1) {
+        pitch = clip.getRowCount() - 1 - r;
+      }
+      if (isKit) {
+        pitch = 36 + r; // Map Pad 0 to C3 (36), Pad 1 to C#3 (37), etc.
+      }
+      int safePitch = Math.max(0, Math.min(127, pitch));
+
+      List<NoteModel> rawNotes = clip.getRawNoteEvents(r);
+      if (rawNotes != null && !rawNotes.isEmpty()) {
+        for (NoteModel nm : rawNotes) {
+          long localStart = nm.getPos();
+          if (maxDurationTicks > 0 && localStart >= maxDurationTicks) {
+            continue;
+          }
+          long noteStartTick = clipStartTick + localStart;
+          long maxLen =
+              maxDurationTicks > 0 ? Math.max(1L, maxDurationTicks - localStart) : Long.MAX_VALUE;
+          long gateLength = Math.max(1L, Math.min((long) nm.getLength(), maxLen));
+          long noteEndTick = noteStartTick + gateLength;
+          int velocity = Math.max(1, Math.min(127, nm.getVelocityByte()));
+
+          ShortMessage onMsg = new ShortMessage();
+          onMsg.setMessage(ShortMessage.NOTE_ON, 0, safePitch, velocity);
+          midiTrack.add(new MidiEvent(onMsg, noteStartTick));
+
+          ShortMessage offMsg = new ShortMessage();
+          offMsg.setMessage(ShortMessage.NOTE_OFF, 0, safePitch, 0);
+          midiTrack.add(new MidiEvent(offMsg, noteEndTick));
+        }
+      } else {
+        for (int s = 0; s < clip.getStepCount(); s++) {
+          StepData step = clip.getStep(r, s);
+          if (step != null && step.active()) {
+            long localStart = (long) s * stepTicks;
+            if (maxDurationTicks > 0 && localStart >= maxDurationTicks) {
+              continue;
+            }
+            long noteStartTick = clipStartTick + localStart;
+            long maxLen =
+                maxDurationTicks > 0 ? Math.max(1L, maxDurationTicks - localStart) : Long.MAX_VALUE;
+            long gateLength = Math.max(1L, Math.min((long) (step.gate() * stepTicks), maxLen));
+            long noteEndTick = noteStartTick + gateLength;
+
+            int velocity = (int) (step.velocity() * 127.0f);
+            velocity = Math.max(1, Math.min(127, velocity));
+
+            ShortMessage onMsg = new ShortMessage();
+            onMsg.setMessage(ShortMessage.NOTE_ON, 0, safePitch, velocity);
+            midiTrack.add(new MidiEvent(onMsg, noteStartTick));
+
+            ShortMessage offMsg = new ShortMessage();
+            offMsg.setMessage(ShortMessage.NOTE_OFF, 0, safePitch, 0);
+            midiTrack.add(new MidiEvent(offMsg, noteEndTick));
+          }
+        }
+      }
+    }
   }
 
   private static class PullRenderInputStream extends java.io.InputStream {
