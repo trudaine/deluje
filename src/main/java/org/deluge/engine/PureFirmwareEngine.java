@@ -230,6 +230,14 @@ public class PureFirmwareEngine {
           double rateMul = (fsArp.arpRateMultiplier > 0.01f) ? fsArp.arpRateMultiplier : 1.0;
           // div > 0: a 1/div note; div < 0: -div whole notes (ArpXmlCodec).
           double quarters = div > 0 ? 4.0 / div : 4.0 * -div;
+          // C getPhaseIncrement (arpeggiator.cpp:1605-1610): TRIPLET multiplies the increment by
+          // 3/2 and DOTTED by 2/3, i.e. the period by 2/3 and 3/2.
+          quarters *=
+              switch (fsArp.arpSettings.syncType) {
+                case TRIPLET -> 2.0 / 3.0;
+                case DOTTED -> 1.5;
+                default -> 1.0;
+              };
           double stepSamples = quarters * beatSec * 44100.0 / rateMul;
           fsArp.fw2Sound.arpPhaseIncrement =
               (stepSamples > 1) ? (int) (4294967296.0 / stepSamples) : 0;
