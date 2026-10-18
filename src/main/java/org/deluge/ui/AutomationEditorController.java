@@ -32,12 +32,95 @@ public class AutomationEditorController {
   // Drag-to-paint state
   private boolean automationDragging = false;
   private String autoDragParam;
-  private int autoDragStep = -1;
-  private float autoDragOldValue = -1f;
+  private final java.util.Map<Integer, Float> autoDragOldValues = new java.util.LinkedHashMap<>();
 
   public AutomationEditorController(SwingGridPanel parent, Runnable refreshCallback) {
     this.parent = parent;
     this.refreshCallback = refreshCallback;
+  }
+
+  /**
+   * Sets one automation step on {@code clip}, initializing any newly created automation array with
+   * {@code -1f} (unautomated) instead of {@code 0f} so untouched steps are not marked active.
+   */
+  static void setAutomationPoint(ClipModel clip, String param, int step, float value) {
+    if (clip == null || param == null || step < 0 || step >= clip.getStepCount()) return;
+    if (!clip.hasAutomation(param)) {
+      float[] arr = new float[clip.getStepCount()];
+      java.util.Arrays.fill(arr, -1f);
+      arr[step] = value;
+      clip.getAutomationData().put(param, arr);
+    } else {
+      clip.setAutomation(param, step, value);
+    }
+  }
+
+  /**
+   * Returns true if {@code param} has at least one automated step ({@code >= 0f}) in {@code clip}.
+   */
+  static boolean hasAnyAutomatedStep(ClipModel clip, String param) {
+    if (clip == null || param == null) return false;
+    float[] arr = clip.getAutomationArray(param);
+    if (arr == null) return false;
+    for (float v : arr) {
+      if (v >= 0f) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Pushes automation edits to the live bridge and high-fidelity audio engine. Call once per
+   * discrete edit or at the end of a paint drag ({@link #finishAutomationDrag()}), never per drag
+   * step.
+   */
+  void syncAutomationToEngine() {
+    if (SwingDelugeApp.mainInstance != null) {
+      SwingDelugeApp.mainInstance.pushModelToBridge();
+      SwingDelugeApp.mainInstance.propagateCurrentModel();
+      SwingDelugeApp.mainInstance.syncHighFidelityEngine(getProjectModel());
+    }
+  }
+
+  private void finishAutomationDrag() {
+    ProjectModel projectModel = getProjectModel();
+    if (automationDragging
+        && projectModel != null
+        && autoDragParam != null
+        && !autoDragOldValues.isEmpty()) {
+      int tIdx = getEditedModelTrack();
+      if (tIdx >= 0 && tIdx < projectModel.getTracks().size()) {
+        TrackModel tM = projectModel.getTracks().get(tIdx);
+        int acIdx2 = tM.getActiveClipIndex();
+        if (acIdx2 >= 0 && acIdx2 < tM.getClips().size()) {
+          ClipModel cM = tM.getClips().get(acIdx2);
+          java.util.List<Consequence> changes = new java.util.ArrayList<>();
+          for (java.util.Map.Entry<Integer, Float> entry : autoDragOldValues.entrySet()) {
+            int step = entry.getKey();
+            float oldVal = entry.getValue();
+            float newVal = cM.getAutomation(autoDragParam, step);
+            if (Float.compare(newVal, oldVal) != 0) {
+              changes.add(
+                  new Consequence.AutomationConsequence(
+                      projectModel, tIdx, acIdx2, autoDragParam, step, oldVal, newVal));
+            }
+          }
+          if (changes.size() == 1) {
+            projectModel.getUndoRedoStack().push(changes.get(0));
+            syncAutomationToEngine();
+          } else if (changes.size() > 1) {
+            projectModel
+                .getUndoRedoStack()
+                .push(
+                    new Consequence.CompoundConsequence(
+                        "Paint automation " + autoDragParam, changes));
+            syncAutomationToEngine();
+          }
+        }
+      }
+      autoDragParam = null;
+      autoDragOldValues.clear();
+    }
+    automationDragging = false;
   }
 
   public boolean isOverviewMode() {
@@ -83,6 +166,7 @@ public class AutomationEditorController {
     if (param == null) param = AutomationParam.SYTH_PARAMS[0];
     final String finalParam = param;
     int stepCount = getStepCount();
+    int scrollOffsetX = parent.getScrollOffsetX();
 
     // Step number header row
     JPanel stepHeader = new JPanel();
@@ -92,7 +176,8 @@ public class AutomationEditorController {
     int topLw = parent.currentLabelWidth();
     stepHeader.add(Box.createRigidArea(new Dimension(topLw + 91, 20)));
     for (int c = 0; c < stepCount; c++) {
-      JLabel stepNum = new JLabel(String.valueOf(c + 1), javax.swing.SwingConstants.CENTER);
+      JLabel stepNum =
+          new JLabel(String.valueOf(c + scrollOffsetX + 1), javax.swing.SwingConstants.CENTER);
       stepNum.setPreferredSize(new Dimension(padSz, 18));
       stepNum.setMinimumSize(new Dimension(padSz, 18));
       stepNum.setMaximumSize(new Dimension(padSz, 18));
@@ -135,7 +220,7 @@ public class AutomationEditorController {
       rowPanel.add(Box.createHorizontalStrut(5));
 
       for (int c = 0; c < stepCount; c++) {
-        final int colIdx = c;
+        final int stepIdx = c + scrollOffsetX;
         DelugePadButton cell = new DelugePadButton();
         cell.setPreferredSize(new Dimension(padSz, padSz));
         cell.setMinimumSize(new Dimension(padSz, padSz));
@@ -147,10 +232,14 @@ public class AutomationEditorController {
         cell.putClientProperty("col", c);
         parent.setPad(r, c, cell); // Register pad with parent
 
+        boolean inClipBounds = autoClip == null || stepIdx < autoClip.getStepCount();
+        cell.setEnabled(inClipBounds);
+        cell.setInLoop(inClipBounds);
+
         boolean lit = false;
         float autoVal = -1f;
-        if (autoClip != null) {
-          autoVal = autoClip.getAutomation(finalParam, colIdx);
+        if (autoClip != null && inClipBounds) {
+          autoVal = autoClip.getAutomation(finalParam, stepIdx);
           if (autoVal >= 0f) {
             int band = (int) (autoVal * 127f) / 16;
             lit = (band == rowIdx);
@@ -170,7 +259,7 @@ public class AutomationEditorController {
           cell.setNoteText("\u25CF");
         } else {
           cell.setBaseColor(new Color(0x1d, 0x1d, 0x22));
-          cell.setIntensity(0.15f);
+          cell.setIntensity(inClipBounds ? 0.15f : 0.05f);
           cell.setActive(false);
           if (autoVal >= 0f) {
             cell.setNoteText(".");
@@ -191,32 +280,34 @@ public class AutomationEditorController {
                 int acIdx2 = tM.getActiveClipIndex();
                 if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
                 ClipModel cM = tM.getClips().get(acIdx2);
+                if (stepIdx < 0 || stepIdx >= cM.getStepCount()) return;
 
                 if (SwingUtilities.isRightMouseButton(e)) {
-                  showAutomationCellPopupMenu(cell, e.getX(), e.getY(), cM, finalParam, colIdx);
+                  showAutomationCellPopupMenu(cell, e.getX(), e.getY(), cM, finalParam, stepIdx);
                   return;
                 }
 
                 if (SwingUtilities.isLeftMouseButton(e)) {
                   if (e.isShiftDown()) {
-                    float oldVal = cM.getAutomation(finalParam, colIdx);
+                    float oldVal = cM.getAutomation(finalParam, stepIdx);
                     float[] arr = cM.getAutomationArray(finalParam);
-                    if (arr != null && colIdx < arr.length) {
-                      arr[colIdx] = -1f;
+                    if (arr != null && stepIdx < arr.length && oldVal >= 0f) {
+                      arr[stepIdx] = -1f;
                       projectModel
                           .getUndoRedoStack()
                           .push(
                               new Consequence.AutomationConsequence(
-                                  projectModel, tIdx, acIdx2, finalParam, colIdx, oldVal, -1f));
+                                  projectModel, tIdx, acIdx2, finalParam, stepIdx, oldVal, -1f));
+                      syncAutomationToEngine();
                       refreshCallback.run();
                     }
                   } else {
-                    float oldVal = cM.getAutomation(finalParam, colIdx);
+                    float oldVal = cM.getAutomation(finalParam, stepIdx);
                     float val = (rowIdx * 16 + 8) / 127.0f;
-                    cM.setAutomation(finalParam, colIdx, val);
+                    autoDragOldValues.clear();
+                    autoDragOldValues.put(stepIdx, oldVal);
+                    setAutomationPoint(cM, finalParam, stepIdx, val);
                     autoDragParam = finalParam;
-                    autoDragStep = colIdx;
-                    autoDragOldValue = oldVal;
                     automationDragging = true;
                     refreshCallback.run();
                   }
@@ -225,38 +316,7 @@ public class AutomationEditorController {
 
               @Override
               public void mouseReleased(MouseEvent e) {
-                ProjectModel projectModel = getProjectModel();
-                if (automationDragging
-                    && projectModel != null
-                    && autoDragParam != null
-                    && autoDragStep >= 0) {
-                  int tIdx = getEditedModelTrack();
-                  if (tIdx < projectModel.getTracks().size()) {
-                    TrackModel tM = projectModel.getTracks().get(tIdx);
-                    int acIdx2 = tM.getActiveClipIndex();
-                    if (acIdx2 >= 0 && acIdx2 < tM.getClips().size()) {
-                      ClipModel cM = tM.getClips().get(acIdx2);
-                      float newVal = cM.getAutomation(autoDragParam, autoDragStep);
-                      if (newVal != autoDragOldValue) {
-                        projectModel
-                            .getUndoRedoStack()
-                            .push(
-                                new Consequence.AutomationConsequence(
-                                    projectModel,
-                                    tIdx,
-                                    acIdx2,
-                                    autoDragParam,
-                                    autoDragStep,
-                                    autoDragOldValue,
-                                    newVal));
-                      }
-                    }
-                  }
-                  autoDragParam = null;
-                  autoDragStep = -1;
-                  autoDragOldValue = -1f;
-                }
-                automationDragging = false;
+                finishAutomationDrag();
               }
             });
 
@@ -284,9 +344,14 @@ public class AutomationEditorController {
                     Integer rProp = (Integer) jc.getClientProperty("row");
                     Integer cProp = (Integer) jc.getClientProperty("col");
                     if (rProp != null && cProp != null && cProp < stepCount && rProp < 8) {
-                      float val = (rProp * 16 + 8) / 127.0f;
-                      cM.setAutomation(finalParam, cProp, val);
-                      refreshCallback.run();
+                      int dragStep = cProp + parent.getScrollOffsetX();
+                      if (dragStep >= 0 && dragStep < cM.getStepCount()) {
+                        autoDragOldValues.computeIfAbsent(
+                            dragStep, s -> cM.getAutomation(finalParam, s));
+                        float val = (rProp * 16 + 8) / 127.0f;
+                        setAutomationPoint(cM, finalParam, dragStep, val);
+                        refreshCallback.run();
+                      }
                     }
                   }
                 }
@@ -305,6 +370,7 @@ public class AutomationEditorController {
     String[] allParams = AutomationParam.SYTH_PARAMS;
     int totalParams = allParams.length;
     int stepCount = getStepCount();
+    int scrollOffsetX = parent.getScrollOffsetX();
 
     int maxVisible = 8;
     int paramOffset = autoColScroll;
@@ -319,7 +385,8 @@ public class AutomationEditorController {
     int topPw = parent.currentLabelWidth();
     stepHeader.add(Box.createRigidArea(new Dimension(topPw + 17, 20)));
     for (int c = 0; c < stepCount; c++) {
-      JLabel stepNum = new JLabel(String.valueOf(c + 1), javax.swing.SwingConstants.CENTER);
+      JLabel stepNum =
+          new JLabel(String.valueOf(c + scrollOffsetX + 1), javax.swing.SwingConstants.CENTER);
       stepNum.setPreferredSize(new Dimension(padSz, 18));
       stepNum.setMinimumSize(new Dimension(padSz, 18));
       stepNum.setMaximumSize(new Dimension(padSz, 18));
@@ -349,7 +416,7 @@ public class AutomationEditorController {
       paramBtn.setMaximumSize(new Dimension(pw, 30));
       paramBtn.setMargin(new Insets(0, 2, 0, 2));
 
-      boolean hasAnyAuto = autoClip != null && autoClip.hasAutomation(paramName);
+      boolean hasAnyAuto = hasAnyAutomatedStep(autoClip, paramName);
       Color paramBg = hasAnyAuto ? new Color(0x1a, 0x4d, 0x1a) : new Color(0x2d, 0x2d, 0x32);
       Color paramFg = hasAnyAuto ? new Color(0x88, 0xff, 0x88) : Color.LIGHT_GRAY;
       parent.styleSystemButton(paramBtn, paramBg, paramFg, 10);
@@ -398,7 +465,7 @@ public class AutomationEditorController {
       rowPanel.add(Box.createHorizontalStrut(3));
 
       for (int c = 0; c < stepCount; c++) {
-        final int colIdx = c;
+        final int stepIdx = c + scrollOffsetX;
         DelugePadButton cell = new DelugePadButton();
         cell.setPreferredSize(new Dimension(padSz, padSz));
         cell.setMinimumSize(new Dimension(padSz, padSz));
@@ -406,13 +473,20 @@ public class AutomationEditorController {
         cell.setMargin(new Insets(0, 0, 0, 0));
         cell.setDrawCenterCircle(false);
 
+        cell.putClientProperty("row", r);
+        cell.putClientProperty("col", c);
         parent.setPad(r, c, cell); // Register pad with parent
 
-        boolean hasAuto = autoClip != null && autoClip.hasAutomation(paramName, c);
+        boolean inClipBounds = autoClip == null || stepIdx < autoClip.getStepCount();
+        cell.setEnabled(inClipBounds);
+        cell.setInLoop(inClipBounds);
+
+        boolean hasAuto =
+            inClipBounds && autoClip != null && autoClip.hasAutomation(paramName, stepIdx);
 
         if (hasAuto) {
           Color sec = ThemeManager.getSecondaryAccent();
-          float val = autoClip.getAutomation(paramName, c);
+          float val = autoClip.getAutomation(paramName, stepIdx);
           float scalar = 0.45f + val * 0.55f;
           int nr = Math.min(255, (int) (sec.getRed() * scalar));
           int ng = Math.min(255, (int) (sec.getGreen() * scalar));
@@ -423,7 +497,7 @@ public class AutomationEditorController {
           cell.setNoteText("\u25CF");
         } else {
           cell.setBaseColor(new Color(0x1d, 0x1d, 0x22));
-          cell.setIntensity(0.15f);
+          cell.setIntensity(inClipBounds ? 0.15f : 0.05f);
           cell.setActive(false);
           cell.setNoteText("");
         }
@@ -440,48 +514,40 @@ public class AutomationEditorController {
                 int acIdx2 = tM.getActiveClipIndex();
                 if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
                 ClipModel cM = tM.getClips().get(acIdx2);
+                if (stepIdx < 0 || stepIdx >= cM.getStepCount()) return;
 
                 if (SwingUtilities.isRightMouseButton(e)) {
-                  showAutomationCellPopupMenu(cell, e.getX(), e.getY(), cM, fParam, colIdx);
+                  showAutomationCellPopupMenu(cell, e.getX(), e.getY(), cM, fParam, stepIdx);
                   return;
                 }
 
                 if (SwingUtilities.isLeftMouseButton(e)) {
                   if (e.isShiftDown()) {
-                    float oldVal = cM.getAutomation(fParam, colIdx);
+                    float oldVal = cM.getAutomation(fParam, stepIdx);
                     float[] arr = cM.getAutomationArray(fParam);
-                    if (arr != null && colIdx < arr.length) {
-                      arr[colIdx] = -1f;
+                    if (arr != null && stepIdx < arr.length && oldVal >= 0f) {
+                      arr[stepIdx] = -1f;
                       projectModel
                           .getUndoRedoStack()
                           .push(
                               new Consequence.AutomationConsequence(
-                                  projectModel, tIdx, acIdx2, fParam, colIdx, oldVal, -1f));
+                                  projectModel, tIdx, acIdx2, fParam, stepIdx, oldVal, -1f));
+                      syncAutomationToEngine();
                       refreshCallback.run();
                     }
                   } else {
-                    float oldVal = cM.getAutomation(fParam, colIdx);
-                    if (cM.hasAutomation(fParam)) {
+                    float oldVal = cM.getAutomation(fParam, stepIdx);
+                    autoDragOldValues.clear();
+                    autoDragOldValues.put(stepIdx, oldVal);
+                    if (oldVal >= 0f) {
                       float[] arr = cM.getAutomationArray(fParam);
-                      if (arr != null && colIdx < arr.length && arr[colIdx] >= 0f) {
-                        arr[colIdx] = -1f;
-                      } else if (arr != null && colIdx < arr.length) {
-                        arr[colIdx] = 0.5f;
+                      if (arr != null && stepIdx < arr.length) {
+                        arr[stepIdx] = -1f;
                       }
                     } else {
-                      cM.setAutomation(fParam, colIdx, 0.5f);
-                    }
-                    float newVal = cM.getAutomation(fParam, colIdx);
-                    if (newVal != oldVal && !e.isShiftDown()) {
-                      projectModel
-                          .getUndoRedoStack()
-                          .push(
-                              new Consequence.AutomationConsequence(
-                                  projectModel, tIdx, acIdx2, fParam, colIdx, oldVal, newVal));
+                      setAutomationPoint(cM, fParam, stepIdx, 0.5f);
                     }
                     autoDragParam = fParam;
-                    autoDragStep = colIdx;
-                    autoDragOldValue = oldVal;
                     automationDragging = true;
                     refreshCallback.run();
                   }
@@ -490,38 +556,7 @@ public class AutomationEditorController {
 
               @Override
               public void mouseReleased(MouseEvent e) {
-                ProjectModel projectModel = getProjectModel();
-                if (automationDragging
-                    && projectModel != null
-                    && autoDragParam != null
-                    && autoDragStep >= 0) {
-                  int tIdx = getEditedModelTrack();
-                  if (tIdx < projectModel.getTracks().size()) {
-                    TrackModel tM = projectModel.getTracks().get(tIdx);
-                    int acIdx2 = tM.getActiveClipIndex();
-                    if (acIdx2 >= 0 && acIdx2 < tM.getClips().size()) {
-                      ClipModel cM = tM.getClips().get(acIdx2);
-                      float newVal = cM.getAutomation(autoDragParam, autoDragStep);
-                      if (newVal != autoDragOldValue) {
-                        projectModel
-                            .getUndoRedoStack()
-                            .push(
-                                new Consequence.AutomationConsequence(
-                                    projectModel,
-                                    tIdx,
-                                    acIdx2,
-                                    autoDragParam,
-                                    autoDragStep,
-                                    autoDragOldValue,
-                                    newVal));
-                      }
-                    }
-                  }
-                  autoDragParam = null;
-                  autoDragStep = -1;
-                  autoDragOldValue = -1f;
-                }
-                automationDragging = false;
+                finishAutomationDrag();
               }
             });
 
@@ -529,15 +564,37 @@ public class AutomationEditorController {
             new MouseMotionAdapter() {
               @Override
               public void mouseDragged(MouseEvent e) {
-                if (!automationDragging || parent.getProjectModel() == null) return;
+                if (!automationDragging
+                    || parent.getProjectModel() == null
+                    || autoDragParam == null) {
+                  return;
+                }
                 int tIdx = getEditedModelTrack();
                 if (tIdx >= parent.getProjectModel().getTracks().size()) return;
                 TrackModel tM = parent.getProjectModel().getTracks().get(tIdx);
                 int acIdx2 = tM.getActiveClipIndex();
                 if (acIdx2 < 0 || acIdx2 >= tM.getClips().size()) return;
                 ClipModel cM = tM.getClips().get(acIdx2);
-                cM.setAutomation(fParam, colIdx, 0.5f);
-                refreshCallback.run();
+
+                Point pt = SwingUtilities.convertPoint(e.getComponent(), e.getPoint(), parent);
+                Component under = parent.getComponentAt(pt);
+                if (under instanceof JPanel rowPanel) {
+                  Component deepest =
+                      rowPanel.getComponentAt(
+                          new Point(pt.x - rowPanel.getX(), pt.y - rowPanel.getY()));
+                  if (deepest instanceof javax.swing.JComponent jc) {
+                    Integer cProp = (Integer) jc.getClientProperty("col");
+                    if (cProp != null && cProp >= 0 && cProp < stepCount) {
+                      int dragStep = cProp + parent.getScrollOffsetX();
+                      if (dragStep >= 0 && dragStep < cM.getStepCount()) {
+                        autoDragOldValues.computeIfAbsent(
+                            dragStep, s -> cM.getAutomation(autoDragParam, s));
+                        setAutomationPoint(cM, autoDragParam, dragStep, 0.5f);
+                        refreshCallback.run();
+                      }
+                    }
+                  }
+                }
               }
             });
 
@@ -615,6 +672,7 @@ public class AutomationEditorController {
         prevIdx = i;
       }
     }
+    syncAutomationToEngine();
     refreshCallback.run();
   }
 
@@ -644,7 +702,7 @@ public class AutomationEditorController {
               if (pct >= 0f && pct <= 100f) {
                 float oldVal = clip.getAutomation(paramName, colIdx);
                 float newVal = pct / 100.0f;
-                clip.setAutomation(paramName, colIdx, newVal);
+                setAutomationPoint(clip, paramName, colIdx, newVal);
                 ProjectModel pm = getProjectModel();
                 if (pm != null) {
                   int tIdx = getEditedModelTrack();
@@ -654,6 +712,7 @@ public class AutomationEditorController {
                           new Consequence.AutomationConsequence(
                               pm, tIdx, acIdx, paramName, colIdx, oldVal, newVal));
                 }
+                syncAutomationToEngine();
                 refreshCallback.run();
               }
             } catch (NumberFormatException ignored) {
@@ -679,6 +738,7 @@ public class AutomationEditorController {
                       new Consequence.AutomationConsequence(
                           pm, tIdx, acIdx, paramName, colIdx, oldVal, -1f));
             }
+            syncAutomationToEngine();
             refreshCallback.run();
           }
         });
@@ -694,7 +754,7 @@ public class AutomationEditorController {
       vItem.addActionListener(
           ev -> {
             float oldVal = clip.getAutomation(paramName, colIdx);
-            clip.setAutomation(paramName, colIdx, (float) v);
+            setAutomationPoint(clip, paramName, colIdx, (float) v);
             ProjectModel pm = getProjectModel();
             if (pm != null) {
               int tIdx = getEditedModelTrack();
@@ -704,6 +764,7 @@ public class AutomationEditorController {
                       new Consequence.AutomationConsequence(
                           pm, tIdx, acIdx, paramName, colIdx, oldVal, (float) v));
             }
+            syncAutomationToEngine();
             refreshCallback.run();
           });
       quickVals.add(vItem);

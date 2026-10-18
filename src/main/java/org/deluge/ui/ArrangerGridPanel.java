@@ -246,7 +246,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
           pad.putClientProperty("utility", Boolean.TRUE);
           pad.setDrawCenterCircle(false);
           clipBtn = pad;
-        } else if (t == macR) {
+        } else if (t == macR && colId < allParams.length) {
           clipBtn = new MacroSliderButton(this, colId, allParams[colId]);
         } else if (t == keyR) {
           if (isAdvanced) {
@@ -339,7 +339,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
             clipBtn.addMouseListener(new KeyboardMouseAdapter(this, note));
           }
         } else {
-          if (colId < 16) {
+          if (colId < stepCount) {
             int col = c + scrollOffsetX;
             org.deluge.model.ArrangerClip placement =
                 arrangerController.getArrangerClipAt(currentTrack, c);
@@ -436,7 +436,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
           }
         }
 
-        if (colId < 16) {
+        if (colId < stepCount) {
           int col = colId + scrollOffsetX;
           org.deluge.model.ArrangerClip ac =
               arrangerController.getArrangerClipAt(currentTrack, colId);
