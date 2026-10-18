@@ -931,7 +931,7 @@ public class ProjectSerializer {
           if (clip.isArrangementOnly()) {
             continue;
           }
-          writeInstrumentClip(writer, track, clip, false);
+          writeInstrumentClip(writer, track, clip, false, model.getInputTickMagnitude());
         }
       }
       trackIndex++;
@@ -964,7 +964,7 @@ public class ProjectSerializer {
         }
         for (ClipModel clip : track.getClips()) {
           if (clip.isArrangementOnly()) {
-            writeInstrumentClip(writer, track, clip, true);
+            writeInstrumentClip(writer, track, clip, true, model.getInputTickMagnitude());
           }
         }
       }
@@ -1294,7 +1294,11 @@ public class ProjectSerializer {
    * match the clip back to its track (DelugeXmlParser arrangement-only path).
    */
   private static void writeInstrumentClip(
-      XMLSerializer writer, TrackModel track, ClipModel clip, boolean arrangementOnly)
+      XMLSerializer writer,
+      TrackModel track,
+      ClipModel clip,
+      boolean arrangementOnly,
+      int currentInputTickMagnitude)
       throws IOException {
     // NOTE: clipInstances is an Output (instrument) attribute in the C format (output.cpp), NOT a
     // clip attribute — it is written in the <instruments> block. Clips carry only `section`.
@@ -1429,6 +1433,13 @@ public class ProjectSerializer {
       writer.writeArrayEnding("noteRows");
     }
 
+    // C instrument_clip.cpp:2404-2412 — every instrument clip carries its own <arpeggiator>: a
+    // clip's arpSettings come only from it (the <sound>'s copy is the instrument's
+    // defaultArpSettings, used for new clips). Without it the hardware plays the clip's arp OFF.
+    if (track instanceof SynthTrackModel synthTrack && synthTrack.getArp() != null) {
+      writeClipArpeggiator(writer, synthTrack.getArp(), currentInputTickMagnitude);
+    }
+
     writer.writeOpeningTagBeginning("columnControls");
     writer.writeOpeningTagEnd();
     writer.writeOpeningTagBeginning("leftCol");
@@ -1440,6 +1451,67 @@ public class ProjectSerializer {
     writer.writeClosingTag("columnControls");
 
     writer.writeClosingTag("instrumentClip");
+  }
+
+  /**
+   * C ArpeggiatorSettings::writeCommonParamsToFile(writer, nullptr) (arpeggiator.cpp:1847-1915) as
+   * a clip writes it (instrument_clip.cpp:2406): syncLevel is the INTERNAL value (no song
+   * conversion), syncType the raw enum.
+   */
+  private static void writeClipArpeggiator(
+      XMLSerializer writer, org.deluge.model.ArpModel arp, int inputTickMagnitude)
+      throws IOException {
+    writer.writeOpeningTagBeginning("arpeggiator");
+    String mode = arp.active() ? "arp" : "off";
+    writer.writeAttribute("mode", mode, false);
+    writer.writeAttribute(
+        "syncLevel",
+        org.deluge.xml.ArpXmlCodec.internalSyncLevelFromDenominator(
+            arp.syncLevel(), inputTickMagnitude),
+        false);
+    writer.writeAttribute("numOctaves", arp.octaves(), false);
+    writer.writeAttribute(
+        "syncType", org.deluge.xml.ArpXmlCodec.syncTypeToFile(arp.syncType()), false);
+    writer.writeAttribute("arpMode", mode, false);
+    writer.writeAttribute("chordType", arp.chordType(), false);
+    writer.writeAttribute(
+        "noteMode", org.deluge.xml.ArpXmlCodec.noteModeToFile(arp.noteMode()), false);
+    writer.writeAttribute(
+        "octaveMode", org.deluge.xml.ArpXmlCodec.octaveModeToFile(arp.octaveMode()), false);
+    writer.writeAttribute(
+        "mpeVelocity", org.deluge.xml.ArpXmlCodec.mpeVelocityToFile(arp.mpeVelocity()), false);
+    writer.writeAttribute("stepRepeat", arp.stepRepeat(), false);
+    writer.writeAttribute("randomizerLock", arp.randomizerLock(), false);
+    writer.writeAttribute("kitArp", arp.kitArp(), false);
+    String[][] locked = {
+      {"lastLockedNoteProb", String.valueOf(arp.lastLockedNoteProb())},
+      {"lockedNoteProbArray", arp.lockedNoteProbArray()},
+      {"lastLockedBassProb", String.valueOf(arp.lastLockedBassProb())},
+      {"lockedBassProbArray", arp.lockedBassProbArray()},
+      {"lastLockedSwapProb", String.valueOf(arp.lastLockedSwapProb())},
+      {"lockedSwapProbArray", arp.lockedSwapProbArray()},
+      {"lastLockedGlideProb", String.valueOf(arp.lastLockedGlideProb())},
+      {"lockedGlideProbArray", arp.lockedGlideProbArray()},
+      {"lastLockedReverseProb", String.valueOf(arp.lastLockedReverseProb())},
+      {"lockedReverseProbArray", arp.lockedReverseProbArray()},
+      {"lastLockedChordProb", String.valueOf(arp.lastLockedChordProb())},
+      {"lockedChordProbArray", arp.lockedChordProbArray()},
+      {"lastLockedRatchetProb", String.valueOf(arp.lastLockedRatchetProb())},
+      {"lockedRatchetProbArray", arp.lockedRatchetProbArray()},
+      {"lastLockedVelocitySpread", String.valueOf(arp.lastLockedVelocitySpread())},
+      {"lockedVelocitySpreadArray", arp.lockedVelocitySpreadArray()},
+      {"lastLockedGateSpread", String.valueOf(arp.lastLockedGateSpread())},
+      {"lockedGateSpreadArray", arp.lockedGateSpreadArray()},
+      {"lastLockedOctaveSpread", String.valueOf(arp.lastLockedOctaveSpread())},
+      {"lockedOctaveSpreadArray", arp.lockedOctaveSpreadArray()},
+      {"notePattern", arp.notePattern()},
+    };
+    for (String[] kv : locked) {
+      if (kv[1] != null && !kv[1].isEmpty()) {
+        writer.writeAttribute(kv[0], kv[1], false);
+      }
+    }
+    writer.closeTag();
   }
 
   private static void serializeKitParams(XMLSerializer writer, KitTrackModel kit)
