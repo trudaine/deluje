@@ -2200,20 +2200,18 @@ public class Voice {
         filterSet.renderLongStereo(stereoBuf, numSamples);
       }
 
+      // C voice.cpp:1537-1538, 1564-1565, 1612, 1636 — a plain wrapping << 1, not saturating.
       if (sound.synthMode != 1) { // Not FM: apply overall oscillator amplitude
         int overallOscAmplitudeNow = overallOscAmplitudeLastTime;
         for (int i = 0; i < numSamples; i++) {
           overallOscAmplitudeNow += overallOscillatorAmplitudeIncrement;
           stereoBuf[i * 2] =
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32_rounded(
-                      stereoBuf[i * 2], overallOscAmplitudeNow),
-                  1);
+              (Functions.multiply_32x32_rshift32_rounded(stereoBuf[i * 2], overallOscAmplitudeNow)
+                  << 1);
           stereoBuf[i * 2 + 1] =
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32_rounded(
-                      stereoBuf[i * 2 + 1], overallOscAmplitudeNow),
-                  1);
+              (Functions.multiply_32x32_rshift32_rounded(
+                      stereoBuf[i * 2 + 1], overallOscAmplitudeNow)
+                  << 1);
         }
       }
 
@@ -2264,15 +2262,14 @@ public class Voice {
         filterSet.renderLong(monoFilterBuf, numSamples);
       }
 
+      // C voice.cpp:1537-1538, 1564-1565, 1612, 1636 — a plain wrapping << 1, not saturating.
       if (sound.synthMode != 1) { // Not FM: apply overall oscillator amplitude
         int overallOscAmplitudeNow = overallOscAmplitudeLastTime;
         for (int i = 0; i < numSamples; i++) {
           overallOscAmplitudeNow += overallOscillatorAmplitudeIncrement;
           monoFilterBuf[i] =
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32_rounded(
-                      monoFilterBuf[i], overallOscAmplitudeNow),
-                  1);
+              (Functions.multiply_32x32_rshift32_rounded(monoFilterBuf[i], overallOscAmplitudeNow)
+                  << 1);
         }
       }
 
