@@ -79,11 +79,31 @@ public class SwingPerformanceViewPanel extends JPanel {
   private final float[] columnSavedValues = new float[COLS];
   private final boolean[] columnActive = new boolean[COLS];
 
+  // C PerformanceView per-column press timing (gui/views/performance_view.cpp:1089-1184,
+  // storage/flash_storage.cpp:376-377: defaultHoldTime = 2 -> (2 * kSampleRate) / 20 = 100 ms).
+  static final int STUTTER_COL = 10;
+  static final long DEFAULT_HOLD_TIME_MS = 100L;
+  private final long[] columnPressTimeMs = new long[COLS];
+  private final int[] columnPressedRow = new int[COLS];
+  private final boolean[] columnWasLatchedOnPress = new boolean[COLS];
+
+  enum PadMode {
+    DELUGE("Deluge (Tap=Latch, Hold=Mom)"),
+    LATCH("Latch"),
+    MOMENTARY("Momentary");
+
+    final String label;
+
+    PadMode(String label) {
+      this.label = label;
+    }
+  }
+
   // The pad buttons
   private final JButton[][] pads = new JButton[ROWS][COLS];
 
-  // Mode toggle
-  private boolean momentaryMode = false; // false = LATCH, true = MOMENTARY
+  // Mode selector (defaults to hardware Deluge timing rule)
+  private PadMode padMode = PadMode.DELUGE;
 
   // Currently selected focus track (-1 = no track)
   private int focusTrack = 0;
@@ -97,28 +117,30 @@ public class SwingPerformanceViewPanel extends JPanel {
     this.bridge = bridge;
 
     this.projectModel = projectModel;
+    Arrays.fill(columnPressedRow, -1);
 
     setBackground(new Color(0x18, 0x18, 0x18));
     setLayout(new BorderLayout(8, 8));
 
-    // ── Top bar: mode toggle + track selector ──
+    // ── Top bar: mode selector + track selector ──
     JPanel topBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 4));
     topBar.setBackground(new Color(0x25, 0x25, 0x25));
 
-    JToggleButton modeToggle = new JToggleButton("LATCH");
-    modeToggle.addActionListener(
+    JComboBox<String> modeCombo =
+        new JComboBox<>(
+            new String[] {PadMode.DELUGE.label, PadMode.LATCH.label, PadMode.MOMENTARY.label});
+    modeCombo.setSelectedIndex(0);
+    modeCombo.addActionListener(
         e -> {
-          momentaryMode = modeToggle.isSelected();
-          modeToggle.setText(momentaryMode ? "MOMENTARY" : "LATCH");
-          statusLabel.setText(
-              "Track " + focusTrack + " | " + (momentaryMode ? "MOMENTARY" : "LATCH"));
-          // Restore and clear all latch state when switching to momentary
-          if (momentaryMode) {
+          int idx = modeCombo.getSelectedIndex();
+          padMode = PadMode.values()[Math.max(0, Math.min(PadMode.values().length - 1, idx))];
+          statusLabel.setText("Track " + focusTrack + " | " + padMode.label);
+          if (padMode == PadMode.MOMENTARY) {
             resetAll();
           }
         });
     topBar.add(new JLabel("MODE:"));
-    topBar.add(modeToggle);
+    topBar.add(modeCombo);
 
     topBar.add(Box.createHorizontalStrut(20));
 
@@ -132,8 +154,7 @@ public class SwingPerformanceViewPanel extends JPanel {
         e -> {
           resetAll();
           focusTrack = (int) trackSpinner.getValue();
-          statusLabel.setText(
-              "Track " + focusTrack + " | " + (momentaryMode ? "MOMENTARY" : "LATCH"));
+          statusLabel.setText("Track " + focusTrack + " | " + padMode.label);
         });
     topBar.add(trackSpinner);
 
@@ -145,7 +166,7 @@ public class SwingPerformanceViewPanel extends JPanel {
     columnOffBtn.addActionListener(e -> resetAll());
     topBar.add(columnOffBtn);
 
-    statusLabel = new JLabel("Track 0 | LATCH");
+    statusLabel = new JLabel("Track 0 | " + padMode.label);
     statusLabel.setForeground(Color.LIGHT_GRAY);
     topBar.add(Box.createHorizontalGlue());
     topBar.add(statusLabel);
@@ -215,45 +236,24 @@ public class SwingPerformanceViewPanel extends JPanel {
         final int row = r;
         final int col = c;
 
-        // Mouse handler for both LATCH and MOMENTARY
+        // Mouse handler for Deluge timing, LATCH, and MOMENTARY modes
         pad.addMouseListener(
             new MouseAdapter() {
               @Override
               public void mousePressed(MouseEvent e) {
-                if (momentaryMode) {
-                  // Momentary: activate on press
-                  activatePad(row, col);
-                  pad.setBackground(activeColor(col));
-                } else {
-                  // Latch: exclusive per column so latching a second row replaces the first
-                  // without overwriting the saved pre-performance value
-                  boolean wasLatched = latchState[row][col];
-                  for (int rIdx = 0; rIdx < ROWS; rIdx++) {
-                    latchState[rIdx][col] = false;
-                  }
-                  if (!wasLatched) {
-                    latchState[row][col] = true;
-                    activatePad(row, col);
-                  } else {
-                    deactivatePad(row, col);
-                  }
-                  refreshPadColors();
-                }
+                onPadPressed(row, col, System.currentTimeMillis());
               }
 
               @Override
               public void mouseReleased(MouseEvent e) {
-                if (momentaryMode) {
-                  // Momentary: deactivate on release
-                  deactivatePad(row, col);
-                  refreshPadColors();
-                }
+                onPadReleased(row, col, System.currentTimeMillis());
               }
 
               @Override
               public void mouseEntered(MouseEvent e) {
                 // Drag-to-activate in momentary mode when button is held
-                if (momentaryMode && (e.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK) != 0) {
+                if (padMode == PadMode.MOMENTARY
+                    && (e.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK) != 0) {
                   activatePad(row, col);
                   pad.setBackground(activeColor(col));
                 }
@@ -261,7 +261,8 @@ public class SwingPerformanceViewPanel extends JPanel {
 
               @Override
               public void mouseExited(MouseEvent e) {
-                if (momentaryMode && (e.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK) != 0) {
+                if (padMode == PadMode.MOMENTARY
+                    && (e.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK) != 0) {
                   deactivatePad(row, col);
                   refreshPadColors();
                 }
@@ -281,7 +282,7 @@ public class SwingPerformanceViewPanel extends JPanel {
     JLabel infoLabel =
         new JLabel(
             "<html><b>PERFORMANCE VIEW</b> — 16 FX columns × 8 values &nbsp;&nbsp;|&nbsp;&nbsp; "
-                + "LATCH: tap to toggle &nbsp;&nbsp;|&nbsp;&nbsp; MOMENTARY: press & hold &nbsp;&nbsp;|&nbsp;&nbsp; "
+                + "Deluge: tap latches, hold momentary (Stutter always momentary) &nbsp;&nbsp;|&nbsp;&nbsp; "
                 + "Column header = section on/off</html>");
     infoLabel.setForeground(Color.LIGHT_GRAY);
     infoBar.add(infoLabel);
@@ -291,12 +292,121 @@ public class SwingPerformanceViewPanel extends JPanel {
   /** Set which track the performance controls target. */
   public void setFocusTrack(int track) {
     this.focusTrack = Math.max(0, Math.min(BridgeContract.TRACKS - 1, track));
-    statusLabel.setText("Track " + focusTrack + " | " + (momentaryMode ? "MOMENTARY" : "LATCH"));
+    statusLabel.setText("Track " + focusTrack + " | " + padMode.label);
+  }
+
+  static long holdTimeMs() {
+    try {
+      String raw =
+          org.deluge.project.PreferencesManager.get(
+              "hold_time_ms", Long.toString(DEFAULT_HOLD_TIME_MS));
+      return Math.max(10L, Long.parseLong(raw.trim()));
+    } catch (Exception ignored) {
+      return DEFAULT_HOLD_TIME_MS;
+    }
+  }
+
+  void setPadModeForTest(PadMode mode) {
+    this.padMode = mode;
+  }
+
+  PadMode getPadMode() {
+    return padMode;
+  }
+
+  /**
+   * C PerformanceView::normalPadAction (performance_view.cpp:1089-1117, 1161-1184). In DELUGE mode,
+   * pressing an unlatched pad activates it and starts the hold timer; pressing an already latched
+   * pad keeps {@code padPressHeld} until release.
+   */
+  void onPadPressed(int row, int col, long nowMs) {
+    if (padMode == PadMode.MOMENTARY) {
+      activatePad(row, col);
+      pads[row][col].setBackground(activeColor(col));
+      return;
+    }
+    if (padMode == PadMode.LATCH) {
+      boolean wasLatched = latchState[row][col];
+      for (int rIdx = 0; rIdx < ROWS; rIdx++) {
+        latchState[rIdx][col] = false;
+      }
+      if (!wasLatched && col != STUTTER_COL) {
+        latchState[row][col] = true;
+        activatePad(row, col);
+      } else if (!wasLatched) {
+        // Stutter is always momentary (performance_view.cpp:1127, 1148).
+        columnPressedRow[col] = row;
+        activatePad(row, col);
+        pads[row][col].setBackground(activeColor(col));
+        return;
+      } else {
+        deactivatePad(row, col);
+      }
+      refreshPadColors();
+      return;
+    }
+
+    // PadMode.DELUGE (hardware default)
+    boolean wasLatched = latchState[row][col];
+    columnPressedRow[col] = row;
+    columnPressTimeMs[col] = nowMs;
+    columnWasLatchedOnPress[col] = wasLatched;
+    if (!wasLatched) {
+      for (int rIdx = 0; rIdx < ROWS; rIdx++) {
+        latchState[rIdx][col] = false;
+      }
+      activatePad(row, col);
+    }
+    refreshPadColors();
+    pads[row][col].setBackground(activeColor(col));
+    pads[row][col].setForeground(Color.WHITE);
+  }
+
+  /**
+   * C PerformanceView::normalPadAction release path (performance_view.cpp:1118-1158): release
+   * within {@code FlashStorage::holdTime} latches; hold >= {@code holdTime} or Stutter restores;
+   * tapping an already-latched pad releases it.
+   */
+  void onPadReleased(int row, int col, long nowMs) {
+    if (padMode == PadMode.MOMENTARY) {
+      deactivatePad(row, col);
+      refreshPadColors();
+      return;
+    }
+    if (padMode == PadMode.LATCH) {
+      if (col == STUTTER_COL && columnPressedRow[col] == row) {
+        columnPressedRow[col] = -1;
+        deactivatePad(row, col);
+        refreshPadColors();
+      }
+      return;
+    }
+
+    if (columnPressedRow[col] != row) {
+      return;
+    }
+    long heldMs = nowMs - columnPressTimeMs[col];
+    boolean isStutter = (col == STUTTER_COL);
+    boolean wasLatched = columnWasLatchedOnPress[col];
+    columnPressedRow[col] = -1;
+    columnWasLatchedOnPress[col] = false;
+
+    if (wasLatched || isStutter || heldMs >= holdTimeMs()) {
+      for (int rIdx = 0; rIdx < ROWS; rIdx++) {
+        latchState[rIdx][col] = false;
+      }
+      deactivatePad(row, col);
+    } else {
+      latchState[row][col] = true;
+    }
+    refreshPadColors();
   }
 
   /** Reset all pads to off and restore only active columns. */
   public void resetAll() {
     for (int r = 0; r < ROWS; r++) Arrays.fill(latchState[r], false);
+    Arrays.fill(columnPressedRow, -1);
+    Arrays.fill(columnWasLatchedOnPress, false);
     for (int c = 0; c < COLS; c++) {
       columnMuteState[c] = false;
       if (columnActive[c]) {

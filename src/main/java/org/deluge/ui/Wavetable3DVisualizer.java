@@ -153,6 +153,8 @@ public class Wavetable3DVisualizer extends JPanel {
     if (sdRoot != null && sdRoot.exists()) {
       File fSub = new File(sdRoot, path);
       if (fSub.exists() && fSub.isFile()) return fSub;
+      // C resolves sample paths from the SD card root (XML paths already begin with "SAMPLES/");
+      // checking sdRoot/SAMPLES/path is a Java desktop convenience for bare filenames.
       fSub = new File(new File(sdRoot, "SAMPLES"), path);
       if (fSub.exists() && fSub.isFile()) return fSub;
     }

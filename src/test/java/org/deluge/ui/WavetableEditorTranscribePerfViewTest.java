@@ -5,14 +5,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.nio.file.Path;
-import javax.swing.JButton;
 import javax.swing.JSlider;
-import javax.swing.JToggleButton;
 import javax.swing.SwingUtilities;
 import org.deluge.BridgeContract;
 import org.deluge.engine.FirmwareAudioEngine;
@@ -186,7 +182,7 @@ class WavetableEditorTranscribePerfViewTest {
   }
 
   @Test
-  void testPerformanceViewLatchExclusivityAndResetPreservesInactiveColumns() throws Exception {
+  void testPerformanceViewDelugeHoldTimingLatchExclusivityAndStutterException() throws Exception {
     BridgeContract bridge = new BridgeContract();
     bridge.setFilterFreq(0, 5000.0); // Initial LPF freq on track 0
     bridge.setDelaySend(0, 0.35f); // Initial delay send on track 0 (inactive column 8)
@@ -196,56 +192,67 @@ class WavetableEditorTranscribePerfViewTest {
     SwingUtilities.invokeAndWait(
         () -> {
           SwingPerformanceViewPanel panel = new SwingPerformanceViewPanel(bridge, project);
-          JToggleButton modeToggle = findToggleButton(panel);
-          assertNotNull(modeToggle);
-          assertEquals("LATCH", modeToggle.getText(), "Mode button must start with LATCH label");
-          assertFalse(modeToggle.isSelected());
+          assertEquals(
+              SwingPerformanceViewPanel.PadMode.DELUGE,
+              panel.getPadMode(),
+              "Performance view must default to hardware Deluge tap/hold mode");
 
-          // Latch row 1 in column 2 (LPF FREQ)
-          pressPad(panel.getPad(1, 2));
-          assertTrue(panel.isPadLatched(1, 2));
+          // 1. Quick tap (< 100 ms) on row 1 in column 2 (LPF FREQ) latches it
+          panel.onPadPressed(1, 2, 1_000L);
+          panel.onPadReleased(1, 2, 1_030L);
+          assertTrue(panel.isPadLatched(1, 2), "Quick tap (< holdTime) must latch pad");
           double row1Freq = bridge.getTrackFilterFreq(0);
           assertNotEquals(5000.0, row1Freq, 1.0);
 
-          // Latch row 6 in column 2 (LPF FREQ): row 1 must unlatch, and saved value must stay 5000
-          pressPad(panel.getPad(6, 2));
+          // 2. Quick tap on row 6 in column 2 replaces row 1 latch and preserves saved 5000.0
+          panel.onPadPressed(6, 2, 2_000L);
+          panel.onPadReleased(6, 2, 2_030L);
           assertFalse(panel.isPadLatched(1, 2), "Previous row in same column must unlatch");
           assertTrue(panel.isPadLatched(6, 2), "New row in same column must latch");
           double row6Freq = bridge.getTrackFilterFreq(0);
           assertNotEquals(row1Freq, row6Freq, 1.0);
 
-          // Reset all: column 2 must restore to 5000.0, and untouched column 8 (Delay) must stay
-          // 0.35f!
-          panel.resetAll();
-          assertFalse(panel.isPadLatched(6, 2));
+          // 3. Re-tapping the already-latched pad (row 6, col 2) releases it and restores 5000.0
+          panel.onPadPressed(6, 2, 3_000L);
+          panel.onPadReleased(6, 2, 3_020L);
+          assertFalse(panel.isPadLatched(6, 2), "Re-tapping a latched pad must release it");
           assertEquals(
               5000.0,
               bridge.getTrackFilterFreq(0),
               1.0,
-              "resetAll() must restore original pre-latch value");
+              "Releasing a latched pad must restore original pre-performance value");
+
+          // 4. Holding >= 100 ms (holdTime) acts as momentary and restores on release
+          panel.onPadPressed(4, 2, 4_000L);
+          assertNotEquals(5000.0, bridge.getTrackFilterFreq(0), 1.0);
+          panel.onPadReleased(4, 2, 4_250L);
+          assertFalse(panel.isPadLatched(4, 2), "Hold >= holdTime must not latch");
+          assertEquals(
+              5000.0,
+              bridge.getTrackFilterFreq(0),
+              1.0,
+              "Releasing a long hold must restore pre-performance value");
+
+          // 5. Stutter column (col 10) is always momentary even on quick tap (< 100 ms)
+          panel.onPadPressed(5, SwingPerformanceViewPanel.STUTTER_COL, 5_000L);
+          panel.onPadReleased(5, SwingPerformanceViewPanel.STUTTER_COL, 5_015L);
+          assertFalse(
+              panel.isPadLatched(5, SwingPerformanceViewPanel.STUTTER_COL),
+              "Stutter column must never latch even on quick tap (performance_view.cpp:1127, 1148)");
+
+          // 6. Latch row 2 in col 2, then resetAll(): untouched column 8 (Delay) stays 0.35f
+          panel.onPadPressed(2, 2, 6_000L);
+          panel.onPadReleased(2, 2, 6_020L);
+          assertTrue(panel.isPadLatched(2, 2));
+          panel.resetAll();
+          assertFalse(panel.isPadLatched(2, 2));
+          assertEquals(5000.0, bridge.getTrackFilterFreq(0), 1.0);
           assertEquals(
               0.35f,
               bridge.getDelaySend(0),
               1e-4f,
               "resetAll() must not zero out columns that were never activated");
         });
-  }
-
-  private static void pressPad(JButton pad) {
-    MouseEvent ev =
-        new MouseEvent(
-            pad,
-            MouseEvent.MOUSE_PRESSED,
-            System.currentTimeMillis(),
-            MouseEvent.BUTTON1_DOWN_MASK,
-            2,
-            2,
-            1,
-            false,
-            MouseEvent.BUTTON1);
-    for (MouseListener ml : pad.getMouseListeners()) {
-      ml.mousePressed(ev);
-    }
   }
 
   private static JSlider findFirstSliderWithMax(Container root, int expectedMax) {
@@ -264,17 +271,6 @@ class WavetableEditorTranscribePerfViewTest {
       if (comp instanceof SwingWaveformDrawingCanvas c) return c;
       if (comp instanceof Container child) {
         SwingWaveformDrawingCanvas found = findCanvas(child);
-        if (found != null) return found;
-      }
-    }
-    return null;
-  }
-
-  private static JToggleButton findToggleButton(Container root) {
-    for (Component comp : root.getComponents()) {
-      if (comp instanceof JToggleButton tb) return tb;
-      if (comp instanceof Container child) {
-        JToggleButton found = findToggleButton(child);
         if (found != null) return found;
       }
     }

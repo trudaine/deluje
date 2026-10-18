@@ -330,9 +330,8 @@ public class SwingAudioTranscribeDialog extends JDialog {
     consoleArea.append("\n[SYSTEM] Transcription completed successfully!\n");
     consoleArea.append("Handing off to MIDI Import Wizard...\n");
 
-    // Close this dialog
-    super.dispose();
-    disposed = true;
+    // Close this dialog via idempotent dispose() so stopActiveProcess() also runs if needed
+    dispose();
 
     // Instantly launch the MIDI Import Wizard JDialog with the transcribed MIDI file!
     SwingMidiImportDialog wizard = new SwingMidiImportDialog(owner, generatedMidiFile);
