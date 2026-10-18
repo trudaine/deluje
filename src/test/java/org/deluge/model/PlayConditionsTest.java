@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import org.deluge.engine.FirmwareSound;
 import org.deluge.firmware2.Functions;
+import org.deluge.firmware2.Sound;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -872,9 +873,9 @@ class PlayConditionsTest {
 
   @Test
   void fullBarCutAndTimeStretchedSamplesRestartAtWrapWhileLoopSamplesSustain() {
-    // 1. CUT-mode sample (loopMode = 0) with arp off stops and restarts at each bar wrap.
+    // 1. CUT-mode sample (Sound.REPEAT_CUT) with arp off stops and restarts at each bar wrap.
     ClipModel cutClip = new ClipModel("cut-drone", 1, 1); // 24 ticks
-    CountingLiveSound cutSound = createSampleLiveSound(0, false);
+    CountingLiveSound cutSound = createSampleLiveSound(Sound.REPEAT_CUT, false);
     cutClip.setSound(cutSound);
     NoteRowModel cutRow = cutClip.getOrCreateRow(0);
     cutRow.setPitch(60);
@@ -893,7 +894,7 @@ class PlayConditionsTest {
 
     // 2. CUT-mode sample with independent pitch/speed (timestretch = true) also restarts at wrap.
     ClipModel cutTsClip = new ClipModel("cut-ts-drone", 1, 1);
-    CountingLiveSound cutTsSound = createSampleLiveSound(0, true);
+    CountingLiveSound cutTsSound = createSampleLiveSound(Sound.REPEAT_CUT, true);
     cutTsClip.setSound(cutTsSound);
     NoteRowModel cutTsRow = cutTsClip.getOrCreateRow(0);
     cutTsRow.setPitch(60);
@@ -912,9 +913,9 @@ class PlayConditionsTest {
         cutTsSound.releaseCount,
         "CUT-mode sample with independent pitch/speed must release before restarting at wrap");
 
-    // 3. STRETCH repeat-mode sample (loopMode = 3) with arp off stops and restarts at wrap.
+    // 3. STRETCH repeat-mode sample (Sound.REPEAT_STRETCH) with arp off stops and restarts at wrap.
     ClipModel stretchClip = new ClipModel("stretch-drone", 1, 1);
-    CountingLiveSound stretchSound = createSampleLiveSound(3, false);
+    CountingLiveSound stretchSound = createSampleLiveSound(Sound.REPEAT_STRETCH, false);
     stretchClip.setSound(stretchSound);
     NoteRowModel stretchRow = stretchClip.getOrCreateRow(0);
     stretchRow.setPitch(60);
@@ -933,11 +934,11 @@ class PlayConditionsTest {
         stretchSound.releaseCount,
         "STRETCH repeat-mode full-row sample must release before restarting at each wrap");
 
-    // 4. LOOP-mode sample (loopMode = 1) sustains across loop wraps, even when independent
+    // 4. LOOP-mode sample (Sound.REPEAT_LOOP) sustains across loop wraps, even when independent
     // pitch/speed (timestretch = true) is enabled.
     for (boolean independentPitchSpeed : new boolean[] {false, true}) {
       ClipModel loopClip = new ClipModel("loop-drone-" + independentPitchSpeed, 1, 1);
-      CountingLiveSound loopSound = createSampleLiveSound(1, independentPitchSpeed);
+      CountingLiveSound loopSound = createSampleLiveSound(Sound.REPEAT_LOOP, independentPitchSpeed);
       loopClip.setSound(loopSound);
       NoteRowModel loopRow = loopClip.getOrCreateRow(0);
       loopRow.setPitch(60);
@@ -965,7 +966,7 @@ class PlayConditionsTest {
 
     // 5. CUT-mode sample with arpeggiator ON stays held into the arpeggiator across wraps.
     ClipModel arpClip = new ClipModel("arp-cut-drone", 1, 1);
-    CountingLiveSound arpCutSound = createSampleLiveSound(0, false);
+    CountingLiveSound arpCutSound = createSampleLiveSound(Sound.REPEAT_CUT, false);
     arpCutSound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.ARP;
     arpClip.setSound(arpCutSound);
     NoteRowModel arpRow = arpClip.getOrCreateRow(0);
