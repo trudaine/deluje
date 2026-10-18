@@ -21,40 +21,29 @@ import org.junit.jupiter.api.Test;
 class LfoPanelSyncMappingTest {
 
   @Test
-  void syncComboHelpersRoundTripEvenTripletAndDottedSelections() {
-    // 0: OFF
+  void syncComboHelpersMatchTheC28OptionMenu() {
+    // C model/sync.cpp:30-55 — OFF, EVEN 1..9, TRIPLET 1..9 (from 10), DOTTED 1..9 (from 19).
     assertEquals(0, LfoPanel.syncComboIndexFor(0, 0));
     assertEquals(0, LfoPanel.syncComboIndexFor(0, 1));
     assertEquals(0, LfoPanel.syncLevelForComboIndex(0));
     assertEquals(0, LfoPanel.syncTypeForComboIndex(0));
-
-    // 1..7: Even 1/1..1/64
-    for (int level = 1; level <= 7; level++) {
-      int idx = LfoPanel.syncComboIndexFor(level, 0);
-      assertEquals(level, idx);
-      assertEquals(level, LfoPanel.syncLevelForComboIndex(idx));
-      assertEquals(0, LfoPanel.syncTypeForComboIndex(idx));
+    for (int type = 0; type <= 2; type++) {
+      for (int level = 1; level <= 9; level++) {
+        int idx = LfoPanel.syncComboIndexFor(level, type);
+        int base = type == 0 ? 0 : type == 1 ? 10 : 19;
+        assertEquals(base + level - (type == 0 ? 0 : 1), idx);
+        assertEquals(level, LfoPanel.syncLevelForComboIndex(idx));
+        assertEquals(type, LfoPanel.syncTypeForComboIndex(idx));
+      }
     }
-
-    // 8..13: Triplet 1/2T..1/64T (syncLevel 2..7, syncType 1)
-    for (int level = 2; level <= 7; level++) {
-      int idx = LfoPanel.syncComboIndexFor(level, 1);
-      assertEquals(8 + (level - 2), idx);
-      assertEquals(level, LfoPanel.syncLevelForComboIndex(idx));
-      assertEquals(1, LfoPanel.syncTypeForComboIndex(idx));
-    }
-
-    // 14..19: Dotted 1/2D..1/64D (syncLevel 2..7, syncType 2)
-    for (int level = 2; level <= 7; level++) {
-      int idx = LfoPanel.syncComboIndexFor(level, 2);
-      assertEquals(14 + (level - 2), idx);
-      assertEquals(level, LfoPanel.syncLevelForComboIndex(idx));
-      assertEquals(2, LfoPanel.syncTypeForComboIndex(idx));
-    }
-
-    // Preset syncLevel > 7 clamps to 1/64 in the matching subdivision family
-    assertEquals(13, LfoPanel.syncComboIndexFor(9, 1));
-    assertEquals(19, LfoPanel.syncComboIndexFor(8, 2));
+    // Levels 8 and 9 (1/128, 1/256) are representable: no clamp, so a loaded song keeps them.
+    assertEquals(8, LfoPanel.syncLevelForComboIndex(LfoPanel.syncComboIndexFor(8, 0)));
+    assertEquals(9, LfoPanel.syncLevelForComboIndex(LfoPanel.syncComboIndexFor(9, 2)));
+    String[] labels = SyncMenuOptions.labels();
+    assertEquals(28, labels.length);
+    assertEquals("1/256", labels[9]);
+    assertEquals("1/1T", labels[10]);
+    assertEquals("1/256D", labels[27]);
   }
 
   @Test
@@ -70,10 +59,10 @@ class LfoPanelSyncMappingTest {
           JComboBox<?> lfo0Sync = syncCombos.get(0);
 
           assertEquals("1/8T", lfo0Sync.getSelectedItem());
-          assertEquals(10, lfo0Sync.getSelectedIndex());
+          assertEquals(13, lfo0Sync.getSelectedIndex());
 
-          // Select "1/16D" (index 17 -> syncLevel=5, syncType=2)
-          lfo0Sync.setSelectedIndex(17);
+          // Select "1/16D" (index 23 -> syncLevel=5, syncType=2)
+          lfo0Sync.setSelectedIndex(23);
           LfoModel updated = model.getLfo(0);
           assertEquals(5, updated.syncLevel());
           assertEquals(2, updated.syncType());
@@ -134,7 +123,7 @@ class LfoPanelSyncMappingTest {
   }
 
   private static List<JComboBox<?>> findSyncCombos(Container root) {
-    return findCombosWithSize(root, 20);
+    return findCombosWithSize(root, 28);
   }
 
   private static List<JComboBox<?>> findCombosWithSize(Container root, int itemCount) {
