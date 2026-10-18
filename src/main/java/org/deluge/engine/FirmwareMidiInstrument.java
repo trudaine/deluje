@@ -1,5 +1,6 @@
 package org.deluge.engine;
 
+import java.util.logging.Logger;
 import org.deluge.firmware2.GlobalEffectable;
 import org.deluge.midi.MIDIMessage;
 import org.deluge.midi.MidiEngine;
@@ -11,6 +12,8 @@ import org.deluge.shadow.midi.MidiMsg;
  * releases to physical MIDI OUT ports via MidiEngine.
  */
 public class FirmwareMidiInstrument extends GlobalEffectable {
+  private static final Logger LOGGER = Logger.getLogger(FirmwareMidiInstrument.class.getName());
+
   /** C: definitions_cxx.hpp:758 — outgoing MIDI CC 1 for monophonic Y-axis / Mod Wheel. */
   public static final int CC_EXTERNAL_MOD_WHEEL = 1;
 
@@ -93,9 +96,21 @@ public class FirmwareMidiInstrument extends GlobalEffectable {
    * (midi_instrument.cpp:286-322). Dispatches real CCs (0..119) as Control Change, and maps the C++
    * fake CC sentinels (120=PitchBend, 121=Aftertouch, 122=Y-Axis/CC1) to their real MIDI status
    * messages instead of accidentally sending MIDI Channel Mode messages (CC 120-123).
+   *
+   * <p>For fake CCs 121 and 122, both incoming MIDI ({@code melodic_instrument.cpp:388-395, 431,
+   * 462}: {@code value << 24}) and MIDI-clip gold knobs ({@code
+   * ExpressionParamSet::knobPosToParamValue}, {@code param_set.cpp:621-631}: {@code (knobPos + 64)
+   * << 24} for unipolar {@code Y_SLIDE_TIMBRE} and {@code Z_PRESSURE}) store {@code value << 24} in
+   * {@code ExpressionParamSet}, which {@code sendMonophonicExpressionEvent} ({@code
+   * midi_instrument.cpp:304-317}) shifts back by {@code >> 24} to yield the 7-bit {@code value}
+   * (0..127) directly.
    */
   public void sendCc(int cc, int value) {
-    if (cc < 0 || cc >= CC_NUMBER_NONE) {
+    if (cc == CC_NUMBER_NONE) {
+      return;
+    }
+    if (cc < 0 || cc > CC_NUMBER_NONE) {
+      LOGGER.warning("FirmwareMidiInstrument.sendCc: invalid CC number " + cc);
       return;
     }
     MidiEngine engine = MidiEngine.instance;
@@ -109,13 +124,14 @@ public class FirmwareMidiInstrument extends GlobalEffectable {
           // C: midi_instrument.cpp:262, 294 — ((value - 64) << 7) + 8192 == value << 7
           engine.sendPitchBend14(zeroIndexedChannel, clampedValue << 7);
       case CC_NUMBER_AFTERTOUCH -> {
+        // C: param_set.cpp:621-631, midi_instrument.cpp:312-318 — (value << 24) >> 24 == value
         MidiMsg msg = MIDIMessage.channelAftertouch(zeroIndexedChannel, clampedValue).toMidiMsg();
         for (MidiTransport transport : engine.getOutputTransports()) {
           transport.sendMessage(msg);
         }
       }
       case CC_NUMBER_Y_AXIS ->
-          // C: midi_instrument.cpp:309 — monophonic Y-axis sends CC_EXTERNAL_MOD_WHEEL (CC 1)
+          // C: param_set.cpp:621-631, midi_instrument.cpp:300-310 — (value << 24) >> 24 -> CC 1
           engine.sendCC(zeroIndexedChannel, CC_EXTERNAL_MOD_WHEEL, clampedValue);
       default -> engine.sendCC(zeroIndexedChannel, cc, clampedValue);
     }

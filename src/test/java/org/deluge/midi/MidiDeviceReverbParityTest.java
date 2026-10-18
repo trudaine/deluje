@@ -63,6 +63,30 @@ class MidiDeviceReverbParityTest {
   }
 
   @Test
+  void sanitizeFirmwareCcLabelsDoesNotRewriteQuotedAttributeValuesContainingNumericEquals()
+      throws Exception {
+    String firmwareXml =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            + "<midiDevice>\n"
+            + "\t<ccLabels\n"
+            + "\t\t0='Knob 12=\"x\"'\n"
+            + "\t\t3=\"Rate > 12=&quot;y&quot;\" />\n"
+            + "\t<hideUnlabeledCC value=\"0\" />\n"
+            + "</midiDevice>\n";
+
+    File xmlFile = tempDir.resolve("QUOTED_NUMERIC.XML").toFile();
+    Files.writeString(xmlFile.toPath(), firmwareXml, StandardCharsets.UTF_8);
+
+    MidiDeviceDefinition def = MidiDeviceDefinitionLoader.load(xmlFile);
+
+    assertNotNull(def.findMapping(0));
+    assertEquals("Knob 12=\"x\"", def.findMapping(0).displayName());
+    assertNull(def.findMapping(12), "12=\"x\" inside quoted label must not become a CC attribute");
+    assertNotNull(def.findMapping(3));
+    assertEquals("Rate > 12=\"y\"", def.findMapping(3).displayName());
+  }
+
+  @Test
   void saveFirmwareFormatWritesValidFirmwareSchemaAndRoundTrips() throws Exception {
     MidiDeviceDefinition def = new MidiDeviceDefinition("PROPHET6", "PROPHET6");
     def.addCcMapping(new MidiDeviceDefinition.CcMapping(0, "Bank", "Bank"));
@@ -187,6 +211,11 @@ class MidiDeviceReverbParityTest {
       // Fake CC 123 (CC_NUMBER_NONE) -> nothing sent, NOT CC 123 (All Notes Off)
       sent.clear();
       upperMpe.sendCc(FirmwareMidiInstrument.CC_NUMBER_NONE, 64);
+      assertTrue(sent.isEmpty());
+
+      // Out-of-range CC > 123 and CC < 0 -> logged warning and nothing sent
+      upperMpe.sendCc(124, 64);
+      upperMpe.sendCc(-1, 64);
       assertTrue(sent.isEmpty());
 
       // MPE Lower Zone -> master channel 0 (MIDI channel 1)

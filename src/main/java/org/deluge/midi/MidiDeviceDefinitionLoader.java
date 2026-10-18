@@ -36,15 +36,15 @@ public class MidiDeviceDefinitionLoader {
 
   /** Matches the opening <ccLabels ...> tag produced by C++ Serializer::writeAttribute. */
   private static final Pattern CC_LABELS_TAG_PATTERN =
-      Pattern.compile("<ccLabels\\b[^>]*>", Pattern.DOTALL);
+      Pattern.compile("<ccLabels\\b(?:[^>\"']|\"[^\"]*\"|'[^']*')*>", Pattern.DOTALL);
 
   /**
-   * Matches bare numeric attribute names (e.g. {@code 0="Bank"}) inside {@code <ccLabels>}, which
-   * Deluge's C++ {@code XMLSerializer} writes directly (midi_instrument.cpp:455-461) but strict XML
-   * 1.0 parsers reject because digits are not valid XML NameStartChars.
+   * Matches each attribute token (name + quoted value) inside {@code <ccLabels>}. Consuming full
+   * quoted attribute values left-to-right ensures digits inside quoted label text (e.g. {@code
+   * 0="Knob 12=&quot;x&quot;"} or {@code a=' 12="x" '}) are never rewritten as attribute names.
    */
-  private static final Pattern BARE_NUMERIC_ATTR_PATTERN =
-      Pattern.compile("(\\s)(\\d+)(\\s*=\\s*\"[^\"]*\")");
+  private static final Pattern ATTR_TOKEN_PATTERN =
+      Pattern.compile("(\\s+)([^\\s=/>]+)(\\s*=\\s*(?:\"[^\"]*\"|'[^']*'))");
 
   /** Returns the MIDI_DEVICES/DEFINITION/ directory, creating it if missing. */
   public static File getDefinitionsDir() {
@@ -265,11 +265,35 @@ public class MidiDeviceDefinitionLoader {
     StringBuilder sb = new StringBuilder(xml.length() + 128);
     while (tagMatcher.find()) {
       String tag = tagMatcher.group();
-      String rewrittenTag = BARE_NUMERIC_ATTR_PATTERN.matcher(tag).replaceAll("$1cc$2$3");
-      tagMatcher.appendReplacement(sb, Matcher.quoteReplacement(rewrittenTag));
+      Matcher attrMatcher = ATTR_TOKEN_PATTERN.matcher(tag);
+      StringBuilder rewrittenTag = new StringBuilder(tag.length() + 32);
+      while (attrMatcher.find()) {
+        String attrName = attrMatcher.group(2);
+        if (isAllDigits(attrName)) {
+          String replacement = attrMatcher.group(1) + "cc" + attrName + attrMatcher.group(3);
+          attrMatcher.appendReplacement(rewrittenTag, Matcher.quoteReplacement(replacement));
+        } else {
+          attrMatcher.appendReplacement(
+              rewrittenTag, Matcher.quoteReplacement(attrMatcher.group(0)));
+        }
+      }
+      attrMatcher.appendTail(rewrittenTag);
+      tagMatcher.appendReplacement(sb, Matcher.quoteReplacement(rewrittenTag.toString()));
     }
     tagMatcher.appendTail(sb);
     return sb.toString();
+  }
+
+  private static boolean isAllDigits(String s) {
+    if (s == null || s.isEmpty()) {
+      return false;
+    }
+    for (int i = 0; i < s.length(); i++) {
+      if (!Character.isDigit(s.charAt(i))) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private static String stripXmlExtension(String fileName) {
