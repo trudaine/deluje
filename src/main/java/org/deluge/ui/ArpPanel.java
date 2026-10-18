@@ -10,16 +10,22 @@ import org.deluge.model.SynthTrackModel;
 /** ARP tab: arpeggiator toggle, mode, rate, gate, sync, octaves, etc. (model-backed). */
 public class ArpPanel extends JPanel {
 
-  // Combo order: OFF, 1/1, 1/2, 1/2T, 1/4, 1/4T, 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T, 1/64.
-  // ArpModel.syncLevel is a note-division denominator; triplets map to syncType=1.
-  private static final int[] SYNC_DIVISIONS = {0, 1, 2, 2, 4, 4, 8, 8, 16, 16, 32, 32, 64};
-  private static final boolean[] SYNC_TRIPLET = {
-    false, false, false, true, false, true, false, true, false, true, false, true, false
+  // Combo order: OFF, Even (1/1..1/64), Triplet (1/2T..1/64T), Dotted (1/2D..1/64D).
+  // Matches C++ SyncType (model/sync.h:10-14) and ArpXmlCodec (0=even, 1=triplet, 2=dotted).
+  static final String[] SYNC_RATES = {
+    "OFF", "1/1", "1/2", "1/2T", "1/2D", "1/4", "1/4T", "1/4D", "1/8", "1/8T", "1/8D", "1/16",
+    "1/16T", "1/16D", "1/32", "1/32T", "1/32D", "1/64", "1/64T", "1/64D"
+  };
+  private static final int[] SYNC_DIVISIONS = {
+    0, 1, 2, 2, 2, 4, 4, 4, 8, 8, 8, 16, 16, 16, 32, 32, 32, 64, 64, 64
+  };
+  private static final int[] SYNC_TYPES = {
+    0, 0, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2
   };
 
-  private static int syncComboIndexFor(int division, int syncType) {
+  static int syncComboIndexFor(int division, int syncType) {
     for (int i = 0; i < SYNC_DIVISIONS.length; i++) {
-      if (SYNC_DIVISIONS[i] == division && SYNC_TRIPLET[i] == (syncType == 1)) {
+      if (SYNC_DIVISIONS[i] == division && SYNC_TYPES[i] == syncType) {
         return i;
       }
     }
@@ -142,11 +148,7 @@ public class ArpPanel extends JPanel {
     leftPanel.add(SwingSynthConfigDialog.label("Sync:"), lc);
     lc.gridx = 1;
     lc.gridwidth = 2;
-    String[] syncRates = {
-      "OFF", "1/1", "1/2", "1/2T", "1/4", "1/4T", "1/8", "1/8T", "1/16", "1/16T", "1/32", "1/32T",
-      "1/64"
-    };
-    JComboBox<String> syncCombo = new JComboBox<>(syncRates);
+    JComboBox<String> syncCombo = new JComboBox<>(SYNC_RATES);
     syncCombo.setSelectedIndex(syncComboIndexFor(arp.syncLevel(), arp.syncType()));
     syncCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     syncCombo.setForeground(Color.WHITE);
@@ -157,7 +159,7 @@ public class ArpPanel extends JPanel {
           model.setArp(
               model.getArp().toBuilder()
                   .syncLevel(SYNC_DIVISIONS[sel])
-                  .syncType(SYNC_TRIPLET[sel] ? 1 : 0)
+                  .syncType(SYNC_TYPES[sel])
                   .build());
         });
     leftPanel.add(syncCombo, lc);
@@ -257,7 +259,7 @@ public class ArpPanel extends JPanel {
           int newVal = chordCombo.getSelectedIndex();
           if (oldVal == newVal) return;
           model.setArp(model.getArp().toBuilder().chordType(newVal).build());
-          if (projectModel.getUndoRedoStack() != null) {
+          if (projectModel != null && projectModel.getUndoRedoStack() != null) {
             projectModel
                 .getUndoRedoStack()
                 .push(
@@ -291,7 +293,7 @@ public class ArpPanel extends JPanel {
           int newVal = (Integer) numOctCombo.getSelectedItem();
           if (oldVal == newVal) return;
           model.setArp(model.getArp().toBuilder().numOctaves(newVal).build());
-          if (projectModel.getUndoRedoStack() != null) {
+          if (projectModel != null && projectModel.getUndoRedoStack() != null) {
             projectModel
                 .getUndoRedoStack()
                 .push(
@@ -325,7 +327,7 @@ public class ArpPanel extends JPanel {
           int newVal = kitArpBox.isSelected() ? 1 : 0;
           if (oldVal == newVal) return;
           model.setArp(model.getArp().toBuilder().kitArp(newVal).build());
-          if (projectModel.getUndoRedoStack() != null) {
+          if (projectModel != null && projectModel.getUndoRedoStack() != null) {
             projectModel
                 .getUndoRedoStack()
                 .push(
@@ -405,7 +407,7 @@ public class ArpPanel extends JPanel {
           int newVal = randLockBox.isSelected() ? 1 : 0;
           if (oldVal == newVal) return;
           model.setArp(model.getArp().toBuilder().randomizerLock(newVal).build());
-          if (projectModel.getUndoRedoStack() != null) {
+          if (projectModel != null && projectModel.getUndoRedoStack() != null) {
             projectModel
                 .getUndoRedoStack()
                 .push(
@@ -451,9 +453,10 @@ public class ArpPanel extends JPanel {
             rc,
             rightRow,
             "Rhythm:",
-            "Rhythm silence pattern index (0-49). 0 = all play, 1-50 = firmware patterns.",
+            // Matches C++ kMaxPresetArpRhythm = kMaxMenuValue = 50 (arpeggiator_rhythms.h:28).
+            "Rhythm silence pattern index (0-50). 0 = all play, 1-50 = firmware patterns.",
             0,
-            49,
+            50,
             arp.rhythmIndex(),
             val -> model.setArp(model.getArp().toBuilder().rhythmIndex(val).build()),
             "",

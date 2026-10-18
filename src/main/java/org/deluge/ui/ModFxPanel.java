@@ -9,6 +9,14 @@ import org.deluge.model.SynthTrackModel;
 /** MOD FX tab: type, rate, depth, feedback, offset. */
 public class ModFxPanel extends JPanel {
 
+  // Matches C++ ModFXType (definitions_cxx.hpp:418-427, util/functions.cpp:878-928)
+  // and org.deluge.firmware2.ModFx.ModFXType.
+  static final String[] MOD_FX_TYPES = {
+    "NONE", "FLANGER", "CHORUS", "PHASER", "CHORUS_STEREO", "WARBLE", "DIMENSION", "GRAIN"
+  };
+
+  private final JComboBox<String> typeCombo;
+
   public ModFxPanel(
       SynthTrackModel model, BridgeContract bridge, int trackIndex, ProjectModel projectModel) {
     super(new GridBagLayout());
@@ -33,9 +41,8 @@ public class ModFxPanel extends JPanel {
     add(SwingSynthConfigDialog.label("Type:"), c);
     c.gridx = 1;
     c.gridwidth = 2;
-    JComboBox<String> typeCombo =
-        new JComboBox<>(new String[] {"NONE", "CHORUS", "FLANGER", "PHASER"});
-    typeCombo.setSelectedItem(model.getModFxType());
+    typeCombo = new JComboBox<>(MOD_FX_TYPES);
+    typeCombo.setSelectedItem(normalizeModFxType(model.getModFxType()));
     typeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     typeCombo.setForeground(Color.WHITE);
     typeCombo.addActionListener(
@@ -108,5 +115,26 @@ public class ModFxPanel extends JPanel {
             "modFxOffset",
             projectModel,
             trackIndex);
+  }
+
+  // Maps C++ XML tokens (util/functions.cpp:878-928) to ModFx.ModFXType enum names.
+  static String normalizeModFxType(String raw) {
+    if (raw == null || raw.isBlank()) return "NONE";
+    String upper = raw.trim().toUpperCase();
+    return switch (upper) {
+      case "STEREOCHORUS" -> "CHORUS_STEREO";
+      case "TAPEWARBLE" -> "WARBLE";
+      case "GRAINFX" -> "GRAIN";
+      default -> {
+        for (String t : MOD_FX_TYPES) {
+          if (t.equals(upper)) yield t;
+        }
+        yield "NONE";
+      }
+    };
+  }
+
+  JComboBox<String> getTypeComboForTest() {
+    return typeCombo;
   }
 }

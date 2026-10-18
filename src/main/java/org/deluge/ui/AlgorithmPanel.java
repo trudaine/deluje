@@ -8,6 +8,14 @@ import org.deluge.model.SynthTrackModel;
 /** ALGORITHM tab: DX7 algorithm grid (0-31) + STK engine selector + engine type. */
 public class AlgorithmPanel extends JPanel {
 
+  private static final Color CARD_SELECTED_BG = new Color(0x3a, 0x5a, 0x3a);
+  private static final Color CARD_NORMAL_BG = new Color(0x2a, 0x2a, 0x2a);
+  private static final Color CARD_NORMAL_BORDER = new Color(0x44, 0x44, 0x44);
+
+  private final JComboBox<String> engineCombo;
+  private final JPanel gridPanel;
+  private boolean syncingEngineCombo = false;
+
   public AlgorithmPanel(SynthTrackModel model, BridgeContract bridge, int trackIndex) {
     super(new BorderLayout(8, 8));
     setBackground(SwingSynthConfigDialog.BG_CARD);
@@ -20,24 +28,12 @@ public class AlgorithmPanel extends JPanel {
 
     String[] stkNames = {"DX7 FM (6-op)", "Mandolin", "Rhodey EP", "ModalBar", "Moog Bass"};
     int[] stkValues = {0, 10, 11, 12, 13};
-    JComboBox<String> engineCombo = new JComboBox<>(stkNames);
+    engineCombo = new JComboBox<>(stkNames);
     engineCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     engineCombo.setForeground(Color.WHITE);
     int curAlgo = model.getSynthAlgorithm();
-    int curEngineIdx = 0;
-    for (int i = 0; i < stkValues.length; i++) {
-      if (stkValues[i] == curAlgo || (i == 0 && curAlgo < 10)) {
-        curEngineIdx = i;
-        break;
-      }
-    }
+    int curEngineIdx = engineComboIndexForAlgo(curAlgo, stkValues);
     engineCombo.setSelectedIndex(curEngineIdx);
-    engineCombo.addActionListener(
-        e -> {
-          int ei = engineCombo.getSelectedIndex();
-          int algoVal = stkValues[ei];
-          model.setSynthAlgorithm(algoVal);
-        });
     topPanel.add(engineCombo);
 
     // Engine Type
@@ -50,7 +46,8 @@ public class AlgorithmPanel extends JPanel {
     engineTypeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     engineTypeCombo.setForeground(Color.WHITE);
     int curEngineType = model.getEngineType();
-    engineTypeCombo.setSelectedIndex(curEngineType + 1);
+    engineTypeCombo.setSelectedIndex(
+        Math.max(0, Math.min(engineTypeNames.length - 1, curEngineType + 1)));
     engineTypeCombo.addActionListener(
         ev -> {
           int idx = engineTypeCombo.getSelectedIndex();
@@ -61,23 +58,21 @@ public class AlgorithmPanel extends JPanel {
     add(topPanel, BorderLayout.NORTH);
 
     // ── Center: 32-algorithm grid ──
-    JPanel gridPanel = new JPanel(new GridLayout(16, 2, 6, 6));
+    gridPanel = new JPanel(new GridLayout(16, 2, 6, 6));
     gridPanel.setBackground(SwingSynthConfigDialog.BG_CARD);
     JScrollPane scroll = new JScrollPane(gridPanel);
     scroll.setPreferredSize(new Dimension(700, 400));
     scroll.setBorder(
         BorderFactory.createTitledBorder(
-            BorderFactory.createLineBorder(new Color(0x44, 0x44, 0x44)), "DX7 ALGORITHMS (0–31)"));
+            BorderFactory.createLineBorder(CARD_NORMAL_BORDER), "DX7 ALGORITHMS (0–31)"));
     scroll.getViewport().setBackground(SwingSynthConfigDialog.BG_CARD);
 
     for (int algo = 0; algo < 32; algo++) {
       final int a = algo;
       JPanel algoCard = new JPanel(new BorderLayout(4, 2));
-      algoCard.setBackground(
-          curAlgo == a ? new Color(0x3a, 0x5a, 0x3a) : new Color(0x2a, 0x2a, 0x2a));
+      algoCard.setBackground(curAlgo == a ? CARD_SELECTED_BG : CARD_NORMAL_BG);
       algoCard.setBorder(
-          BorderFactory.createLineBorder(
-              curAlgo == a ? Color.CYAN : new Color(0x44, 0x44, 0x44), 1));
+          BorderFactory.createLineBorder(curAlgo == a ? Color.CYAN : CARD_NORMAL_BORDER, 1));
 
       JTextArea algoPreview = new JTextArea(formatAlgorithmMini(a));
       algoPreview.setEditable(false);
@@ -98,13 +93,12 @@ public class AlgorithmPanel extends JPanel {
       selectBtn.addActionListener(
           ev -> {
             model.setSynthAlgorithm(a);
-            for (Component comp : gridPanel.getComponents()) {
-              if (comp instanceof JPanel card) {
-                card.setBackground(
-                    a == getAlgoForCard(card, gridPanel)
-                        ? new Color(0x3a, 0x5a, 0x3a)
-                        : new Color(0x2a, 0x2a, 0x2a));
-              }
+            updateAlgorithmCardSelection(gridPanel, a);
+            syncingEngineCombo = true;
+            try {
+              engineCombo.setSelectedIndex(engineComboIndexForAlgo(a, stkValues));
+            } finally {
+              syncingEngineCombo = false;
             }
           });
       labelRow.add(selectBtn);
@@ -112,6 +106,14 @@ public class AlgorithmPanel extends JPanel {
 
       gridPanel.add(algoCard);
     }
+    engineCombo.addActionListener(
+        e -> {
+          if (syncingEngineCombo) return;
+          int ei = engineCombo.getSelectedIndex();
+          int algoVal = stkValues[ei];
+          model.setSynthAlgorithm(algoVal);
+          updateAlgorithmCardSelection(gridPanel, algoVal);
+        });
     add(scroll, BorderLayout.CENTER);
     // Open the list at the top (Algo 0) — adding cards can leave the viewport scrolled mid-list.
     SwingUtilities.invokeLater(() -> scroll.getVerticalScrollBar().setValue(0));
@@ -167,5 +169,37 @@ public class AlgorithmPanel extends JPanel {
       if (comp instanceof JPanel) idx++;
     }
     return -1;
+  }
+
+  private static int engineComboIndexForAlgo(int algo, int[] stkValues) {
+    for (int i = 1; i < stkValues.length; i++) {
+      if (stkValues[i] == algo) return i;
+    }
+    return 0;
+  }
+
+  private static void updateAlgorithmCardSelection(JPanel grid, int selectedAlgo) {
+    for (Component comp : grid.getComponents()) {
+      if (comp instanceof JPanel card) {
+        boolean sel = (selectedAlgo == getAlgoForCard(card, grid));
+        Color bg = sel ? CARD_SELECTED_BG : CARD_NORMAL_BG;
+        card.setBackground(bg);
+        card.setBorder(BorderFactory.createLineBorder(sel ? Color.CYAN : CARD_NORMAL_BORDER, 1));
+        for (Component child : card.getComponents()) {
+          if (child instanceof JPanel labelRow) {
+            labelRow.setBackground(bg);
+          }
+        }
+      }
+    }
+    grid.repaint();
+  }
+
+  JComboBox<String> getEngineComboForTest() {
+    return engineCombo;
+  }
+
+  JPanel getGridPanelForTest() {
+    return gridPanel;
   }
 }

@@ -86,4 +86,11 @@ public class ThemeManager {
       listeners.add(r);
     }
   }
+
+  public static void removeThemeListener(Runnable r) {
+    if (r == null) return;
+    synchronized (listeners) {
+      listeners.remove(r);
+    }
+  }
 }

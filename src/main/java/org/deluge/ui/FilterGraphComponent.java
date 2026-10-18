@@ -91,18 +91,30 @@ public class FilterGraphComponent extends JComponent {
 
             // 3. Find and update parent sliders to trigger the centralized updates & audio sync
             Window win = SwingUtilities.getWindowAncestor(FilterGraphComponent.this);
-            if (win instanceof Container container) {
-              JSlider cutoffSlider =
-                  SwingSynthConfigDialog.findSliderByName(container, "lpfCutoff");
-              JSlider resSlider =
-                  SwingSynthConfigDialog.findSliderByName(container, "lpfResonance");
+            Container container =
+                (win instanceof Container c)
+                    ? c
+                    : SwingSynthConfigDialog.findRootContainer(FilterGraphComponent.this);
+            JSlider cutoffSlider =
+                (container != null)
+                    ? SwingSynthConfigDialog.findSliderByName(container, "lpfCutoff")
+                    : null;
+            JSlider resSlider =
+                (container != null)
+                    ? SwingSynthConfigDialog.findSliderByName(container, "lpfResonance")
+                    : null;
 
-              if (cutoffSlider != null) {
-                cutoffSlider.setValue((int) (cutoffVal * 100));
-              }
-              if (resSlider != null) {
-                resSlider.setValue((int) (resonanceVal * 100));
-              }
+            if (cutoffSlider != null) {
+              cutoffSlider.setValue((int) (cutoffVal * 100));
+            } else {
+              model.setLpfFreq(cutoffVal * 20000.0f);
+              bridge.setFilterFreq(trackIndex, cutoffVal);
+            }
+            if (resSlider != null) {
+              resSlider.setValue((int) (resonanceVal * 100));
+            } else {
+              model.setLpfRes(resonanceVal);
+              bridge.setFilterRes(trackIndex, resonanceVal);
             }
 
             repaint();
@@ -111,8 +123,8 @@ public class FilterGraphComponent extends JComponent {
   }
 
   private boolean isOverNode(int mx, int my) {
-    float cutoff = (float) bridge.getTrackFilterFreq(trackIndex);
-    float resonance = (float) bridge.getTrackFilterRes(trackIndex);
+    float cutoff = Math.max(0f, Math.min(1f, model.getLpfFreq() / 20000.0f));
+    float resonance = Math.max(0f, Math.min(1f, model.getLpfRes()));
 
     int w = getWidth();
     int h = getHeight();
@@ -169,9 +181,9 @@ public class FilterGraphComponent extends JComponent {
     }
     g2.setStroke(oldStroke);
 
-    // Dynamic state fetch (from model/bridge)
-    float cutoff = (float) bridge.getTrackFilterFreq(trackIndex); // 0.0 to 1.0
-    float resonance = (float) bridge.getTrackFilterRes(trackIndex); // 0.0 to 1.0
+    // Dynamic state fetch (from model, so preset loads and direct model edits show immediately)
+    float cutoff = Math.max(0f, Math.min(1f, model.getLpfFreq() / 20000.0f)); // 0.0 to 1.0
+    float resonance = Math.max(0f, Math.min(1f, model.getLpfRes())); // 0.0 to 1.0
     FilterMode mode = model.getFilterMode();
     boolean notch = model.isFilterNotch();
 
