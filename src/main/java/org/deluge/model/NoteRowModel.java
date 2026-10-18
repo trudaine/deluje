@@ -251,6 +251,34 @@ public class NoteRowModel {
     return 0;
   }
 
+  /**
+   * Keeps the C NoteRow invariant that notes never overlap: every C length edit caps a note at
+   * NoteRow::getDistanceToNextNote (note_row.cpp:3859-3887; instrument_clip_view.cpp:2409-2411,
+   * 4656, 7182), and attemptNoteAdd limits a new note the same way (note_row.cpp attemptNoteAdd).
+   * The step grid can ask for a gate longer than the gap to the next step; the note then ends where
+   * the next one starts. The sequencer's note search (processCurrentPos) relies on this.
+   */
+  public void limitLengthsToNextNote(int clipLoopLength) {
+    int effectiveLength = loopLengthIfIndependent > 0 ? loopLengthIfIndependent : clipLoopLength;
+    if (effectiveLength <= 0 || notes.isEmpty()) {
+      return;
+    }
+    List<NoteModel> sorted = new ArrayList<>(notes);
+    sorted.sort(java.util.Comparator.comparingInt(NoteModel::getPos));
+    int n = sorted.size();
+    for (int i = 0; i < n; i++) {
+      NoteModel note = sorted.get(i);
+      // C getDistanceToNextNote (forward): next note's pos - pos, wrapping; <= 0 adds a loop.
+      int distance = sorted.get((i + 1) % n).getPos() - note.getPos();
+      if (distance <= 0) {
+        distance += effectiveLength;
+      }
+      if (note.getLength() > distance) {
+        note.setLength(Math.max(1, distance));
+      }
+    }
+  }
+
   public void quantize(int increment, int amount) {
     if (notes.isEmpty()) return;
 

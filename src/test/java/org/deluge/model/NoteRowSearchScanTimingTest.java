@@ -75,4 +75,18 @@ class NoteRowSearchScanTimingTest {
     // Default synth sustains (tails allowed): [24, 36) starts at 36 and stops at 24.
     assertEquals(List.of("ON@36", "OFF@24"), run(ClipModel.PlayDirection.REVERSE, 95, 24, 12));
   }
+
+  @Test
+  void stepGateLongerThanTheGapEndsAtTheNextNote() {
+    // Gate 15 steps on steps 0 and 4: the C never lets notes overlap (getDistanceToNextNote), so
+    // the first note ends at 96 where the second starts, and both sound.
+    ClipModel clip = new ClipModel("g", 1, 16);
+    clip.setStep(0, 0, new StepData(true, 1.0f, 15.0f, 1.0f, 60, 0, 0f));
+    clip.setStep(0, 4, new StepData(true, 1.0f, 15.0f, 1.0f, 60, 0, 0f));
+    List<NoteModel> notes = clip.getOrCreateRow(0).getNotes();
+    assertEquals(96, notes.stream().filter(n -> n.getPos() == 0).findFirst().get().getLength());
+    // The last note may run to the loop point and wrap, but not past the first note.
+    assertEquals(
+        384 - 96, notes.stream().filter(n -> n.getPos() == 96).findFirst().get().getLength());
+  }
 }
