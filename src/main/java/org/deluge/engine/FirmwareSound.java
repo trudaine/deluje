@@ -362,7 +362,8 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     }
 
     // C sound.cpp:2396-2442 — globalSourceValues holds the running LFO_GLOBAL_1, LFO_GLOBAL_2,
-    // and SIDECHAIN outputs across blocks and into Voice::noteOn (voice.cpp:414); do not wipe it.
+    // and SIDECHAIN outputs across blocks and into Voice::noteOn (voice.cpp:197-199); do not wipe
+    // it.
     fw2Sound.lfoConfig[0].waveType = lfoWaveforms[0];
     fw2Sound.lfoConfig[1].waveType = lfoWaveforms[1];
     fw2Sound.lfoConfig[2].waveType = lfoWaveforms[2];
