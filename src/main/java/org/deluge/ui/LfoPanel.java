@@ -22,10 +22,57 @@ public class LfoPanel extends JPanel {
     "NONE", "Filter", "Res", "Pan", "Pitch", "Vol", "FM"
   };
 
+  // Combo order:
+  //   0..7:   OFF, 1/1..1/64  (syncLevel 0..7, syncType 0 = EVEN)
+  //   8..13:  1/2T..1/64T     (syncLevel 2..7, syncType 1 = TRIPLET)
+  //   14..19: 1/2D..1/64D     (syncLevel 2..7, syncType 2 = DOTTED)
+  // C sync.cpp:44-54 and FirmwareFactory.java:800-807.
   private static final String[] SYNC_VALS = {
     "OFF", "1/1", "1/2", "1/4", "1/8", "1/16", "1/32", "1/64", "1/2T", "1/4T", "1/8T", "1/16T",
     "1/32T", "1/64T", "1/2D", "1/4D", "1/8D", "1/16D", "1/32D", "1/64D"
   };
+
+  static int syncComboIndexFor(int syncLevel, int syncType) {
+    if (syncLevel <= 0) {
+      return 0;
+    }
+    int clampedLevel = Math.min(7, syncLevel);
+    if (clampedLevel >= 2) {
+      if (syncType == 1) {
+        return 8 + (clampedLevel - 2);
+      }
+      if (syncType == 2) {
+        return 14 + (clampedLevel - 2);
+      }
+    }
+    return clampedLevel;
+  }
+
+  static int syncLevelForComboIndex(int comboIndex) {
+    if (comboIndex <= 0) {
+      return 0;
+    }
+    if (comboIndex <= 7) {
+      return comboIndex;
+    }
+    if (comboIndex <= 13) {
+      return comboIndex - 8 + 2;
+    }
+    if (comboIndex <= 19) {
+      return comboIndex - 14 + 2;
+    }
+    return 0;
+  }
+
+  static int syncTypeForComboIndex(int comboIndex) {
+    if (comboIndex >= 8 && comboIndex <= 13) {
+      return 1;
+    }
+    if (comboIndex >= 14 && comboIndex <= 19) {
+      return 2;
+    }
+    return 0;
+  }
 
   private final SynthTrackModel model;
   private JPanel drawPadWrapper;
@@ -312,7 +359,7 @@ public class LfoPanel extends JPanel {
 
       // Sync
       JComboBox<String> syncCombo = new JComboBox<>(SYNC_VALS);
-      syncCombo.setSelectedIndex(Math.max(0, Math.min(SYNC_VALS.length - 1, init.syncLevel())));
+      syncCombo.setSelectedIndex(syncComboIndexFor(init.syncLevel(), init.syncType()));
       syncCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
       syncCombo.setForeground(Color.WHITE);
       String syncTooltip = "LFO " + lfoIdx + " Sync: Project BPM beat division rate.";
@@ -324,6 +371,7 @@ public class LfoPanel extends JPanel {
       SwingSynthConfigDialog.attachHoverHelp(syncCombo, syncHelp);
       syncCombo.addActionListener(
           e -> {
+            int sel = syncCombo.getSelectedIndex();
             LfoModel lm = lfo(lfoIdx);
             model.setLfo(
                 lfoIdx,
@@ -333,8 +381,8 @@ public class LfoPanel extends JPanel {
                     lm.depth(),
                     lm.target(),
                     lm.isLocal(),
-                    syncCombo.getSelectedIndex(),
-                    lm.syncType()));
+                    syncLevelForComboIndex(sel),
+                    syncTypeForComboIndex(sel)));
           });
       c.gridx = col++;
       controlsPanel.add(syncCombo, c);
