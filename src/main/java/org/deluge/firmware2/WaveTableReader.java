@@ -122,11 +122,12 @@ public class WaveTableReader {
       return;
     }
 
-    float[] samples = decodeSamples(allBytes, bb, dataOffset, numSamples, audioFormat, byteDepth);
+    int[] q31Samples =
+        decodeSamplesToQ31(allBytes, bb, dataOffset, numSamples, audioFormat, byteDepth);
 
     waveTable.bands.clear();
-    waveTable.setup(cycleSize, samples.length);
-    WavetableGenerator.generateBands(waveTable, samples);
+    waveTable.setup(cycleSize, q31Samples.length);
+    WavetableGenerator.generateBands(waveTable, q31Samples);
   }
 
   // C functions.cpp:654-666 — memToUIntOrError(mem, memEnd): returns -1 on any non-digit byte.
@@ -145,51 +146,63 @@ public class WaveTableReader {
     return (int) number;
   }
 
-  // C wave_table.cpp:421-439 — convert 8/16/24/32-bit PCM or 32-bit float into normalized [-1, 1].
-  private static float[] decodeSamples(
+  // C wave_table.cpp:421-439 (CONVERT_AND_STORE_SAMPLE) — left-aligned q31 value32 for each sample.
+  public static int[] decodeSamplesToQ31(
       byte[] bytes, ByteBuffer bb, int dataOffset, int numSamples, int audioFormat, int byteDepth) {
-    float[] samples = new float[numSamples];
+    int[] q31Samples = new int[numSamples];
     if (audioFormat == WAV_FORMAT_FLOAT) {
       for (int i = 0; i < numSamples; i++) {
-        float v = bb.getFloat(dataOffset + i * 4);
-        if (Float.isNaN(v)) {
-          v = 0.0f;
-        } else if (v > 1.0f) {
-          v = 1.0f;
-        } else if (v < -1.0f) {
-          v = -1.0f;
-        }
-        samples[i] = v;
+        q31Samples[i] = q31FromFloat(bb.getFloat(dataOffset + i * 4));
       }
-      return samples;
+      return q31Samples;
     }
 
     switch (byteDepth) {
       case 1 -> {
+        // C wave_table.cpp:430-433 — RawDataFormat::UNSIGNED_8: mask top byte and add (1 << 31).
         for (int i = 0; i < numSamples; i++) {
-          int unsignedByte = bytes[dataOffset + i] & 0xFF;
-          samples[i] = (unsignedByte - 128) / 128.0f;
+          q31Samples[i] = (bytes[dataOffset + i] << 24) + (1 << 31);
         }
       }
       case 2 -> {
         for (int i = 0; i < numSamples; i++) {
-          samples[i] = bb.getShort(dataOffset + i * 2) / 32768.0f;
+          q31Samples[i] = bb.getShort(dataOffset + i * 2) << 16;
         }
       }
       case 3 -> {
         for (int i = 0; i < numSamples; i++) {
           int o = dataOffset + i * 3;
-          int signed24 = (bytes[o] & 0xFF) | ((bytes[o + 1] & 0xFF) << 8) | (bytes[o + 2] << 16);
-          samples[i] = signed24 / 8388608.0f;
+          q31Samples[i] =
+              ((bytes[o] & 0xFF) << 8) | ((bytes[o + 1] & 0xFF) << 16) | (bytes[o + 2] << 24);
         }
       }
       case 4 -> {
         for (int i = 0; i < numSamples; i++) {
-          samples[i] = bb.getInt(dataOffset + i * 4) / 2147483648.0f;
+          q31Samples[i] = bb.getInt(dataOffset + i * 4);
         }
       }
       default -> {}
     }
-    return samples;
+    return q31Samples;
+  }
+
+  // C fixedpoint.h:224-252 — q31_from_float, saturating at |value| >= 1.0f.
+  public static int q31FromFloat(float value) {
+    if (Float.isNaN(value)) {
+      return 0;
+    }
+    int bits = Float.floatToRawIntBits(value);
+    boolean negative = (bits & 0x80000000) != 0;
+    int exponent = ((bits >>> 23) & 0xFF) - 127;
+    if (exponent >= 0) {
+      return negative ? Integer.MIN_VALUE : Integer.MAX_VALUE;
+    }
+    int shift = -exponent;
+    if (shift >= 32) {
+      return 0;
+    }
+    int mantissa = (bits << 8) | 0x80000000;
+    int outputValue = mantissa >>> shift;
+    return negative ? -outputValue : outputValue;
   }
 }

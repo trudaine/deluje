@@ -15,7 +15,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-class WavetableGeneratorReaderParityTest {
+class WavetableGeneratorReaderTest {
 
   @TempDir Path tempDir;
 
@@ -101,11 +101,13 @@ class WavetableGeneratorReaderParityTest {
     }
     assertEquals(8192, band1Peak, 8, "Band 1 must fold Nyquist magnitude into real component");
 
-    // Band 2 (size 512) has Nyquist at harmonic 256, so harmonic 512 is completely filtered out.
+    // Band 2 (size 512) has Nyquist at harmonic 256, so harmonic 512 is completely filtered out
+    // (within 1 LSB due to Q19 input quantization and floor shift).
     WaveTableBand band2 = wt.bands.get(2);
     assertEquals(512, band2.cycleSizeNoDuplicates);
     for (int i = 0; i < band2.cycleSizeNoDuplicates; i++) {
-      assertEquals(0, band2.data[i], "Band 2 must filter out harmonics above its Nyquist");
+      assertTrue(
+          Math.abs(band2.data[i]) <= 1, "Band 2 must filter out harmonics above its Nyquist");
     }
   }
 
@@ -201,6 +203,53 @@ class WavetableGeneratorReaderParityTest {
     WaveTable wtStereo = new WaveTable();
     WaveTableReader.readWavetable(wtStereo, wavStereo.getAbsolutePath());
     assertTrue(wtStereo.bands.isEmpty(), "Stereo WAV must be rejected as a wavetable");
+  }
+
+  @Test
+  void band0TruncatesQ31RatherThanRoundingFor24Bit32BitAndFloat() {
+    // 24-bit +511 (0x0001FF) -> value32 = 0x0001FF00 -> value32 >> 16 = 1 (rounding would give 2).
+    // 24-bit -127 (0xFFFF81) -> value32 = 0xFFFF8100 -> value32 >> 16 = -1 (rounding would give 0).
+    byte[] raw24 =
+        new byte[] {
+          (byte) 0xFF,
+          0x01,
+          0x00, // +511
+          (byte) 0x81,
+          (byte) 0xFF,
+          (byte) 0xFF, // -127
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        };
+    ByteBuffer bb24 = ByteBuffer.wrap(raw24).order(ByteOrder.LITTLE_ENDIAN);
+    int[] q31From24 = WaveTableReader.decodeSamplesToQ31(raw24, bb24, 0, 8, 1, 3);
+    assertEquals(0x0001FF00, q31From24[0]);
+    assertEquals(0xFFFF8100, q31From24[1]);
+
+    WaveTable wt = new WaveTable();
+    wt.setup(8, 8);
+    WavetableGenerator.generateBands(wt, q31From24);
+    assertEquals(1, wt.bands.get(0).data[0], "Band 0 must floor (value32 >> 16), not round");
+    assertEquals(-1, wt.bands.get(0).data[1], "Band 0 must floor negative values toward -infinity");
+
+    // Out-of-range float saturates via q31FromFloat (fixedpoint.h:224-252) without pre-clamp drift.
+    assertEquals(Integer.MAX_VALUE, WaveTableReader.q31FromFloat(1.25f));
+    assertEquals(Integer.MIN_VALUE, WaveTableReader.q31FromFloat(-1.25f));
   }
 
   private static int maxAbs(short[] data, int len) {
