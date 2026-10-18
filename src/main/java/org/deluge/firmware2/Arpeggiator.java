@@ -290,15 +290,14 @@ public class Arpeggiator {
         // C: arpeggiator.cpp:1595 — arpRate >> 5
         phaseIncrement = arpRate >> 5;
       } else {
-        // C: arpeggiator.cpp:1598-1610
+        // C: arpeggiator.cpp:1598-1610 — phaseIncrement is uint32_t.
         int rightShiftAmount = 9 - syncLevel.ordinal();
         if (rightShiftAmount < 0) rightShiftAmount = 0;
-        phaseIncrement = timePerTickInverse;
-        phaseIncrement >>= rightShiftAmount;
+        phaseIncrement = timePerTickInverse >>> rightShiftAmount;
         if (syncType == SyncType.TRIPLET) {
-          phaseIncrement = phaseIncrement * 3 / 2;
+          phaseIncrement = Integer.divideUnsigned(phaseIncrement * 3, 2);
         } else if (syncType == SyncType.DOTTED) {
-          phaseIncrement = phaseIncrement * 2 / 3;
+          phaseIncrement = Integer.divideUnsigned(phaseIncrement * 2, 3);
         }
       }
       return phaseIncrement;

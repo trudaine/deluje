@@ -13,7 +13,9 @@ public class ArpeggiatorForDrum extends ArpeggiatorBase {
 
   @Override
   public void reset() {
-    active_note.velocity = 0; // C:126-128
+    // C arpeggiator.cpp:132-135
+    active_note.resetPostArpArrays();
+    active_note.velocity = 0;
   }
 
   @Override

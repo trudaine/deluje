@@ -294,21 +294,22 @@ public abstract class ArpeggiatorBase {
     return (value >>> 16) >= randomChance;
   }
 
+  // C arpeggiator.cpp:901-913, fixedpoint.h:62-67 — value is uint32_t (>>> 1) and q31_mult
+  // multiplies the smmul result by 2 (<< 1).
   byte getRandomBipolarProbabilityAmount(int value) {
     if (value == 0) return 0;
-    int randValue =
-        Functions.multiply_32x32_rshift32(
-            Functions.multiply_32x32_rshift32(sampleTriangleDistribution(), value >> 1), 255);
+    int q31 = Functions.multiply_32x32_rshift32(sampleTriangleDistribution(), value >>> 1) << 1;
+    int randValue = Functions.multiply_32x32_rshift32(q31, 255);
     if (randValue < -127) return -127;
     if (randValue > 127) return 127;
     return (byte) randValue;
   }
 
+  // C arpeggiator.cpp:914-919, fixedpoint.h:62-67
   int getRandomWeighted2BitsAmount(int value) {
     if (value == 0) return 0;
-    return Math.abs(
-        Functions.multiply_32x32_rshift32(
-            Functions.multiply_32x32_rshift32(sampleTriangleDistribution(), value >> 1), 5));
+    int q31 = Functions.multiply_32x32_rshift32(sampleTriangleDistribution(), value >>> 1) << 1;
+    return Math.abs(Functions.multiply_32x32_rshift32(q31, 5));
   }
 
   private int sampleTriangleDistribution() {
@@ -626,13 +627,16 @@ public abstract class ArpeggiatorBase {
 
     boolean syncedNow = settings.syncLevel != SyncLevel.SYNC_LEVEL_NONE && playbackClockActive;
 
-    if (gatePos >= ratchetNotesIndex * maxGateForRatchet + gateThresholdSmall) {
+    // C arpeggiator.cpp:1480, 1525-1544, arpeggiator.h:254 — gatePos and phaseIncrement are
+    // uint32_t.
+    if (Integer.compareUnsigned(gatePos, ratchetNotesIndex * maxGateForRatchet + gateThresholdSmall)
+        >= 0) {
       switchAnyNoteOff(instruction);
       if (isRatcheting
           && ratchetNotesIndex < ratchetNotesCount - 1
-          && gatePos >= (ratchetNotesIndex + 1) * maxGateForRatchet) {
+          && Integer.compareUnsigned(gatePos, (ratchetNotesIndex + 1) * maxGateForRatchet) >= 0) {
         switchNoteOn(settings, instruction, true);
-      } else if (!syncedNow && gatePos >= maxGate) {
+      } else if (!syncedNow && Integer.compareUnsigned(gatePos, maxGate) >= 0) {
         switchNoteOn(settings, instruction, false);
       }
     }
@@ -640,7 +644,7 @@ public abstract class ArpeggiatorBase {
     if (!syncedNow) {
       gatePos &= (maxGate - 1);
     }
-    gatePos += (phaseIncrement >> 8) * numSamples;
+    gatePos += (phaseIncrement >>> 8) * numSamples;
   }
 
   public int doTickForward(
@@ -664,7 +668,8 @@ public abstract class ArpeggiatorBase {
       ticksPerPeriod = ticksPerPeriod * 3 / 2;
     }
 
-    int howFarIntoPeriod = clipCurrentPos % ticksPerPeriod;
+    // C arpeggiator.cpp:1550, 1572 — clipCurrentPos and ticksPerPeriod are uint32_t.
+    int howFarIntoPeriod = Integer.remainderUnsigned(clipCurrentPos, ticksPerPeriod);
 
     if (howFarIntoPeriod == 0) {
       if (hasAnyInputNotesActive()) {
