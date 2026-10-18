@@ -141,24 +141,6 @@ public class NoteRowModel {
     }
   }
 
-  /**
-   * Mirrors {@code lastProcessedPosIfIndependent} when the parent clip changes direction while this
-   * row obeys the parent (C NoteRow::setSequenceDirectionMode, note_row.cpp:4453-4480).
-   */
-  public void syncDirectionWithClip(SequenceDirection clipDirectionMode) {
-    if (!hasIndependentPlayPos()) {
-      return;
-    }
-    if (clipDirectionMode != SequenceDirection.PINGPONG) {
-      boolean reversedBefore = currentlyPlayingReversedIfIndependent;
-      currentlyPlayingReversedIfIndependent = (clipDirectionMode == SequenceDirection.REVERSE);
-      if (reversedBefore != currentlyPlayingReversedIfIndependent) {
-        // C note_row.cpp:4472-4473 — mirrors position zero too (0 -> loopLengthIfIndependent).
-        lastProcessedPosIfIndependent = loopLengthIfIndependent - lastProcessedPosIfIndependent;
-      }
-    }
-  }
-
   public NoteRowModel(int pitch) {
     this.pitch = pitch;
     this.y = pitch;

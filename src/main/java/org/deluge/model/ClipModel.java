@@ -562,9 +562,9 @@ public class ClipModel extends TimelineCounter {
         }
       }
     }
-    for (NoteRowModel row : noteRows.values()) {
-      row.syncDirectionWithClip(sequenceDirectionMode);
-    }
+    // C Clip::setSequenceDirectionMode (clip.cpp:1041-1055) touches no NoteRow: an
+    // independent-length row keeps its direction and position until InstrumentClip::setPos
+    // re-derives them (instrument_clip.cpp:405-436).
     expectEvent();
   }
 
