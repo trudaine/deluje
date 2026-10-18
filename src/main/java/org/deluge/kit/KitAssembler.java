@@ -52,6 +52,7 @@ public class KitAssembler {
         sound.setMuteGroup(muteGroups.get(i));
       }
       if (pitchOffsets != null && i < pitchOffsets.size() && pitchOffsets.get(i) != null) {
+        // Additive by design: lane pitch offset shifts the preset's own transpose.
         sound.setPitchSemitones(sound.getPitchSemitones() + pitchOffsets.get(i));
       }
 

@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import javax.swing.JButton;
+import org.deluge.firmware2.Param;
 import org.deluge.hid.FirmwareDisplay;
 import org.deluge.hid.RGB;
 import org.deluge.hid.VirtualOLED;
@@ -71,7 +72,7 @@ class KitAssemblerPatchCableHidParityTest {
   }
 
   @Test
-  void patchCableSetIgnoresNoneSourceAndDeduplicatesSameSourceCables() {
+  void patchCableSetKeepsFirstDuplicateDropsZeroAndXLocalPitchAdjust() {
     PatchCableSet set = new PatchCableSet();
 
     PatchCable noneCable = new PatchCable();
@@ -81,25 +82,45 @@ class KitAssemblerPatchCableHidParityTest {
     set.addCable(4, null);
     assertTrue(set.destinations.isEmpty());
 
+    // Zero-amount unautomated cable is ignored (patch_cable_set.cpp:902).
+    PatchCable zeroCable = new PatchCable();
+    zeroCable.from = PatchSource.LFO_LOCAL_1;
+    zeroCable.amount = 0;
+    set.addCable(4, zeroCable);
+    assertTrue(set.destinations.isEmpty());
+
+    // X -> LOCAL_PITCH_ADJUST is ignored (patch_cable_set.cpp:909-913).
+    PatchCable xPitchCable = new PatchCable();
+    xPitchCable.from = PatchSource.X;
+    xPitchCable.amount = 400;
+    set.addCable(Param.LOCAL_PITCH_ADJUST, xPitchCable);
+    assertTrue(set.destinations.isEmpty());
+
+    // First duplicate wins on load (patch_cable_set.cpp:915-921).
     PatchCable lfoFirst = new PatchCable();
     lfoFirst.from = PatchSource.LFO_LOCAL_1;
     lfoFirst.amount = 200;
     set.addCable(4, lfoFirst);
 
-    PatchCable lfoReplacement = new PatchCable();
-    lfoReplacement.from = PatchSource.LFO_LOCAL_1;
-    lfoReplacement.amount = 500;
-    set.addCable(4, lfoReplacement);
+    PatchCable lfoSecond = new PatchCable();
+    lfoSecond.from = PatchSource.LFO_LOCAL_1;
+    lfoSecond.amount = 500;
+    set.addCable(4, lfoSecond);
 
     assertEquals(1, set.destinations.size());
     Destination dest = set.destinations.get(0);
     assertEquals(1, dest.cables.size());
-    assertEquals(500, dest.cables.get(0).amount);
+    assertEquals(200, dest.cables.get(0).amount, "First duplicate must win on addCable");
     assertEquals(1 << PatchSource.LFO_LOCAL_1.ordinal(), dest.sourcesMask);
 
-    // Range cables also reject NONE and deduplicate on (from, targetParamId, targetSource).
-    set.addRangeCable(4, PatchSource.NONE, lfoReplacement);
+    // setCableAmount updates existing cable in place (patch_cable_set.cpp:411-418).
+    set.setCableAmount(PatchSource.LFO_LOCAL_1, 4, 500);
+    assertEquals(500, dest.cables.get(0).amount);
+
+    // Range cables also reject NONE, zero amount, and keep the first duplicate (:879-885).
+    set.addRangeCable(4, PatchSource.NONE, lfoSecond);
     set.addRangeCable(4, PatchSource.LFO_LOCAL_1, noneCable);
+    set.addRangeCable(4, PatchSource.LFO_LOCAL_1, zeroCable);
     assertEquals(1, set.destinations.size());
 
     PatchCable rangeFirst = new PatchCable();
@@ -115,7 +136,7 @@ class KitAssemblerPatchCableHidParityTest {
     assertEquals(2, set.destinations.size());
     Destination rangeDest = set.destinations.get(1);
     assertEquals(1, rangeDest.cables.size());
-    assertEquals(900, rangeDest.cables.get(0).amount);
+    assertEquals(300, rangeDest.cables.get(0).amount, "First range duplicate must win");
   }
 
   @Test
