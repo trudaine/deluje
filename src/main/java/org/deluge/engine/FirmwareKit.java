@@ -73,4 +73,20 @@ public class FirmwareKit extends org.deluge.firmware2.Kit {
       drum.releaseAllNotes();
     }
   }
+
+  /**
+   * C kit.cpp:588-619 — ticks every SoundDrum's ParamManager after rendering the kit, even for
+   * drums that skipped audio rendering this block.
+   */
+  @Override
+  protected void tickParamManagersAfterRender(int numSamples) {
+    if (shouldLimitDelayFeedback) {
+      return;
+    }
+    for (FirmwareSound drum : drumSounds) {
+      if (drum.fw2Sound.arpeggiator.playbackClockActive) {
+        drum.tickSamples(numSamples);
+      }
+    }
+  }
 }

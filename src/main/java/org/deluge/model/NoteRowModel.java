@@ -587,9 +587,37 @@ public class NoteRowModel {
     int currentPos =
         (loopLengthIfIndependent > 0) ? lastProcessedPosIfIndependent : clipLastProcessedPos;
 
+    // C note_row.cpp:2119-2137
+    int ticksTilNextParamManagerEvent = Integer.MAX_VALUE;
     if (paramManager.mightContainAutomation()) {
+      if (didPingpong) {
+        paramManager.notifyPingpongOccurred();
+      }
+      boolean mayInterpolate = !(sound instanceof org.deluge.engine.FirmwareMidiInstrument);
       paramManager.processCurrentPos(
-          currentPos, effectiveLength, playingReversedNow, didPingpong, true);
+          ticksSinceLast,
+          currentPos,
+          effectiveLength,
+          playingReversedNow,
+          didPingpong,
+          mayInterpolate);
+      ticksTilNextParamManagerEvent = paramManager.ticksTilNextEvent;
+    }
+    if (loopLengthIfIndependent > 0
+        && sound instanceof org.deluge.engine.FirmwareKit kit
+        && pitch >= 0
+        && pitch < kit.drumSounds.size()) {
+      ParamManager drumParams = kit.drumSounds.get(pitch).paramManager;
+      if (drumParams.mightContainAutomation()) {
+        if (didPingpong) {
+          drumParams.notifyPingpongOccurred();
+        }
+        drumParams.processCurrentPos(
+            ticksSinceLast, currentPos, effectiveLength, playingReversedNow, didPingpong, true);
+        if (drumParams.ticksTilNextEvent < ticksTilNextParamManagerEvent) {
+          ticksTilNextParamManagerEvent = drumParams.ticksTilNextEvent;
+        }
+      }
     }
 
     // C note_row.cpp:2135-2147
@@ -758,7 +786,7 @@ public class NoteRowModel {
       }
     }
 
-    return Math.min(ticksTilNextNoteEvent, paramManager.ticksTilNextEvent);
+    return Math.min(ticksTilNextNoteEvent, ticksTilNextParamManagerEvent);
   }
 
   // C OrderedResizeableArray::search (ordered_resizeable_array.cpp:36-52): lower bound +
