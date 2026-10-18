@@ -96,8 +96,21 @@ final class SongProjector {
 
   /** What note row {@code r} draws at {@code step}: head colour, tail colour, or null. */
   private static Color rowDrawAt(ClipModel clip, int colourOffset, int r, int step) {
-    Color main = DelugeColour.fromHue((clip.getRowYNote(r) + colourOffset) * -8 / 3);
     StepData here = clip.getStep(r, step);
+    // C instrument_clip.cpp:1487-1492 — kit rows always use yNote = row index i.
+    int yNote;
+    if (clip.isKit()) {
+      yNote = r;
+    } else {
+      yNote = clip.getRowYNote(r);
+      if (yNote < 0) {
+        yNote =
+            (here != null && here.active() && here.pitch() > 0)
+                ? here.pitch()
+                : (clip.getRowCount() - 1 - r);
+      }
+    }
+    Color main = DelugeColour.fromHue((yNote + colourOffset) * -8 / 3);
     if (here != null && here.active()) {
       int v = Math.round(here.velocity() * 127f); // model velocity is 0..1
       int num = 65 + v + v / 2; // note_row.cpp:1967
@@ -108,6 +121,15 @@ final class SongProjector {
       StepData sd = clip.getStep(r, s);
       if (sd != null && sd.active()) {
         return (s + sd.gate() > step) ? DelugePadButton.getTailColor(main) : null;
+      }
+    }
+    // Wrapped tail (C note_row.cpp:1976-1991): when no note in [0, step) precedes this square, wrap
+    // around to notes.getLast() and check if (pos + length - effectiveRowLength) > squareStartPos.
+    int stepCount = clip.getStepCount();
+    for (int s = stepCount - 1; s > step; s--) {
+      StepData sd = clip.getStep(r, s);
+      if (sd != null && sd.active()) {
+        return (s + sd.gate() - stepCount > step) ? DelugePadButton.getTailColor(main) : null;
       }
     }
     return null;
