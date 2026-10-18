@@ -30,7 +30,8 @@ public class SwingWavetableVisualizer extends JComponent {
   }
 
   public void loadWavetable(String path, int cycleSize) {
-    this.cycleSize = cycleSize;
+    // C wave_table.cpp:168,235 (kWavetableMinCycleSize = 8)
+    this.cycleSize = Math.max(8, cycleSize);
     this.audioFile = resolveAudioFile(path);
     if (audioFile == null || !audioFile.exists()) {
       this.floatSamples = null;
@@ -70,7 +71,7 @@ public class SwingWavetableVisualizer extends JComponent {
   }
 
   public void setCycleSize(int cycleSize) {
-    this.cycleSize = cycleSize;
+    this.cycleSize = Math.max(8, cycleSize);
     repaint();
   }
 
@@ -111,6 +112,19 @@ public class SwingWavetableVisualizer extends JComponent {
       g2.setFont(new Font("SansSerif", Font.BOLD, 12));
       g2.drawString(
           "NO WAVETABLE SAMPLES LOADED — BROWSE A WAVETABLE SAMPLE IN SYNTH OSCILLATORS",
+          30,
+          h / 2 + 5);
+      g2.dispose();
+      return;
+    }
+
+    if (!isValidWavetableCycleSize(cycleSize, floatSamples.length)) {
+      g2.setColor(new Color(0xff, 0x6b, 0x6b));
+      g2.setFont(new Font("SansSerif", Font.BOLD, 12));
+      g2.drawString(
+          "UNSUPPORTED WAVETABLE CYCLE SIZE ("
+              + cycleSize
+              + ") — MULTI-CYCLE WAVETABLES REQUIRE POWER-OF-TWO CYCLE SIZE",
           30,
           h / 2 + 5);
       g2.dispose();
@@ -241,7 +255,23 @@ public class SwingWavetableVisualizer extends JComponent {
     }
   }
 
-  private float[] decodeFullWavFile(File file) {
+  // C wave_table.cpp:173-195: multi-cycle wavetables require a power-of-two cycle size (>= 8);
+  // non-power-of-two cycle sizes are only accepted for single-cycle files.
+  static boolean isValidWavetableCycleSize(int cycleSize, int totalSamples) {
+    if (cycleSize < 8 || totalSamples < cycleSize) {
+      return false;
+    }
+    if (Integer.bitCount(cycleSize) == 1) {
+      return true;
+    }
+    return totalSamples < (cycleSize << 1);
+  }
+
+  // Matches C CONVERT_AND_STORE_SAMPLE (wave_table.cpp:421-439) and q31_from_float
+  // (fixedpoint.h:224-252): converts each sample to q31 value32, then stores band-0 16-bit
+  // amplitude (value32 >> 16) / 32768.0f. Once WaveTableReader's multi-format q31 decoder (#54)
+  // merges onto main, delegate directly to WaveTableReader so visualizer and engine share one body.
+  static float[] decodeFullWavFile(File file) {
     try (AudioInputStream ais = AudioSystem.getAudioInputStream(file)) {
       AudioFormat format = ais.getFormat();
       int bytesPerFrame = format.getFrameSize();
@@ -259,27 +289,78 @@ public class SwingWavetableVisualizer extends JComponent {
       float[] floatSamples = new float[totalSamples];
       boolean isBigEndian = format.isBigEndian();
       int bits = format.getSampleSizeInBits();
+      AudioFormat.Encoding encoding = format.getEncoding();
 
+      int bytesPerSample = Math.max(1, bits / 8);
       for (int i = 0; i < totalSamples; i++) {
         int byteIndex = i * bytesPerFrame;
-        float val = 0.0f;
-        if (bits == 16) {
-          int b1 = audioBytes[byteIndex];
-          int b2 = audioBytes[byteIndex + 1];
+        if (byteIndex + bytesPerSample > audioBytes.length) break;
+        int value32 = 0;
+        if (bits == 8) {
+          int raw = audioBytes[byteIndex] << 24;
+          if (AudioFormat.Encoding.PCM_SIGNED.equals(encoding)) {
+            value32 = raw;
+          } else {
+            // C wave_table.cpp:431-433 (RawDataFormat::UNSIGNED_8 adds 1 << 31)
+            value32 = raw + (1 << 31);
+          }
+        } else if (bits == 16) {
+          int b0 = audioBytes[byteIndex];
+          int b1 = audioBytes[byteIndex + 1];
           short sample =
-              isBigEndian ? (short) ((b1 << 8) | (b2 & 0xff)) : (short) ((b2 << 8) | (b1 & 0xff));
-          val = sample / 32768.0f;
-        } else if (bits == 8) {
-          int sample = audioBytes[byteIndex] & 0xff;
-          val = (sample - 128) / 128.0f;
+              isBigEndian ? (short) ((b0 << 8) | (b1 & 0xff)) : (short) ((b1 << 8) | (b0 & 0xff));
+          value32 = sample << 16;
+        } else if (bits == 24) {
+          int b0 = audioBytes[byteIndex];
+          int b1 = audioBytes[byteIndex + 1];
+          int b2 = audioBytes[byteIndex + 2];
+          value32 =
+              isBigEndian
+                  ? ((b0 << 24) | ((b1 & 0xff) << 16) | ((b2 & 0xff) << 8))
+                  : ((b2 << 24) | ((b1 & 0xff) << 16) | ((b0 & 0xff) << 8));
+        } else if (bits == 32) {
+          int b0 = audioBytes[byteIndex];
+          int b1 = audioBytes[byteIndex + 1];
+          int b2 = audioBytes[byteIndex + 2];
+          int b3 = audioBytes[byteIndex + 3];
+          int word =
+              isBigEndian
+                  ? ((b0 << 24) | ((b1 & 0xff) << 16) | ((b2 & 0xff) << 8) | (b3 & 0xff))
+                  : ((b3 << 24) | ((b2 & 0xff) << 16) | ((b1 & 0xff) << 8) | (b0 & 0xff));
+          if (AudioFormat.Encoding.PCM_FLOAT.equals(encoding)) {
+            value32 = q31FromFloat(Float.intBitsToFloat(word));
+          } else {
+            value32 = word;
+          }
         }
-        floatSamples[i] = val;
+        // C wave_table.cpp:438: initialBandWritePos stores (int16_t)(value32 >> 16)
+        floatSamples[i] = (value32 >> 16) / 32768.0f;
       }
       return floatSamples;
     } catch (Exception ex) {
       LOGGER.warning("[Wavetable] Full PCM decode error: " + ex.getMessage());
       return null;
     }
+  }
+
+  // C fixedpoint.h:224-252 (q31_from_float, saturating at |value| >= 1.0f)
+  static int q31FromFloat(float value) {
+    if (Float.isNaN(value)) {
+      return 0;
+    }
+    int bits = Float.floatToRawIntBits(value);
+    boolean negative = (bits & 0x80000000) != 0;
+    int exponent = ((bits >>> 23) & 0xFF) - 127;
+    if (exponent >= 0) {
+      return negative ? Integer.MIN_VALUE : Integer.MAX_VALUE;
+    }
+    int shift = -exponent;
+    if (shift >= 32) {
+      return 0;
+    }
+    int mantissa = (bits << 8) | 0x80000000;
+    int outputValue = mantissa >>> shift;
+    return negative ? -outputValue : outputValue;
   }
 
   private File resolveAudioFile(String path) {
