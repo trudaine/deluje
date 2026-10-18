@@ -362,7 +362,8 @@ public class DelugeSysExManager {
       if (displayListener == null) return true;
 
       int subType = data[6] & 0xFF;
-      if (subType == 0x40) { // OLED Frame
+      if (subType == 0x40) { // OLED Frame (C hid_sysex.cpp:100-211)
+        if (data.length < 9) return true;
         int rleType = data[7] & 0xFF;
         if (rleType == 0x00 || rleType == 0x01) {
           // Full OLED Frame (Raw or RLE-packed)
@@ -383,10 +384,11 @@ public class DelugeSysExManager {
           }
         } else if (rleType == 0x02) {
           // Delta OLED Frame (always RLE-packed in firmware, fallback to raw for tests)
+          if (data.length < 11) return true;
           int startWord = data[8] & 0xFF;
           int lenWords = data[9] & 0xFF;
           int packedLen = (data.length - 1) - 10;
-          if (packedLen > 0) {
+          if (packedLen > 0 && lenWords > 0) {
             byte[] packed = new byte[packedLen];
             System.arraycopy(data, 10, packed, 0, packedLen);
             byte[] unpacked = DelugeMidiPacker.unpack7to8Rle(packed, 8 * lenWords);
@@ -394,18 +396,21 @@ public class DelugeSysExManager {
               unpacked = DelugeMidiPacker.unpack7to8(packed);
             }
 
-            // Apply delta blocks (each word block represents 8 bytes of OLED screen space)
+            // Apply delta blocks (each word block represents 8 bytes of OLED screen space,
+            // C hid_sysex.cpp:190-205). Guard startOffset < 768 against corrupt SysEx frames.
             int startOffset = 8 * startWord;
-            System.arraycopy(
-                unpacked,
-                0,
-                oledFrameBuffer,
-                startOffset,
-                Math.min(unpacked.length, 768 - startOffset));
-            displayListener.onOledFrame(oledFrameBuffer.clone());
+            if (startOffset < oledFrameBuffer.length && unpacked.length > 0) {
+              System.arraycopy(
+                  unpacked,
+                  0,
+                  oledFrameBuffer,
+                  startOffset,
+                  Math.min(unpacked.length, oledFrameBuffer.length - startOffset));
+              displayListener.onOledFrame(oledFrameBuffer.clone());
+            }
           }
         }
-      } else if (subType == 0x41) { // 7-Segment
+      } else if (subType == 0x41) { // 7-Segment (C hid_sysex.cpp:141-155)
         int packedLen = (data.length - 1) - 9;
         if (packedLen > 0) {
           byte[] packed = new byte[packedLen];
@@ -435,71 +440,86 @@ public class DelugeSysExManager {
     return false;
   }
 
-  /** Helper to decode raw segment-lit bytes into human-readable characters. */
+  /**
+   * Decodes raw 7-segment display bytes into human-readable characters per C
+   * seven_segment.cpp:45-123, 346-357, 448-496.
+   */
   private String decodeSevenSegment(byte[] segs) {
     StringBuilder sb = new StringBuilder();
     for (byte b : segs) {
-      char c = matchSegmentChar(b & 0xFF);
-      if (c != ' ') sb.append(c);
+      int raw = b & 0xFF;
+      if (raw == 0x00) {
+        sb.append(' ');
+      } else if (raw == 0x80) {
+        sb.append('.');
+      } else if (raw == 0xA0) {
+        sb.append('!'); // C seven_segment.cpp:478-479
+      } else if (raw == 0xA7) {
+        sb.append('#'); // C seven_segment.cpp:486-487
+      } else {
+        char c = matchSegmentChar(raw & 0x7F);
+        sb.append(c);
+        if ((raw & 0x80) != 0) {
+          sb.append('.'); // C seven_segment.cpp:348, 425 (bit 7 is decimal dot)
+        }
+      }
     }
-    return sb.toString();
+    return sb.toString().trim();
   }
 
-  /** Maps 7-segment LED binary lit states back to characters. */
+  /**
+   * Maps Deluge 7-segment LED bitmasks (bits 0..6) back to characters per C
+   * seven_segment.cpp:61-123, 466-484.
+   *
+   * <p>Segment layout in C seven_segment.cpp:48-56: bit 6 = top, bit 5 = top-right, bit 4 =
+   * bottom-right, bit 3 = bottom, bit 2 = bottom-left, bit 1 = top-left, bit 0 = middle.
+   */
   private char matchSegmentChar(int mask) {
-    switch (mask & 0x7F) {
-      case 0x3F -> {
-        return '0';
-      }
-      case 0x06 -> {
-        return '1';
-      }
-      case 0x5B -> {
-        return '2';
-      }
-      case 0x4F -> {
-        return '3';
-      }
-      case 0x66 -> {
-        return '4';
-      }
-      case 0x6D -> {
-        return '5';
-      }
-      case 0x7D -> {
-        return '6';
-      }
-      case 0x07 -> {
-        return '7';
-      }
-      case 0x7F -> {
-        return '8';
-      }
-      case 0x6F -> {
-        return '9';
-      }
-      case 0x77 -> {
-        return 'A';
-      }
-      case 0x7C -> {
-        return 'b';
-      }
-      case 0x39 -> {
-        return 'C';
-      }
-      case 0x5E -> {
-        return 'd';
-      }
-      case 0x79 -> {
-        return 'E';
-      }
-      case 0x71 -> {
-        return 'F';
-      }
-      default -> {
-        return ' ';
-      }
-    }
+    return switch (mask & 0x7F) {
+      // numberSegments[0..9] (C seven_segment.cpp:61)
+      case 0x7E -> '0';
+      case 0x30 -> '1';
+      case 0x6D -> '2'; // also 'Z'/'z' in letterSegments[25]
+      case 0x79 -> '3';
+      case 0x33 -> '4';
+      case 0x5B -> '5'; // also 'S'/'s' in letterSegments[18]
+      case 0x5F -> '6';
+      case 0x70 -> '7';
+      case 0x7F -> '8';
+      case 0x7B -> '9';
+      // letterSegments (C seven_segment.cpp:63-123)
+      case 0x77 -> 'A';
+      case 0x1F -> 'b';
+      case 0x4E -> 'C';
+      case 0x0D -> 'c';
+      case 0x3D -> 'd';
+      case 0x4F -> 'E';
+      case 0x47 -> 'F';
+      case 0x5E -> 'G';
+      case 0x37 -> 'H';
+      case 0x04 -> 'i';
+      case 0x38 -> 'J';
+      case 0x57 -> 'K';
+      case 0x0E -> 'L';
+      case 0x55 -> 'M';
+      case 0x15 -> 'n';
+      case 0x1D -> 'o';
+      case 0x67 -> 'P';
+      case 0x73 -> 'q';
+      case 0x05 -> 'r';
+      case 0x0F -> 't';
+      case 0x3E -> 'U';
+      case 0x27 -> 'v';
+      case 0x5C -> 'W';
+      case 0x49 -> 'X';
+      case 0x3B -> 'y';
+      // Symbols (C seven_segment.cpp:466-484)
+      case 0x01 -> '-';
+      case 0x08 -> '_';
+      case 0x02 -> '\'';
+      case 0x62 -> '^';
+      default -> ' ';
+    };
   }
 
   private int extractIntField(String json, String field) {

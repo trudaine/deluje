@@ -84,7 +84,7 @@ public class DelugeMidiPacker {
    * array. Translated directly from the native Deluge C++ firmware's unpack_7to8_rle.
    */
   public static byte[] unpack7to8Rle(byte[] src, int expectedDstSize) {
-    if (src == null) return new byte[0];
+    if (src == null || expectedDstSize <= 0) return new byte[0];
     byte[] dst = new byte[expectedDstSize];
     int d = 0;
     int s = 0;

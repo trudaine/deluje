@@ -368,7 +368,7 @@ public class DelugeFileSyncService {
       int fid = getIntAttr(openReply.json(), "fid");
       int size = getIntAttr(openReply.json(), "size");
       int openErr = getIntAttr(openReply.json(), "err");
-      if (openErr != 0 || fid == 0) {
+      if (openErr != 0 || fid <= 0 || size < 0) {
         throw new IOException("Failed to open remote file: " + remotePath + ", err=" + openErr);
       }
 
@@ -402,8 +402,9 @@ public class DelugeFileSyncService {
               "Failed to read remote block at offset " + currentOffset + ", err=" + readErr);
         }
 
-        System.arraycopy(binData, 0, fileData, currentOffset, binData.length);
-        bytesRead += binData.length;
+        int copyLen = Math.min(binData.length, size - currentOffset);
+        System.arraycopy(binData, 0, fileData, currentOffset, copyLen);
+        bytesRead += copyLen;
         if (progress != null) {
           progress.onProgress(bytesRead, size);
         }
@@ -473,23 +474,29 @@ public class DelugeFileSyncService {
         byte[] packedChunk = DelugeMidiPacker.pack8to7(chunk);
 
         final int currentOffset = bytesWritten;
-        // Write requests carry the largest payloads, so they are the most likely to be dropped;
-        // give them the most retries and a longer per-attempt window.
+        // Write requests must include "addr" (C smsysex.cpp:604, 608-609, 645-647): without
+        // "addr", the firmware defaults addr=0 and seeks back to 0 on every chunk after the first!
         Reply writeReply =
             sendWithRetry(
-                String.format("{\"write\": {\"fid\": %d, \"size\": %d}}", fid, toWrite),
+                String.format(
+                    "{\"write\": {\"fid\": %d, \"addr\": %d, \"size\": %d}}",
+                    fid, currentOffset, toWrite),
                 packedChunk,
                 30,
                 700,
                 "write @" + currentOffset);
         int writeErr = getIntAttr(writeReply.json(), "err");
-        int written = getIntAttr(writeReply.json(), "bytes");
-        if (writeErr != 0 || written == 0) {
+        // C smsysex.cpp:660 writes "size" in ^write replies; fall back to "bytes" for legacy mocks.
+        int written = getIntAttr(writeReply.json(), "size");
+        if (written < 0) {
+          written = getIntAttr(writeReply.json(), "bytes");
+        }
+        if (writeErr != 0 || written <= 0) {
           throw new IOException(
               "Failed to write remote block at offset " + currentOffset + ", err=" + writeErr);
         }
 
-        bytesWritten += toWrite;
+        bytesWritten += written;
       }
 
       // Sleep 50ms before closing
@@ -598,12 +605,16 @@ public class DelugeFileSyncService {
     }
   }
 
-  /** Encodes epoch milliseconds into native 16-bit FAT date and time. */
+  /** Encodes epoch milliseconds into native 16-bit FAT date and time (C smsysex.cpp:366, 879). */
   public static int[] encodeFatDateTime(long epochMillis) {
+    if (epochMillis <= 0) {
+      return new int[] {0, 0};
+    }
     java.time.Instant instant = java.time.Instant.ofEpochMilli(epochMillis);
     java.time.LocalDateTime dt =
         java.time.LocalDateTime.ofInstant(instant, java.time.ZoneId.systemDefault());
-    int fatDate = ((dt.getYear() - 1980) << 9) | (dt.getMonthValue() << 5) | dt.getDayOfMonth();
+    int clampedYear = Math.max(1980, Math.min(2107, dt.getYear()));
+    int fatDate = ((clampedYear - 1980) << 9) | (dt.getMonthValue() << 5) | dt.getDayOfMonth();
     int fatTime = (dt.getHour() << 11) | (dt.getMinute() << 5) | (dt.getSecond() / 2);
     return new int[] {fatDate, fatTime};
   }
