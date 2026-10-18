@@ -221,8 +221,9 @@ class GlobalEffectablePanDelayRampTest {
     long[] rev = new long[numSamples];
     effectable.renderOutput(out, numSamples, rev);
 
-    // Check per-sample ramp from postReverbVolumeLastTime to postReverbVolume.
-    int baseVol = Functions.multiply_32x32_rshift32(prevPostRev, postFX) << 5;
+    // C mod_controllable_audio.cpp:213-214, 252-259: the ramp starts at postReverbVolume and steps
+    // by (postReverbVolume - postReverbVolumeLastTime) / size.
+    int baseVol = Functions.multiply_32x32_rshift32(currPostRev, postFX) << 5;
     int inc = (int) ((double) (currPostRev - prevPostRev) / (double) numSamples);
     int ampInc = Functions.multiply_32x32_rshift32(postFX, inc) << 5;
     int runningVol = baseVol;

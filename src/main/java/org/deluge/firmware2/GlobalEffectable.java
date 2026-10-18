@@ -192,14 +192,14 @@ public abstract class GlobalEffectable {
       // << 5 for reverb send, post-FX × post-reverb volume, per-sample sidechain-ducking ramp
       // (doAmplitudeIncrement = true), and clip-level UNPATCHED_PAN (global_effectable_for_clip.cpp
       // :88, 146-147; Sound overrides getPostReverbPan() to 0 per sound.cpp:2613).
-      // NOTE: Start postFXAndReverbVolumeL/R from postReverbVolumeLastTime (Rohan Hill's original
-      // sound.cpp / global_effectable_for_clip.cpp pre-8120dc0ec callers) so the per-sample loop
-      // interpolates from postReverbVolumeLastTime to postReverbVolume across the block instead of
-      // overshooting to 2*postReverbVolume - postReverbVolumeLastTime (and going negative on duck).
+      // The ramp STARTS at postReverbVolume (mod_controllable_audio.cpp:213-214: both callers pass
+      // postReverbVolume since 8120dc0ec) and steps by (postReverbVolume - LastTime) / size, so a
+      // changing volume ends the block at 2*postReverbVolume - postReverbVolumeLastTime. That is
+      // what the hardware plays; callers before 8120dc0ec started at postReverbVolumeLastTime.
       int reverbSendAmountAndPostFXVolume =
           Functions.multiply_32x32_rshift32(postFXVolume, reverbSendAmount) << 5;
       int postFXAndReverbVolumeL =
-          Functions.multiply_32x32_rshift32(postReverbVolumeLastTime, postFXVolume) << 5;
+          Functions.multiply_32x32_rshift32(postReverbVolume, postFXVolume) << 5;
       int postFXAndReverbVolumeR = postFXAndReverbVolumeL;
 
       int postReverbSendVolumeIncrement =
