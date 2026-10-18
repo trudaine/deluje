@@ -1319,6 +1319,10 @@ public class Sound extends GlobalEffectable {
     }
 
     if (arpInstr.arpNoteOn != null) {
+      // C sound.cpp:2377 — each voice syncs to instruction.sampleSyncLengthOn (0, or the synced
+      // arp's period, arpeggiator.cpp:1579).
+      int callerSyncLength = pendingSampleSyncLength;
+      pendingSampleSyncLength = arpInstr.sampleSyncLengthOn;
       // C process_postarp_notes (sound.cpp:2354-2375) — EVERY pending entry until ARP_NOTE_NONE
       // plays (chord/octave arp modes emit several), each at the arp note's real velocity.
       for (int n = 0; n < arpInstr.arpNoteOn.noteCodeOnPostArp.length; n++) {
@@ -1332,6 +1336,7 @@ public class Sound extends GlobalEffectable {
         triggerVoice(noteOn, arpInstr.arpNoteOn.velocity, -1);
         arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
       }
+      pendingSampleSyncLength = callerSyncLength;
       arpInstr.arpNoteOn = null;
     }
   }
@@ -1362,6 +1367,7 @@ public class Sound extends GlobalEffectable {
   public void triggerNote(int note, int vel, int midiChannel) {
     if (arpEnabled()) {
       arpInstr.reset();
+      arpInstr.sampleSyncLengthOn = pendingSampleSyncLength; // C sound.cpp:1534
       arpeggiator.noteOn(arpSettings, note, vel, arpInstr, midiChannel, null);
       for (int n = 0; n < 4; n++) {
         int glideOff = arpInstr.glideNoteCodeOffPostArp[n];
@@ -1378,6 +1384,10 @@ public class Sound extends GlobalEffectable {
         releaseVoice(noteOff, -1);
       }
       if (arpInstr.arpNoteOn != null) {
+        // C sound.cpp:1556 — the voice syncs to instruction.sampleSyncLengthOn, which a synced arp
+        // overwrites with its period (arpeggiator.cpp:1579).
+        int callerSyncLength = pendingSampleSyncLength;
+        pendingSampleSyncLength = arpInstr.sampleSyncLengthOn;
         int v = arpInstr.arpNoteOn.velocity;
         if (v <= 0) v = 64;
         for (int n = 0; n < arpInstr.arpNoteOn.noteCodeOnPostArp.length; n++) {
@@ -1391,6 +1401,7 @@ public class Sound extends GlobalEffectable {
           triggerVoice(noteOn, v, midiChannel);
           arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
         }
+        pendingSampleSyncLength = callerSyncLength;
         arpInstr.arpNoteOn = null;
       }
       return;

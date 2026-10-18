@@ -57,4 +57,38 @@ class SampleStretchRepeatModeTest {
     int same = playheadAfter(Sound.REPEAT_STRETCH, 192, blocks);
     assertEquals(1.0, (double) same / cut, 0.02, "cut=" + cut + " same=" + same);
   }
+
+  /**
+   * C arpeggiator.cpp:1579 + sound.cpp:2377 — a synced arp's note syncs a STRETCH sample to the arp
+   * period, not to the sequenced note.
+   */
+  @Test
+  void syncedArpNoteSyncsStretchToTheArpPeriod() {
+    org.deluge.playback.Sample modelSample = new org.deluge.playback.Sample();
+    modelSample.numChannels = 1;
+    modelSample.byteDepth = 2;
+    modelSample.sampleRate = 44100;
+    modelSample.data = new float[44100];
+    FirmwareSound s = new FirmwareSound();
+    s.oscTypes[0] = OscType.SAMPLE;
+    s.samples[0] = modelSample;
+    s.sampleSettings[0].loopMode = Sound.REPEAT_STRETCH;
+    s.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
+    s.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+    s.syncParamsToFw2();
+    Sound fw = s.fw2Sound;
+    fw.arpSettings.mode = Arpeggiator.ArpMode.ARP;
+    fw.arpSettings.syncLevel = Arpeggiator.SyncLevel.SYNC_LEVEL_16TH;
+    fw.arpSettings.syncType = Arpeggiator.SyncType.EVEN;
+    fw.arpeggiator.playbackClockActive = true;
+    int period = 3 << (9 - Arpeggiator.SyncLevel.SYNC_LEVEL_16TH.ordinal());
+
+    fw.pendingSampleSyncLength = 96; // the sequenced note's own length
+    fw.triggerNote(60, 100);
+    fw.pendingSampleSyncLength = 0;
+    fw.doTickForwardForArp(0, false);
+
+    assertTrue(!fw.voices.isEmpty(), "synced arp switched its note on at pos 0");
+    assertEquals(period, fw.voices.get(0).sources[0].sequenceSyncLengthTicks);
+  }
 }
