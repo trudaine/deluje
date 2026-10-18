@@ -1,5 +1,9 @@
 package org.deluge.xml;
 
+import java.util.ArrayList;
+import java.util.List;
+import org.deluge.modulation.automation.ParamNode;
+
 /** Utility to map Deluge XML hex string formats (e.g. "0x7FFFFFFF") into usable float/Hz values. */
 public class DelugeHexMapper {
 
@@ -13,6 +17,70 @@ public class DelugeHexMapper {
       return trimmed.substring(0, 10);
     }
     return trimmed;
+  }
+
+  /**
+   * Parses 16-char automation nodes ({@code VVVVVVVVPPPPPPPP}, bit 31 of {@code pos} =
+   * interpolated) appended after the 10-char {@code 0xCCCCCCCC} value in a Deluge parameter string
+   * (C auto_param.cpp:2075-2148).
+   */
+  public static List<ParamNode> parseHexAutomationNodes(String hex, int readAutomationUpToPos) {
+    if (hex == null || readAutomationUpToPos <= 0) {
+      return List.of();
+    }
+    String trimmed = hex.trim();
+    if (!(trimmed.startsWith("0x") || trimmed.startsWith("0X")) || trimmed.length() <= 10) {
+      return List.of();
+    }
+    List<ParamNode> nodes = new ArrayList<>();
+    int prevPos = -1;
+    for (int idx = 10; idx + 16 <= trimmed.length(); idx += 16) {
+      int value;
+      int rawPos;
+      try {
+        value = Integer.parseUnsignedInt(trimmed.substring(idx, idx + 8), 16);
+        rawPos = Integer.parseUnsignedInt(trimmed.substring(idx + 8, idx + 16), 16);
+      } catch (NumberFormatException e) {
+        break;
+      }
+      boolean interpolated = (rawPos & 0x80000000) != 0;
+      int pos = rawPos & 0x7FFFFFFF;
+
+      // C auto_param.cpp:2109-2112 — skip out-of-order nodes.
+      if (pos <= prevPos) {
+        continue;
+      }
+
+      // C auto_param.cpp:2115-2133 — stop at readAutomationUpToPos, with <= 3.1.5 endpoint fix.
+      if (pos >= readAutomationUpToPos) {
+        if (pos == readAutomationUpToPos && (nodes.isEmpty() || nodes.get(0).pos != 0)) {
+          nodes.add(0, new ParamNode(0, value, interpolated));
+        }
+        break;
+      }
+
+      prevPos = pos;
+      nodes.add(new ParamNode(pos, value, interpolated));
+    }
+    return nodes;
+  }
+
+  /**
+   * Appends 16-char automation nodes ({@code VVVVVVVVPPPPPPPP}) after {@code baseHex} (C
+   * auto_param.cpp:2005-2030).
+   */
+  public static String formatHexWithAutomationNodes(String baseHex, List<ParamNode> nodes) {
+    String base = firstHexToken(baseHex);
+    if (nodes == null || nodes.isEmpty()) {
+      return base;
+    }
+    StringBuilder sb = new StringBuilder(base.length() + nodes.size() * 16);
+    sb.append(base);
+    for (ParamNode node : nodes) {
+      int rawPos = node.pos | (node.interpolated ? 0x80000000 : 0);
+      sb.append(String.format("%08X%08X", node.value, rawPos));
+    }
+    return sb.toString();
   }
 
   /**

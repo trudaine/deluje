@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.deluge.model.*;
 import org.deluge.xml.DelugeHexMapper;
 import org.deluge.xml.DelugeNoteDataMapper;
@@ -1374,7 +1375,7 @@ public class ProjectSerializer {
     if (track instanceof KitTrackModel) {
       serializeKitParams(writer, (KitTrackModel) track, clip);
     } else if (track instanceof SynthTrackModel) {
-      serializeSoundParams(writer, (SynthTrackModel) track);
+      serializeSoundParams(writer, (SynthTrackModel) track, clip);
     } else {
       writer.writeOpeningTagBeginning("soundParams");
       writer.closeTag();
@@ -1389,6 +1390,13 @@ public class ProjectSerializer {
           break;
         }
       }
+      if (!hasNotes && track instanceof KitTrackModel) {
+        org.deluge.model.NoteRowModel rm = clip.getNoteRowsMap().get(r);
+        if (rm != null && (!rm.getAutomationCurves().isEmpty() || !rm.getSoundParams().isEmpty())) {
+          hasNotes = true;
+        }
+      }
+      if (hasNotes) break;
     }
 
     if (hasNotes) {
@@ -1427,10 +1435,13 @@ public class ProjectSerializer {
         } else {
           writer.writeAttribute("y", Math.max(yNote, 0), false);
         }
-        // C note_row.cpp:3571-3573 — written only when set.
+        // C note_row.cpp:3571-3581 — written only when set.
         org.deluge.model.NoteRowModel rowModel = clip.getNoteRowsMap().get(r);
         if (rowModel != null && rowModel.isMuted()) {
           writer.writeAttribute("muted", 1, false);
+        }
+        if (rowModel != null && rowModel.getLoopLengthIfIndependent() > 0) {
+          writer.writeAttribute("length", rowModel.getLoopLengthIfIndependent(), false);
         }
 
         List<StepData> row = new ArrayList<>();
@@ -1441,7 +1452,17 @@ public class ProjectSerializer {
         String hexDataSplit = DelugeNoteDataMapper.encodeRowSplit(row, stepTicks);
         writer.writeAttribute("noteDataWithLift", hexData, false);
         writer.writeAttribute("noteDataWithSplitProb", hexDataSplit, false);
-        writer.closeTag();
+        if (track instanceof KitTrackModel
+            && rowModel != null
+            && (!rowModel.getAutomationCurves().isEmpty()
+                || !rowModel.getSoundParams().isEmpty())) {
+          // C note_row.cpp:3629-3653 — kit row with soundParams writes a child <soundParams> tag.
+          writer.writeOpeningTagEnd();
+          serializeKitRowSoundParams(writer, rowModel);
+          writer.writeClosingTag("noteRow");
+        } else {
+          writer.closeTag();
+        }
       }
       writer.writeArrayEnding("noteRows");
     }
@@ -1561,39 +1582,303 @@ public class ProjectSerializer {
     writer.closeTag();
   }
 
-  private static void serializeSoundParams(XMLSerializer writer, SynthTrackModel synth)
-      throws IOException {
+  private static void serializeSoundParams(
+      XMLSerializer writer, SynthTrackModel synth, ClipModel clip) throws IOException {
     writer.writeOpeningTagBeginning("soundParams");
-    writer.writeAttribute(
-        "volume", DelugeHexMapper.unipolarFloatToHexUnified(synth.getVolume()), false);
-    writer.writeAttribute("pan", DelugeHexMapper.floatToHex(synth.getPan()), false);
-    writer.writeAttribute("lpfFrequency", DelugeHexMapper.hzToHex(synth.getLpfFreq()), false);
-    writer.writeAttribute(
-        "lpfResonance", DelugeHexMapper.unipolarFloatToHexUnified(synth.getLpfRes()), false);
-    writer.writeAttribute("hpfFrequency", DelugeHexMapper.hzToHex(synth.getHpfFreq()), false);
-    writer.writeAttribute(
-        "hpfResonance", DelugeHexMapper.unipolarFloatToHexUnified(synth.getHpfRes()), false);
-    writer.writeAttribute(
-        "reverbAmount", DelugeHexMapper.unipolarFloatToHexUnified(synth.getReverbSend()), false);
-    writer.writeAttribute(
-        "delayRate", DelugeHexMapper.unipolarFloatToHexUnified(synth.getDelaySend()), false);
+    Map<String, List<org.deluge.modulation.automation.ParamNode>> curves =
+        clip != null ? clip.getAutomationCurves() : Map.of();
+    java.util.Set<String> written = new java.util.HashSet<>();
+
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "volume",
+        DelugeHexMapper.unipolarFloatToHexUnified(synth.getVolume()));
+    writeSoundParamAttr(writer, curves, written, "pan", DelugeHexMapper.floatToHex(synth.getPan()));
+    writeSoundParamAttr(
+        writer, curves, written, "lpfFrequency", DelugeHexMapper.hzToHex(synth.getLpfFreq()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "lpfResonance",
+        DelugeHexMapper.unipolarFloatToHexUnified(synth.getLpfRes()));
+    writeSoundParamAttr(
+        writer, curves, written, "hpfFrequency", DelugeHexMapper.hzToHex(synth.getHpfFreq()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "hpfResonance",
+        DelugeHexMapper.unipolarFloatToHexUnified(synth.getHpfRes()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "reverbAmount",
+        DelugeHexMapper.unipolarFloatToHexUnified(synth.getReverbSend()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "delayRate",
+        DelugeHexMapper.unipolarFloatToHexUnified(synth.getDelaySend()));
     // GLOBAL_ARP_RATE (sound.cpp:4117) — the raw param, not the panel's old multiplier.
-    writer.writeAttribute("arpeggiatorRate", String.format("0x%08X", synth.getArpRateQ31()), false);
+    writeSoundParamAttr(
+        writer, curves, written, "arpeggiatorRate", String.format("0x%08X", synth.getArpRateQ31()));
 
     // Write any raw patched parameters (like sidechain shape)
     for (var entry : synth.getRawKnobs().getRawParamKnobs().entrySet()) {
       String attrName = null;
       if (entry.getKey() == org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE) {
         attrName = "sidechainCompressorShape";
-      } else if (entry.getKey() == 100) { // UNPATCHED_SIDECHAIN_VOLUME
+      } else if (entry.getKey() == org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_VOLUME) {
         attrName = "sidechainCompressorVolume";
       }
 
-      if (attrName != null) {
-        writer.writeAttribute(attrName, String.format("0x%08X", entry.getValue()), false);
+      if (attrName != null && !written.contains(attrName)) {
+        writeSoundParamAttr(
+            writer, curves, written, attrName, String.format("0x%08X", entry.getValue()));
       }
     }
-    writer.closeTag();
+
+    // Write any other automated direct soundParams attributes (C auto_param.cpp:2005-2030).
+    for (var entry : curves.entrySet()) {
+      String key = entry.getKey();
+      if (written.contains(key) || isSubElementParamKey(key)) {
+        continue;
+      }
+      String baseHex = resolveSynthBaseHex(synth, key, "0x00000000");
+      writer.writeAttribute(
+          key, DelugeHexMapper.formatHexWithAutomationNodes(baseHex, entry.getValue()), false);
+      written.add(key);
+    }
+
+    writeSoundParamsSubElementsAndClose(writer, curves, null, synth);
+  }
+
+  private static void serializeKitRowSoundParams(
+      XMLSerializer writer, org.deluge.model.NoteRowModel rowModel) throws IOException {
+    writer.writeOpeningTagBeginning("soundParams");
+    Map<String, List<org.deluge.modulation.automation.ParamNode>> curves =
+        rowModel.getAutomationCurves();
+    Map<String, Float> rowParams = rowModel.getSoundParams();
+    java.util.Set<String> written = new java.util.HashSet<>();
+
+    for (var entry : rowParams.entrySet()) {
+      String key = entry.getKey();
+      if (isSubElementParamKey(key)) {
+        continue;
+      }
+      String baseHex = DelugeHexMapper.unipolarFloatToHexUnified(entry.getValue());
+      writeSoundParamAttr(writer, curves, written, key, baseHex);
+    }
+
+    for (var entry : curves.entrySet()) {
+      String key = entry.getKey();
+      if (written.contains(key) || isSubElementParamKey(key)) {
+        continue;
+      }
+      writer.writeAttribute(
+          key, DelugeHexMapper.formatHexWithAutomationNodes("0x00000000", entry.getValue()), false);
+      written.add(key);
+    }
+
+    writeSoundParamsSubElementsAndClose(writer, curves, rowParams, null);
+  }
+
+  private static String resolveSynthBaseHex(SynthTrackModel synth, String key, String fallbackHex) {
+    if (synth == null) {
+      return fallbackHex;
+    }
+    var raw = synth.getRawKnobs();
+    switch (key) {
+      case "lfo1Rate" -> {
+        if (raw.isLfoRateKnobSet(0)) return String.format("0x%08X", raw.getLfoRateKnobQ31(0));
+      }
+      case "lfo2Rate" -> {
+        if (raw.isLfoRateKnobSet(1)) return String.format("0x%08X", raw.getLfoRateKnobQ31(1));
+      }
+      case "lfo3Rate" -> {
+        if (raw.isLfoRateKnobSet(2)) return String.format("0x%08X", raw.getLfoRateKnobQ31(2));
+      }
+      case "lfo4Rate" -> {
+        if (raw.isLfoRateKnobSet(3)) return String.format("0x%08X", raw.getLfoRateKnobQ31(3));
+      }
+      default -> {}
+    }
+    int paramId = org.deluge.engine.FirmwareFactory.getParamIdFromName(key);
+    if (paramId != -1 && raw.getRawParamKnobs().containsKey(paramId)) {
+      return String.format("0x%08X", raw.getRawParamKnobs().get(paramId));
+    }
+    // C sound.cpp:139, 172-177, 4061-4126 — dedicated Q31 fields parsed by
+    // InstrumentXmlParser.parseClipSoundParamsStatics.
+    return switch (key) {
+      case "modulator1Amount", "modulator1Volume" ->
+          String.format("0x%08X", synth.getModulator1AmountQ31());
+      case "modulator2Amount", "modulator2Volume" ->
+          String.format("0x%08X", synth.getModulator2AmountQ31());
+      case "modulator1Feedback" -> String.format("0x%08X", synth.getModulator1FeedbackQ31());
+      case "modulator2Feedback" -> String.format("0x%08X", synth.getModulator2FeedbackQ31());
+      case "carrier1Feedback" -> String.format("0x%08X", synth.getCarrier1FeedbackQ31());
+      case "carrier2Feedback" -> String.format("0x%08X", synth.getCarrier2FeedbackQ31());
+      case "pitchAdjust" -> String.format("0x%08X", synth.getPitchAdjustQ31());
+      case "oscAPitchAdjust" -> String.format("0x%08X", synth.getOsc1PitchAdjustQ31());
+      case "oscBPitchAdjust" -> String.format("0x%08X", synth.getOsc2PitchAdjustQ31());
+      case "oscAPulseWidth", "oscAPhaseWidth" ->
+          String.format("0x%08X", synth.getOsc1PhaseWidthQ31());
+      case "oscBPulseWidth", "oscBPhaseWidth" ->
+          String.format("0x%08X", synth.getOsc2PhaseWidthQ31());
+      case "portamento" -> String.format("0x%08X", synth.getPortamentoQ31());
+      case "arpeggiatorRate", "arpRate" -> String.format("0x%08X", synth.getArpRateQ31());
+      case "waveFold" -> String.format("0x%08X", synth.getWaveFoldQ31());
+      case "delayFeedback" -> String.format("0x%08X", synth.getDelayFeedbackQ31());
+      default -> fallbackHex;
+    };
+  }
+
+  private static void writeSoundParamAttr(
+      XMLSerializer writer,
+      Map<String, List<org.deluge.modulation.automation.ParamNode>> curves,
+      java.util.Set<String> written,
+      String attrName,
+      String baseHex)
+      throws IOException {
+    String val = DelugeHexMapper.formatHexWithAutomationNodes(baseHex, curves.get(attrName));
+    writer.writeAttribute(attrName, val, false);
+    written.add(attrName);
+  }
+
+  private static boolean isSubElementParamKey(String key) {
+    return key.startsWith("envelope")
+        || "eqBass".equals(key)
+        || "eqTreble".equals(key)
+        || "eqBassFrequency".equals(key)
+        || "eqTrebleFrequency".equals(key);
+  }
+
+  private static void writeSoundParamsSubElementsAndClose(
+      XMLSerializer writer,
+      Map<String, List<org.deluge.modulation.automation.ParamNode>> curves,
+      Map<String, Float> rowParams,
+      SynthTrackModel synth)
+      throws IOException {
+    boolean hasSubElements = false;
+    for (String key : curves.keySet()) {
+      if (isSubElementParamKey(key)) {
+        hasSubElements = true;
+        break;
+      }
+    }
+    if (!hasSubElements && rowParams != null) {
+      for (String key : rowParams.keySet()) {
+        if (isSubElementParamKey(key)) {
+          hasSubElements = true;
+          break;
+        }
+      }
+    }
+    if (!hasSubElements) {
+      writer.closeTag();
+      return;
+    }
+
+    writer.writeOpeningTagEnd();
+    String[] envTags = {"envelope1", "envelope2", "envelope3", "envelope4"};
+    String[] envSubs = {"attack", "decay", "sustain", "release"};
+    for (int envIdx = 0; envIdx < envTags.length; envIdx++) {
+      String envTag = envTags[envIdx];
+      boolean hasAny = false;
+      for (String sub : envSubs) {
+        String key = envTag + "_" + sub;
+        if (curves.containsKey(key) || (rowParams != null && rowParams.containsKey(key))) {
+          hasAny = true;
+          break;
+        }
+      }
+      if (!hasAny) continue;
+      // C sound.cpp:4131-4157 — write all four envelope attributes when emitting <envelopeN>.
+      writer.writeOpeningTagBeginning(envTag);
+      for (String sub : envSubs) {
+        String key = envTag + "_" + sub;
+        List<org.deluge.modulation.automation.ParamNode> nodes = curves.get(key);
+        String baseHex = resolveEnvelopeSubBaseHex(synth, rowParams, envIdx, sub, key);
+        writer.writeAttribute(
+            sub, DelugeHexMapper.formatHexWithAutomationNodes(baseHex, nodes), false);
+      }
+      writer.closeTag();
+    }
+
+    String[][] eqMap = {
+      {"bass", "eqBass"},
+      {"treble", "eqTreble"},
+      {"bassFrequency", "eqBassFrequency"},
+      {"trebleFrequency", "eqTrebleFrequency"}
+    };
+    boolean hasEq = false;
+    for (String[] pair : eqMap) {
+      if (curves.containsKey(pair[1]) || (rowParams != null && rowParams.containsKey(pair[1]))) {
+        hasEq = true;
+        break;
+      }
+    }
+    if (hasEq) {
+      // C mod_controllable_audio.cpp:540-549 — write all four equalizer attributes when emitting
+      // <equalizer>.
+      writer.writeOpeningTagBeginning("equalizer");
+      for (String[] pair : eqMap) {
+        String key = pair[1];
+        Float staticVal = rowParams != null ? rowParams.get(key) : null;
+        List<org.deluge.modulation.automation.ParamNode> nodes = curves.get(key);
+        boolean isBipolarGain = "eqBass".equals(key) || "eqTreble".equals(key);
+        String baseHex =
+            staticVal != null
+                ? (isBipolarGain
+                    ? DelugeHexMapper.floatToHex(staticVal)
+                    : DelugeHexMapper.unipolarFloatToHexUnified(staticVal))
+                : resolveSynthBaseHex(synth, key, "0x00000000");
+        writer.writeAttribute(
+            pair[0], DelugeHexMapper.formatHexWithAutomationNodes(baseHex, nodes), false);
+      }
+      writer.closeTag();
+    }
+    writer.writeClosingTag("soundParams");
+  }
+
+  private static String resolveEnvelopeSubBaseHex(
+      SynthTrackModel synth, Map<String, Float> rowParams, int envIdx, String sub, String key) {
+    if (synth != null) {
+      var raw = synth.getRawKnobs();
+      if (raw.isEnvKnobSet(envIdx)) {
+        int q31 =
+            switch (sub) {
+              case "attack" -> raw.getEnvAttackKnobQ31(envIdx);
+              case "decay" -> raw.getEnvDecayKnobQ31(envIdx);
+              case "sustain" -> raw.getEnvSustainKnobQ31(envIdx);
+              case "release" -> raw.getEnvReleaseKnobQ31(envIdx);
+              default -> 0;
+            };
+        return String.format("0x%08X", q31);
+      }
+      var env = synth.getEnv(envIdx);
+      if (env != null) {
+        return switch (sub) {
+          case "attack" -> DelugeHexMapper.envTimeToHex(env.attack());
+          case "decay" -> DelugeHexMapper.envTimeToHex(env.decay());
+          case "sustain" -> DelugeHexMapper.sustainToHex(env.sustain());
+          case "release" -> DelugeHexMapper.envTimeToHex(env.release());
+          default -> "0x00000000";
+        };
+      }
+    }
+    if (rowParams != null && rowParams.containsKey(key)) {
+      float val = rowParams.get(key);
+      return "sustain".equals(sub)
+          ? DelugeHexMapper.sustainToHex(val)
+          : DelugeHexMapper.envTimeToHex(val);
+    }
+    return "sustain".equals(sub) ? "0x7FFFFFFF" : "0x80000000";
   }
 
   private static boolean hasMicrotuning(ProjectModel model) {

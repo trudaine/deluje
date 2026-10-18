@@ -155,6 +155,8 @@ public class ClipModel extends TimelineCounter {
   }
 
   private final Map<String, float[]> automationData = new HashMap<>();
+  private final Map<String, List<org.deluge.modulation.automation.ParamNode>> automationCurves =
+      new HashMap<>();
   private final Map<String, Float> kitParams = new HashMap<>();
 
   // ── Unified NoteRowModel map replacing parallel maps ──
@@ -373,6 +375,15 @@ public class ClipModel extends TimelineCounter {
     for (Map.Entry<String, float[]> e : automationData.entrySet()) {
       copy.automationData.put(e.getKey(), e.getValue().clone());
     }
+    for (Map.Entry<String, List<org.deluge.modulation.automation.ParamNode>> e :
+        automationCurves.entrySet()) {
+      List<org.deluge.modulation.automation.ParamNode> copiedCurve = new ArrayList<>();
+      for (org.deluge.modulation.automation.ParamNode n : e.getValue()) {
+        copiedCurve.add(
+            new org.deluge.modulation.automation.ParamNode(n.pos, n.value, n.interpolated));
+      }
+      copy.automationCurves.put(e.getKey(), copiedCurve);
+    }
     // Deep-copy kit params
     copy.kitParams.putAll(this.kitParams);
     copy.leftCol = this.leftCol;
@@ -427,6 +438,16 @@ public class ClipModel extends TimelineCounter {
       newRow.getSoundParams().putAll(oldRow.getSoundParams());
       for (Map.Entry<String, float[]> autoEntry : oldRow.getRowAutomation().entrySet()) {
         newRow.getRowAutomation().put(autoEntry.getKey(), autoEntry.getValue().clone());
+      }
+      newRow.getAutomationCurves().clear();
+      for (Map.Entry<String, List<org.deluge.modulation.automation.ParamNode>> curveEntry :
+          oldRow.getAutomationCurves().entrySet()) {
+        List<org.deluge.modulation.automation.ParamNode> copiedCurve = new ArrayList<>();
+        for (org.deluge.modulation.automation.ParamNode n : curveEntry.getValue()) {
+          copiedCurve.add(
+              new org.deluge.modulation.automation.ParamNode(n.pos, n.value, n.interpolated));
+        }
+        newRow.getAutomationCurves().put(curveEntry.getKey(), copiedCurve);
       }
     }
   }
@@ -696,10 +717,24 @@ public class ClipModel extends TimelineCounter {
 
   public void clearAutomation(String param) {
     automationData.remove(param);
+    automationCurves.remove(param);
   }
 
   public boolean hasAutomation(String param) {
-    return automationData.containsKey(param);
+    return automationData.containsKey(param) || automationCurves.containsKey(param);
+  }
+
+  public Map<String, List<org.deluge.modulation.automation.ParamNode>> getAutomationCurves() {
+    return automationCurves;
+  }
+
+  public void setAutomationCurve(
+      String param, List<org.deluge.modulation.automation.ParamNode> nodes) {
+    if (nodes == null || nodes.isEmpty()) {
+      automationCurves.remove(param);
+    } else {
+      automationCurves.put(param, new ArrayList<>(nodes));
+    }
   }
 
   public StepData getStep(int r, int s) {
@@ -874,6 +909,16 @@ public class ClipModel extends TimelineCounter {
     automationData.clear();
     for (Map.Entry<String, float[]> e : src.automationData.entrySet()) {
       automationData.put(e.getKey(), e.getValue().clone());
+    }
+    automationCurves.clear();
+    for (Map.Entry<String, List<org.deluge.modulation.automation.ParamNode>> e :
+        src.automationCurves.entrySet()) {
+      List<org.deluge.modulation.automation.ParamNode> copiedCurve = new ArrayList<>();
+      for (org.deluge.modulation.automation.ParamNode n : e.getValue()) {
+        copiedCurve.add(
+            new org.deluge.modulation.automation.ParamNode(n.pos, n.value, n.interpolated));
+      }
+      automationCurves.put(e.getKey(), copiedCurve);
     }
     kitParams.clear();
     kitParams.putAll(src.kitParams);

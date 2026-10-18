@@ -973,6 +973,15 @@ public class FirmwareFactory {
             }
           }
         }
+        for (java.util.Map.Entry<String, java.util.List<org.deluge.modulation.automation.ParamNode>>
+            entry : clipModel.getAutomationCurves().entrySet()) {
+          int paramId = getParamIdFromName(entry.getKey());
+          if (paramId != -1) {
+            for (org.deluge.modulation.automation.ParamNode node : entry.getValue()) {
+              sound.paramManager.recordParamValue(paramId, node.value, node.pos, node.interpolated);
+            }
+          }
+        }
       }
     }
     sound.fw2Sound.resyncGlobalLFOs();
@@ -1299,9 +1308,11 @@ public class FirmwareFactory {
     return (int) (amount * 2147483647.0);
   }
 
-  private static int getParamIdFromName(String name) {
+  public static int getParamIdFromName(String name) {
+    // C sound.cpp:3776-4042, mod_controllable_audio.cpp:557-708
     return switch (name) {
-      case "volume" -> Param.GLOBAL_VOLUME_POST_FX;
+      case "volume", "volumePostFX" -> Param.GLOBAL_VOLUME_POST_FX;
+      case "volumePostReverbSend" -> Param.GLOBAL_VOLUME_POST_REVERB_SEND;
       case "pan" -> Param.LOCAL_PAN;
       case "lpfFrequency" -> Param.LOCAL_LPF_FREQ;
       case "lpfResonance" -> Param.LOCAL_LPF_RESONANCE;
@@ -1309,9 +1320,79 @@ public class FirmwareFactory {
       case "hpfFrequency" -> Param.LOCAL_HPF_FREQ;
       case "hpfResonance" -> Param.LOCAL_HPF_RESONANCE;
       case "hpfMorph" -> Param.LOCAL_HPF_MORPH;
+      case "oscAVolume" -> Param.LOCAL_OSC_A_VOLUME;
+      case "oscBVolume" -> Param.LOCAL_OSC_B_VOLUME;
+      case "noiseVolume" -> Param.LOCAL_NOISE_VOLUME;
+      case "oscAPulseWidth", "oscAPhaseWidth" -> Param.LOCAL_OSC_A_PHASE_WIDTH;
+      case "oscBPulseWidth", "oscBPhaseWidth" -> Param.LOCAL_OSC_B_PHASE_WIDTH;
+      case "oscAWavetablePosition" -> Param.LOCAL_OSC_A_WAVE_INDEX;
+      case "oscBWavetablePosition" -> Param.LOCAL_OSC_B_WAVE_INDEX;
+      case "oscAPitchAdjust" -> Param.LOCAL_OSC_A_PITCH_ADJUST;
+      case "oscBPitchAdjust" -> Param.LOCAL_OSC_B_PITCH_ADJUST;
+      case "pitchAdjust" -> Param.LOCAL_PITCH_ADJUST;
+      case "mod1PitchAdjust" -> Param.LOCAL_MODULATOR_0_PITCH_ADJUST;
+      case "mod2PitchAdjust" -> Param.LOCAL_MODULATOR_1_PITCH_ADJUST;
+      case "modulator1Amount", "modulator1Volume" -> Param.LOCAL_MODULATOR_0_VOLUME;
+      case "modulator2Amount", "modulator2Volume" -> Param.LOCAL_MODULATOR_1_VOLUME;
+      case "modulator1Feedback" -> Param.LOCAL_MODULATOR_0_FEEDBACK;
+      case "modulator2Feedback" -> Param.LOCAL_MODULATOR_1_FEEDBACK;
+      case "carrier1Feedback" -> Param.LOCAL_CARRIER_0_FEEDBACK;
+      case "carrier2Feedback" -> Param.LOCAL_CARRIER_1_FEEDBACK;
+      case "waveFold" -> Param.LOCAL_FOLD;
+      case "lfo1Rate" -> Param.GLOBAL_LFO_FREQ_1;
+      case "lfo2Rate" -> Param.LOCAL_LFO_LOCAL_FREQ_1;
+      case "lfo3Rate" -> Param.GLOBAL_LFO_FREQ_2;
+      case "lfo4Rate" -> Param.LOCAL_LFO_LOCAL_FREQ_2;
+      case "modFXRate" -> Param.GLOBAL_MOD_FX_RATE;
+      case "modFXDepth" -> Param.GLOBAL_MOD_FX_DEPTH;
+      case "modFXOffset" -> Param.UNPATCHED_MOD_FX_OFFSET;
+      case "modFXFeedback" -> Param.UNPATCHED_MOD_FX_FEEDBACK;
       case "delayRate" -> Param.GLOBAL_DELAY_RATE;
       case "delayFeedback" -> Param.GLOBAL_DELAY_FEEDBACK;
       case "reverbAmount" -> Param.GLOBAL_REVERB_AMOUNT;
+      case "arpeggiatorRate", "arpRate" -> Param.GLOBAL_ARP_RATE;
+      case "portamento" -> Param.UNPATCHED_PORTAMENTO;
+      case "compressorShape", "sidechainCompressorShape" -> Param.UNPATCHED_SIDECHAIN_SHAPE;
+      case "sidechainCompressorVolume" -> Param.UNPATCHED_SIDECHAIN_VOLUME;
+      case "compressorThreshold" -> Param.UNPATCHED_COMPRESSOR_THRESHOLD;
+      case "stutterRate" -> Param.UNPATCHED_STUTTER_RATE;
+      case "sampleRateReduction" -> Param.UNPATCHED_SAMPLE_RATE_REDUCTION;
+      case "bitCrush" -> Param.UNPATCHED_BITCRUSHING;
+      case "arpeggiatorGate" -> Param.UNPATCHED_ARP_GATE;
+      case "ratchetAmount" -> Param.UNPATCHED_ARP_RATCHET_AMOUNT;
+      case "ratchetProbability" -> Param.UNPATCHED_ARP_RATCHET_PROBABILITY;
+      case "chordPolyphony" -> Param.UNPATCHED_ARP_CHORD_POLYPHONY;
+      case "chordProbability" -> Param.UNPATCHED_ARP_CHORD_PROBABILITY;
+      case "reverseProbability" -> Param.UNPATCHED_REVERSE_PROBABILITY;
+      case "bassProbability" -> Param.UNPATCHED_ARP_BASS_PROBABILITY;
+      case "swapProbability" -> Param.UNPATCHED_ARP_SWAP_PROBABILITY;
+      case "glideProbability" -> Param.UNPATCHED_ARP_GLIDE_PROBABILITY;
+      case "noteProbability" -> Param.UNPATCHED_NOTE_PROBABILITY;
+      case "sequenceLength" -> Param.UNPATCHED_ARP_SEQUENCE_LENGTH;
+      case "rhythm" -> Param.UNPATCHED_ARP_RHYTHM;
+      case "spreadVelocity" -> Param.UNPATCHED_SPREAD_VELOCITY;
+      case "spreadGate" -> Param.UNPATCHED_ARP_SPREAD_GATE;
+      case "spreadOctave" -> Param.UNPATCHED_ARP_SPREAD_OCTAVE;
+      case "eqBass" -> Param.UNPATCHED_BASS;
+      case "eqTreble" -> Param.UNPATCHED_TREBLE;
+      case "eqBassFrequency" -> Param.UNPATCHED_BASS_FREQ;
+      case "eqTrebleFrequency" -> Param.UNPATCHED_TREBLE_FREQ;
+      case "envelope1_attack" -> Param.LOCAL_ENV_0_ATTACK;
+      case "envelope1_decay" -> Param.LOCAL_ENV_0_DECAY;
+      case "envelope1_sustain" -> Param.LOCAL_ENV_0_SUSTAIN;
+      case "envelope1_release" -> Param.LOCAL_ENV_0_RELEASE;
+      case "envelope2_attack" -> Param.LOCAL_ENV_1_ATTACK;
+      case "envelope2_decay" -> Param.LOCAL_ENV_1_DECAY;
+      case "envelope2_sustain" -> Param.LOCAL_ENV_1_SUSTAIN;
+      case "envelope2_release" -> Param.LOCAL_ENV_1_RELEASE;
+      case "envelope3_attack" -> Param.LOCAL_ENV_2_ATTACK;
+      case "envelope3_decay" -> Param.LOCAL_ENV_2_DECAY;
+      case "envelope3_sustain" -> Param.LOCAL_ENV_2_SUSTAIN;
+      case "envelope3_release" -> Param.LOCAL_ENV_2_RELEASE;
+      case "envelope4_attack" -> Param.LOCAL_ENV_3_ATTACK;
+      case "envelope4_decay" -> Param.LOCAL_ENV_3_DECAY;
+      case "envelope4_sustain" -> Param.LOCAL_ENV_3_SUSTAIN;
+      case "envelope4_release" -> Param.LOCAL_ENV_3_RELEASE;
       default -> -1;
     };
   }
@@ -1587,6 +1668,18 @@ public class FirmwareFactory {
                 int pos = s * stepTicks;
                 drumSound.paramManager.recordParamValue(paramId, q31Val, pos);
               }
+            }
+          }
+        }
+      }
+      if (rowModel != null) {
+        for (java.util.Map.Entry<String, java.util.List<org.deluge.modulation.automation.ParamNode>>
+            entry : rowModel.getAutomationCurves().entrySet()) {
+          int paramId = getParamIdFromName(entry.getKey());
+          if (paramId != -1) {
+            for (org.deluge.modulation.automation.ParamNode node : entry.getValue()) {
+              drumSound.paramManager.recordParamValue(
+                  paramId, node.value, node.pos, node.interpolated);
             }
           }
         }
