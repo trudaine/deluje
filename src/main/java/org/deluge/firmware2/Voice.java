@@ -81,6 +81,10 @@ public class Voice {
   public int[] modulatorAmplitudeLastTime = {0, 0};
   public int[] modulatorAmplitudeIncrements = new int[2];
   public int[] sourceAmplitudesLastTime = {0, 0};
+  // C voice.h:81 — per-source wavetable index from the previous render block.
+  public final int[] sourceWaveIndexesLastTime = new int[2];
+  // C voice.cpp:1087 — per-source wavetable index per-sample ramp increment for this block.
+  private final int[] sourceWaveIndexIncrements = new int[2];
   // voice.cpp:1042-1069 — per-block source amplitude targets + per-sample ramp increments.
   private final int[] sourceAmplitudes = new int[2];
   private final int[] sourceAmplitudeIncrements = new int[2];
@@ -269,10 +273,13 @@ public class Voice {
     lastSaturationTanHWorkingValue[0] = 0x80000000;
     lastSaturationTanHWorkingValue[1] = 0x80000000;
 
-    // Portamento (voice.cpp:190, 372-374): off unless the UNPATCHED_PORTAMENTO knob is set and
-    // there is a previous note to glide from.
+    // Portamento (C voice.cpp:182-190, 371-373): off in LEGATO mode on fresh noteOn (only
+    // overlapping legato notes in changeNoteCode glide), or when UNPATCHED_PORTAMENTO /
+    // lastNoteCode is unset.
     portaEnvelopePos = 0xFFFFFFFF;
-    if (sound.portamentoKnob != Integer.MIN_VALUE && sound.lastNoteCode != Integer.MIN_VALUE) {
+    if (sound.polyphonic != Sound.PolyphonyMode.LEGATO
+        && sound.portamentoKnob != Integer.MIN_VALUE
+        && sound.lastNoteCode != Integer.MIN_VALUE) {
       setupPorta();
     }
     sound.lastNoteCode = midiNote; // C sound.cpp:1681 — stored for the NEXT note's porta
@@ -320,6 +327,11 @@ public class Voice {
     Patcher.performInitialPatching(sound, sourceValues, paramFinalValues);
     for (int e = 0; e < envelopes.length; e++) {
       sourceValues[PatchSource.ENVELOPE_0.ordinal() + e] = envelopes[e].noteOn(e, sound, this);
+    }
+
+    // C voice.cpp:208-211 — seed per-source wavetable index state after initial patching.
+    for (int s = 0; s < 2; s++) {
+      sourceWaveIndexesLastTime[s] = paramFinalValues[Param.LOCAL_OSC_A_WAVE_INDEX + s];
     }
 
     // Per-source DX7 init
@@ -696,14 +708,13 @@ public class Voice {
             LookupTables.decayTableSmall8);
     sourceValues[PatchSource.ENVELOPE_0.ordinal()] = env0LastValue;
 
+    // C voice.cpp:755-758, 1683 — latch unassignVoiceAfter here, but do NOT return early: the
+    // final block still renders so overallOscAmplitudeNow ramps smoothly from
+    // overallOscAmplitudeLastTime down to 0 before the voice unassigns at the end of render().
     boolean unassignVoiceAfter =
         (envelopes[0].state == Envelope.Stage.OFF)
             || (envelopes[0].state.compareTo(Envelope.Stage.DECAY) > 0
                 && env0LastValue == Integer.MIN_VALUE);
-    if (unassignVoiceAfter) {
-      active = false;
-      return false;
-    }
 
     // Envelopes 1-3 (modulation)
     for (int e = 1; e < 4; e++) {
@@ -1148,6 +1159,15 @@ public class Voice {
       filterGainLastTime = filterGain;
     }
 
+    // C voice.cpp:1095-1099 — per-source wavetable index increments for non-FM synth modes.
+    if (sound.synthMode != 1) {
+      for (int s = 0; s < 2; s++) {
+        sourceWaveIndexIncrements[s] =
+            (paramFinalValues[Param.LOCAL_OSC_A_WAVE_INDEX + s] - sourceWaveIndexesLastTime[s])
+                / numSamples;
+      }
+    }
+
     // ── FM path (voice.cpp:1400-1560) ──
     boolean unassignFromSources = false;
     if (sound.synthMode == 1) { // FM
@@ -1210,17 +1230,16 @@ public class Voice {
       soundBuffer[i * 2 + 1] += mixBuf[i * 2 + 1];
     }
 
-    // Port of voice.cpp:1664 — return false if voice should be unassigned
-    // unassignVoiceAfter = source exhaustion OR envelope OFF OR (past DECAY AND env source == MIN)
-    unassignVoiceAfter =
-        unassignFromSources
-            || (envelopes[0].state == Envelope.Stage.OFF)
-            || (envelopes[0].state.compareTo(Envelope.Stage.DECAY) > 0
-                && sourceValues[PatchSource.ENVELOPE_0.ordinal()] == Integer.MIN_VALUE);
+    // Port of voice.cpp:1265, 1674-1683 — combine source exhaustion with envelope completion,
+    // update per-source wavetable index memory, and return false if voice should be unassigned.
+    unassignVoiceAfter |= unassignFromSources;
     if (unassignVoiceAfter) {
       active = false;
     }
 
+    for (int s = 0; s < 2; s++) {
+      sourceWaveIndexesLastTime[s] = paramFinalValues[Param.LOCAL_OSC_A_WAVE_INDEX + s];
+    }
     overallOscAmplitudeLastTime = overallOscAmplitude;
     doneFirstRender = true;
 
@@ -1294,11 +1313,6 @@ public class Voice {
       // syncs to osc A's captured phase + this part's osc-A increment. Both pass the source's
       // retrigger phase (used by the pulse-width reset path even without sync).
       if (sound.oscTypes[0] == OscType.WAVETABLE && sound.waveTables[0] != null) {
-        int waveIndexA = paramFinalValues[Param.LOCAL_OSC_A_WAVE_INDEX];
-        if (!doneFirstRender) {
-          vsA.waveIndexLastTime = waveIndexA;
-        }
-        int waveIndexIncrementA = (waveIndexA - vsA.waveIndexLastTime) / numSamples;
         vsA.oscPos =
             sound.waveTables[0].render(
                 tempBufA,
@@ -1312,9 +1326,8 @@ public class Voice {
                 0,
                 sound.oscRetriggerPhase[0],
                 // C oscillator.cpp:155 — waveIndex = sourceWaveIndexLastTime + 1073741824
-                vsA.waveIndexLastTime + 1073741824,
-                waveIndexIncrementA);
-        vsA.waveIndexLastTime = waveIndexA;
+                sourceWaveIndexesLastTime[0] + 1073741824,
+                sourceWaveIndexIncrements[0]);
       } else {
         int pulseWidthA =
             Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH], 1);
@@ -1347,16 +1360,13 @@ public class Voice {
       }
 
       if (sound.oscTypes[1] == OscType.WAVETABLE && sound.waveTables[1] != null) {
-        int waveIndexB = paramFinalValues[Param.LOCAL_OSC_B_WAVE_INDEX];
-        if (!doneFirstRender) {
-          vsB.waveIndexLastTime = waveIndexB;
-        }
-        int waveIndexIncrementB = (waveIndexB - vsB.waveIndexLastTime) / numSamples;
-
         int resetterDivideByPhaseIncrement = 0;
         if (doingOscSync) {
-          resetterDivideByPhaseIncrement =
-              (int) (0x80000000L / (((pIncA & 0xFFFF0000L) + 65536) >>> 16));
+          // C oscillator.cpp:140-142 — round resetterPhaseIncrement up via +65535 before >> 16.
+          long divisor = ((pIncA & 0xFFFFFFFFL) + 65535) >>> 16;
+          if (divisor > 0) {
+            resetterDivideByPhaseIncrement = (int) (0x80000000L / divisor);
+          }
         }
 
         vsB.oscPos =
@@ -1372,9 +1382,8 @@ public class Voice {
                 resetterDivideByPhaseIncrement,
                 sound.oscRetriggerPhase[1],
                 // C oscillator.cpp:155 — waveIndex = sourceWaveIndexLastTime + 1073741824
-                vsB.waveIndexLastTime + 1073741824,
-                waveIndexIncrementB);
-        vsB.waveIndexLastTime = waveIndexB;
+                sourceWaveIndexesLastTime[1] + 1073741824,
+                sourceWaveIndexIncrements[1]);
       } else {
         int pulseWidthB =
             Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_B_PHASE_WIDTH], 1);
@@ -1689,7 +1698,16 @@ public class Voice {
           } else {
             java.util.Arrays.fill(uniBuf, 0, numSamples, 0);
           }
-          vs.dxVoice.compute(uniBuf, numSamples, adjpitch, vs.dxPatch, ampMod, 0, 0);
+          // C voice.cpp:2427-2430 — if Dx7Voice::compute returns false (all operators finished
+          // releasing), goto instantUnassign (voice.cpp:1980-1988).
+          boolean dxActive =
+              vs.dxVoice.compute(uniBuf, numSamples, adjpitch, vs.dxPatch, ampMod, 0, 0);
+          if (!dxActive) {
+            vs.active = false;
+            vs.disabledByPitch = false;
+            unisonPartBecameInactive = true;
+            continue;
+          }
           // voice.cpp:2441-2444 — sourceAmplitudeNow += increment per sample.
           int dxAmpNow = srcAmpStart;
           // Shift 4 (was 6): the DX7 engine's level was calibrated against the old 4x-hot wave
@@ -1701,12 +1719,6 @@ public class Voice {
                     Functions.multiply_32x32_rshift32(uniBuf[i], dxAmpNow), 4);
           }
         } else if (sound.oscTypes[s] == OscType.WAVETABLE && sound.waveTables[s] != null) {
-          int waveIndex = paramFinalValues[Param.LOCAL_OSC_A_WAVE_INDEX + s];
-          if (!doneFirstRender) {
-            vs.waveIndexLastTime = waveIndex;
-          }
-          int waveIndexIncrement = (waveIndex - vs.waveIndexLastTime) / numSamples;
-
           int resetterDivideByPhaseIncrement = 0;
           if (doOscSyncThisSource) {
             long divisor = ((oscSyncPhaseIncrement[u] & 0xFFFFFFFFL) + 65535) >>> 16;
@@ -1728,9 +1740,8 @@ public class Voice {
                   resetterDivideByPhaseIncrement,
                   sound.oscRetriggerPhase[s],
                   // C oscillator.cpp:155 — waveIndex = sourceWaveIndexLastTime + 1073741824
-                  vs.waveIndexLastTime + 1073741824,
-                  waveIndexIncrement);
-          vs.waveIndexLastTime = waveIndex;
+                  sourceWaveIndexesLastTime[s] + 1073741824,
+                  sourceWaveIndexIncrements[s]);
 
           // oscillator.cpp:163-169 — amplitude (ramped per sample) applied after the wavetable
           // render, same net scale as the C's <<3 + vqdmulh chain.

@@ -636,8 +636,8 @@ public final class Oscillator {
         doPulseWave = (pulseWidth != 0);
         pulseWidth += -2147483648; // 2147483648u as signed
         if (doPulseWave) {
-          // phaseIncrementForCalculations = phaseIncrement * 0.6
-          phaseIncForCalc = (int) (phaseIncrement * 0.6);
+          // C oscillator.cpp:63 — uint32_t phaseIncrement * 0.6.
+          phaseIncForCalc = (int) ((phaseIncrement & 0xFFFFFFFFL) * 0.6);
         }
       }
       int[] tn = getTableNumber(phaseIncForCalc);
@@ -645,10 +645,10 @@ public final class Oscillator {
       tableSizeMagnitude = tn[1];
 
       if (type == OscType.ANALOG_SAW_2) {
-        // C oscillator.cpp:70-77 — at high CPU direness, saw-shaped analog bands (>=8) fall back
-        // to the crude digital saw. cpuDireness is 0 on desktop: tableNumber < 0 + 6 never holds
-        // for tableNumber >= 8, so no fallback here (kept for fidelity of the condition).
-        if (tableNumber >= 8 && tableNumber < 6) {
+        // C oscillator.cpp:74 — at high CPU direness, saw-shaped analog bands (>=8) fall back
+        // to the crude digital saw when tableNumber < AudioEngine::cpuDireness + 6.
+        if (tableNumber >= 8
+            && tableNumber < org.deluge.engine.FirmwareAudioEngine.cpuDireness + 6) {
           type = OscType.SAW;
         }
       } else if (type == OscType.SAW) {
