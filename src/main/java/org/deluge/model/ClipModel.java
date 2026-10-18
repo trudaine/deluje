@@ -1411,12 +1411,17 @@ public class ClipModel extends TimelineCounter {
   }
 
   private void triggerNote(org.deluge.model.PendingNoteOn noteOn) {
-    if (sound instanceof org.deluge.engine.FirmwareSound) {
-      ((org.deluge.engine.FirmwareSound) sound)
-          .triggerNote(noteOn.noteRow.getPitch(), noteOn.velocity);
-    } else if (sound instanceof org.deluge.engine.FirmwareKit) {
-      ((org.deluge.engine.FirmwareKit) sound)
-          .triggerDrum(noteOn.noteRow.getPitch(), noteOn.velocity);
+    if (sound instanceof org.deluge.engine.FirmwareSound fs) {
+      fs.fw2Sound.pendingSampleSyncLength = noteOn.sampleSyncLength; // C note_row.cpp:2557
+      fs.triggerNote(noteOn.noteRow.getPitch(), noteOn.velocity);
+      fs.fw2Sound.pendingSampleSyncLength = 0;
+    } else if (sound instanceof org.deluge.engine.FirmwareKit kit) {
+      int row = noteOn.noteRow.getPitch();
+      org.deluge.firmware2.Sound drum =
+          (row >= 0 && row < kit.drumSounds.size()) ? kit.drumSounds.get(row).fw2Sound : null;
+      if (drum != null) drum.pendingSampleSyncLength = noteOn.sampleSyncLength;
+      kit.triggerDrum(row, noteOn.velocity);
+      if (drum != null) drum.pendingSampleSyncLength = 0;
     } else if (sound instanceof org.deluge.engine.FirmwareMidiInstrument) {
       ((org.deluge.engine.FirmwareMidiInstrument) sound)
           .triggerNote(noteOn.noteRow.getPitch(), noteOn.velocity);

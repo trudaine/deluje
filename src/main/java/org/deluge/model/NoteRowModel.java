@@ -482,6 +482,8 @@ public class NoteRowModel {
                     note.getProbabilityValue(), // C note_row.cpp:2554-2555
                     note.getIterance(),
                     note.getFill()));
+            // C note_row.cpp:2557-2558 — sampleSyncLength = the note's length (STRETCH sync)
+            pendingNoteOns.get(pendingNoteOns.size() - 1).sampleSyncLength = note.getLength();
           }
         }
       }

@@ -1542,6 +1542,41 @@ public class Voice {
           // when oscType == SAMPLE; neutral phase increment for this sample's native rate, and
           // pitch-compensated timeStretchRatio per block.
           int pitchAdjustNeutralValue = (int) ((vs.sampleRef.sampleRate * 16777216L) / 44100);
+          // C VoiceUnisonPartSource::getPitchAndSpeedParams (voice_unison_part_source.cpp:115-190),
+          // syncing branch: a STRETCH source fits the sample to the sequenced note's length.
+          int syncTimeStretchRatio = -1; // -1 = not syncing (use getSpeedParamForNoSyncing)
+          int syncTicks = sources[s].sequenceSyncLengthTicks;
+          if (syncTicks > 0 && sound.samplesPerSequencerTick > 0) {
+            // getLengthInSamplesAtSystemSampleRate(true) (sample_holder.cpp:91-99)
+            long sampleLen =
+                ((long) sources[s].syncDurationFrames << 24)
+                    / (pitchAdjustNeutralValue & 0xFFFFFFFFL);
+            // C :129-130 — (timePerInternalTickBig * ticks) >> 32: no rounding
+            long noteLen = (long) (sound.samplesPerSequencerTick * syncTicks);
+            if (noteLen <= 0 || (sampleLen >> 5) > noteLen) { // C :132-135 — limit 32x speed
+              vs.active = false;
+              vs.disabledByPitch = false;
+              unisonPartBecameInactive = true;
+              continue;
+            }
+            if (sound.sampleTimestretch[s]) { // C :138-162 — sync by time-stretching
+              long r = 16777216L * sampleLen / noteLen;
+              if (pInc != pitchAdjustNeutralValue) {
+                r = r * pitchAdjustNeutralValue / (pInc & 0xFFFFFFFFL);
+              } else if (r >= 15653696 && r < 17981375) {
+                // C :151-160 — tiny stretch while < 7.8 ms out of sync: don't stretch. Drift is
+                // not tracked here (no getNumSamplesLaggingBehindSync), i.e. assumed in sync.
+                r = 16777216L;
+              }
+              syncTimeStretchRatio = (int) r;
+            } else { // C :166-180 — sync by pitch-stretching
+              syncTimeStretchRatio =
+                  (pInc != pitchAdjustNeutralValue)
+                      ? (int) (((long) pitchAdjustNeutralValue << 24) / (pInc & 0xFFFFFFFFL))
+                      : 16777216;
+              pInc = (int) ((pInc & 0xFFFFFFFFL) * sampleLen / noteLen);
+            }
+          }
           if (vs.voiceSample.pendingSamplesLate > 0) {
             // C voice.cpp:2092-2102 — late start ignores pitch modulation (uses
             // phaseIncrementStoredValue) and computes timeStretchRatioWithoutModulation.
@@ -1585,11 +1620,13 @@ public class Voice {
             // C voice_unison_part_source.cpp:203-207 — pitchAndSpeedAreIndependent counteracts
             // modulated pInc each block so playback duration stays independent of note pitch.
             vs.timeStretchRatio =
-                getSpeedParamForNoSyncing(
-                    sound.sampleTimestretch[s],
-                    sound.sampleTimeStretchAmount[s],
-                    pitchAdjustNeutralValue,
-                    pInc);
+                syncTimeStretchRatio >= 0
+                    ? syncTimeStretchRatio
+                    : getSpeedParamForNoSyncing(
+                        sound.sampleTimestretch[s],
+                        sound.sampleTimeStretchAmount[s],
+                        pitchAdjustNeutralValue,
+                        pInc);
             java.util.Arrays.fill(tsBuf, 0, requiredTsLen, 0);
             int[] ampArr = {sampAmp};
             vs.voiceSample.renderTimeStretched(
