@@ -197,115 +197,10 @@ public class DelugeUsbSyncService {
         }
 
         InputStream in = serialPort.getInputStream();
-        byte[] header = new byte[5];
-        while (running) {
-          int read = readFully(in, header);
-          if (read < 0) {
-            LOGGER.fine("[USB] Deluge disconnected (stream closed).");
-            closePort();
-            break;
-          }
-
-          if (header[0] != (byte) 0xDE || header[1] != (byte) 0x4C) {
-            // Out of sync, scan for next magic byte sequence
-            syncStream(in);
-            continue;
-          }
-
-          int cmd = header[2] & 0xFF;
-          int len = (header[3] & 0xFF) | ((header[4] & 0xFF) << 8);
-
-          if (len < 0 || len > 1024) {
-            continue;
-          }
-
-          byte[] payload = new byte[len];
-          if (readFully(in, payload) < 0) {
-            LOGGER.fine("[USB] Deluge disconnected during payload read.");
-            closePort();
-            break;
-          }
-
-          int checksumByte = in.read();
-          if (checksumByte < 0) {
-            LOGGER.fine("[USB] Deluge disconnected during checksum read.");
-            closePort();
-            break;
-          }
-
-          int calculatedChecksum = cmd ^ (len & 0xFF) ^ ((len >> 8) & 0xFF);
-          for (byte b : payload) {
-            calculatedChecksum ^= (b & 0xFF);
-          }
-
-          if ((checksumByte & 0xFF) != (calculatedChecksum & 0xFF)) {
-            // Checksum error, ignore packet
-            continue;
-          }
-
-          if (cmd == 1) { // Playhead Sync
-            int tick =
-                ((payload[0] & 0xFF)
-                    | ((payload[1] & 0xFF) << 8)
-                    | ((payload[2] & 0xFF) << 16)
-                    | ((payload[3] & 0xFF) << 24));
-
-            int bpm =
-                ((payload[4] & 0xFF)
-                    | ((payload[5] & 0xFF) << 8)
-                    | ((payload[6] & 0xFF) << 16)
-                    | ((payload[7] & 0xFF) << 24));
-
-            int playState = payload[8] & 0xFF;
-
-            handleSync(tick, bpm, playState);
-          } else if (cmd == 3) { // File List Response
-            int status = payload[0] & 0xFF;
-            if (status != 0) {
-              notifyError("Failed to read directory listing.");
-            } else {
-              List<FileEntry> entries = new ArrayList<>();
-              int idx = 1;
-              while (idx < payload.length) {
-                if (idx >= payload.length) break;
-                char type = (char) payload[idx++];
-                int start = idx;
-                while (idx < payload.length && payload[idx] != 0) {
-                  idx++;
-                }
-                if (idx > start) {
-                  String name = new String(payload, start, idx - start, StandardCharsets.UTF_8);
-                  entries.add(new FileEntry(type == 'd', name));
-                }
-                idx++;
-              }
-              notifyDirectoryListing(entries);
-            }
-          } else if (cmd == 5) { // Read File Data Chunk
-            int status = payload[0] & 0xFF;
-            int chunkIndex = (payload[1] & 0xFF) | ((payload[2] & 0xFF) << 8);
-            int chunkSize = (payload[3] & 0xFF) | ((payload[4] & 0xFF) << 8);
-
-            if (status == 2) {
-              notifyError("Failed to read file chunk (error on Deluge).");
-            } else {
-              byte[] fileData = new byte[chunkSize];
-              System.arraycopy(payload, 5, fileData, 0, chunkSize);
-              boolean isEof = (status == 1);
-              notifyFileChunk(chunkIndex, isEof, fileData);
-            }
-          } else if (cmd == 11) { // Parameter Value Response (0x0B)
-            if (payload.length >= 7) {
-              int paramKind = payload[0] & 0xFF;
-              int paramID = (payload[1] & 0xFF) | ((payload[2] & 0xFF) << 8);
-              int value =
-                  (payload[3] & 0xFF)
-                      | ((payload[4] & 0xFF) << 8)
-                      | ((payload[5] & 0xFF) << 16)
-                      | ((payload[6] & 0xFF) << 24);
-              notifyParameterReceived(paramKind, paramID, value);
-            }
-          }
+        readPacketsFromStream(in);
+        if (running) {
+          LOGGER.fine("[USB] Deluge disconnected (stream closed).");
+          closePort();
         }
       } catch (InterruptedException e) {
         break;
@@ -321,22 +216,152 @@ public class DelugeUsbSyncService {
     }
   }
 
-  private void syncStream(InputStream in) throws Exception {
-    int b;
-    while ((b = in.read()) >= 0) {
-      if (b == 0xDE) {
-        int next = in.read();
-        if (next == 0x4C) {
-          break;
+  /**
+   * Reads framed {@code 0xDE 0x4C} packets from {@code in} until EOF or {@link #stop()} is called.
+   * Package-private so tests can exercise stream resynchronization and bounds checks directly.
+   */
+  void readPacketsFromStream(InputStream in) throws Exception {
+    byte[] header = new byte[5];
+    while (thread == null || running) {
+      if (readFully(in, header, 0, 5) < 0) {
+        return;
+      }
+
+      while (header[0] != (byte) 0xDE || header[1] != (byte) 0x4C) {
+        if (!resyncHeader(in, header)) {
+          return;
+        }
+      }
+
+      int cmd = header[2] & 0xFF;
+      int len = (header[3] & 0xFF) | ((header[4] & 0xFF) << 8);
+
+      if (len < 0 || len > 1024) {
+        continue;
+      }
+
+      byte[] payload = new byte[len];
+      if (readFully(in, payload, 0, len) < 0) {
+        return;
+      }
+
+      int checksumByte = in.read();
+      if (checksumByte < 0) {
+        return;
+      }
+
+      int calculatedChecksum = cmd ^ (len & 0xFF) ^ ((len >> 8) & 0xFF);
+      for (byte b : payload) {
+        calculatedChecksum ^= (b & 0xFF);
+      }
+
+      if ((checksumByte & 0xFF) != (calculatedChecksum & 0xFF)) {
+        // Checksum error, ignore packet
+        continue;
+      }
+
+      if (cmd == 1) { // Playhead Sync
+        if (payload.length < 9) {
+          continue;
+        }
+        int tick =
+            ((payload[0] & 0xFF)
+                | ((payload[1] & 0xFF) << 8)
+                | ((payload[2] & 0xFF) << 16)
+                | ((payload[3] & 0xFF) << 24));
+
+        int bpm =
+            ((payload[4] & 0xFF)
+                | ((payload[5] & 0xFF) << 8)
+                | ((payload[6] & 0xFF) << 16)
+                | ((payload[7] & 0xFF) << 24));
+
+        int playState = payload[8] & 0xFF;
+
+        handleSync(tick, bpm, playState);
+      } else if (cmd == 3) { // File List Response
+        if (payload.length < 1) {
+          continue;
+        }
+        int status = payload[0] & 0xFF;
+        if (status != 0) {
+          notifyError("Failed to read directory listing.");
+        } else {
+          List<FileEntry> entries = new ArrayList<>();
+          int idx = 1;
+          while (idx < payload.length) {
+            char type = (char) payload[idx++];
+            int start = idx;
+            while (idx < payload.length && payload[idx] != 0) {
+              idx++;
+            }
+            if (idx > start) {
+              String name = new String(payload, start, idx - start, StandardCharsets.UTF_8);
+              entries.add(new FileEntry(type == 'd', name));
+            }
+            idx++;
+          }
+          notifyDirectoryListing(entries);
+        }
+      } else if (cmd == 5) { // Read File Data Chunk
+        if (payload.length < 5) {
+          continue;
+        }
+        int status = payload[0] & 0xFF;
+        int chunkIndex = (payload[1] & 0xFF) | ((payload[2] & 0xFF) << 8);
+        int chunkSize = (payload[3] & 0xFF) | ((payload[4] & 0xFF) << 8);
+
+        if (status == 2) {
+          notifyError("Failed to read file chunk (error on Deluge).");
+        } else if (chunkSize >= 0 && payload.length >= 5 + chunkSize) {
+          byte[] fileData = new byte[chunkSize];
+          System.arraycopy(payload, 5, fileData, 0, chunkSize);
+          boolean isEof = (status == 1);
+          notifyFileChunk(chunkIndex, isEof, fileData);
+        }
+      } else if (cmd == 11) { // Parameter Value Response (0x0B)
+        if (payload.length >= 7) {
+          int paramKind = payload[0] & 0xFF;
+          int paramID = (payload[1] & 0xFF) | ((payload[2] & 0xFF) << 8);
+          int value =
+              (payload[3] & 0xFF)
+                  | ((payload[4] & 0xFF) << 8)
+                  | ((payload[5] & 0xFF) << 16)
+                  | ((payload[6] & 0xFF) << 24);
+          notifyParameterReceived(paramKind, paramID, value);
         }
       }
     }
   }
 
-  private int readFully(InputStream in, byte[] buf) throws Exception {
+  private boolean resyncHeader(InputStream in, byte[] header) throws Exception {
+    // Check if the 0xDE 0x4C magic already starts inside header[1..3]
+    for (int offset = 1; offset <= 3; offset++) {
+      if (header[offset] == (byte) 0xDE && header[offset + 1] == (byte) 0x4C) {
+        int remaining = 5 - offset;
+        System.arraycopy(header, offset, header, 0, remaining);
+        return readFully(in, header, remaining, offset) >= 0;
+      }
+    }
+
+    // Otherwise scan the stream for 0xDE 0x4C (preserving a trailing 0xDE at header[4])
+    boolean prevWasDe = (header[4] == (byte) 0xDE);
+    int b;
+    while ((b = in.read()) >= 0) {
+      if (prevWasDe && b == 0x4C) {
+        header[0] = (byte) 0xDE;
+        header[1] = (byte) 0x4C;
+        return readFully(in, header, 2, 3) >= 0;
+      }
+      prevWasDe = (b == 0xDE);
+    }
+    return false;
+  }
+
+  private int readFully(InputStream in, byte[] buf, int offset, int len) throws Exception {
     int total = 0;
-    while (total < buf.length) {
-      int read = in.read(buf, total, buf.length - total);
+    while (total < len) {
+      int read = in.read(buf, offset + total, len - total);
       if (read < 0) return -1;
       total += read;
     }

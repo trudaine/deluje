@@ -52,6 +52,9 @@ final class LaunchQuantizer {
    */
   static long magnifyToThreeBeats(long inputTickScale, long oneBar) {
     long threeBeats = (oneBar >= 2) ? (oneBar * 3) >> 2 : oneBar;
+    if (inputTickScale <= 0) {
+      return Math.max(0L, threeBeats);
+    }
     long q = inputTickScale;
     while (q < threeBeats) {
       q <<= 1;

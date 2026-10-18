@@ -3,6 +3,7 @@ package org.deluge.cleanup;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -114,10 +115,19 @@ public class DelugeRecordingCleaner {
       quarantineDir.mkdirs();
     }
 
+    Path recordRoot = new File(samplesDir, "RECORD").toPath().toAbsolutePath().normalize();
     int successCount = 0;
     for (File f : files) {
       if (f.exists() && f.isFile()) {
-        File dest = new File(quarantineDir, f.getName());
+        Path fileAbs = f.toPath().toAbsolutePath().normalize();
+        File dest =
+            fileAbs.startsWith(recordRoot)
+                ? quarantineDir.toPath().resolve(recordRoot.relativize(fileAbs)).toFile()
+                : new File(quarantineDir, f.getName());
+        File destParent = dest.getParentFile();
+        if (destParent != null && !destParent.exists()) {
+          destParent.mkdirs();
+        }
         try {
           Files.move(f.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
           successCount++;
@@ -182,12 +192,17 @@ public class DelugeRecordingCleaner {
 
   private static void scanXmlFolder(File folder, ScanResult result) {
     if (folder == null || !folder.isDirectory()) return;
-    File[] xmlFiles = folder.listFiles((dir, name) -> name.toLowerCase().endsWith(".xml"));
-    if (xmlFiles == null) return;
+    File[] children = folder.listFiles();
+    if (children == null) return;
 
-    for (File xml : xmlFiles) {
-      Set<String> refs = extractReferencedPaths(xml, result.problemFiles);
-      result.referencedPaths.addAll(refs);
+    for (File child : children) {
+      if (child.isDirectory()) {
+        // Recurse into user subfolders (C SlotBrowser subfolder support)
+        scanXmlFolder(child, result);
+      } else if (child.isFile() && child.getName().toLowerCase().endsWith(".xml")) {
+        Set<String> refs = extractReferencedPaths(child, result.problemFiles);
+        result.referencedPaths.addAll(refs);
+      }
     }
   }
 
@@ -203,7 +218,11 @@ public class DelugeRecordingCleaner {
     }
   }
 
-  /** Parses an XML file to extract all referenced sample paths. */
+  /**
+   * Parses an XML file to extract all referenced sample paths from {@code fileName} (instruments,
+   * kits, zones; C sound.cpp:668, 3659) and {@code filePath} (audio clips; C audio_clip.cpp:1060,
+   * 1134).
+   */
   public static Set<String> extractReferencedPaths(File xmlFile, List<File> problemFiles) {
     Set<String> paths = new HashSet<>();
     try {
@@ -214,18 +233,13 @@ public class DelugeRecordingCleaner {
       Document doc = builder.parse(xmlFile);
       doc.getDocumentElement().normalize();
 
-      // 1. Extract all 'fileName' attributes recursively
+      // 1. Extract all 'fileName' and 'filePath' attributes recursively
       extractAttributes(doc.getDocumentElement(), "fileName", paths);
+      extractAttributes(doc.getDocumentElement(), "filePath", paths);
 
-      // 2. Extract all '<fileName>' elements recursively
-      NodeList list = doc.getElementsByTagName("fileName");
-      for (int i = 0; i < list.getLength(); i++) {
-        Node node = list.item(i);
-        String text = node.getTextContent();
-        if (text != null && !text.isBlank()) {
-          paths.add(text.trim());
-        }
-      }
+      // 2. Extract all '<fileName>' and '<filePath>' elements recursively
+      extractElementTexts(doc, "fileName", paths);
+      extractElementTexts(doc, "filePath", paths);
     } catch (Exception e) {
       LOG.warning("Failed to parse project XML " + xmlFile.getName() + ": " + e.getMessage());
       if (problemFiles != null) {
@@ -233,6 +247,17 @@ public class DelugeRecordingCleaner {
       }
     }
     return paths;
+  }
+
+  private static void extractElementTexts(Document doc, String tagName, Set<String> paths) {
+    NodeList list = doc.getElementsByTagName(tagName);
+    for (int i = 0; i < list.getLength(); i++) {
+      Node node = list.item(i);
+      String text = node.getTextContent();
+      if (text != null && !text.isBlank()) {
+        paths.add(text.trim());
+      }
+    }
   }
 
   private static void extractAttributes(Element element, String attrName, Set<String> paths) {
