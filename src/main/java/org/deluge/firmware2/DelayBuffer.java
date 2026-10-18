@@ -89,7 +89,7 @@ public class DelayBuffer {
   /** C: delay_buffer.cpp:58-62 */
   public void clear() {
     for (int i = 0;
-        i < DELAY_SPACE_BETWEEN_READ_AND_WRITE + 2;
+        i < Math.min(DELAY_SPACE_BETWEEN_READ_AND_WRITE + 2, sizeIncludingExtra);
         i++) { // C:59 — memset first N slots
       buffer[i][0] = 0;
       buffer[i][1] = 0;
@@ -102,7 +102,10 @@ public class DelayBuffer {
 
   /** C: delay_buffer.cpp:64-80 */
   public static int[] getIdealBufferSizeFromRate(int newRate) {
-    long bufferSz = (long) K_NEUTRAL_SIZE * K_MAX_SAMPLE_VALUE / (newRate & 0xFFFFFFFFL); // C:65
+    long bufferSz =
+        (long) K_NEUTRAL_SIZE
+            * K_MAX_SAMPLE_VALUE
+            / Math.max(1L, newRate & 0xFFFFFFFFL); // C: delay_buffer.cpp:65 (uint32_t newRate)
     boolean clamped = false;
 
     if (bufferSz > K_MAX_SIZE) { // C:69-72
@@ -128,8 +131,9 @@ public class DelayBuffer {
 
   /** C: delay_buffer.cpp:86-90 */
   public void makeNativeRatePreciseRelativeToOtherBuffer(DelayBuffer otherBuffer) {
+    // C: delay_buffer.h:299 — native_rate_ is uint32_t.
     double otherBufferAmountTooFast =
-        (double) otherBuffer.nativeRate
+        (double) (otherBuffer.nativeRate & 0xFFFFFFFFL)
             * (double) otherBuffer.bufferSize
             / ((double) K_NEUTRAL_SIZE * (double) K_MAX_SAMPLE_VALUE);
     this.nativeRate =

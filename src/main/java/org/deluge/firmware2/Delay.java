@@ -323,9 +323,13 @@ public class Delay {
           || delayWorkingState.userDelayRate != primaryBuffer.native_rate_) {
         if (countCyclesWithoutChange >= (44100 >> 3)) { // C:244 — kSampleRate>>3
           initializeSecondaryBuffer(delayWorkingState.userDelayRate, true);
-        } else if (delayWorkingState.userDelayRate >= (primaryBuffer.native_rate_ << 1)) { // C:251
+        } else if (Integer.compareUnsigned(
+                delayWorkingState.userDelayRate, primaryBuffer.native_rate_ << 1)
+            >= 0) { // C: delay.cpp:252, delay_buffer.h:269 (uint32_t nativeRate)
           initializeSecondaryBuffer(delayWorkingState.userDelayRate, false);
-        } else if (delayWorkingState.userDelayRate < (primaryBuffer.native_rate_ >> 1)) { // C:257
+        } else if (Integer.compareUnsigned(
+                delayWorkingState.userDelayRate, primaryBuffer.native_rate_ >>> 1)
+            < 0) { // C: delay.cpp:258
           initializeSecondaryBuffer(delayWorkingState.userDelayRate >> 1, false);
         }
       }
@@ -685,7 +689,10 @@ public class Delay {
 
     /** C: delay_buffer.cpp:64-80 */
     static int[] getIdealBufferSizeFromRate(int newRate) {
-      long bufferSize = (long) KB_NEUTRAL_SIZE * (long) K_MAX_SAMPLE_VALUE / Math.max(1, newRate);
+      long bufferSize =
+          (long) KB_NEUTRAL_SIZE
+              * (long) K_MAX_SAMPLE_VALUE
+              / Math.max(1L, newRate & 0xFFFFFFFFL); // C: delay_buffer.cpp:65 (uint32_t newRate)
       int clamped = 0;
       if (bufferSize > KB_MAX_SIZE) {
         bufferSize = KB_MAX_SIZE;
@@ -704,10 +711,11 @@ public class Delay {
           (int) Math.round((double) KB_NEUTRAL_SIZE * (double) K_MAX_SAMPLE_VALUE / (double) size_);
     }
 
-    /** C: delay_buffer.cpp:86-89 */
+    /** C: delay_buffer.cpp:86-90 */
     void makeNativeRatePreciseRelativeToOtherBuffer(DelayBuffer other) {
+      // C: delay_buffer.h:299 — native_rate_ is uint32_t.
       double amountTooFast =
-          (double) other.native_rate_
+          (double) (other.native_rate_ & 0xFFFFFFFFL)
               * (double) other.size_
               / ((double) KB_NEUTRAL_SIZE * (double) K_MAX_SAMPLE_VALUE);
       native_rate_ =
@@ -790,7 +798,7 @@ public class Delay {
      */
     int advanceRead(boolean clearOnWrap) {
       longPos += actualSpinRate;
-      int newShortPos = (int) ((longPos & 0xFFFFFFFFFFFFFFFFL) >> 24) & 0xFF;
+      int newShortPos = longPos >>> 24; // C: delay_buffer.h:52 (uint32_t longPos >> 24)
       int shortPosDiff = (newShortPos - lastShortPos) & 0xFF;
       lastShortPos = (byte) newShortPos;
 
@@ -799,7 +807,7 @@ public class Delay {
         else moveOn();
         shortPosDiff--;
       }
-      return (longPos >> 8) & 0xFFFF;
+      return (longPos >>> 8) & 0xFFFF; // C: delay_buffer.h:60
     }
 
     /**
@@ -810,7 +818,7 @@ public class Delay {
      */
     int advance(Runnable callback) {
       longPos += actualSpinRate;
-      int newShortPos = (int) ((longPos & 0xFFFFFFFFFFFFFFFFL) >> 24) & 0xFF;
+      int newShortPos = longPos >>> 24; // C: delay_buffer.h:52 (uint32_t longPos >> 24)
       int shortPosDiff = (newShortPos - lastShortPos) & 0xFF;
       lastShortPos = (byte) newShortPos;
 
@@ -818,7 +826,7 @@ public class Delay {
         callback.run();
         shortPosDiff--;
       }
-      return (longPos >> 8) & 0xFFFF;
+      return (longPos >>> 8) & 0xFFFF; // C: delay_buffer.h:60
     }
 
     /** C: delay_buffer.cpp:126-191 — setupForRender. C: delay_buffer.cpp:99-124 — setupResample. */
@@ -867,7 +875,7 @@ public class Delay {
       while (writeIdx < 0) writeIdx += sizeIncludingExtra;
 
       int writePlusOne = writeIdx + 1;
-      if (writePlusOne >= end_) writePlusOne -= sizeIncludingExtra;
+      while (writePlusOne >= end_) writePlusOne -= sizeIncludingExtra; // C: delay_buffer.cpp:115
 
       data[writePlusOne][0] = data[writeIdx][0] >> 2; // C:119
       data[writePlusOne][1] = data[writeIdx][1] >> 2; // C:120
