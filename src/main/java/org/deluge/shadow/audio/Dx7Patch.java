@@ -36,15 +36,25 @@ public class Dx7Patch {
   };
 
   private byte[] rawBytes = createInitVoiceBytes();
+  // C param.cpp:283-288 — unpacked slot 0..5 is DX7 OP6..OP1 (buffer[2] = '6' - op).
+  // operators()[0..5] exposes OP1..OP6 in hardware/manual order (slot 5..0).
   private final Operator[] ops =
       new Operator[] {
-        new Operator(this, 0),
-        new Operator(this, 1),
-        new Operator(this, 2),
-        new Operator(this, 3),
-        new Operator(this, 4),
-        new Operator(this, 5)
+        new Operator(this, slotForOperator(0)),
+        new Operator(this, slotForOperator(1)),
+        new Operator(this, slotForOperator(2)),
+        new Operator(this, slotForOperator(3)),
+        new Operator(this, slotForOperator(4)),
+        new Operator(this, slotForOperator(5))
       };
+
+  /**
+   * Convert a 0-based DX7 operator index (0 = OP1 .. 5 = OP6) to its unpacked byte slot (5 = OP1 ..
+   * 0 = OP6; C {@code param.cpp:288}).
+   */
+  public static int slotForOperator(int opIndex0To5) {
+    return 5 - opIndex0To5;
+  }
 
   public static byte[] createInitVoiceBytes() {
     byte[] out = new byte[VOICE_SIZE];

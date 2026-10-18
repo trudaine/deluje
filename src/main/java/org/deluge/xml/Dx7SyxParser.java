@@ -194,7 +194,8 @@ public class Dx7SyxParser {
         }
         validateChecksum(data, pos, dataLen, data[pos + dataLen] & 0x7F);
         for (int idx = 0; idx < 32; idx++) {
-          byte[] unpacked = new byte[VOICE_SIZE];
+          // C cartridge.cpp:100-101, dx7note.cpp:56-58 — destination starts from init_voice.
+          byte[] unpacked = Dx7Patch.createInitVoiceBytes();
           unpackProgram(data, pos + idx * PACKED_VOICE_SIZE, unpacked);
           unpacked[Dx7Patch.OFF_OP_SWITCH] = 0x3F;
           patches.add(Dx7Patch.fromHex(Dx7Patch.bytesToHex(unpacked)));
@@ -296,62 +297,75 @@ public class Dx7SyxParser {
 
   /**
    * Unpack one 128-byte packed VMEM voice into a 156-byte unpacked voice buffer (C {@code
-   * DX7Cartridge::unpackProgram}, {@code DX7Cartridge.cpp:155-214}, {@code sysex-format.txt}).
+   * DX7Cartridge::unpackProgram}, {@code DX7Cartridge.cpp:155-214}).
    */
   static void unpackProgram(byte[] bulk, int bulkOff, byte[] unpackPgm) {
     for (int op = 0; op < 6; op++) {
       int pp = bulkOff + op * 17;
       int up = op * 21;
 
-      // Bytes 0..10: EG R1..R4 (0..3), L1..L4 (4..7), break pt (8), left depth (9), right depth
-      // (10).
-      for (int i = 0; i < 11; i++) {
+      // C DX7Cartridge.cpp:168-170 — loops i = 0..9 only; unpack_op[10] (right depth) is left
+      // untouched at whatever the destination buffer held (init_voice = 0).
+      for (int i = 0; i < 10; i++) {
         unpackPgm[up + i] = (byte) normparm(bulk[pp + i] & 0x7F, 99);
       }
 
-      int curves = bulk[pp + 11] & 0x0F;
+      // C :172-174 — unpackBits<2, 2>(clearTopBit(bulk_op[11]))
+      int curves = bulk[pp + 11] & 0x7F;
       unpackPgm[up + 11] = (byte) (curves & 0x03);
       unpackPgm[up + 12] = (byte) ((curves >> 2) & 0x03);
 
+      // C :176-177, 188 — unpackBits<3, 4>(clearTopBit(bulk_op[12])), no normparm on detune.
       int detuneRs = bulk[pp + 12] & 0x7F;
       unpackPgm[up + 13] = (byte) (detuneRs & 0x07);
-      unpackPgm[up + 20] = (byte) normparm((detuneRs >> 3) & 0x0F, 14);
+      unpackPgm[up + 20] = (byte) ((detuneRs >> 3) & 0x0F);
 
-      int kvsAms = bulk[pp + 13] & 0x1F;
+      // C :179-181 — unpackBits<2, 3>(clearTopBit(bulk_op[13]))
+      int kvsAms = bulk[pp + 13] & 0x7F;
       unpackPgm[up + 14] = (byte) (kvsAms & 0x03);
       unpackPgm[up + 15] = (byte) ((kvsAms >> 2) & 0x07);
 
-      unpackPgm[up + 16] = (byte) normparm(bulk[pp + 14] & 0x7F, 99);
+      // C :182 — clearTopBit(bulk_op[14]) only, no normparm.
+      unpackPgm[up + 16] = (byte) (bulk[pp + 14] & 0x7F);
 
-      int coarseMode = bulk[pp + 15] & 0x3F;
+      // C :184-186 — unpackBits<1, 5>(clearTopBit(bulk_op[15]))
+      int coarseMode = bulk[pp + 15] & 0x7F;
       unpackPgm[up + 17] = (byte) (coarseMode & 0x01);
       unpackPgm[up + 18] = (byte) ((coarseMode >> 1) & 0x1F);
 
-      unpackPgm[up + 19] = (byte) normparm(bulk[pp + 16] & 0x7F, 99);
+      // C :187 — clearTopBit(bulk_op[16]) only, no normparm.
+      unpackPgm[up + 19] = (byte) (bulk[pp + 16] & 0x7F);
     }
 
+    // C :191-193 — pitch EG bytes 126..133 use normparm(..., 99).
     for (int i = 0; i < 8; i++) {
       unpackPgm[126 + i] = (byte) normparm(bulk[bulkOff + 102 + i] & 0x7F, 99);
     }
 
+    // C :196 — algorithm uses clearTopNBits(..., 3) + normparm(..., 31).
     unpackPgm[134] = (byte) normparm(bulk[bulkOff + 110] & 0x1F, 31);
 
-    int oksFb = bulk[bulkOff + 111] & 0x0F;
+    // C :198-200 — unpackBits<3, 1>(clearTopBit(bulk[111]))
+    int oksFb = bulk[bulkOff + 111] & 0x7F;
     unpackPgm[135] = (byte) (oksFb & 0x07);
     unpackPgm[136] = (byte) ((oksFb >> 3) & 0x01);
 
-    unpackPgm[137] = (byte) normparm(bulk[bulkOff + 112] & 0x7F, 99);
-    unpackPgm[138] = (byte) normparm(bulk[bulkOff + 113] & 0x7F, 99);
-    unpackPgm[139] = (byte) normparm(bulk[bulkOff + 114] & 0x7F, 99);
-    unpackPgm[140] = (byte) normparm(bulk[bulkOff + 115] & 0x7F, 99);
+    // C :201-204 — LFO speed, delay, PMD, AMD use clearTopBit only, no normparm.
+    unpackPgm[137] = (byte) (bulk[bulkOff + 112] & 0x7F);
+    unpackPgm[138] = (byte) (bulk[bulkOff + 113] & 0x7F);
+    unpackPgm[139] = (byte) (bulk[bulkOff + 114] & 0x7F);
+    unpackPgm[140] = (byte) (bulk[bulkOff + 115] & 0x7F);
 
-    // Byte 116: bit 0 = LKS (1b), bits 1..3 = LFW (3b, 0..5), bits 4..6 = LPMS (3b, 0..7).
+    // C DX7Cartridge.cpp:206 — unpackBits<1, 4, 2>(clearTopBit(bulk[116])) LSB-first:
+    // bit 0 = LKS (1b), bits 1..4 = LFW (4b, no clamp), bits 5..6 = LPMS (2b).
+    // (Note: C packProgram at :87 uses the Yamaha spec <1, 3, 3> layout; unpack matches :206.)
     int lpmsLfwLks = bulk[bulkOff + 116] & 0x7F;
     unpackPgm[141] = (byte) (lpmsLfwLks & 0x01);
-    unpackPgm[142] = (byte) normparm((lpmsLfwLks >> 1) & 0x07, 5);
-    unpackPgm[143] = (byte) ((lpmsLfwLks >> 4) & 0x07);
+    unpackPgm[142] = (byte) ((lpmsLfwLks >> 1) & 0x0F);
+    unpackPgm[143] = (byte) ((lpmsLfwLks >> 5) & 0x03);
 
-    unpackPgm[144] = (byte) normparm(bulk[bulkOff + 117] & 0x7F, 48);
+    // C :210 — transpose uses clearTopBit only, no normparm.
+    unpackPgm[144] = (byte) (bulk[bulkOff + 117] & 0x7F);
 
     for (int i = 0; i < 10; i++) {
       unpackPgm[145 + i] = (byte) (bulk[bulkOff + 118 + i] & 0x7F);

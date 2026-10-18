@@ -138,9 +138,11 @@ public class Dx7Panel extends JPanel {
             defaultRaw[Dx7Patch.OFF_ALGORITHM] = 5;
             defaultRaw[Dx7Patch.OFF_FEEDBACK] = 6;
             defaultRaw[Dx7Patch.OFF_OP_SWITCH] = 0x3F; // all 6 operators active!
-            // Set operator output levels (offset +16, C dx7note.cpp:241) to audible defaults.
+            // Set operator output levels (offset +16, C dx7note.cpp:241, param.cpp:288):
+            // OP 1 (opIndex 0 -> slot 5) gets 99; OP 2..6 (slots 4..0) get 75.
             for (int op = 0; op < 6; op++) {
-              int opOff = op * 21;
+              int slot = Dx7Patch.slotForOperator(op);
+              int opOff = slot * 21;
               defaultRaw[opOff + 16] = (byte) (op == 0 ? 99 : 75);
               defaultRaw[opOff + 18] = (byte) 1; // Coarse ratio = 1.0
             }
@@ -490,10 +492,11 @@ public class Dx7Panel extends JPanel {
           if (isRefreshingOpDetails) return;
           byte[] raw = getCurrentRaw(model, model.getDx7Patch());
           if (raw == null) return;
+          int slot = Dx7Patch.slotForOperator(currentSelectedOp);
           if (activeCheckbox.isSelected()) {
-            raw[Dx7Patch.OFF_OP_SWITCH] |= (byte) (1 << currentSelectedOp);
+            raw[Dx7Patch.OFF_OP_SWITCH] |= (byte) (1 << slot);
           } else {
-            raw[Dx7Patch.OFF_OP_SWITCH] &= (byte) ~(1 << currentSelectedOp);
+            raw[Dx7Patch.OFF_OP_SWITCH] &= (byte) ~(1 << slot);
           }
           String newHex = Dx7Patch.bytesToHex(raw);
           model.setDx7Patch(newHex);
@@ -795,10 +798,11 @@ public class Dx7Panel extends JPanel {
       if (curPatch == null || curPatch.isEmpty()) return;
       Dx7Patch parsedPatch = Dx7Patch.fromHex(curPatch);
       byte[] raw = parsedPatch.raw();
-      int opOff = currentSelectedOp * 21;
+      int slot = Dx7Patch.slotForOperator(currentSelectedOp);
+      int opOff = slot * 21;
 
       // ── Operator Enabled switch ──
-      boolean opOn = ((raw[Dx7Patch.OFF_OP_SWITCH] >> currentSelectedOp) & 1) != 0;
+      boolean opOn = ((raw[Dx7Patch.OFF_OP_SWITCH] >> slot) & 1) != 0;
       activeCheckbox.setSelected(opOn);
       activeCheckbox.setText(
           opOn
@@ -922,7 +926,7 @@ public class Dx7Panel extends JPanel {
     if (isRefreshingOpDetails) return;
     byte[] raw = getCurrentRaw(model, model.getDx7Patch());
     if (raw == null) return;
-    int opOff = currentSelectedOp * 21;
+    int opOff = Dx7Patch.slotForOperator(currentSelectedOp) * 21;
     raw[opOff + fieldOff] = (byte) (value & 0xFF);
     String newHex = Dx7Patch.bytesToHex(raw);
     model.setDx7Patch(newHex);
