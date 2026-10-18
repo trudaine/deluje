@@ -84,8 +84,10 @@ public final class KeyplayKeyboard {
     int scaleNoteCount = scaleNotes.length;
     int y = (numRows - 1) - trk;
     int padIndex = scrollOffset + colId + y * rowInterval;
-    int octave = padIndex / scaleNoteCount;
-    int octaveNoteIndex = padIndex % scaleNoteCount;
+    // C in_key.h:58-60 — use floorDiv/floorMod so negative padIndex (low scrollOffset) steps down
+    // into lower octaves instead of indexing scaleNotes with a negative remainder.
+    int octave = Math.floorDiv(padIndex, scaleNoteCount);
+    int octaveNoteIndex = Math.floorMod(padIndex, scaleNoteCount);
     return octave * 12 + rootNote + scaleNotes[octaveNoteIndex];
   }
 

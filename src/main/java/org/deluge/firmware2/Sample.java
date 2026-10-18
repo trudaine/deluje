@@ -88,6 +88,9 @@ public class Sample {
       int lengthToAverageEach) {
     int bytesPerSample = byteDepth * numChannels;
     int len = (int) audioDataLengthBytes;
+    if (data == null || bytesPerSample <= 0 || startBytePos < audioDataStartPosBytes) { // C:738
+      return false;
+    }
 
     int startSamplePos =
         Integer.divideUnsigned(startBytePos - audioDataStartPosBytes, bytesPerSample); // C:740
@@ -120,11 +123,21 @@ public class Sample {
       return false;
     }
 
+    // C sample.cpp:778-805 — readByteOutOfRange / cluster bounds check applies in both directions;
+    // when playDirection == -1, readByte starts at the upper end of the window and can exceed
+    // audioDataStartPosBytes + len even when endReadByte is in range.
     for (int i = 0; i < TimeStretcher.K_NUM_MOVING_AVERAGES; i++) { // C:770
       totals[i] = 0;
       for (int j = 0; j < lengthToAverageEach; j++) { // C:780-829 (cluster walk flattened)
+        if ((long) readByte < (long) audioDataStartPosBytes
+            || (long) readByte >= (long) audioDataStartPosBytes + audioDataLengthBytes) {
+          return false;
+        }
         int frame = (readByte - audioDataStartPosBytes) / bytesPerSample;
         int base = frame * numChannels;
+        if (base < 0 || base + numChannels > data.length) {
+          return false;
+        }
         totals[i] += data[base] >> 16; // C:816
         if (numChannels == 2) {
           totals[i] += data[base + 1] >> 16; // C:818

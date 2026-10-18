@@ -22,7 +22,10 @@ public final class ScaleMapper {
    * @param foldMode true if fold mode is active (only showing rows with active notes)
    * @param foldedPitches the list of active pitches in fold mode
    * @return the MIDI pitch (0-127), or 60 (C4) as a fallback
+   * @deprecated Legacy C-major / root-0 overload; prefer {@link #getRowPitch(int, boolean, boolean,
+   *     boolean, List, int[], int)}.
    */
+  @Deprecated
   public static int getRowPitch(
       int modelRow,
       boolean isSynth,
@@ -71,13 +74,35 @@ public final class ScaleMapper {
    * @param foldMode true if fold mode is active
    * @param foldedPitches the list of active pitches in fold mode
    * @return the row index (0-127), or -1 if not found (in fold mode), or the chromatic row fallback
+   * @deprecated Legacy C-major / root-0 overload; prefer {@link #getRowFromPitch(int, boolean,
+   *     boolean, boolean, List, int[], int)}.
    */
+  @Deprecated
   public static int getRowFromPitch(
       int pitch,
       boolean isSynth,
       boolean scaleModeEnabled,
       boolean foldMode,
       List<Integer> foldedPitches) {
+    return getRowFromPitch(
+        pitch,
+        isSynth,
+        scaleModeEnabled,
+        foldMode,
+        foldedPitches,
+        Scales.ScaleType.MAJOR.getIntervals(),
+        0);
+  }
+
+  /** As {@link #getRowFromPitch}, but with the song's actual scale intervals and root pitch. */
+  public static int getRowFromPitch(
+      int pitch,
+      boolean isSynth,
+      boolean scaleModeEnabled,
+      boolean foldMode,
+      List<Integer> foldedPitches,
+      int[] modeNotes,
+      int rootPitchClass) {
     if (isSynth) {
       if (foldMode && foldedPitches != null && !foldedPitches.isEmpty()) {
         for (int i = 0; i < foldedPitches.size(); i++) {
@@ -85,8 +110,16 @@ public final class ScaleMapper {
         }
         return -1;
       }
+      int[] effectiveMode =
+          (modeNotes != null && modeNotes.length > 0)
+              ? modeNotes
+              : Scales.ScaleType.MAJOR.getIntervals();
       for (int r = 0; r < 128; r++) {
-        if (getRowPitch(r, true, scaleModeEnabled, foldMode, foldedPitches) == pitch) return r;
+        if (getRowPitch(
+                r, true, scaleModeEnabled, foldMode, foldedPitches, effectiveMode, rootPitchClass)
+            == pitch) {
+          return r;
+        }
       }
     }
     return 127 - pitch;
