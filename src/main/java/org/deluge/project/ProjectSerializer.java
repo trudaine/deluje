@@ -98,6 +98,11 @@ public class ProjectSerializer {
     writer.writeAttribute("drumsEdgeSize", model.getDrumsEdgeSize(), false);
     writer.writeAttribute("anyOfMelodicKitPercussion", model.getAnyOfMelodicKitPercussion(), false);
     writer.writeAttribute("numClips", model.getNumClips(), false);
+    // C song.cpp:1222 -> mod_controllable_audio.cpp:408-411 — song-level filter modes & route.
+    writer.writeAttribute("lpfMode", lpfModeToFirmwareString(model.getSongLpfMode()), false);
+    writer.writeAttribute("hpfMode", hpfModeToFirmwareString(model.getSongHpfMode()), false);
+    writer.writeAttribute(
+        "filterRoute", filterRouteToFirmwareString(model.getSongFilterRoute()), false);
     writer.writeOpeningTagEnd();
 
     // ── modeNotes (scale degrees) ──
@@ -1796,6 +1801,15 @@ public class ProjectSerializer {
       case SVF_NOTCH -> "SVF_Notch";
       case OFF -> "Off";
       default -> "HPLadder";
+    };
+  }
+
+  private static String filterRouteToFirmwareString(int route) {
+    // C filter_config.cpp:16-20 — routeMap strings ("H2L", "L2H", "PARA").
+    return switch (route) {
+      case 1 -> "L2H";
+      case 2 -> "PARA";
+      default -> "H2L";
     };
   }
 }

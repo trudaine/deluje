@@ -109,6 +109,8 @@ public class Voice {
 
   // Scratch buffers for audio rendering (pre-allocated to prevent GC churn)
   private int[] mixBuf = new int[256];
+  private int[] monoFilterBuf = new int[128];
+  private boolean lastRenderDidStereoTempBuffer = false;
   private int[] tempBufA = new int[128];
   private int[] tempBufB = new int[128];
   private int[] tempBuf = new int[128];
@@ -1168,55 +1170,84 @@ public class Voice {
       }
     }
 
-    // ── FM path (voice.cpp:1400-1560) ──
-    boolean unassignFromSources = false;
-    if (sound.synthMode == 1) { // FM
-      renderFmPath(mixBuf, numSamples, overallOscAmplitude, overallPitchAdjust);
-      // voice.cpp:1674-1676 — next block ramps from this block's targets.
-      sourceAmplitudesLastTime[0] = sourceAmplitudes[0];
-      sourceAmplitudesLastTime[1] = sourceAmplitudes[1];
-    } else if (sound.synthMode == 2) {
-      renderRingModPath(
-          mixBuf, numSamples, overallPitchAdjust, hasFilters, filterGain, doingOscSync);
-    } else {
-      unassignFromSources =
-          renderSubtractivePath(
-              mixBuf, numSamples, overallPitchAdjust, hasFilters, filterGain, doingOscSync);
-    }
-
-    // Noise (voice.cpp:1131-1149): add the noise source into the mono mix before the filter +
-    // overall amplitude (non-FM only). Scaled like the osc sources: >>1, then *filterGain<<4 when
-    // filtered, limited to 268435455, then >>2. fw2 was missing this entirely → noise patches
-    // silent.
+    // C voice.cpp:950, 1129-1156 — noise runs BEFORE source rendering so PRNG calls inside
+    // sources (TimeStretcher, LivePitchShifter, Dx7Voice) happen after voice noise, matching
+    // hardware. When stereoUnison is active, channels = 2 and getNoise() is called 2 * numSamples
+    // times into oscBuffer.
+    boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
     if (sound.synthMode != 1 && paramFinalValues[Param.LOCAL_NOISE_VOLUME] != 0) {
       int n = paramFinalValues[Param.LOCAL_NOISE_VOLUME] >> 1;
       if (hasFilters) {
-        // voice.cpp:1146 — `n = multiply_32x32_rshift32(n, filterGain) << 4;`. A RAW shift that is
+        // voice.cpp:1143 — `n = multiply_32x32_rshift32(n, filterGain) << 4;`. A RAW shift that is
         // allowed to overflow, NOT lshiftAndSaturate. The distinction is load-bearing and the C
         // draws it deliberately: the four sites where the firmware wants clamping spell it out
         // (voice.cpp:83, 989, 1344, 2482 — 989 even carries the comment "Important that we use
         // lshiftAndSaturate here - otherwise, number can overflow"), so a bare `<< 4` means
-        // wrapping
-        // IS the hardware behaviour. Saturating here instead pins a wrapped-and-therefore-small
-        // amplitude to the +2^31 rail, which then survives the std::min below as the maximum
+        // wrapping IS the hardware behaviour. Saturating here instead pins a wrapped-and-therefore-
+        // small amplitude to the +2^31 rail, which then survives the std::min below as the maximum
         // 268435455 — i.e. full-scale noise where hardware emits little. That is the CALIB NSE
         // group: spectrum right (0.80-0.85 cosine) but 15-28 dB hot.
         n = Functions.multiply_32x32_rshift32(n, filterGain) << 4;
       }
       int noiseAmplitude = Math.min(n, 268435455) >> 2;
-      for (int i = 0; i < numSamples; i++) {
-        int ns = Functions.multiply_32x32_rshift32(Functions.getNoise(), noiseAmplitude);
-        mixBuf[i * 2] += ns;
-        mixBuf[i * 2 + 1] += ns;
+      if (stereoUnison) {
+        if (sound.synthMode == 2) {
+          // C voice.cpp:1129, 1150-1153, 1277, 1372-1382 — channels = 2; ringmod adds stereo
+          // unison directly onto the 2 * numSamples independent L/R noise samples.
+          for (int i = 0; i < numSamples; i++) {
+            mixBuf[i * 2] = Functions.multiply_32x32_rshift32(Functions.getNoise(), noiseAmplitude);
+            mixBuf[i * 2 + 1] =
+                Functions.multiply_32x32_rshift32(Functions.getNoise(), noiseAmplitude);
+          }
+        } else {
+          // C voice.cpp:1129, 1150-1153, 1222-1226, 1598 — channels = 2 consumes 2 * numSamples
+          // calls to getNoise(), then subtractive either expands the first numSamples into L/R
+          // (when sourcesToRenderInStereo != 0) or filters only the first numSamples in mono
+          // (when sourcesToRenderInStereo == 0).
+          for (int i = 0; i < numSamples; i++) {
+            int ns = Functions.multiply_32x32_rshift32(Functions.getNoise(), noiseAmplitude);
+            mixBuf[i * 2] = ns;
+            mixBuf[i * 2 + 1] = ns;
+          }
+          for (int i = 0; i < numSamples; i++) {
+            Functions.getNoise();
+          }
+        }
+      } else {
+        for (int i = 0; i < numSamples; i++) {
+          int ns = Functions.multiply_32x32_rshift32(Functions.getNoise(), noiseAmplitude);
+          mixBuf[i * 2] = ns;
+          mixBuf[i * 2 + 1] = ns;
+        }
       }
     }
 
-    // ── 7+8. Filter, pan, overall amplitude into output buffer (voice.cpp:1560-1670) ──
+    // ── Source dispatch (voice.cpp:1176-1513) ──
+    boolean unassignFromSources = false;
+    boolean didStereoTempBuffer = false;
+    if (sound.synthMode == 1) { // FM
+      renderFmPath(mixBuf, numSamples, overallOscAmplitude, overallPitchAdjust);
+      // voice.cpp:1275-1278, 1674-1676 — next block ramps from this block's targets.
+      didStereoTempBuffer = stereoUnison;
+      sourceAmplitudesLastTime[0] = sourceAmplitudes[0];
+      sourceAmplitudesLastTime[1] = sourceAmplitudes[1];
+    } else if (sound.synthMode == 2) {
+      renderRingModPath(
+          mixBuf, numSamples, overallPitchAdjust, hasFilters, filterGain, doingOscSync);
+      didStereoTempBuffer = stereoUnison;
+    } else {
+      unassignFromSources =
+          renderSubtractivePath(
+              mixBuf, numSamples, overallPitchAdjust, hasFilters, filterGain, doingOscSync);
+      didStereoTempBuffer = lastRenderDidStereoTempBuffer;
+    }
+
+    // ── 7+8. Filter, pan, overall amplitude into output buffer (voice.cpp:1515-1670) ──
     // NOTE: the overall oscillator amplitude (env0 * LOCAL_VOLUME) is applied ONCE, inside
     // applyFilterAndGain (overallOscAmplitudeLastTime). The C folds it into sourceAmplitude and
     // applies it during osc render; here it is applied to the summed mix instead — same single
     // application. (A previous separate env0*trackVol step here double-applied volume → silence.)
-    applyFilterAndGain(mixBuf, numSamples, doLPF, doHPF);
+    applyFilterAndGain(mixBuf, numSamples, doLPF, doHPF, didStereoTempBuffer);
 
     int maxValVoice = 0;
     for (int i = 0; i < numSamples * 2; i++) {
@@ -1304,9 +1335,9 @@ public class Voice {
 
       int amplitudeForRingMod = 1 << 27;
       if (hasFilters) {
+        // C voice.cpp:1327 — raw wrapping `<< 4` (NOT lshiftAndSaturate).
         amplitudeForRingMod =
-            Functions.lshiftAndSaturate(
-                Functions.multiply_32x32_rshift32_rounded(amplitudeForRingMod, filterGain), 4);
+            Functions.multiply_32x32_rshift32_rounded(amplitudeForRingMod, filterGain) << 4;
       }
 
       // C voice.cpp:1317-1340 — osc A can never osc-sync (cantBeDoingOscSyncForFirstOsc); osc B
@@ -1474,6 +1505,18 @@ public class Voice {
     return (int) rawRatio;
   }
 
+  // C source.cpp:89-101 — Source::renderInStereo(Sound*, SampleHolder*). Note: INPUT_STEREO
+  // currently downmixes to mono tempBuf in renderSubtractivePath (see LiveInputOscTest), so only
+  // stereoUnison and stereo SAMPLE sources write interleaved L/R into mixBuf here.
+  private boolean renderSourceInStereo(int s, boolean stereoUnison) {
+    if (stereoUnison) {
+      return true;
+    }
+    return sound.oscTypes[s] == Oscillator.OscType.SAMPLE
+        && sources[s].sampleRef != null
+        && sources[s].sampleRef.numChannels == 2;
+  }
+
   private boolean renderSubtractivePath(
       int[] mixBuf,
       int numSamples,
@@ -1486,380 +1529,410 @@ public class Voice {
     }
     boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
     boolean unisonPartBecameInactive = false; // C voice.cpp:1177
+    int sourcesToRenderInStereo = 0; // C voice.cpp:1173
 
     // Per-source amplitude targets + ramp increments are set up in render() (voice.cpp:1042-1069)
-    // before dispatching here.
+    // before dispatching here. C voice.cpp:1182-1253 runs mono sources in pass 0 and stereo
+    // sources in pass 1, setting didStereoTempBuffer iff sourcesToRenderInStereo != 0.
 
-    for (int s = 0; s < 2; s++) {
-      boolean getPhaseIncrements = (s == 0) && doingOscSync;
-      boolean getOutAfterGettingPhaseIncrements = false;
-      if (!sound.isSourceActiveCurrently(s, sources[s].sampleRef != null)) {
-        if (getPhaseIncrements) {
-          getOutAfterGettingPhaseIncrements = true;
-        } else {
-          continue;
-        }
+    for (int pass = 0; pass < 2; pass++) {
+      if (pass == 1 && sourcesToRenderInStereo == 0) {
+        break;
       }
-      boolean doOscSyncThisSource = (s == 1) && doingOscSync;
-
-      int srcAmp = sourceAmplitudes[s];
-      // voice.cpp:1119-1121 — each unison part's render ramps from last block's value.
-      int srcAmpStart = sourceAmplitudesLastTime[s];
-      int srcAmpInc = sourceAmplitudeIncrements[s];
-
-      for (int u = 0; u < sound.numUnison; u++) {
-        VoiceSource vs = unisonParts[u].sources[s];
-        if (!vs.active) {
-          if (getPhaseIncrements) oscSyncPhaseIncrement[u] = 0;
-          continue;
-        }
-
-        int pInc = vs.phaseIncrementStoredValue;
-        pInc = adjustPitch(pInc, overallPitchAdjust);
-        if (pInc >= 0) {
-          pInc = adjustPitch(pInc, paramFinalValues[Param.LOCAL_OSC_A_PITCH_ADJUST + s]);
-        }
-        if (pInc < 0) {
-          if (getPhaseIncrements) oscSyncPhaseIncrement[u] = 0;
-          continue;
-        }
-        if (getPhaseIncrements) {
-          oscSyncPhaseIncrement[u] = pInc;
-          if (getOutAfterGettingPhaseIncrements) {
-            vs.oscPos += pInc * numSamples;
+      for (int s = 0; s < 2; s++) {
+        boolean getPhaseIncrements = (s == 0) && doingOscSync;
+        boolean getOutAfterGettingPhaseIncrements = false;
+        if (pass == 0) {
+          if (!sound.isSourceActiveCurrently(s, sources[s].sampleRef != null)) {
+            if (getPhaseIncrements) {
+              getOutAfterGettingPhaseIncrements = true;
+            } else {
+              continue;
+            }
+          }
+          if (renderSourceInStereo(s, stereoUnison)) {
+            sourcesToRenderInStereo |= (1 << s);
             continue;
           }
+        } else {
+          if ((sourcesToRenderInStereo & (1 << s)) == 0) {
+            continue;
+          }
+          if (getPhaseIncrements
+              && !sound.isSourceActiveCurrently(s, sources[s].sampleRef != null)) {
+            getOutAfterGettingPhaseIncrements = true;
+          }
         }
-        if (doOscSyncThisSource && oscSyncPhaseIncrement[u] == 0) continue;
+        boolean doOscSyncThisSource = (s == 1) && doingOscSync;
 
-        int[] ampLR = tempAmpLR;
-        shouldDoPanning(stereoUnison ? sound.unisonPan[u] : 0, ampLR);
+        int srcAmp = sourceAmplitudes[s];
+        // voice.cpp:1119-1121 — each unison part's render ramps from last block's value.
+        int srcAmpStart = sourceAmplitudesLastTime[s];
+        int srcAmpInc = sourceAmplitudeIncrements[s];
 
-        java.util.Arrays.fill(tempBuf, 0, numSamples, 0);
-
-        if (sound.oscTypes[s] == Oscillator.OscType.SAMPLE && vs.sampleRef != null) {
-          // C voice.cpp:2022, 2061, voice_unison_part_source.cpp:197-215 — sample branch runs only
-          // when oscType == SAMPLE; neutral phase increment for this sample's native rate, and
-          // pitch-compensated timeStretchRatio per block.
-          int pitchAdjustNeutralValue = (int) ((vs.sampleRef.sampleRate * 16777216L) / 44100);
-          // C VoiceUnisonPartSource::getPitchAndSpeedParams (voice_unison_part_source.cpp:115-190),
-          // syncing branch: a STRETCH source fits the sample to the sequenced note's length.
-          int syncTimeStretchRatio = -1; // -1 = not syncing (use getSpeedParamForNoSyncing)
-          int syncTicks = sources[s].sequenceSyncLengthTicks;
-          if (syncTicks > 0 && sound.samplesPerSequencerTick > 0) {
-            // getLengthInSamplesAtSystemSampleRate(true) (sample_holder.cpp:91-99)
-            long sampleLen =
-                ((long) sources[s].syncDurationFrames << 24)
-                    / (pitchAdjustNeutralValue & 0xFFFFFFFFL);
-            // C :129-130 — (timePerInternalTickBig * ticks) >> 32: no rounding
-            long noteLen = (long) (sound.samplesPerSequencerTick * syncTicks);
-            if (noteLen <= 0 || (sampleLen >> 5) > noteLen) { // C :132-135 — limit 32x speed
-              vs.active = false;
-              vs.disabledByPitch = false;
-              unisonPartBecameInactive = true;
-              continue;
-            }
-            if (sound.sampleTimestretch[s]) { // C :138-162 — sync by time-stretching
-              long r = 16777216L * sampleLen / noteLen;
-              if (pInc != pitchAdjustNeutralValue) {
-                r = r * pitchAdjustNeutralValue / (pInc & 0xFFFFFFFFL);
-              } else if (r >= 15653696 && r < 17981375) {
-                // C :151-160 — tiny stretch while < 7.8 ms out of sync: don't stretch. Drift is
-                // not tracked here (no getNumSamplesLaggingBehindSync), i.e. assumed in sync.
-                r = 16777216L;
-              }
-              syncTimeStretchRatio = (int) r;
-            } else { // C :166-180 — sync by pitch-stretching
-              syncTimeStretchRatio =
-                  (pInc != pitchAdjustNeutralValue)
-                      ? (int) (((long) pitchAdjustNeutralValue << 24) / (pInc & 0xFFFFFFFFL))
-                      : 16777216;
-              pInc = (int) ((pInc & 0xFFFFFFFFL) * sampleLen / noteLen);
-            }
+        for (int u = 0; u < sound.numUnison; u++) {
+          VoiceSource vs = unisonParts[u].sources[s];
+          if (!vs.active) {
+            if (getPhaseIncrements) oscSyncPhaseIncrement[u] = 0;
+            continue;
           }
-          if (vs.voiceSample.pendingSamplesLate > 0) {
-            // C voice.cpp:2092-2102 — late start ignores pitch modulation (uses
-            // phaseIncrementStoredValue) and computes timeStretchRatioWithoutModulation.
-            long tsRatioNoMod =
-                getSpeedParamForNoSyncing(
-                        sound.sampleTimestretch[s],
-                        sound.sampleTimeStretchAmount[s],
-                        pitchAdjustNeutralValue,
-                        vs.phaseIncrementStoredValue)
-                    & 0xFFFFFFFFL;
-            long rawSamplesLate =
-                ((((long) vs.voiceSample.pendingSamplesLate
-                                * (vs.phaseIncrementStoredValue & 0xFFFFFFFFL))
-                            >> 24)
-                        * tsRatioNoMod)
-                    >> 24;
-            boolean success = vs.voiceSample.attemptLateSampleStart((int) rawSamplesLate);
-            if (!success) {
-              vs.active = false;
-              vs.disabledByPitch = false;
-              unisonPartBecameInactive = true;
+
+          int pInc = vs.phaseIncrementStoredValue;
+          pInc = adjustPitch(pInc, overallPitchAdjust);
+          if (pInc >= 0) {
+            pInc = adjustPitch(pInc, paramFinalValues[Param.LOCAL_OSC_A_PITCH_ADJUST + s]);
+          }
+          if (pInc < 0) {
+            if (getPhaseIncrements) oscSyncPhaseIncrement[u] = 0;
+            continue;
+          }
+          if (getPhaseIncrements) {
+            oscSyncPhaseIncrement[u] = pInc;
+            if (getOutAfterGettingPhaseIncrements) {
+              vs.oscPos += pInc * numSamples;
               continue;
             }
           }
-          // C voice.cpp:1045-1054, 1121, 2223 — use the ramped per-source amplitude and increment
-          // (no non-zero floor, which previously stopped LOCAL_OSC_A/B_VOLUME = off from muting).
-          // Keep the >> 2 scaling so sample+osc balance matches the C-exact wave paths.
-          int sampAmp = srcAmpStart >> 2;
-          int sampAmpInc = srcAmpInc >> 2;
-          // C voice_sample.cpp:594 — numChannelsInOutputBuffer = 2 when the source sample is
-          // stereo (this engine always renders in stereo downstream): stereo samples keep
-          // their image instead of being mono-summed.
-          boolean stereoSample = vs.sampleRef.numChannels == 2;
-          int requiredTsLen = numSamples * 2;
-          if (vs.tsBuf == null || vs.tsBuf.length < requiredTsLen) {
-            vs.tsBuf = new int[requiredTsLen];
-          }
-          int[] tsBuf = vs.tsBuf;
-          if (vs.voiceSample.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]
-              || vs.voiceSample.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]) {
-            // C voice_unison_part_source.cpp:203-207 — pitchAndSpeedAreIndependent counteracts
-            // modulated pInc each block so playback duration stays independent of note pitch.
-            vs.timeStretchRatio =
-                syncTimeStretchRatio >= 0
-                    ? syncTimeStretchRatio
-                    : getSpeedParamForNoSyncing(
-                        sound.sampleTimestretch[s],
-                        sound.sampleTimeStretchAmount[s],
-                        pitchAdjustNeutralValue,
-                        pInc);
-            java.util.Arrays.fill(tsBuf, 0, requiredTsLen, 0);
-            int[] ampArr = {sampAmp};
-            vs.voiceSample.renderTimeStretched(
-                tsBuf, numSamples, 2, pInc, vs.timeStretchRatio, ampArr, sampAmpInc);
-            if (!stereoSample) {
-              for (int i = 0; i < numSamples; i++) {
-                tempBuf[i] = (tsBuf[i * 2] + tsBuf[i * 2 + 1]) >> 1;
+          if (doOscSyncThisSource && oscSyncPhaseIncrement[u] == 0) continue;
+
+          int[] ampLR = tempAmpLR;
+          shouldDoPanning(stereoUnison ? sound.unisonPan[u] : 0, ampLR);
+
+          java.util.Arrays.fill(tempBuf, 0, numSamples, 0);
+
+          if (sound.oscTypes[s] == Oscillator.OscType.SAMPLE && vs.sampleRef != null) {
+            // C voice.cpp:2022, 2061, voice_unison_part_source.cpp:197-215 — sample branch runs
+            // only
+            // when oscType == SAMPLE; neutral phase increment for this sample's native rate, and
+            // pitch-compensated timeStretchRatio per block.
+            int pitchAdjustNeutralValue = (int) ((vs.sampleRef.sampleRate * 16777216L) / 44100);
+            // C VoiceUnisonPartSource::getPitchAndSpeedParams
+            // (voice_unison_part_source.cpp:115-190),
+            // syncing branch: a STRETCH source fits the sample to the sequenced note's length.
+            int syncTimeStretchRatio = -1; // -1 = not syncing (use getSpeedParamForNoSyncing)
+            int syncTicks = sources[s].sequenceSyncLengthTicks;
+            if (syncTicks > 0 && sound.samplesPerSequencerTick > 0) {
+              // getLengthInSamplesAtSystemSampleRate(true) (sample_holder.cpp:91-99)
+              long sampleLen =
+                  ((long) sources[s].syncDurationFrames << 24)
+                      / (pitchAdjustNeutralValue & 0xFFFFFFFFL);
+              // C :129-130 — (timePerInternalTickBig * ticks) >> 32: no rounding
+              long noteLen = (long) (sound.samplesPerSequencerTick * syncTicks);
+              if (noteLen <= 0 || (sampleLen >> 5) > noteLen) { // C :132-135 — limit 32x speed
+                vs.active = false;
+                vs.disabledByPitch = false;
+                unisonPartBecameInactive = true;
+                continue;
+              }
+              if (sound.sampleTimestretch[s]) { // C :138-162 — sync by time-stretching
+                long r = 16777216L * sampleLen / noteLen;
+                if (pInc != pitchAdjustNeutralValue) {
+                  r = r * pitchAdjustNeutralValue / (pInc & 0xFFFFFFFFL);
+                } else if (r >= 15653696 && r < 17981375) {
+                  // C :151-160 — tiny stretch while < 7.8 ms out of sync: don't stretch. Drift is
+                  // not tracked here (no getNumSamplesLaggingBehindSync), i.e. assumed in sync.
+                  r = 16777216L;
+                }
+                syncTimeStretchRatio = (int) r;
+              } else { // C :166-180 — sync by pitch-stretching
+                syncTimeStretchRatio =
+                    (pInc != pitchAdjustNeutralValue)
+                        ? (int) (((long) pitchAdjustNeutralValue << 24) / (pInc & 0xFFFFFFFFL))
+                        : 16777216;
+                pInc = (int) ((pInc & 0xFFFFFFFFL) * sampleLen / noteLen);
               }
             }
-            if (!vs.voiceSample.active) {
-              vs.active = false;
-              vs.disabledByPitch = false;
-              unisonPartBecameInactive = true;
+            if (vs.voiceSample.pendingSamplesLate > 0) {
+              // C voice.cpp:2092-2102 — late start ignores pitch modulation (uses
+              // phaseIncrementStoredValue) and computes timeStretchRatioWithoutModulation.
+              long tsRatioNoMod =
+                  getSpeedParamForNoSyncing(
+                          sound.sampleTimestretch[s],
+                          sound.sampleTimeStretchAmount[s],
+                          pitchAdjustNeutralValue,
+                          vs.phaseIncrementStoredValue)
+                      & 0xFFFFFFFFL;
+              long rawSamplesLate =
+                  ((((long) vs.voiceSample.pendingSamplesLate
+                                  * (vs.phaseIncrementStoredValue & 0xFFFFFFFFL))
+                              >> 24)
+                          * tsRatioNoMod)
+                      >> 24;
+              boolean success = vs.voiceSample.attemptLateSampleStart((int) rawSamplesLate);
+              if (!success) {
+                vs.active = false;
+                vs.disabledByPitch = false;
+                unisonPartBecameInactive = true;
+                continue;
+              }
             }
-          } else if (vs.voiceSample.active) {
-            int[] ampArr = {sampAmp};
-            if (stereoSample) {
+            // C voice.cpp:1045-1054, 1121, 2223 — use the ramped per-source amplitude and increment
+            // (no non-zero floor, which previously stopped LOCAL_OSC_A/B_VOLUME = off from muting).
+            // Keep the >> 2 scaling so sample+osc balance matches the C-exact wave paths.
+            int sampAmp = srcAmpStart >> 2;
+            int sampAmpInc = srcAmpInc >> 2;
+            // C voice_sample.cpp:594 — numChannelsInOutputBuffer = 2 when the source sample is
+            // stereo (this engine always renders in stereo downstream): stereo samples keep
+            // their image instead of being mono-summed.
+            boolean stereoSample = vs.sampleRef.numChannels == 2;
+            int requiredTsLen = numSamples * 2;
+            if (vs.tsBuf == null || vs.tsBuf.length < requiredTsLen) {
+              vs.tsBuf = new int[requiredTsLen];
+            }
+            int[] tsBuf = vs.tsBuf;
+            if (vs.voiceSample.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]
+                || vs.voiceSample
+                    .timeStretcher
+                    .playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]) {
+              // C voice_unison_part_source.cpp:203-207 — pitchAndSpeedAreIndependent counteracts
+              // modulated pInc each block so playback duration stays independent of note pitch.
+              vs.timeStretchRatio =
+                  syncTimeStretchRatio >= 0
+                      ? syncTimeStretchRatio
+                      : getSpeedParamForNoSyncing(
+                          sound.sampleTimestretch[s],
+                          sound.sampleTimeStretchAmount[s],
+                          pitchAdjustNeutralValue,
+                          pInc);
               java.util.Arrays.fill(tsBuf, 0, requiredTsLen, 0);
-              vs.voiceSample.render(tsBuf, numSamples, 2, pInc, ampArr, sampAmpInc);
+              int[] ampArr = {sampAmp};
+              vs.voiceSample.renderTimeStretched(
+                  tsBuf, numSamples, 2, pInc, vs.timeStretchRatio, ampArr, sampAmpInc);
+              if (!stereoSample) {
+                for (int i = 0; i < numSamples; i++) {
+                  tempBuf[i] = (tsBuf[i * 2] + tsBuf[i * 2 + 1]) >> 1;
+                }
+              }
+              if (!vs.voiceSample.active) {
+                vs.active = false;
+                vs.disabledByPitch = false;
+                unisonPartBecameInactive = true;
+              }
+            } else if (vs.voiceSample.active) {
+              int[] ampArr = {sampAmp};
+              if (stereoSample) {
+                java.util.Arrays.fill(tsBuf, 0, requiredTsLen, 0);
+                vs.voiceSample.render(tsBuf, numSamples, 2, pInc, ampArr, sampAmpInc);
+              } else {
+                vs.voiceSample.render(tempBuf, numSamples, 1, pInc, ampArr, sampAmpInc);
+              }
+              if (!vs.voiceSample.active) {
+                vs.active = false;
+                vs.disabledByPitch = false;
+                unisonPartBecameInactive = true;
+              }
             } else {
-              vs.voiceSample.render(tempBuf, numSamples, 1, pInc, ampArr, sampAmpInc);
-            }
-            if (!vs.voiceSample.active) {
               vs.active = false;
               vs.disabledByPitch = false;
               unisonPartBecameInactive = true;
+              stereoSample = false; // nothing rendered
             }
-          } else {
-            vs.active = false;
-            vs.disabledByPitch = false;
-            unisonPartBecameInactive = true;
-            stereoSample = false; // nothing rendered
-          }
-          if (stereoSample) {
-            // Mix the interleaved stereo render directly (C voice.cpp:2220-2239); with unison
-            // stereo spread the per-part pan applies to each channel.
-            if (stereoUnison) {
-              for (int i = 0; i < numSamples; i++) {
-                mixBuf[i * 2] += (Functions.multiply_32x32_rshift32(tsBuf[i * 2], ampLR[0]) << 2);
-                mixBuf[i * 2 + 1] +=
-                    (Functions.multiply_32x32_rshift32(tsBuf[i * 2 + 1], ampLR[1]) << 2);
-              }
-            } else {
-              for (int i = 0; i < numSamples; i++) {
-                mixBuf[i * 2] += tsBuf[i * 2];
-                mixBuf[i * 2 + 1] += tsBuf[i * 2 + 1];
-              }
-            }
-            continue;
-          }
-        } else if (isInputType(sound.oscTypes[s])) {
-          // C voice.cpp:1991-2006, 2255 — pInc already includes overallPitchAdjust + per-source
-          // pitch adjust, so live-input pitch shifting responds to pitch bend, porta, and LFO/env.
-          int[] input = LiveInput.currentBlock;
-          if (input != null) {
-            OscType inputTypeNow = sound.oscTypes[s];
-            boolean anyInputDevice = LiveInput.lineInPluggedIn || LiveInput.micPluggedIn;
-            if (inputTypeNow == OscType.INPUT_STEREO && !anyInputDevice) {
-              inputTypeNow = OscType.INPUT_L;
-            }
-            int n = Math.min(numSamples, input.length / 2);
-            if (pInc != Functions.K_MAX_SAMPLE_VALUE && anyInputDevice) {
-              if (vs.livePitchShifter == null) {
-                LiveInputBuffer.InputType t =
-                    switch (inputTypeNow) {
-                      case INPUT_R -> LiveInputBuffer.InputType.INPUT_R;
-                      case INPUT_STEREO -> LiveInputBuffer.InputType.STEREO;
-                      default -> LiveInputBuffer.InputType.INPUT_L;
-                    };
-                vs.livePitchShifter = new LivePitchShifter(t, pInc);
-                vs.liveInputBuffer = new LiveInputBuffer();
-                vs.liveInputTimer = 0;
-              }
-            } else if (vs.livePitchShifter != null
-                && vs.livePitchShifter.mayBeRemovedWithoutClick()) {
-              vs.livePitchShifter = null;
-              vs.liveInputBuffer = null;
-            }
-
-            if (vs.livePitchShifter != null) {
-              int ch = vs.livePitchShifter.numChannels;
-              int requiredShiftLen = n * ch;
-              if (vs.shiftedBuf == null || vs.shiftedBuf.length < requiredShiftLen) {
-                vs.shiftedBuf = new int[requiredShiftLen];
-              }
-              int[] shifted = vs.shiftedBuf;
-              java.util.Arrays.fill(shifted, 0, requiredShiftLen, 0);
-              vs.liveInputTimer += n;
-              vs.livePitchShifter.render(
-                  shifted,
-                  n,
-                  pInc,
-                  Functions.lshiftAndSaturate(srcAmp, 4),
-                  0,
-                  16,
-                  vs.liveInputBuffer,
-                  vs.liveInputTimer,
-                  input);
-              if (ch == 2) {
-                for (int i = 0; i < n; i++) {
-                  tempBuf[i] = (shifted[i * 2] >> 1) + (shifted[i * 2 + 1] >> 1);
+            if (stereoSample) {
+              // Mix the interleaved stereo render directly (C voice.cpp:2220-2239); with unison
+              // stereo spread the per-part pan applies to each channel.
+              if (stereoUnison) {
+                for (int i = 0; i < numSamples; i++) {
+                  mixBuf[i * 2] += (Functions.multiply_32x32_rshift32(tsBuf[i * 2], ampLR[0]) << 2);
+                  mixBuf[i * 2 + 1] +=
+                      (Functions.multiply_32x32_rshift32(tsBuf[i * 2 + 1], ampLR[1]) << 2);
                 }
               } else {
-                System.arraycopy(shifted, 0, tempBuf, 0, n);
+                for (int i = 0; i < numSamples; i++) {
+                  mixBuf[i * 2] += tsBuf[i * 2];
+                  mixBuf[i * 2 + 1] += tsBuf[i * 2 + 1];
+                }
               }
-            } else if (inputTypeNow != OscType.INPUT_STEREO) {
-              int channelOffset = (inputTypeNow == OscType.INPUT_R && anyInputDevice) ? 1 : 0;
-              for (int i = 0; i < n; i++) {
-                tempBuf[i] =
-                    Functions.lshiftAndSaturate(
-                        Functions.multiply_32x32_rshift32(input[i * 2 + channelOffset], srcAmp), 4);
+              continue;
+            }
+          } else if (isInputType(sound.oscTypes[s])) {
+            // C voice.cpp:1991-2006, 2255 — pInc already includes overallPitchAdjust + per-source
+            // pitch adjust, so live-input pitch shifting responds to pitch bend, porta, and
+            // LFO/env.
+            int[] input = LiveInput.currentBlock;
+            if (input != null) {
+              OscType inputTypeNow = sound.oscTypes[s];
+              boolean anyInputDevice = LiveInput.lineInPluggedIn || LiveInput.micPluggedIn;
+              if (inputTypeNow == OscType.INPUT_STEREO && !anyInputDevice) {
+                inputTypeNow = OscType.INPUT_L;
               }
+              int n = Math.min(numSamples, input.length / 2);
+              if (pInc != Functions.K_MAX_SAMPLE_VALUE && anyInputDevice) {
+                if (vs.livePitchShifter == null) {
+                  LiveInputBuffer.InputType t =
+                      switch (inputTypeNow) {
+                        case INPUT_R -> LiveInputBuffer.InputType.INPUT_R;
+                        case INPUT_STEREO -> LiveInputBuffer.InputType.STEREO;
+                        default -> LiveInputBuffer.InputType.INPUT_L;
+                      };
+                  vs.livePitchShifter = new LivePitchShifter(t, pInc);
+                  vs.liveInputBuffer = new LiveInputBuffer();
+                  vs.liveInputTimer = 0;
+                }
+              } else if (vs.livePitchShifter != null
+                  && vs.livePitchShifter.mayBeRemovedWithoutClick()) {
+                vs.livePitchShifter = null;
+                vs.liveInputBuffer = null;
+              }
+
+              if (vs.livePitchShifter != null) {
+                int ch = vs.livePitchShifter.numChannels;
+                int requiredShiftLen = n * ch;
+                if (vs.shiftedBuf == null || vs.shiftedBuf.length < requiredShiftLen) {
+                  vs.shiftedBuf = new int[requiredShiftLen];
+                }
+                int[] shifted = vs.shiftedBuf;
+                java.util.Arrays.fill(shifted, 0, requiredShiftLen, 0);
+                vs.liveInputTimer += n;
+                vs.livePitchShifter.render(
+                    shifted,
+                    n,
+                    pInc,
+                    Functions.lshiftAndSaturate(srcAmp, 4),
+                    0,
+                    16,
+                    vs.liveInputBuffer,
+                    vs.liveInputTimer,
+                    input);
+                if (ch == 2) {
+                  for (int i = 0; i < n; i++) {
+                    tempBuf[i] = (shifted[i * 2] >> 1) + (shifted[i * 2 + 1] >> 1);
+                  }
+                } else {
+                  System.arraycopy(shifted, 0, tempBuf, 0, n);
+                }
+              } else if (inputTypeNow != OscType.INPUT_STEREO) {
+                int channelOffset = (inputTypeNow == OscType.INPUT_R && anyInputDevice) ? 1 : 0;
+                for (int i = 0; i < n; i++) {
+                  tempBuf[i] =
+                      Functions.lshiftAndSaturate(
+                          Functions.multiply_32x32_rshift32(input[i * 2 + channelOffset], srcAmp),
+                          4);
+                }
+              } else {
+                for (int i = 0; i < n; i++) {
+                  int mono = (input[i * 2] >> 1) + (input[i * 2 + 1] >> 1);
+                  tempBuf[i] =
+                      Functions.lshiftAndSaturate(
+                          Functions.multiply_32x32_rshift32(mono, srcAmp), 4);
+                }
+              }
+            }
+          } else if (sound.oscTypes[s] == OscType.DX7) {
+            if (vs.dxVoice.patch == null && sound.sourceDx7Patch[s] != null) {
+              System.arraycopy(sound.sourceDx7Patch[s], 0, vs.dxPatch.params, 0, 156);
+              vs.dxPatch.setEngineMode(sound.sourceDx7EngineType[s]);
+              vs.dxPatch.randomDetune = sound.sourceDx7RandomDetune[s];
+              vs.dxVoice.init(vs.dxPatch, note, velocity);
+            }
+            if (vs.dxVoice.patch == null) continue;
+
+            int logpitch = (int) (Math.log(pInc & 0xFFFFFFFFL) / Math.log(2.0) * (1 << 24));
+            int adjpitch = logpitch - 278023814;
+            int ampMod = paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s] >> 13;
+            vs.dxPatch.computeLfo(numSamples);
+            if (uniBuf.length < numSamples) {
+              uniBuf = new int[numSamples];
             } else {
-              for (int i = 0; i < n; i++) {
-                int mono = (input[i * 2] >> 1) + (input[i * 2 + 1] >> 1);
-                tempBuf[i] =
-                    Functions.lshiftAndSaturate(Functions.multiply_32x32_rshift32(mono, srcAmp), 4);
+              java.util.Arrays.fill(uniBuf, 0, numSamples, 0);
+            }
+            // C voice.cpp:2427-2430 — if Dx7Voice::compute returns false (all operators finished
+            // releasing), goto instantUnassign (voice.cpp:1980-1988).
+            boolean dxActive =
+                vs.dxVoice.compute(uniBuf, numSamples, adjpitch, vs.dxPatch, ampMod, 0, 0);
+            if (!dxActive) {
+              vs.active = false;
+              vs.disabledByPitch = false;
+              unisonPartBecameInactive = true;
+              continue;
+            }
+            // voice.cpp:2441-2444 — sourceAmplitudeNow += increment per sample.
+            int dxAmpNow = srcAmpStart;
+            // Shift 4 (was 6): the DX7 engine's level was calibrated against the old 4x-hot wave
+            // oscillators; the wave paths are now C-exact, so drop this path by the same factor.
+            for (int i = 0; i < numSamples; i++) {
+              dxAmpNow += srcAmpInc;
+              tempBuf[i] =
+                  Functions.lshiftAndSaturate(
+                      Functions.multiply_32x32_rshift32(uniBuf[i], dxAmpNow), 4);
+            }
+          } else if (sound.oscTypes[s] == OscType.WAVETABLE && sound.waveTables[s] != null) {
+            int resetterDivideByPhaseIncrement = 0;
+            if (doOscSyncThisSource) {
+              // C oscillator.cpp:140-142 — (uint16_t)((resetterPhaseIncrement + 65535) >> 16).
+              int divisor = ((oscSyncPhaseIncrement[u] + 65535) >>> 16) & 0xFFFF;
+              if (divisor > 0) {
+                resetterDivideByPhaseIncrement = (int) (2147483648L / divisor);
               }
             }
-          }
-        } else if (sound.oscTypes[s] == OscType.DX7) {
-          if (vs.dxVoice.patch == null && sound.sourceDx7Patch[s] != null) {
-            System.arraycopy(sound.sourceDx7Patch[s], 0, vs.dxPatch.params, 0, 156);
-            vs.dxPatch.setEngineMode(sound.sourceDx7EngineType[s]);
-            vs.dxPatch.randomDetune = sound.sourceDx7RandomDetune[s];
-            vs.dxVoice.init(vs.dxPatch, note, velocity);
-          }
-          if (vs.dxVoice.patch == null) continue;
 
-          int logpitch = (int) (Math.log(pInc & 0xFFFFFFFFL) / Math.log(2.0) * (1 << 24));
-          int adjpitch = logpitch - 278023814;
-          int ampMod = paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s] >> 13;
-          vs.dxPatch.computeLfo(numSamples);
-          if (uniBuf.length < numSamples) {
-            uniBuf = new int[numSamples];
-          } else {
-            java.util.Arrays.fill(uniBuf, 0, numSamples, 0);
-          }
-          // C voice.cpp:2427-2430 — if Dx7Voice::compute returns false (all operators finished
-          // releasing), goto instantUnassign (voice.cpp:1980-1988).
-          boolean dxActive =
-              vs.dxVoice.compute(uniBuf, numSamples, adjpitch, vs.dxPatch, ampMod, 0, 0);
-          if (!dxActive) {
-            vs.active = false;
-            vs.disabledByPitch = false;
-            unisonPartBecameInactive = true;
-            continue;
-          }
-          // voice.cpp:2441-2444 — sourceAmplitudeNow += increment per sample.
-          int dxAmpNow = srcAmpStart;
-          // Shift 4 (was 6): the DX7 engine's level was calibrated against the old 4x-hot wave
-          // oscillators; the wave paths are now C-exact, so drop this path by the same factor.
-          for (int i = 0; i < numSamples; i++) {
-            dxAmpNow += srcAmpInc;
-            tempBuf[i] =
-                Functions.lshiftAndSaturate(
-                    Functions.multiply_32x32_rshift32(uniBuf[i], dxAmpNow), 4);
-          }
-        } else if (sound.oscTypes[s] == OscType.WAVETABLE && sound.waveTables[s] != null) {
-          int resetterDivideByPhaseIncrement = 0;
-          if (doOscSyncThisSource) {
-            // C oscillator.cpp:140-142 — (uint16_t)((resetterPhaseIncrement + 65535) >> 16).
-            int divisor = ((oscSyncPhaseIncrement[u] + 65535) >>> 16) & 0xFFFF;
-            if (divisor > 0) {
-              resetterDivideByPhaseIncrement = (int) (2147483648L / divisor);
+            vs.oscPos =
+                sound.waveTables[s].render(
+                    tempBuf,
+                    0,
+                    numSamples,
+                    pInc,
+                    vs.oscPos,
+                    doOscSyncThisSource,
+                    oscSyncPos[u],
+                    oscSyncPhaseIncrement[u],
+                    resetterDivideByPhaseIncrement,
+                    sound.oscRetriggerPhase[s],
+                    // C oscillator.cpp:155 — waveIndex = sourceWaveIndexLastTime + 1073741824
+                    sourceWaveIndexesLastTime[s] + 1073741824,
+                    sourceWaveIndexIncrements[s]);
+
+            // oscillator.cpp:163-169 — amplitude (ramped per sample) applied after the wavetable
+            // render, same net scale as the C's <<3 + vqdmulh chain.
+            int wtAmpNow = srcAmpStart;
+            for (int i = 0; i < numSamples; i++) {
+              wtAmpNow += srcAmpInc;
+              tempBuf[i] =
+                  Functions.lshiftAndSaturate(
+                      Functions.multiply_32x32_rshift32(tempBuf[i], wtAmpNow), 1);
             }
+          } else {
+            int pulseWidth =
+                Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s], 1);
+            int[] phase = {vs.oscPos};
+            Oscillator.renderOsc(
+                sound.oscTypes[s],
+                // voice.cpp:2487-2491 — start at last block's amplitude, ramp per sample.
+                srcAmpStart,
+                tempBuf,
+                0,
+                numSamples,
+                pInc,
+                pulseWidth,
+                phase,
+                true,
+                srcAmpInc,
+                doOscSyncThisSource,
+                oscSyncPos[u],
+                oscSyncPhaseIncrement[u],
+                sound.oscRetriggerPhase[s]);
+            vs.oscPos = phase[0];
           }
 
-          vs.oscPos =
-              sound.waveTables[s].render(
-                  tempBuf,
-                  0,
-                  numSamples,
-                  pInc,
-                  vs.oscPos,
-                  doOscSyncThisSource,
-                  oscSyncPos[u],
-                  oscSyncPhaseIncrement[u],
-                  resetterDivideByPhaseIncrement,
-                  sound.oscRetriggerPhase[s],
-                  // C oscillator.cpp:155 — waveIndex = sourceWaveIndexLastTime + 1073741824
-                  sourceWaveIndexesLastTime[s] + 1073741824,
-                  sourceWaveIndexIncrements[s]);
-
-          // oscillator.cpp:163-169 — amplitude (ramped per sample) applied after the wavetable
-          // render, same net scale as the C's <<3 + vqdmulh chain.
-          int wtAmpNow = srcAmpStart;
-          for (int i = 0; i < numSamples; i++) {
-            wtAmpNow += srcAmpInc;
-            tempBuf[i] =
-                Functions.lshiftAndSaturate(
-                    Functions.multiply_32x32_rshift32(tempBuf[i], wtAmpNow), 1);
-          }
-        } else {
-          int pulseWidth =
-              Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s], 1);
-          int[] phase = {vs.oscPos};
-          Oscillator.renderOsc(
-              sound.oscTypes[s],
-              // voice.cpp:2487-2491 — start at last block's amplitude, ramp per sample.
-              srcAmpStart,
-              tempBuf,
-              0,
-              numSamples,
-              pInc,
-              pulseWidth,
-              phase,
-              true,
-              srcAmpInc,
-              doOscSyncThisSource,
-              oscSyncPos[u],
-              oscSyncPhaseIncrement[u],
-              sound.oscRetriggerPhase[s]);
-          vs.oscPos = phase[0];
-        }
-
-        if (stereoUnison) {
-          for (int i = 0; i < numSamples; i++) {
-            int out = tempBuf[i];
-            int l = Functions.multiply_32x32_rshift32(out, ampLR[0]) << 2;
-            int r = Functions.multiply_32x32_rshift32(out, ampLR[1]) << 2;
-            mixBuf[i * 2] += l;
-            mixBuf[i * 2 + 1] += r;
-          }
-        } else {
-          for (int i = 0; i < numSamples; i++) {
-            int out = tempBuf[i];
-            mixBuf[i * 2] += out;
-            mixBuf[i * 2 + 1] += out;
+          if (stereoUnison) {
+            for (int i = 0; i < numSamples; i++) {
+              int out = tempBuf[i];
+              int l = Functions.multiply_32x32_rshift32(out, ampLR[0]) << 2;
+              int r = Functions.multiply_32x32_rshift32(out, ampLR[1]) << 2;
+              mixBuf[i * 2] += l;
+              mixBuf[i * 2 + 1] += r;
+            }
+          } else {
+            for (int i = 0; i < numSamples; i++) {
+              int out = tempBuf[i];
+              mixBuf[i * 2] += out;
+              mixBuf[i * 2 + 1] += out;
+            }
           }
         }
       }
     }
+
+    lastRenderDidStereoTempBuffer = sourcesToRenderInStereo != 0; // C voice.cpp:1252
 
     boolean unassignVoiceAfter = false;
     // C voice.cpp:1257-1270 — if a unison part finished and no active unison parts or noise remain,
@@ -2106,94 +2179,131 @@ public class Voice {
 
   // ── Filter + gain application ──
 
-  private void applyFilterAndGain(int[] stereoBuf, int numSamples, boolean doLPF, boolean doHPF) {
+  private void applyFilterAndGain(
+      int[] stereoBuf, int numSamples, boolean doLPF, boolean doHPF, boolean didStereoTempBuffer) {
     // The filter is already configured and its makeup gain (filterGain) already folded into the
-    // source
-    // amplitudes in render() (voice.cpp folds it into sourceAmplitudes, not the buffer). Here we
-    // just
-    // run the filter, then apply overallOscAmplitude AFTER the filter (non-FM) and pan.
-
-    // Wavefolder (voice.cpp:1499-1501/1583-1587): fold the osc buffer BEFORE the filters when
-    // LOCAL_FOLD's final value is positive (knob off = INT_MIN → final 0 → no fold).
-    if (paramFinalValues[Param.LOCAL_FOLD] > 0) {
-      Functions.foldBufferPolyApproximation(
-          stereoBuf, 0, numSamples * 2, paramFinalValues[Param.LOCAL_FOLD]);
-    }
-
-    int maxBeforeFilter = 0;
-    for (int i = 0; i < numSamples * 2; i++) {
-      maxBeforeFilter = Math.max(maxBeforeFilter, Math.abs(stereoBuf[i]));
-    }
-
-    if (filterSet.isOn()) {
-      filterSet.renderLongStereo(stereoBuf, numSamples);
-    }
-
-    int maxAfterFilter = 0;
-    for (int i = 0; i < numSamples * 2; i++) {
-      maxAfterFilter = Math.max(maxAfterFilter, Math.abs(stereoBuf[i]));
-    }
-
-    // Pan (voice.cpp:1159-1166)
+    // source amplitudes in render() (voice.cpp folds it into sourceAmplitudes, not the buffer).
+    // C voice.cpp:1515-1670 runs stereo fold/filter/saturation when didStereoTempBuffer is true,
+    // and mono fold/filter/saturation (with mono-to-stereo pan) when didStereoTempBuffer is false.
     int[] ampLR = tempAmpLR;
     int panAmount = paramFinalValues[Param.LOCAL_PAN];
     boolean doPanning = shouldDoPanning(panAmount, ampLR);
 
-    if (sound.synthMode != 1) { // Not FM: apply overall oscillator amplitude
-      int overallOscAmplitudeNow = overallOscAmplitudeLastTime;
-      for (int i = 0; i < numSamples; i++) {
-        overallOscAmplitudeNow += overallOscillatorAmplitudeIncrement;
-        stereoBuf[i * 2] =
-            Functions.lshiftAndSaturate(
-                Functions.multiply_32x32_rshift32_rounded(stereoBuf[i * 2], overallOscAmplitudeNow),
-                1);
-        stereoBuf[i * 2 + 1] =
-            Functions.lshiftAndSaturate(
-                Functions.multiply_32x32_rshift32_rounded(
-                    stereoBuf[i * 2 + 1], overallOscAmplitudeNow),
-                1);
+    if (didStereoTempBuffer) {
+      // C voice.cpp:1515-1585 — stereo temp buffer path
+      if (paramFinalValues[Param.LOCAL_FOLD] > 0) {
+        Functions.foldBufferPolyApproximation(
+            stereoBuf, 0, numSamples * 2, paramFinalValues[Param.LOCAL_FOLD]);
       }
-    }
 
-    int maxAfterAmp = 0;
-    for (int i = 0; i < numSamples * 2; i++) {
-      maxAfterAmp = Math.max(maxAfterAmp, Math.abs(stereoBuf[i]));
-    }
+      if (filterSet.isOn()) {
+        filterSet.renderLongStereo(stereoBuf, numSamples);
+      }
 
-    if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry && maxBeforeFilter > 0) {
-      LOGGER.fine(
-          String.format(
-              "[TELEMETRY DEBUG Voice] beforeFilter=%d, afterFilter=%d, afterAmp=%d (overallAmp=%d)",
-              maxBeforeFilter, maxAfterFilter, maxAfterAmp, overallOscAmplitudeLastTime));
-    }
+      if (sound.synthMode != 1) { // Not FM: apply overall oscillator amplitude
+        int overallOscAmplitudeNow = overallOscAmplitudeLastTime;
+        for (int i = 0; i < numSamples; i++) {
+          overallOscAmplitudeNow += overallOscillatorAmplitudeIncrement;
+          stereoBuf[i * 2] =
+              Functions.lshiftAndSaturate(
+                  Functions.multiply_32x32_rshift32_rounded(
+                      stereoBuf[i * 2], overallOscAmplitudeNow),
+                  1);
+          stereoBuf[i * 2 + 1] =
+              Functions.lshiftAndSaturate(
+                  Functions.multiply_32x32_rshift32_rounded(
+                      stereoBuf[i * 2 + 1], overallOscAmplitudeNow),
+                  1);
+        }
+      }
 
-    // Saturation/clipping (voice.cpp:1535-1565 "Yes clipping" branch): after the overall
-    // amplitude, before pan — Sound::saturate (sound.h:290-294) = anti-aliased tanh at
-    // 5 + clippingAmount with per-channel working-value state, output << shiftAmount.
-    if (sound.clippingAmount > 0) {
-      int shiftAmount = sound.getShiftAmountForSaturation();
-      int saturationAmount = 5 + sound.clippingAmount;
+      // Saturation/clipping (voice.cpp:1553-1584 "Yes clipping" branch): per-channel state.
+      if (sound.clippingAmount > 0) {
+        int shiftAmount = sound.getShiftAmountForSaturation();
+        int saturationAmount = 5 + sound.clippingAmount;
+        for (int i = 0; i < numSamples; i++) {
+          for (int ch = 0; ch < 2; ch++) {
+            int data = stereoBuf[i * 2 + ch];
+            int newWorkingValue =
+                Functions.lshiftAndSaturateUnknown(data, saturationAmount) + 0x80000000;
+            int outputVal =
+                Functions.getTanHAntialiased(
+                    data, lastSaturationTanHWorkingValue[ch], saturationAmount);
+            stereoBuf[i * 2 + ch] = outputVal << shiftAmount;
+            lastSaturationTanHWorkingValue[ch] = newWorkingValue;
+          }
+        }
+      }
+
+      if (doPanning) {
+        for (int i = 0; i < numSamples; i++) {
+          int l = Functions.multiply_32x32_rshift32(stereoBuf[i * 2], ampLR[0]) << 2;
+          int r = Functions.multiply_32x32_rshift32(stereoBuf[i * 2 + 1], ampLR[1]) << 2;
+          stereoBuf[i * 2] = l;
+          stereoBuf[i * 2 + 1] = r;
+        }
+      }
+    } else {
+      // C voice.cpp:1586-1670 — mono temp buffer path. Runs fold, filterSet.renderLong (mono),
+      // overallOscAmplitude, and mono saturation (lastSaturationTanHWorkingValue[0] only) on a
+      // contiguous numSamples buffer so LpLadderFilter consumes 1 getNoise() per sample and
+      // Filter.updateBlend() advances once per sample.
+      if (monoFilterBuf.length < numSamples) {
+        monoFilterBuf = new int[numSamples];
+      }
       for (int i = 0; i < numSamples; i++) {
-        for (int ch = 0; ch < 2; ch++) {
-          int data = stereoBuf[i * 2 + ch];
+        monoFilterBuf[i] = stereoBuf[i * 2];
+      }
+
+      if (paramFinalValues[Param.LOCAL_FOLD] > 0) {
+        Functions.foldBufferPolyApproximation(
+            monoFilterBuf, 0, numSamples, paramFinalValues[Param.LOCAL_FOLD]);
+      }
+
+      if (filterSet.isOn()) {
+        filterSet.renderLong(monoFilterBuf, numSamples);
+      }
+
+      if (sound.synthMode != 1) { // Not FM: apply overall oscillator amplitude
+        int overallOscAmplitudeNow = overallOscAmplitudeLastTime;
+        for (int i = 0; i < numSamples; i++) {
+          overallOscAmplitudeNow += overallOscillatorAmplitudeIncrement;
+          monoFilterBuf[i] =
+              Functions.lshiftAndSaturate(
+                  Functions.multiply_32x32_rshift32_rounded(
+                      monoFilterBuf[i], overallOscAmplitudeNow),
+                  1);
+        }
+      }
+
+      if (sound.clippingAmount > 0) {
+        int shiftAmount = sound.getShiftAmountForSaturation();
+        int saturationAmount = 5 + sound.clippingAmount;
+        for (int i = 0; i < numSamples; i++) {
+          int data = monoFilterBuf[i];
           int newWorkingValue =
               Functions.lshiftAndSaturateUnknown(data, saturationAmount) + 0x80000000;
           int outputVal =
               Functions.getTanHAntialiased(
-                  data, lastSaturationTanHWorkingValue[ch], saturationAmount);
-          stereoBuf[i * 2 + ch] = outputVal << shiftAmount;
-          lastSaturationTanHWorkingValue[ch] = newWorkingValue;
+                  data, lastSaturationTanHWorkingValue[0], saturationAmount);
+          monoFilterBuf[i] = outputVal << shiftAmount;
+          lastSaturationTanHWorkingValue[0] = newWorkingValue;
         }
       }
-    }
 
-    // Apply pan
-    if (doPanning) {
-      for (int i = 0; i < numSamples; i++) {
-        int l = Functions.multiply_32x32_rshift32(stereoBuf[i * 2], ampLR[0]) << 2;
-        int r = Functions.multiply_32x32_rshift32(stereoBuf[i * 2 + 1], ampLR[1]) << 2;
-        stereoBuf[i * 2] = l;
-        stereoBuf[i * 2 + 1] = r;
+      // C voice.cpp:1622-1630, 1655-1663 — addPannedMono / addMono into soundBuffer
+      if (doPanning) {
+        for (int i = 0; i < numSamples; i++) {
+          int output = monoFilterBuf[i];
+          stereoBuf[i * 2] = Functions.multiply_32x32_rshift32(output, ampLR[0]) << 2;
+          stereoBuf[i * 2 + 1] = Functions.multiply_32x32_rshift32(output, ampLR[1]) << 2;
+        }
+      } else {
+        for (int i = 0; i < numSamples; i++) {
+          int output = monoFilterBuf[i];
+          stereoBuf[i * 2] = output;
+          stereoBuf[i * 2 + 1] = output;
+        }
       }
     }
   }

@@ -1476,7 +1476,80 @@ public class SongXmlParser {
     }
   }
 
+  private static String readDirectAttrOrChild(Element parent, String tagName) {
+    String val = parent.getAttribute(tagName);
+    if (val != null && !val.isEmpty()) {
+      return val.trim();
+    }
+    Element child = getFirstChild(parent, tagName);
+    if (child == null) {
+      return null;
+    }
+    String childVal = child.getAttribute("value");
+    if (childVal == null || childVal.isEmpty()) {
+      childVal = child.getTextContent();
+    }
+    return (childVal == null || childVal.isBlank()) ? null : childVal.trim();
+  }
+
   private static void parseSongFx(Element songNode, ProjectModel project) {
+    // ── Song-level Filter Modes & Route (song.cpp:2098 -> mod_controllable_audio.cpp:723-733) ──
+    String songLpfMode = readDirectAttrOrChild(songNode, "lpfMode");
+    if (songLpfMode != null) {
+      if ("24dB".equalsIgnoreCase(songLpfMode)) {
+        project.setSongLpfMode(org.deluge.model.FilterMode.LADDER_24);
+      } else if ("DRIVE".equalsIgnoreCase(songLpfMode)
+          || "24dBDrive".equalsIgnoreCase(songLpfMode)) {
+        project.setSongLpfMode(org.deluge.model.FilterMode.DRIVE);
+      } else if ("SVF".equalsIgnoreCase(songLpfMode)) {
+        project.setSongLpfMode(org.deluge.model.FilterMode.SVF);
+      } else if ("SVF_BAND".equalsIgnoreCase(songLpfMode)
+          || "SVF Band".equalsIgnoreCase(songLpfMode)) {
+        project.setSongLpfMode(org.deluge.model.FilterMode.SVF_BAND);
+      } else if ("SVF_NOTCH".equalsIgnoreCase(songLpfMode)
+          || "SVF Notch".equalsIgnoreCase(songLpfMode)) {
+        project.setSongLpfMode(org.deluge.model.FilterMode.SVF_NOTCH);
+      } else if ("Off".equalsIgnoreCase(songLpfMode)) {
+        project.setSongLpfMode(org.deluge.model.FilterMode.OFF);
+      } else {
+        project.setSongLpfMode(org.deluge.model.FilterMode.LADDER_12);
+      }
+    }
+    String songHpfMode = readDirectAttrOrChild(songNode, "hpfMode");
+    if (songHpfMode != null) {
+      if ("12dB".equalsIgnoreCase(songHpfMode)
+          || "24dB".equalsIgnoreCase(songHpfMode)
+          || "24dBDrive".equalsIgnoreCase(songHpfMode)) {
+        // C mod_controllable_audio.cpp:727-729 -> stringToLPFType: LP strings in hpfMode match no
+        // branch of the HPF dispatch (filter_set.cpp:25-41, 177-206), leaving HPF inert (OFF).
+        project.setSongHpfMode(org.deluge.model.FilterMode.OFF);
+      } else if ("SVF".equalsIgnoreCase(songHpfMode)) {
+        project.setSongHpfMode(org.deluge.model.FilterMode.SVF);
+      } else if ("SVF_BAND".equalsIgnoreCase(songHpfMode)
+          || "SVF Band".equalsIgnoreCase(songHpfMode)) {
+        project.setSongHpfMode(org.deluge.model.FilterMode.SVF_BAND);
+      } else if ("SVF_NOTCH".equalsIgnoreCase(songHpfMode)
+          || "SVF Notch".equalsIgnoreCase(songHpfMode)) {
+        project.setSongHpfMode(org.deluge.model.FilterMode.SVF_NOTCH);
+      } else if ("Off".equalsIgnoreCase(songHpfMode)) {
+        project.setSongHpfMode(org.deluge.model.FilterMode.OFF);
+      } else {
+        project.setSongHpfMode(org.deluge.model.FilterMode.LADDER_12);
+      }
+    }
+    String songFilterRoute = readDirectAttrOrChild(songNode, "filterRoute");
+    if (songFilterRoute != null) {
+      if ("L2H".equalsIgnoreCase(songFilterRoute)
+          || "LPF_TO_HPF".equalsIgnoreCase(songFilterRoute)) {
+        project.setSongFilterRoute(1);
+      } else if ("PARA".equalsIgnoreCase(songFilterRoute)
+          || "PARALLEL".equalsIgnoreCase(songFilterRoute)) {
+        project.setSongFilterRoute(2);
+      } else {
+        project.setSongFilterRoute(0);
+      }
+    }
+
     // ── Reverb ──
     NodeList reverbNodes = songNode.getElementsByTagName("reverb");
     if (reverbNodes.getLength() > 0) {

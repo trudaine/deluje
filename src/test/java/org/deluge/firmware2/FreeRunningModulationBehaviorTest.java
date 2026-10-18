@@ -46,6 +46,7 @@ public class FreeRunningModulationBehaviorTest {
 
     ProjectModel song = FirmwareFactory.createSong(project);
     FirmwareSound fs = (FirmwareSound) song.getTracks().get(0).getActiveClip().getSound();
+    Functions.resetNoiseSeed();
     fs.triggerNote(60, 127);
 
     // Apply phase offsets before rendering
