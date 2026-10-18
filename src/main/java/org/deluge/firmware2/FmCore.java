@@ -106,17 +106,12 @@ public final class FmCore {
   // This uses the same expTableSmall but with a different input domain.
 
   /**
-   * Port of Exp2::lookup. Converts DX7 operator level (Q24) to linear gain (Q31). level_in = 0 →
-   * max, 14<<24 = 234881024 → silent (0 gain).
+   * Port of {@code Exp2::lookup(level_in - (14 << 24))} ({@code fm_core.cpp:87}, {@code
+   * math_lut.h:17-26}). Converts DX7 operator level (Q24) to linear gain (Q24). {@code levelIn = 14
+   * << 24} yields full scale ({@code 1 << 24}); {@code levelIn = 0} yields near silence.
    */
   public static int exp2Lookup(int levelIn) {
-    int x = levelIn - (14 << 24);
-    // Simplified: extract level 0-99 from Q24 and use gain table
-    int lvl = (x >> 24) + 14;
-    if (lvl < 0) lvl = 0;
-    if (lvl > 99) lvl = 99;
-    // Map to Q31: Dx7Tables.gainTable is Q24, shift to Q31
-    return Dx7Tables.gainTable[lvl] << 7;
+    return Dx7Tables.exp2Lookup(levelIn - (14 << 24));
   }
 
   // ── n_out (fm_core.cpp:56-63) ──

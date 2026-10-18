@@ -1,6 +1,7 @@
 package org.deluge.ui.util;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /** Short help concept definitions for dynamic onboarding live interactive tooltips. */
@@ -29,7 +30,10 @@ public class HelpTextManager {
   }
 
   public static String getHelp(String label) {
-    String match = label.toUpperCase().replace(" ", "");
+    if (label == null) {
+      return "Dynamic sequencer parameter live assignment onboarding tutorial checks.";
+    }
+    String match = label.toUpperCase(Locale.ROOT).replace(" ", "");
     if (match.equals("START/END")) match = "GATE";
     return DICTIONARY.getOrDefault(
         match, "Dynamic sequencer parameter live assignment onboarding tutorial checks.");

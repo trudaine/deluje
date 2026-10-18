@@ -76,6 +76,9 @@ public class AudioInputCaptureLine {
    * this block). Call only from the audio thread.
    */
   public boolean fillMonitorBlock(int[] stereoOut, int numFrames) {
+    if (stereoOut == null || numFrames <= 0 || stereoOut.length < numFrames * 2) {
+      return false;
+    }
     long available = monitorFramesWritten - monitorFramesRead;
     if (available < numFrames) {
       return false;
@@ -101,13 +104,16 @@ public class AudioInputCaptureLine {
     this.onTriggerCallback = onTrigger;
     this.onFinishedCallback = onFinished;
 
+    boolean alreadyOpen = isArmed.get() && inputLine != null && inputLine.isOpen();
     this.monitorOnly.set(false);
     this.isArmed.set(true);
     this.isRecording.set(false);
     this.capturedStream.reset();
     this.currentLivePeak = 0f;
 
-    startCaptureThread();
+    if (!alreadyOpen) {
+      startCaptureThread();
+    }
   }
 
   // ── Monitor-only mode ──
@@ -166,6 +172,8 @@ public class AudioInputCaptureLine {
       DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);
       if (!AudioSystem.isLineSupported(info)) {
         LOGGER.warning("[Capture] Microphone line TargetDataLine not supported by system!");
+        isArmed.set(false);
+        monitorOnly.set(false);
         return;
       }
       inputLine = (TargetDataLine) AudioSystem.getLine(info);
@@ -188,7 +196,7 @@ public class AudioInputCaptureLine {
 
                   // Read peak amplitude block levels
                   float maxPeak = 0f;
-                  for (int i = 0; i < read; i += 2) {
+                  for (int i = 0; i + 1 < read; i += 2) {
                     short val = (short) ((buffer[i + 1] << 8) | (buffer[i] & 0xff));
                     float amp = Math.abs(val / 32768.0f);
                     if (amp > maxPeak) maxPeak = amp;
@@ -216,6 +224,8 @@ public class AudioInputCaptureLine {
                 }
               });
     } catch (Exception ex) {
+      isArmed.set(false);
+      monitorOnly.set(false);
       LOGGER.warning("[Capture] Failed to open TargetDataLine: " + ex.getMessage());
     }
   }
@@ -258,10 +268,12 @@ public class AudioInputCaptureLine {
       // Update JApp project model kits targets references
       if (SwingDelugeApp.mainInstance != null) {
         ProjectModel project = SwingDelugeApp.mainInstance.getCurrentProject();
-        if (project != null && targetTrackIndex < project.getTracks().size()) {
+        if (project != null
+            && targetTrackIndex >= 0
+            && targetTrackIndex < project.getTracks().size()) {
           org.deluge.model.TrackModel track = project.getTracks().get(targetTrackIndex);
           if (track instanceof org.deluge.model.KitTrackModel kitTrack) {
-            if (targetSlotIndex < kitTrack.getDrums().size()) {
+            if (targetSlotIndex >= 0 && targetSlotIndex < kitTrack.getDrums().size()) {
               org.deluge.model.Drum drum = kitTrack.getDrums().get(targetSlotIndex);
               if (drum instanceof org.deluge.model.SoundDrum sd) {
                 sd.setSamplePath(targetWav.getAbsolutePath());
@@ -311,9 +323,9 @@ public class AudioInputCaptureLine {
             }
           }
         }
-        if (onFinishedCallback != null) {
-          javax.swing.SwingUtilities.invokeLater(onFinishedCallback);
-        }
+      }
+      if (onFinishedCallback != null) {
+        javax.swing.SwingUtilities.invokeLater(onFinishedCallback);
       }
     } catch (Exception ex) {
       LOGGER.warning("[Capture] Failed to finalize WAV recording: " + ex.getMessage());

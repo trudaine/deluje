@@ -38,7 +38,8 @@ public final class StickyTurnFilter {
       return 0;
     }
     int dir = Integer.signum(rawDelta);
-    boolean withinTimeout = (nowMs - lastAcceptedMs) < timeoutMs;
+    boolean withinTimeout =
+        lastAcceptedMs != Long.MIN_VALUE && (nowMs - lastAcceptedMs) < timeoutMs;
 
     // A reversal that arrives within the guard window of the last accepted turn is ignored.
     // The guard keeps counting from the last accepted turn, so once it lapses the reversal sticks.

@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.logging.Logger;
 
 /** Manages the library of User assets, loaded from the filesystem via PreferencesManager paths. */
@@ -19,6 +20,7 @@ public class AssetLibrary {
 
   private final List<AssetEntry> synthPresets = new ArrayList<>();
   private final List<AssetEntry> kitPresets = new ArrayList<>();
+  private final List<AssetEntry> songPresets = new ArrayList<>();
 
   public AssetLibrary() {
     loadLibrary();
@@ -27,7 +29,7 @@ public class AssetLibrary {
   private void loadLibrary() {
     scanDir("SYNTHS", org.deluge.project.PreferencesManager.getSynthsDir(), synthPresets, false);
     scanDir("KITS", org.deluge.project.PreferencesManager.getKitsDir(), kitPresets, false);
-    scanDir("SONGS", org.deluge.project.PreferencesManager.getSongsDir(), new ArrayList<>(), false);
+    scanDir("SONGS", org.deluge.project.PreferencesManager.getSongsDir(), songPresets, false);
   }
 
   private void scanDir(String category, File dir, List<AssetEntry> list, boolean isFactory) {
@@ -47,7 +49,7 @@ public class AssetLibrary {
     for (File f : files) {
       if (f.isDirectory()) {
         scanRecursive(category, root, f, list, isFactory);
-      } else if (f.getName().toUpperCase().endsWith(".XML")) {
+      } else if (f.getName().toUpperCase(Locale.ROOT).endsWith(".XML")) {
         String name = f.getName().substring(0, f.getName().lastIndexOf('.'));
         list.add(new AssetEntry(category, name, f.getAbsolutePath(), isFactory));
       }
@@ -60,5 +62,9 @@ public class AssetLibrary {
 
   public List<AssetEntry> getKits() {
     return kitPresets;
+  }
+
+  public List<AssetEntry> getSongs() {
+    return songPresets;
   }
 }

@@ -133,8 +133,13 @@ public class DelugeEncoderKnob extends JComponent {
     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
     int w = getWidth();
+    int h = getHeight();
+    if (w <= 0 || h <= 0) {
+      g2.dispose();
+      return;
+    }
     int labelH = label.isEmpty() ? 0 : 14;
-    int d = Math.min(w, getHeight() - labelH) - 6;
+    int d = Math.max(2, Math.min(w, h - labelH) - 6);
     int cx = w / 2;
     int cy = 3 + d / 2;
 
