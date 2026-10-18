@@ -977,7 +977,9 @@ public class ProjectSerializer {
     writeHexTagLfoFreq(writer, "rate", lfo.rateHz());
     writeHexTagUnipolar(writer, "depth", lfo.depth());
     if (lfo.syncType() > 0) {
-      writer.writeTag("syncType", String.valueOf(lfo.syncType()));
+      // C SyncType file value (TRIPLET 10, DOTTED 19), not the model's 1 / 2.
+      writer.writeTag(
+          "syncType", String.valueOf(org.deluge.xml.DelugeXmlUtil.syncTypeToFile(lfo.syncType())));
     }
     writer.writeClosingTag(tag);
   }
@@ -1086,7 +1088,8 @@ public class ProjectSerializer {
     writer.writeAttribute("pingPong", model.getDelayPingPong(), false);
     writer.writeAttribute("analog", model.getDelayAnalog(), false);
     writer.writeAttribute("syncLevel", model.getDelaySyncLevel(), false);
-    writer.writeAttribute("syncType", model.getDelaySyncType(), false);
+    writer.writeAttribute(
+        "syncType", org.deluge.xml.DelugeXmlUtil.syncTypeToFile(model.getDelaySyncType()), false);
     writer.closeTag();
 
     // 3. Sidechain
@@ -1095,7 +1098,10 @@ public class ProjectSerializer {
     writer.writeAttribute(
         "release", (int) (model.getSidechainRelease() * Integer.MAX_VALUE), false);
     writer.writeAttribute("syncLevel", model.getSidechainSyncLevel(), false);
-    writer.writeAttribute("syncType", model.getSidechainSyncType(), false);
+    writer.writeAttribute(
+        "syncType",
+        org.deluge.xml.DelugeXmlUtil.syncTypeToFile(model.getSidechainSyncType()),
+        false);
     writer.closeTag();
 
     // 4. Audio Compressor

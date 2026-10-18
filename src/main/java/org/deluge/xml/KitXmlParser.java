@@ -484,7 +484,7 @@ public class KitXmlParser {
       if (scRelease != null)
         sound.setSidechainRelease(Math.abs(DelugeHexMapper.hexToFloat(scRelease)));
       sound.setSidechainSyncLevel(readIntAttr(sidechainEl, "syncLevel", 0));
-      sound.setSidechainSyncType(readIntAttr(sidechainEl, "syncType", 0));
+      sound.setSidechainSyncType(syncTypeFromFile(readIntAttr(sidechainEl, "syncType", 0)));
     }
 
     // arpeggiator
@@ -634,7 +634,7 @@ public class KitXmlParser {
     int syncType = 0;
     if (syncTypeStr != null && !syncTypeStr.isEmpty()) {
       try {
-        syncType = Integer.parseInt(syncTypeStr);
+        syncType = syncTypeFromFile(Integer.parseInt(syncTypeStr.trim())); // C sound.cpp:912/945
       } catch (NumberFormatException e) {
         LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
       }

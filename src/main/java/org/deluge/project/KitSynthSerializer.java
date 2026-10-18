@@ -736,7 +736,11 @@ public class KitSynthSerializer {
     appendHexLfoFreq(doc, lfoElem, "rate", lfo.rateHz());
     appendHexChildUnipolar(doc, lfoElem, "depth", lfo.depth());
     if (lfo.syncType() > 0) {
-      appendTextChild(doc, lfoElem, "syncType", String.valueOf(lfo.syncType()));
+      appendTextChild(
+          doc,
+          lfoElem,
+          "syncType",
+          String.valueOf(org.deluge.xml.DelugeXmlUtil.syncTypeToFile(lfo.syncType())));
     }
     parent.appendChild(lfoElem);
   }
@@ -751,7 +755,11 @@ public class KitSynthSerializer {
     appendHexLfoFreq(doc, lfoElem, "rate", lfo.rateHz());
     appendHexChildUnipolar(doc, lfoElem, "depth", lfo.depth());
     if (lfo.syncType() > 0) {
-      appendTextChild(doc, lfoElem, "syncType", String.valueOf(lfo.syncType()));
+      appendTextChild(
+          doc,
+          lfoElem,
+          "syncType",
+          String.valueOf(org.deluge.xml.DelugeXmlUtil.syncTypeToFile(lfo.syncType())));
     }
     parent.appendChild(lfoElem);
   }

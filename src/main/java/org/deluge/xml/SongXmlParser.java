@@ -1398,7 +1398,8 @@ public class SongXmlParser {
       if (del.hasAttribute("syncLevel"))
         project.setDelaySyncLevel(Integer.parseInt(del.getAttribute("syncLevel")));
       if (del.hasAttribute("syncType"))
-        project.setDelaySyncType(Integer.parseInt(del.getAttribute("syncType")));
+        project.setDelaySyncType(
+            DelugeXmlUtil.syncTypeFromFile(Integer.parseInt(del.getAttribute("syncType"))));
     }
 
     // ── Sidechain ──
@@ -1410,7 +1411,8 @@ public class SongXmlParser {
       if (sc.hasAttribute("syncLevel"))
         project.setSidechainSyncLevel(Integer.parseInt(sc.getAttribute("syncLevel")));
       if (sc.hasAttribute("syncType"))
-        project.setSidechainSyncType(Integer.parseInt(sc.getAttribute("syncType")));
+        project.setSidechainSyncType(
+            DelugeXmlUtil.syncTypeFromFile(Integer.parseInt(sc.getAttribute("syncType"))));
     }
 
     // ── Audio Compressor ──
