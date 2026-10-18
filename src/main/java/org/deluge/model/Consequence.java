@@ -202,9 +202,11 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
             synth.setModulator2Transpose(t);
             synth.setModulator2Cents(c);
           }
-          case "osc1TsAmt" -> synth.setOsc1TimeStretchAmount(value / 100.0f);
+          case "osc1TsAmt" ->
+              synth.setOsc1TimeStretchAmount(Math.max(-48, Math.min(48, Math.round(value))));
           case "osc1Cents" -> synth.setOsc1Cents(Math.round(value));
-          case "osc2TsAmt" -> synth.setOsc2TimeStretchAmount(value / 100.0f);
+          case "osc2TsAmt" ->
+              synth.setOsc2TimeStretchAmount(Math.max(-48, Math.min(48, Math.round(value))));
           case "osc2Cents" -> synth.setOsc2Cents(Math.round(value));
           case "osc2Transpose" -> synth.setOsc2Transpose(Math.round(value));
           case "stutterRate" -> synth.getStutter().setStutterRate(value / 100.0f);
@@ -459,9 +461,9 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
                 : (synth.getOsc2Transpose() * 100.0f + synth.getOsc2Cents());
         case "mod1Pitch" -> synth.getModulator1Transpose() * 100.0f + synth.getModulator1Cents();
         case "mod2Pitch" -> synth.getModulator2Transpose() * 100.0f + synth.getModulator2Cents();
-        case "osc1TsAmt" -> synth.getOsc1TimeStretchAmount() * 100.0f;
+        case "osc1TsAmt" -> (float) synth.getOsc1TimeStretchAmount();
         case "osc1Cents" -> synth.getOsc1Cents();
-        case "osc2TsAmt" -> synth.getOsc2TimeStretchAmount() * 100.0f;
+        case "osc2TsAmt" -> (float) synth.getOsc2TimeStretchAmount();
         case "osc2Cents" -> synth.getOsc2Cents();
         case "osc2Transpose" -> synth.getOsc2Transpose();
         case "stutterRate" -> synth.getStutter().getStutterRate() * 100.0f;

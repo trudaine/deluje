@@ -53,11 +53,9 @@ class ConsequenceScriptingDspTapTest {
         0.0f,
         -240.0f,
         () -> synth.getModulator2Transpose() * 100.0f + synth.getModulator2Cents());
-    assertSynthParamRoundTrip(
-        project, "osc1TsAmt", 0.0f, 75.0f, () -> synth.getOsc1TimeStretchAmount() * 100.0f);
+    assertSynthParamRoundTrip(project, "osc1TsAmt", 0.0f, 36.0f, synth::getOsc1TimeStretchAmount);
     assertSynthParamRoundTrip(project, "osc1Cents", 0.0f, -15.0f, synth::getOsc1Cents);
-    assertSynthParamRoundTrip(
-        project, "osc2TsAmt", 0.0f, 40.0f, () -> synth.getOsc2TimeStretchAmount() * 100.0f);
+    assertSynthParamRoundTrip(project, "osc2TsAmt", 0.0f, -24.0f, synth::getOsc2TimeStretchAmount);
     assertSynthParamRoundTrip(project, "osc2Cents", 0.0f, 22.0f, synth::getOsc2Cents);
     assertSynthParamRoundTrip(project, "osc2Transpose", 0.0f, -12.0f, synth::getOsc2Transpose);
     assertSynthParamRoundTrip(
@@ -186,7 +184,7 @@ class ConsequenceScriptingDspTapTest {
     specs.add(new CaseSpec("mod2Pitch", -170.0f));
     specs.add(new CaseSpec("osc1TsAmt", 40.0f));
     specs.add(new CaseSpec("osc1Cents", -18.0f));
-    specs.add(new CaseSpec("osc2TsAmt", 60.0f));
+    specs.add(new CaseSpec("osc2TsAmt", -24.0f));
     specs.add(new CaseSpec("osc2Cents", 24.0f));
     specs.add(new CaseSpec("osc2Transpose", -7.0f));
     specs.add(new CaseSpec("stutterRate", 50.0f));
