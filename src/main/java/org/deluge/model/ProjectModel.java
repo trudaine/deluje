@@ -275,6 +275,78 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     return all;
   }
 
+  /**
+   * C Song::getLongestClip (song.cpp:4420-4437): longest active (or any, when {@code
+   * includeInactive} is true) session clip across all tracks.
+   */
+  public ClipModel getLongestClip(boolean includeInactive) {
+    ClipModel longestClip = null;
+    for (TrackModel t : getTracks()) {
+      for (ClipModel clip : t.getClips()) {
+        boolean active = t.getActiveClip() == clip && clip.isActiveInSession() && !t.isMuted();
+        if (includeInactive || active) {
+          if (longestClip == null || clip.getLoopLength() > longestClip.getLoopLength()) {
+            longestClip = clip;
+          }
+        }
+      }
+    }
+    return longestClip;
+  }
+
+  /**
+   * C Song::getLongestActiveClipWithMultipleOrFactorLength (song.cpp:4441-4470): finds the longest
+   * active session clip whose loop length is a multiple or factor of {@code targetLength}, skipping
+   * {@code LaunchStyle::FILL} clips (song.cpp:4450).
+   */
+  public ClipModel getLongestActiveClipWithMultipleOrFactorLength(
+      int targetLength, boolean revertToAnyActiveClipIfNone, ClipModel excludeClip) {
+    ClipModel foundClip = null;
+    boolean foundClipIsFitting = false;
+    int foundClipLength = 0;
+
+    for (TrackModel t : getTracks()) {
+      if (t.isMuted()) continue;
+      ClipModel clip = t.getActiveClip();
+      if (clip != null
+          && clip != excludeClip
+          && clip.isActiveInSession()
+          && !"fill".equals(clip.getLaunchStyle())) {
+        int clipLength = clip.getLoopLength();
+        if (clipLength <= 0 || targetLength <= 0) continue;
+        if (clipLength == targetLength
+            || (clipLength > targetLength
+                && Integer.remainderUnsigned(clipLength, targetLength) == 0)
+            || (targetLength > clipLength
+                && Integer.remainderUnsigned(targetLength, clipLength) == 0)) {
+          if (!foundClipIsFitting || foundClip == null || clipLength > foundClipLength) {
+            foundClip = clip;
+            foundClipIsFitting = true;
+            foundClipLength = clipLength;
+          }
+        } else if (revertToAnyActiveClipIfNone && !foundClipIsFitting) {
+          foundClip = clip;
+        }
+      }
+    }
+    return foundClip;
+  }
+
+  /**
+   * C Song::turnSoloingIntoJustPlaying (song.cpp:3268-3300): when clearing arming across session
+   * clips, preserves {@code armState} on {@code FILL} and {@code ONCE} clips (song.cpp:3275, 3293).
+   */
+  public void turnSoloingIntoJustPlaying(boolean getRidOfArmingToo) {
+    if (!getRidOfArmingToo) return;
+    for (TrackModel t : getTracks()) {
+      for (ClipModel clip : t.getClips()) {
+        if (!"fill".equals(clip.getLaunchStyle()) && !"once".equals(clip.getLaunchStyle())) {
+          clip.setArmState(ArmState.OFF);
+        }
+      }
+    }
+  }
+
   public static ProjectModel createDefaultProject() {
     ProjectModel project = new ProjectModel();
     project.setBpm(120.0f);

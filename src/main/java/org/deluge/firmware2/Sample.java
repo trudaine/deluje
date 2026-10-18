@@ -71,6 +71,17 @@ public class Sample {
   }
 
   /**
+   * Faithful port of {@code Sample::getLengthInMSec} (sample.cpp:1077-1079): {@code (uint64_t)
+   * (lengthInSamples - 1) * 1000 / sampleRate + 1}.
+   */
+  public int getLengthInMSec() {
+    if (lengthInSamples <= 0 || sampleRate <= 0) {
+      return 0;
+    }
+    return (int) (Long.divideUnsigned((lengthInSamples - 1) * 1000L, sampleRate & 0xFFFFFFFFL) + 1);
+  }
+
+  /**
    * Faithful port of {@code Sample::getAveragesForCrossfade} (sample.cpp:727-833): the
    * moving-average similarity metric the time-stretch hop search compares. Computes {@code
    * kNumMovingAverages} totals, each the sum (over {@code lengthToAverageEach} frames, all

@@ -561,6 +561,36 @@ public class SongGridPanel extends SwingGridPanel {
                             }
                           } else {
                             editedModelTrack = trkIdx;
+                            org.deluge.model.ClipModel clickedClip =
+                                songTrack.getClips().get(clipCol);
+                            Object phObj =
+                                bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
+                            if (phObj instanceof org.deluge.playback.PlaybackHandler ph
+                                && ph.isPlaying()
+                                && !"default".equals(clickedClip.getLaunchStyle())) {
+                              // C session.cpp:325-326, 648, 1009, 1095 — FILL and ONCE clips
+                              boolean isActiveNow =
+                                  songTrack.getActiveClip() == clickedClip
+                                      && clickedClip.isActiveInSession()
+                                      && !songTrack.isMuted();
+                              boolean isDisarmingInactive =
+                                  !isActiveNow
+                                      && clickedClip.getArmState() != org.deluge.model.ArmState.OFF
+                                      && ("fill".equals(clickedClip.getLaunchStyle())
+                                          || !e.isShiftDown());
+                              if (!isDisarmingInactive && songTrack.isMuted()) {
+                                org.deluge.model.ClipModel old = songTrack.getActiveClip();
+                                if (old != null && old != clickedClip) {
+                                  old.setActiveInSession(false);
+                                }
+                                songTrack.setMuted(false);
+                                updateEngineMutes();
+                              }
+                              ph.toggleClipStatus(songTrack, clickedClip, e.isShiftDown());
+                              fireProjectChanged();
+                              refresh();
+                              return;
+                            }
                             // C: session_view.cpp:3839 gridToggleClipPlay ->
                             // session.toggleClipStatus is a true toggle — pressing the pad of
                             // the clip that's already playing on this track stops it. The
@@ -568,7 +598,9 @@ public class SongGridPanel extends SwingGridPanel {
                             // muting the track (the same mechanism the dedicated mute pad uses)
                             // is used to silence it without inventing new scheduler state.
                             boolean alreadyPlaying =
-                                songTrack.getActiveClipIndex() == clipCol && !songTrack.isMuted();
+                                songTrack.getActiveClipIndex() == clipCol
+                                    && !songTrack.isMuted()
+                                    && clickedClip.isActiveInSession();
                             if (alreadyPlaying) {
                               songTrack.setMuted(true);
                               bridge.setLaunchQueue(trkIdx, -1);
@@ -581,13 +613,14 @@ public class SongGridPanel extends SwingGridPanel {
                                 songTrack.setMuted(false);
                                 updateEngineMutes();
                               }
+                              clickedClip.setActiveInSession(true);
                               songTrack.setActiveClipIndex(clipCol);
                               bridge.setCurrentClip(trkIdx, clipCol);
                               if (SwingDelugeApp.mainInstance != null
                                   && SwingDelugeApp.mainInstance.getArrangerScheduler() != null) {
                                 SwingDelugeApp.mainInstance
                                     .getArrangerScheduler()
-                                    .notifyClipLaunched(trkIdx, songTrack.getClips().get(clipCol));
+                                    .notifyClipLaunched(trkIdx, clickedClip);
                               }
                               fireProjectChanged();
                               refresh();
