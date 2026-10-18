@@ -66,6 +66,14 @@ public class RawKnobConfig {
     envKnobSet[index] = true;
   }
 
+  public void clearEnvKnob(int index) {
+    envKnobSet[index] = false;
+    rawParamKnobs.remove(org.deluge.firmware2.Param.LOCAL_ENV_0_ATTACK + index);
+    rawParamKnobs.remove(org.deluge.firmware2.Param.LOCAL_ENV_0_DECAY + index);
+    rawParamKnobs.remove(org.deluge.firmware2.Param.LOCAL_ENV_0_SUSTAIN + index);
+    rawParamKnobs.remove(org.deluge.firmware2.Param.LOCAL_ENV_0_RELEASE + index);
+  }
+
   public void setRawParamKnob(int paramId, int q31) {
     rawParamKnobs.put(paramId, q31);
   }
@@ -76,6 +84,7 @@ public class RawKnobConfig {
 
   public void copyFrom(RawKnobConfig other) {
     System.arraycopy(other.lfoRateKnobQ31, 0, this.lfoRateKnobQ31, 0, 4);
+    System.arraycopy(other.lfoRateKnobSet, 0, this.lfoRateKnobSet, 0, 4);
     System.arraycopy(other.envAttackKnobQ31, 0, this.envAttackKnobQ31, 0, 4);
     System.arraycopy(other.envDecayKnobQ31, 0, this.envDecayKnobQ31, 0, 4);
     System.arraycopy(other.envSustainKnobQ31, 0, this.envSustainKnobQ31, 0, 4);

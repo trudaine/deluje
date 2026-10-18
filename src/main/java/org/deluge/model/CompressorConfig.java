@@ -166,5 +166,7 @@ public class CompressorConfig {
     this.compressorThreshold = other.compressorThreshold;
     this.compressorRatio = other.compressorRatio;
     this.compressorShape = other.compressorShape;
+    this.sidechainAttackRaw = other.sidechainAttackRaw;
+    this.sidechainReleaseRaw = other.sidechainReleaseRaw;
   }
 }

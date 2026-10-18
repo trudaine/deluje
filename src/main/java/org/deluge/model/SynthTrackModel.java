@@ -560,6 +560,15 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public void setEnv(int index, EnvelopeModel model) {
+    EnvelopeModel prev = env[index];
+    if (prev == null
+        || model == null
+        || prev.attack() != model.attack()
+        || prev.decay() != model.decay()
+        || prev.sustain() != model.sustain()
+        || prev.release() != model.release()) {
+      rawKnobs.clearEnvKnob(index);
+    }
     env[index] = model;
   }
 
@@ -1110,11 +1119,6 @@ public class SynthTrackModel extends TrackModel {
     fm.setModulator1ToModulator0(v);
   }
 
-  // Stutter config (ModControllableAudio::stutterConfig)
-  private boolean stutterQuantized = true;
-  private boolean stutterReversed = false;
-  private boolean stutterPingPong = false;
-
   public int getOsc1RetrigPhase() {
     return osc1.getRetrigPhase();
   }
@@ -1190,7 +1194,11 @@ public class SynthTrackModel extends TrackModel {
     this.pitchAdjustQ31 = other.pitchAdjustQ31;
     this.waveFoldQ31 = other.getWaveFoldQ31();
     this.setClippingAmount(other.getClippingAmount());
+    this.portamento = other.getPortamento();
     this.portamentoQ31 = other.getPortamentoQ31();
+    // C instrument_clip.cpp:2312 — assigning a SoundInstrument clones defaultArpSettings into the
+    // clip's arpSettings; preset browser hot-swap and undo snapshots rely on copyParametersFrom.
+    this.arp = other.getArp();
     this.arpRateQ31 = other.getArpRateQ31();
     this.polyphony = other.getPolyphony();
     this.maxVoiceCount = other.getMaxVoiceCount();
