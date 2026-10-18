@@ -27,6 +27,7 @@ public class Dx7Panel extends JPanel {
 
   // Global Components
   private JTextField patchNameField;
+  private JSlider algoSlider;
   private JLabel algoValLabel;
   private JTextArea algoAsciiPreview;
   private JSlider feedbackSlider;
@@ -130,23 +131,25 @@ public class Dx7Panel extends JPanel {
       activateBtn.addActionListener(
           e -> {
             model.setSynthMode(1);
+            model.setSynthAlgorithm(5);
 
-            // Load initial default DX7 voice patch!
-            byte[] defaultRaw = new byte[156];
-            // Set simple default patch values: algorithm 5, feedback 6, operator output switches
-            // active!
+            // Start from C init_voice (dx7note.cpp:42-48) so EG rates/levels are playable.
+            byte[] defaultRaw = Dx7Patch.createInitVoiceBytes();
             defaultRaw[Dx7Patch.OFF_ALGORITHM] = 5;
+            defaultRaw[Dx7Patch.OFF_FEEDBACK] = 6;
             defaultRaw[Dx7Patch.OFF_OP_SWITCH] = 0x3F; // all 6 operators active!
-            // Set operator output levels to reasonable defaults (e.g. OP1 = 99, others = 75)
+            // Set operator output levels (offset +16, C dx7note.cpp:241, param.cpp:288):
+            // OP 1 (opIndex 0 -> slot 5) gets 99; OP 2..6 (slots 4..0) get 75.
             for (int op = 0; op < 6; op++) {
-              int opOff = op * 21;
-              defaultRaw[opOff + 15] = (byte) 99; // Level = 99
+              int slot = Dx7Patch.slotForOperator(op);
+              int opOff = slot * 21;
+              defaultRaw[opOff + 16] = (byte) (op == 0 ? 99 : 75);
               defaultRaw[opOff + 18] = (byte) 1; // Coarse ratio = 1.0
             }
             String defaultHex = Dx7Patch.bytesToHex(defaultRaw);
             model.setDx7Patch(defaultHex);
-            bridge.setDx7Patch(trackIndex, defaultHex);
             if (bridge != null) {
+              bridge.setDx7Patch(trackIndex, defaultHex);
               bridge.setGlobalString("g_dx7_patch_" + trackIndex, defaultHex);
               bridge.setGlobalInt("g_dx7_opSwitch_" + trackIndex, 0x3FL);
             }
@@ -240,9 +243,10 @@ public class Dx7Panel extends JPanel {
     panel.add(algoTopRow, c);
     c.gridy++;
 
-    JSlider algoSlider = createStyledSlider(0, 31, 0, 200);
+    algoSlider = createStyledSlider(0, 31, 0, 200);
     algoSlider.addChangeListener(
         ev -> {
+          if (isRefreshingOpDetails) return;
           int val = algoSlider.getValue();
           model.setSynthAlgorithm(val);
           writeGlobalField(Dx7Patch.OFF_ALGORITHM, val);
@@ -283,7 +287,7 @@ public class Dx7Panel extends JPanel {
     panel.add(feedbackSlider, c);
     c.gridy++;
 
-    // Transpose Offset
+    // Transpose Offset (C dx7note.cpp:48, DX7Cartridge.cpp:210: 0..48, 24 = C3 / 0 semitones)
     JPanel transRow = new JPanel(new BorderLayout(8, 0));
     transRow.setBackground(panel.getBackground());
     transRow.add(SwingSynthConfigDialog.label("Transpose Offset:"), BorderLayout.WEST);
@@ -293,12 +297,12 @@ public class Dx7Panel extends JPanel {
     panel.add(transRow, c);
     c.gridy++;
 
-    transposeSlider = createStyledSlider(0, 99, 64, 200);
+    transposeSlider = createStyledSlider(0, 48, 24, 200);
     transposeSlider.addChangeListener(
         ev -> {
           int val = transposeSlider.getValue();
           writeGlobalField(Dx7Patch.OFF_TRANSPOSE, val);
-          int offset = val - 64;
+          int offset = val - 24;
           transposeValLabel.setText((offset >= 0 ? "+" : "") + offset);
         });
     panel.add(transposeSlider, c);
@@ -488,15 +492,16 @@ public class Dx7Panel extends JPanel {
           if (isRefreshingOpDetails) return;
           byte[] raw = getCurrentRaw(model, model.getDx7Patch());
           if (raw == null) return;
+          int slot = Dx7Patch.slotForOperator(currentSelectedOp);
           if (activeCheckbox.isSelected()) {
-            raw[Dx7Patch.OFF_OP_SWITCH] |= (byte) (1 << currentSelectedOp);
+            raw[Dx7Patch.OFF_OP_SWITCH] |= (byte) (1 << slot);
           } else {
-            raw[Dx7Patch.OFF_OP_SWITCH] &= (byte) ~(1 << currentSelectedOp);
+            raw[Dx7Patch.OFF_OP_SWITCH] &= (byte) ~(1 << slot);
           }
           String newHex = Dx7Patch.bytesToHex(raw);
           model.setDx7Patch(newHex);
-          bridge.setDx7Patch(trackIndex, newHex);
           if (bridge != null) {
+            bridge.setDx7Patch(trackIndex, newHex);
             bridge.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
             int opSwitchVal = raw[Dx7Patch.OFF_OP_SWITCH] & 0xFF;
             bridge.setGlobalInt("g_dx7_opSwitch_" + trackIndex, opSwitchVal);
@@ -791,11 +796,13 @@ public class Dx7Panel extends JPanel {
     try {
       String curPatch = model.getDx7Patch();
       if (curPatch == null || curPatch.isEmpty()) return;
-      byte[] raw = Dx7Patch.hexToBytes(curPatch);
-      int opOff = currentSelectedOp * 21;
+      Dx7Patch parsedPatch = Dx7Patch.fromHex(curPatch);
+      byte[] raw = parsedPatch.raw();
+      int slot = Dx7Patch.slotForOperator(currentSelectedOp);
+      int opOff = slot * 21;
 
       // ── Operator Enabled switch ──
-      boolean opOn = ((raw[Dx7Patch.OFF_OP_SWITCH] >> currentSelectedOp) & 1) != 0;
+      boolean opOn = ((raw[Dx7Patch.OFF_OP_SWITCH] >> slot) & 1) != 0;
       activeCheckbox.setSelected(opOn);
       activeCheckbox.setText(
           opOn
@@ -871,13 +878,13 @@ public class Dx7Panel extends JPanel {
       int lfoSync = raw[Dx7Patch.OFF_LFO_SYNC] & 0xFF;
       int lfoWave = raw[Dx7Patch.OFF_LFO_WAVEFORM] & 0xFF;
       int feedback = raw[Dx7Patch.OFF_FEEDBACK] & 0x07;
-      int transpose = raw[Dx7Patch.OFF_TRANSPOSE] & 0xFF;
+      int transpose = Math.max(0, Math.min(48, raw[Dx7Patch.OFF_TRANSPOSE] & 0xFF));
 
       feedbackSlider.setValue(feedback);
       feedbackValLabel.setText(String.valueOf(feedback));
 
       transposeSlider.setValue(transpose);
-      int transOffset = transpose - 64;
+      int transOffset = transpose - 24;
       transposeValLabel.setText((transOffset >= 0 ? "+" : "") + transOffset);
 
       lfoSpeedSlider.setValue(lfoSpeed);
@@ -898,13 +905,12 @@ public class Dx7Panel extends JPanel {
       lfoWaveformCombo.setSelectedIndex(Math.max(0, Math.min(5, lfoWave)));
 
       // ── Sync Voice Name & Algo Display ──
-      try {
-        patchNameField.setText(org.deluge.shadow.audio.Dx7Patch.fromHex(curPatch).name().trim());
-      } catch (Exception e) {
-        patchNameField.setText("UNKNOWN");
-      }
+      patchNameField.setText(parsedPatch.name().trim());
 
       int algo = raw[Dx7Patch.OFF_ALGORITHM] & 0x1F;
+      if (algoSlider != null) {
+        algoSlider.setValue(algo);
+      }
       algoValLabel.setText(String.valueOf(algo));
       algoAsciiPreview.setText(AlgorithmPanel.formatAlgorithmMini(algo));
 
@@ -920,12 +926,12 @@ public class Dx7Panel extends JPanel {
     if (isRefreshingOpDetails) return;
     byte[] raw = getCurrentRaw(model, model.getDx7Patch());
     if (raw == null) return;
-    int opOff = currentSelectedOp * 21;
+    int opOff = Dx7Patch.slotForOperator(currentSelectedOp) * 21;
     raw[opOff + fieldOff] = (byte) (value & 0xFF);
     String newHex = Dx7Patch.bytesToHex(raw);
     model.setDx7Patch(newHex);
-    bridge.setDx7Patch(trackIndex, newHex);
     if (bridge != null) {
+      bridge.setDx7Patch(trackIndex, newHex);
       bridge.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
     }
 
@@ -1027,8 +1033,8 @@ public class Dx7Panel extends JPanel {
       raw[offset] = (byte) (value & 0xFF);
       String newHex = Dx7Patch.bytesToHex(raw);
       model.setDx7Patch(newHex);
-      bridge.setDx7Patch(trackIndex, newHex);
       if (bridge != null) {
+        bridge.setDx7Patch(trackIndex, newHex);
         bridge.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
       }
     }
@@ -1039,7 +1045,7 @@ public class Dx7Panel extends JPanel {
     String hex = model.getDx7Patch();
     if (hex == null || hex.isEmpty()) hex = fallbackHex;
     if (hex == null || hex.isEmpty()) return null;
-    return Dx7Patch.hexToBytes(hex);
+    return Dx7Patch.fromHex(hex).raw();
   }
 
   /** Apply a Dx7Patch to the model and push to the bridge. */
@@ -1052,9 +1058,11 @@ public class Dx7Panel extends JPanel {
     model.setDx7Patch(hex);
     model.setSynthMode(1);
     model.setSynthAlgorithm(patch.algorithm());
-    String globalName = "g_dx7_patch_" + trackIndex;
-    bridge.setGlobalString(globalName, hex);
-    bridge.setGlobalInt("g_dx7_opSwitch_" + trackIndex, patch.opSwitch());
+    if (bridge != null) {
+      bridge.setDx7Patch(trackIndex, hex);
+      bridge.setGlobalString("g_dx7_patch_" + trackIndex, hex);
+      bridge.setGlobalInt("g_dx7_opSwitch_" + trackIndex, patch.opSwitch());
+    }
   }
 
   /** Custom visualizer component for rendering 4-stage DX7 envelope shapes in neon cyan. */
