@@ -28,10 +28,10 @@ public class SwingSynthWavetableEditorDialog extends JDialog {
 
   private WaveTable liveWaveTable;
   private float[] masterCycles; // concatenated float samples [numCycles * cycleSize]
-  private final boolean[] cycleEdited; // track edited cycles for interpolation
+  private boolean[] cycleEdited; // track edited cycles for interpolation
   private int currentCycleIdx = 0;
-  private final int cycleSize = 2048;
-  private final int numCycles = 32;
+  private int cycleSize = 2048;
+  private int numCycles = 32;
 
   // UI Components
   private final Wavetable3DVisualizer visualizer3D;
@@ -60,7 +60,6 @@ public class SwingSynthWavetableEditorDialog extends JDialog {
     this.oscIndex = oscIndex;
     this.trackIndex = trackIndex;
     this.bridge = bridge;
-    this.cycleEdited = new boolean[numCycles];
 
     DialogUtils.fitToScreenAndCenter(this, owner, 1100, 600, 500, 360);
     DialogUtils.installEscapeKeyClose(this);
@@ -70,6 +69,9 @@ public class SwingSynthWavetableEditorDialog extends JDialog {
 
     // 1. Resolve or allocate the live WaveTable object in memory
     initLiveWaveTable();
+    this.cycleEdited = new boolean[numCycles];
+    float clampedWaveIdx = Math.max(0.0f, Math.min(1.0f, model.getWaveIndex()));
+    this.currentCycleIdx = (numCycles > 1) ? Math.round(clampedWaveIdx * (numCycles - 1)) : 0;
 
     // 2. Setup visualizers
     visualizer3D = new Wavetable3DVisualizer(model, oscIndex, trackIndex);
@@ -135,7 +137,8 @@ public class SwingSynthWavetableEditorDialog extends JDialog {
     positionLabel.setFont(new Font("Monospaced", Font.BOLD, 12));
     positionLabel.setForeground(Color.CYAN);
 
-    positionSlider = new JSlider(0, numCycles - 1, currentCycleIdx);
+    positionSlider = new JSlider(0, Math.max(0, numCycles - 1), currentCycleIdx);
+    positionSlider.setEnabled(numCycles > 1);
     DarkSliderUI.styleSlider(positionSlider, new Color(0x00, 0xff, 0xcc));
     positionSlider.addChangeListener(
         e -> {
@@ -143,7 +146,7 @@ public class SwingSynthWavetableEditorDialog extends JDialog {
           positionLabel.setText(String.format("CYC: %02d/%d", currentCycleIdx + 1, numCycles));
 
           // Set the playhead in both model & 3D visualizer
-          model.setWaveIndex((float) currentCycleIdx / (numCycles - 1));
+          model.setWaveIndex(numCycles > 1 ? (float) currentCycleIdx / (numCycles - 1) : 0.0f);
           loadActiveCycleToCanvas();
           updateHarmonicSlidersFromCanvas();
         });
@@ -217,12 +220,23 @@ public class SwingSynthWavetableEditorDialog extends JDialog {
     }
 
     // If no wavetable exists yet in memory, allocate a default 32-cycle power-of-two table!
-    if (liveWaveTable == null || liveWaveTable.bands.isEmpty()) {
+    boolean allocatedNewTable = false;
+    if (liveWaveTable == null
+        || liveWaveTable.bands.isEmpty()
+        || liveWaveTable.numCycles <= 0
+        || liveWaveTable.bands.get(0).cycleSizeNoDuplicates < WaveTable.kWavetableMinCycleSize) {
+      this.cycleSize = 2048;
+      this.numCycles = 32;
       liveWaveTable = new WaveTable();
       liveWaveTable.setup(cycleSize, numCycles * cycleSize);
+      allocatedNewTable = true;
       if (fs != null && fs.fw2Sound != null) {
         fs.fw2Sound.waveTables[oscIndex] = liveWaveTable;
       }
+    } else {
+      // Match the loaded wavetable's actual cycle size and cycle count (C wave_table.cpp:179-200)
+      this.cycleSize = liveWaveTable.bands.get(0).cycleSizeNoDuplicates;
+      this.numCycles = liveWaveTable.numCycles;
     }
 
     // Set model types to WAVETABLE to enable scan engine
@@ -238,7 +252,7 @@ public class SwingSynthWavetableEditorDialog extends JDialog {
     masterCycles = new float[numCycles * cycleSize];
 
     short[] pcm = baseBand.data;
-    if (pcm != null && pcm.length > 0) {
+    if (!allocatedNewTable && pcm != null && pcm.length > 0) {
       for (int c = 0; c < numCycles; c++) {
         int srcOffset =
             c * (bandCycleSize + WaveTable.WAVETABLE_NUM_DUPLICATE_SAMPLES_AT_END_OF_CYCLE);
@@ -252,7 +266,7 @@ public class SwingSynthWavetableEditorDialog extends JDialog {
     } else {
       // Default initialization with sine morphing to square
       for (int c = 0; c < numCycles; c++) {
-        double t = (double) c / (numCycles - 1);
+        double t = (numCycles > 1) ? (double) c / (numCycles - 1) : 0.0;
         int offset = c * cycleSize;
         for (int i = 0; i < cycleSize; i++) {
           double sine = Math.sin(2.0 * Math.PI * i / cycleSize);
@@ -483,6 +497,7 @@ public class SwingSynthWavetableEditorDialog extends JDialog {
   }
 
   private void interpolateWavetable() {
+    if (numCycles <= 1) return;
     // 1. Find all edited cycles
     int firstIdx = -1;
     int lastIdx = -1;
@@ -628,6 +643,7 @@ public class SwingSynthWavetableEditorDialog extends JDialog {
   }
 
   private org.deluge.engine.FirmwareSound getLiveSound(int trackIndex) {
+    if (bridge == null) return null;
     try {
       Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine) {

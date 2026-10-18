@@ -23,6 +23,7 @@ public class SwingAudioTranscribeDialog extends JDialog {
   private final Color PANEL_DARK = new Color(0x1a, 0x1a, 0x1c);
   private final Color GLOW_CYAN = new Color(0x00, 0xff, 0xcc);
   private final Color GLOW_RED = new Color(0xff, 0x55, 0x55);
+  private final Color CONSOLE_GREEN = new Color(0xaa, 0xff, 0xdd);
   private final Color TEXT_WHITE = Color.WHITE;
   private final Color TEXT_MUTED = new Color(0x88, 0x88, 0x90);
 
@@ -34,6 +35,8 @@ public class SwingAudioTranscribeDialog extends JDialog {
   private JButton startBtn;
   private JButton closeBtn;
 
+  private volatile Process activeProcess = null;
+  private volatile boolean disposed = false;
   private boolean transcriptionSuccessful = false;
   private File generatedMidiFile = null;
   private ProjectModel compiledProject = null;
@@ -63,13 +66,11 @@ public class SwingAudioTranscribeDialog extends JDialog {
     titleLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
     titleLabel.setForeground(GLOW_CYAN);
 
-    JLabel subLabel =
-        new JLabel(
-            "Transcribing: "
-                + audioFile.getName()
-                + "  ("
-                + (audioFile.length() / (1024 * 1024))
-                + " MB)");
+    String fileInfo =
+        (audioFile != null)
+            ? (audioFile.getName() + "  (" + (audioFile.length() / (1024 * 1024)) + " MB)")
+            : "None";
+    JLabel subLabel = new JLabel("Transcribing: " + fileInfo);
     subLabel.setFont(new Font("SansSerif", Font.PLAIN, 11));
     subLabel.setForeground(TEXT_MUTED);
 
@@ -84,7 +85,7 @@ public class SwingAudioTranscribeDialog extends JDialog {
     // ── Center Console Panel ─────────────────────────────────────────────────
     consoleArea = new JTextArea();
     consoleArea.setBackground(new Color(0x0a, 0x0a, 0x0c));
-    consoleArea.setForeground(new Color(0xaa, 0xff, 0xdd)); // Neon green glow
+    consoleArea.setForeground(CONSOLE_GREEN); // Neon green glow
     consoleArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
     consoleArea.setEditable(false);
     consoleArea.setMargin(new Insets(10, 10, 10, 10));
@@ -146,10 +147,38 @@ public class SwingAudioTranscribeDialog extends JDialog {
     btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
   }
 
-  private void startTranscriptionTask() {
+  @Override
+  public void dispose() {
+    disposed = true;
+    stopActiveProcess();
+    super.dispose();
+  }
+
+  private void stopActiveProcess() {
+    Process proc = activeProcess;
+    if (proc != null) {
+      try {
+        proc.destroyForcibly();
+      } catch (Exception ignored) {
+      }
+      activeProcess = null;
+    }
+  }
+
+  void setActiveProcessForTest(Process proc) {
+    this.activeProcess = proc;
+  }
+
+  JTextArea getConsoleArea() {
+    return consoleArea;
+  }
+
+  void startTranscriptionTask() {
+    if (disposed) return;
     startBtn.setEnabled(false);
     closeBtn.setEnabled(false);
     progressBar.setIndeterminate(true);
+    consoleArea.setForeground(CONSOLE_GREEN);
     consoleArea.setText("");
     consoleArea.append("[SYSTEM] Starting neural audio transcription...\n");
 
@@ -159,6 +188,11 @@ public class SwingAudioTranscribeDialog extends JDialog {
 
   private void runTranscription() {
     try {
+      if (disposed) return;
+      if (audioFile == null || !audioFile.exists()) {
+        throw new Exception("Audio file does not exist.");
+      }
+
       // 1. Determine output directory (we use target/temp_midi/)
       Path tempDir = Path.of("target", "temp_midi");
       Files.createDirectories(tempDir);
@@ -166,14 +200,17 @@ public class SwingAudioTranscribeDialog extends JDialog {
       // 2. Locate basic-pitch CLI
       String[] command = findTranscriptionCommand(tempDir.toString());
       if (command == null) {
+        if (disposed) return;
         SwingUtilities.invokeLater(
             () -> {
+              if (disposed) return;
               progressBar.setIndeterminate(false);
               consoleArea.setForeground(GLOW_RED);
               consoleArea.append(
                   "\n[ERROR] Python or basic-pitch library not found on your system!\n");
               consoleArea.append("To resolve this, please install Python 3 and basic-pitch:\n");
               consoleArea.append("  pip install basic-pitch\n");
+              startBtn.setEnabled(true);
               closeBtn.setEnabled(true);
             });
         return;
@@ -185,15 +222,22 @@ public class SwingAudioTranscribeDialog extends JDialog {
       Process process = null;
       try {
         process = pb.start();
+        activeProcess = process;
+        if (disposed) {
+          process.destroyForcibly();
+          return;
+        }
 
         // Read output stream in real-time
         try (BufferedReader reader =
             new BufferedReader(new InputStreamReader(process.getInputStream()))) {
           String line;
           while ((line = reader.readLine()) != null) {
+            if (disposed) break;
             final String logLine = line;
             SwingUtilities.invokeLater(
                 () -> {
+                  if (disposed) return;
                   consoleArea.append(logLine + "\n");
                   consoleArea.setCaretPosition(consoleArea.getDocument().getLength());
                 });
@@ -201,6 +245,8 @@ public class SwingAudioTranscribeDialog extends JDialog {
         }
 
         int exitCode = process.waitFor();
+        if (disposed) return;
+
         if (exitCode == 0) {
           // 4. Locate generated MIDI file
           String baseName = audioFile.getName();
@@ -219,15 +265,18 @@ public class SwingAudioTranscribeDialog extends JDialog {
           throw new Exception("Transcription process exited with non-zero code: " + exitCode);
         }
       } finally {
+        activeProcess = null;
         if (process != null) {
           process.destroy();
         }
       }
 
     } catch (Exception e) {
+      if (disposed) return;
       final String errMsg = e.getMessage();
       SwingUtilities.invokeLater(
           () -> {
+            if (disposed) return;
             progressBar.setIndeterminate(false);
             consoleArea.setForeground(GLOW_RED);
             consoleArea.append("\n[ERROR] Transcription failed: " + errMsg + "\n");
@@ -275,13 +324,15 @@ public class SwingAudioTranscribeDialog extends JDialog {
   }
 
   private void handleSuccessfulTranscription() {
+    if (disposed) return;
     progressBar.setIndeterminate(false);
     progressBar.setValue(100);
     consoleArea.append("\n[SYSTEM] Transcription completed successfully!\n");
     consoleArea.append("Handing off to MIDI Import Wizard...\n");
 
     // Close this dialog
-    dispose();
+    super.dispose();
+    disposed = true;
 
     // Instantly launch the MIDI Import Wizard JDialog with the transcribed MIDI file!
     SwingMidiImportDialog wizard = new SwingMidiImportDialog(owner, generatedMidiFile);

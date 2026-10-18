@@ -75,8 +75,9 @@ public class SwingPerformanceViewPanel extends JPanel {
   // State: which pads are active (latched-on)
   private final boolean[][] latchState = new boolean[ROWS][COLS];
 
-  // Previous values for momentary restore
-  private final float[][] previousValues = new float[ROWS][COLS];
+  // Saved pre-performance value per column (only valid when columnActive[col] is true)
+  private final float[] columnSavedValues = new float[COLS];
+  private final boolean[] columnActive = new boolean[COLS];
 
   // The pad buttons
   private final JButton[][] pads = new JButton[ROWS][COLS];
@@ -104,18 +105,16 @@ public class SwingPerformanceViewPanel extends JPanel {
     JPanel topBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 4));
     topBar.setBackground(new Color(0x25, 0x25, 0x25));
 
-    JToggleButton modeToggle = new JToggleButton("MOMENTARY");
+    JToggleButton modeToggle = new JToggleButton("LATCH");
     modeToggle.addActionListener(
         e -> {
           momentaryMode = modeToggle.isSelected();
           modeToggle.setText(momentaryMode ? "MOMENTARY" : "LATCH");
-          // Clear all latch state when switching to momentary
+          statusLabel.setText(
+              "Track " + focusTrack + " | " + (momentaryMode ? "MOMENTARY" : "LATCH"));
+          // Restore and clear all latch state when switching to momentary
           if (momentaryMode) {
-            for (int r = 0; r < ROWS; r++) {
-              Arrays.fill(latchState[r], false);
-            }
-            for (int c = 0; c < COLS; c++) columnMuteState[c] = false;
-            refreshPadColors();
+            resetAll();
           }
         });
     topBar.add(new JLabel("MODE:"));
@@ -131,8 +130,10 @@ public class SwingPerformanceViewPanel extends JPanel {
         new JSpinner(new SpinnerNumberModel(0, 0, BridgeContract.TRACKS - 1, 1));
     trackSpinner.addChangeListener(
         e -> {
+          resetAll();
           focusTrack = (int) trackSpinner.getValue();
-          statusLabel.setText("Track " + focusTrack);
+          statusLabel.setText(
+              "Track " + focusTrack + " | " + (momentaryMode ? "MOMENTARY" : "LATCH"));
         });
     topBar.add(trackSpinner);
 
@@ -141,12 +142,7 @@ public class SwingPerformanceViewPanel extends JPanel {
     topBar.add(allOffBtn);
 
     JButton columnOffBtn = new JButton("COL OFF");
-    columnOffBtn.addActionListener(
-        e -> {
-          for (int c = 0; c < COLS; c++) columnMuteState[c] = false;
-          for (int r = 0; r < ROWS; r++) Arrays.fill(latchState[r], false);
-          refreshPadColors();
-        });
+    columnOffBtn.addActionListener(e -> resetAll());
     topBar.add(columnOffBtn);
 
     statusLabel = new JLabel("Track 0 | LATCH");
@@ -229,10 +225,14 @@ public class SwingPerformanceViewPanel extends JPanel {
                   activatePad(row, col);
                   pad.setBackground(activeColor(col));
                 } else {
-                  // Latch: toggle
-                  boolean newState = !latchState[row][col];
-                  latchState[row][col] = newState;
-                  if (newState) {
+                  // Latch: exclusive per column so latching a second row replaces the first
+                  // without overwriting the saved pre-performance value
+                  boolean wasLatched = latchState[row][col];
+                  for (int rIdx = 0; rIdx < ROWS; rIdx++) {
+                    latchState[rIdx][col] = false;
+                  }
+                  if (!wasLatched) {
+                    latchState[row][col] = true;
                     activatePad(row, col);
                   } else {
                     deactivatePad(row, col);
@@ -294,17 +294,25 @@ public class SwingPerformanceViewPanel extends JPanel {
     statusLabel.setText("Track " + focusTrack + " | " + (momentaryMode ? "MOMENTARY" : "LATCH"));
   }
 
-  /** Reset all pads to off. */
+  /** Reset all pads to off and restore only active columns. */
   public void resetAll() {
     for (int r = 0; r < ROWS; r++) Arrays.fill(latchState[r], false);
-    for (int c = 0; c < COLS; c++) columnMuteState[c] = false;
-    // Restore defaults
-    for (int r = 0; r < ROWS; r++) {
-      for (int c = 0; c < COLS; c++) {
-        writeValue(c, previousValues[r][c]);
+    for (int c = 0; c < COLS; c++) {
+      columnMuteState[c] = false;
+      if (columnActive[c]) {
+        columnActive[c] = false;
+        writeValue(c, columnSavedValues[c]);
       }
     }
     refreshPadColors();
+  }
+
+  boolean isPadLatched(int row, int col) {
+    return latchState[row][col];
+  }
+
+  JButton getPad(int row, int col) {
+    return pads[row][col];
   }
 
   // ── Private helpers ──
@@ -317,7 +325,6 @@ public class SwingPerformanceViewPanel extends JPanel {
       for (int r = 0; r < ROWS; r++) {
         float t = r / (float) (ROWS - 1);
         padValues[r][c] = mapToParamRange(c, t);
-        previousValues[r][c] = 0f;
       }
     }
   }
@@ -380,22 +387,27 @@ public class SwingPerformanceViewPanel extends JPanel {
     return colors[col % colors.length];
   }
 
-  /** Activate a pad — save current value, write new value. */
+  /** Activate a pad — save current column value on first activation, then write new value. */
   private void activatePad(int row, int col) {
     float newVal = padValues[row][col];
-    // Read current value and save as previous
-    float current = readValue(col);
-    previousValues[row][col] = current;
+    if (!columnActive[col]) {
+      columnSavedValues[col] = readValue(col);
+      columnActive[col] = true;
+    }
     writeValue(col, newVal);
   }
 
-  /** Deactivate a pad — restore previous value. */
+  /** Deactivate a pad — restore saved column value. */
   private void deactivatePad(int row, int col) {
-    writeValue(col, previousValues[row][col]);
+    if (columnActive[col]) {
+      columnActive[col] = false;
+      writeValue(col, columnSavedValues[col]);
+    }
   }
 
   /** Read a per-track float from a VM ChuckArray global. */
   private float readChuckFloat(String global, int track) {
+    if (bridge == null) return 0f;
     try {
       Object obj = bridge.getGlobalObject(global);
       if (obj instanceof org.deluge.shadow.core.ChuckArray arr) {
@@ -408,6 +420,7 @@ public class SwingPerformanceViewPanel extends JPanel {
 
   /** Write a per-track float to a VM ChuckArray global. */
   private void writeChuckFloat(String global, int track, float val) {
+    if (bridge == null) return;
     try {
       Object obj = bridge.getGlobalObject(global);
       if (obj instanceof org.deluge.shadow.core.ChuckArray arr) {
@@ -419,6 +432,7 @@ public class SwingPerformanceViewPanel extends JPanel {
 
   /** Read a per-track int from a VM ChuckArray global. */
   private int readChuckInt(String global, int track) {
+    if (bridge == null) return 0;
     try {
       Object obj = bridge.getGlobalObject(global);
       if (obj instanceof org.deluge.shadow.core.ChuckArray arr) {
@@ -431,6 +445,7 @@ public class SwingPerformanceViewPanel extends JPanel {
 
   /** Write a per-track int to a VM ChuckArray global. */
   private void writeChuckInt(String global, int track, int val) {
+    if (bridge == null) return;
     try {
       Object obj = bridge.getGlobalObject(global);
       if (obj instanceof org.deluge.shadow.core.ChuckArray arr) {
@@ -442,7 +457,7 @@ public class SwingPerformanceViewPanel extends JPanel {
 
   /** Read current value of a column's parameter for the focus track. */
   private float readValue(int col) {
-    if (focusTrack < 0) return 0f;
+    if (focusTrack < 0 || bridge == null) return 0f;
     return switch (col) {
       case 0 -> readChuckFloat(BridgeContract.G_TRACK_LEVEL, focusTrack);
       case 1 -> readChuckFloat(BridgeContract.G_PAN, focusTrack);
@@ -466,7 +481,7 @@ public class SwingPerformanceViewPanel extends JPanel {
 
   /** Write a value to the column's parameter for the focus track. */
   private void writeValue(int col, float val) {
-    if (focusTrack < 0) return;
+    if (focusTrack < 0 || bridge == null) return;
 
     // ── Sync with Firmware Engine ──
     Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
