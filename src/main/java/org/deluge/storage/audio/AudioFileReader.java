@@ -118,10 +118,10 @@ public class AudioFileReader {
             // override midiNoteFromFile when at least one is non-zero.
             if ((midiNote != 0 || midiPitchFraction != 0)
                 && Integer.compareUnsigned(midiNote, 128) < 0) {
+              // C audio_file.cpp:202 — (float)midiPitchFraction / ((uint64_t)1 << 32) + midiNote:
+              // the fraction is rounded to float first and the whole expression is float math.
               sample.midiNoteFromFile =
-                  (float)
-                      (Integer.toUnsignedLong(midiNote)
-                          + (double) Integer.toUnsignedLong(midiPitchFraction) / (1L << 32));
+                  (float) Integer.toUnsignedLong(midiPitchFraction) / 4294967296f + midiNote;
             }
             dis.skipBytes(8); // SMPTEFormat, SMPTEOffset
             int numLoops = Integer.reverseBytes(dis.readInt()); // NumSampleLoops
@@ -149,7 +149,10 @@ public class AudioFileReader {
             int midiNote = dis.readByte() & 0xFF;
             int fineTune = dis.readByte();
             if (midiNote < 128) {
-              sample.midiNoteFromFile = midiNote - fineTune * 0.01f;
+              // C audio_file.cpp:248 — (float)midiNote - (float)fineTune * 0.01: the 0.01 literal
+              // is
+              // a double, so the expression is evaluated in double and then narrowed to float.
+              sample.midiNoteFromFile = (float) ((float) midiNote - (float) fineTune * 0.01);
             }
             dis.skipBytes(chunkLen - 2);
           }
