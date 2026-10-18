@@ -56,7 +56,7 @@ public class WavetableGenerator {
     }
     boolean rawCycleSizeIsPowerOfTwo = (rawCycleSize == initialBandCycleSize);
 
-    // C wave_table.cpp:401-416 — FFT config and working buffers for initial band.
+    // C wave_table.cpp:209-220, 304-318 — FFT config and working buffers for initial band.
     Ne10FftInt32.Config fftCfgForInitialBand = Ne10FftInt32.getConfig(initialBandCycleMagnitude);
     if (fftCfgForInitialBand == null && (numBands > 1 || !rawCycleSizeIsPowerOfTwo)) {
       throw new IllegalArgumentException(
@@ -65,7 +65,7 @@ public class WavetableGenerator {
     int[] currentCycleInt32 = new int[initialBandCycleSize];
     int[] frequencyDomainData = new int[initialBandCycleSize + 2];
 
-    // Process cycle-by-cycle to support multi-cycle wavetables (C wave_table.cpp:432)
+    // Process cycle-by-cycle to support multi-cycle wavetables (C wave_table.cpp:369)
     for (int c = 0; c < numCycles; c++) {
       int cycleSrcOffset = c * rawCycleSize;
 
