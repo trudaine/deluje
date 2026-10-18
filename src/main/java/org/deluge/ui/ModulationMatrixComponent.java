@@ -15,6 +15,8 @@ import org.deluge.model.SynthTrackModel;
  */
 public class ModulationMatrixComponent extends JComponent {
 
+  // Matches C++ PatchSource (definitions_cxx.hpp:298-319) and sourceToString
+  // (util/functions.cpp:269-319).
   private static final String[] SOURCES = {
     "velocity",
     "envelope1",
@@ -25,13 +27,15 @@ public class ModulationMatrixComponent extends JComponent {
     "lfo2",
     "lfo3",
     "lfo4",
+    "aftertouch",
     "note",
     "random",
     "sidechain"
   };
 
   private static final String[] SRC_LABELS = {
-    "VEL", "ENV1", "ENV2", "ENV3", "ENV4", "LFO1", "LFO2", "LFO3", "LFO4", "NOTE", "RAND", "SDCHN"
+    "VEL", "ENV1", "ENV2", "ENV3", "ENV4", "LFO1", "LFO2", "LFO3", "LFO4", "AFT", "NOTE", "RAND",
+    "SDCHN"
   };
 
   private static final String[] DESTINATIONS = {
@@ -217,6 +221,14 @@ public class ModulationMatrixComponent extends JComponent {
       }
     }
     return null;
+  }
+
+  static String[] getSourcesForTest() {
+    return SOURCES.clone();
+  }
+
+  PatchCable findCableForTest(int col, int row) {
+    return findCable(col, row);
   }
 
   private void triggerChanged() {

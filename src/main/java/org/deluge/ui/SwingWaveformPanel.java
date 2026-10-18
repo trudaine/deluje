@@ -7,6 +7,7 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.swing.*;
+import org.deluge.firmware2.WaveTableReader;
 import org.deluge.project.PreferencesManager;
 
 /**
@@ -33,10 +34,23 @@ public class SwingWaveformPanel extends JPanel {
     void onWaveformLoaded(int totalFrames);
   }
 
+  static record DecodedWaveform(float[] points, int totalFrames, String metadataText) {}
+
   private WaveformLoadListener loadListener = null;
 
   public void setLoadListener(WaveformLoadListener l) {
     this.loadListener = l;
+    if (l != null && !isLoading && wavePoints != null && totalFrames > 0) {
+      l.onWaveformLoaded(totalFrames);
+    }
+  }
+
+  float[] getWavePointsForTest() {
+    return wavePoints;
+  }
+
+  String getMetadataTextForTest() {
+    return metadataText;
   }
 
   public void setSlicesGrid(int count) {
@@ -56,6 +70,8 @@ public class SwingWaveformPanel extends JPanel {
   public void setSamplePath(String path) {
     if (path == null || path.isBlank()) {
       this.wavePoints = null;
+      this.totalFrames = 0;
+      this.isLoading = false;
       this.metadataText = "No Sample Loaded";
       this.currentPath = null;
       repaint();
@@ -67,6 +83,7 @@ public class SwingWaveformPanel extends JPanel {
     }
 
     this.currentPath = path;
+    final String requestedPath = path;
     this.isLoading = true;
     this.metadataText = "⚡ DECODING WAVEFORM...";
     repaint();
@@ -74,24 +91,32 @@ public class SwingWaveformPanel extends JPanel {
     // Spawn Project Loom parallel virtual thread to decode without locking EDT!
     Thread.startVirtualThread(
         () -> {
-          float[] decoded = decodeWavFile(path);
+          File file = resolveAudioFile(requestedPath);
+          DecodedWaveform result = decodeAudioFile(file);
           SwingUtilities.invokeLater(
               () -> {
-                this.wavePoints = decoded;
-                this.isLoading = false;
-                if (decoded == null) {
-                  this.metadataText = "⚠️ LOAD ERROR: Unsupported format or missing file";
+                if (!requestedPath.equals(this.currentPath)) {
+                  return;
                 }
-                if (loadListener != null && decoded != null) {
-                  loadListener.onWaveformLoaded(totalFrames);
+                this.isLoading = false;
+                if (result == null) {
+                  this.wavePoints = null;
+                  this.totalFrames = 0;
+                  this.metadataText = "⚠️ LOAD ERROR: Unsupported format or missing file";
+                } else {
+                  this.wavePoints = result.points();
+                  this.totalFrames = result.totalFrames();
+                  this.metadataText = result.metadataText();
+                  if (loadListener != null) {
+                    loadListener.onWaveformLoaded(this.totalFrames);
+                  }
                 }
                 repaint();
               });
         });
   }
 
-  private float[] decodeWavFile(String path) {
-    File file = resolveAudioFile(path);
+  static DecodedWaveform decodeAudioFile(File file) {
     if (file == null || !file.exists()) return null;
 
     try (AudioInputStream ais = AudioSystem.getAudioInputStream(file)) {
@@ -109,7 +134,6 @@ public class SwingWaveformPanel extends JPanel {
       byte[] audioBytes = baos.toByteArray();
       int totalSamples = audioBytes.length / bytesPerFrame;
       if (totalSamples <= 0) return null;
-      this.totalFrames = totalSamples;
 
       int targetPoints = 500; // high-resolution wave outline points!
       float[] rawPoints = new float[targetPoints];
@@ -117,28 +141,15 @@ public class SwingWaveformPanel extends JPanel {
 
       boolean isBigEndian = format.isBigEndian();
       int sampleSizeInBits = format.getSampleSizeInBits();
+      AudioFormat.Encoding encoding = format.getEncoding();
 
       for (int i = 0; i < targetPoints; i++) {
-        int sampleIndex = i * step;
+        int sampleIndex = Math.min(totalSamples - 1, i * step);
         int byteIndex = sampleIndex * bytesPerFrame;
         if (byteIndex + bytesPerFrame > audioBytes.length) break;
 
-        float val = 0.0f;
-        if (sampleSizeInBits == 16) {
-          int b1 = audioBytes[byteIndex];
-          int b2 = audioBytes[byteIndex + 1];
-          short sample;
-          if (isBigEndian) {
-            sample = (short) ((b1 << 8) | (b2 & 0xff));
-          } else {
-            sample = (short) ((b2 << 8) | (b1 & 0xff));
-          }
-          val = Math.abs(sample / 32768.0f);
-        } else if (sampleSizeInBits == 8) {
-          int sample = audioBytes[byteIndex] & 0xff;
-          val = Math.abs((sample - 128) / 128.0f);
-        }
-        rawPoints[i] = val;
+        rawPoints[i] =
+            decodeSampleNormalized(audioBytes, byteIndex, sampleSizeInBits, isBigEndian, encoding);
       }
 
       // Apply 3-point moving average smoothing filter to remove sharp digital spikes
@@ -157,7 +168,7 @@ public class SwingWaveformPanel extends JPanel {
       }
 
       // Formulate detailed sample metadata string
-      this.metadataText =
+      String meta =
           String.format(
               "%s  |  %.1f kHz  |  %d-bit  |  %.2f sec",
               file.getName(),
@@ -165,11 +176,69 @@ public class SwingWaveformPanel extends JPanel {
               sampleSizeInBits,
               (double) totalSamples / format.getSampleRate());
 
-      return smoothed;
+      return new DecodedWaveform(smoothed, totalSamples, meta);
     } catch (Exception ex) {
       LOGGER.warning("[WaveformPanel] Decode error: " + ex.getMessage());
       return null;
     }
+  }
+
+  static float decodeSampleNormalized(
+      byte[] audioBytes,
+      int byteIndex,
+      int sampleSizeInBits,
+      boolean isBigEndian,
+      AudioFormat.Encoding encoding) {
+    int q31 = decodeSampleToQ31(audioBytes, byteIndex, sampleSizeInBits, isBigEndian, encoding);
+    return Math.min(1.0f, (float) (Math.abs((long) q31) / 2147483648.0));
+  }
+
+  /**
+   * Shared PCM/float sample decoder for UI waveform panels. Returns left-aligned q31 {@code
+   * value32} matching C {@code CONVERT_AND_STORE_SAMPLE} ({@code wave_table.cpp:421-439}) and
+   * {@code q31_from_float} ({@code fixedpoint.h:224-252}).
+   */
+  static int decodeSampleToQ31(
+      byte[] audioBytes,
+      int byteIndex,
+      int sampleSizeInBits,
+      boolean isBigEndian,
+      AudioFormat.Encoding encoding) {
+    if (sampleSizeInBits == 8 && byteIndex < audioBytes.length) {
+      int raw = audioBytes[byteIndex] << 24;
+      if (AudioFormat.Encoding.PCM_UNSIGNED.equals(encoding)) {
+        // C wave_table.cpp:430-433 (RawDataFormat::UNSIGNED_8 adds 1 << 31)
+        return raw + (1 << 31);
+      }
+      return raw;
+    } else if (sampleSizeInBits == 16 && byteIndex + 1 < audioBytes.length) {
+      int b0 = audioBytes[byteIndex];
+      int b1 = audioBytes[byteIndex + 1];
+      short sample =
+          isBigEndian ? (short) ((b0 << 8) | (b1 & 0xff)) : (short) ((b1 << 8) | (b0 & 0xff));
+      return sample << 16;
+    } else if (sampleSizeInBits == 24 && byteIndex + 2 < audioBytes.length) {
+      int b0 = audioBytes[byteIndex];
+      int b1 = audioBytes[byteIndex + 1];
+      int b2 = audioBytes[byteIndex + 2];
+      return isBigEndian
+          ? ((b0 << 24) | ((b1 & 0xff) << 16) | ((b2 & 0xff) << 8))
+          : ((b2 << 24) | ((b1 & 0xff) << 16) | ((b0 & 0xff) << 8));
+    } else if (sampleSizeInBits == 32 && byteIndex + 3 < audioBytes.length) {
+      int b0 = audioBytes[byteIndex];
+      int b1 = audioBytes[byteIndex + 1];
+      int b2 = audioBytes[byteIndex + 2];
+      int b3 = audioBytes[byteIndex + 3];
+      int word =
+          isBigEndian
+              ? ((b0 << 24) | ((b1 & 0xff) << 16) | ((b2 & 0xff) << 8) | (b3 & 0xff))
+              : ((b3 << 24) | ((b2 & 0xff) << 16) | ((b1 & 0xff) << 8) | (b0 & 0xff));
+      if (AudioFormat.Encoding.PCM_FLOAT.equals(encoding)) {
+        return WaveTableReader.q31FromFloat(Float.intBitsToFloat(word));
+      }
+      return word;
+    }
+    return 0;
   }
 
   @Override

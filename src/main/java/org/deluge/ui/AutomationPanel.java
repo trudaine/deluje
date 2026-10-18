@@ -13,13 +13,22 @@ import org.deluge.model.SynthTrackModel;
  */
 public class AutomationPanel extends JPanel {
 
+  private final java.util.List<JCheckBox> enableBoxes = new java.util.ArrayList<>();
+  private final java.util.List<JSlider[]> allRowSliders = new java.util.ArrayList<>();
+  private final java.util.List<JLabel[]> allRowLabels = new java.util.ArrayList<>();
+  private final ClipModel activeClip;
+
   public AutomationPanel(SynthTrackModel model, BridgeContract bridge, int trackIndex) {
     super(new BorderLayout(6, 6));
     setBackground(SwingSynthConfigDialog.BG_CARD);
     setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
+    int activeIdx = model.getActiveClipIndex();
     ClipModel clip =
-        model.getClips().isEmpty() ? null : model.getClips().get(model.getActiveClipIndex());
+        (activeIdx >= 0 && activeIdx < model.getClips().size())
+            ? model.getClips().get(activeIdx)
+            : null;
+    this.activeClip = clip;
     int stepCount = (clip != null) ? clip.getStepCount() : 16;
 
     // ── Header with Clear All Button ──
@@ -49,14 +58,7 @@ public class AutomationPanel extends JPanel {
                     "Clear Automation?",
                     JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
-              for (String param : AutomationParam.SYTH_PARAMS) {
-                clip.clearAutomation(param);
-              }
-              // Force JApp rebuild / refresh!
-              SwingDelugeApp.mainInstance.pushModelToBridge();
-              SwingDelugeApp.mainInstance.propagateCurrentModel();
-              SwingDelugeApp.mainInstance.syncHighFidelityEngine(
-                  SwingDelugeApp.mainInstance.getCurrentProject());
+              clearAllAutomationNow();
               JOptionPane.showMessageDialog(
                   this,
                   "🎉 All step automation data cleared successfully!",
@@ -120,6 +122,9 @@ public class AutomationPanel extends JPanel {
       enableBox.setBackground(SwingSynthConfigDialog.BG_CARD);
       enableBox.setPreferredSize(new Dimension(150, 24));
       enableBox.setFocusable(false);
+      enableBoxes.add(enableBox);
+      allRowSliders.add(rowSliders);
+      allRowLabels.add(rowLabels);
 
       enableBox.addActionListener(
           ev -> {
@@ -154,11 +159,7 @@ public class AutomationPanel extends JPanel {
               }
             }
 
-            // Live Bridge Sync
-            SwingDelugeApp.mainInstance.pushModelToBridge();
-            SwingDelugeApp.mainInstance.propagateCurrentModel();
-            SwingDelugeApp.mainInstance.syncHighFidelityEngine(
-                SwingDelugeApp.mainInstance.getCurrentProject());
+            syncLiveIfMainPresent();
           });
 
       SwingSynthConfigDialog.attachHoverHelp(
@@ -196,11 +197,7 @@ public class AutomationPanel extends JPanel {
               if (!slider.getValueIsAdjusting()) {
                 if (clip != null && slider.isEnabled()) {
                   clip.setAutomation(paramName, stepIdx, slider.getValue() / 127.0f);
-                  // Propagate steps updates to active sequencer registers
-                  SwingDelugeApp.mainInstance.pushModelToBridge();
-                  SwingDelugeApp.mainInstance.propagateCurrentModel();
-                  SwingDelugeApp.mainInstance.syncHighFidelityEngine(
-                      SwingDelugeApp.mainInstance.getCurrentProject());
+                  syncLiveIfMainPresent();
                 }
               }
             });
@@ -240,6 +237,49 @@ public class AutomationPanel extends JPanel {
     add(scroll, BorderLayout.CENTER);
 
     DarkComboBoxRenderer.styleComponentTree(this);
+  }
+
+  void clearAllAutomationNow() {
+    if (activeClip == null) return;
+    for (String param : AutomationParam.SYTH_PARAMS) {
+      activeClip.clearAutomation(param);
+    }
+    for (int i = 0; i < enableBoxes.size(); i++) {
+      JCheckBox box = enableBoxes.get(i);
+      box.setSelected(false);
+      box.setForeground(Color.LIGHT_GRAY);
+      JSlider[] sliders = allRowSliders.get(i);
+      JLabel[] labels = allRowLabels.get(i);
+      for (int s = 0; s < sliders.length; s++) {
+        if (sliders[s] != null) {
+          sliders[s].setEnabled(false);
+          sliders[s].setValue(0);
+        }
+        if (labels[s] != null) {
+          labels[s].setEnabled(false);
+          labels[s].setText("-");
+          labels[s].setForeground(Color.DARK_GRAY);
+        }
+      }
+    }
+    syncLiveIfMainPresent();
+  }
+
+  private static void syncLiveIfMainPresent() {
+    if (SwingDelugeApp.mainInstance != null) {
+      SwingDelugeApp.mainInstance.pushModelToBridge();
+      SwingDelugeApp.mainInstance.propagateCurrentModel();
+      SwingDelugeApp.mainInstance.syncHighFidelityEngine(
+          SwingDelugeApp.mainInstance.getCurrentProject());
+    }
+  }
+
+  JCheckBox getEnableBoxForTest(int index) {
+    return enableBoxes.get(index);
+  }
+
+  JSlider getSliderForTest(int row, int step) {
+    return allRowSliders.get(row)[step];
   }
 
   private void styleButton(AbstractButton btn, Color bg, Color fg) {
