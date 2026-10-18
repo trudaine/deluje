@@ -64,7 +64,19 @@ class MidiImportDroneLabWavetableCleanerTest {
     assertEquals(0.5f, decoded32[0], 1e-4f, "32-bit +0.5 sample must decode accurately");
     assertEquals(-0.5f, decoded32[1], 1e-4f, "32-bit -0.5 sample must decode accurately");
 
-    // 3. SwingWavetableDialog clamps out-of-range wavetableIndexPct and visualizer clamps cycleSize
+    // 3. q31FromFloat saturates out-of-range floats (fixedpoint.h:224-252)
+    assertEquals(Integer.MAX_VALUE, SwingWavetableVisualizer.q31FromFloat(1.5f));
+    assertEquals(Integer.MIN_VALUE, SwingWavetableVisualizer.q31FromFloat(-1.5f));
+    assertEquals(0x40000000, SwingWavetableVisualizer.q31FromFloat(0.5f));
+
+    // 4. Multi-cycle wavetables require power-of-two cycleSize (wave_table.cpp:173-195)
+    assertTrue(SwingWavetableVisualizer.isValidWavetableCycleSize(2048, 4096));
+    assertTrue(SwingWavetableVisualizer.isValidWavetableCycleSize(300, 300));
+    assertTrue(SwingWavetableVisualizer.isValidWavetableCycleSize(300, 599));
+    assertFalse(SwingWavetableVisualizer.isValidWavetableCycleSize(300, 600));
+    assertFalse(SwingWavetableVisualizer.isValidWavetableCycleSize(4, 16));
+
+    // 5. SwingWavetableDialog clamps out-of-range wavetableIndexPct and visualizer clamps cycleSize
     SoundDrum drum =
         new SoundDrum("WT", "") {
           @Override

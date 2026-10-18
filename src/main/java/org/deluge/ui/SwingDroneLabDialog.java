@@ -256,6 +256,9 @@ public class SwingDroneLabDialog extends JDialog {
         JOptionPane.INFORMATION_MESSAGE);
   }
 
+  // Safe to run on every JSlider ChangeEvent (including non-adjusting arrow/wheel steps):
+  // DroneLabGenerator.applyMacros only updates SynthTrackModel fields in memory and writes
+  // directly to FirmwareSound.syncParamsToFw2(), with no file I/O or full-project sync.
   private void handleSliderSweep() {
     double friction = frictionSlider.getValue() / 100.0;
     double turbulence = turbulenceSlider.getValue() / 100.0;
