@@ -19,7 +19,7 @@ package org.deluge.firmware2;
 public class AudioOutput extends GlobalEffectable {
 
   private Sample sample;
-  private final VoiceSample voiceSample = new VoiceSample();
+  final VoiceSample voiceSample = new VoiceSample(); // package-private for tests
   private boolean playing = false;
   private boolean looping = true;
   private boolean reversed = false;
@@ -133,10 +133,19 @@ public class AudioOutput extends GlobalEffectable {
       return;
     }
     int endPos = endFrame();
+    armVoiceSampleAt(reversed ? (endPos - 1) : 0);
+  }
+
+  /** As {@link #armVoiceSample}, but starting playback at {@code startFrame}. */
+  private void armVoiceSampleAt(int startFrame) {
+    if (sample == null) {
+      return;
+    }
+    int endPos = endFrame();
     int dir = reversed ? -1 : 1;
-    int start = reversed ? (endPos - 1) : 0;
+    int start = Math.max(0, Math.min(endPos - 1, startFrame));
     int end = reversed ? -1 : endPos;
-    int loopStart = start;
+    int loopStart = reversed ? (endPos - 1) : 0;
     if (timeStretch) {
       voiceSample.setupTimeStretch(sample, start, end, dir, looping, loopStart, false, end);
     } else {
@@ -190,6 +199,17 @@ public class AudioOutput extends GlobalEffectable {
    */
   public void setPlayback(float playRate, boolean pitchSpeedIndependent) {
     boolean modeChanged = (this.timeStretch != pitchSpeedIndependent);
+    // C AudioClip recomputes timeStretchRatio every render (audio_clip.cpp:590-640) and the voice
+    // sample starts or ends stretching in place (voice_sample.cpp:528-575) — it never rewinds. So a
+    // mode toggle while playing must continue from where the playing head is now.
+    int currentFrame = -1;
+    if (playing && modeChanged && sample != null) {
+      int dir = reversed ? -1 : 1;
+      currentFrame =
+          this.timeStretch
+              ? voiceSample.timeStretcher.getSamplePos(dir)
+              : voiceSample.reader.playPos;
+    }
     this.timeStretch = pitchSpeedIndependent;
     if (playRate <= 0f) playRate = 1f;
     if (pitchSpeedIndependent) {
@@ -199,8 +219,12 @@ public class AudioOutput extends GlobalEffectable {
       phaseIncrement = (int) Math.round((double) UNITY_PHASE * playRate); // pitch+speed coupled
       timeStretchRatio = UNITY_PHASE;
     }
-    if (sample != null && (!playing || modeChanged)) {
-      armVoiceSample();
+    if (sample != null) {
+      if (!playing) {
+        armVoiceSample();
+      } else if (modeChanged) {
+        armVoiceSampleAt(currentFrame);
+      }
     }
   }
 
