@@ -287,7 +287,12 @@ public class DelugeXmlUtil {
   }
 
   public static ClipModel.PlayDirection readPlayDirectionAttr(Element el) {
+    // C clip.cpp:759-760 reads it tag-or-attribute.
     String directionAttr = el.getAttribute("sequenceDirection");
+    if (directionAttr.isEmpty()) {
+      String tag = attrOrDirectChildText(el, "sequenceDirection");
+      if (tag != null) directionAttr = tag;
+    }
     if (directionAttr.isEmpty()) {
       directionAttr = el.getAttribute("sequenceDirectionMode");
     }
