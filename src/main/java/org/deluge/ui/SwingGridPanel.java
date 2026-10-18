@@ -2754,17 +2754,22 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     for (int t = 0; t < projectModel.getTracks().size() && t < BridgeContract.TRACKS; t++) {
       org.deluge.model.TrackModel track = projectModel.getTracks().get(t);
       for (int c = 0; c < track.getClips().size(); c++) {
-        if (section.getPatternIds().contains(track.getClips().get(c).getName())) {
+        org.deluge.model.ClipModel clip = track.getClips().get(c);
+        // C session.cpp:1668, 1691 — normal section launches skip FILL clips.
+        if ("fill".equals(clip.getLaunchStyle())) continue;
+        if (clip.getSection() == idx || section.getPatternIds().contains(clip.getName())) {
           bridge.setLaunchQueue(t, c);
           if (SwingDelugeApp.mainInstance != null
               && SwingDelugeApp.mainInstance.getArrangerScheduler() != null) {
-            SwingDelugeApp.mainInstance
-                .getArrangerScheduler()
-                .notifyClipLaunched(t, track.getClips().get(c));
+            SwingDelugeApp.mainInstance.getArrangerScheduler().notifyClipLaunched(t, clip);
           }
           break;
         }
       }
+    }
+    if (bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER)
+        instanceof org.deluge.playback.PlaybackHandler ph) {
+      ph.armSection(idx, true);
     }
     refresh();
   }

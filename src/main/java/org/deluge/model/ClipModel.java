@@ -624,12 +624,24 @@ public class ClipModel extends TimelineCounter {
   // fires. Default OFF matches the C.
   private transient ArmState armState = ArmState.OFF;
 
+  // C Clip::fillEventAtTickCount (clip.h:192). Swung tick at which a FILL clip is scheduled to
+  // launch so its end lands on launchEventAtSwungTickCount (session.cpp:789-796, 1906-1964).
+  private transient long fillEventAtTickCount = 0;
+
   public ArmState getArmState() {
     return armState;
   }
 
   public void setArmState(ArmState armState) {
     this.armState = armState != null ? armState : ArmState.OFF;
+  }
+
+  public long getFillEventAtTickCount() {
+    return fillEventAtTickCount;
+  }
+
+  public void setFillEventAtTickCount(long fillEventAtTickCount) {
+    this.fillEventAtTickCount = fillEventAtTickCount;
   }
 
   public void setStepCount(int stepCount) {
@@ -1117,8 +1129,21 @@ public class ClipModel extends TimelineCounter {
     return ticksTilNextEvent;
   }
 
+  /**
+   * C Clip::getMaxLength (clip.cpp:1057-1059) / InstrumentClip::getMaxLength
+   * (instrument_clip.cpp:4704-4715): the clip's loopLength, or the longest independent noteRow loop
+   * length if any exceeds it.
+   */
   public int getMaxLength() {
-    return Integer.MAX_VALUE;
+    int maxLength = getLoopLength();
+    if (type == ClipType.INSTRUMENT) {
+      for (NoteRowModel row : noteRows.values()) {
+        if (row.getLoopLengthIfIndependent() > maxLength) {
+          maxLength = row.getLoopLengthIfIndependent();
+        }
+      }
+    }
+    return maxLength;
   }
 
   public void resumePlayback(boolean mayMakeSound) {

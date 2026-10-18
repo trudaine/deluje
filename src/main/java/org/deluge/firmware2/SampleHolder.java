@@ -88,4 +88,17 @@ public class SampleHolder {
           (int) Long.divideUnsigned(((long) audioFile.sampleRate) << 24, K_SAMPLE_RATE);
     }
   }
+
+  /**
+   * C: sample_holder_for_voice.cpp:130-142 — {@code SampleHolderForVoice::getMSecLimit}. Returns
+   * {@code 9999999} when {@code repeatMode == SampleRepeatMode::STRETCH} (3) so time-stretched
+   * start/end markers are not capped by the raw file length; otherwise returns the sample's length
+   * in milliseconds (or {@code 0} when no audio file is loaded).
+   */
+  public int getMSecLimit(int repeatMode) {
+    if (repeatMode == Sound.REPEAT_STRETCH) {
+      return 9999999;
+    }
+    return audioFile == null ? 0 : audioFile.getLengthInMSec();
+  }
 }
