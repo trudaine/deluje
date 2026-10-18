@@ -28,23 +28,48 @@ public class FirmwareKit extends org.deluge.firmware2.Kit {
 
   @Override
   protected void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
+    if (muted) {
+      return;
+    }
     for (FirmwareSound drum : drumSounds) {
-      if (!drum.fw2Sound.voices.isEmpty()) {
-        // Render drum track with its own FX chain, summing directly to the Kit buffer
+      // C kit.cpp:541-586 / sound.cpp:2178-2215 — keep rendering each drum while voices, arp notes,
+      // per-drum delay repeats, stutter, or grain FX tail remain active.
+      if (drum.shouldRender()) {
         drum.renderOutputSumming(buffer, numSamples, reverbBuffer);
       }
     }
   }
 
+  @Override
   public void triggerDrum(int row, int vel) {
+    triggerDrum(row, vel, 0);
+  }
+
+  @Override
+  public void triggerDrum(int row, int vel, int samplesLate) {
+    if (muted) {
+      return;
+    }
     if (row >= 0 && row < drumSounds.size()) {
-      drumSounds.get(row).triggerNote(60, vel);
+      if (samplesLate > 0) {
+        drumSounds.get(row).triggerNoteLate(60, vel, samplesLate);
+      } else {
+        drumSounds.get(row).triggerNote(60, vel);
+      }
     }
   }
 
+  @Override
   public void releaseDrum(int row) {
     if (row >= 0 && row < drumSounds.size()) {
       drumSounds.get(row).releaseNote(60);
+    }
+  }
+
+  @Override
+  public void releaseAllNotes() {
+    for (FirmwareSound drum : drumSounds) {
+      drum.releaseAllNotes();
     }
   }
 }

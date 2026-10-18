@@ -61,6 +61,14 @@ public class GranularProcessor {
     clearGrainFXBuffer();
   }
 
+  /**
+   * C GranularProcessor.h:51 / sound.cpp:2207-2209 — true once any samples have been captured into
+   * the grain ring buffer while {@code wrapsToShutdown >= 0}.
+   */
+  public boolean hasActiveTail() {
+    return (bufferWriteIndex > 0 || bufferFull || grainInitialized) && wrapsToShutdown >= 0;
+  }
+
   // ── setWrapsToShutdown (GranularProcessor.cpp:29-45) ──
 
   void setWrapsToShutdown() {
