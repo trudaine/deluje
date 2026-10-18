@@ -138,25 +138,22 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
 
   public void calculateNoteFrequencies() {
     int baseFreqQ24 = (int) Math.round((baseFrequencyHz / 440.0) * 1027294024.0);
+    int count = Math.max(1, Math.min(octaveNumMicrotonalNotes, 64));
+    int numNotesTimes100 = count * 100;
     if (isEqualTemperament) {
-      noteFrequencyTable[0] = baseFreqQ24;
-      noteIntervalTable[0] = 1073741824; // Q30.ONE
-      int numNotesTimes100 = octaveNumMicrotonalNotes * 100;
-      for (int i = 1; i < octaveNumMicrotonalNotes; i++) {
+      for (int i = 0; i < count; i++) {
         int withCents = i * 100 + centAdjustForNotesInTemperament[i];
-        noteFrequencyTable[i] =
-            (int) Math.round(Math.pow(2.0, (double) withCents / numNotesTimes100) * baseFreqQ24);
-        noteIntervalTable[i] =
-            (int) Math.round(Math.pow(2.0, (double) withCents / numNotesTimes100) * 1073741824.0);
+        double ratio = Math.pow(2.0, (double) withCents / numNotesTimes100);
+        noteFrequencyTable[i] = (int) Math.round(ratio * baseFreqQ24);
+        noteIntervalTable[i] = (int) Math.round(ratio * 1073741824.0);
       }
     } else {
-      noteFrequencyTable[0] = baseFreqQ24;
-      noteIntervalTable[0] = 1073741824; // Q30.ONE
-      for (int i = 1; i < octaveNumMicrotonalNotes; i++) {
+      for (int i = 0; i < count; i++) {
+        int withCents = i * 100 + centAdjustForNotesInTemperament[i];
         double ratio =
             customRatios[i] > 0.0
                 ? customRatios[i]
-                : Math.pow(2.0, (double) i / octaveNumMicrotonalNotes);
+                : Math.pow(2.0, (double) withCents / numNotesTimes100);
         noteFrequencyTable[i] = (int) Math.round(ratio * baseFreqQ24);
         noteIntervalTable[i] = (int) Math.round(ratio * 1073741824.0);
       }

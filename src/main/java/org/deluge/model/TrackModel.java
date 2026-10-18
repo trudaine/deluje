@@ -101,7 +101,16 @@ public abstract class TrackModel {
   }
 
   public void removeClip(ClipModel clip) {
-    clips.remove(clip);
+    int idx = clips.indexOf(clip);
+    if (idx < 0) return;
+    clips.remove(idx);
+    if (clips.isEmpty()) {
+      activeClipIndex = 0;
+    } else if (activeClipIndex > idx) {
+      activeClipIndex--;
+    } else if (activeClipIndex >= clips.size()) {
+      activeClipIndex = clips.size() - 1;
+    }
   }
 
   public int getActiveClipIndex() {

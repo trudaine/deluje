@@ -81,10 +81,15 @@ public class UndoRedoStack {
    * new one every frame.
    */
   public void replaceLast(UndoableAction action) {
+    if (applying || maxDepth <= 0) return;
+    redoStack.clear();
     if (!undoStack.isEmpty()) {
       undoStack.removeFirst();
     }
     undoStack.addFirst(action);
+    if (listener != null) {
+      listener.onActionPushed(action);
+    }
   }
 
   /** Clear all undo and redo history. Call when loading a new project. */

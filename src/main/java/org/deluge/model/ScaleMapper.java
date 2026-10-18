@@ -78,6 +78,25 @@ public final class ScaleMapper {
       boolean scaleModeEnabled,
       boolean foldMode,
       List<Integer> foldedPitches) {
+    return getRowFromPitch(
+        pitch,
+        isSynth,
+        scaleModeEnabled,
+        foldMode,
+        foldedPitches,
+        Scales.ScaleType.MAJOR.getIntervals(),
+        0);
+  }
+
+  /** As {@link #getRowFromPitch}, but with the song's actual scale intervals and root pitch. */
+  public static int getRowFromPitch(
+      int pitch,
+      boolean isSynth,
+      boolean scaleModeEnabled,
+      boolean foldMode,
+      List<Integer> foldedPitches,
+      int[] modeNotes,
+      int rootPitchClass) {
     if (isSynth) {
       if (foldMode && foldedPitches != null && !foldedPitches.isEmpty()) {
         for (int i = 0; i < foldedPitches.size(); i++) {
@@ -85,8 +104,16 @@ public final class ScaleMapper {
         }
         return -1;
       }
+      int[] effectiveMode =
+          (modeNotes != null && modeNotes.length > 0)
+              ? modeNotes
+              : Scales.ScaleType.MAJOR.getIntervals();
       for (int r = 0; r < 128; r++) {
-        if (getRowPitch(r, true, scaleModeEnabled, foldMode, foldedPitches) == pitch) return r;
+        if (getRowPitch(
+                r, true, scaleModeEnabled, foldMode, foldedPitches, effectiveMode, rootPitchClass)
+            == pitch) {
+          return r;
+        }
       }
     }
     return 127 - pitch;
