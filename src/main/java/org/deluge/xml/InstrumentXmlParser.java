@@ -51,6 +51,7 @@ public class InstrumentXmlParser {
           FieldBinding.hexFloat("defaultParams", "portamento", SynthTrackModel::setPortamento),
           FieldBinding.hexFloat("defaultParams", "modFXRate", SynthTrackModel::setModFxRate),
           FieldBinding.hexFloat("defaultParams", "modFXDepth", SynthTrackModel::setModFxDepth),
+          FieldBinding.hexFloat("defaultParams", "modFXOffset", SynthTrackModel::setModFxOffset),
           FieldBinding.hexFloat(
               "defaultParams", "modFXFeedback", SynthTrackModel::setModFxFeedback),
           FieldBinding.hexFloat("defaultParams", "reverbAmount", SynthTrackModel::setReverbSend),
@@ -818,8 +819,15 @@ public class InstrumentXmlParser {
         case "0":
           synth.setPolyphony(SynthTrackModel.PolyphonyMode.MONO);
           break;
+        case "auto":
+          synth.setPolyphony(SynthTrackModel.PolyphonyMode.AUTO);
+          break;
         case "legato":
           synth.setPolyphony(SynthTrackModel.PolyphonyMode.LEGATO);
+          break;
+        case "choke":
+        case "2": // C functions.cpp:870-871 — pre-June 2017 firmware encoding
+          synth.setPolyphony(SynthTrackModel.PolyphonyMode.CHOKE);
           break;
         default:
           synth.setPolyphony(SynthTrackModel.PolyphonyMode.POLY);
@@ -1182,12 +1190,15 @@ public class InstrumentXmlParser {
       }
     }
 
-    // syncType: attribute on lfo element
+    // syncType: attribute or child element on lfo (C sound.cpp:912/945)
     int syncType = 0;
     String syncTypeStr = lfoEl.getAttribute("syncType");
+    if (syncTypeStr == null || syncTypeStr.isBlank()) {
+      syncTypeStr = getChildText(lfoEl, "syncType");
+    }
     if (syncTypeStr != null && !syncTypeStr.isBlank()) {
       try {
-        syncType = syncTypeFromFile(Integer.parseInt(syncTypeStr)); // C sound.cpp:912/945
+        syncType = syncTypeFromFile(Integer.parseInt(syncTypeStr.trim())); // C sound.cpp:912/945
       } catch (NumberFormatException e) {
         LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
       }

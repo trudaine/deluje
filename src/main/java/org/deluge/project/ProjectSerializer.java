@@ -153,13 +153,15 @@ public class ProjectSerializer {
           SoundDrum sound = (SoundDrum) drum;
           writer.writeOpeningTagBeginning("sound");
           writer.writeAttribute("name", sound.getName(), false);
+          // C polyphonyModeToString (functions.cpp:835-852) writes "mono"/"poly"/"legato"/
+          // "auto"/"choke".
           String polyVal =
               switch (sound.getPolyphony()) {
-                case MONO -> "0";
+                case MONO -> "mono";
                 case LEGATO -> "legato";
                 case CHOKE -> "choke";
                 case AUTO -> "auto";
-                default -> "1";
+                default -> "poly";
               };
           writer.writeAttribute("polyphonic", polyVal, false);
           writer.writeAttribute("voicePriority", sound.getVoicePriority(), false);
@@ -175,8 +177,8 @@ public class ProjectSerializer {
           if (sound.getCents() != 0) {
             writer.writeAttribute("cents", String.valueOf(sound.getCents()), false);
           }
-          writer.writeAttribute("lpfMode", "24dB", false);
-          writer.writeAttribute("hpfMode", "HPLadder", false);
+          writer.writeAttribute("lpfMode", lpfModeToFirmwareString(sound.getLpfMode()), false);
+          writer.writeAttribute("hpfMode", hpfModeToFirmwareString(sound.getHpfMode()), false);
           writer.writeAttribute("filterRoute", "H2L", false);
           writer.writeAttribute("maxVoices", 8, false);
           writer.writeOpeningTagEnd();
@@ -197,14 +199,31 @@ public class ProjectSerializer {
                 "timeStretchAmount", String.valueOf(sound.getOsc1TimeStretchAmount()), false);
             writer.writeAttribute(
                 "linearInterpolation", sound.isOsc1LinearInterpolation() ? "1" : "0", false);
-            writer.closeTag();
           } else {
-            writer.writeAttribute("type", "none", false);
-            writer.closeTag();
+            writer.writeAttribute("type", oscTypeToFirmwareString(sound.getOsc1Type()), false);
           }
+          writer.writeAttribute("transpose", String.valueOf(sound.getOsc1Transpose()), false);
+          writer.writeAttribute("cents", String.valueOf(sound.getOsc1Cents()), false);
+          writer.writeAttribute("retrigPhase", String.valueOf(sound.getOsc1RetrigPhase()), false);
+          writer.closeTag();
 
           writer.writeOpeningTagBeginning("osc2");
-          writer.writeAttribute("type", sound.getOsc2Type().toLowerCase(), false);
+          writer.writeAttribute("type", oscTypeToFirmwareString(sound.getOsc2Type()), false);
+          writer.writeAttribute("transpose", String.valueOf(sound.getOsc2Transpose()), false);
+          writer.writeAttribute("cents", String.valueOf(sound.getOsc2Cents()), false);
+          writer.writeAttribute("retrigPhase", String.valueOf(sound.getOsc2RetrigPhase()), false);
+          if (sound.getOsc2SamplePath() != null && !sound.getOsc2SamplePath().isEmpty()) {
+            writer.writeAttribute("fileName", sound.getOsc2SamplePath(), false);
+            writer.writeAttribute("loopMode", String.valueOf(sound.getOsc2LoopMode()), false);
+            writer.writeAttribute("reversed", sound.isOsc2Reversed() ? "1" : "0", false);
+            writer.writeAttribute(
+                "timeStretchEnable", sound.isOsc2TimeStretch() ? "1" : "0", false);
+            // C sound.cpp:3636
+            writer.writeAttribute(
+                "timeStretchAmount", String.valueOf(sound.getOsc2TimeStretchAmount()), false);
+            writer.writeAttribute(
+                "linearInterpolation", sound.isOsc2LinearInterpolation() ? "1" : "0", false);
+          }
           writer.closeTag();
 
           // Write minimal LFOs for drum slots
@@ -456,7 +475,7 @@ public class ProjectSerializer {
           writer.writeClosingTag("osc1");
         } else {
           writer.writeOpeningTagBeginning("osc1");
-          writer.writeAttribute("type", synth.getOsc1Type().toLowerCase(), false);
+          writer.writeAttribute("type", oscTypeToFirmwareString(synth.getOsc1Type()), false);
           writer.writeAttribute("transpose", String.valueOf(synth.getOsc1Transpose()), false);
           writer.writeAttribute("cents", String.valueOf(synth.getOsc1Cents()), false);
           writer.writeAttribute("retrigPhase", String.valueOf(synth.getOsc1RetrigPhase()), false);
@@ -470,6 +489,10 @@ public class ProjectSerializer {
             // C sound.cpp:3636
             writer.writeAttribute(
                 "timeStretchAmount", String.valueOf(synth.getOsc1TimeStretchAmount()), false);
+            // C sound.cpp:3637-3639 — linearInterpolation="1" when linear mode is active.
+            if (synth.isOsc1LinearInterpolation()) {
+              writer.writeAttribute("linearInterpolation", "1", false);
+            }
           }
           if (synth.getDx7Patch() != null) {
             writer.writeAttribute("dx7patch", synth.getDx7Patch(), false);
@@ -514,7 +537,7 @@ public class ProjectSerializer {
           writer.writeClosingTag("osc2");
         } else {
           writer.writeOpeningTagBeginning("osc2");
-          writer.writeAttribute("type", synth.getOsc2Type().toLowerCase(), false);
+          writer.writeAttribute("type", oscTypeToFirmwareString(synth.getOsc2Type()), false);
           writer.writeAttribute("transpose", String.valueOf(synth.getOsc2Transpose()), false);
           writer.writeAttribute("cents", String.valueOf(synth.getOsc2Cents()), false);
           writer.writeAttribute("retrigPhase", String.valueOf(synth.getOsc2RetrigPhase()), false);
@@ -527,15 +550,25 @@ public class ProjectSerializer {
             // C sound.cpp:3636
             writer.writeAttribute(
                 "timeStretchAmount", String.valueOf(synth.getOsc2TimeStretchAmount()), false);
+            if (synth.isOsc2LinearInterpolation()) {
+              writer.writeAttribute("linearInterpolation", "1", false);
+            }
+          } else if (synth.isOscillatorSync()) {
+            // C sound.cpp:3701-3703 — oscillatorSync written on osc2 when non-sample and enabled.
+            writer.writeAttribute("oscillatorSync", "1", false);
           }
           writer.closeTag();
         }
 
+        // C polyphonyModeToString (functions.cpp:835-852) writes "mono"/"poly"/"legato"/
+        // "auto"/"choke".
         String polyVal =
             switch (synth.getPolyphony()) {
-              case MONO -> "0";
+              case MONO -> "mono";
               case LEGATO -> "legato";
-              default -> "1";
+              case CHOKE -> "choke";
+              case AUTO -> "auto";
+              default -> "poly";
             };
         writer.writeTag("polyphonic", polyVal);
         // Was hardcoded "0"/"1" — dropped the preset's saturation/distortion (clippingAmount is
@@ -773,13 +806,15 @@ public class ProjectSerializer {
         writeHexTagUnipolar(writer, "arpeggiatorGate", synth.getArp().gate());
         writeHexTagUnipolar(writer, "portamento", synth.getPortamento());
         writeHexTagUnipolar(writer, "compressorShape", synth.getCompressorShape());
-        writeHexTagUnipolar(writer, "oscAVolume", synth.getOscMix());
+        // Write independent oscillator volumes (C sound.cpp:4072-4073). Deriving (oscMix, 1 -
+        // oscMix) zeroed oscBVolume whenever oscAVolume was full.
+        writeHexTagUnipolar(writer, "oscAVolume", synth.getOscAVolume());
         // C sound.cpp:163-164 / functions.cpp:640-644 — phase width is 0..0x7FFFFFFF (0 = off).
         writeRawQ31Tag(
             writer,
             "oscAPulseWidth",
             synth.getOsc1PhaseWidthQ31() != Integer.MIN_VALUE ? synth.getOsc1PhaseWidthQ31() : 0);
-        writeHexTagUnipolar(writer, "oscBVolume", 1.0f - synth.getOscMix());
+        writeHexTagUnipolar(writer, "oscBVolume", synth.getOscBVolume());
         writeRawQ31Tag(
             writer,
             "oscBPulseWidth",
@@ -802,25 +837,23 @@ public class ProjectSerializer {
         writeHexTagUnipolar(writer, "hpfResonance", synth.getHpfRes());
         writeHexTagUnipolar(writer, "hpfMorph", synth.getHpfMorph());
 
-        // FM params
+        // FM params (C sound.cpp:4089-4097)
         writeHexTagUnipolar(writer, "modulator1Amount", synth.getFmAmount());
         writeHexTagUnipolar(writer, "modulator1Feedback", synth.getModulator1Feedback());
-        writeHexTagUnipolar(
-            writer,
-            "modulator2Amount",
-            synth.getFmAmount()); // Wait! Replicating original bug: modulator2Amount used fmAmount
+        writeHexTagUnipolar(writer, "modulator2Amount", synth.getModulator2Amount());
         writeHexTagUnipolar(writer, "modulator2Feedback", synth.getModulator2Feedback());
         writeHexTagUnipolar(writer, "carrier1Feedback", synth.getCarrier1Feedback());
         writeHexTagUnipolar(writer, "carrier2Feedback", synth.getCarrier2Feedback());
 
         writeHexTagUnipolar(writer, "modFXRate", synth.getModFxRate());
         writeHexTagUnipolar(writer, "modFXDepth", synth.getModFxDepth());
-        writeHexTagUnipolar(writer, "modFXOffset", 0f);
+        writeHexTagUnipolar(writer, "modFXOffset", synth.getModFxOffset());
         writeHexTagUnipolar(writer, "modFXFeedback", synth.getModFxFeedback());
         writeHexTagUnipolar(writer, "delayRate", synth.getDelaySend());
         writeHexTagUnipolar(writer, "delayFeedback", 0f);
         writeHexTagUnipolar(writer, "reverbAmount", synth.getReverbSend());
-        writeHexTagUnipolar(writer, "arpeggiatorRate", 0f);
+        // C sound.cpp:4117 — GLOBAL_ARP_RATE raw Q31 param.
+        writer.writeTag("arpeggiatorRate", String.format("0x%08X", synth.getArpRateQ31()));
         writeHexTagUnipolar(writer, "stutterRate", synth.getStutter().getStutterRate());
         writeHexTagUnipolar(writer, "sampleRateReduction", synth.getSampleRateReduction());
         writeHexTagUnipolar(writer, "bitCrush", synth.getBitCrush());
@@ -853,8 +886,6 @@ public class ProjectSerializer {
           writer.writeArrayEnding("patchCables");
         }
 
-        writeHexTag(writer, "modFXOffset", 0f);
-        writeHexTag(writer, "modFXFeedback", synth.getModFxFeedback());
         writer.writeClosingTag("defaultParams");
 
         serializeMidiKnobs(writer, synth.getModulation().getMidiKnobs());
@@ -1619,5 +1650,60 @@ public class ProjectSerializer {
     } else {
       writer.writeTag("midiKnobs", "");
     }
+  }
+
+  /**
+   * Maps model oscillator-type strings to exact C++ firmware tokens (C functions.cpp:734-815).
+   * {@code stringToOscType} uses case-sensitive {@code strcmp}, falling back to TRIANGLE on unknown
+   * strings.
+   */
+  private static String oscTypeToFirmwareString(String modelType) {
+    if (modelType == null) {
+      return "square";
+    }
+    return switch (modelType.trim().toUpperCase().replace("_", "").replace(" ", "")) {
+      case "NONE" -> "none";
+      case "SAW" -> "saw";
+      case "ANALOGSAW", "ANALOGSAW2" -> "analogSaw";
+      case "ANALOGSQUARE" -> "analogSquare";
+      case "SINE" -> "sine";
+      case "TRIANGLE" -> "triangle";
+      case "SAMPLE" -> "sample";
+      case "WAVETABLE" -> "wavetable";
+      case "INPUTL", "INLEFT" -> "inLeft";
+      case "INPUTR", "INRIGHT" -> "inRight";
+      case "INPUTSTEREO", "INSTEREO" -> "inStereo";
+      case "DX7" -> "dx7";
+      default -> "square";
+    };
+  }
+
+  private static String lpfModeToFirmwareString(FilterMode mode) {
+    if (mode == null) {
+      return "24dB";
+    }
+    // C filterMap strings (filter_config.cpp:8-14)
+    return switch (mode) {
+      case LADDER_24 -> "24dB";
+      case DRIVE -> "24dBDrive";
+      case SVF, SVF_BAND -> "SVF_Band";
+      case SVF_NOTCH -> "SVF_Notch";
+      case OFF -> "Off";
+      default -> "12dB";
+    };
+  }
+
+  private static String hpfModeToFirmwareString(FilterMode mode) {
+    if (mode == null) {
+      return "HPLadder";
+    }
+    // C mod_controllable_audio.cpp:410 — the C HPF slot has only the HP ladder (plus SVF
+    // bandpass/notch), so LADDER_12 / LADDER_24 / DRIVE all map to "HPLadder".
+    return switch (mode) {
+      case SVF, SVF_BAND -> "SVF_Band";
+      case SVF_NOTCH -> "SVF_Notch";
+      case OFF -> "Off";
+      default -> "HPLadder";
+    };
   }
 }
