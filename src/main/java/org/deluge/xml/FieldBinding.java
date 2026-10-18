@@ -46,16 +46,15 @@ public class FieldBinding<T> {
     if (strategy != null) {
       strategy.apply(soundNode, this, synth);
     } else {
-      // Default: find child element by tag, read its text content
+      // C sound.cpp:4056-4128 & Deserializer — preset <defaultParams> writes params as attributes
+      // in modern firmware and as child elements in older firmware; check attribute first.
       Element parent = soundNode;
       if (container != null && !container.isEmpty()) {
         NodeList containers = soundNode.getElementsByTagName(container);
         if (containers.getLength() == 0) return;
         parent = (Element) containers.item(0);
       }
-      NodeList nodes = parent.getElementsByTagName(tag);
-      if (nodes.getLength() == 0) return;
-      String raw = nodes.item(0).getTextContent();
+      String raw = readTagOrAttribute(parent, tag);
       if (raw == null || raw.isBlank()) return;
       T value = converter.apply(raw.trim());
       if (value instanceof Float f && unipolar) {
@@ -77,18 +76,30 @@ public class FieldBinding<T> {
     if (strategy != null) {
       return; // strategy bindings are instrument-structure bindings, not param-table entries
     }
-    String raw = container.getAttribute(tag);
-    if (raw == null || raw.isBlank()) {
-      NodeList nodes = container.getElementsByTagName(tag);
-      if (nodes.getLength() == 0) return;
-      raw = nodes.item(0).getTextContent();
-    }
+    String raw = readTagOrAttribute(container, tag);
     if (raw == null || raw.isBlank()) return;
     T value = converter.apply(raw.trim());
     if (value instanceof Float f && unipolar) {
       value = (T) Float.valueOf((f + 1.0f) / 2.0f);
     }
     setter.accept(synth, value);
+  }
+
+  private static String readTagOrAttribute(Element parent, String tag) {
+    String raw = parent.getAttribute(tag);
+    if (raw != null && !raw.isBlank()) {
+      return raw;
+    }
+    NodeList nodes = parent.getElementsByTagName(tag);
+    if (nodes.getLength() == 0) {
+      return null;
+    }
+    Element child = (Element) nodes.item(0);
+    String valueAttr = child.getAttribute("value");
+    if (valueAttr != null && !valueAttr.isBlank()) {
+      return valueAttr;
+    }
+    return child.getTextContent();
   }
 
   // ── Accessors needed by custom strategies ──

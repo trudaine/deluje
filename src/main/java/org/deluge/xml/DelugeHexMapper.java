@@ -4,13 +4,25 @@ package org.deluge.xml;
 public class DelugeHexMapper {
 
   /**
+   * Extracts the first 32-bit hex token when a Deluge parameter string appends 16-char automation
+   * nodes after the 8-char currentValue (C auto_param.cpp:2008-2029, 2066-2070).
+   */
+  private static String firstHexToken(String hex) {
+    String trimmed = hex.trim();
+    if ((trimmed.startsWith("0x") || trimmed.startsWith("0X")) && trimmed.length() > 10) {
+      return trimmed.substring(0, 10);
+    }
+    return trimmed;
+  }
+
+  /**
    * Converts a 32-bit signed hex string into a normalized float [-1.0, 1.0]. Example: "0x7FFFFFFF"
    * -> 1.0f, "0x80000000" -> -1.0f
    */
   public static float hexToFloat(String hex) {
     if (hex == null || hex.isEmpty()) return 0.0f;
     try {
-      long raw = Long.decode(hex.trim());
+      long raw = Long.decode(firstHexToken(hex));
       int intVal = (int) raw;
       return Math.max(-1.0f, Math.min(1.0f, (float) intVal / Integer.MAX_VALUE));
     } catch (NumberFormatException e) {
@@ -27,7 +39,7 @@ public class DelugeHexMapper {
   public static int hexToQ31(String hex) {
     if (hex == null || hex.isEmpty()) return 0;
     try {
-      return (int) (long) Long.decode(hex.trim());
+      return (int) (long) Long.decode(firstHexToken(hex));
     } catch (NumberFormatException e) {
       return 0;
     }
@@ -99,7 +111,7 @@ public class DelugeHexMapper {
   public static float hexToUnipolarFloatUnified(String hex) {
     if (hex == null || hex.isEmpty()) return 0.0f;
     try {
-      long parsed = Long.decode(hex.trim());
+      long parsed = Long.decode(firstHexToken(hex));
       int val = (int) parsed;
       double norm = ((double) val + 2147483648.0) / 4294967295.0;
       return (float) Math.max(0.0, Math.min(1.0, norm));
