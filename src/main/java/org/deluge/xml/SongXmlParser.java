@@ -3,6 +3,8 @@ package org.deluge.xml;
 import static org.deluge.xml.DelugeXmlUtil.*;
 
 import java.io.InputStream;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.deluge.model.*;
@@ -674,6 +676,8 @@ public class SongXmlParser {
               InstrumentXmlParser.resetClipParamsToFirmwareDefaults(stm);
               InstrumentXmlParser.parseClipSoundParamsStatics(spEl, stm);
               parseAutomation(spEl, clip);
+              int readUpTo = clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE;
+              parseHexSoundParamsAutomation(spEl, clip.getAutomationCurves(), readUpTo);
             }
             NodeList paramsList2 = clipElem.getElementsByTagName("params");
             if (paramsList2.getLength() > 0) {
@@ -1416,6 +1420,85 @@ public class SongXmlParser {
         clip.setRowSoundParam(row, "eqTreble", Math.abs(DelugeHexMapper.hexToFloat(trebleVal)));
     }
     parseNoteRowAutomation(sp, clip, row);
+    NoteRowModel rowModel = clip.getOrCreateRow(row);
+    int rowReadUpTo =
+        rowModel.getLoopLengthIfIndependent() > 0
+            ? rowModel.getLoopLengthIfIndependent()
+            : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
+    parseHexSoundParamsAutomation(sp, rowModel.getAutomationCurves(), rowReadUpTo);
+  }
+
+  /**
+   * Parses 16-char automation hex nodes ({@code 0xCCCCCCCCVVVVVVVVPPPPPPPP...}) from {@code
+   * <soundParams>} attributes and child elements (C auto_param.cpp:2075-2148, sound.cpp:3776-4042,
+   * mod_controllable_audio.cpp:557-670).
+   */
+  static void parseHexSoundParamsAutomation(
+      Element spEl,
+      Map<String, List<org.deluge.modulation.automation.ParamNode>> targetCurves,
+      int readAutomationUpToPos) {
+    org.w3c.dom.NamedNodeMap attrs = spEl.getAttributes();
+    for (int a = 0; a < attrs.getLength(); a++) {
+      org.w3c.dom.Node attr = attrs.item(a);
+      List<org.deluge.modulation.automation.ParamNode> nodes =
+          DelugeHexMapper.parseHexAutomationNodes(attr.getNodeValue(), readAutomationUpToPos);
+      if (!nodes.isEmpty()) {
+        targetCurves.put(attr.getNodeName(), nodes);
+      }
+    }
+
+    NodeList children = spEl.getChildNodes();
+    for (int c = 0; c < children.getLength(); c++) {
+      if (children.item(c).getNodeType() != org.w3c.dom.Node.ELEMENT_NODE) {
+        continue;
+      }
+      Element child = (Element) children.item(c);
+      String tag = child.getTagName();
+      if ("envelope1".equals(tag)
+          || "envelope2".equals(tag)
+          || "envelope3".equals(tag)
+          || "envelope4".equals(tag)) {
+        for (String sub : new String[] {"attack", "decay", "sustain", "release"}) {
+          String raw = readDirectAttrOrChild(child, sub);
+          List<org.deluge.modulation.automation.ParamNode> nodes =
+              DelugeHexMapper.parseHexAutomationNodes(raw, readAutomationUpToPos);
+          if (!nodes.isEmpty()) {
+            targetCurves.put(tag + "_" + sub, nodes);
+          }
+        }
+      } else if ("equalizer".equals(tag)) {
+        String[][] eqMap = {
+          {"bass", "eqBass"},
+          {"treble", "eqTreble"},
+          {"bassFrequency", "eqBassFrequency"},
+          {"trebleFrequency", "eqTrebleFrequency"}
+        };
+        for (String[] pair : eqMap) {
+          String raw = readDirectAttrOrChild(child, pair[0]);
+          List<org.deluge.modulation.automation.ParamNode> nodes =
+              DelugeHexMapper.parseHexAutomationNodes(raw, readAutomationUpToPos);
+          if (!nodes.isEmpty()) {
+            targetCurves.put(pair[1], nodes);
+          }
+        }
+      } else if (!hasElementChildren(child)) {
+        List<org.deluge.modulation.automation.ParamNode> nodes =
+            DelugeHexMapper.parseHexAutomationNodes(child.getTextContent(), readAutomationUpToPos);
+        if (!nodes.isEmpty()) {
+          targetCurves.put(tag, nodes);
+        }
+      }
+    }
+  }
+
+  private static boolean hasElementChildren(Element el) {
+    NodeList nl = el.getChildNodes();
+    for (int i = 0; i < nl.getLength(); i++) {
+      if (nl.item(i).getNodeType() == org.w3c.dom.Node.ELEMENT_NODE) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static void parseNoteRowAutomation(Element soundParamsEl, ClipModel clip, int rowIndex) {
@@ -1949,13 +2032,16 @@ public class SongXmlParser {
   }
 
   /**
-   * C note_row.cpp:3220-3221 reads "muted" tag-or-attribute; the row then plays nothing
-   * (NoteRow::processCurrentPos's muted branch). It was never read, so a row muted on the hardware
-   * played here.
+   * C note_row.cpp:3220-3221, 3253-3257 reads "muted" and "length" (loopLengthIfIndependent)
+   * tag-or-attributes on {@code <noteRow>}.
    */
   private static void applyRowMute(Element noteRowElem, ClipModel clip, int r) {
     if (DelugeXmlUtil.attrOrDirectChildInt(noteRowElem, "muted", 0) != 0) {
       clip.getOrCreateRow(r).setMuted(true);
+    }
+    int indLen = DelugeXmlUtil.attrOrDirectChildInt(noteRowElem, "length", 0);
+    if (indLen > 0) {
+      clip.getOrCreateRow(r).setLoopLengthIfIndependent(indLen);
     }
   }
 
