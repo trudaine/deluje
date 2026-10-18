@@ -171,4 +171,42 @@ class AudioClipEnvelopeAndLinearInterpTest {
     assertTrue(xmlDefault.contains("attack=\"-2147483648\""));
     assertNotEquals(0, parsedClip.getAttackRaw());
   }
+
+  @Test
+  void endedEnvelopeOnActiveClip_keepsDelayFeedbackUnlimitedAcrossSubsequentBlocks() {
+    Sample sample = makeConstantSample(256, 200_000_000);
+    AudioOutput ao = new AudioOutput();
+    ao.setClip(sample, false);
+    ao.addTimelineRange(10, 20);
+
+    // Enter active placement window [10, 20): both playing and clipActive become true.
+    ao.updateTimeline(12, true);
+    assertTrue(ao.isPlaying());
+    assertFalse(ao.shouldLimitDelayFeedback);
+
+    // Simulate envelope reaching OFF mid-placement (C audio_output.cpp:156-165):
+    // voiceSample stops streaming (playing = false), while delay feedback stays unlimited.
+    ao.envelope.state = Envelope.Stage.OFF;
+    int[] buf = new int[256];
+    int[] rev = new int[128];
+    ao.renderInternal(buf, 128, rev);
+    assertFalse(ao.isPlaying(), "Envelope OFF must unassign/stop streaming the one-shot sample");
+    assertFalse(
+        ao.shouldLimitDelayFeedback,
+        "Envelope OFF must NOT set shouldLimitDelayFeedback on an active clip");
+
+    // Next audio block inside [10, 20): FirmwareAudioEngine calls updateTimeline every block!
+    ao.updateTimeline(16, true);
+    ao.renderInternal(buf, 128, rev);
+    assertFalse(
+        ao.shouldLimitDelayFeedback,
+        "Subsequent updateTimeline blocks inside [10, 20) must NOT clamp delay feedback");
+
+    // Once timeline exits [10, 20) (or transport stops), song-level clip activeness ends
+    // (C song.cpp:2509-2514) and delay feedback is immediately limited.
+    ao.updateTimeline(20, true);
+    assertTrue(
+        ao.shouldLimitDelayFeedback,
+        "Exiting active clip window must set shouldLimitDelayFeedback = true");
+  }
 }
