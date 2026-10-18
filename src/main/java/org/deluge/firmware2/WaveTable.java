@@ -433,14 +433,16 @@ public class WaveTable {
     }
   }
 
-  private int getKernelIndex(int phaseIncrement, int bandMaxPhaseIncrement) {
+  // C wave_table.cpp:1026-1050 (getKernel) — phaseIncrementHere is uint32_t.
+  static int getKernelIndex(int phaseIncrement, int bandMaxPhaseIncrement) {
     int whichKernel = 0;
     int phaseIncrementHere = phaseIncrement;
-    while (phaseIncrementHere >= bandMaxPhaseIncrement && whichKernel < 6) {
+    while (Integer.compareUnsigned(phaseIncrementHere, bandMaxPhaseIncrement) >= 0
+        && whichKernel < 6) {
       whichKernel += 2;
       phaseIncrementHere >>>= 1;
     }
-    if (whichKernel < 6 && phaseIncrementHere >= (bandMaxPhaseIncrement * 0.707)) {
+    if (whichKernel < 6 && (phaseIncrementHere & 0xFFFFFFFFL) >= (bandMaxPhaseIncrement * 0.707)) {
       whichKernel++;
     }
     return whichKernel;

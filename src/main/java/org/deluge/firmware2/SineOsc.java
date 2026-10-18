@@ -119,14 +119,7 @@ public final class SineOsc {
   public static void render4(int[] phase, int phaseIncrement, int[] output) {
     for (int i = 0; i < 4; i++) {
       phase[i] += phaseIncrement * (i + 1); // advance 1, 2, 3, 4 steps
-      // render one sample (scalar equivalent of the vector render)
-      int strength2 = (phase[i] >>> (32 - 16 - K_SINE_TABLE_SIZE_MAGNITUDE + 1)) & 0x7FFF;
-      int index = ((phase[i] >>> (32 - K_SINE_TABLE_SIZE_MAGNITUDE)) << 1);
-      int s = SINE_WAVE_DIFF[index] & 0xFFFF;
-      int d = SINE_WAVE_DIFF[index + 1] & 0xFFFF;
-      int sine = (short) s << 16;
-      int diff = (short) d;
-      output[i] = sine + diff * strength2 * 2; // MultiplyAddFixedPoint equivalent
+      output[i] = renderOne(phase[i]);
     }
   }
 
@@ -140,12 +133,17 @@ public final class SineOsc {
    */
   public static void doFMVector4(int[] phaseVector, int[] phaseShift, int[] output) {
     for (int i = 0; i < 4; i++) {
-      int effectivePhase = (phaseVector[i] >>> 8) + phaseShift[i];
-      int strength2 = effectivePhase & 65535;
-      int readOffset = (effectivePhase >>> (24 - 8 - 1)) & 0b0111111110;
-      int readValue =
-          (SINE_WAVE_DIFF[readOffset] & 0xFFFF) | ((SINE_WAVE_DIFF[readOffset + 1] & 0xFFFF) << 16);
-      output[i] = (readValue << 16) + ((readValue >> 16) * strength2);
+      // C sine_osc.h:41 — render(phaseVector + (phaseShift << 8))
+      output[i] = renderOne(phaseVector[i] + (phaseShift[i] << 8));
     }
+  }
+
+  // C sine_osc.h:45-63 (SineOsc::render) — 15-bit strength2 + VQDMAL.S16 saturating accumulate.
+  private static int renderOne(int phase) {
+    int strength2 = (phase >>> (32 - 16 - K_SINE_TABLE_SIZE_MAGNITUDE + 1)) & 0x7FFF;
+    int index = (phase >>> (32 - K_SINE_TABLE_SIZE_MAGNITUDE)) << 1;
+    int sine = (short) SINE_WAVE_DIFF[index] << 16;
+    int diff = SINE_WAVE_DIFF[index + 1];
+    return Functions.add_saturate(sine, diff * strength2 * 2);
   }
 }
