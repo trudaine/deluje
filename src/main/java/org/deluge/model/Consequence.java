@@ -182,19 +182,25 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
           case "osc1Pitch" -> synth.setOsc1PitchAdjustQ31(Math.round(value) * 178956);
           case "osc2Pitch" -> {
             int cents = Math.round(value);
+            int t = Math.round(cents / 100.0f);
+            int c = cents - 100 * t;
             synth.setOsc2PitchAdjustQ31(cents * 178956);
-            synth.setOsc2Transpose(cents / 100);
-            synth.setOsc2Cents(cents % 100);
+            synth.setOsc2Transpose(t);
+            synth.setOsc2Cents(c);
           }
           case "mod1Pitch" -> {
             int cents = Math.round(value);
-            synth.setModulator1Transpose(cents / 100);
-            synth.setModulator1Cents(cents % 100);
+            int t = Math.round(cents / 100.0f);
+            int c = cents - 100 * t;
+            synth.setModulator1Transpose(t);
+            synth.setModulator1Cents(c);
           }
           case "mod2Pitch" -> {
             int cents = Math.round(value);
-            synth.setModulator2Transpose(cents / 100);
-            synth.setModulator2Cents(cents % 100);
+            int t = Math.round(cents / 100.0f);
+            int c = cents - 100 * t;
+            synth.setModulator2Transpose(t);
+            synth.setModulator2Cents(c);
           }
           case "osc1TsAmt" -> synth.setOsc1TimeStretchAmount(value / 100.0f);
           case "osc1Cents" -> synth.setOsc1Cents(Math.round(value));
@@ -202,15 +208,15 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
           case "osc2Cents" -> synth.setOsc2Cents(Math.round(value));
           case "osc2Transpose" -> synth.setOsc2Transpose(Math.round(value));
           case "stutterRate" -> synth.getStutter().setStutterRate(value / 100.0f);
-          case "eqBass" -> synth.setEqBass(value / 100.0f * 12.0f);
-          case "eqTreble" -> synth.setEqTreble(value / 100.0f * 12.0f);
+          case "eqBass" -> synth.setEqBass(value / 100.0f);
+          case "eqTreble" -> synth.setEqTreble(value / 100.0f);
           case "hpfCutoff" -> synth.setHpfFreq(value * 200.0f);
           case "hpfResonance" -> synth.setHpfRes(value / 100.0f);
           case "hpfMorph" -> synth.setHpfMorph(value / 50.0f);
           case "hpfFm" -> synth.setHpfFm(value / 100.0f);
           case "compAttack" -> synth.setCompressorAttack(value / 100.0f);
           case "compRelease" -> synth.setCompressorRelease(value / 100.0f);
-          case "compRatio" -> synth.setCompressorRatio(value);
+          case "compRatio" -> synth.setCompressorRatio(value / 100.0f);
           case "compBlend" -> synth.setCompressorBlend(value / 100.0f);
           case "compressorShape" -> synth.setCompressorShape(value / 100.0f);
           case "compSidechainHpf" -> synth.setCompressorSidechainHpf(value / 100.0f);
@@ -284,7 +290,9 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
                     env0.amount()));
           }
           case "goldDelaySyncLevel" -> synth.setDelaySyncLevel((int) value);
-          case "goldDelayFeedback" -> synth.setDelayFeedbackQ31((int) value);
+          case "goldDelayFeedback" ->
+              synth.setDelayFeedbackQ31(
+                  (int) Math.round(Math.max(-1.0, Math.min(1.0, value)) * 2147483647.0));
           case "goldReverbSend" -> synth.setReverbSend(value);
           case "goldHpfCutoff" -> synth.setHpfFreq(value);
           case "goldLfo0Rate" -> {
@@ -429,7 +437,7 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
         case "unisonSpread" -> synth.getUnison().getUnisonStereoSpread() * 100.0f;
         case "waveIndex" -> synth.getWaveIndex() * 1000.0f;
         case "lpfCutoff" -> (synth.getLpfFreq() / 20000.0f) * 100.0f;
-        case "lpfResonance" -> synth.getLpfRes();
+        case "lpfResonance" -> synth.getLpfRes() * 100.0f;
         case "filterDrive" -> synth.getFilterDrive() * 100.0f;
         case "fmRatio" -> synth.getFmRatio() * 100.0f;
         case "fmAmount" -> synth.getFmAmount() * 100.0f;
@@ -457,15 +465,15 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
         case "osc2Cents" -> synth.getOsc2Cents();
         case "osc2Transpose" -> synth.getOsc2Transpose();
         case "stutterRate" -> synth.getStutter().getStutterRate() * 100.0f;
-        case "eqBass" -> (synth.getEqBass() / 12.0f) * 100.0f;
-        case "eqTreble" -> (synth.getEqTreble() / 12.0f) * 100.0f;
+        case "eqBass" -> synth.getEqBass() * 100.0f;
+        case "eqTreble" -> synth.getEqTreble() * 100.0f;
         case "hpfCutoff" -> synth.getHpfFreq() / 200.0f;
         case "hpfResonance" -> synth.getHpfRes() * 100.0f;
         case "hpfMorph" -> synth.getHpfMorph() * 50.0f;
         case "hpfFm" -> synth.getHpfFm() * 100.0f;
         case "compAttack" -> synth.getCompressorAttack() * 100.0f;
         case "compRelease" -> synth.getCompressorRelease() * 100.0f;
-        case "compRatio" -> synth.getCompressorRatio();
+        case "compRatio" -> synth.getCompressorRatio() * 100.0f;
         case "compBlend" -> synth.getCompressorBlend() * 100.0f;
         case "compressorShape" -> synth.getCompressorShape() * 100.0f;
         case "compSidechainHpf" -> synth.getCompressorSidechainHpf() * 100.0f;
@@ -500,16 +508,20 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
         case "goldEnv0Attack" -> synth.getEnv(0).attack();
         case "goldEnv0Release" -> synth.getEnv(0).release();
         case "goldDelaySyncLevel" -> synth.getDelaySyncLevel();
-        case "goldDelayFeedback" -> synth.getDelayFeedbackQ31();
+        case "goldDelayFeedback" -> (float) (synth.getDelayFeedbackQ31() / 2147483647.0);
         case "goldReverbSend" -> synth.getReverbSend();
         case "goldHpfCutoff" -> synth.getHpfFreq();
         case "goldLfo0Rate" -> synth.getLfo(0).rateHz();
         case "goldLfo0Depth" -> synth.getLfo(0).depth();
-        case "goldArpRate" -> synth.getArpRate();
+        case "goldArpRate" -> (float) SynthTrackModel.arpRateUnitFromQ31(synth.getArpRateQ31());
         case "goldPortamento" -> synth.getPortamento();
         case "goldOscMix" -> synth.getOscMix();
         case "goldBitcrusher" -> synth.getClippingAmount();
-        default -> 0.0f;
+        default -> {
+          java.util.logging.Logger.getLogger(Consequence.class.getName())
+              .warning("SynthParamConsequence has no readCurrent case for '" + paramName + "'");
+          yield 0.0f;
+        }
       };
     }
 

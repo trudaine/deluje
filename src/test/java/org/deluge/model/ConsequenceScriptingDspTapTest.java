@@ -62,10 +62,9 @@ class ConsequenceScriptingDspTapTest {
     assertSynthParamRoundTrip(project, "osc2Transpose", 0.0f, -12.0f, synth::getOsc2Transpose);
     assertSynthParamRoundTrip(
         project, "stutterRate", 50.0f, 85.0f, () -> synth.getStutter().getStutterRate() * 100.0f);
+    assertSynthParamRoundTrip(project, "eqBass", 0.0f, 50.0f, () -> synth.getEqBass() * 100.0f);
     assertSynthParamRoundTrip(
-        project, "eqBass", 0.0f, 50.0f, () -> (synth.getEqBass() / 12.0f) * 100.0f);
-    assertSynthParamRoundTrip(
-        project, "eqTreble", 0.0f, -50.0f, () -> (synth.getEqTreble() / 12.0f) * 100.0f);
+        project, "eqTreble", 0.0f, -50.0f, () -> synth.getEqTreble() * 100.0f);
     assertSynthParamRoundTrip(
         project, "hpfCutoff", 10.0f, 60.0f, () -> synth.getHpfFreq() / 200.0f);
     assertSynthParamRoundTrip(
@@ -76,7 +75,8 @@ class ConsequenceScriptingDspTapTest {
         project, "compAttack", 20.0f, 65.0f, () -> synth.getCompressorAttack() * 100.0f);
     assertSynthParamRoundTrip(
         project, "compRelease", 30.0f, 80.0f, () -> synth.getCompressorRelease() * 100.0f);
-    assertSynthParamRoundTrip(project, "compRatio", 4.0f, 50.0f, synth::getCompressorRatio);
+    assertSynthParamRoundTrip(
+        project, "compRatio", 4.0f, 50.0f, () -> synth.getCompressorRatio() * 100.0f);
     assertSynthParamRoundTrip(
         project, "compBlend", 100.0f, 40.0f, () -> synth.getCompressorBlend() * 100.0f);
     assertSynthParamRoundTrip(
@@ -152,6 +152,129 @@ class ConsequenceScriptingDspTapTest {
         Consequence.SynthParamConsequence.readCurrent(project, 0, paramName),
         0.05f,
         "readCurrent after undo failed for " + paramName);
+  }
+
+  @Test
+  void everyApplyLabelHasMatchingReadCurrentInverseAndBoundedPitchCents() {
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel synth = new SynthTrackModel("InverseTest");
+    project.addTrack(synth);
+
+    record CaseSpec(String label, float value) {}
+
+    List<CaseSpec> specs = new ArrayList<>();
+    // Core slider params
+    specs.add(new CaseSpec("unisonDetune", 24.0f));
+    specs.add(new CaseSpec("unisonSpread", 35.0f));
+    specs.add(new CaseSpec("waveIndex", 450.0f));
+    specs.add(new CaseSpec("lpfCutoff", 60.0f));
+    specs.add(new CaseSpec("lpfResonance", 42.0f));
+    specs.add(new CaseSpec("filterDrive", 75.0f));
+    specs.add(new CaseSpec("fmRatio", 200.0f));
+    specs.add(new CaseSpec("fmAmount", 55.0f));
+    specs.add(new CaseSpec("carrier1Fb", 30.0f));
+    specs.add(new CaseSpec("carrier2Fb", 40.0f));
+    specs.add(new CaseSpec("mod1Fb", 25.0f));
+    specs.add(new CaseSpec("mod2Amt", 65.0f));
+    specs.add(new CaseSpec("mod2Fb", 15.0f));
+    specs.add(new CaseSpec("noiseVol", 20.0f));
+    specs.add(new CaseSpec("oscMix", 70.0f));
+    specs.add(new CaseSpec("portamento", 33.0f));
+    specs.add(new CaseSpec("osc1Pitch", -350.0f));
+    specs.add(new CaseSpec("osc2Pitch", 170.0f));
+    specs.add(new CaseSpec("mod1Pitch", 170.0f));
+    specs.add(new CaseSpec("mod2Pitch", -170.0f));
+    specs.add(new CaseSpec("osc1TsAmt", 40.0f));
+    specs.add(new CaseSpec("osc1Cents", -18.0f));
+    specs.add(new CaseSpec("osc2TsAmt", 60.0f));
+    specs.add(new CaseSpec("osc2Cents", 24.0f));
+    specs.add(new CaseSpec("osc2Transpose", -7.0f));
+    specs.add(new CaseSpec("stutterRate", 50.0f));
+    specs.add(new CaseSpec("eqBass", 45.0f));
+    specs.add(new CaseSpec("eqTreble", -35.0f));
+    specs.add(new CaseSpec("hpfCutoff", 25.0f));
+    specs.add(new CaseSpec("hpfResonance", 55.0f));
+    specs.add(new CaseSpec("hpfMorph", 20.0f));
+    specs.add(new CaseSpec("hpfFm", 40.0f));
+    specs.add(new CaseSpec("compAttack", 30.0f));
+    specs.add(new CaseSpec("compRelease", 60.0f));
+    specs.add(new CaseSpec("compRatio", 48.0f));
+    specs.add(new CaseSpec("compBlend", 75.0f));
+    specs.add(new CaseSpec("compressorShape", 65.0f));
+    specs.add(new CaseSpec("compSidechainHpf", 25.0f));
+    specs.add(new CaseSpec("modFxRate", 35.0f));
+    specs.add(new CaseSpec("modFxDepth", 80.0f));
+    specs.add(new CaseSpec("modFxFeedback", 50.0f));
+    specs.add(new CaseSpec("modFxOffset", 40.0f));
+    specs.add(new CaseSpec("reverbSend", 65.0f));
+    specs.add(new CaseSpec("delaySend", 45.0f));
+    // Arp params
+    specs.add(new CaseSpec("arpRate", 25.0f));
+    specs.add(new CaseSpec("arpGate", 60.0f));
+    specs.add(new CaseSpec("arpStepRepeat", 3.0f));
+    specs.add(new CaseSpec("arpRhythm", 12.0f));
+    specs.add(new CaseSpec("arpSeqLength", 8.0f));
+    specs.add(new CaseSpec("arpOctaveSpread", 40.0f));
+    specs.add(new CaseSpec("arpGateSpread", 30.0f));
+    specs.add(new CaseSpec("arpVelSpread", 50.0f));
+    specs.add(new CaseSpec("arpRatchet", 2.0f));
+    specs.add(new CaseSpec("arpNoteProb", 85.0f));
+    specs.add(new CaseSpec("arpChordPoly", 3.0f));
+    specs.add(new CaseSpec("arpChordProb", 70.0f));
+    specs.add(new CaseSpec("arpChordType", 2.0f));
+    specs.add(new CaseSpec("arpNumOctaves", 3.0f));
+    specs.add(new CaseSpec("arpKitArp", 1.0f));
+    specs.add(new CaseSpec("arpRandomizerLock", 1.0f));
+    // Gold knob params
+    specs.add(new CaseSpec("goldVolume", 0.72f));
+    specs.add(new CaseSpec("goldPan", -0.35f));
+    specs.add(new CaseSpec("goldLpfCutoff", 3500.0f));
+    specs.add(new CaseSpec("goldLpfResonance", 0.62f));
+    specs.add(new CaseSpec("goldEnv0Attack", 0.15f));
+    specs.add(new CaseSpec("goldEnv0Release", 0.85f));
+    specs.add(new CaseSpec("goldDelaySyncLevel", 7.0f));
+    specs.add(new CaseSpec("goldDelayFeedback", 0.65f));
+    specs.add(new CaseSpec("goldReverbSend", 0.42f));
+    specs.add(new CaseSpec("goldHpfCutoff", 400.0f));
+    specs.add(new CaseSpec("goldLfo0Rate", 4.5f));
+    specs.add(new CaseSpec("goldLfo0Depth", 0.55f));
+    specs.add(new CaseSpec("goldArpRate", 0.68f));
+    specs.add(new CaseSpec("goldPortamento", 0.30f));
+    specs.add(new CaseSpec("goldOscMix", 0.48f));
+    specs.add(new CaseSpec("goldBitcrusher", 5.0f));
+    // Envelope sliders (env0..3)
+    for (int e = 0; e < 4; e++) {
+      specs.add(new CaseSpec("env" + e + "Attack", 120.0f));
+      specs.add(new CaseSpec("env" + e + "Decay", 350.0f));
+      specs.add(new CaseSpec("env" + e + "Sustain", 65.0f));
+      specs.add(new CaseSpec("env" + e + "Release", 900.0f));
+      specs.add(new CaseSpec("env" + e + "Amount", 75.0f));
+    }
+
+    for (CaseSpec spec : specs) {
+      var c =
+          new Consequence.SynthParamConsequence(project, 0, spec.label(), 0.0f, spec.value(), 0L);
+      c.redo();
+      float roundTripped = Consequence.SynthParamConsequence.readCurrent(project, 0, spec.label());
+      assertEquals(
+          spec.value(),
+          roundTripped,
+          0.01f,
+          "readCurrent(apply(v)) must match v for '" + spec.label() + "'");
+    }
+
+    // Verify 170 cents splits into transpose=2, cents=-30 (within -50..+50).
+    new Consequence.SynthParamConsequence(project, 0, "osc2Pitch", 0.0f, 170.0f, 0L).redo();
+    assertEquals(2, synth.getOsc2Transpose());
+    assertEquals(-30, synth.getOsc2Cents());
+
+    new Consequence.SynthParamConsequence(project, 0, "mod1Pitch", 0.0f, 170.0f, 0L).redo();
+    assertEquals(2, synth.getModulator1Transpose());
+    assertEquals(-30, synth.getModulator1Cents());
+
+    new Consequence.SynthParamConsequence(project, 0, "mod2Pitch", 0.0f, -170.0f, 0L).redo();
+    assertEquals(-2, synth.getModulator2Transpose());
+    assertEquals(30, synth.getModulator2Cents());
   }
 
   @Test
