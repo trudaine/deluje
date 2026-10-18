@@ -104,10 +104,11 @@ class OscSyncAndRetrigXmlTest {
   }
 
   @Test
-  void presetResolutionPreservesOscillatorSyncWhenOuterOsc2OmitsIt() throws Exception {
-    // Song tracks referencing a preset (e.g. "045 Square Sync" in ALLSYN_1.XML) resolve the preset
-    // first. If the embedded <osc2> omits oscillatorSync, the preset's oscillatorSync=true stays;
-    // an explicit oscillatorSync="0" in the song overrides it to false.
+  void embeddedOsc2WithoutOscillatorSyncPlaysSyncOffEvenIfThePresetHasIt() throws Exception {
+    // C: a song's instrument is read from the song's own <sound> into a fresh Sound (sync false,
+    // sound.h:150); the preset file is never consulted, and oscillatorSync is written only when
+    // true (sound.cpp:3701). ALLSYN_1.XML's "045 Square Sync" omits it, and the hardware recording
+    // plays it without sync (scorecard 0.663 -> 0.960 once this matches).
     SynthTrackModel preserved =
         parseSynth(
             """
@@ -116,9 +117,9 @@ class OscSyncAndRetrigXmlTest {
               <osc2 type="square" transpose="7" retrigPhase="-1" />
             </sound>
             """);
-    assertTrue(
+    assertFalse(
         preserved.isOscillatorSync(),
-        "preset-resolved oscillatorSync must survive when embedded <osc2> omits the tag");
+        "an embedded <osc2> without oscillatorSync is sync OFF, whatever the preset says");
 
     SynthTrackModel overriddenOff =
         parseSynth(

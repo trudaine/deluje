@@ -180,7 +180,6 @@ public class InstrumentXmlParser {
   }
 
   public static void populateSynth(Element soundNode, SynthTrackModel synth, boolean isPresetLoad) {
-    boolean resolvedPreset = false;
     if (!isPresetLoad && soundNode.hasAttribute("presetName")) {
       String presetName = soundNode.getAttribute("presetName");
       String folder = soundNode.getAttribute("presetFolder");
@@ -192,17 +191,18 @@ public class InstrumentXmlParser {
         try (java.io.InputStream presetIs = new FileInputStream(presetFile)) {
           Element presetRoot = parseXml(presetIs).getDocumentElement();
           populateSynth(presetRoot, synth, true);
-          resolvedPreset = true;
         } catch (Exception e) {
           LOG.log(Level.WARNING, "Failed to load referenced preset: " + presetFile, e);
         }
       }
     }
-    if (isPresetLoad || !resolvedPreset) {
+    {
       // C sound.h:150, sound.cpp:3241-3243 — Sound defaults oscillatorSync to false, and
       // Sound::readFromFile resets modulatorTranspose[1] and all four retrigger phases to 0 before
       // reading XML tags (constructor default is -12 / -1 for UI-new sounds, whereas XML files
-      // omit retrigPhase when retrigger is ON at phase 0).
+      // omit retrigPhase when retrigger is ON at phase 0). Every read: the C loads a song's
+      // instrument from the song's own <sound> into a fresh Sound and never consults the preset
+      // file, so a value the song omits is this default, not the referenced preset's.
       synth.setOscillatorSync(false);
       synth.setModulator2Transpose(0);
       synth.setOsc1RetrigPhase(0);
