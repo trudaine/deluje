@@ -103,6 +103,7 @@ final class SongProjector {
       yNote = r;
     } else {
       yNote = clip.getRowYNote(r);
+      // Java-model fallback when rowYNote was not populated yet (a C NoteRow always has a y).
       if (yNote < 0) {
         yNote =
             (here != null && here.active() && here.pitch() > 0)
@@ -115,6 +116,10 @@ final class SongProjector {
       int v = Math.round(here.velocity() * 127f); // model velocity is 0..1
       int num = 65 + v + v / 2; // note_row.cpp:1967
       return scaleToward(main, num);
+    }
+    // C note_row.cpp:1984 — both normal and wrapped tails require allowNoteTails.
+    if (!clip.allowNoteTails(r)) {
+      return null;
     }
     // Tail: the nearest earlier note in this row that extends past the start of this square.
     for (int s = step - 1; s >= 0; s--) {

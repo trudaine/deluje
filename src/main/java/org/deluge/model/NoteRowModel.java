@@ -535,7 +535,7 @@ public class NoteRowModel {
 
   // C InstrumentClip::allowNoteTails (instrument_clip.cpp:3350-3371) ->
   // Sound::allowNoteTails (sound.cpp:1927-1964).
-  private static boolean allowsNoteTails(Object sound, int pitch) {
+  static boolean allowsNoteTails(Object sound, int pitch) {
     if (sound instanceof org.deluge.engine.FirmwareSound fs) {
       fs.syncParamsToFw2();
       return fs.fw2Sound.allowNoteTails(false);

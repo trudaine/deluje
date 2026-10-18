@@ -81,6 +81,21 @@ class ProjectorColourArrangerParityTest {
     assertEquals(expectedTail, wrappedCells[0][0].colour(), "wrapped tail at step 0");
     assertEquals(expectedTail, wrappedCells[0][1].colour(), "wrapped tail at step 1");
     assertNull(wrappedCells[0][2].colour(), "wrapped tail ends before step 2");
+
+    // 3. Row with allowNoteTails == false (e.g. zero-sustain percussive sound, C note_row.cpp:1984)
+    // draws neither normal nor wrapped tails.
+    org.deluge.engine.FirmwareSound oneShotSound = new org.deluge.engine.FirmwareSound();
+    oneShotSound.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_SUSTAIN] =
+        Integer.MIN_VALUE;
+    oneShotSound.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_DECAY] = 0;
+    oneShotSound.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_RELEASE] = 0;
+    melodic.setSound(oneShotSound);
+
+    PadCell[][] oneShotCells =
+        SongProjector.project(List.of(new SongProjector.Row(melodic, 0)), 1, 8, 0);
+    assertNull(oneShotCells[0][0].colour(), "one-shot row must not draw wrapped tail at step 0");
+    assertNull(oneShotCells[0][7].colour(), "one-shot row must not draw normal tail at step 7");
+    assertTrue(oneShotCells[0][6].active(), "one-shot row still draws note head at step 6");
   }
 
   @Test

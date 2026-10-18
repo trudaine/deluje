@@ -1014,6 +1014,14 @@ public class ClipModel extends TimelineCounter {
     this.sound = sound;
   }
 
+  /**
+   * Returns true when note row {@code row} allows note tails (C {@code
+   * InstrumentClip::allowNoteTails}, {@code instrument_clip.cpp:3350-3371}).
+   */
+  public boolean allowNoteTails(int row) {
+    return NoteRowModel.allowsNoteTails(sound, row);
+  }
+
   public int getTicksTilNextEvent() {
     return ticksTilNextEvent;
   }
