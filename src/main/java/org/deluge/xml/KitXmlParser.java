@@ -674,6 +674,13 @@ public class KitXmlParser {
     if ((fmVal = attrOrChildText(dp, "carrier2Feedback")) != null && !fmVal.isBlank()) {
       sound.setCarrier2FeedbackQ31(DelugeHexMapper.hexToQ31(fmVal));
     }
+    // The exact knobs, for the engine (the floats below are the UI's lossy view).
+    readHexQ31(dp, "modFXRate", sound::setModFxRateQ31);
+    readHexQ31(dp, "modFXDepth", sound::setModFxDepthQ31);
+    readHexQ31(dp, "modFXOffset", sound::setModFxOffsetQ31);
+    readHexQ31(dp, "modFXFeedback", sound::setModFxFeedbackQ31);
+    readHexQ31(dp, "delayRate", sound::setDelayRateQ31);
+    readHexQ31(dp, "delayFeedback", sound::setDelayFeedbackQ31);
     readHexFloatUnipolar(dp, "modFXRate", sound::setModFxRate);
     readHexFloatUnipolar(dp, "modFXDepth", sound::setModFxDepth);
     readHexFloatUnipolar(dp, "modFXOffset", sound::setModFxOffset);
@@ -823,6 +830,14 @@ public class KitXmlParser {
       return Math.abs(Float.parseFloat(val));
     } catch (NumberFormatException e) {
       return null;
+    }
+  }
+
+  private static void readHexQ31(
+      Element parent, String tag, java.util.function.Consumer<Integer> setter) {
+    String hex = attrOrChildText(parent, tag);
+    if (hex != null && !hex.isBlank()) {
+      setter.accept(DelugeHexMapper.hexToQ31(hex));
     }
   }
 }

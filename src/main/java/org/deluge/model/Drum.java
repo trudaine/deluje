@@ -793,6 +793,68 @@ public abstract class Drum {
   protected int modulator2FeedbackQ31 = Integer.MIN_VALUE;
   protected int carrier1FeedbackQ31 = Integer.MIN_VALUE;
   protected int carrier2FeedbackQ31 = Integer.MIN_VALUE;
+
+  /**
+   * Raw param knobs from the drum's params (C reads them as patched GLOBAL_MOD_FX_RATE/DEPTH,
+   * GLOBAL_DELAY_RATE/FEEDBACK and unpatched MOD_FX_OFFSET/FEEDBACK). Null = not in the file, so
+   * the C initParams default applies.
+   */
+  protected Integer modFxRateQ31;
+
+  protected Integer modFxDepthQ31;
+  protected Integer modFxOffsetQ31;
+  protected Integer modFxFeedbackQ31;
+  protected Integer delayRateQ31;
+  protected Integer delayFeedbackQ31;
+
+  public Integer getModFxRateQ31() {
+    return modFxRateQ31;
+  }
+
+  public void setModFxRateQ31(Integer v) {
+    modFxRateQ31 = v;
+  }
+
+  public Integer getModFxDepthQ31() {
+    return modFxDepthQ31;
+  }
+
+  public void setModFxDepthQ31(Integer v) {
+    modFxDepthQ31 = v;
+  }
+
+  public Integer getModFxOffsetQ31() {
+    return modFxOffsetQ31;
+  }
+
+  public void setModFxOffsetQ31(Integer v) {
+    modFxOffsetQ31 = v;
+  }
+
+  public Integer getModFxFeedbackQ31() {
+    return modFxFeedbackQ31;
+  }
+
+  public void setModFxFeedbackQ31(Integer v) {
+    modFxFeedbackQ31 = v;
+  }
+
+  public Integer getDelayRateQ31() {
+    return delayRateQ31;
+  }
+
+  public void setDelayRateQ31(Integer v) {
+    delayRateQ31 = v;
+  }
+
+  public Integer getDelayFeedbackQ31() {
+    return delayFeedbackQ31;
+  }
+
+  public void setDelayFeedbackQ31(Integer v) {
+    delayFeedbackQ31 = v;
+  }
+
   protected int modulator1Transpose = 0;
   protected int modulator1Cents = 0;
   protected int modulator2Transpose = 0;

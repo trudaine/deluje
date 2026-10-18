@@ -1444,6 +1444,28 @@ public class FirmwareFactory {
     drumSound.fw2Sound.modFXDepth = (int) (clamp01(sd.getModFxDepth()) * 2147483647.0);
     drumSound.fw2Sound.modFXOffset = (int) (clamp01(sd.getModFxOffset()) * 2147483647.0);
     drumSound.fw2Sound.modFXFeedback = (int) (clamp01(sd.getModFxFeedback()) * 2147483647.0);
+    // The C reads these as the drum's own params (patched GLOBAL_MOD_FX_RATE/DEPTH and
+    // GLOBAL_DELAY_RATE/FEEDBACK through the patcher, sound.cpp:2499-2506, 2605-2606; unpatched
+    // MOD_FX_OFFSET/FEEDBACK raw). FirmwareSound.syncParamsToFw2 rebuilds the fw2 fields from the
+    // param values on every sync, so the file's knobs must land here or the C defaults play.
+    if (sd.getModFxRateQ31() != null) {
+      drumSound.paramNeutralValues[Param.GLOBAL_MOD_FX_RATE] = sd.getModFxRateQ31();
+    }
+    if (sd.getModFxDepthQ31() != null) {
+      drumSound.paramNeutralValues[Param.GLOBAL_MOD_FX_DEPTH] = sd.getModFxDepthQ31();
+    }
+    if (sd.getModFxOffsetQ31() != null) {
+      drumSound.paramNeutralValues[Param.UNPATCHED_MOD_FX_OFFSET] = sd.getModFxOffsetQ31();
+    }
+    if (sd.getModFxFeedbackQ31() != null) {
+      drumSound.paramNeutralValues[Param.UNPATCHED_MOD_FX_FEEDBACK] = sd.getModFxFeedbackQ31();
+    }
+    if (sd.getDelayRateQ31() != null) {
+      drumSound.paramNeutralValues[Param.GLOBAL_DELAY_RATE] = sd.getDelayRateQ31();
+    }
+    if (sd.getDelayFeedbackQ31() != null) {
+      drumSound.paramNeutralValues[Param.GLOBAL_DELAY_FEEDBACK] = sd.getDelayFeedbackQ31();
+    }
     drumSound.fw2Sound.bitcrushParam = normToBipolarParam(sd.getBitCrush());
     drumSound.fw2Sound.srrParam = normToBipolarParam(sd.getSampleRateReduction());
     drumSound.fw2Sound.eqBassParam = bipolarUnitToParam(sd.getEqBass());
