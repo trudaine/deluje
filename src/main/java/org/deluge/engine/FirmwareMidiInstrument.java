@@ -74,6 +74,19 @@ public class FirmwareMidiInstrument extends GlobalEffectable {
     return Math.max(0, Math.min(15, midiChannel - 1));
   }
 
+  /**
+   * C InstrumentClip::sendMIDIPGM (instrument_clip.cpp:3530-3546) — bank MSB (CC0), bank LSB (CC32)
+   * and program change on the output master channel, each only when set (128 = none).
+   */
+  public void sendMidiPgm(int bank, int sub, int pgm) {
+    MidiEngine engine = MidiEngine.instance;
+    if (engine == null) return;
+    int ch = getOutputMasterChannel();
+    if (bank != 128) engine.sendCC(ch, 0, bank); // MidiEngine::sendBank (midi_engine.cpp:472)
+    if (sub != 128) engine.sendCC(ch, 32, sub); // MidiEngine::sendSubBank (:476)
+    if (pgm != 128) engine.sendProgramChange(ch, pgm); // MidiEngine::sendPGMChange (:480)
+  }
+
   public void triggerNote(int note, int vel) {
     MidiEngine engine = MidiEngine.instance;
     if (engine != null) {

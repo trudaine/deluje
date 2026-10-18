@@ -43,6 +43,44 @@ public class ClipModel extends TimelineCounter {
   // 255 = unassigned. Written only when != 255 (clip.cpp:667), clamped on read (clip.cpp:715).
   private int section = 255;
 
+  // C InstrumentClip::midiBank / midiSub / midiPGM (instrument_clip.h:135-137, 128 = none): sent
+  // as bank MSB (CC0), bank LSB (CC32) and program change when a MIDI clip becomes active.
+  private int midiBank = 128;
+  private int midiSub = 128;
+  private int midiPGM = 128;
+
+  public int getMidiBank() {
+    return midiBank;
+  }
+
+  public void setMidiBank(int v) {
+    this.midiBank = v & 0xFF; // C uint8_t
+  }
+
+  public int getMidiSub() {
+    return midiSub;
+  }
+
+  public void setMidiSub(int v) {
+    this.midiSub = v & 0xFF;
+  }
+
+  public int getMidiPGM() {
+    return midiPGM;
+  }
+
+  public void setMidiPGM(int v) {
+    this.midiPGM = v & 0xFF;
+  }
+
+  /** C MIDIInstrument::setActiveClip (midi_instrument.cpp:330-333) — PGMs differ between clips. */
+  public boolean midiPgmDiffersFrom(ClipModel other) {
+    return other == null
+        || midiPGM != other.midiPGM
+        || midiSub != other.midiSub
+        || midiBank != other.midiBank;
+  }
+
   /**
    * C Clip::launchStyle (clip.cpp:60, 764-766; functions.cpp:1283-1310): "default", "fill" or
    * "once". Round-tripped; the session launch behaviour of FILL / ONCE is not yet ported.
@@ -308,6 +346,9 @@ public class ClipModel extends TimelineCounter {
     copy.setPlayDirection(this.playDirection);
     copy.isArrangementOnly = this.isArrangementOnly;
     copy.launchStyle = this.launchStyle; // C clip.cpp:97, 105
+    copy.midiBank = this.midiBank; // C instrument_clip.cpp:127-129
+    copy.midiSub = this.midiSub;
+    copy.midiPGM = this.midiPGM;
     return copy;
   }
 
