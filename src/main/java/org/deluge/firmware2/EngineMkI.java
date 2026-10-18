@@ -36,12 +36,12 @@ public final class EngineMkI {
   private static final int ENV_MAX = 1 << ENV_BITDEPTH;
 
   private static final int SINLOG_BITDEPTH = 10;
-  private static final int SINLOG_TABLESIZE = 1 << SINLOG_BITDEPTH;
-  private static final int[] sinLogTable = new int[SINLOG_TABLESIZE]; // uint16
+  static final int SINLOG_TABLESIZE = 1 << SINLOG_BITDEPTH;
+  static final int[] sinLogTable = new int[SINLOG_TABLESIZE]; // uint16
 
   private static final int SINEXP_BITDEPTH = 10;
-  private static final int SINEXP_TABLESIZE = 1 << SINEXP_BITDEPTH;
-  private static final int[] sinExpTable = new int[SINEXP_TABLESIZE]; // uint16
+  static final int SINEXP_TABLESIZE = 1 << SINEXP_BITDEPTH;
+  static final int[] sinExpTable = new int[SINEXP_TABLESIZE]; // uint16
 
   static {
     // EngineMkI::EngineMkI() (EngineMkI.cpp:64-78) — build the log/exp sine tables.

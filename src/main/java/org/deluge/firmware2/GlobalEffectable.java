@@ -148,6 +148,11 @@ public abstract class GlobalEffectable {
       int reverbSendAmount = computeReverbSendAmount(reverbAmountAdjust);
 
       // C mod_controllable_audio.cpp:219, 222 — plain 32-bit wrapping << 5
+      // Note on pan and ramp (mod_controllable_audio.cpp:226-255): C Sound::render passes pan = 0
+      // (sound.cpp:2613) because synth/drum panning happens per-voice in Voice::render
+      // (voice.cpp:1159-1166, ported at Voice.java:2069-2072). Clip-level UNPATCHED_PAN for
+      // Kit/AudioOutput (global_effectable_for_clip.cpp:146-147) and the per-sample
+      // postReverbSendVolumeIncrement sidechain-ducking ramp are not yet ported here (follow-up).
       int reverbSendAmountAndPostFXVolume =
           Functions.multiply_32x32_rshift32(postFXVolume, reverbSendAmount) << 5;
       int postFXAndReverbVolumeL =
