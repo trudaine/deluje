@@ -74,7 +74,8 @@ public class MidiCable {
 
   /**
    * Configures the lower MPE zone and moves the upper zone out of the way if they overlap (C
-   * MIDIPort::moveUpperZoneOutOfWayOfLowerZone, midi_device.cpp:97-98, 266-275).
+   * MIDIPort::moveUpperZoneOutOfWayOfLowerZone, midi_device.cpp:97-98, 266-275). Only C-expressible
+   * shapes (master fixed at channel 0, memberFrom == 1) are meaningful on hardware.
    */
   public void setLowerZone(int memberFrom, int memberTo, int masterChannel) {
     if (memberFrom > memberTo) {
@@ -91,7 +92,8 @@ public class MidiCable {
 
   /**
    * Configures the upper MPE zone and moves the lower zone out of the way if they overlap (C
-   * MIDIPort::moveLowerZoneOutOfWayOfUpperZone, midi_device.cpp:128, 277-286).
+   * MIDIPort::moveLowerZoneOutOfWayOfUpperZone, midi_device.cpp:128, 277-286). Only C-expressible
+   * shapes (master fixed at channel 15, memberTo == 14) are meaningful on hardware.
    */
   public void setUpperZone(int memberFrom, int memberTo, int masterChannel) {
     if (memberFrom > memberTo) {

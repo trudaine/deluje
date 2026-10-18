@@ -31,8 +31,10 @@ public class MidiFollow {
     }
 
     /**
-     * Inverts {@link #normalize(int)} to map a parameter float back to a 0..127 MIDI CC value for
-     * takeover and feedback (C midi_follow.cpp:1132-1161).
+     * Inverts Java's float-registry {@link #normalize(int)} to map a parameter float back to a
+     * 0..127 MIDI CC value for takeover and feedback. (Java-only float normalization; C++ takeover
+     * and feedback work in knob positions [-64..64] via {@code ccValue - 64} with CC 127 = +64,
+     * {@code midi_takeover.cpp:58-61}.)
      */
     public int denormalizeToCc(float value) {
       if (!Float.isFinite(value) || max <= min) {

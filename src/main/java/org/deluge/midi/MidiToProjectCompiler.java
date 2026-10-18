@@ -218,8 +218,8 @@ public class MidiToProjectCompiler {
     }
 
     // 1. Populate the quantized 16th-note visual grid first, then install high-res NoteModel
-    // events afterwards so ClipModel.setStep() does not duplicate off-grid notes or overwrite
-    // on-grid note lengths (C note_row.cpp:264-281).
+    // events afterwards so Java's ClipModel.setStep() side effect does not duplicate off-grid notes
+    // or overwrite on-grid note lengths.
     for (NoteEvent ne : notes) {
       int r = pitchToRow.get(ne.pitch);
 
