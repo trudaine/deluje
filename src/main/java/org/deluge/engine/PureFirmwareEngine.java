@@ -197,6 +197,10 @@ public class PureFirmwareEngine {
                   && currentClipIdx != track.getActiveClipIndex()
                   && currentClipIdx < track.getClips().size()) {
                 org.deluge.model.ClipModel oldClip = track.getActiveClip();
+                if (oldClip != null) {
+                  // C Clip::expectNoFurtherTicks on the clip that stops (instrument_clip.cpp:1147).
+                  oldClip.stopAllNotesPlaying(true);
+                }
                 track.setActiveClipIndex(currentClipIdx);
                 // C MIDIInstrument::setActiveClip (midi_instrument.cpp:324-342): a MIDI track
                 // switching to a clip with a different PGM triple sends it.

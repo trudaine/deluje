@@ -145,8 +145,8 @@ public class MidiFidelityTest {
     mock.messages.clear();
 
     // Trigger the note at step 0 manually through the instrument clip step playback handler logic!
-    instClip.incrementPos(1);
-    instClip.processCurrentPos(1);
+    instClip.setPos(0);
+    instClip.processCurrentPos(0); // the start tick sounds pos 0 (note_row.cpp:2373)
 
     // Verify that the note is triggered and dispatched to the mock MIDI transport
     assertFalse(mock.messages.isEmpty());

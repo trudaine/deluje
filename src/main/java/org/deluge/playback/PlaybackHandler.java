@@ -172,8 +172,7 @@ public class PlaybackHandler {
       // (playback_handler.cpp:533 in setupPlayback, then Session::doTickForward →
       // session.cpp:2502).
       // That is what takes a reversed clip's repeatCount from setPos's -1 to 0 (clip.cpp:259-260).
-      // In the C it also sounds the notes at pos 0 (note_row.cpp:2373); Java's window scan still
-      // fires those on the first non-zero tick, until the search-based note scan is ported (#29).
+      // It also sounds the notes at pos 0 (note_row.cpp:2373).
       setArpClockActive(true);
       int next = Integer.MAX_VALUE;
       for (ClipModel clip : currentProject.getClips()) {
@@ -188,6 +187,14 @@ public class PlaybackHandler {
 
   public synchronized void stop() {
     playing = false;
+    if (currentProject != null) {
+      // C Clip::expectNoFurtherTicks -> InstrumentClip::stopAllNotesPlaying
+      // (instrument_clip.cpp:1147-1160, 1198-1205): every sounding sequenced note gets its
+      // note-off.
+      for (ClipModel clip : currentProject.getClips()) {
+        clip.stopAllNotesPlaying(true);
+      }
+    }
     setArpClockActive(false);
     swingSubTicks = 0;
     launchEventAtSwungTickCount = 0;

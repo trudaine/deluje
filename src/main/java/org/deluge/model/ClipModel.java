@@ -1450,7 +1450,23 @@ public class ClipModel extends TimelineCounter {
       // probability, iterance and fill conditions have passed
       if (conditionPassed) {
         triggerNote(noteOn);
+      } else {
+        noteOn.noteRow.clearSequenced(); // C instrument_clip.cpp:901, 905
       }
+    }
+  }
+
+  /**
+   * C InstrumentClip::stopAllNotesPlaying (instrument_clip.cpp:1198-1205), reached from
+   * expectNoFurtherTicks when playback ends or the clip stops. With {@code actuallySoundChange}
+   * each row's sounding note gets its note-off.
+   */
+  public void stopAllNotesPlaying(boolean actuallySoundChange) {
+    for (NoteRowModel row : noteRows.values()) {
+      if (actuallySoundChange && row.isSequenced()) {
+        releaseNote(row.getPitch());
+      }
+      row.stopCurrentlyPlayingNoteSilently();
     }
   }
 
