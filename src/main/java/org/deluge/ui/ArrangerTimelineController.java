@@ -8,7 +8,6 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import javax.swing.JButton;
 import javax.swing.JMenuItem;
-import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.SwingUtilities;
 import org.deluge.model.ArrangerClip;
@@ -82,6 +81,7 @@ public class ArrangerTimelineController {
 
   /** Attaches mouse and motion listeners to a pad button for arranger timeline interaction. */
   public void attachListeners(final JButton clipBtn, final int currentTrack, final int colId) {
+    clipBtn.putClientProperty("col", colId);
     clipBtn.addMouseListener(
         new MouseAdapter() {
           @Override
@@ -134,15 +134,16 @@ public class ArrangerTimelineController {
 
             Point pt = SwingUtilities.convertPoint(e.getComponent(), e.getPoint(), parent);
             int currCol = colId;
-            Component under = parent.getComponentAt(pt);
-            if (under instanceof JPanel rowPanel) {
-              Component deepest =
-                  rowPanel.getComponentAt(
-                      new Point(pt.x - rowPanel.getX(), pt.y - rowPanel.getY()));
+            Component deepest = SwingUtilities.getDeepestComponentAt(parent, pt.x, pt.y);
+            while (deepest != null && deepest != parent) {
               if (deepest instanceof javax.swing.JComponent jc) {
                 Integer col = (Integer) jc.getClientProperty("col");
-                if (col != null) currCol = col;
+                if (col != null) {
+                  currCol = col;
+                  break;
+                }
               }
+              deepest = deepest.getParent();
             }
 
             int colDiff = currCol - dragArrangerStartCol;
@@ -156,6 +157,7 @@ public class ArrangerTimelineController {
                     new ArrangerClip(
                         currentTrack,
                         dragArrangerClip.clip(),
+                        dragArrangerClip.audioClip(),
                         dragArrangerClip.startTicks(),
                         newDurationTicks);
                 projectModel.addArrangerClip(updated);
@@ -170,6 +172,7 @@ public class ArrangerTimelineController {
                     new ArrangerClip(
                         currentTrack,
                         dragArrangerClip.clip(),
+                        dragArrangerClip.audioClip(),
                         newStartTicks,
                         dragArrangerClip.durationTicks());
                 projectModel.addArrangerClip(updated);
@@ -184,8 +187,15 @@ public class ArrangerTimelineController {
   }
 
   public void showArrangerClipSelectionPopup(Component invoker, final int trackIdx, final int col) {
+    JPopupMenu menu = buildArrangerClipSelectionPopup(trackIdx, col);
+    if (menu != null) {
+      menu.show(invoker, 0, invoker.getHeight());
+    }
+  }
+
+  JPopupMenu buildArrangerClipSelectionPopup(final int trackIdx, final int col) {
     ProjectModel projectModel = getProjectModel();
-    if (projectModel == null || trackIdx >= projectModel.getTracks().size()) return;
+    if (projectModel == null || trackIdx >= projectModel.getTracks().size()) return null;
     TrackModel track = projectModel.getTracks().get(trackIdx);
 
     JPopupMenu menu = new JPopupMenu();
@@ -204,7 +214,31 @@ public class ArrangerTimelineController {
         });
     menu.add(createNew);
 
-    if (!track.getClips().isEmpty()) {
+    if (track instanceof org.deluge.model.AudioTrackModel audioTrack
+        && !audioTrack.getAudioClips().isEmpty()) {
+      menu.addSeparator();
+      for (int i = 0; i < audioTrack.getAudioClips().size(); i++) {
+        final org.deluge.model.AudioTrackModel.AudioClip audioClip =
+            audioTrack.getAudioClips().get(i);
+        String name =
+            audioClip.getClipName() != null && !audioClip.getClipName().isBlank()
+                ? audioClip.getClipName()
+                : "Audio Clip " + (i + 1);
+        JMenuItem item = new JMenuItem("Place: " + name);
+        item.addActionListener(
+            e -> {
+              int startTicks = arrangerTickForColumn(col);
+              // AudioClip.getLength() (SongXmlParser.java:725) and ArrangerClip.startTicks() /
+              // durationTicks() (SongXmlParser.java:932) both use the song file-tick base.
+              projectModel.addArrangerClip(
+                  new ArrangerClip(
+                      trackIdx, null, audioClip, startTicks, Math.max(1, audioClip.getLength())));
+              projectChangedCallback.run();
+              refreshCallback.run();
+            });
+        menu.add(item);
+      }
+    } else if (!track.getClips().isEmpty()) {
       menu.addSeparator();
       for (int i = 0; i < track.getClips().size(); i++) {
         final ClipModel clip = track.getClips().get(i);
@@ -227,8 +261,7 @@ public class ArrangerTimelineController {
 
     SwingGridPanel.stylePopupMenu(menu);
     createNew.setForeground(new Color(0x00, 0xff, 0xcc));
-
-    menu.show(invoker, 0, invoker.getHeight());
+    return menu;
   }
 
   public void showArrangerCellContextMenu(
@@ -255,7 +288,12 @@ public class ArrangerTimelineController {
           e -> {
             int nextStart = placement.startTicks() + placement.durationTicks();
             projectModel.addArrangerClip(
-                new ArrangerClip(trackIdx, placement.clip(), nextStart, placement.durationTicks()));
+                new ArrangerClip(
+                    trackIdx,
+                    placement.clip(),
+                    placement.audioClip(),
+                    nextStart,
+                    placement.durationTicks()));
             projectChangedCallback.run();
             refreshCallback.run();
           });
@@ -274,9 +312,10 @@ public class ArrangerTimelineController {
     JMenuItem editAuto = new JMenuItem("Edit Bar Automation...");
     editAuto.addActionListener(
         ev -> {
+          int barIndex = col + parent.getScrollOffsetX();
           BarAutomationDialog dlg =
               new BarAutomationDialog(
-                  (java.awt.Frame) javax.swing.SwingUtilities.getWindowAncestor(invoker), col);
+                  (java.awt.Frame) javax.swing.SwingUtilities.getWindowAncestor(invoker), barIndex);
           dlg.setVisible(true); // modal
           if (!dlg.isConfirmed()) {
             return;
@@ -287,7 +326,7 @@ public class ArrangerTimelineController {
           if (ac == null || ac.clip() == null) {
             javax.swing.JOptionPane.showMessageDialog(
                 invoker,
-                "No arranged clip at bar " + (col + 1) + " — place a clip there first.",
+                "No arranged clip at bar " + (barIndex + 1) + " — place a clip there first.",
                 "Bar Automation",
                 javax.swing.JOptionPane.INFORMATION_MESSAGE);
             return;

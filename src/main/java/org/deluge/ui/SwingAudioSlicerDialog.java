@@ -278,34 +278,15 @@ public class SwingAudioSlicerDialog extends JDialog {
     }
 
     KitTrackModel kit = (KitTrackModel) track;
-    kit.getDrums().clear();
 
     int idxCombo = sliceCountCombo.getSelectedIndex();
     int slices = idxCombo == 0 ? 4 : (idxCombo == 1 ? 8 : 16);
-    int step = totalFrames / slices;
-
     float defaultVolume = volSlider.getValue() / 100.0f;
     boolean autoChoke = autoChokeBox.isSelected();
+    String baseName = stripAudioExtension(new File(currentFilePath).getName());
 
-    File file = new File(currentFilePath);
-    String baseName = file.getName().replace(".wav", "").replace(".WAV", "");
-
-    // Populate kit rows sequentially with the sliced segments!
-    for (int i = 0; i < 16; i++) {
-      String soundName = String.format("%s_SL%02d", baseName, i + 1);
-      SoundDrum sd = new SoundDrum(soundName);
-
-      if (i < slices) {
-        sd.setSamplePath(currentFilePath);
-        sd.setStartSamplePos(i * step);
-        sd.setEndSamplePos((i + 1) * step);
-        sd.setVolume(defaultVolume);
-        if (autoChoke) {
-          sd.setMuteGroup(1);
-        }
-      }
-      kit.addDrum(sd);
-    }
+    populateSlicedKitDrums(
+        kit, currentFilePath, baseName, totalFrames, slices, defaultVolume, autoChoke);
 
     // Rename track to match the sliced breakbeat name!
     String trackTitle = "Slices_" + baseName;
@@ -347,6 +328,37 @@ public class SwingAudioSlicerDialog extends JDialog {
             + "</code></html>",
         "Breakbeat Sliced!",
         JOptionPane.INFORMATION_MESSAGE);
+  }
+
+  static String stripAudioExtension(String fileName) {
+    if (fileName == null) return "";
+    int dot = fileName.lastIndexOf('.');
+    return dot > 0 ? fileName.substring(0, dot) : fileName;
+  }
+
+  static void populateSlicedKitDrums(
+      KitTrackModel kit,
+      String samplePath,
+      String baseName,
+      int totalFrames,
+      int slices,
+      float defaultVolume,
+      boolean autoChoke) {
+    kit.getDrums().clear();
+    if (slices <= 0 || totalFrames <= 0) return;
+    int step = totalFrames / slices;
+    for (int i = 0; i < slices; i++) {
+      String soundName = String.format("%s_SL%02d", baseName, i + 1);
+      SoundDrum sd = new SoundDrum(soundName);
+      sd.setSamplePath(samplePath);
+      sd.setStartSamplePos(i * step);
+      sd.setEndSamplePos(i == slices - 1 ? totalFrames : (i + 1) * step);
+      sd.setVolume(defaultVolume);
+      if (autoChoke) {
+        sd.setMuteGroup(1);
+      }
+      kit.addDrum(sd);
+    }
   }
 
   private void styleButton(AbstractButton btn, Color bg, Color fg) {
