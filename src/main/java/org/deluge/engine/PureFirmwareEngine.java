@@ -316,12 +316,12 @@ public class PureFirmwareEngine {
         spLpfFreq,
         spLpfRes,
         spLpfMorph,
-        org.deluge.model.FilterMode.LADDER_24,
+        project != null ? project.getSongLpfMode() : org.deluge.model.FilterMode.LADDER_24,
         spHpfFreq,
         spHpfRes,
         spHpfMorph,
-        org.deluge.model.FilterMode.LADDER_12,
-        0);
+        project != null ? project.getSongHpfMode() : org.deluge.model.FilterMode.LADDER_12,
+        project != null ? project.getSongFilterRoute() : 0);
   }
 
   public void setProject(org.deluge.model.ProjectModel project) {

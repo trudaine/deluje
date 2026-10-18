@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import org.deluge.BridgeContract;
 import org.deluge.engine.FirmwareAudioEngine;
+import org.deluge.engine.PureFirmwareEngine;
 import org.deluge.model.FilterMode;
 import org.deluge.model.ProjectModel;
 import org.deluge.project.ProjectSerializer;
@@ -406,5 +408,36 @@ class CalibNoiseHpfParityTest {
     assertFalse(
         engine.masterFilterSet.isOn(),
         "Song hpfMode=\"12dB\" is inert in C++ (filter_set.cpp:25-41), so masterFilterSet stays OFF");
+  }
+
+  @Test
+  void pureFirmwareEngineSyncFromBridgePreservesSongFilterModesAndRoute() {
+    PureFirmwareEngine pureEngine = new PureFirmwareEngine();
+    BridgeContract bridge = new BridgeContract();
+
+    // DRIVE mode on <song> engages doLPF even at default wide-open cutoff (20 kHz)
+    ProjectModel driveProject = new ProjectModel();
+    driveProject.setSongLpfMode(FilterMode.DRIVE);
+    driveProject.setSongHpfMode(FilterMode.SVF_NOTCH);
+    driveProject.setSongFilterRoute(2);
+    pureEngine.setProject(driveProject);
+
+    pureEngine.syncFromBridge(bridge);
+    assertTrue(
+        pureEngine.getAudioEngine().masterFilterSet.isOn(),
+        "PureFirmwareEngine.syncFromBridge must preserve project songLpfMode (DRIVE) instead of resetting to LADDER_24");
+
+    // OFF mode on <song> keeps doLPF disengaged even when G_SP_LPF_FREQ is lowered
+    ProjectModel offProject = new ProjectModel();
+    offProject.setSongLpfMode(FilterMode.OFF);
+    offProject.setSongHpfMode(FilterMode.OFF);
+    pureEngine.setProject(offProject);
+    bridge.setGlobalFloat(BridgeContract.G_SP_LPF_FREQ, 1000.0);
+    bridge.setGlobalFloat(BridgeContract.G_SP_HPF_FREQ, 400.0);
+
+    pureEngine.syncFromBridge(bridge);
+    assertFalse(
+        pureEngine.getAudioEngine().masterFilterSet.isOn(),
+        "PureFirmwareEngine.syncFromBridge must preserve project songLpfMode/songHpfMode (OFF)");
   }
 }

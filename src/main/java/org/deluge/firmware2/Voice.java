@@ -1505,7 +1505,9 @@ public class Voice {
     return (int) rawRatio;
   }
 
-  // C source.cpp:89-101 — Source::renderInStereo(Sound*, SampleHolder*)
+  // C source.cpp:89-101 — Source::renderInStereo(Sound*, SampleHolder*). Note: INPUT_STEREO
+  // currently downmixes to mono tempBuf in renderSubtractivePath (see LiveInputOscTest), so only
+  // stereoUnison and stereo SAMPLE sources write interleaved L/R into mixBuf here.
   private boolean renderSourceInStereo(int s, boolean stereoUnison) {
     if (stereoUnison) {
       return true;
