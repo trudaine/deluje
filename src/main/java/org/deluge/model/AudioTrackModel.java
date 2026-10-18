@@ -140,7 +140,7 @@ public class AudioTrackModel extends TrackModel {
                           + (double) Integer.MIN_VALUE);
     }
 
-    /** C AudioClip::attack (audio_clip.h:76, audio_clip.cpp:63, 1071, 1161). */
+    /** C AudioClip::attack (audio_clip.h:110, audio_clip.cpp:63, 1071, 1161). */
     public int getAttackRaw() {
       return attackRaw;
     }
