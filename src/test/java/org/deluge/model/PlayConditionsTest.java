@@ -143,6 +143,7 @@ class PlayConditionsTest {
     assertEquals(1, row.getRepeatCount(clip.repeatCount), "control: the row must hold a count");
 
     clip.setPos(0); // what PlaybackHandler.start() now does
+    clip.processCurrentPos(0); // the zero-increment start tick (PlaybackHandler.start)
     assertEquals(0, clip.repeatCount);
     assertEquals(0, clip.lastProcessedPos);
     assertEquals(0, row.getRepeatCount(clip.repeatCount));
@@ -351,6 +352,7 @@ class PlayConditionsTest {
     clip.setPlayDirection(ClipModel.PlayDirection.REVERSE);
     assertEquals(SequenceDirection.REVERSE, clip.sequenceDirectionMode);
     clip.setPos(0);
+    clip.processCurrentPos(0); // the zero-increment start tick (PlaybackHandler.start)
     play(2);
     // In reverse, step 2 (pitch 62) fires before step 0 (pitch 60); pitch 60 has FIRST iterance so
     // it fires only in loop 0.
@@ -366,6 +368,7 @@ class PlayConditionsTest {
     clip.setPlayDirection(ClipModel.PlayDirection.PING_PONG);
     assertEquals(SequenceDirection.PINGPONG, clip.sequenceDirectionMode);
     clip.setPos(0);
+    clip.processCurrentPos(0); // the zero-increment start tick (PlaybackHandler.start)
     play(3);
     assertEquals(List.of(60, 62, 62, 60, 60, 62), sound.pitchOrder);
   }
@@ -414,6 +417,7 @@ class PlayConditionsTest {
     addNote(1, 62, 0).setIterance(new Iterance((byte) 2, (byte) 0b01)); // 1of2
 
     clip.setPos(0);
+    clip.processCurrentPos(0); // the zero-increment start tick (PlaybackHandler.start)
     // 2 clip loops = 192 ticks = 4 passes of the 48-tick independent rows.
     play(2);
 
@@ -433,6 +437,7 @@ class PlayConditionsTest {
     ClipModel snapshot = clip.deepCopy("snap");
 
     clip.setPos(0);
+    clip.processCurrentPos(0); // the zero-increment start tick (PlaybackHandler.start)
     for (int t = 0; t < 60; t++) {
       clip.incrementPos(1);
       clip.processCurrentPos(1);
@@ -457,6 +462,7 @@ class PlayConditionsTest {
   @Test
   void midPlaybackStepAndMuteMutationsInvalidateRowSchedule() {
     clip.setPos(0);
+    clip.processCurrentPos(0); // the zero-increment start tick (PlaybackHandler.start)
     // Tick 1 on an empty 96-tick clip schedules ticksTilNextNoteRowEvent = 95.
     for (int t = 0; t < 10; t++) {
       clip.incrementPos(1);
@@ -518,6 +524,7 @@ class PlayConditionsTest {
 
     clip.setPlayDirection(ClipModel.PlayDirection.REVERSE);
     clip.setPos(0);
+    clip.processCurrentPos(0); // the zero-increment start tick (PlaybackHandler.start)
     // Advance 48 reverse ticks (96 -> 48): tailed note would have fired at 48, one-shot must not.
     for (int t = 0; t < 48; t++) {
       clip.incrementPos(1);
@@ -622,20 +629,20 @@ class PlayConditionsTest {
   }
 
   @Test
-  void legacyDirectPositionCallsDoNotStallQuietTicks() {
+  void singleTickAdvancesDoNotStallQuietTicks() {
     NoteRowModel row = clip.getOrCreateRow(0);
     row.setPitch(60);
     row.getNotes().add(new NoteModel(0, 12, 1.0f, 1.0f, 0));
     row.getNotes().add(new NoteModel(24, 12, 1.0f, 1.0f, 0));
     clip.setPos(0);
+    clip.processCurrentPos(0); // the zero-increment start tick (PlaybackHandler.start)
 
     for (int t = 0; t < 48; t++) {
-      clip.lastProcessedPos += 1;
+      clip.incrementPos(1);
       clip.processCurrentPos(1);
     }
 
-    assertEquals(
-        2, sound.count(60), "legacy direct-position caller must fire both notes without stalling");
+    assertEquals(2, sound.count(60), "single-tick advances must fire both notes without stalling");
     assertEquals(
         2,
         sound.releaseCount,
@@ -651,6 +658,7 @@ class PlayConditionsTest {
 
     clip.setPlayDirection(ClipModel.PlayDirection.REVERSE);
     clip.setPos(0);
+    clip.processCurrentPos(0); // the zero-increment start tick (PlaybackHandler.start)
     // Advance exactly 1 full reverse pass (96 ticks) so lastProcessedPos lands back on 0.
     for (int t = 0; t < 96; t++) {
       clip.incrementPos(1);
@@ -985,5 +993,22 @@ class PlayConditionsTest {
         0,
         arpCutSound.releaseCount,
         "CUT-mode sample with arpeggiator on must not release at loop wrap");
+  }
+
+  @Test
+  void playbackStartRunsTheZeroTickSoAReversedClipStartsOnPassZero() {
+    // C: setPos(0) leaves a reversed clip at repeatCount -1 (clip.cpp:374-381) and the start's
+    // zero-increment processCurrentPos takes it to 0 (clip.cpp:259-260). No pending flag.
+    clip.setPlayDirection(ClipModel.PlayDirection.REVERSE);
+    SynthTrackModel track = new SynthTrackModel("T");
+    track.addClip(clip);
+    ProjectModel project = new ProjectModel();
+    project.addTrack(track);
+    org.deluge.playback.PlaybackHandler handler = new org.deluge.playback.PlaybackHandler();
+    handler.setProject(project);
+    handler.start();
+    assertEquals(0, clip.repeatCount);
+    assertEquals(0, clip.lastProcessedPos);
+    handler.stop();
   }
 }

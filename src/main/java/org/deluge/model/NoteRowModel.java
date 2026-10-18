@@ -30,7 +30,6 @@ public class NoteRowModel {
   private transient int lastProcessedPosIfIndependent = 0;
   private transient int repeatCountIfIndependent = 0;
   private transient boolean currentlyPlayingReversedIfIndependent = false;
-  private transient boolean reverseStartAtZeroPending = false;
   private transient int ignoreNoteOnsBefore_ = 0;
   private transient ParamManager paramManager = new ParamManager();
   private transient Runnable onScheduleInvalidated;
@@ -49,7 +48,6 @@ public class NoteRowModel {
     this.lastProcessedPosIfIndependent = live.lastProcessedPosIfIndependent;
     this.repeatCountIfIndependent = live.repeatCountIfIndependent;
     this.currentlyPlayingReversedIfIndependent = live.currentlyPlayingReversedIfIndependent;
-    this.reverseStartAtZeroPending = live.reverseStartAtZeroPending;
   }
 
   public int getLastProcessedPosIfIndependent() {
@@ -106,13 +104,11 @@ public class NoteRowModel {
                 && (repeatCountIfIndependent & 1) != 0));
 
     lastProcessedPosIfIndependent = newPos - repeatCountIfIndependent * effectiveLoopLength;
-    reverseStartAtZeroPending = false;
     if (currentlyPlayingReversedIfIndependent) {
       if (lastProcessedPosIfIndependent != 0) {
         lastProcessedPosIfIndependent = effectiveLoopLength - lastProcessedPosIfIndependent;
       } else {
         repeatCountIfIndependent--;
-        reverseStartAtZeroPending = true;
       }
     }
   }
@@ -125,12 +121,6 @@ public class NoteRowModel {
   public void incrementPosIfIndependent(int numTicks) {
     if (!hasIndependentPlayPos()) {
       return;
-    }
-    if (numTicks > 0 && reverseStartAtZeroPending) {
-      // C runs processCurrentPos(0) at pos 0 before the first non-zero increment, which
-      // increments repeatCountIfIndependent from -1 to 0 (note_row.cpp:2084-2085).
-      repeatCountIfIndependent++;
-      reverseStartAtZeroPending = false;
     }
     int movement = currentlyPlayingReversedIfIndependent ? -numTicks : numTicks;
     lastProcessedPosIfIndependent += movement;
@@ -165,9 +155,6 @@ public class NoteRowModel {
       if (reversedBefore != currentlyPlayingReversedIfIndependent) {
         // C note_row.cpp:4472-4473 — mirrors position zero too (0 -> loopLengthIfIndependent).
         lastProcessedPosIfIndependent = loopLengthIfIndependent - lastProcessedPosIfIndependent;
-        if (!currentlyPlayingReversedIfIndependent) {
-          reverseStartAtZeroPending = false;
-        }
       }
     }
   }
@@ -377,7 +364,6 @@ public class NoteRowModel {
         }
         if (lastProcessedPosIfIndependent == 0) {
           repeatCountIfIndependent++;
-          reverseStartAtZeroPending = false;
           if (clipSequenceDirectionMode == SequenceDirection.PINGPONG) {
             lastProcessedPosIfIndependent = -lastProcessedPosIfIndependent;
             currentlyPlayingReversedIfIndependent = playingReversedNow = !playingReversedNow;

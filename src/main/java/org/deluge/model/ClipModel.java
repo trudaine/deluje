@@ -85,8 +85,6 @@ public class ClipModel extends TimelineCounter {
   private transient int ticksTilNextEvent = Integer.MAX_VALUE;
   private transient int ticksTilNextNoteRowEvent = 0; // C instrument_clip.h:114
   private transient int noteRowsNumTicksBehindClip = 0; // C instrument_clip.h:115
-  private transient boolean reverseStartAtZeroPending = false;
-  private transient boolean posIncrementedForCurrentTick = false;
   public transient Object sound; // The transient DSP engine reference (FirmwareSound / FirmwareKit)
 
   public NoteRowModel getOrCreateRow(int rowIndex) {
@@ -493,9 +491,6 @@ public class ClipModel extends TimelineCounter {
         if (len > 0) {
           // C clip.cpp:1049 — mirrors position zero too (0 -> loopLength).
           lastProcessedPos = len - lastProcessedPos;
-        }
-        if (!currentlyPlayingReversed) {
-          reverseStartAtZeroPending = false;
         }
       }
     }
@@ -912,7 +907,6 @@ public class ClipModel extends TimelineCounter {
     int loopLength = getLoopLength();
     ticksTilNextNoteRowEvent = 0; // C instrument_clip.cpp:381 -> expectEvent() :4404
     noteRowsNumTicksBehindClip = 0; // C instrument_clip.cpp:383
-    reverseStartAtZeroPending = false;
     if (loopLength <= 0) {
       // A C clip always has loopLength > 0; this model can be built with zero steps. Keep the reset
       // that PlaybackHandler.start() did before this port rather than divide by zero.
@@ -938,13 +932,12 @@ public class ClipModel extends TimelineCounter {
         newPos = loopLength - newPos;
       } else {
         repeatCount--; // Cos it's going to get incremented as a side effect of reversed clips
-        // starting at pos 0 after which they'll immediately wrap
-        reverseStartAtZeroPending = true;
+        // starting at pos 0 after which they'll immediately wrap — by the zero-increment
+        // processCurrentPos(0) the playback start runs first (PlaybackHandler.start).
       }
     }
 
     lastProcessedPos = newPos;
-    posIncrementedForCurrentTick = false;
 
     // instrument_clip.cpp:404-436 — rows with independent play positions. The row's newPos is the
     // value AFTER Clip::setPos reduced it, exactly as in the C (it passes the same variable).
@@ -961,13 +954,6 @@ public class ClipModel extends TimelineCounter {
    * playing in reverse).
    */
   public void incrementPos(int numTicks) {
-    posIncrementedForCurrentTick = true;
-    if (numTicks > 0 && reverseStartAtZeroPending) {
-      // C runs processCurrentPos(0) at pos 0 before the first non-zero increment, which increments
-      // repeatCount from -1 to 0 (clip.cpp:260-261).
-      repeatCount++;
-      reverseStartAtZeroPending = false;
-    }
     int clipTicks = currentlyPlayingReversed ? -numTicks : numTicks;
     lastProcessedPos += clipTicks;
 
@@ -1067,8 +1053,6 @@ public class ClipModel extends TimelineCounter {
   }
 
   public void processCurrentPos(int ticksSinceLast) {
-    boolean wasIncremented = posIncrementedForCurrentTick;
-    posIncrementedForCurrentTick = false;
     int effectiveLength = getLoopLength();
     if (effectiveLength <= 0) return;
 
@@ -1090,7 +1074,6 @@ public class ClipModel extends TimelineCounter {
     if (currentlyPlayingReversed) {
       if (lastProcessedPos == 0) {
         repeatCount++;
-        reverseStartAtZeroPending = false;
         if (sequenceDirectionMode == SequenceDirection.PINGPONG) {
           lastProcessedPos = -lastProcessedPos;
           currentlyPlayingReversed = !currentlyPlayingReversed;
@@ -1142,12 +1125,6 @@ public class ClipModel extends TimelineCounter {
                 lastProcessedPos, effectiveLength, currentlyPlayingReversed, false, mayInterpolate);
           }
         }
-      }
-
-      // If a legacy caller advanced lastProcessedPos directly without calling incrementPos(),
-      // apply the note-row half of InstrumentClip::incrementPos (instrument_clip.cpp:4731-4749).
-      if (!wasIncremented && ticksSinceLast > 0) {
-        advanceNoteRowSchedule(ticksSinceLast);
       }
 
       // C instrument_clip.cpp:706-737 — only process NoteRows when ticksTilNextNoteRowEvent <= 0.
