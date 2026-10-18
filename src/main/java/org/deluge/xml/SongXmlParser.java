@@ -1261,7 +1261,8 @@ public class SongXmlParser {
       clip.setHpfFrequency(DelugeHexMapper.hexToHz(hpfVal));
     }
     readAttrFloatHex(params, "hpfResonance", clip::setHpfResonance, true);
-    readAttrFloatHex(params, "eqBass", clip::setEqBass, true);
+    // C audio_clip.cpp / mod_controllable_audio.cpp — eqBass and eqTreble are bipolar (-1..+1).
+    readAttrFloatHex(params, "eqBass", clip::setEqBass, false);
     readAttrFloatHex(params, "eqTreble", clip::setEqTreble, false);
     readAttrFloatHex(params, "eqBassFrequency", clip::setEqBassFrequency, true);
     readAttrFloatHex(params, "eqTrebleFrequency", clip::setEqTrebleFrequency, true);
@@ -1294,7 +1295,7 @@ public class SongXmlParser {
     // <equalizer> child: bass, treble, bassFrequency, trebleFrequency
     Element eqChild = getFirstChild(params, "equalizer");
     if (eqChild != null) {
-      readAttrFloatHex(eqChild, "bass", clip::setEqBass, true);
+      readAttrFloatHex(eqChild, "bass", clip::setEqBass, false);
       readAttrFloatHex(eqChild, "treble", clip::setEqTreble, false);
       readAttrFloatHex(eqChild, "bassFrequency", clip::setEqBassFrequency, true);
       readAttrFloatHex(eqChild, "trebleFrequency", clip::setEqTrebleFrequency, true);

@@ -186,8 +186,10 @@ public class KitXmlParser {
         soundNode,
         "polyphonic",
         v -> {
-          if ("choke".equalsIgnoreCase(v)) {
+          if ("choke".equalsIgnoreCase(v) || "2".equals(v)) {
             sound.setPolyphony(SynthTrackModel.PolyphonyMode.CHOKE);
+          } else if ("auto".equalsIgnoreCase(v)) {
+            sound.setPolyphony(SynthTrackModel.PolyphonyMode.AUTO);
           } else if ("mono".equalsIgnoreCase(v) || "0".equals(v) || "false".equalsIgnoreCase(v)) {
             sound.setPolyphony(SynthTrackModel.PolyphonyMode.MONO);
           } else if ("legato".equalsIgnoreCase(v)) {

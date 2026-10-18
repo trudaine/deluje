@@ -68,11 +68,11 @@ public class KitSynthSerializer {
           osc1.setAttribute("type", "sample");
           appendTextChild(doc, osc1, "fileName", sound.getSamplePath());
         } else {
-          osc1.setAttribute("type", "none");
+          osc1.setAttribute("type", oscTypeToFirmwareString(sound.getOsc1Type()));
           appendTextChild(doc, osc1, "fileName", "");
         }
-        appendTextChild(doc, osc1, "transpose", "0");
-        appendTextChild(doc, osc1, "cents", "0");
+        appendTextChild(doc, osc1, "transpose", String.valueOf(sound.getOsc1Transpose()));
+        appendTextChild(doc, osc1, "cents", String.valueOf(sound.getOsc1Cents()));
         // C SampleRepeatMode as parsed (was hardcoded 1 = ONCE for every drum).
         appendTextChild(doc, osc1, "loopMode", String.valueOf(sound.getOsc1LoopMode()));
         appendTextChild(doc, osc1, "reversed", sound.isReverse() ? "1" : "0");
@@ -94,8 +94,8 @@ public class KitSynthSerializer {
         // ── osc2 (always present, often empty) ──
         Element osc2 = doc.createElement("osc2");
         osc2.setAttribute("type", oscTypeToFirmwareString(sound.getOsc2Type()));
-        appendTextChild(doc, osc2, "transpose", "0");
-        appendTextChild(doc, osc2, "cents", "0");
+        appendTextChild(doc, osc2, "transpose", String.valueOf(sound.getOsc2Transpose()));
+        appendTextChild(doc, osc2, "cents", String.valueOf(sound.getOsc2Cents()));
         appendTextChild(doc, osc2, "loopMode", String.valueOf(sound.getOsc2LoopMode()));
         appendTextChild(doc, osc2, "reversed", sound.isOsc2Reversed() ? "1" : "0");
         appendTextChild(doc, osc2, "timeStretchEnable", sound.isOsc2TimeStretch() ? "1" : "0");
@@ -289,8 +289,6 @@ public class KitSynthSerializer {
       appendHexChild(doc, eq, "trebleFrequency", 0f);
       dp.appendChild(eq);
 
-      appendHexChild(doc, dp, "modFXOffset", 0f);
-      appendHexChild(doc, dp, "modFXFeedback", 0f);
       soundElem.appendChild(dp);
 
       // ── midiKnobs ──
@@ -360,7 +358,8 @@ public class KitSynthSerializer {
         synth.getOsc1SamplePath(),
         synth.getOsc1LoopMode(),
         synth.isOsc1Reversed(),
-        synth.isOsc1TimeStretch());
+        synth.isOsc1TimeStretch(),
+        synth.isOsc1LinearInterpolation());
     if (synth.getOsc1SamplePath() != null && !synth.getOsc1SamplePath().isEmpty()) {
       // C sound.cpp:3636 — writeAttribute("timeStretchAmount", source->timeStretchAmount)
       appendTextChild(
@@ -383,11 +382,15 @@ public class KitSynthSerializer {
         synth.getOsc2SamplePath(),
         synth.getOsc2LoopMode(),
         synth.isOsc2Reversed(),
-        synth.isOsc2TimeStretch());
+        synth.isOsc2TimeStretch(),
+        synth.isOsc2LinearInterpolation());
     if (synth.getOsc2SamplePath() != null && !synth.getOsc2SamplePath().isEmpty()) {
       // C sound.cpp:3636 — writeAttribute("timeStretchAmount", source->timeStretchAmount)
       appendTextChild(
           doc, osc2, "timeStretchAmount", String.valueOf(synth.getOsc2TimeStretchAmount()));
+    } else if (synth.isOscillatorSync()) {
+      // C sound.cpp:3701-3703 — oscillatorSync written on osc2 when non-sample and enabled.
+      appendTextChild(doc, osc2, "oscillatorSync", "1");
     }
     root.appendChild(osc2);
 
@@ -396,15 +399,17 @@ public class KitSynthSerializer {
         switch (synth.getPolyphony()) {
           case MONO -> "0";
           case LEGATO -> "legato";
+          case CHOKE -> "choke";
+          case AUTO -> "auto";
           default -> "1";
         };
     appendTextChild(doc, root, "polyphonic", polyVal);
 
     // ── clippingAmount ──
-    appendTextChild(doc, root, "clippingAmount", "0");
+    appendTextChild(doc, root, "clippingAmount", String.valueOf(synth.getClippingAmount()));
 
     // ── voicePriority ──
-    appendTextChild(doc, root, "voicePriority", "1");
+    appendTextChild(doc, root, "voicePriority", String.valueOf(synth.getVoicePriority()));
 
     // ── LFOs ──
     appendSynthLfo(doc, root, "lfo1", synth.getLfo(0));
@@ -690,7 +695,7 @@ public class KitSynthSerializer {
 
     appendHexChildUnipolar(doc, dp, "modFXRate", synth.getModFxRate());
     appendHexChildUnipolar(doc, dp, "modFXDepth", synth.getModFxDepth());
-    appendHexChildUnipolar(doc, dp, "modFXOffset", 0f);
+    appendHexChildUnipolar(doc, dp, "modFXOffset", synth.getModFxOffset());
     appendHexChildUnipolar(doc, dp, "modFXFeedback", synth.getModFxFeedback());
     appendHexChildUnipolar(doc, dp, "delayRate", synth.getDelaySend());
     appendHexChildUnipolar(doc, dp, "delayFeedback", 0f);
@@ -727,8 +732,6 @@ public class KitSynthSerializer {
       dp.appendChild(pcContainer);
     }
 
-    appendHexChild(doc, dp, "modFXOffset", 0f);
-    appendHexChild(doc, dp, "modFXFeedback", synth.getModFxFeedback());
     root.appendChild(dp);
 
     // ── midiKnobs ──
@@ -940,6 +943,7 @@ public class KitSynthSerializer {
       return "square";
     }
     return switch (modelType.trim().toUpperCase().replace("_", "").replace(" ", "")) {
+      case "NONE" -> "none";
       case "SAW" -> "saw";
       case "ANALOGSAW", "ANALOGSAW2" -> "analogSaw";
       case "ANALOGSQUARE" -> "analogSquare";
@@ -960,11 +964,21 @@ public class KitSynthSerializer {
    * them, so a sample synth saved as a preset lost its sample and its repeat mode.
    */
   private static void appendSampleSource(
-      Document doc, Element osc, String path, int loopMode, boolean reversed, boolean timeStretch) {
+      Document doc,
+      Element osc,
+      String path,
+      int loopMode,
+      boolean reversed,
+      boolean timeStretch,
+      boolean linearInterpolation) {
     if (path == null || path.isEmpty()) return;
     appendTextChild(doc, osc, "fileName", path);
     appendTextChild(doc, osc, "loopMode", String.valueOf(loopMode)); // C SampleRepeatMode
     appendTextChild(doc, osc, "reversed", reversed ? "1" : "0");
     appendTextChild(doc, osc, "timeStretchEnable", timeStretch ? "1" : "0");
+    // C sound.cpp:3637-3639 — linearInterpolation="1" when linear mode is active.
+    if (linearInterpolation) {
+      appendTextChild(doc, osc, "linearInterpolation", "1");
+    }
   }
 }
