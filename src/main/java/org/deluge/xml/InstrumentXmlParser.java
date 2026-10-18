@@ -180,6 +180,7 @@ public class InstrumentXmlParser {
   }
 
   public static void populateSynth(Element soundNode, SynthTrackModel synth, boolean isPresetLoad) {
+    boolean resolvedPreset = false;
     if (!isPresetLoad && soundNode.hasAttribute("presetName")) {
       String presetName = soundNode.getAttribute("presetName");
       String folder = soundNode.getAttribute("presetFolder");
@@ -191,10 +192,34 @@ public class InstrumentXmlParser {
         try (java.io.InputStream presetIs = new FileInputStream(presetFile)) {
           Element presetRoot = parseXml(presetIs).getDocumentElement();
           populateSynth(presetRoot, synth, true);
+          resolvedPreset = true;
         } catch (Exception e) {
           LOG.log(Level.WARNING, "Failed to load referenced preset: " + presetFile, e);
         }
       }
+    }
+    if (isPresetLoad || !resolvedPreset) {
+      // C sound.cpp:149, 3241-3243 — Sound constructor defaults oscillatorSync to false, and
+      // Sound::readFromFile resets modulatorTranspose[1] and all four retrigger phases to 0 before
+      // reading XML tags (constructor default is -12 / -1 for UI-new sounds, whereas XML files
+      // omit retrigPhase when retrigger is ON at phase 0).
+      synth.setOscillatorSync(false);
+      synth.setModulator2Transpose(0);
+      synth.setOsc1RetrigPhase(0);
+      synth.setOsc2RetrigPhase(0);
+      synth.setMod1RetrigPhase(0);
+      synth.setMod2RetrigPhase(0);
+    }
+    // C sound.cpp:603-614 — legacy <oscillatorReset> tag or attribute. Must run before <osc1>,
+    // <osc2>, <modulator1>, and <modulator2> so any explicit per-source <retrigPhase> still wins.
+    String oscReset = attrOrChildText(soundNode, "oscillatorReset");
+    if (oscReset != null && !oscReset.isEmpty()) {
+      String v = oscReset.trim();
+      int retrigDefault = ("0".equals(v) || "false".equalsIgnoreCase(v)) ? -1 : 0;
+      synth.setOsc1RetrigPhase(retrigDefault);
+      synth.setOsc2RetrigPhase(retrigDefault);
+      synth.setMod1RetrigPhase(retrigDefault);
+      synth.setMod2RetrigPhase(retrigDefault);
     }
     // Direct child bindings (osc1 attr/or child type, osc2 child type)
     applyDirectBindings(soundNode, synth);
@@ -597,17 +622,6 @@ public class InstrumentXmlParser {
       }
     }
 
-    // -- oscillatorReset (compatibility, tag or attribute) --
-    String oscReset = attrOrChildText(soundNode, "oscillatorReset");
-    if (oscReset != null && !oscReset.isEmpty()) {
-      if ("0".equals(oscReset) || "false".equalsIgnoreCase(oscReset)) {
-        synth.setOsc1RetrigPhase(-1);
-        synth.setOsc2RetrigPhase(-1);
-        synth.setMod1RetrigPhase(-1);
-        synth.setMod2RetrigPhase(-1);
-      }
-    }
-
     // ── Envelopes 0-3 ──
     parseEnvelopes(soundNode, synth);
 
@@ -915,8 +929,14 @@ public class InstrumentXmlParser {
       synth.setFmRatio(modulatorRatio(transpose, cents));
       synth.setModulator1Transpose(transpose);
       synth.setModulator1Cents(cents);
-      int retrig = attrOrChildInt(mod1, "retrigPhase", 0);
-      synth.setMod1RetrigPhase(retrig);
+      String retrigStr = attrOrChildText(mod1, "retrigPhase");
+      if (retrigStr != null && !retrigStr.isBlank()) {
+        try {
+          synth.setMod1RetrigPhase((int) Long.parseLong(retrigStr.trim()));
+        } catch (NumberFormatException e) {
+          LOG.log(Level.FINE, "NumberFormatException parsing mod1 retrigPhase", e);
+        }
+      }
     }
     NodeList mod1AmtNodes = soundNode.getElementsByTagName("modulator1Amount");
     if (mod1AmtNodes.getLength() > 0) {
@@ -962,8 +982,14 @@ public class InstrumentXmlParser {
       synth.setFmRatio2(modulatorRatio(transpose, cents));
       synth.setModulator2Transpose(transpose);
       synth.setModulator2Cents(cents);
-      int retrig = attrOrChildInt(mod2, "retrigPhase", 0);
-      synth.setMod2RetrigPhase(retrig);
+      String retrigStr = attrOrChildText(mod2, "retrigPhase");
+      if (retrigStr != null && !retrigStr.isBlank()) {
+        try {
+          synth.setMod2RetrigPhase((int) Long.parseLong(retrigStr.trim()));
+        } catch (NumberFormatException e) {
+          LOG.log(Level.FINE, "NumberFormatException parsing mod2 retrigPhase", e);
+        }
+      }
       String toMod1 = attrOrChildText(mod2, "toModulator1");
       if (toMod1 != null && !toMod1.isBlank()) {
         synth.setModulator1ToModulator0("1".equals(toMod1) || "true".equalsIgnoreCase(toMod1));

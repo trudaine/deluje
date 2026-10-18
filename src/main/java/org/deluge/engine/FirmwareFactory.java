@@ -1427,11 +1427,12 @@ public class FirmwareFactory {
       drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
     }
 
-    // Trigger phases
+    // Trigger phases + oscillator hard sync
     drumSound.osc1RetriggerPhase = sd.getOsc1RetrigPhase();
     drumSound.osc2RetriggerPhase = sd.getOsc2RetrigPhase();
     drumSound.mod1RetrigPhase = sd.getMod1RetrigPhase();
     drumSound.mod2RetrigPhase = sd.getMod2RetrigPhase();
+    drumSound.fw2Sound.oscillatorSync = sd.isOscillatorSync();
     drumSound.fw2Sound.sidechainSend = (int) (sd.getSidechainSend() * 2147483647.0);
 
     // Map drum-specific patch cables

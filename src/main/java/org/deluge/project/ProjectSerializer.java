@@ -223,6 +223,9 @@ public class ProjectSerializer {
                 "timeStretchAmount", String.valueOf(sound.getOsc2TimeStretchAmount()), false);
             writer.writeAttribute(
                 "linearInterpolation", sound.isOsc2LinearInterpolation() ? "1" : "0", false);
+          } else if (sound.isOscillatorSync()) {
+            // C sound.cpp:3701-3703 — oscillatorSync written on osc2 when non-sample and enabled.
+            writer.writeAttribute("oscillatorSync", "1", false);
           }
           writer.closeTag();
 

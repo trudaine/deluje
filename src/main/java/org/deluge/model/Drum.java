@@ -90,11 +90,12 @@ public abstract class Drum {
   protected FilterMode hpfMode = FilterMode.LADDER_12;
   protected float hpfFm = 0.0f;
 
-  // Oscillator retrigger phases
+  // Oscillator retrigger phases + hard sync (C sound.h:150, sound.cpp:88)
   protected int osc1RetrigPhase = 0;
   protected int osc2RetrigPhase = 0;
   protected int mod1RetrigPhase = -1;
   protected int mod2RetrigPhase = -1;
+  protected boolean oscillatorSync = false;
 
   // Wavetable position
   protected float waveIndex = 0.0f;
@@ -1002,5 +1003,13 @@ public abstract class Drum {
 
   public void setModulator2Cents(int v) {
     this.modulator2Cents = v;
+  }
+
+  public boolean isOscillatorSync() {
+    return oscillatorSync;
+  }
+
+  public void setOscillatorSync(boolean v) {
+    this.oscillatorSync = v;
   }
 }
