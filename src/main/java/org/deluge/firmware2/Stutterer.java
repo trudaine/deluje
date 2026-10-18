@@ -82,7 +82,14 @@ public class Stutterer {
   }
 
   public void beginStutter(Object source, ParamManager paramManager, Config sc) {
-    beginStutter(source, paramManager, sc, DEFAULT_TIME_PER_TICK_INVERSE);
+    // C mod_controllable_audio.cpp:1304-1307 — pass live song tempo (timePerInternalTickInverse)
+    // when stuttering a firmware2.Sound so the captured buffer length matches Sound.render's
+    // processStutter tick rate instead of defaulting to 1 << 20 (~120 BPM).
+    int timePerTickInverse =
+        (source instanceof Sound sound)
+            ? sound.timePerInternalTickInverse
+            : DEFAULT_TIME_PER_TICK_INVERSE;
+    beginStutter(source, paramManager, sc, timePerTickInverse);
   }
 
   /**

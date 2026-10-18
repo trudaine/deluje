@@ -257,16 +257,21 @@ public class LivePitchShifter {
             playHeads[TimeStretcher.PLAY_HEAD_NEWER].getNumRawSamplesBehindInput(
                 liveInputBuffer, phaseIncrement); // C:195-196
 
+        // C live_pitch_shifter.cpp:201-205 — numRawSamplesProcessed and
+        // numRawSamplesProcessedAtStart are uint32_t / uint64_t, so >>
+        // kPercBufferReductionMagnitude
+        // is an unsigned shift (>>> in Java); signed >> 7 produces -1 (0xFFFFFFFF) during early
+        // blocks and collides with the 0xFFFFFFFF percPos sentinel.
         int newerPlayHeadPercPos =
             (liveInputBuffer.numRawSamplesProcessed - howFarBack - 1)
-                >> LiveInputBuffer.K_PERC_BUFFER_REDUCTION_MAGNITUDE; // C:198-199
+                >>> LiveInputBuffer.K_PERC_BUFFER_REDUCTION_MAGNITUDE;
 
         int latestPercPosBefore =
             (numRawSamplesProcessedAtStart - 1)
-                >> LiveInputBuffer.K_PERC_BUFFER_REDUCTION_MAGNITUDE; // C:201
+                >>> LiveInputBuffer.K_PERC_BUFFER_REDUCTION_MAGNITUDE;
         int latestPercPosNow =
             (liveInputBuffer.numRawSamplesProcessed - 1)
-                >> LiveInputBuffer.K_PERC_BUFFER_REDUCTION_MAGNITUDE; // C:202
+                >>> LiveInputBuffer.K_PERC_BUFFER_REDUCTION_MAGNITUDE;
 
         if (latestPercPosNow != newerPlayHeadPercPos
             && (newerPlayHeadPercPos != playHeads[TimeStretcher.PLAY_HEAD_NEWER].percPos
@@ -462,11 +467,13 @@ public class LivePitchShifter {
                   Functions.multiply_32x32_rshift32(Functions.getNoise(), randomElement << 8))
               << 2; // C:497-498
 
-      int backEdge = minSearch >> LiveInputBuffer.K_PERC_BUFFER_REDUCTION_MAGNITUDE; // C:501
+      int backEdge = minSearch >> LiveInputBuffer.K_PERC_BUFFER_REDUCTION_MAGNITUDE; // C:504
       int howFarBackSearched = 0;
+      long nowUnsigned = Integer.toUnsignedLong(numRawSamplesProcessedAtNowTime);
       int percPos =
-          (numRawSamplesProcessedAtNowTime + LiveInputBuffer.K_PERC_BUFFER_REDUCTION_SIZE - 1)
-              >> LiveInputBuffer.K_PERC_BUFFER_REDUCTION_MAGNITUDE; // C:503-504
+          (int)
+              ((nowUnsigned + LiveInputBuffer.K_PERC_BUFFER_REDUCTION_SIZE - 1)
+                  >>> LiveInputBuffer.K_PERC_BUFFER_REDUCTION_MAGNITUDE); // C:506-507 (uint64 >> 7)
 
       int totalPerc = 0;
       float bestAverage = 0;
@@ -509,8 +516,9 @@ public class LivePitchShifter {
               + averagesStartOffsetFromHead
               + lengthPerMovingAverage * TimeStretcher.K_NUM_MOVING_AVERAGES; // C:553-555
       howFarBack = Math.max(howFarBack, minDistanceBack); // C:556
-      if (howFarBack > numRawSamplesProcessedAtNowTime)
-        howFarBack = numRawSamplesProcessedAtNowTime; // C:558-560
+      if (howFarBack > nowUnsigned) { // C:561 (uint64 comparison)
+        howFarBack = (int) nowUnsigned;
+      }
 
       if (lengthPerMovingAverage != 0) { // C:562
         averagesStartPosNewHead =
@@ -558,12 +566,14 @@ public class LivePitchShifter {
         lengthPerMovingAverage != 0
             && playHeads[TimeStretcher.PLAY_HEAD_OLDER].mode
                 != LivePitchShifterPlayHead.PlayHeadMode.RAW_DIRECT; // C:605
+    long latestUnsigned = Integer.toUnsignedLong(numRawSamplesProcessedLatest);
     if (doSearch) {
-      // C:610-618 — bounds checks
+      // C live_pitch_shifter.cpp:613-621 — numRawSamplesProcessedLatest is uint64_t (from
+      // uint32_t).
       doSearch =
           ((averagesStartPosNewHead - averagesStartOffsetFromHead)
                   & (LiveInputBuffer.K_INPUT_RAW_BUFFER_SIZE - 1))
-              < numRawSamplesProcessedLatest;
+              < latestUnsigned;
       if (doSearch) {
         doSearch =
             ((numRawSamplesProcessedLatest - averagesStartPosNewHead)
@@ -602,7 +612,7 @@ public class LivePitchShifter {
         int offsetNow = 0;
         int searchSizeBoundary;
         if (searchDirection == -1) {
-          if (numRawSamplesProcessedLatest < LiveInputBuffer.K_INPUT_RAW_BUFFER_SIZE) {
+          if (latestUnsigned < LiveInputBuffer.K_INPUT_RAW_BUFFER_SIZE) { // C:653 (uint64)
             searchSizeBoundary = averagesStartPosNewHead - averagesStartOffsetFromHead - 1;
             if (searchSizeBoundary <= 0) {
               // goto searchNextDirection

@@ -10,6 +10,7 @@ public class ScalaKeyboardMap {
   private int firstMidiNote = 0;
   private int lastMidiNote = 127;
   private int middleMidiNote = 60;
+  private int referenceMidiNote = 60;
   private double referenceFrequency = 261.625565;
   private int octaveDegree = 12;
   private int[] keyMapping = null; // null means default linear mapping
@@ -52,6 +53,14 @@ public class ScalaKeyboardMap {
 
   public void setMiddleMidiNote(int note) {
     this.middleMidiNote = note;
+  }
+
+  public int getReferenceMidiNote() {
+    return referenceMidiNote;
+  }
+
+  public void setReferenceMidiNote(int note) {
+    this.referenceMidiNote = note;
   }
 
   public double getReferenceFrequency() {
