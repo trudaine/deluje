@@ -94,14 +94,15 @@ public class MidiTakeover {
   }
 
   private int processScale(int cc, int hardwareValue, int currentVirtualValue) {
+    // C midi_takeover.cpp:94-160 — getPreviousKnobPos initializes previous to hardwareValue on the
+    // first turn, then runs the pickup check before falling through to scale mode.
     int previous = previousHardwareValues[cc];
     if (previous < 0) {
       previous = hardwareValue;
       previousHardwareValues[cc] = previous;
-      return -1;
     }
 
-    // Check pick-up first: if we cross the virtual value, switch back to absolute values!
+    // Check pick-up first: if we cross or match the virtual value, switch to absolute values!
     if ((previous <= currentVirtualValue && hardwareValue >= currentVirtualValue)
         || (previous >= currentVirtualValue && hardwareValue <= currentVirtualValue)) {
       previousHardwareValues[cc] = hardwareValue;
@@ -117,12 +118,12 @@ public class MidiTakeover {
 
     double newVirtual = currentVirtualValue;
 
-    // Turning right/increasing: scale relative to remaining positive runway
+    // Turning right/increasing: scale relative to remaining positive runway (C :117, 134)
     if (hardwareChange > 0) {
       int hardwareMaxDelta = 127 - hardwareValue;
       int virtualMaxDelta = 127 - currentVirtualValue;
       if (hardwareMaxDelta > 0) {
-        double changePercentage = (double) hardwareChange / (hardwareMaxDelta + hardwareChange);
+        double changePercentage = (double) hardwareChange / hardwareMaxDelta;
         newVirtual = currentVirtualValue + (virtualMaxDelta * changePercentage);
         if (newVirtual < currentVirtualValue) {
           newVirtual = currentVirtualValue;
@@ -131,12 +132,12 @@ public class MidiTakeover {
         newVirtual = 127;
       }
     }
-    // Turning left/decreasing: scale relative to remaining negative runway
+    // Turning left/decreasing: scale relative to remaining negative runway (C :118, 147)
     else {
       int hardwareMinDelta = hardwareValue;
       int virtualMinDelta = currentVirtualValue;
       if (hardwareMinDelta > 0) {
-        double changePercentage = (double) hardwareChange / (hardwareMinDelta - hardwareChange);
+        double changePercentage = (double) hardwareChange / hardwareMinDelta;
         newVirtual = currentVirtualValue + (virtualMinDelta * changePercentage);
         if (newVirtual > currentVirtualValue) {
           newVirtual = currentVirtualValue;

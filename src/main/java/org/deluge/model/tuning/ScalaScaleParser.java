@@ -17,45 +17,52 @@ public class ScalaScaleParser {
     try (BufferedReader reader =
         new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
       String description = "";
+      boolean descriptionSeen = false;
       int stepsCount = -1;
       List<Double> stepValues = new ArrayList<>();
 
       String line;
       while ((line = reader.readLine()) != null) {
-        line = line.trim();
-        if (line.isEmpty() || line.startsWith("!")) {
-          continue; // Skip comments and empty lines
+        String trimmed = line.trim();
+        if (trimmed.startsWith("!")) {
+          continue; // Skip comment lines
         }
 
-        if (description.isEmpty() && stepsCount == -1) {
-          description = line;
+        if (!descriptionSeen) {
+          description = trimmed;
+          descriptionSeen = true;
           continue;
+        }
+
+        if (trimmed.isEmpty()) {
+          continue; // Skip blank lines after description
         }
 
         if (stepsCount == -1) {
-          stepsCount = Integer.parseInt(line);
+          String countToken = trimmed.split("\\s+")[0];
+          stepsCount = Integer.parseInt(countToken);
           continue;
         }
 
-        // Strip trailing comment lines (e.g. "3/2 ! perfect fifth")
-        int commentIdx = line.indexOf('!');
+        // Strip trailing comment text and ignore any trailing note labels after the pitch token
+        int commentIdx = trimmed.indexOf('!');
         if (commentIdx != -1) {
-          line = line.substring(0, commentIdx).trim();
+          trimmed = trimmed.substring(0, commentIdx).trim();
         }
+        String pitchToken = trimmed.split("\\s+")[0];
 
         double ratio;
-        if (line.contains("/")) {
-          String[] parts = line.split("/");
+        if (pitchToken.contains("/")) {
+          String[] parts = pitchToken.split("/", 2);
           double num = Double.parseDouble(parts[0].trim());
           double den = Double.parseDouble(parts[1].trim());
           ratio = num / den;
-        } else if (line.contains(".")) {
-          double cents = Double.parseDouble(line);
+        } else if (pitchToken.contains(".")) {
+          double cents = Double.parseDouble(pitchToken);
           ratio = Math.pow(2.0, cents / 1200.0);
         } else {
-          // Whole integer steps parsed as whole cents values
-          double cents = Double.parseDouble(line);
-          ratio = Math.pow(2.0, cents / 1200.0);
+          // Scala .scl spec: a single integer without '.' or '/' is a ratio with 1 (e.g. 2 is 2/1).
+          ratio = Double.parseDouble(pitchToken);
         }
         stepValues.add(ratio);
       }
