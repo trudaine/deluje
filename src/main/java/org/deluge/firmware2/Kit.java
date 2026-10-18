@@ -62,8 +62,9 @@ public class Kit extends GlobalEffectable {
       return;
     }
     for (Sound drum : drums) {
-      // C kit.cpp:582 / sound.cpp:2630 — each drum renders into the shared Kit output and reverb
-      // buffers by summing, not overwriting.
+      // C kit.cpp:582-584 / sound.cpp:2630 — each drum inherits shouldLimitDelayFeedback from the
+      // Kit and renders into the shared Kit output and reverb buffers by summing.
+      drum.shouldLimitDelayFeedback = this.shouldLimitDelayFeedback;
       drum.renderOutputSumming(buffer, numSamples, reverbBuffer);
     }
   }

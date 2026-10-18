@@ -169,6 +169,8 @@ class LivePitchEngineMkIEffectableParityTest {
           }
         };
 
+    effectable.postReverbVolumeLastTime = customPostRevVol;
+
     long[] out = new long[2];
     long[] rev = new long[1];
     effectable.renderOutput(out, 1, rev);

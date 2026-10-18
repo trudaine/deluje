@@ -127,6 +127,10 @@ public class FirmwareFactory {
       if (rev != null) {
         kit.reverbSendKnob = normToBipolarParamVolume(rev);
       }
+      Float pan = firstClip.getKitParams().get("pan");
+      if (pan != null) {
+        kit.unpatchedPan = bipolarUnitToParam(pan);
+      }
     }
 
     File sdRoot = PreferencesManager.getLibraryDir();
@@ -173,6 +177,7 @@ public class FirmwareFactory {
     out.clippingAmount = model.getClippingAmount();
     if (model.getAudioClips() != null && !model.getAudioClips().isEmpty()) {
       AudioTrackModel.AudioClip clip = model.getAudioClips().get(0);
+      out.unpatchedPan = bipolarUnitToParam(clip.getPan());
       String path = clip.getFilePath();
       if (path != null && !path.isEmpty()) {
         File f = new File(path);

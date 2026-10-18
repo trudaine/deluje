@@ -612,7 +612,6 @@ public class Sound extends GlobalEffectable {
   public int delaySyncType = 0; // 0 = EVEN, 1 = TRIPLET, 2 = DOTTED
   public boolean delayPingPong = false;
   public boolean delayAnalog = false;
-  public boolean shouldLimitDelayFeedback = false;
 
   public ModFx.ModFXType modFXType = ModFx.ModFXType.NONE;
   public int modFXRateIncrement = 0;
@@ -630,6 +629,7 @@ public class Sound extends GlobalEffectable {
   private int[][] fxIntBuffer = new int[256][2];
 
   public Sound() {
+    this.postReverbVolumeLastTime = -1; // C sound.cpp:94 — grab actual value on first render
     for (int i = 0; i < 4; i++) {
       lfoConfig[i] = new LfoConfig();
     }
@@ -642,6 +642,18 @@ public class Sound extends GlobalEffectable {
     for (int i = 0; i < 256; i++) {
       fxIntBuffer[i] = new int[2];
     }
+  }
+
+  /** C sound.cpp:2613 — Sound pans per-voice via LOCAL_PAN; processReverbSendAndVolume gets 0. */
+  @Override
+  protected int getPostReverbPan() {
+    return 0;
+  }
+
+  /** C sound.cpp:2700 — Sound resets postReverbVolumeLastTime to -1 when skipping rendering. */
+  @Override
+  protected boolean shouldResetPostReverbVolumeOnSilence() {
+    return true;
   }
 
   public void setupUnisonDetuners() {
@@ -1028,6 +1040,8 @@ public class Sound extends GlobalEffectable {
     // and all global patched parameters (FIRST_GLOBAL .. kNumParams - 1) once per block (even when
     // voices_.empty() during FX tails, and before doParamLPF advances paramLPF at block end).
     Patcher.performGlobalPatching(this, trackParamFinalValues);
+    super.postFXVolume = trackParamFinalValues[Param.GLOBAL_VOLUME_POST_FX];
+    super.postReverbVolume = trackParamFinalValues[Param.GLOBAL_VOLUME_POST_REVERB_SEND];
     blockResolvedReverbValue = trackParamFinalValues[Param.GLOBAL_REVERB_AMOUNT];
     hasBlockResolvedReverbValue = inRenderOutputBlock;
 
@@ -1235,7 +1249,7 @@ public class Sound extends GlobalEffectable {
 
   // C sound.h — skippingRendering / startSkippingRenderingAtTime, plus a per-sound stand-in for
   // AudioEngine::audioSampleTimer (advanced by every reassessRenderSkippingStatus call).
-  boolean skippingRendering = true;
+  public boolean skippingRendering = true;
   long startSkippingRenderingAtTime = 0;
   long renderSkipSampleTimer = 0;
 
@@ -1293,6 +1307,7 @@ public class Sound extends GlobalEffectable {
         return false;
       }
       skippingRendering = false; // C :2235 — stopSkippingRendering
+      postReverbVolumeLastTime = -1; // C sound.cpp:2700
       return true;
     }
     startSkippingRenderingAtTime = 0; // C :2240

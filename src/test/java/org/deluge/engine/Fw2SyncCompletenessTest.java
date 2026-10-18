@@ -106,7 +106,6 @@ class Fw2SyncCompletenessTest {
           "unisonPan", // derived by setupUnisonStereoSpread() from unisonStereoSpread
           "monophonicExpressionValues", // runtime MPE smoothing state
           "expressionSourcesChangedAtSynthLevel", // runtime MPE flag
-          "shouldLimitDelayFeedback", // fixed default, not model-driven
           "globalSourceValues", // runtime modulation output (LFO/sidechain), recomputed per block
           "trackParamFinalValues", // runtime parameters cache, recomputed per block
           "inRenderOutputBlock", // runtime per-block reverb send cache guard

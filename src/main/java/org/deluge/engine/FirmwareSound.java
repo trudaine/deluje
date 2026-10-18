@@ -128,6 +128,7 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   private StereoSample[] fxStereoBuffer = new StereoSample[256];
 
   public FirmwareSound() {
+    this.postReverbVolumeLastTime = -1; // C sound.cpp:94 — grab actual value on first render
     for (int i = 0; i < 256; i++) fxStereoBuffer[i] = new StereoSample();
     for (int i = 0; i < globalLfos.length; i++) globalLfos[i] = new org.deluge.firmware2.Lfo();
     // C Sound::initParams (sound.cpp:131-187, faithfully ported to fw2 Sound.initParams).
@@ -239,6 +240,18 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     fw2Sound.processPostVolumeDynamics(interleaved, numSamples, postFXVolume);
   }
 
+  /** C sound.cpp:2613 — Sound pans per-voice via LOCAL_PAN; processReverbSendAndVolume gets 0. */
+  @Override
+  protected int getPostReverbPan() {
+    return 0;
+  }
+
+  /** C sound.cpp:2700 — Sound resets postReverbVolumeLastTime to -1 when skipping rendering. */
+  @Override
+  protected boolean shouldResetPostReverbVolumeOnSilence() {
+    return true;
+  }
+
   // Legacy test support:
   public void renderInternal(StereoSample[] buffer, int numSamples, Object unused) {
     int[] flat = new int[numSamples * 2];
@@ -284,7 +297,13 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
    * org.deluge.firmware2.Sound#reassessRenderSkippingStatus}. Call once per render block.
    */
   public boolean shouldRender(int numSamples) {
-    return fw2Sound.reassessRenderSkippingStatus(numSamples);
+    boolean wasSkipping = fw2Sound.skippingRendering;
+    boolean render = fw2Sound.reassessRenderSkippingStatus(numSamples);
+    if (wasSkipping && render) {
+      // C sound.cpp:2700 — stopSkippingRendering resets postReverbVolumeLastTime to -1.
+      this.postReverbVolumeLastTime = -1;
+    }
+    return render;
   }
 
   // Synchronized against FirmwareFactory.applyModelToLiveSound (the UI live-apply path), which
@@ -518,6 +537,7 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     fw2Sound.delaySyncType = delaySyncType;
     fw2Sound.delayPingPong = delayPingPong;
     fw2Sound.delayAnalog = delayAnalog;
+    fw2Sound.shouldLimitDelayFeedback = this.shouldLimitDelayFeedback;
 
     // Copy Custom LFO Waveform
     System.arraycopy(customLfoWave, 0, fw2Sound.customLfoWave, 0, 256);
