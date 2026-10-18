@@ -96,7 +96,8 @@ public class EnvelopeGraphComponent extends JComponent {
               }
               case DECAY_SUSTAIN -> {
                 // Drag horizontally to shape Decay, vertically to shape Sustain
-                float attackNorm = env.attack() / 2.0f;
+                float clampedAttack = Math.max(0.001f, Math.min(2.0f, env.attack()));
+                float attackNorm = clampedAttack / 2.0f;
                 float attackX = startX + attackNorm * maxSegW;
 
                 float decayW = e.getX() - attackX;
@@ -132,12 +133,19 @@ public class EnvelopeGraphComponent extends JComponent {
 
   private void updateSlider(String name, int val) {
     Window win = SwingUtilities.getWindowAncestor(this);
-    if (win instanceof Container container) {
+    Container container =
+        (win instanceof Container c) ? c : SwingSynthConfigDialog.findRootContainer(this);
+    if (container != null) {
       JSlider slider = SwingSynthConfigDialog.findSliderByName(container, name);
       if (slider != null) {
         slider.setValue(val);
+        return;
       }
     }
+  }
+
+  boolean isHandleHitForTest(int mx, int my) {
+    return hitTest(mx, my) != ActiveHandle.NONE;
   }
 
   private ActiveHandle hitTest(int mx, int my) {
@@ -156,10 +164,16 @@ public class EnvelopeGraphComponent extends JComponent {
     float baseY = paddingY + drawH;
     float startY = paddingY;
 
-    float attackNorm = env.attack() / 2.0f;
-    float decayNorm = env.decay() / 5.0f;
-    float sustainNorm = env.sustain();
-    float releaseNorm = env.release() / 5.0f;
+    // Match the exact display clamping used in paintComponent so off-range values stay clickable
+    float attack = Math.max(0.001f, Math.min(2.0f, env.attack()));
+    float decay = Math.max(0.0f, Math.min(5.0f, env.decay()));
+    float sustain = Math.max(0.0f, Math.min(1.0f, env.sustain()));
+    float release = Math.max(0.0f, Math.min(5.0f, env.release()));
+
+    float attackNorm = attack / 2.0f;
+    float decayNorm = decay / 5.0f;
+    float sustainNorm = sustain;
+    float releaseNorm = release / 5.0f;
 
     float attackX = startX + attackNorm * maxSegW;
     float decayX = attackX + decayNorm * maxSegW;

@@ -122,7 +122,7 @@ class ScriptingEngineTest {
 
     // Verify configured synth filters
     assertEquals(9000.0f, bassTrack.getLpfFreq(), 0.01f); // 45% * 20000 = 9000
-    assertEquals(25.0f, bassTrack.getLpfRes(), 0.01f);
+    assertEquals(0.25f, bassTrack.getLpfRes(), 0.01f); // 25% -> 0.25 (normalized 0..1)
 
     // Verify global master parameters
     assertEquals(130.0f, emptyProject.getBpm());

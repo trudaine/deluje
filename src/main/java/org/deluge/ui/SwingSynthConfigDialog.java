@@ -30,6 +30,8 @@ public class SwingSynthConfigDialog extends JDialog {
 
   private MidiLearnPanel midiLearnPanel;
   private LfoPanel lfoPanel;
+  private SynthPresetBrowserPanel presetBrowser;
+  private final Runnable themeListener = this::repaint;
   private static JLabel globalHelpLabel;
   private static final String DEFAULT_HELP_TEXT =
       "<html>\uD83D\uDCA1 <b>QUICK HELP:</b> Hover over any control knob or slider to see its details and hardware mappings here!</html>";
@@ -76,7 +78,7 @@ public class SwingSynthConfigDialog extends JDialog {
     getContentPane().setBackground(BG_DARK);
 
     // ── Global Theme Accent Listener ──
-    ThemeManager.addThemeListener(this::repaint);
+    ThemeManager.addThemeListener(themeListener);
 
     // ── Top Header Toolbar (Branding + Theme Picker) ──
     JPanel headerPanel = new JPanel(new BorderLayout(16, 0));
@@ -159,6 +161,9 @@ public class SwingSynthConfigDialog extends JDialog {
           }
           try {
             org.deluge.xml.DelugeXmlExporter.saveSynthPreset(model, file);
+            if (presetBrowser != null) {
+              presetBrowser.scanPresets();
+            }
             JOptionPane.showMessageDialog(
                 this,
                 "Preset successfully saved as:\n" + file.getName(),
@@ -185,7 +190,7 @@ public class SwingSynthConfigDialog extends JDialog {
     populateTabs();
 
     // ── Collaborative Collapsible Preset Browser Sidebar ──
-    SynthPresetBrowserPanel presetBrowser =
+    this.presetBrowser =
         new SynthPresetBrowserPanel(
             model,
             () -> {
@@ -254,6 +259,7 @@ public class SwingSynthConfigDialog extends JDialog {
     try {
       Object engineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (engineObj instanceof org.deluge.engine.FirmwareAudioEngine engine
+          && trackIndex >= 0
           && trackIndex < engine.sounds.size()
           && engine.sounds.get(trackIndex) instanceof org.deluge.engine.FirmwareSound fs) {
         org.deluge.engine.FirmwareFactory.applyModelToLiveSound(model, fs);
@@ -265,6 +271,7 @@ public class SwingSynthConfigDialog extends JDialog {
 
   @Override
   public void dispose() {
+    ThemeManager.removeThemeListener(themeListener);
     if (lfoPanel != null) {
       lfoPanel.stopAnimation();
     }
@@ -664,6 +671,10 @@ public class SwingSynthConfigDialog extends JDialog {
 
     // Create the filter graph component first so it can be referenced in control callbacks
     FilterGraphComponent filterGraph = new FilterGraphComponent(model, bridge, trackIndex);
+    float initLpfCutoffNorm = Math.max(0f, Math.min(1f, model.getLpfFreq() / 20000.0f));
+    float initLpfResNorm = Math.max(0f, Math.min(1f, model.getLpfRes()));
+    bridge.setFilterFreq(trackIndex, initLpfCutoffNorm);
+    bridge.setFilterRes(trackIndex, initLpfResNorm);
 
     rightRow =
         addSlider(
@@ -674,7 +685,7 @@ public class SwingSynthConfigDialog extends JDialog {
             "Low-pass filter cutoff frequency (0% = fully closed, 100% = fully open)",
             0,
             100,
-            (int) (bridge.getTrackFilterFreq(trackIndex) * 100),
+            Math.round(initLpfCutoffNorm * 100f),
             val -> {
               bridge.setFilterFreq(trackIndex, val / 100.0);
               model.setLpfFreq((val / 100.0f) * 20000.0f);
@@ -694,10 +705,10 @@ public class SwingSynthConfigDialog extends JDialog {
             "Filter resonance / Q — emphasises frequencies around the cutoff",
             0,
             100,
-            (int) (bridge.getTrackFilterRes(trackIndex) * 100),
+            Math.round(initLpfResNorm * 100f),
             val -> {
               bridge.setFilterRes(trackIndex, val / 100.0);
-              model.setLpfRes(val / 100.0f * 100.0f);
+              model.setLpfRes(val / 100.0f);
               filterGraph.repaint();
             },
             "%",
@@ -1153,7 +1164,11 @@ public class SwingSynthConfigDialog extends JDialog {
 
           if (SwingGridPanel.lockArmedTrack == trackIndex
               && SwingGridPanel.lockArmedStep != -1
-              && paramName != null) {
+              && paramName != null
+              && projectModel != null
+              && trackIndex >= 0
+              && trackIndex < projectModel.getTracks().size()
+              && max > min) {
             org.deluge.model.TrackModel track = projectModel.getTracks().get(trackIndex);
             int activeClipIdx = track.getActiveClipIndex();
             if (activeClipIdx >= 0 && activeClipIdx < track.getClips().size()) {
@@ -1223,15 +1238,17 @@ public class SwingSynthConfigDialog extends JDialog {
             if (!hasCapturedOld[0]) return;
             int newVal = slider.getValue();
             if (Math.abs(newVal - oldValue) < 0.001f) return;
-            var stack = projectModel.getUndoRedoStack();
-            stack.push(
-                new Consequence.SynthParamConsequence(
-                    projectModel,
-                    trackIndex,
-                    paramName,
-                    oldValue,
-                    newVal,
-                    System.currentTimeMillis()));
+            if (projectModel != null && projectModel.getUndoRedoStack() != null) {
+              var stack = projectModel.getUndoRedoStack();
+              stack.push(
+                  new Consequence.SynthParamConsequence(
+                      projectModel,
+                      trackIndex,
+                      paramName,
+                      oldValue,
+                      newVal,
+                      System.currentTimeMillis()));
+            }
             hasCapturedOld[0] = false;
           }
         });
@@ -1371,6 +1388,16 @@ public class SwingSynthConfigDialog extends JDialog {
 
     revalidate();
     repaint();
+  }
+
+  static Container findRootContainer(Component c) {
+    Container top = null;
+    Container cur = (c instanceof Container cont) ? cont : c.getParent();
+    while (cur != null) {
+      top = cur;
+      cur = cur.getParent();
+    }
+    return top;
   }
 
   public static JSlider findSliderByName(Container container, String name) {

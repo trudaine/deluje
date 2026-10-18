@@ -44,9 +44,10 @@ public class LfoMonitorComponent extends JComponent {
               // Advance phase for each active LFO based on its frequency rate (Hz)
               for (int l = 0; l < BridgeContract.LFO_COUNT; l++) {
                 LfoModel lm = model.getLfo(l);
-                float rate = (lm != null) ? lm.rateHz() : 1.0f;
+                float rate = (lm != null) ? Math.max(0f, lm.rateHz()) : 1.0f;
                 // Accumulate phase modulo 1.0
-                phases[l] = (phases[l] + dt * rate) % 1.0f;
+                float next = (phases[l] + Math.max(0f, dt) * rate) % 1.0f;
+                phases[l] = (next < 0f) ? next + 1.0f : next;
               }
               repaint();
             });
@@ -59,6 +60,16 @@ public class LfoMonitorComponent extends JComponent {
 
   public void stopAnimation() {
     animationTimer.stop();
+  }
+
+  @Override
+  public void removeNotify() {
+    animationTimer.stop();
+    super.removeNotify();
+  }
+
+  boolean isAnimationTimerRunningForTest() {
+    return animationTimer.isRunning();
   }
 
   @Override
@@ -197,9 +208,11 @@ public class LfoMonitorComponent extends JComponent {
         return (float) (Math.sin(phi * 2.0 * Math.PI) * 0.7 + Math.sin(phi * 6.0 * Math.PI) * 0.3);
       case CUSTOM:
         {
-          int idx = (int) (phi * 255.0f);
-          idx = Math.max(0, Math.min(255, idx));
-          return (float) model.getCustomLfoWave()[idx] / 1073741824.0f;
+          int[] wave = model.getCustomLfoWave();
+          if (wave == null || wave.length == 0) return 0f;
+          int idx = (int) (phi * (wave.length - 1));
+          idx = Math.max(0, Math.min(wave.length - 1, idx));
+          return (float) wave[idx] / 1073741824.0f;
         }
       case SINE:
       default:
