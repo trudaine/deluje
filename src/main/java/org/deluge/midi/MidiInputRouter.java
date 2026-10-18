@@ -55,7 +55,10 @@ public class MidiInputRouter {
   }
 
   private final java.util.Map<Integer, NoteStartInfo> activeNoteStarts = new java.util.HashMap<>();
-  private final java.util.Map<Integer, String> ccMappings = new java.util.HashMap<>();
+  // C mod_controllable_audio.cpp:1506-1532 — one CC can drive multiple params and one param can
+  // hold multiple learned CCs until explicit unlearnKnobs (clearMapping).
+  private final java.util.Map<Integer, java.util.Set<String>> ccMappings =
+      new java.util.HashMap<>();
   private String learningTarget = null;
 
   /** Lazily-loaded device definition for CC routing. Updated by MidiService. */
@@ -82,33 +85,40 @@ public class MidiInputRouter {
   }
 
   public int getCcForParam(String target) {
-    for (java.util.Map.Entry<Integer, String> entry : ccMappings.entrySet()) {
-      if (entry.getValue().equals(target)) {
-        return entry.getKey();
+    int lastCc = -1;
+    for (java.util.Map.Entry<Integer, java.util.Set<String>> entry : ccMappings.entrySet()) {
+      if (entry.getValue().contains(target)) {
+        lastCc = entry.getKey();
       }
     }
-    return -1;
+    return lastCc;
+  }
+
+  private void bindCcToParam(int cc, String target) {
+    ccMappings.computeIfAbsent(cc, k -> new java.util.LinkedHashSet<>()).add(target);
   }
 
   public void clearMapping(String target) {
-    ccMappings.values().removeIf(val -> val.equals(target));
+    // C mod_controllable_audio.cpp:1535-1540 (unlearnKnobs) — removes all learned CCs for target.
+    ccMappings.values().forEach(set -> set.remove(target));
+    ccMappings.values().removeIf(java.util.Set::isEmpty);
   }
 
   public void resetToDefaults() {
     ccMappings.clear();
-    ccMappings.put(7, "g_sp_volume");
-    ccMappings.put(10, "g_sp_pan");
-    ccMappings.put(71, "g_sp_lpf_freq");
-    ccMappings.put(72, "g_sp_lpf_res");
-    ccMappings.put(74, "g_sp_lpf_morph");
-    ccMappings.put(75, "g_sp_hpf_freq");
-    ccMappings.put(76, "g_sp_hpf_res");
-    ccMappings.put(77, "g_sp_hpf_morph");
-    ccMappings.put(94, "g_sp_delay_rate");
-    ccMappings.put(95, "g_sp_delay_feedback");
-    ccMappings.put(91, "g_sp_reverb_amount");
-    ccMappings.put(80, "g_sp_eq_bass");
-    ccMappings.put(81, "g_sp_eq_treble");
+    bindCcToParam(7, "g_sp_volume");
+    bindCcToParam(10, "g_sp_pan");
+    bindCcToParam(71, "g_sp_lpf_freq");
+    bindCcToParam(72, "g_sp_lpf_res");
+    bindCcToParam(74, "g_sp_lpf_morph");
+    bindCcToParam(75, "g_sp_hpf_freq");
+    bindCcToParam(76, "g_sp_hpf_res");
+    bindCcToParam(77, "g_sp_hpf_morph");
+    bindCcToParam(94, "g_sp_delay_rate");
+    bindCcToParam(95, "g_sp_delay_feedback");
+    bindCcToParam(91, "g_sp_reverb_amount");
+    bindCcToParam(80, "g_sp_eq_bass");
+    bindCcToParam(81, "g_sp_eq_treble");
   }
 
   /** Set the device definition for CC-to-param routing. */
@@ -193,10 +203,9 @@ public class MidiInputRouter {
         return;
       }
 
-      // MIDI learn mode
+      // MIDI learn mode (C mod_controllable_audio.cpp:1506-1532: additive until explicit unlearn)
       if (learningTarget != null) {
-        clearMapping(learningTarget);
-        ccMappings.put(cc, learningTarget);
+        bindCcToParam(cc, learningTarget);
         learningTarget = null;
       }
 
@@ -210,10 +219,12 @@ public class MidiInputRouter {
         }
       }
 
-      // Fall back to learned CC mappings
-      String mapped = ccMappings.get(cc);
-      if (mapped != null) {
-        bridge.setGlobalFloat(mapped, (float) normalized);
+      // Fall back to learned CC mappings (one CC may drive multiple learned params)
+      java.util.Set<String> mapped = ccMappings.get(cc);
+      if (mapped != null && !mapped.isEmpty()) {
+        for (String paramName : mapped) {
+          bridge.setGlobalFloat(paramName, (float) normalized);
+        }
         return;
       }
 

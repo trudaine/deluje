@@ -108,10 +108,11 @@ class MidiRouterEngineServiceParityTest {
   }
 
   @Test
-  void midiInputRouter_learningClearsOldDefaultCcMapping() {
+  void midiInputRouter_learningIsAdditiveUntilExplicitUnlearn() {
     router.resetToDefaults();
     assertEquals(71, router.getCcForParam("g_sp_lpf_freq"));
 
+    // Learn CC 20 to g_sp_lpf_freq AND g_sp_lpf_res (one CC -> multiple params).
     router.startLearning("g_sp_lpf_freq");
     MidiMsg learnCc20 = new MidiMsg();
     learnCc20.data1 = 0xB0;
@@ -119,24 +120,30 @@ class MidiRouterEngineServiceParityTest {
     learnCc20.data3 = 100;
     router.handleMidiMessage(learnCc20);
 
-    assertEquals(20, router.getCcForParam("g_sp_lpf_freq"));
+    router.startLearning("g_sp_lpf_res");
+    router.handleMidiMessage(learnCc20);
 
-    // Old default CC 71 must no longer overwrite g_sp_lpf_freq.
-    bridge.setGlobalFloat("g_sp_lpf_freq", 0.25);
+    // Turning CC 20 drives both g_sp_lpf_freq and g_sp_lpf_res.
+    MidiMsg moveCc20 = new MidiMsg();
+    moveCc20.data1 = 0xB0;
+    moveCc20.data2 = 20;
+    moveCc20.data3 = 64;
+    router.handleMidiMessage(moveCc20);
+    assertEquals(64.0 / 127.0, bridge.getGlobalFloat("g_sp_lpf_freq"), 0.01);
+    assertEquals(64.0 / 127.0, bridge.getGlobalFloat("g_sp_lpf_res"), 0.01);
+
+    // Old default CC 71 also remains bound to g_sp_lpf_freq until explicit clearMapping.
     MidiMsg oldCc71 = new MidiMsg();
     oldCc71.data1 = 0xB0;
     oldCc71.data2 = 71;
     oldCc71.data3 = 127;
     router.handleMidiMessage(oldCc71);
-    assertEquals(0.25, bridge.getGlobalFloat("g_sp_lpf_freq"), 1e-4);
+    assertEquals(1.0, bridge.getGlobalFloat("g_sp_lpf_freq"), 1e-4);
 
-    // Newly learned CC 20 updates g_sp_lpf_freq.
-    MidiMsg newCc20 = new MidiMsg();
-    newCc20.data1 = 0xB0;
-    newCc20.data2 = 20;
-    newCc20.data3 = 64;
-    router.handleMidiMessage(newCc20);
-    assertEquals(64.0 / 127.0, bridge.getGlobalFloat("g_sp_lpf_freq"), 0.01);
+    // Explicit clearMapping (unlearnKnobs) removes all CCs for g_sp_lpf_freq only.
+    router.clearMapping("g_sp_lpf_freq");
+    assertEquals(-1, router.getCcForParam("g_sp_lpf_freq"));
+    assertEquals(20, router.getCcForParam("g_sp_lpf_res"));
   }
 
   @Test
@@ -237,13 +244,18 @@ class MidiRouterEngineServiceParityTest {
           0, followSetCount.get(), "MIDI Learn must intercept CC before MidiFollow routes it");
       assertEquals("15", PreferencesManager.get("midi.learn.TestPort.g_sp_volume", "None"));
       assertEquals(
-          "None",
+          "15",
           PreferencesManager.get("midi.learn.TestPort.g_sp_pan", "None"),
-          "Previous parameter bound to the same CC on the same port must be cleared");
+          "Previous parameter bound to the same CC must remain bound (mod_controllable_audio.cpp:1506-1532)");
 
       // Normal CC 7 (built-in volume in MidiFollow) must invoke MidiFollow exactly once.
       service.handleMidiMessage(0xB0, 7, 100);
       assertEquals(1, followSetCount.get(), "MidiFollow must handle each CC once, not twice");
+
+      // Learning a second CC (16) onto g_sp_volume keeps both 15 and 16 bound.
+      service.startLearn("g_sp_volume");
+      service.handleMidiMessage(0xB0, 16, 80);
+      assertEquals("15,16", PreferencesManager.get("midi.learn.TestPort.g_sp_volume", "None"));
     } finally {
       PreferencesManager.set("midi.learn.TestPort.g_sp_volume", "None");
       PreferencesManager.set("midi.learn.TestPort.g_sp_pan", "None");
