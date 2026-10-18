@@ -22,6 +22,15 @@ public class VoiceSource {
   // Sample playback (when oscType == SAMPLE or source is sample-based).
   public final VoiceSample voiceSample = new VoiceSample();
   public Sample sampleRef; // the fw2 Sample backing this source
+
+  /** C SampleHolder::getDurationInSamples(true): playing range endPos - startPos, file frames. */
+  public int syncDurationFrames;
+
+  /**
+   * C VoiceSamplePlaybackGuide::sequenceSyncLengthTicks (voice.cpp:247) — STRETCH sync, 0 = off.
+   */
+  public int sequenceSyncLengthTicks;
+
   // Per-zone transpose from a matched multisample <sampleRange transpose=...>; INT_MIN = none, so
   // the pitch falls back to the WAV-root-derived transpose. The XML value is what the hardware
   // serialized (C SampleHolderForVoice::transpose = round(60 - midiNote)), so it's authoritative

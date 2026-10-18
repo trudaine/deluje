@@ -524,6 +524,18 @@ public class Sound extends GlobalEffectable {
   /** C Source::timeStretchAmount (source.h:51, default 0 at source.cpp:44) — int8_t -48..48. */
   public final int[] sampleTimeStretchAmount = {0, 0};
 
+  /**
+   * C PendingNoteOn::sampleSyncLength (note_row.cpp:2557-2558): the sequenced note's length in
+   * ticks, set by the sequencer for the note-on it is about to trigger; 0 for live/arp notes.
+   */
+  public int pendingSampleSyncLength = 0;
+
+  /**
+   * Samples per sequencer (clip) tick — 96 per quarter note — for STRETCH note lengths (the C's
+   * playbackHandler.getTimePerInternalTickBig(), voice_unison_part_source.cpp:129-130).
+   */
+  public double samplesPerSequencerTick = 60.0 * 44100.0 / (120.0 * 96.0);
+
   public final Arpeggiator.Synth arpeggiator = new Arpeggiator.Synth();
   public final Arpeggiator.Settings arpSettings = new Arpeggiator.Settings();
   public final Arpeggiator.ArpReturnInstruction arpInstr = new Arpeggiator.ArpReturnInstruction();
@@ -1550,6 +1562,10 @@ public class Sound extends GlobalEffectable {
       // Carry the matched multisample zone's transpose (authoritative tuning) onto the source;
       // INT_MIN = single sample / no zone -> pitch falls back to the WAV-root-derived transpose.
       targetVoice.sources[s].zoneTranspose = zoneTranspose;
+      // C voice.cpp:245-254 — a STRETCH source syncs to the note's length in ticks.
+      targetVoice.sources[s].syncDurationFrames = Math.max(0, endFrame - startFrame);
+      targetVoice.sources[s].sequenceSyncLengthTicks =
+          sampleLoopMode[s] == REPEAT_STRETCH ? pendingSampleSyncLength : 0;
       targetVoice.sources[s].zoneCents = zoneCents;
       // C SampleControls.interpolationMode — per-source lo-fi linear interpolation across every
       // unison part.

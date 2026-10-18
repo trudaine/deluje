@@ -101,6 +101,8 @@ class Fw2SyncCompletenessTest {
           "skippingRendering", // runtime: C reassessRenderSkippingStatus state
           "startSkippingRenderingAtTime", // runtime: modFX/compressor tail deadline
           "renderSkipSampleTimer", // runtime: per-sound audioSampleTimer stand-in
+          "pendingSampleSyncLength", // runtime: sequencer note length for the next note-on
+          "samplesPerSequencerTick", // transport: derived from tempo
           "unisonPan", // derived by setupUnisonStereoSpread() from unisonStereoSpread
           "monophonicExpressionValues", // runtime MPE smoothing state
           "expressionSourcesChangedAtSynthLevel", // runtime MPE flag

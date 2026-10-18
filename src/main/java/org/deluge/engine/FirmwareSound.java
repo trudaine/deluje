@@ -481,6 +481,7 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     {
       double bpm = currentBpm > 0 ? currentBpm : 120.0;
       double samplesPerInternalTick = 165375.0 / (bpm * (1 << inputTickMagnitude));
+      fw2Sound.samplesPerSequencerTick = 60.0 * 44100.0 / (bpm * 96.0); // clip ticks: 96/quarter
       fw2Sound.timePerInternalTickInverse =
           (int) Math.min(2147483647.0, 2147483648.0 / samplesPerInternalTick);
       // The sidechain's synced release uses the same tick inverse (sidechain.cpp:102/121).
