@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.awt.Color;
 import java.awt.GraphicsEnvironment;
+import javax.swing.SwingUtilities;
 import org.deluge.BridgeContract;
 import org.deluge.model.ClipModel;
 import org.deluge.model.FilterMode;
@@ -11,6 +12,7 @@ import org.deluge.model.Iterance;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.StepData;
 import org.deluge.model.SynthTrackModel;
+import org.deluge.project.PreferencesManager;
 import org.deluge.shadow.core.ChuckArray;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -65,27 +67,36 @@ class EngineSyncPianoRollLfoPadDialogsTest {
   }
 
   @Test
-  void pianoRollBlackQwertyLabelsAndNoteHitTestAreAligned() {
+  void pianoRollBlackQwertyLabelsAndNoteHitTestAreAligned() throws Exception {
     assertArrayEquals(
         new String[] {"S", "D", "G", "H", "J"},
         PianoRollComponent.BLACK_QWERTY,
         "First 5 black keys in BLACK_KEY_OFFSETS are C#4, D#4, F#4, G#4, A#4");
 
+    PreferencesManager.GridMode savedMode = PreferencesManager.getGridMode();
     BridgeContract bridge = new BridgeContract();
-    SwingGridPanel grid = new ClipGridPanel(bridge);
-    grid.setSize(960, 400);
-    grid.cachedPadSz = 35;
-    grid.columnCount = 18; // 16 step columns + 2 utility columns
+    try {
+      PreferencesManager.setGridMode(PreferencesManager.GridMode.GRID_8x16);
+      SwingGridPanel grid = new ClipGridPanel(bridge);
+      grid.setSize(960, 400);
+      // Drain the queued componentResized event on the EDT before fixing test layout metrics.
+      SwingUtilities.invokeAndWait(() -> {});
+      grid.cachedPadSz = 35;
+      grid.columnCount = 18; // 16 step columns + 2 utility columns
 
-    PianoRollComponent piano = new PianoRollComponent(grid);
-    piano.setSize(960, 80);
+      PianoRollComponent piano = new PianoRollComponent(grid);
+      piano.setSize(960, 80);
 
-    // lw = Math.max(60, Math.min(140, 960 / 12)) = 80; gridX = 80 + 91 = 171
-    // totalWidth = 16 * 40 - 5 = 635; keyW = 635 / 28.0 = 22.6785...
-    assertEquals(60, piano.noteAtPoint(175, 50), "Bottom half of first white key is C4 (60)");
-    assertEquals(61, piano.noteAtPoint(188, 10), "Top boundary between C4 and D4 is C#4 (61)");
-    assertEquals(-1, piano.noteAtPoint(10, 10), "Left of gridX is outside keyboard");
-    assertEquals(-1, piano.noteAtPoint(175, 75), "Below keyH (70) is outside keyboard");
+      // lw = Math.max(60, Math.min(140, 960 / 12)) = 80; gridX = 80 + 91 = 171
+      // totalWidth = 16 * 40 - 5 = 635; keyW = 635 / 28.0 = 22.6785...
+      assertEquals(60, piano.noteAtPoint(175, 50), "Bottom half of first white key is C4 (60)");
+      assertEquals(61, piano.noteAtPoint(188, 10), "Top boundary between C4 and D4 is C#4 (61)");
+      assertEquals(-1, piano.noteAtPoint(10, 10), "Left of gridX is outside keyboard");
+      assertEquals(-1, piano.noteAtPoint(175, 75), "Below keyH (70) is outside keyboard");
+    } finally {
+      PreferencesManager.setGridMode(savedMode);
+      bridge.shutdown();
+    }
   }
 
   @Test
