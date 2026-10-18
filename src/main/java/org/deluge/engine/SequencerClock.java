@@ -82,9 +82,22 @@ public class SequencerClock implements Runnable {
 
   /** Calculate the duration of a single step in nanoseconds, with swing. */
   public long calculateStepDurationNs(int step, double bpm, double swing) {
-    double baseSec = 60.0 / bpm / 4.0;
-    double adj = (step % 2 == 0) ? 1.0 + (swing - 0.5) * 0.4 : 1.0 - (swing - 0.5) * 0.4;
+    double safeBpm = (Double.isFinite(bpm) && bpm > 0.0) ? bpm : 120.0;
+    double safeSwing = Double.isFinite(swing) ? Math.max(0.0, Math.min(1.0, swing)) : 0.5;
+    double baseSec = 60.0 / safeBpm / 4.0;
+    double adj = (step % 2 == 0) ? 1.0 + (safeSwing - 0.5) * 0.4 : 1.0 - (safeSwing - 0.5) * 0.4;
     return (long) (baseSec * adj * 1_000_000_000L);
+  }
+
+  /**
+   * Resolves the bar length in steps for launch-queue quantization. Uses 12 steps only for pure
+   * 12-step triplet bars (divisible by 12 and not by 16), avoiding false 12-step bars on empty
+   * tracks (length 0) or multi-bar 4/4 loops (length 48, 96).
+   */
+  public static int resolveBarSteps(int trackZeroLength) {
+    return (trackZeroLength > 0 && trackZeroLength % 12 == 0 && trackZeroLength % 16 != 0)
+        ? 12
+        : 16;
   }
 
   @Override
@@ -131,7 +144,7 @@ public class SequencerClock implements Runnable {
 
       // Process bar-boundary clip queues (matching clock_shred: step % barSteps == 0)
       // Do this before the tick so the new clip is active for this step
-      int barSteps = (bridge != null && bridge.getTrackLength(0) % 12 == 0) ? 12 : 16;
+      int barSteps = resolveBarSteps(bridge != null ? bridge.getTrackLength(0) : 16);
       if (step % barSteps == 0) {
         bridge.processLaunchQueue();
       }

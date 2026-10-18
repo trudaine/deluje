@@ -484,7 +484,7 @@ public class SongGridPanel extends SwingGridPanel {
 
               final int clipCol = colId;
               final int trkIdx = currentTrack;
-              final org.deluge.model.TrackModel songTrack = tracks.get(t);
+              final org.deluge.model.TrackModel songTrack = tracks.get(currentTrack);
               clearActionListeners(clipBtn);
               clearKeyboardMouseListeners(clipBtn);
               clipBtn.addMouseListener(

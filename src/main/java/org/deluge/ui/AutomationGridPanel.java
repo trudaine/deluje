@@ -20,8 +20,6 @@ public class AutomationGridPanel extends SwingGridPanel {
     removeAll();
 
     voiceRowCount = 8;
-    this.stepCount = gridMode.columns;
-    this.columnCount = this.stepCount;
 
     ClipModel autoClip = null;
     if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
@@ -31,6 +29,8 @@ public class AutomationGridPanel extends SwingGridPanel {
         autoClip = t.getClips().get(acIdx);
       }
     }
+    this.stepCount = (autoClip != null && autoClip.isTripletMode()) ? 12 : gridMode.columns;
+    this.columnCount = this.stepCount;
     final ClipModel fAutoClip = autoClip;
 
     int padSz = cachedPadSz;
@@ -93,6 +93,7 @@ public class AutomationGridPanel extends SwingGridPanel {
           e -> {
             if (fAutoClip != null) {
               fAutoClip.clearAutomation(automationController.getSelectedParam());
+              automationController.syncAutomationToEngine();
               refresh();
             }
           });
@@ -105,9 +106,10 @@ public class AutomationGridPanel extends SwingGridPanel {
       interpAllBtn.addActionListener(
           e -> {
             if (fAutoClip != null) {
-              for (String param : fAutoClip.getAutomatedParams()) {
+              for (String param : new java.util.ArrayList<>(fAutoClip.getAutomatedParams())) {
                 automationController.interpolateAutomation(fAutoClip, param);
               }
+              automationController.syncAutomationToEngine();
               refresh();
             }
           });
@@ -119,9 +121,10 @@ public class AutomationGridPanel extends SwingGridPanel {
       clearAllBtn.addActionListener(
           e -> {
             if (fAutoClip != null) {
-              for (String param : fAutoClip.getAutomatedParams()) {
+              for (String param : new java.util.ArrayList<>(fAutoClip.getAutomatedParams())) {
                 fAutoClip.clearAutomation(param);
               }
+              automationController.syncAutomationToEngine();
               refresh();
             }
           });
@@ -137,7 +140,12 @@ public class AutomationGridPanel extends SwingGridPanel {
     }
 
     if (autoClip != null) {
-      int autoCount = autoClip.getAutomatedParams().size();
+      int autoCount = 0;
+      for (String param : autoClip.getAutomatedParams()) {
+        if (AutomationEditorController.hasAnyAutomatedStep(autoClip, param)) {
+          autoCount++;
+        }
+      }
       JLabel countLabel = new JLabel(" [" + autoCount + " auto'd]");
       countLabel.setForeground(new Color(0x88, 0xcc, 0x88));
       countLabel.setFont(new Font("Monospaced", Font.PLAIN, 11));
