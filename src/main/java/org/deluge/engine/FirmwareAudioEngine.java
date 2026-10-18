@@ -131,28 +131,33 @@ public class FirmwareAudioEngine {
   public int reverbSidechainShapeInEffect = 0;
 
   /**
-   * C audio_engine.cpp:1251-1317 updateReverbParams, "auto" mode (the C's default,
-   * reverbSidechainVolume &lt; 0): find the sound with the most reverb send; if it has a
+   * C audio_engine.cpp:1477-1546 updateReverbParams, "auto" mode (the C's default,
+   * reverbSidechainVolume &lt; 0): find the sound with the most reverb send across both Synth
+   * tracks and Kit drum rows (kit.cpp:1397-1417, sound.cpp:2247-2261); if it has a
    * SIDECHAIN→GLOBAL_VOLUME_POST_REVERB_SEND cable, the reverb ducks with that cable's modified
-   * amount and borrows the sound's sidechain shape/attack/release/syncLevel. No qualifying sound →
-   * no ducking. (The C's manual mode — an explicit song-level reverb sidechain volume — is not
-   * modeled; hardware defaults to auto, song.cpp:185.)
+   * amount and borrows the sound's sidechain shape/attack/release/syncLevel/syncType. No qualifying
+   * sound → no ducking.
    */
   private void updateReverbParams() {
-    // Was `ge instanceof org.deluge.firmware2.Sound` - but the engine's `sounds` list holds
-    // FirmwareSound instances (a sibling GlobalEffectable subclass composing a firmware2.Sound,
-    // not a subclass of it), so that check never matched any real sound and auto-ducking never
-    // engaged in production.
     FirmwareSound best = null;
     int highestReverbAmountFound = this.songReverbAmount; // C seeds with the song's own send amount
     for (int i = 0; i < sounds.size(); i++) {
       GlobalEffectable ge = sounds.get(i);
       if (ge instanceof FirmwareSound snd) {
-        int amount =
-            snd.fw2Sound.patchedParamValues[org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT];
+        int amount = getUnautomatedReverbAmount(snd);
         if (amount != Integer.MIN_VALUE && amount > highestReverbAmountFound) {
           highestReverbAmountFound = amount;
           best = snd;
+        }
+      } else if (ge instanceof FirmwareKit kit) {
+        // C kit.cpp:1406-1416 — inspect every SoundDrum in the Kit.
+        for (int d = 0; d < kit.drumSounds.size(); d++) {
+          FirmwareSound drum = kit.drumSounds.get(d);
+          int amount = getUnautomatedReverbAmount(drum);
+          if (amount != Integer.MIN_VALUE && amount > highestReverbAmountFound) {
+            highestReverbAmountFound = amount;
+            best = drum;
+          }
         }
       }
     }
@@ -160,7 +165,11 @@ public class FirmwareAudioEngine {
       reverbSidechainVolumeInEffect = 0;
       return;
     }
-    int vol = 0; // C:1288-1291 — no SIDECHAIN cable on the send → no ducking
+    if (best.fw2Sound.patchCableSet.destinations.isEmpty()
+        && !best.paramManager.getPatchCableSet().destinations.isEmpty()) {
+      best.syncParamsToFw2();
+    }
+    int vol = 0; // C:1516-1518 — no SIDECHAIN cable on the send → no ducking
     java.util.List<org.deluge.firmware2.Patcher.Destination> dests =
         best.fw2Sound.patchCableSet.destinations;
     for (int dIdx = 0; dIdx < dests.size(); dIdx++) {
@@ -181,10 +190,25 @@ public class FirmwareAudioEngine {
     reverbSidechainVolumeInEffect = vol;
     reverbSidechainShapeInEffect =
         best.fw2Sound.patchedParamValues[org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE];
-    reverbSidechain.attack = best.sidechain.attack; // C:1304-1306
+    reverbSidechain.attack = best.sidechain.attack; // C:1530-1532
     reverbSidechain.release = best.sidechain.release;
     reverbSidechain.syncLevel = best.sidechain.syncLevel;
+    reverbSidechain.syncType = best.sidechain.syncType;
     reverbSidechain.timePerInternalTickInverse = best.sidechain.timePerInternalTickInverse;
+  }
+
+  /**
+   * C sound.cpp:2251-2257 — only non-automated GLOBAL_REVERB_AMOUNT above Integer.MIN_VALUE
+   * competes in getThingWithMostReverb.
+   */
+  private static int getUnautomatedReverbAmount(FirmwareSound snd) {
+    var auto = snd.paramManager.getAutomatedParam(org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT);
+    if (auto != null && !auto.nodes.isEmpty()) {
+      return Integer.MIN_VALUE;
+    }
+    return snd.paramKnobsPopulated
+        ? snd.paramKnobs[org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT]
+        : snd.paramNeutralValues[org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT];
   }
 
   /** int[][] stereo scratch for the fw2 FX chain (fw2 FX read/write [l, r] per sample). */

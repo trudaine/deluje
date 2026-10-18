@@ -281,6 +281,30 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     }
   }
 
+  /**
+   * C sound.cpp:2178-2215 (Sound::reassessRenderSkippingStatus) — returns true while this sound has
+   * active voices, held arpeggiator input notes, pending per-sound delay repeats, active stutter,
+   * or an active grain FX tail.
+   */
+  public boolean shouldRender() {
+    synchronized (fw2Sound.voices) {
+      if (!fw2Sound.voices.isEmpty()) {
+        return true;
+      }
+    }
+    if (fw2Sound.arpEnabled() && fw2Sound.arpeggiator.hasAnyInputNotesActive()) {
+      return true;
+    }
+    if (fw2Sound.delay.repeatsUntilAbandon != 0) {
+      return true;
+    }
+    if (org.deluge.firmware2.Stutterer.GLOBAL.isStuttering(fw2Sound)) {
+      return true;
+    }
+    return fw2Sound.modFXType == org.deluge.firmware2.ModFx.ModFXType.GRAIN
+        && fw2Sound.granular.hasActiveTail();
+  }
+
   // Synchronized against FirmwareFactory.applyModelToLiveSound (the UI live-apply path), which
   // rebuilds the patch-cable set and rewrites params under the same lock — without it the audio
   // thread could iterate a half-rebuilt cable list here.
