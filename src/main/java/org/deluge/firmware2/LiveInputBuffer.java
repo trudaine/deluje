@@ -91,8 +91,11 @@ public class LiveInputBuffer {
         if (difference < 0) {
           difference = -difference;
         }
-        // C:90 — angle can be 0 for silence (the C divides by it: UB); guard to 0.
-        int percussiveness = (angle != 0) ? (int) ((((long) difference * 262144) / angle) >> 1) : 0;
+        // C live_input_buffer.cpp:93 — (((uint64_t)difference * 262144 / angle) >> 1)
+        int percussiveness =
+            (angle != 0)
+                ? (int) (Long.divideUnsigned((long) difference * 262144L, (long) angle) >>> 1)
+                : 0;
         percussiveness = Functions.getTanHUnknown(percussiveness, 23); // C:92 getTanH<23>
         percBuffer[
                 (numRawSamplesProcessed >>> K_PERC_BUFFER_REDUCTION_MAGNITUDE)

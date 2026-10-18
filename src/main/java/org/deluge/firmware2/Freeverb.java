@@ -116,28 +116,34 @@ public class Freeverb {
       damp2 = Integer.MAX_VALUE - damp1; // C:41
     }
 
+    /** C: comb.hpp:44 — getDamp */
+    public float getDamp() {
+      return (float) damp1 / (float) Integer.MAX_VALUE;
+    }
+
     /** C: comb.hpp:46 — setFeedback */
     public void setFeedback(int val) {
       feedback = val;
+    }
+
+    /** C: comb.hpp:48 — getFeedback */
+    public int getFeedback() {
+      return feedback;
     }
 
     /** C: comb.hpp:51-65 — process */
     public int process(int input) {
       int output = buffer[bufidx]; // C:52
 
-      // C:54-56 — lowpass filter on feedback
+      // C comb.hpp:54-56 — lowpass filter on feedback (plain 32-bit wrapping arithmetic)
       filterstore =
-          Functions.lshiftAndSaturate(
-              (Functions.multiply_32x32_rshift32_rounded(output, damp2)
-                  + Functions.multiply_32x32_rshift32_rounded(filterstore, damp1)),
-              1);
+          (Functions.multiply_32x32_rshift32_rounded(output, damp2)
+                  + Functions.multiply_32x32_rshift32_rounded(filterstore, damp1))
+              << 1;
 
-      // C:58
+      // C comb.hpp:58 — plain 32-bit wrapping add and shift
       buffer[bufidx] =
-          Functions.add_saturate(
-              input,
-              Functions.lshiftAndSaturate(
-                  Functions.multiply_32x32_rshift32_rounded(filterstore, feedback), 1));
+          input + (Functions.multiply_32x32_rshift32_rounded(filterstore, feedback) << 1);
 
       // C:60-62 — advance index
       if (++bufidx >= buffer.length) {
@@ -179,6 +185,11 @@ public class Freeverb {
       feedback = (int) (val * (float) Integer.MAX_VALUE);
     }
 
+    /** C: allpass.hpp:41 — getFeedback */
+    public float getFeedback() {
+      return (float) feedback / (float) Integer.MAX_VALUE;
+    }
+
     /** C: allpass.hpp:43-55 — process */
     public int process(int input) {
       int bufout = buffer[bufidx]; // C:44
@@ -199,6 +210,7 @@ public class Freeverb {
   // ── Freeverb state ──
 
   // C: freeverb.hpp:114-121
+  int gain; // C:114
   float roomsize = INITIALROOM; // C:115
   float damp = INITIALDAMP; // C:116
   float wet; // C:117
@@ -355,6 +367,16 @@ public class Freeverb {
     panRight = ampRight;
   }
 
+  /** C: base.hpp:56 — getPanLeft */
+  public int getPanLeft() {
+    return panLeft;
+  }
+
+  /** C: base.hpp:57 — getPanRight */
+  public int getPanRight() {
+    return panRight;
+  }
+
   // ── update (freeverb.cpp:86-103) ──
 
   /** C: freeverb.cpp:86-103 — recalculate internal values after parameter change */
@@ -362,6 +384,9 @@ public class Freeverb {
     // C:89-90 — stereo width
     wet1 = wet * (width / 2.0f + 0.5f);
     wet2 = (int) (((1.0f - width) / 2.0f) / (width / 2.0f + 0.5f) * (float) Integer.MAX_VALUE);
+
+    // C freeverb.cpp:92
+    gain = (int) (FIXEDGAIN * (float) Integer.MAX_VALUE);
 
     // C:94-97 — set comb feedback from room size
     for (int i = 0; i < NUMCOMBS; i++) {
@@ -382,8 +407,7 @@ public class Freeverb {
    * C: freeverb.hpp:73-96 — process a single sample.
    *
    * @param input mono input sample (Q31)
-   * @param outputL accumulator for left output (modified in-place via array)
-   * @param outputR accumulator for right output
+   * @param outputLR accumulator for left/right output (modified in-place via array)
    */
   void processOne(int input, int[] outputLR) {
     int outL = 0; // C:74
@@ -401,21 +425,13 @@ public class Freeverb {
       outR = allpassR[i].process(outR);
     }
 
-    // C:90-91 — stereo cross-feed
-    outL =
-        Functions.lshiftAndSaturate(
-            Functions.add_saturate(outL, Functions.multiply_32x32_rshift32_rounded(outR, wet2)), 1);
-    outR =
-        Functions.lshiftAndSaturate(
-            Functions.add_saturate(outR, Functions.multiply_32x32_rshift32_rounded(outL, wet2)), 1);
+    // C freeverb.hpp:90-91 — stereo cross-feed (plain 32-bit wrapping arithmetic)
+    outL = (outL + Functions.multiply_32x32_rshift32_rounded(outR, wet2)) << 1;
+    outR = (outR + Functions.multiply_32x32_rshift32_rounded(outL, wet2)) << 1;
 
-    // C:94-95 — accumulate to output with pan
-    outputLR[0] =
-        Functions.add_saturate(
-            outputLR[0], Functions.multiply_32x32_rshift32_rounded(outL, panLeft));
-    outputLR[1] =
-        Functions.add_saturate(
-            outputLR[1], Functions.multiply_32x32_rshift32_rounded(outR, panRight));
+    // C freeverb.hpp:94-95 — accumulate to output with pan
+    outputLR[0] += Functions.multiply_32x32_rshift32_rounded(outL, panLeft);
+    outputLR[1] += Functions.multiply_32x32_rshift32_rounded(outR, panRight);
   }
 
   // ── process (freeverb.hpp:98-109) ──

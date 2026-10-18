@@ -291,7 +291,9 @@ class MasterFxRegressionTest {
 
   // Golden signatures captured from the current verified fw2 behavior. Update ONLY for an
   // intentional, C-justified DSP change (and say so in the commit).
+  // REVERB_GOLDEN re-baselined after restoring verbatim C wrapping arithmetic (+, << 1, +=) in
+  // Freeverb.Comb.process (comb.hpp:54-58) and Freeverb.processOne (freeverb.hpp:90-95).
   private static final long COMPRESSOR_GOLDEN = 3592526422808312300L;
   private static final long DELAY_GOLDEN = 843932180224107487L;
-  private static final long REVERB_GOLDEN = -5288909449447130904L;
+  private static final long REVERB_GOLDEN = 4308429854311107464L;
 }
