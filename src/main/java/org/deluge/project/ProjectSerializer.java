@@ -153,13 +153,15 @@ public class ProjectSerializer {
           SoundDrum sound = (SoundDrum) drum;
           writer.writeOpeningTagBeginning("sound");
           writer.writeAttribute("name", sound.getName(), false);
+          // C polyphonyModeToString (functions.cpp:835-852) writes "mono"/"poly"/"legato"/
+          // "auto"/"choke".
           String polyVal =
               switch (sound.getPolyphony()) {
-                case MONO -> "0";
+                case MONO -> "mono";
                 case LEGATO -> "legato";
                 case CHOKE -> "choke";
                 case AUTO -> "auto";
-                default -> "1";
+                default -> "poly";
               };
           writer.writeAttribute("polyphonic", polyVal, false);
           writer.writeAttribute("voicePriority", sound.getVoicePriority(), false);
@@ -558,13 +560,15 @@ public class ProjectSerializer {
           writer.closeTag();
         }
 
+        // C polyphonyModeToString (functions.cpp:835-852) writes "mono"/"poly"/"legato"/
+        // "auto"/"choke".
         String polyVal =
             switch (synth.getPolyphony()) {
-              case MONO -> "0";
+              case MONO -> "mono";
               case LEGATO -> "legato";
               case CHOKE -> "choke";
               case AUTO -> "auto";
-              default -> "1";
+              default -> "poly";
             };
         writer.writeTag("polyphonic", polyVal);
         // Was hardcoded "0"/"1" — dropped the preset's saturation/distortion (clippingAmount is
@@ -1693,7 +1697,8 @@ public class ProjectSerializer {
     if (mode == null) {
       return "HPLadder";
     }
-    // C mod_controllable_audio.cpp:410 — active HP ladder is "HPLadder".
+    // C mod_controllable_audio.cpp:410 — the C HPF slot has only the HP ladder (plus SVF
+    // bandpass/notch), so LADDER_12 / LADDER_24 / DRIVE all map to "HPLadder".
     return switch (mode) {
       case SVF, SVF_BAND -> "SVF_Band";
       case SVF_NOTCH -> "SVF_Notch";

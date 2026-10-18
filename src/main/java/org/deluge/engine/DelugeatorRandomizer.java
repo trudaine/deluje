@@ -336,11 +336,11 @@ public class DelugeatorRandomizer {
       model.setFilterRoute(Math.random() < 0.5 ? 0 : 1);
     }
 
-    // 10. EQ Settings
+    // 10. EQ Settings (normalized bipolar -1..+1, matching UNPATCHED_BASS / UNPATCHED_TREBLE)
     if (settings.eqChecked) {
       double amt = settings.eqAmount;
-      model.setEqBass(getTriangular(-12.0f, 12.0f, 0.0f, amt));
-      model.setEqTreble(getTriangular(-12.0f, 12.0f, 0.0f, amt));
+      model.setEqBass(getTriangular(-1.0f, 1.0f, 0.0f, amt));
+      model.setEqTreble(getTriangular(-1.0f, 1.0f, 0.0f, amt));
     }
 
     // 11. Compressor (C sync.h:22-35, MAX_SYNC_LEVEL = 9; mod_controllable_audio.cpp:903-906)

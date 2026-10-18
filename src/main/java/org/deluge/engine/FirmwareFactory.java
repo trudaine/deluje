@@ -612,8 +612,8 @@ public class FirmwareFactory {
     sound.paramKnobs[Param.UNPATCHED_SAMPLE_RATE_REDUCTION] =
         normToBipolarParam(model.getSampleRateReduction());
     sound.paramKnobs[Param.UNPATCHED_BITCRUSHING] = normToBipolarParam(model.getBitCrush());
-    sound.paramKnobs[Param.UNPATCHED_BASS] = dbToBipolarParam(model.getEqBass());
-    sound.paramKnobs[Param.UNPATCHED_TREBLE] = dbToBipolarParam(model.getEqTreble());
+    sound.paramKnobs[Param.UNPATCHED_BASS] = bipolarUnitToParam(model.getEqBass());
+    sound.paramKnobs[Param.UNPATCHED_TREBLE] = bipolarUnitToParam(model.getEqTreble());
     sound.paramKnobs[Param.UNPATCHED_BASS_FREQ] = 0; // default/flat
     sound.paramKnobs[Param.UNPATCHED_TREBLE_FREQ] = 0; // default/flat
     sound.paramKnobs[Param.UNPATCHED_SIDECHAIN_SHAPE] =
@@ -1086,9 +1086,12 @@ public class FirmwareFactory {
     return out;
   }
 
-  /** Map an EQ gain in dB ([-12, 12], 0 = flat) to a bipolar Q31 param (0 = flat). */
-  private static int dbToBipolarParam(float db) {
-    double norm = Math.max(-1.0, Math.min(1.0, db / 12.0));
+  /**
+   * Map a normalized bipolar EQ gain ([-1, 1], 0 = flat) to a bipolar Q31 param (0 = flat),
+   * matching C UNPATCHED_BASS / UNPATCHED_TREBLE.
+   */
+  private static int bipolarUnitToParam(float unit) {
+    double norm = Math.max(-1.0, Math.min(1.0, unit));
     return (int) (norm * 2147483647.0);
   }
 
@@ -1443,8 +1446,8 @@ public class FirmwareFactory {
     drumSound.fw2Sound.modFXFeedback = (int) (clamp01(sd.getModFxFeedback()) * 2147483647.0);
     drumSound.fw2Sound.bitcrushParam = normToBipolarParam(sd.getBitCrush());
     drumSound.fw2Sound.srrParam = normToBipolarParam(sd.getSampleRateReduction());
-    drumSound.fw2Sound.eqBassParam = dbToBipolarParam(sd.getEqBass());
-    drumSound.fw2Sound.eqTrebleParam = dbToBipolarParam(sd.getEqTreble());
+    drumSound.fw2Sound.eqBassParam = bipolarUnitToParam(sd.getEqBass());
+    drumSound.fw2Sound.eqTrebleParam = bipolarUnitToParam(sd.getEqTreble());
     drumSound.paramNeutralValues[Param.UNPATCHED_SIDECHAIN_SHAPE] =
         normToLinearParamKnob(sd.getCompressorShape());
 

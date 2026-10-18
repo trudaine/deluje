@@ -116,14 +116,14 @@ public class KitSynthSerializer {
         soundElem.appendChild(osc2);
       }
 
-      // ── polyphonic ──
+      // ── polyphonic (C functions.cpp:835-852) ──
       String polyVal =
           switch (sound.getPolyphony()) {
-            case MONO -> "0";
+            case MONO -> "mono";
             case LEGATO -> "legato";
             case CHOKE -> "choke";
             case AUTO -> "auto";
-            default -> "1";
+            default -> "poly";
           };
       appendTextChild(doc, soundElem, "polyphonic", polyVal);
 
@@ -394,14 +394,14 @@ public class KitSynthSerializer {
     }
     root.appendChild(osc2);
 
-    // ── polyphonic ──
+    // ── polyphonic (C functions.cpp:835-852) ──
     String polyVal =
         switch (synth.getPolyphony()) {
-          case MONO -> "0";
+          case MONO -> "mono";
           case LEGATO -> "legato";
           case CHOKE -> "choke";
           case AUTO -> "auto";
-          default -> "1";
+          default -> "poly";
         };
     appendTextChild(doc, root, "polyphonic", polyVal);
 

@@ -12,6 +12,9 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.swing.JSlider;
 import org.deluge.BridgeContract;
+import org.deluge.engine.FirmwareFactory;
+import org.deluge.engine.FirmwareSound;
+import org.deluge.firmware2.Param;
 import org.deluge.model.AudioTrackModel;
 import org.deluge.model.ClipModel;
 import org.deluge.model.FilterMode;
@@ -310,9 +313,41 @@ class SerializerParserEqParityTest {
       assertEquals(0.25f, model.getEqBass(), 1e-4f, "Bass slider 25% must write 0.25f, not 3.0f");
       assertEquals(
           -0.40f, model.getEqTreble(), 1e-4f, "Treble slider -40% must write -0.40f, not -4.8f");
+
+      // Full +100% boost must reach DSP as 0x7FFFFFFF (not 1/12 scale).
+      bassSlider.setValue(100);
+      FirmwareSound fwSound = new FirmwareSound();
+      FirmwareFactory.applyModelToLiveSound(model, fwSound);
+      assertEquals(
+          0x7FFFFFFF,
+          fwSound.paramKnobs[Param.UNPATCHED_BASS],
+          "EqPanel +100% Bass must map to UNPATCHED_BASS = 0x7FFFFFFF");
     } finally {
       bridge.shutdown();
     }
+  }
+
+  @Test
+  void serializersWriteMonoAndPolyTokensMatchingCppFunctions(@TempDir File tempDir)
+      throws Exception {
+    SynthTrackModel monoSynth = new SynthTrackModel("MONO_TEST");
+    monoSynth.setPolyphony(SynthTrackModel.PolyphonyMode.MONO);
+    File synthFile = new File(tempDir, "MONO_TEST.XML");
+    KitSynthSerializer.saveSynth(monoSynth, synthFile);
+    String synthXml = Files.readString(synthFile.toPath(), StandardCharsets.UTF_8);
+    assertTrue(
+        synthXml.contains("<polyphonic>mono</polyphonic>"),
+        "KitSynthSerializer must write C token 'mono' (functions.cpp:835-852)");
+
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel polySynth = new SynthTrackModel("POLY_TEST");
+    polySynth.setPolyphony(SynthTrackModel.PolyphonyMode.POLY);
+    polySynth.addClip(new ClipModel("C1", 8, 16));
+    project.addTrack(polySynth);
+    String songXml = ProjectSerializer.serializeToString(project);
+    assertTrue(
+        songXml.contains("<polyphonic>poly</polyphonic>"),
+        "ProjectSerializer must write C token 'poly' (functions.cpp:835-852)");
   }
 
   private static void collectSliders(Container root, List<JSlider> out) {
