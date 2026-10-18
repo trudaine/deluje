@@ -1325,6 +1325,11 @@ public class ProjectSerializer {
         } else {
           writer.writeAttribute("y", Math.max(yNote, 0), false);
         }
+        // C note_row.cpp:3571-3573 — written only when set.
+        org.deluge.model.NoteRowModel rowModel = clip.getNoteRowsMap().get(r);
+        if (rowModel != null && rowModel.isMuted()) {
+          writer.writeAttribute("muted", 1, false);
+        }
 
         List<StepData> row = new ArrayList<>();
         for (int s = 0; s < clip.getStepCount(); s++) {
