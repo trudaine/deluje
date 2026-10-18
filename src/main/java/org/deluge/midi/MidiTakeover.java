@@ -93,69 +93,81 @@ public class MidiTakeover {
     return -1;
   }
 
-  private int processScale(int cc, int hardwareValue, int currentVirtualValue) {
-    // C midi_takeover.cpp:94-160 — getPreviousKnobPos initializes previous to hardwareValue on the
-    // first turn, then runs the pickup check before falling through to scale mode.
-    int previous = previousHardwareValues[cc];
-    if (previous < 0) {
-      previous = hardwareValue;
-      previousHardwareValues[cc] = previous;
-    }
+  /** C midi_takeover.cpp:58-61 — CC 0..126 → knob -64..62, CC 127 → +64 (knob max). */
+  static int ccToKnobPos(int cc) {
+    return cc < 127 ? cc - 64 : 64;
+  }
 
-    // Check pick-up first: if we cross or match the virtual value, switch to absolute values!
-    if ((previous <= currentVirtualValue && hardwareValue >= currentVirtualValue)
-        || (previous >= currentVirtualValue && hardwareValue <= currentVirtualValue)) {
-      previousHardwareValues[cc] = hardwareValue;
+  /** Inverse of {@link #ccToKnobPos}: knob +64 (and +63) map to CC 127. */
+  static int knobPosToCc(int knobPos) {
+    return knobPos >= 63 ? 127 : Math.max(0, knobPos + 64);
+  }
+
+  /** C++ std::round: halves round away from zero (Java Math.round rounds -2.5 to -2). */
+  private static int roundHalfAwayFromZero(float v) {
+    return (int) (v < 0 ? -Math.floor(-v + 0.5f) : Math.floor(v + 0.5f));
+  }
+
+  /**
+   * C midi_takeover.cpp:94-160 — pickup check, then value scaling, in Deluge knob positions
+   * (-64..+64, knobMaxPos 64, knobMinPos -64) with float math, std::round and clamp(-64, 64). The
+   * Java API speaks CC values (0..127), so both ends convert with {@link #ccToKnobPos}: the C maps
+   * CC 127 to +64, so the top of the CC range is the knob maximum, not +63.
+   */
+  private int processScale(int cc, int hardwareValue, int currentVirtualValue) {
+    int previousCc = previousHardwareValues[cc];
+    if (previousCc < 0) {
+      previousCc = hardwareValue; // C getPreviousKnobPos: first turn starts from the current pos
+    }
+    previousHardwareValues[cc] = hardwareValue; // C savePreviousKnobPos
+
+    int midiKnobPos = ccToKnobPos(hardwareValue);
+    int previousKnobPosition = ccToKnobPos(previousCc);
+    int knobPos = ccToKnobPos(currentVirtualValue);
+
+    // C :99-103 — met or passed the Deluge knob position in either direction: picked up.
+    if ((previousKnobPosition <= knobPos && midiKnobPos >= knobPos)
+        || (previousKnobPosition >= knobPos && midiKnobPos <= knobPos)) {
       trackedValues[cc] = hardwareValue;
       return hardwareValue;
     }
 
-    int hardwareChange = hardwareValue - previous;
-    if (hardwareChange == 0) {
-      previousHardwareValues[cc] = hardwareValue;
-      return -1;
-    }
+    final int knobMaxPos = 64; // C :108
+    final int knobMinPos = -64; // C :109
+    int delugeKnobMaxPosDelta = knobMaxPos - knobPos; // C :112
+    int delugeKnobMinPosDelta = knobPos - knobMinPos; // C :113
+    int midiKnobMaxPosDelta = knobMaxPos - midiKnobPos; // C :117
+    int midiKnobMinPosDelta = midiKnobPos - knobMinPos; // C :118
+    int midiKnobPosChange = midiKnobPos - previousKnobPosition; // C :122
 
-    double newVirtual = currentVirtualValue;
-
-    // Turning right/increasing: scale relative to remaining positive runway (C :117, 134)
-    if (hardwareChange > 0) {
-      int hardwareMaxDelta = 127 - hardwareValue;
-      int virtualMaxDelta = 127 - currentVirtualValue;
-      if (hardwareMaxDelta > 0) {
-        double changePercentage = (double) hardwareChange / hardwareMaxDelta;
-        newVirtual = currentVirtualValue + (virtualMaxDelta * changePercentage);
-        if (newVirtual < currentVirtualValue) {
-          newVirtual = currentVirtualValue;
+    int newKnobPos = knobPos;
+    if (midiKnobPosChange != 0) { // C :125
+      float newKnobPosFloat = newKnobPos;
+      float midiKnobPosChangeFloat = midiKnobPosChange;
+      if (midiKnobPosChange > 0) { // C :132-145
+        if (midiKnobMaxPosDelta != 0) {
+          float pct = midiKnobPosChangeFloat / midiKnobMaxPosDelta;
+          newKnobPosFloat = newKnobPosFloat + (delugeKnobMaxPosDelta * pct);
+          if (newKnobPosFloat < newKnobPos) {
+            newKnobPosFloat = newKnobPos;
+          }
         }
-      } else {
-        newVirtual = 127;
-      }
-    }
-    // Turning left/decreasing: scale relative to remaining negative runway (C :118, 147)
-    else {
-      int hardwareMinDelta = hardwareValue;
-      int virtualMinDelta = currentVirtualValue;
-      if (hardwareMinDelta > 0) {
-        double changePercentage = (double) hardwareChange / hardwareMinDelta;
-        newVirtual = currentVirtualValue + (virtualMinDelta * changePercentage);
-        if (newVirtual > currentVirtualValue) {
-          newVirtual = currentVirtualValue;
+      } else { // C :147-158
+        if (midiKnobMinPosDelta != 0) {
+          float pct = midiKnobPosChangeFloat / midiKnobMinPosDelta;
+          newKnobPosFloat = newKnobPosFloat + (delugeKnobMinPosDelta * pct);
+          if (newKnobPosFloat > newKnobPos) {
+            newKnobPosFloat = newKnobPos;
+          }
         }
-      } else {
-        newVirtual = 0;
       }
+      newKnobPos = Math.clamp(roundHalfAwayFromZero(newKnobPosFloat), -64, 64); // C :159-161
     }
 
-    int finalValue = (int) Math.round(newVirtual);
-    finalValue = Math.clamp(finalValue, 0, 127);
-
-    if (finalValue == currentVirtualValue) {
-      previousHardwareValues[cc] = hardwareValue;
-      return -1;
+    int finalValue = knobPosToCc(newKnobPos);
+    if (newKnobPos == knobPos || finalValue == currentVirtualValue) {
+      return -1; // unchanged
     }
-
-    previousHardwareValues[cc] = hardwareValue;
     trackedValues[cc] = finalValue;
     return finalValue;
   }
