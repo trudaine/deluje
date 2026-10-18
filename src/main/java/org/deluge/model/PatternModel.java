@@ -34,9 +34,16 @@ public class PatternModel {
 
     public ClipSnapshot(int trackIndex, String trackName, int rowCount, int stepCount) {
       this.trackIndex = trackIndex;
-      this.trackName = trackName;
-      this.rowCount = rowCount;
-      this.stepCount = stepCount;
+      this.trackName = trackName != null ? trackName : "";
+      this.rowCount = Math.max(0, rowCount);
+      this.stepCount = Math.max(0, stepCount);
+      for (int r = 0; r < this.rowCount; r++) {
+        List<StepData> row = new ArrayList<>(this.stepCount);
+        for (int s = 0; s < this.stepCount; s++) {
+          row.add(StepData.empty());
+        }
+        this.grid.add(row);
+      }
     }
 
     /**
@@ -49,11 +56,11 @@ public class PatternModel {
       snap.colourHex = clip.getColor();
       // Deep-copy grid
       for (int r = 0; r < clip.getRowCount(); r++) {
-        List<StepData> row = new ArrayList<>();
+        List<StepData> row = new ArrayList<>(clip.getStepCount());
         for (int s = 0; s < clip.getStepCount(); s++) {
           row.add(clip.getStep(r, s));
         }
-        snap.grid.add(row);
+        snap.grid.set(r, row);
       }
       // Deep-copy automation data
       for (String param : clip.getAutomatedParams()) {
@@ -90,16 +97,22 @@ public class PatternModel {
           clip.setStep(r, s, data);
         }
       }
-      // Apply automation
+      // Clear and apply automation, keeping unautomated steps at -1f
+      clip.getAutomationData().clear();
       for (Map.Entry<String, float[]> e : automationData.entrySet()) {
-        float[] arr = e.getValue();
-        for (int s = 0; s < Math.min(arr.length, clip.getStepCount()); s++) {
-          if (arr[s] >= 0f) {
-            clip.setAutomation(e.getKey(), s, arr[s]);
-          }
+        float[] src = e.getValue();
+        if (src == null) continue;
+        float[] dst = new float[clip.getStepCount()];
+        java.util.Arrays.fill(dst, -1f);
+        System.arraycopy(src, 0, dst, 0, Math.min(src.length, dst.length));
+        clip.getAutomationData().put(e.getKey(), dst);
+      }
+      // Clear and apply row sound params
+      for (int r = 0; r < rows; r++) {
+        if (clip.hasRowSoundParams(r)) {
+          clip.getRowSoundParamNames(r).clear();
         }
       }
-      // Apply row sound params
       for (Map.Entry<Integer, Map<String, Float>> re : rowSoundParams.entrySet()) {
         int r = re.getKey();
         for (Map.Entry<String, Float> pe : re.getValue().entrySet()) {

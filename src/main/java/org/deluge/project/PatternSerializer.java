@@ -36,7 +36,9 @@ public class PatternSerializer {
 
   /** Save a pattern model to the given XML file. Creates parent directories as needed. */
   public static void save(PatternModel pattern, File file) throws Exception {
-    file.getParentFile().mkdirs();
+    if (file.getParentFile() != null) {
+      file.getParentFile().mkdirs();
+    }
 
     DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
     DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
@@ -65,6 +67,12 @@ public class PatternSerializer {
       clipElem.setAttribute("trackIndex", String.valueOf(snap.getTrackIndex()));
       clipsElem.appendChild(clipElem);
 
+      if (snap.getTrackName() != null && !snap.getTrackName().isEmpty()) {
+        Element tnElem = doc.createElement("trackName");
+        tnElem.setTextContent(snap.getTrackName());
+        clipElem.appendChild(tnElem);
+      }
+
       Element slotElem = doc.createElement("instrumentSlot");
       slotElem.setTextContent(snap.getInstrumentSlot());
       clipElem.appendChild(slotElem);
@@ -72,6 +80,18 @@ public class PatternSerializer {
       Element colourElem = doc.createElement("colourHex");
       colourElem.setTextContent(snap.getColourHex());
       clipElem.appendChild(colourElem);
+
+      if (snap.getVolumeOverride() != -1f) {
+        Element volElem = doc.createElement("volumeOverride");
+        volElem.setTextContent(String.valueOf(snap.getVolumeOverride()));
+        clipElem.appendChild(volElem);
+      }
+
+      if (snap.getPanOverride() != -1f) {
+        Element panElem = doc.createElement("panOverride");
+        panElem.setTextContent(String.valueOf(snap.getPanOverride()));
+        clipElem.appendChild(panElem);
+      }
 
       Element rcElem = doc.createElement("rowCount");
       rcElem.setTextContent(String.valueOf(snap.getRowCount()));
@@ -81,7 +101,7 @@ public class PatternSerializer {
       scElem.setTextContent(String.valueOf(snap.getStepCount()));
       clipElem.appendChild(scElem);
 
-      // Note rows (hex-encoded)
+      // Note rows (hex-encoded; C note_row.cpp:3607-3617)
       Element noteRowsElem = doc.createElement("noteRows");
       clipElem.appendChild(noteRowsElem);
       for (int r = 0; r < snap.getRowCount(); r++) {
@@ -89,10 +109,18 @@ public class PatternSerializer {
         noteRowsElem.appendChild(nrElem);
 
         List<StepData> row = (r < snap.getGrid().size()) ? snap.getGrid().get(r) : List.of();
+        // Keep <noteData> (22-char LIFT layout) only for backward compatibility with older Java
+        // builds; <noteDataWithSplitProb> (28-char, C note_row.cpp:3607-3617) is preferred on read.
         String hexData = DelugeNoteDataMapper.encodeRow(row);
         Element ndElem = doc.createElement("noteData");
         ndElem.setTextContent(hexData);
         nrElem.appendChild(ndElem);
+
+        String hexSplit =
+            DelugeNoteDataMapper.encodeRowSplit(row, DelugeNoteDataMapper.TICKS_PER_STEP);
+        Element ndSplitElem = doc.createElement("noteDataWithSplitProb");
+        ndSplitElem.setTextContent(hexSplit);
+        nrElem.appendChild(ndSplitElem);
 
         // Row sound params
         Map<String, Float> rowParams = snap.getRowSoundParams().get(r);
@@ -150,12 +178,15 @@ public class PatternSerializer {
 
   /** Load a pattern model from the given XML file. */
   public static PatternModel load(File file) throws Exception {
-    return load(Files.newInputStream(file.toPath()), file.getName());
+    try (InputStream is = Files.newInputStream(file.toPath())) {
+      return load(is, file.getName());
+    }
   }
 
   /** Load a pattern model from an input stream. */
   public static PatternModel load(InputStream is, String fileName) throws Exception {
     DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+    docFactory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
     DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
     Document doc = docBuilder.parse(is);
 
@@ -180,14 +211,24 @@ public class PatternSerializer {
       String tiStr = clipElem.getAttribute("trackIndex");
       if (tiStr != null && !tiStr.isEmpty()) trackIndex = Integer.parseInt(tiStr);
 
+      String trackName = getTextContent(clipElem, "trackName");
       String instrumentSlot = getTextContent(clipElem, "instrumentSlot");
       String colourHex = getTextContent(clipElem, "colourHex");
       int rowCount = parseIntOrDefault(getTextContent(clipElem, "rowCount"), 8);
       int stepCount = parseIntOrDefault(getTextContent(clipElem, "stepCount"), 16);
 
-      ClipSnapshot snap = new ClipSnapshot(trackIndex, "", rowCount, stepCount);
+      ClipSnapshot snap =
+          new ClipSnapshot(trackIndex, trackName != null ? trackName : "", rowCount, stepCount);
       if (instrumentSlot != null) snap.setInstrumentSlot(instrumentSlot);
       if (colourHex != null) snap.setColourHex(colourHex);
+      String volStr = getTextContent(clipElem, "volumeOverride");
+      if (volStr != null && !volStr.isEmpty()) {
+        snap.setVolumeOverride(parseFloatOrDefault(volStr, -1f));
+      }
+      String panStr = getTextContent(clipElem, "panOverride");
+      if (panStr != null && !panStr.isEmpty()) {
+        snap.setPanOverride(parseFloatOrDefault(panStr, -1f));
+      }
 
       // Parse note rows
       Element noteRowsElem = getChildElement(clipElem, "noteRows");
@@ -195,12 +236,45 @@ public class PatternSerializer {
         NodeList nrList = noteRowsElem.getElementsByTagName("noteRow");
         for (int ri = 0; ri < nrList.getLength() && ri < rowCount; ri++) {
           Element nrElem = (Element) nrList.item(ri);
+          // Select note-data layout strictly by tag name (C note_row.cpp:3522-3537), never by
+          // hex-length modulo. DelugeNoteDataMapper.encodeRow is the only Java writer of <noteData>
+          // in pattern files and always emits the 22-char LIFT layout.
+          String ndSplit = getTextContent(nrElem, "noteDataWithSplitProb");
+          String ndIterFill = getTextContent(nrElem, "noteDataWithIteranceAndFill");
+          String ndLift = getTextContent(nrElem, "noteDataWithLift");
           String nd = getTextContent(nrElem, "noteData");
-          if (nd != null && !nd.isEmpty()) {
-            List<StepData> decodedRow = DelugeNoteDataMapper.decodeRow(nd, stepCount);
-            if (ri < snap.getGrid().size()) {
-              snap.getGrid().set(ri, decodedRow);
-            }
+          List<StepData> decodedRow = null;
+          if (ndSplit != null && ndSplit.length() > 2) {
+            decodedRow =
+                DelugeNoteDataMapper.decodeRow(
+                    ndSplit,
+                    stepCount,
+                    DelugeNoteDataMapper.TICKS_PER_STEP,
+                    DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT);
+          } else if (ndIterFill != null && ndIterFill.length() > 2) {
+            decodedRow =
+                DelugeNoteDataMapper.decodeRow(
+                    ndIterFill,
+                    stepCount,
+                    DelugeNoteDataMapper.TICKS_PER_STEP,
+                    DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_ITERANCE_AND_FILL);
+          } else if (ndLift != null && ndLift.length() > 2) {
+            decodedRow =
+                DelugeNoteDataMapper.decodeRow(
+                    ndLift,
+                    stepCount,
+                    DelugeNoteDataMapper.TICKS_PER_STEP,
+                    DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT);
+          } else if (nd != null && nd.length() > 2) {
+            decodedRow =
+                DelugeNoteDataMapper.decodeRow(
+                    nd,
+                    stepCount,
+                    DelugeNoteDataMapper.TICKS_PER_STEP,
+                    DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT);
+          }
+          if (decodedRow != null && ri < snap.getGrid().size()) {
+            snap.getGrid().set(ri, decodedRow);
           }
 
           // Parse row sound params
@@ -276,9 +350,9 @@ public class PatternSerializer {
   // ── XML helpers ──
 
   private static String getTextContent(Element parent, String tagName) {
-    NodeList list = parent.getElementsByTagName(tagName);
-    if (list.getLength() > 0) {
-      String text = list.item(0).getTextContent();
+    Element child = getChildElement(parent, tagName);
+    if (child != null) {
+      String text = child.getTextContent();
       return (text != null) ? text.trim() : null;
     }
     return null;
@@ -298,6 +372,15 @@ public class PatternSerializer {
     if (s == null || s.isEmpty()) return def;
     try {
       return Integer.parseInt(s);
+    } catch (NumberFormatException e) {
+      return def;
+    }
+  }
+
+  private static float parseFloatOrDefault(String s, float def) {
+    if (s == null || s.isEmpty()) return def;
+    try {
+      return Float.parseFloat(s);
     } catch (NumberFormatException e) {
       return def;
     }

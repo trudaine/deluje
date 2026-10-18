@@ -94,8 +94,11 @@ public class EuclideanRhythmDialog extends JDialog {
     controls.add(rowLabel, c);
     row++;
 
-    // Pulses (K)
-    JSpinner pulsesSpinner = new JSpinner(new SpinnerNumberModel(4, 1, 16, 1));
+    int maxSteps = Math.max(1, this.stepCount);
+    int initialPulses = Math.min(4, maxSteps);
+
+    // Pulses (K) — C instrument_clip_view.cpp:7756 allows 0..numStepsAvailable
+    JSpinner pulsesSpinner = new JSpinner(new SpinnerNumberModel(initialPulses, 0, maxSteps, 1));
     pulsesSpinner.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     ((JSpinner.DefaultEditor) pulsesSpinner.getEditor())
         .getTextField()
@@ -112,7 +115,7 @@ public class EuclideanRhythmDialog extends JDialog {
     row++;
 
     // Steps (N)
-    JSpinner stepsSpinner = new JSpinner(new SpinnerNumberModel(16, 1, 16, 1));
+    JSpinner stepsSpinner = new JSpinner(new SpinnerNumberModel(maxSteps, 1, maxSteps, 1));
     stepsSpinner.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     ((JSpinner.DefaultEditor) stepsSpinner.getEditor())
         .getTextField()
@@ -128,7 +131,7 @@ public class EuclideanRhythmDialog extends JDialog {
     row++;
 
     // Rotation
-    JSpinner rotSpinner = new JSpinner(new SpinnerNumberModel(0, 0, 15, 1));
+    JSpinner rotSpinner = new JSpinner(new SpinnerNumberModel(0, 0, Math.max(0, maxSteps - 1), 1));
     rotSpinner.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     ((JSpinner.DefaultEditor) rotSpinner.getEditor())
         .getTextField()
@@ -145,7 +148,8 @@ public class EuclideanRhythmDialog extends JDialog {
 
     // Circular wheel preview
     wheelPanel = new EuclideanWheelPanel();
-    currentPattern = euclidean(4, 16, 0);
+    wheelPanel.setStepCount(maxSteps);
+    currentPattern = euclidean(initialPulses, maxSteps, 0);
     wheelPanel.setPattern(currentPattern);
     c.gridx = 0;
     c.gridy = row;
@@ -226,6 +230,7 @@ public class EuclideanRhythmDialog extends JDialog {
    * numStepsAvailable) / N * squareWidth}.
    */
   static boolean[] euclidean(int pulses, int steps, int rotation) {
+    if (steps <= 0) return new boolean[0];
     boolean[] pattern = new boolean[steps];
     if (pulses <= 0) return pattern;
     if (pulses >= steps) {
@@ -234,7 +239,7 @@ public class EuclideanRhythmDialog extends JDialog {
     }
     for (int n = 0; n < pulses; n++) {
       int pos = (int) ((long) n * steps / pulses);
-      pos = (pos + rotation) % steps;
+      pos = Math.floorMod(pos + rotation, steps);
       pattern[pos] = true;
     }
     return pattern;
