@@ -1367,7 +1367,7 @@ public class ProjectSerializer {
     // Write soundParams / kitParams tag to set outputTypeWhileLoading and serialize track-level
     // performance settings
     if (track instanceof KitTrackModel) {
-      serializeKitParams(writer, (KitTrackModel) track);
+      serializeKitParams(writer, (KitTrackModel) track, clip);
     } else if (track instanceof SynthTrackModel) {
       serializeSoundParams(writer, (SynthTrackModel) track);
     } else {
@@ -1519,12 +1519,23 @@ public class ProjectSerializer {
     writer.closeTag();
   }
 
-  private static void serializeKitParams(XMLSerializer writer, KitTrackModel kit)
+  private static void serializeKitParams(XMLSerializer writer, KitTrackModel kit, ClipModel clip)
       throws IOException {
     writer.writeOpeningTagBeginning("kitParams");
-    writer.writeAttribute(
-        "volume", DelugeHexMapper.unipolarFloatToHexUnified(kit.getVolume()), false);
-    writer.writeAttribute("pan", DelugeHexMapper.floatToHex(kit.getPan()), false);
+    float vol =
+        clip != null && clip.getKitParams().containsKey("volume")
+            ? clip.getKitParams().get("volume")
+            : kit.getVolume();
+    float pan =
+        clip != null && clip.getKitParams().containsKey("pan")
+            ? clip.getKitParams().get("pan")
+            : kit.getPan();
+    writer.writeAttribute("volume", DelugeHexMapper.unipolarFloatToHexUnified(vol), false);
+    writer.writeAttribute("pan", DelugeHexMapper.floatToHex(pan), false);
+    Float rev = clip != null ? clip.getKitParams().get("reverbAmount") : null;
+    if (rev != null) {
+      writer.writeAttribute("reverbAmount", DelugeHexMapper.unipolarFloatToHexUnified(rev), false);
+    }
     writer.closeTag();
   }
 

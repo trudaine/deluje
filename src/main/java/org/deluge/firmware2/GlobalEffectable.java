@@ -23,7 +23,7 @@ public abstract class GlobalEffectable {
   public int postReverbVolume = 134217728;
 
   /**
-   * C mod_controllable_audio.h:106, global_effectable_for_clip.cpp:45 — previous postReverbVolume.
+   * C mod_controllable_audio.h:127, global_effectable_for_clip.cpp:45 — previous postReverbVolume.
    */
   public int postReverbVolumeLastTime = 134217728;
 

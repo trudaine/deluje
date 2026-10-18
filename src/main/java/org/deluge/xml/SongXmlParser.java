@@ -679,6 +679,12 @@ public class SongXmlParser {
             Element kitParamsEl = getFirstChild(clipElem, "kitParams");
             if (kitParamsEl != null) {
               parseKitParamsElement(kitParamsEl, clip);
+              if (ktm.getClips().size() == 1) {
+                Float vol = clip.getKitParams().get("volume");
+                if (vol != null) ktm.setVolume(vol);
+                Float pan = clip.getKitParams().get("pan");
+                if (pan != null) ktm.setPan(pan);
+              }
             }
             // C instrument_clip.cpp:2676-2689 — the kit clip's own arpeggiator (the kit arp).
             // The model keeps one per kit: the first clip's.

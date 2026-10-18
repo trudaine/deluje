@@ -166,6 +166,7 @@ public class AudioOutput extends GlobalEffectable {
 
   public void setPlaying(boolean p) {
     this.playing = p;
+    this.shouldLimitDelayFeedback = !this.playing;
     if (p && sample != null) {
       armVoiceSample();
     }

@@ -834,6 +834,7 @@ public class PlaybackHandler {
 
   public synchronized void setProject(ProjectModel project) {
     this.currentProject = project;
+    syncAllClipsActiveToSound();
   }
 
   public synchronized ProjectModel getProject() {

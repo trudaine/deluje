@@ -89,6 +89,30 @@ class GlobalEffectablePanDelayRampTest {
     assertFalse(ao.isPlaying());
     assertTrue(ao.shouldLimitDelayFeedback);
 
+    ao.setPlaying(true);
+    assertFalse(ao.shouldLimitDelayFeedback);
+    ao.setPlaying(false);
+    assertTrue(ao.shouldLimitDelayFeedback);
+
+    // Inactive clip at song creation / setProject before start() must already limit delay feedback
+    ProjectModel inactiveProj = new ProjectModel();
+    SynthTrackModel inactiveSynth = new SynthTrackModel("InactiveSynth");
+    ClipModel inactiveClip = new ClipModel("IdleClip", 1, 16);
+    inactiveClip.setActiveInSession(false);
+    inactiveSynth.addClip(inactiveClip);
+    inactiveProj.addTrack(inactiveSynth);
+    FirmwareFactory.createSong(inactiveProj);
+    FirmwareSound inactiveFwSound = (FirmwareSound) inactiveClip.getSound();
+    assertTrue(
+        inactiveFwSound.shouldLimitDelayFeedback,
+        "createSong must set shouldLimitDelayFeedback=true when no clip is active");
+    inactiveFwSound.shouldLimitDelayFeedback = false;
+    PlaybackHandler idleHandler = new PlaybackHandler();
+    idleHandler.setProject(inactiveProj);
+    assertTrue(
+        inactiveFwSound.shouldLimitDelayFeedback,
+        "setProject must sync shouldLimitDelayFeedback before start()");
+
     // PlaybackHandler session clip activeness -> shouldLimitDelayFeedback (!isClipActiveNow)
     ProjectModel project = new ProjectModel();
     SynthTrackModel synth = new SynthTrackModel("Synth");
@@ -264,6 +288,27 @@ class GlobalEffectablePanDelayRampTest {
 
     FirmwareKit fwKit = FirmwareFactory.createKitSound(kitTrack, project);
     assertTrue(fwKit.unpatchedPan < -1_000_000_000, "Kit unpatchedPan must receive negative Q31");
+
+    // Live apply must also sync kit unpatchedPan from model/clip
+    fwKit.unpatchedPan = 0;
+    FirmwareFactory.applyModelToLiveSound(kitTrack, fwKit);
+    assertTrue(
+        fwKit.unpatchedPan < -1_000_000_000, "applyModelToLiveSound must sync kit unpatchedPan");
+
+    // Round-trip save via ProjectSerializer must preserve signed kit pan
+    java.io.File tmpXml = java.io.File.createTempFile("kit_pan_roundtrip_", ".xml");
+    tmpXml.deleteOnExit();
+    org.deluge.project.ProjectSerializer.save(project, tmpXml);
+    try (java.io.FileInputStream fis = new java.io.FileInputStream(tmpXml)) {
+      ProjectModel reloaded = SongXmlParser.parseSong(fis, tmpXml.getName());
+      KitTrackModel reloadedKit = (KitTrackModel) reloaded.getTracks().get(0);
+      assertEquals(
+          -0.5f,
+          reloadedKit.getClips().get(0).getKitParams().get("pan"),
+          0.01f,
+          "ProjectSerializer save/load must preserve negative kit clip pan");
+      assertEquals(-0.5f, reloadedKit.getPan(), 0.01f);
+    }
 
     AudioTrackModel audioTrack = (AudioTrackModel) project.getTracks().get(1);
     GlobalEffectable fwAudio = FirmwareFactory.createAudioSound(audioTrack, 1, project);
