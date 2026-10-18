@@ -22,7 +22,10 @@ public final class ScaleMapper {
    * @param foldMode true if fold mode is active (only showing rows with active notes)
    * @param foldedPitches the list of active pitches in fold mode
    * @return the MIDI pitch (0-127), or 60 (C4) as a fallback
+   * @deprecated Legacy C-major / root-0 overload; prefer {@link #getRowPitch(int, boolean, boolean,
+   *     boolean, List, int[], int)}.
    */
+  @Deprecated
   public static int getRowPitch(
       int modelRow,
       boolean isSynth,
@@ -71,7 +74,10 @@ public final class ScaleMapper {
    * @param foldMode true if fold mode is active
    * @param foldedPitches the list of active pitches in fold mode
    * @return the row index (0-127), or -1 if not found (in fold mode), or the chromatic row fallback
+   * @deprecated Legacy C-major / root-0 overload; prefer {@link #getRowFromPitch(int, boolean,
+   *     boolean, boolean, List, int[], int)}.
    */
+  @Deprecated
   public static int getRowFromPitch(
       int pitch,
       boolean isSynth,

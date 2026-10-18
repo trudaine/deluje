@@ -187,7 +187,14 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
               || t instanceof org.deluge.model.MidiTrackModel;
     }
     if (isPitched && viewMode == GridViewMode.CLIP) {
-      return ScaleMapper.getRowFromPitch(pitch, true, scaleModeEnabled, foldMode, foldedPitches);
+      return ScaleMapper.getRowFromPitch(
+          pitch,
+          true,
+          scaleModeEnabled,
+          foldMode,
+          foldedPitches,
+          songScaleIntervals(),
+          songRootPitchClass());
     }
     return 127 - pitch;
   }

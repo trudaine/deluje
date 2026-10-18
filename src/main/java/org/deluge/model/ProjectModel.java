@@ -138,7 +138,11 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
 
   public void calculateNoteFrequencies() {
     int baseFreqQ24 = (int) Math.round((baseFrequencyHz / 440.0) * 1027294024.0);
-    int count = Math.max(1, Math.min(octaveNumMicrotonalNotes, 64));
+    int maxLen =
+        Math.min(
+            Math.min(centAdjustForNotesInTemperament.length, noteFrequencyTable.length),
+            Math.min(noteIntervalTable.length, customRatios.length));
+    int count = Math.max(1, Math.min(octaveNumMicrotonalNotes, maxLen));
     int numNotesTimes100 = count * 100;
     if (isEqualTemperament) {
       for (int i = 0; i < count; i++) {

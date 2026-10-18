@@ -93,13 +93,39 @@ class SampleReverseTuningKeyplayParityTest {
   }
 
   @Test
+  void projectModel_calculateNoteFrequenciesMatchesHardwareLookupTablesAt440Hz() {
+    // C lookuptables.cpp:248-255 — static 12-TET tables at 440 Hz with zero cents.
+    int[] expectedFreq = {
+      1027294024, 1088380105, 1153098554, 1221665363, 1294309365, 1371273005,
+      1452813141, 1539201906, 1630727614, 1727695724, 1830429858, 1939272882
+    };
+    int[] expectedInterval = {
+      1073741824, 1137589835, 1205234447, 1276901417, 1352829926, 1433273380,
+      1518500250, 1608794974, 1704458901, 1805811301, 1913190429, 2026954652
+    };
+    ProjectModel model = new ProjectModel();
+    model.setIsEqualTemperament(true);
+    model.calculateNoteFrequencies();
+    for (int i = 0; i < 12; i++) {
+      assertEquals(expectedFreq[i], model.noteFrequencyRatio(i), "noteFrequencyTable[" + i + "]");
+      assertEquals(expectedInterval[i], model.noteIntervalRatio(i), "noteIntervalTable[" + i + "]");
+    }
+  }
+
+  @Test
   void scaleMapper_getRowFromPitchWithCustomModeNotesAndRoot() {
-    int[] minor = Scales.ScaleType.MINOR.getIntervals();
-    int rootD = 2; // D minor
-    int row = 65;
-    int pitch = ScaleMapper.getRowPitch(row, true, true, false, null, minor, rootD);
-    int resolvedRow = ScaleMapper.getRowFromPitch(pitch, true, true, false, null, minor, rootD);
-    assertEquals(row, resolvedRow);
+    int[] dorian = Scales.ScaleType.DORIAN.getIntervals();
+    int rootD = 2; // D Dorian
+    // Every non-clamped row in D Dorian must round-trip cleanly through getRowPitch ->
+    // getRowFromPitch.
+    for (int row = 35; row <= 95; row++) {
+      int pitch = ScaleMapper.getRowPitch(row, true, true, false, null, dorian, rootD);
+      if (pitch > 0 && pitch < 127) {
+        int resolvedRow =
+            ScaleMapper.getRowFromPitch(pitch, true, true, false, null, dorian, rootD);
+        assertEquals(row, resolvedRow, "row " + row + " pitch " + pitch);
+      }
+    }
   }
 
   @Test
