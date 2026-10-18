@@ -797,20 +797,9 @@ public class InstrumentXmlParser {
   }
 
   private static void parseSynthMode(Element soundNode, SynthTrackModel synth) {
-    String mode = soundNode.getAttribute("mode");
-    if (mode == null || mode.isEmpty()) {
-      NodeList modeNodes = soundNode.getElementsByTagName("mode");
-      if (modeNodes.getLength() > 0) {
-        mode = modeNodes.item(0).getTextContent();
-      }
-    }
-    if (mode != null && !mode.isBlank()) {
-      mode = mode.trim().toLowerCase();
-      switch (mode) {
-        case "fm" -> synth.setSynthMode(1);
-        case "ringmod" -> synth.setSynthMode(2);
-        default -> synth.setSynthMode(0);
-      }
+    int mode = DelugeXmlUtil.synthModeFromSound(soundNode); // C sound.cpp:433-441, 744-750
+    if (mode >= 0) {
+      synth.setSynthMode(mode);
     }
   }
 
