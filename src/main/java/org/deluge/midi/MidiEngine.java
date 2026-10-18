@@ -191,7 +191,19 @@ public class MidiEngine {
   }
 
   public void sendCC(int channel, int ccNum, int value) {
-    MIDIMessage msg = MIDIMessage.cc(channel, ccNum, value);
+    MIDIMessage msg = MIDIMessage.cc(channel, ccNum, MIDIMessage.toDataByte(value));
+    sendToAll(msg);
+  }
+
+  /** C {@code MidiEngine::sendChannelAftertouch} (midi_engine.cpp:488-490). */
+  public void sendChannelAftertouch(int channel, int value) {
+    MIDIMessage msg = MIDIMessage.channelAftertouch(channel, MIDIMessage.toDataByte(value));
+    sendToAll(msg);
+  }
+
+  /** C {@code MidiEngine::sendPolyphonicAftertouch} (midi_engine.cpp:492-495). */
+  public void sendPolyphonicAftertouch(int channel, int noteCode, int value) {
+    MIDIMessage msg = MIDIMessage.polyAftertouch(channel, noteCode, MIDIMessage.toDataByte(value));
     sendToAll(msg);
   }
 

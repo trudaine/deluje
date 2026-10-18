@@ -759,6 +759,33 @@ public class PlaybackHandler {
   }
 
   /**
+   * Faithful port of {@code Session::willClipContinuePlayingAtEnd} (session.cpp:2730-2762). Returns
+   * false if the clip is inactive or armed to stop at a launch event that lands at or before its
+   * next loop point; returns true otherwise. Feeds {@link org.deluge.model.Iterance#LAST} during
+   * {@code InstrumentClip::processCurrentPos} (instrument_clip.cpp:719).
+   */
+  public boolean willClipContinuePlayingAtEnd(TrackModel track, ClipModel clip) {
+    if (track == null || clip == null || !ticksInSession(track, clip)) {
+      return false; // C session.cpp:2734-2735
+    }
+    // C session.cpp:2742-2750 (per-clip soloingInSessionMode is not modelled on ClipModel;
+    // session soloing is track-level via SwingGridPanel.soloedTracks).
+    boolean willLoop =
+        launchEventAtSwungTickCount <= 0
+            || numRepeatsTilLaunch > 1
+            || clip.getArmState() != ArmState.ON_NORMAL;
+    if (willLoop) {
+      return true;
+    }
+    // C session.cpp:2758-2761
+    int ticksTilReachLoopPoint =
+        clip.currentlyPlayingReversed
+            ? clip.lastProcessedPos
+            : (clip.getLoopLength() - clip.lastProcessedPos);
+    return (launchEventAtSwungTickCount - lastSwungTickActioned > ticksTilReachLoopPoint);
+  }
+
+  /**
    * C Session::considerLaunchEvent (session.cpp:2292-2426): increments active clips before any
    * launch event so newly launched clips stay at position 0, then fires fill launches and regular
    * launch events.
@@ -872,10 +899,12 @@ public class PlaybackHandler {
       // It also sounds the notes at pos 0 (note_row.cpp:2373).
       setArpClockActive(true);
       int next = Integer.MAX_VALUE;
-      for (ClipModel clip : currentProject.getClips()) {
-        if (!clip.isActiveInSession()) continue;
-        clip.processCurrentPos(0);
-        next = Math.min(next, clip.getTicksTilNextEvent());
+      for (TrackModel track : currentProject.getTracks()) {
+        for (ClipModel clip : track.getClips()) {
+          if (!ticksInSession(track, clip)) continue;
+          clip.processCurrentPos(0, track, this);
+          next = Math.min(next, clip.getTicksTilNextEvent());
+        }
       }
       next = Math.min(next, doTickForwardForArps());
       swungTicksTilNextEvent = Math.max(1, next);
@@ -1002,7 +1031,7 @@ public class PlaybackHandler {
           }
           boolean active = ticksInSession(track, clip);
           if (active) {
-            clip.processCurrentPos(effectiveAdvance);
+            clip.processCurrentPos(effectiveAdvance, track, this);
             nextEventTicks = Math.min(nextEventTicks, clip.getTicksTilNextEvent());
           }
         }
