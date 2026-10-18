@@ -160,9 +160,17 @@ public class SynthParamRack extends JPanel {
       return;
     }
     title.setText("▾ " + t.getName());
-    int fm = Math.min(2, t.getFilterMode().ordinal());
-    filterToggle.setSelectedIndexSilently(fm);
+    filterToggle.setSelectedIndexSilently(filterToggleIndex(t.getFilterMode()));
     modeToggle.setSelectedIndexSilently(Math.max(0, Math.min(2, t.getSynthMode())));
+  }
+
+  static int filterToggleIndex(FilterMode fm) {
+    if (fm == null) return 0;
+    return switch (fm) {
+      case LADDER_12, OFF -> 0;
+      case LADDER_24, DRIVE -> 1;
+      case SVF, SVF_BAND, SVF_NOTCH -> 2;
+    };
   }
 
   private void setControlsEnabled(boolean on) {
@@ -247,16 +255,35 @@ public class SynthParamRack extends JPanel {
   /** Push the model to the live FirmwareSound (same path the synth dialog uses) + readout. */
   private void apply(SynthTrackModel t, String code, String val) {
     int idx = indexSupplier.getAsInt();
-    try {
-      Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-      if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine
-          && idx >= 0
-          && idx < engine.sounds.size()
-          && engine.sounds.get(idx) instanceof org.deluge.engine.FirmwareSound fs) {
-        org.deluge.engine.FirmwareFactory.applyModelToLiveSound(t, fs);
+    if (bridge != null && idx >= 0) {
+      int startRow = idx;
+      int voiceCount = 1;
+      if (bridge.getGlobalObject("g_sync_coordinator") instanceof EngineSyncCoordinator sc
+          && sc.hasMapping()
+          && idx < sc.getMappedTrackCount()) {
+        startRow = sc.getTrackEngineStart(idx);
+        voiceCount = sc.getTrackVoiceCount(idx);
       }
-    } catch (Exception ignored) {
-      // engine not running (e.g. tests) — model edit still stands
+      if (startRow >= 0) {
+        int fmIdx = (t.getFilterMode() != null) ? t.getFilterMode().ordinal() : 1;
+        for (int v = 0; v < voiceCount && startRow + v < BridgeContract.TRACKS; v++) {
+          int row = startRow + v;
+          bridge.setFilterFreq(row, t.getLpfFreq() / 20000.0f);
+          bridge.setFilterRes(row, t.getLpfRes());
+          bridge.setFilterMode(row, fmIdx);
+          bridge.setTrackLevel(row, t.getVolume());
+        }
+      }
+      try {
+        Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+        if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine
+            && idx < engine.sounds.size()
+            && engine.sounds.get(idx) instanceof org.deluge.engine.FirmwareSound fs) {
+          org.deluge.engine.FirmwareFactory.applyModelToLiveSound(t, fs);
+        }
+      } catch (Exception ignored) {
+        // engine not running (e.g. tests) — model edit still stands
+      }
     }
     if (SwingDelugeApp.mainInstance != null) {
       SwingDelugeApp.mainInstance.updateHardwareLedDisplayTransient(code, val);

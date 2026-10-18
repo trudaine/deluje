@@ -66,25 +66,13 @@ public class KeyboardShortcutManager extends KeyAdapter {
       return;
     }
 
-    // Ctrl+[ / Ctrl+] — adjust focused track length
+    // Ctrl+[ / Ctrl+] — adjust edited clip length by 1 step
     if (ctrl && kc == KeyEvent.VK_OPEN_BRACKET) {
-      SwingGridPanel active = app.activeGridPanel();
-      if (active != null) {
-        int trk = active.getFocusTrack();
-        int len = bridge.getTrackLength(trk);
-        bridge.setTrackLength(trk, Math.max(1, len - 1));
-        active.refresh();
-      }
+      adjustEditedClipLength(app.activeGridPanel(), -1);
       return;
     }
     if (ctrl && kc == KeyEvent.VK_CLOSE_BRACKET) {
-      SwingGridPanel active = app.activeGridPanel();
-      if (active != null) {
-        int trk = active.getFocusTrack();
-        int len = bridge.getTrackLength(trk);
-        bridge.setTrackLength(trk, Math.min(64, len + 1));
-        active.refresh();
-      }
+      adjustEditedClipLength(app.activeGridPanel(), 1);
       return;
     }
 
@@ -159,6 +147,35 @@ public class KeyboardShortcutManager extends KeyAdapter {
     msg.which = e.getKeyCode();
     msg.key = e.getKeyCode();
     bridge.dispatchHidMsg(msg);
+  }
+
+  static void adjustEditedClipLength(SwingGridPanel active, int delta) {
+    if (active == null || active.getProjectModel() == null) return;
+    org.deluge.model.ProjectModel pm = active.getProjectModel();
+    int trk = active.getEditedModelTrack();
+    if (trk < 0 || trk >= pm.getTracks().size()) return;
+    org.deluge.model.ClipModel clip = pm.getTracks().get(trk).getActiveClip();
+    if (clip == null) return;
+    int newLen = Math.max(1, Math.min(BridgeContract.STEPS, clip.getStepCount() + delta));
+    if (newLen == clip.getStepCount()) return;
+    clip.setStepCount(newLen);
+    BridgeContract br = active.getBridge();
+    if (br != null) {
+      int startRow = EngineSyncCoordinator.resolveTrackEngineStart(br, pm, trk);
+      int voiceCount = 1;
+      if (br.getGlobalObject("g_sync_coordinator") instanceof EngineSyncCoordinator sc
+          && sc.hasMapping()
+          && trk < sc.getMappedTrackCount()) {
+        voiceCount = Math.max(1, sc.getTrackVoiceCount(trk));
+      }
+      if (startRow >= 0) {
+        for (int v = 0; v < voiceCount && startRow + v < BridgeContract.TRACKS; v++) {
+          br.setTrackLength(startRow + v, newLen);
+        }
+      }
+    }
+    active.fireProjectChanged();
+    active.refresh();
   }
 
   private void playIsomorphicNote(int note) {

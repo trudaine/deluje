@@ -446,18 +446,25 @@ public class EngineSyncCoordinator {
         if (oscTypeArr != null) {
           int typeIdx = 1; // default Saw
           String ot = synth.getOsc1Type();
-          if ("SINE".equals(ot)) typeIdx = 0;
-          else if ("SQUARE".equals(ot)) typeIdx = 2;
-          else if ("TRIANGLE".equals(ot)) typeIdx = 3;
+          if (ot != null) {
+            switch (ot.trim().toUpperCase(java.util.Locale.ROOT)) {
+              case "SINE" -> typeIdx = 0;
+              case "SAW", "ANALOG_SAW_2", "ANALOGSAW" -> typeIdx = 1;
+              case "SQUARE", "ANALOG_SQUARE", "ANALOGSQUARE" -> typeIdx = 2;
+              case "TRIANGLE" -> typeIdx = 3;
+              case "NOISE" -> typeIdx = 4;
+              default -> {}
+            }
+          }
           for (int v = 0; v < totalSynthRows; v++) {
             oscTypeArr.setInt(startRow + v, typeIdx);
           }
         }
 
-        // Push filter params to ALL rows
+        // Push filter params to ALL rows (SynthTrackModel.getLpfRes() is already 0..1)
         for (int v = 0; v < totalSynthRows; v++) {
           bridge.setFilterFreq(startRow + v, synth.getLpfFreq() / 20000.0f);
-          bridge.setFilterRes(startRow + v, synth.getLpfRes() / 100.0f);
+          bridge.setFilterRes(startRow + v, synth.getLpfRes());
           org.deluge.model.FilterMode fm = synth.getFilterMode();
           int fmIdx = (fm != null) ? fm.ordinal() : org.deluge.model.FilterMode.LADDER_24.ordinal();
           bridge.setFilterMode(startRow + v, fmIdx);
@@ -1139,25 +1146,30 @@ public class EngineSyncCoordinator {
     return mode.ordinal();
   }
 
-  private static int oscTypeOrdinal(String type) {
+  static int oscTypeOrdinal(String type) {
     if (type == null) return 0;
-    return switch (type) {
+    return switch (type.trim().toUpperCase(java.util.Locale.ROOT)) {
       case "SINE" -> 0;
-      case "SAW" -> 1;
-      case "SQUARE" -> 2;
+      case "SAW", "ANALOG_SAW_2", "ANALOGSAW" -> 1;
+      case "SQUARE", "ANALOG_SQUARE", "ANALOGSQUARE" -> 2;
       case "TRIANGLE" -> 3;
       case "NOISE" -> 4;
       default -> 0;
     };
   }
 
-  private static int modFxTypeOrdinal(String type) {
+  // C++ ModFXType (definitions_cxx.hpp:409-418) and XML tokens (util/functions.cpp:878-928).
+  static int modFxTypeOrdinal(String type) {
     if (type == null) return 0;
-    return switch (type) {
+    return switch (type.trim().toUpperCase(java.util.Locale.ROOT)) {
       case "NONE" -> 0;
       case "CHORUS" -> 1;
       case "FLANGER" -> 2;
       case "PHASER" -> 3;
+      case "CHORUS_STEREO", "STEREOCHORUS" -> 4;
+      case "WARBLE", "TAPEWARBLE" -> 5;
+      case "DIMENSION" -> 6;
+      case "GRAIN", "GRAINFX" -> 7;
       default -> 0;
     };
   }

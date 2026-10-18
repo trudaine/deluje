@@ -15,6 +15,10 @@ import org.deluge.model.SynthTrackModel;
  */
 public class LfoDrawPad extends JPanel {
 
+  static final int PADDING_X = 10;
+  static final int PADDING_TOP = 10;
+  static final int PADDING_BOTTOM = 20;
+
   private final SynthTrackModel model;
   private final java.lang.Runnable onWaveChanged;
 
@@ -30,11 +34,7 @@ public class LfoDrawPad extends JPanel {
     setBorder(BorderFactory.createLineBorder(new Color(0x2d, 0x2d, 0x32), 1));
     setPreferredSize(new Dimension(340, 140));
 
-    // Initialize steps from model's current customLfoWave (recover the 16 steps by subsampling)
-    int[] customLfoWave = model.getCustomLfoWave();
-    for (int i = 0; i < 16; i++) {
-      steps[i] = (float) customLfoWave[i * 16] / 1073741824.0f;
-    }
+    syncFromModel();
 
     // ── Mouse Dragging to Draw & Hover highlights ──
     MouseAdapter drawHandler =
@@ -62,11 +62,10 @@ public class LfoDrawPad extends JPanel {
           @Override
           public void mouseMoved(MouseEvent e) {
             int w = getWidth();
-            int paddingX = 10;
-            int drawW = w - 2 * paddingX;
+            int drawW = w - 2 * PADDING_X;
             if (drawW > 0) {
               float stepW = (float) drawW / 16.0f;
-              int newHover = (int) ((e.getX() - paddingX) / stepW);
+              int newHover = (int) ((e.getX() - PADDING_X) / stepW);
               newHover = Math.max(0, Math.min(15, newHover));
               if (newHover != hoverStep) {
                 hoverStep = newHover;
@@ -75,6 +74,22 @@ public class LfoDrawPad extends JPanel {
             }
           }
         });
+  }
+
+  /** Re-reads the 16 step values from the model's 256-sample customLfoWave buffer. */
+  public void syncFromModel() {
+    int[] customLfoWave = model != null ? model.getCustomLfoWave() : null;
+    if (customLfoWave != null && customLfoWave.length >= 256) {
+      for (int i = 0; i < 16; i++) {
+        float val = (float) customLfoWave[i * 16] / 1073741824.0f;
+        steps[i] = Math.max(-1.0f, Math.min(1.0f, val));
+      }
+    }
+    repaint();
+  }
+
+  float getStepValue(int idx) {
+    return steps[idx];
   }
 
   public boolean isSmoothMode() {
@@ -91,20 +106,18 @@ public class LfoDrawPad extends JPanel {
     int w = getWidth();
     int h = getHeight();
 
-    int paddingX = 10;
-    int paddingY = 10;
-    int drawW = w - 2 * paddingX;
-    int drawH = h - 2 * paddingY;
+    int drawW = w - 2 * PADDING_X;
+    int drawH = h - PADDING_TOP - PADDING_BOTTOM;
 
     if (drawW <= 0 || drawH <= 0) return;
 
     // Find which step is under the mouse
     float stepW = (float) drawW / 16.0f;
-    int stepIdx = (int) ((mx - paddingX) / stepW);
+    int stepIdx = (int) ((mx - PADDING_X) / stepW);
     stepIdx = Math.max(0, Math.min(15, stepIdx));
 
     // Calculate value from Y coordinate (+1.0 at top, -1.0 at bottom)
-    float baseY = paddingY + drawH;
+    float baseY = PADDING_TOP + drawH;
     float normY = (baseY - my) / (float) drawH; // 0.0 to 1.0
     float val = -1.0f + 2.0f * normY; // map 0-1 to -1.0 to +1.0
     val = Math.max(-1.0f, Math.min(1.0f, val));
@@ -116,7 +129,8 @@ public class LfoDrawPad extends JPanel {
 
   /** Interpolates the 16 steps into the 256-sample model customLfoWave buffer. */
   private void updateModelWave() {
-    int[] customLfoWave = model.getCustomLfoWave();
+    int[] customLfoWave = model != null ? model.getCustomLfoWave() : null;
+    if (customLfoWave == null || customLfoWave.length < 256) return;
     for (int i = 0; i < 256; i++) {
       float val;
       if (smoothMode) {
@@ -150,10 +164,11 @@ public class LfoDrawPad extends JPanel {
     int w = getWidth();
     int h = getHeight();
 
-    int paddingX = 10;
-    int paddingY = 10;
+    int paddingX = PADDING_X;
+    int paddingY = PADDING_TOP;
     int drawW = w - 2 * paddingX;
-    int drawH = h - 2 * paddingY;
+    int drawH = h - PADDING_TOP - PADDING_BOTTOM;
+    if (drawW <= 0 || drawH <= 0) return;
 
     float stepW = (float) drawW / 16.0f;
     float baseY = paddingY + drawH;
