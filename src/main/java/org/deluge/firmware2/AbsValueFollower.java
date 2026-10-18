@@ -25,17 +25,45 @@ public class AbsValueFollower {
     lastMeanR = 0;
   }
 
-  /** C: absolute_value.h:40-46 — setAttack (exp map) */
+  /** C: absolute_value.h:38 */
+  public int getAttack() {
+    return attackKnobPos;
+  }
+
+  /** C: absolute_value.h:39 */
+  public int getAttackMS() {
+    return (int) attackMS;
+  }
+
+  /**
+   * C: absolute_value.h:40-46 — setAttack (exp map).
+   *
+   * <p>Note: C calls newlib/glibc {@code expf(float)} (not guaranteed correctly rounded), whereas
+   * Java {@code (float) Math.exp(double)} can differ by 1 ULP on rare inputs; that difference is
+   * negligible for an envelope time constant.
+   */
   public int setAttack(int attack) {
-    attackMS = 0.5f + (float) (Math.exp(2.0 * attack / ONE_Q31f) - 1.0) * 10.0f;
+    float expTerm = (float) Math.exp(2.0f * (float) attack / ONE_Q31f);
+    attackMS = (float) (0.5 + (expTerm - 1.0f) * 10.0f);
     a_ = (float) ((-1000.0 / K_SAMPLE_RATE) / attackMS);
     attackKnobPos = attack;
     return (int) attackMS;
   }
 
+  /** C: absolute_value.h:48 */
+  public int getRelease() {
+    return releaseKnobPos;
+  }
+
+  /** C: absolute_value.h:49 */
+  public int getReleaseMS() {
+    return (int) releaseMS;
+  }
+
   /** C: absolute_value.h:50-56 — setRelease */
   public int setRelease(int release) {
-    releaseMS = 50.0f + (float) (Math.exp(2.0 * release / ONE_Q31f) - 1.0) * 50.0f;
+    float expTerm = (float) Math.exp(2.0f * (float) release / ONE_Q31f);
+    releaseMS = 50.0f + (expTerm - 1.0f) * 50.0f;
     r_ = (float) ((-1000.0 / K_SAMPLE_RATE) / releaseMS);
     releaseKnobPos = release;
     return (int) releaseMS;
@@ -44,9 +72,9 @@ public class AbsValueFollower {
   /** C: absolute_value.cpp:21-30 — IIR envelope */
   float runEnvelope(float current, float desired, float numSamples) {
     if (desired > current) {
-      return (float) (desired + Math.exp(a_ * numSamples) * (current - desired));
+      return desired + (float) Math.exp(a_ * numSamples) * (current - desired);
     } else {
-      return (float) (desired + Math.exp(r_ * numSamples) * (current - desired));
+      return desired + (float) Math.exp(r_ * numSamples) * (current - desired);
     }
   }
 

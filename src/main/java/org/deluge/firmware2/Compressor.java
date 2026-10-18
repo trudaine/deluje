@@ -86,7 +86,17 @@ public class Compressor {
     baseGain_ = baseGain;
   }
 
-  // ── setAttack (rms_feedback.h:80-84) ──
+  // ── setAttack / getAttack (rms_feedback.h:70-84) ──
+
+  /** C: rms_feedback.h:70 */
+  public int getAttack() {
+    return attackKnobPos;
+  }
+
+  /** C: rms_feedback.h:73 */
+  public float getAttackMS() {
+    return attackMS;
+  }
 
   /** C: rms_feedback.h:80-84 — exp map 0..2^31 to 0.5..70ms */
   public int setAttack(int attack) {
@@ -97,7 +107,17 @@ public class Compressor {
     return (int) attackMS;
   }
 
-  // ── setRelease (rms_feedback.h:95-101) ──
+  // ── setRelease / getRelease (rms_feedback.h:87-101) ──
+
+  /** C: rms_feedback.h:87 */
+  public int getRelease() {
+    return releaseKnobPos;
+  }
+
+  /** C: rms_feedback.h:90 */
+  public float getReleaseMS() {
+    return releaseMS;
+  }
 
   /** C: rms_feedback.h:95-101 — exp map 0..2^31 to 50..400ms */
   public int setRelease(int release) {
@@ -108,7 +128,12 @@ public class Compressor {
     return (int) releaseMS;
   }
 
-  // ── setThreshold (rms_feedback.h:108-111) ──
+  // ── setThreshold / getThreshold (rms_feedback.h:104-111) ──
+
+  /** C: rms_feedback.h:104 */
+  public int getThreshold() {
+    return thresholdKnobPos;
+  }
 
   /** C: rms_feedback.h:108-111 — 0→0.2, 2^31→1.0 */
   public void setThreshold(int t) {
@@ -116,7 +141,17 @@ public class Compressor {
     threshold = 1.0f - 0.8f * ((float) t / ONE_Q31f);
   }
 
-  // ── setRatio (rms_feedback.h:122-127) ──
+  // ── setRatio / getRatio (rms_feedback.h:114-127) ──
+
+  /** C: rms_feedback.h:114 */
+  public int getRatio() {
+    return ratioKnobPos;
+  }
+
+  /** C: rms_feedback.h:117 */
+  public float getRatioForDisplay() {
+    return ratio;
+  }
 
   /** C: rms_feedback.h:122-127 — inverse mapping, 0→2:1, max→256:1 */
   public int setRatio(int rat) {
@@ -126,10 +161,20 @@ public class Compressor {
     return (int) ratio;
   }
 
-  // ── setSidechain (rms_feedback.h:138-147) ──
+  // ── setSidechain / getSidechain (rms_feedback.h:130-147) ──
+
+  /** C: rms_feedback.h:130 */
+  public int getSidechain() {
+    return sideChainKnobPos;
+  }
+
+  /** C: rms_feedback.h:133 */
+  public float getSidechainForDisplay() {
+    return fc_hz;
+  }
 
   /** C: rms_feedback.h:138-147 — exp map 0..2^31 to 0..100Hz */
-  int setSidechain(int f) {
+  public int setSidechain(int f) {
     sideChainKnobPos = f;
     fc_hz = (float) ((Math.exp(1.5 * (double) ((float) f) / (double) ONE_Q31f) - 1.0) * 30.0);
     float fc = fc_hz / (float) K_SAMPLE_RATE;
@@ -138,13 +183,23 @@ public class Compressor {
     return (int) fc_hz;
   }
 
-  // ── setBlend (rms_feedback.h:156-161) ──
+  // ── setBlend / getBlend (rms_feedback.h:150-161) ──
+
+  /** C: rms_feedback.h:150 */
+  public int getBlend() {
+    return wet;
+  }
+
+  /** C: rms_feedback.h:152 */
+  public int getBlendForDisplay() {
+    return (wet > (127 << 24)) ? 100 : 100 * (wet >> 24) >> 7;
+  }
 
   /** C: rms_feedback.h:156-161 */
-  int setBlend(int blend) {
+  public int setBlend(int blend) {
     dry = ONE_Q31 - blend;
     wet = blend;
-    return (wet > (127 << 24)) ? 100 : 100 * (wet >> 24) >> 7;
+    return getBlendForDisplay();
   }
 
   // ── Float convenience setters (engine-facing; map a 0..1 float to the knob math) ──
