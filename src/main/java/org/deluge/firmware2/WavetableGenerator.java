@@ -4,10 +4,9 @@ package org.deluge.firmware2;
  * Generates band-limited octave bands for a {@link WaveTable}.
  *
  * <p>Band 0 time-domain copy, {@code CONVERT_AND_STORE_SAMPLE} q31 input scaling, non-power-of-two
- * {@code dft_r2c}, Nyquist magnitude folding, and floor output scaling follow {@code
- * wave_table.cpp:75-122, 353-731}. The power-of-two forward/inverse FFT itself currently uses
- * double precision rather than NE10's fixed-point {@code ne10_fft_r2c_1d_int32_neon} / {@code
- * ne10_fft_c2r_1d_int32_neon}, so bands &ge; 1 are not bit-exact with NE10.
+ * {@code dft_r2c}, NE10 fixed-point {@code int32} forward/inverse FFT ({@code scaled_flag =
+ * false}), Nyquist magnitude folding, and arithmetic-shift output scaling follow {@code
+ * wave_table.cpp:75-122, 353-731}.
  */
 public class WavetableGenerator {
 
@@ -42,6 +41,7 @@ public class WavetableGenerator {
         || initialBandCycleSize < WaveTable.kWavetableMinCycleSize) {
       throw new IllegalArgumentException("Wavetable band 0 cycle size must be a power of two >= 8");
     }
+    int initialBandCycleMagnitude = Integer.numberOfTrailingZeros(initialBandCycleSize);
 
     // C wave_table.cpp:173-205 — non-power-of-two raw cycle size is allowed for single-cycle
     // wavetables (expanded to next power-of-two in band 0); multi-cycle wavetables use
@@ -56,11 +56,18 @@ public class WavetableGenerator {
     }
     boolean rawCycleSizeIsPowerOfTwo = (rawCycleSize == initialBandCycleSize);
 
-    // Process cycle-by-cycle to support multi-cycle wavetables (C wave_table.cpp:369)
+    // C wave_table.cpp:401-416 — FFT config and working buffers for initial band.
+    Ne10FftInt32.Config fftCfgForInitialBand = Ne10FftInt32.getConfig(initialBandCycleMagnitude);
+    if (fftCfgForInitialBand == null && (numBands > 1 || !rawCycleSizeIsPowerOfTwo)) {
+      throw new IllegalArgumentException(
+          "Unsupported wavetable band 0 FFT magnitude: " + initialBandCycleMagnitude);
+    }
+    int[] currentCycleInt32 = new int[initialBandCycleSize];
+    int[] frequencyDomainData = new int[initialBandCycleSize + 2];
+
+    // Process cycle-by-cycle to support multi-cycle wavetables (C wave_table.cpp:432)
     for (int c = 0; c < numCycles; c++) {
       int cycleSrcOffset = c * rawCycleSize;
-      double[] re = new double[initialBandCycleSize];
-      double[] im = new double[initialBandCycleSize];
 
       if (rawCycleSizeIsPowerOfTwo) {
         // C wave_table.cpp:436-438, 564-576 — band 0 is written directly as (value32 >> 16)
@@ -71,7 +78,7 @@ public class WavetableGenerator {
         for (int i = 0; i < initialBandCycleSize; i++) {
           int value32 = q31Samples[cycleSrcOffset + i];
           band0.data[band0Offset + i] = (short) (value32 >> 16);
-          re[i] = value32 >> MAGNITUDE_REDUCTION_FOR_FFT;
+          currentCycleInt32[i] = value32 >> MAGNITUDE_REDUCTION_FOR_FFT;
         }
         for (int i = 0; i < WaveTable.WAVETABLE_NUM_DUPLICATE_SAMPLES_AT_END_OF_CYCLE; i++) {
           band0.data[band0Offset + initialBandCycleSize + i] = band0.data[band0Offset + i];
@@ -79,54 +86,53 @@ public class WavetableGenerator {
         if (numBands <= 1) {
           continue;
         }
-        // C wave_table.cpp:579 — unscaled forward FFT of size initialBandCycleSize.
-        fft(re, im, false);
+        // C wave_table.cpp:579 — unscaled NE10 int32 forward r2c FFT of size initialBandCycleSize.
+        Ne10FftInt32.r2c1d(frequencyDomainData, currentCycleInt32, fftCfgForInitialBand, false);
       } else {
         // C wave_table.cpp:536-550 — non-power-of-two single-cycle wavetable uses fixed-point
         // dft_r2c for bins 0 .. rawCycleSize/2, with bins above rawCycleSize/2 zeroed.
-        dftR2cFixedPoint(re, im, q31Samples, cycleSrcOffset, rawCycleSize);
+        dftR2cFixedPoint(frequencyDomainData, q31Samples, cycleSrcOffset, rawCycleSize);
+        for (int i = (rawCycleSize >> 1) + 1; i <= (initialBandCycleSize >> 1); i++) {
+          frequencyDomainData[2 * i] = 0;
+          frequencyDomainData[2 * i + 1] = 0;
+        }
       }
 
       // C wave_table.cpp:629-730 — render band-limited versions (b >= 1 for power-of-two,
       // b >= 0 for non-power-of-two).
       int startBand = rawCycleSizeIsPowerOfTwo ? 1 : 0;
+      int outputShift = 16 - MAGNITUDE_REDUCTION_FOR_FFT + initialBandCycleMagnitude;
       for (int b = startBand; b < numBands; b++) {
         WaveTableBand band = waveTable.bands.get(b);
         int bandSize = band.cycleSizeNoDuplicates;
         int nyquist = bandSize >> 1;
 
-        double[] bandRe = new double[bandSize];
-        double[] bandIm = new double[bandSize];
-
-        bandRe[0] = re[0];
-        bandIm[0] = 0.0;
-        for (int i = 1; i < nyquist; i++) {
-          bandRe[i] = re[i];
-          bandIm[i] = im[i];
-          // Hermitian symmetry for real signals
-          bandRe[bandSize - i] = re[i];
-          bandIm[bandSize - i] = -im[i];
+        if (b >= 1) {
+          // C wave_table.cpp:681-687 — fold Nyquist bin magnitude into real component so it is not
+          // lost when the imaginary component vanishes at Nyquist.
+          // Uses Math.hypot rather than C's fastPythag, whose `divisor = x << 8` at
+          // functions.cpp:1506 overflows int32 for x >= 2^23.
+          int nyqIdx = 2 * nyquist;
+          int nyqRe = frequencyDomainData[nyqIdx];
+          int nyqIm = frequencyDomainData[nyqIdx + 1];
+          int pythag = (int) Math.min(Integer.MAX_VALUE, Math.round(Math.hypot(nyqRe, nyqIm)));
+          frequencyDomainData[nyqIdx] = (nyqRe < 0) ? -pythag : pythag;
+          frequencyDomainData[nyqIdx + 1] = 0;
         }
 
-        // C wave_table.cpp:681-687 — fold Nyquist bin magnitude into real component so it is not
-        // lost when the imaginary component vanishes at Nyquist.
-        double nyqRe = re[nyquist];
-        double nyqIm = im[nyquist];
-        double pythag = Math.hypot(nyqRe, nyqIm);
-        bandRe[nyquist] = (nyqRe < 0.0) ? -pythag : pythag;
-        bandIm[nyquist] = 0.0;
+        // C wave_table.cpp:691-712 — unscaled NE10 int32 inverse c2r FFT back to time domain.
+        int bandMagnitude = Integer.numberOfTrailingZeros(bandSize);
+        Ne10FftInt32.Config fftCfgThisBand = Ne10FftInt32.getConfig(bandMagnitude);
+        if (fftCfgThisBand == null) {
+          continue;
+        }
+        Ne10FftInt32.c2r1d(currentCycleInt32, frequencyDomainData, fftCfgThisBand, false);
 
-        // C wave_table.cpp:712 — unscaled inverse FFT back to time domain.
-        fft(bandRe, bandIm, true);
-
-        // C wave_table.cpp:720-724 — signed_saturate<16>(x >> (16 - 12 +
-        // initialBandCycleMagnitude)),
-        // which floors (x / (16 * initialBandCycleSize)) across every band.
+        // C wave_table.cpp:720-724 — signed_saturate<16>(currentCycleInt32[i] >> outputShift).
         int cycleOffset =
             c * (bandSize + WaveTable.WAVETABLE_NUM_DUPLICATE_SAMPLES_AT_END_OF_CYCLE);
-        double floorScale = 16.0 * initialBandCycleSize;
         for (int i = 0; i < bandSize; i++) {
-          band.data[cycleOffset + i] = toFloorPcm16(bandRe[i] / floorScale);
+          band.data[cycleOffset + i] = saturate16(currentCycleInt32[i] >> outputShift);
         }
         for (int i = 0; i < WaveTable.WAVETABLE_NUM_DUPLICATE_SAMPLES_AT_END_OF_CYCLE; i++) {
           band.data[cycleOffset + bandSize + i] = band.data[cycleOffset + i];
@@ -135,17 +141,16 @@ public class WavetableGenerator {
     }
   }
 
-  private static short toFloorPcm16(double scaled) {
-    // C wave_table.cpp:720-724 — arithmetic right shift floors toward -infinity, then saturates.
-    long floored = (long) Math.floor(scaled);
-    if (floored > Short.MAX_VALUE) return Short.MAX_VALUE;
-    if (floored < Short.MIN_VALUE) return Short.MIN_VALUE;
-    return (short) floored;
+  private static short saturate16(int val) {
+    // C fixedpoint.h:108-112, 198-202 — signed_saturate<16>.
+    if (val > Short.MAX_VALUE) return Short.MAX_VALUE;
+    if (val < Short.MIN_VALUE) return Short.MIN_VALUE;
+    return (short) val;
   }
 
   // C wave_table.cpp:75-122 — fixed-point dft_r2c using sineWaveSmall table interpolation.
   private static void dftR2cFixedPoint(
-      double[] re, double[] im, int[] q31Samples, int offset, int n) {
+      int[] frequencyDomainData, int[] q31Samples, int offset, int n) {
     int halfN = n >>> 1;
     int tableMask = (1 << NUM_BITS_IN_TABLE_SIZE) - 1;
     int cosQuadOffset = 1 << (NUM_BITS_IN_TABLE_SIZE - 2);
@@ -183,47 +188,8 @@ public class WavetableGenerator {
       }
 
       // C :120-121 — restore 1 bit lost in Q31 multiply-accumulate.
-      re[i] = sReal << 1;
-      im[i] = sIm << 1;
-    }
-  }
-
-  // Unscaled complex Cooley-Tukey FFT/IFFT (C NE10 scaled_flag=false in wave_table.cpp:579, 712).
-  private static void fft(double[] re, double[] im, boolean inverse) {
-    int n = re.length;
-    int bits = Integer.numberOfTrailingZeros(n);
-    for (int i = 0; i < n; i++) {
-      int j = Integer.reverse(i) >>> (32 - bits);
-      if (j > i) {
-        double tr = re[i];
-        re[i] = re[j];
-        re[j] = tr;
-        double ti = im[i];
-        im[i] = im[j];
-        im[j] = ti;
-      }
-    }
-    for (int len = 2; len <= n; len <<= 1) {
-      double ang = 2.0 * Math.PI / len * (inverse ? 1 : -1);
-      double wlenRe = Math.cos(ang);
-      double wlenIm = Math.sin(ang);
-      for (int i = 0; i < n; i += len) {
-        double wRe = 1.0;
-        double wIm = 0.0;
-        for (int j = 0; j < len / 2; j++) {
-          double uRe = re[i + j];
-          double uIm = im[i + j];
-          double vRe = re[i + j + len / 2] * wRe - im[i + j + len / 2] * wIm;
-          double vIm = re[i + j + len / 2] * wIm + im[i + j + len / 2] * wRe;
-          re[i + j] = uRe + vRe;
-          im[i + j] = uIm + vIm;
-          re[i + j + len / 2] = uRe - vRe;
-          im[i + j + len / 2] = uIm - vIm;
-          double nextWRe = wRe * wlenRe - wIm * wlenIm;
-          wIm = wRe * wlenIm + wIm * wlenRe;
-          wRe = nextWRe;
-        }
-      }
+      frequencyDomainData[2 * i] = sReal << 1;
+      frequencyDomainData[2 * i + 1] = sIm << 1;
     }
   }
 }
