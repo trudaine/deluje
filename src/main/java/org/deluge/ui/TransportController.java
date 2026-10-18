@@ -171,8 +171,16 @@ public class TransportController {
   }
 
   public void tapTempo() {
-    long now = System.currentTimeMillis();
-    if (!tapTimes.isEmpty() && (now - tapTimes.peekLast()) > 2000) {
+    recordTapAt(System.currentTimeMillis());
+  }
+
+  /**
+   * C PlaybackHandler::tapTempoButtonPress (playback_handler.cpp:2846-2880): resets the tap
+   * sequence after 1100 ms (TimerName::TAP_TEMPO_SWITCH_OFF, :2879) and displays the updated tempo
+   * on the OLED (commandDisplayTempo, :2872).
+   */
+  void recordTapAt(long now) {
+    if (!tapTimes.isEmpty() && (now - tapTimes.peekLast()) > 1100) {
       tapTimes.clear();
     }
     tapTimes.addLast(now);
@@ -182,12 +190,16 @@ public class TransportController {
     if (tapTimes.size() >= 2) {
       long[] arr = tapTimes.stream().mapToLong(Long::longValue).toArray();
       long totalGap = arr[arr.length - 1] - arr[0];
+      if (totalGap <= 0) return;
       double avgGap = totalGap / (double) (arr.length - 1);
-      double bpm = 60000.0 / avgGap;
-      bpm = Math.max(20.0, Math.min(999.0, bpm));
+      double bpm = Math.max(40.0, Math.min(300.0, 60000.0 / avgGap));
       if (app.getCurrentProject() != null) {
         app.getCurrentProject().setBpm((float) bpm);
       }
+      if (bridge != null) {
+        bridge.setGlobalFloat(BridgeContract.G_BPM, bpm);
+      }
+      showOled("TEMPO", String.format("%.1f BPM", bpm));
     }
   }
 

@@ -623,7 +623,10 @@ public class SwingRandomizerDialog extends JDialog {
         samplePath = ((File) val).getAbsolutePath().replace('\\', '/');
       }
 
-      String laneName = kitLaneNames[i].split(" ")[0]; // Just the basename like Kick, Snare
+      // C kit.cpp:512,934 — drum names within a kit must be unique (Kit::getDrumFromName /
+      // Kit::makeDrumNameUnique). Strip the "(Row X)" suffix rather than splitting on the first
+      // space, which collapsed "Percussion 1..4" to "Percussion" and "Extra 1..4" to "Extra".
+      String laneName = kitLaneNames[i].split(" \\(")[0];
       SoundDrum sd = new SoundDrum(laneName, samplePath);
       sd.setVolume(defaultVolume);
 
@@ -1175,16 +1178,10 @@ public class SwingRandomizerDialog extends JDialog {
             clip = new ClipModel("CHORD PROGRESSION", 8, 16);
             track.addClip(clip);
           } else {
-            clip =
-                track
-                    .getClips()
-                    .get(track.getActiveClipIndex() >= 0 ? track.getActiveClipIndex() : 0);
-            // Clear all standard step cells in the grid to write fresh chord notes!
-            for (int r = 0; r < clip.getRowCount(); r++) {
-              for (int s = 0; s < clip.getStepCount(); s++) {
-                clip.setStep(r, s, org.deluge.model.StepData.empty());
-              }
-            }
+            int activeIdx = track.getActiveClipIndex();
+            int safeClipIdx =
+                (activeIdx >= 0 && activeIdx < track.getClips().size()) ? activeIdx : 0;
+            clip = track.getClips().get(safeClipIdx);
           }
 
           // 1. Resolve Root Note Center
@@ -1226,130 +1223,23 @@ public class SwingRandomizerDialog extends JDialog {
             }
           }
 
-          // If progression has less than 4 steps, repeat last index; if wider, crop to first 4
-          // bars grid boundaries!
-          while (degrees.size() < 4) {
-            degrees.add(0);
-          }
-
           org.deluge.model.tuning.ScalaScale activeScale =
               org.deluge.model.tuning.ScalaScale.getActiveScale();
-          int scaleSteps = (activeScale != null) ? activeScale.getStepsCount() : 12;
-          int spacing = Math.max(1, Math.round(scaleSteps / 7.0f)); // spacer for chord stacking
-
           int voicingType = voicingCombo.getSelectedIndex();
           int rhythmType = rhythmCombo.getSelectedIndex();
-
-          // Standard 12-TET Major/Minor fallback diatonic key intervals maps
-          int[] majorIntervals = {0, 2, 4, 5, 7, 9, 11};
-          int[] minorIntervals = {0, 2, 3, 5, 7, 8, 10};
           boolean isMinorProg = (selectedProg == 3);
 
-          // Loop through 4 bars grids steps columns
-          for (int bar = 0; bar < 4; bar++) {
-            int degree = degrees.get(bar);
+          generateChordProgression(
+              clip, baseRoot, degrees, isMinorProg, voicingType, rhythmType, activeScale);
 
-            // Generate raw pitches for the chord stack
-            ArrayList<Integer> chordPitches = new ArrayList<>();
-
-            if (activeScale == null) {
-              // Standard 12-TET Diatonic scale interval map!
-              int[] intervals = isMinorProg ? minorIntervals : majorIntervals;
-              int rootOffset = intervals[Math.abs(degree) % 7] + 12 * (degree / 7);
-              int thirdOffset = intervals[Math.abs(degree + 2) % 7] + 12 * ((degree + 2) / 7);
-              int fifthOffset = intervals[Math.abs(degree + 4) % 7] + 12 * ((degree + 4) / 7);
-              int seventhOffset = intervals[Math.abs(degree + 6) % 7] + 12 * ((degree + 6) / 7);
-
-              if (voicingType == 0) { // Triad
-                chordPitches.add(baseRoot + rootOffset);
-                chordPitches.add(baseRoot + thirdOffset);
-                chordPitches.add(baseRoot + fifthOffset);
-              } else if (voicingType == 1) { // 7ths
-                chordPitches.add(baseRoot + rootOffset);
-                chordPitches.add(baseRoot + thirdOffset);
-                chordPitches.add(baseRoot + fifthOffset);
-                chordPitches.add(baseRoot + seventhOffset);
-              } else if (voicingType == 2) { // Sus4
-                int susOffset = intervals[Math.abs(degree + 3) % 7] + 12 * ((degree + 3) / 7);
-                chordPitches.add(baseRoot + rootOffset);
-                chordPitches.add(baseRoot + susOffset);
-                chordPitches.add(baseRoot + fifthOffset);
-              } else { // Spread pads: root + 5th + octave up
-                chordPitches.add(baseRoot + rootOffset);
-                chordPitches.add(baseRoot + fifthOffset);
-                chordPitches.add(baseRoot + rootOffset + 12);
-              }
-            } else {
-              // Custom Microtonal scale layout: degrees are step pitch notes directly!
-              int rootOffset = degree;
-              int thirdOffset = degree + spacing;
-              int fifthOffset = degree + 2 * spacing;
-              int seventhOffset = degree + 3 * spacing;
-
-              if (voicingType == 0) { // Triad
-                chordPitches.add(baseRoot + rootOffset);
-                chordPitches.add(baseRoot + thirdOffset);
-                chordPitches.add(baseRoot + fifthOffset);
-              } else if (voicingType == 1) { // 7ths
-                chordPitches.add(baseRoot + rootOffset);
-                chordPitches.add(baseRoot + thirdOffset);
-                chordPitches.add(baseRoot + fifthOffset);
-                chordPitches.add(baseRoot + seventhOffset);
-              } else if (voicingType == 2) { // Sus4 (Diatonic step 3 spacing!)
-                chordPitches.add(baseRoot + rootOffset);
-                chordPitches.add(baseRoot + degree + (int) Math.round(spacing * 1.5));
-                chordPitches.add(baseRoot + fifthOffset);
-              } else { // Spread pads: root + 5th + octave degree steps count!
-                chordPitches.add(baseRoot + rootOffset);
-                chordPitches.add(baseRoot + fifthOffset);
-                chordPitches.add(baseRoot + rootOffset + scaleSteps);
-              }
-            }
-
-            // Apply rhythm pattern styles writes
-            int barStartCol = bar * 4;
-            if (rhythmType == 0) { // Whole Notes (1 chord per bar, gate = 4.0)
-              for (int pitch : chordPitches) {
-                int rIdx = Math.max(0, Math.min(127, 127 - pitch));
-                clip.setStep(
-                    rIdx, barStartCol, org.deluge.model.StepData.of(true, pitch, 1.0f, 4.0f, 0));
-              }
-            } else if (rhythmType == 1) { // Half Notes (2 chords per bar, gate = 2.0)
-              for (int pitch : chordPitches) {
-                int rIdx = Math.max(0, Math.min(127, 127 - pitch));
-                clip.setStep(
-                    rIdx, barStartCol, org.deluge.model.StepData.of(true, pitch, 1.0f, 2.0f, 0));
-                clip.setStep(
-                    rIdx,
-                    barStartCol + 2,
-                    org.deluge.model.StepData.of(true, pitch, 1.0f, 2.0f, 0));
-              }
-            } else if (rhythmType == 2) { // Stabs (4 staccato stabs, gate = 0.25)
-              for (int sIdx = 0; sIdx < 4; sIdx++) {
-                for (int pitch : chordPitches) {
-                  int rIdx = Math.max(0, Math.min(127, 127 - pitch));
-                  clip.setStep(
-                      rIdx,
-                      barStartCol + sIdx,
-                      org.deluge.model.StepData.of(true, pitch, 1.0f, 0.25f, 0));
-                }
-              }
-            } else { // Arpeggiated Wave (1/16th rolling arps waves!)
-              for (int sIdx = 0; sIdx < 4; sIdx++) {
-                int noteIndex = sIdx % chordPitches.size();
-                int pitch = chordPitches.get(noteIndex);
-                int rIdx = Math.max(0, Math.min(127, 127 - pitch));
-                clip.setStep(
-                    rIdx,
-                    barStartCol + sIdx,
-                    org.deluge.model.StepData.of(true, pitch, 1.0f, 1.0f, 0));
-              }
-            }
-          }
-
-          // Sync and force grid graphics repaints!
+          // Sync live audio engine/bridge and force grid graphics repaints
           if (parentFrame instanceof SwingDelugeApp app) {
-            app.getActiveGridPanel().refresh();
+            app.pushModelToBridge();
+            app.syncHighFidelityEngine(projectModel);
+            app.fireProjectChanged();
+            if (app.getActiveGridPanel() != null) {
+              app.getActiveGridPanel().refresh();
+            }
           }
           JOptionPane.showMessageDialog(
               this, "Successfully generated chord progression on track: " + track.getName());
@@ -1357,6 +1247,175 @@ public class SwingRandomizerDialog extends JDialog {
     panel.add(generateBtn, gbc);
 
     return panel;
+  }
+
+  static void generateChordProgression(
+      ClipModel clip,
+      int baseRoot,
+      List<Integer> rawDegrees,
+      boolean isMinorProg,
+      int voicingType,
+      int rhythmType,
+      org.deluge.model.tuning.ScalaScale activeScale) {
+    if (clip == null) return;
+    if (clip.getStepCount() < 16) {
+      clip.setStepCount(16);
+    }
+
+    // Clear all step cells and stale NoteRowModel pitch mappings before writing fresh chord notes
+    for (int r = 0; r < clip.getRowCount(); r++) {
+      for (int s = 0; s < clip.getStepCount(); s++) {
+        clip.setStep(r, s, org.deluge.model.StepData.empty());
+      }
+    }
+    clip.getNoteRowsMap().clear();
+
+    ArrayList<Integer> degrees = new ArrayList<>();
+    if (rawDegrees != null) {
+      degrees.addAll(rawDegrees);
+    }
+    while (degrees.size() < 4) {
+      degrees.add(degrees.isEmpty() ? 0 : degrees.get(degrees.size() - 1));
+    }
+
+    int scaleSteps = (activeScale != null) ? activeScale.getStepsCount() : 12;
+    int spacing = Math.max(1, Math.round(scaleSteps / 7.0f)); // spacer for chord stacking
+    int[] majorIntervals = {0, 2, 4, 5, 7, 9, 11};
+    int[] minorIntervals = {0, 2, 3, 5, 7, 8, 10};
+    int[] intervals = isMinorProg ? minorIntervals : majorIntervals;
+
+    // Build per-bar chord pitch stacks first so we can map distinct pitches to grid rows cleanly
+    List<List<Integer>> barChordPitches = new ArrayList<>(4);
+    java.util.TreeSet<Integer> distinctPitchesDesc =
+        new java.util.TreeSet<>(java.util.Collections.reverseOrder());
+
+    for (int bar = 0; bar < 4; bar++) {
+      int degree = degrees.get(bar);
+      ArrayList<Integer> chordPitches = new ArrayList<>();
+
+      if (activeScale == null) {
+        int rootOffset = diatonicOffset(intervals, degree);
+        int thirdOffset = diatonicOffset(intervals, degree + 2);
+        int fifthOffset = diatonicOffset(intervals, degree + 4);
+        int seventhOffset = diatonicOffset(intervals, degree + 6);
+
+        if (voicingType == 0) { // Triad
+          chordPitches.add(clampMidiPitch(baseRoot + rootOffset));
+          chordPitches.add(clampMidiPitch(baseRoot + thirdOffset));
+          chordPitches.add(clampMidiPitch(baseRoot + fifthOffset));
+        } else if (voicingType == 1) { // 7ths
+          chordPitches.add(clampMidiPitch(baseRoot + rootOffset));
+          chordPitches.add(clampMidiPitch(baseRoot + thirdOffset));
+          chordPitches.add(clampMidiPitch(baseRoot + fifthOffset));
+          chordPitches.add(clampMidiPitch(baseRoot + seventhOffset));
+        } else if (voicingType == 2) { // Sus4
+          int susOffset = diatonicOffset(intervals, degree + 3);
+          chordPitches.add(clampMidiPitch(baseRoot + rootOffset));
+          chordPitches.add(clampMidiPitch(baseRoot + susOffset));
+          chordPitches.add(clampMidiPitch(baseRoot + fifthOffset));
+        } else { // Spread pads: root + 5th + octave up
+          chordPitches.add(clampMidiPitch(baseRoot + rootOffset));
+          chordPitches.add(clampMidiPitch(baseRoot + fifthOffset));
+          chordPitches.add(clampMidiPitch(baseRoot + rootOffset + 12));
+        }
+      } else {
+        int rootOffset = degree;
+        int thirdOffset = degree + spacing;
+        int fifthOffset = degree + 2 * spacing;
+        int seventhOffset = degree + 3 * spacing;
+
+        if (voicingType == 0) { // Triad
+          chordPitches.add(clampMidiPitch(baseRoot + rootOffset));
+          chordPitches.add(clampMidiPitch(baseRoot + thirdOffset));
+          chordPitches.add(clampMidiPitch(baseRoot + fifthOffset));
+        } else if (voicingType == 1) { // 7ths
+          chordPitches.add(clampMidiPitch(baseRoot + rootOffset));
+          chordPitches.add(clampMidiPitch(baseRoot + thirdOffset));
+          chordPitches.add(clampMidiPitch(baseRoot + fifthOffset));
+          chordPitches.add(clampMidiPitch(baseRoot + seventhOffset));
+        } else if (voicingType == 2) { // Sus4
+          chordPitches.add(clampMidiPitch(baseRoot + rootOffset));
+          chordPitches.add(clampMidiPitch(baseRoot + degree + (int) Math.round(spacing * 1.5)));
+          chordPitches.add(clampMidiPitch(baseRoot + fifthOffset));
+        } else { // Spread pads: root + 5th + scale octave steps
+          chordPitches.add(clampMidiPitch(baseRoot + rootOffset));
+          chordPitches.add(clampMidiPitch(baseRoot + fifthOffset));
+          chordPitches.add(clampMidiPitch(baseRoot + rootOffset + scaleSteps));
+        }
+      }
+
+      barChordPitches.add(chordPitches);
+      distinctPitchesDesc.addAll(chordPitches);
+    }
+
+    // Map each distinct pitch to a valid row index in clip
+    java.util.Map<Integer, Integer> pitchToRow = new java.util.HashMap<>();
+    if (clip.getRowCount() == 128) {
+      for (int pitch : distinctPitchesDesc) {
+        int row = 127 - pitch;
+        pitchToRow.put(pitch, row);
+        clip.setRowYNote(row, pitch);
+      }
+    } else {
+      if (distinctPitchesDesc.size() > clip.getRowCount()) {
+        clip.setRowCount(distinctPitchesDesc.size());
+      }
+      int rowIdx = 0;
+      for (int pitch : distinctPitchesDesc) {
+        pitchToRow.put(pitch, rowIdx);
+        clip.setRowYNote(rowIdx, pitch);
+        rowIdx++;
+      }
+    }
+
+    // Write rhythm pattern steps using StepData.of(active, velocity, gate, probability, pitch)
+    for (int bar = 0; bar < 4; bar++) {
+      List<Integer> chordPitches = barChordPitches.get(bar);
+      int barStartCol = bar * 4;
+      if (rhythmType == 0) { // Whole Notes (1 chord per bar, gate = 4.0)
+        for (int pitch : chordPitches) {
+          int rIdx = pitchToRow.get(pitch);
+          clip.setStep(
+              rIdx, barStartCol, org.deluge.model.StepData.of(true, 1.0f, 4.0f, 1.0f, pitch));
+        }
+      } else if (rhythmType == 1) { // Half Notes (2 chords per bar, gate = 2.0)
+        for (int pitch : chordPitches) {
+          int rIdx = pitchToRow.get(pitch);
+          clip.setStep(
+              rIdx, barStartCol, org.deluge.model.StepData.of(true, 1.0f, 2.0f, 1.0f, pitch));
+          clip.setStep(
+              rIdx, barStartCol + 2, org.deluge.model.StepData.of(true, 1.0f, 2.0f, 1.0f, pitch));
+        }
+      } else if (rhythmType == 2) { // Stabs (4 staccato stabs, gate = 0.25)
+        for (int sIdx = 0; sIdx < 4; sIdx++) {
+          for (int pitch : chordPitches) {
+            int rIdx = pitchToRow.get(pitch);
+            clip.setStep(
+                rIdx,
+                barStartCol + sIdx,
+                org.deluge.model.StepData.of(true, 1.0f, 0.25f, 1.0f, pitch));
+          }
+        }
+      } else { // Arpeggiated Wave (1/16th rolling arps, gate = 1.0)
+        for (int sIdx = 0; sIdx < 4; sIdx++) {
+          int noteIndex = sIdx % chordPitches.size();
+          int pitch = chordPitches.get(noteIndex);
+          int rIdx = pitchToRow.get(pitch);
+          clip.setStep(
+              rIdx,
+              barStartCol + sIdx,
+              org.deluge.model.StepData.of(true, 1.0f, 1.0f, 1.0f, pitch));
+        }
+      }
+    }
+  }
+
+  static int diatonicOffset(int[] intervals, int degree) {
+    return intervals[Math.floorMod(degree, 7)] + 12 * Math.floorDiv(degree, 7);
+  }
+
+  private static int clampMidiPitch(int pitch) {
+    return Math.max(0, Math.min(127, pitch));
   }
 
   private void styleButton(JButton btn, Color bg, Color fg) {

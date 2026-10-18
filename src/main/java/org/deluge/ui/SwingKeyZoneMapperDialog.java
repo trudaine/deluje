@@ -93,6 +93,7 @@ public class SwingKeyZoneMapperDialog extends JDialog {
 
     // 2. Center Scrollable Piano Roll Grid Map
     gridMap = new SwingKeyZoneGridMap(zones);
+    gridMap.setTrackContext(trackIndex, bridge);
     JScrollPane scrollPane = new JScrollPane(gridMap);
     scrollPane.setBackground(SwingSynthConfigDialog.BG_DARK);
     scrollPane.getViewport().setBackground(SwingSynthConfigDialog.BG_DARK);
@@ -313,16 +314,20 @@ public class SwingKeyZoneMapperDialog extends JDialog {
   }
 
   private String getRelativeSdPath(String absolutePath) {
-    File libraryDir = PreferencesManager.getLibraryDir();
-    if (libraryDir != null) {
-      String sdPath = libraryDir.getAbsolutePath();
-      if (absolutePath.startsWith(sdPath)) {
-        String relative = absolutePath.substring(sdPath.length());
-        if (relative.startsWith("/") || relative.startsWith("\\")) {
-          relative = relative.substring(1);
-        }
-        return relative;
+    return resolveRelativeSdPath(absolutePath, PreferencesManager.getLibraryDir());
+  }
+
+  static String resolveRelativeSdPath(String absolutePath, File libraryDir) {
+    if (absolutePath == null || libraryDir == null) {
+      return absolutePath;
+    }
+    try {
+      java.nio.file.Path abs = java.nio.file.Path.of(absolutePath).toAbsolutePath().normalize();
+      java.nio.file.Path lib = libraryDir.toPath().toAbsolutePath().normalize();
+      if (abs.startsWith(lib) && !abs.equals(lib)) {
+        return lib.relativize(abs).toString().replace('\\', '/');
       }
+    } catch (Exception ignored) {
     }
     return absolutePath;
   }
@@ -366,12 +371,13 @@ public class SwingKeyZoneMapperDialog extends JDialog {
     toggleFieldsEnabled(true);
     isUpdatingFields = true;
 
-    pathField.setText(new File(kz.samplePath).getName());
-    minPitchSpinner.setValue(kz.minPitch);
-    maxPitchSpinner.setValue(kz.maxPitch);
-    transposeSpinner.setValue(kz.transpose);
-    minVelSpinner.setValue(kz.minVelocity);
-    maxVelSpinner.setValue(kz.maxVelocity);
+    pathField.setText(
+        kz.samplePath != null && !kz.samplePath.isEmpty() ? new File(kz.samplePath).getName() : "");
+    minPitchSpinner.setValue(Math.max(0, Math.min(127, kz.minPitch)));
+    maxPitchSpinner.setValue(Math.max(0, Math.min(127, kz.maxPitch)));
+    transposeSpinner.setValue(Math.max(-48, Math.min(48, kz.transpose)));
+    minVelSpinner.setValue(Math.max(0, Math.min(127, kz.minVelocity)));
+    maxVelSpinner.setValue(Math.max(0, Math.min(127, kz.maxVelocity)));
     loopCheckBox.setSelected(kz.looping);
     loopStartSpinner.setValue(kz.startLoopPos);
     loopEndSpinner.setValue(kz.endLoopPos);
@@ -384,11 +390,27 @@ public class SwingKeyZoneMapperDialog extends JDialog {
 
     KeyZone kz = gridMap.getSelectedZone();
     if (kz != null) {
-      kz.minPitch = (Integer) minPitchSpinner.getValue();
-      kz.maxPitch = (Integer) maxPitchSpinner.getValue();
+      int minP = (Integer) minPitchSpinner.getValue();
+      int maxP = (Integer) maxPitchSpinner.getValue();
+      if (minP > maxP) {
+        maxP = minP;
+        isUpdatingFields = true;
+        maxPitchSpinner.setValue(maxP);
+        isUpdatingFields = false;
+      }
+      int minV = (Integer) minVelSpinner.getValue();
+      int maxV = (Integer) maxVelSpinner.getValue();
+      if (minV > maxV) {
+        maxV = minV;
+        isUpdatingFields = true;
+        maxVelSpinner.setValue(maxV);
+        isUpdatingFields = false;
+      }
+      kz.minPitch = minP;
+      kz.maxPitch = maxP;
       kz.transpose = (Integer) transposeSpinner.getValue();
-      kz.minVelocity = (Integer) minVelSpinner.getValue();
-      kz.maxVelocity = (Integer) maxVelSpinner.getValue();
+      kz.minVelocity = minV;
+      kz.maxVelocity = maxV;
       kz.looping = loopCheckBox.isSelected();
       kz.startLoopPos = (Integer) loopStartSpinner.getValue();
       kz.endLoopPos = (Integer) loopEndSpinner.getValue();
