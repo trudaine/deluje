@@ -43,6 +43,21 @@ public class ClipModel extends TimelineCounter {
   // 255 = unassigned. Written only when != 255 (clip.cpp:667), clamped on read (clip.cpp:715).
   private int section = 255;
 
+  /**
+   * C Clip::launchStyle (clip.cpp:60, 764-766; functions.cpp:1283-1310): "default", "fill" or
+   * "once". Round-tripped; the session launch behaviour of FILL / ONCE is not yet ported.
+   */
+  private String launchStyle = "default";
+
+  public String getLaunchStyle() {
+    return launchStyle;
+  }
+
+  /** C stringToLaunchStyle: anything other than "fill" / "once" is DEFAULT. */
+  public void setLaunchStyle(String s) {
+    this.launchStyle = ("fill".equals(s) || "once".equals(s)) ? s : "default";
+  }
+
   private String leftCol = "VELOCITY";
   private String rightCol = "MOD";
 
@@ -292,6 +307,7 @@ public class ClipModel extends TimelineCounter {
     copy.tripletMode = this.tripletMode;
     copy.setPlayDirection(this.playDirection);
     copy.isArrangementOnly = this.isArrangementOnly;
+    copy.launchStyle = this.launchStyle; // C clip.cpp:97, 105
     return copy;
   }
 
