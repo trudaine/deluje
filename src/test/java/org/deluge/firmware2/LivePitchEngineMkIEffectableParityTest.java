@@ -1,0 +1,163 @@
+package org.deluge.firmware2;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
+
+/**
+ * Verifies C++ firmware parity fixes across {@link LivePitchShifterPlayHead}, {@link EngineMkI},
+ * {@link Functions}, {@link GlobalSidechainBus}, and {@link GlobalEffectable}.
+ */
+class LivePitchEngineMkIEffectableParityTest {
+
+  @Test
+  void playHeadDefaultModeIsRawDirect() {
+    // C live_pitch_shifter_play_head.h:49 — PlayHeadMode mode{PlayHeadMode::RAW_DIRECT};
+    LivePitchShifterPlayHead playHead = new LivePitchShifterPlayHead();
+    assertEquals(LivePitchShifterPlayHead.PlayHeadMode.RAW_DIRECT, playHead.mode);
+  }
+
+  @Test
+  void estimatedPlaytimeRemainingTruncatesHowFarBackToUint32() {
+    // C live_pitch_shifter_play_head.cpp:127, 137, 143 — howFarBack is uint32_t, so
+    // ((uint64_t)howFarBackRaw << 24) / (uint32_t)phaseIncrement truncates to 32 bits before
+    // ((uint64_t)howFarBack << 24) / (uint32_t)(phaseIncrement - kMaxSampleValue).
+    LiveInputBuffer lib = new LiveInputBuffer();
+    lib.numRawSamplesProcessed = 1024;
+
+    LivePitchShifterPlayHead playHead = new LivePitchShifterPlayHead();
+    playHead.mode = LivePitchShifterPlayHead.PlayHeadMode.RAW_REPITCHING;
+    playHead.rawBufferReadPos = 0;
+
+    // With howFarBackRaw = 1024 and phaseIncrement = 2:
+    // (1024ULL << 24) / 2 = 0x2_0000_0000ULL, which truncates in uint32_t howFarBack to 0.
+    // Without 32-bit truncation, ((0x2_0000_0000ULL << 24) / (uint32_t)(2 - 16777216)) is 33686018.
+    assertEquals(0, playHead.getEstimatedPlaytimeRemaining(lib, 2));
+
+    // Also verify a normal above-unity case where howFarBack has bit 31 set (unsigned > INT_MAX).
+    // howFarBackRaw = 200, phaseIncrement = 1 -> howFarBack = 200 << 24 = 0xC8000000 (uint32).
+    // divisor = (uint32_t)(1 - 16777216) = 0xFF000001.
+    // estimate = (0xC8000000ULL << 24) / 0xFF000001ULL = 0xC8C8C8 (13158600).
+    lib.numRawSamplesProcessed = 200;
+    assertEquals(13158600, playHead.getEstimatedPlaytimeRemaining(lib, 1));
+  }
+
+  @Test
+  void engineMkISinTablesMatchCppFloatPrecision() {
+    // C EngineMkI.cpp:66-77 — float bitReso = 1024; float x1 = sin(((0.5 + i) / bitReso) * M_PI /
+    // 2.0); sinLogTable[i] = round(-1024 * log2(x1));
+    // Verify mkiSin(phase, env) at representative phases and envelopes.
+    // At phase = 0, sinLog(0) uses sinLogTable[0]; with env = 0:
+    float bitReso = 1024.0f;
+    float x1Log0 = (float) Math.sin((0.5 / bitReso) * Math.PI / 2.0);
+    int expectedSinLog0 = ((int) Math.round(-1024.0 * (Math.log(x1Log0) / Math.log(2.0)))) & 0xFFFF;
+    int expIdx0 = (expectedSinLog0 & 0x3FF) ^ 0x3FF;
+    float x1Exp0 = (float) ((Math.pow(2.0, (float) expIdx0 / bitReso) - 1.0) * 4096.0);
+    int expectedResult0 = (4096 + (Math.round(x1Exp0) & 0xFFFF)) >> (expectedSinLog0 >> 10);
+    assertEquals(expectedResult0 << 13, EngineMkI.mkiSin(0, 0));
+
+    // Quarter-wave peak: phase index 1023 (phi = 1023, phase = 1023 << 12)
+    int phasePeak = 1023 << 12;
+    float x1LogPeak = (float) Math.sin(((0.5 + 1023) / bitReso) * Math.PI / 2.0);
+    int expectedSinLogPeak =
+        ((int) Math.round(-1024.0 * (Math.log(x1LogPeak) / Math.log(2.0)))) & 0xFFFF;
+    int expIdxPeak = (expectedSinLogPeak & 0x3FF) ^ 0x3FF;
+    float x1ExpPeak = (float) ((Math.pow(2.0, (float) expIdxPeak / bitReso) - 1.0) * 4096.0);
+    int expectedResultPeak =
+        (4096 + (Math.round(x1ExpPeak) & 0xFFFF)) >> (expectedSinLogPeak >> 10);
+    assertEquals(expectedResultPeak << 13, EngineMkI.mkiSin(phasePeak, 0));
+  }
+
+  @Test
+  void combineHitStrengthsUsesUnsigned32BitSumAndShift() {
+    // C functions.cpp:1422-1425:
+    // uint32_t sum = (uint32_t)strength1 + (uint32_t)strength2;
+    // sum = std::min(sum, (uint32_t)2147483647);
+    // int32_t maxOne = std::max(strength1, strength2);
+    // return (maxOne >> 1) + (sum >> 1);
+
+    // 1. Two strong positive hits whose uint32 sum exceeds 2147483647.
+    int s1 = 1500000000;
+    int s2 = 1500000000;
+    int expectedClamped = (1500000000 >> 1) + (2147483647 >>> 1);
+    assertEquals(expectedClamped, Functions.combineHitStrengths(s1, s2));
+    assertEquals(expectedClamped, GlobalSidechainBus.combineHitStrengths(s1, s2));
+
+    // 2. Negative strength1 (-10 = 0xFFFFFFF6u) + positive strength2 (5):
+    // In C, uint32_t sum = 0xFFFFFFFBu (> 2147483647u), clamped to 2147483647u.
+    // maxOne = 5 -> (5 >> 1) + (2147483647 >>> 1) = 2 + 1073741823 = 1073741825.
+    assertEquals(1073741825, Functions.combineHitStrengths(-10, 5));
+    assertEquals(1073741825, GlobalSidechainBus.combineHitStrengths(-10, 5));
+
+    // 3. Negative strength1 (-1 = 0xFFFFFFFFu) + positive strength2 (10):
+    // In C, uint32_t sum wraps 32 bits to 9u (<= 2147483647u).
+    // maxOne = 10 -> (10 >> 1) + (9 >>> 1) = 5 + 4 = 9.
+    assertEquals(9, Functions.combineHitStrengths(-1, 10));
+    assertEquals(9, GlobalSidechainBus.combineHitStrengths(-1, 10));
+  }
+
+  @Test
+  void instantTanUsesPlain32BitShift() {
+    // C functions.cpp:1409-1417 — plain << 1 on the interpolated Q31 sum.
+    int input = (32 << 25) | (1 << 24);
+    int whichValue = input >> 25;
+    int howMuchFurther = (input << 6) & 2147483647;
+    int v1 = LookupTables.tanTable[whichValue];
+    int v2 = LookupTables.tanTable[whichValue + 1];
+    int expected =
+        (Functions.multiply_32x32_rshift32(v2, howMuchFurther)
+                + Functions.multiply_32x32_rshift32(v1, 2147483647 - howMuchFurther))
+            << 1;
+    assertEquals(expected, Functions.instantTan(input));
+  }
+
+  @Test
+  void globalEffectableProcessReverbSendAndVolumeUsesWrappingMath() {
+    // C mod_controllable_audio.cpp:219, 222, 249, 258-259 — plain 32-bit wrapping << 5, l + r, and
+    // << 1 (not saturating shifts/adds).
+    int sampleL = 1500000000;
+    int sampleR = 1500000000;
+    int customPostFXVol = 400000000;
+    int customPostRevVol = 400000000;
+    int customRevSend = 400000000;
+
+    GlobalEffectable effectable =
+        new GlobalEffectable() {
+          @Override
+          protected boolean hasTrackLevelSaturation() {
+            return false;
+          }
+
+          @Override
+          protected int computeReverbSendAmount(int reverbAmountAdjust) {
+            return customRevSend;
+          }
+
+          @Override
+          protected void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
+            this.postFXVolume = customPostFXVol;
+            this.postReverbVolume = customPostRevVol;
+            buffer[0] = sampleL;
+            buffer[1] = sampleR;
+          }
+        };
+
+    long[] out = new long[2];
+    long[] rev = new long[1];
+    effectable.renderOutput(out, 1, rev);
+
+    int expectedRevSendAndPostFX =
+        Functions.multiply_32x32_rshift32(customPostFXVol, customRevSend) << 5;
+    int expectedPostFXAndRevVol =
+        Functions.multiply_32x32_rshift32(customPostRevVol, customPostFXVol) << 5;
+    int expectedMono = sampleL + sampleR; // wraps negative in 32-bit int
+    int expectedRevSend =
+        Functions.multiply_32x32_rshift32(expectedMono, expectedRevSendAndPostFX) << 1;
+    int expectedDryL = Functions.multiply_32x32_rshift32(sampleL, expectedPostFXAndRevVol) << 5;
+    int expectedDryR = Functions.multiply_32x32_rshift32(sampleR, expectedPostFXAndRevVol) << 5;
+
+    assertEquals(expectedRevSend, rev[0], "reverb send should match C wrapping math");
+    assertEquals(expectedDryL, out[0], "dry L should match C wrapping << 5");
+    assertEquals(expectedDryR, out[1], "dry R should match C wrapping << 5");
+  }
+}

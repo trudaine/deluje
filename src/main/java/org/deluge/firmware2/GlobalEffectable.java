@@ -147,12 +147,11 @@ public abstract class GlobalEffectable {
       int reverbAmountAdjust = 67108864;
       int reverbSendAmount = computeReverbSendAmount(reverbAmountAdjust);
 
+      // C mod_controllable_audio.cpp:219, 222 — plain 32-bit wrapping << 5
       int reverbSendAmountAndPostFXVolume =
-          Functions.lshiftAndSaturate(
-              Functions.multiply_32x32_rshift32(postFXVolume, reverbSendAmount), 5);
+          Functions.multiply_32x32_rshift32(postFXVolume, reverbSendAmount) << 5;
       int postFXAndReverbVolumeL =
-          Functions.lshiftAndSaturate(
-              Functions.multiply_32x32_rshift32(postReverbVolume, postFXVolume), 5);
+          Functions.multiply_32x32_rshift32(postReverbVolume, postFXVolume) << 5;
 
       // C mod_controllable_audio.cpp:219-267 (processReverbSendAndVolume): per sample, the reverb
       // send is taken from the RAW (pre-volume) signal and the post-FX×post-reverb volume is
@@ -164,21 +163,18 @@ public abstract class GlobalEffectable {
         if (reverbBuffer != null) {
           int revSend = 0;
           if (reverbSendAmount != 0) {
-            int mono = Functions.add_saturate(l, r);
-            revSend =
-                Functions.lshiftAndSaturate(
-                    Functions.multiply_32x32_rshift32(mono, reverbSendAmountAndPostFXVolume), 1);
+            // C mod_controllable_audio.cpp:249 — plain 32-bit wrapping (sample.l + sample.r) and <<
+            // 1
+            int mono = l + r;
+            revSend = Functions.multiply_32x32_rshift32(mono, reverbSendAmountAndPostFXVolume) << 1;
           }
           // Sum child/grain reverb (trackReverbBuffer) plus dry/post-FX reverb send in 64-bit
           reverbBuffer[i] += (long) trackReverbBuffer[i] + revSend;
         }
 
-        trackBuffer[i * 2] =
-            Functions.lshiftAndSaturate(
-                Functions.multiply_32x32_rshift32(l, postFXAndReverbVolumeL), 5);
-        trackBuffer[i * 2 + 1] =
-            Functions.lshiftAndSaturate(
-                Functions.multiply_32x32_rshift32(r, postFXAndReverbVolumeL), 5);
+        // C mod_controllable_audio.cpp:258-259 — plain 32-bit wrapping << 5
+        trackBuffer[i * 2] = Functions.multiply_32x32_rshift32(l, postFXAndReverbVolumeL) << 5;
+        trackBuffer[i * 2 + 1] = Functions.multiply_32x32_rshift32(r, postFXAndReverbVolumeL) << 5;
       }
 
       // ...then the compressor sees the volume-applied signal (C sound.cpp:2591-2600 /

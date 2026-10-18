@@ -35,11 +35,8 @@ public class GlobalSidechainBus {
     activeFrameHitStrength = 0;
   }
 
-  /** Replicates C++ deluge estimation to combine multiple concurrent trigger values. */
+  /** Replicates C++ combineHitStrengths (functions.cpp:1419-1426). */
   public static int combineHitStrengths(int strength1, int strength2) {
-    long sum = (long) strength1 + (long) strength2;
-    if (sum > 2147483647) sum = 2147483647;
-    int maxOne = Math.max(strength1, strength2);
-    return (maxOne >> 1) + ((int) sum >> 1);
+    return Functions.combineHitStrengths(strength1, strength2);
   }
 }

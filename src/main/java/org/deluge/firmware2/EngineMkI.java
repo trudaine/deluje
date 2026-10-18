@@ -45,15 +45,16 @@ public final class EngineMkI {
 
   static {
     // EngineMkI::EngineMkI() (EngineMkI.cpp:64-78) — build the log/exp sine tables.
-    double bitReso = SINLOG_TABLESIZE;
+    // C uses float bitReso and float x1 intermediates before log2 / round.
+    float bitReso = SINLOG_TABLESIZE;
     for (int i = 0; i < SINLOG_TABLESIZE; i++) {
-      double x1 = Math.sin(((0.5 + i) / bitReso) * Math.PI / 2.0);
+      float x1 = (float) Math.sin(((0.5 + i) / bitReso) * Math.PI / 2.0);
       sinLogTable[i] = ((int) Math.round(-1024.0 * (Math.log(x1) / Math.log(2.0)))) & 0xFFFF;
     }
     bitReso = SINEXP_TABLESIZE;
     for (int i = 0; i < SINEXP_TABLESIZE; i++) {
-      double x1 = (Math.pow(2, (double) i / bitReso) - 1) * 4096;
-      sinExpTable[i] = ((int) Math.round(x1)) & 0xFFFF;
+      float x1 = (float) ((Math.pow(2, (float) i / bitReso) - 1) * 4096);
+      sinExpTable[i] = Math.round(x1) & 0xFFFF;
     }
   }
 

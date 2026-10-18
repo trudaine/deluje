@@ -596,14 +596,28 @@ public final class Functions {
     int howMuchFurther = (input << 6) & 2147483647; // 6
     int value1 = LookupTables.tanTable[whichValue];
     int value2 = LookupTables.tanTable[whichValue + 1];
-    long sum =
-        (long) multiply_32x32_rshift32(value2, howMuchFurther)
-            + multiply_32x32_rshift32(value1, 2147483647 - howMuchFurther);
-    long shifted = sum << 1;
-    if (shifted > 2147483647L) {
-      return 2147483647;
+    // C functions.cpp:1414-1416 — plain 32-bit wrapping << 1
+    return (multiply_32x32_rshift32(value2, howMuchFurther)
+            + multiply_32x32_rshift32(value1, 2147483647 - howMuchFurther))
+        << 1;
+  }
+
+  /**
+   * combineHitStrengths. Combines two sidechain trigger strengths: halfway between the larger one
+   * and the clamped unsigned 32-bit sum. (functions.cpp:1419-1426)
+   */
+  public static int combineHitStrengths(int strength1, int strength2) {
+    // C functions.cpp:1422-1425:
+    // uint32_t sum = (uint32_t)strength1 + (uint32_t)strength2;
+    // sum = std::min(sum, (uint32_t)2147483647);
+    // int32_t maxOne = std::max(strength1, strength2);
+    // return (maxOne >> 1) + (sum >> 1);
+    int sum = strength1 + strength2;
+    if (Integer.compareUnsigned(sum, 2147483647) > 0) {
+      sum = 2147483647;
     }
-    return (int) shifted;
+    int maxOne = Math.max(strength1, strength2);
+    return (maxOne >> 1) + (sum >>> 1);
   }
 
   // ── lookupReleaseRate (functions.cpp) ──

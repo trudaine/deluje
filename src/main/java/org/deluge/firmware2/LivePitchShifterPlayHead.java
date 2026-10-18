@@ -18,7 +18,9 @@ public class LivePitchShifterPlayHead {
     RAW_DIRECT
   }
 
-  public PlayHeadMode mode;
+  // C live_pitch_shifter_play_head.h:49 — default-initialised so a freshly-constructed play-head
+  // (especially the OLDER head before the first hop) has a defined mode.
+  public PlayHeadMode mode = PlayHeadMode.RAW_DIRECT;
   public int rawBufferReadPos;
   public int oscPos; // uint32
   public int percPos; // uint32
@@ -109,19 +111,25 @@ public class LivePitchShifterPlayHead {
   }
 
   /**
-   * C: getEstimatedPlaytimeRemaining (cpp:124-150) — raw samples this head can still play before it
-   * catches up to "now". Only meaningful for {@code phaseIncrement > kMaxSampleValue}.
+   * C: getEstimatedPlaytimeRemaining (live_pitch_shifter_play_head.cpp:124-150) — raw samples this
+   * head can still play before it catches up to "now". Only meaningful for {@code phaseIncrement >
+   * kMaxSampleValue}.
    */
   public int getEstimatedPlaytimeRemaining(LiveInputBuffer liveInputBuffer, int phaseIncrement) {
-    long howFarBack;
+    int howFarBack; // C:127 — uint32_t howFarBack
     if (mode == PlayHeadMode.RAW_REPITCHING) {
       long howFarBackRaw = (liveInputBuffer.numRawSamplesProcessed - rawBufferReadPos) & RAW_MASK;
-      howFarBack = (howFarBackRaw << 24) / (phaseIncrement & 0xFFFFFFFFL);
+      // C:137 — howFarBack = ((uint64_t)howFarBackRaw << 24) / (uint32_t)phaseIncrement
+      howFarBack = (int) Long.divideUnsigned(howFarBackRaw << 24, phaseIncrement & 0xFFFFFFFFL);
     } else { // DIRECT
       return 2147483647;
     }
-    long estimate = (howFarBack << 24) / ((phaseIncrement - K_MAX_SAMPLE_VALUE) & 0xFFFFFFFFL);
-    return (estimate >= 2147483647L) ? 2147483647 : (int) estimate;
+    // C:143-149 — uint64_t estimate = ((uint64_t)howFarBack << 24) / (uint32_t)(phaseIncrement -
+    // kMaxSampleValue)
+    long estimate =
+        Long.divideUnsigned(
+            (howFarBack & 0xFFFFFFFFL) << 24, (phaseIncrement - K_MAX_SAMPLE_VALUE) & 0xFFFFFFFFL);
+    return (Long.compareUnsigned(estimate, 2147483647L) >= 0) ? 2147483647 : (int) estimate;
   }
 
   /** C: getNumRawSamplesBehindInput (cpp:152-170). */
