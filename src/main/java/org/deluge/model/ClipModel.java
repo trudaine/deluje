@@ -87,6 +87,20 @@ public class ClipModel extends TimelineCounter {
    */
   private String launchStyle = "default";
 
+  /**
+   * C InstrumentClip::arpSettings — the clip's own arpeggiator (instrument_clip.cpp:2404-2412,
+   * 2676-2689). Null: the file had none; the clip follows its synth's default arp.
+   */
+  private org.deluge.model.ArpModel arp;
+
+  public org.deluge.model.ArpModel getArp() {
+    return arp;
+  }
+
+  public void setArp(org.deluge.model.ArpModel arp) {
+    this.arp = arp;
+  }
+
   public String getLaunchStyle() {
     return launchStyle;
   }
@@ -346,6 +360,7 @@ public class ClipModel extends TimelineCounter {
     copy.setPlayDirection(this.playDirection);
     copy.isArrangementOnly = this.isArrangementOnly;
     copy.launchStyle = this.launchStyle; // C clip.cpp:97, 105
+    copy.arp = this.arp; // ArpModel is immutable
     copy.midiBank = this.midiBank; // C instrument_clip.cpp:127-129
     copy.midiSub = this.midiSub;
     copy.midiPGM = this.midiPGM;

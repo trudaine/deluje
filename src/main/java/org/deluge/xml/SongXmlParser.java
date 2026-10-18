@@ -650,6 +650,13 @@ public class SongXmlParser {
         // keeps all sound params here), then automation.
         switch (targetTrack) {
           case SynthTrackModel stm -> {
+            // C instrument_clip.cpp:2676-2689 — the clip's own arpeggiator (internal syncLevel).
+            Element clipArpEl = getFirstChild(clipElem, "arpeggiator");
+            if (clipArpEl != null) {
+              clip.setArp(
+                  InstrumentXmlParser.parseArpElement(
+                      clipArpEl, InstrumentXmlParser.SONG_INPUT_TICK_MAGNITUDE.get(), true));
+            }
             NodeList soundParamsList = clipElem.getElementsByTagName("soundParams");
             if (soundParamsList.getLength() > 0) {
               Element spEl = (Element) soundParamsList.item(0);

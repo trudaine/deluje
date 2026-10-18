@@ -1095,7 +1095,7 @@ public class FirmwareFactory {
   }
 
   /** Map an ArpModel onto a sound's per-sound arpeggiator settings. */
-  private static void configureArp(
+  public static void configureArp(
       org.deluge.engine.FirmwareSound sound, org.deluge.model.ArpModel arp) {
     var s = sound.arpSettings;
     if (arp == null || !arp.active()) {

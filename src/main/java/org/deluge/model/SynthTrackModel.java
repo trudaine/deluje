@@ -585,12 +585,43 @@ public class SynthTrackModel extends TrackModel {
     lfo[index] = model;
   }
 
+  /**
+   * The arp the synth plays: C Sound::getArpSettings(clip) is the ACTIVE clip's own arpSettings
+   * (each clip carries one, instrument_clip.cpp:2404-2412, 2676-2689). A clip without one (made
+   * here, or from an old file) follows this track's arp — the instrument's defaultArpSettings,
+   * which the C keeps equal to the active clip's (song.cpp:4359).
+   */
   public ArpModel getArp() {
+    ClipModel active = getActiveClip();
+    return (active != null && active.getArp() != null) ? active.getArp() : arp;
+  }
+
+  /** Edits the active clip's arp (if it has its own) and this track's default. */
+  public void setArp(ArpModel arp) {
+    this.arp = arp;
+    ClipModel active = getActiveClip();
+    if (active != null && active.getArp() != null) {
+      active.setArp(arp);
+    }
+  }
+
+  /** This track's own arp (C defaultArpSettings), for clips that carry none. */
+  public ArpModel getDefaultArp() {
     return arp;
   }
 
-  public void setArp(ArpModel arp) {
-    this.arp = arp;
+  @Override
+  public void setActiveClipIndex(int activeClipIndex) {
+    ClipModel before = getActiveClip();
+    super.setActiveClipIndex(activeClipIndex);
+    ClipModel now = getActiveClip();
+    // The newly active clip's arp drives the sound (C Sound::getArpSettings(activeClip)).
+    if (now != null
+        && now != before
+        && now.getArp() != null
+        && now.getSound() instanceof org.deluge.engine.FirmwareSound fs) {
+      org.deluge.engine.FirmwareFactory.configureArp(fs, now.getArp());
+    }
   }
 
   public float getPortamento() {

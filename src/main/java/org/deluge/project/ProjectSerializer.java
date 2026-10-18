@@ -1439,8 +1439,12 @@ public class ProjectSerializer {
     // C instrument_clip.cpp:2404-2412 — every instrument clip carries its own <arpeggiator>: a
     // clip's arpSettings come only from it (the <sound>'s copy is the instrument's
     // defaultArpSettings, used for new clips). Without it the hardware plays the clip's arp OFF.
-    if (track instanceof SynthTrackModel synthTrack && synthTrack.getArp() != null) {
-      writeClipArpeggiator(writer, synthTrack.getArp(), currentInputTickMagnitude);
+    if (track instanceof SynthTrackModel synthTrack) {
+      org.deluge.model.ArpModel clipArp =
+          clip.getArp() != null ? clip.getArp() : synthTrack.getDefaultArp();
+      if (clipArp != null) {
+        writeClipArpeggiator(writer, clipArp, currentInputTickMagnitude);
+      }
     } else if (track instanceof KitTrackModel kitTrack && kitTrack.getArp() != null) {
       writeClipArpeggiator(writer, kitTrack.getArp(), currentInputTickMagnitude);
     }
