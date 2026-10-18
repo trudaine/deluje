@@ -108,6 +108,11 @@ public class KitSynthSerializer {
             osc2,
             "fileName",
             sound.getOsc2SamplePath() != null ? sound.getOsc2SamplePath() : "");
+        if ((sound.getOsc2SamplePath() == null || sound.getOsc2SamplePath().isEmpty())
+            && sound.isOscillatorSync()) {
+          // C sound.cpp:3701-3703 — oscillatorSync written on osc2 when non-sample and enabled.
+          appendTextChild(doc, osc2, "oscillatorSync", "1");
+        }
         appendTextChild(doc, osc2, "retrigPhase", String.valueOf(sound.getOsc2RetrigPhase()));
         Element zone2 = doc.createElement("zone");
         appendTextChild(doc, zone2, "startMilliseconds", "0");

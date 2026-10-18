@@ -1362,8 +1362,8 @@ public class Voice {
       if (sound.oscTypes[1] == OscType.WAVETABLE && sound.waveTables[1] != null) {
         int resetterDivideByPhaseIncrement = 0;
         if (doingOscSync) {
-          // C oscillator.cpp:140-142 — round resetterPhaseIncrement up via +65535 before >> 16.
-          long divisor = ((pIncA & 0xFFFFFFFFL) + 65535) >>> 16;
+          // C oscillator.cpp:140-142 — (uint16_t)((resetterPhaseIncrement + 65535) >> 16).
+          int divisor = ((pIncA + 65535) >>> 16) & 0xFFFF;
           if (divisor > 0) {
             resetterDivideByPhaseIncrement = (int) (0x80000000L / divisor);
           }
@@ -1788,7 +1788,8 @@ public class Voice {
         } else if (sound.oscTypes[s] == OscType.WAVETABLE && sound.waveTables[s] != null) {
           int resetterDivideByPhaseIncrement = 0;
           if (doOscSyncThisSource) {
-            long divisor = ((oscSyncPhaseIncrement[u] & 0xFFFFFFFFL) + 65535) >>> 16;
+            // C oscillator.cpp:140-142 — (uint16_t)((resetterPhaseIncrement + 65535) >> 16).
+            int divisor = ((oscSyncPhaseIncrement[u] + 65535) >>> 16) & 0xFFFF;
             if (divisor > 0) {
               resetterDivideByPhaseIncrement = (int) (2147483648L / divisor);
             }

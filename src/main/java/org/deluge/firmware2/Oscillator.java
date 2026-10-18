@@ -703,7 +703,9 @@ public final class Oscillator {
 
     // Osc sync setup (lines 136-144)
     if (doOscSync) {
-      long divisor = ((resetterPhaseInc & 0xFFFFFFFFL) + 65535) >>> 16;
+      // C oscillator.cpp:140-142 — (uint32_t)2147483648u / (uint16_t)((resetterPhaseIncrement +
+      // 65535) >> 16). Both + 65535 (uint32_t) and the (uint16_t) cast wrap at 32 / 16 bits.
+      int divisor = ((resetterPhaseInc + 65535) >>> 16) & 0xFFFF;
       if (divisor > 0) {
         resetterDivideByPhaseIncrement = (int) (2147483648L / divisor);
       }

@@ -282,10 +282,19 @@ public class KitXmlParser {
       }
     }
 
-    // -- oscillatorReset (compatibility, tag or attribute) --
+    // C sound.cpp:3241-3243 — Sound::readFromFile resets modulatorTranspose[1] and all four
+    // retrigger phases to 0 before reading XML tags.
+    sound.setModulator2Transpose(0);
+    sound.setOsc1RetrigPhase(0);
+    sound.setOsc2RetrigPhase(0);
+    sound.setMod1RetrigPhase(0);
+    sound.setMod2RetrigPhase(0);
+
+    // -- oscillatorReset (compatibility, tag or attribute; C sound.cpp:603-614) --
     String oscReset = attrOrChildText(soundNode, "oscillatorReset");
     if (oscReset != null && !oscReset.isEmpty()) {
-      if ("0".equals(oscReset) || "false".equalsIgnoreCase(oscReset)) {
+      String v = oscReset.trim();
+      if ("0".equals(v) || "false".equalsIgnoreCase(v)) {
         sound.setOsc1RetrigPhase(-1);
         sound.setOsc2RetrigPhase(-1);
         sound.setMod1RetrigPhase(-1);
@@ -307,7 +316,14 @@ public class KitXmlParser {
       readAttrOrChildInt(osc1El, "transpose", 0, sound::setOsc1Transpose);
       readAttrOrChildInt(osc1El, "cents", 0, sound::setOsc1Cents);
 
-      readAttrOrChildInt(osc1El, "retrigPhase", -1, sound::setOsc1RetrigPhase);
+      String rpStr1 = attrOrChildText(osc1El, "retrigPhase");
+      if (rpStr1 != null && !rpStr1.isBlank()) {
+        try {
+          sound.setOsc1RetrigPhase((int) Long.parseLong(rpStr1.trim()));
+        } catch (NumberFormatException e) {
+          LOG.log(Level.FINE, "NumberFormatException parsing kit osc1 retrigPhase", e);
+        }
+      }
       // C sound.cpp source tags, all readTagOrAttributeValueInt: kit files use the tag form.
       readAttrOrChildInt(osc1El, "loopMode", 0, sound::setOsc1LoopMode);
       sound.setOsc1TimeStretchAmount(
@@ -337,6 +353,9 @@ public class KitXmlParser {
       }
       readAttrOrChildInt(osc2, "transpose", 0, sound::setOsc2Transpose);
       readAttrOrChildInt(osc2, "cents", 0, sound::setOsc2Cents);
+      // C sound.cpp:3389-3393, 3701-3703 — oscillatorSync on osc2 (absent means off).
+      sound.setOscillatorSync(false);
+      readBoolAttrOrChild(osc2, "oscillatorSync", sound::setOscillatorSync);
 
       // osc2 sample fileName (attribute or child element)
       String osc2fn = osc2.getAttribute("fileName");
@@ -363,7 +382,14 @@ public class KitXmlParser {
           DelugeXmlUtil.attrOrDirectChildInt(osc2, "timeStretchAmount", 0));
       readBoolAttrOrChild(osc2, "linearInterpolation", sound::setOsc2LinearInterpolation);
       // osc2 retrigPhase
-      readAttrOrChildInt(osc2, "retrigPhase", -1, sound::setOsc2RetrigPhase);
+      String rpStr2 = attrOrChildText(osc2, "retrigPhase");
+      if (rpStr2 != null && !rpStr2.isBlank()) {
+        try {
+          sound.setOsc2RetrigPhase((int) Long.parseLong(rpStr2.trim()));
+        } catch (NumberFormatException e) {
+          LOG.log(Level.FINE, "NumberFormatException parsing kit osc2 retrigPhase", e);
+        }
+      }
     }
 
     // Modulator 1
@@ -375,8 +401,14 @@ public class KitXmlParser {
       sound.setFmRatio(modulatorRatio(transpose, cents));
       sound.setModulator1Transpose(transpose);
       sound.setModulator1Cents(cents);
-      int retrig = attrOrChildInt(mod1, "retrigPhase", 0);
-      sound.setMod1RetrigPhase(retrig);
+      String retrigStr1 = attrOrChildText(mod1, "retrigPhase");
+      if (retrigStr1 != null && !retrigStr1.isBlank()) {
+        try {
+          sound.setMod1RetrigPhase((int) Long.parseLong(retrigStr1.trim()));
+        } catch (NumberFormatException e) {
+          LOG.log(Level.FINE, "NumberFormatException parsing kit mod1 retrigPhase", e);
+        }
+      }
     }
     // Modulator 2
     NodeList mod2Nodes = soundNode.getElementsByTagName("modulator2");
@@ -387,8 +419,14 @@ public class KitXmlParser {
       sound.setFmRatio2(modulatorRatio(transpose, cents));
       sound.setModulator2Transpose(transpose);
       sound.setModulator2Cents(cents);
-      int retrig = attrOrChildInt(mod2, "retrigPhase", 0);
-      sound.setMod2RetrigPhase(retrig);
+      String retrigStr2 = attrOrChildText(mod2, "retrigPhase");
+      if (retrigStr2 != null && !retrigStr2.isBlank()) {
+        try {
+          sound.setMod2RetrigPhase((int) Long.parseLong(retrigStr2.trim()));
+        } catch (NumberFormatException e) {
+          LOG.log(Level.FINE, "NumberFormatException parsing kit mod2 retrigPhase", e);
+        }
+      }
     }
 
     // lfo1, lfo2
