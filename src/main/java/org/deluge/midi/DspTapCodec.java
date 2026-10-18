@@ -70,10 +70,10 @@ public final class DspTapCodec {
       if (c.capturedCount() != total) {
         throw new IllegalStateException("inconsistent capturedCount across chunks");
       }
-      // Infer per-chunk stride from the first full chunk (all but the last are full).
-      if (perChunk < 0 && c.nSamples() > 0) perChunk = c.nSamples();
+      // Infer per-chunk stride from the maximum chunk length (all chunks but the last are full).
+      if (c.nSamples() > perChunk) perChunk = c.nSamples();
     }
-    if (perChunk < 0) perChunk = total;
+    if (perChunk <= 0) perChunk = total;
     for (Chunk c : chunks) {
       int base = c.chunkIndex() * perChunk;
       for (int i = 0; i < c.nSamples(); i++) {
@@ -81,6 +81,11 @@ public final class DspTapCodec {
           out[base + i] = c.samples()[i];
           filled[base + i] = true;
         }
+      }
+    }
+    for (int i = 0; i < total; i++) {
+      if (!filled[i]) {
+        throw new IllegalStateException("missing tap samples at index " + i);
       }
     }
     return out;

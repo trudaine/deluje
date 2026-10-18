@@ -92,7 +92,8 @@ public class ScriptingEngine {
   /** Custom string serialization for Consequences. */
   private String serialize(Consequence c) {
     if (c instanceof Consequence.ProjectParamConsequence ppc) {
-      return String.format("BPM_SWING|%s|%.6f", ppc.paramName(), ppc.newValue());
+      return String.format(
+          java.util.Locale.US, "BPM_SWING|%s|%.6f", ppc.paramName(), ppc.newValue());
     } else if (c instanceof Consequence.StepConsequence sc) {
       StepData d = sc.newData();
       return String.format(
@@ -114,11 +115,20 @@ public class ScriptingEngine {
           d.fillMode());
     } else if (c instanceof Consequence.SynthParamConsequence spc) {
       return String.format(
-          "SYNTH_PARAM|%d|%s|%.6f", spc.trackIndex(), spc.paramName(), spc.newValue());
+          java.util.Locale.US,
+          "SYNTH_PARAM|%d|%s|%.6f",
+          spc.trackIndex(),
+          spc.paramName(),
+          spc.newValue());
     } else if (c instanceof Consequence.AutomationConsequence ac) {
       return String.format(
+          java.util.Locale.US,
           "AUTOMATION|%d|%d|%s|%d|%.6f",
-          ac.trackIndex(), ac.clipIndex(), ac.paramName(), ac.step(), ac.newValue());
+          ac.trackIndex(),
+          ac.clipIndex(),
+          ac.paramName(),
+          ac.step(),
+          ac.newValue());
     } else if (c instanceof Consequence.RowAutomationConsequence rac) {
       return String.format(
           java.util.Locale.US,
@@ -157,12 +167,7 @@ public class ScriptingEngine {
         case "BPM_SWING" -> {
           String paramName = parts[1];
           float val = Float.parseFloat(parts[2]);
-          // Re-create the project parameter consequence
-          float currentVal = 0.0f;
-          if (paramName.equals("bpm")) currentVal = project.getBpm();
-          else if (paramName.equals("swing")) currentVal = project.getSwing();
-          else if (paramName.equals("reverbRoomSize")) currentVal = project.getReverbRoomSize();
-          else if (paramName.equals("reverbDampening")) currentVal = project.getReverbDampening();
+          float currentVal = Consequence.ProjectParamConsequence.readCurrent(project, paramName);
           return new Consequence.ProjectParamConsequence(project, paramName, currentVal, val);
         }
         case "STEP" -> {
@@ -186,9 +191,9 @@ public class ScriptingEngine {
                   active, vel, gate, prob, pitch, iter, fill, nudge, playCondition, fillMode);
           // Retrieve old step data if track/clip exist
           StepData oldData = StepData.empty();
-          if (trackIdx < project.getTracks().size()) {
+          if (trackIdx >= 0 && trackIdx < project.getTracks().size()) {
             var track = project.getTracks().get(trackIdx);
-            if (clipIdx < track.getClips().size()) {
+            if (clipIdx >= 0 && clipIdx < track.getClips().size()) {
               oldData = track.getClips().get(clipIdx).getStep(row, step);
             }
           }
@@ -199,7 +204,8 @@ public class ScriptingEngine {
           int trackIdx = Integer.parseInt(parts[1]);
           String paramName = parts[2];
           float val = Float.parseFloat(parts[3]);
-          float oldVal = 0.0f; // placeholder
+          float oldVal =
+              Consequence.SynthParamConsequence.readCurrent(project, trackIdx, paramName);
           return new Consequence.SynthParamConsequence(
               project, trackIdx, paramName, oldVal, val, System.currentTimeMillis());
         }
@@ -209,7 +215,13 @@ public class ScriptingEngine {
           String paramName = parts[3];
           int step = Integer.parseInt(parts[4]);
           float val = Float.parseFloat(parts[5]);
-          float oldVal = 0.0f; // placeholder
+          float oldVal = -1.0f;
+          if (trackIdx >= 0 && trackIdx < project.getTracks().size()) {
+            var track = project.getTracks().get(trackIdx);
+            if (clipIdx >= 0 && clipIdx < track.getClips().size()) {
+              oldVal = track.getClips().get(clipIdx).getAutomationValue(paramName, step);
+            }
+          }
           return new Consequence.AutomationConsequence(
               project, trackIdx, clipIdx, paramName, step, oldVal, val);
         }

@@ -163,6 +163,11 @@ public class SynthTrackModel extends TrackModel {
     return (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, Math.round(q)));
   }
 
+  /** Inverse of {@link #arpRateQ31FromUnit(double)}: maps bipolar q31 GLOBAL_ARP_RATE to 0..1. */
+  public static double arpRateUnitFromQ31(int q31) {
+    return ((double) q31 + 2147483648.0) / 4294967296.0;
+  }
+
   public int getPortamentoQ31() {
     return portamentoQ31;
   }
