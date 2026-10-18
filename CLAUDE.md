@@ -242,6 +242,16 @@ near-silent — §4.2septies follow-up 3). (FM was the former biggest cluster �
    Sync 0.751, 142 Phaser 0.755, 139 Detuned Saw Pad 0.762, 059 Distorted Lead Guitar 0.764. Note
    two SYNC presets at the very bottom (045, 098), which is the one family that keeps reappearing.
 
+   **SYNC family resolved 2026-10-18 (#125): it was never the oscillator.** ALLSYN_1/2.XML were
+   written by the old Java serializer, which never wrote `oscillatorSync`, so all six sync presets
+   in them omit it, and the hardware (which reads a song instrument from the song alone, fresh
+   `Sound`, sync false — sound.h:150, sound.cpp:3241-3243) recorded them UNSYNCED. The Java filled
+   the missing tag from the preset file it resolves first, and played them synced. With the C
+   semantics: 045 Square Sync 0.663 → 0.960, 098 Saturated Sync 0.760 → 0.885, 146 Atmospheric
+   Squares Pad 0.836 → 0.938, 012 0.905 → 0.950, 099 0.852 → 0.889 (median 0.9021 → 0.9028).
+   Lesson: ALLSYN is a Java-written file, so "what the hardware played" is whatever the C reads
+   from it — a tag the Java writer omitted means the C default, not the preset's value.
+
    **READ THE SCORECARD'S PER-SLICE ANNOTATIONS BEFORE BUILDING ANY LIST FROM ITS CSV.** This entry
    was wrong twice because I ranked raw `time_resolved` numbers and ignored the labels sitting right
    next to them. Four of the eight presets first listed here are not defects at all: 070
