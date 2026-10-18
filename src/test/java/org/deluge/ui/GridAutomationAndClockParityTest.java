@@ -263,18 +263,18 @@ class GridAutomationAndClockParityTest {
         clock.calculateStepDurationNs(0, Double.NaN, Double.NaN),
         "NaN BPM and swing must fall back to 120 BPM and neutral swing");
 
-    // Empty track (0) and 4/4 lengths (16, 32, 48, 64, 96) must use 16-step bars.
-    assertEquals(16, SequencerClock.resolveBarSteps(0));
-    assertEquals(16, SequencerClock.resolveBarSteps(16));
-    assertEquals(16, SequencerClock.resolveBarSteps(32));
-    assertEquals(16, SequencerClock.resolveBarSteps(48));
-    assertEquals(16, SequencerClock.resolveBarSteps(64));
-    assertEquals(16, SequencerClock.resolveBarSteps(96));
+    // Bar-boundary launch quantization is in 96-PPQN internal ticks (384 ticks = 1 bar,
+    // C session.cpp:1505-1510, song.cpp:5767-5769), independent of any clip's step count.
+    assertTrue(SequencerClock.isBarBoundaryTick(0));
+    assertTrue(SequencerClock.isBarBoundaryTick(384));
+    assertTrue(SequencerClock.isBarBoundaryTick(768));
+    assertFalse(SequencerClock.isBarBoundaryTick(24));
+    assertFalse(SequencerClock.isBarBoundaryTick(288)); // 12 straight steps (288 ticks) != 1 bar
+    assertFalse(SequencerClock.isBarBoundaryTick(-384));
 
-    // Pure triplet lengths (12, 24, 36) must use 12-step bars.
-    assertEquals(12, SequencerClock.resolveBarSteps(12));
-    assertEquals(12, SequencerClock.resolveBarSteps(24));
-    assertEquals(12, SequencerClock.resolveBarSteps(36));
+    // Step-per-bar helper uses clock tick resolution (24 straight vs 32 triplet), not clip length.
+    assertEquals(16, SequencerClock.resolveBarSteps(false));
+    assertEquals(12, SequencerClock.resolveBarSteps(true));
   }
 
   private static void dispatchMousePress(JButton btn, int modifiersEx) {

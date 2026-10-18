@@ -68,7 +68,11 @@ public class AutomationEditorController {
     return false;
   }
 
-  /** Pushes automation edits to the live bridge and high-fidelity audio engine. */
+  /**
+   * Pushes automation edits to the live bridge and high-fidelity audio engine. Call once per
+   * discrete edit or at the end of a paint drag ({@link #finishAutomationDrag()}), never per drag
+   * step.
+   */
   void syncAutomationToEngine() {
     if (SwingDelugeApp.mainInstance != null) {
       SwingDelugeApp.mainInstance.pushModelToBridge();

@@ -41,6 +41,18 @@ public class SequencerClock implements Runnable {
   /** Minimum sleep duration before falling back to Thread.yield(). */
   private static final long MIN_SLEEP_NS = 500_000L; // 0.5 ms
 
+  /** Straight 16th-note step length in 96-PPQN internal ticks. */
+  public static final int TICKS_PER_STRAIGHT_STEP = 24;
+
+  /** Triplet step length in 96-PPQN internal ticks. */
+  public static final int TICKS_PER_TRIPLET_STEP = 32;
+
+  /**
+   * One 4/4 bar in 96-PPQN internal ticks (4 beats × 96 = 384), matching {@code
+   * Song::getBarLength()} ({@code song.cpp:5767-5769}).
+   */
+  public static final int TICKS_PER_BAR = 384;
+
   /** Listener interface called on each clock tick from the clock thread. */
   @FunctionalInterface
   public interface TickListener {
@@ -90,14 +102,23 @@ public class SequencerClock implements Runnable {
   }
 
   /**
-   * Resolves the bar length in steps for launch-queue quantization. Uses 12 steps only for pure
-   * 12-step triplet bars (divisible by 12 and not by 16), avoiding false 12-step bars on empty
-   * tracks (length 0) or multi-bar 4/4 loops (length 48, 96).
+   * Returns true when {@code tickPos} lands on a one-bar boundary ({@code TICKS_PER_BAR = 384}
+   * ticks at 96 PPQN). Launch quantization on hardware is in internal ticks against {@code
+   * Song::getBarLength()} ({@code session.cpp:1505-1510}, {@code song.cpp:5767-5769}), independent
+   * of any clip's step count or triplet mode.
    */
-  public static int resolveBarSteps(int trackZeroLength) {
-    return (trackZeroLength > 0 && trackZeroLength % 12 == 0 && trackZeroLength % 16 != 0)
-        ? 12
-        : 16;
+  public static boolean isBarBoundaryTick(long tickPos) {
+    return tickPos >= 0 && tickPos % TICKS_PER_BAR == 0;
+  }
+
+  /**
+   * Resolves the number of steps in one 384-tick bar for a given step clock resolution (12 steps at
+   * 32 ticks/step for triplet clocks, 16 steps at 24 ticks/step for straight 16th clocks).
+   */
+  public static int resolveBarSteps(boolean tripletStepClock) {
+    return tripletStepClock
+        ? (TICKS_PER_BAR / TICKS_PER_TRIPLET_STEP)
+        : (TICKS_PER_BAR / TICKS_PER_STRAIGHT_STEP);
   }
 
   @Override
@@ -142,10 +163,10 @@ public class SequencerClock implements Runnable {
 
       durNs = calculateStepDurationNs(step, bpm, swing);
 
-      // Process bar-boundary clip queues (matching clock_shred: step % barSteps == 0)
-      // Do this before the tick so the new clip is active for this step
-      int barSteps = resolveBarSteps(bridge != null ? bridge.getTrackLength(0) : 16);
-      if (step % barSteps == 0) {
+      // Process bar-boundary clip queues every 384 internal ticks (C session.cpp:1505-1510,
+      // song.cpp:5767-5769), independent of track 0's clip length or triplet state.
+      long tickPos = (long) step * TICKS_PER_STRAIGHT_STEP;
+      if (isBarBoundaryTick(tickPos)) {
         bridge.processLaunchQueue();
       }
 
