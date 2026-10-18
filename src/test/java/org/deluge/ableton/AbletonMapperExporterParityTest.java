@@ -148,6 +148,10 @@ class AbletonMapperExporterParityTest {
 
     assertTrue(clip.isKit(), "Drum clip must have isKit=true");
     assertEquals(0, clip.getRowYNote(0), "Kit row 0 pitch must be drum index 0, not 60");
+    assertEquals(
+        36,
+        clip.getStep(0, 0).pitch(),
+        "Kit StepData.pitch() must retain source KeyTrack MidiKey 36, not row index 0");
 
     List<NoteModel> kickNotes = clip.getRawNoteEvents(0);
     assertEquals(1, kickNotes.size(), "Off-grid drum note must not be duplicated at step 0");
@@ -200,6 +204,21 @@ class AbletonMapperExporterParityTest {
         durationBeats,
         1e-6,
         "Grid step duration must be gate * stepBeats (2/3 beat, not gate/96)");
+
+    // Round-trip: import the exported triplet .als back and verify triplet grid timing survives
+    ProjectModel importedProject = new ProjectModel();
+    AbletonTrackMapper.importAbletonSet(doc, importedProject);
+    SynthTrackModel importedSynth = (SynthTrackModel) importedProject.getTracks().get(0);
+    ClipModel importedClip = importedSynth.getClips().get(0);
+    assertTrue(importedClip.isTripletMode(), "Imported clip must detect triplet grid mode");
+    assertEquals(12, importedClip.getStepCount(), "12 triplet steps must round-trip as 12 steps");
+    assertTrue(
+        importedClip.getStep(0, 3).active(), "Triplet step 3 must land on step 3, not step 4");
+    assertEquals(
+        2.0f,
+        importedClip.getStep(0, 3).gate(),
+        0.01f,
+        "Triplet gate in steps must round-trip as 2.0");
   }
 
   @Test

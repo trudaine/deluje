@@ -180,7 +180,26 @@ public class AbletonTrackMapper {
     }
   }
 
-  private static int parseStepCount(Element clipEl) {
+  private static boolean isTripletClip(Element clipEl) {
+    try {
+      Element gridEl = getDirectChild(clipEl, "Grid");
+      if (gridEl != null) {
+        String ntoles = getElementValue(gridEl, "Ntoles", "");
+        if ("3".equals(ntoles)) {
+          return true;
+        }
+        String denom = getElementValue(gridEl, "FixedDenominator", "");
+        if ("12".equals(denom) || "24".equals(denom)) {
+          return true;
+        }
+      }
+    } catch (Exception e) {
+      // Fallback to straight 16ths
+    }
+    return false;
+  }
+
+  private static int parseStepCount(Element clipEl, boolean tripletMode) {
     double clipLengthBeats = 16.0;
     try {
       double currentStart = Double.parseDouble(getElementValue(clipEl, "CurrentStart", "0.0"));
@@ -203,15 +222,19 @@ public class AbletonTrackMapper {
     } catch (Exception e) {
       // Fallback
     }
-    int stepCount = (int) Math.round(clipLengthBeats * 4.0);
-    return stepCount <= 0 ? 16 : stepCount;
+    double stepsPerBeat = tripletMode ? 3.0 : 4.0;
+    int defaultSteps = tripletMode ? 12 : 16;
+    int stepCount = (int) Math.round(clipLengthBeats * stepsPerBeat);
+    return stepCount <= 0 ? defaultSteps : stepCount;
   }
 
   /** Parses a MidiClip element into a sparse-pitch piano roll ClipModel. */
   private static ClipModel parseSynthClip(Element clipEl, String trackName) {
     try {
       String clipName = getElementValue(clipEl, "Name", "Clip");
-      int stepCount = parseStepCount(clipEl);
+      boolean tripletMode = isTripletClip(clipEl);
+      int stepCount = parseStepCount(clipEl, tripletMode);
+      double stepsPerBeat = tripletMode ? 3.0 : 4.0;
 
       // 1. Gather all note events from the Ableton XML
       List<ParsedNoteEvent> events = new ArrayList<>();
@@ -245,7 +268,9 @@ public class AbletonTrackMapper {
 
       if (events.isEmpty()) {
         // Return a default empty clip if no notes exist
-        return new ClipModel(clipName, 8, stepCount);
+        ClipModel emptyClip = new ClipModel(clipName, 8, stepCount);
+        emptyClip.setTripletMode(tripletMode);
+        return emptyClip;
       }
 
       // 2. Identify and sort unique pitches to build a sparse-pitch piano roll
@@ -259,6 +284,7 @@ public class AbletonTrackMapper {
 
       int rowCount = uniquePitches.size();
       ClipModel clip = new ClipModel(clipName, rowCount, stepCount);
+      clip.setTripletMode(tripletMode);
 
       // Map rows to absolute pitches
       Map<Integer, Integer> pitchToRow = new HashMap<>();
@@ -270,9 +296,9 @@ public class AbletonTrackMapper {
         rowNotesMap.put(r, new ArrayList<>());
       }
 
-      // 3. Populate the quantized 16th-note grid first, then install high-res NoteModel events
-      // afterwards so ClipModel.setStep() does not duplicate off-grid notes or overwrite on-grid
-      // note lengths (C note_row.cpp:264-281).
+      // 3. Populate the quantized grid first, then install high-res NoteModel events afterwards
+      // so Java's ClipModel.setStep() side effect does not duplicate off-grid notes or overwrite
+      // on-grid note lengths.
       for (ParsedNoteEvent ev : events) {
         Integer rowObj = pitchToRow.get(ev.pitch);
         if (rowObj == null) continue; // Pitch not in unique set (data integrity guard)
@@ -281,9 +307,9 @@ public class AbletonTrackMapper {
         int tickPos = Math.max(0, (int) Math.round(ev.time * 96));
         int tickLen = Math.max(1, (int) Math.round(ev.duration * 96));
         float normVel = Math.max(0.0f, Math.min(1.0f, ev.velocity / 127.0f));
-        float gate = (float) Math.max(0.1, ev.duration * 4.0);
+        float gate = (float) Math.max(0.1, ev.duration * stepsPerBeat);
 
-        int stepIdx = (int) Math.round(ev.time * 4);
+        int stepIdx = (int) Math.round(ev.time * stepsPerBeat);
         if (stepIdx >= 0 && stepIdx < stepCount) {
           StepData existingStep = clip.getStep(r, stepIdx);
           if (existingStep == null || !existingStep.active() || normVel > existingStep.velocity()) {
@@ -410,10 +436,13 @@ public class AbletonTrackMapper {
       Element clipEl, int drumCount, Map<Integer, Integer> midiPitchToDrumIndex) {
     try {
       String clipName = getElementValue(clipEl, "Name", "Clip");
-      int stepCount = parseStepCount(clipEl);
+      boolean tripletMode = isTripletClip(clipEl);
+      int stepCount = parseStepCount(clipEl, tripletMode);
+      double stepsPerBeat = tripletMode ? 3.0 : 4.0;
 
       ClipModel clip = new ClipModel(clipName, drumCount, stepCount);
       clip.setIsKit(true);
+      clip.setTripletMode(tripletMode);
 
       Map<Integer, List<NoteModel>> rowNotesMap = new HashMap<>();
       for (int d = 0; d < drumCount; d++) {
@@ -441,16 +470,19 @@ public class AbletonTrackMapper {
           int tickPos = Math.max(0, (int) Math.round(time * 96));
           int tickLen = Math.max(1, (int) Math.round(duration * 96));
           float normVel = Math.max(0.0f, Math.min(1.0f, velocity / 127.0f));
-          float gate = (float) Math.max(0.1, duration * 4.0);
+          float gate = (float) Math.max(0.1, duration * stepsPerBeat);
 
-          // Populate quantized grid first, then install high-res NoteModel list afterwards
-          int stepIdx = (int) Math.round(time * 4);
+          // Populate quantized grid first, then install high-res NoteModel list afterwards so
+          // Java's ClipModel.setStep() side effect does not duplicate off-grid notes. Keep the
+          // source KeyTrack MIDI pitch in StepData.pitch() while ClipModel.setStep() maps kit row
+          // pitch to r.
+          int stepIdx = (int) Math.round(time * stepsPerBeat);
           if (stepIdx >= 0 && stepIdx < stepCount) {
             StepData existingStep = clip.getStep(r, stepIdx);
             if (existingStep == null
                 || !existingStep.active()
                 || normVel > existingStep.velocity()) {
-              clip.setStep(r, stepIdx, StepData.of(true, normVel, gate, probability, r));
+              clip.setStep(r, stepIdx, StepData.of(true, normVel, gate, probability, pitch));
             }
           }
 

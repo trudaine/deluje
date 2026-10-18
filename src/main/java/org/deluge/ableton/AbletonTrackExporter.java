@@ -258,6 +258,7 @@ public class AbletonTrackExporter {
       midiClip.appendChild(createValueElement(doc, "Name", clip.getName()));
       midiClip.appendChild(
           createValueElement(doc, "CurrentEnd", String.valueOf(clip.getStepCount() * stepBeats)));
+      appendClipGrid(doc, midiClip, clip.isTripletMode());
 
       Element keyTracks = doc.createElement("KeyTracks");
       midiClip.appendChild(keyTracks);
@@ -366,6 +367,7 @@ public class AbletonTrackExporter {
       midiClip.appendChild(createValueElement(doc, "Name", clip.getName()));
       midiClip.appendChild(
           createValueElement(doc, "CurrentEnd", String.valueOf(clip.getStepCount() * stepBeats)));
+      appendClipGrid(doc, midiClip, clip.isTripletMode());
 
       Element keyTracks = doc.createElement("KeyTracks");
       midiClip.appendChild(keyTracks);
@@ -476,6 +478,14 @@ public class AbletonTrackExporter {
     trackEl.appendChild(nameEl);
     nameEl.appendChild(createValueElement(doc, "UserName", name));
     nameEl.appendChild(createValueElement(doc, "EffectiveName", name));
+  }
+
+  private static void appendClipGrid(Document doc, Element midiClip, boolean tripletMode) {
+    Element grid = doc.createElement("Grid");
+    grid.appendChild(createValueElement(doc, "FixedNumerator", "1"));
+    grid.appendChild(createValueElement(doc, "FixedDenominator", "16"));
+    grid.appendChild(createValueElement(doc, "Ntoles", tripletMode ? "3" : "2"));
+    midiClip.appendChild(grid);
   }
 
   private static Element createValueElement(Document doc, String tagName, String value) {
