@@ -263,11 +263,12 @@ public class SwingPianoRollDialog extends JDialog {
     int resolution = seq.getResolution();
     double ticksPerStep = resolution / 4.0; // 16th notes
 
-    Map<Integer, Long> activeNotes = new HashMap<>();
-    Map<Integer, Integer> activeVelocities = new HashMap<>();
     List<MidiNoteEvent> importedNotes = new ArrayList<>();
 
     for (Track track : seq.getTracks()) {
+      Map<Integer, Long> activeNotes = new HashMap<>();
+      Map<Integer, Integer> activeVelocities = new HashMap<>();
+
       for (int i = 0; i < track.size(); i++) {
         MidiEvent event = track.get(i);
         MidiMessage msg = event.getMessage();
@@ -275,14 +276,27 @@ public class SwingPianoRollDialog extends JDialog {
           int command = sm.getCommand();
           int key = sm.getData1();
           int velocity = sm.getData2();
+          int noteKey = (sm.getChannel() << 8) | key;
 
           if (command == ShortMessage.NOTE_ON && velocity > 0) {
-            activeNotes.put(key, event.getTick());
-            activeVelocities.put(key, velocity);
+            Long prevStartTick = activeNotes.get(noteKey);
+            Integer prevVel = activeVelocities.get(noteKey);
+            if (prevStartTick != null && event.getTick() > prevStartTick) {
+              double startStep = prevStartTick / ticksPerStep;
+              double endStep = event.getTick() / ticksPerStep;
+              importedNotes.add(
+                  new MidiNoteEvent(
+                      key,
+                      startStep,
+                      endStep - startStep,
+                      (prevVel != null ? prevVel : velocity) / 127.0f));
+            }
+            activeNotes.put(noteKey, event.getTick());
+            activeVelocities.put(noteKey, velocity);
           } else if (command == ShortMessage.NOTE_OFF
               || (command == ShortMessage.NOTE_ON && velocity == 0)) {
-            Long startTick = activeNotes.remove(key);
-            Integer storedVel = activeVelocities.remove(key);
+            Long startTick = activeNotes.remove(noteKey);
+            Integer storedVel = activeVelocities.remove(noteKey);
             int vel = storedVel != null ? storedVel : velocity;
             if (startTick != null) {
               double startStep = startTick / ticksPerStep;
@@ -349,7 +363,7 @@ public class SwingPianoRollDialog extends JDialog {
         continue;
       }
 
-      float fill = (float) (ne.startStep - step);
+      float nudge = (float) (ne.startStep - step);
       float gate = (float) ne.duration;
       int engineRow = baseTrackId + row;
 
@@ -359,12 +373,12 @@ public class SwingPianoRollDialog extends JDialog {
         bridge.setVelocity(engineRow, step, ne.velocity);
         bridge.setGate(engineRow, step, gate);
         bridge.setStepFill(engineRow, step, 0.0f);
-        bridge.setStepNudge(engineRow, step, fill);
+        bridge.setStepNudge(engineRow, step, nudge);
         bridge.setPitch(engineRow, step, ne.pitch);
       }
 
       // Apply to model
-      StepData stepData = new StepData(true, ne.velocity, gate, 1.0f, ne.pitch, 0, 0.0f, fill);
+      StepData stepData = new StepData(true, ne.velocity, gate, 1.0f, ne.pitch, 0, 0.0f, nudge);
       clipModel.setStep(row, step, stepData);
     }
   }

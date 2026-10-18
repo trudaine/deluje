@@ -263,6 +263,44 @@ class ArrangerInspectorSlicerPianoRollTest {
     assertEquals(2.0f, step2.gate(), 1e-4f);
   }
 
+  @Test
+  void testPianoRollMidiImportSeparatesChannelsAndTracksAndSetsNudge() throws Exception {
+    Sequence seq = new Sequence(Sequence.PPQ, 96);
+    Track track0 = seq.createTrack();
+    Track track1 = seq.createTrack();
+
+    // Track 0, Channel 0: pitch 60 from tick 6 (step 0.25) to tick 96 (step 4.0)
+    track0.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 60, 100), 6L));
+    track0.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_OFF, 0, 60, 0), 96L));
+
+    // Track 0, Channel 1: overlapping pitch 60 from tick 24 (step 1.0) to tick 48 (step 2.0)
+    track0.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 1, 60, 80), 24L));
+    track0.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_OFF, 1, 60, 0), 48L));
+
+    // Track 1, Channel 0: overlapping pitch 60 from tick 48 (step 2.0) to tick 72 (step 3.0)
+    track1.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, 0, 60, 90), 48L));
+    track1.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_OFF, 0, 60, 0), 72L));
+
+    java.util.List<SwingPianoRollDialog.MidiNoteEvent> notes =
+        SwingPianoRollDialog.extractMidiNotes(seq);
+    assertEquals(
+        3,
+        notes.size(),
+        "Overlapping same-pitch notes on different channels/tracks must not close each other");
+
+    SwingPianoRollDialog.MidiNoteEvent ch0Note =
+        notes.stream().filter(n -> Math.abs(n.startStep - 0.25) < 1e-6).findFirst().orElseThrow();
+    assertEquals(3.75, ch0Note.duration, 1e-6, "Channel 0 note must last from step 0.25 to 4.0");
+    assertEquals(100 / 127.0f, ch0Note.velocity, 1e-4f);
+
+    ClipModel clip = new ClipModel("NUDGE_CLIP", 128, 16);
+    SwingPianoRollDialog.applyImportedMidiNotes(java.util.List.of(ch0Note), clip, null, 0);
+    StepData step0 = clip.getStep(127 - 60, 0);
+    assertTrue(step0.active());
+    assertEquals(0.0f, step0.fill(), 1e-5f, "Imported note fill slot must remain 0.0");
+    assertEquals(0.25f, step0.nudge(), 1e-5f, "Fractional startStep must populate step nudge");
+  }
+
   private static void doLayoutRecursive(Container root) {
     root.doLayout();
     for (Component comp : root.getComponents()) {

@@ -228,6 +228,8 @@ public class ArrangerTimelineController {
         item.addActionListener(
             e -> {
               int startTicks = arrangerTickForColumn(col);
+              // AudioClip.getLength() (SongXmlParser.java:725) and ArrangerClip.startTicks() /
+              // durationTicks() (SongXmlParser.java:932) both use the song file-tick base.
               projectModel.addArrangerClip(
                   new ArrangerClip(
                       trackIdx, null, audioClip, startTicks, Math.max(1, audioClip.getLength())));
