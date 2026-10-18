@@ -135,7 +135,7 @@ public class MidiFeedbackService {
       }
     }
     if (mapping != null) {
-      int ccVal = Math.round(normalizedValue * 127);
+      int ccVal = Math.max(0, Math.min(127, Math.round(normalizedValue * 127)));
       sendCc(0, mapping.cc(), ccVal);
     }
   }

@@ -257,8 +257,13 @@ public class MidiEngine {
       switch (msg.statusType()) {
         case 0x08 -> // Note Off
             handleNoteOff(msg);
-        case 0x09 -> // Note On
+        case 0x09 -> { // Note On (C midi_engine.cpp:1027-1035: velocity 0 -> Note Off with lift 64)
+          if (msg.data2() == 0) {
+            handleNoteOff(MIDIMessage.noteOff(msg.channel(), msg.data1(), 64));
+          } else {
             handleNoteOn(msg);
+          }
+        }
         case 0x0A -> // Polyphonic Aftertouch
             handlePolyAftertouch(msg);
         case 0x0B -> // Control Change
@@ -293,8 +298,13 @@ public class MidiEngine {
   }
 
   private void handleControlChange(MIDIMessage msg) {
-    if (midiFollow != null) midiFollow.handleCC(msg);
-    if (onControlChange != null) onControlChange.accept(msg);
+    // When onControlChange is registered (e.g. MidiService), it intercepts MIDI Learn and MPE
+    // Y-slide before delegating to midiFollow.handleCC(msg) once.
+    if (onControlChange != null) {
+      onControlChange.accept(msg);
+    } else if (midiFollow != null) {
+      midiFollow.handleCC(msg);
+    }
   }
 
   private void handlePitchBend(MIDIMessage msg) {

@@ -285,11 +285,12 @@ public class MidiService {
 
   public void handleMidiMessage(int status, int data1, int data2) {
     org.deluge.shadow.midi.MidiMsg msg = new org.deluge.shadow.midi.MidiMsg();
-    msg.status = status;
-    msg.data1 = data1;
-    msg.data2 = data2;
-    msg.data3 = data2;
-    router.handleMidiMessage(msg);
+    msg.status = status & 0xFF;
+    msg.channel = status & 0x0F;
+    msg.data1 = status & 0xFF;
+    msg.data2 = data1 & 0x7F;
+    msg.data3 = data2 & 0x7F;
+    engine.midiMessageReceived(MIDIMessage.fromMidiMsg(msg), this);
   }
 
   /** Called by engine when a Note On is received. Routes to MidiInputRouter. */
@@ -312,11 +313,20 @@ public class MidiService {
     int cc = msg.data1();
 
     // MIDI Learn intercept — take over before MidiFollow routes
+    // C mod_controllable_audio.cpp:1506-1532 (learnKnob): additive binding; one CC may drive
+    // multiple params and one param may hold multiple CCs until explicit unlearn.
     if (learning) {
       String portName = PreferencesManager.get("midi.input", "None");
+      String key = "midi.learn." + portName + "." + learnTargetParam;
+      String ccStr = String.valueOf(cc);
+      String existing = PreferencesManager.get(key, "None");
+      if ("None".equals(existing) || existing.isBlank()) {
+        PreferencesManager.set(key, ccStr);
+      } else if (!hasLearnedCc(existing, cc)) {
+        PreferencesManager.set(key, existing + "," + ccStr);
+      }
       LOGGER.fine(
           "MIDI LEARN: Bound CC " + cc + " to " + learnTargetParam + " on device " + portName);
-      PreferencesManager.set("midi.learn." + portName + "." + learnTargetParam, String.valueOf(cc));
       learning = false;
       learnTargetParam = null;
       return;
@@ -391,6 +401,19 @@ public class MidiService {
     }
   }
 
+  private static boolean hasLearnedCc(String csv, int cc) {
+    if (csv == null || csv.isBlank() || "None".equals(csv)) {
+      return false;
+    }
+    String target = String.valueOf(cc);
+    for (String part : csv.split(",")) {
+      if (target.equals(part.trim())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /**
    * Fallback CC handler — used by MidiFollow when no device definition or built-in registry mapping
    * exists for a CC. Uses PreferencesManager-based learned mappings.
@@ -401,11 +424,11 @@ public class MidiService {
     for (String key : keys) {
       if (key.startsWith(prefix)) {
         String mappedCc = PreferencesManager.get(key, "None");
-        if (mappedCc.equals(String.valueOf(cc))) {
+        if (hasLearnedCc(mappedCc, cc)) {
           String paramName = key.substring(prefix.length());
           if ("action_looper_pedal".equals(paramName)) {
             handleLooperPedalTap(val);
-            return;
+            continue;
           }
           float normalizedVal = val / 127.0f;
           bridge.setGlobalFloat(paramName, normalizedVal);
@@ -684,9 +707,11 @@ public class MidiService {
     for (String key : keys) {
       if (key.startsWith(prefix)) {
         String val = PreferencesManager.get(key, "None");
-        if (!val.equals("None")) {
+        if (!val.equals("None") && !val.isBlank()) {
+          String[] parts = val.split(",");
           try {
-            mappings.put(key.substring(prefix.length()), Integer.parseInt(val));
+            mappings.put(
+                key.substring(prefix.length()), Integer.parseInt(parts[parts.length - 1].trim()));
           } catch (NumberFormatException e) {
             // Ignore invalid values
           }

@@ -31,19 +31,34 @@ public class MidiInputRouter {
       new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
 
   private static class NoteStartInfo {
-    long time;
-    int step;
-    int track;
+    final long time;
+    final int step;
+    final int track;
+    final int clipId;
+    final int clipRow;
 
     NoteStartInfo(long t, int s, int tr) {
+      this(t, s, tr, -1, -1);
+    }
+
+    NoteStartInfo(long t, int s, int tr, int clipId, int clipRow) {
       this.time = t;
       this.step = s;
       this.track = tr;
+      this.clipId = clipId;
+      this.clipRow = clipRow;
     }
   }
 
+  private static int noteKey(int midiChannel, int midiNote) {
+    return ((midiChannel & 0x0F) << 8) | (midiNote & 0x7F);
+  }
+
   private final java.util.Map<Integer, NoteStartInfo> activeNoteStarts = new java.util.HashMap<>();
-  private final java.util.Map<Integer, String> ccMappings = new java.util.HashMap<>();
+  // C mod_controllable_audio.cpp:1506-1532 — one CC can drive multiple params and one param can
+  // hold multiple learned CCs until explicit unlearnKnobs (clearMapping).
+  private final java.util.Map<Integer, java.util.Set<String>> ccMappings =
+      new java.util.HashMap<>();
   private String learningTarget = null;
 
   /** Lazily-loaded device definition for CC routing. Updated by MidiService. */
@@ -70,33 +85,40 @@ public class MidiInputRouter {
   }
 
   public int getCcForParam(String target) {
-    for (java.util.Map.Entry<Integer, String> entry : ccMappings.entrySet()) {
-      if (entry.getValue().equals(target)) {
-        return entry.getKey();
+    int lastCc = -1;
+    for (java.util.Map.Entry<Integer, java.util.Set<String>> entry : ccMappings.entrySet()) {
+      if (entry.getValue().contains(target)) {
+        lastCc = entry.getKey();
       }
     }
-    return -1;
+    return lastCc;
+  }
+
+  private void bindCcToParam(int cc, String target) {
+    ccMappings.computeIfAbsent(cc, k -> new java.util.LinkedHashSet<>()).add(target);
   }
 
   public void clearMapping(String target) {
-    ccMappings.values().removeIf(val -> val.equals(target));
+    // C mod_controllable_audio.cpp:1535-1540 (unlearnKnobs) — removes all learned CCs for target.
+    ccMappings.values().forEach(set -> set.remove(target));
+    ccMappings.values().removeIf(java.util.Set::isEmpty);
   }
 
   public void resetToDefaults() {
     ccMappings.clear();
-    ccMappings.put(7, "g_sp_volume");
-    ccMappings.put(10, "g_sp_pan");
-    ccMappings.put(71, "g_sp_lpf_freq");
-    ccMappings.put(72, "g_sp_lpf_res");
-    ccMappings.put(74, "g_sp_lpf_morph");
-    ccMappings.put(75, "g_sp_hpf_freq");
-    ccMappings.put(76, "g_sp_hpf_res");
-    ccMappings.put(77, "g_sp_hpf_morph");
-    ccMappings.put(94, "g_sp_delay_rate");
-    ccMappings.put(95, "g_sp_delay_feedback");
-    ccMappings.put(91, "g_sp_reverb_amount");
-    ccMappings.put(80, "g_sp_eq_bass");
-    ccMappings.put(81, "g_sp_eq_treble");
+    bindCcToParam(7, "g_sp_volume");
+    bindCcToParam(10, "g_sp_pan");
+    bindCcToParam(71, "g_sp_lpf_freq");
+    bindCcToParam(72, "g_sp_lpf_res");
+    bindCcToParam(74, "g_sp_lpf_morph");
+    bindCcToParam(75, "g_sp_hpf_freq");
+    bindCcToParam(76, "g_sp_hpf_res");
+    bindCcToParam(77, "g_sp_hpf_morph");
+    bindCcToParam(94, "g_sp_delay_rate");
+    bindCcToParam(95, "g_sp_delay_feedback");
+    bindCcToParam(91, "g_sp_reverb_amount");
+    bindCcToParam(80, "g_sp_eq_bass");
+    bindCcToParam(81, "g_sp_eq_treble");
   }
 
   /** Set the device definition for CC-to-param routing. */
@@ -134,8 +156,10 @@ public class MidiInputRouter {
 
   /** Called when a MIDI message is received from a hardware controller. */
   public void handleMidiMessage(MidiMsg msg) {
-    int status = msg.data1 & 0xF0;
-    int midiChannel = msg.data1 & 0x0F; // Extract MIDI channel from lower nibble
+    int rawStatus = (msg.status != 0) ? msg.status : msg.data1;
+    int status = rawStatus & 0xF0;
+    int midiChannel =
+        (msg.status != 0 && msg.channel != 0) ? (msg.channel & 0x0F) : (rawStatus & 0x0F);
 
     // Handle CC messages (0xB0)
     if (status == 0xB0) {
@@ -179,9 +203,9 @@ public class MidiInputRouter {
         return;
       }
 
-      // MIDI learn mode
+      // MIDI learn mode (C mod_controllable_audio.cpp:1506-1532: additive until explicit unlearn)
       if (learningTarget != null) {
-        ccMappings.put(cc, learningTarget);
+        bindCcToParam(cc, learningTarget);
         learningTarget = null;
       }
 
@@ -195,10 +219,12 @@ public class MidiInputRouter {
         }
       }
 
-      // Fall back to learned CC mappings
-      String mapped = ccMappings.get(cc);
-      if (mapped != null) {
-        bridge.setGlobalFloat(mapped, (float) normalized);
+      // Fall back to learned CC mappings (one CC may drive multiple learned params)
+      java.util.Set<String> mapped = ccMappings.get(cc);
+      if (mapped != null && !mapped.isEmpty()) {
+        for (String paramName : mapped) {
+          bridge.setGlobalFloat(paramName, (float) normalized);
+        }
         return;
       }
 
@@ -267,7 +293,8 @@ public class MidiInputRouter {
               if (clipRow < 0 || engineRow < 0) {
                 triggerLiveNote(trackIndex, midiNote, velocity);
                 activeNoteStarts.put(
-                    midiNote, new NoteStartInfo(bridge.getCurrentTime(), -1, trackIndex));
+                    noteKey(midiChannel, midiNote),
+                    new NoteStartInfo(bridge.getCurrentTime(), -1, trackIndex));
                 return;
               }
 
@@ -276,6 +303,7 @@ public class MidiInputRouter {
                   org.deluge.model.StepData.of(true, (float) (velocity / 127.0), 1.0f, 1.0f, pitch);
               clip.setStep(clipRow, col, newStep);
 
+              int clipId = activeGrid.getActiveClipId();
               // Push StepConsequence to the undo/redo stack & trigger macro recording!
               activeGrid
                   .getProjectModel()
@@ -284,7 +312,7 @@ public class MidiInputRouter {
                       new org.deluge.model.Consequence.StepConsequence(
                           activeGrid.getProjectModel(),
                           trackIndex,
-                          activeGrid.getActiveClipId(),
+                          clipId,
                           clipRow,
                           col,
                           oldStep,
@@ -299,9 +327,10 @@ public class MidiInputRouter {
               // Monitor the recorded note immediately so playback does not wait for the next loop
               triggerLiveNote(trackIndex, midiNote, velocity);
 
-              // Store start time and step for Note Off gate calculation
+              // Store start time, step, clipId, and clipRow for Note Off gate calculation
               activeNoteStarts.put(
-                  midiNote, new NoteStartInfo(bridge.getCurrentTime(), col, trackIndex));
+                  noteKey(midiChannel, midiNote),
+                  new NoteStartInfo(bridge.getCurrentTime(), col, trackIndex, clipId, clipRow));
 
               // Refresh UI grid
               javax.swing.SwingUtilities.invokeLater(() -> activeGrid.refresh());
@@ -314,11 +343,13 @@ public class MidiInputRouter {
       // Fallback: live auditioning if recording is off or no active grid
       int targetTrack = resolveTrackFromChannel(midiChannel);
       triggerLiveNote(targetTrack, midiNote, velocity);
-      activeNoteStarts.put(midiNote, new NoteStartInfo(bridge.getCurrentTime(), -1, targetTrack));
+      activeNoteStarts.put(
+          noteKey(midiChannel, midiNote),
+          new NoteStartInfo(bridge.getCurrentTime(), -1, targetTrack));
 
     } else if (msg.isNoteOff()) {
       int midiNote = msg.data2;
-      NoteStartInfo start = activeNoteStarts.remove(midiNote);
+      NoteStartInfo start = activeNoteStarts.remove(noteKey(midiChannel, midiNote));
       if (start != null) {
         long duration = bridge.getCurrentTime() - start.time;
         double bpm =
@@ -327,34 +358,53 @@ public class MidiInputRouter {
                 : 120.0;
         double gate = (double) duration / (bridge.getSampleRate() * (15.0 / bpm));
 
-        // If recording is active, update the gate length in the high-level model!
+        // If recording is active, update the gate length in the exact clip/row recorded on Note On!
         if (isRecording && isPlaying && start.step >= 0 && SwingDelugeApp.mainInstance != null) {
           SwingGridPanel activeGrid = SwingDelugeApp.mainInstance.getActiveGridPanel();
-          if (activeGrid != null) {
-            org.deluge.model.ClipModel clip = activeGrid.getEditedActiveClip();
-            if (clip != null && start.step < clip.getStepCount()) {
-              int trackIndex = activeGrid.getEditedModelTrack();
-              org.deluge.model.TrackModel activeTrack =
-                  activeGrid.getProjectModel().getTracks().get(trackIndex);
-              if (activeTrack instanceof org.deluge.model.SynthTrackModel
-                  || activeTrack instanceof org.deluge.model.KitTrackModel) {
-                int clipRow;
-                if (activeTrack instanceof org.deluge.model.KitTrackModel) {
-                  int drumRow = midiNote - 36;
-                  clipRow = drumRow >= 0 ? activeGrid.getClipRowIndex(clip, drumRow, false) : -1;
-                } else {
-                  clipRow = activeGrid.findSynthClipRowForPitch(clip, midiNote);
-                }
-                if (clipRow >= 0) {
+          if (activeGrid != null && activeGrid.getProjectModel() != null) {
+            org.deluge.model.ProjectModel project = activeGrid.getProjectModel();
+            if (start.track >= 0 && start.track < project.getTracks().size()) {
+              org.deluge.model.TrackModel recordedTrack = project.getTracks().get(start.track);
+              if ((recordedTrack instanceof org.deluge.model.SynthTrackModel
+                      || recordedTrack instanceof org.deluge.model.KitTrackModel)
+                  && start.clipId >= 0
+                  && start.clipId < recordedTrack.getClips().size()) {
+                org.deluge.model.ClipModel clip = recordedTrack.getClips().get(start.clipId);
+                if (clip != null
+                    && start.step < clip.getStepCount()
+                    && start.clipRow >= 0
+                    && start.clipRow < clip.getRowCount()) {
+                  int clipRow = start.clipRow;
                   org.deluge.model.StepData oldStep = clip.getStep(clipRow, start.step);
                   if (oldStep != null && oldStep.active()) {
                     org.deluge.model.StepData newStep = oldStep.withGate((float) gate);
                     clip.setStep(clipRow, start.step, newStep);
 
-                    // Update low-level ChucK bridge gate
-                    int engineRow = activeGrid.getEngineRowForStoredClipRow(clipRow);
-                    if (engineRow >= 0) {
-                      bridge.setGate(engineRow, start.step, gate);
+                    org.deluge.model.UndoRedoStack undoStack = project.getUndoRedoStack();
+                    if (undoStack.peekUndo()
+                            instanceof org.deluge.model.Consequence.StepConsequence sc
+                        && sc.trackIndex() == start.track
+                        && sc.clipIndex() == start.clipId
+                        && sc.row() == clipRow
+                        && sc.step() == start.step) {
+                      undoStack.replaceLast(
+                          new org.deluge.model.Consequence.StepConsequence(
+                              sc.project(),
+                              sc.trackIndex(),
+                              sc.clipIndex(),
+                              sc.row(),
+                              sc.step(),
+                              sc.oldData(),
+                              newStep));
+                    }
+
+                    // Update low-level ChucK bridge gate if this track/clip is still the edited one
+                    if (activeGrid.getEditedModelTrack() == start.track
+                        && activeGrid.getActiveClipId() == start.clipId) {
+                      int engineRow = activeGrid.getEngineRowForStoredClipRow(clipRow);
+                      if (engineRow >= 0) {
+                        bridge.setGate(engineRow, start.step, gate);
+                      }
                     }
 
                     // Refresh UI grid
