@@ -31,7 +31,8 @@ fi
 
 mkdir -p "$BUILD" "$OUT"
 INC=(-I"$FW/src/deluge" -I"$FW/src" -I"$FW/src/deluge/dsp/dx")
-STD="-std=c++23 -O2 -w -include cstdint"
+# -ffp-contract=off matches Cortex-A9 VFPv3-D16 (no fused FMADD).
+STD="-std=c++23 -O2 -ffp-contract=off -w -include cstdint"
 
 echo "compiling real math_lut.cpp (real sintab/freq_lut/tanh/exp2) ..."
 g++ $STD "${INC[@]}" -c "$FW/src/deluge/dsp/dx/math_lut.cpp" -o "$BUILD/math_lut.o"
@@ -48,5 +49,15 @@ echo "regenerating FM goldens -> $OUT"
 "$GEN" fb   512 "$OUT/c_fm_fb.bin"
 "$GEN" pure 512 "$OUT/c_fm_pure.bin"
 "$GEN" mod  512 "$OUT/c_fm_mod.bin"
+
+echo "linking harness against real EngineMkI.cpp + fm_core.cpp ..."
+g++ $STD "${INC[@]}" \
+  "$HERE/main_enginemki_tables.cpp" "$HERE/support_fm.cpp" \
+  "$FW/src/deluge/dsp/dx/fm_core.cpp" \
+  "$FW/src/deluge/dsp/dx/fm_op_kernel.cpp" \
+  "$BUILD/math_lut.o" \
+  -o "$BUILD/gen_enginemki_tables"
+
+"$BUILD/gen_enginemki_tables" "$OUT/c_enginemki_tables.bin"
 
 echo "done. FM golden buffers written to $OUT"
