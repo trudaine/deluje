@@ -45,13 +45,20 @@ public class DelugeNoteDataMapper {
         int velInt = Math.round(step.velocity() * 127.0f);
         String hexVel = String.format("%02X", Math.max(1, Math.min(127, velInt)));
         // C note_row.cpp:3424-3447 & definitions_cxx.hpp:709, 722-725 — 22-char noteDataWithLift
-        // carries lift (default 0x40 = 64) and probability (0x00 = FILL, 0x80 = NOT_FILL, 1..20).
+        // carries lift (default 0x40 = 64) and probability (0x00 = FILL, 0x80 = NOT_FILL, 1..20,
+        // or 21..55 for legacy iterance presets 1of2..8of8).
         int fillMode = step.fillMode() != 0 ? step.fillMode() : (step.fill() > 0.001f ? 2 : 0);
+        int legacyIteranceByte =
+            (step.playCondition() != 0 && step.playCondition() != 0x0101)
+                ? org.deluge.model.Iterance.fromInt(step.playCondition()).toLegacyProbabilityByte()
+                : 0;
         int probByte;
         if (fillMode == org.deluge.model.NoteModel.FILL_MODE_FILL) {
           probByte = 0; // kOldFillProbabilityValue
         } else if (fillMode == org.deluge.model.NoteModel.FILL_MODE_NOT_FILL) {
           probByte = 128; // kOldNotFillProbabilityValue
+        } else if (legacyIteranceByte > 0) {
+          probByte = legacyIteranceByte; // 21..55 (note_row.cpp:3436-3440)
         } else {
           probByte = Math.max(1, Math.min(20, Math.round(step.probability() * 20.0f)));
         }
@@ -260,21 +267,29 @@ public class DelugeNoteDataMapper {
   }
 
   /**
-   * Backward-compatible decode using inferred note hex length (22-char {@link #encodeRow} output or
-   * 20-char legacy noteData) and internal ticks-per-step.
+   * Decode a tagless Java-only pattern hex string using inferred stride and internal {@link
+   * #TICKS_PER_STEP}. XML parsers ({@code SongXmlParser}, {@code PatternSerializer}) must call
+   * {@link #decodeRow(String, int, int, int)} with the stride determined by the XML tag name
+   * ({@code noteData}=20, {@code noteDataWithLift}=22, {@code noteDataWithIteranceAndFill}=26,
+   * {@code noteDataWithSplitProb}=28; C {@code note_row.cpp:3359-3534}).
    */
   public static List<StepData> decodeRow(String hex, int stepCount) {
     return decodeRow(hex, stepCount, TICKS_PER_STEP, inferHexCharsPerNote(hex));
   }
 
-  /** Backward-compatible decode with ticksPerStep and inferred note hex length. */
+  /**
+   * Decode a tagless Java-only pattern hex string with {@code ticksPerStep} and inferred stride.
+   * XML parsers must pass the stride from the XML tag name to {@link #decodeRow(String, int, int,
+   * int)}.
+   */
   public static List<StepData> decodeRow(String hex, int stepCount, int ticksPerStep) {
     return decodeRow(hex, stepCount, ticksPerStep, inferHexCharsPerNote(hex));
   }
 
   /**
-   * Infers the per-note hex stride (20, 22, 26, or 28 chars) when the caller does not know which
-   * XML attribute name carried {@code hex} (e.g. {@link #encodeRow} roundtrips).
+   * Infers the per-note hex stride (20, 22, 26, or 28 chars) only for tagless Java-only pattern
+   * strings (e.g. {@link #encodeRow} roundtrips). Firmware XML readers never guess stride and
+   * always select it from the XML tag name.
    */
   static int inferHexCharsPerNote(String hex) {
     if (hex == null || !hex.startsWith("0x") || hex.length() <= 2) {

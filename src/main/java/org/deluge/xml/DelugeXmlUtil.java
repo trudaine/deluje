@@ -368,10 +368,21 @@ public class DelugeXmlUtil {
   public static String attrOrDirectChildText(Element el, String name) {
     String val = readAttr(el, name);
     if (val != null && !val.isEmpty()) return val;
+    Element child = directChild(el, name);
+    if (child != null) {
+      String text = child.getTextContent();
+      return (text == null || text.isBlank()) ? null : text.trim();
+    }
+    return null;
+  }
+
+  /**
+   * Returns the first direct child element of {@code el} with tag {@code name}, or {@code null}.
+   */
+  public static Element directChild(Element el, String name) {
     for (org.w3c.dom.Node n = el.getFirstChild(); n != null; n = n.getNextSibling()) {
       if (n instanceof Element child && name.equals(child.getTagName())) {
-        String text = child.getTextContent();
-        return (text == null || text.isBlank()) ? null : text.trim();
+        return child;
       }
     }
     return null;

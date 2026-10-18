@@ -4,7 +4,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import org.deluge.model.SynthTrackModel;
 import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
 
 /**
  * Describes how to extract a single value from an XML element and set it on a SynthTrackModel.
@@ -47,14 +46,14 @@ public class FieldBinding<T> {
       strategy.apply(soundNode, this, synth);
     } else {
       // C sound.cpp:4056-4128 & Deserializer — preset <defaultParams> writes params as attributes
-      // in modern firmware and as child elements in older firmware; check attribute first.
+      // in modern firmware and as direct child elements in older firmware; never search deeper
+      // descendants.
       Element parent = soundNode;
       if (container != null && !container.isEmpty()) {
-        NodeList containers = soundNode.getElementsByTagName(container);
-        if (containers.getLength() == 0) return;
-        parent = (Element) containers.item(0);
+        parent = DelugeXmlUtil.directChild(soundNode, container);
+        if (parent == null) return;
       }
-      String raw = readTagOrAttribute(parent, tag);
+      String raw = DelugeXmlUtil.attrOrDirectChildText(parent, tag);
       if (raw == null || raw.isBlank()) return;
       T value = converter.apply(raw.trim());
       if (value instanceof Float f && unipolar) {
@@ -67,39 +66,20 @@ public class FieldBinding<T> {
   /**
    * Apply this binding directly against a given container element (e.g. a clip's {@code
    * <soundParams>}), reading the value from an ATTRIBUTE named {@code tag} first (the firmware's
-   * modern attribute style), falling back to a child element's text (the old element style). The
-   * firmware's own XML reader treats attributes and child tags interchangeably — this mirrors that,
-   * so the same param table serves preset {@code defaultParams} and song {@code soundParams}.
+   * modern attribute style), falling back to a direct child element's text (the old element style).
    */
   @SuppressWarnings("unchecked")
   public void applyTo(Element container, SynthTrackModel synth) {
     if (strategy != null) {
       return; // strategy bindings are instrument-structure bindings, not param-table entries
     }
-    String raw = readTagOrAttribute(container, tag);
+    String raw = DelugeXmlUtil.attrOrDirectChildText(container, tag);
     if (raw == null || raw.isBlank()) return;
     T value = converter.apply(raw.trim());
     if (value instanceof Float f && unipolar) {
       value = (T) Float.valueOf((f + 1.0f) / 2.0f);
     }
     setter.accept(synth, value);
-  }
-
-  private static String readTagOrAttribute(Element parent, String tag) {
-    String raw = parent.getAttribute(tag);
-    if (raw != null && !raw.isBlank()) {
-      return raw;
-    }
-    NodeList nodes = parent.getElementsByTagName(tag);
-    if (nodes.getLength() == 0) {
-      return null;
-    }
-    Element child = (Element) nodes.item(0);
-    String valueAttr = child.getAttribute("value");
-    if (valueAttr != null && !valueAttr.isBlank()) {
-      return valueAttr;
-    }
-    return child.getTextContent();
   }
 
   // ── Accessors needed by custom strategies ──
@@ -163,10 +143,8 @@ public class FieldBinding<T> {
         converter,
         false,
         (soundNode, binding, synth) -> {
-          NodeList nodes = soundNode.getElementsByTagName(binding.tag());
-          if (nodes.getLength() == 0) return;
-          Element child = (Element) nodes.item(0);
-          if (!child.hasAttribute(attrName)) return;
+          Element child = DelugeXmlUtil.directChild(soundNode, binding.tag());
+          if (child == null || !child.hasAttribute(attrName)) return;
           String raw = child.getAttribute(attrName);
           if (raw == null || raw.isBlank()) return;
           ((BiConsumer<SynthTrackModel, T>) binding.setter())
@@ -174,7 +152,7 @@ public class FieldBinding<T> {
         });
   }
 
-  /** Attribute OR child element for a child of soundNode. Tries attribute first. */
+  /** Attribute OR child element for a direct child of soundNode. Tries attribute first. */
   @SuppressWarnings("unchecked")
   public static FieldBinding<String> attrOrChild(
       String childTag,
@@ -188,17 +166,9 @@ public class FieldBinding<T> {
         transform,
         false,
         (soundNode, binding, synth) -> {
-          NodeList nodes = soundNode.getElementsByTagName(binding.tag());
-          if (nodes.getLength() == 0) return;
-          Element child = (Element) nodes.item(0);
-          String raw;
-          if (child.hasAttribute(attrName)) {
-            raw = child.getAttribute(attrName);
-          } else {
-            NodeList inner = child.getElementsByTagName(attrName);
-            if (inner.getLength() == 0) return;
-            raw = inner.item(0).getTextContent();
-          }
+          Element child = DelugeXmlUtil.directChild(soundNode, binding.tag());
+          if (child == null) return;
+          String raw = DelugeXmlUtil.attrOrDirectChildText(child, attrName);
           if (raw == null || raw.isBlank()) return;
           ((BiConsumer<SynthTrackModel, String>) binding.setter())
               .accept(synth, transform.apply(raw.trim()));
@@ -206,7 +176,7 @@ public class FieldBinding<T> {
   }
 
   /**
-   * Reads text content from a named child element of a container element. E.g. {@code
+   * Reads text content from a named direct child element of a direct container element. E.g. {@code
    * childText("osc2", "type", setter, toUpper)} reads {@code <osc2><type>TEXT</type></osc2>}.
    */
   @SuppressWarnings("unchecked")
@@ -222,12 +192,11 @@ public class FieldBinding<T> {
         transform,
         false,
         (soundNode, binding, synth) -> {
-          NodeList containers = soundNode.getElementsByTagName(binding.tag());
-          if (containers.getLength() == 0) return;
-          Element container = (Element) containers.item(0);
-          NodeList children = container.getElementsByTagName(childTag);
-          if (children.getLength() == 0) return;
-          String raw = children.item(0).getTextContent();
+          Element container = DelugeXmlUtil.directChild(soundNode, binding.tag());
+          if (container == null) return;
+          Element child = DelugeXmlUtil.directChild(container, childTag);
+          if (child == null) return;
+          String raw = child.getTextContent();
           if (raw == null || raw.isBlank()) return;
           ((BiConsumer<SynthTrackModel, String>) binding.setter())
               .accept(synth, transform.apply(raw.trim()));

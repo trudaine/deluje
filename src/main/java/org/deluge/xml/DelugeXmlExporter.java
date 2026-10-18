@@ -13,11 +13,28 @@ import org.deluge.model.SynthTrackModel;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-/** Exports SynthTrackModel or Bridge state to Deluge-compatible XML files. */
+/**
+ * Exports a core subset of {@link SynthTrackModel} state (oscillator types, polyphony, synth mode,
+ * filter/mixer/envelope {@code <defaultParams>}, and {@code <arpeggiator>}) to a Deluge-compatible
+ * {@code <sound>} XML preset file. Callers that need the complete preset tree (LFOs, FM modulators,
+ * unison, FX, patch cables, mod knobs, and sample zones) should use {@link
+ * KitSynthSerializer#saveSynth(SynthTrackModel, File)}.
+ */
 public class DelugeXmlExporter {
 
+  /**
+   * Writes a core-subset {@code <sound>} XML preset from {@code model} to {@code file}.
+   *
+   * @deprecated {@code bridge} and {@code trackIndex} are unused; call {@link
+   *     #saveSynthPreset(SynthTrackModel, File)} instead.
+   */
+  @Deprecated
   public static void saveSynthPreset(
       SynthTrackModel model, BridgeContract bridge, int trackIndex, File file) throws Exception {
+    saveSynthPreset(model, file);
+  }
+
+  public static void saveSynthPreset(SynthTrackModel model, File file) throws Exception {
     DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
     DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
 

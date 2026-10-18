@@ -8,8 +8,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
-import org.deluge.BridgeContract;
 import org.deluge.model.EnvelopeModel;
+import org.deluge.model.Iterance;
 import org.deluge.model.NoteModel;
 import org.deluge.model.StepData;
 import org.deluge.model.SynthTrackModel;
@@ -123,6 +123,94 @@ class NoteDataHexExporterParityTest {
   }
 
   @Test
+  void encodeRowAndDecodeRowRoundTripIterancePresets() {
+    List<StepData> row = new ArrayList<>();
+    for (int i = 0; i < 16; i++) {
+      row.add(StepData.empty());
+    }
+    // C note_row.cpp:3436-3440 — iterance presets 1..35 encode as probability byte 21..55.
+    row.set(
+        2,
+        new StepData(
+            true,
+            0.8f,
+            1.0f,
+            1.0f,
+            60,
+            0,
+            0.0f,
+            0.0f,
+            new Iterance((byte) 2, (byte) 0b01).toInt(),
+            0)); // 1of2
+    row.set(
+        6,
+        new StepData(
+            true,
+            0.8f,
+            1.0f,
+            1.0f,
+            60,
+            0,
+            0.0f,
+            0.0f,
+            new Iterance((byte) 4, (byte) 0b0100).toInt(),
+            0)); // 3of4
+
+    String hex = DelugeNoteDataMapper.encodeRow(row);
+    // Note 0 probability byte at chars 2 + 20..22 (after 8 pos + 8 len + 2 vel + 2 lift):
+    // 1of2 = PRESETS[2] -> byte 21 = 0x15
+    assertEquals("15", hex.substring(2 + 20, 2 + 22));
+    // Note 1 probability byte at chars 2 + 22 + 20..22: 3of4 = PRESETS[9] -> byte 28 = 0x1C
+    assertEquals("1C", hex.substring(2 + 22 + 20, 2 + 22 + 22));
+
+    List<StepData> decoded = DelugeNoteDataMapper.decodeRow(hex, 16);
+    Iterance decoded0 = Iterance.fromInt(decoded.get(2).playCondition());
+    Iterance decoded1 = Iterance.fromInt(decoded.get(6).playCondition());
+    assertEquals(2, decoded0.divisor);
+    assertEquals(0b01, decoded0.iteranceStep);
+    assertEquals(4, decoded1.divisor);
+    assertEquals(0b0100, decoded1.iteranceStep);
+  }
+
+  @Test
+  void fieldBindingIgnoresNestedDescendantTagsAndValueAttribute() throws Exception {
+    // A nested <lpfFrequency> inside <modKnobs> or <nested> and a <lpfResonance value="..."/>
+    // must not be matched by FieldBinding (which inspects only direct child elements/attributes).
+    String xml =
+        """
+        <sound name="DirectScopeTest" mode="subtractive" polyphonic="poly">
+          <osc1 type="saw"/>
+          <defaultParams oscAVolume="0x7FFFFFFF">
+            <modKnobs>
+              <lpfFrequency>0x7FFFFFFF</lpfFrequency>
+            </modKnobs>
+            <lpfResonance value="0x7FFFFFFF"/>
+          </defaultParams>
+        </sound>
+        """;
+    SynthTrackModel baseline =
+        InstrumentXmlParser.parseSynth(
+            new ByteArrayInputStream(
+                "<sound name=\"Base\"><osc1 type=\"saw\"/><defaultParams oscAVolume=\"0x7FFFFFFF\"/></sound>"
+                    .getBytes(StandardCharsets.UTF_8)),
+            "Base");
+    SynthTrackModel synth =
+        InstrumentXmlParser.parseSynth(
+            new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)), "DirectScopeTest");
+
+    assertEquals(
+        baseline.getLpfFreq(),
+        synth.getLpfFreq(),
+        0.001f,
+        "Descendant <lpfFrequency> inside <modKnobs> must not override defaultParams lpfFrequency");
+    assertEquals(
+        baseline.getLpfRes(),
+        synth.getLpfRes(),
+        0.001f,
+        "<lpfResonance value=\"...\"/> must not be read by FieldBinding");
+  }
+
+  @Test
   void delugeXmlExporterSavesOscillatorsFilterEnvelopesAndModes(@TempDir File tempDir)
       throws Exception {
     SynthTrackModel synth = new SynthTrackModel("EXPORT_TEST");
@@ -143,7 +231,7 @@ class NoteDataHexExporterParityTest {
     synth.setEnv(3, new EnvelopeModel(0.10f, 0.6f, 0.3f, 1.2f, "NONE", 0.0f));
 
     File outFile = new File(tempDir, "EXPORT_TEST.XML");
-    DelugeXmlExporter.saveSynthPreset(synth, new BridgeContract(), 0, outFile);
+    DelugeXmlExporter.saveSynthPreset(synth, outFile);
 
     String rawXml = Files.readString(outFile.toPath());
     assertTrue(rawXml.contains("type=\"analogSaw\""), "Osc1 type must use C firmware casing");
