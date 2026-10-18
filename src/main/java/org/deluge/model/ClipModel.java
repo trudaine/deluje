@@ -729,6 +729,7 @@ public class ClipModel extends TimelineCounter {
           row.getNotes().remove(existingNote);
         }
       }
+      row.limitLengthsToNextNote(getLoopLength());
       expectEvent();
     }
   }
@@ -751,6 +752,7 @@ public class ClipModel extends TimelineCounter {
           row.getNotes().add(note);
         }
       }
+      row.limitLengthsToNextNote(getLoopLength());
     }
     expectEvent();
   }
@@ -915,6 +917,7 @@ public class ClipModel extends TimelineCounter {
             row.getNotes().add(note);
           }
         }
+        row.limitLengthsToNextNote(getLoopLength());
       }
     }
     expectEvent();
