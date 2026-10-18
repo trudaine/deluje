@@ -30,7 +30,7 @@ public class SwingMidiImportDialog extends JDialog {
   private final Frame owner;
 
   private List<TrackImportConfig> trackConfigs;
-  private List<String> availablePresets;
+  private List<String> availablePresets = new ArrayList<>();
   private JPanel cardsPanel;
   private boolean importSuccessful = false;
   private ProjectModel compiledProject = null;
@@ -54,9 +54,10 @@ public class SwingMidiImportDialog extends JDialog {
         try {
           get();
         } catch (Exception e) {
+          Throwable cause = e.getCause() != null ? e.getCause() : e;
           JOptionPane.showMessageDialog(
               SwingMidiImportDialog.this,
-              "Failed to load MIDI file:\n" + e.getCause().getMessage(),
+              "Failed to load MIDI file:\n" + cause.getMessage(),
               "Error",
               JOptionPane.ERROR_MESSAGE);
           dispose();
@@ -88,7 +89,7 @@ public class SwingMidiImportDialog extends JDialog {
       File[] files = synthsDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".xml"));
       if (files != null) {
         for (File f : files) {
-          String name = f.getName().replace(".XML", "").replace(".xml", "");
+          String name = f.getName().replaceFirst("(?i)\\.xml$", "");
           if (!availablePresets.contains(name)) {
             availablePresets.add(name);
           }
@@ -215,15 +216,17 @@ public class SwingMidiImportDialog extends JDialog {
 
   private void rebuildCardsDeck() {
     cardsPanel.removeAll();
-    for (TrackImportConfig config : trackConfigs) {
-      cardsPanel.add(createTrackConfigCard(config));
-      cardsPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+    if (trackConfigs != null) {
+      for (TrackImportConfig config : trackConfigs) {
+        cardsPanel.add(createTrackConfigCard(config));
+        cardsPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+      }
     }
     cardsPanel.revalidate();
     cardsPanel.repaint();
   }
 
-  private JPanel createTrackConfigCard(TrackImportConfig config) {
+  JPanel createTrackConfigCard(TrackImportConfig config) {
     JPanel card = new JPanel(new GridBagLayout());
     card.setBackground(PANEL_DARK);
     card.setBorder(
@@ -305,9 +308,11 @@ public class SwingMidiImportDialog extends JDialog {
     splitSettings.setOpaque(false);
     splitSettings.setVisible(config.splitEnabled);
 
-    JSpinner splitPointSpinner = new JSpinner(new SpinnerNumberModel(60, 21, 108, 1));
+    int initialSplitPoint = Math.max(21, Math.min(108, config.splitPoint));
+    config.splitPoint = initialSplitPoint;
+    JSpinner splitPointSpinner =
+        new JSpinner(new SpinnerNumberModel(initialSplitPoint, 21, 108, 1));
     splitPointSpinner.setPreferredSize(new Dimension(48, 22));
-    splitPointSpinner.setValue(config.splitPoint);
     splitPointSpinner.addChangeListener(
         e -> {
           config.splitPoint = (Integer) splitPointSpinner.getValue();
@@ -341,6 +346,7 @@ public class SwingMidiImportDialog extends JDialog {
   }
 
   private void setAllSelected(boolean val) {
+    if (trackConfigs == null) return;
     for (TrackImportConfig c : trackConfigs) {
       c.importEnabled = val;
     }
@@ -348,6 +354,7 @@ public class SwingMidiImportDialog extends JDialog {
   }
 
   private void executeImport() {
+    if (trackConfigs == null || trackConfigs.isEmpty()) return;
     boolean anySelected = false;
     for (TrackImportConfig c : trackConfigs) {
       if (c.importEnabled) {

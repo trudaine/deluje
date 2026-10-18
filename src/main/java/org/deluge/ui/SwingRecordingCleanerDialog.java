@@ -297,6 +297,12 @@ public class SwingRecordingCleanerDialog extends JDialog {
         });
   }
 
+  @Override
+  public void dispose() {
+    stopActiveFile();
+    super.dispose();
+  }
+
   private void styleButton(JButton btn, Color bg, Color fg) {
     btn.setFocusable(false);
     btn.setBackground(bg);
@@ -439,10 +445,22 @@ public class SwingRecordingCleanerDialog extends JDialog {
       stream = AudioSystem.getAudioInputStream(selected);
       activeClip = AudioSystem.getClip();
       activeClip.open(stream); // clip takes ownership of stream on success
+      final Clip clipForListener = activeClip;
       activeClip.addLineListener(
           event -> {
             if (event.getType() == LineEvent.Type.STOP) {
-              SwingUtilities.invokeLater(this::resetPlayerButtons);
+              SwingUtilities.invokeLater(
+                  () -> {
+                    if (activeClip == clipForListener) {
+                      try {
+                        clipForListener.close();
+                      } catch (Exception ignored) {
+                      }
+                      activeClip = null;
+                      playingFile = null;
+                      resetPlayerButtons();
+                    }
+                  });
             }
           });
       activeClip.start();

@@ -30,7 +30,8 @@ public class SwingWavetableVisualizer extends JComponent {
   }
 
   public void loadWavetable(String path, int cycleSize) {
-    this.cycleSize = cycleSize;
+    // C wave_table.cpp:168,235 (kWavetableMinCycleSize = 8)
+    this.cycleSize = Math.max(8, cycleSize);
     this.audioFile = resolveAudioFile(path);
     if (audioFile == null || !audioFile.exists()) {
       this.floatSamples = null;
@@ -70,7 +71,7 @@ public class SwingWavetableVisualizer extends JComponent {
   }
 
   public void setCycleSize(int cycleSize) {
-    this.cycleSize = cycleSize;
+    this.cycleSize = Math.max(8, cycleSize);
     repaint();
   }
 
@@ -241,7 +242,7 @@ public class SwingWavetableVisualizer extends JComponent {
     }
   }
 
-  private float[] decodeFullWavFile(File file) {
+  static float[] decodeFullWavFile(File file) {
     try (AudioInputStream ais = AudioSystem.getAudioInputStream(file)) {
       AudioFormat format = ais.getFormat();
       int bytesPerFrame = format.getFrameSize();
@@ -259,19 +260,49 @@ public class SwingWavetableVisualizer extends JComponent {
       float[] floatSamples = new float[totalSamples];
       boolean isBigEndian = format.isBigEndian();
       int bits = format.getSampleSizeInBits();
+      AudioFormat.Encoding encoding = format.getEncoding();
 
+      // C wave_table.cpp:421-439 (CONVERT_AND_STORE_SAMPLE supports 8/16/24/32-bit PCM and FLOAT)
+      int bytesPerSample = Math.max(1, bits / 8);
       for (int i = 0; i < totalSamples; i++) {
         int byteIndex = i * bytesPerFrame;
+        if (byteIndex + bytesPerSample > audioBytes.length) break;
         float val = 0.0f;
-        if (bits == 16) {
-          int b1 = audioBytes[byteIndex];
-          int b2 = audioBytes[byteIndex + 1];
+        if (bits == 8) {
+          if (AudioFormat.Encoding.PCM_SIGNED.equals(encoding)) {
+            val = audioBytes[byteIndex] / 128.0f;
+          } else {
+            val = ((audioBytes[byteIndex] & 0xff) - 128) / 128.0f;
+          }
+        } else if (bits == 16) {
+          int b0 = audioBytes[byteIndex];
+          int b1 = audioBytes[byteIndex + 1];
           short sample =
-              isBigEndian ? (short) ((b1 << 8) | (b2 & 0xff)) : (short) ((b2 << 8) | (b1 & 0xff));
+              isBigEndian ? (short) ((b0 << 8) | (b1 & 0xff)) : (short) ((b1 << 8) | (b0 & 0xff));
           val = sample / 32768.0f;
-        } else if (bits == 8) {
-          int sample = audioBytes[byteIndex] & 0xff;
-          val = (sample - 128) / 128.0f;
+        } else if (bits == 24) {
+          int b0 = audioBytes[byteIndex];
+          int b1 = audioBytes[byteIndex + 1];
+          int b2 = audioBytes[byteIndex + 2];
+          int s24 =
+              isBigEndian
+                  ? (((b0 << 24) | ((b1 & 0xff) << 16) | ((b2 & 0xff) << 8)) >> 8)
+                  : (((b2 << 24) | ((b1 & 0xff) << 16) | ((b0 & 0xff) << 8)) >> 8);
+          val = s24 / 8388608.0f;
+        } else if (bits == 32) {
+          int b0 = audioBytes[byteIndex];
+          int b1 = audioBytes[byteIndex + 1];
+          int b2 = audioBytes[byteIndex + 2];
+          int b3 = audioBytes[byteIndex + 3];
+          int word =
+              isBigEndian
+                  ? ((b0 << 24) | ((b1 & 0xff) << 16) | ((b2 & 0xff) << 8) | (b3 & 0xff))
+                  : ((b3 << 24) | ((b2 & 0xff) << 16) | ((b1 & 0xff) << 8) | (b0 & 0xff));
+          if (AudioFormat.Encoding.PCM_FLOAT.equals(encoding)) {
+            val = Float.intBitsToFloat(word);
+          } else {
+            val = (float) (word / 2147483648.0);
+          }
         }
         floatSamples[i] = val;
       }

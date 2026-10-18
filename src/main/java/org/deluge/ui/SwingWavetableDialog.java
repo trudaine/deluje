@@ -68,7 +68,7 @@ public class SwingWavetableDialog extends JDialog {
 
     // ── Center Wavetable Visualizer ──
     visualizer = new SwingWavetableVisualizer();
-    int initialPW = sound.getWavetableIndexPct();
+    int initialPW = Math.max(0, Math.min(100, sound.getWavetableIndexPct()));
     visualizer.setActiveIndexPct(initialPW);
 
     visualizer.loadWavetable(samplePath, 2048);

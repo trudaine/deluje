@@ -31,6 +31,7 @@ public class SwingDroneLabDialog extends JDialog {
 
   private JComboBox<String> styleCombo;
   private JComboBox<String> tonalityCombo;
+  private boolean isSyncingSliders = false;
 
   // Color Palette
   private static final Color BG_DARK = new Color(0x13, 0x13, 0x16);
@@ -195,7 +196,7 @@ public class SwingDroneLabDialog extends JDialog {
     JButton playBtn = new JButton("▶ Play/Stop");
     playBtn.addActionListener(
         e -> {
-          if (app.getTopBarListener() != null) {
+          if (app != null && app.getTopBarListener() != null) {
             app.getTopBarListener().onPlayToggle();
           }
         });
@@ -215,11 +216,16 @@ public class SwingDroneLabDialog extends JDialog {
     // Generate Synth Preset & sequence 16-bar tied note
     DroneLabGenerator.generateDrone(track, project, bridge, trackIndex, isFM, isMinor);
 
-    // Reset macro sliders to default starting points
-    frictionSlider.setValue(20);
-    turbulenceSlider.setValue(30);
-    atmosphereSlider.setValue(60);
-    gritSlider.setValue(25);
+    // Reset macro sliders to default starting points without triggering redundant sweeps
+    isSyncingSliders = true;
+    try {
+      frictionSlider.setValue(20);
+      turbulenceSlider.setValue(30);
+      atmosphereSlider.setValue(60);
+      gritSlider.setValue(25);
+    } finally {
+      isSyncingSliders = false;
+    }
     xyPad.setPoint(0.2, 0.3);
 
     // Synchronize to active sound engine
@@ -229,9 +235,13 @@ public class SwingDroneLabDialog extends JDialog {
     }
 
     // Force Playback to Start immediately with 100% absolute reliability!
-    bridge.setGlobalInt(BridgeContract.G_PLAY, 1L);
-    bridge.setPlayState(1);
-    if (app.getPureEngine() != null && app.getPureEngine().getPlaybackHandler() != null) {
+    if (bridge != null) {
+      bridge.setGlobalInt(BridgeContract.G_PLAY, 1L);
+      bridge.setPlayState(1);
+    }
+    if (app != null
+        && app.getPureEngine() != null
+        && app.getPureEngine().getPlaybackHandler() != null) {
       app.getPureEngine().getPlaybackHandler().start();
     }
 
@@ -279,7 +289,7 @@ public class SwingDroneLabDialog extends JDialog {
     DarkSliderUI.styleSlider(slider, ACCENT_GLOW);
     slider.addChangeListener(
         e -> {
-          if (slider.getValueIsAdjusting()) {
+          if (!isSyncingSliders) {
             handleSliderSweep();
           }
         });
@@ -329,6 +339,7 @@ public class SwingDroneLabDialog extends JDialog {
     }
 
     private void updatePoint(MouseEvent e) {
+      if (getWidth() <= 0 || getHeight() <= 0) return;
       double x = e.getX() / (double) getWidth();
       double y = 1.0 - (e.getY() / (double) getHeight());
 
@@ -337,12 +348,16 @@ public class SwingDroneLabDialog extends JDialog {
 
       // Complementary Linear Morpher:
       // X Axis crossfades: Friction (px) <-> Atmosphere (1.0 - px)
-      frictionSlider.setValue((int) (px * 100));
-      atmosphereSlider.setValue((int) ((1.0 - px) * 100));
-
       // Y Axis crossfades: Turbulence (py) <-> Grit (1.0 - py)
-      turbulenceSlider.setValue((int) (py * 100));
-      gritSlider.setValue((int) ((1.0 - py) * 100));
+      isSyncingSliders = true;
+      try {
+        frictionSlider.setValue((int) Math.round(px * 100.0));
+        atmosphereSlider.setValue((int) Math.round((1.0 - px) * 100.0));
+        turbulenceSlider.setValue((int) Math.round(py * 100.0));
+        gritSlider.setValue((int) Math.round((1.0 - py) * 100.0));
+      } finally {
+        isSyncingSliders = false;
+      }
 
       repaint();
 
