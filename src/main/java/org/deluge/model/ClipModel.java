@@ -1136,6 +1136,7 @@ public class ClipModel extends TimelineCounter {
     }
   }
 
+  /** C clip.cpp:307-309, instrument_clip.cpp:683-694 (InstrumentClip::pingpongOccurred). */
   private void notifyPingpongToParamManagers() {
     timelineParamManager().notifyPingpongOccurred();
     if (type == ClipType.INSTRUMENT && sound instanceof org.deluge.engine.FirmwareKit kit) {

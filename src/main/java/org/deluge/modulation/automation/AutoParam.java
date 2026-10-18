@@ -101,7 +101,7 @@ public class AutoParam {
   public int valueIncrementPerHalfTick;
   public int ticksTilNextEvent = Integer.MAX_VALUE;
 
-  /** C auto_param.h:59 (AutoParam::hasInterpolationIncrement). */
+  /** C auto_param.h:134, auto_param.cpp:778-783 (AutoParam::hasInterpolationIncrement). */
   public boolean hasInterpolationIncrement() {
     return valueIncrementPerHalfTick != 0;
   }
