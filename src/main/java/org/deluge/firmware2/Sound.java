@@ -221,6 +221,36 @@ public class Sound extends GlobalEffectable {
     return false;
   }
 
+  /** C Sound::allowsVeryLateNoteStart (sound.cpp:2055-2096). */
+  public boolean allowsVeryLateNoteStart() {
+    // If arpeggiator, we can always start very late
+    if (arpSettings.mode != Arpeggiator.ArpMode.OFF) {
+      return true;
+    }
+    if (synthMode == 1) { // FM
+      return false;
+    }
+    // Basically, if any wave-based oscillators active, or one-shot samples, that means not allowed
+    for (int s = 0; s < 2; s++) {
+      boolean hasSample = hasAnySampleLoaded(s);
+      if (!isSourceActiveEver(s, hasSample)) {
+        continue;
+      }
+      switch (oscTypes[s]) {
+        case SAMPLE -> {
+          if (sampleLoopMode[s] == REPEAT_ONCE || !hasSample) {
+            return false;
+          }
+        }
+        case INPUT_L, INPUT_R, INPUT_STEREO -> {}
+        default -> {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
   /**
    * C: sound.cpp:2030-2053 — true if this sound is non-FM, has no noise, and every active source is
    * a loaded CUT-mode sample (SampleRepeatMode::CUT == 0).

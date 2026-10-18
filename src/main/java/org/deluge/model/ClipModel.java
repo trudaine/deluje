@@ -705,6 +705,7 @@ public class ClipModel extends TimelineCounter {
           note.setIterance(cond);
           note.setFill(fillMode);
           row.getNotes().add(note);
+          row.requestLateStartOfAddedNote(note); // C note_row.cpp:420-433
         } else {
           existingNote.setLength((int) (step.gate() * stepTicks));
           existingNote.setVelocity((int) (step.velocity() * 127.0f));
@@ -994,6 +995,9 @@ public class ClipModel extends TimelineCounter {
     int loopLength = getLoopLength();
     ticksTilNextNoteRowEvent = 0; // C instrument_clip.cpp:381 -> expectEvent() :4404
     noteRowsNumTicksBehindClip = 0; // C instrument_clip.cpp:383
+    for (NoteRowModel row : noteRows.values()) {
+      row.clearPendingRequests(); // session.cpp:2247-2250 resumes only when starting after 0
+    }
     if (loopLength <= 0) {
       // A C clip always has loopLength > 0; this model can be built with zero steps. Keep the reset
       // that PlaybackHandler.start() did before this port rather than divide by zero.
@@ -1233,6 +1237,45 @@ public class ClipModel extends TimelineCounter {
 
         List<org.deluge.model.PendingNoteOn> pendingNoteOns = new ArrayList<>();
         List<Integer> pendingNoteOffs = new ArrayList<>();
+
+        // Row mute / un-mute / note-add requests from the UI (C NoteRow::toggleMute,
+        // note_row.cpp:3118-3133; note-add late start :420-433).
+        for (NoteRowModel noteRow : noteRows.values()) {
+          if (noteRow.takeStopPending() && noteRow.isSequenced()) {
+            releaseNote(noteRow.getPitch());
+            noteRow.stopCurrentlyPlayingNoteSilently();
+          }
+          if (noteRow.takeResumePending()) {
+            int[] late = new int[2];
+            NoteModel lateNote =
+                noteRow.resumePlayback(
+                    lastProcessedPos,
+                    effectiveLength,
+                    currentlyPlayingReversed,
+                    samplesPerTick(),
+                    sound,
+                    late);
+            if (lateNote != null) {
+              triggerNoteLate(noteRow, lateNote, late[1]);
+            }
+          }
+          NoteModel added = noteRow.takeAddedNotePending();
+          if (added != null) {
+            int[] late = new int[2];
+            NoteModel lateNote =
+                noteRow.lateStartAddedNote(
+                    added,
+                    lastProcessedPos,
+                    effectiveLength,
+                    currentlyPlayingReversed,
+                    samplesPerTick(),
+                    sound,
+                    late);
+            if (lateNote != null) {
+              triggerNoteLate(noteRow, lateNote, late[1]);
+            }
+          }
+        }
 
         for (NoteRowModel noteRow : noteRows.values()) {
           int dist =
@@ -1486,6 +1529,43 @@ public class ClipModel extends TimelineCounter {
         releaseNote(row.getPitch());
       }
       row.stopCurrentlyPlayingNoteSilently();
+    }
+  }
+
+  /** Samples per sequencer tick at the sound's tempo (Sound.samplesPerSequencerTick). */
+  private double samplesPerTick() {
+    if (sound instanceof org.deluge.engine.FirmwareSound fs) {
+      return fs.fw2Sound.samplesPerSequencerTick;
+    }
+    if (sound instanceof org.deluge.engine.FirmwareKit kit && !kit.drumSounds.isEmpty()) {
+      return kit.drumSounds.get(0).fw2Sound.samplesPerSequencerTick;
+    }
+    return 60.0 * 44100.0 / (120.0 * 96.0); // no tempo-carrying sound (MIDI): Sound's default
+  }
+
+  /**
+   * C NoteRow::playNote(true, …, ticksLate, samplesLate) with no pending list (note_row.cpp:2519-
+   * 2637): sent straight to the output, without play-condition evaluation.
+   */
+  private void triggerNoteLate(NoteRowModel row, NoteModel note, int samplesLate) {
+    int vel = note.getVelocityByte();
+    if (sound instanceof org.deluge.engine.FirmwareSound fs) {
+      fs.fw2Sound.pendingSampleSyncLength = note.getLength();
+      if (fs.fw2Sound.arpEnabled() || samplesLate == 0) {
+        fs.triggerNote(row.getPitch(), vel); // the arp path keeps its own timing
+      } else {
+        fs.triggerNoteLate(row.getPitch(), vel, samplesLate);
+      }
+      fs.fw2Sound.pendingSampleSyncLength = 0;
+    } else if (sound instanceof org.deluge.engine.FirmwareKit kit) {
+      int r = row.getPitch();
+      org.deluge.firmware2.Sound drum =
+          (r >= 0 && r < kit.drumSounds.size()) ? kit.drumSounds.get(r).fw2Sound : null;
+      if (drum != null) drum.pendingSampleSyncLength = note.getLength();
+      kit.triggerDrum(r, vel, samplesLate);
+      if (drum != null) drum.pendingSampleSyncLength = 0;
+    } else if (sound instanceof org.deluge.engine.FirmwareMidiInstrument midi) {
+      midi.triggerNote(row.getPitch(), vel);
     }
   }
 
