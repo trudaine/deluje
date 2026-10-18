@@ -163,7 +163,7 @@ public interface Consequence extends UndoRedoStack.UndoableAction {
           case "unisonSpread" -> synth.getUnison().setUnisonStereoSpread(value / 100.0f);
           case "waveIndex" -> synth.setWaveIndex(value / 1000.0f);
           case "lpfCutoff" -> synth.setLpfFreq((value / 100.0f) * 20000.0f);
-          case "lpfResonance" -> synth.setLpfRes((value / 100.0f) * 100.0f);
+          case "lpfResonance" -> synth.setLpfRes(value / 100.0f);
           case "filterDrive" -> synth.setFilterDrive(value / 100.0f);
           case "fmRatio" -> synth.setFmRatio(value / 100.0f);
           case "fmAmount" -> synth.setFmAmount(value / 100.0f);

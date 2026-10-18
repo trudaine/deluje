@@ -106,15 +106,9 @@ public class FilterGraphComponent extends JComponent {
 
             if (cutoffSlider != null) {
               cutoffSlider.setValue((int) (cutoffVal * 100));
-            } else {
-              model.setLpfFreq(cutoffVal * 20000.0f);
-              bridge.setFilterFreq(trackIndex, cutoffVal);
             }
             if (resSlider != null) {
               resSlider.setValue((int) (resonanceVal * 100));
-            } else {
-              model.setLpfRes(resonanceVal);
-              bridge.setFilterRes(trackIndex, resonanceVal);
             }
 
             repaint();

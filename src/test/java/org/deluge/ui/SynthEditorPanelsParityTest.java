@@ -54,9 +54,22 @@ class SynthEditorPanelsParityTest {
 
   @Test
   void testArpPanelDottedSyncAndRhythmMax50() throws Exception {
+    assertEquals(28, ArpPanel.SYNC_RATES.length, "ArpPanel must carry all 28 C sync options");
     int idx8D = ArpPanel.syncComboIndexFor(8, 2); // 1/8 dotted (syncType = 2)
     assertTrue(idx8D > 0, "ArpPanel must recognize dotted syncType=2");
     assertEquals("1/8D", ArpPanel.SYNC_RATES[idx8D]);
+
+    int idx1T = ArpPanel.syncComboIndexFor(1, 1); // 1/1 triplet (syncType = 1)
+    assertEquals("1/1T", ArpPanel.SYNC_RATES[idx1T]);
+
+    int idx1D = ArpPanel.syncComboIndexFor(1, 2); // 1/1 dotted (syncType = 2)
+    assertEquals("1/1D", ArpPanel.SYNC_RATES[idx1D]);
+
+    int idx256 = ArpPanel.syncComboIndexFor(256, 0); // 1/256 even
+    assertEquals("1/256", ArpPanel.SYNC_RATES[idx256]);
+
+    int idxMultiBar = ArpPanel.syncComboIndexFor(-2, 0); // 2-bar period clamps to 1/1, not OFF
+    assertEquals("1/1", ArpPanel.SYNC_RATES[idxMultiBar]);
 
     int idx64T = ArpPanel.syncComboIndexFor(64, 1); // 1/64 triplet (syncType = 1)
     assertTrue(idx64T > 0, "ArpPanel must recognize 1/64T");
@@ -168,18 +181,28 @@ class SynthEditorPanelsParityTest {
 
   @Test
   void testSynthDialogLpfResonanceScalingAndPresetInit() throws Exception {
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel model = new SynthTrackModel("Synth 1");
+    model.setLpfFreq(10000.0f); // 50% of 20 kHz
+    model.setLpfRes(0.35f); // 35% resonance
+    project.addTrack(model);
+
+    var consequence =
+        new org.deluge.model.Consequence.SynthParamConsequence(
+            project, 0, "lpfResonance", 35f, 60f, 0L);
+    consequence.redo();
+    assertEquals(0.60f, model.getLpfRes(), 1e-4f, "Redo of lpfResonance=60 must set 0.60f");
+    consequence.undo();
+    assertEquals(0.35f, model.getLpfRes(), 1e-4f, "Undo of lpfResonance=35 must set 0.35f");
+
     if (GraphicsEnvironment.isHeadless()) {
       return;
     }
 
-    SynthTrackModel model = new SynthTrackModel("Synth 1");
-    model.setLpfFreq(10000.0f); // 50% of 20 kHz
-    model.setLpfRes(0.35f); // 35% resonance
-
     SwingUtilities.invokeAndWait(
         () -> {
           SwingSynthConfigDialog dialog =
-              new SwingSynthConfigDialog(null, model, new BridgeContract(), 0, new ProjectModel());
+              new SwingSynthConfigDialog(null, model, new BridgeContract(), 0, project);
           try {
             JSlider cutoffSlider = SwingSynthConfigDialog.findSliderByName(dialog, "lpfCutoff");
             JSlider resSlider = SwingSynthConfigDialog.findSliderByName(dialog, "lpfResonance");

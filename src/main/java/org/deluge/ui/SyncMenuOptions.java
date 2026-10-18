@@ -43,6 +43,27 @@ final class SyncMenuOptions {
   }
 
   /**
+   * Note-division denominator for {@link ArpModel} ({@code 0} = OFF, {@code 1 << (level - 1)} for
+   * levels {@code 1..9}, i.e. {@code 1..256}).
+   */
+  static int denominatorFor(int option) {
+    int level = levelFor(option);
+    return level <= 0 ? 0 : (1 << (level - 1));
+  }
+
+  /**
+   * Menu option index for an {@link ArpModel} note-division denominator ({@code 0} = OFF, {@code
+   * 1..256} = 1/1..1/256, or {@code < 0} for multi-bar whole notes clamped to 1/1).
+   */
+  static int optionForDenominator(int denominator, int type) {
+    if (denominator == 0) {
+      return 0;
+    }
+    int level = denominator < 0 ? 1 : 1 + (31 - Integer.numberOfLeadingZeros(denominator));
+    return optionFor(level, type);
+  }
+
+  /**
    * Labels at the default input tick magnitude. The C names depend on the song's tick magnitude
    * (syncValueToString, sync.cpp:55-83); this UI shows the default-magnitude names.
    */
