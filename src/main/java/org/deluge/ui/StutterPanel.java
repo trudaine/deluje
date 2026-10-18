@@ -68,18 +68,36 @@ public class StutterPanel extends JPanel {
     quantizeCheck = createCheckBox("Quantize to Grid", st.isStutterQuantized());
     quantizeCheck.setToolTipText(
         "QUANTIZE: Lock stutter slice boundaries to song sequencer grid divisions");
-    quantizeCheck.addActionListener(e -> st.setStutterQuantized(quantizeCheck.isSelected()));
+    quantizeCheck.addActionListener(
+        e -> {
+          st.setStutterQuantized(quantizeCheck.isSelected());
+          if (SwingDelugeApp.mainInstance != null) {
+            SwingDelugeApp.mainInstance.fireProjectChanged();
+          }
+        });
     modesPanel.add(quantizeCheck);
 
     reverseCheck = createCheckBox("Reversed Playback", st.isStutterReversed());
     reverseCheck.setToolTipText("REVERSED: Play audio slices backward while stuttering");
-    reverseCheck.addActionListener(e -> st.setStutterReversed(reverseCheck.isSelected()));
+    reverseCheck.addActionListener(
+        e -> {
+          st.setStutterReversed(reverseCheck.isSelected());
+          if (SwingDelugeApp.mainInstance != null) {
+            SwingDelugeApp.mainInstance.fireProjectChanged();
+          }
+        });
     modesPanel.add(reverseCheck);
 
     pingPongCheck = createCheckBox("Ping-Pong Bounce", st.isStutterPingPong());
     pingPongCheck.setToolTipText(
         "PING PONG: Alternate forward and backward playback across stutter slices");
-    pingPongCheck.addActionListener(e -> st.setStutterPingPong(pingPongCheck.isSelected()));
+    pingPongCheck.addActionListener(
+        e -> {
+          st.setStutterPingPong(pingPongCheck.isSelected());
+          if (SwingDelugeApp.mainInstance != null) {
+            SwingDelugeApp.mainInstance.fireProjectChanged();
+          }
+        });
     modesPanel.add(pingPongCheck);
 
     add(modesPanel, c);

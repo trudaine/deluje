@@ -26,7 +26,8 @@ public class PIC {
     return GridConfig.getMainPadCount();
   }
 
-  private static final int kNumGoldKnobIndicatorLEDs = 24;
+  // C definitions_cxx.hpp:447: constexpr size_t kNumGoldKnobIndicatorLEDs = 4;
+  private static final int kNumGoldKnobIndicatorLEDs = 4;
   private static final int kNumericDisplayLength = 4;
 
   private static PicTransport transport = null;
@@ -316,13 +317,13 @@ public class PIC {
 
   /**
    * Read a response with a simple blocking poll loop (busy-wait up to {@code timeoutMicros}
-   * microseconds). Returns NONE on timeout.
+   * microseconds). Returns NONE on timeout. C pic.h:234-243 skips {@link Response#NONE} (0).
    */
   public static Response read(long timeoutMicros) {
     long deadline = System.nanoTime() + timeoutMicros * 1000L;
     while (System.nanoTime() < deadline) {
       int val = read();
-      if (val >= 0) {
+      if (val > 0) {
         return Response.fromValue(val);
       }
       Thread.onSpinWait();
@@ -331,20 +332,22 @@ public class PIC {
   }
 
   /**
-   * Read responses using a callback handler. The handler is called for each received byte. If it
-   * returns a non-zero value, reading stops and that value is returned. Returns 1 on timeout.
+   * Read responses using a callback handler. The handler is called for each non-NONE received byte.
+   * If it returns a non-zero value, reading stops and that value is returned. Returns the last
+   * handler result (or 1 if no non-NONE byte arrived) on timeout (C pic.h:252-268).
    */
   public static int read(long timeoutMicros, java.util.function.IntFunction<Integer> handler) {
     long deadline = System.nanoTime() + timeoutMicros * 1000L;
+    int result = 1; // C pic.h:254: error with failure by default
     while (System.nanoTime() < deadline) {
       int val = read();
-      if (val >= 0) {
-        int result = handler.apply(val);
+      if (val > 0) {
+        result = handler.apply(val);
         if (result != 0) return result;
       }
       Thread.onSpinWait();
     }
-    return 1; // timeout with failure
+    return result;
   }
 
   // ===================== Internal =====================

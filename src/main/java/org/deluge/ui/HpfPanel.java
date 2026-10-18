@@ -1,14 +1,31 @@
 package org.deluge.ui;
 
 import java.awt.*;
-import java.util.Arrays;
 import javax.swing.*;
 import org.deluge.BridgeContract;
+import org.deluge.model.FilterMode;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
 
 /** HPF tab: cutoff, resonance, morph, mode, FM amount. */
 public class HpfPanel extends JPanel {
+
+  // C gui/menu_item/filter/mode.h:65-72, filter_config.h:29-40 — only SVF_BAND, SVF_NOTCH,
+  // HPLADDER (represented as FilterMode.LADDER_12 in the model), and OFF exist on the HPF slot.
+  private static final String[] HPF_MODE_LABELS = {"SVF_BAND", "SVF_NOTCH", "HPLADDER", "OFF"};
+  private static final FilterMode[] HPF_MODES = {
+    FilterMode.SVF_BAND, FilterMode.SVF_NOTCH, FilterMode.LADDER_12, FilterMode.OFF
+  };
+
+  static int hpfModeToComboIndex(FilterMode mode) {
+    if (mode == null) return 3;
+    return switch (mode) {
+      case SVF, SVF_BAND -> 0;
+      case SVF_NOTCH -> 1;
+      case LADDER_12, LADDER_24, DRIVE -> 2;
+      case OFF -> 3;
+    };
+  }
 
   public HpfPanel(
       SynthTrackModel model, BridgeContract bridge, int trackIndex, ProjectModel projectModel) {
@@ -77,23 +94,26 @@ public class HpfPanel extends JPanel {
             projectModel,
             trackIndex);
 
-    // HPF mode combo
+    // HPF mode combo (C gui/menu_item/filter/mode.h:65-72)
     c.gridx = 0;
     c.gridy = row;
     c.gridwidth = 1;
     add(SwingSynthConfigDialog.label("Mode:"), c);
     c.gridx = 1;
     c.gridwidth = 2;
-    String[] modeNames =
-        Arrays.stream(org.deluge.model.FilterMode.values()).map(Enum::name).toArray(String[]::new);
-    JComboBox<String> hpfModeCombo = new JComboBox<>(modeNames);
-    hpfModeCombo.setSelectedIndex(model.getHpfMode().ordinal());
+    JComboBox<String> hpfModeCombo = new JComboBox<>(HPF_MODE_LABELS);
+    hpfModeCombo.setSelectedIndex(hpfModeToComboIndex(model.getHpfMode()));
     hpfModeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     hpfModeCombo.setForeground(Color.WHITE);
     hpfModeCombo.addActionListener(
         ev -> {
           int idx = hpfModeCombo.getSelectedIndex();
-          model.setHpfMode(org.deluge.model.FilterMode.values()[idx]);
+          if (idx >= 0 && idx < HPF_MODES.length) {
+            model.setHpfMode(HPF_MODES[idx]);
+            if (SwingDelugeApp.mainInstance != null) {
+              SwingDelugeApp.mainInstance.fireProjectChanged();
+            }
+          }
         });
     add(hpfModeCombo, c);
     row++;
