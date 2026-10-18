@@ -595,11 +595,19 @@ public class Reverb {
     public Model model = Model.FREEVERB;
     Freeverb freeverb = new Freeverb();
     MutableModel mutableModel;
+    // C reverb.hpp:21-27 — Reverb() initializes room_size_, damping_, width_, hpf_ from Freeverb's
+    // defaults (tuning.h:36-40: INITIALROOM=0.5f, INITIALDAMP=0.5f, INITIALWIDTH=1.0f, hpf=0.0f).
     // C song.cpp:179-183 — every loaded/new song applies reverbLPF = 50/50 = 1.0 (near-open)
     // via audio_engine.cpp:1358. Without this the Mutable/Digital output one-pole coefficient
     // is 0 and the models render silence.
-    float roomSize, damping, width, hpf;
+    float roomSize = Freeverb.INITIALROOM;
+    float damping = Freeverb.INITIALDAMP;
+    float width = Freeverb.INITIALWIDTH;
+    float hpf = 0.0f;
     float lpf = 1.0f;
+    int panLeft;
+    int panRight;
+    boolean panLevelsSet;
 
     public void setModel(Model m) {
       // DIGITAL needs the Digital subclass; MUTABLE needs the base class. Re-create if the type
@@ -619,6 +627,9 @@ public class Reverb {
           freeverb.setRoomSize(roomSize);
           freeverb.setDamping(damping);
           freeverb.setWidth(width);
+          if (panLevelsSet) {
+            freeverb.setPanLevels(panLeft, panRight);
+          }
           break;
         case MUTABLE:
         case DIGITAL:
@@ -628,6 +639,9 @@ public class Reverb {
             mutableModel.setWidth(width);
             mutableModel.setHPF(hpf);
             mutableModel.setLPF(lpf);
+            if (panLevelsSet) {
+              mutableModel.setPanLevels(panLeft, panRight);
+            }
           }
           break;
       }
@@ -648,6 +662,9 @@ public class Reverb {
     }
 
     public void setPanLevels(int l, int r) {
+      panLeft = l;
+      panRight = r;
+      panLevelsSet = true;
       freeverb.setPanLevels(l, r);
       if (mutableModel != null) mutableModel.setPanLevels(l, r);
     }
@@ -687,6 +704,14 @@ public class Reverb {
 
     public float getWidth() {
       return width;
+    }
+
+    public float getHPF() {
+      return hpf;
+    }
+
+    public float getLPF() {
+      return lpf;
     }
 
     public void mute() {
