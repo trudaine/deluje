@@ -17,6 +17,8 @@ import org.deluge.model.ProjectModel;
 import org.deluge.model.SynthTrackModel;
 import org.deluge.model.TrackModel;
 import org.deluge.project.PreferencesManager;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -25,6 +27,21 @@ import org.junit.jupiter.api.Test;
  * BPM guard / bar-step resolution.
  */
 class GridAutomationAndClockParityTest {
+
+  private PreferencesManager.GridMode savedGridMode;
+
+  @BeforeEach
+  void resetGridModeTo8x16() {
+    savedGridMode = PreferencesManager.getGridMode();
+    PreferencesManager.setGridMode(PreferencesManager.GridMode.GRID_8x16);
+  }
+
+  @AfterEach
+  void restoreGridMode() {
+    if (savedGridMode != null) {
+      PreferencesManager.setGridMode(savedGridMode);
+    }
+  }
 
   @Test
   void testSongGridPanelBottomUpAndScrolledRowTargetsCorrectTrack() {
