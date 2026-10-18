@@ -102,6 +102,10 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   private float songParamLpfResonance = 0.0f;
   private float songParamHpfFrequency = 20.0f;
   private float songParamHpfResonance = 0.0f;
+  // C mod_controllable_audio.cpp:61-63 — Song globalEffectable defaults to 24dB / HPLadder / H2L.
+  private FilterMode songLpfMode = FilterMode.LADDER_24;
+  private FilterMode songHpfMode = FilterMode.LADDER_12;
+  private int songFilterRoute = 0; // 0 = HIGH_TO_LOW, 1 = LOW_TO_HIGH, 2 = PARALLEL
   private float songParamEqBass = 0.0f;
   private float songParamEqTreble = 0.0f;
   private float songParamEqBassFrequency = 0.0f;
@@ -1616,6 +1620,40 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamHpfResonance", old, v));
     notifySongParamsChanged();
+  }
+
+  public FilterMode getSongLpfMode() {
+    return songLpfMode;
+  }
+
+  public void setSongLpfMode(FilterMode v) {
+    if (v != null && this.songLpfMode != v) {
+      this.songLpfMode = v;
+      notifySongParamsChanged();
+    }
+  }
+
+  public FilterMode getSongHpfMode() {
+    return songHpfMode;
+  }
+
+  public void setSongHpfMode(FilterMode v) {
+    if (v != null && this.songHpfMode != v) {
+      this.songHpfMode = v;
+      notifySongParamsChanged();
+    }
+  }
+
+  public int getSongFilterRoute() {
+    return songFilterRoute;
+  }
+
+  public void setSongFilterRoute(int v) {
+    int clamped = Math.max(0, Math.min(2, v));
+    if (this.songFilterRoute != clamped) {
+      this.songFilterRoute = clamped;
+      notifySongParamsChanged();
+    }
   }
 
   public float getSongParamEqBass() {

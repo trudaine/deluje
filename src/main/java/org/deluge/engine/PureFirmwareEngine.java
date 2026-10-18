@@ -311,32 +311,17 @@ public class PureFirmwareEngine {
     float spHpfRes = (float) bridge.getGlobalFloat(BridgeContract.G_SP_HPF_RES);
     float spHpfMorph = (float) bridge.getGlobalFloat(BridgeContract.G_SP_HPF_MORPH);
 
-    audioEngine.masterLpfFreq = (int) (spLpfFreq / 20000.0f * 2147483647.0f);
-    audioEngine.masterLpfRes = (int) (spLpfRes * 2147483647.0f);
-    audioEngine.masterLpfMorph = (int) (spLpfMorph * 2147483647.0f);
-    audioEngine.masterHpfFreq = (int) (spHpfFreq / 20000.0f * 2147483647.0f);
-    audioEngine.masterHpfRes = (int) (spHpfRes * 2147483647.0f);
-    audioEngine.masterHpfMorph = (int) (spHpfMorph * 2147483647.0f);
-
-    org.deluge.firmware2.FilterSet.FilterMode lpfModeVal =
-        (audioEngine.masterLpfFreq < 2147483602 || audioEngine.masterLpfMorph != 0)
-            ? org.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB
-            : org.deluge.firmware2.FilterSet.FilterMode.OFF;
-    org.deluge.firmware2.FilterSet.FilterMode hpfModeVal =
-        (audioEngine.masterHpfFreq > 2147484 || audioEngine.masterHpfMorph != 0)
-            ? org.deluge.firmware2.FilterSet.FilterMode.HPLADDER
-            : org.deluge.firmware2.FilterSet.FilterMode.OFF;
-    audioEngine.masterFilterSet.setConfig(
-        audioEngine.masterLpfFreq,
-        audioEngine.masterLpfRes,
-        lpfModeVal,
-        audioEngine.masterLpfMorph,
-        audioEngine.masterHpfFreq,
-        audioEngine.masterHpfRes,
-        hpfModeVal,
-        audioEngine.masterHpfMorph,
-        2147483647,
-        org.deluge.firmware2.FilterRoute.LOW_TO_HIGH);
+    // C global_effectable.cpp:752-785, mod_controllable_audio.cpp:61-63
+    audioEngine.configureMasterFilterSet(
+        spLpfFreq,
+        spLpfRes,
+        spLpfMorph,
+        org.deluge.model.FilterMode.LADDER_24,
+        spHpfFreq,
+        spHpfRes,
+        spHpfMorph,
+        org.deluge.model.FilterMode.LADDER_12,
+        0);
   }
 
   public void setProject(org.deluge.model.ProjectModel project) {

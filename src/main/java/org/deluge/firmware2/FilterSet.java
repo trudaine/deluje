@@ -208,6 +208,61 @@ public final class FilterSet {
     return filterGain;
   }
 
+  /**
+   * C filter_set.cpp:69-99 — mono filter rendering across {@code [0, numSamples)} with unit stride.
+   */
+  public void renderLong(int[] monoBuf, int numSamples) {
+    renderLong(monoBuf, 0, numSamples, 1);
+  }
+
+  /**
+   * C filter_set.cpp:69-99 — mono filter rendering across {@code [startIdx, endIdx)} stepping by
+   * {@code sampleIncrement}.
+   */
+  public void renderLong(int[] buf, int startIdx, int endIdx, int sampleIncrement) {
+    switch (routing_) {
+      case HIGH_TO_LOW:
+        renderHPFLong(buf, startIdx, endIdx, sampleIncrement);
+        renderLPFLong(buf, startIdx, endIdx, sampleIncrement);
+        break;
+      case LOW_TO_HIGH:
+        renderLPFLong(buf, startIdx, endIdx, sampleIncrement);
+        renderHPFLong(buf, startIdx, endIdx, sampleIncrement);
+        break;
+      case PARALLEL:
+        int length = endIdx - startIdx;
+        ensureTempRenderBufferCapacity(length);
+        System.arraycopy(buf, startIdx, tempRenderBuffer, 0, length);
+        renderHPFLong(tempRenderBuffer, 0, length, sampleIncrement);
+        renderLPFLong(buf, startIdx, endIdx, sampleIncrement);
+        for (int i = 0; i < length; i++) {
+          buf[startIdx + i] += tempRenderBuffer[i];
+        }
+        break;
+    }
+  }
+
+  private void renderLPFLong(int[] buf, int startIdx, int endIdx, int sampleIncrement) {
+    if (LPFOn) {
+      if ((lpfMode_ == FilterMode.SVF_BAND) || (lpfMode_ == FilterMode.SVF_NOTCH)) {
+        lpSvf.filterMono(buf, startIdx, endIdx, sampleIncrement);
+      } else {
+        lpLadder.filterMono(buf, startIdx, endIdx, sampleIncrement);
+      }
+    }
+  }
+
+  private void renderHPFLong(int[] buf, int startIdx, int endIdx, int sampleIncrement) {
+    if (HPFOn) {
+      if (hpfMode_ == FilterMode.HPLADDER) {
+        hpLadder.filterMono(buf, startIdx, endIdx, sampleIncrement);
+      } else if ((hpfMode_ == FilterMode.SVF_BAND) || (hpfMode_ == FilterMode.SVF_NOTCH)) {
+        // C filter_set.cpp:25-34 guards this branch on SVF_BAND/SVF_NOTCH.
+        hpSvf.filterMono(buf, startIdx, endIdx, sampleIncrement);
+      }
+    }
+  }
+
   public void renderLongStereo(int[] stereoBuf, int numSamples) {
     int endIdx = numSamples * 2;
     switch (routing_) {

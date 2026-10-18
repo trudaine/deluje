@@ -338,21 +338,84 @@ public class FirmwareAudioEngine {
     this.masterStutterRate = unipolarToQ31Param(project.getSongParamStutterRate());
     this.songReverbAmount = (int) (project.getSongParamReverbAmount() * 2.0f * 536870912.0f);
 
-    this.masterLpfFreq = (int) (project.getSongParamLpfFrequency() / 20000.0f * 2147483647.0f);
-    this.masterLpfRes = unipolarToQ31Param(project.getSongParamLpfResonance());
-    this.masterLpfMorph = unipolarToQ31Param(project.getSongParamLpfMorph());
-    this.masterHpfFreq = (int) (project.getSongParamHpfFrequency() / 20000.0f * 2147483647.0f);
-    this.masterHpfRes = unipolarToQ31Param(project.getSongParamHpfResonance());
-    this.masterHpfMorph = unipolarToQ31Param(project.getSongParamHpfMorph());
+    configureMasterFilterSet(
+        project.getSongParamLpfFrequency(),
+        project.getSongParamLpfResonance(),
+        project.getSongParamLpfMorph(),
+        project.getSongLpfMode(),
+        project.getSongParamHpfFrequency(),
+        project.getSongParamHpfResonance(),
+        project.getSongParamHpfMorph(),
+        project.getSongHpfMode(),
+        project.getSongFilterRoute());
+  }
 
+  /**
+   * C global_effectable.cpp:752-785, mod_controllable_audio.cpp:61-63 — configures the song-level
+   * {@link #masterFilterSet} from the song's unpatched filter knobs, modes, and routing.
+   */
+  public void configureMasterFilterSet(
+      float lpfFreqHz,
+      float lpfResUnipolar,
+      float lpfMorphUnipolar,
+      org.deluge.model.FilterMode songLpfModelMode,
+      float hpfFreqHz,
+      float hpfResUnipolar,
+      float hpfMorphUnipolar,
+      org.deluge.model.FilterMode songHpfModelMode,
+      int songFilterRoute) {
+    int lpfKnob = cutoffKnobFromHz(lpfFreqHz);
+    int lpfResKnob = unipolarToQ31Param(lpfResUnipolar);
+    int lpfMorphKnob = unipolarToQ31Param(lpfMorphUnipolar);
+    int hpfKnob = cutoffKnobFromHz(hpfFreqHz);
+    int hpfResKnob = unipolarToQ31Param(hpfResUnipolar);
+    int hpfMorphKnob = unipolarToQ31Param(hpfMorphUnipolar);
+
+    this.masterLpfFreq =
+        org.deluge.firmware2.Functions.getFinalParameterValueExp(
+            org.deluge.firmware2.Functions.getParamNeutralValue(
+                org.deluge.firmware2.Param.LOCAL_LPF_FREQ),
+            org.deluge.firmware2.Functions.cableToExpParamShortcut(lpfKnob));
+    this.masterLpfRes =
+        org.deluge.firmware2.Functions.getFinalParameterValueLinear(
+            org.deluge.firmware2.Functions.getParamNeutralValue(
+                org.deluge.firmware2.Param.LOCAL_LPF_RESONANCE),
+            org.deluge.firmware2.Functions.cableToLinearParamShortcut(lpfResKnob));
+    this.masterLpfMorph =
+        org.deluge.firmware2.Functions.getFinalParameterValueLinear(
+            org.deluge.firmware2.Functions.getParamNeutralValue(
+                org.deluge.firmware2.Param.LOCAL_LPF_MORPH),
+            org.deluge.firmware2.Functions.cableToExpParamShortcut(lpfMorphKnob));
+    this.masterHpfFreq =
+        org.deluge.firmware2.Functions.getFinalParameterValueExp(
+            org.deluge.firmware2.Functions.getParamNeutralValue(
+                org.deluge.firmware2.Param.LOCAL_HPF_FREQ),
+            org.deluge.firmware2.Functions.cableToExpParamShortcut(hpfKnob));
+    this.masterHpfRes =
+        org.deluge.firmware2.Functions.getFinalParameterValueLinear(
+            org.deluge.firmware2.Functions.getParamNeutralValue(
+                org.deluge.firmware2.Param.LOCAL_HPF_RESONANCE),
+            org.deluge.firmware2.Functions.cableToLinearParamShortcut(hpfResKnob));
+    this.masterHpfMorph =
+        org.deluge.firmware2.Functions.getFinalParameterValueLinear(
+            org.deluge.firmware2.Functions.getParamNeutralValue(
+                org.deluge.firmware2.Param.LOCAL_HPF_MORPH),
+            org.deluge.firmware2.Functions.cableToExpParamShortcut(hpfMorphKnob));
+
+    org.deluge.firmware2.FilterSet.FilterMode songLpfMode = toFw2SongLpfMode(songLpfModelMode);
+    org.deluge.firmware2.FilterSet.FilterMode songHpfMode = toFw2SongHpfMode(songHpfModelMode);
+    boolean doLPF =
+        songLpfMode != org.deluge.firmware2.FilterSet.FilterMode.OFF
+            && (songLpfMode == org.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB_DRIVE
+                || lpfKnob < 2147483602
+                || lpfMorphKnob > Integer.MIN_VALUE);
+    boolean doHPF =
+        songHpfMode != org.deluge.firmware2.FilterSet.FilterMode.OFF
+            && (hpfKnob > Integer.MIN_VALUE || hpfMorphKnob > Integer.MIN_VALUE);
     org.deluge.firmware2.FilterSet.FilterMode lpfModeVal =
-        (this.masterLpfFreq < 2147483602 || this.masterLpfMorph > Integer.MIN_VALUE)
-            ? org.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB
-            : org.deluge.firmware2.FilterSet.FilterMode.OFF;
+        doLPF ? songLpfMode : org.deluge.firmware2.FilterSet.FilterMode.OFF;
     org.deluge.firmware2.FilterSet.FilterMode hpfModeVal =
-        (this.masterHpfFreq > 2147484 || this.masterHpfMorph > Integer.MIN_VALUE)
-            ? org.deluge.firmware2.FilterSet.FilterMode.HPLADDER
-            : org.deluge.firmware2.FilterSet.FilterMode.OFF;
+        doHPF ? songHpfMode : org.deluge.firmware2.FilterSet.FilterMode.OFF;
     this.masterFilterSet.setConfig(
         this.masterLpfFreq,
         this.masterLpfRes,
@@ -363,7 +426,60 @@ public class FirmwareAudioEngine {
         hpfModeVal,
         this.masterHpfMorph,
         2147483647,
-        org.deluge.firmware2.FilterRoute.LOW_TO_HIGH);
+        toFw2FilterRoute(songFilterRoute));
+  }
+
+  /**
+   * Inverse of {@link org.deluge.xml.DelugeHexMapper#hexToHz(String)}: maps a 20..20000 Hz cutoff
+   * back to the signed Q31 unpatched knob value ({@code 0x80000000} at 20 Hz, {@code 0x7FFFFFFF} at
+   * 20000 Hz).
+   */
+  public static int cutoffKnobFromHz(float hz) {
+    if (hz <= 20.0f) {
+      return Integer.MIN_VALUE;
+    }
+    if (hz >= 20000.0f) {
+      return Integer.MAX_VALUE;
+    }
+    double exponent = Math.log(hz / 20.0) / Math.log(1000.0);
+    double norm = exponent * 2.0 - 1.0;
+    return (int) Math.round(Math.max(-1.0, Math.min(1.0, norm)) * (double) Integer.MAX_VALUE);
+  }
+
+  private static org.deluge.firmware2.FilterSet.FilterMode toFw2SongLpfMode(
+      org.deluge.model.FilterMode mode) {
+    if (mode == null) {
+      return org.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB;
+    }
+    return switch (mode) {
+      case LADDER_12 -> org.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_12DB;
+      case LADDER_24 -> org.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB;
+      case DRIVE -> org.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB_DRIVE;
+      case SVF_NOTCH -> org.deluge.firmware2.FilterSet.FilterMode.SVF_NOTCH;
+      case SVF, SVF_BAND -> org.deluge.firmware2.FilterSet.FilterMode.SVF_BAND;
+      case OFF -> org.deluge.firmware2.FilterSet.FilterMode.OFF;
+    };
+  }
+
+  private static org.deluge.firmware2.FilterSet.FilterMode toFw2SongHpfMode(
+      org.deluge.model.FilterMode mode) {
+    if (mode == null) {
+      return org.deluge.firmware2.FilterSet.FilterMode.HPLADDER;
+    }
+    return switch (mode) {
+      case SVF_NOTCH -> org.deluge.firmware2.FilterSet.FilterMode.SVF_NOTCH;
+      case SVF, SVF_BAND -> org.deluge.firmware2.FilterSet.FilterMode.SVF_BAND;
+      case OFF -> org.deluge.firmware2.FilterSet.FilterMode.OFF;
+      default -> org.deluge.firmware2.FilterSet.FilterMode.HPLADDER;
+    };
+  }
+
+  private static org.deluge.firmware2.FilterRoute toFw2FilterRoute(int route) {
+    return switch (route) {
+      case 1 -> org.deluge.firmware2.FilterRoute.LOW_TO_HIGH;
+      case 2 -> org.deluge.firmware2.FilterRoute.PARALLEL;
+      default -> org.deluge.firmware2.FilterRoute.HIGH_TO_LOW;
+    };
   }
 
   /**
