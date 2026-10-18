@@ -199,7 +199,7 @@ public class InstrumentXmlParser {
       }
     }
     if (isPresetLoad || !resolvedPreset) {
-      // C sound.cpp:149, 3241-3243 — Sound constructor defaults oscillatorSync to false, and
+      // C sound.h:150, sound.cpp:3241-3243 — Sound defaults oscillatorSync to false, and
       // Sound::readFromFile resets modulatorTranspose[1] and all four retrigger phases to 0 before
       // reading XML tags (constructor default is -12 / -1 for UI-new sounds, whereas XML files
       // omit retrigPhase when retrigger is ON at phase 0).
