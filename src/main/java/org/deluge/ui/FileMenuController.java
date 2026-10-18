@@ -349,10 +349,10 @@ public class FileMenuController {
 
           @Override
           protected void process(List<String> chunks) {
-            String lastChunk = chunks.get(chunks.size() - 1);
-            String[] parts = lastChunk.split("\\|");
-            statusLabel.setText(parts[0]);
-            progressBar.setValue(Integer.parseInt(parts[1]));
+            if (!chunks.isEmpty()) {
+              String lastChunk = chunks.get(chunks.size() - 1);
+              applyProgressChunk(lastChunk, statusLabel, progressBar);
+            }
           }
 
           @Override
@@ -378,6 +378,20 @@ public class FileMenuController {
 
     worker.execute();
     progressDialog.setVisible(true);
+  }
+
+  static void applyProgressChunk(String chunk, JLabel statusLabel, JProgressBar progressBar) {
+    if (chunk == null || chunk.isEmpty()) return;
+    int sep = chunk.lastIndexOf('|');
+    if (sep < 0) {
+      statusLabel.setText(chunk);
+      return;
+    }
+    statusLabel.setText(chunk.substring(0, sep));
+    try {
+      progressBar.setValue(Integer.parseInt(chunk.substring(sep + 1).trim()));
+    } catch (NumberFormatException ignored) {
+    }
   }
 
   public void exportMidiFile() {

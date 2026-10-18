@@ -45,6 +45,7 @@ public class PreferencesDialog extends JDialog {
   private JComboBox<String> syncModeCombo;
   private JComboBox<String> midiCombo;
   private javax.swing.Timer portScanTimer;
+  private javax.swing.Timer learnTimer;
   private boolean isRebuildingCombo = false;
   private final java.util.Map<String, String> friendlyToRawMidi = new java.util.HashMap<>();
   private final java.util.Map<String, String> rawToFriendlyMidi = new java.util.HashMap<>();
@@ -97,16 +98,33 @@ public class PreferencesDialog extends JDialog {
     portScanTimer = new javax.swing.Timer(2000, e -> updateMidiPortsListDynamic());
     portScanTimer.start();
 
-    // Clean up timer when dialog is closed
+    // Clean up timers and active MIDI learn when dialog is closed
     addWindowListener(
         new java.awt.event.WindowAdapter() {
           @Override
           public void windowClosed(java.awt.event.WindowEvent e) {
-            if (portScanTimer != null) {
-              portScanTimer.stop();
-            }
+            cleanupOnClose();
           }
         });
+  }
+
+  @Override
+  public void dispose() {
+    cleanupOnClose();
+    super.dispose();
+  }
+
+  private void cleanupOnClose() {
+    if (portScanTimer != null) {
+      portScanTimer.stop();
+    }
+    if (learnTimer != null) {
+      learnTimer.stop();
+      learnTimer = null;
+    }
+    if (midiService != null && midiService.isLearning()) {
+      midiService.cancelLearn();
+    }
   }
 
   /**
@@ -376,10 +394,14 @@ public class PreferencesDialog extends JDialog {
           learnStatus.setText("Sweeping CC knobs...");
           learnBtn.setEnabled(false);
 
-          Timer timer =
+          if (learnTimer != null) {
+            learnTimer.stop();
+          }
+          learnTimer =
               new Timer(
                   10000,
                   ev -> {
+                    learnTimer = null;
                     learnBtn.setEnabled(true);
                     if (midiService.isLearning()) {
                       midiService.cancelLearn();
@@ -389,8 +411,8 @@ public class PreferencesDialog extends JDialog {
                       rebuildTableContent();
                     }
                   });
-          timer.setRepeats(false);
-          timer.start();
+          learnTimer.setRepeats(false);
+          learnTimer.start();
         });
 
     addField(
@@ -456,7 +478,8 @@ public class PreferencesDialog extends JDialog {
       fl.setFont(new Font("SansSerif", Font.BOLD, 10));
 
       JComboBox<String> chCombo = new JComboBox<>(midiChannels);
-      int savedCh = Integer.parseInt(PreferencesManager.get("midi.follow.ch" + fLabel, "1"));
+      int savedCh =
+          parseIntClamped(PreferencesManager.get("midi.follow.ch" + fLabel, "1"), 1, 1, 16);
       chCombo.setSelectedIndex(savedCh - 1);
       styleComboBox(chCombo);
       chCombo.setPreferredSize(new Dimension(72, 22));
@@ -469,8 +492,12 @@ public class PreferencesDialog extends JDialog {
 
       JComboBox<String> trCombo = new JComboBox<>(trackLabels);
       int savedTr =
-          Integer.parseInt(PreferencesManager.get("midi.follow.track" + fLabel, String.valueOf(i)));
-      trCombo.setSelectedIndex(Math.min(savedTr, 15));
+          parseIntClamped(
+              PreferencesManager.get("midi.follow.track" + fLabel, String.valueOf(i)),
+              Math.min(i, 15),
+              0,
+              15);
+      trCombo.setSelectedIndex(savedTr);
       styleComboBox(trCombo);
       trCombo.setPreferredSize(new Dimension(110, 22));
       trCombo.addActionListener(
@@ -1166,20 +1193,7 @@ public class PreferencesDialog extends JDialog {
 
   private void updateMidiPortsListDynamic() {
     String[] currentPorts = org.deluge.shadow.midi.MidiIn.list();
-
-    int comboItemCount = midiCombo.getItemCount();
-    boolean changed = false;
-    if (comboItemCount - 1 != currentPorts.length) {
-      changed = true;
-    } else {
-      for (int i = 0; i < currentPorts.length; i++) {
-        String item = midiCombo.getItemAt(i + 1);
-        if (!currentPorts[i].equals(item)) {
-          changed = true;
-          break;
-        }
-      }
-    }
+    boolean changed = !isMidiPortListUnchanged(currentPorts);
 
     if (changed) {
       isRebuildingCombo = true;
@@ -1272,5 +1286,53 @@ public class PreferencesDialog extends JDialog {
   private String getRawPortName(String friendlyName) {
     if (friendlyName == null || friendlyName.equals("None")) return "None";
     return friendlyToRawMidi.getOrDefault(friendlyName, friendlyName);
+  }
+
+  boolean isMidiPortListUnchanged(String[] currentPorts) {
+    int comboItemCount = midiCombo.getItemCount();
+    if (comboItemCount - 1 != currentPorts.length) {
+      return false;
+    }
+    for (int i = 0; i < currentPorts.length; i++) {
+      String item = midiCombo.getItemAt(i + 1);
+      if (!currentPorts[i].equals(getRawPortName(item))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void setMidiPortsForTest(String[] rawPorts, String[] friendlyPorts) {
+    isRebuildingCombo = true;
+    midiCombo.removeAllItems();
+    friendlyToRawMidi.clear();
+    rawToFriendlyMidi.clear();
+    midiCombo.addItem("None");
+    friendlyToRawMidi.put("None", "None");
+    rawToFriendlyMidi.put("None", "None");
+    for (int i = 0; i < rawPorts.length; i++) {
+      friendlyToRawMidi.put(friendlyPorts[i], rawPorts[i]);
+      rawToFriendlyMidi.put(rawPorts[i], friendlyPorts[i]);
+      midiCombo.addItem(friendlyPorts[i]);
+    }
+    isRebuildingCombo = false;
+  }
+
+  JButton getLearnButtonForTest() {
+    return learnBtn;
+  }
+
+  JTextField getLearnParamFieldForTest() {
+    return learnParamField;
+  }
+
+  private static int parseIntClamped(String val, int fallback, int min, int max) {
+    if (val == null || val.isBlank()) return fallback;
+    try {
+      int parsed = Integer.parseInt(val.trim());
+      return Math.max(min, Math.min(max, parsed));
+    } catch (NumberFormatException e) {
+      return fallback;
+    }
   }
 }
