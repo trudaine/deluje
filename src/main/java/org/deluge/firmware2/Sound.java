@@ -521,6 +521,9 @@ public class Sound extends GlobalEffectable {
   public final boolean[] sampleReverse = {false, false};
   public final boolean[] sampleTimestretch = {false, false};
 
+  /** C Source::timeStretchAmount (source.h:51, default 0 at source.cpp:44) — int8_t -48..48. */
+  public final int[] sampleTimeStretchAmount = {0, 0};
+
   public final Arpeggiator.Synth arpeggiator = new Arpeggiator.Synth();
   public final Arpeggiator.Settings arpSettings = new Arpeggiator.Settings();
   public final Arpeggiator.ArpReturnInstruction arpInstr = new Arpeggiator.ArpReturnInstruction();
@@ -1548,7 +1551,10 @@ public class Sound extends GlobalEffectable {
       int dirLoopStart = hasLoopStart ? loopStartPlaybackAtSample : dirStart;
       int dirLoopEnd = hasLoopEnd ? loopEndPlaybackAtSample : dirEnd;
 
-      boolean ts = sampleTimestretch[s];
+      // C voice_sample.cpp:528-530 — the voice time-stretches whenever the speed param
+      // (getSpeedParamForNoSyncing) differs from kMaxSampleValue; a nonzero timeStretchAmount
+      // always does (timeStretchAdjustTable[48] is the only unity entry).
+      boolean ts = sampleTimestretch[s] || sampleTimeStretchAmount[s] != 0;
       if (ts) {
         targetVoice.sources[s].setupSampleTimeStretch(
             targetSample,

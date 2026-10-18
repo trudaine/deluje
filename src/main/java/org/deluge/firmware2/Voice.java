@@ -1434,6 +1434,31 @@ public class Voice {
   // unsigned quotient to Integer.MAX_VALUE (0x7FFFFFFF, ~128x speed / +7 octaves; compare
   // audio_clip.cpp:587, 650) before narrowing to int so an 8-octave downward shift does not wrap to
   // 0 and freeze playback.
+  /**
+   * C VoiceUnisonPartSource::getSpeedParamForNoSyncing (voice_unison_part_source.cpp:197-215):
+   * pitch-compensation when pitch and speed are independent, then the manual timeStretchAmount
+   * adjustment {@code (uint64)ratio * timeStretchAdjustTable[amount + 48] >> 24} as a uint32.
+   */
+  static int getSpeedParamForNoSyncing(
+      boolean pitchAndSpeedAreIndependent,
+      int timeStretchAmount,
+      int pitchAdjustNeutralValue,
+      int phaseIncrement) {
+    int timeStretchRatio = 16777216; // kMaxSampleValue
+    if (pitchAndSpeedAreIndependent) { // C :203-207
+      timeStretchRatio =
+          computePitchCompensatedTimeStretchRatio(pitchAdjustNeutralValue, phaseIncrement);
+    }
+    if (timeStretchAmount != 0) { // C :210-212
+      timeStretchRatio =
+          (int)
+              (((timeStretchRatio & 0xFFFFFFFFL)
+                      * LookupTables.timeStretchAdjustTable[timeStretchAmount + 48])
+                  >>> 24);
+    }
+    return timeStretchRatio;
+  }
+
   static int computePitchCompensatedTimeStretchRatio(
       int pitchAdjustNeutralValue, int phaseIncrement) {
     if (phaseIncrement == pitchAdjustNeutralValue || phaseIncrement <= 0) {
@@ -1521,11 +1546,12 @@ public class Voice {
             // C voice.cpp:2092-2102 — late start ignores pitch modulation (uses
             // phaseIncrementStoredValue) and computes timeStretchRatioWithoutModulation.
             long tsRatioNoMod =
-                sound.sampleTimestretch[s]
-                    ? (computePitchCompensatedTimeStretchRatio(
-                            pitchAdjustNeutralValue, vs.phaseIncrementStoredValue)
-                        & 0xFFFFFFFFL)
-                    : 16777216L;
+                getSpeedParamForNoSyncing(
+                        sound.sampleTimestretch[s],
+                        sound.sampleTimeStretchAmount[s],
+                        pitchAdjustNeutralValue,
+                        vs.phaseIncrementStoredValue)
+                    & 0xFFFFFFFFL;
             long rawSamplesLate =
                 ((((long) vs.voiceSample.pendingSamplesLate
                                 * (vs.phaseIncrementStoredValue & 0xFFFFFFFFL))
@@ -1559,7 +1585,11 @@ public class Voice {
             // C voice_unison_part_source.cpp:203-207 — pitchAndSpeedAreIndependent counteracts
             // modulated pInc each block so playback duration stays independent of note pitch.
             vs.timeStretchRatio =
-                computePitchCompensatedTimeStretchRatio(pitchAdjustNeutralValue, pInc);
+                getSpeedParamForNoSyncing(
+                    sound.sampleTimestretch[s],
+                    sound.sampleTimeStretchAmount[s],
+                    pitchAdjustNeutralValue,
+                    pInc);
             java.util.Arrays.fill(tsBuf, 0, requiredTsLen, 0);
             int[] ampArr = {sampAmp};
             vs.voiceSample.renderTimeStretched(

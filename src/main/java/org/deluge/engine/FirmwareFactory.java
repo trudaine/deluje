@@ -324,6 +324,10 @@ public class FirmwareFactory {
                           (finalS == 0) ? model.isOsc1Reversed() : model.isOsc2Reversed();
                       settings.timestretch =
                           (finalS == 0) ? model.isOsc1TimeStretch() : model.isOsc2TimeStretch();
+                      settings.timeStretchAmount =
+                          (finalS == 0)
+                              ? model.getOsc1TimeStretchAmount()
+                              : model.getOsc2TimeStretchAmount();
                     }
                   }
                 } catch (IOException e) {
@@ -1340,6 +1344,7 @@ public class FirmwareFactory {
     // Neither was parsed or applied, so every drum played as CUT. (Reverse is set below.)
     drumSound.sampleSettings[0].loopMode = sd.getOsc1LoopMode();
     drumSound.sampleSettings[0].timestretch = sd.isOsc1TimeStretch();
+    drumSound.sampleSettings[0].timeStretchAmount = sd.getOsc1TimeStretchAmount();
     // As the synth mapping does (above): C sampleControls.interpolationMode per source.
     drumSound.fw2Sound.sourceLinearInterpolation[0] = sd.isOsc1LinearInterpolation();
     drumSound.fw2Sound.sourceLinearInterpolation[1] = sd.isOsc2LinearInterpolation();

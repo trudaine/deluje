@@ -12,7 +12,7 @@ public class OscillatorConfig {
   private int loopMode = 0; // 0=off, 1=loop, 2=oneshot
   private boolean reversed = false;
   private boolean timeStretch = false;
-  private float timeStretchAmount = 0.0f;
+  private int timeStretchAmount = 0; // C source.h:51 — int8_t, -48..48
   private boolean linearInterpolation = false;
   private String samplePath = null;
   private int pitchAdjustQ31 = Integer.MIN_VALUE;
@@ -84,12 +84,12 @@ public class OscillatorConfig {
     this.timeStretch = timeStretch;
   }
 
-  public float getTimeStretchAmount() {
+  public int getTimeStretchAmount() {
     return timeStretchAmount;
   }
 
-  public void setTimeStretchAmount(float timeStretchAmount) {
-    this.timeStretchAmount = timeStretchAmount;
+  public void setTimeStretchAmount(int timeStretchAmount) {
+    this.timeStretchAmount = Math.max(-48, Math.min(48, timeStretchAmount));
   }
 
   public boolean isLinearInterpolation() {

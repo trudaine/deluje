@@ -316,6 +316,8 @@ public class KitXmlParser {
       readAttrOrChildInt(osc1El, "retrigPhase", -1, sound::setOsc1RetrigPhase);
       // C sound.cpp source tags, all readTagOrAttributeValueInt: kit files use the tag form.
       readAttrOrChildInt(osc1El, "loopMode", 0, sound::setOsc1LoopMode);
+      sound.setOsc1TimeStretchAmount(
+          DelugeXmlUtil.attrOrDirectChildInt(osc1El, "timeStretchAmount", 0)); // C sound.cpp:3423
       readBoolAttrOrChild(osc1El, "reversed", sound::setReverse);
       readBoolAttrOrChild(osc1El, "timeStretchEnable", sound::setOsc1TimeStretch);
       readBoolAttrOrChild(osc1El, "linearInterpolation", sound::setOsc1LinearInterpolation);
@@ -362,7 +364,9 @@ public class KitXmlParser {
       readAttrOrChildInt(osc2, "loopMode", 0, sound::setOsc2LoopMode);
       readBoolAttrOrChild(osc2, "reversed", sound::setOsc2Reversed);
       readBoolAttrOrChild(osc2, "timeStretchEnable", sound::setOsc2TimeStretch);
-      readAttrFloatHex(osc2, "timeStretchAmount", sound::setOsc2TimeStretchAmount, true);
+      // C sound.cpp:3423-3425 — int8_t, readTagOrAttributeValueInt
+      sound.setOsc2TimeStretchAmount(
+          DelugeXmlUtil.attrOrDirectChildInt(osc2, "timeStretchAmount", 0));
       readBoolAttrOrChild(osc2, "linearInterpolation", sound::setOsc2LinearInterpolation);
       // osc2 retrigPhase
       readAttrOrChildInt(osc2, "retrigPhase", -1, sound::setOsc2RetrigPhase);

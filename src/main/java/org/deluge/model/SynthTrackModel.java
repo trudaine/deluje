@@ -353,11 +353,11 @@ public class SynthTrackModel extends TrackModel {
     osc1.setTimeStretch(v);
   }
 
-  public float getOsc1TimeStretchAmount() {
+  public int getOsc1TimeStretchAmount() {
     return osc1.getTimeStretchAmount();
   }
 
-  public void setOsc1TimeStretchAmount(float v) {
+  public void setOsc1TimeStretchAmount(int v) {
     osc1.setTimeStretchAmount(v);
   }
 
@@ -427,11 +427,11 @@ public class SynthTrackModel extends TrackModel {
     osc2.setTimeStretch(v);
   }
 
-  public float getOsc2TimeStretchAmount() {
+  public int getOsc2TimeStretchAmount() {
     return osc2.getTimeStretchAmount();
   }
 
-  public void setOsc2TimeStretchAmount(float v) {
+  public void setOsc2TimeStretchAmount(int v) {
     osc2.setTimeStretchAmount(v);
   }
 
