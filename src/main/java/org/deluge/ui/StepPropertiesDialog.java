@@ -112,6 +112,12 @@ public class StepPropertiesDialog extends JDialog {
       int currentNudge,
       org.deluge.model.Iterance initialCondition) {
     super(owner, "Step Properties", true);
+    int clampedVel = Math.max(0, Math.min(100, currentVelocity));
+    int clampedIter = Math.max(0, Math.min(3, currentIterance));
+    int clampedFill = Math.max(0, Math.min(100, currentFill));
+    int clampedProb = Math.max(0, Math.min(100, currentProbability));
+    double clampedGate = Math.max(0.01, Math.min(192.0, currentGate));
+    int clampedNudge = Math.max(0, Math.min(99, currentNudge));
     if (initialCondition != null && initialCondition.toInt() != 0) {
       this.currentPlayCondition =
           new org.deluge.model.Iterance(initialCondition.divisor, initialCondition.iteranceStep);
@@ -160,13 +166,13 @@ public class StepPropertiesDialog extends JDialog {
 
     gc.gridx = 1;
     gc.weightx = 0.8;
-    velSlider = new JSlider(0, 100, currentVelocity);
+    velSlider = new JSlider(0, 100, clampedVel);
     DarkSliderUI.styleSlider(velSlider, SwingSynthConfigDialog.ACCENT_BLUE);
     gridPanel.add(velSlider, gc);
 
     gc.gridx = 2;
     gc.weightx = 0.1;
-    velSpin = new JSpinner(new SpinnerNumberModel(currentVelocity, 0, 100, 1));
+    velSpin = new JSpinner(new SpinnerNumberModel(clampedVel, 0, 100, 1));
     velSpin.setPreferredSize(new Dimension(65, 30));
     velSpin.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     velSpin.setForeground(Color.WHITE);
@@ -192,7 +198,7 @@ public class StepPropertiesDialog extends JDialog {
 
     gc.gridx = 2;
     gc.weightx = 0.1;
-    iterSpin = new JSpinner(new SpinnerNumberModel(currentIterance, 0, 3, 1));
+    iterSpin = new JSpinner(new SpinnerNumberModel(clampedIter, 0, 3, 1));
     iterSpin.setPreferredSize(new Dimension(65, 30));
     iterSpin.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     iterSpin.setForeground(Color.WHITE);
@@ -209,7 +215,7 @@ public class StepPropertiesDialog extends JDialog {
 
     gc.gridx = 1;
     gc.weightx = 0.8;
-    fillSlider = new JSlider(0, 100, currentFill);
+    fillSlider = new JSlider(0, 100, clampedFill);
     DarkSliderUI.styleSlider(fillSlider, SwingSynthConfigDialog.ACCENT_BLUE);
     fillSlider.setToolTipText("0 = regular step, 1-100 = fill-only step with probability");
     gridPanel.add(fillSlider, gc);
@@ -232,13 +238,13 @@ public class StepPropertiesDialog extends JDialog {
 
     gc.gridx = 1;
     gc.weightx = 0.8;
-    probSlider = new JSlider(0, 100, currentProbability);
+    probSlider = new JSlider(0, 100, clampedProb);
     DarkSliderUI.styleSlider(probSlider, SwingSynthConfigDialog.ACCENT_BLUE);
     gridPanel.add(probSlider, gc);
 
     gc.gridx = 2;
     gc.weightx = 0.1;
-    probSpin = new JSpinner(new SpinnerNumberModel(currentProbability, 0, 100, 1));
+    probSpin = new JSpinner(new SpinnerNumberModel(clampedProb, 0, 100, 1));
     probSpin.setPreferredSize(new Dimension(65, 30));
     probSpin.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     probSpin.setForeground(Color.WHITE);
@@ -264,7 +270,7 @@ public class StepPropertiesDialog extends JDialog {
 
     gc.gridx = 2;
     gc.weightx = 0.1;
-    gateSpin = new JSpinner(new SpinnerNumberModel(currentGate, 0.01, 192.0, 0.25));
+    gateSpin = new JSpinner(new SpinnerNumberModel(clampedGate, 0.01, 192.0, 0.25));
     gateSpin.setPreferredSize(new Dimension(65, 30));
     gateSpin.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     gateSpin.setForeground(Color.WHITE);
@@ -281,14 +287,14 @@ public class StepPropertiesDialog extends JDialog {
 
     gc.gridx = 1;
     gc.weightx = 0.8;
-    nudgeSlider = new JSlider(0, 99, currentNudge);
+    nudgeSlider = new JSlider(0, 99, clampedNudge);
     DarkSliderUI.styleSlider(nudgeSlider, SwingSynthConfigDialog.ACCENT_BLUE);
     nudgeSlider.setToolTipText("Microtiming offset forward (0 to 99% of step)");
     gridPanel.add(nudgeSlider, gc);
 
     gc.gridx = 2;
     gc.weightx = 0.1;
-    nudgeSpin = new JSpinner(new SpinnerNumberModel(currentNudge, 0, 99, 1));
+    nudgeSpin = new JSpinner(new SpinnerNumberModel(clampedNudge, 0, 99, 1));
     nudgeSpin.setPreferredSize(new Dimension(65, 30));
     nudgeSpin.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     nudgeSpin.setForeground(Color.WHITE);
@@ -443,6 +449,7 @@ public class StepPropertiesDialog extends JDialog {
     try {
       int div = currentPlayCondition.divisor & 0xFF;
       int mask = currentPlayCondition.iteranceStep & 0xFF;
+      int clampedDiv = Math.max(1, Math.min(8, div));
       String matchedPreset = null;
       for (IterancePreset preset : ITERANCE_PRESETS) {
         if (preset.divisor() == div && preset.mask() == mask) {
@@ -454,9 +461,10 @@ public class StepPropertiesDialog extends JDialog {
       for (int i = 0; i < 8; i++) {
         if (condChecks[i] != null) {
           condChecks[i].setSelected((mask & (1 << i)) != 0);
+          condChecks[i].setEnabled(i < clampedDiv);
         }
       }
-      condDivisorSpin.setValue(Math.max(1, Math.min(8, div)));
+      condDivisorSpin.setValue(clampedDiv);
 
       if (matchedPreset != null) {
         condCombo.setSelectedItem(matchedPreset);
@@ -482,11 +490,14 @@ public class StepPropertiesDialog extends JDialog {
 
   private void syncFromCustomCheckboxes() {
     if (isSyncingUI) return;
-    int div = (Integer) condDivisorSpin.getValue();
+    int div = Math.max(1, Math.min(8, (Integer) condDivisorSpin.getValue()));
     int mask = 0;
     for (int i = 0; i < 8; i++) {
-      if (condChecks[i] != null && condChecks[i].isSelected()) {
-        mask |= (1 << i);
+      if (condChecks[i] != null) {
+        condChecks[i].setEnabled(i < div);
+        if (i < div && condChecks[i].isSelected()) {
+          mask |= (1 << i);
+        }
       }
     }
     currentPlayCondition = new org.deluge.model.Iterance((byte) div, (byte) mask);

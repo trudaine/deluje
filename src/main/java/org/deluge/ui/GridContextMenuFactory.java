@@ -108,13 +108,16 @@ public class GridContextMenuFactory {
     colorItem.setBackground(new Color(0x1e, 0x1e, 0x22));
     colorItem.addActionListener(
         e -> {
-          Color chosen =
-              javax.swing.JColorChooser.showDialog(
-                  panel, "Track Color", panel.trackColors[trackIdx]);
+          Color initColor =
+              trackIdx >= 0 && trackIdx < panel.trackColors.length
+                  ? panel.trackColors[trackIdx]
+                  : Color.CYAN;
+          Color chosen = javax.swing.JColorChooser.showDialog(panel, "Track Color", initColor);
           if (chosen != null) {
-            panel.trackColors[trackIdx] = chosen;
-            track.setColourHex(
-                "0x" + Integer.toHexString(chosen.getRGB() & 0xFFFFFF).toUpperCase());
+            if (trackIdx >= 0 && trackIdx < panel.trackColors.length) {
+              panel.trackColors[trackIdx] = chosen;
+            }
+            track.setColourHex(formatColourHex(chosen));
             panel.fireProjectChanged();
           }
         });
@@ -164,12 +167,16 @@ public class GridContextMenuFactory {
     JMenuItem colorItem = new JMenuItem("Set Color...");
     colorItem.addActionListener(
         e -> {
-          Color chosen =
-              JColorChooser.showDialog(panel, "Track Color", panel.trackColors[trackIdx]);
+          Color initColor =
+              trackIdx >= 0 && trackIdx < panel.trackColors.length
+                  ? panel.trackColors[trackIdx]
+                  : Color.CYAN;
+          Color chosen = JColorChooser.showDialog(panel, "Track Color", initColor);
           if (chosen != null) {
-            panel.trackColors[trackIdx] = chosen;
-            track.setColourHex(
-                "0x" + Integer.toHexString(chosen.getRGB() & 0xFFFFFF).toUpperCase());
+            if (trackIdx >= 0 && trackIdx < panel.trackColors.length) {
+              panel.trackColors[trackIdx] = chosen;
+            }
+            track.setColourHex(formatColourHex(chosen));
             panel.fireProjectChanged();
           }
         });
@@ -296,15 +303,8 @@ public class GridContextMenuFactory {
           String input = JOptionPane.showInputDialog(panel, "Row probability (0-100%):", 100);
           if (input != null) {
             try {
-              double val = Double.parseDouble(input.trim()) / 100.0;
-              val = Math.max(0, Math.min(1, val));
-              int engineRow = panel.baseTrackId + trackIdx;
-              int len =
-                  panel.bridge != null ? panel.bridge.getTrackLength(engineRow) : panel.stepCount;
-              for (int s = 0; s < len && s < panel.stepCount; s++) {
-                panel.bridge.setStepProbability(engineRow, s, val);
-              }
-              panel.refresh();
+              float val = (float) (Double.parseDouble(input.trim()) / 100.0);
+              applyTrackProbability(panel, trackIdx, Math.max(0f, Math.min(1f, val)));
             } catch (NumberFormatException ignored) {
             }
           }
@@ -317,15 +317,8 @@ public class GridContextMenuFactory {
           String input = JOptionPane.showInputDialog(panel, "Row velocity (0-100%):", 80);
           if (input != null) {
             try {
-              double val = Double.parseDouble(input.trim()) / 100.0;
-              val = Math.max(0, Math.min(1, val));
-              int engineRow = panel.baseTrackId + trackIdx;
-              int len =
-                  panel.bridge != null ? panel.bridge.getTrackLength(engineRow) : panel.stepCount;
-              for (int s = 0; s < len && s < panel.stepCount; s++) {
-                panel.bridge.setVelocity(engineRow, s, val);
-              }
-              panel.refresh();
+              float val = (float) (Double.parseDouble(input.trim()) / 100.0);
+              applyTrackVelocity(panel, trackIdx, Math.max(0f, Math.min(1f, val)));
             } catch (NumberFormatException ignored) {
             }
           }
@@ -355,6 +348,58 @@ public class GridContextMenuFactory {
     menu.show(src, x, y);
   }
 
+  static String formatColourHex(Color chosen) {
+    return String.format("0x%06X", chosen.getRGB() & 0xFFFFFF);
+  }
+
+  static void applyTrackProbability(SwingGridPanel panel, int trackIdx, float prob) {
+    if (panel == null || panel.projectModel == null) return;
+    java.util.List<TrackModel> tracks = panel.projectModel.getTracks();
+    if (trackIdx < 0 || trackIdx >= tracks.size()) return;
+    ClipModel clip = tracks.get(trackIdx).getActiveClip();
+    if (clip == null) return;
+    int startRow =
+        EngineSyncCoordinator.resolveTrackEngineStart(panel.bridge, panel.projectModel, trackIdx);
+    for (int r = 0; r < clip.getRowCount(); r++) {
+      for (int s = 0; s < clip.getStepCount(); s++) {
+        StepData step = clip.getStep(r, s);
+        if (step != null && step.active()) {
+          clip.setStep(r, s, step.withProbability(prob));
+          if (panel.bridge != null
+              && startRow >= 0
+              && startRow + r < org.deluge.BridgeContract.TRACKS) {
+            panel.bridge.setStepProbability(startRow + r, s, prob);
+          }
+        }
+      }
+    }
+    panel.fireProjectChanged();
+  }
+
+  static void applyTrackVelocity(SwingGridPanel panel, int trackIdx, float vel) {
+    if (panel == null || panel.projectModel == null) return;
+    java.util.List<TrackModel> tracks = panel.projectModel.getTracks();
+    if (trackIdx < 0 || trackIdx >= tracks.size()) return;
+    ClipModel clip = tracks.get(trackIdx).getActiveClip();
+    if (clip == null) return;
+    int startRow =
+        EngineSyncCoordinator.resolveTrackEngineStart(panel.bridge, panel.projectModel, trackIdx);
+    for (int r = 0; r < clip.getRowCount(); r++) {
+      for (int s = 0; s < clip.getStepCount(); s++) {
+        StepData step = clip.getStep(r, s);
+        if (step != null && step.active()) {
+          clip.setStep(r, s, step.withVelocity(vel));
+          if (panel.bridge != null
+              && startRow >= 0
+              && startRow + r < org.deluge.BridgeContract.TRACKS) {
+            panel.bridge.setVelocity(startRow + r, s, vel);
+          }
+        }
+      }
+    }
+    panel.fireProjectChanged();
+  }
+
   public static void showClipContextMenu(
       SwingGridPanel panel,
       Component src,
@@ -363,6 +408,9 @@ public class GridContextMenuFactory {
       TrackModel track,
       int clipIdx,
       int trackIndex) {
+    if (track == null || clipIdx < 0 || clipIdx >= track.getClips().size()) {
+      return;
+    }
     JPopupMenu menu = new JPopupMenu();
     ClipModel clip = track.getClips().get(clipIdx);
 

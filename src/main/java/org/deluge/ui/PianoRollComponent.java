@@ -14,6 +14,15 @@ import javax.swing.JComponent;
  */
 public class PianoRollComponent extends JComponent {
 
+  private static final int[] BLACK_KEY_OFFSETS = {
+    0, 1, 3, 4, 5, 7, 8, 10, 11, 12, 14, 15, 17, 18, 19, 21, 22, 24, 25, 26
+  };
+  private static final int[] SHARP_VALUES = {1, 3, -1, 6, 8, 10, -1};
+  private static final int[] WHITE_NOTE_VALUES = {0, 2, 4, 5, 7, 9, 11};
+  // First 5 black keys in BLACK_KEY_OFFSETS are C#4, D#4, F#4, G#4, A#4 (matching
+  // KeyboardShortcutManager).
+  static final String[] BLACK_QWERTY = {"S", "D", "G", "H", "J"};
+
   private final SwingGridPanel gridPanel;
   private int activePlayingNote = -1;
 
@@ -24,70 +33,33 @@ public class PianoRollComponent extends JComponent {
     setMinimumSize(new Dimension(100, 80));
     setMaximumSize(new Dimension(3000, 80));
 
-    addMouseListener(
+    java.awt.event.MouseAdapter mouseHandler =
         new java.awt.event.MouseAdapter() {
           @Override
           public void mousePressed(java.awt.event.MouseEvent e) {
-            int x = e.getX();
-            int y = e.getY();
-
-            // Compute the exact layout coordinates same as paintComponent
-            int lw = Math.max(60, Math.min(140, gridPanel.getWidth() / 12));
-            int gridX = lw + 91;
-            int padSz = gridPanel.cachedPadSz;
-            int cols = gridPanel.columnCount - 2;
-            double totalWidth = cols * (padSz + 5) - 5;
-            double keyW = totalWidth / 28.0;
-            int keyH = 70;
-
-            if (x < gridX || x > gridX + totalWidth || y < 0 || y > keyH) {
-              return;
-            }
-
-            int midiNote = -1;
-
-            // 1. Check black keys in top half
-            if (y <= keyH / 2) {
-              int[] blackKeyOffsets = {
-                0, 1, 3, 4, 5, 7, 8, 10, 11, 12, 14, 15, 17, 18, 19, 21, 22, 24, 25, 26
-              };
-              int[] sharpValues = {1, 3, -1, 6, 8, 10, -1};
-
-              for (int offsetKey : blackKeyOffsets) {
-                int xStart = (int) (gridX + offsetKey * keyW);
-                int nextX = (int) (gridX + (offsetKey + 1) * keyW);
-                int kw = nextX - xStart;
-                int bx = xStart + kw - (int) (keyW / 3.0);
-                int bw = (int) (keyW / 2.0);
-
-                if (x >= bx && x <= bx + bw) {
-                  int oct = offsetKey / 7;
-                  int noteInOct = offsetKey % 7;
-                  int sharpVal = sharpValues[noteInOct];
-                  if (sharpVal != -1) {
-                    midiNote = 60 + oct * 12 + sharpVal;
-                    break;
-                  }
-                }
-              }
-            }
-
-            // 2. If not black key, it is a white key click
-            if (midiNote == -1) {
-              int i = (int) ((x - gridX) / keyW);
-              if (i >= 0 && i < 28) {
-                int oct = i / 7;
-                int noteInOct = i % 7;
-                int[] whiteNoteValues = {0, 2, 4, 5, 7, 9, 11};
-                midiNote = 60 + oct * 12 + whiteNoteValues[noteInOct];
-              }
-            }
-
-            // 3. Trigger note and flash grid UI
+            int midiNote = noteAtPoint(e.getX(), e.getY());
             if (midiNote >= 60 && midiNote < 128) {
               activePlayingNote = midiNote;
               gridPanel.triggerKeyboardNote(midiNote);
               gridPanel.flashIsomorphicNote(midiNote);
+              repaint();
+            }
+          }
+
+          @Override
+          public void mouseDragged(java.awt.event.MouseEvent e) {
+            int midiNote = noteAtPoint(e.getX(), e.getY());
+            int nextNote = (midiNote >= 60 && midiNote < 128) ? midiNote : -1;
+            if (nextNote != activePlayingNote) {
+              if (activePlayingNote != -1) {
+                gridPanel.triggerKeyboardNoteRelease(activePlayingNote);
+              }
+              activePlayingNote = nextNote;
+              if (activePlayingNote != -1) {
+                gridPanel.triggerKeyboardNote(activePlayingNote);
+                gridPanel.flashIsomorphicNote(activePlayingNote);
+              }
+              repaint();
             }
           }
 
@@ -96,9 +68,59 @@ public class PianoRollComponent extends JComponent {
             if (activePlayingNote != -1) {
               gridPanel.triggerKeyboardNoteRelease(activePlayingNote);
               activePlayingNote = -1;
+              repaint();
             }
           }
-        });
+        };
+    addMouseListener(mouseHandler);
+    addMouseMotionListener(mouseHandler);
+  }
+
+  /** Returns the MIDI note (60..107) at (x, y), or -1 if outside the keyboard. */
+  int noteAtPoint(int x, int y) {
+    int lw = Math.max(60, Math.min(140, gridPanel.getWidth() / 12));
+    int gridX = lw + 91;
+    int padSz = gridPanel.cachedPadSz;
+    int cols = gridPanel.columnCount - 2;
+    if (cols <= 0 || padSz <= 0) {
+      return -1;
+    }
+    double totalWidth = cols * (padSz + 5) - 5;
+    double keyW = totalWidth / 28.0;
+    int keyH = 70;
+
+    if (x < gridX || x > gridX + totalWidth || y < 0 || y > keyH) {
+      return -1;
+    }
+
+    // 1. Check black keys in top half
+    if (y <= keyH / 2) {
+      for (int offsetKey : BLACK_KEY_OFFSETS) {
+        int xStart = (int) (gridX + offsetKey * keyW);
+        int nextX = (int) (gridX + (offsetKey + 1) * keyW);
+        int kw = nextX - xStart;
+        int bx = xStart + kw - (int) (keyW / 3.0);
+        int bw = (int) (keyW / 2.0);
+
+        if (x >= bx && x <= bx + bw) {
+          int oct = offsetKey / 7;
+          int noteInOct = offsetKey % 7;
+          int sharpVal = SHARP_VALUES[noteInOct];
+          if (sharpVal != -1) {
+            return 60 + oct * 12 + sharpVal;
+          }
+        }
+      }
+    }
+
+    // 2. If not black key, it is a white key click
+    int i = (int) ((x - gridX) / keyW);
+    if (i >= 0 && i < 28) {
+      int oct = i / 7;
+      int noteInOct = i % 7;
+      return 60 + oct * 12 + WHITE_NOTE_VALUES[noteInOct];
+    }
+    return -1;
   }
 
   @Override
@@ -113,6 +135,10 @@ public class PianoRollComponent extends JComponent {
     // Compute dynamic total width spanning all step pads
     int padSz = gridPanel.cachedPadSz;
     int cols = gridPanel.columnCount - 2;
+    if (cols <= 0 || padSz <= 0) {
+      g2.dispose();
+      return;
+    }
     double totalWidth = cols * (padSz + 5) - 5;
     double keyW = totalWidth / 28.0;
     int keyH = 70; // compact keyboard key height
@@ -122,24 +148,26 @@ public class PianoRollComponent extends JComponent {
       int x = (int) (gridX + i * keyW);
       int nextX = (int) (gridX + (i + 1) * keyW);
       int kw = (nextX - x) - 2;
+      int whiteNote = 60 + (i / 7) * 12 + WHITE_NOTE_VALUES[i % 7];
 
-      g2.setColor(Color.WHITE);
+      g2.setColor(whiteNote == activePlayingNote ? new Color(0xb2, 0xf5, 0xea) : Color.WHITE);
       g2.fillRect(x, 0, kw, keyH);
       g2.setColor(Color.BLACK);
       g2.drawRect(x, 0, kw, keyH);
     }
 
     // Black keys
-    int[] blackKeyOffsets = {
-      0, 1, 3, 4, 5, 7, 8, 10, 11, 12, 14, 15, 17, 18, 19, 21, 22, 24, 25, 26
-    };
-    for (int offsetKey : blackKeyOffsets) {
+    for (int offsetKey : BLACK_KEY_OFFSETS) {
       int x = (int) (gridX + offsetKey * keyW);
       int nextX = (int) (gridX + (offsetKey + 1) * keyW);
       int kw = nextX - x;
       int bx = x + kw - (int) (keyW / 3.0);
+      int blackNote = 60 + (offsetKey / 7) * 12 + SHARP_VALUES[offsetKey % 7];
 
-      g2.setColor(new Color(0x1a, 0x1a, 0x1a));
+      g2.setColor(
+          blackNote == activePlayingNote
+              ? new Color(0x00, 0xb2, 0xa0)
+              : new Color(0x1a, 0x1a, 0x1a));
       g2.fillRect(bx, 0, (int) (keyW / 2.0), keyH / 2);
     }
 
@@ -174,17 +202,14 @@ public class PianoRollComponent extends JComponent {
       g2.drawString(whiteQwerty[i], x + (int) (keyW / 2.0) - 3, keyH - 8);
     }
 
-    String[] blackQwerty = {"S", "D", "", "G", "H", "J"};
-    for (int i = 0; i < blackKeyOffsets.length; i++) {
-      if (i < 6 && !blackQwerty[i].isEmpty()) {
-        int offsetKey = blackKeyOffsets[i];
-        int x = (int) (gridX + offsetKey * keyW);
-        int nextX = (int) (gridX + (offsetKey + 1) * keyW);
-        int kw = nextX - x;
-        int bx = x + kw - (int) (keyW / 3.0);
-        g2.setColor(new Color(0x55, 0x55, 0x5a));
-        g2.drawString(blackQwerty[i], bx + (int) (keyW / 4.0) - 2, (keyH / 2) - 3);
-      }
+    for (int i = 0; i < BLACK_QWERTY.length; i++) {
+      int offsetKey = BLACK_KEY_OFFSETS[i];
+      int x = (int) (gridX + offsetKey * keyW);
+      int nextX = (int) (gridX + (offsetKey + 1) * keyW);
+      int kw = nextX - x;
+      int bx = x + kw - (int) (keyW / 3.0);
+      g2.setColor(new Color(0x55, 0x55, 0x5a));
+      g2.drawString(BLACK_QWERTY[i], bx + (int) (keyW / 4.0) - 2, (keyH / 2) - 3);
     }
 
     g2.dispose();

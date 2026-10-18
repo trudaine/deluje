@@ -26,6 +26,9 @@ public class DelugeHwStatusPanel extends JPanel {
   private final MidiService midiService;
   private final JLabel label;
   private final LedIndicator led;
+  private final Timer heartbeatTimer;
+  private final Timer oledKeepAliveTimer;
+  private Timer timeoutTimer;
   private boolean connected = false;
 
   private long lastPingTime = 0;
@@ -54,7 +57,7 @@ public class DelugeHwStatusPanel extends JPanel {
               // A manual click is also a "reconnect" gesture: if the output port never opened
               // (e.g. the Deluge wasn't enumerable at startup), re-run the MIDI open before
               // pinging.
-              if (!midiService.isOutputConnected()) {
+              if (midiService != null && !midiService.isOutputConnected()) {
                 midiService.reconnect();
               }
               triggerPingTest();
@@ -76,15 +79,18 @@ public class DelugeHwStatusPanel extends JPanel {
         });
 
     // Start a recurring background heartbeat timer (every 4 seconds)
-    Timer heartbeatTimer = new Timer(4000, e -> triggerPingTest());
+    heartbeatTimer = new Timer(4000, e -> triggerPingTest());
     heartbeatTimer.start();
 
     // Start a recurring background OLED keep-alive timer (every 1.5 seconds)
-    Timer oledKeepAliveTimer =
+    oledKeepAliveTimer =
         new Timer(
             1500,
             e -> {
-              if (connected && midiService.getSysExManager().isOledStreamingEnabled()) {
+              if (connected
+                  && midiService != null
+                  && midiService.getSysExManager() != null
+                  && midiService.getSysExManager().isOledStreamingEnabled()) {
                 midiService.getSysExManager().startOledStreaming();
               }
             });
@@ -92,6 +98,31 @@ public class DelugeHwStatusPanel extends JPanel {
 
     // Trigger initial check immediately
     triggerPingTest();
+  }
+
+  @Override
+  public void addNotify() {
+    super.addNotify();
+    if (!heartbeatTimer.isRunning()) {
+      heartbeatTimer.start();
+    }
+    if (!oledKeepAliveTimer.isRunning()) {
+      oledKeepAliveTimer.start();
+    }
+  }
+
+  @Override
+  public void removeNotify() {
+    super.removeNotify();
+    heartbeatTimer.stop();
+    oledKeepAliveTimer.stop();
+    if (timeoutTimer != null) {
+      timeoutTimer.stop();
+    }
+  }
+
+  boolean isTimersRunning() {
+    return heartbeatTimer.isRunning() || oledKeepAliveTimer.isRunning();
   }
 
   /** Show the card push/pull popup on a platform popup-trigger (right-click). */
@@ -184,6 +215,9 @@ public class DelugeHwStatusPanel extends JPanel {
 
   /** Run a live ping test to the physical Deluge. */
   public void triggerPingTest() {
+    if (midiService == null || midiService.getSysExManager() == null) {
+      return;
+    }
     if (!midiService.getSysExManager().isOledStreamingEnabled()) {
       // Skip heartbeat pings during active file transfers to keep the MIDI channel 100% quiet
       return;
@@ -213,7 +247,10 @@ public class DelugeHwStatusPanel extends JPanel {
         });
 
     // Set a timeout check after 1.5 seconds
-    Timer timeoutTimer =
+    if (timeoutTimer != null) {
+      timeoutTimer.stop();
+    }
+    timeoutTimer =
         new Timer(
             1500,
             ev -> {
