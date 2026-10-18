@@ -1,13 +1,10 @@
 package org.deluge.ui;
 
 import java.awt.*;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -41,6 +38,7 @@ public class SynthPresetBrowserPanel extends JPanel {
 
   private final List<PresetEntry> allPresets = new ArrayList<>();
   private final List<String> categories = new ArrayList<>();
+  private boolean updatingCategories = false;
 
   public SynthPresetBrowserPanel(SynthTrackModel model, java.lang.Runnable onPresetLoaded) {
     this.model = model;
@@ -63,21 +61,38 @@ public class SynthPresetBrowserPanel extends JPanel {
             BorderFactory.createEmptyBorder(4, 8, 4, 8)));
     searchField.setToolTipText("Type to filter presets in real-time...");
 
-    // Add placeholder help
-    searchField.addKeyListener(
-        new KeyAdapter() {
-          @Override
-          public void keyReleased(KeyEvent e) {
-            filterPresets();
-          }
-        });
+    // Filter on any text edit (typing, paste, or programmatic setText)
+    searchField
+        .getDocument()
+        .addDocumentListener(
+            new javax.swing.event.DocumentListener() {
+              @Override
+              public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                filterPresets();
+              }
+
+              @Override
+              public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                filterPresets();
+              }
+
+              @Override
+              public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                filterPresets();
+              }
+            });
 
     // ── 2. Category Selector ──
     categoryCombo = new JComboBox<>();
     categoryCombo.setFont(new Font("SansSerif", Font.BOLD, 10));
     categoryCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     categoryCombo.setForeground(Color.WHITE);
-    categoryCombo.addActionListener(e -> filterPresets());
+    categoryCombo.addActionListener(
+        e -> {
+          if (!updatingCategories) {
+            filterPresets();
+          }
+        });
 
     JPanel filterPanel = new JPanel(new GridLayout(2, 1, 4, 4));
     filterPanel.setBackground(new Color(0x15, 0x15, 0x18));
@@ -134,14 +149,24 @@ public class SynthPresetBrowserPanel extends JPanel {
       scanFolderRecursive(synthsDir, synthsDir, uniqueCategories);
     }
 
-    // Sort categories
+    // Sort categories and presets deterministically
     List<String> sortedCats = new ArrayList<>(uniqueCategories);
-    Collections.sort(sortedCats);
+    sortedCats.sort(String::compareToIgnoreCase);
+    allPresets.sort(
+        (a, b) -> {
+          int cmp = a.name().compareToIgnoreCase(b.name());
+          return cmp != 0 ? cmp : a.category().compareToIgnoreCase(b.category());
+        });
 
-    categoryCombo.removeAllItems();
-    categoryCombo.addItem("📁 ALL CATEGORIES");
-    for (String cat : sortedCats) {
-      categoryCombo.addItem("🏷️ " + cat.toUpperCase());
+    updatingCategories = true;
+    try {
+      categoryCombo.removeAllItems();
+      categoryCombo.addItem("📁 ALL CATEGORIES");
+      for (String cat : sortedCats) {
+        categoryCombo.addItem("🏷️ " + cat.toUpperCase());
+      }
+    } finally {
+      updatingCategories = false;
     }
 
     filterPresets();
@@ -150,6 +175,7 @@ public class SynthPresetBrowserPanel extends JPanel {
   private void scanFolderRecursive(File root, File current, Set<String> uniqueCategories) {
     File[] files = current.listFiles();
     if (files == null) return;
+    java.util.Arrays.sort(files, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
 
     for (File f : files) {
       if (f.isDirectory()) {
@@ -175,7 +201,7 @@ public class SynthPresetBrowserPanel extends JPanel {
     String query = searchField.getText().trim().toLowerCase();
 
     int catSelIdx = categoryCombo.getSelectedIndex();
-    String selectedCat = "ALL";
+    String selectedCat = "all";
     if (catSelIdx > 0 && categoryCombo.getSelectedItem() != null) {
       selectedCat =
           categoryCombo.getSelectedItem().toString().replace("🏷️ ", "").trim().toLowerCase();
@@ -210,6 +236,18 @@ public class SynthPresetBrowserPanel extends JPanel {
     } catch (Exception ex) {
       LOGGER.warning("[PresetBrowser] Failed to load preset: " + ex.getMessage());
     }
+  }
+
+  JTextField getSearchFieldForTest() {
+    return searchField;
+  }
+
+  JComboBox<String> getCategoryComboForTest() {
+    return categoryCombo;
+  }
+
+  JList<PresetEntry> getPresetListForTest() {
+    return presetList;
   }
 
   /** Custom JList cell renderer for a premium dark synth aesthetic. */

@@ -21,6 +21,7 @@ public class MidiLearnPanel extends JPanel {
 
   private String activeLearningParam = null;
   private JToggleButton activeLearningButton = null;
+  private MidiInputRouter testRouter = null;
 
   public MidiLearnPanel() {
     setLayout(new BorderLayout(0, 10));
@@ -105,7 +106,43 @@ public class MidiLearnPanel extends JPanel {
     refreshTimer.start();
   }
 
+  @Override
+  public void addNotify() {
+    super.addNotify();
+    if (!refreshTimer.isRunning()) {
+      refreshTimer.start();
+    }
+  }
+
+  @Override
+  public void removeNotify() {
+    refreshTimer.stop();
+    if (activeLearningButton != null) {
+      stopLearning(activeLearningButton, "LEARN", true);
+    }
+    super.removeNotify();
+  }
+
+  void setRouterForTest(MidiInputRouter router) {
+    this.testRouter = router;
+  }
+
+  JToggleButton getLearnButtonForTest(int rowIndex) {
+    return rowPanels.get(rowIndex).learnBtn;
+  }
+
+  JButton getClearButtonForTest(int rowIndex) {
+    return rowPanels.get(rowIndex).clearBtn;
+  }
+
+  boolean isRefreshTimerRunningForTest() {
+    return refreshTimer.isRunning();
+  }
+
   private MidiInputRouter getRouter() {
+    if (testRouter != null) {
+      return testRouter;
+    }
     if (SwingDelugeApp.mainInstance != null) {
       MidiService service = SwingDelugeApp.mainInstance.getMidiService();
       if (service != null) {
@@ -127,7 +164,7 @@ public class MidiLearnPanel extends JPanel {
 
         // If this parameter was actively learning, stop learning now!
         if (rp.target.globalName.equals(activeLearningParam)) {
-          stopLearning(rp.learnBtn, "LEARNED (CC " + cc + ")");
+          stopLearning(rp.learnBtn, "LEARNED (CC " + cc + ")", false);
         }
       } else {
         if (!rp.target.globalName.equals(activeLearningParam)) {
@@ -146,7 +183,7 @@ public class MidiLearnPanel extends JPanel {
 
     // Reset any currently active learn toggle button
     if (activeLearningButton != null && activeLearningButton != btn) {
-      stopLearning(activeLearningButton, "LEARN");
+      stopLearning(activeLearningButton, "LEARN", false);
     }
 
     activeLearningParam = globalName;
@@ -158,7 +195,13 @@ public class MidiLearnPanel extends JPanel {
     router.startLearning(globalName);
   }
 
-  private void stopLearning(JToggleButton btn, String text) {
+  private void stopLearning(JToggleButton btn, String text, boolean cancelRouter) {
+    if (cancelRouter) {
+      MidiInputRouter router = getRouter();
+      if (router != null) {
+        router.startLearning(null);
+      }
+    }
     activeLearningParam = null;
     activeLearningButton = null;
     btn.setText(text);
@@ -222,7 +265,7 @@ public class MidiLearnPanel extends JPanel {
             if (learnBtn.isSelected()) {
               startLearning(learnBtn, target.globalName);
             } else {
-              stopLearning(learnBtn, "LEARN");
+              stopLearning(learnBtn, "LEARN", true);
             }
           });
       actions.add(learnBtn);
@@ -238,6 +281,9 @@ public class MidiLearnPanel extends JPanel {
               + " and restores its default state.");
       clearBtn.addActionListener(
           e -> {
+            if (target.globalName.equals(activeLearningParam)) {
+              stopLearning(learnBtn, "LEARN", true);
+            }
             MidiInputRouter router = getRouter();
             if (router != null) {
               router.clearMapping(target.globalName);

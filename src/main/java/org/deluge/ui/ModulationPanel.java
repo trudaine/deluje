@@ -152,7 +152,8 @@ public class ModulationPanel extends JPanel {
       knobCombo.addActionListener(
           ev -> {
             String sel = (String) knobCombo.getSelectedItem();
-            model.getModulation().setModKnob(ki, new ModKnob(sel, "NONE"));
+            ModKnob prev = model.getModulation().getModKnobs().get(ki);
+            model.getModulation().setModKnob(ki, new ModKnob(sel, prev.patchSource()));
           });
       kp.add(knobCombo, BorderLayout.CENTER);
       knobGrid.add(kp);
@@ -211,7 +212,15 @@ public class ModulationPanel extends JPanel {
 
   private void syncModulationsLive() {
     // Model patch cables are the source of truth; the dialog's live-apply timer re-maps them
-    // onto the running sound (FirmwareFactory.applyModelToLiveSound), so nothing else to do.
+    // onto the running sound (FirmwareFactory.applyModelToLiveSound). Repaint the matrix so
+    // edits in the right-hand cable list are reflected immediately.
+    if (matrix != null) {
+      matrix.repaint();
+    }
+  }
+
+  ModulationMatrixComponent getMatrixForTest() {
+    return matrix;
   }
 
   /** Rebuilds the custom visual cable rows in place. */
@@ -326,10 +335,11 @@ public class ModulationPanel extends JPanel {
             PatchCable old = model.getModulation().getPatchCables().get(idx);
             PatchCable.Polarity newPol =
                 polBtn.isSelected() ? PatchCable.Polarity.BIPOLAR : PatchCable.Polarity.UNIPOLAR;
+            float newAmt = (!polBtn.isSelected() && old.amount() < 0f) ? 0f : old.amount();
             model
                 .getModulation()
                 .getPatchCables()
-                .set(idx, new PatchCable(old.source(), old.destination(), old.amount(), newPol));
+                .set(idx, new PatchCable(old.source(), old.destination(), newAmt, newPol));
             syncModulationsLive();
 
             styleButton(
@@ -340,11 +350,11 @@ public class ModulationPanel extends JPanel {
             if (polBtn.isSelected()) {
               amtSlider.setMinimum(-100);
             } else {
-              amtSlider.setMinimum(0);
               if (amtSlider.getValue() < 0) {
                 amtSlider.setValue(0);
                 amtVal.setText("+0%");
               }
+              amtSlider.setMinimum(0);
             }
           });
 
