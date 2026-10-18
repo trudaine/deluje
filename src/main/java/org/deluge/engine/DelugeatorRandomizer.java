@@ -343,11 +343,11 @@ public class DelugeatorRandomizer {
       model.setEqTreble(getTriangular(-12.0f, 12.0f, 0.0f, amt));
     }
 
-    // 11. Compressor
+    // 11. Compressor (C sync.h:22-35, MAX_SYNC_LEVEL = 9; mod_controllable_audio.cpp:903-906)
     if (settings.compressorChecked) {
       double amt = settings.compressorAmount;
       model.setCompressorThreshold(getTriangular(0.0f, 1.0f, 0.0f, amt));
-      model.setCompressorSyncLevel((int) getTriangular(0, 100, 0, amt));
+      model.setCompressorSyncLevel((int) getTriangular(0, 9, 0, amt));
     }
 
     // 12. Arpeggiator

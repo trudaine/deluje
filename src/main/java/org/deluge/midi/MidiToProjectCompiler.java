@@ -182,6 +182,7 @@ public class MidiToProjectCompiler {
 
   private static ClipModel compileNotesToClip(
       List<NoteEvent> notes, int resolution, String clipName) {
+    int safeResolution = Math.max(1, resolution);
     // Determine unique pitches for row mappings (LinkedHashSet preserves insertion order, O(1) add)
     LinkedHashSet<Integer> uniquePitchSet = new LinkedHashSet<>();
     long maxEndTick = 0;
@@ -199,7 +200,7 @@ public class MidiToProjectCompiler {
     int rowCount = uniquePitches.size();
 
     // Quantize length to 16th note steps (4 steps per beat)
-    double totalBeats = (double) maxEndTick / resolution;
+    double totalBeats = (double) maxEndTick / safeResolution;
     int stepCount = (int) Math.round(totalBeats * 4);
     if (stepCount <= 0) stepCount = 16;
     // Round to nearest multiple of 16 for standard bar alignment
@@ -208,29 +209,38 @@ public class MidiToProjectCompiler {
     ClipModel clip = new ClipModel(clipName, rowCount, stepCount);
 
     Map<Integer, Integer> pitchToRow = new HashMap<>();
+    List<List<NoteModel>> rawNotesByRow = new ArrayList<>(rowCount);
     for (int r = 0; r < rowCount; r++) {
       int pitch = uniquePitches.get(r);
       clip.setRowYNote(r, pitch);
       pitchToRow.put(pitch, r);
-      clip.setRawNoteEvents(r, new ArrayList<>());
+      rawNotesByRow.add(new ArrayList<>());
     }
 
-    // Populate note events into high-res and quantized grids
+    // 1. Populate the quantized 16th-note visual grid first, then install high-res NoteModel
+    // events afterwards so Java's ClipModel.setStep() side effect does not duplicate off-grid notes
+    // or overwrite on-grid note lengths.
     for (NoteEvent ne : notes) {
       int r = pitchToRow.get(ne.pitch);
 
-      // 1. High-Res Path (96 PPQ ticks in ClipModel)
-      int hrStart = (int) Math.round(((double) ne.startTick / resolution) * 96);
-      int hrDur = (int) Math.round(((double) ne.durationTicks / resolution) * 96);
-      float normVel = ne.velocity / 127.0f;
-      NoteModel hrn = new NoteModel(hrStart, hrDur, normVel, 1.0f, 0);
-      clip.getRawNoteEvents(r).add(hrn);
+      int hrStart = (int) Math.round(((double) ne.startTick / safeResolution) * 96);
+      int hrDur = Math.max(1, (int) Math.round(((double) ne.durationTicks / safeResolution) * 96));
+      float normVel = Math.max(0.0f, Math.min(1.0f, ne.velocity / 127.0f));
+      float gateSteps = (float) Math.max(0.1, ((double) ne.durationTicks / safeResolution) * 4.0);
 
-      // 2. Quantized Grid Path (16th note steps)
-      int stepIdx = (int) Math.round(((double) ne.startTick / resolution) * 4);
+      int stepIdx = (int) Math.round(((double) ne.startTick / safeResolution) * 4);
       if (stepIdx >= 0 && stepIdx < stepCount) {
-        clip.setStep(r, stepIdx, StepData.of(true, normVel, StepData.DEFAULT_CLICK_GATE, 1.0f, 60));
+        clip.setStep(r, stepIdx, StepData.of(true, normVel, gateSteps, 1.0f, ne.pitch));
       }
+
+      rawNotesByRow.get(r).add(new NoteModel(hrStart, hrDur, normVel, 1.0f, 0));
+    }
+
+    // 2. Install high-res 96-PPQ notes sorted by tick position per row.
+    for (int r = 0; r < rowCount; r++) {
+      List<NoteModel> rowNotes = rawNotesByRow.get(r);
+      rowNotes.sort(java.util.Comparator.comparingInt(NoteModel::getPos));
+      clip.setRawNoteEvents(r, rowNotes);
     }
 
     return clip;
@@ -249,26 +259,29 @@ public class MidiToProjectCompiler {
       int command = sm.getCommand();
       int pitch = sm.getData1();
       int velocity = sm.getData2();
+      // Key by (channel, pitch) so multi-channel Format 0 tracks do not collide on identical
+      // pitches
+      int noteKey = (sm.getChannel() << 8) | pitch;
 
       if (command == ShortMessage.NOTE_ON && velocity > 0) {
-        // Note On — if this pitch is already sounding (legato overlap), close the previous note
-        // first
-        if (activeStarts.containsKey(pitch)) {
-          long prevStart = activeStarts.remove(pitch);
-          ShortMessage prevOnMsg = activeNotes.remove(pitch);
+        // Note On — if this channel+pitch is already sounding (legato overlap), close the previous
+        // note first
+        if (activeStarts.containsKey(noteKey)) {
+          long prevStart = activeStarts.remove(noteKey);
+          ShortMessage prevOnMsg = activeNotes.remove(noteKey);
           long prevDuration = event.getTick() - prevStart;
           if (prevDuration <= 0) prevDuration = 1;
           notes.add(new NoteEvent(pitch, prevStart, prevDuration, prevOnMsg.getData2()));
         }
-        activeNotes.put(pitch, sm);
-        activeStarts.put(pitch, event.getTick());
+        activeNotes.put(noteKey, sm);
+        activeStarts.put(noteKey, event.getTick());
       } else if (command == ShortMessage.NOTE_OFF
           || (command == ShortMessage.NOTE_ON && velocity == 0)) {
         // Note Off
-        if (activeNotes.containsKey(pitch)) {
-          long startTick = activeStarts.remove(pitch);
+        if (activeNotes.containsKey(noteKey)) {
+          long startTick = activeStarts.remove(noteKey);
           long endTick = event.getTick();
-          ShortMessage onMsg = activeNotes.remove(pitch);
+          ShortMessage onMsg = activeNotes.remove(noteKey);
           long duration = endTick - startTick;
           if (duration <= 0) duration = 1; // safety minimum
 
@@ -289,7 +302,9 @@ public class MidiToProjectCompiler {
           byte[] data = mm.getData();
           if (data.length >= 3) {
             int tempo = ((data[0] & 0xFF) << 16) | ((data[1] & 0xFF) << 8) | (data[2] & 0xFF);
-            return 60_000_000.0f / tempo;
+            if (tempo > 0) {
+              return 60_000_000.0f / tempo;
+            }
           }
         }
       }
