@@ -843,6 +843,22 @@ public class ClipModel extends TimelineCounter {
         row.setPosIfIndependent(lastProcessedPos, sequenceDirectionMode);
       }
     }
+    // NoteRow::sequenced is playback state, not data: keep it across the restore so the sounding
+    // note still gets its note-off; a row the restore drops or re-pitches stops its note now (C
+    // stopCurrentlyPlayingNote before a row goes away, note_row.cpp:1869-1877).
+    for (Map.Entry<Integer, NoteRowModel> e : liveRows.entrySet()) {
+      NoteRowModel live = e.getValue();
+      if (!live.isSequenced()) {
+        continue;
+      }
+      NoteRowModel row = this.noteRows.get(e.getKey());
+      if (row != null && row.getPitch() == live.getPitch()) {
+        row.copySequencedFrom(live);
+      } else {
+        releaseNote(live.getPitch());
+        live.stopCurrentlyPlayingNoteSilently();
+      }
+    }
     setPlayDirection(src.playDirection);
     expectEvent();
   }

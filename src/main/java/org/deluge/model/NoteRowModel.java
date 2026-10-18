@@ -623,6 +623,10 @@ public class NoteRowModel {
     sequenced = false;
   }
 
+  void copySequencedFrom(NoteRowModel live) {
+    this.sequenced = live.sequenced;
+  }
+
   /** Called when a pending note-on fails its play conditions (instrument_clip.cpp:901, 905). */
   void clearSequenced() {
     sequenced = false;
