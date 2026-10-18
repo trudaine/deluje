@@ -62,9 +62,9 @@ public class Kit extends GlobalEffectable {
       return;
     }
     for (Sound drum : drums) {
-      // Each drum is a Sound object, which has its own voices, envelopes, and filter.
-      // We render each drum row using its own renderOutput, summing directly into the Kit's buffer.
-      drum.renderOutput(buffer, numSamples, reverbBuffer);
+      // C kit.cpp:582 / sound.cpp:2630 — each drum renders into the shared Kit output and reverb
+      // buffers by summing, not overwriting.
+      drum.renderOutputSumming(buffer, numSamples, reverbBuffer);
     }
   }
 }

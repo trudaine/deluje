@@ -58,15 +58,15 @@ public class SincInterpolator {
     // C:15-21 — compute strength2 (fractional part for interpolation)
     int rshifted;
     if (rshiftAmount >= 0) {
-      rshifted = oscPos >> rshiftAmount;
+      rshifted = oscPos >>> rshiftAmount; // C interpolate.cpp:9,17 — oscPos is uint32_t
     } else {
       rshifted = oscPos << (-rshiftAmount);
     }
     short strength2 = (short) (rshifted & 0x7FFF); // int16_t max = 32767
 
-    // C:25 — which phase in the kernel table (0..16)
+    // C interpolate.cpp:25 — which phase in the kernel table (0..16); oscPos is uint32_t
     int progressSmall =
-        oscPos >> (24 + K_INTERPOLATION_MAX_NUM_SAMPLES_MAGNITUDE - NUM_BITS_IN_TABLE_SIZE);
+        oscPos >>> (24 + K_INTERPOLATION_MAX_NUM_SAMPLES_MAGNITUDE - NUM_BITS_IN_TABLE_SIZE);
 
     // C:27-35 — interpolate kernel between two adjacent phases. kernelVector is Argon<int16_t>, so
     // the
@@ -200,7 +200,7 @@ public class SincInterpolator {
 
   /** C: interpolate.cpp:70-80 — cheap linear interpolation using most recent 2 samples. */
   public void interpolateLinear(int channels, int phase, int[] out) {
-    short strength2 = (short) (phase >> 9); // C:72
+    short strength2 = (short) (phase >>> 9); // C interpolate.cpp:70,72 — phase is uint32_t
     short strength1 = (short) (0x7FFF - strength2); // C:73 — inverse
 
     int l = (bufferL[1] * strength1) + (bufferL[0] * strength2); // C:75
