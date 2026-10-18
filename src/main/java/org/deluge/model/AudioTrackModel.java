@@ -20,6 +20,8 @@ public class AudioTrackModel extends TrackModel {
     private int startSamplePos;
     private int endSamplePos;
     private float attack = 0.0f;
+    private int attackRaw = Integer.MIN_VALUE; // C audio_clip.cpp:63 — default instant attack
+    private boolean linearInterpolation = false;
     private int priority = 1;
     private boolean pitchSpeedIndependent = false;
     private boolean overdubsShouldCloneAudioTrack = false;
@@ -127,7 +129,40 @@ public class AudioTrackModel extends TrackModel {
     }
 
     public void setAttack(float v) {
-      this.attack = v;
+      float clamped = Math.max(0.0f, Math.min(1.0f, v));
+      this.attack = clamped;
+      this.attackRaw =
+          clamped <= 0.0f
+              ? Integer.MIN_VALUE
+              : (int)
+                  Math.round(
+                      clamped * ((double) Integer.MAX_VALUE - (double) Integer.MIN_VALUE)
+                          + (double) Integer.MIN_VALUE);
+    }
+
+    /** C AudioClip::attack (audio_clip.h:110, audio_clip.cpp:63, 1071, 1161). */
+    public int getAttackRaw() {
+      return attackRaw;
+    }
+
+    public void setAttackRaw(int raw) {
+      this.attackRaw = raw;
+      this.attack =
+          (float)
+              (((double) raw - (double) Integer.MIN_VALUE)
+                  / ((double) Integer.MAX_VALUE - (double) Integer.MIN_VALUE));
+    }
+
+    /**
+     * C AudioClip::sampleControls.interpolationMode == InterpolationMode::LINEAR
+     * (audio_clip.cpp:1065-1067, 1154-1158).
+     */
+    public boolean isLinearInterpolation() {
+      return linearInterpolation;
+    }
+
+    public void setLinearInterpolation(boolean linearInterpolation) {
+      this.linearInterpolation = linearInterpolation;
     }
 
     public int getPriority() {

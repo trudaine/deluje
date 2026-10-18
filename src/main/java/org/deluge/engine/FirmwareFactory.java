@@ -172,6 +172,8 @@ public class FirmwareFactory {
     if (model.getAudioClips() != null && !model.getAudioClips().isEmpty()) {
       AudioTrackModel.AudioClip clip = model.getAudioClips().get(0);
       out.unpatchedPan = bipolarUnitToParam(clip.getPan());
+      out.setAttackRaw(clip.getAttackRaw());
+      out.setLinearInterpolation(clip.isLinearInterpolation());
       String path = clip.getFilePath();
       if (path != null && !path.isEmpty()) {
         File f = new File(path);

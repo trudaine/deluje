@@ -1648,7 +1648,12 @@ public class ProjectSerializer {
     }
     writer.writeAttribute("startSamplePos", clip.getStartSamplePos(), false);
     writer.writeAttribute("endSamplePos", clip.getEndSamplePos(), false);
-    writer.writeAttribute("attack", DelugeHexMapper.floatToHex(clip.getAttack()), false);
+    // C audio_clip.cpp:1065-1067 — written only when linear interpolation is active.
+    if (clip.isLinearInterpolation()) {
+      writer.writeAttribute("linearInterpolation", 1, false);
+    }
+    // C audio_clip.cpp:1071 — writer.writeAttribute("attack", attack) writes signed int32 decimal.
+    writer.writeAttribute("attack", clip.getAttackRaw(), false);
     writer.writeAttribute("priority", clip.getPriority(), false);
     writer.writeAttribute(
         "pitchSpeedIndependent", clip.isPitchSpeedIndependent() ? "true" : "false", false);
