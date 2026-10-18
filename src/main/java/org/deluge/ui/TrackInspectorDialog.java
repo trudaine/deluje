@@ -47,9 +47,11 @@ public class TrackInspectorDialog extends JDialog {
 
     org.deluge.model.TrackModel currentTrack =
         (trackIndex < tracks.size()) ? tracks.get(trackIndex) : null;
-    org.deluge.model.ClipModel firstClip =
-        (currentTrack != null && !currentTrack.getClips().isEmpty())
-            ? currentTrack.getClips().get(0)
+    org.deluge.model.ClipModel activeClip =
+        currentTrack != null
+            ? (currentTrack.getActiveClip() != null
+                ? currentTrack.getActiveClip()
+                : (!currentTrack.getClips().isEmpty() ? currentTrack.getClips().get(0) : null))
             : null;
     boolean isSynth = currentTrack instanceof org.deluge.model.SynthTrackModel;
     boolean isKit = currentTrack instanceof org.deluge.model.KitTrackModel;
@@ -119,8 +121,11 @@ public class TrackInspectorDialog extends JDialog {
     gcm.gridx = 1;
     org.deluge.model.SynthTrackModel synthTrack =
         (currentTrack instanceof org.deluge.model.SynthTrackModel st) ? st : null;
-    volumeSlider =
-        new JSlider(0, 100, synthTrack != null ? (int) (synthTrack.getVolume() * 100) : 80);
+    int initVol =
+        synthTrack != null
+            ? Math.max(0, Math.min(100, Math.round(synthTrack.getVolume() * 100f)))
+            : 80;
+    volumeSlider = new JSlider(0, 100, initVol);
     volumeSlider.setPreferredSize(new Dimension(340, 36));
     DarkSliderUI.styleSlider(volumeSlider, new Color(0xff, 0xb3, 0x00));
     volumeSlider.setToolTipText("Adjust master channel volume level (0-100%)");
@@ -141,8 +146,11 @@ public class TrackInspectorDialog extends JDialog {
     pL.setForeground(Color.WHITE);
     p3.add(pL, gcm);
     gcm.gridx = 1;
-    panSlider =
-        new JSlider(0, 100, synthTrack != null ? (int) ((synthTrack.getPan() + 1f) * 50) : 50);
+    int initPan =
+        synthTrack != null
+            ? Math.max(0, Math.min(100, Math.round((synthTrack.getPan() + 1f) * 50f)))
+            : 50;
+    panSlider = new JSlider(0, 100, initPan);
     panSlider.setPreferredSize(new Dimension(340, 36));
     DarkSliderUI.styleSlider(panSlider, new Color(0x00, 0xff, 0xcc));
     panSlider.setToolTipText("Adjust stereo pan position (Left-Right)");
@@ -168,8 +176,11 @@ public class TrackInspectorDialog extends JDialog {
     JLabel lRatio = new JLabel("Modulator Ratio (Harmonics):");
     lRatio.setFont(new Font("SansSerif", Font.BOLD, 13));
     lRatio.setForeground(Color.WHITE);
-    ratioSlider =
-        new JSlider(25, 400, synthTrack != null ? (int) (synthTrack.getFmRatio() * 100) : 100);
+    int initRatio =
+        synthTrack != null
+            ? Math.max(25, Math.min(400, Math.round(synthTrack.getFmRatio() * 100f)))
+            : 100;
+    ratioSlider = new JSlider(25, 400, initRatio);
     ratioSlider.setPreferredSize(new Dimension(300, 36));
     DarkSliderUI.styleSlider(ratioSlider, new Color(0xff, 0x99, 0x33));
     ratioSlider.setToolTipText("FM modulator/carrier frequency ratio (0.25–4.00)");
@@ -205,13 +216,13 @@ public class TrackInspectorDialog extends JDialog {
     JComboBox<String> leftColCombo = new JComboBox<>(colActions);
     leftColCombo.setFont(new Font("SansSerif", Font.PLAIN, 12));
     leftColCombo.setPreferredSize(new Dimension(220, 30));
-    if (firstClip != null) {
-      leftColCombo.setSelectedItem(firstClip.getLeftCol());
+    if (activeClip != null) {
+      leftColCombo.setSelectedItem(activeClip.getLeftCol());
     }
     leftColCombo.addActionListener(
         ev -> {
-          if (firstClip != null) {
-            firstClip.setLeftCol((String) leftColCombo.getSelectedItem());
+          if (activeClip != null) {
+            activeClip.setLeftCol((String) leftColCombo.getSelectedItem());
           }
         });
     p5.add(leftColCombo, gcS);
@@ -227,13 +238,13 @@ public class TrackInspectorDialog extends JDialog {
     JComboBox<String> rightColCombo = new JComboBox<>(colActions);
     rightColCombo.setFont(new Font("SansSerif", Font.PLAIN, 12));
     rightColCombo.setPreferredSize(new Dimension(220, 30));
-    if (firstClip != null) {
-      rightColCombo.setSelectedItem(firstClip.getRightCol());
+    if (activeClip != null) {
+      rightColCombo.setSelectedItem(activeClip.getRightCol());
     }
     rightColCombo.addActionListener(
         ev -> {
-          if (firstClip != null) {
-            firstClip.setRightCol((String) rightColCombo.getSelectedItem());
+          if (activeClip != null) {
+            activeClip.setRightCol((String) rightColCombo.getSelectedItem());
           }
         });
     p5.add(rightColCombo, gcS);
@@ -244,9 +255,12 @@ public class TrackInspectorDialog extends JDialog {
           if (trackIndex < tracks.size()) {
             org.deluge.model.TrackModel tModel = tracks.get(trackIndex);
             if (!tModel.getClips().isEmpty()) {
-              // Deep copy — adding the same ClipModel reference made "clone" edits mutate the
-              // original clip too.
-              org.deluge.model.ClipModel src = tModel.getClips().get(0);
+              // Deep copy the active clip (falling back to clip 0) — adding the same ClipModel
+              // reference made "clone" edits mutate the original clip too.
+              org.deluge.model.ClipModel src =
+                  tModel.getActiveClip() != null
+                      ? tModel.getActiveClip()
+                      : tModel.getClips().get(0);
               tModel.addClip(src.deepCopy(src.getName() + " (variant)"));
             }
           }
@@ -287,10 +301,19 @@ public class TrackInspectorDialog extends JDialog {
                           for (org.deluge.model.ClipModel cm : oldTrack.getClips()) {
                             newTrack.addClip(cm);
                           }
+                          newTrack.setActiveClipIndex(oldTrack.getActiveClipIndex());
+                          newTrack.setMuted(oldTrack.isMuted());
+                          newTrack.setMutedInArrangement(oldTrack.isMutedInArrangement());
+                          newTrack.setSoloingInArrangement(oldTrack.isSoloingInArrangement());
                           newTrack.setColourHex(oldTrack.getColourHex());
+                          newTrack.setColourOffset(oldTrack.getColourOffset());
                           javax.swing.SwingUtilities.invokeLater(
                               () -> {
                                 tracks.set(trackIndex, newTrack);
+                                if (SwingDelugeApp.mainInstance != null) {
+                                  SwingDelugeApp.mainInstance.pushModelToBridge();
+                                  SwingDelugeApp.mainInstance.fireProjectChanged();
+                                }
                                 dispose();
                                 onRefresh.run();
                               });

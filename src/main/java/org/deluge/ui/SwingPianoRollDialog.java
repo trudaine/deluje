@@ -259,6 +259,116 @@ public class SwingPianoRollDialog extends JDialog {
   }
 
   // ── MIDI File Importer ──
+  static List<MidiNoteEvent> extractMidiNotes(Sequence seq) {
+    int resolution = seq.getResolution();
+    double ticksPerStep = resolution / 4.0; // 16th notes
+
+    Map<Integer, Long> activeNotes = new HashMap<>();
+    Map<Integer, Integer> activeVelocities = new HashMap<>();
+    List<MidiNoteEvent> importedNotes = new ArrayList<>();
+
+    for (Track track : seq.getTracks()) {
+      for (int i = 0; i < track.size(); i++) {
+        MidiEvent event = track.get(i);
+        MidiMessage msg = event.getMessage();
+        if (msg instanceof ShortMessage sm) {
+          int command = sm.getCommand();
+          int key = sm.getData1();
+          int velocity = sm.getData2();
+
+          if (command == ShortMessage.NOTE_ON && velocity > 0) {
+            activeNotes.put(key, event.getTick());
+            activeVelocities.put(key, velocity);
+          } else if (command == ShortMessage.NOTE_OFF
+              || (command == ShortMessage.NOTE_ON && velocity == 0)) {
+            Long startTick = activeNotes.remove(key);
+            Integer storedVel = activeVelocities.remove(key);
+            int vel = storedVel != null ? storedVel : velocity;
+            if (startTick != null) {
+              double startStep = startTick / ticksPerStep;
+              double endStep = event.getTick() / ticksPerStep;
+              double duration = endStep - startStep;
+              if (duration <= 0.0) duration = 1.0;
+              importedNotes.add(new MidiNoteEvent(key, startStep, duration, vel / 127.0f));
+            }
+          }
+        }
+      }
+    }
+    return importedNotes;
+  }
+
+  static void applyImportedMidiNotes(
+      List<MidiNoteEvent> importedNotes,
+      ClipModel clipModel,
+      BridgeContract bridge,
+      int baseTrackId) {
+    int stepLimit = clipModel.getStepCount();
+    int rowLimit = clipModel.getRowCount();
+
+    // Clear existing steps in model & bridge first
+    for (int r = 0; r < rowLimit; r++) {
+      int engineRow = baseTrackId + r;
+      for (int s = 0; s < stepLimit; s++) {
+        if (bridge != null) {
+          bridge.setStep(engineRow, s, false);
+        }
+        clipModel.setStep(r, s, StepData.empty());
+      }
+    }
+    clipModel.getNoteRowsMap().clear();
+
+    // Map imported notes onto the grid
+    for (MidiNoteEvent ne : importedNotes) {
+      int step = (int) Math.floor(ne.startStep);
+      if (step < 0 || step >= stepLimit || ne.pitch < 0 || ne.pitch >= 128) {
+        continue;
+      }
+      int row = -1;
+      if (rowLimit == 128) {
+        row = 127 - ne.pitch;
+        clipModel.getOrCreateRow(row).setPitch(ne.pitch);
+      } else {
+        for (int r = 0; r < rowLimit; r++) {
+          if (clipModel.getRowYNote(r) == ne.pitch && !clipModel.getStep(r, step).active()) {
+            row = r;
+            break;
+          }
+        }
+        if (row < 0) {
+          for (int r = 0; r < rowLimit; r++) {
+            if (clipModel.getRowYNote(r) < 0 && !clipModel.getStep(r, step).active()) {
+              row = r;
+              clipModel.getOrCreateRow(row).setPitch(ne.pitch);
+              break;
+            }
+          }
+        }
+      }
+      if (row < 0 || row >= rowLimit) {
+        continue;
+      }
+
+      float fill = (float) (ne.startStep - step);
+      float gate = (float) ne.duration;
+      int engineRow = baseTrackId + row;
+
+      // Apply to engine bridge
+      if (bridge != null) {
+        bridge.setStep(engineRow, step, true);
+        bridge.setVelocity(engineRow, step, ne.velocity);
+        bridge.setGate(engineRow, step, gate);
+        bridge.setStepFill(engineRow, step, 0.0f);
+        bridge.setStepNudge(engineRow, step, fill);
+        bridge.setPitch(engineRow, step, ne.pitch);
+      }
+
+      // Apply to model
+      StepData stepData = new StepData(true, ne.velocity, gate, 1.0f, ne.pitch, 0, 0.0f, fill);
+      clipModel.setStep(row, step, stepData);
+    }
+  }
+
   private void handleMidiImport() {
     JFileChooser chooser = new JFileChooser();
     chooser.setDialogTitle("Select Standard MIDI File");
@@ -272,43 +382,7 @@ public class SwingPianoRollDialog extends JDialog {
     File file = chooser.getSelectedFile();
     try {
       Sequence seq = MidiSystem.getSequence(file);
-      int resolution = seq.getResolution();
-      double ticksPerStep = resolution / 4.0; // 16th notes
-
-      // Temporary map to track active note-on tick times
-      Map<Integer, Long> activeNotes = new HashMap<>();
-      Map<Integer, Integer> activeVelocities = new HashMap<>();
-
-      // Scan all tracks, extract notes
-      List<MidiNoteEvent> importedNotes = new ArrayList<>();
-
-      for (Track track : seq.getTracks()) {
-        for (int i = 0; i < track.size(); i++) {
-          MidiEvent event = track.get(i);
-          MidiMessage msg = event.getMessage();
-          if (msg instanceof ShortMessage sm) {
-            int command = sm.getCommand();
-            int key = sm.getData1();
-            int velocity = sm.getData2();
-
-            if (command == ShortMessage.NOTE_ON && velocity > 0) {
-              activeNotes.put(key, event.getTick());
-              activeVelocities.put(key, velocity);
-            } else if (command == ShortMessage.NOTE_OFF
-                || (command == ShortMessage.NOTE_ON && velocity == 0)) {
-              Long startTick = activeNotes.remove(key);
-              Integer vel = activeNotes.containsKey(key) ? activeVelocities.remove(key) : velocity;
-              if (startTick != null) {
-                double startStep = startTick / ticksPerStep;
-                double endStep = event.getTick() / ticksPerStep;
-                double duration = endStep - startStep;
-                if (duration <= 0.0) duration = 1.0;
-                importedNotes.add(new MidiNoteEvent(key, startStep, duration, vel / 127.0f));
-              }
-            }
-          }
-        }
-      }
+      List<MidiNoteEvent> importedNotes = extractMidiNotes(seq);
 
       if (importedNotes.isEmpty()) {
         JOptionPane.showMessageDialog(
@@ -331,45 +405,9 @@ public class SwingPianoRollDialog extends JDialog {
         return;
       }
 
-      // Overwrite local clip model and bridge
-      int stepLimit = clipModel.getStepCount();
+      applyImportedMidiNotes(importedNotes, clipModel, bridge, baseTrackId);
 
-      // Clear existing steps in model & bridge first
-      for (int r = 0; r < 128; r++) {
-        int engineRow = baseTrackId + r;
-        for (int s = 0; s < stepLimit; s++) {
-          bridge.setStep(engineRow, s, false);
-          clipModel.setStep(r, s, StepData.empty());
-        }
-      }
-
-      // Map imported notes onto the grid
-      for (MidiNoteEvent ne : importedNotes) {
-        int step = (int) Math.floor(ne.startStep);
-        if (step < 0 || step >= stepLimit) {
-          continue; // out of clip range
-        }
-        int row = 127 - ne.pitch;
-        if (row < 0 || row >= 128) {
-          continue;
-        }
-
-        float fill = (float) (ne.startStep - step);
-        float gate = (float) ne.duration;
-        int engineRow = baseTrackId + row;
-
-        // Apply to engine bridge
-        bridge.setStep(engineRow, step, true);
-        bridge.setVelocity(engineRow, step, ne.velocity);
-        bridge.setGate(engineRow, step, gate);
-        bridge.setStepFill(engineRow, step, 0.0f);
-        bridge.setStepNudge(engineRow, step, fill);
-
-        // Apply to model
-        StepData stepData = new StepData(true, ne.velocity, gate, 1.0f, ne.pitch, 0, 0.0f, fill);
-        clipModel.setStep(row, step, stepData);
-      }
-
+      fireProjectChanged();
       gridPanel.repaint();
       updateSizes();
       JOptionPane.showMessageDialog(
@@ -388,7 +426,7 @@ public class SwingPianoRollDialog extends JDialog {
     }
   }
 
-  private static class MidiNoteEvent {
+  static class MidiNoteEvent {
     final int pitch;
     final double startStep;
     final double duration;
@@ -890,7 +928,7 @@ public class SwingPianoRollDialog extends JDialog {
       Color accent = ThemeManager.getPrimaryAccent();
       Color glowFill = new Color(accent.getRed(), accent.getGreen(), accent.getBlue(), 170);
 
-      for (int r = 0; r < 128; r++) {
+      for (int r = 0; r < clipModel.getRowCount(); r++) {
         for (int s = 0; s < steps; s++) {
           StepData note = clipModel.getStep(r, s);
           if (note.active()) {
@@ -1003,7 +1041,7 @@ public class SwingPianoRollDialog extends JDialog {
               int stepIdx = (e.getX() - 5) / stepWidth;
               if (stepIdx >= 0 && stepIdx < clipModel.getStepCount()) {
                 // Find if there is an active note in any row at this step
-                for (int r = 0; r < 128; r++) {
+                for (int r = 0; r < clipModel.getRowCount(); r++) {
                   StepData note = clipModel.getStep(r, stepIdx);
                   if (note.active()) {
                     draggedStalkStep = stepIdx;
@@ -1040,7 +1078,7 @@ public class SwingPianoRollDialog extends JDialog {
       vel = Math.max(0.01f, Math.min(1.0f, vel));
 
       // Update all active notes at this step column in both model and bridge
-      for (int r = 0; r < 128; r++) {
+      for (int r = 0; r < clipModel.getRowCount(); r++) {
         StepData note = clipModel.getStep(r, step);
         if (note.active()) {
           int engineRow = baseTrackId + r;
@@ -1079,7 +1117,7 @@ public class SwingPianoRollDialog extends JDialog {
 
       for (int s = 0; s < steps; s++) {
         // Find notes at this step
-        for (int r = 0; r < 128; r++) {
+        for (int r = 0; r < clipModel.getRowCount(); r++) {
           StepData note = clipModel.getStep(r, s);
           if (note.active()) {
             int sx = 5 + s * stepWidth + stepWidth / 2;
