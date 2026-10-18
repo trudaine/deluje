@@ -60,14 +60,15 @@ public final class DelugeColour {
   }
 
   /**
-   * The Deluge {@code defaultClipSectionColours} palette (session.cpp:62). Arranger clip instances
-   * and the session/arranger section sidebar are coloured by their clip's SECTION via this table —
-   * NOT by the clip's own colourOffset (clip_instance.cpp:31-37 {@code
-   * defaultClipSectionColours[clip->section]}). Section 0 is {@code fromHue(102)} (light blue).
+   * The Deluge {@code defaultClipSectionColours} palette (session.cpp:62-85, palette.h:15-47).
+   * Arranger clip instances and the session/arranger section sidebar are coloured by their clip's
+   * SECTION via this 24-entry table — NOT by the clip's own colourOffset (clip_instance.cpp:31-37
+   * {@code defaultClipSectionColours[clip->section]}). Section 0 is {@code fromHue(102)} (light
+   * blue).
    */
   public static Color sectionColour(int section) {
     if (section < 0) return monochrome(128); // arrangement-only clips -> grey (monochrome(128))
-    return switch (section % 16) {
+    return switch (Math.floorMod(section, 24)) {
       case 0 -> fromHue(102); // bright light blue
       case 1 -> fromHue(168); // bright dark pink
       case 2 -> fromHue(24); // bright light orange
@@ -80,10 +81,18 @@ public final class DelugeColour {
       case 9 -> new Color(255, 255, 0); // yellow
       case 10 -> new Color(0, 255, 0); // green
       case 11 -> fromHue(157); // bright magenta
-      case 12 -> new Color(51, 109, 145); // pastel blue
+      case 12 -> new Color(51, 109, 145); // pastel::blue
       case 13 -> new Color(255, 128, 128); // pink_full
-      case 14 -> new Color(221, 72, 13); // pastel orange
-      default -> new Color(85, 182, 72); // pastel green
+      case 14 -> new Color(221, 72, 13); // pastel::orange
+      case 15 -> new Color(85, 182, 72); // pastel::green
+      case 16 -> DelugePadButton.getTailColor(new Color(255, 44, 50)); // pink.forTail()
+      case 17 -> DelugePadButton.getTailColor(new Color(128, 255, 0)); // lime.forTail()
+      case 18 -> DelugePadButton.getTailColor(new Color(0, 128, 128)); // cyan.forTail()
+      case 19 -> DelugePadButton.getTailColor(new Color(255, 128, 0)); // orange.forTail()
+      case 20 -> DelugePadButton.getTailColor(new Color(128, 0, 255)); // purple.forTail()
+      case 21 -> DelugePadButton.getTailColor(new Color(170, 182, 0)); // pastel::yellow.forTail()
+      case 22 -> DelugePadButton.getTailColor(new Color(0, 255, 0)); // green.forTail()
+      default -> DelugePadButton.getTailColor(new Color(128, 0, 128)); // magenta.forTail()
     };
   }
 

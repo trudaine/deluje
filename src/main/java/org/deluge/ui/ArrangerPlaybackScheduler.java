@@ -154,8 +154,10 @@ public class ArrangerPlaybackScheduler implements Runnable {
 
       if (activePlacement != null && activePlacement.clip() != null) {
         ClipModel clip = activePlacement.clip();
+        int stepTicks = clip.isTripletMode() ? 32 : 24;
         int localStep =
-            Math.floorMod(upcomingStep - (activePlacement.startTicks() / 24), clip.getStepCount());
+            Math.floorMod(
+                upcomingStep - (activePlacement.startTicks() / stepTicks), clip.getStepCount());
 
         // Transfer step parameter states straight to the bridge circular index
         for (int r = 0; r < voiceCount; r++) {
@@ -234,7 +236,12 @@ public class ArrangerPlaybackScheduler implements Runnable {
   // ===================== LIVE CAPTURE HOOKS =====================
 
   public synchronized void notifyClipLaunched(int trackIndex, ClipModel clip) {
-    if (!captureActive || project == null) return;
+    if (!captureActive
+        || project == null
+        || trackIndex < 0
+        || trackIndex >= activeCaptureClips.length) {
+      return;
+    }
 
     long currentStep = bridge.getGlobalInt(BridgeContract.G_CURRENT_STEP);
     int step = (int) currentStep;
@@ -248,7 +255,12 @@ public class ArrangerPlaybackScheduler implements Runnable {
   }
 
   public synchronized void notifyClipStopped(int trackIndex) {
-    if (!captureActive || project == null) return;
+    if (!captureActive
+        || project == null
+        || trackIndex < 0
+        || trackIndex >= activeCaptureClips.length) {
+      return;
+    }
 
     long currentStep = bridge.getGlobalInt(BridgeContract.G_CURRENT_STEP);
     int step = (int) currentStep;
@@ -257,6 +269,7 @@ public class ArrangerPlaybackScheduler implements Runnable {
   }
 
   private synchronized void finalizeActiveCapture(int trackIndex, int endStep) {
+    if (trackIndex < 0 || trackIndex >= activeCaptureClips.length) return;
     ClipModel clip = activeCaptureClips[trackIndex];
     if (clip == null) return;
 

@@ -53,7 +53,7 @@ final class ArrangementProjector {
       int track = (r < rowToTrack.length) ? rowToTrack[r] : -1;
       for (int c = 0; c < cols; c++) {
         int colTick = scrollTicks + c * ticksPerColumn;
-        ArrangerClip ac = clipAt(timeline, track, colTick);
+        ArrangerClip ac = clipAt(timeline, track, colTick, ticksPerColumn);
         out[r][c] = ac == null ? PadCell.EMPTY : cellFor(ac, colTick, ticksPerColumn);
       }
     }
@@ -61,18 +61,27 @@ final class ArrangementProjector {
   }
 
   /**
-   * The placement covering {@code colTick} on {@code track}, or null. Mirrors getArrangerClipAt.
+   * The placement covering {@code [colTick, colTick + ticksPerColumn)} on {@code track}, or null.
+   * Mirrors {@code arranger_view.cpp:2348-2389} ({@code searchMultiple(squareEndPos) - 1}): when a
+   * placement starts mid-column ({@code colTick < startTicks < colTick + ticksPerColumn}), it still
+   * covers the column and renders as a HEAD square; when two placements overlap the same column,
+   * the latest {@code startTicks < colTick + ticksPerColumn} wins.
    */
-  private static ArrangerClip clipAt(List<ArrangerClip> timeline, int track, int colTick) {
+  private static ArrangerClip clipAt(
+      List<ArrangerClip> timeline, int track, int colTick, int ticksPerColumn) {
     if (track < 0) return null;
+    int colEnd = colTick + Math.max(1, ticksPerColumn);
+    ArrangerClip best = null;
     for (ArrangerClip ac : timeline) {
       if (ac.trackIndex() == track
-          && colTick >= ac.startTicks()
-          && colTick < ac.startTicks() + ac.durationTicks()) {
-        return ac;
+          && ac.startTicks() < colEnd
+          && ac.startTicks() + ac.durationTicks() > colTick) {
+        if (best == null || ac.startTicks() >= best.startTicks()) {
+          best = ac;
+        }
       }
     }
-    return null;
+    return best;
   }
 
   /** Resolves the final LED colour for a covered column. Mirrors SwingGridPanel.java:3932-3951. */
