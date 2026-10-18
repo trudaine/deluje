@@ -100,8 +100,8 @@ public class SwingTuningDialog extends JDialog {
     topPanel.add(notesLabel, gbc);
 
     gbc.gridx = 1;
-    notesSpinner =
-        new JSpinner(new SpinnerNumberModel(project.getOctaveNumMicrotonalNotes(), 1, 64, 1));
+    int initNotes = Math.max(1, Math.min(64, project.getOctaveNumMicrotonalNotes()));
+    notesSpinner = new JSpinner(new SpinnerNumberModel(initNotes, 1, 64, 1));
     notesSpinner.setFont(new Font("SansSerif", Font.PLAIN, 12));
     notesSpinner.addChangeListener(
         e -> {
@@ -121,8 +121,8 @@ public class SwingTuningDialog extends JDialog {
     topPanel.add(freqLabel, gbc);
 
     gbc.gridx = 1;
-    baseFreqSpinner =
-        new JSpinner(new SpinnerNumberModel(project.getBaseFrequencyHz(), 10.0, 1000.0, 0.1));
+    double initFreq = Math.max(10.0, Math.min(1000.0, project.getBaseFrequencyHz()));
+    baseFreqSpinner = new JSpinner(new SpinnerNumberModel(initFreq, 10.0, 1000.0, 0.1));
     baseFreqSpinner.setFont(new Font("SansSerif", Font.PLAIN, 12));
     baseFreqSpinner.addChangeListener(
         e -> {
@@ -213,7 +213,7 @@ public class SwingTuningDialog extends JDialog {
   private void rebuildAdjustmentsPanel() {
     adjustmentsContainer.removeAll();
 
-    int notesCount = project.getOctaveNumMicrotonalNotes();
+    int notesCount = Math.max(1, Math.min(64, project.getOctaveNumMicrotonalNotes()));
     boolean isEqual = project.isEqualTemperament();
 
     for (int i = 0; i < notesCount; i++) {
@@ -234,7 +234,8 @@ public class SwingTuningDialog extends JDialog {
         JPanel centsPanel = new JPanel(new BorderLayout(10, 0));
         centsPanel.setBackground(new Color(0x12, 0x12, 0x14));
 
-        int currentCent = project.getCentAdjustForNotesInTemperament()[i];
+        int currentCent =
+            Math.max(-100, Math.min(100, project.getCentAdjustForNotesInTemperament()[i]));
         JSlider slider = new JSlider(-100, 100, currentCent);
         slider.setBackground(new Color(0x12, 0x12, 0x14));
         slider.setPreferredSize(new Dimension(220, 25));
@@ -350,18 +351,29 @@ public class SwingTuningDialog extends JDialog {
     DarkComboBoxRenderer.styleComponentTree(adjustmentsContainer);
   }
 
-  private double parseRatioString(String s) throws NumberFormatException {
+  static double parseRatioString(String s) throws NumberFormatException {
+    if (s == null) throw new NumberFormatException("Null ratio string");
     s = s.trim();
     if (s.isEmpty()) return 1.0;
+    double val;
     if (s.contains("/")) {
-      String[] parts = s.split("/");
-      if (parts.length == 2) {
-        double num = Double.parseDouble(parts[0].trim());
-        double den = Double.parseDouble(parts[1].trim());
-        if (den != 0.0) return num / den;
+      String[] parts = s.split("/", -1);
+      if (parts.length != 2) {
+        throw new NumberFormatException("Invalid ratio fraction: " + s);
       }
+      double num = Double.parseDouble(parts[0].trim());
+      double den = Double.parseDouble(parts[1].trim());
+      if (den == 0.0 || !Double.isFinite(num) || !Double.isFinite(den)) {
+        throw new NumberFormatException("Zero or non-finite denominator in ratio: " + s);
+      }
+      val = num / den;
+    } else {
+      val = Double.parseDouble(s);
     }
-    return Double.parseDouble(s);
+    if (!Double.isFinite(val) || val <= 0.0) {
+      throw new NumberFormatException("Non-positive or non-finite ratio: " + s);
+    }
+    return val;
   }
 
   private void chooseAndImportScalaFile() {
@@ -380,7 +392,8 @@ public class SwingTuningDialog extends JDialog {
                 try {
                   final ScalaScale scale =
                       ScalaScaleParser.parse(
-                          Files.newInputStream(file.toPath()), file.getName().replace(".scl", ""));
+                          Files.newInputStream(file.toPath()),
+                          file.getName().replaceFirst("(?i)\\.scl$", ""));
 
                   javax.swing.SwingUtilities.invokeLater(
                       () -> {
@@ -388,8 +401,10 @@ public class SwingTuningDialog extends JDialog {
                         project.importScalaScale(scale);
                         isUpdatingUI = true;
                         typeCombo.setSelectedIndex(1);
-                        notesSpinner.setValue(project.getOctaveNumMicrotonalNotes());
-                        baseFreqSpinner.setValue(project.getBaseFrequencyHz());
+                        notesSpinner.setValue(
+                            Math.max(1, Math.min(64, project.getOctaveNumMicrotonalNotes())));
+                        baseFreqSpinner.setValue(
+                            Math.max(10.0, Math.min(1000.0, project.getBaseFrequencyHz())));
                         isUpdatingUI = false;
                         rebuildAdjustmentsPanel();
                         triggerLiveUpdate();
