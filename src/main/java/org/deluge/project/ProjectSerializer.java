@@ -183,10 +183,17 @@ public class ProjectSerializer {
 
           writer.writeOpeningTagBeginning("osc1");
           if (sound.getSamplePath() != null && !sound.getSamplePath().isEmpty()) {
+            // C reads fileName and the sample flags as keys of the source (sound.cpp:3392-3437).
+            // The old <sample fileName> child of <sound> is not a C key there (a <sample> is a
+            // drum container in kit.cpp:277), so hardware loaded these drums with no sample.
             writer.writeAttribute("type", "sample", false);
-            writer.closeTag();
-            writer.writeOpeningTagBeginning("sample");
             writer.writeAttribute("fileName", sound.getSamplePath(), false);
+            writer.writeAttribute("loopMode", String.valueOf(sound.getOsc1LoopMode()), false);
+            writer.writeAttribute("reversed", sound.isReverse() ? "1" : "0", false);
+            writer.writeAttribute(
+                "timeStretchEnable", sound.isOsc1TimeStretch() ? "1" : "0", false);
+            writer.writeAttribute(
+                "linearInterpolation", sound.isOsc1LinearInterpolation() ? "1" : "0", false);
             writer.closeTag();
           } else {
             writer.writeAttribute("type", "none", false);
@@ -447,6 +454,11 @@ public class ProjectSerializer {
           writer.writeAttribute("retrigPhase", String.valueOf(synth.getOsc1RetrigPhase()), false);
           if (synth.getOsc1SamplePath() != null && !synth.getOsc1SamplePath().isEmpty()) {
             writer.writeAttribute("fileName", synth.getOsc1SamplePath(), false);
+            // C sound.cpp source keys; the repeat mode was never saved (C SampleRepeatMode).
+            writer.writeAttribute("loopMode", String.valueOf(synth.getOsc1LoopMode()), false);
+            writer.writeAttribute("reversed", synth.isOsc1Reversed() ? "1" : "0", false);
+            writer.writeAttribute(
+                "timeStretchEnable", synth.isOsc1TimeStretch() ? "1" : "0", false);
           }
           if (synth.getDx7Patch() != null) {
             writer.writeAttribute("dx7patch", synth.getDx7Patch(), false);
@@ -497,6 +509,10 @@ public class ProjectSerializer {
           writer.writeAttribute("retrigPhase", String.valueOf(synth.getOsc2RetrigPhase()), false);
           if (synth.getOsc2SamplePath() != null && !synth.getOsc2SamplePath().isEmpty()) {
             writer.writeAttribute("fileName", synth.getOsc2SamplePath(), false);
+            writer.writeAttribute("loopMode", String.valueOf(synth.getOsc2LoopMode()), false);
+            writer.writeAttribute("reversed", synth.isOsc2Reversed() ? "1" : "0", false);
+            writer.writeAttribute(
+                "timeStretchEnable", synth.isOsc2TimeStretch() ? "1" : "0", false);
           }
           writer.closeTag();
         }

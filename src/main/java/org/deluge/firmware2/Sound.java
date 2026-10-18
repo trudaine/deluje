@@ -182,7 +182,7 @@ public class Sound extends GlobalEffectable {
       }
       if (sourceEverActive
           && (oscTypes[s] != OscType.SAMPLE
-              || sampleLoopMode[s] != 2
+              || sampleLoopMode[s] != REPEAT_ONCE // C sound.cpp:1957
               || (!disregardSampleLoop && hasLoopEnd))) {
         return true;
       }
@@ -504,7 +504,17 @@ public class Sound extends GlobalEffectable {
   public final Sample[] samples = new Sample[2];
   public final int[] sampleStartPoint = {0, 0};
   public final int[] sampleEndPoint = {65535, 65535};
-  public final int[] sampleLoopMode = {0, 0}; // 0 = off, 1 = loop, 2 = once
+
+  /** C SampleRepeatMode (definitions_cxx.hpp:493-498), the value files store as "loopMode". */
+  public static final int REPEAT_CUT = 0;
+
+  public static final int REPEAT_ONCE = 1;
+  public static final int REPEAT_LOOP = 2;
+  public static final int REPEAT_STRETCH = 3;
+
+  /** Per-source C Source::repeatMode; CUT by default (source.cpp:39). */
+  public final int[] sampleLoopMode = {REPEAT_CUT, REPEAT_CUT};
+
   public final int[] sampleLoopStart = {0, 0};
   public final int[] sampleLoopEnd = {0, 0}; // 0 = no loop-end point (C loopEndPos)
   public final boolean[] sampleReverse = {false, false};
@@ -1398,7 +1408,8 @@ public class Sound extends GlobalEffectable {
     int startFrame = sampleStartPoint[s];
     int len = 0;
     int endFrame = sampleEndPoint[s];
-    boolean looping = sampleLoopMode[s] == 1;
+    // C voice_sample_playback_guide.cpp:100 — only LOOP loops.
+    boolean looping = sampleLoopMode[s] == REPEAT_LOOP;
     int loopStartFrame = sampleLoopStart[s];
     int loopEndPos = 0;
     int zoneTranspose = Integer.MIN_VALUE; // INT_MIN = no zone (single sample)
