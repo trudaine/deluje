@@ -843,21 +843,16 @@ public class Sound extends GlobalEffectable {
   }
 
   /**
-   * getGlobalLFOPhaseIncrement (sound.cpp:2700-2707) — unsynced LFOs run at the rate param's final
+   * getGlobalLFOPhaseIncrement (sound.cpp:2723-2729) — unsynced LFOs run at the rate param's final
    * value; synced LFOs derive the increment from the tempo.
    */
   public int getGlobalLFOPhaseIncrement(LfoConfig config, int param) {
     if (config.syncLevel == Lfo.SyncLevel.NONE) {
-      // C returns paramFinalValues[param] (sound.cpp:2723-2729), which includes any patch cable
-      // whose destination is the LFO rate (an exp param: combineCablesExp, patcher.cpp:240-272).
-      for (var dest : patchCableSet.destinations) {
-        if (dest.paramId == param && dest.targetSource < 0 && !dest.cables.isEmpty()) {
-          return Functions.getFinalParameterValueExp(
-              Functions.getParamNeutralValue(param),
-              Patcher.combineCablesExp(dest, patchedParamValues[param], globalSourceValues));
-        }
-      }
-      return Patcher.computeFinalValueForParam(param, patchedParamValues[param]);
+      // C sound.cpp:2723-2729 — returns paramFinalValues[param - FIRST_GLOBAL], which reflects
+      // global range cables, getSmoothedPatchedParamValue(param), and cables into param using
+      // the pre-render globalSourceValues.
+      Patcher.evaluateGlobalRangeDestinations(patchCableSet, globalSourceValues);
+      return Patcher.evaluateGlobalParam(this, param);
     }
     return getSyncedLFOPhaseIncrement(config);
   }
@@ -1007,18 +1002,9 @@ public class Sound extends GlobalEffectable {
 
   @Override
   public void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
-    // 1. Sidechain hit registration & render
-    int scHit = GlobalSidechainBus.getActiveFrameHit();
-    if (scHit > 0) {
-      sidechain.registerHit(scHit);
-    }
-    int shape = patchedParamValues[Param.UNPATCHED_SIDECHAIN_SHAPE];
-    int scAmount = sidechain.render(numSamples, shape);
-    globalSourceValues[PatchSource.SIDECHAIN.ordinal()] = scAmount;
-
-    // 2. Global LFO rendering. C (sound.cpp:2382/2395) renders globalLFO1/3 from lfoConfig[LFO1_ID]
-    // / lfoConfig[LFO3_ID] — the config carries the waveType, so the waveform must come from there,
-    // NOT a separate array. (LFO1_ID → lfoConfig[0], LFO3_ID → lfoConfig[2].)
+    // 1. Global LFO rendering (C sound.cpp:2395-2421). Global LFOs render BEFORE sidechain and
+    // BEFORE global patcher evaluation (sound.cpp:2446), so their rate cables read the previous
+    // block's globalSourceValues (LFO1_ID → lfoConfig[0], LFO3_ID → lfoConfig[2]).
     int phaseInc1 = getGlobalLFOPhaseIncrement(lfoConfig[0], Param.GLOBAL_LFO_FREQ_1);
     int phaseInc2 = getGlobalLFOPhaseIncrement(lfoConfig[2], Param.GLOBAL_LFO_FREQ_2);
 
@@ -1029,24 +1015,31 @@ public class Sound extends GlobalEffectable {
     globalSourceValues[PatchSource.LFO_GLOBAL_2.ordinal()] =
         globalLfos[1].render(numSamples, lfoConfig[2], phaseInc2);
 
-    // C sound.cpp:2446-2453 — evaluate global range/depth cables and resolve GLOBAL_REVERB_AMOUNT
-    // once at the start of the block (even when voices_.empty() during FX tails, and before
-    // doParamLPF advances paramLPF at the end of the block).
-    Patcher.evaluateGlobalRangeDestinations(patchCableSet, globalSourceValues);
-    blockResolvedReverbValue = resolveGlobalReverbParamFinalValue();
+    // 2. Sidechain hit registration & render (C sound.cpp:2430-2442).
+    int scHit = GlobalSidechainBus.getActiveFrameHit();
+    if (scHit > 0) {
+      sidechain.registerHit(scHit);
+    }
+    int shape = patchedParamValues[Param.UNPATCHED_SIDECHAIN_SHAPE];
+    int scAmount = sidechain.render(numSamples, shape);
+    globalSourceValues[PatchSource.SIDECHAIN.ordinal()] = scAmount;
+
+    // 3. Global patcher evaluation (C sound.cpp:2446-2453) — evaluate global range/depth cables
+    // and all global patched parameters (FIRST_GLOBAL .. kNumParams - 1) once per block (even when
+    // voices_.empty() during FX tails, and before doParamLPF advances paramLPF at block end).
+    Patcher.performGlobalPatching(this, trackParamFinalValues);
+    blockResolvedReverbValue = trackParamFinalValues[Param.GLOBAL_REVERB_AMOUNT];
     hasBlockResolvedReverbValue = inRenderOutputBlock;
 
-    // 3. Arpeggiator clock & processing
+    // 4. Arpeggiator clock & processing (C sound.cpp:2458-2495).
     if (arpEnabled()) {
       int phaseInc =
           (arpPhaseIncrement > 0)
               ? arpPhaseIncrement
               : arpSettings.getPhaseIncrement(
-                  Patcher.computeFinalValueForParam(
-                      Param.GLOBAL_ARP_RATE, patchedParamValues[Param.GLOBAL_ARP_RATE]),
-                  this.timePerInternalTickInverse);
+                  trackParamFinalValues[Param.GLOBAL_ARP_RATE], this.timePerInternalTickInverse);
       if (phaseInc > 0) {
-        // sound.cpp:2456 — (uint32_t)gate + 2147483648, passed FULL-SCALE (the arp itself does the
+        // sound.cpp:2468 — (uint32_t)gate + 2147483648, passed FULL-SCALE (the arp itself does the
         // single >> 8, arpeggiator.cpp:1457). Int add wraps exactly like the C uint32 add.
         int gateThreshold = arpSettings.gate + Integer.MIN_VALUE;
         arpInstr.reset();
@@ -1124,27 +1117,15 @@ public class Sound extends GlobalEffectable {
       fxIntBuffer[i][1] = buffer[i * 2 + 1];
     }
 
-    // C patcher.cpp:219 — use getSmoothedPatchedParamValue so manual knob changes ramp smoothly.
-    int postFXKnob = getSmoothedPatchedParamValue(Param.GLOBAL_VOLUME_POST_FX);
-    Patcher.Destination dFx = null;
-    for (var dest : patchCableSet.destinations) {
-      if (dest.paramId == Param.GLOBAL_VOLUME_POST_FX && dest.targetSource < 0) {
-        dFx = dest;
-        break;
-      }
-    }
-    // C: patcher.cpp:210-233 — even with no patch cables (destination == nullptr),
-    // combineCablesLinear folds the stored knob through cableToLinearParamWithoutRangeAdjustment
-    // (range = 2^30, shifting knob >> 2 into [-2^29, +2^29]) before getFinalParameterValueVolume.
-    // Passing postFXKnob raw skipped that >> 2 and clamped every knob >= 0x20000000 to max.
-    int postFXVolume =
-        (dFx != null)
-            ? Functions.getFinalParameterValueVolume(
-                Functions.getParamNeutralValue(Param.GLOBAL_VOLUME_POST_FX),
-                Patcher.combineCablesLinear(dFx, postFXKnob, globalSourceValues))
-            : Patcher.computeFinalValueForParam(Param.GLOBAL_VOLUME_POST_FX, postFXKnob);
+    // C sound.cpp:2598, 2605-2606 — read global postFXVolume, modFXDepth, and modFXRate from
+    // paramFinalValues (trackParamFinalValues), falling back to direct field values only for
+    // unpatched standalone tests that set modFXRateIncrement/modFXDepth directly on Sound.
+    int postFXVolume = trackParamFinalValues[Param.GLOBAL_VOLUME_POST_FX];
     int[] postFXVolumeHolder = {postFXVolume};
     int[] postReverbVolumeHolder = {2147483647};
+    int effectiveModFXRate =
+        resolveGlobalFieldOrPatched(modFXRateIncrement, Param.GLOBAL_MOD_FX_RATE);
+    int effectiveModFXDepth = resolveGlobalFieldOrPatched(modFXDepth, Param.GLOBAL_MOD_FX_DEPTH);
 
     srrBitcrush.process(fxIntBuffer, numSamples, bitcrushParam, srrParam, postFXVolumeHolder);
 
@@ -1159,8 +1140,8 @@ public class Sound extends GlobalEffectable {
       granular.processGrainFX(
           fxIntBuffer,
           numSamples,
-          modFXRateIncrement,
-          modFXDepth << 1,
+          effectiveModFXRate,
+          effectiveModFXDepth << 1,
           modFXOffset,
           modFXFeedback,
           postFXVolumeHolder,
@@ -1173,13 +1154,13 @@ public class Sound extends GlobalEffectable {
           fxIntBuffer,
           numSamples,
           modFXType,
-          modFXRateIncrement,
-          modFXDepth,
+          effectiveModFXRate,
+          effectiveModFXDepth,
           postFXVolumeHolder,
           modFXOffset,
           modFXFeedback,
           true,
-          // C sound.cpp:2588 — anySoundComingIn = !voices_.empty(): during delay/reverb-tail-only
+          // C sound.cpp:2610 — anySoundComingIn = !voices_.empty(): during delay/reverb-tail-only
           // blocks the C skips modFX entirely (incl. its postFXVolume cuts).
           hasActiveVoices);
     }
@@ -1192,7 +1173,7 @@ public class Sound extends GlobalEffectable {
         patchedParamValues[Param.UNPATCHED_BASS_FREQ],
         patchedParamValues[Param.UNPATCHED_TREBLE_FREQ]);
 
-    // Per-sound delay (C: sound.cpp:2477-2484 sets the working state; processFX runs
+    // Per-sound delay (C: sound.cpp:2499-2506 sets the working state; processFX runs
     // delay.process after EQ, mod_controllable_audio.cpp:195). setupWorkingState is called
     // UNCONDITIONALLY like the C — it applies the tempo sync (delay.cpp:102-117) and, when the
     // feedback drops below 256, discards the buffers via informWhetherActive(false).
@@ -1200,16 +1181,20 @@ public class Sound extends GlobalEffectable {
     delay.syncType = delaySyncType;
     delay.pingPong = delayPingPong;
     delay.analog = delayAnalog;
-    delayState.userDelayRate = delayUserRate;
+    int effectiveDelayUserRate =
+        resolveGlobalFieldOrPatched(delayUserRate, Param.GLOBAL_DELAY_RATE);
+    int effectiveDelayFeedback =
+        resolveGlobalFieldOrPatched(delayFeedbackAmount, Param.GLOBAL_DELAY_FEEDBACK);
+    delayState.userDelayRate = effectiveDelayUserRate;
     delayState.delayFeedbackAmount =
         shouldLimitDelayFeedback
-            ? Math.min(delayFeedbackAmount, (1 << 30) - (1 << 26))
-            : delayFeedbackAmount;
+            ? Math.min(effectiveDelayFeedback, (1 << 30) - (1 << 26))
+            : effectiveDelayFeedback;
     delay.setupWorkingState(delayState, timePerInternalTickInverse, hasActiveVoices);
     delay.process(fxIntBuffer, numSamples, delayState);
 
     // Stutter runs AFTER processFX (modFX → EQ → delay), so it chops the delayed/chorused
-    // signal like the C (sound.cpp:2589). C: only one stutter effect is active at a time via a
+    // signal like the C (sound.cpp:2611). C: only one stutter effect is active at a time via a
     // single global stutterer (stutterer.h), gated by isStuttering(this) matching
     // ModControllableAudio::processStutter (mod_controllable_audio.cpp:1315) -- not a per-instance
     // flag. Bypass entirely if this Sound isn't the one currently stuttering, to save CPU.
@@ -1227,23 +1212,10 @@ public class Sound extends GlobalEffectable {
     }
 
     // Per-sound compressor moved to processPostVolumeDynamics — C runs it AFTER
-    // processReverbSendAndVolume (sound.cpp:2591-2600), so it must see the volume-applied signal.
-
-    int postReverbKnob = getSmoothedPatchedParamValue(Param.GLOBAL_VOLUME_POST_REVERB_SEND);
-    Patcher.Destination dReverb = null;
-    for (var dest : patchCableSet.destinations) {
-      if (dest.paramId == Param.GLOBAL_VOLUME_POST_REVERB_SEND && dest.targetSource < 0) {
-        dReverb = dest;
-        break;
-      }
-    }
-    postReverbVolumeHolder[0] =
-        (dReverb != null)
-            ? Functions.getFinalParameterValueVolume(
-                Functions.getParamNeutralValue(Param.GLOBAL_VOLUME_POST_REVERB_SEND),
-                Patcher.combineCablesLinear(dReverb, postReverbKnob, globalSourceValues))
-            : Patcher.computeFinalValueForParam(
-                Param.GLOBAL_VOLUME_POST_REVERB_SEND, postReverbKnob);
+    // processReverbSendAndVolume (sound.cpp:2613-2618), so it must see the volume-applied signal.
+    // C sound.cpp:2599 — postReverbVolume comes from
+    // paramFinalValues[GLOBAL_VOLUME_POST_REVERB_SEND].
+    postReverbVolumeHolder[0] = trackParamFinalValues[Param.GLOBAL_VOLUME_POST_REVERB_SEND];
 
     super.postFXVolume = postFXVolumeHolder[0];
     super.postReverbVolume = postReverbVolumeHolder[0];
@@ -1735,21 +1707,16 @@ public class Sound extends GlobalEffectable {
     }
   }
 
+  private int resolveGlobalFieldOrPatched(int fieldValue, int paramId) {
+    if (doesParamHaveSomethingPatchedToIt(paramId) || paramLPF.p == paramId) {
+      return trackParamFinalValues[paramId];
+    }
+    return fieldValue;
+  }
+
   private int resolveGlobalReverbParamFinalValue() {
     Patcher.evaluateGlobalRangeDestinations(patchCableSet, globalSourceValues);
-    int reverbKnob = getSmoothedPatchedParamValue(Param.GLOBAL_REVERB_AMOUNT);
-    Patcher.Destination dRev = null;
-    for (var dest : patchCableSet.destinations) {
-      if (dest.paramId == Param.GLOBAL_REVERB_AMOUNT && dest.targetSource < 0) {
-        dRev = dest;
-        break;
-      }
-    }
-    return (dRev != null)
-        ? Functions.getFinalParameterValueVolume(
-            Functions.getParamNeutralValue(Param.GLOBAL_REVERB_AMOUNT),
-            Patcher.combineCablesLinear(dRev, reverbKnob, globalSourceValues))
-        : Patcher.computeFinalValueForParam(Param.GLOBAL_REVERB_AMOUNT, reverbKnob);
+    return Patcher.evaluateGlobalParam(this, Param.GLOBAL_REVERB_AMOUNT);
   }
 
   @Override

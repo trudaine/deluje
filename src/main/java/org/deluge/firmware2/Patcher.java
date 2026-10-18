@@ -134,6 +134,58 @@ public class Patcher {
     }
   }
 
+  /**
+   * Evaluates a single global parameter ({@code p >= Param.FIRST_GLOBAL}) using {@code
+   * sound.getSmoothedPatchedParamValue(p)}, {@code sound.globalSourceValues}, and any cables in
+   * {@code sound.patchCableSet}. Caller must call {@link #evaluateGlobalRangeDestinations} first if
+   * range/depth cables may be active. Mirrors C {@code Patcher::performPatching} / {@code
+   * recalculateFinalValueForParamWithNoCables} on {@code kPatcherConfigForSound} (sound.cpp:76-85,
+   * patcher.cpp:30-141, 275-339).
+   */
+  public static int evaluateGlobalParam(Sound sound, int p) {
+    int knob = sound.getSmoothedPatchedParamValue(p);
+    Destination dest = null;
+    java.util.List<Destination> dests = sound.patchCableSet.destinations;
+    for (int i = 0; i < dests.size(); i++) {
+      Destination d = dests.get(i);
+      if (d.paramId == p && d.targetSource < 0 && !d.cables.isEmpty()) {
+        dest = d;
+        break;
+      }
+    }
+    if (dest == null) {
+      return computeFinalValueForParam(p, knob);
+    }
+
+    int neutral = Functions.getParamNeutralValue(p);
+    if (p < Param.FIRST_GLOBAL_NON_VOLUME) {
+      return Functions.getFinalParameterValueVolume(
+          neutral, combineCablesLinear(dest, knob, sound.globalSourceValues));
+    } else if (p < Param.FIRST_GLOBAL_HYBRID) {
+      return Functions.getFinalParameterValueLinear(
+          neutral, combineCablesLinear(dest, knob, sound.globalSourceValues));
+    } else if (p < Param.FIRST_GLOBAL_EXP) {
+      return Functions.getFinalParameterValueHybrid(
+          neutral, combineCablesExp(dest, knob, sound.globalSourceValues));
+    } else {
+      return Functions.getFinalParameterValueExpWithDumbEnvelopeHack(
+          neutral, combineCablesExp(dest, knob, sound.globalSourceValues), p);
+    }
+  }
+
+  /**
+   * Evaluates all global parameters ({@code Param.FIRST_GLOBAL .. Param.kNumParams - 1}) into
+   * {@code paramFinalValues[p]}, evaluating global range/depth destinations first. Mirrors C {@code
+   * Sound::patcher.performPatching} / {@code performInitialPatching} (sound.cpp:76-85, 2446;
+   * patcher.cpp:63-141, 275-339).
+   */
+  public static void performGlobalPatching(Sound sound, int[] paramFinalValues) {
+    evaluateGlobalRangeDestinations(sound.patchCableSet, sound.globalSourceValues);
+    for (int p = Param.FIRST_GLOBAL; p < Param.kNumParams; p++) {
+      paramFinalValues[p] = evaluateGlobalParam(sound, p);
+    }
+  }
+
   // ── performPatching (patcher.cpp:20-120) ──
 
   /**
