@@ -62,12 +62,15 @@ class SidechainRoutingParityTest {
     FirmwareSound kick = createKick();
     engine.sounds.add(kick);
     kick.triggerNote(36, 127);
+    // Block 1 ramps postReverbVolume linearly from postReverbVolumeLastTime down to the ducked
+    // target across the 128 samples; Block 2 renders at the ducked level.
     engine.renderBlock(128);
-
-    double postHitPeak = peak(engine);
     assertTrue(
         synth.fw2Sound.globalSourceValues[PatchSource.SIDECHAIN.ordinal()] < 0,
         "sidechain patch source should drive the routed ducking block");
+    engine.renderBlock(128);
+
+    double postHitPeak = peak(engine);
     assertTrue(
         postHitPeak / preHitPeak < 0.35,
         "patched sidechain should drop the signal peak by at least 65%");

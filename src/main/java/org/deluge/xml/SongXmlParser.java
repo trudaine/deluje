@@ -679,6 +679,12 @@ public class SongXmlParser {
             Element kitParamsEl = getFirstChild(clipElem, "kitParams");
             if (kitParamsEl != null) {
               parseKitParamsElement(kitParamsEl, clip);
+              if (ktm.getClips().size() == 1) {
+                Float vol = clip.getKitParams().get("volume");
+                if (vol != null) ktm.setVolume(vol);
+                Float pan = clip.getKitParams().get("pan");
+                if (pan != null) ktm.setPan(pan);
+              }
             }
             // C instrument_clip.cpp:2676-2689 — the kit clip's own arpeggiator (the kit arp).
             // The model keeps one per kit: the first clip's.
@@ -1713,21 +1719,21 @@ public class SongXmlParser {
   }
 
   private static void parseParamsAsKitParams(Element params, ClipModel clip) {
-    readKitHexAttr(params, "reverbAmount", clip, "reverbAmount");
-    readKitHexAttr(params, "volume", clip, "volume");
-    readKitHexAttr(params, "pan", clip, "pan");
-    readKitHexAttr(params, "sidechainCompressorShape", clip, "sidechainCompressorShape");
-    readKitHexAttr(params, "sidechainCompressorVolume", clip, "sidechainCompressorVolume");
-    readKitHexAttr(params, "modFXRate", clip, "modFXRate");
-    readKitHexAttr(params, "modFXDepth", clip, "modFXDepth");
-    readKitHexAttr(params, "modFXOffset", clip, "modFXOffset");
-    readKitHexAttr(params, "modFXFeedback", clip, "modFXFeedback");
-    readKitHexAttr(params, "stutterRate", clip, "stutterRate");
-    readKitHexAttr(params, "sampleRateReduction", clip, "sampleRateReduction");
-    readKitHexAttr(params, "bitCrush", clip, "bitCrush");
-    readKitHexAttr(params, "compressorThreshold", clip, "compressorThreshold");
-    readKitHexAttr(params, "lpfMorph", clip, "lpfMorph");
-    readKitHexAttr(params, "hpfMorph", clip, "hpfMorph");
+    readKitHexAttr(params, "reverbAmount", clip, "reverbAmount", true);
+    readKitHexAttr(params, "volume", clip, "volume", true);
+    readKitHexAttr(params, "pan", clip, "pan", false);
+    readKitHexAttr(params, "sidechainCompressorShape", clip, "sidechainCompressorShape", true);
+    readKitHexAttr(params, "sidechainCompressorVolume", clip, "sidechainCompressorVolume", true);
+    readKitHexAttr(params, "modFXRate", clip, "modFXRate", true);
+    readKitHexAttr(params, "modFXDepth", clip, "modFXDepth", true);
+    readKitHexAttr(params, "modFXOffset", clip, "modFXOffset", true);
+    readKitHexAttr(params, "modFXFeedback", clip, "modFXFeedback", true);
+    readKitHexAttr(params, "stutterRate", clip, "stutterRate", true);
+    readKitHexAttr(params, "sampleRateReduction", clip, "sampleRateReduction", true);
+    readKitHexAttr(params, "bitCrush", clip, "bitCrush", true);
+    readKitHexAttr(params, "compressorThreshold", clip, "compressorThreshold", true);
+    readKitHexAttr(params, "lpfMorph", clip, "lpfMorph", true);
+    readKitHexAttr(params, "hpfMorph", clip, "hpfMorph", true);
     // Child elements (delay, lpf, hpf, equalizer)
     parseKitParamChildElements(params, clip);
   }
@@ -1736,20 +1742,20 @@ public class SongXmlParser {
     NodeList delay = parent.getElementsByTagName("delay");
     if (delay.getLength() > 0) {
       Element d = (Element) delay.item(0);
-      readKitHexAttr(d, "rate", clip, "delayRate");
-      readKitHexAttr(d, "feedback", clip, "delayFeedback");
+      readKitHexAttr(d, "rate", clip, "delayRate", true);
+      readKitHexAttr(d, "feedback", clip, "delayFeedback", true);
     }
     NodeList lpf = parent.getElementsByTagName("lpf");
     if (lpf.getLength() > 0) {
       Element l = (Element) lpf.item(0);
-      readKitHexAttr(l, "frequency", clip, "lpfFrequency");
-      readKitHexAttr(l, "resonance", clip, "lpfResonance");
+      readKitHzHexAttr(l, "frequency", clip, "lpfFrequency");
+      readKitHexAttr(l, "resonance", clip, "lpfResonance", true);
     }
     NodeList hpf = parent.getElementsByTagName("hpf");
     if (hpf.getLength() > 0) {
       Element h = (Element) hpf.item(0);
-      readKitHexAttr(h, "frequency", clip, "hpfFrequency");
-      readKitHexAttr(h, "resonance", clip, "hpfResonance");
+      readKitHzHexAttr(h, "frequency", clip, "hpfFrequency");
+      readKitHexAttr(h, "resonance", clip, "hpfResonance", true);
     }
     NodeList eq = parent.getElementsByTagName("equalizer");
     if (eq.getLength() == 0) {
@@ -1757,10 +1763,10 @@ public class SongXmlParser {
     }
     if (eq.getLength() > 0) {
       Element eqEl = (Element) eq.item(0);
-      readKitHexAttr(eqEl, "bass", clip, "eqBass");
-      readKitHexAttr(eqEl, "treble", clip, "eqTreble");
-      readKitHexAttr(eqEl, "bassFrequency", clip, "eqBassFrequency");
-      readKitHexAttr(eqEl, "trebleFrequency", clip, "eqTrebleFrequency");
+      readKitHexAttr(eqEl, "bass", clip, "eqBass", false);
+      readKitHexAttr(eqEl, "treble", clip, "eqTreble", false);
+      readKitHexAttr(eqEl, "bassFrequency", clip, "eqBassFrequency", true);
+      readKitHexAttr(eqEl, "trebleFrequency", clip, "eqTrebleFrequency", true);
     }
   }
 
@@ -1820,12 +1826,27 @@ public class SongXmlParser {
     return new NoteDataSource(null, DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD);
   }
 
-  private static void readKitHexAttr(Element el, String attr, ClipModel clip, String paramName) {
+  private static void readKitHexAttr(
+      Element el, String attr, ClipModel clip, String paramName, boolean unipolar) {
     if (!el.hasAttribute(attr)) return;
     String val = el.getAttribute(attr).trim();
     if (val.isEmpty() || !val.startsWith("0x")) return;
     try {
-      clip.setKitParam(paramName, Math.abs(DelugeHexMapper.hexToFloat(val)));
+      float f = DelugeHexMapper.hexToFloat(val);
+      if (unipolar) {
+        f = toUnipolar(f);
+      }
+      clip.setKitParam(paramName, f);
+    } catch (Exception e) {
+    }
+  }
+
+  private static void readKitHzHexAttr(Element el, String attr, ClipModel clip, String paramName) {
+    if (!el.hasAttribute(attr)) return;
+    String val = el.getAttribute(attr).trim();
+    if (val.isEmpty() || !val.startsWith("0x")) return;
+    try {
+      clip.setKitParam(paramName, DelugeHexMapper.hexToHz(val));
     } catch (Exception e) {
     }
   }

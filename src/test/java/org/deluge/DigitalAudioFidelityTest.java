@@ -386,7 +386,9 @@ public class DigitalAudioFidelityTest {
     // Trigger a note on the kick to register sidechain trigger hit
     kick.triggerNote(36, 127);
 
-    // Render next block — this block is the EXACT moment of impact (maximum ducking!)
+    // Block 1 ramps postReverbVolume linearly from postReverbVolumeLastTime down to the ducked
+    // target across the 128 samples; Block 2 renders at the ducked level.
+    engine.renderBlock(128);
     engine.renderBlock(128);
 
     // Calculate post-hit maximum peak level

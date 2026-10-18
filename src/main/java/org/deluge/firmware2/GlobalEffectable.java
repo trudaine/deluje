@@ -22,6 +22,19 @@ public abstract class GlobalEffectable {
   public int postFXVolume = 134217728;
   public int postReverbVolume = 134217728;
 
+  /**
+   * C mod_controllable_audio.h:127, global_effectable_for_clip.cpp:45 — previous postReverbVolume.
+   */
+  public int postReverbVolumeLastTime = 134217728;
+
+  /**
+   * C global_effectable_for_clip.cpp:88 — clip-level UNPATCHED_PAN (raw signed Q31, 0 = center).
+   */
+  public int unpatchedPan = 0;
+
+  /** C song.cpp:2509-2514, sound.h:182 — true when the output's active clip is not active now. */
+  public boolean shouldLimitDelayFeedback = false;
+
   /** C: mod_controllable_audio.h:107 — per-track saturation/clipping amount; 0 = off. */
   public int clippingAmount = 0;
 
@@ -39,6 +52,23 @@ public abstract class GlobalEffectable {
    */
   protected boolean hasTrackLevelSaturation() {
     return true;
+  }
+
+  /**
+   * C global_effectable_for_clip.cpp:88, 146-147 vs sound.cpp:2613 — pan passed to
+   * processReverbSendAndVolume ({@code unpatchedPan >> 1} for clip effectables; 0 for Sound, which
+   * pans per-voice via LOCAL_PAN).
+   */
+  protected int getPostReverbPan() {
+    return unpatchedPan >> 1;
+  }
+
+  /**
+   * C sound.cpp:2700 vs global_effectable_for_clip.cpp:159 — Sound resets postReverbVolumeLastTime
+   * to -1 when skipping rendering; GlobalEffectableForClip updates it to postReverbVolume.
+   */
+  protected boolean shouldResetPostReverbVolumeOnSilence() {
+    return false;
   }
 
   /**
@@ -104,6 +134,11 @@ public abstract class GlobalEffectable {
       // has no active filter to decay, skip the entire FX, panning, and summing loop to reclaim
       // massive CPU cycles!
       if (maxValTrack == 0 && maxValReverb == 0 && !filterSet.isOn()) {
+        if (shouldResetPostReverbVolumeOnSilence()) {
+          postReverbVolumeLastTime = -1;
+        } else {
+          postReverbVolumeLastTime = postReverbVolume;
+        }
         return;
       }
 
@@ -147,20 +182,51 @@ public abstract class GlobalEffectable {
       int reverbAmountAdjust = 67108864;
       int reverbSendAmount = computeReverbSendAmount(reverbAmountAdjust);
 
-      // C mod_controllable_audio.cpp:219, 222 — plain 32-bit wrapping << 5
-      // Note on pan and ramp (mod_controllable_audio.cpp:226-255): C Sound::render passes pan = 0
-      // (sound.cpp:2613) because synth/drum panning happens per-voice in Voice::render
-      // (voice.cpp:1159-1166, ported at Voice.java:2069-2072). Clip-level UNPATCHED_PAN for
-      // Kit/AudioOutput (global_effectable_for_clip.cpp:146-147) and the per-sample
-      // postReverbSendVolumeIncrement sidechain-ducking ramp are not yet ported here (follow-up).
+      // C sound.cpp:2601-2603 — first rendered block after init or render-skipping grabs the
+      // current postReverbVolume so the ramp increment starts at zero.
+      if (postReverbVolumeLastTime == -1) {
+        postReverbVolumeLastTime = postReverbVolume;
+      }
+
+      // C mod_controllable_audio.cpp:219-244 (processReverbSendAndVolume): plain 32-bit wrapping
+      // << 5 for reverb send, post-FX × post-reverb volume, per-sample sidechain-ducking ramp
+      // (doAmplitudeIncrement = true), and clip-level UNPATCHED_PAN (global_effectable_for_clip.cpp
+      // :88, 146-147; Sound overrides getPostReverbPan() to 0 per sound.cpp:2613).
+      // NOTE: Start postFXAndReverbVolumeL/R from postReverbVolumeLastTime (Rohan Hill's original
+      // sound.cpp / global_effectable_for_clip.cpp pre-8120dc0ec callers) so the per-sample loop
+      // interpolates from postReverbVolumeLastTime to postReverbVolume across the block instead of
+      // overshooting to 2*postReverbVolume - postReverbVolumeLastTime (and going negative on duck).
       int reverbSendAmountAndPostFXVolume =
           Functions.multiply_32x32_rshift32(postFXVolume, reverbSendAmount) << 5;
       int postFXAndReverbVolumeL =
-          Functions.multiply_32x32_rshift32(postReverbVolume, postFXVolume) << 5;
+          Functions.multiply_32x32_rshift32(postReverbVolumeLastTime, postFXVolume) << 5;
+      int postFXAndReverbVolumeR = postFXAndReverbVolumeL;
 
-      // C mod_controllable_audio.cpp:219-267 (processReverbSendAndVolume): per sample, the reverb
-      // send is taken from the RAW (pre-volume) signal and the post-FX×post-reverb volume is
-      // applied to the dry buffer IN PLACE...
+      int postReverbSendVolumeIncrement =
+          numSamples > 0
+              ? (int) ((double) (postReverbVolume - postReverbVolumeLastTime) / (double) numSamples)
+              : 0;
+      int amplitudeIncrementL =
+          Functions.multiply_32x32_rshift32(postFXVolume, postReverbSendVolumeIncrement) << 5;
+      int amplitudeIncrementR = amplitudeIncrementL;
+
+      int pan = getPostReverbPan();
+      if (pan != 0) {
+        int[] panAmps = new int[2];
+        Functions.shouldDoPanning(pan, panAmps);
+        postFXAndReverbVolumeL =
+            Functions.multiply_32x32_rshift32(postFXAndReverbVolumeL, panAmps[0]) << 2;
+        postFXAndReverbVolumeR =
+            Functions.multiply_32x32_rshift32(postFXAndReverbVolumeR, panAmps[1]) << 2;
+        amplitudeIncrementL =
+            Functions.multiply_32x32_rshift32(amplitudeIncrementL, panAmps[0]) << 2;
+        amplitudeIncrementR =
+            Functions.multiply_32x32_rshift32(amplitudeIncrementR, panAmps[1]) << 2;
+      }
+
+      // C mod_controllable_audio.cpp:246-260: per sample, the reverb send is taken from the RAW
+      // (pre-volume) signal, the volume ramp steps by amplitudeIncrementL/R, and the
+      // post-FX×post-reverb volume is applied to the dry buffer IN PLACE...
       for (int i = 0; i < numSamples; i++) {
         int l = trackBuffer[i * 2];
         int r = trackBuffer[i * 2 + 1];
@@ -177,17 +243,23 @@ public abstract class GlobalEffectable {
           reverbBuffer[i] += (long) trackReverbBuffer[i] + revSend;
         }
 
+        // C mod_controllable_audio.cpp:252-255
+        postFXAndReverbVolumeL += amplitudeIncrementL;
+        postFXAndReverbVolumeR += amplitudeIncrementR;
+
         // C mod_controllable_audio.cpp:258-259 uses plain `<< 5`, which assumes the upstream
         // signal * postFXAndReverbVolumeL stays below 2^26. Keep lshiftAndSaturate(..., 5) here
-        // until the upstream gain-staging mismatch is resolved: without saturation, runaway delay
-        // tails (CALIB DLY r50/r75 f75 p0/p1 a0) wrap and drop 0.035-0.084 on the scorecard.
+        // so runaway self-oscillating feedback tails clamp instead of wrapping.
         trackBuffer[i * 2] =
             Functions.lshiftAndSaturate(
                 Functions.multiply_32x32_rshift32(l, postFXAndReverbVolumeL), 5);
         trackBuffer[i * 2 + 1] =
             Functions.lshiftAndSaturate(
-                Functions.multiply_32x32_rshift32(r, postFXAndReverbVolumeL), 5);
+                Functions.multiply_32x32_rshift32(r, postFXAndReverbVolumeR), 5);
       }
+
+      // C mod_controllable_audio.cpp:266 / sound.cpp:2632 / global_effectable_for_clip.cpp:159
+      postReverbVolumeLastTime = postReverbVolume;
 
       // ...then the compressor sees the volume-applied signal (C sound.cpp:2591-2600 /
       // global_effectable_for_clip.cpp:148-153 — the RMS feedback design depends on absolute

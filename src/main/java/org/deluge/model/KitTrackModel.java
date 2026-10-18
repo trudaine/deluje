@@ -8,6 +8,17 @@ public class KitTrackModel extends TrackModel {
 
   private final List<Drum> drums = new ArrayList<>();
   private int selectedDrumIndex = 0;
+  private float pan = 0.0f;
+
+  @Override
+  public float getPan() {
+    return pan;
+  }
+
+  @Override
+  public void setPan(float v) {
+    this.pan = Math.max(-1.0f, Math.min(1.0f, v));
+  }
 
   /**
    * The kit clip's own arpeggiator (C InstrumentClip::arpSettings, the kit arp —

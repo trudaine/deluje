@@ -119,6 +119,8 @@ public class AudioOutput extends GlobalEffectable {
       onTransportStop();
     }
     activeRangeIdx = idx;
+    // C song.cpp:2509-2514 — limit delay feedback whenever this clip is not active now.
+    shouldLimitDelayFeedback = !playing;
   }
 
   /**
@@ -164,6 +166,7 @@ public class AudioOutput extends GlobalEffectable {
 
   public void setPlaying(boolean p) {
     this.playing = p;
+    this.shouldLimitDelayFeedback = !this.playing;
     if (p && sample != null) {
       armVoiceSample();
     }
@@ -178,11 +181,13 @@ public class AudioOutput extends GlobalEffectable {
       armVoiceSample();
       playing = true;
     }
+    shouldLimitDelayFeedback = !playing;
   }
 
   /** Transport stopped: stop streaming (renderInternal becomes silent). */
   public void onTransportStop() {
     playing = false;
+    shouldLimitDelayFeedback = true;
   }
 
   public boolean isPlaying() {

@@ -34,6 +34,7 @@ public class FirmwareKit extends org.deluge.firmware2.Kit {
     for (FirmwareSound drum : drumSounds) {
       // C kit.cpp:541-586 / sound.cpp:2178-2215 — keep rendering each drum while voices, arp notes,
       // per-drum delay repeats, stutter, or grain FX tail remain active.
+      drum.shouldLimitDelayFeedback = this.shouldLimitDelayFeedback;
       if (drum.shouldRender(numSamples)) {
         drum.renderOutputSumming(buffer, numSamples, reverbBuffer);
       }

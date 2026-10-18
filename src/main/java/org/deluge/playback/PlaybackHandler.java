@@ -215,6 +215,7 @@ public class PlaybackHandler {
       clip.setPos(Math.max(0, pos));
       clip.resumePlayback(true);
       clip.setArmState(ArmState.ON_NORMAL); // C session.cpp:1956 — arm to stop at launchEvent
+      syncClipActiveToSound(track);
     } else {
       scheduleFillEvent(clip, fillStartTime);
       clip.setArmState(ArmState.ON_NORMAL); // C session.cpp:1960
@@ -244,6 +245,7 @@ public class PlaybackHandler {
     }
     clip.setPos(pos);
     clip.resumePlayback(true);
+    syncClipActiveToSound(track);
   }
 
   /** C Session::scheduleFillClips (session.cpp:1974-1989). */
@@ -322,6 +324,7 @@ public class PlaybackHandler {
           track.setActiveClipIndex(idx);
           syncBridgeCurrentClip(track, idx);
         }
+        syncClipActiveToSound(track);
         return;
       }
 
@@ -360,6 +363,7 @@ public class PlaybackHandler {
                 scheduleLaunchTiming(lastSwungTickActioned + len, 1, len);
               }
             }
+            syncClipActiveToSound(track);
           }
         }
         return;
@@ -410,6 +414,7 @@ public class PlaybackHandler {
     // Clip is currently playing (session.cpp:1077-1150)
     if (!playing) {
       clip.setActiveInSession(false);
+      syncClipActiveToSound(track);
       return;
     }
     if (doInstant || "fill".equals(clip.getLaunchStyle())) {
@@ -418,6 +423,7 @@ public class PlaybackHandler {
       clip.setFillEventAtTickCount(0);
       clip.stopAllNotesPlaying(true);
       clip.setActiveInSession(false);
+      syncClipActiveToSound(track);
       launchSchedulingMightNeedCancelling();
       return;
     }
@@ -473,6 +479,7 @@ public class PlaybackHandler {
           }
         }
       }
+      syncAllClipsActiveToSound();
       return;
     }
 
@@ -525,6 +532,7 @@ public class PlaybackHandler {
         if (distanceTilLaunch > 0) {
           scheduleLaunchTiming(lastSwungTickActioned + distanceTilLaunch, 1, distanceTilLaunch);
         }
+        syncAllClipsActiveToSound();
       }
       return;
     }
@@ -714,6 +722,30 @@ public class PlaybackHandler {
       scheduleLaunchTiming(
           lastSwungTickActioned + distanceTilLaunchEvent, 1, distanceTilLaunchEvent);
     }
+    syncAllClipsActiveToSound();
+  }
+
+  /**
+   * C Song::renderAudio (song.cpp:2509-2514): shouldLimitDelayFeedback = !isClipActiveNow, where
+   * isClipActiveNow = output->getActiveClip() &amp;&amp; isClipActive(...). Syncs this flag onto
+   * each track's GlobalEffectable whenever session clip activeness changes.
+   */
+  private void syncClipActiveToSound(TrackModel track) {
+    if (track == null) return;
+    ClipModel active = track.getActiveClip();
+    boolean isClipActiveNow = active != null && active.isActiveInSession();
+    for (ClipModel clip : track.getClips()) {
+      if (clip.getSound() instanceof org.deluge.firmware2.GlobalEffectable ge) {
+        ge.shouldLimitDelayFeedback = !isClipActiveNow;
+      }
+    }
+  }
+
+  private void syncAllClipsActiveToSound() {
+    if (currentProject == null) return;
+    for (TrackModel track : currentProject.getTracks()) {
+      syncClipActiveToSound(track);
+    }
   }
 
   /**
@@ -802,6 +834,7 @@ public class PlaybackHandler {
 
   public synchronized void setProject(ProjectModel project) {
     this.currentProject = project;
+    syncAllClipsActiveToSound();
   }
 
   public synchronized ProjectModel getProject() {
@@ -824,6 +857,7 @@ public class PlaybackHandler {
     if (midiClockOut != null) midiClockOut.start(); // 0xFA — external gear starts from the top
     FirmwareDisplay.get().setText(" PLAYING ");
     if (currentProject != null) {
+      syncAllClipsActiveToSound();
       for (ClipModel clip : currentProject.getClips()) {
         if (!clip.isActiveInSession()) continue;
         // C InstrumentClip::setPos(…, 0): also resets rows with independent play positions,

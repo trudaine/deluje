@@ -98,11 +98,19 @@ public class FirmwareFactory {
           };
 
       if (sound != null) {
+        boolean anyActive = false;
         for (ClipModel clip : track.getClips()) {
           clip.setSound(sound);
           clip.setType(ClipType.INSTRUMENT);
           clip.setLoopLength(clip.getStepCount() * (clip.isTripletMode() ? 32 : 24));
           clip.syncNoteRowsFromGrid();
+          if (clip.isActiveInSession()) {
+            anyActive = true;
+          }
+        }
+        // C song.cpp:2509-2514 — initialize shouldLimitDelayFeedback from clip activeness.
+        if (!(sound instanceof org.deluge.firmware2.AudioOutput)) {
+          sound.shouldLimitDelayFeedback = !anyActive;
         }
       }
     }
@@ -116,18 +124,8 @@ public class FirmwareFactory {
       drumSound.fw2Sound.tuning = project;
     }
 
-    // Synchronize kit-level parameters from the first clip
-    if (!model.getClips().isEmpty()) {
-      ClipModel firstClip = model.getClips().get(0);
-      Float vol = firstClip.getKitParams().get("volume");
-      if (vol != null) {
-        kit.kitVolume = normToBipolarParamVolume(vol);
-      }
-      Float rev = firstClip.getKitParams().get("reverbAmount");
-      if (rev != null) {
-        kit.reverbSendKnob = normToBipolarParamVolume(rev);
-      }
-    }
+    // Synchronize kit-level parameters from the first clip or track model
+    syncKitTopLevelParams(model, kit);
 
     File sdRoot = PreferencesManager.getLibraryDir();
     try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
@@ -173,6 +171,7 @@ public class FirmwareFactory {
     out.clippingAmount = model.getClippingAmount();
     if (model.getAudioClips() != null && !model.getAudioClips().isEmpty()) {
       AudioTrackModel.AudioClip clip = model.getAudioClips().get(0);
+      out.unpatchedPan = bipolarUnitToParam(clip.getPan());
       String path = clip.getFilePath();
       if (path != null && !path.isEmpty()) {
         File f = new File(path);
@@ -1325,7 +1324,29 @@ public class FirmwareFactory {
     }
   }
 
+  private static void syncKitTopLevelParams(KitTrackModel model, FirmwareKit kit) {
+    Float vol = null;
+    Float rev = null;
+    Float pan = null;
+    if (!model.getClips().isEmpty()) {
+      ClipModel firstClip = model.getClips().get(0);
+      vol = firstClip.getKitParams().get("volume");
+      rev = firstClip.getKitParams().get("reverbAmount");
+      pan = firstClip.getKitParams().get("pan");
+    }
+    if (vol != null) {
+      kit.kitVolume = normToBipolarParamVolume(vol);
+    }
+    if (rev != null) {
+      kit.reverbSendKnob = normToBipolarParamVolume(rev);
+    }
+    float effectivePan = pan != null ? pan : model.getPan();
+    kit.unpatchedPan = bipolarUnitToParam(effectivePan);
+  }
+
   public static void applyModelToLiveSound(KitTrackModel model, FirmwareKit kit) {
+    kit.clippingAmount = model.getClippingAmount();
+    syncKitTopLevelParams(model, kit);
     try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
       int drumIdx = 0;
       for (Drum d : model.getDrums()) {
