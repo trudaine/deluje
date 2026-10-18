@@ -14,6 +14,7 @@ public class AutoSaveService {
   private final ScheduledExecutorService executor;
   private final ProjectModel projectModel;
   private final File autoSaveFile;
+  private Thread shutdownHook;
 
   public AutoSaveService(ProjectModel model) {
     this.projectModel = model;
@@ -38,16 +39,27 @@ public class AutoSaveService {
             });
   }
 
-  public void start(int intervalMinutes) {
-    executor.scheduleAtFixedRate(
-        this::performSave, intervalMinutes, intervalMinutes, TimeUnit.MINUTES);
+  public synchronized void start(int intervalMinutes) {
+    int safeInterval = Math.max(1, intervalMinutes);
+    executor.scheduleAtFixedRate(this::performSave, safeInterval, safeInterval, TimeUnit.MINUTES);
 
-    // Register shutdown hook
-    Runtime.getRuntime().addShutdownHook(new Thread(this::performSave, "AutoSave-Shutdown"));
+    // Register shutdown hook once
+    if (shutdownHook == null) {
+      shutdownHook = new Thread(this::performSave, "AutoSave-Shutdown");
+      Runtime.getRuntime().addShutdownHook(shutdownHook);
+    }
   }
 
-  public void stop() {
+  public synchronized void stop() {
     executor.shutdownNow();
+    if (shutdownHook != null) {
+      try {
+        Runtime.getRuntime().removeShutdownHook(shutdownHook);
+      } catch (IllegalStateException ignored) {
+        // JVM is already shutting down
+      }
+      shutdownHook = null;
+    }
   }
 
   public void performSave() {
