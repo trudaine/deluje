@@ -9,6 +9,20 @@ public class KitTrackModel extends TrackModel {
   private final List<Drum> drums = new ArrayList<>();
   private int selectedDrumIndex = 0;
 
+  /**
+   * The kit clip's own arpeggiator (C InstrumentClip::arpSettings, the kit arp —
+   * kit.cpp:1136-1222); null = the file had none (the C default, OFF).
+   */
+  private ArpModel arp;
+
+  public ArpModel getArp() {
+    return arp;
+  }
+
+  public void setArp(ArpModel arp) {
+    this.arp = arp;
+  }
+
   public KitTrackModel(String name) {
     super(name, TrackType.KIT);
   }
