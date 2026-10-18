@@ -22,12 +22,7 @@ import org.deluge.model.TrackModel;
 public class StepPropertiesEditor {
 
   private static int resolveStepPitch(SwingGridPanel parent, int trackType, int visualModelRow) {
-    org.deluge.model.ProjectModel project = parent.getProjectModel();
-    int editedTrack = parent.getEditedModelTrack();
-    TrackModel tModel =
-        (project != null && editedTrack >= 0 && editedTrack < project.getTracks().size())
-            ? project.getTracks().get(editedTrack)
-            : null;
+    TrackModel tModel = parent.editedTrackOrNull();
     if (tModel instanceof org.deluge.model.KitTrackModel || trackType == 0) {
       return visualModelRow;
     }
@@ -40,11 +35,12 @@ public class StepPropertiesEditor {
   public static void handleStepLongPressed(
       ClipEditorController controller, int row, int col, Point screenPos) {
     SwingGridPanel parent = controller.parent;
+    if (!parent.isSquareDefined(col)) return;
     BridgeContract bridge = parent.getBridge();
     if (bridge == null) return;
     int visualModelRow = parent.getModelRow(row);
     int activeCol = parent.getActiveCol(row, col);
-    int baseTrackId = parent.getBaseTrackId();
+    if (activeCol < 0) return;
     int trackType = parent.resolveEditedTrackType();
     boolean synthModeActive = trackType == 1 || trackType == 0;
     JPopupMenu popup = new JPopupMenu();
@@ -67,8 +63,13 @@ public class StepPropertiesEditor {
     euclideanItem.addActionListener(
         ev -> {
           Frame owner = (Frame) SwingUtilities.getWindowAncestor(parent);
+          ClipModel cModel = resolveClipModel(parent);
+          int euclideanSteps = cModel != null ? cModel.getStepCount() : parent.getScreenStepCount();
           new EuclideanRhythmDialog(
-                  owner, 16, "Row " + (row + 1), pat -> parent.applyEuclideanFillToRow(row, pat))
+                  owner,
+                  euclideanSteps,
+                  "Row " + (row + 1),
+                  pat -> parent.applyEuclideanFillToRow(row, pat))
               .setVisible(true);
         });
     popup.add(euclideanItem);
@@ -341,26 +342,17 @@ public class StepPropertiesEditor {
   }
 
   private static ClipModel resolveClipModel(SwingGridPanel parent) {
-    org.deluge.model.ProjectModel projectModel = parent.getProjectModel();
-    int editedModelTrack = parent.getEditedModelTrack();
-    int activeClipId = parent.getActiveClipId();
-    if (projectModel != null
-        && editedModelTrack >= 0
-        && editedModelTrack < projectModel.getTracks().size()) {
-      TrackModel tm = projectModel.getTracks().get(editedModelTrack);
-      if (activeClipId >= 0 && activeClipId < tm.getClips().size()) {
-        return tm.getClips().get(activeClipId);
-      }
-    }
-    return null;
+    return parent.activeClipOrNull();
   }
 
   public static void showStepPropertiesDialog(ClipEditorController controller, int row, int col) {
     SwingGridPanel parent = controller.parent;
+    if (!parent.isSquareDefined(col)) return;
     BridgeContract bridge = parent.getBridge();
     if (bridge == null) return;
     int visualModelRow = parent.getModelRow(row);
     int activeCol = parent.getActiveCol(row, col);
+    if (activeCol < 0) return;
     ClipModel cm = resolveClipModel(parent);
     int clipRow = cm != null ? parent.getClipRowIndex(cm, visualModelRow, false) : -1;
     if (cm != null && clipRow < 0) {
@@ -466,10 +458,12 @@ public class StepPropertiesEditor {
       double nudge,
       int playCondition) {
     SwingGridPanel parent = controller.parent;
+    if (!parent.isSquareDefined(col)) return;
     BridgeContract bridge = parent.getBridge();
     if (bridge == null) return;
     int visualModelRow = parent.getModelRow(row);
     int activeCol = parent.getActiveCol(row, col);
+    if (activeCol < 0) return;
     ClipModel cModel = resolveClipModel(parent);
     int editedModelTrack = parent.getEditedModelTrack();
     int activeClipId = parent.getActiveClipId();
@@ -478,7 +472,6 @@ public class StepPropertiesEditor {
       return;
     }
     StepData oldStep = cModel != null ? cModel.getStep(clipRow, activeCol) : null;
-    int baseTrackId = parent.getBaseTrackId();
     int trackType = parent.resolveEditedTrackType();
     int pitch = resolveStepPitch(parent, trackType, visualModelRow);
     int engineRow =
@@ -487,10 +480,12 @@ public class StepPropertiesEditor {
             : parent.getAllocatedEngineRow(visualModelRow);
 
     if (cModel != null && SwingGridPanel.isCrossScreenWrapActive) {
-      int baseCol = activeCol % 16;
+      // C instrument_clip_view.cpp:337 — wrapEditLevel equals current screen width
+      int screenSteps = parent.getScreenStepCount();
+      int baseCol = activeCol % screenSteps;
       int trackLen = cModel.getStepCount();
       java.util.List<Consequence> steps = new java.util.ArrayList<>();
-      for (int c = baseCol; c < trackLen; c += 16) {
+      for (int c = baseCol; c < trackLen; c += screenSteps) {
         StepData oldSt = cModel.getStep(clipRow, c);
         if (oldSt.active()) {
           if (bridge != null && engineRow >= 0) {
@@ -594,10 +589,12 @@ public class StepPropertiesEditor {
 
   public static void applyVelocity(ClipEditorController controller, int row, int col, double vel) {
     SwingGridPanel parent = controller.parent;
+    if (!parent.isSquareDefined(col)) return;
     BridgeContract bridge = parent.getBridge();
     if (bridge == null) return;
     int visualModelRow = parent.getModelRow(row);
     int activeCol = parent.getActiveCol(row, col);
+    if (activeCol < 0) return;
     ClipModel cm = resolveClipModel(parent);
     int clipRow = cm != null ? parent.getClipRowIndex(cm, visualModelRow, false) : -1;
     if (cm != null && clipRow < 0) {
@@ -626,10 +623,12 @@ public class StepPropertiesEditor {
   public static void saveStepProbability(
       ClipEditorController controller, int row, int col, double prob) {
     SwingGridPanel parent = controller.parent;
+    if (!parent.isSquareDefined(col)) return;
     BridgeContract bridge = parent.getBridge();
     if (bridge == null) return;
     int visualModelRow = parent.getModelRow(row);
     int activeCol = parent.getActiveCol(row, col);
+    if (activeCol < 0) return;
     ClipModel cModel = resolveClipModel(parent);
     int editedModelTrack = parent.getEditedModelTrack();
     int activeClipId = parent.getActiveClipId();
@@ -638,7 +637,6 @@ public class StepPropertiesEditor {
       return;
     }
     StepData oldStep = cModel != null ? cModel.getStep(clipRow, activeCol) : null;
-    int baseTrackId = parent.getBaseTrackId();
     int trackType = parent.resolveEditedTrackType();
     int pitch = resolveStepPitch(parent, trackType, visualModelRow);
     int engineRow =
@@ -647,10 +645,12 @@ public class StepPropertiesEditor {
             : parent.getAllocatedEngineRow(visualModelRow);
 
     if (cModel != null && SwingGridPanel.isCrossScreenWrapActive) {
-      int baseCol = activeCol % 16;
+      // C instrument_clip_view.cpp:337 — wrapEditLevel equals current screen width
+      int screenSteps = parent.getScreenStepCount();
+      int baseCol = activeCol % screenSteps;
       int trackLen = cModel.getStepCount();
       java.util.List<Consequence> steps = new java.util.ArrayList<>();
-      for (int c = baseCol; c < trackLen; c += 16) {
+      for (int c = baseCol; c < trackLen; c += screenSteps) {
         StepData oldSt = cModel.getStep(clipRow, c);
         if (oldSt.active()) {
           if (bridge != null && engineRow >= 0) {

@@ -28,10 +28,8 @@ class ShiftClickController {
     if (lookup == null || lookup.isEmpty()) return;
     final String param = lookup;
 
-    int editedModelTrack = controller.getEditedModelTrack();
-    if (controller.getProjectModel() == null
-        || editedModelTrack >= controller.getProjectModel().getTracks().size()) return;
-    TrackModel genericTrack = controller.getProjectModel().getTracks().get(editedModelTrack);
+    TrackModel genericTrack = controller.editedTrackOrNull();
+    if (genericTrack == null) return;
 
     // Check parameter applicability first
     boolean applicable = controller.isParamApplicable(param, row, col, genericTrack);
@@ -83,7 +81,8 @@ class ShiftClickController {
     wrapper.add(title, BorderLayout.NORTH);
 
     int initVal = 50;
-    String initialLabel = "";
+    String initialLabel = "--";
+    boolean hasSlider = false;
     final int envIdx = (col == 9) ? 1 : 0;
 
     switch (param) {
@@ -92,10 +91,12 @@ class ShiftClickController {
           float freq = (col == 8) ? track.getLpfFreq() : track.getHpfFreq();
           initVal = (int) (100.0 * Math.log(freq / 20.0) / Math.log(1000.0));
           initialLabel = String.format("%.0f Hz", freq);
+          hasSlider = true;
         } else if (row == 1 && track != null) {
           float res = (col == 8) ? track.getLpfRes() : track.getHpfRes();
           initVal = (int) (res * 100.0f);
           initialLabel = String.format("%d%%", initVal);
+          hasSlider = true;
         }
         break;
       case "RESONANCE":
@@ -103,6 +104,7 @@ class ShiftClickController {
           float resVal = (col == 8) ? track.getLpfRes() : track.getHpfRes();
           initVal = (int) (resVal * 100.0f);
           initialLabel = String.format("%d%%", initVal);
+          hasSlider = true;
         }
         break;
       case "ATTACK":
@@ -110,6 +112,7 @@ class ShiftClickController {
           float att = track.getEnv(envIdx).attack();
           initVal = (int) (att * 10.0f);
           initialLabel = String.format("%.2f s", att);
+          hasSlider = true;
         }
         break;
       case "DECAY":
@@ -117,6 +120,7 @@ class ShiftClickController {
           float dec = track.getEnv(envIdx).decay();
           initVal = (int) (dec * 10.0f);
           initialLabel = String.format("%.2f s", dec);
+          hasSlider = true;
         }
         break;
       case "SUSTAIN":
@@ -124,6 +128,7 @@ class ShiftClickController {
           float sus = track.getEnv(envIdx).sustain();
           initVal = (int) (sus * 100.0f);
           initialLabel = String.format("%d%%", initVal);
+          hasSlider = true;
         }
         break;
       case "RELEASE":
@@ -131,26 +136,141 @@ class ShiftClickController {
           float rel = track.getEnv(envIdx).release();
           initVal = (int) (rel * 10.0f);
           initialLabel = String.format("%.2f s", rel);
+          hasSlider = true;
         }
         break;
       case "PAN":
         if (row == 4 && col == 6) {
           initVal = (int) (genericTrack.getPan() * 100.0f);
           initialLabel = String.format("%d%%", initVal);
+          hasSlider = true;
         }
         break;
       case "LEVEL":
         if (row == 7 && col == 6) {
           initVal = (int) (genericTrack.getVolume() * 100.0f);
           initialLabel = String.format("%d%%", initVal);
+          hasSlider = true;
         } else if (row == 7 && (col == 2 || col == 3) && track != null) {
           initVal = (int) (track.getOscMix() * 100.0f);
           initialLabel = String.format("%d%%", initVal);
+          hasSlider = true;
         }
         break;
       case "GLIDE":
-        initVal = (int) (track.getPortamento() * 50.0f);
-        initialLabel = String.format("%.2f s", track.getPortamento());
+        if (track != null) {
+          initVal = (int) (track.getPortamento() * 50.0f);
+          initialLabel = String.format("%.2f s", track.getPortamento());
+          hasSlider = true;
+        }
+        break;
+      case "RATE":
+        // C menus.cpp:1933 — (col 12, row 0) is modFXRateMenu
+        if (row == 0 && col == 12 && track != null) {
+          initVal = Math.round(track.getModFxRate() * 100.0f);
+          initialLabel = String.format("%d%%", initVal);
+          hasSlider = true;
+        }
+        break;
+      case "DEPTH":
+        // C menus.cpp:1933 — (col 12, row 1) is modFXDepthMenu
+        if (track != null) {
+          initVal = Math.round(track.getModFxDepth() * 100.0f);
+          initialLabel = String.format("%d%%", initVal);
+          hasSlider = true;
+        }
+        break;
+      case "FDBACK":
+        // C menus.cpp:1933 — (col 12, row 2) is modFXFeedbackMenu
+        if (track != null) {
+          initVal = Math.round(track.getModFxFeedback() * 100.0f);
+          initialLabel = String.format("%d%%", initVal);
+          hasSlider = true;
+        }
+        break;
+      case "OFFSET":
+        // C menus.cpp:1933 — (col 12, row 3) is modFXOffsetMenu
+        if (track != null) {
+          initVal = Math.round(track.getModFxOffset() * 100.0f);
+          initialLabel = String.format("%d%%", initVal);
+          hasSlider = true;
+        }
+        break;
+      case "REVERB":
+      case "WET":
+        if (track != null) {
+          initVal = (int) (track.getReverbSend() * 100.0f);
+          initialLabel = String.format("%d%%", initVal);
+          hasSlider = true;
+        }
+        break;
+      case "AMOUNT":
+        // C menus.cpp:1934-1935 — col 13 row 4 is reverbAmountMenu; col 14 row 4 is
+        // delayFeedbackMenu
+        if (track != null) {
+          if (col == 14) {
+            initVal =
+                Math.round(
+                    ClipEditorController.delayFeedbackUnitFromQ31(track.getDelayFeedbackQ31())
+                        * 100.0f);
+          } else {
+            initVal = (int) (track.getReverbSend() * 100.0f);
+          }
+          initialLabel = String.format("%d%%", initVal);
+          hasSlider = true;
+        }
+        break;
+      case "SIZE":
+      case "ROOM SIZE":
+      case "TIME":
+      case "DAMP":
+      case "DAMPING":
+      case "WIDTH":
+        if (SwingDelugeApp.mainInstance != null
+            && SwingDelugeApp.mainInstance.getFirmwareAudioEngine() != null) {
+          var revEngine = SwingDelugeApp.mainInstance.getFirmwareAudioEngine().masterReverb;
+          float curRev =
+              ("SIZE".equals(param) || "ROOM SIZE".equals(param) || "TIME".equals(param))
+                  ? revEngine.getRoomSize()
+                  : (("DAMP".equals(param) || "DAMPING".equals(param))
+                      ? revEngine.getDamping()
+                      : revEngine.getWidth());
+          initVal = (int) (curRev * 100.0f);
+          initialLabel = String.format("%d%%", initVal);
+          hasSlider = true;
+        }
+        break;
+      case "DELAY":
+        if (track != null) {
+          initVal = (int) (track.getDelaySend() * 100.0f);
+          initialLabel = String.format("%d%%", initVal);
+          hasSlider = true;
+        }
+        break;
+      case "FEEDBACK":
+        if (track != null) {
+          initVal =
+              Math.round(
+                  ClipEditorController.delayFeedbackUnitFromQ31(track.getDelayFeedbackQ31())
+                      * 100.0f);
+          initialLabel = String.format("%d%%", initVal);
+          hasSlider = true;
+        }
+        break;
+      case "MONO/ STEREO":
+      case "PING PONG":
+        if (track != null) {
+          initVal = track.isDelayPingPong() ? 100 : 0;
+          initialLabel = track.isDelayPingPong() ? "ON" : "OFF";
+          hasSlider = true;
+        }
+        break;
+      case "DIGI/ ANALOG":
+        if (track != null) {
+          initVal = track.isDelayAnalog() ? 100 : 0;
+          initialLabel = track.isDelayAnalog() ? "ANLG" : "DIGI";
+          hasSlider = true;
+        }
         break;
     }
 
@@ -160,6 +280,7 @@ class ShiftClickController {
     slider.setPreferredSize(new Dimension(150, 28));
     slider.setOpaque(false);
     slider.setFocusable(false);
+    slider.setEnabled(hasSlider);
     DarkSliderUI.styleSlider(slider, new Color(0x00, 0xff, 0xcc));
     wrapper.add(slider, BorderLayout.CENTER);
 
@@ -168,17 +289,19 @@ class ShiftClickController {
     valueLabel.setFont(new Font("Monospaced", Font.PLAIN, 10));
     wrapper.add(valueLabel, BorderLayout.SOUTH);
 
+    final boolean sliderBacked = hasSlider;
     slider.addChangeListener(
         e -> {
+          if (!sliderBacked) return;
           int val = slider.getValue();
           switch (param) {
             case "CUTOFF":
-              if (row == 0) {
+              if (row == 0 && track != null) {
                 float freq = (float) (20.0 * Math.pow(1000.0, val / 100.0));
                 if (col == 8) track.setLpfFreq(freq);
                 else track.setHpfFreq(freq);
                 valueLabel.setText(String.format("%.0f Hz", freq));
-              } else if (row == 1) {
+              } else if (row == 1 && track != null) {
                 float res = val / 100.0f;
                 if (col == 8) track.setLpfRes(res);
                 else track.setHpfRes(res);
@@ -186,66 +309,76 @@ class ShiftClickController {
               }
               break;
             case "RESONANCE":
-              float res = val / 100.0f;
-              if (col == 8) track.setLpfRes(res);
-              else track.setHpfRes(res);
-              valueLabel.setText(String.format("%d%%", val));
+              if (track != null) {
+                float res = val / 100.0f;
+                if (col == 8) track.setLpfRes(res);
+                else track.setHpfRes(res);
+                valueLabel.setText(String.format("%d%%", val));
+              }
               break;
             case "ATTACK":
-              float aTime = val / 10.0f;
-              var attEnv = track.getEnv(envIdx);
-              track.setEnv(
-                  envIdx,
-                  new EnvelopeModel(
-                      aTime,
-                      attEnv.decay(),
-                      attEnv.sustain(),
-                      attEnv.release(),
-                      attEnv.target(),
-                      attEnv.amount()));
-              valueLabel.setText(String.format("%.2f s", aTime));
+              if (track != null) {
+                float aTime = val / 10.0f;
+                var attEnv = track.getEnv(envIdx);
+                track.setEnv(
+                    envIdx,
+                    new EnvelopeModel(
+                        aTime,
+                        attEnv.decay(),
+                        attEnv.sustain(),
+                        attEnv.release(),
+                        attEnv.target(),
+                        attEnv.amount()));
+                valueLabel.setText(String.format("%.2f s", aTime));
+              }
               break;
             case "DECAY":
-              float dTime = val / 10.0f;
-              var decEnv = track.getEnv(envIdx);
-              track.setEnv(
-                  envIdx,
-                  new EnvelopeModel(
-                      decEnv.attack(),
-                      dTime,
-                      decEnv.sustain(),
-                      decEnv.release(),
-                      decEnv.target(),
-                      decEnv.amount()));
-              valueLabel.setText(String.format("%.2f s", dTime));
+              if (track != null) {
+                float dTime = val / 10.0f;
+                var decEnv = track.getEnv(envIdx);
+                track.setEnv(
+                    envIdx,
+                    new EnvelopeModel(
+                        decEnv.attack(),
+                        dTime,
+                        decEnv.sustain(),
+                        decEnv.release(),
+                        decEnv.target(),
+                        decEnv.amount()));
+                valueLabel.setText(String.format("%.2f s", dTime));
+              }
               break;
             case "SUSTAIN":
-              float sLevel = val / 100.0f;
-              var susEnv = track.getEnv(envIdx);
-              track.setEnv(
-                  envIdx,
-                  new EnvelopeModel(
-                      susEnv.attack(),
-                      susEnv.decay(),
-                      sLevel,
-                      susEnv.release(),
-                      susEnv.target(),
-                      susEnv.amount()));
-              valueLabel.setText(String.format("%d%%", val));
+              if (track != null) {
+                float sLevel = val / 100.0f;
+                var susEnv = track.getEnv(envIdx);
+                track.setEnv(
+                    envIdx,
+                    new EnvelopeModel(
+                        susEnv.attack(),
+                        susEnv.decay(),
+                        sLevel,
+                        susEnv.release(),
+                        susEnv.target(),
+                        susEnv.amount()));
+                valueLabel.setText(String.format("%d%%", val));
+              }
               break;
             case "RELEASE":
-              float rTime = val / 10.0f;
-              var relEnv = track.getEnv(envIdx);
-              track.setEnv(
-                  envIdx,
-                  new EnvelopeModel(
-                      relEnv.attack(),
-                      relEnv.decay(),
-                      relEnv.sustain(),
-                      rTime,
-                      relEnv.target(),
-                      relEnv.amount()));
-              valueLabel.setText(String.format("%.2f s", rTime));
+              if (track != null) {
+                float rTime = val / 10.0f;
+                var relEnv = track.getEnv(envIdx);
+                track.setEnv(
+                    envIdx,
+                    new EnvelopeModel(
+                        relEnv.attack(),
+                        relEnv.decay(),
+                        relEnv.sustain(),
+                        rTime,
+                        relEnv.target(),
+                        relEnv.amount()));
+                valueLabel.setText(String.format("%.2f s", rTime));
+              }
               break;
             case "PAN":
               if (row == 4 && col == 6) {
@@ -266,32 +399,94 @@ class ShiftClickController {
               }
               break;
             case "GLIDE":
-              float port = val / 50.0f;
-              track.setPortamento(port);
-              valueLabel.setText(String.format("%.2f s", port));
-              break;
-            case "REVERB":
-            case "AMOUNT":
-            case "WET":
-            case "DEPTH":
-              float rev = val / 100.0f;
-              track.setReverbSend(rev);
-              valueLabel.setText(String.format("%d%%", val));
-              if (SwingDelugeApp.mainInstance != null) {
-                SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
-                    "REVERB", String.format("%d%%", val));
+              if (track != null) {
+                float port = val / 50.0f;
+                track.setPortamento(port);
+                valueLabel.setText(String.format("%.2f s", port));
               }
               break;
+            case "RATE":
+              if (row == 0 && col == 12 && track != null) {
+                track.setModFxRate(val / 100.0f);
+                valueLabel.setText(String.format("%d%%", val));
+                if (SwingDelugeApp.mainInstance != null) {
+                  SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
+                      "MOD FX", String.format("%d%%", val));
+                }
+              }
+              break;
+            case "DEPTH":
+              if (track != null) {
+                track.setModFxDepth(val / 100.0f);
+                valueLabel.setText(String.format("%d%%", val));
+                if (SwingDelugeApp.mainInstance != null) {
+                  SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
+                      "MOD FX", String.format("%d%%", val));
+                }
+              }
+              break;
+            case "FDBACK":
+              if (track != null) {
+                track.setModFxFeedback(val / 100.0f);
+                valueLabel.setText(String.format("%d%%", val));
+                if (SwingDelugeApp.mainInstance != null) {
+                  SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
+                      "MOD FX", String.format("%d%%", val));
+                }
+              }
+              break;
+            case "OFFSET":
+              if (track != null) {
+                track.setModFxOffset(val / 100.0f);
+                valueLabel.setText(String.format("%d%%", val));
+                if (SwingDelugeApp.mainInstance != null) {
+                  SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
+                      "MOD FX", String.format("%d%%", val));
+                }
+              }
+              break;
+            case "REVERB":
+            case "WET":
+              if (track != null) {
+                float rev = val / 100.0f;
+                track.setReverbSend(rev);
+                valueLabel.setText(String.format("%d%%", val));
+                if (SwingDelugeApp.mainInstance != null) {
+                  SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
+                      "REVERB", String.format("%d%%", val));
+                }
+              }
+              break;
+            case "AMOUNT":
+              if (track != null) {
+                if (col == 14) {
+                  track.setDelayFeedbackQ31(
+                      ClipEditorController.delayFeedbackQ31FromUnit(val / 100.0));
+                  valueLabel.setText(String.format("%d%%", val));
+                  if (SwingDelugeApp.mainInstance != null) {
+                    SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
+                        "DELAY", String.format("%d%%", val));
+                  }
+                } else {
+                  track.setReverbSend(val / 100.0f);
+                  valueLabel.setText(String.format("%d%%", val));
+                  if (SwingDelugeApp.mainInstance != null) {
+                    SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
+                        "REVERB", String.format("%d%%", val));
+                  }
+                }
+              }
+              break;
+            case "SIZE":
             case "ROOM SIZE":
             case "TIME":
             case "DAMP":
             case "DAMPING":
             case "WIDTH":
-            case "DIFF":
               if (SwingDelugeApp.mainInstance != null
                   && SwingDelugeApp.mainInstance.getFirmwareAudioEngine() != null) {
                 var revEngine = SwingDelugeApp.mainInstance.getFirmwareAudioEngine().masterReverb;
-                if ("ROOM SIZE".equals(param) || "TIME".equals(param)) {
+                if ("SIZE".equals(param) || "ROOM SIZE".equals(param) || "TIME".equals(param)) {
                   revEngine.setRoomSize(val / 100.0f);
                 } else if ("DAMP".equals(param) || "DAMPING".equals(param)) {
                   revEngine.setDamping(val / 100.0f);
@@ -303,15 +498,47 @@ class ShiftClickController {
               }
               break;
             case "DELAY":
-            case "DELAY TIME":
+              if (track != null) {
+                float dly = val / 100.0f;
+                track.setDelaySend(dly);
+                valueLabel.setText(String.format("%d%%", val));
+                if (SwingDelugeApp.mainInstance != null) {
+                  SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
+                      "DELAY", String.format("%d%%", val));
+                }
+              }
+              break;
             case "FEEDBACK":
+              if (track != null) {
+                track.setDelayFeedbackQ31(
+                    ClipEditorController.delayFeedbackQ31FromUnit(val / 100.0));
+                valueLabel.setText(String.format("%d%%", val));
+                if (SwingDelugeApp.mainInstance != null) {
+                  SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
+                      "DELAY", String.format("%d%%", val));
+                }
+              }
+              break;
+            case "MONO/ STEREO":
             case "PING PONG":
-              float dly = val / 100.0f;
-              track.setDelaySend(dly);
-              valueLabel.setText(String.format("%d%%", val));
-              if (SwingDelugeApp.mainInstance != null) {
-                SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
-                    "DELAY", String.format("%d%%", val));
+              if (track != null) {
+                boolean pp = val >= 50;
+                track.setDelayPingPong(pp);
+                valueLabel.setText(pp ? "ON" : "OFF");
+                if (SwingDelugeApp.mainInstance != null) {
+                  SwingDelugeApp.mainInstance.updateHardwareLedDisplay("DELAY", pp ? "ON" : "OFF");
+                }
+              }
+              break;
+            case "DIGI/ ANALOG":
+              if (track != null) {
+                boolean anlg = val >= 50;
+                track.setDelayAnalog(anlg);
+                valueLabel.setText(anlg ? "ANLG" : "DIGI");
+                if (SwingDelugeApp.mainInstance != null) {
+                  SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
+                      "DELAY", anlg ? "ANLG" : "DIGI");
+                }
               }
               break;
           }
