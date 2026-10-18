@@ -1438,6 +1438,8 @@ public class ProjectSerializer {
     // defaultArpSettings, used for new clips). Without it the hardware plays the clip's arp OFF.
     if (track instanceof SynthTrackModel synthTrack && synthTrack.getArp() != null) {
       writeClipArpeggiator(writer, synthTrack.getArp(), currentInputTickMagnitude);
+    } else if (track instanceof KitTrackModel kitTrack && kitTrack.getArp() != null) {
+      writeClipArpeggiator(writer, kitTrack.getArp(), currentInputTickMagnitude);
     }
 
     writer.writeOpeningTagBeginning("columnControls");

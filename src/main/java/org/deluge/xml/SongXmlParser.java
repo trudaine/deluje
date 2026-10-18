@@ -680,6 +680,14 @@ public class SongXmlParser {
             if (kitParamsEl != null) {
               parseKitParamsElement(kitParamsEl, clip);
             }
+            // C instrument_clip.cpp:2676-2689 — the kit clip's own arpeggiator (the kit arp).
+            // The model keeps one per kit: the first clip's.
+            Element arpEl = getFirstChild(clipElem, "arpeggiator");
+            if (arpEl != null && ktm.getArp() == null) {
+              ktm.setArp(
+                  InstrumentXmlParser.parseArpElement(
+                      arpEl, InstrumentXmlParser.SONG_INPUT_TICK_MAGNITUDE.get(), true));
+            }
           }
           default -> {}
         }

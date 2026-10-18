@@ -1251,7 +1251,16 @@ public class InstrumentXmlParser {
       }
     }
     if (arpEl == null) return;
+    synth.setArp(parseArpElement(arpEl, inputTickMagnitude, false));
+  }
 
+  /**
+   * One {@code <arpeggiator>} element — C ArpeggiatorSettings::readCommonTagsFromFile
+   * (arpeggiator.cpp:1645-1790). {@code clipLevel}: an instrumentClip's own element, whose
+   * syncLevel is the INTERNAL value (the clip reads it with songToConvertSyncLevel = nullptr,
+   * instrument_clip.cpp:2676-2689 / :1735-1743); a sound's element holds the file value.
+   */
+  public static ArpModel parseArpElement(Element arpEl, int inputTickMagnitude, boolean clipLevel) {
     String mode = "UP";
     float rate = 1.0f;
     float gate = 0.5f;
@@ -1307,7 +1316,11 @@ public class InstrumentXmlParser {
         // An old save of this app stored the model's denominator. Its 0 stays "not synced":
         // that is what the hardware plays for such a file (Song000FidelityTest, REC00004).
         syncLevel =
-            legacyApp ? Math.max(0, v) : ArpXmlCodec.syncDenominatorFromFile(v, inputTickMagnitude);
+            legacyApp
+                ? Math.max(0, v)
+                : clipLevel
+                    ? ArpXmlCodec.syncDenominatorFromInternal(v, inputTickMagnitude)
+                    : ArpXmlCodec.syncDenominatorFromFile(v, inputTickMagnitude);
       } catch (NumberFormatException e) {
         LOG.log(Level.FINE, "NumberFormatException parsing arpeggiator syncLevel", e);
       }
@@ -1437,58 +1450,57 @@ public class InstrumentXmlParser {
       lockedOctaveSpreadArray = "00000000000000000000000000000000";
     }
 
-    synth.setArp(
-        new ArpModel(
-            active,
-            mode,
-            rate,
-            octaves,
-            Math.abs(gate),
-            syncLevel,
-            noteMode,
-            octaveMode,
-            stepRepeat,
-            rhythmIndex,
-            seqLength,
-            octaveSpread,
-            gateSpread,
-            velSpread,
-            ratchetAmount,
-            mpeVelocity,
-            syncType,
-            noteProb,
-            bassProb,
-            swapProb,
-            glideProb,
-            reverseProb,
-            chordProb,
-            ratchetProb,
-            chordPolyphony,
-            notePattern,
-            chordType,
-            numOctaves,
-            kitArp,
-            randomizerLock,
-            lastLockedNoteProb,
-            lockedNoteProbArray,
-            lastLockedBassProb,
-            lockedBassProbArray,
-            lastLockedSwapProb,
-            lockedSwapProbArray,
-            lastLockedGlideProb,
-            lockedGlideProbArray,
-            lastLockedReverseProb,
-            lockedReverseProbArray,
-            lastLockedChordProb,
-            lockedChordProbArray,
-            lastLockedRatchetProb,
-            lockedRatchetProbArray,
-            lastLockedVelocitySpread,
-            lockedVelocitySpreadArray,
-            lastLockedGateSpread,
-            lockedGateSpreadArray,
-            lastLockedOctaveSpread,
-            lockedOctaveSpreadArray));
+    return new ArpModel(
+        active,
+        mode,
+        rate,
+        octaves,
+        Math.abs(gate),
+        syncLevel,
+        noteMode,
+        octaveMode,
+        stepRepeat,
+        rhythmIndex,
+        seqLength,
+        octaveSpread,
+        gateSpread,
+        velSpread,
+        ratchetAmount,
+        mpeVelocity,
+        syncType,
+        noteProb,
+        bassProb,
+        swapProb,
+        glideProb,
+        reverseProb,
+        chordProb,
+        ratchetProb,
+        chordPolyphony,
+        notePattern,
+        chordType,
+        numOctaves,
+        kitArp,
+        randomizerLock,
+        lastLockedNoteProb,
+        lockedNoteProbArray,
+        lastLockedBassProb,
+        lockedBassProbArray,
+        lastLockedSwapProb,
+        lockedSwapProbArray,
+        lastLockedGlideProb,
+        lockedGlideProbArray,
+        lastLockedReverseProb,
+        lockedReverseProbArray,
+        lastLockedChordProb,
+        lockedChordProbArray,
+        lastLockedRatchetProb,
+        lockedRatchetProbArray,
+        lastLockedVelocitySpread,
+        lockedVelocitySpreadArray,
+        lastLockedGateSpread,
+        lockedGateSpreadArray,
+        lastLockedOctaveSpread,
+        lockedOctaveSpreadArray);
   }
 
   private static void parseSynthCompressor(Element soundNode, SynthTrackModel synth) {

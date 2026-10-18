@@ -179,6 +179,13 @@ public final class ArpXmlCodec {
     return exp >= 0 ? 1 << exp : -(1 << -exp);
   }
 
+  /** C internal SyncLevel (1..9, 0 = none) → model denominator, as in the function above. */
+  public static int syncDenominatorFromInternal(int level, int inputTickMagnitude) {
+    if (level <= 0) return 0;
+    int exp = level + inputTickMagnitude - 4;
+    return exp >= 0 ? 1 << exp : -(1 << -exp);
+  }
+
   /** Model denominator → the C internal SyncLevel (1..9, 0 = none), the inverse of the above. */
   public static int internalSyncLevelFromDenominator(int denominator, int inputTickMagnitude) {
     if (denominator == 0) return 0;
