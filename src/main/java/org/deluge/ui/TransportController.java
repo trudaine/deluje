@@ -2,7 +2,6 @@ package org.deluge.ui;
 
 import java.awt.Color;
 import java.io.File;
-import java.util.ArrayDeque;
 import java.util.logging.Logger;
 import javax.swing.JButton;
 import org.deluge.BridgeContract;
@@ -20,7 +19,10 @@ public class TransportController {
   private static final Logger LOGGER = Logger.getLogger(TransportController.class.getName());
   private final SwingDelugeApp app;
   private final BridgeContract bridge;
-  private final ArrayDeque<Long> tapTimes = new ArrayDeque<>();
+  // C PlaybackHandler tap-tempo state (playback_handler.cpp:482-485, 2846-2880).
+  private long tapTempoFirstPressTime = 0L;
+  private long tapTempoLastPressTime = 0L;
+  private int tapTempoNumPresses = 0;
 
   public TransportController(SwingDelugeApp app) {
     this.app = app;
@@ -171,24 +173,37 @@ public class TransportController {
   }
 
   public void tapTempo() {
-    long now = System.currentTimeMillis();
-    if (!tapTimes.isEmpty() && (now - tapTimes.peekLast()) > 2000) {
-      tapTimes.clear();
+    recordTapAt(System.currentTimeMillis());
+  }
+
+  /**
+   * C PlaybackHandler::tapTempoButtonPress (playback_handler.cpp:482-485, 2846-2880): averages all
+   * presses since {@code tapTempoFirstPressTime} without a sliding window or BPM clamp, resets
+   * after 1100 ms since the last press (TimerName::TAP_TEMPO_SWITCH_OFF, :2879), and displays the
+   * updated tempo on the OLED (commandDisplayTempo, :2872).
+   */
+  void recordTapAt(long now) {
+    if (tapTempoNumPresses > 0 && (now - tapTempoLastPressTime) > 1100L) {
+      tapTempoNumPresses = 0;
     }
-    tapTimes.addLast(now);
-    while (tapTimes.size() > 8) {
-      tapTimes.removeFirst();
-    }
-    if (tapTimes.size() >= 2) {
-      long[] arr = tapTimes.stream().mapToLong(Long::longValue).toArray();
-      long totalGap = arr[arr.length - 1] - arr[0];
-      double avgGap = totalGap / (double) (arr.length - 1);
-      double bpm = 60000.0 / avgGap;
-      bpm = Math.max(20.0, Math.min(999.0, bpm));
-      if (app.getCurrentProject() != null) {
-        app.getCurrentProject().setBpm((float) bpm);
+    if (tapTempoNumPresses == 0) {
+      tapTempoFirstPressTime = now;
+    } else {
+      long totalGap = now - tapTempoFirstPressTime;
+      if (totalGap > 0L) {
+        double avgGap = totalGap / (double) tapTempoNumPresses;
+        double bpm = 60000.0 / avgGap;
+        if (app.getCurrentProject() != null) {
+          app.getCurrentProject().setBpm((float) bpm);
+        }
+        if (bridge != null) {
+          bridge.setGlobalFloat(BridgeContract.G_BPM, bpm);
+        }
+        showOled("TEMPO", String.format("%.1f BPM", bpm));
       }
     }
+    tapTempoNumPresses++;
+    tapTempoLastPressTime = now;
   }
 
   public void onMasterVolumeChanged(float vol) {

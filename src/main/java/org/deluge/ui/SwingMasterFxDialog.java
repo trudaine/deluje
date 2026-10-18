@@ -118,13 +118,14 @@ public class SwingMasterFxDialog extends JDialog {
     modelCombo.setBackground(BG_DARK);
     modelCombo.setForeground(TEXT_LIGHT);
     modelCombo.setFont(FONT_VALUE);
-    modelCombo.setSelectedIndex(projectModel.getReverbModel());
+    modelCombo.setSelectedIndex(
+        Math.max(0, Math.min(models.length - 1, projectModel.getReverbModel())));
     modelCombo.addActionListener(
         e -> {
           int idx = modelCombo.getSelectedIndex();
           projectModel.setReverbModel(idx);
           bridge.setGlobalInt(BridgeContract.G_REVERB_MODEL, idx);
-          app.updateHardwareLedDisplayTransient("RV.MD", "M" + idx);
+          showTransientLed("RV.MD", "M" + idx);
         });
 
     addControlRow(
@@ -147,7 +148,7 @@ public class SwingMasterFxDialog extends JDialog {
           float f = val / 100.0f;
           projectModel.setReverbRoomSize(f);
           bridge.setGlobalFloat(BridgeContract.G_REVERB_ROOM, f);
-          app.updateHardwareLedDisplayTransient("RV.RM", val + "%");
+          showTransientLed("RV.RM", val + "%");
         },
         GLOW_BLUE);
 
@@ -163,7 +164,7 @@ public class SwingMasterFxDialog extends JDialog {
           float f = val / 100.0f;
           projectModel.setReverbDampening(f);
           bridge.setGlobalFloat(BridgeContract.G_REVERB_DAMP, f);
-          app.updateHardwareLedDisplayTransient("RV.DM", val + "%");
+          showTransientLed("RV.DM", val + "%");
         },
         GLOW_BLUE);
 
@@ -179,7 +180,7 @@ public class SwingMasterFxDialog extends JDialog {
           float f = val / 100.0f;
           projectModel.setReverbWidth(f);
           bridge.setGlobalFloat(BridgeContract.G_REVERB_WIDTH, f);
-          app.updateHardwareLedDisplayTransient("RV.WD", val + "%");
+          showTransientLed("RV.WD", val + "%");
         },
         GLOW_BLUE);
 
@@ -195,7 +196,7 @@ public class SwingMasterFxDialog extends JDialog {
           float f = val / 100.0f;
           projectModel.setReverbHpf(f);
           bridge.setGlobalFloat(BridgeContract.G_REVERB_HPF, f);
-          app.updateHardwareLedDisplayTransient("RV.HP", val + "%");
+          showTransientLed("RV.HP", val + "%");
         },
         GLOW_BLUE);
 
@@ -211,7 +212,7 @@ public class SwingMasterFxDialog extends JDialog {
           float f = (val / 50.0f) - 1.0f;
           projectModel.setReverbPan(f);
           bridge.setGlobalFloat(BridgeContract.G_REVERB_PAN, f);
-          app.updateHardwareLedDisplayTransient("RV.PN", val + "");
+          showTransientLed("RV.PN", val + "");
         },
         GLOW_BLUE);
 
@@ -234,7 +235,7 @@ public class SwingMasterFxDialog extends JDialog {
           float f = val / 100.0f;
           projectModel.setReverbCompressorAttack(f);
           bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_ATTACK, f);
-          app.updateHardwareLedDisplayTransient("RC.AT", val + "ms");
+          showTransientLed("RC.AT", val + "ms");
         },
         GLOW_BLUE);
 
@@ -250,7 +251,7 @@ public class SwingMasterFxDialog extends JDialog {
           float f = val / 100.0f;
           projectModel.setReverbCompressorRelease(f);
           bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_RELEASE, f);
-          app.updateHardwareLedDisplayTransient("RC.RL", val + "ms");
+          showTransientLed("RC.RL", val + "ms");
         },
         GLOW_BLUE);
 
@@ -265,7 +266,7 @@ public class SwingMasterFxDialog extends JDialog {
         val -> {
           projectModel.setReverbCompressorSyncLevel(val);
           bridge.setGlobalInt(BridgeContract.G_REVERB_COMP_SYNC_LEVEL, val);
-          app.updateHardwareLedDisplayTransient("RC.SY", "L" + val);
+          showTransientLed("RC.SY", "L" + val);
         },
         GLOW_BLUE);
 
@@ -281,7 +282,7 @@ public class SwingMasterFxDialog extends JDialog {
           float f = val / 100.0f;
           projectModel.setReverbCompHpf(f);
           bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_HPF, f);
-          app.updateHardwareLedDisplayTransient("RC.HP", val + "%");
+          showTransientLed("RC.HP", val + "%");
         },
         GLOW_BLUE);
 
@@ -297,7 +298,7 @@ public class SwingMasterFxDialog extends JDialog {
           float f = val / 100.0f;
           projectModel.setReverbCompBlend(f);
           bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_BLEND, f);
-          app.updateHardwareLedDisplayTransient("RC.BL", val + "%");
+          showTransientLed("RC.BL", val + "%");
         },
         GLOW_BLUE);
 
@@ -313,7 +314,7 @@ public class SwingMasterFxDialog extends JDialog {
           float f = val / 100.0f;
           projectModel.setReverbCompressorShape(f);
           bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_SHAPE, f);
-          app.updateHardwareLedDisplayTransient("RC.SH", val + "%");
+          showTransientLed("RC.SH", val + "%");
         },
         GLOW_BLUE);
 
@@ -329,7 +330,7 @@ public class SwingMasterFxDialog extends JDialog {
           float f = val / 100.0f;
           projectModel.setReverbCompressorVolume(f);
           bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_VOLUME, f);
-          app.updateHardwareLedDisplayTransient("RC.VO", val + "%");
+          showTransientLed("RC.VO", val + "%");
         },
         GLOW_BLUE);
 
@@ -352,7 +353,7 @@ public class SwingMasterFxDialog extends JDialog {
           bridge.setGlobalInt(BridgeContract.G_DELAY_PINGPONG, v);
           pingPongBtn.setText(v == 1 ? "PING-PONG ACTIVE" : "PING-PONG OFF");
           styleToggleButton(pingPongBtn, pingPongBtn.isSelected(), GLOW_GREEN);
-          app.updateHardwareLedDisplayTransient("DL.PP", v == 1 ? "ON" : "OFF");
+          showTransientLed("DL.PP", v == 1 ? "ON" : "OFF");
         });
 
     // Analog Warmth toggle
@@ -366,7 +367,7 @@ public class SwingMasterFxDialog extends JDialog {
           bridge.setGlobalInt(BridgeContract.G_DELAY_ANALOG, v);
           analogBtn.setText(v == 1 ? "ANALOG WARMTH ON" : "ANALOG CLEAN");
           styleToggleButton(analogBtn, analogBtn.isSelected(), GLOW_GREEN);
-          app.updateHardwareLedDisplayTransient("DL.AN", v == 1 ? "WARM" : "CLN");
+          showTransientLed("DL.AN", v == 1 ? "WARM" : "CLN");
         });
 
     JPanel togglesPanel = new JPanel(new GridBagLayout());
@@ -400,7 +401,7 @@ public class SwingMasterFxDialog extends JDialog {
           float f = val / 100.0f;
           projectModel.setMasterDelay(f);
           bridge.setGlobalFloat(BridgeContract.G_DELAY_FB, f);
-          app.updateHardwareLedDisplayTransient("DL.FB", val + "%");
+          showTransientLed("DL.FB", val + "%");
         },
         GLOW_GREEN);
 
@@ -415,7 +416,7 @@ public class SwingMasterFxDialog extends JDialog {
         val -> {
           projectModel.setDelaySyncLevel(val);
           bridge.setGlobalInt(BridgeContract.G_DELAY_SYNC_LEVEL, val);
-          app.updateHardwareLedDisplayTransient("DL.SY", "D" + val);
+          showTransientLed("DL.SY", "D" + val);
         },
         GLOW_GREEN);
 
@@ -440,7 +441,7 @@ public class SwingMasterFxDialog extends JDialog {
           PreferencesManager.setMasterSaturationEnabled(sel);
           bridge.setGlobalFloat(BridgeContract.G_MASTER_SATURATION, sel ? 1.0f : 0.0f);
           satCheck.setText(sel ? "MASTER SATURATION ACTIVE" : "MASTER SATURATION OFF");
-          app.updateHardwareLedDisplayTransient("M.SAT", sel ? "ON" : "OFF");
+          showTransientLed("M.SAT", sel ? "ON" : "OFF");
         });
 
     addControlRow(
@@ -464,7 +465,7 @@ public class SwingMasterFxDialog extends JDialog {
           PreferencesManager.setFilterDriveEnabled(sel);
           bridge.setGlobalFloat(BridgeContract.G_CHAR_FILTER_DRIVE, sel ? 1.0f : 0.0f);
           driveCheck.setText(sel ? "CHARACTER DRIVE ACTIVE" : "CHARACTER DRIVE CLEAN");
-          app.updateHardwareLedDisplayTransient("C.DRV", sel ? "ON" : "OFF");
+          showTransientLed("C.DRV", sel ? "ON" : "OFF");
         });
 
     addControlRow(
@@ -488,7 +489,7 @@ public class SwingMasterFxDialog extends JDialog {
           PreferencesManager.setBitCrunchEnabled(sel);
           bridge.setGlobalFloat(BridgeContract.G_BIT_CRUNCH, sel ? 1.0f : 0.0f);
           crunchCheck.setText(sel ? "LO-FI BITCRUSH ACTIVE" : "LO-FI BITCRUSH OFF");
-          app.updateHardwareLedDisplayTransient("B.CRN", sel ? "ON" : "OFF");
+          showTransientLed("B.CRN", sel ? "ON" : "OFF");
         });
 
     addControlRow(
@@ -560,12 +561,13 @@ public class SwingMasterFxDialog extends JDialog {
       String unit,
       java.util.function.Consumer<Integer> listener,
       Color sliderColor) {
-    JSlider slider = new JSlider(min, max, initValue);
+    int clampedInit = Math.max(min, Math.min(max, initValue));
+    JSlider slider = new JSlider(min, max, clampedInit);
     slider.setBackground(BG_CARD);
     slider.setFocusable(false);
     slider.setOpaque(false);
 
-    JLabel valLabel = new JLabel(initValue + unit);
+    JLabel valLabel = new JLabel(clampedInit + unit);
     valLabel.setFont(FONT_VALUE);
     valLabel.setForeground(TEXT_LIGHT);
 
@@ -649,5 +651,11 @@ public class SwingMasterFxDialog extends JDialog {
         BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(border, 1),
             BorderFactory.createEmptyBorder(5, 12, 5, 12)));
+  }
+
+  private void showTransientLed(String label, String value) {
+    if (app != null) {
+      app.updateHardwareLedDisplayTransient(label, value);
+    }
   }
 }

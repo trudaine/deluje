@@ -31,6 +31,8 @@ public class SwingKeyZoneGridMap extends JComponent {
 
   private Runnable onSelectionChanged = null;
   private Runnable onZonesModified = null;
+  private int trackIndex = 0;
+  private org.deluge.BridgeContract bridge = null;
 
   public SwingKeyZoneGridMap(List<KeyZone> zones) {
     this.zones = zones;
@@ -82,6 +84,11 @@ public class SwingKeyZoneGridMap extends JComponent {
     this.onZonesModified = listener;
   }
 
+  public void setTrackContext(int trackIndex, org.deluge.BridgeContract bridge) {
+    this.trackIndex = trackIndex;
+    this.bridge = bridge;
+  }
+
   @Override
   public Dimension getPreferredSize() {
     int height = PIANO_HEIGHT + Math.max(5, zones.size()) * ROW_HEIGHT + 20;
@@ -94,7 +101,7 @@ public class SwingKeyZoneGridMap extends JComponent {
 
     if (y < PIANO_HEIGHT) {
       // Clicked on piano keys: Audition note!
-      int note = x / NOTE_WIDTH;
+      int note = Math.max(0, Math.min(127, x / NOTE_WIDTH));
       auditionNote(note);
       return;
     }
@@ -135,10 +142,11 @@ public class SwingKeyZoneGridMap extends JComponent {
   }
 
   private void handleMouseReleased(MouseEvent e) {
+    boolean wasDragging = (dragZone != null && dragMode != 0);
     dragZone = null;
     dragMode = 0;
     setCursor(Cursor.getDefaultCursor());
-    if (onZonesModified != null) {
+    if (wasDragging && onZonesModified != null) {
       onZonesModified.run();
     }
   }
@@ -203,15 +211,16 @@ public class SwingKeyZoneGridMap extends JComponent {
   }
 
   private void auditionNote(int midiNote) {
-    // Dynamically play the note on the live sound engine for previewing!
+    // Dynamically play the note on the edited track's live sound engine for previewing
     try {
-      org.deluge.BridgeContract bridge = org.deluge.hid.BridgeHolder.getBridge();
-      if (bridge != null) {
-        Object eng = bridge.getGlobalObject(org.deluge.BridgeContract.G_FIRMWARE_ENGINE);
+      org.deluge.BridgeContract activeBridge =
+          this.bridge != null ? this.bridge : org.deluge.hid.BridgeHolder.getBridge();
+      if (activeBridge != null) {
+        Object eng = activeBridge.getGlobalObject(org.deluge.BridgeContract.G_FIRMWARE_ENGINE);
         if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine) {
-          // Play on first sound slot for auditioning
           if (!engine.sounds.isEmpty()) {
-            var sound = engine.sounds.get(0);
+            int slot = (trackIndex >= 0 && trackIndex < engine.sounds.size()) ? trackIndex : 0;
+            var sound = engine.sounds.get(slot);
             if (sound instanceof org.deluge.engine.FirmwareSound fs) {
               fs.triggerNote(midiNote, 100);
               // Auto-release after 400ms using virtual thread
