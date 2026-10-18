@@ -22,7 +22,7 @@ class KeyboardMouseAdapter extends MouseAdapter {
   @Override
   public void mousePressed(MouseEvent e) {
     if (e.isShiftDown() && panel.projectModel != null) {
-      int rootMidi = note % 12;
+      int rootMidi = Math.floorMod(note, 12);
       String[] keyNames = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
       String keyStr = keyNames[rootMidi];
       panel.projectModel.setKey(keyStr);
