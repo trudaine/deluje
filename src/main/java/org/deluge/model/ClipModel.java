@@ -88,6 +88,31 @@ public class ClipModel extends TimelineCounter {
   private String launchStyle = "default";
 
   /**
+   * C InstrumentClip's ExpressionParamSet::bendRanges (instrument_clip.cpp:2432-2433, 2888-2898):
+   * "bendRange" (BEND_RANGE_MAIN) and "bendRangeMPE" (BEND_RANGE_FINGER_LEVEL). -1 = the file had
+   * none (no expression params), so the FlashStorage defaults apply.
+   */
+  private int bendRange = -1;
+
+  private int bendRangeMPE = -1;
+
+  public int getBendRange() {
+    return bendRange;
+  }
+
+  public void setBendRange(int v) {
+    bendRange = v;
+  }
+
+  public int getBendRangeMPE() {
+    return bendRangeMPE;
+  }
+
+  public void setBendRangeMPE(int v) {
+    bendRangeMPE = v;
+  }
+
+  /**
    * C InstrumentClip::arpSettings — the clip's own arpeggiator (instrument_clip.cpp:2404-2412,
    * 2676-2689). Null: the file had none; the clip follows its synth's default arp.
    */
@@ -361,6 +386,8 @@ public class ClipModel extends TimelineCounter {
     copy.isArrangementOnly = this.isArrangementOnly;
     copy.launchStyle = this.launchStyle; // C clip.cpp:97, 105
     copy.arp = this.arp; // ArpModel is immutable
+    copy.bendRange = this.bendRange;
+    copy.bendRangeMPE = this.bendRangeMPE;
     copy.midiBank = this.midiBank; // C instrument_clip.cpp:127-129
     copy.midiSub = this.midiSub;
     copy.midiPGM = this.midiPGM;
@@ -1634,8 +1661,28 @@ public class ClipModel extends TimelineCounter {
     }
   }
 
+  /**
+   * C voice.cpp:830-835 — the voice reads bendRanges from the paramManager it renders with: a synth
+   * clip's own expression params (FlashStorage defaults {2, 48} when absent).
+   */
+  public void applyBendRanges(org.deluge.firmware2.Sound s) {
+    s.bendRangeMain = bendRange != -1 ? bendRange : 2;
+    s.bendRangeFingerLevel = bendRangeMPE != -1 ? bendRangeMPE : 48;
+  }
+
+  /**
+   * A kit row's ExpressionParamSet (note_row.cpp:3554-3559): created for a drum, its main range is
+   * the default and its finger-level range equals main (param_set.cpp:580-583) unless the row's
+   * "bendRange" sets it. No set at all: the FlashStorage defaults {2, 48}.
+   */
+  static void applyDrumBendRanges(org.deluge.firmware2.Sound s, NoteRowModel row) {
+    s.bendRangeMain = 2;
+    s.bendRangeFingerLevel = (row != null && row.getBendRange() != -1) ? row.getBendRange() : 48;
+  }
+
   private void triggerNote(org.deluge.model.PendingNoteOn noteOn) {
     if (sound instanceof org.deluge.engine.FirmwareSound fs) {
+      applyBendRanges(fs.fw2Sound);
       fs.fw2Sound.pendingSampleSyncLength = noteOn.sampleSyncLength; // C note_row.cpp:2557
       fs.triggerNote(noteOn.noteRow.getPitch(), noteOn.velocity);
       fs.fw2Sound.pendingSampleSyncLength = 0;
@@ -1643,7 +1690,10 @@ public class ClipModel extends TimelineCounter {
       int row = noteOn.noteRow.getPitch();
       org.deluge.firmware2.Sound drum =
           (row >= 0 && row < kit.drumSounds.size()) ? kit.drumSounds.get(row).fw2Sound : null;
-      if (drum != null) drum.pendingSampleSyncLength = noteOn.sampleSyncLength;
+      if (drum != null) {
+        drum.pendingSampleSyncLength = noteOn.sampleSyncLength;
+        applyDrumBendRanges(drum, noteOn.noteRow);
+      }
       kit.triggerDrum(row, noteOn.velocity);
       if (drum != null) drum.pendingSampleSyncLength = 0;
     } else if (sound instanceof org.deluge.engine.FirmwareMidiInstrument) {

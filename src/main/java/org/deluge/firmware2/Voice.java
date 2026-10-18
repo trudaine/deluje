@@ -1002,8 +1002,9 @@ public class Voice {
 
     // C voice.cpp:830-841 — the pitch BEND applies to the base pitch adjust FIRST
     // (default bend ranges: BEND_RANGE_MAIN = 2, BEND_RANGE_FINGER_LEVEL = 48)...
-    long monophonicBend = (sound.monophonicExpressionValues[0] / 192L) * 2;
-    long polyphonicBend = (localExpressionSourceValuesBeforeSmoothing[0] / 192L) * 48;
+    long monophonicBend = (sound.monophonicExpressionValues[0] / 192L) * sound.bendRangeMain;
+    long polyphonicBend =
+        (localExpressionSourceValuesBeforeSmoothing[0] / 192L) * sound.bendRangeFingerLevel;
     int totalBendAmount = (int) (monophonicBend + polyphonicBend);
     int bentPitchAdjust =
         Functions.getExp(paramFinalValues[Param.LOCAL_PITCH_ADJUST], totalBendAmount >> 1);

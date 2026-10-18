@@ -615,6 +615,10 @@ public class SynthTrackModel extends TrackModel {
     ClipModel before = getActiveClip();
     super.setActiveClipIndex(activeClipIndex);
     ClipModel now = getActiveClip();
+    // The active clip's expression params set the bend ranges (C voice.cpp:830-835).
+    if (now != null && now.getSound() instanceof org.deluge.engine.FirmwareSound bfs) {
+      now.applyBendRanges(bfs.fw2Sound);
+    }
     // The newly active clip's arp drives the sound (C Sound::getArpSettings(activeClip)).
     if (now != null
         && now != before

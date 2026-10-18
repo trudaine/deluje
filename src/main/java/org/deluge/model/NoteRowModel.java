@@ -829,6 +829,17 @@ public class NoteRowModel {
    * C NoteRow::stopCurrentlyPlayingNote with actuallySoundChange = false (note_row.cpp:1869-1877):
    * forgets the sounding note without sending its note-off.
    */
+  /** C note_row.cpp:3263, 3554-3559, 3624 — a kit row's "bendRange" (finger level); -1 = none. */
+  private int bendRange = -1;
+
+  public int getBendRange() {
+    return bendRange;
+  }
+
+  public void setBendRange(int v) {
+    bendRange = v;
+  }
+
   public boolean isSequenced() {
     return sequenced;
   }
