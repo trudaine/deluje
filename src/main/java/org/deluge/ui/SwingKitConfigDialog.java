@@ -780,39 +780,54 @@ public class SwingKitConfigDialog extends JDialog {
     rightPanel.add(sectionLabel("SIDECHAIN DUCKING"), cRight);
     rightRow++;
 
+    // Sync Level combo (C mod_controllable_audio.cpp:903-907, sync.h:22-33: 0=Off, 1=1/1..9=1/256)
+    cRight.gridx = 0;
+    cRight.gridy = rightRow;
+    cRight.gridwidth = 1;
+    JLabel scSyncLabel = label("Sync Level:");
     String scSyncHelp =
-        "<b>SIDECHAIN SYNC:</b> Amount of volume ducking applied by the sidechain trigger signal (0% to 100%). — <i>Physical Deluge:</i> Set sync level.";
-    rightRow =
-        addSlider(
-            rightPanel,
-            cRight,
-            rightRow,
-            "Sync Level (0-100):",
-            scSyncHelp,
-            0,
-            100,
-            sound.getSidechainSyncLevel(),
-            val -> {
-              sound.setSidechainSyncLevel(val);
-              bridge.setKitSidechainSyncLevel(idx, val);
-            });
+        "<b>SIDECHAIN SYNC LEVEL:</b> Locks the ducking trigger rate to project BPM divisions (1/1 through 1/256, or Off). — <i>Physical Deluge:</i> Set sidechain sync level.";
+    scSyncLabel.setToolTipText(scSyncHelp);
+    attachHoverHelp(scSyncLabel, scSyncHelp);
+    rightPanel.add(scSyncLabel, cRight);
 
-    // Sync Type combo
+    cRight.gridx = 1;
+    cRight.gridwidth = 2;
+    JComboBox<String> scSyncCombo =
+        new JComboBox<>(
+            new String[] {
+              "Off", "1/1", "1/2", "1/4", "1/8", "1/16", "1/32", "1/64", "1/128", "1/256"
+            });
+    scSyncCombo.setSelectedIndex(Math.max(0, Math.min(9, sound.getSidechainSyncLevel())));
+    scSyncCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
+    scSyncCombo.setForeground(Color.WHITE);
+    scSyncCombo.setToolTipText(scSyncHelp);
+    attachHoverHelp(scSyncCombo, scSyncHelp);
+    scSyncCombo.addActionListener(
+        e -> {
+          int v = scSyncCombo.getSelectedIndex();
+          sound.setSidechainSyncLevel(v);
+          bridge.setKitSidechainSyncLevel(idx, v);
+        });
+    rightPanel.add(scSyncCombo, cRight);
+    rightRow++;
+
+    // Sync Type combo (C mod_controllable_audio.cpp:899-902, sync.h:10-14: 0=Even, 1=Triplet,
+    // 2=Dotted in Java model)
     cRight.gridx = 0;
     cRight.gridy = rightRow;
     cRight.gridwidth = 1;
     JLabel scTypeLabel = label("Sync Type:");
     String scTypeHelp =
-        "<b>SIDECHAIN BEAT SYNC:</b> Locks the ducking trigger rate to project BPM divisions (triplets, 8th, 16th notes, etc.). — <i>Physical Deluge:</i> Set sidechain sync rate.";
+        "<b>SIDECHAIN SYNC TYPE:</b> Selects straight (Even), Triplet, or Dotted subdivision for synced sidechain triggers. — <i>Physical Deluge:</i> Set sidechain sync type.";
     scTypeLabel.setToolTipText(scTypeHelp);
     attachHoverHelp(scTypeLabel, scTypeHelp);
     rightPanel.add(scTypeLabel, cRight);
 
     cRight.gridx = 1;
     cRight.gridwidth = 2;
-    JComboBox<String> scTypeCombo =
-        new JComboBox<>(new String[] {"Off", "1/1", "1/2", "1/4", "1/8", "1/16", "1/32"});
-    scTypeCombo.setSelectedIndex(Math.max(0, Math.min(6, sound.getSidechainSyncType())));
+    JComboBox<String> scTypeCombo = new JComboBox<>(new String[] {"Even", "Triplet", "Dotted"});
+    scTypeCombo.setSelectedIndex(Math.max(0, Math.min(2, sound.getSidechainSyncType())));
     scTypeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     scTypeCombo.setForeground(Color.WHITE);
     scTypeCombo.setToolTipText(scTypeHelp);
