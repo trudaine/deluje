@@ -82,7 +82,14 @@ public class Stutterer {
   }
 
   public void beginStutter(Object source, ParamManager paramManager, Config sc) {
-    beginStutter(source, paramManager, sc, DEFAULT_TIME_PER_TICK_INVERSE);
+    // C mod_controllable_audio.cpp:1304-1307 — pass live song inputTickMagnitude and
+    // timePerInternalTickInverse when stuttering a firmware2.Sound.
+    int magnitude = (source instanceof Sound sound) ? sound.inputTickMagnitude : DEFAULT_MAGNITUDE;
+    int timePerTickInverse =
+        (source instanceof Sound sound)
+            ? sound.timePerInternalTickInverse
+            : DEFAULT_TIME_PER_TICK_INVERSE;
+    beginStutter(source, paramManager, sc, magnitude, timePerTickInverse);
   }
 
   /**
@@ -92,6 +99,13 @@ public class Stutterer {
    */
   public void beginStutter(
       Object source, ParamManager paramManager, Config sc, int timePerTickInverse) {
+    int magnitude = (source instanceof Sound sound) ? sound.inputTickMagnitude : DEFAULT_MAGNITUDE;
+    beginStutter(source, paramManager, sc, magnitude, timePerTickInverse);
+  }
+
+  // C mod_controllable_audio.cpp:1304-1307 / stutterer.cpp:69 — full 5-arg beginStutter.
+  public void beginStutter(
+      Object source, ParamManager paramManager, Config sc, int magnitude, int timePerTickInverse) {
     this.activeParamManager = paramManager;
     this.config = sc;
     this.currentReverse = config.reversed;
@@ -116,7 +130,7 @@ public class Stutterer {
     }
 
     // ── Bit-Accurate Stutter Rate ──
-    int rate = getStutterRate(paramManager, DEFAULT_MAGNITUDE, timePerTickInverse);
+    int rate = getStutterRate(paramManager, magnitude, timePerTickInverse);
 
     if (buffer.init(rate) == DelayBuffer.Error.NONE) {
       status = Status.RECORDING;
@@ -142,6 +156,15 @@ public class Stutterer {
    */
   public void processStutter(StereoSample[] audio, int numSamples, int timePerTickInverse) {
     processStutter(audio, numSamples, activeParamManager, DEFAULT_MAGNITUDE, timePerTickInverse);
+  }
+
+  /**
+   * Render-loop overload passing both {@code magnitude} and {@code timePerTickInverse} (C
+   * mod_controllable_audio.cpp:1316-1317).
+   */
+  public void processStutter(
+      StereoSample[] audio, int numSamples, int magnitude, int timePerTickInverse) {
+    processStutter(audio, numSamples, activeParamManager, magnitude, timePerTickInverse);
   }
 
   public void processStutter(StereoSample[] audio, ParamManager paramManager) {

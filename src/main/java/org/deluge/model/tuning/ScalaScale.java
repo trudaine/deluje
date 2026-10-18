@@ -91,39 +91,21 @@ public class ScalaScale {
         return 0.0;
       }
 
-      int diff = key - keyboardMap.getMiddleMidiNote();
-      int mapSize = keyboardMap.getMapSize();
-
-      if (mapSize == 0) {
-        // Default linear mapping relative to the reference middle note
-        int octave = Math.floorDiv(diff, stepsCount);
-        int step = Math.floorMod(diff, stepsCount);
-        double baseRatio = stepRatios[step];
-        double octaveFactor = Math.pow(octaveRatio, octave);
-        double baseFreq = keyboardMap.getReferenceFrequency() * baseRatio * octaveFactor;
-        if (fraction != 0.0) {
-          baseFreq *= Math.pow(2.0, fraction / 12.0);
-        }
-        return baseFreq;
-      } else {
-        int[] mapping = keyboardMap.getKeyMapping();
-        int octave = Math.floorDiv(diff, mapSize);
-        int step = Math.floorMod(diff, mapSize);
-
-        int degree = mapping != null ? mapping[step] : step;
-        if (degree < 0) {
-          return 0.0; // Unmapped silent key slot
-        }
-
-        // Map step degree modulo scale steps count
-        double baseRatio = stepRatios[degree % stepsCount];
-        double octaveFactor = Math.pow(octaveRatio, octave);
-        double baseFreq = keyboardMap.getReferenceFrequency() * baseRatio * octaveFactor;
-        if (fraction != 0.0) {
-          baseFreq *= Math.pow(2.0, fraction / 12.0);
-        }
-        return baseFreq;
+      double keyRatio = keyRatioFromMiddle(key, keyboardMap);
+      if (keyRatio <= 0.0) {
+        return 0.0;
       }
+
+      double refRatio = keyRatioFromMiddle(keyboardMap.getReferenceMidiNote(), keyboardMap);
+      if (refRatio <= 0.0) {
+        refRatio = 1.0;
+      }
+
+      double baseFreq = keyboardMap.getReferenceFrequency() * (keyRatio / refRatio);
+      if (fraction != 0.0) {
+        baseFreq *= Math.pow(2.0, fraction / 12.0);
+      }
+      return baseFreq;
     }
 
     double diff = midiNote - referenceMidiNote;
@@ -147,5 +129,28 @@ public class ScalaScale {
     }
 
     return baseFreq;
+  }
+
+  private double keyRatioFromMiddle(int key, ScalaKeyboardMap kbm) {
+    int diff = key - kbm.getMiddleMidiNote();
+    int mapSize = kbm.getMapSize();
+    int octDeg = kbm.getOctaveDegree() > 0 ? kbm.getOctaveDegree() : stepsCount;
+    int scaleDegree;
+    if (mapSize <= 0) {
+      scaleDegree = diff;
+    } else {
+      int patternOctave = Math.floorDiv(diff, mapSize);
+      int patternStep = Math.floorMod(diff, mapSize);
+      int[] mapping = kbm.getKeyMapping();
+      int mapped =
+          (mapping != null && patternStep < mapping.length) ? mapping[patternStep] : patternStep;
+      if (mapped < 0) {
+        return -1.0;
+      }
+      scaleDegree = patternOctave * octDeg + mapped;
+    }
+    int scaleOctave = Math.floorDiv(scaleDegree, stepsCount);
+    int scaleStep = Math.floorMod(scaleDegree, stepsCount);
+    return stepRatios[scaleStep] * Math.pow(octaveRatio, scaleOctave);
   }
 }

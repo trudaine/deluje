@@ -463,6 +463,7 @@ public class Sound extends GlobalEffectable {
 
   public final LfoConfig[] lfoConfig = new LfoConfig[4];
   public int timePerInternalTickInverse = 1 << 20;
+  public int inputTickMagnitude = 2; // C currentSong->getInputTickMagnitude() (default 2)
 
   /** C: sound.h:160 — reset by resyncGlobalLFOs / startSkippingRendering. */
   public int timeStartedSkippingRenderingLFO = 0;
@@ -1201,7 +1202,8 @@ public class Sound extends GlobalEffectable {
         fxStereoBuffer[i].l = fxIntBuffer[i][0];
         fxStereoBuffer[i].r = fxIntBuffer[i][1];
       }
-      Stutterer.GLOBAL.processStutter(fxStereoBuffer, numSamples, timePerInternalTickInverse);
+      Stutterer.GLOBAL.processStutter(
+          fxStereoBuffer, numSamples, inputTickMagnitude, timePerInternalTickInverse);
       for (int i = 0; i < numSamples; i++) {
         fxIntBuffer[i][0] = fxStereoBuffer[i].l;
         fxIntBuffer[i][1] = fxStereoBuffer[i].r;

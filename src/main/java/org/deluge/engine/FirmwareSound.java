@@ -469,6 +469,7 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     fw2Sound.eqTrebleParam = fw2Sound.patchedParamValues[Param.UNPATCHED_TREBLE];
 
     fw2Sound.currentBpm = (int) currentBpm;
+    fw2Sound.inputTickMagnitude = inputTickMagnitude;
 
     // timePerInternalTickInverse (C: song.cpp:2561 — divideByTimePerTimerTick = 2^63 /
     // ((timePerTimerTickBig * 3) >> 1) = 2^31 / (1.5 × samplesPerTimerTick)). From the BPM

@@ -34,29 +34,35 @@ public class ScalaKeyboardMapParser {
         values.add(line);
       }
 
-      if (values.size() < 6) {
+      if (values.size() < 7) {
         throw new IllegalArgumentException(
-            "Malformed Keyboard Map: header requires exactly 6 variables fields.");
+            "Malformed Keyboard Map: header requires 7 fields (mapSize, firstMidiNote,"
+                + " lastMidiNote, middleMidiNote, referenceMidiNote, referenceFrequency,"
+                + " octaveDegree).");
       }
 
       int mapSize = Integer.parseInt(values.get(0));
       int firstMidi = Integer.parseInt(values.get(1));
       int lastMidi = Integer.parseInt(values.get(2));
       int middleMidi = Integer.parseInt(values.get(3));
-      double refFreq = Double.parseDouble(values.get(4));
-      int octaveDegree = Integer.parseInt(values.get(5));
+      int referenceMidi = Integer.parseInt(values.get(4));
+      double refFreq = Double.parseDouble(values.get(5));
+      int octaveDegree = Integer.parseInt(values.get(6));
 
       kbm.setMapSize(mapSize);
       kbm.setFirstMidiNote(firstMidi);
       kbm.setLastMidiNote(lastMidi);
       kbm.setMiddleMidiNote(middleMidi);
+      kbm.setReferenceMidiNote(referenceMidi);
       kbm.setReferenceFrequency(refFreq);
       kbm.setOctaveDegree(octaveDegree);
 
-      if (mapSize > 0 && values.size() >= 6 + mapSize) {
+      if (mapSize > 0) {
         int[] mapping = new int[mapSize];
-        for (int i = 0; i < mapSize; i++) {
-          String valStr = values.get(6 + i).toLowerCase();
+        java.util.Arrays.fill(mapping, -1);
+        int entriesToRead = Math.min(mapSize, values.size() - 7);
+        for (int i = 0; i < entriesToRead; i++) {
+          String valStr = values.get(7 + i).toLowerCase();
           if ("x".equals(valStr)) {
             mapping[i] = -1; // -1 represents standard silent/unmapped key!
           } else {
