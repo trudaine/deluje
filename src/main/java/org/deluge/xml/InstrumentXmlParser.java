@@ -1442,18 +1442,30 @@ public class InstrumentXmlParser {
 
     int lastLockedReverseProb = attrOrDirectChildInt(arpEl, "lastLockedReverseProb", 0);
     String lockedReverseProbArray = attrOrDirectChildText(arpEl, "lockedReverseProbArray");
+    if (lockedReverseProbArray == null) {
+      // C arpeggiator.cpp:1693/1701/1709 also accepts the older "lockeReverseProbArray" spelling.
+      lockedReverseProbArray = attrOrDirectChildText(arpEl, "lockeReverseProbArray");
+    }
     if (lockedReverseProbArray == null || lockedReverseProbArray.isBlank()) {
       lockedReverseProbArray = "00000000000000000000000000000000";
     }
 
     int lastLockedChordProb = attrOrDirectChildInt(arpEl, "lastLockedChordProb", 0);
     String lockedChordProbArray = attrOrDirectChildText(arpEl, "lockedChordProbArray");
+    if (lockedChordProbArray == null) {
+      // C arpeggiator.cpp:1693/1701/1709 also accepts the older "lockeChordProbArray" spelling.
+      lockedChordProbArray = attrOrDirectChildText(arpEl, "lockeChordProbArray");
+    }
     if (lockedChordProbArray == null || lockedChordProbArray.isBlank()) {
       lockedChordProbArray = "00000000000000000000000000000000";
     }
 
     int lastLockedRatchetProb = attrOrDirectChildInt(arpEl, "lastLockedRatchetProb", 0);
     String lockedRatchetProbArray = attrOrDirectChildText(arpEl, "lockedRatchetProbArray");
+    if (lockedRatchetProbArray == null) {
+      // C arpeggiator.cpp:1693/1701/1709 also accepts the older "lockeRatchetProbArray" spelling.
+      lockedRatchetProbArray = attrOrDirectChildText(arpEl, "lockeRatchetProbArray");
+    }
     if (lockedRatchetProbArray == null || lockedRatchetProbArray.isBlank()) {
       lockedRatchetProbArray = "00000000000000000000000000000000";
     }
