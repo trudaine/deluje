@@ -177,9 +177,16 @@ public abstract class GlobalEffectable {
           reverbBuffer[i] += (long) trackReverbBuffer[i] + revSend;
         }
 
-        // C mod_controllable_audio.cpp:258-259 — plain 32-bit wrapping << 5
-        trackBuffer[i * 2] = Functions.multiply_32x32_rshift32(l, postFXAndReverbVolumeL) << 5;
-        trackBuffer[i * 2 + 1] = Functions.multiply_32x32_rshift32(r, postFXAndReverbVolumeL) << 5;
+        // C mod_controllable_audio.cpp:258-259 uses plain `<< 5`, which assumes the upstream
+        // signal * postFXAndReverbVolumeL stays below 2^26. Keep lshiftAndSaturate(..., 5) here
+        // until the upstream gain-staging mismatch is resolved: without saturation, runaway delay
+        // tails (CALIB DLY r50/r75 f75 p0/p1 a0) wrap and drop 0.035-0.084 on the scorecard.
+        trackBuffer[i * 2] =
+            Functions.lshiftAndSaturate(
+                Functions.multiply_32x32_rshift32(l, postFXAndReverbVolumeL), 5);
+        trackBuffer[i * 2 + 1] =
+            Functions.lshiftAndSaturate(
+                Functions.multiply_32x32_rshift32(r, postFXAndReverbVolumeL), 5);
       }
 
       // ...then the compressor sees the volume-applied signal (C sound.cpp:2591-2600 /

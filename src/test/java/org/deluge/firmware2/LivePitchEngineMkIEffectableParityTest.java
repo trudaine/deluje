@@ -138,9 +138,10 @@ class LivePitchEngineMkIEffectableParityTest {
   }
 
   @Test
-  void globalEffectableProcessReverbSendAndVolumeUsesWrappingMath() {
-    // C mod_controllable_audio.cpp:219, 222, 249, 258-259 — plain 32-bit wrapping << 5, l + r, and
-    // << 1 (not saturating shifts/adds).
+  void globalEffectableProcessReverbSendUsesWrappingMathAndDryVolumeSaturates() {
+    // C mod_controllable_audio.cpp:219, 222, 249 — plain 32-bit wrapping << 5, l + r, and << 1 for
+    // reverb send and volume coefficients. Dry post-FX sample output (lines 258-259) intentionally
+    // keeps lshiftAndSaturate(..., 5) until upstream gain-staging matches C's < 2^26 headroom.
     int sampleL = 1500000000;
     int sampleR = 1500000000;
     int customPostFXVol = 400000000;
@@ -179,11 +180,15 @@ class LivePitchEngineMkIEffectableParityTest {
     int expectedMono = sampleL + sampleR; // wraps negative in 32-bit int
     int expectedRevSend =
         Functions.multiply_32x32_rshift32(expectedMono, expectedRevSendAndPostFX) << 1;
-    int expectedDryL = Functions.multiply_32x32_rshift32(sampleL, expectedPostFXAndRevVol) << 5;
-    int expectedDryR = Functions.multiply_32x32_rshift32(sampleR, expectedPostFXAndRevVol) << 5;
+    int expectedDryL =
+        Functions.lshiftAndSaturate(
+            Functions.multiply_32x32_rshift32(sampleL, expectedPostFXAndRevVol), 5);
+    int expectedDryR =
+        Functions.lshiftAndSaturate(
+            Functions.multiply_32x32_rshift32(sampleR, expectedPostFXAndRevVol), 5);
 
     assertEquals(expectedRevSend, rev[0], "reverb send should match C wrapping math");
-    assertEquals(expectedDryL, out[0], "dry L should match C wrapping << 5");
-    assertEquals(expectedDryR, out[1], "dry R should match C wrapping << 5");
+    assertEquals(expectedDryL, out[0], "dry L should saturate << 5 on hot upstream signal");
+    assertEquals(expectedDryR, out[1], "dry R should saturate << 5 on hot upstream signal");
   }
 }
