@@ -7,6 +7,7 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.swing.*;
+import org.deluge.firmware2.WaveTableReader;
 import org.deluge.project.PreferencesManager;
 
 /**
@@ -188,43 +189,56 @@ public class SwingWaveformPanel extends JPanel {
       int sampleSizeInBits,
       boolean isBigEndian,
       AudioFormat.Encoding encoding) {
+    int q31 = decodeSampleToQ31(audioBytes, byteIndex, sampleSizeInBits, isBigEndian, encoding);
+    return Math.min(1.0f, (float) (Math.abs((long) q31) / 2147483648.0));
+  }
+
+  /**
+   * Shared PCM/float sample decoder for UI waveform panels. Returns left-aligned q31 {@code
+   * value32} matching C {@code CONVERT_AND_STORE_SAMPLE} ({@code wave_table.cpp:421-439}) and
+   * {@code q31_from_float} ({@code fixedpoint.h:224-252}).
+   */
+  static int decodeSampleToQ31(
+      byte[] audioBytes,
+      int byteIndex,
+      int sampleSizeInBits,
+      boolean isBigEndian,
+      AudioFormat.Encoding encoding) {
     if (sampleSizeInBits == 8 && byteIndex < audioBytes.length) {
-      if (encoding == AudioFormat.Encoding.PCM_UNSIGNED) {
-        int sample = audioBytes[byteIndex] & 0xff;
-        return Math.min(1.0f, Math.abs((sample - 128) / 128.0f));
+      int raw = audioBytes[byteIndex] << 24;
+      if (AudioFormat.Encoding.PCM_UNSIGNED.equals(encoding)) {
+        // C wave_table.cpp:430-433 (RawDataFormat::UNSIGNED_8 adds 1 << 31)
+        return raw + (1 << 31);
       }
-      return Math.min(1.0f, Math.abs(audioBytes[byteIndex] / 128.0f));
+      return raw;
     } else if (sampleSizeInBits == 16 && byteIndex + 1 < audioBytes.length) {
       int b0 = audioBytes[byteIndex];
       int b1 = audioBytes[byteIndex + 1];
       short sample =
           isBigEndian ? (short) ((b0 << 8) | (b1 & 0xff)) : (short) ((b1 << 8) | (b0 & 0xff));
-      return Math.min(1.0f, Math.abs(sample / 32768.0f));
+      return sample << 16;
     } else if (sampleSizeInBits == 24 && byteIndex + 2 < audioBytes.length) {
       int b0 = audioBytes[byteIndex];
       int b1 = audioBytes[byteIndex + 1];
       int b2 = audioBytes[byteIndex + 2];
-      int sample =
-          isBigEndian
-              ? ((b0 << 16) | ((b1 & 0xff) << 8) | (b2 & 0xff))
-              : ((b2 << 16) | ((b1 & 0xff) << 8) | (b0 & 0xff));
-      return Math.min(1.0f, Math.abs(sample / 8388608.0f));
+      return isBigEndian
+          ? ((b0 << 24) | ((b1 & 0xff) << 16) | ((b2 & 0xff) << 8))
+          : ((b2 << 24) | ((b1 & 0xff) << 16) | ((b0 & 0xff) << 8));
     } else if (sampleSizeInBits == 32 && byteIndex + 3 < audioBytes.length) {
-      int b0 = audioBytes[byteIndex] & 0xff;
-      int b1 = audioBytes[byteIndex + 1] & 0xff;
-      int b2 = audioBytes[byteIndex + 2] & 0xff;
-      int b3 = audioBytes[byteIndex + 3] & 0xff;
-      int bits =
+      int b0 = audioBytes[byteIndex];
+      int b1 = audioBytes[byteIndex + 1];
+      int b2 = audioBytes[byteIndex + 2];
+      int b3 = audioBytes[byteIndex + 3];
+      int word =
           isBigEndian
-              ? ((b0 << 24) | (b1 << 16) | (b2 << 8) | b3)
-              : ((b3 << 24) | (b2 << 16) | (b1 << 8) | b0);
-      if (encoding == AudioFormat.Encoding.PCM_FLOAT) {
-        float f = Float.intBitsToFloat(bits);
-        return Float.isFinite(f) ? Math.min(1.0f, Math.abs(f)) : 0.0f;
+              ? ((b0 << 24) | ((b1 & 0xff) << 16) | ((b2 & 0xff) << 8) | (b3 & 0xff))
+              : ((b3 << 24) | ((b2 & 0xff) << 16) | ((b1 & 0xff) << 8) | (b0 & 0xff));
+      if (AudioFormat.Encoding.PCM_FLOAT.equals(encoding)) {
+        return WaveTableReader.q31FromFloat(Float.intBitsToFloat(word));
       }
-      return Math.min(1.0f, (float) Math.abs(bits / 2147483648.0));
+      return word;
     }
-    return 0.0f;
+    return 0;
   }
 
   @Override

@@ -7,6 +7,7 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.swing.*;
+import org.deluge.firmware2.WaveTableReader;
 import org.deluge.project.PreferencesManager;
 
 /**
@@ -268,9 +269,8 @@ public class SwingWavetableVisualizer extends JComponent {
   }
 
   // Matches C CONVERT_AND_STORE_SAMPLE (wave_table.cpp:421-439) and q31_from_float
-  // (fixedpoint.h:224-252): converts each sample to q31 value32, then stores band-0 16-bit
-  // amplitude (value32 >> 16) / 32768.0f. Once WaveTableReader's multi-format q31 decoder (#54)
-  // merges onto main, delegate directly to WaveTableReader so visualizer and engine share one body.
+  // (fixedpoint.h:224-252): delegates per-sample PCM/float decoding to SwingWaveformPanel's shared
+  // q31 decoder, then stores band-0 16-bit amplitude (value32 >> 16) / 32768.0f.
   static float[] decodeFullWavFile(File file) {
     try (AudioInputStream ais = AudioSystem.getAudioInputStream(file)) {
       AudioFormat format = ais.getFormat();
@@ -295,44 +295,9 @@ public class SwingWavetableVisualizer extends JComponent {
       for (int i = 0; i < totalSamples; i++) {
         int byteIndex = i * bytesPerFrame;
         if (byteIndex + bytesPerSample > audioBytes.length) break;
-        int value32 = 0;
-        if (bits == 8) {
-          int raw = audioBytes[byteIndex] << 24;
-          if (AudioFormat.Encoding.PCM_SIGNED.equals(encoding)) {
-            value32 = raw;
-          } else {
-            // C wave_table.cpp:431-433 (RawDataFormat::UNSIGNED_8 adds 1 << 31)
-            value32 = raw + (1 << 31);
-          }
-        } else if (bits == 16) {
-          int b0 = audioBytes[byteIndex];
-          int b1 = audioBytes[byteIndex + 1];
-          short sample =
-              isBigEndian ? (short) ((b0 << 8) | (b1 & 0xff)) : (short) ((b1 << 8) | (b0 & 0xff));
-          value32 = sample << 16;
-        } else if (bits == 24) {
-          int b0 = audioBytes[byteIndex];
-          int b1 = audioBytes[byteIndex + 1];
-          int b2 = audioBytes[byteIndex + 2];
-          value32 =
-              isBigEndian
-                  ? ((b0 << 24) | ((b1 & 0xff) << 16) | ((b2 & 0xff) << 8))
-                  : ((b2 << 24) | ((b1 & 0xff) << 16) | ((b0 & 0xff) << 8));
-        } else if (bits == 32) {
-          int b0 = audioBytes[byteIndex];
-          int b1 = audioBytes[byteIndex + 1];
-          int b2 = audioBytes[byteIndex + 2];
-          int b3 = audioBytes[byteIndex + 3];
-          int word =
-              isBigEndian
-                  ? ((b0 << 24) | ((b1 & 0xff) << 16) | ((b2 & 0xff) << 8) | (b3 & 0xff))
-                  : ((b3 << 24) | ((b2 & 0xff) << 16) | ((b1 & 0xff) << 8) | (b0 & 0xff));
-          if (AudioFormat.Encoding.PCM_FLOAT.equals(encoding)) {
-            value32 = q31FromFloat(Float.intBitsToFloat(word));
-          } else {
-            value32 = word;
-          }
-        }
+        int value32 =
+            SwingWaveformPanel.decodeSampleToQ31(
+                audioBytes, byteIndex, bits, isBigEndian, encoding);
         // C wave_table.cpp:438: initialBandWritePos stores (int16_t)(value32 >> 16)
         floatSamples[i] = (value32 >> 16) / 32768.0f;
       }
@@ -343,24 +308,8 @@ public class SwingWavetableVisualizer extends JComponent {
     }
   }
 
-  // C fixedpoint.h:224-252 (q31_from_float, saturating at |value| >= 1.0f)
   static int q31FromFloat(float value) {
-    if (Float.isNaN(value)) {
-      return 0;
-    }
-    int bits = Float.floatToRawIntBits(value);
-    boolean negative = (bits & 0x80000000) != 0;
-    int exponent = ((bits >>> 23) & 0xFF) - 127;
-    if (exponent >= 0) {
-      return negative ? Integer.MIN_VALUE : Integer.MAX_VALUE;
-    }
-    int shift = -exponent;
-    if (shift >= 32) {
-      return 0;
-    }
-    int mantissa = (bits << 8) | 0x80000000;
-    int outputValue = mantissa >>> shift;
-    return negative ? -outputValue : outputValue;
+    return WaveTableReader.q31FromFloat(value);
   }
 
   private File resolveAudioFile(String path) {

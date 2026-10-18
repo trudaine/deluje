@@ -15,7 +15,8 @@ import org.deluge.model.SynthTrackModel;
  */
 public class ModulationMatrixComponent extends JComponent {
 
-  // Matches C++ PatchSource (definitions_cxx.hpp:338-357) and ModulationPanel.MOD_SRC_OPTIONS.
+  // Matches C++ PatchSource (definitions_cxx.hpp:298-319) and sourceToString
+  // (util/functions.cpp:269-319).
   private static final String[] SOURCES = {
     "velocity",
     "envelope1",

@@ -316,13 +316,13 @@ public class ModulationPanel extends JPanel {
 
       row.add(polBtn, c);
 
-      // Slider Amount
+      // Slider Amount — C patch_cable_strength.h:36-37, .cpp:59-65: both polarities allow the full
+      // negative-to-positive range (kMinMenuPatchCableValue..kMaxMenuPatchCableValue).
       c.gridx = 5;
       c.weightx = 1.0;
-      int sliderMin = isBipolar ? -100 : 0;
-      int rawVal = (int) (pc.amount() * 100);
-      int clampedVal = Math.max(sliderMin, Math.min(100, rawVal));
-      JSlider amtSlider = new JSlider(sliderMin, 100, clampedVal);
+      int rawVal = Math.round(pc.amount() * 100);
+      int clampedVal = Math.max(-100, Math.min(100, rawVal));
+      JSlider amtSlider = new JSlider(-100, 100, clampedVal);
       DarkSliderUI.styleSlider(amtSlider, Color.CYAN);
 
       JLabel amtVal = new JLabel(String.format("%+.0f%%", pc.amount() * 100));
@@ -335,27 +335,16 @@ public class ModulationPanel extends JPanel {
             PatchCable old = model.getModulation().getPatchCables().get(idx);
             PatchCable.Polarity newPol =
                 polBtn.isSelected() ? PatchCable.Polarity.BIPOLAR : PatchCable.Polarity.UNIPOLAR;
-            float newAmt = (!polBtn.isSelected() && old.amount() < 0f) ? 0f : old.amount();
             model
                 .getModulation()
                 .getPatchCables()
-                .set(idx, new PatchCable(old.source(), old.destination(), newAmt, newPol));
+                .set(idx, new PatchCable(old.source(), old.destination(), old.amount(), newPol));
             syncModulationsLive();
 
             styleButton(
                 polBtn,
                 polBtn.isSelected() ? new Color(0x55, 0x3e, 0x0c) : new Color(0x23, 0x23, 0x28),
                 polBtn.isSelected() ? new Color(0xff, 0xb3, 0x00) : Color.WHITE);
-
-            if (polBtn.isSelected()) {
-              amtSlider.setMinimum(-100);
-            } else {
-              if (amtSlider.getValue() < 0) {
-                amtSlider.setValue(0);
-                amtVal.setText("+0%");
-              }
-              amtSlider.setMinimum(0);
-            }
           });
 
       amtSlider.addChangeListener(

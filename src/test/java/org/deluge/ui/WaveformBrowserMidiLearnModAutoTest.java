@@ -18,6 +18,7 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.swing.JComboBox;
+import javax.swing.JSlider;
 import javax.swing.JToggleButton;
 import javax.swing.SwingUtilities;
 import org.deluge.BridgeContract;
@@ -234,6 +235,34 @@ class WaveformBrowserMidiLearnModAutoTest {
               "lfo1",
               updated.patchSource(),
               "Changing knob parameter must preserve existing patchSource");
+
+          // Negative unipolar cable amount must be preserved when switching polarity
+          model.getModulation().getPatchCables().clear();
+          model
+              .getModulation()
+              .addPatchCable(
+                  new PatchCable("lfo1", "lpfFrequency", -0.5f, PatchCable.Polarity.BIPOLAR));
+          ModulationPanel polPanel = new ModulationPanel(model, new BridgeContract(), 0);
+          JToggleButton polBtn = findFirstPolarityToggle(polPanel);
+          JSlider amtSlider = findFirstAmountSlider(polPanel);
+          assertNotNull(polBtn);
+          assertNotNull(amtSlider);
+          assertEquals(-100, amtSlider.getMinimum());
+          assertTrue(polBtn.isSelected());
+
+          polBtn.doClick(); // Switch to UNIPOLAR
+          assertFalse(polBtn.isSelected());
+          PatchCable afterPolToggle = model.getModulation().getPatchCables().get(0);
+          assertEquals(PatchCable.Polarity.UNIPOLAR, afterPolToggle.polarity());
+          assertEquals(
+              -0.5f,
+              afterPolToggle.amount(),
+              1e-5f,
+              "Switching to unipolar must not zero a negative cable amount");
+          assertEquals(
+              -100,
+              amtSlider.getMinimum(),
+              "Unipolar cables keep -100..100 slider range (C patch_cable_strength.h:36-37)");
         });
   }
 
@@ -291,6 +320,32 @@ class WaveformBrowserMidiLearnModAutoTest {
       }
       if (comp instanceof Container child) {
         JComboBox<?> found = findFirstKnobCombo(child);
+        if (found != null) return found;
+      }
+    }
+    return null;
+  }
+
+  private static JToggleButton findFirstPolarityToggle(Container root) {
+    for (Component comp : root.getComponents()) {
+      if (comp instanceof JToggleButton tb && "Bipolar".equals(tb.getText())) {
+        return tb;
+      }
+      if (comp instanceof Container child) {
+        JToggleButton found = findFirstPolarityToggle(child);
+        if (found != null) return found;
+      }
+    }
+    return null;
+  }
+
+  private static JSlider findFirstAmountSlider(Container root) {
+    for (Component comp : root.getComponents()) {
+      if (comp instanceof JSlider s && s.getMaximum() == 100) {
+        return s;
+      }
+      if (comp instanceof Container child) {
+        JSlider found = findFirstAmountSlider(child);
         if (found != null) return found;
       }
     }
