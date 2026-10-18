@@ -502,14 +502,15 @@ public class NoteRowModel {
 
   // ── Sequencer Playback Tick Logic ──
 
+  /**
+   * C NoteRow::resumePlayback (note_row.cpp:3155-3170), reached from
+   * InstrumentClip::resumePlayback. The late start itself runs at the clip's next processCurrentPos
+   * on the audio thread (see the resumePending handling in ClipModel), where the play position is
+   * current.
+   */
   public void resumePlayback(int currentPos, int loopLength, boolean mayMakeSound) {
-    if (mayMakeSound && !muted && !notes.isEmpty()) {
-      for (NoteModel note : notes) {
-        int noteEnd = note.getPos() + note.getLength();
-        if (currentPos > note.getPos() && currentPos < noteEnd) {
-          // Trigger late catch notes (handled by voice allocation)
-        }
-      }
+    if (mayMakeSound) {
+      resumePending = true;
     }
     ignoreNoteOnsBefore_ = 0;
   }

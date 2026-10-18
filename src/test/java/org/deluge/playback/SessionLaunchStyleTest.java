@@ -364,11 +364,16 @@ class SessionLaunchStyleTest {
     ph.setProject(project);
     ph.start();
 
-    // At tick 0, launchEvent = 48 and fill.maxLength = 48 -> fillStartTime == 0 == currentTick.
+    // At tick 0 the launch point is now (pos 0): C armClipsToStartOrSoloWithQuantization
+    // (session.cpp:1633-1643) turns a launch point reached < kAmountNoteOnLatenessAllowed ago into
+    // a late start, FILL clips included (`launchStyle == DEFAULT || !doLateStart`). The late start
+    // (:1862-1880) activates the clip at pos 0 with no launch event, so scheduleFillClip (:1909)
+    // does not arm it to stop.
     ph.toggleClipStatus(fillTrack, fillClip, false);
     assertTrue(fillClip.isActiveInSession(), "fill starts immediately at tick 0");
     assertEquals(0, fillClip.lastProcessedPos, "fill starts at pos 0 with no 1-tick delay");
-    assertEquals(ArmState.ON_NORMAL, fillClip.getArmState());
+    assertEquals(ArmState.OFF, fillClip.getArmState());
+    assertFalse(ph.hasLaunchEvent());
   }
 
   @Test

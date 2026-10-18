@@ -221,6 +221,31 @@ public class PlaybackHandler {
     }
   }
 
+  /**
+   * C Session::armClipToStartOrSoloUsingQuantization, late-start branch (session.cpp:1862-1880):
+   * the clip becomes active on its output at the synced live position and catches any note under
+   * the play-head (resumePlayback). getNumSwungTicksInSinceLastActionedSwungTick() is taken as 0.
+   */
+  private void lateStartClip(TrackModel track, ClipModel clip, int pos, boolean isDefault) {
+    if (clip.getArmState() != ArmState.OFF && isDefault) { // In case also already armed
+      clip.setArmState(ArmState.OFF);
+      launchSchedulingMightNeedCancelling();
+    }
+    ClipModel old = track.getActiveClip();
+    if (old != null && old != clip && old.isActiveInSession()) {
+      old.stopAllNotesPlaying(true); // C assertActiveness → the output's other clip stops
+      old.setActiveInSession(false);
+    }
+    clip.setActiveInSession(true);
+    int idx = track.getClips().indexOf(clip);
+    if (idx >= 0) {
+      track.setActiveClipIndex(idx);
+      syncBridgeCurrentClip(track, idx);
+    }
+    clip.setPos(pos);
+    clip.resumePlayback(true);
+  }
+
   /** C Session::scheduleFillClips (session.cpp:1974-1989). */
   public synchronized void scheduleFillClips(int section) {
     if (currentProject == null) return;
@@ -300,34 +325,6 @@ public class PlaybackHandler {
         return;
       }
 
-      if (doInstant && !"fill".equals(clip.getLaunchStyle())) {
-        // C session.cpp:1636, 1862-1887 — instant / late start (non-FILL clips only)
-        if ("default".equals(clip.getLaunchStyle()) && clip.getArmState() != ArmState.OFF) {
-          clip.setArmState(ArmState.OFF);
-          launchSchedulingMightNeedCancelling();
-        }
-        ClipModel old = track.getActiveClip();
-        if (old != null && old != clip && old.isActiveInSession()) {
-          old.stopAllNotesPlaying(true);
-          old.setActiveInSession(false);
-        }
-        clip.setActiveInSession(true);
-        int idx = track.getClips().indexOf(clip);
-        if (idx >= 0) {
-          track.setActiveClipIndex(idx);
-          syncBridgeCurrentClip(track, idx);
-        }
-        clip.setPos(0);
-        if ("once".equals(clip.getLaunchStyle())) {
-          clip.setArmState(ArmState.ON_NORMAL);
-          int len = clip.getLoopLength();
-          if (len > 0) {
-            scheduleLaunchTiming(lastSwungTickActioned + len, 1, len);
-          }
-        }
-        return;
-      }
-
       // C session.cpp:1420-1477 — quantized launch synced to longest active multiple/factor clip
       ClipModel waitForClip =
           currentProject.getLongestActiveClipWithMultipleOrFactorLength(
@@ -373,18 +370,40 @@ public class PlaybackHandler {
           "fill".equals(clip.getLaunchStyle()) ? waitForClip.getLoopLength() : clip.getLoopLength();
       long quantization =
           LaunchQuantizer.syncedQuantization(waitForClip.getLoopLength(), longestStarting, true);
-      long pos = Math.floorMod(waitForClip.lastProcessedPos, quantization);
-      long ticksTilStart = quantization - pos;
-      scheduleLaunchTiming(lastSwungTickActioned + ticksTilStart, 1, quantization);
+      // C investigateSyncedLaunch (session.cpp:1561-1562) →
+      // getActualCurrentPosAsIfPlayingInForwardDirection (clip.cpp:167-179), then pos %=
+      // quantization
+      // (armClipsToStartOrSoloWithQuantization, session.cpp:1631).
+      long forwardPos =
+          waitForClip.currentlyPlayingReversed
+              ? waitForClip.getLoopLength() - waitForClip.lastProcessedPos
+              : waitForClip.lastProcessedPos;
+      long pos = Math.floorMod(forwardPos, quantization);
 
-      // C session.cpp:1472, 1646, 1891, 2008 — single-clip launch disarms other inactive clips on
-      // the same output before scheduleFillClip (session.cpp:1476).
-      disarmOtherClipsOnTrack(track, clip);
-      if ("fill".equals(clip.getLaunchStyle())) {
-        scheduleFillClip(track, clip); // C session.cpp:1476
-      } else {
-        clip.setArmState(ArmState.ON_NORMAL);
+      // C session.cpp:1633-1647 — shift forces a late start (DEFAULT clips only); otherwise a
+      // launch point reached less than kAmountNoteOnLatenessAllowed ago also starts late.
+      boolean doLateStart = doInstant;
+      boolean isDefault = "default".equals(clip.getLaunchStyle());
+      if (isDefault || !doLateStart) {
+        if (!doLateStart) {
+          double samplesPerTick = 60.0 * 44100.0 / (currentProject.getBpm() * 96.0);
+          doLateStart = pos * samplesPerTick < 2205; // kAmountNoteOnLatenessAllowed
+        }
+        if (doLateStart) {
+          lateStartClip(track, clip, (int) pos, isDefault);
+        } else {
+          // C armClipLowLevel (session.cpp:1891, 2002-2013) — disarm other inactive clips on the
+          // output; FILL clips get armed by scheduleFillClip below.
+          disarmOtherClipsOnTrack(track, clip);
+          if (!"fill".equals(clip.getLaunchStyle())) {
+            clip.setArmState(ArmState.ON_NORMAL);
+          }
+        }
       }
+      if (!doLateStart) {
+        scheduleLaunchTiming(lastSwungTickActioned + (quantization - pos), 1, quantization);
+      }
+      scheduleFillClip(track, clip); // C session.cpp:1476 (no-op unless FILL)
       return;
     }
 
