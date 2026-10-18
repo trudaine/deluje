@@ -66,6 +66,7 @@ public class MidiDeviceDefinition {
   }
 
   public void addCcMapping(CcMapping mapping) {
+    removeCcMapping(mapping.cc());
     ccMappings.add(mapping);
   }
 

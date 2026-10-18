@@ -31,15 +31,27 @@ public class MidiInputRouter {
       new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
 
   private static class NoteStartInfo {
-    long time;
-    int step;
-    int track;
+    final long time;
+    final int step;
+    final int track;
+    final int clipId;
+    final int clipRow;
 
     NoteStartInfo(long t, int s, int tr) {
+      this(t, s, tr, -1, -1);
+    }
+
+    NoteStartInfo(long t, int s, int tr, int clipId, int clipRow) {
       this.time = t;
       this.step = s;
       this.track = tr;
+      this.clipId = clipId;
+      this.clipRow = clipRow;
     }
+  }
+
+  private static int noteKey(int midiChannel, int midiNote) {
+    return ((midiChannel & 0x0F) << 8) | (midiNote & 0x7F);
   }
 
   private final java.util.Map<Integer, NoteStartInfo> activeNoteStarts = new java.util.HashMap<>();
@@ -134,8 +146,10 @@ public class MidiInputRouter {
 
   /** Called when a MIDI message is received from a hardware controller. */
   public void handleMidiMessage(MidiMsg msg) {
-    int status = msg.data1 & 0xF0;
-    int midiChannel = msg.data1 & 0x0F; // Extract MIDI channel from lower nibble
+    int rawStatus = (msg.status != 0) ? msg.status : msg.data1;
+    int status = rawStatus & 0xF0;
+    int midiChannel =
+        (msg.status != 0 && msg.channel != 0) ? (msg.channel & 0x0F) : (rawStatus & 0x0F);
 
     // Handle CC messages (0xB0)
     if (status == 0xB0) {
@@ -181,6 +195,7 @@ public class MidiInputRouter {
 
       // MIDI learn mode
       if (learningTarget != null) {
+        clearMapping(learningTarget);
         ccMappings.put(cc, learningTarget);
         learningTarget = null;
       }
@@ -267,7 +282,8 @@ public class MidiInputRouter {
               if (clipRow < 0 || engineRow < 0) {
                 triggerLiveNote(trackIndex, midiNote, velocity);
                 activeNoteStarts.put(
-                    midiNote, new NoteStartInfo(bridge.getCurrentTime(), -1, trackIndex));
+                    noteKey(midiChannel, midiNote),
+                    new NoteStartInfo(bridge.getCurrentTime(), -1, trackIndex));
                 return;
               }
 
@@ -276,6 +292,7 @@ public class MidiInputRouter {
                   org.deluge.model.StepData.of(true, (float) (velocity / 127.0), 1.0f, 1.0f, pitch);
               clip.setStep(clipRow, col, newStep);
 
+              int clipId = activeGrid.getActiveClipId();
               // Push StepConsequence to the undo/redo stack & trigger macro recording!
               activeGrid
                   .getProjectModel()
@@ -284,7 +301,7 @@ public class MidiInputRouter {
                       new org.deluge.model.Consequence.StepConsequence(
                           activeGrid.getProjectModel(),
                           trackIndex,
-                          activeGrid.getActiveClipId(),
+                          clipId,
                           clipRow,
                           col,
                           oldStep,
@@ -299,9 +316,10 @@ public class MidiInputRouter {
               // Monitor the recorded note immediately so playback does not wait for the next loop
               triggerLiveNote(trackIndex, midiNote, velocity);
 
-              // Store start time and step for Note Off gate calculation
+              // Store start time, step, clipId, and clipRow for Note Off gate calculation
               activeNoteStarts.put(
-                  midiNote, new NoteStartInfo(bridge.getCurrentTime(), col, trackIndex));
+                  noteKey(midiChannel, midiNote),
+                  new NoteStartInfo(bridge.getCurrentTime(), col, trackIndex, clipId, clipRow));
 
               // Refresh UI grid
               javax.swing.SwingUtilities.invokeLater(() -> activeGrid.refresh());
@@ -314,11 +332,13 @@ public class MidiInputRouter {
       // Fallback: live auditioning if recording is off or no active grid
       int targetTrack = resolveTrackFromChannel(midiChannel);
       triggerLiveNote(targetTrack, midiNote, velocity);
-      activeNoteStarts.put(midiNote, new NoteStartInfo(bridge.getCurrentTime(), -1, targetTrack));
+      activeNoteStarts.put(
+          noteKey(midiChannel, midiNote),
+          new NoteStartInfo(bridge.getCurrentTime(), -1, targetTrack));
 
     } else if (msg.isNoteOff()) {
       int midiNote = msg.data2;
-      NoteStartInfo start = activeNoteStarts.remove(midiNote);
+      NoteStartInfo start = activeNoteStarts.remove(noteKey(midiChannel, midiNote));
       if (start != null) {
         long duration = bridge.getCurrentTime() - start.time;
         double bpm =
@@ -327,34 +347,53 @@ public class MidiInputRouter {
                 : 120.0;
         double gate = (double) duration / (bridge.getSampleRate() * (15.0 / bpm));
 
-        // If recording is active, update the gate length in the high-level model!
+        // If recording is active, update the gate length in the exact clip/row recorded on Note On!
         if (isRecording && isPlaying && start.step >= 0 && SwingDelugeApp.mainInstance != null) {
           SwingGridPanel activeGrid = SwingDelugeApp.mainInstance.getActiveGridPanel();
-          if (activeGrid != null) {
-            org.deluge.model.ClipModel clip = activeGrid.getEditedActiveClip();
-            if (clip != null && start.step < clip.getStepCount()) {
-              int trackIndex = activeGrid.getEditedModelTrack();
-              org.deluge.model.TrackModel activeTrack =
-                  activeGrid.getProjectModel().getTracks().get(trackIndex);
-              if (activeTrack instanceof org.deluge.model.SynthTrackModel
-                  || activeTrack instanceof org.deluge.model.KitTrackModel) {
-                int clipRow;
-                if (activeTrack instanceof org.deluge.model.KitTrackModel) {
-                  int drumRow = midiNote - 36;
-                  clipRow = drumRow >= 0 ? activeGrid.getClipRowIndex(clip, drumRow, false) : -1;
-                } else {
-                  clipRow = activeGrid.findSynthClipRowForPitch(clip, midiNote);
-                }
-                if (clipRow >= 0) {
+          if (activeGrid != null && activeGrid.getProjectModel() != null) {
+            org.deluge.model.ProjectModel project = activeGrid.getProjectModel();
+            if (start.track >= 0 && start.track < project.getTracks().size()) {
+              org.deluge.model.TrackModel recordedTrack = project.getTracks().get(start.track);
+              if ((recordedTrack instanceof org.deluge.model.SynthTrackModel
+                      || recordedTrack instanceof org.deluge.model.KitTrackModel)
+                  && start.clipId >= 0
+                  && start.clipId < recordedTrack.getClips().size()) {
+                org.deluge.model.ClipModel clip = recordedTrack.getClips().get(start.clipId);
+                if (clip != null
+                    && start.step < clip.getStepCount()
+                    && start.clipRow >= 0
+                    && start.clipRow < clip.getRowCount()) {
+                  int clipRow = start.clipRow;
                   org.deluge.model.StepData oldStep = clip.getStep(clipRow, start.step);
                   if (oldStep != null && oldStep.active()) {
                     org.deluge.model.StepData newStep = oldStep.withGate((float) gate);
                     clip.setStep(clipRow, start.step, newStep);
 
-                    // Update low-level ChucK bridge gate
-                    int engineRow = activeGrid.getEngineRowForStoredClipRow(clipRow);
-                    if (engineRow >= 0) {
-                      bridge.setGate(engineRow, start.step, gate);
+                    org.deluge.model.UndoRedoStack undoStack = project.getUndoRedoStack();
+                    if (undoStack.peekUndo()
+                            instanceof org.deluge.model.Consequence.StepConsequence sc
+                        && sc.trackIndex() == start.track
+                        && sc.clipIndex() == start.clipId
+                        && sc.row() == clipRow
+                        && sc.step() == start.step) {
+                      undoStack.replaceLast(
+                          new org.deluge.model.Consequence.StepConsequence(
+                              sc.project(),
+                              sc.trackIndex(),
+                              sc.clipIndex(),
+                              sc.row(),
+                              sc.step(),
+                              sc.oldData(),
+                              newStep));
+                    }
+
+                    // Update low-level ChucK bridge gate if this track/clip is still the edited one
+                    if (activeGrid.getEditedModelTrack() == start.track
+                        && activeGrid.getActiveClipId() == start.clipId) {
+                      int engineRow = activeGrid.getEngineRowForStoredClipRow(clipRow);
+                      if (engineRow >= 0) {
+                        bridge.setGate(engineRow, start.step, gate);
+                      }
                     }
 
                     // Refresh UI grid

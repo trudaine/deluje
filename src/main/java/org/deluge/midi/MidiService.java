@@ -285,11 +285,12 @@ public class MidiService {
 
   public void handleMidiMessage(int status, int data1, int data2) {
     org.deluge.shadow.midi.MidiMsg msg = new org.deluge.shadow.midi.MidiMsg();
-    msg.status = status;
-    msg.data1 = data1;
-    msg.data2 = data2;
-    msg.data3 = data2;
-    router.handleMidiMessage(msg);
+    msg.status = status & 0xFF;
+    msg.channel = status & 0x0F;
+    msg.data1 = status & 0xFF;
+    msg.data2 = data1 & 0x7F;
+    msg.data3 = data2 & 0x7F;
+    engine.midiMessageReceived(MIDIMessage.fromMidiMsg(msg), this);
   }
 
   /** Called by engine when a Note On is received. Routes to MidiInputRouter. */
@@ -314,9 +315,16 @@ public class MidiService {
     // MIDI Learn intercept — take over before MidiFollow routes
     if (learning) {
       String portName = PreferencesManager.get("midi.input", "None");
+      String prefix = "midi.learn." + portName + ".";
+      String ccStr = String.valueOf(cc);
+      for (String key : PreferencesManager.getKeys()) {
+        if (key.startsWith(prefix) && ccStr.equals(PreferencesManager.get(key, "None"))) {
+          PreferencesManager.set(key, "None");
+        }
+      }
       LOGGER.fine(
           "MIDI LEARN: Bound CC " + cc + " to " + learnTargetParam + " on device " + portName);
-      PreferencesManager.set("midi.learn." + portName + "." + learnTargetParam, String.valueOf(cc));
+      PreferencesManager.set(prefix + learnTargetParam, ccStr);
       learning = false;
       learnTargetParam = null;
       return;
