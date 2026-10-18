@@ -441,6 +441,8 @@ public class SongXmlParser {
         }
       }
 
+      java.util.Set<TrackModel> claimed =
+          java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
       for (int i = 0; i < clipNodeList.getLength(); i++) {
         Element clipElem = (Element) clipNodeList.item(i);
 
@@ -460,12 +462,19 @@ public class SongXmlParser {
           }
         }
 
-        // Match to the next available track of the right type (FIFO)
-        TrackModel targetTrack = null;
-        if (isKitClip) {
+        // C InstrumentClip::claimOutput (instrument_clip.cpp:3902-3919): the clip's output is the
+        // first one matching its saved linkage. Only a clip with no linkage falls back to FIFO.
+        TrackModel targetTrack = claimOutputForClip(clipElem, isKitClip, projectTracks, claimed);
+        if (targetTrack != null) {
+          kitTrackQueue.remove(targetTrack);
+          instrumentTrackQueue.remove(targetTrack);
+        } else if (isKitClip) {
           targetTrack = kitTrackQueue.poll();
         } else {
           targetTrack = instrumentTrackQueue.poll();
+        }
+        if (targetTrack != null) {
+          claimed.add(targetTrack);
         }
 
         if (targetTrack == null) {
@@ -958,6 +967,68 @@ public class SongXmlParser {
     }
 
     return project;
+  }
+
+  /**
+   * C InstrumentClip::claimOutput + Song::getInstrumentFromPresetSlot (song.cpp:3716-3739) with the
+   * matchesPreset rules: a MIDI clip ({@code midiChannel}, instrument_clip.cpp:2534-2543) matches a
+   * MIDI output by channel and suffix (midi_instrument.h:102-109; MPE zones are channels 16/17); a
+   * synth or kit clip matches by type and case-insensitive {@code instrumentPresetName}
+   * (instrument.h:56-63). The folder half of that rule is not checked: tracks here do not keep
+   * their preset folder. Among equal matches an unclaimed track wins, which is the C's first match
+   * whenever names are unique, as on the hardware. Returns null when the clip carries no linkage.
+   */
+  static TrackModel claimOutputForClip(
+      Element clipElem,
+      boolean isKitClip,
+      java.util.List<TrackModel> tracks,
+      java.util.Set<TrackModel> claimed) {
+    java.util.function.Predicate<TrackModel> matches;
+    String midiChannel = DelugeXmlUtil.attrOrDirectChildText(clipElem, "midiChannel");
+    if (midiChannel != null) {
+      int channel;
+      int suffix = -1;
+      try {
+        channel = Integer.parseInt(midiChannel.trim());
+        String sfx = DelugeXmlUtil.attrOrDirectChildText(clipElem, "midiChannelSuffix");
+        if (sfx != null) {
+          suffix = Integer.parseInt(sfx.trim());
+        }
+      } catch (NumberFormatException e) {
+        return null;
+      }
+      if (suffix != -1) {
+        return null; // channel suffixes are not modelled on MIDI tracks
+      }
+      matches =
+          t ->
+              t instanceof MidiTrackModel m
+                  && (m.isMpe()
+                          ? ("upper".equalsIgnoreCase(m.getMpeZone()) ? 17 : 16)
+                          : m.getMidiChannel() - 1)
+                      == channel;
+    } else {
+      String name = DelugeXmlUtil.attrOrDirectChildText(clipElem, "instrumentPresetName");
+      if (name == null || DelugeXmlUtil.attrOrDirectChildText(clipElem, "cvChannel") != null) {
+        return null;
+      }
+      matches =
+          t ->
+              (isKitClip ? t instanceof KitTrackModel : t instanceof SynthTrackModel)
+                  && name.equalsIgnoreCase(t.getName());
+    }
+    TrackModel first = null;
+    for (TrackModel t : tracks) {
+      if (matches.test(t)) {
+        if (!claimed.contains(t)) {
+          return t;
+        }
+        if (first == null) {
+          first = t;
+        }
+      }
+    }
+    return first;
   }
 
   private static MidiTrackModel parseMidiElement(Element soundNode) throws Exception {
