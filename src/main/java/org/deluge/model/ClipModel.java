@@ -87,6 +87,17 @@ public class ClipModel extends TimelineCounter {
   private transient int noteRowsNumTicksBehindClip = 0; // C instrument_clip.h:115
   public transient Object sound; // The transient DSP engine reference (FirmwareSound / FirmwareKit)
 
+  /**
+   * The clip's timeline ParamManager. In the C a synth clip's paramManager is the one its Sound
+   * renders from (Clip::paramManager, passed to Sound::render via the ModelStack); FirmwareFactory
+   * records the clip's automation into the FirmwareSound's ParamManager, so that is the one to
+   * advance (clip.cpp:250-283 processCurrentPos → paramManager.processCurrentPos). The standalone
+   * clip-level instance remains for clips without a FirmwareSound.
+   */
+  org.deluge.modulation.params.ParamManager timelineParamManager() {
+    return (sound instanceof org.deluge.engine.FirmwareSound fs) ? fs.paramManager : paramManager;
+  }
+
   public NoteRowModel getOrCreateRow(int rowIndex) {
     NoteRowModel row = noteRows.computeIfAbsent(rowIndex, idx -> new NoteRowModel(idx));
     row.setOnScheduleInvalidated(this::expectEvent);
@@ -1085,7 +1096,7 @@ public class ClipModel extends TimelineCounter {
         if (sequenceDirectionMode == SequenceDirection.PINGPONG) {
           lastProcessedPos = -lastProcessedPos;
           currentlyPlayingReversed = !currentlyPlayingReversed;
-          paramManager.notifyPingpongOccurred();
+          timelineParamManager().notifyPingpongOccurred();
           didPingpong = true;
           ticksTilEnd = effectiveLength - lastProcessedPos;
         } else {
@@ -1105,7 +1116,7 @@ public class ClipModel extends TimelineCounter {
             lastProcessedPos = effectiveLength - lastProcessedPos;
           }
           currentlyPlayingReversed = !currentlyPlayingReversed;
-          paramManager.notifyPingpongOccurred();
+          timelineParamManager().notifyPingpongOccurred();
           didPingpong = true;
         }
         ticksTilEnd += effectiveLength;
@@ -1114,12 +1125,13 @@ public class ClipModel extends TimelineCounter {
 
     ticksTilNextEvent = ticksTilEnd;
 
-    if (paramManager.mightContainAutomation()) {
+    org.deluge.modulation.params.ParamManager clipParams = timelineParamManager();
+    if (clipParams.mightContainAutomation()) {
       boolean mayInterpolate = (type == ClipType.INSTRUMENT || type == ClipType.AUDIO);
-      paramManager.processCurrentPos(
+      clipParams.processCurrentPos(
           lastProcessedPos, effectiveLength, currentlyPlayingReversed, didPingpong, mayInterpolate);
-      if (paramManager.ticksTilNextEvent < ticksTilNextEvent) {
-        ticksTilNextEvent = paramManager.ticksTilNextEvent;
+      if (clipParams.ticksTilNextEvent < ticksTilNextEvent) {
+        ticksTilNextEvent = clipParams.ticksTilNextEvent;
       }
     }
 
