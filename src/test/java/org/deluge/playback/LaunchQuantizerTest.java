@@ -40,6 +40,10 @@ class LaunchQuantizerTest {
     assertEquals(96, LaunchQuantizer.magnifyToThreeBeats(96, 96));
     // Tiny bar (<2) uses the bar itself as the target.
     assertEquals(4, LaunchQuantizer.magnifyToThreeBeats(4, 1));
+    // Guard: non-positive inputTickScale returns max(0, threeBeats) instead of looping forever.
+    assertEquals(72, LaunchQuantizer.magnifyToThreeBeats(0, 96));
+    assertEquals(72, LaunchQuantizer.magnifyToThreeBeats(-24, 96));
+    assertEquals(0, LaunchQuantizer.magnifyToThreeBeats(0, -4));
   }
 
   @Test
