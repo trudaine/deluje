@@ -63,17 +63,22 @@ public class GridVuManager {
         new Timer(
             33,
             ev -> {
+              // Decay each row level once per tick so indices registered in both voiceVuMeters
+              // and trackVuMeters are never double-decayed.
+              for (int i = 0; i < vuLevels.length; i++) {
+                if (vuLevels[i] != 0.0) {
+                  vuLevels[i] *= 0.80;
+                }
+              }
               voiceVuMeters.forEach(
                   (r, vu) -> {
                     if (r >= 0 && r < vuLevels.length) {
-                      vuLevels[r] *= 0.80;
                       vu.setLvl(vuLevels[r]);
                     }
                   });
               trackVuMeters.forEach(
                   (t, vu) -> {
                     if (t >= 0 && t < vuLevels.length) {
-                      vuLevels[t] *= 0.80;
                       vu.setLvl(vuLevels[t]);
                     }
                   });

@@ -177,6 +177,9 @@ public class EnvelopePanel extends JPanel {
                     sel,
                     currentEnv.amount()));
             graph.repaint();
+            if (SwingDelugeApp.mainInstance != null) {
+              SwingDelugeApp.mainInstance.fireProjectChanged();
+            }
           });
       slidersPanel.add(targetCombo, c);
       row++;

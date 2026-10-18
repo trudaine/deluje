@@ -98,6 +98,23 @@ public class Iterance {
     return new Iterance((byte) div, (byte) step);
   }
 
+  /**
+   * C iterance.cpp:76-90 — searches {@link #PRESETS} for a match. Returns 0 when OFF ({@code
+   * divisor == 0 && iteranceStep == 0}), 1-based preset index (1..37) when matching a preset, or
+   * {@link #CUSTOM_ITERANCE_PRESET} (38) for custom iterance.
+   */
+  public int toPresetIndex() {
+    if (iteranceStep == 0 && divisor == 0) {
+      return 0;
+    }
+    for (int i = 0; i < NUM_ITERANCE_PRESETS; i++) {
+      if (PRESETS[i].divisor == divisor && PRESETS[i].iteranceStep == iteranceStep) {
+        return i + 1;
+      }
+    }
+    return CUSTOM_ITERANCE_PRESET;
+  }
+
   /** C iterance.cpp:94-105 — 1-based preset index (1..37) or 38 for custom. */
   public static Iterance fromPresetIndex(int presetIndex) {
     if (presetIndex > 0 && presetIndex <= NUM_ITERANCE_PRESETS) {
