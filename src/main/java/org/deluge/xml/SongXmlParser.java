@@ -249,6 +249,12 @@ public class SongXmlParser {
           if ("kit".equals(tagName)) {
             KitTrackModel kit = KitXmlParser.parseKitElement(childNode);
             project.addTrack(kit);
+          } else if ("midi".equals(tagName)
+              || "midiChannel".equals(tagName)
+              || "mpeZone".equals(tagName)) {
+            // C song.cpp:2043-2052 — MIDI outputs ("midi", or the older "midiChannel"/"mpeZone").
+            instrumentSoundNodes.add(childNode);
+            project.addTrack(parseMidiElement(childNode));
           } else if ("sound".equals(tagName)) {
             instrumentSoundNodes.add(childNode);
             boolean hasMidiChannel = childNode.getElementsByTagName("midiChannel").getLength() > 0;
@@ -970,16 +976,30 @@ public class SongXmlParser {
     MidiTrackModel midiTrack = new MidiTrackModel(name);
     parseDefaultVelocity(soundNode, midiTrack);
 
-    // Parse MIDI Channel or MPE Zone
-    NodeList channelNodes = soundNode.getElementsByTagName("midiChannel");
-    if (channelNodes.getLength() > 0) {
+    // Parse MIDI Channel or MPE Zone. C <midi> outputs carry the slot as attribute "channel"
+    // (0..15) or "zone" (MIDIInstrument::readTagFromFile, midi_instrument.cpp:470-512, with the
+    // nightly-bug "midiChannel" form also 0-based). The Java's own legacy <sound> form wrote a
+    // <midiChannel> child holding the 1-based model channel.
+    boolean cFormat = !"sound".equals(soundNode.getTagName());
+    String chanText = DelugeXmlUtil.attrOrDirectChildText(soundNode, "channel");
+    if (chanText == null) {
+      chanText = DelugeXmlUtil.attrOrDirectChildText(soundNode, "midiChannel");
+    } else {
+      cFormat = true;
+    }
+    if (chanText != null) {
       try {
-        int chan = Integer.parseInt(channelNodes.item(0).getTextContent().trim());
-        midiTrack.setMidiChannel(chan);
-      } catch (Exception ignored) {
+        int chan = Integer.parseInt(chanText.trim());
+        midiTrack.setMidiChannel(cFormat ? chan + 1 : chan);
+      } catch (NumberFormatException ignored) {
       }
     }
 
+    String zoneAttr = soundNode.getAttribute("zone");
+    if (zoneAttr != null && !zoneAttr.isBlank()) {
+      midiTrack.setMpe(true);
+      midiTrack.setMpeZone(zoneAttr.trim());
+    }
     Element zoneEl = null;
     NodeList zoneNodes = soundNode.getElementsByTagName("zone");
     for (int z = 0; z < zoneNodes.getLength(); z++) {

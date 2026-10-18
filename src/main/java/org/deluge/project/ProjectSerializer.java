@@ -294,9 +294,20 @@ public class ProjectSerializer {
 
       } else if (track instanceof MidiTrackModel) {
         MidiTrackModel midi = (MidiTrackModel) track;
-        writer.writeOpeningTagBeginning("sound");
-        writer.writeAttribute("presetName", midi.getName(), false);
-        writer.writeAttribute("presetFolder", "SYNTHS", false);
+        // C MIDIInstrument::getXMLTag (midi_instrument.h:122) — "midi"; the slot goes out as an
+        // attribute (Instrument::writeDataToFile, instrument.cpp:44-68): zone="lower|upper" for
+        // MPE, otherwise channel="0..15". A <sound presetFolder="SYNTHS"> is loaded as a synth.
+        writer.writeOpeningTagBeginning("midi");
+        if (midi.isMpe()) {
+          writer.writeAttribute(
+              "zone", "upper".equalsIgnoreCase(midi.getMpeZone()) ? "upper" : "lower", false);
+        } else {
+          writer.writeAttribute("channel", midi.getMidiChannel() - 1, false); // model 1..16
+        }
+        writer.writeAttribute("suffix", -1, false); // C getSubSlotXMLTag, no suffix
+        if (midi.getName() != null && !midi.getName().isEmpty()) {
+          writer.writeAttribute("presetName", midi.getName(), false); // instrument.cpp:71-73
+        }
         if (midi.isMutedInArrangement()) {
           writer.writeAttribute("isMutedInArrangement", "1", false);
         }
@@ -310,12 +321,6 @@ public class ProjectSerializer {
           writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
         }
         writer.writeOpeningTagEnd();
-
-        if (midi.isMpe()) {
-          writer.writeTag("zone", midi.getMpeZone());
-        } else {
-          writer.writeTag("midiChannel", String.valueOf(midi.getMidiChannel()));
-        }
 
         if (midi.getDeviceName() != null && !midi.getDeviceName().isEmpty()) {
           writer.writeOpeningTagBeginning("midiDevice");
@@ -390,7 +395,7 @@ public class ProjectSerializer {
           }
           writer.writeClosingTag("modKnobs");
         }
-        writer.writeClosingTag("sound");
+        writer.writeClosingTag("midi");
 
       } else if (track instanceof SynthTrackModel) {
         SynthTrackModel synth = (SynthTrackModel) track;
@@ -1272,6 +1277,14 @@ public class ProjectSerializer {
     if (track instanceof KitTrackModel) {
       writer.writeAttribute("instrumentPresetName", track.getName(), false);
       writer.writeAttribute("instrumentPresetFolder", "KITS", false);
+    } else if (track instanceof org.deluge.model.MidiTrackModel midiTrack) {
+      // C instrument_clip.cpp:2357-2362 — a MIDI clip links to its output by channel (0..15, or
+      // MIDI_CHANNEL_MPE_LOWER_ZONE 16 / UPPER 17), not by preset name.
+      int ch =
+          midiTrack.isMpe()
+              ? ("upper".equalsIgnoreCase(midiTrack.getMpeZone()) ? 17 : 16)
+              : midiTrack.getMidiChannel() - 1;
+      writer.writeAttribute("midiChannel", ch, false);
     } else {
       writer.writeAttribute("instrumentPresetName", track.getName(), false);
       writer.writeAttribute("instrumentPresetFolder", "SYNTHS", false);
