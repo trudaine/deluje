@@ -166,8 +166,193 @@ public class NoteRowModel {
   }
 
   public void setMuted(boolean muted) {
+    if (muted != this.muted) {
+      // C NoteRow::toggleMute (note_row.cpp:3118-3133): muting stops the sounding note, un-muting
+      // resumes playback (a possibly late start). The UI calls this off the audio thread, so the
+      // clip acts on it at its next processCurrentPos, which invalidateSchedule() makes the next
+      // tick.
+      if (muted) {
+        stopPending = true;
+        resumePending = false;
+      } else {
+        resumePending = true;
+      }
+    }
     this.muted = muted;
     invalidateSchedule();
+  }
+
+  // Requests from the UI thread, acted on by ClipModel.processCurrentPos on the audio thread.
+  private transient volatile boolean resumePending;
+  private transient volatile boolean stopPending;
+
+  private transient volatile NoteModel addedNotePending;
+
+  /** C note_row.cpp:420-433 — a note added under the play position may start late. */
+  void requestLateStartOfAddedNote(NoteModel note) {
+    addedNotePending = note;
+  }
+
+  NoteModel takeAddedNotePending() {
+    NoteModel n = addedNotePending;
+    addedNotePending = null;
+    return n;
+  }
+
+  /**
+   * C note_row.cpp:420-433: if the play-pos is inside the newly added note (and the row is not
+   * muted), attempt a late start of it.
+   */
+  NoteModel lateStartAddedNote(
+      NoteModel newNote,
+      int clipLastProcessedPos,
+      int clipLoopLength,
+      boolean clipCurrentlyPlayingReversed,
+      double samplesPerTick,
+      Object sound,
+      int[] lateOut) {
+    if (muted) {
+      return null;
+    }
+    boolean independent = loopLengthIfIndependent > 0;
+    int effectiveLength = independent ? loopLengthIfIndependent : clipLoopLength;
+    boolean reversed =
+        independent ? currentlyPlayingReversedIfIndependent : clipCurrentlyPlayingReversed;
+    int pos = independent ? lastProcessedPosIfIndependent : clipLastProcessedPos;
+    int howFarIntoNote = pos - newNote.getPos();
+    if (howFarIntoNote < 0) {
+      howFarIntoNote += effectiveLength;
+    }
+    if (howFarIntoNote >= newNote.getLength()) {
+      return null;
+    }
+    return attemptLateStart(
+        newNote, pos, effectiveLength, reversed, samplesPerTick, sound, lateOut);
+  }
+
+  boolean takeStopPending() {
+    boolean p = stopPending;
+    stopPending = false;
+    return p;
+  }
+
+  boolean takeResumePending() {
+    boolean p = resumePending;
+    resumePending = false;
+    return p;
+  }
+
+  void clearPendingRequests() {
+    resumePending = false;
+    stopPending = false;
+    addedNotePending = null;
+  }
+
+  /** C kAmountNoteOnLatenessAllowed (definitions_cxx.hpp:170): 50 ms in audio samples. */
+  static final int AMOUNT_NOTE_ON_LATENESS_ALLOWED = 2205;
+
+  /**
+   * C NoteRow::resumePlayback (note_row.cpp:3155-3170) → maybeStartLateNote (:3135-3153) →
+   * attemptLateStartOfNextNoteToPlay (note_row.cpp:2440-2511), with CatchNotes on (its default,
+   * runtime_feature_settings.cpp:116-118). Called on the audio thread at an actioned tick, so the
+   * C's getNumSwungTicksInSinceLastActionedSwungTick() is 0 and getLivePos() is the last processed
+   * pos. The C converts the lateness to samples with getInternalTickTime(); this model has no timer
+   * clock, so it uses {@code samplesPerTick} — exact without swing or a tempo change in between.
+   *
+   * @return the note to start late, with {@code lateOut[0]} = ticksLate and {@code lateOut[1]} =
+   *     samplesLate; null when nothing starts
+   */
+  NoteModel resumePlayback(
+      int clipLastProcessedPos,
+      int clipLoopLength,
+      boolean clipCurrentlyPlayingReversed,
+      double samplesPerTick,
+      Object sound,
+      int[] lateOut) {
+    NoteModel result = null;
+    if (!muted && !sequenced && !notes.isEmpty()) {
+      boolean independent = loopLengthIfIndependent > 0;
+      int effectiveLength = independent ? loopLengthIfIndependent : clipLoopLength;
+      boolean reversed =
+          independent ? currentlyPlayingReversedIfIndependent : clipCurrentlyPlayingReversed;
+      int pos = independent ? lastProcessedPosIfIndependent : clipLastProcessedPos;
+      if (effectiveLength > 0) {
+        // maybeStartLateNote: is the play-pos inside a note?
+        List<NoteModel> sorted = notesSortedByPos();
+        int i = searchNotes(sorted, pos, LESS);
+        boolean wrapping = (i == -1);
+        if (wrapping) {
+          i = sorted.size() - 1;
+        }
+        NoteModel note = sorted.get(i);
+        int noteEnd = note.getPos() + note.getLength();
+        if (wrapping) {
+          noteEnd -= effectiveLength;
+        }
+        if (noteEnd > pos) {
+          result =
+              attemptLateStart(
+                  note, pos, effectiveLength, reversed, samplesPerTick, sound, lateOut);
+        }
+      }
+    }
+    ignoreNoteOnsBefore_ = 0;
+    return result;
+  }
+
+  private NoteModel attemptLateStart(
+      NoteModel note,
+      int pos,
+      int effectiveLength,
+      boolean reversed,
+      double samplesPerTick,
+      Object sound,
+      int[] lateOut) {
+    if (reversed && !allowsNoteTails(sound, pitch)) {
+      return null; // Not supported yet (C :2444-2447)
+    }
+    int noteBeginsSoundingAtPos = note.getPos();
+    if (reversed) {
+      noteBeginsSoundingAtPos += note.getLength();
+    }
+    int swungTicksAgo = pos - noteBeginsSoundingAtPos;
+    if (reversed) {
+      swungTicksAgo = -swungTicksAgo;
+    }
+    if (swungTicksAgo < 0) {
+      swungTicksAgo += effectiveLength;
+    } else if (swungTicksAgo >= effectiveLength) {
+      swungTicksAgo -= effectiveLength;
+    }
+    int swungTicksBeforeLastActionedOne = swungTicksAgo;
+    int timeAgo = (int) (swungTicksAgo * samplesPerTick);
+    if (timeAgo < 0) {
+      timeAgo = 0;
+    }
+
+    org.deluge.firmware2.Sound s = null;
+    if (sound instanceof org.deluge.engine.FirmwareSound fs) {
+      fs.syncParamsToFw2();
+      s = fs.fw2Sound;
+    } else if (sound instanceof org.deluge.engine.FirmwareKit kit
+        && pitch >= 0
+        && pitch < kit.drumSounds.size()) {
+      s = kit.drumSounds.get(pitch).fw2Sound;
+    }
+    boolean allows = s != null && s.allowsVeryLateNoteStart();
+    if (!allows && timeAgo >= AMOUNT_NOTE_ON_LATENESS_ALLOWED) {
+      return null;
+    }
+    if (!allows) {
+      swungTicksBeforeLastActionedOne = 0;
+      timeAgo = 0; // For one-shot samples, we don't want the sample to start part-way through.
+    }
+    lateOut[0] = swungTicksBeforeLastActionedOne;
+    lateOut[1] = timeAgo;
+    if (allowsNoteTails(sound, pitch)) { // playNote(on) — C note_row.cpp:2633-2637
+      sequenced = true;
+    }
+    return note;
   }
 
   public boolean isMutedBeforeStemExport() {
