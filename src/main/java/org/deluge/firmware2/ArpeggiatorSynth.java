@@ -36,6 +36,23 @@ public class ArpeggiatorSynth extends ArpeggiatorBase {
     return ArpType.SYNTH;
   }
 
+  /** C arpeggiator.cpp:516-532 — Arpeggiator::hasPendingNotes. */
+  @Override
+  public boolean hasPendingNotes(Settings settings) {
+    if (!(settings == null || settings.mode == ArpMode.OFF)) { // C :517 — !arpIsOff(settings)
+      return super.hasPendingNotes(settings);
+    }
+    if (!anyPending) {
+      return false;
+    }
+    for (int i = 0; i < notes.size(); i++) {
+      if (notes.get(i).isStartablePending()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   @Override
   public boolean hasAnyInputNotesActive() {
     return !notes.isEmpty(); // C:1428-1430

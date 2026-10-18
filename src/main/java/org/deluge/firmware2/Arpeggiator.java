@@ -145,7 +145,15 @@ public class Arpeggiator {
       return false;
     }
 
-    /** C: arpeggiator.h:164-168 — resetPostArpArrays() */
+    /**
+     * C: arpeggiator.h:164-168 — isStartablePending(): waiting to start AND has a note to play.
+     * Only slot 0 can be pending when the arp is off.
+     */
+    public boolean isStartablePending() {
+      return noteStatus[0] == ArpNoteStatus.PENDING && noteCodeOnPostArp[0] != ARP_NOTE_NONE;
+    }
+
+    /** C: arpeggiator.h:169-173 — resetPostArpArrays() */
     public void resetPostArpArrays() {
       Arrays.fill(outputMemberChannel, MIDI_CHANNEL_NONE);
       Arrays.fill(noteCodeOnPostArp, ARP_NOTE_NONE);
