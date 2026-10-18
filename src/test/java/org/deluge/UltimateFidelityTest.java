@@ -194,7 +194,7 @@ public class UltimateFidelityTest {
     // ==================================================================================
     // 2. SAVE & LOAD E2E ROUNDTRIP EXPORT TEST
     // ==================================================================================
-    File songXmlFile = new File("src/main/resources/SONGS/ULTIMATE_SONG.xml");
+    File songXmlFile = testSongFile("ULTIMATE_SONG.xml");
     org.deluge.project.ProjectSerializer.save(project, songXmlFile);
     LOGGER.fine(
         String.format(
@@ -332,8 +332,7 @@ public class UltimateFidelityTest {
 
       project.addArrangerClip(new ArrangerClip(0, leadClip, 0, 1536));
 
-      org.deluge.project.ProjectSerializer.save(
-          project, new File("src/main/resources/SONGS/DIAG_LEAD_ONLY.xml"));
+      org.deluge.project.ProjectSerializer.save(project, testSongFile("DIAG_LEAD_ONLY.xml"));
     }
 
     // 2. KIT ONLY
@@ -397,8 +396,17 @@ public class UltimateFidelityTest {
 
       project.addArrangerClip(new ArrangerClip(0, drumClip, 0, 2304));
 
-      org.deluge.project.ProjectSerializer.save(
-          project, new File("src/main/resources/SONGS/DIAG_KIT_ONLY.xml"));
+      org.deluge.project.ProjectSerializer.save(project, testSongFile("DIAG_KIT_ONLY.xml"));
     }
+  }
+
+  /**
+   * Generated songs go under target/ — writing them into src/main/resources/SONGS dirtied the
+   * checked-in songs on every test run.
+   */
+  private static File testSongFile(String name) {
+    File dir = new File("target/test-songs");
+    dir.mkdirs();
+    return new File(dir, name);
   }
 }

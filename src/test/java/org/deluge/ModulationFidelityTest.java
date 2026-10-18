@@ -151,7 +151,7 @@ public class ModulationFidelityTest {
     project.addArrangerClip(new ArrangerClip(2, drumClip, 0, 2304));
 
     // 2. Serialize to Deluge XML Song
-    File xmlFile = new File("src/main/resources/SONGS/MODULATION_SONG.xml");
+    File xmlFile = testSongFile("MODULATION_SONG.xml");
     ProjectSerializer.save(project, xmlFile);
     System.out.println(
         "[ModulationTest] Song XML successfully written to: " + xmlFile.getAbsolutePath());
@@ -161,5 +161,15 @@ public class ModulationFidelityTest {
     FidelityTestRunner.renderSongToWav(xmlFile, wavFile, 8.0);
     System.out.println(
         "[ModulationTest] Rendered WAV successfully written to: " + wavFile.getAbsolutePath());
+  }
+
+  /**
+   * Generated songs go under target/ — writing them into src/main/resources/SONGS dirtied the
+   * checked-in songs on every test run.
+   */
+  private static File testSongFile(String name) {
+    File dir = new File("target/test-songs");
+    dir.mkdirs();
+    return new File(dir, name);
   }
 }
