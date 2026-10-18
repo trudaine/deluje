@@ -69,6 +69,11 @@ public class GranularProcessor {
     return (bufferWriteIndex > 0 || bufferFull || grainInitialized) && wrapsToShutdown >= 0;
   }
 
+  /** C GranularProcessor.h:51 — getSamplesToShutdown. */
+  public int getSamplesToShutdown() {
+    return wrapsToShutdown * K_MOD_FX_GRAIN_BUFFER_SIZE;
+  }
+
   // ── setWrapsToShutdown (GranularProcessor.cpp:29-45) ──
 
   void setWrapsToShutdown() {

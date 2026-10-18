@@ -71,6 +71,11 @@ public abstract class ArpeggiatorBase {
 
   public abstract boolean hasAnyInputNotesActive();
 
+  /** C arpeggiator.cpp:1474-1476 — ArpeggiatorBase::hasPendingNotes. */
+  public boolean hasPendingNotes(Settings settings) {
+    return active_note.isPending();
+  }
+
   public abstract void reset();
 
   public abstract ArpType getArpType();

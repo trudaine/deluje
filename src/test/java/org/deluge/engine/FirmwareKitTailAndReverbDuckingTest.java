@@ -47,7 +47,7 @@ class FirmwareKitTailAndReverbDuckingTest {
     assertTrue(
         drum.fw2Sound.delay.repeatsUntilAbandon != 0,
         "Per-drum delay must still have repeats pending");
-    assertTrue(drum.shouldRender(), "Drum with active delay tail must continue rendering");
+    assertTrue(drum.shouldRender(128), "Drum with active delay tail must continue rendering");
 
     long tailEnergy = 0;
     for (int b = 0; b < 32; b++) {

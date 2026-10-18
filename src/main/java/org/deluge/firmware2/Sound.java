@@ -1243,6 +1243,72 @@ public class Sound extends GlobalEffectable {
     }
   }
 
+  // C sound.h — skippingRendering / startSkippingRenderingAtTime, plus a per-sound stand-in for
+  // AudioEngine::audioSampleTimer (advanced by every reassessRenderSkippingStatus call).
+  boolean skippingRendering = true;
+  long startSkippingRenderingAtTime = 0;
+  long renderSkipSampleTimer = 0;
+
+  /**
+   * C sound.cpp:2170-2244 — Sound::reassessRenderSkippingStatus, the decision part (the C's
+   * startSkippingRendering/stopSkippingRendering side effects on modFX memory are not modelled).
+   * Call once per render block with that block's length; returns true while the sound must still
+   * render: voices, delay repeats, stutter, held arp input, pending notes (issue #2262), and — once
+   * all of those are gone — a modFX / compressor tail grace period.
+   */
+  public boolean reassessRenderSkippingStatus(int numSamples) {
+    long now = renderSkipSampleTimer;
+    renderSkipSampleTimer += numSamples;
+
+    boolean voicesEmpty;
+    synchronized (voices) {
+      voicesEmpty = voices.isEmpty();
+    }
+    // C :2178-2181
+    boolean skippingStatusNow =
+        voicesEmpty
+            && delay.repeatsUntilAbandon == 0
+            && !Stutterer.GLOBAL.isStuttering(this)
+            && (!arpeggiator.hasAnyInputNotesActive()
+                || arpSettings.mode == Arpeggiator.ArpMode.OFF)
+            && !arpeggiator.hasPendingNotes(arpSettings);
+
+    if (skippingStatusNow != skippingRendering) {
+      if (skippingStatusNow) {
+        // C :2187 — modFX or compressor on: keep rendering for the tail before skipping.
+        if (modFXType != ModFx.ModFXType.NONE || compressor.thresholdKnobPos > 0) {
+          if (startSkippingRenderingAtTime == 0) {
+            int waitSamplesModfx =
+                switch (modFXType) {
+                  case CHORUS, CHORUS_STEREO -> 20 * 44; // C :2200-2203
+                  case GRAIN -> granular.getSamplesToShutdown(); // C :2204-2206
+                  default -> 90 * 441; // C :2207-2208
+                };
+            int waitSamples =
+                Math.max(waitSamplesModfx, (int) (compressor.releaseMS * 44)); // :2210
+            startSkippingRenderingAtTime = now + waitSamples; // C :2212
+            if (startSkippingRenderingAtTime == 0) {
+              startSkippingRenderingAtTime = 1; // 0 means "not waiting"
+            }
+            return true;
+          }
+          if (now - startSkippingRenderingAtTime >= 0) { // C :2217
+            startSkippingRenderingAtTime = 0;
+            skippingRendering = true; // C :2219 → yupStartSkipping
+            return false;
+          }
+          return true; // still in the tail
+        }
+        skippingRendering = true; // C :2230 — startSkippingRendering
+        return false;
+      }
+      skippingRendering = false; // C :2235 — stopSkippingRendering
+      return true;
+    }
+    startSkippingRenderingAtTime = 0; // C :2240
+    return !skippingRendering;
+  }
+
   public boolean arpEnabled() {
     return arpSettings.mode != Arpeggiator.ArpMode.OFF;
   }

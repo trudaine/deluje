@@ -96,6 +96,9 @@ class Fw2SyncCompletenessTest {
           "masterCents", // model-driven at load time, not real-time bridge synced
           "timePerInternalTickInverse", // transport clock (documented gap; synced LFO unreachable)
           "timeStartedSkippingRenderingLFO", // runtime: skip/resume bookkeeping
+          "skippingRendering", // runtime: C reassessRenderSkippingStatus state
+          "startSkippingRenderingAtTime", // runtime: modFX/compressor tail deadline
+          "renderSkipSampleTimer", // runtime: per-sound audioSampleTimer stand-in
           "unisonPan", // derived by setupUnisonStereoSpread() from unisonStereoSpread
           "monophonicExpressionValues", // runtime MPE smoothing state
           "expressionSourcesChangedAtSynthLevel", // runtime MPE flag
