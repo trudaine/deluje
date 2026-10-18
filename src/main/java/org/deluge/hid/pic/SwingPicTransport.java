@@ -34,7 +34,7 @@ public class SwingPicTransport implements PicTransport {
   /** Framebuffer: pad colours indexed as [y][x]. Allocate at max possible grid. */
   private static final int MAX_WIDTH = 26; // 24 + 2 sidebar
 
-  private static final int MAX_HEIGHT = 16;
+  private static final int MAX_HEIGHT = 24; // GRID_24x16 has 24 rows
 
   private final RGB[][] framebuffer = new RGB[MAX_HEIGHT][MAX_WIDTH];
 
@@ -54,10 +54,8 @@ public class SwingPicTransport implements PicTransport {
   private int[] decodeRGBBytes = new int[3];
 
   public SwingPicTransport() {
-    int h = kDisplayHeight();
-    int w = kTotalWidth();
-    for (int y = 0; y < h; y++) {
-      for (int x = 0; x < w; x++) {
+    for (int y = 0; y < MAX_HEIGHT; y++) {
+      for (int x = 0; x < MAX_WIDTH; x++) {
         framebuffer[y][x] = new RGB();
       }
     }
@@ -92,13 +90,14 @@ public class SwingPicTransport implements PicTransport {
   public void flush() {
     // Push framebuffer to Swing pad buttons
     if (padButtons == null) return;
-    int h = kDisplayHeight();
-    int w = kTotalWidth();
+    int h = Math.min(Math.min(kDisplayHeight(), MAX_HEIGHT), padButtons.length);
     for (int y = 0; y < h; y++) {
+      if (padButtons[y] == null) continue;
+      int w = Math.min(Math.min(kTotalWidth(), MAX_WIDTH), padButtons[y].length);
       for (int x = 0; x < w; x++) {
         RGB rgb = framebuffer[y][x];
         JButton btn = padButtons[y][x];
-        if (btn != null) {
+        if (btn != null && rgb != null) {
           btn.setBackground(new Color(rgb.r & 0xFF, rgb.g & 0xFF, rgb.b & 0xFF));
         }
       }
@@ -107,7 +106,11 @@ public class SwingPicTransport implements PicTransport {
 
   /** Directly set a pad colour in the framebuffer without sending through the PIC protocol. */
   public void setPadColour(int x, int y, RGB colour) {
-    if (x >= 0 && x < kTotalWidth() && y >= 0 && y < kDisplayHeight()) {
+    if (colour != null
+        && x >= 0
+        && x < Math.min(kTotalWidth(), MAX_WIDTH)
+        && y >= 0
+        && y < Math.min(kDisplayHeight(), MAX_HEIGHT)) {
       framebuffer[y][x].r = colour.r;
       framebuffer[y][x].g = colour.g;
       framebuffer[y][x].b = colour.b;
@@ -116,8 +119,8 @@ public class SwingPicTransport implements PicTransport {
 
   /** Clear all pads to black. */
   public void clearAll() {
-    int h = kDisplayHeight();
-    int w = kTotalWidth();
+    int h = Math.min(kDisplayHeight(), MAX_HEIGHT);
+    int w = Math.min(kTotalWidth(), MAX_WIDTH);
     for (int y = 0; y < h; y++) {
       for (int x = 0; x < w; x++) {
         framebuffer[y][x].r = 0;
@@ -177,7 +180,9 @@ public class SwingPicTransport implements PicTransport {
           int padX = decodeColumnPair * 2 + (rgbIdx / dispHeight);
           int padY = rgbIdx % dispHeight;
           int lastMainPair = (dispWidth + 1) / 2 - 1;
-          if (padX < dispWidth || (padX < totalWidth && decodeColumnPair == lastMainPair + 1)) {
+          if ((padX < dispWidth || (padX < totalWidth && decodeColumnPair == lastMainPair + 1))
+              && padX < MAX_WIDTH
+              && padY < MAX_HEIGHT) {
             framebuffer[padY][padX].r = decodeRGBBytes[0];
             framebuffer[padY][padX].g = decodeRGBBytes[1];
             framebuffer[padY][padX].b = decodeRGBBytes[2];

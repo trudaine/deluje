@@ -11,9 +11,9 @@ import org.deluge.xml.DelugeXmlParser;
 public class KitAssembler {
 
   /**
-   * Loads multiple synth XML files and produces a KitTrackModel where each synth sound is assigned
-   * to one lane. The synth preset path is stored as the "sample" reference, producing valid XML
-   * that the Deluge hardware can interpret as a synth-on-kit-lane.
+   * Loads multiple synth XML files and produces a KitTrackModel where each synth sound is parsed
+   * into a full {@link SoundDrum} lane with its oscillator, filter, envelope, and modulation
+   * parameters preserved.
    */
   public static KitTrackModel assembleFromSynths(
       String kitName, List<File> synthFiles, List<Integer> muteGroups, List<Integer> pitchOffsets)
@@ -33,25 +33,27 @@ public class KitAssembler {
     KitTrackModel kit = new KitTrackModel(kitName);
 
     for (int i = 0; i < synthFiles.size(); i++) {
-      SynthTrackModel synth = DelugeXmlParser.parseSynth(synthFiles.get(i));
+      File synthFile = synthFiles.get(i);
+      SynthTrackModel synth = DelugeXmlParser.parseSynth(synthFile);
+      SoundDrum sound = DelugeXmlParser.parseSoundDrum(synthFile);
       String laneName =
-          (laneNames != null && i < laneNames.size() && !laneNames.get(i).isBlank())
+          (laneNames != null
+                  && i < laneNames.size()
+                  && laneNames.get(i) != null
+                  && !laneNames.get(i).isBlank())
               ? laneNames.get(i)
               : synth.getName();
       if (laneName == null || laneName.isBlank()) {
         laneName = "Lane " + (i + 1);
       }
+      sound.setName(laneName);
 
-      SoundDrum sound = new SoundDrum(laneName);
-      // Store the synth preset path as the sample reference.
-      // The Deluge firmware renders this as a synth voice on the kit lane.
-      sound.setSamplePath(synthFiles.get(i).getAbsolutePath());
-
-      if (i < muteGroups.size()) {
+      if (muteGroups != null && i < muteGroups.size() && muteGroups.get(i) != null) {
         sound.setMuteGroup(muteGroups.get(i));
       }
-      if (i < pitchOffsets.size()) {
-        sound.setPitchSemitones(pitchOffsets.get(i));
+      if (pitchOffsets != null && i < pitchOffsets.size() && pitchOffsets.get(i) != null) {
+        // Additive by design: lane pitch offset shifts the preset's own transpose.
+        sound.setPitchSemitones(sound.getPitchSemitones() + pitchOffsets.get(i));
       }
 
       kit.addDrum(sound);

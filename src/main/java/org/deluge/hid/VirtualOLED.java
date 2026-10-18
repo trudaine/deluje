@@ -86,12 +86,34 @@ public class VirtualOLED {
   }
 
   public void drawString(String str, int x, int y) {
+    drawString(str, x, y, true);
+  }
+
+  public void drawString(String str, int x, int y, boolean white) {
     try {
-      g2d.setColor(Color.WHITE);
+      g2d.setColor(white ? Color.WHITE : Color.BLACK);
       g2d.drawString(str, x, y);
       dirty = true;
     } catch (Throwable t) {
       // Headless shield
+    }
+  }
+
+  public void drawRect(int x, int y, int w, int h, boolean fill, boolean white) {
+    try {
+      g2d.setColor(white ? Color.WHITE : Color.BLACK);
+      if (fill) g2d.fillRect(x, y, w, h);
+      else g2d.drawRect(x, y, w, h);
+      dirty = true;
+    } catch (Throwable t) {
+      // Headless shield
+    }
+  }
+
+  public void stopScrollTimer() {
+    if (oledScrollTimer != null) {
+      oledScrollTimer.stop();
+      oledScrollTimer = null;
     }
   }
 
@@ -102,7 +124,7 @@ public class VirtualOLED {
   private String overrideLine2 = null;
 
   public void drawTrackScreen(String banner, String mainTitle, String subText) {
-    if (oledScrollTimer != null) oledScrollTimer.stop();
+    stopScrollTimer();
     this.staticLine1 = banner != null ? banner : "";
     this.staticLine2 = mainTitle != null ? mainTitle : "";
     this.staticLine3 = subText != null ? subText : "";
@@ -169,6 +191,7 @@ public class VirtualOLED {
    */
   public void drawParameterBar(
       String banner, String title, float normalizedVal, String[] softKeys, int activeSoftKey) {
+    stopScrollTimer();
     clear();
     setLargeFont(false);
     drawString(banner != null ? banner : "", 4, 12);
@@ -213,6 +236,7 @@ public class VirtualOLED {
    */
   public void drawMultiSectionGraph(
       String banner, String[] labels, float[] values, int activeIdx, String[] softKeys) {
+    stopScrollTimer();
     clear();
     setLargeFont(false);
     drawString(banner != null ? banner : "", 4, 11);
@@ -263,14 +287,18 @@ public class VirtualOLED {
    * routine.
    */
   public void drawWaveform(short[] data, int start, int length) {
-    if (data == null || length <= 0) return;
+    if (data == null || start < 0 || start >= data.length || length <= 1) return;
+    int count = Math.min(length, data.length - start);
+    if (count <= 1) return;
+    stopScrollTimer();
     try {
       g2d.setColor(Color.WHITE);
 
-      float xStep = (float) WIDTH / length;
-      for (int i = 0; i < length - 1; i++) {
-        int y1 = HEIGHT / 2 + (data[start + i] * HEIGHT / 65536);
-        int y2 = HEIGHT / 2 + (data[start + i + 1] * HEIGHT / 65536);
+      float xStep = (float) WIDTH / count;
+      for (int i = 0; i < count - 1; i++) {
+        // Screen y=0 is top, so positive samples go upward (HEIGHT / 2 - ...).
+        int y1 = HEIGHT / 2 - (data[start + i] * HEIGHT / 65536);
+        int y2 = HEIGHT / 2 - (data[start + i + 1] * HEIGHT / 65536);
         g2d.drawLine((int) (i * xStep), y1, (int) ((i + 1) * xStep), y2);
       }
       dirty = true;
@@ -285,6 +313,7 @@ public class VirtualOLED {
    */
   public void drawRawFrameBuffer(byte[] frameBuffer) {
     if (frameBuffer == null || frameBuffer.length < 768) return;
+    stopScrollTimer();
     clear();
     for (int page = 0; page < 6; page++) {
       for (int col = 0; col < 128; col++) {
