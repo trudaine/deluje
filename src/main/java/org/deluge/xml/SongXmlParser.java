@@ -555,6 +555,8 @@ public class SongXmlParser {
         if (clipElem.hasAttribute("section")) {
           clip.setSection(Integer.parseInt(clipElem.getAttribute("section").trim()));
         }
+        // C clip.cpp:764-766 — readTagOrAttributeValue → stringToLaunchStyle
+        clip.setLaunchStyle(DelugeXmlUtil.attrOrDirectChildText(clipElem, "launchStyle"));
 
         if (noteRowList != null) {
           for (int r = 0; r < rowCount; r++) {
@@ -731,6 +733,8 @@ public class SongXmlParser {
           clip.setColourOffset(Integer.parseInt(clipElem.getAttribute("colourOffset")));
         if (clipElem.hasAttribute("section"))
           clip.setSection(Integer.parseInt(clipElem.getAttribute("section")));
+        // C clip.cpp:764-766 — readTagOrAttributeValue → stringToLaunchStyle
+        clip.setLaunchStyle(DelugeXmlUtil.attrOrDirectChildText(clipElem, "launchStyle"));
         // beingEdited uses "1"/"0" integer style
         if (clipElem.hasAttribute("beingEdited"))
           clip.setBeingEdited(

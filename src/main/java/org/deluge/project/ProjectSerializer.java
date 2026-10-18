@@ -1287,6 +1287,10 @@ public class ProjectSerializer {
     if (clip.getSection() != 255) {
       writer.writeAttribute("section", clip.getSection(), false);
     }
+    // C clip.cpp:687-689 — written only when not DEFAULT
+    if (!"default".equals(clip.getLaunchStyle())) {
+      writer.writeAttribute("launchStyle", clip.getLaunchStyle(), false);
+    }
     if (clip.isTripletMode()) {
       writer.writeAttribute("triplet", "1", false);
     }
@@ -1512,6 +1516,10 @@ public class ProjectSerializer {
     writer.writeAttribute("colourOffset", clip.getColourOffset(), false);
     writer.writeAttribute("section", clip.getSection(), false);
     writer.writeAttribute("beingEdited", clip.isBeingEdited() ? "1" : "0", false);
+    // C clip.cpp:687-689 — written only when not DEFAULT
+    if (!"default".equals(clip.getLaunchStyle())) {
+      writer.writeAttribute("launchStyle", clip.getLaunchStyle(), false);
+    }
     if (ci != null) {
       writer.writeAttribute("clipInstances", ci, false);
     }

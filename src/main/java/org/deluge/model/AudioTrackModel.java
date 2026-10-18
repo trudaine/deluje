@@ -29,6 +29,22 @@ public class AudioTrackModel extends TrackModel {
     private int length = 768; // ticks
     private int colourOffset = 0;
     private int section = 0;
+
+    /**
+     * C Clip::launchStyle (clip.cpp:60, 764-766; functions.cpp:1283-1310): "default", "fill" or
+     * "once". Round-tripped; the session launch behaviour of FILL / ONCE is not yet ported.
+     */
+    private String launchStyle = "default";
+
+    public String getLaunchStyle() {
+      return launchStyle;
+    }
+
+    /** C stringToLaunchStyle: anything other than "fill" / "once" is DEFAULT. */
+    public void setLaunchStyle(String s) {
+      this.launchStyle = ("fill".equals(s) || "once".equals(s)) ? s : "default";
+    }
+
     private boolean beingEdited = false;
     private boolean reversed = false;
 
