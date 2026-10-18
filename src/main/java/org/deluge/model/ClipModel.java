@@ -1089,6 +1089,67 @@ public class ClipModel extends TimelineCounter {
     for (NoteRowModel row : noteRows.values()) {
       row.setPosIfIndependent(newPos, sequenceDirectionMode);
     }
+
+    setPosForParamManagers(loopLength);
+  }
+
+  /**
+   * C Clip::setPosForParamManagers (clip.cpp:447-455) + InstrumentClip::setPos
+   * (instrument_clip.cpp:385-402): synchronizes parameter automation values and slopes to the new
+   * play position.
+   */
+  private void setPosForParamManagers(int loopLen) {
+    org.deluge.modulation.params.ParamManager clipParams = timelineParamManager();
+    if (clipParams.mightContainAutomation()) {
+      clipParams.setPlayPos(lastProcessedPos, loopLen, currentlyPlayingReversed);
+    }
+    if (type == ClipType.INSTRUMENT && sound instanceof org.deluge.engine.FirmwareKit kit) {
+      for (int r = 0; r < kit.drumSounds.size(); r++) {
+        org.deluge.engine.FirmwareSound drumSound = kit.drumSounds.get(r);
+        if (drumSound.paramManager.mightContainAutomation()) {
+          NoteRowModel row = noteRows.get(r);
+          int rowPos =
+              (row != null && row.hasIndependentPlayPos())
+                  ? row.getLastProcessedPosIfIndependent()
+                  : lastProcessedPos;
+          boolean rowRev =
+              (row != null)
+                  ? row.isCurrentlyPlayingReversed(currentlyPlayingReversed)
+                  : currentlyPlayingReversed;
+          int rowLen =
+              (row != null && row.getLoopLengthIfIndependent() > 0)
+                  ? row.getLoopLengthIfIndependent()
+                  : loopLen;
+          drumSound.paramManager.setPlayPos(rowPos, rowLen, rowRev);
+        }
+      }
+    }
+    for (NoteRowModel row : noteRows.values()) {
+      if (row.getParamManager().mightContainAutomation()) {
+        int rowPos =
+            row.hasIndependentPlayPos() ? row.getLastProcessedPosIfIndependent() : lastProcessedPos;
+        boolean rowRev = row.isCurrentlyPlayingReversed(currentlyPlayingReversed);
+        int rowLen =
+            row.getLoopLengthIfIndependent() > 0 ? row.getLoopLengthIfIndependent() : loopLen;
+        row.getParamManager().setPlayPos(rowPos, rowLen, rowRev);
+      }
+    }
+  }
+
+  private void notifyPingpongToParamManagers() {
+    timelineParamManager().notifyPingpongOccurred();
+    if (type == ClipType.INSTRUMENT && sound instanceof org.deluge.engine.FirmwareKit kit) {
+      for (int r = 0; r < kit.drumSounds.size(); r++) {
+        NoteRowModel row = noteRows.get(r);
+        if (row != null && row.hasIndependentPlayPos()) {
+          continue;
+        }
+        org.deluge.engine.FirmwareSound drumSound = kit.drumSounds.get(r);
+        if (drumSound.paramManager.mightContainAutomation()) {
+          drumSound.paramManager.notifyPingpongOccurred();
+        }
+      }
+    }
   }
 
   /**
@@ -1248,7 +1309,7 @@ public class ClipModel extends TimelineCounter {
         if (sequenceDirectionMode == SequenceDirection.PINGPONG) {
           lastProcessedPos = -lastProcessedPos;
           currentlyPlayingReversed = !currentlyPlayingReversed;
-          timelineParamManager().notifyPingpongOccurred();
+          notifyPingpongToParamManagers();
           didPingpong = true;
           ticksTilEnd = effectiveLength - lastProcessedPos;
         } else {
@@ -1268,7 +1329,7 @@ public class ClipModel extends TimelineCounter {
             lastProcessedPos = effectiveLength - lastProcessedPos;
           }
           currentlyPlayingReversed = !currentlyPlayingReversed;
-          timelineParamManager().notifyPingpongOccurred();
+          notifyPingpongToParamManagers();
           didPingpong = true;
         }
         ticksTilEnd += effectiveLength;
@@ -1279,9 +1340,18 @@ public class ClipModel extends TimelineCounter {
 
     org.deluge.modulation.params.ParamManager clipParams = timelineParamManager();
     if (clipParams.mightContainAutomation()) {
-      boolean mayInterpolate = (type == ClipType.INSTRUMENT || type == ClipType.AUDIO);
+      // C clip.cpp:311 — MIDI/CV outputs cannot interpolate per audio sample, so they use
+      // tickTicks.
+      boolean mayInterpolate =
+          (type == ClipType.INSTRUMENT || type == ClipType.AUDIO)
+              && !(sound instanceof org.deluge.engine.FirmwareMidiInstrument);
       clipParams.processCurrentPos(
-          lastProcessedPos, effectiveLength, currentlyPlayingReversed, didPingpong, mayInterpolate);
+          ticksSinceLast,
+          lastProcessedPos,
+          effectiveLength,
+          currentlyPlayingReversed,
+          didPingpong,
+          mayInterpolate);
       if (clipParams.ticksTilNextEvent < ticksTilNextEvent) {
         ticksTilNextEvent = clipParams.ticksTilNextEvent;
       }
@@ -1290,11 +1360,23 @@ public class ClipModel extends TimelineCounter {
     // ── Sequencer Note Processing (CLIP type) ──
     if (type == ClipType.INSTRUMENT) {
       if (sound instanceof org.deluge.engine.FirmwareKit kit) {
-        boolean mayInterpolate = true;
-        for (org.deluge.engine.FirmwareSound drumSound : kit.drumSounds) {
+        for (int r = 0; r < kit.drumSounds.size(); r++) {
+          NoteRowModel row = noteRows.get(r);
+          if (row != null && row.hasIndependentPlayPos()) {
+            continue;
+          }
+          org.deluge.engine.FirmwareSound drumSound = kit.drumSounds.get(r);
           if (drumSound.paramManager.mightContainAutomation()) {
             drumSound.paramManager.processCurrentPos(
-                lastProcessedPos, effectiveLength, currentlyPlayingReversed, false, mayInterpolate);
+                ticksSinceLast,
+                lastProcessedPos,
+                effectiveLength,
+                currentlyPlayingReversed,
+                didPingpong,
+                true);
+            if (drumSound.paramManager.ticksTilNextEvent < ticksTilNextEvent) {
+              ticksTilNextEvent = drumSound.paramManager.ticksTilNextEvent;
+            }
           }
         }
       }

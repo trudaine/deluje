@@ -7,7 +7,10 @@ import org.deluge.modulation.patch.PatchCableSet;
 
 public class ParamManager {
   public final List<AutoParam> automatedParams = new java.util.concurrent.CopyOnWriteArrayList<>();
-  public int ticksTilNextEvent = Integer.MAX_VALUE;
+  // C param_manager.cpp:333-334 — ParamManagerForTimeline starts at ticksSkipped=0,
+  // ticksTilNextEvent=0.
+  public int ticksTilNextEvent = 0;
+  public int ticksSkipped = 0;
   private PatchCableSet patchCableSet = new PatchCableSet();
   private final int[] unpatchedValues = new int[Param.UNPATCHED_PITCH_ADJUST + 1];
 
@@ -24,6 +27,16 @@ public class ParamManager {
 
   public boolean mightContainAutomation() {
     return !automatedParams.isEmpty();
+  }
+
+  /** C param_manager.cpp:393, 401 — whether any automated parameter is currently ramping. */
+  public boolean isAnyParamInterpolating() {
+    for (AutoParam param : automatedParams) {
+      if (param.hasInterpolationIncrement()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public void notifyPingpongOccurred() {
@@ -55,6 +68,8 @@ public class ParamManager {
       automatedParams.add(target);
     }
     target.addNode(currentPos, value, interpolated);
+    // C param_manager.cpp:466-468 — automation change wakes the timeline on the next tick.
+    ticksTilNextEvent = 0;
   }
 
   public AutoParam getAutomatedParam(int paramId) {
@@ -66,19 +81,60 @@ public class ParamManager {
     return null;
   }
 
+  /** C param_manager.cpp:438-450 (ParamManagerForTimeline::setPlayPos). */
+  public void setPlayPos(int pos, int loopLength, boolean reversed) {
+    for (AutoParam param : automatedParams) {
+      param.setPlayPos(pos, loopLength, reversed);
+    }
+    ticksTilNextEvent = 0;
+    ticksSkipped = 0;
+  }
+
   public void processCurrentPos(
       int currentPos,
       int loopLength,
       boolean reversed,
       boolean didPingpong,
       boolean mayInterpolate) {
-    ticksTilNextEvent = Integer.MAX_VALUE;
-    for (AutoParam param : automatedParams) {
-      int dist =
-          param.processCurrentPos(currentPos, loopLength, reversed, didPingpong, mayInterpolate);
-      if (dist < ticksTilNextEvent) {
-        ticksTilNextEvent = dist;
+    ticksTilNextEvent = 0;
+    processCurrentPos(0, currentPos, loopLength, reversed, didPingpong, mayInterpolate);
+  }
+
+  /** C param_manager.cpp:373-410 (ParamManagerForTimeline::processCurrentPos). */
+  public void processCurrentPos(
+      int ticksSinceLast,
+      int currentPos,
+      int loopLength,
+      boolean reversed,
+      boolean didPingpong,
+      boolean mayInterpolate) {
+    ticksSkipped += ticksSinceLast;
+    ticksTilNextEvent -= ticksSinceLast;
+
+    if (ticksTilNextEvent <= 0) {
+      ticksTilNextEvent = Integer.MAX_VALUE;
+
+      // C param_manager.cpp:388-395 — when sample-rate interpolation is unavailable (e.g. MIDI),
+      // advance interpolation by ticksSkipped BEFORE processCurrentPos() updates the node/slope.
+      if (!mayInterpolate && isAnyParamInterpolating()) {
+        tickTicks(ticksSkipped);
       }
+
+      for (AutoParam param : automatedParams) {
+        // C param_manager.cpp:397-398, midi_param_collection.cpp:165-167 — pass true to AutoParam
+        // so it sets up valueIncrementPerHalfTick; tickTicks() advances it when !mayInterpolate.
+        int dist = param.processCurrentPos(currentPos, loopLength, reversed, didPingpong, true);
+        if (dist < ticksTilNextEvent) {
+          ticksTilNextEvent = dist;
+        }
+      }
+
+      // C param_manager.cpp:401-403 — wake every tick while tick-domain interpolation is active.
+      if (!mayInterpolate && isAnyParamInterpolating()) {
+        ticksTilNextEvent = 0;
+      }
+
+      ticksSkipped = 0;
     }
   }
 

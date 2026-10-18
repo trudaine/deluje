@@ -17,12 +17,15 @@ public class Arrangement {
 
     // 1. Process arrangement-level automation
     if (paramManager.mightContainAutomation()) {
-      paramManager.processCurrentPos(lastProcessedPos, 0, false, false, true);
+      paramManager.processCurrentPos(posIncrement, lastProcessedPos, 0, false, false, true);
       swungTicksTilNextEvent = Math.min(swungTicksTilNextEvent, paramManager.ticksTilNextEvent);
     }
   }
 
   public void resetPlayPos(int newPos) {
     lastProcessedPos = newPos;
+    if (paramManager.mightContainAutomation()) {
+      paramManager.setPlayPos(newPos, 0, false);
+    }
   }
 }

@@ -603,6 +603,27 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     fw2Sound.endRenderOutput();
   }
 
+  /**
+   * C sound_instrument.cpp:113-131, kit.cpp:588-619 — advances interpolating automated parameters
+   * by {@code numSamples} audio frames.
+   */
+  public void tickSamples(int numSamples) {
+    if (!paramManager.isAnyParamInterpolating()) {
+      return;
+    }
+    double bpm = currentBpm > 0 ? currentBpm : 120.0;
+    double samplesPerInternalTick = 165375.0 / (bpm * (1 << inputTickMagnitude));
+    int tickInverse = (int) Math.min(2147483647.0, 2147483648.0 / samplesPerInternalTick);
+    paramManager.tickSamples(numSamples, tickInverse);
+  }
+
+  @Override
+  protected void tickParamManagersAfterRender(int numSamples) {
+    if (!isDrum && fw2Sound.arpeggiator.playbackClockActive && !shouldLimitDelayFeedback) {
+      tickSamples(numSamples);
+    }
+  }
+
   @Override
   protected int computeReverbSendAmount(int reverbAmountAdjust) {
     return fw2Sound.computeReverbSendAmount(reverbAmountAdjust);

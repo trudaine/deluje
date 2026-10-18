@@ -94,6 +94,7 @@ public abstract class GlobalEffectable {
 
   public synchronized void renderOutput(long[] output, int numSamples, long[] reverbBuffer) {
     if (muted) {
+      tickParamManagersAfterRender(numSamples);
       return;
     }
     beginRenderOutput();
@@ -272,12 +273,19 @@ public abstract class GlobalEffectable {
       }
     } finally {
       endRenderOutput();
+      tickParamManagersAfterRender(numSamples);
     }
   }
 
   protected void beginRenderOutput() {}
 
   protected void endRenderOutput() {}
+
+  /**
+   * C sound_instrument.cpp:113-131, kit.cpp:588-619 — hook run after every render block to advance
+   * interpolating automated parameters by {@code numSamples} audio frames.
+   */
+  protected void tickParamManagersAfterRender(int numSamples) {}
 
   /**
    * Post-volume dynamics hook — the C runs the per-sound/per-clip compressor here, after

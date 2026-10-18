@@ -101,6 +101,61 @@ public class AutoParam {
   public int valueIncrementPerHalfTick;
   public int ticksTilNextEvent = Integer.MAX_VALUE;
 
+  /** C auto_param.h:59 (AutoParam::hasInterpolationIncrement). */
+  public boolean hasInterpolationIncrement() {
+    return valueIncrementPerHalfTick != 0;
+  }
+
+  /**
+   * C auto_param.cpp:1546-1579 (AutoParam::setPlayPos) + auto_param.cpp:810-835
+   * (AutoParam::setupInterpolation).
+   */
+  public void setPlayPos(int pos, int loopLength, boolean reversed) {
+    valueIncrementPerHalfTick = 0;
+    if (nodes.isEmpty()) {
+      return;
+    }
+    currentValue = getValueAt(pos, loopLength, reversed);
+
+    int searchKey = pos + (reversed ? 0 : 1);
+    int rightI = nodes.size();
+    for (int i = 0; i < nodes.size(); i++) {
+      if (nodes.get(i).pos >= searchKey) {
+        rightI = i;
+        break;
+      }
+    }
+    if (rightI >= nodes.size()) {
+      rightI = 0;
+    }
+    ParamNode nextNodeOurDirection = nodes.get(rightI);
+
+    if (nextNodeOurDirection.interpolated) {
+      if (reversed) {
+        int leftI = rightI - 1;
+        if (leftI < 0) {
+          leftI += nodes.size();
+        }
+        nextNodeOurDirection = nodes.get(leftI);
+      }
+
+      int effectiveLength = loopLength > 0 ? loopLength : Integer.MAX_VALUE;
+      int halfDistance = (nextNodeOurDirection.value >> 1) - (currentValue >> 1);
+      if (halfDistance != 0) {
+        int ticksTilNextNode = nextNodeOurDirection.pos - pos;
+        if (reversed) {
+          ticksTilNextNode = -ticksTilNextNode;
+        }
+        if (ticksTilNextNode <= 0) {
+          ticksTilNextNode += effectiveLength;
+        }
+        if (ticksTilNextNode > 0) {
+          valueIncrementPerHalfTick = halfDistance / ticksTilNextNode;
+        }
+      }
+    }
+  }
+
   public int processCurrentPos(
       int currentPos,
       int loopLength,
