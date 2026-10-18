@@ -698,6 +698,16 @@ public class PlaybackHandler {
   }
 
   /**
+   * Whether the clip advances and is processed this tick: the track's active clip, active in the
+   * session (C {@code Song::isClipActive}). Track mute here is the UI's silence switch (bridge
+   * mutes / {@code FirmwareSound.muted}), not C clip deactivation: a muted clip keeps its position
+   * so it is still in sync when un-muted.
+   */
+  private static boolean ticksInSession(TrackModel track, ClipModel clip) {
+    return track.getActiveClip() == clip && clip.isActiveInSession();
+  }
+
+  /**
    * C Session::considerLaunchEvent (session.cpp:2292-2426): increments active clips before any
    * launch event so newly launched clips stay at position 0, then fires fill launches and regular
    * launch events.
@@ -714,8 +724,7 @@ public class PlaybackHandler {
             nextClipWithFillEvent = clip;
           }
         }
-        boolean active =
-            track.getActiveClip() == clip && clip.isActiveInSession() && !track.isMuted();
+        boolean active = ticksInSession(track, clip);
         if (active) {
           // C session.cpp:2325 — increment before doLaunch so newly launched clips stay at pos 0
           clip.incrementPos(numTicksBeingIncremented);
@@ -866,8 +875,7 @@ public class PlaybackHandler {
               nextDeadline = (int) ticksTilFill;
             }
           }
-          boolean active =
-              track.getActiveClip() == clip && clip.isActiveInSession() && !track.isMuted();
+          boolean active = ticksInSession(track, clip);
           if (active) {
             nextDeadline = Math.min(nextDeadline, clip.getTicksTilNextEvent());
           }
@@ -939,8 +947,7 @@ public class PlaybackHandler {
               nextEventTicks = (int) ticksTilFill;
             }
           }
-          boolean active =
-              track.getActiveClip() == clip && clip.isActiveInSession() && !track.isMuted();
+          boolean active = ticksInSession(track, clip);
           if (active) {
             clip.processCurrentPos(effectiveAdvance);
             nextEventTicks = Math.min(nextEventTicks, clip.getTicksTilNextEvent());
