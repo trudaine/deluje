@@ -36,6 +36,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   /** True when the track currently being edited is a Kit (KEYPLAY uses the drum grid for kits). */
   boolean isEditedTrackKit() {
     return projectModel != null
+        && editedModelTrack >= 0
         && editedModelTrack < projectModel.getTracks().size()
         && projectModel.getTracks().get(editedModelTrack) instanceof org.deluge.model.KitTrackModel;
   }
@@ -101,7 +102,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
 
   public int getRowPitch(int modelRow) {
     boolean isPitched = false;
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
       // MIDI_OUT (and CV) clips are pitched piano-rolls too (InstrumentClip in the C), not a single
       // fixed pitch — previously only synth got real per-row pitches, so MIDI rows all mapped to
@@ -178,7 +181,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
 
   public int getRowFromPitch(int pitch) {
     boolean isPitched = false;
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
       // Mirror getRowPitch: MIDI (and CV) are pitched piano-rolls, so the inverse mapping must use
       // the same path, otherwise MIDI note lookups (placement/hit-testing) desync from the display.
@@ -239,7 +244,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   public int getClipRowIndex(
       org.deluge.model.ClipModel cModel, int modelRow, boolean createIfMissing) {
     boolean isSynth = false;
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
       isSynth = t instanceof org.deluge.model.SynthTrackModel;
     }
@@ -664,7 +671,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
 
   public void updateFoldedPitches() {
     foldedPitches.clear();
-    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) return;
+    if (projectModel == null
+        || editedModelTrack < 0
+        || editedModelTrack >= projectModel.getTracks().size()) return;
     org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
     if (!(t instanceof org.deluge.model.SynthTrackModel synthTrack)) return;
     if (activeClipId >= 0 && activeClipId < synthTrack.getClips().size()) {
@@ -1334,7 +1343,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
 
   private Color getPadDefaultBg(int col) {
     boolean triplet = false;
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
       if (activeClipId >= 0 && activeClipId < t.getClips().size()) {
         triplet = t.getClips().get(activeClipId).isTripletMode();
@@ -1356,7 +1367,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       return Color.YELLOW;
     }
     boolean isSynth = false;
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
       isSynth = t instanceof org.deluge.model.SynthTrackModel;
     }
@@ -1704,7 +1717,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
 
   private int getActiveStepCol(int row, int col) {
     int trackLen = 0;
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
       if (activeClipId < track.getClips().size()) {
         trackLen = track.getClips().get(activeClipId).getStepCount();
@@ -1723,7 +1738,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   private org.deluge.model.StepData getModelStep(int row, int col) {
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
       if (activeClipId < tModel.getClips().size()) {
         return getClipStep(tModel.getClips().get(activeClipId), row, col);
@@ -1744,7 +1761,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       float nudge,
       int playCondition,
       org.deluge.model.StepData oldStep) {
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
       if (activeClipId < tModel.getClips().size()) {
         org.deluge.model.ClipModel cModel = tModel.getClips().get(activeClipId);
@@ -1999,6 +2018,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     }
     if (viewMode == GridViewMode.CLIP
         && projectModel != null
+        && editedModelTrack >= 0
         && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
       if (t instanceof org.deluge.model.KitTrackModel kit) {
@@ -2137,7 +2157,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
         && bridge.getGlobalInt(BridgeContract.G_PLAY) == 1L) {
       int col = currentPlayheadStep % stepCount;
       if (col >= 0 && col < stepCount) {
-        if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+        if (projectModel != null
+            && editedModelTrack >= 0
+            && editedModelTrack < projectModel.getTracks().size()) {
           org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
           if (track instanceof org.deluge.model.SynthTrackModel synthTrack) {
             int activeClipIdx = synthTrack.getActiveClipIndex();
@@ -2167,7 +2189,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     try {
       Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
-        if (editedModelTrack < fwEngine.sounds.size()) {
+        if (editedModelTrack >= 0 && editedModelTrack < fwEngine.sounds.size()) {
           org.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
           if (sound instanceof org.deluge.engine.FirmwareSound synth) {
             synth.triggerNote(note, velocity);
@@ -2194,7 +2216,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     try {
       Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
-        if (editedModelTrack < fwEngine.sounds.size()) {
+        if (editedModelTrack >= 0 && editedModelTrack < fwEngine.sounds.size()) {
           org.deluge.firmware2.GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
           if (sound instanceof org.deluge.engine.FirmwareSound synth) {
             synth.releaseNote(note);
@@ -2225,6 +2247,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     try {
       Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine
+          && editedModelTrack >= 0
           && editedModelTrack < fwEngine.sounds.size()
           && fwEngine.sounds.get(editedModelTrack) instanceof org.deluge.engine.FirmwareKit kit) {
         if (drumIdx >= 0 && drumIdx < kit.drumSounds.size()) {
@@ -2240,6 +2263,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     try {
       Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine
+          && editedModelTrack >= 0
           && editedModelTrack < fwEngine.sounds.size()
           && fwEngine.sounds.get(editedModelTrack) instanceof org.deluge.engine.FirmwareKit kit) {
         if (drumIdx >= 0 && drumIdx < kit.drumSounds.size()) {
@@ -2627,7 +2651,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
 
       // Reset or clamp scrollOffset based on track type and view mode
       if (viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION) {
-        if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+        if (projectModel != null
+            && editedModelTrack >= 0
+            && editedModelTrack < projectModel.getTracks().size()) {
           org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
           boolean isPianoRoll =
               t instanceof org.deluge.model.SynthTrackModel
@@ -2656,6 +2682,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
       voiceRowCount = computeVoiceRowCount();
       if ((viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION)
           && projectModel != null
+          && editedModelTrack >= 0
           && editedModelTrack < projectModel.getTracks().size()) {
         org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
         if (activeClipId >= 0 && activeClipId < t.getClips().size()) {
@@ -2793,6 +2820,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   int getModelRow(int visualRow) {
     boolean editedIsKit =
         projectModel != null
+            && editedModelTrack >= 0
             && editedModelTrack < projectModel.getTracks().size()
             && projectModel.getTracks().get(editedModelTrack)
                 instanceof org.deluge.model.KitTrackModel;
@@ -2855,9 +2883,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     if (bridge != null && projectModel != null) {
       int trackLen = 0;
       if (viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION) {
-        if (editedModelTrack < projectModel.getTracks().size()) {
+        if (editedModelTrack >= 0 && editedModelTrack < projectModel.getTracks().size()) {
           org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
-          if (activeClipId < track.getClips().size()) {
+          if (activeClipId >= 0 && activeClipId < track.getClips().size()) {
             trackLen = track.getClips().get(activeClipId).getStepCount();
           }
         }
@@ -2904,9 +2932,11 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   boolean isStepActive(int modelRow, int activeCol) {
     org.deluge.model.TrackModel tModel = null;
     org.deluge.model.ClipModel cModel = null;
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       tModel = projectModel.getTracks().get(editedModelTrack);
-      if (activeClipId < tModel.getClips().size()) {
+      if (activeClipId >= 0 && activeClipId < tModel.getClips().size()) {
         cModel = tModel.getClips().get(activeClipId);
       }
     }
@@ -2923,9 +2953,11 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   boolean isStepActiveOrSpanned(int modelRow, int activeCol, double[] outVelProb) {
     org.deluge.model.TrackModel tModel = null;
     org.deluge.model.ClipModel cModel = null;
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       tModel = projectModel.getTracks().get(editedModelTrack);
-      if (activeClipId < tModel.getClips().size()) {
+      if (activeClipId >= 0 && activeClipId < tModel.getClips().size()) {
         cModel = tModel.getClips().get(activeClipId);
       }
     }
@@ -2968,9 +3000,11 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   boolean isStepTied(int modelRow, int activeCol) {
     org.deluge.model.TrackModel tModel = null;
     org.deluge.model.ClipModel cModel = null;
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       tModel = projectModel.getTracks().get(editedModelTrack);
-      if (activeClipId < tModel.getClips().size()) {
+      if (activeClipId >= 0 && activeClipId < tModel.getClips().size()) {
         cModel = tModel.getClips().get(activeClipId);
       }
     }
@@ -3094,7 +3128,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
         }
       }
     }
-    return trackColors[editedModelTrack % trackColors.length];
+    return trackColors[Math.floorMod(editedModelTrack, trackColors.length)];
   }
 
   public Color getGridNoteColor(int modelRow) {
@@ -3106,7 +3140,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
     if (viewMode == GridViewMode.CLIP || viewMode == GridViewMode.AUTOMATION) {
       boolean isPitched = false;
       int colourOffset = 0;
-      if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      if (projectModel != null
+          && editedModelTrack >= 0
+          && editedModelTrack < projectModel.getTracks().size()) {
         org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
         // Both synth AND MIDI (and CV) clips are pitched piano-rolls (InstrumentClip) and get the
         // per-pitch rainbow on hardware; only synth did here, so MIDI rows rendered mono-colour.
@@ -3130,7 +3166,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
   }
 
   public void adjustTrackColorOffset(int delta) {
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
       int newOffset = t.getColourOffset() + (delta * 3);
       newOffset = newOffset % 192;
@@ -3556,7 +3594,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
 
   /** The clip currently being edited (edited track + active clip index), or null. */
   public org.deluge.model.ClipModel getEditedActiveClip() {
-    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) {
+    if (projectModel == null
+        || editedModelTrack < 0
+        || editedModelTrack >= projectModel.getTracks().size()) {
       return null;
     }
     org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
@@ -4092,7 +4132,9 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
 
   @Override
   public boolean isSynthTrack() {
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       return projectModel.getTracks().get(editedModelTrack)
           instanceof org.deluge.model.SynthTrackModel;
     }

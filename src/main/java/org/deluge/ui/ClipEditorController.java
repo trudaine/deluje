@@ -195,9 +195,11 @@ public class ClipEditorController {
                   // MIDI Track
                   StepData oldStep = null;
                   ClipModel cModel = null;
-                  if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+                  if (projectModel != null
+                      && editedModelTrack >= 0
+                      && editedModelTrack < projectModel.getTracks().size()) {
                     TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
-                    if (activeClipId < tModel.getClips().size()) {
+                    if (activeClipId >= 0 && activeClipId < tModel.getClips().size()) {
                       cModel = tModel.getClips().get(activeClipId);
                       oldStep = parent.getClipStep(cModel, modelRow, colId);
                     }
@@ -240,9 +242,11 @@ public class ClipEditorController {
                   // Synth Track
                   StepData oldStep = null;
                   ClipModel cModel = null;
-                  if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+                  if (projectModel != null
+                      && editedModelTrack >= 0
+                      && editedModelTrack < projectModel.getTracks().size()) {
                     TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
-                    if (activeClipId < tModel.getClips().size()) {
+                    if (activeClipId >= 0 && activeClipId < tModel.getClips().size()) {
                       cModel = tModel.getClips().get(activeClipId);
                       oldStep = parent.getClipStep(cModel, modelRow, colId);
                     }
@@ -325,9 +329,10 @@ public class ClipEditorController {
                     StepData oldStep = null;
                     ClipModel cModel = null;
                     if (projectModel != null
+                        && editedModelTrack >= 0
                         && editedModelTrack < projectModel.getTracks().size()) {
                       TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
-                      if (activeClipId < tModel.getClips().size()) {
+                      if (activeClipId >= 0 && activeClipId < tModel.getClips().size()) {
                         cModel = tModel.getClips().get(activeClipId);
                         oldStep = parent.getClipStep(cModel, modelRow, colId);
                       }
@@ -364,7 +369,8 @@ public class ClipEditorController {
                     try {
                       Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                       if (fwEngineObj instanceof FirmwareAudioEngine fwEngine) {
-                        if (editedModelTrack < fwEngine.sounds.size()
+                        if (editedModelTrack >= 0
+                            && editedModelTrack < fwEngine.sounds.size()
                             && !parent.isSequencerPlaying()) {
                           GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
                           if (sound instanceof FirmwareKit kit) {
@@ -404,7 +410,8 @@ public class ClipEditorController {
                     try {
                       Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                       if (fwEngineObj instanceof FirmwareAudioEngine fwEngine) {
-                        if (editedModelTrack < fwEngine.sounds.size()
+                        if (editedModelTrack >= 0
+                            && editedModelTrack < fwEngine.sounds.size()
                             && !parent.isSequencerPlaying()) {
                           GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
                           if (sound instanceof FirmwareKit kit) {
@@ -432,7 +439,7 @@ public class ClipEditorController {
                 Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                 if (fwEngineObj instanceof FirmwareAudioEngine fwEngine) {
                   int editedModelTrack = getEditedModelTrack();
-                  if (editedModelTrack < fwEngine.sounds.size()) {
+                  if (editedModelTrack >= 0 && editedModelTrack < fwEngine.sounds.size()) {
                     GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
                     if (sound instanceof FirmwareKit kit) {
                       if (modelRow < kit.drumSounds.size()) {
@@ -517,7 +524,9 @@ public class ClipEditorController {
       Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (fwEngineObj instanceof FirmwareAudioEngine fwEngine) {
         int editedModelTrack = getEditedModelTrack();
-        if (editedModelTrack < fwEngine.sounds.size() && !parent.isSequencerPlaying()) {
+        if (editedModelTrack >= 0
+            && editedModelTrack < fwEngine.sounds.size()
+            && !parent.isSequencerPlaying()) {
           GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
           if (sound instanceof FirmwareSound synth) {
             synth.triggerNote(pitchMidi, 127);
@@ -528,7 +537,9 @@ public class ClipEditorController {
       Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
       if (fwEngineObj instanceof FirmwareAudioEngine fwEngine) {
         int editedModelTrack = getEditedModelTrack();
-        if (editedModelTrack < fwEngine.sounds.size() && !parent.isSequencerPlaying()) {
+        if (editedModelTrack >= 0
+            && editedModelTrack < fwEngine.sounds.size()
+            && !parent.isSequencerPlaying()) {
           GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
           if (sound instanceof FirmwareKit kit) {
             if (engineRowOffset >= 0 && engineRowOffset < kit.drumSounds.size()) {
@@ -549,7 +560,7 @@ public class ClipEditorController {
     Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
     if (fwEngineObj instanceof FirmwareAudioEngine fwEngine) {
       int editedModelTrack = getEditedModelTrack();
-      if (editedModelTrack < fwEngine.sounds.size()) {
+      if (editedModelTrack >= 0 && editedModelTrack < fwEngine.sounds.size()) {
         GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
         if (sound instanceof FirmwareKit kit) {
           if (engineRowOffset >= 0 && engineRowOffset < kit.drumSounds.size()) {
@@ -575,9 +586,11 @@ public class ClipEditorController {
     ClipModel cModel = null;
     int editedModelTrack = getEditedModelTrack();
     int activeClipId = getActiveClipId();
-    if (getProjectModel() != null && editedModelTrack < getProjectModel().getTracks().size()) {
+    if (getProjectModel() != null
+        && editedModelTrack >= 0
+        && editedModelTrack < getProjectModel().getTracks().size()) {
       TrackModel tModel = getProjectModel().getTracks().get(editedModelTrack);
-      if (activeClipId < tModel.getClips().size()) {
+      if (activeClipId >= 0 && activeClipId < tModel.getClips().size()) {
         cModel = tModel.getClips().get(activeClipId);
         oldStep = parent.getClipStep(cModel, visualModelRow, activeCol);
       }
@@ -606,11 +619,13 @@ public class ClipEditorController {
     }
 
     if (cModel != null && SwingGridPanel.isCrossScreenWrapActive) {
-      int baseCol = activeCol % 16;
+      // C instrument_clip_view.cpp:337 — wrapEditLevel equals current screen width
+      int screenSteps = Math.max(1, parent.getStepCount());
+      int baseCol = activeCol % screenSteps;
       java.util.List<Consequence> steps = new java.util.ArrayList<>();
       int trackLen = cModel.getStepCount();
       int pitch = isSynthMode ? parent.getRowPitch(visualModelRow) : 0;
-      for (int c = baseCol; c < trackLen; c += 16) {
+      for (int c = baseCol; c < trackLen; c += screenSteps) {
         StepData oldSt = cModel.getStep(clipRow, c);
         if (engineRow >= 0) {
           bridge.setStep(engineRow, c, nextState);
@@ -690,9 +705,11 @@ public class ClipEditorController {
     ClipModel cModel = null;
     int editedModelTrack = getEditedModelTrack();
     int activeClipId = getActiveClipId();
-    if (getProjectModel() != null && editedModelTrack < getProjectModel().getTracks().size()) {
+    if (getProjectModel() != null
+        && editedModelTrack >= 0
+        && editedModelTrack < getProjectModel().getTracks().size()) {
       tModel = getProjectModel().getTracks().get(editedModelTrack);
-      if (activeClipId < tModel.getClips().size()) {
+      if (activeClipId >= 0 && activeClipId < tModel.getClips().size()) {
         cModel = tModel.getClips().get(activeClipId);
       }
     }
@@ -746,14 +763,16 @@ public class ClipEditorController {
     float newGate = (end - start) + 0.9f;
 
     if (cModel != null && SwingGridPanel.isCrossScreenWrapActive) {
-      int baseStart = start % 16;
-      int baseEnd = end % 16;
+      int screenSteps = Math.max(1, parent.getStepCount());
+      int baseStart = startModelCol % screenSteps;
+      int tieSteps = Math.max(0, end - start);
       int trackLen = cModel.getStepCount();
       java.util.List<Consequence> steps = new java.util.ArrayList<>();
 
-      for (int offset = 0; offset < trackLen; offset += 16) {
+      for (int offset = 0; offset < trackLen; offset += screenSteps) {
         int sCol = offset + baseStart;
-        int eCol = offset + baseEnd;
+        if (sCol >= trackLen) break;
+        int eCol = sCol + tieSteps;
 
         // Apply start tie step
         StepData oldStart = cModel.getStep(clipRow, sCol);
@@ -957,8 +976,9 @@ public class ClipEditorController {
     String param = SHIFT_LABELS[row][col];
     if (param == null || param.isEmpty()) return;
 
-    if (getProjectModel() == null || getEditedModelTrack() >= getProjectModel().getTracks().size())
-      return;
+    if (getProjectModel() == null
+        || getEditedModelTrack() < 0
+        || getEditedModelTrack() >= getProjectModel().getTracks().size()) return;
     TrackModel genericTrack = getProjectModel().getTracks().get(getEditedModelTrack());
 
     boolean applicable = isParamApplicable(param, row, col, genericTrack);
@@ -1018,9 +1038,11 @@ public class ClipEditorController {
     ClipModel cModel = null;
     StepData srcModelStep = null;
     int srcClipRow = -1;
-    if (getProjectModel() != null && editedModelTrack < getProjectModel().getTracks().size()) {
+    if (getProjectModel() != null
+        && editedModelTrack >= 0
+        && editedModelTrack < getProjectModel().getTracks().size()) {
       tModel = getProjectModel().getTracks().get(editedModelTrack);
-      if (activeClipId < tModel.getClips().size()) {
+      if (activeClipId >= 0 && activeClipId < tModel.getClips().size()) {
         cModel = tModel.getClips().get(activeClipId);
         srcClipRow = parent.getClipRowIndex(cModel, srcModelRow, false);
         srcModelStep = srcClipRow >= 0 ? cModel.getStep(srcClipRow, srcCol) : StepData.empty();
@@ -1572,8 +1594,9 @@ public class ClipEditorController {
   }
 
   String getParamFormattedValue(String param, int row, int col) {
-    if (getProjectModel() == null || getEditedModelTrack() >= getProjectModel().getTracks().size())
-      return "--";
+    if (getProjectModel() == null
+        || getEditedModelTrack() < 0
+        || getEditedModelTrack() >= getProjectModel().getTracks().size()) return "--";
     TrackModel genericTrack = getProjectModel().getTracks().get(getEditedModelTrack());
     SynthTrackModel track =
         (genericTrack instanceof SynthTrackModel) ? (SynthTrackModel) genericTrack : null;
@@ -1639,6 +1662,40 @@ public class ClipEditorController {
           return String.format("%.2fs", track.getPortamento());
         }
         break;
+      case "REVERB":
+      case "AMOUNT":
+      case "WET":
+      case "DEPTH":
+        if (track != null) {
+          return String.format("%d%%", (int) (track.getReverbSend() * 100.0f));
+        }
+        break;
+      case "ROOM SIZE":
+      case "TIME":
+      case "DAMP":
+      case "DAMPING":
+      case "WIDTH":
+      case "DIFF":
+        if (SwingDelugeApp.mainInstance != null
+            && SwingDelugeApp.mainInstance.getFirmwareAudioEngine() != null) {
+          var revEngine = SwingDelugeApp.mainInstance.getFirmwareAudioEngine().masterReverb;
+          float curRev =
+              ("ROOM SIZE".equals(param) || "TIME".equals(param))
+                  ? revEngine.getRoomSize()
+                  : (("DAMP".equals(param) || "DAMPING".equals(param))
+                      ? revEngine.getDamping()
+                      : revEngine.getWidth());
+          return String.format("%d%%", (int) (curRev * 100.0f));
+        }
+        break;
+      case "DELAY":
+      case "DELAY TIME":
+      case "FEEDBACK":
+      case "PING PONG":
+        if (track != null) {
+          return String.format("%d%%", (int) (track.getDelaySend() * 100.0f));
+        }
+        break;
     }
     return "--";
   }
@@ -1646,6 +1703,7 @@ public class ClipEditorController {
   public void adjustRotaryParameter(int delta) {
     if (activeShiftParam == null
         || getProjectModel() == null
+        || getEditedModelTrack() < 0
         || getEditedModelTrack() >= getProjectModel().getTracks().size()) return;
     TrackModel genericTrack = getProjectModel().getTracks().get(getEditedModelTrack());
     SynthTrackModel track =
@@ -1897,10 +1955,11 @@ public class ClipEditorController {
         }
         int srcEngineRow = parent.getEngineRowForStoredClipRow(srcClipRow);
         int dstEngineRow = parent.getEngineRowForStoredClipRow(dstClipRow);
-        int baseCol = activeCol % 16;
+        int screenSteps = Math.max(1, parent.getStepCount());
+        int baseCol = activeCol % screenSteps;
         int trackLen = cModel.getStepCount();
         java.util.List<Consequence> steps = new java.util.ArrayList<>();
-        for (int c = baseCol; c < trackLen; c += 16) {
+        for (int c = baseCol; c < trackLen; c += screenSteps) {
           StepData targetSd = cModel.getStep(srcClipRow, c);
           if (targetSd != null && targetSd.active()) {
             StepData newSt;

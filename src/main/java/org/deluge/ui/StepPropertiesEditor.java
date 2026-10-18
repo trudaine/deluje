@@ -67,8 +67,13 @@ public class StepPropertiesEditor {
     euclideanItem.addActionListener(
         ev -> {
           Frame owner = (Frame) SwingUtilities.getWindowAncestor(parent);
+          ClipModel cModel = resolveClipModel(parent);
+          int euclideanSteps = cModel != null ? cModel.getStepCount() : parent.getStepCount();
           new EuclideanRhythmDialog(
-                  owner, 16, "Row " + (row + 1), pat -> parent.applyEuclideanFillToRow(row, pat))
+                  owner,
+                  euclideanSteps,
+                  "Row " + (row + 1),
+                  pat -> parent.applyEuclideanFillToRow(row, pat))
               .setVisible(true);
         });
     popup.add(euclideanItem);
@@ -487,10 +492,12 @@ public class StepPropertiesEditor {
             : parent.getAllocatedEngineRow(visualModelRow);
 
     if (cModel != null && SwingGridPanel.isCrossScreenWrapActive) {
-      int baseCol = activeCol % 16;
+      // C instrument_clip_view.cpp:337 — wrapEditLevel equals current screen width
+      int screenSteps = Math.max(1, parent.getStepCount());
+      int baseCol = activeCol % screenSteps;
       int trackLen = cModel.getStepCount();
       java.util.List<Consequence> steps = new java.util.ArrayList<>();
-      for (int c = baseCol; c < trackLen; c += 16) {
+      for (int c = baseCol; c < trackLen; c += screenSteps) {
         StepData oldSt = cModel.getStep(clipRow, c);
         if (oldSt.active()) {
           if (bridge != null && engineRow >= 0) {
@@ -647,10 +654,12 @@ public class StepPropertiesEditor {
             : parent.getAllocatedEngineRow(visualModelRow);
 
     if (cModel != null && SwingGridPanel.isCrossScreenWrapActive) {
-      int baseCol = activeCol % 16;
+      // C instrument_clip_view.cpp:337 — wrapEditLevel equals current screen width
+      int screenSteps = Math.max(1, parent.getStepCount());
+      int baseCol = activeCol % screenSteps;
       int trackLen = cModel.getStepCount();
       java.util.List<Consequence> steps = new java.util.ArrayList<>();
-      for (int c = baseCol; c < trackLen; c += 16) {
+      for (int c = baseCol; c < trackLen; c += screenSteps) {
         StepData oldSt = cModel.getStep(clipRow, c);
         if (oldSt.active()) {
           if (bridge != null && engineRow >= 0) {

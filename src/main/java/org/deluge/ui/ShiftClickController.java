@@ -30,6 +30,7 @@ class ShiftClickController {
 
     int editedModelTrack = controller.getEditedModelTrack();
     if (controller.getProjectModel() == null
+        || editedModelTrack < 0
         || editedModelTrack >= controller.getProjectModel().getTracks().size()) return;
     TrackModel genericTrack = controller.getProjectModel().getTracks().get(editedModelTrack);
 
@@ -149,8 +150,47 @@ class ShiftClickController {
         }
         break;
       case "GLIDE":
-        initVal = (int) (track.getPortamento() * 50.0f);
-        initialLabel = String.format("%.2f s", track.getPortamento());
+        if (track != null) {
+          initVal = (int) (track.getPortamento() * 50.0f);
+          initialLabel = String.format("%.2f s", track.getPortamento());
+        }
+        break;
+      case "REVERB":
+      case "AMOUNT":
+      case "WET":
+      case "DEPTH":
+        if (track != null) {
+          initVal = (int) (track.getReverbSend() * 100.0f);
+          initialLabel = String.format("%d%%", initVal);
+        }
+        break;
+      case "ROOM SIZE":
+      case "TIME":
+      case "DAMP":
+      case "DAMPING":
+      case "WIDTH":
+      case "DIFF":
+        if (SwingDelugeApp.mainInstance != null
+            && SwingDelugeApp.mainInstance.getFirmwareAudioEngine() != null) {
+          var revEngine = SwingDelugeApp.mainInstance.getFirmwareAudioEngine().masterReverb;
+          float curRev =
+              ("ROOM SIZE".equals(param) || "TIME".equals(param))
+                  ? revEngine.getRoomSize()
+                  : (("DAMP".equals(param) || "DAMPING".equals(param))
+                      ? revEngine.getDamping()
+                      : revEngine.getWidth());
+          initVal = (int) (curRev * 100.0f);
+          initialLabel = String.format("%d%%", initVal);
+        }
+        break;
+      case "DELAY":
+      case "DELAY TIME":
+      case "FEEDBACK":
+      case "PING PONG":
+        if (track != null) {
+          initVal = (int) (track.getDelaySend() * 100.0f);
+          initialLabel = String.format("%d%%", initVal);
+        }
         break;
     }
 
@@ -173,12 +213,12 @@ class ShiftClickController {
           int val = slider.getValue();
           switch (param) {
             case "CUTOFF":
-              if (row == 0) {
+              if (row == 0 && track != null) {
                 float freq = (float) (20.0 * Math.pow(1000.0, val / 100.0));
                 if (col == 8) track.setLpfFreq(freq);
                 else track.setHpfFreq(freq);
                 valueLabel.setText(String.format("%.0f Hz", freq));
-              } else if (row == 1) {
+              } else if (row == 1 && track != null) {
                 float res = val / 100.0f;
                 if (col == 8) track.setLpfRes(res);
                 else track.setHpfRes(res);
@@ -186,66 +226,76 @@ class ShiftClickController {
               }
               break;
             case "RESONANCE":
-              float res = val / 100.0f;
-              if (col == 8) track.setLpfRes(res);
-              else track.setHpfRes(res);
-              valueLabel.setText(String.format("%d%%", val));
+              if (track != null) {
+                float res = val / 100.0f;
+                if (col == 8) track.setLpfRes(res);
+                else track.setHpfRes(res);
+                valueLabel.setText(String.format("%d%%", val));
+              }
               break;
             case "ATTACK":
-              float aTime = val / 10.0f;
-              var attEnv = track.getEnv(envIdx);
-              track.setEnv(
-                  envIdx,
-                  new EnvelopeModel(
-                      aTime,
-                      attEnv.decay(),
-                      attEnv.sustain(),
-                      attEnv.release(),
-                      attEnv.target(),
-                      attEnv.amount()));
-              valueLabel.setText(String.format("%.2f s", aTime));
+              if (track != null) {
+                float aTime = val / 10.0f;
+                var attEnv = track.getEnv(envIdx);
+                track.setEnv(
+                    envIdx,
+                    new EnvelopeModel(
+                        aTime,
+                        attEnv.decay(),
+                        attEnv.sustain(),
+                        attEnv.release(),
+                        attEnv.target(),
+                        attEnv.amount()));
+                valueLabel.setText(String.format("%.2f s", aTime));
+              }
               break;
             case "DECAY":
-              float dTime = val / 10.0f;
-              var decEnv = track.getEnv(envIdx);
-              track.setEnv(
-                  envIdx,
-                  new EnvelopeModel(
-                      decEnv.attack(),
-                      dTime,
-                      decEnv.sustain(),
-                      decEnv.release(),
-                      decEnv.target(),
-                      decEnv.amount()));
-              valueLabel.setText(String.format("%.2f s", dTime));
+              if (track != null) {
+                float dTime = val / 10.0f;
+                var decEnv = track.getEnv(envIdx);
+                track.setEnv(
+                    envIdx,
+                    new EnvelopeModel(
+                        decEnv.attack(),
+                        dTime,
+                        decEnv.sustain(),
+                        decEnv.release(),
+                        decEnv.target(),
+                        decEnv.amount()));
+                valueLabel.setText(String.format("%.2f s", dTime));
+              }
               break;
             case "SUSTAIN":
-              float sLevel = val / 100.0f;
-              var susEnv = track.getEnv(envIdx);
-              track.setEnv(
-                  envIdx,
-                  new EnvelopeModel(
-                      susEnv.attack(),
-                      susEnv.decay(),
-                      sLevel,
-                      susEnv.release(),
-                      susEnv.target(),
-                      susEnv.amount()));
-              valueLabel.setText(String.format("%d%%", val));
+              if (track != null) {
+                float sLevel = val / 100.0f;
+                var susEnv = track.getEnv(envIdx);
+                track.setEnv(
+                    envIdx,
+                    new EnvelopeModel(
+                        susEnv.attack(),
+                        susEnv.decay(),
+                        sLevel,
+                        susEnv.release(),
+                        susEnv.target(),
+                        susEnv.amount()));
+                valueLabel.setText(String.format("%d%%", val));
+              }
               break;
             case "RELEASE":
-              float rTime = val / 10.0f;
-              var relEnv = track.getEnv(envIdx);
-              track.setEnv(
-                  envIdx,
-                  new EnvelopeModel(
-                      relEnv.attack(),
-                      relEnv.decay(),
-                      relEnv.sustain(),
-                      rTime,
-                      relEnv.target(),
-                      relEnv.amount()));
-              valueLabel.setText(String.format("%.2f s", rTime));
+              if (track != null) {
+                float rTime = val / 10.0f;
+                var relEnv = track.getEnv(envIdx);
+                track.setEnv(
+                    envIdx,
+                    new EnvelopeModel(
+                        relEnv.attack(),
+                        relEnv.decay(),
+                        relEnv.sustain(),
+                        rTime,
+                        relEnv.target(),
+                        relEnv.amount()));
+                valueLabel.setText(String.format("%.2f s", rTime));
+              }
               break;
             case "PAN":
               if (row == 4 && col == 6) {
@@ -266,20 +316,24 @@ class ShiftClickController {
               }
               break;
             case "GLIDE":
-              float port = val / 50.0f;
-              track.setPortamento(port);
-              valueLabel.setText(String.format("%.2f s", port));
+              if (track != null) {
+                float port = val / 50.0f;
+                track.setPortamento(port);
+                valueLabel.setText(String.format("%.2f s", port));
+              }
               break;
             case "REVERB":
             case "AMOUNT":
             case "WET":
             case "DEPTH":
-              float rev = val / 100.0f;
-              track.setReverbSend(rev);
-              valueLabel.setText(String.format("%d%%", val));
-              if (SwingDelugeApp.mainInstance != null) {
-                SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
-                    "REVERB", String.format("%d%%", val));
+              if (track != null) {
+                float rev = val / 100.0f;
+                track.setReverbSend(rev);
+                valueLabel.setText(String.format("%d%%", val));
+                if (SwingDelugeApp.mainInstance != null) {
+                  SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
+                      "REVERB", String.format("%d%%", val));
+                }
               }
               break;
             case "ROOM SIZE":
@@ -306,12 +360,14 @@ class ShiftClickController {
             case "DELAY TIME":
             case "FEEDBACK":
             case "PING PONG":
-              float dly = val / 100.0f;
-              track.setDelaySend(dly);
-              valueLabel.setText(String.format("%d%%", val));
-              if (SwingDelugeApp.mainInstance != null) {
-                SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
-                    "DELAY", String.format("%d%%", val));
+              if (track != null) {
+                float dly = val / 100.0f;
+                track.setDelaySend(dly);
+                valueLabel.setText(String.format("%d%%", val));
+                if (SwingDelugeApp.mainInstance != null) {
+                  SwingDelugeApp.mainInstance.updateHardwareLedDisplay(
+                      "DELAY", String.format("%d%%", val));
+                }
               }
               break;
           }

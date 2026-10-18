@@ -27,7 +27,16 @@ public class ClipGridPanel extends SwingGridPanel {
     java.util.List<org.deluge.model.TrackModel> tracks = projectModel.getTracks();
 
     voiceRowCount = computeVoiceRowCount();
-    this.stepCount = gridMode.columns;
+    boolean triplet = false;
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
+      org.deluge.model.TrackModel t = projectModel.getTracks().get(editedModelTrack);
+      if (activeClipId >= 0 && activeClipId < t.getClips().size()) {
+        triplet = t.getClips().get(activeClipId).isTripletMode();
+      }
+    }
+    this.stepCount = triplet ? 12 : gridMode.columns;
     this.columnCount = this.stepCount + 2; // grid mode column count + MUTE/SOLO
 
     vuManager.clear();
@@ -77,7 +86,9 @@ public class ClipGridPanel extends SwingGridPanel {
     JPanel voiceWrapper = new JPanel(new BorderLayout());
     voiceWrapper.setBackground(new Color(0x15, 0x15, 0x15));
     boolean isSynthTrack = false;
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       isSynthTrack =
           projectModel.getTracks().get(editedModelTrack)
               instanceof org.deluge.model.SynthTrackModel;
@@ -282,7 +293,9 @@ public class ClipGridPanel extends SwingGridPanel {
                     + " Mute / Unmute (Right-Click for Options / Shift-Click to Clear Steps)");
           } else if (isSoloColumn(c)) {
             boolean isSynth = false;
-            if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+            if (projectModel != null
+                && editedModelTrack >= 0
+                && editedModelTrack < projectModel.getTracks().size()) {
               org.deluge.model.TrackModel tm = projectModel.getTracks().get(editedModelTrack);
               isSynth = tm instanceof org.deluge.model.SynthTrackModel;
             }
@@ -293,6 +306,7 @@ public class ClipGridPanel extends SwingGridPanel {
                   new String[] {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
               nName = noteNames[Math.max(0, midiPitch) % 12] + ((midiPitch / 12) - 1);
             } else if (projectModel != null
+                && editedModelTrack >= 0
                 && editedModelTrack < projectModel.getTracks().size()
                 && projectModel.getTracks().get(editedModelTrack)
                     instanceof org.deluge.model.KitTrackModel kit) {
@@ -355,7 +369,9 @@ public class ClipGridPanel extends SwingGridPanel {
               boolean isNudged = false;
               if (stepState) {
                 org.deluge.model.ClipModel cModel = null;
-                if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+                if (projectModel != null
+                    && editedModelTrack >= 0
+                    && editedModelTrack < projectModel.getTracks().size()) {
                   org.deluge.model.TrackModel tModel =
                       projectModel.getTracks().get(editedModelTrack);
                   if (activeClipId < tModel.getClips().size()) {
@@ -445,7 +461,9 @@ public class ClipGridPanel extends SwingGridPanel {
       int padSz,
       java.util.List<org.deluge.model.TrackModel> tracks) {
     boolean isSynth = false;
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       isSynth =
           projectModel.getTracks().get(editedModelTrack)
               instanceof org.deluge.model.SynthTrackModel;
@@ -564,7 +582,9 @@ public class ClipGridPanel extends SwingGridPanel {
     }
 
     String trackName;
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel rowTrack = projectModel.getTracks().get(editedModelTrack);
       if (rowTrack instanceof org.deluge.model.KitTrackModel kit) {
         java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
@@ -648,7 +668,9 @@ public class ClipGridPanel extends SwingGridPanel {
     // faceplate mode that width comes out of the leading margin so pad columns start at the
     // same x on every row and in every view (kit rows used to sit 23px right of synth rows).
     boolean hasKitCfg = false;
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel at = projectModel.getTracks().get(editedModelTrack);
       hasKitCfg =
           at instanceof org.deluge.model.KitTrackModel kt
@@ -707,7 +729,9 @@ public class ClipGridPanel extends SwingGridPanel {
       vuManager.registerVoiceVu(modelRow, vu);
     }
 
-    if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+    if (projectModel != null
+        && editedModelTrack >= 0
+        && editedModelTrack < projectModel.getTracks().size()) {
       org.deluge.model.TrackModel activeTrack = projectModel.getTracks().get(editedModelTrack);
       if (activeTrack instanceof org.deluge.model.KitTrackModel kitTrack) {
         java.util.List<org.deluge.model.Drum> drumsList = kitTrack.getDrums();
@@ -785,7 +809,9 @@ public class ClipGridPanel extends SwingGridPanel {
                   ? noteRow.isMuted()
                   : (bridge != null && trackToMute >= 0 && bridge.getMute(trackToMute));
         } else {
-          if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+          if (projectModel != null
+              && editedModelTrack >= 0
+              && editedModelTrack < projectModel.getTracks().size()) {
             isMuted = projectModel.getTracks().get(editedModelTrack).isMuted();
           } else {
             isMuted = bridge != null && trackToMute >= 0 && bridge.getMute(trackToMute);
@@ -849,7 +875,7 @@ public class ClipGridPanel extends SwingGridPanel {
               if ((e.getModifiers() & java.awt.event.ActionEvent.ALT_MASK) != 0) {
                 if (projectModel != null) {
                   org.deluge.model.TrackModel targetTrack =
-                      (editedModelTrack < projectModel.getTracks().size())
+                      (editedModelTrack >= 0 && editedModelTrack < projectModel.getTracks().size())
                           ? projectModel.getTracks().get(editedModelTrack)
                           : null;
                   if (targetTrack != null) {
@@ -889,7 +915,9 @@ public class ClipGridPanel extends SwingGridPanel {
                   nextMute = bridge != null && trackToMute >= 0 && !bridge.getMute(trackToMute);
                 }
               } else {
-                if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+                if (projectModel != null
+                    && editedModelTrack >= 0
+                    && editedModelTrack < projectModel.getTracks().size()) {
                   org.deluge.model.TrackModel track =
                       projectModel.getTracks().get(editedModelTrack);
                   nextMute = !track.isMuted();
@@ -913,6 +941,7 @@ public class ClipGridPanel extends SwingGridPanel {
               new String[] {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
           nName = noteNames[Math.max(0, midiPitch) % 12] + ((midiPitch / 12) - 1);
         } else if (projectModel != null
+            && editedModelTrack >= 0
             && editedModelTrack < projectModel.getTracks().size()
             && projectModel.getTracks().get(editedModelTrack)
                 instanceof org.deluge.model.KitTrackModel kit) {
@@ -977,7 +1006,7 @@ public class ClipGridPanel extends SwingGridPanel {
 
                 Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                 if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
-                  if (editedModelTrack < fwEngine.sounds.size()) {
+                  if (editedModelTrack >= 0 && editedModelTrack < fwEngine.sounds.size()) {
                     org.deluge.firmware2.GlobalEffectable sound =
                         fwEngine.sounds.get(editedModelTrack);
                     if (sound instanceof org.deluge.engine.FirmwareKit kit) {
@@ -1008,7 +1037,7 @@ public class ClipGridPanel extends SwingGridPanel {
 
                 Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
                 if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
-                  if (editedModelTrack < fwEngine.sounds.size()) {
+                  if (editedModelTrack >= 0 && editedModelTrack < fwEngine.sounds.size()) {
                     org.deluge.firmware2.GlobalEffectable sound =
                         fwEngine.sounds.get(editedModelTrack);
                     if (sound instanceof org.deluge.engine.FirmwareKit kit) {
@@ -1099,7 +1128,9 @@ public class ClipGridPanel extends SwingGridPanel {
           boolean isFill = false;
           if (stepState) {
             org.deluge.model.ClipModel cModel = null;
-            if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+            if (projectModel != null
+                && editedModelTrack >= 0
+                && editedModelTrack < projectModel.getTracks().size()) {
               org.deluge.model.TrackModel tModel = projectModel.getTracks().get(editedModelTrack);
               if (activeClipId < tModel.getClips().size()) {
                 cModel = tModel.getClips().get(activeClipId);
@@ -1265,7 +1296,9 @@ public class ClipGridPanel extends SwingGridPanel {
       rowPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
       String trackName = "";
-      if (projectModel != null && editedModelTrack < projectModel.getTracks().size()) {
+      if (projectModel != null
+          && editedModelTrack >= 0
+          && editedModelTrack < projectModel.getTracks().size()) {
         TrackModel rowTrack = projectModel.getTracks().get(editedModelTrack);
         if (rowTrack instanceof org.deluge.model.KitTrackModel kit) {
           java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
@@ -1610,7 +1643,9 @@ public class ClipGridPanel extends SwingGridPanel {
     if (edited != null) {
       return edited;
     }
-    if (projectModel == null || editedModelTrack >= projectModel.getTracks().size()) {
+    if (projectModel == null
+        || editedModelTrack < 0
+        || editedModelTrack >= projectModel.getTracks().size()) {
       return null;
     }
     org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
@@ -1644,9 +1679,11 @@ public class ClipGridPanel extends SwingGridPanel {
   }
 
   private void rotateRow(int modelRow, boolean right) {
-    if (projectModel == null) return;
+    if (projectModel == null
+        || editedModelTrack < 0
+        || editedModelTrack >= projectModel.getTracks().size()) return;
     org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
-    if (activeClipId >= track.getClips().size()) return;
+    if (activeClipId < 0 || activeClipId >= track.getClips().size()) return;
     org.deluge.model.ClipModel clip = track.getClips().get(activeClipId);
     int clipRow = getClipRowIndex(clip, modelRow, false);
     if (clipRow < 0) return;
@@ -1685,9 +1722,11 @@ public class ClipGridPanel extends SwingGridPanel {
   }
 
   private void transposeRow(int modelRow, boolean up) {
-    if (projectModel == null) return;
+    if (projectModel == null
+        || editedModelTrack < 0
+        || editedModelTrack >= projectModel.getTracks().size()) return;
     org.deluge.model.TrackModel track = projectModel.getTracks().get(editedModelTrack);
-    if (activeClipId >= track.getClips().size()) return;
+    if (activeClipId < 0 || activeClipId >= track.getClips().size()) return;
     org.deluge.model.ClipModel clip = track.getClips().get(activeClipId);
 
     if (track instanceof org.deluge.model.KitTrackModel) return;
