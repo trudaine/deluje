@@ -569,7 +569,20 @@ public class SongGridPanel extends SwingGridPanel {
                                 && ph.isPlaying()
                                 && !"default".equals(clickedClip.getLaunchStyle())) {
                               // C session.cpp:325-326, 648, 1009, 1095 — FILL and ONCE clips
-                              if (songTrack.isMuted()) {
+                              boolean isActiveNow =
+                                  songTrack.getActiveClip() == clickedClip
+                                      && clickedClip.isActiveInSession()
+                                      && !songTrack.isMuted();
+                              boolean isDisarmingInactive =
+                                  !isActiveNow
+                                      && clickedClip.getArmState() != org.deluge.model.ArmState.OFF
+                                      && ("fill".equals(clickedClip.getLaunchStyle())
+                                          || !e.isShiftDown());
+                              if (!isDisarmingInactive && songTrack.isMuted()) {
+                                org.deluge.model.ClipModel old = songTrack.getActiveClip();
+                                if (old != null && old != clickedClip) {
+                                  old.setActiveInSession(false);
+                                }
                                 songTrack.setMuted(false);
                                 updateEngineMutes();
                               }

@@ -306,4 +306,110 @@ class SessionLaunchStyleTest {
     assertEquals(ArmState.ON_NORMAL, fill192.getArmState());
     assertEquals(ArmState.ON_NORMAL, once96.getArmState());
   }
+
+  @Test
+  void armingAndDisarmingSiblingClip_preservesOnceAndFillStopArming() {
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel track = new SynthTrackModel("Synth");
+    ClipModel onceClip = makeClip("Once", 4, "once", 0); // 96 ticks, active
+    ClipModel sibling = makeClip("Sibling", 4, "default", 1); // 96 ticks, inactive
+    sibling.setActiveInSession(false);
+    track.addClip(onceClip);
+    track.addClip(sibling);
+    project.addTrack(track);
+
+    PlaybackHandler ph = new PlaybackHandler();
+    ph.setProject(project);
+    ph.start();
+
+    // Launch onceClip instantly so it is active and armed to stop at tick 96.
+    onceClip.setActiveInSession(false);
+    ph.toggleClipStatus(track, onceClip, true);
+    assertTrue(onceClip.isActiveInSession());
+    assertEquals(ArmState.ON_NORMAL, onceClip.getArmState());
+    assertEquals(96L, ph.getLaunchEventAtSwungTickCount());
+
+    // Arm sibling, then disarm sibling: onceClip must keep its stop-arming (session.cpp:2008).
+    ph.advanceTicks(16);
+    ph.toggleClipStatus(track, sibling, false);
+    assertEquals(ArmState.ON_NORMAL, sibling.getArmState());
+    assertEquals(ArmState.ON_NORMAL, onceClip.getArmState(), "active ONCE keeps stop-arming");
+
+    ph.toggleClipStatus(track, sibling, false);
+    assertEquals(ArmState.OFF, sibling.getArmState());
+    assertEquals(ArmState.ON_NORMAL, onceClip.getArmState(), "active ONCE still armed to stop");
+    assertTrue(ph.hasLaunchEvent(), "launch event stays scheduled for active ONCE clip");
+
+    ph.advanceTicks(80);
+    assertEquals(96, ph.lastSwungTickActioned);
+    assertFalse(onceClip.isActiveInSession(), "ONCE clip stopped on schedule at tick 96");
+  }
+
+  @Test
+  void fillClip_startsAtPosZeroOnExactBoundaryTick() {
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel mainTrack = new SynthTrackModel("Main");
+    ClipModel mainClip = makeClip("Main", 2, "default", 0); // 48 ticks
+    mainTrack.addClip(mainClip);
+
+    SynthTrackModel fillTrack = new SynthTrackModel("FillTrack");
+    ClipModel fillClip = makeClip("Fill", 2, "fill", 1); // 48 ticks (maxLength == launchEvent)
+    fillClip.setActiveInSession(false);
+    fillTrack.addClip(fillClip);
+
+    project.addTrack(mainTrack);
+    project.addTrack(fillTrack);
+
+    PlaybackHandler ph = new PlaybackHandler();
+    ph.setProject(project);
+    ph.start();
+
+    // At tick 0, launchEvent = 48 and fill.maxLength = 48 -> fillStartTime == 0 == currentTick.
+    ph.toggleClipStatus(fillTrack, fillClip, false);
+    assertTrue(fillClip.isActiveInSession(), "fill starts immediately at tick 0");
+    assertEquals(0, fillClip.lastProcessedPos, "fill starts at pos 0 with no 1-tick delay");
+    assertEquals(ArmState.ON_NORMAL, fillClip.getArmState());
+  }
+
+  @Test
+  void singleClipFillArm_disarmsInactiveSibling_andRejectedImmediateFillClearsOrphanLaunch() {
+    ProjectModel project = new ProjectModel();
+    SynthTrackModel mainTrack = new SynthTrackModel("Main");
+    ClipModel mainClip = makeClip("Main", 4, "default", 0); // 96 ticks, active
+    ClipModel mainFill = makeClip("Main Fill", 4, "fill", 1); // 96 ticks, same track as active
+    mainFill.setActiveInSession(false);
+    mainTrack.addClip(mainClip);
+    mainTrack.addClip(mainFill);
+
+    SynthTrackModel fillTrack = new SynthTrackModel("FillTrack");
+    ClipModel sibling = makeClip("Armed Sibling", 4, "default", 1);
+    sibling.setActiveInSession(false);
+    ClipModel fillClip = makeClip("Fill", 2, "fill", 1); // 48 ticks
+    fillClip.setActiveInSession(false);
+    fillTrack.addClip(sibling);
+    fillTrack.addClip(fillClip);
+
+    project.addTrack(mainTrack);
+    project.addTrack(fillTrack);
+
+    PlaybackHandler ph = new PlaybackHandler();
+    ph.setProject(project);
+    ph.start();
+
+    // Case A: rejected immediate fill on mainTrack cleans up orphaned launchEventAtSwungTickCount.
+    ph.advanceTicks(10); // 86 ticks til boundary < 96-tick mainFill -> immediate branch
+    ph.toggleClipStatus(mainTrack, mainFill, false);
+    assertFalse(mainFill.isActiveInSession());
+    assertEquals(ArmState.OFF, mainFill.getArmState());
+    assertFalse(ph.hasLaunchEvent(), "orphaned launchEvent cleared when immediate fill rejected");
+
+    // Case B: single-clip FILL arm on fillTrack disarms another inactive armed clip on fillTrack.
+    ph.toggleClipStatus(fillTrack, sibling, false);
+    assertEquals(ArmState.ON_NORMAL, sibling.getArmState());
+    ph.toggleClipStatus(fillTrack, fillClip, false);
+    assertEquals(
+        ArmState.OFF, sibling.getArmState(), "inactive sibling disarmed by single-clip FILL");
+    assertEquals(ArmState.ON_NORMAL, fillClip.getArmState());
+    assertEquals(48L, fillClip.getFillEventAtTickCount());
+  }
 }

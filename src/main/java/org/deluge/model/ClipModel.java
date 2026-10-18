@@ -83,7 +83,7 @@ public class ClipModel extends TimelineCounter {
 
   /**
    * C Clip::launchStyle (clip.cpp:60, 764-766; functions.cpp:1283-1310): "default", "fill" or
-   * "once". Round-tripped; the session launch behaviour of FILL / ONCE is not yet ported.
+   * "once". Round-tripped; session launch behaviour of FILL / ONCE is ported in PlaybackHandler.
    */
   private String launchStyle = "default";
 
@@ -624,7 +624,7 @@ public class ClipModel extends TimelineCounter {
   // fires. Default OFF matches the C.
   private transient ArmState armState = ArmState.OFF;
 
-  // C Clip::fillEventAtTickCount (clip.h:192). Swung tick at which a FILL clip is scheduled to
+  // C Clip::fillEventAtTickCount (clip.h:198). Swung tick at which a FILL clip is scheduled to
   // launch so its end lands on launchEventAtSwungTickCount (session.cpp:789-796, 1906-1964).
   private transient long fillEventAtTickCount = 0;
 

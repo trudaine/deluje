@@ -169,10 +169,10 @@ public class PlaybackHandler {
 
   /**
    * C Session::scheduleFillClip (session.cpp:1906-1964). Right-aligns a {@code FILL} clip so its
-   * end lands on {@code launchEventAtSwungTickCount}. If {@code fillStartTime < currentTick},
-   * starts immediately mid-way through at {@code pos = getMaxLength() - (launchEvent -
-   * currentTick)}; otherwise schedules {@code fillEventAtTickCount = fillStartTime}. Refuses to
-   * steal a track that already has an active non-fill clip.
+   * end lands on {@code launchEventAtSwungTickCount}. If {@code fillStartTime <= currentTick},
+   * starts immediately at {@code pos = getMaxLength() - (launchEvent - currentTick)}; otherwise
+   * schedules {@code fillEventAtTickCount = fillStartTime}. Refuses to steal a track that already
+   * has an active non-fill clip.
    */
   public synchronized void scheduleFillClip(TrackModel track, ClipModel clip) {
     if (track == null || clip == null || !"fill".equals(clip.getLaunchStyle())) {
@@ -187,10 +187,14 @@ public class PlaybackHandler {
             - clip.getMaxLength()
             + (long) (numRepeatsTilLaunch - 1) * currentArmedLaunchLengthForOneRepeat;
 
-    if (fillStartTime < lastSwungTickActioned) {
+    // C session.cpp:1916 uses `<` because scheduleFillEvent can set swungTicksTilNextEvent = 0 in
+    // C++; Java's advanceTicks clamps deadlines to >= 1 tick, so `<=` starts at pos = 0 on the
+    // exact current tick without a 1-tick delay.
+    if (fillStartTime <= lastSwungTickActioned) {
       ClipModel active = track.getActiveClip();
       if (active != null && active.isActiveInSession()) {
         if (!"fill".equals(active.getLaunchStyle())) {
+          launchSchedulingMightNeedCancelling();
           return; // C session.cpp:1922 — leave active non-fill clip alone
         }
         if (active != clip) {
@@ -330,11 +334,11 @@ public class PlaybackHandler {
               clip.getLoopLength(), true, null);
       if (waitForClip == null) {
         if (hasLaunchEvent()) {
-          // LAUNCH_ALONG_WITH_EXISTING_LAUNCHING (session.cpp:1467-1468)
+          // LAUNCH_ALONG_WITH_EXISTING_LAUNCHING (session.cpp:1467-1468, 1364)
+          disarmOtherClipsOnTrack(track, clip);
           if ("fill".equals(clip.getLaunchStyle())) {
             scheduleFillClip(track, clip);
           } else {
-            disarmOtherClipsOnTrack(track, clip);
             clip.setArmState(ArmState.ON_NORMAL);
           }
         } else {
@@ -373,10 +377,12 @@ public class PlaybackHandler {
       long ticksTilStart = quantization - pos;
       scheduleLaunchTiming(lastSwungTickActioned + ticksTilStart, 1, quantization);
 
+      // C session.cpp:1472, 1646, 1891, 2008 — single-clip launch disarms other inactive clips on
+      // the same output before scheduleFillClip (session.cpp:1476).
+      disarmOtherClipsOnTrack(track, clip);
       if ("fill".equals(clip.getLaunchStyle())) {
         scheduleFillClip(track, clip); // C session.cpp:1476
       } else {
-        disarmOtherClipsOnTrack(track, clip);
         clip.setArmState(ArmState.ON_NORMAL);
       }
       return;
@@ -735,9 +741,16 @@ public class PlaybackHandler {
     }
   }
 
+  /**
+   * C Session::armClipLowLevel (session.cpp:2002-2013): unarms other <em>inactive</em> clips on the
+   * same output, preserving {@code armState} on any active clip (such as a playing {@code ONCE} or
+   * {@code FILL} clip armed to stop).
+   */
   private void disarmOtherClipsOnTrack(TrackModel track, ClipModel keepClip) {
+    ClipModel active = track.getActiveClip();
     for (ClipModel other : track.getClips()) {
-      if (other != keepClip && other.getArmState() != ArmState.OFF) {
+      boolean isActive = other == active && other.isActiveInSession();
+      if (other != keepClip && !isActive && other.getArmState() != ArmState.OFF) {
         other.setArmState(ArmState.OFF);
         other.setFillEventAtTickCount(0);
       }
