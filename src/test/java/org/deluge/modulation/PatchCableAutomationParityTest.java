@@ -121,7 +121,7 @@ class PatchCableAutomationParityTest {
 
   @Test
   void presetDefaultParamsIgnoresAutomationNodesOnPatchCables() throws Exception {
-    // C sound.cpp:3651, 3679 passes readAutomationUpToPos=0 when reading preset <defaultParams>.
+    // C sound.cpp:1273-1276, song.cpp:2020-2022 pass readAutomationUpToPos=0 for <defaultParams>.
     String presetXml =
         """
         <?xml version="1.0" encoding="UTF-8"?>
@@ -256,6 +256,49 @@ class PatchCableAutomationParityTest {
     sound.paramManager.notifyPingpongOccurred();
     assertEquals(-slopeBefore, engineCable.param.valueIncrementPerHalfTick);
     assertEquals(0, sound.paramManager.ticksTilNextEvent);
+  }
+
+  @Test
+  void presetAndUiSynthPatchCablesRoundTripWithoutLeakageToFreshClips(@TempDir Path tempDir)
+      throws Exception {
+    ProjectModel project = new ProjectModel();
+
+    // 1. Preset/UI synth track (isClipParamsFresh=false): cables live on synth.getModulation().
+    SynthTrackModel presetSynth = new SynthTrackModel("PRESET_SYNTH");
+    presetSynth
+        .getModulation()
+        .addPatchCable(
+            new PatchCable("lfo1", "lpfFrequency", 0.25f, PatchCable.Polarity.BIPOLAR, List.of()));
+    ClipModel presetClip = new ClipModel("PresetClip", 1, 16);
+    presetSynth.addClip(presetClip);
+    project.addTrack(presetSynth);
+
+    // 2. Fresh >=1.2.0 song clip (isClipParamsFresh=true) with no clip-level <patchCables>.
+    SynthTrackModel freshSynth = new SynthTrackModel("FRESH_SYNTH");
+    freshSynth.setClipParamsFresh(true);
+    freshSynth
+        .getModulation()
+        .addPatchCable(
+            new PatchCable("velocity", "volume", 0.5f, PatchCable.Polarity.UNIPOLAR, List.of()));
+    ClipModel freshClip = new ClipModel("FreshClip", 1, 16);
+    freshSynth.addClip(freshClip);
+    project.addTrack(freshSynth);
+
+    File outFile = tempDir.resolve("preset_vs_fresh_cables.xml").toFile();
+    ProjectSerializer.save(project, outFile);
+
+    ProjectModel reloaded = DelugeXmlParser.parseSong(outFile);
+    assertEquals(2, reloaded.getTracks().size());
+
+    SynthTrackModel reloadedPreset = (SynthTrackModel) reloaded.getTracks().get(0);
+    assertEquals(1, reloadedPreset.getClips().get(0).getPatchCables().size());
+    assertEquals("lfo1", reloadedPreset.getClips().get(0).getPatchCables().get(0).source());
+
+    SynthTrackModel reloadedFresh = (SynthTrackModel) reloaded.getTracks().get(1);
+    assertTrue(reloadedFresh.isClipParamsFresh());
+    assertTrue(
+        reloadedFresh.getClips().get(0).getPatchCables().isEmpty(),
+        "A fresh >=1.2.0 clip with empty clip patchCables must not inherit instrument default cables");
   }
 
   private static void assertNode(int pos, int value, boolean interpolated, ParamNode actual) {

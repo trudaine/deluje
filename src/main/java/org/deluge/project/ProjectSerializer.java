@@ -1669,8 +1669,13 @@ public class ProjectSerializer {
       written.add(key);
     }
 
-    writeSoundParamsSubElementsAndClose(
-        writer, curves, null, synth, clip != null ? clip.getPatchCables() : List.of());
+    List<PatchCable> clipCables =
+        (clip != null && !clip.getPatchCables().isEmpty())
+            ? clip.getPatchCables()
+            : (synth != null && !synth.isClipParamsFresh()
+                ? synth.getModulation().getPatchCables()
+                : List.of());
+    writeSoundParamsSubElementsAndClose(writer, curves, null, synth, clipCables);
   }
 
   private static void serializeKitRowSoundParams(

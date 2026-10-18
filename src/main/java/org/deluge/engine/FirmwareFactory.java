@@ -956,7 +956,7 @@ public class FirmwareFactory {
       if (activeIdx >= 0 && activeIdx < model.getClips().size()) {
         org.deluge.model.ClipModel clipModel = model.getClips().get(activeIdx);
         if (!clipModel.getPatchCables().isEmpty()) {
-          // C instrument_clip.cpp:2752-2778 -> Sound::readParamsFromFile (sound.cpp:4043-4046):
+          // C instrument_clip.cpp:2781-2809 -> Sound::readParamsFromFile (sound.cpp:4043-4046):
           // a >=1.2.0 clip's own <soundParams><patchCables> populates its fresh PatchCableSet.
           mapPatchCables(clipModel.getPatchCables(), sound);
         }
