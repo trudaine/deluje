@@ -743,10 +743,17 @@ public class SongXmlParser {
           clip.setStartSamplePos(Integer.parseInt(clipElem.getAttribute("startSamplePos")));
         if (clipElem.hasAttribute("endSamplePos"))
           clip.setEndSamplePos(Integer.parseInt(clipElem.getAttribute("endSamplePos")));
-        // attack is stored as a raw signed int32 in XML (not a 0x hex float), normalize via
-        // hexToFloat
-        if (clipElem.hasAttribute("attack"))
-          clip.setAttack(toUnipolar(DelugeHexMapper.hexToFloat(clipElem.getAttribute("attack"))));
+        // C audio_clip.cpp:1160-1162 — attack is a raw signed int32 (hexToQ31 accepts both C
+        // decimal e.g. "-2147483648" and legacy "0x..." hex strings).
+        if (clipElem.hasAttribute("attack")) {
+          clip.setAttackRaw(DelugeHexMapper.hexToQ31(clipElem.getAttribute("attack")));
+        }
+        // C audio_clip.cpp:1154-1158 — linearInterpolation="1" sets InterpolationMode::LINEAR.
+        if (clipElem.hasAttribute("linearInterpolation")) {
+          clip.setLinearInterpolation(
+              "1".equals(clipElem.getAttribute("linearInterpolation"))
+                  || "true".equalsIgnoreCase(clipElem.getAttribute("linearInterpolation")));
+        }
         if (clipElem.hasAttribute("priority"))
           clip.setPriority(Integer.parseInt(clipElem.getAttribute("priority")));
         if (clipElem.hasAttribute("pitchSpeedIndependent"))

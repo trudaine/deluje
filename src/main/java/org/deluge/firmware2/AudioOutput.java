@@ -20,9 +20,35 @@ public class AudioOutput extends GlobalEffectable {
 
   private Sample sample;
   final VoiceSample voiceSample = new VoiceSample(); // package-private for tests
+  final Envelope envelope = new Envelope(); // C audio_output.h:89
+  private int attackRaw = Integer.MIN_VALUE; // C audio_clip.cpp:63 — default instant attack
+  private int amplitudeLastTime = 0; // C audio_output.h:91
   private boolean playing = false;
   private boolean looping = true;
   private boolean reversed = false;
+
+  public void setAttackRaw(int attackRaw) {
+    this.attackRaw = attackRaw;
+  }
+
+  public int getAttackRaw() {
+    return attackRaw;
+  }
+
+  public void setLinearInterpolation(boolean linear) {
+    this.voiceSample.linearInterpolation = linear;
+  }
+
+  public boolean isLinearInterpolation() {
+    return this.voiceSample.linearInterpolation;
+  }
+
+  /** C AudioOutput::resetEnvelope (audio_output.cpp:106-115). */
+  public void resetEnvelope() {
+    boolean directlyToDecay = (attackRaw == Integer.MIN_VALUE);
+    envelope.noteOn(directlyToDecay, 2147483647);
+    amplitudeLastTime = 0;
+  }
 
   public void setReversed(boolean reversed) {
     this.reversed = reversed;
@@ -161,6 +187,9 @@ public class AudioOutput extends GlobalEffectable {
     this.looping = looping;
     if (sample != null) {
       armVoiceSample();
+      if (envelope.state == Envelope.Stage.OFF) {
+        resetEnvelope();
+      }
     }
   }
 
@@ -169,6 +198,7 @@ public class AudioOutput extends GlobalEffectable {
     this.shouldLimitDelayFeedback = !this.playing;
     if (p && sample != null) {
       armVoiceSample();
+      resetEnvelope();
     }
   }
 
@@ -179,6 +209,7 @@ public class AudioOutput extends GlobalEffectable {
   public void onTransportStart() {
     if (sample != null) {
       armVoiceSample();
+      resetEnvelope();
       playing = true;
     }
     shouldLimitDelayFeedback = !playing;
@@ -238,14 +269,43 @@ public class AudioOutput extends GlobalEffectable {
     if (!playing || sample == null) {
       return;
     }
+    // C AudioOutput::renderGlobalEffectableForClip (audio_output.cpp:149-188): evaluate the audio
+    // clip attack envelope and ramp from amplitudeEffectiveStart to amplitudeEffectiveEnd.
+    int attackNeutralValue = Functions.getParamNeutralValue(Param.LOCAL_ENV_0_ATTACK);
+    int attack = Functions.getExp(attackNeutralValue, -(attackRaw / 4));
+    int amplitudeLocal =
+        (envelope.render(numSamples, attack, 8388608, 2147483647, 0, LookupTables.decayTableSmall4)
+                >> 1)
+            + 1073741824;
+    if (envelope.state.compareTo(Envelope.Stage.OFF) >= 0) {
+      playing = false;
+      shouldLimitDelayFeedback = true;
+      return;
+    }
+    if (amplitudeLastTime == 0 && attack > 245632) {
+      amplitudeLastTime = amplitudeLocal; // C audio_output.cpp:170-172
+    }
+    int amplitudeEffectiveStart = Functions.multiply_32x32_rshift32(amplitudeLastTime, amplitude);
+    int amplitudeEffectiveEnd = Functions.multiply_32x32_rshift32(amplitudeLocal, amplitude);
+    int amplitudeIncrementEffective =
+        (int) ((double) (amplitudeEffectiveEnd - amplitudeEffectiveStart) / (double) numSamples);
+
     // buffer is interleaved stereo (LRLR), pre-zeroed by GlobalEffectable.renderOutput; VoiceSample
     // accumulates into it. phaseIncrement==unity → native; otherwise resampled (pitch).
-    ampArray[0] = amplitude;
+    ampArray[0] = amplitudeEffectiveStart;
     if (timeStretch) {
       voiceSample.renderTimeStretched(
-          buffer, numSamples, 2, phaseIncrement, timeStretchRatio, ampArray, 0);
+          buffer,
+          numSamples,
+          2,
+          phaseIncrement,
+          timeStretchRatio,
+          ampArray,
+          amplitudeIncrementEffective);
     } else {
-      voiceSample.render(buffer, numSamples, 2, phaseIncrement, ampArray, 0);
+      voiceSample.render(
+          buffer, numSamples, 2, phaseIncrement, ampArray, amplitudeIncrementEffective);
     }
+    amplitudeLastTime = amplitudeLocal;
   }
 }
