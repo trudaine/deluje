@@ -71,7 +71,7 @@ public class SaveNameSuggester {
       String base = stem;
       for (char candidate : new char[] {'_', ' '}) {
         int at = stem.lastIndexOf(candidate);
-        if (at <= 0 || at + 1 >= stem.length()) continue;
+        if (at < 0 || at + 1 >= stem.length()) continue;
         boolean allDigits = true;
         for (int i = at + 1; i < stem.length(); i++) {
           if (!Character.isDigit(stem.charAt(i))) {
@@ -90,8 +90,7 @@ public class SaveNameSuggester {
       int highest = numberOfSibling(stem, prefix);
       if (files != null) {
         for (File f : files) {
-          String fStem = EXTENSION_PATTERN.matcher(f.getName()).replaceFirst("");
-          highest = Math.max(highest, numberOfSibling(fStem, prefix));
+          highest = Math.max(highest, numberOfSibling(f.getName(), prefix));
         }
       }
       if (highest >= MAX_NUMERIC_SUFFIX) {
@@ -118,16 +117,21 @@ public class SaveNameSuggester {
     return mask;
   }
 
-  private static int numberOfSibling(String nameNoExt, String prefix) {
-    if (nameNoExt.length() <= prefix.length()) return 0;
-    if (!nameNoExt.regionMatches(true, 0, prefix, 0, prefix.length())) return 0;
+  /**
+   * Reads the numeric suffix after {@code prefix} (C default_name.cpp:103-126). Digits must run up
+   * to the first {@code '.'} (extension) or the end of {@code name}.
+   */
+  private static int numberOfSibling(String name, String prefix) {
+    if (name.length() <= prefix.length()) return 0;
+    if (!name.regionMatches(true, 0, prefix, 0, prefix.length())) return 0;
+    int pos = prefix.length();
+    if (!Character.isDigit(name.charAt(pos))) return 0;
     int number = 0;
-    for (int i = prefix.length(); i < nameNoExt.length(); i++) {
-      char ch = nameNoExt.charAt(i);
-      if (!Character.isDigit(ch)) return 0;
-      number = number * 10 + (ch - '0');
+    while (pos < name.length() && Character.isDigit(name.charAt(pos))) {
+      number = number * 10 + (name.charAt(pos) - '0');
       if (number > MAX_NUMERIC_SUFFIX) return MAX_NUMERIC_SUFFIX;
+      pos++;
     }
-    return number;
+    return (pos == name.length() || name.charAt(pos) == '.') ? number : 0;
   }
 }

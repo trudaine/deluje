@@ -64,9 +64,12 @@ public class ExportHelper {
             : "Master_mix.wav";
     renderWav(model, null, new File(targetDir, masterName), totalBlocks, blockSize, sampleRate);
 
-    // 2. Render each track individually
+    // 2. Render each audio track individually (MIDI tracks have no audio stem)
     for (int t = 0; t < totalTracks; t++) {
       TrackModel track = model.getTracks().get(t);
+      if (track instanceof MidiTrackModel) {
+        continue;
+      }
       String trackName = track.getName();
       if (trackName == null || trackName.trim().isEmpty()) {
         trackName = "Track_" + (t + 1);
@@ -112,7 +115,6 @@ public class ExportHelper {
       TrackModel targetTrack = model.getTracks().get(targetTrackIndex);
       if (!(targetTrack instanceof SynthTrackModel
           || targetTrack instanceof KitTrackModel
-          || targetTrack instanceof MidiTrackModel
           || targetTrack instanceof AudioTrackModel)) {
         throw new IllegalArgumentException(
             "Cannot export track of type "
@@ -122,12 +124,14 @@ public class ExportHelper {
     }
 
     // Populate sounds (Synth FirmwareSound, Kit FirmwareKit, Audio AudioOutput all extend
-    // GlobalEffectable).
+    // GlobalEffectable). Exclude FirmwareMidiInstrument so offline audio export never renders or
+    // emits MIDI tracks.
     for (int i = 0; i < project.getTracks().size(); i++) {
       TrackModel tm = project.getTracks().get(i);
       ClipModel activeClip = tm.getActiveClip();
       if (activeClip != null
-          && activeClip.getSound() instanceof org.deluge.firmware2.GlobalEffectable ge) {
+          && activeClip.getSound() instanceof org.deluge.firmware2.GlobalEffectable ge
+          && !(ge instanceof FirmwareMidiInstrument)) {
         if (targetTrackIndex == null || targetTrackIndex == i) {
           engine.sounds.add(ge);
         }

@@ -1,6 +1,7 @@
 package org.deluge.project;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
@@ -20,6 +21,7 @@ import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import org.deluge.model.ClipModel;
 import org.deluge.model.KitTrackModel;
+import org.deluge.model.MidiTrackModel;
 import org.deluge.model.NoteModel;
 import org.deluge.model.ProjectModel;
 import org.deluge.model.SoundDrum;
@@ -74,6 +76,21 @@ class ExportHelperXmlSerializerSaveNameParityTest {
     Files.writeString(underscored.toPath(), "<song/>");
     File underscored2 = SaveNameSuggester.suggestNextSaveFile(songsDir, underscored);
     assertEquals("TRACK_2.xml", underscored2.getName());
+
+    // 4. Leading delimiter ("_5.xml" -> "_6.xml", C default_name.cpp:78 at == npos)
+    File leadingUnderscore = new File(songsDir, "_5.xml");
+    Files.writeString(leadingUnderscore.toPath(), "<song/>");
+    File leadingUnderscore2 = SaveNameSuggester.suggestNextSaveFile(songsDir, leadingUnderscore);
+    assertEquals("_6.xml", leadingUnderscore2.getName());
+
+    // 5. Sibling with non-xml/json extension ("JAM 3.bak") counts as 3, while date sibling
+    // ("JAM 2024-01-05.xml") is ignored (C default_name.cpp:103-126)
+    File jam = new File(songsDir, "JAM.xml");
+    Files.writeString(jam.toPath(), "<song/>");
+    Files.writeString(new File(songsDir, "JAM 3.bak").toPath(), "<song/>");
+    Files.writeString(new File(songsDir, "JAM 2024-01-05.xml").toPath(), "<song/>");
+    File jamNext = SaveNameSuggester.suggestNextSaveFile(songsDir, jam);
+    assertEquals("JAM 4.xml", jamNext.getName());
   }
 
   @Test
@@ -175,5 +192,36 @@ class ExportHelperXmlSerializerSaveNameParityTest {
         maxAbsSample > 100,
         "Kit track stem must contain non-silent audio (GlobalEffectable FirmwareKit), maxAbs="
             + maxAbsSample);
+  }
+
+  @Test
+  void exportStemsSkipsMidiTracksAndExcludesFirmwareMidiInstrumentFromAudioRender(
+      @TempDir Path tempDir) throws Exception {
+    ProjectModel project = new ProjectModel();
+    project.setBpm(120.0f);
+
+    MidiTrackModel midiTrack = new MidiTrackModel("ExternalMidi");
+    ClipModel midiClip = new ClipModel("MidiClip", 1, 16);
+    midiClip.setRowYNote(0, 60);
+    midiClip.setStep(0, 0, StepData.of(true, 1.0f, 1.0f, 1.0f, 60));
+    midiTrack.addClip(midiClip);
+    project.addTrack(midiTrack);
+
+    SynthTrackModel synthTrack = new SynthTrackModel("TestSynth");
+    ClipModel synthClip = new ClipModel("SynthClip", 1, 16);
+    synthClip.setRowYNote(0, 60);
+    synthClip.setStep(0, 0, StepData.of(true, 1.0f, 4.0f, 1.0f, 60));
+    synthTrack.addClip(synthClip);
+    project.addTrack(synthTrack);
+
+    File stemsDir = tempDir.resolve("stems_midi").toFile();
+    stemsDir.mkdirs();
+
+    ExportHelper.exportStems(project, stemsDir, 0.25, null);
+
+    File midiStem = new File(stemsDir, "Track_1_ExternalMidi_stem.wav");
+    File synthStem = new File(stemsDir, "Track_2_TestSynth_stem.wav");
+    assertFalse(midiStem.exists(), "MIDI track has no audio stem and must be skipped");
+    assertTrue(synthStem.exists(), "Synth track audio stem must still be rendered");
   }
 }
