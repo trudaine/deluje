@@ -40,7 +40,8 @@ class ReverbGoldenBufferTest {
             new Case("c_reverb_r70_d50_w100_impulse.bin", 0.7f, 0.5f, 1.0f, "impulse"),
             new Case("c_reverb_r90_d20_w100_impulse.bin", 0.9f, 0.2f, 1.0f, "impulse"),
             new Case("c_reverb_r50_d80_w50_impulse.bin", 0.5f, 0.8f, 0.5f, "impulse"),
-            new Case("c_reverb_r70_d50_w100_square.bin", 0.7f, 0.5f, 1.0f, "square"))
+            new Case("c_reverb_r70_d50_w100_square.bin", 0.7f, 0.5f, 1.0f, "square"),
+            new Case("c_reverb_r99_d0_w100_loud_train.bin", 0.99f, 0.0f, 1.0f, "loud_train"))
         .map(c -> Arguments.of(c.file, c));
   }
 
@@ -107,9 +108,9 @@ class ReverbGoldenBufferTest {
           switch (signal) {
             case "step" -> AMP;
             case "impulse" -> (i == 0) ? AMP : 0;
+            case "loud_train" -> (i % 64 == 0) ? (1 << 30) : 0;
             // "square": pure-integer sustained signal at reduced amplitude — MUST match the C
-            // harness bit-for-bit. In-range (full-scale sustained drive overflows the reverb's
-            // integer accumulators, where C signed-overflow UB and Java wrap legitimately differ).
+            // harness bit-for-bit.
             default -> (((i / 16) & 1) != 0) ? -(AMP >> 4) : (AMP >> 4);
           };
     }

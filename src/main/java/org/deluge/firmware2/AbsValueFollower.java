@@ -35,7 +35,13 @@ public class AbsValueFollower {
     return (int) attackMS;
   }
 
-  /** C: absolute_value.h:40-46 — setAttack (exp map) */
+  /**
+   * C: absolute_value.h:40-46 — setAttack (exp map).
+   *
+   * <p>Note: C calls newlib/glibc {@code expf(float)} (not guaranteed correctly rounded), whereas
+   * Java {@code (float) Math.exp(double)} can differ by 1 ULP on rare inputs; that difference is
+   * negligible for an envelope time constant.
+   */
   public int setAttack(int attack) {
     float expTerm = (float) Math.exp(2.0f * (float) attack / ONE_Q31f);
     attackMS = (float) (0.5 + (expTerm - 1.0f) * 10.0f);

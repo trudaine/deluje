@@ -32,6 +32,11 @@ int main(int argc, char** argv) {
       input[i] = AMP;
     } else if (strcmp(signal, "impulse") == 0) {
       input[i] = (i == 0) ? AMP : 0;
+    } else if (strcmp(signal, "loud_train") == 0) {
+      // Loud periodic impulse train (amplitude 1 << 30 every 64 samples) with high roomsize (0.99)
+      // so comb feedback and processOne stereo accumulators wrap in int32_t (compiled with -fwrapv
+      // matching ARM Cortex-A9 wrapping ADD/LSL).
+      input[i] = (i % 64 == 0) ? (1 << 30) : 0;
     } else {  // "square": sustained large-amplitude PURE-INTEGER signal (period 32) — no
               // transcendental, so C and Java generate byte-identical input (Java Math.sin does
               // NOT match libm at the last ULP, which would otherwise diverge under sustained drive).

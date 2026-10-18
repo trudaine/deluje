@@ -29,7 +29,8 @@ fi
 
 mkdir -p "$BUILD" "$OUT"
 INC=(-I"$FW/src/deluge" -I"$FW/src")
-STD="-std=c++23 -O2 -w"
+# -ffp-contract=off matches Cortex-A9 VFPv3-D16 (no fused FMADD) and Java float mul+add.
+STD="-std=c++23 -O2 -ffp-contract=off -w"
 
 echo "compiling real lookuptables.cpp (provides tanHSmall, tanTable) ..."
 g++ $STD "${INC[@]}" -c "$FW/src/deluge/util/lookuptables/lookuptables.cpp" -o "$BUILD/lookuptables.o"
@@ -130,10 +131,11 @@ svfgen 600000000 1500000000 4 134217728 sine    c_svf_notch_f600_r1500_mhalf_sin
 echo "done. SVF golden buffers written to $SVFOUT"
 
 # --- Freeverb reverb (freeverb.cpp; integer per-sample, deterministic-float setup) ---
+# Compile with -fwrapv to match ARM Cortex-A9 two's-complement wrapping on loud signals.
 RVOUT="$REPO/src/test/resources/fidelity/reverb"
 mkdir -p "$RVOUT"
 echo "linking harness against real freeverb.cpp ..."
-g++ $STD "${INC[@]}" \
+g++ $STD -fwrapv "${INC[@]}" \
   "$HERE/main_reverb.cpp" "$HERE/support.cpp" \
   "$FW/src/deluge/dsp/reverb/freeverb/freeverb.cpp" \
   "$BUILD/lookuptables.o" \
@@ -144,9 +146,10 @@ RVGEN="$BUILD/gen_reverb"
 rvgen() { "$RVGEN" "$1" "$2" "$3" 4096 "$4" "$RVOUT/$5"; }
 
 echo "regenerating Freeverb golden matrix -> $RVOUT"
-rvgen 0.7 0.5 1.0 impulse c_reverb_r70_d50_w100_impulse.bin
-rvgen 0.9 0.2 1.0 impulse c_reverb_r90_d20_w100_impulse.bin
-rvgen 0.5 0.8 0.5 impulse c_reverb_r50_d80_w50_impulse.bin
-rvgen 0.7 0.5 1.0 square  c_reverb_r70_d50_w100_square.bin
+rvgen 0.7 0.5 1.0 impulse    c_reverb_r70_d50_w100_impulse.bin
+rvgen 0.9 0.2 1.0 impulse    c_reverb_r90_d20_w100_impulse.bin
+rvgen 0.5 0.8 0.5 impulse    c_reverb_r50_d80_w50_impulse.bin
+rvgen 0.7 0.5 1.0 square     c_reverb_r70_d50_w100_square.bin
+rvgen 0.99 0.0 1.0 loud_train c_reverb_r99_d0_w100_loud_train.bin
 
 echo "done. Freeverb golden buffers written to $RVOUT"
