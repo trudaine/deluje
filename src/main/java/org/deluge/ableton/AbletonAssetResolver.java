@@ -4,6 +4,8 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Resolves Ableton sample references to valid local file paths on macOS and Windows. Integrates
@@ -11,6 +13,8 @@ import java.util.logging.Logger;
  */
 public class AbletonAssetResolver {
   private static final Logger LOG = Logger.getLogger(AbletonAssetResolver.class.getName());
+  private static final Pattern LIVE_VERSION_PATTERN =
+      Pattern.compile("(?i)(?:live\\s+)?(\\d+)(?:\\.(\\d+))?");
 
   private static final boolean IS_WINDOWS =
       System.getProperty("os.name").toLowerCase().contains("win");
@@ -147,8 +151,8 @@ public class AbletonAssetResolver {
             }
           }
           if (!liveFolders.isEmpty()) {
-            // Sort descending: highest version first (e.g. Live 12 Suite > Live 11 Standard)
-            liveFolders.sort((a, b) -> b.getName().compareToIgnoreCase(a.getName()));
+            // Sort descending: highest version first (e.g. Live 12 Suite > Live 9 Suite)
+            liveFolders.sort((a, b) -> compareAbletonVersionNames(a.getName(), b.getName()));
             File detected = liveFolders.get(0);
             LOG.info(
                 "[AbletonAssetResolver] Dynamically detected Windows Ableton: "
@@ -172,8 +176,8 @@ public class AbletonAssetResolver {
             }
           }
           if (!abletonApps.isEmpty()) {
-            // Sort descending: highest version first (e.g. Live 12 Suite > Live 11 Standard)
-            abletonApps.sort((a, b) -> b.getName().compareToIgnoreCase(a.getName()));
+            // Sort descending: highest version first (e.g. Live 12 Suite > Live 9 Suite)
+            abletonApps.sort((a, b) -> compareAbletonVersionNames(a.getName(), b.getName()));
             File detected = abletonApps.get(0);
             LOG.info(
                 "[AbletonAssetResolver] Dynamically detected macOS Ableton: " + detected.getName());
@@ -183,6 +187,34 @@ public class AbletonAssetResolver {
       }
       return "/Applications/Ableton Live 12 Suite.app/Contents/App-Resources/";
     }
+  }
+
+  /**
+   * Compares two Ableton application or folder names in descending version order so numeric major
+   * and minor versions win over lexicographical comparison (e.g. {@code "Ableton Live 12
+   * Suite.app"} sorts before {@code "Ableton Live 9 Suite.app"}).
+   */
+  static int compareAbletonVersionNames(String nameA, String nameB) {
+    int[] verA = parseLiveVersion(nameA);
+    int[] verB = parseLiveVersion(nameB);
+    if (verA[0] != verB[0]) {
+      return Integer.compare(verB[0], verA[0]);
+    }
+    if (verA[1] != verB[1]) {
+      return Integer.compare(verB[1], verA[1]);
+    }
+    return nameB.compareToIgnoreCase(nameA);
+  }
+
+  private static int[] parseLiveVersion(String name) {
+    if (name == null) return new int[] {0, 0};
+    Matcher m = LIVE_VERSION_PATTERN.matcher(name);
+    if (m.find()) {
+      int major = Integer.parseInt(m.group(1));
+      int minor = m.group(2) != null ? Integer.parseInt(m.group(2)) : 0;
+      return new int[] {major, minor};
+    }
+    return new int[] {0, 0};
   }
 
   /**

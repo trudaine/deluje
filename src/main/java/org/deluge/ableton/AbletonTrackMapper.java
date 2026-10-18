@@ -238,7 +238,8 @@ public class AbletonTrackMapper {
           double time = Double.parseDouble(noteEv.getAttribute("Time"));
           double duration = Double.parseDouble(noteEv.getAttribute("Duration"));
           int velocity = (int) Math.round(Double.parseDouble(noteEv.getAttribute("Velocity")));
-          events.add(new ParsedNoteEvent(pitch, time, duration, velocity));
+          float probability = parseNoteProbability(noteEv);
+          events.add(new ParsedNoteEvent(pitch, time, duration, velocity, probability));
         }
       }
 
@@ -261,36 +262,42 @@ public class AbletonTrackMapper {
 
       // Map rows to absolute pitches
       Map<Integer, Integer> pitchToRow = new HashMap<>();
+      Map<Integer, List<NoteModel>> rowNotesMap = new HashMap<>();
       for (int r = 0; r < rowCount; r++) {
         int pitch = uniquePitches.get(r);
         clip.setRowYNote(r, pitch);
         pitchToRow.put(pitch, r);
-        // Initialize raw note events list for this row
-        clip.setRawNoteEvents(r, new ArrayList<>());
+        rowNotesMap.put(r, new ArrayList<>());
       }
 
-      // 3. Write note events to the high-res and quantized grids
+      // 3. Populate the quantized 16th-note grid first, then install high-res NoteModel events
+      // afterwards so ClipModel.setStep() does not duplicate off-grid notes or overwrite on-grid
+      // note lengths (C note_row.cpp:264-281).
       for (ParsedNoteEvent ev : events) {
         Integer rowObj = pitchToRow.get(ev.pitch);
         if (rowObj == null) continue; // Pitch not in unique set (data integrity guard)
         int r = rowObj;
 
-        // A. High-Res Path (96 PPQN ticks)
-        int tickPos = (int) Math.round(ev.time * 96);
-        int tickLen = (int) Math.round(ev.duration * 96);
-        float normVel = ev.velocity / 127.0f;
-        NoteModel hrn = new NoteModel(tickPos, tickLen, normVel, 1.0f, 0);
-        clip.getRawNoteEvents(r).add(hrn);
+        int tickPos = Math.max(0, (int) Math.round(ev.time * 96));
+        int tickLen = Math.max(1, (int) Math.round(ev.duration * 96));
+        float normVel = Math.max(0.0f, Math.min(1.0f, ev.velocity / 127.0f));
+        float gate = (float) Math.max(0.1, ev.duration * 4.0);
 
-        // B. Quantized Grid Path (16th note steps)
         int stepIdx = (int) Math.round(ev.time * 4);
         if (stepIdx >= 0 && stepIdx < stepCount) {
           StepData existingStep = clip.getStep(r, stepIdx);
           if (existingStep == null || !existingStep.active() || normVel > existingStep.velocity()) {
-            clip.setStep(
-                r, stepIdx, StepData.of(true, normVel, StepData.DEFAULT_CLICK_GATE, 1.0f, 60));
+            clip.setStep(r, stepIdx, StepData.of(true, normVel, gate, ev.probability, ev.pitch));
           }
         }
+
+        rowNotesMap.get(r).add(new NoteModel(tickPos, tickLen, normVel, ev.probability, 0));
+      }
+
+      for (int r = 0; r < rowCount; r++) {
+        List<NoteModel> rowNotes = rowNotesMap.get(r);
+        rowNotes.sort(java.util.Comparator.comparingInt(NoteModel::getTickPos));
+        clip.setRawNoteEvents(r, rowNotes);
       }
 
       return clip;
@@ -392,7 +399,9 @@ public class AbletonTrackMapper {
 
     // Fallback: if no clips were parsed, create a default empty clip
     if (kitTrack.getClips().isEmpty()) {
-      kitTrack.addClip(new ClipModel("Clip 1", drumCount, 16));
+      ClipModel fallbackClip = new ClipModel("Clip 1", drumCount, 16);
+      fallbackClip.setIsKit(true);
+      kitTrack.addClip(fallbackClip);
     }
   }
 
@@ -404,10 +413,11 @@ public class AbletonTrackMapper {
       int stepCount = parseStepCount(clipEl);
 
       ClipModel clip = new ClipModel(clipName, drumCount, stepCount);
+      clip.setIsKit(true);
 
-      // Initialize raw note lists
+      Map<Integer, List<NoteModel>> rowNotesMap = new HashMap<>();
       for (int d = 0; d < drumCount; d++) {
-        clip.setRawNoteEvents(d, new ArrayList<>());
+        rowNotesMap.put(d, new ArrayList<>());
       }
 
       NodeList keyTrackNodes = clipEl.getElementsByTagName("KeyTrack");
@@ -426,21 +436,32 @@ public class AbletonTrackMapper {
           double time = Double.parseDouble(noteEv.getAttribute("Time"));
           double duration = Double.parseDouble(noteEv.getAttribute("Duration"));
           int velocity = (int) Math.round(Double.parseDouble(noteEv.getAttribute("Velocity")));
+          float probability = parseNoteProbability(noteEv);
 
-          // A. High-Res Path
-          int tickPos = (int) Math.round(time * 96);
-          int tickLen = (int) Math.round(duration * 96);
-          float normVel = velocity / 127.0f;
-          NoteModel hrn = new NoteModel(tickPos, tickLen, normVel, 1.0f, 0);
-          clip.getRawNoteEvents(r).add(hrn);
+          int tickPos = Math.max(0, (int) Math.round(time * 96));
+          int tickLen = Math.max(1, (int) Math.round(duration * 96));
+          float normVel = Math.max(0.0f, Math.min(1.0f, velocity / 127.0f));
+          float gate = (float) Math.max(0.1, duration * 4.0);
 
-          // B. Quantized Grid Path
+          // Populate quantized grid first, then install high-res NoteModel list afterwards
           int stepIdx = (int) Math.round(time * 4);
           if (stepIdx >= 0 && stepIdx < stepCount) {
-            clip.setStep(
-                r, stepIdx, StepData.of(true, normVel, StepData.DEFAULT_CLICK_GATE, 1.0f, 60));
+            StepData existingStep = clip.getStep(r, stepIdx);
+            if (existingStep == null
+                || !existingStep.active()
+                || normVel > existingStep.velocity()) {
+              clip.setStep(r, stepIdx, StepData.of(true, normVel, gate, probability, r));
+            }
           }
+
+          rowNotesMap.get(r).add(new NoteModel(tickPos, tickLen, normVel, probability, 0));
         }
+      }
+
+      for (int d = 0; d < drumCount; d++) {
+        List<NoteModel> rowNotes = rowNotesMap.get(d);
+        rowNotes.sort(java.util.Comparator.comparingInt(NoteModel::getTickPos));
+        clip.setRawNoteEvents(d, rowNotes);
       }
 
       return clip;
@@ -587,18 +608,33 @@ public class AbletonTrackMapper {
     return null;
   }
 
+  private static float parseNoteProbability(Element noteEv) {
+    String probAttr = noteEv.getAttribute("Probability");
+    if (probAttr == null || probAttr.isBlank()) {
+      return 1.0f;
+    }
+    try {
+      float p = Float.parseFloat(probAttr);
+      return Math.max(0.0f, Math.min(1.0f, p));
+    } catch (NumberFormatException e) {
+      return 1.0f;
+    }
+  }
+
   /** Internal tuple to represent a parsed note event before sparse grouping. */
   private static class ParsedNoteEvent {
     final int pitch;
     final double time;
     final double duration;
     final int velocity;
+    final float probability;
 
-    ParsedNoteEvent(int pitch, double time, double duration, int velocity) {
+    ParsedNoteEvent(int pitch, double time, double duration, int velocity, float probability) {
       this.pitch = pitch;
       this.time = time;
       this.duration = duration;
       this.velocity = velocity;
+      this.probability = probability;
     }
   }
 

@@ -254,9 +254,10 @@ public class AbletonTrackExporter {
       Element midiClip = doc.createElement("MidiClip");
       clipSlot.appendChild(midiClip);
 
+      double stepBeats = (clip.isTripletMode() ? 32.0 : 24.0) / 96.0;
       midiClip.appendChild(createValueElement(doc, "Name", clip.getName()));
       midiClip.appendChild(
-          createValueElement(doc, "CurrentEnd", String.valueOf(clip.getStepCount() / 4.0)));
+          createValueElement(doc, "CurrentEnd", String.valueOf(clip.getStepCount() * stepBeats)));
 
       Element keyTracks = doc.createElement("KeyTracks");
       midiClip.appendChild(keyTracks);
@@ -361,9 +362,10 @@ public class AbletonTrackExporter {
       Element midiClip = doc.createElement("MidiClip");
       clipSlot.appendChild(midiClip);
 
+      double stepBeats = (clip.isTripletMode() ? 32.0 : 24.0) / 96.0;
       midiClip.appendChild(createValueElement(doc, "Name", clip.getName()));
       midiClip.appendChild(
-          createValueElement(doc, "CurrentEnd", String.valueOf(clip.getStepCount() / 4.0)));
+          createValueElement(doc, "CurrentEnd", String.valueOf(clip.getStepCount() * stepBeats)));
 
       Element keyTracks = doc.createElement("KeyTracks");
       midiClip.appendChild(keyTracks);
@@ -438,26 +440,30 @@ public class AbletonTrackExporter {
   /** Serializes notes for a specific pitch row in a clip (supports high-res and grid paths). */
   private static void serializeNotesForPitch(
       Document doc, Element notesContainer, ClipModel clip, int rowIndex) {
+    double stepBeats = (clip.isTripletMode() ? 32.0 : 24.0) / 96.0;
     List<NoteModel> hrNotes = clip.getRawNoteEvents(rowIndex);
     if (hrNotes != null && !hrNotes.isEmpty()) {
       // ── High-Resolution Path (96 PPQN ticks) ──
       for (NoteModel n : hrNotes) {
         Element noteEv = doc.createElement("MidiNoteEvent");
         noteEv.setAttribute("Time", String.valueOf(n.getTickPos() / 96.0));
-        noteEv.setAttribute("Duration", String.valueOf(n.getTickLen() / 96.0));
-        noteEv.setAttribute("Velocity", String.valueOf((int) (n.getVelocity() * 127)));
+        noteEv.setAttribute("Duration", String.valueOf(Math.max(1, n.getTickLen()) / 96.0));
+        int velocity = Math.max(1, Math.min(127, Math.round(n.getVelocity() * 127.0f)));
+        noteEv.setAttribute("Velocity", String.valueOf(velocity));
         noteEv.setAttribute("Probability", String.valueOf(n.getProbability()));
         notesContainer.appendChild(noteEv);
       }
     } else {
-      // ── Quantized Grid Path Fallback (16th note steps) ──
+      // ── Quantized Grid Path Fallback (16th or triplet steps) ──
       for (int c = 0; c < clip.getStepCount(); c++) {
         StepData step = clip.getStep(rowIndex, c);
         if (step != null && step.active()) {
           Element noteEv = doc.createElement("MidiNoteEvent");
-          noteEv.setAttribute("Time", String.valueOf(c / 4.0));
-          noteEv.setAttribute("Duration", String.valueOf(step.gate() / 96.0));
-          noteEv.setAttribute("Velocity", String.valueOf((int) (step.velocity() * 127)));
+          noteEv.setAttribute("Time", String.valueOf(c * stepBeats));
+          noteEv.setAttribute(
+              "Duration", String.valueOf(Math.max(1.0 / 96.0, step.gate() * stepBeats)));
+          int velocity = Math.max(1, Math.min(127, Math.round(step.velocity() * 127.0f)));
+          noteEv.setAttribute("Velocity", String.valueOf(velocity));
           noteEv.setAttribute("Probability", String.valueOf(step.probability()));
           notesContainer.appendChild(noteEv);
         }
