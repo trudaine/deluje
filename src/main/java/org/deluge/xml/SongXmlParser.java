@@ -557,6 +557,10 @@ public class SongXmlParser {
         }
         // C clip.cpp:764-766 — readTagOrAttributeValue → stringToLaunchStyle
         clip.setLaunchStyle(DelugeXmlUtil.attrOrDirectChildText(clipElem, "launchStyle"));
+        // C instrument_clip.cpp:2552-2562 — readTagOrAttributeValueInt (128 = none)
+        clip.setMidiBank(DelugeXmlUtil.attrOrDirectChildInt(clipElem, "midiBank", 128));
+        clip.setMidiSub(DelugeXmlUtil.attrOrDirectChildInt(clipElem, "midiSub", 128));
+        clip.setMidiPGM(DelugeXmlUtil.attrOrDirectChildInt(clipElem, "midiPGM", 128));
 
         if (noteRowList != null) {
           for (int r = 0; r < rowCount; r++) {

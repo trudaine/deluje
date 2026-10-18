@@ -1291,6 +1291,12 @@ public class ProjectSerializer {
     if (!"default".equals(clip.getLaunchStyle())) {
       writer.writeAttribute("launchStyle", clip.getLaunchStyle(), false);
     }
+    // C instrument_clip.cpp:2364-2373 — MIDI clips write their PGM triple when set (128 = none)
+    if (track instanceof org.deluge.model.MidiTrackModel) {
+      if (clip.getMidiBank() != 128) writer.writeAttribute("midiBank", clip.getMidiBank(), false);
+      if (clip.getMidiSub() != 128) writer.writeAttribute("midiSub", clip.getMidiSub(), false);
+      if (clip.getMidiPGM() != 128) writer.writeAttribute("midiPGM", clip.getMidiPGM(), false);
+    }
     if (clip.isTripletMode()) {
       writer.writeAttribute("triplet", "1", false);
     }

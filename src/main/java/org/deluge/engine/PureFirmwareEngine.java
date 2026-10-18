@@ -196,7 +196,18 @@ public class PureFirmwareEngine {
               if (currentClipIdx >= 0
                   && currentClipIdx != track.getActiveClipIndex()
                   && currentClipIdx < track.getClips().size()) {
+                org.deluge.model.ClipModel oldClip = track.getActiveClip();
                 track.setActiveClipIndex(currentClipIdx);
+                // C MIDIInstrument::setActiveClip (midi_instrument.cpp:324-342): a MIDI track
+                // switching to a clip with a different PGM triple sends it.
+                org.deluge.model.ClipModel newClip = track.getActiveClip();
+                if (track instanceof org.deluge.model.MidiTrackModel
+                    && oldClip != null
+                    && newClip != null
+                    && newClip.midiPgmDiffersFrom(oldClip)
+                    && newClip.getSound() instanceof FirmwareMidiInstrument mi) {
+                  mi.sendMidiPgm(newClip.getMidiBank(), newClip.getMidiSub(), newClip.getMidiPGM());
+                }
                 modelChanged = true;
               }
 
