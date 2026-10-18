@@ -90,32 +90,45 @@ class PatternAutoSaveEuclideanParityTest {
   }
 
   @Test
-  void patternSerializer_loadsLegacy22CharAnd20CharNoteData() throws Exception {
-    // 22-char noteData (two notes at step 0 and step 2, 12 ticks/step)
-    String xml22 =
-        "<pattern><id>p1</id><name>Legacy22</name><category>MELODIC</category><clips>"
-            + "<clip trackIndex=\"0\"><rowCount>2</rowCount><stepCount>8</stepCount><noteRows>"
-            + "<noteRow><noteData>0x000000000000000C644014000000180000000C324014</noteData></noteRow>"
+  void patternSerializer_selectsNoteDataLayoutByTagNameWithoutLengthAmbiguity() throws Exception {
+    // 10 LIFT notes = 220 hex chars (divisible by both 20 and 22). Must decode as 10 LIFT notes.
+    StringBuilder tenLiftNotes = new StringBuilder("0x");
+    for (int s = 0; s < 10; s++) {
+      int pos = s * 12;
+      tenLiftNotes.append(String.format("%08X%08X644014", pos, 12));
+    }
+    String xmlTenNotes =
+        "<pattern><id>p1</id><name>TenLift</name><category>MELODIC</category><clips>"
+            + "<clip trackIndex=\"0\"><rowCount>1</rowCount><stepCount>16</stepCount><noteRows>"
+            + "<noteRow><noteData>"
+            + tenLiftNotes
+            + "</noteData></noteRow>"
             + "</noteRows></clip></clips></pattern>";
-    PatternModel loaded22 =
+    PatternModel loadedTen =
         PatternSerializer.load(
-            new ByteArrayInputStream(xml22.getBytes(StandardCharsets.UTF_8)), "legacy22.xml");
-    ClipSnapshot snap22 = loaded22.getClipSnapshots().get(0);
-    assertTrue(snap22.getGrid().get(0).get(0).active());
-    assertTrue(snap22.getGrid().get(0).get(2).active());
-    assertEquals(100.0f / 127.0f, snap22.getGrid().get(0).get(0).velocity(), 0.01f);
-    assertEquals(50.0f / 127.0f, snap22.getGrid().get(0).get(2).velocity(), 0.01f);
+            new ByteArrayInputStream(xmlTenNotes.getBytes(StandardCharsets.UTF_8)), "ten_lift.xml");
+    ClipSnapshot snapTen = loadedTen.getClipSnapshots().get(0);
+    for (int s = 0; s < 10; s++) {
+      assertTrue(snapTen.getGrid().get(0).get(s).active(), "step " + s);
+      assertEquals(100.0f / 127.0f, snapTen.getGrid().get(0).get(s).velocity(), 0.01f);
+    }
+    assertFalse(snapTen.getGrid().get(0).get(10).active());
 
-    // 20-char noteData (one note at step 2)
-    String xml20 =
-        "<pattern><id>p2</id><name>Legacy20</name><category>MELODIC</category><clips>"
+    // <noteDataWithLift> tag (C note_row.cpp:3523) also decodes as 22-char LIFT
+    String xmlWithLift =
+        "<pattern><id>p2</id><name>WithLift</name><category>MELODIC</category><clips>"
             + "<clip trackIndex=\"0\"><rowCount>1</rowCount><stepCount>8</stepCount><noteRows>"
-            + "<noteRow><noteData>0x000000180000000C4014</noteData></noteRow>"
+            + "<noteRow><noteDataWithLift>0x000000180000000C324014</noteDataWithLift></noteRow>"
             + "</noteRows></clip></clips></pattern>";
-    PatternModel loaded20 =
+    PatternModel loadedWithLift =
         PatternSerializer.load(
-            new ByteArrayInputStream(xml20.getBytes(StandardCharsets.UTF_8)), "legacy20.xml");
-    assertTrue(loaded20.getClipSnapshots().get(0).getGrid().get(0).get(2).active());
+            new ByteArrayInputStream(xmlWithLift.getBytes(StandardCharsets.UTF_8)),
+            "with_lift.xml");
+    assertTrue(loadedWithLift.getClipSnapshots().get(0).getGrid().get(0).get(2).active());
+    assertEquals(
+        50.0f / 127.0f,
+        loadedWithLift.getClipSnapshots().get(0).getGrid().get(0).get(2).velocity(),
+        0.01f);
   }
 
   @Test

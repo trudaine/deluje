@@ -109,6 +109,8 @@ public class PatternSerializer {
         noteRowsElem.appendChild(nrElem);
 
         List<StepData> row = (r < snap.getGrid().size()) ? snap.getGrid().get(r) : List.of();
+        // Keep <noteData> (22-char LIFT layout) only for backward compatibility with older Java
+        // builds; <noteDataWithSplitProb> (28-char, C note_row.cpp:3607-3617) is preferred on read.
         String hexData = DelugeNoteDataMapper.encodeRow(row);
         Element ndElem = doc.createElement("noteData");
         ndElem.setTextContent(hexData);
@@ -234,7 +236,12 @@ public class PatternSerializer {
         NodeList nrList = noteRowsElem.getElementsByTagName("noteRow");
         for (int ri = 0; ri < nrList.getLength() && ri < rowCount; ri++) {
           Element nrElem = (Element) nrList.item(ri);
+          // Select note-data layout strictly by tag name (C note_row.cpp:3522-3537), never by
+          // hex-length modulo. DelugeNoteDataMapper.encodeRow is the only Java writer of <noteData>
+          // in pattern files and always emits the 22-char LIFT layout.
           String ndSplit = getTextContent(nrElem, "noteDataWithSplitProb");
+          String ndIterFill = getTextContent(nrElem, "noteDataWithIteranceAndFill");
+          String ndLift = getTextContent(nrElem, "noteDataWithLift");
           String nd = getTextContent(nrElem, "noteData");
           List<StepData> decodedRow = null;
           if (ndSplit != null && ndSplit.length() > 2) {
@@ -244,15 +251,27 @@ public class PatternSerializer {
                     stepCount,
                     DelugeNoteDataMapper.TICKS_PER_STEP,
                     DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_SPLIT);
-          } else if (nd != null && nd.length() > 2) {
-            int hexLen = nd.length() - 2;
-            int charsPerNote =
-                (hexLen % DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT == 0)
-                    ? DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT
-                    : DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_OLD;
+          } else if (ndIterFill != null && ndIterFill.length() > 2) {
             decodedRow =
                 DelugeNoteDataMapper.decodeRow(
-                    nd, stepCount, DelugeNoteDataMapper.TICKS_PER_STEP, charsPerNote);
+                    ndIterFill,
+                    stepCount,
+                    DelugeNoteDataMapper.TICKS_PER_STEP,
+                    DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_ITERANCE_AND_FILL);
+          } else if (ndLift != null && ndLift.length() > 2) {
+            decodedRow =
+                DelugeNoteDataMapper.decodeRow(
+                    ndLift,
+                    stepCount,
+                    DelugeNoteDataMapper.TICKS_PER_STEP,
+                    DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT);
+          } else if (nd != null && nd.length() > 2) {
+            decodedRow =
+                DelugeNoteDataMapper.decodeRow(
+                    nd,
+                    stepCount,
+                    DelugeNoteDataMapper.TICKS_PER_STEP,
+                    DelugeNoteDataMapper.HEX_CHARS_PER_NOTE_LIFT);
           }
           if (decodedRow != null && ri < snap.getGrid().size()) {
             snap.getGrid().set(ri, decodedRow);
