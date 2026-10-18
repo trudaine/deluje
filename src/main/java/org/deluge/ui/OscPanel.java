@@ -54,7 +54,8 @@ public class OscPanel extends JPanel {
             + " (issue #33).";
 
     JComboBox<String> osc1LoopCombo = new JComboBox<>(loopModes);
-    osc1LoopCombo.setSelectedIndex(model.getOsc1LoopMode());
+    osc1LoopCombo.setSelectedIndex(
+        Math.max(0, Math.min(loopModes.length - 1, model.getOsc1LoopMode())));
     osc1LoopCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     osc1LoopCombo.setForeground(Color.WHITE);
     osc1LoopCombo.setToolTipText(loopModeTip);
@@ -65,6 +66,7 @@ public class OscPanel extends JPanel {
         e -> {
           int idx = osc1LoopCombo.getSelectedIndex();
           model.setOsc1LoopMode(idx);
+          fireProjectChangedIfRunning();
         });
 
     JCheckBox osc1RevBox = new JCheckBox("Play sample in reverse");
@@ -79,6 +81,7 @@ public class OscPanel extends JPanel {
         e -> {
           boolean sel = osc1RevBox.isSelected();
           model.setOsc1Reversed(sel);
+          fireProjectChangedIfRunning();
         });
 
     JCheckBox osc1TsBox = new JCheckBox("Enable time stretching");
@@ -93,6 +96,7 @@ public class OscPanel extends JPanel {
         e -> {
           boolean sel = osc1TsBox.isSelected();
           model.setOsc1TimeStretch(sel);
+          fireProjectChangedIfRunning();
         });
 
     JCheckBox osc1LinBox = new JCheckBox("Linear (smoother, less aliasing)");
@@ -108,10 +112,12 @@ public class OscPanel extends JPanel {
         e -> {
           boolean sel = osc1LinBox.isSelected();
           model.setOsc1LinearInterpolation(sel);
+          fireProjectChangedIfRunning();
         });
 
     JComboBox<String> osc2LoopCombo = new JComboBox<>(loopModes);
-    osc2LoopCombo.setSelectedIndex(model.getOsc2LoopMode());
+    osc2LoopCombo.setSelectedIndex(
+        Math.max(0, Math.min(loopModes.length - 1, model.getOsc2LoopMode())));
     osc2LoopCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     osc2LoopCombo.setForeground(Color.WHITE);
     osc2LoopCombo.setToolTipText(loopModeTip);
@@ -122,6 +128,7 @@ public class OscPanel extends JPanel {
         e -> {
           int idx = osc2LoopCombo.getSelectedIndex();
           model.setOsc2LoopMode(idx);
+          fireProjectChangedIfRunning();
         });
 
     JCheckBox osc2RevBox = new JCheckBox("Play sample in reverse");
@@ -136,6 +143,7 @@ public class OscPanel extends JPanel {
         e -> {
           boolean sel = osc2RevBox.isSelected();
           model.setOsc2Reversed(sel);
+          fireProjectChangedIfRunning();
         });
 
     JCheckBox osc2TsBox = new JCheckBox("Enable time stretching");
@@ -150,6 +158,7 @@ public class OscPanel extends JPanel {
         e -> {
           boolean sel = osc2TsBox.isSelected();
           model.setOsc2TimeStretch(sel);
+          fireProjectChangedIfRunning();
         });
 
     JCheckBox osc2LinBox = new JCheckBox("Linear (smoother, less aliasing)");
@@ -165,6 +174,7 @@ public class OscPanel extends JPanel {
         e -> {
           boolean sel = osc2LinBox.isSelected();
           model.setOsc2LinearInterpolation(sel);
+          fireProjectChangedIfRunning();
         });
 
     JCheckBox syncBox = new JCheckBox("Reset osc 2 phase from osc 1 (hard sync)");
@@ -179,6 +189,7 @@ public class OscPanel extends JPanel {
     syncBox.addActionListener(
         e -> {
           model.setOscillatorSync(syncBox.isSelected());
+          fireProjectChangedIfRunning();
         });
 
     // ── BUILD LEFT PANEL (MIX & OSCILLATOR 1) ──
@@ -345,6 +356,25 @@ public class OscPanel extends JPanel {
             projectModel,
             trackIndex);
 
+    // C gui/menu_item/transpose.h:34-36: source transpose range is -96..+96 semitones.
+    leftRow =
+        SwingSynthConfigDialog.addSlider(
+            leftPanel,
+            cLeft,
+            leftRow,
+            "Transpose:",
+            "Oscillator 1 transpose in semitones (-96 to +96).",
+            -96,
+            96,
+            model.getOsc1Transpose(),
+            val -> {
+              model.setOsc1Transpose(val);
+            },
+            "st",
+            "osc1Transpose",
+            projectModel,
+            trackIndex);
+
     cLeft.gridx = 0;
     cLeft.gridy = leftRow;
     cLeft.gridwidth = 1;
@@ -475,9 +505,9 @@ public class OscPanel extends JPanel {
             cRight,
             rightRow,
             "Transpose:",
-            "Oscillator 2 transpose in semitones (-24 to +24).",
-            -24,
-            24,
+            "Oscillator 2 transpose in semitones (-96 to +96).",
+            -96,
+            96,
             model.getOsc2Transpose(),
             val -> {
               model.setOsc2Transpose(val);
@@ -610,6 +640,7 @@ public class OscPanel extends JPanel {
         model.getKeyZones().getOsc2Zones().clear();
       }
 
+      fireProjectChangedIfRunning();
       try {
         Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
         if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine) {
@@ -635,6 +666,12 @@ public class OscPanel extends JPanel {
     SwingKeyZoneMapperDialog dialog =
         new SwingKeyZoneMapperDialog(owner, model, oscIdx, trackIdx, bridge);
     dialog.setVisible(true);
+  }
+
+  private static void fireProjectChangedIfRunning() {
+    if (SwingDelugeApp.mainInstance != null) {
+      SwingDelugeApp.mainInstance.fireProjectChanged();
+    }
   }
 
   private void styleOscButton(JButton btn, Color bg, Color fg) {

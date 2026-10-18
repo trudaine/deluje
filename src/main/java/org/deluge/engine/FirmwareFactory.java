@@ -459,6 +459,12 @@ public class FirmwareFactory {
     // "linearInterpolation" preset flag selects the 2-tap lo-fi path.
     sound.fw2Sound.sourceLinearInterpolation[0] = model.isOsc1LinearInterpolation();
     sound.fw2Sound.sourceLinearInterpolation[1] = model.isOsc2LinearInterpolation();
+    sound.sampleSettings[0].loopMode = model.getOsc1LoopMode();
+    sound.sampleSettings[0].reverse = model.isOsc1Reversed();
+    sound.sampleSettings[0].timestretch = model.isOsc1TimeStretch();
+    sound.sampleSettings[1].loopMode = model.getOsc2LoopMode();
+    sound.sampleSettings[1].reverse = model.isOsc2Reversed();
+    sound.sampleSettings[1].timestretch = model.isOsc2TimeStretch();
     sound.oscTypes[1] = stringToOscType(model.getOsc2Type());
 
     // Map Synth Mode (0=Subtractive, 1=FM, 2=RingMod)
@@ -1723,13 +1729,54 @@ public class FirmwareFactory {
             || destStr.contains("OSCBWAVEINDEX")
             || destStr.contains("OSC2WAVEINDEX")) paramId = Param.LOCAL_OSC_B_WAVE_INDEX;
 
-        // 5. LFO Rates
+        // 5. LFO Rates (C param.cpp:579-584, 683-688: lfo1=GLOBAL_1, lfo2=LOCAL_1,
+        // lfo3=GLOBAL_2, lfo4=LOCAL_2)
         else if (destStr.contains("LFO1RATE")
             || destStr.contains("LFO1FREQ")
-            || destStr.contains("LFO_1_RATE")) paramId = Param.LOCAL_LFO_LOCAL_FREQ_1;
+            || destStr.contains("LFO_1_RATE")) paramId = Param.GLOBAL_LFO_FREQ_1;
         else if (destStr.contains("LFO2RATE")
             || destStr.contains("LFO2FREQ")
-            || destStr.contains("LFO_2_RATE")) paramId = Param.LOCAL_LFO_LOCAL_FREQ_2;
+            || destStr.contains("LFO_2_RATE")) paramId = Param.LOCAL_LFO_LOCAL_FREQ_1;
+        else if (destStr.contains("LFO3RATE")
+            || destStr.contains("LFO3FREQ")
+            || destStr.contains("LFO_3_RATE")) paramId = Param.GLOBAL_LFO_FREQ_2;
+        else if (destStr.contains("LFO4RATE")
+            || destStr.contains("LFO4FREQ")
+            || destStr.contains("LFO_4_RATE")) paramId = Param.LOCAL_LFO_LOCAL_FREQ_2;
+
+        // 5b. Envelope Rates & Sustain (C param.cpp:689-723)
+        else if (destStr.contains("ENV1ATTACK") || destStr.contains("ENV_1_ATTACK"))
+          paramId = Param.LOCAL_ENV_0_ATTACK;
+        else if (destStr.contains("ENV2ATTACK") || destStr.contains("ENV_2_ATTACK"))
+          paramId = Param.LOCAL_ENV_1_ATTACK;
+        else if (destStr.contains("ENV3ATTACK") || destStr.contains("ENV_3_ATTACK"))
+          paramId = Param.LOCAL_ENV_2_ATTACK;
+        else if (destStr.contains("ENV4ATTACK") || destStr.contains("ENV_4_ATTACK"))
+          paramId = Param.LOCAL_ENV_3_ATTACK;
+        else if (destStr.contains("ENV1DECAY") || destStr.contains("ENV_1_DECAY"))
+          paramId = Param.LOCAL_ENV_0_DECAY;
+        else if (destStr.contains("ENV2DECAY") || destStr.contains("ENV_2_DECAY"))
+          paramId = Param.LOCAL_ENV_1_DECAY;
+        else if (destStr.contains("ENV3DECAY") || destStr.contains("ENV_3_DECAY"))
+          paramId = Param.LOCAL_ENV_2_DECAY;
+        else if (destStr.contains("ENV4DECAY") || destStr.contains("ENV_4_DECAY"))
+          paramId = Param.LOCAL_ENV_3_DECAY;
+        else if (destStr.contains("ENV1SUSTAIN") || destStr.contains("ENV_1_SUSTAIN"))
+          paramId = Param.LOCAL_ENV_0_SUSTAIN;
+        else if (destStr.contains("ENV2SUSTAIN") || destStr.contains("ENV_2_SUSTAIN"))
+          paramId = Param.LOCAL_ENV_1_SUSTAIN;
+        else if (destStr.contains("ENV3SUSTAIN") || destStr.contains("ENV_3_SUSTAIN"))
+          paramId = Param.LOCAL_ENV_2_SUSTAIN;
+        else if (destStr.contains("ENV4SUSTAIN") || destStr.contains("ENV_4_SUSTAIN"))
+          paramId = Param.LOCAL_ENV_3_SUSTAIN;
+        else if (destStr.contains("ENV1RELEASE") || destStr.contains("ENV_1_RELEASE"))
+          paramId = Param.LOCAL_ENV_0_RELEASE;
+        else if (destStr.contains("ENV2RELEASE") || destStr.contains("ENV_2_RELEASE"))
+          paramId = Param.LOCAL_ENV_1_RELEASE;
+        else if (destStr.contains("ENV3RELEASE") || destStr.contains("ENV_3_RELEASE"))
+          paramId = Param.LOCAL_ENV_2_RELEASE;
+        else if (destStr.contains("ENV4RELEASE") || destStr.contains("ENV_4_RELEASE"))
+          paramId = Param.LOCAL_ENV_3_RELEASE;
 
         // 6. Delay and Reverb Effects
         else if (destStr.contains("DELAYRATE") || destStr.contains("DELAY_RATE"))
@@ -1739,16 +1786,25 @@ public class FirmwareFactory {
         else if (destStr.contains("REVERBAMOUNT") || destStr.contains("REVERB_SEND"))
           paramId = Param.GLOBAL_REVERB_AMOUNT;
 
-        // 7. Mod FX (Chorus/Flanger/Phaser)
+        // 7. Mod FX (Chorus/Flanger/Phaser), Arp Rate, and Wavefold (C param.cpp:606-607, 737-738)
         else if (destStr.contains("MODFXRATE") || destStr.contains("MOD_FX_RATE"))
           paramId = Param.GLOBAL_MOD_FX_RATE;
         else if (destStr.contains("MODFXDEPTH") || destStr.contains("MOD_FX_DEPTH"))
           paramId = Param.GLOBAL_MOD_FX_DEPTH;
+        else if (destStr.contains("ARPRATE") || destStr.contains("ARP_RATE"))
+          paramId = Param.GLOBAL_ARP_RATE;
+        else if (destStr.contains("WAVEFOLD") || destStr.contains("WAVE_FOLD"))
+          paramId = Param.LOCAL_FOLD;
 
         // 8. Panning (Specific PAN check)
         else if (destStr.contains("PAN")) paramId = Param.LOCAL_PAN;
 
-        // 9. Shielded Specific Volumes (Before generic VOLUME)
+        // 9. Shielded Specific Volumes (Before generic VOLUME; C param.cpp:585-590)
+        else if (destStr.contains("VOLUMEPOSTREVERBSEND")
+            || destStr.contains("VOLUME_POST_REVERB_SEND"))
+          paramId = Param.GLOBAL_VOLUME_POST_REVERB_SEND;
+        else if (destStr.contains("VOLUMEPOSTFX") || destStr.contains("VOLUME_POST_FX"))
+          paramId = Param.GLOBAL_VOLUME_POST_FX;
         else if (destStr.contains("OSCAVOLUME") || destStr.contains("OSC1VOLUME"))
           paramId = Param.LOCAL_OSC_A_VOLUME;
         else if (destStr.contains("OSCBVOLUME") || destStr.contains("OSC2VOLUME"))
