@@ -23,6 +23,7 @@ public class FirmwareDisplay {
 
   public void setWaveformPreview(float[] data) {
     this.waveformPreview = data;
+    virtualOLED.stopScrollTimer();
     // Draw the waveform to the virtual OLED
     virtualOLED.clear();
     if (data != null) {
@@ -52,43 +53,52 @@ public class FirmwareDisplay {
 
   public void setText(String text) {
     this.lastMainText = text;
+    virtualOLED.stopScrollTimer();
     virtualOLED.clear();
     virtualOLED.setLargeFont(true);
-    virtualOLED.drawString(text, 10, 38);
+    virtualOLED.drawString(text != null ? text : "", 10, 38);
     notifyOledListener();
     notifyListener();
   }
 
   public void displayPopup(String text) {
     this.lastPopupText = text;
+    virtualOLED.stopScrollTimer();
     virtualOLED.setLargeFont(true);
-    virtualOLED.drawRect(5, 5, 118, 54, true);
-    virtualOLED.drawString(text, 10, 38);
+    // Clear popup interior to black and draw white outline so white popup text is visible.
+    virtualOLED.drawRect(5, 5, 118, 54, true, false);
+    virtualOLED.drawRect(5, 5, 118, 54, false, true);
+    virtualOLED.drawString(text != null ? text : "", 10, 38);
     notifyOledListener();
     notifyListener();
   }
 
   public void displayNotification(String title, String value) {
     this.lastPopupText = title + ": " + value;
+    virtualOLED.stopScrollTimer();
     virtualOLED.clear();
     virtualOLED.setLargeFont(true);
-    virtualOLED.drawString(title, 5, 22);
-    virtualOLED.drawString(value, 5, 52);
+    virtualOLED.drawString(title != null ? title : "", 5, 22);
+    virtualOLED.drawString(value != null ? value : "", 5, 52);
     notifyOledListener();
     notifyListener();
   }
 
   public void displayContextMenu(String title, String[] options, int selectedIdx) {
+    virtualOLED.stopScrollTimer();
     virtualOLED.clear();
     virtualOLED.setLargeFont(false); // Use the crisp smaller list font to prevent line overlapping!
-    virtualOLED.drawRect(0, 0, 128, 14, true); // Header
-    virtualOLED.drawString(title, 5, 11);
+    virtualOLED.drawRect(0, 0, 128, 14, true); // White header bar
+    virtualOLED.drawString(title != null ? title : "", 5, 11, false); // Black text on white header
 
-    for (int i = 0; i < Math.min(3, options.length); i++) {
-      int idx = (selectedIdx + i) % options.length;
-      int y = 28 + (i * 12);
-      virtualOLED.drawString(options[idx], 10, y);
-      if (i == 0) virtualOLED.drawString(">", 2, y); // Selection cursor
+    if (options != null && options.length > 0) {
+      for (int i = 0; i < Math.min(3, options.length); i++) {
+        int idx = Math.floorMod(selectedIdx + i, options.length);
+        int y = 28 + (i * 12);
+        String opt = options[idx] != null ? options[idx] : "";
+        virtualOLED.drawString(opt, 10, y);
+        if (i == 0) virtualOLED.drawString(">", 2, y); // Selection cursor
+      }
     }
     notifyOledListener();
     notifyListener();
