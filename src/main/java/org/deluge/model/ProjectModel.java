@@ -624,7 +624,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
 
   public void setBpm(float bpm) {
     float old = this.bpm;
-    this.bpm = Math.max(1.0f, Math.min(300.0f, bpm));
+    // C song.cpp:3120, playback_handler.cpp:2265: tempoBPM > 0 up to ~20,000 BPM (no 300 BPM cap).
+    this.bpm = Math.max(1.0f, Math.min(20000.0f, bpm));
     if (old != this.bpm) {
       undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "bpm", old, this.bpm));
     }

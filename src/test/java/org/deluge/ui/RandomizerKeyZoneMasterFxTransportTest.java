@@ -241,6 +241,33 @@ class RandomizerKeyZoneMasterFxTransportTest {
       // Next tap 400 ms later -> 150.0 BPM
       tc.recordTapAt(12_100L);
       assertEquals(150.0f, app.getCurrentProject().getBpm(), 0.05f);
+
+      // Reset after >1100 ms, then tap 10 presses (9 intervals): first interval 400 ms, next 8
+      // intervals 500 ms -> total 4400 ms over 9 intervals (avg 488.888... ms -> 122.727 BPM).
+      // Hardware averages all presses since tapTempoFirstPressTime without an 8-tap window.
+      tc.recordTapAt(20_000L);
+      tc.recordTapAt(20_400L);
+      long t = 20_400L;
+      for (int i = 0; i < 8; i++) {
+        t += 500L;
+        tc.recordTapAt(t);
+      }
+      float expectedAllPressesBpm = (float) (60000.0 / (4400.0 / 9.0));
+      assertEquals(
+          expectedAllPressesBpm,
+          app.getCurrentProject().getBpm(),
+          0.02f,
+          "Tap tempo must average all presses since tapTempoFirstPressTime (no 8-tap window)");
+
+      // Reset after >1100 ms, then tap at 320 BPM (187.5 ms -> 180 ms = 333.33 BPM) to verify
+      // no artificial 300 BPM clamp is applied in tapTempoButtonPress.
+      tc.recordTapAt(30_000L);
+      tc.recordTapAt(30_180L);
+      assertEquals(
+          333.33f,
+          app.getCurrentProject().getBpm(),
+          0.1f,
+          "Tap tempo must not clamp BPM at 300 (C playback_handler.cpp:2867-2869)");
     } finally {
       app.dispose();
       bridge.shutdown();
