@@ -238,18 +238,10 @@ public class KitXmlParser {
           else if ("Off".equalsIgnoreCase(v)) sound.setHpfMode(FilterMode.OFF);
           else sound.setHpfMode(FilterMode.LADDER_12);
         });
-    readAttrOrChildString(
-        soundNode,
-        "mode",
-        v -> {
-          if ("fm".equalsIgnoreCase(v)) {
-            sound.setSynthMode(1);
-          } else if ("ringmod".equalsIgnoreCase(v)) {
-            sound.setSynthMode(2);
-          } else {
-            sound.setSynthMode(0);
-          }
-        });
+    int synthMode = DelugeXmlUtil.synthModeFromSound(soundNode); // C sound.cpp:433-441, 744-750
+    if (synthMode >= 0) {
+      sound.setSynthMode(synthMode);
+    }
     readAttrString(
         soundNode,
         "filterRoute",

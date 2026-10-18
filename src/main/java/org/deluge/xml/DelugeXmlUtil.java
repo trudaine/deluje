@@ -365,6 +365,30 @@ public class DelugeXmlUtil {
    * {@link #attrOrChildText}, whose child lookup uses {@code getElementsByTagName} and so matches a
    * same-named tag anywhere below, this only accepts a direct child.
    */
+  /**
+   * A sound's synth mode as the C loader leaves it (sound.cpp:433-441 "mode", :744-750 legacy
+   * "ringMod"): 0 subtractive, 1 FM, 2 ringmod, or -1 when neither key is present. "mode" goes
+   * through the case-sensitive stringToSynthMode (functions.cpp:823-833); a legacy {@code
+   * ringMod="1"} forces RINGMOD whichever order the two keys come in (a later "mode" never
+   * overrides RINGMOD, :435).
+   */
+  public static int synthModeFromSound(Element soundEl) {
+    int result = -1;
+    String mode = attrOrDirectChildText(soundEl, "mode");
+    if (mode != null) {
+      result =
+          switch (mode.trim()) {
+            case "fm" -> 1;
+            case "ringmod" -> 2;
+            default -> 0;
+          };
+    }
+    if (attrOrDirectChildInt(soundEl, "ringMod", 0) == 1) {
+      result = 2;
+    }
+    return result;
+  }
+
   public static String attrOrDirectChildText(Element el, String name) {
     String val = readAttr(el, name);
     if (val != null && !val.isEmpty()) return val;
