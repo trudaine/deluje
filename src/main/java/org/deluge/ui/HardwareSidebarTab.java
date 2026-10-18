@@ -536,7 +536,7 @@ public class HardwareSidebarTab extends JPanel {
             });
   }
 
-  private String scanDelugePorts(StringBuilder sb) {
+  String scanDelugePorts(StringBuilder sb) {
     String[] outPorts = org.deluge.shadow.midi.MidiOut.list();
     String[] inPorts = org.deluge.shadow.midi.MidiIn.list();
     sb.append("Output ports: ").append(java.util.Arrays.toString(outPorts)).append('\n');
@@ -622,7 +622,7 @@ public class HardwareSidebarTab extends JPanel {
           "→ No cable answered. The Deluge isn't reachable: check the USB is attached to the"
               + " Crostini container (ChromeOS ▸ Settings ▸ USB) and that the Deluge is powered on.");
     }
-    return sb.toString();
+    return working;
   }
 
   private void showSelfTestResult(String text) {
@@ -757,7 +757,9 @@ public class HardwareSidebarTab extends JPanel {
                           java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
                           for (int i = 0; i < sounds.size(); i++) {
                             String sp =
-                                ((org.deluge.model.SoundDrum) sounds.get(i)).getSamplePath();
+                                (sounds.get(i) instanceof org.deluge.model.SoundDrum sd)
+                                    ? sd.getSamplePath()
+                                    : null;
                             if (sp != null && !sp.isEmpty()) {
                               java.io.File sf = new java.io.File(sp);
                               if (!sf.exists() && libraryDir != null) {
@@ -767,10 +769,15 @@ public class HardwareSidebarTab extends JPanel {
                                 missingFiles.add(sp);
                               }
                             }
-                            parent.bridge.setGlobalString(
-                                "g_sample_" + (engineRow + i), sp != null ? sp : "");
-                            parent.bridge.setMute(engineRow + i, false);
-                            parent.bridge.setTrackType(engineRow + i, 0);
+                            int targetRow = engineRow + i;
+                            if (parent.bridge != null
+                                && targetRow >= 0
+                                && targetRow < BridgeContract.TRACKS) {
+                              parent.bridge.setGlobalString(
+                                  "g_sample_" + targetRow, sp != null ? sp : "");
+                              parent.bridge.setMute(targetRow, false);
+                              parent.bridge.setTrackType(targetRow, 0);
+                            }
                           }
                         }
                         engineRow++;
@@ -794,15 +801,8 @@ public class HardwareSidebarTab extends JPanel {
                       parent.bridge.broadcastGlobalEvent(BridgeContract.G_LOAD_TRIGGER);
                     } else if ("KITS".equals(category)) {
                       org.deluge.model.KitTrackModel kit = DelugeXmlParser.parseKit(bis, name);
-                      int baseTrack = 0;
-                      java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
-                      for (int i = 0; i < sounds.size(); i++) {
-                        String sp = ((org.deluge.model.SoundDrum) sounds.get(i)).getSamplePath();
-                        parent.bridge.setGlobalString(
-                            "g_sample_" + (baseTrack + i), sp != null ? sp : "");
-                        parent.bridge.setSamplePath(baseTrack + i, sp != null ? sp : "");
-                        parent.bridge.setMute(baseTrack + i, false);
-                      }
+                      LibrarySidebarTab.syncKitSamplePathsToBridge(
+                          parent.bridge, kit, 0, true, false);
                       if (parent.onTrackAdded != null) {
                         parent.onTrackAdded.accept(kit);
                       } else {

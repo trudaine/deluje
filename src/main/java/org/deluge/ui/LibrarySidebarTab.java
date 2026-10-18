@@ -190,16 +190,7 @@ public class LibrarySidebarTab extends JScrollPane {
                             if ("KITS".equals(finalCategory)) {
                               org.deluge.model.KitTrackModel kit =
                                   DelugeXmlParser.parseKit(is, finalName);
-                              int baseTrack = 0;
-                              java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
-                              for (int i = 0; i < sounds.size(); i++) {
-                                String sp =
-                                    ((org.deluge.model.SoundDrum) sounds.get(i)).getSamplePath();
-                                parent.bridge.setGlobalString(
-                                    "g_sample_" + (baseTrack + i), sp != null ? sp : "");
-                                parent.bridge.setSamplePath(baseTrack + i, sp != null ? sp : "");
-                                parent.bridge.setMute(baseTrack + i, false);
-                              }
+                              syncKitSamplePathsToBridge(parent.bridge, kit, 0, true, false);
                               javax.swing.SwingUtilities.invokeLater(
                                   () -> {
                                     if (parent.onTrackAdded != null) {
@@ -246,8 +237,9 @@ public class LibrarySidebarTab extends JScrollPane {
                                   java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
                                   for (int i = 0; i < sounds.size(); i++) {
                                     String sp =
-                                        ((org.deluge.model.SoundDrum) sounds.get(i))
-                                            .getSamplePath();
+                                        (sounds.get(i) instanceof org.deluge.model.SoundDrum sd)
+                                            ? sd.getSamplePath()
+                                            : null;
                                     if (sp != null && !sp.isEmpty()) {
                                       java.io.File sf =
                                           org.deluge.engine.FirmwareFactory.resolveSample(
@@ -256,10 +248,15 @@ public class LibrarySidebarTab extends JScrollPane {
                                         missingFiles.add(sp);
                                       }
                                     }
-                                    parent.bridge.setGlobalString(
-                                        "g_sample_" + (engineRow + i), sp != null ? sp : "");
-                                    parent.bridge.setMute(engineRow + i, false);
-                                    parent.bridge.setTrackType(engineRow + i, 0);
+                                    int targetRow = engineRow + i;
+                                    if (parent.bridge != null
+                                        && targetRow >= 0
+                                        && targetRow < BridgeContract.TRACKS) {
+                                      parent.bridge.setGlobalString(
+                                          "g_sample_" + targetRow, sp != null ? sp : "");
+                                      parent.bridge.setMute(targetRow, false);
+                                      parent.bridge.setTrackType(targetRow, 0);
+                                    }
                                   }
                                 }
                                 engineRow++;
@@ -363,12 +360,46 @@ public class LibrarySidebarTab extends JScrollPane {
         } else {
           String fn = k.getName();
           if (fn.toLowerCase().endsWith(".xml") || fn.toLowerCase().endsWith(".ck")) {
-            String label = fn.substring(0, fn.length() - 4);
-            node.add(new DefaultMutableTreeNode(label));
+            node.add(new DefaultMutableTreeNode(stripPresetExtension(fn)));
           }
         }
       }
     }
+  }
+
+  static String stripPresetExtension(String fn) {
+    if (fn == null) return "";
+    int dotIdx = fn.lastIndexOf('.');
+    return dotIdx > 0 ? fn.substring(0, dotIdx) : fn;
+  }
+
+  static void syncKitSamplePathsToBridge(
+      BridgeContract bridge,
+      org.deluge.model.KitTrackModel kit,
+      int baseTrack,
+      boolean setSamplePath,
+      boolean setTrackType) {
+    if (bridge == null || kit == null) return;
+    java.util.List<org.deluge.model.Drum> sounds = kit.getDrums();
+    for (int i = 0; i < sounds.size(); i++) {
+      int targetRow = baseTrack + i;
+      if (targetRow < 0 || targetRow >= BridgeContract.TRACKS) break;
+      String sp =
+          (sounds.get(i) instanceof org.deluge.model.SoundDrum sd) ? sd.getSamplePath() : null;
+      String safePath = sp != null ? sp : "";
+      bridge.setGlobalString("g_sample_" + targetRow, safePath);
+      if (setSamplePath) {
+        bridge.setSamplePath(targetRow, safePath);
+      }
+      bridge.setMute(targetRow, false);
+      if (setTrackType) {
+        bridge.setTrackType(targetRow, 0);
+      }
+    }
+  }
+
+  JTree getLibraryTreeForTest() {
+    return libraryTree;
   }
 
   private File getLocalFileForPath(javax.swing.tree.TreePath path) {

@@ -77,6 +77,7 @@ public class LibraryPicker extends JDialog {
   private final DefaultListModel<String> listModel = new DefaultListModel<>();
   private final JList<String> list = new JList<>(listModel);
   private SwingWaveformPanel preview;
+  private volatile javax.sound.sampled.Clip activeAuditionClip;
 
   private LibraryPicker(Component anchor, Scope scope, String currentPath, List<Action> actions) {
     // Modal: a modeless popover parented to a config DIALOG renders behind it (z-order) and the
@@ -199,6 +200,40 @@ public class LibraryPicker extends JDialog {
     new LibraryPicker(anchor, scope, currentPath, actions).setVisible(true);
   }
 
+  static LibraryPicker createForTest(
+      Component anchor, Scope scope, String currentPath, List<Action> actions) {
+    return new LibraryPicker(anchor, scope, currentPath, actions);
+  }
+
+  JList<String> getListForTest() {
+    return list;
+  }
+
+  void setActiveAuditionClipForTest(javax.sound.sampled.Clip clip) {
+    this.activeAuditionClip = clip;
+  }
+
+  @Override
+  public void dispose() {
+    stopAuditionClip();
+    super.dispose();
+  }
+
+  private void stopAuditionClip() {
+    javax.sound.sampled.Clip clip = activeAuditionClip;
+    activeAuditionClip = null;
+    if (clip != null) {
+      try {
+        clip.stop();
+      } catch (Exception ignored) {
+      }
+      try {
+        clip.close();
+      } catch (Exception ignored) {
+      }
+    }
+  }
+
   private void scanFiles(Scope scope) {
     allFiles.clear();
     if (root == null || !root.isDirectory()) return;
@@ -233,8 +268,8 @@ public class LibraryPicker extends JDialog {
       if (q.isEmpty() || r.toLowerCase().contains(q)) {
         listModel.addElement(r);
         if (selectPath != null
-            && f.getAbsolutePath().replace('\\', '/').endsWith(r)
-            && selectPath.replace('\\', '/').endsWith(r)) {
+            && pathMatchesRel(f.getAbsolutePath(), r)
+            && pathMatchesRel(selectPath, r)) {
           selectIdx = listModel.size() - 1;
         }
       }
@@ -243,6 +278,13 @@ public class LibraryPicker extends JDialog {
       list.setSelectedIndex(selectIdx);
       list.ensureIndexIsVisible(selectIdx);
     }
+  }
+
+  static boolean pathMatchesRel(String path, String rel) {
+    if (path == null || rel == null || rel.isEmpty()) return false;
+    String normPath = path.replace('\\', '/');
+    String normRel = rel.replace('\\', '/');
+    return normPath.equals(normRel) || normPath.endsWith("/" + normRel);
   }
 
   private File selectedFile() {
@@ -260,17 +302,35 @@ public class LibraryPicker extends JDialog {
   private void auditionSelected() {
     File f = selectedFile();
     if (f == null) return;
+    stopAuditionClip();
     Thread.startVirtualThread(
         () -> {
+          javax.sound.sampled.Clip clip = null;
           try (javax.sound.sampled.AudioInputStream s =
               javax.sound.sampled.AudioSystem.getAudioInputStream(f)) {
-            javax.sound.sampled.Clip clip = javax.sound.sampled.AudioSystem.getClip();
+            clip = javax.sound.sampled.AudioSystem.getClip();
             clip.open(s);
+            activeAuditionClip = clip;
             clip.start();
-            Thread.sleep(2000);
-            clip.close();
+            long maxWaitMs =
+                Math.min(2000L, Math.max(50L, (clip.getMicrosecondLength() / 1000L) + 50L));
+            long waited = 0L;
+            while (waited < maxWaitMs && activeAuditionClip == clip && clip.isOpen()) {
+              Thread.sleep(50L);
+              waited += 50L;
+            }
           } catch (Exception ex) {
             LOGGER.warning("[LibraryPicker] audition failed: " + ex.getMessage());
+          } finally {
+            if (clip != null) {
+              if (activeAuditionClip == clip) {
+                activeAuditionClip = null;
+              }
+              try {
+                clip.close();
+              } catch (Exception ignored) {
+              }
+            }
           }
         });
   }
