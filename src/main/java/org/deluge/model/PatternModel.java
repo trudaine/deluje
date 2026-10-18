@@ -25,6 +25,7 @@ public class PatternModel {
     private final Map<String, float[]> automationData = new HashMap<>();
     private final Map<String, List<org.deluge.modulation.automation.ParamNode>> automationCurves =
         new HashMap<>();
+    private final List<PatchCable> patchCables = new ArrayList<>();
     private final Map<Integer, Map<String, Float>> rowSoundParams = new HashMap<>();
     private final Map<String, Float> kitParams = new HashMap<>();
     private String instrumentSlot = "";
@@ -81,6 +82,9 @@ public class PatternModel {
         }
         snap.automationCurves.put(curveEntry.getKey(), copiedCurve);
       }
+      for (PatchCable pc : clip.getPatchCables()) {
+        snap.patchCables.add(pc.deepCopy());
+      }
       // Deep-copy row sound params
       for (int r = 0; r < clip.getRowCount(); r++) {
         if (clip.hasRowSoundParams(r)) {
@@ -129,6 +133,10 @@ public class PatternModel {
                   node.pos, node.value, node.interpolated));
         }
         clip.getAutomationCurves().put(curveEntry.getKey(), copiedCurve);
+      }
+      clip.getPatchCables().clear();
+      for (PatchCable pc : patchCables) {
+        clip.getPatchCables().add(pc.deepCopy());
       }
       // Clear and apply row sound params
       for (int r = 0; r < rows; r++) {

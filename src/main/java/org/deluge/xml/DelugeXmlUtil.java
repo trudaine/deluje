@@ -521,22 +521,25 @@ public class DelugeXmlUtil {
   }
 
   public static PatchCable parseSinglePatchCable(Element cableElem) {
-    String src = cableElem.getAttribute("source");
-    if (src == null || src.isEmpty()) src = getChildText(cableElem, "source");
-    String dst = cableElem.getAttribute("destination");
-    if (dst == null || dst.isEmpty()) dst = getChildText(cableElem, "destination");
-    String amtStr = cableElem.getAttribute("amount");
-    if (amtStr == null || amtStr.isEmpty()) amtStr = getChildText(cableElem, "amount");
+    return parseSinglePatchCable(cableElem, 0);
+  }
+
+  /**
+   * Parses a single {@code <patchCable>} element (and any nested {@code <depthControlledBy>}) with
+   * optional 16-char automation hex nodes on {@code amount} (C {@code
+   * PatchCableSet::readPatchCablesFromFile}, {@code patch_cable_set.cpp:826-955}).
+   */
+  public static PatchCable parseSinglePatchCable(Element cableElem, int readAutomationUpToPos) {
+    String src = tagOrAttributeValue(cableElem, "source");
+    String dst = tagOrAttributeValue(cableElem, "destination");
+    String amtStr = tagOrAttributeValue(cableElem, "amount");
 
     if (src == null || src.isEmpty() || amtStr == null || amtStr.isEmpty()) {
       return null;
     }
     if (dst == null) dst = "";
 
-    String polarityStr = cableElem.getAttribute("polarity");
-    if (polarityStr == null || polarityStr.isEmpty()) {
-      polarityStr = getChildText(cableElem, "polarity");
-    }
+    String polarityStr = tagOrAttributeValue(cableElem, "polarity");
     PatchCable.Polarity polarityVal = PatchCable.Polarity.BIPOLAR;
     if (polarityStr != null && !polarityStr.isEmpty()) {
       if ("unipolar".equalsIgnoreCase(polarityStr.trim())) {
@@ -552,7 +555,14 @@ public class DelugeXmlUtil {
       }
     }
 
-    float amt = PatchCable.applyScaling(dst.trim(), DelugeHexMapper.hexToFloat(amtStr));
+    String cleanAmt = amtStr.trim();
+    Integer rawAmountQ31 =
+        (cleanAmt.startsWith("0x") || cleanAmt.startsWith("0X"))
+            ? DelugeHexMapper.hexToQ31(cleanAmt)
+            : null;
+    float amt = PatchCable.applyScaling(dst.trim(), DelugeHexMapper.hexToFloat(cleanAmt));
+    List<org.deluge.modulation.automation.ParamNode> automationNodes =
+        DelugeHexMapper.parseHexAutomationNodes(cleanAmt, readAutomationUpToPos);
 
     List<PatchCable> depthCables = new ArrayList<>();
     Element depthParent = getFirstChild(cableElem, "depthControlledBy");
@@ -561,7 +571,7 @@ public class DelugeXmlUtil {
       for (int j = 0; j < nestedList.getLength(); j++) {
         if (nestedList.item(j) instanceof Element nestedEl
             && "patchCable".equals(nestedEl.getTagName())) {
-          PatchCable dc = parseSinglePatchCable(nestedEl);
+          PatchCable dc = parseSinglePatchCable(nestedEl, readAutomationUpToPos);
           if (dc != null) {
             depthCables.add(dc);
           }
@@ -569,7 +579,11 @@ public class DelugeXmlUtil {
       }
     }
 
-    return new PatchCable(src.trim(), dst.trim(), amt, polarityVal, depthCables);
+    PatchCable cable =
+        new PatchCable(
+            src.trim(), dst.trim(), amt, polarityVal, depthCables, automationNodes, rawAmountQ31);
+    // C patch_cable_set.cpp:879, 902 — keep cable only when tempParam.containsSomething(0).
+    return cable.containsSomething() ? cable : null;
   }
 
   public static void parseDefaultVelocity(Element node, TrackModel track) {

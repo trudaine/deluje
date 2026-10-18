@@ -114,4 +114,92 @@ public class PatchCableSet {
     }
     dest.sourcesMask = mask;
   }
+
+  /** C {@code PatchCableSet::readPatchCablesFromFile} ({@code patch_cable_set.cpp:739, 938}). */
+  public boolean mightContainAutomation() {
+    for (Destination d : destinations) {
+      for (PatchCable c : d.cables) {
+        if (!c.param.nodes.isEmpty()) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /** C {@code PatchCableSet::processCurrentPos} ({@code patch_cable_set.cpp:747-749}). */
+  public boolean isAnyCableInterpolating() {
+    for (Destination d : destinations) {
+      for (PatchCable c : d.cables) {
+        if (c.param.hasInterpolationIncrement()) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /** C {@code PatchCableSet::notifyPingpongOccurred} ({@code patch_cable_set.cpp:1181-1189}). */
+  public void notifyPingpongOccurred() {
+    for (Destination d : destinations) {
+      for (PatchCable c : d.cables) {
+        if (c.param.hasInterpolationIncrement()) {
+          c.param.notifyPingpongOccurred();
+        }
+      }
+    }
+  }
+
+  /** C {@code PatchCableSet::setPlayPos} ({@code patch_cable_set.cpp:594-608}). */
+  public void setPlayPos(int pos, int loopLength, boolean reversed) {
+    for (Destination d : destinations) {
+      for (PatchCable c : d.cables) {
+        if (!c.param.nodes.isEmpty()) {
+          c.param.setPlayPos(pos, loopLength, reversed);
+        }
+      }
+    }
+  }
+
+  /** C {@code PatchCableSet::processCurrentPos} ({@code patch_cable_set.cpp:727-752}). */
+  public int processCurrentPos(
+      int currentPos, int loopLength, boolean reversed, boolean didPingpong) {
+    int minTicksTilNextEvent = Integer.MAX_VALUE;
+    for (Destination d : destinations) {
+      for (PatchCable c : d.cables) {
+        if (!c.param.nodes.isEmpty()) {
+          int dist = c.param.processCurrentPos(currentPos, loopLength, reversed, didPingpong, true);
+          if (dist < minTicksTilNextEvent) {
+            minTicksTilNextEvent = dist;
+          }
+        }
+      }
+    }
+    return minTicksTilNextEvent;
+  }
+
+  /** C {@code PatchCableSet::tickSamples} ({@code patch_cable_set.cpp:576-592}). */
+  public void tickSamples(int numSamples, int timePerTimerTickInverse) {
+    for (Destination d : destinations) {
+      for (PatchCable c : d.cables) {
+        if (c.param.hasInterpolationIncrement()) {
+          c.param.tickSamples(numSamples, timePerTimerTickInverse);
+        }
+      }
+    }
+  }
+
+  /**
+   * Advances tick-domain cable slopes when {@code !mayInterpolate} (C {@code patch_cable_set.h:60}
+   * is empty only because Sound/Drum always set {@code mayInterpolate = true}).
+   */
+  public void tickTicks(int numTicks) {
+    for (Destination d : destinations) {
+      for (PatchCable c : d.cables) {
+        if (c.param.hasInterpolationIncrement()) {
+          c.param.tickTicks(numTicks);
+        }
+      }
+    }
+  }
 }

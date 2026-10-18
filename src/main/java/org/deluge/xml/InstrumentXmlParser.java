@@ -1080,14 +1080,30 @@ public class InstrumentXmlParser {
   }
 
   private static void parsePatchCables(Element soundNode, SynthTrackModel synth) {
+    parsePatchCables(soundNode, synth, 0);
+  }
+
+  private static void parsePatchCables(
+      Element soundNode, SynthTrackModel synth, int readAutomationUpToPos) {
     Element pcContainer = getFirstChild(soundNode, "patchCables");
     if (pcContainer != null) {
       synth.getModulation().getPatchCables().clear();
     }
     Element scanRoot = pcContainer != null ? pcContainer : soundNode;
-    for (PatchCable pc : parsePatchCableList(scanRoot)) {
+    for (PatchCable pc : parsePatchCableList(scanRoot, readAutomationUpToPos)) {
       synth.getModulation().addPatchCable(pc);
     }
+  }
+
+  /**
+   * Parses {@code <patchCables>} (or direct {@code <patchCable>} children) under {@code container}
+   * with optional automation up to {@code readAutomationUpToPos}.
+   */
+  public static List<PatchCable> parsePatchCablesFromContainer(
+      Element container, int readAutomationUpToPos) {
+    Element pcContainer = getFirstChild(container, "patchCables");
+    Element scanRoot = pcContainer != null ? pcContainer : container;
+    return parsePatchCableList(scanRoot, readAutomationUpToPos);
   }
 
   /**
@@ -1099,7 +1115,7 @@ public class InstrumentXmlParser {
    * collected first, "range"-destination cables are held aside, then folded into the
    * rangeAdjustable-flagged cable's depthControlledBy list once the whole file is scanned.
    */
-  private static List<PatchCable> parsePatchCableList(Element scanRoot) {
+  public static List<PatchCable> parsePatchCableList(Element scanRoot, int readAutomationUpToPos) {
     java.util.List<PatchCable> cables = new java.util.ArrayList<>();
     java.util.List<PatchCable> legacyRangeCables = new java.util.ArrayList<>();
     String rangeAdjustableSource = null;
@@ -1110,7 +1126,7 @@ public class InstrumentXmlParser {
           || !"patchCable".equals(cableElem.getTagName())) {
         continue;
       }
-      PatchCable pc = parseSinglePatchCable(cableElem);
+      PatchCable pc = parseSinglePatchCable(cableElem, readAutomationUpToPos);
       if (pc == null) {
         continue;
       }
@@ -1136,7 +1152,15 @@ public class InstrumentXmlParser {
           java.util.List<PatchCable> merged = new java.util.ArrayList<>(pc.depthControlledBy());
           merged.addAll(legacyRangeCables);
           cables.set(
-              i, new PatchCable(pc.source(), pc.destination(), pc.amount(), pc.polarity(), merged));
+              i,
+              new PatchCable(
+                  pc.source(),
+                  pc.destination(),
+                  pc.amount(),
+                  pc.polarity(),
+                  merged,
+                  pc.automationNodes(),
+                  pc.rawAmountQ31()));
           break;
         }
       }
@@ -1993,6 +2017,11 @@ public class InstrumentXmlParser {
   }
 
   public static void parseClipSoundParamsStatics(Element sp, SynthTrackModel synth) {
+    parseClipSoundParamsStatics(sp, synth, 0);
+  }
+
+  public static void parseClipSoundParamsStatics(
+      Element sp, SynthTrackModel synth, int readAutomationUpToPos) {
     // The shared param table (same names as the preset defaultParams).
     for (FieldBinding<?> b : DEFAULT_PARAMS_BINDINGS) {
       b.applyTo(sp, synth);
@@ -2109,11 +2138,11 @@ public class InstrumentXmlParser {
       synth.getRawKnobs().setRawParamKnob(Param.LOCAL_ENV_0_SUSTAIN + i, sustainKnob);
     }
 
-    // Patch cables (the clip's set is authoritative in the song format).
+    // Patch cables (the clip's set is authoritative in the song format; C sound.cpp:4043-4046).
     NodeList cables = sp.getElementsByTagName("patchCable");
     if (cables.getLength() > 0) {
       synth.getModulation().getPatchCables().clear();
-      parsePatchCables(sp, synth);
+      parsePatchCables(sp, synth, readAutomationUpToPos);
     }
   }
 

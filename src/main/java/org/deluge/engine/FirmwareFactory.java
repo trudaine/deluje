@@ -951,6 +951,16 @@ public class FirmwareFactory {
         cable.amount = (int) (Math.max(-1f, Math.min(1f, amt)) * 2147483647.0);
         sound.paramManager.getPatchCableSet().addCable(paramId, cable);
       }
+    } else if (model != null && !model.getClips().isEmpty()) {
+      int activeIdx = model.getActiveClipIndex();
+      if (activeIdx >= 0 && activeIdx < model.getClips().size()) {
+        org.deluge.model.ClipModel clipModel = model.getClips().get(activeIdx);
+        if (!clipModel.getPatchCables().isEmpty()) {
+          // C instrument_clip.cpp:2781-2809 -> Sound::readParamsFromFile (sound.cpp:4043-4046):
+          // a >=1.2.0 clip's own <soundParams><patchCables> populates its fresh PatchCableSet.
+          mapPatchCables(clipModel.getPatchCables(), sound);
+        }
+      }
     }
 
     // Map step automation from the active clip
@@ -1673,6 +1683,12 @@ public class FirmwareFactory {
         }
       }
       if (rowModel != null) {
+        if (!rowModel.getPatchCables().isEmpty()) {
+          // C note_row.cpp:3288-3292 -> Sound::readParamsFromFile (sound.cpp:4043-4046):
+          // row-level <soundParams><patchCables> replaces the drum's default patch cable set.
+          drumSound.paramManager.getPatchCableSet().destinations.clear();
+          mapPatchCables(rowModel.getPatchCables(), drumSound);
+        }
         for (java.util.Map.Entry<String, java.util.List<org.deluge.modulation.automation.ParamNode>>
             entry : rowModel.getAutomationCurves().entrySet()) {
           int paramId = getParamIdFromName(entry.getKey());
@@ -1957,10 +1973,17 @@ public class FirmwareFactory {
 
         if (paramId != -1) {
           PatchSource source = stringToPatchSource(pcm.source());
-          int amount = (int) (pcm.amount() * 2147483647.0);
+          int amount = pcm.resolveAmountQ31();
           PatchCable engineCable = new PatchCable();
           engineCable.from = source;
           engineCable.amount = amount;
+          engineCable.param.currentValue = amount;
+          for (org.deluge.modulation.automation.ParamNode node : pcm.automationNodes()) {
+            engineCable.param.addNode(node.pos, node.value, node.interpolated);
+          }
+          if (!pcm.automationNodes().isEmpty()) {
+            sound.paramManager.ticksTilNextEvent = 0;
+          }
           if (pcm.polarity() == org.deluge.model.PatchCable.Polarity.UNIPOLAR) {
             engineCable.polarity = org.deluge.modulation.patch.PatchCable.Polarity.UNIPOLAR;
           } else {
@@ -1972,10 +1995,17 @@ public class FirmwareFactory {
           if (pcm.depthControlledBy() != null) {
             for (org.deluge.model.PatchCable dc : pcm.depthControlledBy()) {
               PatchSource dcSource = stringToPatchSource(dc.source());
-              int dcAmount = (int) (dc.amount() * 2147483647.0);
+              int dcAmount = dc.resolveAmountQ31();
               PatchCable dcEngineCable = new PatchCable();
               dcEngineCable.from = dcSource;
               dcEngineCable.amount = dcAmount;
+              dcEngineCable.param.currentValue = dcAmount;
+              for (org.deluge.modulation.automation.ParamNode node : dc.automationNodes()) {
+                dcEngineCable.param.addNode(node.pos, node.value, node.interpolated);
+              }
+              if (!dc.automationNodes().isEmpty()) {
+                sound.paramManager.ticksTilNextEvent = 0;
+              }
               if (dc.polarity() == org.deluge.model.PatchCable.Polarity.UNIPOLAR) {
                 dcEngineCable.polarity = org.deluge.modulation.patch.PatchCable.Polarity.UNIPOLAR;
               } else {
