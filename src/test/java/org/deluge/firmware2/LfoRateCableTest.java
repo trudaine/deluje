@@ -201,4 +201,51 @@ class LfoRateCableTest {
         sound.delayState.userDelayRate > uncabledDelayRate,
         "Cabled GLOBAL_DELAY_RATE must reach delayState.userDelayRate (sound.cpp:2504)");
   }
+
+  @Test
+  void firmwareSoundPreservesGlobalSourceValuesAcrossSyncParamsToFw2() {
+    org.deluge.engine.FirmwareSound synth = new org.deluge.engine.FirmwareSound();
+    synth.lfoWaveforms[2] = Lfo.LfoType.SQUARE;
+    synth.fw2Sound.lfoConfig[0].syncLevel = Lfo.SyncLevel.NONE;
+    synth.fw2Sound.lfoConfig[2].syncLevel = Lfo.SyncLevel.NONE;
+    synth.fw2Sound.globalLfos[1].phase = 0; // LFO2 (lfoConfig[2]) SQUARE at phase 0 -> +INT_MAX
+    synth.paramNeutralValues[Param.GLOBAL_LFO_FREQ_1] = 0;
+    synth.paramNeutralValues[Param.GLOBAL_LFO_FREQ_2] = Integer.MIN_VALUE;
+
+    org.deluge.modulation.patch.PatchCable cable = new org.deluge.modulation.patch.PatchCable();
+    cable.from = org.deluge.modulation.patch.PatchSource.LFO_GLOBAL_2;
+    cable.amount = 0x3FFFFFFF;
+    synth.paramManager.getPatchCableSet().addCable(Param.GLOBAL_LFO_FREQ_1, cable);
+
+    synth.triggerNote(60, 100);
+    org.deluge.engine.FirmwareAudioEngine engine = new org.deluge.engine.FirmwareAudioEngine();
+    engine.sounds.add(synth);
+    int unmodulatedInc = Patcher.computeFinalValueForParam(Param.GLOBAL_LFO_FREQ_1, 0);
+
+    // Block 0: LFO1 reads pre-render LFO2 (0), then LFO2 renders +INT_MAX into globalSourceValues.
+    engine.renderBlock(128);
+    assertEquals(
+        unmodulatedInc * 128,
+        synth.fw2Sound.globalLfos[0].phase,
+        "Block 0 LFO1 phase must advance at unmodulated rate before LFO2 first renders");
+    assertTrue(
+        synth.fw2Sound.globalSourceValues[PatchSource.LFO_GLOBAL_2.ordinal()] > 0,
+        "Block 0 LFO2 must store positive output in fw2Sound.globalSourceValues");
+
+    // Block 1: FirmwareSound.renderInternal calls syncParamsToFw2() first. That sync must NOT wipe
+    // fw2Sound.globalSourceValues back to 0 (sound.cpp:2396-2421, 2723-2729).
+    int phaseAfterBlock0 = synth.fw2Sound.globalLfos[0].phase;
+    int expectedModulatedInc =
+        synth.fw2Sound.getGlobalLFOPhaseIncrement(
+            synth.fw2Sound.lfoConfig[0], Param.GLOBAL_LFO_FREQ_1);
+    assertTrue(
+        expectedModulatedInc > unmodulatedInc,
+        "Expected modulated LFO1 increment to exceed unmodulated increment");
+
+    engine.renderBlock(128);
+    assertEquals(
+        phaseAfterBlock0 + expectedModulatedInc * 128,
+        synth.fw2Sound.globalLfos[0].phase,
+        "FirmwareSound.syncParamsToFw2 must preserve globalSourceValues so block 1 LFO1 runs at modulated rate");
+  }
 }
