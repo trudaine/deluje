@@ -26,6 +26,9 @@ public class AudioOutput extends GlobalEffectable {
 
   public void setReversed(boolean reversed) {
     this.reversed = reversed;
+    if (!playing && sample != null) {
+      armVoiceSample();
+    }
   }
 
   public boolean isReversed() {
@@ -63,6 +66,9 @@ public class AudioOutput extends GlobalEffectable {
 
   public void setLoopLengthSamples(int frames) {
     this.loopLengthSamples = Math.max(0, frames);
+    if (!playing && sample != null) {
+      armVoiceSample();
+    }
   }
 
   // Phase 3b part 2 — arrangement placement. Each entry is a [startTick, endTick) timeline window
@@ -115,27 +121,42 @@ public class AudioOutput extends GlobalEffectable {
     activeRangeIdx = idx;
   }
 
+  /**
+   * Arms {@link #voiceSample} from the directional start of the clip using the current {@link
+   * #reversed}, {@link #looping}, {@link #loopLengthSamples}, and {@link #timeStretch} settings.
+   *
+   * <p>C SamplePlaybackGuide::setupPlaybackBounds (sample_playback_guide.cpp:71-81): forward bounds
+   * are {@code [0, endFrame)}; reverse bounds are {@code [endFrame - 1, -1)}.
+   */
+  private void armVoiceSample() {
+    if (sample == null) {
+      return;
+    }
+    int endPos = endFrame();
+    int dir = reversed ? -1 : 1;
+    int start = reversed ? (endPos - 1) : 0;
+    int end = reversed ? -1 : endPos;
+    int loopStart = start;
+    if (timeStretch) {
+      voiceSample.setupTimeStretch(sample, start, end, dir, looping, loopStart, false, end);
+    } else {
+      voiceSample.setup(sample, start, end, dir, looping, loopStart);
+    }
+  }
+
   /** Load the clip's sample and arm it for (looping) playback from the start. */
   public void setClip(Sample sample, boolean looping) {
     this.sample = sample;
     this.looping = looping;
     if (sample != null) {
-      int dir = reversed ? -1 : 1;
-      int start = reversed ? endFrame() : 0;
-      int end = reversed ? 0 : endFrame();
-      int loopStart = reversed ? endFrame() : 0;
-      voiceSample.setup(sample, start, end, dir, looping, loopStart);
+      armVoiceSample();
     }
   }
 
   public void setPlaying(boolean p) {
     this.playing = p;
     if (p && sample != null) {
-      int dir = reversed ? -1 : 1;
-      int start = reversed ? endFrame() : 0;
-      int end = reversed ? 0 : endFrame();
-      int loopStart = reversed ? endFrame() : 0;
-      voiceSample.setup(sample, start, end, dir, looping, loopStart);
+      armVoiceSample();
     }
   }
 
@@ -145,15 +166,7 @@ public class AudioOutput extends GlobalEffectable {
    */
   public void onTransportStart() {
     if (sample != null) {
-      int dir = reversed ? -1 : 1;
-      int start = reversed ? endFrame() : 0;
-      int end = reversed ? 0 : endFrame();
-      int loopStart = reversed ? endFrame() : 0;
-      if (timeStretch) {
-        voiceSample.setupTimeStretch(sample, start, dir);
-      } else {
-        voiceSample.setup(sample, start, end, dir, looping, loopStart);
-      }
+      armVoiceSample();
       playing = true;
     }
   }
@@ -176,6 +189,7 @@ public class AudioOutput extends GlobalEffectable {
    * together (resample). {@code true}: rate changes speed only (time-stretch), pitch unchanged.
    */
   public void setPlayback(float playRate, boolean pitchSpeedIndependent) {
+    boolean modeChanged = (this.timeStretch != pitchSpeedIndependent);
     this.timeStretch = pitchSpeedIndependent;
     if (playRate <= 0f) playRate = 1f;
     if (pitchSpeedIndependent) {
@@ -184,6 +198,9 @@ public class AudioOutput extends GlobalEffectable {
     } else {
       phaseIncrement = (int) Math.round((double) UNITY_PHASE * playRate); // pitch+speed coupled
       timeStretchRatio = UNITY_PHASE;
+    }
+    if (sample != null && (!playing || modeChanged)) {
+      armVoiceSample();
     }
   }
 
