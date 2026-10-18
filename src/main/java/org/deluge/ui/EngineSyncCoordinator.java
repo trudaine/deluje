@@ -1163,8 +1163,8 @@ public class EngineSyncCoordinator {
     if (type == null) return 0;
     return switch (type.trim().toUpperCase(java.util.Locale.ROOT)) {
       case "NONE" -> 0;
-      case "CHORUS" -> 1;
-      case "FLANGER" -> 2;
+      case "FLANGER" -> 1;
+      case "CHORUS" -> 2;
       case "PHASER" -> 3;
       case "CHORUS_STEREO", "STEREOCHORUS" -> 4;
       case "WARBLE", "TAPEWARBLE" -> 5;

@@ -49,8 +49,8 @@ class EngineSyncPianoRollLfoPadDialogsTest {
     assertEquals(4L, oscTypeArr.getInt(0), "NOISE should map to noise osc ordinal 4");
 
     assertEquals(0, EngineSyncCoordinator.modFxTypeOrdinal("none"));
-    assertEquals(1, EngineSyncCoordinator.modFxTypeOrdinal("chorus"));
-    assertEquals(2, EngineSyncCoordinator.modFxTypeOrdinal("flanger"));
+    assertEquals(1, EngineSyncCoordinator.modFxTypeOrdinal("flanger"));
+    assertEquals(2, EngineSyncCoordinator.modFxTypeOrdinal("chorus"));
     assertEquals(3, EngineSyncCoordinator.modFxTypeOrdinal("phaser"));
     assertEquals(4, EngineSyncCoordinator.modFxTypeOrdinal("StereoChorus"));
     assertEquals(4, EngineSyncCoordinator.modFxTypeOrdinal("CHORUS_STEREO"));
