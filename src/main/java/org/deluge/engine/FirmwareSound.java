@@ -21,7 +21,7 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
 
   // Legacy FirmwareVoice path retired — always routes through firmware2.
 
-  public final org.deluge.firmware2.Sound fw2Sound = new org.deluge.firmware2.Sound();
+  public final org.deluge.firmware2.Sound fw2Sound;
   private int[] fw2ScratchBuffer = null;
   // Transport clock seams: updated each render block by the PlaybackHandler so the
   // SamplePlaybackGuide sync methods (getSyncedNumSamplesIn, adjustPitchToCorrectDriftFromSync)
@@ -85,9 +85,9 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   public final int[] monophonicExpressionValues = new int[3]; // X, Y, Z
 
   // C: firmware2 Arpeggiator — faithful port of modulation/arpeggiator.cpp.
-  public final org.deluge.firmware2.Arpeggiator.Synth arpeggiator = fw2Sound.arpeggiator;
-  public final org.deluge.firmware2.Arpeggiator.Settings arpSettings = fw2Sound.arpSettings;
-  private final org.deluge.firmware2.Arpeggiator.ArpReturnInstruction arpInstr = fw2Sound.arpInstr;
+  public final org.deluge.firmware2.Arpeggiator.Synth arpeggiator;
+  public final org.deluge.firmware2.Arpeggiator.Settings arpSettings;
+  private final org.deluge.firmware2.Arpeggiator.ArpReturnInstruction arpInstr;
   public int arpDivision =
       16; // step note division (16 = 16th note); used to derive arpPhaseIncrement
   public float arpRateMultiplier = 1.0f; // free-rate multiplier on the BPM-derived arp step
@@ -183,7 +183,7 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     return arpSettings.mode != org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
   }
 
-  public final Sidechain sidechain = fw2Sound.sidechain;
+  public final Sidechain sidechain;
   public final org.deluge.modulation.params.ParamManager paramManager =
       new org.deluge.modulation.params.ParamManager();
   private int silentBlockCount = 200; // Starts gated on boot
@@ -206,6 +206,15 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   private int lastSyncedArpPhaseIncrement = 0;
 
   public FirmwareSound() {
+    this(new org.deluge.firmware2.Sound());
+  }
+
+  FirmwareSound(org.deluge.firmware2.Sound fw2Sound) {
+    this.fw2Sound = fw2Sound;
+    this.arpeggiator = fw2Sound.arpeggiator;
+    this.arpSettings = fw2Sound.arpSettings;
+    this.arpInstr = fw2Sound.arpInstr;
+    this.sidechain = fw2Sound.sidechain;
     this.postReverbVolumeLastTime = -1; // C sound.cpp:94 — grab actual value on first render
     for (int i = 0; i < 256; i++) fxStereoBuffer[i] = new StereoSample();
     for (int i = 0; i < globalLfos.length; i++) globalLfos[i] = new org.deluge.firmware2.Lfo();

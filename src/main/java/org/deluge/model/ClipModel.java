@@ -644,6 +644,12 @@ public class ClipModel extends TimelineCounter {
     setSequenceDirectionMode(mode);
   }
 
+  public boolean isRowCurrentlyPlayingReversed(NoteRowModel row) {
+    return row != null
+        ? row.isCurrentlyPlayingReversed(currentlyPlayingReversed, sequenceDirectionMode)
+        : currentlyPlayingReversed;
+  }
+
   /**
    * C Clip::setSequenceDirectionMode (clip.cpp:1041-1055): updates {@link #sequenceDirectionMode}
    * and, when not switching to {@link SequenceDirection#PINGPONG}, sets {@link

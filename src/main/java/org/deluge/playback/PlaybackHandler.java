@@ -1154,8 +1154,7 @@ public class PlaybackHandler {
   /**
    * C Session::doTickForward (session.cpp:2522-2535): at every playback event, each output's
    * arpeggiator gets doTickForwardForArp with its active clip's position; the result joins the
-   * next-event deadline. Synth sounds and per-drum arps; the kit-level arp (kitArp,
-   * kit.cpp:1136-1222) is not yet wired.
+   * next-event deadline: synth sounds, the kit-level arp, then each drum's own arp.
    */
   private int doTickForwardForArps() {
     int next = Integer.MAX_VALUE;
@@ -1168,12 +1167,27 @@ public class PlaybackHandler {
         next = Math.min(next, t);
       }
       if (clip.getSound() instanceof org.deluge.engine.FirmwareKit kit) {
-        // C Kit::doTickForwardForArp (kit.cpp:1223-1240): each drum's own arpeggiator ticks at
-        // its row's position. Rows with independent play positions are not modelled here.
-        for (org.deluge.engine.FirmwareSound drum : kit.drumSounds) {
-          int t =
-              drum.fw2Sound.doTickForwardForArp(
-                  clip.lastProcessedPos, clip.currentlyPlayingReversed);
+        // C Kit::doTickForwardForArp (kit.cpp:1136-1217): the kit arp ticks first...
+        next =
+            Math.min(
+                next,
+                kit.doTickForwardForKitArp(clip.lastProcessedPos, clip.currentlyPlayingReversed));
+        // ...then (kit.cpp:1223-1240) each drum's own arpeggiator ticks at its row's own
+        // position and direction (honouring independent per-row play pos & sequenceDirection).
+        for (int drumIdx = 0; drumIdx < kit.drumSounds.size(); drumIdx++) {
+          org.deluge.model.NoteRowModel rowModel = null;
+          for (org.deluge.model.NoteRowModel r : clip.getNoteRowsMap().values()) {
+            if (r.getPitch() == drumIdx) {
+              rowModel = r;
+              break;
+            }
+          }
+          int rowPos =
+              (rowModel != null && rowModel.hasIndependentPlayPos())
+                  ? rowModel.getLastProcessedPosIfIndependent()
+                  : clip.lastProcessedPos;
+          boolean rowRev = clip.isRowCurrentlyPlayingReversed(rowModel);
+          int t = kit.drumSounds.get(drumIdx).fw2Sound.doTickForwardForArp(rowPos, rowRev);
           next = Math.min(next, t);
         }
       }
@@ -1189,6 +1203,7 @@ public class PlaybackHandler {
         fs.fw2Sound.arpeggiator.playbackClockActive = active;
       }
       if (clip.getSound() instanceof org.deluge.engine.FirmwareKit kit) {
+        kit.arpeggiator.playbackClockActive = active;
         for (org.deluge.engine.FirmwareSound drum : kit.drumSounds) {
           drum.fw2Sound.arpeggiator.playbackClockActive = active;
         }

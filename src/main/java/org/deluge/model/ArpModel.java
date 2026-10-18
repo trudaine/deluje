@@ -86,7 +86,7 @@ public record ArpModel(
         0,
         // New fields
         2, // numOctaves
-        0, // kitArp
+        1, // kitArp (C arpeggiator.h:76 — includeInKitArp{true})
         0, // randomizerLock
         0, // lastLockedNoteProb
         "00000000000000000000000000000000",

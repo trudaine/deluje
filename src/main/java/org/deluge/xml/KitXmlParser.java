@@ -570,10 +570,17 @@ public class KitXmlParser {
           sidechainEl, "syncType", 0, v -> sound.setSidechainSyncType(syncTypeFromFile(v)));
     }
 
-    // arpeggiator
+    // arpeggiator (C sound.cpp:962-975 / arpeggiator.cpp:1648-1788 — full per-drum arpeggiator
+    // including kitArp="0/1", syncLevel, mode/noteMode/octaveMode, randomizer & pattern fields)
     Element arpEl = getFirstChild(soundNode, "arpeggiator");
     if (arpEl != null) {
-      sound.setArpeggiatorGate(DelugeHexMapper.hexToFloat(readAttr(arpEl, "gate")));
+      sound.setArp(
+          InstrumentXmlParser.parseArpElement(
+              arpEl, InstrumentXmlParser.SONG_INPUT_TICK_MAGNITUDE.get(), false));
+      String gateRaw = readAttr(arpEl, "gate");
+      if (gateRaw != null && !gateRaw.isBlank()) {
+        sound.setArpeggiatorGate(DelugeHexMapper.hexToFloat(gateRaw));
+      }
     }
 
     // modKnobs
@@ -782,6 +789,32 @@ public class KitXmlParser {
     readHexFloatUnipolar(dp, "reverbAmount", sound::setReverbAmount);
     readHexFloatUnipolar(dp, "arpeggiatorGate", sound::setArpeggiatorGate);
     readHexFloatUnipolar(dp, "arpeggiatorRate", sound::setArpeggiatorRate);
+    // Preserve lossless raw Q31 knobs on drum <defaultParams> for arp/randomizer unpatched params
+    // (C mod_controllable_audio.cpp:557-708, arpeggiator.cpp:1968-1983).
+    for (String arpParamTag :
+        new String[] {
+          "arpeggiatorGate",
+          "arpeggiatorRate",
+          "ratchetAmount",
+          "ratchetProbability",
+          "chordPolyphony",
+          "chordProbability",
+          "reverseProbability",
+          "bassProbability",
+          "swapProbability",
+          "glideProbability",
+          "noteProbability",
+          "sequenceLength",
+          "rhythm",
+          "spreadVelocity",
+          "spreadGate",
+          "spreadOctave"
+        }) {
+      String rawArpHex = attrOrChildText(dp, arpParamTag);
+      if (rawArpHex != null && !rawArpHex.isBlank()) {
+        sound.setRawDefaultParamQ31(arpParamTag, DelugeHexMapper.hexToQ31(rawArpHex));
+      }
+    }
     readHexFloatUnipolar(dp, "portamento", sound::setPortamento);
     readHexFloatUnipolar(dp, "stutterRate", sound::setStutterRate);
     readHexFloatUnipolar(dp, "sampleRateReduction", sound::setSampleRateReduction);
@@ -1057,6 +1090,13 @@ public class KitXmlParser {
           directDelay, "syncType", 0, v -> kit.setDelaySyncType(syncTypeFromFile(v)));
     }
 
+    Element kitArpEl = directChild(kitNode, "arpeggiator");
+    if (kitArpEl != null) {
+      kit.setArp(
+          InstrumentXmlParser.parseArpElement(
+              kitArpEl, InstrumentXmlParser.SONG_INPUT_TICK_MAGNITUDE.get(), false));
+    }
+
     Element kitDp = directChild(kitNode, "defaultParams");
     if (kitDp == null) {
       return;
@@ -1190,6 +1230,29 @@ public class KitXmlParser {
         int q31 = DelugeHexMapper.hexToQ31(v);
         kit.setEqTrebleFreq(DelugeHexMapper.q31ToFloat(q31));
         kit.setRawDefaultParamQ31("equalizer.trebleFrequency", q31);
+      }
+    }
+    for (String kitArpParamTag :
+        new String[] {
+          "arpeggiatorGate",
+          "arpeggiatorRate",
+          "ratchetAmount",
+          "ratchetProbability",
+          "chordPolyphony",
+          "chordProbability",
+          "reverseProbability",
+          "bassProbability",
+          "swapProbability",
+          "glideProbability",
+          "noteProbability",
+          "sequenceLength",
+          "rhythm",
+          "spreadVelocity",
+          "spreadGate",
+          "spreadOctave"
+        }) {
+      if ((v = attrOrDirectChildText(kitDp, kitArpParamTag)) != null && !v.isBlank()) {
+        kit.setRawDefaultParamQ31(kitArpParamTag, DelugeHexMapper.hexToQ31(v));
       }
     }
   }

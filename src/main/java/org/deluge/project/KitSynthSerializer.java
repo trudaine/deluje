@@ -251,6 +251,9 @@ public class KitSynthSerializer {
                 : DelugeHexMapper.floatToQ31(kit.getEqTrebleFreq())));
     kitDp.appendChild(kitDpEq);
     root.appendChild(kitDp);
+    if (kit.getArp() != null) {
+      appendSoundArpeggiator(doc, root, kit.getArp());
+    }
 
     // C kit.cpp:132, 241 — kit drums are serialized inside <soundSources>.
     Element soundSources = doc.createElement("soundSources");
@@ -416,6 +419,9 @@ public class KitSynthSerializer {
       appendTextAttr(unison, "detune", String.valueOf(Math.round(sound.getUnisonDetune())));
       appendTextAttr(unison, "spread", String.valueOf(Math.round(sound.getUnisonStereoSpread())));
       soundElem.appendChild(unison);
+
+      // ── arpeggiator (C sound.cpp:4253) ──
+      appendSoundArpeggiator(doc, soundElem, sound.getArp());
 
       // ── compressor, sidechain, & stutter (C mod_controllable_audio.cpp:447-486) ──
       if (sound.getCompressorAttack() > 0
@@ -854,6 +860,112 @@ public class KitSynthSerializer {
     return root;
   }
 
+  private static void appendSoundArpeggiator(
+      Document doc, Element parent, org.deluge.model.ArpModel arpModel) {
+    if (arpModel == null) {
+      return;
+    }
+    Element arp = doc.createElement("arpeggiator");
+    // C writeCommonParamsToFile (arpeggiator.cpp): "mode" = arpModeToString, "arp" or "off".
+    arp.setAttribute("mode", arpModel.active() ? "arp" : "off");
+    arp.setAttribute("active", arpModel.active() ? "1" : "0");
+    arp.setAttribute(org.deluge.xml.ArpXmlCodec.FORMAT_ATTR, org.deluge.xml.ArpXmlCodec.FORMAT_C);
+    arp.setAttribute("sequenceLength", String.valueOf(arpModel.seqLength()));
+    arp.setAttribute("arpMode", arpModel.active() ? "arp" : "off");
+    if (arpModel.notePattern() != null && !arpModel.notePattern().isEmpty()) {
+      arp.setAttribute("notePattern", arpModel.notePattern());
+    }
+    arp.setAttribute("chordType", String.valueOf(arpModel.chordType()));
+
+    // The ARP panel edits octaves(); numOctaves() is only what was last parsed.
+    arp.setAttribute("numOctaves", String.valueOf(arpModel.octaves()));
+    arp.setAttribute(
+        "syncType", String.valueOf(org.deluge.xml.ArpXmlCodec.syncTypeToFile(arpModel.syncType())));
+    arp.setAttribute(
+        "mpeVelocity", org.deluge.xml.ArpXmlCodec.mpeVelocityToFile(arpModel.mpeVelocity()));
+    arp.setAttribute("kitArp", String.valueOf(arpModel.kitArp()));
+    arp.setAttribute("randomizerLock", String.valueOf(arpModel.randomizerLock()));
+
+    arp.setAttribute("lastLockedNoteProb", String.valueOf(arpModel.lastLockedNoteProb()));
+    if (arpModel.lockedNoteProbArray() != null && !arpModel.lockedNoteProbArray().isEmpty()) {
+      arp.setAttribute("lockedNoteProbArray", arpModel.lockedNoteProbArray());
+    }
+
+    arp.setAttribute("lastLockedBassProb", String.valueOf(arpModel.lastLockedBassProb()));
+    if (arpModel.lockedBassProbArray() != null && !arpModel.lockedBassProbArray().isEmpty()) {
+      arp.setAttribute("lockedBassProbArray", arpModel.lockedBassProbArray());
+    }
+
+    arp.setAttribute("lastLockedSwapProb", String.valueOf(arpModel.lastLockedSwapProb()));
+    if (arpModel.lockedSwapProbArray() != null && !arpModel.lockedSwapProbArray().isEmpty()) {
+      arp.setAttribute("lockedSwapProbArray", arpModel.lockedSwapProbArray());
+    }
+
+    arp.setAttribute("lastLockedGlideProb", String.valueOf(arpModel.lastLockedGlideProb()));
+    if (arpModel.lockedGlideProbArray() != null && !arpModel.lockedGlideProbArray().isEmpty()) {
+      arp.setAttribute("lockedGlideProbArray", arpModel.lockedGlideProbArray());
+    }
+
+    arp.setAttribute("lastLockedReverseProb", String.valueOf(arpModel.lastLockedReverseProb()));
+    if (arpModel.lockedReverseProbArray() != null && !arpModel.lockedReverseProbArray().isEmpty()) {
+      arp.setAttribute("lockedReverseProbArray", arpModel.lockedReverseProbArray());
+    }
+
+    arp.setAttribute("lastLockedChordProb", String.valueOf(arpModel.lastLockedChordProb()));
+    if (arpModel.lockedChordProbArray() != null && !arpModel.lockedChordProbArray().isEmpty()) {
+      arp.setAttribute("lockedChordProbArray", arpModel.lockedChordProbArray());
+    }
+
+    arp.setAttribute("lastLockedRatchetProb", String.valueOf(arpModel.lastLockedRatchetProb()));
+    if (arpModel.lockedRatchetProbArray() != null && !arpModel.lockedRatchetProbArray().isEmpty()) {
+      arp.setAttribute("lockedRatchetProbArray", arpModel.lockedRatchetProbArray());
+    }
+
+    arp.setAttribute(
+        "lastLockedVelocitySpread", String.valueOf(arpModel.lastLockedVelocitySpread()));
+    if (arpModel.lockedVelocitySpreadArray() != null
+        && !arpModel.lockedVelocitySpreadArray().isEmpty()) {
+      arp.setAttribute("lockedVelocitySpreadArray", arpModel.lockedVelocitySpreadArray());
+    }
+
+    arp.setAttribute("lastLockedGateSpread", String.valueOf(arpModel.lastLockedGateSpread()));
+    if (arpModel.lockedGateSpreadArray() != null && !arpModel.lockedGateSpreadArray().isEmpty()) {
+      arp.setAttribute("lockedGateSpreadArray", arpModel.lockedGateSpreadArray());
+    }
+
+    arp.setAttribute("lastLockedOctaveSpread", String.valueOf(arpModel.lastLockedOctaveSpread()));
+    if (arpModel.lockedOctaveSpreadArray() != null
+        && !arpModel.lockedOctaveSpreadArray().isEmpty()) {
+      arp.setAttribute("lockedOctaveSpreadArray", arpModel.lockedOctaveSpreadArray());
+    }
+    appendHexChild(doc, arp, "rate", arpModel.rate());
+    appendTextChild(doc, arp, "octaves", String.valueOf(arpModel.octaves()));
+    appendHexChild(doc, arp, "gate", arpModel.gate());
+    // A preset is written without a song; the C would use the current song's magnitude.
+    appendTextChild(
+        doc,
+        arp,
+        "syncLevel",
+        String.valueOf(
+            org.deluge.xml.ArpXmlCodec.syncFileValueFromDenominator(
+                arpModel.syncLevel(), org.deluge.xml.ArpXmlCodec.DEFAULT_INPUT_TICK_MAGNITUDE)));
+    appendTextChild(
+        doc, arp, "noteMode", org.deluge.xml.ArpXmlCodec.noteModeToFile(arpModel.noteMode()));
+    appendTextChild(
+        doc, arp, "octaveMode", org.deluge.xml.ArpXmlCodec.octaveModeToFile(arpModel.octaveMode()));
+    appendTextChild(doc, arp, "stepRepeat", String.valueOf(arpModel.stepRepeat()));
+    appendTextChild(doc, arp, "rhythmIndex", String.valueOf(arpModel.rhythmIndex()));
+    appendTextChild(doc, arp, "seqLength", String.valueOf(arpModel.seqLength()));
+    appendHexChild(doc, arp, "octaveSpread", arpModel.octaveSpread());
+    appendHexChild(doc, arp, "gateSpread", arpModel.gateSpread());
+    appendHexChild(doc, arp, "velSpread", arpModel.velSpread());
+    appendTextChild(doc, arp, "ratchetAmount", String.valueOf(arpModel.ratchetAmount()));
+    appendTextChild(doc, arp, "noteProbability", String.valueOf(arpModel.noteProbability()));
+    appendTextChild(doc, arp, "chordPolyphony", String.valueOf(arpModel.chordPolyphony()));
+    appendTextChild(doc, arp, "chordProbability", String.valueOf(arpModel.chordProbability()));
+    parent.appendChild(arp);
+  }
+
   public static void saveSynth(SynthTrackModel synth, File file) throws Exception {
     Document doc = newDoc();
     Element root = serializeSynth(doc, synth, false);
@@ -1027,122 +1139,7 @@ public class KitSynthSerializer {
     root.appendChild(unison);
 
     // ── arpeggiator ──
-    Element arp = doc.createElement("arpeggiator");
-    // C writeCommonParamsToFile (arpeggiator.cpp): "mode" = arpModeToString, "arp" or "off".
-    arp.setAttribute("mode", synth.getArp().active() ? "arp" : "off");
-    arp.setAttribute("active", synth.getArp().active() ? "1" : "0");
-    arp.setAttribute(org.deluge.xml.ArpXmlCodec.FORMAT_ATTR, org.deluge.xml.ArpXmlCodec.FORMAT_C);
-    arp.setAttribute("sequenceLength", String.valueOf(synth.getArp().seqLength()));
-    arp.setAttribute("arpMode", synth.getArp().active() ? "arp" : "off");
-    if (synth.getArp().notePattern() != null && !synth.getArp().notePattern().isEmpty()) {
-      arp.setAttribute("notePattern", synth.getArp().notePattern());
-    }
-    arp.setAttribute("chordType", String.valueOf(synth.getArp().chordType()));
-
-    // The ARP panel edits octaves(); numOctaves() is only what was last parsed.
-    arp.setAttribute("numOctaves", String.valueOf(synth.getArp().octaves()));
-    arp.setAttribute(
-        "syncType",
-        String.valueOf(org.deluge.xml.ArpXmlCodec.syncTypeToFile(synth.getArp().syncType())));
-    arp.setAttribute(
-        "mpeVelocity", org.deluge.xml.ArpXmlCodec.mpeVelocityToFile(synth.getArp().mpeVelocity()));
-    arp.setAttribute("kitArp", String.valueOf(synth.getArp().kitArp()));
-    arp.setAttribute("randomizerLock", String.valueOf(synth.getArp().randomizerLock()));
-
-    arp.setAttribute("lastLockedNoteProb", String.valueOf(synth.getArp().lastLockedNoteProb()));
-    if (synth.getArp().lockedNoteProbArray() != null
-        && !synth.getArp().lockedNoteProbArray().isEmpty()) {
-      arp.setAttribute("lockedNoteProbArray", synth.getArp().lockedNoteProbArray());
-    }
-
-    arp.setAttribute("lastLockedBassProb", String.valueOf(synth.getArp().lastLockedBassProb()));
-    if (synth.getArp().lockedBassProbArray() != null
-        && !synth.getArp().lockedBassProbArray().isEmpty()) {
-      arp.setAttribute("lockedBassProbArray", synth.getArp().lockedBassProbArray());
-    }
-
-    arp.setAttribute("lastLockedSwapProb", String.valueOf(synth.getArp().lastLockedSwapProb()));
-    if (synth.getArp().lockedSwapProbArray() != null
-        && !synth.getArp().lockedSwapProbArray().isEmpty()) {
-      arp.setAttribute("lockedSwapProbArray", synth.getArp().lockedSwapProbArray());
-    }
-
-    arp.setAttribute("lastLockedGlideProb", String.valueOf(synth.getArp().lastLockedGlideProb()));
-    if (synth.getArp().lockedGlideProbArray() != null
-        && !synth.getArp().lockedGlideProbArray().isEmpty()) {
-      arp.setAttribute("lockedGlideProbArray", synth.getArp().lockedGlideProbArray());
-    }
-
-    arp.setAttribute(
-        "lastLockedReverseProb", String.valueOf(synth.getArp().lastLockedReverseProb()));
-    if (synth.getArp().lockedReverseProbArray() != null
-        && !synth.getArp().lockedReverseProbArray().isEmpty()) {
-      arp.setAttribute("lockedReverseProbArray", synth.getArp().lockedReverseProbArray());
-    }
-
-    arp.setAttribute("lastLockedChordProb", String.valueOf(synth.getArp().lastLockedChordProb()));
-    if (synth.getArp().lockedChordProbArray() != null
-        && !synth.getArp().lockedChordProbArray().isEmpty()) {
-      arp.setAttribute("lockedChordProbArray", synth.getArp().lockedChordProbArray());
-    }
-
-    arp.setAttribute(
-        "lastLockedRatchetProb", String.valueOf(synth.getArp().lastLockedRatchetProb()));
-    if (synth.getArp().lockedRatchetProbArray() != null
-        && !synth.getArp().lockedRatchetProbArray().isEmpty()) {
-      arp.setAttribute("lockedRatchetProbArray", synth.getArp().lockedRatchetProbArray());
-    }
-
-    arp.setAttribute(
-        "lastLockedVelocitySpread", String.valueOf(synth.getArp().lastLockedVelocitySpread()));
-    if (synth.getArp().lockedVelocitySpreadArray() != null
-        && !synth.getArp().lockedVelocitySpreadArray().isEmpty()) {
-      arp.setAttribute("lockedVelocitySpreadArray", synth.getArp().lockedVelocitySpreadArray());
-    }
-
-    arp.setAttribute("lastLockedGateSpread", String.valueOf(synth.getArp().lastLockedGateSpread()));
-    if (synth.getArp().lockedGateSpreadArray() != null
-        && !synth.getArp().lockedGateSpreadArray().isEmpty()) {
-      arp.setAttribute("lockedGateSpreadArray", synth.getArp().lockedGateSpreadArray());
-    }
-
-    arp.setAttribute(
-        "lastLockedOctaveSpread", String.valueOf(synth.getArp().lastLockedOctaveSpread()));
-    if (synth.getArp().lockedOctaveSpreadArray() != null
-        && !synth.getArp().lockedOctaveSpreadArray().isEmpty()) {
-      arp.setAttribute("lockedOctaveSpreadArray", synth.getArp().lockedOctaveSpreadArray());
-    }
-    appendHexChild(doc, arp, "rate", synth.getArp().rate());
-    appendTextChild(doc, arp, "octaves", String.valueOf(synth.getArp().octaves()));
-    appendHexChild(doc, arp, "gate", synth.getArp().gate());
-    // A preset is written without a song; the C would use the current song's magnitude.
-    appendTextChild(
-        doc,
-        arp,
-        "syncLevel",
-        String.valueOf(
-            org.deluge.xml.ArpXmlCodec.syncFileValueFromDenominator(
-                synth.getArp().syncLevel(),
-                org.deluge.xml.ArpXmlCodec.DEFAULT_INPUT_TICK_MAGNITUDE)));
-    appendTextChild(
-        doc, arp, "noteMode", org.deluge.xml.ArpXmlCodec.noteModeToFile(synth.getArp().noteMode()));
-    appendTextChild(
-        doc,
-        arp,
-        "octaveMode",
-        org.deluge.xml.ArpXmlCodec.octaveModeToFile(synth.getArp().octaveMode()));
-    appendTextChild(doc, arp, "stepRepeat", String.valueOf(synth.getArp().stepRepeat()));
-    appendTextChild(doc, arp, "rhythmIndex", String.valueOf(synth.getArp().rhythmIndex()));
-    appendTextChild(doc, arp, "seqLength", String.valueOf(synth.getArp().seqLength()));
-    appendHexChild(doc, arp, "octaveSpread", synth.getArp().octaveSpread());
-    appendHexChild(doc, arp, "gateSpread", synth.getArp().gateSpread());
-    appendHexChild(doc, arp, "velSpread", synth.getArp().velSpread());
-    appendTextChild(doc, arp, "ratchetAmount", String.valueOf(synth.getArp().ratchetAmount()));
-    appendTextChild(doc, arp, "noteProbability", String.valueOf(synth.getArp().noteProbability()));
-    appendTextChild(doc, arp, "chordPolyphony", String.valueOf(synth.getArp().chordPolyphony()));
-    appendTextChild(
-        doc, arp, "chordProbability", String.valueOf(synth.getArp().chordProbability()));
-    root.appendChild(arp);
+    appendSoundArpeggiator(doc, root, synth.getArp());
 
     // ── delay (C mod_controllable_audio.cpp:417-425 — unconditional) ──
     Element delay = doc.createElement("delay");

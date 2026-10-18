@@ -36,6 +36,9 @@ public abstract class Drum {
   protected LfoModel lfo3 = LfoModel.defaultConfig(true);
   protected LfoModel lfo4 = LfoModel.defaultConfig(false);
 
+  // Per-drum arpeggiator & kitArp inclusion flag (C sound_drum.h:59, arpeggiator.h:76)
+  protected ArpModel arp = ArpModel.defaultConfig();
+
   // Delay (C sound.cpp:154, 156: GLOBAL_DELAY_RATE = 0 -> 0.5f, GLOBAL_DELAY_FEEDBACK = INT_MIN ->
   // 0.0f)
   protected float delayRate = 0.5f;
@@ -845,6 +848,14 @@ public abstract class Drum {
   public void setArpeggiatorGate(float v) {
     this.arpeggiatorGate = v;
     rawDefaultParamQ31.remove("arpeggiatorGate");
+  }
+
+  public ArpModel getArp() {
+    return arp;
+  }
+
+  public void setArp(ArpModel arp) {
+    this.arp = arp != null ? arp : ArpModel.defaultConfig();
   }
 
   public float getPortamento() {

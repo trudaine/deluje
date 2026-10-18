@@ -158,7 +158,9 @@ public class ArpeggiatorSynth extends ArpeggiatorBase {
           arpNote.noteCodeOnPostArp[n] = Arpeggiator.ARP_NOTE_NONE;
           arpNote.noteStatus[n] = ArpNoteStatus.OFF;
         }
-        instruction.invertReversed = isPlayReverseForCurrentStep;
+        // C arpeggiator.cpp:218-220, 382 — XOR kit arp's invertReversed with this step's reverse
+        instruction.invertReversed =
+            invertReversedFromKitArp ? !isPlayReverseForCurrentStep : isPlayReverseForCurrentStep;
         instruction.arpNoteOn = arpNote;
       }
     }
@@ -408,9 +410,11 @@ public class ArpeggiatorSynth extends ArpeggiatorBase {
         }
       }
 
-      instruction.invertReversed = out.shouldPlayReverseNote; // C:1417
-      active_note.copyFrom(arpNote); // C:1418 — struct copy, not pointer
-      instruction.arpNoteOn = active_note; // C:1419
+      // C arpeggiator.cpp:880, 1446 — XOR kit arp's invertReversed with this arp note's reverse
+      instruction.invertReversed =
+          invertReversedFromKitArp ? !out.shouldPlayReverseNote : out.shouldPlayReverseNote;
+      active_note.copyFrom(arpNote); // C:1447 — struct copy, not pointer
+      instruction.arpNoteOn = active_note; // C:1448
 
       // C:1422-1424 — glide
       if (isPlayGlideForCurrentStep && !isRatcheting) {

@@ -5,7 +5,6 @@ import org.deluge.firmware2.Arpeggiator.*;
 /** Extracted ArpeggiatorForDrum subclass from Arpeggiator.java. */
 public class ArpeggiatorForDrum extends ArpeggiatorBase {
   public int noteForDrum;
-  public boolean invertReversedFromKitArp;
 
   public ArpeggiatorForDrum() {
     active_note.velocity = 0; // C:73
