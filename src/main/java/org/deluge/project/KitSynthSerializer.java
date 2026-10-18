@@ -79,7 +79,8 @@ public class KitSynthSerializer {
         appendTextChild(doc, osc1, "timeStretchEnable", sound.isOsc1TimeStretch() ? "1" : "0");
         appendTextChild(
             doc, osc1, "linearInterpolation", sound.isOsc1LinearInterpolation() ? "1" : "0");
-        appendTextChild(doc, osc1, "timeStretchAmount", "0");
+        appendTextChild(
+            doc, osc1, "timeStretchAmount", String.valueOf(sound.getOsc1TimeStretchAmount()));
         appendTextChild(
             doc, osc1, "wavetableIndexPct", String.valueOf(sound.getWavetableIndexPct()));
         Element zone = doc.createElement("zone");
@@ -100,7 +101,8 @@ public class KitSynthSerializer {
         appendTextChild(doc, osc2, "timeStretchEnable", sound.isOsc2TimeStretch() ? "1" : "0");
         appendTextChild(
             doc, osc2, "linearInterpolation", sound.isOsc2LinearInterpolation() ? "1" : "0");
-        appendTextChild(doc, osc2, "timeStretchAmount", "0");
+        appendTextChild(
+            doc, osc2, "timeStretchAmount", String.valueOf(sound.getOsc2TimeStretchAmount()));
         appendTextChild(
             doc,
             osc2,
@@ -359,6 +361,11 @@ public class KitSynthSerializer {
         synth.getOsc1LoopMode(),
         synth.isOsc1Reversed(),
         synth.isOsc1TimeStretch());
+    if (synth.getOsc1SamplePath() != null && !synth.getOsc1SamplePath().isEmpty()) {
+      // C sound.cpp:3636 — writeAttribute("timeStretchAmount", source->timeStretchAmount)
+      appendTextChild(
+          doc, osc1, "timeStretchAmount", String.valueOf(synth.getOsc1TimeStretchAmount()));
+    }
     if (synth.getDx7Patch() != null && !synth.getDx7Patch().isEmpty()) {
       osc1.setAttribute("dx7patch", synth.getDx7Patch());
     }
@@ -377,6 +384,11 @@ public class KitSynthSerializer {
         synth.getOsc2LoopMode(),
         synth.isOsc2Reversed(),
         synth.isOsc2TimeStretch());
+    if (synth.getOsc2SamplePath() != null && !synth.getOsc2SamplePath().isEmpty()) {
+      // C sound.cpp:3636 — writeAttribute("timeStretchAmount", source->timeStretchAmount)
+      appendTextChild(
+          doc, osc2, "timeStretchAmount", String.valueOf(synth.getOsc2TimeStretchAmount()));
+    }
     root.appendChild(osc2);
 
     // ── polyphonic ──

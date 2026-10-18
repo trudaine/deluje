@@ -29,7 +29,8 @@ public class SoundDrum extends Drum {
   private int osc2LoopMode = 0;
   private boolean osc2Reversed = false;
   private boolean osc2TimeStretch = false;
-  private float osc2TimeStretchAmount = 0.0f;
+  private int osc1TimeStretchAmount = 0; // C source.h:51 — int8_t, -48..48
+  private int osc2TimeStretchAmount = 0;
   private boolean osc2LinearInterpolation = false;
   private int wavetableIndexPct = 50; // default middle wavetable scanning position
 
@@ -194,12 +195,20 @@ public class SoundDrum extends Drum {
     this.osc2TimeStretch = v;
   }
 
-  public float getOsc2TimeStretchAmount() {
+  public int getOsc2TimeStretchAmount() {
     return osc2TimeStretchAmount;
   }
 
-  public void setOsc2TimeStretchAmount(float v) {
-    this.osc2TimeStretchAmount = v;
+  public int getOsc1TimeStretchAmount() {
+    return osc1TimeStretchAmount;
+  }
+
+  public void setOsc1TimeStretchAmount(int v) {
+    this.osc1TimeStretchAmount = Math.max(-48, Math.min(48, v));
+  }
+
+  public void setOsc2TimeStretchAmount(int v) {
+    this.osc2TimeStretchAmount = Math.max(-48, Math.min(48, v));
   }
 
   public boolean isOsc2LinearInterpolation() {

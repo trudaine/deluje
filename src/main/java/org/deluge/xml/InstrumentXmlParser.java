@@ -258,7 +258,9 @@ public class InstrumentXmlParser {
       }
       readBoolAttrOrChild(osc1, "reversed", synth::setOsc1Reversed);
       readBoolAttrOrChild(osc1, "timeStretchEnable", synth::setOsc1TimeStretch);
-      readAttrFloatHex(osc1, "timeStretchAmount", synth::setOsc1TimeStretchAmount, true);
+      // C sound.cpp:3423-3425 — int8_t, readTagOrAttributeValueInt
+      synth.setOsc1TimeStretchAmount(
+          DelugeXmlUtil.attrOrDirectChildInt(osc1, "timeStretchAmount", 0));
       readBoolAttrOrChild(osc1, "linearInterpolation", v -> synth.setOsc1LinearInterpolation(v));
       // Osc1 transpose (semitones) + cents (fine detune). Presets use the CHILD-element form
       // (<osc1><transpose>12</transpose>), so read attribute-or-child. Carrier-A transpose is
@@ -342,7 +344,9 @@ public class InstrumentXmlParser {
       }
       readBoolAttrOrChild(osc2, "reversed", synth::setOsc2Reversed);
       readBoolAttrOrChild(osc2, "timeStretchEnable", synth::setOsc2TimeStretch);
-      readAttrFloatHex(osc2, "timeStretchAmount", synth::setOsc2TimeStretchAmount, true);
+      // C sound.cpp:3423-3425 — int8_t, readTagOrAttributeValueInt
+      synth.setOsc2TimeStretchAmount(
+          DelugeXmlUtil.attrOrDirectChildInt(osc2, "timeStretchAmount", 0));
       readBoolAttrOrChild(osc2, "linearInterpolation", synth::setOsc2LinearInterpolation);
       // Osc2 sample fileName (attribute or child element)
       String osc2fn = osc2.getAttribute("fileName");

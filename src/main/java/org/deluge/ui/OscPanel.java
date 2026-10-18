@@ -314,14 +314,15 @@ public class OscPanel extends JPanel {
             cLeft,
             leftRow,
             "TS Amount:",
-            "Time stretch amount (0-100%). Only relevant when time stretch is enabled.",
-            0,
-            100,
-            (int) (model.getOsc1TimeStretchAmount() * 100),
+            "Time stretch amount (-48 to +48). Speeds up or slows down the sample without"
+                + " changing its pitch.",
+            -48, // C gui/menu_item/sample/time_stretch.h — int8_t -48..48
+            48,
+            model.getOsc1TimeStretchAmount(),
             val -> {
-              model.setOsc1TimeStretchAmount(val / 100f);
+              model.setOsc1TimeStretchAmount(val);
             },
-            "%",
+            "",
             "osc1TsAmt",
             projectModel,
             trackIndex);
@@ -437,14 +438,15 @@ public class OscPanel extends JPanel {
             cRight,
             rightRow,
             "TS Amount:",
-            "Time stretch amount (0-100%). Only relevant when time stretch is enabled.",
-            0,
-            100,
-            (int) (model.getOsc2TimeStretchAmount() * 100),
+            "Time stretch amount (-48 to +48). Speeds up or slows down the sample without"
+                + " changing its pitch.",
+            -48, // C gui/menu_item/sample/time_stretch.h — int8_t -48..48
+            48,
+            model.getOsc2TimeStretchAmount(),
             val -> {
-              model.setOsc2TimeStretchAmount(val / 100f);
+              model.setOsc2TimeStretchAmount(val);
             },
-            "%",
+            "",
             "osc2TsAmt",
             projectModel,
             trackIndex);

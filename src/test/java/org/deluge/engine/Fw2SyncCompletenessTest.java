@@ -68,6 +68,7 @@ class Fw2SyncCompletenessTest {
           "sampleLoopEnd",
           "sampleReverse",
           "sampleTimestretch",
+          "sampleTimeStretchAmount",
           "arpPhaseIncrement",
           "sidechainSend",
           "delayUserRate",

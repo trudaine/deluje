@@ -192,6 +192,9 @@ public class ProjectSerializer {
             writer.writeAttribute("reversed", sound.isReverse() ? "1" : "0", false);
             writer.writeAttribute(
                 "timeStretchEnable", sound.isOsc1TimeStretch() ? "1" : "0", false);
+            // C sound.cpp:3636
+            writer.writeAttribute(
+                "timeStretchAmount", String.valueOf(sound.getOsc1TimeStretchAmount()), false);
             writer.writeAttribute(
                 "linearInterpolation", sound.isOsc1LinearInterpolation() ? "1" : "0", false);
             writer.closeTag();
@@ -459,6 +462,9 @@ public class ProjectSerializer {
             writer.writeAttribute("reversed", synth.isOsc1Reversed() ? "1" : "0", false);
             writer.writeAttribute(
                 "timeStretchEnable", synth.isOsc1TimeStretch() ? "1" : "0", false);
+            // C sound.cpp:3636
+            writer.writeAttribute(
+                "timeStretchAmount", String.valueOf(synth.getOsc1TimeStretchAmount()), false);
           }
           if (synth.getDx7Patch() != null) {
             writer.writeAttribute("dx7patch", synth.getDx7Patch(), false);
@@ -513,6 +519,9 @@ public class ProjectSerializer {
             writer.writeAttribute("reversed", synth.isOsc2Reversed() ? "1" : "0", false);
             writer.writeAttribute(
                 "timeStretchEnable", synth.isOsc2TimeStretch() ? "1" : "0", false);
+            // C sound.cpp:3636
+            writer.writeAttribute(
+                "timeStretchAmount", String.valueOf(synth.getOsc2TimeStretchAmount()), false);
           }
           writer.closeTag();
         }

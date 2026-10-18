@@ -133,7 +133,7 @@ public class DelugeatorRandomizer {
         model.setOsc1LoopMode((int) (Math.random() * 3));
         model.setOsc1Reversed(Math.random() < 0.25);
         model.setOsc1TimeStretch(Math.random() < 0.2);
-        model.setOsc1TimeStretchAmount(getTriangular(0.0f, 1.0f, 0.0f, amt));
+        model.setOsc1TimeStretchAmount((int) getTriangular(-48, 48, 0, amt));
         model.setOsc1Cents((int) getTriangular(-50, 50, 0, amt));
         model.setOsc1LinearInterpolation(Math.random() < 0.5);
       }
@@ -145,7 +145,7 @@ public class DelugeatorRandomizer {
         model.setOsc2LoopMode((int) (Math.random() * 3));
         model.setOsc2Reversed(Math.random() < 0.25);
         model.setOsc2TimeStretch(Math.random() < 0.2);
-        model.setOsc2TimeStretchAmount(getTriangular(0.0f, 1.0f, 0.0f, amt));
+        model.setOsc2TimeStretchAmount((int) getTriangular(-48, 48, 0, amt));
         model.setOsc2Transpose((int) getTriangular(-24, 24, 0, amt));
         model.setOsc2Cents((int) getTriangular(-50, 50, 0, amt));
         model.setOsc2LinearInterpolation(Math.random() < 0.5);
