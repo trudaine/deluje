@@ -724,9 +724,9 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   }
 
   public void releaseNote(int note) {
-    if (isDrum) {
-      lastMidiChannelAuditioned = MIDI_CHANNEL_NONE;
-    }
+    // C note_row.cpp:2623-2630 vs kit.cpp:1970 — sequenced note-offs call releaseNote(note)
+    // directly and must NOT clear lastMidiChannelAuditioned while a live pad is held; live NoteOffs
+    // go through releaseWithLiveMidiChannel / releaseNote(note, midiChannel).
     syncParamsToFw2();
     if (pendingLiveMidiChannel >= 0) {
       fw2Sound.releaseNote(note, pendingLiveMidiChannel);

@@ -339,6 +339,15 @@ class ExpressionSmoothingParityTest {
         0,
         kit.drumSounds.get(0).fw2Sound.voices.get(0).localExpressionSourceValuesBeforeSmoothing[2]);
 
+    // Holding Kick live on MPE channel 5 while a sequenced step releases via kit.releaseDrum(0)
+    // must NOT clear lastMidiChannelAuditioned mid-hold (note_row.cpp:2623-2630 vs kit.cpp:1970)!
+    service.getEngine().midiMessageReceived(MIDIMessage.noteOn(5, 36, 100), null);
+    assertEquals(5, kit.drumSounds.get(0).lastMidiChannelAuditioned);
+    kit.releaseDrum(0);
+    assertEquals(5, kit.drumSounds.get(0).lastMidiChannelAuditioned);
+    service.getEngine().midiMessageReceived(MIDIMessage.noteOff(5, 36, 0), null);
+    assertEquals(FirmwareSound.MIDI_CHANNEL_NONE, kit.drumSounds.get(0).lastMidiChannelAuditioned);
+
     // Pre-NoteOn MPE initial strike expression on channel 4 seeds Synth voice at NoteOn
     // (playback_handler.cpp:3176-3297, melodic_instrument.cpp:106)!
     service.setActiveTrack(0);
