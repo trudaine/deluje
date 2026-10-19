@@ -58,9 +58,28 @@ public class Patcher {
   }
 
   public static class PatchCableSet {
+    private static final class RawCableEntry {
+      final int paramId;
+      final int targetSource;
+      final PatchCable cable;
+
+      RawCableEntry(int paramId, int targetSource, PatchCable cable) {
+        this.paramId = paramId;
+        this.targetSource = targetSource;
+        this.cable = cable;
+      }
+    }
+
+    private final java.util.ArrayList<RawCableEntry> rawEntries = new java.util.ArrayList<>();
     public volatile java.util.List<Destination> destinations = new java.util.ArrayList<>();
 
+    public void clear() {
+      rawEntries.clear();
+      destinations = new java.util.ArrayList<>();
+    }
+
     public void addCable(int paramId, PatchCable cable) {
+      rawEntries.add(new RawCableEntry(paramId, -1, cable));
       Destination dest = null;
       for (Destination d : destinations) {
         if (d.paramId == paramId && d.targetSource < 0) {
@@ -77,6 +96,7 @@ public class Patcher {
     }
 
     public void addRangeCable(int targetParamId, int targetSource, PatchCable cable) {
+      rawEntries.add(new RawCableEntry(targetParamId, targetSource, cable));
       Destination dest = null;
       for (Destination d : destinations) {
         if (d.targetParamId == targetParamId && d.targetSource == targetSource) {
@@ -93,6 +113,173 @@ public class Patcher {
       dest.cables.add(cable);
       dest.sourcesMask |= (1 << cable.source);
     }
+
+    /**
+     * Rebuilds {@link #destinations} from all stored cables using C {@code
+     * PatchCableSet::setupPatching} ({@code patch_cable_set.cpp:157-330, 498-516}), preserving
+     * {@code EDITABLE} / currently inactive cables in {@link #rawEntries} so subsequent calls
+     * re-enable them when the sound's mode, filter, or parameter values change ({@code
+     * sound.cpp:3099}).
+     */
+    public void setupPatching(Sound sound) {
+      setupPatching(sound, null);
+    }
+
+    /**
+     * Two-pass {@code PatchCableSet::setupPatching} with optional timeline {@code paramManager}.
+     */
+    public void setupPatching(Sound sound, org.deluge.modulation.params.ParamManager paramManager) {
+      if (rawEntries.isEmpty() && !destinations.isEmpty()) {
+        for (Destination d : destinations) {
+          int paramId = d.targetSource >= 0 ? d.targetParamId : d.paramId;
+          for (PatchCable c : d.cables) {
+            rawEntries.add(new RawCableEntry(paramId, d.targetSource, c));
+          }
+        }
+      }
+      java.util.ArrayList<Destination> pass1Direct = new java.util.ArrayList<>();
+      java.util.ArrayList<Destination> pass1Range = new java.util.ArrayList<>();
+      // Pass 1 (C patch_cable_set.cpp:160-176, 498-516): keep cables where patchCableIsUsable.
+      for (RawCableEntry entry : rawEntries) {
+        PatchCable src = entry.cable;
+        if (!isCableUsableInPass1(
+            sound, paramManager, src.source, entry.paramId, entry.targetSource)) {
+          continue;
+        }
+        PatchCable copy = new PatchCable();
+        copy.source = src.source;
+        copy.amount = src.amount;
+        copy.polarity = src.polarity;
+        copy.rangeValue = 536870912; // C patch_cable_set.cpp:187 neutralRangeAdjustmentValue
+        if (entry.targetSource < 0) {
+          appendToDestinationList(pass1Direct, entry.paramId, -1, copy);
+        } else {
+          appendToDestinationList(pass1Range, entry.paramId, entry.targetSource, copy);
+        }
+      }
+      // Pass 2 (C patch_cable_set.cpp:182-206): retain range-adjusting cables only when the
+      // target (bottomLevelSource -> destination) cable itself exists in the usable set.
+      java.util.ArrayList<Destination> result = new java.util.ArrayList<>(pass1Direct);
+      for (Destination rangeDest : pass1Range) {
+        if (hasUsableDirectCable(pass1Direct, rangeDest.targetParamId, rangeDest.targetSource)) {
+          result.add(rangeDest);
+        }
+      }
+      destinations = result;
+    }
+  }
+
+  /**
+   * Two-pass C {@code PatchCableSet::setupPatching} ({@code patch_cable_set.cpp:157-330, 498-516})
+   * building active firmware2 {@link Destination}s from {@code paramManager.getPatchCableSet()}
+   * without mutating the model/timeline cable set (so {@code EDITABLE} and temporarily inactive
+   * cables remain intact for save/round-trip and live re-activation).
+   */
+  public static java.util.List<Destination> buildUsableDestinations(
+      Sound sound, org.deluge.modulation.params.ParamManager paramManager) {
+    java.util.ArrayList<Destination> pass1Direct = new java.util.ArrayList<>();
+    java.util.ArrayList<Destination> pass1Range = new java.util.ArrayList<>();
+    for (org.deluge.modulation.patch.Destination d : paramManager.getPatchCableSet().destinations) {
+      int paramId = d.targetSource >= 0 ? d.targetParamId : d.paramId;
+      for (org.deluge.modulation.patch.PatchCable c : d.cables) {
+        int srcOrdinal = c.from.ordinal();
+        if (!isCableUsableInPass1(sound, paramManager, srcOrdinal, paramId, d.targetSource)) {
+          continue;
+        }
+        PatchCable fc = new PatchCable();
+        fc.source = srcOrdinal;
+        fc.amount = c.getAmount();
+        fc.polarity =
+            (c.polarity == org.deluge.modulation.patch.PatchCable.Polarity.UNIPOLAR)
+                ? PatchCable.UNIPOLAR
+                : PatchCable.BIPOLAR;
+        fc.rangeValue = 536870912; // C patch_cable_set.cpp:187 neutralRangeAdjustmentValue
+        if (d.targetSource < 0) {
+          appendToDestinationList(pass1Direct, paramId, -1, fc);
+        } else {
+          appendToDestinationList(pass1Range, paramId, d.targetSource, fc);
+        }
+      }
+    }
+    java.util.ArrayList<Destination> result = new java.util.ArrayList<>(pass1Direct);
+    for (Destination rangeDest : pass1Range) {
+      if (hasUsableDirectCable(pass1Direct, rangeDest.targetParamId, rangeDest.targetSource)) {
+        result.add(rangeDest);
+      }
+    }
+    return result;
+  }
+
+  private static boolean isCableUsableInPass1(
+      Sound sound,
+      org.deluge.modulation.params.ParamManager paramManager,
+      int cableSource,
+      int paramId,
+      int targetSource) {
+    // C patch_cable_set.cpp:498-516 + source_selection.cpp:269-283 + sound.cpp:1342-1354.
+    if (cableSource < 0 || cableSource >= PatchSource.kNumPatchSources) {
+      return false;
+    }
+    if (targetSource < 0) {
+      if (paramId == Param.PLACEHOLDER_RANGE) {
+        return false; // C patch_cable_set.cpp:499-501
+      }
+      return sound.maySourcePatchToParam(cableSource, paramId, paramManager)
+          == Sound.PatchCableAcceptance.ALLOWED;
+    }
+    // Range-adjusting cable: reject sources disallowed on the sound (e.g. NOTE on drums, local
+    // sources on global params), then check whether the adjusted top-level cable is ALLOWED.
+    if (sound.maySourcePatchToParam(cableSource, 255, paramManager)
+        == Sound.PatchCableAcceptance.DISALLOWED) {
+      return false;
+    }
+    if (paramId >= Param.FIRST_GLOBAL && cableSource >= PatchSource.kFirstLocalSource) {
+      return false;
+    }
+    return sound.maySourcePatchToParam(targetSource, paramId, paramManager)
+        == Sound.PatchCableAcceptance.ALLOWED;
+  }
+
+  private static void appendToDestinationList(
+      java.util.List<Destination> list, int paramId, int targetSource, PatchCable cable) {
+    Destination dest = null;
+    for (int i = 0; i < list.size(); i++) {
+      Destination d = list.get(i);
+      if (targetSource < 0) {
+        if (d.paramId == paramId && d.targetSource < 0) {
+          dest = d;
+          break;
+        }
+      } else if (d.targetParamId == paramId && d.targetSource == targetSource) {
+        dest = d;
+        break;
+      }
+    }
+    if (dest == null) {
+      dest = new Destination(paramId);
+      if (targetSource >= 0) {
+        dest.targetSource = targetSource;
+        dest.targetParamId = paramId;
+      }
+      list.add(dest);
+    }
+    dest.cables.add(cable);
+    dest.sourcesMask |= (1 << cable.source);
+  }
+
+  private static boolean hasUsableDirectCable(
+      java.util.List<Destination> usableDirect, int targetParamId, int targetSource) {
+    for (int i = 0; i < usableDirect.size(); i++) {
+      Destination d = usableDirect.get(i);
+      if (d.paramId == targetParamId && d.targetSource < 0) {
+        for (int j = 0; j < d.cables.size(); j++) {
+          if (d.cables.get(j).source == targetSource) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
   }
 
   /**
@@ -280,18 +467,33 @@ public class Patcher {
   // ── combineCablesLinear (patcher.cpp:143-180) ──
 
   /**
-   * Returns whether {@code source} is allowed to patch to {@code paramId}. Mirrors C {@code
-   * Sound::maySourcePatchToParam} (sound.cpp:1346-1348), which disallows local sources ({@code >=
-   * kFirstLocalSource}) on global parameters ({@code >= Param.FIRST_GLOBAL}).
+   * Returns whether {@code source} satisfies the sound-independent invariants of C {@code
+   * Sound::maySourcePatchToParam} (sound.cpp:1346-1363, 1487-1500): valid source/param range, no
+   * local-to-global cables, no envelopes or sidechain on {@code LOCAL_VOLUME}, nothing on {@code
+   * GLOBAL_VOLUME_POST_FX}, no {@code X} on {@code LOCAL_PITCH_ADJUST}, and only {@code SIDECHAIN}
+   * on {@code GLOBAL_VOLUME_POST_REVERB_SEND}. Sound-state-dependent checks run in {@link
+   * Sound#maySourcePatchToParam(int, int, org.deluge.modulation.params.ParamManager)} and {@link
+   * PatchCableSet#setupPatching}.
    */
   public static boolean maySourcePatchToParam(int source, int paramId) {
     if (source < 0 || source >= PatchSource.kNumPatchSources) {
       return false;
     }
+    if (paramId < 0 || paramId >= Param.kNumParams) {
+      return false;
+    }
     if (paramId >= Param.FIRST_GLOBAL && source >= PatchSource.kFirstLocalSource) {
       return false;
     }
-    return true;
+    return switch (paramId) {
+      case Param.LOCAL_VOLUME ->
+          (source < PatchSource.ENVELOPE_0.ordinal() || PatchSource.ENVELOPE_3.ordinal() < source)
+              && source != PatchSource.SIDECHAIN.ordinal();
+      case Param.GLOBAL_VOLUME_POST_FX -> false;
+      case Param.LOCAL_PITCH_ADJUST -> source != PatchSource.X.ordinal();
+      case Param.GLOBAL_VOLUME_POST_REVERB_SEND -> source == PatchSource.SIDECHAIN.ordinal();
+      default -> true;
+    };
   }
 
   /**
@@ -452,8 +654,15 @@ public class Patcher {
     int targetParamId =
         destination.targetSource >= 0 ? destination.targetParamId : destination.paramId;
     for (PatchCable cable : destination.cables) {
-      if (!maySourcePatchToParam(cable.source, targetParamId)
-          || cable.source >= sourceValues.length) {
+      // C patcher.cpp:175-202, source_selection.cpp:269-283 — range-adjusting cables allow any
+      // valid global source on global/local cables and any valid local source on local cables
+      // (without imposing the direct destination param's source restrictions, e.g. ENVELOPE ->
+      // (LFO -> LOCAL_VOLUME) or LFO_GLOBAL -> (SIDECHAIN -> GLOBAL_VOLUME_POST_REVERB_SEND)).
+      if (cable.source < 0
+          || cable.source >= PatchSource.kNumPatchSources
+          || cable.source >= sourceValues.length
+          || (targetParamId >= Param.FIRST_GLOBAL
+              && cable.source >= PatchSource.kFirstLocalSource)) {
         continue;
       }
       int srcVal = sourceValues[cable.source];

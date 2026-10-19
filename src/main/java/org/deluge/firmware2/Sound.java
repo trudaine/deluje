@@ -20,6 +20,17 @@ public class Sound extends GlobalEffectable {
 
   public int synthMode = 0; // 0=subtractive, 1=FM, 2=ringmod
   public int voicePriority = 1; // 0=low, 1=medium, 2=high
+
+  /** C: sound_drum.h:41 / sound.h:238 — true when this Sound is a Kit SoundDrum. */
+  public boolean isDrum = false;
+
+  /** C: definitions_cxx.hpp:575-580 / sound.h:191 — patch cable usability classification. */
+  public enum PatchCableAcceptance {
+    ALLOWED,
+    EDITABLE,
+    DISALLOWED
+  }
+
   public final OscType[] oscTypes = {OscType.SINE, OscType.SINE};
   public final WaveTable[] waveTables = new WaveTable[2];
   public FilterMode lpfMode = FilterMode.OFF;
@@ -922,17 +933,283 @@ public class Sound extends GlobalEffectable {
     params[Param.LOCAL_ENV_0_SUSTAIN] = Integer.MAX_VALUE; // C:306
     if (isDx) {
       cfg.oscTypes[0] = OscType.DX7; // C:308
-      cfg.patchCableSet.destinations.clear(); // C:311
+      cfg.patchCableSet.clear(); // C:311
       params[Param.LOCAL_ENV_0_RELEASE] = Integer.MAX_VALUE; // C:312
     } else {
       params[Param.LOCAL_ENV_0_RELEASE] = Integer.MIN_VALUE; // C:315
-      cfg.patchCableSet.destinations.clear(); // C:317 (numPatchCables=1)
+      cfg.patchCableSet.clear(); // C:317 (numPatchCables=1)
       addCable(
           cfg,
           PatchSource.VELOCITY,
           Param.LOCAL_VOLUME, // C:318-319
           Functions.getParamFromUserValue(Param.PATCH_CABLE, 50));
     }
+  }
+
+  /**
+   * C {@code AutoParam::containsSomething} ({@code auto_param.cpp:2152-2158}) — true when {@code p}
+   * is automated on {@code paramManager} or its current patched value differs from {@code
+   * neutralValue}. Never inspects active patch cables (avoiding circularity during {@code
+   * setupPatching}).
+   */
+  private boolean paramContainsSomething(
+      int p, int neutralValue, org.deluge.modulation.params.ParamManager paramManager) {
+    if (paramManager != null) {
+      var auto = paramManager.getAutomatedParam(p);
+      if (auto != null && !auto.nodes.isEmpty()) {
+        return true;
+      }
+    }
+    return patchedParamValues[p] != neutralValue;
+  }
+
+  /** C {@code Sound::renderingOscillatorSyncEver} ({@code sound.cpp:2135-2144}). */
+  public boolean renderingOscillatorSyncEver(
+      org.deluge.modulation.params.ParamManager paramManager) {
+    if (!oscillatorSync) {
+      return false;
+    }
+    if (isFm2OpMode()) {
+      return false;
+    }
+    return paramContainsSomething(Param.LOCAL_OSC_B_VOLUME, Integer.MIN_VALUE, paramManager)
+        || synthMode == 2;
+  }
+
+  /** C {@code Sound::isSourceActiveEverDisregardingMissingSample} ({@code sound.cpp:2107-2111}). */
+  public boolean isSourceActiveEverDisregardingMissingSample(
+      int s, org.deluge.modulation.params.ParamManager paramManager) {
+    return synthMode == 2
+        || paramContainsSomething(Param.LOCAL_OSC_A_VOLUME + s, Integer.MIN_VALUE, paramManager)
+        || renderingOscillatorSyncEver(paramManager);
+  }
+
+  /** C {@code Sound::isSourceActiveEver} ({@code sound.cpp:2113-2117}). */
+  public boolean isSourceActiveEver(int s, org.deluge.modulation.params.ParamManager paramManager) {
+    return isSourceActiveEverDisregardingMissingSample(s, paramManager)
+        && (isFm2OpMode() || oscTypes[s] != OscType.SAMPLE || hasAnySampleLoaded(s));
+  }
+
+  /**
+   * Convenience overload delegating to {@link #maySourcePatchToParam(int, int,
+   * org.deluge.modulation.params.ParamManager)}.
+   */
+  public PatchCableAcceptance maySourcePatchToParam(PatchSource s, int p) {
+    return maySourcePatchToParam(s == null ? -1 : s.ordinal(), p, null);
+  }
+
+  /**
+   * Convenience overload delegating to {@link #maySourcePatchToParam(int, int,
+   * org.deluge.modulation.params.ParamManager)}.
+   */
+  public PatchCableAcceptance maySourcePatchToParam(int s, int p) {
+    return maySourcePatchToParam(s, p, null);
+  }
+
+  /**
+   * Faithful line-by-line port of C {@code Sound::maySourcePatchToParam} ({@code
+   * sound.cpp:1340-1507}). Uses {@link #isFm2OpMode()} so 6-operator {@link OscType#DX7} presets
+   * keep subtractive source/EG-mod cable semantics ({@code sound.cpp:3744-3745}).
+   */
+  public PatchCableAcceptance maySourcePatchToParam(
+      int s, int p, org.deluge.modulation.params.ParamManager paramManager) {
+    // C sound.cpp:1342-1344
+    if (s == PatchSource.NOTE.ordinal() && isDrum) {
+      return PatchCableAcceptance.DISALLOWED;
+    }
+    if (s < 0 || (s >= PatchSource.kNumPatchSources && s != PatchSource.NOT_AVAILABLE_VALUE)) {
+      return PatchCableAcceptance.DISALLOWED;
+    }
+    // C sound.cpp:1339, 1346-1348 — p == 255 queries whether source s may patch to anything.
+    if (p == 255) {
+      return PatchCableAcceptance.ALLOWED;
+    }
+    if (s != PatchSource.NOT_AVAILABLE_VALUE
+        && s >= PatchSource.kFirstLocalSource
+        && p >= Param.FIRST_GLOBAL) {
+      return PatchCableAcceptance.DISALLOWED;
+    }
+    // C sound.cpp:1353-1354, patch_cable_set.cpp:499-501 — reject GLOBAL_NONE (55),
+    // PLACEHOLDER_RANGE (89), and any index outside the patched param table [0, kNumParams).
+    if (p < 0 || p >= Param.kNumParams) {
+      return PatchCableAcceptance.DISALLOWED;
+    }
+
+    switch (p) {
+      case Param.LOCAL_VOLUME:
+        // C sound.cpp:1356-1363 — envelopes cannot patch to volume, and sidechain patches only to
+        // GLOBAL_VOLUME_POST_REVERB_SEND.
+        return ((s < PatchSource.ENVELOPE_0.ordinal() || PatchSource.ENVELOPE_3.ordinal() < s)
+                && s != PatchSource.SIDECHAIN.ordinal())
+            ? PatchCableAcceptance.ALLOWED
+            : PatchCableAcceptance.DISALLOWED;
+
+      case Param.LOCAL_OSC_A_PHASE_WIDTH:
+        // C sound.cpp:1365-1371
+        if (isFm2OpMode()) {
+          return PatchCableAcceptance.DISALLOWED;
+        }
+        break;
+
+      case Param.LOCAL_OSC_A_VOLUME:
+        // C sound.cpp:1372-1378 (intentional fallthrough into LOCAL_OSC_A_PITCH_ADJUST)
+        if (synthMode == 2) {
+          return PatchCableAcceptance.DISALLOWED;
+        }
+      // fall through
+      case Param.LOCAL_OSC_A_PITCH_ADJUST:
+        return isSourceActiveEverDisregardingMissingSample(0, paramManager)
+            ? PatchCableAcceptance.ALLOWED
+            : PatchCableAcceptance.EDITABLE;
+
+      case Param.LOCAL_CARRIER_0_FEEDBACK:
+        // C sound.cpp:1380-1387
+        if (!isFm2OpMode()) {
+          return PatchCableAcceptance.DISALLOWED;
+        }
+        return (isSourceActiveEver(0, paramManager)
+                && paramContainsSomething(
+                    Param.LOCAL_CARRIER_0_FEEDBACK, Integer.MIN_VALUE, paramManager))
+            ? PatchCableAcceptance.ALLOWED
+            : PatchCableAcceptance.EDITABLE;
+
+      case Param.LOCAL_OSC_B_PHASE_WIDTH:
+        // C sound.cpp:1389-1395
+        if (isFm2OpMode()) {
+          return PatchCableAcceptance.DISALLOWED;
+        }
+        break;
+
+      case Param.LOCAL_OSC_B_VOLUME:
+        // C sound.cpp:1396-1402 (intentional fallthrough into LOCAL_OSC_B_PITCH_ADJUST)
+        if (synthMode == 2) {
+          return PatchCableAcceptance.DISALLOWED;
+        }
+      // fall through
+      case Param.LOCAL_OSC_B_PITCH_ADJUST:
+        return isSourceActiveEverDisregardingMissingSample(1, paramManager)
+            ? PatchCableAcceptance.ALLOWED
+            : PatchCableAcceptance.EDITABLE;
+
+      case Param.LOCAL_CARRIER_1_FEEDBACK:
+        // C sound.cpp:1404-1411
+        if (!isFm2OpMode()) {
+          return PatchCableAcceptance.DISALLOWED;
+        }
+        return (isSourceActiveEver(1, paramManager)
+                && paramContainsSomething(
+                    Param.LOCAL_CARRIER_1_FEEDBACK, Integer.MIN_VALUE, paramManager))
+            ? PatchCableAcceptance.ALLOWED
+            : PatchCableAcceptance.EDITABLE;
+
+      case Param.LOCAL_NOISE_VOLUME:
+        // C sound.cpp:1413-1419
+        if (isFm2OpMode()) {
+          return PatchCableAcceptance.DISALLOWED;
+        }
+        return paramContainsSomething(Param.LOCAL_NOISE_VOLUME, Integer.MIN_VALUE, paramManager)
+            ? PatchCableAcceptance.ALLOWED
+            : PatchCableAcceptance.EDITABLE;
+
+      case Param.LOCAL_LPF_FREQ:
+      case Param.LOCAL_LPF_MORPH:
+      case Param.LOCAL_LPF_RESONANCE:
+        // C sound.cpp:1425-1431
+        if (lpfMode == FilterMode.OFF) {
+          return PatchCableAcceptance.DISALLOWED;
+        }
+        break;
+
+      case Param.LOCAL_HPF_FREQ:
+      case Param.LOCAL_HPF_MORPH:
+      case Param.LOCAL_HPF_RESONANCE:
+        // C sound.cpp:1433-1439
+        if (hpfMode == FilterMode.OFF) {
+          return PatchCableAcceptance.DISALLOWED;
+        }
+        break;
+
+      case Param.LOCAL_MODULATOR_0_VOLUME:
+      case Param.LOCAL_MODULATOR_0_PITCH_ADJUST:
+        // C sound.cpp:1441-1448
+        if (!isFm2OpMode()) {
+          return PatchCableAcceptance.DISALLOWED;
+        }
+        return paramContainsSomething(
+                Param.LOCAL_MODULATOR_0_VOLUME, Integer.MIN_VALUE, paramManager)
+            ? PatchCableAcceptance.ALLOWED
+            : PatchCableAcceptance.EDITABLE;
+
+      case Param.LOCAL_MODULATOR_0_FEEDBACK:
+        // C sound.cpp:1450-1457
+        if (!isFm2OpMode()) {
+          return PatchCableAcceptance.DISALLOWED;
+        }
+        return (paramContainsSomething(
+                    Param.LOCAL_MODULATOR_0_VOLUME, Integer.MIN_VALUE, paramManager)
+                && paramContainsSomething(
+                    Param.LOCAL_MODULATOR_0_FEEDBACK, Integer.MIN_VALUE, paramManager))
+            ? PatchCableAcceptance.ALLOWED
+            : PatchCableAcceptance.EDITABLE;
+
+      case Param.LOCAL_MODULATOR_1_VOLUME:
+      case Param.LOCAL_MODULATOR_1_PITCH_ADJUST:
+        // C sound.cpp:1459-1466
+        if (!isFm2OpMode()) {
+          return PatchCableAcceptance.DISALLOWED;
+        }
+        return paramContainsSomething(
+                Param.LOCAL_MODULATOR_1_VOLUME, Integer.MIN_VALUE, paramManager)
+            ? PatchCableAcceptance.ALLOWED
+            : PatchCableAcceptance.EDITABLE;
+
+      case Param.LOCAL_MODULATOR_1_FEEDBACK:
+        // C sound.cpp:1468-1475
+        if (!isFm2OpMode()) {
+          return PatchCableAcceptance.DISALLOWED;
+        }
+        return (paramContainsSomething(
+                    Param.LOCAL_MODULATOR_1_VOLUME, Integer.MIN_VALUE, paramManager)
+                && paramContainsSomething(
+                    Param.LOCAL_MODULATOR_1_FEEDBACK, Integer.MIN_VALUE, paramManager))
+            ? PatchCableAcceptance.ALLOWED
+            : PatchCableAcceptance.EDITABLE;
+
+      case Param.GLOBAL_LFO_FREQ_1:
+        // C sound.cpp:1477-1479 (LFO1_ID == 0)
+        return (lfoConfig[0].syncLevel == Lfo.SyncLevel.NONE)
+            ? PatchCableAcceptance.ALLOWED
+            : PatchCableAcceptance.DISALLOWED;
+
+      case Param.GLOBAL_LFO_FREQ_2:
+        // C sound.cpp:1481-1483 (LFO3_ID == 2)
+        return (lfoConfig[2].syncLevel == Lfo.SyncLevel.NONE)
+            ? PatchCableAcceptance.ALLOWED
+            : PatchCableAcceptance.DISALLOWED;
+
+      case Param.GLOBAL_VOLUME_POST_FX:
+        // C sound.cpp:1487-1488
+        return PatchCableAcceptance.DISALLOWED;
+
+      case Param.LOCAL_PITCH_ADJUST:
+        // C sound.cpp:1490-1494
+        if (s == PatchSource.X.ordinal()) {
+          return PatchCableAcceptance.DISALLOWED;
+        }
+        break;
+
+      case Param.GLOBAL_VOLUME_POST_REVERB_SEND:
+        // C sound.cpp:1496-1500
+        if (s != PatchSource.SIDECHAIN.ordinal()) {
+          return PatchCableAcceptance.DISALLOWED;
+        }
+        break;
+
+      default:
+        break;
+    }
+
+    return PatchCableAcceptance.ALLOWED;
   }
 
   // ── isSourceActiveCurrently (sound.cpp:2088-2092) ──

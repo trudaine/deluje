@@ -87,6 +87,10 @@ public final class Param {
   public static final int GLOBAL_ARP_RATE = 54;
 
   public static final int kNumParams = 55;
+  // C param.h:157 (params::Global::GLOBAL_NONE) and param.h:163
+  // (params::Placeholder::PLACEHOLDER_RANGE).
+  public static final int GLOBAL_NONE = 55;
+  public static final int PLACEHOLDER_RANGE = 89;
 
   // ── Unpatched Params (Starting at 90) ───────────────────────────────────
 

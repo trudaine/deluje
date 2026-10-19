@@ -87,6 +87,17 @@ public class ClipModel extends TimelineCounter {
    */
   private String launchStyle = "default";
 
+  // Owning TrackModel (C Clip::output in clip.h:77).
+  private transient TrackModel ownerTrack;
+
+  public TrackModel getOwnerTrack() {
+    return ownerTrack;
+  }
+
+  public void setOwnerTrack(TrackModel ownerTrack) {
+    this.ownerTrack = ownerTrack;
+  }
+
   /**
    * C InstrumentClip's ExpressionParamSet::bendRanges (instrument_clip.cpp:2432-2433, 2888-2898):
    * "bendRange" (BEND_RANGE_MAIN) and "bendRangeMPE" (BEND_RANGE_FINGER_LEVEL). -1 = the file had
@@ -1575,8 +1586,77 @@ public class ClipModel extends TimelineCounter {
     if (sound instanceof org.deluge.engine.FirmwareSound fs) {
       applyBendRanges(fs.fw2Sound);
     } else if (sound instanceof org.deluge.engine.FirmwareKit kit) {
+      KitTrackModel kt = (ownerTrack instanceof KitTrackModel k) ? k : null;
       for (int r = 0; r < kit.drumSounds.size(); r++) {
-        applyDrumBendRanges(kit.drumSounds.get(r).fw2Sound, noteRows.get(r));
+        org.deluge.engine.FirmwareSound drum = kit.drumSounds.get(r);
+        drum.isDrum = true;
+        drum.fw2Sound.isDrum = true;
+        if (kt != null
+            && r < kt.getDrums().size()
+            && kt.getDrums().get(r) instanceof SoundDrum sd) {
+          // C mod_controllable_audio.cpp:61-63, sound.cpp:146-151 — propagate parsed SoundDrum
+          // filter modes/routing and exponential Q31 filter knobs while preserving hard-bypass
+          // endpoints (20 kHz -> MAX_VALUE, 20 Hz / 0 morph -> MIN_VALUE).
+          drum.setLpfMode(sd.getLpfMode());
+          drum.setHpfMode(sd.getHpfMode());
+          drum.fw2Sound.filterRoute = sd.getFilterRoute();
+          drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_LPF_FREQ] =
+              org.deluge.xml.DelugeHexMapper.hzToQ31(sd.getLpfFreq());
+          drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_LPF_RESONANCE] =
+              org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(sd.getLpfRes());
+          drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_LPF_MORPH] =
+              org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(sd.getLpfMorph());
+          drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_HPF_FREQ] =
+              org.deluge.xml.DelugeHexMapper.hzToQ31(sd.getHpfFreq());
+          drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_HPF_RESONANCE] =
+              org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(sd.getHpfRes());
+          drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_HPF_MORPH] =
+              org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(sd.getHpfMorph());
+          // Re-apply per-clip <noteRow><soundParams> filter overrides (C note_row.cpp:3288-3292,
+          // sound.cpp:3822-3845) so ClipModel.setSound after createKitSound never clobbers
+          // row-level filter knobs back to base SoundDrum defaults.
+          NoteRowModel rowModel = getNoteRowsMap().get(r);
+          if (rowModel == null) {
+            for (NoteRowModel nr : getNoteRowsMap().values()) {
+              if (nr.getPitch() == r) {
+                rowModel = nr;
+                break;
+              }
+            }
+          }
+          if (rowModel != null && !rowModel.getSoundParams().isEmpty()) {
+            Map<String, Float> rowSp = rowModel.getSoundParams();
+            if (rowSp.containsKey("lpfFrequency")) {
+              drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_LPF_FREQ] =
+                  org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(
+                      rowSp.get("lpfFrequency"));
+            }
+            if (rowSp.containsKey("lpfResonance")) {
+              drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_LPF_RESONANCE] =
+                  org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(
+                      rowSp.get("lpfResonance"));
+            }
+            if (rowSp.containsKey("lpfMorph")) {
+              drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_LPF_MORPH] =
+                  org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(rowSp.get("lpfMorph"));
+            }
+            if (rowSp.containsKey("hpfFrequency")) {
+              drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_HPF_FREQ] =
+                  org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(
+                      rowSp.get("hpfFrequency"));
+            }
+            if (rowSp.containsKey("hpfResonance")) {
+              drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_HPF_RESONANCE] =
+                  org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(
+                      rowSp.get("hpfResonance"));
+            }
+            if (rowSp.containsKey("hpfMorph")) {
+              drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_HPF_MORPH] =
+                  org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(rowSp.get("hpfMorph"));
+            }
+          }
+        }
+        applyDrumBendRanges(drum.fw2Sound, noteRows.get(r));
       }
     }
     syncExpressionParamsToParamManager();

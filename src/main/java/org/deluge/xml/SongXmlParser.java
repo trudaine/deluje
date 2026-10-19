@@ -1680,8 +1680,10 @@ public class SongXmlParser {
       "pan",
       "lpfFrequency",
       "lpfResonance",
+      "lpfMorph",
       "hpfFrequency",
       "hpfResonance",
+      "hpfMorph",
       "lfo1Rate",
       "lfo2Rate",
       "modulator1Amount",
@@ -1706,7 +1708,7 @@ public class SongXmlParser {
       "compressorRelease"
     };
     for (String param : hexParams) {
-      String val = sp.getAttribute(param);
+      String val = readDirectAttrOrChild(sp, param);
       if (val != null && val.startsWith("0x") && !val.isBlank()) {
         clip.setRowSoundParam(row, param, toUnipolar(DelugeHexMapper.hexToFloat(val)));
       }

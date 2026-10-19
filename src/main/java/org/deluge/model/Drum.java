@@ -63,8 +63,8 @@ public abstract class Drum {
   protected float compressorRatio = 0.0f;
   protected float compressorShape = 0.92f;
 
-  // LPF Mode/Morph
-  protected FilterMode lpfMode = FilterMode.LADDER_12;
+  // LPF Mode/Morph — C mod_controllable_audio.cpp:61: FilterMode::TRANSISTOR_24DB
+  protected FilterMode lpfMode = FilterMode.LADDER_24;
   protected float lpfMorph = 0.0f;
   protected float lpfDrive = 1.0f;
   protected boolean lpfNotch = false;
@@ -83,11 +83,21 @@ public abstract class Drum {
   protected float modFxOffset = 0.0f;
   protected float modFxFeedback = 0.0f;
 
-  // HPF
+  // HPF — C mod_controllable_audio.cpp:62: FilterMode::HPLADDER
   protected float hpfFreq = 20.0f;
   protected float hpfRes = 0.0f;
   protected float hpfMorph = 0.0f;
   protected FilterMode hpfMode = FilterMode.LADDER_12;
+  protected int filterRoute = 0; // C mod_controllable_audio.cpp:63 — 0=H2L, 1=L2H, 2=PARALLEL
+
+  public int getFilterRoute() {
+    return filterRoute;
+  }
+
+  public void setFilterRoute(int filterRoute) {
+    this.filterRoute = Math.max(0, Math.min(2, filterRoute));
+  }
+
   protected float hpfFm = 0.0f;
 
   // Oscillator retrigger phases + hard sync (C sound.h:150, sound.cpp:88)
@@ -466,7 +476,7 @@ public abstract class Drum {
   }
 
   public void setLpfMode(FilterMode v) {
-    this.lpfMode = v;
+    this.lpfMode = v != null ? v : FilterMode.LADDER_24;
   }
 
   public float getLpfMorph() {
@@ -570,7 +580,7 @@ public abstract class Drum {
   }
 
   public void setHpfMode(FilterMode v) {
-    this.hpfMode = v;
+    this.hpfMode = v != null ? v : FilterMode.LADDER_12;
   }
 
   public float getHpfFm() {

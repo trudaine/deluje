@@ -97,12 +97,16 @@ public abstract class TrackModel {
   }
 
   public void addClip(ClipModel clip) {
+    if (clip != null) {
+      clip.setOwnerTrack(this);
+    }
     clips.add(clip);
   }
 
   public void removeClip(ClipModel clip) {
     int idx = clips.indexOf(clip);
     if (idx < 0) return;
+    clip.setOwnerTrack(null);
     clips.remove(idx);
     if (clips.isEmpty()) {
       activeClipIndex = 0;
