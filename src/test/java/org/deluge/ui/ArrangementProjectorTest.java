@@ -184,14 +184,57 @@ class ArrangementProjectorTest {
     assertEquals(DelugeColour.monochrome(128), DelugeColour.sectionColour(255));
     assertEquals(DelugeColour.sectionColour('A' % 24), DelugeColour.sectionColour('A'));
 
-    // SongGridPanel.firstSessionClip skips arrangement-only clips cleanly
+    // SongGridPanel.firstSessionClip and sessionClipModelIndex skip arrangement-only clips cleanly
     org.deluge.model.SynthTrackModel arrOnlyTrack = new org.deluge.model.SynthTrackModel("Pad");
     ClipModel arrOnly = new ClipModel("PadIntro", 8, 16);
     arrOnly.setArrangementOnly(true);
     arrOnlyTrack.addClip(arrOnly);
     assertNull(SongGridPanel.firstSessionClip(arrOnlyTrack));
+    assertEquals(-1, SongGridPanel.sessionClipModelIndex(arrOnlyTrack, 0));
     arrOnlyTrack.addClip(clip);
     assertEquals(clip, SongGridPanel.firstSessionClip(arrOnlyTrack));
+    assertEquals(1, SongGridPanel.sessionClipModelIndex(arrOnlyTrack, 0));
+    assertEquals(-1, SongGridPanel.sessionClipModelIndex(arrOnlyTrack, 1));
+
+    // ClipModel.deepCopy / restoreFrom / setActiveInSession preserve inactive session invariant
+    arrOnly.setActiveInSession(true);
+    assertFalse(arrOnly.isActiveInSession());
+    ClipModel arrCopy = arrOnly.deepCopy("PadIntroCopy");
+    assertFalse(arrCopy.isActiveInSession());
+    ClipModel restoreTarget = new ClipModel("RestoreTarget", 8, 16);
+    restoreTarget.restoreFrom(arrOnly);
+    assertFalse(restoreTarget.isActiveInSession());
+
+    // Live ArrangerGridPanel + ArrangerTimelineController near Integer.MAX_VALUE (no 32-bit wrap)
+    System.setProperty("chuck.audio.dummy", "true");
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    try {
+      org.deluge.model.ProjectModel liveProj = new org.deluge.model.ProjectModel();
+      org.deluge.model.SynthTrackModel liveTrack = new org.deluge.model.SynthTrackModel("Lead");
+      ClipModel liveClip = new ClipModel("FarRight", 8, 16);
+      liveClip.setSection(0);
+      liveClip.setLoopLength(zoom);
+      liveTrack.addClip(liveClip);
+      liveProj.addTrack(liveTrack);
+      int farScroll = Integer.MAX_VALUE - 500;
+      int farStart = Integer.MAX_VALUE - 100;
+      liveProj.setXScrollArrangementView(farScroll);
+      liveProj.setXZoomArrangementView(zoom);
+      liveProj.addArrangerClip(new ArrangerClip(0, liveClip, farStart, 200));
+
+      ArrangerGridPanel panel = new ArrangerGridPanel(bridge);
+      panel.setProjectModel(liveProj);
+      panel.setViewMode(SwingGridPanel.GridViewMode.ARRANGEMENT);
+      panel.forceRebuild();
+
+      // Column 4 spans [MAX-116, MAX-20) -> HEAD; Column 5 spans [MAX-20, MAX+76) -> follower
+      // square crossing Integer.MAX_VALUE without wrapping negative!
+      assertEquals(liveClip, panel.arrangerController.getArrangerClipAt(0, 4).clip());
+      assertEquals(liveClip, panel.arrangerController.getArrangerClipAt(0, 5).clip());
+      assertNull(panel.arrangerController.getArrangerClipAt(0, 7));
+    } finally {
+      bridge.shutdown();
+    }
 
     // ArrangerGridPanel.arrangerClipDisplayName handles blank names and " (Arranger)" suffix
     assertEquals("CLIP", ArrangerGridPanel.arrangerClipDisplayName(ac));

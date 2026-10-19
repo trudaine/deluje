@@ -344,7 +344,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
             org.deluge.model.ArrangerClip placement =
                 arrangerController.getArrangerClipAt(currentTrack, c);
             if (placement != null) {
-              int colTick = arrangerController.arrangerTickForColumn(c);
+              long colTick = arrangerController.arrangerTickForColumnLong(c);
               int colTicks = arrangerController.arrangerTicksPerColumn();
               Color arrCellColour = ArrangementProjector.colourFor(placement, colTick, colTicks);
               clipBtn.setText(
@@ -606,7 +606,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
                 // Head/loop/blur/dim resolved by the pure ArrangementProjector
                 // (ArrangementProjector Test pins the colours); same code the whole-grid projector
                 // uses.
-                int colTick = arrangerController.arrangerTickForColumn(c);
+                long colTick = arrangerController.arrangerTickForColumnLong(c);
                 int colTicks = arrangerController.arrangerTicksPerColumn();
                 arrCellColour = ArrangementProjector.colourFor(ac, colTick, colTicks);
               }
@@ -759,7 +759,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
                       arrangerController.getArrangerClipAt(modelRow, c);
                   hasClip = ac != null;
                   if (ac != null) {
-                    int colTick = arrangerController.arrangerTickForColumn(c);
+                    long colTick = arrangerController.arrangerTickForColumnLong(c);
                     int colTicks = arrangerController.arrangerTicksPerColumn();
                     arrCellColour = ArrangementProjector.colourFor(ac, colTick, colTicks);
                   }

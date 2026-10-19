@@ -417,13 +417,21 @@ class ArrangerClipInstancesXmlParityTest {
     assertEquals("MidiCh1Arr", parsed.getArrangerTimeline().get(6).clip().getName());
     assertEquals(4, parsed.getArrangerTimeline().get(6).trackIndex());
 
-    // Section 255 <-> arrangementOnly sync invariant on ClipModel + session MIDI export isolation:
+    // Section 255 <-> arrangementOnly sync invariant on ClipModel & AudioClip:
     ClipModel secSync = new ClipModel("SecTest", 8, 16);
     secSync.setSection(255);
     assertTrue(secSync.isArrangementOnly());
     assertFalse(secSync.isActiveInSession());
+    secSync.setActiveInSession(true);
+    assertFalse(
+        secSync.isActiveInSession(),
+        "setActiveInSession(true) must stay false while arrangementOnly");
     secSync.setSection(4);
     assertFalse(secSync.isArrangementOnly());
+    audioLead.getAudioClips().get(1).setPlaying(true);
+    assertFalse(
+        audioLead.getAudioClips().get(1).isPlaying(),
+        "AudioClip.setPlaying(true) must stay false while arrangementOnly");
 
     ProjectModel sessionOnlyExport = new ProjectModel();
     SynthTrackModel exportSynth = new SynthTrackModel("Solo");

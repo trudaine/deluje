@@ -494,10 +494,11 @@ public class SongGridPanel extends SwingGridPanel {
                   new java.awt.event.MouseAdapter() {
                     @Override
                     public void mousePressed(java.awt.event.MouseEvent e) {
+                      int modelClipIdx = sessionClipModelIndex(songTrack, clipCol);
                       if (javax.swing.SwingUtilities.isRightMouseButton(e)) {
-                        if (clipCol < songTrack.getClips().size()) {
+                        if (modelClipIdx >= 0) {
                           showClipContextMenu(
-                              clipBtn, e.getX(), e.getY(), songTrack, clipCol, trkIdx);
+                              clipBtn, e.getX(), e.getY(), songTrack, modelClipIdx, trkIdx);
                         } else {
                           JPopupMenu emptyClipMenu = new JPopupMenu();
                           JMenuItem createItem = new JMenuItem("Create New Clip Pattern");
@@ -520,7 +521,8 @@ public class SongGridPanel extends SwingGridPanel {
                             JMenuItem pasteItem = new JMenuItem("Paste Clip");
                             pasteItem.addActionListener(
                                 ev -> {
-                                  while (songTrack.getClips().size() <= clipCol) {
+                                  while (clipCol > 0
+                                      && sessionClipModelIndex(songTrack, clipCol - 1) < 0) {
                                     songTrack.addClip(
                                         new org.deluge.model.ClipModel(
                                             "CLIP " + (songTrack.getClips().size() + 1),
@@ -532,7 +534,14 @@ public class SongGridPanel extends SwingGridPanel {
                                   org.deluge.model.ClipModel copied = getCopiedClip();
                                   org.deluge.model.ClipModel copy =
                                       copied.deepCopy("CLIP " + (clipCol + 1));
-                                  songTrack.getClips().set(clipCol, copy);
+                                  copy.setArrangementOnly(false);
+                                  copy.setActiveInSession(true);
+                                  int existingIdx = sessionClipModelIndex(songTrack, clipCol);
+                                  if (existingIdx >= 0) {
+                                    songTrack.getClips().set(existingIdx, copy);
+                                  } else {
+                                    songTrack.addClip(copy);
+                                  }
                                   fireProjectChanged();
                                   refresh();
                                 });
@@ -544,7 +553,7 @@ public class SongGridPanel extends SwingGridPanel {
                           emptyClipMenu.show(clipBtn, e.getX(), e.getY());
                         }
                       } else {
-                        if (clipCol >= songTrack.getClips().size()) {
+                        if (modelClipIdx < 0) {
                           if (e.getClickCount() == 1) {
                             String name = "CLIP " + (clipCol + 1);
                             songTrack.addClip(
@@ -560,12 +569,12 @@ public class SongGridPanel extends SwingGridPanel {
                         } else {
                           if (e.getClickCount() == 2) {
                             if (SwingDelugeApp.mainInstance != null) {
-                              SwingDelugeApp.mainInstance.switchToTrackEdit(trkIdx, clipCol);
+                              SwingDelugeApp.mainInstance.switchToTrackEdit(trkIdx, modelClipIdx);
                             }
                           } else {
                             editedModelTrack = trkIdx;
                             org.deluge.model.ClipModel clickedClip =
-                                songTrack.getClips().get(clipCol);
+                                songTrack.getClips().get(modelClipIdx);
                             Object phObj =
                                 bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
                             if (phObj instanceof org.deluge.playback.PlaybackHandler ph
@@ -601,7 +610,7 @@ public class SongGridPanel extends SwingGridPanel {
                             // muting the track (the same mechanism the dedicated mute pad uses)
                             // is used to silence it without inventing new scheduler state.
                             boolean alreadyPlaying =
-                                songTrack.getActiveClipIndex() == clipCol
+                                songTrack.getActiveClipIndex() == modelClipIdx
                                     && !songTrack.isMuted()
                                     && clickedClip.isActiveInSession();
                             if (alreadyPlaying) {
@@ -617,8 +626,8 @@ public class SongGridPanel extends SwingGridPanel {
                                 updateEngineMutes();
                               }
                               clickedClip.setActiveInSession(true);
-                              songTrack.setActiveClipIndex(clipCol);
-                              bridge.setCurrentClip(trkIdx, clipCol);
+                              songTrack.setActiveClipIndex(modelClipIdx);
+                              bridge.setCurrentClip(trkIdx, modelClipIdx);
                               if (SwingDelugeApp.mainInstance != null
                                   && SwingDelugeApp.mainInstance.getArrangerScheduler() != null) {
                                 SwingDelugeApp.mainInstance
@@ -633,7 +642,7 @@ public class SongGridPanel extends SwingGridPanel {
                                 songTrack.setMuted(false);
                                 updateEngineMutes();
                               }
-                              bridge.setLaunchQueue(trkIdx, clipCol);
+                              bridge.setLaunchQueue(trkIdx, modelClipIdx);
                               refresh();
                             }
                           }
@@ -748,14 +757,30 @@ public class SongGridPanel extends SwingGridPanel {
    * pad blits it verbatim (intensity 1.0, tail flag off). Used by both the rebuild and the in-place
    * recolour so structure-change and steady-state renders agree.
    */
-  static org.deluge.model.ClipModel firstSessionClip(org.deluge.model.TrackModel track) {
-    if (track == null) return null;
-    for (org.deluge.model.ClipModel c : track.getClips()) {
+  /**
+   * Maps a 0-based Session View column index to the underlying index inside {@code
+   * track.getClips()}, skipping all {@code arrangementOnly} clips ({@code song.cpp:1313-1332}).
+   * Returns {@code -1} when fewer than {@code sessionCol + 1} session clips exist on {@code track}.
+   */
+  static int sessionClipModelIndex(org.deluge.model.TrackModel track, int sessionCol) {
+    if (track == null || sessionCol < 0) return -1;
+    int seen = 0;
+    java.util.List<org.deluge.model.ClipModel> clips = track.getClips();
+    for (int idx = 0; idx < clips.size(); idx++) {
+      org.deluge.model.ClipModel c = clips.get(idx);
       if (c != null && !c.isArrangementOnly()) {
-        return c;
+        if (seen == sessionCol) {
+          return idx;
+        }
+        seen++;
       }
     }
-    return null;
+    return -1;
+  }
+
+  static org.deluge.model.ClipModel firstSessionClip(org.deluge.model.TrackModel track) {
+    int idx = sessionClipModelIndex(track, 0);
+    return idx >= 0 ? track.getClips().get(idx) : null;
   }
 
   private void renderSongPatternPad(JButton clipBtn, int modelRow, int c) {

@@ -6,8 +6,8 @@ import org.deluge.firmware2.Functions;
 /**
  * Faithful port of the Deluge {@code RGB::fromHue} / {@code fromHuePastel} (gui/colour/rgb.cpp) —
  * the palette the hardware uses for clip / note / arranger colours. A clip's colour is derived from
- * its {@code colourOffset}: {@code fromHue(colourOffset * -8 / 3)} (instrument_clip.cpp:1235,
- * audio_clip.cpp:1251), so distinct offsets yield the distinct pastels seen on hardware.
+ * its {@code colourOffset}: {@code fromHue(colourOffset * -8 / 3)} (instrument_clip.cpp:1244-1246,
+ * audio_clip.cpp:1265-1267), so distinct offsets yield the distinct pastels seen on hardware.
  */
 public final class DelugeColour {
   private DelugeColour() {}

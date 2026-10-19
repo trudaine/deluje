@@ -71,7 +71,7 @@ final class ArrangementProjector {
    * the latest {@code startTicks < colTick + ticksPerColumn} wins. Uses {@code long} bounds so
    * placements near {@link Integer#MAX_VALUE} never overflow signed 32-bit addition.
    */
-  private static ArrangerClip clipAt(
+  static ArrangerClip clipAt(
       List<ArrangerClip> timeline, int track, long colStart, int ticksPerColumn) {
     if (track < 0) return null;
     long colEnd = colStart + Math.max(1L, ticksPerColumn);
@@ -104,7 +104,7 @@ final class ArrangementProjector {
     return colourFor(ac, (long) colTick, ticksPerColumn);
   }
 
-  private static Color colourFor(ArrangerClip ac, long colStart, int ticksPerColumn) {
+  static Color colourFor(ArrangerClip ac, long colStart, int ticksPerColumn) {
     org.deluge.model.ClipModel clip = ac.clip();
     org.deluge.model.AudioTrackModel.AudioClip audioClip = ac.audioClip();
     boolean hasBackingClip = clip != null || audioClip != null;

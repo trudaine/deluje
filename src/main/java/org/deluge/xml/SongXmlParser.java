@@ -510,7 +510,7 @@ public class SongXmlParser {
         }
         String clipTag = clipElem.getTagName();
         if ("audioClip".equals(clipTag)) {
-          // C audio_clip.cpp:1141, 1224-1226; song.cpp:3705-3712 — caseless trackName lookup;
+          // C audio_clip.cpp:1130-1132, 1220-1226; song.cpp:3704-3713 — caseless trackName lookup;
           // only fall back to the unclaimed FIFO queue when trackName is absent/empty.
           String trackName = DelugeXmlUtil.attrOrDirectChildText(clipElem, "trackName");
           AudioTrackModel targetTrack = null;
@@ -542,8 +542,8 @@ public class SongXmlParser {
         }
         int i = sessionElemIdx++;
 
-        // C instrument_clip.cpp:2375-2377 — CV clips claim a CVChannel (not modelled in Java
-        // tracks); keep parsedSessionClips index aligned without stealing an instrument track.
+        // C instrument_clip.cpp:2545-2550, 3902-3919 — CV clips claim a CVChannel (not modelled in
+        // Java tracks); keep parsedSessionClips index aligned without stealing an instrument track.
         if (DelugeXmlUtil.attrOrDirectChildText(clipElem, "cvChannel") != null) {
           parsedSessionClips.add(null);
           continue;
@@ -863,7 +863,7 @@ public class SongXmlParser {
         }
         String clipTag = clipElem.getTagName();
         if ("audioClip".equals(clipTag)) {
-          // C audio_clip.cpp:1141, 1224-1226; song.cpp:3705-3712 — caseless trackName lookup;
+          // C audio_clip.cpp:1130-1132, 1220-1226; song.cpp:3704-3713 — caseless trackName lookup;
           // only fall back to the first AudioTrackModel when trackName is absent/empty.
           String trackName = DelugeXmlUtil.attrOrDirectChildText(clipElem, "trackName");
           AudioTrackModel targetTrack = null;
@@ -898,8 +898,9 @@ public class SongXmlParser {
         }
         int i = arrElemIdx++;
 
-        // C instrument_clip.cpp:2375-2377 — CV clips claim a CVChannel (not modelled in Java
-        // tracks); keep parsedArrangementClips index aligned without stealing an instrument track.
+        // C instrument_clip.cpp:2545-2550, 3902-3919 — CV clips claim a CVChannel (not modelled in
+        // Java tracks); keep parsedArrangementClips index aligned without stealing an instrument
+        // track.
         if (DelugeXmlUtil.attrOrDirectChildText(clipElem, "cvChannel") != null) {
           parsedArrangementClips.add(null);
           continue;
@@ -916,8 +917,9 @@ public class SongXmlParser {
           }
         }
 
-        // C song.cpp:2204 + instrument_clip.cpp:2370-2412: claimOutput linkage runs FIRST so
-        // same-named <sound>/<kit>/<audioTrack> or multi-channel <midi> tracks never collide.
+        // C song.cpp:2146-2165 + instrument_clip.cpp:2507-2550, 3902-3919: claimOutput linkage runs
+        // FIRST so same-named <sound>/<kit>/<audioTrack> or multi-channel <midi> tracks never
+        // collide.
         TrackModel targetTrack =
             claimOutputForClip(clipElem, arrIsKitClip, project.getTracks(), java.util.Set.of());
         String trackName = DelugeXmlUtil.attrOrDirectChildText(clipElem, "trackName");

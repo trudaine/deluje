@@ -414,6 +414,7 @@ public class ClipModel extends TimelineCounter {
     copy.setPlayDirection(this.playDirection);
     copy.section = this.section;
     copy.isArrangementOnly = this.isArrangementOnly;
+    copy.activeInSession = this.activeInSession && !copy.isArrangementOnly;
     copy.launchStyle = this.launchStyle; // C clip.cpp:97, 105
     copy.arp = this.arp; // ArpModel is immutable
     copy.bendRange = this.bendRange;
@@ -724,6 +725,8 @@ public class ClipModel extends TimelineCounter {
   }
 
   public void setSection(int section) {
+    // C clip.h:168, clip.cpp:204-206 — in C++, section == 255 IS the arrangement-only flag;
+    // keep Java's cached isArrangementOnly and activeInSession strictly synchronized with section.
     this.section = section;
     this.isArrangementOnly = (section == 255);
     if (this.isArrangementOnly) {
@@ -740,7 +743,8 @@ public class ClipModel extends TimelineCounter {
   }
 
   public void setActiveInSession(boolean active) {
-    this.activeInSession = active;
+    // C song.cpp:2133-2142 — arrangement-only clips never activate in Session mode.
+    this.activeInSession = active && !this.isArrangementOnly;
   }
 
   // C Clip::armState (clip.h:170). Whether this clip is armed to change state at the next session
@@ -1146,6 +1150,7 @@ public class ClipModel extends TimelineCounter {
     playMode = src.playMode;
     section = src.section;
     isArrangementOnly = src.isArrangementOnly;
+    activeInSession = src.activeInSession && !isArrangementOnly;
     rebuildNotesFromGrid();
     // Restore exact C play conditions (probabilityValue, follow-previous bit 128, lift, fill,
     // iterance) that StepData cannot hold, plus per-row bendRange and expressionParams.

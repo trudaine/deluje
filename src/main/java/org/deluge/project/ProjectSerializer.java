@@ -142,15 +142,40 @@ public class ProjectSerializer {
         }
       }
     }
+    // Precompute sorted, non-overlapping accepted placements per track (C output.cpp:279-304 write,
+    // output.cpp:356, 398-402 monotonic minPos read constraint) so orphan arrangement-only clip
+    // filtering (C song.cpp:1324-1328) reflects the exact emitted ClipInstances.
+    int trackCount = model.getTracks().size();
+    java.util.List<java.util.List<ArrangerClip>> acceptedByTrack =
+        new java.util.ArrayList<>(trackCount);
     java.util.Set<Object> referencedArrangementClips =
         java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-    for (ArrangerClip ac : model.getArrangerTimeline()) {
-      Object target = ac.clip() != null ? ac.clip() : ac.audioClip();
-      if (target != null && Integer.valueOf(ac.trackIndex()).equals(clipTrackIndex.get(target))) {
-        referencedArrangementClips.add(target);
+    for (int t = 0; t < trackCount; t++) {
+      java.util.List<ArrangerClip> sorted = new java.util.ArrayList<>();
+      for (ArrangerClip ac : model.getArrangerTimeline()) {
+        if (ac.trackIndex() == t) {
+          sorted.add(ac);
+        }
       }
+      sorted.sort(java.util.Comparator.comparingInt(ArrangerClip::startTicks));
+      java.util.List<ArrangerClip> accepted = new java.util.ArrayList<>();
+      int minPos = 0;
+      for (ArrangerClip ac : sorted) {
+        int pos = ac.startTicks();
+        int len = ac.durationTicks();
+        if (pos < minPos || len <= 0 || pos > Integer.MAX_VALUE - len) {
+          continue;
+        }
+        minPos = pos + len;
+        accepted.add(ac);
+        Object target = ac.clip() != null ? ac.clip() : ac.audioClip();
+        if (target != null && Integer.valueOf(t).equals(clipTrackIndex.get(target))) {
+          referencedArrangementClips.add(target);
+        }
+      }
+      acceptedByTrack.add(accepted);
     }
-    // C song.cpp:1324-1326 skips orphan arrangement-only clips (!clip->output->clipHasInstance).
+    // C song.cpp:1324-1328 skips orphan arrangement-only clips (!clip->output->clipHasInstance).
     // When getArrangerTimeline() is completely empty, standalone <arrangementOnlyTracks> clips from
     // unit XML fixtures without timeline instances are preserved for round-trip compatibility.
     boolean filterOrphanArrClips = !model.getArrangerTimeline().isEmpty();
@@ -182,28 +207,14 @@ public class ProjectSerializer {
     writer.writeArrayStart("instruments");
     int trackIndex = 0;
     for (TrackModel track : model.getTracks()) {
-      // Calculate sorted, non-overlapping clipInstances for arranger placements
-      // (C output.cpp:279-304 write, output.cpp:356, 398-402 monotonic minPos read constraint).
-      java.util.List<ArrangerClip> trackPlacements = new java.util.ArrayList<>();
-      for (ArrangerClip ac : model.getArrangerTimeline()) {
-        if (ac.trackIndex() == trackIndex) {
-          trackPlacements.add(ac);
-        }
-      }
-      trackPlacements.sort(java.util.Comparator.comparingInt(ArrangerClip::startTicks));
       StringBuilder ciBuilder = new StringBuilder("0x");
-      int minPos = 0;
-      for (ArrangerClip ac : trackPlacements) {
-        int pos = ac.startTicks();
-        int len = ac.durationTicks();
-        if (pos < minPos || len <= 0 || pos > Integer.MAX_VALUE - len) {
-          continue;
-        }
-        minPos = pos + len;
+      for (ArrangerClip ac : acceptedByTrack.get(trackIndex)) {
         ciBuilder.append(
             String.format(
                 "%08X%08X%08X",
-                pos, len, clipCodeFor(ac, sessionClipIndices, arrangementClipIndices)));
+                ac.startTicks(),
+                ac.durationTicks(),
+                clipCodeFor(ac, sessionClipIndices, arrangementClipIndices)));
       }
 
       if (track instanceof KitTrackModel) {

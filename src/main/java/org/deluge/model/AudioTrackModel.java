@@ -201,7 +201,8 @@ public class AudioTrackModel extends TrackModel {
     }
 
     public void setPlaying(boolean v) {
-      this.isPlaying = v;
+      // C song.cpp:2133-2142 — arrangement-only audio clips never activate in Session mode.
+      this.isPlaying = v && !this.arrangementOnly;
     }
 
     public boolean isSoloing() {
