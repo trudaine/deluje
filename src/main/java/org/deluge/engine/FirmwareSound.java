@@ -71,6 +71,13 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   public final int[] paramKnobs = new int[200];
 
   /**
+   * Off-grid sentinel for {@code paramKnobs[UNPATCHED_ARP_GATE..UNPATCHED_SPREAD_VELOCITY]} so
+   * {@link #syncParamsToFw2()} can distinguish XML/automation overrides from untouched knobs when
+   * callers mutate {@code arpSettings} directly.
+   */
+  private static final int UNSET_ARP_KNOB = 0x7A5E1337;
+
+  /**
    * True once the factory has populated {@link #paramKnobs} (paramNeutralValues base + env-rate
    * knob overrides). Directly-constructed sounds (tests configuring only paramNeutralValues) leave
    * this false, so the firmware2 bridge falls back to paramNeutralValues for them.
@@ -126,6 +133,7 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   public boolean delayPingPong = false;
   public boolean delayAnalog = false;
   private StereoSample[] fxStereoBuffer = new StereoSample[256];
+  private int lastSyncedArpPhaseIncrement = 0;
 
   public FirmwareSound() {
     this.postReverbVolumeLastTime = -1; // C sound.cpp:94 — grab actual value on first render
@@ -133,6 +141,9 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     for (int i = 0; i < globalLfos.length; i++) globalLfos[i] = new org.deluge.firmware2.Lfo();
     // C Sound::initParams (sound.cpp:131-187, faithfully ported to fw2 Sound.initParams).
     org.deluge.firmware2.Sound.initParams(paramNeutralValues);
+    for (int p = Param.UNPATCHED_ARP_GATE; p <= Param.UNPATCHED_SPREAD_VELOCITY; p++) {
+      paramKnobs[p] = UNSET_ARP_KNOB;
+    }
 
     // C Sound::setupAsDefaultSynth (sound.cpp:223-259): filter overrides on top of initParams.
     paramNeutralValues[Param.LOCAL_LPF_FREQ] = 0x10000000; // C:228
@@ -183,6 +194,19 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
 
   public void setSynthMode(SynthMode m) {
     fw2Sound.synthMode = (m == SynthMode.FM) ? 1 : (m == SynthMode.RINGMOD) ? 2 : 0;
+    clearUnpatchedArpKnobs();
+  }
+
+  /**
+   * Resets {@code paramKnobs[UNPATCHED_ARP_GATE..UNPATCHED_SPREAD_VELOCITY]} to {@link
+   * #UNSET_ARP_KNOB} so {@link org.deluge.model.ArpModel} / {@code arpSettings} values survive
+   * {@link #syncParamsToFw2()} unless explicit {@code <soundParams>} raw knobs or automation
+   * override them.
+   */
+  public void clearUnpatchedArpKnobs() {
+    for (int p = Param.UNPATCHED_ARP_GATE; p <= Param.UNPATCHED_SPREAD_VELOCITY; p++) {
+      paramKnobs[p] = UNSET_ARP_KNOB;
+    }
   }
 
   /**
@@ -412,7 +436,9 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
       if (auto != null && !auto.nodes.isEmpty()) {
         newValue = auto.currentValue;
         fromAutomation = true;
-      } else if (paramKnobsPopulated) {
+      } else if (paramKnobsPopulated
+          && !(org.deluge.firmware2.Arpeggiator.isUnpatchedArpParam(i)
+              && paramKnobs[i] == UNSET_ARP_KNOB)) {
         newValue = paramKnobs[i];
       }
 
@@ -446,6 +472,24 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
           fmModulatorAmountBase[1];
     }
     fw2Sound.patchedParamValues = nextPatchedParamValues;
+
+    // C arpeggiator.cpp:1968-1983, sound.cpp:1528, 2463, 2468, sound_instrument.cpp:426 — sync
+    // active unpatched arp/randomizer params into arpSettings while preserving direct arpSettings
+    // mutations when neither automation nor raw knobs/neutrals override that param.
+    for (int p = Param.UNPATCHED_ARP_GATE; p <= Param.UNPATCHED_SPREAD_VELOCITY; p++) {
+      var auto = paramManager.getAutomatedParam(p);
+      boolean hasAutomation = auto != null && !auto.nodes.isEmpty();
+      boolean hasKnobOverride = paramKnobs[p] != UNSET_ARP_KNOB;
+      boolean hasNeutralOverride =
+          paramNeutralValues[p] != org.deluge.firmware2.Arpeggiator.getUnpatchedArpDefault(p);
+      if (hasAutomation || hasKnobOverride || hasNeutralOverride) {
+        int val =
+            hasAutomation
+                ? auto.currentValue
+                : (hasKnobOverride ? paramKnobs[p] : paramNeutralValues[p]);
+        fw2Sound.arpSettings.updateParamFromUnpatched(p, val);
+      }
+    }
 
     java.util.List<org.deluge.firmware2.Patcher.Destination> nextDestinations =
         new java.util.ArrayList<>();
@@ -517,15 +561,24 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
           == org.deluge.firmware2.Arpeggiator.SyncLevel.SYNC_LEVEL_NONE) {
         // Unsynced: leave 0 so fw2 Sound recomputes the C free-rate increment from the current
         // GLOBAL_ARP_RATE every block (arpeggiator.cpp:1594-1596). Caching it froze rate edits.
-        fw2Sound.arpPhaseIncrement = 0;
-      } else if (fw2Sound.arpPhaseIncrement == 0) {
+        if (fw2Sound.arpPhaseIncrement == lastSyncedArpPhaseIncrement) {
+          fw2Sound.arpPhaseIncrement = 0;
+        }
+        lastSyncedArpPhaseIncrement = 0;
+      } else if (fw2Sound.arpPhaseIncrement == 0
+          || fw2Sound.arpPhaseIncrement == lastSyncedArpPhaseIncrement) {
+        // C sound.cpp:2469-2470 — recompute synced arpPhaseIncrement every block so live BPM,
+        // inputTickMagnitude, syncLevel, and syncType changes take effect immediately, while
+        // preserving manual test overrides when fw2Sound.arpPhaseIncrement was set externally.
         int arpRateFinal =
             org.deluge.firmware2.Patcher.computeFinalValueForParam(
                 org.deluge.firmware2.Param.GLOBAL_ARP_RATE,
                 fw2Sound.patchedParamValues[org.deluge.firmware2.Param.GLOBAL_ARP_RATE]);
-        fw2Sound.arpPhaseIncrement =
+        int nextArpPhaseIncrement =
             fw2Sound.arpSettings.getPhaseIncrement(
                 arpRateFinal, fw2Sound.timePerInternalTickInverse);
+        fw2Sound.arpPhaseIncrement = nextArpPhaseIncrement;
+        lastSyncedArpPhaseIncrement = nextArpPhaseIncrement;
       }
     }
 
@@ -556,9 +609,9 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   }
 
   public void noteOffAll() {
-    synchronized (fw2Sound.voices) {
-      for (var v : fw2Sound.voices) v.noteOff();
-    }
+    // C sound.cpp:1769-1777 (Sound::allNotesOff) — release all voices, reset invertReversed, and
+    // reset arpeggiator state.
+    fw2Sound.releaseAllNotes();
   }
 
   public void releaseNote(int note) {

@@ -204,4 +204,143 @@ public final class ArpXmlCodec {
     return DelugeXmlUtil.convertSyncLevelFromInternalValueToFileValue(
         internalSyncLevelFromDenominator(denominator, inputTickMagnitude), inputTickMagnitude);
   }
+
+  /**
+   * Applies one signed Q31 {@code UNPATCHED_ARP_*} parameter value from {@code <defaultParams>} or
+   * {@code <soundParams>} onto an {@link org.deluge.model.ArpModel} (C
+   * mod_controllable_audio.cpp:113-127, arpeggiator.cpp:1968-1983, unpatched_param.cpp:36-38).
+   */
+  public static org.deluge.model.ArpModel applyUnpatchedKnobToArp(
+      org.deluge.model.ArpModel arp, int paramId, int rawQ31) {
+    if (arp == null) return null;
+    int menuVal =
+        org.deluge.firmware2.Functions.computeCurrentValueForUnsignedMenuItem(
+            rawQ31 + Integer.MIN_VALUE);
+    float normVal = menuVal / 50.0f;
+    var b = arp.toBuilder();
+    return switch (paramId) {
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_GATE ->
+          b.gate(rawQ31 == 0 ? 0.5f : DelugeHexMapper.q31ToUnipolarFloatUnified(rawQ31)).build();
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_RHYTHM -> b.rhythmIndex(menuVal).build();
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SEQUENCE_LENGTH -> b.seqLength(menuVal).build();
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_CHORD_POLYPHONY ->
+          b.chordPolyphony(Math.round((menuVal / 50.0f) * 8.0f)).build();
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_RATCHET_AMOUNT ->
+          b.ratchetAmount(Math.round((menuVal / 50.0f) * 4.0f)).build();
+      case org.deluge.firmware2.Param.UNPATCHED_NOTE_PROBABILITY ->
+          b.noteProbability(normVal).build();
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_BASS_PROBABILITY ->
+          b.bassProbability(normVal).build();
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SWAP_PROBABILITY ->
+          b.swapProbability(normVal).build();
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_GLIDE_PROBABILITY ->
+          b.glideProbability(normVal).build();
+      case org.deluge.firmware2.Param.UNPATCHED_REVERSE_PROBABILITY ->
+          b.reverseProbability(normVal).build();
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_CHORD_PROBABILITY ->
+          b.chordProbability(normVal).build();
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_RATCHET_PROBABILITY ->
+          b.ratchetProbability(normVal).build();
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SPREAD_GATE -> b.gateSpread(normVal).build();
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SPREAD_OCTAVE ->
+          b.octaveSpread(normVal).build();
+      case org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY -> b.velSpread(normVal).build();
+      default -> arp;
+    };
+  }
+
+  /**
+   * Maps an {@link org.deluge.model.ArpModel} field back to its signed Q31 {@code UNPATCHED_ARP_*}
+   * parameter value (C unpatched_param.cpp:84-86, value_scaling.cpp:22-33).
+   */
+  public static int unpatchedQ31FromArp(org.deluge.model.ArpModel arp, int paramId) {
+    if (arp == null) return org.deluge.firmware2.Arpeggiator.getUnpatchedArpDefault(paramId);
+    return switch (paramId) {
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_GATE ->
+          Math.abs(arp.gate() - 0.5f) < 1e-6f
+              ? 0
+              : DelugeHexMapper.unipolarFloatToQ31Unified(arp.gate());
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_RHYTHM ->
+          org.deluge.firmware2.Functions.computeFinalValueForStandardMenuItem(
+              Math.max(0, Math.min(50, arp.rhythmIndex())));
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SEQUENCE_LENGTH ->
+          org.deluge.firmware2.Functions.computeFinalValueForStandardMenuItem(
+              Math.max(0, Math.min(50, arp.seqLength())));
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_CHORD_POLYPHONY ->
+          org.deluge.firmware2.Functions.computeFinalValueForStandardMenuItem(
+              Math.round((Math.max(0, Math.min(8, arp.chordPolyphony())) / 8.0f) * 50.0f));
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_RATCHET_AMOUNT ->
+          org.deluge.firmware2.Functions.computeFinalValueForStandardMenuItem(
+              Math.round((Math.max(0, Math.min(4, arp.ratchetAmount())) / 4.0f) * 50.0f));
+      case org.deluge.firmware2.Param.UNPATCHED_NOTE_PROBABILITY ->
+          menuQ31FromNorm(arp.noteProbability());
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_BASS_PROBABILITY ->
+          menuQ31FromNorm(arp.bassProbability());
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SWAP_PROBABILITY ->
+          menuQ31FromNorm(arp.swapProbability());
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_GLIDE_PROBABILITY ->
+          menuQ31FromNorm(arp.glideProbability());
+      case org.deluge.firmware2.Param.UNPATCHED_REVERSE_PROBABILITY ->
+          menuQ31FromNorm(arp.reverseProbability());
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_CHORD_PROBABILITY ->
+          menuQ31FromNorm(arp.chordProbability());
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_RATCHET_PROBABILITY ->
+          menuQ31FromNorm(arp.ratchetProbability());
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SPREAD_GATE ->
+          menuQ31FromNorm(arp.gateSpread());
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SPREAD_OCTAVE ->
+          menuQ31FromNorm(arp.octaveSpread());
+      case org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY -> menuQ31FromNorm(arp.velSpread());
+      default -> org.deluge.firmware2.Arpeggiator.getUnpatchedArpDefault(paramId);
+    };
+  }
+
+  private static int menuQ31FromNorm(float norm) {
+    float clamped = Math.max(0f, Math.min(1f, norm));
+    return org.deluge.firmware2.Functions.computeFinalValueForStandardMenuItem(
+        Math.round(clamped * 50.0f));
+  }
+
+  /**
+   * Returns true if the {@link org.deluge.model.ArpModel} field corresponding to {@code paramId}
+   * differs between {@code oldArp} and {@code newArp}.
+   */
+  public static boolean isUnpatchedArpFieldChanged(
+      org.deluge.model.ArpModel oldArp, org.deluge.model.ArpModel newArp, int paramId) {
+    if (oldArp == newArp) return false;
+    if (oldArp == null || newArp == null) return true;
+    return switch (paramId) {
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_GATE ->
+          Float.compare(oldArp.gate(), newArp.gate()) != 0;
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_RHYTHM ->
+          oldArp.rhythmIndex() != newArp.rhythmIndex();
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SEQUENCE_LENGTH ->
+          oldArp.seqLength() != newArp.seqLength();
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_CHORD_POLYPHONY ->
+          oldArp.chordPolyphony() != newArp.chordPolyphony();
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_RATCHET_AMOUNT ->
+          oldArp.ratchetAmount() != newArp.ratchetAmount();
+      case org.deluge.firmware2.Param.UNPATCHED_NOTE_PROBABILITY ->
+          Float.compare(oldArp.noteProbability(), newArp.noteProbability()) != 0;
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_BASS_PROBABILITY ->
+          Float.compare(oldArp.bassProbability(), newArp.bassProbability()) != 0;
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SWAP_PROBABILITY ->
+          Float.compare(oldArp.swapProbability(), newArp.swapProbability()) != 0;
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_GLIDE_PROBABILITY ->
+          Float.compare(oldArp.glideProbability(), newArp.glideProbability()) != 0;
+      case org.deluge.firmware2.Param.UNPATCHED_REVERSE_PROBABILITY ->
+          Float.compare(oldArp.reverseProbability(), newArp.reverseProbability()) != 0;
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_CHORD_PROBABILITY ->
+          Float.compare(oldArp.chordProbability(), newArp.chordProbability()) != 0;
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_RATCHET_PROBABILITY ->
+          Float.compare(oldArp.ratchetProbability(), newArp.ratchetProbability()) != 0;
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SPREAD_GATE ->
+          Float.compare(oldArp.gateSpread(), newArp.gateSpread()) != 0;
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SPREAD_OCTAVE ->
+          Float.compare(oldArp.octaveSpread(), newArp.octaveSpread()) != 0;
+      case org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY ->
+          Float.compare(oldArp.velSpread(), newArp.velSpread()) != 0;
+      default -> false;
+    };
+  }
 }

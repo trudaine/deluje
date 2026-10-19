@@ -94,6 +94,7 @@ class Fw2SyncCompletenessTest {
   private static final Set<String> RUNTIME_OR_DERIVED =
       Set.of(
           "lastNoteCode", // runtime: last triggered note
+          "invertReversed", // runtime: per-note sample reverse flag from arpeggiator/randomizer
           "masterTranspose", // model-driven at load time, not real-time bridge synced
           "masterCents", // model-driven at load time, not real-time bridge synced
           "timePerInternalTickInverse", // transport clock (documented gap; synced LFO unreachable)

@@ -1804,6 +1804,7 @@ public class ProjectSerializer {
           "modFXOffset",
           "compressorThreshold",
           "arpeggiatorRate",
+          "arpeggiatorGate",
           "tempo",
           "eqBass",
           "eqTreble",
@@ -1812,7 +1813,7 @@ public class ProjectSerializer {
           "0x00000000";
       case "modFXRate" -> "0xE0000000";
       case "sidechainCompressorShape" -> "0xDC28F5B2";
-      case "arpeggiatorGate", "noteProbability" -> "0x7FFFFFFF";
+      case "noteProbability" -> "0x7FFFFFFF";
       case "lpfFrequency" -> DelugeHexMapper.hzToHex(20000.0f);
       case "hpfFrequency" -> DelugeHexMapper.hzToHex(20.0f);
       default -> "0x80000000";
@@ -2032,18 +2033,49 @@ public class ProjectSerializer {
     writeSoundParamAttr(
         writer, curves, written, "arpeggiatorRate", String.format("0x%08X", synth.getArpRateQ31()));
 
-    // Write any raw patched parameters (like sidechain shape)
+    // Write any raw patched parameters (like sidechain shape and volume)
     for (var entry : synth.getRawKnobs().getRawParamKnobs().entrySet()) {
       String attrName = null;
-      if (entry.getKey() == org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE) {
+      int pid = entry.getKey();
+      int rawVal = entry.getValue();
+      if (pid == org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE) {
         attrName = "sidechainCompressorShape";
-      } else if (entry.getKey() == org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_VOLUME) {
+      } else if (pid == org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_VOLUME) {
         attrName = "sidechainCompressorVolume";
       }
 
       if (attrName != null && !written.contains(attrName)) {
-        writeSoundParamAttr(
-            writer, curves, written, attrName, String.format("0x%08X", entry.getValue()));
+        writeSoundParamAttr(writer, curves, written, attrName, String.format("0x%08X", rawVal));
+      }
+    }
+
+    // Write non-default unpatched arp/randomizer knobs (mod_controllable_audio.cpp:507-538).
+    // For the active clip (or synth default), prefer exact 32-bit rawKnobs and fall back to
+    // ArpModel; for non-active clips, serialize from the clip's own ArpModel.
+    boolean isActiveClip = (clip == null || clip == synth.getActiveClip());
+    org.deluge.model.ArpModel clipArp =
+        (clip != null && clip.getArp() != null) ? clip.getArp() : synth.getArp();
+    var rawMap = synth.getRawKnobs().getRawParamKnobs();
+    for (int pid = org.deluge.firmware2.Param.UNPATCHED_ARP_GATE;
+        pid <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+        pid++) {
+      String attrName = unpatchedArpAttrName(pid);
+      if (attrName == null || written.contains(attrName)) {
+        continue;
+      }
+      Integer rawBoxed = isActiveClip ? rawMap.get(pid) : null;
+      int rawVal;
+      if (rawBoxed != null) {
+        rawVal = rawBoxed;
+      } else if (clipArp != null
+          && org.deluge.xml.ArpXmlCodec.isUnpatchedArpFieldChanged(
+              org.deluge.model.ArpModel.defaultConfig(), clipArp, pid)) {
+        rawVal = org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(clipArp, pid);
+      } else {
+        continue;
+      }
+      if (rawVal != org.deluge.firmware2.Arpeggiator.getUnpatchedArpDefault(pid)) {
+        writeSoundParamAttr(writer, curves, written, attrName, String.format("0x%08X", rawVal));
       }
     }
 
@@ -2068,6 +2100,32 @@ public class ProjectSerializer {
     writeSoundParamsSubElementsAndClose(writer, curves, null, synth, clipCables);
   }
 
+  /**
+   * C {@code ModControllableAudio::writeParamAttributesToFile} ({@code
+   * mod_controllable_audio.cpp:507-538}) — XML attribute names for unpatched arp and randomizer
+   * knobs.
+   */
+  private static String unpatchedArpAttrName(int paramId) {
+    return switch (paramId) {
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_GATE -> "arpeggiatorGate";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_RHYTHM -> "rhythm";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SEQUENCE_LENGTH -> "sequenceLength";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_CHORD_POLYPHONY -> "chordPolyphony";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_RATCHET_AMOUNT -> "ratchetAmount";
+      case org.deluge.firmware2.Param.UNPATCHED_NOTE_PROBABILITY -> "noteProbability";
+      case org.deluge.firmware2.Param.UNPATCHED_REVERSE_PROBABILITY -> "reverseProbability";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_BASS_PROBABILITY -> "bassProbability";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SWAP_PROBABILITY -> "swapProbability";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_GLIDE_PROBABILITY -> "glideProbability";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_CHORD_PROBABILITY -> "chordProbability";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_RATCHET_PROBABILITY -> "ratchetProbability";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SPREAD_GATE -> "spreadGate";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SPREAD_OCTAVE -> "spreadOctave";
+      case org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY -> "spreadVelocity";
+      default -> null;
+    };
+  }
+
   private static void serializeKitRowSoundParams(
       XMLSerializer writer, org.deluge.model.NoteRowModel rowModel) throws IOException {
     writer.writeOpeningTagBeginning("soundParams");
@@ -2090,8 +2148,14 @@ public class ProjectSerializer {
       if (written.contains(key) || isSubElementParamKey(key)) {
         continue;
       }
+      int paramId = org.deluge.engine.FirmwareFactory.getParamIdFromName(key);
+      String baseHex =
+          org.deluge.firmware2.Arpeggiator.isUnpatchedArpParam(paramId)
+              ? String.format(
+                  "0x%08X", org.deluge.firmware2.Arpeggiator.getUnpatchedArpDefault(paramId))
+              : "0x00000000";
       writer.writeAttribute(
-          key, DelugeHexMapper.formatHexWithAutomationNodes("0x00000000", entry.getValue()), false);
+          key, DelugeHexMapper.formatHexWithAutomationNodes(baseHex, entry.getValue()), false);
       written.add(key);
     }
 
@@ -2121,6 +2185,17 @@ public class ProjectSerializer {
     int paramId = org.deluge.engine.FirmwareFactory.getParamIdFromName(key);
     if (paramId != -1 && raw.getRawParamKnobs().containsKey(paramId)) {
       return String.format("0x%08X", raw.getRawParamKnobs().get(paramId));
+    }
+    if (org.deluge.firmware2.Arpeggiator.isUnpatchedArpParam(paramId)) {
+      org.deluge.model.ArpModel arp = synth.getArp();
+      if (arp != null
+          && org.deluge.xml.ArpXmlCodec.isUnpatchedArpFieldChanged(
+              org.deluge.model.ArpModel.defaultConfig(), arp, paramId)) {
+        return String.format(
+            "0x%08X", org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(arp, paramId));
+      }
+      return String.format(
+          "0x%08X", org.deluge.firmware2.Arpeggiator.getUnpatchedArpDefault(paramId));
     }
     // C sound.cpp:139, 172-177, 4061-4126 — dedicated Q31 fields parsed by
     // InstrumentXmlParser.parseClipSoundParamsStatics.

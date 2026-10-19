@@ -67,14 +67,14 @@ public record ArpModel(
         "UP",
         1,
         0,
-        8,
+        0, // C UNPATCHED_ARP_SEQUENCE_LENGTH default: -2147483648 -> 0 = unlimited
         0.0f,
         0.0f,
         0.0f,
         0,
         0,
         0,
-        0.0f,
+        1.0f, // C UNPATCHED_NOTE_PROBABILITY default: 2147483647 -> 1.0 = 100%
         0.0f,
         0.0f,
         0.0f,
