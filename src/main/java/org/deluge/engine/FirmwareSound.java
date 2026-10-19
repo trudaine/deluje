@@ -99,10 +99,74 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
 
   // DX7 (Dexed) patch — when set, the voice renders via the real DX7 engine instead of the
   // Deluge's native FM. The 156-byte unpacked single-voice patch defines the algorithm + 6
-  // operators + per-op EGs; engineType: -1=auto (MkI for algos 3/5 w/ feedback), 0=modern, 1=MkI.
+  // operators + per-op EGs; engineType: 0=auto (MkI for algos 4/6 w/ feedback), 1=modern, 2=MkI.
   public byte[] dx7Patch = null;
-  public int dx7EngineType = -1;
+  // C dx7note.cpp:63, 68-78, engine_select.cpp:46 — 0 = auto, 1 = modern, 2 = vintage (MkI).
+  public int dx7EngineType = 0;
   public int dx7RandomDetune = 0;
+  private String lastSyncedDx7PatchHex;
+
+  private static org.deluge.firmware2.Oscillator.OscType parseModelOscType(String s) {
+    if (s == null) return org.deluge.firmware2.Oscillator.OscType.SINE;
+    String t = s.trim();
+    if (t.equalsIgnoreCase("analogSaw"))
+      return org.deluge.firmware2.Oscillator.OscType.ANALOG_SAW_2;
+    if (t.equalsIgnoreCase("analogSquare"))
+      return org.deluge.firmware2.Oscillator.OscType.ANALOG_SQUARE;
+    if (t.equalsIgnoreCase("inLeft")) return org.deluge.firmware2.Oscillator.OscType.INPUT_L;
+    if (t.equalsIgnoreCase("inRight")) return org.deluge.firmware2.Oscillator.OscType.INPUT_R;
+    if (t.equalsIgnoreCase("inStereo")) return org.deluge.firmware2.Oscillator.OscType.INPUT_STEREO;
+    try {
+      return org.deluge.firmware2.Oscillator.OscType.valueOf(t.toUpperCase());
+    } catch (Exception e) {
+      return org.deluge.firmware2.Oscillator.OscType.TRIANGLE;
+    }
+  }
+
+  /**
+   * Synchronizes live UI/SysEx/Randomizer DX7 patch, engine mode, and random detune from {@code st}
+   * without allocating when the patch hex string reference/value is unchanged.
+   */
+  public synchronized void syncDx7FromModel(org.deluge.model.SynthTrackModel st) {
+    if (st == null) {
+      return;
+    }
+    String hex = st.getDx7Patch();
+    if (!java.util.Objects.equals(hex, lastSyncedDx7PatchHex)) {
+      lastSyncedDx7PatchHex = hex;
+      if (hex != null && hex.length() >= 312) {
+        byte[] decoded = new byte[156];
+        boolean valid = true;
+        for (int i = 0; i < 156; i++) {
+          int hi = Character.digit(hex.charAt(i * 2), 16);
+          int lo = Character.digit(hex.charAt(i * 2 + 1), 16);
+          if (hi < 0 || lo < 0) {
+            valid = false;
+            break;
+          }
+          decoded[i] = (byte) ((hi << 4) | lo);
+        }
+        if (valid) {
+          this.dx7Patch = decoded;
+        }
+      } else if (hex == null || hex.isEmpty()) {
+        this.dx7Patch = null;
+      }
+    }
+    this.dx7EngineType = st.getEngineType();
+    this.dx7RandomDetune = st.getDx7RandomDetune();
+    // Push directly into fw2Sound so live mid-note UI/SysEx edits in PureFirmwareEngine propagate
+    // on the very next audio block without waiting for another NoteOn/syncParamsToFw2 call.
+    fw2Sound.sourceDx7EngineType[0] = this.dx7EngineType;
+    fw2Sound.sourceDx7RandomDetune[0] = this.dx7RandomDetune;
+    if (this.dx7Patch != null && st.getSynthMode() != 2) {
+      fw2Sound.oscTypes[0] = org.deluge.firmware2.Oscillator.OscType.DX7;
+      fw2Sound.sourceDx7Patch[0] = this.dx7Patch;
+    } else {
+      fw2Sound.sourceDx7Patch[0] = null;
+      fw2Sound.oscTypes[0] = parseModelOscType(st.getOsc1Type());
+    }
+  }
 
   public boolean isDx7() {
     return dx7Patch != null;
@@ -453,11 +517,11 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     ensureDrumBendRangeDefault();
     fw2Sound.oscTypes[0] = oscTypes[0];
     fw2Sound.oscTypes[1] = oscTypes[1];
-    if (dx7Patch != null) {
+    fw2Sound.sourceDx7EngineType[0] = dx7EngineType;
+    fw2Sound.sourceDx7RandomDetune[0] = dx7RandomDetune;
+    if (dx7Patch != null && getSynthMode() != SynthMode.RINGMOD) {
       fw2Sound.oscTypes[0] = org.deluge.firmware2.Oscillator.OscType.DX7;
       fw2Sound.sourceDx7Patch[0] = dx7Patch;
-      fw2Sound.sourceDx7EngineType[0] = dx7EngineType;
-      fw2Sound.sourceDx7RandomDetune[0] = dx7RandomDetune;
     } else {
       fw2Sound.sourceDx7Patch[0] = null;
     }

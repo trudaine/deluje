@@ -44,13 +44,28 @@ public class DelugeXmlExporter {
     doc.appendChild(rootElement);
 
     rootElement.setAttribute("name", model.getName());
-    // C sound.cpp:4167, 4175 & functions.cpp:810-852 — polyphony and synth mode strings.
+    // C sound.cpp:3744-3745, 4167, 4175 & functions.cpp:810-852 — polyphony and synth mode strings
+    // (DX7 sources require synthMode != FM on hardware).
+    boolean isDx7 =
+        model.getSynthMode() != 2
+            && ("DX7".equalsIgnoreCase(model.getOsc1Type())
+                || (model.getDx7Patch() != null && !model.getDx7Patch().isEmpty()));
+    int exportedMode = (isDx7 && model.getSynthMode() == 1) ? 0 : model.getSynthMode();
     rootElement.setAttribute("polyphonic", polyphonyToFirmwareString(model.getPolyphony()));
-    rootElement.setAttribute("mode", synthModeToFirmwareString(model.getSynthMode()));
+    rootElement.setAttribute("mode", synthModeToFirmwareString(exportedMode));
 
-    // Oscillator 1 & 2 (C sound.cpp:4194-4195 & functions.cpp:680-721)
+    // Oscillator 1 & 2 (C sound.cpp:3748-3758, 4194-4195 & functions.cpp:680-721)
     Element osc1 = doc.createElement("osc1");
-    osc1.setAttribute("type", oscTypeToFirmwareString(model.getOsc1Type()));
+    osc1.setAttribute("type", isDx7 ? "dx7" : oscTypeToFirmwareString(model.getOsc1Type()));
+    if (isDx7 && model.getDx7Patch() != null && !model.getDx7Patch().isEmpty()) {
+      osc1.setAttribute("dx7patch", model.getDx7Patch());
+      if (model.getEngineType() != 0) {
+        osc1.setAttribute("dx7enginemode", String.valueOf(model.getEngineType()));
+      }
+      if (model.getDx7RandomDetune() != 0) {
+        osc1.setAttribute("dx7randomdetune", String.valueOf(model.getDx7RandomDetune()));
+      }
+    }
     rootElement.appendChild(osc1);
 
     if (model.getOsc2Type() != null && !"NONE".equalsIgnoreCase(model.getOsc2Type().trim())) {

@@ -249,6 +249,9 @@ public class SynthTrackModel extends TrackModel {
 
   public void setOsc1Type(String osc1Type) {
     osc1.setType(osc1Type);
+    if (osc1Type != null && !"DX7".equalsIgnoreCase(osc1Type.trim())) {
+      fm.setDx7patch(null);
+    }
   }
 
   public String getOsc2Type() {

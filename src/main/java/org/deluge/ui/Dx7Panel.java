@@ -93,8 +93,15 @@ public class Dx7Panel extends JPanel {
     setBackground(new Color(0x12, 0x12, 0x14));
     setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-    // ── Active FM mode check & activation prompt card ──
-    if (model.getSynthMode() != 1) {
+    // ── Active FM / DX7 mode check & activation prompt card ──
+    // C sound.cpp:3744-3745 — firmware DX7 songs/presets store mode="subtractive" (synthMode == 0)
+    // with osc1 type="dx7" and dx7patch="...", whereas UI-created FM/DX7 tracks also set
+    // synthMode == 1. Recognize all three as active DX7!
+    boolean dx7Active =
+        model.getSynthMode() == 1
+            || "DX7".equalsIgnoreCase(model.getOsc1Type())
+            || (model.getDx7Patch() != null && !model.getDx7Patch().isEmpty());
+    if (!dx7Active) {
       JPanel promptCard = new JPanel(new GridBagLayout());
       promptCard.setBackground(new Color(0x18, 0x18, 0x1c));
       promptCard.setBorder(BorderFactory.createEmptyBorder(40, 40, 40, 40));
@@ -131,6 +138,10 @@ public class Dx7Panel extends JPanel {
       activateBtn.addActionListener(
           e -> {
             model.setSynthMode(1);
+            model.setOsc1Type("DX7");
+            // C sound.cpp:150-151 — pure Source 0 (OSC A = 0x7FFFFFFF, OSC B = 0x80000000 off) so
+            // Osc 2 does not layer a full-scale subtractive triangle wave under the DX7 voice.
+            model.setOscMix(1.0f);
             model.setSynthAlgorithm(5);
 
             // Start from C init_voice (dx7note.cpp:42-48) so EG rates/levels are playable.
@@ -954,6 +965,7 @@ public class Dx7Panel extends JPanel {
     if (isRefreshingOpDetails) return;
     setPatchByte(model, model.getDx7Patch(), offset, value);
     if (offset == Dx7Patch.OFF_ALGORITHM) {
+      model.setSynthAlgorithm(value & 0x1F);
       algoValLabel.setText(String.valueOf(value));
       algoAsciiPreview.setText(AlgorithmPanel.formatAlgorithmMini(value));
     }
@@ -1055,8 +1067,12 @@ public class Dx7Panel extends JPanel {
       int trackIndex,
       org.deluge.shadow.audio.Dx7Patch patch) {
     String hex = org.deluge.xml.Dx7SyxParser.patchToHex(patch);
-    model.setDx7Patch(hex);
     model.setSynthMode(1);
+    model.setOsc1Type("DX7");
+    if ("NONE".equalsIgnoreCase(model.getOsc2Type())) {
+      model.setOscMix(1.0f);
+    }
+    model.setDx7Patch(hex);
     model.setSynthAlgorithm(patch.algorithm());
     if (bridge != null) {
       bridge.setDx7Patch(trackIndex, hex);

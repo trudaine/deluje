@@ -109,6 +109,8 @@ class Fw2SyncCompletenessTest {
           "explicitBendRange", // runtime: tracks explicit per-row bendRange vs kit default (±2)
           "samplesPerSequencerTick", // transport: derived from tempo
           "unisonPan", // derived by setupUnisonStereoSpread() from unisonStereoSpread
+          "sourceDxPatchChanged", // runtime per-source DX7 live patch edit flag (source.h:48)
+          "sourceDxPatchLoaded", // runtime per-source DX7 initial load guard
           "monophonicExpressionValues", // runtime MPE smoothing state
           "expressionSourcesChangedAtSynthLevel", // runtime MPE flag
           "globalSourceValues", // runtime modulation output (LFO/sidechain), recomputed per block

@@ -31,10 +31,10 @@ public class FmConfig {
 
   private boolean modulator1ToModulator0 = false;
 
-  // DX7 FM parameters
+  // DX7 FM parameters (C dx7note.cpp:63, 68-78, engine_select.cpp:46: 0=auto, 1=modern, 2=vintage)
   private String dx7patch = null;
   private int dx7RandomDetune = 0;
-  private int engineType = -1; // -1=AUTO, 0=MODERN, 1=VINTAGE
+  private int engineType = 0;
 
   // Modulator retrigger phases (default -1 = free-running)
   private int mod1RetrigPhase = -1;
@@ -213,7 +213,9 @@ public class FmConfig {
   }
 
   public void setEngineType(int engineType) {
-    this.engineType = engineType;
+    // C dx7note.cpp:63, 68-78, engine_select.cpp:46 — 0 = auto, 1 = modern, 2 = vintage (MkI).
+    // Clamp legacy -1 ("Auto" in earlier Deluje saves) cleanly to 0.
+    this.engineType = Math.clamp(engineType, 0, 2);
   }
 
   public int getMod1RetrigPhase() {

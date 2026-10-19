@@ -456,6 +456,10 @@ public class ProjectSerializer {
         // dynamic-keyzone path below omits the <sampleRange rangeTopNote> wrappers, so the Deluge
         // can't map keyzones → silent multisamples. Fall back to dynamic zones / single-sample only
         // when no raw XML was captured.
+        boolean isDx7 =
+            synth.getSynthMode() != 2
+                && ("DX7".equalsIgnoreCase(synth.getOsc1Type())
+                    || (synth.getDx7Patch() != null && !synth.getDx7Patch().isEmpty()));
         if (synth.getOsc1RawXml() != null) {
           writer.write("\n");
           writer.write(synth.getOsc1RawXml());
@@ -491,7 +495,8 @@ public class ProjectSerializer {
           writer.writeClosingTag("osc1");
         } else {
           writer.writeOpeningTagBeginning("osc1");
-          writer.writeAttribute("type", oscTypeToFirmwareString(synth.getOsc1Type()), false);
+          writer.writeAttribute(
+              "type", isDx7 ? "dx7" : oscTypeToFirmwareString(synth.getOsc1Type()), false);
           writer.writeAttribute("transpose", String.valueOf(synth.getOsc1Transpose()), false);
           writer.writeAttribute("cents", String.valueOf(synth.getOsc1Cents()), false);
           writer.writeAttribute("retrigPhase", String.valueOf(synth.getOsc1RetrigPhase()), false);
@@ -510,8 +515,19 @@ public class ProjectSerializer {
               writer.writeAttribute("linearInterpolation", "1", false);
             }
           }
-          if (synth.getDx7Patch() != null) {
+          // C sound.cpp:3744-3758 — write dx7patch plus conditional non-zero dx7enginemode &
+          // dx7randomdetune when DX7 source routing is active (never in RingMod, sound.cpp:2599).
+          if (synth.getSynthMode() != 2
+              && synth.getDx7Patch() != null
+              && !synth.getDx7Patch().isEmpty()) {
             writer.writeAttribute("dx7patch", synth.getDx7Patch(), false);
+            if (synth.getEngineType() != 0) {
+              writer.writeAttribute("dx7enginemode", String.valueOf(synth.getEngineType()), false);
+            }
+            if (synth.getDx7RandomDetune() != 0) {
+              writer.writeAttribute(
+                  "dx7randomdetune", String.valueOf(synth.getDx7RandomDetune()), false);
+            }
           }
           writer.closeTag();
         }
@@ -606,9 +622,11 @@ public class ProjectSerializer {
         }
         writer.writeTag("customLfoWave", waveSb.toString());
 
+        // C sound.cpp:3744-3745 — DX7 sources require synthMode != FM ("subtractive") in hardware
+        // XML so real Deluge hardware routes through OscType::DX7 instead of 2-op sine FM.
         String mode =
             switch (synth.getSynthMode()) {
-              case 1 -> "fm";
+              case 1 -> isDx7 ? "subtractive" : "fm";
               case 2 -> "ringmod";
               default -> "subtractive";
             };

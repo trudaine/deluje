@@ -349,8 +349,13 @@ public class KitSynthSerializer {
     }
 
     // ── osc1 ──
+    boolean isDx7 =
+        synth.getSynthMode() != 2
+            && ("DX7".equalsIgnoreCase(synth.getOsc1Type())
+                || (synth.getDx7Patch() != null && !synth.getDx7Patch().isEmpty()));
     Element osc1 = doc.createElement("osc1");
-    appendTextChild(doc, osc1, "type", oscTypeToFirmwareString(synth.getOsc1Type()));
+    appendTextChild(
+        doc, osc1, "type", isDx7 ? "dx7" : oscTypeToFirmwareString(synth.getOsc1Type()));
     // Were hardcoded "0", silently discarding the oscillator's tuning: "018 Rich Saw Lead" has
     // osc2 transpose=12, and saving it collapsed both oscillators onto the same pitch — which is
     // what made an XML round-trip render 1.77x louder (the two saws then summed coherently).
@@ -370,8 +375,18 @@ public class KitSynthSerializer {
       appendTextChild(
           doc, osc1, "timeStretchAmount", String.valueOf(synth.getOsc1TimeStretchAmount()));
     }
-    if (synth.getDx7Patch() != null && !synth.getDx7Patch().isEmpty()) {
+    // C sound.cpp:3744-3758 — write dx7patch plus conditional non-zero dx7enginemode &
+    // dx7randomdetune when DX7 source routing is active (never in RingMod, sound.cpp:2599).
+    if (synth.getSynthMode() != 2
+        && synth.getDx7Patch() != null
+        && !synth.getDx7Patch().isEmpty()) {
       osc1.setAttribute("dx7patch", synth.getDx7Patch());
+      if (synth.getEngineType() != 0) {
+        osc1.setAttribute("dx7enginemode", String.valueOf(synth.getEngineType()));
+      }
+      if (synth.getDx7RandomDetune() != 0) {
+        osc1.setAttribute("dx7randomdetune", String.valueOf(synth.getDx7RandomDetune()));
+      }
     }
     root.appendChild(osc1);
 
@@ -431,10 +446,10 @@ public class KitSynthSerializer {
     }
     appendTextChild(doc, root, "customLfoWave", sb.toString());
 
-    // ── synth mode ──
+    // ── synth mode (C sound.cpp:3744-3745 — DX7 patches serialize mode="subtractive") ──
     String mode =
         switch (synth.getSynthMode()) {
-          case 1 -> "fm";
+          case 1 -> isDx7 ? "subtractive" : "fm";
           case 2 -> "ringmod";
           default -> "subtractive";
         };

@@ -50,7 +50,6 @@ public class VoiceSource {
   public int liveInputTimer;
 
   public final Dx7Voice dxVoice = new Dx7Voice();
-  public final Dx7Voice.DxPatch dxPatch = new Dx7Voice.DxPatch();
 
   // Pre-allocated reusable buffers to prevent real-time GC churn
   public int[] tsBuf;
