@@ -158,6 +158,7 @@ public class ClipModel extends TimelineCounter {
   private final Map<String, List<org.deluge.modulation.automation.ParamNode>> automationCurves =
       new HashMap<>();
   private final List<PatchCable> patchCables = new ArrayList<>();
+  private final List<org.deluge.modulation.midi.MidiParam> midiParams = new ArrayList<>();
   private final Map<String, Float> kitParams = new HashMap<>();
 
   // ── Unified NoteRowModel map replacing parallel maps ──
@@ -388,6 +389,10 @@ public class ClipModel extends TimelineCounter {
     for (PatchCable pc : this.patchCables) {
       copy.patchCables.add(pc.deepCopy());
     }
+    for (org.deluge.modulation.midi.MidiParam mp : this.midiParams) {
+      copy.midiParams.add(mp.deepCopy());
+    }
+    copy.syncMidiParamsToParamManager();
     // Deep-copy kit params
     copy.kitParams.putAll(this.kitParams);
     copy.leftCol = this.leftCol;
@@ -741,6 +746,54 @@ public class ClipModel extends TimelineCounter {
     return patchCables;
   }
 
+  /**
+   * C {@code InstrumentClip::readMIDIParamsFromFile} ({@code instrument_clip.cpp:3033-3137}) and
+   * {@code MIDIParamCollection::writeToFile} ({@code midi_param_collection.cpp:322-348}) clip-level
+   * MIDI CC parameters, ordered by ascending CC number.
+   */
+  public List<org.deluge.modulation.midi.MidiParam> getMidiParams() {
+    return midiParams;
+  }
+
+  public void setMidiParam(
+      int cc, int baseValueQ31, List<org.deluge.modulation.automation.ParamNode> nodes) {
+    org.deluge.modulation.midi.MidiParam updated =
+        new org.deluge.modulation.midi.MidiParam(cc, baseValueQ31, nodes);
+    int insertIdx = 0;
+    while (insertIdx < midiParams.size()) {
+      org.deluge.modulation.midi.MidiParam existing = midiParams.get(insertIdx);
+      if (existing.cc == cc) {
+        midiParams.set(insertIdx, updated);
+        paramManager.getMidiParamCollection().setParam(cc, baseValueQ31, nodes);
+        return;
+      }
+      if (existing.cc > cc) {
+        break;
+      }
+      insertIdx++;
+    }
+    midiParams.add(insertIdx, updated);
+    paramManager.getMidiParamCollection().setParam(cc, baseValueQ31, nodes);
+  }
+
+  public void clearMidiParams() {
+    midiParams.clear();
+    paramManager.getMidiParamCollection().clear();
+  }
+
+  private void syncMidiParamsToParamManager() {
+    var collection = paramManager.getMidiParamCollection();
+    collection.clear();
+    for (org.deluge.modulation.midi.MidiParam mp : midiParams) {
+      collection.setParam(mp.cc, mp.param.currentValue, mp.param.nodes);
+    }
+    if (sound instanceof org.deluge.engine.FirmwareMidiInstrument midi) {
+      paramManager.setMidiCcSender(midi::sendCc);
+    } else {
+      paramManager.setMidiCcSender(null);
+    }
+  }
+
   public void setAutomationCurve(
       String param, List<org.deluge.modulation.automation.ParamNode> nodes) {
     if (nodes == null || nodes.isEmpty()) {
@@ -937,6 +990,11 @@ public class ClipModel extends TimelineCounter {
     for (PatchCable pc : src.patchCables) {
       patchCables.add(pc.deepCopy());
     }
+    midiParams.clear();
+    for (org.deluge.modulation.midi.MidiParam mp : src.midiParams) {
+      midiParams.add(mp.deepCopy());
+    }
+    syncMidiParamsToParamManager();
     kitParams.clear();
     kitParams.putAll(src.kitParams);
     playMode = src.playMode;
@@ -1281,6 +1339,11 @@ public class ClipModel extends TimelineCounter {
 
   public void setSound(Object sound) {
     this.sound = sound;
+    if (sound instanceof org.deluge.engine.FirmwareMidiInstrument midi) {
+      paramManager.setMidiCcSender(midi::sendCc);
+    } else {
+      paramManager.setMidiCcSender(null);
+    }
   }
 
   /**
