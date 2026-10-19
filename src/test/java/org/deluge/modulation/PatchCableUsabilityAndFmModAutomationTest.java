@@ -2,6 +2,8 @@ package org.deluge.modulation;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
@@ -684,6 +686,142 @@ class PatchCableUsabilityAndFmModAutomationTest {
             + ", fm="
             + fmBrightness
             + ")");
+  }
+
+  @Test
+  void multiClipAndArrangementKitPreservesActiveClipDrumOverridesAndSparseDrumIndexMapping()
+      throws Exception {
+    // V2.0+ Deluge song format: <kit><soundSources><sound> omits <defaultParams>; active session
+    // clip0 has sparse/reordered <noteRow drumIndex="1" bendRange="9"> with <soundParams> filter
+    // overrides (including decimal Hz lpfFrequency="1000.0"), while inactive session clip1 and an
+    // <arrangementOnlyClips> clip have no filter overrides. Neither clip1 nor the arrangement clip
+    // may overwrite clip0's active drum filter knobs or per-drum bend ranges!
+    String xml =
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <song firmwareVersion="4.1.0">
+          <sessionClips>
+            <instrumentClip presetName="KIT1" instrumentPresetName="KIT1"
+                instrumentPresetFolder="KITS" length="96">
+              <noteRows>
+                <noteRow drumIndex="1" bendRange="9" noteDataWithLift="0x0000000000000018404014">
+                  <soundParams
+                      lpfFrequency="1000.0"
+                      lpfResonance="0x30000000"
+                      lpfMorph="0x20000000"
+                      hpfFrequency="0xF0000000"
+                      hpfResonance="0x10000000"
+                      hpfMorph="0x28000000"/>
+                </noteRow>
+              </noteRows>
+            </instrumentClip>
+            <instrumentClip presetName="KIT1" instrumentPresetName="KIT1"
+                instrumentPresetFolder="KITS" length="96">
+              <noteRows>
+                <noteRow drumIndex="0" bendRange="3" noteDataWithLift="0x0000000000000018404014"/>
+              </noteRows>
+            </instrumentClip>
+          </sessionClips>
+          <arrangementOnlyClips>
+            <instrumentClip presetName="KIT1" instrumentPresetName="KIT1"
+                instrumentPresetFolder="KITS" length="96">
+              <noteRows>
+                <noteRow drumIndex="0" noteDataWithLift="0x0000000000000018404014"/>
+              </noteRows>
+            </instrumentClip>
+          </arrangementOnlyClips>
+          <instruments>
+            <kit presetName="KIT1">
+              <soundSources>
+                <sound name="KICK" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder">
+                  <osc1 type="saw"/>
+                </sound>
+                <sound name="SNARE" mode="subtractive" lpfMode="24dB" hpfMode="HPLadder">
+                  <osc1 type="saw"/>
+                </sound>
+              </soundSources>
+            </kit>
+          </instruments>
+        </song>
+        """;
+
+    ProjectModel project =
+        DelugeXmlParser.parseSong(
+            new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)), "multiclip_kit.xml");
+    ProjectModel liveSong = FirmwareFactory.createSong(project);
+    KitTrackModel kt = (KitTrackModel) liveSong.getTracks().get(0);
+    assertEquals(3, kt.getClips().size(), "Expected 2 session clips + 1 arrangement clip");
+
+    FirmwareKit kit = (FirmwareKit) kt.getActiveClip().getSound();
+    FirmwareSound kick = kit.drumSounds.get(0);
+    FirmwareSound snare = kit.drumSounds.get(1);
+
+    // Drum 1 ("SNARE") received sparse drumIndex="1" overrides from active clip0 and must NOT be
+    // wiped out by inactive session clip1 or arrangement clip2!
+    int expected1kHzQ31 = org.deluge.xml.DelugeHexMapper.hzToQ31(1000.0f);
+    assertEquals(expected1kHzQ31, snare.paramNeutralValues[Param.LOCAL_LPF_FREQ], 256);
+    assertEquals(0x30000000, snare.paramNeutralValues[Param.LOCAL_LPF_RESONANCE], 8);
+    assertEquals(0x20000000, snare.paramNeutralValues[Param.LOCAL_LPF_MORPH], 8);
+    assertEquals(0xF0000000, snare.paramNeutralValues[Param.LOCAL_HPF_FREQ], 8);
+    assertEquals(0x10000000, snare.paramNeutralValues[Param.LOCAL_HPF_RESONANCE], 8);
+    assertEquals(0x28000000, snare.paramNeutralValues[Param.LOCAL_HPF_MORPH], 8);
+    assertEquals(9, snare.fw2Sound.bendRangeFingerLevel);
+    // Drum 0 ("KICK") must keep default finger-level drum bend range (2), NOT inactive clip1's 3!
+    assertEquals(2, kick.fw2Sound.bendRangeFingerLevel);
+  }
+
+  @Test
+  void patchCableAmountLiveMutationAndZeroAllocSteadyStateSync() {
+    Sound sound = new Sound();
+    sound.lpfMode = FilterMode.OFF;
+
+    Patcher.PatchCable cable = new Patcher.PatchCable();
+    cable.source = PatchSource.LFO_LOCAL_1.ordinal();
+    cable.amount = 0x20000000;
+    sound.patchCableSet.addCable(Param.LOCAL_LPF_FREQ, cable);
+
+    // 1. Pruned while LPF is OFF; mutate cable.amount while pruned -> re-enabled with new amount!
+    sound.patchCableSet.setupPatching(sound);
+    assertTrue(sound.patchCableSet.destinations.isEmpty());
+    cable.amount = 0x55000000;
+    sound.lpfMode = FilterMode.TRANSISTOR_24DB;
+    sound.patchCableSet.setupPatching(sound);
+    assertEquals(1, sound.patchCableSet.destinations.size());
+    assertSame(cable, sound.patchCableSet.destinations.get(0).cables.get(0));
+    assertEquals(0x55000000, sound.patchCableSet.destinations.get(0).cables.get(0).amount);
+
+    // 2. Mutate cable.amount AFTER setupPatching -> immediately visible AND preserved across future
+    // setupPatching calls!
+    cable.amount = -0x33000000;
+    assertEquals(-0x33000000, sound.patchCableSet.destinations.get(0).cables.get(0).amount);
+    sound.patchCableSet.setupPatching(sound);
+    assertEquals(-0x33000000, sound.patchCableSet.destinations.get(0).cables.get(0).amount);
+
+    // 3. FirmwareSound.syncParamsToFw2 reuses the exact List<Destination> snapshot across
+    // steady-state blocks (zero heap churn) and publishes a fresh snapshot as soon as amount or
+    // filter mode changes!
+    FirmwareSound fs = new FirmwareSound();
+    fs.setLpfMode(org.deluge.model.FilterMode.LADDER_24);
+    org.deluge.modulation.patch.PatchCable mc = new org.deluge.modulation.patch.PatchCable();
+    mc.from = org.deluge.modulation.patch.PatchSource.LFO_LOCAL_1;
+    mc.amount = 0x40000000;
+    fs.paramManager.getPatchCableSet().addCable(Param.LOCAL_LPF_FREQ, mc);
+
+    fs.syncParamsToFw2();
+    var firstSnapshot = fs.fw2Sound.patchCableSet.destinations;
+    assertEquals(1, firstSnapshot.size());
+
+    fs.syncParamsToFw2();
+    assertSame(
+        firstSnapshot,
+        fs.fw2Sound.patchCableSet.destinations,
+        "Unchanged patch cable set must reuse published snapshot with zero heap allocations");
+
+    mc.amount = 0x20000000;
+    fs.syncParamsToFw2();
+    var updatedSnapshot = fs.fw2Sound.patchCableSet.destinations;
+    assertNotSame(firstSnapshot, updatedSnapshot);
+    assertEquals(0x20000000, updatedSnapshot.get(0).cables.get(0).amount);
   }
 
   private static float[] renderBlocks(FirmwareSound fs, int totalSamples) {

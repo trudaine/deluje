@@ -602,10 +602,23 @@ public class SongXmlParser {
           Element noteRowsElem = (Element) noteRowsList.item(0);
           noteRowList = noteRowsElem.getElementsByTagName("noteRow");
           rowCount = noteRowList.getLength();
+          for (int r = 0; r < noteRowList.getLength(); r++) {
+            String di =
+                DelugeXmlUtil.attrOrDirectChildText((Element) noteRowList.item(r), "drumIndex");
+            if (di != null && !di.isBlank()) {
+              try {
+                int parsedDi = Integer.parseInt(di.trim());
+                if (parsedDi >= 0 && parsedDi + 1 > rowCount) {
+                  rowCount = parsedDi + 1;
+                }
+              } catch (NumberFormatException ignored) {
+              }
+            }
+          }
         }
         if (rowCount == 0) {
           if (targetTrack instanceof KitTrackModel kit) {
-            rowCount = kit.getDrums().size();
+            rowCount = Math.max(1, kit.getDrums().size());
           } else {
             rowCount = 8;
           }
@@ -676,12 +689,22 @@ public class SongXmlParser {
             Element noteRowElem = (Element) noteRowList.item(r);
             String hexData;
 
-            if (noteRowElem.hasAttribute("drumIndex")) {
+            int rowIdx = r;
+            String drumIdxStr = DelugeXmlUtil.attrOrDirectChildText(noteRowElem, "drumIndex");
+            if (drumIdxStr != null && !drumIdxStr.isBlank()) {
+              try {
+                int parsedDrumIdx = Integer.parseInt(drumIdxStr.trim());
+                if (parsedDrumIdx >= 0) {
+                  rowIdx = parsedDrumIdx;
+                }
+              } catch (NumberFormatException ignored) {
+              }
+              clip.getOrCreateRow(rowIdx).setPitch(rowIdx);
               // C note_row.cpp:3263, 3554-3559 — a kit row's finger-level bend range.
               String br = DelugeXmlUtil.attrOrDirectChildText(noteRowElem, "bendRange");
               if (br != null && !br.isBlank()) {
                 try {
-                  clip.getOrCreateRow(r).setBendRange(Integer.parseInt(br.trim()));
+                  clip.getOrCreateRow(rowIdx).setBendRange(Integer.parseInt(br.trim()));
                 } catch (NumberFormatException ignored) {
                 }
               }
@@ -699,7 +722,7 @@ public class SongXmlParser {
             // Apply per-row pitch from y attribute before setting grid steps and raw notes so
             // clip.setStep never overwrites rawNotes after clip.setRawNoteEvents.
             if (notePitch >= 0) {
-              clip.setRowYNote(r, notePitch);
+              clip.setRowYNote(rowIdx, notePitch);
             }
 
             NoteDataSource noteSrc = readNoteDataSource(noteRowElem, false);
@@ -714,26 +737,26 @@ public class SongXmlParser {
                 if (notePitch >= 0) {
                   step = step.withPitch(notePitch);
                 }
-                clip.setStep(r, s, step);
+                clip.setStep(rowIdx, s, step);
               }
 
               java.util.List<org.deluge.model.NoteModel> rawNotes =
                   DelugeNoteDataMapper.decodeRawNotes(hexData, hcpn);
-              clip.setRawNoteEvents(r, rawNotes);
+              clip.setRawNoteEvents(rowIdx, rawNotes);
             }
 
-            applyRowMute(noteRowElem, clip, r);
+            applyRowMute(noteRowElem, clip, rowIdx);
             int sessionClipReadUpTo =
                 clipXmlLengthTicks > 0
                     ? clipXmlLengthTicks
                     : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
-            parseNoteRowExpressionData(noteRowElem, clip, r, sessionClipReadUpTo);
+            parseNoteRowExpressionData(noteRowElem, clip, rowIdx, sessionClipReadUpTo);
 
             // Parse per-noteRow <soundParams> (35+ hex param overrides)
             NodeList rowSoundParamsList = noteRowElem.getElementsByTagName("soundParams");
             if (rowSoundParamsList.getLength() > 0) {
               Element sp = (Element) rowSoundParamsList.item(0);
-              parseNoteRowSoundParams(sp, clip, r, clipXmlLengthTicks);
+              parseNoteRowSoundParams(sp, clip, rowIdx, clipXmlLengthTicks);
             }
           }
         }
@@ -953,8 +976,22 @@ public class SongXmlParser {
           // Parse basic details: rowCount, stepCount
           NodeList noteRowList = clipElem.getElementsByTagName("noteRow");
           int rowCount = noteRowList.getLength();
+          for (int r = 0; r < noteRowList.getLength(); r++) {
+            String di =
+                DelugeXmlUtil.attrOrDirectChildText((Element) noteRowList.item(r), "drumIndex");
+            if (di != null && !di.isBlank()) {
+              try {
+                int parsedDi = Integer.parseInt(di.trim());
+                if (parsedDi >= 0 && parsedDi + 1 > rowCount) {
+                  rowCount = parsedDi + 1;
+                }
+              } catch (NumberFormatException ignored) {
+              }
+            }
+          }
           if (rowCount == 0) {
-            rowCount = (targetTrack instanceof KitTrackModel kit) ? kit.getDrums().size() : 8;
+            rowCount =
+                (targetTrack instanceof KitTrackModel kit) ? Math.max(1, kit.getDrums().size()) : 8;
           }
           boolean tripletMode =
               "1".equals(clipElem.getAttribute("triplet"))
@@ -1016,11 +1053,22 @@ public class SongXmlParser {
           // Parse note row cells
           for (int r = 0; r < noteRowList.getLength(); r++) {
             Element nr = (Element) noteRowList.item(r);
-            if (nr.hasAttribute("drumIndex")) {
+            int rowIdx = r;
+            String drumIdxStr = DelugeXmlUtil.attrOrDirectChildText(nr, "drumIndex");
+            boolean isDrumRow = drumIdxStr != null && !drumIdxStr.isBlank();
+            if (isDrumRow) {
+              try {
+                int parsedDrumIdx = Integer.parseInt(drumIdxStr.trim());
+                if (parsedDrumIdx >= 0) {
+                  rowIdx = parsedDrumIdx;
+                }
+              } catch (NumberFormatException ignored) {
+              }
+              clip.getOrCreateRow(rowIdx).setPitch(rowIdx);
               String br = DelugeXmlUtil.attrOrDirectChildText(nr, "bendRange");
               if (br != null && !br.isBlank()) {
                 try {
-                  clip.getOrCreateRow(r).setBendRange(Integer.parseInt(br.trim()));
+                  clip.getOrCreateRow(rowIdx).setBendRange(Integer.parseInt(br.trim()));
                 } catch (NumberFormatException ignored) {
                 }
               }
@@ -1030,8 +1078,8 @@ public class SongXmlParser {
               noteStr = nr.getAttribute("y");
             }
             int noteVal = noteStr != null && !noteStr.isEmpty() ? Integer.parseInt(noteStr) : 60;
-            if (!nr.hasAttribute("drumIndex")) {
-              clip.setRowYNote(r, noteVal);
+            if (!isDrumRow) {
+              clip.setRowYNote(rowIdx, noteVal);
             }
 
             NoteDataSource noteSrc = readNoteDataSource(nr, true);
@@ -1042,16 +1090,16 @@ public class SongXmlParser {
                   DelugeNoteDataMapper.decodeRow(hd, stepCount, stepTicks, hcpn);
               for (int s = 0; s < stepCount && s < row.size(); s++) {
                 StepData base = row.get(s);
-                clip.setStep(r, s, base.withPitch(noteVal));
+                clip.setStep(rowIdx, s, base.withPitch(isDrumRow ? rowIdx : noteVal));
               }
-              clip.setRawNoteEvents(r, DelugeNoteDataMapper.decodeRawNotes(hd, hcpn));
+              clip.setRawNoteEvents(rowIdx, DelugeNoteDataMapper.decodeRawNotes(hd, hcpn));
             }
-            applyRowMute(nr, clip, r);
-            parseNoteRowExpressionData(nr, clip, r, readUpTo);
+            applyRowMute(nr, clip, rowIdx);
+            parseNoteRowExpressionData(nr, clip, rowIdx, readUpTo);
             NodeList rowSoundParamsList = nr.getElementsByTagName("soundParams");
             if (rowSoundParamsList.getLength() > 0) {
               parseNoteRowSoundParams(
-                  (Element) rowSoundParamsList.item(0), clip, r, arrXmlLengthTicks);
+                  (Element) rowSoundParamsList.item(0), clip, rowIdx, arrXmlLengthTicks);
             }
           }
 
@@ -1713,12 +1761,28 @@ public class SongXmlParser {
         clip.setRowSoundParam(row, param, toUnipolar(DelugeHexMapper.hexToFloat(val)));
       }
     }
-    // Hz parameters (lpfFrequency/hpfFrequency already handled as hex floats above,
-    // but some XML may have them as hex Hz values)
+    // Decimal Hz fallback for legacy mock/fixture XML attributes -> exponential Q31 unipolar float
+    // so ClipModel.setSound / unipolarFloatToQ31Unified recovers exact hardware cutoff Q31.
     String lpfHz = sp.getAttribute("lpfFrequency");
     if (lpfHz != null && !lpfHz.isBlank() && !lpfHz.startsWith("0x")) {
       try {
-        clip.setRowSoundParam(row, "lpfFrequency", Float.parseFloat(lpfHz) / 20000.0f);
+        clip.setRowSoundParam(
+            row,
+            "lpfFrequency",
+            DelugeHexMapper.q31ToUnipolarFloatUnified(
+                DelugeHexMapper.hzToQ31(Float.parseFloat(lpfHz))));
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
+      }
+    }
+    String hpfHz = sp.getAttribute("hpfFrequency");
+    if (hpfHz != null && !hpfHz.isBlank() && !hpfHz.startsWith("0x")) {
+      try {
+        clip.setRowSoundParam(
+            row,
+            "hpfFrequency",
+            DelugeHexMapper.q31ToUnipolarFloatUnified(
+                DelugeHexMapper.hzToQ31(Float.parseFloat(hpfHz))));
       } catch (NumberFormatException e) {
         LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
       }

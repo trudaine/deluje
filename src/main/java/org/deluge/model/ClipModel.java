@@ -1580,17 +1580,37 @@ public class ClipModel extends TimelineCounter {
     } else {
       paramManager.setMidiCcSender(null);
     }
-    // C param_set.cpp:580-583, note_row.cpp:3554-3559 — sync clip/row pitch-bend ranges immediately
-    // when attaching a sound or kit so live MPE / MIDI notes before any step trigger see exact
-    // bend ranges (including explicit per-row overrides).
+    // C param_set.cpp:580-583, note_row.cpp:3554-3559, kit.cpp:159-162 — push clip-level state onto
+    // the shared FirmwareSound / FirmwareKit only when this clip is the active clip on its track
+    // (or unattached), so inactive session clips and sparse <arrangementOnlyClips> clips never
+    // overwrite the active clip's per-drum filter knobs or pitch-bend ranges.
+    boolean isActiveOnTrack =
+        ownerTrack == null
+            || ownerTrack.getActiveClip() == null
+            || ownerTrack.getActiveClip() == this;
     if (sound instanceof org.deluge.engine.FirmwareSound fs) {
-      applyBendRanges(fs.fw2Sound);
+      if (isActiveOnTrack) {
+        applyBendRanges(fs.fw2Sound);
+      }
     } else if (sound instanceof org.deluge.engine.FirmwareKit kit) {
       KitTrackModel kt = (ownerTrack instanceof KitTrackModel k) ? k : null;
       for (int r = 0; r < kit.drumSounds.size(); r++) {
         org.deluge.engine.FirmwareSound drum = kit.drumSounds.get(r);
         drum.isDrum = true;
         drum.fw2Sound.isDrum = true;
+        if (!isActiveOnTrack) {
+          continue;
+        }
+        NoteRowModel rowModel = null;
+        for (NoteRowModel nr : getNoteRowsMap().values()) {
+          if (nr.getPitch() == r) {
+            rowModel = nr;
+            break;
+          }
+        }
+        if (rowModel == null) {
+          rowModel = getNoteRowsMap().get(r);
+        }
         if (kt != null
             && r < kt.getDrums().size()
             && kt.getDrums().get(r) instanceof SoundDrum sd) {
@@ -1615,15 +1635,6 @@ public class ClipModel extends TimelineCounter {
           // Re-apply per-clip <noteRow><soundParams> filter overrides (C note_row.cpp:3288-3292,
           // sound.cpp:3822-3845) so ClipModel.setSound after createKitSound never clobbers
           // row-level filter knobs back to base SoundDrum defaults.
-          NoteRowModel rowModel = getNoteRowsMap().get(r);
-          if (rowModel == null) {
-            for (NoteRowModel nr : getNoteRowsMap().values()) {
-              if (nr.getPitch() == r) {
-                rowModel = nr;
-                break;
-              }
-            }
-          }
           if (rowModel != null && !rowModel.getSoundParams().isEmpty()) {
             Map<String, Float> rowSp = rowModel.getSoundParams();
             if (rowSp.containsKey("lpfFrequency")) {
@@ -1656,7 +1667,7 @@ public class ClipModel extends TimelineCounter {
             }
           }
         }
-        applyDrumBendRanges(drum.fw2Sound, noteRows.get(r));
+        applyDrumBendRanges(drum.fw2Sound, rowModel);
       }
     }
     syncExpressionParamsToParamManager();

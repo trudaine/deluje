@@ -71,11 +71,23 @@ public class Patcher {
     }
 
     private final java.util.ArrayList<RawCableEntry> rawEntries = new java.util.ArrayList<>();
+    private java.util.List<Destination> lastPublishedDestinations = null;
+    private int lastPublishedCableCount = 0;
     public volatile java.util.List<Destination> destinations = new java.util.ArrayList<>();
+
+    private static int countCables(java.util.List<Destination> dests) {
+      int total = 0;
+      for (int i = 0; i < dests.size(); i++) {
+        total += dests.get(i).cables.size();
+      }
+      return total;
+    }
 
     public void clear() {
       rawEntries.clear();
       destinations = new java.util.ArrayList<>();
+      lastPublishedDestinations = null;
+      lastPublishedCableCount = 0;
     }
 
     public void addCable(int paramId, PatchCable cable) {
@@ -93,6 +105,9 @@ public class Patcher {
       }
       dest.cables.add(cable);
       dest.sourcesMask |= (1 << cable.source);
+      if (lastPublishedDestinations == destinations) {
+        lastPublishedCableCount = countCables(destinations);
+      }
     }
 
     public void addRangeCable(int targetParamId, int targetSource, PatchCable cable) {
@@ -112,6 +127,9 @@ public class Patcher {
       }
       dest.cables.add(cable);
       dest.sourcesMask |= (1 << cable.source);
+      if (lastPublishedDestinations == destinations) {
+        lastPublishedCableCount = countCables(destinations);
+      }
     }
 
     /**
@@ -129,8 +147,14 @@ public class Patcher {
      * Two-pass {@code PatchCableSet::setupPatching} with optional timeline {@code paramManager}.
      */
     public void setupPatching(Sound sound, org.deluge.modulation.params.ParamManager paramManager) {
-      if (rawEntries.isEmpty() && !destinations.isEmpty()) {
-        for (Destination d : destinations) {
+      java.util.List<Destination> currentDests = destinations;
+      boolean externalDestsChanged =
+          lastPublishedDestinations != null
+              && (currentDests != lastPublishedDestinations
+                  || countCables(currentDests) != lastPublishedCableCount);
+      if (externalDestsChanged || (rawEntries.isEmpty() && !currentDests.isEmpty())) {
+        rawEntries.clear();
+        for (Destination d : currentDests) {
           int paramId = d.targetSource >= 0 ? d.targetParamId : d.paramId;
           for (PatchCable c : d.cables) {
             rawEntries.add(new RawCableEntry(paramId, d.targetSource, c));
@@ -139,22 +163,20 @@ public class Patcher {
       }
       java.util.ArrayList<Destination> pass1Direct = new java.util.ArrayList<>();
       java.util.ArrayList<Destination> pass1Range = new java.util.ArrayList<>();
-      // Pass 1 (C patch_cable_set.cpp:160-176, 498-516): keep cables where patchCableIsUsable.
+      // Pass 1 (C patch_cable_set.cpp:160-176, 498-516): keep cables where patchCableIsUsable and
+      // reuse each PatchCable instance in place (C patch_cable_set.cpp:175-245) so live mutations
+      // to cable.amount before or after setupPatching remain synchronized in both directions.
       for (RawCableEntry entry : rawEntries) {
         PatchCable src = entry.cable;
         if (!isCableUsableInPass1(
             sound, paramManager, src.source, entry.paramId, entry.targetSource)) {
           continue;
         }
-        PatchCable copy = new PatchCable();
-        copy.source = src.source;
-        copy.amount = src.amount;
-        copy.polarity = src.polarity;
-        copy.rangeValue = 536870912; // C patch_cable_set.cpp:187 neutralRangeAdjustmentValue
+        src.rangeValue = 536870912; // C patch_cable_set.cpp:187 neutralRangeAdjustmentValue
         if (entry.targetSource < 0) {
-          appendToDestinationList(pass1Direct, entry.paramId, -1, copy);
+          appendToDestinationList(pass1Direct, entry.paramId, -1, src);
         } else {
-          appendToDestinationList(pass1Range, entry.paramId, entry.targetSource, copy);
+          appendToDestinationList(pass1Range, entry.paramId, entry.targetSource, src);
         }
       }
       // Pass 2 (C patch_cable_set.cpp:182-206): retain range-adjusting cables only when the
@@ -166,7 +188,144 @@ public class Patcher {
         }
       }
       destinations = result;
+      lastPublishedDestinations = result;
+      lastPublishedCableCount = countCables(result);
     }
+  }
+
+  /**
+   * Returns {@code current} with zero heap allocations when its active destinations, sources,
+   * amounts, and polarities already match {@link #buildUsableDestinations(Sound,
+   * org.deluge.modulation.params.ParamManager)}; otherwise compiles and returns a fresh usable
+   * destination list.
+   */
+  public static java.util.List<Destination> syncUsableDestinations(
+      java.util.List<Destination> current,
+      Sound sound,
+      org.deluge.modulation.params.ParamManager paramManager) {
+    if (usableDestinationsMatch(current, sound, paramManager)) {
+      return current;
+    }
+    return buildUsableDestinations(sound, paramManager);
+  }
+
+  private static boolean usableDestinationsMatch(
+      java.util.List<Destination> cached,
+      Sound sound,
+      org.deluge.modulation.params.ParamManager paramManager) {
+    if (cached == null) {
+      return false;
+    }
+    java.util.List<org.deluge.modulation.patch.Destination> srcDests =
+        paramManager.getPatchCableSet().destinations;
+    if (srcDests.isEmpty()) {
+      return cached.isEmpty();
+    }
+    int destIdx = 0;
+    // Pass 1 check: direct destinations in exact order with no duplicate paramId in cached[0..k-1].
+    for (int i = 0; i < srcDests.size(); i++) {
+      org.deluge.modulation.patch.Destination d = srcDests.get(i);
+      if (d.targetSource >= 0) {
+        continue;
+      }
+      int cableIdx = 0;
+      Destination matched = null;
+      for (int j = 0; j < d.cables.size(); j++) {
+        org.deluge.modulation.patch.PatchCable c = d.cables.get(j);
+        int srcOrdinal = c.from.ordinal();
+        if (!isCableUsableInPass1(sound, paramManager, srcOrdinal, d.paramId, -1)) {
+          continue;
+        }
+        if (matched == null) {
+          if (destIdx >= cached.size()) return false;
+          matched = cached.get(destIdx);
+          if (matched.targetSource >= 0 || matched.paramId != d.paramId) return false;
+          for (int prev = 0; prev < destIdx; prev++) {
+            if (cached.get(prev).paramId == d.paramId) return false;
+          }
+          destIdx++;
+        }
+        if (cableIdx >= matched.cables.size()) return false;
+        PatchCable fc = matched.cables.get(cableIdx);
+        int expectedPol =
+            (c.polarity == org.deluge.modulation.patch.PatchCable.Polarity.UNIPOLAR)
+                ? PatchCable.UNIPOLAR
+                : PatchCable.BIPOLAR;
+        if (fc.source != srcOrdinal || fc.amount != c.getAmount() || fc.polarity != expectedPol) {
+          return false;
+        }
+        cableIdx++;
+      }
+      if (matched != null && cableIdx != matched.cables.size()) {
+        return false;
+      }
+    }
+    int directCount = destIdx;
+    // Pass 2 check: range destinations whose direct target exists in cached[0..directCount-1].
+    for (int i = 0; i < srcDests.size(); i++) {
+      org.deluge.modulation.patch.Destination d = srcDests.get(i);
+      if (d.targetSource < 0) {
+        continue;
+      }
+      boolean targetActive =
+          hasUsableDirectCableInPrefix(cached, directCount, d.targetParamId, d.targetSource);
+      int cableIdx = 0;
+      Destination matched = null;
+      for (int j = 0; j < d.cables.size(); j++) {
+        org.deluge.modulation.patch.PatchCable c = d.cables.get(j);
+        int srcOrdinal = c.from.ordinal();
+        if (!isCableUsableInPass1(
+            sound, paramManager, srcOrdinal, d.targetParamId, d.targetSource)) {
+          continue;
+        }
+        if (!targetActive) {
+          continue;
+        }
+        if (matched == null) {
+          if (destIdx >= cached.size()) return false;
+          matched = cached.get(destIdx);
+          if (matched.targetSource != d.targetSource || matched.targetParamId != d.targetParamId) {
+            return false;
+          }
+          for (int prev = directCount; prev < destIdx; prev++) {
+            Destination pd = cached.get(prev);
+            if (pd.targetParamId == d.targetParamId && pd.targetSource == d.targetSource) {
+              return false;
+            }
+          }
+          destIdx++;
+        }
+        if (cableIdx >= matched.cables.size()) return false;
+        PatchCable fc = matched.cables.get(cableIdx);
+        int expectedPol =
+            (c.polarity == org.deluge.modulation.patch.PatchCable.Polarity.UNIPOLAR)
+                ? PatchCable.UNIPOLAR
+                : PatchCable.BIPOLAR;
+        if (fc.source != srcOrdinal || fc.amount != c.getAmount() || fc.polarity != expectedPol) {
+          return false;
+        }
+        cableIdx++;
+      }
+      if (matched != null && cableIdx != matched.cables.size()) {
+        return false;
+      }
+    }
+    return destIdx == cached.size();
+  }
+
+  private static boolean hasUsableDirectCableInPrefix(
+      java.util.List<Destination> directDests, int limit, int targetParamId, int targetSource) {
+    for (int i = 0; i < limit; i++) {
+      Destination d = directDests.get(i);
+      if (d.paramId == targetParamId && d.targetSource < 0) {
+        for (int j = 0; j < d.cables.size(); j++) {
+          if (d.cables.get(j).source == targetSource) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
   }
 
   /**

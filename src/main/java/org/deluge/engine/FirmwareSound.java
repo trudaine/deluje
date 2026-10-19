@@ -676,9 +676,15 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
 
     // C patch_cable_set.cpp:157-330, 498-516, sound.cpp:1340-1507 — compile only usable (ALLOWED
     // and non-orphan range) cables into fw2Sound while keeping EDITABLE / temporarily inactive
-    // cables intact in paramManager.getPatchCableSet().
-    fw2Sound.patchCableSet.destinations =
-        org.deluge.firmware2.Patcher.buildUsableDestinations(fw2Sound, paramManager);
+    // cables intact in paramManager.getPatchCableSet(), reusing the published snapshot with zero
+    // heap allocations on steady-state audio blocks when usability/amounts are unchanged.
+    java.util.List<org.deluge.firmware2.Patcher.Destination> currentDests =
+        fw2Sound.patchCableSet.destinations;
+    java.util.List<org.deluge.firmware2.Patcher.Destination> nextDests =
+        org.deluge.firmware2.Patcher.syncUsableDestinations(currentDests, fw2Sound, paramManager);
+    if (nextDests != currentDests) {
+      fw2Sound.patchCableSet.destinations = nextDests;
+    }
 
     // Modulated FX params. C sound.cpp:2582-2584 reads the patcher's FINAL values for rate and
     // depth (rate: exp curve, neutral 121739; depth: linear) — the raw Q31 knob is 100-1000x off

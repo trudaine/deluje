@@ -5,7 +5,7 @@ import java.util.List;
 import org.deluge.firmware2.Param;
 
 public class PatchCableSet {
-  public List<Destination> destinations = new ArrayList<>();
+  public volatile List<Destination> destinations = new ArrayList<>();
 
   public PatchCableSet() {
     // Initialization would set up standard destinations based on param counts
