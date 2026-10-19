@@ -413,6 +413,61 @@ public class NoteRowModel {
     return paramManager;
   }
 
+  /** C {@code NoteRow::paramManager.getExpressionParamSet()} ({@code note_row.cpp:3539-3546}). */
+  public org.deluge.modulation.params.ExpressionParamSet getExpressionParams() {
+    return paramManager.getExpressionParamSet();
+  }
+
+  public void setExpressionParam(
+      int dimension, int baseValueQ31, List<org.deluge.modulation.automation.ParamNode> nodes) {
+    paramManager.getExpressionParamSet().setParam(dimension, baseValueQ31, nodes);
+    paramManager.ticksTilNextEvent = 0;
+    invalidateSchedule();
+  }
+
+  public void clearExpressionParams() {
+    paramManager.getExpressionParamSet().clear();
+    paramManager.ticksTilNextEvent = 0;
+    invalidateSchedule();
+  }
+
+  /** C {@code NoteRow::getMPEValues} ({@code note_row.cpp:4339-4352}). */
+  public int[] getMpeValues() {
+    return paramManager.getExpressionParamSet().getMpeValues();
+  }
+
+  /**
+   * Wires {@link #paramManager}'s expression listener to dispatch polyphonic / drum expression
+   * events on {@code sound} (C {@code param_set.cpp:606-611}, {@code sound_drum.cpp:93-104}).
+   */
+  public void prepareExpressionDispatch(Object sound) {
+    paramManager
+        .getExpressionParamSet()
+        .setMidiMode(sound instanceof org.deluge.engine.FirmwareMidiInstrument);
+    paramManager.setExpressionListener((dim, val) -> dispatchRowExpressionEvent(dim, val, sound));
+  }
+
+  private void dispatchRowExpressionEvent(int dimension, int valueQ31, Object sound) {
+    if (sound instanceof org.deluge.engine.FirmwareSound fs) {
+      fs.fw2Sound.polyphonicExpressionEventOnChannelOrNote(valueQ31, dimension, pitch, 0);
+    } else if (sound instanceof org.deluge.engine.FirmwareKit kit
+        && pitch >= 0
+        && pitch < kit.drumSounds.size()) {
+      // C sound_drum.cpp:74-104 — SoundDrum::polyphonicExpressionEventOnChannelOrNote disregards
+      // noteCode and updates all active voices of the drum plus its arpeggiator active_note.
+      org.deluge.firmware2.Sound drumSound = kit.drumSounds.get(pitch).fw2Sound;
+      int s = dimension + org.deluge.modulation.patch.PatchSource.X.ordinal();
+      synchronized (drumSound.voices) {
+        for (org.deluge.firmware2.Voice voice : drumSound.voices) {
+          if (voice.active) {
+            voice.expressionEventImmediate(drumSound, valueQ31, s);
+          }
+        }
+      }
+      drumSound.arpeggiator.active_note.mpeValues[dimension] = valueQ31 >> 16;
+    }
+  }
+
   // --- Note Manipulation Parity ---
 
   public boolean hasNoNotes() {
@@ -596,17 +651,14 @@ public class NoteRowModel {
     // C note_row.cpp:2119-2137
     int ticksTilNextParamManagerEvent = Integer.MAX_VALUE;
     if (paramManager.mightContainAutomation()) {
+      prepareExpressionDispatch(sound);
       if (didPingpong) {
         paramManager.notifyPingpongOccurred();
       }
-      boolean mayInterpolate = !(sound instanceof org.deluge.engine.FirmwareMidiInstrument);
+      // NoteRowModel.paramManager holds per-row ExpressionParamSet, which is stepped in the tick
+      // domain (mayInterpolate = false -> tickTicks on every tick while ramping).
       paramManager.processCurrentPos(
-          ticksSinceLast,
-          currentPos,
-          effectiveLength,
-          playingReversedNow,
-          didPingpong,
-          mayInterpolate);
+          ticksSinceLast, currentPos, effectiveLength, playingReversedNow, didPingpong, false);
       ticksTilNextParamManagerEvent = paramManager.ticksTilNextEvent;
     }
     if (loopLengthIfIndependent > 0

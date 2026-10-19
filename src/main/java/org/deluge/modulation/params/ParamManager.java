@@ -15,6 +15,8 @@ public class ParamManager {
   private PatchCableSet patchCableSet = new PatchCableSet();
   private final MidiParamCollection midiParamCollection = new MidiParamCollection();
   private MidiParamCollection.MidiCcSender midiCcSender;
+  private final ExpressionParamSet expressionParamSet = new ExpressionParamSet();
+  private ExpressionParamSet.ExpressionListener expressionListener;
   private final int[] unpatchedValues = new int[Param.UNPATCHED_PITCH_ADJUST + 1];
 
   public int getUnpatchedValue(int paramId) {
@@ -36,10 +38,23 @@ public class ParamManager {
     this.midiCcSender = midiCcSender;
   }
 
+  public ExpressionParamSet getExpressionParamSet() {
+    return expressionParamSet;
+  }
+
+  public ExpressionParamSet.ExpressionListener getExpressionListener() {
+    return expressionListener;
+  }
+
+  public void setExpressionListener(ExpressionParamSet.ExpressionListener expressionListener) {
+    this.expressionListener = expressionListener;
+  }
+
   public boolean mightContainAutomation() {
     return !automatedParams.isEmpty()
         || patchCableSet.mightContainAutomation()
-        || midiParamCollection.mightContainAutomation();
+        || midiParamCollection.mightContainAutomation()
+        || expressionParamSet.mightContainAutomation();
   }
 
   /** C param_manager.cpp:393, 401 — whether any automated parameter is currently ramping. */
@@ -49,7 +64,9 @@ public class ParamManager {
         return true;
       }
     }
-    return patchCableSet.isAnyCableInterpolating() || midiParamCollection.isAnyParamInterpolating();
+    return patchCableSet.isAnyCableInterpolating()
+        || midiParamCollection.isAnyParamInterpolating()
+        || expressionParamSet.isAnyParamInterpolating();
   }
 
   public void notifyPingpongOccurred() {
@@ -60,6 +77,8 @@ public class ParamManager {
     patchCableSet.notifyPingpongOccurred();
     // C midi_param_collection.cpp:313-320 — flip interpolating MIDI CC slopes on bounce.
     midiParamCollection.notifyPingpongOccurred();
+    // C param_set.cpp:371-379 — flip interpolating expression slopes on bounce.
+    expressionParamSet.notifyPingpongOccurred();
     // C param_manager.cpp:605 — wake on the very next tick after a ping-pong bounce.
     ticksTilNextEvent = 0;
   }
@@ -107,6 +126,8 @@ public class ParamManager {
     patchCableSet.setPlayPos(pos, loopLength, reversed);
     // C midi_param_collection.cpp:86-100 (MIDIParamCollection::setPlayPos).
     midiParamCollection.setPlayPos(pos, loopLength, reversed, midiCcSender);
+    // C param_set.cpp:166-182 (ParamSet::setPlayPos for ExpressionParamSet).
+    expressionParamSet.setPlayPos(pos, loopLength, reversed, expressionListener);
     ticksTilNextEvent = 0;
     ticksSkipped = 0;
   }
@@ -162,6 +183,13 @@ public class ParamManager {
       if (midiDist < ticksTilNextEvent) {
         ticksTilNextEvent = midiDist;
       }
+      // C param_set.cpp:111-133, 594-617 — step expression automation on the same timeline.
+      int exprDist =
+          expressionParamSet.processCurrentPos(
+              currentPos, loopLength, reversed, didPingpong, true, expressionListener);
+      if (exprDist < ticksTilNextEvent) {
+        ticksTilNextEvent = exprDist;
+      }
 
       // C param_manager.cpp:401-403 — wake every tick while tick-domain interpolation is active.
       if (!mayInterpolate && isAnyParamInterpolating()) {
@@ -178,6 +206,8 @@ public class ParamManager {
     }
     // C patch_cable_set.cpp:576-592 (PatchCableSet::tickSamples).
     patchCableSet.tickSamples(numSamples, timePerTimerTickInverse);
+    // C param_set.cpp:135-148 (ParamSet::tickSamples for ExpressionParamSet).
+    expressionParamSet.tickSamples(numSamples, timePerTimerTickInverse, expressionListener);
   }
 
   /** C param_set.cpp:150-164 (ParamSet::tickTicks) + midi_param_collection.cpp:60-75. */
@@ -187,5 +217,6 @@ public class ParamManager {
     }
     patchCableSet.tickTicks(numTicks);
     midiParamCollection.tickTicks(numTicks, midiCcSender);
+    expressionParamSet.tickTicks(numTicks, expressionListener);
   }
 }

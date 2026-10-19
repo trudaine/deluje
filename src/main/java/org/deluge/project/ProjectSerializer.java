@@ -1475,13 +1475,18 @@ public class ProjectSerializer {
           break;
         }
       }
-      if (!hasNotes && track instanceof KitTrackModel) {
+      if (!hasNotes) {
         org.deluge.model.NoteRowModel rm = clip.getNoteRowsMap().get(r);
-        if (rm != null
-            && (!rm.getAutomationCurves().isEmpty()
-                || !rm.getSoundParams().isEmpty()
-                || !rm.getPatchCables().isEmpty())) {
-          hasNotes = true;
+        if (rm != null) {
+          if (rm.getExpressionParams().containsSomething()) {
+            hasNotes = true;
+          } else if (track instanceof KitTrackModel
+              && (!rm.getAutomationCurves().isEmpty()
+                  || !rm.getSoundParams().isEmpty()
+                  || !rm.getPatchCables().isEmpty()
+                  || rm.getBendRange() != -1)) {
+            hasNotes = true;
+          }
         }
       }
       if (hasNotes) break;
@@ -1509,16 +1514,25 @@ public class ProjectSerializer {
               break;
             }
           }
-          if (!hasActive) continue;
+          org.deluge.model.NoteRowModel exprCheckRow = clip.getNoteRowsMap().get(r);
+          if (!hasActive
+              && (exprCheckRow == null
+                  || !exprCheckRow.getExpressionParams().containsSomething())) {
+            continue;
+          }
         }
 
         writer.writeOpeningTagBeginning("noteRow");
         if (track instanceof KitTrackModel) {
           writer.writeAttribute("drumIndex", r, false);
-          // C note_row.cpp:3622-3625 — a kit row with expression params writes its bend range.
+          // C note_row.cpp:3622-3625, param_set.cpp:580-583 — a kit row with expression params
+          // writes its bend range (drum finger-level default = 2 when unset).
           org.deluge.model.NoteRowModel bendRow = clip.getNoteRowsMap().get(r);
-          if (bendRow != null && bendRow.getBendRange() != -1) {
-            writer.writeAttribute("bendRange", bendRow.getBendRange(), false);
+          if (bendRow != null
+              && (bendRow.getBendRange() != -1
+                  || bendRow.getExpressionParams().containsSomething())) {
+            writer.writeAttribute(
+                "bendRange", bendRow.getBendRange() != -1 ? bendRow.getBendRange() : 2, false);
           }
         } else {
           writer.writeAttribute("y", Math.max(yNote, 0), false);
@@ -1540,14 +1554,23 @@ public class ProjectSerializer {
         String hexDataSplit = DelugeNoteDataMapper.encodeRowSplit(row, stepTicks);
         writer.writeAttribute("noteDataWithLift", hexData, false);
         writer.writeAttribute("noteDataWithSplitProb", hexDataSplit, false);
-        if (track instanceof KitTrackModel
-            && rowModel != null
-            && (!rowModel.getAutomationCurves().isEmpty()
-                || !rowModel.getSoundParams().isEmpty()
-                || !rowModel.getPatchCables().isEmpty())) {
-          // C note_row.cpp:3629-3653 — kit row with soundParams writes a child <soundParams> tag.
+        boolean hasRowSoundParams =
+            track instanceof KitTrackModel
+                && rowModel != null
+                && (!rowModel.getAutomationCurves().isEmpty()
+                    || !rowModel.getSoundParams().isEmpty()
+                    || !rowModel.getPatchCables().isEmpty());
+        boolean hasRowExpression =
+            rowModel != null && rowModel.getExpressionParams().containsSomething();
+        if (hasRowSoundParams || hasRowExpression) {
+          // C note_row.cpp:3629-3653 — write child <soundParams> and/or <expressionData>.
           writer.writeOpeningTagEnd();
-          serializeKitRowSoundParams(writer, rowModel);
+          if (hasRowSoundParams) {
+            serializeKitRowSoundParams(writer, rowModel);
+          }
+          if (hasRowExpression) {
+            writeExpressionData(writer, rowModel.getExpressionParams());
+          }
           writer.writeClosingTag("noteRow");
         } else {
           writer.closeTag();
@@ -1556,12 +1579,20 @@ public class ProjectSerializer {
       writer.writeArrayEnding("noteRows");
     }
 
-    // C instrument_clip.cpp:2427-2434 — a non-kit clip with expression params writes both ranges.
-    if (!(track instanceof KitTrackModel) && clip.getBendRange() != -1) {
-      writer.writeTag("bendRange", String.valueOf(clip.getBendRange()));
-      writer.writeTag(
-          "bendRangeMPE",
-          String.valueOf(clip.getBendRangeMPE() != -1 ? clip.getBendRangeMPE() : 48));
+    // C instrument_clip.cpp:2427-2435 — non-kit clips write <expressionData> + both bend ranges.
+    if (!(track instanceof KitTrackModel)) {
+      if (clip.getExpressionParams().containsSomething()) {
+        writeExpressionData(writer, clip.getExpressionParams());
+      }
+      if (clip.getBendRange() != -1
+          || clip.getBendRangeMPE() != -1
+          || clip.getExpressionParams().containsSomething()) {
+        writer.writeTag(
+            "bendRange", String.valueOf(clip.getBendRange() != -1 ? clip.getBendRange() : 2));
+        writer.writeTag(
+            "bendRangeMPE",
+            String.valueOf(clip.getBendRangeMPE() != -1 ? clip.getBendRangeMPE() : 48));
+      }
     }
 
     // C instrument_clip.cpp:2404-2412 — every instrument clip carries its own <arpeggiator>: a
@@ -1588,6 +1619,30 @@ public class ProjectSerializer {
     writer.writeClosingTag("columnControls");
 
     writer.writeClosingTag("instrumentClip");
+  }
+
+  /**
+   * C {@code ExpressionParamSet::writeToFile} ({@code param_set.cpp:647-671}) — writes {@code
+   * <expressionData pitchBend="0x..." yExpression="0x..." pressure="0x..."/>} for dimensions where
+   * {@code containsSomething(0)} is true.
+   */
+  private static void writeExpressionData(
+      XMLSerializer writer, org.deluge.modulation.params.ExpressionParamSet expressionParams)
+      throws IOException {
+    if (expressionParams == null || !expressionParams.containsSomething()) {
+      return;
+    }
+    writer.writeOpeningTagBeginning("expressionData");
+    for (int p = 0; p < org.deluge.modulation.params.ExpressionParamSet.NUM_DIMENSIONS; p++) {
+      org.deluge.modulation.automation.AutoParam param = expressionParams.getParam(p);
+      if (param.containsSomething(0)) {
+        String baseHex = DelugeHexMapper.q31ToHex(param.currentValue);
+        String fullHex = DelugeHexMapper.formatHexWithAutomationNodes(baseHex, param.nodes);
+        writer.writeAttribute(
+            org.deluge.modulation.params.ExpressionParamSet.PARAM_NAMES[p], fullHex, false);
+      }
+    }
+    writer.closeTag();
   }
 
   /**

@@ -102,6 +102,7 @@ class Fw2SyncCompletenessTest {
           "startSkippingRenderingAtTime", // runtime: modFX/compressor tail deadline
           "renderSkipSampleTimer", // runtime: per-sound audioSampleTimer stand-in
           "pendingSampleSyncLength", // runtime: sequencer note length for the next note-on
+          "pendingMpeValues", // runtime: sequencer per-row MPE values for the next note-on
           "bendRangeMain", // runtime: set per note-on / clip activation from the clip's ranges
           "bendRangeFingerLevel", // runtime: ditto (kit rows: the row's range)
           "samplesPerSequencerTick", // transport: derived from tempo

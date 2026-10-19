@@ -128,6 +128,11 @@ public class DelugeHexMapper {
     }
   }
 
+  /** Formats a raw signed Q31 integer as a 10-char {@code 0xCCCCCCCC} hex string. */
+  public static String q31ToHex(int value) {
+    return String.format("0x%08X", value);
+  }
+
   /** Converts a normalized float [-1.0, 1.0] back to Deluge hex format. */
   public static String floatToHex(float value) {
     value = Math.max(-1.0f, Math.min(1.0f, value));

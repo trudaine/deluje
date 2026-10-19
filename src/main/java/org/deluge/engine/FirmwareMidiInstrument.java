@@ -32,6 +32,8 @@ public class FirmwareMidiInstrument extends GlobalEffectable {
   private int midiChannel = 1;
   private boolean isMpe = false;
   private String mpeZone = "lower";
+  // C non_audio_instrument.h:69 — lastMonoExpression[3].
+  private final int[] lastMonoExpression = new int[3];
 
   public FirmwareMidiInstrument(int midiChannel, boolean isMpe) {
     this.midiChannel = midiChannel;
@@ -101,6 +103,49 @@ public class FirmwareMidiInstrument extends GlobalEffectable {
       int zeroIndexedChannel = getOutputMasterChannel();
       engine.sendNoteOff(zeroIndexedChannel, note, 0);
     }
+  }
+
+  /**
+   * C {@code MIDIInstrument::monophonicExpressionEvent} + {@code sendMonophonicExpressionEvent}
+   * ({@code midi_instrument.cpp:281-322}).
+   */
+  public void monophonicExpressionEvent(int newValue, int expressionDimension) {
+    if (expressionDimension < 0
+        || expressionDimension >= org.deluge.modulation.params.ExpressionParamSet.NUM_DIMENSIONS) {
+      return;
+    }
+    lastMonoExpression[expressionDimension] = newValue;
+    MidiEngine engine = MidiEngine.instance;
+    if (engine == null) {
+      return;
+    }
+    int masterChannel = getOutputMasterChannel();
+    switch (expressionDimension) {
+      case org.deluge.modulation.params.ExpressionParamSet.X_PITCH_BEND ->
+          engine.sendPitchBend14(
+              masterChannel,
+              org.deluge.modulation.params.ExpressionParamSet.toMidiPitchBend14(newValue));
+      case org.deluge.modulation.params.ExpressionParamSet.Y_SLIDE_TIMBRE ->
+          engine.sendCC(
+              masterChannel,
+              CC_EXTERNAL_MOD_WHEEL,
+              org.deluge.modulation.params.ExpressionParamSet.toMidiModWheel7(newValue));
+      case org.deluge.modulation.params.ExpressionParamSet.Z_PRESSURE -> {
+        int val7 = org.deluge.modulation.params.ExpressionParamSet.toMidiChannelPressure7(newValue);
+        MidiMsg msg = MIDIMessage.channelAftertouch(masterChannel, val7).toMidiMsg();
+        for (MidiTransport transport : engine.getOutputTransports()) {
+          transport.sendMessage(msg);
+        }
+      }
+      default -> {}
+    }
+  }
+
+  public int getLastMonoExpression(int expressionDimension) {
+    if (expressionDimension < 0 || expressionDimension >= lastMonoExpression.length) {
+      return 0;
+    }
+    return lastMonoExpression[expressionDimension];
   }
 
   /**

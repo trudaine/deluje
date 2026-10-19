@@ -398,6 +398,11 @@ public class SongXmlParser {
               }
 
               applyRowMute(noteRowElem, clip, r);
+              int trackReadUpTo =
+                  trackXmlLengthTicks > 0
+                      ? trackXmlLengthTicks
+                      : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
+              parseNoteRowExpressionData(noteRowElem, clip, r, trackReadUpTo);
 
               // Parse per-noteRow <soundParams> (35+ hex param overrides)
               NodeList rowSoundParamsList = noteRowElem.getElementsByTagName("soundParams");
@@ -408,6 +413,14 @@ public class SongXmlParser {
             }
           }
           parseColumnControls(trackElem, clip);
+          if (!(targetTrack instanceof KitTrackModel)) {
+            int trackReadUpTo =
+                trackXmlLengthTicks > 0
+                    ? trackXmlLengthTicks
+                    : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
+            readClipBendRanges(trackElem, clip);
+            parseClipExpressionData(trackElem, clip, trackReadUpTo);
+          }
           targetTrack.addClip(clip);
 
           // ── Parse automation data for synth and midi tracks ──
@@ -656,6 +669,11 @@ public class SongXmlParser {
             }
 
             applyRowMute(noteRowElem, clip, r);
+            int sessionClipReadUpTo =
+                clipXmlLengthTicks > 0
+                    ? clipXmlLengthTicks
+                    : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
+            parseNoteRowExpressionData(noteRowElem, clip, r, sessionClipReadUpTo);
 
             // Parse per-noteRow <soundParams> (35+ hex param overrides)
             NodeList rowSoundParamsList = noteRowElem.getElementsByTagName("soundParams");
@@ -666,6 +684,14 @@ public class SongXmlParser {
           }
         }
         parseColumnControls(clipElem, clip);
+        if (!(targetTrack instanceof KitTrackModel)) {
+          int sessionClipReadUpTo =
+              clipXmlLengthTicks > 0
+                  ? clipXmlLengthTicks
+                  : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
+          readClipBendRanges(clipElem, clip);
+          parseClipExpressionData(clipElem, clip, sessionClipReadUpTo);
+        }
         targetTrack.addClip(clip);
 
         // Parse the clip's <soundParams>: STATIC values into the track model (the song format
@@ -909,10 +935,11 @@ public class SongXmlParser {
           int stepTicks = tripletMode ? 32 : 24;
           int stepCount = 16;
 
+          int arrXmlLengthTicks = 0;
           if (clipElem.hasAttribute("length")) {
             try {
-              int lengthTicks = Integer.parseInt(clipElem.getAttribute("length"));
-              stepCount = lengthTicks / stepTicks;
+              arrXmlLengthTicks = Integer.parseInt(clipElem.getAttribute("length"));
+              stepCount = arrXmlLengthTicks / stepTicks;
             } catch (NumberFormatException ignored) {
             }
           }
@@ -945,12 +972,22 @@ public class SongXmlParser {
           }
           clip.setTripletMode(tripletMode);
           clip.setArrangementOnly(true);
+          int readUpTo =
+              arrXmlLengthTicks > 0
+                  ? arrXmlLengthTicks
+                  : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
 
           // Parse note row cells
           for (int r = 0; r < rowCount; r++) {
             Element nr = (Element) noteRowList.item(r);
             String noteStr = nr.getAttribute("note");
+            if (noteStr == null || noteStr.isEmpty()) {
+              noteStr = nr.getAttribute("y");
+            }
             int noteVal = noteStr != null && !noteStr.isEmpty() ? Integer.parseInt(noteStr) : 60;
+            if (!nr.hasAttribute("drumIndex")) {
+              clip.setRowYNote(r, noteVal);
+            }
 
             NoteDataSource noteSrc = readNoteDataSource(nr, true);
             String hd = noteSrc.hex();
@@ -958,7 +995,6 @@ public class SongXmlParser {
               int hcpn = noteSrc.hexCharsPerNote();
               java.util.List<StepData> row =
                   DelugeNoteDataMapper.decodeRow(hd, stepCount, stepTicks, hcpn);
-              clip.setRowYNote(r, noteVal);
               for (int s = 0; s < stepCount && s < row.size(); s++) {
                 StepData base = row.get(s);
                 clip.setStep(r, s, base.withPitch(noteVal));
@@ -966,20 +1002,14 @@ public class SongXmlParser {
               clip.setRawNoteEvents(r, DelugeNoteDataMapper.decodeRawNotes(hd, hcpn));
             }
             applyRowMute(nr, clip, r);
+            parseNoteRowExpressionData(nr, clip, r, readUpTo);
           }
 
           parseColumnControls(clipElem, clip);
-          int arrXmlLengthTicks = 0;
-          if (clipElem.hasAttribute("length")) {
-            try {
-              arrXmlLengthTicks = Integer.parseInt(clipElem.getAttribute("length"));
-            } catch (NumberFormatException ignored) {
-            }
+          if (!(targetTrack instanceof KitTrackModel)) {
+            readClipBendRanges(clipElem, clip);
+            parseClipExpressionData(clipElem, clip, readUpTo);
           }
-          int readUpTo =
-              arrXmlLengthTicks > 0
-                  ? arrXmlLengthTicks
-                  : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
           if (targetTrack instanceof MidiTrackModel) {
             Element midiParamsEl = getFirstChild(clipElem, "midiParams");
             if (midiParamsEl != null) {
@@ -2340,6 +2370,111 @@ public class SongXmlParser {
       java.util.List<org.deluge.modulation.automation.ParamNode> nodes =
           DelugeHexMapper.parseHexAutomationNodes(valueStr, readUpTo);
       clip.setMidiParam(cc, baseValueQ31, nodes);
+    }
+  }
+
+  /**
+   * C {@code InstrumentClip::readFromFile} ({@code instrument_clip.cpp:2857-2886}) + {@code
+   * ExpressionParamSet::readFromFile} ({@code param_set.cpp:673-698}) — reads legacy direct {@code
+   * pitchBend}/{@code yExpression}/{@code channelPressure} tags or attributes on {@code
+   * <instrumentClip>}, plus the {@code <expressionData>} child element.
+   */
+  private static void parseClipExpressionData(Element clipElem, ClipModel clip, int readUpTo) {
+    for (String legacyName : new String[] {"pitchBend", "yExpression", "channelPressure"}) {
+      String raw = DelugeXmlUtil.attrOrDirectChildText(clipElem, legacyName);
+      if (raw != null && !raw.isBlank()) {
+        int dim = org.deluge.modulation.params.ExpressionParamSet.dimensionFromXmlName(legacyName);
+        int baseValueQ31 = DelugeHexMapper.hexToQ31(raw);
+        java.util.List<org.deluge.modulation.automation.ParamNode> nodes =
+            DelugeHexMapper.parseHexAutomationNodes(raw, readUpTo);
+        clip.setExpressionParam(dim, baseValueQ31, nodes);
+      }
+    }
+    Element exprEl = DelugeXmlUtil.directChild(clipElem, "expressionData");
+    if (exprEl != null) {
+      readExpressionDimensionElementsAndAttrs(
+          exprEl,
+          readUpTo,
+          (dim, baseValueQ31, nodes) -> clip.setExpressionParam(dim, baseValueQ31, nodes));
+    }
+  }
+
+  /**
+   * C {@code NoteRow::readFromFile} ({@code note_row.cpp:3258-3263, 3539-3559}) — reads per-row
+   * {@code bendRange} and {@code <expressionData>} bounded by the row's independent length when
+   * present.
+   */
+  private static void parseNoteRowExpressionData(
+      Element noteRowElem, ClipModel clip, int rowIndex, int clipReadUpTo) {
+    String br = DelugeXmlUtil.attrOrDirectChildText(noteRowElem, "bendRange");
+    if (br != null && !br.isBlank()) {
+      try {
+        clip.getOrCreateRow(rowIndex).setBendRange(Integer.parseInt(br.trim()));
+      } catch (NumberFormatException ignored) {
+      }
+    }
+    Element exprEl = DelugeXmlUtil.directChild(noteRowElem, "expressionData");
+    if (exprEl == null) {
+      return;
+    }
+    NoteRowModel rowModel = clip.getOrCreateRow(rowIndex);
+    int rowReadUpTo =
+        rowModel.getLoopLengthIfIndependent() > 0
+            ? rowModel.getLoopLengthIfIndependent()
+            : clipReadUpTo;
+    readExpressionDimensionElementsAndAttrs(
+        exprEl,
+        rowReadUpTo,
+        (dim, baseValueQ31, nodes) -> rowModel.setExpressionParam(dim, baseValueQ31, nodes));
+  }
+
+  @FunctionalInterface
+  private interface ExpressionDimensionConsumer {
+    void accept(
+        int dimension,
+        int baseValueQ31,
+        java.util.List<org.deluge.modulation.automation.ParamNode> nodes);
+  }
+
+  private static void readExpressionDimensionElementsAndAttrs(
+      Element exprEl, int readUpTo, ExpressionDimensionConsumer consumer) {
+    org.w3c.dom.NamedNodeMap attrs = exprEl.getAttributes();
+    for (int a = 0; a < attrs.getLength(); a++) {
+      org.w3c.dom.Node attr = attrs.item(a);
+      int dim =
+          org.deluge.modulation.params.ExpressionParamSet.dimensionFromXmlName(attr.getNodeName());
+      if (dim < 0) {
+        continue;
+      }
+      String raw = attr.getNodeValue();
+      if (raw == null || raw.isBlank()) {
+        continue;
+      }
+      consumer.accept(
+          dim,
+          DelugeHexMapper.hexToQ31(raw),
+          DelugeHexMapper.parseHexAutomationNodes(raw, readUpTo));
+    }
+    for (org.w3c.dom.Node n = exprEl.getFirstChild(); n != null; n = n.getNextSibling()) {
+      if (!(n instanceof Element child)) {
+        continue;
+      }
+      int dim =
+          org.deluge.modulation.params.ExpressionParamSet.dimensionFromXmlName(child.getTagName());
+      if (dim < 0) {
+        continue;
+      }
+      String raw = child.getAttribute("value");
+      if (raw == null || raw.isBlank()) {
+        raw = child.getTextContent();
+      }
+      if (raw == null || raw.isBlank()) {
+        continue;
+      }
+      consumer.accept(
+          dim,
+          DelugeHexMapper.hexToQ31(raw.trim()),
+          DelugeHexMapper.parseHexAutomationNodes(raw.trim(), readUpTo));
     }
   }
 }
