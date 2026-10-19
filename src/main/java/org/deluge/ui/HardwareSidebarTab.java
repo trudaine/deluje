@@ -34,6 +34,11 @@ public class HardwareSidebarTab extends JPanel {
   private JLabel liveSevenSegLabel;
   private JTextArea liveDebugLogArea;
   private static final int MAX_DEBUG_LOG_LINES = 500;
+  private Timer initialLoadTimer;
+  private Timer wireListenersTimer;
+  private org.deluge.midi.DelugeSysExManager.DisplayListener displayListener;
+  private org.deluge.midi.DelugeSysExManager.MidiDebugListener debugListener;
+  private org.deluge.midi.DelugeSysExManager wiredSysExManager;
 
   public HardwareSidebarTab(SwingProjectSidebarPanel parent) {
     this.parent = parent;
@@ -327,12 +332,12 @@ public class HardwareSidebarTab extends JPanel {
     add(buildLiveDeviceMonitorPanel(), BorderLayout.SOUTH);
 
     // Initial folder load
-    Timer initialLoadTimer = new Timer(800, ev -> loadRemoteFolder("/SONGS"));
+    initialLoadTimer = new Timer(800, ev -> loadRemoteFolder("/SONGS"));
     initialLoadTimer.setRepeats(false);
     initialLoadTimer.start();
 
     // Deferred so SwingDelugeApp.mainInstance is guaranteed set by the time we look it up.
-    Timer wireListenersTimer = new Timer(800, ev -> wireLiveDeviceListeners());
+    wireListenersTimer = new Timer(800, ev -> wireLiveDeviceListeners());
     wireListenersTimer.setRepeats(false);
     wireListenersTimer.start();
   }
@@ -400,24 +405,59 @@ public class HardwareSidebarTab extends JPanel {
       return;
     }
     var sysex = SwingDelugeApp.mainInstance.getMidiService().getSysExManager();
-    sysex.setDisplayListener(
-        new org.deluge.midi.DelugeSysExManager.DisplayListener() {
-          @Override
-          public void onOledFrame(byte[] frameBuffer) {
-            SwingUtilities.invokeLater(
-                () -> {
-                  liveOled.drawRawFrameBuffer(frameBuffer);
-                  liveOledView.repaint();
-                });
-          }
+    if (displayListener == null) {
+      displayListener =
+          new org.deluge.midi.DelugeSysExManager.DisplayListener() {
+            @Override
+            public void onOledFrame(byte[] frameBuffer) {
+              SwingUtilities.invokeLater(
+                  () -> {
+                    liveOled.drawRawFrameBuffer(frameBuffer);
+                    liveOledView.repaint();
+                  });
+            }
 
-          @Override
-          public void onSevenSegment(String text) {
-            SwingUtilities.invokeLater(() -> liveSevenSegLabel.setText(text));
-          }
-        });
-    sysex.setMidiDebugListener(
-        message -> SwingUtilities.invokeLater(() -> appendDebugLine(message)));
+            @Override
+            public void onSevenSegment(String text) {
+              SwingUtilities.invokeLater(() -> liveSevenSegLabel.setText(text));
+            }
+          };
+    }
+    if (debugListener == null) {
+      debugListener = message -> SwingUtilities.invokeLater(() -> appendDebugLine(message));
+    }
+    if (wiredSysExManager != null && wiredSysExManager != sysex) {
+      wiredSysExManager.removeDisplayListener(displayListener);
+      wiredSysExManager.removeMidiDebugListener(debugListener);
+    }
+    wiredSysExManager = sysex;
+    sysex.addDisplayListener(displayListener);
+    sysex.addMidiDebugListener(debugListener);
+  }
+
+  /** Stops startup timers and unregisters SysEx listeners when this panel is disposed. */
+  public void dispose() {
+    if (initialLoadTimer != null) {
+      initialLoadTimer.stop();
+    }
+    if (wireListenersTimer != null) {
+      wireListenersTimer.stop();
+    }
+    if (wiredSysExManager != null) {
+      if (displayListener != null) {
+        wiredSysExManager.removeDisplayListener(displayListener);
+      }
+      if (debugListener != null) {
+        wiredSysExManager.removeMidiDebugListener(debugListener);
+      }
+      wiredSysExManager = null;
+    }
+  }
+
+  @Override
+  public void removeNotify() {
+    dispose();
+    super.removeNotify();
   }
 
   private void appendDebugLine(String message) {

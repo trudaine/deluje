@@ -3,6 +3,7 @@ package org.deluge.midi;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
@@ -45,8 +46,34 @@ public class DelugeSysExManager {
   private final AtomicInteger seqCounter = new AtomicInteger(0);
   private final Map<Integer, SysExCallback> pendingCallbacks = new ConcurrentHashMap<>();
   private org.deluge.shadow.midi.MidiOut activeMidiOut;
-  private DisplayListener displayListener;
-  private MidiDebugListener debugListener;
+  private final CopyOnWriteArrayList<DisplayListener> displayListeners =
+      new CopyOnWriteArrayList<>();
+  private final CopyOnWriteArrayList<MidiDebugListener> debugListeners =
+      new CopyOnWriteArrayList<>();
+  private final DisplayListener compositeDisplayListener =
+      new DisplayListener() {
+        @Override
+        public void onOledFrame(byte[] frameBuffer) {
+          for (DisplayListener l : displayListeners) {
+            l.onOledFrame(frameBuffer);
+          }
+        }
+
+        @Override
+        public void onSevenSegment(String text) {
+          for (DisplayListener l : displayListeners) {
+            l.onSevenSegment(text);
+          }
+        }
+      };
+  private final MidiDebugListener compositeDebugListener =
+      message -> {
+        for (MidiDebugListener l : debugListeners) {
+          l.onDebugMessage(message);
+        }
+      };
+  private volatile DisplayListener displayListener;
+  private volatile MidiDebugListener debugListener;
   private volatile boolean oledStreamingEnabled = true;
   private static boolean hasWarnedNoMidiOut = false;
 
@@ -88,11 +115,59 @@ public class DelugeSysExManager {
   }
 
   public void setDisplayListener(DisplayListener listener) {
-    this.displayListener = listener;
+    displayListeners.clear();
+    if (listener != null) {
+      displayListeners.add(listener);
+      displayListener = compositeDisplayListener;
+    } else {
+      displayListener = null;
+    }
+  }
+
+  public void addDisplayListener(DisplayListener listener) {
+    if (listener == null) {
+      return;
+    }
+    displayListeners.addIfAbsent(listener);
+    displayListener = compositeDisplayListener;
+  }
+
+  public void removeDisplayListener(DisplayListener listener) {
+    if (listener == null) {
+      return;
+    }
+    displayListeners.remove(listener);
+    if (displayListeners.isEmpty()) {
+      displayListener = null;
+    }
   }
 
   public void setMidiDebugListener(MidiDebugListener listener) {
-    this.debugListener = listener;
+    debugListeners.clear();
+    if (listener != null) {
+      debugListeners.add(listener);
+      debugListener = compositeDebugListener;
+    } else {
+      debugListener = null;
+    }
+  }
+
+  public void addMidiDebugListener(MidiDebugListener listener) {
+    if (listener == null) {
+      return;
+    }
+    debugListeners.addIfAbsent(listener);
+    debugListener = compositeDebugListener;
+  }
+
+  public void removeMidiDebugListener(MidiDebugListener listener) {
+    if (listener == null) {
+      return;
+    }
+    debugListeners.remove(listener);
+    if (debugListeners.isEmpty()) {
+      debugListener = null;
+    }
   }
 
   /**
@@ -359,7 +434,8 @@ public class DelugeSysExManager {
         // Discard instantly during active file transfers to prevent head-of-line blocking
         return true;
       }
-      if (displayListener == null) return true;
+      DisplayListener currentDisplayListener = displayListener;
+      if (currentDisplayListener == null) return true;
 
       int subType = data[6] & 0xFF;
       if (subType == 0x40) { // OLED Frame (C hid_sysex.cpp:100-211)
@@ -380,7 +456,7 @@ public class DelugeSysExManager {
 
             // Draw into local oled frame buffer
             System.arraycopy(unpacked, 0, oledFrameBuffer, 0, Math.min(unpacked.length, 768));
-            displayListener.onOledFrame(oledFrameBuffer.clone());
+            currentDisplayListener.onOledFrame(oledFrameBuffer.clone());
           }
         } else if (rleType == 0x02) {
           // Delta OLED Frame (always RLE-packed in firmware, fallback to raw for tests)
@@ -406,7 +482,7 @@ public class DelugeSysExManager {
                   oledFrameBuffer,
                   startOffset,
                   Math.min(unpacked.length, oledFrameBuffer.length - startOffset));
-              displayListener.onOledFrame(oledFrameBuffer.clone());
+              currentDisplayListener.onOledFrame(oledFrameBuffer.clone());
             }
           }
         }
@@ -419,19 +495,20 @@ public class DelugeSysExManager {
 
           // Decode 7-segment raw segment bytes to ascii (best effort representation)
           String segText = decodeSevenSegment(unpacked);
-          displayListener.onSevenSegment(segText);
+          currentDisplayListener.onSevenSegment(segText);
         }
       }
       return true;
     } else if (cmd == CMD_DEBUG) {
-      if (debugListener == null) return true;
+      MidiDebugListener currentDebugListener = debugListener;
+      if (currentDebugListener == null) return true;
       int subType = data[6] & 0xFF;
       if (subType == 0x40) { // Debug log print subtype
         // Text starts at index 8 (reply_hdr is 8 bytes in C++) and runs until length - 2
         int payloadLen = (data.length - 1) - 8;
         if (payloadLen > 0) {
           String message = new String(data, 8, payloadLen, StandardCharsets.US_ASCII);
-          debugListener.onDebugMessage(message);
+          currentDebugListener.onDebugMessage(message);
         }
       }
       return true;

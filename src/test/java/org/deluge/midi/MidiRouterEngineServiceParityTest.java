@@ -164,13 +164,22 @@ class MidiRouterEngineServiceParityTest {
       activeGrid.setActiveClipId(0);
       SwingGridPanel.isLiveRecordModeActive = true;
       bridge.setGlobalInt(BridgeContract.G_PLAY, 1L);
-      activeGrid.updatePlayhead(3);
+      bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, 3L);
+      if (app.getPureEngine() != null) {
+        PlaybackHandler handler = app.getPureEngine().getPlaybackHandler();
+        handler.start();
+        handler.lastSwungTickActioned = 3 * 24;
+      }
 
       MidiMsg noteOn = new MidiMsg();
       noteOn.data1 = 0x90;
       noteOn.data2 = 60;
       noteOn.data3 = 100;
-      router.handleMidiMessage(noteOn);
+      javax.swing.SwingUtilities.invokeAndWait(
+          () -> {
+            activeGrid.updatePlayhead(3);
+            router.handleMidiMessage(noteOn);
+          });
 
       // Switch edited track before Note Off arrives.
       activeGrid.setEditedModelTrack(project.getTracks().size() - 1);
@@ -200,6 +209,7 @@ class MidiRouterEngineServiceParityTest {
       assertTrue(redone.active());
       assertEquals(0.8f, redone.gate(), 0.05f, "Redo must restore the Note Off duration gate");
     } finally {
+      SwingGridPanel.isLiveRecordModeActive = false;
       app.dispose();
     }
   }

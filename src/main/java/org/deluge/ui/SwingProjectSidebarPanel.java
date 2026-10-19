@@ -175,4 +175,10 @@ public class SwingProjectSidebarPanel extends JPanel {
   public void updateFocusTrack(int trackId) {
     // Shield
   }
+
+  public void dispose() {
+    if (hardwareTab != null) {
+      hardwareTab.dispose();
+    }
+  }
 }

@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.function.BooleanSupplier;
 import javax.swing.JTextArea;
+import javax.swing.SwingUtilities;
 import org.deluge.BridgeContract;
 import org.deluge.hid.VirtualOLED;
 import org.deluge.midi.DelugeSysExManager;
@@ -25,12 +27,15 @@ public class HardwareSidebarLiveMonitorTest {
     BridgeContract bridge = new BridgeContract(44100, 2);
     MidiService midiService = new MidiService(bridge, new MidiInputRouter(bridge));
     SwingDelugeApp app = new SwingDelugeApp(bridge, midiService, true);
+    HardwareSidebarTab tab = new HardwareSidebarTab(null);
+    HardwareSidebarTab secondTab = new HardwareSidebarTab(null);
     try {
-      HardwareSidebarTab tab = new HardwareSidebarTab(null);
-
       Method wire = HardwareSidebarTab.class.getDeclaredMethod("wireLiveDeviceListeners");
       wire.setAccessible(true);
       wire.invoke(tab);
+      // Simulate the second sidebar (e.g. floatingSidebar) wiring after tab so we verify
+      // it never steals or overwrites tab's DisplayListener / MidiDebugListener.
+      wire.invoke(secondTab);
 
       DelugeSysExManager sysex = app.getMidiService().getSysExManager();
 
@@ -45,17 +50,21 @@ public class HardwareSidebarLiveMonitorTest {
       listener.onOledFrame(fakeFrame);
       listener.onSevenSegment("42");
 
-      javax.swing.SwingUtilities.invokeAndWait(() -> {});
-
       Field liveOledField = HardwareSidebarTab.class.getDeclaredField("liveOled");
       liveOledField.setAccessible(true);
       VirtualOLED liveOled = (VirtualOLED) liveOledField.get(tab);
-      assertTrue(liveOled.isDirty(), "Receiving a frame must mark the mirrored OLED dirty");
+      VirtualOLED secondLiveOled = (VirtualOLED) liveOledField.get(secondTab);
+      waitForEdtCondition(
+          () -> liveOled.isDirty() && secondLiveOled.isDirty(),
+          "Receiving a frame must mark the mirrored OLED dirty on all wired tabs");
 
       Field sevenSegField = HardwareSidebarTab.class.getDeclaredField("liveSevenSegLabel");
       sevenSegField.setAccessible(true);
       javax.swing.JLabel sevenSeg = (javax.swing.JLabel) sevenSegField.get(tab);
-      assertEquals("42", sevenSeg.getText());
+      javax.swing.JLabel secondSevenSeg = (javax.swing.JLabel) sevenSegField.get(secondTab);
+      waitForEdtCondition(
+          () -> "42".equals(sevenSeg.getText()) && "42".equals(secondSevenSeg.getText()),
+          "7-segment text must reach all wired tabs");
 
       Field debugListenerField = DelugeSysExManager.class.getDeclaredField("debugListener");
       debugListenerField.setAccessible(true);
@@ -63,17 +72,35 @@ public class HardwareSidebarLiveMonitorTest {
           (DelugeSysExManager.MidiDebugListener) debugListenerField.get(sysex);
       assertNotNull(debugListener, "A debug listener must be registered after wiring");
       debugListener.onDebugMessage("hello from hardware");
-      javax.swing.SwingUtilities.invokeAndWait(() -> {});
 
       Field debugAreaField = HardwareSidebarTab.class.getDeclaredField("liveDebugLogArea");
       debugAreaField.setAccessible(true);
       JTextArea debugArea = (JTextArea) debugAreaField.get(tab);
-      assertTrue(
-          debugArea.getText().contains("hello from hardware"),
-          "Debug message must reach the UI text area");
+      JTextArea secondDebugArea = (JTextArea) debugAreaField.get(secondTab);
+      waitForEdtCondition(
+          () ->
+              debugArea.getText().contains("hello from hardware")
+                  && secondDebugArea.getText().contains("hello from hardware"),
+          "Debug message must reach the UI text area on all wired tabs");
     } finally {
+      secondTab.dispose();
+      tab.dispose();
       app.dispose();
       bridge.shutdown();
     }
+  }
+
+  private static void waitForEdtCondition(BooleanSupplier condition, String message)
+      throws Exception {
+    long deadlineNanos = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(3);
+    while (System.nanoTime() < deadlineNanos) {
+      SwingUtilities.invokeAndWait(() -> {});
+      if (condition.getAsBoolean()) {
+        return;
+      }
+      Thread.sleep(10);
+    }
+    SwingUtilities.invokeAndWait(() -> {});
+    assertTrue(condition.getAsBoolean(), message);
   }
 }
