@@ -320,6 +320,9 @@ public class Voice {
         sourceValues[PatchSource.X.ordinal() + m] = combineExpressionValues(sound, m);
       }
     }
+    // C voice.cpp:333 — clear any residual expression smoothing flags from a pooled voice.
+    expressionSourcesCurrentlySmoothing = 0;
+    expressionSourcesFinalValueChanged = 0;
 
     // C voice.cpp:196-206 — globals copied, THEN initial patching (which folds the real cables
     // using the note/velocity/random/LFO source values just set above), THEN the envelopes'
@@ -759,8 +762,8 @@ public class Voice {
         }
       }
     }
-    // C: voice.cpp:804 — expressionSourcesFinalValueChanged.reset() (done after patching would use
-    // it)
+    // C voice.cpp:808 — expressionSourcesFinalValueChanged.reset()
+    expressionSourcesFinalValueChanged = 0;
 
     // ── 3. Source values (velocity, note, random, sidechain) (voice.cpp:800-820) ──
     // (Note: velocity, note, random are already initialized in noteOn faithfully)

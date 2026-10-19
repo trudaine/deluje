@@ -42,6 +42,7 @@ public class MidiService {
     engine.setOnControlChange(this::handleControlChangeFromEngine);
     engine.setOnPitchBend(this::handlePitchBend);
     engine.setOnChannelAftertouch(this::handleChannelAftertouch);
+    engine.setOnPolyAftertouch(this::handlePolyAftertouch);
     engine.setOnSystemRealtime(this::handleSystemRealtime);
 
     // Wire MidiFollow into the engine's CC path
@@ -335,10 +336,32 @@ public class MidiService {
     // 1. Intercept MPE Y-Slide (CC 74) on voice channels (> 0) for Firmware2 Sound
     if (cc == 74 && msg.channel() > 0) {
       org.deluge.firmware2.GlobalEffectable sound = getActiveTrackSound(activeTrack);
-      if (sound instanceof org.deluge.firmware2.Sound s) {
+      if (sound instanceof org.deluge.engine.FirmwareSound fs) {
+        fs.mpeTimbre(msg.channel(), msg.data2(), true);
+        return;
+      } else if (sound instanceof org.deluge.engine.FirmwareKit kit) {
+        for (org.deluge.engine.FirmwareSound drum : kit.drumSounds) {
+          drum.mpeTimbre(msg.channel(), msg.data2(), true);
+        }
+        return;
+      } else if (sound instanceof org.deluge.firmware2.Sound s) {
         int newValue = (msg.data2() - 64) << 25;
         s.polyphonicExpressionEventOnChannelOrNote(
-            newValue, 1, msg.channel(), 1); // 1 = Y_SLIDE_TIMBRE, 1 = CHANNEL
+            newValue, 1, msg.channel(), 1, true); // 1 = Y_SLIDE_TIMBRE, 1 = CHANNEL, smooth
+        return;
+      }
+    }
+
+    // 1b. Intercept non-MPE Mod Wheel (CC 1 = CC_EXTERNAL_MOD_WHEEL) on master channel (0)
+    // (C melodic_instrument.cpp:388-395, definitions_cxx.hpp:758 — unipolar value << 24 -> Y).
+    // Kit::receivedCCForKit (kit.cpp:1770) ignores CC != 74, so only melodic sounds handle CC 1.
+    if (cc == 1 && msg.channel() == 0) {
+      org.deluge.firmware2.GlobalEffectable sound = getActiveTrackSound(activeTrack);
+      if (sound instanceof org.deluge.engine.FirmwareSound fs) {
+        fs.modWheel(msg.data2(), true);
+        return;
+      } else if (sound instanceof org.deluge.firmware2.Sound s) {
+        s.monophonicExpressionEvent(msg.data2() << 24, 1);
         return;
       }
     }
@@ -543,7 +566,7 @@ public class MidiService {
         s.monophonicExpressionEvent(newValue, 0); // 0 = X_PITCH_BEND
       } else {
         s.polyphonicExpressionEventOnChannelOrNote(
-            newValue, 0, msg.channel(), 1); // 0 = X_PITCH_BEND, 1 = CHANNEL
+            newValue, 0, msg.channel(), 1, true); // 0 = X_PITCH_BEND, 1 = CHANNEL, smooth
       }
     }
 
@@ -557,10 +580,10 @@ public class MidiService {
 
     org.deluge.firmware2.GlobalEffectable sound = getActiveTrackSound(track);
     if (sound instanceof org.deluge.engine.FirmwareSound fs) {
-      fs.mpePressure(msg.channel(), pressure);
+      fs.mpePressure(msg.channel(), pressure, true);
     } else if (sound instanceof org.deluge.engine.FirmwareKit kit) {
       for (org.deluge.engine.FirmwareSound drum : kit.drumSounds) {
-        drum.mpePressure(msg.channel(), pressure);
+        drum.mpePressure(msg.channel(), pressure, true);
       }
     } else if (sound instanceof org.deluge.firmware2.Sound s) {
       int newValue = pressure << 24;
@@ -568,11 +591,38 @@ public class MidiService {
         s.monophonicExpressionEvent(newValue, 2); // 2 = Z_PRESSURE / AFTERTOUCH
       } else {
         s.polyphonicExpressionEventOnChannelOrNote(
-            newValue, 2, msg.channel(), 1); // 2 = Z_PRESSURE, 1 = CHANNEL
+            newValue, 2, msg.channel(), 1, true); // 2 = Z_PRESSURE, 1 = CHANNEL, smooth
       }
     }
 
     if (bridge.getLogLevel() >= 2) {}
+  }
+
+  /**
+   * Called by engine when a Polyphonic Aftertouch is received (C {@code
+   * MelodicInstrument::receivedAftertouch}, {@code melodic_instrument.cpp:453-458}; {@code
+   * Kit::receivedAftertouchForKit}, {@code kit.cpp:1722-1738, 1798-1801}).
+   */
+  private void handlePolyAftertouch(MIDIMessage msg) {
+    int track = activeTrack;
+    int noteCode = msg.data1();
+    int pressure = msg.data2();
+
+    org.deluge.firmware2.GlobalEffectable sound = getActiveTrackSound(track);
+    if (sound instanceof org.deluge.engine.FirmwareSound fs) {
+      fs.mpePolyAftertouch(noteCode, pressure, true);
+    } else if (sound instanceof org.deluge.engine.FirmwareKit kit) {
+      // C kit.cpp:1725-1737, definitions_cxx.hpp:1015 — kit MIDI notes start at C1 = 36 while all
+      // drum voices trigger with kNoteForDrum = 60 (MidiInputRouter.java:433-436).
+      int drumRow = noteCode - 36;
+      if (drumRow >= 0 && drumRow < kit.drumSounds.size()) {
+        kit.drumSounds.get(drumRow).mpePolyAftertouch(60, pressure, true);
+      }
+    } else if (sound instanceof org.deluge.firmware2.Sound s) {
+      int newValue = pressure << 24;
+      s.polyphonicExpressionEventOnChannelOrNote(
+          newValue, 2, noteCode, 0, true); // 2 = Z_PRESSURE, 0 = NOTE, smooth
+    }
   }
 
   /** Called by engine for System Real-Time messages (clock, start, stop). */

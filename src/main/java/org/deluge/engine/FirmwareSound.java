@@ -7,7 +7,6 @@ import org.deluge.firmware2.StereoSample;
 import org.deluge.model.tuning.ScalaScale;
 import org.deluge.modulation.patch.Destination;
 import org.deluge.modulation.patch.PatchCable;
-import org.deluge.modulation.patch.PatchSource;
 
 /**
  * Port of the Deluge's Sound class. This is the central high-fidelity synthesis engine for a single
@@ -692,42 +691,108 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     return fw2Sound.computeReverbSendAmount(reverbAmountAdjust);
   }
 
-  /** C: polyphonicExpressionEventOnChannelOrNote — pitch bend (X), immediate. */
+  /**
+   * C {@code MelodicInstrument::receivedPitchBend} ({@code melodic_instrument.cpp:325-349}) — live
+   * MIDI/MPE pitch bend smooths by default ({@code smooth = true}); kept as a 2-arg entry point so
+   * subclasses overriding {@code mpePitchBend(int, int)} continue intercepting live MIDI bends.
+   */
   public void mpePitchBend(int midiChannel, int newValue) {
-    int s = PatchSource.X.ordinal();
+    mpePitchBend(midiChannel, newValue, true);
+  }
+
+  /**
+   * C {@code MelodicInstrument::receivedPitchBend} ({@code melodic_instrument.cpp:325-349}) /
+   * {@code SoundDrum::expressionEvent} ({@code sound_drum.cpp:74-91}).
+   */
+  public void mpePitchBend(int midiChannel, int newValue, boolean smooth) {
     int voiceLevelValue = (newValue - 8192) << 18;
-    synchronized (fw2Sound.voices) {
-      for (var v : fw2Sound.voices) {
-        if (v.active && v.inputCharacteristics[1] == midiChannel) {
-          v.expressionEventImmediate(fw2Sound, voiceLevelValue, s);
-        }
-      }
-    }
+    dispatchMidiExpression(midiChannel, 0, voiceLevelValue, smooth);
   }
 
-  /** C: polyphonicExpressionEventOnChannelOrNote — pressure/aftertouch (Z), immediate. */
+  /**
+   * C: polyphonicExpressionEventOnChannelOrNote — pressure/aftertouch (Z), immediate by default
+   * ({@code smooth = false}) for programmatic/automation callers; live MIDI callers pass {@code
+   * smooth = true} explicitly via {@link #mpePressure(int, int, boolean)}.
+   */
   public void mpePressure(int midiChannel, int newValue) {
-    int s = PatchSource.AFTERTOUCH.ordinal();
+    mpePressure(midiChannel, newValue, false);
+  }
+
+  /**
+   * C {@code MelodicInstrument::receivedAftertouch} ({@code melodic_instrument.cpp:436-464}) /
+   * {@code SoundDrum::expressionEvent} ({@code sound_drum.cpp:74-91}).
+   */
+  public void mpePressure(int midiChannel, int newValue, boolean smooth) {
     int voiceLevelValue = newValue << 24;
-    synchronized (fw2Sound.voices) {
-      for (var v : fw2Sound.voices) {
-        if (v.active && v.inputCharacteristics[1] == midiChannel) {
-          v.expressionEventImmediate(fw2Sound, voiceLevelValue, s);
+    dispatchMidiExpression(midiChannel, 2, voiceLevelValue, smooth);
+  }
+
+  /**
+   * C: polyphonicExpressionEventOnChannelOrNote — timbre (Y), immediate by default ({@code smooth =
+   * false}) for programmatic/automation callers; live MIDI callers pass {@code smooth = true}
+   * explicitly via {@link #mpeTimbre(int, int, boolean)}.
+   */
+  public void mpeTimbre(int midiChannel, int newValue) {
+    mpeTimbre(midiChannel, newValue, false);
+  }
+
+  /**
+   * C {@code MelodicInstrument::receivedCC} CC 74 ({@code melodic_instrument.cpp:368-376}) / {@code
+   * SoundDrum::expressionEvent} ({@code sound_drum.cpp:74-91}).
+   */
+  public void mpeTimbre(int midiChannel, int newValue, boolean smooth) {
+    int voiceLevelValue = (newValue - 64) << 25;
+    dispatchMidiExpression(midiChannel, 1, voiceLevelValue, smooth);
+  }
+
+  /**
+   * C {@code MelodicInstrument::receivedCC} {@code CC_EXTERNAL_MOD_WHEEL = 1} ({@code
+   * melodic_instrument.cpp:388-395}, {@code definitions_cxx.hpp:758}) — unipolar {@code value <<
+   * 24} routed to monophonic {@code PatchSource::Y} (dimension 1).
+   */
+  public void modWheel(int newValue, boolean smooth) {
+    int monoValue = newValue << 24;
+    if (isDrum) {
+      fw2Sound.drumExpressionEvent(monoValue, 1, smooth);
+    } else if (smooth) {
+      fw2Sound.monophonicExpressionEvent(monoValue, 1);
+    } else {
+      fw2Sound.monophonicExpressionValues[1] = monoValue;
+      int yIdx = org.deluge.modulation.patch.PatchSource.Y.ordinal();
+      synchronized (fw2Sound.voices) {
+        for (var v : fw2Sound.voices) {
+          if (v.active) {
+            v.sourceValues[yIdx] = v.combineExpressionValues(fw2Sound, 1);
+            v.expressionSourcesCurrentlySmoothing &= ~(1 << 1);
+            v.expressionSourcesFinalValueChanged |= (1 << 1);
+          }
         }
       }
     }
   }
 
-  /** C: polyphonicExpressionEventOnChannelOrNote — timbre (Y), immediate. */
-  public void mpeTimbre(int midiChannel, int newValue) {
-    int s = PatchSource.Y.ordinal();
-    int voiceLevelValue = (newValue - 64) << 25;
-    synchronized (fw2Sound.voices) {
-      for (var v : fw2Sound.voices) {
-        if (v.active && v.inputCharacteristics[1] == midiChannel) {
-          v.expressionEventImmediate(fw2Sound, voiceLevelValue, s);
-        }
-      }
+  /**
+   * C {@code MelodicInstrument::receivedAftertouch} ({@code melodic_instrument.cpp:453-458}) —
+   * polyphonic key pressure matched by {@code MIDICharacteristic::NOTE} (0).
+   */
+  public void mpePolyAftertouch(int noteCode, int newValue, boolean smooth) {
+    int voiceLevelValue = newValue << 24;
+    if (isDrum) {
+      fw2Sound.drumExpressionEvent(voiceLevelValue, 2, smooth);
+    } else {
+      fw2Sound.polyphonicExpressionEventOnChannelOrNote(voiceLevelValue, 2, noteCode, 0, smooth);
+    }
+  }
+
+  private void dispatchMidiExpression(
+      int midiChannel, int dimension, int voiceLevelValue, boolean smooth) {
+    if (isDrum) {
+      fw2Sound.drumExpressionEvent(voiceLevelValue, dimension, smooth);
+    } else if (midiChannel == 0) {
+      fw2Sound.monophonicExpressionEvent(voiceLevelValue, dimension);
+    } else {
+      fw2Sound.polyphonicExpressionEventOnChannelOrNote(
+          voiceLevelValue, dimension, midiChannel, 1, smooth);
     }
   }
 

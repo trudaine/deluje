@@ -530,15 +530,7 @@ public class NoteRowModel {
       // C sound_drum.cpp:74-104 — SoundDrum::polyphonicExpressionEventOnChannelOrNote disregards
       // noteCode and updates all active voices of the drum plus its arpeggiator active_note.
       org.deluge.firmware2.Sound drumSound = kit.drumSounds.get(pitch).fw2Sound;
-      int s = dimension + org.deluge.modulation.patch.PatchSource.X.ordinal();
-      synchronized (drumSound.voices) {
-        for (org.deluge.firmware2.Voice voice : drumSound.voices) {
-          if (voice.active) {
-            voice.expressionEventImmediate(drumSound, valueQ31, s);
-          }
-        }
-      }
-      drumSound.arpeggiator.active_note.mpeValues[dimension] = valueQ31 >> 16;
+      drumSound.drumExpressionEvent(valueQ31, dimension, false);
     }
   }
 
