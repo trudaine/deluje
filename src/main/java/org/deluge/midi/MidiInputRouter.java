@@ -55,6 +55,20 @@ public class MidiInputRouter {
   }
 
   private final java.util.Map<Integer, NoteStartInfo> activeNoteStarts = new java.util.HashMap<>();
+  // C midi_device.h:79, playback_handler.cpp:3176-3297 — per-MPE-channel initial strike expression
+  // values (signed 16-bit in int[16][3]) sent prior to NoteOn.
+  private final int[][] defaultInputMpeValues = new int[16][3];
+
+  public void setChannelDefaultMpeValue(int midiChannel, int dimension, short value16) {
+    if (midiChannel >= 0 && midiChannel < 16 && dimension >= 0 && dimension < 3) {
+      defaultInputMpeValues[midiChannel][dimension] = value16;
+    }
+  }
+
+  public int[] getChannelDefaultMpeValues(int midiChannel) {
+    return (midiChannel >= 0 && midiChannel < 16) ? defaultInputMpeValues[midiChannel] : null;
+  }
+
   // C mod_controllable_audio.cpp:1506-1532 — one CC can drive multiple params and one param can
   // hold multiple learned CCs until explicit unlearnKnobs (clearMapping).
   private final java.util.Map<Integer, java.util.Set<String>> ccMappings =
@@ -291,7 +305,7 @@ public class MidiInputRouter {
 
               int engineRow = activeGrid.getEngineRowForStoredClipRow(clipRow);
               if (clipRow < 0 || engineRow < 0) {
-                triggerLiveNote(trackIndex, midiNote, velocity);
+                triggerLiveNote(trackIndex, midiNote, velocity, midiChannel);
                 activeNoteStarts.put(
                     noteKey(midiChannel, midiNote),
                     new NoteStartInfo(bridge.getCurrentTime(), -1, trackIndex));
@@ -325,7 +339,7 @@ public class MidiInputRouter {
               bridge.setPitch(engineRow, col, pitch);
 
               // Monitor the recorded note immediately so playback does not wait for the next loop
-              triggerLiveNote(trackIndex, midiNote, velocity);
+              triggerLiveNote(trackIndex, midiNote, velocity, midiChannel);
 
               // Store start time, step, clipId, and clipRow for Note Off gate calculation
               activeNoteStarts.put(
@@ -342,7 +356,7 @@ public class MidiInputRouter {
 
       // Fallback: live auditioning if recording is off or no active grid
       int targetTrack = resolveTrackFromChannel(midiChannel);
-      triggerLiveNote(targetTrack, midiNote, velocity);
+      triggerLiveNote(targetTrack, midiNote, velocity, midiChannel);
       activeNoteStarts.put(
           noteKey(midiChannel, midiNote),
           new NoteStartInfo(bridge.getCurrentTime(), -1, targetTrack));
@@ -416,46 +430,82 @@ public class MidiInputRouter {
           }
         }
         // Always release any monitored live note
-        releaseLiveNote(start.track, midiNote);
+        releaseLiveNote(start.track, midiNote, midiChannel);
       }
     }
   }
 
-  private void triggerLiveNote(int trackIndex, int midiNote, int velocity) {
-    try {
-      Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-      if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine) {
-        if (trackIndex >= 0 && trackIndex < engine.sounds.size()) {
-          var sound = engine.sounds.get(trackIndex);
-          if (sound instanceof org.deluge.engine.FirmwareSound liveSound) {
-            liveSound.triggerNote(midiNote, velocity);
-          } else if (sound instanceof org.deluge.engine.FirmwareKit liveKit) {
-            int drumRow = midiNote - 36;
-            if (drumRow >= 0 && drumRow < liveKit.drumSounds.size()) {
-              liveKit.triggerDrum(drumRow, velocity);
-            }
-          }
+  org.deluge.firmware2.GlobalEffectable resolveLiveTrackTarget(int trackIndex) {
+    Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+    if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine
+        && trackIndex >= 0
+        && trackIndex < engine.sounds.size()) {
+      return engine.sounds.get(trackIndex);
+    }
+    Object ph = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
+    if (ph instanceof org.deluge.playback.PlaybackHandler playbackHandler) {
+      org.deluge.model.ProjectModel project = playbackHandler.getProject();
+      if (project != null && trackIndex >= 0 && trackIndex < project.getTracks().size()) {
+        org.deluge.model.ClipModel clip = project.getTracks().get(trackIndex).getActiveClip();
+        if (clip != null && clip.getSound() instanceof org.deluge.firmware2.GlobalEffectable ge) {
+          return ge;
         }
+      }
+    }
+    return null;
+  }
+
+  private void triggerLiveNote(int trackIndex, int midiNote, int velocity) {
+    triggerLiveNote(trackIndex, midiNote, velocity, -1);
+  }
+
+  // C voice.cpp:118, melodic_instrument.cpp:106, kit.cpp:1504-1521, 1549, 1954-1960 — propagate
+  // live MIDI/MPE member channel + pre-NoteOn initial strike MPE values to melodic voices and
+  // auditioned drums.
+  private void triggerLiveNote(int trackIndex, int midiNote, int velocity, int midiChannel) {
+    try {
+      var sound = resolveLiveTrackTarget(trackIndex);
+      int[] channelMpe = (midiChannel > 0) ? getChannelDefaultMpeValues(midiChannel) : null;
+      if (sound instanceof org.deluge.engine.FirmwareSound liveSound) {
+        liveSound.triggerWithLiveMidiChannel(
+            midiChannel, channelMpe, () -> liveSound.triggerNote(midiNote, velocity));
+      } else if (sound instanceof org.deluge.engine.FirmwareKit liveKit) {
+        int drumRow = midiNote - 36;
+        if (!liveKit.muted && drumRow >= 0 && drumRow < liveKit.drumSounds.size()) {
+          liveKit
+              .drumSounds
+              .get(drumRow)
+              .triggerWithLiveMidiChannel(
+                  midiChannel, channelMpe, () -> liveKit.triggerDrum(drumRow, velocity));
+        }
+      } else if (sound instanceof org.deluge.firmware2.Sound rawSound) {
+        rawSound.triggerNote(midiNote, velocity, midiChannel, channelMpe);
       }
     } catch (Exception ignored) {
     }
   }
 
   private void releaseLiveNote(int trackIndex, int midiNote) {
+    releaseLiveNote(trackIndex, midiNote, -1);
+  }
+
+  // C sound.cpp:1581-1602, kit.cpp:1970 — release live MIDI/MPE note and unlatch auditioned drum
+  // MIDI channel on NoteOff.
+  private void releaseLiveNote(int trackIndex, int midiNote, int midiChannel) {
     try {
-      Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
-      if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine) {
-        if (trackIndex >= 0 && trackIndex < engine.sounds.size()) {
-          var sound = engine.sounds.get(trackIndex);
-          if (sound instanceof org.deluge.engine.FirmwareSound liveSound) {
-            liveSound.releaseNote(midiNote);
-          } else if (sound instanceof org.deluge.engine.FirmwareKit liveKit) {
-            int drumRow = midiNote - 36;
-            if (drumRow >= 0 && drumRow < liveKit.drumSounds.size()) {
-              liveKit.releaseDrum(drumRow);
-            }
-          }
+      var sound = resolveLiveTrackTarget(trackIndex);
+      if (sound instanceof org.deluge.engine.FirmwareSound liveSound) {
+        liveSound.releaseNote(midiNote, midiChannel);
+      } else if (sound instanceof org.deluge.engine.FirmwareKit liveKit) {
+        int drumRow = midiNote - 36;
+        if (drumRow >= 0 && drumRow < liveKit.drumSounds.size()) {
+          liveKit
+              .drumSounds
+              .get(drumRow)
+              .releaseWithLiveMidiChannel(midiChannel, () -> liveKit.releaseDrum(drumRow));
         }
+      } else if (sound instanceof org.deluge.firmware2.Sound rawSound) {
+        rawSound.releaseNote(midiNote, midiChannel);
       }
     } catch (Exception ignored) {
     }

@@ -106,6 +106,7 @@ class Fw2SyncCompletenessTest {
           "pendingMpeValues", // runtime: sequencer per-row MPE values for the next note-on
           "bendRangeMain", // runtime: set per note-on / clip activation from the clip's ranges
           "bendRangeFingerLevel", // runtime: ditto (kit rows: the row's range)
+          "explicitBendRange", // runtime: tracks explicit per-row bendRange vs kit default (±2)
           "samplesPerSequencerTick", // transport: derived from tempo
           "unisonPan", // derived by setupUnisonStereoSpread() from unisonStereoSpread
           "monophonicExpressionValues", // runtime MPE smoothing state

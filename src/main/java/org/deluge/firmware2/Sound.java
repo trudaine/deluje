@@ -578,6 +578,13 @@ public class Sound extends GlobalEffectable {
   public int bendRangeFingerLevel = 48;
 
   /**
+   * True once a caller (clip/note-row or drum initialization) has explicitly resolved {@link
+   * #bendRangeFingerLevel}, preventing default drum initialization from overwriting an explicit
+   * per-row {@code bendRange="48"} (C {@code param_set.cpp:580-583}, {@code note_row.cpp:3554}).
+   */
+  public boolean explicitBendRange = false;
+
+  /**
    * Samples per sequencer (clip) tick — 96 per quarter note — for STRETCH note lengths (the C's
    * playbackHandler.getTimePerInternalTickBig(), voice_unison_part_source.cpp:129-130).
    */
@@ -604,13 +611,13 @@ public class Sound extends GlobalEffectable {
   public int sidechainSend = 0;
 
   /**
-   * C: sound.h:154 — {@code std::array<int32_t, kNumExpressionDimensions>
+   * C: sound.h:161 — {@code std::array<int32_t, kNumExpressionDimensions>
    * monophonicExpressionValues{}};
    */
   public final int[] monophonicExpressionValues = new int[3];
 
   /**
-   * C: sound.h:149 — {@code std::bitset<kNumExpressionDimensions>
+   * C: sound.h:156 — {@code std::bitset<kNumExpressionDimensions>
    * expressionSourcesChangedAtSynthLevel{0}};
    */
   public int expressionSourcesChangedAtSynthLevel;
@@ -1015,38 +1022,83 @@ public class Sound extends GlobalEffectable {
 
   public void polyphonicExpressionEventOnChannelOrNote(
       int newValue, int expressionDimension, int channelOrNoteNumber, int whichCharacteristic) {
-    synchronized (voices) {
-      int s = expressionDimension + PatchSource.X.ordinal();
-      for (Voice voice : voices) {
-        if (voice.active
-            && voice.inputCharacteristics[whichCharacteristic] == channelOrNoteNumber) {
-          voice.expressionEventImmediate(this, newValue, s);
+    polyphonicExpressionEventOnChannelOrNote(
+        newValue, expressionDimension, channelOrNoteNumber, whichCharacteristic, false);
+  }
+
+  /**
+   * C {@code SoundInstrument::polyphonicExpressionEventOnChannelOrNote} ({@code
+   * sound_instrument.cpp:330-364}) — routes polyphonic/MPE expression to matching voices (smoothly
+   * for live MIDI/MPE input when {@code smooth} is true, or immediately for step automation) and
+   * updates MPE values in {@code arpeggiator}.
+   */
+  public void polyphonicExpressionEventOnChannelOrNote(
+      int newValue,
+      int expressionDimension,
+      int channelOrNoteNumber,
+      int whichCharacteristic,
+      boolean smooth) {
+    // Lock order across Sound: always arpeggiator -> voices.
+    synchronized (arpeggiator) {
+      synchronized (voices) {
+        int s = expressionDimension + PatchSource.X.ordinal();
+        for (Voice voice : voices) {
+          if (voice.active
+              && voice.inputCharacteristics[whichCharacteristic] == channelOrNoteNumber) {
+            if (smooth) {
+              voice.expressionEventSmooth(newValue, s);
+            } else {
+              voice.expressionEventImmediate(this, newValue, s);
+            }
+          }
         }
       }
-    }
-    // C sound_instrument.cpp:348-364, sound_drum.cpp:90 — update MPE values in arpeggiator too.
-    int mpeVal16 = newValue >> 16;
-    for (int n = 0; n < arpeggiator.notes.size(); n++) {
-      Arpeggiator.ArpNote arpNote = arpeggiator.notes.get(n);
-      if (arpNote.inputCharacteristics[whichCharacteristic] == channelOrNoteNumber) {
-        arpNote.mpeValues[expressionDimension] = mpeVal16;
+      // C sound_instrument.cpp:348-364, sound_drum.cpp:90 — update MPE values in arpeggiator too.
+      int mpeVal16 = newValue >> 16;
+      for (int n = 0; n < arpeggiator.notes.size(); n++) {
+        Arpeggiator.ArpNote arpNote = arpeggiator.notes.get(n);
+        if (arpNote.inputCharacteristics[whichCharacteristic] == channelOrNoteNumber) {
+          arpNote.mpeValues[expressionDimension] = mpeVal16;
+        }
       }
-    }
-    if (arpeggiator.active_note.inputCharacteristics[whichCharacteristic] == channelOrNoteNumber) {
-      arpeggiator.active_note.mpeValues[expressionDimension] = mpeVal16;
+      if (arpeggiator.active_note.inputCharacteristics[whichCharacteristic]
+          == channelOrNoteNumber) {
+        arpeggiator.active_note.mpeValues[expressionDimension] = mpeVal16;
+      }
     }
   }
 
-  public void monophonicExpressionEvent(int newValue, int expressionDimension) {
-    monophonicExpressionValues[expressionDimension] = newValue;
-    synchronized (voices) {
-      int s = expressionDimension + PatchSource.X.ordinal();
-      for (Voice voice : voices) {
-        if (voice.active) {
-          voice.sourceValues[s] = voice.combineExpressionValues(this, expressionDimension);
+  /**
+   * C {@code SoundDrum::expressionEvent} ({@code sound_drum.cpp:74-91}) — updates all active voices
+   * of a drum sound (smoothly or immediately) and updates {@code
+   * arpeggiator.active_note.mpeValues}.
+   */
+  public void drumExpressionEvent(int newValue, int expressionDimension, boolean smooth) {
+    int s = expressionDimension + PatchSource.X.ordinal();
+    synchronized (arpeggiator) {
+      synchronized (voices) {
+        for (Voice voice : voices) {
+          if (voice.active) {
+            if (smooth) {
+              voice.expressionEventSmooth(newValue, s);
+            } else {
+              voice.expressionEventImmediate(this, newValue, s);
+            }
+          }
         }
       }
+      arpeggiator.active_note.mpeValues[expressionDimension] = newValue >> 16;
     }
+  }
+
+  /**
+   * C {@code SoundInstrument::monophonicExpressionEvent} ({@code sound_instrument.cpp:321-324}) —
+   * flags {@code expressionSourcesChangedAtSynthLevel} so every active voice smooths toward the new
+   * synth-level value in {@code Voice::render} ({@code voice.cpp:783-804}).
+   */
+  public void monophonicExpressionEvent(int newValue, int expressionDimension) {
+    expressionSourcesChangedAtSynthLevel |= (1 << expressionDimension);
+    monophonicExpressionValues[expressionDimension] = newValue;
   }
 
   @Override
@@ -1083,24 +1135,26 @@ public class Sound extends GlobalEffectable {
     hasBlockResolvedReverbValue = inRenderOutputBlock;
 
     // 4. Arpeggiator clock & processing (C sound.cpp:2458-2495).
-    arpInstr.reset();
-    if (arpEnabled()) {
-      int phaseInc =
-          (arpPhaseIncrement > 0)
-              ? arpPhaseIncrement
-              : arpSettings.getPhaseIncrement(
-                  trackParamFinalValues[Param.GLOBAL_ARP_RATE], this.timePerInternalTickInverse);
-      if (phaseInc > 0) {
-        // sound.cpp:2468 — (uint32_t)gate + 2147483648, passed FULL-SCALE (the arp itself does the
-        // single >> 8, arpeggiator.cpp:1457). Int add wraps exactly like the C uint32 add.
-        int gateThreshold = arpSettings.gate + Integer.MIN_VALUE;
-        arpeggiator.render(arpSettings, arpInstr, numSamples, gateThreshold, phaseInc);
+    synchronized (arpeggiator) {
+      arpInstr.reset();
+      if (arpEnabled()) {
+        int phaseInc =
+            (arpPhaseIncrement > 0)
+                ? arpPhaseIncrement
+                : arpSettings.getPhaseIncrement(
+                    trackParamFinalValues[Param.GLOBAL_ARP_RATE], this.timePerInternalTickInverse);
+        if (phaseInc > 0) {
+          // sound.cpp:2468 — (uint32_t)gate + 2147483648, passed FULL-SCALE (the arp itself does
+          // the single >> 8, arpeggiator.cpp:1457). Int add wraps exactly like the C uint32 add.
+          int gateThreshold = arpSettings.gate + Integer.MIN_VALUE;
+          arpeggiator.render(arpSettings, arpInstr, numSamples, gateThreshold, phaseInc);
+        }
+      } else {
+        // C sound.cpp:2474-2476 — when arp is OFF, still process pending notes from arpeggiator.
+        arpeggiator.handlePendingNotes(arpSettings, arpInstr);
       }
-    } else {
-      // C sound.cpp:2474-2476 — when arp is OFF, still process pending notes from arpeggiator.
-      arpeggiator.handlePendingNotes(arpSettings, arpInstr);
+      processArpInstruction(arpInstr);
     }
-    processArpInstruction(arpInstr);
 
     // C sound.cpp:2506-2519 — a filter section only runs when it can have an audible effect:
     // drive mode always; otherwise when the cutoff is patched, below max (LPF), set at all
@@ -1134,7 +1188,10 @@ public class Sound extends GlobalEffectable {
       }
     }
 
-    boolean arpHolding = arpEnabled() && arpeggiator.hasAnyInputNotesActive();
+    boolean arpHolding;
+    synchronized (arpeggiator) {
+      arpHolding = arpEnabled() && arpeggiator.hasAnyInputNotesActive();
+    }
     // C sound.cpp:2165 — keep rendering the FX tail while the per-sound delay still has repeats
     // pending, so the delay tail isn't cut when the note's voices end.
     boolean delayTailActive = delay.repeatsUntilAbandon != 0;
@@ -1146,6 +1203,8 @@ public class Sound extends GlobalEffectable {
             && (granular.bufferWriteIndex > 0 || granular.bufferFull || granular.grainInitialized)
             && granular.wrapsToShutdown >= 0;
     if (!hasActiveVoices && !arpHolding && !delayTailActive && !grainTailActive) {
+      // C sound.cpp:2635 — ensure synth-level smoothing bitmask never lingers across silent blocks.
+      expressionSourcesChangedAtSynthLevel = 0;
       return;
     }
 
@@ -1277,6 +1336,10 @@ public class Sound extends GlobalEffectable {
       buffer[i * 2] = fxIntBuffer[i][0];
       buffer[i * 2 + 1] = fxIntBuffer[i][1];
     }
+    // C sound.cpp:2635 — clear synth-level expression change flags after all voices have consumed
+    // them during this block.
+    expressionSourcesChangedAtSynthLevel = 0;
+
     // C sound.cpp:2646 — doParamLPF runs at the very end of Sound::render, AFTER
     // processReverbSendAndVolume (sound.cpp:2613) and compressor (sound.cpp:2618).
     if (inRenderOutputBlock) {
@@ -1304,17 +1367,22 @@ public class Sound extends GlobalEffectable {
     renderSkipSampleTimer += numSamples;
 
     boolean voicesEmpty;
-    synchronized (voices) {
-      voicesEmpty = voices.isEmpty();
+    boolean arpInputActive;
+    boolean arpHasPending;
+    synchronized (arpeggiator) {
+      synchronized (voices) {
+        voicesEmpty = voices.isEmpty();
+      }
+      arpInputActive = arpeggiator.hasAnyInputNotesActive();
+      arpHasPending = arpeggiator.hasPendingNotes(arpSettings);
     }
     // C :2178-2181
     boolean skippingStatusNow =
         voicesEmpty
             && delay.repeatsUntilAbandon == 0
             && !Stutterer.GLOBAL.isStuttering(this)
-            && (!arpeggiator.hasAnyInputNotesActive()
-                || arpSettings.mode == Arpeggiator.ArpMode.OFF)
-            && !arpeggiator.hasPendingNotes(arpSettings);
+            && (!arpInputActive || arpSettings.mode == Arpeggiator.ArpMode.OFF)
+            && !arpHasPending;
 
     if (skippingStatusNow != skippingRendering) {
       if (skippingStatusNow) {
@@ -1415,11 +1483,14 @@ public class Sound extends GlobalEffectable {
    * @return ticks until the arpeggiator's next event
    */
   public int doTickForwardForArp(int currentPos, boolean currentlyPlayingReversed) {
-    arpTickInstr.reset();
-    int ticksTilNextArpEvent =
-        arpeggiator.doTickForward(arpSettings, arpTickInstr, currentPos, currentlyPlayingReversed);
-    processArpInstruction(arpTickInstr);
-    return ticksTilNextArpEvent;
+    synchronized (arpeggiator) {
+      arpTickInstr.reset();
+      int ticksTilNextArpEvent =
+          arpeggiator.doTickForward(
+              arpSettings, arpTickInstr, currentPos, currentlyPlayingReversed);
+      processArpInstruction(arpTickInstr);
+      return ticksTilNextArpEvent;
+    }
   }
 
   public boolean arpEnabled() {
@@ -1446,44 +1517,46 @@ public class Sound extends GlobalEffectable {
     // arpSettings->mode == ArpMode::OFF, so arp-off noteProbability, spreadVelocity, and
     // reverseProbability (instruction.invertReversed) evaluate and notes are tracked for MPE /
     // noteOff.
-    arpInstr.reset();
-    arpInstr.sampleSyncLengthOn = pendingSampleSyncLength; // C sound.cpp:1534
-    arpeggiator.noteOn(arpSettings, note, vel, arpInstr, midiChannel, mpeValues);
-    for (int n = 0; n < 4; n++) {
-      int glideOff = arpInstr.glideNoteCodeOffPostArp[n];
-      if (glideOff == Arpeggiator.ARP_NOTE_NONE) {
-        break;
-      }
-      releaseVoice(glideOff, -1);
-    }
-    for (int n = 0; n < 4; n++) {
-      int noteOff = arpInstr.noteCodeOffPostArp[n];
-      if (noteOff == Arpeggiator.ARP_NOTE_NONE) {
-        break;
-      }
-      releaseVoice(noteOff, -1);
-    }
-    if (arpInstr.arpNoteOn != null) {
-      // C sound.cpp:1556 — the voice syncs to instruction.sampleSyncLengthOn, which a synced arp
-      // overwrites with its period (arpeggiator.cpp:1579).
-      int callerSyncLength = pendingSampleSyncLength;
-      pendingSampleSyncLength = arpInstr.sampleSyncLengthOn;
-      int v = arpInstr.arpNoteOn.velocity;
-      if (v <= 0) v = 64;
-      for (int n = 0; n < arpInstr.arpNoteOn.noteCodeOnPostArp.length; n++) {
-        int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[n];
-        if (noteOn == Arpeggiator.ARP_NOTE_NONE) {
+    synchronized (arpeggiator) {
+      arpInstr.reset();
+      arpInstr.sampleSyncLengthOn = pendingSampleSyncLength; // C sound.cpp:1534
+      arpeggiator.noteOn(arpSettings, note, vel, arpInstr, midiChannel, mpeValues);
+      for (int n = 0; n < 4; n++) {
+        int glideOff = arpInstr.glideNoteCodeOffPostArp[n];
+        if (glideOff == Arpeggiator.ARP_NOTE_NONE) {
           break;
         }
-        if (arpInstr.arpNoteOn.noteStatus[n] != Arpeggiator.ArpNoteStatus.PENDING) {
-          continue;
-        }
-        invertReversed = arpInstr.invertReversed; // C sound.cpp:1553
-        triggerVoice(noteOn, v, midiChannel, mpeValues, samplesLate);
-        arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
+        releaseVoice(glideOff, -1);
       }
-      pendingSampleSyncLength = callerSyncLength;
-      arpInstr.arpNoteOn = null;
+      for (int n = 0; n < 4; n++) {
+        int noteOff = arpInstr.noteCodeOffPostArp[n];
+        if (noteOff == Arpeggiator.ARP_NOTE_NONE) {
+          break;
+        }
+        releaseVoice(noteOff, -1);
+      }
+      if (arpInstr.arpNoteOn != null) {
+        // C sound.cpp:1556 — the voice syncs to instruction.sampleSyncLengthOn, which a synced arp
+        // overwrites with its period (arpeggiator.cpp:1579).
+        int callerSyncLength = pendingSampleSyncLength;
+        pendingSampleSyncLength = arpInstr.sampleSyncLengthOn;
+        int v = arpInstr.arpNoteOn.velocity;
+        if (v <= 0) v = 64;
+        for (int n = 0; n < arpInstr.arpNoteOn.noteCodeOnPostArp.length; n++) {
+          int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[n];
+          if (noteOn == Arpeggiator.ARP_NOTE_NONE) {
+            break;
+          }
+          if (arpInstr.arpNoteOn.noteStatus[n] != Arpeggiator.ArpNoteStatus.PENDING) {
+            continue;
+          }
+          invertReversed = arpInstr.invertReversed; // C sound.cpp:1553
+          triggerVoice(noteOn, v, midiChannel, mpeValues, samplesLate);
+          arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
+        }
+        pendingSampleSyncLength = callerSyncLength;
+        arpInstr.arpNoteOn = null;
+      }
     }
   }
 
@@ -1728,28 +1801,30 @@ public class Sound extends GlobalEffectable {
   public void releaseNote(int note, int midiChannel) {
     // C sound.cpp:1581-1602 — Sound::noteOff ALWAYS routes through arpeggiator->noteOff even when
     // arpSettings->mode == ArpMode::OFF, cleaning up arpeggiator.notes / notesAsPlayed.
-    arpInstr.reset();
-    arpeggiator.noteOff(arpSettings, note, arpInstr);
-    boolean releasedAny = false;
-    for (int n = 0; n < 4; n++) {
-      int glideOff = arpInstr.glideNoteCodeOffPostArp[n];
-      if (glideOff == Arpeggiator.ARP_NOTE_NONE) {
-        break;
+    synchronized (arpeggiator) {
+      arpInstr.reset();
+      arpeggiator.noteOff(arpSettings, note, arpInstr);
+      boolean releasedAny = false;
+      for (int n = 0; n < 4; n++) {
+        int glideOff = arpInstr.glideNoteCodeOffPostArp[n];
+        if (glideOff == Arpeggiator.ARP_NOTE_NONE) {
+          break;
+        }
+        releasedAny = true;
+        releaseVoice(glideOff, -1);
       }
-      releasedAny = true;
-      releaseVoice(glideOff, -1);
-    }
-    for (int n = 0; n < 4; n++) {
-      int noteOff = arpInstr.noteCodeOffPostArp[n];
-      if (noteOff == Arpeggiator.ARP_NOTE_NONE) {
-        break;
+      for (int n = 0; n < 4; n++) {
+        int noteOff = arpInstr.noteCodeOffPostArp[n];
+        if (noteOff == Arpeggiator.ARP_NOTE_NONE) {
+          break;
+        }
+        releasedAny = true;
+        releaseVoice(noteOff, -1);
       }
-      releasedAny = true;
-      releaseVoice(noteOff, -1);
-    }
-    if (!releasedAny && !arpEnabled()) {
-      // Fallback for callers that started a voice directly via triggerVoice without triggerNote.
-      releaseVoice(note, midiChannel);
+      if (!releasedAny && !arpEnabled()) {
+        // Fallback for callers that started a voice directly via triggerVoice without triggerNote.
+        releaseVoice(note, midiChannel);
+      }
     }
   }
 
@@ -1770,16 +1845,18 @@ public class Sound extends GlobalEffectable {
 
   public void releaseAllNotes() {
     // C sound.cpp:1769-1777 (Sound::allNotesOff) — reset invertReversed, release all voices, and
-    // reset arpeggiator state.
-    invertReversed = false;
-    synchronized (voices) {
-      for (var v : voices) {
-        if (v.active) {
-          v.noteOff();
+    // reset arpeggiator state (strict lock order: arpeggiator -> voices).
+    synchronized (arpeggiator) {
+      invertReversed = false;
+      synchronized (voices) {
+        for (var v : voices) {
+          if (v.active) {
+            v.noteOff();
+          }
         }
       }
+      arpeggiator.reset();
     }
-    arpeggiator.reset();
   }
 
   private int resolveGlobalFieldOrPatched(int fieldValue, int paramId) {

@@ -1547,6 +1547,16 @@ public class ClipModel extends TimelineCounter {
     } else {
       paramManager.setMidiCcSender(null);
     }
+    // C param_set.cpp:580-583, note_row.cpp:3554-3559 — sync clip/row pitch-bend ranges immediately
+    // when attaching a sound or kit so live MPE / MIDI notes before any step trigger see exact
+    // bend ranges (including explicit per-row overrides).
+    if (sound instanceof org.deluge.engine.FirmwareSound fs) {
+      applyBendRanges(fs.fw2Sound);
+    } else if (sound instanceof org.deluge.engine.FirmwareKit kit) {
+      for (int r = 0; r < kit.drumSounds.size(); r++) {
+        applyDrumBendRanges(kit.drumSounds.get(r).fw2Sound, noteRows.get(r));
+      }
+    }
     syncExpressionParamsToParamManager();
   }
 
@@ -2043,6 +2053,7 @@ public class ClipModel extends TimelineCounter {
   private void triggerNoteLate(NoteRowModel row, NoteModel note, int samplesLate) {
     int vel = note.getVelocityByte();
     if (sound instanceof org.deluge.engine.FirmwareSound fs) {
+      applyBendRanges(fs.fw2Sound);
       fs.fw2Sound.pendingSampleSyncLength = note.getLength();
       fs.fw2Sound.pendingMpeValues =
           row.getExpressionParams().containsSomething() ? row.getMpeValues() : null;
@@ -2058,6 +2069,7 @@ public class ClipModel extends TimelineCounter {
       org.deluge.firmware2.Sound drum =
           (r >= 0 && r < kit.drumSounds.size()) ? kit.drumSounds.get(r).fw2Sound : null;
       if (drum != null) {
+        applyDrumBendRanges(drum, row);
         drum.pendingSampleSyncLength = note.getLength();
         drum.pendingMpeValues =
             row.getExpressionParams().containsSomething() ? row.getMpeValues() : null;
@@ -2096,12 +2108,14 @@ public class ClipModel extends TimelineCounter {
 
   /**
    * A kit row's ExpressionParamSet (note_row.cpp:3554-3559): created for a drum, its main range is
-   * the default and its finger-level range equals main (param_set.cpp:580-583) unless the row's
-   * "bendRange" sets it. No set at all: the FlashStorage defaults {2, 48}.
+   * the default (2) and its finger-level range equals main (param_set.cpp:580-583) unless the row's
+   * "bendRange" sets it explicitly.
    */
   static void applyDrumBendRanges(org.deluge.firmware2.Sound s, NoteRowModel row) {
     s.bendRangeMain = 2;
-    s.bendRangeFingerLevel = (row != null && row.getBendRange() != -1) ? row.getBendRange() : 48;
+    s.bendRangeFingerLevel =
+        (row != null && row.getBendRange() != -1) ? row.getBendRange() : s.bendRangeMain;
+    s.explicitBendRange = true;
   }
 
   private void triggerNote(org.deluge.model.PendingNoteOn noteOn) {
