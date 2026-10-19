@@ -87,6 +87,17 @@ public class ClipModel extends TimelineCounter {
    */
   private String launchStyle = "default";
 
+  // Owning TrackModel (C Clip::output in clip.h:77).
+  private transient TrackModel ownerTrack;
+
+  public TrackModel getOwnerTrack() {
+    return ownerTrack;
+  }
+
+  public void setOwnerTrack(TrackModel ownerTrack) {
+    this.ownerTrack = ownerTrack;
+  }
+
   /**
    * C InstrumentClip's ExpressionParamSet::bendRanges (instrument_clip.cpp:2432-2433, 2888-2898):
    * "bendRange" (BEND_RANGE_MAIN) and "bendRangeMPE" (BEND_RANGE_FINGER_LEVEL). -1 = the file had
@@ -167,6 +178,8 @@ public class ClipModel extends TimelineCounter {
   // ── Unified NoteRowModel map replacing parallel maps ──
   public final Map<Integer, NoteRowModel> noteRows = new HashMap<>();
   private boolean isKit = false;
+  // C clip.h:84, clip.cpp:702-704 — Clip::soloingInSessionMode.
+  private boolean soloingInSessionMode = false;
 
   public boolean isKit() {
     return isKit;
@@ -174,6 +187,14 @@ public class ClipModel extends TimelineCounter {
 
   public void setIsKit(boolean isKit) {
     this.isKit = isKit;
+  }
+
+  public boolean isSoloingInSessionMode() {
+    return soloingInSessionMode;
+  }
+
+  public void setSoloingInSessionMode(boolean soloingInSessionMode) {
+    this.soloingInSessionMode = soloingInSessionMode;
   }
 
   // ── Transient Transport / Sequencer States ──
@@ -373,6 +394,8 @@ public class ClipModel extends TimelineCounter {
 
   public ClipModel deepCopy(String newName) {
     ClipModel copy = new ClipModel(newName, this.rowCount, this.stepCount);
+    copy.isKit = this.isKit;
+    copy.soloingInSessionMode = this.soloingInSessionMode;
     copy.tripletMode = this.tripletMode;
     copy.loopLength = this.loopLength;
     for (int r = 0; r < rowCount; r++) {
@@ -963,12 +986,15 @@ public class ClipModel extends TimelineCounter {
       boolean isKit =
           this.isKit
               || (type == ClipType.INSTRUMENT && sound instanceof org.deluge.engine.FirmwareKit);
-      int pitch =
-          isKit
-              ? r
-              : (getRowYNote(r) >= 0
-                  ? getRowYNote(r)
-                  : ((step.active() && step.pitch() > 0) ? step.pitch() : (rowCount - 1 - r)));
+      int pitch;
+      if (isKit) {
+        pitch = r;
+      } else {
+        pitch =
+            getRowYNote(r) >= 0
+                ? getRowYNote(r)
+                : ((step.active() && step.pitch() > 0) ? step.pitch() : (rowCount - 1 - r));
+      }
 
       if (!isKit && step.pitch() != pitch) {
         step = step.withPitch(pitch);
@@ -1108,6 +1134,8 @@ public class ClipModel extends TimelineCounter {
     flushPendingNoteRowTicks();
     int prevLoopLen = getLoopLength();
     Map<Integer, NoteRowModel> liveRows = new HashMap<>(this.noteRows);
+    this.isKit = src.isKit;
+    this.soloingInSessionMode = src.soloingInSessionMode;
     tripletMode = src.tripletMode;
     setStepCount(src.stepCount);
     this.loopLength = src.loopLength;
@@ -1263,7 +1291,9 @@ public class ClipModel extends TimelineCounter {
       }
 
       int pitch = -1;
-      if (!isKit && getRowYNote(r) >= 0) {
+      if (isKit) {
+        pitch = r;
+      } else if (getRowYNote(r) >= 0) {
         pitch = getRowYNote(r);
       } else {
         for (int s = 0; s < stepCount; s++) {
@@ -1569,17 +1599,203 @@ public class ClipModel extends TimelineCounter {
     } else {
       paramManager.setMidiCcSender(null);
     }
-    // C param_set.cpp:580-583, note_row.cpp:3554-3559 — sync clip/row pitch-bend ranges immediately
-    // when attaching a sound or kit so live MPE / MIDI notes before any step trigger see exact
-    // bend ranges (including explicit per-row overrides).
+    // C param_set.cpp:580-583, note_row.cpp:3554-3559, kit.cpp:159-162 — push clip-level state onto
+    // the shared FirmwareSound / FirmwareKit only when this clip is the active clip on its track
+    // (or unattached), so inactive session clips and sparse <arrangementOnlyClips> clips never
+    // overwrite the active clip's per-drum filter knobs or pitch-bend ranges.
+    boolean isActiveOnTrack =
+        ownerTrack == null
+            || ownerTrack.getActiveClip() == null
+            || ownerTrack.getActiveClip() == this;
     if (sound instanceof org.deluge.engine.FirmwareSound fs) {
-      applyBendRanges(fs.fw2Sound);
+      if (isActiveOnTrack) {
+        applyBendRanges(fs.fw2Sound);
+      }
     } else if (sound instanceof org.deluge.engine.FirmwareKit kit) {
+      KitTrackModel kt = (ownerTrack instanceof KitTrackModel k) ? k : null;
       for (int r = 0; r < kit.drumSounds.size(); r++) {
-        applyDrumBendRanges(kit.drumSounds.get(r).fw2Sound, noteRows.get(r));
+        org.deluge.engine.FirmwareSound drum = kit.drumSounds.get(r);
+        drum.isDrum = true;
+        drum.fw2Sound.isDrum = true;
+        if (!isActiveOnTrack) {
+          continue;
+        }
+        NoteRowModel rowModel = null;
+        for (NoteRowModel nr : getNoteRowsMap().values()) {
+          if (nr.getPitch() == r) {
+            rowModel = nr;
+            break;
+          }
+        }
+        if (rowModel == null) {
+          rowModel = getNoteRowsMap().get(r);
+        }
+        if (kt != null
+            && r < kt.getDrums().size()
+            && kt.getDrums().get(r) instanceof SoundDrum sd) {
+          final NoteRowModel activeRow = rowModel;
+          int clipStepTicks = this.tripletMode ? 32 : 24;
+          synchronized (sd) {
+            synchronized (drum) {
+              // C kit.cpp:159-162, 562-580, note_row.cpp:3288-3292 — reset per-drum params,
+              // patch cables, and automation to SoundDrum defaults without consulting clip 0,
+              // replacing default patch cables when activeRow carries its own <patchCables>.
+              List<PatchCable> savedDrumCables = null;
+              if (activeRow != null && !activeRow.getPatchCables().isEmpty()) {
+                savedDrumCables = new ArrayList<>(sd.getPatchCables());
+                sd.getPatchCables().clear();
+                sd.getPatchCables().addAll(activeRow.getPatchCables());
+              }
+              try {
+                drum.paramManager.automatedParams.clear();
+                drum.paramManager.getPatchCableSet().clear();
+                org.deluge.engine.FirmwareFactory.mapDrumToSound(sd, drum, r, null);
+              } finally {
+                if (savedDrumCables != null) {
+                  sd.getPatchCables().clear();
+                  sd.getPatchCables().addAll(savedDrumCables);
+                }
+              }
+
+              // C mod_controllable_audio.cpp:61-63, sound.cpp:146-151 — propagate parsed SoundDrum
+              // filter modes/routing and exponential Q31 filter knobs while preserving hard-bypass
+              // endpoints (20 kHz -> MAX_VALUE, 20 Hz / 0 morph -> MIN_VALUE).
+              drum.setLpfMode(sd.getLpfMode());
+              drum.setHpfMode(sd.getHpfMode());
+              drum.fw2Sound.filterRoute = sd.getFilterRoute();
+              drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_LPF_FREQ] =
+                  org.deluge.xml.DelugeHexMapper.hzToQ31(sd.getLpfFreq());
+              drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_LPF_RESONANCE] =
+                  org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(sd.getLpfRes());
+              drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_LPF_MORPH] =
+                  org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(sd.getLpfMorph());
+              drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_HPF_FREQ] =
+                  org.deluge.xml.DelugeHexMapper.hzToQ31(sd.getHpfFreq());
+              drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_HPF_RESONANCE] =
+                  org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(sd.getHpfRes());
+              drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_HPF_MORPH] =
+                  org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(sd.getHpfMorph());
+
+              // Re-apply active clip <noteRow><soundParams> overrides and automation curves
+              // (C note_row.cpp:3288-3292, sound.cpp:3822-3845).
+              if (activeRow != null) {
+                applyKitRowSoundParamOverrides(activeRow.getSoundParams(), drum);
+                Map<String, float[]> rowAutos = activeRow.getRowAutomation();
+                if (rowAutos != null) {
+                  for (Map.Entry<String, float[]> entry : rowAutos.entrySet()) {
+                    int paramId =
+                        org.deluge.engine.FirmwareFactory.getParamIdFromName(entry.getKey());
+                    if (paramId != -1) {
+                      float[] array = entry.getValue();
+                      for (int s = 0; s < array.length; s++) {
+                        if (array[s] > 0.0f) {
+                          int q31Val = (int) (array[s] * 2147483647.0);
+                          drum.paramManager.recordParamValue(paramId, q31Val, s * clipStepTicks);
+                        }
+                      }
+                    }
+                  }
+                }
+                for (Map.Entry<String, List<org.deluge.modulation.automation.ParamNode>> entry :
+                    activeRow.getAutomationCurves().entrySet()) {
+                  int paramId =
+                      org.deluge.engine.FirmwareFactory.getParamIdFromName(entry.getKey());
+                  if (paramId != -1) {
+                    for (org.deluge.modulation.automation.ParamNode node : entry.getValue()) {
+                      drum.paramManager.recordParamValue(
+                          paramId, node.value, node.pos, node.interpolated);
+                    }
+                  }
+                }
+              }
+              drum.fw2Sound.resyncGlobalLFOs();
+            }
+          }
+        }
+        applyDrumBendRanges(drum.fw2Sound, rowModel);
       }
     }
     syncExpressionParamsToParamManager();
+  }
+
+  private static int rowNormToBipolarVolume(float norm) {
+    if (norm <= 0.0001f) return Integer.MIN_VALUE;
+    float clamped = Math.min(1.0f, norm);
+    return (int) (((clamped * 2.0) - 1.0) * 2147483647.0);
+  }
+
+  private static void applyKitRowSoundParamOverrides(
+      Map<String, Float> rowSp, org.deluge.engine.FirmwareSound drum) {
+    if (rowSp == null || rowSp.isEmpty()) return;
+    for (Map.Entry<String, Float> entry : rowSp.entrySet()) {
+      Float val = entry.getValue();
+      if (val == null) continue;
+      switch (entry.getKey()) {
+        case "volume" ->
+            drum.paramNeutralValues[org.deluge.firmware2.Param.GLOBAL_VOLUME_POST_FX] =
+                rowNormToBipolarVolume(val);
+        case "oscAVolume" ->
+            drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME] =
+                rowNormToBipolarVolume(val);
+        case "oscBVolume" ->
+            drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_OSC_B_VOLUME] =
+                rowNormToBipolarVolume(val);
+        case "noiseVolume" ->
+            drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_NOISE_VOLUME] =
+                rowNormToBipolarVolume(val);
+        case "lpfFrequency" ->
+            drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_LPF_FREQ] =
+                org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(val);
+        case "lpfResonance" ->
+            drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_LPF_RESONANCE] =
+                org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(val);
+        case "lpfMorph" ->
+            drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_LPF_MORPH] =
+                org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(val);
+        case "hpfFrequency" ->
+            drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_HPF_FREQ] =
+                org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(val);
+        case "hpfResonance" ->
+            drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_HPF_RESONANCE] =
+                org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(val);
+        case "hpfMorph" ->
+            drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_HPF_MORPH] =
+                org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(val);
+        case "envelope1_attack" ->
+            drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_ATTACK] =
+                org.deluge.firmware2.Functions.getParamFromUserValue(
+                    org.deluge.firmware2.Param.LOCAL_ENV_0_ATTACK, (int) (val * 50));
+        case "envelope1_decay" ->
+            drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_DECAY] =
+                org.deluge.firmware2.Functions.getParamFromUserValue(
+                    org.deluge.firmware2.Param.LOCAL_ENV_0_DECAY, (int) (val * 50));
+        case "envelope1_sustain" ->
+            drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_SUSTAIN] =
+                org.deluge.firmware2.Functions.getParamFromUserValue(
+                    org.deluge.firmware2.Param.LOCAL_ENV_0_SUSTAIN, (int) (val * 50));
+        case "envelope1_release" ->
+            drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_RELEASE] =
+                org.deluge.firmware2.Functions.getParamFromUserValue(
+                    org.deluge.firmware2.Param.LOCAL_ENV_0_RELEASE, (int) (val * 50));
+        case "envelope2_attack" ->
+            drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_1_ATTACK] =
+                org.deluge.firmware2.Functions.getParamFromUserValue(
+                    org.deluge.firmware2.Param.LOCAL_ENV_1_ATTACK, (int) (val * 50));
+        case "envelope2_decay" ->
+            drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_1_DECAY] =
+                org.deluge.firmware2.Functions.getParamFromUserValue(
+                    org.deluge.firmware2.Param.LOCAL_ENV_1_DECAY, (int) (val * 50));
+        case "envelope2_sustain" ->
+            drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_1_SUSTAIN] =
+                org.deluge.firmware2.Functions.getParamFromUserValue(
+                    org.deluge.firmware2.Param.LOCAL_ENV_1_SUSTAIN, (int) (val * 50));
+        case "envelope2_release" ->
+            drum.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_1_RELEASE] =
+                org.deluge.firmware2.Functions.getParamFromUserValue(
+                    org.deluge.firmware2.Param.LOCAL_ENV_1_RELEASE, (int) (val * 50));
+        default -> {}
+      }
+    }
   }
 
   /**

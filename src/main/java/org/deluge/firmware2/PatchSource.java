@@ -39,4 +39,7 @@ public enum PatchSource {
   public static final int kNumPatchSources = kLastPatchSource.ordinal();
   // C: constexpr PatchSource kFirstLocalSource = PatchSource::ENVELOPE_0;            // == 3
   public static final int kFirstLocalSource = ENVELOPE_0.ordinal();
+  // C definitions_cxx.hpp:317-318 — UI/descriptor sentinels for PatchSource : uint8_t.
+  public static final int SOON_VALUE = 254;
+  public static final int NOT_AVAILABLE_VALUE = 255;
 }

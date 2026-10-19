@@ -5,8 +5,6 @@ import org.deluge.firmware2.Param;
 import org.deluge.firmware2.Sidechain;
 import org.deluge.firmware2.StereoSample;
 import org.deluge.model.tuning.ScalaScale;
-import org.deluge.modulation.patch.Destination;
-import org.deluge.modulation.patch.PatchCable;
 
 /**
  * Port of the Deluge's Sound class. This is the central high-fidelity synthesis engine for a single
@@ -524,6 +522,7 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   // rebuilds the patch-cable set and rewrites params under the same lock — without it the audio
   // thread could iterate a half-rebuilt cable list here.
   public synchronized void syncParamsToFw2() {
+    fw2Sound.isDrum = this.isDrum;
     ensureDrumBendRangeDefault();
     if (stagedSynthMode != null) {
       fw2Sound.synthMode = stagedSynthMode;
@@ -621,6 +620,14 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
       if (auto != null && !auto.nodes.isEmpty()) {
         newValue = auto.currentValue;
         fromAutomation = true;
+      } else if (i == org.deluge.firmware2.Param.LOCAL_MODULATOR_0_VOLUME
+          && fmModulatorAmountBase[0] != Integer.MIN_VALUE) {
+        // C sound.cpp:161-162, 520-523 — non-automated FM modulator base knob; resolved inside the
+        // param loop so automated modulator volumes win AND flow through notifyValueChangeViaLPF.
+        newValue = fmModulatorAmountBase[0];
+      } else if (i == org.deluge.firmware2.Param.LOCAL_MODULATOR_1_VOLUME
+          && fmModulatorAmountBase[1] != Integer.MIN_VALUE) {
+        newValue = fmModulatorAmountBase[1];
       } else if (paramKnobsPopulated
           && !(org.deluge.firmware2.Arpeggiator.isUnpatchedArpParam(i)
               && paramKnobs[i] == UNSET_ARP_KNOB)) {
@@ -648,15 +655,6 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     }
 
     fw2Sound.patchedParamValues = nextPatchedParamValues;
-    if (fmModulatorAmountBase[0] != Integer.MIN_VALUE) {
-      nextPatchedParamValues[org.deluge.firmware2.Param.LOCAL_MODULATOR_0_VOLUME] =
-          fmModulatorAmountBase[0];
-    }
-    if (fmModulatorAmountBase[1] != Integer.MIN_VALUE) {
-      nextPatchedParamValues[org.deluge.firmware2.Param.LOCAL_MODULATOR_1_VOLUME] =
-          fmModulatorAmountBase[1];
-    }
-    fw2Sound.patchedParamValues = nextPatchedParamValues;
 
     // C arpeggiator.cpp:1968-1983, sound.cpp:1528, 2463, 2468, sound_instrument.cpp:426 — sync
     // active unpatched arp/randomizer params into arpSettings while preserving direct arpSettings
@@ -676,35 +674,17 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
       }
     }
 
-    java.util.List<org.deluge.firmware2.Patcher.Destination> nextDestinations =
-        new java.util.ArrayList<>();
-    for (Destination d : paramManager.getPatchCableSet().destinations) {
-      org.deluge.firmware2.Patcher.Destination dest =
-          new org.deluge.firmware2.Patcher.Destination(d.paramId);
-      dest.targetSource = d.targetSource;
-      dest.targetParamId = d.targetParamId;
-      int effectiveParamId = d.targetSource >= 0 ? d.targetParamId : d.paramId;
-      for (PatchCable c : d.cables) {
-        // C sound.cpp:1346-1348 — skip disallowed local-to-global patch cables.
-        if (!org.deluge.firmware2.Patcher.maySourcePatchToParam(
-            c.from.ordinal(), effectiveParamId)) {
-          continue;
-        }
-        var fc = new org.deluge.firmware2.Patcher.PatchCable();
-        fc.source = c.from.ordinal();
-        fc.amount = c.getAmount();
-        fc.polarity =
-            (c.polarity == PatchCable.Polarity.UNIPOLAR)
-                ? org.deluge.firmware2.Patcher.PatchCable.UNIPOLAR
-                : org.deluge.firmware2.Patcher.PatchCable.BIPOLAR;
-        dest.cables.add(fc);
-        dest.sourcesMask |= (1 << fc.source);
-      }
-      if (!dest.cables.isEmpty()) {
-        nextDestinations.add(dest);
-      }
+    // C patch_cable_set.cpp:157-330, 498-516, sound.cpp:1340-1507 — compile only usable (ALLOWED
+    // and non-orphan range) cables into fw2Sound while keeping EDITABLE / temporarily inactive
+    // cables intact in paramManager.getPatchCableSet(), reusing the published snapshot with zero
+    // heap allocations on steady-state audio blocks when usability/amounts are unchanged.
+    java.util.List<org.deluge.firmware2.Patcher.Destination> currentDests =
+        fw2Sound.patchCableSet.destinations;
+    java.util.List<org.deluge.firmware2.Patcher.Destination> nextDests =
+        org.deluge.firmware2.Patcher.syncUsableDestinations(currentDests, fw2Sound, paramManager);
+    if (nextDests != currentDests) {
+      fw2Sound.patchCableSet.destinations = nextDests;
     }
-    fw2Sound.patchCableSet.destinations = nextDestinations;
 
     // Modulated FX params. C sound.cpp:2582-2584 reads the patcher's FINAL values for rate and
     // depth (rate: exp curve, neutral 121739; depth: linear) — the raw Q31 knob is 100-1000x off

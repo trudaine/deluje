@@ -97,12 +97,16 @@ public abstract class TrackModel {
   }
 
   public void addClip(ClipModel clip) {
+    if (clip != null) {
+      clip.setOwnerTrack(this);
+    }
     clips.add(clip);
   }
 
   public void removeClip(ClipModel clip) {
     int idx = clips.indexOf(clip);
     if (idx < 0) return;
+    clip.setOwnerTrack(null);
     clips.remove(idx);
     if (clips.isEmpty()) {
       activeClipIndex = 0;
@@ -119,7 +123,17 @@ public abstract class TrackModel {
 
   public void setActiveClipIndex(int activeClipIndex) {
     if (activeClipIndex >= 0 && activeClipIndex < clips.size()) {
+      boolean changed = this.activeClipIndex != activeClipIndex;
       this.activeClipIndex = activeClipIndex;
+      // C kit.cpp:159-162, 562-580, param_set.cpp:580-583 — re-apply the newly active clip's
+      // per-drum overrides and pitch-bend ranges to the live instrument when switching session
+      // clips.
+      if (changed) {
+        ClipModel nextActive = clips.get(activeClipIndex);
+        if (nextActive != null && nextActive.getSound() != null) {
+          nextActive.setSound(nextActive.getSound());
+        }
+      }
     }
   }
 

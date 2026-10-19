@@ -198,10 +198,12 @@ public class DigitalAudioFidelityTest {
           float renderVal = outputWave[i];
           // /4 since 2026-07-25: the sample path tracks the C-exact wave-oscillator level
           // (compensated at the engine master, which this harness bypasses).
-          // Re-baselined 2026-10-16: XML <volume> now targets GLOBAL_VOLUME_POST_FX with >>2
-          // (sound.cpp:141, 3815; patcher.cpp:210-233) while LOCAL_VOLUME starts at 0 and
-          // takes the velocity->volume cable without saturating at INT_MAX.
-          float expectedRatio = 0.012689092f;
+          // Re-baselined 2026-10-19: 000 TR-808.XML:94 sets <lpfMode>24dB</lpfMode>, so
+          // sound.hasFilters() is true (sound.cpp:3218-3220) and Voice applies C-exact filterGain
+          // makeup scaling (filter_set.cpp:166 multiply_32x32_rshift32(filterGain, 1720000000) <<
+          // 1,
+          // voice.cpp:1045 -> 0.012689092f * 0.8009374f = 0.010163023f).
+          float expectedRatio = 0.010163023f;
           float actualRatio = renderVal / rawVal;
           assertEquals(
               expectedRatio,

@@ -5,31 +5,53 @@ import java.util.List;
 import org.deluge.firmware2.Param;
 
 public class PatchCableSet {
-  public List<Destination> destinations = new ArrayList<>();
+  public volatile List<Destination> destinations = new ArrayList<>();
 
   public PatchCableSet() {
     // Initialization would set up standard destinations based on param counts
   }
 
-  public void addCable(int paramId, PatchCable cable) {
+  public synchronized void clear() {
+    destinations = new ArrayList<>();
+  }
+
+  private static Destination copyDestination(Destination src) {
+    Destination copy = new Destination(src.paramId);
+    copy.targetSource = src.targetSource;
+    copy.targetParamId = src.targetParamId;
+    copy.sourcesMask = src.sourcesMask;
+    copy.cables.addAll(src.cables);
+    return copy;
+  }
+
+  public synchronized void addCable(int paramId, PatchCable cable) {
     // C patch_cable_set.cpp:902-921 — ignore NONE, zero-amount unautomated cables,
     // X -> LOCAL_PITCH_ADJUST (briefly allowed in a 3.2.0 alpha), and keep the FIRST duplicate.
     if (cable == null || cable.from == null || cable.from == PatchSource.NONE) return;
     if (cable.amount == 0 && cable.param.nodes.isEmpty()) return;
     if (cable.from == PatchSource.X && paramId == Param.LOCAL_PITCH_ADJUST) return;
 
-    Destination dest = findParamDestination(paramId);
-    if (dest == null) {
-      dest = new Destination(paramId);
-      destinations.add(dest);
-    }
-    for (PatchCable existing : dest.cables) {
-      if (existing.from == cable.from) {
-        return; // C :915-921 (goto abandonThisCable) — first duplicate wins
+    ArrayList<Destination> snapshot = new ArrayList<>(destinations.size() + 1);
+    Destination targetCopy = null;
+    for (Destination d : destinations) {
+      Destination cloned = copyDestination(d);
+      if (targetCopy == null && cloned.paramId == paramId && cloned.targetSource < 0) {
+        for (PatchCable existing : cloned.cables) {
+          if (existing.from == cable.from) {
+            return; // C :915-921 (goto abandonThisCable) — first duplicate wins
+          }
+        }
+        targetCopy = cloned;
       }
+      snapshot.add(cloned);
     }
-    dest.cables.add(cable);
-    dest.sourcesMask |= (1 << cable.from.ordinal());
+    if (targetCopy == null) {
+      targetCopy = new Destination(paramId);
+      snapshot.add(targetCopy);
+    }
+    targetCopy.cables.add(cable);
+    targetCopy.sourcesMask |= (1 << cable.from.ordinal());
+    destinations = snapshot;
   }
 
   /**
@@ -37,23 +59,34 @@ public class PatchCableSet {
    * PatchCableSet::getPatchCableIndex(..., createIfNotFound)}, {@code
    * patch_cable_set.cpp:411-418}).
    */
-  public void setCableAmount(PatchSource from, int paramId, int amount) {
+  public synchronized void setCableAmount(PatchSource from, int paramId, int amount) {
     if (from == null || from == PatchSource.NONE) return;
     if (from == PatchSource.X && paramId == Param.LOCAL_PITCH_ADJUST) return;
 
-    Destination dest = findParamDestination(paramId);
-    if (dest != null) {
-      for (int i = 0; i < dest.cables.size(); i++) {
-        PatchCable existing = dest.cables.get(i);
-        if (existing.from == from) {
-          if (amount == 0 && existing.param.nodes.isEmpty()) {
-            dest.cables.remove(i);
-            recomputeSourcesMask(dest);
-          } else {
-            existing.amount = amount;
+    for (int dIdx = 0; dIdx < destinations.size(); dIdx++) {
+      Destination d = destinations.get(dIdx);
+      if (d.paramId == paramId && d.targetSource < 0) {
+        for (int i = 0; i < d.cables.size(); i++) {
+          PatchCable existing = d.cables.get(i);
+          if (existing.from == from) {
+            if (amount == 0 && existing.param.nodes.isEmpty()) {
+              ArrayList<Destination> snapshot = new ArrayList<>(destinations.size());
+              for (int k = 0; k < destinations.size(); k++) {
+                Destination cloned = copyDestination(destinations.get(k));
+                if (k == dIdx) {
+                  cloned.cables.remove(i);
+                  recomputeSourcesMask(cloned);
+                }
+                snapshot.add(cloned);
+              }
+              destinations = snapshot;
+            } else {
+              existing.amount = amount;
+            }
+            return;
           }
-          return;
         }
+        break;
       }
     }
     if (amount != 0) {
@@ -64,7 +97,8 @@ public class PatchCableSet {
     }
   }
 
-  public void addRangeCable(int targetParamId, PatchSource targetSource, PatchCable cable) {
+  public synchronized void addRangeCable(
+      int targetParamId, PatchSource targetSource, PatchCable cable) {
     // C patch_cable_set.cpp:879-885 — ignore NONE, zero-amount unautomated cables, and keep the
     // FIRST duplicate on (from, targetParam, targetSource).
     if (cable == null
@@ -76,26 +110,31 @@ public class PatchCableSet {
     }
     if (cable.amount == 0 && cable.param.nodes.isEmpty()) return;
 
-    Destination dest = null;
+    ArrayList<Destination> snapshot = new ArrayList<>(destinations.size() + 1);
+    Destination targetCopy = null;
     for (Destination d : destinations) {
-      if (d.targetParamId == targetParamId && d.targetSource == targetSource.ordinal()) {
-        dest = d;
-        break;
+      Destination cloned = copyDestination(d);
+      if (targetCopy == null
+          && cloned.targetParamId == targetParamId
+          && cloned.targetSource == targetSource.ordinal()) {
+        for (PatchCable existing : cloned.cables) {
+          if (existing.from == cable.from) {
+            return; // C :881-885 (goto doneWithThisRangeCable) — first duplicate wins
+          }
+        }
+        targetCopy = cloned;
       }
+      snapshot.add(cloned);
     }
-    if (dest == null) {
-      dest = new Destination(targetParamId);
-      dest.targetSource = targetSource.ordinal();
-      dest.targetParamId = targetParamId;
-      destinations.add(dest);
+    if (targetCopy == null) {
+      targetCopy = new Destination(targetParamId);
+      targetCopy.targetSource = targetSource.ordinal();
+      targetCopy.targetParamId = targetParamId;
+      snapshot.add(targetCopy);
     }
-    for (PatchCable existing : dest.cables) {
-      if (existing.from == cable.from) {
-        return; // C :881-885 (goto doneWithThisRangeCable) — first duplicate wins
-      }
-    }
-    dest.cables.add(cable);
-    dest.sourcesMask |= (1 << cable.from.ordinal());
+    targetCopy.cables.add(cable);
+    targetCopy.sourcesMask |= (1 << cable.from.ordinal());
+    destinations = snapshot;
   }
 
   private Destination findParamDestination(int paramId) {

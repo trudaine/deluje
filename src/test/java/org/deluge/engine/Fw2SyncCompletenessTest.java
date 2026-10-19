@@ -36,6 +36,7 @@ class Fw2SyncCompletenessTest {
   private static final Set<String> BRIDGE_SYNCED =
       Set.of(
           "synthMode",
+          "isDrum",
           "customLfoWave",
           "oscTypes",
           "sourceDx7EngineType",

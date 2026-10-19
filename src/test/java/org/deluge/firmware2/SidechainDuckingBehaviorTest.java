@@ -45,14 +45,37 @@ public class SidechainDuckingBehaviorTest {
 
     ProjectModel song = FirmwareFactory.createSong(project);
     FirmwareSound fs = (FirmwareSound) song.getTracks().get(0).getActiveClip().getSound();
+    // Hold full sustain so attenuation in the second window reflects only real sidechain ducking
+    // rather than envelope1 decay (080 House.XML has low sustain 0x947AE144).
+    fs.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] = Integer.MAX_VALUE;
+    fs.paramKnobs[Param.LOCAL_ENV_0_SUSTAIN] = Integer.MAX_VALUE;
     fs.triggerNote(60, 127);
 
-    // Patch sidechain to local volume with strong negative amount if not already patched
-    Patcher.PatchCable cable = new Patcher.PatchCable();
-    cable.source = PatchSource.SIDECHAIN.ordinal();
-    cable.amount = -1500000000;
-    fs.fw2Sound.patchCableSet.addCable(Param.LOCAL_VOLUME, cable);
+    // C sound.cpp:1360, 1496-1500 — sidechain patches exclusively to GLOBAL_VOLUME_POST_REVERB_SEND
+    // (never LOCAL_VOLUME).
+    org.deluge.modulation.patch.PatchCable invalidLocalCable =
+        new org.deluge.modulation.patch.PatchCable();
+    invalidLocalCable.from = org.deluge.modulation.patch.PatchSource.SIDECHAIN;
+    invalidLocalCable.amount = -1500000000;
+    fs.paramManager.getPatchCableSet().addCable(Param.LOCAL_VOLUME, invalidLocalCable);
+
+    org.deluge.modulation.patch.PatchCable cable = new org.deluge.modulation.patch.PatchCable();
+    cable.from = org.deluge.modulation.patch.PatchSource.SIDECHAIN;
+    // C sidechain.cpp:193, 205 — Sidechain.render() outputs negative lastValue - ONE_Q31 while
+    // ducking, so a positive patch cable amount attenuates GLOBAL_VOLUME_POST_REVERB_SEND.
+    cable.amount = Functions.ONE_Q31;
+    fs.paramManager.getPatchCableSet().addCable(Param.GLOBAL_VOLUME_POST_REVERB_SEND, cable);
     fs.syncParamsToFw2();
+    assertFalse(
+        fs.fw2Sound.doesParamHaveSomethingPatchedToIt(Param.LOCAL_VOLUME)
+            && fs.fw2Sound.patchCableSet.destinations.stream()
+                .filter(d -> d.paramId == Param.LOCAL_VOLUME && d.targetSource < 0)
+                .flatMap(d -> d.cables.stream())
+                .anyMatch(c -> c.source == PatchSource.SIDECHAIN.ordinal()),
+        "SIDECHAIN -> LOCAL_VOLUME must be disallowed per sound.cpp:1360");
+    assertTrue(
+        fs.fw2Sound.doesParamHaveSomethingPatchedToIt(Param.GLOBAL_VOLUME_POST_REVERB_SEND),
+        "SIDECHAIN -> GLOBAL_VOLUME_POST_REVERB_SEND must be compiled into fw2Sound");
 
     FirmwareAudioEngine engine = new FirmwareAudioEngine();
     engine.metronomeEnabled = false;
@@ -80,12 +103,16 @@ public class SidechainDuckingBehaviorTest {
     rmsBaseline = Math.sqrt(rmsBaseline / numSamples);
     assertTrue(rmsBaseline > 0.05, "080 House must produce strong baseline audio");
 
-    // 2. Register strong sidechain hit (simulating a kick drum trigger!)
-    GlobalSidechainBus.registerHit(2147483647); // ONE_Q31
-
+    // 2. Register rhythmic 16th-note sidechain triggers across the 0.5s window
     float[] outDucked = new float[numSamples];
     got = 0;
+    int nextHitSample = 0;
+    int hitInterval = numSamples / 4;
     while (got < numSamples) {
+      if (got >= nextHitSample) {
+        GlobalSidechainBus.registerHit(2147483647); // ONE_Q31 kick trigger
+        nextHitSample += hitInterval;
+      }
       engine.renderBlock(128);
       for (int i = 0; i < 128 && got < numSamples; i++) {
         outDucked[got++] = (float) (engine.masterBuffer[i].l / 2.147483648e9);
@@ -102,8 +129,8 @@ public class SidechainDuckingBehaviorTest {
     rmsDucked = Math.sqrt(rmsDucked / numSamples);
 
     assertTrue(
-        rmsDucked < rmsBaseline * 0.70,
-        "Sidechain trigger hit must dynamically duck volume by >30% (baseline="
+        rmsDucked < rmsBaseline * 0.60,
+        "Sidechain trigger hits must dynamically duck volume by >40% (baseline="
             + rmsBaseline
             + ", ducked="
             + rmsDucked

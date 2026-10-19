@@ -43,6 +43,7 @@ public class PatternModel {
     private float volumeOverride = -1f;
     private float panOverride = -1f;
     private String colourHex = "#00ffcc";
+    private boolean isKit = false;
 
     public ClipSnapshot() {}
 
@@ -68,6 +69,7 @@ public class PatternModel {
       ClipSnapshot snap =
           new ClipSnapshot(trackIndex, trackName, clip.getRowCount(), clip.getStepCount());
       snap.colourHex = clip.getColor();
+      snap.isKit = clip.isKit();
       // Deep-copy grid
       for (int r = 0; r < clip.getRowCount(); r++) {
         List<StepData> row = new ArrayList<>(clip.getStepCount());
@@ -136,6 +138,7 @@ public class PatternModel {
 
     /** Apply this snapshot back into a ClipModel (destructive, overwrites existing data). */
     public void applyTo(ClipModel clip) {
+      clip.setIsKit(this.isKit);
       int rows = Math.max(clip.getRowCount(), rowCount);
       int steps = Math.max(clip.getStepCount(), stepCount);
       // Clear and rebuild grid

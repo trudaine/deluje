@@ -208,6 +208,10 @@ public class KitXmlParser {
     readAttrOrChildHexFloat(soundNode, "sideChainSend", sound::setSidechainSend);
     readAttrOrChildString(soundNode, "modFXType", sound::setModFxType);
     readAttrOrChildString(soundNode, "modFxType", sound::setModFxType);
+    // C mod_controllable_audio.cpp:61-62 — every firmware SoundDrum initializes with
+    // TRANSISTOR_24DB + HPLADDER even if minimal/legacy XML omits lpfMode/hpfMode attributes.
+    sound.setLpfMode(FilterMode.LADDER_24);
+    sound.setHpfMode(FilterMode.LADDER_12);
     readAttrOrChildString(
         soundNode,
         "lpfMode",
@@ -232,10 +236,10 @@ public class KitXmlParser {
           if ("12dB".equalsIgnoreCase(v)
               || "24dB".equalsIgnoreCase(v)
               || "24dBDrive".equalsIgnoreCase(v)) sound.setHpfMode(FilterMode.OFF);
-          else if ("SVF".equals(v)) sound.setHpfMode(FilterMode.SVF);
-          else if ("SVF_BAND".equals(v) || "SVF Band".equalsIgnoreCase(v))
+          else if ("SVF".equalsIgnoreCase(v)) sound.setHpfMode(FilterMode.SVF);
+          else if ("SVF_BAND".equalsIgnoreCase(v) || "SVF Band".equalsIgnoreCase(v))
             sound.setHpfMode(FilterMode.SVF_BAND);
-          else if ("SVF_NOTCH".equals(v) || "SVF Notch".equalsIgnoreCase(v))
+          else if ("SVF_NOTCH".equalsIgnoreCase(v) || "SVF Notch".equalsIgnoreCase(v))
             sound.setHpfMode(FilterMode.SVF_NOTCH);
           else if ("Off".equalsIgnoreCase(v)) sound.setHpfMode(FilterMode.OFF);
           else sound.setHpfMode(FilterMode.LADDER_12);
@@ -244,11 +248,15 @@ public class KitXmlParser {
     if (synthMode >= 0) {
       sound.setSynthMode(synthMode);
     }
-    readAttrString(
+    readAttrOrChildString(
         soundNode,
         "filterRoute",
         v -> {
-          // filterRoute is an internal routing flag; not directly stored
+          // C filter_config.cpp:16-20 — "H2L"=0, "L2H"=1, "PARA"=2 (accept "PARALLEL" alias).
+          if ("L2H".equalsIgnoreCase(v)) sound.setFilterRoute(1);
+          else if ("PARA".equalsIgnoreCase(v) || "PARALLEL".equalsIgnoreCase(v))
+            sound.setFilterRoute(2);
+          else sound.setFilterRoute(0);
         });
     readAttrOrChildHexFloat(soundNode, "clippingAmount", sound::setClippingAmount);
 
@@ -690,8 +698,10 @@ public class KitXmlParser {
     readHexFloat(dp, "pan", sound::setPan);
     readHexHz(dp, "lpfFrequency", sound::setLpfFreq);
     readHexFloatUnipolar(dp, "lpfResonance", sound::setLpfRes);
+    readHexFloatUnipolar(dp, "lpfMorph", sound::setLpfMorph);
     readHexHz(dp, "hpfFrequency", sound::setHpfFreq);
     readHexFloatUnipolar(dp, "hpfResonance", sound::setHpfRes);
+    readHexFloatUnipolar(dp, "hpfMorph", sound::setHpfMorph);
     String fmVal;
     if ((fmVal = attrOrChildText(dp, "modulator1Amount")) != null && !fmVal.isBlank()) {
       sound.setModulator1AmountQ31(DelugeHexMapper.hexToQ31(fmVal));
