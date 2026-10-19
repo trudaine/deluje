@@ -67,7 +67,11 @@ public final class DelugeColour {
    * blue).
    */
   public static Color sectionColour(int section) {
-    if (section < 0) return monochrome(128); // arrangement-only clips -> grey (monochrome(128))
+    // C clip_instance.cpp:31-37 — negative or section == 255 (arrangement-only / unassigned)
+    // renders monochrome(128) grey; preserve modulo palette mapping for section >= 0 && != 255.
+    if (section < 0 || section == 255) {
+      return monochrome(128);
+    }
     return switch (Math.floorMod(section, 24)) {
       case 0 -> fromHue(102); // bright light blue
       case 1 -> fromHue(168); // bright dark pink

@@ -214,6 +214,9 @@ public class ExportHelper {
         // Fallback: If arranger timeline is empty, export session clips sequentially
         long currentStartTick = 0;
         for (ClipModel clip : track.getClips()) {
+          if (clip.isArrangementOnly()) {
+            continue;
+          }
           int stepTicks = clip.isTripletMode() ? 32 : 24;
           long clipLength = (long) clip.getStepCount() * stepTicks;
           exportClipNotesToMidiTrack(midiTrack, clip, isKit, currentStartTick, -1L);

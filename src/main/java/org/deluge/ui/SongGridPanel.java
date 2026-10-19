@@ -384,6 +384,9 @@ public class SongGridPanel extends SwingGridPanel {
             boolean curMute = anySoloing ? !soloedTracks.contains(trk) : track.isMuted();
             org.deluge.model.ClipModel.PlayMode pMode = org.deluge.model.ClipModel.PlayMode.NORMAL;
             org.deluge.model.ClipModel activeClip = track.getActiveClip();
+            if (activeClip == null || activeClip.isArrangementOnly()) {
+              activeClip = firstSessionClip(track);
+            }
             if (activeClip != null) {
               pMode = activeClip.getPlayMode();
             }
@@ -411,12 +414,12 @@ public class SongGridPanel extends SwingGridPanel {
           } else if (isSoloColumn(colId)) {
             Color labelBg;
             Color labelFg;
-            boolean rowHasClip = !tracks.get(trk).getClips().isEmpty();
+            org.deluge.model.ClipModel sessionClip = firstSessionClip(tracks.get(trk));
             if (soloedTracks.contains(trk)) {
               labelBg = Color.GREEN;
               labelFg = Color.BLACK;
-            } else if (rowHasClip) {
-              labelBg = DelugeColour.sectionColour(tracks.get(trk).getClips().get(0).getSection());
+            } else if (sessionClip != null) {
+              labelBg = DelugeColour.sectionColour(sessionClip.getSection());
               double b =
                   (0.299 * labelBg.getRed()
                           + 0.587 * labelBg.getGreen()
@@ -745,10 +748,19 @@ public class SongGridPanel extends SwingGridPanel {
    * pad blits it verbatim (intensity 1.0, tail flag off). Used by both the rebuild and the in-place
    * recolour so structure-change and steady-state renders agree.
    */
+  static org.deluge.model.ClipModel firstSessionClip(org.deluge.model.TrackModel track) {
+    if (track == null) return null;
+    for (org.deluge.model.ClipModel c : track.getClips()) {
+      if (c != null && !c.isArrangementOnly()) {
+        return c;
+      }
+    }
+    return null;
+  }
+
   private void renderSongPatternPad(JButton clipBtn, int modelRow, int c) {
     org.deluge.model.TrackModel track = projectModel.getTracks().get(modelRow);
-    java.util.List<org.deluge.model.ClipModel> clips = track.getClips();
-    org.deluge.model.ClipModel clip = clips.isEmpty() ? null : clips.get(0);
+    org.deluge.model.ClipModel clip = firstSessionClip(track);
     Color cell =
         clip == null
             ? null
@@ -853,6 +865,9 @@ public class SongGridPanel extends SwingGridPanel {
           } else if (isMuteColumn(c)) {
             org.deluge.model.ClipModel.PlayMode pMode = org.deluge.model.ClipModel.PlayMode.NORMAL;
             org.deluge.model.ClipModel activeClip = tracks.get(modelRow).getActiveClip();
+            if (activeClip == null || activeClip.isArrangementOnly()) {
+              activeClip = firstSessionClip(tracks.get(modelRow));
+            }
             if (activeClip != null) {
               pMode = activeClip.getPlayMode();
             }
@@ -891,10 +906,9 @@ public class SongGridPanel extends SwingGridPanel {
             // black when the row has no clip. Solo/mute state lives on the status square, NOT here.
             Color labelBg;
             Color labelFg;
-            boolean rowHasClip = !tracks.get(modelRow).getClips().isEmpty();
-            if (rowHasClip) {
-              labelBg =
-                  DelugeColour.sectionColour(tracks.get(modelRow).getClips().get(0).getSection());
+            org.deluge.model.ClipModel sessionClip = firstSessionClip(tracks.get(modelRow));
+            if (sessionClip != null) {
+              labelBg = DelugeColour.sectionColour(sessionClip.getSection());
               double b =
                   (0.299 * labelBg.getRed()
                           + 0.587 * labelBg.getGreen()

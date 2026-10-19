@@ -510,19 +510,19 @@ public class SongXmlParser {
         }
         String clipTag = clipElem.getTagName();
         if ("audioClip".equals(clipTag)) {
-          String trackName =
-              clipElem.hasAttribute("trackName") ? clipElem.getAttribute("trackName") : null;
+          // C audio_clip.cpp:1141, 1224-1226; song.cpp:3705-3712 — caseless trackName lookup;
+          // only fall back to the unclaimed FIFO queue when trackName is absent/empty.
+          String trackName = DelugeXmlUtil.attrOrDirectChildText(clipElem, "trackName");
           AudioTrackModel targetTrack = null;
-          if (trackName != null) {
+          if (trackName != null && !trackName.isEmpty()) {
             for (TrackModel t : projectTracks) {
-              if (t instanceof AudioTrackModel at && trackName.equals(at.getName())) {
+              if (t instanceof AudioTrackModel at && trackName.equalsIgnoreCase(at.getName())) {
                 targetTrack = at;
                 audioTrackQueue.remove(at);
                 break;
               }
             }
-          }
-          if (targetTrack == null) {
+          } else {
             targetTrack = audioTrackQueue.poll();
           }
           if (targetTrack == null) {
@@ -541,6 +541,13 @@ public class SongXmlParser {
           continue;
         }
         int i = sessionElemIdx++;
+
+        // C instrument_clip.cpp:2375-2377 — CV clips claim a CVChannel (not modelled in Java
+        // tracks); keep parsedSessionClips index aligned without stealing an instrument track.
+        if (DelugeXmlUtil.attrOrDirectChildText(clipElem, "cvChannel") != null) {
+          parsedSessionClips.add(null);
+          continue;
+        }
 
         // Determine if this is a kit clip (drumIndex in noteRows) or synth clip
         NodeList noteRowsList = clipElem.getElementsByTagName("noteRows");
@@ -856,18 +863,18 @@ public class SongXmlParser {
         }
         String clipTag = clipElem.getTagName();
         if ("audioClip".equals(clipTag)) {
-          String trackName =
-              clipElem.hasAttribute("trackName") ? clipElem.getAttribute("trackName") : null;
+          // C audio_clip.cpp:1141, 1224-1226; song.cpp:3705-3712 — caseless trackName lookup;
+          // only fall back to the first AudioTrackModel when trackName is absent/empty.
+          String trackName = DelugeXmlUtil.attrOrDirectChildText(clipElem, "trackName");
           AudioTrackModel targetTrack = null;
-          if (trackName != null) {
+          if (trackName != null && !trackName.isEmpty()) {
             for (TrackModel t : project.getTracks()) {
-              if (t instanceof AudioTrackModel at && trackName.equals(at.getName())) {
+              if (t instanceof AudioTrackModel at && trackName.equalsIgnoreCase(at.getName())) {
                 targetTrack = at;
                 break;
               }
             }
-          }
-          if (targetTrack == null) {
+          } else {
             for (TrackModel t : project.getTracks()) {
               if (t instanceof AudioTrackModel at) {
                 targetTrack = at;
@@ -891,36 +898,52 @@ public class SongXmlParser {
         }
         int i = arrElemIdx++;
 
-        // Match target track by trackName (Java save) or C claimOutput linkage (midiChannel /
-        // instrumentPresetName, song.cpp:2146-2165 + instrument_clip.cpp:3902-3919).
-        String trackName =
-            clipElem.hasAttribute("trackName") ? clipElem.getAttribute("trackName") : null;
-        TrackModel targetTrack = null;
-        if (trackName != null) {
+        // C instrument_clip.cpp:2375-2377 — CV clips claim a CVChannel (not modelled in Java
+        // tracks); keep parsedArrangementClips index aligned without stealing an instrument track.
+        if (DelugeXmlUtil.attrOrDirectChildText(clipElem, "cvChannel") != null) {
+          parsedArrangementClips.add(null);
+          continue;
+        }
+
+        boolean arrIsKitClip =
+            "KITS".equalsIgnoreCase(clipElem.getAttribute("instrumentPresetFolder"));
+        if (!arrIsKitClip) {
+          NodeList nrCheck = clipElem.getElementsByTagName("noteRow");
+          for (int r = 0; r < nrCheck.getLength() && !arrIsKitClip; r++) {
+            if (((Element) nrCheck.item(r)).hasAttribute("drumIndex")) {
+              arrIsKitClip = true;
+            }
+          }
+        }
+
+        // C song.cpp:2204 + instrument_clip.cpp:2370-2412: claimOutput linkage runs FIRST so
+        // same-named <sound>/<kit>/<audioTrack> or multi-channel <midi> tracks never collide.
+        TrackModel targetTrack =
+            claimOutputForClip(clipElem, arrIsKitClip, project.getTracks(), java.util.Set.of());
+        String trackName = DelugeXmlUtil.attrOrDirectChildText(clipElem, "trackName");
+        boolean hasMidiChannel =
+            DelugeXmlUtil.attrOrDirectChildText(clipElem, "midiChannel") != null;
+        if (targetTrack == null && trackName != null && !trackName.isEmpty()) {
           for (TrackModel t : project.getTracks()) {
-            if (trackName.equals(t.getName())) {
+            boolean typeMatches =
+                hasMidiChannel
+                    ? t instanceof MidiTrackModel
+                    : (arrIsKitClip ? t instanceof KitTrackModel : t instanceof SynthTrackModel);
+            if (typeMatches && trackName.equalsIgnoreCase(t.getName())) {
               targetTrack = t;
               break;
             }
           }
         }
-        if (targetTrack == null) {
-          boolean arrIsKitClip =
-              "KITS".equalsIgnoreCase(clipElem.getAttribute("instrumentPresetFolder"));
-          if (!arrIsKitClip) {
-            NodeList nrCheck = clipElem.getElementsByTagName("noteRow");
-            for (int r = 0; r < nrCheck.getLength() && !arrIsKitClip; r++) {
-              if (((Element) nrCheck.item(r)).hasAttribute("drumIndex")) {
-                arrIsKitClip = true;
-              }
-            }
-          }
-          targetTrack =
-              claimOutputForClip(clipElem, arrIsKitClip, project.getTracks(), java.util.Set.of());
-        }
 
-        // Fallback: FIFO queue match
-        if (targetTrack == null && i < project.getTracks().size()) {
+        // Fallback for unlinked clips (no instrumentPresetName, midiChannel, or trackName): match
+        // positional non-AudioTrackModel only.
+        if (targetTrack == null
+            && (trackName == null || trackName.isEmpty())
+            && DelugeXmlUtil.attrOrDirectChildText(clipElem, "instrumentPresetName") == null
+            && !hasMidiChannel
+            && i < project.getTracks().size()
+            && !(project.getTracks().get(i) instanceof AudioTrackModel)) {
           targetTrack = project.getTracks().get(i);
         }
 

@@ -652,13 +652,16 @@ public class ArrangerGridPanel extends SwingGridPanel {
     }
   }
 
-  private static String arrangerClipDisplayName(org.deluge.model.ArrangerClip ac) {
+  static String arrangerClipDisplayName(org.deluge.model.ArrangerClip ac) {
     if (ac.clip() != null) {
-      return ac.clip().getName();
+      String name = ac.clip().getName();
+      String base = (name != null && !name.isBlank()) ? name : "CLIP";
+      return ac.clip().isArrangementOnly() ? base + " (Arranger)" : base;
     }
     if (ac.audioClip() != null) {
       String name = ac.audioClip().getClipName();
-      return (name != null && !name.isEmpty()) ? name : "AUDIO CLIP";
+      String base = (name != null && !name.isBlank()) ? name : "AUDIO CLIP";
+      return ac.audioClip().isArrangementOnly() ? base + " (Arranger)" : base;
     }
     return "WHITE CLIP";
   }

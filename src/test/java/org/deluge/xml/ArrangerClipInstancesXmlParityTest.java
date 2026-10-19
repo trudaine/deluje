@@ -339,4 +339,120 @@ class ArrangerClipInstancesXmlParityTest {
     assertEquals(0xC0, edgeTl.get(1).startTicks());
     assertEquals("LeadArr", edgeTl.get(1).clip().getName());
   }
+
+  @Test
+  void sameNamedTracksDualMidiCvClipsCaselessAudioTrackAndSessionMidiExportIsolation(
+      @TempDir Path tempDir) throws Exception {
+    // Same-named <audioTrack>, <kit>, and <sound> ("Lead"), plus two <midi> tracks sharing
+    // name "MIDI" on channels 0 and 1, plus CV clips in both <sessionClips> and
+    // <arrangementOnlyClips>, plus caseless <audioClip trackName="lead"> and an unmatched
+    // <audioClip trackName="MissingAudio"> that must NOT steal "Lead".
+    String xml =
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <song firmwareVersion="4.1.0" inputTickMagnitude="1">
+          <instruments>
+            <cvChannel channel="0" />
+            <audioTrack name="Lead"
+                clipInstances="0x000000000000006000000002000000600000006080000001" />
+            <kit presetName="Lead" presetFolder="KITS"
+                clipInstances="0x000000000000006080000002">
+              <soundSources><sound name="Kick"><osc1 type="square" /></sound></soundSources>
+            </kit>
+            <sound presetName="Lead" presetFolder="SYNTHS"
+                clipInstances="0x000000000000006000000003000000600000006080000003" />
+            <midi name="MIDI" channel="0"
+                clipInstances="0x000000000000006080000004" />
+            <midi name="MIDI" channel="1"
+                clipInstances="0x000000000000006080000005" />
+          </instruments>
+          <sessionClips>
+            <instrumentClip clipName="CvSess" cvChannel="0" length="96" />
+            <audioClip clipName="OrphanAudio" trackName="MissingAudio" filePath="SAMPLES/NOPE.WAV" length="96" />
+            <audioClip clipName="LeadAudioSess" trackName="lead" filePath="SAMPLES/LEAD1.WAV" length="96" section="3" />
+            <instrumentClip clipName="LeadSynthSess" instrumentPresetName="Lead" instrumentPresetFolder="SYNTHS"
+                length="96" section="1" />
+          </sessionClips>
+          <arrangementOnlyClips>
+            <instrumentClip clipName="CvArr" cvChannel="0" length="96" />
+            <audioClip clipName="LeadAudioArr" trackName="LEAD" filePath="SAMPLES/LEAD2.WAV" length="96" isPlaying="1" />
+            <instrumentClip clipName="LeadKitArr" trackName="Lead" instrumentPresetName="Lead" instrumentPresetFolder="KITS"
+                length="96" />
+            <instrumentClip clipName="LeadSynthArr" trackName="Lead" instrumentPresetName="Lead" instrumentPresetFolder="SYNTHS"
+                length="96" />
+            <instrumentClip clipName="MidiCh0Arr" trackName="MIDI" midiChannel="0" length="96" />
+            <instrumentClip clipName="MidiCh1Arr" trackName="MIDI" midiChannel="1" length="96" />
+          </arrangementOnlyClips>
+        </song>
+        """;
+
+    ProjectModel parsed =
+        SongXmlParser.parseSong(
+            new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)), "SameNamed");
+
+    AudioTrackModel audioLead = (AudioTrackModel) parsed.getTracks().get(0);
+    assertEquals(2, audioLead.getAudioClips().size(), "MissingAudio clip must NOT steal audioLead");
+    assertEquals("LeadAudioSess", audioLead.getAudioClips().get(0).getClipName());
+    assertEquals("LeadAudioArr", audioLead.getAudioClips().get(1).getClipName());
+    assertFalse(
+        audioLead.getAudioClips().get(1).isPlaying(),
+        "Arrangement-only AudioClip must not stay active/playing in session");
+
+    KitTrackModel kitLead = (KitTrackModel) parsed.getTracks().get(1);
+    assertEquals(1, kitLead.getClips().size());
+    assertEquals("LeadKitArr", kitLead.getClips().get(0).getName());
+    assertFalse(kitLead.getClips().get(0).isActiveInSession());
+
+    SynthTrackModel synthLead = (SynthTrackModel) parsed.getTracks().get(2);
+    assertEquals(
+        2, synthLead.getClips().size(), "CV session/arr clips must NOT steal synthLead track");
+    assertEquals("LeadSynthSess", synthLead.getClips().get(0).getName());
+    assertEquals("LeadSynthArr", synthLead.getClips().get(1).getName());
+    assertFalse(synthLead.getClips().get(1).isActiveInSession());
+
+    // All 7 valid arranger instances resolve across same-named tracks & dual MIDI channels:
+    assertEquals(7, parsed.getArrangerTimeline().size());
+    assertEquals("MidiCh0Arr", parsed.getArrangerTimeline().get(5).clip().getName());
+    assertEquals(3, parsed.getArrangerTimeline().get(5).trackIndex());
+    assertEquals("MidiCh1Arr", parsed.getArrangerTimeline().get(6).clip().getName());
+    assertEquals(4, parsed.getArrangerTimeline().get(6).trackIndex());
+
+    // Section 255 <-> arrangementOnly sync invariant on ClipModel + session MIDI export isolation:
+    ClipModel secSync = new ClipModel("SecTest", 8, 16);
+    secSync.setSection(255);
+    assertTrue(secSync.isArrangementOnly());
+    assertFalse(secSync.isActiveInSession());
+    secSync.setSection(4);
+    assertFalse(secSync.isArrangementOnly());
+
+    ProjectModel sessionOnlyExport = new ProjectModel();
+    SynthTrackModel exportSynth = new SynthTrackModel("Solo");
+    ClipModel sessExportClip = new ClipModel("SessOnly", 8, 16);
+    sessExportClip.setStep(0, 0, StepData.of(true, 1.0f, 4.0f, 1.0f, 60));
+    exportSynth.addClip(sessExportClip);
+    ClipModel arrUnusedClip = new ClipModel("HiddenArr", 8, 16);
+    arrUnusedClip.setArrangementOnly(true);
+    arrUnusedClip.setStep(0, 0, StepData.of(true, 1.0f, 4.0f, 1.0f, 72));
+    exportSynth.addClip(arrUnusedClip);
+    sessionOnlyExport.addTrack(exportSynth);
+
+    File sessionMidi = tempDir.resolve("session_only.mid").toFile();
+    ExportHelper.exportMidi(sessionOnlyExport, sessionMidi);
+    javax.sound.midi.Sequence seq = javax.sound.midi.MidiSystem.getSequence(sessionMidi);
+    boolean saw60 = false;
+    boolean saw72 = false;
+    for (javax.sound.midi.Track tr : seq.getTracks()) {
+      for (int e = 0; e < tr.size(); e++) {
+        javax.sound.midi.MidiMessage msg = tr.get(e).getMessage();
+        if (msg instanceof javax.sound.midi.ShortMessage sm
+            && sm.getCommand() == javax.sound.midi.ShortMessage.NOTE_ON
+            && sm.getData2() > 0) {
+          if (sm.getData1() == 60) saw60 = true;
+          if (sm.getData1() == 72) saw72 = true;
+        }
+      }
+    }
+    assertTrue(saw60, "Session clip note 60 must be exported");
+    assertFalse(saw72, "Arrangement-only clip note 72 must NOT leak into session fallback export");
+  }
 }

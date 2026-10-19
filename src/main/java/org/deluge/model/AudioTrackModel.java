@@ -242,6 +242,10 @@ public class AudioTrackModel extends TrackModel {
 
     public void setSection(int v) {
       this.section = v;
+      this.arrangementOnly = (v == 255);
+      if (this.arrangementOnly) {
+        this.isPlaying = false;
+      }
     }
 
     public boolean isArrangementOnly() {
@@ -253,6 +257,7 @@ public class AudioTrackModel extends TrackModel {
       if (arrangementOnly) {
         // C clip.cpp:204-206, song.cpp:2135 — arrangement-only clips always have section == 255.
         this.section = 255;
+        this.isPlaying = false;
       } else if (this.section == 255) {
         // C clip.cpp:51
         this.section = 0;

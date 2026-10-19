@@ -695,8 +695,10 @@ public class ClipModel extends TimelineCounter {
   public void setArrangementOnly(boolean arrangementOnly) {
     isArrangementOnly = arrangementOnly;
     if (arrangementOnly) {
-      // C clip.cpp:204-206, song.cpp:2135 — arrangement-only clips always have section == 255.
+      // C clip.cpp:204-206, song.cpp:2135 — arrangement-only clips always have section == 255
+      // and must never play in Session mode.
       section = 255;
+      activeInSession = false;
     } else if (section == 255) {
       // C clip.cpp:51 — session clips default to section 0.
       section = 0;
@@ -723,6 +725,10 @@ public class ClipModel extends TimelineCounter {
 
   public void setSection(int section) {
     this.section = section;
+    this.isArrangementOnly = (section == 255);
+    if (this.isArrangementOnly) {
+      this.activeInSession = false;
+    }
   }
 
   // C Clip::activeIfNoSolo (serialized as isPlaying). True = active in the session clip-launcher

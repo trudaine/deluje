@@ -161,4 +161,44 @@ class ArrangementProjectorTest {
         cells[0][5].colour(),
         "arrangement-only audio loop boundary at +96 ticks uses dim(grey, 2)");
   }
+
+  @Test
+  void nearMaxIntPlacementDoesNotOverflowAndDisplayNamesAndSection255BehaveCleanly() {
+    int zoom = 96;
+    int startNearMax = 0x7FFFFF40;
+    ClipModel clip = new ClipModel("", 8, 16);
+    clip.setSection(2);
+    clip.setLoopLength(zoom);
+    ArrangerClip ac = new ArrangerClip(0, clip, startNearMax, 0xAF);
+    int[] rowToTrack = {0};
+
+    PadCell[][] cells =
+        ArrangementProjector.project(List.of(ac), rowToTrack, 1, 4, startNearMax, zoom);
+    assertEquals(
+        DelugeColour.sectionColour(2),
+        cells[0][0].colour(),
+        "Placement ending near Integer.MAX_VALUE must not overflow signed int end bound");
+    assertEquals(DelugeColour.dim(DelugeColour.sectionColour(2), 3), cells[0][1].colour());
+
+    // Section 255 -> monochrome(128), while modulo mapping stays intact for non-255 sections
+    assertEquals(DelugeColour.monochrome(128), DelugeColour.sectionColour(255));
+    assertEquals(DelugeColour.sectionColour('A' % 24), DelugeColour.sectionColour('A'));
+
+    // SongGridPanel.firstSessionClip skips arrangement-only clips cleanly
+    org.deluge.model.SynthTrackModel arrOnlyTrack = new org.deluge.model.SynthTrackModel("Pad");
+    ClipModel arrOnly = new ClipModel("PadIntro", 8, 16);
+    arrOnly.setArrangementOnly(true);
+    arrOnlyTrack.addClip(arrOnly);
+    assertNull(SongGridPanel.firstSessionClip(arrOnlyTrack));
+    arrOnlyTrack.addClip(clip);
+    assertEquals(clip, SongGridPanel.firstSessionClip(arrOnlyTrack));
+
+    // ArrangerGridPanel.arrangerClipDisplayName handles blank names and " (Arranger)" suffix
+    assertEquals("CLIP", ArrangerGridPanel.arrangerClipDisplayName(ac));
+    assertEquals(
+        "PadIntro (Arranger)",
+        ArrangerGridPanel.arrangerClipDisplayName(new ArrangerClip(0, arrOnly, 0, 96)));
+    assertEquals(
+        "WHITE CLIP", ArrangerGridPanel.arrangerClipDisplayName(new ArrangerClip(0, null, 0, 96)));
+  }
 }
