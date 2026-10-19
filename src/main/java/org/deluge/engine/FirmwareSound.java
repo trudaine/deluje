@@ -136,7 +136,11 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
       return;
     }
     String hex = st.getDx7Patch();
-    if (!java.util.Objects.equals(hex, lastSyncedDx7PatchHex)) {
+    boolean cacheMismatch =
+        (this.dx7Patch == null && hex != null && hex.length() >= 312)
+            || (this.dx7Patch != null && (hex == null || hex.isEmpty()))
+            || !java.util.Objects.equals(hex, lastSyncedDx7PatchHex);
+    if (cacheMismatch) {
       lastSyncedDx7PatchHex = hex;
       if (hex != null && hex.length() >= 312) {
         byte[] decoded = new byte[156];

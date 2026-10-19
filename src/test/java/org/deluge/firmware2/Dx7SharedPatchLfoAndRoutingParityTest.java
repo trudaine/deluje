@@ -634,6 +634,21 @@ class Dx7SharedPatchLfoAndRoutingParityTest {
       assertNull(overridden.getDx7Patch(), "Inline non-DX7 <sound> must clear preset dx7Patch");
       assertEquals(0, overridden.getEngineType());
       assertEquals(0, overridden.getDx7RandomDetune());
+      SynthTrackModel overriddenFm = new SynthTrackModel("OverriddenFm");
+      org.w3c.dom.Element inlineFm =
+          javax.xml.parsers.DocumentBuilderFactory.newInstance()
+              .newDocumentBuilder()
+              .parse(
+                  new ByteArrayInputStream(
+                      "<sound presetName=\"PRESET_DX7\"><mode>fm</mode></sound>"
+                          .getBytes(StandardCharsets.UTF_8)))
+              .getDocumentElement();
+      InstrumentXmlParser.populateSynth(inlineFm, overriddenFm, false);
+      assertNull(overriddenFm.getDx7Patch(), "Inline <mode>fm</mode> must clear preset dx7Patch");
+      assertEquals("SINE", overriddenFm.getOsc1Type());
+      assertEquals("SINE", overriddenFm.getOsc2Type());
+      assertEquals(0, overriddenFm.getEngineType());
+      assertEquals(0, overriddenFm.getDx7RandomDetune());
     } finally {
       if (prevCard == null) {
         System.clearProperty("deluge.card");
@@ -657,7 +672,10 @@ class Dx7SharedPatchLfoAndRoutingParityTest {
     assertTrue(
         Files.readString(saved2OpFm.toPath(), StandardCharsets.UTF_8).contains("<mode>fm</mode>"));
 
-    // Hardware <mode>ringmod</mode> + <osc1 type="dx7"/> clamps to WAVETABLE and renders non-zero
+    // Hardware <mode>ringmod</mode> + <osc1 type="dx7"/> clamps to WAVETABLE:
+    // - with no wavetable file loaded, renders silence cleanly without NPE or Dx7Voice dispatch
+    //   (model_stack.cpp:217-220, voice.cpp:226-262)
+    // - with a WaveTable attached, renders non-zero ring-modulated audio (voice.cpp:1348-1365)
     String hwRingmodXml =
         "<sound><mode>ringmod</mode><osc1 type=\"dx7\"/><osc2 type=\"sine\"/></sound>";
     SynthTrackModel parsedRingmod =
@@ -666,7 +684,44 @@ class Dx7SharedPatchLfoAndRoutingParityTest {
     assertEquals(2, parsedRingmod.getSynthMode());
     assertEquals("WAVETABLE", parsedRingmod.getOsc1Type());
     assertNull(parsedRingmod.getDx7Patch());
+    // Verify syncDx7FromModel recovers when dx7Patch is cleared directly while model hex is
+    // unchanged.
+    SynthTrackModel cachedModel = new SynthTrackModel("CachedDx7");
+    cachedModel.setDx7Patch(Dx7Patch.bytesToHex(Dx7Patch.createInitVoiceBytes()));
+    FirmwareSound cachedFs = compileSynth(cachedModel);
+    cachedFs.syncDx7FromModel(cachedModel);
+    cachedFs.dx7Patch = null;
+    cachedFs.syncDx7FromModel(cachedModel);
+    cachedFs.triggerNote(60, 100);
+    java.util.Arrays.fill(stereoBuf, 0L);
+    cachedFs.renderOutput(stereoBuf, 128, revBuf);
+    long recoveredPeak = 0;
+    for (long sample : stereoBuf) {
+      recoveredPeak = Math.max(recoveredPeak, Math.abs(sample));
+    }
+    assertTrue(recoveredPeak > 0, "syncDx7FromModel must re-decode hex if dx7Patch was cleared");
+
     FirmwareSound ringFs = compileSynth(parsedRingmod);
+    ringFs.triggerNote(60, 100);
+    java.util.Arrays.fill(stereoBuf, 0L);
+    ringFs.renderOutput(stereoBuf, 128, revBuf);
+    long unloadedRingPeak = 0;
+    for (long sample : stereoBuf) {
+      unloadedRingPeak = Math.max(unloadedRingPeak, Math.abs(sample));
+    }
+    assertEquals(
+        0L,
+        unloadedRingPeak,
+        "Unloaded WAVETABLE source in RingMod must stay silent matching voice.cpp:226-262");
+
+    WaveTable wt = new WaveTable();
+    float[] singleCycle = new float[256];
+    for (int i = 0; i < singleCycle.length; i++) {
+      singleCycle[i] = (float) Math.sin(2.0 * Math.PI * i / singleCycle.length);
+    }
+    wt.setup(singleCycle.length, singleCycle.length);
+    WavetableGenerator.generateBands(wt, singleCycle);
+    ringFs.fw2Sound.waveTables[0] = wt;
     ringFs.triggerNote(60, 100);
     java.util.Arrays.fill(stereoBuf, 0L);
     ringFs.renderOutput(stereoBuf, 128, revBuf);
@@ -675,7 +730,8 @@ class Dx7SharedPatchLfoAndRoutingParityTest {
       ringPeak = Math.max(ringPeak, Math.abs(sample));
     }
     assertTrue(
-        ringPeak > 0, "RingMod clamped from DX7 must render audible output instead of silence");
+        ringPeak > 0,
+        "Loaded WAVETABLE source clamped from DX7 in RingMod must render audible output");
   }
 
   private static javax.swing.JSlider findSliderWithMax(Container root, int maxVal) {

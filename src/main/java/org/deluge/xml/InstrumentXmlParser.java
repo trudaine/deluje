@@ -261,6 +261,7 @@ public class InstrumentXmlParser {
     // ── DX7 patch (hex string from <osc1 dx7patch="...">) ──
     // ── Oscillator retrigger phase (from <osc1 retrigPhase="...">) ──
     boolean hasOsc1Dx7EngineMode = false;
+    boolean hasInlineOsc1Dx7Patch = false;
     NodeList osc1List = soundNode.getElementsByTagName("osc1");
     if (osc1List.getLength() > 0) {
       Element osc1 = (Element) osc1List.item(0);
@@ -281,6 +282,7 @@ public class InstrumentXmlParser {
       // C sound.cpp:3398-3412 — readTagOrAttributeValue* accepts both attributes and child tags.
       String dx7PatchStr = attrOrChildText(osc1, "dx7patch");
       if (dx7PatchStr != null && !dx7PatchStr.isBlank()) {
+        hasInlineOsc1Dx7Patch = true;
         String trimmedDx7Hex = dx7PatchStr.trim();
         synth.setDx7Patch(trimmedDx7Hex);
         if (trimmedDx7Hex.length() >= (org.deluge.shadow.audio.Dx7Patch.OFF_ALGORITHM + 1) * 2) {
@@ -500,19 +502,27 @@ public class InstrumentXmlParser {
     }
 
     // ── Synth Mode ──
+    int explicitMode = DelugeXmlUtil.synthModeFromSound(soundNode);
     parseSynthMode(soundNode, synth);
 
     // C source.cpp:200-209, definitions_cxx.hpp:373 — Source::doneReadingFromFile normalization:
-    // - SynthMode::FM (without a legacy Java inline/inherited dx7patch) forces both sources to SINE
-    //   so hardware <mode>fm</mode> + <osc1 type="dx7"/> loads as 2-op sine FM and re-saves as
-    //   "fm".
+    // - Explicit <mode>fm</mode> without an inline legacy Java dx7patch clears any preset-inherited
+    //   DX7 patch and forces both sources to SINE so <mode>fm</mode> always renders/re-saves as
+    //   2-op sine FM.
     // - SynthMode::RINGMOD clamps oscType <= kLastRingmoddableOscType (WAVETABLE) and clears any
     //   DX7 patch.
+    if (explicitMode == 1 && !hasInlineOsc1Dx7Patch) {
+      synth.setDx7Patch(null);
+      synth.setEngineType(0);
+      synth.setDx7RandomDetune(0);
+    }
     if (synth.getSynthMode() == 1 && synth.getDx7Patch() == null) {
       synth.setOsc1Type("SINE");
       synth.setOsc2Type("SINE");
     } else if (synth.getSynthMode() == 2) {
       synth.setDx7Patch(null);
+      synth.setEngineType(0);
+      synth.setDx7RandomDetune(0);
       synth.setOsc1Type(clampRingmodOscType(synth.getOsc1Type()));
       if (!"NONE".equalsIgnoreCase(synth.getOsc2Type())) {
         synth.setOsc2Type(clampRingmodOscType(synth.getOsc2Type()));

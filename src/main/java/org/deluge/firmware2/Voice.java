@@ -215,6 +215,21 @@ public class Voice {
   /** C: voice.cpp:110-339. Simplified signature — full C signature has more params. */
   public void noteOn(int midiNote, int velocity, int fromMidiChannel, int[] mpeValues) {
     // C: voice.cpp:117 — inputCharacteristics[NOTE] = newNoteCodeBeforeArpeggiation
+    // C model_stack.cpp:217-220, voice.cpp:226-262 — RingMod aborts Voice::noteOn (returning false
+    // without activating the voice) if either source requires a WaveTable and none is loaded.
+    if (sound.synthMode == 2) {
+      for (int s = 0; s < 2; s++) {
+        OscType clamped =
+            sound.oscTypes[s].ordinal() > OscType.WAVETABLE.ordinal()
+                ? OscType.WAVETABLE
+                : sound.oscTypes[s];
+        if (clamped == OscType.WAVETABLE && sound.waveTables[s] == null) {
+          this.active = false;
+          return;
+        }
+      }
+    }
+
     inputCharacteristics[0] = midiNote;
     // C: voice.cpp:118 — inputCharacteristics[CHANNEL] = newFromMIDIChannel
     inputCharacteristics[1] = fromMidiChannel;
@@ -1344,21 +1359,20 @@ public class Voice {
             Functions.multiply_32x32_rshift32_rounded(amplitudeForRingMod, filterGain) << 4;
       }
 
-      // C source.cpp:207-209, voice.cpp:1317-1365 — RingMod clamps oscType to <= WAVETABLE;
-      // fall back to SINE when no wavetable audio file is loaded so unloaded sources stay audible.
+      // C source.cpp:207-209, model_stack.cpp:217-220, voice.cpp:226-262, 1321-1366 — RingMod
+      // clamps oscType <= WAVETABLE, and if either WAVETABLE source has no loaded audio file
+      // Voice::noteOn jumps to gotInactive and returns false (voice stays silent).
       OscType oscTypeA =
           sound.oscTypes[0].ordinal() > OscType.WAVETABLE.ordinal()
               ? OscType.WAVETABLE
               : sound.oscTypes[0];
-      if (oscTypeA == OscType.WAVETABLE && sound.waveTables[0] == null) {
-        oscTypeA = OscType.SINE;
-      }
       OscType oscTypeB =
           sound.oscTypes[1].ordinal() > OscType.WAVETABLE.ordinal()
               ? OscType.WAVETABLE
               : sound.oscTypes[1];
-      if (oscTypeB == OscType.WAVETABLE && sound.waveTables[1] == null) {
-        oscTypeB = OscType.SINE;
+      if ((oscTypeA == OscType.WAVETABLE && sound.waveTables[0] == null)
+          || (oscTypeB == OscType.WAVETABLE && sound.waveTables[1] == null)) {
+        return;
       }
       if (oscTypeA == OscType.WAVETABLE) {
         vsA.oscPos =
