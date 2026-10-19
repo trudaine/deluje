@@ -578,6 +578,13 @@ public class Sound extends GlobalEffectable {
   public int bendRangeFingerLevel = 48;
 
   /**
+   * True once a caller (clip/note-row or drum initialization) has explicitly resolved {@link
+   * #bendRangeFingerLevel}, preventing default drum initialization from overwriting an explicit
+   * per-row {@code bendRange="48"} (C {@code param_set.cpp:580-583}, {@code note_row.cpp:3554}).
+   */
+  public boolean explicitBendRange = false;
+
+  /**
    * Samples per sequencer (clip) tick — 96 per quarter note — for STRETCH note lengths (the C's
    * playbackHandler.getTimePerInternalTickBig(), voice_unison_part_source.cpp:129-130).
    */

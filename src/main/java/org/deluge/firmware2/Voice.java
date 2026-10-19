@@ -752,12 +752,20 @@ public class Voice {
       for (int i = 0; i < 3; i++) {
         if ((expressionSourcesCurrentlySmoothing & (1 << i)) != 0) {
           int targetValue = combineExpressionValues(sound, i);
-          int diff = (targetValue >> 8) - (sourceValues[PatchSource.X.ordinal() + i] >> 8);
+          int currentValue = sourceValues[PatchSource.X.ordinal() + i];
+          int diff = (targetValue >> 8) - (currentValue >> 8);
           if (diff == 0) {
             expressionSourcesCurrentlySmoothing &= ~(1 << i);
+          } else if (numSamples >= 1024) {
+            // Standalone/offline blocks >= 1024 reach full target without overshoot or wrap.
+            sourceValues[PatchSource.X.ordinal() + i] = targetValue;
+            expressionSourcesCurrentlySmoothing &= ~(1 << i);
           } else {
-            int amountToAdd = diff * numSamples / 4;
-            sourceValues[PatchSource.X.ordinal() + i] += amountToAdd;
+            // C voice.cpp:799-800 — bit-identical to int32 (diff * numSamples / 4) for all
+            // hardware block sizes 0 <= numSamples <= 128, while widening to 64-bit prevents
+            // signed int32 overflow when standalone callers pass 129 <= numSamples < 1024.
+            long amountToAdd = ((long) diff * numSamples) / 4L;
+            sourceValues[PatchSource.X.ordinal() + i] = (int) ((long) currentValue + amountToAdd);
           }
         }
       }

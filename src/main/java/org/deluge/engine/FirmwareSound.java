@@ -287,10 +287,119 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
 
   private final int[] voiceMonoBuffer = new int[128];
 
+  /** C {@code MIDI_CHANNEL_NONE = 255} ({@code definitions_cxx.hpp:966}, {@code drum.cpp:40}). */
+  public static final int MIDI_CHANNEL_NONE = 255;
+
+  /**
+   * C {@code Drum::lastMIDIChannelAuditioned} ({@code drum.h:58}, {@code drum.cpp:40}, {@code
+   * kit.cpp:1640, 1684, 1799, 1813, 1960, 1970}) — tracks the MIDI channel currently auditioning
+   * this drum ({@code MIDI_CHANNEL_NONE} when not auditioned) so MPE member channels ({@code
+   * midiChannel > 0}) and polyphonic aftertouch only affect the matching held drum without
+   * cross-talk across reused MPE channels after {@code NoteOff}.
+   */
+  public int lastMidiChannelAuditioned = MIDI_CHANNEL_NONE;
+
+  /**
+   * C {@code Drum::lastExpressionInputsReceived[2][kNumExpressionDimensions]} ({@code drum.h:60},
+   * {@code drum.cpp:88-107}) — stores the latest signed 8-bit expression input at level 0 ({@code
+   * BEND_RANGE_MAIN} / master channel) and level 1 ({@code BEND_RANGE_FINGER_LEVEL} / MPE member
+   * channel) so both levels sum and saturate when driving a drum.
+   */
+  public final byte[][] lastExpressionInputsReceived = new byte[2][3];
+
+  private final int[] drumCombinedMpeScratch = new int[3];
+  private int pendingLiveMidiChannel = -1;
+  private int[] pendingLiveChannelMpe = null;
+
+  public void triggerWithLiveMidiChannel(int midiChannel, Runnable triggerAction) {
+    triggerWithLiveMidiChannel(midiChannel, null, triggerAction);
+  }
+
+  public void triggerWithLiveMidiChannel(
+      int midiChannel, int[] channelDefaultMpe, Runnable triggerAction) {
+    if (isDrum) {
+      // C kit.cpp:1960 — Kit::beginAuditioningforDrum records fromMIDIChannel while held.
+      lastMidiChannelAuditioned = (midiChannel >= 0) ? midiChannel : MIDI_CHANNEL_NONE;
+    }
+    int prevLiveCh = pendingLiveMidiChannel;
+    int[] prevLiveMpe = pendingLiveChannelMpe;
+    pendingLiveMidiChannel = midiChannel;
+    pendingLiveChannelMpe = channelDefaultMpe;
+    try {
+      triggerAction.run();
+    } finally {
+      pendingLiveMidiChannel = prevLiveCh;
+      pendingLiveChannelMpe = prevLiveMpe;
+    }
+  }
+
+  public void releaseWithLiveMidiChannel(int midiChannel, Runnable releaseAction) {
+    if (isDrum) {
+      // C kit.cpp:1970 — Kit::endAuditioningForDrum clears lastMIDIChannelAuditioned on NoteOff.
+      lastMidiChannelAuditioned = MIDI_CHANNEL_NONE;
+    }
+    int prevLiveCh = pendingLiveMidiChannel;
+    pendingLiveMidiChannel = midiChannel;
+    try {
+      releaseAction.run();
+    } finally {
+      pendingLiveMidiChannel = prevLiveCh;
+    }
+  }
+
+  private void ensureDrumBendRangeDefault() {
+    // C param_set.cpp:580-583 — drum ExpressionParamSets default BEND_RANGE_FINGER_LEVEL to
+    // BEND_RANGE_MAIN (2 semitones) unless a per-row bendRange explicitly overrides it.
+    if (isDrum && !fw2Sound.explicitBendRange) {
+      fw2Sound.bendRangeFingerLevel = fw2Sound.bendRangeMain;
+      fw2Sound.explicitBendRange = true;
+    }
+  }
+
+  private int[] prepareDrumLiveTriggerMpeValues(int midiChannel, int[] channelDefaultMpe) {
+    // C kit.cpp:1504-1521 — MPE member channels seed finger-level inputs from the channel's most
+    // recent pre-NoteOn defaultInputMPEValues (clearing any stale bend from a prior channel),
+    // whereas non-MPE input clears stale finger-level MPE inputs to 0 before combining levels.
+    if (midiChannel > 0) {
+      for (int i = 0; i < 3; i++) {
+        lastExpressionInputsReceived[1][i] =
+            (channelDefaultMpe != null) ? (byte) (channelDefaultMpe[i] >> 8) : 0;
+      }
+    } else {
+      lastExpressionInputsReceived[1][0] = 0;
+      lastExpressionInputsReceived[1][1] = 0;
+      lastExpressionInputsReceived[1][2] = 0;
+    }
+    for (int i = 0; i < 3; i++) {
+      int combined =
+          ((int) lastExpressionInputsReceived[0][i] + (int) lastExpressionInputsReceived[1][i])
+              << 8;
+      drumCombinedMpeScratch[i] = Math.clamp(combined, Short.MIN_VALUE, Short.MAX_VALUE);
+    }
+    return drumCombinedMpeScratch;
+  }
+
   public void triggerNote(int note, int vel) {
     if (FirmwareAudioEngine.debugTelemetry) {}
     syncParamsToFw2();
-    fw2Sound.triggerNote(note, vel);
+    int liveCh = pendingLiveMidiChannel;
+    if (isDrum && liveCh >= 0 && fw2Sound.pendingMpeValues == null) {
+      // Live MIDI/MPE drum hit: seed from channel MPE + master expression (kit.cpp:1504-1521).
+      fw2Sound.triggerNote(
+          note, vel, liveCh, prepareDrumLiveTriggerMpeValues(liveCh, pendingLiveChannelMpe));
+    } else if (!isDrum
+        && liveCh > 0
+        && fw2Sound.pendingMpeValues == null
+        && pendingLiveChannelMpe != null) {
+      // Live MPE melodic hit: apply pre-NoteOn initial strike MPE values
+      // (melodic_instrument.cpp:106).
+      fw2Sound.triggerNote(note, vel, liveCh, pendingLiveChannelMpe);
+    } else if (liveCh >= 0) {
+      fw2Sound.triggerNote(note, vel, liveCh);
+    } else {
+      // C note_row.cpp:4342-4347 — sequenced/programmatic triggers never touch live drum inputs.
+      fw2Sound.triggerNote(note, vel);
+    }
   }
 
   public void triggerNote(int note, int vel, int[] mpeValues) {
@@ -304,9 +413,7 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   }
 
   public void triggerNote(int note, int vel, int midiChannel) {
-    if (FirmwareAudioEngine.debugTelemetry) {}
-    syncParamsToFw2();
-    fw2Sound.triggerNote(note, vel, midiChannel);
+    triggerWithLiveMidiChannel(midiChannel, () -> triggerNote(note, vel));
   }
 
   public void triggerNoteLate(int note, int vel, int samplesLate) {
@@ -343,6 +450,7 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   // rebuilds the patch-cable set and rewrites params under the same lock — without it the audio
   // thread could iterate a half-rebuilt cable list here.
   public synchronized void syncParamsToFw2() {
+    ensureDrumBendRangeDefault();
     fw2Sound.oscTypes[0] = oscTypes[0];
     fw2Sound.oscTypes[1] = oscTypes[1];
     if (dx7Patch != null) {
@@ -608,22 +716,33 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   }
 
   public void noteOffAll() {
-    // C sound.cpp:1769-1777 (Sound::allNotesOff) — release all voices, reset invertReversed, and
-    // reset arpeggiator state.
+    // C sound.cpp:1769-1777 (Sound::allNotesOff), kit.cpp:1970 (endAuditioningForDrum).
+    if (isDrum) {
+      lastMidiChannelAuditioned = MIDI_CHANNEL_NONE;
+    }
     fw2Sound.releaseAllNotes();
   }
 
   public void releaseNote(int note) {
+    if (isDrum) {
+      lastMidiChannelAuditioned = MIDI_CHANNEL_NONE;
+    }
     syncParamsToFw2();
-    fw2Sound.releaseNote(note);
+    if (pendingLiveMidiChannel >= 0) {
+      fw2Sound.releaseNote(note, pendingLiveMidiChannel);
+    } else {
+      fw2Sound.releaseNote(note);
+    }
   }
 
   public void releaseNote(int note, int midiChannel) {
-    syncParamsToFw2();
-    fw2Sound.releaseNote(note, midiChannel);
+    releaseWithLiveMidiChannel(midiChannel, () -> releaseNote(note));
   }
 
   public void releaseAllNotes() {
+    if (isDrum) {
+      lastMidiChannelAuditioned = MIDI_CHANNEL_NONE;
+    }
     syncParamsToFw2();
     fw2Sound.releaseAllNotes();
   }
@@ -748,16 +867,21 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   /**
    * C {@code MelodicInstrument::receivedCC} {@code CC_EXTERNAL_MOD_WHEEL = 1} ({@code
    * melodic_instrument.cpp:388-395}, {@code definitions_cxx.hpp:758}) — unipolar {@code value <<
-   * 24} routed to monophonic {@code PatchSource::Y} (dimension 1).
+   * 24} routed to monophonic {@code PatchSource::Y} (dimension 1). C {@code
+   * Kit::receivedMPEYForDrum} ({@code kit.cpp:1681-1682, 1770}) ignores CC 1 on Kits.
    */
   public void modWheel(int newValue, boolean smooth) {
-    int monoValue = newValue << 24;
     if (isDrum) {
-      fw2Sound.drumExpressionEvent(monoValue, 1, smooth);
-    } else if (smooth) {
+      return;
+    }
+    int monoValue = newValue << 24;
+    if (smooth) {
       fw2Sound.monophonicExpressionEvent(monoValue, 1);
     } else {
       fw2Sound.monophonicExpressionValues[1] = monoValue;
+      // Clear any pending synth-level smooth Y flag so the next Voice.render does not re-enable
+      // smoothing on active voices.
+      fw2Sound.expressionSourcesChangedAtSynthLevel &= ~(1 << 1);
       int yIdx = org.deluge.modulation.patch.PatchSource.Y.ordinal();
       synchronized (fw2Sound.voices) {
         for (var v : fw2Sound.voices) {
@@ -772,22 +896,49 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   }
 
   /**
-   * C {@code MelodicInstrument::receivedAftertouch} ({@code melodic_instrument.cpp:453-458}) —
-   * polyphonic key pressure matched by {@code MIDICharacteristic::NOTE} (0).
+   * C {@code MelodicInstrument::receivedAftertouch} ({@code melodic_instrument.cpp:453-458}) /
+   * {@code Kit::receivedAftertouchForKit} ({@code kit.cpp:1798-1801, 1820-1823}) — polyphonic key
+   * pressure matched by {@code MIDICharacteristic::NOTE} (0), or level-0 combined drum input on
+   * drums.
    */
   public void mpePolyAftertouch(int noteCode, int newValue, boolean smooth) {
     int voiceLevelValue = newValue << 24;
     if (isDrum) {
-      fw2Sound.drumExpressionEvent(voiceLevelValue, 2, smooth);
+      dispatchDrumCombinedExpression(voiceLevelValue, 2, 0, smooth);
     } else {
       fw2Sound.polyphonicExpressionEventOnChannelOrNote(voiceLevelValue, 2, noteCode, 0, smooth);
     }
   }
 
+  private void dispatchDrumCombinedExpression(
+      int voiceLevelValue, int dimension, int level, boolean smooth) {
+    // C drum.cpp:103-106 — store newValue16 >> 8 at this level, add the other level shifted << 8,
+    // and saturate to Q31 via lshiftAndSaturate(..., 16).
+    ensureDrumBendRangeDefault();
+    short newValue16 = (short) (voiceLevelValue >> 16);
+    lastExpressionInputsReceived[level][dimension] = (byte) (newValue16 >> 8);
+    int combined16 =
+        (int) newValue16 + ((int) lastExpressionInputsReceived[1 - level][dimension] << 8);
+    int combinedQ31 = org.deluge.firmware2.Functions.lshiftAndSaturate(combined16, 16);
+    fw2Sound.drumExpressionEvent(combinedQ31, dimension, smooth);
+  }
+
   private void dispatchMidiExpression(
       int midiChannel, int dimension, int voiceLevelValue, boolean smooth) {
     if (isDrum) {
-      fw2Sound.drumExpressionEvent(voiceLevelValue, dimension, smooth);
+      // C kit.cpp:1639-1649, 1683-1692, 1812-1823 — MPE member channels (midiChannel > 0) match
+      // ONLY the drum whose lastMIDIChannelAuditioned == midiChannel (level 1 =
+      // BEND_RANGE_FINGER_LEVEL); master/channel 0 maps to level 0 = BEND_RANGE_MAIN.
+      int level;
+      if (midiChannel > 0) {
+        if (midiChannel != lastMidiChannelAuditioned) {
+          return;
+        }
+        level = 1;
+      } else {
+        level = 0;
+      }
+      dispatchDrumCombinedExpression(voiceLevelValue, dimension, level, smooth);
     } else if (midiChannel == 0) {
       fw2Sound.monophonicExpressionEvent(voiceLevelValue, dimension);
     } else {

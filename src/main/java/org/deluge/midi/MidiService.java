@@ -122,13 +122,22 @@ public class MidiService {
   }
 
   private org.deluge.firmware2.GlobalEffectable getActiveTrackSound(int track) {
+    if (router != null) {
+      return router.resolveLiveTrackTarget(track);
+    }
+    Object eng = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+    if (eng instanceof org.deluge.engine.FirmwareAudioEngine engine
+        && track >= 0
+        && track < engine.sounds.size()) {
+      return engine.sounds.get(track);
+    }
     Object ph = bridge.getGlobalObject(BridgeContract.G_PLAYBACK_HANDLER);
     if (ph instanceof org.deluge.playback.PlaybackHandler playbackHandler) {
       org.deluge.model.ProjectModel project = playbackHandler.getProject();
       if (project != null && track >= 0 && track < project.getTracks().size()) {
         org.deluge.model.ClipModel clip = project.getTracks().get(track).getActiveClip();
-        if (clip != null) {
-          return (org.deluge.firmware2.GlobalEffectable) clip.getSound();
+        if (clip != null && clip.getSound() instanceof org.deluge.firmware2.GlobalEffectable ge) {
+          return ge;
         }
       }
     }
@@ -335,6 +344,10 @@ public class MidiService {
 
     // 1. Intercept MPE Y-Slide (CC 74) on voice channels (> 0) for Firmware2 Sound
     if (cc == 74 && msg.channel() > 0) {
+      // C playback_handler.cpp:3227-3228 — cache pre-NoteOn MPE initial timbre per member channel.
+      if (router != null) {
+        router.setChannelDefaultMpeValue(msg.channel(), 1, (short) ((msg.data2() - 64) << 9));
+      }
       org.deluge.firmware2.GlobalEffectable sound = getActiveTrackSound(activeTrack);
       if (sound instanceof org.deluge.engine.FirmwareSound fs) {
         fs.mpeTimbre(msg.channel(), msg.data2(), true);
@@ -553,6 +566,10 @@ public class MidiService {
     bridge.setStepPitch(track, 0, pitchOffset / 24.0);
 
     // 2. Route pitch bend directly to the active track's audio engine voices
+    if (msg.channel() > 0 && router != null) {
+      // C playback_handler.cpp:3177-3178 — cache pre-NoteOn MPE initial pitch bend per member ch.
+      router.setChannelDefaultMpeValue(msg.channel(), 0, (short) ((bend - 8192) << 2));
+    }
     org.deluge.firmware2.GlobalEffectable sound = getActiveTrackSound(track);
     if (sound instanceof org.deluge.engine.FirmwareSound fs) {
       fs.mpePitchBend(msg.channel(), bend);
@@ -577,6 +594,10 @@ public class MidiService {
   private void handleChannelAftertouch(MIDIMessage msg) {
     int track = activeTrack;
     int pressure = msg.aftertouchValue(); // 0 - 127
+    if (msg.channel() > 0 && router != null) {
+      // C playback_handler.cpp:3295-3296 — cache pre-NoteOn MPE initial pressure per member ch.
+      router.setChannelDefaultMpeValue(msg.channel(), 2, (short) (pressure << 8));
+    }
 
     org.deluge.firmware2.GlobalEffectable sound = getActiveTrackSound(track);
     if (sound instanceof org.deluge.engine.FirmwareSound fs) {
@@ -616,7 +637,12 @@ public class MidiService {
       // drum voices trigger with kNoteForDrum = 60 (MidiInputRouter.java:433-436).
       int drumRow = noteCode - 36;
       if (drumRow >= 0 && drumRow < kit.drumSounds.size()) {
-        kit.drumSounds.get(drumRow).mpePolyAftertouch(60, pressure, true);
+        var drum = kit.drumSounds.get(drumRow);
+        // C kit.cpp:1799 — polyphonic aftertouch matches only when msg.channel() matches the
+        // drum's lastMIDIChannelAuditioned.
+        if (msg.channel() == drum.lastMidiChannelAuditioned) {
+          drum.mpePolyAftertouch(60, pressure, true);
+        }
       }
     } else if (sound instanceof org.deluge.firmware2.Sound s) {
       int newValue = pressure << 24;
