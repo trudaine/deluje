@@ -1481,11 +1481,11 @@ public class Voice {
           computePitchCompensatedTimeStretchRatio(pitchAdjustNeutralValue, phaseIncrement);
     }
     if (timeStretchAmount != 0) { // C :210-212
-      timeStretchRatio =
-          (int)
-              (((timeStretchRatio & 0xFFFFFFFFL)
-                      * LookupTables.timeStretchAdjustTable[timeStretchAmount + 48])
-                  >>> 24);
+      long rawRatio =
+          ((timeStretchRatio & 0xFFFFFFFFL)
+                  * LookupTables.timeStretchAdjustTable[timeStretchAmount + 48])
+              >>> 24;
+      timeStretchRatio = clampTimeStretchRatio(rawRatio);
     }
     return timeStretchRatio;
   }
@@ -1496,6 +1496,10 @@ public class Voice {
       return 16777216;
     }
     long rawRatio = (((long) pitchAdjustNeutralValue) << 24) / (phaseIncrement & 0xFFFFFFFFL);
+    return clampTimeStretchRatio(rawRatio);
+  }
+
+  private static int clampTimeStretchRatio(long rawRatio) {
     if (rawRatio > Integer.MAX_VALUE) {
       return Integer.MAX_VALUE;
     }
@@ -1609,7 +1613,8 @@ public class Voice {
             // C VoiceUnisonPartSource::getPitchAndSpeedParams
             // (voice_unison_part_source.cpp:115-190),
             // syncing branch: a STRETCH source fits the sample to the sequenced note's length.
-            int syncTimeStretchRatio = -1; // -1 = not syncing (use getSpeedParamForNoSyncing)
+            boolean isSyncing = false;
+            int syncTimeStretchRatio = 16777216;
             int syncTicks = sources[s].sequenceSyncLengthTicks;
             long noteLen = 0;
             if (syncTicks > 0 && sound.samplesPerSequencerTick > 0) {
@@ -1625,6 +1630,7 @@ public class Voice {
                 unisonPartBecameInactive = true;
                 continue;
               }
+              isSyncing = true;
               if (sound.sampleTimestretch[s]) { // C :138-162 — sync by time-stretching
                 long r = 16777216L * sampleLen / noteLen;
                 if (pInc != pitchAdjustNeutralValue) {
@@ -1634,19 +1640,17 @@ public class Voice {
                   // not tracked here (no getNumSamplesLaggingBehindSync), i.e. assumed in sync.
                   r = 16777216L;
                 }
-                syncTimeStretchRatio = (int) r;
+                syncTimeStretchRatio = clampTimeStretchRatio(r);
               } else { // C :166-180 — sync by pitch-stretching
                 syncTimeStretchRatio =
-                    (pInc != pitchAdjustNeutralValue)
-                        ? (int) (((long) pitchAdjustNeutralValue << 24) / (pInc & 0xFFFFFFFFL))
-                        : 16777216;
+                    computePitchCompensatedTimeStretchRatio(pitchAdjustNeutralValue, pInc);
                 pInc = (int) ((pInc & 0xFFFFFFFFL) * sampleLen / noteLen);
               }
             }
             // C voice.cpp:2065, voice_unison_part_source.cpp:116-215 — compute timeStretchRatio
             // every block before late-start and before deciding whether TimeStretcher runs.
             vs.timeStretchRatio =
-                syncTimeStretchRatio >= 0
+                isSyncing
                     ? syncTimeStretchRatio
                     : getSpeedParamForNoSyncing(
                         sound.sampleTimestretch[s],

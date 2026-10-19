@@ -279,4 +279,46 @@ class SampleTimeStretchLifecycleParityTest {
         Arrays.equals(freshOut, transitionedOut),
         "Native -> resampled transition must prime interpolation history from current playPos=100");
   }
+
+  @Test
+  void repeatStretchAndManualStretchClampLargeRatiosToPositiveIntMax() {
+    Sample sample = makeRampSample(1024, 44100);
+    Sound.CompiledKeyZone kz = new Sound.CompiledKeyZone();
+    kz.minPitch = 0;
+    kz.maxPitch = 127;
+    kz.minVelocity = 0;
+    kz.maxVelocity = 127;
+    kz.sample = sample;
+    kz.transpose = -48; // Root MIDI 108 -> triggering MIDI 12 gives 8-octave downward shift
+    kz.endSamplePos = 1024;
+
+    for (boolean pitchSpeedIndependent : new boolean[] {true, false}) {
+      Sound sound = makeInitializedSampleSound(sample);
+      sound.sampleLoopMode[0] = Sound.REPEAT_STRETCH;
+      sound.sampleTimestretch[0] = pitchSpeedIndependent;
+      sound.samplesPerSequencerTick = 100.0;
+      sound.pendingSampleSyncLength = 10;
+      sound.sourceZones[0].add(kz);
+
+      sound.triggerNote(12, 100);
+      int[] buf = new int[128];
+      int[] rev = new int[64];
+      sound.renderInternal(buf, 64, rev);
+
+      Voice v = sound.voices.get(0);
+      VoiceSource vs = v.unisonParts[0].sources[0];
+      assertEquals(
+          Integer.MAX_VALUE,
+          vs.timeStretchRatio,
+          "REPEAT_STRETCH ratio under 8-octave downward shift must clamp to Integer.MAX_VALUE (pitchSpeedIndependent="
+              + pitchSpeedIndependent
+              + ")");
+      assertTrue(vs.voiceSample.isTimeStretching());
+    }
+
+    assertEquals(
+        Integer.MAX_VALUE,
+        Voice.getSpeedParamForNoSyncing(true, 48, 16777216, 131072),
+        "Manual timeStretchAmount=+48 on a 7-octave downward shift must clamp to Integer.MAX_VALUE");
+  }
 }
