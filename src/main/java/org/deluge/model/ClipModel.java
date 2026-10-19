@@ -1087,6 +1087,7 @@ public class ClipModel extends TimelineCounter {
   public void restoreFrom(ClipModel src) {
     if (src == null) return;
     flushPendingNoteRowTicks();
+    int prevLoopLen = getLoopLength();
     Map<Integer, NoteRowModel> liveRows = new HashMap<>(this.noteRows);
     tripletMode = src.tripletMode;
     setStepCount(src.stepCount);
@@ -1150,10 +1151,10 @@ public class ClipModel extends TimelineCounter {
     if (currentlyPlayingReversed) {
       clipLinearPos =
           (lastProcessedPos != 0)
-              ? (repeatCount * loopLen + (loopLen - lastProcessedPos))
-              : (Math.max(0, repeatCount) * loopLen);
+              ? (repeatCount * prevLoopLen + (prevLoopLen - lastProcessedPos))
+              : (Math.max(0, repeatCount) * prevLoopLen);
     } else {
-      clipLinearPos = repeatCount * loopLen + lastProcessedPos;
+      clipLinearPos = repeatCount * prevLoopLen + lastProcessedPos;
     }
     setPlayDirection(src.playDirection);
     for (Map.Entry<Integer, NoteRowModel> e : this.noteRows.entrySet()) {
@@ -1162,9 +1163,15 @@ public class ClipModel extends TimelineCounter {
         continue;
       }
       NoteRowModel liveRow = liveRows.get(e.getKey());
+      int liveEffectiveLen =
+          (liveRow != null && liveRow.getLoopLengthIfIndependent() > 0)
+              ? liveRow.getLoopLengthIfIndependent()
+              : prevLoopLen;
+      int newEffectiveLen =
+          row.getLoopLengthIfIndependent() > 0 ? row.getLoopLengthIfIndependent() : loopLen;
       if (liveRow != null
           && liveRow.hasIndependentPlayPos()
-          && liveRow.getLoopLengthIfIndependent() == row.getLoopLengthIfIndependent()
+          && liveEffectiveLen == newEffectiveLen
           && liveRow.getEffectiveSequenceDirectionMode(prevClipSeqDir)
               == row.getEffectiveSequenceDirectionMode(sequenceDirectionMode)) {
         row.copyLiveTransportFrom(liveRow);
@@ -1186,6 +1193,30 @@ public class ClipModel extends TimelineCounter {
       } else {
         releaseNote(live.getPitch());
         live.stopCurrentlyPlayingNoteSilently();
+      }
+    }
+    expectEvent();
+  }
+
+  /**
+   * Re-derives independent note-row transport state from this clip's current linear play position
+   * after a bulk snapshot apply (such as {@link PatternModel.ClipSnapshot#applyTo}).
+   */
+  public void reconcileNoteRowTransportAfterBulkEdit() {
+    flushPendingNoteRowTicks();
+    int loopLen = getLoopLength();
+    int clipLinearPos;
+    if (currentlyPlayingReversed) {
+      clipLinearPos =
+          (lastProcessedPos != 0)
+              ? (repeatCount * loopLen + (loopLen - lastProcessedPos))
+              : (Math.max(0, repeatCount) * loopLen);
+    } else {
+      clipLinearPos = repeatCount * loopLen + lastProcessedPos;
+    }
+    for (NoteRowModel row : noteRows.values()) {
+      if (row.hasIndependentPlayPos()) {
+        row.setPosIfIndependent(clipLinearPos, loopLen, sequenceDirectionMode);
       }
     }
     expectEvent();

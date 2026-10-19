@@ -231,6 +231,7 @@ public class PatternModel {
       // Apply kit params
       clip.setKitParams(kitParams);
       clip.getRawKitParamHex().putAll(rawKitParamHex);
+      clip.reconcileNoteRowTransportAfterBulkEdit();
     }
 
     // ── Getters / Setters ──

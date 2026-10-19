@@ -334,4 +334,45 @@ class NoteRowSequenceDirectionParityTest {
     assertEquals(48, parsedClip.getOrCreateRow(0).getLoopLengthIfIndependent());
     assertTrue(parsedClip.getOrCreateRow(1).isMuted());
   }
+
+  @Test
+  void liveSnapshotAndRestoreReconcileIndependentRowPhaseAcrossStepCountChange() {
+    // 4-step (96-tick) FORWARD clip with a REVERSE row (loopLengthIfIndependent == 0).
+    ClipModel clip = new ClipModel("live", 1, 4);
+    NoteRowModel row = clip.getOrCreateRow(0);
+    row.setPitch(60);
+    row.setSequenceDirectionMode(SequenceDirection.REVERSE);
+
+    ClipModel fourStepSnapshot = clip.deepCopy("snap4");
+    PatternModel.ClipSnapshot patternSnapshot =
+        PatternModel.ClipSnapshot.fromClipModel(clip, 0, "S");
+
+    // Lengthen clip to 8 steps (192 ticks) and advance 20 ticks into live playback.
+    clip.setStepCount(8);
+    clip.setPos(0);
+    clip.processCurrentPos(0);
+    for (int t = 0; t < 20; t++) {
+      clip.incrementPos(1);
+      clip.processCurrentPos(1);
+    }
+
+    // Undo back to 4 steps (96 ticks): effective row length changed from 192 -> 96, so the
+    // REVERSE row must re-derive its position from linear tick 20 as 96 - 20 = 76 (not copy the
+    // 192-tick row's 192 - 20 = 172).
+    clip.restoreFrom(fourStepSnapshot);
+    NoteRowModel restoredRow = clip.getOrCreateRow(0);
+    assertEquals(76, restoredRow.getLastProcessedPosIfIndependent());
+    assertTrue(
+        restoredRow.isCurrentlyPlayingReversed(
+            clip.currentlyPlayingReversed, clip.sequenceDirectionMode));
+
+    // Clear the row's direction to OBEY_PARENT, then apply PatternModel.ClipSnapshot while live at
+    // tick 20: applyTo must reconcile the restored REVERSE row to 96 - 20 = 76 and reversed = true.
+    restoredRow.setSequenceDirectionMode(SequenceDirection.OBEY_PARENT);
+    patternSnapshot.applyTo(clip);
+    assertEquals(76, clip.getOrCreateRow(0).getLastProcessedPosIfIndependent());
+    assertTrue(
+        clip.getOrCreateRow(0)
+            .isCurrentlyPlayingReversed(clip.currentlyPlayingReversed, clip.sequenceDirectionMode));
+  }
 }
