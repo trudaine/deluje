@@ -572,6 +572,7 @@ public class EngineSyncCoordinator {
     // ── Extended reverb globals ──
     bridge.setGlobalFloat(BridgeContract.G_REVERB_WIDTH, currentProject.getReverbWidth());
     bridge.setGlobalFloat(BridgeContract.G_REVERB_HPF, currentProject.getReverbHpf());
+    bridge.setGlobalFloat(BridgeContract.G_REVERB_LPF, currentProject.getReverbLpf());
     bridge.setGlobalFloat(BridgeContract.G_REVERB_PAN, currentProject.getReverbPan());
     bridge.setGlobalInt(BridgeContract.G_REVERB_MODEL, currentProject.getReverbModel());
     bridge.setGlobalFloat(
@@ -607,6 +608,7 @@ public class EngineSyncCoordinator {
     bridge.setGlobalFloat(
         BridgeContract.G_MASTER_COMP_RELEASE, currentProject.getCompressorRelease());
     bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP_RATIO, currentProject.getCompressorRatio());
+    bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP_HPF, currentProject.getCompressorHpf());
     bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP_BLEND, currentProject.getCompressorBlend());
 
     // ── Transpose / humanize globals ──
@@ -1278,6 +1280,7 @@ public class EngineSyncCoordinator {
       bridge.setGlobalFloat(BridgeContract.G_REVERB_DAMP, model.getReverbDampening());
       bridge.setGlobalFloat(BridgeContract.G_REVERB_WIDTH, model.getReverbWidth());
       bridge.setGlobalFloat(BridgeContract.G_REVERB_HPF, model.getReverbHpf());
+      bridge.setGlobalFloat(BridgeContract.G_REVERB_LPF, model.getReverbLpf());
       bridge.setGlobalFloat(BridgeContract.G_REVERB_PAN, model.getReverbPan());
       bridge.setGlobalInt(BridgeContract.G_REVERB_MODEL, model.getReverbModel());
       bridge.setGlobalFloat(BridgeContract.G_REVERB_COMP_ATTACK, model.getReverbCompressorAttack());
@@ -1315,6 +1318,7 @@ public class EngineSyncCoordinator {
       bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP_ATTACK, model.getCompressorAttack());
       bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP_RELEASE, model.getCompressorRelease());
       bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP_RATIO, model.getCompressorRatio());
+      bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP_HPF, model.getCompressorHpf());
       bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP_BLEND, model.getCompressorBlend());
     }
 

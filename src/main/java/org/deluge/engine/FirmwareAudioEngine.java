@@ -125,24 +125,48 @@ public class FirmwareAudioEngine {
   public final Delay.State delayState = new Delay.State();
   // C: audio_engine.cpp:137,1366 — signed Q31-range pan for the reverb send (negative=left,
   // positive=right); synced from the song in syncMasterEffects.
-  private int reverbPan = 0;
+  public int reverbPan = 0;
 
-  // C: audio_engine.cpp — the global reverb's own sidechain ("reverb compressor") + the
-  // in-effect params resolved by updateReverbParams (auto mode).
+  // C: audio_engine.cpp:137-143, 1608-1620 — the global reverb's own sidechain ("reverb
+  // compressor"). reverbSidechainVolume < 0 selects "auto" mode; >= 0 uses the manual song
+  // settings.
   public final org.deluge.firmware2.Sidechain reverbSidechain =
       new org.deluge.firmware2.Sidechain();
+  public int reverbSidechainVolume = -21474836;
+  public int reverbSidechainShape = -601295438;
+  public int reverbSidechainAttack = 327244;
+  public int reverbSidechainRelease = 936;
+  public int reverbSidechainSync = 4; // SYNC_LEVEL_8TH
   public int reverbSidechainVolumeInEffect = 0;
   public int reverbSidechainShapeInEffect = 0;
 
+  // C: mod_controllable_audio.cpp:65-68, 1299-1329 & audio_engine.cpp:1094 — song-level stutter.
+  public final org.deluge.firmware2.Stutterer.Config songStutterConfig =
+      new org.deluge.firmware2.Stutterer.Config();
+  public int songInputTickMagnitude = 2;
+  public int songTimePerInternalTickInverse = 1 << 20;
+  private StereoSample[] songStutterBuffer = new StereoSample[128];
+
   /**
-   * C audio_engine.cpp:1477-1546 updateReverbParams, "auto" mode (the C's default,
-   * reverbSidechainVolume &lt; 0): find the sound with the most reverb send across both Synth
-   * tracks and Kit drum rows (kit.cpp:1397-1417, sound.cpp:2247-2261); if it has a
+   * C audio_engine.cpp:1477-1546 updateReverbParams: when {@code reverbSidechainVolume >= 0}, uses
+   * the song's manual reverb sidechain settings; when {@code reverbSidechainVolume < 0} ("auto"
+   * mode, the C's default), finds the sound with the most reverb send across both Synth tracks and
+   * Kit drum rows (kit.cpp:1397-1417, sound.cpp:2247-2261). If it has a
    * SIDECHAIN→GLOBAL_VOLUME_POST_REVERB_SEND cable, the reverb ducks with that cable's modified
-   * amount and borrows the sound's sidechain shape/attack/release/syncLevel/syncType. No qualifying
-   * sound → no ducking.
+   * amount and borrows the sound's sidechain shape/attack/release/syncLevel/syncType.
    */
   private void updateReverbParams() {
+    if (reverbSidechainVolume >= 0) {
+      // C audio_engine.cpp:1543-1546 — manual reverb sidechain mode.
+      reverbSidechainVolumeInEffect = reverbSidechainVolume;
+      reverbSidechainShapeInEffect = reverbSidechainShape;
+      reverbSidechain.attack = reverbSidechainAttack;
+      reverbSidechain.release = reverbSidechainRelease;
+      reverbSidechain.syncLevel = reverbSidechainSync;
+      reverbSidechain.syncType = 0;
+      reverbSidechain.timePerInternalTickInverse = songTimePerInternalTickInverse;
+      return;
+    }
     FirmwareSound best = null;
     int highestReverbAmountFound = this.songReverbAmount; // C seeds with the song's own send amount
     for (int i = 0; i < sounds.size(); i++) {
@@ -256,6 +280,7 @@ public class FirmwareAudioEngine {
     GlobalSidechainBus.reset();
     for (int i = 0; i < masterBuffer.length; i++) {
       masterBuffer[i] = new StereoSample();
+      songStutterBuffer[i] = new StereoSample();
     }
     delayState.doDelay = false;
     // Drive delay time externally via userDelayRate; disable the delay's internal tempo-sync (which
@@ -268,6 +293,12 @@ public class FirmwareAudioEngine {
 
   public void syncMasterEffects(ProjectModel project) {
     double bpm = project.getBpm();
+    double safeBpm = bpm > 0 ? bpm : 120.0;
+    this.songInputTickMagnitude = project.getInputTickMagnitude();
+    double samplesPerInternalTick = 165375.0 / (safeBpm * (1 << songInputTickMagnitude));
+    this.songTimePerInternalTickInverse =
+        (int) Math.min(2147483647.0, 2147483648.0 / samplesPerInternalTick);
+
     int syncLevel = project.getDelaySyncLevel();
     double delaySec;
     if (syncLevel > 0) {
@@ -292,10 +323,7 @@ public class FirmwareAudioEngine {
     this.masterDelay.pingPong = project.getDelayPingPong() != 0;
     this.masterDelay.analog = project.getDelayAnalog() != 0;
 
-    // Sync Reverb
-    // C reverb.hpp:15-19 — enum order is FREEVERB=0, MUTABLE=1, DIGITAL=2 (song.cpp:1423 casts
-    // the raw XML int straight to this enum); this was previously never synced, so masterReverb
-    // stayed on its Java field default (FREEVERB) regardless of the song's actual model.
+    // Sync Reverb (C audio_engine.cpp:1608-1620, song.cpp:1447-1514)
     this.masterReverb.setModel(
         switch (project.getReverbModel()) {
           case 1 -> org.deluge.firmware2.Reverb.Model.MUTABLE;
@@ -306,9 +334,45 @@ public class FirmwareAudioEngine {
     this.masterReverb.setDamping(project.getReverbDampening());
     this.masterReverb.setWidth(project.getReverbWidth());
     this.masterReverb.setHPF(project.getReverbHpf());
-    // C audio_engine.cpp:1366 (reverbPan = song->reverbPan) — previously parsed from XML but never
-    // read anywhere in the engine; the render loop always called setPanLevels symmetrically.
-    this.reverbPan = (int) (project.getReverbPan() * 2147483647.0);
+    this.masterReverb.setLPF(project.getReverbLpf());
+    this.reverbPan = (int) Math.round((double) project.getReverbPan() * 2147483647.0);
+    this.reverbSidechainVolume =
+        (int) Math.round((double) project.getReverbCompressorVolume() * 2147483647.0);
+    this.reverbSidechainShape =
+        (int) Math.round((double) project.getReverbCompressorShape() * 2147483647.0);
+    this.reverbSidechainAttack =
+        Math.max(0, (int) Math.round((double) project.getReverbCompressorAttack() * 2147483647.0));
+    this.reverbSidechainRelease =
+        Math.max(0, (int) Math.round((double) project.getReverbCompressorRelease() * 2147483647.0));
+    int internalRevSync =
+        org.deluge.xml.DelugeXmlUtil.convertSyncLevelFromFileValueToInternalValue(
+            project.getReverbCompressorSyncLevel(), songInputTickMagnitude);
+    this.reverbSidechainSync = Math.max(0, Math.min(9, internalRevSync));
+    this.reverbSidechain.attack = this.reverbSidechainAttack;
+    this.reverbSidechain.release = this.reverbSidechainRelease;
+    this.reverbSidechain.syncLevel = this.reverbSidechainSync;
+    this.reverbSidechain.syncType = 0;
+    this.reverbSidechain.timePerInternalTickInverse = this.songTimePerInternalTickInverse;
+
+    // Sync Master Compressor (C mod_controllable_audio.cpp:843-880)
+    this.masterCompressor.setAttack(
+        Math.max(0, (int) Math.round((double) project.getCompressorAttack() * 2147483647.0)));
+    this.masterCompressor.setRelease(
+        Math.max(0, (int) Math.round((double) project.getCompressorRelease() * 2147483647.0)));
+    this.masterCompressor.setThreshold(
+        Math.max(0, (int) Math.round((double) project.getCompressorThreshold() * 2147483647.0)));
+    this.masterCompressor.setRatio(
+        Math.max(0, (int) Math.round((double) project.getCompressorRatio() * 2147483647.0)));
+    this.masterCompressor.setSidechain(
+        Math.max(0, (int) Math.round((double) project.getCompressorHpf() * 2147483647.0)));
+    this.masterCompressor.setBlend(
+        Math.max(0, (int) Math.round((double) project.getCompressorBlend() * 2147483647.0)));
+
+    // Sync Song-level Stutter config (C mod_controllable_audio.cpp:65-68, 760-785)
+    this.songStutterConfig.useSongStutter = true;
+    this.songStutterConfig.quantized = project.isSongStutterQuantized();
+    this.songStutterConfig.reversed = project.isSongStutterReversed();
+    this.songStutterConfig.pingPong = project.isSongStutterPingPong();
 
     // Sync Master Volume
     float volFloat = project.getSongParamVolume();
@@ -662,6 +726,7 @@ public class FirmwareAudioEngine {
 
     // ── Song-level FilterSet and SRR/Bitcrush (post-reverb/delay; C audio_engine.cpp:1082-1095) ──
     int postFXVol = renderSongPostReverbFX(numSamples);
+    processSongStutter(numSamples); // C audio_engine.cpp:1094 — song-level stutter post-filter/SRR.
 
     // Metronome click — added dry, before the master compressor (C: audio_engine.cpp:626).
     if (metronomeEnabled) {
@@ -861,5 +926,52 @@ public class FirmwareAudioEngine {
     int[] volRef = {postFXVol};
     masterSrrBitcrush.process(fxBuffer, numSamples, masterBitcrush, masterSrr, volRef);
     return volRef[0];
+  }
+
+  /**
+   * C mod_controllable_audio.cpp:1299-1312 — begins song-level stutter on the global {@link
+   * org.deluge.firmware2.Stutterer#GLOBAL} using the song's {@code paramManager} and {@link
+   * #songStutterConfig}.
+   */
+  public void beginSongStutter(org.deluge.modulation.params.ParamManager paramManager) {
+    org.deluge.firmware2.Stutterer.GLOBAL.beginStutter(
+        this,
+        paramManager,
+        songStutterConfig,
+        songInputTickMagnitude,
+        songTimePerInternalTickInverse);
+  }
+
+  /** C mod_controllable_audio.cpp:1322-1329 — stops song-level stutter. */
+  public void endSongStutter(org.deluge.modulation.params.ParamManager paramManager) {
+    if (org.deluge.firmware2.Stutterer.GLOBAL.isStuttering(this)) {
+      org.deluge.firmware2.Stutterer.GLOBAL.endStutter(paramManager);
+    }
+  }
+
+  /**
+   * C audio_engine.cpp:1094, mod_controllable_audio.cpp:1314-1319 — processes song-level stutter on
+   * the post-reverb/post-filter/post-SRR master buffer when this engine owns the active stutter.
+   */
+  private void processSongStutter(int numSamples) {
+    if (!org.deluge.firmware2.Stutterer.GLOBAL.isStuttering(this)) {
+      return;
+    }
+    if (songStutterBuffer.length < numSamples) {
+      songStutterBuffer = new StereoSample[numSamples];
+      for (int i = 0; i < numSamples; i++) {
+        songStutterBuffer[i] = new StereoSample();
+      }
+    }
+    for (int i = 0; i < numSamples; i++) {
+      songStutterBuffer[i].l = fxBuffer[i][0];
+      songStutterBuffer[i].r = fxBuffer[i][1];
+    }
+    org.deluge.firmware2.Stutterer.GLOBAL.processStutter(
+        songStutterBuffer, numSamples, songInputTickMagnitude, songTimePerInternalTickInverse);
+    for (int i = 0; i < numSamples; i++) {
+      fxBuffer[i][0] = songStutterBuffer[i].l;
+      fxBuffer[i][1] = songStutterBuffer[i].r;
+    }
   }
 }

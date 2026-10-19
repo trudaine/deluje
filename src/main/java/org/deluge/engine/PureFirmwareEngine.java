@@ -116,21 +116,23 @@ public class PureFirmwareEngine {
     audioEngine.masterVolumeAdjustmentL = (int) (masterVol * 2147483647.0);
     audioEngine.masterVolumeAdjustmentR = audioEngine.masterVolumeAdjustmentL;
 
-    // Sync master compressor settings
+    // Sync master compressor settings (C mod_controllable_audio.cpp:843-880)
     float compThreshold = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_COMP);
     float compAttack = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_COMP_ATTACK);
     float compRelease = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_COMP_RELEASE);
     float compRatio = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_COMP_RATIO);
+    float compHpf = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_COMP_HPF);
     float compBlend = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_COMP_BLEND);
 
     audioEngine.masterCompressor.setThresholdFloat(compThreshold);
     audioEngine.masterCompressor.setAttackFloat(compAttack);
     audioEngine.masterCompressor.setReleaseFloat(compRelease);
     audioEngine.masterCompressor.setRatioFloat(compRatio);
+    audioEngine.masterCompressor.setSidechainFloat(compHpf);
     audioEngine.masterCompressor.setBlendFloat(compBlend);
 
-    // Sync master reverb model + room/damping/width from the song (previously left at defaults, so
-    // the song's reverb settings had no effect in the pure engine).
+    // Sync master reverb model + room/damping/width/HPF/LPF/pan/sidechain from the song
+    // (C audio_engine.cpp:1608-1620, song.cpp:1447-1514).
     int reverbModel = (int) bridge.getGlobalInt(BridgeContract.G_REVERB_MODEL);
     // C reverb.hpp:15-19 — enum order is FREEVERB=0, MUTABLE=1, DIGITAL=2 (song.cpp:1423 casts
     // the raw XML int straight to this enum).
@@ -145,6 +147,26 @@ public class PureFirmwareEngine {
     audioEngine.masterReverb.setDamping(
         (float) bridge.getGlobalFloat(BridgeContract.G_REVERB_DAMP));
     audioEngine.masterReverb.setWidth((float) bridge.getGlobalFloat(BridgeContract.G_REVERB_WIDTH));
+    audioEngine.masterReverb.setHPF((float) bridge.getGlobalFloat(BridgeContract.G_REVERB_HPF));
+    audioEngine.masterReverb.setLPF((float) bridge.getGlobalFloat(BridgeContract.G_REVERB_LPF));
+    audioEngine.reverbPan =
+        (int) Math.round(bridge.getGlobalFloat(BridgeContract.G_REVERB_PAN) * 2147483647.0);
+    audioEngine.reverbSidechainVolume =
+        (int) Math.round(bridge.getGlobalFloat(BridgeContract.G_REVERB_COMP_VOLUME) * 2147483647.0);
+    audioEngine.reverbSidechainShape =
+        (int) Math.round(bridge.getGlobalFloat(BridgeContract.G_REVERB_COMP_SHAPE) * 2147483647.0);
+    audioEngine.reverbSidechainAttack =
+        Math.max(
+            0,
+            (int)
+                Math.round(
+                    bridge.getGlobalFloat(BridgeContract.G_REVERB_COMP_ATTACK) * 2147483647.0));
+    audioEngine.reverbSidechainRelease =
+        Math.max(
+            0,
+            (int)
+                Math.round(
+                    bridge.getGlobalFloat(BridgeContract.G_REVERB_COMP_RELEASE) * 2147483647.0));
 
     // Sync master delay. The delay's internal tempo-sync is disabled (see FirmwareAudioEngine), so
     // we compute the delay time in seconds ourselves — tempo-synced when a sync level is set,
@@ -271,6 +293,24 @@ public class PureFirmwareEngine {
     audioEngine.masterModFxCurrentParam =
         project != null ? project.getModFXCurrentParam() : "offset";
     audioEngine.songClippingAmount = project != null ? project.getSongClippingAmount() : 0;
+
+    int inputTickMag = project != null ? project.getInputTickMagnitude() : 2;
+    audioEngine.songInputTickMagnitude = inputTickMag;
+    double safeBpm = currentBpm > 0 ? currentBpm : 120.0;
+    double samplesPerInternalTick = 165375.0 / (safeBpm * (1 << inputTickMag));
+    audioEngine.songTimePerInternalTickInverse =
+        (int) Math.min(2147483647.0, 2147483648.0 / samplesPerInternalTick);
+    int revCompFileSync = (int) bridge.getGlobalInt(BridgeContract.G_REVERB_COMP_SYNC_LEVEL);
+    int internalRevSync =
+        org.deluge.xml.DelugeXmlUtil.convertSyncLevelFromFileValueToInternalValue(
+            revCompFileSync, inputTickMag);
+    audioEngine.reverbSidechainSync = Math.max(0, Math.min(9, internalRevSync));
+    if (project != null) {
+      audioEngine.songStutterConfig.useSongStutter = true;
+      audioEngine.songStutterConfig.quantized = project.isSongStutterQuantized();
+      audioEngine.songStutterConfig.reversed = project.isSongStutterReversed();
+      audioEngine.songStutterConfig.pingPong = project.isSongStutterPingPong();
+    }
 
     audioEngine.masterModFxRate =
         FirmwareAudioEngine.unipolarToQ31Param(

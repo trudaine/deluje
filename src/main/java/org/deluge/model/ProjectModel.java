@@ -46,20 +46,23 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   private float masterPan = 0.0f;
   private float masterDelay = 0.3f;
 
-  // ── Song-level reverb params ──
+  // ── Song-level reverb params (C song.cpp:179-188, sidechain.cpp:29-30) ──
   private float reverbRoomSize = 0.6f;
   private float reverbDampening = 0.72f;
   private float reverbWidth = 1.0f;
   private float reverbHpf = 0.0f;
+  private float reverbLpf = 1.0f;
   private float reverbPan = 0.0f;
   private int reverbModel = 0;
-  private float reverbCompressorAttack = 0.0f;
-  private float reverbCompressorRelease = 0.0f;
-  private int reverbCompressorSyncLevel = 0;
+  private float reverbCompressorAttack = 327244.0f / 2147483647.0f;
+  private float reverbCompressorRelease = 936.0f / 2147483647.0f;
+  // File syncLevel 5 -> internal SYNC_LEVEL_8TH (4) at default inputTickMagnitude 2.
+  private int reverbCompressorSyncLevel = 5;
   private float reverbCompHpf = 0.0f;
   private float reverbCompBlend = 0.5f;
-  private float reverbCompressorShape = 0.0f;
-  private float reverbCompressorVolume = 0.0f;
+  private float reverbCompressorShape = -601295438.0f / 2147483647.0f;
+  // C song.cpp:186 — getParamFromUserValue(STATIC_SIDECHAIN_VOLUME, -1) = -21474836 (< 0 = auto).
+  private float reverbCompressorVolume = -21474836.0f / 2147483647.0f;
 
   // ── Song-level delay params ──
   private int delayPingPong = 0;
@@ -73,12 +76,18 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   private int sidechainSyncLevel = 0;
   private int sidechainSyncType = 0;
 
-  // ── Song-level compressor params ──
-  private float compressorAttack = 0.0f;
-  private float compressorRelease = 0.0f;
+  // ── Song-level compressor params (C rms_feedback.cpp:22-31) ──
+  private float compressorAttack = (float) (5 << 24) / 2147483647.0f;
+  private float compressorRelease = (float) (5 << 24) / 2147483647.0f;
   private float compressorThreshold = 0.0f;
-  private float compressorRatio = 0.0f;
+  private float compressorRatio = (float) (64 << 24) / 2147483647.0f;
+  private float compressorHpf = 0.0f;
   private float compressorBlend = 1.0f;
+
+  // ── Song-level stutter params (C mod_controllable_audio.cpp:65-68) ──
+  private boolean songStutterQuantized = true;
+  private boolean songStutterReversed = false;
+  private boolean songStutterPingPong = false;
 
   // ── SongParams values (from <songParams> element) ──
   private float songParamVolume = 0.5f;
@@ -1092,6 +1101,18 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     notifyReverbChanged();
   }
 
+  public float getReverbLpf() {
+    return reverbLpf;
+  }
+
+  public void setReverbLpf(float v) {
+    float old = this.reverbLpf;
+    this.reverbLpf = v;
+    if (old != v)
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "reverbLpf", old, v));
+    notifyReverbChanged();
+  }
+
   public float getReverbPan() {
     return reverbPan;
   }
@@ -1367,6 +1388,18 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     notifyCompressorChanged();
   }
 
+  public float getCompressorHpf() {
+    return compressorHpf;
+  }
+
+  public void setCompressorHpf(float v) {
+    float old = this.compressorHpf;
+    this.compressorHpf = v;
+    if (old != v)
+      undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "compressorHpf", old, v));
+    notifyCompressorChanged();
+  }
+
   public float getCompressorBlend() {
     return compressorBlend;
   }
@@ -1377,6 +1410,53 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     if (old != v)
       undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "compressorBlend", old, v));
     notifyCompressorChanged();
+  }
+
+  // ── Song-level stutter getters/setters (C mod_controllable_audio.cpp:65-68, 481-486, 760-785) ──
+
+  public boolean isSongStutterQuantized() {
+    return songStutterQuantized;
+  }
+
+  public void setSongStutterQuantized(boolean v) {
+    boolean old = this.songStutterQuantized;
+    this.songStutterQuantized = v;
+    if (old != v) {
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(
+              this, "songStutterQuantized", old ? 1.0f : 0.0f, v ? 1.0f : 0.0f));
+      notifySongParamsChanged();
+    }
+  }
+
+  public boolean isSongStutterReversed() {
+    return songStutterReversed;
+  }
+
+  public void setSongStutterReversed(boolean v) {
+    boolean old = this.songStutterReversed;
+    this.songStutterReversed = v;
+    if (old != v) {
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(
+              this, "songStutterReversed", old ? 1.0f : 0.0f, v ? 1.0f : 0.0f));
+      notifySongParamsChanged();
+    }
+  }
+
+  public boolean isSongStutterPingPong() {
+    return songStutterPingPong;
+  }
+
+  public void setSongStutterPingPong(boolean v) {
+    boolean old = this.songStutterPingPong;
+    this.songStutterPingPong = v;
+    if (old != v) {
+      undoRedoStack.push(
+          new Consequence.ProjectParamConsequence(
+              this, "songStutterPingPong", old ? 1.0f : 0.0f, v ? 1.0f : 0.0f));
+      notifySongParamsChanged();
+    }
   }
 
   // ── SongParams getters/setters ──

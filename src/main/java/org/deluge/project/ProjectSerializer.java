@@ -1140,37 +1140,40 @@ public class ProjectSerializer {
     writer.writeTag(tag, DelugeHexMapper.lfoHzToHex(hz));
   }
 
+  private static int floatToRawInt(float v) {
+    long rounded = Math.round((double) v * (double) Integer.MAX_VALUE);
+    return (int) Math.max((long) Integer.MIN_VALUE, Math.min((long) Integer.MAX_VALUE, rounded));
+  }
+
   private static void serializeGlobalEffects(XMLSerializer writer, ProjectModel model)
       throws IOException {
-    // 1. Reverb
+    // 1. Reverb (C song.cpp:1240-1269)
     writer.writeOpeningTagBeginning("reverb");
-    writer.writeAttribute("roomSize", (int) (model.getReverbRoomSize() * Integer.MAX_VALUE), false);
+    writer.writeAttribute("roomSize", Math.max(0, floatToRawInt(model.getReverbRoomSize())), false);
     writer.writeAttribute(
-        "dampening", (int) (model.getReverbDampening() * Integer.MAX_VALUE), false);
-    writer.writeAttribute("width", (int) (model.getReverbWidth() * Integer.MAX_VALUE), false);
-    writer.writeAttribute("hpf", (int) (model.getReverbHpf() * Integer.MAX_VALUE), false);
-    writer.writeAttribute("pan", (int) (model.getReverbPan() * Integer.MAX_VALUE), false);
+        "dampening", Math.max(0, floatToRawInt(model.getReverbDampening())), false);
+    writer.writeAttribute("width", Math.max(0, floatToRawInt(model.getReverbWidth())), false);
+    writer.writeAttribute("hpf", Math.max(0, floatToRawInt(model.getReverbHpf())), false);
+    writer.writeAttribute("lpf", Math.max(0, floatToRawInt(model.getReverbLpf())), false);
+    writer.writeAttribute("pan", floatToRawInt(model.getReverbPan()), false);
     writer.writeAttribute("model", model.getReverbModel(), false);
     writer.writeOpeningTagEnd();
 
+    // C song.cpp:1261-1267 — nested <compressor> inside <reverb> has attack, release, volume,
+    // shape, syncLevel (no compHPF or compBlend).
     writer.writeOpeningTagBeginning("compressor");
     writer.writeAttribute(
-        "attack", (int) (model.getReverbCompressorAttack() * Integer.MAX_VALUE), false);
+        "attack", Math.max(0, floatToRawInt(model.getReverbCompressorAttack())), false);
     writer.writeAttribute(
-        "release", (int) (model.getReverbCompressorRelease() * Integer.MAX_VALUE), false);
+        "release", Math.max(0, floatToRawInt(model.getReverbCompressorRelease())), false);
+    writer.writeAttribute("volume", floatToRawInt(model.getReverbCompressorVolume()), false);
+    writer.writeAttribute("shape", floatToRawInt(model.getReverbCompressorShape()), false);
     writer.writeAttribute("syncLevel", model.getReverbCompressorSyncLevel(), false);
-    writer.writeAttribute("compHPF", (int) (model.getReverbCompHpf() * Integer.MAX_VALUE), false);
-    writer.writeAttribute(
-        "compBlend", (int) (model.getReverbCompBlend() * Integer.MAX_VALUE), false);
-    writer.writeAttribute(
-        "shape", (int) (model.getReverbCompressorShape() * Integer.MAX_VALUE), false);
-    writer.writeAttribute(
-        "volume", (int) (model.getReverbCompressorVolume() * Integer.MAX_VALUE), false);
     writer.closeTag();
 
     writer.writeClosingTag("reverb");
 
-    // 2. Delay
+    // 2. Delay (C mod_controllable_audio.cpp:419-425)
     writer.writeOpeningTagBeginning("delay");
     writer.writeAttribute("pingPong", model.getDelayPingPong(), false);
     writer.writeAttribute("analog", model.getDelayAnalog(), false);
@@ -1179,11 +1182,11 @@ public class ProjectSerializer {
         "syncType", org.deluge.xml.DelugeXmlUtil.syncTypeToFile(model.getDelaySyncType()), false);
     writer.closeTag();
 
-    // 3. Sidechain
+    // 3. Sidechain (C mod_controllable_audio.cpp:463-469)
     writer.writeOpeningTagBeginning("sidechain");
-    writer.writeAttribute("attack", (int) (model.getSidechainAttack() * Integer.MAX_VALUE), false);
+    writer.writeAttribute("attack", Math.max(0, floatToRawInt(model.getSidechainAttack())), false);
     writer.writeAttribute(
-        "release", (int) (model.getSidechainRelease() * Integer.MAX_VALUE), false);
+        "release", Math.max(0, floatToRawInt(model.getSidechainRelease())), false);
     writer.writeAttribute("syncLevel", model.getSidechainSyncLevel(), false);
     writer.writeAttribute(
         "syncType",
@@ -1191,24 +1194,24 @@ public class ProjectSerializer {
         false);
     writer.closeTag();
 
-    // 4. Audio Compressor
+    // 4. Audio Compressor (C mod_controllable_audio.cpp:472-479)
     writer.writeOpeningTagBeginning("audioCompressor");
-    writer.writeAttribute("attack", (int) (model.getCompressorAttack() * Integer.MAX_VALUE), false);
+    writer.writeAttribute("attack", Math.max(0, floatToRawInt(model.getCompressorAttack())), false);
     writer.writeAttribute(
-        "release", (int) (model.getCompressorRelease() * Integer.MAX_VALUE), false);
+        "release", Math.max(0, floatToRawInt(model.getCompressorRelease())), false);
     writer.writeAttribute(
-        "thresh", (int) (model.getCompressorThreshold() * Integer.MAX_VALUE), false);
-    writer.writeAttribute("ratio", (int) (model.getCompressorRatio() * Integer.MAX_VALUE), false);
-    writer.writeAttribute("compHPF", 0, false);
+        "thresh", Math.max(0, floatToRawInt(model.getCompressorThreshold())), false);
+    writer.writeAttribute("ratio", Math.max(0, floatToRawInt(model.getCompressorRatio())), false);
+    writer.writeAttribute("compHPF", Math.max(0, floatToRawInt(model.getCompressorHpf())), false);
     writer.writeAttribute(
-        "compBlend", (int) (model.getCompressorBlend() * Integer.MAX_VALUE), false);
+        "compBlend", Math.max(0, floatToRawInt(model.getCompressorBlend())), false);
     writer.closeTag();
 
-    // 5. Stutter
+    // 5. Stutter (C mod_controllable_audio.cpp:481-486)
     writer.writeOpeningTagBeginning("stutter");
-    writer.writeAttribute("quantized", 1, false);
-    writer.writeAttribute("reverse", 0, false);
-    writer.writeAttribute("pingPong", 0, false);
+    writer.writeAttribute("quantized", model.isSongStutterQuantized() ? 1 : 0, false);
+    writer.writeAttribute("reverse", model.isSongStutterReversed() ? 1 : 0, false);
+    writer.writeAttribute("pingPong", model.isSongStutterPingPong() ? 1 : 0, false);
     writer.closeTag();
 
     // 6. SongParams (C song.cpp:1275-1279, global_effectable.cpp:811-882).

@@ -231,6 +231,10 @@ public class Compressor {
     ratio = 1.0f / (1.0f - fraction);
   }
 
+  public void setSidechainFloat(float f) {
+    setSidechain(Math.max(0, (int) Math.round((double) f * ONE_Q31)));
+  }
+
   public void setBlendFloat(float blend) {
     int blendInt = (int) (blend * ONE_Q31);
     dry = ONE_Q31 - blendInt;
