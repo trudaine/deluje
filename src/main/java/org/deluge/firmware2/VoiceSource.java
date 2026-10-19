@@ -68,15 +68,13 @@ public class VoiceSource {
         vs.sampleRef = null;
         vs.voiceSample.active = false;
         vs.voiceSample.pendingSamplesLate = 0;
-        vs.voiceSample.timeStretcher.playHeadStillActive[0] = false;
-        vs.voiceSample.timeStretcher.playHeadStillActive[1] = false;
+        vs.voiceSample.endTimeStretching();
       }
     } else {
       sampleRef = null;
       voiceSample.active = false;
       voiceSample.pendingSamplesLate = 0;
-      voiceSample.timeStretcher.playHeadStillActive[0] = false;
-      voiceSample.timeStretcher.playHeadStillActive[1] = false;
+      voiceSample.endTimeStretching();
     }
   }
 
@@ -174,8 +172,7 @@ public class VoiceSource {
         } else {
           vs.sampleRef = null;
           vs.voiceSample.active = false;
-          vs.voiceSample.timeStretcher.playHeadStillActive[0] = false;
-          vs.voiceSample.timeStretcher.playHeadStillActive[1] = false;
+          vs.voiceSample.endTimeStretching();
         }
       }
     } else {
@@ -244,8 +241,7 @@ public class VoiceSource {
         } else {
           vs.sampleRef = null;
           vs.voiceSample.active = false;
-          vs.voiceSample.timeStretcher.playHeadStillActive[0] = false;
-          vs.voiceSample.timeStretcher.playHeadStillActive[1] = false;
+          vs.voiceSample.endTimeStretching();
         }
       }
     } else {

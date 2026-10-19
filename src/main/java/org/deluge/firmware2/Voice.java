@@ -402,8 +402,7 @@ public class Voice {
           vs.sampleRef = null;
           vs.voiceSample.active = false;
           vs.voiceSample.pendingSamplesLate = 0;
-          vs.voiceSample.timeStretcher.playHeadStillActive[0] = false;
-          vs.voiceSample.timeStretcher.playHeadStillActive[1] = false;
+          vs.voiceSample.endTimeStretching();
           vs.livePitchShifter = null;
           vs.liveInputBuffer = null;
         }
@@ -1482,11 +1481,11 @@ public class Voice {
           computePitchCompensatedTimeStretchRatio(pitchAdjustNeutralValue, phaseIncrement);
     }
     if (timeStretchAmount != 0) { // C :210-212
-      timeStretchRatio =
-          (int)
-              (((timeStretchRatio & 0xFFFFFFFFL)
-                      * LookupTables.timeStretchAdjustTable[timeStretchAmount + 48])
-                  >>> 24);
+      long rawRatio =
+          ((timeStretchRatio & 0xFFFFFFFFL)
+                  * LookupTables.timeStretchAdjustTable[timeStretchAmount + 48])
+              >>> 24;
+      timeStretchRatio = clampTimeStretchRatio(rawRatio);
     }
     return timeStretchRatio;
   }
@@ -1497,6 +1496,10 @@ public class Voice {
       return 16777216;
     }
     long rawRatio = (((long) pitchAdjustNeutralValue) << 24) / (phaseIncrement & 0xFFFFFFFFL);
+    return clampTimeStretchRatio(rawRatio);
+  }
+
+  private static int clampTimeStretchRatio(long rawRatio) {
     if (rawRatio > Integer.MAX_VALUE) {
       return Integer.MAX_VALUE;
     }
@@ -1610,21 +1613,24 @@ public class Voice {
             // C VoiceUnisonPartSource::getPitchAndSpeedParams
             // (voice_unison_part_source.cpp:115-190),
             // syncing branch: a STRETCH source fits the sample to the sequenced note's length.
-            int syncTimeStretchRatio = -1; // -1 = not syncing (use getSpeedParamForNoSyncing)
+            boolean isSyncing = false;
+            int syncTimeStretchRatio = 16777216;
             int syncTicks = sources[s].sequenceSyncLengthTicks;
+            long noteLen = 0;
             if (syncTicks > 0 && sound.samplesPerSequencerTick > 0) {
               // getLengthInSamplesAtSystemSampleRate(true) (sample_holder.cpp:91-99)
               long sampleLen =
                   ((long) sources[s].syncDurationFrames << 24)
                       / (pitchAdjustNeutralValue & 0xFFFFFFFFL);
               // C :129-130 — (timePerInternalTickBig * ticks) >> 32: no rounding
-              long noteLen = (long) (sound.samplesPerSequencerTick * syncTicks);
+              noteLen = (long) (sound.samplesPerSequencerTick * syncTicks);
               if (noteLen <= 0 || (sampleLen >> 5) > noteLen) { // C :132-135 — limit 32x speed
                 vs.active = false;
                 vs.disabledByPitch = false;
                 unisonPartBecameInactive = true;
                 continue;
               }
+              isSyncing = true;
               if (sound.sampleTimestretch[s]) { // C :138-162 — sync by time-stretching
                 long r = 16777216L * sampleLen / noteLen;
                 if (pInc != pitchAdjustNeutralValue) {
@@ -1634,31 +1640,49 @@ public class Voice {
                   // not tracked here (no getNumSamplesLaggingBehindSync), i.e. assumed in sync.
                   r = 16777216L;
                 }
-                syncTimeStretchRatio = (int) r;
+                syncTimeStretchRatio = clampTimeStretchRatio(r);
               } else { // C :166-180 — sync by pitch-stretching
                 syncTimeStretchRatio =
-                    (pInc != pitchAdjustNeutralValue)
-                        ? (int) (((long) pitchAdjustNeutralValue << 24) / (pInc & 0xFFFFFFFFL))
-                        : 16777216;
+                    computePitchCompensatedTimeStretchRatio(pitchAdjustNeutralValue, pInc);
                 pInc = (int) ((pInc & 0xFFFFFFFFL) * sampleLen / noteLen);
               }
             }
+            // C voice.cpp:2065, voice_unison_part_source.cpp:116-215 — compute timeStretchRatio
+            // every block before late-start and before deciding whether TimeStretcher runs.
+            vs.timeStretchRatio =
+                isSyncing
+                    ? syncTimeStretchRatio
+                    : getSpeedParamForNoSyncing(
+                        sound.sampleTimestretch[s],
+                        sound.sampleTimeStretchAmount[s],
+                        pitchAdjustNeutralValue,
+                        pInc);
             if (vs.voiceSample.pendingSamplesLate > 0) {
-              // C voice.cpp:2092-2102 — late start ignores pitch modulation (uses
-              // phaseIncrementStoredValue) and computes timeStretchRatioWithoutModulation.
-              long tsRatioNoMod =
-                  getSpeedParamForNoSyncing(
-                          sound.sampleTimestretch[s],
-                          sound.sampleTimeStretchAmount[s],
-                          pitchAdjustNeutralValue,
-                          vs.phaseIncrementStoredValue)
-                      & 0xFFFFFFFFL;
-              long rawSamplesLate =
-                  ((((long) vs.voiceSample.pendingSamplesLate
-                                  * (vs.phaseIncrementStoredValue & 0xFFFFFFFFL))
-                              >> 24)
-                          * tsRatioNoMod)
-                      >> 24;
+              long rawSamplesLate;
+              if (syncTicks > 0 && noteLen > 0) {
+                // C voice.cpp:2077-2080, sample_playback_guide.cpp:88-108 — synced STRETCH late
+                // start derives the sample offset from the synced note fraction.
+                rawSamplesLate =
+                    ((long) vs.voiceSample.pendingSamplesLate * sources[s].syncDurationFrames
+                            + (noteLen >> 1))
+                        / noteLen;
+              } else {
+                // C voice.cpp:2083-2103 — normal late start ignores pitch modulation (uses
+                // phaseIncrementStoredValue) and computes timeStretchRatioWithoutModulation.
+                long tsRatioNoMod =
+                    getSpeedParamForNoSyncing(
+                            sound.sampleTimestretch[s],
+                            sound.sampleTimeStretchAmount[s],
+                            pitchAdjustNeutralValue,
+                            vs.phaseIncrementStoredValue)
+                        & 0xFFFFFFFFL;
+                rawSamplesLate =
+                    ((((long) vs.voiceSample.pendingSamplesLate
+                                    * (vs.phaseIncrementStoredValue & 0xFFFFFFFFL))
+                                >> 24)
+                            * tsRatioNoMod)
+                        >> 24;
+              }
               boolean success = vs.voiceSample.attemptLateSampleStart((int) rawSamplesLate);
               if (!success) {
                 vs.active = false;
@@ -1681,20 +1705,9 @@ public class Voice {
               vs.tsBuf = new int[requiredTsLen];
             }
             int[] tsBuf = vs.tsBuf;
-            if (vs.voiceSample.timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]
-                || vs.voiceSample
-                    .timeStretcher
-                    .playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]) {
-              // C voice_unison_part_source.cpp:203-207 — pitchAndSpeedAreIndependent counteracts
-              // modulated pInc each block so playback duration stays independent of note pitch.
-              vs.timeStretchRatio =
-                  syncTimeStretchRatio >= 0
-                      ? syncTimeStretchRatio
-                      : getSpeedParamForNoSyncing(
-                          sound.sampleTimestretch[s],
-                          sound.sampleTimeStretchAmount[s],
-                          pitchAdjustNeutralValue,
-                          pInc);
+            // C voice_sample.cpp:529-591 — dynamically enter or exit TimeStretcher per block.
+            vs.voiceSample.updateTimeStretchingForBlock(vs.timeStretchRatio);
+            if (vs.voiceSample.isTimeStretching()) {
               java.util.Arrays.fill(tsBuf, 0, requiredTsLen, 0);
               int[] ampArr = {sampAmp};
               vs.voiceSample.renderTimeStretched(

@@ -1582,6 +1582,7 @@ public class Sound extends GlobalEffectable {
     Sample targetSample = null;
     int startFrame = sampleStartPoint[s];
     int len = 0;
+    int rawEndPos = sampleEndPoint[s];
     int endFrame = sampleEndPoint[s];
     // C voice_sample_playback_guide.cpp:100 — only LOOP loops.
     boolean looping = sampleLoopMode[s] == REPEAT_LOOP;
@@ -1607,8 +1608,13 @@ public class Sound extends GlobalEffectable {
         targetSample = matchedZone.sample;
         len = (int) targetSample.lengthInSamples;
         startFrame = matchedZone.startSamplePos;
-        endFrame = matchedZone.endSamplePos == -1 ? len : Math.min(matchedZone.endSamplePos, len);
-        looping = matchedZone.looping;
+        // C sample_holder.cpp:78-89 — getEndPos(true) is unclamped for STRETCH duration;
+        // getEndPos(false) is clamped to lengthInSamples for playback bounds.
+        rawEndPos = matchedZone.endSamplePos == -1 ? len : matchedZone.endSamplePos;
+        endFrame = Math.min(rawEndPos, len);
+        // C voice_sample_playback_guide.cpp:96-101 — Source.repeatMode == LOOP applies across all
+        // zones on the source.
+        looping = (sampleLoopMode[s] == REPEAT_LOOP) || matchedZone.looping;
         loopStartFrame = matchedZone.startLoopPos;
         loopEndPos = matchedZone.endLoopPos > 0 ? Math.min(matchedZone.endLoopPos, len) : 0;
         zoneTranspose = matchedZone.transpose;
@@ -1620,7 +1626,8 @@ public class Sound extends GlobalEffectable {
       targetSample = samples[s];
       if (targetSample != null) {
         len = (int) targetSample.lengthInSamples;
-        endFrame = sampleEndPoint[s] == 65535 ? len : Math.min(sampleEndPoint[s], len);
+        rawEndPos = sampleEndPoint[s] == 65535 ? len : sampleEndPoint[s];
+        endFrame = Math.min(rawEndPos, len);
         loopEndPos = sampleLoopEnd[s] > 0 ? Math.min(sampleLoopEnd[s], len) : 0;
       }
     }
@@ -1629,14 +1636,23 @@ public class Sound extends GlobalEffectable {
       // Carry the matched multisample zone's transpose (authoritative tuning) onto the source;
       // INT_MIN = single sample / no zone -> pitch falls back to the WAV-root-derived transpose.
       targetVoice.sources[s].zoneTranspose = zoneTranspose;
-      // C voice.cpp:245-254 — a STRETCH source syncs to the note's length in ticks.
-      targetVoice.sources[s].syncDurationFrames = Math.max(0, endFrame - startFrame);
-      targetVoice.sources[s].sequenceSyncLengthTicks =
-          sampleLoopMode[s] == REPEAT_STRETCH ? pendingSampleSyncLength : 0;
+      // C voice.cpp:245-254, sample_holder.cpp:78-89 — STRETCH syncs to unclamped endPos - startPos
+      // so trailing silence past lengthInSamples still counts toward the synced loop duration.
+      int syncTicks = sampleLoopMode[s] == REPEAT_STRETCH ? pendingSampleSyncLength : 0;
+      targetVoice.sources[s].syncDurationFrames = Math.max(0, rawEndPos - startFrame);
+      targetVoice.sources[s].sequenceSyncLengthTicks = syncTicks;
       targetVoice.sources[s].zoneCents = zoneCents;
       // C SampleControls.interpolationMode — per-source lo-fi linear interpolation across every
       // unison part.
       targetVoice.sources[s].setLinearInterpolation(sourceLinearInterpolation[s]);
+
+      // C voice_sample_playback_guide.cpp:35-51, 96-101 — loop points and LOOP repeat mode are
+      // ignored when sequenceSyncLengthTicks != 0 (STRETCH mode).
+      if (syncTicks != 0) {
+        looping = false;
+        loopStartFrame = 0;
+        loopEndPos = 0;
+      }
 
       // C sample_playback_guide.cpp:71-81, voice_sample_playback_guide.cpp:36-68 — convert
       // file-coordinate start/end and loop points into directional playback bounds.
@@ -1659,33 +1675,19 @@ public class Sound extends GlobalEffectable {
       int dirLoopStart = hasLoopStart ? loopStartPlaybackAtSample : dirStart;
       int dirLoopEnd = hasLoopEnd ? loopEndPlaybackAtSample : dirEnd;
 
-      // C voice_sample.cpp:528-530 — the voice time-stretches whenever the speed param
-      // (getSpeedParamForNoSyncing) differs from kMaxSampleValue; a nonzero timeStretchAmount
-      // always does (timeStretchAdjustTable[48] is the only unity entry).
-      boolean ts = sampleTimestretch[s] || sampleTimeStretchAmount[s] != 0;
-      if (ts) {
-        targetVoice.sources[s].setupSampleTimeStretch(
-            targetSample,
-            dirStart,
-            dirEnd,
-            playDir,
-            looping,
-            dirLoopStart,
-            hasLoopEnd,
-            dirLoopEnd,
-            16777216);
-      } else {
-        targetVoice.sources[s].setupSample(
-            targetSample,
-            dirStart,
-            dirEnd,
-            playDir,
-            looping,
-            dirLoopStart,
-            hasLoopEnd,
-            dirLoopEnd,
-            samplesLate);
-      }
+      // C voice.cpp:226-256, voice_sample.cpp:52 — VoiceSample::noteOn always initializes with
+      // timeStretcher = nullptr (honouring samplesLate when > 0); Voice::renderBasicSource then
+      // engages TimeStretcher dynamically per block whenever timeStretchRatio != kMaxSampleValue.
+      targetVoice.sources[s].setupSample(
+          targetSample,
+          dirStart,
+          dirEnd,
+          playDir,
+          looping,
+          dirLoopStart,
+          hasLoopEnd,
+          dirLoopEnd,
+          samplesLate);
     } else {
       targetVoice.sources[s].clearSample();
     }
