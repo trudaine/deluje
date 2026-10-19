@@ -108,13 +108,18 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   private int songFilterRoute = 0; // 0 = HIGH_TO_LOW, 1 = LOW_TO_HIGH, 2 = PARALLEL
   private float songParamEqBass = 0.0f;
   private float songParamEqTreble = 0.0f;
-  private float songParamEqBassFrequency = 0.0f;
-  private float songParamEqTrebleFrequency = 0.0f;
+  // C mod_controllable_audio.cpp:110-111 — UNPATCHED_BASS_FREQ / UNPATCHED_TREBLE_FREQ init to 0
+  // (0x00000000, unipolar 0.5f).
+  private float songParamEqBassFrequency = 0.5f;
+  private float songParamEqTrebleFrequency = 0.5f;
   private final Map<String, List<org.deluge.modulation.automation.ParamNode>>
       songParamAutomationCurves = new java.util.LinkedHashMap<>();
   private final Map<String, String> rawSongParamHex = new java.util.LinkedHashMap<>();
   private String modFXCurrentParam = "offset";
   private String currentFilterType = "lpf";
+  // C global_effectable.cpp:47, mod_controllable_audio.cpp:69 — song-level modFXType & clipping.
+  private String songModFXType = "none";
+  private int songClippingAmount = 0;
 
   // ── Scale info ──
   private int userScale = 0;
@@ -2088,6 +2093,22 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
 
   public void setCurrentFilterType(String v) {
     this.currentFilterType = v;
+  }
+
+  public String getSongModFXType() {
+    return songModFXType;
+  }
+
+  public void setSongModFXType(String v) {
+    this.songModFXType = (v == null || v.isBlank()) ? "none" : v;
+  }
+
+  public int getSongClippingAmount() {
+    return songClippingAmount;
+  }
+
+  public void setSongClippingAmount(int v) {
+    this.songClippingAmount = Math.max(0, v);
   }
 
   // ── Scales getters/setters ──

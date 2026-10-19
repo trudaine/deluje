@@ -99,14 +99,18 @@ public class ProjectSerializer {
     writer.writeAttribute("drumsEdgeSize", model.getDrumsEdgeSize(), false);
     writer.writeAttribute("anyOfMelodicKitPercussion", model.getAnyOfMelodicKitPercussion(), false);
     writer.writeAttribute("numClips", model.getNumClips(), false);
-    // C song.cpp:1222 -> global_effectable.cpp:791-793 & mod_controllable_audio.cpp:408-411 —
-    // song-level GlobalEffectable state & filter modes/route.
+    // C song.cpp:1222 -> global_effectable.cpp:791-795 & mod_controllable_audio.cpp:406-415 —
+    // song-level GlobalEffectable state, modFXType, filter modes/route, and clippingAmount.
     writer.writeAttribute("modFXCurrentParam", model.getModFXCurrentParam(), false);
     writer.writeAttribute("currentFilterType", model.getCurrentFilterType(), false);
+    writer.writeAttribute("modFXType", modFxTypeToFirmwareString(model.getSongModFXType()), false);
     writer.writeAttribute("lpfMode", lpfModeToFirmwareString(model.getSongLpfMode()), false);
     writer.writeAttribute("hpfMode", hpfModeToFirmwareString(model.getSongHpfMode()), false);
     writer.writeAttribute(
         "filterRoute", filterRouteToFirmwareString(model.getSongFilterRoute()), false);
+    if (model.getSongClippingAmount() != 0) {
+      writer.writeAttribute("clippingAmount", model.getSongClippingAmount(), false);
+    }
     writer.writeOpeningTagEnd();
 
     // ── modeNotes (scale degrees) ──
@@ -2623,6 +2627,23 @@ public class ProjectSerializer {
       case 1 -> "L2H";
       case 2 -> "PARA";
       default -> "H2L";
+    };
+  }
+
+  private static String modFxTypeToFirmwareString(String modFxType) {
+    // C functions.cpp:878-901 (fxTypeToString).
+    if (modFxType == null || modFxType.isBlank()) {
+      return "none";
+    }
+    return switch (modFxType.trim().toLowerCase(java.util.Locale.ROOT)) {
+      case "flanger" -> "flanger";
+      case "tapewarble", "warble" -> "TapeWarble";
+      case "dimension" -> "dimension";
+      case "chorus" -> "chorus";
+      case "stereochorus", "chorus_stereo" -> "StereoChorus";
+      case "grainfx", "grain" -> "grainFX";
+      case "phaser" -> "phaser";
+      default -> "none";
     };
   }
 }

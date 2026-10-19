@@ -93,10 +93,11 @@ public class FirmwareAudioEngine {
       new org.deluge.firmware2.FilterSet();
   public final org.deluge.firmware2.Stutterer masterStutterer =
       new org.deluge.firmware2.Stutterer();
-  private final int[] flatFilterBuffer = new int[256];
+  private int[] flatFilterBuffer = new int[256];
 
   public org.deluge.firmware2.ModFx.ModFXType masterModFxType =
       org.deluge.firmware2.ModFx.ModFXType.NONE;
+  public String masterModFxCurrentParam = "offset";
   public int masterModFxRate = 0;
   public int masterModFxDepth = 0;
   public int masterModFxOffset = 0;
@@ -115,6 +116,9 @@ public class FirmwareAudioEngine {
   public int masterHpfRes = 0;
   public int masterHpfMorph = 0;
   public int songReverbAmount = 0x20000000;
+  public int songPan = 0;
+  public int songClippingAmount = 0;
+  private int masterFilterGain = MASTER_VOLUME_NEUTRAL;
 
   public final Delay masterDelay = new Delay();
   public final Reverb.Container masterReverb = new Reverb.Container();
@@ -312,6 +316,10 @@ public class FirmwareAudioEngine {
     this.songVolume = (int) (bipolar * 2147483647.0f);
 
     // Sync Song-level Master FX params (analogous to C++ Song / AudioEngine::renderSongFX)
+    this.masterModFxType = toFw2ModFxType(project.getSongModFXType());
+    this.masterModFxCurrentParam = project.getModFXCurrentParam();
+    this.songClippingAmount = project.getSongClippingAmount();
+    this.songPan = (int) (project.getSongParamPan() * 2147483647.0f);
     this.masterModFxRate = unipolarToQ31Param(project.getSongParamModFXRate());
     this.masterModFxDepth = unipolarToQ31Param(project.getSongParamModFXDepth());
     this.masterModFxOffset = unipolarToQ31Param(project.getSongParamModFXOffset());
@@ -319,10 +327,10 @@ public class FirmwareAudioEngine {
 
     this.masterEqBass = (int) (project.getSongParamEqBass() * 2147483647.0f);
     this.masterEqTreble = (int) (project.getSongParamEqTreble() * 2147483647.0f);
-    this.masterEqBassFreq =
-        (int) (project.getSongParamEqBassFrequency() / 20000.0f * 2147483647.0f);
-    this.masterEqTrebleFreq =
-        (int) (project.getSongParamEqTrebleFrequency() / 20000.0f * 2147483647.0f);
+    // C mod_controllable_audio.cpp:110-111, 182, 186 — bassFrequency / trebleFrequency are unipolar
+    // Q31 knobs (0.5f == 0x00000000 default), NOT Hz on 20..20000.
+    this.masterEqBassFreq = unipolarToQ31Param(project.getSongParamEqBassFrequency());
+    this.masterEqTrebleFreq = unipolarToQ31Param(project.getSongParamEqTrebleFrequency());
 
     // SRR and bitcrush are OFF at the q31 MINIMUM (0x80000000), not at zero — and their enable
     // predicates key on exactly that (SrrBitcrush.isSRREnabled: `!= 0x80000000`;
@@ -416,17 +424,20 @@ public class FirmwareAudioEngine {
         doLPF ? songLpfMode : org.deluge.firmware2.FilterSet.FilterMode.OFF;
     org.deluge.firmware2.FilterSet.FilterMode hpfModeVal =
         doHPF ? songHpfMode : org.deluge.firmware2.FilterSet.FilterMode.OFF;
-    this.masterFilterSet.setConfig(
-        this.masterLpfFreq,
-        this.masterLpfRes,
-        lpfModeVal,
-        this.masterLpfMorph,
-        this.masterHpfFreq,
-        this.masterHpfRes,
-        hpfModeVal,
-        this.masterHpfMorph,
-        2147483647,
-        toFw2FilterRoute(songFilterRoute));
+    // C audio_engine.cpp:1082-1087, global_effectable.cpp:782-784 — pass MASTER_VOLUME_NEUTRAL
+    // (167763968) and keep the filter's resonance/drive-compensated gain.
+    this.masterFilterGain =
+        this.masterFilterSet.setConfig(
+            this.masterLpfFreq,
+            this.masterLpfRes,
+            lpfModeVal,
+            this.masterLpfMorph,
+            this.masterHpfFreq,
+            this.masterHpfRes,
+            hpfModeVal,
+            this.masterHpfMorph,
+            MASTER_VOLUME_NEUTRAL,
+            toFw2FilterRoute(songFilterRoute));
   }
 
   /**
@@ -444,6 +455,38 @@ public class FirmwareAudioEngine {
     double exponent = Math.log(hz / 20.0) / Math.log(1000.0);
     double norm = exponent * 2.0 - 1.0;
     return (int) Math.round(Math.max(-1.0, Math.min(1.0, norm)) * (double) Integer.MAX_VALUE);
+  }
+
+  /** C functions.cpp:903-928 (stringToFXType) + Java enum aliases. */
+  public static org.deluge.firmware2.ModFx.ModFXType toFw2ModFxType(String s) {
+    if (s == null || s.isBlank()) {
+      return org.deluge.firmware2.ModFx.ModFXType.NONE;
+    }
+    return switch (s.trim().toLowerCase(java.util.Locale.ROOT)) {
+      case "flanger" -> org.deluge.firmware2.ModFx.ModFXType.FLANGER;
+      case "tapewarble", "warble" -> org.deluge.firmware2.ModFx.ModFXType.WARBLE;
+      case "dimension" -> org.deluge.firmware2.ModFx.ModFXType.DIMENSION;
+      case "chorus" -> org.deluge.firmware2.ModFx.ModFXType.CHORUS;
+      case "stereochorus", "chorus_stereo" -> org.deluge.firmware2.ModFx.ModFXType.CHORUS_STEREO;
+      case "grainfx", "grain" -> org.deluge.firmware2.ModFx.ModFXType.GRAIN;
+      case "phaser" -> org.deluge.firmware2.ModFx.ModFXType.PHASER;
+      default -> org.deluge.firmware2.ModFx.ModFXType.NONE;
+    };
+  }
+
+  /** C global_effectable.cpp:1107-1120 (GlobalEffectable::getActiveModFXType). */
+  public org.deluge.firmware2.ModFx.ModFXType getActiveModFXType() {
+    org.deluge.firmware2.ModFx.ModFXType modFXTypeNow = masterModFxType;
+    String param =
+        masterModFxCurrentParam != null
+            ? masterModFxCurrentParam.trim().toLowerCase(java.util.Locale.ROOT)
+            : "";
+    if (("depth".equals(param) && masterModFxDepth == Integer.MIN_VALUE)
+        || ("feedback".equals(param) && masterModFxFeedback == Integer.MIN_VALUE)
+        || ("offset".equals(param) && masterModFxOffset == Integer.MIN_VALUE)) {
+      modFXTypeNow = org.deluge.firmware2.ModFx.ModFXType.NONE;
+    }
+    return modFXTypeNow;
   }
 
   private static org.deluge.firmware2.FilterSet.FilterMode toFw2SongLpfMode(
@@ -483,17 +526,13 @@ public class FirmwareAudioEngine {
   }
 
   /**
-   * A unipolar 0..1 model value to the firmware's full-range q31 unpatched param, where the MINIMUM
-   * (0x80000000) is "off" and zero is the midpoint. Several sibling conversions in
-   * syncMasterEffects still use the `v * 2147483647` form, which only spans 0..max and therefore
-   * cannot express "off"; they are left alone here because SRR/bitcrush are the two whose enable
-   * predicates test for the minimum directly, so those are the two with demonstrated breakage.
+   * Maps a unipolar 0..1 model value across the firmware's full-range signed Q31 unpatched param
+   * span, where the minimum ({@code 0x80000000}) is "off" and zero ({@code 0x00000000}) is the
+   * midpoint.
    */
-  private static int unipolarToQ31Param(float v) {
+  public static int unipolarToQ31Param(float v) {
     // eqBass/eqTreble and pan are read BIPOLAR (SongXmlParser passes unipolar=false), so their
-    // `v * 2147483647` conversions are correct and are deliberately left alone. songVolume already
-    // does this same full-range mapping by hand. The Hz-domain conversions (lpf/hpf/eq frequency)
-    // and songReverbAmount use their own scaling and are untouched.
+    // `v * 2147483647` conversions are correct and are deliberately left alone.
     double d = Math.max(0.0f, Math.min(1.0f, v)) * 4294967295.0 - 2147483648.0;
     return (int) Math.max(-2147483648.0, Math.min(2147483647.0, d));
   }
@@ -621,20 +660,33 @@ public class FirmwareAudioEngine {
     masterDelay.setupWorkingState(delayState, 1 << 20, true);
     masterDelay.process(fxBuffer, numSamples, delayState);
 
-    // ── Song-level FilterSet and SRR/Bitcrush (post-reverb/delay; C audio_engine.cpp:825-842) ──
-    renderSongPostReverbFX(numSamples);
+    // ── Song-level FilterSet and SRR/Bitcrush (post-reverb/delay; C audio_engine.cpp:1082-1095) ──
+    int postFXVol = renderSongPostReverbFX(numSamples);
 
     // Metronome click — added dry, before the master compressor (C: audio_engine.cpp:626).
     if (metronomeEnabled) {
       metronome.render(fxBuffer, numSamples, org.deluge.firmware2.Functions.ONE_Q31);
     }
 
-    // ── Master output stage — faithful port of audio_engine.cpp:891-901. ──
+    // ── Master output stage — faithful port of audio_engine.cpp:1098-1121. ──
     // The compressor applies the master volume (masterVolumeAdjustment >> 1), the RMS compression,
     // AND the output saturation (rms_feedback.cpp:106 getTanHAntialiased). songVolume sets the
     // compressor's makeup/threshold. The C has NO separate engine tanh here — the previous
     // renderVolNeutral(2^31) + getTanHUnknown was invented (compressor never engaged, then hard
     // tanh walled dense content). songMasterVolume = 0 (neutral UNPATCHED_VOLUME).
+    int volAdjustL = postFXVol;
+    int volAdjustR = postFXVol;
+    int pan = this.songPan >> 1; // C audio_engine.cpp:1098
+    if (pan != 0) {
+      int[] panAmps = new int[2];
+      if (org.deluge.firmware2.Functions.shouldDoPanning(pan, panAmps)) {
+        volAdjustL =
+            org.deluge.firmware2.Functions.multiply_32x32_rshift32(volAdjustL, panAmps[0]) << 2;
+        volAdjustR =
+            org.deluge.firmware2.Functions.multiply_32x32_rshift32(volAdjustR, panAmps[1]) << 2;
+      }
+    }
+
     int songVolume =
         org.deluge.firmware2.Functions.getFinalParameterValueVolume(
                 134217728,
@@ -653,11 +705,7 @@ public class FirmwareAudioEngine {
     }
 
     masterCompressor.render(
-        fxBuffer,
-        numSamples,
-        MASTER_VOLUME_NEUTRAL >> 1,
-        MASTER_VOLUME_NEUTRAL >> 1,
-        songVolume >> 3);
+        fxBuffer, numSamples, volAdjustL >> 1, volAdjustR >> 1, songVolume >> 3);
 
     if (debugTelemetry) {
       int maxAfterL = 0;
@@ -735,24 +783,51 @@ public class FirmwareAudioEngine {
   }
 
   /**
-   * C song.cpp:2397 — Song-level ModFX and EQ processed post-summation on the master buffer,
-   * pre-reverb.
+   * C song.cpp:2548, global_effectable.cpp:1145-1181, mod_controllable_audio.cpp:166-192 —
+   * Song-level ModFX and EQ processed post-summation on the master buffer, pre-reverb.
    */
   private void renderSongPreReverbFX(int numSamples) {
-    if (masterModFxType != org.deluge.firmware2.ModFx.ModFXType.NONE
-        && masterModFxType != org.deluge.firmware2.ModFx.ModFXType.GRAIN) {
-      int[] dummyVol = {134217728};
+    org.deluge.firmware2.ModFx.ModFXType activeModFx = getActiveModFXType();
+    if (activeModFx != org.deluge.firmware2.ModFx.ModFXType.NONE
+        && activeModFx != org.deluge.firmware2.ModFx.ModFXType.GRAIN) {
+      int modFXRate =
+          org.deluge.firmware2.Functions.getFinalParameterValueExp(
+              org.deluge.firmware2.Functions.getParamNeutralValue(
+                  org.deluge.firmware2.Param.GLOBAL_MOD_FX_RATE),
+              org.deluge.firmware2.Functions.cableToExpParamShortcut(masterModFxRate));
+      int modFXDepth =
+          org.deluge.firmware2.Functions.getFinalParameterValueVolume(
+              org.deluge.firmware2.Functions.getParamNeutralValue(
+                  org.deluge.firmware2.Param.GLOBAL_MOD_FX_DEPTH),
+              org.deluge.firmware2.Functions.cableToLinearParamShortcut(masterModFxDepth));
+      int[] postFXVol = {134217728};
       masterModFx.processModFX(
           fxBuffer,
           numSamples,
-          masterModFxType,
-          masterModFxRate,
-          masterModFxDepth,
-          dummyVol,
+          activeModFx,
+          modFXRate,
+          modFXDepth,
+          postFXVol,
           masterModFxOffset,
           masterModFxFeedback,
           true,
           true);
+      if (postFXVol[0] != 134217728) {
+        // C ModFXProcessor.cpp:105-141, mod_controllable_audio.cpp:222,258-259 — Chorus / Flanger
+        // / Warble / Phaser adjust postFXVolume for feedback/wet headroom; apply that gain here.
+        for (int i = 0; i < numSamples; i++) {
+          fxBuffer[i][0] =
+              org.deluge.firmware2.Functions.lshiftAndSaturate(
+                  org.deluge.firmware2.Functions.multiply_32x32_rshift32(
+                      fxBuffer[i][0], postFXVol[0]),
+                  5);
+          fxBuffer[i][1] =
+              org.deluge.firmware2.Functions.lshiftAndSaturate(
+                  org.deluge.firmware2.Functions.multiply_32x32_rshift32(
+                      fxBuffer[i][1], postFXVol[0]),
+                  5);
+        }
+      }
     }
     if (masterEqBass != 0 || masterEqTreble != 0) {
       masterEq.process(
@@ -761,11 +836,16 @@ public class FirmwareAudioEngine {
   }
 
   /**
-   * C audio_engine.cpp:825-842 — Song-level FilterSet (LPF/HPF) and SRR/Bitcrush processed after
-   * reverb/delay.
+   * C audio_engine.cpp:1082-1095 — Song-level FilterSet (LPF/HPF) and SRR/Bitcrush processed after
+   * reverb/delay. Returns the updated {@code masterVolumeAdjustment} post-FX gain.
    */
-  private void renderSongPostReverbFX(int numSamples) {
+  private int renderSongPostReverbFX(int numSamples) {
+    int postFXVol = masterFilterSet.isOn() ? masterFilterGain : MASTER_VOLUME_NEUTRAL;
     if (masterFilterSet.isOn()) {
+      int requiredLen = numSamples * 2;
+      if (flatFilterBuffer.length < requiredLen) {
+        flatFilterBuffer = new int[requiredLen];
+      }
       for (int i = 0; i < numSamples; i++) {
         flatFilterBuffer[i * 2] = fxBuffer[i][0];
         flatFilterBuffer[i * 2 + 1] = fxBuffer[i][1];
@@ -778,8 +858,10 @@ public class FirmwareAudioEngine {
     }
     if (org.deluge.firmware2.SrrBitcrush.isSRREnabled(masterSrr)
         || org.deluge.firmware2.SrrBitcrush.isBitcrushingEnabled(masterBitcrush)) {
-      int[] dummyVol = {134217728};
-      masterSrrBitcrush.process(fxBuffer, numSamples, masterBitcrush, masterSrr, dummyVol);
+      int[] volRef = {postFXVol};
+      masterSrrBitcrush.process(fxBuffer, numSamples, masterBitcrush, masterSrr, volRef);
+      postFXVol = volRef[0];
     }
+    return postFXVol;
   }
 }

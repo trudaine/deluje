@@ -616,8 +616,10 @@ public final class BridgeContract {
   private float spHpfResonance = 0.0f;
   private float spEqBass = 0.0f;
   private float spEqTreble = 0.0f;
-  private float spEqBassFrequency = 0.0f;
-  private float spEqTrebleFrequency = 0.0f;
+  // C mod_controllable_audio.cpp:110-111 — UNPATCHED_BASS_FREQ / UNPATCHED_TREBLE_FREQ init to 0
+  // (0x00000000, unipolar 0.5f).
+  private float spEqBassFrequency = 0.5f;
+  private float spEqTrebleFrequency = 0.5f;
   // ── Scales scalars ──
   private int userScale = 0;
   private int disabledPresetScales = 0;

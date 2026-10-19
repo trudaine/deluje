@@ -264,42 +264,54 @@ public class PureFirmwareEngine {
     // Sync song-level master performance macros (G_SP_*) to the master bus (analogous to C++ Song /
     // AudioEngine::renderSongFX).
     // Instead of clobbering per-track paramNeutralValues, we apply global song macros
-    // post-summation on the master buffer.
-    audioEngine.masterModFxRate =
-        (int) (bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE) * 2147483647.0f);
-    audioEngine.masterModFxDepth =
-        (int) (bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH) * 2147483647.0f);
-    audioEngine.masterModFxOffset =
-        (int) (bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET) * 2147483647.0f);
-    audioEngine.masterModFxFeedback =
-        (int) (bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_FEEDBACK) * 2147483647.0f);
+    // post-summation on the master buffer. Unipolar 0..1 params map across the full signed Q31
+    // span via unipolarToQ31Param so 0.0 -> 0x80000000 ("off") and 0.5 -> 0 ("neutral").
+    audioEngine.masterModFxType =
+        FirmwareAudioEngine.toFw2ModFxType(project != null ? project.getSongModFXType() : "none");
+    audioEngine.masterModFxCurrentParam =
+        project != null ? project.getModFXCurrentParam() : "offset";
+    audioEngine.songClippingAmount = project != null ? project.getSongClippingAmount() : 0;
 
+    audioEngine.masterModFxRate =
+        FirmwareAudioEngine.unipolarToQ31Param(
+            (float) bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE));
+    audioEngine.masterModFxDepth =
+        FirmwareAudioEngine.unipolarToQ31Param(
+            (float) bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_DEPTH));
+    audioEngine.masterModFxOffset =
+        FirmwareAudioEngine.unipolarToQ31Param(
+            (float) bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_OFFSET));
+    audioEngine.masterModFxFeedback =
+        FirmwareAudioEngine.unipolarToQ31Param(
+            (float) bridge.getGlobalFloat(BridgeContract.G_SP_MOD_FX_FEEDBACK));
+
+    // eqBass, eqTreble, and pan are bipolar (-1..1).
     audioEngine.masterEqBass =
         (int) (bridge.getGlobalFloat(BridgeContract.G_SP_EQ_BASS) * 2147483647.0f);
     audioEngine.masterEqTreble =
         (int) (bridge.getGlobalFloat(BridgeContract.G_SP_EQ_TREBLE) * 2147483647.0f);
     audioEngine.masterEqBassFreq =
-        (int)
-            ((float) bridge.getGlobalFloat(BridgeContract.G_SP_EQ_BASS_FREQ)
-                / 20000.0f
-                * 2147483647.0f);
+        FirmwareAudioEngine.unipolarToQ31Param(
+            (float) bridge.getGlobalFloat(BridgeContract.G_SP_EQ_BASS_FREQ));
     audioEngine.masterEqTrebleFreq =
-        (int)
-            ((float) bridge.getGlobalFloat(BridgeContract.G_SP_EQ_TREBLE_FREQ)
-                / 20000.0f
-                * 2147483647.0f);
+        FirmwareAudioEngine.unipolarToQ31Param(
+            (float) bridge.getGlobalFloat(BridgeContract.G_SP_EQ_TREBLE_FREQ));
 
     audioEngine.masterSrr =
-        (int) (bridge.getGlobalFloat(BridgeContract.G_SP_SAMPLE_RATE_REDUCTION) * 2147483647.0f);
+        FirmwareAudioEngine.unipolarToQ31Param(
+            (float) bridge.getGlobalFloat(BridgeContract.G_SP_SAMPLE_RATE_REDUCTION));
     audioEngine.masterBitcrush =
-        (int) (bridge.getGlobalFloat(BridgeContract.G_SP_BITCRUSH) * 2147483647.0f);
+        FirmwareAudioEngine.unipolarToQ31Param(
+            (float) bridge.getGlobalFloat(BridgeContract.G_SP_BITCRUSH));
     audioEngine.masterStutterRate =
-        (int) (bridge.getGlobalFloat(BridgeContract.G_SP_STUTTER_RATE) * 2147483647.0f);
+        FirmwareAudioEngine.unipolarToQ31Param(
+            (float) bridge.getGlobalFloat(BridgeContract.G_SP_STUTTER_RATE));
     audioEngine.songReverbAmount =
         (int)
             ((float) bridge.getGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT)
                 * 2.0f
                 * 536870912.0f);
+    audioEngine.songPan = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_PAN) * 2147483647.0f);
 
     float bipolarVol = (spVol * 2.0f) - 1.0f;
     audioEngine.songVolume = (int) (bipolarVol * 2147483647.0f);
