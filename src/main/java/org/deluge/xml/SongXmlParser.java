@@ -348,26 +348,12 @@ public class SongXmlParser {
           }
 
           NodeList noteRowsList = trackElem.getElementsByTagName("noteRows");
-          int rowCount = 0;
           NodeList noteRowList = null;
           if (noteRowsList.getLength() > 0) {
             Element noteRowsElem = (Element) noteRowsList.item(0);
             noteRowList = noteRowsElem.getElementsByTagName("noteRow");
-            rowCount = noteRowList.getLength();
-            for (int r = 0; r < noteRowList.getLength(); r++) {
-              int resolvedDi = resolveXmlDrumIndex((Element) noteRowList.item(r), targetTrack);
-              if (resolvedDi >= 0 && resolvedDi + 1 > rowCount) {
-                rowCount = resolvedDi + 1;
-              }
-            }
           }
-          if (rowCount == 0) {
-            if (targetTrack instanceof KitTrackModel kit) {
-              rowCount = Math.max(1, kit.getDrums().size());
-            } else {
-              rowCount = 8;
-            }
-          }
+          int rowCount = computeClipRowCount(noteRowList, targetTrack);
 
           boolean tripletMode =
               "1".equals(trackElem.getAttribute("triplet"))
@@ -391,14 +377,25 @@ public class SongXmlParser {
           clip.setPlayDirection(readPlayDirectionAttr(trackElem));
 
           if (noteRowList != null) {
+            java.util.BitSet claimedDrumIndices = new java.util.BitSet();
             for (int r = 0; r < noteRowList.getLength(); r++) {
               Element noteRowElem = (Element) noteRowList.item(r);
               String hexData = null;
               int rowIdx = r;
-              int resolvedDrumIdx = resolveXmlDrumIndex(noteRowElem, targetTrack);
-              if (resolvedDrumIdx >= 0) {
+              String drumIdxStr = DelugeXmlUtil.attrOrDirectChildText(noteRowElem, "drumIndex");
+              if (drumIdxStr != null && !drumIdxStr.isBlank()) {
+                int resolvedDrumIdx = resolveXmlDrumIndex(noteRowElem, targetTrack);
+                // C instrument_clip.cpp:3939-3992, 4025-4027 — negative sentinels (-1 = no drum,
+                // -5..-2 = GateDrum) and duplicate NoteRows claiming an already-assigned Drum*
+                // leave thisNoteRow->drum = nullptr without clobbering real SoundDrum rows.
+                if (resolvedDrumIdx < 0 || claimedDrumIndices.get(resolvedDrumIdx)) {
+                  continue;
+                }
+                claimedDrumIndices.set(resolvedDrumIdx);
                 rowIdx = resolvedDrumIdx;
                 clip.getOrCreateRow(rowIdx).setPitch(rowIdx);
+              } else if (targetTrack instanceof KitTrackModel) {
+                claimedDrumIndices.set(rowIdx);
               }
 
               // Read the y attribute (MIDI note number for synth tracks)
@@ -496,6 +493,14 @@ public class SongXmlParser {
     java.util.List<Object> parsedArrangementClips = new java.util.ArrayList<>();
     java.util.Map<ClipModel, Element> clipSoundParamsMap = new java.util.IdentityHashMap<>();
     java.util.Map<ClipModel, Integer> clipReadUpToMap = new java.util.IdentityHashMap<>();
+    java.util.Map<SynthTrackModel, java.util.List<PatchCable>> baseSynthPatchCables =
+        new java.util.IdentityHashMap<>();
+    for (TrackModel t : project.getTracks()) {
+      if (t instanceof SynthTrackModel stm) {
+        baseSynthPatchCables.put(
+            stm, new java.util.ArrayList<>(stm.getModulation().getPatchCables()));
+      }
+    }
 
     NodeList sessionClipsNodes = songNode.getElementsByTagName("sessionClips");
     if (sessionClipsNodes.getLength() > 0) {
@@ -612,26 +617,12 @@ public class SongXmlParser {
           }
         }
 
-        int rowCount = 0;
         NodeList noteRowList = null;
         if (noteRowsList.getLength() > 0) {
           Element noteRowsElem = (Element) noteRowsList.item(0);
           noteRowList = noteRowsElem.getElementsByTagName("noteRow");
-          rowCount = noteRowList.getLength();
-          for (int r = 0; r < noteRowList.getLength(); r++) {
-            int resolvedDi = resolveXmlDrumIndex((Element) noteRowList.item(r), targetTrack);
-            if (resolvedDi >= 0 && resolvedDi + 1 > rowCount) {
-              rowCount = resolvedDi + 1;
-            }
-          }
         }
-        if (rowCount == 0) {
-          if (targetTrack instanceof KitTrackModel kit) {
-            rowCount = Math.max(1, kit.getDrums().size());
-          } else {
-            rowCount = 8;
-          }
-        }
+        int rowCount = computeClipRowCount(noteRowList, targetTrack);
 
         // Determine stepCount: use length attribute if present (1 step = 24/32 ticks of clip
         // time)
@@ -696,6 +687,7 @@ public class SongXmlParser {
         clip.setMidiPGM(DelugeXmlUtil.attrOrDirectChildInt(clipElem, "midiPGM", 128));
 
         if (noteRowList != null) {
+          java.util.BitSet claimedDrumIndices = new java.util.BitSet();
           for (int r = 0; r < noteRowList.getLength(); r++) {
             Element noteRowElem = (Element) noteRowList.item(r);
             String hexData;
@@ -704,9 +696,13 @@ public class SongXmlParser {
             String drumIdxStr = DelugeXmlUtil.attrOrDirectChildText(noteRowElem, "drumIndex");
             if (drumIdxStr != null && !drumIdxStr.isBlank()) {
               int resolvedDrumIdx = resolveXmlDrumIndex(noteRowElem, targetTrack);
-              if (resolvedDrumIdx >= 0) {
-                rowIdx = resolvedDrumIdx;
+              // C instrument_clip.cpp:3939-3992, 4025-4027 — skip negative sentinels (-1 = no drum,
+              // -5..-2 = GateDrum) and subsequent NoteRows claiming an already-assigned Drum*.
+              if (resolvedDrumIdx < 0 || claimedDrumIndices.get(resolvedDrumIdx)) {
+                continue;
               }
+              claimedDrumIndices.set(resolvedDrumIdx);
+              rowIdx = resolvedDrumIdx;
               clip.getOrCreateRow(rowIdx).setPitch(rowIdx);
               // C note_row.cpp:3263, 3554-3559 — a kit row's finger-level bend range.
               String br = DelugeXmlUtil.attrOrDirectChildText(noteRowElem, "bendRange");
@@ -716,6 +712,8 @@ public class SongXmlParser {
                 } catch (NumberFormatException ignored) {
                 }
               }
+            } else if (targetTrack instanceof KitTrackModel) {
+              claimedDrumIndices.set(rowIdx);
             }
             int notePitch = -1;
             if (noteRowElem.hasAttribute("y")) {
@@ -985,17 +983,7 @@ public class SongXmlParser {
         if (targetTrack != null) {
           // Parse basic details: rowCount, stepCount
           NodeList noteRowList = clipElem.getElementsByTagName("noteRow");
-          int rowCount = noteRowList.getLength();
-          for (int r = 0; r < noteRowList.getLength(); r++) {
-            int resolvedDi = resolveXmlDrumIndex((Element) noteRowList.item(r), targetTrack);
-            if (resolvedDi >= 0 && resolvedDi + 1 > rowCount) {
-              rowCount = resolvedDi + 1;
-            }
-          }
-          if (rowCount == 0) {
-            rowCount =
-                (targetTrack instanceof KitTrackModel kit) ? Math.max(1, kit.getDrums().size()) : 8;
-          }
+          int rowCount = computeClipRowCount(noteRowList, targetTrack);
           boolean tripletMode =
               "1".equals(clipElem.getAttribute("triplet"))
                   || "true".equalsIgnoreCase(clipElem.getAttribute("triplet"));
@@ -1055,6 +1043,7 @@ public class SongXmlParser {
                   : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
 
           // Parse note row cells
+          java.util.BitSet claimedDrumIndices = new java.util.BitSet();
           for (int r = 0; r < noteRowList.getLength(); r++) {
             Element nr = (Element) noteRowList.item(r);
             int rowIdx = r;
@@ -1062,9 +1051,13 @@ public class SongXmlParser {
             boolean isDrumRow = drumIdxStr != null && !drumIdxStr.isBlank();
             if (isDrumRow) {
               int resolvedDrumIdx = resolveXmlDrumIndex(nr, targetTrack);
-              if (resolvedDrumIdx >= 0) {
-                rowIdx = resolvedDrumIdx;
+              // C instrument_clip.cpp:3939-3992, 4025-4027 — skip negative sentinels (-1 = no drum,
+              // -5..-2 = GateDrum) and subsequent NoteRows claiming an already-assigned Drum*.
+              if (resolvedDrumIdx < 0 || claimedDrumIndices.get(resolvedDrumIdx)) {
+                continue;
               }
+              claimedDrumIndices.set(resolvedDrumIdx);
+              rowIdx = resolvedDrumIdx;
               clip.getOrCreateRow(rowIdx).setPitch(rowIdx);
               String br = DelugeXmlUtil.attrOrDirectChildText(nr, "bendRange");
               if (br != null && !br.isBlank()) {
@@ -1073,6 +1066,8 @@ public class SongXmlParser {
                 } catch (NumberFormatException ignored) {
                 }
               }
+            } else if (targetTrack instanceof KitTrackModel) {
+              claimedDrumIndices.set(rowIdx);
             }
             String noteStr = nr.getAttribute("note");
             if (noteStr == null || noteStr.isEmpty()) {
@@ -1283,7 +1278,12 @@ public class SongXmlParser {
 
     // ── Sort out active clips per Output (C song.cpp:4241-4243, 4280-4345; output.cpp:91-118) ──
     sortOutWhichClipsAreActive(
-        project, parsedSessionClips, clipOwnerMap, clipSoundParamsMap, clipReadUpToMap);
+        project,
+        parsedSessionClips,
+        clipOwnerMap,
+        clipSoundParamsMap,
+        clipReadUpToMap,
+        baseSynthPatchCables);
 
     return project;
   }
@@ -1293,7 +1293,8 @@ public class SongXmlParser {
       java.util.List<Object> parsedSessionClips,
       java.util.Map<Object, TrackModel> clipOwnerMap,
       java.util.Map<ClipModel, Element> clipSoundParamsMap,
-      java.util.Map<ClipModel, Integer> clipReadUpToMap) {
+      java.util.Map<ClipModel, Integer> clipReadUpToMap,
+      java.util.Map<SynthTrackModel, java.util.List<PatchCable>> baseSynthPatchCables) {
     // C song.cpp:4241-4243 — isClipActive: soloingInSessionMode || (activeIfNoSolo && !anySoloing).
     boolean anySoloing = false;
     for (Object obj : parsedSessionClips) {
@@ -1398,13 +1399,20 @@ public class SongXmlParser {
         continue;
       }
       if (track instanceof SynthTrackModel stm) {
+        InstrumentXmlParser.resetClipParamsToFirmwareDefaults(stm);
+        stm.getModulation().getPatchCables().clear();
+        java.util.List<PatchCable> baseCables = baseSynthPatchCables.get(stm);
+        if (baseCables != null) {
+          stm.getModulation().getPatchCables().addAll(baseCables);
+        }
         Element spEl = clipSoundParamsMap.get(activeClip);
         if (spEl != null) {
           int readUpTo = clipReadUpToMap.getOrDefault(activeClip, Integer.MAX_VALUE);
-          InstrumentXmlParser.resetClipParamsToFirmwareDefaults(stm);
           InstrumentXmlParser.parseClipSoundParamsStatics(spEl, stm, readUpTo);
         }
       } else if (track instanceof KitTrackModel ktm) {
+        ktm.setVolume(1.0f);
+        ktm.setPan(0.5f);
         Float vol = activeClip.getKitParams().get("volume");
         if (vol != null) ktm.setVolume(vol);
         Float pan = activeClip.getKitParams().get("pan");
@@ -1417,6 +1425,31 @@ public class SongXmlParser {
   // out-of-range non-negative drumIndex (including 65535 or INT32_MAX) wraps to firstDrum (0)
   // without overflowing rowCount + 1 or allocating huge grids.
   private static final int MAX_KIT_ROWS = 256;
+
+  private static int computeClipRowCount(NodeList noteRowList, TrackModel targetTrack) {
+    int rowCount = 0;
+    if (noteRowList != null) {
+      for (int r = 0; r < noteRowList.getLength(); r++) {
+        Element rowEl = (Element) noteRowList.item(r);
+        String drumIdxStr = DelugeXmlUtil.attrOrDirectChildText(rowEl, "drumIndex");
+        if (drumIdxStr != null && !drumIdxStr.isBlank()) {
+          int resolvedDi = resolveXmlDrumIndex(rowEl, targetTrack);
+          if (resolvedDi >= 0 && resolvedDi + 1 > rowCount) {
+            rowCount = resolvedDi + 1;
+          }
+        } else if (r + 1 > rowCount) {
+          rowCount = r + 1;
+        }
+      }
+    }
+    if (targetTrack instanceof KitTrackModel kit) {
+      rowCount = Math.max(rowCount, kit.getDrums().size());
+    }
+    if (rowCount == 0) {
+      rowCount = (targetTrack instanceof KitTrackModel) ? 1 : 8;
+    }
+    return rowCount;
+  }
 
   private static int resolveXmlDrumIndex(Element noteRowElem, TrackModel targetTrack) {
     String raw = DelugeXmlUtil.attrOrDirectChildText(noteRowElem, "drumIndex");

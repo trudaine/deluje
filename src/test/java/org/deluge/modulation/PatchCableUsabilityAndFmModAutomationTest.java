@@ -785,6 +785,7 @@ class PatchCableUsabilityAndFmModAutomationTest {
               <noteRows>
                 <noteRow drumIndex="65535" bendRange="4" noteDataWithLift="0x0000000000000018404014"/>
                 <noteRow drumIndex="2147483647" noteDataWithLift="0x0000001800000018404014"/>
+                <noteRow drumIndex="-1" muted="1" bendRange="9" noteDataWithLift="0x0000003000000018404014"/>
               </noteRows>
             </instrumentClip>
             <instrumentClip presetName="KIT1" instrumentPresetName="KIT1"
@@ -841,7 +842,20 @@ class PatchCableUsabilityAndFmModAutomationTest {
     assertFalse(kt.getClips().get(0).isActiveInSession());
     assertTrue(kt.getClips().get(1).isActiveInSession());
     assertEquals(
-        2, kt.getClips().get(0).getRowCount(), "65535/INT_MAX sentinels must not blow up rowCount");
+        2,
+        kt.getClips().get(0).getRowCount(),
+        "65535/INT_MAX/-1 sentinels must not blow up rowCount");
+    assertEquals(
+        1,
+        kt.getClips().get(0).getRawNoteEvents(0).size(),
+        "Duplicate drumIndex row must not merge extra notes into first NoteRow");
+    assertEquals(
+        0,
+        kt.getClips().get(0).getRawNoteEvents(0).get(0).getPos(),
+        "C instrument_clip.cpp:3982-3992 first NoteRow wins when multiple rows map to same Drum*");
+    assertFalse(
+        kt.getClips().get(0).getOrCreateRow(0).isMuted(),
+        "drumIndex=-1 sentinel must not clobber real drum 0 mute state");
 
     FirmwareKit kit = (FirmwareKit) kt.getActiveClip().getSound();
     assertFalse(

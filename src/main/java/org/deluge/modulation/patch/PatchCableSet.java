@@ -11,6 +11,10 @@ public class PatchCableSet {
     // Initialization would set up standard destinations based on param counts
   }
 
+  public synchronized void clear() {
+    destinations = new ArrayList<>();
+  }
+
   private static Destination copyDestination(Destination src) {
     Destination copy = new Destination(src.paramId);
     copy.targetSource = src.targetSource;

@@ -988,8 +988,7 @@ public class ClipModel extends TimelineCounter {
               || (type == ClipType.INSTRUMENT && sound instanceof org.deluge.engine.FirmwareKit);
       int pitch;
       if (isKit) {
-        NoteRowModel existing = noteRows.get(r);
-        pitch = (existing != null && existing.getPitch() >= 0) ? existing.getPitch() : r;
+        pitch = r;
       } else {
         pitch =
             getRowYNote(r) >= 0
@@ -997,7 +996,7 @@ public class ClipModel extends TimelineCounter {
                 : ((step.active() && step.pitch() > 0) ? step.pitch() : (rowCount - 1 - r));
       }
 
-      if (step.pitch() != pitch) {
+      if (!isKit && step.pitch() != pitch) {
         step = step.withPitch(pitch);
       }
 
@@ -1293,8 +1292,7 @@ public class ClipModel extends TimelineCounter {
 
       int pitch = -1;
       if (isKit) {
-        NoteRowModel existing = noteRows.get(r);
-        pitch = (existing != null && existing.getPitch() >= 0) ? existing.getPitch() : r;
+        pitch = r;
       } else if (getRowYNote(r) >= 0) {
         pitch = getRowYNote(r);
       } else {
@@ -1649,6 +1647,8 @@ public class ClipModel extends TimelineCounter {
                 sd.getPatchCables().addAll(activeRow.getPatchCables());
               }
               try {
+                drum.paramManager.automatedParams.clear();
+                drum.paramManager.getPatchCableSet().clear();
                 org.deluge.engine.FirmwareFactory.mapDrumToSound(sd, drum, r, null);
               } finally {
                 if (savedDrumCables != null) {
