@@ -3019,6 +3019,12 @@ public class SwingDelugeApp extends JFrame {
     if (statusTextPlaybackTimer != null) {
       statusTextPlaybackTimer.stop();
     }
+    if (sidebarPanel != null) {
+      sidebarPanel.dispose();
+    }
+    if (floatingSidebar != null) {
+      floatingSidebar.dispose();
+    }
     if (pureEngine != null) {
       pureEngine.stop();
     }

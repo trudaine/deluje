@@ -34,6 +34,13 @@ public class HardwareSidebarTab extends JPanel {
   private JLabel liveSevenSegLabel;
   private JTextArea liveDebugLogArea;
   private static final int MAX_DEBUG_LOG_LINES = 500;
+  private Timer initialLoadTimer;
+  private Timer wireListenersTimer;
+  private boolean initialFolderLoaded = false;
+  private volatile boolean disposed = false;
+  private org.deluge.midi.DelugeSysExManager.DisplayListener displayListener;
+  private org.deluge.midi.DelugeSysExManager.MidiDebugListener debugListener;
+  private org.deluge.midi.DelugeSysExManager wiredSysExManager;
 
   public HardwareSidebarTab(SwingProjectSidebarPanel parent) {
     this.parent = parent;
@@ -327,12 +334,18 @@ public class HardwareSidebarTab extends JPanel {
     add(buildLiveDeviceMonitorPanel(), BorderLayout.SOUTH);
 
     // Initial folder load
-    Timer initialLoadTimer = new Timer(800, ev -> loadRemoteFolder("/SONGS"));
+    initialLoadTimer =
+        new Timer(
+            800,
+            ev -> {
+              initialFolderLoaded = true;
+              loadRemoteFolder("/SONGS");
+            });
     initialLoadTimer.setRepeats(false);
     initialLoadTimer.start();
 
     // Deferred so SwingDelugeApp.mainInstance is guaranteed set by the time we look it up.
-    Timer wireListenersTimer = new Timer(800, ev -> wireLiveDeviceListeners());
+    wireListenersTimer = new Timer(800, ev -> wireLiveDeviceListeners());
     wireListenersTimer.setRepeats(false);
     wireListenersTimer.start();
   }
@@ -395,29 +408,89 @@ public class HardwareSidebarTab extends JPanel {
 
   /** Registers this panel as the live consumer of the real device's OLED/7-seg/debug streams. */
   private void wireLiveDeviceListeners() {
-    if (SwingDelugeApp.mainInstance == null
+    if (disposed
+        || SwingDelugeApp.mainInstance == null
         || SwingDelugeApp.mainInstance.getMidiService() == null) {
       return;
     }
     var sysex = SwingDelugeApp.mainInstance.getMidiService().getSysExManager();
-    sysex.setDisplayListener(
-        new org.deluge.midi.DelugeSysExManager.DisplayListener() {
-          @Override
-          public void onOledFrame(byte[] frameBuffer) {
-            SwingUtilities.invokeLater(
-                () -> {
-                  liveOled.drawRawFrameBuffer(frameBuffer);
-                  liveOledView.repaint();
-                });
-          }
+    if (displayListener == null) {
+      displayListener =
+          new org.deluge.midi.DelugeSysExManager.DisplayListener() {
+            @Override
+            public void onOledFrame(byte[] frameBuffer) {
+              SwingUtilities.invokeLater(
+                  () -> {
+                    liveOled.drawRawFrameBuffer(frameBuffer);
+                    liveOledView.repaint();
+                  });
+            }
 
-          @Override
-          public void onSevenSegment(String text) {
-            SwingUtilities.invokeLater(() -> liveSevenSegLabel.setText(text));
-          }
-        });
-    sysex.setMidiDebugListener(
-        message -> SwingUtilities.invokeLater(() -> appendDebugLine(message)));
+            @Override
+            public void onSevenSegment(String text) {
+              SwingUtilities.invokeLater(() -> liveSevenSegLabel.setText(text));
+            }
+          };
+    }
+    if (debugListener == null) {
+      debugListener = message -> SwingUtilities.invokeLater(() -> appendDebugLine(message));
+    }
+    if (wiredSysExManager != null && wiredSysExManager != sysex) {
+      wiredSysExManager.removeDisplayListener(displayListener);
+      wiredSysExManager.removeMidiDebugListener(debugListener);
+    }
+    wiredSysExManager = sysex;
+    sysex.addDisplayListener(displayListener);
+    sysex.addMidiDebugListener(debugListener);
+  }
+
+  private void unwireLiveDeviceListeners() {
+    if (initialLoadTimer != null) {
+      initialLoadTimer.stop();
+    }
+    if (wireListenersTimer != null) {
+      wireListenersTimer.stop();
+    }
+    if (wiredSysExManager != null) {
+      if (displayListener != null) {
+        wiredSysExManager.removeDisplayListener(displayListener);
+      }
+      if (debugListener != null) {
+        wiredSysExManager.removeMidiDebugListener(debugListener);
+      }
+      wiredSysExManager = null;
+    }
+  }
+
+  /** Permanently stops startup timers and unregisters SysEx listeners on panel disposal. */
+  public void dispose() {
+    disposed = true;
+    unwireLiveDeviceListeners();
+  }
+
+  @Override
+  public void addNotify() {
+    super.addNotify();
+    if (disposed) {
+      return;
+    }
+    if (!initialFolderLoaded && initialLoadTimer != null && !initialLoadTimer.isRunning()) {
+      initialLoadTimer.start();
+    }
+    if (wiredSysExManager == null) {
+      if (SwingDelugeApp.mainInstance != null
+          && SwingDelugeApp.mainInstance.getMidiService() != null) {
+        wireLiveDeviceListeners();
+      } else if (wireListenersTimer != null && !wireListenersTimer.isRunning()) {
+        wireListenersTimer.start();
+      }
+    }
+  }
+
+  @Override
+  public void removeNotify() {
+    unwireLiveDeviceListeners();
+    super.removeNotify();
   }
 
   private void appendDebugLine(String message) {
