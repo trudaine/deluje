@@ -2,6 +2,7 @@ package org.deluge.modulation;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,6 +26,7 @@ import org.deluge.firmware2.StereoSample;
 import org.deluge.model.ClipModel;
 import org.deluge.model.KitTrackModel;
 import org.deluge.model.ProjectModel;
+import org.deluge.model.SoundDrum;
 import org.deluge.model.SynthTrackModel;
 import org.deluge.modulation.params.ParamManager;
 import org.deluge.xml.DelugeXmlParser;
@@ -768,6 +770,228 @@ class PatchCableUsabilityAndFmModAutomationTest {
     assertEquals(9, snare.fw2Sound.bendRangeFingerLevel);
     // Drum 0 ("KICK") must keep default finger-level drum bend range (2), NOT inactive clip1's 3!
     assertEquals(2, kick.fw2Sound.bendRangeFingerLevel);
+  }
+
+  @Test
+  void activeSessionClipSelectionRuntimeSwitchSentinelDrumIndexAndMutedDelayLimit()
+      throws Exception {
+    String xml =
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <song firmwareVersion="4.1.0">
+          <sessionClips>
+            <instrumentClip presetName="KIT1" instrumentPresetName="KIT1"
+                instrumentPresetFolder="KITS" length="96" isPlaying="0" isSoloing="0">
+              <noteRows>
+                <noteRow drumIndex="65535" bendRange="4" noteDataWithLift="0x0000000000000018404014"/>
+                <noteRow drumIndex="2147483647" noteDataWithLift="0x0000001800000018404014"/>
+              </noteRows>
+            </instrumentClip>
+            <instrumentClip presetName="KIT1" instrumentPresetName="KIT1"
+                instrumentPresetFolder="KITS" length="96" isPlaying="1" isSoloing="0">
+              <noteRows>
+                <noteRow drumIndex="0" bendRange="11" noteDataWithLift="0x0000000000000018404014">
+                  <soundParams lpfResonance="0x38000000" envelope1Attack="0x12000000"/>
+                </noteRow>
+              </noteRows>
+            </instrumentClip>
+            <instrumentClip presetName="LEAD1" instrumentPresetName="LEAD1"
+                instrumentPresetFolder="SYNTHS" length="96" isPlaying="0" isSoloing="0">
+              <noteRows>
+                <noteRow y="60" noteDataWithLift="0x0000000000000018404014"/>
+              </noteRows>
+              <soundParams lpfResonance="0x10000000"/>
+            </instrumentClip>
+            <instrumentClip presetName="LEAD1" instrumentPresetName="LEAD1"
+                instrumentPresetFolder="SYNTHS" length="96" isPlaying="0" isSoloing="0">
+              <noteRows>
+                <noteRow y="64" noteDataWithLift="0x0000000000000018404014"/>
+              </noteRows>
+              <soundParams lpfResonance="0x40000000"/>
+            </instrumentClip>
+          </sessionClips>
+          <instruments>
+            <kit presetName="KIT1">
+              <soundSources>
+                <sound name="KICK" mode="subtractive" lpfMode="24dB">
+                  <osc1 type="saw"/>
+                </sound>
+                <sound name="SNARE" mode="subtractive" lpfMode="24dB">
+                  <osc1 type="saw"/>
+                </sound>
+              </soundSources>
+            </kit>
+            <sound presetName="LEAD1" mode="subtractive" lpfMode="24dB">
+              <osc1 type="saw"/>
+            </sound>
+          </instruments>
+        </song>
+        """;
+
+    ProjectModel project =
+        DelugeXmlParser.parseSong(
+            new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)),
+            "session_active_selection.xml");
+    ProjectModel liveSong = FirmwareFactory.createSong(project);
+
+    // 1. KIT1 has clip0 isPlaying="0" and clip1 isPlaying="1": clip1 wins
+    // sortOutWhichClipsAreActive!
+    KitTrackModel kt = (KitTrackModel) liveSong.getTracks().get(0);
+    assertEquals(1, kt.getActiveClipIndex());
+    assertFalse(kt.getClips().get(0).isActiveInSession());
+    assertTrue(kt.getClips().get(1).isActiveInSession());
+    assertEquals(
+        2, kt.getClips().get(0).getRowCount(), "65535/INT_MAX sentinels must not blow up rowCount");
+
+    FirmwareKit kit = (FirmwareKit) kt.getActiveClip().getSound();
+    assertFalse(
+        kit.shouldLimitDelayFeedback, "Track with an active session clip should not limit delay");
+    assertEquals(11, kit.drumSounds.get(0).fw2Sound.bendRangeFingerLevel);
+    assertEquals(
+        0x38000000, kit.drumSounds.get(0).paramNeutralValues[Param.LOCAL_LPF_RESONANCE], 8);
+
+    // Runtime switch to clip0 updates active drum overrides & bend range immediately!
+    int[] neutralDefaults = new FirmwareSound().paramNeutralValues;
+    Sound.initParams(neutralDefaults);
+    kt.setActiveClipIndex(0);
+    assertEquals(4, kit.drumSounds.get(0).fw2Sound.bendRangeFingerLevel);
+    assertEquals(
+        neutralDefaults[Param.LOCAL_LPF_RESONANCE],
+        kit.drumSounds.get(0).paramNeutralValues[Param.LOCAL_LPF_RESONANCE],
+        8);
+
+    // 2. LEAD1 has ALL session clips muted (isPlaying="0"): clip0 becomes fallback activeClip,
+    // while
+    // FirmwareFactory sets shouldLimitDelayFeedback = true (song.cpp:2509-2514)!
+    SynthTrackModel st = (SynthTrackModel) liveSong.getTracks().get(1);
+    assertEquals(0, st.getActiveClipIndex());
+    assertFalse(st.getClips().get(0).isActiveInSession());
+    assertFalse(st.getClips().get(1).isActiveInSession());
+    FirmwareSound leadSound = (FirmwareSound) st.getActiveClip().getSound();
+    assertTrue(
+        leadSound.shouldLimitDelayFeedback,
+        "Track with all session clips muted must start with shouldLimitDelayFeedback == true");
+  }
+
+  @Test
+  void programmaticKitClipIsKitPropagationAcrossCopySnapshotAndCreateSong() {
+    ProjectModel project = new ProjectModel();
+    KitTrackModel kitTrack = new KitTrackModel("UI_KIT");
+    SoundDrum kick = new SoundDrum("KICK");
+    SoundDrum snare = new SoundDrum("SNARE");
+    kitTrack.addDrum(kick);
+    kitTrack.addDrum(snare);
+
+    ClipModel clip = new ClipModel("KIT_PATTERN", 2, 16);
+    clip.setIsKit(true);
+    clip.setStep(0, 0, true);
+    clip.setStep(1, 4, true);
+
+    // 1. Copy & PatternModel.ClipSnapshot preserve isKit and zero-based drum row pitches
+    ClipModel copied = clip.deepCopy("KIT_PATTERN_COPY");
+    assertTrue(copied.isKit());
+    assertEquals(0, copied.getOrCreateRow(0).getPitch());
+    assertEquals(1, copied.getOrCreateRow(1).getPitch());
+
+    var snap = org.deluge.model.PatternModel.ClipSnapshot.fromClipModel(clip, 0, "UI_KIT");
+    ClipModel restoredTarget = new ClipModel("TARGET", 2, 16);
+    snap.applyTo(restoredTarget);
+    assertTrue(restoredTarget.isKit());
+    assertEquals(0, restoredTarget.getOrCreateRow(0).getPitch());
+    assertEquals(1, restoredTarget.getOrCreateRow(1).getPitch());
+
+    // 2. FirmwareFactory.createSong maps drum rows 0 & 1 without clobbering pitches to MIDI 60/61
+    kitTrack.addClip(restoredTarget);
+    project.addTrack(kitTrack);
+    FirmwareFactory.createSong(project);
+    assertEquals(0, restoredTarget.getOrCreateRow(0).getPitch());
+    assertEquals(1, restoredTarget.getOrCreateRow(1).getPitch());
+  }
+
+  @Test
+  void externalDestinationsClearPurgeAndSoundDrumParallelFilterCableXmlRoundTrip()
+      throws Exception {
+    // 1. External destinations.clear() + addCable + setupPatching purges zombie cached cables
+    Sound sound = new Sound();
+    sound.lpfMode = FilterMode.TRANSISTOR_24DB;
+    Patcher.PatchCable zombie = new Patcher.PatchCable();
+    zombie.source = PatchSource.LFO_LOCAL_1.ordinal();
+    zombie.amount = 0x30000000;
+    sound.patchCableSet.addCable(Param.LOCAL_LPF_FREQ, zombie);
+    sound.patchCableSet.setupPatching(sound);
+    assertEquals(1, sound.patchCableSet.destinations.size());
+
+    // Simulate external clear + fresh single cable addition
+    sound.patchCableSet.destinations.clear();
+    Patcher.PatchCable fresh = new Patcher.PatchCable();
+    fresh.source = PatchSource.ENVELOPE_1.ordinal();
+    fresh.amount = 0x25000000;
+    sound.patchCableSet.addCable(Param.LOCAL_PAN, fresh);
+    sound.patchCableSet.setupPatching(sound);
+
+    assertEquals(
+        1, sound.patchCableSet.destinations.size(), "Zombie cable must be purged on clear()");
+    assertEquals(Param.LOCAL_PAN, sound.patchCableSet.destinations.get(0).paramId);
+    assertSame(fresh, sound.patchCableSet.destinations.get(0).cables.get(0));
+
+    // 2. SoundDrum filterRoute="PARA", lpfMorph, hpfMorph & <patchCables> round-trip through
+    // ProjectSerializer -> SongXmlParser
+    String xml =
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <song firmwareVersion="4.1.0">
+          <sessionClips>
+            <instrumentClip presetName="DRUMRT" instrumentPresetName="DRUMRT"
+                instrumentPresetFolder="KITS" length="96" isPlaying="1" isSoloing="0">
+              <noteRows>
+                <noteRow drumIndex="0" noteDataWithLift="0x0000000000000018404014"/>
+              </noteRows>
+            </instrumentClip>
+          </sessionClips>
+          <instruments>
+            <kit presetName="DRUMRT">
+              <soundSources>
+                <sound name="PERC" mode="subtractive" lpfMode="24dB" hpfMode="SVF_Band"
+                    filterRoute="PARA">
+                  <osc1 type="saw"/>
+                  <defaultParams lpfMorph="0x24000000" hpfMorph="0x18000000">
+                    <patchCables>
+                      <patchCable source="lfo1" destination="lpfMorph" amount="0x30000000"/>
+                    </patchCables>
+                  </defaultParams>
+                </sound>
+              </soundSources>
+            </kit>
+          </instruments>
+        </song>
+        """;
+
+    ProjectModel parsed =
+        DelugeXmlParser.parseSong(
+            new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)), "drum_roundtrip.xml");
+    java.nio.file.Path tmp = java.nio.file.Files.createTempFile("drum_rt_", ".xml");
+    try {
+      org.deluge.project.ProjectSerializer.save(parsed, tmp.toFile());
+      ProjectModel reloaded =
+          DelugeXmlParser.parseSong(java.nio.file.Files.newInputStream(tmp), "reloaded.xml");
+      KitTrackModel kt = (KitTrackModel) reloaded.getTracks().get(0);
+      SoundDrum perc = (SoundDrum) kt.getDrums().get(0);
+      assertEquals(2, perc.getFilterRoute());
+      assertEquals(
+          org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(0x24000000),
+          perc.getLpfMorph(),
+          1e-4f);
+      assertEquals(
+          org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(0x18000000),
+          perc.getHpfMorph(),
+          1e-4f);
+      assertTrue(
+          perc.getPatchCables().stream()
+              .anyMatch(c -> "lfo1".equals(c.source()) && "lpfMorph".equals(c.destination())),
+          "Per-drum <patchCables> must survive ProjectSerializer save/reload round-trip");
+    } finally {
+      java.nio.file.Files.deleteIfExists(tmp);
+    }
   }
 
   @Test

@@ -354,10 +354,16 @@ public class SongXmlParser {
             Element noteRowsElem = (Element) noteRowsList.item(0);
             noteRowList = noteRowsElem.getElementsByTagName("noteRow");
             rowCount = noteRowList.getLength();
+            for (int r = 0; r < noteRowList.getLength(); r++) {
+              int resolvedDi = resolveXmlDrumIndex((Element) noteRowList.item(r), targetTrack);
+              if (resolvedDi >= 0 && resolvedDi + 1 > rowCount) {
+                rowCount = resolvedDi + 1;
+              }
+            }
           }
           if (rowCount == 0) {
             if (targetTrack instanceof KitTrackModel kit) {
-              rowCount = kit.getDrums().size();
+              rowCount = Math.max(1, kit.getDrums().size());
             } else {
               rowCount = 8;
             }
@@ -379,6 +385,8 @@ public class SongXmlParser {
           }
 
           ClipModel clip = new ClipModel("CLIP " + i, rowCount, stepCount);
+          clip.setIsKit(targetTrack instanceof KitTrackModel);
+          readClipPlaybackStatus(trackElem, clip);
           clip.setTripletMode(tripletMode);
           clip.setPlayDirection(readPlayDirectionAttr(trackElem));
 
@@ -386,6 +394,12 @@ public class SongXmlParser {
             for (int r = 0; r < noteRowList.getLength(); r++) {
               Element noteRowElem = (Element) noteRowList.item(r);
               String hexData = null;
+              int rowIdx = r;
+              int resolvedDrumIdx = resolveXmlDrumIndex(noteRowElem, targetTrack);
+              if (resolvedDrumIdx >= 0) {
+                rowIdx = resolvedDrumIdx;
+                clip.getOrCreateRow(rowIdx).setPitch(rowIdx);
+              }
 
               // Read the y attribute (MIDI note number for synth tracks)
               int notePitch = -1;
@@ -401,7 +415,7 @@ public class SongXmlParser {
               // Apply per-row pitch from y attribute before setting grid steps and raw notes so
               // clip.setStep never overwrites rawNotes after clip.setRawNoteEvents.
               if (notePitch >= 0) {
-                clip.setRowYNote(r, notePitch);
+                clip.setRowYNote(rowIdx, notePitch);
               }
 
               NoteDataSource noteSrc = readNoteDataSource(noteRowElem, false);
@@ -417,26 +431,26 @@ public class SongXmlParser {
                   if (notePitch >= 0) {
                     step = step.withPitch(notePitch);
                   }
-                  clip.setStep(r, s, step);
+                  clip.setStep(rowIdx, s, step);
                 }
 
                 java.util.List<org.deluge.model.NoteModel> rawNotes =
                     DelugeNoteDataMapper.decodeRawNotes(hexData, hcpn);
-                clip.setRawNoteEvents(r, rawNotes);
+                clip.setRawNoteEvents(rowIdx, rawNotes);
               }
 
-              applyRowMute(noteRowElem, clip, r);
+              applyRowMute(noteRowElem, clip, rowIdx);
               int trackReadUpTo =
                   trackXmlLengthTicks > 0
                       ? trackXmlLengthTicks
                       : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
-              parseNoteRowExpressionData(noteRowElem, clip, r, trackReadUpTo);
+              parseNoteRowExpressionData(noteRowElem, clip, rowIdx, trackReadUpTo);
 
               // Parse per-noteRow <soundParams> (35+ hex param overrides)
               NodeList rowSoundParamsList = noteRowElem.getElementsByTagName("soundParams");
               if (rowSoundParamsList.getLength() > 0) {
                 Element sp = (Element) rowSoundParamsList.item(0);
-                parseNoteRowSoundParams(sp, clip, r, trackXmlLengthTicks);
+                parseNoteRowSoundParams(sp, clip, rowIdx, trackXmlLengthTicks);
               }
             }
           }
@@ -480,6 +494,8 @@ public class SongXmlParser {
     // decoding (C song.cpp:2131-2258, output.cpp:279-304).
     java.util.List<Object> parsedSessionClips = new java.util.ArrayList<>();
     java.util.List<Object> parsedArrangementClips = new java.util.ArrayList<>();
+    java.util.Map<ClipModel, Element> clipSoundParamsMap = new java.util.IdentityHashMap<>();
+    java.util.Map<ClipModel, Integer> clipReadUpToMap = new java.util.IdentityHashMap<>();
 
     NodeList sessionClipsNodes = songNode.getElementsByTagName("sessionClips");
     if (sessionClipsNodes.getLength() > 0) {
@@ -603,16 +619,9 @@ public class SongXmlParser {
           noteRowList = noteRowsElem.getElementsByTagName("noteRow");
           rowCount = noteRowList.getLength();
           for (int r = 0; r < noteRowList.getLength(); r++) {
-            String di =
-                DelugeXmlUtil.attrOrDirectChildText((Element) noteRowList.item(r), "drumIndex");
-            if (di != null && !di.isBlank()) {
-              try {
-                int parsedDi = Integer.parseInt(di.trim());
-                if (parsedDi >= 0 && parsedDi + 1 > rowCount) {
-                  rowCount = parsedDi + 1;
-                }
-              } catch (NumberFormatException ignored) {
-              }
+            int resolvedDi = resolveXmlDrumIndex((Element) noteRowList.item(r), targetTrack);
+            if (resolvedDi >= 0 && resolvedDi + 1 > rowCount) {
+              rowCount = resolvedDi + 1;
             }
           }
         }
@@ -665,6 +674,8 @@ public class SongXmlParser {
 
         ClipModel clip = new ClipModel("SESSION_CLIP " + i, rowCount, stepCount);
         clip.setIsKit(isKitClip);
+        // C clip.cpp:698-714 — parse isPlaying, isSoloing, and pre-V2.0 status attribute/tag.
+        readClipPlaybackStatus(clipElem, clip);
         // C instrument_clip.cpp:2500 — clipName (with legacy name fallback for mock XML fixtures).
         if (clipElem.hasAttribute("clipName")) {
           clip.setName(clipElem.getAttribute("clipName"));
@@ -692,12 +703,9 @@ public class SongXmlParser {
             int rowIdx = r;
             String drumIdxStr = DelugeXmlUtil.attrOrDirectChildText(noteRowElem, "drumIndex");
             if (drumIdxStr != null && !drumIdxStr.isBlank()) {
-              try {
-                int parsedDrumIdx = Integer.parseInt(drumIdxStr.trim());
-                if (parsedDrumIdx >= 0) {
-                  rowIdx = parsedDrumIdx;
-                }
-              } catch (NumberFormatException ignored) {
+              int resolvedDrumIdx = resolveXmlDrumIndex(noteRowElem, targetTrack);
+              if (resolvedDrumIdx >= 0) {
+                rowIdx = resolvedDrumIdx;
               }
               clip.getOrCreateRow(rowIdx).setPitch(rowIdx);
               // C note_row.cpp:3263, 3554-3559 — a kit row's finger-level bend range.
@@ -798,6 +806,8 @@ public class SongXmlParser {
               // instrument's defaultParams are not consulted (sound.cpp:146-210 + readParams).
               // Only the active clip (index 0) populates the shared track-level SynthTrackModel
               // knobs; non-active clips update their own per-clip ArpModel.
+              clipSoundParamsMap.put(clip, spEl);
+              clipReadUpToMap.put(clip, readUpTo);
               if (stm.getClips().size() == 1) {
                 InstrumentXmlParser.resetClipParamsToFirmwareDefaults(stm);
                 InstrumentXmlParser.parseClipSoundParamsStatics(spEl, stm, readUpTo);
@@ -977,16 +987,9 @@ public class SongXmlParser {
           NodeList noteRowList = clipElem.getElementsByTagName("noteRow");
           int rowCount = noteRowList.getLength();
           for (int r = 0; r < noteRowList.getLength(); r++) {
-            String di =
-                DelugeXmlUtil.attrOrDirectChildText((Element) noteRowList.item(r), "drumIndex");
-            if (di != null && !di.isBlank()) {
-              try {
-                int parsedDi = Integer.parseInt(di.trim());
-                if (parsedDi >= 0 && parsedDi + 1 > rowCount) {
-                  rowCount = parsedDi + 1;
-                }
-              } catch (NumberFormatException ignored) {
-              }
+            int resolvedDi = resolveXmlDrumIndex((Element) noteRowList.item(r), targetTrack);
+            if (resolvedDi >= 0 && resolvedDi + 1 > rowCount) {
+              rowCount = resolvedDi + 1;
             }
           }
           if (rowCount == 0) {
@@ -1041,6 +1044,7 @@ public class SongXmlParser {
           clip.setPlayDirection(readPlayDirectionAttr(clipElem));
           // C song.cpp:2131-2136 — ensure all arrangement-only clips have section == 255.
           clip.setArrangementOnly(true);
+          clip.setSoloingInSessionMode(false);
           clip.setLaunchStyle(DelugeXmlUtil.attrOrDirectChildText(clipElem, "launchStyle"));
           clip.setMidiBank(DelugeXmlUtil.attrOrDirectChildInt(clipElem, "midiBank", 128));
           clip.setMidiSub(DelugeXmlUtil.attrOrDirectChildInt(clipElem, "midiSub", 128));
@@ -1057,12 +1061,9 @@ public class SongXmlParser {
             String drumIdxStr = DelugeXmlUtil.attrOrDirectChildText(nr, "drumIndex");
             boolean isDrumRow = drumIdxStr != null && !drumIdxStr.isBlank();
             if (isDrumRow) {
-              try {
-                int parsedDrumIdx = Integer.parseInt(drumIdxStr.trim());
-                if (parsedDrumIdx >= 0) {
-                  rowIdx = parsedDrumIdx;
-                }
-              } catch (NumberFormatException ignored) {
+              int resolvedDrumIdx = resolveXmlDrumIndex(nr, targetTrack);
+              if (resolvedDrumIdx >= 0) {
+                rowIdx = resolvedDrumIdx;
               }
               clip.getOrCreateRow(rowIdx).setPitch(rowIdx);
               String br = DelugeXmlUtil.attrOrDirectChildText(nr, "bendRange");
@@ -1120,6 +1121,8 @@ public class SongXmlParser {
             NodeList soundParamsList = clipElem.getElementsByTagName("soundParams");
             if (soundParamsList.getLength() > 0) {
               Element spEl = (Element) soundParamsList.item(0);
+              clipSoundParamsMap.put(clip, spEl);
+              clipReadUpToMap.put(clip, readUpTo);
               if (stm.getClips().size() == 1) {
                 InstrumentXmlParser.resetClipParamsToFirmwareDefaults(stm);
                 InstrumentXmlParser.parseClipSoundParamsStatics(spEl, stm, readUpTo);
@@ -1278,7 +1281,190 @@ public class SongXmlParser {
       }
     }
 
+    // ── Sort out active clips per Output (C song.cpp:4241-4243, 4280-4345; output.cpp:91-118) ──
+    sortOutWhichClipsAreActive(
+        project, parsedSessionClips, clipOwnerMap, clipSoundParamsMap, clipReadUpToMap);
+
     return project;
+  }
+
+  private static void sortOutWhichClipsAreActive(
+      ProjectModel project,
+      java.util.List<Object> parsedSessionClips,
+      java.util.Map<Object, TrackModel> clipOwnerMap,
+      java.util.Map<ClipModel, Element> clipSoundParamsMap,
+      java.util.Map<ClipModel, Integer> clipReadUpToMap) {
+    // C song.cpp:4241-4243 — isClipActive: soloingInSessionMode || (activeIfNoSolo && !anySoloing).
+    boolean anySoloing = false;
+    for (Object obj : parsedSessionClips) {
+      if (obj instanceof ClipModel c && !c.isArrangementOnly() && c.isSoloingInSessionMode()) {
+        anySoloing = true;
+        break;
+      }
+      if (obj instanceof AudioTrackModel.AudioClip ac
+          && !ac.isArrangementOnly()
+          && ac.isSoloing()) {
+        anySoloing = true;
+        break;
+      }
+    }
+
+    java.util.Set<TrackModel> outputsWithActiveClip =
+        java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+
+    // Stage 1 (C song.cpp:4280-4307): first active session clip on each Output wins setActiveClip;
+    // subsequent active session clips on that same Output are deactivated.
+    for (Object obj : parsedSessionClips) {
+      TrackModel owner = clipOwnerMap.get(obj);
+      if (owner == null) {
+        continue;
+      }
+      if (obj instanceof ClipModel clip && !clip.isArrangementOnly()) {
+        boolean clipActive =
+            clip.isSoloingInSessionMode() || (clip.isActiveInSession() && !anySoloing);
+        if (clipActive) {
+          if (!outputsWithActiveClip.add(owner)) {
+            if (anySoloing) {
+              clip.setSoloingInSessionMode(false);
+            } else {
+              clip.setActiveInSession(false);
+            }
+          } else {
+            int idx = owner.getClips().indexOf(clip);
+            if (idx >= 0) {
+              owner.setActiveClipIndex(idx);
+            }
+          }
+        }
+      } else if (obj instanceof AudioTrackModel.AudioClip ac && !ac.isArrangementOnly()) {
+        boolean clipActive = ac.isSoloing() || (ac.isPlaying() && !anySoloing);
+        if (clipActive && !outputsWithActiveClip.add(owner)) {
+          if (anySoloing) {
+            ac.setSoloing(false);
+          } else {
+            ac.setPlaying(false);
+          }
+        }
+      }
+    }
+
+    // Stage 2 (C song.cpp:4313-4318 + output.cpp:91-104): for any Output still lacking an active
+    // clip, check its first non-white ArrangerClip instance before falling back to session clips.
+    for (ArrangerClip inst : project.getArrangerTimeline()) {
+      int ti = inst.trackIndex();
+      if (ti < 0 || ti >= project.getTracks().size()) {
+        continue;
+      }
+      TrackModel owner = project.getTracks().get(ti);
+      if (outputsWithActiveClip.contains(owner)) {
+        continue;
+      }
+      if (inst.clip() != null) {
+        int idx = owner.getClips().indexOf(inst.clip());
+        if (idx >= 0) {
+          outputsWithActiveClip.add(owner);
+          owner.setActiveClipIndex(idx);
+        }
+      } else if (inst.audioClip() != null) {
+        outputsWithActiveClip.add(owner);
+      }
+    }
+
+    // Stage 3 (C song.cpp:4325-4345): any Output still without an active clip gets its first
+    // session clip (or clip 0 if it only has arrangement clips).
+    for (Object obj : parsedSessionClips) {
+      TrackModel owner = clipOwnerMap.get(obj);
+      if (owner == null || outputsWithActiveClip.contains(owner)) {
+        continue;
+      }
+      if (obj instanceof ClipModel clip) {
+        int idx = owner.getClips().indexOf(clip);
+        if (idx >= 0) {
+          outputsWithActiveClip.add(owner);
+          owner.setActiveClipIndex(idx);
+        }
+      } else if (obj instanceof AudioTrackModel.AudioClip) {
+        outputsWithActiveClip.add(owner);
+      }
+    }
+
+    // Re-apply track-level soundParams / kitParams when the resolved active clip is not index 0.
+    for (TrackModel track : project.getTracks()) {
+      if (track.getClips().isEmpty() || track.getActiveClipIndex() == 0) {
+        continue;
+      }
+      ClipModel activeClip = track.getActiveClip();
+      if (activeClip == null) {
+        continue;
+      }
+      if (track instanceof SynthTrackModel stm) {
+        Element spEl = clipSoundParamsMap.get(activeClip);
+        if (spEl != null) {
+          int readUpTo = clipReadUpToMap.getOrDefault(activeClip, Integer.MAX_VALUE);
+          InstrumentXmlParser.resetClipParamsToFirmwareDefaults(stm);
+          InstrumentXmlParser.parseClipSoundParamsStatics(spEl, stm, readUpTo);
+        }
+      } else if (track instanceof KitTrackModel ktm) {
+        Float vol = activeClip.getKitParams().get("volume");
+        if (vol != null) ktm.setVolume(vol);
+        Float pan = activeClip.getKitParams().get("pan");
+        if (pan != null) ktm.setPan(pan);
+      }
+    }
+  }
+
+  // C instrument_clip.cpp:3938-3971, kit.cpp:488-498 — -1 (0xFFFFFFFF) marks "no drum"; any
+  // out-of-range non-negative drumIndex (including 65535 or INT32_MAX) wraps to firstDrum (0)
+  // without overflowing rowCount + 1 or allocating huge grids.
+  private static final int MAX_KIT_ROWS = 256;
+
+  private static int resolveXmlDrumIndex(Element noteRowElem, TrackModel targetTrack) {
+    String raw = DelugeXmlUtil.attrOrDirectChildText(noteRowElem, "drumIndex");
+    if (raw == null || raw.isBlank()) {
+      return -1;
+    }
+    try {
+      int parsed = Integer.parseInt(raw.trim());
+      if (parsed < 0) {
+        return -1;
+      }
+      if (targetTrack instanceof KitTrackModel kit && !kit.getDrums().isEmpty()) {
+        return parsed >= kit.getDrums().size() ? 0 : parsed;
+      }
+      return parsed >= MAX_KIT_ROWS ? 0 : parsed;
+    } catch (NumberFormatException ignored) {
+      return -1;
+    }
+  }
+
+  // C clip.cpp:44-46, 698-714 — read isPlaying, isSoloing, and legacy pre-V2.0 status tag/attr.
+  private static void readClipPlaybackStatus(Element clipElem, ClipModel clip) {
+    String isPlaying = DelugeXmlUtil.attrOrDirectChildText(clipElem, "isPlaying");
+    if (isPlaying != null && !isPlaying.isBlank()) {
+      try {
+        String s = isPlaying.trim();
+        clip.setActiveInSession("true".equalsIgnoreCase(s) || Integer.parseInt(s) != 0);
+      } catch (NumberFormatException ignored) {
+      }
+    }
+    String isSoloing = DelugeXmlUtil.attrOrDirectChildText(clipElem, "isSoloing");
+    if (isSoloing != null && !isSoloing.isBlank()) {
+      try {
+        String s = isSoloing.trim();
+        clip.setSoloingInSessionMode("true".equalsIgnoreCase(s) || Integer.parseInt(s) != 0);
+      } catch (NumberFormatException ignored) {
+      }
+    }
+    if (isPlaying == null) {
+      String status = DelugeXmlUtil.attrOrDirectChildText(clipElem, "status");
+      if (status != null && !status.isBlank()) {
+        try {
+          clip.setSoloingInSessionMode(false);
+          clip.setActiveInSession(Integer.parseInt(status.trim()) == 2);
+        } catch (NumberFormatException ignored) {
+        }
+      }
+    }
   }
 
   // C definitions_cxx.hpp:450 — kMaxNumSections = 24; clip.cpp:716-719 clamps uint8 section to 23.
@@ -1336,13 +1522,19 @@ public class SongXmlParser {
       String odc = clipElem.getAttribute("overdubsShouldCloneAudioTrack");
       clip.setOverdubsShouldCloneAudioTrack("1".equals(odc) || "true".equalsIgnoreCase(odc));
     }
-    if (clipElem.hasAttribute("isPlaying")) {
-      String ip = clipElem.getAttribute("isPlaying");
-      clip.setPlaying("true".equalsIgnoreCase(ip) || "1".equals(ip));
+    String ip = DelugeXmlUtil.attrOrDirectChildText(clipElem, "isPlaying");
+    if (ip != null && !ip.isBlank()) {
+      try {
+        clip.setPlaying("true".equalsIgnoreCase(ip.trim()) || Integer.parseInt(ip.trim()) != 0);
+      } catch (NumberFormatException ignored) {
+      }
     }
-    if (clipElem.hasAttribute("isSoloing")) {
-      String is = clipElem.getAttribute("isSoloing");
-      clip.setSoloing("true".equalsIgnoreCase(is) || "1".equals(is));
+    String is = DelugeXmlUtil.attrOrDirectChildText(clipElem, "isSoloing");
+    if (is != null && !is.isBlank()) {
+      try {
+        clip.setSoloing("true".equalsIgnoreCase(is.trim()) || Integer.parseInt(is.trim()) != 0);
+      } catch (NumberFormatException ignored) {
+      }
     }
     if (clipElem.hasAttribute("isArmedForRecording")) {
       String iar = clipElem.getAttribute("isArmedForRecording");

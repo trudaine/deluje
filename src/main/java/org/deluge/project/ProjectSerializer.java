@@ -267,7 +267,8 @@ public class ProjectSerializer {
           }
           writer.writeAttribute("lpfMode", lpfModeToFirmwareString(sound.getLpfMode()), false);
           writer.writeAttribute("hpfMode", hpfModeToFirmwareString(sound.getHpfMode()), false);
-          writer.writeAttribute("filterRoute", "H2L", false);
+          writer.writeAttribute(
+              "filterRoute", filterRouteToFirmwareString(sound.getFilterRoute()), false);
           writer.writeAttribute("maxVoices", 8, false);
           writer.writeOpeningTagEnd();
 
@@ -338,13 +339,23 @@ public class ProjectSerializer {
           writeHexTagUnipolar(writer, "noiseVolume", sound.getNoiseVolume());
           writeHexTagFreq(writer, "lpfFrequency", sound.getLpfFreq());
           writeHexTagUnipolar(writer, "lpfResonance", sound.getLpfRes());
+          writeHexTagUnipolar(writer, "lpfMorph", sound.getLpfMorph());
           writeHexTagFreq(writer, "hpfFrequency", sound.getHpfFreq());
           writeHexTagUnipolar(writer, "hpfResonance", sound.getHpfRes());
+          writeHexTagUnipolar(writer, "hpfMorph", sound.getHpfMorph());
           writeHexTag(writer, "pitch", sound.getPitchSemitones());
           writeHexTagUnipolar(writer, "reverbAmount", sound.getReverbAmount());
           writeHexTagUnipolar(writer, "delayRate", sound.getDelayRate());
           serializeEnvelope(writer, "envelope1", sound.getAdsr());
           serializeEnvelope(writer, "envelope2", sound.getEnv2());
+          if (!sound.getPatchCables().isEmpty()) {
+            // C sound.cpp:4159 -> PatchCableSet::writePatchCablesToFile(writer, false).
+            writer.writeArrayStart("patchCables");
+            for (PatchCable pc : sound.getPatchCables()) {
+              writePatchCable(writer, pc, false);
+            }
+            writer.writeArrayEnding("patchCables");
+          }
           writer.writeClosingTag("defaultParams");
 
           serializeMidiKnobs(writer, sound.getMidiKnobs());
@@ -1514,9 +1525,10 @@ public class ProjectSerializer {
     int stepTicks = clip.isTripletMode() ? 32 : 24;
     int lengthTicks = clip.getStepCount() * stepTicks;
     writer.writeAttribute("length", lengthTicks, false);
-    // C clip.cpp:659 — isPlaying == activeIfNoSolo (session-active). All-active = every clip
-    // fires at once in session view; arranger songs keep these inactive.
+    // C clip.cpp:662-663 — isPlaying == activeIfNoSolo, isSoloing == soloingInSessionMode.
+    // All-active = every clip fires at once in session view; arranger songs keep these inactive.
     writer.writeAttribute("isPlaying", clip.isActiveInSession() ? "1" : "0", false);
+    writer.writeAttribute("isSoloing", clip.isSoloingInSessionMode() ? "1" : "0", false);
     // C clip.cpp:670-672, song.cpp:2135 — write section only for session clips (!= 255).
     if (!arrangementOnly && clip.getSection() != 255) {
       writer.writeAttribute("section", clip.getSection(), false);
