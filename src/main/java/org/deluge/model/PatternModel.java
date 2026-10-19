@@ -29,6 +29,7 @@ public class PatternModel {
     private final List<org.deluge.modulation.midi.MidiParam> midiParams = new ArrayList<>();
     private final Map<Integer, Map<String, Float>> rowSoundParams = new HashMap<>();
     private final Map<String, Float> kitParams = new HashMap<>();
+    private final Map<String, String> rawKitParamHex = new java.util.LinkedHashMap<>();
     private String instrumentSlot = "";
     private float volumeOverride = -1f;
     private float panOverride = -1f;
@@ -100,6 +101,7 @@ public class PatternModel {
       }
       // Deep-copy kit params
       snap.kitParams.putAll(clip.getKitParams());
+      snap.rawKitParamHex.putAll(clip.getRawKitParamHex());
       return snap;
     }
 
@@ -160,6 +162,7 @@ public class PatternModel {
       }
       // Apply kit params
       clip.setKitParams(kitParams);
+      clip.getRawKitParamHex().putAll(rawKitParamHex);
     }
 
     // ── Getters / Setters ──

@@ -73,6 +73,9 @@ public class AudioTrackModel extends TrackModel {
     private float eqTreble = 0.0f;
     private float eqBassFrequency = 0.0f;
     private float eqTrebleFrequency = 0.0f;
+    private final java.util.Map<String, List<org.deluge.modulation.automation.ParamNode>>
+        automationCurves = new java.util.LinkedHashMap<>();
+    private final java.util.Map<String, String> rawParamHex = new java.util.LinkedHashMap<>();
 
     public AudioClip() {}
 
@@ -251,6 +254,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setVolume(float v) {
       this.volume = v;
+      rawParamHex.remove("volume");
     }
 
     public float getPan() {
@@ -259,6 +263,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setPan(float v) {
       this.pan = v;
+      rawParamHex.remove("pan");
     }
 
     public float getReverbAmount() {
@@ -267,6 +272,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setReverbAmount(float v) {
       this.reverbAmount = v;
+      rawParamHex.remove("reverbAmount");
     }
 
     public float getSidechainShape() {
@@ -275,6 +281,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setSidechainShape(float v) {
       this.sidechainShape = v;
+      rawParamHex.remove("sidechainCompressorShape");
     }
 
     public float getSidechainVolume() {
@@ -283,6 +290,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setSidechainVolume(float v) {
       this.sidechainVolume = v;
+      rawParamHex.remove("sidechainCompressorVolume");
     }
 
     public float getModFXRate() {
@@ -291,6 +299,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setModFXRate(float v) {
       this.modFXRate = v;
+      rawParamHex.remove("modFXRate");
     }
 
     public float getModFXDepth() {
@@ -299,6 +308,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setModFXDepth(float v) {
       this.modFXDepth = v;
+      rawParamHex.remove("modFXDepth");
     }
 
     public float getModFXOffset() {
@@ -307,6 +317,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setModFXOffset(float v) {
       this.modFXOffset = v;
+      rawParamHex.remove("modFXOffset");
     }
 
     public float getModFXFeedback() {
@@ -315,6 +326,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setModFXFeedback(float v) {
       this.modFXFeedback = v;
+      rawParamHex.remove("modFXFeedback");
     }
 
     public float getStutterRate() {
@@ -323,6 +335,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setStutterRate(float v) {
       this.stutterRate = v;
+      rawParamHex.remove("stutterRate");
     }
 
     public float getSampleRateReduction() {
@@ -331,6 +344,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setSampleRateReduction(float v) {
       this.sampleRateReduction = v;
+      rawParamHex.remove("sampleRateReduction");
     }
 
     public float getBitCrush() {
@@ -339,6 +353,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setBitCrush(float v) {
       this.bitCrush = v;
+      rawParamHex.remove("bitCrush");
     }
 
     public float getDelayRate() {
@@ -347,6 +362,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setDelayRate(float v) {
       this.delayRate = v;
+      rawParamHex.remove("delayRate");
     }
 
     public float getDelayFeedback() {
@@ -355,6 +371,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setDelayFeedback(float v) {
       this.delayFeedback = v;
+      rawParamHex.remove("delayFeedback");
     }
 
     public float getLpfFrequency() {
@@ -363,6 +380,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setLpfFrequency(float v) {
       this.lpfFrequency = v;
+      rawParamHex.remove("lpfFrequency");
     }
 
     public float getLpfResonance() {
@@ -371,6 +389,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setLpfResonance(float v) {
       this.lpfResonance = v;
+      rawParamHex.remove("lpfResonance");
     }
 
     public float getHpfFrequency() {
@@ -379,6 +398,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setHpfFrequency(float v) {
       this.hpfFrequency = v;
+      rawParamHex.remove("hpfFrequency");
     }
 
     public float getHpfResonance() {
@@ -387,6 +407,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setHpfResonance(float v) {
       this.hpfResonance = v;
+      rawParamHex.remove("hpfResonance");
     }
 
     public float getEqBass() {
@@ -395,6 +416,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setEqBass(float v) {
       this.eqBass = v;
+      rawParamHex.remove("eqBass");
     }
 
     public float getEqTreble() {
@@ -403,6 +425,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setEqTreble(float v) {
       this.eqTreble = v;
+      rawParamHex.remove("eqTreble");
     }
 
     public float getEqBassFrequency() {
@@ -411,6 +434,7 @@ public class AudioTrackModel extends TrackModel {
 
     public void setEqBassFrequency(float v) {
       this.eqBassFrequency = v;
+      rawParamHex.remove("eqBassFrequency");
     }
 
     public float getEqTrebleFrequency() {
@@ -419,6 +443,33 @@ public class AudioTrackModel extends TrackModel {
 
     public void setEqTrebleFrequency(float v) {
       this.eqTrebleFrequency = v;
+      rawParamHex.remove("eqTrebleFrequency");
+    }
+
+    public java.util.Map<String, List<org.deluge.modulation.automation.ParamNode>>
+        getAutomationCurves() {
+      return automationCurves;
+    }
+
+    public void setAutomationCurve(
+        String param, List<org.deluge.modulation.automation.ParamNode> nodes) {
+      if (nodes == null || nodes.isEmpty()) {
+        automationCurves.remove(param);
+      } else {
+        automationCurves.put(param, new ArrayList<>(nodes));
+      }
+    }
+
+    public java.util.Map<String, String> getRawParamHex() {
+      return rawParamHex;
+    }
+
+    public void setRawParamHex(String param, String hex) {
+      if (hex == null || hex.isBlank()) {
+        rawParamHex.remove(param);
+      } else {
+        rawParamHex.put(param, hex);
+      }
     }
   }
 

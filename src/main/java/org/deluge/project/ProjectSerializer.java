@@ -1583,21 +1583,228 @@ public class ProjectSerializer {
   private static void serializeKitParams(XMLSerializer writer, KitTrackModel kit, ClipModel clip)
       throws IOException {
     writer.writeOpeningTagBeginning("kitParams");
-    float vol =
-        clip != null && clip.getKitParams().containsKey("volume")
-            ? clip.getKitParams().get("volume")
-            : kit.getVolume();
-    float pan =
-        clip != null && clip.getKitParams().containsKey("pan")
-            ? clip.getKitParams().get("pan")
-            : kit.getPan();
-    writer.writeAttribute("volume", DelugeHexMapper.unipolarFloatToHexUnified(vol), false);
-    writer.writeAttribute("pan", DelugeHexMapper.floatToHex(pan), false);
-    Float rev = clip != null ? clip.getKitParams().get("reverbAmount") : null;
-    if (rev != null) {
-      writer.writeAttribute("reverbAmount", DelugeHexMapper.unipolarFloatToHexUnified(rev), false);
+    Map<String, Float> kitParams = clip != null ? clip.getKitParams() : Map.of();
+    Map<String, String> rawHex = clip != null ? clip.getRawKitParamHex() : Map.of();
+    Map<String, List<org.deluge.modulation.automation.ParamNode>> curves =
+        clip != null ? clip.getAutomationCurves() : Map.of();
+    java.util.Set<String> written = new java.util.HashSet<>();
+
+    float vol = kitParams.containsKey("volume") ? kitParams.get("volume") : kit.getVolume();
+    float pan = kitParams.containsKey("pan") ? kitParams.get("pan") : kit.getPan();
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
+        "volume",
+        rawHex.getOrDefault("volume", DelugeHexMapper.unipolarFloatToHexUnified(vol)));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
+        "pan",
+        rawHex.getOrDefault("pan", DelugeHexMapper.floatToHex(pan)));
+    if (kitParams.containsKey("reverbAmount")
+        || rawHex.containsKey("reverbAmount")
+        || curves.containsKey("reverbAmount")) {
+      writeGlobalEffectableAttr(
+          writer,
+          curves,
+          written,
+          "reverbAmount",
+          resolveKitBaseHex(kitParams, rawHex, "reverbAmount", "0x80000000"));
     }
-    writer.closeTag();
+
+    java.util.Set<String> allKeys = new java.util.LinkedHashSet<>();
+    allKeys.addAll(kitParams.keySet());
+    allKeys.addAll(rawHex.keySet());
+    allKeys.addAll(curves.keySet());
+    for (String key : allKeys) {
+      if (written.contains(key) || isGlobalEffectableSubElementKey(key)) {
+        continue;
+      }
+      String baseHex = resolveKitBaseHex(kitParams, rawHex, key, "0x80000000");
+      writeGlobalEffectableAttr(writer, curves, written, key, baseHex);
+    }
+
+    writeGlobalEffectableSubElementsAndClose(
+        writer,
+        "kitParams",
+        key -> resolveKitSubElementBaseHex(kitParams, rawHex, key),
+        allKeys,
+        curves,
+        false);
+  }
+
+  private static void writeGlobalEffectableAttr(
+      XMLSerializer writer,
+      Map<String, List<org.deluge.modulation.automation.ParamNode>> curves,
+      java.util.Set<String> written,
+      String attrName,
+      String baseHex)
+      throws IOException {
+    writer.writeAttribute(
+        attrName,
+        DelugeHexMapper.formatHexWithAutomationNodes(baseHex, curves.get(attrName)),
+        false);
+    written.add(attrName);
+  }
+
+  private static boolean isGlobalEffectableSubElementKey(String key) {
+    return "delayRate".equals(key)
+        || "delayFeedback".equals(key)
+        || "lpfFrequency".equals(key)
+        || "lpfResonance".equals(key)
+        || "hpfFrequency".equals(key)
+        || "hpfResonance".equals(key)
+        || "eqBass".equals(key)
+        || "eqTreble".equals(key)
+        || "eqBassFrequency".equals(key)
+        || "eqTrebleFrequency".equals(key);
+  }
+
+  private static String resolveKitBaseHex(
+      Map<String, Float> kitParams, Map<String, String> rawHex, String key, String fallbackHex) {
+    String raw = rawHex.get(key);
+    if (raw != null) {
+      return raw;
+    }
+    Float val = kitParams.get(key);
+    if (val != null) {
+      boolean bipolar = "pan".equals(key) || "eqBass".equals(key) || "eqTreble".equals(key);
+      return bipolar
+          ? DelugeHexMapper.floatToHex(val)
+          : DelugeHexMapper.unipolarFloatToHexUnified(val);
+    }
+    return fallbackHex;
+  }
+
+  private static String resolveKitSubElementBaseHex(
+      Map<String, Float> kitParams, Map<String, String> rawHex, String key) {
+    String raw = rawHex.get(key);
+    if (raw != null) {
+      return raw;
+    }
+    Float val = kitParams.get(key);
+    if (val != null) {
+      if ("lpfFrequency".equals(key) || "hpfFrequency".equals(key)) {
+        return DelugeHexMapper.hzToHex(val);
+      }
+      if ("eqBass".equals(key) || "eqTreble".equals(key)) {
+        return DelugeHexMapper.floatToHex(val);
+      }
+      return DelugeHexMapper.unipolarFloatToHexUnified(val);
+    }
+    return switch (key) {
+      case "delayRate", "eqBass", "eqTreble" -> "0x00000000";
+      case "lpfFrequency" -> DelugeHexMapper.hzToHex(20000.0f);
+      case "hpfFrequency" -> DelugeHexMapper.hzToHex(20.0f);
+      default -> "0x80000000";
+    };
+  }
+
+  private static void writeGlobalEffectableSubElementsAndClose(
+      XMLSerializer writer,
+      String parentTag,
+      java.util.function.Function<String, String> baseHexResolver,
+      java.util.Set<String> presentKeys,
+      Map<String, List<org.deluge.modulation.automation.ParamNode>> curves,
+      boolean forceAllSubElements)
+      throws IOException {
+    boolean hasDelay =
+        forceAllSubElements
+            || presentKeys.contains("delayRate")
+            || presentKeys.contains("delayFeedback");
+    boolean hasLpf =
+        forceAllSubElements
+            || presentKeys.contains("lpfFrequency")
+            || presentKeys.contains("lpfResonance");
+    boolean hasHpf =
+        forceAllSubElements
+            || presentKeys.contains("hpfFrequency")
+            || presentKeys.contains("hpfResonance");
+    boolean hasEq =
+        forceAllSubElements
+            || presentKeys.contains("eqBass")
+            || presentKeys.contains("eqTreble")
+            || presentKeys.contains("eqBassFrequency")
+            || presentKeys.contains("eqTrebleFrequency");
+    if (!hasDelay && !hasLpf && !hasHpf && !hasEq) {
+      writer.closeTag();
+      return;
+    }
+
+    writer.writeOpeningTagEnd();
+    if (hasDelay) {
+      // C global_effectable.cpp:860-865 — <delay rate="..." feedback="..."/>
+      writer.writeOpeningTagBeginning("delay");
+      writer.writeAttribute(
+          "rate",
+          DelugeHexMapper.formatHexWithAutomationNodes(
+              baseHexResolver.apply("delayRate"), curves.get("delayRate")),
+          false);
+      writer.writeAttribute(
+          "feedback",
+          DelugeHexMapper.formatHexWithAutomationNodes(
+              baseHexResolver.apply("delayFeedback"), curves.get("delayFeedback")),
+          false);
+      writer.closeTag();
+    }
+    if (hasLpf) {
+      // C global_effectable.cpp:867-872 — <lpf frequency="..." resonance="..."/>
+      writer.writeOpeningTagBeginning("lpf");
+      writer.writeAttribute(
+          "frequency",
+          DelugeHexMapper.formatHexWithAutomationNodes(
+              baseHexResolver.apply("lpfFrequency"), curves.get("lpfFrequency")),
+          false);
+      writer.writeAttribute(
+          "resonance",
+          DelugeHexMapper.formatHexWithAutomationNodes(
+              baseHexResolver.apply("lpfResonance"), curves.get("lpfResonance")),
+          false);
+      writer.closeTag();
+    }
+    if (hasHpf) {
+      // C global_effectable.cpp:874-879 — <hpf frequency="..." resonance="..."/>
+      writer.writeOpeningTagBeginning("hpf");
+      writer.writeAttribute(
+          "frequency",
+          DelugeHexMapper.formatHexWithAutomationNodes(
+              baseHexResolver.apply("hpfFrequency"), curves.get("hpfFrequency")),
+          false);
+      writer.writeAttribute(
+          "resonance",
+          DelugeHexMapper.formatHexWithAutomationNodes(
+              baseHexResolver.apply("hpfResonance"), curves.get("hpfResonance")),
+          false);
+      writer.closeTag();
+    }
+    if (hasEq) {
+      // C mod_controllable_audio.cpp:540-549 — <equalizer bass="..." treble="..." .../>
+      writer.writeOpeningTagBeginning("equalizer");
+      writer.writeAttribute(
+          "bass",
+          DelugeHexMapper.formatHexWithAutomationNodes(
+              baseHexResolver.apply("eqBass"), curves.get("eqBass")),
+          false);
+      writer.writeAttribute(
+          "treble",
+          DelugeHexMapper.formatHexWithAutomationNodes(
+              baseHexResolver.apply("eqTreble"), curves.get("eqTreble")),
+          false);
+      writer.writeAttribute(
+          "bassFrequency",
+          DelugeHexMapper.formatHexWithAutomationNodes(
+              baseHexResolver.apply("eqBassFrequency"), curves.get("eqBassFrequency")),
+          false);
+      writer.writeAttribute(
+          "trebleFrequency",
+          DelugeHexMapper.formatHexWithAutomationNodes(
+              baseHexResolver.apply("eqTrebleFrequency"), curves.get("eqTrebleFrequency")),
+          false);
+      writer.closeTag();
+    }
+    writer.writeClosingTag(parentTag);
   }
 
   private static void serializeSoundParams(
@@ -2010,60 +2217,142 @@ public class ProjectSerializer {
     }
     writer.writeOpeningTagEnd();
 
-    // Write params child
+    // Write params child (C audio_clip.cpp:1100-1104, global_effectable.cpp:811-882).
     writer.writeOpeningTagBeginning("params");
-    writer.writeAttribute(
-        "volume", DelugeHexMapper.unipolarFloatToHexUnified(clip.getVolume()), false);
-    writer.writeAttribute("pan", DelugeHexMapper.floatToHex(clip.getPan()), false);
-    writer.writeAttribute(
-        "reverbAmount", DelugeHexMapper.unipolarFloatToHexUnified(clip.getReverbAmount()), false);
-    writer.writeAttribute(
+    Map<String, List<org.deluge.modulation.automation.ParamNode>> curves =
+        clip.getAutomationCurves();
+    Map<String, String> rawHex = clip.getRawParamHex();
+    java.util.Set<String> written = new java.util.HashSet<>();
+
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
+        "volume",
+        rawHex.getOrDefault("volume", DelugeHexMapper.unipolarFloatToHexUnified(clip.getVolume())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
+        "pan",
+        rawHex.getOrDefault("pan", DelugeHexMapper.floatToHex(clip.getPan())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
+        "reverbAmount",
+        rawHex.getOrDefault(
+            "reverbAmount", DelugeHexMapper.unipolarFloatToHexUnified(clip.getReverbAmount())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
         "sidechainCompressorShape",
-        DelugeHexMapper.unipolarFloatToHexUnified(clip.getSidechainShape()),
-        false);
-    writer.writeAttribute(
+        rawHex.getOrDefault(
+            "sidechainCompressorShape",
+            DelugeHexMapper.unipolarFloatToHexUnified(clip.getSidechainShape())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
         "sidechainCompressorVolume",
-        DelugeHexMapper.unipolarFloatToHexUnified(clip.getSidechainVolume()),
-        false);
-    writer.writeAttribute(
-        "modFXRate", DelugeHexMapper.unipolarFloatToHexUnified(clip.getModFXRate()), false);
-    writer.writeAttribute(
-        "modFXDepth", DelugeHexMapper.unipolarFloatToHexUnified(clip.getModFXDepth()), false);
-    writer.writeAttribute(
-        "modFXOffset", DelugeHexMapper.unipolarFloatToHexUnified(clip.getModFXOffset()), false);
-    writer.writeAttribute(
-        "modFXFeedback", DelugeHexMapper.unipolarFloatToHexUnified(clip.getModFXFeedback()), false);
-    writer.writeAttribute(
-        "stutterRate", DelugeHexMapper.unipolarFloatToHexUnified(clip.getStutterRate()), false);
-    writer.writeAttribute(
+        rawHex.getOrDefault(
+            "sidechainCompressorVolume",
+            DelugeHexMapper.unipolarFloatToHexUnified(clip.getSidechainVolume())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
+        "modFXRate",
+        rawHex.getOrDefault(
+            "modFXRate", DelugeHexMapper.unipolarFloatToHexUnified(clip.getModFXRate())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
+        "modFXDepth",
+        rawHex.getOrDefault(
+            "modFXDepth", DelugeHexMapper.unipolarFloatToHexUnified(clip.getModFXDepth())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
+        "modFXOffset",
+        rawHex.getOrDefault(
+            "modFXOffset", DelugeHexMapper.unipolarFloatToHexUnified(clip.getModFXOffset())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
+        "modFXFeedback",
+        rawHex.getOrDefault(
+            "modFXFeedback", DelugeHexMapper.unipolarFloatToHexUnified(clip.getModFXFeedback())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
+        "stutterRate",
+        rawHex.getOrDefault(
+            "stutterRate", DelugeHexMapper.unipolarFloatToHexUnified(clip.getStutterRate())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
         "sampleRateReduction",
-        DelugeHexMapper.unipolarFloatToHexUnified(clip.getSampleRateReduction()),
-        false);
-    writer.writeAttribute(
-        "bitCrush", DelugeHexMapper.unipolarFloatToHexUnified(clip.getBitCrush()), false);
-    writer.writeAttribute(
-        "delayRate", DelugeHexMapper.unipolarFloatToHexUnified(clip.getDelayRate()), false);
-    writer.writeAttribute(
-        "delayFeedback", DelugeHexMapper.unipolarFloatToHexUnified(clip.getDelayFeedback()), false);
-    writer.writeAttribute("lpfFrequency", DelugeHexMapper.hzToHex(clip.getLpfFrequency()), false);
-    writer.writeAttribute(
-        "lpfResonance", DelugeHexMapper.unipolarFloatToHexUnified(clip.getLpfResonance()), false);
-    writer.writeAttribute("hpfFrequency", DelugeHexMapper.hzToHex(clip.getHpfFrequency()), false);
-    writer.writeAttribute(
-        "hpfResonance", DelugeHexMapper.unipolarFloatToHexUnified(clip.getHpfResonance()), false);
-    writer.writeAttribute("eqBass", DelugeHexMapper.floatToHex(clip.getEqBass()), false);
-    writer.writeAttribute("eqTreble", DelugeHexMapper.floatToHex(clip.getEqTreble()), false);
-    writer.writeAttribute(
-        "eqBassFrequency",
-        DelugeHexMapper.unipolarFloatToHexUnified(clip.getEqBassFrequency()),
-        false);
-    writer.writeAttribute(
-        "eqTrebleFrequency",
-        DelugeHexMapper.unipolarFloatToHexUnified(clip.getEqTrebleFrequency()),
-        false);
-    writer.closeTag();
+        rawHex.getOrDefault(
+            "sampleRateReduction",
+            DelugeHexMapper.unipolarFloatToHexUnified(clip.getSampleRateReduction())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
+        "bitCrush",
+        rawHex.getOrDefault(
+            "bitCrush", DelugeHexMapper.unipolarFloatToHexUnified(clip.getBitCrush())));
+
+    java.util.Set<String> allAudioKeys = new java.util.LinkedHashSet<>();
+    allAudioKeys.addAll(rawHex.keySet());
+    allAudioKeys.addAll(curves.keySet());
+    for (String key : allAudioKeys) {
+      if (written.contains(key) || isGlobalEffectableSubElementKey(key)) {
+        continue;
+      }
+      writeGlobalEffectableAttr(
+          writer, curves, written, key, rawHex.getOrDefault(key, "0x80000000"));
+    }
+
+    writeGlobalEffectableSubElementsAndClose(
+        writer,
+        "params",
+        key -> resolveAudioClipSubElementBaseHex(clip, rawHex, key),
+        allAudioKeys,
+        curves,
+        true);
 
     writer.writeClosingTag("audioClip");
+  }
+
+  private static String resolveAudioClipSubElementBaseHex(
+      AudioTrackModel.AudioClip clip, Map<String, String> rawHex, String key) {
+    String raw = rawHex.get(key);
+    if (raw != null) {
+      return raw;
+    }
+    return switch (key) {
+      case "delayRate" -> DelugeHexMapper.unipolarFloatToHexUnified(clip.getDelayRate());
+      case "delayFeedback" -> DelugeHexMapper.unipolarFloatToHexUnified(clip.getDelayFeedback());
+      case "lpfFrequency" -> DelugeHexMapper.hzToHex(clip.getLpfFrequency());
+      case "lpfResonance" -> DelugeHexMapper.unipolarFloatToHexUnified(clip.getLpfResonance());
+      case "hpfFrequency" -> DelugeHexMapper.hzToHex(clip.getHpfFrequency());
+      case "hpfResonance" -> DelugeHexMapper.unipolarFloatToHexUnified(clip.getHpfResonance());
+      case "eqBass" -> DelugeHexMapper.floatToHex(clip.getEqBass());
+      case "eqTreble" -> DelugeHexMapper.floatToHex(clip.getEqTreble());
+      case "eqBassFrequency" ->
+          DelugeHexMapper.unipolarFloatToHexUnified(clip.getEqBassFrequency());
+      case "eqTrebleFrequency" ->
+          DelugeHexMapper.unipolarFloatToHexUnified(clip.getEqTrebleFrequency());
+      default -> "0x80000000";
+    };
   }
 
   private static void serializeMidiKnobs(XMLSerializer writer, List<MidiKnob> midiKnobs)

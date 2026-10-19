@@ -717,9 +717,13 @@ public class SongXmlParser {
             }
           }
           case KitTrackModel ktm -> {
+            int readUpTo =
+                clipXmlLengthTicks > 0
+                    ? clipXmlLengthTicks
+                    : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
             Element kitParamsEl = getFirstChild(clipElem, "kitParams");
             if (kitParamsEl != null) {
-              parseKitParamsElement(kitParamsEl, clip);
+              parseKitParamsElement(kitParamsEl, clip, readUpTo);
               if (ktm.getClips().size() == 1) {
                 Float vol = clip.getKitParams().get("volume");
                 if (vol != null) ktm.setVolume(vol);
@@ -822,11 +826,13 @@ public class SongXmlParser {
               "1".equals(clipElem.getAttribute("beingEdited"))
                   || "true".equalsIgnoreCase(clipElem.getAttribute("beingEdited")));
 
-        // Parse <params> child element (hex attrs — same structure as songParams)
+        // Parse <params> child element (hex attrs + GlobalEffectable child tags,
+        // C audio_clip.cpp:1180-1184, global_effectable.cpp:884-1037).
         NodeList paramsList = clipElem.getElementsByTagName("params");
         if (paramsList.getLength() > 0) {
           Element params = (Element) paramsList.item(0);
-          parseAudioClipParams(params, clip);
+          int audioReadUpTo = clip.getLength() > 0 ? clip.getLength() : Integer.MAX_VALUE;
+          parseAudioClipParams(params, clip, audioReadUpTo);
         }
 
         targetTrack.addAudioClip(clip);
@@ -953,21 +959,26 @@ public class SongXmlParser {
           }
 
           parseColumnControls(clipElem, clip);
-          if (targetTrack instanceof MidiTrackModel) {
-            int arrXmlLengthTicks = 0;
-            if (clipElem.hasAttribute("length")) {
-              try {
-                arrXmlLengthTicks = Integer.parseInt(clipElem.getAttribute("length"));
-              } catch (NumberFormatException ignored) {
-              }
+          int arrXmlLengthTicks = 0;
+          if (clipElem.hasAttribute("length")) {
+            try {
+              arrXmlLengthTicks = Integer.parseInt(clipElem.getAttribute("length"));
+            } catch (NumberFormatException ignored) {
             }
-            int readUpTo =
-                arrXmlLengthTicks > 0
-                    ? arrXmlLengthTicks
-                    : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
+          }
+          int readUpTo =
+              arrXmlLengthTicks > 0
+                  ? arrXmlLengthTicks
+                  : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
+          if (targetTrack instanceof MidiTrackModel) {
             Element midiParamsEl = getFirstChild(clipElem, "midiParams");
             if (midiParamsEl != null) {
               parseMidiParams(midiParamsEl, clip, readUpTo);
+            }
+          } else if (targetTrack instanceof KitTrackModel) {
+            Element kitParamsEl = getFirstChild(clipElem, "kitParams");
+            if (kitParamsEl != null) {
+              parseKitParamsElement(kitParamsEl, clip, readUpTo);
             }
           }
           targetTrack.addClip(clip);
@@ -1329,7 +1340,8 @@ public class SongXmlParser {
     return track;
   }
 
-  private static void parseAudioClipParams(Element params, AudioTrackModel.AudioClip clip) {
+  private static void parseAudioClipParams(
+      Element params, AudioTrackModel.AudioClip clip, int readUpTo) {
     // Hex float attributes (0x-prefixed)
     readAttrFloatHex(params, "volume", clip::setVolume, true);
     readAttrFloatHex(params, "pan", clip::setPan, false);
@@ -1361,7 +1373,8 @@ public class SongXmlParser {
     readAttrFloatHex(params, "eqBassFrequency", clip::setEqBassFrequency, true);
     readAttrFloatHex(params, "eqTrebleFrequency", clip::setEqTrebleFrequency, true);
 
-    // Child elements for delay, lpf, hpf, equalizer (mirror songParams structure)
+    // Child elements for delay, lpf, hpf, equalizer (mirror GlobalEffectable::readParamTagFromFile,
+    // C global_effectable.cpp:902-963, mod_controllable_audio.cpp:557-582)
     // <delay> child: rate, feedback
     Element delayChild = getFirstChild(params, "delay");
     if (delayChild != null) {
@@ -1394,6 +1407,9 @@ public class SongXmlParser {
       readAttrFloatHex(eqChild, "bassFrequency", clip::setEqBassFrequency, true);
       readAttrFloatHex(eqChild, "trebleFrequency", clip::setEqTrebleFrequency, true);
     }
+
+    parseHexGlobalEffectableAutomation(
+        params, clip.getAutomationCurves(), clip.getRawParamHex(), readUpTo);
   }
 
   private static void parseNoteRowSoundParams(
@@ -1967,11 +1983,16 @@ public class SongXmlParser {
     }
   }
 
-  private static void parseKitParamsElement(Element kp, ClipModel clip) {
-    parseParamsAsKitParams(kp, clip);
+  private static void parseKitParamsElement(Element kp, ClipModel clip, int readUpTo) {
+    parseParamsAsKitParams(kp, clip, readUpTo);
   }
 
   private static void parseParamsAsKitParams(Element params, ClipModel clip) {
+    int readUpTo = clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE;
+    parseParamsAsKitParams(params, clip, readUpTo);
+  }
+
+  private static void parseParamsAsKitParams(Element params, ClipModel clip, int readUpTo) {
     readKitHexAttr(params, "reverbAmount", clip, "reverbAmount", true);
     readKitHexAttr(params, "volume", clip, "volume", true);
     readKitHexAttr(params, "pan", clip, "pan", false);
@@ -1989,6 +2010,8 @@ public class SongXmlParser {
     readKitHexAttr(params, "hpfMorph", clip, "hpfMorph", true);
     // Child elements (delay, lpf, hpf, equalizer)
     parseKitParamChildElements(params, clip);
+    parseHexGlobalEffectableAutomation(
+        params, clip.getAutomationCurves(), clip.getRawKitParamHex(), readUpTo);
   }
 
   private static void parseKitParamChildElements(Element parent, ClipModel clip) {
@@ -2003,12 +2026,14 @@ public class SongXmlParser {
       Element l = (Element) lpf.item(0);
       readKitHzHexAttr(l, "frequency", clip, "lpfFrequency");
       readKitHexAttr(l, "resonance", clip, "lpfResonance", true);
+      readKitHexAttr(l, "morph", clip, "lpfMorph", true); // C global_effectable.cpp:933-937
     }
     NodeList hpf = parent.getElementsByTagName("hpf");
     if (hpf.getLength() > 0) {
       Element h = (Element) hpf.item(0);
       readKitHzHexAttr(h, "frequency", clip, "hpfFrequency");
       readKitHexAttr(h, "resonance", clip, "hpfResonance", true);
+      readKitHexAttr(h, "morph", clip, "hpfMorph", true); // C global_effectable.cpp:956-960
     }
     NodeList eq = parent.getElementsByTagName("equalizer");
     if (eq.getLength() == 0) {
@@ -2020,6 +2045,127 @@ public class SongXmlParser {
       readKitHexAttr(eqEl, "treble", clip, "eqTreble", false);
       readKitHexAttr(eqEl, "bassFrequency", clip, "eqBassFrequency", true);
       readKitHexAttr(eqEl, "trebleFrequency", clip, "eqTrebleFrequency", true);
+    }
+  }
+
+  /**
+   * Parses 8-char base hex values and 16-char automation hex nodes ({@code
+   * 0xCCCCCCCCVVVVVVVVPPPPPPPP...}) from {@code <kitParams>} or {@code <audioClip><params>}
+   * attributes and child elements (C global_effectable.cpp:884-1037,
+   * mod_controllable_audio.cpp:552-714, auto_param.cpp:2075-2148).
+   */
+  private static void parseHexGlobalEffectableAutomation(
+      Element paramsEl,
+      Map<String, List<org.deluge.modulation.automation.ParamNode>> targetCurves,
+      Map<String, String> targetRawHex,
+      int readAutomationUpToPos) {
+    org.w3c.dom.NamedNodeMap attrs = paramsEl.getAttributes();
+    for (int a = 0; a < attrs.getLength(); a++) {
+      org.w3c.dom.Node attr = attrs.item(a);
+      recordGlobalEffectableHexValue(
+          attr.getNodeName(),
+          attr.getNodeValue(),
+          targetCurves,
+          targetRawHex,
+          readAutomationUpToPos);
+    }
+
+    NodeList children = paramsEl.getChildNodes();
+    for (int c = 0; c < children.getLength(); c++) {
+      if (!(children.item(c) instanceof Element child)) {
+        continue;
+      }
+      String tag = child.getTagName();
+      if ("delay".equals(tag)) {
+        recordGlobalEffectableHexValue(
+            "delayRate",
+            readDirectAttrOrChild(child, "rate"),
+            targetCurves,
+            targetRawHex,
+            readAutomationUpToPos);
+        recordGlobalEffectableHexValue(
+            "delayFeedback",
+            readDirectAttrOrChild(child, "feedback"),
+            targetCurves,
+            targetRawHex,
+            readAutomationUpToPos);
+      } else if ("lpf".equals(tag)) {
+        recordGlobalEffectableHexValue(
+            "lpfFrequency",
+            readDirectAttrOrChild(child, "frequency"),
+            targetCurves,
+            targetRawHex,
+            readAutomationUpToPos);
+        recordGlobalEffectableHexValue(
+            "lpfResonance",
+            readDirectAttrOrChild(child, "resonance"),
+            targetCurves,
+            targetRawHex,
+            readAutomationUpToPos);
+        recordGlobalEffectableHexValue(
+            "lpfMorph",
+            readDirectAttrOrChild(child, "morph"),
+            targetCurves,
+            targetRawHex,
+            readAutomationUpToPos);
+      } else if ("hpf".equals(tag)) {
+        recordGlobalEffectableHexValue(
+            "hpfFrequency",
+            readDirectAttrOrChild(child, "frequency"),
+            targetCurves,
+            targetRawHex,
+            readAutomationUpToPos);
+        recordGlobalEffectableHexValue(
+            "hpfResonance",
+            readDirectAttrOrChild(child, "resonance"),
+            targetCurves,
+            targetRawHex,
+            readAutomationUpToPos);
+        recordGlobalEffectableHexValue(
+            "hpfMorph",
+            readDirectAttrOrChild(child, "morph"),
+            targetCurves,
+            targetRawHex,
+            readAutomationUpToPos);
+      } else if ("equalizer".equals(tag) || "eq".equals(tag)) {
+        String[][] eqMap = {
+          {"bass", "eqBass"},
+          {"treble", "eqTreble"},
+          {"bassFrequency", "eqBassFrequency"},
+          {"trebleFrequency", "eqTrebleFrequency"}
+        };
+        for (String[] pair : eqMap) {
+          recordGlobalEffectableHexValue(
+              pair[1],
+              readDirectAttrOrChild(child, pair[0]),
+              targetCurves,
+              targetRawHex,
+              readAutomationUpToPos);
+        }
+      } else if (!hasElementChildren(child)) {
+        recordGlobalEffectableHexValue(
+            tag, child.getTextContent(), targetCurves, targetRawHex, readAutomationUpToPos);
+      }
+    }
+  }
+
+  private static void recordGlobalEffectableHexValue(
+      String key,
+      String rawHex,
+      Map<String, List<org.deluge.modulation.automation.ParamNode>> targetCurves,
+      Map<String, String> targetRawHex,
+      int readAutomationUpToPos) {
+    if (key == null || rawHex == null || rawHex.isBlank()) {
+      return;
+    }
+    String baseHex = DelugeHexMapper.extractBaseHex(rawHex);
+    if (baseHex != null) {
+      targetRawHex.put(key, baseHex);
+    }
+    List<org.deluge.modulation.automation.ParamNode> nodes =
+        DelugeHexMapper.parseHexAutomationNodes(rawHex, readAutomationUpToPos);
+    if (!nodes.isEmpty()) {
+      targetCurves.put(key, nodes);
     }
   }
 
@@ -2081,8 +2227,9 @@ public class SongXmlParser {
 
   private static void readKitHexAttr(
       Element el, String attr, ClipModel clip, String paramName, boolean unipolar) {
-    if (!el.hasAttribute(attr)) return;
-    String val = el.getAttribute(attr).trim();
+    String raw = readDirectAttrOrChild(el, attr);
+    if (raw == null) return;
+    String val = raw.trim();
     if (val.isEmpty() || !val.startsWith("0x")) return;
     try {
       float f = DelugeHexMapper.hexToFloat(val);
@@ -2095,8 +2242,9 @@ public class SongXmlParser {
   }
 
   private static void readKitHzHexAttr(Element el, String attr, ClipModel clip, String paramName) {
-    if (!el.hasAttribute(attr)) return;
-    String val = el.getAttribute(attr).trim();
+    String raw = readDirectAttrOrChild(el, attr);
+    if (raw == null) return;
+    String val = raw.trim();
     if (val.isEmpty() || !val.startsWith("0x")) return;
     try {
       clip.setKitParam(paramName, DelugeHexMapper.hexToHz(val));
