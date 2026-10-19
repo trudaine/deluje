@@ -42,6 +42,10 @@ public class ParamManager {
     return expressionParamSet;
   }
 
+  public ExpressionParamSet.ExpressionListener getExpressionListener() {
+    return expressionListener;
+  }
+
   public void setExpressionListener(ExpressionParamSet.ExpressionListener expressionListener) {
     this.expressionListener = expressionListener;
   }
@@ -73,7 +77,7 @@ public class ParamManager {
     patchCableSet.notifyPingpongOccurred();
     // C midi_param_collection.cpp:313-320 — flip interpolating MIDI CC slopes on bounce.
     midiParamCollection.notifyPingpongOccurred();
-    // C param_set.cpp:74-81 — flip interpolating expression slopes on bounce.
+    // C param_set.cpp:371-379 — flip interpolating expression slopes on bounce.
     expressionParamSet.notifyPingpongOccurred();
     // C param_manager.cpp:605 — wake on the very next tick after a ping-pong bounce.
     ticksTilNextEvent = 0;

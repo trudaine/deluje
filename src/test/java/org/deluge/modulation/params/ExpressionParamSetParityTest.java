@@ -96,7 +96,7 @@ class ExpressionParamSetParityTest {
     assertEquals(ExpressionParamSet.X_PITCH_BEND, events.get(0)[0]);
     assertTrue(events.get(0)[1] > 0);
 
-    // Ping-pong bounce flips the interpolation slope sign (C param_set.cpp:74-81).
+    // Ping-pong bounce flips the interpolation slope sign (C param_set.cpp:371-379).
     int slopeBefore = expr.getParam(ExpressionParamSet.X_PITCH_BEND).valueIncrementPerHalfTick;
     assertTrue(slopeBefore > 0);
     pm.notifyPingpongOccurred();
@@ -385,6 +385,8 @@ class ExpressionParamSetParityTest {
   @Test
   void deepCopyRestoreFromAndPatternSnapshotPreserveExpressionData() {
     ClipModel clip = new ClipModel("SRC", 2, 4);
+    clip.setBendRange(12);
+    clip.setBendRangeMPE(36);
     clip.setExpressionParam(
         ExpressionParamSet.X_PITCH_BEND, 0x12340000, List.of(new ParamNode(12, 0x20000000, true)));
     NoteRowModel row1 = clip.getOrCreateRow(1);
@@ -393,6 +395,8 @@ class ExpressionParamSetParityTest {
         ExpressionParamSet.Z_PRESSURE, 0x08000000, List.of(new ParamNode(6, 0x10000000, false)));
 
     ClipModel copy = clip.deepCopy("COPY");
+    assertEquals(12, copy.getBendRange());
+    assertEquals(36, copy.getBendRangeMPE());
     assertEquals(0x12340000, copy.getExpressionParams().getParam(0).currentValue);
     assertEquals(1, copy.getExpressionParams().getParam(0).nodes.size());
     assertEquals(9, copy.getNoteRowsMap().get(1).getBendRange());
@@ -400,22 +404,98 @@ class ExpressionParamSetParityTest {
         0x08000000, copy.getNoteRowsMap().get(1).getExpressionParams().getParam(2).currentValue);
 
     // Mutate clip and restore from copy.
+    clip.setBendRange(-1);
+    clip.setBendRangeMPE(-1);
     clip.clearExpressionParams();
     row1.setBendRange(-1);
     row1.clearExpressionParams();
     clip.restoreFrom(copy);
+    assertEquals(12, clip.getBendRange());
+    assertEquals(36, clip.getBendRangeMPE());
     assertEquals(0x12340000, clip.getExpressionParams().getParam(0).currentValue);
     assertEquals(9, clip.getNoteRowsMap().get(1).getBendRange());
     assertEquals(
         0x08000000, clip.getNoteRowsMap().get(1).getExpressionParams().getParam(2).currentValue);
 
+    // Restoring from a snapshot with empty noteRows clears added row expression/bendRange.
+    ClipModel emptySnap = new ClipModel("EMPTY", 2, 4);
+    clip.restoreFrom(emptySnap);
+    assertEquals(-1, clip.getNoteRowsMap().get(1).getBendRange());
+    assertFalse(clip.getNoteRowsMap().get(1).getExpressionParams().containsSomething());
+
     // PatternModel.ClipSnapshot round-trip.
-    PatternModel.ClipSnapshot snap = PatternModel.ClipSnapshot.fromClipModel(clip, 0, "Lead");
+    PatternModel.ClipSnapshot snap = PatternModel.ClipSnapshot.fromClipModel(copy, 0, "Lead");
     ClipModel target = new ClipModel("DST", 2, 4);
     snap.applyTo(target);
+    assertEquals(12, target.getBendRange());
+    assertEquals(36, target.getBendRangeMPE());
     assertEquals(0x12340000, target.getExpressionParams().getParam(0).currentValue);
     assertEquals(9, target.getNoteRowsMap().get(1).getBendRange());
     assertEquals(
         0x08000000, target.getNoteRowsMap().get(1).getExpressionParams().getParam(2).currentValue);
+  }
+
+  @Test
+  void multiClipSynthTrackAndKitDrumInitialMpeAndArpUpdateMatchCpp() {
+    // 1. Multi-clip SynthTrackModel: attaching clip1 must not clobber clip0's expression on sound.
+    FirmwareSound synth = new FirmwareSound();
+    ClipModel clip0 = new ClipModel("CLIP0", 2, 4);
+    clip0.setLoopLength(96);
+    clip0.setExpressionParam(
+        ExpressionParamSet.Y_SLIDE_TIMBRE,
+        0x20000000,
+        List.of(new ParamNode(0, 0x20000000, false)));
+    ClipModel clip1 = new ClipModel("CLIP1", 2, 4);
+    clip1.setLoopLength(96);
+    clip1.setExpressionParam(
+        ExpressionParamSet.Y_SLIDE_TIMBRE,
+        0x60000000,
+        List.of(new ParamNode(0, 0x60000000, false)));
+
+    clip0.setSound(synth);
+    clip1.setSound(synth);
+
+    assertEquals(
+        0x20000000,
+        synth
+            .paramManager
+            .getExpressionParamSet()
+            .getParam(ExpressionParamSet.Y_SLIDE_TIMBRE)
+            .currentValue);
+
+    clip0.setPos(0);
+    clip0.processCurrentPos(0);
+    assertEquals(0x20000000, synth.fw2Sound.monophonicExpressionValues[1]);
+
+    // Switching playback to clip1 activates clip1's expression params on synth.paramManager.
+    clip1.setPos(0);
+    clip1.processCurrentPos(0);
+    assertEquals(0x60000000, synth.fw2Sound.monophonicExpressionValues[1]);
+
+    // 2. Kit drum note-on passes per-row mpeValues into Voice.noteOn before initial patching.
+    org.deluge.engine.FirmwareKit kit = new org.deluge.engine.FirmwareKit();
+    ClipModel kitClip = new ClipModel("KIT_CLIP", 2, 4);
+    kitClip.setLoopLength(96);
+    kitClip.setSound(kit);
+    NoteRowModel drumRow0 = kitClip.getOrCreateRow(0);
+    drumRow0.setPitch(0);
+    drumRow0.setExpressionParam(
+        ExpressionParamSet.Z_PRESSURE, 0x28000000, List.of(new ParamNode(0, 0x28000000, false)));
+    kitClip.setStep(0, 0, org.deluge.model.StepData.of(true, 0.8f, 1.0f, 1.0f, 0));
+
+    kitClip.setPos(0);
+    kitClip.processCurrentPos(0);
+    var drum0 = kit.drumSounds.get(0).fw2Sound;
+    assertFalse(drum0.voices.isEmpty());
+    assertEquals(0x28000000, drum0.voices.get(0).sourceValues[PatchSource.AFTERTOUCH.ordinal()]);
+
+    // 3. Sound.polyphonicExpressionEventOnChannelOrNote updates arpeggiator.notes MPE values.
+    synth.fw2Sound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.ARP;
+    synth.triggerNote(64, 100, new int[] {0, 0, 0x1000});
+    assertFalse(synth.fw2Sound.arpeggiator.notes.isEmpty());
+    assertEquals(0x1000, synth.fw2Sound.arpeggiator.notes.get(0).mpeValues[2]);
+
+    synth.fw2Sound.polyphonicExpressionEventOnChannelOrNote(0x45670000, 2, 64, 0);
+    assertEquals(0x4567, synth.fw2Sound.arpeggiator.notes.get(0).mpeValues[2]);
   }
 }

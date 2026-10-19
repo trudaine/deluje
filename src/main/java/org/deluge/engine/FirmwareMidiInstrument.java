@@ -32,7 +32,7 @@ public class FirmwareMidiInstrument extends GlobalEffectable {
   private int midiChannel = 1;
   private boolean isMpe = false;
   private String mpeZone = "lower";
-  // C midi_instrument.h:158 — lastMonoExpression[3].
+  // C non_audio_instrument.h:69 — lastMonoExpression[3].
   private final int[] lastMonoExpression = new int[3];
 
   public FirmwareMidiInstrument(int midiChannel, boolean isMpe) {

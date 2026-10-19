@@ -101,12 +101,12 @@ public class AutoParam {
   public int valueIncrementPerHalfTick;
   public int ticksTilNextEvent = Integer.MAX_VALUE;
 
-  /** C auto_param.h:126 (AutoParam::isAutomated). */
+  /** C auto_param.h:121 (AutoParam::isAutomated). */
   public boolean isAutomated() {
     return !nodes.isEmpty();
   }
 
-  /** C auto_param.cpp:1731-1733 (AutoParam::containsSomething). */
+  /** C auto_param.cpp:2152-2158 (AutoParam::containsSomething). */
   public boolean containsSomething(int neutralValue) {
     return isAutomated() || currentValue != neutralValue;
   }

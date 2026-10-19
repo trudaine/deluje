@@ -561,6 +561,13 @@ public class Sound extends GlobalEffectable {
   public int pendingSampleSyncLength = 0;
 
   /**
+   * Per-row initial MPE values (note_row.cpp:2548-2556, sound_drum.cpp:64) set by the sequencer
+   * around {@code triggerDrum} / {@code triggerNoteLate} so {@code Voice.noteOn} and {@code
+   * Arpeggiator.noteOn} receive them during initial patching.
+   */
+  public int[] pendingMpeValues = null;
+
+  /**
    * C ExpressionParamSet::bendRanges of the paramManager the voice renders with (voice.cpp:830-
    * 835): BEND_RANGE_MAIN (MIDI pitch bend) and BEND_RANGE_FINGER_LEVEL (MPE per-note bend), in
    * semitones. Defaults are FlashStorage::defaultBendRange {2, 48} (flash_storage.cpp:231), used
@@ -1008,6 +1015,17 @@ public class Sound extends GlobalEffectable {
         }
       }
     }
+    // C sound_instrument.cpp:348-364, sound_drum.cpp:90 — update MPE values in arpeggiator too.
+    int mpeVal16 = newValue >> 16;
+    for (int n = 0; n < arpeggiator.notes.size(); n++) {
+      Arpeggiator.ArpNote arpNote = arpeggiator.notes.get(n);
+      if (arpNote.inputCharacteristics[whichCharacteristic] == channelOrNoteNumber) {
+        arpNote.mpeValues[expressionDimension] = mpeVal16;
+      }
+    }
+    if (arpeggiator.active_note.inputCharacteristics[whichCharacteristic] == channelOrNoteNumber) {
+      arpeggiator.active_note.mpeValues[expressionDimension] = mpeVal16;
+    }
   }
 
   public void monophonicExpressionEvent(int newValue, int expressionDimension) {
@@ -1396,6 +1414,9 @@ public class Sound extends GlobalEffectable {
   }
 
   public void triggerNote(int note, int vel, int midiChannel, int[] mpeValues) {
+    if (mpeValues == null) {
+      mpeValues = pendingMpeValues;
+    }
     if (arpEnabled()) {
       arpInstr.reset();
       arpInstr.sampleSyncLengthOn = pendingSampleSyncLength; // C sound.cpp:1534
@@ -1444,7 +1465,7 @@ public class Sound extends GlobalEffectable {
     if (sidechainSend != 0) {
       GlobalSidechainBus.registerHit(sidechainSend);
     }
-    triggerVoiceInternal(note, vel, -1, null, samplesLate);
+    triggerVoiceInternal(note, vel, -1, pendingMpeValues, samplesLate);
   }
 
   public void triggerVoice(int note, int vel, int midiChannel) {

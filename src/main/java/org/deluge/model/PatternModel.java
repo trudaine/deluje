@@ -29,6 +29,8 @@ public class PatternModel {
     private final List<org.deluge.modulation.midi.MidiParam> midiParams = new ArrayList<>();
     private final org.deluge.modulation.params.ExpressionParamSet expressionParams =
         new org.deluge.modulation.params.ExpressionParamSet();
+    private int bendRange = -1;
+    private int bendRangeMPE = -1;
     private final Map<Integer, Map<String, Float>> rowSoundParams = new HashMap<>();
     private final Map<Integer, Integer> rowBendRanges = new HashMap<>();
     private final Map<Integer, org.deluge.modulation.params.ExpressionParamSet>
@@ -96,6 +98,8 @@ public class PatternModel {
         snap.midiParams.add(mp.deepCopy());
       }
       snap.expressionParams.copyFrom(clip.getExpressionParams());
+      snap.bendRange = clip.getBendRange();
+      snap.bendRangeMPE = clip.getBendRangeMPE();
       // Deep-copy row sound params
       for (int r = 0; r < clip.getRowCount(); r++) {
         if (clip.hasRowSoundParams(r)) {
@@ -165,6 +169,8 @@ public class PatternModel {
       for (org.deluge.modulation.midi.MidiParam mp : midiParams) {
         clip.setMidiParam(mp.cc, mp.param.currentValue, mp.param.nodes);
       }
+      clip.setBendRange(bendRange);
+      clip.setBendRangeMPE(bendRangeMPE);
       clip.clearExpressionParams();
       for (int dim = 0;
           dim < org.deluge.modulation.params.ExpressionParamSet.NUM_DIMENSIONS;
