@@ -147,7 +147,7 @@ class SongReverbCompStutterParityTest {
           tempo="120.0">
           <instruments>
             <sound name="SYNTH1" lpfMode="12dB">
-              <delay pingPong="1" analog="1" syncLevel="9" />
+              <delay pingPong="0" analog="1" syncLevel="9" />
               <audioCompressor
                 attack="2147483647"
                 release="2147483647"
@@ -169,8 +169,9 @@ class SongReverbCompStutterParityTest {
     ProjectModel loaded = SongXmlParser.parseSong(inPath.toFile());
     // Song-level defaults must remain intact and NOT inherit the nested <sound> child elements.
     assertEquals(FilterMode.LADDER_24, loaded.getSongLpfMode());
-    assertEquals(0, loaded.getDelayPingPong());
+    assertEquals(1, loaded.getDelayPingPong());
     assertEquals(0, loaded.getDelayAnalog());
+    assertEquals(7, loaded.getDelaySyncLevel());
     assertEquals(0.0f, loaded.getCompressorThreshold(), 1e-6f);
     assertEquals(0.0f, loaded.getCompressorHpf(), 1e-6f);
     assertEquals(1.0f, loaded.getCompressorBlend(), 1e-6f);

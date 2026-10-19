@@ -168,36 +168,6 @@ public class PureFirmwareEngine {
                 Math.round(
                     bridge.getGlobalFloat(BridgeContract.G_REVERB_COMP_RELEASE) * 2147483647.0));
 
-    // Sync master delay. The delay's internal tempo-sync is disabled (see FirmwareAudioEngine), so
-    // we compute the delay time in seconds ourselves — tempo-synced when a sync level is set,
-    // otherwise the free-running G_DELAY_TIME (scaled by the live rate) — and convert it to the
-    // buffer's userDelayRate (inverse of DelayBuffer.getIdealBufferSizeFromRate).
-    long syncLevel = bridge.getGlobalInt(BridgeContract.G_DELAY_SYNC_LEVEL);
-    double delaySec;
-    if (syncLevel > 0) {
-      double stepSec = (currentBpm > 0 ? 60.0 / currentBpm : 0.5) / 4.0; // 16th-note step
-      double syncFactor = Math.pow(2.0, syncLevel - 1);
-      if (bridge.getGlobalInt(BridgeContract.G_DELAY_SYNC_TYPE) == 1) syncFactor *= 1.5; // triplet
-      delaySec = syncFactor * stepSec;
-    } else {
-      delaySec = bridge.getGlobalFloat(BridgeContract.G_DELAY_TIME);
-      double spRate = bridge.getGlobalFloat(BridgeContract.G_SP_DELAY_RATE);
-      if (spRate > 0.001) delaySec *= spRate;
-    }
-    delaySec = Math.max(0.001, Math.min(2.0, delaySec));
-    long rate = (long) (16384L * 16777216L / (delaySec * 44100.0));
-    audioEngine.delayState.userDelayRate = (int) Math.min(rate, Integer.MAX_VALUE);
-
-    double fb = bridge.getGlobalFloat(BridgeContract.G_DELAY_FB);
-    double spFb = bridge.getGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK);
-    if (spFb > 0.001) fb *= Math.min(1.0, spFb);
-    fb = Math.max(0.0, Math.min(1.0, fb));
-    audioEngine.delayState.delayFeedbackAmount =
-        Math.min((int) (fb * 2147483647.0), (1 << 30) - (1 << 26));
-
-    audioEngine.masterDelay.pingPong = bridge.getGlobalInt(BridgeContract.G_DELAY_PINGPONG) != 0;
-    audioEngine.masterDelay.analog = bridge.getGlobalInt(BridgeContract.G_DELAY_ANALOG) != 0;
-
     // Sync individual track params
     float spVol = (float) bridge.getGlobalFloat(BridgeContract.G_SP_VOLUME);
     if (spVol < 0.01f && System.currentTimeMillis() % 2000 < 50) {
@@ -305,6 +275,13 @@ public class PureFirmwareEngine {
         org.deluge.xml.DelugeXmlUtil.convertSyncLevelFromFileValueToInternalValue(
             revCompFileSync, inputTickMag);
     audioEngine.reverbSidechainSync = Math.max(0, Math.min(9, internalRevSync));
+    audioEngine.configureMasterDelay(
+        (float) bridge.getGlobalFloat(BridgeContract.G_SP_DELAY_RATE),
+        (float) bridge.getGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK),
+        (int) bridge.getGlobalInt(BridgeContract.G_DELAY_SYNC_LEVEL),
+        (int) bridge.getGlobalInt(BridgeContract.G_DELAY_SYNC_TYPE),
+        bridge.getGlobalInt(BridgeContract.G_DELAY_PINGPONG) != 0,
+        bridge.getGlobalInt(BridgeContract.G_DELAY_ANALOG) != 0);
     if (project != null) {
       audioEngine.songStutterConfig.useSongStutter = true;
       audioEngine.songStutterConfig.quantized = project.isSongStutterQuantized();
@@ -347,10 +324,8 @@ public class PureFirmwareEngine {
         FirmwareAudioEngine.unipolarToQ31Param(
             (float) bridge.getGlobalFloat(BridgeContract.G_SP_STUTTER_RATE));
     audioEngine.songReverbAmount =
-        (int)
-            ((float) bridge.getGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT)
-                * 2.0f
-                * 536870912.0f);
+        FirmwareAudioEngine.unipolarToQ31Param(
+            (float) bridge.getGlobalFloat(BridgeContract.G_SP_REVERB_AMOUNT));
     audioEngine.songPan = (int) (bridge.getGlobalFloat(BridgeContract.G_SP_PAN) * 2147483647.0f);
 
     float bipolarVol = (spVol * 2.0f) - 1.0f;

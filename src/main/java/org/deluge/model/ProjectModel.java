@@ -64,10 +64,11 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   // C song.cpp:186 — getParamFromUserValue(STATIC_SIDECHAIN_VOLUME, -1) = -21474836 (< 0 = auto).
   private float reverbCompressorVolume = -21474836.0f / 2147483647.0f;
 
-  // ── Song-level delay params ──
-  private int delayPingPong = 0;
+  // ── Song-level delay params (C delay.h:66-72: pingPong=true, analog=false, syncType=EVEN,
+  // syncLevel=SYNC_LEVEL_16TH=6 internal -> file 7 at default inputTickMagnitude 2) ──
+  private int delayPingPong = 1;
   private int delayAnalog = 0;
-  private int delaySyncLevel = 6;
+  private int delaySyncLevel = 7;
   private int delaySyncType = 0;
 
   // ── Song-level sidechain params ──
@@ -89,11 +90,13 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   private boolean songStutterReversed = false;
   private boolean songStutterPingPong = false;
 
-  // ── SongParams values (from <songParams> element) ──
+  // ── SongParams values (from <songParams> element; C global_effectable.cpp:75-79:
+  // UNPATCHED_DELAY_RATE=0 -> 0.5f, UNPATCHED_DELAY_AMOUNT=NEGATIVE_ONE_Q31 -> 0.0f,
+  // UNPATCHED_REVERB_SEND_AMOUNT=NEGATIVE_ONE_Q31 -> 0.0f) ──
   private float songParamVolume = 0.5f;
   private float songParamPan = 0.0f;
-  private float songParamReverbAmount = 0.5f;
-  private float songParamDelayRate = 0.0f;
+  private float songParamReverbAmount = 0.0f;
+  private float songParamDelayRate = 0.5f;
   private float songParamDelayFeedback = 0.0f;
   private float songParamSidechainShape = 0.5f;
   private float songParamSidechainVolume = 0.0f;

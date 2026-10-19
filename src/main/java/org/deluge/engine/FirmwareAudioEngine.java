@@ -115,7 +115,11 @@ public class FirmwareAudioEngine {
   public int masterHpfFreq = 0;
   public int masterHpfRes = 0;
   public int masterHpfMorph = 0;
-  public int songReverbAmount = 0x20000000;
+  // C global_effectable.cpp:75, 78-79 — UNPATCHED_DELAY_RATE=0, UNPATCHED_DELAY_AMOUNT=MIN_VALUE,
+  // UNPATCHED_REVERB_SEND_AMOUNT=MIN_VALUE.
+  public int songDelayRate = 0;
+  public int songDelayFeedback = Integer.MIN_VALUE;
+  public int songReverbAmount = Integer.MIN_VALUE;
   public int songPan = 0;
   public int songClippingAmount = 0;
   private int masterFilterGain = MASTER_VOLUME_NEUTRAL;
@@ -243,7 +247,7 @@ public class FirmwareAudioEngine {
   /** int[][] stereo scratch for the fw2 FX chain (fw2 FX read/write [l, r] per sample). */
   private final int[][] fxBuffer = new int[128][2];
 
-  private int[] monoReverbBuffer = new int[128];
+  int[] monoReverbBuffer = new int[128];
 
   // Live input pitch shifter (monitoring). inputBuffer holds the ring; pitchShifter renders it.
   public final LiveInputBuffer liveInputBuffer = new LiveInputBuffer();
@@ -284,10 +288,8 @@ public class FirmwareAudioEngine {
       songStutterBuffer[i] = new StereoSample();
     }
     delayState.doDelay = false;
-    // Drive delay time externally via userDelayRate; disable the delay's internal tempo-sync (which
-    // would otherwise rewrite userDelayRate using a tick-inverse the pure engine doesn't feed it).
-    // fw2 Delay.syncLevel is an int; SYNC_LEVEL_NONE == 0.
-    masterDelay.syncLevel = 0;
+    // C delay.h:72 — song Delay starts at SYNC_LEVEL_16TH (internal 6).
+    masterDelay.syncLevel = 6;
     masterVolumeAdjustmentL = MASTER_VOLUME_NEUTRAL;
     masterVolumeAdjustmentR = MASTER_VOLUME_NEUTRAL;
   }
@@ -300,29 +302,13 @@ public class FirmwareAudioEngine {
     this.songTimePerInternalTickInverse =
         (int) Math.min(2147483647.0, 2147483648.0 / samplesPerInternalTick);
 
-    int syncLevel = project.getDelaySyncLevel();
-    double delaySec;
-    if (syncLevel > 0) {
-      double stepSec = (bpm > 0 ? 60.0 / bpm : 0.5) / 4.0; // 16th-note step
-      double syncFactor = Math.pow(2.0, syncLevel - 1);
-      if (project.getDelaySyncType() == 1) {
-        syncFactor *= 1.5; // triplet
-      }
-      delaySec = syncFactor * stepSec;
-    } else {
-      delaySec = project.getSongParamDelayRate();
-    }
-    delaySec = Math.max(0.001, Math.min(2.0, delaySec));
-    long rate = (long) (16384L * 16777216L / (delaySec * 44100.0));
-    this.delayState.userDelayRate = (int) Math.min(rate, Integer.MAX_VALUE);
-
-    double fb = project.getSongParamDelayFeedback();
-    fb = Math.max(0.0, Math.min(1.0, fb));
-    this.delayState.delayFeedbackAmount =
-        Math.min((int) (fb * 2147483647.0), (1 << 30) - (1 << 26));
-
-    this.masterDelay.pingPong = project.getDelayPingPong() != 0;
-    this.masterDelay.analog = project.getDelayAnalog() != 0;
+    configureMasterDelay(
+        project.getSongParamDelayRate(),
+        project.getSongParamDelayFeedback(),
+        project.getDelaySyncLevel(),
+        project.getDelaySyncType(),
+        project.getDelayPingPong() != 0,
+        project.getDelayAnalog() != 0);
 
     // Sync Reverb (C audio_engine.cpp:1608-1620, song.cpp:1447-1514)
     this.masterReverb.setModel(
@@ -409,7 +395,7 @@ public class FirmwareAudioEngine {
     this.masterSrr = unipolarToQ31Param(project.getSongParamSampleRateReduction());
     this.masterBitcrush = unipolarToQ31Param(project.getSongParamBitCrush());
     this.masterStutterRate = unipolarToQ31Param(project.getSongParamStutterRate());
-    this.songReverbAmount = (int) (project.getSongParamReverbAmount() * 2.0f * 536870912.0f);
+    this.songReverbAmount = unipolarToQ31Param(project.getSongParamReverbAmount());
 
     configureMasterFilterSet(
         project.getSongParamLpfFrequency(),
@@ -421,6 +407,38 @@ public class FirmwareAudioEngine {
         project.getSongParamHpfMorph(),
         project.getSongHpfMode(),
         project.getSongFilterRoute());
+  }
+
+  /**
+   * C global_effectable.cpp:1123-1143, mod_controllable_audio.cpp:787-841 — configures the
+   * song-level {@link #masterDelay} from the song's unpatched delay rate/feedback knobs, file
+   * syncLevel, syncType, pingPong, and analog settings.
+   */
+  public void configureMasterDelay(
+      float delayRateUnipolar,
+      float delayFeedbackUnipolar,
+      int fileSyncLevel,
+      int syncType,
+      boolean pingPong,
+      boolean analog) {
+    this.songDelayRate = unipolarToQ31Param(delayRateUnipolar);
+    this.songDelayFeedback = unipolarToQ31Param(delayFeedbackUnipolar);
+    this.masterDelay.syncLevel =
+        org.deluge.xml.DelugeXmlUtil.convertSyncLevelFromFileValueToInternalValue(
+            fileSyncLevel, songInputTickMagnitude);
+    this.masterDelay.syncType = syncType;
+    this.masterDelay.pingPong = pingPong;
+    this.masterDelay.analog = analog;
+    this.delayState.delayFeedbackAmount =
+        org.deluge.firmware2.Functions.getFinalParameterValueLinear(
+            org.deluge.firmware2.Functions.getParamNeutralValue(
+                org.deluge.firmware2.Param.GLOBAL_DELAY_FEEDBACK),
+            org.deluge.firmware2.Functions.cableToLinearParamShortcut(this.songDelayFeedback));
+    this.delayState.userDelayRate =
+        org.deluge.firmware2.Functions.getFinalParameterValueExp(
+            org.deluge.firmware2.Functions.getParamNeutralValue(
+                org.deluge.firmware2.Param.GLOBAL_DELAY_RATE),
+            org.deluge.firmware2.Functions.cableToExpParamShortcut(this.songDelayRate));
   }
 
   /**
@@ -717,13 +735,7 @@ public class FirmwareAudioEngine {
 
     // fw2 reverb ACCUMULATES the wet signal onto the [l, r] frames, so it adds reverb on top of the
     // dry already in fxBuffer (matching the old firmware/ reverb's += into masterBuffer).
-    masterReverb.process(monoReverbBuffer, fxBuffer);
-
-    // setupWorkingState computes doDelay (from feedback) and must run before process or the delay
-    // never activates. The pure engine drives delay time externally via userDelayRate with the
-    // delay's own sync disabled (syncLevel 0), so timePerInternalTickInverse is unused here.
-    masterDelay.setupWorkingState(delayState, 1 << 20, true);
-    masterDelay.process(fxBuffer, numSamples, delayState);
+    masterReverb.process(monoReverbBuffer, fxBuffer, numSamples);
 
     // ── Song-level FilterSet and SRR/Bitcrush (post-reverb/delay; C audio_engine.cpp:1082-1095) ──
     int postFXVol = renderSongPostReverbFX(numSamples);
@@ -849,8 +861,9 @@ public class FirmwareAudioEngine {
   }
 
   /**
-   * C song.cpp:2548, global_effectable.cpp:1145-1181, mod_controllable_audio.cpp:166-192 —
-   * Song-level ModFX and EQ processed post-summation on the master buffer, pre-reverb.
+   * C song.cpp:2538-2552, global_effectable.cpp:1123-1181, mod_controllable_audio.cpp:166-196, 219,
+   * 248-250 — Song-level ModFX, EQ, Delay, and Reverb Send processed post-summation on the master
+   * buffer, pre-reverb.
    */
   private void renderSongPreReverbFX(int numSamples) {
     org.deluge.firmware2.ModFx.ModFXType activeModFx = getActiveModFXType();
@@ -898,6 +911,51 @@ public class FirmwareAudioEngine {
     if (masterEqBass != 0 || masterEqTreble != 0) {
       masterEq.process(
           fxBuffer, numSamples, masterEqBass, masterEqTreble, masterEqBassFreq, masterEqTrebleFreq);
+    }
+
+    // C song.cpp:2538, global_effectable.cpp:1129-1140, mod_controllable_audio.cpp:195 —
+    // Delay runs after ModFX and EQ, before song reverb send and before AudioEngine::renderReverb.
+    // Recompute userDelayRate and delayFeedbackAmount every block before setupWorkingState, which
+    // mutates userDelayRate in place when syncLevel != 0 (delay.cpp:104-118).
+    delayState.delayFeedbackAmount =
+        org.deluge.firmware2.Functions.getFinalParameterValueLinear(
+            org.deluge.firmware2.Functions.getParamNeutralValue(
+                org.deluge.firmware2.Param.GLOBAL_DELAY_FEEDBACK),
+            org.deluge.firmware2.Functions.cableToLinearParamShortcut(songDelayFeedback));
+    delayState.userDelayRate =
+        org.deluge.firmware2.Functions.getFinalParameterValueExp(
+            org.deluge.firmware2.Functions.getParamNeutralValue(
+                org.deluge.firmware2.Param.GLOBAL_DELAY_RATE),
+            org.deluge.firmware2.Functions.cableToExpParamShortcut(songDelayRate));
+    masterDelay.setupWorkingState(delayState, songTimePerInternalTickInverse, true);
+    masterDelay.process(fxBuffer, numSamples, delayState);
+
+    // C song.cpp:2541-2552, mod_controllable_audio.cpp:219, 248-250 — Song-level reverb send.
+    int songReverbSendAmount =
+        org.deluge.firmware2.Functions.getFinalParameterValueVolume(
+            org.deluge.firmware2.Functions.getParamNeutralValue(
+                org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT),
+            org.deluge.firmware2.Functions.cableToLinearParamShortcut(this.songReverbAmount));
+    int songReverbSendShifted = songReverbSendAmount >> 1; // C song.cpp:2552
+    if (songReverbSendShifted != 0) {
+      int songVolumePostFX =
+          org.deluge.firmware2.Functions.getFinalParameterValueVolume(
+                  134217728,
+                  org.deluge.firmware2.Functions.cableToLinearParamShortcut(this.songVolume))
+              >> 1; // C song.cpp:2491-2495
+      int reverbSendAmountAndPostFXVolume =
+          org.deluge.firmware2.Functions.multiply_32x32_rshift32(
+                  songVolumePostFX, songReverbSendShifted)
+              << 5; // C mod_controllable_audio.cpp:219
+      for (int i = 0; i < numSamples; i++) {
+        int mono = fxBuffer[i][0] + fxBuffer[i][1];
+        int revSend =
+            org.deluge.firmware2.Functions.multiply_32x32_rshift32(
+                    mono, reverbSendAmountAndPostFXVolume)
+                << 1; // C mod_controllable_audio.cpp:249
+        long sum = (long) monoReverbBuffer[i] + revSend;
+        monoReverbBuffer[i] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, sum));
+      }
     }
   }
 

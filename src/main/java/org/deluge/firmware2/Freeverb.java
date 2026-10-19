@@ -441,15 +441,20 @@ public class Freeverb {
    * into the outputLR array of [l, r] per sample. Input array is modified in-place (HPF applied).
    */
   public void process(int[] input, int[][] outputLR) {
+    process(input, outputLR, input.length);
+  }
+
+  public void process(int[] input, int[][] outputLR, int numSamples) {
+    int limit = Math.min(numSamples, Math.min(input.length, outputLR.length));
     // C:100-104 — HPF on reverb input to remove DC offset (~40Hz corner)
-    for (int i = 0; i < input.length; i++) {
+    for (int i = 0; i < limit; i++) {
       int distanceToGo = input[i] - reverbSendPostLpf; // C:101
       reverbSendPostLpf += distanceToGo >> 11; // C:102
       input[i] -= reverbSendPostLpf; // C:103
     }
 
     // C:106-108
-    for (int i = 0; i < input.length; i++) {
+    for (int i = 0; i < limit; i++) {
       processOne(input[i], outputLR[i]);
     }
   }

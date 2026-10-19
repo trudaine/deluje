@@ -400,7 +400,9 @@ public class SwingMasterFxDialog extends JDialog {
         val -> {
           float f = val / 100.0f;
           projectModel.setMasterDelay(f);
+          projectModel.setSongParamDelayFeedback(f);
           bridge.setGlobalFloat(BridgeContract.G_DELAY_FB, f);
+          bridge.setGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK, f);
           showTransientLed("DL.FB", val + "%");
         },
         GLOW_GREEN);

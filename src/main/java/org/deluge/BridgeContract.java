@@ -578,10 +578,10 @@ public final class BridgeContract {
   private float reverbCompVolume = -21474836.0f / 2147483647.0f;
   private float reverbExcitation = 0.0f;
   private int reverbMode = 0; // 0=RESONATOR, 1=KARPLUS_STRONG
-  // ── Extended delay scalars ──
-  private int delayPingPong = 0;
+  // ── Extended delay scalars (C delay.h:66-72) ──
+  private int delayPingPong = 1;
   private int delayAnalog = 0;
-  private int delaySyncLevel = 0;
+  private int delaySyncLevel = 7;
   private int delaySyncType = 0;
   // ── Sidechain scalars ──
   private float sidechainAttack = 0.0f;
@@ -597,11 +597,11 @@ public final class BridgeContract {
   // ── Transpose / humanize ──
   private int transpose = 0;
   private float humanize = 0.0f;
-  // ── SongParams scalars ──
+  // ── SongParams scalars (C global_effectable.cpp:75-79) ──
   private float spVolume = 1.0f;
   private float spPan = 0.0f;
-  private float spReverbAmount = 0.5f;
-  private float spDelayRate = 0.0f;
+  private float spReverbAmount = 0.0f;
+  private float spDelayRate = 0.5f;
   private float spDelayFeedback = 0.0f;
   private float spSidechainShape = 0.5f;
   private float spStutterRate = 0.0f;

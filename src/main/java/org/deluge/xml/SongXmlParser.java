@@ -1867,6 +1867,10 @@ public class SongXmlParser {
     // ── Delay (C mod_controllable_audio.cpp:787-841) ──
     Element del = directChild(songNode, "delay");
     if (del != null) {
+      // C mod_controllable_audio.cpp:789-790 — <delay> resets syncType=EVEN and syncLevel=NONE
+      // before reading child/attribute values, so omitting syncLevel inside <delay> means unsynced.
+      project.setDelaySyncType(0);
+      project.setDelaySyncLevel(0);
       String pp = readDirectAttrOrChild(del, "pingPong");
       if (pp != null) {
         try {
