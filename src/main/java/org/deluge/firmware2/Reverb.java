@@ -648,14 +648,19 @@ public class Reverb {
     }
 
     public void process(int[] input, int[][] outputLR) {
+      process(input, outputLR, input.length);
+    }
+
+    public void process(int[] input, int[][] outputLR, int numSamples) {
+      int limit = Math.min(numSamples, Math.min(input.length, outputLR.length));
       switch (model) {
         case FREEVERB:
-          freeverb.process(input, outputLR);
+          freeverb.process(input, outputLR, limit);
           break;
         case MUTABLE:
         case DIGITAL:
           if (mutableModel != null) {
-            mutableModel.process(input, outputLR, input.length);
+            mutableModel.process(input, outputLR, limit);
           }
           break;
       }

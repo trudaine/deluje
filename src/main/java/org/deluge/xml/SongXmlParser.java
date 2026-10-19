@@ -1867,17 +1867,23 @@ public class SongXmlParser {
     // ── Delay (C mod_controllable_audio.cpp:787-841) ──
     Element del = directChild(songNode, "delay");
     if (del != null) {
+      // C mod_controllable_audio.cpp:789-790 — <delay> resets syncType=EVEN and syncLevel=NONE
+      // before reading child/attribute values, so omitting syncLevel inside <delay> means unsynced.
+      project.setDelaySyncType(0);
+      project.setDelaySyncLevel(0);
       String pp = readDirectAttrOrChild(del, "pingPong");
       if (pp != null) {
         try {
-          project.setDelayPingPong(Integer.parseInt(pp));
+          // C mod_controllable_audio.cpp:819 — std::clamp(contents, 0_i32, 1_i32).
+          project.setDelayPingPong(Math.max(0, Math.min(1, Integer.parseInt(pp))));
         } catch (NumberFormatException ignored) {
         }
       }
       String analog = readDirectAttrOrChild(del, "analog");
       if (analog != null) {
         try {
-          project.setDelayAnalog(Integer.parseInt(analog));
+          // C mod_controllable_audio.cpp:824 — std::clamp(contents, 0_i32, 1_i32).
+          project.setDelayAnalog(Math.max(0, Math.min(1, Integer.parseInt(analog))));
         } catch (NumberFormatException ignored) {
         }
       }
