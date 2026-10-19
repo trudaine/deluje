@@ -138,6 +138,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setWaveFoldQ31(int v) {
     this.waveFoldQ31 = v;
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_FOLD);
   }
 
   /** Portamento knob (raw Q31, C UNPATCHED_PORTAMENTO / XML "portamento"); INT_MIN = off. */
@@ -174,6 +175,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setPortamentoQ31(int v) {
     this.portamentoQ31 = v;
+    this.portamento = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
   }
 
   public enum PolyphonyMode {
@@ -272,6 +274,8 @@ public class SynthTrackModel extends TrackModel {
     this.oscMix = oscMix;
     osc1.setVolume(oscMix);
     osc2.setVolume(1.0f - oscMix);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_B_VOLUME);
   }
 
   public float getOscAVolume() {
@@ -281,6 +285,7 @@ public class SynthTrackModel extends TrackModel {
   public void setOscAVolume(float oscAVolume) {
     osc1.setVolume(oscAVolume);
     this.oscMix = oscAVolume;
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME);
   }
 
   public float getOscBVolume() {
@@ -289,6 +294,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setOscBVolume(float oscBVolume) {
     osc2.setVolume(oscBVolume);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_B_VOLUME);
   }
 
   public float getNoiseVol() {
@@ -297,6 +303,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setNoiseVol(float noiseVol) {
     this.noiseVol = noiseVol;
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_NOISE_VOLUME);
   }
 
   public float getWaveIndex() {
@@ -305,6 +312,8 @@ public class SynthTrackModel extends TrackModel {
 
   public void setWaveIndex(float v) {
     this.waveIndex = v;
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_A_WAVE_INDEX);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_B_WAVE_INDEX);
   }
 
   public String getOsc1SamplePath() {
@@ -467,6 +476,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setLpfFreq(float lpfFreq) {
     filter.setLpfFreq(lpfFreq);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_LPF_FREQ);
   }
 
   public float getLpfRes() {
@@ -475,6 +485,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setLpfRes(float lpfRes) {
     filter.setLpfRes(lpfRes);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_LPF_RESONANCE);
   }
 
   public float getLpfMorph() {
@@ -483,6 +494,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setLpfMorph(float lpfMorph) {
     filter.setLpfMorph(lpfMorph);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_LPF_MORPH);
   }
 
   public float getHpfFreq() {
@@ -491,6 +503,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setHpfFreq(float hpfFreq) {
     filter.setHpfFreq(hpfFreq);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_HPF_FREQ);
   }
 
   public float getHpfRes() {
@@ -499,6 +512,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setHpfRes(float hpfRes) {
     filter.setHpfRes(hpfRes);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_HPF_RESONANCE);
   }
 
   public float getHpfMorph() {
@@ -507,6 +521,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setHpfMorph(float hpfMorph) {
     filter.setHpfMorph(hpfMorph);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_HPF_MORPH);
   }
 
   public FilterMode getHpfMode() {
@@ -587,6 +602,7 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public void setLfo(int index, LfoModel model) {
+    rawKnobs.clearLfoRateKnob(index);
     lfo[index] = model;
   }
 
@@ -704,6 +720,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setPortamento(float portamento) {
     this.portamento = portamento;
+    this.portamentoQ31 = org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(portamento);
   }
 
   public String getModFxType() {
@@ -720,6 +737,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setModFxRate(float modFxRate) {
     fx.setModFxRate(modFxRate);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.GLOBAL_MOD_FX_RATE);
   }
 
   public float getModFxDepth() {
@@ -728,6 +746,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setModFxDepth(float modFxDepth) {
     fx.setModFxDepth(modFxDepth);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.GLOBAL_MOD_FX_DEPTH);
   }
 
   public float getModFxFeedback() {
@@ -736,6 +755,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setModFxFeedback(float modFxFeedback) {
     fx.setModFxFeedback(modFxFeedback);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.UNPATCHED_MOD_FX_FEEDBACK);
   }
 
   public float getModFxOffset() {
@@ -744,6 +764,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setModFxOffset(float modFxOffset) {
     fx.setModFxOffset(modFxOffset);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.UNPATCHED_MOD_FX_OFFSET);
   }
 
   public float getDelaySend() {
@@ -752,6 +773,16 @@ public class SynthTrackModel extends TrackModel {
 
   public void setDelaySend(float delaySend) {
     fx.setDelaySend(delaySend);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.GLOBAL_DELAY_RATE);
+  }
+
+  public float getDelayFeedback() {
+    return fx.getDelayFeedback();
+  }
+
+  public void setDelayFeedback(float delayFeedback) {
+    fx.setDelayFeedback(delayFeedback);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.GLOBAL_DELAY_FEEDBACK);
   }
 
   public float getReverbSend() {
@@ -760,6 +791,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setReverbSend(float reverbSend) {
     fx.setReverbSend(reverbSend);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT);
   }
 
   public int getDelaySyncLevel() {
@@ -784,6 +816,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setDelayFeedbackQ31(int v) {
     fx.setDelayFeedbackQ31(v);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.GLOBAL_DELAY_FEEDBACK);
   }
 
   public boolean isDelayPingPong() {
@@ -820,6 +853,24 @@ public class SynthTrackModel extends TrackModel {
     this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.UNPATCHED_TREBLE);
   }
 
+  public float getEqBassFreq() {
+    return fx.getEqBassFreq();
+  }
+
+  public void setEqBassFreq(float eqBassFreq) {
+    fx.setEqBassFreq(eqBassFreq);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.UNPATCHED_BASS_FREQ);
+  }
+
+  public float getEqTrebleFreq() {
+    return fx.getEqTrebleFreq();
+  }
+
+  public void setEqTrebleFreq(float eqTrebleFreq) {
+    fx.setEqTrebleFreq(eqTrebleFreq);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.UNPATCHED_TREBLE_FREQ);
+  }
+
   @Override
   public float getVolume() {
     return volume;
@@ -847,6 +898,7 @@ public class SynthTrackModel extends TrackModel {
   @Override
   public void setPan(float v) {
     this.pan = v;
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_PAN);
   }
 
   public float getSampleRateReduction() {
@@ -855,6 +907,9 @@ public class SynthTrackModel extends TrackModel {
 
   public void setSampleRateReduction(float v) {
     this.sampleRateReduction = v;
+    this.rawKnobs
+        .getRawParamKnobs()
+        .remove(org.deluge.firmware2.Param.UNPATCHED_SAMPLE_RATE_REDUCTION);
   }
 
   public float getBitCrush() {
@@ -863,6 +918,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setBitCrush(float v) {
     this.bitCrush = v;
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.UNPATCHED_BITCRUSHING);
   }
 
   public float getCompressorAttack() {

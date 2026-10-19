@@ -15,10 +15,13 @@ public class FxConfig {
   private float modFxOffset = 0.0f;
   private float eqBass = 0.0f;
   private float eqTreble = 0.0f;
+  private float eqBassFreq = 0.0f;
+  private float eqTrebleFreq = 0.0f;
 
   // Per-sound delay parameters
   private int delaySyncLevel = 7; // FILE value: internal 6 (16ths) at tick magnitude 2
   private int delaySyncType = 0;
+  private float delayFeedback = 0.0f;
   private int delayFeedbackQ31 = Integer.MIN_VALUE;
   private boolean delayPingPong = false;
   private boolean delayAnalog = false;
@@ -95,6 +98,22 @@ public class FxConfig {
     this.eqTreble = eqTreble;
   }
 
+  public float getEqBassFreq() {
+    return eqBassFreq;
+  }
+
+  public void setEqBassFreq(float eqBassFreq) {
+    this.eqBassFreq = eqBassFreq;
+  }
+
+  public float getEqTrebleFreq() {
+    return eqTrebleFreq;
+  }
+
+  public void setEqTrebleFreq(float eqTrebleFreq) {
+    this.eqTrebleFreq = eqTrebleFreq;
+  }
+
   public int getDelaySyncLevel() {
     return delaySyncLevel;
   }
@@ -111,12 +130,22 @@ public class FxConfig {
     this.delaySyncType = v;
   }
 
+  public float getDelayFeedback() {
+    return delayFeedback;
+  }
+
+  public void setDelayFeedback(float v) {
+    this.delayFeedback = v;
+    this.delayFeedbackQ31 = org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(v);
+  }
+
   public int getDelayFeedbackQ31() {
     return delayFeedbackQ31;
   }
 
   public void setDelayFeedbackQ31(int v) {
     this.delayFeedbackQ31 = v;
+    this.delayFeedback = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
   }
 
   public boolean isDelayPingPong() {
@@ -150,8 +179,11 @@ public class FxConfig {
     this.modFxOffset = other.modFxOffset;
     this.eqBass = other.eqBass;
     this.eqTreble = other.eqTreble;
+    this.eqBassFreq = other.eqBassFreq;
+    this.eqTrebleFreq = other.eqTrebleFreq;
     this.delaySyncLevel = other.delaySyncLevel;
     this.delaySyncType = other.delaySyncType;
+    this.delayFeedback = other.delayFeedback;
     this.delayFeedbackQ31 = other.delayFeedbackQ31;
     this.delayPingPong = other.delayPingPong;
     this.delayAnalog = other.delayAnalog;

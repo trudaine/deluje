@@ -54,6 +54,7 @@ public class FmConfig {
 
   public void setFmAmount(float fmAmount) {
     this.fmAmount = fmAmount;
+    this.modulator1AmountQ31 = org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(fmAmount);
   }
 
   public float getModulator1Feedback() {
@@ -62,6 +63,8 @@ public class FmConfig {
 
   public void setModulator1Feedback(float modulator1Feedback) {
     this.modulator1Feedback = modulator1Feedback;
+    this.modulator1FeedbackQ31 =
+        org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(modulator1Feedback);
   }
 
   public float getModulator2Amount() {
@@ -70,6 +73,8 @@ public class FmConfig {
 
   public void setModulator2Amount(float modulator2Amount) {
     this.modulator2Amount = modulator2Amount;
+    this.modulator2AmountQ31 =
+        org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(modulator2Amount);
   }
 
   public float getModulator2Feedback() {
@@ -78,6 +83,8 @@ public class FmConfig {
 
   public void setModulator2Feedback(float modulator2Feedback) {
     this.modulator2Feedback = modulator2Feedback;
+    this.modulator2FeedbackQ31 =
+        org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(modulator2Feedback);
   }
 
   public float getCarrier1Feedback() {
@@ -86,6 +93,8 @@ public class FmConfig {
 
   public void setCarrier1Feedback(float carrier1Feedback) {
     this.carrier1Feedback = carrier1Feedback;
+    this.carrier1FeedbackQ31 =
+        org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(carrier1Feedback);
   }
 
   public float getCarrier2Feedback() {
@@ -94,6 +103,8 @@ public class FmConfig {
 
   public void setCarrier2Feedback(float carrier2Feedback) {
     this.carrier2Feedback = carrier2Feedback;
+    this.carrier2FeedbackQ31 =
+        org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(carrier2Feedback);
   }
 
   public float getFmRatio2() {
@@ -142,6 +153,7 @@ public class FmConfig {
 
   public void setModulator1AmountQ31(int modulator1AmountQ31) {
     this.modulator1AmountQ31 = modulator1AmountQ31;
+    this.fmAmount = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(modulator1AmountQ31);
   }
 
   public int getModulator2AmountQ31() {
@@ -150,6 +162,8 @@ public class FmConfig {
 
   public void setModulator2AmountQ31(int modulator2AmountQ31) {
     this.modulator2AmountQ31 = modulator2AmountQ31;
+    this.modulator2Amount =
+        org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(modulator2AmountQ31);
   }
 
   public int getModulator1FeedbackQ31() {
@@ -158,6 +172,8 @@ public class FmConfig {
 
   public void setModulator1FeedbackQ31(int modulator1FeedbackQ31) {
     this.modulator1FeedbackQ31 = modulator1FeedbackQ31;
+    this.modulator1Feedback =
+        org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(modulator1FeedbackQ31);
   }
 
   public int getModulator2FeedbackQ31() {
@@ -166,6 +182,8 @@ public class FmConfig {
 
   public void setModulator2FeedbackQ31(int modulator2FeedbackQ31) {
     this.modulator2FeedbackQ31 = modulator2FeedbackQ31;
+    this.modulator2Feedback =
+        org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(modulator2FeedbackQ31);
   }
 
   public int getCarrier1FeedbackQ31() {
@@ -174,6 +192,8 @@ public class FmConfig {
 
   public void setCarrier1FeedbackQ31(int carrier1FeedbackQ31) {
     this.carrier1FeedbackQ31 = carrier1FeedbackQ31;
+    this.carrier1Feedback =
+        org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(carrier1FeedbackQ31);
   }
 
   public int getCarrier2FeedbackQ31() {
@@ -182,6 +202,8 @@ public class FmConfig {
 
   public void setCarrier2FeedbackQ31(int carrier2FeedbackQ31) {
     this.carrier2FeedbackQ31 = carrier2FeedbackQ31;
+    this.carrier2Feedback =
+        org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(carrier2FeedbackQ31);
   }
 
   public boolean isModulator1ToModulator0() {

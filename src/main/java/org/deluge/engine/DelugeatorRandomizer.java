@@ -265,12 +265,13 @@ public class DelugeatorRandomizer {
     if (settings.env1Checked) {
       double amt = settings.env1Amount;
       EnvelopeModel env1 = model.getEnv(0);
+      float maxEnv1Attack = settings.hardcoreMode ? 2.0f : 0.35f;
       model.setEnv(
           0,
           new EnvelopeModel(
-              getTriangular(0.002f, 2.0f, 0.01f, amt),
+              getTriangular(0.002f, maxEnv1Attack, 0.01f, amt),
               getTriangular(0.01f, 5.0f, 1.0f, amt),
-              getTriangular(0.0f, 1.0f, 0.8f, amt),
+              getTriangular(0.25f, 1.0f, 0.8f, amt),
               getTriangular(0.01f, 5.0f, 0.5f, amt),
               env1 != null ? env1.target() : "NONE",
               env1 != null ? env1.amount() : 0.0f));
@@ -366,11 +367,11 @@ public class DelugeatorRandomizer {
     // 9. Filters (LPF, HPF)
     if (settings.filtersChecked) {
       double amt = settings.filtersAmount;
-      model.setLpfFreq(getTriangular(150.0f, 20000.0f, 15000.0f, amt));
+      model.setLpfFreq(getTriangular(600.0f, 20000.0f, 15000.0f, amt));
       model.setLpfRes(getTriangular(0.0f, 0.92f, 0.0f, amt));
       model.setLpfMorph(getTriangular(0.0f, 1.0f, 0.0f, amt));
 
-      model.setHpfFreq(getTriangular(20.0f, 6000.0f, 20.0f, amt));
+      model.setHpfFreq(getTriangular(20.0f, settings.hardcoreMode ? 6000.0f : 350.0f, 20.0f, amt));
       model.setFilterRoute(Math.random() < 0.5 ? 0 : 1);
     }
 
@@ -413,6 +414,12 @@ public class DelugeatorRandomizer {
       String src = sources[(int) (Math.random() * sources.length)];
       String dst = targets[(int) (Math.random() * targets.length)];
       float scale = getTriangular(-1.0f, 1.0f, 0.0f, 0.8);
+      if ("volume".equals(dst) || "lpfFreq".equals(dst)) {
+        scale = Math.max(-0.25f, scale);
+      }
+      if ("hpfFreq".equals(dst)) {
+        scale = Math.min(0.25f, scale);
+      }
 
       // Prevent duplicate routings (using exact immutable record field parameters!)
       boolean duplicate = false;

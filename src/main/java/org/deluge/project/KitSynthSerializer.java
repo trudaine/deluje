@@ -148,12 +148,20 @@ public class KitSynthSerializer {
             String.valueOf((int) (sound.getSidechainSend() * Integer.MAX_VALUE)));
       }
 
-      // ── lfo1, lfo2 ──
+      // ── lfo1..lfo4 (C sound.cpp:4196-4215) ──
       appendLfo(doc, soundElem, "lfo1", sound.getLfo1());
       appendLfo(doc, soundElem, "lfo2", sound.getLfo2());
+      appendLfo(doc, soundElem, "lfo3", sound.getLfo3());
+      appendLfo(doc, soundElem, "lfo4", sound.getLfo4());
 
-      // ── mode (subtractive for all kit sounds) ──
-      appendTextChild(doc, soundElem, "mode", "subtractive");
+      // ── mode (C sound.cpp:4167 — subtractive / fm / ringmod) ──
+      String drumModeStr =
+          switch (sound.getSynthMode()) {
+            case 1 -> "fm";
+            case 2 -> "ringmod";
+            default -> "subtractive";
+          };
+      appendTextChild(doc, soundElem, "mode", drumModeStr);
       if (Math.round(sound.getPitchSemitones()) != 0) {
         appendTextChild(
             doc, soundElem, "transpose", String.valueOf(Math.round(sound.getPitchSemitones())));
@@ -161,6 +169,20 @@ public class KitSynthSerializer {
       if (sound.getCents() != 0) {
         appendTextChild(doc, soundElem, "cents", String.valueOf(sound.getCents()));
       }
+
+      // ── modulator1 & modulator2 (C sound.cpp:4217-4234) ──
+      Element drumMod1 = doc.createElement("modulator1");
+      drumMod1.setAttribute("transpose", String.valueOf(sound.getModulator1Transpose()));
+      drumMod1.setAttribute("cents", String.valueOf(sound.getModulator1Cents()));
+      drumMod1.setAttribute("retrigPhase", String.valueOf(sound.getMod1RetrigPhase()));
+      soundElem.appendChild(drumMod1);
+
+      Element drumMod2 = doc.createElement("modulator2");
+      drumMod2.setAttribute("transpose", String.valueOf(sound.getModulator2Transpose()));
+      drumMod2.setAttribute("cents", String.valueOf(sound.getModulator2Cents()));
+      drumMod2.setAttribute("retrigPhase", String.valueOf(sound.getMod2RetrigPhase()));
+      drumMod2.setAttribute("toModulator1", sound.isModulator1ToModulator0() ? "1" : "0");
+      soundElem.appendChild(drumMod2);
 
       // ── unison ──
       Element unison = doc.createElement("unison");
@@ -188,14 +210,18 @@ public class KitSynthSerializer {
         soundElem.appendChild(comp);
       }
 
-      // ── delay ──
-      if (sound.getDelayRate() > 0 || sound.getDelayFeedback() > 0) {
-        Element delay = doc.createElement("delay");
-        appendTextAttr(delay, "pingPong", "1");
-        appendTextAttr(delay, "analog", "0");
-        appendTextAttr(delay, "syncLevel", "7");
-        soundElem.appendChild(delay);
+      // ── delay (C mod_controllable_audio.cpp:417-425 — unconditional) ──
+      Element delay = doc.createElement("delay");
+      appendTextAttr(delay, "pingPong", String.valueOf(sound.getDelayPingPong()));
+      appendTextAttr(delay, "analog", String.valueOf(sound.getDelayAnalog()));
+      appendTextAttr(delay, "syncLevel", String.valueOf(sound.getDelaySyncLevel()));
+      if (sound.getDelaySyncType() > 0) {
+        appendTextAttr(
+            delay,
+            "syncType",
+            String.valueOf(org.deluge.xml.DelugeXmlUtil.syncTypeToFile(sound.getDelaySyncType())));
       }
+      soundElem.appendChild(delay);
 
       // ── lpfMode ──
       String lpfModeStr =
@@ -224,58 +250,222 @@ public class KitSynthSerializer {
           };
       appendTextChild(doc, soundElem, "hpfMode", hpfModeStr);
 
+      // ── filterRoute (C filter_config.cpp:8-14, mod_controllable_audio.cpp:411) ──
+      String drumFilterRoute =
+          switch (sound.getFilterRoute()) {
+            case 1 -> "L2H";
+            case 2 -> "PARA";
+            default -> "H2L";
+          };
+      appendTextChild(doc, soundElem, "filterRoute", drumFilterRoute);
+
       // ── modFXType ──
       String mfx = sound.getModFxType() != null ? sound.getModFxType().toLowerCase() : "none";
       appendTextChild(doc, soundElem, "modFXType", mfx);
 
-      // ── defaultParams ──
+      // ── defaultParams (C sound.cpp:4056-4162) ──
       Element dp = doc.createElement("defaultParams");
-      appendHexChildUnipolar(doc, dp, "arpeggiatorGate", sound.getArpeggiatorGate());
-      appendHexChildUnipolar(doc, dp, "portamento", sound.getPortamento());
-      appendHexChildUnipolar(doc, dp, "compressorShape", sound.getCompressorShape());
-      appendHexChildUnipolar(doc, dp, "oscAVolume", sound.getOscAVolume());
-      appendRawQ31Child(doc, dp, "oscAPulseWidth", 0);
-      appendHexChildUnipolar(doc, dp, "oscBVolume", sound.getOscBVolume());
-      appendRawQ31Child(doc, dp, "oscBPulseWidth", 0);
-      appendHexChildUnipolar(doc, dp, "noiseVolume", sound.getNoiseVolume());
-      appendHexChildUnipolar(doc, dp, "volume", sound.getVolume());
-      appendHexChild(doc, dp, "pan", sound.getPan());
-      appendHexFreq(doc, dp, "lpfFrequency", sound.getLpfFreq());
-      appendHexChildUnipolar(doc, dp, "lpfResonance", sound.getLpfRes());
-      appendHexFreq(doc, dp, "hpfFrequency", sound.getHpfFreq());
-      appendHexChildUnipolar(doc, dp, "hpfResonance", sound.getHpfRes());
-      appendHexChildUnipolar(doc, dp, "hpfMorph", sound.getHpfMorph());
-      appendHexChildUnipolar(doc, dp, "modFXRate", sound.getModFxRate());
-      appendHexChildUnipolar(doc, dp, "modFXDepth", sound.getModFxDepth());
-      appendHexChildUnipolar(doc, dp, "modFXOffset", sound.getModFxOffset());
-      appendHexChildUnipolar(doc, dp, "modFXFeedback", sound.getModFxFeedback());
-      appendHexChildUnipolar(doc, dp, "delayRate", sound.getDelayRate());
-      appendHexChildUnipolar(doc, dp, "delayFeedback", sound.getDelayFeedback());
-      appendHexChildUnipolar(doc, dp, "reverbAmount", sound.getReverbAmount());
-      appendHexChildUnipolar(doc, dp, "arpeggiatorRate", 0f);
-      appendHexChildUnipolar(doc, dp, "stutterRate", sound.getStutterRate());
-      appendHexChildUnipolar(doc, dp, "sampleRateReduction", sound.getSampleRateReduction());
-      appendHexChildUnipolar(doc, dp, "bitCrush", sound.getBitCrush());
-      appendHexChildUnipolar(doc, dp, "waveIndex", sound.getWaveIndex());
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "arpeggiatorGate",
+          sound,
+          () -> appendHexChildUnipolar(doc, dp, "arpeggiatorGate", sound.getArpeggiatorGate()));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "portamento",
+          sound,
+          () -> appendHexChildUnipolar(doc, dp, "portamento", sound.getPortamento()));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "compressorShape",
+          sound,
+          () -> appendHexChildUnipolar(doc, dp, "compressorShape", sound.getCompressorShape()));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "oscAVolume",
+          sound,
+          () -> appendHexChildUnipolar(doc, dp, "oscAVolume", sound.getOscAVolume()));
+      appendDrumRawOrFallback(
+          doc, dp, "oscAPulseWidth", sound, () -> appendRawQ31Child(doc, dp, "oscAPulseWidth", 0));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "oscBVolume",
+          sound,
+          () -> appendHexChildUnipolar(doc, dp, "oscBVolume", sound.getOscBVolume()));
+      appendDrumRawOrFallback(
+          doc, dp, "oscBPulseWidth", sound, () -> appendRawQ31Child(doc, dp, "oscBPulseWidth", 0));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "noiseVolume",
+          sound,
+          () -> appendHexChildUnipolar(doc, dp, "noiseVolume", sound.getNoiseVolume()));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "volume",
+          sound,
+          () -> appendHexChildUnipolar(doc, dp, "volume", sound.getVolume()));
+      appendDrumRawOrFallback(
+          doc, dp, "pan", sound, () -> appendHexChild(doc, dp, "pan", sound.getPan()));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "lpfFrequency",
+          sound,
+          () -> appendHexFreq(doc, dp, "lpfFrequency", sound.getLpfFreq()));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "lpfResonance",
+          sound,
+          () -> appendHexChildUnipolar(doc, dp, "lpfResonance", sound.getLpfRes()));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "lpfMorph",
+          sound,
+          () -> appendHexChildUnipolar(doc, dp, "lpfMorph", sound.getLpfMorph()));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "hpfFrequency",
+          sound,
+          () -> appendHexFreq(doc, dp, "hpfFrequency", sound.getHpfFreq()));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "hpfResonance",
+          sound,
+          () -> appendHexChildUnipolar(doc, dp, "hpfResonance", sound.getHpfRes()));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "hpfMorph",
+          sound,
+          () -> appendHexChildUnipolar(doc, dp, "hpfMorph", sound.getHpfMorph()));
+      appendBoxedQ31OrFallback(
+          doc,
+          dp,
+          "modFXRate",
+          sound.getModFxRateQ31(),
+          () -> appendHexChildUnipolar(doc, dp, "modFXRate", sound.getModFxRate()));
+      appendBoxedQ31OrFallback(
+          doc,
+          dp,
+          "modFXDepth",
+          sound.getModFxDepthQ31(),
+          () -> appendHexChildUnipolar(doc, dp, "modFXDepth", sound.getModFxDepth()));
+      appendBoxedQ31OrFallback(
+          doc,
+          dp,
+          "modFXOffset",
+          sound.getModFxOffsetQ31(),
+          () -> appendHexChildUnipolar(doc, dp, "modFXOffset", sound.getModFxOffset()));
+      appendBoxedQ31OrFallback(
+          doc,
+          dp,
+          "modFXFeedback",
+          sound.getModFxFeedbackQ31(),
+          () -> appendHexChildUnipolar(doc, dp, "modFXFeedback", sound.getModFxFeedback()));
+      appendBoxedQ31OrFallback(
+          doc,
+          dp,
+          "delayRate",
+          sound.getDelayRateQ31(),
+          () -> appendHexChildUnipolar(doc, dp, "delayRate", sound.getDelayRate()));
+      appendBoxedQ31OrFallback(
+          doc,
+          dp,
+          "delayFeedback",
+          sound.getDelayFeedbackQ31(),
+          () -> appendHexChildUnipolar(doc, dp, "delayFeedback", sound.getDelayFeedback()));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "reverbAmount",
+          sound,
+          () -> appendHexChildUnipolar(doc, dp, "reverbAmount", sound.getReverbAmount()));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "arpeggiatorRate",
+          sound,
+          () -> appendHexChildUnipolar(doc, dp, "arpeggiatorRate", sound.getArpeggiatorRate()));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "stutterRate",
+          sound,
+          () -> appendHexChildUnipolar(doc, dp, "stutterRate", sound.getStutterRate()));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "sampleRateReduction",
+          sound,
+          () ->
+              appendHexChildUnipolar(
+                  doc, dp, "sampleRateReduction", sound.getSampleRateReduction()));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "bitCrush",
+          sound,
+          () -> appendHexChildUnipolar(doc, dp, "bitCrush", sound.getBitCrush()));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "waveIndex",
+          sound,
+          () -> appendHexChildUnipolar(doc, dp, "waveIndex", sound.getWaveIndex()));
+      Integer drumWaveFold = sound.getRawDefaultParamQ31("waveFold");
+      if (drumWaveFold != null) {
+        appendRawQ31Child(doc, dp, "waveFold", drumWaveFold);
+      }
 
       // Envelopes 1-4 inside defaultParams
-      appendEnvelope(doc, dp, "envelope1", sound.getAdsr());
-      appendEnvelope(doc, dp, "envelope2", sound.getEnv2());
-      appendEnvelope(doc, dp, "envelope3", sound.getEnv3());
-      appendEnvelope(doc, dp, "envelope4", sound.getEnv4());
+      EnvelopeModel[] drumEnvs = {
+        sound.getAdsr(), sound.getEnv2(), sound.getEnv3(), sound.getEnv4()
+      };
+      for (int envIdx = 0; envIdx < 4; envIdx++) {
+        String envTag = "envelope" + (envIdx + 1);
+        Integer aQ31 = sound.getRawDefaultParamQ31(envTag + ".attack");
+        Integer dQ31 = sound.getRawDefaultParamQ31(envTag + ".decay");
+        Integer sQ31 = sound.getRawDefaultParamQ31(envTag + ".sustain");
+        Integer rQ31 = sound.getRawDefaultParamQ31(envTag + ".release");
+        if (aQ31 != null && dQ31 != null && sQ31 != null && rQ31 != null) {
+          Element envElem = doc.createElement(envTag);
+          appendRawQ31Child(doc, envElem, "attack", aQ31);
+          appendRawQ31Child(doc, envElem, "decay", dQ31);
+          appendRawQ31Child(doc, envElem, "sustain", sQ31);
+          appendRawQ31Child(doc, envElem, "release", rQ31);
+          dp.appendChild(envElem);
+        } else {
+          appendEnvelope(doc, dp, envTag, drumEnvs[envIdx]);
+        }
+      }
 
-      // LFO rates inside defaultParams
-      appendHexChild(
-          doc, dp, "lfo1Rate", sound.getLfo1().rateHz() / 100.0f); // normalize to 0-1 range
-      appendHexChild(doc, dp, "lfo2Rate", sound.getLfo2().rateHz() / 100.0f);
+      // LFO 1..4 rates inside defaultParams (C sound.cpp:4107-4110)
+      LfoModel[] drumLfos = {sound.getLfo1(), sound.getLfo2(), sound.getLfo3(), sound.getLfo4()};
+      for (int lfoIdx = 0; lfoIdx < 4; lfoIdx++) {
+        String rateTag = "lfo" + (lfoIdx + 1) + "Rate";
+        LfoModel curLfo = drumLfos[lfoIdx];
+        appendDrumRawOrFallback(
+            doc, dp, rateTag, sound, () -> appendHexLfoFreq(doc, dp, rateTag, curLfo.rateHz()));
+      }
 
-      // FM params (default values)
-      appendHexChildUnipolar(doc, dp, "modulator1Amount", sound.getFmAmount());
-      appendHexChild(doc, dp, "modulator1Feedback", 0f);
-      appendHexChild(doc, dp, "modulator2Amount", 0f);
-      appendHexChild(doc, dp, "modulator2Feedback", 0f);
-      appendHexChild(doc, dp, "carrier1Feedback", 0f);
-      appendHexChild(doc, dp, "carrier2Feedback", 0f);
+      // FM params (C sound.cpp:4111-4114, 4125-4126)
+      appendRawQ31Child(doc, dp, "modulator1Amount", sound.getModulator1AmountQ31());
+      appendRawQ31Child(doc, dp, "modulator1Feedback", sound.getModulator1FeedbackQ31());
+      appendRawQ31Child(doc, dp, "modulator2Amount", sound.getModulator2AmountQ31());
+      appendRawQ31Child(doc, dp, "modulator2Feedback", sound.getModulator2FeedbackQ31());
+      appendRawQ31Child(doc, dp, "carrier1Feedback", sound.getCarrier1FeedbackQ31());
+      appendRawQ31Child(doc, dp, "carrier2Feedback", sound.getCarrier2FeedbackQ31());
 
       // Patch cables inside defaultParams
       if (!sound.getPatchCables().isEmpty()) {
@@ -286,12 +476,36 @@ public class KitSynthSerializer {
         dp.appendChild(pcContainer);
       }
 
-      // Equalizer inside defaultParams
+      // Equalizer inside defaultParams (C mod_controllable_audio.cpp:432-437)
       Element eq = doc.createElement("equalizer");
-      appendHexChild(doc, eq, "bass", sound.getEqBass());
-      appendHexChild(doc, eq, "treble", sound.getEqTreble());
-      appendHexChild(doc, eq, "bassFrequency", 0f);
-      appendHexChild(doc, eq, "trebleFrequency", 0f);
+      appendDrumRawOrFallback(
+          doc,
+          eq,
+          "bass",
+          "eq.bass",
+          sound,
+          () -> appendHexChild(doc, eq, "bass", sound.getEqBass()));
+      appendDrumRawOrFallback(
+          doc,
+          eq,
+          "treble",
+          "eq.treble",
+          sound,
+          () -> appendHexChild(doc, eq, "treble", sound.getEqTreble()));
+      appendDrumRawOrFallback(
+          doc,
+          eq,
+          "bassFrequency",
+          "eq.bassFrequency",
+          sound,
+          () -> appendHexChild(doc, eq, "bassFrequency", sound.getEqBassFreq()));
+      appendDrumRawOrFallback(
+          doc,
+          eq,
+          "trebleFrequency",
+          "eq.trebleFrequency",
+          sound,
+          () -> appendHexChild(doc, eq, "trebleFrequency", sound.getEqTrebleFreq()));
       dp.appendChild(eq);
 
       soundElem.appendChild(dp);
@@ -614,14 +828,19 @@ public class KitSynthSerializer {
         doc, arp, "chordProbability", String.valueOf(synth.getArp().chordProbability()));
     root.appendChild(arp);
 
-    // ── delay ──
-    if (synth.getDelaySend() > 0) {
-      Element delay = doc.createElement("delay");
-      appendTextChild(doc, delay, "pingPong", "1");
-      appendTextChild(doc, delay, "analog", "1");
-      appendTextChild(doc, delay, "syncLevel", "7");
-      root.appendChild(delay);
+    // ── delay (C mod_controllable_audio.cpp:417-425 — unconditional) ──
+    Element delay = doc.createElement("delay");
+    appendTextChild(doc, delay, "pingPong", synth.isDelayPingPong() ? "1" : "0");
+    appendTextChild(doc, delay, "analog", synth.isDelayAnalog() ? "1" : "0");
+    appendTextChild(doc, delay, "syncLevel", String.valueOf(synth.getDelaySyncLevel()));
+    if (synth.getDelaySyncType() > 0) {
+      appendTextChild(
+          doc,
+          delay,
+          "syncType",
+          String.valueOf(org.deluge.xml.DelugeXmlUtil.syncTypeToFile(synth.getDelaySyncType())));
     }
+    root.appendChild(delay);
 
     // ── lpfMode ──
     String lpfModeStr =
@@ -645,6 +864,15 @@ public class KitSynthSerializer {
         };
     appendTextChild(doc, root, "hpfMode", hpfModeSynthStr);
 
+    // ── filterRoute (C filter_config.cpp:8-14, mod_controllable_audio.cpp:411) ──
+    String synthFilterRoute =
+        switch (synth.getFilterRoute()) {
+          case 1 -> "L2H";
+          case 2 -> "PARA";
+          default -> "H2L";
+        };
+    appendTextChild(doc, root, "filterRoute", synthFilterRoute);
+
     // ── modFXType ──
     String mfx = synth.getModFxType() != null ? synth.getModFxType().toLowerCase() : "none";
     appendTextChild(doc, root, "modFXType", mfx);
@@ -661,23 +889,34 @@ public class KitSynthSerializer {
       root.appendChild(comp);
     }
 
-    // ── defaultParams ──
+    // ── defaultParams (C sound.cpp:4056-4162) ──
     Element dp = doc.createElement("defaultParams");
     appendHexChildUnipolar(doc, dp, "arpeggiatorGate", synth.getArp().gate());
-    appendHexChildUnipolar(doc, dp, "portamento", synth.getPortamento());
+    appendRawQ31Child(doc, dp, "portamento", synth.getPortamentoQ31());
     appendHexChildUnipolar(doc, dp, "compressorShape", synth.getCompressorShape());
     // Write the oscillators' ACTUAL volumes. These were derived from oscMix as (mix, 1 - mix),
     // which models a crossfade — but the Deluge's two oscillator volumes are independent, and
     // setOscAVolume also assigns oscMix. So a patch with both oscillators at full ("018 Rich Saw
-    // Lead") saved oscBVolume as 1 - 1 = 0, silencing osc B on reload. The kit path a few hundred
-    // lines up already wrote the real values; only this preset path derived them.
-    appendHexChildUnipolar(doc, dp, "oscAVolume", synth.getOscAVolume());
+    // Lead") saved oscBVolume as 1 - 1 = 0, silencing osc B on reload.
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "oscAVolume",
+        synth,
+        Param.LOCAL_OSC_A_VOLUME,
+        () -> appendHexChildUnipolar(doc, dp, "oscAVolume", synth.getOscAVolume()));
     appendRawQ31Child(
         doc,
         dp,
         "oscAPulseWidth",
         synth.getOsc1PhaseWidthQ31() != Integer.MIN_VALUE ? synth.getOsc1PhaseWidthQ31() : 0);
-    appendHexChildUnipolar(doc, dp, "oscBVolume", synth.getOscBVolume());
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "oscBVolume",
+        synth,
+        Param.LOCAL_OSC_B_VOLUME,
+        () -> appendHexChildUnipolar(doc, dp, "oscBVolume", synth.getOscBVolume()));
     appendRawQ31Child(
         doc,
         dp,
@@ -697,52 +936,228 @@ public class KitSynthSerializer {
     if (synth.getOsc2PitchAdjustQ31() != Integer.MIN_VALUE) {
       appendRawQ31Child(doc, dp, "oscBPitchAdjust", synth.getOsc2PitchAdjustQ31());
     }
-    appendHexChildUnipolar(doc, dp, "noiseVolume", synth.getNoiseVol());
-    appendHexChildUnipolar(doc, dp, "volume", synth.getVolume());
-    appendHexChild(doc, dp, "pan", synth.getPan());
-    appendHexFreq(doc, dp, "lpfFrequency", synth.getLpfFreq());
-    appendHexChildUnipolar(doc, dp, "lpfResonance", synth.getLpfRes());
-    appendHexFreq(doc, dp, "hpfFrequency", synth.getHpfFreq());
-    appendHexChildUnipolar(doc, dp, "hpfResonance", synth.getHpfRes());
-    appendHexChildUnipolar(doc, dp, "hpfMorph", synth.getHpfMorph());
+    Integer mod1Pitch =
+        synth.getRawKnobs().getRawParamKnobs().get(Param.LOCAL_MODULATOR_0_PITCH_ADJUST);
+    if (mod1Pitch != null && mod1Pitch != 0) {
+      appendRawQ31Child(doc, dp, "modulator1Pitch", mod1Pitch);
+    }
+    Integer mod2Pitch =
+        synth.getRawKnobs().getRawParamKnobs().get(Param.LOCAL_MODULATOR_1_PITCH_ADJUST);
+    if (mod2Pitch != null && mod2Pitch != 0) {
+      appendRawQ31Child(doc, dp, "modulator2Pitch", mod2Pitch);
+    }
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "noiseVolume",
+        synth,
+        Param.LOCAL_NOISE_VOLUME,
+        () -> appendHexChildUnipolar(doc, dp, "noiseVolume", synth.getNoiseVol()));
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "volume",
+        synth,
+        Param.GLOBAL_VOLUME_POST_FX,
+        () -> appendHexChildUnipolar(doc, dp, "volume", synth.getVolume()));
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "pan",
+        synth,
+        Param.LOCAL_PAN,
+        () -> appendHexChild(doc, dp, "pan", synth.getPan()));
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "lpfFrequency",
+        synth,
+        Param.LOCAL_LPF_FREQ,
+        () -> appendHexFreq(doc, dp, "lpfFrequency", synth.getLpfFreq()));
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "lpfResonance",
+        synth,
+        Param.LOCAL_LPF_RESONANCE,
+        () -> appendHexChildUnipolar(doc, dp, "lpfResonance", synth.getLpfRes()));
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "lpfMorph",
+        synth,
+        Param.LOCAL_LPF_MORPH,
+        () -> appendHexChildUnipolar(doc, dp, "lpfMorph", synth.getLpfMorph()));
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "hpfFrequency",
+        synth,
+        Param.LOCAL_HPF_FREQ,
+        () -> appendHexFreq(doc, dp, "hpfFrequency", synth.getHpfFreq()));
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "hpfResonance",
+        synth,
+        Param.LOCAL_HPF_RESONANCE,
+        () -> appendHexChildUnipolar(doc, dp, "hpfResonance", synth.getHpfRes()));
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "hpfMorph",
+        synth,
+        Param.LOCAL_HPF_MORPH,
+        () -> appendHexChildUnipolar(doc, dp, "hpfMorph", synth.getHpfMorph()));
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "waveFold",
+        synth,
+        Param.LOCAL_FOLD,
+        () -> appendRawQ31Child(doc, dp, "waveFold", synth.getWaveFoldQ31()));
 
-    // FM params
-    appendHexChildUnipolar(doc, dp, "modulator1Amount", synth.getFmAmount());
-    appendHexChildUnipolar(doc, dp, "modulator1Feedback", synth.getModulator1Feedback());
-    appendHexChildUnipolar(doc, dp, "modulator2Amount", synth.getModulator2Amount());
-    appendHexChildUnipolar(doc, dp, "modulator2Feedback", synth.getModulator2Feedback());
-    appendHexChildUnipolar(doc, dp, "carrier1Feedback", synth.getCarrier1Feedback());
-    appendHexChildUnipolar(doc, dp, "carrier2Feedback", synth.getCarrier2Feedback());
+    // FM params (C sound.cpp:4111-4114, 4125-4126 — exact signed Q31 knobs)
+    appendRawQ31Child(doc, dp, "modulator1Amount", synth.getModulator1AmountQ31());
+    appendRawQ31Child(doc, dp, "modulator1Feedback", synth.getModulator1FeedbackQ31());
+    appendRawQ31Child(doc, dp, "modulator2Amount", synth.getModulator2AmountQ31());
+    appendRawQ31Child(doc, dp, "modulator2Feedback", synth.getModulator2FeedbackQ31());
+    appendRawQ31Child(doc, dp, "carrier1Feedback", synth.getCarrier1FeedbackQ31());
+    appendRawQ31Child(doc, dp, "carrier2Feedback", synth.getCarrier2FeedbackQ31());
 
-    appendHexChildUnipolar(doc, dp, "modFXRate", synth.getModFxRate());
-    appendHexChildUnipolar(doc, dp, "modFXDepth", synth.getModFxDepth());
-    appendHexChildUnipolar(doc, dp, "modFXOffset", synth.getModFxOffset());
-    appendHexChildUnipolar(doc, dp, "modFXFeedback", synth.getModFxFeedback());
-    appendHexChildUnipolar(doc, dp, "delayRate", synth.getDelaySend());
-    appendHexChildUnipolar(doc, dp, "delayFeedback", 0f);
-    appendHexChildUnipolar(doc, dp, "reverbAmount", synth.getReverbSend());
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "modFXRate",
+        synth,
+        Param.GLOBAL_MOD_FX_RATE,
+        () -> appendHexChildUnipolar(doc, dp, "modFXRate", synth.getModFxRate()));
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "modFXDepth",
+        synth,
+        Param.GLOBAL_MOD_FX_DEPTH,
+        () -> appendHexChildUnipolar(doc, dp, "modFXDepth", synth.getModFxDepth()));
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "modFXOffset",
+        synth,
+        Param.UNPATCHED_MOD_FX_OFFSET,
+        () -> appendHexChildUnipolar(doc, dp, "modFXOffset", synth.getModFxOffset()));
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "modFXFeedback",
+        synth,
+        Param.UNPATCHED_MOD_FX_FEEDBACK,
+        () -> appendHexChildUnipolar(doc, dp, "modFXFeedback", synth.getModFxFeedback()));
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "delayRate",
+        synth,
+        Param.GLOBAL_DELAY_RATE,
+        () -> appendHexChildUnipolar(doc, dp, "delayRate", synth.getDelaySend()));
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "delayFeedback",
+        synth,
+        Param.GLOBAL_DELAY_FEEDBACK,
+        () -> appendRawQ31Child(doc, dp, "delayFeedback", synth.getDelayFeedbackQ31()));
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "reverbAmount",
+        synth,
+        Param.GLOBAL_REVERB_AMOUNT,
+        () -> appendHexChildUnipolar(doc, dp, "reverbAmount", synth.getReverbSend()));
     // GLOBAL_ARP_RATE (sound.cpp:4117) — the raw param, not the panel's old multiplier.
     appendTextChild(doc, dp, "arpeggiatorRate", String.format("0x%08X", synth.getArpRateQ31()));
-    appendHexChildUnipolar(doc, dp, "stutterRate", synth.getStutter().getStutterRate());
-    appendHexChildUnipolar(doc, dp, "sampleRateReduction", synth.getSampleRateReduction());
-    appendHexChildUnipolar(doc, dp, "bitCrush", synth.getBitCrush());
+    Integer rawStutterQ31 =
+        synth.getRawKnobs().getRawParamKnobs().get(Param.UNPATCHED_STUTTER_RATE);
+    if (rawStutterQ31 != null
+        && Math.abs(
+                DelugeHexMapper.q31ToUnipolarFloatUnified(rawStutterQ31)
+                    - synth.getStutter().getStutterRate())
+            < 1e-4f) {
+      appendRawQ31Child(doc, dp, "stutterRate", rawStutterQ31);
+    } else {
+      appendHexChildUnipolar(doc, dp, "stutterRate", synth.getStutter().getStutterRate());
+    }
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "sampleRateReduction",
+        synth,
+        Param.UNPATCHED_SAMPLE_RATE_REDUCTION,
+        () ->
+            appendHexChildUnipolar(doc, dp, "sampleRateReduction", synth.getSampleRateReduction()));
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "bitCrush",
+        synth,
+        Param.UNPATCHED_BITCRUSHING,
+        () -> appendHexChildUnipolar(doc, dp, "bitCrush", synth.getBitCrush()));
     appendHexChildUnipolar(doc, dp, "waveIndex", synth.getWaveIndex());
-    // Equalizer inside defaultParams
+    // Equalizer inside defaultParams (C mod_controllable_audio.cpp:432-437)
     Element eq = doc.createElement("equalizer");
-    appendHexChild(doc, eq, "bass", synth.getEqBass());
-    appendHexChild(doc, eq, "treble", synth.getEqTreble());
-    appendHexChild(doc, eq, "bassFrequency", 0f);
-    appendHexChild(doc, eq, "trebleFrequency", 0f);
+    appendSynthRawOrFallback(
+        doc,
+        eq,
+        "bass",
+        synth,
+        Param.UNPATCHED_BASS,
+        () -> appendHexChild(doc, eq, "bass", synth.getEqBass()));
+    appendSynthRawOrFallback(
+        doc,
+        eq,
+        "treble",
+        synth,
+        Param.UNPATCHED_TREBLE,
+        () -> appendHexChild(doc, eq, "treble", synth.getEqTreble()));
+    appendSynthRawOrFallback(
+        doc,
+        eq,
+        "bassFrequency",
+        synth,
+        Param.UNPATCHED_BASS_FREQ,
+        () -> appendHexChild(doc, eq, "bassFrequency", synth.getEqBassFreq()));
+    appendSynthRawOrFallback(
+        doc,
+        eq,
+        "trebleFrequency",
+        synth,
+        Param.UNPATCHED_TREBLE_FREQ,
+        () -> appendHexChild(doc, eq, "trebleFrequency", synth.getEqTrebleFreq()));
     dp.appendChild(eq);
 
     // Envelopes 0-3 inside defaultParams
     for (int i = 0; i < 4; i++) {
-      appendEnvelope(doc, dp, "envelope" + (i + 1), synth.getEnv(i));
+      if (synth.getRawKnobs().isEnvKnobSet(i)) {
+        Element envElem = doc.createElement("envelope" + (i + 1));
+        appendRawQ31Child(doc, envElem, "attack", synth.getRawKnobs().getEnvAttackKnobQ31(i));
+        appendRawQ31Child(doc, envElem, "decay", synth.getRawKnobs().getEnvDecayKnobQ31(i));
+        appendRawQ31Child(doc, envElem, "sustain", synth.getRawKnobs().getEnvSustainKnobQ31(i));
+        appendRawQ31Child(doc, envElem, "release", synth.getRawKnobs().getEnvReleaseKnobQ31(i));
+        dp.appendChild(envElem);
+      } else {
+        appendEnvelope(doc, dp, "envelope" + (i + 1), synth.getEnv(i));
+      }
     }
 
-    // LFO rates
-    appendHexChild(doc, dp, "lfo1Rate", synth.getLfo(0).rateHz() / 100.0f);
-    appendHexChild(doc, dp, "lfo2Rate", synth.getLfo(1).rateHz() / 100.0f);
+    // LFO 1..4 rates inside defaultParams (C sound.cpp:4107-4110)
+    for (int i = 0; i < 4; i++) {
+      String rateTag = "lfo" + (i + 1) + "Rate";
+      if (synth.getRawKnobs().isLfoRateKnobSet(i)) {
+        appendRawQ31Child(doc, dp, rateTag, synth.getRawKnobs().getLfoRateKnobQ31(i));
+      } else {
+        appendHexLfoFreq(doc, dp, rateTag, synth.getLfo(i).rateHz());
+      }
+    }
 
     // Patch cables inside defaultParams
     if (!synth.getModulation().getPatchCables().isEmpty()) {
@@ -780,6 +1195,45 @@ public class KitSynthSerializer {
   }
 
   // ── Helper serializers ──
+
+  private static void appendSynthRawOrFallback(
+      Document doc,
+      Element parent,
+      String tag,
+      SynthTrackModel synth,
+      int paramId,
+      Runnable fallback) {
+    Integer raw = synth.getRawKnobs().getRawParamKnobs().get(paramId);
+    if (raw != null) {
+      appendRawQ31Child(doc, parent, tag, raw);
+    } else {
+      fallback.run();
+    }
+  }
+
+  private static void appendDrumRawOrFallback(
+      Document doc, Element parent, String tag, Drum sound, Runnable fallback) {
+    appendDrumRawOrFallback(doc, parent, tag, tag, sound, fallback);
+  }
+
+  private static void appendDrumRawOrFallback(
+      Document doc, Element parent, String tag, String rawKey, Drum sound, Runnable fallback) {
+    Integer raw = sound.getRawDefaultParamQ31(rawKey);
+    if (raw != null) {
+      appendRawQ31Child(doc, parent, tag, raw);
+    } else {
+      fallback.run();
+    }
+  }
+
+  private static void appendBoxedQ31OrFallback(
+      Document doc, Element parent, String tag, Integer raw, Runnable fallback) {
+    if (raw != null) {
+      appendRawQ31Child(doc, parent, tag, raw);
+    } else {
+      fallback.run();
+    }
+  }
 
   /** Append an LFO element with type and syncLevel children. */
   public static void appendLfo(Document doc, Element parent, String tag, LfoModel lfo) {
@@ -888,14 +1342,22 @@ public class KitSynthSerializer {
     parent.appendChild(child);
   }
 
-  /** Append a raw Q31 value formatted as a 0xXXXXXXXX hex child node. */
+  /**
+   * Append a {@code <patchCable>} element preserving exact 32-bit Q31 cable amounts and any 16-char
+   * automation nodes (C {@code PatchCableSet::writePatchCablesToFile}, {@code
+   * patch_cable_set.cpp:995-1030}).
+   */
   private static Element createPatchCableElement(Document doc, PatchCable pc) {
     Element cable = doc.createElement("patchCable");
     appendTextChild(doc, cable, "source", pc.source());
     if (pc.destination() != null && !pc.destination().isEmpty()) {
       appendTextChild(doc, cable, "destination", pc.destination());
     }
-    appendHexChild(doc, cable, "amount", pc.amount());
+    appendTextChild(
+        doc,
+        cable,
+        "amount",
+        DelugeHexMapper.formatHexWithAutomationNodes(pc.resolveBaseHex(), pc.automationNodes()));
     if (pc.polarity() != null) {
       appendTextChild(doc, cable, "polarity", pc.polarity().name().toLowerCase());
     }

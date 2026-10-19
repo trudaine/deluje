@@ -435,11 +435,24 @@ public class KitXmlParser {
           LOG.log(Level.FINE, "NumberFormatException parsing kit mod2 retrigPhase", e);
         }
       }
+      // C sound.cpp:3549-3553, 4231 — modulator1ToModulator0 written as toModulator1 on modulator2
+      String toMod1 = attrOrChildText(mod2, "toModulator1");
+      if (toMod1 != null && !toMod1.isBlank()) {
+        sound.setModulator1ToModulator0(
+            "1".equals(toMod1.trim()) || "true".equalsIgnoreCase(toMod1.trim()));
+      }
+    }
+    NodeList legacyM1M0 = soundNode.getElementsByTagName("modulator1ToModulator0");
+    if (legacyM1M0.getLength() > 0) {
+      String v = legacyM1M0.item(0).getTextContent().trim();
+      sound.setModulator1ToModulator0("1".equals(v) || "true".equalsIgnoreCase(v));
     }
 
-    // lfo1, lfo2
+    // lfo1..lfo4 (C sound.cpp:4196-4215 — lfo1/lfo3 local, lfo2/lfo4 global)
     parseDrumLfo(soundNode, "lfo1", sound, true);
     parseDrumLfo(soundNode, "lfo2", sound, false);
+    parseDrumLfo(soundNode, "lfo3", sound, true);
+    parseDrumLfo(soundNode, "lfo4", sound, false);
 
     // unison
     Element unisonEl = getFirstChild(soundNode, "unison");
@@ -461,13 +474,15 @@ public class KitXmlParser {
       }
     }
 
-    // delay
+    // delay (C mod_controllable_audio.cpp:787-841 — pingPong, analog, syncLevel, syncType)
     Element delayEl = getFirstChild(soundNode, "delay");
     if (delayEl != null) {
       readAttrOrChildHexFloat(delayEl, "rate", sound::setDelayRate);
       readAttrOrChildHexFloat(delayEl, "feedback", sound::setDelayFeedback);
       readAttrOrChildInt(delayEl, "pingPong", 0, sound::setDelayPingPong);
       readAttrOrChildInt(delayEl, "analog", 0, sound::setDelayAnalog);
+      readAttrOrChildInt(delayEl, "syncLevel", 7, sound::setDelaySyncLevel);
+      readAttrOrChildInt(delayEl, "syncType", 0, v -> sound.setDelaySyncType(syncTypeFromFile(v)));
     } else {
       // Fallback: look up direct attributes on soundNode
       String rateStr = readAttr(soundNode, "delayRate");
@@ -683,10 +698,12 @@ public class KitXmlParser {
     }
 
     LfoModel lfo = new LfoModel(rateHz, waveform, depth, "NONE", isLocal, syncLevel, syncType);
-    if (lfoTag.equals("lfo1")) {
-      sound.setLfo1(lfo);
-    } else {
-      sound.setLfo2(lfo);
+    switch (lfoTag) {
+      case "lfo1" -> sound.setLfo1(lfo);
+      case "lfo2" -> sound.setLfo2(lfo);
+      case "lfo3" -> sound.setLfo3(lfo);
+      case "lfo4" -> sound.setLfo4(lfo);
+      default -> {}
     }
   }
 
@@ -704,8 +721,8 @@ public class KitXmlParser {
     readHexFloatUnipolar(dp, "hpfMorph", sound::setHpfMorph);
     String fmVal;
     if ((fmVal = attrOrChildText(dp, "modulator1Amount")) != null && !fmVal.isBlank()) {
-      sound.setModulator1AmountQ31(DelugeHexMapper.hexToQ31(fmVal));
       sound.setFmAmount(toUnipolar(DelugeHexMapper.hexToFloat(fmVal)));
+      sound.setModulator1AmountQ31(DelugeHexMapper.hexToQ31(fmVal));
     }
     if ((fmVal = attrOrChildText(dp, "modulator2Amount")) != null && !fmVal.isBlank()) {
       sound.setModulator2AmountQ31(DelugeHexMapper.hexToQ31(fmVal));
@@ -722,19 +739,20 @@ public class KitXmlParser {
     if ((fmVal = attrOrChildText(dp, "carrier2Feedback")) != null && !fmVal.isBlank()) {
       sound.setCarrier2FeedbackQ31(DelugeHexMapper.hexToQ31(fmVal));
     }
-    // The exact knobs, for the engine (the floats below are the UI's lossy view).
-    readHexQ31(dp, "modFXRate", sound::setModFxRateQ31);
-    readHexQ31(dp, "modFXDepth", sound::setModFxDepthQ31);
-    readHexQ31(dp, "modFXOffset", sound::setModFxOffsetQ31);
-    readHexQ31(dp, "modFXFeedback", sound::setModFxFeedbackQ31);
-    readHexQ31(dp, "delayRate", sound::setDelayRateQ31);
-    readHexQ31(dp, "delayFeedback", sound::setDelayFeedbackQ31);
+    // Set lossy UI float views first, then preserve exact 32-bit Q31 hardware knobs after so float
+    // setters do not wipe the Q31 overrides.
     readHexFloatUnipolar(dp, "modFXRate", sound::setModFxRate);
     readHexFloatUnipolar(dp, "modFXDepth", sound::setModFxDepth);
     readHexFloatUnipolar(dp, "modFXOffset", sound::setModFxOffset);
     readHexFloatUnipolar(dp, "modFXFeedback", sound::setModFxFeedback);
     readHexFloatUnipolar(dp, "delayRate", sound::setDelayRate);
     readHexFloatUnipolar(dp, "delayFeedback", sound::setDelayFeedback);
+    readHexQ31(dp, "modFXRate", sound::setModFxRateQ31);
+    readHexQ31(dp, "modFXDepth", sound::setModFxDepthQ31);
+    readHexQ31(dp, "modFXOffset", sound::setModFxOffsetQ31);
+    readHexQ31(dp, "modFXFeedback", sound::setModFxFeedbackQ31);
+    readHexQ31(dp, "delayRate", sound::setDelayRateQ31);
+    readHexQ31(dp, "delayFeedback", sound::setDelayFeedbackQ31);
     readHexFloatUnipolar(dp, "reverbAmount", sound::setReverbAmount);
     readHexFloatUnipolar(dp, "arpeggiatorGate", sound::setArpeggiatorGate);
     readHexFloatUnipolar(dp, "arpeggiatorRate", sound::setArpeggiatorRate);
@@ -744,6 +762,36 @@ public class KitXmlParser {
     readHexFloatUnipolar(dp, "bitCrush", sound::setBitCrush);
     readHexFloatUnipolar(dp, "waveIndex", sound::setWaveIndex);
     readHexFloatUnipolar(dp, "compressorShape", sound::setCompressorShape);
+
+    // LFO 1..4 rates inside defaultParams (C sound.cpp:4107-4110)
+    String[] lfoRateTags = {"lfo1Rate", "lfo2Rate", "lfo3Rate", "lfo4Rate"};
+    for (int i = 0; i < 4; i++) {
+      String lfoRateHex = attrOrChildText(dp, lfoRateTags[i]);
+      if (lfoRateHex != null && !lfoRateHex.isBlank()) {
+        LfoModel prev =
+            switch (i) {
+              case 0 -> sound.getLfo1();
+              case 1 -> sound.getLfo2();
+              case 2 -> sound.getLfo3();
+              default -> sound.getLfo4();
+            };
+        LfoModel updated =
+            new LfoModel(
+                DelugeHexMapper.hexToLfoHz(lfoRateHex),
+                prev.waveform(),
+                prev.depth(),
+                prev.target(),
+                prev.isLocal(),
+                prev.syncLevel(),
+                prev.syncType());
+        switch (i) {
+          case 0 -> sound.setLfo1(updated);
+          case 1 -> sound.setLfo2(updated);
+          case 2 -> sound.setLfo3(updated);
+          default -> sound.setLfo4(updated);
+        }
+      }
+    }
 
     // Envelopes 1-4 as child elements of defaultParams (child-element format)
     for (int i = 1; i <= 4; i++) {
@@ -755,14 +803,59 @@ public class KitXmlParser {
         else if (i == 2) sound.setEnv2(env);
         else if (i == 3) sound.setEnv3(env);
         else if (i == 4) sound.setEnv4(env);
+        String prefix = envTag + ".";
+        for (String sub : new String[] {"attack", "decay", "sustain", "release"}) {
+          readHexQ31(envEl, sub, q -> sound.setRawDefaultParamQ31(prefix + sub, q));
+        }
       }
     }
 
-    // Equalizer child element
+    // Equalizer child element (C mod_controllable_audio.cpp:585-607)
     Element eqEl = getFirstChild(dp, "equalizer");
     if (eqEl != null) {
       readHexFloat(eqEl, "bass", sound::setEqBass);
       readHexFloat(eqEl, "treble", sound::setEqTreble);
+      readHexFloat(eqEl, "bassFrequency", sound::setEqBassFreq);
+      readHexFloat(eqEl, "trebleFrequency", sound::setEqTrebleFreq);
+      readHexQ31(eqEl, "bass", q -> sound.setRawDefaultParamQ31("eq.bass", q));
+      readHexQ31(eqEl, "treble", q -> sound.setRawDefaultParamQ31("eq.treble", q));
+      readHexQ31(eqEl, "bassFrequency", q -> sound.setRawDefaultParamQ31("eq.bassFrequency", q));
+      readHexQ31(
+          eqEl, "trebleFrequency", q -> sound.setRawDefaultParamQ31("eq.trebleFrequency", q));
+    }
+
+    // Preserve exact 32-bit Q31 values last so float/Hz/LFO setters above cannot clear them.
+    for (String rawKey :
+        new String[] {
+          "oscAVolume",
+          "oscAPulseWidth",
+          "oscBVolume",
+          "oscBPulseWidth",
+          "noiseVolume",
+          "volume",
+          "pan",
+          "lpfFrequency",
+          "lpfResonance",
+          "lpfMorph",
+          "hpfFrequency",
+          "hpfResonance",
+          "hpfMorph",
+          "reverbAmount",
+          "arpeggiatorGate",
+          "arpeggiatorRate",
+          "portamento",
+          "stutterRate",
+          "sampleRateReduction",
+          "bitCrush",
+          "waveIndex",
+          "waveFold",
+          "compressorShape",
+          "lfo1Rate",
+          "lfo2Rate",
+          "lfo3Rate",
+          "lfo4Rate"
+        }) {
+      readHexQ31(dp, rawKey, q -> sound.setRawDefaultParamQ31(rawKey, q));
     }
 
     // Patch cables inside defaultParams

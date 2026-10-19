@@ -31,8 +31,10 @@ public class InstrumentXmlParser {
       List.of(
           FieldBinding.hexHz("defaultParams", "lpfFrequency", SynthTrackModel::setLpfFreq),
           FieldBinding.hexFloat("defaultParams", "lpfResonance", SynthTrackModel::setLpfRes),
+          FieldBinding.hexFloat("defaultParams", "lpfMorph", SynthTrackModel::setLpfMorph),
           FieldBinding.hexHz("defaultParams", "hpfFrequency", SynthTrackModel::setHpfFreq),
           FieldBinding.hexFloat("defaultParams", "hpfResonance", SynthTrackModel::setHpfRes),
+          FieldBinding.hexFloat("defaultParams", "hpfMorph", SynthTrackModel::setHpfMorph),
           FieldBinding.hexFloat(
               "defaultParams", "modulator1Feedback", SynthTrackModel::setModulator1Feedback),
           FieldBinding.hexFloat(
@@ -872,17 +874,28 @@ public class InstrumentXmlParser {
       if ((v = attrOrChildText(dpEl, "waveFold")) != null && !v.isBlank()) {
         synth.setWaveFoldQ31(DelugeHexMapper.hexToQ31(v));
       }
-      if ((v = attrOrChildText(dpEl, "lfo1Rate")) != null && !v.isBlank()) {
-        synth.getRawKnobs().setLfoRateKnobQ31(0, DelugeHexMapper.hexToQ31(v));
+      // C sound.cpp:4116 — <delayFeedback> lives inside <defaultParams> on firmware presets.
+      if ((v = attrOrChildText(dpEl, "delayFeedback")) != null
+          && !v.isBlank()
+          && (v.trim().startsWith("0x") || v.trim().startsWith("0X"))) {
+        synth.setDelayFeedbackQ31(DelugeHexMapper.hexToQ31(v.trim()));
       }
-      if ((v = attrOrChildText(dpEl, "lfo2Rate")) != null && !v.isBlank()) {
-        synth.getRawKnobs().setLfoRateKnobQ31(1, DelugeHexMapper.hexToQ31(v));
-      }
-      if ((v = attrOrChildText(dpEl, "lfo3Rate")) != null && !v.isBlank()) {
-        synth.getRawKnobs().setLfoRateKnobQ31(2, DelugeHexMapper.hexToQ31(v));
-      }
-      if ((v = attrOrChildText(dpEl, "lfo4Rate")) != null && !v.isBlank()) {
-        synth.getRawKnobs().setLfoRateKnobQ31(3, DelugeHexMapper.hexToQ31(v));
+      String[] lfoRateTags = {"lfo1Rate", "lfo2Rate", "lfo3Rate", "lfo4Rate"};
+      for (int i = 0; i < 4; i++) {
+        if ((v = attrOrChildText(dpEl, lfoRateTags[i])) != null && !v.isBlank()) {
+          LfoModel prev = synth.getLfo(i);
+          synth.setLfo(
+              i,
+              new LfoModel(
+                  DelugeHexMapper.hexToLfoHz(v),
+                  prev.waveform(),
+                  prev.depth(),
+                  prev.target(),
+                  prev.isLocal(),
+                  prev.syncLevel(),
+                  prev.syncType()));
+          synth.getRawKnobs().setLfoRateKnobQ31(i, DelugeHexMapper.hexToQ31(v));
+        }
       }
       // Run raw-knob population last so model setters above do not clear rawParamKnobs entries.
       for (var e : SOUNDPARAMS_RAW_PATCHED.entrySet()) {
@@ -986,14 +999,14 @@ public class InstrumentXmlParser {
           }
         });
 
-    // ── Filter Route ──
+    // ── Filter Route (C filter_config.cpp:8-14 — "H2L"=0, "L2H"=1, "PARA"=2) ──
     readAttrOrChildString(
         soundNode,
         "filterRoute",
         v -> {
           if ("L2H".equalsIgnoreCase(v) || "LPF_TO_HPF".equalsIgnoreCase(v)) {
             synth.setFilterRoute(1); // LOW_TO_HIGH
-          } else if ("PARALLEL".equalsIgnoreCase(v)) {
+          } else if ("PARA".equalsIgnoreCase(v) || "PARALLEL".equalsIgnoreCase(v)) {
             synth.setFilterRoute(2); // PARALLEL
           } else {
             synth.setFilterRoute(0); // HIGH_TO_LOW / H2L
@@ -2287,6 +2300,8 @@ public class InstrumentXmlParser {
     }
     readHexFloat(eqEl, "bass", synth::setEqBass);
     readHexFloat(eqEl, "treble", synth::setEqTreble);
+    readHexFloat(eqEl, "bassFrequency", synth::setEqBassFreq);
+    readHexFloat(eqEl, "trebleFrequency", synth::setEqTrebleFreq);
     rawKnob(eqEl, "bass", synth, Param.UNPATCHED_BASS);
     rawKnob(eqEl, "treble", synth, Param.UNPATCHED_TREBLE);
     rawKnob(eqEl, "bassFrequency", synth, Param.UNPATCHED_BASS_FREQ);

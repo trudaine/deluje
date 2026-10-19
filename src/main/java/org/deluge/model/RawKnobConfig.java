@@ -30,6 +30,13 @@ public class RawKnobConfig {
     lfoRateKnobSet[index] = true;
   }
 
+  public void clearLfoRateKnob(int index) {
+    if (index >= 0 && index < 4) {
+      lfoRateKnobQ31[index] = 0;
+      lfoRateKnobSet[index] = false;
+    }
+  }
+
   public boolean isEnvKnobSet(int index) {
     return envKnobSet[index];
   }

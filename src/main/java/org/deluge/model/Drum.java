@@ -21,6 +21,8 @@ public abstract class Drum {
 
   protected float eqBass = 0.0f;
   protected float eqTreble = 0.0f;
+  protected float eqBassFreq = 0.0f;
+  protected float eqTrebleFreq = 0.0f;
   protected float sidechainSend = 0.0f;
 
   // Envelopes 2-4
@@ -28,15 +30,23 @@ public abstract class Drum {
   protected EnvelopeModel env3 = EnvelopeModel.defaultConfig();
   protected EnvelopeModel env4 = EnvelopeModel.defaultConfig();
 
-  // LFOs
+  // LFOs (C sound.h:158-161 — lfoGlobalWaveType/lfoLocalWaveType + lfo1..lfo4)
   protected LfoModel lfo1 = LfoModel.defaultConfig(true);
   protected LfoModel lfo2 = LfoModel.defaultConfig(false);
+  protected LfoModel lfo3 = LfoModel.defaultConfig(true);
+  protected LfoModel lfo4 = LfoModel.defaultConfig(false);
 
-  // Delay
+  // Delay (C mod_controllable_audio.cpp:417-425 — pingPong, analog, syncLevel, syncType)
   protected float delayRate = 0.0f;
   protected float delayFeedback = 0.0f;
   protected int delayPingPong = 0; // 0=off, 1=on
   protected int delayAnalog = 0; // 0=digital, 1=analog
+  protected int delaySyncLevel = 7; // FILE value: internal 6 (16ths) at tick magnitude 2
+  protected int delaySyncType = 0; // model encoding: 0=EVEN, 1=TRIPLET (10), 2=DOTTED (19)
+
+  // Lossless raw Q31 knobs parsed from <defaultParams> so unmodified hardware XML values round-trip
+  // bit-identically while programmatic Java float/Hz/LFO/envelope setters clear stale entries.
+  protected final java.util.Map<String, Integer> rawDefaultParamQ31 = new java.util.HashMap<>();
 
   // Mod knobs & patch cables
   protected final List<ModKnob> modKnobs = new ArrayList<>(16);
@@ -171,12 +181,33 @@ public abstract class Drum {
     this.muteGroup = v;
   }
 
+  public Integer getRawDefaultParamQ31(String key) {
+    return rawDefaultParamQ31.get(key);
+  }
+
+  public void setRawDefaultParamQ31(String key, Integer q31) {
+    if (q31 == null) {
+      rawDefaultParamQ31.remove(key);
+    } else {
+      rawDefaultParamQ31.put(key, q31);
+    }
+  }
+
+  private void clearDrumEnvRawKnobs(int oneBasedEnvIndex) {
+    String prefix = "envelope" + oneBasedEnvIndex + ".";
+    rawDefaultParamQ31.remove(prefix + "attack");
+    rawDefaultParamQ31.remove(prefix + "decay");
+    rawDefaultParamQ31.remove(prefix + "sustain");
+    rawDefaultParamQ31.remove(prefix + "release");
+  }
+
   public EnvelopeModel getAdsr() {
     return adsr;
   }
 
   public void setAdsr(EnvelopeModel v) {
     this.adsr = v;
+    clearDrumEnvRawKnobs(1);
   }
 
   public float getLpfFreq() {
@@ -185,6 +216,7 @@ public abstract class Drum {
 
   public void setLpfFreq(float v) {
     this.lpfFreq = v;
+    rawDefaultParamQ31.remove("lpfFrequency");
   }
 
   public float getLpfRes() {
@@ -193,6 +225,7 @@ public abstract class Drum {
 
   public void setLpfRes(float v) {
     this.lpfRes = v;
+    rawDefaultParamQ31.remove("lpfResonance");
   }
 
   public float getEqBass() {
@@ -201,6 +234,7 @@ public abstract class Drum {
 
   public void setEqBass(float v) {
     this.eqBass = v;
+    rawDefaultParamQ31.remove("eq.bass");
   }
 
   public float getEqTreble() {
@@ -209,6 +243,25 @@ public abstract class Drum {
 
   public void setEqTreble(float v) {
     this.eqTreble = v;
+    rawDefaultParamQ31.remove("eq.treble");
+  }
+
+  public float getEqBassFreq() {
+    return eqBassFreq;
+  }
+
+  public void setEqBassFreq(float v) {
+    this.eqBassFreq = v;
+    rawDefaultParamQ31.remove("eq.bassFrequency");
+  }
+
+  public float getEqTrebleFreq() {
+    return eqTrebleFreq;
+  }
+
+  public void setEqTrebleFreq(float v) {
+    this.eqTrebleFreq = v;
+    rawDefaultParamQ31.remove("eq.trebleFrequency");
   }
 
   public float getSidechainSend() {
@@ -257,6 +310,7 @@ public abstract class Drum {
 
   public void setEnv2(EnvelopeModel v) {
     this.env2 = v;
+    clearDrumEnvRawKnobs(2);
   }
 
   public EnvelopeModel getEnv3() {
@@ -265,6 +319,7 @@ public abstract class Drum {
 
   public void setEnv3(EnvelopeModel v) {
     this.env3 = v;
+    clearDrumEnvRawKnobs(3);
   }
 
   public EnvelopeModel getEnv4() {
@@ -273,6 +328,7 @@ public abstract class Drum {
 
   public void setEnv4(EnvelopeModel v) {
     this.env4 = v;
+    clearDrumEnvRawKnobs(4);
   }
 
   public LfoModel getLfo1() {
@@ -281,6 +337,7 @@ public abstract class Drum {
 
   public void setLfo1(LfoModel v) {
     this.lfo1 = v;
+    rawDefaultParamQ31.remove("lfo1Rate");
   }
 
   public LfoModel getLfo2() {
@@ -289,6 +346,25 @@ public abstract class Drum {
 
   public void setLfo2(LfoModel v) {
     this.lfo2 = v;
+    rawDefaultParamQ31.remove("lfo2Rate");
+  }
+
+  public LfoModel getLfo3() {
+    return lfo3;
+  }
+
+  public void setLfo3(LfoModel v) {
+    this.lfo3 = v;
+    rawDefaultParamQ31.remove("lfo3Rate");
+  }
+
+  public LfoModel getLfo4() {
+    return lfo4;
+  }
+
+  public void setLfo4(LfoModel v) {
+    this.lfo4 = v;
+    rawDefaultParamQ31.remove("lfo4Rate");
   }
 
   public float getDelayRate() {
@@ -297,6 +373,7 @@ public abstract class Drum {
 
   public void setDelayRate(float v) {
     this.delayRate = v;
+    this.delayRateQ31 = null;
   }
 
   public float getDelayFeedback() {
@@ -305,6 +382,7 @@ public abstract class Drum {
 
   public void setDelayFeedback(float v) {
     this.delayFeedback = v;
+    this.delayFeedbackQ31 = null;
   }
 
   public int getDelayPingPong() {
@@ -321,6 +399,22 @@ public abstract class Drum {
 
   public void setDelayAnalog(int v) {
     this.delayAnalog = v;
+  }
+
+  public int getDelaySyncLevel() {
+    return delaySyncLevel;
+  }
+
+  public void setDelaySyncLevel(int v) {
+    this.delaySyncLevel = v;
+  }
+
+  public int getDelaySyncType() {
+    return delaySyncType;
+  }
+
+  public void setDelaySyncType(int v) {
+    this.delaySyncType = v;
   }
 
   public List<ModKnob> getModKnobs() {
@@ -469,6 +563,7 @@ public abstract class Drum {
 
   public void setCompressorShape(float v) {
     this.compressorShape = v;
+    rawDefaultParamQ31.remove("compressorShape");
   }
 
   public FilterMode getLpfMode() {
@@ -485,6 +580,7 @@ public abstract class Drum {
 
   public void setLpfMorph(float v) {
     this.lpfMorph = v;
+    rawDefaultParamQ31.remove("lpfMorph");
   }
 
   public float getLpfDrive() {
@@ -525,6 +621,7 @@ public abstract class Drum {
 
   public void setModFxRate(float v) {
     this.modFxRate = v;
+    this.modFxRateQ31 = null;
   }
 
   public float getModFxDepth() {
@@ -533,6 +630,7 @@ public abstract class Drum {
 
   public void setModFxDepth(float v) {
     this.modFxDepth = v;
+    this.modFxDepthQ31 = null;
   }
 
   public float getModFxOffset() {
@@ -541,6 +639,7 @@ public abstract class Drum {
 
   public void setModFxOffset(float v) {
     this.modFxOffset = v;
+    this.modFxOffsetQ31 = null;
   }
 
   public float getModFxFeedback() {
@@ -549,6 +648,7 @@ public abstract class Drum {
 
   public void setModFxFeedback(float v) {
     this.modFxFeedback = v;
+    this.modFxFeedbackQ31 = null;
   }
 
   public float getHpfFreq() {
@@ -557,6 +657,7 @@ public abstract class Drum {
 
   public void setHpfFreq(float v) {
     this.hpfFreq = v;
+    rawDefaultParamQ31.remove("hpfFrequency");
   }
 
   public float getHpfRes() {
@@ -565,6 +666,7 @@ public abstract class Drum {
 
   public void setHpfRes(float v) {
     this.hpfRes = v;
+    rawDefaultParamQ31.remove("hpfResonance");
   }
 
   public float getHpfMorph() {
@@ -573,6 +675,7 @@ public abstract class Drum {
 
   public void setHpfMorph(float v) {
     this.hpfMorph = v;
+    rawDefaultParamQ31.remove("hpfMorph");
   }
 
   public FilterMode getHpfMode() {
@@ -638,6 +741,7 @@ public abstract class Drum {
 
   public void setWaveIndex(float v) {
     this.waveIndex = v;
+    rawDefaultParamQ31.remove("waveIndex");
   }
 
   public float getVolume() {
@@ -646,6 +750,7 @@ public abstract class Drum {
 
   public void setVolume(float v) {
     this.volume = v;
+    rawDefaultParamQ31.remove("volume");
   }
 
   public float getPan() {
@@ -654,6 +759,7 @@ public abstract class Drum {
 
   public void setPan(float v) {
     this.pan = v;
+    rawDefaultParamQ31.remove("pan");
   }
 
   public float getOscAVolume() {
@@ -662,6 +768,7 @@ public abstract class Drum {
 
   public void setOscAVolume(float v) {
     this.oscAVolume = v;
+    rawDefaultParamQ31.remove("oscAVolume");
   }
 
   public float getOscBVolume() {
@@ -670,6 +777,7 @@ public abstract class Drum {
 
   public void setOscBVolume(float v) {
     this.oscBVolume = v;
+    rawDefaultParamQ31.remove("oscBVolume");
   }
 
   public float getNoiseVolume() {
@@ -678,6 +786,7 @@ public abstract class Drum {
 
   public void setNoiseVolume(float v) {
     this.noiseVolume = v;
+    rawDefaultParamQ31.remove("noiseVolume");
   }
 
   public float getArpeggiatorGate() {
@@ -686,6 +795,7 @@ public abstract class Drum {
 
   public void setArpeggiatorGate(float v) {
     this.arpeggiatorGate = v;
+    rawDefaultParamQ31.remove("arpeggiatorGate");
   }
 
   public float getPortamento() {
@@ -694,6 +804,7 @@ public abstract class Drum {
 
   public void setPortamento(float v) {
     this.portamento = v;
+    rawDefaultParamQ31.remove("portamento");
   }
 
   public float getStutterRate() {
@@ -702,6 +813,7 @@ public abstract class Drum {
 
   public void setStutterRate(float v) {
     this.stutterRate = v;
+    rawDefaultParamQ31.remove("stutterRate");
   }
 
   public boolean isStutterQuantized() {
@@ -734,6 +846,7 @@ public abstract class Drum {
 
   public void setSampleRateReduction(float v) {
     this.sampleRateReduction = v;
+    rawDefaultParamQ31.remove("sampleRateReduction");
   }
 
   public float getBitCrush() {
@@ -742,6 +855,7 @@ public abstract class Drum {
 
   public void setBitCrush(float v) {
     this.bitCrush = v;
+    rawDefaultParamQ31.remove("bitCrush");
   }
 
   public float getFmAmount() {
@@ -750,6 +864,7 @@ public abstract class Drum {
 
   public void setFmAmount(float v) {
     this.fmAmount = v;
+    this.modulator1AmountQ31 = org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(v);
   }
 
   public float getReverbAmount() {
@@ -758,6 +873,7 @@ public abstract class Drum {
 
   public void setReverbAmount(float v) {
     this.reverbAmount = v;
+    rawDefaultParamQ31.remove("reverbAmount");
   }
 
   protected int noteForDrum = 255; // 255 = MIDI_NOTE_NONE
@@ -788,6 +904,17 @@ public abstract class Drum {
 
   public void setArpeggiatorRate(float v) {
     this.arpeggiatorRate = v;
+    rawDefaultParamQ31.remove("arpeggiatorRate");
+  }
+
+  protected boolean modulator1ToModulator0 = false;
+
+  public boolean isModulator1ToModulator0() {
+    return modulator1ToModulator0;
+  }
+
+  public void setModulator1ToModulator0(boolean v) {
+    this.modulator1ToModulator0 = v;
   }
 
   protected String osc1Type = "SAMPLE";
