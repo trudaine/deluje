@@ -99,7 +99,10 @@ public class ProjectSerializer {
     writer.writeAttribute("drumsEdgeSize", model.getDrumsEdgeSize(), false);
     writer.writeAttribute("anyOfMelodicKitPercussion", model.getAnyOfMelodicKitPercussion(), false);
     writer.writeAttribute("numClips", model.getNumClips(), false);
-    // C song.cpp:1222 -> mod_controllable_audio.cpp:408-411 — song-level filter modes & route.
+    // C song.cpp:1222 -> global_effectable.cpp:791-793 & mod_controllable_audio.cpp:408-411 —
+    // song-level GlobalEffectable state & filter modes/route.
+    writer.writeAttribute("modFXCurrentParam", model.getModFXCurrentParam(), false);
+    writer.writeAttribute("currentFilterType", model.getCurrentFilterType(), false);
     writer.writeAttribute("lpfMode", lpfModeToFirmwareString(model.getSongLpfMode()), false);
     writer.writeAttribute("hpfMode", hpfModeToFirmwareString(model.getSongHpfMode()), false);
     writer.writeAttribute(
@@ -1204,107 +1207,175 @@ public class ProjectSerializer {
     writer.writeAttribute("pingPong", 0, false);
     writer.closeTag();
 
-    // 6. SongParams
+    // 6. SongParams (C song.cpp:1275-1279, global_effectable.cpp:811-882).
     writer.writeOpeningTagBeginning("songParams");
-    writer.writeAttribute(
+    Map<String, List<org.deluge.modulation.automation.ParamNode>> curves =
+        model.getSongParamAutomationCurves();
+    Map<String, String> rawHex = model.getRawSongParamHex();
+    java.util.Set<String> written = new java.util.HashSet<>();
+
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
         "reverbAmount",
-        DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamReverbAmount()),
-        false);
-    writer.writeAttribute(
-        "volume", DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamVolume()), false);
-    writer.writeAttribute("pan", DelugeHexMapper.floatToHex(model.getSongParamPan()), false);
-    writer.writeAttribute(
+        rawHex.getOrDefault(
+            "reverbAmount",
+            DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamReverbAmount())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
+        "volume",
+        rawHex.getOrDefault(
+            "volume", DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamVolume())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
+        "pan",
+        rawHex.getOrDefault("pan", DelugeHexMapper.floatToHex(model.getSongParamPan())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
         "sidechainCompressorShape",
-        DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamSidechainShape()),
-        false);
-    writer.writeAttribute(
+        rawHex.getOrDefault(
+            "sidechainCompressorShape",
+            DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamSidechainShape())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
         "sidechainCompressorVolume",
-        DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamSidechainVolume()),
-        false);
-    writer.writeAttribute(
+        rawHex.getOrDefault(
+            "sidechainCompressorVolume",
+            DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamSidechainVolume())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
         "modFXRate",
-        DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamModFXRate()),
-        false);
-    writer.writeAttribute(
+        rawHex.getOrDefault(
+            "modFXRate", DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamModFXRate())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
         "modFXDepth",
-        DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamModFXDepth()),
-        false);
-    writer.writeAttribute(
+        rawHex.getOrDefault(
+            "modFXDepth",
+            DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamModFXDepth())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
         "modFXOffset",
-        DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamModFXOffset()),
-        false);
-    writer.writeAttribute(
+        rawHex.getOrDefault(
+            "modFXOffset",
+            DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamModFXOffset())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
         "modFXFeedback",
-        DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamModFXFeedback()),
-        false);
-    writer.writeAttribute(
+        rawHex.getOrDefault(
+            "modFXFeedback",
+            DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamModFXFeedback())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
         "stutterRate",
-        DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamStutterRate()),
-        false);
-    writer.writeAttribute(
+        rawHex.getOrDefault(
+            "stutterRate",
+            DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamStutterRate())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
         "sampleRateReduction",
-        DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamSampleRateReduction()),
-        false);
-    writer.writeAttribute(
-        "bitCrush", DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamBitCrush()), false);
-    writer.writeAttribute(
+        rawHex.getOrDefault(
+            "sampleRateReduction",
+            DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamSampleRateReduction())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
+        "bitCrush",
+        rawHex.getOrDefault(
+            "bitCrush", DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamBitCrush())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
         "compressorThreshold",
-        DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamCompressorThreshold()),
-        false);
-    writer.writeAttribute(
-        "lpfMorph", DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamLpfMorph()), false);
-    writer.writeAttribute(
-        "hpfMorph", DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamHpfMorph()), false);
-    writer.writeAttribute("modFXCurrentParam", model.getModFXCurrentParam(), false);
-    writer.writeAttribute("currentFilterType", model.getCurrentFilterType(), false);
-    writer.writeOpeningTagEnd();
+        rawHex.getOrDefault(
+            "compressorThreshold",
+            DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamCompressorThreshold())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
+        "lpfMorph",
+        rawHex.getOrDefault(
+            "lpfMorph", DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamLpfMorph())));
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
+        "hpfMorph",
+        rawHex.getOrDefault(
+            "hpfMorph", DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamHpfMorph())));
 
-    // delay
-    writer.writeOpeningTagBeginning("delay");
-    writer.writeAttribute(
-        "rate", DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamDelayRate()), false);
-    writer.writeAttribute(
-        "feedback",
-        DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamDelayFeedback()),
-        false);
-    writer.closeTag();
+    java.util.Set<String> allSongKeys = new java.util.LinkedHashSet<>();
+    allSongKeys.addAll(rawHex.keySet());
+    allSongKeys.addAll(curves.keySet());
+    for (String key : allSongKeys) {
+      if (written.contains(key) || isGlobalEffectableSubElementKey(key)) {
+        continue;
+      }
+      writeGlobalEffectableAttr(
+          writer,
+          curves,
+          written,
+          key,
+          rawHex.getOrDefault(key, defaultGlobalEffectableBaseHex(key)));
+    }
 
-    // lpf
-    writer.writeOpeningTagBeginning("lpf");
-    writer.writeAttribute(
-        "frequency", DelugeHexMapper.hzToHex(model.getSongParamLpfFrequency()), false);
-    writer.writeAttribute(
-        "resonance",
-        DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamLpfResonance()),
-        false);
-    writer.closeTag();
+    writeGlobalEffectableSubElementsAndClose(
+        writer,
+        "songParams",
+        key -> resolveSongParamSubElementBaseHex(model, rawHex, key),
+        allSongKeys,
+        curves,
+        true);
+  }
 
-    // hpf
-    writer.writeOpeningTagBeginning("hpf");
-    writer.writeAttribute(
-        "frequency", DelugeHexMapper.hzToHex(model.getSongParamHpfFrequency()), false);
-    writer.writeAttribute(
-        "resonance",
-        DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamHpfResonance()),
-        false);
-    writer.closeTag();
-
-    // eq
-    writer.writeOpeningTagBeginning("eq");
-    writer.writeAttribute("bass", DelugeHexMapper.floatToHex(model.getSongParamEqBass()), false);
-    writer.writeAttribute(
-        "treble", DelugeHexMapper.floatToHex(model.getSongParamEqTreble()), false);
-    writer.writeAttribute(
-        "bassFrequency",
-        DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamEqBassFrequency()),
-        false);
-    writer.writeAttribute(
-        "trebleFrequency",
-        DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamEqTrebleFrequency()),
-        false);
-    writer.closeTag();
-
-    writer.writeClosingTag("songParams");
+  private static String resolveSongParamSubElementBaseHex(
+      ProjectModel model, Map<String, String> rawHex, String key) {
+    String raw = rawHex.get(key);
+    if (raw != null) {
+      return raw;
+    }
+    return switch (key) {
+      case "delayRate" -> DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamDelayRate());
+      case "delayFeedback" ->
+          DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamDelayFeedback());
+      case "lpfFrequency" -> DelugeHexMapper.hzToHex(model.getSongParamLpfFrequency());
+      case "lpfResonance" ->
+          DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamLpfResonance());
+      case "hpfFrequency" -> DelugeHexMapper.hzToHex(model.getSongParamHpfFrequency());
+      case "hpfResonance" ->
+          DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamHpfResonance());
+      case "eqBass" -> DelugeHexMapper.floatToHex(model.getSongParamEqBass());
+      case "eqTreble" -> DelugeHexMapper.floatToHex(model.getSongParamEqTreble());
+      case "eqBassFrequency" ->
+          DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamEqBassFrequency());
+      case "eqTrebleFrequency" ->
+          DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamEqTrebleFrequency());
+      default -> defaultGlobalEffectableBaseHex(key);
+    };
   }
 
   /**

@@ -110,6 +110,9 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   private float songParamEqTreble = 0.0f;
   private float songParamEqBassFrequency = 0.0f;
   private float songParamEqTrebleFrequency = 0.0f;
+  private final Map<String, List<org.deluge.modulation.automation.ParamNode>>
+      songParamAutomationCurves = new java.util.LinkedHashMap<>();
+  private final Map<String, String> rawSongParamHex = new java.util.LinkedHashMap<>();
   private String modFXCurrentParam = "offset";
   private String currentFilterType = "lpf";
 
@@ -1358,6 +1361,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamVolume(float v) {
     float old = this.songParamVolume;
     this.songParamVolume = v;
+    rawSongParamHex.remove("volume");
     if (old != v)
       undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "songParamVolume", old, v));
     notifySongParamsChanged();
@@ -1370,6 +1374,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamPan(float v) {
     float old = this.songParamPan;
     this.songParamPan = v;
+    rawSongParamHex.remove("pan");
     if (old != v)
       undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "songParamPan", old, v));
     notifySongParamsChanged();
@@ -1382,6 +1387,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamReverbAmount(float v) {
     float old = this.songParamReverbAmount;
     this.songParamReverbAmount = v;
+    rawSongParamHex.remove("reverbAmount");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamReverbAmount", old, v));
@@ -1395,6 +1401,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamDelayRate(float v) {
     float old = this.songParamDelayRate;
     this.songParamDelayRate = v;
+    rawSongParamHex.remove("delayRate");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamDelayRate", old, v));
@@ -1408,6 +1415,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamDelayFeedback(float v) {
     float old = this.songParamDelayFeedback;
     this.songParamDelayFeedback = v;
+    rawSongParamHex.remove("delayFeedback");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamDelayFeedback", old, v));
@@ -1421,6 +1429,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamSidechainShape(float v) {
     float old = this.songParamSidechainShape;
     this.songParamSidechainShape = v;
+    rawSongParamHex.remove("sidechainCompressorShape");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamSidechainShape", old, v));
@@ -1434,6 +1443,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamSidechainVolume(float v) {
     float old = this.songParamSidechainVolume;
     this.songParamSidechainVolume = v;
+    rawSongParamHex.remove("sidechainCompressorVolume");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamSidechainVolume", old, v));
@@ -1447,6 +1457,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamStutterRate(float v) {
     float old = this.songParamStutterRate;
     this.songParamStutterRate = v;
+    rawSongParamHex.remove("stutterRate");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamStutterRate", old, v));
@@ -1460,6 +1471,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamSampleRateReduction(float v) {
     float old = this.songParamSampleRateReduction;
     this.songParamSampleRateReduction = v;
+    rawSongParamHex.remove("sampleRateReduction");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamSampleRateReduction", old, v));
@@ -1473,6 +1485,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamBitCrush(float v) {
     float old = this.songParamBitCrush;
     this.songParamBitCrush = v;
+    rawSongParamHex.remove("bitCrush");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamBitCrush", old, v));
@@ -1486,6 +1499,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamModFXRate(float v) {
     float old = this.songParamModFXRate;
     this.songParamModFXRate = v;
+    rawSongParamHex.remove("modFXRate");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamModFXRate", old, v));
@@ -1499,6 +1513,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamModFXDepth(float v) {
     float old = this.songParamModFXDepth;
     this.songParamModFXDepth = v;
+    rawSongParamHex.remove("modFXDepth");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamModFXDepth", old, v));
@@ -1512,6 +1527,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamModFXOffset(float v) {
     float old = this.songParamModFXOffset;
     this.songParamModFXOffset = v;
+    rawSongParamHex.remove("modFXOffset");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamModFXOffset", old, v));
@@ -1525,6 +1541,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamModFXFeedback(float v) {
     float old = this.songParamModFXFeedback;
     this.songParamModFXFeedback = v;
+    rawSongParamHex.remove("modFXFeedback");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamModFXFeedback", old, v));
@@ -1538,6 +1555,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamCompressorThreshold(float v) {
     float old = this.songParamCompressorThreshold;
     this.songParamCompressorThreshold = v;
+    rawSongParamHex.remove("compressorThreshold");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamCompressorThreshold", old, v));
@@ -1551,6 +1569,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamLpfMorph(float v) {
     float old = this.songParamLpfMorph;
     this.songParamLpfMorph = v;
+    rawSongParamHex.remove("lpfMorph");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamLpfMorph", old, v));
@@ -1564,6 +1583,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamHpfMorph(float v) {
     float old = this.songParamHpfMorph;
     this.songParamHpfMorph = v;
+    rawSongParamHex.remove("hpfMorph");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamHpfMorph", old, v));
@@ -1577,6 +1597,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamLpfFrequency(float v) {
     float old = this.songParamLpfFrequency;
     this.songParamLpfFrequency = v;
+    rawSongParamHex.remove("lpfFrequency");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamLpfFrequency", old, v));
@@ -1590,6 +1611,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamLpfResonance(float v) {
     float old = this.songParamLpfResonance;
     this.songParamLpfResonance = v;
+    rawSongParamHex.remove("lpfResonance");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamLpfResonance", old, v));
@@ -1603,6 +1625,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamHpfFrequency(float v) {
     float old = this.songParamHpfFrequency;
     this.songParamHpfFrequency = v;
+    rawSongParamHex.remove("hpfFrequency");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamHpfFrequency", old, v));
@@ -1616,6 +1639,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamHpfResonance(float v) {
     float old = this.songParamHpfResonance;
     this.songParamHpfResonance = v;
+    rawSongParamHex.remove("hpfResonance");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamHpfResonance", old, v));
@@ -1663,6 +1687,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamEqBass(float v) {
     float old = this.songParamEqBass;
     this.songParamEqBass = v;
+    rawSongParamHex.remove("eqBass");
     if (old != v)
       undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "songParamEqBass", old, v));
     notifySongParamsChanged();
@@ -1675,6 +1700,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamEqTreble(float v) {
     float old = this.songParamEqTreble;
     this.songParamEqTreble = v;
+    rawSongParamHex.remove("eqTreble");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamEqTreble", old, v));
@@ -1688,6 +1714,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamEqBassFrequency(float v) {
     float old = this.songParamEqBassFrequency;
     this.songParamEqBassFrequency = v;
+    rawSongParamHex.remove("eqBassFrequency");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamEqBassFrequency", old, v));
@@ -1701,10 +1728,37 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   public void setSongParamEqTrebleFrequency(float v) {
     float old = this.songParamEqTrebleFrequency;
     this.songParamEqTrebleFrequency = v;
+    rawSongParamHex.remove("eqTrebleFrequency");
     if (old != v)
       undoRedoStack.push(
           new Consequence.ProjectParamConsequence(this, "songParamEqTrebleFrequency", old, v));
     notifySongParamsChanged();
+  }
+
+  public Map<String, List<org.deluge.modulation.automation.ParamNode>>
+      getSongParamAutomationCurves() {
+    return songParamAutomationCurves;
+  }
+
+  public void setSongParamAutomationCurve(
+      String param, List<org.deluge.modulation.automation.ParamNode> nodes) {
+    if (nodes == null || nodes.isEmpty()) {
+      songParamAutomationCurves.remove(param);
+    } else {
+      songParamAutomationCurves.put(param, new ArrayList<>(nodes));
+    }
+  }
+
+  public Map<String, String> getRawSongParamHex() {
+    return rawSongParamHex;
+  }
+
+  public void setRawSongParamHex(String param, String hex) {
+    if (hex == null || hex.isBlank()) {
+      rawSongParamHex.remove(param);
+    } else {
+      rawSongParamHex.put(param, hex);
+    }
   }
 
   public String getModFXCurrentParam() {

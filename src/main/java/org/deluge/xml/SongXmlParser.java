@@ -172,6 +172,16 @@ public class SongXmlParser {
     if (songNode.hasAttribute("numClips")) {
       project.setNumClips(Integer.parseInt(songNode.getAttribute("numClips")));
     }
+    // C song.cpp:2098 -> global_effectable.cpp:1063-1075 — modFXCurrentParam & currentFilterType
+    // live on <song> (with fallback on <songParams> in parseSongFx for legacy Java saves).
+    String songModFXParam = readDirectAttrOrChild(songNode, "modFXCurrentParam");
+    if (songModFXParam != null && !songModFXParam.isEmpty()) {
+      project.setModFXCurrentParam(songModFXParam);
+    }
+    String songFilterType = readDirectAttrOrChild(songNode, "currentFilterType");
+    if (songFilterType != null && !songFilterType.isEmpty()) {
+      project.setCurrentFilterType(songFilterType);
+    }
 
     // ── Mode notes (scale note mask from <modeNotes>/<modeNote>) ──
     Element modeNotesEl = getFirstChild(songNode, "modeNotes");
@@ -1859,12 +1869,16 @@ public class SongXmlParser {
         Element l = (Element) spLpf.item(0);
         readSongHzHexAttr(l, "frequency", project::setSongParamLpfFrequency);
         readSongHexAttr(l, "resonance", project::setSongParamLpfResonance, true);
+        readSongHexAttr(
+            l, "morph", project::setSongParamLpfMorph, true); // C global_effectable.cpp:933-937
       }
       NodeList spHpf = sp.getElementsByTagName("hpf");
       if (spHpf.getLength() > 0) {
         Element h = (Element) spHpf.item(0);
         readSongHzHexAttr(h, "frequency", project::setSongParamHpfFrequency);
         readSongHexAttr(h, "resonance", project::setSongParamHpfResonance, true);
+        readSongHexAttr(
+            h, "morph", project::setSongParamHpfMorph, true); // C global_effectable.cpp:956-960
       }
       NodeList spEq = sp.getElementsByTagName("equalizer");
       if (spEq.getLength() == 0) {
@@ -1877,6 +1891,13 @@ public class SongXmlParser {
         readSongHexAttr(eq, "bassFrequency", project::setSongParamEqBassFrequency, true);
         readSongHexAttr(eq, "trebleFrequency", project::setSongParamEqTrebleFrequency, true);
       }
+
+      // C song.cpp:2070-2073 — GlobalEffectableForClip::readParamsFromFile(..., 2147483647).
+      parseHexGlobalEffectableAutomation(
+          sp,
+          project.getSongParamAutomationCurves(),
+          project.getRawSongParamHex(),
+          Integer.MAX_VALUE);
     }
   }
 
@@ -1954,8 +1975,9 @@ public class SongXmlParser {
 
   private static void readSongHexAttr(
       Element el, String attr, java.util.function.Consumer<Float> setter, boolean unipolar) {
-    if (!el.hasAttribute(attr)) return;
-    String val = el.getAttribute(attr).trim();
+    String raw = readDirectAttrOrChild(el, attr);
+    if (raw == null) return;
+    String val = raw.trim();
     if (val.isEmpty() || !val.startsWith("0x")) return;
     try {
       float f = DelugeHexMapper.hexToFloat(val);
@@ -1974,8 +1996,9 @@ public class SongXmlParser {
 
   private static void readSongHzHexAttr(
       Element el, String attr, java.util.function.Consumer<Float> setter) {
-    if (!el.hasAttribute(attr)) return;
-    String val = el.getAttribute(attr).trim();
+    String raw = readDirectAttrOrChild(el, attr);
+    if (raw == null) return;
+    String val = raw.trim();
     if (val.isEmpty() || !val.startsWith("0x")) return;
     try {
       setter.accept(DelugeHexMapper.hexToHz(val));
