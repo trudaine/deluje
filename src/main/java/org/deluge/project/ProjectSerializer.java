@@ -1327,6 +1327,13 @@ public class ProjectSerializer {
         "hpfMorph",
         rawHex.getOrDefault(
             "hpfMorph", DelugeHexMapper.unipolarFloatToHexUnified(model.getSongParamHpfMorph())));
+    // C global_effectable.cpp:848, song.cpp:3121 — UNPATCHED_TEMPO (BPM * 100) on <songParams>.
+    writeGlobalEffectableAttr(
+        writer,
+        curves,
+        written,
+        "tempo",
+        rawHex.getOrDefault("tempo", DelugeHexMapper.q31ToHex((int) (model.getBpm() * 100.0f))));
 
     java.util.Set<String> allSongKeys = new java.util.LinkedHashSet<>();
     allSongKeys.addAll(rawHex.keySet());

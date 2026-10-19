@@ -128,6 +128,17 @@ public class DelugeHexMapper {
     }
   }
 
+  /** Converts a raw signed Q31 integer into a normalized float [-1.0, 1.0]. */
+  public static float q31ToFloat(int q31) {
+    return Math.max(-1.0f, Math.min(1.0f, (float) q31 / Integer.MAX_VALUE));
+  }
+
+  /** Converts a normalized float [-1.0, 1.0] into a raw signed Q31 integer. */
+  public static int floatToQ31(float value) {
+    value = Math.max(-1.0f, Math.min(1.0f, value));
+    return (int) (value * Integer.MAX_VALUE);
+  }
+
   /** Formats a raw signed Q31 integer as a 10-char {@code 0xCCCCCCCC} hex string. */
   public static String q31ToHex(int value) {
     return String.format("0x%08X", value);
@@ -135,9 +146,22 @@ public class DelugeHexMapper {
 
   /** Converts a normalized float [-1.0, 1.0] back to Deluge hex format. */
   public static String floatToHex(float value) {
-    value = Math.max(-1.0f, Math.min(1.0f, value));
-    int intVal = (int) (value * Integer.MAX_VALUE);
-    return String.format("0x%08X", intVal);
+    return q31ToHex(floatToQ31(value));
+  }
+
+  /** Converts a raw signed Q31 integer to frequency (Hz) on [20, 20000]. */
+  public static float q31ToHz(int q31) {
+    float norm = q31ToFloat(q31);
+    double exponent = (norm + 1.0f) / 2.0f;
+    return (float) (20.0 * Math.pow(1000.0, exponent));
+  }
+
+  /** Converts frequency (Hz) on [20, 20000] into a raw signed Q31 integer. */
+  public static int hzToQ31(float hz) {
+    hz = Math.max(20.0f, Math.min(20000.0f, hz));
+    double exponent = Math.log(hz / 20.0) / Math.log(1000.0);
+    float norm = (float) (exponent * 2.0 - 1.0);
+    return floatToQ31(norm);
   }
 
   /**
@@ -151,10 +175,7 @@ public class DelugeHexMapper {
   }
 
   public static String hzToHex(float hz) {
-    hz = Math.max(20.0f, Math.min(20000.0f, hz));
-    double exponent = Math.log(hz / 20.0) / Math.log(1000.0);
-    float norm = (float) (exponent * 2.0 - 1.0);
-    return floatToHex(norm);
+    return q31ToHex(hzToQ31(hz));
   }
 
   /** LFO frequency exponential mapping: [-1.0, 1.0] maps to [0.01, 100.0] Hz. */
@@ -195,14 +216,24 @@ public class DelugeHexMapper {
     return (float) (2.0 * Math.log(clamped / ENV_MIN_TIME) / Math.log(ratio) - 1.0);
   }
 
+  /** Converts a raw signed Q31 integer linearly to the unipolar range [0.0, 1.0]. */
+  public static float q31ToUnipolarFloatUnified(int val) {
+    double norm = ((double) val + 2147483648.0) / 4294967295.0;
+    return (float) Math.max(0.0, Math.min(1.0, norm));
+  }
+
+  /** Converts a unipolar float [0.0, 1.0] linearly to a raw signed Q31 integer. */
+  public static int unipolarFloatToQ31Unified(float norm) {
+    norm = Math.max(0.0f, Math.min(1.0f, norm));
+    return (int) (long) (norm * 4294967295.0 - 2147483648.0);
+  }
+
   /** Helper to parse signed 32-bit hex values linearly to the unipolar range [0.0, 1.0]. */
   public static float hexToUnipolarFloatUnified(String hex) {
     if (hex == null || hex.isEmpty()) return 0.0f;
     try {
       long parsed = Long.decode(firstHexToken(hex));
-      int val = (int) parsed;
-      double norm = ((double) val + 2147483648.0) / 4294967295.0;
-      return (float) Math.max(0.0, Math.min(1.0, norm));
+      return q31ToUnipolarFloatUnified((int) parsed);
     } catch (NumberFormatException e) {
       return 0.0f;
     }
@@ -210,10 +241,7 @@ public class DelugeHexMapper {
 
   /** Helper to serialize unipolar floats linearly to signed 32-bit hex strings. */
   public static String unipolarFloatToHexUnified(float norm) {
-    norm = Math.max(0.0f, Math.min(1.0f, norm));
-    long raw = (long) (norm * 4294967295.0 - 2147483648.0);
-    int intVal = (int) raw;
-    return String.format("0x%08X", intVal);
+    return q31ToHex(unipolarFloatToQ31Unified(norm));
   }
 
   /**

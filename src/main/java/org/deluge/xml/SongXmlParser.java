@@ -99,6 +99,26 @@ public class SongXmlParser {
     if (songNode.hasAttribute("timerTickFraction")) {
       project.setTimerTickFraction(Integer.parseInt(songNode.getAttribute("timerTickFraction")));
     }
+    // C song.cpp:1665-1675, 2125-2129, song.h:443-457 — hardware song XML stores tempo via
+    // timePerTimerTick / timerTickFraction / inputTickMagnitude (no <song tempo="..."> attribute).
+    if (!songNode.hasAttribute("tempo") && songNode.hasAttribute("timePerTimerTick")) {
+      int fraction =
+          songNode.hasAttribute("timerTickFraction") ? project.getTimerTickFraction() : 0;
+      long timePerTimerTickBig =
+          ((long) project.getTimePerTimerTick() << 32) | Integer.toUnsignedLong(fraction);
+      float timePerTimerTickFloat = (float) timePerTimerTickBig / 4294967296.0f;
+      int inputMag = project.getInputTickMagnitude();
+      if (inputMag > 0) {
+        timePerTimerTickFloat *= (float) (1 << inputMag);
+      }
+      if (timePerTimerTickFloat > 0.0f) {
+        float calculatedBpm = 110250.0f / timePerTimerTickFloat;
+        if (inputMag < 0) {
+          calculatedBpm *= (float) (1 << -inputMag);
+        }
+        project.setBpm(calculatedBpm);
+      }
+    }
     if (songNode.hasAttribute("xScroll")) {
       project.setXScroll(Integer.parseInt(songNode.getAttribute("xScroll")));
     }
@@ -1928,6 +1948,21 @@ public class SongXmlParser {
           project.getSongParamAutomationCurves(),
           project.getRawSongParamHex(),
           Integer.MAX_VALUE);
+
+      // C global_effectable.cpp:848, 980-983, song.cpp:3121 — <songParams tempo="0x..."> stores
+      // UNPATCHED_TEMPO (BPM * 100). If <song> carried neither tempo nor timePerTimerTick, derive
+      // BPM from <songParams tempo="0x..."> while keeping rawSongParamHex("tempo") intact.
+      String rawTempo = project.getRawSongParamHex().get("tempo");
+      if (rawTempo != null
+          && !songNode.hasAttribute("tempo")
+          && !songNode.hasAttribute("timePerTimerTick")) {
+        int intTempo = DelugeHexMapper.hexToQ31(rawTempo);
+        if (intTempo > 0) {
+          project.setBpm(intTempo / 100.0f);
+          project.setRawSongParamHex("tempo", rawTempo);
+        }
+      }
+      project.rebuildSongParamManager();
     }
   }
 
