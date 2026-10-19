@@ -99,10 +99,83 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
 
   // DX7 (Dexed) patch — when set, the voice renders via the real DX7 engine instead of the
   // Deluge's native FM. The 156-byte unpacked single-voice patch defines the algorithm + 6
-  // operators + per-op EGs; engineType: -1=auto (MkI for algos 3/5 w/ feedback), 0=modern, 1=MkI.
+  // operators + per-op EGs; engineType: 0=auto (MkI for algos 4/6 w/ feedback), 1=modern, 2=MkI.
   public byte[] dx7Patch = null;
-  public int dx7EngineType = -1;
+  // C dx7note.cpp:63, 68-78, engine_select.cpp:46 — 0 = auto, 1 = modern, 2 = vintage (MkI).
+  public int dx7EngineType = 0;
   public int dx7RandomDetune = 0;
+  private String lastSyncedDx7PatchHex;
+
+  private static org.deluge.firmware2.Oscillator.OscType parseModelOscType(String s) {
+    if (s == null) return org.deluge.firmware2.Oscillator.OscType.SINE;
+    String t = s.trim();
+    if (t.equalsIgnoreCase("analogSaw"))
+      return org.deluge.firmware2.Oscillator.OscType.ANALOG_SAW_2;
+    if (t.equalsIgnoreCase("analogSquare"))
+      return org.deluge.firmware2.Oscillator.OscType.ANALOG_SQUARE;
+    if (t.equalsIgnoreCase("inLeft")) return org.deluge.firmware2.Oscillator.OscType.INPUT_L;
+    if (t.equalsIgnoreCase("inRight")) return org.deluge.firmware2.Oscillator.OscType.INPUT_R;
+    if (t.equalsIgnoreCase("inStereo")) return org.deluge.firmware2.Oscillator.OscType.INPUT_STEREO;
+    try {
+      return org.deluge.firmware2.Oscillator.OscType.valueOf(t.toUpperCase());
+    } catch (Exception e) {
+      return org.deluge.firmware2.Oscillator.OscType.TRIANGLE;
+    }
+  }
+
+  private Integer stagedSynthMode = null;
+
+  /**
+   * Synchronizes live UI/SysEx/Randomizer DX7 patch, engine mode, random detune, oscillator type,
+   * and synth mode from {@code st} under {@code synchronized(this)} without touching {@link
+   * #fw2Sound} directly on the Swing EDT. {@link #syncParamsToFw2()} flushes all staged state to
+   * {@link #fw2Sound} atomically on the audio thread at the start of the next block/note.
+   */
+  public synchronized void syncDx7FromModel(org.deluge.model.SynthTrackModel st) {
+    if (st == null) {
+      return;
+    }
+    String hex = st.getDx7Patch();
+    boolean cacheMismatch =
+        (this.dx7Patch == null && hex != null && hex.length() >= 312)
+            || (this.dx7Patch != null && (hex == null || hex.isEmpty()))
+            || !java.util.Objects.equals(hex, lastSyncedDx7PatchHex);
+    if (cacheMismatch) {
+      lastSyncedDx7PatchHex = hex;
+      if (hex != null && hex.length() >= 312) {
+        byte[] decoded = new byte[156];
+        boolean valid = true;
+        for (int i = 0; i < 156; i++) {
+          int hi = Character.digit(hex.charAt(i * 2), 16);
+          int lo = Character.digit(hex.charAt(i * 2 + 1), 16);
+          if (hi < 0 || lo < 0) {
+            valid = false;
+            break;
+          }
+          decoded[i] = (byte) ((hi << 4) | lo);
+        }
+        if (valid) {
+          this.dx7Patch = decoded;
+        }
+      } else if (hex == null || hex.isEmpty()) {
+        this.dx7Patch = null;
+      }
+    }
+    int modelMode = st.getSynthMode();
+    int effectiveMode = (modelMode == 1 || modelMode == 2) ? modelMode : 0;
+    int prevMode = this.stagedSynthMode != null ? this.stagedSynthMode : fw2Sound.synthMode;
+    if (prevMode != effectiveMode) {
+      clearUnpatchedArpKnobs();
+    }
+    this.stagedSynthMode = effectiveMode;
+    this.dx7EngineType = st.getEngineType();
+    this.dx7RandomDetune = st.getDx7RandomDetune();
+    if (this.dx7Patch != null && effectiveMode != 2) {
+      this.oscTypes[0] = org.deluge.firmware2.Oscillator.OscType.DX7;
+    } else {
+      this.oscTypes[0] = parseModelOscType(st.getOsc1Type());
+    }
+  }
 
   public boolean isDx7() {
     return dx7Patch != null;
@@ -185,14 +258,15 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   }
 
   /** synthMode lives solely on fw2Sound (int); these accessors keep the enum API. */
-  public SynthMode getSynthMode() {
-    return fw2Sound.synthMode == 1
-        ? SynthMode.FM
-        : fw2Sound.synthMode == 2 ? SynthMode.RINGMOD : SynthMode.SUBTRACTIVE;
+  public synchronized SynthMode getSynthMode() {
+    int mode = stagedSynthMode != null ? stagedSynthMode : fw2Sound.synthMode;
+    return mode == 1 ? SynthMode.FM : mode == 2 ? SynthMode.RINGMOD : SynthMode.SUBTRACTIVE;
   }
 
-  public void setSynthMode(SynthMode m) {
-    fw2Sound.synthMode = (m == SynthMode.FM) ? 1 : (m == SynthMode.RINGMOD) ? 2 : 0;
+  public synchronized void setSynthMode(SynthMode m) {
+    int mode = (m == SynthMode.FM) ? 1 : (m == SynthMode.RINGMOD) ? 2 : 0;
+    this.stagedSynthMode = mode;
+    fw2Sound.synthMode = mode;
     clearUnpatchedArpKnobs();
   }
 
@@ -451,13 +525,17 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   // thread could iterate a half-rebuilt cable list here.
   public synchronized void syncParamsToFw2() {
     ensureDrumBendRangeDefault();
+    if (stagedSynthMode != null) {
+      fw2Sound.synthMode = stagedSynthMode;
+      stagedSynthMode = null;
+    }
     fw2Sound.oscTypes[0] = oscTypes[0];
     fw2Sound.oscTypes[1] = oscTypes[1];
-    if (dx7Patch != null) {
+    fw2Sound.sourceDx7EngineType[0] = dx7EngineType;
+    fw2Sound.sourceDx7RandomDetune[0] = dx7RandomDetune;
+    if (dx7Patch != null && fw2Sound.synthMode != 2) {
       fw2Sound.oscTypes[0] = org.deluge.firmware2.Oscillator.OscType.DX7;
       fw2Sound.sourceDx7Patch[0] = dx7Patch;
-      fw2Sound.sourceDx7EngineType[0] = dx7EngineType;
-      fw2Sound.sourceDx7RandomDetune[0] = dx7RandomDetune;
     } else {
       fw2Sound.sourceDx7Patch[0] = null;
     }

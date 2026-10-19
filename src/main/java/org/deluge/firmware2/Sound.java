@@ -102,7 +102,7 @@ public class Sound extends GlobalEffectable {
     if (!oscillatorSync) {
       return false;
     }
-    if (synthMode == 1) { // FM
+    if (isFm2OpMode()) { // FM
       return false;
     }
     return patchedParamValues[Param.LOCAL_OSC_B_VOLUME] != Integer.MIN_VALUE || synthMode == 2;
@@ -113,7 +113,7 @@ public class Sound extends GlobalEffectable {
     if (!oscillatorSync) {
       return false;
     }
-    if (synthMode == 1) { // FM
+    if (isFm2OpMode()) { // FM
       return false;
     }
     return patchedParamValues[Param.LOCAL_OSC_B_VOLUME] != Integer.MIN_VALUE
@@ -162,7 +162,7 @@ public class Sound extends GlobalEffectable {
     if (!envelopeHasSustainEver(0)) {
       return false;
     }
-    if (synthMode != 0
+    if ((isFm2OpMode() || synthMode == 2)
         || patchedParamValues[Param.LOCAL_NOISE_VOLUME] != Integer.MIN_VALUE
         || doesParamHaveSomethingPatchedToIt(Param.LOCAL_NOISE_VOLUME)) {
       return true;
@@ -209,7 +209,7 @@ public class Sound extends GlobalEffectable {
    * control (sound.cpp:3419-3420) and does not imply tempo-synced STRETCH repeat mode.
    */
   public boolean hasAnyTimeStretchSyncing() {
-    if (synthMode == 1) { // FM
+    if (isFm2OpMode()) { // FM
       return false;
     }
     for (int s = 0; s < 2; s++) {
@@ -227,7 +227,7 @@ public class Sound extends GlobalEffectable {
     if (arpSettings.mode != Arpeggiator.ArpMode.OFF) {
       return true;
     }
-    if (synthMode == 1) { // FM
+    if (isFm2OpMode()) { // FM
       return false;
     }
     // Basically, if any wave-based oscillators active, or one-shot samples, that means not allowed
@@ -256,7 +256,7 @@ public class Sound extends GlobalEffectable {
    * a loaded CUT-mode sample (SampleRepeatMode::CUT == 0).
    */
   public boolean hasCutModeSamples() {
-    if (synthMode == 1) { // FM
+    if (isFm2OpMode()) { // FM
       return false;
     }
     if (patchedParamValues[Param.LOCAL_NOISE_VOLUME] != Integer.MIN_VALUE
@@ -336,6 +336,96 @@ public class Sound extends GlobalEffectable {
 
   public final int[] sourceDx7EngineType = new int[2];
   public final int[] sourceDx7RandomDetune = new int[2];
+
+  /**
+   * C {@code Source::dxPatch} ({@code source.h:47}, {@code source.cpp:302-307}) shared per-source
+   * patch.
+   */
+  public final Dx7Voice.DxPatch[] sourceDxPatches = {
+    new Dx7Voice.DxPatch(), new Dx7Voice.DxPatch()
+  };
+
+  /**
+   * C {@code Source::dxPatchChanged} ({@code source.h:48}, {@code gui/menu_item/dx/param.cpp:63}).
+   */
+  public final boolean[] sourceDxPatchChanged = new boolean[2];
+
+  /**
+   * Runtime state per source: 0 = uninitialized, 1 = INIT_VOICE loaded, 2 = custom patch loaded.
+   */
+  private final int[] sourceDxPatchLoaded = new int[2];
+
+  /**
+   * C {@code Source::ensureDxPatch} ({@code source.h:47-48, 71}, {@code source.cpp:302-307}, {@code
+   * gui/menu_item/dx/param.cpp:63}) — returns the shared per-source {@link Dx7Voice.DxPatch} and
+   * marks {@link #sourceDxPatchChanged} whenever parameters, engine mode, or random detune change
+   * after initial patch construction (never on initial construction before any voice exists).
+   */
+  public Dx7Voice.DxPatch ensureDxPatch(int s) {
+    Dx7Voice.DxPatch patch = sourceDxPatches[s];
+    boolean wasInitialized = sourceDxPatchLoaded[s] != 0;
+    byte[] raw = sourceDx7Patch[s];
+    int mode = sourceDx7EngineType[s] & 0xFF;
+    int detune = sourceDx7RandomDetune[s];
+    if (raw != null && raw.length >= 156) {
+      boolean paramsDiffer = false;
+      for (int i = 0; i < 156; i++) {
+        if (patch.params[i] != raw[i]) {
+          paramsDiffer = true;
+          break;
+        }
+      }
+      if (sourceDxPatchLoaded[s] != 2
+          || paramsDiffer
+          || patch.engineMode != mode
+          || patch.randomDetune != detune) {
+        System.arraycopy(raw, 0, patch.params, 0, 156);
+        patch.randomDetune = detune;
+        patch.setEngineMode(mode);
+        if (wasInitialized) {
+          sourceDxPatchChanged[s] = true;
+        }
+        sourceDxPatchLoaded[s] = 2;
+      }
+    } else if (raw == null) {
+      if (sourceDxPatchLoaded[s] == 2) {
+        for (int i = 0; i < 156; i++) {
+          patch.params[i] = (byte) Dx7Voice.DxPatch.INIT_VOICE[i];
+        }
+        patch.randomDetune = detune;
+        patch.setEngineMode(mode);
+        sourceDxPatchChanged[s] = true;
+        sourceDxPatchLoaded[s] = 1;
+      } else if (!wasInitialized || patch.engineMode != mode || patch.randomDetune != detune) {
+        patch.randomDetune = detune;
+        patch.setEngineMode(mode);
+        if (wasInitialized) {
+          sourceDxPatchChanged[s] = true;
+        }
+        sourceDxPatchLoaded[s] = 1;
+      }
+    }
+    return patch;
+  }
+
+  /**
+   * True when source {@code s} renders through 6-operator {@link OscType#DX7} ({@code
+   * sound.cpp:2423-2427, 3744-3745}, {@code source.cpp:207-209}, {@code voice.cpp:1176, 1322-1357,
+   * 2410}) — active in Subtractive mode or UI/Randomizer FM/DX7 mode, never in RingMod ({@code
+   * synthMode == 2}).
+   */
+  public boolean isDx7SourceMode(int s) {
+    return synthMode != 2 && oscTypes[s] == OscType.DX7;
+  }
+
+  /**
+   * True when 2-operator sine FM synthesis ({@code SynthMode::FM}) is active without a 6-operator
+   * {@link OscType#DX7} source taking over source dispatch ({@code sound.cpp:3744-3745}, {@code
+   * voice.cpp:1176, 2410}).
+   */
+  public boolean isFm2OpMode() {
+    return synthMode == 1 && oscTypes[0] != OscType.DX7 && oscTypes[1] != OscType.DX7;
+  }
 
   /** C SampleControls.interpolationMode per source: true = 2-tap LINEAR ("lo-fi"). */
   public final boolean[] sourceLinearInterpolation = new boolean[2];
@@ -860,7 +950,7 @@ public class Sound extends GlobalEffectable {
         (synthMode == 2) // RINGMOD
             || patchedParamValues[Param.LOCAL_OSC_A_VOLUME + s] != Integer.MIN_VALUE;
     boolean typeActive =
-        (synthMode == 1) // FM
+        isFm2OpMode() // 2-op FM
             || oscTypes[s] != OscType.SAMPLE
             || hasSample;
     return ampActive && typeActive;
@@ -874,7 +964,7 @@ public class Sound extends GlobalEffectable {
             || doesParamHaveSomethingPatchedToIt(Param.LOCAL_OSC_A_VOLUME + s)
             || renderingOscillatorSyncEver();
     boolean typeActive =
-        (synthMode == 1) // FM
+        isFm2OpMode() // 2-op FM
             || oscTypes[s] != OscType.SAMPLE
             || hasSample;
     return ampActive && typeActive;
@@ -1116,6 +1206,14 @@ public class Sound extends GlobalEffectable {
     globalSourceValues[PatchSource.LFO_GLOBAL_2.ordinal()] =
         globalLfos[1].render(numSamples, lfoConfig[2], phaseInc2);
 
+    // 1b. Per-source DX7 patch LFO rendering (C sound.cpp:2423-2427) — advance once per block per
+    // active DX7 source so polyphonic voices and unison parts share phase and run at 1x speed.
+    for (int s = 0; s < 2; s++) {
+      if (isDx7SourceMode(s)) {
+        ensureDxPatch(s).computeLfo(numSamples);
+      }
+    }
+
     // 2. Sidechain hit registration & render (C sound.cpp:2430-2442).
     int scHit = GlobalSidechainBus.getActiveFrameHit();
     if (scHit > 0) {
@@ -1203,8 +1301,11 @@ public class Sound extends GlobalEffectable {
             && (granular.bufferWriteIndex > 0 || granular.bufferFull || granular.grainInitialized)
             && granular.wrapsToShutdown >= 0;
     if (!hasActiveVoices && !arpHolding && !delayTailActive && !grainTailActive) {
-      // C sound.cpp:2635 — ensure synth-level smoothing bitmask never lingers across silent blocks.
+      // C sound.cpp:2635-2638 — clear synth-level expression and DX7 patch change flags across
+      // silent blocks so stale flags never linger until a later note.
       expressionSourcesChangedAtSynthLevel = 0;
+      sourceDxPatchChanged[0] = false;
+      sourceDxPatchChanged[1] = false;
       return;
     }
 
@@ -1336,9 +1437,11 @@ public class Sound extends GlobalEffectable {
       buffer[i * 2] = fxIntBuffer[i][0];
       buffer[i * 2 + 1] = fxIntBuffer[i][1];
     }
-    // C sound.cpp:2635 — clear synth-level expression change flags after all voices have consumed
-    // them during this block.
+    // C sound.cpp:2635-2638 — clear synth-level expression and DX7 patch change flags after all
+    // voices have consumed them during this block.
     expressionSourcesChangedAtSynthLevel = 0;
+    sourceDxPatchChanged[0] = false;
+    sourceDxPatchChanged[1] = false;
 
     // C sound.cpp:2646 — doParamLPF runs at the very end of Sound::render, AFTER
     // processReverbSendAndVolume (sound.cpp:2613) and compressor (sound.cpp:2618).
@@ -1599,7 +1702,7 @@ public class Sound extends GlobalEffectable {
               && !v.previouslyIgnoredNoteOff
               && v.envelopes[0].state.compareTo(Envelope.Stage.RELEASE) < 0) {
             for (int s = 0; s < 2; s++) {
-              if (synthMode != 1 && oscTypes[s] == OscType.SAMPLE) {
+              if (!isFm2OpMode() && oscTypes[s] == OscType.SAMPLE) {
                 if (v.sources[s].sampleRef == null && hasAnySampleLoaded(s)) {
                   setupVoiceSampleSource(v, s, note, vel, samplesLate);
                   boolean activeNow = v.sources[s].sampleRef != null && isSourceActiveEver(s, true);
@@ -1674,7 +1777,7 @@ public class Sound extends GlobalEffectable {
    */
   private void setupVoiceSampleSource(
       Voice targetVoice, int s, int note, int vel, int samplesLate) {
-    if (synthMode == 1 || oscTypes[s] != OscType.SAMPLE) {
+    if (isFm2OpMode() || oscTypes[s] != OscType.SAMPLE) {
       targetVoice.sources[s].clearSample();
       return;
     }

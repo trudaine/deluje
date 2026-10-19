@@ -619,6 +619,7 @@ public class Dx7Voice {
 
   // keyup (dx7note.cpp:396-401)
   public void keyup() {
+    if (patch == null) return;
     for (int op = 0; op < 6; op++) env[op].keydown(patch, op * 21, false);
     pitchEnv.keydown(patch, 126, false);
   }

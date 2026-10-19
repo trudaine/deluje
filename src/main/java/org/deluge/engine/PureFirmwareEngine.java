@@ -214,6 +214,9 @@ public class PureFirmwareEngine {
               boolean isMuted = startRow >= 0 ? bridge.getMute(startRow) : track.isMuted();
               if (clip != null && clip.getSound() instanceof org.deluge.engine.FirmwareSound fs) {
                 fs.muted = isMuted;
+                if (track instanceof org.deluge.model.SynthTrackModel st) {
+                  fs.syncDx7FromModel(st);
+                }
               }
             }
             if (modelChanged && org.deluge.ui.SwingDelugeApp.mainInstance != null) {

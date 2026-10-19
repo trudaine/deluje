@@ -37,7 +37,7 @@ public final class FmCore {
   static final int OUT_BUS_ONE = 1 << 0;
 
   static final int OUT_BUS_TWO = 1 << 1;
-  static final int OUT_BUS_ADD = 1 << 2;
+  public static final int OUT_BUS_ADD = 1 << 2;
   static final int IN_BUS_ONE = 1 << 4;
   static final int IN_BUS_TWO = 1 << 5;
   static final int FB_IN = 1 << 6;

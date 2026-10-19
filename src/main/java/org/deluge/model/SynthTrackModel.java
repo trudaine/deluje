@@ -249,6 +249,11 @@ public class SynthTrackModel extends TrackModel {
 
   public void setOsc1Type(String osc1Type) {
     osc1.setType(osc1Type);
+    if (osc1Type != null && !"DX7".equalsIgnoreCase(osc1Type.trim())) {
+      fm.setDx7patch(null);
+      fm.setEngineType(0);
+      fm.setDx7RandomDetune(0);
+    }
   }
 
   public String getOsc2Type() {
@@ -987,6 +992,16 @@ public class SynthTrackModel extends TrackModel {
 
   public void setSynthMode(int synthMode) {
     this.synthMode = synthMode;
+    if (synthMode == 2) {
+      // C source.cpp:207-209, definitions_cxx.hpp:373 — non-ringmoddable source types clamp to
+      // kLastRingmoddableOscType (WAVETABLE) in RingMod and clear any stale DX7 patch.
+      fm.setDx7patch(null);
+      fm.setEngineType(0);
+      fm.setDx7RandomDetune(0);
+      if ("DX7".equalsIgnoreCase(osc1.getType())) {
+        osc1.setType("WAVETABLE");
+      }
+    }
   }
 
   public int getTranspose() {

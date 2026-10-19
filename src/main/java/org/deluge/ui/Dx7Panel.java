@@ -93,8 +93,15 @@ public class Dx7Panel extends JPanel {
     setBackground(new Color(0x12, 0x12, 0x14));
     setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-    // ── Active FM mode check & activation prompt card ──
-    if (model.getSynthMode() != 1) {
+    // ── Active FM / DX7 mode check & activation prompt card ──
+    // C sound.cpp:3744-3745 — firmware DX7 songs/presets store mode="subtractive" (synthMode == 0)
+    // with osc1 type="dx7" and dx7patch="...", whereas UI-created FM/DX7 tracks also set
+    // synthMode == 1. Recognize all three as active DX7!
+    boolean dx7Active =
+        model.getSynthMode() == 1
+            || "DX7".equalsIgnoreCase(model.getOsc1Type())
+            || (model.getDx7Patch() != null && !model.getDx7Patch().isEmpty());
+    if (!dx7Active) {
       JPanel promptCard = new JPanel(new GridBagLayout());
       promptCard.setBackground(new Color(0x18, 0x18, 0x1c));
       promptCard.setBorder(BorderFactory.createEmptyBorder(40, 40, 40, 40));
@@ -131,6 +138,10 @@ public class Dx7Panel extends JPanel {
       activateBtn.addActionListener(
           e -> {
             model.setSynthMode(1);
+            model.setOsc1Type("DX7");
+            // C sound.cpp:150-151 — pure Source 0 (OSC A = 0x7FFFFFFF, OSC B = 0x80000000 off) so
+            // Osc 2 does not layer a full-scale subtractive triangle wave under the DX7 voice.
+            model.setOscMix(1.0f);
             model.setSynthAlgorithm(5);
 
             // Start from C init_voice (dx7note.cpp:42-48) so EG rates/levels are playable.
@@ -498,14 +509,7 @@ public class Dx7Panel extends JPanel {
           } else {
             raw[Dx7Patch.OFF_OP_SWITCH] &= (byte) ~(1 << slot);
           }
-          String newHex = Dx7Patch.bytesToHex(raw);
-          model.setDx7Patch(newHex);
-          if (bridge != null) {
-            bridge.setDx7Patch(trackIndex, newHex);
-            bridge.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
-            int opSwitchVal = raw[Dx7Patch.OFF_OP_SWITCH] & 0xFF;
-            bridge.setGlobalInt("g_dx7_opSwitch_" + trackIndex, opSwitchVal);
-          }
+          commitPatchRaw(raw);
           syncActiveOperatorDetails();
         });
     detailsGrid.add(activeCheckbox, dc);
@@ -795,9 +799,12 @@ public class Dx7Panel extends JPanel {
     isRefreshingOpDetails = true;
     try {
       String curPatch = model.getDx7Patch();
-      if (curPatch == null || curPatch.isEmpty()) return;
-      Dx7Patch parsedPatch = Dx7Patch.fromHex(curPatch);
-      byte[] raw = parsedPatch.raw();
+      byte[] raw = getCurrentRaw(model, curPatch);
+      if (raw == null) return;
+      Dx7Patch parsedPatch =
+          (curPatch != null && curPatch.length() >= 312)
+              ? Dx7Patch.fromHex(curPatch)
+              : Dx7Patch.fromHex(Dx7Patch.bytesToHex(raw));
       int slot = Dx7Patch.slotForOperator(currentSelectedOp);
       int opOff = slot * 21;
 
@@ -928,12 +935,7 @@ public class Dx7Panel extends JPanel {
     if (raw == null) return;
     int opOff = Dx7Patch.slotForOperator(currentSelectedOp) * 21;
     raw[opOff + fieldOff] = (byte) (value & 0xFF);
-    String newHex = Dx7Patch.bytesToHex(raw);
-    model.setDx7Patch(newHex);
-    if (bridge != null) {
-      bridge.setDx7Patch(trackIndex, newHex);
-      bridge.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
-    }
+    commitPatchRaw(raw);
 
     // Live update envelope graph if this is a rate/level parameter!
     if (fieldOff < 8) {
@@ -954,6 +956,7 @@ public class Dx7Panel extends JPanel {
     if (isRefreshingOpDetails) return;
     setPatchByte(model, model.getDx7Patch(), offset, value);
     if (offset == Dx7Patch.OFF_ALGORITHM) {
+      model.setSynthAlgorithm(value & 0x1F);
       algoValLabel.setText(String.valueOf(value));
       algoAsciiPreview.setText(AlgorithmPanel.formatAlgorithmMini(value));
     }
@@ -1031,21 +1034,47 @@ public class Dx7Panel extends JPanel {
     if (raw == null) return;
     if (offset >= 0 && offset < raw.length) {
       raw[offset] = (byte) (value & 0xFF);
-      String newHex = Dx7Patch.bytesToHex(raw);
-      model.setDx7Patch(newHex);
-      if (bridge != null) {
-        bridge.setDx7Patch(trackIndex, newHex);
-        bridge.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
-      }
+      commitPatchRaw(raw);
     }
   }
 
-  /** Get mutable raw bytes from the current DX7 patch (or from model). */
+  private void commitPatchRaw(byte[] raw) {
+    boolean initializedBlankPatch =
+        model.getDx7Patch() == null || model.getDx7Patch().length() < 312;
+    String newHex = Dx7Patch.bytesToHex(raw);
+    model.setOsc1Type("DX7");
+    if (initializedBlankPatch && "NONE".equalsIgnoreCase(model.getOsc2Type())) {
+      model.setOscMix(1.0f);
+    }
+    model.setDx7Patch(newHex);
+    if (bridge != null) {
+      bridge.setDx7Patch(trackIndex, newHex);
+      bridge.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
+      bridge.setGlobalInt("g_dx7_opSwitch_" + trackIndex, raw[Dx7Patch.OFF_OP_SWITCH] & 0xFF);
+    }
+  }
+
+  /**
+   * Get mutable raw bytes from the current DX7 patch, falling back to C {@code init_voice} ({@code
+   * source.cpp:302-307}, {@code dx7note.cpp:42-48}) when editing a blank FM/DX7 track.
+   */
   private static byte[] getCurrentRaw(SynthTrackModel model, String fallbackHex) {
     String hex = model.getDx7Patch();
     if (hex == null || hex.isEmpty()) hex = fallbackHex;
-    if (hex == null || hex.isEmpty()) return null;
+    if (hex == null || hex.length() < 312) {
+      byte[] init = Dx7Patch.createInitVoiceBytes();
+      init[Dx7Patch.OFF_ALGORITHM] = (byte) (model.getSynthAlgorithm() & 0x1F);
+      return init;
+    }
     return Dx7Patch.fromHex(hex).raw();
+  }
+
+  JSlider getLevelSliderForTest() {
+    return levelSlider;
+  }
+
+  JSlider getFeedbackSliderForTest() {
+    return feedbackSlider;
   }
 
   /** Apply a Dx7Patch to the model and push to the bridge. */
@@ -1055,8 +1084,12 @@ public class Dx7Panel extends JPanel {
       int trackIndex,
       org.deluge.shadow.audio.Dx7Patch patch) {
     String hex = org.deluge.xml.Dx7SyxParser.patchToHex(patch);
-    model.setDx7Patch(hex);
     model.setSynthMode(1);
+    model.setOsc1Type("DX7");
+    if ("NONE".equalsIgnoreCase(model.getOsc2Type())) {
+      model.setOscMix(1.0f);
+    }
+    model.setDx7Patch(hex);
     model.setSynthAlgorithm(patch.algorithm());
     if (bridge != null) {
       bridge.setDx7Patch(trackIndex, hex);

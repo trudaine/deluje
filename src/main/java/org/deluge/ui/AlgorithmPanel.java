@@ -31,7 +31,7 @@ public class AlgorithmPanel extends JPanel {
     engineCombo = new JComboBox<>(stkNames);
     engineCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     engineCombo.setForeground(Color.WHITE);
-    int curAlgo = model.getSynthAlgorithm();
+    int curAlgo = resolveInitialAlgorithm(model);
     int curEngineIdx = engineComboIndexForAlgo(curAlgo, stkValues);
     engineCombo.setSelectedIndex(curEngineIdx);
     topPanel.add(engineCombo);
@@ -45,14 +45,13 @@ public class AlgorithmPanel extends JPanel {
     JComboBox<String> engineTypeCombo = new JComboBox<>(engineTypeNames);
     engineTypeCombo.setBackground(SwingSynthConfigDialog.BG_CONTROL);
     engineTypeCombo.setForeground(Color.WHITE);
+    // C dx7note.cpp:63, 68-78, engine_select.cpp:46 — 0 = auto, 1 = modern, 2 = vintage (MkI).
     int curEngineType = model.getEngineType();
-    engineTypeCombo.setSelectedIndex(
-        Math.max(0, Math.min(engineTypeNames.length - 1, curEngineType + 1)));
+    engineTypeCombo.setSelectedIndex(Math.clamp(curEngineType, 0, engineTypeNames.length - 1));
     engineTypeCombo.addActionListener(
         ev -> {
           int idx = engineTypeCombo.getSelectedIndex();
-          int typeVal = idx - 1;
-          model.setEngineType(typeVal);
+          model.setEngineType(Math.clamp(idx, 0, engineTypeNames.length - 1));
         });
     topPanel.add(engineTypeCombo);
     add(topPanel, BorderLayout.NORTH);
@@ -92,7 +91,7 @@ public class AlgorithmPanel extends JPanel {
       selectBtn.setFont(selectBtn.getFont().deriveFont(10f));
       selectBtn.addActionListener(
           ev -> {
-            model.setSynthAlgorithm(a);
+            applyAlgorithmSelection(model, bridge, trackIndex, a);
             updateAlgorithmCardSelection(gridPanel, a);
             syncingEngineCombo = true;
             try {
@@ -111,7 +110,7 @@ public class AlgorithmPanel extends JPanel {
           if (syncingEngineCombo) return;
           int ei = engineCombo.getSelectedIndex();
           int algoVal = stkValues[ei];
-          model.setSynthAlgorithm(algoVal);
+          applyAlgorithmSelection(model, bridge, trackIndex, algoVal);
           updateAlgorithmCardSelection(gridPanel, algoVal);
         });
     add(scroll, BorderLayout.CENTER);
@@ -193,6 +192,49 @@ public class AlgorithmPanel extends JPanel {
       }
     }
     grid.repaint();
+  }
+
+  private static int resolveInitialAlgorithm(SynthTrackModel model) {
+    String hex = model.getDx7Patch();
+    if (model.getSynthMode() != 2
+        && hex != null
+        && hex.length() >= (org.deluge.shadow.audio.Dx7Patch.OFF_ALGORITHM + 1) * 2) {
+      byte[] raw = org.deluge.shadow.audio.Dx7Patch.hexToBytes(hex);
+      int algo = raw[org.deluge.shadow.audio.Dx7Patch.OFF_ALGORITHM] & 0x1F;
+      model.setSynthAlgorithm(algo);
+      return algo;
+    }
+    return model.getSynthAlgorithm();
+  }
+
+  private static void applyAlgorithmSelection(
+      SynthTrackModel model, BridgeContract bridge, int trackIndex, int algo) {
+    int clamped = Math.clamp(algo, 0, 31);
+    model.setSynthAlgorithm(clamped);
+    boolean dx7Active =
+        model.getSynthMode() != 2
+            && (model.getSynthMode() == 1
+                || "DX7".equalsIgnoreCase(model.getOsc1Type())
+                || (model.getDx7Patch() != null && !model.getDx7Patch().isEmpty()));
+    if (dx7Active) {
+      String curHex = model.getDx7Patch();
+      boolean initializedNewPatch = curHex == null || curHex.length() < 312;
+      byte[] raw =
+          !initializedNewPatch
+              ? org.deluge.shadow.audio.Dx7Patch.hexToBytes(curHex)
+              : org.deluge.shadow.audio.Dx7Patch.createInitVoiceBytes();
+      raw[org.deluge.shadow.audio.Dx7Patch.OFF_ALGORITHM] = (byte) clamped;
+      String newHex = org.deluge.shadow.audio.Dx7Patch.bytesToHex(raw);
+      model.setOsc1Type("DX7");
+      if (initializedNewPatch && "NONE".equalsIgnoreCase(model.getOsc2Type())) {
+        model.setOscMix(1.0f);
+      }
+      model.setDx7Patch(newHex);
+      if (bridge != null) {
+        bridge.setDx7Patch(trackIndex, newHex);
+        bridge.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
+      }
+    }
   }
 
   JComboBox<String> getEngineComboForTest() {

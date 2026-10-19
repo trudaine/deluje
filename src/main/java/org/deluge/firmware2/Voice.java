@@ -215,6 +215,21 @@ public class Voice {
   /** C: voice.cpp:110-339. Simplified signature — full C signature has more params. */
   public void noteOn(int midiNote, int velocity, int fromMidiChannel, int[] mpeValues) {
     // C: voice.cpp:117 — inputCharacteristics[NOTE] = newNoteCodeBeforeArpeggiation
+    // C model_stack.cpp:217-220, voice.cpp:226-262 — RingMod aborts Voice::noteOn (returning false
+    // without activating the voice) if either source requires a WaveTable and none is loaded.
+    if (sound.synthMode == 2) {
+      for (int s = 0; s < 2; s++) {
+        OscType clamped =
+            sound.oscTypes[s].ordinal() > OscType.WAVETABLE.ordinal()
+                ? OscType.WAVETABLE
+                : sound.oscTypes[s];
+        if (clamped == OscType.WAVETABLE && sound.waveTables[s] == null) {
+          this.active = false;
+          return;
+        }
+      }
+    }
+
     inputCharacteristics[0] = midiNote;
     // C: voice.cpp:118 — inputCharacteristics[CHANNEL] = newFromMIDIChannel
     inputCharacteristics[1] = fromMidiChannel;
@@ -253,7 +268,7 @@ public class Voice {
         unisonParts[u].modulatorPhase[m] =
             (testStartPhaseOverrideOsc1.get() != -2) ? 0 : Functions.getNoise();
         // C voice.cpp:321-324 — modulator retrigger: getOscInitialPhaseForZero(SINE)=0 + offset.
-        if (sound.synthMode == 1 && sound.modulatorRetriggerPhase[m] != 0xFFFFFFFF) {
+        if (sound.isFm2OpMode() && sound.modulatorRetriggerPhase[m] != 0xFFFFFFFF) {
           unisonParts[u].modulatorPhase[m] = sound.modulatorRetriggerPhase[m];
         }
         unisonParts[u].modulatorFeedback[m] = 0;
@@ -339,15 +354,12 @@ public class Voice {
       sourceWaveIndexesLastTime[s] = paramFinalValues[Param.LOCAL_OSC_A_WAVE_INDEX + s];
     }
 
-    // Per-source DX7 init
+    // Per-source DX7 init (C voice_unison_part_source.cpp:72-82 — shares sound.sources[s].dxPatch)
     for (int u = 0; u < sound.numUnison; u++) {
       for (int s = 0; s < 2; s++) {
         VoiceSource vs = unisonParts[u].sources[s];
-        if (sound.oscTypes[s] == OscType.DX7 && sound.sourceDx7Patch[s] != null) {
-          System.arraycopy(sound.sourceDx7Patch[s], 0, vs.dxPatch.params, 0, 156);
-          vs.dxPatch.setEngineMode(sound.sourceDx7EngineType[s]);
-          vs.dxPatch.randomDetune = sound.sourceDx7RandomDetune[s];
-          vs.dxVoice.init(vs.dxPatch, midiNote, velocity);
+        if (sound.isDx7SourceMode(s)) {
+          vs.dxVoice.init(sound.ensureDxPatch(s), midiNote, velocity);
         }
       }
     }
@@ -422,7 +434,7 @@ public class Voice {
       for (int m = 0; m < 2; m++) {
         unisonParts[u].modulatorPhase[m] =
             (testStartPhaseOverrideOsc1.get() != -2) ? 0 : Functions.getNoise();
-        if (sound.synthMode == 1 && sound.modulatorRetriggerPhase[m] != 0xFFFFFFFF) {
+        if (sound.isFm2OpMode() && sound.modulatorRetriggerPhase[m] != 0xFFFFFFFF) {
           unisonParts[u].modulatorPhase[m] = sound.modulatorRetriggerPhase[m];
         }
         unisonParts[u].modulatorFeedback[m] = 0;
@@ -436,7 +448,7 @@ public class Voice {
               Functions.getOscInitialPhaseForZero(sound.oscTypes[s]) + sound.oscRetriggerPhase[s];
         }
         vs.carrierFeedback = 0;
-        if (sound.synthMode != 1 && sound.oscTypes[s] == OscType.SAMPLE) {
+        if (!sound.isFm2OpMode() && sound.oscTypes[s] == OscType.SAMPLE) {
           VoiceSource ref = hasExistingPart ? unisonParts[refIdx].sources[s] : vs;
           if (ref.sampleRef != null && ref.voiceSample.active) {
             if (ref != vs) {
@@ -455,13 +467,8 @@ public class Voice {
             vs.disabledByPitch = false;
           }
         } else {
-          if (sound.synthMode != 1
-              && sound.oscTypes[s] == OscType.DX7
-              && sound.sourceDx7Patch[s] != null) {
-            System.arraycopy(sound.sourceDx7Patch[s], 0, vs.dxPatch.params, 0, 156);
-            vs.dxPatch.setEngineMode(sound.sourceDx7EngineType[s]);
-            vs.dxPatch.randomDetune = sound.sourceDx7RandomDetune[s];
-            vs.dxVoice.init(vs.dxPatch, targetNote, velocity);
+          if (sound.isDx7SourceMode(s)) {
+            vs.dxVoice.init(sound.ensureDxPatch(s), targetNote, velocity);
           }
           if (hasExistingPart && unisonParts[refIdx].sources[s].disabledByPitch) {
             vs.active = false;
@@ -483,7 +490,7 @@ public class Voice {
    * is able to sound, without restarting completed sample readers.
    */
   private void restorePitchDisabledSource(int s) {
-    boolean nonFmSample = sound.synthMode != 1 && sound.oscTypes[s] == Oscillator.OscType.SAMPLE;
+    boolean nonFmSample = !sound.isFm2OpMode() && sound.oscTypes[s] == Oscillator.OscType.SAMPLE;
     for (int u = 0; u < sound.numUnison; u++) {
       VoiceSource vs = unisonParts[u].sources[s];
       if (!vs.disabledByPitch) {
@@ -608,12 +615,13 @@ public class Voice {
       previouslyIgnoredNoteOff = true;
     }
 
-    // voice.cpp:619-625 — DX7 operator/pitch envelopes enter their release segments.
-    if (sound.synthMode != 1) {
+    // voice.cpp:621-627 — DX7 operator/pitch envelopes enter their release segments.
+    if (!sound.isFm2OpMode()) {
       for (int s = 0; s < 2; s++) {
-        if (sound.oscTypes[s] == OscType.DX7) {
+        if (sound.isDx7SourceMode(s)) {
           for (int u = 0; u < sound.numUnison; u++) {
-            if (unisonParts[u].sources[s].dxVoice != null) {
+            if (unisonParts[u].sources[s].dxVoice != null
+                && unisonParts[u].sources[s].dxVoice.patch != null) {
               unisonParts[u].sources[s].dxVoice.keyup();
             }
           }
@@ -790,7 +798,7 @@ public class Voice {
     // for INPUT the neutral is kMaxSampleValue (live input has no file sample rate).
     boolean pitchTooHighA = false;
     int carrierIncA;
-    if (sound.synthMode != 1
+    if (!sound.isFm2OpMode()
         && (sound.oscTypes[0] == Oscillator.OscType.SAMPLE || isInputType(sound.oscTypes[0]))) {
       int pitchAdjustNeutralValue = 16777216; // default (and the INPUT_* neutral, C:457)
       // C voice.cpp:434-442 — non-SAMPLE (INPUT_*) sources use the source's own transpose;
@@ -899,7 +907,7 @@ public class Voice {
 
     boolean pitchTooHighB = false;
     int carrierIncB;
-    if (sound.synthMode != 1
+    if (!sound.isFm2OpMode()
         && (sound.oscTypes[1] == Oscillator.OscType.SAMPLE || isInputType(sound.oscTypes[1]))) {
       int pitchAdjustNeutralValue = 16777216; // default (and the INPUT_* neutral, C:457)
       // C voice.cpp:434-442 — non-SAMPLE (INPUT_*) sources use the source's own transpose.
@@ -1025,7 +1033,7 @@ public class Voice {
     overallPitchAdjust = computeOverallPitchAdjust(numSamples, bentPitchAdjust);
 
     // FM modulators
-    if (sound.synthMode == 1) { // FM
+    if (sound.isFm2OpMode()) { // 2-op sine FM (C voice.cpp:1176)
       for (int m = 0; m < 2; m++) {
         if (sound.getSmoothedPatchedParamValue(Param.LOCAL_MODULATOR_0_VOLUME + m)
             == Integer.MIN_VALUE) {
@@ -1133,7 +1141,7 @@ public class Voice {
     // value (sourceAmplitudesLastTime / sourceAmplitudeIncrements), with the ramp suppressed on
     // the first render of a non-instant-attack note or when the filter gain jumps.
     if (sound.synthMode != 2) {
-      if (sound.synthMode == 1) { // FM (voice.cpp:1026-1039)
+      if (sound.isFm2OpMode()) { // 2-op sine FM (C voice.cpp:1176) (voice.cpp:1026-1039)
         int overallForCarriers =
             Functions.multiply_32x32_rshift32_rounded(
                     overallOscAmplitude, sound.volumeNeutralValueForUnison)
@@ -1173,7 +1181,7 @@ public class Voice {
     }
 
     // C voice.cpp:1095-1099 — per-source wavetable index increments for non-FM synth modes.
-    if (sound.synthMode != 1) {
+    if (!sound.isFm2OpMode()) {
       for (int s = 0; s < 2; s++) {
         sourceWaveIndexIncrements[s] =
             (paramFinalValues[Param.LOCAL_OSC_A_WAVE_INDEX + s] - sourceWaveIndexesLastTime[s])
@@ -1186,7 +1194,7 @@ public class Voice {
     // hardware. When stereoUnison is active, channels = 2 and getNoise() is called 2 * numSamples
     // times into oscBuffer.
     boolean stereoUnison = sound.unisonStereoSpread != 0 && sound.numUnison > 1;
-    if (sound.synthMode != 1 && paramFinalValues[Param.LOCAL_NOISE_VOLUME] != 0) {
+    if (!sound.isFm2OpMode() && paramFinalValues[Param.LOCAL_NOISE_VOLUME] != 0) {
       int n = paramFinalValues[Param.LOCAL_NOISE_VOLUME] >> 1;
       if (hasFilters) {
         // voice.cpp:1143 — `n = multiply_32x32_rshift32(n, filterGain) << 4;`. A RAW shift that is
@@ -1236,7 +1244,7 @@ public class Voice {
     // ── Source dispatch (voice.cpp:1176-1513) ──
     boolean unassignFromSources = false;
     boolean didStereoTempBuffer = false;
-    if (sound.synthMode == 1) { // FM
+    if (sound.isFm2OpMode()) { // 2-op sine FM (C voice.cpp:1176)
       renderFmPath(mixBuf, numSamples, overallOscAmplitude, overallPitchAdjust);
       // voice.cpp:1275-1278, 1674-1676 — next block ramps from this block's targets.
       didStereoTempBuffer = stereoUnison;
@@ -1351,10 +1359,22 @@ public class Voice {
             Functions.multiply_32x32_rshift32_rounded(amplitudeForRingMod, filterGain) << 4;
       }
 
-      // C voice.cpp:1317-1340 — osc A can never osc-sync (cantBeDoingOscSyncForFirstOsc); osc B
-      // syncs to osc A's captured phase + this part's osc-A increment. Both pass the source's
-      // retrigger phase (used by the pulse-width reset path even without sync).
-      if (sound.oscTypes[0] == OscType.WAVETABLE && sound.waveTables[0] != null) {
+      // C source.cpp:207-209, model_stack.cpp:217-220, voice.cpp:226-262, 1321-1366 — RingMod
+      // clamps oscType <= WAVETABLE, and if either WAVETABLE source has no loaded audio file
+      // Voice::noteOn jumps to gotInactive and returns false (voice stays silent).
+      OscType oscTypeA =
+          sound.oscTypes[0].ordinal() > OscType.WAVETABLE.ordinal()
+              ? OscType.WAVETABLE
+              : sound.oscTypes[0];
+      OscType oscTypeB =
+          sound.oscTypes[1].ordinal() > OscType.WAVETABLE.ordinal()
+              ? OscType.WAVETABLE
+              : sound.oscTypes[1];
+      if ((oscTypeA == OscType.WAVETABLE && sound.waveTables[0] == null)
+          || (oscTypeB == OscType.WAVETABLE && sound.waveTables[1] == null)) {
+        return;
+      }
+      if (oscTypeA == OscType.WAVETABLE) {
         vsA.oscPos =
             sound.waveTables[0].render(
                 tempBufA,
@@ -1375,7 +1395,7 @@ public class Voice {
             Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH], 1);
         int[] phaseA = {vsA.oscPos};
         Oscillator.renderOsc(
-            sound.oscTypes[0],
+            oscTypeA,
             0,
             tempBufA,
             0,
@@ -1395,13 +1415,13 @@ public class Voice {
       // (for arbitrary reasons), so we need to compensate": `amplitudeForRingMod <<= 1;` / `<<=
       // 2;`,
       // RAW shifts, not lshiftAndSaturate. Same distinction as the noise path above.
-      if (sound.oscTypes[0] == OscType.SAW || sound.oscTypes[0] == OscType.ANALOG_SAW_2) {
+      if (oscTypeA == OscType.SAW || oscTypeA == OscType.ANALOG_SAW_2) {
         amplitudeForRingMod <<= 1;
-      } else if (sound.oscTypes[0] == OscType.WAVETABLE) {
+      } else if (oscTypeA == OscType.WAVETABLE) {
         amplitudeForRingMod <<= 2;
       }
 
-      if (sound.oscTypes[1] == OscType.WAVETABLE && sound.waveTables[1] != null) {
+      if (oscTypeB == OscType.WAVETABLE) {
         int resetterDivideByPhaseIncrement = 0;
         if (doingOscSync) {
           // C oscillator.cpp:140-142 — (uint16_t)((resetterPhaseIncrement + 65535) >> 16).
@@ -1431,7 +1451,7 @@ public class Voice {
             Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_B_PHASE_WIDTH], 1);
         int[] phaseB = {vsB.oscPos};
         Oscillator.renderOsc(
-            sound.oscTypes[1],
+            oscTypeB,
             0,
             tempBufB,
             0,
@@ -1447,9 +1467,9 @@ public class Voice {
             sound.oscRetriggerPhase[1]);
         vsB.oscPos = phaseB[0];
       }
-      if (sound.oscTypes[1] == OscType.SAW || sound.oscTypes[1] == OscType.ANALOG_SAW_2) {
+      if (oscTypeB == OscType.SAW || oscTypeB == OscType.ANALOG_SAW_2) {
         amplitudeForRingMod <<= 1;
-      } else if (sound.oscTypes[1] == OscType.WAVETABLE) {
+      } else if (oscTypeB == OscType.WAVETABLE) {
         amplitudeForRingMod <<= 2;
       }
 
@@ -1842,19 +1862,25 @@ public class Voice {
                 }
               }
             }
-          } else if (sound.oscTypes[s] == OscType.DX7) {
-            if (vs.dxVoice.patch == null && sound.sourceDx7Patch[s] != null) {
-              System.arraycopy(sound.sourceDx7Patch[s], 0, vs.dxPatch.params, 0, 156);
-              vs.dxPatch.setEngineMode(sound.sourceDx7EngineType[s]);
-              vs.dxPatch.randomDetune = sound.sourceDx7RandomDetune[s];
-              vs.dxVoice.init(vs.dxPatch, note, velocity);
+          } else if (sound.isDx7SourceMode(s)) {
+            // C voice.cpp:2420 — ensureDxPatch(s) returns the shared per-source DxPatch without
+            // clearing sourceDxPatchChanged[s] (reset once at the end of Sound.renderInternal,
+            // sound.cpp:2637), so both multi-voice chord renders and direct Voice.render callers
+            // see consistent live patch updates.
+            Dx7Voice.DxPatch patch = sound.ensureDxPatch(s);
+            if (vs.dxVoice.patch == null) {
+              vs.dxVoice.init(patch, note, velocity);
             }
             if (vs.dxVoice.patch == null) continue;
 
             int logpitch = (int) (Math.log(pInc & 0xFFFFFFFFL) / Math.log(2.0) * (1 << 24));
             int adjpitch = logpitch - 278023814;
             int ampMod = paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s] >> 13;
-            vs.dxPatch.computeLfo(numSamples);
+            // C voice.cpp:2424-2426 — live DX7 param edits update operator frequencies/envelopes
+            // in-place across all voices and unison parts; LFO ran once in Sound.render (:2425).
+            if (sound.sourceDxPatchChanged[s]) {
+              vs.dxVoice.update(patch, note);
+            }
             if (uniBuf.length < numSamples) {
               uniBuf = new int[numSamples];
             } else {
@@ -1863,7 +1889,7 @@ public class Voice {
             // C voice.cpp:2427-2430 — if Dx7Voice::compute returns false (all operators finished
             // releasing), goto instantUnassign (voice.cpp:1980-1988).
             boolean dxActive =
-                vs.dxVoice.compute(uniBuf, numSamples, adjpitch, vs.dxPatch, ampMod, 0, 0);
+                vs.dxVoice.compute(uniBuf, numSamples, adjpitch, patch, ampMod, 0, 0);
             if (!dxActive) {
               vs.active = false;
               vs.disabledByPitch = false;
@@ -2226,7 +2252,7 @@ public class Voice {
       }
 
       // C voice.cpp:1537-1538, 1564-1565, 1612, 1636 — a plain wrapping << 1, not saturating.
-      if (sound.synthMode != 1) { // Not FM: apply overall oscillator amplitude
+      if (!sound.isFm2OpMode()) { // Not FM: apply overall oscillator amplitude
         int overallOscAmplitudeNow = overallOscAmplitudeLastTime;
         for (int i = 0; i < numSamples; i++) {
           overallOscAmplitudeNow += overallOscillatorAmplitudeIncrement;
@@ -2288,7 +2314,7 @@ public class Voice {
       }
 
       // C voice.cpp:1537-1538, 1564-1565, 1612, 1636 — a plain wrapping << 1, not saturating.
-      if (sound.synthMode != 1) { // Not FM: apply overall oscillator amplitude
+      if (!sound.isFm2OpMode()) { // Not FM: apply overall oscillator amplitude
         int overallOscAmplitudeNow = overallOscAmplitudeLastTime;
         for (int i = 0; i < numSamples; i++) {
           overallOscAmplitudeNow += overallOscillatorAmplitudeIncrement;

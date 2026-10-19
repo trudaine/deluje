@@ -125,6 +125,12 @@ public class DelugeatorRandomizer {
 
     // 2. Oscillators 1 & 2
     if (mode == 0 || mode == 2) {
+      // Clear any prior DX7 patch and stale "DX7" osc1Type so re-randomizing into Subtractive or
+      // RingMod never stays trapped in DX7 routing even when settings.osc1Checked is false.
+      model.setDx7Patch(null);
+      if ("DX7".equalsIgnoreCase(model.getOsc1Type())) {
+        model.setOsc1Type("SAW");
+      }
       // Subtractive / RingMod Modes
       if (settings.osc1Checked) {
         double amt = settings.osc1Amount;
@@ -164,58 +170,80 @@ public class DelugeatorRandomizer {
       model.setOscAVolume(Math.max(0.5f, model.getOscMix()));
 
     } else if (mode == 1) {
-      // FM / DX7 Synthesis Mode
+      // FM / DX7 Synthesis Mode (C dx7note.cpp:42-88, fm_core.cpp:21-54)
       double amt = (settings.osc1Checked ? settings.osc1Amount : 0.5);
-      model.setSynthAlgorithm((int) getTriangular(0, 3, 0, amt)); // standard custom algos
+      model.setOsc1Type("DX7");
+      // C sound.cpp:150-151 — pure Source 0 (OSC A = 0x7FFFFFFF, OSC B = 0x80000000 off).
+      model.setOscMix(1.0f);
 
-      // Load a random but mathematically-safe 156-byte DX7 sysex patch!
-      byte[] syx = new byte[156];
-      // Random DX7 algorithm: 1 to 32
-      syx[org.deluge.shadow.audio.Dx7Patch.OFF_ALGORITHM] = (byte) ((int) (Math.random() * 32) + 1);
-      // Random Feedback level: 0 to 7
+      // Seed from C init_voice (dx7note.cpp:42-48) so neutral Pitch EG levels (50), concert
+      // transpose (24 = C3), and neutral operator fine detune (7) are preserved.
+      byte[] syx = org.deluge.shadow.audio.Dx7Patch.createInitVoiceBytes();
+      // Valid 0-indexed DX7 algorithm: 0..31 (FmCore.ALGORITHMS[0..31]).
+      int algo = (int) (Math.random() * 32);
+      syx[org.deluge.shadow.audio.Dx7Patch.OFF_ALGORITHM] = (byte) algo;
+      model.setSynthAlgorithm(algo);
+      // Random Feedback level: 0..7
       syx[org.deluge.shadow.audio.Dx7Patch.OFF_FEEDBACK] = (byte) ((int) (Math.random() * 8));
-      // Active Operator switches mask (bitmask 0 to 63, ensure at least 2 active!)
+      // Active Operator switches mask (6-bit mask; guarantee at least 2 ops + all carrier slots)
       int opMask = 0;
       while (Integer.bitCount(opMask) < 2) {
         opMask = (int) (Math.random() * 64);
       }
-      syx[org.deluge.shadow.audio.Dx7Patch.OFF_OP_SWITCH] = (byte) opMask;
 
-      float[] commonRatios = {0.5f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 8.0f, 10.0f, 12.0f};
+      int[] carrierCoarseRatios = {1, 1, 1, 2};
+      int[] modCoarseRatios = {0, 1, 2, 3, 4, 5, 6, 8, 10, 12};
 
-      // Generate parameters for the 6 operators
+      // Generate parameters for the 6 operator slots (op 0..5 = OP6..OP1)
       for (int op = 0; op < 6; op++) {
         int offset = op * 21;
-        // Frequency Coarse/Fine ratios (mapped as triangular indices)
-        float targetRatio = commonRatios[(int) (Math.random() * commonRatios.length)];
-        // Map ratio back to standard course byte value
-        syx[offset + 18] = (byte) Math.max(0, Math.min(31, (int) targetRatio)); // Coarse ratio
-        syx[offset + 19] = (byte) ((int) (Math.random() * 100)); // Fine detune
-
-        // Operator Output level: triangular around 75 (range 0 to 99)
-        int level = (int) getTriangular(0, 99, 75, amt);
-        // Force carrier operators (OP1/OP2) to have a strong audible volume level if they are
-        // active!
-        if (op == 0 || op == 1) {
-          level = Math.max(75, level);
+        boolean isCarrier =
+            (org.deluge.firmware2.FmCore.ALGORITHMS[algo][op]
+                    & org.deluge.firmware2.FmCore.OUT_BUS_ADD)
+                != 0;
+        if (isCarrier) {
+          opMask |= (1 << op);
+          // C dx7note.cpp:150-166 — keep carriers on concert harmonic integer ratios (fine = 0,
+          // subtle detune around center 7) so MIDI 60 stays in tune with other tracks.
+          syx[offset + 18] =
+              (byte) carrierCoarseRatios[(int) (Math.random() * carrierCoarseRatios.length)];
+          syx[offset + 19] = 0;
+          syx[offset + 20] = (byte) (6 + (int) (Math.random() * 3));
+        } else {
+          syx[offset + 18] = (byte) modCoarseRatios[(int) (Math.random() * modCoarseRatios.length)];
+          syx[offset + 19] = (byte) (Math.random() < 0.8 ? 0 : (int) (Math.random() * 100));
         }
-        syx[offset + 15] = (byte) level;
 
-        // Operator envelopes rates & levels: modular ADSR steps
-        syx[offset + 0] = (byte) ((int) (Math.random() * 99)); // Rate 1
-        syx[offset + 1] = (byte) ((int) (Math.random() * 99)); // Rate 2
-        syx[offset + 2] = (byte) ((int) (Math.random() * 99)); // Rate 3
-        syx[offset + 3] = (byte) ((int) (Math.random() * 99)); // Rate 4
-        syx[offset + 4] = (byte) ((int) (Math.random() * 99)); // Level 1
-        syx[offset + 5] = (byte) ((int) (Math.random() * 99)); // Level 2
-        syx[offset + 6] = (byte) ((int) (Math.random() * 99)); // Level 3
-        syx[offset + 7] = (byte) 0; // Level 4 (always return to silence on release!)
+        // Key velocity sensitivity at +15 (0..7, dx7note.cpp:248); output level at +16 (0..99,
+        // dx7note.cpp:241).
+        syx[offset + 15] = (byte) ((int) (Math.random() * 8));
+        int level = (int) getTriangular(0, 99, 75, amt);
+        if (isCarrier) {
+          level = Math.max(85, level);
+        }
+        syx[offset + 16] = (byte) level;
+
+        // Operator envelope rates & levels (dx7note.cpp:251)
+        syx[offset + 0] =
+            (byte) (isCarrier ? (55 + (int) (Math.random() * 45)) : ((int) (Math.random() * 100)));
+        syx[offset + 1] = (byte) ((int) (Math.random() * 100));
+        syx[offset + 2] = (byte) ((int) (Math.random() * 100));
+        syx[offset + 3] = (byte) (35 + (int) (Math.random() * 65));
+        syx[offset + 4] =
+            (byte) (isCarrier ? (85 + (int) (Math.random() * 15)) : ((int) (Math.random() * 100)));
+        syx[offset + 5] =
+            (byte) (isCarrier ? (65 + (int) (Math.random() * 35)) : ((int) (Math.random() * 100)));
+        syx[offset + 6] =
+            (byte) (isCarrier ? (60 + (int) (Math.random() * 40)) : ((int) (Math.random() * 100)));
+        syx[offset + 7] = (byte) 0; // Level 4 (return to silence on release)
       }
+      syx[org.deluge.shadow.audio.Dx7Patch.OFF_OP_SWITCH] = (byte) opMask;
 
       String patchHex = org.deluge.shadow.audio.Dx7Patch.bytesToHex(syx);
       model.setDx7Patch(patchHex);
       model.setDx7RandomDetune((int) getTriangular(0, 99, 0, amt));
-      model.setEngineType(Math.random() < 0.5 ? 0 : 1); // modern or vintage engine modes!
+      // C dx7note.cpp:68-78 — 1 = modern, 2 = vintage (MkI)
+      model.setEngineType(Math.random() < 0.5 ? 1 : 2);
     }
 
     // 3. Noise Volume

@@ -197,6 +197,7 @@ public class InstrumentXmlParser {
   }
 
   public static void populateSynth(Element soundNode, SynthTrackModel synth, boolean isPresetLoad) {
+    boolean loadedPreset = false;
     if (!isPresetLoad && soundNode.hasAttribute("presetName")) {
       String presetName = soundNode.getAttribute("presetName");
       String folder = soundNode.getAttribute("presetFolder");
@@ -206,8 +207,16 @@ public class InstrumentXmlParser {
       File presetFile = resolvePresetFile(folder, presetName);
       if (presetFile != null && presetFile.isFile()) {
         try (java.io.InputStream presetIs = new FileInputStream(presetFile)) {
-          Element presetRoot = parseXml(presetIs).getDocumentElement();
-          populateSynth(presetRoot, synth, true);
+          Element docRoot = parseXml(presetIs).getDocumentElement();
+          Element presetSoundNode = docRoot;
+          if (!"sound".equals(docRoot.getTagName())) {
+            NodeList sounds = docRoot.getElementsByTagName("sound");
+            if (sounds.getLength() > 0) {
+              presetSoundNode = (Element) sounds.item(0);
+            }
+          }
+          populateSynth(presetSoundNode, synth, true);
+          loadedPreset = true;
         } catch (Exception e) {
           LOG.log(Level.WARNING, "Failed to load referenced preset: " + presetFile, e);
         }
@@ -226,6 +235,14 @@ public class InstrumentXmlParser {
       synth.setOsc2RetrigPhase(0);
       synth.setMod1RetrigPhase(0);
       synth.setMod2RetrigPhase(0);
+      if (!loadedPreset) {
+        // C dx7note.cpp:61-63, sound.cpp:3744-3757 — firmware omits dx7patch (when non-DX7),
+        // dx7enginemode, and dx7randomdetune when 0; preserve them when inherited from presetName
+        // with no inline <osc1>, otherwise start clean before parsing inline <sound>.
+        synth.setDx7Patch(null);
+        synth.setEngineType(0);
+        synth.setDx7RandomDetune(0);
+      }
     }
     // C sound.cpp:603-614 — legacy <oscillatorReset> tag or attribute. Must run before <osc1>,
     // <osc2>, <modulator1>, and <modulator2> so any explicit per-source <retrigPhase> still wins.
@@ -243,9 +260,15 @@ public class InstrumentXmlParser {
 
     // ── DX7 patch (hex string from <osc1 dx7patch="...">) ──
     // ── Oscillator retrigger phase (from <osc1 retrigPhase="...">) ──
+    boolean hasOsc1Dx7EngineMode = false;
+    boolean hasInlineOsc1Dx7Patch = false;
     NodeList osc1List = soundNode.getElementsByTagName("osc1");
     if (osc1List.getLength() > 0) {
       Element osc1 = (Element) osc1List.item(0);
+      // Any inline <osc1> defines Oscillator 1 afresh, so clear inherited DX7 attributes first.
+      synth.setDx7Patch(null);
+      synth.setEngineType(0);
+      synth.setDx7RandomDetune(0);
       // Multisample oscillator (<sampleRanges> keyzones): capture verbatim so it survives the song
       // round-trip unchanged (our model doesn't re-model keyzones).
       if (osc1.getElementsByTagName("sampleRange").getLength() > 0) {
@@ -256,24 +279,40 @@ public class InstrumentXmlParser {
           && ((Element) osc2L.item(0)).getElementsByTagName("sampleRange").getLength() > 0) {
         synth.setOsc2RawXml(nodeToXmlString((Element) osc2L.item(0)));
       }
-      if (osc1.hasAttribute("dx7patch")) {
-        synth.setDx7Patch(osc1.getAttribute("dx7patch"));
+      // C sound.cpp:3398-3412 — readTagOrAttributeValue* accepts both attributes and child tags.
+      String dx7PatchStr = attrOrChildText(osc1, "dx7patch");
+      if (dx7PatchStr != null && !dx7PatchStr.isBlank()) {
+        hasInlineOsc1Dx7Patch = true;
+        String trimmedDx7Hex = dx7PatchStr.trim();
+        synth.setDx7Patch(trimmedDx7Hex);
+        if (trimmedDx7Hex.length() >= (org.deluge.shadow.audio.Dx7Patch.OFF_ALGORITHM + 1) * 2) {
+          int algoHi =
+              Character.digit(
+                  trimmedDx7Hex.charAt(org.deluge.shadow.audio.Dx7Patch.OFF_ALGORITHM * 2), 16);
+          int algoLo =
+              Character.digit(
+                  trimmedDx7Hex.charAt(org.deluge.shadow.audio.Dx7Patch.OFF_ALGORITHM * 2 + 1), 16);
+          if (algoHi >= 0 && algoLo >= 0) {
+            synth.setSynthAlgorithm(((algoHi << 4) | algoLo) & 0x1F);
+          }
+        }
       }
-      // DX7 engine mode (dx7enginemode attribute on osc1 — write-on-demand, conditional on
-      // non-zero)
-      String dx7EngineModeStr = osc1.getAttribute("dx7enginemode");
+      // DX7 engine mode (dx7enginemode on osc1 — C dx7note.cpp:63, 68-78: 0=auto, 1=modern,
+      // 2=vintage; omitted when 0 in sound.cpp:3750-3752)
+      String dx7EngineModeStr = attrOrChildText(osc1, "dx7enginemode");
       if (dx7EngineModeStr != null && !dx7EngineModeStr.isBlank()) {
         try {
-          synth.setEngineType(Integer.parseInt(dx7EngineModeStr));
+          synth.setEngineType(Integer.parseInt(dx7EngineModeStr.trim()));
+          hasOsc1Dx7EngineMode = true;
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
       }
-      // DX7 random detune (dx7randomdetune attribute on osc1)
-      String dx7RandStr = osc1.getAttribute("dx7randomdetune");
+      // DX7 random detune (dx7randomdetune on osc1; omitted when 0 in sound.cpp:3755-3757)
+      String dx7RandStr = attrOrChildText(osc1, "dx7randomdetune");
       if (dx7RandStr != null && !dx7RandStr.isBlank()) {
         try {
-          synth.setDx7RandomDetune(Integer.parseInt(dx7RandStr));
+          synth.setDx7RandomDetune(Integer.parseInt(dx7RandStr.trim()));
         } catch (NumberFormatException e) {
           LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
         }
@@ -463,7 +502,32 @@ public class InstrumentXmlParser {
     }
 
     // ── Synth Mode ──
+    int explicitMode = DelugeXmlUtil.synthModeFromSound(soundNode);
     parseSynthMode(soundNode, synth);
+
+    // C source.cpp:200-209, definitions_cxx.hpp:373 — Source::doneReadingFromFile normalization:
+    // - Explicit <mode>fm</mode> without an inline legacy Java dx7patch clears any preset-inherited
+    //   DX7 patch and forces both sources to SINE so <mode>fm</mode> always renders/re-saves as
+    //   2-op sine FM.
+    // - SynthMode::RINGMOD clamps oscType <= kLastRingmoddableOscType (WAVETABLE) and clears any
+    //   DX7 patch.
+    if (explicitMode == 1 && !hasInlineOsc1Dx7Patch) {
+      synth.setDx7Patch(null);
+      synth.setEngineType(0);
+      synth.setDx7RandomDetune(0);
+    }
+    if (synth.getSynthMode() == 1 && synth.getDx7Patch() == null) {
+      synth.setOsc1Type("SINE");
+      synth.setOsc2Type("SINE");
+    } else if (synth.getSynthMode() == 2) {
+      synth.setDx7Patch(null);
+      synth.setEngineType(0);
+      synth.setDx7RandomDetune(0);
+      synth.setOsc1Type(clampRingmodOscType(synth.getOsc1Type()));
+      if (!"NONE".equalsIgnoreCase(synth.getOsc2Type())) {
+        synth.setOsc2Type(clampRingmodOscType(synth.getOsc2Type()));
+      }
+    }
 
     // ── Polyphonic mode ──
     parsePolyphony(soundNode, synth);
@@ -489,8 +553,8 @@ public class InstrumentXmlParser {
     parseModulator1(soundNode, synth);
     parseModulator2(soundNode, synth);
 
-    // ── Synth algorithm (from ProjectSerializer track attribute) ──
-    if (soundNode.hasAttribute("synthAlgorithm")) {
+    // ── Synth algorithm (from legacy ProjectSerializer track attribute when no dx7patch byte 134)
+    if (soundNode.hasAttribute("synthAlgorithm") && synth.getDx7Patch() == null) {
       try {
         synth.setSynthAlgorithm(Integer.parseInt(soundNode.getAttribute("synthAlgorithm")));
       } catch (NumberFormatException e) {
@@ -498,8 +562,8 @@ public class InstrumentXmlParser {
       }
     }
 
-    // -- Engine type (-1=AUTO, 0=MODERN, 1=VINTAGE) --
-    if (soundNode.hasAttribute("engineType")) {
+    // -- Engine type (0=auto, 1=modern, 2=vintage; C engine_select.cpp:46) --
+    if (soundNode.hasAttribute("engineType") && !hasOsc1Dx7EngineMode) {
       try {
         synth.setEngineType(Integer.parseInt(soundNode.getAttribute("engineType")));
       } catch (NumberFormatException e) {
@@ -2278,5 +2342,21 @@ public class InstrumentXmlParser {
       }
     }
     clip.setArp(arp);
+  }
+
+  /**
+   * C {@code Source::doneReadingFromFile} ({@code source.cpp:207-209}, {@code
+   * definitions_cxx.hpp:364-376}) — clamps {@code oscType = std::min(oscType,
+   * kLastRingmoddableOscType)} ({@code OscType::WAVETABLE}).
+   */
+  private static String clampRingmodOscType(String oscType) {
+    if (oscType == null) {
+      return "SQUARE";
+    }
+    return switch (oscType.trim().toUpperCase().replace("_", "").replace(" ", "")) {
+      case "SAMPLE", "INPUTL", "INLEFT", "INPUTR", "INRIGHT", "INPUTSTEREO", "INSTEREO", "DX7" ->
+          "WAVETABLE";
+      default -> oscType;
+    };
   }
 }
