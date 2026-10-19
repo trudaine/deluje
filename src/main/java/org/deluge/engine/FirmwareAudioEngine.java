@@ -86,6 +86,8 @@ public class FirmwareAudioEngine {
 
   // ── Master Song-level FX (post-summation stage, ported from C++ Song / AudioEngine) ──
   public final org.deluge.firmware2.ModFx masterModFx = new org.deluge.firmware2.ModFx();
+  public final org.deluge.firmware2.GranularProcessor masterGranular =
+      new org.deluge.firmware2.GranularProcessor();
   public final org.deluge.firmware2.Eq masterEq = new org.deluge.firmware2.Eq();
   public final org.deluge.firmware2.SrrBitcrush masterSrrBitcrush =
       new org.deluge.firmware2.SrrBitcrush();
@@ -150,6 +152,7 @@ public class FirmwareAudioEngine {
       new org.deluge.firmware2.Stutterer.Config();
   public int songInputTickMagnitude = 2;
   public int songTimePerInternalTickInverse = 1 << 20;
+  public float songBpm = 120.0f;
   private StereoSample[] songStutterBuffer = new StereoSample[128];
 
   /**
@@ -298,6 +301,7 @@ public class FirmwareAudioEngine {
   public void syncMasterEffects(ProjectModel project) {
     double bpm = project.getBpm();
     double safeBpm = bpm > 0 ? bpm : 120.0;
+    this.songBpm = (float) safeBpm;
     this.songInputTickMagnitude = project.getInputTickMagnitude();
     double samplesPerInternalTick = 165375.0 / (safeBpm * (1 << songInputTickMagnitude));
     this.songTimePerInternalTickInverse =
@@ -862,14 +866,25 @@ public class FirmwareAudioEngine {
   }
 
   /**
-   * C song.cpp:2538-2552, global_effectable.cpp:1123-1181, mod_controllable_audio.cpp:166-196, 219,
-   * 248-250 — Song-level ModFX, EQ, Delay, and Reverb Send processed post-summation on the master
-   * buffer, pre-reverb.
+   * C song.cpp:2538-2552, global_effectable.cpp:1123-1181, mod_controllable_audio.cpp:152-260 —
+   * Song-level ModFX (including GrainFX), EQ, Delay, and Reverb Send processed post-summation on
+   * the master buffer, pre-reverb.
    */
   private void renderSongPreReverbFX(int numSamples) {
+    int songVolumePostFX =
+        org.deluge.firmware2.Functions.getFinalParameterValueVolume(
+                134217728,
+                org.deluge.firmware2.Functions.cableToLinearParamShortcut(this.songVolume))
+            >> 1; // C song.cpp:2491-2495
+    int songReverbSendAmount =
+        org.deluge.firmware2.Functions.getFinalParameterValueVolume(
+            org.deluge.firmware2.Functions.getParamNeutralValue(
+                org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT),
+            org.deluge.firmware2.Functions.cableToLinearParamShortcut(this.songReverbAmount));
+
+    int[] postFXVol = {134217728};
     org.deluge.firmware2.ModFx.ModFXType activeModFx = getActiveModFXType();
-    if (activeModFx != org.deluge.firmware2.ModFx.ModFXType.NONE
-        && activeModFx != org.deluge.firmware2.ModFx.ModFXType.GRAIN) {
+    if (activeModFx != org.deluge.firmware2.ModFx.ModFXType.NONE) {
       int modFXRate =
           org.deluge.firmware2.Functions.getFinalParameterValueExp(
               org.deluge.firmware2.Functions.getParamNeutralValue(
@@ -880,33 +895,39 @@ public class FirmwareAudioEngine {
               org.deluge.firmware2.Functions.getParamNeutralValue(
                   org.deluge.firmware2.Param.GLOBAL_MOD_FX_DEPTH),
               org.deluge.firmware2.Functions.cableToLinearParamShortcut(masterModFxDepth));
-      int[] postFXVol = {134217728};
-      masterModFx.processModFX(
-          fxBuffer,
-          numSamples,
-          activeModFx,
-          modFXRate,
-          modFXDepth,
-          postFXVol,
-          masterModFxOffset,
-          masterModFxFeedback,
-          true,
-          true);
-      if (postFXVol[0] != 134217728) {
-        // C ModFXProcessor.cpp:105-141, mod_controllable_audio.cpp:222,258-259 — Chorus / Flanger
-        // / Warble / Phaser adjust postFXVolume for feedback/wet headroom; apply that gain here.
-        for (int i = 0; i < numSamples; i++) {
-          fxBuffer[i][0] =
-              org.deluge.firmware2.Functions.lshiftAndSaturate(
-                  org.deluge.firmware2.Functions.multiply_32x32_rshift32(
-                      fxBuffer[i][0], postFXVol[0]),
-                  5);
-          fxBuffer[i][1] =
-              org.deluge.firmware2.Functions.lshiftAndSaturate(
-                  org.deluge.firmware2.Functions.multiply_32x32_rshift32(
-                      fxBuffer[i][1], postFXVol[0]),
-                  5);
-        }
+      if (activeModFx == org.deluge.firmware2.ModFx.ModFXType.GRAIN) {
+        // C song.cpp:2548-2549, global_effectable.cpp:1169-1180,
+        // mod_controllable_audio.cpp:159-162,
+        // 197-211 — song-level GrainFX passes verbAmount = reverbSendAmount >> 3 and scales it by
+        // songVolumePostFX << 5 before processGrainFX divides postFXVolume by sqrt(2).
+        int grainReverbAmount =
+            org.deluge.firmware2.Functions.multiply_32x32_rshift32(
+                    songVolumePostFX, songReverbSendAmount >> 3)
+                << 5;
+        masterGranular.processGrainFX(
+            fxBuffer,
+            numSamples,
+            modFXRate,
+            modFXDepth,
+            masterModFxOffset,
+            masterModFxFeedback,
+            postFXVol,
+            true,
+            songBpm,
+            grainReverbAmount,
+            monoReverbBuffer);
+      } else {
+        masterModFx.processModFX(
+            fxBuffer,
+            numSamples,
+            activeModFx,
+            modFXRate,
+            modFXDepth,
+            postFXVol,
+            masterModFxOffset,
+            masterModFxFeedback,
+            true,
+            true);
       }
     }
     if (masterEqBass != 0 || masterEqTreble != 0) {
@@ -915,9 +936,10 @@ public class FirmwareAudioEngine {
     }
 
     // C song.cpp:2538, global_effectable.cpp:1129-1140, mod_controllable_audio.cpp:195 —
-    // Delay runs after ModFX and EQ, before song reverb send and before AudioEngine::renderReverb.
-    // Recompute userDelayRate and delayFeedbackAmount every block before setupWorkingState, which
-    // mutates userDelayRate in place when syncLevel != 0 (delay.cpp:104-118).
+    // Delay runs after ModFX and EQ, before processReverbSendAndVolume and before
+    // AudioEngine::renderReverb. Recompute userDelayRate and delayFeedbackAmount every block before
+    // setupWorkingState, which mutates userDelayRate in place when syncLevel != 0
+    // (delay.cpp:104-118).
     delayState.delayFeedbackAmount =
         org.deluge.firmware2.Functions.getFinalParameterValueLinear(
             org.deluge.firmware2.Functions.getParamNeutralValue(
@@ -931,19 +953,28 @@ public class FirmwareAudioEngine {
     masterDelay.setupWorkingState(delayState, songTimePerInternalTickInverse, true);
     masterDelay.process(fxBuffer, numSamples, delayState);
 
+    // C ModFXProcessor.cpp:105-141, GranularProcessor.cpp:93, mod_controllable_audio.cpp:219, 222,
+    // 258-259 — Chorus / Flanger / Warble / Phaser / Grain adjust postFXVolume for feedback/wet
+    // headroom. In C++, processReverbSendAndVolume applies that updated postFXVolume after Delay
+    // to both the reverb send and the dry buffer.
+    if (postFXVol[0] != 134217728) {
+      for (int i = 0; i < numSamples; i++) {
+        fxBuffer[i][0] =
+            org.deluge.firmware2.Functions.lshiftAndSaturate(
+                org.deluge.firmware2.Functions.multiply_32x32_rshift32(
+                    fxBuffer[i][0], postFXVol[0]),
+                5);
+        fxBuffer[i][1] =
+            org.deluge.firmware2.Functions.lshiftAndSaturate(
+                org.deluge.firmware2.Functions.multiply_32x32_rshift32(
+                    fxBuffer[i][1], postFXVol[0]),
+                5);
+      }
+    }
+
     // C song.cpp:2541-2552, mod_controllable_audio.cpp:219, 248-250 — Song-level reverb send.
-    int songReverbSendAmount =
-        org.deluge.firmware2.Functions.getFinalParameterValueVolume(
-            org.deluge.firmware2.Functions.getParamNeutralValue(
-                org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT),
-            org.deluge.firmware2.Functions.cableToLinearParamShortcut(this.songReverbAmount));
     int songReverbSendShifted = songReverbSendAmount >> 1; // C song.cpp:2552
     if (songReverbSendShifted != 0) {
-      int songVolumePostFX =
-          org.deluge.firmware2.Functions.getFinalParameterValueVolume(
-                  134217728,
-                  org.deluge.firmware2.Functions.cableToLinearParamShortcut(this.songVolume))
-              >> 1; // C song.cpp:2491-2495
       int reverbSendAmountAndPostFXVolume =
           org.deluge.firmware2.Functions.multiply_32x32_rshift32(
                   songVolumePostFX, songReverbSendShifted)

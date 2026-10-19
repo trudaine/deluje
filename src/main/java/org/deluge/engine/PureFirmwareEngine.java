@@ -267,6 +267,7 @@ public class PureFirmwareEngine {
     int inputTickMag = project != null ? project.getInputTickMagnitude() : 2;
     audioEngine.songInputTickMagnitude = inputTickMag;
     double safeBpm = currentBpm > 0 ? currentBpm : 120.0;
+    audioEngine.songBpm = (float) safeBpm;
     double samplesPerInternalTick = 165375.0 / (safeBpm * (1 << inputTickMag));
     audioEngine.songTimePerInternalTickInverse =
         (int) Math.min(2147483647.0, 2147483648.0 / samplesPerInternalTick);
@@ -354,6 +355,7 @@ public class PureFirmwareEngine {
   public void setProject(org.deluge.model.ProjectModel project) {
     playbackHandler.setProject(project);
     audioEngine.sounds.clear();
+    audioEngine.masterGranular.clearGrainFXBuffer();
     // Sync sounds from song to engine
     for (var clip : project.getClips()) {
       if (clip.getSound() != null) {
