@@ -856,12 +856,10 @@ public class FirmwareAudioEngine {
         fxBuffer[i][1] = flatFilterBuffer[i * 2 + 1];
       }
     }
-    if (org.deluge.firmware2.SrrBitcrush.isSRREnabled(masterSrr)
-        || org.deluge.firmware2.SrrBitcrush.isBitcrushingEnabled(masterBitcrush)) {
-      int[] volRef = {postFXVol};
-      masterSrrBitcrush.process(fxBuffer, numSamples, masterBitcrush, masterSrr, volRef);
-      postFXVol = volRef[0];
-    }
-    return postFXVol;
+    // C audio_engine.cpp:1089, mod_controllable_audio.cpp:368-370 — call unconditionally so
+    // sampleRateReductionOnLastTime resets to false when SRR transitions from on to off.
+    int[] volRef = {postFXVol};
+    masterSrrBitcrush.process(fxBuffer, numSamples, masterBitcrush, masterSrr, volRef);
+    return volRef[0];
   }
 }

@@ -55,7 +55,7 @@ class SongMasterFxParityTest {
     String xmlText = java.nio.file.Files.readString(xmlPath);
     assertTrue(
         xmlText.contains("modFXType=\"StereoChorus\""),
-        "Expected firmware modFXType=\"StereoChorus\" on <song> (functions.cpp:893)");
+        "Expected firmware modFXType=\"StereoChorus\" on <song> (functions.cpp:891)");
     assertTrue(
         xmlText.contains("clippingAmount=\"3\""),
         "Expected clippingAmount=\"3\" on <song> when non-zero (mod_controllable_audio.cpp:412)");
@@ -77,7 +77,7 @@ class SongMasterFxParityTest {
         "clippingAmount must be omitted when 0 (mod_controllable_audio.cpp:411-413)");
     assertTrue(
         defaultXmlText.contains("modFXType=\"none\""),
-        "Default song modFXType must serialize as \"none\" (functions.cpp:884)");
+        "Default song modFXType must serialize as \"none\" (functions.cpp:899)");
   }
 
   @Test
