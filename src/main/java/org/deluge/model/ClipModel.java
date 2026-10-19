@@ -160,6 +160,7 @@ public class ClipModel extends TimelineCounter {
   private final List<PatchCable> patchCables = new ArrayList<>();
   private final List<org.deluge.modulation.midi.MidiParam> midiParams = new ArrayList<>();
   private final Map<String, Float> kitParams = new HashMap<>();
+  private final Map<String, String> rawKitParamHex = new java.util.LinkedHashMap<>();
 
   // ── Unified NoteRowModel map replacing parallel maps ──
   public final Map<Integer, NoteRowModel> noteRows = new HashMap<>();
@@ -395,6 +396,7 @@ public class ClipModel extends TimelineCounter {
     copy.syncMidiParamsToParamManager();
     // Deep-copy kit params
     copy.kitParams.putAll(this.kitParams);
+    copy.rawKitParamHex.putAll(this.rawKitParamHex);
     copy.leftCol = this.leftCol;
     copy.rightCol = this.rightCol;
 
@@ -1006,6 +1008,8 @@ public class ClipModel extends TimelineCounter {
     syncMidiParamsToParamManager();
     kitParams.clear();
     kitParams.putAll(src.kitParams);
+    rawKitParamHex.clear();
+    rawKitParamHex.putAll(src.rawKitParamHex);
     playMode = src.playMode;
     isArrangementOnly = src.isArrangementOnly;
     rebuildNotesFromGrid();
@@ -1145,12 +1149,26 @@ public class ClipModel extends TimelineCounter {
     return kitParams;
   }
 
+  public Map<String, String> getRawKitParamHex() {
+    return rawKitParamHex;
+  }
+
+  public void setRawKitParamHex(String param, String hex) {
+    if (hex == null || hex.isBlank()) {
+      rawKitParamHex.remove(param);
+    } else {
+      rawKitParamHex.put(param, hex);
+    }
+  }
+
   public void setKitParam(String param, float value) {
     kitParams.put(param, value);
+    rawKitParamHex.remove(param);
   }
 
   public void setKitParams(Map<String, Float> params) {
     kitParams.clear();
+    rawKitParamHex.clear();
     kitParams.putAll(params);
   }
 

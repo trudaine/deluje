@@ -20,6 +20,21 @@ public class DelugeHexMapper {
   }
 
   /**
+   * Returns the normalized 10-char {@code 0xCCCCCCCC} base hex prefix from a Deluge parameter
+   * string (which may also carry 16-char automation nodes), or {@code null} when absent/invalid.
+   */
+  public static String extractBaseHex(String hex) {
+    if (hex == null || hex.isBlank()) {
+      return null;
+    }
+    String token = firstHexToken(hex);
+    if ((token.startsWith("0x") || token.startsWith("0X")) && token.length() == 10) {
+      return "0x" + token.substring(2).toUpperCase(java.util.Locale.ROOT);
+    }
+    return null;
+  }
+
+  /**
    * Parses 16-char automation nodes ({@code VVVVVVVVPPPPPPPP}, bit 31 of {@code pos} =
    * interpolated) appended after the 10-char {@code 0xCCCCCCCC} value in a Deluge parameter string
    * (C auto_param.cpp:2075-2148).
