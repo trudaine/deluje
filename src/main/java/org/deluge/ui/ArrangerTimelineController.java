@@ -50,33 +50,38 @@ public class ArrangerTimelineController {
   }
 
   /**
+   * Unclamped 64-bit tick position of the left edge of arranger column {@code col} (incl.
+   * horizontal scroll) so rendering and hit-testing near {@link Integer#MAX_VALUE} never overflow
+   * signed 32-bit arithmetic.
+   */
+  public long arrangerTickForColumnLong(int col) {
+    ProjectModel projectModel = getProjectModel();
+    long scroll = projectModel != null ? projectModel.getXScrollArrangementView() : 0L;
+    return scroll + (long) col * arrangerTicksPerColumn();
+  }
+
+  /**
    * Absolute tick position of the left edge of arranger column {@code col} (incl. horizontal
-   * scroll).
+   * scroll), clamped to {@code [0, Integer.MAX_VALUE]} for {@code int}-typed model constructors.
    */
   public int arrangerTickForColumn(int col) {
-    ProjectModel projectModel = getProjectModel();
-    int scroll = projectModel != null ? projectModel.getXScrollArrangementView() : 0;
-    return col * arrangerTicksPerColumn() + scroll;
+    long tick = arrangerTickForColumnLong(col);
+    return (int) Math.max(0L, Math.min(Integer.MAX_VALUE, tick));
   }
 
   /**
    * Finds the arranger clip placement at the specified track and column (song arrangement zoom).
+   * Delegates directly to {@link ArrangementProjector#clipAt} ({@code arranger_view.cpp:2348-2389})
+   * for identical {@code long} bounds and latest-{@code startTicks} tie-breaking.
    */
   public ArrangerClip getArrangerClipAt(int trackIndex, int col) {
     ProjectModel projectModel = getProjectModel();
     if (projectModel == null) return null;
-    int colTick = arrangerTickForColumn(col);
-    int colTicks = arrangerTicksPerColumn();
-    for (ArrangerClip placement : projectModel.getArrangerTimeline()) {
-      if (placement.trackIndex() == trackIndex) {
-        int start = placement.startTicks();
-        int end = start + placement.durationTicks();
-        if (start < colTick + colTicks && end > colTick) {
-          return placement;
-        }
-      }
-    }
-    return null;
+    return ArrangementProjector.clipAt(
+        projectModel.getArrangerTimeline(),
+        trackIndex,
+        arrangerTickForColumnLong(col),
+        arrangerTicksPerColumn());
   }
 
   /** Attaches mouse and motion listeners to a pad button for arranger timeline interaction. */
@@ -200,23 +205,28 @@ public class ArrangerTimelineController {
 
     JPopupMenu menu = new JPopupMenu();
 
-    JMenuItem createNew = new JMenuItem("Create New Pattern Clip (1 bar)");
-    createNew.addActionListener(
-        e -> {
-          int clipCount = track.getClips().size();
-          ClipModel newClip = new ClipModel("CLIP " + (clipCount + 1), 8, 16);
-          track.addClip(newClip);
-          int startTicks = arrangerTickForColumn(col);
-          projectModel.addArrangerClip(
-              new ArrangerClip(trackIdx, newClip, startTicks, newClip.getLoopLength()));
-          projectChangedCallback.run();
-          refreshCallback.run();
-        });
-    menu.add(createNew);
+    JMenuItem createNew = null;
+    if (!(track instanceof org.deluge.model.AudioTrackModel)) {
+      createNew = new JMenuItem("Create New Pattern Clip (1 bar)");
+      createNew.addActionListener(
+          e -> {
+            int clipCount = track.getClips().size();
+            ClipModel newClip = new ClipModel("CLIP " + (clipCount + 1), 8, 16);
+            track.addClip(newClip);
+            int startTicks = arrangerTickForColumn(col);
+            projectModel.addArrangerClip(
+                new ArrangerClip(trackIdx, newClip, startTicks, newClip.getLoopLength()));
+            projectChangedCallback.run();
+            refreshCallback.run();
+          });
+      menu.add(createNew);
+    }
 
     if (track instanceof org.deluge.model.AudioTrackModel audioTrack
         && !audioTrack.getAudioClips().isEmpty()) {
-      menu.addSeparator();
+      if (menu.getComponentCount() > 0) {
+        menu.addSeparator();
+      }
       for (int i = 0; i < audioTrack.getAudioClips().size(); i++) {
         final org.deluge.model.AudioTrackModel.AudioClip audioClip =
             audioTrack.getAudioClips().get(i);
@@ -228,8 +238,6 @@ public class ArrangerTimelineController {
         item.addActionListener(
             e -> {
               int startTicks = arrangerTickForColumn(col);
-              // AudioClip.getLength() (SongXmlParser.java:725) and ArrangerClip.startTicks() /
-              // durationTicks() (SongXmlParser.java:932) both use the song file-tick base.
               projectModel.addArrangerClip(
                   new ArrangerClip(
                       trackIdx, null, audioClip, startTicks, Math.max(1, audioClip.getLength())));
@@ -260,7 +268,9 @@ public class ArrangerTimelineController {
     }
 
     SwingGridPanel.stylePopupMenu(menu);
-    createNew.setForeground(new Color(0x00, 0xff, 0xcc));
+    if (createNew != null) {
+      createNew.setForeground(new Color(0x00, 0xff, 0xcc));
+    }
     return menu;
   }
 

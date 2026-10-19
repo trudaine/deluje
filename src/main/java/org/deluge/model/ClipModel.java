@@ -38,10 +38,10 @@ public class ClipModel extends TimelineCounter {
   private boolean tripletMode = false;
   private boolean isArrangementOnly = false;
 
-  // Session-view section (clip launcher grouping). Matches the C Clip::section:
-  // 0..kMaxNumSections-1,
-  // 255 = unassigned. Written only when != 255 (clip.cpp:667), clamped on read (clip.cpp:715).
-  private int section = 255;
+  // Session-view section (clip launcher grouping). Matches C Clip::Clip (clip.cpp:51): defaults to
+  // 0; 255 marks arrangement-only clips (clip.cpp:204-206, song.cpp:2135). Written only when != 255
+  // (clip.cpp:670-672), clamped to kMaxNumSections - 1 (23) on XML read (clip.cpp:716-719).
+  private int section = 0;
 
   // C InstrumentClip::midiBank / midiSub / midiPGM (instrument_clip.h:135-137, 128 = none): sent
   // as bank MSB (CC0), bank LSB (CC32) and program change when a MIDI clip becomes active.
@@ -373,6 +373,8 @@ public class ClipModel extends TimelineCounter {
 
   public ClipModel deepCopy(String newName) {
     ClipModel copy = new ClipModel(newName, this.rowCount, this.stepCount);
+    copy.tripletMode = this.tripletMode;
+    copy.loopLength = this.loopLength;
     for (int r = 0; r < rowCount; r++) {
       for (int s = 0; s < stepCount; s++) {
         copy.setStep(r, s, this.getStep(r, s));
@@ -409,9 +411,10 @@ public class ClipModel extends TimelineCounter {
     copy.copyNoteRowsFrom(this);
 
     copy.playMode = this.playMode;
-    copy.tripletMode = this.tripletMode;
     copy.setPlayDirection(this.playDirection);
+    copy.section = this.section;
     copy.isArrangementOnly = this.isArrangementOnly;
+    copy.activeInSession = this.activeInSession && !copy.isArrangementOnly;
     copy.launchStyle = this.launchStyle; // C clip.cpp:97, 105
     copy.arp = this.arp; // ArpModel is immutable
     copy.bendRange = this.bendRange;
@@ -692,6 +695,15 @@ public class ClipModel extends TimelineCounter {
 
   public void setArrangementOnly(boolean arrangementOnly) {
     isArrangementOnly = arrangementOnly;
+    if (arrangementOnly) {
+      // C clip.cpp:204-206, song.cpp:2135 — arrangement-only clips always have section == 255
+      // and must never play in Session mode.
+      section = 255;
+      activeInSession = false;
+    } else if (section == 255) {
+      // C clip.cpp:51 — session clips default to section 0.
+      section = 0;
+    }
   }
 
   public int getRowCount() {
@@ -713,7 +725,13 @@ public class ClipModel extends TimelineCounter {
   }
 
   public void setSection(int section) {
+    // C clip.h:168, clip.cpp:204-206 — in C++, section == 255 IS the arrangement-only flag;
+    // keep Java's cached isArrangementOnly and activeInSession strictly synchronized with section.
     this.section = section;
+    this.isArrangementOnly = (section == 255);
+    if (this.isArrangementOnly) {
+      this.activeInSession = false;
+    }
   }
 
   // C Clip::activeIfNoSolo (serialized as isPlaying). True = active in the session clip-launcher
@@ -725,7 +743,8 @@ public class ClipModel extends TimelineCounter {
   }
 
   public void setActiveInSession(boolean active) {
-    this.activeInSession = active;
+    // C song.cpp:2133-2142 — arrangement-only clips never activate in Session mode.
+    this.activeInSession = active && !this.isArrangementOnly;
   }
 
   // C Clip::armState (clip.h:170). Whether this clip is armed to change state at the next session
@@ -1091,6 +1110,7 @@ public class ClipModel extends TimelineCounter {
     Map<Integer, NoteRowModel> liveRows = new HashMap<>(this.noteRows);
     tripletMode = src.tripletMode;
     setStepCount(src.stepCount);
+    this.loopLength = src.loopLength;
     for (int r = 0; r < rowCount; r++) {
       for (int s = 0; s < stepCount; s++) {
         setStep(r, s, src.getStep(r, s));
@@ -1128,7 +1148,9 @@ public class ClipModel extends TimelineCounter {
     rawKitParamHex.clear();
     rawKitParamHex.putAll(src.rawKitParamHex);
     playMode = src.playMode;
+    section = src.section;
     isArrangementOnly = src.isArrangementOnly;
+    activeInSession = src.activeInSession && !isArrangementOnly;
     rebuildNotesFromGrid();
     // Restore exact C play conditions (probabilityValue, follow-previous bit 128, lift, fill,
     // iterance) that StepData cannot hold, plus per-row bendRange and expressionParams.

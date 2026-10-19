@@ -128,18 +128,93 @@ public class ProjectSerializer {
     // ── microtuning block ──
     serializeMicrotuning(writer, model);
 
+    // ── Pre-index session and arrangement-only clips (C song.cpp:1149, 1313-1332, 5106-5117) ──
+    Map<Object, Integer> clipTrackIndex = new java.util.IdentityHashMap<>();
+    for (int tIdx = 0; tIdx < model.getTracks().size(); tIdx++) {
+      TrackModel trk = model.getTracks().get(tIdx);
+      if (trk instanceof AudioTrackModel audioTrk) {
+        for (AudioTrackModel.AudioClip ac : audioTrk.getAudioClips()) {
+          clipTrackIndex.put(ac, tIdx);
+        }
+      } else {
+        for (ClipModel cm : trk.getClips()) {
+          clipTrackIndex.put(cm, tIdx);
+        }
+      }
+    }
+    // Precompute sorted, non-overlapping accepted placements per track (C output.cpp:279-304 write,
+    // output.cpp:356, 398-402 monotonic minPos read constraint) so orphan arrangement-only clip
+    // filtering (C song.cpp:1324-1328) reflects the exact emitted ClipInstances.
+    int trackCount = model.getTracks().size();
+    java.util.List<java.util.List<ArrangerClip>> acceptedByTrack =
+        new java.util.ArrayList<>(trackCount);
+    java.util.Set<Object> referencedArrangementClips =
+        java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+    for (int t = 0; t < trackCount; t++) {
+      java.util.List<ArrangerClip> sorted = new java.util.ArrayList<>();
+      for (ArrangerClip ac : model.getArrangerTimeline()) {
+        if (ac.trackIndex() == t) {
+          sorted.add(ac);
+        }
+      }
+      sorted.sort(java.util.Comparator.comparingInt(ArrangerClip::startTicks));
+      java.util.List<ArrangerClip> accepted = new java.util.ArrayList<>();
+      int minPos = 0;
+      for (ArrangerClip ac : sorted) {
+        int pos = ac.startTicks();
+        int len = ac.durationTicks();
+        if (pos < minPos || len <= 0 || pos > Integer.MAX_VALUE - len) {
+          continue;
+        }
+        minPos = pos + len;
+        accepted.add(ac);
+        Object target = ac.clip() != null ? ac.clip() : ac.audioClip();
+        if (target != null && Integer.valueOf(t).equals(clipTrackIndex.get(target))) {
+          referencedArrangementClips.add(target);
+        }
+      }
+      acceptedByTrack.add(accepted);
+    }
+    // C song.cpp:1324-1328 skips orphan arrangement-only clips (!clip->output->clipHasInstance).
+    // When getArrangerTimeline() is completely empty, standalone <arrangementOnlyTracks> clips from
+    // unit XML fixtures without timeline instances are preserved for round-trip compatibility.
+    boolean filterOrphanArrClips = !model.getArrangerTimeline().isEmpty();
+    Map<Object, Integer> sessionClipIndices = new java.util.IdentityHashMap<>();
+    Map<Object, Integer> arrangementClipIndices = new java.util.IdentityHashMap<>();
+    int nextSessionIdx = 0;
+    int nextArrangementIdx = 0;
+    for (TrackModel trk : model.getTracks()) {
+      if (trk instanceof AudioTrackModel audioTrk) {
+        for (AudioTrackModel.AudioClip clip : audioTrk.getAudioClips()) {
+          if (!clip.isArrangementOnly()) {
+            sessionClipIndices.put(clip, nextSessionIdx++);
+          } else if (!filterOrphanArrClips || referencedArrangementClips.contains(clip)) {
+            arrangementClipIndices.put(clip, nextArrangementIdx++);
+          }
+        }
+      } else {
+        for (ClipModel clip : trk.getClips()) {
+          if (!clip.isArrangementOnly()) {
+            sessionClipIndices.put(clip, nextSessionIdx++);
+          } else if (!filterOrphanArrClips || referencedArrangementClips.contains(clip)) {
+            arrangementClipIndices.put(clip, nextArrangementIdx++);
+          }
+        }
+      }
+    }
+
     // ── instruments block ──
     writer.writeArrayStart("instruments");
     int trackIndex = 0;
     for (TrackModel track : model.getTracks()) {
-      // Calculate clipInstances for arranger placements
       StringBuilder ciBuilder = new StringBuilder("0x");
-      for (ArrangerClip ac : model.getArrangerTimeline()) {
-        if (ac.trackIndex() == trackIndex) {
-          ciBuilder.append(
-              String.format(
-                  "%08X%08X%08X", ac.startTicks(), ac.durationTicks(), clipCodeFor(model, ac)));
-        }
+      for (ArrangerClip ac : acceptedByTrack.get(trackIndex)) {
+        ciBuilder.append(
+            String.format(
+                "%08X%08X%08X",
+                ac.startTicks(),
+                ac.durationTicks(),
+                clipCodeFor(ac, sessionClipIndices, arrangementClipIndices)));
       }
 
       if (track instanceof KitTrackModel) {
@@ -949,57 +1024,45 @@ public class ProjectSerializer {
     }
     writer.writeArrayEnding("instruments");
 
-    // ── sessionClips block ──
+    // ── sessionClips block (C song.cpp:1313-1318) ──
     writer.writeArrayStart("sessionClips");
     trackIndex = 0;
     for (TrackModel track : model.getTracks()) {
-      if (track instanceof AudioTrackModel) {
-        AudioTrackModel audioTrack = (AudioTrackModel) track;
+      if (track instanceof AudioTrackModel audioTrack) {
         for (AudioTrackModel.AudioClip clip : audioTrack.getAudioClips()) {
-          serializeAudioClip(writer, clip, null);
+          if (sessionClipIndices.containsKey(clip)) {
+            serializeAudioClip(writer, audioTrack, clip, false, null);
+          }
         }
       } else {
-        List<ClipModel> clips = track.getClips();
-        for (ClipModel clip : clips) {
-          // Arrangement-only clips are written in the <arrangementOnlyTracks> block (C
-          // song.cpp:1286-1297), not as session clips.
-          if (clip.isArrangementOnly()) {
-            continue;
+        for (ClipModel clip : track.getClips()) {
+          if (sessionClipIndices.containsKey(clip)) {
+            writeInstrumentClip(writer, track, clip, false, model.getInputTickMagnitude());
           }
-          writeInstrumentClip(writer, track, clip, false, model.getInputTickMagnitude());
         }
       }
       trackIndex++;
     }
     writer.writeArrayEnding("sessionClips");
 
-    // ── arrangementOnlyTracks block (C song.cpp:1286-1297) — clips that live only on the
-    // arranger timeline, not in the session grid. Round-trips with the parser, which matches each
-    // back to its track by the trackName attribute. ──
-    boolean anyArrangementOnly = false;
-    for (TrackModel track : model.getTracks()) {
-      if (track instanceof AudioTrackModel) {
-        continue;
-      }
-      for (ClipModel clip : track.getClips()) {
-        if (clip.isArrangementOnly()) {
-          anyArrangementOnly = true;
-          break;
-        }
-      }
-      if (anyArrangementOnly) {
-        break;
-      }
-    }
-    if (anyArrangementOnly) {
+    // ── arrangementOnlyTracks block (C song.cpp:1320-1332) — clips that live only on the
+    // arranger timeline, not in the session grid. Orphans without a ClipInstance on their track
+    // are skipped when an arrangement timeline is present (C song.cpp:1324-1326; standalone
+    // empty-timeline fixtures retain them for XML round-trip tests). ──
+    if (!arrangementClipIndices.isEmpty()) {
       writer.writeArrayStart("arrangementOnlyTracks");
       for (TrackModel track : model.getTracks()) {
-        if (track instanceof AudioTrackModel) {
-          continue;
-        }
-        for (ClipModel clip : track.getClips()) {
-          if (clip.isArrangementOnly()) {
-            writeInstrumentClip(writer, track, clip, true, model.getInputTickMagnitude());
+        if (track instanceof AudioTrackModel audioTrack) {
+          for (AudioTrackModel.AudioClip clip : audioTrack.getAudioClips()) {
+            if (arrangementClipIndices.containsKey(clip)) {
+              serializeAudioClip(writer, audioTrack, clip, true, null);
+            }
+          }
+        } else {
+          for (ClipModel clip : track.getClips()) {
+            if (arrangementClipIndices.containsKey(clip)) {
+              writeInstrumentClip(writer, track, clip, true, model.getInputTickMagnitude());
+            }
           }
         }
       }
@@ -1036,28 +1099,28 @@ public class ProjectSerializer {
   }
 
   /**
-   * The 32-bit clipCode the hardware stores per clipInstance (C output.cpp:280-285): 0xFFFFFFFF
-   * when the instance references no clip; otherwise the clip's save index with bit 31 set when the
-   * clip is unassigned to a session section (section == 255).
+   * The 32-bit clipCode the hardware stores per clipInstance (C output.cpp:290-300): {@code
+   * 0xFFFFFFFF} when the instance references no clip; otherwise {@code indexForSaving} in {@code
+   * sessionClips} (bit 31 clear) or {@code indexForSaving | (1 << 31)} in {@code
+   * arrangementOnlyTracks} (bit 31 set).
    */
-  private static int clipCodeFor(ProjectModel model, ArrangerClip ac) {
-    ClipModel clip = ac.clip();
-    int clipIdx = getGlobalClipIndex(model, clip);
-    if (clip == null || clipIdx < 0) return 0xFFFFFFFF;
-    return (clip.getSection() == 255) ? (clipIdx | (1 << 31)) : clipIdx;
-  }
-
-  private static int getGlobalClipIndex(ProjectModel model, ClipModel targetClip) {
-    int index = 0;
-    for (TrackModel track : model.getTracks()) {
-      for (ClipModel clip : track.getClips()) {
-        if (clip == targetClip) {
-          return index;
-        }
-        index++;
-      }
+  private static int clipCodeFor(
+      ArrangerClip ac,
+      Map<Object, Integer> sessionClipIndices,
+      Map<Object, Integer> arrangementClipIndices) {
+    Object target = ac.clip() != null ? ac.clip() : ac.audioClip();
+    if (target == null) {
+      return 0xFFFFFFFF;
     }
-    return -1;
+    Integer arrIdx = arrangementClipIndices.get(target);
+    if (arrIdx != null) {
+      return arrIdx | (1 << 31);
+    }
+    Integer sessIdx = sessionClipIndices.get(target);
+    if (sessIdx != null) {
+      return sessIdx;
+    }
+    return 0xFFFFFFFF;
   }
 
   // ── Helper methods ──
@@ -1454,8 +1517,8 @@ public class ProjectSerializer {
     // C clip.cpp:659 — isPlaying == activeIfNoSolo (session-active). All-active = every clip
     // fires at once in session view; arranger songs keep these inactive.
     writer.writeAttribute("isPlaying", clip.isActiveInSession() ? "1" : "0", false);
-    // C clip.cpp:667 — write section only when assigned (!= 255 unassigned).
-    if (clip.getSection() != 255) {
+    // C clip.cpp:670-672, song.cpp:2135 — write section only for session clips (!= 255).
+    if (!arrangementOnly && clip.getSection() != 255) {
       writer.writeAttribute("section", clip.getSection(), false);
     }
     // C clip.cpp:687-689 — written only when not DEFAULT
@@ -2446,13 +2509,22 @@ public class ProjectSerializer {
   }
 
   private static void serializeAudioClip(
-      XMLSerializer writer, AudioTrackModel.AudioClip clip, String ci) throws IOException {
+      XMLSerializer writer,
+      AudioTrackModel audioTrack,
+      AudioTrackModel.AudioClip clip,
+      boolean arrangementOnly,
+      String ci)
+      throws IOException {
     writer.writeOpeningTagBeginning("audioClip");
-    // C audio_clip.cpp:1056 — persist audio clip name when set.
+    // C audio_clip.cpp:1057-1058 — persist audio clip name and owning output trackName.
     if (clip.getClipName() != null && !clip.getClipName().isEmpty()) {
       writer.writeAttribute("clipName", clip.getClipName(), false);
     }
-    writer.writeAttribute("trackName", clip.getTrackName(), false);
+    String trackName =
+        (audioTrack.getName() != null && !audioTrack.getName().isEmpty())
+            ? audioTrack.getName()
+            : clip.getTrackName();
+    writer.writeAttribute("trackName", trackName, false);
     if (clip.getFilePath() != null) {
       writer.writeAttribute("filePath", clip.getFilePath(), false);
     }
@@ -2468,18 +2540,36 @@ public class ProjectSerializer {
     // C audio_clip.cpp:1071 — writer.writeAttribute("attack", attack) writes signed int32 decimal.
     writer.writeAttribute("attack", clip.getAttackRaw(), false);
     writer.writeAttribute("priority", clip.getPriority(), false);
+    // C audio_clip.cpp:1074-1079 — sampleHolder.transpose / cents written when non-zero.
+    if (clip.getTranspose() != 0) {
+      writer.writeAttribute("transpose", clip.getTranspose(), false);
+    }
+    if (clip.getCents() != 0) {
+      writer.writeAttribute("cents", clip.getCents(), false);
+    }
     writer.writeAttribute(
-        "pitchSpeedIndependent", clip.isPitchSpeedIndependent() ? "true" : "false", false);
+        "pitchSpeedIndependent", clip.isPitchSpeedIndependent() ? "1" : "0", false);
     writer.writeAttribute(
-        "overdubsShouldCloneAudioTrack",
-        clip.isOverdubsShouldCloneAudioTrack() ? "true" : "false",
-        false);
+        "overdubsShouldCloneAudioTrack", clip.isOverdubsShouldCloneAudioTrack() ? "1" : "0", false);
     writer.writeAttribute("isPlaying", clip.isPlaying() ? "1" : "0", false);
     writer.writeAttribute("isSoloing", clip.isSoloing() ? "1" : "0", false);
     writer.writeAttribute("isArmedForRecording", clip.isArmedForRecording() ? "1" : "0", false);
     writer.writeAttribute("length", clip.getLength(), false);
+    // C clip.cpp:666-668 — sequenceDirection written when != FORWARD.
+    if (clip.getSequenceDirection() != null
+        && clip.getSequenceDirection() != ClipModel.PlayDirection.FORWARD) {
+      String dir =
+          switch (clip.getSequenceDirection()) {
+            case PING_PONG -> "pingpong";
+            default -> clip.getSequenceDirection().name().toLowerCase();
+          };
+      writer.writeAttribute("sequenceDirection", dir, false);
+    }
     writer.writeAttribute("colourOffset", clip.getColourOffset(), false);
-    writer.writeAttribute("section", clip.getSection(), false);
+    // C clip.cpp:670-672, song.cpp:2135 — arrangement-only clips have section == 255 (omitted).
+    if (!arrangementOnly && !clip.isArrangementOnly() && clip.getSection() != 255) {
+      writer.writeAttribute("section", clip.getSection(), false);
+    }
     writer.writeAttribute("beingEdited", clip.isBeingEdited() ? "1" : "0", false);
     // C clip.cpp:687-689 — written only when not DEFAULT
     if (!"default".equals(clip.getLaunchStyle())) {

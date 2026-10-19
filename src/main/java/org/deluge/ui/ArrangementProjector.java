@@ -9,19 +9,22 @@ import org.deluge.model.ArrangerClip;
  * framebuffer. No Swing, no controller, no instance state — so the colour of every cell in a known
  * arrangement can be pinned by a unit test.
  *
- * <p>This is a faithful extraction of the arranger clip-instance render at {@code
- * SwingGridPanel#refreshInPlace} (~line 3921), which itself mirrors the C {@code arranger_view.cpp
- * renderRow} (~2356) and {@code ClipInstance::getColour} (clip_instance.cpp:31):
+ * <p>This is a faithful extraction of the arranger clip-instance render in {@link
+ * ArrangerGridPanel#refreshInPlace} ({@code ArrangerGridPanel.java:600-645}), which mirrors C
+ * {@code arranger_view.cpp:2360-2442} and {@code ClipInstance::getColour} ({@code
+ * clip_instance.cpp:31-37}):
  *
  * <ul>
  *   <li>Cell colour is derived from the placement's clip <b>section</b> ({@code
  *       defaultClipSectionColours[section]}, via {@link DelugeColour#sectionColour}), NOT the
- *       clip's own {@code colourOffset}.
- *   <li>HEAD square (where the instance starts within this column) = full section colour.
- *   <li>Loop-boundary square (column tick lands on a {@code loopLength} multiple) = {@code
- *       dim(base, 3)}.
- *   <li>Mid-loop body square = {@code dim(forBlur(base), 3)}.
- *   <li>Arrangement-only placement (no backing clip) = {@code dim(base, 4)} preview.
+ *       clip's own {@code colourOffset}. Unbacked white placements ({@code 0xFFFFFFFF}) and
+ *       arrangement-only clips ({@code section == 255}) use grey {@code monochrome(128)}.
+ *   <li>HEAD square (where the instance starts within this column) = full base colour.
+ *   <li>Session clip loop-boundary square ({@code rel % loopLength == 0}) = {@code dim(base, 3)};
+ *       mid-loop body square = {@code dim(forBlur(base), 3)}.
+ *   <li>Arrangement-only clip loop-boundary square ({@code rel % loopLength == 0}) = {@code
+ *       dim(base, 2)}; mid-loop body square = {@code dim(base, 4)}.
+ *   <li>Unbacked white placement (no backing clip) follower square = {@code dim(base, 4)} preview.
  * </ul>
  *
  * <p>The Y axis (rows) is bounded — {@code rowToTrack} maps each display row to a finite model
@@ -52,7 +55,7 @@ final class ArrangementProjector {
     for (int r = 0; r < rows; r++) {
       int track = (r < rowToTrack.length) ? rowToTrack[r] : -1;
       for (int c = 0; c < cols; c++) {
-        int colTick = scrollTicks + c * ticksPerColumn;
+        long colTick = (long) scrollTicks + (long) c * ticksPerColumn;
         ArrangerClip ac = clipAt(timeline, track, colTick, ticksPerColumn);
         out[r][c] = ac == null ? PadCell.EMPTY : cellFor(ac, colTick, ticksPerColumn);
       }
@@ -65,17 +68,18 @@ final class ArrangementProjector {
    * Mirrors {@code arranger_view.cpp:2348-2389} ({@code searchMultiple(squareEndPos) - 1}): when a
    * placement starts mid-column ({@code colTick < startTicks < colTick + ticksPerColumn}), it still
    * covers the column and renders as a HEAD square; when two placements overlap the same column,
-   * the latest {@code startTicks < colTick + ticksPerColumn} wins.
+   * the latest {@code startTicks < colTick + ticksPerColumn} wins. Uses {@code long} bounds so
+   * placements near {@link Integer#MAX_VALUE} never overflow signed 32-bit addition.
    */
-  private static ArrangerClip clipAt(
-      List<ArrangerClip> timeline, int track, int colTick, int ticksPerColumn) {
+  static ArrangerClip clipAt(
+      List<ArrangerClip> timeline, int track, long colStart, int ticksPerColumn) {
     if (track < 0) return null;
-    int colEnd = colTick + Math.max(1, ticksPerColumn);
+    long colEnd = colStart + Math.max(1L, ticksPerColumn);
     ArrangerClip best = null;
     for (ArrangerClip ac : timeline) {
       if (ac.trackIndex() == track
           && ac.startTicks() < colEnd
-          && ac.startTicks() + ac.durationTicks() > colTick) {
+          && (long) ac.startTicks() + ac.durationTicks() > colStart) {
         if (best == null || ac.startTicks() >= best.startTicks()) {
           best = ac;
         }
@@ -84,39 +88,50 @@ final class ArrangementProjector {
     return best;
   }
 
-  /** Resolves the final LED colour for a covered column. Mirrors SwingGridPanel.java:3932-3951. */
-  private static PadCell cellFor(ArrangerClip ac, int colTick, int ticksPerColumn) {
-    return PadCell.of(colourFor(ac, colTick, ticksPerColumn), true);
+  /** Resolves the final LED colour for a covered column (shared with ArrangerGridPanel.java). */
+  private static PadCell cellFor(ArrangerClip ac, long colStart, int ticksPerColumn) {
+    return PadCell.of(colourFor(ac, colStart, ticksPerColumn), true);
   }
 
   /**
    * The final LED colour for the clip instance {@code ac} at the column starting on {@code
-   * colTick}: HEAD square = full section colour, loop boundary = {@code dim(base, 3)}, mid-loop
-   * body = {@code dim(forBlur(base), 3)}, arrangement-only preview = {@code dim(base, 4)}. Shared
-   * by {@link #project} (whole-grid, unit-tested) and the per-cell arranger render path so both
-   * agree.
+   * colTick}: HEAD square = full base colour; session loop boundary = {@code dim(base, 3)}, session
+   * mid-loop body = {@code dim(forBlur(base), 3)}; arrangement-only loop boundary = {@code
+   * dim(base, 2)}, arrangement-only mid-loop body = {@code dim(base, 4)}; unbacked white placement
+   * follower = {@code dim(base, 4)}. Shared by {@link #project} and {@link ArrangerGridPanel}.
    */
   static Color colourFor(ArrangerClip ac, int colTick, int ticksPerColumn) {
-    org.deluge.model.ClipModel clip = ac.clip();
-    // ClipInstance::getColour (clip_instance.cpp): grey monochrome(128) for a missing OR
-    // arrangement-only clip, otherwise the section colour.
-    boolean grey = clip == null || clip.isArrangementOnly();
-    Color base =
-        grey ? DelugeColour.monochrome(128) : DelugeColour.sectionColour(clip.getSection());
-    boolean isHead = ac.startTicks() >= colTick && ac.startTicks() < colTick + ticksPerColumn;
+    return colourFor(ac, (long) colTick, ticksPerColumn);
+  }
 
-    // Head square = the full instance colour (arranger_view.cpp:2362), whether or not it has a
+  static Color colourFor(ArrangerClip ac, long colStart, int ticksPerColumn) {
+    org.deluge.model.ClipModel clip = ac.clip();
+    org.deluge.model.AudioTrackModel.AudioClip audioClip = ac.audioClip();
+    boolean hasBackingClip = clip != null || audioClip != null;
+    boolean arrOnly =
+        clip != null
+            ? clip.isArrangementOnly()
+            : (audioClip != null && audioClip.isArrangementOnly());
+    int section =
+        clip != null ? clip.getSection() : (audioClip != null ? audioClip.getSection() : 255);
+    // ClipInstance::getColour (clip_instance.cpp:31-37): grey monochrome(128) for a missing OR
+    // arrangement-only clip, otherwise the section colour.
+    boolean grey = !hasBackingClip || arrOnly;
+    Color base = grey ? DelugeColour.monochrome(128) : DelugeColour.sectionColour(section);
+    long colEnd = colStart + Math.max(1L, ticksPerColumn);
+    boolean isHead = ac.startTicks() >= colStart && ac.startTicks() < colEnd;
+
+    // Head square = the full instance colour (arranger_view.cpp:2375-2376), whether or not it has a
     // clip.
     if (isHead) {
       return base;
     }
-    // Follower squares (arranger_view.cpp:2388-2423):
-    if (clip == null) {
+    // Follower squares (arranger_view.cpp:2388-2439):
+    if (!hasBackingClip) {
       return DelugeColour.dim(base, 4); // no backing clip yet -> dim preview
     }
-    boolean arrOnly = clip.isArrangementOnly();
-    int loopLen = clip.getLoopLength();
-    int rel = colTick - ac.startTicks();
+    int loopLen = clip != null ? clip.getLoopLength() : audioClip.getLength();
+    long rel = colStart - ac.startTicks();
     boolean loopStart = loopLen > 0 && (rel % loopLen == 0);
     if (loopStart) {
       return DelugeColour.dim(base, arrOnly ? 2 : 3); // arrangement-only loop starts are dimmer

@@ -126,4 +126,122 @@ class ArrangementProjectorTest {
     assertEquals(
         DelugeColour.dim(grey, 2), cells[0][1].colour(), "arrangement-only loop start dim(2)");
   }
+
+  @Test
+  void audioClip_sessionAndArrangementOnlyColoursAndLoopBoundaries() {
+    int zoom = 96;
+    org.deluge.model.AudioTrackModel.AudioClip sessionAudio =
+        new org.deluge.model.AudioTrackModel.AudioClip();
+    sessionAudio.setSection(5);
+    sessionAudio.setLength(192);
+
+    org.deluge.model.AudioTrackModel.AudioClip arrOnlyAudio =
+        new org.deluge.model.AudioTrackModel.AudioClip();
+    arrOnlyAudio.setLength(96);
+    arrOnlyAudio.setArrangementOnly(true);
+
+    List<ArrangerClip> timeline =
+        List.of(
+            new ArrangerClip(0, null, sessionAudio, 0, 384),
+            new ArrangerClip(0, null, arrOnlyAudio, 384, 192));
+    int[] rowToTrack = {0};
+
+    PadCell[][] cells = ArrangementProjector.project(timeline, rowToTrack, 1, 8, 0, zoom);
+    Color sectionCol = DelugeColour.sectionColour(5);
+    Color grey = DelugeColour.monochrome(128);
+
+    assertEquals(sectionCol, cells[0][0].colour(), "session audio head uses section colour");
+    assertEquals(
+        DelugeColour.dim(sectionCol, 3),
+        cells[0][2].colour(),
+        "session audio loop boundary at 192 ticks uses dim(section, 3)");
+    assertEquals(grey, cells[0][4].colour(), "arrangement-only audio head uses grey");
+    assertEquals(
+        DelugeColour.dim(grey, 2),
+        cells[0][5].colour(),
+        "arrangement-only audio loop boundary at +96 ticks uses dim(grey, 2)");
+  }
+
+  @Test
+  void nearMaxIntPlacementDoesNotOverflowAndDisplayNamesAndSection255BehaveCleanly() {
+    int zoom = 96;
+    int startNearMax = 0x7FFFFF40;
+    ClipModel clip = new ClipModel("", 8, 16);
+    clip.setSection(2);
+    clip.setLoopLength(zoom);
+    ArrangerClip ac = new ArrangerClip(0, clip, startNearMax, 0xAF);
+    int[] rowToTrack = {0};
+
+    PadCell[][] cells =
+        ArrangementProjector.project(List.of(ac), rowToTrack, 1, 4, startNearMax, zoom);
+    assertEquals(
+        DelugeColour.sectionColour(2),
+        cells[0][0].colour(),
+        "Placement ending near Integer.MAX_VALUE must not overflow signed int end bound");
+    assertEquals(DelugeColour.dim(DelugeColour.sectionColour(2), 3), cells[0][1].colour());
+
+    // Section 255 -> monochrome(128), while modulo mapping stays intact for non-255 sections
+    assertEquals(DelugeColour.monochrome(128), DelugeColour.sectionColour(255));
+    assertEquals(DelugeColour.sectionColour('A' % 24), DelugeColour.sectionColour('A'));
+
+    // SongGridPanel.firstSessionClip and sessionClipModelIndex skip arrangement-only clips cleanly
+    org.deluge.model.SynthTrackModel arrOnlyTrack = new org.deluge.model.SynthTrackModel("Pad");
+    ClipModel arrOnly = new ClipModel("PadIntro", 8, 16);
+    arrOnly.setArrangementOnly(true);
+    arrOnlyTrack.addClip(arrOnly);
+    assertNull(SongGridPanel.firstSessionClip(arrOnlyTrack));
+    assertEquals(-1, SongGridPanel.sessionClipModelIndex(arrOnlyTrack, 0));
+    arrOnlyTrack.addClip(clip);
+    assertEquals(clip, SongGridPanel.firstSessionClip(arrOnlyTrack));
+    assertEquals(1, SongGridPanel.sessionClipModelIndex(arrOnlyTrack, 0));
+    assertEquals(-1, SongGridPanel.sessionClipModelIndex(arrOnlyTrack, 1));
+
+    // ClipModel.deepCopy / restoreFrom / setActiveInSession preserve inactive session invariant
+    arrOnly.setActiveInSession(true);
+    assertFalse(arrOnly.isActiveInSession());
+    ClipModel arrCopy = arrOnly.deepCopy("PadIntroCopy");
+    assertFalse(arrCopy.isActiveInSession());
+    ClipModel restoreTarget = new ClipModel("RestoreTarget", 8, 16);
+    restoreTarget.restoreFrom(arrOnly);
+    assertFalse(restoreTarget.isActiveInSession());
+
+    // Live ArrangerGridPanel + ArrangerTimelineController near Integer.MAX_VALUE (no 32-bit wrap)
+    System.setProperty("chuck.audio.dummy", "true");
+    org.deluge.BridgeContract bridge = new org.deluge.BridgeContract();
+    try {
+      org.deluge.model.ProjectModel liveProj = new org.deluge.model.ProjectModel();
+      org.deluge.model.SynthTrackModel liveTrack = new org.deluge.model.SynthTrackModel("Lead");
+      ClipModel liveClip = new ClipModel("FarRight", 8, 16);
+      liveClip.setSection(0);
+      liveClip.setLoopLength(zoom);
+      liveTrack.addClip(liveClip);
+      liveProj.addTrack(liveTrack);
+      int farScroll = Integer.MAX_VALUE - 500;
+      int farStart = Integer.MAX_VALUE - 100;
+      liveProj.setXScrollArrangementView(farScroll);
+      liveProj.setXZoomArrangementView(zoom);
+      liveProj.addArrangerClip(new ArrangerClip(0, liveClip, farStart, 200));
+
+      ArrangerGridPanel panel = new ArrangerGridPanel(bridge);
+      panel.setProjectModel(liveProj);
+      panel.setViewMode(SwingGridPanel.GridViewMode.ARRANGEMENT);
+      panel.forceRebuild();
+
+      // Column 4 spans [MAX-116, MAX-20) -> HEAD; Column 5 spans [MAX-20, MAX+76) -> follower
+      // square crossing Integer.MAX_VALUE without wrapping negative!
+      assertEquals(liveClip, panel.arrangerController.getArrangerClipAt(0, 4).clip());
+      assertEquals(liveClip, panel.arrangerController.getArrangerClipAt(0, 5).clip());
+      assertNull(panel.arrangerController.getArrangerClipAt(0, 7));
+    } finally {
+      bridge.shutdown();
+    }
+
+    // ArrangerGridPanel.arrangerClipDisplayName handles blank names and " (Arranger)" suffix
+    assertEquals("CLIP", ArrangerGridPanel.arrangerClipDisplayName(ac));
+    assertEquals(
+        "PadIntro (Arranger)",
+        ArrangerGridPanel.arrangerClipDisplayName(new ArrangerClip(0, arrOnly, 0, 96)));
+    assertEquals(
+        "WHITE CLIP", ArrangerGridPanel.arrangerClipDisplayName(new ArrangerClip(0, null, 0, 96)));
+  }
 }

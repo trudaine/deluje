@@ -203,6 +203,9 @@ public class ExportHelper {
       if (!acList.isEmpty()) {
         for (ArrangerClip ac : acList) {
           ClipModel clip = ac.clip();
+          if (clip == null) {
+            continue;
+          }
           long clipStartTick = ac.startTicks();
           long clipDuration = ac.durationTicks();
           exportClipNotesToMidiTrack(midiTrack, clip, isKit, clipStartTick, clipDuration);
@@ -211,6 +214,9 @@ public class ExportHelper {
         // Fallback: If arranger timeline is empty, export session clips sequentially
         long currentStartTick = 0;
         for (ClipModel clip : track.getClips()) {
+          if (clip.isArrangementOnly()) {
+            continue;
+          }
           int stepTicks = clip.isTripletMode() ? 32 : 24;
           long clipLength = (long) clip.getStepCount() * stepTicks;
           exportClipNotesToMidiTrack(midiTrack, clip, isKit, currentStartTick, -1L);

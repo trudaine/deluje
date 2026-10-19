@@ -90,6 +90,10 @@ public class DelugeatorRandomizer {
     }
   }
 
+  public static final int MIN_DX7_CARRIER_LEVEL = 88;
+  public static final int MIN_DX7_CARRIER_R1 = 62;
+  public static final int MIN_DX7_CARRIER_L1 = 85;
+
   /**
    * Randomizes the active SynthTrackModel and general ProjectModel properties in place, fully
    * respecting user-selected sliders and safe dynamic threshold guard policies.
@@ -173,7 +177,7 @@ public class DelugeatorRandomizer {
       // FM / DX7 Synthesis Mode (C dx7note.cpp:42-88, fm_core.cpp:21-54)
       double amt = (settings.osc1Checked ? settings.osc1Amount : 0.5);
       model.setOsc1Type("DX7");
-      // C sound.cpp:150-151 — pure Source 0 (OSC A = 0x7FFFFFFF, OSC B = 0x80000000 off).
+      // C sound.cpp:142, 301 — pure Source 0 (OSC A = 0x7FFFFFFF, OSC B = 0x80000000 off).
       model.setOscMix(1.0f);
 
       // Seed from C init_voice (dx7note.cpp:42-48) so neutral Pitch EG levels (50), concert
@@ -219,18 +223,24 @@ public class DelugeatorRandomizer {
         syx[offset + 15] = (byte) ((int) (Math.random() * 8));
         int level = (int) getTriangular(0, 99, 75, amt);
         if (isCarrier) {
-          level = Math.max(85, level);
+          level = Math.max(MIN_DX7_CARRIER_LEVEL, level);
         }
         syx[offset + 16] = (byte) level;
 
         // Operator envelope rates & levels (dx7note.cpp:251)
         syx[offset + 0] =
-            (byte) (isCarrier ? (55 + (int) (Math.random() * 45)) : ((int) (Math.random() * 100)));
+            (byte)
+                (isCarrier
+                    ? (MIN_DX7_CARRIER_R1 + (int) (Math.random() * (100 - MIN_DX7_CARRIER_R1)))
+                    : ((int) (Math.random() * 100)));
         syx[offset + 1] = (byte) ((int) (Math.random() * 100));
         syx[offset + 2] = (byte) ((int) (Math.random() * 100));
         syx[offset + 3] = (byte) (35 + (int) (Math.random() * 65));
         syx[offset + 4] =
-            (byte) (isCarrier ? (85 + (int) (Math.random() * 15)) : ((int) (Math.random() * 100)));
+            (byte)
+                (isCarrier
+                    ? (MIN_DX7_CARRIER_L1 + (int) (Math.random() * (100 - MIN_DX7_CARRIER_L1)))
+                    : ((int) (Math.random() * 100)));
         syx[offset + 5] =
             (byte) (isCarrier ? (65 + (int) (Math.random() * 35)) : ((int) (Math.random() * 100)));
         syx[offset + 6] =
