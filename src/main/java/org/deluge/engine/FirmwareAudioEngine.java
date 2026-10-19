@@ -140,7 +140,8 @@ public class FirmwareAudioEngine {
   public int reverbSidechainVolumeInEffect = 0;
   public int reverbSidechainShapeInEffect = 0;
 
-  // C: mod_controllable_audio.cpp:65-68, 1299-1329 & audio_engine.cpp:1094 — song-level stutter.
+  // C: stutterer.h:28-33, mod_controllable_audio.cpp:1299-1329 & audio_engine.cpp:1094 — song-level
+  // stutter.
   public final org.deluge.firmware2.Stutterer.Config songStutterConfig =
       new org.deluge.firmware2.Stutterer.Config();
   public int songInputTickMagnitude = 2;
@@ -368,7 +369,7 @@ public class FirmwareAudioEngine {
     this.masterCompressor.setBlend(
         Math.max(0, (int) Math.round((double) project.getCompressorBlend() * 2147483647.0)));
 
-    // Sync Song-level Stutter config (C mod_controllable_audio.cpp:65-68, 760-785)
+    // Sync Song-level Stutter config (C stutterer.h:28-33, mod_controllable_audio.cpp:760-785)
     this.songStutterConfig.useSongStutter = true;
     this.songStutterConfig.quantized = project.isSongStutterQuantized();
     this.songStutterConfig.reversed = project.isSongStutterReversed();

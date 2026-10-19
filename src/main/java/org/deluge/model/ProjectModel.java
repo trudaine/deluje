@@ -84,7 +84,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   private float compressorHpf = 0.0f;
   private float compressorBlend = 1.0f;
 
-  // ── Song-level stutter params (C mod_controllable_audio.cpp:65-68) ──
+  // ── Song-level stutter params (C stutterer.h:28-33, mod_controllable_audio.h:104) ──
   private boolean songStutterQuantized = true;
   private boolean songStutterReversed = false;
   private boolean songStutterPingPong = false;
@@ -1412,7 +1412,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     notifyCompressorChanged();
   }
 
-  // ── Song-level stutter getters/setters (C mod_controllable_audio.cpp:65-68, 481-486, 760-785) ──
+  // ── Song-level stutter getters/setters (C stutterer.h:28-33, mod_controllable_audio.cpp:481-486,
+  // 760-785) ──
 
   public boolean isSongStutterQuantized() {
     return songStutterQuantized;
