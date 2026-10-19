@@ -1344,10 +1344,23 @@ public class Voice {
             Functions.multiply_32x32_rshift32_rounded(amplitudeForRingMod, filterGain) << 4;
       }
 
-      // C voice.cpp:1317-1340 — osc A can never osc-sync (cantBeDoingOscSyncForFirstOsc); osc B
-      // syncs to osc A's captured phase + this part's osc-A increment. Both pass the source's
-      // retrigger phase (used by the pulse-width reset path even without sync).
-      if (sound.oscTypes[0] == OscType.WAVETABLE && sound.waveTables[0] != null) {
+      // C source.cpp:207-209, voice.cpp:1317-1365 — RingMod clamps oscType to <= WAVETABLE;
+      // fall back to SINE when no wavetable audio file is loaded so unloaded sources stay audible.
+      OscType oscTypeA =
+          sound.oscTypes[0].ordinal() > OscType.WAVETABLE.ordinal()
+              ? OscType.WAVETABLE
+              : sound.oscTypes[0];
+      if (oscTypeA == OscType.WAVETABLE && sound.waveTables[0] == null) {
+        oscTypeA = OscType.SINE;
+      }
+      OscType oscTypeB =
+          sound.oscTypes[1].ordinal() > OscType.WAVETABLE.ordinal()
+              ? OscType.WAVETABLE
+              : sound.oscTypes[1];
+      if (oscTypeB == OscType.WAVETABLE && sound.waveTables[1] == null) {
+        oscTypeB = OscType.SINE;
+      }
+      if (oscTypeA == OscType.WAVETABLE) {
         vsA.oscPos =
             sound.waveTables[0].render(
                 tempBufA,
@@ -1368,7 +1381,7 @@ public class Voice {
             Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH], 1);
         int[] phaseA = {vsA.oscPos};
         Oscillator.renderOsc(
-            sound.oscTypes[0],
+            oscTypeA,
             0,
             tempBufA,
             0,
@@ -1388,13 +1401,13 @@ public class Voice {
       // (for arbitrary reasons), so we need to compensate": `amplitudeForRingMod <<= 1;` / `<<=
       // 2;`,
       // RAW shifts, not lshiftAndSaturate. Same distinction as the noise path above.
-      if (sound.oscTypes[0] == OscType.SAW || sound.oscTypes[0] == OscType.ANALOG_SAW_2) {
+      if (oscTypeA == OscType.SAW || oscTypeA == OscType.ANALOG_SAW_2) {
         amplitudeForRingMod <<= 1;
-      } else if (sound.oscTypes[0] == OscType.WAVETABLE) {
+      } else if (oscTypeA == OscType.WAVETABLE) {
         amplitudeForRingMod <<= 2;
       }
 
-      if (sound.oscTypes[1] == OscType.WAVETABLE && sound.waveTables[1] != null) {
+      if (oscTypeB == OscType.WAVETABLE) {
         int resetterDivideByPhaseIncrement = 0;
         if (doingOscSync) {
           // C oscillator.cpp:140-142 — (uint16_t)((resetterPhaseIncrement + 65535) >> 16).
@@ -1424,7 +1437,7 @@ public class Voice {
             Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_B_PHASE_WIDTH], 1);
         int[] phaseB = {vsB.oscPos};
         Oscillator.renderOsc(
-            sound.oscTypes[1],
+            oscTypeB,
             0,
             tempBufB,
             0,
@@ -1440,9 +1453,9 @@ public class Voice {
             sound.oscRetriggerPhase[1]);
         vsB.oscPos = phaseB[0];
       }
-      if (sound.oscTypes[1] == OscType.SAW || sound.oscTypes[1] == OscType.ANALOG_SAW_2) {
+      if (oscTypeB == OscType.SAW || oscTypeB == OscType.ANALOG_SAW_2) {
         amplitudeForRingMod <<= 1;
-      } else if (sound.oscTypes[1] == OscType.WAVETABLE) {
+      } else if (oscTypeB == OscType.WAVETABLE) {
         amplitudeForRingMod <<= 2;
       }
 
@@ -1836,6 +1849,10 @@ public class Voice {
               }
             }
           } else if (sound.isDx7SourceMode(s)) {
+            // C voice.cpp:2420 — ensureDxPatch(s) returns the shared per-source DxPatch without
+            // clearing sourceDxPatchChanged[s] (reset once at the end of Sound.renderInternal,
+            // sound.cpp:2637), so both multi-voice chord renders and direct Voice.render callers
+            // see consistent live patch updates.
             Dx7Voice.DxPatch patch = sound.ensureDxPatch(s);
             if (vs.dxVoice.patch == null) {
               vs.dxVoice.init(patch, note, velocity);

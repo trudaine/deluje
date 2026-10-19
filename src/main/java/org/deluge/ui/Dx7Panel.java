@@ -509,14 +509,7 @@ public class Dx7Panel extends JPanel {
           } else {
             raw[Dx7Patch.OFF_OP_SWITCH] &= (byte) ~(1 << slot);
           }
-          String newHex = Dx7Patch.bytesToHex(raw);
-          model.setDx7Patch(newHex);
-          if (bridge != null) {
-            bridge.setDx7Patch(trackIndex, newHex);
-            bridge.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
-            int opSwitchVal = raw[Dx7Patch.OFF_OP_SWITCH] & 0xFF;
-            bridge.setGlobalInt("g_dx7_opSwitch_" + trackIndex, opSwitchVal);
-          }
+          commitPatchRaw(raw);
           syncActiveOperatorDetails();
         });
     detailsGrid.add(activeCheckbox, dc);
@@ -806,9 +799,12 @@ public class Dx7Panel extends JPanel {
     isRefreshingOpDetails = true;
     try {
       String curPatch = model.getDx7Patch();
-      if (curPatch == null || curPatch.isEmpty()) return;
-      Dx7Patch parsedPatch = Dx7Patch.fromHex(curPatch);
-      byte[] raw = parsedPatch.raw();
+      byte[] raw = getCurrentRaw(model, curPatch);
+      if (raw == null) return;
+      Dx7Patch parsedPatch =
+          (curPatch != null && curPatch.length() >= 312)
+              ? Dx7Patch.fromHex(curPatch)
+              : Dx7Patch.fromHex(Dx7Patch.bytesToHex(raw));
       int slot = Dx7Patch.slotForOperator(currentSelectedOp);
       int opOff = slot * 21;
 
@@ -939,12 +935,7 @@ public class Dx7Panel extends JPanel {
     if (raw == null) return;
     int opOff = Dx7Patch.slotForOperator(currentSelectedOp) * 21;
     raw[opOff + fieldOff] = (byte) (value & 0xFF);
-    String newHex = Dx7Patch.bytesToHex(raw);
-    model.setDx7Patch(newHex);
-    if (bridge != null) {
-      bridge.setDx7Patch(trackIndex, newHex);
-      bridge.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
-    }
+    commitPatchRaw(raw);
 
     // Live update envelope graph if this is a rate/level parameter!
     if (fieldOff < 8) {
@@ -1043,21 +1034,47 @@ public class Dx7Panel extends JPanel {
     if (raw == null) return;
     if (offset >= 0 && offset < raw.length) {
       raw[offset] = (byte) (value & 0xFF);
-      String newHex = Dx7Patch.bytesToHex(raw);
-      model.setDx7Patch(newHex);
-      if (bridge != null) {
-        bridge.setDx7Patch(trackIndex, newHex);
-        bridge.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
-      }
+      commitPatchRaw(raw);
     }
   }
 
-  /** Get mutable raw bytes from the current DX7 patch (or from model). */
+  private void commitPatchRaw(byte[] raw) {
+    boolean initializedBlankPatch =
+        model.getDx7Patch() == null || model.getDx7Patch().length() < 312;
+    String newHex = Dx7Patch.bytesToHex(raw);
+    model.setOsc1Type("DX7");
+    if (initializedBlankPatch && "NONE".equalsIgnoreCase(model.getOsc2Type())) {
+      model.setOscMix(1.0f);
+    }
+    model.setDx7Patch(newHex);
+    if (bridge != null) {
+      bridge.setDx7Patch(trackIndex, newHex);
+      bridge.setGlobalString("g_dx7_patch_" + trackIndex, newHex);
+      bridge.setGlobalInt("g_dx7_opSwitch_" + trackIndex, raw[Dx7Patch.OFF_OP_SWITCH] & 0xFF);
+    }
+  }
+
+  /**
+   * Get mutable raw bytes from the current DX7 patch, falling back to C {@code init_voice} ({@code
+   * source.cpp:302-307}, {@code dx7note.cpp:42-48}) when editing a blank FM/DX7 track.
+   */
   private static byte[] getCurrentRaw(SynthTrackModel model, String fallbackHex) {
     String hex = model.getDx7Patch();
     if (hex == null || hex.isEmpty()) hex = fallbackHex;
-    if (hex == null || hex.isEmpty()) return null;
+    if (hex == null || hex.length() < 312) {
+      byte[] init = Dx7Patch.createInitVoiceBytes();
+      init[Dx7Patch.OFF_ALGORITHM] = (byte) (model.getSynthAlgorithm() & 0x1F);
+      return init;
+    }
     return Dx7Patch.fromHex(hex).raw();
+  }
+
+  JSlider getLevelSliderForTest() {
+    return levelSlider;
+  }
+
+  JSlider getFeedbackSliderForTest() {
+    return feedbackSlider;
   }
 
   /** Apply a Dx7Patch to the model and push to the bridge. */

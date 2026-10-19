@@ -133,28 +133,36 @@ class Dx7SharedPatchLfoAndRoutingParityTest {
 
     int totalSamples = 4096;
     int[] beforeEdit = new int[totalSamples * 2];
+    long[] outBlock = new long[128 * 2];
+    long[] revBlock = new long[128];
     for (int pos = 0; pos < totalSamples; pos += 128) {
-      int[] block = new int[128 * 2];
-      fs.fw2Sound.renderInternal(block, 128, null);
-      System.arraycopy(block, 0, beforeEdit, pos * 2, 128 * 2);
+      java.util.Arrays.fill(outBlock, 0L);
+      java.util.Arrays.fill(revBlock, 0L);
+      fs.renderOutput(outBlock, 128, revBlock);
+      for (int i = 0; i < 128 * 2; i++) {
+        beforeEdit[pos * 2 + i] = (int) outBlock[i];
+      }
     }
     int crossingsRatio1 = countPositiveZeroCrossings(beforeEdit, 512, totalSamples);
     assertTrue(crossingsRatio1 > 15, "Ratio 1 note must produce clear oscillation");
 
-    // Live edit mid-note: double OP1 coarse ratio from 1 -> 2 (+1 octave) without NoteOff/NoteOn
-    // or syncParamsToFw2 — matching PureFirmwareEngine's live per-block syncDx7FromModel path!
+    // Live edit mid-note: double OP1 coarse ratio from 1 -> 2 (+1 octave) without NoteOff/NoteOn —
+    // matching PureFirmwareEngine's live per-block syncDx7FromModel -> renderOutput path!
     byte[] patchRatio2 = createSingleCarrierTestPatch(2);
     model.setDx7Patch(Dx7Patch.bytesToHex(patchRatio2));
     fs.syncDx7FromModel(model);
 
     int[] afterEdit = new int[totalSamples * 2];
     for (int pos = 0; pos < totalSamples; pos += 128) {
-      int[] block = new int[128 * 2];
-      fs.fw2Sound.renderInternal(block, 128, null);
+      java.util.Arrays.fill(outBlock, 0L);
+      java.util.Arrays.fill(revBlock, 0L);
+      fs.renderOutput(outBlock, 128, revBlock);
       assertFalse(
           fs.fw2Sound.sourceDxPatchChanged[0],
           "sourceDxPatchChanged[0] must clear at end of Sound.renderInternal (sound.cpp:2637)");
-      System.arraycopy(block, 0, afterEdit, pos * 2, 128 * 2);
+      for (int i = 0; i < 128 * 2; i++) {
+        afterEdit[pos * 2 + i] = (int) outBlock[i];
+      }
     }
     int crossingsRatio2 = countPositiveZeroCrossings(afterEdit, 512, totalSamples);
     double freqRatio = (double) crossingsRatio2 / crossingsRatio1;
@@ -334,6 +342,7 @@ class Dx7SharedPatchLfoAndRoutingParityTest {
     assertNotNull(track.getDx7Patch());
     FirmwareSound liveFs = compileSynth(track);
     liveFs.syncDx7FromModel(track);
+    liveFs.renderOutput(new long[256], 128, new long[128]);
     assertEquals(Oscillator.OscType.DX7, liveFs.fw2Sound.oscTypes[0]);
 
     // Re-randomize into Subtractive (mode 0) -> clears dx7Patch and restores non-DX7 waveform!
@@ -341,6 +350,7 @@ class Dx7SharedPatchLfoAndRoutingParityTest {
     DelugeatorRandomizer.randomizeSynth(track, project, subSettings);
     assertNull(track.getDx7Patch(), "Re-randomizing into Subtractive must clear stale dx7Patch");
     liveFs.syncDx7FromModel(track);
+    liveFs.renderOutput(new long[256], 128, new long[128]);
     assertNull(liveFs.fw2Sound.sourceDx7Patch[0]);
     assertNotEquals(Oscillator.OscType.DX7, liveFs.fw2Sound.oscTypes[0]);
 
@@ -498,6 +508,189 @@ class Dx7SharedPatchLfoAndRoutingParityTest {
             new ByteArrayInputStream(childTagXml.getBytes(StandardCharsets.UTF_8)), "child_dx7");
     assertEquals(2, fromChildTags.getEngineType());
     assertEquals(19, fromChildTags.getDx7RandomDetune());
+  }
+
+  @Test
+  void liveSyncPolyphonicUpdateBlankUiAndDoneReadingFromFileParity(@TempDir Path tempDir)
+      throws Exception {
+    // 1. Live FirmwareSound sync across full renderOutput blocks:
+    //    - DX7 -> Subtractive SAW must NOT revert oscTypes[0] back to DX7 on renderOutput
+    //    - SAW -> blank DX7 (INIT_VOICE) must stay OscType.DX7 on renderOutput
+    //    - Held polyphonic chord updates ALL voices cleanly in the same block
+    SynthTrackModel liveTrack = new SynthTrackModel("LiveSyncTrack");
+    BridgeContract bridge = new BridgeContract();
+    Dx7Panel initPanel = new Dx7Panel(liveTrack, bridge, 0, null, () -> {});
+    findActivateButton(initPanel).doClick();
+    FirmwareSound liveFs = compileSynth(liveTrack);
+
+    liveFs.triggerNote(60, 100);
+    liveFs.triggerNote(67, 100);
+    long[] stereoBuf = new long[256];
+    long[] revBuf = new long[128];
+    liveFs.renderOutput(stereoBuf, 128, revBuf);
+    assertEquals(2, liveFs.fw2Sound.voices.size());
+
+    // Live mid-chord coarse ratio edit from ratio 1 -> ratio 4 updates BOTH held chord voices
+    byte[] ratio4Raw = Dx7Patch.hexToBytes(liveTrack.getDx7Patch());
+    for (int op = 0; op < 6; op++) {
+      ratio4Raw[op * 21 + 18] = 4;
+    }
+    liveTrack.setDx7Patch(Dx7Patch.bytesToHex(ratio4Raw));
+    liveFs.syncDx7FromModel(liveTrack);
+    int v0PitchBefore =
+        liveFs.fw2Sound.voices.get(0).unisonParts[0].sources[0].dxVoice.basePitch[5];
+    int v1PitchBefore =
+        liveFs.fw2Sound.voices.get(1).unisonParts[0].sources[0].dxVoice.basePitch[5];
+    liveFs.renderOutput(stereoBuf, 128, revBuf);
+    assertTrue(
+        liveFs.fw2Sound.voices.get(0).unisonParts[0].sources[0].dxVoice.basePitch[5]
+            > v0PitchBefore);
+    assertTrue(
+        liveFs.fw2Sound.voices.get(1).unisonParts[0].sources[0].dxVoice.basePitch[5]
+            > v1PitchBefore);
+    liveFs.releaseAllNotes();
+
+    // Exit DX7 to Subtractive SAW via DelugeatorRandomizer with osc1Checked = false
+    DelugeatorRandomizer.RandomizerSettings generalOnly =
+        new DelugeatorRandomizer.RandomizerSettings();
+    generalOnly.osc1Checked = false;
+    generalOnly.osc2Checked = false;
+    ProjectModel proj = new ProjectModel();
+    proj.addTrack(liveTrack);
+    for (int attempt = 0; attempt < 200 && liveTrack.getSynthMode() == 1; attempt++) {
+      DelugeatorRandomizer.randomizeSynth(liveTrack, proj, generalOnly);
+    }
+    liveTrack.setSynthMode(0);
+    liveFs.syncDx7FromModel(liveTrack);
+    liveFs.triggerNote(60, 100);
+    liveFs.renderOutput(stereoBuf, 128, revBuf);
+    assertNotEquals(Oscillator.OscType.DX7, liveFs.fw2Sound.oscTypes[0]);
+    liveFs.releaseAllNotes();
+
+    // Re-enter blank DX7 (INIT_VOICE, dx7Patch == null) and verify renderOutput keeps OscType.DX7
+    liveTrack.setOsc1Type("DX7");
+    liveTrack.setDx7Patch(null);
+    liveFs.syncDx7FromModel(liveTrack);
+    liveFs.triggerNote(60, 100);
+    liveFs.renderOutput(stereoBuf, 128, revBuf);
+    assertEquals(Oscillator.OscType.DX7, liveFs.fw2Sound.oscTypes[0]);
+
+    // 2. Opening Dx7Panel on a blank FM track (synthMode == 1, dx7Patch == null) has live sliders
+    SynthTrackModel blankFm = new SynthTrackModel("BlankFm");
+    blankFm.setSynthMode(1);
+    assertNull(blankFm.getDx7Patch());
+    BridgeContract blankBridge = new BridgeContract();
+    Dx7Panel blankDxPanel = new Dx7Panel(blankFm, blankBridge, 0, null, () -> {});
+    javax.swing.JSlider fbSlider = findSliderWithMax(blankDxPanel, 7);
+    assertNotNull(fbSlider, "Feedback slider (0..7) should be present on active Dx7Panel");
+    fbSlider.setValue(5);
+    assertNotNull(
+        blankFm.getDx7Patch(), "Moving slider on blank FM Dx7Panel must materialize patch");
+    assertEquals(312, blankFm.getDx7Patch().length());
+    assertEquals("DX7", blankFm.getOsc1Type());
+    assertEquals(5, Dx7Patch.hexToBytes(blankBridge.getDx7Patch(0))[Dx7Patch.OFF_FEEDBACK] & 0xFF);
+
+    // 3. Hardware Source::doneReadingFromFile (source.cpp:200-209) + presetName inheritance &
+    //    inline override parity
+    Path synthsDir = tempDir.resolve("SYNTHS");
+    Files.createDirectories(synthsDir);
+    File presetRef = synthsDir.resolve("PRESET_DX7.XML").toFile();
+    liveTrack.setDx7Patch(Dx7Patch.bytesToHex(ratio4Raw));
+    liveTrack.setEngineType(2);
+    liveTrack.setDx7RandomDetune(17);
+    KitSynthSerializer.saveSynth(liveTrack, presetRef);
+
+    String prevCard = System.getProperty("deluge.card");
+    try {
+      System.setProperty("deluge.card", tempDir.toString());
+
+      // <sound presetName="PRESET_DX7"> with NO inline <osc1> must preserve inherited DX7 state!
+      SynthTrackModel inherited = new SynthTrackModel("Inherited");
+      org.w3c.dom.Element presetOnlyOverridesLpf =
+          javax.xml.parsers.DocumentBuilderFactory.newInstance()
+              .newDocumentBuilder()
+              .parse(
+                  new ByteArrayInputStream(
+                      "<sound presetName=\"PRESET_DX7\"><defaultParams lpfFrequency=\"0x20000000\"/></sound>"
+                          .getBytes(StandardCharsets.UTF_8)))
+              .getDocumentElement();
+      InstrumentXmlParser.populateSynth(presetOnlyOverridesLpf, inherited, false);
+      assertEquals(Dx7Patch.bytesToHex(ratio4Raw), inherited.getDx7Patch());
+      assertEquals(2, inherited.getEngineType());
+      assertEquals(17, inherited.getDx7RandomDetune());
+      assertEquals("DX7", inherited.getOsc1Type());
+
+      // <sound presetName="PRESET_DX7"><osc1 type="saw"/></sound> must clear all 3 DX7 fields!
+      SynthTrackModel overridden = new SynthTrackModel("Overridden");
+      org.w3c.dom.Element inlineSaw =
+          javax.xml.parsers.DocumentBuilderFactory.newInstance()
+              .newDocumentBuilder()
+              .parse(
+                  new ByteArrayInputStream(
+                      "<sound presetName=\"PRESET_DX7\"><mode>subtractive</mode><osc1 type=\"saw\"/></sound>"
+                          .getBytes(StandardCharsets.UTF_8)))
+              .getDocumentElement();
+      InstrumentXmlParser.populateSynth(inlineSaw, overridden, false);
+      assertNull(overridden.getDx7Patch(), "Inline non-DX7 <sound> must clear preset dx7Patch");
+      assertEquals(0, overridden.getEngineType());
+      assertEquals(0, overridden.getDx7RandomDetune());
+    } finally {
+      if (prevCard == null) {
+        System.clearProperty("deluge.card");
+      } else {
+        System.setProperty("deluge.card", prevCard);
+      }
+    }
+
+    // Hardware <mode>fm</mode> + <osc1 type="dx7"/> normalizes to 2-op SINE FM and re-saves
+    // <mode>fm
+    String hw2OpFmXml = "<sound><mode>fm</mode><osc1 type=\"dx7\"/><osc2 type=\"square\"/></sound>";
+    SynthTrackModel parsed2OpFm =
+        InstrumentXmlParser.parseSynth(
+            new ByteArrayInputStream(hw2OpFmXml.getBytes(StandardCharsets.UTF_8)), "hw_2op_fm");
+    assertEquals(1, parsed2OpFm.getSynthMode());
+    assertEquals("SINE", parsed2OpFm.getOsc1Type());
+    assertEquals("SINE", parsed2OpFm.getOsc2Type());
+    assertNull(parsed2OpFm.getDx7Patch());
+    File saved2OpFm = tempDir.resolve("resaved_2op_fm.xml").toFile();
+    KitSynthSerializer.saveSynth(parsed2OpFm, saved2OpFm);
+    assertTrue(
+        Files.readString(saved2OpFm.toPath(), StandardCharsets.UTF_8).contains("<mode>fm</mode>"));
+
+    // Hardware <mode>ringmod</mode> + <osc1 type="dx7"/> clamps to WAVETABLE and renders non-zero
+    String hwRingmodXml =
+        "<sound><mode>ringmod</mode><osc1 type=\"dx7\"/><osc2 type=\"sine\"/></sound>";
+    SynthTrackModel parsedRingmod =
+        InstrumentXmlParser.parseSynth(
+            new ByteArrayInputStream(hwRingmodXml.getBytes(StandardCharsets.UTF_8)), "hw_ringmod");
+    assertEquals(2, parsedRingmod.getSynthMode());
+    assertEquals("WAVETABLE", parsedRingmod.getOsc1Type());
+    assertNull(parsedRingmod.getDx7Patch());
+    FirmwareSound ringFs = compileSynth(parsedRingmod);
+    ringFs.triggerNote(60, 100);
+    java.util.Arrays.fill(stereoBuf, 0L);
+    ringFs.renderOutput(stereoBuf, 128, revBuf);
+    long ringPeak = 0;
+    for (long sample : stereoBuf) {
+      ringPeak = Math.max(ringPeak, Math.abs(sample));
+    }
+    assertTrue(
+        ringPeak > 0, "RingMod clamped from DX7 must render audible output instead of silence");
+  }
+
+  private static javax.swing.JSlider findSliderWithMax(Container root, int maxVal) {
+    for (Component c : root.getComponents()) {
+      if (c instanceof javax.swing.JSlider s && s.getMaximum() == maxVal && s.getMinimum() == 0) {
+        return s;
+      }
+      if (c instanceof Container child) {
+        javax.swing.JSlider found = findSliderWithMax(child, maxVal);
+        if (found != null) {
+          return found;
+        }
+      }
+    }
+    return null;
   }
 
   private static JComboBox<?> findEngineTypeCombo(Container root) {

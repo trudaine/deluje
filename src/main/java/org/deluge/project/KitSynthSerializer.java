@@ -375,8 +375,9 @@ public class KitSynthSerializer {
       appendTextChild(
           doc, osc1, "timeStretchAmount", String.valueOf(synth.getOsc1TimeStretchAmount()));
     }
-    // C sound.cpp:3744-3758 — write dx7patch plus conditional non-zero dx7enginemode &
-    // dx7randomdetune when DX7 source routing is active (never in RingMod, sound.cpp:2599).
+    // C sound.cpp:3744-3758, source.cpp:207-209, voice.cpp:1322-1357 — write dx7patch plus
+    // conditional non-zero dx7enginemode & dx7randomdetune when DX7 source routing is active
+    // (never in RingMod).
     if (synth.getSynthMode() != 2
         && synth.getDx7Patch() != null
         && !synth.getDx7Patch().isEmpty()) {

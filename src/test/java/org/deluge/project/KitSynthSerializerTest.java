@@ -143,9 +143,20 @@ public class KitSynthSerializerTest {
 
     SynthTrackModel parsed = DelugeXmlParser.parseSynth(new FileInputStream(temp), "TEST_SYNTH");
 
-    // Oscillators (from DIRECT_BINDINGS: osc1 type attr, osc2 type child)
-    assertEquals(original.getOsc1Type(), parsed.getOsc1Type());
-    assertEquals(original.getOsc2Type(), parsed.getOsc2Type());
+    // C source.cpp:200-206 (Source::doneReadingFromFile): SynthMode::FM normalizes both sources to
+    // OscType::SINE on XML load; verify Subtractive SAW/SQUARE round-trip separately right below.
+    assertEquals("SINE", parsed.getOsc1Type());
+    assertEquals("SINE", parsed.getOsc2Type());
+
+    SynthTrackModel subSynth = buildFullSynth();
+    subSynth.setSynthMode(0);
+    File subTemp = File.createTempFile("deluge_sub_synth_test", ".xml");
+    subTemp.deleteOnExit();
+    KitSynthSerializer.saveSynth(subSynth, subTemp);
+    SynthTrackModel parsedSub =
+        DelugeXmlParser.parseSynth(new FileInputStream(subTemp), "TEST_SUB_SYNTH");
+    assertEquals("SAW", parsedSub.getOsc1Type());
+    assertEquals("SQUARE", parsedSub.getOsc2Type());
 
     // oscMix — round-trips via oscAVolume hex in defaultParams
     // (FieldBinding: oscAVolume → setOscMix)
@@ -280,11 +291,6 @@ public class KitSynthSerializerTest {
     KitSynthSerializer.saveKit(kit, temp);
 
     String xml = new String(java.nio.file.Files.readAllBytes(temp.toPath()));
-    // DEBUG: print file length and content
-    System.out.println("DEBUG file length=" + temp.length());
-    System.out.println("DEBUG xml len=" + xml.length());
-    System.out.println(
-        "DEBUG XML=" + xml.replace("\n", "\\n").substring(0, Math.min(3000, xml.length())));
 
     // Root element
     assertTrue(xml.contains("<kit"), "root should be <kit>");

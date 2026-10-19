@@ -350,16 +350,20 @@ public class Sound extends GlobalEffectable {
    */
   public final boolean[] sourceDxPatchChanged = new boolean[2];
 
-  private final boolean[] sourceDxPatchLoaded = new boolean[2];
+  /**
+   * Runtime state per source: 0 = uninitialized, 1 = INIT_VOICE loaded, 2 = custom patch loaded.
+   */
+  private final int[] sourceDxPatchLoaded = new int[2];
 
   /**
    * C {@code Source::ensureDxPatch} ({@code source.h:47-48, 71}, {@code source.cpp:302-307}, {@code
    * gui/menu_item/dx/param.cpp:63}) — returns the shared per-source {@link Dx7Voice.DxPatch} and
-   * marks {@link #sourceDxPatchChanged} when parameters, engine mode, or random detune change on an
-   * active patch.
+   * marks {@link #sourceDxPatchChanged} whenever parameters, engine mode, or random detune change
+   * after initial patch construction (never on initial construction before any voice exists).
    */
   public Dx7Voice.DxPatch ensureDxPatch(int s) {
     Dx7Voice.DxPatch patch = sourceDxPatches[s];
+    boolean wasInitialized = sourceDxPatchLoaded[s] != 0;
     byte[] raw = sourceDx7Patch[s];
     int mode = sourceDx7EngineType[s] & 0xFF;
     int detune = sourceDx7RandomDetune[s];
@@ -371,30 +375,34 @@ public class Sound extends GlobalEffectable {
           break;
         }
       }
-      if (!sourceDxPatchLoaded[s]
+      if (sourceDxPatchLoaded[s] != 2
           || paramsDiffer
           || patch.engineMode != mode
           || patch.randomDetune != detune) {
         System.arraycopy(raw, 0, patch.params, 0, 156);
         patch.randomDetune = detune;
         patch.setEngineMode(mode);
-        if (sourceDxPatchLoaded[s]) {
+        if (wasInitialized) {
           sourceDxPatchChanged[s] = true;
         }
-        sourceDxPatchLoaded[s] = true;
+        sourceDxPatchLoaded[s] = 2;
       }
     } else if (raw == null) {
-      if (sourceDxPatchLoaded[s]) {
+      if (sourceDxPatchLoaded[s] == 2) {
         for (int i = 0; i < 156; i++) {
           patch.params[i] = (byte) Dx7Voice.DxPatch.INIT_VOICE[i];
         }
         patch.randomDetune = detune;
         patch.setEngineMode(mode);
         sourceDxPatchChanged[s] = true;
-        sourceDxPatchLoaded[s] = false;
-      } else if (patch.engineMode != mode || patch.randomDetune != detune) {
+        sourceDxPatchLoaded[s] = 1;
+      } else if (!wasInitialized || patch.engineMode != mode || patch.randomDetune != detune) {
         patch.randomDetune = detune;
         patch.setEngineMode(mode);
+        if (wasInitialized) {
+          sourceDxPatchChanged[s] = true;
+        }
+        sourceDxPatchLoaded[s] = 1;
       }
     }
     return patch;
@@ -402,8 +410,9 @@ public class Sound extends GlobalEffectable {
 
   /**
    * True when source {@code s} renders through 6-operator {@link OscType#DX7} ({@code
-   * sound.cpp:2423-2427, 2599, 3744-3745}, {@code voice.cpp:1176, 2410}) — active in Subtractive
-   * mode or UI/Randomizer FM/DX7 mode, never in RingMod ({@code synthMode == 2}).
+   * sound.cpp:2423-2427, 3744-3745}, {@code source.cpp:207-209}, {@code voice.cpp:1176, 1322-1357,
+   * 2410}) — active in Subtractive mode or UI/Randomizer FM/DX7 mode, never in RingMod ({@code
+   * synthMode == 2}).
    */
   public boolean isDx7SourceMode(int s) {
     return synthMode != 2 && oscTypes[s] == OscType.DX7;

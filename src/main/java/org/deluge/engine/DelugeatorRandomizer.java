@@ -125,9 +125,12 @@ public class DelugeatorRandomizer {
 
     // 2. Oscillators 1 & 2
     if (mode == 0 || mode == 2) {
-      // Clear any prior DX7 patch so re-randomizing into Subtractive/RingMod never stays trapped in
-      // DX7 routing.
+      // Clear any prior DX7 patch and stale "DX7" osc1Type so re-randomizing into Subtractive or
+      // RingMod never stays trapped in DX7 routing even when settings.osc1Checked is false.
       model.setDx7Patch(null);
+      if ("DX7".equalsIgnoreCase(model.getOsc1Type())) {
+        model.setOsc1Type("SAW");
+      }
       // Subtractive / RingMod Modes
       if (settings.osc1Checked) {
         double amt = settings.osc1Amount;
