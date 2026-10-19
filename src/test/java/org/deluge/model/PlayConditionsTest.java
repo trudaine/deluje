@@ -551,7 +551,7 @@ class PlayConditionsTest {
   void swingSlowHalfSingleTickAdvancesDoNotStallAcrossHalfBoundary() {
     ProjectModel project = new ProjectModel();
     project.setSwingAmount(15);
-    project.setSwingInterval(6); // swingTicks = 3; positions 3..5 run at swingFactor = 35
+    project.setSwingInterval(9); // 128th note: swingTicks = 3; positions 3..5 run at factor 35
     SynthTrackModel track = new SynthTrackModel("Synth");
     track.addClip(clip);
     track.setActiveClipIndex(0);
@@ -581,7 +581,7 @@ class PlayConditionsTest {
   void swingSlowHalfOneTickDeadlineDoesNotStall() {
     ProjectModel project = new ProjectModel();
     project.setSwingAmount(15);
-    project.setSwingInterval(6); // swingTicks = 3; positions 0..2 cost 65, positions 3..5 cost 35
+    project.setSwingInterval(9); // 128th note: positions 0..2 cost 65, positions 3..5 cost 35
     SynthTrackModel track = new SynthTrackModel("Synth");
     track.addClip(clip);
     track.setActiveClipIndex(0);
@@ -612,27 +612,31 @@ class PlayConditionsTest {
 
   @Test
   void swingPairsPreserveOverallPlaybackTempo() {
-    // C playback_handler.cpp:1768-1790 — a full pair of (2 * swingTicks) swung ticks costs
-    // swingTicks * (50 + swingAmount) + swingTicks * (50 - swingAmount) = 2 * swingTicks * 50
-    // input-tick fiftieths, so complete swing pairs preserve overall playback tempo for any swing
-    // amount.
-    for (int amount : new int[] {-30, 15, 49}) {
-      ProjectModel project = new ProjectModel();
-      project.setSwingAmount(amount);
-      project.setSwingInterval(6); // swingTicks = 3, pair = 6 ticks
+    // C playback_handler.cpp:1768-1790 — a full pair of doubleSwingInterval swung ticks costs
+    // doubleSwingInterval * 50 input-tick fiftieths, preserving overall playback tempo across
+    // both 16th-note default (swingInterval = 6, pair = 48) and 128th-note (swingInterval = 9,
+    // pair = 6) for every swingAmount.
+    for (int interval : new int[] {6, 9}) {
+      for (int amount : new int[] {-30, 15, 49}) {
+        ProjectModel project = new ProjectModel();
+        project.setSwingAmount(amount);
+        project.setSwingInterval(interval);
 
-      org.deluge.playback.PlaybackHandler pb = new org.deluge.playback.PlaybackHandler();
-      pb.setProject(project);
-      pb.start();
+        org.deluge.playback.PlaybackHandler pb = new org.deluge.playback.PlaybackHandler();
+        pb.setProject(project);
+        pb.start();
 
-      for (int i = 0; i < 6000; i++) {
-        pb.advanceTicks(1);
+        for (int i = 0; i < 6000; i++) {
+          pb.advanceTicks(1);
+        }
+        assertEquals(
+            6000,
+            pb.lastSwungTickActioned,
+            "6000 input ticks across exact swing pairs must advance 6000 swung ticks at interval="
+                + interval
+                + ", swing="
+                + amount);
       }
-      assertEquals(
-          6000,
-          pb.lastSwungTickActioned,
-          "6000 input ticks across 1000 swing pairs must advance exactly 6000 swung ticks at swing="
-              + amount);
     }
   }
 

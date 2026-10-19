@@ -908,7 +908,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     public void onScalesChanged() {}
   }
 
-  private final List<ProjectListener> listeners = new ArrayList<>();
+  private final List<ProjectListener> listeners = new java.util.concurrent.CopyOnWriteArrayList<>();
 
   public void addProjectListener(ProjectListener l) {
     listeners.add(l);
@@ -1860,6 +1860,12 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     return songParamAutomationCurves;
   }
 
+  private volatile long automationGeneration = 0L;
+
+  public long getAutomationGeneration() {
+    return automationGeneration;
+  }
+
   public void setSongParamAutomationCurve(
       String param, List<org.deluge.modulation.automation.ParamNode> nodes) {
     if (nodes == null || nodes.isEmpty()) {
@@ -1868,6 +1874,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
       songParamAutomationCurves.put(param, new ArrayList<>(nodes));
     }
     rebuildSongParamManager();
+    this.swungTicksTilNextEvent = 0;
   }
 
   /**
@@ -2030,6 +2037,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
         }
         paramManager.automatedParams.add(ap);
       }
+      automationGeneration++;
     }
   }
 
@@ -2044,6 +2052,7 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     synchronized (paramManager) {
       for (org.deluge.modulation.automation.AutoParam ap : paramManager.automatedParams) {
         int v = ap.currentValue;
+        int prev = paramManager.getUnpatchedValue(ap.paramId);
         paramManager.setUnpatchedValue(ap.paramId, v);
         switch (ap.paramId) {
           case org.deluge.firmware2.Param.UNPATCHED_TEMPO -> {
@@ -2055,108 +2064,137 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
             }
           }
           case org.deluge.firmware2.Param.UNPATCHED_REVERB_SEND_AMOUNT -> {
-            songParamReverbAmount = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamReverbAmount, next) != 0);
+            songParamReverbAmount = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_VOLUME -> {
-            songParamVolume = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamVolume, next) != 0);
+            songParamVolume = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_PAN -> {
-            songParamPan = org.deluge.xml.DelugeHexMapper.q31ToFloat(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToFloat(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamPan, next) != 0);
+            songParamPan = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE -> {
-            songParamSidechainShape = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamSidechainShape, next) != 0);
+            songParamSidechainShape = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_VOLUME -> {
-            songParamSidechainVolume = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |=
+                (prev != v || Float.compare(songParamSidechainVolume, next) != 0);
+            songParamSidechainVolume = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_MOD_FX_RATE -> {
-            songParamModFXRate = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamModFXRate, next) != 0);
+            songParamModFXRate = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_MOD_FX_DEPTH -> {
-            songParamModFXDepth = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamModFXDepth, next) != 0);
+            songParamModFXDepth = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_MOD_FX_OFFSET -> {
-            songParamModFXOffset = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamModFXOffset, next) != 0);
+            songParamModFXOffset = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_MOD_FX_FEEDBACK -> {
-            songParamModFXFeedback = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamModFXFeedback, next) != 0);
+            songParamModFXFeedback = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_STUTTER_RATE -> {
-            songParamStutterRate = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamStutterRate, next) != 0);
+            songParamStutterRate = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_SAMPLE_RATE_REDUCTION -> {
-            songParamSampleRateReduction =
-                org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |=
+                (prev != v || Float.compare(songParamSampleRateReduction, next) != 0);
+            songParamSampleRateReduction = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_BITCRUSHING -> {
-            songParamBitCrush = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamBitCrush, next) != 0);
+            songParamBitCrush = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_COMPRESSOR_THRESHOLD -> {
             float u = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |=
+                (prev != v
+                    || Float.compare(songParamCompressorThreshold, u) != 0
+                    || Float.compare(compressorThreshold, u) != 0);
             songParamCompressorThreshold = u;
             compressorThreshold = u;
-            anySongParamChanged = true;
           }
           case org.deluge.firmware2.Param.UNPATCHED_LPF_MORPH -> {
-            songParamLpfMorph = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamLpfMorph, next) != 0);
+            songParamLpfMorph = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_HPF_MORPH -> {
-            songParamHpfMorph = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamHpfMorph, next) != 0);
+            songParamHpfMorph = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_DELAY_RATE -> {
-            songParamDelayRate = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamDelayRate, next) != 0);
+            songParamDelayRate = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_DELAY_AMOUNT -> {
-            songParamDelayFeedback = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamDelayFeedback, next) != 0);
+            songParamDelayFeedback = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_LPF_FREQ -> {
-            songParamLpfFrequency = org.deluge.xml.DelugeHexMapper.q31ToHz(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToHz(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamLpfFrequency, next) != 0);
+            songParamLpfFrequency = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_LPF_RES -> {
-            songParamLpfResonance = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamLpfResonance, next) != 0);
+            songParamLpfResonance = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_HPF_FREQ -> {
-            songParamHpfFrequency = org.deluge.xml.DelugeHexMapper.q31ToHz(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToHz(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamHpfFrequency, next) != 0);
+            songParamHpfFrequency = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_HPF_RES -> {
-            songParamHpfResonance = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamHpfResonance, next) != 0);
+            songParamHpfResonance = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_BASS -> {
-            songParamEqBass = org.deluge.xml.DelugeHexMapper.q31ToFloat(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToFloat(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamEqBass, next) != 0);
+            songParamEqBass = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_TREBLE -> {
-            songParamEqTreble = org.deluge.xml.DelugeHexMapper.q31ToFloat(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToFloat(v);
+            anySongParamChanged |= (prev != v || Float.compare(songParamEqTreble, next) != 0);
+            songParamEqTreble = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_BASS_FREQ -> {
-            songParamEqBassFrequency = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |=
+                (prev != v || Float.compare(songParamEqBassFrequency, next) != 0);
+            songParamEqBassFrequency = next;
           }
           case org.deluge.firmware2.Param.UNPATCHED_TREBLE_FREQ -> {
-            songParamEqTrebleFrequency =
-                org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
-            anySongParamChanged = true;
+            float next = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+            anySongParamChanged |=
+                (prev != v || Float.compare(songParamEqTrebleFrequency, next) != 0);
+            songParamEqTrebleFrequency = next;
           }
           default -> {}
         }

@@ -273,7 +273,7 @@ public class FirmwareAudioEngine {
   public int songVolume = 0; // bipolar Q31 master volume
 
   // Host master output fader + stereo balance pan applied at final post-compressor output stage
-  // (C audio_engine.cpp:1122-1123, 1330-1365; functions.cpp:1487-1498). Kept as volatile 64-bit
+  // (C audio_engine.cpp:1101-1108, 1122-1123; functions.cpp:1434-1445). Kept as volatile 64-bit
   // Q31 gains so reads/writes across DelugeSync/EDT and DelugeAudio never tear (JLS §17.7) and
   // default (gain = 1.0f, pan = 0.0f) stays bit-identical to Functions.ONE_Q31 without driving
   // masterCompressor pre-FX summing 12.8x too hot.
@@ -283,22 +283,35 @@ public class FirmwareAudioEngine {
   /**
    * Updates the post-compressor master output fader gain ({@code >= 0}, {@code 1.0f} = unity) and
    * stereo pan law ({@code -1.0f .. +1.0f}, {@code 0.0f} = center) using firmware {@link
-   * org.deluge.firmware2.Functions#shouldDoPanning(int, int[])} (C functions.cpp:1487-1498).
+   * org.deluge.firmware2.Functions#shouldDoPanning(int, int[])} (C functions.cpp:1434-1445).
    */
   public void setMasterGainAndPan(float gain, float pan) {
     float clampedGain = Float.isFinite(gain) ? Math.max(0.0f, gain) : 1.0f;
     float clampedPan = Float.isFinite(pan) ? Math.max(-1.0f, Math.min(1.0f, pan)) : 0.0f;
-    long baseGain =
-        Math.round((double) clampedGain * (double) org.deluge.firmware2.Functions.ONE_Q31);
+    double scaled = (double) clampedGain * (double) org.deluge.firmware2.Functions.ONE_Q31;
+    long baseGain = scaled >= (double) Long.MAX_VALUE ? Long.MAX_VALUE : Math.round(scaled);
     int panAmount = (int) Math.round((double) clampedPan * 1073741824.0);
     int[] panAmps = new int[2];
     if (org.deluge.firmware2.Functions.shouldDoPanning(panAmount, panAmps)) {
-      this.outputGainL = (baseGain * (long) panAmps[0]) >> 30;
-      this.outputGainR = (baseGain * (long) panAmps[1]) >> 30;
+      this.outputGainL = scaleGainByPanQ30(baseGain, panAmps[0]);
+      this.outputGainR = scaleGainByPanQ30(baseGain, panAmps[1]);
     } else {
       this.outputGainL = baseGain;
       this.outputGainR = baseGain;
     }
+  }
+
+  private static long scaleGainByPanQ30(long baseGain, int panAmpQ30) {
+    if (baseGain <= 0L || panAmpQ30 <= 0) {
+      return 0L;
+    }
+    long amp = panAmpQ30;
+    long hi = Math.multiplyHigh(baseGain, amp);
+    long lo = baseGain * amp;
+    if (hi >= (1L << 29)) {
+      return Long.MAX_VALUE;
+    }
+    return (hi << 34) | (lo >>> 30);
   }
 
   // Metronome (faithful fw2 port). Off by default; the transport triggers a click each beat when
@@ -494,27 +507,17 @@ public class FirmwareAudioEngine {
           this.songTimePerInternalTickInverse =
               (int) Math.min(2147483647.0, 2147483648.0 / samplesPerInternalTick);
           this.reverbSidechain.timePerInternalTickInverse = this.songTimePerInternalTickInverse;
-          double beatSec = 60.0 / safeBpm;
           for (int i = 0; i < sounds.size(); i++) {
             GlobalEffectable sound = sounds.get(i);
-            if (sound instanceof FirmwareSound fsArp) {
-              int div = fsArp.arpDivision;
-              if (div == 0) {
-                fsArp.fw2Sound.arpPhaseIncrement = 0;
-              } else {
-                double rateMul = (fsArp.arpRateMultiplier > 0.01f) ? fsArp.arpRateMultiplier : 1.0;
-                double quarters = div > 0 ? 4.0 / div : 4.0 * -div;
-                quarters *=
-                    switch (fsArp.arpSettings.syncType) {
-                      case TRIPLET -> 2.0 / 3.0;
-                      case DOTTED -> 1.5;
-                      default -> 1.0;
-                    };
-                double stepSamples = quarters * beatSec * 44100.0 / rateMul;
-                fsArp.fw2Sound.arpPhaseIncrement =
-                    (stepSamples > 1) ? (int) (4294967296.0 / stepSamples) : 0;
+            if (sound instanceof FirmwareSound fs) {
+              fs.currentBpm = (float) safeBpm;
+              fs.inputTickMagnitude = songInputTickMagnitude;
+            } else if (sound instanceof FirmwareKit fk) {
+              for (int d = 0; d < fk.drumSounds.size(); d++) {
+                FirmwareSound drum = fk.drumSounds.get(d);
+                drum.currentBpm = (float) safeBpm;
+                drum.inputTickMagnitude = songInputTickMagnitude;
               }
-              fsArp.currentBpm = (float) safeBpm;
             }
           }
         }
@@ -998,15 +1001,24 @@ public class FirmwareAudioEngine {
   }
 
   private static int applyOutputGainQ31(int sample, long gainQ31) {
+    if (gainQ31 <= 0L || sample == 0) {
+      return 0;
+    }
     if (gainQ31 <= 4294967295L) {
       return (int)
           Math.clamp(
               ((long) sample * gainQ31) >> 32, (long) Integer.MIN_VALUE, (long) Integer.MAX_VALUE);
     }
-    long hi = Math.multiplyHigh((long) sample, gainQ31);
-    long lo = (long) sample * gainQ31;
-    long shifted = (hi << 32) | (lo >>> 32);
-    return (int) Math.clamp(shifted, (long) Integer.MIN_VALUE, (long) Integer.MAX_VALUE);
+    long s = sample;
+    long hi = Math.multiplyHigh(s, gainQ31);
+    long lo = s * gainQ31;
+    if (hi > 0L || (hi == 0L && lo < 0L)) {
+      return Integer.MAX_VALUE;
+    }
+    if (hi < -1L || (hi == -1L && lo >= 0L)) {
+      return Integer.MIN_VALUE;
+    }
+    return (int) (lo >> 32);
   }
 
   /**

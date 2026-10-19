@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
  *
  * <ul>
  *   <li>Post-compressor master output fader gain &amp; stereo balance pan ({@code
- *       audio_engine.cpp:1122-1123, 1330-1365}, {@code functions.cpp:1487-1498}) without distorting
+ *       audio_engine.cpp:1101-1108, 1122-1123}, {@code functions.cpp:1434-1445}) without distorting
  *       pre-FX {@code MASTER_VOLUME_NEUTRAL} headroom.
  *   <li>Sample-accurate live {@code <songParams>} &amp; {@code UNPATCHED_TEMPO} stepping in {@link
  *       JavaAudioDriver#stepBlock(int)} + {@link FirmwareAudioEngine#syncAutomatedSongParams} +
@@ -362,5 +362,278 @@ class SongParamsLiveDriverMasterPanAndSwingParityTest {
     assertEquals(-12, roundTripped.getSwingAmount());
     assertEquals(0.38f, roundTripped.getSwing(), 1e-6f);
     assertEquals(5, roundTripped.getSwingInterval());
+
+    // 5. Real V3.1.x Deluge songs with top-level <firmwareVersion> BEFORE <song>, plus C++
+    // FirmwareVersion::unknown() fallback cases ("v1.2.0", "3.2", "300.0.0", "invalid").
+    String topLevelFwXml =
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <firmwareVersion>3.1.5</firmwareVersion>
+        <song inputTickMagnitude="2" swingAmount="25" swingInterval="7">
+          <instruments/>
+          <sessionClips/>
+        </song>
+        """;
+    ProjectModel parsedTopLevelFw =
+        SongXmlParser.parseSong(
+            new ByteArrayInputStream(topLevelFwXml.getBytes(StandardCharsets.UTF_8)),
+            "TOP_LEVEL_315");
+    assertEquals(25, parsedTopLevelFw.getSwingAmount());
+    assertEquals(6, parsedTopLevelFw.getSwingInterval());
+
+    assertFalse(SongXmlParser.isFirmwareAtLeast310Alpha2(null));
+    assertFalse(SongXmlParser.isFirmwareAtLeast310Alpha2(""));
+    assertFalse(SongXmlParser.isFirmwareAtLeast310Alpha2("2.1.4"));
+    assertFalse(SongXmlParser.isFirmwareAtLeast310Alpha2("3.0.9"));
+    assertFalse(SongXmlParser.isFirmwareAtLeast310Alpha2("3.1.0-alpha1"));
+    assertTrue(SongXmlParser.isFirmwareAtLeast310Alpha2("3.1.0-alpha2"));
+    assertTrue(SongXmlParser.isFirmwareAtLeast310Alpha2("3.1.5"));
+    assertTrue(SongXmlParser.isFirmwareAtLeast310Alpha2("c1.2.0"));
+    assertTrue(SongXmlParser.isFirmwareAtLeast310Alpha2("v1.2.0"));
+    assertTrue(SongXmlParser.isFirmwareAtLeast310Alpha2("3.2"));
+    assertTrue(SongXmlParser.isFirmwareAtLeast310Alpha2("300.0.0"));
+    assertTrue(SongXmlParser.isFirmwareAtLeast310Alpha2("invalid"));
+  }
+
+  private static final class PositiveDcEffectable extends GlobalEffectable {
+    private final int dcSample;
+
+    PositiveDcEffectable(int dcSample) {
+      this.dcSample = dcSample;
+    }
+
+    @Override
+    protected void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
+      for (int i = 0; i < numSamples; i++) {
+        buffer[i * 2] += dcSample;
+        buffer[i * 2 + 1] += dcSample;
+      }
+    }
+  }
+
+  @Test
+  void boostMasterGainWithPanNeverOverflowsOrInvertsPolarityAcrossFullRange() {
+    FirmwareAudioEngine engine = new FirmwareAudioEngine();
+    engine.sounds.add(new PositiveDcEffectable(1 << 21));
+
+    // +5.0x gain with hard left pan (-1.0f): outputGainL must stay strictly positive (never
+    // sign-wrap) and outputGainR must be 0.
+    engine.setMasterGainAndPan(5.0f, -1.0f);
+    engine.renderBlock(64);
+    int out5xL = engine.masterBuffer[32].l;
+    assertTrue(out5xL > 0, "5.0x left-panned output must stay positive");
+    assertEquals(0, engine.masterBuffer[32].r);
+
+    // +4.5x gain with partial left pan (-0.5f): both channels positive with L > R > 0.
+    engine.setMasterGainAndPan(4.5f, -0.5f);
+    engine.renderBlock(64);
+    assertTrue(engine.masterBuffer[32].r > 0, "Right channel must stay positive at -0.5 pan");
+    assertTrue(
+        engine.masterBuffer[32].l > engine.masterBuffer[32].r,
+        "Left channel must exceed right channel at -0.5 pan");
+
+    // +8.0x gain with hard left pan (-1.0f) (previously wrapped signed 64-bit long to 0!) must
+    // scale linearly above 5.0x, while +64.0x and Float.MAX_VALUE saturate cleanly at
+    // +Integer.MAX_VALUE without 64-bit/128-bit truncation to 0 or MIN_VALUE.
+    engine.setMasterGainAndPan(8.0f, -1.0f);
+    engine.renderBlock(64);
+    assertTrue(
+        engine.masterBuffer[32].l > out5xL,
+        "8.0x left-panned output must exceed 5.0x without signed 64-bit wrap to 0");
+    assertEquals(0, engine.masterBuffer[32].r);
+
+    engine.setMasterGainAndPan(64.0f, -1.0f);
+    engine.renderBlock(64);
+    int maxPosOut =
+        Functions.lshiftAndSaturate(Integer.MAX_VALUE, 8); // 0x7FFFFF00 (functions.h:104)
+    assertEquals(maxPosOut, engine.masterBuffer[32].l);
+    assertEquals(0, engine.masterBuffer[32].r);
+
+    engine.setMasterGainAndPan(Float.MAX_VALUE, 1.0f);
+    engine.renderBlock(64);
+    assertEquals(0, engine.masterBuffer[32].l);
+    assertEquals(maxPosOut, engine.masterBuffer[32].r);
+
+    // Negative polarity input must symmetrically saturate cleanly at Integer.MIN_VALUE without
+    // sign-flipping positive.
+    engine.sounds.clear();
+    engine.sounds.add(new PositiveDcEffectable(-(1 << 21)));
+    engine.setMasterGainAndPan(64.0f, -1.0f);
+    engine.renderBlock(64);
+    assertEquals(Integer.MIN_VALUE, engine.masterBuffer[32].l);
+    assertEquals(0, engine.masterBuffer[32].r);
+
+    engine.setMasterGainAndPan(Float.MAX_VALUE, 1.0f);
+    engine.renderBlock(64);
+    assertEquals(0, engine.masterBuffer[32].l);
+    assertEquals(Integer.MIN_VALUE, engine.masterBuffer[32].r);
+  }
+
+  @Test
+  void externalMidiSyncRestartMultiTickSplitKitTempoAndConcurrentListenerSafetyMatchCpp()
+      throws Exception {
+    ProjectModel project = new ProjectModel();
+    project.setBpm(120.0f);
+    org.deluge.model.KitTrackModel kitTrack = new org.deluge.model.KitTrackModel("Kit 1");
+    org.deluge.model.SoundDrum kick = new org.deluge.model.SoundDrum("Kick");
+    kick.setOsc1Type("SINE");
+    kitTrack.addDrum(kick);
+    kitTrack.addClip(new ClipModel("Kit Clip", 8, 16));
+    project.addTrack(kitTrack);
+    project.setSongParamAutomationCurve(
+        "tempo",
+        java.util.List.of(
+            new org.deluge.modulation.automation.ParamNode(0, 12000, false),
+            new org.deluge.modulation.automation.ParamNode(96, 18000, true),
+            new org.deluge.modulation.automation.ParamNode(192, 9000, false)));
+
+    BridgeContract bridge = new BridgeContract();
+    org.deluge.ui.EngineSyncCoordinator coordinator =
+        new org.deluge.ui.EngineSyncCoordinator(null, bridge);
+    coordinator.registerProject(project);
+
+    FirmwareFactory.createSong(project);
+    PureFirmwareEngine pfe = new PureFirmwareEngine();
+    pfe.setProject(project);
+    FirmwareAudioEngine engine = pfe.getAudioEngine();
+    PlaybackHandler pb = pfe.getPlaybackHandler();
+    JavaAudioDriver driver = new JavaAudioDriver(engine, pb);
+
+    // 1. Concurrent listener registration while audio blocks step song automation must never throw
+    // ConcurrentModificationException.
+    pb.setSyncMode(1); // External MIDI 0xF8 clock mode
+    pb.start();
+    // Simulate half a beat of constant 120 BPM external MIDI clocks (12 * 919 = 11,028 samples ->
+    // t = 11028 / 44100 s). Since du/dt = B(u)/60 and dB/du = 60, dB/dt = B => B(t) = 120 * exp(t)
+    // = ~154.09 BPM (whereas double-rate tickTicks + tickSamples snaps to 180.0 BPM!).
+    int samplesPerMidiClock =
+        Math.round(44100.0f * 0.5f / 24.0f); // 919 samples per 0xF8 at 120 BPM
+    for (int clk = 0; clk < 12; clk++) {
+      project.addProjectListener(new ProjectModel.ProjectAdapter() {});
+      driver.stepBlock(samplesPerMidiClock);
+      pb.advanceTicks(4);
+    }
+    float expectedExternalBpm = (float) (120.0 * Math.exp((12.0 * samplesPerMidiClock) / 44100.0));
+    assertEquals(
+        expectedExternalBpm,
+        project.getBpm(),
+        1.0f,
+        "External MIDI sync must follow exact 1.0x analytical ODE 120*exp(t) (~154.1 BPM, never 180 BPM)");
+
+    // 2. Kit drum FirmwareSound receives live automated BPM updates alongside master engine.
+    FirmwareKit fwKit = (FirmwareKit) kitTrack.getClips().get(0).getSound();
+    assertEquals(project.getBpm(), fwKit.drumSounds.get(0).currentBpm, 0.01f);
+
+    // 3. Stop + immediate restart at tick 0 between stepBlock calls re-seeds tick-0 node (120 BPM).
+    pb.stop();
+    pb.start();
+    driver.stepBlock(128);
+    assertEquals(120.0f, project.getBpm(), 0.5f, "Restart must re-seed tick-0 node immediately");
+
+    // 4. Multi-tick advanceTicks(120) splits at intermediate node 96 (180 BPM) rather than skipping
+    // it.
+    pb.stop();
+    pb.start();
+    pb.advanceTicks(120);
+    assertEquals(
+        180.0f,
+        project.getBpm(),
+        0.01f,
+        "Multi-tick advance across tick 96 must hit intermediate tempo node 96 (180 BPM)");
+    pb.advanceTicks(80);
+    assertEquals(
+        90.0f,
+        project.getBpm(),
+        0.01f,
+        "Advancing across tick 192 must hit tempo node 192 (90 BPM)");
+  }
+
+  private static int[] measureSixteenthStepOnsetSamples(
+      int initialSwingAmount, boolean mutateSwingMidFirstHalf) {
+    Functions.resetNoiseSeed();
+    ProjectModel project = new ProjectModel();
+    project.setBpm(120.0f);
+    project.setSwingInterval(6); // Default 16th-note swing (C playback_handler.cpp:1768-1778)
+    project.setSwingAmount(initialSwingAmount);
+
+    SynthTrackModel synth = new SynthTrackModel("Click");
+    synth.setOsc1Type("SINE");
+    synth.setOsc2Type("NONE");
+    synth.setOscMix(1.0f);
+    synth.setLpfFreq(20000.0f);
+    synth.setVolume(0.8f);
+    synth.setEnv(0, new org.deluge.model.EnvelopeModel(0.0f, 0.5f, 1.0f, 0.0f, "NONE", 0.0f));
+
+    ClipModel clip = new ClipModel("16th Grid", 8, 16);
+    clip.setActiveInSession(true);
+    clip.setLoopLength(96);
+    org.deluge.model.NoteRowModel row = clip.getOrCreateRow(0);
+    row.setPitch(72);
+    // Short 2-tick percussive blips at step 0 (tick 0), off-beat step 1 (tick 24), on-beat step 2
+    // (tick 48) so each step decays completely to silence before the next step fires.
+    row.getNotes().add(new org.deluge.model.NoteModel(0, 2, 1.0f, 1.0f, 0));
+    row.getNotes().add(new org.deluge.model.NoteModel(24, 2, 1.0f, 1.0f, 0));
+    row.getNotes().add(new org.deluge.model.NoteModel(48, 2, 1.0f, 1.0f, 0));
+    clip.expectEvent();
+    synth.addClip(clip);
+    synth.setActiveClipIndex(0);
+    project.addTrack(synth);
+
+    FirmwareFactory.createSong(project);
+    PureFirmwareEngine pfe = new PureFirmwareEngine();
+    pfe.setProject(project);
+    FirmwareAudioEngine engine = pfe.getAudioEngine();
+    PlaybackHandler pb = pfe.getPlaybackHandler();
+    JavaAudioDriver driver = new JavaAudioDriver(engine, pb);
+    pb.start();
+
+    int[] onsets = new int[] {-1, -1, -1};
+    int onsetIdx = 0;
+    boolean gateHigh = false;
+    boolean mutated = false;
+    int totalBlocks = 260; // ~33,280 samples (~0.75s at 120 BPM)
+    for (int b = 0; b < totalBlocks; b++) {
+      if (mutateSwingMidFirstHalf && !mutated && pb.lastSwungTickActioned >= 12) {
+        project.setSwingAmount(-15);
+        mutated = true;
+      }
+      driver.stepBlock(128);
+      int peak = 0;
+      for (int i = 0; i < 128; i++) {
+        peak = Math.max(peak, Math.abs(engine.masterBuffer[i].l));
+      }
+      if (!gateHigh && peak > (1 << 20)) {
+        gateHigh = true;
+        if (onsetIdx < onsets.length) {
+          onsets[onsetIdx++] = b * 128;
+        }
+      } else if (gateHigh && peak < (1 << 14)) {
+        gateHigh = false;
+      }
+    }
+    return onsets;
+  }
+
+  @Test
+  void defaultSixteenthNoteSwingShiftsOffbeatAudioOnsetAndNeverDriftsAcrossLiveEdits() {
+    int[] straight = measureSixteenthStepOnsetSamples(0, false);
+    int[] swungLate = measureSixteenthStepOnsetSamples(25, false);
+    int[] swungEarly = measureSixteenthStepOnsetSamples(-25, false);
+    int[] liveEdited = measureSixteenthStepOnsetSamples(25, true);
+
+    assertTrue(
+        straight[0] == 0 && straight[1] > 0 && straight[2] > straight[1],
+        "straight=" + java.util.Arrays.toString(straight));
+    // At 120 BPM (44100 Hz), 1 input tick = 229.6875 samples, 16th note = 24 ticks = 5,512.5
+    // samples. At swingAmount = +/-25, step 1 (tick 24) shifts by +/-12 ticks = +/-2,756.25
+    // samples!
+    assertEquals(2756.25, (double) (swungLate[1] - straight[1]), 256.0);
+    assertEquals(-2756.25, (double) (swungEarly[1] - straight[1]), 256.0);
+
+    // Step 2 (tick 48, on-beat 8th note) lands on the exact same unswung downbeat across straight,
+    // +25, -25, AND mid-bar live swing edits (+25 -> -15 at tick 12) with zero phase drift.
+    assertEquals(straight[2], swungLate[2], 128);
+    assertEquals(straight[2], swungEarly[2], 128);
+    assertEquals(straight[2], liveEdited[2], 128);
   }
 }

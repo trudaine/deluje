@@ -96,8 +96,7 @@ public class JavaAudioDriver implements Runnable {
 
   private volatile double ticksPerSample = (120.0 / 60.0) * 96.0 / 44100.0; // 120BPM default
   private double accumulatedTicks = 0;
-  private boolean wasPlayingLastBlock = false;
-  private int lastSongAutomationSwungTick = 0;
+  private long lastSyncedRunEpoch = -1L;
   private float lastSyncedDriverBpm = -1.0f;
   private final int[] liveInputBlock = new int[BLOCK_SIZE * 2];
 
@@ -149,127 +148,87 @@ public class JavaAudioDriver implements Runnable {
   }
 
   /**
-   * Computes {@code timePerTimerTickInverse} at {@code 96 PPQN} for {@link
-   * org.deluge.modulation.automation.AutoParam#tickSamples(int, int)} so {@code (numSamples * inv)
-   * >> 31} equals exact {@code 2.0 * ticksPerSample * numSamples} half-ticks across the full {@code
-   * 1 .. 20,000 BPM} hardware tempo range without saturating {@link Integer#MAX_VALUE}.
+   * Computes {@code timePerInternalTickInverse} (64 PPQN internal timer tick = {@code 1.5x} a 96
+   * PPQN sequencer tick) for {@link org.deluge.modulation.automation.AutoParam#tickSamples(int,
+   * int)} so {@code * 3 * numSamples * inv >> 32} produces exact {@code 2.0 * ticksPerSample *
+   * numSamples} 96-PPQN half-ticks across the full {@code 1 .. 20,000 BPM} hardware tempo range
+   * without saturating {@link Integer#MAX_VALUE}.
    */
   public static int computeTimePer96PpqnTickInverse(float bpm) {
-    double safeBpm = Math.max(1.0, (double) bpm);
-    double samplesPer96PpqnTick = 165375.0 / (safeBpm * 4.0);
-    return (int) Math.min(2147483647.0, 2147483648.0 / samplesPer96PpqnTick);
+    double safeBpm = Double.isFinite(bpm) && bpm > 0.0 ? Math.max(1.0, (double) bpm) : 120.0;
+    double samplesPerInternalTick = 165375.0 / (safeBpm * 4.0);
+    return (int) Math.min(2147483647.0, 2147483648.0 / samplesPerInternalTick);
   }
 
   /**
    * Steps one deterministic audio block of {@code numSamples} frames: advances transport ticks,
-   * steps song-level {@code <songParams>} / {@code UNPATCHED_TEMPO} nodes before rendering (C
+   * syncs song-level {@code <songParams>} / {@code UNPATCHED_TEMPO} nodes before rendering (C
    * arrangement.cpp:120-129, 359-365) and sample-accurate linear/float interpolation immediately
    * after rendering (C song.cpp:2555-2565, 6062-6070).
    */
   public void stepBlock(int numSamples) {
-    org.deluge.model.ProjectModel project =
-        playbackHandler != null ? playbackHandler.getProject() : null;
-    if (project != null) {
-      float modelBpm = project.getBpm();
-      if (modelBpm != lastSyncedDriverBpm) {
-        lastSyncedDriverBpm = modelBpm;
-        updateBpm(modelBpm);
+    if (numSamples <= 0) {
+      return;
+    }
+    if (numSamples > BLOCK_SIZE) {
+      int remaining = numSamples;
+      while (remaining > 0) {
+        int chunk = Math.min(remaining, BLOCK_SIZE);
+        stepBlock(chunk);
+        remaining -= chunk;
       }
+      return;
     }
 
+    org.deluge.model.ProjectModel project =
+        playbackHandler != null ? playbackHandler.getProject() : null;
     boolean playingNow = playbackHandler != null && playbackHandler.isPlaying();
+
     if (playbackHandler != null) {
       if (playingNow && project != null) {
-        org.deluge.modulation.params.ParamManager sm = project.getSongParamManager();
-        boolean updatedPreAdvance = false;
-        int nextEventTicks = Integer.MAX_VALUE;
-        synchronized (sm) {
-          if (sm.mightContainAutomation()) {
-            int currentSwungTick = playbackHandler.lastSwungTickActioned;
-            if (!wasPlayingLastBlock || currentSwungTick < lastSongAutomationSwungTick) {
-              sm.setPlayPos(currentSwungTick, Integer.MAX_VALUE, false);
-              sm.processCurrentPos(0, currentSwungTick, Integer.MAX_VALUE, false, false, true);
-              lastSongAutomationSwungTick = currentSwungTick;
-              nextEventTicks = sm.ticksTilNextEvent;
-              updatedPreAdvance = true;
-            } else if (currentSwungTick > lastSongAutomationSwungTick) {
-              while (lastSongAutomationSwungTick < currentSwungTick) {
-                int step =
-                    Math.min(
-                        currentSwungTick - lastSongAutomationSwungTick,
-                        Math.max(1, sm.ticksTilNextEvent));
-                lastSongAutomationSwungTick += step;
-                if (sm.isAnyParamInterpolating()) {
-                  sm.tickTicks(step);
-                }
-                sm.processCurrentPos(
-                    step, lastSongAutomationSwungTick, Integer.MAX_VALUE, false, false, true);
-              }
-              nextEventTicks = sm.ticksTilNextEvent;
-              updatedPreAdvance = true;
-            }
-          }
+        long epoch = playbackHandler.getRunEpoch();
+        if (epoch != lastSyncedRunEpoch) {
+          lastSyncedRunEpoch = epoch;
+          accumulatedTicks = 0.0;
         }
-        if (updatedPreAdvance) {
-          project.applyAutomatedSongParams();
-          project.setSwungTicksTilNextEvent(nextEventTicks);
-          float newBpm = project.getBpm();
-          if (newBpm != lastSyncedDriverBpm) {
-            lastSyncedDriverBpm = newBpm;
-            updateBpm(newBpm);
-          }
-          engine.syncAutomatedSongParams(project);
+        playbackHandler.ensureSongAutomationSeeded();
+        float modelBpm = project.getBpm();
+        if (modelBpm != lastSyncedDriverBpm) {
+          lastSyncedDriverBpm = modelBpm;
+          updateBpm(modelBpm);
         }
-      } else if (!playingNow) {
+      } else {
         accumulatedTicks = 0.0;
+        if (project != null) {
+          float modelBpm = project.getBpm();
+          if (modelBpm != lastSyncedDriverBpm) {
+            lastSyncedDriverBpm = modelBpm;
+            updateBpm(modelBpm);
+          }
+        }
       }
 
       if (playbackHandler.getSyncMode() == 0) { // Only advance if INTERNAL sync mode
         accumulatedTicks += ticksPerSample * numSamples;
         int toAdvance = (int) accumulatedTicks;
         if (toAdvance > 0) {
-          playbackHandler.advanceTicks(toAdvance);
           accumulatedTicks -= toAdvance;
+          for (int t = 0; t < toAdvance; t++) {
+            playbackHandler.advanceTicks(1);
+            if (project != null) {
+              float updatedBpm = project.getBpm();
+              if (updatedBpm != lastSyncedDriverBpm) {
+                lastSyncedDriverBpm = updatedBpm;
+                updateBpm(updatedBpm);
+              }
+            }
+          }
         }
       }
 
       if (playingNow && project != null) {
-        int currentSwungTick = playbackHandler.lastSwungTickActioned;
-        if (currentSwungTick > lastSongAutomationSwungTick) {
-          org.deluge.modulation.params.ParamManager sm = project.getSongParamManager();
-          boolean updatedPostAdvance = false;
-          int nextEventTicks = Integer.MAX_VALUE;
-          synchronized (sm) {
-            if (sm.mightContainAutomation()) {
-              while (lastSongAutomationSwungTick < currentSwungTick) {
-                int step =
-                    Math.min(
-                        currentSwungTick - lastSongAutomationSwungTick,
-                        Math.max(1, sm.ticksTilNextEvent));
-                lastSongAutomationSwungTick += step;
-                sm.processCurrentPos(
-                    step, lastSongAutomationSwungTick, Integer.MAX_VALUE, false, false, true);
-              }
-              nextEventTicks = sm.ticksTilNextEvent;
-              updatedPostAdvance = true;
-            } else {
-              lastSongAutomationSwungTick = currentSwungTick;
-            }
-          }
-          if (updatedPostAdvance) {
-            project.applyAutomatedSongParams();
-            project.setSwungTicksTilNextEvent(nextEventTicks);
-            float newBpm = project.getBpm();
-            if (newBpm != lastSyncedDriverBpm) {
-              lastSyncedDriverBpm = newBpm;
-              updateBpm(newBpm);
-            }
-            engine.syncAutomatedSongParams(project);
-          }
-        }
+        engine.syncAutomatedSongParams(project);
       }
-
-      wasPlayingLastBlock = playingNow;
 
       // Metronome: click on each quarter-note boundary while playing (high pitch on the bar
       // downbeat, lower on other beats — faithful to playback_handler.cpp:1019-1025).

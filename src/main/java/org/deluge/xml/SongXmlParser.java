@@ -37,52 +37,45 @@ public class SongXmlParser {
    *       {@code "alpha2"}/{@code "beta"} -&gt; {@code true}).
    * </ul>
    */
+  /**
+   * Exact port of C {@code FirmwareVersion::parse} ({@code firmware_version.cpp:6-20}), {@code
+   * SemVer::Parser::parse} ({@code semver.cpp:6-105}), and {@code song_firmware_version >=
+   * FirmwareVersion::official({3, 1, 0, "alpha2"})} ({@code Deserializer.cpp:62, 838-862}, {@code
+   * song.cpp:2117-2124}). Absent/blank returns {@code false} ({@code 0.0.0}); community ({@code
+   * 'c'}) and any string that fails strict 3-uint8 SemVer parsing ({@code Type::UNKNOWN}) return
+   * {@code true}.
+   */
   public static boolean isFirmwareAtLeast310Alpha2(String rawVersion) {
     if (rawVersion == null || rawVersion.isBlank()) {
       return false;
     }
     String s = rawVersion.trim();
-    if (s.startsWith("c") || s.startsWith("C")) {
+    if (s.charAt(0) == 'c') {
       return true;
     }
-    if (s.startsWith("v") || s.startsWith("V")) {
-      s = s.substring(1);
+    int[] pos = new int[] {0};
+    int major = parseSemVerUint8(s, pos);
+    if (major < 0 || pos[0] >= s.length() || s.charAt(pos[0]) != '.') {
+      return true;
     }
-    int plusIdx = s.indexOf('+');
-    if (plusIdx >= 0) {
-      s = s.substring(0, plusIdx);
+    pos[0]++;
+    int minor = parseSemVerUint8(s, pos);
+    if (minor < 0 || pos[0] >= s.length() || s.charAt(pos[0]) != '.') {
+      return true;
+    }
+    pos[0]++;
+    int patch = parseSemVerUint8(s, pos);
+    if (patch < 0) {
+      return true;
     }
     String preRelease = "";
-    int dashIdx = s.indexOf('-');
-    if (dashIdx >= 0) {
-      preRelease = s.substring(dashIdx + 1);
-      s = s.substring(0, dashIdx);
-    }
-    String[] parts = s.split("\\.", -1);
-    if (parts.length < 2) {
-      return true;
-    }
-    int major;
-    int minor;
-    int patch = 0;
-    try {
-      major = Integer.parseInt(parts[0]);
-      minor = Integer.parseInt(parts[1]);
-      if (parts.length >= 3 && !parts[2].isEmpty()) {
-        int end = 0;
-        while (end < parts[2].length() && Character.isDigit(parts[2].charAt(end))) {
-          end++;
-        }
-        if (end == 0) {
-          return true;
-        }
-        patch = Integer.parseInt(parts[2].substring(0, end));
-        if (end < parts[2].length() && preRelease.isEmpty()) {
-          preRelease = parts[2].substring(end);
-        }
+    if (pos[0] < s.length() && s.charAt(pos[0]) == '-') {
+      pos[0]++;
+      int start = pos[0];
+      while (pos[0] < s.length() && s.charAt(pos[0]) != '+') {
+        pos[0]++;
       }
-    } catch (NumberFormatException e) {
-      return true;
+      preRelease = s.substring(start, pos[0]);
     }
     if (major != 3) {
       return major > 3;
@@ -97,6 +90,23 @@ public class SongXmlParser {
       return true;
     }
     return preRelease.compareTo("alpha2") >= 0;
+  }
+
+  private static int parseSemVerUint8(String s, int[] pos) {
+    int i = pos[0];
+    if (i >= s.length() || s.charAt(i) < '0' || s.charAt(i) > '9') {
+      return -1;
+    }
+    int val = 0;
+    while (i < s.length() && s.charAt(i) >= '0' && s.charAt(i) <= '9') {
+      val = val * 10 + (s.charAt(i) - '0');
+      if (val > 255) {
+        return -1;
+      }
+      i++;
+    }
+    pos[0] = i;
+    return val;
   }
 
   public static ProjectModel parseSong(java.io.File xmlFile) throws Exception {
@@ -157,10 +167,13 @@ public class SongXmlParser {
       project.setArrangementAutoScrollOn(
           "1".equals(songNode.getAttribute("arrangementAutoScrollOn")));
     }
-    // C song.cpp:1688-1702, 2117-2124, Deserializer.cpp:62, firmware_version.cpp:6-20 —
-    // firmwareVersion and inputTickMagnitude govern swingInterval conversion and can appear as
-    // either <song .../> attributes or direct child elements in any tag order.
+    // C song.cpp:1688-1702, 2117-2124, Deserializer.cpp:62, 838-862, firmware_version.cpp:6-20 —
+    // firmwareVersion may appear either as a top-level sibling before <song> (wrapped under <root>
+    // by DelugeXmlUtil.parseXml) or as a <song> attribute/direct child element in any tag order.
     String firmwareVersionRaw = DelugeXmlUtil.attrOrDirectChildText(songNode, "firmwareVersion");
+    if (firmwareVersionRaw == null && root != songNode) {
+      firmwareVersionRaw = DelugeXmlUtil.attrOrDirectChildText(root, "firmwareVersion");
+    }
     boolean firmwareAtLeast310Alpha2 = isFirmwareAtLeast310Alpha2(firmwareVersionRaw);
 
     String inputTickMagRaw = DelugeXmlUtil.attrOrDirectChildText(songNode, "inputTickMagnitude");
