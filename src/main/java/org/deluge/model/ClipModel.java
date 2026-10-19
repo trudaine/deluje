@@ -432,6 +432,7 @@ public class ClipModel extends TimelineCounter {
       newRow.setMutedBeforeStemExport(oldRow.isMutedBeforeStemExport());
       newRow.setExportStem(oldRow.isExportStem());
       newRow.setLoopLengthIfIndependent(oldRow.getLoopLengthIfIndependent());
+      newRow.setSequenceDirectionMode(oldRow.getSequenceDirectionMode());
       newRow.setBendRange(oldRow.getBendRange());
       newRow.getExpressionParams().copyFrom(oldRow.getExpressionParams());
 
@@ -626,12 +627,16 @@ public class ClipModel extends TimelineCounter {
   public void setSequenceDirectionMode(SequenceDirection newMode) {
     flushPendingNoteRowTicks();
     boolean reversedBefore = currentlyPlayingReversed;
-    sequenceDirectionMode = newMode != null ? newMode : SequenceDirection.FORWARD;
+    // C clip.cpp:74 — a Clip never uses OBEY_PARENT; normalize null or OBEY_PARENT to FORWARD.
+    sequenceDirectionMode =
+        (newMode != null && newMode != SequenceDirection.OBEY_PARENT)
+            ? newMode
+            : SequenceDirection.FORWARD;
     this.playDirection =
         switch (sequenceDirectionMode) {
           case REVERSE -> PlayDirection.REVERSE;
           case PINGPONG -> PlayDirection.PING_PONG;
-          case FORWARD ->
+          case FORWARD, OBEY_PARENT ->
               (this.playDirection == PlayDirection.RANDOM)
                   ? PlayDirection.RANDOM
                   : PlayDirection.FORWARD;
@@ -651,6 +656,24 @@ public class ClipModel extends TimelineCounter {
     // C Clip::setSequenceDirectionMode (clip.cpp:1041-1055) touches no NoteRow: an
     // independent-length row keeps its direction and position until InstrumentClip::setPos
     // re-derives them (instrument_clip.cpp:405-436).
+    expectEvent();
+  }
+
+  /**
+   * C NoteRow::setSequenceDirectionMode (note_row.cpp:4453-4480): changes a single row's {@link
+   * SequenceDirection} while flushing any quiet ticks first and rescheduling on the next tick.
+   */
+  public void setRowSequenceDirectionMode(
+      int rowIndex, SequenceDirection newMode, boolean mayResume) {
+    flushPendingNoteRowTicks();
+    NoteRowModel row = getOrCreateRow(rowIndex);
+    row.setSequenceDirectionMode(
+        newMode,
+        lastProcessedPos,
+        getLoopLength(),
+        currentlyPlayingReversed,
+        sequenceDirectionMode,
+        mayResume);
     expectEvent();
   }
 
@@ -1112,12 +1135,27 @@ public class ClipModel extends TimelineCounter {
       copyNoteRowsFrom(src);
     } else {
       for (NoteRowModel row : this.noteRows.values()) {
+        row.setLoopLengthIfIndependent(0);
+        row.setSequenceDirectionMode(SequenceDirection.OBEY_PARENT);
         row.setBendRange(-1);
         row.clearExpressionParams();
       }
     }
-    // Preserve live transport state (phase, repeat count, direction) for independent-length rows,
-    // and initialize newly independent rows from the clip's current play position.
+    // Capture the live clip's linear elapsed position and direction before restoring playDirection,
+    // then apply src.playDirection so newly independent or OBEY_PARENT rows see the restored
+    // parent direction.
+    int loopLen = getLoopLength();
+    SequenceDirection prevClipSeqDir = sequenceDirectionMode;
+    int clipLinearPos;
+    if (currentlyPlayingReversed) {
+      clipLinearPos =
+          (lastProcessedPos != 0)
+              ? (repeatCount * loopLen + (loopLen - lastProcessedPos))
+              : (Math.max(0, repeatCount) * loopLen);
+    } else {
+      clipLinearPos = repeatCount * loopLen + lastProcessedPos;
+    }
+    setPlayDirection(src.playDirection);
     for (Map.Entry<Integer, NoteRowModel> e : this.noteRows.entrySet()) {
       NoteRowModel row = e.getValue();
       if (!row.hasIndependentPlayPos()) {
@@ -1125,10 +1163,13 @@ public class ClipModel extends TimelineCounter {
       }
       NoteRowModel liveRow = liveRows.get(e.getKey());
       if (liveRow != null
-          && liveRow.getLoopLengthIfIndependent() == row.getLoopLengthIfIndependent()) {
+          && liveRow.hasIndependentPlayPos()
+          && liveRow.getLoopLengthIfIndependent() == row.getLoopLengthIfIndependent()
+          && liveRow.getEffectiveSequenceDirectionMode(prevClipSeqDir)
+              == row.getEffectiveSequenceDirectionMode(sequenceDirectionMode)) {
         row.copyLiveTransportFrom(liveRow);
       } else {
-        row.setPosIfIndependent(lastProcessedPos, sequenceDirectionMode);
+        row.setPosIfIndependent(clipLinearPos, loopLen, sequenceDirectionMode);
       }
     }
     // NoteRow::sequenced is playback state, not data: keep it across the restore so the sounding
@@ -1147,7 +1188,6 @@ public class ClipModel extends TimelineCounter {
         live.stopCurrentlyPlayingNoteSilently();
       }
     }
-    setPlayDirection(src.playDirection);
     expectEvent();
   }
 
@@ -1291,6 +1331,7 @@ public class ClipModel extends TimelineCounter {
    * (expectEvent(), instrument_clip.cpp:4404) and {@code noteRowsNumTicksBehindClip} (:383).
    */
   public void setPos(int newPos) {
+    int originalNewPos = newPos;
     int loopLength = getLoopLength();
     ticksTilNextNoteRowEvent = 0; // C instrument_clip.cpp:381 -> expectEvent() :4404
     noteRowsNumTicksBehindClip = 0; // C instrument_clip.cpp:383
@@ -1329,10 +1370,10 @@ public class ClipModel extends TimelineCounter {
 
     lastProcessedPos = newPos;
 
-    // instrument_clip.cpp:404-436 — rows with independent play positions. The row's newPos is the
-    // value AFTER Clip::setPos reduced it, exactly as in the C (it passes the same variable).
+    // C instrument_clip.cpp:404-436 — rows with independent play positions. Clip::setPos takes
+    // int32_t newPos by value (clip.h:58), so InstrumentClip::setPos passes the original newPos.
     for (NoteRowModel row : noteRows.values()) {
-      row.setPosIfIndependent(newPos, sequenceDirectionMode);
+      row.setPosIfIndependent(originalNewPos, loopLength, sequenceDirectionMode);
     }
 
     setPosForParamManagers(loopLength);
@@ -1360,7 +1401,7 @@ public class ClipModel extends TimelineCounter {
                   : lastProcessedPos;
           boolean rowRev =
               (row != null)
-                  ? row.isCurrentlyPlayingReversed(currentlyPlayingReversed)
+                  ? row.isCurrentlyPlayingReversed(currentlyPlayingReversed, sequenceDirectionMode)
                   : currentlyPlayingReversed;
           int rowLen =
               (row != null && row.getLoopLengthIfIndependent() > 0)
@@ -1375,7 +1416,8 @@ public class ClipModel extends TimelineCounter {
         row.prepareExpressionDispatch(sound);
         int rowPos =
             row.hasIndependentPlayPos() ? row.getLastProcessedPosIfIndependent() : lastProcessedPos;
-        boolean rowRev = row.isCurrentlyPlayingReversed(currentlyPlayingReversed);
+        boolean rowRev =
+            row.isCurrentlyPlayingReversed(currentlyPlayingReversed, sequenceDirectionMode);
         int rowLen =
             row.getLoopLengthIfIndependent() > 0 ? row.getLoopLengthIfIndependent() : loopLen;
         row.getParamManager().setPlayPos(rowPos, rowLen, rowRev);
@@ -1423,7 +1465,8 @@ public class ClipModel extends TimelineCounter {
     if (ticksTilNextNoteRowEvent <= 0) { // C instrument_clip.cpp:4734
       for (NoteRowModel row : noteRows.values()) {
         if (row.hasIndependentPlayPos()) {
-          row.incrementPosIfIndependent(noteRowsNumTicksBehindClip);
+          row.incrementPosIfIndependent(
+              noteRowsNumTicksBehindClip, currentlyPlayingReversed, sequenceDirectionMode);
         }
       }
     }
@@ -1441,9 +1484,11 @@ public class ClipModel extends TimelineCounter {
 
   private void flushPendingNoteRowTicks() {
     if (noteRowsNumTicksBehindClip > 0) {
+      int loopLen = getLoopLength();
       for (NoteRowModel row : noteRows.values()) {
         if (row.hasIndependentPlayPos()) {
-          row.flushIndependentPos(noteRowsNumTicksBehindClip);
+          row.flushIndependentPos(
+              noteRowsNumTicksBehindClip, loopLen, currentlyPlayingReversed, sequenceDirectionMode);
         }
       }
       noteRowsNumTicksBehindClip = 0;
@@ -1666,6 +1711,7 @@ public class ClipModel extends TimelineCounter {
                     lastProcessedPos,
                     effectiveLength,
                     currentlyPlayingReversed,
+                    sequenceDirectionMode,
                     samplesPerTick(),
                     sound,
                     late);
@@ -1682,6 +1728,7 @@ public class ClipModel extends TimelineCounter {
                     lastProcessedPos,
                     effectiveLength,
                     currentlyPlayingReversed,
+                    sequenceDirectionMode,
                     samplesPerTick(),
                     sound,
                     late);

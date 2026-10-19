@@ -2402,8 +2402,8 @@ public class SongXmlParser {
   }
 
   /**
-   * C note_row.cpp:3220-3221, 3253-3257 reads "muted" and "length" (loopLengthIfIndependent)
-   * tag-or-attributes on {@code <noteRow>}.
+   * C note_row.cpp:3220-3221, 3253-3261 reads "muted", "length" (loopLengthIfIndependent), and
+   * "sequenceDirection" tag-or-attributes on {@code <noteRow>}.
    */
   private static void applyRowMute(Element noteRowElem, ClipModel clip, int r) {
     if (DelugeXmlUtil.attrOrDirectChildInt(noteRowElem, "muted", 0) != 0) {
@@ -2412,6 +2412,12 @@ public class SongXmlParser {
     int indLen = DelugeXmlUtil.attrOrDirectChildInt(noteRowElem, "length", 0);
     if (indLen > 0) {
       clip.getOrCreateRow(r).setLoopLengthIfIndependent(indLen);
+    }
+    String seqDir = DelugeXmlUtil.attrOrDirectChildText(noteRowElem, "sequenceDirection");
+    if (seqDir != null && !seqDir.isBlank()) {
+      clip.getOrCreateRow(r)
+          .setSequenceDirectionMode(
+              org.deluge.model.SequenceDirection.fromFirmwareString(seqDir.trim()));
     }
   }
 

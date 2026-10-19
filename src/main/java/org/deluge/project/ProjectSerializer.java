@@ -1492,7 +1492,10 @@ public class ProjectSerializer {
       if (!hasNotes) {
         org.deluge.model.NoteRowModel rm = clip.getNoteRowsMap().get(r);
         if (rm != null) {
-          if (rm.getExpressionParams().containsSomething()) {
+          if (rm.getExpressionParams().containsSomething()
+              || rm.getLoopLengthIfIndependent() > 0
+              || rm.getSequenceDirectionMode() != org.deluge.model.SequenceDirection.OBEY_PARENT
+              || rm.isMuted()) {
             hasNotes = true;
           } else if (track instanceof KitTrackModel
               && (!rm.getAutomationCurves().isEmpty()
@@ -1529,9 +1532,17 @@ public class ProjectSerializer {
             }
           }
           org.deluge.model.NoteRowModel exprCheckRow = clip.getNoteRowsMap().get(r);
-          if (!hasActive
-              && (exprCheckRow == null
-                  || !exprCheckRow.getExpressionParams().containsSomething())) {
+          if (exprCheckRow != null && exprCheckRow.getPitch() >= 0) {
+            yNote = exprCheckRow.getPitch();
+          }
+          boolean hasRowMetadata =
+              exprCheckRow != null
+                  && (exprCheckRow.getExpressionParams().containsSomething()
+                      || exprCheckRow.getLoopLengthIfIndependent() > 0
+                      || exprCheckRow.getSequenceDirectionMode()
+                          != org.deluge.model.SequenceDirection.OBEY_PARENT
+                      || exprCheckRow.isMuted());
+          if (!hasActive && !hasRowMetadata) {
             continue;
           }
         }
@@ -1551,13 +1562,19 @@ public class ProjectSerializer {
         } else {
           writer.writeAttribute("y", Math.max(yNote, 0), false);
         }
-        // C note_row.cpp:3571-3581 — written only when set.
+        // C note_row.cpp:3571-3585 — written only when set / not OBEY_PARENT.
         org.deluge.model.NoteRowModel rowModel = clip.getNoteRowsMap().get(r);
         if (rowModel != null && rowModel.isMuted()) {
           writer.writeAttribute("muted", 1, false);
         }
         if (rowModel != null && rowModel.getLoopLengthIfIndependent() > 0) {
           writer.writeAttribute("length", rowModel.getLoopLengthIfIndependent(), false);
+        }
+        if (rowModel != null
+            && rowModel.getSequenceDirectionMode()
+                != org.deluge.model.SequenceDirection.OBEY_PARENT) {
+          writer.writeAttribute(
+              "sequenceDirection", rowModel.getSequenceDirectionMode().toFirmwareString(), false);
         }
 
         List<StepData> row = new ArrayList<>();
