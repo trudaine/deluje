@@ -49,7 +49,75 @@ public class PlaybackHandler {
   private static final int INTERNAL_TICKS_PER_MIDI_CLOCK = 4;
   private MidiClockSink midiClockOut;
   private int lastClockTick = 0; // internal tick at which the last 0xF8 was emitted
-  private int swingSubTicks = 0; // fractional swing progress in fiftieths of an input tick
+  private long totalInputTicksTimes50 =
+      0L; // cumulative input clock in fiftieths (playback_handler.cpp:1761)
+  private volatile long runEpoch = 0L; // incremented on each start()/setProject()
+  private long lastSeededAutomationGeneration = -1L;
+
+  public long getRunEpoch() {
+    return runEpoch;
+  }
+
+  /**
+   * Ensures {@link ProjectModel#getSongParamManager()} has been seeded at {@link
+   * #lastSwungTickActioned} whenever {@link ProjectModel#getAutomationGeneration()} changes (e.g.,
+   * live curve edits after {@link #start()}). Safe to call from {@link #start()}, {@link
+   * #setProject(ProjectModel)}, {@link #advanceTicks(int)}, or {@code JavaAudioDriver.stepBlock}.
+   */
+  public synchronized void ensureSongAutomationSeeded() {
+    if (!playing || currentProject == null) {
+      return;
+    }
+    long gen = currentProject.getAutomationGeneration();
+    if (gen == lastSeededAutomationGeneration) {
+      return;
+    }
+    lastSeededAutomationGeneration = gen;
+    org.deluge.modulation.params.ParamManager sm = currentProject.getSongParamManager();
+    int songNext = Integer.MAX_VALUE;
+    boolean songAutomated = false;
+    synchronized (sm) {
+      if (sm.mightContainAutomation()) {
+        sm.setPlayPos(lastSwungTickActioned, Integer.MAX_VALUE, false);
+        sm.processCurrentPos(0, lastSwungTickActioned, Integer.MAX_VALUE, false, false, true);
+        songNext = sm.ticksTilNextEvent;
+        songAutomated = true;
+      }
+    }
+    if (songAutomated) {
+      currentProject.applyAutomatedSongParams();
+    }
+    currentProject.setSwungTicksTilNextEvent(songNext);
+    swungTicksTilNextEvent = Math.max(1, Math.min(swungTicksTilNextEvent, songNext));
+  }
+
+  /**
+   * Closed-form internal tick timestamp (multiplied by 50) for a target swung tick {@code
+   * nextSwungTick}, ported verbatim from C {@code
+   * PlaybackHandler::scheduleSwungTickFromExternalClock} (C playback_handler.cpp:1761-1790). At
+   * default 96 PPQN ({@code inputTickMagnitude == 2}), {@code swingInterval == 6} (16th-note
+   * default) yields {@code leftShift = 4}, {@code doubleSwingInterval = 48} ticks (two 16th notes),
+   * and half-interval {@code 24} ticks.
+   */
+  public static long internalTickPositionTimes50(
+      long nextSwungTick, int swingAmount, int swingInterval) {
+    if (swingAmount == 0) {
+      return nextSwungTick * 50L;
+    }
+    int leftShift = Math.max(10 - swingInterval, 0);
+    long doubleSwingInterval = 3L << leftShift;
+    long swungTickWithinInterval = Math.floorMod(nextSwungTick, doubleSwingInterval);
+    long startOfSwingInterval = nextSwungTick - swungTickWithinInterval;
+    long internalTickWithinIntervalTimes50;
+    if (swungTickWithinInterval <= (doubleSwingInterval >> 1)) {
+      internalTickWithinIntervalTimes50 = swungTickWithinInterval * (50L + swingAmount);
+    } else {
+      long ticksTilEnd = doubleSwingInterval - swungTickWithinInterval;
+      internalTickWithinIntervalTimes50 =
+          doubleSwingInterval * 50L - ticksTilEnd * (50L - swingAmount);
+    }
+    return internalTickWithinIntervalTimes50 + (startOfSwingInterval * 50L);
+  }
 
   public void setMidiClockOut(MidiClockSink sink) {
     this.midiClockOut = sink;
@@ -861,7 +929,14 @@ public class PlaybackHandler {
 
   public synchronized void setProject(ProjectModel project) {
     this.currentProject = project;
+    this.runEpoch++;
+    this.lastSeededAutomationGeneration = -1L;
     syncAllClipsActiveToSound();
+    if (playing && project != null) {
+      swungTicksTilNextEvent = Integer.MAX_VALUE;
+      ensureSongAutomationSeeded();
+      swungTicksTilNextEvent = 1;
+    }
   }
 
   public synchronized ProjectModel getProject() {
@@ -874,9 +949,11 @@ public class PlaybackHandler {
 
   public synchronized void start() {
     playing = true;
+    runEpoch++;
+    lastSeededAutomationGeneration = -1L;
     lastSwungTickActioned = 0;
-    swungTicksTilNextEvent = 0;
-    swingSubTicks = 0;
+    swungTicksTilNextEvent = Integer.MAX_VALUE;
+    totalInputTicksTimes50 = 0L;
     launchEventAtSwungTickCount = 0;
     numRepeatsTilLaunch = 0;
     currentArmedLaunchLengthForOneRepeat = 0;
@@ -891,6 +968,11 @@ public class PlaybackHandler {
         // whose repeat count drives iterance (model_stack.cpp:100-107).
         clip.setPos(0);
       }
+      // C arrangement.cpp:120-129, 359-365: seed song-level <songParams> / UNPATCHED_TEMPO at tick
+      // 0
+      // and include sm.ticksTilNextEvent in the initial swungTicksTilNextEvent deadline.
+      ensureSongAutomationSeeded();
+
       // C: playback starts with swungTicksTilNextEvent = 0, so the first actioned tick has a zero
       // increment and every clip runs processCurrentPos(…, 0) before any position moves
       // (playback_handler.cpp:533 in setupPlayback, then Session::doTickForward →
@@ -898,7 +980,7 @@ public class PlaybackHandler {
       // That is what takes a reversed clip's repeatCount from setPos's -1 to 0 (clip.cpp:259-260).
       // It also sounds the notes at pos 0 (note_row.cpp:2373).
       setArpClockActive(true);
-      int next = Integer.MAX_VALUE;
+      int next = currentProject.getSwungTicksTilNextEvent();
       for (TrackModel track : currentProject.getTracks()) {
         for (ClipModel clip : track.getClips()) {
           if (!ticksInSession(track, clip)) continue;
@@ -908,6 +990,8 @@ public class PlaybackHandler {
       }
       next = Math.min(next, doTickForwardForArps());
       swungTicksTilNextEvent = Math.max(1, next);
+    } else {
+      swungTicksTilNextEvent = 0;
     }
     arrangement.resetPlayPos(0);
   }
@@ -927,7 +1011,7 @@ public class PlaybackHandler {
       }
     }
     setArpClockActive(false);
-    swingSubTicks = 0;
+    totalInputTicksTimes50 = 0L;
     launchEventAtSwungTickCount = 0;
     numRepeatsTilLaunch = 0;
     currentArmedLaunchLengthForOneRepeat = 0;
@@ -938,11 +1022,13 @@ public class PlaybackHandler {
   /** Advance the sequencer by a number of ticks. Includes high-fidelity Swing logic. */
   public synchronized void advanceTicks(int numTicks) {
     if (org.deluge.engine.FirmwareAudioEngine.debugTelemetry && playing && Math.random() < 0.05) {}
-    if (!playing || currentProject == null) return;
+    if (!playing || currentProject == null || numTicks <= 0) return;
 
-    int ticksRemaining = numTicks;
+    ensureSongAutomationSeeded();
+    long limitTimes50 = totalInputTicksTimes50 + 50L * (long) numTicks;
     while (true) {
-      int nextDeadline = swungTicksTilNextEvent;
+      int nextDeadline =
+          Math.min(swungTicksTilNextEvent, currentProject.getSwungTicksTilNextEvent());
       if (launchEventAtSwungTickCount > 0) {
         long ticksTilLaunch = launchEventAtSwungTickCount - lastSwungTickActioned;
         if (ticksTilLaunch > 0 && ticksTilLaunch < nextDeadline) {
@@ -965,46 +1051,27 @@ public class PlaybackHandler {
       }
       int deadlineTicks = Math.max(1, nextDeadline);
 
-      // ── Bit-Accurate Swing Math (C playback_handler.cpp:1768-1790) ──
-      // Each input tick contributes 50 sub-ticks. One swung tick costs (50 + swingAmount) sub-ticks
-      // in the first half of the swing pair and (50 - swingAmount) sub-ticks in the second half, so
-      // a complete pair of (2 * swingTicks) swung ticks always costs (2 * swingTicks * 50)
-      // sub-ticks (= 2 * swingTicks input ticks) and preserves overall playback tempo.
-      int effectiveAdvance;
+      // ── Stateless Closed-Form Swing Math (C playback_handler.cpp:1761-1790) ──
+      // Anchors every swung tick directly to internalTickPositionTimes50(swungTick, swingAmount,
+      // swingInterval) so complete pairs never drift even across live swingAmount/swingInterval
+      // edits.
       int swingAmount = Math.max(-49, Math.min(49, currentProject.getSwingAmount()));
-      if (swingAmount == 0) {
-        swingSubTicks = 0;
-        if (ticksRemaining <= 0) break;
-        int toAdvance = Math.min(ticksRemaining, deadlineTicks);
-        effectiveAdvance = toAdvance;
-        ticksRemaining -= toAdvance;
-      } else {
-        int leftShift =
-            Math.max(
-                0,
-                6
-                    - currentProject
-                        .getSwingInterval()); // Offset 6 for 96 PPQN (C++ uses 9/10 for 1536 PPQN)
-        int swingTicks = 3 << leftShift;
-        boolean firstHalf = Math.floorMod(lastSwungTickActioned, swingTicks * 2) < swingTicks;
-        int costPerSwungTick = firstHalf ? (50 + swingAmount) : (50 - swingAmount);
-        int swungLeftInHalf = swingTicks - Math.floorMod(lastSwungTickActioned, swingTicks);
-        int maxSwungAdvance = Math.min(deadlineTicks, swungLeftInHalf);
-        int targetSubTicks = maxSwungAdvance * costPerSwungTick;
-
-        if (swingSubTicks < targetSubTicks && ticksRemaining > 0) {
-          int neededSubTicks = targetSubTicks - swingSubTicks;
-          int inputTicksNeeded = (neededSubTicks + 49) / 50;
-          int toConsume = Math.min(ticksRemaining, inputTicksNeeded);
-          swingSubTicks += toConsume * 50;
-          ticksRemaining -= toConsume;
+      int swingInterval = currentProject.getSwingInterval();
+      int lo = 0;
+      int hi = deadlineTicks;
+      while (lo < hi) {
+        int mid = (lo + hi + 1) >>> 1;
+        if (internalTickPositionTimes50(
+                (long) lastSwungTickActioned + (long) mid, swingAmount, swingInterval)
+            <= limitTimes50) {
+          lo = mid;
+        } else {
+          hi = mid - 1;
         }
-
-        effectiveAdvance = Math.min(maxSwungAdvance, swingSubTicks / costPerSwungTick);
-        if (effectiveAdvance <= 0) {
-          break; // Fractional progress preserved in swingSubTicks for next advanceTicks call.
-        }
-        swingSubTicks -= effectiveAdvance * costPerSwungTick;
+      }
+      int effectiveAdvance = lo;
+      if (effectiveAdvance <= 0) {
+        break;
       }
 
       lastSwungTickActioned += effectiveAdvance;
@@ -1013,8 +1080,27 @@ public class PlaybackHandler {
       // C playback_handler.cpp:1036 — increment active clips and fire fill/regular launch events
       considerLaunchEvent(effectiveAdvance);
 
+      // C arrangement.cpp:120-129, 359-365 — advance song-level <songParams> / UNPATCHED_TEMPO
+      // nodes
+      // with mayInterpolate = true so sample-domain tickSamples() owns ramp slopes at 1.0x rate.
+      org.deluge.modulation.params.ParamManager sm = currentProject.getSongParamManager();
+      int songNext = Integer.MAX_VALUE;
+      boolean songAutomated = false;
+      synchronized (sm) {
+        if (sm.mightContainAutomation()) {
+          sm.processCurrentPos(
+              effectiveAdvance, lastSwungTickActioned, Integer.MAX_VALUE, false, false, true);
+          songNext = sm.ticksTilNextEvent;
+          songAutomated = true;
+        }
+      }
+      if (songAutomated) {
+        currentProject.applyAutomatedSongParams();
+      }
+      currentProject.setSwungTicksTilNextEvent(songNext);
+
       // C Session::doTickForward (session.cpp:2428-2535)
-      int nextEventTicks = currentProject.getSwungTicksTilNextEvent();
+      int nextEventTicks = songNext;
       if (launchEventAtSwungTickCount > 0) {
         long ticksTilLaunch = launchEventAtSwungTickCount - lastSwungTickActioned;
         if (ticksTilLaunch > 0 && ticksTilLaunch < nextEventTicks) {
@@ -1041,6 +1127,7 @@ public class PlaybackHandler {
       // Update next event distance (C playback_handler.cpp:1095-1097 clamps >= 1).
       swungTicksTilNextEvent = Math.max(1, nextEventTicks);
     }
+    totalInputTicksTimes50 = limitTimes50;
 
     // Outbound MIDI clock (24 PPQN): emit one 0xF8 per 4 internal ticks crossed, following the
     // swung tick position so external gear swings with us.

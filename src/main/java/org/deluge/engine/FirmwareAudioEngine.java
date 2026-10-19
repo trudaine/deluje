@@ -272,6 +272,48 @@ public class FirmwareAudioEngine {
   public int masterVolumeAdjustmentR = MASTER_VOLUME_NEUTRAL;
   public int songVolume = 0; // bipolar Q31 master volume
 
+  // Host master output fader + stereo balance pan applied at final post-compressor output stage
+  // (C audio_engine.cpp:1101-1108, 1122-1123; functions.cpp:1434-1445). Kept as volatile 64-bit
+  // Q31 gains so reads/writes across DelugeSync/EDT and DelugeAudio never tear (JLS §17.7) and
+  // default (gain = 1.0f, pan = 0.0f) stays bit-identical to Functions.ONE_Q31 without driving
+  // masterCompressor pre-FX summing 12.8x too hot.
+  private volatile long outputGainL = org.deluge.firmware2.Functions.ONE_Q31;
+  private volatile long outputGainR = org.deluge.firmware2.Functions.ONE_Q31;
+
+  /**
+   * Updates the post-compressor master output fader gain ({@code >= 0}, {@code 1.0f} = unity) and
+   * stereo pan law ({@code -1.0f .. +1.0f}, {@code 0.0f} = center) using firmware {@link
+   * org.deluge.firmware2.Functions#shouldDoPanning(int, int[])} (C functions.cpp:1434-1445).
+   */
+  public void setMasterGainAndPan(float gain, float pan) {
+    float clampedGain = Float.isFinite(gain) ? Math.max(0.0f, gain) : 1.0f;
+    float clampedPan = Float.isFinite(pan) ? Math.max(-1.0f, Math.min(1.0f, pan)) : 0.0f;
+    double scaled = (double) clampedGain * (double) org.deluge.firmware2.Functions.ONE_Q31;
+    long baseGain = scaled >= (double) Long.MAX_VALUE ? Long.MAX_VALUE : Math.round(scaled);
+    int panAmount = (int) Math.round((double) clampedPan * 1073741824.0);
+    int[] panAmps = new int[2];
+    if (org.deluge.firmware2.Functions.shouldDoPanning(panAmount, panAmps)) {
+      this.outputGainL = scaleGainByPanQ30(baseGain, panAmps[0]);
+      this.outputGainR = scaleGainByPanQ30(baseGain, panAmps[1]);
+    } else {
+      this.outputGainL = baseGain;
+      this.outputGainR = baseGain;
+    }
+  }
+
+  private static long scaleGainByPanQ30(long baseGain, int panAmpQ30) {
+    if (baseGain <= 0L || panAmpQ30 <= 0) {
+      return 0L;
+    }
+    long amp = panAmpQ30;
+    long hi = Math.multiplyHigh(baseGain, amp);
+    long lo = baseGain * amp;
+    if (hi >= (1L << 29)) {
+      return Long.MAX_VALUE;
+    }
+    return (hi << 34) | (lo >>> 30);
+  }
+
   // Metronome (faithful fw2 port). Off by default; the transport triggers a click each beat when
   // enabled (see JavaAudioDriver). C: audio_engine.cpp:626 renders it into the master buffer.
   public final Metronome metronome = new Metronome();
@@ -417,6 +459,136 @@ public class FirmwareAudioEngine {
         project.getSongParamHpfMorph(),
         project.getSongHpfMode(),
         project.getSongFilterRoute());
+  }
+
+  /**
+   * Non-clobbering block-rate sync for active {@code <songParams>} / {@code UNPATCHED_TEMPO}
+   * automation curves (C song.cpp:2555-2595, 6062-6070). Updates ONLY the engine fields whose
+   * corresponding {@link org.deluge.modulation.automation.AutoParam} contains automation nodes,
+   * leaving all unautomated song/master FX settings untouched.
+   */
+  public void syncAutomatedSongParams(ProjectModel project) {
+    if (project == null) {
+      return;
+    }
+    org.deluge.modulation.params.ParamManager sm = project.getSongParamManager();
+    int[] activeParamIds;
+    synchronized (sm) {
+      int n = sm.automatedParams.size();
+      if (n == 0) {
+        return;
+      }
+      activeParamIds = new int[n];
+      int count = 0;
+      for (int i = 0; i < n; i++) {
+        org.deluge.modulation.automation.AutoParam ap = sm.automatedParams.get(i);
+        if (ap != null && !ap.nodes.isEmpty()) {
+          activeParamIds[count++] = ap.paramId;
+        }
+      }
+      if (count == 0) {
+        return;
+      }
+      if (count < n) {
+        activeParamIds = java.util.Arrays.copyOf(activeParamIds, count);
+      }
+    }
+
+    boolean needsDelayReconfig = false;
+    boolean needsFilterReconfig = false;
+    for (int paramId : activeParamIds) {
+      switch (paramId) {
+        case org.deluge.firmware2.Param.UNPATCHED_TEMPO -> {
+          double bpm = project.getBpm();
+          double safeBpm = bpm > 0 ? bpm : 120.0;
+          this.songBpm = (float) safeBpm;
+          this.songInputTickMagnitude = project.getInputTickMagnitude();
+          double samplesPerInternalTick = 165375.0 / (safeBpm * (1 << songInputTickMagnitude));
+          this.songTimePerInternalTickInverse =
+              (int) Math.min(2147483647.0, 2147483648.0 / samplesPerInternalTick);
+          this.reverbSidechain.timePerInternalTickInverse = this.songTimePerInternalTickInverse;
+          for (int i = 0; i < sounds.size(); i++) {
+            GlobalEffectable sound = sounds.get(i);
+            if (sound instanceof FirmwareSound fs) {
+              fs.currentBpm = (float) safeBpm;
+              fs.inputTickMagnitude = songInputTickMagnitude;
+            } else if (sound instanceof FirmwareKit fk) {
+              for (int d = 0; d < fk.drumSounds.size(); d++) {
+                FirmwareSound drum = fk.drumSounds.get(d);
+                drum.currentBpm = (float) safeBpm;
+                drum.inputTickMagnitude = songInputTickMagnitude;
+              }
+            }
+          }
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_REVERB_SEND_AMOUNT ->
+            this.songReverbAmount = unipolarToQ31Param(project.getSongParamReverbAmount());
+        case org.deluge.firmware2.Param.UNPATCHED_VOLUME -> {
+          float volFloat = project.getSongParamVolume();
+          this.songVolume = (int) (((volFloat * 2.0f) - 1.0f) * 2147483647.0f);
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_PAN ->
+            this.songPan = (int) (project.getSongParamPan() * 2147483647.0f);
+        case org.deluge.firmware2.Param.UNPATCHED_MOD_FX_RATE ->
+            this.masterModFxRate = unipolarToQ31Param(project.getSongParamModFXRate());
+        case org.deluge.firmware2.Param.UNPATCHED_MOD_FX_DEPTH ->
+            this.masterModFxDepth = unipolarToQ31Param(project.getSongParamModFXDepth());
+        case org.deluge.firmware2.Param.UNPATCHED_MOD_FX_OFFSET ->
+            this.masterModFxOffset = unipolarToQ31Param(project.getSongParamModFXOffset());
+        case org.deluge.firmware2.Param.UNPATCHED_MOD_FX_FEEDBACK ->
+            this.masterModFxFeedback = unipolarToQ31Param(project.getSongParamModFXFeedback());
+        case org.deluge.firmware2.Param.UNPATCHED_STUTTER_RATE ->
+            this.masterStutterRate = unipolarToQ31Param(project.getSongParamStutterRate());
+        case org.deluge.firmware2.Param.UNPATCHED_SAMPLE_RATE_REDUCTION ->
+            this.masterSrr = unipolarToQ31Param(project.getSongParamSampleRateReduction());
+        case org.deluge.firmware2.Param.UNPATCHED_BITCRUSHING ->
+            this.masterBitcrush = unipolarToQ31Param(project.getSongParamBitCrush());
+        case org.deluge.firmware2.Param.UNPATCHED_COMPRESSOR_THRESHOLD ->
+            this.masterCompressor.setThreshold(
+                Math.max(
+                    0, (int) Math.round((double) project.getCompressorThreshold() * 2147483647.0)));
+        case org.deluge.firmware2.Param.UNPATCHED_DELAY_RATE,
+            org.deluge.firmware2.Param.UNPATCHED_DELAY_AMOUNT ->
+            needsDelayReconfig = true;
+        case org.deluge.firmware2.Param.UNPATCHED_LPF_FREQ,
+            org.deluge.firmware2.Param.UNPATCHED_LPF_RES,
+            org.deluge.firmware2.Param.UNPATCHED_LPF_MORPH,
+            org.deluge.firmware2.Param.UNPATCHED_HPF_FREQ,
+            org.deluge.firmware2.Param.UNPATCHED_HPF_RES,
+            org.deluge.firmware2.Param.UNPATCHED_HPF_MORPH ->
+            needsFilterReconfig = true;
+        case org.deluge.firmware2.Param.UNPATCHED_BASS ->
+            this.masterEqBass = (int) (project.getSongParamEqBass() * 2147483647.0f);
+        case org.deluge.firmware2.Param.UNPATCHED_TREBLE ->
+            this.masterEqTreble = (int) (project.getSongParamEqTreble() * 2147483647.0f);
+        case org.deluge.firmware2.Param.UNPATCHED_BASS_FREQ ->
+            this.masterEqBassFreq = unipolarToQ31Param(project.getSongParamEqBassFrequency());
+        case org.deluge.firmware2.Param.UNPATCHED_TREBLE_FREQ ->
+            this.masterEqTrebleFreq = unipolarToQ31Param(project.getSongParamEqTrebleFrequency());
+        default -> {}
+      }
+    }
+    if (needsDelayReconfig) {
+      configureMasterDelay(
+          project.getSongParamDelayRate(),
+          project.getSongParamDelayFeedback(),
+          project.getDelaySyncLevel(),
+          project.getDelaySyncType(),
+          project.getDelayPingPong() != 0,
+          project.getDelayAnalog() != 0);
+    }
+    if (needsFilterReconfig) {
+      configureMasterFilterSet(
+          project.getSongParamLpfFrequency(),
+          project.getSongParamLpfResonance(),
+          project.getSongParamLpfMorph(),
+          project.getSongLpfMode(),
+          project.getSongParamHpfFrequency(),
+          project.getSongParamHpfResonance(),
+          project.getSongParamHpfMorph(),
+          project.getSongHpfMode(),
+          project.getSongFilterRoute());
+    }
   }
 
   /**
@@ -818,14 +990,35 @@ public class FirmwareAudioEngine {
     // C audio_engine.cpp:1122-1123, 1330-1365 — masterVolumeAdjustment is ONE_Q31 after the
     // master compressor; doSomeOutputting() multiplies by ONE_Q31 >> 32 (>> 1) and then applies
     // lshiftAndSaturate<AUDIO_OUTPUT_GAIN_DOUBLINGS> (8), for a net output gain of << 7 (128x).
+    long gainL = this.outputGainL;
+    long gainR = this.outputGainR;
     for (int i = 0; i < numSamples; i++) {
-      int lAdjusted =
-          (int) (((long) fxBuffer[i][0] * org.deluge.firmware2.Functions.ONE_Q31) >> 32);
-      int rAdjusted =
-          (int) (((long) fxBuffer[i][1] * org.deluge.firmware2.Functions.ONE_Q31) >> 32);
+      int lAdjusted = applyOutputGainQ31(fxBuffer[i][0], gainL);
+      int rAdjusted = applyOutputGainQ31(fxBuffer[i][1], gainR);
       masterBuffer[i].l = org.deluge.firmware2.Functions.lshiftAndSaturate(lAdjusted, 8);
       masterBuffer[i].r = org.deluge.firmware2.Functions.lshiftAndSaturate(rAdjusted, 8);
     }
+  }
+
+  private static int applyOutputGainQ31(int sample, long gainQ31) {
+    if (gainQ31 <= 0L || sample == 0) {
+      return 0;
+    }
+    if (gainQ31 <= 4294967295L) {
+      return (int)
+          Math.clamp(
+              ((long) sample * gainQ31) >> 32, (long) Integer.MIN_VALUE, (long) Integer.MAX_VALUE);
+    }
+    long s = sample;
+    long hi = Math.multiplyHigh(s, gainQ31);
+    long lo = s * gainQ31;
+    if (hi > 0L || (hi == 0L && lo < 0L)) {
+      return Integer.MAX_VALUE;
+    }
+    if (hi < -1L || (hi == -1L && lo >= 0L)) {
+      return Integer.MIN_VALUE;
+    }
+    return (int) (lo >> 32);
   }
 
   /**

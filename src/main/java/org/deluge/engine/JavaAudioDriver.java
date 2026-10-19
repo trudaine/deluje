@@ -94,8 +94,11 @@ public class JavaAudioDriver implements Runnable {
       org.deluge.project.PreferencesManager.getMonitorGainBoost();
   public static boolean debugPeak = false;
 
-  private volatile double ticksPerSample = 0.005; // 120BPM default
+  private volatile double ticksPerSample = (120.0 / 60.0) * 96.0 / 44100.0; // 120BPM default
   private double accumulatedTicks = 0;
+  private long lastSyncedRunEpoch = -1L;
+  private float lastSyncedDriverBpm = -1.0f;
+  private final int[] liveInputBlock = new int[BLOCK_SIZE * 2];
 
   // Metronome beat tracking: 96 ticks per quarter note. -1 means "not yet clicked since stopped".
   private static final int TICKS_PER_QUARTER = 96;
@@ -144,6 +147,153 @@ public class JavaAudioDriver implements Runnable {
     running = false;
   }
 
+  /**
+   * Computes {@code timePerInternalTickInverse} (64 PPQN internal timer tick = {@code 1.5x} a 96
+   * PPQN sequencer tick) for {@link org.deluge.modulation.automation.AutoParam#tickSamples(int,
+   * int)} so {@code * 3 * numSamples * inv >> 32} produces exact {@code 2.0 * ticksPerSample *
+   * numSamples} 96-PPQN half-ticks across the full {@code 1 .. 20,000 BPM} hardware tempo range
+   * without saturating {@link Integer#MAX_VALUE}.
+   */
+  public static int computeTimePer96PpqnTickInverse(float bpm) {
+    double safeBpm = Double.isFinite(bpm) && bpm > 0.0 ? Math.max(1.0, (double) bpm) : 120.0;
+    double samplesPerInternalTick = 165375.0 / (safeBpm * 4.0);
+    return (int) Math.min(2147483647.0, 2147483648.0 / samplesPerInternalTick);
+  }
+
+  /**
+   * Steps one deterministic audio block of {@code numSamples} frames: advances transport ticks,
+   * syncs song-level {@code <songParams>} / {@code UNPATCHED_TEMPO} nodes before rendering (C
+   * arrangement.cpp:120-129, 359-365) and sample-accurate linear/float interpolation immediately
+   * after rendering (C song.cpp:2555-2565, 6062-6070).
+   */
+  public void stepBlock(int numSamples) {
+    if (numSamples <= 0) {
+      return;
+    }
+    if (numSamples > BLOCK_SIZE) {
+      int remaining = numSamples;
+      while (remaining > 0) {
+        int chunk = Math.min(remaining, BLOCK_SIZE);
+        stepBlock(chunk);
+        remaining -= chunk;
+      }
+      return;
+    }
+
+    org.deluge.model.ProjectModel project =
+        playbackHandler != null ? playbackHandler.getProject() : null;
+    boolean playingNow = playbackHandler != null && playbackHandler.isPlaying();
+
+    if (playbackHandler != null) {
+      if (playingNow && project != null) {
+        long epoch = playbackHandler.getRunEpoch();
+        if (epoch != lastSyncedRunEpoch) {
+          lastSyncedRunEpoch = epoch;
+          accumulatedTicks = 0.0;
+        }
+        playbackHandler.ensureSongAutomationSeeded();
+        float modelBpm = project.getBpm();
+        if (modelBpm != lastSyncedDriverBpm) {
+          lastSyncedDriverBpm = modelBpm;
+          updateBpm(modelBpm);
+        }
+      } else {
+        accumulatedTicks = 0.0;
+        if (project != null) {
+          float modelBpm = project.getBpm();
+          if (modelBpm != lastSyncedDriverBpm) {
+            lastSyncedDriverBpm = modelBpm;
+            updateBpm(modelBpm);
+          }
+        }
+      }
+
+      if (playbackHandler.getSyncMode() == 0) { // Only advance if INTERNAL sync mode
+        accumulatedTicks += ticksPerSample * numSamples;
+        int toAdvance = (int) accumulatedTicks;
+        if (toAdvance > 0) {
+          accumulatedTicks -= toAdvance;
+          for (int t = 0; t < toAdvance; t++) {
+            playbackHandler.advanceTicks(1);
+            if (project != null) {
+              float updatedBpm = project.getBpm();
+              if (updatedBpm != lastSyncedDriverBpm) {
+                lastSyncedDriverBpm = updatedBpm;
+                updateBpm(updatedBpm);
+              }
+            }
+          }
+        }
+      }
+
+      if (playingNow && project != null) {
+        engine.syncAutomatedSongParams(project);
+      }
+
+      // Metronome: click on each quarter-note boundary while playing (high pitch on the bar
+      // downbeat, lower on other beats — faithful to playback_handler.cpp:1019-1025).
+      if (engine.metronomeEnabled && playingNow) {
+        long beat = (long) playbackHandler.lastSwungTickActioned / TICKS_PER_QUARTER;
+        if (beat != lastMetronomeBeat) {
+          engine.triggerMetronome(
+              (beat % 4 == 0) ? METRONOME_PHASE_DOWNBEAT : METRONOME_PHASE_BEAT);
+          lastMetronomeBeat = beat;
+        }
+      } else if (!playingNow) {
+        lastMetronomeBeat = -1; // re-arm so the downbeat clicks on next start
+      }
+    }
+
+    // Publish the microphone block to the engine's live-input bus (INPUT_* osc sources).
+    // Available whenever the capture line is armed (threshold sampler / live monitor).
+    AudioInputCaptureLine capture = AudioInputCaptureLine.getInstance();
+    int[] captureBuf =
+        numSamples <= BLOCK_SIZE ? liveInputBlock : new int[Math.multiplyExact(numSamples, 2)];
+    if (capture.isArmed() && capture.fillMonitorBlock(captureBuf, numSamples)) {
+      org.deluge.firmware2.LiveInput.micPluggedIn = true;
+      org.deluge.firmware2.LiveInput.currentBlock = captureBuf;
+    } else {
+      org.deluge.firmware2.LiveInput.currentBlock = null;
+      org.deluge.firmware2.LiveInput.micPluggedIn = false;
+    }
+
+    // Phase 3: tell the engine the transport state + tick so audio tracks stream only while
+    // playing (3a) and only within their arrangement range (3b part 2).
+    engine.setTransportPlaying(playingNow);
+    if (playbackHandler != null) {
+      engine.setTransportTick(playbackHandler.lastSwungTickActioned);
+    }
+
+    engine.renderBlock(numSamples);
+    org.deluge.BridgeContract bridge = org.deluge.hid.BridgeHolder.getBridge();
+    if (bridge != null) {
+      bridge.advanceTime(numSamples);
+    }
+
+    // C song.cpp:2555-2565, 6062-6070 — tick sample-interpolating song AutoParams immediately after
+    // rendering the block and propagate updated values to ProjectModel + FirmwareAudioEngine.
+    if (playingNow && project != null) {
+      org.deluge.modulation.params.ParamManager sm = project.getSongParamManager();
+      boolean interpolated = false;
+      float activeBpm = project.getBpm();
+      synchronized (sm) {
+        if (sm.isAnyParamInterpolating()) {
+          sm.tickSamples(numSamples, computeTimePer96PpqnTickInverse(activeBpm));
+          interpolated = true;
+        }
+      }
+      if (interpolated) {
+        project.applyAutomatedSongParams();
+        float newBpm = project.getBpm();
+        if (newBpm != lastSyncedDriverBpm) {
+          lastSyncedDriverBpm = newBpm;
+          updateBpm(newBpm);
+        }
+        engine.syncAutomatedSongParams(project);
+      }
+    }
+  }
+
   @Override
   public void run() {
     try {
@@ -167,56 +317,9 @@ public class JavaAudioDriver implements Runnable {
       this.blockCounter = 0;
       long startNano = System.nanoTime();
 
-      int[] liveInputBlock = new int[BLOCK_SIZE * 2];
       while (running) {
-        if (playbackHandler != null) {
-          if (playbackHandler.getSyncMode() == 0) { // Only advance if INTERNAL sync mode
-            accumulatedTicks += ticksPerSample * BLOCK_SIZE;
-            int toAdvance = (int) accumulatedTicks;
-            if (toAdvance > 0) {
-              playbackHandler.advanceTicks(toAdvance);
-              accumulatedTicks -= toAdvance;
-            }
-          }
-
-          // Metronome: click on each quarter-note boundary while playing (high pitch on the bar
-          // downbeat, lower on other beats — faithful to playback_handler.cpp:1019-1025).
-          if (engine.metronomeEnabled && playbackHandler.isPlaying()) {
-            long beat = (long) playbackHandler.lastSwungTickActioned / TICKS_PER_QUARTER;
-            if (beat != lastMetronomeBeat) {
-              engine.triggerMetronome(
-                  (beat % 4 == 0) ? METRONOME_PHASE_DOWNBEAT : METRONOME_PHASE_BEAT);
-              lastMetronomeBeat = beat;
-            }
-          } else if (!playbackHandler.isPlaying()) {
-            lastMetronomeBeat = -1; // re-arm so the downbeat clicks on next start
-          }
-        }
-
-        // Publish the microphone block to the engine's live-input bus (INPUT_* osc sources).
-        // Available whenever the capture line is armed (threshold sampler / live monitor).
-        AudioInputCaptureLine capture = AudioInputCaptureLine.getInstance();
-        if (capture.isArmed() && capture.fillMonitorBlock(liveInputBlock, BLOCK_SIZE)) {
-          org.deluge.firmware2.LiveInput.micPluggedIn = true;
-          org.deluge.firmware2.LiveInput.currentBlock = liveInputBlock;
-        } else {
-          org.deluge.firmware2.LiveInput.currentBlock = null;
-          org.deluge.firmware2.LiveInput.micPluggedIn = false;
-        }
-
-        // Phase 3: tell the engine the transport state + tick so audio tracks stream only while
-        // playing (3a) and only within their arrangement range (3b part 2).
-        engine.setTransportPlaying(playbackHandler != null && playbackHandler.isPlaying());
-        if (playbackHandler != null) {
-          engine.setTransportTick(playbackHandler.lastSwungTickActioned);
-        }
-
         long start = System.nanoTime();
-        engine.renderBlock(BLOCK_SIZE);
-        org.deluge.BridgeContract bridge = org.deluge.hid.BridgeHolder.getBridge();
-        if (bridge != null) {
-          bridge.advanceTime(BLOCK_SIZE);
-        }
+        stepBlock(BLOCK_SIZE);
         long duration = System.nanoTime() - start;
         // Boot benchmark (deluge.bootbench): JVM-start-relative time to first audio block and to
         // steady state (block 200) — the JIT-warmup window the AOT cache is meant to shorten.
