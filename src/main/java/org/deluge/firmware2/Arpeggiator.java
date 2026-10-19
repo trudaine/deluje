@@ -214,6 +214,21 @@ public class Arpeggiator {
 
   // ── ArpeggiatorSettings (arpeggiator.h:48-148) ──
 
+  public static int getUnpatchedArpDefault(int paramId) {
+    // C ModControllableAudio::initParams (mod_controllable_audio.cpp:113-127): UNPATCHED_ARP_GATE =
+    // 0, UNPATCHED_NOTE_PROBABILITY = 2147483647, and the remaining 13 arp/randomizer params =
+    // -2147483648.
+    return switch (paramId) {
+      case Param.UNPATCHED_ARP_GATE -> 0;
+      case Param.UNPATCHED_NOTE_PROBABILITY -> Integer.MAX_VALUE;
+      default -> Integer.MIN_VALUE;
+    };
+  }
+
+  public static boolean isUnpatchedArpParam(int paramId) {
+    return paramId >= Param.UNPATCHED_ARP_GATE && paramId <= Param.UNPATCHED_SPREAD_VELOCITY;
+  }
+
   public static class Settings {
     public ArpPreset preset = ArpPreset.OFF;
     public ArpMode mode = ArpMode.OFF;
@@ -369,6 +384,44 @@ public class Arpeggiator {
           octaveMode = ArpOctaveMode.UP;
           noteMode = ArpNoteMode.UP;
           break;
+      }
+    }
+
+    /**
+     * C ArpeggiatorSettings::updateParamsFromUnpatchedParamSet (arpeggiator.cpp:1968-1983) +
+     * Sound::render gateThreshold (sound.cpp:2468). Copies one unpatched Q31 param into the
+     * corresponding Settings field. {@code gate} stays signed Q31 because {@code Sound.render} adds
+     * {@code Integer.MIN_VALUE} when computing {@code gateThreshold}; the other 14 fields add
+     * {@code Integer.MIN_VALUE} (+ 2147483648u) here to store unsigned 32-bit menu values.
+     */
+    public void updateParamFromUnpatched(int paramId, int unpatchedValue) {
+      switch (paramId) {
+        case Param.UNPATCHED_ARP_GATE -> gate = unpatchedValue;
+        case Param.UNPATCHED_ARP_RHYTHM -> rhythm = unpatchedValue + Integer.MIN_VALUE;
+        case Param.UNPATCHED_ARP_SEQUENCE_LENGTH ->
+            sequenceLength = unpatchedValue + Integer.MIN_VALUE;
+        case Param.UNPATCHED_ARP_CHORD_POLYPHONY ->
+            chordPolyphony = unpatchedValue + Integer.MIN_VALUE;
+        case Param.UNPATCHED_ARP_RATCHET_AMOUNT ->
+            ratchetAmount = unpatchedValue + Integer.MIN_VALUE;
+        case Param.UNPATCHED_NOTE_PROBABILITY ->
+            noteProbability = unpatchedValue + Integer.MIN_VALUE;
+        case Param.UNPATCHED_ARP_BASS_PROBABILITY ->
+            bassProbability = unpatchedValue + Integer.MIN_VALUE;
+        case Param.UNPATCHED_ARP_SWAP_PROBABILITY ->
+            swapProbability = unpatchedValue + Integer.MIN_VALUE;
+        case Param.UNPATCHED_ARP_GLIDE_PROBABILITY ->
+            glideProbability = unpatchedValue + Integer.MIN_VALUE;
+        case Param.UNPATCHED_REVERSE_PROBABILITY ->
+            reverseProbability = unpatchedValue + Integer.MIN_VALUE;
+        case Param.UNPATCHED_ARP_CHORD_PROBABILITY ->
+            chordProbability = unpatchedValue + Integer.MIN_VALUE;
+        case Param.UNPATCHED_ARP_RATCHET_PROBABILITY ->
+            ratchetProbability = unpatchedValue + Integer.MIN_VALUE;
+        case Param.UNPATCHED_SPREAD_VELOCITY -> spreadVelocity = unpatchedValue + Integer.MIN_VALUE;
+        case Param.UNPATCHED_ARP_SPREAD_GATE -> spreadGate = unpatchedValue + Integer.MIN_VALUE;
+        case Param.UNPATCHED_ARP_SPREAD_OCTAVE -> spreadOctave = unpatchedValue + Integer.MIN_VALUE;
+        default -> {}
       }
     }
   }

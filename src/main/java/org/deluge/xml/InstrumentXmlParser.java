@@ -147,6 +147,23 @@ public class InstrumentXmlParser {
     SOUNDPARAMS_RAW_PATCHED.put("sidechainCompressorShape", Param.UNPATCHED_SIDECHAIN_SHAPE);
     SOUNDPARAMS_RAW_PATCHED.put("sidechainCompressorVolume", Param.UNPATCHED_SIDECHAIN_VOLUME);
     SOUNDPARAMS_RAW_PATCHED.put("compressorThreshold", Param.UNPATCHED_COMPRESSOR_THRESHOLD);
+    // C mod_controllable_audio.cpp:507-533, 621-707 — all 15 unpatched arp/randomizer params live
+    // in <defaultParams> / <soundParams> on audio sounds (not inside <sound><arpeggiator>).
+    SOUNDPARAMS_RAW_PATCHED.put("arpeggiatorGate", Param.UNPATCHED_ARP_GATE);
+    SOUNDPARAMS_RAW_PATCHED.put("rhythm", Param.UNPATCHED_ARP_RHYTHM);
+    SOUNDPARAMS_RAW_PATCHED.put("sequenceLength", Param.UNPATCHED_ARP_SEQUENCE_LENGTH);
+    SOUNDPARAMS_RAW_PATCHED.put("chordPolyphony", Param.UNPATCHED_ARP_CHORD_POLYPHONY);
+    SOUNDPARAMS_RAW_PATCHED.put("ratchetAmount", Param.UNPATCHED_ARP_RATCHET_AMOUNT);
+    SOUNDPARAMS_RAW_PATCHED.put("noteProbability", Param.UNPATCHED_NOTE_PROBABILITY);
+    SOUNDPARAMS_RAW_PATCHED.put("reverseProbability", Param.UNPATCHED_REVERSE_PROBABILITY);
+    SOUNDPARAMS_RAW_PATCHED.put("bassProbability", Param.UNPATCHED_ARP_BASS_PROBABILITY);
+    SOUNDPARAMS_RAW_PATCHED.put("swapProbability", Param.UNPATCHED_ARP_SWAP_PROBABILITY);
+    SOUNDPARAMS_RAW_PATCHED.put("glideProbability", Param.UNPATCHED_ARP_GLIDE_PROBABILITY);
+    SOUNDPARAMS_RAW_PATCHED.put("chordProbability", Param.UNPATCHED_ARP_CHORD_PROBABILITY);
+    SOUNDPARAMS_RAW_PATCHED.put("ratchetProbability", Param.UNPATCHED_ARP_RATCHET_PROBABILITY);
+    SOUNDPARAMS_RAW_PATCHED.put("spreadGate", Param.UNPATCHED_ARP_SPREAD_GATE);
+    SOUNDPARAMS_RAW_PATCHED.put("spreadOctave", Param.UNPATCHED_ARP_SPREAD_OCTAVE);
+    SOUNDPARAMS_RAW_PATCHED.put("spreadVelocity", Param.UNPATCHED_SPREAD_VELOCITY);
   }
 
   static File resolvePresetFile(String folder, String presetName) {
@@ -1301,7 +1318,7 @@ public class InstrumentXmlParser {
       }
     }
     if (arpEl == null) return;
-    synth.setArp(parseArpElement(arpEl, inputTickMagnitude, false));
+    synth.setArpFromXml(parseArpElement(arpEl, inputTickMagnitude, false));
   }
 
   /**
@@ -1957,6 +1974,12 @@ public class InstrumentXmlParser {
     knobs.setRawParamKnob(Param.UNPATCHED_SIDECHAIN_SHAPE, -601295438);
     knobs.setRawParamKnob(Param.UNPATCHED_COMPRESSOR_THRESHOLD, 0);
     knobs.setRawParamKnob(Param.UNPATCHED_STUTTER_RATE, 0);
+    // C mod_controllable_audio.cpp:113-127 — unpatched arp/randomizer defaults.
+    for (int p = Param.UNPATCHED_ARP_GATE; p <= Param.UNPATCHED_SPREAD_VELOCITY; p++) {
+      int def = org.deluge.firmware2.Arpeggiator.getUnpatchedArpDefault(p);
+      knobs.setRawParamKnob(p, def);
+      synth.syncArpFromUnpatchedKnob(p, def);
+    }
     synth.setCompressorThreshold(0.0f);
     // sound.cpp:139 — portamento off.
     synth.setPortamentoQ31(off);
@@ -2218,6 +2241,9 @@ public class InstrumentXmlParser {
         q31 = 0;
       }
       synth.getRawKnobs().setRawParamKnob(paramId, q31);
+      if (org.deluge.firmware2.Arpeggiator.isUnpatchedArpParam(paramId)) {
+        synth.syncArpFromUnpatchedKnob(paramId, q31);
+      }
     }
   }
 }

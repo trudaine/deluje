@@ -598,10 +598,55 @@ public class SynthTrackModel extends TrackModel {
 
   /** Edits the active clip's arp (if it has its own) and this track's default. */
   public void setArp(ArpModel arp) {
+    ArpModel oldArp = getArp();
+    if (oldArp == null) {
+      oldArp = ArpModel.defaultConfig();
+    }
+    if (arp != null) {
+      // C mod_controllable_audio.cpp:507-533 — only update rawParamKnobs for unpatched arp fields
+      // that actually changed, preserving exact 32-bit XML hex values on all untouched fields.
+      for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_GATE;
+          p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+          p++) {
+        if (org.deluge.xml.ArpXmlCodec.isUnpatchedArpFieldChanged(oldArp, arp, p)) {
+          this.rawKnobs.setRawParamKnob(p, org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(arp, p));
+        }
+      }
+    }
     this.arp = arp;
     ClipModel active = getActiveClip();
     if (active != null && active.getArp() != null) {
       active.setArp(arp);
+    }
+  }
+
+  /**
+   * Sets this track's arp during XML parsing of {@code <arpeggiator>} without synthesizing {@code
+   * rawParamKnobs} entries (those come from {@code <defaultParams>} / {@code <soundParams>}).
+   */
+  public void setArpFromXml(ArpModel arp) {
+    this.arp = arp;
+    ClipModel active = getActiveClip();
+    if (active != null && active.getArp() != null) {
+      active.setArp(arp);
+    }
+  }
+
+  /**
+   * Mirrors one signed Q31 {@code UNPATCHED_ARP_*} parameter from {@code <defaultParams>} or {@code
+   * <soundParams>} into {@link ArpModel} without touching {@code rawParamKnobs}.
+   */
+  public void syncArpFromUnpatchedKnob(int paramId, int rawQ31) {
+    if (this.arp != null) {
+      this.arp = org.deluge.xml.ArpXmlCodec.applyUnpatchedKnobToArp(this.arp, paramId, rawQ31);
+    }
+    if (!getClips().isEmpty()) {
+      ClipModel targetClip = getClips().get(getClips().size() - 1);
+      if (targetClip.getArp() != null) {
+        targetClip.setArp(
+            org.deluge.xml.ArpXmlCodec.applyUnpatchedKnobToArp(
+                targetClip.getArp(), paramId, rawQ31));
+      }
     }
   }
 
@@ -624,7 +669,26 @@ public class SynthTrackModel extends TrackModel {
         && now != before
         && now.getArp() != null
         && now.getSound() instanceof org.deluge.engine.FirmwareSound fs) {
-      org.deluge.engine.FirmwareFactory.configureArp(fs, now.getArp());
+      ArpModel nowArp = now.getArp();
+      for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_GATE;
+          p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+          p++) {
+        fs.arpSettings.updateParamFromUnpatched(
+            p, org.deluge.firmware2.Arpeggiator.getUnpatchedArpDefault(p));
+      }
+      fs.clearUnpatchedArpKnobs();
+      org.deluge.engine.FirmwareFactory.configureArp(fs, nowArp);
+      fs.paramKnobs[org.deluge.firmware2.Param.UNPATCHED_ARP_GATE] =
+          org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+              nowArp, org.deluge.firmware2.Param.UNPATCHED_ARP_GATE);
+      for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_RHYTHM;
+          p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+          p++) {
+        if (org.deluge.xml.ArpXmlCodec.isUnpatchedArpFieldChanged(
+            ArpModel.defaultConfig(), nowArp, p)) {
+          fs.paramKnobs[p] = org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(nowArp, p);
+        }
+      }
     }
   }
 

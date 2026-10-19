@@ -590,6 +590,11 @@ public class Sound extends GlobalEffectable {
       new Arpeggiator.ArpReturnInstruction();
   public int arpPhaseIncrement = 0;
 
+  /**
+   * C sound.h:101 — temporary flag from arpeggiator/randomizer inverting sample reverse on noteOn.
+   */
+  public boolean invertReversed = false;
+
   public final Lfo[] globalLfos = {new Lfo(), new Lfo()};
   // LFO waveforms live on lfoConfig[].waveType (as in the C); there is no separate array. The
   // global
@@ -773,6 +778,10 @@ public class Sound extends GlobalEffectable {
     params[Param.UNPATCHED_TREBLE] = 0;
     params[Param.UNPATCHED_BASS_FREQ] = 0;
     params[Param.UNPATCHED_TREBLE_FREQ] = 0;
+    // C mod_controllable_audio.cpp:113-127 — UNPATCHED_ARP_GATE = 0, UNPATCHED_NOTE_PROBABILITY =
+    // 2147483647, and the remaining 13 arp/randomizer params = -2147483648 (already set above).
+    params[Param.UNPATCHED_ARP_GATE] = 0;
+    params[Param.UNPATCHED_NOTE_PROBABILITY] = Integer.MAX_VALUE;
     params[Param.UNPATCHED_STUTTER_RATE] = 0;
     params[Param.UNPATCHED_MOD_FX_OFFSET] = 0; // C: mod_controllable_audio.cpp:131
     params[Param.UNPATCHED_MOD_FX_FEEDBACK] = 0; // C: mod_controllable_audio.cpp:132
@@ -1074,6 +1083,7 @@ public class Sound extends GlobalEffectable {
     hasBlockResolvedReverbValue = inRenderOutputBlock;
 
     // 4. Arpeggiator clock & processing (C sound.cpp:2458-2495).
+    arpInstr.reset();
     if (arpEnabled()) {
       int phaseInc =
           (arpPhaseIncrement > 0)
@@ -1084,12 +1094,13 @@ public class Sound extends GlobalEffectable {
         // sound.cpp:2468 — (uint32_t)gate + 2147483648, passed FULL-SCALE (the arp itself does the
         // single >> 8, arpeggiator.cpp:1457). Int add wraps exactly like the C uint32 add.
         int gateThreshold = arpSettings.gate + Integer.MIN_VALUE;
-        arpInstr.reset();
         arpeggiator.render(arpSettings, arpInstr, numSamples, gateThreshold, phaseInc);
-
-        processArpInstruction(arpInstr);
       }
+    } else {
+      // C sound.cpp:2474-2476 — when arp is OFF, still process pending notes from arpeggiator.
+      arpeggiator.handlePendingNotes(arpSettings, arpInstr);
     }
+    processArpInstruction(arpInstr);
 
     // C sound.cpp:2506-2519 — a filter section only runs when it can have an audible effect:
     // drive mode always; otherwise when the cutoff is patched, below max (LPF), set at all
@@ -1347,12 +1358,15 @@ public class Sound extends GlobalEffectable {
    * instruction: glide note-offs, post-arp note-offs, then pending note-ons.
    */
   private void processArpInstruction(Arpeggiator.ArpReturnInstruction arpInstr) {
-    // C sound.cpp:2478-2491 — release glide notes first, then post-arp note-offs.
+    // C sound.cpp:2477-2494, sound_instrument.cpp:435-452 — release glide notes first, then
+    // post-arp note-offs; reset invertReversed if any note was released.
+    boolean atLeastOneOff = false;
     for (int n = 0; n < 4; n++) {
       int glideOff = arpInstr.glideNoteCodeOffPostArp[n];
       if (glideOff == Arpeggiator.ARP_NOTE_NONE) {
         break;
       }
+      atLeastOneOff = true;
       releaseVoice(glideOff, -1);
     }
     for (int n = 0; n < 4; n++) {
@@ -1360,7 +1374,11 @@ public class Sound extends GlobalEffectable {
       if (noteOff == Arpeggiator.ARP_NOTE_NONE) {
         break;
       }
+      atLeastOneOff = true;
       releaseVoice(noteOff, -1);
+    }
+    if (atLeastOneOff) {
+      invertReversed = false;
     }
 
     if (arpInstr.arpNoteOn != null) {
@@ -1368,8 +1386,9 @@ public class Sound extends GlobalEffectable {
       // arp's period, arpeggiator.cpp:1579).
       int callerSyncLength = pendingSampleSyncLength;
       pendingSampleSyncLength = arpInstr.sampleSyncLengthOn;
-      // C process_postarp_notes (sound.cpp:2354-2375) — EVERY pending entry until ARP_NOTE_NONE
+      // C process_postarp_notes (sound.cpp:2355-2381) — EVERY pending entry until ARP_NOTE_NONE
       // plays (chord/octave arp modes emit several), each at the arp note's real velocity.
+      int fromChannel = arpInstr.arpNoteOn.inputCharacteristics[1];
       for (int n = 0; n < arpInstr.arpNoteOn.noteCodeOnPostArp.length; n++) {
         int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[n];
         if (noteOn == Arpeggiator.ARP_NOTE_NONE) {
@@ -1378,7 +1397,9 @@ public class Sound extends GlobalEffectable {
         if (arpInstr.arpNoteOn.noteStatus[n] != Arpeggiator.ArpNoteStatus.PENDING) {
           continue;
         }
-        triggerVoice(noteOn, arpInstr.arpNoteOn.velocity, -1, arpInstr.arpNoteOn.mpeValues);
+        invertReversed = arpInstr.invertReversed; // C sound.cpp:2371
+        triggerVoice(
+            noteOn, arpInstr.arpNoteOn.velocity, fromChannel, arpInstr.arpNoteOn.mpeValues);
         arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
       }
       pendingSampleSyncLength = callerSyncLength;
@@ -1414,69 +1435,75 @@ public class Sound extends GlobalEffectable {
   }
 
   public void triggerNote(int note, int vel, int midiChannel, int[] mpeValues) {
+    triggerNote(note, vel, midiChannel, mpeValues, 0);
+  }
+
+  public void triggerNote(int note, int vel, int midiChannel, int[] mpeValues, int samplesLate) {
     if (mpeValues == null) {
       mpeValues = pendingMpeValues;
     }
-    if (arpEnabled()) {
-      arpInstr.reset();
-      arpInstr.sampleSyncLengthOn = pendingSampleSyncLength; // C sound.cpp:1534
-      arpeggiator.noteOn(arpSettings, note, vel, arpInstr, midiChannel, mpeValues);
-      for (int n = 0; n < 4; n++) {
-        int glideOff = arpInstr.glideNoteCodeOffPostArp[n];
-        if (glideOff == Arpeggiator.ARP_NOTE_NONE) {
-          break;
-        }
-        releaseVoice(glideOff, -1);
+    // C sound.cpp:1533-1559 — Sound::noteOn ALWAYS routes through arpeggiator->noteOn even when
+    // arpSettings->mode == ArpMode::OFF, so arp-off noteProbability, spreadVelocity, and
+    // reverseProbability (instruction.invertReversed) evaluate and notes are tracked for MPE /
+    // noteOff.
+    arpInstr.reset();
+    arpInstr.sampleSyncLengthOn = pendingSampleSyncLength; // C sound.cpp:1534
+    arpeggiator.noteOn(arpSettings, note, vel, arpInstr, midiChannel, mpeValues);
+    for (int n = 0; n < 4; n++) {
+      int glideOff = arpInstr.glideNoteCodeOffPostArp[n];
+      if (glideOff == Arpeggiator.ARP_NOTE_NONE) {
+        break;
       }
-      for (int n = 0; n < 4; n++) {
-        int noteOff = arpInstr.noteCodeOffPostArp[n];
-        if (noteOff == Arpeggiator.ARP_NOTE_NONE) {
-          break;
-        }
-        releaseVoice(noteOff, -1);
-      }
-      if (arpInstr.arpNoteOn != null) {
-        // C sound.cpp:1556 — the voice syncs to instruction.sampleSyncLengthOn, which a synced arp
-        // overwrites with its period (arpeggiator.cpp:1579).
-        int callerSyncLength = pendingSampleSyncLength;
-        pendingSampleSyncLength = arpInstr.sampleSyncLengthOn;
-        int v = arpInstr.arpNoteOn.velocity;
-        if (v <= 0) v = 64;
-        for (int n = 0; n < arpInstr.arpNoteOn.noteCodeOnPostArp.length; n++) {
-          int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[n];
-          if (noteOn == Arpeggiator.ARP_NOTE_NONE) {
-            break;
-          }
-          if (arpInstr.arpNoteOn.noteStatus[n] != Arpeggiator.ArpNoteStatus.PENDING) {
-            continue;
-          }
-          triggerVoice(noteOn, v, midiChannel, arpInstr.arpNoteOn.mpeValues);
-          arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
-        }
-        pendingSampleSyncLength = callerSyncLength;
-        arpInstr.arpNoteOn = null;
-      }
-      return;
+      releaseVoice(glideOff, -1);
     }
-    triggerVoice(note, vel, midiChannel, mpeValues);
+    for (int n = 0; n < 4; n++) {
+      int noteOff = arpInstr.noteCodeOffPostArp[n];
+      if (noteOff == Arpeggiator.ARP_NOTE_NONE) {
+        break;
+      }
+      releaseVoice(noteOff, -1);
+    }
+    if (arpInstr.arpNoteOn != null) {
+      // C sound.cpp:1556 — the voice syncs to instruction.sampleSyncLengthOn, which a synced arp
+      // overwrites with its period (arpeggiator.cpp:1579).
+      int callerSyncLength = pendingSampleSyncLength;
+      pendingSampleSyncLength = arpInstr.sampleSyncLengthOn;
+      int v = arpInstr.arpNoteOn.velocity;
+      if (v <= 0) v = 64;
+      for (int n = 0; n < arpInstr.arpNoteOn.noteCodeOnPostArp.length; n++) {
+        int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[n];
+        if (noteOn == Arpeggiator.ARP_NOTE_NONE) {
+          break;
+        }
+        if (arpInstr.arpNoteOn.noteStatus[n] != Arpeggiator.ArpNoteStatus.PENDING) {
+          continue;
+        }
+        invertReversed = arpInstr.invertReversed; // C sound.cpp:1553
+        triggerVoice(noteOn, v, midiChannel, mpeValues, samplesLate);
+        arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
+      }
+      pendingSampleSyncLength = callerSyncLength;
+      arpInstr.arpNoteOn = null;
+    }
   }
 
   public void triggerNoteLate(int note, int vel, int samplesLate) {
-    if (sidechainSend != 0) {
-      GlobalSidechainBus.registerHit(sidechainSend);
-    }
-    triggerVoiceInternal(note, vel, -1, pendingMpeValues, samplesLate);
+    triggerNote(note, vel, -1, pendingMpeValues, samplesLate);
   }
 
   public void triggerVoice(int note, int vel, int midiChannel) {
-    triggerVoice(note, vel, midiChannel, null);
+    triggerVoice(note, vel, midiChannel, null, 0);
   }
 
   public void triggerVoice(int note, int vel, int midiChannel, int[] mpeValues) {
+    triggerVoice(note, vel, midiChannel, mpeValues, 0);
+  }
+
+  public void triggerVoice(int note, int vel, int midiChannel, int[] mpeValues, int samplesLate) {
     if (sidechainSend != 0) {
       GlobalSidechainBus.registerHit(sidechainSend);
     }
-    triggerVoiceInternal(note, vel, midiChannel, mpeValues, 0);
+    triggerVoiceInternal(note, vel, midiChannel, mpeValues, samplesLate);
   }
 
   private void triggerVoiceInternal(
@@ -1654,9 +1681,10 @@ public class Sound extends GlobalEffectable {
         loopEndPos = 0;
       }
 
-      // C sample_playback_guide.cpp:71-81, voice_sample_playback_guide.cpp:36-68 — convert
-      // file-coordinate start/end and loop points into directional playback bounds.
-      boolean reversed = sampleReverse[s];
+      // C voice.cpp:297-298, sample_controls.cpp:52-54, sample_playback_guide.cpp:71-81,
+      // voice_sample_playback_guide.cpp:36-68 — invertReversed XORs with sampleReverse[s] before
+      // converting file-coordinate start/end and loop points into directional playback bounds.
+      boolean reversed = invertReversed ? !sampleReverse[s] : sampleReverse[s];
       int playDir = reversed ? -1 : 1;
       int dirStart = !reversed ? startFrame : (endFrame - 1);
       int dirEnd = !reversed ? endFrame : (startFrame - 1);
@@ -1698,44 +1726,31 @@ public class Sound extends GlobalEffectable {
   }
 
   public void releaseNote(int note, int midiChannel) {
-    if (arpEnabled()) {
-      arpInstr.reset();
-      arpeggiator.noteOff(arpSettings, note, arpInstr);
-      // C sound.cpp:1588-1599 — release glide notes first, then post-arp note-offs.
-      for (int n = 0; n < 4; n++) {
-        int glideOff = arpInstr.glideNoteCodeOffPostArp[n];
-        if (glideOff == Arpeggiator.ARP_NOTE_NONE) {
-          break;
-        }
-        releaseVoice(glideOff, -1);
+    // C sound.cpp:1581-1602 — Sound::noteOff ALWAYS routes through arpeggiator->noteOff even when
+    // arpSettings->mode == ArpMode::OFF, cleaning up arpeggiator.notes / notesAsPlayed.
+    arpInstr.reset();
+    arpeggiator.noteOff(arpSettings, note, arpInstr);
+    boolean releasedAny = false;
+    for (int n = 0; n < 4; n++) {
+      int glideOff = arpInstr.glideNoteCodeOffPostArp[n];
+      if (glideOff == Arpeggiator.ARP_NOTE_NONE) {
+        break;
       }
-      for (int n = 0; n < 4; n++) {
-        int noteOff = arpInstr.noteCodeOffPostArp[n];
-        if (noteOff == Arpeggiator.ARP_NOTE_NONE) {
-          break;
-        }
-        releaseVoice(noteOff, -1);
-      }
-      if (arpInstr.arpNoteOn != null) {
-        int v = arpInstr.arpNoteOn.velocity;
-        if (v > 0) {
-          for (int n = 0; n < arpInstr.arpNoteOn.noteCodeOnPostArp.length; n++) {
-            int noteOn = arpInstr.arpNoteOn.noteCodeOnPostArp[n];
-            if (noteOn == Arpeggiator.ARP_NOTE_NONE) {
-              break;
-            }
-            if (arpInstr.arpNoteOn.noteStatus[n] != Arpeggiator.ArpNoteStatus.PENDING) {
-              continue;
-            }
-            triggerVoice(noteOn, v, -1);
-            arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
-          }
-        }
-        arpInstr.arpNoteOn = null;
-      }
-      return;
+      releasedAny = true;
+      releaseVoice(glideOff, -1);
     }
-    releaseVoice(note, midiChannel);
+    for (int n = 0; n < 4; n++) {
+      int noteOff = arpInstr.noteCodeOffPostArp[n];
+      if (noteOff == Arpeggiator.ARP_NOTE_NONE) {
+        break;
+      }
+      releasedAny = true;
+      releaseVoice(noteOff, -1);
+    }
+    if (!releasedAny && !arpEnabled()) {
+      // Fallback for callers that started a voice directly via triggerVoice without triggerNote.
+      releaseVoice(note, midiChannel);
+    }
   }
 
   public void releaseVoice(int note, int midiChannel) {
@@ -1754,6 +1769,9 @@ public class Sound extends GlobalEffectable {
   }
 
   public void releaseAllNotes() {
+    // C sound.cpp:1769-1777 (Sound::allNotesOff) — reset invertReversed, release all voices, and
+    // reset arpeggiator state.
+    invertReversed = false;
     synchronized (voices) {
       for (var v : voices) {
         if (v.active) {
@@ -1761,6 +1779,7 @@ public class Sound extends GlobalEffectable {
         }
       }
     }
+    arpeggiator.reset();
   }
 
   private int resolveGlobalFieldOrPatched(int fieldValue, int paramId) {

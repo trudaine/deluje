@@ -375,7 +375,7 @@ public class SongXmlParser {
           clip.setPlayDirection(readPlayDirectionAttr(trackElem));
 
           if (noteRowList != null) {
-            for (int r = 0; r < rowCount; r++) {
+            for (int r = 0; r < noteRowList.getLength(); r++) {
               Element noteRowElem = (Element) noteRowList.item(r);
               String hexData = null;
 
@@ -584,7 +584,7 @@ public class SongXmlParser {
         // Expand stepCount to cover max position found in noteData (pos in 12-tick units)
         int maxPos = 0;
         if (noteRowList != null) {
-          for (int r = 0; r < rowCount; r++) {
+          for (int r = 0; r < noteRowList.getLength(); r++) {
             Element nr = (Element) noteRowList.item(r);
             NoteDataSource noteSrc = readNoteDataSource(nr, false);
             String hd = noteSrc.hex();
@@ -625,7 +625,7 @@ public class SongXmlParser {
         clip.setMidiPGM(DelugeXmlUtil.attrOrDirectChildInt(clipElem, "midiPGM", 128));
 
         if (noteRowList != null) {
-          for (int r = 0; r < rowCount; r++) {
+          for (int r = 0; r < noteRowList.getLength(); r++) {
             Element noteRowElem = (Element) noteRowList.item(r);
             String hexData = null;
 
