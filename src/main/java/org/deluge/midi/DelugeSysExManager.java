@@ -46,6 +46,8 @@ public class DelugeSysExManager {
   private final AtomicInteger seqCounter = new AtomicInteger(0);
   private final Map<Integer, SysExCallback> pendingCallbacks = new ConcurrentHashMap<>();
   private org.deluge.shadow.midi.MidiOut activeMidiOut;
+  private final Object displayListenerLock = new Object();
+  private final Object debugListenerLock = new Object();
   private final CopyOnWriteArrayList<DisplayListener> displayListeners =
       new CopyOnWriteArrayList<>();
   private final CopyOnWriteArrayList<MidiDebugListener> debugListeners =
@@ -115,12 +117,14 @@ public class DelugeSysExManager {
   }
 
   public void setDisplayListener(DisplayListener listener) {
-    displayListeners.clear();
-    if (listener != null) {
-      displayListeners.add(listener);
-      displayListener = compositeDisplayListener;
-    } else {
-      displayListener = null;
+    synchronized (displayListenerLock) {
+      displayListeners.clear();
+      if (listener != null) {
+        displayListeners.add(listener);
+        displayListener = compositeDisplayListener;
+      } else {
+        displayListener = null;
+      }
     }
   }
 
@@ -128,27 +132,33 @@ public class DelugeSysExManager {
     if (listener == null) {
       return;
     }
-    displayListeners.addIfAbsent(listener);
-    displayListener = compositeDisplayListener;
+    synchronized (displayListenerLock) {
+      displayListeners.addIfAbsent(listener);
+      displayListener = compositeDisplayListener;
+    }
   }
 
   public void removeDisplayListener(DisplayListener listener) {
     if (listener == null) {
       return;
     }
-    displayListeners.remove(listener);
-    if (displayListeners.isEmpty()) {
-      displayListener = null;
+    synchronized (displayListenerLock) {
+      displayListeners.remove(listener);
+      if (displayListeners.isEmpty()) {
+        displayListener = null;
+      }
     }
   }
 
   public void setMidiDebugListener(MidiDebugListener listener) {
-    debugListeners.clear();
-    if (listener != null) {
-      debugListeners.add(listener);
-      debugListener = compositeDebugListener;
-    } else {
-      debugListener = null;
+    synchronized (debugListenerLock) {
+      debugListeners.clear();
+      if (listener != null) {
+        debugListeners.add(listener);
+        debugListener = compositeDebugListener;
+      } else {
+        debugListener = null;
+      }
     }
   }
 
@@ -156,17 +166,21 @@ public class DelugeSysExManager {
     if (listener == null) {
       return;
     }
-    debugListeners.addIfAbsent(listener);
-    debugListener = compositeDebugListener;
+    synchronized (debugListenerLock) {
+      debugListeners.addIfAbsent(listener);
+      debugListener = compositeDebugListener;
+    }
   }
 
   public void removeMidiDebugListener(MidiDebugListener listener) {
     if (listener == null) {
       return;
     }
-    debugListeners.remove(listener);
-    if (debugListeners.isEmpty()) {
-      debugListener = null;
+    synchronized (debugListenerLock) {
+      debugListeners.remove(listener);
+      if (debugListeners.isEmpty()) {
+        debugListener = null;
+      }
     }
   }
 

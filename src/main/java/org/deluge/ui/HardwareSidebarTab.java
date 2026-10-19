@@ -36,6 +36,8 @@ public class HardwareSidebarTab extends JPanel {
   private static final int MAX_DEBUG_LOG_LINES = 500;
   private Timer initialLoadTimer;
   private Timer wireListenersTimer;
+  private boolean initialFolderLoaded = false;
+  private volatile boolean disposed = false;
   private org.deluge.midi.DelugeSysExManager.DisplayListener displayListener;
   private org.deluge.midi.DelugeSysExManager.MidiDebugListener debugListener;
   private org.deluge.midi.DelugeSysExManager wiredSysExManager;
@@ -332,7 +334,13 @@ public class HardwareSidebarTab extends JPanel {
     add(buildLiveDeviceMonitorPanel(), BorderLayout.SOUTH);
 
     // Initial folder load
-    initialLoadTimer = new Timer(800, ev -> loadRemoteFolder("/SONGS"));
+    initialLoadTimer =
+        new Timer(
+            800,
+            ev -> {
+              initialFolderLoaded = true;
+              loadRemoteFolder("/SONGS");
+            });
     initialLoadTimer.setRepeats(false);
     initialLoadTimer.start();
 
@@ -400,7 +408,8 @@ public class HardwareSidebarTab extends JPanel {
 
   /** Registers this panel as the live consumer of the real device's OLED/7-seg/debug streams. */
   private void wireLiveDeviceListeners() {
-    if (SwingDelugeApp.mainInstance == null
+    if (disposed
+        || SwingDelugeApp.mainInstance == null
         || SwingDelugeApp.mainInstance.getMidiService() == null) {
       return;
     }
@@ -435,8 +444,7 @@ public class HardwareSidebarTab extends JPanel {
     sysex.addMidiDebugListener(debugListener);
   }
 
-  /** Stops startup timers and unregisters SysEx listeners when this panel is disposed. */
-  public void dispose() {
+  private void unwireLiveDeviceListeners() {
     if (initialLoadTimer != null) {
       initialLoadTimer.stop();
     }
@@ -454,9 +462,34 @@ public class HardwareSidebarTab extends JPanel {
     }
   }
 
+  /** Permanently stops startup timers and unregisters SysEx listeners on panel disposal. */
+  public void dispose() {
+    disposed = true;
+    unwireLiveDeviceListeners();
+  }
+
+  @Override
+  public void addNotify() {
+    super.addNotify();
+    if (disposed) {
+      return;
+    }
+    if (!initialFolderLoaded && initialLoadTimer != null && !initialLoadTimer.isRunning()) {
+      initialLoadTimer.start();
+    }
+    if (wiredSysExManager == null) {
+      if (SwingDelugeApp.mainInstance != null
+          && SwingDelugeApp.mainInstance.getMidiService() != null) {
+        wireLiveDeviceListeners();
+      } else if (wireListenersTimer != null && !wireListenersTimer.isRunning()) {
+        wireListenersTimer.start();
+      }
+    }
+  }
+
   @Override
   public void removeNotify() {
-    dispose();
+    unwireLiveDeviceListeners();
     super.removeNotify();
   }
 

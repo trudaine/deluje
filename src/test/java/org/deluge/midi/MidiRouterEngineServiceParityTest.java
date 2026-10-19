@@ -151,66 +151,71 @@ class MidiRouterEngineServiceParityTest {
     MidiService midiService = new MidiService(bridge, router);
     SwingDelugeApp app = new SwingDelugeApp(bridge, midiService, true);
     try {
-      SwingGridPanel activeGrid = app.getActiveGridPanel();
-      assertNotNull(activeGrid);
-      ProjectModel project = activeGrid.getProjectModel();
-
-      // Ensure we have two synth tracks so we can switch tracks mid-note.
-      SynthTrackModel extraTrack = new SynthTrackModel("Synth 2");
-      extraTrack.addClip(new ClipModel("Clip 2", 8, 16));
-      project.addTrack(extraTrack);
-
-      activeGrid.setEditedModelTrack(0);
-      activeGrid.setActiveClipId(0);
-      SwingGridPanel.isLiveRecordModeActive = true;
-      bridge.setGlobalInt(BridgeContract.G_PLAY, 1L);
-      bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, 3L);
+      // Stop the background audio/sync threads so DelugeAudio cannot advance bridge.currentTime
+      // between Note On and Note Off and DelugeSync cannot overwrite G_CURRENT_STEP.
       if (app.getPureEngine() != null) {
-        PlaybackHandler handler = app.getPureEngine().getPlaybackHandler();
-        handler.start();
-        handler.lastSwungTickActioned = 3 * 24;
+        app.getPureEngine().stop();
       }
-
-      MidiMsg noteOn = new MidiMsg();
-      noteOn.data1 = 0x90;
-      noteOn.data2 = 60;
-      noteOn.data3 = 100;
       javax.swing.SwingUtilities.invokeAndWait(
           () -> {
+            SwingGridPanel activeGrid = app.getActiveGridPanel();
+            assertNotNull(activeGrid);
+            ProjectModel project = activeGrid.getProjectModel();
+
+            // Ensure we have two synth tracks so we can switch tracks mid-note.
+            SynthTrackModel extraTrack = new SynthTrackModel("Synth 2");
+            extraTrack.addClip(new ClipModel("Clip 2", 8, 16));
+            project.addTrack(extraTrack);
+
+            activeGrid.setEditedModelTrack(0);
+            activeGrid.setActiveClipId(0);
+            SwingGridPanel.isLiveRecordModeActive = true;
+            bridge.setGlobalInt(BridgeContract.G_PLAY, 1L);
+            bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, 3L);
             activeGrid.updatePlayhead(3);
+
+            MidiMsg noteOn = new MidiMsg();
+            noteOn.data1 = 0x90;
+            noteOn.data2 = 60;
+            noteOn.data3 = 100;
             router.handleMidiMessage(noteOn);
+
+            // Switch edited track before Note Off arrives.
+            activeGrid.setEditedModelTrack(project.getTracks().size() - 1);
+
+            bridge.advanceTime(4410);
+            MidiMsg noteOff = new MidiMsg();
+            noteOff.data1 = 0x80;
+            noteOff.data2 = 60;
+            noteOff.data3 = 0;
+            router.handleMidiMessage(noteOff);
+
+            ClipModel recordedClip = project.getTracks().get(0).getClips().get(0);
+            int row = activeGrid.findSynthClipRowForPitch(recordedClip, 60);
+            StepData recordedStep = recordedClip.getStep(row, 3);
+            assertNotNull(recordedStep);
+            assertTrue(recordedStep.active());
+            assertEquals(0.8f, recordedStep.gate(), 0.05f, "Original clip gate must be updated");
+
+            // Undo and redo must preserve the Note Off duration gate (~0.8f), not Note On's 1.0f.
+            project.getUndoRedoStack().undo();
+            StepData undone = recordedClip.getStep(row, 3);
+            assertTrue(undone == null || !undone.active());
+
+            project.getUndoRedoStack().redo();
+            StepData redone = recordedClip.getStep(row, 3);
+            assertNotNull(redone);
+            assertTrue(redone.active());
+            assertEquals(
+                0.8f, redone.gate(), 0.05f, "Redo must restore the Note Off duration gate");
           });
-
-      // Switch edited track before Note Off arrives.
-      activeGrid.setEditedModelTrack(project.getTracks().size() - 1);
-
-      bridge.advanceTime(4410);
-      MidiMsg noteOff = new MidiMsg();
-      noteOff.data1 = 0x80;
-      noteOff.data2 = 60;
-      noteOff.data3 = 0;
-      router.handleMidiMessage(noteOff);
-
-      ClipModel recordedClip = project.getTracks().get(0).getClips().get(0);
-      int row = activeGrid.findSynthClipRowForPitch(recordedClip, 60);
-      StepData recordedStep = recordedClip.getStep(row, 3);
-      assertNotNull(recordedStep);
-      assertTrue(recordedStep.active());
-      assertEquals(0.8f, recordedStep.gate(), 0.05f, "Original clip gate must be updated");
-
-      // Undo and redo must preserve the Note Off duration gate (~0.8f), not Note On's 1.0f.
-      project.getUndoRedoStack().undo();
-      StepData undone = recordedClip.getStep(row, 3);
-      assertTrue(undone == null || !undone.active());
-
-      project.getUndoRedoStack().redo();
-      StepData redone = recordedClip.getStep(row, 3);
-      assertNotNull(redone);
-      assertTrue(redone.active());
-      assertEquals(0.8f, redone.gate(), 0.05f, "Redo must restore the Note Off duration gate");
     } finally {
       SwingGridPanel.isLiveRecordModeActive = false;
-      app.dispose();
+      javax.swing.SwingUtilities.invokeAndWait(
+          () -> {
+            app.dispose();
+            SwingDelugeApp.mainInstance = null;
+          });
     }
   }
 

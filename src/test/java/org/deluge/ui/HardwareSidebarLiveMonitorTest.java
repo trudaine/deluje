@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
@@ -27,15 +29,28 @@ public class HardwareSidebarLiveMonitorTest {
     BridgeContract bridge = new BridgeContract(44100, 2);
     MidiService midiService = new MidiService(bridge, new MidiInputRouter(bridge));
     SwingDelugeApp app = new SwingDelugeApp(bridge, midiService, true);
-    HardwareSidebarTab tab = new HardwareSidebarTab(null);
-    HardwareSidebarTab secondTab = new HardwareSidebarTab(null);
+    AtomicReference<HardwareSidebarTab> tabRef = new AtomicReference<>();
+    AtomicReference<HardwareSidebarTab> secondTabRef = new AtomicReference<>();
     try {
       Method wire = HardwareSidebarTab.class.getDeclaredMethod("wireLiveDeviceListeners");
       wire.setAccessible(true);
-      wire.invoke(tab);
-      // Simulate the second sidebar (e.g. floatingSidebar) wiring after tab so we verify
-      // it never steals or overwrites tab's DisplayListener / MidiDebugListener.
-      wire.invoke(secondTab);
+      SwingUtilities.invokeAndWait(
+          () -> {
+            try {
+              HardwareSidebarTab t1 = new HardwareSidebarTab(null);
+              HardwareSidebarTab t2 = new HardwareSidebarTab(null);
+              wire.invoke(t1);
+              // Simulate the second sidebar (e.g. floatingSidebar) wiring after tab so we verify
+              // it never steals or overwrites tab's DisplayListener / MidiDebugListener.
+              wire.invoke(t2);
+              tabRef.set(t1);
+              secondTabRef.set(t2);
+            } catch (Exception e) {
+              throw new RuntimeException(e);
+            }
+          });
+      HardwareSidebarTab tab = tabRef.get();
+      HardwareSidebarTab secondTab = secondTabRef.get();
 
       DelugeSysExManager sysex = app.getMidiService().getSysExManager();
 
@@ -82,10 +97,32 @@ public class HardwareSidebarLiveMonitorTest {
               debugArea.getText().contains("hello from hardware")
                   && secondDebugArea.getText().contains("hello from hardware"),
           "Debug message must reach the UI text area on all wired tabs");
+
+      // Detaching and re-attaching (e.g. closing and reopening floating sidebar) must reconnect.
+      SwingUtilities.invokeAndWait(
+          () -> {
+            tab.removeNotify();
+            tab.addNotify();
+          });
+      DelugeSysExManager.MidiDebugListener reattachedListener =
+          (DelugeSysExManager.MidiDebugListener) debugListenerField.get(sysex);
+      assertNotNull(reattachedListener, "Debug listener must remain wired after re-attachment");
+      reattachedListener.onDebugMessage("reattached ok");
+      waitForEdtCondition(
+          () -> debugArea.getText().contains("reattached ok"),
+          "Re-attached tab must continue receiving debug messages");
     } finally {
-      secondTab.dispose();
-      tab.dispose();
-      app.dispose();
+      SwingUtilities.invokeAndWait(
+          () -> {
+            if (secondTabRef.get() != null) {
+              secondTabRef.get().dispose();
+            }
+            if (tabRef.get() != null) {
+              tabRef.get().dispose();
+            }
+            app.dispose();
+            SwingDelugeApp.mainInstance = null;
+          });
       bridge.shutdown();
     }
   }
@@ -93,14 +130,15 @@ public class HardwareSidebarLiveMonitorTest {
   private static void waitForEdtCondition(BooleanSupplier condition, String message)
       throws Exception {
     long deadlineNanos = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(3);
+    AtomicBoolean matched = new AtomicBoolean(false);
     while (System.nanoTime() < deadlineNanos) {
-      SwingUtilities.invokeAndWait(() -> {});
-      if (condition.getAsBoolean()) {
+      SwingUtilities.invokeAndWait(() -> matched.set(condition.getAsBoolean()));
+      if (matched.get()) {
         return;
       }
       Thread.sleep(10);
     }
-    SwingUtilities.invokeAndWait(() -> {});
-    assertTrue(condition.getAsBoolean(), message);
+    SwingUtilities.invokeAndWait(() -> matched.set(condition.getAsBoolean()));
+    assertTrue(matched.get(), message);
   }
 }
