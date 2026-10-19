@@ -1172,9 +1172,9 @@ public class Sound extends GlobalEffectable {
     srrBitcrush.process(fxIntBuffer, numSamples, bitcrushParam, srrParam, postFXVolumeHolder);
 
     if (modFXType == ModFx.ModFXType.GRAIN) {
-      // C sound.cpp:2450-2453, 2610, mod_controllable_audio.cpp:206-210 — Sound::render passes
-      // reverbSendAmount >> 1 into processFX, and processGrainFX scales that halved send by
-      // postFXVolume << 5.
+      // C sound.cpp:2450-2453, 2605-2610, mod_controllable_audio.cpp:159-162, 206-210 —
+      // Sound::render passes reverbSendAmount >> 1 and unshifted modFXDepth into processFX /
+      // processGrainFX, which scales that halved send by postFXVolume << 5.
       int reverbAmountAdjust = 67108864;
       int reverbSendAmount = computeReverbSendAmount(reverbAmountAdjust);
       int grainReverbAmount =
@@ -1183,7 +1183,7 @@ public class Sound extends GlobalEffectable {
           fxIntBuffer,
           numSamples,
           effectiveModFXRate,
-          effectiveModFXDepth << 1,
+          effectiveModFXDepth,
           modFXOffset,
           modFXFeedback,
           postFXVolumeHolder,
