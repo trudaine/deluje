@@ -698,6 +698,14 @@ public class SongXmlParser {
           }
           case MidiTrackModel mtm -> {
             readClipBendRanges(clipElem, clip);
+            int readUpTo =
+                clipXmlLengthTicks > 0
+                    ? clipXmlLengthTicks
+                    : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
+            Element midiParamsEl = getFirstChild(clipElem, "midiParams");
+            if (midiParamsEl != null) {
+              parseMidiParams(midiParamsEl, clip, readUpTo);
+            }
             NodeList soundParamsList = clipElem.getElementsByTagName("soundParams");
             if (soundParamsList.getLength() > 0) {
               Element spEl = (Element) soundParamsList.item(0);
@@ -842,7 +850,8 @@ public class SongXmlParser {
       for (int i = 0; i < arrClipNodeList.getLength(); i++) {
         Element clipElem = (Element) arrClipNodeList.item(i);
 
-        // Match target track by trackName
+        // Match target track by trackName (Java save) or C claimOutput linkage (midiChannel /
+        // instrumentPresetName, song.cpp:2146-2165 + instrument_clip.cpp:3902-3919).
         String trackName =
             clipElem.hasAttribute("trackName") ? clipElem.getAttribute("trackName") : null;
         TrackModel targetTrack = null;
@@ -853,6 +862,20 @@ public class SongXmlParser {
               break;
             }
           }
+        }
+        if (targetTrack == null) {
+          boolean arrIsKitClip =
+              "KITS".equalsIgnoreCase(clipElem.getAttribute("instrumentPresetFolder"));
+          if (!arrIsKitClip) {
+            NodeList nrCheck = clipElem.getElementsByTagName("noteRow");
+            for (int r = 0; r < nrCheck.getLength() && !arrIsKitClip; r++) {
+              if (((Element) nrCheck.item(r)).hasAttribute("drumIndex")) {
+                arrIsKitClip = true;
+              }
+            }
+          }
+          targetTrack =
+              claimOutputForClip(clipElem, arrIsKitClip, project.getTracks(), java.util.Set.of());
         }
 
         // Fallback: FIFO queue match
@@ -930,6 +953,23 @@ public class SongXmlParser {
           }
 
           parseColumnControls(clipElem, clip);
+          if (targetTrack instanceof MidiTrackModel) {
+            int arrXmlLengthTicks = 0;
+            if (clipElem.hasAttribute("length")) {
+              try {
+                arrXmlLengthTicks = Integer.parseInt(clipElem.getAttribute("length"));
+              } catch (NumberFormatException ignored) {
+              }
+            }
+            int readUpTo =
+                arrXmlLengthTicks > 0
+                    ? arrXmlLengthTicks
+                    : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
+            Element midiParamsEl = getFirstChild(clipElem, "midiParams");
+            if (midiParamsEl != null) {
+              parseMidiParams(midiParamsEl, clip, readUpTo);
+            }
+          }
           targetTrack.addClip(clip);
           allArrangementClips.add(clip);
         }
@@ -2086,6 +2126,49 @@ public class SongXmlParser {
       if (main != null && !main.isBlank()) clip.setBendRange(Integer.parseInt(main.trim()));
       if (mpe != null && !mpe.isBlank()) clip.setBendRangeMPE(Integer.parseInt(mpe.trim()));
     } catch (NumberFormatException ignored) {
+    }
+  }
+
+  /**
+   * C {@code InstrumentClip::readMIDIParamsFromFile} ({@code instrument_clip.cpp:3033-3137}) —
+   * reads {@code <param><cc>...</cc><value>0x...</value></param>} entries inside {@code
+   * <midiParams>}.
+   */
+  private static void parseMidiParams(Element midiParamsEl, ClipModel clip, int readUpTo) {
+    NodeList children = midiParamsEl.getChildNodes();
+    for (int i = 0; i < children.getLength(); i++) {
+      if (!(children.item(i) instanceof Element paramEl)) {
+        continue;
+      }
+      if (!"param".equals(paramEl.getTagName())) {
+        continue;
+      }
+      String ccStr = DelugeXmlUtil.attrOrDirectChildText(paramEl, "cc");
+      String valueStr = DelugeXmlUtil.attrOrDirectChildText(paramEl, "value");
+      if (ccStr == null || ccStr.isBlank() || valueStr == null || valueStr.isBlank()) {
+        continue;
+      }
+      String trimmedCc = ccStr.trim();
+      if ("none".equalsIgnoreCase(trimmedCc)
+          || "bend".equalsIgnoreCase(trimmedCc)
+          || "aftertouch".equalsIgnoreCase(trimmedCc)) {
+        // C instrument_clip.cpp:3051-3070, 3093 — "none" skips value; pre-V3.2 "bend"/"aftertouch"
+        // migrated to expressionParams.
+        continue;
+      }
+      int cc;
+      try {
+        cc = Integer.parseInt(trimmedCc);
+      } catch (NumberFormatException e) {
+        continue;
+      }
+      if (cc < 0 || cc >= org.deluge.modulation.midi.MidiParamCollection.NUM_REAL_CC_NUMBERS) {
+        continue;
+      }
+      int baseValueQ31 = DelugeHexMapper.hexToQ31(valueStr);
+      java.util.List<org.deluge.modulation.automation.ParamNode> nodes =
+          DelugeHexMapper.parseHexAutomationNodes(valueStr, readUpTo);
+      clip.setMidiParam(cc, baseValueQ31, nodes);
     }
   }
 }

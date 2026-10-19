@@ -1380,12 +1380,16 @@ public class ProjectSerializer {
     }
     writer.writeOpeningTagEnd();
 
-    // Write soundParams / kitParams tag to set outputTypeWhileLoading and serialize track-level
-    // performance settings
+    // Write soundParams / kitParams / midiParams tag to set outputTypeWhileLoading and serialize
+    // track-level performance settings
     if (track instanceof KitTrackModel) {
       serializeKitParams(writer, (KitTrackModel) track, clip);
     } else if (track instanceof SynthTrackModel) {
       serializeSoundParams(writer, (SynthTrackModel) track, clip);
+    } else if (track instanceof org.deluge.model.MidiTrackModel) {
+      // C instrument_clip.cpp:2400-2402, 2414-2425 — MIDI_OUT clips write <midiParams> (when
+      // non-empty) and never write <soundParams>.
+      serializeMidiParams(writer, clip);
     } else {
       writer.writeOpeningTagBeginning("soundParams");
       writer.closeTag();
@@ -2136,6 +2140,33 @@ public class ProjectSerializer {
       case OFF -> "Off";
       default -> "HPLadder";
     };
+  }
+
+  /**
+   * C {@code MIDIParamCollection::writeToFile} ({@code midi_param_collection.cpp:322-348}) — writes
+   * {@code <midiParams><param><cc>...</cc><value>0x...</value></param></midiParams>} when the clip
+   * has MIDI CC parameters.
+   */
+  private static void serializeMidiParams(XMLSerializer writer, ClipModel clip) throws IOException {
+    List<org.deluge.modulation.midi.MidiParam> midiParams = clip.getMidiParams();
+    if (midiParams == null || midiParams.isEmpty()) {
+      return;
+    }
+    writer.writeOpeningTag("midiParams");
+    for (org.deluge.modulation.midi.MidiParam midiParam : midiParams) {
+      writer.writeOpeningTag("param");
+      if (midiParam.cc == org.deluge.modulation.midi.MidiParamCollection.CC_NUMBER_NONE) {
+        writer.writeTag("cc", "none");
+      } else {
+        writer.writeTag("cc", midiParam.cc);
+      }
+      String baseHex = String.format("0x%08X", midiParam.param.currentValue);
+      String hexValue =
+          DelugeHexMapper.formatHexWithAutomationNodes(baseHex, midiParam.param.nodes);
+      writer.writeTag("value", hexValue);
+      writer.writeClosingTag("param");
+    }
+    writer.writeClosingTag("midiParams");
   }
 
   private static String filterRouteToFirmwareString(int route) {

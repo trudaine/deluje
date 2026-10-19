@@ -26,6 +26,7 @@ public class PatternModel {
     private final Map<String, List<org.deluge.modulation.automation.ParamNode>> automationCurves =
         new HashMap<>();
     private final List<PatchCable> patchCables = new ArrayList<>();
+    private final List<org.deluge.modulation.midi.MidiParam> midiParams = new ArrayList<>();
     private final Map<Integer, Map<String, Float>> rowSoundParams = new HashMap<>();
     private final Map<String, Float> kitParams = new HashMap<>();
     private String instrumentSlot = "";
@@ -85,6 +86,9 @@ public class PatternModel {
       for (PatchCable pc : clip.getPatchCables()) {
         snap.patchCables.add(pc.deepCopy());
       }
+      for (org.deluge.modulation.midi.MidiParam mp : clip.getMidiParams()) {
+        snap.midiParams.add(mp.deepCopy());
+      }
       // Deep-copy row sound params
       for (int r = 0; r < clip.getRowCount(); r++) {
         if (clip.hasRowSoundParams(r)) {
@@ -137,6 +141,10 @@ public class PatternModel {
       clip.getPatchCables().clear();
       for (PatchCable pc : patchCables) {
         clip.getPatchCables().add(pc.deepCopy());
+      }
+      clip.clearMidiParams();
+      for (org.deluge.modulation.midi.MidiParam mp : midiParams) {
+        clip.setMidiParam(mp.cc, mp.param.currentValue, mp.param.nodes);
       }
       // Clear and apply row sound params
       for (int r = 0; r < rows; r++) {
