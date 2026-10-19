@@ -3,6 +3,7 @@ package org.deluge.modulation.automation;
 import java.util.ArrayList;
 import java.util.List;
 import org.deluge.firmware2.Functions;
+import org.deluge.firmware2.Param;
 
 public class AutoParam {
   public final int paramId;
@@ -98,8 +99,20 @@ public class AutoParam {
     return (int) (leftNode.value + (valueDistance * ticksSinceLeftNode) / ticksBetweenNodes);
   }
 
+  // C auto_param.h:138-142 — integer vs float interpolation increment + remainder.
   public int valueIncrementPerHalfTick;
+  public float valueIncrementPerHalfTickFloat;
+  public float interpolationIncrementRemainderFloat;
   public int ticksTilNextEvent = Integer.MAX_VALUE;
+
+  /**
+   * C param_set.cpp:398-407 (UnpatchedParamSet::shouldInterpolateWithFloat) — {@code
+   * UNPATCHED_TEMPO} stores {@code BPM * 100} and requires float interpolation so small BPM spans
+   * do not truncate {@code halfDistance / ticksTilNextNode} to zero.
+   */
+  public boolean shouldInterpolateWithFloat() {
+    return paramId == Param.UNPATCHED_TEMPO;
+  }
 
   /** C auto_param.h:121 (AutoParam::isAutomated). */
   public boolean isAutomated() {
@@ -113,7 +126,42 @@ public class AutoParam {
 
   /** C auto_param.h:134, auto_param.cpp:778-783 (AutoParam::hasInterpolationIncrement). */
   public boolean hasInterpolationIncrement() {
+    if (shouldInterpolateWithFloat()) {
+      return valueIncrementPerHalfTickFloat != 0.0f;
+    }
     return valueIncrementPerHalfTick != 0;
+  }
+
+  /** C auto_param.cpp:787-790 (AutoParam::resetInterpolationIncrement). */
+  public void resetInterpolationIncrement() {
+    valueIncrementPerHalfTick = 0;
+    valueIncrementPerHalfTickFloat = 0.0f;
+    interpolationIncrementRemainderFloat = 0.0f;
+  }
+
+  /** C auto_param.cpp:859-867 (AutoParam::calculateInterpolationIncrement). */
+  private void calculateInterpolationIncrement(int halfDistance, int ticksTilNextNode) {
+    if (shouldInterpolateWithFloat()) {
+      valueIncrementPerHalfTickFloat = (float) halfDistance / (float) ticksTilNextNode;
+    } else {
+      valueIncrementPerHalfTick = halfDistance / ticksTilNextNode;
+    }
+  }
+
+  /** C auto_param.cpp:899-912 (AutoParam::consumeFloatInterpolationIncrement). */
+  private int consumeFloatInterpolationIncrement(float valueIncrement) {
+    interpolationIncrementRemainderFloat += valueIncrement;
+    float wholeValueIncrement = truncf(interpolationIncrementRemainderFloat);
+    interpolationIncrementRemainderFloat -= wholeValueIncrement;
+    return (int) wholeValueIncrement;
+  }
+
+  /** IEEE-754 single-precision {@code truncf(x)} (round toward zero). */
+  private static float truncf(float x) {
+    if (Math.abs(x) >= 8388608.0f || Float.isNaN(x)) {
+      return x;
+    }
+    return (float) ((int) x);
   }
 
   /**
@@ -121,7 +169,7 @@ public class AutoParam {
    * (AutoParam::setupInterpolation).
    */
   public void setPlayPos(int pos, int loopLength, boolean reversed) {
-    valueIncrementPerHalfTick = 0;
+    resetInterpolationIncrement();
     if (nodes.isEmpty()) {
       return;
     }
@@ -160,7 +208,7 @@ public class AutoParam {
           ticksTilNextNode += effectiveLength;
         }
         if (ticksTilNextNode > 0) {
-          valueIncrementPerHalfTick = halfDistance / ticksTilNextNode;
+          calculateInterpolationIncrement(halfDistance, ticksTilNextNode);
         }
       }
     }
@@ -198,7 +246,7 @@ public class AutoParam {
 
     if (minDistance == 0 && nextNode != null) {
       // C auto_param.cpp:456 — stop any pre-existing interpolation upon reaching a node.
-      valueIncrementPerHalfTick = 0;
+      resetInterpolationIncrement();
 
       ParamNode followingNode = findNextNode(nextNode, reversed);
       boolean noNeedToJumpToValue = nextNode.interpolated && mayInterpolate;
@@ -217,7 +265,7 @@ public class AutoParam {
         // C auto_param.cpp:817, 865 — halfDistance / ticksTilNextNode (change per half-tick).
         int halfDistance = (followingNode.value >> 1) - (currentValue >> 1);
         if (halfDistance != 0 && dist > 0) {
-          valueIncrementPerHalfTick = halfDistance / dist;
+          calculateInterpolationIncrement(halfDistance, dist);
         }
       }
 
@@ -248,8 +296,14 @@ public class AutoParam {
     return dist;
   }
 
+  /** C auto_param.cpp:793-801 (AutoParam::reverseInterpolationIncrement). */
   public void notifyPingpongOccurred() {
-    valueIncrementPerHalfTick = -valueIncrementPerHalfTick;
+    if (shouldInterpolateWithFloat()) {
+      valueIncrementPerHalfTickFloat = -valueIncrementPerHalfTickFloat;
+    } else {
+      valueIncrementPerHalfTick = -valueIncrementPerHalfTick;
+    }
+    interpolationIncrementRemainderFloat = -interpolationIncrementRemainderFloat;
   }
 
   /**
@@ -269,7 +323,7 @@ public class AutoParam {
 
   /**
    * C auto_param.cpp:915-938 (AutoParam::applyValueIncrement) — adds {@code valueIncrement} with
-   * saturation and resets {@link #valueIncrementPerHalfTick} if a rail was hit.
+   * saturation and resets interpolation increment if a rail was hit.
    */
   private boolean applyValueIncrement(int valueIncrement) {
     if (valueIncrement == 0) {
@@ -281,23 +335,37 @@ public class AutoParam {
         (valueIncrement > 0 && oldValue > Integer.MAX_VALUE - valueIncrement)
             || (valueIncrement < 0 && oldValue < Integer.MIN_VALUE - valueIncrement);
     if (overflowOccurred) {
-      valueIncrementPerHalfTick = 0;
+      resetInterpolationIncrement();
     }
     return currentValue != oldValue;
   }
 
   /**
    * C auto_param.cpp:948-972 (AutoParam::tickSamples) — scales {@link #valueIncrementPerHalfTick}
-   * by {@code timePerTimerTickInverse} and {@code 6 * numSamples}.
+   * (or {@link #valueIncrementPerHalfTickFloat}) by {@code timePerTimerTickInverse} and {@code 6 *
+   * numSamples}.
    */
   public boolean tickSamples(int numSamples, int timePerTimerTickInverse) {
-    if (valueIncrementPerHalfTick == 0) {
+    if (!hasInterpolationIncrement()) {
       return false;
     }
-    int step =
-        Functions.multiply_32x32_rshift32_rounded(
-            valueIncrementPerHalfTick, timePerTimerTickInverse);
-    int valueIncrement = saturatingIncrement(step, 6L * numSamples);
+    int valueIncrement;
+    if (!shouldInterpolateWithFloat()) {
+      int step =
+          Functions.multiply_32x32_rshift32_rounded(
+              valueIncrementPerHalfTick, timePerTimerTickInverse);
+      valueIncrement = saturatingIncrement(step, 6L * numSamples);
+    } else {
+      // C auto_param.cpp:964-966, playback_handler.h:184 — getTimePerInternalTickInverse() is
+      // uint32_t, so convert via Integer.toUnsignedLong before casting to float.
+      float halfTicks =
+          (float) Integer.toUnsignedLong(timePerTimerTickInverse)
+              * (1.0f / 4294967296.0f)
+              * 6.0f
+              * numSamples;
+      valueIncrement =
+          consumeFloatInterpolationIncrement(valueIncrementPerHalfTickFloat * halfTicks);
+    }
     return applyValueIncrement(valueIncrement);
   }
 
@@ -306,10 +374,17 @@ public class AutoParam {
    * numTicks} half-ticks.
    */
   public boolean tickTicks(int numTicks) {
-    if (valueIncrementPerHalfTick == 0) {
+    if (!hasInterpolationIncrement()) {
       return false;
     }
-    int valueIncrement = saturatingIncrement(valueIncrementPerHalfTick, 2L * numTicks);
+    long halfTicks = 2L * numTicks;
+    int valueIncrement;
+    if (!shouldInterpolateWithFloat()) {
+      valueIncrement = saturatingIncrement(valueIncrementPerHalfTick, halfTicks);
+    } else {
+      valueIncrement =
+          consumeFloatInterpolationIncrement(valueIncrementPerHalfTickFloat * (float) halfTicks);
+    }
     return applyValueIncrement(valueIncrement);
   }
 }

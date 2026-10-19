@@ -140,8 +140,14 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   private transient boolean inArrangerMode = false;
   private transient int swingAmount = 0; // -49 to 49
   private transient int swingInterval = 6; // SyncLevel (e.g. 1/16)
+  // C song.h:481 — cached integer tempo (BPM * 100) for updateBPMFromAutomation (song.cpp:6062).
+  private transient int intBpm = 12000;
   private transient org.deluge.modulation.params.ParamManager paramManager =
       new org.deluge.modulation.params.ParamManager();
+
+  public org.deluge.modulation.params.ParamManager getSongParamManager() {
+    return paramManager;
+  }
 
   public void calculateNoteFrequencies() {
     int baseFreqQ24 = (int) Math.round((baseFrequencyHz / 440.0) * 1027294024.0);
@@ -245,6 +251,10 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     return swungTicksTilNextEvent;
   }
 
+  public void setSwungTicksTilNextEvent(int ticks) {
+    this.swungTicksTilNextEvent = ticks;
+  }
+
   public int getLastSwungTickActioned() {
     return lastSwungTickActioned;
   }
@@ -254,11 +264,14 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   }
 
   public void doTickForward(int posIncrement) {
+    lastSwungTickActioned += posIncrement;
     swungTicksTilNextEvent = Integer.MAX_VALUE;
 
-    // Process global song automation
+    // C arrangement.cpp:120-128, song.cpp:5822 — step global song automation with infinite loop.
     if (paramManager.mightContainAutomation()) {
-      paramManager.processCurrentPos(0, 0, false, false, true);
+      paramManager.processCurrentPos(
+          posIncrement, lastSwungTickActioned, Integer.MAX_VALUE, false, false, false);
+      applyAutomatedSongParams();
       swungTicksTilNextEvent = Math.min(swungTicksTilNextEvent, paramManager.ticksTilNextEvent);
     }
 
@@ -705,6 +718,15 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
     float old = this.bpm;
     // C song.cpp:3120, playback_handler.cpp:2265: tempoBPM > 0 up to ~20,000 BPM (no 300 BPM cap).
     this.bpm = Math.max(1.0f, Math.min(20000.0f, bpm));
+    this.intBpm = (int) (this.bpm * 100.0f);
+    rawSongParamHex.remove("tempo");
+    paramManager.setUnpatchedValue(org.deluge.firmware2.Param.UNPATCHED_TEMPO, this.intBpm);
+    org.deluge.modulation.automation.AutoParam tempoParam =
+        paramManager.getAutomatedParam(org.deluge.firmware2.Param.UNPATCHED_TEMPO);
+    if (tempoParam != null) {
+      tempoParam.currentValue = this.intBpm;
+      tempoParam.resetInterpolationIncrement();
+    }
     if (old != this.bpm) {
       undoRedoStack.push(new Consequence.ProjectParamConsequence(this, "bpm", old, this.bpm));
     }
@@ -1746,6 +1768,297 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
       songParamAutomationCurves.remove(param);
     } else {
       songParamAutomationCurves.put(param, new ArrayList<>(nodes));
+    }
+    rebuildSongParamManager();
+  }
+
+  /**
+   * Maps a {@code <songParams>} XML attribute/tag key to its C++ {@code UnpatchedGlobal} / {@code
+   * UnpatchedShared} parameter ID (C global_effectable.cpp:835-1037,
+   * mod_controllable_audio.cpp:500-714, param.h:177-237).
+   */
+  public static int songParamIdFromKey(String key) {
+    if (key == null) return -1;
+    return switch (key) {
+      case "reverbAmount" -> org.deluge.firmware2.Param.UNPATCHED_REVERB_SEND_AMOUNT;
+      case "volume" -> org.deluge.firmware2.Param.UNPATCHED_VOLUME;
+      case "pan" -> org.deluge.firmware2.Param.UNPATCHED_PAN;
+      case "sidechainCompressorShape" -> org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE;
+      case "sidechainCompressorVolume" -> org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_VOLUME;
+      case "modFXRate" -> org.deluge.firmware2.Param.UNPATCHED_MOD_FX_RATE;
+      case "modFXDepth" -> org.deluge.firmware2.Param.UNPATCHED_MOD_FX_DEPTH;
+      case "modFXOffset" -> org.deluge.firmware2.Param.UNPATCHED_MOD_FX_OFFSET;
+      case "modFXFeedback" -> org.deluge.firmware2.Param.UNPATCHED_MOD_FX_FEEDBACK;
+      case "stutterRate" -> org.deluge.firmware2.Param.UNPATCHED_STUTTER_RATE;
+      case "sampleRateReduction" -> org.deluge.firmware2.Param.UNPATCHED_SAMPLE_RATE_REDUCTION;
+      case "bitCrush" -> org.deluge.firmware2.Param.UNPATCHED_BITCRUSHING;
+      case "compressorThreshold" -> org.deluge.firmware2.Param.UNPATCHED_COMPRESSOR_THRESHOLD;
+      case "lpfMorph" -> org.deluge.firmware2.Param.UNPATCHED_LPF_MORPH;
+      case "hpfMorph" -> org.deluge.firmware2.Param.UNPATCHED_HPF_MORPH;
+      case "pitchAdjust" -> org.deluge.firmware2.Param.UNPATCHED_PITCH_ADJUST;
+      case "tempo" -> org.deluge.firmware2.Param.UNPATCHED_TEMPO;
+      case "arpeggiatorRate" -> org.deluge.firmware2.Param.UNPATCHED_ARP_RATE;
+      case "arpeggiatorGate" -> org.deluge.firmware2.Param.UNPATCHED_ARP_GATE;
+      case "delayRate" -> org.deluge.firmware2.Param.UNPATCHED_DELAY_RATE;
+      case "delayFeedback" -> org.deluge.firmware2.Param.UNPATCHED_DELAY_AMOUNT;
+      case "lpfFrequency" -> org.deluge.firmware2.Param.UNPATCHED_LPF_FREQ;
+      case "lpfResonance" -> org.deluge.firmware2.Param.UNPATCHED_LPF_RES;
+      case "hpfFrequency" -> org.deluge.firmware2.Param.UNPATCHED_HPF_FREQ;
+      case "hpfResonance" -> org.deluge.firmware2.Param.UNPATCHED_HPF_RES;
+      case "eqBass" -> org.deluge.firmware2.Param.UNPATCHED_BASS;
+      case "eqTreble" -> org.deluge.firmware2.Param.UNPATCHED_TREBLE;
+      case "eqBassFrequency" -> org.deluge.firmware2.Param.UNPATCHED_BASS_FREQ;
+      case "eqTrebleFrequency" -> org.deluge.firmware2.Param.UNPATCHED_TREBLE_FREQ;
+      default -> -1;
+    };
+  }
+
+  private int resolveSongParamBaseQ31(String key) {
+    String raw = rawSongParamHex.get(key);
+    if (raw != null && !raw.isBlank()) {
+      return org.deluge.xml.DelugeHexMapper.hexToQ31(raw);
+    }
+    return switch (key) {
+      case "reverbAmount" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamReverbAmount);
+      case "volume" -> org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamVolume);
+      case "pan" -> org.deluge.xml.DelugeHexMapper.floatToQ31(songParamPan);
+      case "sidechainCompressorShape" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamSidechainShape);
+      case "sidechainCompressorVolume" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamSidechainVolume);
+      case "modFXRate" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamModFXRate);
+      case "modFXDepth" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamModFXDepth);
+      case "modFXOffset" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamModFXOffset);
+      case "modFXFeedback" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamModFXFeedback);
+      case "stutterRate" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamStutterRate);
+      case "sampleRateReduction" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamSampleRateReduction);
+      case "bitCrush" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamBitCrush);
+      case "compressorThreshold" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamCompressorThreshold);
+      case "lpfMorph" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamLpfMorph);
+      case "hpfMorph" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamHpfMorph);
+      case "tempo" -> (int) (bpm * 100.0f);
+      case "delayRate" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamDelayRate);
+      case "delayFeedback" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamDelayFeedback);
+      case "lpfFrequency" -> org.deluge.xml.DelugeHexMapper.hzToQ31(songParamLpfFrequency);
+      case "lpfResonance" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamLpfResonance);
+      case "hpfFrequency" -> org.deluge.xml.DelugeHexMapper.hzToQ31(songParamHpfFrequency);
+      case "hpfResonance" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamHpfResonance);
+      case "eqBass" -> org.deluge.xml.DelugeHexMapper.floatToQ31(songParamEqBass);
+      case "eqTreble" -> org.deluge.xml.DelugeHexMapper.floatToQ31(songParamEqTreble);
+      case "eqBassFrequency" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamEqBassFrequency);
+      case "eqTrebleFrequency" ->
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(songParamEqTrebleFrequency);
+      default -> 0;
+    };
+  }
+
+  /**
+   * Synchronizes {@link #paramManager} from {@link #songParamAutomationCurves} and base {@code
+   * <songParams>} values (C song.cpp:2070-2073, 2129, 3120-3140).
+   */
+  public void rebuildSongParamManager() {
+    paramManager.automatedParams.clear();
+    paramManager.ticksTilNextEvent = 0;
+    paramManager.ticksSkipped = 0;
+    this.intBpm = (int) (this.bpm * 100.0f);
+
+    String[] allKnownKeys = {
+      "reverbAmount",
+      "volume",
+      "pan",
+      "sidechainCompressorShape",
+      "sidechainCompressorVolume",
+      "modFXRate",
+      "modFXDepth",
+      "modFXOffset",
+      "modFXFeedback",
+      "stutterRate",
+      "sampleRateReduction",
+      "bitCrush",
+      "compressorThreshold",
+      "lpfMorph",
+      "hpfMorph",
+      "pitchAdjust",
+      "tempo",
+      "arpeggiatorRate",
+      "arpeggiatorGate",
+      "delayRate",
+      "delayFeedback",
+      "lpfFrequency",
+      "lpfResonance",
+      "hpfFrequency",
+      "hpfResonance",
+      "eqBass",
+      "eqTreble",
+      "eqBassFrequency",
+      "eqTrebleFrequency"
+    };
+    for (String key : allKnownKeys) {
+      int paramId = songParamIdFromKey(key);
+      if (paramId >= 0) {
+        paramManager.setUnpatchedValue(paramId, resolveSongParamBaseQ31(key));
+      }
+    }
+
+    for (Map.Entry<String, List<org.deluge.modulation.automation.ParamNode>> entry :
+        songParamAutomationCurves.entrySet()) {
+      int paramId = songParamIdFromKey(entry.getKey());
+      List<org.deluge.modulation.automation.ParamNode> nodes = entry.getValue();
+      if (paramId < 0 || nodes == null || nodes.isEmpty()) {
+        continue;
+      }
+      org.deluge.modulation.automation.AutoParam ap =
+          new org.deluge.modulation.automation.AutoParam(paramId);
+      ap.currentValue = paramManager.getUnpatchedValue(paramId);
+      for (org.deluge.modulation.automation.ParamNode node : nodes) {
+        ap.addNode(node.pos, node.value, node.interpolated);
+      }
+      paramManager.automatedParams.add(ap);
+    }
+  }
+
+  /**
+   * Applies automated {@link #paramManager} values back to {@link ProjectModel}, including {@code
+   * Song::updateBPMFromAutomation} (C song.cpp:6062-6070). Does not push undo consequences or clear
+   * {@link #rawSongParamHex}.
+   */
+  public void applyAutomatedSongParams() {
+    boolean anySongParamChanged = false;
+    for (org.deluge.modulation.automation.AutoParam ap : paramManager.automatedParams) {
+      int v = ap.currentValue;
+      paramManager.setUnpatchedValue(ap.paramId, v);
+      switch (ap.paramId) {
+        case org.deluge.firmware2.Param.UNPATCHED_TEMPO -> {
+          // C song.cpp:6065-6069 — ignore 0, update BPM when currentTempo != intBPM.
+          if (v != 0 && v != intBpm) {
+            intBpm = v;
+            this.bpm = Math.max(1.0f, Math.min(20000.0f, (float) v / 100.0f));
+            notifyBpmChanged(this.bpm);
+          }
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_REVERB_SEND_AMOUNT -> {
+          songParamReverbAmount = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_VOLUME -> {
+          songParamVolume = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_PAN -> {
+          songParamPan = org.deluge.xml.DelugeHexMapper.q31ToFloat(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE -> {
+          songParamSidechainShape = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_VOLUME -> {
+          songParamSidechainVolume = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_MOD_FX_RATE -> {
+          songParamModFXRate = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_MOD_FX_DEPTH -> {
+          songParamModFXDepth = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_MOD_FX_OFFSET -> {
+          songParamModFXOffset = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_MOD_FX_FEEDBACK -> {
+          songParamModFXFeedback = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_STUTTER_RATE -> {
+          songParamStutterRate = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_SAMPLE_RATE_REDUCTION -> {
+          songParamSampleRateReduction =
+              org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_BITCRUSHING -> {
+          songParamBitCrush = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_COMPRESSOR_THRESHOLD -> {
+          songParamCompressorThreshold =
+              org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_LPF_MORPH -> {
+          songParamLpfMorph = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_HPF_MORPH -> {
+          songParamHpfMorph = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_DELAY_RATE -> {
+          songParamDelayRate = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_DELAY_AMOUNT -> {
+          songParamDelayFeedback = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_LPF_FREQ -> {
+          songParamLpfFrequency = org.deluge.xml.DelugeHexMapper.q31ToHz(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_LPF_RES -> {
+          songParamLpfResonance = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_HPF_FREQ -> {
+          songParamHpfFrequency = org.deluge.xml.DelugeHexMapper.q31ToHz(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_HPF_RES -> {
+          songParamHpfResonance = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_BASS -> {
+          songParamEqBass = org.deluge.xml.DelugeHexMapper.q31ToFloat(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_TREBLE -> {
+          songParamEqTreble = org.deluge.xml.DelugeHexMapper.q31ToFloat(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_BASS_FREQ -> {
+          songParamEqBassFrequency = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_TREBLE_FREQ -> {
+          songParamEqTrebleFrequency = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+          anySongParamChanged = true;
+        }
+        default -> {}
+      }
+    }
+    if (anySongParamChanged) {
+      notifySongParamsChanged();
     }
   }
 

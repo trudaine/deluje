@@ -17,7 +17,7 @@ public class ParamManager {
   private MidiParamCollection.MidiCcSender midiCcSender;
   private final ExpressionParamSet expressionParamSet = new ExpressionParamSet();
   private ExpressionParamSet.ExpressionListener expressionListener;
-  private final int[] unpatchedValues = new int[Param.UNPATCHED_PITCH_ADJUST + 1];
+  private final int[] unpatchedValues = new int[Param.UNPATCHED_TEMPO + 1];
 
   public int getUnpatchedValue(int paramId) {
     if (paramId < 0 || paramId >= unpatchedValues.length) return 0;

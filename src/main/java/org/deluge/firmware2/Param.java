@@ -142,6 +142,8 @@ public final class Param {
   public static final int UNPATCHED_VOLUME = 129;
   public static final int UNPATCHED_SIDECHAIN_VOLUME = 130;
   public static final int UNPATCHED_PITCH_ADJUST = 131;
+  // C param.h:235 (params::UnpatchedGlobal::UNPATCHED_TEMPO).
+  public static final int UNPATCHED_TEMPO = 132;
 
   public static final int STATIC_SIDECHAIN_ATTACK = 162;
   public static final int STATIC_SIDECHAIN_RELEASE = 163;
