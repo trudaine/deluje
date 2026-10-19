@@ -408,8 +408,23 @@ class Dx7SharedPatchLfoAndRoutingParityTest {
               ((opSwitch >> op) & 1) != 0,
               "Carrier slot " + op + " in algo " + algo + " must be enabled in opSwitch");
           assertTrue(
-              (syx[op * 21 + 16] & 0xFF) >= 85,
-              "Carrier slot " + op + " output level at +16 must be >= 85");
+              (syx[op * 21 + 16] & 0xFF) >= DelugeatorRandomizer.MIN_DX7_CARRIER_LEVEL,
+              "Carrier slot "
+                  + op
+                  + " output level at +16 must be >= "
+                  + DelugeatorRandomizer.MIN_DX7_CARRIER_LEVEL);
+          assertTrue(
+              (syx[op * 21] & 0xFF) >= DelugeatorRandomizer.MIN_DX7_CARRIER_R1,
+              "Carrier slot "
+                  + op
+                  + " attack rate R1 at +0 must be >= "
+                  + DelugeatorRandomizer.MIN_DX7_CARRIER_R1);
+          assertTrue(
+              (syx[op * 21 + 4] & 0xFF) >= DelugeatorRandomizer.MIN_DX7_CARRIER_L1,
+              "Carrier slot "
+                  + op
+                  + " attack level L1 at +4 must be >= "
+                  + DelugeatorRandomizer.MIN_DX7_CARRIER_L1);
           int carrierCoarse = syx[op * 21 + 18] & 0xFF;
           assertTrue(
               carrierCoarse == 1 || carrierCoarse == 2,
@@ -424,7 +439,7 @@ class Dx7SharedPatchLfoAndRoutingParityTest {
       FirmwareSound compiled = compileSynth(model);
       compiled.triggerNote(60, 110, 0);
       long absEnergy = 0;
-      for (int b = 0; b < 8; b++) {
+      for (int b = 0; b < 24; b++) {
         int[] block = new int[128 * 2];
         compiled.fw2Sound.renderInternal(block, 128, null);
         for (int sample : block) {
@@ -435,6 +450,38 @@ class Dx7SharedPatchLfoAndRoutingParityTest {
           absEnergy > 1_000_000L,
           "Randomized DX7 patch #" + iter + " (algo=" + algo + ") must render audible audio");
     }
+
+    // Deterministic worst-case corner check tied to DelugeatorRandomizer floors: single-carrier
+    // algo=10, min carrier level, max velocity attenuation kvs=7 at vel=110, slowest R1, lowest L1.
+    byte[] worstCase = Dx7Patch.createInitVoiceBytes();
+    worstCase[Dx7Patch.OFF_ALGORITHM] = 10;
+    worstCase[Dx7Patch.OFF_OP_SWITCH] = (byte) (1 << 5);
+    int op1Off = 5 * 21;
+    worstCase[op1Off + 0] = (byte) DelugeatorRandomizer.MIN_DX7_CARRIER_R1;
+    worstCase[op1Off + 4] = (byte) DelugeatorRandomizer.MIN_DX7_CARRIER_L1;
+    worstCase[op1Off + 15] = 7;
+    worstCase[op1Off + 16] = (byte) DelugeatorRandomizer.MIN_DX7_CARRIER_LEVEL;
+    worstCase[op1Off + 18] = 1;
+    worstCase[op1Off + 19] = 0;
+    SynthTrackModel worstModel = new SynthTrackModel("Worst-Case Single-Carrier Swell");
+    worstModel.setSynthMode(1);
+    worstModel.setOsc1Type("DX7");
+    worstModel.setOscMix(1.0f);
+    worstModel.setDx7Patch(Dx7Patch.bytesToHex(worstCase));
+    worstModel.setEngineType(1);
+    FirmwareSound worstCompiled = compileSynth(worstModel);
+    worstCompiled.triggerNote(60, 110, 0);
+    long worstEnergy = 0;
+    for (int b = 0; b < 24; b++) {
+      int[] block = new int[128 * 2];
+      worstCompiled.fw2Sound.renderInternal(block, 128, null);
+      for (int sample : block) {
+        worstEnergy += Math.abs((long) sample);
+      }
+    }
+    assertTrue(
+        worstEnergy > 1_000_000L,
+        "Worst-case single-carrier DX7 swell (algo=10, R1=62, L1=85, OL=88, KVS=7) must be audible");
   }
 
   @Test

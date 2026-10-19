@@ -9,9 +9,10 @@ import org.deluge.model.ArrangerClip;
  * framebuffer. No Swing, no controller, no instance state — so the colour of every cell in a known
  * arrangement can be pinned by a unit test.
  *
- * <p>This is a faithful extraction of the arranger clip-instance render at {@code
- * SwingGridPanel#refreshInPlace} (~line 3921), which itself mirrors the C {@code arranger_view.cpp
- * renderRow} (~2356) and {@code ClipInstance::getColour} (clip_instance.cpp:31):
+ * <p>This is a faithful extraction of the arranger clip-instance render in {@link
+ * ArrangerGridPanel#refreshInPlace} ({@code ArrangerGridPanel.java:600-645}), which mirrors C
+ * {@code arranger_view.cpp:2360-2442} and {@code ClipInstance::getColour} ({@code
+ * clip_instance.cpp:31-37}):
  *
  * <ul>
  *   <li>Cell colour is derived from the placement's clip <b>section</b> ({@code
@@ -84,7 +85,7 @@ final class ArrangementProjector {
     return best;
   }
 
-  /** Resolves the final LED colour for a covered column. Mirrors SwingGridPanel.java:3932-3951. */
+  /** Resolves the final LED colour for a covered column (shared with ArrangerGridPanel.java). */
   private static PadCell cellFor(ArrangerClip ac, int colTick, int ticksPerColumn) {
     return PadCell.of(colourFor(ac, colTick, ticksPerColumn), true);
   }
@@ -98,24 +99,30 @@ final class ArrangementProjector {
    */
   static Color colourFor(ArrangerClip ac, int colTick, int ticksPerColumn) {
     org.deluge.model.ClipModel clip = ac.clip();
-    // ClipInstance::getColour (clip_instance.cpp): grey monochrome(128) for a missing OR
+    org.deluge.model.AudioTrackModel.AudioClip audioClip = ac.audioClip();
+    boolean hasBackingClip = clip != null || audioClip != null;
+    boolean arrOnly =
+        clip != null
+            ? clip.isArrangementOnly()
+            : (audioClip != null && audioClip.isArrangementOnly());
+    int section =
+        clip != null ? clip.getSection() : (audioClip != null ? audioClip.getSection() : 255);
+    // ClipInstance::getColour (clip_instance.cpp:31-37): grey monochrome(128) for a missing OR
     // arrangement-only clip, otherwise the section colour.
-    boolean grey = clip == null || clip.isArrangementOnly();
-    Color base =
-        grey ? DelugeColour.monochrome(128) : DelugeColour.sectionColour(clip.getSection());
+    boolean grey = !hasBackingClip || arrOnly;
+    Color base = grey ? DelugeColour.monochrome(128) : DelugeColour.sectionColour(section);
     boolean isHead = ac.startTicks() >= colTick && ac.startTicks() < colTick + ticksPerColumn;
 
-    // Head square = the full instance colour (arranger_view.cpp:2362), whether or not it has a
+    // Head square = the full instance colour (arranger_view.cpp:2375-2376), whether or not it has a
     // clip.
     if (isHead) {
       return base;
     }
-    // Follower squares (arranger_view.cpp:2388-2423):
-    if (clip == null) {
+    // Follower squares (arranger_view.cpp:2388-2439):
+    if (!hasBackingClip) {
       return DelugeColour.dim(base, 4); // no backing clip yet -> dim preview
     }
-    boolean arrOnly = clip.isArrangementOnly();
-    int loopLen = clip.getLoopLength();
+    int loopLen = clip != null ? clip.getLoopLength() : audioClip.getLength();
     int rel = colTick - ac.startTicks();
     boolean loopStart = loopLen > 0 && (rel % loopLen == 0);
     if (loopStart) {

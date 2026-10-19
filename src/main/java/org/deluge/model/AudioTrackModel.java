@@ -30,7 +30,11 @@ public class AudioTrackModel extends TrackModel {
     private boolean isArmedForRecording = false;
     private int length = 768; // ticks
     private int colourOffset = 0;
-    private int section = 0;
+    private int section = 0; // C clip.cpp:51 (255 = arrangement-only, clip.cpp:204-206)
+    private boolean arrangementOnly = false;
+    private int transpose = 0; // C audio_clip.cpp:1074-1076, 1172-1174
+    private int cents = 0; // C audio_clip.cpp:1077-1079, 1176-1178
+    private ClipModel.PlayDirection sequenceDirection = ClipModel.PlayDirection.FORWARD;
 
     /**
      * C Clip::launchStyle (clip.cpp:60, 764-766; functions.cpp:1283-1310): "default", "fill" or
@@ -238,6 +242,46 @@ public class AudioTrackModel extends TrackModel {
 
     public void setSection(int v) {
       this.section = v;
+    }
+
+    public boolean isArrangementOnly() {
+      return arrangementOnly;
+    }
+
+    public void setArrangementOnly(boolean arrangementOnly) {
+      this.arrangementOnly = arrangementOnly;
+      if (arrangementOnly) {
+        // C clip.cpp:204-206, song.cpp:2135 — arrangement-only clips always have section == 255.
+        this.section = 255;
+      } else if (this.section == 255) {
+        // C clip.cpp:51
+        this.section = 0;
+      }
+    }
+
+    public int getTranspose() {
+      return transpose;
+    }
+
+    public void setTranspose(int transpose) {
+      this.transpose = transpose;
+    }
+
+    public int getCents() {
+      return cents;
+    }
+
+    public void setCents(int cents) {
+      this.cents = cents;
+    }
+
+    public ClipModel.PlayDirection getSequenceDirection() {
+      return sequenceDirection;
+    }
+
+    public void setSequenceDirection(ClipModel.PlayDirection sequenceDirection) {
+      this.sequenceDirection =
+          sequenceDirection != null ? sequenceDirection : ClipModel.PlayDirection.FORWARD;
     }
 
     public boolean isBeingEdited() {

@@ -343,19 +343,22 @@ public class ArrangerGridPanel extends SwingGridPanel {
             int col = c + scrollOffsetX;
             org.deluge.model.ArrangerClip placement =
                 arrangerController.getArrangerClipAt(currentTrack, c);
-            if (placement != null && placement.clip() != null) {
+            if (placement != null) {
+              int colTick = arrangerController.arrangerTickForColumn(c);
+              int colTicks = arrangerController.arrangerTicksPerColumn();
+              Color arrCellColour = ArrangementProjector.colourFor(placement, colTick, colTicks);
               clipBtn.setText(
                   "<html><center><font size='3'><b>"
-                      + placement.clip().getName()
+                      + arrangerClipDisplayName(placement)
                       + "</b><br>Bar "
                       + (col + 1)
                       + "</font></center></html>");
               if (clipBtn instanceof DelugePadButton pad) {
-                pad.setBaseColor(trackColors[Math.floorMod(currentTrack, trackColors.length)]);
+                pad.setBaseColor(arrCellColour);
                 pad.setIntensity(1.0f);
                 pad.setActive(true);
               } else {
-                clipBtn.setBackground(trackColors[Math.floorMod(currentTrack, trackColors.length)]);
+                clipBtn.setBackground(arrCellColour);
                 clipBtn.setForeground(Color.BLACK);
               }
             } else {
@@ -441,7 +444,7 @@ public class ArrangerGridPanel extends SwingGridPanel {
           org.deluge.model.ArrangerClip ac =
               arrangerController.getArrangerClipAt(currentTrack, colId);
           if (ac != null) {
-            String clipName = ac.clip() != null ? ac.clip().getName() : "Arrangement Clip";
+            String clipName = arrangerClipDisplayName(ac);
             clipBtn.setToolTipText(
                 "<html><body style='font-size: 9px; font-family: sans-serif;'><b>Arranger Clip: "
                     + clipName
@@ -610,10 +613,10 @@ public class ArrangerGridPanel extends SwingGridPanel {
             }
 
             int col = c + scrollOffsetX;
-            if (hasClip && ac != null && ac.clip() != null) {
+            if (hasClip && ac != null) {
               clipBtn.setText(
                   "<html><center><font size='3'><b>"
-                      + ac.clip().getName()
+                      + arrangerClipDisplayName(ac)
                       + "</b><br>Bar "
                       + (col + 1)
                       + "</font></center></html>");
@@ -647,6 +650,17 @@ public class ArrangerGridPanel extends SwingGridPanel {
         }
       }
     }
+  }
+
+  private static String arrangerClipDisplayName(org.deluge.model.ArrangerClip ac) {
+    if (ac.clip() != null) {
+      return ac.clip().getName();
+    }
+    if (ac.audioClip() != null) {
+      String name = ac.audioClip().getClipName();
+      return (name != null && !name.isEmpty()) ? name : "AUDIO CLIP";
+    }
+    return "WHITE CLIP";
   }
 
   @Override

@@ -203,6 +203,9 @@ public class ExportHelper {
       if (!acList.isEmpty()) {
         for (ArrangerClip ac : acList) {
           ClipModel clip = ac.clip();
+          if (clip == null) {
+            continue;
+          }
           long clipStartTick = ac.startTicks();
           long clipDuration = ac.durationTicks();
           exportClipNotesToMidiTrack(midiTrack, clip, isKit, clipStartTick, clipDuration);

@@ -126,4 +126,39 @@ class ArrangementProjectorTest {
     assertEquals(
         DelugeColour.dim(grey, 2), cells[0][1].colour(), "arrangement-only loop start dim(2)");
   }
+
+  @Test
+  void audioClip_sessionAndArrangementOnlyColoursAndLoopBoundaries() {
+    int zoom = 96;
+    org.deluge.model.AudioTrackModel.AudioClip sessionAudio =
+        new org.deluge.model.AudioTrackModel.AudioClip();
+    sessionAudio.setSection(5);
+    sessionAudio.setLength(192);
+
+    org.deluge.model.AudioTrackModel.AudioClip arrOnlyAudio =
+        new org.deluge.model.AudioTrackModel.AudioClip();
+    arrOnlyAudio.setLength(96);
+    arrOnlyAudio.setArrangementOnly(true);
+
+    List<ArrangerClip> timeline =
+        List.of(
+            new ArrangerClip(0, null, sessionAudio, 0, 384),
+            new ArrangerClip(0, null, arrOnlyAudio, 384, 192));
+    int[] rowToTrack = {0};
+
+    PadCell[][] cells = ArrangementProjector.project(timeline, rowToTrack, 1, 8, 0, zoom);
+    Color sectionCol = DelugeColour.sectionColour(5);
+    Color grey = DelugeColour.monochrome(128);
+
+    assertEquals(sectionCol, cells[0][0].colour(), "session audio head uses section colour");
+    assertEquals(
+        DelugeColour.dim(sectionCol, 3),
+        cells[0][2].colour(),
+        "session audio loop boundary at 192 ticks uses dim(section, 3)");
+    assertEquals(grey, cells[0][4].colour(), "arrangement-only audio head uses grey");
+    assertEquals(
+        DelugeColour.dim(grey, 2),
+        cells[0][5].colour(),
+        "arrangement-only audio loop boundary at +96 ticks uses dim(grey, 2)");
+  }
 }
