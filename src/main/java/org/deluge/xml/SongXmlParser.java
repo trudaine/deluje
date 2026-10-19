@@ -850,7 +850,8 @@ public class SongXmlParser {
       for (int i = 0; i < arrClipNodeList.getLength(); i++) {
         Element clipElem = (Element) arrClipNodeList.item(i);
 
-        // Match target track by trackName
+        // Match target track by trackName (Java save) or C claimOutput linkage (midiChannel /
+        // instrumentPresetName, song.cpp:2146-2165 + instrument_clip.cpp:3902-3919).
         String trackName =
             clipElem.hasAttribute("trackName") ? clipElem.getAttribute("trackName") : null;
         TrackModel targetTrack = null;
@@ -861,6 +862,20 @@ public class SongXmlParser {
               break;
             }
           }
+        }
+        if (targetTrack == null) {
+          boolean arrIsKitClip =
+              "KITS".equalsIgnoreCase(clipElem.getAttribute("instrumentPresetFolder"));
+          if (!arrIsKitClip) {
+            NodeList nrCheck = clipElem.getElementsByTagName("noteRow");
+            for (int r = 0; r < nrCheck.getLength() && !arrIsKitClip; r++) {
+              if (((Element) nrCheck.item(r)).hasAttribute("drumIndex")) {
+                arrIsKitClip = true;
+              }
+            }
+          }
+          targetTrack =
+              claimOutputForClip(clipElem, arrIsKitClip, project.getTracks(), java.util.Set.of());
         }
 
         // Fallback: FIFO queue match

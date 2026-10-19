@@ -236,4 +236,59 @@ class MidiParamsAutomationParityTest {
       MidiEngine.instance = previousEngine;
     }
   }
+
+  @Test
+  void arrangementOnlyMidiClipMatchesByMidiChannelAndLiveEditWakesTimeline(@TempDir Path tempDir)
+      throws Exception {
+    // Hardware Deluge writes midiChannel (no trackName) on <arrangementOnlyTracks> clips.
+    // Track 0 is a synth, Track 1 is MIDI channel 5 (0-indexed).
+    String xml =
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <song firmwareVersion="4.1.4" earliestCompatibleFirmware="4.1.0" bpm="120.0">
+          <instruments>
+            <sound presetName="LeadSynth" presetFolder="SYNTHS" />
+            <midi presetName="ExternalBox" channel="5" />
+          </instruments>
+          <sessionClips />
+          <arrangementOnlyTracks>
+            <instrumentClip midiChannel="5" length="96">
+              <midiParams>
+                <param>
+                  <cc>10</cc>
+                  <value>0x2000000080000000000000004000000000000018</value>
+                </param>
+              </midiParams>
+            </instrumentClip>
+          </arrangementOnlyTracks>
+        </song>
+        """;
+
+    File inputFile = tempDir.resolve("arr_midi.xml").toFile();
+    Files.writeString(inputFile.toPath(), xml);
+
+    ProjectModel parsed = FirmwareFactory.createSong(DelugeXmlParser.parseSong(inputFile));
+    assertEquals(2, parsed.getTracks().size());
+    MidiTrackModel midiTrack = (MidiTrackModel) parsed.getTracks().get(1);
+    assertEquals(1, midiTrack.getClips().size());
+
+    ClipModel arrClip = midiTrack.getClips().get(0);
+    assertTrue(arrClip.isArrangementOnly());
+    assertEquals(1, arrClip.getMidiParams().size());
+    assertEquals(10, arrClip.getMidiParams().get(0).cc);
+
+    // Advance pos 0 so ticksTilNextEvent is set to 24 (the node at 0x18).
+    arrClip.setPos(0);
+    arrClip.processCurrentPos(0);
+    assertTrue(arrClip.getTicksTilNextEvent() > 0);
+
+    // Live edit via setMidiParam must reset ticksTilNextEvent = 0 and wake the clip immediately.
+    arrClip.setMidiParam(
+        71,
+        0,
+        List.of(
+            new org.deluge.modulation.automation.ParamNode(6, 0x30000000, false),
+            new org.deluge.modulation.automation.ParamNode(12, 0x60000000, false)));
+    assertEquals(0, arrClip.getTicksTilNextEvent());
+  }
 }

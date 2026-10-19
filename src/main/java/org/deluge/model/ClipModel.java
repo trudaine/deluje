@@ -765,6 +765,9 @@ public class ClipModel extends TimelineCounter {
       if (existing.cc == cc) {
         midiParams.set(insertIdx, updated);
         paramManager.getMidiParamCollection().setParam(cc, baseValueQ31, nodes);
+        // C param_collection.cpp:46-48, param_manager.cpp:466-468 — wake timeline on next tick.
+        paramManager.ticksTilNextEvent = 0;
+        expectEvent();
         return;
       }
       if (existing.cc > cc) {
@@ -774,11 +777,15 @@ public class ClipModel extends TimelineCounter {
     }
     midiParams.add(insertIdx, updated);
     paramManager.getMidiParamCollection().setParam(cc, baseValueQ31, nodes);
+    paramManager.ticksTilNextEvent = 0;
+    expectEvent();
   }
 
   public void clearMidiParams() {
     midiParams.clear();
     paramManager.getMidiParamCollection().clear();
+    paramManager.ticksTilNextEvent = 0;
+    expectEvent();
   }
 
   private void syncMidiParamsToParamManager() {
@@ -792,6 +799,8 @@ public class ClipModel extends TimelineCounter {
     } else {
       paramManager.setMidiCcSender(null);
     }
+    paramManager.ticksTilNextEvent = 0;
+    expectEvent();
   }
 
   public void setAutomationCurve(
