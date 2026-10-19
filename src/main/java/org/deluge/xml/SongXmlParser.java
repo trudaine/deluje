@@ -1798,6 +1798,19 @@ public class SongXmlParser {
         project.setSongFilterRoute(0);
       }
     }
+    // C song.cpp:2098 -> global_effectable.cpp:1063-1066 & mod_controllable_audio.cpp:736-739 —
+    // song-level modFXType and clippingAmount.
+    String songModFxType = readDirectAttrOrChild(songNode, "modFXType");
+    if (songModFxType != null && !songModFxType.isEmpty()) {
+      project.setSongModFXType(songModFxType);
+    }
+    String songClipping = readDirectAttrOrChild(songNode, "clippingAmount");
+    if (songClipping != null && !songClipping.isEmpty()) {
+      try {
+        project.setSongClippingAmount(Integer.parseInt(songClipping));
+      } catch (NumberFormatException ignored) {
+      }
+    }
 
     // ── Reverb ──
     NodeList reverbNodes = songNode.getElementsByTagName("reverb");
