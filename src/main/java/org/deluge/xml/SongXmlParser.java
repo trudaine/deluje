@@ -1730,7 +1730,7 @@ public class SongXmlParser {
     if (val != null && !val.isEmpty()) {
       return val.trim();
     }
-    Element child = getFirstChild(parent, tagName);
+    Element child = directChild(parent, tagName);
     if (child == null) {
       return null;
     }
@@ -1812,91 +1812,140 @@ public class SongXmlParser {
       }
     }
 
-    // ── Reverb ──
-    NodeList reverbNodes = songNode.getElementsByTagName("reverb");
-    if (reverbNodes.getLength() > 0) {
-      Element rev = (Element) reverbNodes.item(0);
+    // ── Reverb (C song.cpp:1447-1524) — direct child of <song>, never a descendant <sound>. ──
+    Element rev = directChild(songNode, "reverb");
+    if (rev != null) {
       readSongIntAttr(rev, "roomSize", project::setReverbRoomSize, 0.6f);
-      readSongIntAttr(rev, "dampening", project::setReverbDampening, 0.5f);
-      readSongRawAttr(rev, "width", project::setReverbWidth, 0.5f);
-      readSongRawAttr(rev, "hpf", project::setReverbHpf, 0.0f);
-      // Pan is bipolar (negative=left, positive=right, matching C audio_engine.cpp's signed
-      // panAmount) - unlike width/hpf, it must NOT go through readSongRawAttr's Math.abs(), or a
-      // left-panned reverb would silently become right-panned instead.
-      readSongSignedRawAttr(rev, "pan", project::setReverbPan, 0.0f);
-      if (rev.hasAttribute("model")) {
-        project.setReverbModel(Integer.parseInt(rev.getAttribute("model")));
+      readSongIntAttr(rev, "dampening", project::setReverbDampening, 0.72f);
+      String widthRaw = readDirectAttrOrChild(rev, "width");
+      if (widthRaw != null) {
+        try {
+          int widthInt = (int) (long) Long.decode(widthRaw);
+          if (widthInt == Integer.MIN_VALUE) {
+            // C song.cpp:1465-1467 — V2.1.0-beta1 and alphas saved width as -2147483648 instead of
+            // 2147483647; fix on read.
+            widthInt = Integer.MAX_VALUE;
+          }
+          project.setReverbWidth(
+              Math.max(0.0f, Math.min(1.0f, (float) widthInt / Integer.MAX_VALUE)));
+        } catch (NumberFormatException ignored) {
+        }
       }
-      // Nested compressor inside reverb
-      NodeList revCompNodes = rev.getElementsByTagName("compressor");
-      if (revCompNodes.getLength() > 0) {
-        Element rc = (Element) revCompNodes.item(0);
+      readSongRawAttr(rev, "hpf", project::setReverbHpf, 0.0f);
+      readSongRawAttr(rev, "lpf", project::setReverbLpf, 1.0f);
+      // Pan is bipolar (negative=left, positive=right, matching C audio_engine.cpp's signed
+      // panAmount) - unlike width/hpf/lpf, it must NOT go through readSongRawAttr's Math.abs(), or
+      // a left-panned reverb would silently become right-panned instead.
+      readSongSignedRawAttr(rev, "pan", project::setReverbPan, 0.0f);
+      String modelRaw = readDirectAttrOrChild(rev, "model");
+      if (modelRaw != null) {
+        try {
+          project.setReverbModel(Integer.parseInt(modelRaw));
+        } catch (NumberFormatException ignored) {
+        }
+      }
+      // Nested compressor inside reverb (C song.cpp:1484-1514).
+      Element rc = directChild(rev, "compressor");
+      if (rc != null) {
         readSongRawAttr(rc, "attack", project::setReverbCompressorAttack, 0.0f);
         readSongRawAttr(rc, "release", project::setReverbCompressorRelease, 0.0f);
-        if (rc.hasAttribute("syncLevel")) {
-          project.setReverbCompressorSyncLevel(Integer.parseInt(rc.getAttribute("syncLevel")));
+        String syncRaw = readDirectAttrOrChild(rc, "syncLevel");
+        if (syncRaw != null) {
+          try {
+            project.setReverbCompressorSyncLevel(Integer.parseInt(syncRaw));
+          } catch (NumberFormatException ignored) {
+          }
         }
         readSongRawAttr(rc, "compHPF", project::setReverbCompHpf, 0.0f);
         readSongRawAttr(rc, "compBlend", project::setReverbCompBlend, 0.5f);
-        readSongRawAttr(rc, "shape", project::setReverbCompressorShape, 0.0f);
-        readSongRawAttr(rc, "volume", project::setReverbCompressorVolume, 0.0f);
+        // C song.cpp:1495-1502 — volume (< 0 means auto mode) and shape are signed Q31 integers.
+        readSongSignedRawAttr(rc, "shape", project::setReverbCompressorShape, 0.0f);
+        readSongSignedRawAttr(rc, "volume", project::setReverbCompressorVolume, 0.0f);
       }
     }
 
-    // ── Delay ──
-    NodeList delayNodes = songNode.getElementsByTagName("delay");
-    if (delayNodes.getLength() > 0) {
-      Element del = (Element) delayNodes.item(0);
-      if (del.hasAttribute("pingPong"))
-        project.setDelayPingPong(Integer.parseInt(del.getAttribute("pingPong")));
-      if (del.hasAttribute("analog"))
-        project.setDelayAnalog(Integer.parseInt(del.getAttribute("analog")));
-      if (del.hasAttribute("syncLevel"))
-        project.setDelaySyncLevel(Integer.parseInt(del.getAttribute("syncLevel")));
-      if (del.hasAttribute("syncType"))
-        project.setDelaySyncType(
-            DelugeXmlUtil.syncTypeFromFile(Integer.parseInt(del.getAttribute("syncType"))));
+    // ── Delay (C mod_controllable_audio.cpp:787-841) ──
+    Element del = directChild(songNode, "delay");
+    if (del != null) {
+      String pp = readDirectAttrOrChild(del, "pingPong");
+      if (pp != null) {
+        try {
+          project.setDelayPingPong(Integer.parseInt(pp));
+        } catch (NumberFormatException ignored) {
+        }
+      }
+      String analog = readDirectAttrOrChild(del, "analog");
+      if (analog != null) {
+        try {
+          project.setDelayAnalog(Integer.parseInt(analog));
+        } catch (NumberFormatException ignored) {
+        }
+      }
+      String syncLevel = readDirectAttrOrChild(del, "syncLevel");
+      if (syncLevel != null) {
+        try {
+          project.setDelaySyncLevel(Integer.parseInt(syncLevel));
+        } catch (NumberFormatException ignored) {
+        }
+      }
+      String syncType = readDirectAttrOrChild(del, "syncType");
+      if (syncType != null) {
+        try {
+          project.setDelaySyncType(DelugeXmlUtil.syncTypeFromFile(Integer.parseInt(syncType)));
+        } catch (NumberFormatException ignored) {
+        }
+      }
     }
 
-    // ── Sidechain ──
-    NodeList sidechainNodes = songNode.getElementsByTagName("sidechain");
-    if (sidechainNodes.getLength() > 0) {
-      Element sc = (Element) sidechainNodes.item(0);
+    // ── Sidechain (C mod_controllable_audio.cpp:883-919) ──
+    Element sc = directChild(songNode, "sidechain");
+    if (sc != null) {
       readSongRawAttr(sc, "attack", project::setSidechainAttack, 0.0f);
       readSongRawAttr(sc, "release", project::setSidechainRelease, 0.0f);
-      if (sc.hasAttribute("syncLevel"))
-        project.setSidechainSyncLevel(Integer.parseInt(sc.getAttribute("syncLevel")));
-      if (sc.hasAttribute("syncType"))
-        project.setSidechainSyncType(
-            DelugeXmlUtil.syncTypeFromFile(Integer.parseInt(sc.getAttribute("syncType"))));
+      String syncLevel = readDirectAttrOrChild(sc, "syncLevel");
+      if (syncLevel != null) {
+        try {
+          project.setSidechainSyncLevel(Integer.parseInt(syncLevel));
+        } catch (NumberFormatException ignored) {
+        }
+      }
+      String syncType = readDirectAttrOrChild(sc, "syncType");
+      if (syncType != null) {
+        try {
+          project.setSidechainSyncType(DelugeXmlUtil.syncTypeFromFile(Integer.parseInt(syncType)));
+        } catch (NumberFormatException ignored) {
+        }
+      }
     }
 
-    // ── Audio Compressor ──
-    NodeList compNodes = songNode.getElementsByTagName("audioCompressor");
-    if (compNodes.getLength() > 0) {
-      Element ac = (Element) compNodes.item(0);
+    // ── Audio Compressor (C mod_controllable_audio.cpp:843-881) + songCompressor fallback ──
+    Element ac = directChild(songNode, "audioCompressor");
+    if (ac == null) {
+      ac = directChild(songNode, "songCompressor");
+    }
+    if (ac != null) {
       readSongRawAttr(ac, "attack", project::setCompressorAttack, 0.0f);
       readSongRawAttr(ac, "release", project::setCompressorRelease, 0.0f);
       readSongRawAttr(ac, "thresh", project::setCompressorThreshold, 0.0f);
       readSongRawAttr(ac, "ratio", project::setCompressorRatio, 0.0f);
+      readSongRawAttr(ac, "compHPF", project::setCompressorHpf, 0.0f);
+      readSongRawAttr(ac, "compBlend", project::setCompressorBlend, 1.0f);
     }
 
-    // ── Song Compressor fallback (SONG006667 variant) ──
-    if (compNodes.getLength() == 0) {
-      NodeList scNodes = songNode.getElementsByTagName("songCompressor");
-      if (scNodes.getLength() > 0) {
-        Element sc = (Element) scNodes.item(0);
-        readSongRawAttr(sc, "attack", project::setCompressorAttack, 0.0f);
-        readSongRawAttr(sc, "release", project::setCompressorRelease, 0.0f);
-        readSongRawAttr(sc, "thresh", project::setCompressorThreshold, 0.0f);
-        readSongRawAttr(sc, "ratio", project::setCompressorRatio, 0.0f);
-      }
+    // ── Stutter (C mod_controllable_audio.cpp:760-785) ──
+    Element st = directChild(songNode, "stutter");
+    if (st != null) {
+      project.setSongStutterQuantized(
+          Math.max(0, Math.min(1, attrOrDirectChildInt(st, "quantized", 1))) != 0);
+      project.setSongStutterReversed(
+          Math.max(0, Math.min(1, attrOrDirectChildInt(st, "reverse", 0))) != 0);
+      project.setSongStutterPingPong(
+          Math.max(0, Math.min(1, attrOrDirectChildInt(st, "pingPong", 0))) != 0);
     }
 
     // ── SongParams ──
-    NodeList spNodes = songNode.getElementsByTagName("songParams");
-    if (spNodes.getLength() > 0) {
-      Element sp = (Element) spNodes.item(0);
+    Element sp = directChild(songNode, "songParams");
+    if (sp != null) {
       readSongHexAttr(sp, "reverbAmount", project::setSongParamReverbAmount, true);
       readSongHexAttr(sp, "volume", project::setSongParamVolume, true);
       readSongHexAttr(sp, "pan", project::setSongParamPan, false);
@@ -1921,38 +1970,34 @@ public class SongXmlParser {
         project.setCurrentFilterType(filterType);
       }
       // Child elements
-      NodeList spDelay = sp.getElementsByTagName("delay");
-      if (spDelay.getLength() > 0) {
-        Element d = (Element) spDelay.item(0);
-        readSongHexAttr(d, "rate", project::setSongParamDelayRate, true);
-        readSongHexAttr(d, "feedback", project::setSongParamDelayFeedback, true);
+      Element spDelay = directChild(sp, "delay");
+      if (spDelay != null) {
+        readSongHexAttr(spDelay, "rate", project::setSongParamDelayRate, true);
+        readSongHexAttr(spDelay, "feedback", project::setSongParamDelayFeedback, true);
       }
-      NodeList spLpf = sp.getElementsByTagName("lpf");
-      if (spLpf.getLength() > 0) {
-        Element l = (Element) spLpf.item(0);
-        readSongHzHexAttr(l, "frequency", project::setSongParamLpfFrequency);
-        readSongHexAttr(l, "resonance", project::setSongParamLpfResonance, true);
+      Element spLpf = directChild(sp, "lpf");
+      if (spLpf != null) {
+        readSongHzHexAttr(spLpf, "frequency", project::setSongParamLpfFrequency);
+        readSongHexAttr(spLpf, "resonance", project::setSongParamLpfResonance, true);
         readSongHexAttr(
-            l, "morph", project::setSongParamLpfMorph, true); // C global_effectable.cpp:933-937
+            spLpf, "morph", project::setSongParamLpfMorph, true); // C global_effectable.cpp:933-937
       }
-      NodeList spHpf = sp.getElementsByTagName("hpf");
-      if (spHpf.getLength() > 0) {
-        Element h = (Element) spHpf.item(0);
-        readSongHzHexAttr(h, "frequency", project::setSongParamHpfFrequency);
-        readSongHexAttr(h, "resonance", project::setSongParamHpfResonance, true);
+      Element spHpf = directChild(sp, "hpf");
+      if (spHpf != null) {
+        readSongHzHexAttr(spHpf, "frequency", project::setSongParamHpfFrequency);
+        readSongHexAttr(spHpf, "resonance", project::setSongParamHpfResonance, true);
         readSongHexAttr(
-            h, "morph", project::setSongParamHpfMorph, true); // C global_effectable.cpp:956-960
+            spHpf, "morph", project::setSongParamHpfMorph, true); // C global_effectable.cpp:956-960
       }
-      NodeList spEq = sp.getElementsByTagName("equalizer");
-      if (spEq.getLength() == 0) {
-        spEq = sp.getElementsByTagName("eq");
+      Element spEq = directChild(sp, "equalizer");
+      if (spEq == null) {
+        spEq = directChild(sp, "eq");
       }
-      if (spEq.getLength() > 0) {
-        Element eq = (Element) spEq.item(0);
-        readSongHexAttr(eq, "bass", project::setSongParamEqBass, false);
-        readSongHexAttr(eq, "treble", project::setSongParamEqTreble, false);
-        readSongHexAttr(eq, "bassFrequency", project::setSongParamEqBassFrequency, true);
-        readSongHexAttr(eq, "trebleFrequency", project::setSongParamEqTrebleFrequency, true);
+      if (spEq != null) {
+        readSongHexAttr(spEq, "bass", project::setSongParamEqBass, false);
+        readSongHexAttr(spEq, "treble", project::setSongParamEqTreble, false);
+        readSongHexAttr(spEq, "bassFrequency", project::setSongParamEqBassFrequency, true);
+        readSongHexAttr(spEq, "trebleFrequency", project::setSongParamEqTrebleFrequency, true);
       }
 
       // C song.cpp:2070-2073 — GlobalEffectableForClip::readParamsFromFile(..., 2147483647).
@@ -2017,9 +2062,8 @@ public class SongXmlParser {
 
   private static void readSongIntAttr(
       Element el, String attr, java.util.function.Consumer<Float> setter, float def) {
-    if (!el.hasAttribute(attr)) return;
-    String val = el.getAttribute(attr).trim();
-    if (val.isEmpty()) return;
+    String val = readDirectAttrOrChild(el, attr);
+    if (val == null || val.isEmpty()) return;
     try {
       // Deluge stores these as raw int32 bit patterns; treat as hex→float
       setter.accept(Math.abs(DelugeHexMapper.hexToFloat(val)));
@@ -2030,9 +2074,8 @@ public class SongXmlParser {
 
   private static void readSongRawAttr(
       Element el, String attr, java.util.function.Consumer<Float> setter, float def) {
-    if (!el.hasAttribute(attr)) return;
-    String val = el.getAttribute(attr).trim();
-    if (val.isEmpty()) return;
+    String val = readDirectAttrOrChild(el, attr);
+    if (val == null || val.isEmpty()) return;
     try {
       setter.accept(Math.abs(DelugeHexMapper.hexToFloat(val)));
     } catch (Exception e) {
@@ -2042,9 +2085,8 @@ public class SongXmlParser {
   /** Like {@link #readSongRawAttr} but preserves sign - for bipolar values such as reverb pan. */
   private static void readSongSignedRawAttr(
       Element el, String attr, java.util.function.Consumer<Float> setter, float def) {
-    if (!el.hasAttribute(attr)) return;
-    String val = el.getAttribute(attr).trim();
-    if (val.isEmpty()) return;
+    String val = readDirectAttrOrChild(el, attr);
+    if (val == null || val.isEmpty()) return;
     try {
       setter.accept(DelugeHexMapper.hexToFloat(val));
     } catch (Exception e) {

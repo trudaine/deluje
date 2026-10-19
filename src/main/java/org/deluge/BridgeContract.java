@@ -276,6 +276,7 @@ public final class BridgeContract {
   // ── Extended reverb globals ─────────────────────────────────────────────
   public static final String G_REVERB_WIDTH = "g_reverb_width";
   public static final String G_REVERB_HPF = "g_reverb_hpf";
+  public static final String G_REVERB_LPF = "g_reverb_lpf";
   public static final String G_REVERB_PAN = "g_reverb_pan";
   public static final String G_REVERB_MODEL = "g_reverb_model";
   public static final String G_REVERB_COMP_ATTACK = "g_reverb_comp_attack";
@@ -302,6 +303,7 @@ public final class BridgeContract {
   public static final String G_MASTER_COMP_ATTACK = "g_master_comp_attack";
   public static final String G_MASTER_COMP_RELEASE = "g_master_comp_release";
   public static final String G_MASTER_COMP_RATIO = "g_master_comp_ratio";
+  public static final String G_MASTER_COMP_HPF = "g_master_comp_hpf";
   public static final String G_MASTER_COMP_BLEND = "g_master_comp_blend";
   public static final String G_MASTER_COMP = "g_master_comp"; // threshold (existing)
   // ── Transpose / humanize ─────────────────────────────────────────────────
@@ -561,18 +563,19 @@ public final class BridgeContract {
   private float delayFb = 0.4f;
   private float reverbRoom = 0.6f;
   private float reverbDamp = 0.72f;
-  // ── Extended reverb scalars ──
+  // ── Extended reverb scalars (C song.cpp:179-188, sidechain.cpp:29-30) ──
   private float reverbWidth = 1.0f;
   private float reverbHpf = 0.0f;
+  private float reverbLpf = 1.0f;
   private float reverbPan = 0.0f;
   private int reverbModel = 0; // 0=FREEVERB, 1=MUTABLE, 2=DIGITAL
-  private float reverbCompAttack = 0.0f;
-  private float reverbCompRelease = 0.0f;
-  private int reverbCompSyncLevel = 0;
+  private float reverbCompAttack = 327244.0f / 2147483647.0f;
+  private float reverbCompRelease = 936.0f / 2147483647.0f;
+  private int reverbCompSyncLevel = 5;
   private float reverbCompHpf = 0.0f;
   private float reverbCompBlend = 0.5f;
-  private float reverbCompShape = 0.0f;
-  private float reverbCompVolume = 0.0f;
+  private float reverbCompShape = -601295438.0f / 2147483647.0f;
+  private float reverbCompVolume = -21474836.0f / 2147483647.0f;
   private float reverbExcitation = 0.0f;
   private int reverbMode = 0; // 0=RESONATOR, 1=KARPLUS_STRONG
   // ── Extended delay scalars ──
@@ -585,10 +588,11 @@ public final class BridgeContract {
   private float sidechainRelease = 0.0f;
   private int sidechainSyncLevel = 0;
   private int sidechainSyncType = 0;
-  // ── Master compressor scalars ──
-  private float masterCompAttack = 0.0f;
-  private float masterCompRelease = 0.0f;
-  private float masterCompRatio = 0.0f;
+  // ── Master compressor scalars (C rms_feedback.cpp:22-31) ──
+  private float masterCompAttack = (float) (5 << 24) / 2147483647.0f;
+  private float masterCompRelease = (float) (5 << 24) / 2147483647.0f;
+  private float masterCompRatio = (float) (64 << 24) / 2147483647.0f;
+  private float masterCompHpf = 0.0f;
   private float masterCompBlend = 1.0f;
   // ── Transpose / humanize ──
   private int transpose = 0;
@@ -745,6 +749,7 @@ public final class BridgeContract {
     // ── Extended reverb scalars ──
     setGlobalFloat(G_REVERB_WIDTH, (double) reverbWidth);
     setGlobalFloat(G_REVERB_HPF, (double) reverbHpf);
+    setGlobalFloat(G_REVERB_LPF, (double) reverbLpf);
     setGlobalFloat(G_REVERB_PAN, (double) reverbPan);
     setGlobalInt(G_REVERB_MODEL, (long) reverbModel);
     setGlobalFloat(G_REVERB_COMP_ATTACK, (double) reverbCompAttack);
@@ -773,6 +778,7 @@ public final class BridgeContract {
     setGlobalFloat(G_MASTER_COMP_ATTACK, (double) masterCompAttack);
     setGlobalFloat(G_MASTER_COMP_RELEASE, (double) masterCompRelease);
     setGlobalFloat(G_MASTER_COMP_RATIO, (double) masterCompRatio);
+    setGlobalFloat(G_MASTER_COMP_HPF, (double) masterCompHpf);
     setGlobalFloat(G_MASTER_COMP_BLEND, (double) masterCompBlend);
 
     // ── Transpose / humanize ──
@@ -1987,6 +1993,15 @@ public final class BridgeContract {
     return reverbHpf;
   }
 
+  public void setReverbLpf(double v) {
+    this.reverbLpf = (float) v;
+    if (vm != null) setGlobalFloat(G_REVERB_LPF, v);
+  }
+
+  public double getReverbLpf() {
+    return reverbLpf;
+  }
+
   public void setReverbPan2(double v) {
     this.reverbPan = (float) v;
     if (vm != null) setGlobalFloat(G_REVERB_PAN, v);
@@ -2187,6 +2202,15 @@ public final class BridgeContract {
 
   public double getMasterCompRatio() {
     return masterCompRatio;
+  }
+
+  public void setMasterCompHpf(double v) {
+    this.masterCompHpf = (float) v;
+    if (vm != null) setGlobalFloat(G_MASTER_COMP_HPF, v);
+  }
+
+  public double getMasterCompHpf() {
+    return masterCompHpf;
   }
 
   public void setMasterCompBlend(double v) {
