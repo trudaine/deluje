@@ -590,8 +590,8 @@ public class SwingDelugeApp extends JFrame {
       }
 
       float masterVol = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_VOL);
-      fwEngine.masterVolumeAdjustmentL = (int) (masterVol * 2147483647.0);
-      fwEngine.masterVolumeAdjustmentR = fwEngine.masterVolumeAdjustmentL;
+      float masterPan = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_PAN);
+      fwEngine.setMasterGainAndPan(masterVol, masterPan);
     }
     if (!model.getTracks().isEmpty()) {
       int activeTrk = clipPanel != null ? clipPanel.getEditedModelTrack() : 0;

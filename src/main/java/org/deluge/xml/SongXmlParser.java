@@ -18,6 +18,87 @@ import org.w3c.dom.NodeList;
 public class SongXmlParser {
   private static final Logger LOG = Logger.getLogger(SongXmlParser.class.getName());
 
+  /**
+   * Matches C++ {@code Deserializer.cpp:62}, {@code song.cpp:2117-2124}, {@code
+   * firmware_version.h.in:46}, {@code firmware_version.cpp:6-20}, and {@code semver.h:27-37}
+   * verbatim when evaluating {@code song_firmware_version >= FirmwareVersion::official({3, 1, 0,
+   * "alpha2"})}:
+   *
+   * <ul>
+   *   <li>Missing/blank {@code firmwareVersion} defaults to {@code Type::OFFICIAL {0, 0, 0}} -&gt;
+   *       {@code false}.
+   *   <li>Community builds ({@code c...}/{@code C...}, {@code Type::COMMUNITY = 254}) and unparsed
+   *       {@code Type::UNKNOWN = 255} versions rank strictly above {@code Type::OFFICIAL = 0} -&gt;
+   *       {@code true}.
+   *   <li>Official {@code major.minor.patch[-preRelease][+build]} compares numerically on {@code
+   *       (major, minor, patch)} against {@code (3, 1, 0)}; at {@code 3.1.0}, no pre-release
+   *       ({@code "3.1.0"} final) ranks above pre-release ({@code true}), while pre-release tags
+   *       compare lexicographically against {@code "alpha2"} ({@code "alpha"} -&gt; {@code false},
+   *       {@code "alpha2"}/{@code "beta"} -&gt; {@code true}).
+   * </ul>
+   */
+  public static boolean isFirmwareAtLeast310Alpha2(String rawVersion) {
+    if (rawVersion == null || rawVersion.isBlank()) {
+      return false;
+    }
+    String s = rawVersion.trim();
+    if (s.startsWith("c") || s.startsWith("C")) {
+      return true;
+    }
+    if (s.startsWith("v") || s.startsWith("V")) {
+      s = s.substring(1);
+    }
+    int plusIdx = s.indexOf('+');
+    if (plusIdx >= 0) {
+      s = s.substring(0, plusIdx);
+    }
+    String preRelease = "";
+    int dashIdx = s.indexOf('-');
+    if (dashIdx >= 0) {
+      preRelease = s.substring(dashIdx + 1);
+      s = s.substring(0, dashIdx);
+    }
+    String[] parts = s.split("\\.", -1);
+    if (parts.length < 2) {
+      return true;
+    }
+    int major;
+    int minor;
+    int patch = 0;
+    try {
+      major = Integer.parseInt(parts[0]);
+      minor = Integer.parseInt(parts[1]);
+      if (parts.length >= 3 && !parts[2].isEmpty()) {
+        int end = 0;
+        while (end < parts[2].length() && Character.isDigit(parts[2].charAt(end))) {
+          end++;
+        }
+        if (end == 0) {
+          return true;
+        }
+        patch = Integer.parseInt(parts[2].substring(0, end));
+        if (end < parts[2].length() && preRelease.isEmpty()) {
+          preRelease = parts[2].substring(end);
+        }
+      }
+    } catch (NumberFormatException e) {
+      return true;
+    }
+    if (major != 3) {
+      return major > 3;
+    }
+    if (minor != 1) {
+      return minor > 1;
+    }
+    if (patch != 0) {
+      return patch > 0;
+    }
+    if (preRelease.isEmpty()) {
+      return true;
+    }
+    return preRelease.compareTo("alpha2") >= 0;
+  }
+
   public static ProjectModel parseSong(java.io.File xmlFile) throws Exception {
     // try-with-resources: parseSong(InputStream, ...) reads the whole document into a DOM, so the
     // stream is finished by the time we return. Leaving it open leaks a descriptor per load and,
@@ -76,22 +157,35 @@ public class SongXmlParser {
       project.setArrangementAutoScrollOn(
           "1".equals(songNode.getAttribute("arrangementAutoScrollOn")));
     }
-    if (songNode.hasAttribute("inputTickMagnitude")) {
-      project.setInputTickMagnitude(Integer.parseInt(songNode.getAttribute("inputTickMagnitude")));
+    // C song.cpp:1688-1702, 2117-2124, Deserializer.cpp:62, firmware_version.cpp:6-20 —
+    // firmwareVersion and inputTickMagnitude govern swingInterval conversion and can appear as
+    // either <song .../> attributes or direct child elements in any tag order.
+    String firmwareVersionRaw = DelugeXmlUtil.attrOrDirectChildText(songNode, "firmwareVersion");
+    boolean firmwareAtLeast310Alpha2 = isFirmwareAtLeast310Alpha2(firmwareVersionRaw);
+
+    String inputTickMagRaw = DelugeXmlUtil.attrOrDirectChildText(songNode, "inputTickMagnitude");
+    if (inputTickMagRaw != null && !inputTickMagRaw.isBlank()) {
+      project.setInputTickMagnitude(Integer.parseInt(inputTickMagRaw.trim()));
       // The C converts every sound's sync levels with the current song's magnitude.
       InstrumentXmlParser.SONG_INPUT_TICK_MAGNITUDE.set(project.getInputTickMagnitude());
     }
     if (songNode.hasAttribute("rootNote")) {
       project.setKey(songNode.getAttribute("rootNote"));
     }
-    if (songNode.hasAttribute("swingAmount")) {
-      project.setSwingAmount(Integer.parseInt(songNode.getAttribute("swingAmount")));
+    String swingAmountRaw = DelugeXmlUtil.attrOrDirectChildText(songNode, "swingAmount");
+    if (swingAmountRaw != null && !swingAmountRaw.isBlank()) {
+      project.setSwingAmount(Integer.parseInt(swingAmountRaw.trim()));
     }
-    if (songNode.hasAttribute("swingInterval")) {
-      int fileValue = Integer.parseInt(songNode.getAttribute("swingInterval"));
-      project.setSwingInterval(
-          DelugeXmlUtil.convertSyncLevelFromFileValueToInternalValue(
-              fileValue, project.getInputTickMagnitude()));
+    String swingIntervalRaw = DelugeXmlUtil.attrOrDirectChildText(songNode, "swingInterval");
+    if (swingIntervalRaw != null && !swingIntervalRaw.isBlank()) {
+      int rawInterval = Integer.parseInt(swingIntervalRaw.trim());
+      if (firmwareAtLeast310Alpha2) {
+        project.setSwingInterval(
+            DelugeXmlUtil.convertSyncLevelFromFileValueToInternalValue(
+                rawInterval, project.getInputTickMagnitude()));
+      } else {
+        project.setSwingInterval(rawInterval);
+      }
     }
     if (songNode.hasAttribute("timePerTimerTick")) {
       project.setTimePerTimerTick(Integer.parseInt(songNode.getAttribute("timePerTimerTick")));

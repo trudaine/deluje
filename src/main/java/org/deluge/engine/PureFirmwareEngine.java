@@ -107,14 +107,19 @@ public class PureFirmwareEngine {
       bridge.setGlobalInt(BridgeContract.G_CURRENT_STEP, -1L);
     }
 
+    org.deluge.model.ProjectModel project = playbackHandler.getProject();
+    if (project != null) {
+      pushLiveAutomatedSongParamsToBridge(bridge, project);
+    }
+
     float bpm = (float) bridge.getGlobalFloat(BridgeContract.G_BPM);
     if (bpm != currentBpm) {
       setBpm(bpm);
     }
 
     float masterVol = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_VOL);
-    audioEngine.masterVolumeAdjustmentL = (int) (masterVol * 2147483647.0);
-    audioEngine.masterVolumeAdjustmentR = audioEngine.masterVolumeAdjustmentL;
+    float masterPan = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_PAN);
+    audioEngine.setMasterGainAndPan(masterVol, masterPan);
 
     // Sync master compressor settings (C mod_controllable_audio.cpp:843-880)
     float compThreshold = (float) bridge.getGlobalFloat(BridgeContract.G_MASTER_COMP);
@@ -175,7 +180,6 @@ public class PureFirmwareEngine {
     }
 
     // Sync track mute states from the bridge globals to Java engine sounds safely on EDT
-    org.deluge.model.ProjectModel project = playbackHandler.getProject();
     if (project != null) {
       javax.swing.SwingUtilities.invokeLater(
           () -> {
@@ -261,8 +265,13 @@ public class PureFirmwareEngine {
     // Instead of clobbering per-track paramNeutralValues, we apply global song macros
     // post-summation on the master buffer. Unipolar 0..1 params map across the full signed Q31
     // span via unipolarToQ31Param so 0.0 -> 0x80000000 ("off") and 0.5 -> 0 ("neutral").
-    audioEngine.masterModFxType =
+    org.deluge.firmware2.ModFx.ModFXType nextModFxType =
         FirmwareAudioEngine.toFw2ModFxType(project != null ? project.getSongModFXType() : "none");
+    if (nextModFxType == org.deluge.firmware2.ModFx.ModFXType.GRAIN
+        && audioEngine.masterModFxType != org.deluge.firmware2.ModFx.ModFXType.GRAIN) {
+      audioEngine.masterGranular.clearGrainFXBuffer();
+    }
+    audioEngine.masterModFxType = nextModFxType;
     audioEngine.masterModFxCurrentParam =
         project != null ? project.getModFXCurrentParam() : "offset";
     audioEngine.songClippingAmount = project != null ? project.getSongClippingAmount() : 0;
@@ -353,6 +362,101 @@ public class PureFirmwareEngine {
         spHpfMorph,
         project != null ? project.getSongHpfMode() : org.deluge.model.FilterMode.LADDER_12,
         project != null ? project.getSongFilterRoute() : 0);
+  }
+
+  private void pushLiveAutomatedSongParamsToBridge(
+      BridgeContract bridge, org.deluge.model.ProjectModel project) {
+    org.deluge.modulation.params.ParamManager sm = project.getSongParamManager();
+    int[] activeParamIds;
+    synchronized (sm) {
+      int n = sm.automatedParams.size();
+      if (n == 0) {
+        return;
+      }
+      activeParamIds = new int[n];
+      int count = 0;
+      for (int i = 0; i < n; i++) {
+        org.deluge.modulation.automation.AutoParam ap = sm.automatedParams.get(i);
+        if (ap != null && !ap.nodes.isEmpty()) {
+          activeParamIds[count++] = ap.paramId;
+        }
+      }
+      if (count == 0) {
+        return;
+      }
+      if (count < n) {
+        activeParamIds = java.util.Arrays.copyOf(activeParamIds, count);
+      }
+    }
+    for (int paramId : activeParamIds) {
+      switch (paramId) {
+        case org.deluge.firmware2.Param.UNPATCHED_TEMPO ->
+            bridge.setGlobalFloat(BridgeContract.G_BPM, project.getBpm());
+        case org.deluge.firmware2.Param.UNPATCHED_VOLUME ->
+            bridge.setGlobalFloat(BridgeContract.G_SP_VOLUME, project.getSongParamVolume());
+        case org.deluge.firmware2.Param.UNPATCHED_PAN ->
+            bridge.setGlobalFloat(BridgeContract.G_SP_PAN, project.getSongParamPan());
+        case org.deluge.firmware2.Param.UNPATCHED_REVERB_SEND_AMOUNT ->
+            bridge.setGlobalFloat(
+                BridgeContract.G_SP_REVERB_AMOUNT, project.getSongParamReverbAmount());
+        case org.deluge.firmware2.Param.UNPATCHED_DELAY_RATE ->
+            bridge.setGlobalFloat(BridgeContract.G_SP_DELAY_RATE, project.getSongParamDelayRate());
+        case org.deluge.firmware2.Param.UNPATCHED_DELAY_AMOUNT ->
+            bridge.setGlobalFloat(
+                BridgeContract.G_SP_DELAY_FEEDBACK, project.getSongParamDelayFeedback());
+        case org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE ->
+            bridge.setGlobalFloat(
+                BridgeContract.G_SP_SIDECHAIN_SHAPE, project.getSongParamSidechainShape());
+        case org.deluge.firmware2.Param.UNPATCHED_STUTTER_RATE ->
+            bridge.setGlobalFloat(
+                BridgeContract.G_SP_STUTTER_RATE, project.getSongParamStutterRate());
+        case org.deluge.firmware2.Param.UNPATCHED_SAMPLE_RATE_REDUCTION ->
+            bridge.setGlobalFloat(
+                BridgeContract.G_SP_SAMPLE_RATE_REDUCTION,
+                project.getSongParamSampleRateReduction());
+        case org.deluge.firmware2.Param.UNPATCHED_BITCRUSHING ->
+            bridge.setGlobalFloat(BridgeContract.G_SP_BITCRUSH, project.getSongParamBitCrush());
+        case org.deluge.firmware2.Param.UNPATCHED_MOD_FX_RATE ->
+            bridge.setGlobalFloat(BridgeContract.G_SP_MOD_FX_RATE, project.getSongParamModFXRate());
+        case org.deluge.firmware2.Param.UNPATCHED_MOD_FX_DEPTH ->
+            bridge.setGlobalFloat(
+                BridgeContract.G_SP_MOD_FX_DEPTH, project.getSongParamModFXDepth());
+        case org.deluge.firmware2.Param.UNPATCHED_MOD_FX_OFFSET ->
+            bridge.setGlobalFloat(
+                BridgeContract.G_SP_MOD_FX_OFFSET, project.getSongParamModFXOffset());
+        case org.deluge.firmware2.Param.UNPATCHED_MOD_FX_FEEDBACK ->
+            bridge.setGlobalFloat(
+                BridgeContract.G_SP_MOD_FX_FEEDBACK, project.getSongParamModFXFeedback());
+        case org.deluge.firmware2.Param.UNPATCHED_COMPRESSOR_THRESHOLD -> {
+          bridge.setGlobalFloat(BridgeContract.G_MASTER_COMP, project.getCompressorThreshold());
+          bridge.setGlobalFloat(
+              BridgeContract.G_SP_COMPRESSOR_THRESHOLD, project.getSongParamCompressorThreshold());
+        }
+        case org.deluge.firmware2.Param.UNPATCHED_LPF_MORPH ->
+            bridge.setGlobalFloat(BridgeContract.G_SP_LPF_MORPH, project.getSongParamLpfMorph());
+        case org.deluge.firmware2.Param.UNPATCHED_HPF_MORPH ->
+            bridge.setGlobalFloat(BridgeContract.G_SP_HPF_MORPH, project.getSongParamHpfMorph());
+        case org.deluge.firmware2.Param.UNPATCHED_LPF_FREQ ->
+            bridge.setGlobalFloat(BridgeContract.G_SP_LPF_FREQ, project.getSongParamLpfFrequency());
+        case org.deluge.firmware2.Param.UNPATCHED_LPF_RES ->
+            bridge.setGlobalFloat(BridgeContract.G_SP_LPF_RES, project.getSongParamLpfResonance());
+        case org.deluge.firmware2.Param.UNPATCHED_HPF_FREQ ->
+            bridge.setGlobalFloat(BridgeContract.G_SP_HPF_FREQ, project.getSongParamHpfFrequency());
+        case org.deluge.firmware2.Param.UNPATCHED_HPF_RES ->
+            bridge.setGlobalFloat(BridgeContract.G_SP_HPF_RES, project.getSongParamHpfResonance());
+        case org.deluge.firmware2.Param.UNPATCHED_BASS ->
+            bridge.setGlobalFloat(BridgeContract.G_SP_EQ_BASS, project.getSongParamEqBass());
+        case org.deluge.firmware2.Param.UNPATCHED_TREBLE ->
+            bridge.setGlobalFloat(BridgeContract.G_SP_EQ_TREBLE, project.getSongParamEqTreble());
+        case org.deluge.firmware2.Param.UNPATCHED_BASS_FREQ ->
+            bridge.setGlobalFloat(
+                BridgeContract.G_SP_EQ_BASS_FREQ, project.getSongParamEqBassFrequency());
+        case org.deluge.firmware2.Param.UNPATCHED_TREBLE_FREQ ->
+            bridge.setGlobalFloat(
+                BridgeContract.G_SP_EQ_TREBLE_FREQ, project.getSongParamEqTrebleFrequency());
+        default -> {}
+      }
+    }
   }
 
   public void setProject(org.deluge.model.ProjectModel project) {
