@@ -1360,7 +1360,7 @@ public class Sound extends GlobalEffectable {
         if (arpInstr.arpNoteOn.noteStatus[n] != Arpeggiator.ArpNoteStatus.PENDING) {
           continue;
         }
-        triggerVoice(noteOn, arpInstr.arpNoteOn.velocity, -1);
+        triggerVoice(noteOn, arpInstr.arpNoteOn.velocity, -1, arpInstr.arpNoteOn.mpeValues);
         arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
       }
       pendingSampleSyncLength = callerSyncLength;
@@ -1388,14 +1388,18 @@ public class Sound extends GlobalEffectable {
   }
 
   public void triggerNote(int note, int vel) {
-    triggerNote(note, vel, -1);
+    triggerNote(note, vel, -1, null);
   }
 
   public void triggerNote(int note, int vel, int midiChannel) {
+    triggerNote(note, vel, midiChannel, null);
+  }
+
+  public void triggerNote(int note, int vel, int midiChannel, int[] mpeValues) {
     if (arpEnabled()) {
       arpInstr.reset();
       arpInstr.sampleSyncLengthOn = pendingSampleSyncLength; // C sound.cpp:1534
-      arpeggiator.noteOn(arpSettings, note, vel, arpInstr, midiChannel, null);
+      arpeggiator.noteOn(arpSettings, note, vel, arpInstr, midiChannel, mpeValues);
       for (int n = 0; n < 4; n++) {
         int glideOff = arpInstr.glideNoteCodeOffPostArp[n];
         if (glideOff == Arpeggiator.ARP_NOTE_NONE) {
@@ -1425,7 +1429,7 @@ public class Sound extends GlobalEffectable {
           if (arpInstr.arpNoteOn.noteStatus[n] != Arpeggiator.ArpNoteStatus.PENDING) {
             continue;
           }
-          triggerVoice(noteOn, v, midiChannel);
+          triggerVoice(noteOn, v, midiChannel, arpInstr.arpNoteOn.mpeValues);
           arpInstr.arpNoteOn.noteStatus[n] = Arpeggiator.ArpNoteStatus.PLAYING;
         }
         pendingSampleSyncLength = callerSyncLength;
@@ -1433,7 +1437,7 @@ public class Sound extends GlobalEffectable {
       }
       return;
     }
-    triggerVoice(note, vel, midiChannel);
+    triggerVoice(note, vel, midiChannel, mpeValues);
   }
 
   public void triggerNoteLate(int note, int vel, int samplesLate) {
@@ -1444,10 +1448,14 @@ public class Sound extends GlobalEffectable {
   }
 
   public void triggerVoice(int note, int vel, int midiChannel) {
+    triggerVoice(note, vel, midiChannel, null);
+  }
+
+  public void triggerVoice(int note, int vel, int midiChannel, int[] mpeValues) {
     if (sidechainSend != 0) {
       GlobalSidechainBus.registerHit(sidechainSend);
     }
-    triggerVoiceInternal(note, vel, midiChannel, null, 0);
+    triggerVoiceInternal(note, vel, midiChannel, mpeValues, 0);
   }
 
   private void triggerVoiceInternal(

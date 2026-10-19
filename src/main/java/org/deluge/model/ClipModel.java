@@ -159,6 +159,8 @@ public class ClipModel extends TimelineCounter {
       new HashMap<>();
   private final List<PatchCable> patchCables = new ArrayList<>();
   private final List<org.deluge.modulation.midi.MidiParam> midiParams = new ArrayList<>();
+  private final org.deluge.modulation.params.ExpressionParamSet expressionParams =
+      new org.deluge.modulation.params.ExpressionParamSet();
   private final Map<String, Float> kitParams = new HashMap<>();
   private final Map<String, String> rawKitParamHex = new java.util.LinkedHashMap<>();
 
@@ -394,6 +396,8 @@ public class ClipModel extends TimelineCounter {
       copy.midiParams.add(mp.deepCopy());
     }
     copy.syncMidiParamsToParamManager();
+    copy.expressionParams.copyFrom(this.expressionParams);
+    copy.syncExpressionParamsToParamManager();
     // Deep-copy kit params
     copy.kitParams.putAll(this.kitParams);
     copy.rawKitParamHex.putAll(this.rawKitParamHex);
@@ -426,6 +430,8 @@ public class ClipModel extends TimelineCounter {
       newRow.setMutedBeforeStemExport(oldRow.isMutedBeforeStemExport());
       newRow.setExportStem(oldRow.isExportStem());
       newRow.setLoopLengthIfIndependent(oldRow.getLoopLengthIfIndependent());
+      newRow.setBendRange(oldRow.getBendRange());
+      newRow.getExpressionParams().copyFrom(oldRow.getExpressionParams());
 
       // Copy notes with exact C play conditions (probabilityValue, fill, lift, iterance)
       List<NoteModel> copiedNotes = new ArrayList<>();
@@ -805,6 +811,46 @@ public class ClipModel extends TimelineCounter {
     expectEvent();
   }
 
+  /**
+   * C {@code InstrumentClip}'s {@code ExpressionParamSet} ({@code instrument_clip.cpp:2428-2434,
+   * 2857-2886}) holding clip-level monophonic expression ({@code pitchBend}, {@code yExpression},
+   * {@code pressure}).
+   */
+  public org.deluge.modulation.params.ExpressionParamSet getExpressionParams() {
+    return expressionParams;
+  }
+
+  public void setExpressionParam(
+      int dimension, int baseValueQ31, List<org.deluge.modulation.automation.ParamNode> nodes) {
+    expressionParams.setParam(dimension, baseValueQ31, nodes);
+    syncExpressionParamsToParamManager();
+  }
+
+  public void clearExpressionParams() {
+    expressionParams.clear();
+    syncExpressionParamsToParamManager();
+  }
+
+  private void syncExpressionParamsToParamManager() {
+    org.deluge.modulation.params.ParamManager target = timelineParamManager();
+    target.getExpressionParamSet().copyFrom(expressionParams);
+    target
+        .getExpressionParamSet()
+        .setMidiMode(sound instanceof org.deluge.engine.FirmwareMidiInstrument);
+    target.setExpressionListener(this::dispatchClipExpressionEvent);
+    target.ticksTilNextEvent = 0;
+    expectEvent();
+  }
+
+  private void dispatchClipExpressionEvent(int dimension, int valueQ31) {
+    if (sound instanceof org.deluge.engine.FirmwareSound fs) {
+      fs.monophonicExpressionValues[dimension] = valueQ31;
+      fs.fw2Sound.monophonicExpressionEvent(valueQ31, dimension);
+    } else if (sound instanceof org.deluge.engine.FirmwareMidiInstrument midi) {
+      midi.monophonicExpressionEvent(valueQ31, dimension);
+    }
+  }
+
   public void setAutomationCurve(
       String param, List<org.deluge.modulation.automation.ParamNode> nodes) {
     if (nodes == null || nodes.isEmpty()) {
@@ -1006,6 +1052,8 @@ public class ClipModel extends TimelineCounter {
       midiParams.add(mp.deepCopy());
     }
     syncMidiParamsToParamManager();
+    expressionParams.copyFrom(src.expressionParams);
+    syncExpressionParamsToParamManager();
     kitParams.clear();
     kitParams.putAll(src.kitParams);
     rawKitParamHex.clear();
@@ -1273,6 +1321,7 @@ public class ClipModel extends TimelineCounter {
     }
     for (NoteRowModel row : noteRows.values()) {
       if (row.getParamManager().mightContainAutomation()) {
+        row.prepareExpressionDispatch(sound);
         int rowPos =
             row.hasIndependentPlayPos() ? row.getLastProcessedPosIfIndependent() : lastProcessedPos;
         boolean rowRev = row.isCurrentlyPlayingReversed(currentlyPlayingReversed);
@@ -1371,6 +1420,7 @@ public class ClipModel extends TimelineCounter {
     } else {
       paramManager.setMidiCcSender(null);
     }
+    syncExpressionParamsToParamManager();
   }
 
   /**
@@ -1493,11 +1543,10 @@ public class ClipModel extends TimelineCounter {
 
     org.deluge.modulation.params.ParamManager clipParams = timelineParamManager();
     if (clipParams.mightContainAutomation()) {
-      // C clip.cpp:311 — MIDI/CV outputs cannot interpolate per audio sample, so they use
-      // tickTicks.
+      // C clip.cpp:311 — MIDI/CV outputs (and clips without an attached sample-rate FirmwareSound)
+      // cannot interpolate per audio sample, so they use tickTicks.
       boolean mayInterpolate =
-          (type == ClipType.INSTRUMENT || type == ClipType.AUDIO)
-              && !(sound instanceof org.deluge.engine.FirmwareMidiInstrument);
+          sound instanceof org.deluge.engine.FirmwareSound || type == ClipType.AUDIO;
       clipParams.processCurrentPos(
           ticksSinceLast,
           lastProcessedPos,
@@ -1919,7 +1968,15 @@ public class ClipModel extends TimelineCounter {
     if (sound instanceof org.deluge.engine.FirmwareSound fs) {
       applyBendRanges(fs.fw2Sound);
       fs.fw2Sound.pendingSampleSyncLength = noteOn.sampleSyncLength; // C note_row.cpp:2557
-      fs.triggerNote(noteOn.noteRow.getPitch(), noteOn.velocity);
+      int[] mpeValues =
+          noteOn.noteRow.getExpressionParams().containsSomething()
+              ? noteOn.noteRow.getMpeValues()
+              : null;
+      if (mpeValues != null) {
+        fs.triggerNote(noteOn.noteRow.getPitch(), noteOn.velocity, mpeValues);
+      } else {
+        fs.triggerNote(noteOn.noteRow.getPitch(), noteOn.velocity);
+      }
       fs.fw2Sound.pendingSampleSyncLength = 0;
     } else if (sound instanceof org.deluge.engine.FirmwareKit kit) {
       int row = noteOn.noteRow.getPitch();
@@ -1930,6 +1987,20 @@ public class ClipModel extends TimelineCounter {
         applyDrumBendRanges(drum, noteOn.noteRow);
       }
       kit.triggerDrum(row, noteOn.velocity);
+      if (drum != null && noteOn.noteRow.getExpressionParams().containsSomething()) {
+        int[] mpeValues = noteOn.noteRow.getMpeValues();
+        for (int m = 0; m < 3; m++) {
+          drum.arpeggiator.active_note.mpeValues[m] = mpeValues[m];
+          int s = org.deluge.modulation.patch.PatchSource.X.ordinal() + m;
+          synchronized (drum.voices) {
+            for (org.deluge.firmware2.Voice v : drum.voices) {
+              if (v.active) {
+                v.expressionEventImmediate(drum, mpeValues[m] << 16, s);
+              }
+            }
+          }
+        }
+      }
       if (drum != null) drum.pendingSampleSyncLength = 0;
     } else if (sound instanceof org.deluge.engine.FirmwareMidiInstrument) {
       ((org.deluge.engine.FirmwareMidiInstrument) sound)

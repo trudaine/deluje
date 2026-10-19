@@ -101,6 +101,16 @@ public class AutoParam {
   public int valueIncrementPerHalfTick;
   public int ticksTilNextEvent = Integer.MAX_VALUE;
 
+  /** C auto_param.h:126 (AutoParam::isAutomated). */
+  public boolean isAutomated() {
+    return !nodes.isEmpty();
+  }
+
+  /** C auto_param.cpp:1731-1733 (AutoParam::containsSomething). */
+  public boolean containsSomething(int neutralValue) {
+    return isAutomated() || currentValue != neutralValue;
+  }
+
   /** C auto_param.h:134, auto_param.cpp:778-783 (AutoParam::hasInterpolationIncrement). */
   public boolean hasInterpolationIncrement() {
     return valueIncrementPerHalfTick != 0;
@@ -280,15 +290,15 @@ public class AutoParam {
    * C auto_param.cpp:948-972 (AutoParam::tickSamples) — scales {@link #valueIncrementPerHalfTick}
    * by {@code timePerTimerTickInverse} and {@code 6 * numSamples}.
    */
-  public void tickSamples(int numSamples, int timePerTimerTickInverse) {
+  public boolean tickSamples(int numSamples, int timePerTimerTickInverse) {
     if (valueIncrementPerHalfTick == 0) {
-      return;
+      return false;
     }
     int step =
         Functions.multiply_32x32_rshift32_rounded(
             valueIncrementPerHalfTick, timePerTimerTickInverse);
     int valueIncrement = saturatingIncrement(step, 6L * numSamples);
-    applyValueIncrement(valueIncrement);
+    return applyValueIncrement(valueIncrement);
   }
 
   /**

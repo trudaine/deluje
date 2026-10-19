@@ -270,6 +270,16 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     fw2Sound.triggerNote(note, vel);
   }
 
+  public void triggerNote(int note, int vel, int[] mpeValues) {
+    if (mpeValues == null) {
+      triggerNote(note, vel);
+      return;
+    }
+    if (FirmwareAudioEngine.debugTelemetry) {}
+    syncParamsToFw2();
+    fw2Sound.triggerNote(note, vel, -1, mpeValues);
+  }
+
   public void triggerNote(int note, int vel, int midiChannel) {
     if (FirmwareAudioEngine.debugTelemetry) {}
     syncParamsToFw2();
