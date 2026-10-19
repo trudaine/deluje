@@ -66,6 +66,61 @@ public class VoiceSample {
   public final TimeStretcher timeStretcher = new TimeStretcher();
   public final SampleReader olderReader = new SampleReader();
   private final SamplePlaybackGuide guide = new SamplePlaybackGuide();
+  public boolean timeStretching;
+
+  public boolean isTimeStretching() {
+    return timeStretching;
+  }
+
+  /** C VoiceSample::endTimeStretching (voice_sample.cpp:78-85). */
+  public void endTimeStretching() {
+    timeStretching = false;
+    timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER] = false;
+    timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER] = false;
+  }
+
+  /**
+   * C VoiceSample::weShouldBeTimeStretchingNow + TimeStretcher::init (voice_sample.cpp:314-336,
+   * time_stretcher.cpp:39-145) — initialize TimeStretcher in place from the current {@link #reader}
+   * position without rewinding or re-priming the active play head.
+   */
+  public void startTimeStretchingInPlace() {
+    syncReaderBounds();
+    // C time_stretcher.cpp:83 — clone reader state into olderPartReader. When entering mid-note
+    // from an already-resampled reader, preserving interpolationBufferSizeLastTime (instead of
+    // time_stretcher.cpp:130's unconditional zero) keeps both heads' SampleReader prime state
+    // identical so chunk 1's silent older-head advance stays in lockstep.
+    olderReader.copyStateFrom(reader);
+    timeStretcher.samplePosBig = (long) reader.playPos << 24;
+    timeStretcher.samplesTilHopEnd =
+        TimeStretcher.K_DEFAULT_FIRST_HOP_LENGTH + (((byte) Arpeggiator.getRandom255()) >> 2);
+    timeStretcher.crossfadeProgress = K_MAX_SAMPLE_VALUE;
+    timeStretcher.crossfadeIncrement = 0;
+    timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER] = true;
+    timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER] = true;
+    timeStretching = true;
+  }
+
+  /**
+   * C VoiceSample::render (voice_sample.cpp:529-591) — enter time-stretching in place when {@code
+   * timeStretchRatio != kMaxSampleValue}, and exit cleanly when {@code timeStretchRatio ==
+   * kMaxSampleValue} and both play-head positions align.
+   */
+  public void updateTimeStretchingForBlock(int timeStretchRatio) {
+    if (!active || reader.sample == null) {
+      return;
+    }
+    if (timeStretchRatio != K_MAX_SAMPLE_VALUE) {
+      if (!timeStretching) {
+        startTimeStretchingInPlace();
+      }
+    } else if (timeStretching) {
+      if (reader.playPos == olderReader.playPos) {
+        endTimeStretching();
+        syncReaderBounds();
+      }
+    }
+  }
 
   /**
    * C: VoiceSamplePlaybackGuide::shouldObeyLoopEndPointNow (voice_sample_playback_guide.cpp:73).
@@ -85,7 +140,13 @@ public class VoiceSample {
   }
 
   private void syncReaderBounds() {
-    reader.setBounds(currentEndOrLoopFrame(), isLoopingNow(), loopStartFrame);
+    int endOrLoop = currentEndOrLoopFrame();
+    boolean loopingNow = isLoopingNow();
+    reader.setBounds(endOrLoop, loopingNow, loopStartFrame);
+    if (timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]
+        && olderReader.sample != null) {
+      olderReader.setBounds(endOrLoop, loopingNow, loopStartFrame);
+    }
   }
 
   /**
@@ -96,10 +157,6 @@ public class VoiceSample {
     noteOffReceived = true;
     if (reader.sample != null) {
       syncReaderBounds();
-      if (timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]
-          && olderReader.sample != null) {
-        olderReader.setBounds(currentEndOrLoopFrame(), isLoopingNow(), loopStartFrame);
-      }
     }
   }
 
@@ -109,6 +166,7 @@ public class VoiceSample {
    */
   public void copyStateFrom(VoiceSample other) {
     this.active = other.active;
+    this.timeStretching = other.timeStretching;
     this.linearInterpolation = other.linearInterpolation;
     this.startFrame = other.startFrame;
     this.endFrame = other.endFrame;
@@ -180,6 +238,7 @@ public class VoiceSample {
     timeStretcher.crossfadeIncrement = 0; // C:139
     timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER] = true; // C:54
     timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER] = true; // C:55
+    timeStretching = true;
     active = true;
   }
 
@@ -265,6 +324,7 @@ public class VoiceSample {
             if (loopingNow) {
               int loopSpan = reassessmentFrame - loopStartFrame;
               if (loopSpan * reader.playDirection <= 0 || ++loopGuard >= 1024) {
+                endTimeStretching();
                 active = false;
                 return;
               }
@@ -277,6 +337,7 @@ public class VoiceSample {
               }
               continue;
             } else {
+              endTimeStretching();
               active = false; // C:1042 — one-shot reached end
               return;
             }
@@ -305,6 +366,7 @@ public class VoiceSample {
       if (loopingType == TimeStretcher.LoopType.NONE
           && !timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]
           && !timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]) {
+        endTimeStretching();
         active = false;
         return;
       }
@@ -365,8 +427,12 @@ public class VoiceSample {
             newerSourceAmplitudeNow,
             newerAmplitudeIncrementNow);
       }
-      // C:1337-1367 — older head
-      if (olderAudible) {
+      // C:1337-1399 — older head (audible crossfade or silent advance on first chunk after init)
+      if (olderAudible || timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]) {
+        if (!olderAudible) {
+          olderSourceAmplitudeNow = 0;
+          olderAmplitudeIncrementNow = 0;
+        }
         readHead(
             olderReader,
             tmp,
@@ -378,7 +444,7 @@ public class VoiceSample {
             interpolationBufferSize,
             olderSourceAmplitudeNow,
             olderAmplitudeIncrementNow);
-        if (timeStretcher.crossfadeProgress >= K_MAX_SAMPLE_VALUE) { // C:1370 — older finished
+        if (timeStretcher.crossfadeProgress >= K_MAX_SAMPLE_VALUE) { // C:1377-1385 — older finished
           timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER] = false;
         }
       }
@@ -393,6 +459,7 @@ public class VoiceSample {
       if (loopingType == TimeStretcher.LoopType.NONE
           && !timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER]
           && !timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER]) {
+        endTimeStretching();
         active = false; // C voice_sample.cpp:1434-1437
         produced += numThis;
         ampVal += ampInc * numThis;
@@ -402,7 +469,8 @@ public class VoiceSample {
       produced += numThis;
       ampVal += ampInc * numThis;
     }
-    amplitude[0] = native_ ? (ampVal >> 3) : (ampVal >> 5);
+    // C voice_sample.cpp:602-619 — native_ shifted left by 4 (3 + 1), resampled by 5 (3 + 1 + 1).
+    amplitude[0] = native_ ? (ampVal >> 4) : (ampVal >> 5);
   }
 
   private void doTimeStretchHop(
@@ -521,8 +589,7 @@ public class VoiceSample {
       int loopEndFrame,
       boolean noteOffAlreadyReceived) {
     // C voice_sample.cpp:39, 52 — clear any prior time-stretcher active state on voice reuse.
-    timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER] = false;
-    timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER] = false;
+    endTimeStretching();
     this.startFrame = startFrame;
     this.endFrame = endFrame;
     this.looping = looping;
@@ -578,8 +645,7 @@ public class VoiceSample {
       int loopEndFrame,
       int samplesLate) {
     // C voice_sample.cpp:52 — timeStretcher = nullptr on noteOn.
-    timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_OLDER] = false;
-    timeStretcher.playHeadStillActive[TimeStretcher.PLAY_HEAD_NEWER] = false;
+    endTimeStretching();
     this.pendingSample = sample;
     this.pendingStartFrame = startFrame;
     this.pendingEndFrame = endFrame;

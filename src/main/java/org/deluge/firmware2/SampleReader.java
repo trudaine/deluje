@@ -270,6 +270,23 @@ public class SampleReader {
     interpolationBufferSizeLastTime = interpolationBufferSize;
   }
 
+  private void primeRetrospectivelyFromCurrentPlayPos() {
+    // C sample_low_level_reader.cpp:553-565 — when entering resampled playback from native
+    // playback (interpolationBufferSizeLastTime == 0), fill history retrospectively from the
+    // current playPos before filling forward.
+    int currentPos = playPos;
+    boolean savedHasBounds = hasBounds;
+    boolean savedHasWrappedLoop = hasWrappedLoop;
+    hasBounds = false;
+    playPos = currentPos - K_TAPS * playDirection;
+    for (int i = 0; i < K_TAPS; i++) {
+      pushFrame();
+    }
+    hasBounds = savedHasBounds;
+    hasWrappedLoop = savedHasWrappedLoop;
+    doneAnySamplesYet = false;
+  }
+
   /**
    * C: readSamplesResampled (sample_low_level_reader.cpp:943-1110), forward/reverse, full-precision
    * (b). Accumulates {@code numSamples} interpolated, amplitude-ramped samples into {@code
@@ -288,6 +305,9 @@ public class SampleReader {
       int amplitudeIncrement) {
     // C sample_low_level_reader.cpp:553-659 — prime or resize the engaged interpolation buffer.
     if (interpolationBufferSizeLastTime == 0) {
+      if (posHistoryHead != playPos || doneAnySamplesYet) {
+        primeRetrospectivelyFromCurrentPlayPos();
+      }
       int primeCount = (interpolationBufferSize >> 1) + 1;
       for (int i = 0; i < primeCount; i++) {
         pushFrame();
