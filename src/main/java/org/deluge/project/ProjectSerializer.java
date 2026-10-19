@@ -1622,7 +1622,8 @@ public class ProjectSerializer {
       if (written.contains(key) || isGlobalEffectableSubElementKey(key)) {
         continue;
       }
-      String baseHex = resolveKitBaseHex(kitParams, rawHex, key, "0x80000000");
+      String baseHex =
+          resolveKitBaseHex(kitParams, rawHex, key, defaultGlobalEffectableBaseHex(key));
       writeGlobalEffectableAttr(writer, curves, written, key, baseHex);
     }
 
@@ -1633,6 +1634,32 @@ public class ProjectSerializer {
         allKeys,
         curves,
         false);
+  }
+
+  private static String defaultGlobalEffectableBaseHex(String key) {
+    // C GlobalEffectable::initParams (global_effectable.cpp:69-93) +
+    // ModControllableAudio::initParams (mod_controllable_audio.cpp:108-140).
+    return switch (key) {
+      case "delayRate",
+          "pan",
+          "pitchAdjust",
+          "modFXDepth",
+          "modFXOffset",
+          "compressorThreshold",
+          "arpeggiatorRate",
+          "tempo",
+          "eqBass",
+          "eqTreble",
+          "eqBassFrequency",
+          "eqTrebleFrequency" ->
+          "0x00000000";
+      case "modFXRate" -> "0xE0000000";
+      case "sidechainCompressorShape" -> "0xDC28F5B2";
+      case "arpeggiatorGate", "noteProbability" -> "0x7FFFFFFF";
+      case "lpfFrequency" -> DelugeHexMapper.hzToHex(20000.0f);
+      case "hpfFrequency" -> DelugeHexMapper.hzToHex(20.0f);
+      default -> "0x80000000";
+    };
   }
 
   private static void writeGlobalEffectableAttr(
@@ -1694,12 +1721,7 @@ public class ProjectSerializer {
       }
       return DelugeHexMapper.unipolarFloatToHexUnified(val);
     }
-    return switch (key) {
-      case "delayRate", "eqBass", "eqTreble" -> "0x00000000";
-      case "lpfFrequency" -> DelugeHexMapper.hzToHex(20000.0f);
-      case "hpfFrequency" -> DelugeHexMapper.hzToHex(20.0f);
-      default -> "0x80000000";
-    };
+    return defaultGlobalEffectableBaseHex(key);
   }
 
   private static void writeGlobalEffectableSubElementsAndClose(
@@ -2318,7 +2340,11 @@ public class ProjectSerializer {
         continue;
       }
       writeGlobalEffectableAttr(
-          writer, curves, written, key, rawHex.getOrDefault(key, "0x80000000"));
+          writer,
+          curves,
+          written,
+          key,
+          rawHex.getOrDefault(key, defaultGlobalEffectableBaseHex(key)));
     }
 
     writeGlobalEffectableSubElementsAndClose(
