@@ -62,15 +62,18 @@ public class MasterFxConsoleTest {
     // 1. Find the Delay Feedback slider in the dialog
     JSlider feedbackSlider = findSlider(dialog.getContentPane(), "Delay Feedback:");
     assertNotNull(feedbackSlider, "Should find Delay Feedback slider");
+    assertEquals(0, feedbackSlider.getValue(), "Default songParamDelayFeedback=0.0f starts at 0%");
 
     // 2. Simulate user sliding to 60%
     feedbackSlider.setValue(60);
 
-    // 3. Assert high-level model field is updated
-    assertEquals(0.60f, projectModel.getMasterDelay());
+    // 3. Assert high-level model field is updated without clobbering legacy masterDelay time
+    assertEquals(0.60f, projectModel.getSongParamDelayFeedback(), 0.01f);
+    assertEquals(0.30f, projectModel.getMasterDelay(), 0.01f);
 
-    // 4. Assert low-level bridge parameter is updated live
+    // 4. Assert low-level bridge parameters are updated live
     assertEquals(0.60f, bridge.getGlobalFloat(BridgeContract.G_DELAY_FB), 0.01f);
+    assertEquals(0.60f, bridge.getGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK), 0.01f);
   }
 
   @Test

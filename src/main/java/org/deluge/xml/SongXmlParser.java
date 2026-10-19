@@ -1874,14 +1874,16 @@ public class SongXmlParser {
       String pp = readDirectAttrOrChild(del, "pingPong");
       if (pp != null) {
         try {
-          project.setDelayPingPong(Integer.parseInt(pp));
+          // C mod_controllable_audio.cpp:819 — std::clamp(contents, 0_i32, 1_i32).
+          project.setDelayPingPong(Math.max(0, Math.min(1, Integer.parseInt(pp))));
         } catch (NumberFormatException ignored) {
         }
       }
       String analog = readDirectAttrOrChild(del, "analog");
       if (analog != null) {
         try {
-          project.setDelayAnalog(Integer.parseInt(analog));
+          // C mod_controllable_audio.cpp:824 — std::clamp(contents, 0_i32, 1_i32).
+          project.setDelayAnalog(Math.max(0, Math.min(1, Integer.parseInt(analog))));
         } catch (NumberFormatException ignored) {
         }
       }

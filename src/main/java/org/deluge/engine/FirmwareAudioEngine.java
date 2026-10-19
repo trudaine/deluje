@@ -288,7 +288,8 @@ public class FirmwareAudioEngine {
       songStutterBuffer[i] = new StereoSample();
     }
     delayState.doDelay = false;
-    // C delay.h:72 — song Delay starts at SYNC_LEVEL_16TH (internal 6).
+    // C delay.h:72, mod_controllable_audio.cpp:77-82 — song Delay starts at internal syncLevel 6
+    // (8 - defaultMagnitude 2, i.e. 16th-note at 44.1 kHz / 120 BPM).
     masterDelay.syncLevel = 6;
     masterVolumeAdjustmentL = MASTER_VOLUME_NEUTRAL;
     masterVolumeAdjustmentR = MASTER_VOLUME_NEUTRAL;

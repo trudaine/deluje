@@ -393,13 +393,12 @@ public class SwingMasterFxDialog extends JDialog {
         panel,
         1,
         "Delay Feedback:",
-        (int) (projectModel.getMasterDelay() * 100),
+        (int) (projectModel.getSongParamDelayFeedback() * 100),
         0,
         100,
         "%",
         val -> {
           float f = val / 100.0f;
-          projectModel.setMasterDelay(f);
           projectModel.setSongParamDelayFeedback(f);
           bridge.setGlobalFloat(BridgeContract.G_DELAY_FB, f);
           bridge.setGlobalFloat(BridgeContract.G_SP_DELAY_FEEDBACK, f);

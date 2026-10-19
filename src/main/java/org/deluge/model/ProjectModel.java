@@ -64,8 +64,8 @@ public class ProjectModel implements org.deluge.firmware2.TuningProvider {
   // C song.cpp:186 — getParamFromUserValue(STATIC_SIDECHAIN_VOLUME, -1) = -21474836 (< 0 = auto).
   private float reverbCompressorVolume = -21474836.0f / 2147483647.0f;
 
-  // ── Song-level delay params (C delay.h:66-72: pingPong=true, analog=false, syncType=EVEN,
-  // syncLevel=SYNC_LEVEL_16TH=6 internal -> file 7 at default inputTickMagnitude 2) ──
+  // ── Song-level delay params (C delay.h:66-72, mod_controllable_audio.cpp:77-82: pingPong=true,
+  // analog=false, syncType=EVEN, syncLevel=8-defaultMagnitude=6 internal -> file 7 at mag 2) ──
   private int delayPingPong = 1;
   private int delayAnalog = 0;
   private int delaySyncLevel = 7;

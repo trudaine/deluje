@@ -578,7 +578,7 @@ public final class BridgeContract {
   private float reverbCompVolume = -21474836.0f / 2147483647.0f;
   private float reverbExcitation = 0.0f;
   private int reverbMode = 0; // 0=RESONATOR, 1=KARPLUS_STRONG
-  // ── Extended delay scalars (C delay.h:66-72) ──
+  // ── Extended delay scalars (C delay.h:66-72, mod_controllable_audio.cpp:77-82) ──
   private int delayPingPong = 1;
   private int delayAnalog = 0;
   private int delaySyncLevel = 7;
