@@ -372,7 +372,12 @@ public class FirmwareAudioEngine {
     this.songVolume = (int) (bipolar * 2147483647.0f);
 
     // Sync Song-level Master FX params (analogous to C++ Song / AudioEngine::renderSongFX)
-    this.masterModFxType = toFw2ModFxType(project.getSongModFXType());
+    org.deluge.firmware2.ModFx.ModFXType nextModFxType = toFw2ModFxType(project.getSongModFXType());
+    if (nextModFxType == org.deluge.firmware2.ModFx.ModFXType.GRAIN
+        && this.masterModFxType != org.deluge.firmware2.ModFx.ModFXType.GRAIN) {
+      this.masterGranular.clearGrainFXBuffer();
+    }
+    this.masterModFxType = nextModFxType;
     this.masterModFxCurrentParam = project.getModFXCurrentParam();
     this.songClippingAmount = project.getSongClippingAmount();
     this.songPan = (int) (project.getSongParamPan() * 2147483647.0f);

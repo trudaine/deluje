@@ -299,5 +299,20 @@ class GrainModFxParityTest {
     }
     assertNotEquals(
         0, eDisabled.masterBuffer[0].l, "Sanity check: rendered master buffer must be non-silent");
+
+    // Also check feedback and offset disable gates on ModFXType.GRAIN
+    // (global_effectable.cpp:1114-1119)
+    eDisabled.masterModFxDepth = 0;
+    assertEquals(ModFx.ModFXType.GRAIN, eDisabled.getActiveModFXType());
+
+    eDisabled.masterModFxCurrentParam = "feedback";
+    eDisabled.masterModFxFeedback = Integer.MIN_VALUE;
+    assertEquals(ModFx.ModFXType.NONE, eDisabled.getActiveModFXType());
+    eDisabled.masterModFxFeedback = 0;
+    assertEquals(ModFx.ModFXType.GRAIN, eDisabled.getActiveModFXType());
+
+    eDisabled.masterModFxCurrentParam = "offset";
+    eDisabled.masterModFxOffset = Integer.MIN_VALUE;
+    assertEquals(ModFx.ModFXType.NONE, eDisabled.getActiveModFXType());
   }
 }
