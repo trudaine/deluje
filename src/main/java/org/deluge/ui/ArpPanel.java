@@ -456,10 +456,10 @@ public class ArpPanel extends JPanel {
             rc,
             rightRow,
             "Seq Len:",
-            "Number of active steps in the arpeggiator sequence (1-16)",
-            1,
-            16,
-            Math.max(1, arp.seqLength()),
+            "Number of active steps in the arpeggiator sequence (0 = unlimited, 1-50)",
+            0,
+            50,
+            Math.max(0, arp.seqLength()),
             val -> model.setArp(model.getArp().toBuilder().seqLength(val).build()),
             "",
             "arpSeqLength",
@@ -543,7 +543,7 @@ public class ArpPanel extends JPanel {
             "Probability that each step plays a note (0-100%). 100% = always play. Applied after rhythm silences.",
             0,
             100,
-            (int) ((arp.noteProbability() <= 0f ? 1f : arp.noteProbability()) * 100),
+            (int) ((arp.noteProbability() < 0f ? 1f : arp.noteProbability()) * 100),
             val ->
                 model.setArp(
                     model.getArp().toBuilder().noteProbability((float) (val / 100.0)).build()),

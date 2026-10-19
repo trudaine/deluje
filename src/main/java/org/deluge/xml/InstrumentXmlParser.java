@@ -1372,7 +1372,7 @@ public class InstrumentXmlParser {
     if (gateStr != null) gate = Math.abs(DelugeHexMapper.hexToFloat(gateStr));
 
     int rhythmIndex = 0;
-    int seqLength = 8;
+    int seqLength = 0; // C UNPATCHED_ARP_SEQUENCE_LENGTH default: 0 (unlimited)
     // C "syncLevel" (:1735-1743): a file value relative to the song's input tick magnitude.
     // Absent: the constructor default, a 16th. An explicit 0 is "not synced".
     String syncStr = attrOrDirectChildText(arpEl, "syncLevel");
@@ -1441,7 +1441,7 @@ public class InstrumentXmlParser {
     float velSpread = readAttrFloatWithDefault(arpEl, "spreadVelocity", 0f, false);
     int ratchetAmount = readIntAttrWithDefault(arpEl, "ratchetAmount", 0);
 
-    float noteProb = readAttrFloatWithDefault(arpEl, "noteProbability", 0f, false);
+    float noteProb = readAttrFloatWithDefault(arpEl, "noteProbability", 1f, false);
     float bassProb = readAttrFloatWithDefault(arpEl, "bassProbability", 0f, false);
     float swapProb = readAttrFloatWithDefault(arpEl, "swapProbability", 0f, false);
     float glideProb = readAttrFloatWithDefault(arpEl, "glideProbability", 0f, false);
@@ -2245,5 +2245,38 @@ public class InstrumentXmlParser {
         synth.syncArpFromUnpatchedKnob(paramId, q31);
       }
     }
+  }
+
+  /**
+   * Parses {@code UNPATCHED_ARP_*} attributes from a non-active clip's {@code <soundParams>} onto
+   * that clip's own {@link ArpModel} without clobbering the active clip's track-level {@code
+   * SynthTrackModel} knobs.
+   */
+  public static void parseClipUnpatchedArpKnobs(
+      Element sp, org.deluge.model.ClipModel clip, ArpModel fallbackArp) {
+    if (sp == null || clip == null) return;
+    ArpModel arp =
+        clip.getArp() != null
+            ? clip.getArp()
+            : (fallbackArp != null ? fallbackArp : ArpModel.defaultConfig());
+    for (int pid = org.deluge.firmware2.Param.UNPATCHED_ARP_GATE;
+        pid <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+        pid++) {
+      arp =
+          ArpXmlCodec.applyUnpatchedKnobToArp(
+              arp, pid, org.deluge.firmware2.Arpeggiator.getUnpatchedArpDefault(pid));
+    }
+    for (var entry : SOUNDPARAMS_RAW_PATCHED.entrySet()) {
+      int pid = entry.getValue();
+      if (!org.deluge.firmware2.Arpeggiator.isUnpatchedArpParam(pid)) {
+        continue;
+      }
+      String v = attrOrChildText(sp, entry.getKey());
+      if (v != null && !v.isBlank()) {
+        int q31 = DelugeHexMapper.hexToQ31(v);
+        arp = ArpXmlCodec.applyUnpatchedKnobToArp(arp, pid, q31);
+      }
+    }
+    clip.setArp(arp);
   }
 }

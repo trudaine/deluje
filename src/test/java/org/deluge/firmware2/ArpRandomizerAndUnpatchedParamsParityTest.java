@@ -366,4 +366,96 @@ class ArpRandomizerAndUnpatchedParamsParityTest {
     liveSound.renderInternal(buf, buf.length, null);
     assertEquals(expectedClip2Gate, liveSound.arpSettings.gate);
   }
+
+  @Test
+  void testMultiClipSoundParamsWithoutArpeggiatorTagAndDefaultSentinels(@TempDir Path tempDir)
+      throws Exception {
+    // 1. ArpModel.defaultConfig() matches C++ defaults for all 15 unpatched arp params,
+    //    so seqLength=8 and noteProbability=0.0f are treated as real non-default values.
+    org.deluge.model.ArpModel def = org.deluge.model.ArpModel.defaultConfig();
+    assertEquals(0, def.seqLength());
+    assertEquals(1.0f, def.noteProbability());
+    for (int pid = Param.UNPATCHED_ARP_GATE; pid <= Param.UNPATCHED_SPREAD_VELOCITY; pid++) {
+      assertEquals(
+          Arpeggiator.getUnpatchedArpDefault(pid),
+          org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(def, pid),
+          "ArpModel.defaultConfig() must map to C++ default for param " + pid);
+    }
+
+    // 2. Multi-clip XML where Clip 1 has <soundParams> (with sequenceLength=8, noteProbability=0%)
+    //    but NO <arpeggiator> tag: Clip 0 stays active on SynthTrackModel, and switching to Clip 1
+    //    applies Clip 1's unpatched arp params cleanly.
+    int seqLen8Q31 = Functions.computeFinalValueForStandardMenuItem(8);
+    String seqLen8Hex = String.format("0x%08X", seqLen8Q31);
+    String xml =
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <song firmwareVersion="4.1.4-c">
+          <instruments>
+            <sound presetName="LEAD" presetSlot="0" presetSubSlot="-1">
+              <osc1 type="saw" />
+              <osc2 type="saw" />
+              <defaultParams />
+            </sound>
+          </instruments>
+          <sessionClips>
+            <instrumentClip length="96" instrumentPresetName="LEAD" instrumentPresetSlot="0" instrumentPresetSubSlot="-1">
+              <arpeggiator mode="arp" numOctaves="2" syncLevel="7" syncType="0" />
+              <soundParams
+                arpeggiatorGate="0x20000000"
+                noteProbability="0x60000000" />
+              <noteRows />
+            </instrumentClip>
+            <instrumentClip length="96" instrumentPresetName="LEAD" instrumentPresetSlot="0" instrumentPresetSubSlot="-1">
+              <soundParams
+                sequenceLength="%s"
+                noteProbability="0x80000000"
+                reverseProbability="0x7FFFFFFF" />
+              <noteRows />
+            </instrumentClip>
+          </sessionClips>
+        </song>
+        """
+            .formatted(seqLen8Hex);
+
+    Path inFile = tempDir.resolve("multi_clip_arp.xml");
+    Files.writeString(inFile, xml, StandardCharsets.UTF_8);
+
+    ProjectModel project = FirmwareFactory.createSong(SongXmlParser.parseSong(inFile.toFile()));
+    SynthTrackModel synth = (SynthTrackModel) project.getTracks().get(0);
+    assertEquals(2, synth.getClips().size());
+
+    // Clip 0 is active initially; its rawKnobs must NOT be overwritten by Clip 1.
+    assertEquals(0x20000000, synth.getRawKnobs().getRawParamKnobs().get(Param.UNPATCHED_ARP_GATE));
+    assertEquals(
+        0x60000000, synth.getRawKnobs().getRawParamKnobs().get(Param.UNPATCHED_NOTE_PROBABILITY));
+
+    FirmwareSound liveSound = (FirmwareSound) synth.getClips().get(0).getSound();
+    StereoSample[] buf = new StereoSample[16];
+    for (int i = 0; i < buf.length; i++) buf[i] = new StereoSample();
+    liveSound.renderInternal(buf, buf.length, null);
+    assertEquals(0x20000000, liveSound.arpSettings.gate);
+    assertEquals(0x60000000 + Integer.MIN_VALUE, liveSound.arpSettings.noteProbability);
+
+    // Switch to Clip 1 (which had NO <arpeggiator> tag): sequenceLength=8, noteProbability=0%,
+    // reverseProbability=100% must all apply, and gate resets to 0 (50% duty cycle).
+    synth.setActiveClipIndex(1);
+    liveSound.renderInternal(buf, buf.length, null);
+    assertEquals(0, liveSound.arpSettings.gate);
+    assertEquals(
+        8, Functions.computeCurrentValueForUnsignedMenuItem(liveSound.arpSettings.sequenceLength));
+    assertEquals(0, liveSound.arpSettings.noteProbability);
+    assertEquals(
+        50,
+        Functions.computeCurrentValueForUnsignedMenuItem(liveSound.arpSettings.reverseProbability));
+
+    // Save with Clip 0 active again and verify Clip 1's sequenceLength=8 and noteProbability=0%
+    // are serialized on the inactive clip without colliding with ArpModel.defaultConfig().
+    synth.setActiveClipIndex(0);
+    Path outFile = tempDir.resolve("multi_clip_arp_out.xml");
+    ProjectSerializer.save(project, outFile.toFile());
+    String saved = Files.readString(outFile, StandardCharsets.UTF_8);
+    assertTrue(saved.contains("sequenceLength=\"" + seqLen8Hex + "\""));
+    assertTrue(saved.contains("noteProbability=\"0x80000000\""));
+  }
 }

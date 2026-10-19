@@ -642,11 +642,11 @@ public class SynthTrackModel extends TrackModel {
     }
     if (!getClips().isEmpty()) {
       ClipModel targetClip = getClips().get(getClips().size() - 1);
-      if (targetClip.getArp() != null) {
-        targetClip.setArp(
-            org.deluge.xml.ArpXmlCodec.applyUnpatchedKnobToArp(
-                targetClip.getArp(), paramId, rawQ31));
-      }
+      ArpModel base =
+          targetClip.getArp() != null
+              ? targetClip.getArp()
+              : (this.arp != null ? this.arp : ArpModel.defaultConfig());
+      targetClip.setArp(org.deluge.xml.ArpXmlCodec.applyUnpatchedKnobToArp(base, paramId, rawQ31));
     }
   }
 
@@ -667,26 +667,27 @@ public class SynthTrackModel extends TrackModel {
     // The newly active clip's arp drives the sound (C Sound::getArpSettings(activeClip)).
     if (now != null
         && now != before
-        && now.getArp() != null
         && now.getSound() instanceof org.deluge.engine.FirmwareSound fs) {
-      ArpModel nowArp = now.getArp();
-      for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_GATE;
-          p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
-          p++) {
-        fs.arpSettings.updateParamFromUnpatched(
-            p, org.deluge.firmware2.Arpeggiator.getUnpatchedArpDefault(p));
-      }
-      fs.clearUnpatchedArpKnobs();
-      org.deluge.engine.FirmwareFactory.configureArp(fs, nowArp);
-      fs.paramKnobs[org.deluge.firmware2.Param.UNPATCHED_ARP_GATE] =
-          org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
-              nowArp, org.deluge.firmware2.Param.UNPATCHED_ARP_GATE);
-      for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_RHYTHM;
-          p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
-          p++) {
-        if (org.deluge.xml.ArpXmlCodec.isUnpatchedArpFieldChanged(
-            ArpModel.defaultConfig(), nowArp, p)) {
-          fs.paramKnobs[p] = org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(nowArp, p);
+      ArpModel nowArp = now.getArp() != null ? now.getArp() : this.arp;
+      if (nowArp != null) {
+        for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_GATE;
+            p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+            p++) {
+          fs.arpSettings.updateParamFromUnpatched(
+              p, org.deluge.firmware2.Arpeggiator.getUnpatchedArpDefault(p));
+        }
+        fs.clearUnpatchedArpKnobs();
+        org.deluge.engine.FirmwareFactory.configureArp(fs, nowArp);
+        fs.paramKnobs[org.deluge.firmware2.Param.UNPATCHED_ARP_GATE] =
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                nowArp, org.deluge.firmware2.Param.UNPATCHED_ARP_GATE);
+        for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_RHYTHM;
+            p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+            p++) {
+          if (org.deluge.xml.ArpXmlCodec.isUnpatchedArpFieldChanged(
+              ArpModel.defaultConfig(), nowArp, p)) {
+            fs.paramKnobs[p] = org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(nowArp, p);
+          }
         }
       }
     }

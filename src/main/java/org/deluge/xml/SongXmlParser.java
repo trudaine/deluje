@@ -737,8 +737,14 @@ public class SongXmlParser {
                       : (clip.getLoopLength() > 0 ? clip.getLoopLength() : Integer.MAX_VALUE);
               // C: a clip's params = initParams defaults + the clip's own soundParams; the
               // instrument's defaultParams are not consulted (sound.cpp:146-210 + readParams).
-              InstrumentXmlParser.resetClipParamsToFirmwareDefaults(stm);
-              InstrumentXmlParser.parseClipSoundParamsStatics(spEl, stm, readUpTo);
+              // Only the active clip (index 0) populates the shared track-level SynthTrackModel
+              // knobs; non-active clips update their own per-clip ArpModel.
+              if (stm.getClips().size() == 1) {
+                InstrumentXmlParser.resetClipParamsToFirmwareDefaults(stm);
+                InstrumentXmlParser.parseClipSoundParamsStatics(spEl, stm, readUpTo);
+              } else {
+                InstrumentXmlParser.parseClipUnpatchedArpKnobs(spEl, clip, stm.getDefaultArp());
+              }
               if (spEl.getElementsByTagName("patchCable").getLength() > 0) {
                 clip.getPatchCables().clear();
                 clip.getPatchCables()
