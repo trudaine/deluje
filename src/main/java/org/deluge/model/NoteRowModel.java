@@ -26,6 +26,9 @@ public class NoteRowModel {
   private List<PatchCable> patchCables = new ArrayList<>();
   private Map<String, float[]> rowAutomation = new HashMap<>();
 
+  // C NoteRow::sequenceDirectionMode (note_row.h:139, note_row.cpp:65).
+  private SequenceDirection sequenceDirectionMode = SequenceDirection.OBEY_PARENT;
+
   // ── Transient Transport / Sequencer States ──
   private transient int loopLengthIfIndependent = 0;
   private transient int lastProcessedPosIfIndependent = 0;
@@ -57,29 +60,83 @@ public class NoteRowModel {
     return lastProcessedPosIfIndependent;
   }
 
+  public SequenceDirection getSequenceDirectionMode() {
+    return sequenceDirectionMode;
+  }
+
+  public void setSequenceDirectionMode(SequenceDirection mode) {
+    this.sequenceDirectionMode = mode != null ? mode : SequenceDirection.OBEY_PARENT;
+    invalidateSchedule();
+  }
+
+  /** C NoteRow::getEffectiveSequenceDirectionMode (note_row.cpp:2022-2029). */
+  public SequenceDirection getEffectiveSequenceDirectionMode(
+      SequenceDirection clipSequenceDirectionMode) {
+    if (sequenceDirectionMode == SequenceDirection.OBEY_PARENT) {
+      return clipSequenceDirectionMode != null
+          ? clipSequenceDirectionMode
+          : SequenceDirection.FORWARD;
+    }
+    return sequenceDirectionMode;
+  }
+
   /**
-   * C NoteRow::hasIndependentPlayPos (note_row.cpp:4335-4337). In the C, this is also true when a
-   * row overrides its sequence direction; this model has no per-row direction, so only the
-   * independent-length half applies.
+   * C NoteRow::setSequenceDirectionMode (note_row.cpp:4453-4480): updates {@link
+   * #sequenceDirectionMode} while playback is live, carrying or mirroring {@link
+   * #lastProcessedPosIfIndependent} and requesting a late note start when the playing direction
+   * flipped.
    */
+  public void setSequenceDirectionMode(
+      SequenceDirection newMode,
+      int clipLastProcessedPos,
+      int clipLoopLength,
+      boolean clipCurrentlyPlayingReversed,
+      SequenceDirection clipSequenceDirectionMode,
+      boolean mayResume) {
+    int lastProcessedPosBefore =
+        hasIndependentPlayPos() ? lastProcessedPosIfIndependent : clipLastProcessedPos;
+    boolean reversedBefore =
+        isCurrentlyPlayingReversed(clipCurrentlyPlayingReversed, clipSequenceDirectionMode);
+    sequenceDirectionMode = newMode != null ? newMode : SequenceDirection.OBEY_PARENT;
+    lastProcessedPosIfIndependent = lastProcessedPosBefore;
+
+    if (getEffectiveSequenceDirectionMode(clipSequenceDirectionMode)
+        == SequenceDirection.PINGPONG) {
+      currentlyPlayingReversedIfIndependent = reversedBefore;
+    } else {
+      currentlyPlayingReversedIfIndependent = (sequenceDirectionMode == SequenceDirection.REVERSE);
+      if (reversedBefore
+          != isCurrentlyPlayingReversed(clipCurrentlyPlayingReversed, clipSequenceDirectionMode)) {
+        int effectiveLoopLength =
+            loopLengthIfIndependent > 0 ? loopLengthIfIndependent : clipLoopLength;
+        lastProcessedPosIfIndependent = effectiveLoopLength - lastProcessedPosIfIndependent;
+        if (!muted && mayResume) {
+          resumePlayback(lastProcessedPosIfIndependent, effectiveLoopLength, true);
+        }
+      }
+    }
+    invalidateSchedule();
+  }
+
+  /** C NoteRow::hasIndependentPlayPos (note_row.cpp:4335-4337). */
   public boolean hasIndependentPlayPos() {
-    return loopLengthIfIndependent != 0;
+    return loopLengthIfIndependent != 0 || sequenceDirectionMode != SequenceDirection.OBEY_PARENT;
   }
 
-  /** C ModelStackWithNoteRow::isCurrentlyPlayingReversed (model_stack.cpp:64-73). */
-  public boolean isCurrentlyPlayingReversed(boolean clipCurrentlyPlayingReversed) {
-    return hasIndependentPlayPos()
-        ? currentlyPlayingReversedIfIndependent
-        : clipCurrentlyPlayingReversed;
+  /** C ModelStackWithNoteRow::isCurrentlyPlayingReversed (model_stack.cpp:63-76). */
+  public boolean isCurrentlyPlayingReversed(
+      boolean clipCurrentlyPlayingReversed, SequenceDirection clipSequenceDirectionMode) {
+    if (sequenceDirectionMode == SequenceDirection.OBEY_PARENT
+        && (loopLengthIfIndependent == 0
+            || clipSequenceDirectionMode != SequenceDirection.PINGPONG)) {
+      return clipCurrentlyPlayingReversed;
+    }
+    return currentlyPlayingReversedIfIndependent;
   }
 
-  /**
-   * C ModelStackWithNoteRow::getRepeatCount (model_stack.cpp:102-109). The C's
-   * hasIndependentPlayPos (note_row.cpp:4374-4376) is also true for a row with its own sequence
-   * direction; this model has no per-row direction, so only the independent-length half applies.
-   */
+  /** C ModelStackWithNoteRow::getRepeatCount (model_stack.cpp:100-107). */
   public int getRepeatCount(int clipRepeatCount) {
-    if (loopLengthIfIndependent != 0) {
+    if (hasIndependentPlayPos()) {
       return repeatCountIfIndependent;
     } else {
       return clipRepeatCount;
@@ -87,18 +144,24 @@ public class NoteRowModel {
   }
 
   /**
-   * The note-row half of InstrumentClip::setPos (instrument_clip.cpp:405-436). This model has no
-   * per-row sequence direction, so the effective mode is always the clip's (the C's OBEY_PARENT,
-   * note_row.cpp:2022-2029) and only the independent-length half of hasIndependentPlayPos
-   * (note_row.cpp:4335-4337) applies.
+   * The note-row half of InstrumentClip::setPos (instrument_clip.cpp:405-436): initializes {@link
+   * #repeatCountIfIndependent}, {@link #currentlyPlayingReversedIfIndependent}, and {@link
+   * #lastProcessedPosIfIndependent} for rows where {@link #hasIndependentPlayPos()} is true.
    */
-  public void setPosIfIndependent(int newPos, SequenceDirection effectiveSequenceDirectionMode) {
-    if (loopLengthIfIndependent == 0) {
+  public void setPosIfIndependent(
+      int newPos, int clipLoopLength, SequenceDirection clipSequenceDirectionMode) {
+    if (!hasIndependentPlayPos()) {
       return;
     }
-    int effectiveLoopLength = loopLengthIfIndependent;
+    int effectiveLoopLength =
+        loopLengthIfIndependent > 0 ? loopLengthIfIndependent : clipLoopLength;
+    if (effectiveLoopLength <= 0) {
+      return;
+    }
+    SequenceDirection effectiveSequenceDirectionMode =
+        getEffectiveSequenceDirectionMode(clipSequenceDirectionMode);
 
-    // The below basically mirrors the code / logic in Clip::setPos()
+    // The below basically mirrors the code / logic in Clip::setPos() (instrument_clip.cpp:412-434)
     repeatCountIfIndependent = Integer.divideUnsigned(newPos, effectiveLoopLength);
 
     currentlyPlayingReversedIfIndependent =
@@ -121,26 +184,37 @@ public class NoteRowModel {
    * {@code lastProcessedPosIfIndependent} by {@code numTicks}, negated when this row is currently
    * playing in reverse.
    */
-  public void incrementPosIfIndependent(int numTicks) {
+  public void incrementPosIfIndependent(
+      int numTicks,
+      boolean clipCurrentlyPlayingReversed,
+      SequenceDirection clipSequenceDirectionMode) {
     if (!hasIndependentPlayPos()) {
       return;
     }
-    int movement = currentlyPlayingReversedIfIndependent ? -numTicks : numTicks;
+    boolean reversed =
+        isCurrentlyPlayingReversed(clipCurrentlyPlayingReversed, clipSequenceDirectionMode);
+    int movement = reversed ? -numTicks : numTicks;
     lastProcessedPosIfIndependent += movement;
   }
 
   /**
    * Advances {@code lastProcessedPosIfIndependent} for quiet ticks flushed outside {@link
-   * #processCurrentPos}, normalizing negative reverse positions into {@code [0,
-   * loopLengthIfIndependent)}.
+   * #processCurrentPos}, normalizing negative reverse positions into {@code [0, effectiveLength)}.
    */
-  void flushIndependentPos(int numTicks) {
-    incrementPosIfIndependent(numTicks);
-    if (loopLengthIfIndependent > 0
-        && currentlyPlayingReversedIfIndependent
+  void flushIndependentPos(
+      int numTicks,
+      int clipLoopLength,
+      boolean clipCurrentlyPlayingReversed,
+      SequenceDirection clipSequenceDirectionMode) {
+    incrementPosIfIndependent(numTicks, clipCurrentlyPlayingReversed, clipSequenceDirectionMode);
+    int effectiveLength = loopLengthIfIndependent > 0 ? loopLengthIfIndependent : clipLoopLength;
+    boolean reversed =
+        isCurrentlyPlayingReversed(clipCurrentlyPlayingReversed, clipSequenceDirectionMode);
+    if (hasIndependentPlayPos()
+        && effectiveLength > 0
+        && reversed
         && lastProcessedPosIfIndependent < 0) {
-      lastProcessedPosIfIndependent =
-          Math.floorMod(lastProcessedPosIfIndependent, loopLengthIfIndependent);
+      lastProcessedPosIfIndependent = Math.floorMod(lastProcessedPosIfIndependent, effectiveLength);
     }
   }
 
@@ -209,17 +283,17 @@ public class NoteRowModel {
       int clipLastProcessedPos,
       int clipLoopLength,
       boolean clipCurrentlyPlayingReversed,
+      SequenceDirection clipSequenceDirectionMode,
       double samplesPerTick,
       Object sound,
       int[] lateOut) {
     if (muted) {
       return null;
     }
-    boolean independent = loopLengthIfIndependent > 0;
-    int effectiveLength = independent ? loopLengthIfIndependent : clipLoopLength;
+    int effectiveLength = loopLengthIfIndependent > 0 ? loopLengthIfIndependent : clipLoopLength;
     boolean reversed =
-        independent ? currentlyPlayingReversedIfIndependent : clipCurrentlyPlayingReversed;
-    int pos = independent ? lastProcessedPosIfIndependent : clipLastProcessedPos;
+        isCurrentlyPlayingReversed(clipCurrentlyPlayingReversed, clipSequenceDirectionMode);
+    int pos = hasIndependentPlayPos() ? lastProcessedPosIfIndependent : clipLastProcessedPos;
     int howFarIntoNote = pos - newNote.getPos();
     if (howFarIntoNote < 0) {
       howFarIntoNote += effectiveLength;
@@ -267,16 +341,16 @@ public class NoteRowModel {
       int clipLastProcessedPos,
       int clipLoopLength,
       boolean clipCurrentlyPlayingReversed,
+      SequenceDirection clipSequenceDirectionMode,
       double samplesPerTick,
       Object sound,
       int[] lateOut) {
     NoteModel result = null;
     if (!muted && !sequenced && !notes.isEmpty()) {
-      boolean independent = loopLengthIfIndependent > 0;
-      int effectiveLength = independent ? loopLengthIfIndependent : clipLoopLength;
+      int effectiveLength = loopLengthIfIndependent > 0 ? loopLengthIfIndependent : clipLoopLength;
       boolean reversed =
-          independent ? currentlyPlayingReversedIfIndependent : clipCurrentlyPlayingReversed;
-      int pos = independent ? lastProcessedPosIfIndependent : clipLastProcessedPos;
+          isCurrentlyPlayingReversed(clipCurrentlyPlayingReversed, clipSequenceDirectionMode);
+      int pos = hasIndependentPlayPos() ? lastProcessedPosIfIndependent : clipLastProcessedPos;
       if (effectiveLength > 0) {
         // maybeStartLateNote: is the play-pos inside a note?
         List<NoteModel> sorted = notesSortedByPos();
@@ -607,23 +681,23 @@ public class NoteRowModel {
       SequenceDirection clipSequenceDirectionMode,
       Object sound) {
 
+    boolean independent = hasIndependentPlayPos();
     int effectiveLength = (loopLengthIfIndependent > 0) ? loopLengthIfIndependent : clipLoopLength;
     if (effectiveLength <= 0) return Integer.MAX_VALUE;
     boolean playingReversedNow =
-        (loopLengthIfIndependent > 0)
-            ? currentlyPlayingReversedIfIndependent
-            : clipCurrentlyPlayingReversed;
-    boolean didPingpong = (loopLengthIfIndependent > 0) ? false : clipDidPingpong;
+        isCurrentlyPlayingReversed(clipCurrentlyPlayingReversed, clipSequenceDirectionMode);
+    boolean didPingpong = independent ? false : clipDidPingpong;
 
-    // C note_row.cpp:2072-2117 — independent-row wrap and ping-pong.
-    if (loopLengthIfIndependent > 0) {
+    // C note_row.cpp:2042-2117 — independent-row wrap and ping-pong.
+    if (independent) {
+      SequenceDirection effectiveDir = getEffectiveSequenceDirectionMode(clipSequenceDirectionMode);
       if (playingReversedNow) {
         if (lastProcessedPosIfIndependent < 0) {
           lastProcessedPosIfIndependent += effectiveLength;
         }
         if (lastProcessedPosIfIndependent == 0) {
           repeatCountIfIndependent++;
-          if (clipSequenceDirectionMode == SequenceDirection.PINGPONG) {
+          if (effectiveDir == SequenceDirection.PINGPONG) {
             lastProcessedPosIfIndependent = -lastProcessedPosIfIndependent;
             currentlyPlayingReversedIfIndependent = playingReversedNow = !playingReversedNow;
             didPingpong = true;
@@ -634,7 +708,7 @@ public class NoteRowModel {
         if (ticksTilEnd <= 0) {
           lastProcessedPosIfIndependent -= effectiveLength;
           repeatCountIfIndependent++;
-          if (clipSequenceDirectionMode == SequenceDirection.PINGPONG) {
+          if (effectiveDir == SequenceDirection.PINGPONG) {
             if (lastProcessedPosIfIndependent > 0) {
               lastProcessedPosIfIndependent = effectiveLength - lastProcessedPosIfIndependent;
             }
@@ -645,8 +719,7 @@ public class NoteRowModel {
       }
     }
 
-    int currentPos =
-        (loopLengthIfIndependent > 0) ? lastProcessedPosIfIndependent : clipLastProcessedPos;
+    int currentPos = independent ? lastProcessedPosIfIndependent : clipLastProcessedPos;
 
     // C note_row.cpp:2119-2137
     int ticksTilNextParamManagerEvent = Integer.MAX_VALUE;
@@ -661,7 +734,7 @@ public class NoteRowModel {
           ticksSinceLast, currentPos, effectiveLength, playingReversedNow, didPingpong, false);
       ticksTilNextParamManagerEvent = paramManager.ticksTilNextEvent;
     }
-    if (loopLengthIfIndependent > 0
+    if (independent
         && sound instanceof org.deluge.engine.FirmwareKit kit
         && pitch >= 0
         && pitch < kit.drumSounds.size()) {

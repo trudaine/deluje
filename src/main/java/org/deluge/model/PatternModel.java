@@ -32,6 +32,8 @@ public class PatternModel {
     private int bendRange = -1;
     private int bendRangeMPE = -1;
     private final Map<Integer, Map<String, Float>> rowSoundParams = new HashMap<>();
+    private final Map<Integer, Integer> rowLoopLengths = new HashMap<>();
+    private final Map<Integer, SequenceDirection> rowSequenceDirections = new HashMap<>();
     private final Map<Integer, Integer> rowBendRanges = new HashMap<>();
     private final Map<Integer, org.deluge.modulation.params.ExpressionParamSet>
         rowExpressionParams = new HashMap<>();
@@ -110,6 +112,12 @@ public class PatternModel {
         }
         NoteRowModel rowModel = clip.getNoteRowsMap().get(r);
         if (rowModel != null) {
+          if (rowModel.getLoopLengthIfIndependent() > 0) {
+            snap.rowLoopLengths.put(r, rowModel.getLoopLengthIfIndependent());
+          }
+          if (rowModel.getSequenceDirectionMode() != SequenceDirection.OBEY_PARENT) {
+            snap.rowSequenceDirections.put(r, rowModel.getSequenceDirectionMode());
+          }
           if (rowModel.getBendRange() != -1) {
             snap.rowBendRanges.put(r, rowModel.getBendRange());
           }
@@ -187,6 +195,8 @@ public class PatternModel {
         }
         NoteRowModel existingRow = clip.getNoteRowsMap().get(r);
         if (existingRow != null) {
+          existingRow.setLoopLengthIfIndependent(0);
+          existingRow.setSequenceDirectionMode(SequenceDirection.OBEY_PARENT);
           existingRow.setBendRange(-1);
           existingRow.clearExpressionParams();
         }
@@ -196,6 +206,12 @@ public class PatternModel {
         for (Map.Entry<String, Float> pe : re.getValue().entrySet()) {
           clip.setRowSoundParam(r, pe.getKey(), pe.getValue());
         }
+      }
+      for (Map.Entry<Integer, Integer> le : rowLoopLengths.entrySet()) {
+        clip.getOrCreateRow(le.getKey()).setLoopLengthIfIndependent(le.getValue());
+      }
+      for (Map.Entry<Integer, SequenceDirection> de : rowSequenceDirections.entrySet()) {
+        clip.getOrCreateRow(de.getKey()).setSequenceDirectionMode(de.getValue());
       }
       for (Map.Entry<Integer, Integer> be : rowBendRanges.entrySet()) {
         clip.getOrCreateRow(be.getKey()).setBendRange(be.getValue());
@@ -215,6 +231,7 @@ public class PatternModel {
       // Apply kit params
       clip.setKitParams(kitParams);
       clip.getRawKitParamHex().putAll(rawKitParamHex);
+      clip.reconcileNoteRowTransportAfterBulkEdit();
     }
 
     // ── Getters / Setters ──

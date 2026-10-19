@@ -147,8 +147,10 @@ class PlayConditionsTest {
     // rows at all — InstrumentClip::incrementPos is unported, see issue #16.)
     NoteRowModel row = clip.getOrCreateRow(0);
     row.setLoopLengthIfIndependent(48); // 2 steps, against the clip's 4
-    clip.setPos(144); // clip: 1 pass + 48; row: 48 / 48 = 1 pass
-    assertEquals(1, row.getRepeatCount(clip.repeatCount), "control: the row must hold a count");
+    // C clip.h:58, instrument_clip.cpp:412 — Clip::setPos takes int32_t newPos by value, so the
+    // row receives the original 144 (144 / 48 = 3 passes), not the clip-reduced 48.
+    clip.setPos(144);
+    assertEquals(3, row.getRepeatCount(clip.repeatCount), "control: the row must hold a count");
 
     clip.setPos(0); // what PlaybackHandler.start() now does
     clip.processCurrentPos(0); // the zero-increment start tick (PlaybackHandler.start)
@@ -160,13 +162,14 @@ class PlayConditionsTest {
   @Test
   void setPosMatchesTheCArithmetic() {
     // Clip::setPos (clip.cpp:363-366): 130 over a 96-tick loop -> repeatCount 1, pos 34. The row's
-    // half (instrument_clip.cpp:412, 425) gets that reduced 34: 34 / 48 = 0 passes.
+    // half (instrument_clip.cpp:412, 425) gets the original 130 (by value, clip.h:58): 130 / 48 = 2
+    // passes, pos 34.
     NoteRowModel row = clip.getOrCreateRow(0);
     row.setLoopLengthIfIndependent(48);
     clip.setPos(130);
     assertEquals(1, clip.repeatCount);
     assertEquals(34, clip.lastProcessedPos);
-    assertEquals(0, row.getRepeatCount(clip.repeatCount));
+    assertEquals(2, row.getRepeatCount(clip.repeatCount));
 
     // PINGPONG on an odd pass plays reversed, from the mirrored position (clip.cpp:369-378).
     clip.sequenceDirectionMode = SequenceDirection.PINGPONG;
@@ -448,7 +451,8 @@ class PlayConditionsTest {
     // ticks into its second reverse pass (position 48 - 12 = 36, repeatCount = 1).
     int liveRowRepeats = row0.getRepeatCount(clip.repeatCount);
     assertEquals(1, liveRowRepeats);
-    assertTrue(row0.isCurrentlyPlayingReversed(clip.currentlyPlayingReversed));
+    assertTrue(
+        row0.isCurrentlyPlayingReversed(clip.currentlyPlayingReversed, clip.sequenceDirectionMode));
 
     // Mutate then undo mid-playback.
     clip.setStep(0, 1, true);
@@ -458,7 +462,9 @@ class PlayConditionsTest {
     assertEquals(48, restoredRow.getLoopLengthIfIndependent());
     assertEquals(36, restoredRow.getLastProcessedPosIfIndependent());
     assertEquals(liveRowRepeats, restoredRow.getRepeatCount(clip.repeatCount));
-    assertTrue(restoredRow.isCurrentlyPlayingReversed(clip.currentlyPlayingReversed));
+    assertTrue(
+        restoredRow.isCurrentlyPlayingReversed(
+            clip.currentlyPlayingReversed, clip.sequenceDirectionMode));
   }
 
   @Test
