@@ -968,16 +968,18 @@ public class SongXmlParser {
               }
             }
             // C instrument_clip.cpp:2676-2689 — every kit clip carries its own arpeggiator
-            // (Kit::getArpSettings reads the active clip's arpSettings, kit.cpp:787-797).
+            // (Kit::getArpSettings reads the active clip's arpSettings, kit.cpp:787-797);
+            // parse <arpeggiator> and re-hydrate any <kitParams> unpatched Q31 knobs onto it.
             Element arpEl = getFirstChild(clipElem, "arpeggiator");
             if (arpEl != null) {
               ArpModel parsedClipArp =
                   InstrumentXmlParser.parseArpElement(
                       arpEl, InstrumentXmlParser.SONG_INPUT_TICK_MAGNITUDE.get(), true);
-              clip.setArp(parsedClipArp);
-              if (ktm.getArp() == null) {
-                ktm.setArp(parsedClipArp);
-              }
+              clip.setArpFromXml(parsedClipArp);
+            }
+            hydrateClipArpFromKitParams(clip);
+            if (ktm.getArp() == null && clip.getArp() != null) {
+              ktm.setArpFromXml(clip.getArp());
             }
           }
           default -> {}
@@ -1258,10 +1260,11 @@ public class SongXmlParser {
               ArpModel parsedClipArp =
                   InstrumentXmlParser.parseArpElement(
                       arpEl, InstrumentXmlParser.SONG_INPUT_TICK_MAGNITUDE.get(), true);
-              clip.setArp(parsedClipArp);
-              if (ktm.getArp() == null) {
-                ktm.setArp(parsedClipArp);
-              }
+              clip.setArpFromXml(parsedClipArp);
+            }
+            hydrateClipArpFromKitParams(clip);
+            if (ktm.getArp() == null && clip.getArp() != null) {
+              ktm.setArpFromXml(clip.getArp());
             }
           }
           clipOwnerMap.put(clip, targetTrack);
@@ -2769,6 +2772,52 @@ public class SongXmlParser {
     parseKitParamChildElements(params, clip);
     parseHexGlobalEffectableAutomation(
         params, clip.getAutomationCurves(), clip.getRawKitParamHex(), readUpTo);
+    hydrateClipArpFromKitParams(clip);
+  }
+
+  private static void hydrateClipArpFromKitParams(ClipModel clip) {
+    if (clip == null || clip.getArp() == null || clip.getRawKitParamHex().isEmpty()) {
+      return;
+    }
+    String[] arpKeys = {
+      "arpeggiatorGate",
+      "arpeggiatorRate",
+      "ratchetAmount",
+      "ratchetProbability",
+      "chordPolyphony",
+      "chordProbability",
+      "reverseProbability",
+      "bassProbability",
+      "swapProbability",
+      "glideProbability",
+      "noteProbability",
+      "sequenceLength",
+      "rhythm",
+      "spreadVelocity",
+      "spreadGate",
+      "spreadOctave"
+    };
+    ArpModel hydrated = clip.getArp();
+    boolean changed = false;
+    for (String key : arpKeys) {
+      String hex = clip.getRawKitParamHex().get(key);
+      if (hex == null || hex.isBlank()) continue;
+      int q31 = DelugeHexMapper.hexToQ31(hex);
+      if ("arpeggiatorRate".equals(key)) {
+        hydrated =
+            hydrated.toBuilder().rate(DelugeHexMapper.q31ToUnipolarFloatUnified(q31)).build();
+        changed = true;
+      } else {
+        int pid = org.deluge.engine.FirmwareFactory.getParamIdFromName(key);
+        if (pid != -1) {
+          hydrated = ArpXmlCodec.applyUnpatchedKnobToArp(hydrated, pid, q31);
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      clip.setArpFromXml(hydrated);
+    }
   }
 
   private static void parseKitParamChildElements(Element parent, ClipModel clip) {

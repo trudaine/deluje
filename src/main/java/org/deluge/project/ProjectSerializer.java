@@ -417,6 +417,7 @@ public class ProjectSerializer {
                     : DelugeHexMapper.floatToQ31(kitTrack.getEqTrebleFreq())),
             false);
         writer.closeTag();
+        writeKitDefaultArpParams(writer, kitTrack);
         writer.writeClosingTag("defaultParams");
         if (kitTrack.getArp() != null) {
           writeSoundArpeggiator(writer, kitTrack.getArp(), model.getInputTickMagnitude());
@@ -751,6 +752,7 @@ public class ProjectSerializer {
                   : Integer.MIN_VALUE);
           writeDrumRawOrUnipolar(writer, sound, "reverbAmount", sound.getReverbAmount());
           writeDrumRawOrUnipolar(writer, sound, "arpeggiatorRate", sound.getArpeggiatorRate());
+          writeDrumDefaultArpParams(writer, sound);
           writeDrumRawOrUnipolar(writer, sound, "stutterRate", sound.getStutterRate());
           writeDrumRawOrUnipolar(
               writer, sound, "sampleRateReduction", sound.getSampleRateReduction());
@@ -2543,6 +2545,7 @@ public class ProjectSerializer {
     if (arp.lockedOctaveSpreadArray() != null && !arp.lockedOctaveSpreadArray().isEmpty()) {
       writer.writeAttribute("lockedOctaveSpreadArray", arp.lockedOctaveSpreadArray(), false);
     }
+    writeArpRandomizerAttributes(writer, arp);
     writer.writeOpeningTagEnd();
     writeHexTag(writer, "rate", arp.rate());
     writer.writeTag("octaves", String.valueOf(arp.octaves()));
@@ -2620,7 +2623,122 @@ public class ProjectSerializer {
         writer.writeAttribute(kv[0], kv[1], false);
       }
     }
+    writeArpRandomizerAttributes(writer, arp);
     writer.closeTag();
+  }
+
+  private static void writeArpRandomizerAttributes(
+      XMLSerializer writer, org.deluge.model.ArpModel arp) throws IOException {
+    if (arp == null) return;
+    writer.writeAttribute(
+        "spreadOctave",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_ARP_SPREAD_OCTAVE)),
+        false);
+    writer.writeAttribute(
+        "spreadGate",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_ARP_SPREAD_GATE)),
+        false);
+    writer.writeAttribute(
+        "spreadVelocity",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY)),
+        false);
+    writer.writeAttribute("ratchetAmount", arp.ratchetAmount(), false);
+    writer.writeAttribute(
+        "noteProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_NOTE_PROBABILITY)),
+        false);
+    writer.writeAttribute(
+        "bassProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_ARP_BASS_PROBABILITY)),
+        false);
+    writer.writeAttribute(
+        "swapProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_ARP_SWAP_PROBABILITY)),
+        false);
+    writer.writeAttribute(
+        "glideProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_ARP_GLIDE_PROBABILITY)),
+        false);
+    writer.writeAttribute(
+        "reverseProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_REVERSE_PROBABILITY)),
+        false);
+    writer.writeAttribute(
+        "chordProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_ARP_CHORD_PROBABILITY)),
+        false);
+    writer.writeAttribute(
+        "ratchetProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_ARP_RATCHET_PROBABILITY)),
+        false);
+    writer.writeAttribute("chordPolyphony", arp.chordPolyphony(), false);
+  }
+
+  private static void writeKitDefaultArpParams(XMLSerializer writer, KitTrackModel kitTrack)
+      throws IOException {
+    org.deluge.model.ArpModel arp =
+        kitTrack.getArp() != null ? kitTrack.getArp() : org.deluge.model.ArpModel.defaultConfig();
+    Integer rawGate = kitTrack.getRawDefaultParamQ31("arpeggiatorGate");
+    int gateQ31 =
+        rawGate != null
+            ? rawGate
+            : (Float.compare(arp.gate(), org.deluge.model.ArpModel.defaultConfig().gate()) != 0
+                ? org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                    arp, org.deluge.firmware2.Param.UNPATCHED_ARP_GATE)
+                : Integer.MAX_VALUE);
+    writeRawQ31Tag(writer, "arpeggiatorGate", gateQ31);
+    Integer rawRate = kitTrack.getRawDefaultParamQ31("arpeggiatorRate");
+    int rateQ31 =
+        rawRate != null
+            ? rawRate
+            : (Float.compare(arp.rate(), org.deluge.model.ArpModel.defaultConfig().rate()) != 0
+                ? DelugeHexMapper.unipolarFloatToQ31Unified(arp.rate())
+                : 0);
+    writeRawQ31Tag(writer, "arpeggiatorRate", rateQ31);
+    for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_RHYTHM;
+        p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+        p++) {
+      String tag = Drum.unpatchedArpXmlTag(p);
+      if (tag == null) continue;
+      Integer raw = kitTrack.getRawDefaultParamQ31(tag);
+      writeRawQ31Tag(
+          writer, tag, raw != null ? raw : org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(arp, p));
+    }
+  }
+
+  private static void writeDrumDefaultArpParams(XMLSerializer writer, SoundDrum sound)
+      throws IOException {
+    org.deluge.model.ArpModel arp =
+        sound.getArp() != null ? sound.getArp() : org.deluge.model.ArpModel.defaultConfig();
+    for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_RHYTHM;
+        p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+        p++) {
+      String tag = Drum.unpatchedArpXmlTag(p);
+      if (tag == null) continue;
+      Integer raw = sound.getRawDefaultParamQ31(tag);
+      writeRawQ31Tag(
+          writer, tag, raw != null ? raw : org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(arp, p));
+    }
   }
 
   private static void serializeKitParams(XMLSerializer writer, KitTrackModel kit, ClipModel clip)
@@ -2661,12 +2779,37 @@ public class ProjectSerializer {
     allKeys.addAll(kitParams.keySet());
     allKeys.addAll(rawHex.keySet());
     allKeys.addAll(curves.keySet());
+    java.util.Map<String, String> arpDerivedHex = new java.util.LinkedHashMap<>();
+    if (clip != null && clip.getArp() != null) {
+      org.deluge.model.ArpModel defArp = org.deluge.model.ArpModel.defaultConfig();
+      org.deluge.model.ArpModel clipArp = clip.getArp();
+      for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_GATE;
+          p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+          p++) {
+        String tag = Drum.unpatchedArpXmlTag(p);
+        if (tag != null
+            && !rawHex.containsKey(tag)
+            && org.deluge.xml.ArpXmlCodec.isUnpatchedArpFieldChanged(defArp, clipArp, p)) {
+          arpDerivedHex.put(
+              tag,
+              DelugeHexMapper.q31ToHex(org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(clipArp, p)));
+        }
+      }
+      if (!rawHex.containsKey("arpeggiatorRate")
+          && Float.compare(defArp.rate(), clipArp.rate()) != 0) {
+        arpDerivedHex.put(
+            "arpeggiatorRate", DelugeHexMapper.unipolarFloatToHexUnified(clipArp.rate()));
+      }
+      allKeys.addAll(arpDerivedHex.keySet());
+    }
     for (String key : allKeys) {
       if (written.contains(key) || isGlobalEffectableSubElementKey(key)) {
         continue;
       }
       String baseHex =
-          resolveKitBaseHex(kitParams, rawHex, key, defaultGlobalEffectableBaseHex(key));
+          arpDerivedHex.containsKey(key)
+              ? arpDerivedHex.get(key)
+              : resolveKitBaseHex(kitParams, rawHex, key, defaultGlobalEffectableBaseHex(key));
       writeGlobalEffectableAttr(writer, curves, written, key, baseHex);
     }
 
@@ -2690,7 +2833,6 @@ public class ProjectSerializer {
           "modFXOffset",
           "compressorThreshold",
           "arpeggiatorRate",
-          "arpeggiatorGate",
           "tempo",
           "eqBass",
           "eqTreble",
@@ -2699,7 +2841,7 @@ public class ProjectSerializer {
           "0x00000000";
       case "modFXRate" -> "0xE0000000";
       case "sidechainCompressorShape" -> "0xDC28F5B2";
-      case "noteProbability" -> "0x7FFFFFFF";
+      case "arpeggiatorGate", "noteProbability" -> "0x7FFFFFFF";
       case "lpfFrequency" -> DelugeHexMapper.hzToHex(20000.0f);
       case "hpfFrequency" -> DelugeHexMapper.hzToHex(20.0f);
       default -> "0x80000000";

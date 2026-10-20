@@ -250,6 +250,7 @@ public class KitSynthSerializer {
                 ? kit.getRawDefaultParamQ31("equalizer.trebleFrequency")
                 : DelugeHexMapper.floatToQ31(kit.getEqTrebleFreq())));
     kitDp.appendChild(kitDpEq);
+    appendKitDefaultArpParams(doc, kitDp, kit);
     root.appendChild(kitDp);
     if (kit.getArp() != null) {
       appendSoundArpeggiator(doc, root, kit.getArp());
@@ -710,6 +711,7 @@ public class KitSynthSerializer {
           "arpeggiatorRate",
           sound,
           () -> appendHexChildUnipolar(doc, dp, "arpeggiatorRate", sound.getArpeggiatorRate()));
+      appendDrumDefaultArpParams(doc, dp, sound);
       appendDrumRawOrFallback(
           doc,
           dp,
@@ -938,6 +940,7 @@ public class KitSynthSerializer {
         && !arpModel.lockedOctaveSpreadArray().isEmpty()) {
       arp.setAttribute("lockedOctaveSpreadArray", arpModel.lockedOctaveSpreadArray());
     }
+    setArpRandomizerAttributes(arp, arpModel);
     appendHexChild(doc, arp, "rate", arpModel.rate());
     appendTextChild(doc, arp, "octaves", String.valueOf(arpModel.octaves()));
     appendHexChild(doc, arp, "gate", arpModel.gate());
@@ -964,6 +967,111 @@ public class KitSynthSerializer {
     appendTextChild(doc, arp, "chordPolyphony", String.valueOf(arpModel.chordPolyphony()));
     appendTextChild(doc, arp, "chordProbability", String.valueOf(arpModel.chordProbability()));
     parent.appendChild(arp);
+  }
+
+  private static void setArpRandomizerAttributes(Element arp, org.deluge.model.ArpModel arpModel) {
+    arp.setAttribute(
+        "spreadOctave",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arpModel, org.deluge.firmware2.Param.UNPATCHED_ARP_SPREAD_OCTAVE)));
+    arp.setAttribute(
+        "spreadGate",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arpModel, org.deluge.firmware2.Param.UNPATCHED_ARP_SPREAD_GATE)));
+    arp.setAttribute(
+        "spreadVelocity",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arpModel, org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY)));
+    arp.setAttribute("ratchetAmount", String.valueOf(arpModel.ratchetAmount()));
+    arp.setAttribute(
+        "noteProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arpModel, org.deluge.firmware2.Param.UNPATCHED_NOTE_PROBABILITY)));
+    arp.setAttribute(
+        "bassProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arpModel, org.deluge.firmware2.Param.UNPATCHED_ARP_BASS_PROBABILITY)));
+    arp.setAttribute(
+        "swapProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arpModel, org.deluge.firmware2.Param.UNPATCHED_ARP_SWAP_PROBABILITY)));
+    arp.setAttribute(
+        "glideProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arpModel, org.deluge.firmware2.Param.UNPATCHED_ARP_GLIDE_PROBABILITY)));
+    arp.setAttribute(
+        "reverseProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arpModel, org.deluge.firmware2.Param.UNPATCHED_REVERSE_PROBABILITY)));
+    arp.setAttribute(
+        "chordProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arpModel, org.deluge.firmware2.Param.UNPATCHED_ARP_CHORD_PROBABILITY)));
+    arp.setAttribute(
+        "ratchetProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arpModel, org.deluge.firmware2.Param.UNPATCHED_ARP_RATCHET_PROBABILITY)));
+    arp.setAttribute("chordPolyphony", String.valueOf(arpModel.chordPolyphony()));
+  }
+
+  private static void appendKitDefaultArpParams(
+      Document doc, Element kitDp, org.deluge.model.KitTrackModel kit) {
+    org.deluge.model.ArpModel arp =
+        kit.getArp() != null ? kit.getArp() : org.deluge.model.ArpModel.defaultConfig();
+    Integer rawGate = kit.getRawDefaultParamQ31("arpeggiatorGate");
+    int gateQ31 =
+        rawGate != null
+            ? rawGate
+            : (Float.compare(arp.gate(), org.deluge.model.ArpModel.defaultConfig().gate()) != 0
+                ? org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                    arp, org.deluge.firmware2.Param.UNPATCHED_ARP_GATE)
+                : Integer.MAX_VALUE);
+    appendRawQ31Child(doc, kitDp, "arpeggiatorGate", gateQ31);
+    Integer rawRate = kit.getRawDefaultParamQ31("arpeggiatorRate");
+    int rateQ31 =
+        rawRate != null
+            ? rawRate
+            : (Float.compare(arp.rate(), org.deluge.model.ArpModel.defaultConfig().rate()) != 0
+                ? DelugeHexMapper.unipolarFloatToQ31Unified(arp.rate())
+                : 0);
+    appendRawQ31Child(doc, kitDp, "arpeggiatorRate", rateQ31);
+    for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_RHYTHM;
+        p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+        p++) {
+      String tag = org.deluge.model.Drum.unpatchedArpXmlTag(p);
+      if (tag == null) continue;
+      Integer raw = kit.getRawDefaultParamQ31(tag);
+      appendRawQ31Child(
+          doc,
+          kitDp,
+          tag,
+          raw != null ? raw : org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(arp, p));
+    }
+  }
+
+  private static void appendDrumDefaultArpParams(
+      Document doc, Element dp, org.deluge.model.SoundDrum sound) {
+    org.deluge.model.ArpModel arp =
+        sound.getArp() != null ? sound.getArp() : org.deluge.model.ArpModel.defaultConfig();
+    for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_RHYTHM;
+        p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+        p++) {
+      String tag = org.deluge.model.Drum.unpatchedArpXmlTag(p);
+      if (tag == null) continue;
+      Integer raw = sound.getRawDefaultParamQ31(tag);
+      appendRawQ31Child(
+          doc, dp, tag, raw != null ? raw : org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(arp, p));
+    }
   }
 
   public static void saveSynth(SynthTrackModel synth, File file) throws Exception {

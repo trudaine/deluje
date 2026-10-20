@@ -14,9 +14,15 @@ public class FirmwareKit extends org.deluge.firmware2.Kit {
 
   public FirmwareKit() {
     super.drums.clear();
-    for (int i = 0; i < 16; i++) {
+    ensureDrumCount(16);
+  }
+
+  @Override
+  public void ensureDrumCount(int count) {
+    while (drumSounds.size() < count) {
       FirmwareSound drumSound = new FirmwareSound();
       drumSound.isDrum = true;
+      drumSound.fw2Sound.isDrum = true;
       drumSound.oscTypes[0] = OscType.SAMPLE;
       // Initialize all generator volumes (Osc A, Osc B, Noise) to absolute silence
       // (Integer.MIN_VALUE)

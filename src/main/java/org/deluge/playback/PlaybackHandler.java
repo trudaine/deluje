@@ -1152,28 +1152,29 @@ public class PlaybackHandler {
   }
 
   /**
-   * C Session::doTickForward (session.cpp:2522-2535): at every playback event, each output's
-   * arpeggiator gets doTickForwardForArp with its active clip's position; the result joins the
-   * next-event deadline: synth sounds, the kit-level arp, then each drum's own arp.
+   * C Session::doTickForward (session.cpp:2523-2535) + Kit::doTickForwardForArp
+   * (kit.cpp:1136-1240): ticks every track output once per event using {@code
+   * activeClip.lastProcessedPos} when session-active or {@code lastSwungTickActioned} when the
+   * output's clip is stopped (so live held pad/MIDI notes still arpeggiate in sync).
    */
   private int doTickForwardForArps() {
     int next = Integer.MAX_VALUE;
     if (currentProject == null) return next;
-    for (ClipModel clip : currentProject.getClips()) {
-      if (!clip.isActiveInSession()) continue;
+    for (TrackModel track : currentProject.getTracks()) {
+      ClipModel clip = track.getActiveClip();
+      if (clip == null || clip.getSound() == null) continue;
+      boolean clipIsActive = clip.isActiveInSession();
+      int posForArp = clipIsActive ? clip.lastProcessedPos : lastSwungTickActioned;
+      boolean clipRev = clipIsActive && clip.currentlyPlayingReversed;
       if (clip.getSound() instanceof org.deluge.engine.FirmwareSound fs) {
-        int t =
-            fs.fw2Sound.doTickForwardForArp(clip.lastProcessedPos, clip.currentlyPlayingReversed);
+        int t = fs.fw2Sound.doTickForwardForArp(posForArp, clipRev);
         next = Math.min(next, t);
       }
       if (clip.getSound() instanceof org.deluge.engine.FirmwareKit kit) {
         // C Kit::doTickForwardForArp (kit.cpp:1136-1217): the kit arp ticks first...
-        next =
-            Math.min(
-                next,
-                kit.doTickForwardForKitArp(clip.lastProcessedPos, clip.currentlyPlayingReversed));
-        // ...then (kit.cpp:1223-1240) each drum's own arpeggiator ticks at its row's own
-        // position and direction (honouring independent per-row play pos & sequenceDirection).
+        next = Math.min(next, kit.doTickForwardForKitArp(posForArp, clipRev));
+        // ...then (kit.cpp:1221-1240) each drum's own arpeggiator ticks at its row's own
+        // position and direction when clipIsActive, or posForArp forward otherwise.
         for (int drumIdx = 0; drumIdx < kit.drumSounds.size(); drumIdx++) {
           org.deluge.model.NoteRowModel rowModel = null;
           for (org.deluge.model.NoteRowModel r : clip.getNoteRowsMap().values()) {
@@ -1182,11 +1183,11 @@ public class PlaybackHandler {
               break;
             }
           }
+          boolean shouldUseIndependentPlayPos =
+              clipIsActive && rowModel != null && rowModel.hasIndependentPlayPos();
           int rowPos =
-              (rowModel != null && rowModel.hasIndependentPlayPos())
-                  ? rowModel.getLastProcessedPosIfIndependent()
-                  : clip.lastProcessedPos;
-          boolean rowRev = clip.isRowCurrentlyPlayingReversed(rowModel);
+              shouldUseIndependentPlayPos ? rowModel.getLastProcessedPosIfIndependent() : posForArp;
+          boolean rowRev = clipIsActive && clip.isRowCurrentlyPlayingReversed(rowModel);
           int t = kit.drumSounds.get(drumIdx).fw2Sound.doTickForwardForArp(rowPos, rowRev);
           next = Math.min(next, t);
         }

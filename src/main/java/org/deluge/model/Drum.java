@@ -132,7 +132,7 @@ public abstract class Drum {
   protected float oscAVolume = 1.0f;
   protected float oscBVolume = 0.0f;
   protected float noiseVolume = 0.0f;
-  protected float arpeggiatorGate = 0.0f;
+  protected float arpeggiatorGate = 0.5f; // C mod_controllable_audio.cpp:113 — Q31 0 (25/50 = 50%)
   protected float portamento = 0.0f;
   protected float stutterRate = 0.0f;
 
@@ -855,7 +855,52 @@ public abstract class Drum {
   }
 
   public void setArp(ArpModel arp) {
+    ArpModel next = arp != null ? arp : ArpModel.defaultConfig();
+    ArpModel prev = this.arp != null ? this.arp : ArpModel.defaultConfig();
+    for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_GATE;
+        p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+        p++) {
+      if (org.deluge.xml.ArpXmlCodec.isUnpatchedArpFieldChanged(prev, next, p)) {
+        String tag = unpatchedArpXmlTag(p);
+        if (tag != null) {
+          rawDefaultParamQ31.put(tag, org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(next, p));
+        }
+        if (p == org.deluge.firmware2.Param.UNPATCHED_ARP_GATE) {
+          this.arpeggiatorGate = next.gate();
+        }
+      }
+    }
+    if (Float.compare(prev.rate(), next.rate()) != 0) {
+      this.arpeggiatorRate = next.rate();
+      rawDefaultParamQ31.remove("arpeggiatorRate");
+    }
+    this.arp = next;
+  }
+
+  /** Sets {@link #arp} during XML parsing without overwriting raw {@code <defaultParams>} Q31s. */
+  public void setArpFromXml(ArpModel arp) {
     this.arp = arp != null ? arp : ArpModel.defaultConfig();
+  }
+
+  public static String unpatchedArpXmlTag(int paramId) {
+    return switch (paramId) {
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_GATE -> "arpeggiatorGate";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_RHYTHM -> "rhythm";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SEQUENCE_LENGTH -> "sequenceLength";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_CHORD_POLYPHONY -> "chordPolyphony";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_RATCHET_AMOUNT -> "ratchetAmount";
+      case org.deluge.firmware2.Param.UNPATCHED_NOTE_PROBABILITY -> "noteProbability";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_BASS_PROBABILITY -> "bassProbability";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SWAP_PROBABILITY -> "swapProbability";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_GLIDE_PROBABILITY -> "glideProbability";
+      case org.deluge.firmware2.Param.UNPATCHED_REVERSE_PROBABILITY -> "reverseProbability";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_CHORD_PROBABILITY -> "chordProbability";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_RATCHET_PROBABILITY -> "ratchetProbability";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SPREAD_GATE -> "spreadGate";
+      case org.deluge.firmware2.Param.UNPATCHED_ARP_SPREAD_OCTAVE -> "spreadOctave";
+      case org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY -> "spreadVelocity";
+      default -> null;
+    };
   }
 
   public float getPortamento() {
@@ -956,7 +1001,7 @@ public abstract class Drum {
     this.midiChannel = v;
   }
 
-  protected float arpeggiatorRate = 0.0f;
+  protected float arpeggiatorRate = 0.5f; // C sound.cpp:155 — GLOBAL_ARP_RATE = Q31 0 (25/50)
 
   public float getArpeggiatorRate() {
     return arpeggiatorRate;

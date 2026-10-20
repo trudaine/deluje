@@ -119,6 +119,7 @@ public class FirmwareFactory {
 
   public static FirmwareKit createKitSound(KitTrackModel model, ProjectModel project) {
     FirmwareKit kit = new FirmwareKit();
+    kit.ensureDrumCount(model.getDrums().size());
     kit.clippingAmount = model.getClippingAmount();
     kit.inputTickMagnitude = project != null ? project.getInputTickMagnitude() : 2;
     for (FirmwareSound drumSound : kit.drumSounds) {
@@ -1467,7 +1468,8 @@ public class FirmwareFactory {
     }
   }
 
-  private static void syncKitTopLevelParams(KitTrackModel model, FirmwareKit kit) {
+  public static void syncKitTopLevelParams(KitTrackModel model, FirmwareKit kit) {
+    kit.ensureDrumCount(model.getDrums().size());
     Float vol = null;
     Float rev = null;
     Float pan = null;
@@ -1593,9 +1595,10 @@ public class FirmwareFactory {
                 : org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(
                     model.getSampleRateReduction()));
 
-    // C Kit::getArpSettings + Kit::setupAndRenderArpPreOutput (kit.cpp:714-731, 787-797,
-    // arpeggiator.cpp:1968-1983): apply the active kit clip's <arpeggiator> (or track fallback),
-    // then overlay raw Q31 knobs from the active clip's <kitParams> or <kit><defaultParams>.
+    // C Kit::getArpSettings + Kit::setupAndRenderArpPreOutput (global_effectable.cpp:69-70,
+    // kit.cpp:714-731, 787-797, arpeggiator.cpp:1968-1983): apply the active kit clip's
+    // <arpeggiator> (or track fallback), then overlay raw Q31 knobs from the active clip's
+    // <kitParams> or <kit><defaultParams>.
     org.deluge.model.ArpModel activeArp =
         (activeClip != null && activeClip.getArp() != null) ? activeClip.getArp() : model.getArp();
     configureKitArp(kit, activeArp, kit.inputTickMagnitude);
@@ -1603,17 +1606,28 @@ public class FirmwareFactory {
     kit.arpRateKnob =
         clipArpRateQ31 != null
             ? clipArpRateQ31
-            : (activeArp != null ? normToLinearParamKnob(activeArp.rate()) : 0);
+            : (activeArp != null
+                    && Float.compare(
+                            activeArp.rate(), org.deluge.model.ArpModel.defaultConfig().rate())
+                        != 0
+                ? normToLinearParamKnob(activeArp.rate())
+                : 0);
     Integer clipArpGateQ31 = resolveKitRawQ31(activeClip, model, "arpeggiatorGate");
     if (clipArpGateQ31 != null) {
       kit.arpGateKnob = clipArpGateQ31;
       kit.arpSettings.gate = clipArpGateQ31;
-    } else if (activeArp != null) {
-      kit.arpGateKnob = normToLinearParamKnob(activeArp.gate());
+    } else if (activeArp != null
+        && Float.compare(activeArp.gate(), org.deluge.model.ArpModel.defaultConfig().gate()) != 0) {
+      int gateQ31 =
+          org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(activeArp, Param.UNPATCHED_ARP_GATE);
+      kit.arpGateKnob = gateQ31;
+      kit.arpSettings.gate = gateQ31;
     } else {
-      kit.arpGateKnob = 0;
+      // C global_effectable.cpp:69 — UNPATCHED_ARP_GATE defaults to 2147483647 (50/50 = 100% gate)
+      kit.arpGateKnob = Integer.MAX_VALUE;
+      kit.arpSettings.gate = Integer.MAX_VALUE;
     }
-    applyUnpatchedArpQ31Overrides(kit.arpSettings, activeClip, model);
+    applyUnpatchedArpQ31Overrides(kit.arpSettings, activeArp, activeClip, model);
   }
 
   private static Integer resolveKitRawQ31(ClipModel activeClip, KitTrackModel model, String key) {
@@ -1631,47 +1645,27 @@ public class FirmwareFactory {
    * signed Q31 unpatched parameter values {@code val} via {@code (uint32_t)val + 2147483648}.
    */
   private static void applyUnpatchedArpQ31Overrides(
-      org.deluge.firmware2.Arpeggiator.Settings s, ClipModel activeClip, KitTrackModel model) {
-    String[][] unpatchedMap = {
-      {"rhythm", "rhythm"},
-      {"sequenceLength", "sequenceLength"},
-      {"chordPolyphony", "chordPolyphony"},
-      {"ratchetAmount", "ratchetAmount"},
-      {"noteProbability", "noteProbability"},
-      {"bassProbability", "bassProbability"},
-      {"swapProbability", "swapProbability"},
-      {"glideProbability", "glideProbability"},
-      {"reverseProbability", "reverseProbability"},
-      {"chordProbability", "chordProbability"},
-      {"ratchetProbability", "ratchetProbability"},
-      {"spreadVelocity", "spreadVelocity"},
-      {"spreadGate", "spreadGate"},
-      {"spreadOctave", "spreadOctave"}
-    };
-    for (String[] entry : unpatchedMap) {
-      Integer q31 = resolveKitRawQ31(activeClip, model, entry[0]);
-      if (q31 == null) continue;
-      int rawMenuVal = q31 + Integer.MIN_VALUE;
-      switch (entry[1]) {
-        case "rhythm" -> s.rhythm = rawMenuVal;
-        case "sequenceLength" -> s.sequenceLength = rawMenuVal;
-        case "chordPolyphony" -> s.chordPolyphony = rawMenuVal;
-        case "ratchetAmount" -> s.ratchetAmount = rawMenuVal;
-        case "noteProbability" -> s.noteProbability = rawMenuVal;
-        case "bassProbability" -> s.bassProbability = rawMenuVal;
-        case "swapProbability" -> s.swapProbability = rawMenuVal;
-        case "glideProbability" -> s.glideProbability = rawMenuVal;
-        case "reverseProbability" -> s.reverseProbability = rawMenuVal;
-        case "chordProbability" -> s.chordProbability = rawMenuVal;
-        case "ratchetProbability" -> s.ratchetProbability = rawMenuVal;
-        case "spreadVelocity" -> s.spreadVelocity = rawMenuVal;
-        case "spreadGate" -> s.spreadGate = rawMenuVal;
-        case "spreadOctave" -> s.spreadOctave = rawMenuVal;
+      org.deluge.firmware2.Arpeggiator.Settings s,
+      org.deluge.model.ArpModel activeArp,
+      ClipModel activeClip,
+      KitTrackModel model) {
+    org.deluge.model.ArpModel defArp = org.deluge.model.ArpModel.defaultConfig();
+    for (int p = Param.UNPATCHED_ARP_RHYTHM; p <= Param.UNPATCHED_SPREAD_VELOCITY; p++) {
+      String tag = Drum.unpatchedArpXmlTag(p);
+      Integer q31 = tag != null ? resolveKitRawQ31(activeClip, model, tag) : null;
+      if (q31 == null
+          && activeArp != null
+          && org.deluge.xml.ArpXmlCodec.isUnpatchedArpFieldChanged(defArp, activeArp, p)) {
+        q31 = org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(activeArp, p);
+      }
+      if (q31 != null) {
+        s.updateParamFromUnpatched(p, q31);
       }
     }
   }
 
   public static void applyModelToLiveSound(KitTrackModel model, FirmwareKit kit) {
+    kit.ensureDrumCount(model.getDrums().size());
     kit.clippingAmount = model.getClippingAmount();
     syncKitTopLevelParams(model, kit);
     try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
@@ -1934,8 +1928,6 @@ public class FirmwareFactory {
         sd.getDelayFeedbackQ31() != null ? sd.getDelayFeedbackQ31() : Integer.MIN_VALUE;
     drumSound.paramNeutralValues[Param.GLOBAL_REVERB_AMOUNT] =
         rawDrumOrFallback(sd, "reverbAmount", normToBipolarParamVolume(sd.getReverbAmount()));
-    drumSound.paramNeutralValues[Param.GLOBAL_ARP_RATE] =
-        rawDrumOrFallback(sd, "arpeggiatorRate", normToLinearParamKnob(sd.getArpeggiatorRate()));
     drumSound.paramNeutralValues[Param.UNPATCHED_STUTTER_RATE] =
         rawDrumOrFallback(sd, "stutterRate", normToLinearParamKnob(sd.getStutterRate()));
     drumSound.paramNeutralValues[Param.UNPATCHED_BITCRUSHING] =

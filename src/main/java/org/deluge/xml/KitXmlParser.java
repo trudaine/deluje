@@ -574,7 +574,7 @@ public class KitXmlParser {
     // including kitArp="0/1", syncLevel, mode/noteMode/octaveMode, randomizer & pattern fields)
     Element arpEl = getFirstChild(soundNode, "arpeggiator");
     if (arpEl != null) {
-      sound.setArp(
+      sound.setArpFromXml(
           InstrumentXmlParser.parseArpElement(
               arpEl, InstrumentXmlParser.SONG_INPUT_TICK_MAGNITUDE.get(), false));
       String gateRaw = readAttr(arpEl, "gate");
@@ -812,7 +812,17 @@ public class KitXmlParser {
         }) {
       String rawArpHex = attrOrChildText(dp, arpParamTag);
       if (rawArpHex != null && !rawArpHex.isBlank()) {
-        sound.setRawDefaultParamQ31(arpParamTag, DelugeHexMapper.hexToQ31(rawArpHex));
+        int q31 = DelugeHexMapper.hexToQ31(rawArpHex);
+        sound.setRawDefaultParamQ31(arpParamTag, q31);
+        int pid = org.deluge.engine.FirmwareFactory.getParamIdFromName(arpParamTag);
+        if ("arpeggiatorRate".equals(arpParamTag)) {
+          sound.setArpFromXml(
+              sound.getArp().toBuilder()
+                  .rate(DelugeHexMapper.q31ToUnipolarFloatUnified(q31))
+                  .build());
+        } else if (pid != -1) {
+          sound.setArpFromXml(ArpXmlCodec.applyUnpatchedKnobToArp(sound.getArp(), pid, q31));
+        }
       }
     }
     readHexFloatUnipolar(dp, "portamento", sound::setPortamento);
@@ -1092,7 +1102,7 @@ public class KitXmlParser {
 
     Element kitArpEl = directChild(kitNode, "arpeggiator");
     if (kitArpEl != null) {
-      kit.setArp(
+      kit.setArpFromXml(
           InstrumentXmlParser.parseArpElement(
               kitArpEl, InstrumentXmlParser.SONG_INPUT_TICK_MAGNITUDE.get(), false));
     }
@@ -1252,7 +1262,20 @@ public class KitXmlParser {
           "spreadOctave"
         }) {
       if ((v = attrOrDirectChildText(kitDp, kitArpParamTag)) != null && !v.isBlank()) {
-        kit.setRawDefaultParamQ31(kitArpParamTag, DelugeHexMapper.hexToQ31(v));
+        int q31 = DelugeHexMapper.hexToQ31(v);
+        kit.setRawDefaultParamQ31(kitArpParamTag, q31);
+        ArpModel baseKitArp = kit.getArp();
+        if (baseKitArp != null) {
+          int pid = org.deluge.engine.FirmwareFactory.getParamIdFromName(kitArpParamTag);
+          if ("arpeggiatorRate".equals(kitArpParamTag)) {
+            kit.setArpFromXml(
+                baseKitArp.toBuilder()
+                    .rate(DelugeHexMapper.q31ToUnipolarFloatUnified(q31))
+                    .build());
+          } else if (pid != -1) {
+            kit.setArpFromXml(ArpXmlCodec.applyUnpatchedKnobToArp(baseKitArp, pid, q31));
+          }
+        }
       }
     }
   }

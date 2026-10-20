@@ -302,4 +302,231 @@ class KitArpeggiatorTest {
     assertFalse(kit.arpeggiator.playbackClockActive);
     assertFalse(spyDrumSound.arpeggiator.playbackClockActive);
   }
+
+  @Test
+  void sequencedShortNoteOffAndStopClearKitArpWithoutRetriggeringHeldDrums() {
+    ProjectModel project = new ProjectModel();
+    KitTrackModel kitTrack = new KitTrackModel("KitSeq");
+    SoundDrum d0 = new SoundDrum("Synth0");
+    d0.setOsc1Type("SAW");
+    d0.setOscAVolume(1.0f);
+    SoundDrum d1 = new SoundDrum("Synth1");
+    d1.setOsc1Type("SAW");
+    d1.setOscAVolume(1.0f);
+    kitTrack.addDrum(d0);
+    kitTrack.addDrum(d1);
+
+    ClipModel clip = new ClipModel("Clip", 2, 16); // 384 ticks
+    clip.setActiveInSession(true);
+    clip.setArp(ArpModel.defaultConfig().toBuilder().active(true).syncLevel(16).build());
+    NoteRowModel r0 = clip.getOrCreateRow(0);
+    r0.setPitch(0);
+    r0.getNotes().add(new NoteModel(0, 24, 1.0f, 1.0f, 0)); // single 16th at step 0 only
+    kitTrack.addClip(clip);
+    project.addTrack(kitTrack);
+
+    FirmwareFactory.createSong(project);
+    FirmwareKit kit = (FirmwareKit) clip.getSound();
+    PlaybackHandler ph = new PlaybackHandler();
+    ph.setProject(project);
+    ph.start();
+    assertTrue(kit.arpeggiator.hasAnyInputNotesActive(), "step 0 note-on enters kit arp");
+
+    ph.advanceTicks(24);
+    assertFalse(
+        kit.arpeggiator.hasAnyInputNotesActive(),
+        "step 0 note-off at tick 24 must remove drum 0 from kit.arpeggiator.notes");
+    // Drain step 0's release envelope tail, then verify rest steps 1..10 never retrigger a voice.
+    int[] drainBuf = new int[256];
+    int[] drainRev = new int[256];
+    for (int b = 0; b < 400 && kit.drumSounds.get(0).getActiveVoiceCount() > 0; b++) {
+      kit.renderInternal(drainBuf, 128, drainRev);
+    }
+    assertEquals(0, kit.drumSounds.get(0).getActiveVoiceCount(), "step 0 voice finished release");
+    ph.advanceTicks(240);
+    assertEquals(0, kit.drumSounds.get(0).getActiveVoiceCount(), "rest steps 1..10 stay silent");
+
+    // Mid-gate transport stop releases sequenced notes from kit.arpeggiator via
+    // stopAllNotesPlaying,
+    // and expectNoFurtherTicks(true) flushes live held notes via kit.releaseAllNotes().
+    ph.advanceTicks(126); // wrap 384-tick bar to tick 6 (mid-gate of step 0)
+    assertTrue(kit.arpeggiator.hasAnyInputNotesActive(), "sequenced step active mid-gate");
+    ph.stop();
+    assertFalse(
+        kit.arpeggiator.hasAnyInputNotesActive(),
+        "stop() releases mid-gate sequenced notes from kit.arpeggiator");
+
+    kit.triggerDrum(1, 100);
+    assertTrue(kit.arpeggiator.hasAnyInputNotesActive());
+    clip.expectNoFurtherTicks(true);
+    assertFalse(
+        kit.arpeggiator.hasAnyInputNotesActive(),
+        "expectNoFurtherTicks(true) resets kit arpeggiator");
+
+    // With kit arp OFF, releasing one simultaneous drum must NOT retrigger another still-held drum
+    // via C mono CV snap-back (arpeggiator.cpp:440-456 vs kit.cpp:1369-1375).
+    RecKit rec = new RecKit();
+    rec.triggerDrum(0, 100);
+    rec.triggerDrum(1, 110);
+    rec.hits.clear();
+    rec.releaseDrum(1);
+    assertEquals(List.of("OFF1"), rec.hits);
+  }
+
+  @Test
+  void programmaticSoundDrumAndKitDefaultsMatchHardwareAndSustainBeyondOneBlock(
+      @TempDir Path tempDir) throws Exception {
+    KitTrackModel kitTrack = new KitTrackModel("KitDefaults");
+    SoundDrum sd = new SoundDrum("SustainingLeadDrum");
+    sd.setOsc1Type("SAW");
+    sd.setOscAVolume(1.0f);
+    sd.setAdsr(new org.deluge.model.EnvelopeModel(0.0f, 0.5f, 1.0f, 0.0f, "NONE", 0.0f));
+    sd.setArp(ArpModel.defaultConfig().toBuilder().active(true).syncLevel(0).build());
+    kitTrack.addDrum(sd);
+    ClipModel clip = new ClipModel("Clip", 1, 16);
+    kitTrack.addClip(clip);
+    ProjectModel project = new ProjectModel();
+    project.addTrack(kitTrack);
+
+    FirmwareKit fwKit = FirmwareFactory.createKitSound(kitTrack, project);
+    assertEquals(
+        Integer.MAX_VALUE,
+        fwKit.arpGateKnob,
+        "Default affect-entire kit gate is INT_MAX (50/50 = 100%, global_effectable.cpp:69)");
+    FirmwareSound drum = fwKit.drumSounds.get(0);
+    assertEquals(
+        0,
+        drum.paramNeutralValues[Param.UNPATCHED_ARP_GATE],
+        "Default SoundDrum arp gate Q31 is 0 (25/50 = 50%, mod_controllable_audio.cpp:113)");
+    assertEquals(
+        0,
+        drum.paramNeutralValues[Param.GLOBAL_ARP_RATE],
+        "Default SoundDrum arp rate Q31 is 0 (25/50, sound.cpp:155)");
+
+    // Trigger unsynced per-drum arp and verify gate stays open across multiple 64-sample blocks.
+    drum.syncParamsToFw2();
+    drum.triggerNote(60, 100);
+    int[] buf = new int[128];
+    int[] rev = new int[128];
+    drum.renderOutputSumming(buf, 64, rev);
+    drum.renderOutputSumming(buf, 64, rev);
+    assertTrue(
+        drum.fw2Sound.arpeggiator.hasAnyInputNotesActive() && drum.getActiveVoiceCount() > 0,
+        "50% default per-drum arp gate must hold voice open beyond block 1");
+
+    // Standalone Kit XML round-trip preserves 0x7FFFFFFF kit gate & 0x00000000 drum gate/rate +
+    // unpatched arp params.
+    Path kitFile = tempDir.resolve("STANDALONE_KIT.XML");
+    org.deluge.project.KitSynthSerializer.saveKit(kitTrack, kitFile.toFile());
+    String kitXml = Files.readString(kitFile);
+    assertTrue(kitXml.contains("<arpeggiatorGate>0x7FFFFFFF</arpeggiatorGate>"));
+    assertTrue(kitXml.contains("<arpeggiatorGate>0x00000000</arpeggiatorGate>"));
+    assertTrue(kitXml.contains("<noteProbability>0x7FFFFFFF</noteProbability>"));
+    KitTrackModel parsedStandalone = org.deluge.xml.KitXmlParser.parseKit(kitFile.toFile());
+    assertEquals(
+        0.5f, ((SoundDrum) parsedStandalone.getDrums().get(0)).getArpeggiatorGate(), 1e-4f);
+  }
+
+  @Test
+  void sessionClipSwitchReSyncsLiveKitArpAndProgrammaticArpModelRoundTrips(@TempDir Path tempDir)
+      throws Exception {
+    ProjectModel project = new ProjectModel();
+    KitTrackModel kitTrack = new KitTrackModel("KitMultiClip");
+    SoundDrum d0 = new SoundDrum("Synth0");
+    d0.setOsc1Type("SAW");
+    d0.setOscAVolume(1.0f);
+    kitTrack.addDrum(d0);
+
+    ClipModel clip0 = new ClipModel("Clip0", 1, 16);
+    clip0.setActiveInSession(true);
+    clip0.setArp(ArpModel.defaultConfig().toBuilder().active(false).build());
+
+    ClipModel clip1 = new ClipModel("Clip1", 1, 16);
+    clip1.setActiveInSession(false);
+    clip1.setArp(
+        ArpModel.defaultConfig().toBuilder()
+            .active(true)
+            .octaves(2)
+            .syncLevel(16)
+            .gate(0.25f)
+            .rate(0.75f)
+            .seqLength(6)
+            .reverseProbability(0.5f)
+            .velSpread(0.4f)
+            .build());
+    kitTrack.addClip(clip0);
+    kitTrack.addClip(clip1);
+    kitTrack.setActiveClipIndex(0);
+    project.addTrack(kitTrack);
+
+    FirmwareFactory.createSong(project);
+    FirmwareKit liveKit = (FirmwareKit) clip0.getSound();
+    assertEquals(Arpeggiator.ArpMode.OFF, liveKit.arpSettings.mode);
+
+    // Switch active session clip from Clip0 (OFF) -> Clip1 (ARP): liveKit updates immediately.
+    kitTrack.setActiveClipIndex(1);
+    assertEquals(Arpeggiator.ArpMode.ARP, liveKit.arpSettings.mode);
+    assertEquals(2, liveKit.arpSettings.numOctaves);
+    assertTrue(liveKit.arpGateKnob < 0, "gate=0.25 maps to negative Q31 knob");
+    assertTrue(liveKit.arpRateKnob > 0, "rate=0.75 maps to positive Q31 knob");
+
+    // Save & reload song XML: programmatic clip1 ArpModel fields survive <kitParams> round-trip
+    // and hydrate clip1.getArp() on load.
+    Path saved = tempDir.resolve("MULTI_CLIP_KIT_ARP.XML");
+    ProjectSerializer.save(project, saved.toFile());
+    ProjectModel reloaded = SongXmlParser.parseSong(saved.toFile());
+    ClipModel reloadedClip1 = reloaded.getTracks().get(0).getClips().get(1);
+    assertEquals(6, reloadedClip1.getArp().seqLength());
+    assertEquals(0.5f, reloadedClip1.getArp().reverseProbability(), 0.02f);
+    assertEquals(0.25f, reloadedClip1.getArp().gate(), 0.02f);
+    assertEquals(0.75f, reloadedClip1.getArp().rate(), 0.02f);
+  }
+
+  @Test
+  void livePadArpeggiatesOnStoppedClipAndMultiPageKitSupportsMoreThanSixteenDrums() {
+    ProjectModel project = new ProjectModel();
+    KitTrackModel kitTrack = new KitTrackModel("BigKit20");
+    for (int i = 0; i < 20; i++) {
+      SoundDrum sd = new SoundDrum("Drum" + i);
+      sd.setOsc1Type("SAW");
+      sd.setOscAVolume(1.0f);
+      kitTrack.addDrum(sd);
+    }
+    ClipModel stoppedClip = new ClipModel("StoppedClip", 20, 16);
+    stoppedClip.setActiveInSession(false); // session-stopped clip while clock runs
+    stoppedClip.setArp(ArpModel.defaultConfig().toBuilder().active(true).syncLevel(16).build());
+    kitTrack.addClip(stoppedClip);
+    project.addTrack(kitTrack);
+
+    FirmwareFactory.createSong(project);
+    FirmwareKit kit = (FirmwareKit) stoppedClip.getSound();
+    assertEquals(20, kit.drumSounds.size(), "20-drum multi-page kit must not truncate at 16");
+
+    PlaybackHandler ph = new PlaybackHandler();
+    ph.setProject(project);
+    ph.start();
+    // Hold pad on drum 18 (> 16) while clip is session-inactive: must trigger on clock tick!
+    kit.triggerDrum(18, 100);
+    ph.advanceTicks(24);
+    assertTrue(
+        kit.drumSounds.get(18).getActiveVoiceCount() > 0,
+        "Live held pad on stopped clip must arpeggiate via lastSwungTickActioned (session.cpp:2529)");
+    ph.stop();
+
+    // Multi-octave post-arp releaseDrum releases row + 12 (drum 14 when row 2 is sounding an octave
+    // up, arpeggiator.cpp:412-430, kit.cpp:1369-1375).
+    RecKit octKit = new RecKit();
+    octKit.arpSettings.mode = Arpeggiator.ArpMode.ARP;
+    octKit.arpSettings.octaveMode = Arpeggiator.ArpOctaveMode.DOWN;
+    octKit.arpSettings.numOctaves = 2;
+    octKit.arpSettings.syncLevel = Arpeggiator.SyncLevel.SYNC_LEVEL_16TH;
+    octKit.arpeggiator.playbackClockActive = true;
+    octKit.triggerDrum(2, 100);
+    octKit.doTickForwardForKitArp(0, false); // DOWN w/ 2 octaves plays 2 + 12 = 14!
+    assertEquals(List.of("ON14:100"), octKit.hits);
+    octKit.hits.clear();
+    octKit.releaseDrum(2);
+    assertEquals(
+        List.of("OFF14"), octKit.hits, "releaseDrum must release sounding post-arp drum 14");
+  }
 }

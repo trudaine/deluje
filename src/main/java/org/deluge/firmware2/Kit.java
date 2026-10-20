@@ -17,7 +17,16 @@ public class Kit extends GlobalEffectable {
   }
 
   public Kit() {
-    for (int i = 0; i < 16; i++) {
+    ensureBaseDrumCount(16);
+  }
+
+  /** Ensures {@link #drums} holds at least {@code count} drum slots for multi-page kits. */
+  public void ensureDrumCount(int count) {
+    ensureBaseDrumCount(count);
+  }
+
+  private void ensureBaseDrumCount(int count) {
+    while (drums.size() < count) {
       Sound drumSound = new Sound();
       drumSound.oscTypes[0] = Oscillator.OscType.SAMPLE;
       // Initialize volumes to keep Operator B and Noise quiet by default
@@ -35,15 +44,20 @@ public class Kit extends GlobalEffectable {
 
   {
     arpSettings.numOctaves = 1; // C kit.cpp:53 — defaultArpSettings.numOctaves = 1
+    arpSettings.gate = Integer.MAX_VALUE; // C global_effectable.cpp:69 — UNPATCHED_ARP_GATE = 50
   }
 
   private final Arpeggiator.ArpReturnInstruction kitInstruction =
       new Arpeggiator.ArpReturnInstruction();
 
-  /** The kit's unpatched UNPATCHED_ARP_RATE / UNPATCHED_ARP_GATE knobs (C kit.cpp:727-731). */
+  /**
+   * The kit's unpatched UNPATCHED_ARP_RATE / UNPATCHED_ARP_GATE knobs (C global_effectable.cpp:69-
+   * 70, kit.cpp:727-731): default rate = 0 (25/50), default affect-entire kit gate = INT_MAX
+   * (50/50).
+   */
   public int arpRateKnob = 0;
 
-  public int arpGateKnob = 0;
+  public int arpGateKnob = Integer.MAX_VALUE;
 
   /** C playbackHandler.getTimePerInternalTickInverse(), for an unsynced kit arp's rate. */
   public int timePerInternalTickInverse = 0;
@@ -90,7 +104,7 @@ public class Kit extends GlobalEffectable {
     triggerDrum(row, vel, 0);
   }
 
-  /** C Kit::noteOnPreKitArp (kit.cpp:1291-1329). */
+  /** C Kit::noteOnPreKitArp (kit.cpp:1291-1332). */
   public void triggerDrum(int row, int vel, int samplesLate) {
     if (muted || drumAt(row) == null) {
       return;
@@ -99,22 +113,24 @@ public class Kit extends GlobalEffectable {
       drumNoteOn(row, vel, samplesLate);
       return;
     }
+    nullifyUnsupportedKitArpParams();
     kitInstruction.reset();
     arpeggiator.noteOn(arpSettings, row, vel, kitInstruction, Arpeggiator.MIDI_CHANNEL_NONE, null);
     if (kitInstruction.arpNoteOn != null
         && kitInstruction.arpNoteOn.noteCodeOnPostArp[0] != Arpeggiator.ARP_NOTE_NONE) {
-      // C kit.cpp:1322-1326 — forward the kit randomizer's invertReversed to the pressed drum and
+      int outRow = kitInstruction.arpNoteOn.noteCodeOnPostArp[0];
+      // C kit.cpp:1322-1330 — forward the kit randomizer's invertReversed to the output drum and
       // play at the arp note's spread-adjusted velocity.
-      Sound d = drumAt(row);
+      Sound d = drumAt(outRow);
       if (d != null) {
         d.arpeggiator.invertReversedFromKitArp = kitInstruction.invertReversed;
+        drumNoteOn(outRow, kitInstruction.arpNoteOn.velocity, samplesLate);
+        kitInstruction.arpNoteOn.noteStatus[0] = Arpeggiator.ArpNoteStatus.PLAYING;
       }
-      drumNoteOn(row, kitInstruction.arpNoteOn.velocity, samplesLate);
-      kitInstruction.arpNoteOn.noteStatus[0] = Arpeggiator.ArpNoteStatus.PLAYING;
     }
   }
 
-  /** C Kit::noteOffPreKitArp (kit.cpp:1331-1375). */
+  /** C Kit::noteOffPreKitArp (kit.cpp:1334-1377, arpeggiator.cpp:412-456). */
   public void releaseDrum(int row) {
     if (drumAt(row) == null) {
       return;
@@ -125,8 +141,13 @@ public class Kit extends GlobalEffectable {
     }
     kitInstruction.reset();
     arpeggiator.noteOff(arpSettings, row, kitInstruction);
-    if (kitInstruction.noteCodeOffPostArp[0] != Arpeggiator.ARP_NOTE_NONE) {
-      drumNoteOff(row);
+    int glideOff = kitInstruction.glideNoteCodeOffPostArp[0];
+    if (glideOff != Arpeggiator.ARP_NOTE_NONE && drumAt(glideOff) != null) {
+      drumNoteOff(glideOff);
+    }
+    int off = kitInstruction.noteCodeOffPostArp[0];
+    if (off != Arpeggiator.ARP_NOTE_NONE && drumAt(off) != null) {
+      drumNoteOff(off);
     }
   }
 
