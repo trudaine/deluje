@@ -984,10 +984,14 @@ class KitSynthPresetXmlRoundTripParityTest {
     KitTrackModel kit = new KitTrackModel("PannedBusKit");
     kit.getDrums().clear();
     SoundDrum d0 = new SoundDrum("KICK SC", "");
-    d0.setOsc1Type("SINE");
+    d0.setOsc1Type("SAW");
     d0.setOscAVolume(0.9f);
-    d0.setMaxVoiceCount(12);
-    d0.setSidechainSend(0.75f);
+    d0.setMaxVoiceCount(24);
+    d0.setSidechainSend(0.65f);
+    d0.setCompressorAttack(0.25f);
+    d0.setCompressorRelease(0.40f);
+    d0.setCompressorSyncLevel(5);
+    d0.setCompressorSyncType(2);
     d0.setStutterQuantized(false);
     d0.setStutterReversed(true);
     d0.setStutterPingPong(true);
@@ -1001,19 +1005,40 @@ class KitSynthPresetXmlRoundTripParityTest {
     kit.addDrum(d0);
     kit.addDrum(d1);
 
-    int[] defaultKitBusPcm = renderKitSamples(kit);
+    // 1. Prove kit-bus GlobalEffectable LPF/HPF/filterRoute DSP is live IN ISOLATION at fixed
+    // neutral volume (0.5f) & center pan (0.0f) — never conflated with volume/pan!
+    int[] neutralUnfilteredKitPcm = renderKitSamples(kit);
+    kit.setLpfMode(FilterMode.DRIVE);
+    kit.setLpfFreq(420.0f);
+    kit.setLpfRes(0.45f);
+    kit.setLpfMorph(0.30f);
+    kit.setHpfMode(FilterMode.SVF_NOTCH);
+    kit.setHpfFreq(950.0f);
+    kit.setHpfRes(0.35f);
+    kit.setHpfMorph(0.25f);
+    kit.setFilterRoute(2);
+    int[] filteredOnlyKitPcm = renderKitSamples(kit);
+    assertFalse(
+        Arrays.equals(neutralUnfilteredKitPcm, filteredOnlyKitPcm),
+        "Kit-level GlobalEffectable LPF/HPF/filterRoute must audibly shape PCM at fixed volume/pan");
+
     kit.setVolume(0.82f);
     kit.setPan(-0.35f);
     kit.setReverbAmount(0.42f);
     kit.setBitCrush(0.18f);
-    kit.setLpfMode(FilterMode.DRIVE);
-    kit.setHpfMode(FilterMode.SVF_NOTCH);
-    kit.setFilterRoute(2);
+    kit.setSampleRateReduction(0.12f);
     kit.setModFxType("STEREO_CHORUS");
+    kit.setModFxRate(0.62f);
+    kit.setModFxDepth(0.44f);
+    kit.setModFxOffset(0.31f);
+    kit.setModFxFeedback(0.27f);
+    kit.setDelayRate(0.66f);
+    kit.setDelayFeedback(0.38f);
+    kit.setEqBass(0.22f);
+    kit.setEqTreble(-0.18f);
+    kit.setEqBassFreq(0.15f);
+    kit.setEqTrebleFreq(-0.12f);
     int[] customKitBusPcm = renderKitSamples(kit);
-    assertFalse(
-        Arrays.equals(defaultKitBusPcm, customKitBusPcm),
-        "Custom KitTrackModel volume/pan must measurably change rendered PCM");
 
     File kitFile = tempDir.resolve("meta_kit.XML").toFile();
     KitSynthSerializer.saveKit(kit, kitFile);
@@ -1026,12 +1051,31 @@ class KitSynthPresetXmlRoundTripParityTest {
     assertEquals(-0.35f, reloadedKit.getPan(), 1e-4f);
     assertEquals(0.42f, reloadedKit.getReverbAmount(), 1e-4f);
     assertEquals(0.18f, reloadedKit.getBitCrush(), 1e-4f);
+    assertEquals(0.12f, reloadedKit.getSampleRateReduction(), 1e-4f);
     assertEquals(FilterMode.DRIVE, reloadedKit.getLpfMode());
+    assertEquals(420.0f, reloadedKit.getLpfFreq(), 0.5f);
+    assertEquals(0.45f, reloadedKit.getLpfRes(), 1e-4f);
+    assertEquals(0.30f, reloadedKit.getLpfMorph(), 1e-4f);
     assertEquals(FilterMode.SVF_NOTCH, reloadedKit.getHpfMode());
+    assertEquals(950.0f, reloadedKit.getHpfFreq(), 1.0f);
+    assertEquals(0.35f, reloadedKit.getHpfRes(), 1e-4f);
+    assertEquals(0.25f, reloadedKit.getHpfMorph(), 1e-4f);
     assertEquals(2, reloadedKit.getFilterRoute());
     assertEquals("StereoChorus", reloadedKit.getModFxType());
+    assertEquals(0.62f, reloadedKit.getModFxRate(), 1e-4f);
+    assertEquals(0.44f, reloadedKit.getModFxDepth(), 1e-4f);
+    assertEquals(0.31f, reloadedKit.getModFxOffset(), 1e-4f);
+    assertEquals(0.27f, reloadedKit.getModFxFeedback(), 1e-4f);
+    assertEquals(0.66f, reloadedKit.getDelayRate(), 1e-4f);
+    assertEquals(0.38f, reloadedKit.getDelayFeedback(), 1e-4f);
+    assertEquals(0.22f, reloadedKit.getEqBass(), 1e-4f);
+    assertEquals(-0.18f, reloadedKit.getEqTreble(), 1e-4f);
+    assertEquals(0.15f, reloadedKit.getEqBassFreq(), 1e-4f);
+    assertEquals(-0.12f, reloadedKit.getEqTrebleFreq(), 1e-4f);
     SoundDrum rd0 = (SoundDrum) reloadedKit.getDrums().get(0);
-    assertEquals(12, rd0.getMaxVoiceCount());
+    assertEquals(24, rd0.getMaxVoiceCount());
+    assertEquals(0.65f, rd0.getSidechainSend(), 1e-6f);
+    assertEquals(2, rd0.getCompressorSyncType());
     assertFalse(rd0.isStutterQuantized());
     assertTrue(rd0.isStutterReversed());
     assertTrue(rd0.isStutterPingPong());
@@ -1041,14 +1085,22 @@ class KitSynthPresetXmlRoundTripParityTest {
     assertEquals(1, rd0.getSidechainSyncType());
     assertArrayEquals(customKitBusPcm, renderKitSamples(reloadedKit));
 
-    // Also verify full-song ProjectSerializer -> parseSong preserves every single tag & 0-LSB PCM
+    // 2. Verify full-song ProjectSerializer -> parseSong preserves EVERY kit <defaultParams> field,
+    // multi-clip activeClip fallback without +12 dB / +0.5 pan clobbering, and 0-LSB PCM!
     ProjectModel song = new ProjectModel();
+    song.setInputTickMagnitude(3);
     ClipModel sClip = new ClipModel("Meta S", 192, 0);
     sClip.getOrCreateRow(60).notes.add(new NoteModel(0, 24, 0.8f, 1.0f, 1));
     synth.addClip(sClip);
-    ClipModel kClip = new ClipModel("Meta K", 192, 0);
-    kClip.getOrCreateRow(0).notes.add(new NoteModel(0, 24, 0.8f, 1.0f, 1));
-    kit.addClip(kClip);
+    ClipModel kClip0 = new ClipModel("Meta K0", 192, 0);
+    kClip0.setActiveInSession(false);
+    kClip0.getOrCreateRow(0).notes.add(new NoteModel(0, 24, 0.8f, 1.0f, 1));
+    ClipModel kClip1 = new ClipModel("Meta K1", 192, 0);
+    kClip1.setActiveInSession(true);
+    kClip1.getOrCreateRow(0).notes.add(new NoteModel(0, 24, 0.8f, 1.0f, 1));
+    kit.addClip(kClip0);
+    kit.addClip(kClip1);
+    kit.setActiveClipIndex(1);
     song.addTrack(synth);
     song.addTrack(kit);
 
@@ -1061,7 +1113,7 @@ class KitSynthPresetXmlRoundTripParityTest {
     SynthTrackModel songSynth = (SynthTrackModel) reloadedSong.getTracks().get(0);
     KitTrackModel songKit = (KitTrackModel) reloadedSong.getTracks().get(1);
     assertEquals(24, songSynth.getMaxVoiceCount());
-    assertEquals(0.65f, songSynth.getSidechainSend(), 1e-4f);
+    assertEquals(0.65f, songSynth.getSidechainSend(), 1e-6f);
     assertFalse(songSynth.getStutter().isStutterQuantized());
     assertTrue(songSynth.getStutter().isStutterReversed());
     assertTrue(songSynth.getStutter().isStutterPingPong());
@@ -1071,7 +1123,55 @@ class KitSynthPresetXmlRoundTripParityTest {
     assertEquals(2, songSynth.getSidechainSyncType());
     assertEquals(0.82f, songKit.getVolume(), 1e-4f);
     assertEquals(-0.35f, songKit.getPan(), 1e-4f);
+    assertEquals(420.0f, songKit.getLpfFreq(), 0.5f);
+    assertEquals(0.30f, songKit.getLpfMorph(), 1e-4f);
+    assertEquals(950.0f, songKit.getHpfFreq(), 1.0f);
+    assertEquals(0.25f, songKit.getHpfMorph(), 1e-4f);
+    assertEquals(0.66f, songKit.getDelayRate(), 1e-4f);
+    assertEquals(0.38f, songKit.getDelayFeedback(), 1e-4f);
+    assertEquals(0.22f, songKit.getEqBass(), 1e-4f);
+    assertEquals(-0.18f, songKit.getEqTreble(), 1e-4f);
+    assertEquals(0.15f, songKit.getEqBassFreq(), 1e-4f);
+    assertEquals(-0.12f, songKit.getEqTrebleFreq(), 1e-4f);
+    assertEquals(0.62f, songKit.getModFxRate(), 1e-4f);
+    assertEquals(0.44f, songKit.getModFxDepth(), 1e-4f);
+    assertEquals(0.31f, songKit.getModFxOffset(), 1e-4f);
+    assertEquals(0.27f, songKit.getModFxFeedback(), 1e-4f);
     assertArrayEquals(customKitBusPcm, renderKitSamples(songKit));
+
+    // 3. Verify <song inputTickMagnitude="3"> round-tripped end-to-end and
+    // FirmwareFactory.createKitSound propagates maxPolyphony, inputTickMagnitude, and all 4
+    // SoundDrum sidechain parameters onto drumSounds[0].
+    assertEquals(3, reloadedSong.getInputTickMagnitude());
+    var liveKit = FirmwareFactory.createKitSound(songKit, reloadedSong);
+    assertEquals(24, liveKit.drumSounds.get(0).fw2Sound.maxPolyphony);
+    assertEquals(3, liveKit.drumSounds.get(0).inputTickMagnitude);
+    assertEquals(327244, liveKit.drumSounds.get(0).sidechain.attack);
+    assertEquals(936, liveKit.drumSounds.get(0).sidechain.release);
+    assertEquals(
+        org.deluge.xml.DelugeXmlUtil.convertSyncLevelFromFileValueToInternalValue(7, 3),
+        liveKit.drumSounds.get(0).sidechain.syncLevel);
+    assertEquals(1, liveKit.drumSounds.get(0).sidechain.syncType);
+
+    // 4. Verify real Deluge Community Firmware <defaultParams lpfMorph="..." hpfMorph="..."/>
+    // attributes (outside <lpf>/<hpf>) and child-element <sidechain><syncLevel>... on <synth>.
+    File cfMorphKitFile = tempDir.resolve("cf_morph_kit.XML").toFile();
+    Files.writeString(
+        cfMorphKitFile.toPath(),
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <kit>
+          <defaultParams lpfMorph="0x20000000" hpfMorph="0xDF000000">
+            <lpf frequency="0x10000000" resonance="0xC0000000" />
+            <hpf frequency="0xE0000000" resonance="0x90000000" />
+          </defaultParams>
+          <soundSources />
+        </kit>
+        """,
+        StandardCharsets.UTF_8);
+    KitTrackModel cfMorphKit = DelugeXmlParser.parseKit(cfMorphKitFile);
+    assertEquals(0x20000000, cfMorphKit.getRawDefaultParamQ31("lpf.morph"));
+    assertEquals(0xDF000000, cfMorphKit.getRawDefaultParamQ31("hpf.morph"));
   }
 
   private static int[] renderSynthWithNoteOffRelease(SynthTrackModel model) {

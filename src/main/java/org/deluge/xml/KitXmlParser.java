@@ -515,6 +515,8 @@ public class KitXmlParser {
       readAttrOrChildHexFloat(compEl, "attack", sound::setCompressorAttack);
       readAttrOrChildHexFloat(compEl, "release", sound::setCompressorRelease);
       readAttrOrChildInt(compEl, "syncLevel", 0, sound::setCompressorSyncLevel);
+      readAttrOrChildInt(
+          compEl, "syncType", 0, v -> sound.setCompressorSyncType(syncTypeFromFile(v)));
       readAttrOrChildHexFloat(compEl, "threshold", v -> sound.setCompressorThreshold(Math.abs(v)));
       readAttrOrChildHexFloat(compEl, "ratio", v -> sound.setCompressorRatio(Math.abs(v)));
       readAttrOrChildHexFloat(compEl, "blend", v -> sound.setCompressorBlend(Math.abs(v)));
@@ -1084,6 +1086,39 @@ public class KitXmlParser {
       int q31 = DelugeHexMapper.hexToQ31(v);
       kit.setSampleRateReduction(DelugeHexMapper.q31ToUnipolarFloatUnified(q31));
       kit.setRawDefaultParamQ31("sampleRateReduction", q31);
+    }
+    // C global_effectable.cpp:836-847, mod_controllable_audio.cpp:505-506 — ModFX & morph knobs
+    // written directly on <defaultParams> by firmware (with <lpf morph>/<hpf morph> fallback
+    // below).
+    if ((v = attrOrDirectChildText(kitDp, "modFXRate")) != null) {
+      int q31 = DelugeHexMapper.hexToQ31(v);
+      kit.setModFxRate(DelugeHexMapper.q31ToUnipolarFloatUnified(q31));
+      kit.setRawDefaultParamQ31("modFXRate", q31);
+    }
+    if ((v = attrOrDirectChildText(kitDp, "modFXDepth")) != null) {
+      int q31 = DelugeHexMapper.hexToQ31(v);
+      kit.setModFxDepth(DelugeHexMapper.q31ToUnipolarFloatUnified(q31));
+      kit.setRawDefaultParamQ31("modFXDepth", q31);
+    }
+    if ((v = attrOrDirectChildText(kitDp, "modFXOffset")) != null) {
+      int q31 = DelugeHexMapper.hexToQ31(v);
+      kit.setModFxOffset(DelugeHexMapper.q31ToUnipolarFloatUnified(q31));
+      kit.setRawDefaultParamQ31("modFXOffset", q31);
+    }
+    if ((v = attrOrDirectChildText(kitDp, "modFXFeedback")) != null) {
+      int q31 = DelugeHexMapper.hexToQ31(v);
+      kit.setModFxFeedback(DelugeHexMapper.q31ToUnipolarFloatUnified(q31));
+      kit.setRawDefaultParamQ31("modFXFeedback", q31);
+    }
+    if ((v = attrOrDirectChildText(kitDp, "lpfMorph")) != null) {
+      int q31 = DelugeHexMapper.hexToQ31(v);
+      kit.setLpfMorph(DelugeHexMapper.q31ToUnipolarFloatUnified(q31));
+      kit.setRawDefaultParamQ31("lpf.morph", q31);
+    }
+    if ((v = attrOrDirectChildText(kitDp, "hpfMorph")) != null) {
+      int q31 = DelugeHexMapper.hexToQ31(v);
+      kit.setHpfMorph(DelugeHexMapper.q31ToUnipolarFloatUnified(q31));
+      kit.setRawDefaultParamQ31("hpf.morph", q31);
     }
     Element dpDelay = directChild(kitDp, "delay");
     if (dpDelay != null) {

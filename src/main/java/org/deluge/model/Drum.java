@@ -68,6 +68,7 @@ public abstract class Drum {
   protected float compressorAttack = 0.0f;
   protected float compressorRelease = 0.0f;
   protected int compressorSyncLevel = 0;
+  protected int compressorSyncType = 0;
   protected float compressorBlend = 0.0f;
   protected float compressorSidechainHpf = 0.0f;
   protected float compressorThreshold = 0.0f;
@@ -552,6 +553,14 @@ public abstract class Drum {
     this.compressorSyncLevel = v;
   }
 
+  public int getCompressorSyncType() {
+    return compressorSyncType;
+  }
+
+  public void setCompressorSyncType(int v) {
+    this.compressorSyncType = v;
+  }
+
   public float getCompressorBlend() {
     return compressorBlend;
   }
@@ -631,7 +640,8 @@ public abstract class Drum {
   }
 
   public void setMaxVoiceCount(int v) {
-    this.maxVoiceCount = Math.max(1, Math.min(16, v));
+    // C sound.h:121 — uint8_t maxVoiceCount (1..255).
+    this.maxVoiceCount = Math.max(1, Math.min(255, v));
   }
 
   public String getModFxType() {

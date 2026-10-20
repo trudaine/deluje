@@ -258,38 +258,165 @@ public class ProjectSerializer {
         }
         writer.closeTag();
 
+        // C global_effectable.cpp:799-882, mod_controllable_audio.cpp:495-502 — write unpatched
+        // params as attributes on <defaultParams>, followed by <delay>, <lpf>, <hpf>, <equalizer>.
         writer.writeOpeningTagBeginning("defaultParams");
-        writer.writeOpeningTagEnd();
-        writeRawQ31Tag(
-            writer,
-            "volume",
-            kitTrack.getRawDefaultParamQ31("volume") != null
-                ? kitTrack.getRawDefaultParamQ31("volume")
-                : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getVolume()));
-        writeRawQ31Tag(
-            writer,
-            "pan",
-            kitTrack.getRawDefaultParamQ31("pan") != null
-                ? kitTrack.getRawDefaultParamQ31("pan")
-                : DelugeHexMapper.floatToQ31(kitTrack.getPan()));
-        writeRawQ31Tag(
-            writer,
+        writer.writeAttribute(
             "reverbAmount",
-            kitTrack.getRawDefaultParamQ31("reverbAmount") != null
-                ? kitTrack.getRawDefaultParamQ31("reverbAmount")
-                : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getReverbAmount()));
-        writeRawQ31Tag(
-            writer,
-            "bitCrush",
-            kitTrack.getRawDefaultParamQ31("bitCrush") != null
-                ? kitTrack.getRawDefaultParamQ31("bitCrush")
-                : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getBitCrush()));
-        writeRawQ31Tag(
-            writer,
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("reverbAmount") != null
+                    ? kitTrack.getRawDefaultParamQ31("reverbAmount")
+                    : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getReverbAmount())),
+            false);
+        writer.writeAttribute(
+            "volume",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("volume") != null
+                    ? kitTrack.getRawDefaultParamQ31("volume")
+                    : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getVolume())),
+            false);
+        writer.writeAttribute(
+            "pan",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("pan") != null
+                    ? kitTrack.getRawDefaultParamQ31("pan")
+                    : DelugeHexMapper.floatToQ31(kitTrack.getPan())),
+            false);
+        writer.writeAttribute(
+            "modFXDepth",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("modFXDepth") != null
+                    ? kitTrack.getRawDefaultParamQ31("modFXDepth")
+                    : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getModFxDepth())),
+            false);
+        writer.writeAttribute(
+            "modFXRate",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("modFXRate") != null
+                    ? kitTrack.getRawDefaultParamQ31("modFXRate")
+                    : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getModFxRate())),
+            false);
+        writer.writeAttribute(
             "sampleRateReduction",
-            kitTrack.getRawDefaultParamQ31("sampleRateReduction") != null
-                ? kitTrack.getRawDefaultParamQ31("sampleRateReduction")
-                : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getSampleRateReduction()));
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("sampleRateReduction") != null
+                    ? kitTrack.getRawDefaultParamQ31("sampleRateReduction")
+                    : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getSampleRateReduction())),
+            false);
+        writer.writeAttribute(
+            "bitCrush",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("bitCrush") != null
+                    ? kitTrack.getRawDefaultParamQ31("bitCrush")
+                    : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getBitCrush())),
+            false);
+        writer.writeAttribute(
+            "modFXOffset",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("modFXOffset") != null
+                    ? kitTrack.getRawDefaultParamQ31("modFXOffset")
+                    : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getModFxOffset())),
+            false);
+        writer.writeAttribute(
+            "modFXFeedback",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("modFXFeedback") != null
+                    ? kitTrack.getRawDefaultParamQ31("modFXFeedback")
+                    : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getModFxFeedback())),
+            false);
+        writer.writeAttribute(
+            "lpfMorph",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("lpf.morph") != null
+                    ? kitTrack.getRawDefaultParamQ31("lpf.morph")
+                    : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getLpfMorph())),
+            false);
+        writer.writeAttribute(
+            "hpfMorph",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("hpf.morph") != null
+                    ? kitTrack.getRawDefaultParamQ31("hpf.morph")
+                    : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getHpfMorph())),
+            false);
+        writer.writeOpeningTagEnd();
+        writer.writeOpeningTagBeginning("delay");
+        writer.writeAttribute(
+            "rate",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("delay.rate") != null
+                    ? kitTrack.getRawDefaultParamQ31("delay.rate")
+                    : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getDelayRate())),
+            false);
+        writer.writeAttribute(
+            "feedback",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("delay.feedback") != null
+                    ? kitTrack.getRawDefaultParamQ31("delay.feedback")
+                    : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getDelayFeedback())),
+            false);
+        writer.closeTag();
+        writer.writeOpeningTagBeginning("lpf");
+        writer.writeAttribute(
+            "frequency",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("lpf.frequency") != null
+                    ? kitTrack.getRawDefaultParamQ31("lpf.frequency")
+                    : DelugeHexMapper.hzToQ31(kitTrack.getLpfFreq())),
+            false);
+        writer.writeAttribute(
+            "resonance",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("lpf.resonance") != null
+                    ? kitTrack.getRawDefaultParamQ31("lpf.resonance")
+                    : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getLpfRes())),
+            false);
+        writer.closeTag();
+        writer.writeOpeningTagBeginning("hpf");
+        writer.writeAttribute(
+            "frequency",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("hpf.frequency") != null
+                    ? kitTrack.getRawDefaultParamQ31("hpf.frequency")
+                    : DelugeHexMapper.hzToQ31(kitTrack.getHpfFreq())),
+            false);
+        writer.writeAttribute(
+            "resonance",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("hpf.resonance") != null
+                    ? kitTrack.getRawDefaultParamQ31("hpf.resonance")
+                    : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getHpfRes())),
+            false);
+        writer.closeTag();
+        writer.writeOpeningTagBeginning("equalizer");
+        writer.writeAttribute(
+            "bass",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("equalizer.bass") != null
+                    ? kitTrack.getRawDefaultParamQ31("equalizer.bass")
+                    : DelugeHexMapper.floatToQ31(kitTrack.getEqBass())),
+            false);
+        writer.writeAttribute(
+            "treble",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("equalizer.treble") != null
+                    ? kitTrack.getRawDefaultParamQ31("equalizer.treble")
+                    : DelugeHexMapper.floatToQ31(kitTrack.getEqTreble())),
+            false);
+        writer.writeAttribute(
+            "bassFrequency",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("equalizer.bassFrequency") != null
+                    ? kitTrack.getRawDefaultParamQ31("equalizer.bassFrequency")
+                    : DelugeHexMapper.floatToQ31(kitTrack.getEqBassFreq())),
+            false);
+        writer.writeAttribute(
+            "trebleFrequency",
+            DelugeHexMapper.q31ToHex(
+                kitTrack.getRawDefaultParamQ31("equalizer.trebleFrequency") != null
+                    ? kitTrack.getRawDefaultParamQ31("equalizer.trebleFrequency")
+                    : DelugeHexMapper.floatToQ31(kitTrack.getEqTrebleFreq())),
+            false);
+        writer.closeTag();
         writer.writeClosingTag("defaultParams");
 
         writer.writeArrayStart("soundSources");
@@ -317,7 +444,9 @@ public class ProjectSerializer {
           }
           if (sound.getSidechainSend() > 0.0f) {
             writer.writeAttribute(
-                "sideChainSend", (int) (sound.getSidechainSend() * Integer.MAX_VALUE), false);
+                "sideChainSend",
+                (int) Math.round((double) sound.getSidechainSend() * Integer.MAX_VALUE),
+                false);
           }
           String drumMode =
               switch (sound.getSynthMode()) {
@@ -477,10 +606,18 @@ public class ProjectSerializer {
           // Compressor
           if (sound.getCompressorAttack() > 0
               || sound.getCompressorRelease() > 0
-              || sound.getCompressorSyncLevel() > 0) {
+              || sound.getCompressorSyncLevel() > 0
+              || sound.getCompressorSyncType() > 0) {
             writer.writeOpeningTagBeginning("compressor");
             writer.writeAttribute(
                 "syncLevel", String.valueOf(sound.getCompressorSyncLevel()), false);
+            if (sound.getCompressorSyncType() > 0) {
+              writer.writeAttribute(
+                  "syncType",
+                  String.valueOf(
+                      org.deluge.xml.DelugeXmlUtil.syncTypeToFile(sound.getCompressorSyncType())),
+                  false);
+            }
             writer.writeAttribute(
                 "attack",
                 String.valueOf((int) (sound.getCompressorAttack() * Integer.MAX_VALUE)),

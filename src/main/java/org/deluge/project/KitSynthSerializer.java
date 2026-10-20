@@ -78,42 +78,86 @@ public class KitSynthSerializer {
           String.valueOf(org.deluge.xml.DelugeXmlUtil.syncTypeToFile(kit.getDelaySyncType())));
     }
     root.appendChild(kitDelay);
+    // C global_effectable.cpp:799-846, mod_controllable_audio.cpp:495-502 — write unpatched params
+    // as attributes on <defaultParams>, followed by <delay>, <lpf>, <hpf>, <equalizer> sub-tags.
     Element kitDp = doc.createElement("defaultParams");
-    appendRawQ31Child(
-        doc,
-        kitDp,
-        "volume",
-        kit.getRawDefaultParamQ31("volume") != null
-            ? kit.getRawDefaultParamQ31("volume")
-            : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getVolume()));
-    appendRawQ31Child(
-        doc,
-        kitDp,
-        "pan",
-        kit.getRawDefaultParamQ31("pan") != null
-            ? kit.getRawDefaultParamQ31("pan")
-            : DelugeHexMapper.floatToQ31(kit.getPan()));
-    appendRawQ31Child(
-        doc,
+    appendTextAttr(
         kitDp,
         "reverbAmount",
-        kit.getRawDefaultParamQ31("reverbAmount") != null
-            ? kit.getRawDefaultParamQ31("reverbAmount")
-            : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getReverbAmount()));
-    appendRawQ31Child(
-        doc,
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("reverbAmount") != null
+                ? kit.getRawDefaultParamQ31("reverbAmount")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getReverbAmount())));
+    appendTextAttr(
         kitDp,
-        "bitCrush",
-        kit.getRawDefaultParamQ31("bitCrush") != null
-            ? kit.getRawDefaultParamQ31("bitCrush")
-            : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getBitCrush()));
-    appendRawQ31Child(
-        doc,
+        "volume",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("volume") != null
+                ? kit.getRawDefaultParamQ31("volume")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getVolume())));
+    appendTextAttr(
+        kitDp,
+        "pan",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("pan") != null
+                ? kit.getRawDefaultParamQ31("pan")
+                : DelugeHexMapper.floatToQ31(kit.getPan())));
+    appendTextAttr(
+        kitDp,
+        "modFXDepth",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("modFXDepth") != null
+                ? kit.getRawDefaultParamQ31("modFXDepth")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getModFxDepth())));
+    appendTextAttr(
+        kitDp,
+        "modFXRate",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("modFXRate") != null
+                ? kit.getRawDefaultParamQ31("modFXRate")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getModFxRate())));
+    appendTextAttr(
         kitDp,
         "sampleRateReduction",
-        kit.getRawDefaultParamQ31("sampleRateReduction") != null
-            ? kit.getRawDefaultParamQ31("sampleRateReduction")
-            : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getSampleRateReduction()));
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("sampleRateReduction") != null
+                ? kit.getRawDefaultParamQ31("sampleRateReduction")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getSampleRateReduction())));
+    appendTextAttr(
+        kitDp,
+        "bitCrush",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("bitCrush") != null
+                ? kit.getRawDefaultParamQ31("bitCrush")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getBitCrush())));
+    appendTextAttr(
+        kitDp,
+        "modFXOffset",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("modFXOffset") != null
+                ? kit.getRawDefaultParamQ31("modFXOffset")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getModFxOffset())));
+    appendTextAttr(
+        kitDp,
+        "modFXFeedback",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("modFXFeedback") != null
+                ? kit.getRawDefaultParamQ31("modFXFeedback")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getModFxFeedback())));
+    appendTextAttr(
+        kitDp,
+        "lpfMorph",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("lpf.morph") != null
+                ? kit.getRawDefaultParamQ31("lpf.morph")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getLpfMorph())));
+    appendTextAttr(
+        kitDp,
+        "hpfMorph",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("hpf.morph") != null
+                ? kit.getRawDefaultParamQ31("hpf.morph")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getHpfMorph())));
     Element kitDpDelay = doc.createElement("delay");
     appendTextAttr(
         kitDpDelay,
@@ -324,7 +368,8 @@ public class KitSynthSerializer {
             doc,
             soundElem,
             "sideChainSend",
-            String.valueOf((int) (sound.getSidechainSend() * Integer.MAX_VALUE)));
+            String.valueOf(
+                (int) Math.round((double) sound.getSidechainSend() * Integer.MAX_VALUE)));
       }
 
       // ── lfo1..lfo4 (C sound.cpp:4196-4215) ──
@@ -375,9 +420,17 @@ public class KitSynthSerializer {
       // ── compressor, sidechain, & stutter (C mod_controllable_audio.cpp:447-486) ──
       if (sound.getCompressorAttack() > 0
           || sound.getCompressorRelease() > 0
-          || sound.getCompressorSyncLevel() > 0) {
+          || sound.getCompressorSyncLevel() > 0
+          || sound.getCompressorSyncType() > 0) {
         Element comp = doc.createElement("compressor");
         appendTextAttr(comp, "syncLevel", String.valueOf(sound.getCompressorSyncLevel()));
+        if (sound.getCompressorSyncType() > 0) {
+          appendTextAttr(
+              comp,
+              "syncType",
+              String.valueOf(
+                  org.deluge.xml.DelugeXmlUtil.syncTypeToFile(sound.getCompressorSyncType())));
+        }
         appendTextAttr(
             comp,
             "attack",

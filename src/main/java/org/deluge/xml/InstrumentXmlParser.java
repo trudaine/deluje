@@ -760,21 +760,9 @@ public class InstrumentXmlParser {
         } catch (NumberFormatException ignored) {
         }
       }
-      if (sc.hasAttribute("syncLevel")) {
-        try {
-          synth.setSidechainSyncLevel(Integer.parseInt(sc.getAttribute("syncLevel")));
-        } catch (NumberFormatException e) {
-          LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
-        }
-      }
-      if (sc.hasAttribute("syncType")) {
-        try {
-          synth.setSidechainSyncType(
-              syncTypeFromFile(Integer.parseInt(sc.getAttribute("syncType"))));
-        } catch (NumberFormatException e) {
-          LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
-        }
-      }
+      // C mod_controllable_audio.cpp:899-907 — readTagOrAttributeValueInt on syncLevel & syncType.
+      readAttrOrChildInt(sc, "syncLevel", 0, synth::setSidechainSyncLevel);
+      readAttrOrChildInt(sc, "syncType", 0, v -> synth.setSidechainSyncType(syncTypeFromFile(v)));
     }
 
     // ── Stutter config (quantized, reverse, pingPong) ──

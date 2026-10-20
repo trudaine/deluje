@@ -198,12 +198,12 @@ public class DigitalAudioFidelityTest {
           float renderVal = outputWave[i];
           // /4 since 2026-07-25: the sample path tracks the C-exact wave-oscillator level
           // (compensated at the engine master, which this harness bypasses).
-          // Re-baselined 2026-10-19: 000 TR-808.XML:94 sets <lpfMode>24dB</lpfMode>, so
-          // sound.hasFilters() is true (sound.cpp:3218-3220) and Voice applies C-exact filterGain
-          // makeup scaling (filter_set.cpp:166 multiply_32x32_rshift32(filterGain, 1720000000) <<
-          // 1,
-          // voice.cpp:1045 -> 0.012689092f * 0.8009374f = 0.010163023f).
-          float expectedRatio = 0.010163023f;
+          // Re-baselined 2026-10-19: 000 TR-808.XML:13 sets kit-level <defaultParams><volume>
+          // 0x3504F334</volume> (+6.02 dB = 2.00017x in GlobalEffectable::renderOutput),
+          // GlobalEffectable::setupFilterSetConfig (global_effectable.cpp:783 -> filter_set.cpp:166
+          // filterGain 0.8009374f), and 000 TR-808.XML:94 <lpfMode>24dB</lpfMode> on KICK
+          // (0.012689092f * 0.8009374f * 2.00017f * 0.8009374f = 0.016281225f).
+          float expectedRatio = 0.016281225f;
           float actualRatio = renderVal / rawVal;
           assertEquals(
               expectedRatio,

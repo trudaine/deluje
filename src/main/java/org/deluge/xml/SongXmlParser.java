@@ -1518,8 +1518,7 @@ public class SongXmlParser {
           InstrumentXmlParser.parseClipSoundParamsStatics(spEl, stm, readUpTo);
         }
       } else if (track instanceof KitTrackModel ktm) {
-        ktm.setVolume(1.0f);
-        ktm.setPan(0.5f);
+        // Preserve <kit><defaultParams> volume & pan unless activeClip explicitly overrides them.
         Float vol = activeClip.getKitParams().get("volume");
         if (vol != null) ktm.setVolume(vol);
         Float pan = activeClip.getKitParams().get("pan");

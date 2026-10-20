@@ -122,9 +122,10 @@ public class FirmwareFactory {
     kit.clippingAmount = model.getClippingAmount();
     for (FirmwareSound drumSound : kit.drumSounds) {
       drumSound.fw2Sound.tuning = project;
+      drumSound.inputTickMagnitude = project.getInputTickMagnitude();
     }
 
-    // Synchronize kit-level parameters from the first clip or track model
+    // Synchronize kit-level parameters from the active clip or track model
     syncKitTopLevelParams(model, kit);
 
     File sdRoot = PreferencesManager.getLibraryDir();
@@ -136,9 +137,11 @@ public class FirmwareFactory {
           final FirmwareSound drumSound = kit.drumSounds.get(drumIdx);
           mapDrumToSound(sd, drumSound, drumIdx, model);
           if (!model.getClips().isEmpty()) {
-            ClipModel firstClip = model.getClips().get(0);
+            int activeIdx =
+                Math.max(0, Math.min(model.getActiveClipIndex(), model.getClips().size() - 1));
+            ClipModel activeClip = model.getClips().get(activeIdx);
             org.deluge.model.NoteRowModel rowModel = null;
-            for (org.deluge.model.NoteRowModel r : firstClip.getNoteRowsMap().values()) {
+            for (org.deluge.model.NoteRowModel r : activeClip.getNoteRowsMap().values()) {
               if (r.getPitch() == drumIdx) {
                 rowModel = r;
                 break;
@@ -291,6 +294,9 @@ public class FirmwareFactory {
               if (!wantsFile) {
                 synchronized (sound) {
                   sound.loadedOscPath[finalS] = null;
+                  sound.samples[finalS] = null;
+                  sound.fw2SampleCache[finalS] = null;
+                  sound.fw2Sound.waveTables[finalS] = null;
                   sound.sourceZones[finalS].clear();
                 }
                 return;
@@ -313,6 +319,7 @@ public class FirmwareFactory {
                     synchronized (sound) {
                       sound.samples[finalS] = smp;
                       sound.fw2SampleCache[finalS] = fw2Smp;
+                      sound.fw2Sound.waveTables[finalS] = null;
                       sound.loadedOscPath[finalS] = key;
                       sound.sourceZones[finalS].clear();
                       // Single-sample (non-multizone) playback settings — previously never read,
@@ -341,6 +348,8 @@ public class FirmwareFactory {
                   WaveTableReader.readWavetable(wt, f.getAbsolutePath());
                   synchronized (sound) {
                     sound.fw2Sound.waveTables[finalS] = wt;
+                    sound.samples[finalS] = null;
+                    sound.fw2SampleCache[finalS] = null;
                     sound.loadedOscPath[finalS] = key;
                     sound.sourceZones[finalS].clear();
                   }
@@ -445,9 +454,7 @@ public class FirmwareFactory {
     // defaults.
     System.arraycopy(sound.paramNeutralValues, 0, sound.paramKnobs, 0, Param.kNumParams);
 
-    // Per-sound voice cap (C: sound.h:116, default 8). The model clamps to [1,16] and reads the
-    // XML "maxVoices" attribute; propagate it so dense playing steals voices instead of stacking
-    // 64.
+    // Per-sound voice cap (C: sound.h:121, uint8_t default 8, range [1,255]).
     sound.fw2Sound.maxPolyphony = model.getMaxVoiceCount();
     sound.fw2Sound.voicePriority =
         model.getVoicePriority(); // voice-stealing priority (was stuck at default)
@@ -1429,11 +1436,29 @@ public class FirmwareFactory {
     Float vol = null;
     Float rev = null;
     Float pan = null;
+    Float lpfFreq = null;
+    Float lpfRes = null;
+    Float lpfMorph = null;
+    Float hpfFreq = null;
+    Float hpfRes = null;
+    Float hpfMorph = null;
+    Float bitCrush = null;
+    Float srr = null;
     if (!model.getClips().isEmpty()) {
-      ClipModel firstClip = model.getClips().get(0);
-      vol = firstClip.getKitParams().get("volume");
-      rev = firstClip.getKitParams().get("reverbAmount");
-      pan = firstClip.getKitParams().get("pan");
+      int idx = Math.max(0, Math.min(model.getActiveClipIndex(), model.getClips().size() - 1));
+      ClipModel activeClip = model.getClips().get(idx);
+      var kp = activeClip.getKitParams();
+      vol = kp.get("volume");
+      rev = kp.get("reverbAmount");
+      pan = kp.get("pan");
+      lpfFreq = kp.get("lpfFrequency");
+      lpfRes = kp.get("lpfResonance");
+      lpfMorph = kp.get("lpfMorph");
+      hpfFreq = kp.get("hpfFrequency");
+      hpfRes = kp.get("hpfResonance");
+      hpfMorph = kp.get("hpfMorph");
+      bitCrush = kp.get("bitCrush");
+      srr = kp.get("sampleRateReduction");
     }
     if (vol != null) {
       kit.kitVolume = org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(vol);
@@ -1458,6 +1483,79 @@ public class FirmwareFactory {
     } else {
       kit.unpatchedPan = bipolarUnitToParam(model.getPan());
     }
+    // C global_effectable.cpp:752-789, mod_controllable_audio.cpp:61-63, 368-370 — wire kit-bus
+    // filter modes, routing, unpatched LPF/HPF knobs, and SRR/bitcrush onto GlobalEffectable.
+    kit.globalLpfMode =
+        switch (model.getLpfMode()) {
+          case LADDER_12 -> org.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_12DB;
+          case LADDER_24 -> org.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB;
+          case DRIVE -> org.deluge.firmware2.FilterSet.FilterMode.TRANSISTOR_24DB_DRIVE;
+          case SVF_NOTCH -> org.deluge.firmware2.FilterSet.FilterMode.SVF_NOTCH;
+          case SVF, SVF_BAND -> org.deluge.firmware2.FilterSet.FilterMode.SVF_BAND;
+          case OFF -> org.deluge.firmware2.FilterSet.FilterMode.OFF;
+        };
+    kit.globalHpfMode =
+        switch (model.getHpfMode()) {
+          case SVF_NOTCH -> org.deluge.firmware2.FilterSet.FilterMode.SVF_NOTCH;
+          case SVF, SVF_BAND -> org.deluge.firmware2.FilterSet.FilterMode.SVF_BAND;
+          case OFF -> org.deluge.firmware2.FilterSet.FilterMode.OFF;
+          default -> org.deluge.firmware2.FilterSet.FilterMode.HPLADDER;
+        };
+    kit.globalFilterRoute =
+        switch (model.getFilterRoute()) {
+          case 1 -> org.deluge.firmware2.FilterRoute.LOW_TO_HIGH;
+          case 2 -> org.deluge.firmware2.FilterRoute.PARALLEL;
+          default -> org.deluge.firmware2.FilterRoute.HIGH_TO_LOW;
+        };
+    kit.unpatchedLpfFreq =
+        lpfFreq != null
+            ? FirmwareAudioEngine.cutoffKnobFromHz(lpfFreq)
+            : (model.getRawDefaultParamQ31("lpf.frequency") != null
+                ? model.getRawDefaultParamQ31("lpf.frequency")
+                : FirmwareAudioEngine.cutoffKnobFromHz(model.getLpfFreq()));
+    kit.unpatchedLpfRes =
+        lpfRes != null
+            ? org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(lpfRes)
+            : (model.getRawDefaultParamQ31("lpf.resonance") != null
+                ? model.getRawDefaultParamQ31("lpf.resonance")
+                : org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(model.getLpfRes()));
+    kit.unpatchedLpfMorph =
+        lpfMorph != null
+            ? org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(lpfMorph)
+            : (model.getRawDefaultParamQ31("lpf.morph") != null
+                ? model.getRawDefaultParamQ31("lpf.morph")
+                : org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(model.getLpfMorph()));
+    kit.unpatchedHpfFreq =
+        hpfFreq != null
+            ? FirmwareAudioEngine.cutoffKnobFromHz(hpfFreq)
+            : (model.getRawDefaultParamQ31("hpf.frequency") != null
+                ? model.getRawDefaultParamQ31("hpf.frequency")
+                : FirmwareAudioEngine.cutoffKnobFromHz(model.getHpfFreq()));
+    kit.unpatchedHpfRes =
+        hpfRes != null
+            ? org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(hpfRes)
+            : (model.getRawDefaultParamQ31("hpf.resonance") != null
+                ? model.getRawDefaultParamQ31("hpf.resonance")
+                : org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(model.getHpfRes()));
+    kit.unpatchedHpfMorph =
+        hpfMorph != null
+            ? org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(hpfMorph)
+            : (model.getRawDefaultParamQ31("hpf.morph") != null
+                ? model.getRawDefaultParamQ31("hpf.morph")
+                : org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(model.getHpfMorph()));
+    kit.unpatchedBitCrush =
+        bitCrush != null
+            ? org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(bitCrush)
+            : (model.getRawDefaultParamQ31("bitCrush") != null
+                ? model.getRawDefaultParamQ31("bitCrush")
+                : org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(model.getBitCrush()));
+    kit.unpatchedSampleRateReduction =
+        srr != null
+            ? org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(srr)
+            : (model.getRawDefaultParamQ31("sampleRateReduction") != null
+                ? model.getRawDefaultParamQ31("sampleRateReduction")
+                : org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(
+                    model.getSampleRateReduction()));
   }
 
   public static void applyModelToLiveSound(KitTrackModel model, FirmwareKit kit) {
@@ -1471,6 +1569,21 @@ public class FirmwareFactory {
           final FirmwareSound drumSound = kit.drumSounds.get(drumIdx);
           synchronized (drumSound) {
             mapDrumToSound(sd, drumSound, drumIdx, model);
+            if (!model.getClips().isEmpty()) {
+              int activeIdx =
+                  Math.max(0, Math.min(model.getActiveClipIndex(), model.getClips().size() - 1));
+              ClipModel activeClip = model.getClips().get(activeIdx);
+              org.deluge.model.NoteRowModel rowModel = null;
+              for (org.deluge.model.NoteRowModel r : activeClip.getNoteRowsMap().values()) {
+                if (r.getPitch() == drumIdx) {
+                  rowModel = r;
+                  break;
+                }
+              }
+              if (rowModel != null) {
+                applyRowOverrides(rowModel, drumSound);
+              }
+            }
           }
           final SoundDrum finalSd = sd;
           executor.submit(() -> loadDrumResources(finalSd, drumSound));
@@ -1613,7 +1726,27 @@ public class FirmwareFactory {
     drumSound.mod1RetrigPhase = sd.getMod1RetrigPhase();
     drumSound.mod2RetrigPhase = sd.getMod2RetrigPhase();
     drumSound.fw2Sound.oscillatorSync = sd.isOscillatorSync();
-    drumSound.fw2Sound.sidechainSend = (int) (sd.getSidechainSend() * 2147483647.0);
+    drumSound.fw2Sound.sidechainSend =
+        (int) Math.round((double) sd.getSidechainSend() * Integer.MAX_VALUE);
+    // C mod_controllable_audio.cpp:892-907 — wire SoundDrum <sidechain> attack/release/sync onto
+    // drumSound.sidechain identically to mapModelToSound (:753-772).
+    if (sd.getSidechainAttackRaw() >= 0) {
+      drumSound.sidechain.attack = sd.getSidechainAttackRaw();
+    }
+    if (sd.getSidechainReleaseRaw() >= 0) {
+      drumSound.sidechain.release = sd.getSidechainReleaseRaw();
+    }
+    int drumScSyncFile = Math.max(0, sd.getSidechainSyncLevel());
+    if (drumScSyncFile > 0) {
+      drumSound.sidechain.syncLevel =
+          org.deluge.xml.DelugeXmlUtil.convertSyncLevelFromFileValueToInternalValue(
+              drumScSyncFile, drumSound.inputTickMagnitude);
+    } else if (sd.getSidechainAttackRaw() < 0) {
+      drumSound.sidechain.syncLevel = 8 - drumSound.inputTickMagnitude;
+    } else {
+      drumSound.sidechain.syncLevel = 0;
+    }
+    drumSound.sidechain.syncType = Math.max(0, Math.min(sd.getSidechainSyncType(), 2));
 
     // Filter modes, routing, and calibrated cutoff/resonance/morph MUST be configured BEFORE
     // mapPatchCables so Sound.maySourcePatchToParam (C sound.cpp:1425-1439) sees active filter

@@ -24,6 +24,13 @@ public class KitTrackModel extends TrackModel {
   private float reverbAmount = 0.0f;
   private float bitCrush = 0.0f;
   private float sampleRateReduction = 0.0f;
+  // C global_effectable.cpp:72-74, mod_controllable_audio.cpp:505-506 — default unpatched ModFX
+  // knobs: rate=-536870912 (0xE0000000 -> 0.375f), depth=0 (0.5f), offset=0 (0.5f), feedback=-2^31
+  // (0.0f).
+  private float modFxRate = 0.375f;
+  private float modFxDepth = 0.5f;
+  private float modFxOffset = 0.5f;
+  private float modFxFeedback = 0.0f;
   private float lpfFreq = 20000.0f;
   private float lpfRes = 0.0f;
   private float lpfMorph = 0.0f;
@@ -186,6 +193,54 @@ public class KitTrackModel extends TrackModel {
       rawDefaultParamQ31.remove("sampleRateReduction");
     }
     this.sampleRateReduction = clamped;
+  }
+
+  public float getModFxRate() {
+    return modFxRate;
+  }
+
+  public void setModFxRate(float modFxRate) {
+    float clamped = Math.max(0.0f, Math.min(1.0f, modFxRate));
+    if (this.modFxRate != clamped) {
+      rawDefaultParamQ31.remove("modFXRate");
+    }
+    this.modFxRate = clamped;
+  }
+
+  public float getModFxDepth() {
+    return modFxDepth;
+  }
+
+  public void setModFxDepth(float modFxDepth) {
+    float clamped = Math.max(0.0f, Math.min(1.0f, modFxDepth));
+    if (this.modFxDepth != clamped) {
+      rawDefaultParamQ31.remove("modFXDepth");
+    }
+    this.modFxDepth = clamped;
+  }
+
+  public float getModFxOffset() {
+    return modFxOffset;
+  }
+
+  public void setModFxOffset(float modFxOffset) {
+    float clamped = Math.max(0.0f, Math.min(1.0f, modFxOffset));
+    if (this.modFxOffset != clamped) {
+      rawDefaultParamQ31.remove("modFXOffset");
+    }
+    this.modFxOffset = clamped;
+  }
+
+  public float getModFxFeedback() {
+    return modFxFeedback;
+  }
+
+  public void setModFxFeedback(float modFxFeedback) {
+    float clamped = Math.max(0.0f, Math.min(1.0f, modFxFeedback));
+    if (this.modFxFeedback != clamped) {
+      rawDefaultParamQ31.remove("modFXFeedback");
+    }
+    this.modFxFeedback = clamped;
   }
 
   public float getLpfFreq() {
