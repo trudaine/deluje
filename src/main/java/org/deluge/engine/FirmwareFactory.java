@@ -600,12 +600,12 @@ public class FirmwareFactory {
 
     // Populating unpatched FX parameter defaults/neutrals in paramKnobs.
     // These will be overlaid with rawParamKnobs overrides (from XML) later in this method.
-    sound.paramKnobs[Param.GLOBAL_MOD_FX_RATE] = lfoRateKnobFromHz(model.getModFxRate());
+    sound.paramKnobs[Param.GLOBAL_MOD_FX_RATE] = normToLinearParamKnob(model.getModFxRate());
     sound.paramKnobs[Param.GLOBAL_MOD_FX_DEPTH] = normToLinearParamKnob(model.getModFxDepth());
     sound.paramKnobs[Param.UNPATCHED_MOD_FX_OFFSET] = normToLinearParamKnob(model.getModFxOffset());
     sound.paramKnobs[Param.UNPATCHED_MOD_FX_FEEDBACK] =
         normToLinearParamKnob(model.getModFxFeedback());
-    sound.paramKnobs[Param.GLOBAL_DELAY_RATE] = lfoRateKnobFromHz(model.getDelaySend());
+    sound.paramKnobs[Param.GLOBAL_DELAY_RATE] = normToLinearParamKnob(model.getDelaySend());
     sound.paramKnobs[Param.GLOBAL_DELAY_FEEDBACK] = model.getDelayFeedbackQ31();
     sound.paramKnobs[Param.GLOBAL_REVERB_AMOUNT] = normToBipolarParamVolume(model.getReverbSend());
     sound.paramKnobs[Param.UNPATCHED_STUTTER_RATE] =
@@ -615,8 +615,8 @@ public class FirmwareFactory {
     sound.paramKnobs[Param.UNPATCHED_BITCRUSHING] = normToBipolarParam(model.getBitCrush());
     sound.paramKnobs[Param.UNPATCHED_BASS] = bipolarUnitToParam(model.getEqBass());
     sound.paramKnobs[Param.UNPATCHED_TREBLE] = bipolarUnitToParam(model.getEqTreble());
-    sound.paramKnobs[Param.UNPATCHED_BASS_FREQ] = 0; // default/flat
-    sound.paramKnobs[Param.UNPATCHED_TREBLE_FREQ] = 0; // default/flat
+    sound.paramKnobs[Param.UNPATCHED_BASS_FREQ] = bipolarUnitToParam(model.getEqBassFreq());
+    sound.paramKnobs[Param.UNPATCHED_TREBLE_FREQ] = bipolarUnitToParam(model.getEqTrebleFreq());
     sound.paramKnobs[Param.UNPATCHED_SIDECHAIN_SHAPE] =
         normToLinearParamKnob(model.getCompressorShape());
     sound.paramKnobs[Param.UNPATCHED_SIDECHAIN_VOLUME] = 0; // default/flat
@@ -724,12 +724,15 @@ public class FirmwareFactory {
         releaseKnob = model.getRawKnobs().getEnvReleaseKnobQ31(i);
       } else {
         sustainKnob = normToBipolarParam(em.sustain());
-        float normAttack = org.deluge.xml.DelugeHexMapper.normFromEnvTime(em.attack());
-        attackKnob = (int) Math.rint(normAttack * 2147483647.0);
-        float normDecay = org.deluge.xml.DelugeHexMapper.normFromEnvTime(em.decay());
-        decayKnob = (int) Math.rint(normDecay * 2147483647.0);
-        float normRelease = org.deluge.xml.DelugeHexMapper.normFromEnvTime(em.release());
-        releaseKnob = (int) Math.rint(normRelease * 2147483647.0);
+        attackKnob =
+            org.deluge.xml.DelugeHexMapper.floatToQ31(
+                org.deluge.xml.DelugeHexMapper.normFromEnvTime(em.attack()));
+        decayKnob =
+            org.deluge.xml.DelugeHexMapper.floatToQ31(
+                org.deluge.xml.DelugeHexMapper.normFromEnvTime(em.decay()));
+        releaseKnob =
+            org.deluge.xml.DelugeHexMapper.floatToQ31(
+                org.deluge.xml.DelugeHexMapper.normFromEnvTime(em.release()));
       }
 
       sound.paramKnobs[Param.LOCAL_ENV_0_ATTACK + i] = attackKnob;
@@ -770,7 +773,6 @@ public class FirmwareFactory {
       sound.sidechain.syncLevel = 0;
     }
     sound.sidechain.syncType = Math.max(0, Math.min(model.getSidechainSyncType(), 2));
-    sound.paramKnobs[org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE] = 0; // default shape
     try {
       sound.fw2Sound.polyphonic =
           org.deluge.firmware2.Sound.PolyphonyMode.valueOf(model.getPolyphony().name());
@@ -802,6 +804,8 @@ public class FirmwareFactory {
           // render ~1 Hz because the curved phase increment was curved again).
           if (model.getRawKnobs().isLfoRateKnobSet(i)) {
             sound.paramKnobs[paramId] = model.getRawKnobs().getLfoRateKnobQ31(i);
+          } else {
+            sound.paramKnobs[paramId] = lfoRateKnobFromHz(lm.rateHz());
           }
         }
         // Tempo sync: the preset's <lfo1/lfo2 syncLevel/syncType> drives lfoConfig — the fw2
@@ -1000,7 +1004,7 @@ public class FirmwareFactory {
   private static int cutoffKnobFromHz(double hz) {
     double norm = 2.0 * Math.log(Math.max(20.0, hz) / 20.0) / Math.log(1000.0) - 1.0;
     norm = Math.max(-1.0, Math.min(1.0, norm));
-    return (int) Math.rint(norm * 2147483647.0);
+    return norm <= -1.0 ? Integer.MIN_VALUE : (int) Math.rint(norm * 2147483647.0);
   }
 
   public static PatchSource stringToPatchSource(String str) {
@@ -1054,12 +1058,18 @@ public class FirmwareFactory {
   }
 
   private static org.deluge.firmware2.ModFx.ModFXType stringToModFXType(String s) {
-    if (s == null) return org.deluge.firmware2.ModFx.ModFXType.NONE;
-    try {
-      return org.deluge.firmware2.ModFx.ModFXType.valueOf(s.trim().toUpperCase());
-    } catch (Exception e) {
-      return org.deluge.firmware2.ModFx.ModFXType.NONE;
-    }
+    // C functions.cpp:878-928 — accept both hardware XML names and enum names case-insensitively.
+    if (s == null || s.isBlank()) return org.deluge.firmware2.ModFx.ModFXType.NONE;
+    return switch (s.trim().toLowerCase(java.util.Locale.ROOT)) {
+      case "flanger" -> org.deluge.firmware2.ModFx.ModFXType.FLANGER;
+      case "chorus" -> org.deluge.firmware2.ModFx.ModFXType.CHORUS;
+      case "stereochorus", "chorus_stereo" -> org.deluge.firmware2.ModFx.ModFXType.CHORUS_STEREO;
+      case "phaser" -> org.deluge.firmware2.ModFx.ModFXType.PHASER;
+      case "dimension" -> org.deluge.firmware2.ModFx.ModFXType.DIMENSION;
+      case "tapewarble", "warble" -> org.deluge.firmware2.ModFx.ModFXType.WARBLE;
+      case "grainfx", "grain" -> org.deluge.firmware2.ModFx.ModFXType.GRAIN;
+      default -> org.deluge.firmware2.ModFx.ModFXType.NONE;
+    };
   }
 
   private static float clamp01(float v) {
@@ -1112,7 +1122,7 @@ public class FirmwareFactory {
    */
   private static int bipolarUnitToParam(float unit) {
     double norm = Math.max(-1.0, Math.min(1.0, unit));
-    return (int) (norm * 2147483647.0);
+    return norm <= -1.0 ? Integer.MIN_VALUE : (int) Math.rint(norm * 2147483647.0);
   }
 
   /** Map an ArpModel onto a sound's per-sound arpeggiator settings. */
@@ -1492,7 +1502,9 @@ public class FirmwareFactory {
       drumSound.setSynthMode(FirmwareSound.SynthMode.SUBTRACTIVE);
     }
 
-    // Map FM modulator-to-carrier frequency ratios and transposes/cents
+    // Map FM modulator-to-carrier frequency ratios, chain topology, and transposes/cents
+    // (C sound.cpp:565-571 — modulator1ToModulator0 chains mod2 -> mod1 -> carrier).
+    drumSound.fmModulator1ToModulator0 = sd.isModulator1ToModulator0();
     drumSound.fmRatio1 = sd.getFmRatio();
     drumSound.fmRatio2 = sd.getFmRatio2();
     drumSound.fmModulator1Transpose = sd.getModulator1Transpose();
@@ -1518,28 +1530,66 @@ public class FirmwareFactory {
     drumSound.fw2Sound.setSourceCents(0, sd.getOsc1Cents());
     drumSound.fw2Sound.setSourceCents(1, sd.getOsc2Cents());
 
-    // Map oscillator/noise volumes
+    // Map oscillator/noise volumes (prefer lossless raw Q31 knobs when parsed from XML)
     float oscAVol = sd.getOscAVolume();
     if (sd.getOsc1Type().equalsIgnoreCase("SAMPLE") && oscAVol == 0.0f) {
       oscAVol = 1.0f; // Legacy sample-based row default
     }
-    drumSound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = normToBipolarParamVolume(oscAVol);
+    drumSound.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] =
+        rawDrumOrFallback(sd, "oscAVolume", normToBipolarParamVolume(oscAVol));
     drumSound.paramNeutralValues[Param.LOCAL_VOLUME] = 0;
     drumSound.paramNeutralValues[Param.GLOBAL_VOLUME_POST_FX] =
-        normToBipolarParamVolume(sd.getVolume());
+        rawDrumOrFallback(sd, "volume", normToBipolarParamVolume(sd.getVolume()));
     drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] =
-        normToBipolarParamVolume(sd.getOscBVolume());
+        rawDrumOrFallback(sd, "oscBVolume", normToBipolarParamVolume(sd.getOscBVolume()));
     drumSound.paramNeutralValues[Param.LOCAL_NOISE_VOLUME] =
-        normToBipolarParamVolume(sd.getNoiseVolume());
+        rawDrumOrFallback(sd, "noiseVolume", normToBipolarParamVolume(sd.getNoiseVolume()));
+    drumSound.paramNeutralValues[Param.LOCAL_PAN] =
+        rawDrumOrFallback(sd, "pan", bipolarUnitToParam(sd.getPan()));
 
-    // If osc 2 is NONE/off, silence it
+    // If osc 2 is NONE/off, silence it; otherwise keep configured osc2Type and LOCAL_OSC_B_VOLUME
     String osc2t = sd.getOsc2Type();
     if (osc2t == null
         || osc2t.isBlank()
         || osc2t.equalsIgnoreCase("none")
         || osc2t.equalsIgnoreCase("off")) {
       drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
+      drumSound.oscTypes[1] = null;
+    } else {
+      drumSound.oscTypes[1] = stringToOscType(osc2t);
     }
+
+    // Oscillator pulse widths, wavetable indices, pitch adjusts, wavefold, saturation, portamento
+    int drumWaveIndexQ31 = (int) Math.round((double) clamp01(sd.getWaveIndex()) * 2147483647.0);
+    drumSound.paramNeutralValues[Param.LOCAL_OSC_A_PHASE_WIDTH] =
+        rawDrumOrFallback(sd, "oscAPulseWidth", 0);
+    drumSound.paramNeutralValues[Param.LOCAL_OSC_B_PHASE_WIDTH] =
+        rawDrumOrFallback(sd, "oscBPulseWidth", 0);
+    drumSound.paramNeutralValues[Param.LOCAL_OSC_A_WAVE_INDEX] =
+        rawDrumOrFallback(
+            sd, "oscAWavetablePosition", rawDrumOrFallback(sd, "waveIndex", drumWaveIndexQ31));
+    drumSound.paramNeutralValues[Param.LOCAL_OSC_B_WAVE_INDEX] =
+        rawDrumOrFallback(
+            sd, "oscBWavetablePosition", rawDrumOrFallback(sd, "waveIndex", drumWaveIndexQ31));
+    drumSound.paramNeutralValues[Param.LOCAL_PITCH_ADJUST] =
+        rawDrumOrFallback(sd, "pitchAdjust", 0);
+    drumSound.paramNeutralValues[Param.LOCAL_OSC_A_PITCH_ADJUST] =
+        rawDrumOrFallback(sd, "oscAPitchAdjust", 0);
+    drumSound.paramNeutralValues[Param.LOCAL_OSC_B_PITCH_ADJUST] =
+        rawDrumOrFallback(sd, "oscBPitchAdjust", 0);
+    drumSound.paramNeutralValues[Param.LOCAL_MODULATOR_0_PITCH_ADJUST] =
+        rawDrumOrFallback(sd, "mod1PitchAdjust", 0);
+    drumSound.paramNeutralValues[Param.LOCAL_MODULATOR_1_PITCH_ADJUST] =
+        rawDrumOrFallback(sd, "mod2PitchAdjust", 0);
+    drumSound.paramNeutralValues[Param.LOCAL_FOLD] =
+        rawDrumOrFallback(sd, "waveFold", Integer.MIN_VALUE);
+    drumSound.fw2Sound.clippingAmount = Math.round(sd.getClippingAmount());
+    int drumPortamentoQ31 =
+        rawDrumOrFallback(sd, "portamento", normToLinearParamKnob(sd.getPortamento()));
+    drumSound.fw2Sound.portamentoKnob = drumPortamentoQ31;
+    drumSound.paramNeutralValues[Param.UNPATCHED_PORTAMENTO] = drumPortamentoQ31;
+    drumSound.paramNeutralValues[Param.UNPATCHED_ARP_GATE] =
+        rawDrumOrFallback(sd, "arpeggiatorGate", normToLinearParamKnob(sd.getArpeggiatorGate()));
 
     // Trigger phases + oscillator hard sync
     drumSound.osc1RetriggerPhase = sd.getOsc1RetrigPhase();
@@ -1549,44 +1599,70 @@ public class FirmwareFactory {
     drumSound.fw2Sound.oscillatorSync = sd.isOscillatorSync();
     drumSound.fw2Sound.sidechainSend = (int) (sd.getSidechainSend() * 2147483647.0);
 
+    // Filter modes, routing, and calibrated cutoff/resonance/morph MUST be configured BEFORE
+    // mapPatchCables so Sound.maySourcePatchToParam (C sound.cpp:1425-1439) sees active filter
+    // modes and accepts LPF/HPF patch cables.
+    drumSound.setLpfMode(sd.getLpfMode());
+    drumSound.setHpfMode(sd.getHpfMode());
+    drumSound.setFilterRoute(sd.getFilterRoute());
+    drumSound.paramNeutralValues[Param.LOCAL_LPF_FREQ] =
+        rawDrumOrFallback(sd, "lpfFrequency", cutoffKnobFromHz(sd.getLpfFreq()));
+    drumSound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] =
+        rawDrumOrFallback(sd, "lpfResonance", normToLinearParamKnob(sd.getLpfRes()));
+    drumSound.paramNeutralValues[Param.LOCAL_LPF_MORPH] =
+        rawDrumOrFallback(sd, "lpfMorph", normToLinearParamKnob(sd.getLpfMorph()));
+    drumSound.paramNeutralValues[Param.LOCAL_HPF_FREQ] =
+        rawDrumOrFallback(sd, "hpfFrequency", cutoffKnobFromHz(sd.getHpfFreq()));
+    drumSound.paramNeutralValues[Param.LOCAL_HPF_RESONANCE] =
+        rawDrumOrFallback(sd, "hpfResonance", normToLinearParamKnob(sd.getHpfRes()));
+    drumSound.paramNeutralValues[Param.LOCAL_HPF_MORPH] =
+        rawDrumOrFallback(sd, "hpfMorph", normToLinearParamKnob(sd.getHpfMorph()));
+
     // Map drum-specific patch cables
     mapPatchCables(sd.getPatchCables(), drumSound);
 
-    // Per-drum modulation FX
+    // Per-drum modulation FX & Delay configuration (C sound.cpp:2499-2506, 2605-2606)
     drumSound.fw2Sound.modFXType = stringToModFXType(sd.getModFxType());
-    drumSound.fw2Sound.modFXRateIncrement =
-        (int) ((double) sd.getModFxRate() * 4294967296.0 / 44100.0);
-    drumSound.fw2Sound.modFXDepth = (int) (clamp01(sd.getModFxDepth()) * 2147483647.0);
-    drumSound.fw2Sound.modFXOffset = (int) (clamp01(sd.getModFxOffset()) * 2147483647.0);
-    drumSound.fw2Sound.modFXFeedback = (int) (clamp01(sd.getModFxFeedback()) * 2147483647.0);
-    // The C reads these as the drum's own params (patched GLOBAL_MOD_FX_RATE/DEPTH and
-    // GLOBAL_DELAY_RATE/FEEDBACK through the patcher, sound.cpp:2499-2506, 2605-2606; unpatched
-    // MOD_FX_OFFSET/FEEDBACK raw). FirmwareSound.syncParamsToFw2 rebuilds the fw2 fields from the
-    // param values on every sync, so the file's knobs must land here or the C defaults play.
-    if (sd.getModFxRateQ31() != null) {
-      drumSound.paramNeutralValues[Param.GLOBAL_MOD_FX_RATE] = sd.getModFxRateQ31();
-    }
-    if (sd.getModFxDepthQ31() != null) {
-      drumSound.paramNeutralValues[Param.GLOBAL_MOD_FX_DEPTH] = sd.getModFxDepthQ31();
-    }
-    if (sd.getModFxOffsetQ31() != null) {
-      drumSound.paramNeutralValues[Param.UNPATCHED_MOD_FX_OFFSET] = sd.getModFxOffsetQ31();
-    }
-    if (sd.getModFxFeedbackQ31() != null) {
-      drumSound.paramNeutralValues[Param.UNPATCHED_MOD_FX_FEEDBACK] = sd.getModFxFeedbackQ31();
-    }
-    if (sd.getDelayRateQ31() != null) {
-      drumSound.paramNeutralValues[Param.GLOBAL_DELAY_RATE] = sd.getDelayRateQ31();
-    }
-    if (sd.getDelayFeedbackQ31() != null) {
-      drumSound.paramNeutralValues[Param.GLOBAL_DELAY_FEEDBACK] = sd.getDelayFeedbackQ31();
-    }
-    drumSound.fw2Sound.bitcrushParam = normToBipolarParam(sd.getBitCrush());
-    drumSound.fw2Sound.srrParam = normToBipolarParam(sd.getSampleRateReduction());
-    drumSound.fw2Sound.eqBassParam = bipolarUnitToParam(sd.getEqBass());
-    drumSound.fw2Sound.eqTrebleParam = bipolarUnitToParam(sd.getEqTreble());
+    drumSound.delayPingPong = sd.getDelayPingPong() != 0;
+    drumSound.delayAnalog = sd.getDelayAnalog() != 0;
+    drumSound.delaySyncLevel = sd.getDelaySyncLevel();
+    drumSound.delaySyncType = sd.getDelaySyncType();
+    // C Sound::initParams (sound.cpp:154-155, 181-182) & ModControllableAudio::initParams
+    // (mod_controllable_audio.cpp:131-132): unset Q31 defaults are 0 for ModFX knobs & delayRate,
+    // and Integer.MIN_VALUE for delayFeedback.
+    drumSound.paramNeutralValues[Param.GLOBAL_MOD_FX_RATE] =
+        sd.getModFxRateQ31() != null ? sd.getModFxRateQ31() : 0;
+    drumSound.paramNeutralValues[Param.GLOBAL_MOD_FX_DEPTH] =
+        sd.getModFxDepthQ31() != null ? sd.getModFxDepthQ31() : 0;
+    drumSound.paramNeutralValues[Param.UNPATCHED_MOD_FX_OFFSET] =
+        sd.getModFxOffsetQ31() != null ? sd.getModFxOffsetQ31() : 0;
+    drumSound.paramNeutralValues[Param.UNPATCHED_MOD_FX_FEEDBACK] =
+        sd.getModFxFeedbackQ31() != null ? sd.getModFxFeedbackQ31() : 0;
+    drumSound.paramNeutralValues[Param.GLOBAL_DELAY_RATE] =
+        sd.getDelayRateQ31() != null ? sd.getDelayRateQ31() : 0;
+    drumSound.paramNeutralValues[Param.GLOBAL_DELAY_FEEDBACK] =
+        sd.getDelayFeedbackQ31() != null ? sd.getDelayFeedbackQ31() : Integer.MIN_VALUE;
+    drumSound.paramNeutralValues[Param.GLOBAL_REVERB_AMOUNT] =
+        rawDrumOrFallback(sd, "reverbAmount", normToBipolarParamVolume(sd.getReverbAmount()));
+    drumSound.paramNeutralValues[Param.GLOBAL_ARP_RATE] =
+        rawDrumOrFallback(sd, "arpeggiatorRate", normToLinearParamKnob(sd.getArpeggiatorRate()));
+    drumSound.paramNeutralValues[Param.UNPATCHED_STUTTER_RATE] =
+        rawDrumOrFallback(sd, "stutterRate", normToLinearParamKnob(sd.getStutterRate()));
+    drumSound.paramNeutralValues[Param.UNPATCHED_BITCRUSHING] =
+        rawDrumOrFallback(sd, "bitCrush", normToBipolarParam(sd.getBitCrush()));
+    drumSound.paramNeutralValues[Param.UNPATCHED_SAMPLE_RATE_REDUCTION] =
+        rawDrumOrFallback(
+            sd, "sampleRateReduction", normToBipolarParam(sd.getSampleRateReduction()));
+    drumSound.paramNeutralValues[Param.UNPATCHED_BASS] =
+        rawDrumOrFallback(sd, "eq.bass", bipolarUnitToParam(sd.getEqBass()));
+    drumSound.paramNeutralValues[Param.UNPATCHED_TREBLE] =
+        rawDrumOrFallback(sd, "eq.treble", bipolarUnitToParam(sd.getEqTreble()));
+    drumSound.paramNeutralValues[Param.UNPATCHED_BASS_FREQ] =
+        rawDrumOrFallback(sd, "eq.bassFrequency", bipolarUnitToParam(sd.getEqBassFreq()));
+    drumSound.paramNeutralValues[Param.UNPATCHED_TREBLE_FREQ] =
+        rawDrumOrFallback(sd, "eq.trebleFrequency", bipolarUnitToParam(sd.getEqTrebleFreq()));
     drumSound.paramNeutralValues[Param.UNPATCHED_SIDECHAIN_SHAPE] =
-        normToLinearParamKnob(sd.getCompressorShape());
+        rawDrumOrFallback(sd, "compressorShape", normToLinearParamKnob(sd.getCompressorShape()));
 
     // Sample playback settings
     drumSound.sampleSettings[0].reverse = sd.isReverse();
@@ -1611,38 +1687,65 @@ public class FirmwareFactory {
     }
     drumSound.sampleSettings[0].transpose = (int) sd.getPitchSemitones();
 
-    // Second source
-    if (sd.getOsc2Type() != null && !sd.getOsc2Type().equalsIgnoreCase("NONE")) {
-      drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] =
-          org.deluge.firmware2.Functions.ONE_Q31;
-      drumSound.oscTypes[1] = stringToOscType(sd.getOsc2Type());
-    } else {
-      drumSound.paramNeutralValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
-      drumSound.oscTypes[1] = null;
+    // Envelopes 1..4 (prefer exact 32-bit raw XML knobs; otherwise match KitSynthSerializer)
+    org.deluge.model.EnvelopeModel[] drumEnvs = {
+      sd.getAdsr(), sd.getEnv2(), sd.getEnv3(), sd.getEnv4()
+    };
+    for (int i = 0; i < 4; i++) {
+      org.deluge.model.EnvelopeModel env = drumEnvs[i];
+      String prefix = "envelope" + (i + 1) + ".";
+      drumSound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK + i] =
+          rawDrumOrFallback(
+              sd,
+              prefix + "attack",
+              org.deluge.xml.DelugeHexMapper.floatToQ31(
+                  org.deluge.xml.DelugeHexMapper.normFromEnvTime(env.attack())));
+      drumSound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY + i] =
+          rawDrumOrFallback(
+              sd,
+              prefix + "decay",
+              org.deluge.xml.DelugeHexMapper.floatToQ31(
+                  org.deluge.xml.DelugeHexMapper.normFromEnvTime(env.decay())));
+      drumSound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN + i] =
+          rawDrumOrFallback(sd, prefix + "sustain", normToBipolarParam(env.sustain()));
+      drumSound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE + i] =
+          rawDrumOrFallback(
+              sd,
+              prefix + "release",
+              org.deluge.xml.DelugeHexMapper.floatToQ31(
+                  org.deluge.xml.DelugeHexMapper.normFromEnvTime(env.release())));
     }
 
-    // Envelope
-    var env = sd.getAdsr();
-    drumSound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK] =
-        org.deluge.firmware2.Functions.getParamFromUserValue(
-            Param.LOCAL_ENV_0_ATTACK, (int) (env.attack() * 50));
-    drumSound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY] =
-        org.deluge.firmware2.Functions.getParamFromUserValue(
-            Param.LOCAL_ENV_0_DECAY, (int) (env.decay() * 50));
-    drumSound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN] =
-        org.deluge.firmware2.Functions.getParamFromUserValue(
-            Param.LOCAL_ENV_0_SUSTAIN, (int) (env.sustain() * 50));
-    drumSound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE] =
-        org.deluge.firmware2.Functions.getParamFromUserValue(
-            Param.LOCAL_ENV_0_RELEASE, (int) (env.release() * 50));
+    // LFO 1..4 waveforms, tempo sync, and calibrated firmware rate knobs (C sound.cpp:2700-2707)
+    org.deluge.model.LfoModel[] drumLfos = {sd.getLfo1(), sd.getLfo2(), sd.getLfo3(), sd.getLfo4()};
+    org.deluge.firmware2.Lfo.SyncType[] syncTypes = org.deluge.firmware2.Lfo.SyncType.values();
+    for (int i = 0; i < 4; i++) {
+      org.deluge.model.LfoModel lm = drumLfos[i];
+      if (lm != null) {
+        drumSound.lfoWaveforms[i] = mapLfoType(lm.waveform());
+        int paramId =
+            switch (i) {
+              case 0 -> Param.GLOBAL_LFO_FREQ_1;
+              case 1 -> Param.LOCAL_LFO_LOCAL_FREQ_1;
+              case 2 -> Param.GLOBAL_LFO_FREQ_2;
+              case 3 -> Param.LOCAL_LFO_LOCAL_FREQ_2;
+              default -> -1;
+            };
+        if (paramId != -1) {
+          drumSound.paramNeutralValues[paramId] =
+              rawDrumOrFallback(sd, "lfo" + (i + 1) + "Rate", lfoRateKnobFromHz(lm.rateHz()));
+        }
+        int internalSync =
+            org.deluge.xml.DelugeXmlUtil.convertSyncLevelFromFileValueToInternalValue(
+                lm.syncLevel(), drumSound.inputTickMagnitude);
+        drumSound.fw2Sound.lfoConfig[i].syncLevel =
+            org.deluge.firmware2.Lfo.SyncLevel.values()[internalSync];
+        drumSound.fw2Sound.lfoConfig[i].syncType =
+            syncTypes[Math.max(0, Math.min(lm.syncType(), syncTypes.length - 1))];
+      }
+    }
 
-    // Filter
-    drumSound.paramNeutralValues[Param.LOCAL_LPF_FREQ] =
-        (int) (sd.getLpfFreq() / 22050.0f * 2147483647.0f);
-    drumSound.paramNeutralValues[Param.LOCAL_LPF_RESONANCE] =
-        (int) (sd.getLpfRes() * 2147483647.0f);
-
-    // Polyphony / unison
+    // Polyphony / unison (user units 0..50 matching mapModelToSound, C sound.cpp:616-626)
     try {
       drumSound.fw2Sound.polyphonic =
           org.deluge.firmware2.Sound.PolyphonyMode.valueOf(
@@ -1650,9 +1753,10 @@ public class FirmwareFactory {
     } catch (Exception e) {
       drumSound.fw2Sound.polyphonic = org.deluge.firmware2.Sound.PolyphonyMode.POLY;
     }
-    drumSound.fw2Sound.numUnison = sd.getUnisonNum();
-    drumSound.fw2Sound.unisonDetune = (int) sd.getUnisonDetune();
-    drumSound.fw2Sound.unisonStereoSpread = (int) sd.getUnisonStereoSpread();
+    drumSound.fw2Sound.numUnison = Math.max(0, Math.min(8, sd.getUnisonNum()));
+    drumSound.fw2Sound.unisonDetune = Math.max(0, Math.min(50, (int) sd.getUnisonDetune()));
+    drumSound.fw2Sound.unisonStereoSpread =
+        Math.max(0, Math.min(50, (int) sd.getUnisonStereoSpread()));
 
     // Map step automation
     if (model != null && !model.getClips().isEmpty()) {
@@ -1702,6 +1806,11 @@ public class FirmwareFactory {
       }
     }
     drumSound.fw2Sound.resyncGlobalLFOs();
+  }
+
+  private static int rawDrumOrFallback(SoundDrum sd, String rawKey, int fallbackQ31) {
+    Integer raw = sd.getRawDefaultParamQ31(rawKey);
+    return raw != null ? raw : fallbackQ31;
   }
 
   private static void applyRowOverrides(

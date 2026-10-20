@@ -278,11 +278,83 @@ public class DelugeXmlUtil {
       case "SAW" -> LfoType.SAW;
       case "SQUARE" -> LfoType.SQUARE;
       case "TRIANGLE" -> LfoType.TRIANGLE;
-      case "S_AND_H", "SAMPLEANDHOLD", "S&H" -> LfoType.S_AND_H;
-      case "RANDOM_WALK", "RANDOMWALK", "RANDOM" -> LfoType.RANDOM_WALK;
+      // C functions.cpp:774-804 — hardware LFO tokens are "sah" and "rwalk".
+      case "SAH", "S_AND_H", "SAMPLEANDHOLD", "S&H" -> LfoType.S_AND_H;
+      case "RWALK", "RANDOM_WALK", "RANDOMWALK", "RANDOM" -> LfoType.RANDOM_WALK;
       case "WARBLER" -> LfoType.WARBLER;
       case "CUSTOM" -> LfoType.CUSTOM;
       default -> LfoType.SINE;
+    };
+  }
+
+  /** C functions.cpp:763-784 (lfoTypeToString) — exact hardware case-sensitive LFO string. */
+  public static String lfoTypeToFirmwareString(LfoType type) {
+    if (type == null) {
+      return "triangle";
+    }
+    return switch (type) {
+      case SINE -> "sine";
+      case SAW -> "saw";
+      case SQUARE -> "square";
+      case TRIANGLE -> "triangle";
+      case S_AND_H -> "sah";
+      case RANDOM_WALK -> "rwalk";
+      case WARBLER -> "warbler";
+      case CUSTOM -> "custom";
+    };
+  }
+
+  /** C functions.cpp:878-901 (fxTypeToString) — exact hardware case-sensitive ModFX string. */
+  public static String modFxTypeToFirmwareString(String modFxType) {
+    if (modFxType == null || modFxType.isBlank()) {
+      return "none";
+    }
+    return switch (modFxType.trim().toLowerCase(java.util.Locale.ROOT)) {
+      case "flanger" -> "flanger";
+      case "tapewarble", "warble" -> "TapeWarble";
+      case "dimension" -> "dimension";
+      case "chorus" -> "chorus";
+      case "stereochorus", "chorus_stereo" -> "StereoChorus";
+      case "grainfx", "grain" -> "grainFX";
+      case "phaser" -> "phaser";
+      default -> "none";
+    };
+  }
+
+  /** C filter_config.cpp:8-14 — exact hardware case-sensitive LPF mode string. */
+  public static String lpfModeToFirmwareString(org.deluge.model.FilterMode mode) {
+    if (mode == null) {
+      return "24dB";
+    }
+    return switch (mode) {
+      case LADDER_24 -> "24dB";
+      case DRIVE -> "24dBDrive";
+      case SVF, SVF_BAND -> "SVF_Band";
+      case SVF_NOTCH -> "SVF_Notch";
+      case OFF -> "Off";
+      default -> "12dB";
+    };
+  }
+
+  /** C mod_controllable_audio.cpp:410 — exact hardware case-sensitive HPF mode string. */
+  public static String hpfModeToFirmwareString(org.deluge.model.FilterMode mode) {
+    if (mode == null) {
+      return "HPLadder";
+    }
+    return switch (mode) {
+      case SVF, SVF_BAND -> "SVF_Band";
+      case SVF_NOTCH -> "SVF_Notch";
+      case OFF -> "Off";
+      default -> "HPLadder";
+    };
+  }
+
+  /** C filter_config.cpp:16-20 (routeMap) & mod_controllable_audio.cpp:411 — filterRoute string. */
+  public static String filterRouteToFirmwareString(int route) {
+    return switch (route) {
+      case 1 -> "L2H";
+      case 2 -> "PARA";
+      default -> "H2L";
     };
   }
 

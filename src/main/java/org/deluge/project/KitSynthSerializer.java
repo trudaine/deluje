@@ -46,6 +46,8 @@ public class KitSynthSerializer {
       appendTextChild(doc, root, "presetSlot", kit.getName());
     }
 
+    // C kit.cpp:132, 241 — kit drums are serialized inside <soundSources>.
+    Element soundSources = doc.createElement("soundSources");
     for (Drum drum : kit.getDrums()) {
       SoundDrum sound = (SoundDrum) drum;
       Element soundElem = doc.createElement("sound");
@@ -56,70 +58,71 @@ public class KitSynthSerializer {
       soundElem.appendChild(nameElem);
 
       boolean isSampleBased = sound.getSamplePath() != null && !sound.getSamplePath().isEmpty();
-      if (isSampleBased && isSongSlot) {
-        // ── sample (song slot sample reference) ──
-        Element sample = doc.createElement("sample");
-        sample.setAttribute("fileName", sound.getSamplePath());
-        soundElem.appendChild(sample);
+      // ── osc1 (sample or synth reference; C sound.cpp:3671-3680) ──
+      Element osc1 = doc.createElement("osc1");
+      if (isSampleBased) {
+        osc1.setAttribute("type", "sample");
+        appendTextChild(doc, osc1, "fileName", sound.getSamplePath());
       } else {
-        // ── osc1 (sample or synth reference) ──
-        Element osc1 = doc.createElement("osc1");
-        if (isSampleBased) {
-          osc1.setAttribute("type", "sample");
-          appendTextChild(doc, osc1, "fileName", sound.getSamplePath());
-        } else {
-          osc1.setAttribute("type", oscTypeToFirmwareString(sound.getOsc1Type()));
-          appendTextChild(doc, osc1, "fileName", "");
-        }
-        appendTextChild(doc, osc1, "transpose", String.valueOf(sound.getOsc1Transpose()));
-        appendTextChild(doc, osc1, "cents", String.valueOf(sound.getOsc1Cents()));
-        // C SampleRepeatMode as parsed (was hardcoded 1 = ONCE for every drum).
-        appendTextChild(doc, osc1, "loopMode", String.valueOf(sound.getOsc1LoopMode()));
-        appendTextChild(doc, osc1, "reversed", sound.isReverse() ? "1" : "0");
-        appendTextChild(doc, osc1, "timeStretchEnable", sound.isOsc1TimeStretch() ? "1" : "0");
-        appendTextChild(
-            doc, osc1, "linearInterpolation", sound.isOsc1LinearInterpolation() ? "1" : "0");
-        appendTextChild(
-            doc, osc1, "timeStretchAmount", String.valueOf(sound.getOsc1TimeStretchAmount()));
-        appendTextChild(
-            doc, osc1, "wavetableIndexPct", String.valueOf(sound.getWavetableIndexPct()));
-        Element zone = doc.createElement("zone");
-        appendTextChild(doc, zone, "startMilliseconds", String.valueOf((int) sound.getStartMs()));
-        appendTextChild(
-            doc, zone, "endMilliseconds", String.valueOf((int) Math.max(sound.getEndMs(), 1)));
-        osc1.appendChild(zone);
-        appendTextChild(doc, osc1, "retrigPhase", String.valueOf(sound.getOsc1RetrigPhase()));
-        soundElem.appendChild(osc1);
-
-        // ── osc2 (always present, often empty) ──
-        Element osc2 = doc.createElement("osc2");
-        osc2.setAttribute("type", oscTypeToFirmwareString(sound.getOsc2Type()));
-        appendTextChild(doc, osc2, "transpose", String.valueOf(sound.getOsc2Transpose()));
-        appendTextChild(doc, osc2, "cents", String.valueOf(sound.getOsc2Cents()));
-        appendTextChild(doc, osc2, "loopMode", String.valueOf(sound.getOsc2LoopMode()));
-        appendTextChild(doc, osc2, "reversed", sound.isOsc2Reversed() ? "1" : "0");
-        appendTextChild(doc, osc2, "timeStretchEnable", sound.isOsc2TimeStretch() ? "1" : "0");
-        appendTextChild(
-            doc, osc2, "linearInterpolation", sound.isOsc2LinearInterpolation() ? "1" : "0");
-        appendTextChild(
-            doc, osc2, "timeStretchAmount", String.valueOf(sound.getOsc2TimeStretchAmount()));
-        appendTextChild(
-            doc,
-            osc2,
-            "fileName",
-            sound.getOsc2SamplePath() != null ? sound.getOsc2SamplePath() : "");
-        if ((sound.getOsc2SamplePath() == null || sound.getOsc2SamplePath().isEmpty())
-            && sound.isOscillatorSync()) {
-          // C sound.cpp:3701-3703 — oscillatorSync written on osc2 when non-sample and enabled.
-          appendTextChild(doc, osc2, "oscillatorSync", "1");
-        }
-        appendTextChild(doc, osc2, "retrigPhase", String.valueOf(sound.getOsc2RetrigPhase()));
-        Element zone2 = doc.createElement("zone");
-        appendTextChild(doc, zone2, "startMilliseconds", "0");
-        appendTextChild(doc, zone2, "endMilliseconds", "9999999");
-        osc2.appendChild(zone2);
-        soundElem.appendChild(osc2);
+        osc1.setAttribute("type", oscTypeToFirmwareString(sound.getOsc1Type()));
+        appendTextChild(doc, osc1, "fileName", "");
       }
+      appendTextChild(doc, osc1, "transpose", String.valueOf(sound.getOsc1Transpose()));
+      appendTextChild(doc, osc1, "cents", String.valueOf(sound.getOsc1Cents()));
+      // C SampleRepeatMode as parsed (was hardcoded 1 = ONCE for every drum).
+      appendTextChild(doc, osc1, "loopMode", String.valueOf(sound.getOsc1LoopMode()));
+      appendTextChild(doc, osc1, "reversed", sound.isReverse() ? "1" : "0");
+      appendTextChild(doc, osc1, "timeStretchEnable", sound.isOsc1TimeStretch() ? "1" : "0");
+      appendTextChild(
+          doc, osc1, "linearInterpolation", sound.isOsc1LinearInterpolation() ? "1" : "0");
+      appendTextChild(
+          doc, osc1, "timeStretchAmount", String.valueOf(sound.getOsc1TimeStretchAmount()));
+      appendTextChild(doc, osc1, "wavetableIndexPct", String.valueOf(sound.getWavetableIndexPct()));
+      Element zone = doc.createElement("zone");
+      if (sound.getStartSamplePos() >= 0) {
+        zone.setAttribute("startSamplePos", String.valueOf(sound.getStartSamplePos()));
+      }
+      if (sound.getEndSamplePos() >= 0) {
+        zone.setAttribute("endSamplePos", String.valueOf(sound.getEndSamplePos()));
+      }
+      if (sound.getStartLoopPos() >= 0) {
+        zone.setAttribute("startLoopPos", String.valueOf(sound.getStartLoopPos()));
+      }
+      if (sound.getEndLoopPos() >= 0) {
+        zone.setAttribute("endLoopPos", String.valueOf(sound.getEndLoopPos()));
+      }
+      if (sound.getStartMs() > 0 || sound.getEndMs() > 0) {
+        appendTextChild(doc, zone, "startMilliseconds", String.valueOf((int) sound.getStartMs()));
+        appendTextChild(doc, zone, "endMilliseconds", String.valueOf((int) sound.getEndMs()));
+      }
+      osc1.appendChild(zone);
+      appendTextChild(doc, osc1, "retrigPhase", String.valueOf(sound.getOsc1RetrigPhase()));
+      soundElem.appendChild(osc1);
+
+      // ── osc2 (always present, often empty) ──
+      Element osc2 = doc.createElement("osc2");
+      osc2.setAttribute("type", oscTypeToFirmwareString(sound.getOsc2Type()));
+      appendTextChild(doc, osc2, "transpose", String.valueOf(sound.getOsc2Transpose()));
+      appendTextChild(doc, osc2, "cents", String.valueOf(sound.getOsc2Cents()));
+      appendTextChild(doc, osc2, "loopMode", String.valueOf(sound.getOsc2LoopMode()));
+      appendTextChild(doc, osc2, "reversed", sound.isOsc2Reversed() ? "1" : "0");
+      appendTextChild(doc, osc2, "timeStretchEnable", sound.isOsc2TimeStretch() ? "1" : "0");
+      appendTextChild(
+          doc, osc2, "linearInterpolation", sound.isOsc2LinearInterpolation() ? "1" : "0");
+      appendTextChild(
+          doc, osc2, "timeStretchAmount", String.valueOf(sound.getOsc2TimeStretchAmount()));
+      appendTextChild(
+          doc,
+          osc2,
+          "fileName",
+          sound.getOsc2SamplePath() != null ? sound.getOsc2SamplePath() : "");
+      if ((sound.getOsc2SamplePath() == null || sound.getOsc2SamplePath().isEmpty())
+          && sound.isOscillatorSync()) {
+        // C sound.cpp:3701-3703 — oscillatorSync written on osc2 when non-sample and enabled.
+        appendTextChild(doc, osc2, "oscillatorSync", "1");
+      }
+      appendTextChild(doc, osc2, "retrigPhase", String.valueOf(sound.getOsc2RetrigPhase()));
+      soundElem.appendChild(osc2);
 
       // ── polyphonic (C functions.cpp:835-852) ──
       String polyVal =
@@ -250,18 +253,19 @@ public class KitSynthSerializer {
           };
       appendTextChild(doc, soundElem, "hpfMode", hpfModeStr);
 
-      // ── filterRoute (C filter_config.cpp:8-14, mod_controllable_audio.cpp:411) ──
-      String drumFilterRoute =
-          switch (sound.getFilterRoute()) {
-            case 1 -> "L2H";
-            case 2 -> "PARA";
-            default -> "H2L";
-          };
-      appendTextChild(doc, soundElem, "filterRoute", drumFilterRoute);
+      // ── filterRoute (C filter_config.cpp:16-20, mod_controllable_audio.cpp:411) ──
+      appendTextChild(
+          doc,
+          soundElem,
+          "filterRoute",
+          org.deluge.xml.DelugeXmlUtil.filterRouteToFirmwareString(sound.getFilterRoute()));
 
-      // ── modFXType ──
-      String mfx = sound.getModFxType() != null ? sound.getModFxType().toLowerCase() : "none";
-      appendTextChild(doc, soundElem, "modFXType", mfx);
+      // ── modFXType (C functions.cpp:878-901) ──
+      appendTextChild(
+          doc,
+          soundElem,
+          "modFXType",
+          org.deluge.xml.DelugeXmlUtil.modFxTypeToFirmwareString(sound.getModFxType()));
 
       // ── defaultParams (C sound.cpp:4056-4162) ──
       Element dp = doc.createElement("defaultParams");
@@ -283,14 +287,29 @@ public class KitSynthSerializer {
           "compressorShape",
           sound,
           () -> appendHexChildUnipolar(doc, dp, "compressorShape", sound.getCompressorShape()));
+      float effectiveOscAVol =
+          ("SAMPLE".equalsIgnoreCase(sound.getOsc1Type()) && sound.getOscAVolume() == 0.0f)
+              ? 1.0f
+              : sound.getOscAVolume();
       appendDrumRawOrFallback(
           doc,
           dp,
           "oscAVolume",
           sound,
-          () -> appendHexChildUnipolar(doc, dp, "oscAVolume", sound.getOscAVolume()));
+          () -> appendHexChildUnipolar(doc, dp, "oscAVolume", effectiveOscAVol));
       appendDrumRawOrFallback(
           doc, dp, "oscAPulseWidth", sound, () -> appendRawQ31Child(doc, dp, "oscAPulseWidth", 0));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "oscAWavetablePosition",
+          sound,
+          () ->
+              appendRawQ31Child(
+                  doc,
+                  dp,
+                  "oscAWavetablePosition",
+                  (int) Math.round(Math.clamp(sound.getWaveIndex(), 0.0f, 1.0f) * 2147483647.0)));
       appendDrumRawOrFallback(
           doc,
           dp,
@@ -299,6 +318,17 @@ public class KitSynthSerializer {
           () -> appendHexChildUnipolar(doc, dp, "oscBVolume", sound.getOscBVolume()));
       appendDrumRawOrFallback(
           doc, dp, "oscBPulseWidth", sound, () -> appendRawQ31Child(doc, dp, "oscBPulseWidth", 0));
+      appendDrumRawOrFallback(
+          doc,
+          dp,
+          "oscBWavetablePosition",
+          sound,
+          () ->
+              appendRawQ31Child(
+                  doc,
+                  dp,
+                  "oscBWavetablePosition",
+                  (int) Math.round(Math.clamp(sound.getWaveIndex(), 0.0f, 1.0f) * 2147483647.0)));
       appendDrumRawOrFallback(
           doc,
           dp,
@@ -349,42 +379,45 @@ public class KitSynthSerializer {
           "hpfMorph",
           sound,
           () -> appendHexChildUnipolar(doc, dp, "hpfMorph", sound.getHpfMorph()));
+      // C Sound::initParams (sound.cpp:154-155, 181-182) & ModControllableAudio::initParams
+      // (mod_controllable_audio.cpp:131-132): unset Q31 defaults are 0x00000000 for ModFX knobs &
+      // delayRate, and 0x80000000 for delayFeedback.
       appendBoxedQ31OrFallback(
           doc,
           dp,
           "modFXRate",
           sound.getModFxRateQ31(),
-          () -> appendHexChildUnipolar(doc, dp, "modFXRate", sound.getModFxRate()));
+          () -> appendRawQ31Child(doc, dp, "modFXRate", 0));
       appendBoxedQ31OrFallback(
           doc,
           dp,
           "modFXDepth",
           sound.getModFxDepthQ31(),
-          () -> appendHexChildUnipolar(doc, dp, "modFXDepth", sound.getModFxDepth()));
+          () -> appendRawQ31Child(doc, dp, "modFXDepth", 0));
       appendBoxedQ31OrFallback(
           doc,
           dp,
           "modFXOffset",
           sound.getModFxOffsetQ31(),
-          () -> appendHexChildUnipolar(doc, dp, "modFXOffset", sound.getModFxOffset()));
+          () -> appendRawQ31Child(doc, dp, "modFXOffset", 0));
       appendBoxedQ31OrFallback(
           doc,
           dp,
           "modFXFeedback",
           sound.getModFxFeedbackQ31(),
-          () -> appendHexChildUnipolar(doc, dp, "modFXFeedback", sound.getModFxFeedback()));
+          () -> appendRawQ31Child(doc, dp, "modFXFeedback", 0));
       appendBoxedQ31OrFallback(
           doc,
           dp,
           "delayRate",
           sound.getDelayRateQ31(),
-          () -> appendHexChildUnipolar(doc, dp, "delayRate", sound.getDelayRate()));
+          () -> appendRawQ31Child(doc, dp, "delayRate", 0));
       appendBoxedQ31OrFallback(
           doc,
           dp,
           "delayFeedback",
           sound.getDelayFeedbackQ31(),
-          () -> appendHexChildUnipolar(doc, dp, "delayFeedback", sound.getDelayFeedback()));
+          () -> appendRawQ31Child(doc, dp, "delayFeedback", Integer.MIN_VALUE));
       appendDrumRawOrFallback(
           doc,
           dp,
@@ -450,7 +483,7 @@ public class KitSynthSerializer {
         }
       }
 
-      // LFO 1..4 rates inside defaultParams (C sound.cpp:4107-4110)
+      // LFO 1..4 rates inside defaultParams (C sound.cpp:4084-4087)
       LfoModel[] drumLfos = {sound.getLfo1(), sound.getLfo2(), sound.getLfo3(), sound.getLfo4()};
       for (int lfoIdx = 0; lfoIdx < 4; lfoIdx++) {
         String rateTag = "lfo" + (lfoIdx + 1) + "Rate";
@@ -459,7 +492,7 @@ public class KitSynthSerializer {
             doc, dp, rateTag, sound, () -> appendHexLfoFreq(doc, dp, rateTag, curLfo.rateHz()));
       }
 
-      // FM params (C sound.cpp:4111-4114, 4125-4126)
+      // FM params (C sound.cpp:4089-4097)
       appendRawQ31Child(doc, dp, "modulator1Amount", sound.getModulator1AmountQ31());
       appendRawQ31Child(doc, dp, "modulator1Feedback", sound.getModulator1FeedbackQ31());
       appendRawQ31Child(doc, dp, "modulator2Amount", sound.getModulator2AmountQ31());
@@ -476,7 +509,7 @@ public class KitSynthSerializer {
         dp.appendChild(pcContainer);
       }
 
-      // Equalizer inside defaultParams (C mod_controllable_audio.cpp:432-437)
+      // Equalizer inside defaultParams (C mod_controllable_audio.cpp:540-549)
       Element eq = doc.createElement("equalizer");
       appendDrumRawOrFallback(
           doc,
@@ -538,8 +571,9 @@ public class KitSynthSerializer {
         soundElem.appendChild(midiOutput);
       }
 
-      root.appendChild(soundElem);
+      soundSources.appendChild(soundElem);
     }
+    root.appendChild(soundSources);
 
     appendTextChild(doc, root, "selectedDrumIndex", String.valueOf(kit.getSelectedDrumIndex()));
 
@@ -864,18 +898,19 @@ public class KitSynthSerializer {
         };
     appendTextChild(doc, root, "hpfMode", hpfModeSynthStr);
 
-    // ── filterRoute (C filter_config.cpp:8-14, mod_controllable_audio.cpp:411) ──
-    String synthFilterRoute =
-        switch (synth.getFilterRoute()) {
-          case 1 -> "L2H";
-          case 2 -> "PARA";
-          default -> "H2L";
-        };
-    appendTextChild(doc, root, "filterRoute", synthFilterRoute);
+    // ── filterRoute (C filter_config.cpp:16-20, mod_controllable_audio.cpp:411) ──
+    appendTextChild(
+        doc,
+        root,
+        "filterRoute",
+        org.deluge.xml.DelugeXmlUtil.filterRouteToFirmwareString(synth.getFilterRoute()));
 
-    // ── modFXType ──
-    String mfx = synth.getModFxType() != null ? synth.getModFxType().toLowerCase() : "none";
-    appendTextChild(doc, root, "modFXType", mfx);
+    // ── modFXType (C functions.cpp:878-901) ──
+    appendTextChild(
+        doc,
+        root,
+        "modFXType",
+        org.deluge.xml.DelugeXmlUtil.modFxTypeToFirmwareString(synth.getModFxType()));
 
     // ── compressor ──
     float compAttack = synth.getCompressorAttack();
@@ -893,7 +928,13 @@ public class KitSynthSerializer {
     Element dp = doc.createElement("defaultParams");
     appendHexChildUnipolar(doc, dp, "arpeggiatorGate", synth.getArp().gate());
     appendRawQ31Child(doc, dp, "portamento", synth.getPortamentoQ31());
-    appendHexChildUnipolar(doc, dp, "compressorShape", synth.getCompressorShape());
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "compressorShape",
+        synth,
+        Param.UNPATCHED_SIDECHAIN_SHAPE,
+        () -> appendHexChildUnipolar(doc, dp, "compressorShape", synth.getCompressorShape()));
     // Write the oscillators' ACTUAL volumes. These were derived from oscMix as (mix, 1 - mix),
     // which models a crossfade — but the Deluge's two oscillator volumes are independent, and
     // setOscAVolume also assigns oscMix. So a patch with both oscillators at full ("018 Rich Saw
@@ -905,11 +946,33 @@ public class KitSynthSerializer {
         synth,
         Param.LOCAL_OSC_A_VOLUME,
         () -> appendHexChildUnipolar(doc, dp, "oscAVolume", synth.getOscAVolume()));
-    appendRawQ31Child(
+    appendSynthRawOrFallback(
         doc,
         dp,
         "oscAPulseWidth",
-        synth.getOsc1PhaseWidthQ31() != Integer.MIN_VALUE ? synth.getOsc1PhaseWidthQ31() : 0);
+        synth,
+        Param.LOCAL_OSC_A_PHASE_WIDTH,
+        () ->
+            appendRawQ31Child(
+                doc,
+                dp,
+                "oscAPulseWidth",
+                synth.getOsc1PhaseWidthQ31() != Integer.MIN_VALUE
+                    ? synth.getOsc1PhaseWidthQ31()
+                    : 0));
+    // C sound.cpp:4067-4068 — oscAWavetablePosition
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "oscAWavetablePosition",
+        synth,
+        Param.LOCAL_OSC_A_WAVE_INDEX,
+        () ->
+            appendRawQ31Child(
+                doc,
+                dp,
+                "oscAWavetablePosition",
+                (int) Math.round(Math.clamp(synth.getWaveIndex(), 0.0f, 1.0f) * 2147483647.0)));
     appendSynthRawOrFallback(
         doc,
         dp,
@@ -917,34 +980,56 @@ public class KitSynthSerializer {
         synth,
         Param.LOCAL_OSC_B_VOLUME,
         () -> appendHexChildUnipolar(doc, dp, "oscBVolume", synth.getOscBVolume()));
-    appendRawQ31Child(
+    appendSynthRawOrFallback(
         doc,
         dp,
         "oscBPulseWidth",
-        synth.getOsc2PhaseWidthQ31() != Integer.MIN_VALUE ? synth.getOsc2PhaseWidthQ31() : 0);
-    if (synth.getPitchAdjustQ31() != Integer.MIN_VALUE) {
+        synth,
+        Param.LOCAL_OSC_B_PHASE_WIDTH,
+        () ->
+            appendRawQ31Child(
+                doc,
+                dp,
+                "oscBPulseWidth",
+                synth.getOsc2PhaseWidthQ31() != Integer.MIN_VALUE
+                    ? synth.getOsc2PhaseWidthQ31()
+                    : 0));
+    // C sound.cpp:4071-4072 — oscBWavetablePosition
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "oscBWavetablePosition",
+        synth,
+        Param.LOCAL_OSC_B_WAVE_INDEX,
+        () ->
+            appendRawQ31Child(
+                doc,
+                dp,
+                "oscBWavetablePosition",
+                (int) Math.round(Math.clamp(synth.getWaveIndex(), 0.0f, 1.0f) * 2147483647.0)));
+    // C sound.cpp:4099-4107 — pitchAdjust, oscAPitchAdjust, oscBPitchAdjust, mod1PitchAdjust,
+    // mod2PitchAdjust
+    Integer pitchVal = synth.getRawKnobs().getRawParamKnobs().get(Param.LOCAL_PITCH_ADJUST);
+    if (pitchVal != null && pitchVal != 0) {
+      appendRawQ31Child(doc, dp, "pitchAdjust", pitchVal);
+    } else if (synth.getPitchAdjustQ31() != Integer.MIN_VALUE && synth.getPitchAdjustQ31() != 0) {
       appendRawQ31Child(doc, dp, "pitchAdjust", synth.getPitchAdjustQ31());
     }
-    Integer pitchVal = synth.getRawKnobs().getRawParamKnobs().get(Param.LOCAL_PITCH_ADJUST);
-    int pitchQ31 = pitchVal != null ? pitchVal : 0;
-    if (pitchQ31 != 0) {
-      appendRawQ31Child(doc, dp, "pitch", pitchQ31);
-    }
-    if (synth.getOsc1PitchAdjustQ31() != Integer.MIN_VALUE) {
+    if (synth.getOsc1PitchAdjustQ31() != Integer.MIN_VALUE && synth.getOsc1PitchAdjustQ31() != 0) {
       appendRawQ31Child(doc, dp, "oscAPitchAdjust", synth.getOsc1PitchAdjustQ31());
     }
-    if (synth.getOsc2PitchAdjustQ31() != Integer.MIN_VALUE) {
+    if (synth.getOsc2PitchAdjustQ31() != Integer.MIN_VALUE && synth.getOsc2PitchAdjustQ31() != 0) {
       appendRawQ31Child(doc, dp, "oscBPitchAdjust", synth.getOsc2PitchAdjustQ31());
     }
     Integer mod1Pitch =
         synth.getRawKnobs().getRawParamKnobs().get(Param.LOCAL_MODULATOR_0_PITCH_ADJUST);
     if (mod1Pitch != null && mod1Pitch != 0) {
-      appendRawQ31Child(doc, dp, "modulator1Pitch", mod1Pitch);
+      appendRawQ31Child(doc, dp, "mod1PitchAdjust", mod1Pitch);
     }
     Integer mod2Pitch =
         synth.getRawKnobs().getRawParamKnobs().get(Param.LOCAL_MODULATOR_1_PITCH_ADJUST);
     if (mod2Pitch != null && mod2Pitch != 0) {
-      appendRawQ31Child(doc, dp, "modulator2Pitch", mod2Pitch);
+      appendRawQ31Child(doc, dp, "mod2PitchAdjust", mod2Pitch);
     }
     appendSynthRawOrFallback(
         doc,
@@ -1017,7 +1102,7 @@ public class KitSynthSerializer {
         Param.LOCAL_FOLD,
         () -> appendRawQ31Child(doc, dp, "waveFold", synth.getWaveFoldQ31()));
 
-    // FM params (C sound.cpp:4111-4114, 4125-4126 — exact signed Q31 knobs)
+    // FM params (C sound.cpp:4089-4097 — exact signed Q31 knobs)
     appendRawQ31Child(doc, dp, "modulator1Amount", synth.getModulator1AmountQ31());
     appendRawQ31Child(doc, dp, "modulator1Feedback", synth.getModulator1FeedbackQ31());
     appendRawQ31Child(doc, dp, "modulator2Amount", synth.getModulator2AmountQ31());
@@ -1076,17 +1161,13 @@ public class KitSynthSerializer {
         () -> appendHexChildUnipolar(doc, dp, "reverbAmount", synth.getReverbSend()));
     // GLOBAL_ARP_RATE (sound.cpp:4117) — the raw param, not the panel's old multiplier.
     appendTextChild(doc, dp, "arpeggiatorRate", String.format("0x%08X", synth.getArpRateQ31()));
-    Integer rawStutterQ31 =
-        synth.getRawKnobs().getRawParamKnobs().get(Param.UNPATCHED_STUTTER_RATE);
-    if (rawStutterQ31 != null
-        && Math.abs(
-                DelugeHexMapper.q31ToUnipolarFloatUnified(rawStutterQ31)
-                    - synth.getStutter().getStutterRate())
-            < 1e-4f) {
-      appendRawQ31Child(doc, dp, "stutterRate", rawStutterQ31);
-    } else {
-      appendHexChildUnipolar(doc, dp, "stutterRate", synth.getStutter().getStutterRate());
-    }
+    appendSynthRawOrFallback(
+        doc,
+        dp,
+        "stutterRate",
+        synth,
+        Param.UNPATCHED_STUTTER_RATE,
+        () -> appendHexChildUnipolar(doc, dp, "stutterRate", synth.getStutter().getStutterRate()));
     appendSynthRawOrFallback(
         doc,
         dp,
@@ -1103,7 +1184,7 @@ public class KitSynthSerializer {
         Param.UNPATCHED_BITCRUSHING,
         () -> appendHexChildUnipolar(doc, dp, "bitCrush", synth.getBitCrush()));
     appendHexChildUnipolar(doc, dp, "waveIndex", synth.getWaveIndex());
-    // Equalizer inside defaultParams (C mod_controllable_audio.cpp:432-437)
+    // Equalizer inside defaultParams (C mod_controllable_audio.cpp:540-549)
     Element eq = doc.createElement("equalizer");
     appendSynthRawOrFallback(
         doc,
@@ -1149,7 +1230,7 @@ public class KitSynthSerializer {
       }
     }
 
-    // LFO 1..4 rates inside defaultParams (C sound.cpp:4107-4110)
+    // LFO 1..4 rates inside defaultParams (C sound.cpp:4084-4087)
     for (int i = 0; i < 4; i++) {
       String rateTag = "lfo" + (i + 1) + "Rate";
       if (synth.getRawKnobs().isLfoRateKnobSet(i)) {
@@ -1273,18 +1354,9 @@ public class KitSynthSerializer {
     parent.appendChild(lfoElem);
   }
 
-  /** Convert LfoType to lowercase XML name. */
+  /** Convert LfoType to exact C++ firmware XML token (C functions.cpp:763-784). */
   public static String lfoTypeName(LfoType type) {
-    return switch (type) {
-      case SINE -> "sine";
-      case SAW -> "saw";
-      case SQUARE -> "square";
-      case TRIANGLE -> "triangle";
-      case S_AND_H -> "s&h";
-      case RANDOM_WALK -> "randomWalk";
-      case WARBLER -> "warbler";
-      case CUSTOM -> "custom";
-    };
+    return org.deluge.xml.DelugeXmlUtil.lfoTypeToFirmwareString(type);
   }
 
   /** Append an envelope element with attack/decay/sustain/release children. */
@@ -1293,7 +1365,7 @@ public class KitSynthSerializer {
     // Envelope times use exponential bipolar mapping; sustain uses linear bipolar mapping.
     appendHexChild(doc, envElem, "attack", DelugeHexMapper.normFromEnvTime(env.attack()));
     appendHexChild(doc, envElem, "decay", DelugeHexMapper.normFromEnvTime(env.decay()));
-    appendHexChild(doc, envElem, "sustain", DelugeHexMapper.normFromSustain(env.sustain()));
+    appendHexChildUnipolar(doc, envElem, "sustain", env.sustain());
     appendHexChild(doc, envElem, "release", DelugeHexMapper.normFromEnvTime(env.release()));
     parent.appendChild(envElem);
   }
@@ -1306,11 +1378,11 @@ public class KitSynthSerializer {
     parent.appendChild(child);
   }
 
-  /** Append a child element with a hex string value from a unipolar float (scaled to bipolar). */
+  /** Append a child element with an exact signed Q31 hex string from a unipolar [0..1] float. */
   public static void appendHexChildUnipolar(Document doc, Element parent, String tag, float value) {
     if (parent.getElementsByTagName(tag).getLength() > 0) return;
     Element child = doc.createElement(tag);
-    child.setTextContent(DelugeHexMapper.floatToHex(value * 2.0f - 1.0f));
+    child.setTextContent(DelugeHexMapper.unipolarFloatToHexUnified(value));
     parent.appendChild(child);
   }
 
@@ -1322,11 +1394,15 @@ public class KitSynthSerializer {
     parent.appendChild(child);
   }
 
-  /** Append a child element with a hex LFO frequency value from a Hz float. */
+  /**
+   * Append a child element with the exact firmware LFO rate knob hex matching {@link
+   * org.deluge.engine.FirmwareFactory#lfoRateKnobFromHz(double)}.
+   */
   public static void appendHexLfoFreq(Document doc, Element parent, String tag, float hz) {
     if (parent.getElementsByTagName(tag).getLength() > 0) return;
     Element child = doc.createElement(tag);
-    child.setTextContent(DelugeHexMapper.lfoHzToHex(hz));
+    child.setTextContent(
+        String.format("0x%08X", org.deluge.engine.FirmwareFactory.lfoRateKnobFromHz(hz)));
     parent.appendChild(child);
   }
 
@@ -1343,9 +1419,9 @@ public class KitSynthSerializer {
   }
 
   /**
-   * Append a {@code <patchCable>} element preserving exact 32-bit Q31 cable amounts and any 16-char
-   * automation nodes (C {@code PatchCableSet::writePatchCablesToFile}, {@code
-   * patch_cable_set.cpp:995-1030}).
+   * Append a {@code <patchCable>} inside preset {@code <defaultParams>} preserving exact 32-bit Q31
+   * cable amounts without automation nodes (C {@code sound.cpp:4251} passes {@code writeAutomation
+   * = false}; clip/row {@code <soundParams>} writes automation via {@code ProjectSerializer}).
    */
   private static Element createPatchCableElement(Document doc, PatchCable pc) {
     Element cable = doc.createElement("patchCable");
@@ -1353,11 +1429,7 @@ public class KitSynthSerializer {
     if (pc.destination() != null && !pc.destination().isEmpty()) {
       appendTextChild(doc, cable, "destination", pc.destination());
     }
-    appendTextChild(
-        doc,
-        cable,
-        "amount",
-        DelugeHexMapper.formatHexWithAutomationNodes(pc.resolveBaseHex(), pc.automationNodes()));
+    appendTextChild(doc, cable, "amount", pc.resolveBaseHex());
     if (pc.polarity() != null) {
       appendTextChild(doc, cable, "polarity", pc.polarity().name().toLowerCase());
     }

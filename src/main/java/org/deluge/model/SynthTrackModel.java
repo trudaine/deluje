@@ -82,7 +82,12 @@ public class SynthTrackModel extends TrackModel {
   private float pan = 0.0f;
 
   // Stutter, bitcrush, sample rate reduction
-  private final StutterConfig stutter = new StutterConfig();
+  private final StutterConfig stutter =
+      new StutterConfig(
+          () ->
+              this.rawKnobs
+                  .getRawParamKnobs()
+                  .remove(org.deluge.firmware2.Param.UNPATCHED_STUTTER_RATE));
   private float sampleRateReduction = 0.0f;
   private float bitCrush = 0.0f;
 
@@ -175,7 +180,6 @@ public class SynthTrackModel extends TrackModel {
 
   public void setPortamentoQ31(int v) {
     this.portamentoQ31 = v;
-    this.portamento = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
   }
 
   public enum PolyphonyMode {
@@ -967,6 +971,9 @@ public class SynthTrackModel extends TrackModel {
 
   public void setCompressorThreshold(float v) {
     compressor.setCompressorThreshold(v);
+    this.rawKnobs
+        .getRawParamKnobs()
+        .remove(org.deluge.firmware2.Param.UNPATCHED_COMPRESSOR_THRESHOLD);
   }
 
   public float getCompressorRatio() {
@@ -983,6 +990,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setCompressorShape(float v) {
     compressor.setCompressorShape(v);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE);
   }
 
   public int getCompressorSyncType() {
@@ -1245,6 +1253,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setOsc1PhaseWidthQ31(int v) {
     osc1.setPhaseWidthQ31(v);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_A_PHASE_WIDTH);
   }
 
   public int getOsc2PhaseWidthQ31() {
@@ -1253,6 +1262,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setOsc2PhaseWidthQ31(int v) {
     osc2.setPhaseWidthQ31(v);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_B_PHASE_WIDTH);
   }
 
   public int getModulator1FeedbackQ31() {
@@ -1375,6 +1385,10 @@ public class SynthTrackModel extends TrackModel {
     // C instrument_clip.cpp:2312 — assigning a SoundInstrument clones defaultArpSettings into the
     // clip's arpSettings; preset browser hot-swap and undo snapshots rely on copyParametersFrom.
     this.arp = other.getArp();
+    ClipModel active = getActiveClip();
+    if (active != null && active.getArp() != null) {
+      active.setArp(other.getArp());
+    }
     this.arpRateQ31 = other.getArpRateQ31();
     this.polyphony = other.getPolyphony();
     this.maxVoiceCount = other.getMaxVoiceCount();

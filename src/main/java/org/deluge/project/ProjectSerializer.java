@@ -904,8 +904,9 @@ public class ProjectSerializer {
               default -> "HPLadder";
             });
 
-        String mfx = synth.getModFxType() != null ? synth.getModFxType().toLowerCase() : "none";
-        writer.writeTag("modFXType", mfx);
+        writer.writeTag(
+            "modFXType",
+            org.deluge.xml.DelugeXmlUtil.modFxTypeToFirmwareString(synth.getModFxType()));
 
         // compressor
         float compAttack = synth.getCompressorAttack();
@@ -971,7 +972,7 @@ public class ProjectSerializer {
         writeHexTagUnipolar(writer, "modFXOffset", synth.getModFxOffset());
         writeHexTagUnipolar(writer, "modFXFeedback", synth.getModFxFeedback());
         writeHexTagUnipolar(writer, "delayRate", synth.getDelaySend());
-        writeHexTagUnipolar(writer, "delayFeedback", 0f);
+        writeRawQ31Tag(writer, "delayFeedback", synth.getDelayFeedbackQ31());
         writeHexTagUnipolar(writer, "reverbAmount", synth.getReverbSend());
         // C sound.cpp:4117 — GLOBAL_ARP_RATE raw Q31 param.
         writer.writeTag("arpeggiatorRate", String.format("0x%08X", synth.getArpRateQ31()));
@@ -985,8 +986,8 @@ public class ProjectSerializer {
         writer.writeOpeningTagEnd();
         writeHexTag(writer, "bass", synth.getEqBass());
         writeHexTag(writer, "treble", synth.getEqTreble());
-        writeHexTag(writer, "bassFrequency", 0f);
-        writeHexTag(writer, "trebleFrequency", 0f);
+        writeHexTag(writer, "bassFrequency", synth.getEqBassFreq());
+        writeHexTag(writer, "trebleFrequency", synth.getEqTrebleFreq());
         writer.writeClosingTag("equalizer");
 
         // Envelopes 1-4
@@ -1155,16 +1156,7 @@ public class ProjectSerializer {
   }
 
   private static String lfoTypeName(LfoType type) {
-    return switch (type) {
-      case SINE -> "sine";
-      case SAW -> "saw";
-      case SQUARE -> "square";
-      case TRIANGLE -> "triangle";
-      case S_AND_H -> "s&h";
-      case RANDOM_WALK -> "randomWalk";
-      case WARBLER -> "warbler";
-      case CUSTOM -> "custom";
-    };
+    return org.deluge.xml.DelugeXmlUtil.lfoTypeToFirmwareString(type);
   }
 
   private static void serializeEnvelope(XMLSerializer writer, String tag, EnvelopeModel env)
@@ -1173,7 +1165,7 @@ public class ProjectSerializer {
     writer.writeOpeningTagEnd();
     writeHexTag(writer, "attack", DelugeHexMapper.normFromEnvTime(env.attack()));
     writeHexTag(writer, "decay", DelugeHexMapper.normFromEnvTime(env.decay()));
-    writeHexTag(writer, "sustain", DelugeHexMapper.normFromSustain(env.sustain()));
+    writeHexTagUnipolar(writer, "sustain", env.sustain());
     writeHexTag(writer, "release", DelugeHexMapper.normFromEnvTime(env.release()));
     writer.writeClosingTag(tag);
   }
@@ -1220,7 +1212,7 @@ public class ProjectSerializer {
 
   private static void writeHexTagUnipolar(XMLSerializer writer, String tag, float val)
       throws IOException {
-    writer.writeTag(tag, DelugeHexMapper.floatToHex(val * 2.0f - 1.0f));
+    writer.writeTag(tag, DelugeHexMapper.unipolarFloatToHexUnified(val));
   }
 
   private static void writeHexTagFreq(XMLSerializer writer, String tag, float hz)
@@ -2088,44 +2080,277 @@ public class ProjectSerializer {
         clip != null ? clip.getAutomationCurves() : Map.of();
     java.util.Set<String> written = new java.util.HashSet<>();
 
+    // C Sound::writeParamsToFile (sound.cpp:4061-4127) +
+    // ModControllableAudio::writeParamAttributesToFile
+    // (mod_controllable_audio.cpp:501-505) — write all clip <soundParams> attributes so
+    // InstrumentXmlParser.resetClipParamsToFirmwareDefaults + parseClipSoundParamsStatics
+    // round-trips every synth parameter without clobbering FM, oscillator, ModFX, or filter knobs,
+    // while keeping ModFX params as XML attributes (never duplicate child tags).
+    var rawKnobs = synth.getRawKnobs().getRawParamKnobs();
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "arpeggiatorGate",
+        resolveSynthBaseHex(
+            synth,
+            "arpeggiatorGate",
+            DelugeHexMapper.unipolarFloatToHexUnified(synth.getArp().gate())));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "portamento",
+        String.format(
+            "0x%08X",
+            rawKnobs.getOrDefault(
+                org.deluge.firmware2.Param.UNPATCHED_PORTAMENTO, synth.getPortamentoQ31())));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "compressorShape",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE)
+            ? String.format(
+                "0x%08X", rawKnobs.get(org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getCompressorShape()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "oscAVolume",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME)
+            ? String.format("0x%08X", rawKnobs.get(org.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getOscAVolume()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "oscAPulseWidth",
+        String.format(
+            "0x%08X",
+            rawKnobs.getOrDefault(
+                org.deluge.firmware2.Param.LOCAL_OSC_A_PHASE_WIDTH,
+                synth.getOsc1PhaseWidthQ31() != Integer.MIN_VALUE
+                    ? synth.getOsc1PhaseWidthQ31()
+                    : 0)));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "oscBVolume",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.LOCAL_OSC_B_VOLUME)
+            ? String.format("0x%08X", rawKnobs.get(org.deluge.firmware2.Param.LOCAL_OSC_B_VOLUME))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getOscBVolume()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "oscBPulseWidth",
+        String.format(
+            "0x%08X",
+            rawKnobs.getOrDefault(
+                org.deluge.firmware2.Param.LOCAL_OSC_B_PHASE_WIDTH,
+                synth.getOsc2PhaseWidthQ31() != Integer.MIN_VALUE
+                    ? synth.getOsc2PhaseWidthQ31()
+                    : 0)));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "noiseVolume",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.LOCAL_NOISE_VOLUME)
+            ? String.format("0x%08X", rawKnobs.get(org.deluge.firmware2.Param.LOCAL_NOISE_VOLUME))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getNoiseVol()));
     writeSoundParamAttr(
         writer,
         curves,
         written,
         "volume",
-        DelugeHexMapper.unipolarFloatToHexUnified(synth.getVolume()));
-    writeSoundParamAttr(writer, curves, written, "pan", DelugeHexMapper.floatToHex(synth.getPan()));
+        rawKnobs.containsKey(org.deluge.firmware2.Param.GLOBAL_VOLUME_POST_FX)
+            ? String.format(
+                "0x%08X", rawKnobs.get(org.deluge.firmware2.Param.GLOBAL_VOLUME_POST_FX))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getVolume()));
     writeSoundParamAttr(
-        writer, curves, written, "lpfFrequency", DelugeHexMapper.hzToHex(synth.getLpfFreq()));
+        writer,
+        curves,
+        written,
+        "pan",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.LOCAL_PAN)
+            ? String.format("0x%08X", rawKnobs.get(org.deluge.firmware2.Param.LOCAL_PAN))
+            : DelugeHexMapper.floatToHex(synth.getPan()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "lpfFrequency",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.LOCAL_LPF_FREQ)
+            ? String.format("0x%08X", rawKnobs.get(org.deluge.firmware2.Param.LOCAL_LPF_FREQ))
+            : DelugeHexMapper.hzToHex(synth.getLpfFreq()));
     writeSoundParamAttr(
         writer,
         curves,
         written,
         "lpfResonance",
-        DelugeHexMapper.unipolarFloatToHexUnified(synth.getLpfRes()));
+        rawKnobs.containsKey(org.deluge.firmware2.Param.LOCAL_LPF_RESONANCE)
+            ? String.format("0x%08X", rawKnobs.get(org.deluge.firmware2.Param.LOCAL_LPF_RESONANCE))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getLpfRes()));
     writeSoundParamAttr(
-        writer, curves, written, "hpfFrequency", DelugeHexMapper.hzToHex(synth.getHpfFreq()));
+        writer,
+        curves,
+        written,
+        "lpfMorph",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.LOCAL_LPF_MORPH)
+            ? String.format("0x%08X", rawKnobs.get(org.deluge.firmware2.Param.LOCAL_LPF_MORPH))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getLpfMorph()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "hpfFrequency",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.LOCAL_HPF_FREQ)
+            ? String.format("0x%08X", rawKnobs.get(org.deluge.firmware2.Param.LOCAL_HPF_FREQ))
+            : DelugeHexMapper.hzToHex(synth.getHpfFreq()));
     writeSoundParamAttr(
         writer,
         curves,
         written,
         "hpfResonance",
-        DelugeHexMapper.unipolarFloatToHexUnified(synth.getHpfRes()));
+        rawKnobs.containsKey(org.deluge.firmware2.Param.LOCAL_HPF_RESONANCE)
+            ? String.format("0x%08X", rawKnobs.get(org.deluge.firmware2.Param.LOCAL_HPF_RESONANCE))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getHpfRes()));
     writeSoundParamAttr(
         writer,
         curves,
         written,
-        "reverbAmount",
-        DelugeHexMapper.unipolarFloatToHexUnified(synth.getReverbSend()));
+        "hpfMorph",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.LOCAL_HPF_MORPH)
+            ? String.format("0x%08X", rawKnobs.get(org.deluge.firmware2.Param.LOCAL_HPF_MORPH))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getHpfMorph()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "modulator1Amount",
+        String.format("0x%08X", synth.getModulator1AmountQ31()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "modulator1Feedback",
+        String.format("0x%08X", synth.getModulator1FeedbackQ31()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "modulator2Amount",
+        String.format("0x%08X", synth.getModulator2AmountQ31()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "modulator2Feedback",
+        String.format("0x%08X", synth.getModulator2FeedbackQ31()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "carrier1Feedback",
+        String.format("0x%08X", synth.getCarrier1FeedbackQ31()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "carrier2Feedback",
+        String.format("0x%08X", synth.getCarrier2FeedbackQ31()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "modFXRate",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.GLOBAL_MOD_FX_RATE)
+            ? String.format("0x%08X", rawKnobs.get(org.deluge.firmware2.Param.GLOBAL_MOD_FX_RATE))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getModFxRate()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "modFXDepth",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.GLOBAL_MOD_FX_DEPTH)
+            ? String.format("0x%08X", rawKnobs.get(org.deluge.firmware2.Param.GLOBAL_MOD_FX_DEPTH))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getModFxDepth()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "modFXOffset",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.UNPATCHED_MOD_FX_OFFSET)
+            ? String.format(
+                "0x%08X", rawKnobs.get(org.deluge.firmware2.Param.UNPATCHED_MOD_FX_OFFSET))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getModFxOffset()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "modFXFeedback",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.UNPATCHED_MOD_FX_FEEDBACK)
+            ? String.format(
+                "0x%08X", rawKnobs.get(org.deluge.firmware2.Param.UNPATCHED_MOD_FX_FEEDBACK))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getModFxFeedback()));
     writeSoundParamAttr(
         writer,
         curves,
         written,
         "delayRate",
-        DelugeHexMapper.unipolarFloatToHexUnified(synth.getDelaySend()));
+        rawKnobs.containsKey(org.deluge.firmware2.Param.GLOBAL_DELAY_RATE)
+            ? String.format("0x%08X", rawKnobs.get(org.deluge.firmware2.Param.GLOBAL_DELAY_RATE))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getDelaySend()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "delayFeedback",
+        String.format("0x%08X", synth.getDelayFeedbackQ31()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "reverbAmount",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT)
+            ? String.format("0x%08X", rawKnobs.get(org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getReverbSend()));
     // GLOBAL_ARP_RATE (sound.cpp:4117) — the raw param, not the panel's old multiplier.
     writeSoundParamAttr(
         writer, curves, written, "arpeggiatorRate", String.format("0x%08X", synth.getArpRateQ31()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "stutterRate",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.UNPATCHED_STUTTER_RATE)
+            ? String.format(
+                "0x%08X", rawKnobs.get(org.deluge.firmware2.Param.UNPATCHED_STUTTER_RATE))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getStutter().getStutterRate()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "sampleRateReduction",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.UNPATCHED_SAMPLE_RATE_REDUCTION)
+            ? String.format(
+                "0x%08X", rawKnobs.get(org.deluge.firmware2.Param.UNPATCHED_SAMPLE_RATE_REDUCTION))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getSampleRateReduction()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "bitCrush",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.UNPATCHED_BITCRUSHING)
+            ? String.format(
+                "0x%08X", rawKnobs.get(org.deluge.firmware2.Param.UNPATCHED_BITCRUSHING))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getBitCrush()));
+    writeSoundParamAttr(
+        writer, curves, written, "waveFold", String.format("0x%08X", synth.getWaveFoldQ31()));
 
     // Write any raw patched parameters (like sidechain shape and volume)
     for (var entry : synth.getRawKnobs().getRawParamKnobs().entrySet()) {

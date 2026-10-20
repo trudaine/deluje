@@ -188,9 +188,10 @@ public class KitXmlParser {
         v -> {
           if ("choke".equalsIgnoreCase(v) || "2".equals(v)) {
             sound.setPolyphony(SynthTrackModel.PolyphonyMode.CHOKE);
-          } else if ("auto".equalsIgnoreCase(v)) {
+          } else if ("auto".equalsIgnoreCase(v) || "0".equals(v)) {
+            // C functions.cpp:861-863 — pre-June 2017 firmware maps "0" to AUTO
             sound.setPolyphony(SynthTrackModel.PolyphonyMode.AUTO);
-          } else if ("mono".equalsIgnoreCase(v) || "0".equals(v) || "false".equalsIgnoreCase(v)) {
+          } else if ("mono".equalsIgnoreCase(v) || "false".equalsIgnoreCase(v)) {
             sound.setPolyphony(SynthTrackModel.PolyphonyMode.MONO);
           } else if ("legato".equalsIgnoreCase(v)) {
             sound.setPolyphony(SynthTrackModel.PolyphonyMode.LEGATO);
@@ -258,7 +259,15 @@ public class KitXmlParser {
             sound.setFilterRoute(2);
           else sound.setFilterRoute(0);
         });
-    readAttrOrChildHexFloat(soundNode, "clippingAmount", sound::setClippingAmount);
+    // C mod_controllable_audio.cpp:412-414, 736-739 — plain decimal uint8_t clippingAmount.
+    String drumClipStr = attrOrChildText(soundNode, "clippingAmount");
+    if (drumClipStr != null && !drumClipStr.isBlank()) {
+      try {
+        sound.setClippingAmount(Float.parseFloat(drumClipStr.trim()));
+      } catch (NumberFormatException e) {
+        LOG.log(Level.FINE, "NumberFormatException parsing drum clippingAmount", e);
+      }
+    }
 
     // Sound-level master transpose & cents (C sound.cpp:579-585). Check attribute or DIRECT child
     // only so we do not match <osc1>/<osc2> <transpose>/<cents> descendants.
@@ -810,7 +819,7 @@ public class KitXmlParser {
       }
     }
 
-    // Equalizer child element (C mod_controllable_audio.cpp:585-607)
+    // Equalizer child element (C mod_controllable_audio.cpp:557-582)
     Element eqEl = getFirstChild(dp, "equalizer");
     if (eqEl != null) {
       readHexFloat(eqEl, "bass", sound::setEqBass);
@@ -829,8 +838,10 @@ public class KitXmlParser {
         new String[] {
           "oscAVolume",
           "oscAPulseWidth",
+          "oscAWavetablePosition",
           "oscBVolume",
           "oscBPulseWidth",
+          "oscBWavetablePosition",
           "noiseVolume",
           "volume",
           "pan",
@@ -858,8 +869,14 @@ public class KitXmlParser {
       readHexQ31(dp, rawKey, q -> sound.setRawDefaultParamQ31(rawKey, q));
     }
 
-    // Patch cables inside defaultParams
-    parseDrumCablesFromContainer(dp, sound);
+    // Patch cables inside defaultParams (replace any top-level cables and resolve legacy range)
+    Element dpPcContainer = getFirstChild(dp, "patchCables");
+    if (dpPcContainer != null) {
+      sound.getPatchCables().clear();
+      for (PatchCable pc : InstrumentXmlParser.parsePatchCableList(dpPcContainer, 0)) {
+        sound.addPatchCable(pc);
+      }
+    }
   }
 
   private static void parseDrumModKnobs(Element soundNode, Drum sound) {

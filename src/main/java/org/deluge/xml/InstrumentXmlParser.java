@@ -924,10 +924,10 @@ public class InstrumentXmlParser {
       val = val.trim().toLowerCase();
       switch (val) {
         case "mono":
-        case "0":
           synth.setPolyphony(SynthTrackModel.PolyphonyMode.MONO);
           break;
         case "auto":
+        case "0": // C functions.cpp:861-863 — pre-June 2017 firmware encoding
           synth.setPolyphony(SynthTrackModel.PolyphonyMode.AUTO);
           break;
         case "legato":
@@ -1055,7 +1055,7 @@ public class InstrumentXmlParser {
     }
     if (clipStr != null && !clipStr.isEmpty()) {
       try {
-        synth.setClippingAmount(Integer.parseInt(clipStr));
+        synth.setClippingAmount(Math.round(Float.parseFloat(clipStr)));
       } catch (NumberFormatException e) {
         LOG.log(Level.FINE, "Error parsing clippingAmount", e);
       }

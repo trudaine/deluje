@@ -373,7 +373,7 @@ public abstract class Drum {
 
   public void setDelayRate(float v) {
     this.delayRate = v;
-    this.delayRateQ31 = null;
+    this.delayRateQ31 = org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(v);
   }
 
   public float getDelayFeedback() {
@@ -382,7 +382,7 @@ public abstract class Drum {
 
   public void setDelayFeedback(float v) {
     this.delayFeedback = v;
-    this.delayFeedbackQ31 = null;
+    this.delayFeedbackQ31 = org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(v);
   }
 
   public int getDelayPingPong() {
@@ -621,7 +621,7 @@ public abstract class Drum {
 
   public void setModFxRate(float v) {
     this.modFxRate = v;
-    this.modFxRateQ31 = null;
+    this.modFxRateQ31 = org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(v);
   }
 
   public float getModFxDepth() {
@@ -630,7 +630,7 @@ public abstract class Drum {
 
   public void setModFxDepth(float v) {
     this.modFxDepth = v;
-    this.modFxDepthQ31 = null;
+    this.modFxDepthQ31 = org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(v);
   }
 
   public float getModFxOffset() {
@@ -639,7 +639,7 @@ public abstract class Drum {
 
   public void setModFxOffset(float v) {
     this.modFxOffset = v;
-    this.modFxOffsetQ31 = null;
+    this.modFxOffsetQ31 = org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(v);
   }
 
   public float getModFxFeedback() {
@@ -648,7 +648,7 @@ public abstract class Drum {
 
   public void setModFxFeedback(float v) {
     this.modFxFeedback = v;
-    this.modFxFeedbackQ31 = null;
+    this.modFxFeedbackQ31 = org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(v);
   }
 
   public float getHpfFreq() {
@@ -951,6 +951,9 @@ public abstract class Drum {
 
   public void setModFxRateQ31(Integer v) {
     modFxRateQ31 = v;
+    if (v != null) {
+      modFxRate = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+    }
   }
 
   public Integer getModFxDepthQ31() {
@@ -959,6 +962,9 @@ public abstract class Drum {
 
   public void setModFxDepthQ31(Integer v) {
     modFxDepthQ31 = v;
+    if (v != null) {
+      modFxDepth = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+    }
   }
 
   public Integer getModFxOffsetQ31() {
@@ -967,6 +973,9 @@ public abstract class Drum {
 
   public void setModFxOffsetQ31(Integer v) {
     modFxOffsetQ31 = v;
+    if (v != null) {
+      modFxOffset = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+    }
   }
 
   public Integer getModFxFeedbackQ31() {
@@ -975,6 +984,9 @@ public abstract class Drum {
 
   public void setModFxFeedbackQ31(Integer v) {
     modFxFeedbackQ31 = v;
+    if (v != null) {
+      modFxFeedback = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+    }
   }
 
   public Integer getDelayRateQ31() {
@@ -983,6 +995,9 @@ public abstract class Drum {
 
   public void setDelayRateQ31(Integer v) {
     delayRateQ31 = v;
+    if (v != null) {
+      delayRate = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+    }
   }
 
   public Integer getDelayFeedbackQ31() {
@@ -991,6 +1006,9 @@ public abstract class Drum {
 
   public void setDelayFeedbackQ31(Integer v) {
     delayFeedbackQ31 = v;
+    if (v != null) {
+      delayFeedback = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
+    }
   }
 
   protected int modulator1Transpose = 0;
@@ -1068,6 +1086,7 @@ public abstract class Drum {
 
   public void setModulator1AmountQ31(int v) {
     this.modulator1AmountQ31 = v;
+    this.fmAmount = org.deluge.xml.DelugeHexMapper.q31ToUnipolarFloatUnified(v);
   }
 
   public int getModulator2AmountQ31() {
