@@ -28,6 +28,11 @@ public class AudioOutput extends GlobalEffectable {
   private boolean looping = true;
   private boolean reversed = false;
 
+  public AudioOutput() {
+    // Inactive at construction until transport enters an active window (C song.cpp:2509-2514).
+    this.shouldLimitDelayFeedback = true;
+  }
+
   public void setAttackRaw(int attackRaw) {
     this.attackRaw = attackRaw;
   }
@@ -111,6 +116,7 @@ public class AudioOutput extends GlobalEffectable {
   public void setTimelineRange(long startTick, long endTick) {
     ranges.clear();
     ranges.add(new long[] {startTick, endTick});
+    activeRangeIdx = -1;
   }
 
   /** Add one timeline window (one arrangement instance of this track's clip). */
@@ -147,7 +153,7 @@ public class AudioOutput extends GlobalEffectable {
     } else if (idx < 0) {
       clipActive = false;
     }
-    activeRangeIdx = idx;
+    activeRangeIdx = (sample != null) ? idx : -1;
     // C song.cpp:2509-2514 — limit delay feedback whenever this clip is not active now.
     // Note: if the envelope reaches OFF while the clip remains active (idx >= 0), playing is
     // false (voiceSample unassigned, audio_output.cpp:164) while clipActive stays true so the
@@ -191,22 +197,33 @@ public class AudioOutput extends GlobalEffectable {
   public void setClip(Sample sample, boolean looping) {
     this.sample = sample;
     this.looping = looping;
+    this.activeRangeIdx = -1;
     if (sample != null) {
       armVoiceSample();
       if (envelope.state == Envelope.Stage.OFF) {
         resetEnvelope();
       }
+    } else {
+      // C audio_clip.cpp:1324-1326 — clearing/unassigning sample ends active clip playback.
+      this.playing = false;
+      this.clipActive = false;
+      this.shouldLimitDelayFeedback = true;
     }
   }
 
   public void setPlaying(boolean p) {
-    this.playing = p;
-    this.clipActive = p;
-    this.shouldLimitDelayFeedback = !this.clipActive;
-    if (p && sample != null) {
+    boolean active = p && sample != null;
+    if (active) {
       armVoiceSample();
       resetEnvelope();
+      this.playing = true;
+      this.clipActive = true;
+    } else {
+      this.playing = false;
+      this.clipActive = false;
+      this.activeRangeIdx = -1;
     }
+    this.shouldLimitDelayFeedback = !this.clipActive;
   }
 
   /**
@@ -220,6 +237,7 @@ public class AudioOutput extends GlobalEffectable {
       playing = true;
       clipActive = true;
     } else {
+      playing = false;
       clipActive = false;
     }
     shouldLimitDelayFeedback = !clipActive;
@@ -229,6 +247,7 @@ public class AudioOutput extends GlobalEffectable {
   public void onTransportStop() {
     playing = false;
     clipActive = false;
+    activeRangeIdx = -1;
     shouldLimitDelayFeedback = true;
   }
 
@@ -289,7 +308,7 @@ public class AudioOutput extends GlobalEffectable {
                 >> 1)
             + 1073741824;
     if (envelope.state.compareTo(Envelope.Stage.OFF) >= 0) {
-      // C audio_output.cpp:153-163 — the one-shot clip's voice sample is unassigned. The delay
+      // C audio_output.cpp:156-166 — the one-shot clip's voice sample is unassigned. The delay
       // feedback limit is NOT touched here: it follows song-level clip activeness only
       // (song.cpp:2509-2514), so the delay tail of a still-active clip keeps its feedback.
       playing = false;

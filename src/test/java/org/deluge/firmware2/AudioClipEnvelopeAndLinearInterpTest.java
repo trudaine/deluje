@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.util.Arrays;
 import org.deluge.engine.FirmwareFactory;
 import org.deluge.model.AudioTrackModel;
 import org.deluge.model.ProjectModel;
@@ -174,39 +175,192 @@ class AudioClipEnvelopeAndLinearInterpTest {
 
   @Test
   void endedEnvelopeOnActiveClip_keepsDelayFeedbackUnlimitedAcrossSubsequentBlocks() {
-    Sample sample = makeConstantSample(256, 200_000_000);
+    Sample sample = new Sample();
+    sample.numChannels = 1;
+    sample.byteDepth = 4;
+    sample.sampleRate = 44100;
+    sample.lengthInSamples = 256;
+    sample.audioDataLengthBytes = 256L * 4;
+    sample.data = new int[256];
+    for (int i = 0; i < 256; i++) {
+      // ~2.75 kHz passband wave (Delay's feedback loop contains a DC-blocking filter)
+      sample.data[i] = ((i & 8) == 0) ? 200_000_000 : -200_000_000;
+    }
     AudioOutput ao = new AudioOutput();
+    assertTrue(
+        ao.shouldLimitDelayFeedback,
+        "Newly constructed inactive AudioOutput must limit delay feedback before entering window");
     ao.setClip(sample, false);
     ao.addTimelineRange(10, 20);
+    ao.addTimelineRange(20, 30);
+
+    // Feed AudioOutput through firmware2 Delay with self-oscillating feedback (1 << 30) and short
+    // delay line (userDelayRate = 1 << 27 -> ~64-sample delay buffer) to verify actual sustained
+    // stereo delay tail output across subsequent blocks while inside [10, 20).
+    Delay delay = new Delay();
+    final int fullFeedback =
+        1 << 30; // 1073741824 (>= 1040187392 -> infinite repeats when un-clamped)
+    final int feedbackLimit = (1 << 30) - (1 << 26); // C global_effectable.cpp:1140 (1006632960)
+    int[] buf = new int[256];
+    int[][] stereoBuf = new int[128][2];
+    int[] rev = new int[128];
 
     // Enter active placement window [10, 20): both playing and clipActive become true.
     ao.updateTimeline(12, true);
     assertTrue(ao.isPlaying());
     assertFalse(ao.shouldLimitDelayFeedback);
 
-    // Simulate envelope reaching OFF mid-placement (C audio_output.cpp:156-165):
+    // Compare against an identical Delay clamped at Delay's silence feedback limit across both
+    // 128-sample blocks of the 256-sample one-shot clip before its envelope reaches OFF.
+    Delay clampedRef = new Delay();
+    Delay.State ws = new Delay.State();
+    Delay.State refWs = new Delay.State();
+    int[][] refBuf = new int[128][2];
+    for (int srcBlock = 0; srcBlock < 2; srcBlock++) {
+      Arrays.fill(buf, 0);
+      ao.renderInternal(buf, 128, rev);
+      for (int i = 0; i < 128; i++) {
+        stereoBuf[i][0] = buf[i * 2];
+        stereoBuf[i][1] = buf[i * 2 + 1];
+        refBuf[i][0] = buf[i * 2];
+        refBuf[i][1] = buf[i * 2 + 1];
+      }
+      ws.userDelayRate = 1 << 27;
+      ws.delayFeedbackAmount = ao.shouldLimitDelayFeedback ? feedbackLimit : fullFeedback;
+      delay.setupWorkingState(ws, 0, true);
+      delay.process(stereoBuf, 128, ws);
+
+      refWs.userDelayRate = 1 << 27;
+      refWs.delayFeedbackAmount = feedbackLimit;
+      clampedRef.setupWorkingState(refWs, 0, true);
+      clampedRef.process(refBuf, 128, refWs);
+    }
+
+    // Simulate envelope reaching OFF mid-placement (C audio_output.cpp:156-166):
     // voiceSample stops streaming (playing = false), while delay feedback stays unlimited.
     ao.envelope.state = Envelope.Stage.OFF;
-    int[] buf = new int[256];
-    int[] rev = new int[128];
+    Arrays.fill(buf, 0);
     ao.renderInternal(buf, 128, rev);
     assertFalse(ao.isPlaying(), "Envelope OFF must unassign/stop streaming the one-shot sample");
     assertFalse(
         ao.shouldLimitDelayFeedback,
         "Envelope OFF must NOT set shouldLimitDelayFeedback on an active clip");
 
-    // Next audio block inside [10, 20): FirmwareAudioEngine calls updateTimeline every block!
-    ao.updateTimeline(16, true);
-    ao.renderInternal(buf, 128, rev);
-    assertFalse(
-        ao.shouldLimitDelayFeedback,
-        "Subsequent updateTimeline blocks inside [10, 20) must NOT clamp delay feedback");
+    // Render 200 subsequent silent-source blocks (~18 echo repeats) inside [10, 20):
+    // updateTimeline runs every block, playing stays false (no false re-trigger),
+    // shouldLimitDelayFeedback stays false, and the stereo delay tail sustains self-oscillation.
+    long unclampedTailAbsSum = 0;
+    long clampedTailAbsSum = 0;
+    for (int block = 0; block < 200; block++) {
+      ao.updateTimeline(16, true);
+      assertFalse(ao.isPlaying(), "Must NOT re-trigger inside the same [10, 20) placement window");
+      assertFalse(
+          ao.shouldLimitDelayFeedback,
+          "Subsequent updateTimeline blocks inside [10, 20) must NOT clamp delay feedback");
+      Arrays.fill(buf, 0);
+      ao.renderInternal(buf, 128, rev);
+      for (int i = 0; i < 128; i++) {
+        stereoBuf[i][0] = buf[i * 2];
+        stereoBuf[i][1] = buf[i * 2 + 1];
+        refBuf[i][0] = 0;
+        refBuf[i][1] = 0;
+      }
+      ws.userDelayRate = 1 << 27;
+      ws.delayFeedbackAmount = ao.shouldLimitDelayFeedback ? feedbackLimit : fullFeedback;
+      delay.setupWorkingState(ws, 0, false);
+      delay.process(stereoBuf, 128, ws);
 
-    // Once timeline exits [10, 20) (or transport stops), song-level clip activeness ends
-    // (C song.cpp:2509-2514) and delay feedback is immediately limited.
+      refWs.userDelayRate = 1 << 27;
+      refWs.delayFeedbackAmount = feedbackLimit;
+      clampedRef.setupWorkingState(refWs, 0, false);
+      clampedRef.process(refBuf, 128, refWs);
+
+      if (block >= 150) {
+        for (int i = 0; i < 128; i++) {
+          unclampedTailAbsSum +=
+              Math.abs((long) stereoBuf[i][0]) + Math.abs((long) stereoBuf[i][1]);
+          clampedTailAbsSum += Math.abs((long) refBuf[i][0]) + Math.abs((long) refBuf[i][1]);
+        }
+      }
+    }
+    assertEquals(
+        255, delay.repeatsUntilAbandon, "Un-clamped self-oscillating delay never abandons");
+    assertTrue(
+        unclampedTailAbsSum > clampedTailAbsSum * 2,
+        "Un-clamped active-clip delay tail ("
+            + unclampedTailAbsSum
+            + ") must sustain far louder than silence-clamped tail ("
+            + clampedTailAbsSum
+            + ")");
+
+    // Back-to-back placement window [20, 30) must cleanly re-trigger from sample start!
     ao.updateTimeline(20, true);
+    assertTrue(
+        ao.isPlaying(),
+        "Entering back-to-back placement [20, 30) after Envelope.Stage.OFF must re-trigger");
+    assertFalse(ao.shouldLimitDelayFeedback);
+
+    // Exiting [20, 30) ends song-level clip activeness (C song.cpp:2509-2514) and limits feedback.
+    ao.updateTimeline(30, true);
+    assertFalse(ao.isPlaying());
     assertTrue(
         ao.shouldLimitDelayFeedback,
         "Exiting active clip window must set shouldLimitDelayFeedback = true");
+    ws.userDelayRate = 1 << 27;
+    ws.delayFeedbackAmount = ao.shouldLimitDelayFeedback ? feedbackLimit : fullFeedback;
+    delay.setupWorkingState(ws, 0, false);
+    assertEquals(110, delay.repeatsUntilAbandon, "Clamped delay feedback arms finite abandon");
+  }
+
+  @Test
+  void nullSampleAndStopTransitions_keepFeedbackLimitedAndAllowCleanResume() {
+    Sample sample = makeConstantSample(64, 150_000_000);
+    AudioOutput empty = new AudioOutput();
+
+    // 1. Null sample: setPlaying(true), onTransportStart(), and updateTimeline(0, true) keep
+    // playing=false and shouldLimitDelayFeedback=true, and loading a sample mid-play starts
+    // cleanly.
+    empty.setPlaying(true);
+    assertFalse(empty.isPlaying());
+    assertTrue(empty.shouldLimitDelayFeedback);
+
+    empty.onTransportStart();
+    assertFalse(empty.isPlaying());
+    assertTrue(empty.shouldLimitDelayFeedback);
+
+    empty.updateTimeline(0, true);
+    assertFalse(empty.isPlaying());
+    assertTrue(empty.shouldLimitDelayFeedback);
+
+    empty.setClip(sample, true);
+    empty.updateTimeline(1, true);
+    assertTrue(
+        empty.isPlaying(),
+        "Loading a sample onto a running session track must trigger on next updateTimeline");
+    assertFalse(empty.shouldLimitDelayFeedback);
+
+    // 2. Direct onTransportStop() inside an arrangement window resets activeRangeIdx so subsequent
+    // updateTimeline inside [10, 20) can re-enter cleanly; setClip(null) stops and limits feedback.
+    AudioOutput arranged = new AudioOutput();
+    arranged.setClip(sample, true);
+    arranged.setTimelineRange(10, 20);
+    arranged.updateTimeline(12, true);
+    assertTrue(arranged.isPlaying());
+    assertFalse(arranged.shouldLimitDelayFeedback);
+
+    arranged.onTransportStop();
+    assertFalse(arranged.isPlaying());
+    assertTrue(arranged.shouldLimitDelayFeedback);
+
+    arranged.updateTimeline(14, true);
+    assertTrue(arranged.isPlaying(), "updateTimeline after onTransportStop must re-enter window");
+    assertFalse(arranged.shouldLimitDelayFeedback);
+
+    arranged.setClip(null, false);
+    assertFalse(arranged.isPlaying());
+    assertTrue(arranged.shouldLimitDelayFeedback);
+    arranged.updateTimeline(15, true);
+    assertFalse(arranged.isPlaying());
+    assertTrue(arranged.shouldLimitDelayFeedback);
   }
 }
