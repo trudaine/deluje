@@ -217,10 +217,20 @@ public class ProjectSerializer {
                 clipCodeFor(ac, sessionClipIndices, arrangementClipIndices)));
       }
 
-      if (track instanceof KitTrackModel) {
+      if (track instanceof KitTrackModel kitTrack) {
         writer.writeOpeningTagBeginning("kit");
         writer.writeAttribute("presetName", track.getName(), false);
         writer.writeAttribute("presetFolder", "KITS", false);
+        // C kit.cpp:106-131 — GlobalEffectableForClip attributes on <kit>.
+        writer.writeAttribute("lpfMode", lpfModeToFirmwareString(kitTrack.getLpfMode()), false);
+        writer.writeAttribute("hpfMode", hpfModeToFirmwareString(kitTrack.getHpfMode()), false);
+        writer.writeAttribute(
+            "filterRoute", filterRouteToFirmwareString(kitTrack.getFilterRoute()), false);
+        writer.writeAttribute(
+            "modFXType",
+            org.deluge.xml.DelugeXmlUtil.modFxTypeToFirmwareString(kitTrack.getModFxType()),
+            false);
+        writer.writeAttribute("clippingAmount", kitTrack.getClippingAmount(), false);
         if (track.isMutedInArrangement()) {
           writer.writeAttribute("isMutedInArrangement", "1", false);
         }
@@ -234,6 +244,53 @@ public class ProjectSerializer {
           writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
         }
         writer.writeOpeningTagEnd();
+
+        writer.writeOpeningTagBeginning("delay");
+        writer.writeAttribute("pingPong", String.valueOf(kitTrack.getDelayPingPong()), false);
+        writer.writeAttribute("analog", String.valueOf(kitTrack.getDelayAnalog()), false);
+        writer.writeAttribute("syncLevel", String.valueOf(kitTrack.getDelaySyncLevel()), false);
+        if (kitTrack.getDelaySyncType() > 0) {
+          writer.writeAttribute(
+              "syncType",
+              String.valueOf(
+                  org.deluge.xml.DelugeXmlUtil.syncTypeToFile(kitTrack.getDelaySyncType())),
+              false);
+        }
+        writer.closeTag();
+
+        writer.writeOpeningTagBeginning("defaultParams");
+        writer.writeOpeningTagEnd();
+        writeRawQ31Tag(
+            writer,
+            "volume",
+            kitTrack.getRawDefaultParamQ31("volume") != null
+                ? kitTrack.getRawDefaultParamQ31("volume")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getVolume()));
+        writeRawQ31Tag(
+            writer,
+            "pan",
+            kitTrack.getRawDefaultParamQ31("pan") != null
+                ? kitTrack.getRawDefaultParamQ31("pan")
+                : DelugeHexMapper.floatToQ31(kitTrack.getPan()));
+        writeRawQ31Tag(
+            writer,
+            "reverbAmount",
+            kitTrack.getRawDefaultParamQ31("reverbAmount") != null
+                ? kitTrack.getRawDefaultParamQ31("reverbAmount")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getReverbAmount()));
+        writeRawQ31Tag(
+            writer,
+            "bitCrush",
+            kitTrack.getRawDefaultParamQ31("bitCrush") != null
+                ? kitTrack.getRawDefaultParamQ31("bitCrush")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getBitCrush()));
+        writeRawQ31Tag(
+            writer,
+            "sampleRateReduction",
+            kitTrack.getRawDefaultParamQ31("sampleRateReduction") != null
+                ? kitTrack.getRawDefaultParamQ31("sampleRateReduction")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kitTrack.getSampleRateReduction()));
+        writer.writeClosingTag("defaultParams");
 
         writer.writeArrayStart("soundSources");
 
@@ -290,7 +347,10 @@ public class ProjectSerializer {
           boolean hasOsc1Sample = sound.getSamplePath() != null && !sound.getSamplePath().isEmpty();
           writer.writeOpeningTagBeginning("osc1");
           if (hasOsc1Sample) {
-            writer.writeAttribute("type", "sample", false);
+            writer.writeAttribute(
+                "type",
+                "WAVETABLE".equalsIgnoreCase(sound.getOsc1Type()) ? "wavetable" : "sample",
+                false);
             writer.writeAttribute("fileName", sound.getSamplePath(), false);
             writer.writeAttribute("loopMode", String.valueOf(sound.getOsc1LoopMode()), false);
             writer.writeAttribute("reversed", sound.isReverse() ? "1" : "0", false);
@@ -432,10 +492,48 @@ public class ProjectSerializer {
             writer.closeTag();
           }
 
-          // Stutter
+          // Sidechain (C mod_controllable_audio.cpp:447-460)
+          if (sound.getSidechainAttackRaw() >= 0
+              || sound.getSidechainReleaseRaw() >= 0
+              || sound.getSidechainAttack() > 0
+              || sound.getSidechainRelease() > 0
+              || sound.getSidechainSyncLevel() > 0
+              || sound.getSidechainSyncType() > 0) {
+            writer.writeOpeningTagBeginning("sidechain");
+            writer.writeAttribute(
+                "syncLevel", String.valueOf(sound.getSidechainSyncLevel()), false);
+            if (sound.getSidechainSyncType() > 0) {
+              writer.writeAttribute(
+                  "syncType",
+                  String.valueOf(
+                      org.deluge.xml.DelugeXmlUtil.syncTypeToFile(sound.getSidechainSyncType())),
+                  false);
+            }
+            if (sound.getSidechainAttackRaw() >= 0 || sound.getSidechainAttack() > 0) {
+              writer.writeAttribute(
+                  "attack",
+                  sound.getSidechainAttackRaw() >= 0
+                      ? String.valueOf(sound.getSidechainAttackRaw())
+                      : String.valueOf(
+                          (int) Math.round(sound.getSidechainAttack() * Integer.MAX_VALUE)),
+                  false);
+            }
+            if (sound.getSidechainReleaseRaw() >= 0 || sound.getSidechainRelease() > 0) {
+              writer.writeAttribute(
+                  "release",
+                  sound.getSidechainReleaseRaw() >= 0
+                      ? String.valueOf(sound.getSidechainReleaseRaw())
+                      : String.valueOf(
+                          (int) Math.round(sound.getSidechainRelease() * Integer.MAX_VALUE)),
+                  false);
+            }
+            writer.closeTag();
+          }
+
+          // Stutter (C mod_controllable_audio.cpp:481-486 — hardware writes "reverse")
           writer.writeOpeningTagBeginning("stutter");
           writer.writeAttribute("quantized", sound.isStutterQuantized() ? "1" : "0", false);
-          writer.writeAttribute("reversed", sound.isStutterReversed() ? "1" : "0", false);
+          writer.writeAttribute("reverse", sound.isStutterReversed() ? "1" : "0", false);
           writer.writeAttribute("pingPong", sound.isStutterPingPong() ? "1" : "0", false);
           writer.closeTag();
 
@@ -774,6 +872,14 @@ public class ProjectSerializer {
         if (synth.getDefaultVelocity() != 64) {
           writer.writeAttribute("defaultVelocity", synth.getDefaultVelocity(), false);
         }
+        // C sound.cpp:4171-4190 — sideChainSend (conditional when non-zero) & maxVoices.
+        if (synth.getSidechainSend() > 0.0f) {
+          writer.writeAttribute(
+              "sideChainSend",
+              (int) Math.round(synth.getSidechainSend() * Integer.MAX_VALUE),
+              false);
+        }
+        writer.writeAttribute("maxVoices", synth.getMaxVoiceCount(), false);
         if (ciBuilder.length() > 2) {
           writer.writeAttribute("clipInstances", ciBuilder.toString(), false);
         }
@@ -1159,27 +1265,71 @@ public class ProjectSerializer {
             "modFXType",
             org.deluge.xml.DelugeXmlUtil.modFxTypeToFirmwareString(synth.getModFxType()));
 
-        // stutter (ModControllableAudio::stutterConfig)
+        // stutter (C mod_controllable_audio.cpp:481-486 — hardware writes "reverse")
         writer.writeOpeningTagBeginning("stutter");
         writer.writeAttribute(
             "quantized", synth.getStutter().isStutterQuantized() ? "1" : "0", false);
-        writer.writeAttribute(
-            "reversed", synth.getStutter().isStutterReversed() ? "1" : "0", false);
+        writer.writeAttribute("reverse", synth.getStutter().isStutterReversed() ? "1" : "0", false);
         writer.writeAttribute(
             "pingPong", synth.getStutter().isStutterPingPong() ? "1" : "0", false);
         writer.closeTag();
 
-        // compressor
+        // compressor & sidechain (C mod_controllable_audio.cpp:447-479)
         float compAttack = synth.getCompressorAttack();
         float compRelease = synth.getCompressorRelease();
         int compSync = synth.getCompressorSyncLevel();
-        if (compAttack > 0 || compRelease > 0 || compSync > 0) {
+        if (compAttack > 0
+            || compRelease > 0
+            || compSync > 0
+            || synth.getCompressorSyncType() > 0) {
           writer.writeOpeningTagBeginning("compressor");
           writer.writeAttribute("syncLevel", String.valueOf(compSync), false);
+          if (synth.getCompressorSyncType() > 0) {
+            writer.writeAttribute(
+                "syncType",
+                String.valueOf(
+                    org.deluge.xml.DelugeXmlUtil.syncTypeToFile(synth.getCompressorSyncType())),
+                false);
+          }
           writer.writeAttribute(
               "attack", String.valueOf((int) (compAttack * Integer.MAX_VALUE)), false);
           writer.writeAttribute(
               "release", String.valueOf((int) (compRelease * Integer.MAX_VALUE)), false);
+          writer.closeTag();
+        }
+        if (synth.getSidechainAttackRaw() >= 0
+            || synth.getSidechainReleaseRaw() >= 0
+            || synth.getSidechainAttack() > 0
+            || synth.getSidechainRelease() > 0
+            || synth.getSidechainSyncLevel() > 0
+            || synth.getSidechainSyncType() > 0) {
+          writer.writeOpeningTagBeginning("sidechain");
+          writer.writeAttribute("syncLevel", String.valueOf(synth.getSidechainSyncLevel()), false);
+          if (synth.getSidechainSyncType() > 0) {
+            writer.writeAttribute(
+                "syncType",
+                String.valueOf(
+                    org.deluge.xml.DelugeXmlUtil.syncTypeToFile(synth.getSidechainSyncType())),
+                false);
+          }
+          if (synth.getSidechainAttackRaw() >= 0 || synth.getSidechainAttack() > 0) {
+            writer.writeAttribute(
+                "attack",
+                synth.getSidechainAttackRaw() >= 0
+                    ? String.valueOf(synth.getSidechainAttackRaw())
+                    : String.valueOf(
+                        (int) Math.round(synth.getSidechainAttack() * Integer.MAX_VALUE)),
+                false);
+          }
+          if (synth.getSidechainReleaseRaw() >= 0 || synth.getSidechainRelease() > 0) {
+            writer.writeAttribute(
+                "release",
+                synth.getSidechainReleaseRaw() >= 0
+                    ? String.valueOf(synth.getSidechainReleaseRaw())
+                    : String.valueOf(
+                        (int) Math.round(synth.getSidechainRelease() * Integer.MAX_VALUE)),
+                false);
+          }
           writer.closeTag();
         }
 

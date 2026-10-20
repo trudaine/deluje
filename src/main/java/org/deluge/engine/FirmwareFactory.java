@@ -652,12 +652,13 @@ public class FirmwareFactory {
     sound.dx7EngineType = model.getEngineType();
     sound.dx7RandomDetune = model.getDx7RandomDetune();
 
-    // Retrigger Phases + oscillator hard sync
+    // Retrigger Phases + oscillator hard sync + sidechain send (C sound.cpp:1669-1671)
     sound.osc1RetriggerPhase = model.getOsc1RetrigPhase();
     sound.osc2RetriggerPhase = model.getOsc2RetrigPhase();
     sound.mod1RetrigPhase = model.getMod1RetrigPhase();
     sound.mod2RetrigPhase = model.getMod2RetrigPhase();
     sound.fw2Sound.oscillatorSync = model.isOscillatorSync();
+    sound.fw2Sound.sidechainSend = (int) (model.getSidechainSend() * 2147483647.0);
 
     // Wave Index parameters (C oscillator.cpp:155, patcher.cpp:858-860: [-2^31..2^31-1] scans
     // 0..100%)
@@ -1435,13 +1436,28 @@ public class FirmwareFactory {
       pan = firstClip.getKitParams().get("pan");
     }
     if (vol != null) {
-      kit.kitVolume = normToBipolarParamVolume(vol);
+      kit.kitVolume = org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(vol);
+    } else if (model.getRawDefaultParamQ31("volume") != null) {
+      kit.kitVolume = model.getRawDefaultParamQ31("volume");
+    } else {
+      // C global_effectable.cpp:81 — model.getVolume() defaults to 0.5f -> Q31 0 (neutral).
+      kit.kitVolume = org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(model.getVolume());
     }
     if (rev != null) {
-      kit.reverbSendKnob = normToBipolarParamVolume(rev);
+      kit.reverbSendKnob = org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(rev);
+    } else if (model.getRawDefaultParamQ31("reverbAmount") != null) {
+      kit.reverbSendKnob = model.getRawDefaultParamQ31("reverbAmount");
+    } else {
+      kit.reverbSendKnob =
+          org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(model.getReverbAmount());
     }
-    float effectivePan = pan != null ? pan : model.getPan();
-    kit.unpatchedPan = bipolarUnitToParam(effectivePan);
+    if (pan != null) {
+      kit.unpatchedPan = bipolarUnitToParam(pan);
+    } else if (model.getRawDefaultParamQ31("pan") != null) {
+      kit.unpatchedPan = model.getRawDefaultParamQ31("pan");
+    } else {
+      kit.unpatchedPan = bipolarUnitToParam(model.getPan());
+    }
   }
 
   public static void applyModelToLiveSound(KitTrackModel model, FirmwareKit kit) {
@@ -1884,39 +1900,66 @@ public class FirmwareFactory {
 
   public static void loadDrumResources(SoundDrum sd, FirmwareSound drumSound) {
     File sdRoot = PreferencesManager.getLibraryDir();
-    String path = sd.getSamplePath();
-    boolean wantsFile = path != null && !path.isEmpty();
-    if (!wantsFile) {
+    // C sound.cpp:3620-3720 — SoundDrum inherits Sound::sources[0..1] (both SAMPLE and WAVETABLE).
+    for (int s = 0; s < 2; s++) {
+      OscType type;
       synchronized (drumSound) {
-        drumSound.loadedOscPath[0] = null;
+        type = drumSound.oscTypes[s];
       }
-      return;
-    }
-    String key = "SAMPLE:" + path;
-    synchronized (drumSound) {
-      if (key.equals(drumSound.loadedOscPath[0])) {
-        return; // already loaded
-      }
-    }
-    File f = resolveSample(path, sdRoot);
-    if (f == null || !f.exists()) {
-      return;
-    }
-    try {
-      Sample smp = AudioFileReader.readSample(f.getAbsolutePath());
-      if (smp != null) {
-        smp.midiNoteFromFile =
-            60.0f; // Default to C4 (60) so drum kit samples play at original speed (internal
-        // trigger is at 60)
-        var fw2Smp = org.deluge.firmware2.Sample.fromFirmwareSample(smp);
+      String path = (s == 0) ? sd.getSamplePath() : sd.getOsc2SamplePath();
+      boolean wantsFile =
+          (type == OscType.SAMPLE || type == OscType.WAVETABLE) && path != null && !path.isEmpty();
+      if (!wantsFile) {
         synchronized (drumSound) {
-          drumSound.samples[0] = smp;
-          drumSound.fw2SampleCache[0] = fw2Smp;
-          drumSound.loadedOscPath[0] = key;
+          drumSound.loadedOscPath[s] = null;
+          drumSound.samples[s] = null;
+          drumSound.fw2SampleCache[s] = null;
+          drumSound.fw2Sound.waveTables[s] = null;
+        }
+        continue;
+      }
+      String key = type + ":" + path;
+      synchronized (drumSound) {
+        if (key.equals(drumSound.loadedOscPath[s])) {
+          continue; // already loaded
         }
       }
-    } catch (IOException e) {
-      LOGGER.warning("[FirmwareFactory] Failed to load drum sample: " + path);
+      File f = resolveSample(path, sdRoot);
+      if (f == null || !f.exists()) {
+        continue;
+      }
+      if (type == OscType.WAVETABLE) {
+        try {
+          WaveTable wt = new WaveTable();
+          WaveTableReader.readWavetable(wt, f.getAbsolutePath());
+          synchronized (drumSound) {
+            drumSound.fw2Sound.waveTables[s] = wt;
+            drumSound.samples[s] = null;
+            drumSound.fw2SampleCache[s] = null;
+            drumSound.loadedOscPath[s] = key;
+          }
+        } catch (IOException e) {
+          LOGGER.warning("[FirmwareFactory] Failed to load drum wavetable " + s + ": " + path);
+        }
+      } else {
+        try {
+          Sample smp = AudioFileReader.readSample(f.getAbsolutePath());
+          if (smp != null) {
+            smp.midiNoteFromFile =
+                60.0f; // Default to C4 (60) so drum kit samples play at original speed (internal
+            // trigger is at 60)
+            var fw2Smp = org.deluge.firmware2.Sample.fromFirmwareSample(smp);
+            synchronized (drumSound) {
+              drumSound.samples[s] = smp;
+              drumSound.fw2SampleCache[s] = fw2Smp;
+              drumSound.fw2Sound.waveTables[s] = null;
+              drumSound.loadedOscPath[s] = key;
+            }
+          }
+        } catch (IOException e) {
+          LOGGER.warning("[FirmwareFactory] Failed to load drum sample " + s + ": " + path);
+        }
+      }
     }
   }
 

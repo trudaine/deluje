@@ -615,14 +615,17 @@ public class InstrumentXmlParser {
       }
     }
 
-    // -- Max voices (attribute on <sound>) --
-    if (soundNode.hasAttribute("maxVoices")) {
+    // -- Max voices & sideChainSend (C sound.cpp:1027-1030, 1257-1260 — readTagOrAttributeValueInt)
+    // --
+    String maxVoicesStr = attrOrDirectChildText(soundNode, "maxVoices");
+    if (maxVoicesStr != null && !maxVoicesStr.isBlank()) {
       try {
-        synth.setMaxVoiceCount(Integer.parseInt(soundNode.getAttribute("maxVoices")));
+        synth.setMaxVoiceCount(Integer.parseInt(maxVoicesStr.trim()));
       } catch (NumberFormatException e) {
-        LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
+        LOG.log(Level.FINE, "NumberFormatException parsing XML maxVoices", e);
       }
     }
+    readAttrOrChildHexFloat(soundNode, "sideChainSend", v -> synth.setSidechainSend(Math.abs(v)));
 
     // ── FM ratio/amount (from ProjectSerializer track attributes) ──
     // These attributes are our serializer's shorthand, not real Deluge XML. The Deluge format (and
@@ -1713,9 +1716,15 @@ public class InstrumentXmlParser {
     NodeList nodes = soundNode.getElementsByTagName("stutter");
     if (nodes.getLength() == 0) return;
     Element stut = (Element) nodes.item(0);
-    readAttrBool(stut, "quantized", val -> synth.getStutter().setStutterQuantized(val));
-    readAttrBool(stut, "reverse", val -> synth.getStutter().setStutterReversed(val));
-    readAttrBool(stut, "pingPong", val -> synth.getStutter().setStutterPingPong(val));
+    // C mod_controllable_audio.cpp:481-486, 760-785 — hardware writes "reverse"; tolerate legacy
+    // "reversed" as fallback when "reverse" is absent.
+    readBoolAttrOrChild(stut, "quantized", val -> synth.getStutter().setStutterQuantized(val));
+    if (attrOrChildText(stut, "reverse") != null) {
+      readBoolAttrOrChild(stut, "reverse", val -> synth.getStutter().setStutterReversed(val));
+    } else {
+      readBoolAttrOrChild(stut, "reversed", val -> synth.getStutter().setStutterReversed(val));
+    }
+    readBoolAttrOrChild(stut, "pingPong", val -> synth.getStutter().setStutterPingPong(val));
   }
 
   private static void parseLegacyParams(Element soundNode, SynthTrackModel synth) {

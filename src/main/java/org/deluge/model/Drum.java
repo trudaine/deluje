@@ -295,6 +295,9 @@ public abstract class Drum {
   }
 
   public void setSidechainAttack(float v) {
+    if (this.sidechainAttack != v) {
+      this.sidechainAttackRaw = -1;
+    }
     this.sidechainAttack = v;
   }
 
@@ -303,7 +306,29 @@ public abstract class Drum {
   }
 
   public void setSidechainRelease(float v) {
+    if (this.sidechainRelease != v) {
+      this.sidechainReleaseRaw = -1;
+    }
     this.sidechainRelease = v;
+  }
+
+  private int sidechainAttackRaw = -1;
+  private int sidechainReleaseRaw = -1;
+
+  public int getSidechainAttackRaw() {
+    return sidechainAttackRaw;
+  }
+
+  public void setSidechainAttackRaw(int v) {
+    this.sidechainAttackRaw = v;
+  }
+
+  public int getSidechainReleaseRaw() {
+    return sidechainReleaseRaw;
+  }
+
+  public void setSidechainReleaseRaw(int v) {
+    this.sidechainReleaseRaw = v;
   }
 
   public EnvelopeModel getEnv2() {

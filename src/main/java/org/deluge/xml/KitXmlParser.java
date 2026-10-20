@@ -35,6 +35,7 @@ public class KitXmlParser {
     }
 
     KitTrackModel kit = new KitTrackModel(name);
+    parseKitGlobalAttributesAndDefaults(kitNode, kit);
 
     String sdiStr = getChildText(kitNode, "selectedDrumIndex");
     if (sdiStr != null) {
@@ -86,6 +87,7 @@ public class KitXmlParser {
     }
 
     KitTrackModel kit = new KitTrackModel(name);
+    parseKitGlobalAttributesAndDefaults(kitNode, kit);
 
     String sdiStr = getChildText(kitNode, "selectedDrumIndex");
     if (sdiStr != null) {
@@ -384,13 +386,13 @@ public class KitXmlParser {
       if (osc2fn != null && !osc2fn.isBlank()) {
         sound.setOsc2SamplePath(osc2fn);
       }
-      // osc2 zone (startSamplePos/endSamplePos/startLoopPos/endLoopPos)
+      // osc2 zone (attribute or child element form, matching osc1 parseZoneFromOsc)
       Element osc2Zone = getFirstChild(osc2, "zone");
       if (osc2Zone != null) {
-        sound.setOsc2StartSamplePos(readIntAttr(osc2Zone, "startSamplePos", -1));
-        sound.setOsc2EndSamplePos(readIntAttr(osc2Zone, "endSamplePos", -1));
-        sound.setOsc2StartLoopPos(readIntAttr(osc2Zone, "startLoopPos", -1));
-        sound.setOsc2EndLoopPos(readIntAttr(osc2Zone, "endLoopPos", -1));
+        readAttrOrChildInt(osc2Zone, "startSamplePos", -1, sound::setOsc2StartSamplePos);
+        readAttrOrChildInt(osc2Zone, "endSamplePos", -1, sound::setOsc2EndSamplePos);
+        readAttrOrChildInt(osc2Zone, "startLoopPos", -1, sound::setOsc2StartLoopPos);
+        readAttrOrChildInt(osc2Zone, "endLoopPos", -1, sound::setOsc2EndLoopPos);
       }
       // osc2 sample-playback attrs
       readAttrOrChildInt(osc2, "loopMode", 0, sound::setOsc2LoopMode);
@@ -542,17 +544,28 @@ public class KitXmlParser {
     // ── Stutter config (quantized, reverse, pingPong) ──
     parseStutter(soundNode, sound);
 
-    // sidechain (at sound level, separate from compressor)
+    // sidechain (at sound level, separate from compressor; C mod_controllable_audio.cpp:892-907)
     Element sidechainEl = getFirstChild(soundNode, "sidechain");
     if (sidechainEl != null) {
-      String scAttack = readAttr(sidechainEl, "attack");
-      if (scAttack != null)
-        sound.setSidechainAttack(Math.abs(DelugeHexMapper.hexToFloat(scAttack)));
-      String scRelease = readAttr(sidechainEl, "release");
-      if (scRelease != null)
-        sound.setSidechainRelease(Math.abs(DelugeHexMapper.hexToFloat(scRelease)));
-      sound.setSidechainSyncLevel(readIntAttr(sidechainEl, "syncLevel", 0));
-      sound.setSidechainSyncType(syncTypeFromFile(readIntAttr(sidechainEl, "syncType", 0)));
+      String scAttack = attrOrChildText(sidechainEl, "attack");
+      if (scAttack != null && !scAttack.isBlank()) {
+        sound.setSidechainAttack(Math.abs(DelugeHexMapper.hexToFloat(scAttack.trim())));
+        try {
+          sound.setSidechainAttackRaw(Integer.parseInt(scAttack.trim()));
+        } catch (NumberFormatException ignored) {
+        }
+      }
+      String scRelease = attrOrChildText(sidechainEl, "release");
+      if (scRelease != null && !scRelease.isBlank()) {
+        sound.setSidechainRelease(Math.abs(DelugeHexMapper.hexToFloat(scRelease.trim())));
+        try {
+          sound.setSidechainReleaseRaw(Integer.parseInt(scRelease.trim()));
+        } catch (NumberFormatException ignored) {
+        }
+      }
+      readAttrOrChildInt(sidechainEl, "syncLevel", 0, sound::setSidechainSyncLevel);
+      readAttrOrChildInt(
+          sidechainEl, "syncType", 0, v -> sound.setSidechainSyncType(syncTypeFromFile(v)));
     }
 
     // arpeggiator
@@ -971,9 +984,179 @@ public class KitXmlParser {
     NodeList nodes = soundNode.getElementsByTagName("stutter");
     if (nodes.getLength() == 0) return;
     Element stut = (Element) nodes.item(0);
-    readAttrBool(stut, "quantized", sound::setStutterQuantized);
-    readAttrBool(stut, "reverse", sound::setStutterReversed);
-    readAttrBool(stut, "pingPong", sound::setStutterPingPong);
+    // C mod_controllable_audio.cpp:481-486, 760-785 — hardware writes "reverse"; tolerate legacy
+    // "reversed" as fallback when "reverse" is absent.
+    readBoolAttrOrChild(stut, "quantized", sound::setStutterQuantized);
+    if (attrOrChildText(stut, "reverse") != null) {
+      readBoolAttrOrChild(stut, "reverse", sound::setStutterReversed);
+    } else {
+      readBoolAttrOrChild(stut, "reversed", sound::setStutterReversed);
+    }
+    readBoolAttrOrChild(stut, "pingPong", sound::setStutterPingPong);
+  }
+
+  /**
+   * C kit.cpp:106-131, 312-313; global_effectable.cpp:811-1037 — parses kit-level
+   * GlobalEffectableForClip attributes/direct children and ONLY the direct {@code <defaultParams>}
+   * child of {@code kitNode} (never matching nested {@code <soundSources><sound><defaultParams>}).
+   */
+  private static void parseKitGlobalAttributesAndDefaults(Element kitNode, KitTrackModel kit) {
+    String lpfStr = attrOrDirectChildText(kitNode, "lpfMode");
+    if (lpfStr != null) {
+      if ("24dB".equalsIgnoreCase(lpfStr)) kit.setLpfMode(FilterMode.LADDER_24);
+      else if ("24dBDrive".equalsIgnoreCase(lpfStr) || "DRIVE".equalsIgnoreCase(lpfStr))
+        kit.setLpfMode(FilterMode.DRIVE);
+      else if ("SVF_Band".equalsIgnoreCase(lpfStr) || "SVF Band".equalsIgnoreCase(lpfStr))
+        kit.setLpfMode(FilterMode.SVF_BAND);
+      else if ("SVF_Notch".equalsIgnoreCase(lpfStr) || "SVF Notch".equalsIgnoreCase(lpfStr))
+        kit.setLpfMode(FilterMode.SVF_NOTCH);
+      else if ("SVF".equalsIgnoreCase(lpfStr)) kit.setLpfMode(FilterMode.SVF);
+      else if ("Off".equalsIgnoreCase(lpfStr)) kit.setLpfMode(FilterMode.OFF);
+      else kit.setLpfMode(FilterMode.LADDER_12);
+    }
+    String hpfStr = attrOrDirectChildText(kitNode, "hpfMode");
+    if (hpfStr != null) {
+      if ("12dB".equalsIgnoreCase(hpfStr)
+          || "24dB".equalsIgnoreCase(hpfStr)
+          || "24dBDrive".equalsIgnoreCase(hpfStr)
+          || "Off".equalsIgnoreCase(hpfStr)) kit.setHpfMode(FilterMode.OFF);
+      else if ("SVF".equalsIgnoreCase(hpfStr)) kit.setHpfMode(FilterMode.SVF);
+      else if ("SVF_BAND".equalsIgnoreCase(hpfStr) || "SVF Band".equalsIgnoreCase(hpfStr))
+        kit.setHpfMode(FilterMode.SVF_BAND);
+      else if ("SVF_NOTCH".equalsIgnoreCase(hpfStr) || "SVF Notch".equalsIgnoreCase(hpfStr))
+        kit.setHpfMode(FilterMode.SVF_NOTCH);
+      else kit.setHpfMode(FilterMode.LADDER_12);
+    }
+    String routeStr = attrOrDirectChildText(kitNode, "filterRoute");
+    if (routeStr != null) {
+      if ("L2H".equalsIgnoreCase(routeStr)) kit.setFilterRoute(1);
+      else if ("PARA".equalsIgnoreCase(routeStr) || "PARALLEL".equalsIgnoreCase(routeStr))
+        kit.setFilterRoute(2);
+      else kit.setFilterRoute(0);
+    }
+    String mfxStr = attrOrDirectChildText(kitNode, "modFXType");
+    if (mfxStr == null) mfxStr = attrOrDirectChildText(kitNode, "modFxType");
+    if (mfxStr != null) kit.setModFxType(mfxStr);
+
+    String clipAmtStr = attrOrDirectChildText(kitNode, "clippingAmount");
+    if (clipAmtStr != null) {
+      try {
+        kit.setClippingAmount(Math.round(Float.parseFloat(clipAmtStr)));
+      } catch (NumberFormatException ignored) {
+      }
+    }
+
+    Element directDelay = directChild(kitNode, "delay");
+    if (directDelay != null) {
+      readAttrOrChildInt(directDelay, "pingPong", 1, kit::setDelayPingPong);
+      readAttrOrChildInt(directDelay, "analog", 0, kit::setDelayAnalog);
+      readAttrOrChildInt(directDelay, "syncLevel", 7, kit::setDelaySyncLevel);
+      readAttrOrChildInt(
+          directDelay, "syncType", 0, v -> kit.setDelaySyncType(syncTypeFromFile(v)));
+    }
+
+    Element kitDp = directChild(kitNode, "defaultParams");
+    if (kitDp == null) {
+      return;
+    }
+    String v;
+    if ((v = attrOrDirectChildText(kitDp, "volume")) != null) {
+      int q31 = DelugeHexMapper.hexToQ31(v);
+      kit.setVolume(DelugeHexMapper.q31ToUnipolarFloatUnified(q31));
+      kit.setRawDefaultParamQ31("volume", q31);
+    }
+    if ((v = attrOrDirectChildText(kitDp, "pan")) != null) {
+      int q31 = DelugeHexMapper.hexToQ31(v);
+      kit.setPan(DelugeHexMapper.q31ToFloat(q31));
+      kit.setRawDefaultParamQ31("pan", q31);
+    }
+    if ((v = attrOrDirectChildText(kitDp, "reverbAmount")) != null) {
+      int q31 = DelugeHexMapper.hexToQ31(v);
+      kit.setReverbAmount(DelugeHexMapper.q31ToUnipolarFloatUnified(q31));
+      kit.setRawDefaultParamQ31("reverbAmount", q31);
+    }
+    if ((v = attrOrDirectChildText(kitDp, "bitCrush")) != null) {
+      int q31 = DelugeHexMapper.hexToQ31(v);
+      kit.setBitCrush(DelugeHexMapper.q31ToUnipolarFloatUnified(q31));
+      kit.setRawDefaultParamQ31("bitCrush", q31);
+    }
+    if ((v = attrOrDirectChildText(kitDp, "sampleRateReduction")) != null) {
+      int q31 = DelugeHexMapper.hexToQ31(v);
+      kit.setSampleRateReduction(DelugeHexMapper.q31ToUnipolarFloatUnified(q31));
+      kit.setRawDefaultParamQ31("sampleRateReduction", q31);
+    }
+    Element dpDelay = directChild(kitDp, "delay");
+    if (dpDelay != null) {
+      if ((v = attrOrDirectChildText(dpDelay, "rate")) != null) {
+        int q31 = DelugeHexMapper.hexToQ31(v);
+        kit.setDelayRate(DelugeHexMapper.q31ToUnipolarFloatUnified(q31));
+        kit.setRawDefaultParamQ31("delay.rate", q31);
+      }
+      if ((v = attrOrDirectChildText(dpDelay, "feedback")) != null) {
+        int q31 = DelugeHexMapper.hexToQ31(v);
+        kit.setDelayFeedback(DelugeHexMapper.q31ToUnipolarFloatUnified(q31));
+        kit.setRawDefaultParamQ31("delay.feedback", q31);
+      }
+    }
+    Element dpLpf = directChild(kitDp, "lpf");
+    if (dpLpf != null) {
+      if ((v = attrOrDirectChildText(dpLpf, "frequency")) != null) {
+        int q31 = DelugeHexMapper.hexToQ31(v);
+        kit.setLpfFreq(DelugeHexMapper.q31ToHz(q31));
+        kit.setRawDefaultParamQ31("lpf.frequency", q31);
+      }
+      if ((v = attrOrDirectChildText(dpLpf, "resonance")) != null) {
+        int q31 = DelugeHexMapper.hexToQ31(v);
+        kit.setLpfRes(DelugeHexMapper.q31ToUnipolarFloatUnified(q31));
+        kit.setRawDefaultParamQ31("lpf.resonance", q31);
+      }
+      if ((v = attrOrDirectChildText(dpLpf, "morph")) != null) {
+        int q31 = DelugeHexMapper.hexToQ31(v);
+        kit.setLpfMorph(DelugeHexMapper.q31ToUnipolarFloatUnified(q31));
+        kit.setRawDefaultParamQ31("lpf.morph", q31);
+      }
+    }
+    Element dpHpf = directChild(kitDp, "hpf");
+    if (dpHpf != null) {
+      if ((v = attrOrDirectChildText(dpHpf, "frequency")) != null) {
+        int q31 = DelugeHexMapper.hexToQ31(v);
+        kit.setHpfFreq(DelugeHexMapper.q31ToHz(q31));
+        kit.setRawDefaultParamQ31("hpf.frequency", q31);
+      }
+      if ((v = attrOrDirectChildText(dpHpf, "resonance")) != null) {
+        int q31 = DelugeHexMapper.hexToQ31(v);
+        kit.setHpfRes(DelugeHexMapper.q31ToUnipolarFloatUnified(q31));
+        kit.setRawDefaultParamQ31("hpf.resonance", q31);
+      }
+      if ((v = attrOrDirectChildText(dpHpf, "morph")) != null) {
+        int q31 = DelugeHexMapper.hexToQ31(v);
+        kit.setHpfMorph(DelugeHexMapper.q31ToUnipolarFloatUnified(q31));
+        kit.setRawDefaultParamQ31("hpf.morph", q31);
+      }
+    }
+    Element dpEq = directChild(kitDp, "equalizer");
+    if (dpEq != null) {
+      if ((v = attrOrDirectChildText(dpEq, "bass")) != null) {
+        int q31 = DelugeHexMapper.hexToQ31(v);
+        kit.setEqBass(DelugeHexMapper.q31ToFloat(q31));
+        kit.setRawDefaultParamQ31("equalizer.bass", q31);
+      }
+      if ((v = attrOrDirectChildText(dpEq, "treble")) != null) {
+        int q31 = DelugeHexMapper.hexToQ31(v);
+        kit.setEqTreble(DelugeHexMapper.q31ToFloat(q31));
+        kit.setRawDefaultParamQ31("equalizer.treble", q31);
+      }
+      if ((v = attrOrDirectChildText(dpEq, "bassFrequency")) != null) {
+        int q31 = DelugeHexMapper.hexToQ31(v);
+        kit.setEqBassFreq(DelugeHexMapper.q31ToFloat(q31));
+        kit.setRawDefaultParamQ31("equalizer.bassFrequency", q31);
+      }
+      if ((v = attrOrDirectChildText(dpEq, "trebleFrequency")) != null) {
+        int q31 = DelugeHexMapper.hexToQ31(v);
+        kit.setEqTrebleFreq(DelugeHexMapper.q31ToFloat(q31));
+        kit.setRawDefaultParamQ31("equalizer.trebleFrequency", q31);
+      }
+    }
   }
 
   /**

@@ -45,6 +45,168 @@ public class KitSynthSerializer {
     if (isSongSlot) {
       appendTextChild(doc, root, "presetSlot", kit.getName());
     }
+    // C kit.cpp:106-131 — kit-level GlobalEffectableForClip attributes & direct <defaultParams>.
+    appendTextChild(
+        doc,
+        root,
+        "lpfMode",
+        org.deluge.xml.DelugeXmlUtil.lpfModeToFirmwareString(kit.getLpfMode()));
+    appendTextChild(
+        doc,
+        root,
+        "hpfMode",
+        org.deluge.xml.DelugeXmlUtil.hpfModeToFirmwareString(kit.getHpfMode()));
+    appendTextChild(
+        doc,
+        root,
+        "filterRoute",
+        org.deluge.xml.DelugeXmlUtil.filterRouteToFirmwareString(kit.getFilterRoute()));
+    appendTextChild(
+        doc,
+        root,
+        "modFXType",
+        org.deluge.xml.DelugeXmlUtil.modFxTypeToFirmwareString(kit.getModFxType()));
+    appendTextChild(doc, root, "clippingAmount", String.valueOf(kit.getClippingAmount()));
+    Element kitDelay = doc.createElement("delay");
+    appendTextAttr(kitDelay, "pingPong", String.valueOf(kit.getDelayPingPong()));
+    appendTextAttr(kitDelay, "analog", String.valueOf(kit.getDelayAnalog()));
+    appendTextAttr(kitDelay, "syncLevel", String.valueOf(kit.getDelaySyncLevel()));
+    if (kit.getDelaySyncType() > 0) {
+      appendTextAttr(
+          kitDelay,
+          "syncType",
+          String.valueOf(org.deluge.xml.DelugeXmlUtil.syncTypeToFile(kit.getDelaySyncType())));
+    }
+    root.appendChild(kitDelay);
+    Element kitDp = doc.createElement("defaultParams");
+    appendRawQ31Child(
+        doc,
+        kitDp,
+        "volume",
+        kit.getRawDefaultParamQ31("volume") != null
+            ? kit.getRawDefaultParamQ31("volume")
+            : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getVolume()));
+    appendRawQ31Child(
+        doc,
+        kitDp,
+        "pan",
+        kit.getRawDefaultParamQ31("pan") != null
+            ? kit.getRawDefaultParamQ31("pan")
+            : DelugeHexMapper.floatToQ31(kit.getPan()));
+    appendRawQ31Child(
+        doc,
+        kitDp,
+        "reverbAmount",
+        kit.getRawDefaultParamQ31("reverbAmount") != null
+            ? kit.getRawDefaultParamQ31("reverbAmount")
+            : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getReverbAmount()));
+    appendRawQ31Child(
+        doc,
+        kitDp,
+        "bitCrush",
+        kit.getRawDefaultParamQ31("bitCrush") != null
+            ? kit.getRawDefaultParamQ31("bitCrush")
+            : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getBitCrush()));
+    appendRawQ31Child(
+        doc,
+        kitDp,
+        "sampleRateReduction",
+        kit.getRawDefaultParamQ31("sampleRateReduction") != null
+            ? kit.getRawDefaultParamQ31("sampleRateReduction")
+            : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getSampleRateReduction()));
+    Element kitDpDelay = doc.createElement("delay");
+    appendTextAttr(
+        kitDpDelay,
+        "rate",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("delay.rate") != null
+                ? kit.getRawDefaultParamQ31("delay.rate")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getDelayRate())));
+    appendTextAttr(
+        kitDpDelay,
+        "feedback",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("delay.feedback") != null
+                ? kit.getRawDefaultParamQ31("delay.feedback")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getDelayFeedback())));
+    kitDp.appendChild(kitDpDelay);
+    Element kitDpLpf = doc.createElement("lpf");
+    appendTextAttr(
+        kitDpLpf,
+        "frequency",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("lpf.frequency") != null
+                ? kit.getRawDefaultParamQ31("lpf.frequency")
+                : DelugeHexMapper.hzToQ31(kit.getLpfFreq())));
+    appendTextAttr(
+        kitDpLpf,
+        "resonance",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("lpf.resonance") != null
+                ? kit.getRawDefaultParamQ31("lpf.resonance")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getLpfRes())));
+    appendTextAttr(
+        kitDpLpf,
+        "morph",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("lpf.morph") != null
+                ? kit.getRawDefaultParamQ31("lpf.morph")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getLpfMorph())));
+    kitDp.appendChild(kitDpLpf);
+    Element kitDpHpf = doc.createElement("hpf");
+    appendTextAttr(
+        kitDpHpf,
+        "frequency",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("hpf.frequency") != null
+                ? kit.getRawDefaultParamQ31("hpf.frequency")
+                : DelugeHexMapper.hzToQ31(kit.getHpfFreq())));
+    appendTextAttr(
+        kitDpHpf,
+        "resonance",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("hpf.resonance") != null
+                ? kit.getRawDefaultParamQ31("hpf.resonance")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getHpfRes())));
+    appendTextAttr(
+        kitDpHpf,
+        "morph",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("hpf.morph") != null
+                ? kit.getRawDefaultParamQ31("hpf.morph")
+                : DelugeHexMapper.unipolarFloatToQ31Unified(kit.getHpfMorph())));
+    kitDp.appendChild(kitDpHpf);
+    Element kitDpEq = doc.createElement("equalizer");
+    appendTextAttr(
+        kitDpEq,
+        "bass",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("equalizer.bass") != null
+                ? kit.getRawDefaultParamQ31("equalizer.bass")
+                : DelugeHexMapper.floatToQ31(kit.getEqBass())));
+    appendTextAttr(
+        kitDpEq,
+        "treble",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("equalizer.treble") != null
+                ? kit.getRawDefaultParamQ31("equalizer.treble")
+                : DelugeHexMapper.floatToQ31(kit.getEqTreble())));
+    appendTextAttr(
+        kitDpEq,
+        "bassFrequency",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("equalizer.bassFrequency") != null
+                ? kit.getRawDefaultParamQ31("equalizer.bassFrequency")
+                : DelugeHexMapper.floatToQ31(kit.getEqBassFreq())));
+    appendTextAttr(
+        kitDpEq,
+        "trebleFrequency",
+        DelugeHexMapper.q31ToHex(
+            kit.getRawDefaultParamQ31("equalizer.trebleFrequency") != null
+                ? kit.getRawDefaultParamQ31("equalizer.trebleFrequency")
+                : DelugeHexMapper.floatToQ31(kit.getEqTrebleFreq())));
+    kitDp.appendChild(kitDpEq);
+    root.appendChild(kitDp);
 
     // C kit.cpp:132, 241 — kit drums are serialized inside <soundSources>.
     Element soundSources = doc.createElement("soundSources");
@@ -57,16 +219,15 @@ public class KitSynthSerializer {
       nameElem.setTextContent(sound.getName());
       soundElem.appendChild(nameElem);
 
-      boolean isSampleBased = sound.getSamplePath() != null && !sound.getSamplePath().isEmpty();
-      // ── osc1 (sample or synth reference; C sound.cpp:3671-3680) ──
+      boolean hasOsc1File = sound.getSamplePath() != null && !sound.getSamplePath().isEmpty();
+      // ── osc1 (sample, wavetable, or synth reference; C sound.cpp:3671-3680) ──
       Element osc1 = doc.createElement("osc1");
-      if (isSampleBased) {
-        osc1.setAttribute("type", "sample");
-        appendTextChild(doc, osc1, "fileName", sound.getSamplePath());
-      } else {
-        osc1.setAttribute("type", oscTypeToFirmwareString(sound.getOsc1Type()));
-        appendTextChild(doc, osc1, "fileName", "");
-      }
+      osc1.setAttribute(
+          "type",
+          hasOsc1File && !"WAVETABLE".equalsIgnoreCase(sound.getOsc1Type())
+              ? "sample"
+              : oscTypeToFirmwareString(sound.getOsc1Type()));
+      appendTextChild(doc, osc1, "fileName", hasOsc1File ? sound.getSamplePath() : "");
       appendTextChild(doc, osc1, "transpose", String.valueOf(sound.getOsc1Transpose()));
       appendTextChild(doc, osc1, "cents", String.valueOf(sound.getOsc1Cents()));
       // C SampleRepeatMode as parsed (was hardcoded 1 = ONCE for every drum).
@@ -211,7 +372,7 @@ public class KitSynthSerializer {
       appendTextAttr(unison, "spread", String.valueOf(Math.round(sound.getUnisonStereoSpread())));
       soundElem.appendChild(unison);
 
-      // ── compressor ──
+      // ── compressor, sidechain, & stutter (C mod_controllable_audio.cpp:447-486) ──
       if (sound.getCompressorAttack() > 0
           || sound.getCompressorRelease() > 0
           || sound.getCompressorSyncLevel() > 0) {
@@ -227,6 +388,46 @@ public class KitSynthSerializer {
             String.valueOf((int) (sound.getCompressorRelease() * Integer.MAX_VALUE)));
         soundElem.appendChild(comp);
       }
+      if (sound.getSidechainAttackRaw() >= 0
+          || sound.getSidechainReleaseRaw() >= 0
+          || sound.getSidechainAttack() > 0
+          || sound.getSidechainRelease() > 0
+          || sound.getSidechainSyncLevel() > 0
+          || sound.getSidechainSyncType() > 0) {
+        Element sc = doc.createElement("sidechain");
+        appendTextAttr(sc, "syncLevel", String.valueOf(sound.getSidechainSyncLevel()));
+        if (sound.getSidechainSyncType() > 0) {
+          appendTextAttr(
+              sc,
+              "syncType",
+              String.valueOf(
+                  org.deluge.xml.DelugeXmlUtil.syncTypeToFile(sound.getSidechainSyncType())));
+        }
+        if (sound.getSidechainAttackRaw() >= 0 || sound.getSidechainAttack() > 0) {
+          appendTextAttr(
+              sc,
+              "attack",
+              sound.getSidechainAttackRaw() >= 0
+                  ? String.valueOf(sound.getSidechainAttackRaw())
+                  : String.valueOf(
+                      (int) Math.round(sound.getSidechainAttack() * Integer.MAX_VALUE)));
+        }
+        if (sound.getSidechainReleaseRaw() >= 0 || sound.getSidechainRelease() > 0) {
+          appendTextAttr(
+              sc,
+              "release",
+              sound.getSidechainReleaseRaw() >= 0
+                  ? String.valueOf(sound.getSidechainReleaseRaw())
+                  : String.valueOf(
+                      (int) Math.round(sound.getSidechainRelease() * Integer.MAX_VALUE)));
+        }
+        soundElem.appendChild(sc);
+      }
+      Element drumStutter = doc.createElement("stutter");
+      appendTextAttr(drumStutter, "quantized", sound.isStutterQuantized() ? "1" : "0");
+      appendTextAttr(drumStutter, "reverse", sound.isStutterReversed() ? "1" : "0");
+      appendTextAttr(drumStutter, "pingPong", sound.isStutterPingPong() ? "1" : "0");
+      soundElem.appendChild(drumStutter);
 
       // ── delay (C mod_controllable_audio.cpp:417-425 — unconditional) ──
       Element delay = doc.createElement("delay");
@@ -697,8 +898,16 @@ public class KitSynthSerializer {
     // ── clippingAmount ──
     appendTextChild(doc, root, "clippingAmount", String.valueOf(synth.getClippingAmount()));
 
-    // ── voicePriority ──
+    // ── voicePriority, maxVoices, & sideChainSend (C sound.cpp:4168-4190) ──
     appendTextChild(doc, root, "voicePriority", String.valueOf(synth.getVoicePriority()));
+    appendTextChild(doc, root, "maxVoices", String.valueOf(synth.getMaxVoiceCount()));
+    if (synth.getSidechainSend() > 0) {
+      appendTextChild(
+          doc,
+          root,
+          "sideChainSend",
+          String.valueOf((int) Math.round(synth.getSidechainSend() * Integer.MAX_VALUE)));
+    }
 
     // ── LFOs ──
     appendSynthLfo(doc, root, "lfo1", synth.getLfo(0));
@@ -932,17 +1141,63 @@ public class KitSynthSerializer {
         "modFXType",
         org.deluge.xml.DelugeXmlUtil.modFxTypeToFirmwareString(synth.getModFxType()));
 
-    // ── compressor ──
+    // ── compressor, sidechain, & stutter (C mod_controllable_audio.cpp:447-486) ──
     float compAttack = synth.getCompressorAttack();
     float compRelease = synth.getCompressorRelease();
     int compSync = synth.getCompressorSyncLevel();
-    if (compAttack > 0 || compRelease > 0 || compSync > 0) {
+    if (compAttack > 0 || compRelease > 0 || compSync > 0 || synth.getCompressorSyncType() > 0) {
       Element comp = doc.createElement("compressor");
       appendTextAttr(comp, "syncLevel", String.valueOf(compSync));
+      if (synth.getCompressorSyncType() > 0) {
+        appendTextAttr(
+            comp,
+            "syncType",
+            String.valueOf(
+                org.deluge.xml.DelugeXmlUtil.syncTypeToFile(synth.getCompressorSyncType())));
+      }
       appendTextAttr(comp, "attack", String.valueOf((int) (compAttack * Integer.MAX_VALUE)));
       appendTextAttr(comp, "release", String.valueOf((int) (compRelease * Integer.MAX_VALUE)));
       root.appendChild(comp);
     }
+    if (synth.getSidechainAttackRaw() >= 0
+        || synth.getSidechainReleaseRaw() >= 0
+        || synth.getSidechainAttack() > 0
+        || synth.getSidechainRelease() > 0
+        || synth.getSidechainSyncLevel() > 0
+        || synth.getSidechainSyncType() > 0) {
+      Element sc = doc.createElement("sidechain");
+      appendTextAttr(sc, "syncLevel", String.valueOf(synth.getSidechainSyncLevel()));
+      if (synth.getSidechainSyncType() > 0) {
+        appendTextAttr(
+            sc,
+            "syncType",
+            String.valueOf(
+                org.deluge.xml.DelugeXmlUtil.syncTypeToFile(synth.getSidechainSyncType())));
+      }
+      if (synth.getSidechainAttackRaw() >= 0 || synth.getSidechainAttack() > 0) {
+        appendTextAttr(
+            sc,
+            "attack",
+            synth.getSidechainAttackRaw() >= 0
+                ? String.valueOf(synth.getSidechainAttackRaw())
+                : String.valueOf((int) Math.round(synth.getSidechainAttack() * Integer.MAX_VALUE)));
+      }
+      if (synth.getSidechainReleaseRaw() >= 0 || synth.getSidechainRelease() > 0) {
+        appendTextAttr(
+            sc,
+            "release",
+            synth.getSidechainReleaseRaw() >= 0
+                ? String.valueOf(synth.getSidechainReleaseRaw())
+                : String.valueOf(
+                    (int) Math.round(synth.getSidechainRelease() * Integer.MAX_VALUE)));
+      }
+      root.appendChild(sc);
+    }
+    Element synthStutter = doc.createElement("stutter");
+    appendTextAttr(synthStutter, "quantized", synth.getStutter().isStutterQuantized() ? "1" : "0");
+    appendTextAttr(synthStutter, "reverse", synth.getStutter().isStutterReversed() ? "1" : "0");
+    appendTextAttr(synthStutter, "pingPong", synth.getStutter().isStutterPingPong() ? "1" : "0");
+    root.appendChild(synthStutter);
 
     // ── defaultParams (C sound.cpp:4056-4162) ──
     Element dp = doc.createElement("defaultParams");
@@ -1369,14 +1624,13 @@ public class KitSynthSerializer {
     return org.deluge.xml.DelugeXmlUtil.lfoTypeToFirmwareString(type);
   }
 
-  /** Append an envelope element with attack/decay/sustain/release children. */
+  /** Append an envelope element with exact Q31 attack/decay/sustain/release children. */
   public static void appendEnvelope(Document doc, Element parent, String tag, EnvelopeModel env) {
     Element envElem = doc.createElement(tag);
-    // Envelope times use exponential bipolar mapping; sustain uses linear bipolar mapping.
-    appendHexChild(doc, envElem, "attack", DelugeHexMapper.normFromEnvTime(env.attack()));
-    appendHexChild(doc, envElem, "decay", DelugeHexMapper.normFromEnvTime(env.decay()));
+    appendRawQ31Child(doc, envElem, "attack", DelugeHexMapper.envTimeToQ31(env.attack()));
+    appendRawQ31Child(doc, envElem, "decay", DelugeHexMapper.envTimeToQ31(env.decay()));
     appendHexChildUnipolar(doc, envElem, "sustain", env.sustain());
-    appendHexChild(doc, envElem, "release", DelugeHexMapper.normFromEnvTime(env.release()));
+    appendRawQ31Child(doc, envElem, "release", DelugeHexMapper.envTimeToQ31(env.release()));
     parent.appendChild(envElem);
   }
 

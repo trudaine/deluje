@@ -616,7 +616,17 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public void setMaxVoiceCount(int maxVoiceCount) {
-    this.maxVoiceCount = Math.max(1, Math.min(16, maxVoiceCount));
+    this.maxVoiceCount = Math.max(1, Math.min(255, maxVoiceCount));
+  }
+
+  private float sidechainSend = 0.0f;
+
+  public float getSidechainSend() {
+    return sidechainSend;
+  }
+
+  public void setSidechainSend(float sidechainSend) {
+    this.sidechainSend = Math.max(0.0f, Math.min(1.0f, sidechainSend));
   }
 
   public int getVoicePriority() {
@@ -1066,6 +1076,9 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public void setSidechainAttack(float v) {
+    if (compressor.getSidechainAttack() != v) {
+      compressor.setSidechainAttackRaw(-1);
+    }
     compressor.setSidechainAttack(v);
   }
 
@@ -1074,6 +1087,9 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public void setSidechainRelease(float v) {
+    if (compressor.getSidechainRelease() != v) {
+      compressor.setSidechainReleaseRaw(-1);
+    }
     compressor.setSidechainRelease(v);
   }
 
@@ -1437,6 +1453,7 @@ public class SynthTrackModel extends TrackModel {
     this.polyphony = other.getPolyphony();
     this.maxVoiceCount = other.getMaxVoiceCount();
     this.voicePriority = other.getVoicePriority();
+    this.sidechainSend = other.getSidechainSend();
     this.modKnobMode = other.getModKnobMode();
     this.transpose = other.getTranspose();
     this.cents = other.getCents();
