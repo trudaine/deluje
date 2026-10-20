@@ -95,11 +95,7 @@ public class PureFirmwareEngine {
         for (var sound : audioEngine.sounds) {
           switch (sound) {
             case org.deluge.engine.FirmwareSound fs -> fs.releaseAllNotes();
-            case org.deluge.engine.FirmwareKit fk -> {
-              for (var ds : fk.drumSounds) {
-                ds.releaseAllNotes();
-              }
-            }
+            case org.deluge.engine.FirmwareKit fk -> fk.releaseAllNotes();
             case null, default -> {}
           }
         }
@@ -221,6 +217,9 @@ public class PureFirmwareEngine {
                 if (track instanceof org.deluge.model.SynthTrackModel st) {
                   fs.syncDx7FromModel(st);
                 }
+              } else if (clip != null
+                  && clip.getSound() instanceof org.deluge.engine.FirmwareKit fk) {
+                fk.muted = isMuted;
               }
             }
             if (modelChanged && org.deluge.ui.SwingDelugeApp.mainInstance != null) {

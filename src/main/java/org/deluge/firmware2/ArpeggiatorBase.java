@@ -39,6 +39,9 @@ public abstract class ArpeggiatorBase {
 
   public MusicalKey currentKey = new MusicalKey();
   public boolean playbackClockActive = false;
+  // C arpeggiator.h:356 — shared across drum and synth arpeggiators because Java Kit rows use
+  // Sound (ArpeggiatorSynth) as well as ArpeggiatorForDrum.
+  public boolean invertReversedFromKitArp = false;
 
   boolean lastNormalNotePlayedFromNoteProbability = true;
   boolean lastNormalNotePlayedFromBassProbability;

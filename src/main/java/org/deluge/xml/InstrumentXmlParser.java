@@ -1528,7 +1528,9 @@ public class InstrumentXmlParser {
     int chordType = chordTypeRaw < 9 ? chordTypeRaw : 0;
 
     int numOctaves = octaves;
-    int kitArp = attrOrDirectChildInt(arpEl, "kitArp", 0);
+    // C arpeggiator.h:76, arpeggiator.cpp:1656-1658 — includeInKitArp defaults to true (1) when
+    // pre-community-1.1.0 preset/kit XML omits the "kitArp" attribute.
+    int kitArp = attrOrDirectChildInt(arpEl, "kitArp", 1);
     int randomizerLock = attrOrDirectChildInt(arpEl, "randomizerLock", 0);
 
     int lastLockedNoteProb = attrOrDirectChildInt(arpEl, "lastLockedNoteProb", 0);

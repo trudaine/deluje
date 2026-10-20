@@ -134,6 +134,33 @@ public class ClipModel extends TimelineCounter {
   }
 
   public void setArp(org.deluge.model.ArpModel arp) {
+    org.deluge.model.ArpModel oldArp =
+        this.arp != null ? this.arp : org.deluge.model.ArpModel.defaultConfig();
+    if (arp != null) {
+      for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_GATE;
+          p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+          p++) {
+        if (org.deluge.xml.ArpXmlCodec.isUnpatchedArpFieldChanged(oldArp, arp, p)) {
+          String tag = Drum.unpatchedArpXmlTag(p);
+          if (tag != null) {
+            rawKitParamHex.put(
+                tag,
+                org.deluge.xml.DelugeHexMapper.q31ToHex(
+                    org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(arp, p)));
+          }
+        }
+      }
+      if (Float.compare(oldArp.rate(), arp.rate()) != 0) {
+        rawKitParamHex.put(
+            "arpeggiatorRate",
+            org.deluge.xml.DelugeHexMapper.unipolarFloatToHexUnified(arp.rate()));
+      }
+    }
+    this.arp = arp;
+  }
+
+  /** Sets {@link #arp} during XML parsing without synthesizing {@link #rawKitParamHex} entries. */
+  public void setArpFromXml(org.deluge.model.ArpModel arp) {
     this.arp = arp;
   }
 
@@ -642,6 +669,12 @@ public class ClipModel extends TimelineCounter {
           case FORWARD, RANDOM -> SequenceDirection.FORWARD;
         };
     setSequenceDirectionMode(mode);
+  }
+
+  public boolean isRowCurrentlyPlayingReversed(NoteRowModel row) {
+    return row != null
+        ? row.isCurrentlyPlayingReversed(currentlyPlayingReversed, sequenceDirectionMode)
+        : currentlyPlayingReversed;
   }
 
   /**
@@ -1613,6 +1646,15 @@ public class ClipModel extends TimelineCounter {
       }
     } else if (sound instanceof org.deluge.engine.FirmwareKit kit) {
       KitTrackModel kt = (ownerTrack instanceof KitTrackModel k) ? k : null;
+      if (kt != null) {
+        kit.ensureDrumCount(kt.getDrums().size());
+        if (isActiveOnTrack) {
+          // C kit.cpp:60-61, 714-731, 787-797, 1048-1089 — reset previous clip's held kit arp notes
+          // and sync active clip's kit-bus & affect-entire arpeggiator settings on clip activation.
+          kit.releaseAllNotes();
+          org.deluge.engine.FirmwareFactory.syncKitTopLevelParams(kt, kit);
+        }
+      }
       for (int r = 0; r < kit.drumSounds.size(); r++) {
         org.deluge.engine.FirmwareSound drum = kit.drumSounds.get(r);
         drum.isDrum = true;
@@ -1838,11 +1880,9 @@ public class ClipModel extends TimelineCounter {
     if (actuallySoundChange && sound != null) {
       if (sound instanceof org.deluge.engine.FirmwareSound) {
         ((org.deluge.engine.FirmwareSound) sound).noteOffAll();
-      } else if (sound instanceof org.deluge.engine.FirmwareKit) {
-        for (org.deluge.engine.FirmwareSound drum :
-            ((org.deluge.engine.FirmwareKit) sound).drumSounds) {
-          drum.noteOffAll();
-        }
+      } else if (sound instanceof org.deluge.engine.FirmwareKit kit) {
+        // C kit.cpp:60-61, instrument_clip.cpp:1198-1205 — reset kit arp & release every drum.
+        kit.releaseAllNotes();
       }
     }
   }
@@ -2325,11 +2365,9 @@ public class ClipModel extends TimelineCounter {
   private void releaseNote(int pitch) {
     if (sound instanceof org.deluge.engine.FirmwareSound) {
       ((org.deluge.engine.FirmwareSound) sound).releaseNote(pitch);
-    } else if (sound instanceof org.deluge.engine.FirmwareKit) {
-      var kit = (org.deluge.engine.FirmwareKit) sound;
-      if (pitch < kit.drumSounds.size()) {
-        kit.drumSounds.get(pitch).releaseNote(60);
-      }
+    } else if (sound instanceof org.deluge.engine.FirmwareKit kit) {
+      // C note_row.cpp:2623-2630 -> Kit::noteOffPreKitArp (kit.cpp:1334-1377)
+      kit.releaseDrum(pitch);
     } else if (sound instanceof org.deluge.engine.FirmwareMidiInstrument) {
       ((org.deluge.engine.FirmwareMidiInstrument) sound).releaseNote(pitch);
     }

@@ -8,12 +8,21 @@ import org.deluge.firmware2.Param;
 /** Port of the Deluge's Kit class. */
 public class FirmwareKit extends org.deluge.firmware2.Kit {
   public final List<FirmwareSound> drumSounds = new ArrayList<>();
+  public int inputTickMagnitude = 2;
+  public final org.deluge.modulation.params.ParamManager paramManager =
+      new org.deluge.modulation.params.ParamManager();
 
   public FirmwareKit() {
     super.drums.clear();
-    for (int i = 0; i < 16; i++) {
+    ensureDrumCount(16);
+  }
+
+  @Override
+  public void ensureDrumCount(int count) {
+    while (drumSounds.size() < count) {
       FirmwareSound drumSound = new FirmwareSound();
       drumSound.isDrum = true;
+      drumSound.fw2Sound.isDrum = true;
       drumSound.oscTypes[0] = OscType.SAMPLE;
       // Initialize all generator volumes (Osc A, Osc B, Noise) to absolute silence
       // (Integer.MIN_VALUE)
@@ -31,6 +40,10 @@ public class FirmwareKit extends org.deluge.firmware2.Kit {
     if (muted) {
       return;
     }
+    if (!drumSounds.isEmpty()) {
+      timePerInternalTickInverse = drumSounds.get(0).fw2Sound.timePerInternalTickInverse;
+    }
+    renderKitArp(numSamples); // C kit.cpp:705-785 — the kit arp runs before the drums render
     for (FirmwareSound drum : drumSounds) {
       // C kit.cpp:541-586 / sound.cpp:2178-2215 — keep rendering each drum while voices, arp notes,
       // per-drum delay repeats, stutter, or grain FX tail remain active.
@@ -42,34 +55,46 @@ public class FirmwareKit extends org.deluge.firmware2.Kit {
   }
 
   @Override
-  public void triggerDrum(int row, int vel) {
-    triggerDrum(row, vel, 0);
+  protected org.deluge.firmware2.Sound drumAt(int row) {
+    return (row >= 0 && row < drumSounds.size()) ? drumSounds.get(row).fw2Sound : null;
   }
 
   @Override
-  public void triggerDrum(int row, int vel, int samplesLate) {
-    if (muted) {
+  protected boolean bypassesKitArp(int row) {
+    if (row >= 0 && row < drumSounds.size()) {
+      drumSounds.get(row).syncParamsToFw2();
+    }
+    return super.bypassesKitArp(row);
+  }
+
+  @Override
+  protected void drumNoteOn(int row, int vel, int samplesLate) {
+    if (row < 0 || row >= drumSounds.size()) {
       return;
     }
-    if (row >= 0 && row < drumSounds.size()) {
-      if (samplesLate > 0) {
-        drumSounds.get(row).triggerNoteLate(60, vel, samplesLate);
-      } else {
-        drumSounds.get(row).triggerNote(60, vel);
-      }
+    FirmwareSound drum = drumSounds.get(row);
+    drum.syncParamsToFw2();
+    if (samplesLate > 0) {
+      drum.triggerNoteLate(60, vel, samplesLate);
+    } else {
+      drum.triggerNote(60, vel);
     }
   }
 
   @Override
-  public void releaseDrum(int row) {
+  protected void drumNoteOff(int row) {
     if (row >= 0 && row < drumSounds.size()) {
-      drumSounds.get(row).releaseNote(60);
+      FirmwareSound drum = drumSounds.get(row);
+      drum.fw2Sound.arpeggiator.invertReversedFromKitArp = false;
+      drum.releaseNote(60);
     }
   }
 
   @Override
   public void releaseAllNotes() {
+    arpeggiator.reset();
     for (FirmwareSound drum : drumSounds) {
+      drum.fw2Sound.arpeggiator.invertReversedFromKitArp = false;
       drum.releaseAllNotes();
     }
   }

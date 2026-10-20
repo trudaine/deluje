@@ -417,7 +417,11 @@ public class ProjectSerializer {
                     : DelugeHexMapper.floatToQ31(kitTrack.getEqTrebleFreq())),
             false);
         writer.closeTag();
+        writeKitDefaultArpParams(writer, kitTrack);
         writer.writeClosingTag("defaultParams");
+        if (kitTrack.getArp() != null) {
+          writeSoundArpeggiator(writer, kitTrack.getArp(), model.getInputTickMagnitude());
+        }
 
         writer.writeArrayStart("soundSources");
 
@@ -674,6 +678,9 @@ public class ProjectSerializer {
           writer.writeAttribute("pingPong", sound.isStutterPingPong() ? "1" : "0", false);
           writer.closeTag();
 
+          // Per-drum arpeggiator (C sound.cpp:4253 — writes <arpeggiator kitArp="..." ...>)
+          writeSoundArpeggiator(writer, sound.getArp(), model.getInputTickMagnitude());
+
           writer.writeOpeningTagBeginning("defaultParams");
           writer.writeOpeningTagEnd();
           writeDrumRawOrUnipolar(writer, sound, "arpeggiatorGate", sound.getArpeggiatorGate());
@@ -745,6 +752,7 @@ public class ProjectSerializer {
                   : Integer.MIN_VALUE);
           writeDrumRawOrUnipolar(writer, sound, "reverbAmount", sound.getReverbAmount());
           writeDrumRawOrUnipolar(writer, sound, "arpeggiatorRate", sound.getArpeggiatorRate());
+          writeDrumDefaultArpParams(writer, sound);
           writeDrumRawOrUnipolar(writer, sound, "stutterRate", sound.getStutterRate());
           writeDrumRawOrUnipolar(
               writer, sound, "sampleRateReduction", sound.getSampleRateReduction());
@@ -1236,127 +1244,7 @@ public class ProjectSerializer {
         writer.writeClosingTag("unison");
 
         // arpeggiator
-        writer.writeOpeningTagBeginning("arpeggiator");
-        // C writeCommonParamsToFile (arpeggiator.cpp): "mode" and "arpMode" both carry
-        // arpModeToString — "arp" or "off".
-        writer.writeAttribute("mode", synth.getArp().active() ? "arp" : "off", false);
-        writer.writeAttribute("active", synth.getArp().active() ? "1" : "0", false);
-        writer.writeAttribute(
-            org.deluge.xml.ArpXmlCodec.FORMAT_ATTR, org.deluge.xml.ArpXmlCodec.FORMAT_C, false);
-        writer.writeAttribute("sequenceLength", synth.getArp().seqLength(), false);
-        writer.writeAttribute("arpMode", synth.getArp().active() ? "arp" : "off", false);
-        if (synth.getArp().notePattern() != null && !synth.getArp().notePattern().isEmpty()) {
-          writer.writeAttribute("notePattern", synth.getArp().notePattern(), false);
-        }
-        writer.writeAttribute("chordType", synth.getArp().chordType(), false);
-
-        // The ARP panel edits octaves(); numOctaves() is only what was last parsed.
-        writer.writeAttribute("numOctaves", synth.getArp().octaves(), false);
-        writer.writeAttribute(
-            "syncType",
-            org.deluge.xml.ArpXmlCodec.syncTypeToFile(synth.getArp().syncType()),
-            false);
-        writer.writeAttribute(
-            "mpeVelocity",
-            org.deluge.xml.ArpXmlCodec.mpeVelocityToFile(synth.getArp().mpeVelocity()),
-            false);
-        writer.writeAttribute("kitArp", synth.getArp().kitArp(), false);
-        writer.writeAttribute("randomizerLock", synth.getArp().randomizerLock(), false);
-
-        writer.writeAttribute("lastLockedNoteProb", synth.getArp().lastLockedNoteProb(), false);
-        if (synth.getArp().lockedNoteProbArray() != null
-            && !synth.getArp().lockedNoteProbArray().isEmpty()) {
-          writer.writeAttribute("lockedNoteProbArray", synth.getArp().lockedNoteProbArray(), false);
-        }
-
-        writer.writeAttribute("lastLockedBassProb", synth.getArp().lastLockedBassProb(), false);
-        if (synth.getArp().lockedBassProbArray() != null
-            && !synth.getArp().lockedBassProbArray().isEmpty()) {
-          writer.writeAttribute("lockedBassProbArray", synth.getArp().lockedBassProbArray(), false);
-        }
-
-        writer.writeAttribute("lastLockedSwapProb", synth.getArp().lastLockedSwapProb(), false);
-        if (synth.getArp().lockedSwapProbArray() != null
-            && !synth.getArp().lockedSwapProbArray().isEmpty()) {
-          writer.writeAttribute("lockedSwapProbArray", synth.getArp().lockedSwapProbArray(), false);
-        }
-
-        writer.writeAttribute("lastLockedGlideProb", synth.getArp().lastLockedGlideProb(), false);
-        if (synth.getArp().lockedGlideProbArray() != null
-            && !synth.getArp().lockedGlideProbArray().isEmpty()) {
-          writer.writeAttribute(
-              "lockedGlideProbArray", synth.getArp().lockedGlideProbArray(), false);
-        }
-
-        writer.writeAttribute(
-            "lastLockedReverseProb", synth.getArp().lastLockedReverseProb(), false);
-        if (synth.getArp().lockedReverseProbArray() != null
-            && !synth.getArp().lockedReverseProbArray().isEmpty()) {
-          writer.writeAttribute(
-              "lockedReverseProbArray", synth.getArp().lockedReverseProbArray(), false);
-        }
-
-        writer.writeAttribute("lastLockedChordProb", synth.getArp().lastLockedChordProb(), false);
-        if (synth.getArp().lockedChordProbArray() != null
-            && !synth.getArp().lockedChordProbArray().isEmpty()) {
-          writer.writeAttribute(
-              "lockedChordProbArray", synth.getArp().lockedChordProbArray(), false);
-        }
-
-        writer.writeAttribute(
-            "lastLockedRatchetProb", synth.getArp().lastLockedRatchetProb(), false);
-        if (synth.getArp().lockedRatchetProbArray() != null
-            && !synth.getArp().lockedRatchetProbArray().isEmpty()) {
-          writer.writeAttribute(
-              "lockedRatchetProbArray", synth.getArp().lockedRatchetProbArray(), false);
-        }
-
-        writer.writeAttribute(
-            "lastLockedVelocitySpread", synth.getArp().lastLockedVelocitySpread(), false);
-        if (synth.getArp().lockedVelocitySpreadArray() != null
-            && !synth.getArp().lockedVelocitySpreadArray().isEmpty()) {
-          writer.writeAttribute(
-              "lockedVelocitySpreadArray", synth.getArp().lockedVelocitySpreadArray(), false);
-        }
-
-        writer.writeAttribute("lastLockedGateSpread", synth.getArp().lastLockedGateSpread(), false);
-        if (synth.getArp().lockedGateSpreadArray() != null
-            && !synth.getArp().lockedGateSpreadArray().isEmpty()) {
-          writer.writeAttribute(
-              "lockedGateSpreadArray", synth.getArp().lockedGateSpreadArray(), false);
-        }
-
-        writer.writeAttribute(
-            "lastLockedOctaveSpread", synth.getArp().lastLockedOctaveSpread(), false);
-        if (synth.getArp().lockedOctaveSpreadArray() != null
-            && !synth.getArp().lockedOctaveSpreadArray().isEmpty()) {
-          writer.writeAttribute(
-              "lockedOctaveSpreadArray", synth.getArp().lockedOctaveSpreadArray(), false);
-        }
-        writer.writeOpeningTagEnd();
-        writeHexTag(writer, "rate", synth.getArp().rate());
-        writer.writeTag("octaves", String.valueOf(synth.getArp().octaves()));
-        writeHexTag(writer, "gate", synth.getArp().gate());
-        writer.writeTag(
-            "syncLevel",
-            String.valueOf(
-                org.deluge.xml.ArpXmlCodec.syncFileValueFromDenominator(
-                    synth.getArp().syncLevel(), model.getInputTickMagnitude())));
-        writer.writeTag(
-            "noteMode", org.deluge.xml.ArpXmlCodec.noteModeToFile(synth.getArp().noteMode()));
-        writer.writeTag(
-            "octaveMode", org.deluge.xml.ArpXmlCodec.octaveModeToFile(synth.getArp().octaveMode()));
-        writer.writeTag("stepRepeat", String.valueOf(synth.getArp().stepRepeat()));
-        writer.writeTag("rhythmIndex", String.valueOf(synth.getArp().rhythmIndex()));
-        writer.writeTag("seqLength", String.valueOf(synth.getArp().seqLength()));
-        writeHexTag(writer, "octaveSpread", synth.getArp().octaveSpread());
-        writeHexTag(writer, "gateSpread", synth.getArp().gateSpread());
-        writeHexTag(writer, "velSpread", synth.getArp().velSpread());
-        writer.writeTag("ratchetAmount", String.valueOf(synth.getArp().ratchetAmount()));
-        writer.writeTag("noteProbability", String.valueOf(synth.getArp().noteProbability()));
-        writer.writeTag("chordPolyphony", String.valueOf(synth.getArp().chordPolyphony()));
-        writer.writeTag("chordProbability", String.valueOf(synth.getArp().chordProbability()));
-        writer.writeClosingTag("arpeggiator");
+        writeSoundArpeggiator(writer, synth.getArp(), model.getInputTickMagnitude());
 
         // delay (C mod_controllable_audio.cpp:417-425 — unconditional)
         writer.writeOpeningTagBeginning("delay");
@@ -2530,8 +2418,11 @@ public class ProjectSerializer {
       if (clipArp != null) {
         writeClipArpeggiator(writer, clipArp, currentInputTickMagnitude);
       }
-    } else if (track instanceof KitTrackModel kitTrack && kitTrack.getArp() != null) {
-      writeClipArpeggiator(writer, kitTrack.getArp(), currentInputTickMagnitude);
+    } else if (track instanceof KitTrackModel kitTrack) {
+      org.deluge.model.ArpModel clipArp = clip.getArp() != null ? clip.getArp() : kitTrack.getArp();
+      if (clipArp != null) {
+        writeClipArpeggiator(writer, clipArp, currentInputTickMagnitude);
+      }
     }
 
     writer.writeOpeningTagBeginning("columnControls");
@@ -2576,6 +2467,109 @@ public class ProjectSerializer {
    * a clip writes it (instrument_clip.cpp:2406): syncLevel is the INTERNAL value (no song
    * conversion), syncType the raw enum.
    */
+  private static void writeSoundArpeggiator(
+      XMLSerializer writer, org.deluge.model.ArpModel arp, int inputTickMagnitude)
+      throws IOException {
+    if (arp == null) {
+      return;
+    }
+    writer.writeOpeningTagBeginning("arpeggiator");
+    // C writeCommonParamsToFile (arpeggiator.cpp): "mode" and "arpMode" both carry
+    // arpModeToString — "arp" or "off".
+    writer.writeAttribute("mode", arp.active() ? "arp" : "off", false);
+    writer.writeAttribute("active", arp.active() ? "1" : "0", false);
+    writer.writeAttribute(
+        org.deluge.xml.ArpXmlCodec.FORMAT_ATTR, org.deluge.xml.ArpXmlCodec.FORMAT_C, false);
+    writer.writeAttribute("sequenceLength", arp.seqLength(), false);
+    writer.writeAttribute("arpMode", arp.active() ? "arp" : "off", false);
+    if (arp.notePattern() != null && !arp.notePattern().isEmpty()) {
+      writer.writeAttribute("notePattern", arp.notePattern(), false);
+    }
+    writer.writeAttribute("chordType", arp.chordType(), false);
+
+    // The ARP panel edits octaves(); numOctaves() is only what was last parsed.
+    writer.writeAttribute("numOctaves", arp.octaves(), false);
+    writer.writeAttribute(
+        "syncType", org.deluge.xml.ArpXmlCodec.syncTypeToFile(arp.syncType()), false);
+    writer.writeAttribute(
+        "mpeVelocity", org.deluge.xml.ArpXmlCodec.mpeVelocityToFile(arp.mpeVelocity()), false);
+    writer.writeAttribute("kitArp", arp.kitArp(), false);
+    writer.writeAttribute("randomizerLock", arp.randomizerLock(), false);
+
+    writer.writeAttribute("lastLockedNoteProb", arp.lastLockedNoteProb(), false);
+    if (arp.lockedNoteProbArray() != null && !arp.lockedNoteProbArray().isEmpty()) {
+      writer.writeAttribute("lockedNoteProbArray", arp.lockedNoteProbArray(), false);
+    }
+
+    writer.writeAttribute("lastLockedBassProb", arp.lastLockedBassProb(), false);
+    if (arp.lockedBassProbArray() != null && !arp.lockedBassProbArray().isEmpty()) {
+      writer.writeAttribute("lockedBassProbArray", arp.lockedBassProbArray(), false);
+    }
+
+    writer.writeAttribute("lastLockedSwapProb", arp.lastLockedSwapProb(), false);
+    if (arp.lockedSwapProbArray() != null && !arp.lockedSwapProbArray().isEmpty()) {
+      writer.writeAttribute("lockedSwapProbArray", arp.lockedSwapProbArray(), false);
+    }
+
+    writer.writeAttribute("lastLockedGlideProb", arp.lastLockedGlideProb(), false);
+    if (arp.lockedGlideProbArray() != null && !arp.lockedGlideProbArray().isEmpty()) {
+      writer.writeAttribute("lockedGlideProbArray", arp.lockedGlideProbArray(), false);
+    }
+
+    writer.writeAttribute("lastLockedReverseProb", arp.lastLockedReverseProb(), false);
+    if (arp.lockedReverseProbArray() != null && !arp.lockedReverseProbArray().isEmpty()) {
+      writer.writeAttribute("lockedReverseProbArray", arp.lockedReverseProbArray(), false);
+    }
+
+    writer.writeAttribute("lastLockedChordProb", arp.lastLockedChordProb(), false);
+    if (arp.lockedChordProbArray() != null && !arp.lockedChordProbArray().isEmpty()) {
+      writer.writeAttribute("lockedChordProbArray", arp.lockedChordProbArray(), false);
+    }
+
+    writer.writeAttribute("lastLockedRatchetProb", arp.lastLockedRatchetProb(), false);
+    if (arp.lockedRatchetProbArray() != null && !arp.lockedRatchetProbArray().isEmpty()) {
+      writer.writeAttribute("lockedRatchetProbArray", arp.lockedRatchetProbArray(), false);
+    }
+
+    writer.writeAttribute("lastLockedVelocitySpread", arp.lastLockedVelocitySpread(), false);
+    if (arp.lockedVelocitySpreadArray() != null && !arp.lockedVelocitySpreadArray().isEmpty()) {
+      writer.writeAttribute("lockedVelocitySpreadArray", arp.lockedVelocitySpreadArray(), false);
+    }
+
+    writer.writeAttribute("lastLockedGateSpread", arp.lastLockedGateSpread(), false);
+    if (arp.lockedGateSpreadArray() != null && !arp.lockedGateSpreadArray().isEmpty()) {
+      writer.writeAttribute("lockedGateSpreadArray", arp.lockedGateSpreadArray(), false);
+    }
+
+    writer.writeAttribute("lastLockedOctaveSpread", arp.lastLockedOctaveSpread(), false);
+    if (arp.lockedOctaveSpreadArray() != null && !arp.lockedOctaveSpreadArray().isEmpty()) {
+      writer.writeAttribute("lockedOctaveSpreadArray", arp.lockedOctaveSpreadArray(), false);
+    }
+    writeArpRandomizerAttributes(writer, arp);
+    writer.writeOpeningTagEnd();
+    writeHexTag(writer, "rate", arp.rate());
+    writer.writeTag("octaves", String.valueOf(arp.octaves()));
+    writeHexTag(writer, "gate", arp.gate());
+    writer.writeTag(
+        "syncLevel",
+        String.valueOf(
+            org.deluge.xml.ArpXmlCodec.syncFileValueFromDenominator(
+                arp.syncLevel(), inputTickMagnitude)));
+    writer.writeTag("noteMode", org.deluge.xml.ArpXmlCodec.noteModeToFile(arp.noteMode()));
+    writer.writeTag("octaveMode", org.deluge.xml.ArpXmlCodec.octaveModeToFile(arp.octaveMode()));
+    writer.writeTag("stepRepeat", String.valueOf(arp.stepRepeat()));
+    writer.writeTag("rhythmIndex", String.valueOf(arp.rhythmIndex()));
+    writer.writeTag("seqLength", String.valueOf(arp.seqLength()));
+    writeHexTag(writer, "octaveSpread", arp.octaveSpread());
+    writeHexTag(writer, "gateSpread", arp.gateSpread());
+    writeHexTag(writer, "velSpread", arp.velSpread());
+    writer.writeTag("ratchetAmount", String.valueOf(arp.ratchetAmount()));
+    writer.writeTag("noteProbability", String.valueOf(arp.noteProbability()));
+    writer.writeTag("chordPolyphony", String.valueOf(arp.chordPolyphony()));
+    writer.writeTag("chordProbability", String.valueOf(arp.chordProbability()));
+    writer.writeClosingTag("arpeggiator");
+  }
+
   private static void writeClipArpeggiator(
       XMLSerializer writer, org.deluge.model.ArpModel arp, int inputTickMagnitude)
       throws IOException {
@@ -2629,7 +2623,122 @@ public class ProjectSerializer {
         writer.writeAttribute(kv[0], kv[1], false);
       }
     }
+    writeArpRandomizerAttributes(writer, arp);
     writer.closeTag();
+  }
+
+  private static void writeArpRandomizerAttributes(
+      XMLSerializer writer, org.deluge.model.ArpModel arp) throws IOException {
+    if (arp == null) return;
+    writer.writeAttribute(
+        "spreadOctave",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_ARP_SPREAD_OCTAVE)),
+        false);
+    writer.writeAttribute(
+        "spreadGate",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_ARP_SPREAD_GATE)),
+        false);
+    writer.writeAttribute(
+        "spreadVelocity",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY)),
+        false);
+    writer.writeAttribute("ratchetAmount", arp.ratchetAmount(), false);
+    writer.writeAttribute(
+        "noteProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_NOTE_PROBABILITY)),
+        false);
+    writer.writeAttribute(
+        "bassProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_ARP_BASS_PROBABILITY)),
+        false);
+    writer.writeAttribute(
+        "swapProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_ARP_SWAP_PROBABILITY)),
+        false);
+    writer.writeAttribute(
+        "glideProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_ARP_GLIDE_PROBABILITY)),
+        false);
+    writer.writeAttribute(
+        "reverseProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_REVERSE_PROBABILITY)),
+        false);
+    writer.writeAttribute(
+        "chordProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_ARP_CHORD_PROBABILITY)),
+        false);
+    writer.writeAttribute(
+        "ratchetProbability",
+        DelugeHexMapper.q31ToHex(
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                arp, org.deluge.firmware2.Param.UNPATCHED_ARP_RATCHET_PROBABILITY)),
+        false);
+    writer.writeAttribute("chordPolyphony", arp.chordPolyphony(), false);
+  }
+
+  private static void writeKitDefaultArpParams(XMLSerializer writer, KitTrackModel kitTrack)
+      throws IOException {
+    org.deluge.model.ArpModel arp =
+        kitTrack.getArp() != null ? kitTrack.getArp() : org.deluge.model.ArpModel.defaultConfig();
+    Integer rawGate = kitTrack.getRawDefaultParamQ31("arpeggiatorGate");
+    int gateQ31 =
+        rawGate != null
+            ? rawGate
+            : (Float.compare(arp.gate(), org.deluge.model.ArpModel.defaultConfig().gate()) != 0
+                ? org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
+                    arp, org.deluge.firmware2.Param.UNPATCHED_ARP_GATE)
+                : Integer.MAX_VALUE);
+    writeRawQ31Tag(writer, "arpeggiatorGate", gateQ31);
+    Integer rawRate = kitTrack.getRawDefaultParamQ31("arpeggiatorRate");
+    int rateQ31 =
+        rawRate != null
+            ? rawRate
+            : (Float.compare(arp.rate(), org.deluge.model.ArpModel.defaultConfig().rate()) != 0
+                ? DelugeHexMapper.unipolarFloatToQ31Unified(arp.rate())
+                : 0);
+    writeRawQ31Tag(writer, "arpeggiatorRate", rateQ31);
+    for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_RHYTHM;
+        p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+        p++) {
+      String tag = Drum.unpatchedArpXmlTag(p);
+      if (tag == null) continue;
+      Integer raw = kitTrack.getRawDefaultParamQ31(tag);
+      writeRawQ31Tag(
+          writer, tag, raw != null ? raw : org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(arp, p));
+    }
+  }
+
+  private static void writeDrumDefaultArpParams(XMLSerializer writer, SoundDrum sound)
+      throws IOException {
+    org.deluge.model.ArpModel arp =
+        sound.getArp() != null ? sound.getArp() : org.deluge.model.ArpModel.defaultConfig();
+    for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_RHYTHM;
+        p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+        p++) {
+      String tag = Drum.unpatchedArpXmlTag(p);
+      if (tag == null) continue;
+      Integer raw = sound.getRawDefaultParamQ31(tag);
+      writeRawQ31Tag(
+          writer, tag, raw != null ? raw : org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(arp, p));
+    }
   }
 
   private static void serializeKitParams(XMLSerializer writer, KitTrackModel kit, ClipModel clip)
@@ -2670,12 +2779,37 @@ public class ProjectSerializer {
     allKeys.addAll(kitParams.keySet());
     allKeys.addAll(rawHex.keySet());
     allKeys.addAll(curves.keySet());
+    java.util.Map<String, String> arpDerivedHex = new java.util.LinkedHashMap<>();
+    if (clip != null && clip.getArp() != null) {
+      org.deluge.model.ArpModel defArp = org.deluge.model.ArpModel.defaultConfig();
+      org.deluge.model.ArpModel clipArp = clip.getArp();
+      for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_GATE;
+          p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+          p++) {
+        String tag = Drum.unpatchedArpXmlTag(p);
+        if (tag != null
+            && !rawHex.containsKey(tag)
+            && org.deluge.xml.ArpXmlCodec.isUnpatchedArpFieldChanged(defArp, clipArp, p)) {
+          arpDerivedHex.put(
+              tag,
+              DelugeHexMapper.q31ToHex(org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(clipArp, p)));
+        }
+      }
+      if (!rawHex.containsKey("arpeggiatorRate")
+          && Float.compare(defArp.rate(), clipArp.rate()) != 0) {
+        arpDerivedHex.put(
+            "arpeggiatorRate", DelugeHexMapper.unipolarFloatToHexUnified(clipArp.rate()));
+      }
+      allKeys.addAll(arpDerivedHex.keySet());
+    }
     for (String key : allKeys) {
       if (written.contains(key) || isGlobalEffectableSubElementKey(key)) {
         continue;
       }
       String baseHex =
-          resolveKitBaseHex(kitParams, rawHex, key, defaultGlobalEffectableBaseHex(key));
+          arpDerivedHex.containsKey(key)
+              ? arpDerivedHex.get(key)
+              : resolveKitBaseHex(kitParams, rawHex, key, defaultGlobalEffectableBaseHex(key));
       writeGlobalEffectableAttr(writer, curves, written, key, baseHex);
     }
 
@@ -2699,7 +2833,6 @@ public class ProjectSerializer {
           "modFXOffset",
           "compressorThreshold",
           "arpeggiatorRate",
-          "arpeggiatorGate",
           "tempo",
           "eqBass",
           "eqTreble",
@@ -2708,7 +2841,7 @@ public class ProjectSerializer {
           "0x00000000";
       case "modFXRate" -> "0xE0000000";
       case "sidechainCompressorShape" -> "0xDC28F5B2";
-      case "noteProbability" -> "0x7FFFFFFF";
+      case "arpeggiatorGate", "noteProbability" -> "0x7FFFFFFF";
       case "lpfFrequency" -> DelugeHexMapper.hzToHex(20000.0f);
       case "hpfFrequency" -> DelugeHexMapper.hzToHex(20.0f);
       default -> "0x80000000";
