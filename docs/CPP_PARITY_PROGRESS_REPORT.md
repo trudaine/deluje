@@ -19,7 +19,7 @@ Across **42 merged pull-request commits** (`PR #114` through `PR #159`), all **3
 | **Test Classes (`src/test`)** | — | 361 | **399** | **+38 dedicated parity suites** |
 | **Total Annotated `@Test` Methods** | 389 (+39 slow = 428) | 1,324 | **1,508** (1,478 default + 30 slow/hw) | **+184 new `@Test` cases** |
 | **Default Suite Passing (`./build.sh test`)** | 389 / 389 | — | **1,478 / 1,478 (`0` fail, `0` err)** | **100% green build** |
-| **XML Schema Coverage ([`XmlElementCoverageTest.java`](../src/test/java/org/deluge/xml/XmlElementCoverageTest.java))** | Partial | Gaps remaining | **319 tags, 538 handlers, `knownGaps = 0`** | **0 unhandled firmware tags** |
+| **XML Schema Coverage ([`XmlElementCoverageTest.java`](../src/test/java/org/deluge/XmlElementCoverageTest.java))** | Partial | Gaps remaining | **319 tags, 538 handlers, `knownGaps = 0`** | **0 unhandled firmware tags** |
 | **Preset / Song Q31 Parameter Precision** | Float-lossy | Partial raw Q31 | **0-LSB exact Q31 round-trip** | **Bit-exact `<synth>`, `<kit>`, `<song>`** |
 
 ```mermaid
