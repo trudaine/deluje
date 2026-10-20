@@ -21,6 +21,7 @@ public class SynthTrackModel extends TrackModel {
   private float noiseVol = 0.0f;
   private final UnisonConfig unison = new UnisonConfig();
   private float waveIndex = 0.0f;
+  private float osc2WaveIndex = 0.0f;
   private final int[] customLfoWave = new int[256];
 
   {
@@ -82,7 +83,12 @@ public class SynthTrackModel extends TrackModel {
   private float pan = 0.0f;
 
   // Stutter, bitcrush, sample rate reduction
-  private final StutterConfig stutter = new StutterConfig();
+  private final StutterConfig stutter =
+      new StutterConfig(
+          () ->
+              this.rawKnobs
+                  .getRawParamKnobs()
+                  .remove(org.deluge.firmware2.Param.UNPATCHED_STUTTER_RATE));
   private float sampleRateReduction = 0.0f;
   private float bitCrush = 0.0f;
 
@@ -129,6 +135,38 @@ public class SynthTrackModel extends TrackModel {
     this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_B_PITCH_ADJUST);
   }
 
+  public int getMod1PitchAdjustQ31() {
+    return this.rawKnobs
+        .getRawParamKnobs()
+        .getOrDefault(org.deluge.firmware2.Param.LOCAL_MODULATOR_0_PITCH_ADJUST, Integer.MIN_VALUE);
+  }
+
+  public void setMod1PitchAdjustQ31(int v) {
+    if (v == Integer.MIN_VALUE) {
+      this.rawKnobs
+          .getRawParamKnobs()
+          .remove(org.deluge.firmware2.Param.LOCAL_MODULATOR_0_PITCH_ADJUST);
+    } else {
+      this.rawKnobs.setRawParamKnob(org.deluge.firmware2.Param.LOCAL_MODULATOR_0_PITCH_ADJUST, v);
+    }
+  }
+
+  public int getMod2PitchAdjustQ31() {
+    return this.rawKnobs
+        .getRawParamKnobs()
+        .getOrDefault(org.deluge.firmware2.Param.LOCAL_MODULATOR_1_PITCH_ADJUST, Integer.MIN_VALUE);
+  }
+
+  public void setMod2PitchAdjustQ31(int v) {
+    if (v == Integer.MIN_VALUE) {
+      this.rawKnobs
+          .getRawParamKnobs()
+          .remove(org.deluge.firmware2.Param.LOCAL_MODULATOR_1_PITCH_ADJUST);
+    } else {
+      this.rawKnobs.setRawParamKnob(org.deluge.firmware2.Param.LOCAL_MODULATOR_1_PITCH_ADJUST, v);
+    }
+  }
+
   /** Wavefolder knob (raw Q31, C LOCAL_FOLD / XML "waveFold"); INT_MIN = off (sound.cpp:147). */
   private int waveFoldQ31 = Integer.MIN_VALUE;
 
@@ -138,6 +176,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setWaveFoldQ31(int v) {
     this.waveFoldQ31 = v;
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_FOLD);
   }
 
   /** Portamento knob (raw Q31, C UNPATCHED_PORTAMENTO / XML "portamento"); INT_MIN = off. */
@@ -272,6 +311,8 @@ public class SynthTrackModel extends TrackModel {
     this.oscMix = oscMix;
     osc1.setVolume(oscMix);
     osc2.setVolume(1.0f - oscMix);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_B_VOLUME);
   }
 
   public float getOscAVolume() {
@@ -281,6 +322,7 @@ public class SynthTrackModel extends TrackModel {
   public void setOscAVolume(float oscAVolume) {
     osc1.setVolume(oscAVolume);
     this.oscMix = oscAVolume;
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME);
   }
 
   public float getOscBVolume() {
@@ -289,6 +331,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setOscBVolume(float oscBVolume) {
     osc2.setVolume(oscBVolume);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_B_VOLUME);
   }
 
   public float getNoiseVol() {
@@ -297,6 +340,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setNoiseVol(float noiseVol) {
     this.noiseVol = noiseVol;
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_NOISE_VOLUME);
   }
 
   public float getWaveIndex() {
@@ -305,6 +349,18 @@ public class SynthTrackModel extends TrackModel {
 
   public void setWaveIndex(float v) {
     this.waveIndex = v;
+    this.osc2WaveIndex = v;
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_A_WAVE_INDEX);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_B_WAVE_INDEX);
+  }
+
+  public float getOsc2WaveIndex() {
+    return osc2WaveIndex;
+  }
+
+  public void setOsc2WaveIndex(float v) {
+    this.osc2WaveIndex = v;
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_B_WAVE_INDEX);
   }
 
   public String getOsc1SamplePath() {
@@ -467,6 +523,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setLpfFreq(float lpfFreq) {
     filter.setLpfFreq(lpfFreq);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_LPF_FREQ);
   }
 
   public float getLpfRes() {
@@ -475,6 +532,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setLpfRes(float lpfRes) {
     filter.setLpfRes(lpfRes);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_LPF_RESONANCE);
   }
 
   public float getLpfMorph() {
@@ -483,6 +541,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setLpfMorph(float lpfMorph) {
     filter.setLpfMorph(lpfMorph);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_LPF_MORPH);
   }
 
   public float getHpfFreq() {
@@ -491,6 +550,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setHpfFreq(float hpfFreq) {
     filter.setHpfFreq(hpfFreq);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_HPF_FREQ);
   }
 
   public float getHpfRes() {
@@ -499,6 +559,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setHpfRes(float hpfRes) {
     filter.setHpfRes(hpfRes);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_HPF_RESONANCE);
   }
 
   public float getHpfMorph() {
@@ -507,6 +568,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setHpfMorph(float hpfMorph) {
     filter.setHpfMorph(hpfMorph);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_HPF_MORPH);
   }
 
   public FilterMode getHpfMode() {
@@ -554,7 +616,17 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public void setMaxVoiceCount(int maxVoiceCount) {
-    this.maxVoiceCount = Math.max(1, Math.min(16, maxVoiceCount));
+    this.maxVoiceCount = Math.max(1, Math.min(255, maxVoiceCount));
+  }
+
+  private float sidechainSend = 0.0f;
+
+  public float getSidechainSend() {
+    return sidechainSend;
+  }
+
+  public void setSidechainSend(float sidechainSend) {
+    this.sidechainSend = Math.max(0.0f, Math.min(1.0f, sidechainSend));
   }
 
   public int getVoicePriority() {
@@ -587,6 +659,7 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public void setLfo(int index, LfoModel model) {
+    rawKnobs.clearLfoRateKnob(index);
     lfo[index] = model;
   }
 
@@ -704,6 +777,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setPortamento(float portamento) {
     this.portamento = portamento;
+    this.portamentoQ31 = org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(portamento);
   }
 
   public String getModFxType() {
@@ -720,6 +794,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setModFxRate(float modFxRate) {
     fx.setModFxRate(modFxRate);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.GLOBAL_MOD_FX_RATE);
   }
 
   public float getModFxDepth() {
@@ -728,6 +803,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setModFxDepth(float modFxDepth) {
     fx.setModFxDepth(modFxDepth);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.GLOBAL_MOD_FX_DEPTH);
   }
 
   public float getModFxFeedback() {
@@ -736,6 +812,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setModFxFeedback(float modFxFeedback) {
     fx.setModFxFeedback(modFxFeedback);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.UNPATCHED_MOD_FX_FEEDBACK);
   }
 
   public float getModFxOffset() {
@@ -744,6 +821,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setModFxOffset(float modFxOffset) {
     fx.setModFxOffset(modFxOffset);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.UNPATCHED_MOD_FX_OFFSET);
   }
 
   public float getDelaySend() {
@@ -752,6 +830,16 @@ public class SynthTrackModel extends TrackModel {
 
   public void setDelaySend(float delaySend) {
     fx.setDelaySend(delaySend);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.GLOBAL_DELAY_RATE);
+  }
+
+  public float getDelayFeedback() {
+    return fx.getDelayFeedback();
+  }
+
+  public void setDelayFeedback(float delayFeedback) {
+    fx.setDelayFeedback(delayFeedback);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.GLOBAL_DELAY_FEEDBACK);
   }
 
   public float getReverbSend() {
@@ -760,6 +848,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setReverbSend(float reverbSend) {
     fx.setReverbSend(reverbSend);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT);
   }
 
   public int getDelaySyncLevel() {
@@ -784,6 +873,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setDelayFeedbackQ31(int v) {
     fx.setDelayFeedbackQ31(v);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.GLOBAL_DELAY_FEEDBACK);
   }
 
   public boolean isDelayPingPong() {
@@ -820,6 +910,24 @@ public class SynthTrackModel extends TrackModel {
     this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.UNPATCHED_TREBLE);
   }
 
+  public float getEqBassFreq() {
+    return fx.getEqBassFreq();
+  }
+
+  public void setEqBassFreq(float eqBassFreq) {
+    fx.setEqBassFreq(eqBassFreq);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.UNPATCHED_BASS_FREQ);
+  }
+
+  public float getEqTrebleFreq() {
+    return fx.getEqTrebleFreq();
+  }
+
+  public void setEqTrebleFreq(float eqTrebleFreq) {
+    fx.setEqTrebleFreq(eqTrebleFreq);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.UNPATCHED_TREBLE_FREQ);
+  }
+
   @Override
   public float getVolume() {
     return volume;
@@ -847,6 +955,7 @@ public class SynthTrackModel extends TrackModel {
   @Override
   public void setPan(float v) {
     this.pan = v;
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_PAN);
   }
 
   public float getSampleRateReduction() {
@@ -855,6 +964,9 @@ public class SynthTrackModel extends TrackModel {
 
   public void setSampleRateReduction(float v) {
     this.sampleRateReduction = v;
+    this.rawKnobs
+        .getRawParamKnobs()
+        .remove(org.deluge.firmware2.Param.UNPATCHED_SAMPLE_RATE_REDUCTION);
   }
 
   public float getBitCrush() {
@@ -863,6 +975,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setBitCrush(float v) {
     this.bitCrush = v;
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.UNPATCHED_BITCRUSHING);
   }
 
   public float getCompressorAttack() {
@@ -911,6 +1024,9 @@ public class SynthTrackModel extends TrackModel {
 
   public void setCompressorThreshold(float v) {
     compressor.setCompressorThreshold(v);
+    this.rawKnobs
+        .getRawParamKnobs()
+        .remove(org.deluge.firmware2.Param.UNPATCHED_COMPRESSOR_THRESHOLD);
   }
 
   public float getCompressorRatio() {
@@ -927,6 +1043,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setCompressorShape(float v) {
     compressor.setCompressorShape(v);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE);
   }
 
   public int getCompressorSyncType() {
@@ -959,6 +1076,9 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public void setSidechainAttack(float v) {
+    if (compressor.getSidechainAttack() != v) {
+      compressor.setSidechainAttackRaw(-1);
+    }
     compressor.setSidechainAttack(v);
   }
 
@@ -967,6 +1087,9 @@ public class SynthTrackModel extends TrackModel {
   }
 
   public void setSidechainRelease(float v) {
+    if (compressor.getSidechainRelease() != v) {
+      compressor.setSidechainReleaseRaw(-1);
+    }
     compressor.setSidechainRelease(v);
   }
 
@@ -1189,6 +1312,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setOsc1PhaseWidthQ31(int v) {
     osc1.setPhaseWidthQ31(v);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_A_PHASE_WIDTH);
   }
 
   public int getOsc2PhaseWidthQ31() {
@@ -1197,6 +1321,7 @@ public class SynthTrackModel extends TrackModel {
 
   public void setOsc2PhaseWidthQ31(int v) {
     osc2.setPhaseWidthQ31(v);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_B_PHASE_WIDTH);
   }
 
   public int getModulator1FeedbackQ31() {
@@ -1300,6 +1425,7 @@ public class SynthTrackModel extends TrackModel {
     this.noiseVol = other.getNoiseVol();
     this.unison.copyFrom(other.getUnison());
     this.waveIndex = other.getWaveIndex();
+    this.osc2WaveIndex = other.getOsc2WaveIndex();
     this.filter.copyFrom(other.getFilter());
 
     // Arrays
@@ -1319,10 +1445,15 @@ public class SynthTrackModel extends TrackModel {
     // C instrument_clip.cpp:2312 — assigning a SoundInstrument clones defaultArpSettings into the
     // clip's arpSettings; preset browser hot-swap and undo snapshots rely on copyParametersFrom.
     this.arp = other.getArp();
+    ClipModel active = getActiveClip();
+    if (active != null && active.getArp() != null) {
+      active.setArp(other.getArp());
+    }
     this.arpRateQ31 = other.getArpRateQ31();
     this.polyphony = other.getPolyphony();
     this.maxVoiceCount = other.getMaxVoiceCount();
     this.voicePriority = other.getVoicePriority();
+    this.sidechainSend = other.getSidechainSend();
     this.modKnobMode = other.getModKnobMode();
     this.transpose = other.getTranspose();
     this.cents = other.getCents();

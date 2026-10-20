@@ -31,8 +31,10 @@ public class InstrumentXmlParser {
       List.of(
           FieldBinding.hexHz("defaultParams", "lpfFrequency", SynthTrackModel::setLpfFreq),
           FieldBinding.hexFloat("defaultParams", "lpfResonance", SynthTrackModel::setLpfRes),
+          FieldBinding.hexFloat("defaultParams", "lpfMorph", SynthTrackModel::setLpfMorph),
           FieldBinding.hexHz("defaultParams", "hpfFrequency", SynthTrackModel::setHpfFreq),
           FieldBinding.hexFloat("defaultParams", "hpfResonance", SynthTrackModel::setHpfRes),
+          FieldBinding.hexFloat("defaultParams", "hpfMorph", SynthTrackModel::setHpfMorph),
           FieldBinding.hexFloat(
               "defaultParams", "modulator1Feedback", SynthTrackModel::setModulator1Feedback),
           FieldBinding.hexFloat(
@@ -613,14 +615,17 @@ public class InstrumentXmlParser {
       }
     }
 
-    // -- Max voices (attribute on <sound>) --
-    if (soundNode.hasAttribute("maxVoices")) {
+    // -- Max voices & sideChainSend (C sound.cpp:1027-1030, 1257-1260 — readTagOrAttributeValueInt)
+    // --
+    String maxVoicesStr = attrOrDirectChildText(soundNode, "maxVoices");
+    if (maxVoicesStr != null && !maxVoicesStr.isBlank()) {
       try {
-        synth.setMaxVoiceCount(Integer.parseInt(soundNode.getAttribute("maxVoices")));
+        synth.setMaxVoiceCount(Integer.parseInt(maxVoicesStr.trim()));
       } catch (NumberFormatException e) {
-        LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
+        LOG.log(Level.FINE, "NumberFormatException parsing XML maxVoices", e);
       }
     }
+    readAttrOrChildHexFloat(soundNode, "sideChainSend", v -> synth.setSidechainSend(Math.abs(v)));
 
     // ── FM ratio/amount (from ProjectSerializer track attributes) ──
     // These attributes are our serializer's shorthand, not real Deluge XML. The Deluge format (and
@@ -755,21 +760,9 @@ public class InstrumentXmlParser {
         } catch (NumberFormatException ignored) {
         }
       }
-      if (sc.hasAttribute("syncLevel")) {
-        try {
-          synth.setSidechainSyncLevel(Integer.parseInt(sc.getAttribute("syncLevel")));
-        } catch (NumberFormatException e) {
-          LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
-        }
-      }
-      if (sc.hasAttribute("syncType")) {
-        try {
-          synth.setSidechainSyncType(
-              syncTypeFromFile(Integer.parseInt(sc.getAttribute("syncType"))));
-        } catch (NumberFormatException e) {
-          LOG.log(Level.FINE, "NumberFormatException parsing XML attribute", e);
-        }
-      }
+      // C mod_controllable_audio.cpp:899-907 — readTagOrAttributeValueInt on syncLevel & syncType.
+      readAttrOrChildInt(sc, "syncLevel", 0, synth::setSidechainSyncLevel);
+      readAttrOrChildInt(sc, "syncType", 0, v -> synth.setSidechainSyncType(syncTypeFromFile(v)));
     }
 
     // ── Stutter config (quantized, reverse, pingPong) ──
@@ -872,17 +865,34 @@ public class InstrumentXmlParser {
       if ((v = attrOrChildText(dpEl, "waveFold")) != null && !v.isBlank()) {
         synth.setWaveFoldQ31(DelugeHexMapper.hexToQ31(v));
       }
-      if ((v = attrOrChildText(dpEl, "lfo1Rate")) != null && !v.isBlank()) {
-        synth.getRawKnobs().setLfoRateKnobQ31(0, DelugeHexMapper.hexToQ31(v));
+      // C sound.cpp:4116 — <delayFeedback> lives inside <defaultParams> on firmware presets.
+      if ((v = attrOrChildText(dpEl, "delayFeedback")) != null
+          && !v.isBlank()
+          && (v.trim().startsWith("0x") || v.trim().startsWith("0X"))) {
+        synth.setDelayFeedbackQ31(DelugeHexMapper.hexToQ31(v.trim()));
       }
-      if ((v = attrOrChildText(dpEl, "lfo2Rate")) != null && !v.isBlank()) {
-        synth.getRawKnobs().setLfoRateKnobQ31(1, DelugeHexMapper.hexToQ31(v));
+      String[] lfoRateTags = {"lfo1Rate", "lfo2Rate", "lfo3Rate", "lfo4Rate"};
+      for (int i = 0; i < 4; i++) {
+        if ((v = attrOrChildText(dpEl, lfoRateTags[i])) != null && !v.isBlank()) {
+          LfoModel prev = synth.getLfo(i);
+          synth.setLfo(
+              i,
+              new LfoModel(
+                  DelugeHexMapper.hexToLfoHz(v),
+                  prev.waveform(),
+                  prev.depth(),
+                  prev.target(),
+                  prev.isLocal(),
+                  prev.syncLevel(),
+                  prev.syncType()));
+          synth.getRawKnobs().setLfoRateKnobQ31(i, DelugeHexMapper.hexToQ31(v));
+        }
       }
-      if ((v = attrOrChildText(dpEl, "lfo3Rate")) != null && !v.isBlank()) {
-        synth.getRawKnobs().setLfoRateKnobQ31(2, DelugeHexMapper.hexToQ31(v));
+      if ((v = attrOrChildText(dpEl, "oscAWavetablePosition")) != null && !v.isBlank()) {
+        synth.setWaveIndex(DelugeHexMapper.hexToUnipolarFloatUnified(v));
       }
-      if ((v = attrOrChildText(dpEl, "lfo4Rate")) != null && !v.isBlank()) {
-        synth.getRawKnobs().setLfoRateKnobQ31(3, DelugeHexMapper.hexToQ31(v));
+      if ((v = attrOrChildText(dpEl, "oscBWavetablePosition")) != null && !v.isBlank()) {
+        synth.setOsc2WaveIndex(DelugeHexMapper.hexToUnipolarFloatUnified(v));
       }
       // Run raw-knob population last so model setters above do not clear rawParamKnobs entries.
       for (var e : SOUNDPARAMS_RAW_PATCHED.entrySet()) {
@@ -911,10 +921,10 @@ public class InstrumentXmlParser {
       val = val.trim().toLowerCase();
       switch (val) {
         case "mono":
-        case "0":
           synth.setPolyphony(SynthTrackModel.PolyphonyMode.MONO);
           break;
         case "auto":
+        case "0": // C functions.cpp:861-863 — pre-June 2017 firmware encoding
           synth.setPolyphony(SynthTrackModel.PolyphonyMode.AUTO);
           break;
         case "legato":
@@ -986,14 +996,14 @@ public class InstrumentXmlParser {
           }
         });
 
-    // ── Filter Route ──
+    // ── Filter Route (C filter_config.cpp:16-20 — "H2L"=0, "L2H"=1, "PARA"=2) ──
     readAttrOrChildString(
         soundNode,
         "filterRoute",
         v -> {
           if ("L2H".equalsIgnoreCase(v) || "LPF_TO_HPF".equalsIgnoreCase(v)) {
             synth.setFilterRoute(1); // LOW_TO_HIGH
-          } else if ("PARALLEL".equalsIgnoreCase(v)) {
+          } else if ("PARA".equalsIgnoreCase(v) || "PARALLEL".equalsIgnoreCase(v)) {
             synth.setFilterRoute(2); // PARALLEL
           } else {
             synth.setFilterRoute(0); // HIGH_TO_LOW / H2L
@@ -1042,7 +1052,7 @@ public class InstrumentXmlParser {
     }
     if (clipStr != null && !clipStr.isEmpty()) {
       try {
-        synth.setClippingAmount(Integer.parseInt(clipStr));
+        synth.setClippingAmount(Math.round(Float.parseFloat(clipStr)));
       } catch (NumberFormatException e) {
         LOG.log(Level.FINE, "Error parsing clippingAmount", e);
       }
@@ -1694,9 +1704,15 @@ public class InstrumentXmlParser {
     NodeList nodes = soundNode.getElementsByTagName("stutter");
     if (nodes.getLength() == 0) return;
     Element stut = (Element) nodes.item(0);
-    readAttrBool(stut, "quantized", val -> synth.getStutter().setStutterQuantized(val));
-    readAttrBool(stut, "reverse", val -> synth.getStutter().setStutterReversed(val));
-    readAttrBool(stut, "pingPong", val -> synth.getStutter().setStutterPingPong(val));
+    // C mod_controllable_audio.cpp:481-486, 760-785 — hardware writes "reverse"; tolerate legacy
+    // "reversed" as fallback when "reverse" is absent.
+    readBoolAttrOrChild(stut, "quantized", val -> synth.getStutter().setStutterQuantized(val));
+    if (attrOrChildText(stut, "reverse") != null) {
+      readBoolAttrOrChild(stut, "reverse", val -> synth.getStutter().setStutterReversed(val));
+    } else {
+      readBoolAttrOrChild(stut, "reversed", val -> synth.getStutter().setStutterReversed(val));
+    }
+    readBoolAttrOrChild(stut, "pingPong", val -> synth.getStutter().setStutterPingPong(val));
   }
 
   private static void parseLegacyParams(Element soundNode, SynthTrackModel synth) {
@@ -2013,7 +2029,8 @@ public class InstrumentXmlParser {
     knobs.setRawParamKnob(Param.LOCAL_OSC_B_PHASE_WIDTH, 0);
     synth.setOsc1PhaseWidthQ31(0);
     synth.setOsc2PhaseWidthQ31(0);
-    // AutoParam base — wavetable positions.
+    // AutoParam base — wavetable positions (raw 0 -> unipolar midpoint 0.5f).
+    synth.setWaveIndex(0.5f);
     knobs.setRawParamKnob(Param.LOCAL_OSC_A_WAVE_INDEX, 0);
     knobs.setRawParamKnob(Param.LOCAL_OSC_B_WAVE_INDEX, 0);
     // sound.cpp:160-163 — reverb send OFF, delay rate 0, delay feedback OFF, arp rate 0 (the
@@ -2158,19 +2175,31 @@ public class InstrumentXmlParser {
     if ((v = attrOrChildText(sp, "waveFold")) != null && !v.isBlank()) {
       synth.setWaveFoldQ31(DelugeHexMapper.hexToQ31(v));
     }
+    if ((v = attrOrChildText(sp, "oscAWavetablePosition")) != null && !v.isBlank()) {
+      synth.setWaveIndex(DelugeHexMapper.hexToUnipolarFloatUnified(v));
+    }
+    if ((v = attrOrChildText(sp, "oscBWavetablePosition")) != null && !v.isBlank()) {
+      synth.setOsc2WaveIndex(DelugeHexMapper.hexToUnipolarFloatUnified(v));
+    }
+    readAttrFloatHex(sp, "compressorThreshold", synth::setCompressorThreshold, true);
     // LFO rate knobs: firmware lfo1 = global1 (slot 0), lfo2 = local1 (slot 1),
     // lfo3 = global2 (slot 2), lfo4 = local2 (slot 3).
-    if ((v = attrOrChildText(sp, "lfo1Rate")) != null && !v.isBlank()) {
-      synth.getRawKnobs().setLfoRateKnobQ31(0, DelugeHexMapper.hexToQ31(v));
-    }
-    if ((v = attrOrChildText(sp, "lfo2Rate")) != null && !v.isBlank()) {
-      synth.getRawKnobs().setLfoRateKnobQ31(1, DelugeHexMapper.hexToQ31(v));
-    }
-    if ((v = attrOrChildText(sp, "lfo3Rate")) != null && !v.isBlank()) {
-      synth.getRawKnobs().setLfoRateKnobQ31(2, DelugeHexMapper.hexToQ31(v));
-    }
-    if ((v = attrOrChildText(sp, "lfo4Rate")) != null && !v.isBlank()) {
-      synth.getRawKnobs().setLfoRateKnobQ31(3, DelugeHexMapper.hexToQ31(v));
+    String[] clipLfoTags = {"lfo1Rate", "lfo2Rate", "lfo3Rate", "lfo4Rate"};
+    for (int i = 0; i < 4; i++) {
+      if ((v = attrOrChildText(sp, clipLfoTags[i])) != null && !v.isBlank()) {
+        LfoModel prev = synth.getLfo(i);
+        synth.setLfo(
+            i,
+            new LfoModel(
+                DelugeHexMapper.hexToLfoHz(v),
+                prev.waveform(),
+                prev.depth(),
+                prev.target(),
+                prev.isLocal(),
+                prev.syncLevel(),
+                prev.syncType()));
+        synth.getRawKnobs().setLfoRateKnobQ31(i, DelugeHexMapper.hexToQ31(v));
+      }
     }
 
     // Patched params the firmware reads as RAW Q31 from <soundParams> (readParamsFromFile copies
@@ -2287,6 +2316,8 @@ public class InstrumentXmlParser {
     }
     readHexFloat(eqEl, "bass", synth::setEqBass);
     readHexFloat(eqEl, "treble", synth::setEqTreble);
+    readHexFloat(eqEl, "bassFrequency", synth::setEqBassFreq);
+    readHexFloat(eqEl, "trebleFrequency", synth::setEqTrebleFreq);
     rawKnob(eqEl, "bass", synth, Param.UNPATCHED_BASS);
     rawKnob(eqEl, "treble", synth, Param.UNPATCHED_TREBLE);
     rawKnob(eqEl, "bassFrequency", synth, Param.UNPATCHED_BASS_FREQ);

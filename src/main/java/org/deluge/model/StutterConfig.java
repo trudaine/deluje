@@ -6,6 +6,15 @@ public class StutterConfig {
   private boolean stutterQuantized = true;
   private boolean stutterReversed = false;
   private boolean stutterPingPong = false;
+  private final Runnable onRateMutated;
+
+  public StutterConfig() {
+    this.onRateMutated = null;
+  }
+
+  public StutterConfig(Runnable onRateMutated) {
+    this.onRateMutated = onRateMutated;
+  }
 
   public float getStutterRate() {
     return stutterRate;
@@ -13,6 +22,9 @@ public class StutterConfig {
 
   public void setStutterRate(float stutterRate) {
     this.stutterRate = stutterRate;
+    if (onRateMutated != null) {
+      onRateMutated.run();
+    }
   }
 
   public boolean isStutterQuantized() {

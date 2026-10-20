@@ -53,6 +53,14 @@ public class DelugeXmlExporter {
     int exportedMode = (isDx7 && model.getSynthMode() == 1) ? 0 : model.getSynthMode();
     rootElement.setAttribute("polyphonic", polyphonyToFirmwareString(model.getPolyphony()));
     rootElement.setAttribute("mode", synthModeToFirmwareString(exportedMode));
+    // C filter_config.cpp:8-20, mod_controllable_audio.cpp:408-411 — lpfMode, hpfMode, filterRoute
+    rootElement.setAttribute(
+        "lpfMode", org.deluge.xml.DelugeXmlUtil.lpfModeToFirmwareString(model.getFilterMode()));
+    rootElement.setAttribute(
+        "hpfMode", org.deluge.xml.DelugeXmlUtil.hpfModeToFirmwareString(model.getHpfMode()));
+    rootElement.setAttribute(
+        "filterRoute",
+        org.deluge.xml.DelugeXmlUtil.filterRouteToFirmwareString(model.getFilterRoute()));
 
     // Oscillator 1 & 2 (C sound.cpp:3748-3758, 4194-4195 & functions.cpp:680-721)
     Element osc1 = doc.createElement("osc1");
@@ -86,12 +94,22 @@ public class DelugeXmlExporter {
         "lpfResonance",
         DelugeHexMapper.unipolarFloatToHexUnified(model.getLpfRes()));
     appendTextChild(
+        doc,
+        defaultParams,
+        "lpfMorph",
+        DelugeHexMapper.unipolarFloatToHexUnified(model.getLpfMorph()));
+    appendTextChild(
         doc, defaultParams, "hpfFrequency", DelugeHexMapper.hzToHex(model.getHpfFreq()));
     appendTextChild(
         doc,
         defaultParams,
         "hpfResonance",
         DelugeHexMapper.unipolarFloatToHexUnified(model.getHpfRes()));
+    appendTextChild(
+        doc,
+        defaultParams,
+        "hpfMorph",
+        DelugeHexMapper.unipolarFloatToHexUnified(model.getHpfMorph()));
     appendTextChild(
         doc,
         defaultParams,

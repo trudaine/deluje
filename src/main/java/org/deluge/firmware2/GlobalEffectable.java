@@ -9,6 +9,21 @@ import java.util.Arrays;
  */
 public abstract class GlobalEffectable {
   public final FilterSet filterSet = new FilterSet();
+  // C global_effectable.cpp:752-789, mod_controllable_audio.cpp:61-63, 368-370 — unpatched
+  // track-level filter & SRR/bitcrush state for GlobalEffectableForClip (Kit / AudioOutput).
+  public FilterSet.FilterMode globalLpfMode = FilterSet.FilterMode.TRANSISTOR_24DB;
+  public FilterSet.FilterMode globalHpfMode = FilterSet.FilterMode.HPLADDER;
+  public FilterRoute globalFilterRoute = FilterRoute.HIGH_TO_LOW;
+  public int unpatchedLpfFreq = Integer.MAX_VALUE;
+  public int unpatchedLpfRes = Integer.MIN_VALUE;
+  public int unpatchedLpfMorph = Integer.MIN_VALUE;
+  public int unpatchedHpfFreq = Integer.MIN_VALUE;
+  public int unpatchedHpfRes = Integer.MIN_VALUE;
+  public int unpatchedHpfMorph = Integer.MIN_VALUE;
+  public int unpatchedBitCrush = Integer.MIN_VALUE;
+  public int unpatchedSampleRateReduction = Integer.MIN_VALUE;
+  private final SrrBitcrush trackSrrBitcrush = new SrrBitcrush();
+  private int[][] srrStereoBuffer = new int[128][2];
   public int reverbSendKnob = Integer.MIN_VALUE;
   public volatile boolean muted = false;
 
@@ -119,6 +134,11 @@ public abstract class GlobalEffectable {
       } else {
         volumePostFX += Functions.multiply_32x32_rshift32_rounded(volumeAdjustment, 471633397);
       }
+      if (hasTrackLevelSaturation()) {
+        // C global_effectable_for_clip.cpp:82, global_effectable.cpp:752-785 — configure filterSet
+        // and apply resonance/drive gain compensation into volumePostFX.
+        volumePostFX = setupFilterSetConfig(volumePostFX);
+      }
       postFXVolume = volumePostFX;
       postReverbVolume = 134217728;
       renderInternal(trackBuffer, numSamples, trackReverbBuffer);
@@ -169,6 +189,33 @@ public abstract class GlobalEffectable {
       // Apply FilterSet
       if (filterSet.isOn()) {
         filterSet.renderLongStereo(trackBuffer, numSamples);
+      }
+
+      // C global_effectable_for_clip.cpp:134 — processSRRAndBitcrushing updates volumePostFX.
+      if (hasTrackLevelSaturation()) {
+        if (unpatchedBitCrush > Integer.MIN_VALUE
+            || unpatchedSampleRateReduction > Integer.MIN_VALUE) {
+          if (srrStereoBuffer.length < numSamples) {
+            srrStereoBuffer = new int[numSamples][2];
+          }
+          for (int i = 0; i < numSamples; i++) {
+            srrStereoBuffer[i][0] = trackBuffer[i * 2];
+            srrStereoBuffer[i][1] = trackBuffer[i * 2 + 1];
+          }
+          int[] volRef = {postFXVolume};
+          trackSrrBitcrush.process(
+              srrStereoBuffer, numSamples, unpatchedBitCrush, unpatchedSampleRateReduction, volRef);
+          postFXVolume = volRef[0];
+          for (int i = 0; i < numSamples; i++) {
+            trackBuffer[i * 2] = srrStereoBuffer[i][0];
+            trackBuffer[i * 2 + 1] = srrStereoBuffer[i][1];
+          }
+        } else {
+          int[] volRef = {postFXVolume};
+          trackSrrBitcrush.process(
+              srrStereoBuffer, 0, unpatchedBitCrush, unpatchedSampleRateReduction, volRef);
+          postFXVolume = volRef[0];
+        }
       }
 
       if (muted) {
@@ -399,5 +446,58 @@ public abstract class GlobalEffectable {
         reverb[i] = (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, tempRevLong[i]));
       }
     }
+  }
+
+  /**
+   * C global_effectable.cpp:752-785 — configures {@link #filterSet} from unpatched LPF/HPF knobs,
+   * filter modes, and routing, returning the resonance/drive-compensated {@code postFXVolume}.
+   */
+  private int setupFilterSetConfig(int volumePostFX) {
+    int lpfFrequency =
+        Functions.getFinalParameterValueExp(
+            Functions.getParamNeutralValue(Param.LOCAL_LPF_FREQ),
+            Functions.cableToExpParamShortcut(unpatchedLpfFreq));
+    int lpfResonance =
+        Functions.getFinalParameterValueLinear(
+            Functions.getParamNeutralValue(Param.LOCAL_LPF_RESONANCE),
+            Functions.cableToLinearParamShortcut(unpatchedLpfRes));
+    int lpfMorph =
+        Functions.getFinalParameterValueLinear(
+            Functions.getParamNeutralValue(Param.LOCAL_LPF_MORPH),
+            Functions.cableToExpParamShortcut(unpatchedLpfMorph));
+    int hpfFrequency =
+        Functions.getFinalParameterValueExp(
+            Functions.getParamNeutralValue(Param.LOCAL_HPF_FREQ),
+            Functions.cableToExpParamShortcut(unpatchedHpfFreq));
+    int hpfResonance =
+        Functions.getFinalParameterValueLinear(
+            Functions.getParamNeutralValue(Param.LOCAL_HPF_RESONANCE),
+            Functions.cableToLinearParamShortcut(unpatchedHpfRes));
+    int hpfMorph =
+        Functions.getFinalParameterValueLinear(
+            Functions.getParamNeutralValue(Param.LOCAL_HPF_MORPH),
+            Functions.cableToExpParamShortcut(unpatchedHpfMorph));
+
+    boolean doLPF =
+        globalLpfMode != FilterSet.FilterMode.OFF
+            && (globalLpfMode == FilterSet.FilterMode.TRANSISTOR_24DB_DRIVE
+                || unpatchedLpfFreq < 2147483602
+                || unpatchedLpfMorph > Integer.MIN_VALUE);
+    boolean doHPF =
+        globalHpfMode != FilterSet.FilterMode.OFF
+            && (unpatchedHpfFreq > Integer.MIN_VALUE || unpatchedHpfMorph > Integer.MIN_VALUE);
+    FilterSet.FilterMode lpfModeForRender = doLPF ? globalLpfMode : FilterSet.FilterMode.OFF;
+    FilterSet.FilterMode hpfModeForRender = doHPF ? globalHpfMode : FilterSet.FilterMode.OFF;
+    return filterSet.setConfig(
+        lpfFrequency,
+        lpfResonance,
+        lpfModeForRender,
+        lpfMorph,
+        hpfFrequency,
+        hpfResonance,
+        hpfModeForRender,
+        hpfMorph,
+        volumePostFX,
+        globalFilterRoute);
   }
 }

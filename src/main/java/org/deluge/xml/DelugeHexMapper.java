@@ -136,7 +136,7 @@ public class DelugeHexMapper {
   /** Converts a normalized float [-1.0, 1.0] into a raw signed Q31 integer. */
   public static int floatToQ31(float value) {
     value = Math.max(-1.0f, Math.min(1.0f, value));
-    return (int) (value * Integer.MAX_VALUE);
+    return value <= -1.0f ? Integer.MIN_VALUE : (int) Math.rint((double) value * Integer.MAX_VALUE);
   }
 
   /** Formats a raw signed Q31 integer as a 10-char {@code 0xCCCCCCCC} hex string. */
@@ -158,10 +158,10 @@ public class DelugeHexMapper {
 
   /** Converts frequency (Hz) on [20, 20000] into a raw signed Q31 integer. */
   public static int hzToQ31(float hz) {
-    hz = Math.max(20.0f, Math.min(20000.0f, hz));
-    double exponent = Math.log(hz / 20.0) / Math.log(1000.0);
-    float norm = (float) (exponent * 2.0 - 1.0);
-    return floatToQ31(norm);
+    double clamped = Math.max(20.0, Math.min(20000.0, hz));
+    double norm = 2.0 * Math.log(clamped / 20.0) / Math.log(1000.0) - 1.0;
+    norm = Math.max(-1.0, Math.min(1.0, norm));
+    return norm <= -1.0 ? Integer.MIN_VALUE : (int) Math.rint(norm * 2147483647.0);
   }
 
   /**
@@ -178,18 +178,21 @@ public class DelugeHexMapper {
     return q31ToHex(hzToQ31(hz));
   }
 
-  /** LFO frequency exponential mapping: [-1.0, 1.0] maps to [0.01, 100.0] Hz. */
+  /**
+   * LFO frequency exponential mapping matching firmware {@code Sound::getLFOPhaseIncrement} (C
+   * {@code sound.cpp:2700-2707}: {@code getExp(121739, patchCombineExpStep(0, knob, 2^30))}).
+   */
   public static float hexToLfoHz(String hex) {
-    float norm = hexToFloat(hex);
-    double exponent = (norm + 1.0f) / 2.0f;
-    return (float) (0.01 * Math.pow(10000.0, exponent));
+    int q31 = hexToQ31(hex);
+    long inc =
+        org.deluge.firmware2.Functions.getExp(
+                121739, org.deluge.firmware2.Functions.patchCombineExpStep(0, q31, 1073741824))
+            & 0xFFFFFFFFL;
+    return (float) (inc * 44100.0 / 4294967296.0);
   }
 
   public static String lfoHzToHex(float hz) {
-    hz = Math.max(0.01f, Math.min(100.0f, hz));
-    double exponent = Math.log(hz / 0.01) / Math.log(10000.0);
-    float norm = (float) (exponent * 2.0 - 1.0);
-    return floatToHex(norm);
+    return q31ToHex(org.deluge.engine.FirmwareFactory.lfoRateKnobFromHz(hz));
   }
 
   // ── Envelope time mapping ──
@@ -224,8 +227,11 @@ public class DelugeHexMapper {
 
   /** Converts a unipolar float [0.0, 1.0] linearly to a raw signed Q31 integer. */
   public static int unipolarFloatToQ31Unified(float norm) {
-    norm = Math.max(0.0f, Math.min(1.0f, norm));
-    return (int) (long) (norm * 4294967295.0 - 2147483648.0);
+    if (norm <= 0.0f) {
+      return Integer.MIN_VALUE;
+    }
+    norm = Math.min(1.0f, norm);
+    return (int) Math.round((double) norm * 4294967295.0 - 2147483648.0);
   }
 
   /** Helper to parse signed 32-bit hex values linearly to the unipolar range [0.0, 1.0]. */
@@ -245,6 +251,14 @@ public class DelugeHexMapper {
   }
 
   /**
+   * Convert raw signed Q31 knob integer to envelope time in seconds (unified exponential curve).
+   */
+  public static float q31ToEnvTime(int q31) {
+    float norm = q31ToUnipolarFloatUnified(q31);
+    return (float) (0.001 * Math.pow(30000.0, norm));
+  }
+
+  /**
    * Read envelope time from hex string, returning seconds (unified signed unipolar exponential
    * mapping).
    */
@@ -253,14 +267,24 @@ public class DelugeHexMapper {
     return (float) (0.001 * Math.pow(30000.0, norm));
   }
 
-  /** Write envelope time (seconds) to hex string (unified signed unipolar exponential mapping). */
-  public static String envTimeToHex(float timeSec) {
+  /** Convert envelope time (seconds) to raw signed Q31 knob integer (unified exponential curve). */
+  public static int envTimeToQ31(float timeSec) {
     float clamped = Math.max(0.001f, Math.min(30.0f, timeSec));
     double norm = Math.log(clamped / 0.001) / Math.log(30000.0);
-    return unipolarFloatToHexUnified((float) norm);
+    return unipolarFloatToQ31Unified((float) norm);
+  }
+
+  /** Write envelope time (seconds) to hex string (unified signed unipolar exponential mapping). */
+  public static String envTimeToHex(float timeSec) {
+    return q31ToHex(envTimeToQ31(timeSec));
   }
 
   // ── Envelope sustain mapping ──
+
+  /** Convert raw signed Q31 knob integer linearly to unipolar sustain [0.0, 1.0]. */
+  public static float q31ToSustain(int q31) {
+    return q31ToUnipolarFloatUnified(q31);
+  }
 
   /**
    * Sustain maps linearly as standard unipolar parameter: [0x80000000, 0x7FFFFFFF] -> [0.0, 1.0].
