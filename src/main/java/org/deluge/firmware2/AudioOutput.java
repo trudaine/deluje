@@ -121,6 +121,9 @@ public class AudioOutput extends GlobalEffectable {
 
   /** Add one timeline window (one arrangement instance of this track's clip). */
   public void addTimelineRange(long startTick, long endTick) {
+    if (ranges.isEmpty()) {
+      activeRangeIdx = -1;
+    }
     ranges.add(new long[] {startTick, endTick});
   }
 
@@ -148,10 +151,8 @@ public class AudioOutput extends GlobalEffectable {
     }
     if (idx >= 0 && idx != activeRangeIdx) {
       onTransportStart(); // entered a (new) instance → restart from its start
-    } else if (idx < 0 && activeRangeIdx >= 0) {
-      onTransportStop();
     } else if (idx < 0) {
-      clipActive = false;
+      onTransportStop();
     }
     activeRangeIdx = (sample != null) ? idx : -1;
     // C song.cpp:2509-2514 — limit delay feedback whenever this clip is not active now.

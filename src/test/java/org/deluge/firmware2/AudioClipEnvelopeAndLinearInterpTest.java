@@ -200,7 +200,8 @@ class AudioClipEnvelopeAndLinearInterpTest {
     Delay delay = new Delay();
     final int fullFeedback =
         1 << 30; // 1073741824 (>= 1040187392 -> infinite repeats when un-clamped)
-    final int feedbackLimit = (1 << 30) - (1 << 26); // C global_effectable.cpp:1140 (1006632960)
+    final int feedbackLimit =
+        (1 << 30) - (1 << 26); // C global_effectable.cpp:1132-1135 (1006632960)
     int[] buf = new int[256];
     int[][] stereoBuf = new int[128][2];
     int[] rev = new int[128];
@@ -356,10 +357,36 @@ class AudioClipEnvelopeAndLinearInterpTest {
     assertTrue(arranged.isPlaying(), "updateTimeline after onTransportStop must re-enter window");
     assertFalse(arranged.shouldLimitDelayFeedback);
 
+    // 3. Moving placement window mid-playback, swapping samples right before exiting a window,
+    // and direct setPlaying(true) -> stopped updateTimeline must all stop streaming immediately.
+    arranged.setTimelineRange(50, 60);
+    arranged.updateTimeline(15, true);
+    assertFalse(arranged.isPlaying(), "Moving placement away from playhead must stop streaming");
+    assertTrue(arranged.shouldLimitDelayFeedback);
+
+    arranged.updateTimeline(52, true);
+    assertTrue(arranged.isPlaying(), "Entering relocated [50, 60) placement must start streaming");
+    assertFalse(arranged.shouldLimitDelayFeedback);
+
+    Sample sample2 = makeConstantSample(64, 120_000_000);
+    arranged.setClip(sample2, true);
+    arranged.updateTimeline(60, true);
+    assertFalse(
+        arranged.isPlaying(), "Swapping sample right before exiting window must stop at endTick");
+    assertTrue(arranged.shouldLimitDelayFeedback);
+
+    arranged.setPlaying(true);
+    assertTrue(arranged.isPlaying());
+    arranged.updateTimeline(0, false);
+    assertFalse(
+        arranged.isPlaying(), "Stopped transport updateTimeline must stop setPlaying(true) stream");
+    assertTrue(arranged.shouldLimitDelayFeedback);
+
+    arranged.setPlaying(true);
     arranged.setClip(null, false);
     assertFalse(arranged.isPlaying());
     assertTrue(arranged.shouldLimitDelayFeedback);
-    arranged.updateTimeline(15, true);
+    arranged.updateTimeline(55, true);
     assertFalse(arranged.isPlaying());
     assertTrue(arranged.shouldLimitDelayFeedback);
   }
