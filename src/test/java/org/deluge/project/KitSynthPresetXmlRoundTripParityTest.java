@@ -7,8 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,11 +23,16 @@ import org.deluge.engine.FirmwareFactory;
 import org.deluge.engine.FirmwareKit;
 import org.deluge.engine.FirmwareSound;
 import org.deluge.firmware2.Functions;
+import org.deluge.firmware2.Param;
+import org.deluge.model.ClipModel;
+import org.deluge.model.EnvelopeModel;
 import org.deluge.model.FilterMode;
 import org.deluge.model.KitTrackModel;
 import org.deluge.model.LfoModel;
 import org.deluge.model.LfoType;
+import org.deluge.model.NoteModel;
 import org.deluge.model.PatchCable;
+import org.deluge.model.ProjectModel;
 import org.deluge.model.SoundDrum;
 import org.deluge.model.SynthTrackModel;
 import org.deluge.modulation.automation.ParamNode;
@@ -34,11 +42,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Verifies lossless XML preset and kit serialization/parsing and live DSP parity across {@link
- * KitSynthSerializer}, {@link DelugeXmlExporter}, {@link org.deluge.xml.InstrumentXmlParser},
- * {@link org.deluge.xml.KitXmlParser}, {@link DelugeatorRandomizer}, and {@link FirmwareFactory}
- * against C++ firmware ({@code mod_controllable_audio.cpp}, {@code filter_config.cpp}, {@code
- * sound.cpp}, {@code functions.cpp}, and {@code patch_cable_set.cpp}).
+ * Verifies lossless XML preset, kit, and full-song serialization/parsing and live DSP parity across
+ * {@link KitSynthSerializer}, {@link ProjectSerializer}, {@link DelugeXmlExporter}, {@link
+ * org.deluge.xml.InstrumentXmlParser}, {@link org.deluge.xml.KitXmlParser}, {@link
+ * org.deluge.xml.SongXmlParser}, {@link DelugeatorRandomizer}, and {@link FirmwareFactory} against
+ * C++ firmware ({@code mod_controllable_audio.cpp}, {@code filter_config.cpp}, {@code sound.cpp},
+ * {@code functions.cpp}, and {@code patch_cable_set.cpp}).
  */
 class KitSynthPresetXmlRoundTripParityTest {
 
@@ -374,7 +383,7 @@ class KitSynthPresetXmlRoundTripParityTest {
       throws Exception {
     for (int seed = 0; seed < 8; seed++) {
       SynthTrackModel model = new SynthTrackModel("RandomSynth_" + seed);
-      org.deluge.model.ProjectModel project = new org.deluge.model.ProjectModel();
+      ProjectModel project = new ProjectModel();
       DelugeatorRandomizer.randomizeSynth(
           model, project, new DelugeatorRandomizer.RandomizerSettings(), new Random(1000L + seed));
 
@@ -436,6 +445,403 @@ class KitSynthPresetXmlRoundTripParityTest {
           afterAudio,
           "Bit-exact rendered stereo PCM mismatch after round-trip on " + resource);
     }
+  }
+
+  @Test
+  void fullSongRoundTripPreservesSynthAndKitDspBitExactAndAllTags(@TempDir Path tempDir)
+      throws Exception {
+    ProjectModel project = new ProjectModel();
+
+    SynthTrackModel synth = new SynthTrackModel("SongSynth");
+    synth.setSynthMode(1); // FM
+    synth.setFilterMode(FilterMode.SVF_BAND);
+    synth.setHpfMode(FilterMode.SVF_NOTCH);
+    synth.setFilterRoute(2); // PARALLEL -> "PARA"
+    synth.setLpfFreq(1300.0f);
+    synth.setHpfFreq(320.0f);
+    synth.setLpfMorph(0.6f);
+    synth.setHpfMorph(0.3f);
+    synth.setClippingAmount(5);
+    synth.setCompressorThreshold(0.35f);
+    synth.setModFxType("StereoChorus");
+    synth.setModFxRate(0.45f);
+    synth.setModFxDepth(0.55f);
+    synth.setDelaySend(0.0f);
+    synth.setDelayFeedbackQ31(0xBA000000);
+    synth.setDelayPingPong(false);
+    synth.setDelayAnalog(false);
+    synth.setDelaySyncLevel(5);
+    synth.setDelaySyncType(2); // DOTTED -> file 19
+    synth.setModulator1Transpose(12);
+    synth.setModulator1Cents(-15);
+    synth.setModulator2Transpose(-7);
+    synth.setModulator2Cents(20);
+    synth.setModulator1ToModulator0(true);
+    synth.setModulator1AmountQ31(0x5A827999);
+    synth.setModulator1FeedbackQ31(0xEC000000);
+    synth.setModulator2AmountQ31(0x28000000);
+    synth.setModulator2FeedbackQ31(0xD4000000);
+    synth.setCarrier1FeedbackQ31(0xC0000000);
+    synth.setCarrier2FeedbackQ31(0x18000000);
+    synth.setWaveFoldQ31(0x2C000000);
+    synth.setEqBass(0.45f);
+    synth.setEqTreble(-0.35f);
+    synth.setEqBassFreq(-0.3f);
+    synth.setEqTrebleFreq(0.6f);
+    synth.setPitchAdjustQ31(0x08000000);
+    synth.getOsc1().setPitchAdjustQ31(0x04000000);
+    synth.getOsc2().setPitchAdjustQ31(0xFC000000);
+    synth.getRawKnobs().getRawParamKnobs().put(Param.LOCAL_MODULATOR_0_PITCH_ADJUST, 0x0C000000);
+    synth.getRawKnobs().getRawParamKnobs().put(Param.LOCAL_MODULATOR_1_PITCH_ADJUST, 0xF8000000);
+    synth.setEnv(0, new EnvelopeModel(0.025f, 0.18f, 0.65f, 0.35f, "NONE", 0.0f));
+    synth.setEnv(1, new EnvelopeModel(0.05f, 0.30f, 0.45f, 0.50f, "NONE", 0.0f));
+    synth.setEnv(2, new EnvelopeModel(0.08f, 0.42f, 0.25f, 0.60f, "NONE", 0.0f));
+    synth.setEnv(3, new EnvelopeModel(0.12f, 0.55f, 0.75f, 0.80f, "NONE", 0.0f));
+    synth.setLfo(0, new LfoModel(4.25f, LfoType.TRIANGLE, 0.5f, "NONE", true, 0, 0));
+    synth.setLfo(1, new LfoModel(1.75f, LfoType.S_AND_H, 0.4f, "NONE", false, 0, 0));
+    synth.setLfo(2, new LfoModel(8.25f, LfoType.RANDOM_WALK, 0.3f, "NONE", true, 5, 1));
+    synth.setLfo(3, new LfoModel(0.65f, LfoType.SQUARE, 0.2f, "NONE", false, 8, 2));
+    synth
+        .getModulation()
+        .addPatchCable(
+            new PatchCable(
+                "lfo1",
+                "pitch",
+                0.25f,
+                PatchCable.Polarity.BIPOLAR,
+                List.of(),
+                List.of(),
+                0x40000000));
+    ClipModel synthClip = new ClipModel("Synth Clip", 192, 0);
+    synthClip.getOrCreateRow(60).notes.add(new NoteModel(0, 48, 0.8f, 1.0f, 1));
+    synth.addClip(synthClip);
+
+    KitTrackModel kit = new KitTrackModel("SongKit");
+    kit.getDrums().clear();
+    SoundDrum fmDrum = new SoundDrum("SONG FM TOM", "");
+    fmDrum.setOsc1Type("SINE");
+    fmDrum.setOscAVolume(0.9f);
+    fmDrum.setSynthMode(1);
+    fmDrum.setMaxVoiceCount(4);
+    fmDrum.setClippingAmount(5);
+    fmDrum.setModFxType("TapeWarble");
+    fmDrum.setModulator1Transpose(7);
+    fmDrum.setModulator1Cents(-12);
+    fmDrum.setMod1RetrigPhase(0);
+    fmDrum.setModulator2Transpose(19);
+    fmDrum.setModulator2Cents(25);
+    fmDrum.setMod2RetrigPhase(1073741824);
+    fmDrum.setModulator1ToModulator0(true);
+    fmDrum.setModulator1AmountQ31(0x50000000);
+    fmDrum.setModulator1FeedbackQ31(0xE0000000);
+    fmDrum.setModulator2AmountQ31(0x30000000);
+    fmDrum.setModulator2FeedbackQ31(0xC8000000);
+    fmDrum.setCarrier1FeedbackQ31(0xD0000000);
+    fmDrum.setCarrier2FeedbackQ31(0x10000000);
+    fmDrum.setFilterRoute(1);
+    fmDrum.setLpfMode(FilterMode.SVF_BAND);
+    fmDrum.setHpfMode(FilterMode.SVF_NOTCH);
+    fmDrum.setLpfFreq(1400.0f);
+    fmDrum.setHpfFreq(260.0f);
+    fmDrum.setLpfMorph(0.55f);
+    fmDrum.setHpfMorph(0.25f);
+    fmDrum.setDelayPingPong(0);
+    fmDrum.setDelayAnalog(1);
+    fmDrum.setDelaySyncLevel(5);
+    fmDrum.setDelaySyncType(1);
+    fmDrum.setDelayRateQ31(0x10000000);
+    fmDrum.setDelayFeedbackQ31(0xBA000000);
+    fmDrum.setEqBass(0.3f);
+    fmDrum.setEqTreble(-0.2f);
+    fmDrum.setEqBassFreq(0.35f);
+    fmDrum.setEqTrebleFreq(-0.45f);
+    fmDrum.setAdsr(new EnvelopeModel(0.02f, 0.22f, 0.55f, 0.3f, "NONE", 0.0f));
+    fmDrum.setEnv2(new EnvelopeModel(0.04f, 0.28f, 0.35f, 0.4f, "NONE", 0.0f));
+    fmDrum.setLfo1(new LfoModel(5.0f, LfoType.SINE, 0.5f, "NONE", true, 0, 0));
+    fmDrum.setLfo2(new LfoModel(2.0f, LfoType.S_AND_H, 0.4f, "NONE", false, 0, 0));
+    fmDrum.setLfo3(new LfoModel(8.5f, LfoType.SAW, 0.3f, "NONE", true, 6, 1));
+    fmDrum.setLfo4(new LfoModel(0.75f, LfoType.SQUARE, 0.2f, "NONE", false, 7, 2));
+    fmDrum.addPatchCable(
+        new PatchCable(
+            "lfo3",
+            "lpfFrequency",
+            0.3f,
+            PatchCable.Polarity.BIPOLAR,
+            List.of(),
+            List.of(),
+            0x26666666));
+
+    SoundDrum ringDrum = new SoundDrum("SONG RING HAT", "");
+    ringDrum.setOsc1Type("SQUARE");
+    ringDrum.setOsc2Type("SAW");
+    ringDrum.setOsc2Transpose(7);
+    ringDrum.setOscAVolume(0.85f);
+    ringDrum.setOscBVolume(0.85f);
+    ringDrum.setSynthMode(2);
+    ringDrum.setFilterRoute(2);
+    ringDrum.setLpfFreq(2500.0f);
+    ringDrum.setHpfFreq(600.0f);
+
+    kit.addDrum(fmDrum);
+    kit.addDrum(ringDrum);
+    ClipModel kitClip = new ClipModel("Kit Clip", 192, 0);
+    kitClip.getOrCreateRow(0).notes.add(new NoteModel(0, 24, 0.8f, 1.0f, 1));
+    kitClip.getOrCreateRow(1).notes.add(new NoteModel(48, 24, 0.8f, 1.0f, 1));
+    kit.addClip(kitClip);
+
+    project.addTrack(synth);
+    project.addTrack(kit);
+
+    int[] preSaveSynthAudio = renderSynthSamples(synth);
+    int[] preSaveKitAudio = renderKitSamples(kit);
+
+    String songXml = ProjectSerializer.serializeToString(project);
+    assertFalse(songXml.contains("<clippingAmount>5.0</clippingAmount>"));
+    assertFalse(songXml.contains("<pitch>0x"));
+    assertTrue(songXml.contains("<clippingAmount>5</clippingAmount>"));
+    assertTrue(songXml.contains("<filterRoute>PARA</filterRoute>"));
+
+    File savedSong = tempDir.resolve("roundtrip_song.XML").toFile();
+    Files.writeString(savedSong.toPath(), songXml, StandardCharsets.UTF_8);
+
+    ProjectModel reloaded = DelugeXmlParser.parseSong(savedSong);
+    SynthTrackModel reloadedSynth = (SynthTrackModel) reloaded.getTracks().get(0);
+    KitTrackModel reloadedKit = (KitTrackModel) reloaded.getTracks().get(1);
+
+    assertEquals(5, reloadedSynth.getClippingAmount());
+    assertEquals(2, reloadedSynth.getFilterRoute());
+    assertEquals(FilterMode.SVF_BAND, reloadedSynth.getFilterMode());
+    assertEquals(FilterMode.SVF_NOTCH, reloadedSynth.getHpfMode());
+    assertEquals(0.35f, reloadedSynth.getCompressorThreshold(), 0.01f);
+    assertEquals(0x08000000, reloadedSynth.getPitchAdjustQ31());
+    assertEquals(
+        0x0C000000,
+        reloadedSynth.getRawKnobs().getRawParamKnobs().get(Param.LOCAL_MODULATOR_0_PITCH_ADJUST));
+    assertEquals(
+        0xF8000000,
+        reloadedSynth.getRawKnobs().getRawParamKnobs().get(Param.LOCAL_MODULATOR_1_PITCH_ADJUST));
+    assertEquals(4.25f, reloadedSynth.getLfo(0).rateHz(), 0.05f);
+    assertEquals(1.75f, reloadedSynth.getLfo(1).rateHz(), 0.05f);
+    assertEquals(8.25f, reloadedSynth.getLfo(2).rateHz(), 0.1f);
+    assertEquals(0.65f, reloadedSynth.getLfo(3).rateHz(), 0.05f);
+    assertEquals(0.65f, reloadedSynth.getEnv(0).sustain(), 0.01f);
+    assertEquals(0.75f, reloadedSynth.getEnv(3).sustain(), 0.01f);
+
+    SoundDrum reloadedFmDrum = (SoundDrum) reloadedKit.getDrums().get(0);
+    assertEquals(4, reloadedFmDrum.getMaxVoiceCount());
+    assertEquals(1, reloadedFmDrum.getSynthMode());
+    assertEquals(5.0f, reloadedFmDrum.getClippingAmount(), 0.001f);
+
+    assertArrayEquals(preSaveSynthAudio, renderSynthSamples(reloadedSynth));
+    assertArrayEquals(preSaveKitAudio, renderKitSamples(reloadedKit));
+  }
+
+  @Test
+  void wavetableOscillatorIndexSweepAndStereoChorusRoundTripBitExact(@TempDir Path tempDir)
+      throws Exception {
+    File wtFile = tempDir.resolve("harmonic_sweep_wt.wav").toFile();
+    writeFourCycleWavetableWav(wtFile);
+
+    SynthTrackModel lowPos = new SynthTrackModel("WtLow");
+    lowPos.setOsc1Type("WAVETABLE");
+    lowPos.setOsc1SamplePath(wtFile.getAbsolutePath());
+    lowPos.setOscAVolume(0.9f);
+    lowPos.setOscBVolume(0.0f);
+    lowPos.setWaveIndex(0.0f); // 0% -> cycle 0 (pure fundamental)
+
+    SynthTrackModel midPos = new SynthTrackModel("WtMid");
+    midPos.setOsc1Type("WAVETABLE");
+    midPos.setOsc1SamplePath(wtFile.getAbsolutePath());
+    midPos.setOscAVolume(0.9f);
+    midPos.setOscBVolume(0.0f);
+    midPos.setWaveIndex(0.5f); // 50% -> midpoint cycle blend
+
+    int[] lowAudio = renderSynthSamples(lowPos);
+    int[] midAudio = renderSynthSamples(midPos);
+    assertFalse(
+        Arrays.equals(lowAudio, midAudio),
+        "Wavetable positions 0.0 (0%) and 0.5 (50%) must render distinct harmonic cycles");
+
+    // Independent osc1 vs osc2 wavetable positions + STEREO_CHORUS alias round-trip
+    SynthTrackModel dualWt = new SynthTrackModel("DualWt");
+    dualWt.setOsc1Type("WAVETABLE");
+    dualWt.setOsc1SamplePath(wtFile.getAbsolutePath());
+    dualWt.setOscAVolume(0.8f);
+    dualWt.setWaveIndex(0.15f);
+    dualWt.setOsc2Type("WAVETABLE");
+    dualWt.setOsc2SamplePath(wtFile.getAbsolutePath());
+    dualWt.setOscBVolume(0.75f);
+    dualWt.setOsc2WaveIndex(0.85f);
+    dualWt.setModFxType("STEREO_CHORUS");
+    dualWt.setModFxRate(0.4f);
+    dualWt.setModFxDepth(0.5f);
+
+    FirmwareSound checkSound = new FirmwareSound();
+    FirmwareFactory.applyModelToLiveSound(dualWt, checkSound);
+    assertEquals("CHORUS_STEREO", checkSound.fw2Sound.modFXType.name());
+
+    int[] preSaveDualAudio = renderSynthSamples(dualWt);
+
+    File presetFile = tempDir.resolve("dual_wt.XML").toFile();
+    KitSynthSerializer.saveSynth(dualWt, presetFile);
+    SynthTrackModel presetReloaded = DelugeXmlParser.parseSynth(presetFile);
+    assertEquals(0.15f, presetReloaded.getWaveIndex(), 0.005f);
+    assertEquals(0.85f, presetReloaded.getOsc2WaveIndex(), 0.005f);
+    assertArrayEquals(preSaveDualAudio, renderSynthSamples(presetReloaded));
+
+    ProjectModel song = new ProjectModel();
+    ClipModel clip = new ClipModel("Wt Clip", 192, 0);
+    clip.getOrCreateRow(60).notes.add(new NoteModel(0, 48, 0.8f, 1.0f, 1));
+    dualWt.addClip(clip);
+    song.addTrack(dualWt);
+    File songFile = tempDir.resolve("dual_wt_song.XML").toFile();
+    Files.writeString(
+        songFile.toPath(), ProjectSerializer.serializeToString(song), StandardCharsets.UTF_8);
+    ProjectModel reloadedSong = DelugeXmlParser.parseSong(songFile);
+    SynthTrackModel songReloadedSynth = (SynthTrackModel) reloadedSong.getTracks().get(0);
+    assertEquals(0.15f, songReloadedSynth.getWaveIndex(), 0.005f);
+    assertEquals(0.85f, songReloadedSynth.getOsc2WaveIndex(), 0.005f);
+    assertArrayEquals(preSaveDualAudio, renderSynthSamples(songReloadedSynth));
+  }
+
+  @Test
+  void soundDrumPitchAdjustsAndDualOscillatorZonesRoundTripBitExact(@TempDir Path tempDir)
+      throws Exception {
+    File smpA = tempDir.resolve("drum_layer_a.wav").toFile();
+    File smpB = tempDir.resolve("drum_layer_b.wav").toFile();
+    writeSingleToneWav(smpA, 220.0);
+    writeSingleToneWav(smpB, 330.0);
+
+    KitTrackModel kit = new KitTrackModel("DualZoneKit");
+    kit.getDrums().clear();
+
+    SoundDrum layered = new SoundDrum("LAYERED HIT", smpA.getAbsolutePath());
+    layered.setOscAVolume(0.85f);
+    layered.setStartSamplePos(128);
+    layered.setEndSamplePos(8192);
+    layered.setStartLoopPos(1024);
+    layered.setEndLoopPos(4096);
+    layered.setOsc2Type("SAMPLE");
+    layered.setOsc2SamplePath(smpB.getAbsolutePath());
+    layered.setOscBVolume(0.75f);
+    layered.setOsc2StartSamplePos(256);
+    layered.setOsc2EndSamplePos(6144);
+    layered.setOsc2StartLoopPos(1536);
+    layered.setOsc2EndLoopPos(5120);
+    layered.setRawDefaultParamQ31("pitchAdjust", 0x08000000);
+    layered.setRawDefaultParamQ31("oscAPitchAdjust", 0x04000000);
+    layered.setRawDefaultParamQ31("oscBPitchAdjust", 0xFC000000);
+    layered.setRawDefaultParamQ31("mod1PitchAdjust", 0x0C000000);
+    layered.setRawDefaultParamQ31("mod2PitchAdjust", 0xF8000000);
+
+    SoundDrum companion = new SoundDrum("SUB TONE", "");
+    companion.setOsc1Type("SINE");
+    companion.setOscAVolume(0.8f);
+    companion.setRawDefaultParamQ31("pitchAdjust", 0x0A000000);
+
+    kit.addDrum(layered);
+    kit.addDrum(companion);
+
+    FirmwareKit checkKit = new FirmwareKit();
+    FirmwareFactory.applyModelToLiveSound(kit, checkKit);
+    assertEquals(1024, checkKit.drumSounds.get(0).sampleSettings[0].loopStart);
+    assertEquals(4096, checkKit.drumSounds.get(0).sampleSettings[0].loopEnd);
+    assertEquals(1536, checkKit.drumSounds.get(0).sampleSettings[1].loopStart);
+    assertEquals(5120, checkKit.drumSounds.get(0).sampleSettings[1].loopEnd);
+
+    int[] preSaveAudio = renderKitSamples(kit);
+
+    File kitFile = tempDir.resolve("dual_zone_kit.XML").toFile();
+    KitSynthSerializer.saveKit(kit, kitFile);
+    KitTrackModel reloadedKit = DelugeXmlParser.parseKit(kitFile);
+    SoundDrum d0 = (SoundDrum) reloadedKit.getDrums().get(0);
+    assertEquals(128, d0.getStartSamplePos());
+    assertEquals(8192, d0.getEndSamplePos());
+    assertEquals(1024, d0.getStartLoopPos());
+    assertEquals(4096, d0.getEndLoopPos());
+    assertEquals(256, d0.getOsc2StartSamplePos());
+    assertEquals(6144, d0.getOsc2EndSamplePos());
+    assertEquals(1536, d0.getOsc2StartLoopPos());
+    assertEquals(5120, d0.getOsc2EndLoopPos());
+    assertEquals(0x08000000, d0.getRawDefaultParamQ31("pitchAdjust"));
+    assertEquals(0x04000000, d0.getRawDefaultParamQ31("oscAPitchAdjust"));
+    assertEquals(0xFC000000, d0.getRawDefaultParamQ31("oscBPitchAdjust"));
+    assertEquals(0x0C000000, d0.getRawDefaultParamQ31("mod1PitchAdjust"));
+    assertEquals(0xF8000000, d0.getRawDefaultParamQ31("mod2PitchAdjust"));
+    assertArrayEquals(preSaveAudio, renderKitSamples(reloadedKit));
+
+    ProjectModel song = new ProjectModel();
+    ClipModel clip = new ClipModel("Dual Zone Clip", 192, 0);
+    clip.getOrCreateRow(0).notes.add(new NoteModel(0, 24, 0.8f, 1.0f, 1));
+    kit.addClip(clip);
+    song.addTrack(kit);
+    File songFile = tempDir.resolve("dual_zone_song.XML").toFile();
+    Files.writeString(
+        songFile.toPath(), ProjectSerializer.serializeToString(song), StandardCharsets.UTF_8);
+    ProjectModel reloadedSong = DelugeXmlParser.parseSong(songFile);
+    KitTrackModel songReloadedKit = (KitTrackModel) reloadedSong.getTracks().get(0);
+    SoundDrum sd0 = (SoundDrum) songReloadedKit.getDrums().get(0);
+    assertEquals(128, sd0.getStartSamplePos());
+    assertEquals(8192, sd0.getEndSamplePos());
+    assertEquals(1024, sd0.getStartLoopPos());
+    assertEquals(4096, sd0.getEndLoopPos());
+    assertEquals(256, sd0.getOsc2StartSamplePos());
+    assertEquals(6144, sd0.getOsc2EndSamplePos());
+    assertEquals(1536, sd0.getOsc2StartLoopPos());
+    assertEquals(5120, sd0.getOsc2EndLoopPos());
+    assertEquals(0x08000000, sd0.getRawDefaultParamQ31("pitchAdjust"));
+    assertArrayEquals(preSaveAudio, renderKitSamples(songReloadedKit));
+  }
+
+  private static void writeFourCycleWavetableWav(File file) throws Exception {
+    int cycleLen = 2048;
+    int numCycles = 4;
+    short[] pcm = new short[cycleLen * numCycles];
+    int[] harmonics = {1, 3, 5, 9};
+    for (int c = 0; c < numCycles; c++) {
+      int h = harmonics[c];
+      for (int i = 0; i < cycleLen; i++) {
+        double phase = 2.0 * Math.PI * h * i / cycleLen;
+        pcm[c * cycleLen + i] = (short) Math.round(Math.sin(phase) * 24000.0);
+      }
+    }
+    writeMono16BitWav(file, pcm);
+  }
+
+  private static void writeSingleToneWav(File file, double freqHz) throws Exception {
+    int numSamples = 12000;
+    short[] pcm = new short[numSamples];
+    for (int i = 0; i < numSamples; i++) {
+      double phase = 2.0 * Math.PI * freqHz * i / 44100.0;
+      pcm[i] = (short) Math.round(Math.sin(phase) * 22000.0);
+    }
+    writeMono16BitWav(file, pcm);
+  }
+
+  private static void writeMono16BitWav(File file, short[] samples) throws Exception {
+    int dataLen = samples.length * 2;
+    ByteArrayOutputStream baos = new ByteArrayOutputStream(44 + dataLen);
+    ByteBuffer header = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN);
+    header.put("RIFF".getBytes(StandardCharsets.US_ASCII));
+    header.putInt(36 + dataLen);
+    header.put("WAVE".getBytes(StandardCharsets.US_ASCII));
+    header.put("fmt ".getBytes(StandardCharsets.US_ASCII));
+    header.putInt(16);
+    header.putShort((short) 1); // PCM
+    header.putShort((short) 1); // Mono
+    header.putInt(44100);
+    header.putInt(44100 * 2);
+    header.putShort((short) 2);
+    header.putShort((short) 16);
+    header.put("data".getBytes(StandardCharsets.US_ASCII));
+    header.putInt(dataLen);
+    baos.write(header.array());
+    ByteBuffer body = ByteBuffer.allocate(dataLen).order(ByteOrder.LITTLE_ENDIAN);
+    for (short s : samples) {
+      body.putShort(s);
+    }
+    baos.write(body.array());
+    Files.write(file.toPath(), baos.toByteArray());
   }
 
   private static SoundDrum buildBaseDrum(boolean chainMod2ToMod1) {

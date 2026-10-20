@@ -13,6 +13,8 @@ public class SoundDrum extends Drum {
   // Loop points in zone samples
   private int startLoopPos = -1;
   private int endLoopPos = -1;
+  private int osc2StartLoopPos = -1;
+  private int osc2EndLoopPos = -1;
 
   // Second oscillator (sample or synth)
   private String osc2Type = "NONE";
@@ -145,6 +147,22 @@ public class SoundDrum extends Drum {
 
   public void setOsc2EndSamplePos(int v) {
     this.osc2EndSamplePos = v;
+  }
+
+  public int getOsc2StartLoopPos() {
+    return osc2StartLoopPos;
+  }
+
+  public void setOsc2StartLoopPos(int v) {
+    this.osc2StartLoopPos = v;
+  }
+
+  public int getOsc2EndLoopPos() {
+    return osc2EndLoopPos;
+  }
+
+  public void setOsc2EndLoopPos(int v) {
+    this.osc2EndLoopPos = v;
   }
 
   public int getOsc1LoopMode() {

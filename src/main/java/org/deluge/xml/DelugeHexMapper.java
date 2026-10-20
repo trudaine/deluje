@@ -251,6 +251,14 @@ public class DelugeHexMapper {
   }
 
   /**
+   * Convert raw signed Q31 knob integer to envelope time in seconds (unified exponential curve).
+   */
+  public static float q31ToEnvTime(int q31) {
+    float norm = q31ToUnipolarFloatUnified(q31);
+    return (float) (0.001 * Math.pow(30000.0, norm));
+  }
+
+  /**
    * Read envelope time from hex string, returning seconds (unified signed unipolar exponential
    * mapping).
    */
@@ -259,14 +267,24 @@ public class DelugeHexMapper {
     return (float) (0.001 * Math.pow(30000.0, norm));
   }
 
-  /** Write envelope time (seconds) to hex string (unified signed unipolar exponential mapping). */
-  public static String envTimeToHex(float timeSec) {
+  /** Convert envelope time (seconds) to raw signed Q31 knob integer (unified exponential curve). */
+  public static int envTimeToQ31(float timeSec) {
     float clamped = Math.max(0.001f, Math.min(30.0f, timeSec));
     double norm = Math.log(clamped / 0.001) / Math.log(30000.0);
-    return unipolarFloatToHexUnified((float) norm);
+    return unipolarFloatToQ31Unified((float) norm);
+  }
+
+  /** Write envelope time (seconds) to hex string (unified signed unipolar exponential mapping). */
+  public static String envTimeToHex(float timeSec) {
+    return q31ToHex(envTimeToQ31(timeSec));
   }
 
   // ── Envelope sustain mapping ──
+
+  /** Convert raw signed Q31 knob integer linearly to unipolar sustain [0.0, 1.0]. */
+  public static float q31ToSustain(int q31) {
+    return q31ToUnipolarFloatUnified(q31);
+  }
 
   /**
    * Sustain maps linearly as standard unipolar parameter: [0x80000000, 0x7FFFFFFF] -> [0.0, 1.0].

@@ -21,6 +21,7 @@ public class SynthTrackModel extends TrackModel {
   private float noiseVol = 0.0f;
   private final UnisonConfig unison = new UnisonConfig();
   private float waveIndex = 0.0f;
+  private float osc2WaveIndex = 0.0f;
   private final int[] customLfoWave = new int[256];
 
   {
@@ -132,6 +133,38 @@ public class SynthTrackModel extends TrackModel {
   public void setOsc2PitchAdjustQ31(int v) {
     osc2.setPitchAdjustQ31(v);
     this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_B_PITCH_ADJUST);
+  }
+
+  public int getMod1PitchAdjustQ31() {
+    return this.rawKnobs
+        .getRawParamKnobs()
+        .getOrDefault(org.deluge.firmware2.Param.LOCAL_MODULATOR_0_PITCH_ADJUST, Integer.MIN_VALUE);
+  }
+
+  public void setMod1PitchAdjustQ31(int v) {
+    if (v == Integer.MIN_VALUE) {
+      this.rawKnobs
+          .getRawParamKnobs()
+          .remove(org.deluge.firmware2.Param.LOCAL_MODULATOR_0_PITCH_ADJUST);
+    } else {
+      this.rawKnobs.setRawParamKnob(org.deluge.firmware2.Param.LOCAL_MODULATOR_0_PITCH_ADJUST, v);
+    }
+  }
+
+  public int getMod2PitchAdjustQ31() {
+    return this.rawKnobs
+        .getRawParamKnobs()
+        .getOrDefault(org.deluge.firmware2.Param.LOCAL_MODULATOR_1_PITCH_ADJUST, Integer.MIN_VALUE);
+  }
+
+  public void setMod2PitchAdjustQ31(int v) {
+    if (v == Integer.MIN_VALUE) {
+      this.rawKnobs
+          .getRawParamKnobs()
+          .remove(org.deluge.firmware2.Param.LOCAL_MODULATOR_1_PITCH_ADJUST);
+    } else {
+      this.rawKnobs.setRawParamKnob(org.deluge.firmware2.Param.LOCAL_MODULATOR_1_PITCH_ADJUST, v);
+    }
   }
 
   /** Wavefolder knob (raw Q31, C LOCAL_FOLD / XML "waveFold"); INT_MIN = off (sound.cpp:147). */
@@ -316,7 +349,17 @@ public class SynthTrackModel extends TrackModel {
 
   public void setWaveIndex(float v) {
     this.waveIndex = v;
+    this.osc2WaveIndex = v;
     this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_A_WAVE_INDEX);
+    this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_B_WAVE_INDEX);
+  }
+
+  public float getOsc2WaveIndex() {
+    return osc2WaveIndex;
+  }
+
+  public void setOsc2WaveIndex(float v) {
+    this.osc2WaveIndex = v;
     this.rawKnobs.getRawParamKnobs().remove(org.deluge.firmware2.Param.LOCAL_OSC_B_WAVE_INDEX);
   }
 
@@ -1366,6 +1409,7 @@ public class SynthTrackModel extends TrackModel {
     this.noiseVol = other.getNoiseVol();
     this.unison.copyFrom(other.getUnison());
     this.waveIndex = other.getWaveIndex();
+    this.osc2WaveIndex = other.getOsc2WaveIndex();
     this.filter.copyFrom(other.getFilter());
 
     // Arrays

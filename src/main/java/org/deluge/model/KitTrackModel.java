@@ -36,6 +36,10 @@ public class KitTrackModel extends TrackModel {
 
   public KitTrackModel(String name) {
     super(name, TrackType.KIT);
+    // C global_effectable.cpp:81 — UNPATCHED_VOLUME initializes to 0 ("half of the way up" ->
+    // 0.5f),
+    // matching GlobalEffectable.kitVolume = 0 so new kits do not jump +12 dB on song save/reload.
+    setVolume(0.5f);
   }
 
   public int getSelectedDrumIndex() {

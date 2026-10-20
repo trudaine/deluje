@@ -36,8 +36,9 @@ public abstract class Drum {
   protected LfoModel lfo3 = LfoModel.defaultConfig(true);
   protected LfoModel lfo4 = LfoModel.defaultConfig(false);
 
-  // Delay (C mod_controllable_audio.cpp:417-425 — pingPong, analog, syncLevel, syncType)
-  protected float delayRate = 0.0f;
+  // Delay (C sound.cpp:154, 156: GLOBAL_DELAY_RATE = 0 -> 0.5f, GLOBAL_DELAY_FEEDBACK = INT_MIN ->
+  // 0.0f)
+  protected float delayRate = 0.5f;
   protected float delayFeedback = 0.0f;
   protected int delayPingPong = 0; // 0=off, 1=on
   protected int delayAnalog = 0; // 0=digital, 1=analog
@@ -86,12 +87,12 @@ public abstract class Drum {
   protected float sidechainAttack = 0.0f;
   protected float sidechainRelease = 0.0f;
 
-  // Mod FX
+  // Mod FX (C sound.cpp:181-182, mod_controllable_audio.cpp:131-132: 0x00000000 -> 0.5f)
   protected String modFxType = "NONE";
-  protected float modFxRate = 0.3f;
-  protected float modFxDepth = 0.3f;
-  protected float modFxOffset = 0.0f;
-  protected float modFxFeedback = 0.0f;
+  protected float modFxRate = 0.5f;
+  protected float modFxDepth = 0.5f;
+  protected float modFxOffset = 0.5f;
+  protected float modFxFeedback = 0.5f;
 
   // HPF — C mod_controllable_audio.cpp:62: FilterMode::HPLADDER
   protected float hpfFreq = 20.0f;
@@ -119,6 +120,7 @@ public abstract class Drum {
 
   // Wavetable position
   protected float waveIndex = 0.0f;
+  protected float osc2WaveIndex = 0.0f;
 
   // Default param values
   protected float volume = 0.5f;
@@ -741,7 +743,19 @@ public abstract class Drum {
 
   public void setWaveIndex(float v) {
     this.waveIndex = v;
+    this.osc2WaveIndex = v;
     rawDefaultParamQ31.remove("waveIndex");
+    rawDefaultParamQ31.remove("oscAWavetablePosition");
+    rawDefaultParamQ31.remove("oscBWavetablePosition");
+  }
+
+  public float getOsc2WaveIndex() {
+    return osc2WaveIndex;
+  }
+
+  public void setOsc2WaveIndex(float v) {
+    this.osc2WaveIndex = v;
+    rawDefaultParamQ31.remove("oscBWavetablePosition");
   }
 
   public float getVolume() {

@@ -897,6 +897,12 @@ public class InstrumentXmlParser {
           synth.getRawKnobs().setLfoRateKnobQ31(i, DelugeHexMapper.hexToQ31(v));
         }
       }
+      if ((v = attrOrChildText(dpEl, "oscAWavetablePosition")) != null && !v.isBlank()) {
+        synth.setWaveIndex(DelugeHexMapper.hexToUnipolarFloatUnified(v));
+      }
+      if ((v = attrOrChildText(dpEl, "oscBWavetablePosition")) != null && !v.isBlank()) {
+        synth.setOsc2WaveIndex(DelugeHexMapper.hexToUnipolarFloatUnified(v));
+      }
       // Run raw-knob population last so model setters above do not clear rawParamKnobs entries.
       for (var e : SOUNDPARAMS_RAW_PATCHED.entrySet()) {
         rawKnob(dpEl, e.getKey(), synth, e.getValue());
@@ -999,7 +1005,7 @@ public class InstrumentXmlParser {
           }
         });
 
-    // ── Filter Route (C filter_config.cpp:8-14 — "H2L"=0, "L2H"=1, "PARA"=2) ──
+    // ── Filter Route (C filter_config.cpp:16-20 — "H2L"=0, "L2H"=1, "PARA"=2) ──
     readAttrOrChildString(
         soundNode,
         "filterRoute",
@@ -2026,7 +2032,8 @@ public class InstrumentXmlParser {
     knobs.setRawParamKnob(Param.LOCAL_OSC_B_PHASE_WIDTH, 0);
     synth.setOsc1PhaseWidthQ31(0);
     synth.setOsc2PhaseWidthQ31(0);
-    // AutoParam base — wavetable positions.
+    // AutoParam base — wavetable positions (raw 0 -> unipolar midpoint 0.5f).
+    synth.setWaveIndex(0.5f);
     knobs.setRawParamKnob(Param.LOCAL_OSC_A_WAVE_INDEX, 0);
     knobs.setRawParamKnob(Param.LOCAL_OSC_B_WAVE_INDEX, 0);
     // sound.cpp:160-163 — reverb send OFF, delay rate 0, delay feedback OFF, arp rate 0 (the
@@ -2171,19 +2178,31 @@ public class InstrumentXmlParser {
     if ((v = attrOrChildText(sp, "waveFold")) != null && !v.isBlank()) {
       synth.setWaveFoldQ31(DelugeHexMapper.hexToQ31(v));
     }
+    if ((v = attrOrChildText(sp, "oscAWavetablePosition")) != null && !v.isBlank()) {
+      synth.setWaveIndex(DelugeHexMapper.hexToUnipolarFloatUnified(v));
+    }
+    if ((v = attrOrChildText(sp, "oscBWavetablePosition")) != null && !v.isBlank()) {
+      synth.setOsc2WaveIndex(DelugeHexMapper.hexToUnipolarFloatUnified(v));
+    }
+    readAttrFloatHex(sp, "compressorThreshold", synth::setCompressorThreshold, true);
     // LFO rate knobs: firmware lfo1 = global1 (slot 0), lfo2 = local1 (slot 1),
     // lfo3 = global2 (slot 2), lfo4 = local2 (slot 3).
-    if ((v = attrOrChildText(sp, "lfo1Rate")) != null && !v.isBlank()) {
-      synth.getRawKnobs().setLfoRateKnobQ31(0, DelugeHexMapper.hexToQ31(v));
-    }
-    if ((v = attrOrChildText(sp, "lfo2Rate")) != null && !v.isBlank()) {
-      synth.getRawKnobs().setLfoRateKnobQ31(1, DelugeHexMapper.hexToQ31(v));
-    }
-    if ((v = attrOrChildText(sp, "lfo3Rate")) != null && !v.isBlank()) {
-      synth.getRawKnobs().setLfoRateKnobQ31(2, DelugeHexMapper.hexToQ31(v));
-    }
-    if ((v = attrOrChildText(sp, "lfo4Rate")) != null && !v.isBlank()) {
-      synth.getRawKnobs().setLfoRateKnobQ31(3, DelugeHexMapper.hexToQ31(v));
+    String[] clipLfoTags = {"lfo1Rate", "lfo2Rate", "lfo3Rate", "lfo4Rate"};
+    for (int i = 0; i < 4; i++) {
+      if ((v = attrOrChildText(sp, clipLfoTags[i])) != null && !v.isBlank()) {
+        LfoModel prev = synth.getLfo(i);
+        synth.setLfo(
+            i,
+            new LfoModel(
+                DelugeHexMapper.hexToLfoHz(v),
+                prev.waveform(),
+                prev.depth(),
+                prev.target(),
+                prev.isLocal(),
+                prev.syncLevel(),
+                prev.syncType()));
+        synth.getRawKnobs().setLfoRateKnobQ31(i, DelugeHexMapper.hexToQ31(v));
+      }
     }
 
     // Patched params the firmware reads as RAW Q31 from <soundParams> (readParamsFromFile copies

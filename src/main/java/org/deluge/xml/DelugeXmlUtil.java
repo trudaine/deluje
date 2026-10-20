@@ -314,7 +314,7 @@ public class DelugeXmlUtil {
       case "tapewarble", "warble" -> "TapeWarble";
       case "dimension" -> "dimension";
       case "chorus" -> "chorus";
-      case "stereochorus", "chorus_stereo" -> "StereoChorus";
+      case "stereochorus", "stereo_chorus", "chorus_stereo" -> "StereoChorus";
       case "grainfx", "grain" -> "grainFX";
       case "phaser" -> "phaser";
       default -> "none";

@@ -659,10 +659,12 @@ public class FirmwareFactory {
     sound.mod2RetrigPhase = model.getMod2RetrigPhase();
     sound.fw2Sound.oscillatorSync = model.isOscillatorSync();
 
-    // Wave Index parameters (mapped to unipolar Q31)
-    int waveIndexQ31 = (int) Math.round((double) clamp01(model.getWaveIndex()) * 2147483647.0);
-    sound.paramKnobs[Param.LOCAL_OSC_A_WAVE_INDEX] = waveIndexQ31;
-    sound.paramKnobs[Param.LOCAL_OSC_B_WAVE_INDEX] = waveIndexQ31;
+    // Wave Index parameters (C oscillator.cpp:155, patcher.cpp:858-860: [-2^31..2^31-1] scans
+    // 0..100%)
+    sound.paramKnobs[Param.LOCAL_OSC_A_WAVE_INDEX] =
+        org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(model.getWaveIndex());
+    sound.paramKnobs[Param.LOCAL_OSC_B_WAVE_INDEX] =
+        org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(model.getOsc2WaveIndex());
 
     // Wavefolder knob (raw Q31 like the C readParam of "waveFold" → LOCAL_FOLD; INT_MIN = off).
     sound.paramKnobs[Param.LOCAL_FOLD] = model.getWaveFoldQ31();
@@ -723,16 +725,10 @@ public class FirmwareFactory {
         sustainKnob = model.getRawKnobs().getEnvSustainKnobQ31(i);
         releaseKnob = model.getRawKnobs().getEnvReleaseKnobQ31(i);
       } else {
-        sustainKnob = normToBipolarParam(em.sustain());
-        attackKnob =
-            org.deluge.xml.DelugeHexMapper.floatToQ31(
-                org.deluge.xml.DelugeHexMapper.normFromEnvTime(em.attack()));
-        decayKnob =
-            org.deluge.xml.DelugeHexMapper.floatToQ31(
-                org.deluge.xml.DelugeHexMapper.normFromEnvTime(em.decay()));
-        releaseKnob =
-            org.deluge.xml.DelugeHexMapper.floatToQ31(
-                org.deluge.xml.DelugeHexMapper.normFromEnvTime(em.release()));
+        sustainKnob = org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(em.sustain());
+        attackKnob = org.deluge.xml.DelugeHexMapper.envTimeToQ31(em.attack());
+        decayKnob = org.deluge.xml.DelugeHexMapper.envTimeToQ31(em.decay());
+        releaseKnob = org.deluge.xml.DelugeHexMapper.envTimeToQ31(em.release());
       }
 
       sound.paramKnobs[Param.LOCAL_ENV_0_ATTACK + i] = attackKnob;
@@ -1063,7 +1059,8 @@ public class FirmwareFactory {
     return switch (s.trim().toLowerCase(java.util.Locale.ROOT)) {
       case "flanger" -> org.deluge.firmware2.ModFx.ModFXType.FLANGER;
       case "chorus" -> org.deluge.firmware2.ModFx.ModFXType.CHORUS;
-      case "stereochorus", "chorus_stereo" -> org.deluge.firmware2.ModFx.ModFXType.CHORUS_STEREO;
+      case "stereochorus", "stereo_chorus", "chorus_stereo" ->
+          org.deluge.firmware2.ModFx.ModFXType.CHORUS_STEREO;
       case "phaser" -> org.deluge.firmware2.ModFx.ModFXType.PHASER;
       case "dimension" -> org.deluge.firmware2.ModFx.ModFXType.DIMENSION;
       case "tapewarble", "warble" -> org.deluge.firmware2.ModFx.ModFXType.WARBLE;
@@ -1560,17 +1557,20 @@ public class FirmwareFactory {
     }
 
     // Oscillator pulse widths, wavetable indices, pitch adjusts, wavefold, saturation, portamento
-    int drumWaveIndexQ31 = (int) Math.round((double) clamp01(sd.getWaveIndex()) * 2147483647.0);
+    int drumWaveIndexAQ31 =
+        org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(sd.getWaveIndex());
+    int drumWaveIndexBQ31 =
+        org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(sd.getOsc2WaveIndex());
     drumSound.paramNeutralValues[Param.LOCAL_OSC_A_PHASE_WIDTH] =
         rawDrumOrFallback(sd, "oscAPulseWidth", 0);
     drumSound.paramNeutralValues[Param.LOCAL_OSC_B_PHASE_WIDTH] =
         rawDrumOrFallback(sd, "oscBPulseWidth", 0);
     drumSound.paramNeutralValues[Param.LOCAL_OSC_A_WAVE_INDEX] =
         rawDrumOrFallback(
-            sd, "oscAWavetablePosition", rawDrumOrFallback(sd, "waveIndex", drumWaveIndexQ31));
+            sd, "oscAWavetablePosition", rawDrumOrFallback(sd, "waveIndex", drumWaveIndexAQ31));
     drumSound.paramNeutralValues[Param.LOCAL_OSC_B_WAVE_INDEX] =
         rawDrumOrFallback(
-            sd, "oscBWavetablePosition", rawDrumOrFallback(sd, "waveIndex", drumWaveIndexQ31));
+            sd, "oscBWavetablePosition", rawDrumOrFallback(sd, "waveIndex", drumWaveIndexBQ31));
     drumSound.paramNeutralValues[Param.LOCAL_PITCH_ADJUST] =
         rawDrumOrFallback(sd, "pitchAdjust", 0);
     drumSound.paramNeutralValues[Param.LOCAL_OSC_A_PITCH_ADJUST] =
@@ -1686,6 +1686,19 @@ public class FirmwareFactory {
       drumSound.sampleSettings[0].loopEnd = sd.getEndLoopPos();
     }
     drumSound.sampleSettings[0].transpose = (int) sd.getPitchSemitones();
+    drumSound.sampleSettings[1].reverse = sd.isOsc2Reversed();
+    if (sd.getOsc2StartSamplePos() >= 0) {
+      drumSound.sampleSettings[1].startPoint = sd.getOsc2StartSamplePos();
+    }
+    if (sd.getOsc2EndSamplePos() >= 0) {
+      drumSound.sampleSettings[1].endPoint = sd.getOsc2EndSamplePos();
+    }
+    if (sd.getOsc2StartLoopPos() >= 0) {
+      drumSound.sampleSettings[1].loopStart = sd.getOsc2StartLoopPos();
+    }
+    if (sd.getOsc2EndLoopPos() >= 0) {
+      drumSound.sampleSettings[1].loopEnd = sd.getOsc2EndLoopPos();
+    }
 
     // Envelopes 1..4 (prefer exact 32-bit raw XML knobs; otherwise match KitSynthSerializer)
     org.deluge.model.EnvelopeModel[] drumEnvs = {
@@ -1696,24 +1709,18 @@ public class FirmwareFactory {
       String prefix = "envelope" + (i + 1) + ".";
       drumSound.paramNeutralValues[Param.LOCAL_ENV_0_ATTACK + i] =
           rawDrumOrFallback(
-              sd,
-              prefix + "attack",
-              org.deluge.xml.DelugeHexMapper.floatToQ31(
-                  org.deluge.xml.DelugeHexMapper.normFromEnvTime(env.attack())));
+              sd, prefix + "attack", org.deluge.xml.DelugeHexMapper.envTimeToQ31(env.attack()));
       drumSound.paramNeutralValues[Param.LOCAL_ENV_0_DECAY + i] =
           rawDrumOrFallback(
-              sd,
-              prefix + "decay",
-              org.deluge.xml.DelugeHexMapper.floatToQ31(
-                  org.deluge.xml.DelugeHexMapper.normFromEnvTime(env.decay())));
+              sd, prefix + "decay", org.deluge.xml.DelugeHexMapper.envTimeToQ31(env.decay()));
       drumSound.paramNeutralValues[Param.LOCAL_ENV_0_SUSTAIN + i] =
-          rawDrumOrFallback(sd, prefix + "sustain", normToBipolarParam(env.sustain()));
-      drumSound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE + i] =
           rawDrumOrFallback(
               sd,
-              prefix + "release",
-              org.deluge.xml.DelugeHexMapper.floatToQ31(
-                  org.deluge.xml.DelugeHexMapper.normFromEnvTime(env.release())));
+              prefix + "sustain",
+              org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(env.sustain()));
+      drumSound.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE + i] =
+          rawDrumOrFallback(
+              sd, prefix + "release", org.deluge.xml.DelugeHexMapper.envTimeToQ31(env.release()));
     }
 
     // LFO 1..4 waveforms, tempo sync, and calibrated firmware rate knobs (C sound.cpp:2700-2707)

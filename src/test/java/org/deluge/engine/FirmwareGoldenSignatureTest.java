@@ -398,10 +398,13 @@ public class FirmwareGoldenSignatureTest {
     double dx7Brightness = brightness(dx7, from, to);
     double dx7H1 = goertzelMagnitude(dx7, from, to, 261.625565);
     double dx7H3 = goertzelMagnitude(dx7, from, to, 261.625565 * 3.0);
-    // /4: 2026-10-16 C-exact GLOBAL_VOLUME_POST_FX >>2 (patcher.cpp:210-233).
-    assertClose("ring peak", 0.015608668 / 4, ringPeak, 0.10, 0.0005);
-    assertClose("ring rms", 0.009261414 / 4, ringRms, 0.10, 0.0005);
-    assertClose("ring brightness", 0.074440891, ringBrightness, 0.10, 0.0005);
+    // Re-baselined 2026-10-19: C++-exact bipolar envelope time mapping
+    // (DelugeHexMapper.envTimeToQ31)
+    // preserves EnvelopeModel.defaultConfig() attack=10ms / decay=100ms instead of clamping <173ms
+    // times to 0x80000000 (instant 0ms step-down to sustain^2 = 0.64: 0.006097 * 0.64 = 0.003902).
+    assertClose("ring peak", 0.006035686, ringPeak, 0.10, 0.0005);
+    assertClose("ring rms", 0.003574941, ringRms, 0.10, 0.0005);
+    assertClose("ring brightness", 0.043142299, ringBrightness, 0.10, 0.0005);
 
     // Re-baselined 2026-07-05: the C filter-engagement bypass (sound.cpp:2506-2519) stops the
     // ring fixture's max-cutoff ladder from consuming per-sample noise draws, shifting the

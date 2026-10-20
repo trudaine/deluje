@@ -253,11 +253,22 @@ public class ProjectSerializer {
               };
           writer.writeAttribute("polyphonic", polyVal, false);
           writer.writeAttribute("voicePriority", sound.getVoicePriority(), false);
+          writer.writeAttribute(
+              "clippingAmount", String.valueOf(Math.round(sound.getClippingAmount())), false);
+          if (sound.getMuteGroup() != 0) {
+            writer.writeAttribute("muteGroup", sound.getMuteGroup(), false);
+          }
           if (sound.getSidechainSend() > 0.0f) {
             writer.writeAttribute(
                 "sideChainSend", (int) (sound.getSidechainSend() * Integer.MAX_VALUE), false);
           }
-          writer.writeAttribute("mode", "subtractive", false);
+          String drumMode =
+              switch (sound.getSynthMode()) {
+                case 1 -> "fm";
+                case 2 -> "ringmod";
+                default -> "subtractive";
+              };
+          writer.writeAttribute("mode", drumMode, false);
           if (Math.round(sound.getPitchSemitones()) != 0) {
             writer.writeAttribute(
                 "transpose", String.valueOf(Math.round(sound.getPitchSemitones())), false);
@@ -269,21 +280,22 @@ public class ProjectSerializer {
           writer.writeAttribute("hpfMode", hpfModeToFirmwareString(sound.getHpfMode()), false);
           writer.writeAttribute(
               "filterRoute", filterRouteToFirmwareString(sound.getFilterRoute()), false);
-          writer.writeAttribute("maxVoices", 8, false);
+          writer.writeAttribute(
+              "modFXType",
+              org.deluge.xml.DelugeXmlUtil.modFxTypeToFirmwareString(sound.getModFxType()),
+              false);
+          writer.writeAttribute("maxVoices", sound.getMaxVoiceCount(), false);
           writer.writeOpeningTagEnd();
 
+          boolean hasOsc1Sample = sound.getSamplePath() != null && !sound.getSamplePath().isEmpty();
           writer.writeOpeningTagBeginning("osc1");
-          if (sound.getSamplePath() != null && !sound.getSamplePath().isEmpty()) {
-            // C reads fileName and the sample flags as keys of the source (sound.cpp:3392-3437).
-            // The old <sample fileName> child of <sound> is not a C key there (a <sample> is a
-            // drum container in kit.cpp:277), so hardware loaded these drums with no sample.
+          if (hasOsc1Sample) {
             writer.writeAttribute("type", "sample", false);
             writer.writeAttribute("fileName", sound.getSamplePath(), false);
             writer.writeAttribute("loopMode", String.valueOf(sound.getOsc1LoopMode()), false);
             writer.writeAttribute("reversed", sound.isReverse() ? "1" : "0", false);
             writer.writeAttribute(
                 "timeStretchEnable", sound.isOsc1TimeStretch() ? "1" : "0", false);
-            // C sound.cpp:3636
             writer.writeAttribute(
                 "timeStretchAmount", String.valueOf(sound.getOsc1TimeStretchAmount()), false);
             writer.writeAttribute(
@@ -294,33 +306,91 @@ public class ProjectSerializer {
           writer.writeAttribute("transpose", String.valueOf(sound.getOsc1Transpose()), false);
           writer.writeAttribute("cents", String.valueOf(sound.getOsc1Cents()), false);
           writer.writeAttribute("retrigPhase", String.valueOf(sound.getOsc1RetrigPhase()), false);
-          writer.closeTag();
+          if (hasOsc1Sample) {
+            writer.writeOpeningTagEnd();
+            writer.writeOpeningTagBeginning("zone");
+            if (sound.getStartSamplePos() >= 0) {
+              writer.writeAttribute(
+                  "startSamplePos", String.valueOf(sound.getStartSamplePos()), false);
+            }
+            if (sound.getEndSamplePos() >= 0) {
+              writer.writeAttribute("endSamplePos", String.valueOf(sound.getEndSamplePos()), false);
+            }
+            if (sound.getStartLoopPos() >= 0) {
+              writer.writeAttribute("startLoopPos", String.valueOf(sound.getStartLoopPos()), false);
+            }
+            if (sound.getEndLoopPos() >= 0) {
+              writer.writeAttribute("endLoopPos", String.valueOf(sound.getEndLoopPos()), false);
+            }
+            writer.closeTag();
+            writer.writeClosingTag("osc1");
+          } else {
+            writer.closeTag();
+          }
 
+          boolean hasOsc2Sample =
+              sound.getOsc2SamplePath() != null && !sound.getOsc2SamplePath().isEmpty();
           writer.writeOpeningTagBeginning("osc2");
           writer.writeAttribute("type", oscTypeToFirmwareString(sound.getOsc2Type()), false);
           writer.writeAttribute("transpose", String.valueOf(sound.getOsc2Transpose()), false);
           writer.writeAttribute("cents", String.valueOf(sound.getOsc2Cents()), false);
           writer.writeAttribute("retrigPhase", String.valueOf(sound.getOsc2RetrigPhase()), false);
-          if (sound.getOsc2SamplePath() != null && !sound.getOsc2SamplePath().isEmpty()) {
+          if (hasOsc2Sample) {
             writer.writeAttribute("fileName", sound.getOsc2SamplePath(), false);
             writer.writeAttribute("loopMode", String.valueOf(sound.getOsc2LoopMode()), false);
             writer.writeAttribute("reversed", sound.isOsc2Reversed() ? "1" : "0", false);
             writer.writeAttribute(
                 "timeStretchEnable", sound.isOsc2TimeStretch() ? "1" : "0", false);
-            // C sound.cpp:3636
             writer.writeAttribute(
                 "timeStretchAmount", String.valueOf(sound.getOsc2TimeStretchAmount()), false);
             writer.writeAttribute(
                 "linearInterpolation", sound.isOsc2LinearInterpolation() ? "1" : "0", false);
-          } else if (sound.isOscillatorSync()) {
-            // C sound.cpp:3701-3703 — oscillatorSync written on osc2 when non-sample and enabled.
-            writer.writeAttribute("oscillatorSync", "1", false);
+            writer.writeOpeningTagEnd();
+            writer.writeOpeningTagBeginning("zone");
+            if (sound.getOsc2StartSamplePos() >= 0) {
+              writer.writeAttribute(
+                  "startSamplePos", String.valueOf(sound.getOsc2StartSamplePos()), false);
+            }
+            if (sound.getOsc2EndSamplePos() >= 0) {
+              writer.writeAttribute(
+                  "endSamplePos", String.valueOf(sound.getOsc2EndSamplePos()), false);
+            }
+            if (sound.getOsc2StartLoopPos() >= 0) {
+              writer.writeAttribute(
+                  "startLoopPos", String.valueOf(sound.getOsc2StartLoopPos()), false);
+            }
+            if (sound.getOsc2EndLoopPos() >= 0) {
+              writer.writeAttribute("endLoopPos", String.valueOf(sound.getOsc2EndLoopPos()), false);
+            }
+            writer.closeTag();
+            writer.writeClosingTag("osc2");
+          } else {
+            if (sound.isOscillatorSync()) {
+              // C sound.cpp:3701-3703 — oscillatorSync written on osc2 when non-sample and enabled.
+              writer.writeAttribute("oscillatorSync", "1", false);
+            }
+            writer.closeTag();
           }
+
+          // FM modulators 1 & 2 (C sound.cpp:4217-4234)
+          writer.writeOpeningTagBeginning("modulator1");
+          writer.writeAttribute("transpose", String.valueOf(sound.getModulator1Transpose()), false);
+          writer.writeAttribute("cents", String.valueOf(sound.getModulator1Cents()), false);
+          writer.writeAttribute("retrigPhase", String.valueOf(sound.getMod1RetrigPhase()), false);
+          writer.closeTag();
+          writer.writeOpeningTagBeginning("modulator2");
+          writer.writeAttribute("transpose", String.valueOf(sound.getModulator2Transpose()), false);
+          writer.writeAttribute("cents", String.valueOf(sound.getModulator2Cents()), false);
+          writer.writeAttribute("retrigPhase", String.valueOf(sound.getMod2RetrigPhase()), false);
+          writer.writeAttribute(
+              "toModulator1", sound.isModulator1ToModulator0() ? "1" : "0", false);
           writer.closeTag();
 
-          // Write minimal LFOs for drum slots
+          // LFOs 1..4 (C sound.cpp:4201-4215)
           serializeLfo(writer, "lfo1", sound.getLfo1());
           serializeLfo(writer, "lfo2", sound.getLfo2());
+          serializeLfo(writer, "lfo3", sound.getLfo3());
+          serializeLfo(writer, "lfo4", sound.getLfo4());
 
           writer.writeOpeningTagBeginning("unison");
           writer.writeOpeningTagEnd();
@@ -330,24 +400,178 @@ public class ProjectSerializer {
           writer.writeTag("spread", String.valueOf(Math.round(sound.getUnisonStereoSpread())));
           writer.writeClosingTag("unison");
 
+          // Delay (C mod_controllable_audio.cpp:417-425)
+          writer.writeOpeningTagBeginning("delay");
+          writer.writeAttribute("pingPong", String.valueOf(sound.getDelayPingPong()), false);
+          writer.writeAttribute("analog", String.valueOf(sound.getDelayAnalog()), false);
+          writer.writeAttribute("syncLevel", String.valueOf(sound.getDelaySyncLevel()), false);
+          if (sound.getDelaySyncType() > 0) {
+            writer.writeAttribute(
+                "syncType",
+                String.valueOf(
+                    org.deluge.xml.DelugeXmlUtil.syncTypeToFile(sound.getDelaySyncType())),
+                false);
+          }
+          writer.closeTag();
+
+          // Compressor
+          if (sound.getCompressorAttack() > 0
+              || sound.getCompressorRelease() > 0
+              || sound.getCompressorSyncLevel() > 0) {
+            writer.writeOpeningTagBeginning("compressor");
+            writer.writeAttribute(
+                "syncLevel", String.valueOf(sound.getCompressorSyncLevel()), false);
+            writer.writeAttribute(
+                "attack",
+                String.valueOf((int) (sound.getCompressorAttack() * Integer.MAX_VALUE)),
+                false);
+            writer.writeAttribute(
+                "release",
+                String.valueOf((int) (sound.getCompressorRelease() * Integer.MAX_VALUE)),
+                false);
+            writer.closeTag();
+          }
+
+          // Stutter
+          writer.writeOpeningTagBeginning("stutter");
+          writer.writeAttribute("quantized", sound.isStutterQuantized() ? "1" : "0", false);
+          writer.writeAttribute("reversed", sound.isStutterReversed() ? "1" : "0", false);
+          writer.writeAttribute("pingPong", sound.isStutterPingPong() ? "1" : "0", false);
+          writer.closeTag();
+
           writer.writeOpeningTagBeginning("defaultParams");
           writer.writeOpeningTagEnd();
-          writeHexTagUnipolar(writer, "volume", sound.getVolume());
-          writeHexTag(writer, "pan", sound.getPan());
-          writeHexTagUnipolar(writer, "oscAVolume", sound.getOscAVolume());
-          writeHexTagUnipolar(writer, "oscBVolume", sound.getOscBVolume());
-          writeHexTagUnipolar(writer, "noiseVolume", sound.getNoiseVolume());
-          writeHexTagFreq(writer, "lpfFrequency", sound.getLpfFreq());
-          writeHexTagUnipolar(writer, "lpfResonance", sound.getLpfRes());
-          writeHexTagUnipolar(writer, "lpfMorph", sound.getLpfMorph());
-          writeHexTagFreq(writer, "hpfFrequency", sound.getHpfFreq());
-          writeHexTagUnipolar(writer, "hpfResonance", sound.getHpfRes());
-          writeHexTagUnipolar(writer, "hpfMorph", sound.getHpfMorph());
-          writeHexTag(writer, "pitch", sound.getPitchSemitones());
-          writeHexTagUnipolar(writer, "reverbAmount", sound.getReverbAmount());
-          writeHexTagUnipolar(writer, "delayRate", sound.getDelayRate());
-          serializeEnvelope(writer, "envelope1", sound.getAdsr());
-          serializeEnvelope(writer, "envelope2", sound.getEnv2());
+          writeDrumRawOrUnipolar(writer, sound, "arpeggiatorGate", sound.getArpeggiatorGate());
+          writeDrumRawOrUnipolar(writer, sound, "portamento", sound.getPortamento());
+          writeDrumRawOrUnipolar(writer, sound, "compressorShape", sound.getCompressorShape());
+          float effectiveDrumOscAVol =
+              ("SAMPLE".equalsIgnoreCase(sound.getOsc1Type()) && sound.getOscAVolume() == 0.0f)
+                  ? 1.0f
+                  : sound.getOscAVolume();
+          writeDrumRawOrUnipolar(writer, sound, "oscAVolume", effectiveDrumOscAVol);
+          writeRawQ31Tag(
+              writer,
+              "oscAPulseWidth",
+              sound.getRawDefaultParamQ31("oscAPulseWidth") != null
+                  ? sound.getRawDefaultParamQ31("oscAPulseWidth")
+                  : 0);
+          writeDrumRawOrUnipolar(writer, sound, "oscAWavetablePosition", sound.getWaveIndex());
+          writeDrumRawOrUnipolar(writer, sound, "oscBVolume", sound.getOscBVolume());
+          writeRawQ31Tag(
+              writer,
+              "oscBPulseWidth",
+              sound.getRawDefaultParamQ31("oscBPulseWidth") != null
+                  ? sound.getRawDefaultParamQ31("oscBPulseWidth")
+                  : 0);
+          writeDrumRawOrUnipolar(writer, sound, "oscBWavetablePosition", sound.getOsc2WaveIndex());
+          for (String pitchTag :
+              new String[] {
+                "pitchAdjust",
+                "oscAPitchAdjust",
+                "oscBPitchAdjust",
+                "mod1PitchAdjust",
+                "mod2PitchAdjust"
+              }) {
+            Integer rawPitch = sound.getRawDefaultParamQ31(pitchTag);
+            if (rawPitch != null) {
+              writeRawQ31Tag(writer, pitchTag, rawPitch);
+            }
+          }
+          writeDrumRawOrUnipolar(writer, sound, "noiseVolume", sound.getNoiseVolume());
+          writeDrumRawOrUnipolar(writer, sound, "volume", sound.getVolume());
+          writeDrumRawOrBipolar(writer, sound, "pan", "pan", sound.getPan());
+          writeDrumRawOrFreq(writer, sound, "lpfFrequency", sound.getLpfFreq());
+          writeDrumRawOrUnipolar(writer, sound, "lpfResonance", sound.getLpfRes());
+          writeDrumRawOrUnipolar(writer, sound, "lpfMorph", sound.getLpfMorph());
+          writeDrumRawOrFreq(writer, sound, "hpfFrequency", sound.getHpfFreq());
+          writeDrumRawOrUnipolar(writer, sound, "hpfResonance", sound.getHpfRes());
+          writeDrumRawOrUnipolar(writer, sound, "hpfMorph", sound.getHpfMorph());
+          writeRawQ31Tag(
+              writer, "modFXRate", sound.getModFxRateQ31() != null ? sound.getModFxRateQ31() : 0);
+          writeRawQ31Tag(
+              writer,
+              "modFXDepth",
+              sound.getModFxDepthQ31() != null ? sound.getModFxDepthQ31() : 0);
+          writeRawQ31Tag(
+              writer,
+              "modFXOffset",
+              sound.getModFxOffsetQ31() != null ? sound.getModFxOffsetQ31() : 0);
+          writeRawQ31Tag(
+              writer,
+              "modFXFeedback",
+              sound.getModFxFeedbackQ31() != null ? sound.getModFxFeedbackQ31() : 0);
+          writeRawQ31Tag(
+              writer, "delayRate", sound.getDelayRateQ31() != null ? sound.getDelayRateQ31() : 0);
+          writeRawQ31Tag(
+              writer,
+              "delayFeedback",
+              sound.getDelayFeedbackQ31() != null
+                  ? sound.getDelayFeedbackQ31()
+                  : Integer.MIN_VALUE);
+          writeDrumRawOrUnipolar(writer, sound, "reverbAmount", sound.getReverbAmount());
+          writeDrumRawOrUnipolar(writer, sound, "arpeggiatorRate", sound.getArpeggiatorRate());
+          writeDrumRawOrUnipolar(writer, sound, "stutterRate", sound.getStutterRate());
+          writeDrumRawOrUnipolar(
+              writer, sound, "sampleRateReduction", sound.getSampleRateReduction());
+          writeDrumRawOrUnipolar(writer, sound, "bitCrush", sound.getBitCrush());
+          writeDrumRawOrUnipolar(writer, sound, "waveIndex", sound.getWaveIndex());
+          Integer drumFold = sound.getRawDefaultParamQ31("waveFold");
+          if (drumFold != null) {
+            writeRawQ31Tag(writer, "waveFold", drumFold);
+          }
+
+          EnvelopeModel[] drumEnvs = {
+            sound.getAdsr(), sound.getEnv2(), sound.getEnv3(), sound.getEnv4()
+          };
+          for (int envIdx = 0; envIdx < 4; envIdx++) {
+            String envTag = "envelope" + (envIdx + 1);
+            Integer aQ31 = sound.getRawDefaultParamQ31(envTag + ".attack");
+            Integer dQ31 = sound.getRawDefaultParamQ31(envTag + ".decay");
+            Integer sQ31 = sound.getRawDefaultParamQ31(envTag + ".sustain");
+            Integer rQ31 = sound.getRawDefaultParamQ31(envTag + ".release");
+            if (aQ31 != null && dQ31 != null && sQ31 != null && rQ31 != null) {
+              writer.writeOpeningTagBeginning(envTag);
+              writer.writeOpeningTagEnd();
+              writeRawQ31Tag(writer, "attack", aQ31);
+              writeRawQ31Tag(writer, "decay", dQ31);
+              writeRawQ31Tag(writer, "sustain", sQ31);
+              writeRawQ31Tag(writer, "release", rQ31);
+              writer.writeClosingTag(envTag);
+            } else {
+              serializeEnvelope(writer, envTag, drumEnvs[envIdx]);
+            }
+          }
+
+          org.deluge.model.LfoModel[] drumLfos = {
+            sound.getLfo1(), sound.getLfo2(), sound.getLfo3(), sound.getLfo4()
+          };
+          for (int lfoIdx = 0; lfoIdx < 4; lfoIdx++) {
+            String rateTag = "lfo" + (lfoIdx + 1) + "Rate";
+            Integer rawRate = sound.getRawDefaultParamQ31(rateTag);
+            if (rawRate != null) {
+              writeRawQ31Tag(writer, rateTag, rawRate);
+            } else {
+              writeHexTagLfoFreq(writer, rateTag, drumLfos[lfoIdx].rateHz());
+            }
+          }
+
+          writeRawQ31Tag(writer, "modulator1Amount", sound.getModulator1AmountQ31());
+          writeRawQ31Tag(writer, "modulator1Feedback", sound.getModulator1FeedbackQ31());
+          writeRawQ31Tag(writer, "modulator2Amount", sound.getModulator2AmountQ31());
+          writeRawQ31Tag(writer, "modulator2Feedback", sound.getModulator2FeedbackQ31());
+          writeRawQ31Tag(writer, "carrier1Feedback", sound.getCarrier1FeedbackQ31());
+          writeRawQ31Tag(writer, "carrier2Feedback", sound.getCarrier2FeedbackQ31());
+
+          writer.writeOpeningTagBeginning("equalizer");
+          writer.writeOpeningTagEnd();
+          writeDrumRawOrBipolar(writer, sound, "bass", "eq.bass", sound.getEqBass());
+          writeDrumRawOrBipolar(writer, sound, "treble", "eq.treble", sound.getEqTreble());
+          writeDrumRawOrBipolar(
+              writer, sound, "bassFrequency", "eq.bassFrequency", sound.getEqBassFreq());
+          writeDrumRawOrBipolar(
+              writer, sound, "trebleFrequency", "eq.trebleFrequency", sound.getEqTrebleFreq());
+          writer.writeClosingTag("equalizer");
+
           if (!sound.getPatchCables().isEmpty()) {
             // C sound.cpp:4159 -> PatchCableSet::writePatchCablesToFile(writer, false).
             writer.writeArrayStart("patchCables");
@@ -359,6 +583,24 @@ public class ProjectSerializer {
           writer.writeClosingTag("defaultParams");
 
           serializeMidiKnobs(writer, sound.getMidiKnobs());
+
+          boolean drumHasKnobs =
+              sound.getModKnobs().stream().anyMatch(k -> !"NONE".equals(k.param()));
+          if (drumHasKnobs) {
+            writer.writeArrayStart("modKnobs");
+            for (ModKnob mk : sound.getModKnobs()) {
+              if (!"NONE".equals(mk.param())) {
+                writer.writeOpeningTagBeginning("modKnob");
+                writer.writeOpeningTagEnd();
+                writer.writeTag("controlsParam", mk.param());
+                if (mk.patchSource() != null && !"NONE".equals(mk.patchSource())) {
+                  writer.writeTag("patchAmountFromSource", mk.patchSource());
+                }
+                writer.writeClosingTag("modKnob");
+              }
+            }
+            writer.writeArrayEnding("modKnobs");
+          }
 
           if (sound.getMidiChannel() != 255 || sound.getNoteForDrum() != 255) {
             writer.writeOpeningTagBeginning("midiOutput");
@@ -691,8 +933,9 @@ public class ProjectSerializer {
             };
         writer.writeTag("polyphonic", polyVal);
         // Was hardcoded "0"/"1" — dropped the preset's saturation/distortion (clippingAmount is
-        // parsed + applied to the engine) and voice priority. Write the real model values.
-        writer.writeTag("clippingAmount", String.valueOf(synth.getClippingAmount()));
+        // parsed + applied to the engine) and voice priority. Write plain decimal integers matching
+        // C sound.cpp:4249 & InstrumentXmlParser.java:1058 (Integer.parseInt).
+        writer.writeTag("clippingAmount", String.valueOf(Math.round(synth.getClippingAmount())));
         writer.writeTag("voicePriority", String.valueOf(synth.getVoicePriority()));
 
         serializeLfo(writer, "lfo1", synth.getLfo(0));
@@ -872,15 +1115,18 @@ public class ProjectSerializer {
         writer.writeTag("chordProbability", String.valueOf(synth.getArp().chordProbability()));
         writer.writeClosingTag("arpeggiator");
 
-        // delay
-        if (synth.getDelaySend() > 0) {
-          writer.writeOpeningTagBeginning("delay");
-          writer.writeOpeningTagEnd();
-          writer.writeTag("pingPong", "1");
-          writer.writeTag("analog", "1");
-          writer.writeTag("syncLevel", "7");
-          writer.writeClosingTag("delay");
+        // delay (C mod_controllable_audio.cpp:417-425 — unconditional)
+        writer.writeOpeningTagBeginning("delay");
+        writer.writeAttribute("pingPong", synth.isDelayPingPong() ? "1" : "0", false);
+        writer.writeAttribute("analog", synth.isDelayAnalog() ? "1" : "0", false);
+        writer.writeAttribute("syncLevel", String.valueOf(synth.getDelaySyncLevel()), false);
+        if (synth.getDelaySyncType() > 0) {
+          writer.writeAttribute(
+              "syncType",
+              String.valueOf(org.deluge.xml.DelugeXmlUtil.syncTypeToFile(synth.getDelaySyncType())),
+              false);
         }
+        writer.closeTag();
 
         writer.writeTag(
             "lpfMode",
@@ -904,9 +1150,24 @@ public class ProjectSerializer {
               default -> "HPLadder";
             });
 
+        // C filter_config.cpp:16-20, mod_controllable_audio.cpp:411
+        writer.writeTag(
+            "filterRoute",
+            org.deluge.xml.DelugeXmlUtil.filterRouteToFirmwareString(synth.getFilterRoute()));
+
         writer.writeTag(
             "modFXType",
             org.deluge.xml.DelugeXmlUtil.modFxTypeToFirmwareString(synth.getModFxType()));
+
+        // stutter (ModControllableAudio::stutterConfig)
+        writer.writeOpeningTagBeginning("stutter");
+        writer.writeAttribute(
+            "quantized", synth.getStutter().isStutterQuantized() ? "1" : "0", false);
+        writer.writeAttribute(
+            "reversed", synth.getStutter().isStutterReversed() ? "1" : "0", false);
+        writer.writeAttribute(
+            "pingPong", synth.getStutter().isStutterPingPong() ? "1" : "0", false);
+        writer.closeTag();
 
         // compressor
         float compAttack = synth.getCompressorAttack();
@@ -923,87 +1184,317 @@ public class ProjectSerializer {
         }
 
         // defaultParams
+        var synthRaw = synth.getRawKnobs();
+        var synthRawMap = synthRaw.getRawParamKnobs();
         writer.writeOpeningTagBeginning("defaultParams");
         writer.writeOpeningTagEnd();
         writeHexTagUnipolar(writer, "arpeggiatorGate", synth.getArp().gate());
-        writeHexTagUnipolar(writer, "portamento", synth.getPortamento());
-        writeHexTagUnipolar(writer, "compressorShape", synth.getCompressorShape());
-        // Write independent oscillator volumes (C sound.cpp:4072-4073). Deriving (oscMix, 1 -
-        // oscMix) zeroed oscBVolume whenever oscAVolume was full.
-        writeHexTagUnipolar(writer, "oscAVolume", synth.getOscAVolume());
-        // C sound.cpp:163-164 / functions.cpp:640-644 — phase width is 0..0x7FFFFFFF (0 = off).
+        writeRawQ31Tag(
+            writer,
+            "portamento",
+            synthRawMap.getOrDefault(
+                org.deluge.firmware2.Param.UNPATCHED_PORTAMENTO, synth.getPortamentoQ31()));
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE)) {
+          writeRawQ31Tag(
+              writer,
+              "compressorShape",
+              synthRawMap.get(org.deluge.firmware2.Param.UNPATCHED_SIDECHAIN_SHAPE));
+        } else {
+          writeHexTagUnipolar(writer, "compressorShape", synth.getCompressorShape());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.UNPATCHED_COMPRESSOR_THRESHOLD)) {
+          writeRawQ31Tag(
+              writer,
+              "compressorThreshold",
+              synthRawMap.get(org.deluge.firmware2.Param.UNPATCHED_COMPRESSOR_THRESHOLD));
+        } else {
+          writeHexTagUnipolar(writer, "compressorThreshold", synth.getCompressorThreshold());
+        }
+        // Write independent oscillator volumes (C sound.cpp:4072-4073).
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME)) {
+          writeRawQ31Tag(
+              writer, "oscAVolume", synthRawMap.get(org.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME));
+        } else {
+          writeHexTagUnipolar(writer, "oscAVolume", synth.getOscAVolume());
+        }
         writeRawQ31Tag(
             writer,
             "oscAPulseWidth",
-            synth.getOsc1PhaseWidthQ31() != Integer.MIN_VALUE ? synth.getOsc1PhaseWidthQ31() : 0);
-        writeHexTagUnipolar(writer, "oscBVolume", synth.getOscBVolume());
+            synthRawMap.getOrDefault(
+                org.deluge.firmware2.Param.LOCAL_OSC_A_PHASE_WIDTH,
+                synth.getOsc1PhaseWidthQ31() != Integer.MIN_VALUE
+                    ? synth.getOsc1PhaseWidthQ31()
+                    : 0));
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.LOCAL_OSC_A_WAVE_INDEX)) {
+          writeRawQ31Tag(
+              writer,
+              "oscAWavetablePosition",
+              synthRawMap.get(org.deluge.firmware2.Param.LOCAL_OSC_A_WAVE_INDEX));
+        } else {
+          writeHexTagUnipolar(writer, "oscAWavetablePosition", synth.getWaveIndex());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.LOCAL_OSC_B_VOLUME)) {
+          writeRawQ31Tag(
+              writer, "oscBVolume", synthRawMap.get(org.deluge.firmware2.Param.LOCAL_OSC_B_VOLUME));
+        } else {
+          writeHexTagUnipolar(writer, "oscBVolume", synth.getOscBVolume());
+        }
         writeRawQ31Tag(
             writer,
             "oscBPulseWidth",
-            synth.getOsc2PhaseWidthQ31() != Integer.MIN_VALUE ? synth.getOsc2PhaseWidthQ31() : 0);
-        if (synth.getPitchAdjustQ31() != Integer.MIN_VALUE) {
+            synthRawMap.getOrDefault(
+                org.deluge.firmware2.Param.LOCAL_OSC_B_PHASE_WIDTH,
+                synth.getOsc2PhaseWidthQ31() != Integer.MIN_VALUE
+                    ? synth.getOsc2PhaseWidthQ31()
+                    : 0));
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.LOCAL_OSC_B_WAVE_INDEX)) {
+          writeRawQ31Tag(
+              writer,
+              "oscBWavetablePosition",
+              synthRawMap.get(org.deluge.firmware2.Param.LOCAL_OSC_B_WAVE_INDEX));
+        } else {
+          writeHexTagUnipolar(writer, "oscBWavetablePosition", synth.getOsc2WaveIndex());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.LOCAL_PITCH_ADJUST)) {
+          writeRawQ31Tag(
+              writer,
+              "pitchAdjust",
+              synthRawMap.get(org.deluge.firmware2.Param.LOCAL_PITCH_ADJUST));
+        } else if (synth.getPitchAdjustQ31() != Integer.MIN_VALUE) {
           writeRawQ31Tag(writer, "pitchAdjust", synth.getPitchAdjustQ31());
         }
-        if (synth.getOsc1PitchAdjustQ31() != Integer.MIN_VALUE) {
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.LOCAL_OSC_A_PITCH_ADJUST)) {
+          writeRawQ31Tag(
+              writer,
+              "oscAPitchAdjust",
+              synthRawMap.get(org.deluge.firmware2.Param.LOCAL_OSC_A_PITCH_ADJUST));
+        } else if (synth.getOsc1PitchAdjustQ31() != Integer.MIN_VALUE) {
           writeRawQ31Tag(writer, "oscAPitchAdjust", synth.getOsc1PitchAdjustQ31());
         }
-        if (synth.getOsc2PitchAdjustQ31() != Integer.MIN_VALUE) {
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.LOCAL_OSC_B_PITCH_ADJUST)) {
+          writeRawQ31Tag(
+              writer,
+              "oscBPitchAdjust",
+              synthRawMap.get(org.deluge.firmware2.Param.LOCAL_OSC_B_PITCH_ADJUST));
+        } else if (synth.getOsc2PitchAdjustQ31() != Integer.MIN_VALUE) {
           writeRawQ31Tag(writer, "oscBPitchAdjust", synth.getOsc2PitchAdjustQ31());
         }
-        writeHexTagUnipolar(writer, "noiseVolume", synth.getNoiseVol());
-        writeHexTagUnipolar(writer, "volume", synth.getVolume());
-        writeHexTag(writer, "pan", synth.getPan());
-        writeHexTagFreq(writer, "lpfFrequency", synth.getLpfFreq());
-        writeHexTagUnipolar(writer, "lpfResonance", synth.getLpfRes());
-        writeHexTagFreq(writer, "hpfFrequency", synth.getHpfFreq());
-        writeHexTagUnipolar(writer, "hpfResonance", synth.getHpfRes());
-        writeHexTagUnipolar(writer, "hpfMorph", synth.getHpfMorph());
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.LOCAL_MODULATOR_0_PITCH_ADJUST)) {
+          writeRawQ31Tag(
+              writer,
+              "mod1PitchAdjust",
+              synthRawMap.get(org.deluge.firmware2.Param.LOCAL_MODULATOR_0_PITCH_ADJUST));
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.LOCAL_MODULATOR_1_PITCH_ADJUST)) {
+          writeRawQ31Tag(
+              writer,
+              "mod2PitchAdjust",
+              synthRawMap.get(org.deluge.firmware2.Param.LOCAL_MODULATOR_1_PITCH_ADJUST));
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.LOCAL_NOISE_VOLUME)) {
+          writeRawQ31Tag(
+              writer,
+              "noiseVolume",
+              synthRawMap.get(org.deluge.firmware2.Param.LOCAL_NOISE_VOLUME));
+        } else {
+          writeHexTagUnipolar(writer, "noiseVolume", synth.getNoiseVol());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.GLOBAL_VOLUME_POST_FX)) {
+          writeRawQ31Tag(
+              writer, "volume", synthRawMap.get(org.deluge.firmware2.Param.GLOBAL_VOLUME_POST_FX));
+        } else {
+          writeHexTagUnipolar(writer, "volume", synth.getVolume());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.LOCAL_PAN)) {
+          writeRawQ31Tag(writer, "pan", synthRawMap.get(org.deluge.firmware2.Param.LOCAL_PAN));
+        } else {
+          writeHexTag(writer, "pan", synth.getPan());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.LOCAL_LPF_FREQ)) {
+          writeRawQ31Tag(
+              writer, "lpfFrequency", synthRawMap.get(org.deluge.firmware2.Param.LOCAL_LPF_FREQ));
+        } else {
+          writeHexTagFreq(writer, "lpfFrequency", synth.getLpfFreq());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.LOCAL_LPF_RESONANCE)) {
+          writeRawQ31Tag(
+              writer,
+              "lpfResonance",
+              synthRawMap.get(org.deluge.firmware2.Param.LOCAL_LPF_RESONANCE));
+        } else {
+          writeHexTagUnipolar(writer, "lpfResonance", synth.getLpfRes());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.LOCAL_LPF_MORPH)) {
+          writeRawQ31Tag(
+              writer, "lpfMorph", synthRawMap.get(org.deluge.firmware2.Param.LOCAL_LPF_MORPH));
+        } else {
+          writeHexTagUnipolar(writer, "lpfMorph", synth.getLpfMorph());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.LOCAL_HPF_FREQ)) {
+          writeRawQ31Tag(
+              writer, "hpfFrequency", synthRawMap.get(org.deluge.firmware2.Param.LOCAL_HPF_FREQ));
+        } else {
+          writeHexTagFreq(writer, "hpfFrequency", synth.getHpfFreq());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.LOCAL_HPF_RESONANCE)) {
+          writeRawQ31Tag(
+              writer,
+              "hpfResonance",
+              synthRawMap.get(org.deluge.firmware2.Param.LOCAL_HPF_RESONANCE));
+        } else {
+          writeHexTagUnipolar(writer, "hpfResonance", synth.getHpfRes());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.LOCAL_HPF_MORPH)) {
+          writeRawQ31Tag(
+              writer, "hpfMorph", synthRawMap.get(org.deluge.firmware2.Param.LOCAL_HPF_MORPH));
+        } else {
+          writeHexTagUnipolar(writer, "hpfMorph", synth.getHpfMorph());
+        }
 
-        // FM params (C sound.cpp:4089-4097)
-        writeHexTagUnipolar(writer, "modulator1Amount", synth.getFmAmount());
-        writeHexTagUnipolar(writer, "modulator1Feedback", synth.getModulator1Feedback());
-        writeHexTagUnipolar(writer, "modulator2Amount", synth.getModulator2Amount());
-        writeHexTagUnipolar(writer, "modulator2Feedback", synth.getModulator2Feedback());
-        writeHexTagUnipolar(writer, "carrier1Feedback", synth.getCarrier1Feedback());
-        writeHexTagUnipolar(writer, "carrier2Feedback", synth.getCarrier2Feedback());
+        // FM params (C sound.cpp:4089-4097 — exact Q31 knobs)
+        writeRawQ31Tag(writer, "modulator1Amount", synth.getModulator1AmountQ31());
+        writeRawQ31Tag(writer, "modulator1Feedback", synth.getModulator1FeedbackQ31());
+        writeRawQ31Tag(writer, "modulator2Amount", synth.getModulator2AmountQ31());
+        writeRawQ31Tag(writer, "modulator2Feedback", synth.getModulator2FeedbackQ31());
+        writeRawQ31Tag(writer, "carrier1Feedback", synth.getCarrier1FeedbackQ31());
+        writeRawQ31Tag(writer, "carrier2Feedback", synth.getCarrier2FeedbackQ31());
 
-        writeHexTagUnipolar(writer, "modFXRate", synth.getModFxRate());
-        writeHexTagUnipolar(writer, "modFXDepth", synth.getModFxDepth());
-        writeHexTagUnipolar(writer, "modFXOffset", synth.getModFxOffset());
-        writeHexTagUnipolar(writer, "modFXFeedback", synth.getModFxFeedback());
-        writeHexTagUnipolar(writer, "delayRate", synth.getDelaySend());
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.GLOBAL_MOD_FX_RATE)) {
+          writeRawQ31Tag(
+              writer, "modFXRate", synthRawMap.get(org.deluge.firmware2.Param.GLOBAL_MOD_FX_RATE));
+        } else {
+          writeHexTagUnipolar(writer, "modFXRate", synth.getModFxRate());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.GLOBAL_MOD_FX_DEPTH)) {
+          writeRawQ31Tag(
+              writer,
+              "modFXDepth",
+              synthRawMap.get(org.deluge.firmware2.Param.GLOBAL_MOD_FX_DEPTH));
+        } else {
+          writeHexTagUnipolar(writer, "modFXDepth", synth.getModFxDepth());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.UNPATCHED_MOD_FX_OFFSET)) {
+          writeRawQ31Tag(
+              writer,
+              "modFXOffset",
+              synthRawMap.get(org.deluge.firmware2.Param.UNPATCHED_MOD_FX_OFFSET));
+        } else {
+          writeHexTagUnipolar(writer, "modFXOffset", synth.getModFxOffset());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.UNPATCHED_MOD_FX_FEEDBACK)) {
+          writeRawQ31Tag(
+              writer,
+              "modFXFeedback",
+              synthRawMap.get(org.deluge.firmware2.Param.UNPATCHED_MOD_FX_FEEDBACK));
+        } else {
+          writeHexTagUnipolar(writer, "modFXFeedback", synth.getModFxFeedback());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.GLOBAL_DELAY_RATE)) {
+          writeRawQ31Tag(
+              writer, "delayRate", synthRawMap.get(org.deluge.firmware2.Param.GLOBAL_DELAY_RATE));
+        } else {
+          writeHexTagUnipolar(writer, "delayRate", synth.getDelaySend());
+        }
         writeRawQ31Tag(writer, "delayFeedback", synth.getDelayFeedbackQ31());
-        writeHexTagUnipolar(writer, "reverbAmount", synth.getReverbSend());
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT)) {
+          writeRawQ31Tag(
+              writer,
+              "reverbAmount",
+              synthRawMap.get(org.deluge.firmware2.Param.GLOBAL_REVERB_AMOUNT));
+        } else {
+          writeHexTagUnipolar(writer, "reverbAmount", synth.getReverbSend());
+        }
         // C sound.cpp:4117 — GLOBAL_ARP_RATE raw Q31 param.
         writer.writeTag("arpeggiatorRate", String.format("0x%08X", synth.getArpRateQ31()));
-        writeHexTagUnipolar(writer, "stutterRate", synth.getStutter().getStutterRate());
-        writeHexTagUnipolar(writer, "sampleRateReduction", synth.getSampleRateReduction());
-        writeHexTagUnipolar(writer, "bitCrush", synth.getBitCrush());
-        writeHexTagUnipolar(writer, "waveIndex", synth.getWaveIndex());
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.UNPATCHED_STUTTER_RATE)) {
+          writeRawQ31Tag(
+              writer,
+              "stutterRate",
+              synthRawMap.get(org.deluge.firmware2.Param.UNPATCHED_STUTTER_RATE));
+        } else {
+          writeHexTagUnipolar(writer, "stutterRate", synth.getStutter().getStutterRate());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.UNPATCHED_SAMPLE_RATE_REDUCTION)) {
+          writeRawQ31Tag(
+              writer,
+              "sampleRateReduction",
+              synthRawMap.get(org.deluge.firmware2.Param.UNPATCHED_SAMPLE_RATE_REDUCTION));
+        } else {
+          writeHexTagUnipolar(writer, "sampleRateReduction", synth.getSampleRateReduction());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.UNPATCHED_BITCRUSHING)) {
+          writeRawQ31Tag(
+              writer,
+              "bitCrush",
+              synthRawMap.get(org.deluge.firmware2.Param.UNPATCHED_BITCRUSHING));
+        } else {
+          writeHexTagUnipolar(writer, "bitCrush", synth.getBitCrush());
+        }
+        writeRawQ31Tag(writer, "waveFold", synth.getWaveFoldQ31());
 
         // Equalizer
         writer.writeOpeningTagBeginning("equalizer");
         writer.writeOpeningTagEnd();
-        writeHexTag(writer, "bass", synth.getEqBass());
-        writeHexTag(writer, "treble", synth.getEqTreble());
-        writeHexTag(writer, "bassFrequency", synth.getEqBassFreq());
-        writeHexTag(writer, "trebleFrequency", synth.getEqTrebleFreq());
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.UNPATCHED_BASS)) {
+          writeRawQ31Tag(
+              writer, "bass", synthRawMap.get(org.deluge.firmware2.Param.UNPATCHED_BASS));
+        } else {
+          writeHexTag(writer, "bass", synth.getEqBass());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.UNPATCHED_TREBLE)) {
+          writeRawQ31Tag(
+              writer, "treble", synthRawMap.get(org.deluge.firmware2.Param.UNPATCHED_TREBLE));
+        } else {
+          writeHexTag(writer, "treble", synth.getEqTreble());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.UNPATCHED_BASS_FREQ)) {
+          writeRawQ31Tag(
+              writer,
+              "bassFrequency",
+              synthRawMap.get(org.deluge.firmware2.Param.UNPATCHED_BASS_FREQ));
+        } else {
+          writeHexTag(writer, "bassFrequency", synth.getEqBassFreq());
+        }
+        if (synthRawMap.containsKey(org.deluge.firmware2.Param.UNPATCHED_TREBLE_FREQ)) {
+          writeRawQ31Tag(
+              writer,
+              "trebleFrequency",
+              synthRawMap.get(org.deluge.firmware2.Param.UNPATCHED_TREBLE_FREQ));
+        } else {
+          writeHexTag(writer, "trebleFrequency", synth.getEqTrebleFreq());
+        }
         writer.writeClosingTag("equalizer");
 
         // Envelopes 1-4
         for (int i = 0; i < 4; i++) {
-          serializeEnvelope(writer, "envelope" + (i + 1), synth.getEnv(i));
+          if (rawEnvKnobMatchesModel(synth, i)) {
+            writer.writeOpeningTagBeginning("envelope" + (i + 1));
+            writer.writeOpeningTagEnd();
+            writeRawQ31Tag(writer, "attack", synthRaw.getEnvAttackKnobQ31(i));
+            writeRawQ31Tag(writer, "decay", synthRaw.getEnvDecayKnobQ31(i));
+            writeRawQ31Tag(writer, "sustain", synthRaw.getEnvSustainKnobQ31(i));
+            writeRawQ31Tag(writer, "release", synthRaw.getEnvReleaseKnobQ31(i));
+            writer.writeClosingTag("envelope" + (i + 1));
+          } else {
+            serializeEnvelope(writer, "envelope" + (i + 1), synth.getEnv(i));
+          }
         }
 
-        // LFO rates
-        writeHexTag(writer, "lfo1Rate", synth.getLfo(0).rateHz() / 100.0f);
-        writeHexTag(writer, "lfo2Rate", synth.getLfo(1).rateHz() / 100.0f);
+        // LFO rates 1..4 (C sound.cpp:4084-4087)
+        for (int i = 0; i < 4; i++) {
+          String rateTag = "lfo" + (i + 1) + "Rate";
+          if (synthRaw.isLfoRateKnobSet(i)) {
+            writeRawQ31Tag(writer, rateTag, synthRaw.getLfoRateKnobQ31(i));
+          } else {
+            writeHexTagLfoFreq(writer, rateTag, synth.getLfo(i).rateHz());
+          }
+        }
 
-        // Patch cables
+        // Patch cables (C sound.cpp:4159 -> writePatchCablesToFile(..., writeAutomation = false))
         if (!synth.getModulation().getPatchCables().isEmpty()) {
           writer.writeArrayStart("patchCables");
           for (PatchCable pc : synth.getModulation().getPatchCables()) {
-            writePatchCable(writer, pc);
+            writePatchCable(writer, pc, false);
           }
           writer.writeArrayEnding("patchCables");
         }
@@ -1163,10 +1654,10 @@ public class ProjectSerializer {
       throws IOException {
     writer.writeOpeningTagBeginning(tag);
     writer.writeOpeningTagEnd();
-    writeHexTag(writer, "attack", DelugeHexMapper.normFromEnvTime(env.attack()));
-    writeHexTag(writer, "decay", DelugeHexMapper.normFromEnvTime(env.decay()));
-    writeHexTagUnipolar(writer, "sustain", env.sustain());
-    writeHexTag(writer, "release", DelugeHexMapper.normFromEnvTime(env.release()));
+    writer.writeTag("attack", DelugeHexMapper.envTimeToHex(env.attack()));
+    writer.writeTag("decay", DelugeHexMapper.envTimeToHex(env.decay()));
+    writer.writeTag("sustain", DelugeHexMapper.sustainToHex(env.sustain()));
+    writer.writeTag("release", DelugeHexMapper.envTimeToHex(env.release()));
     writer.writeClosingTag(tag);
   }
 
@@ -1223,6 +1714,37 @@ public class ProjectSerializer {
   private static void writeHexTagLfoFreq(XMLSerializer writer, String tag, float hz)
       throws IOException {
     writer.writeTag(tag, DelugeHexMapper.lfoHzToHex(hz));
+  }
+
+  private static void writeDrumRawOrUnipolar(
+      XMLSerializer writer, SoundDrum drum, String tag, float fallback) throws IOException {
+    Integer raw = drum.getRawDefaultParamQ31(tag);
+    if (raw != null) {
+      writeRawQ31Tag(writer, tag, raw);
+    } else {
+      writeHexTagUnipolar(writer, tag, fallback);
+    }
+  }
+
+  private static void writeDrumRawOrBipolar(
+      XMLSerializer writer, SoundDrum drum, String tag, String rawKey, float fallback)
+      throws IOException {
+    Integer raw = drum.getRawDefaultParamQ31(rawKey);
+    if (raw != null) {
+      writeRawQ31Tag(writer, tag, raw);
+    } else {
+      writeHexTag(writer, tag, fallback);
+    }
+  }
+
+  private static void writeDrumRawOrFreq(
+      XMLSerializer writer, SoundDrum drum, String tag, float fallbackHz) throws IOException {
+    Integer raw = drum.getRawDefaultParamQ31(tag);
+    if (raw != null) {
+      writeRawQ31Tag(writer, tag, raw);
+    } else {
+      writeHexTagFreq(writer, tag, fallbackHz);
+    }
   }
 
   private static int floatToRawInt(float v) {
@@ -2118,6 +2640,15 @@ public class ProjectSerializer {
         writer,
         curves,
         written,
+        "compressorThreshold",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.UNPATCHED_COMPRESSOR_THRESHOLD)
+            ? String.format(
+                "0x%08X", rawKnobs.get(org.deluge.firmware2.Param.UNPATCHED_COMPRESSOR_THRESHOLD))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getCompressorThreshold()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
         "oscAVolume",
         rawKnobs.containsKey(org.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME)
             ? String.format("0x%08X", rawKnobs.get(org.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME))
@@ -2138,6 +2669,15 @@ public class ProjectSerializer {
         writer,
         curves,
         written,
+        "oscAWavetablePosition",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.LOCAL_OSC_A_WAVE_INDEX)
+            ? String.format(
+                "0x%08X", rawKnobs.get(org.deluge.firmware2.Param.LOCAL_OSC_A_WAVE_INDEX))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getWaveIndex()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
         "oscBVolume",
         rawKnobs.containsKey(org.deluge.firmware2.Param.LOCAL_OSC_B_VOLUME)
             ? String.format("0x%08X", rawKnobs.get(org.deluge.firmware2.Param.LOCAL_OSC_B_VOLUME))
@@ -2154,6 +2694,65 @@ public class ProjectSerializer {
                 synth.getOsc2PhaseWidthQ31() != Integer.MIN_VALUE
                     ? synth.getOsc2PhaseWidthQ31()
                     : 0)));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "oscBWavetablePosition",
+        rawKnobs.containsKey(org.deluge.firmware2.Param.LOCAL_OSC_B_WAVE_INDEX)
+            ? String.format(
+                "0x%08X", rawKnobs.get(org.deluge.firmware2.Param.LOCAL_OSC_B_WAVE_INDEX))
+            : DelugeHexMapper.unipolarFloatToHexUnified(synth.getOsc2WaveIndex()));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "pitchAdjust",
+        String.format(
+            "0x%08X",
+            rawKnobs.getOrDefault(
+                org.deluge.firmware2.Param.LOCAL_PITCH_ADJUST,
+                synth.getPitchAdjustQ31() != Integer.MIN_VALUE ? synth.getPitchAdjustQ31() : 0)));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "oscAPitchAdjust",
+        String.format(
+            "0x%08X",
+            rawKnobs.getOrDefault(
+                org.deluge.firmware2.Param.LOCAL_OSC_A_PITCH_ADJUST,
+                synth.getOsc1PitchAdjustQ31() != Integer.MIN_VALUE
+                    ? synth.getOsc1PitchAdjustQ31()
+                    : 0)));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "oscBPitchAdjust",
+        String.format(
+            "0x%08X",
+            rawKnobs.getOrDefault(
+                org.deluge.firmware2.Param.LOCAL_OSC_B_PITCH_ADJUST,
+                synth.getOsc2PitchAdjustQ31() != Integer.MIN_VALUE
+                    ? synth.getOsc2PitchAdjustQ31()
+                    : 0)));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "mod1PitchAdjust",
+        String.format(
+            "0x%08X",
+            rawKnobs.getOrDefault(org.deluge.firmware2.Param.LOCAL_MODULATOR_0_PITCH_ADJUST, 0)));
+    writeSoundParamAttr(
+        writer,
+        curves,
+        written,
+        "mod2PitchAdjust",
+        String.format(
+            "0x%08X",
+            rawKnobs.getOrDefault(org.deluge.firmware2.Param.LOCAL_MODULATOR_1_PITCH_ADJUST, 0)));
     writeSoundParamAttr(
         writer,
         curves,
@@ -2351,6 +2950,16 @@ public class ProjectSerializer {
             : DelugeHexMapper.unipolarFloatToHexUnified(synth.getBitCrush()));
     writeSoundParamAttr(
         writer, curves, written, "waveFold", String.format("0x%08X", synth.getWaveFoldQ31()));
+    // C sound.cpp:4084-4087 — unconditionally write lfo1Rate..lfo4Rate so clip <soundParams>
+    // resetClipParamsToFirmwareDefaults never wipes unautomated LFO rates on song reload.
+    for (int lfoIdx = 0; lfoIdx < 4; lfoIdx++) {
+      String rateAttr = "lfo" + (lfoIdx + 1) + "Rate";
+      String baseRateHex =
+          synth.getRawKnobs().isLfoRateKnobSet(lfoIdx)
+              ? String.format("0x%08X", synth.getRawKnobs().getLfoRateKnobQ31(lfoIdx))
+              : DelugeHexMapper.lfoHzToHex(synth.getLfo(lfoIdx).rateHz());
+      writeSoundParamAttr(writer, curves, written, rateAttr, baseRateHex);
+    }
 
     // Write any raw patched parameters (like sidechain shape and volume)
     for (var entry : synth.getRawKnobs().getRawParamKnobs().entrySet()) {
@@ -2488,16 +3097,24 @@ public class ProjectSerializer {
     var raw = synth.getRawKnobs();
     switch (key) {
       case "lfo1Rate" -> {
-        if (raw.isLfoRateKnobSet(0)) return String.format("0x%08X", raw.getLfoRateKnobQ31(0));
+        return raw.isLfoRateKnobSet(0)
+            ? String.format("0x%08X", raw.getLfoRateKnobQ31(0))
+            : DelugeHexMapper.lfoHzToHex(synth.getLfo(0).rateHz());
       }
       case "lfo2Rate" -> {
-        if (raw.isLfoRateKnobSet(1)) return String.format("0x%08X", raw.getLfoRateKnobQ31(1));
+        return raw.isLfoRateKnobSet(1)
+            ? String.format("0x%08X", raw.getLfoRateKnobQ31(1))
+            : DelugeHexMapper.lfoHzToHex(synth.getLfo(1).rateHz());
       }
       case "lfo3Rate" -> {
-        if (raw.isLfoRateKnobSet(2)) return String.format("0x%08X", raw.getLfoRateKnobQ31(2));
+        return raw.isLfoRateKnobSet(2)
+            ? String.format("0x%08X", raw.getLfoRateKnobQ31(2))
+            : DelugeHexMapper.lfoHzToHex(synth.getLfo(2).rateHz());
       }
       case "lfo4Rate" -> {
-        if (raw.isLfoRateKnobSet(3)) return String.format("0x%08X", raw.getLfoRateKnobQ31(3));
+        return raw.isLfoRateKnobSet(3)
+            ? String.format("0x%08X", raw.getLfoRateKnobQ31(3))
+            : DelugeHexMapper.lfoHzToHex(synth.getLfo(3).rateHz());
       }
       default -> {}
     }
@@ -2516,7 +3133,7 @@ public class ProjectSerializer {
       return String.format(
           "0x%08X", org.deluge.firmware2.Arpeggiator.getUnpatchedArpDefault(paramId));
     }
-    // C sound.cpp:139, 172-177, 4061-4126 — dedicated Q31 fields parsed by
+    // C sound.cpp:139, 172-177, 4061-4126 — dedicated Q31/float fields parsed by
     // InstrumentXmlParser.parseClipSoundParamsStatics.
     return switch (key) {
       case "modulator1Amount", "modulator1Volume" ->
@@ -2527,13 +3144,41 @@ public class ProjectSerializer {
       case "modulator2Feedback" -> String.format("0x%08X", synth.getModulator2FeedbackQ31());
       case "carrier1Feedback" -> String.format("0x%08X", synth.getCarrier1FeedbackQ31());
       case "carrier2Feedback" -> String.format("0x%08X", synth.getCarrier2FeedbackQ31());
-      case "pitchAdjust" -> String.format("0x%08X", synth.getPitchAdjustQ31());
-      case "oscAPitchAdjust" -> String.format("0x%08X", synth.getOsc1PitchAdjustQ31());
-      case "oscBPitchAdjust" -> String.format("0x%08X", synth.getOsc2PitchAdjustQ31());
+      case "oscAWavetablePosition" ->
+          DelugeHexMapper.unipolarFloatToHexUnified(synth.getWaveIndex());
+      case "oscBWavetablePosition" ->
+          DelugeHexMapper.unipolarFloatToHexUnified(synth.getOsc2WaveIndex());
+      case "pitchAdjust" ->
+          String.format(
+              "0x%08X",
+              synth.getPitchAdjustQ31() != Integer.MIN_VALUE ? synth.getPitchAdjustQ31() : 0);
+      case "oscAPitchAdjust" ->
+          String.format(
+              "0x%08X",
+              synth.getOsc1PitchAdjustQ31() != Integer.MIN_VALUE
+                  ? synth.getOsc1PitchAdjustQ31()
+                  : 0);
+      case "oscBPitchAdjust" ->
+          String.format(
+              "0x%08X",
+              synth.getOsc2PitchAdjustQ31() != Integer.MIN_VALUE
+                  ? synth.getOsc2PitchAdjustQ31()
+                  : 0);
+      case "mod1PitchAdjust", "mod2PitchAdjust" -> "0x00000000";
       case "oscAPulseWidth", "oscAPhaseWidth" ->
-          String.format("0x%08X", synth.getOsc1PhaseWidthQ31());
+          String.format(
+              "0x%08X",
+              synth.getOsc1PhaseWidthQ31() != Integer.MIN_VALUE ? synth.getOsc1PhaseWidthQ31() : 0);
       case "oscBPulseWidth", "oscBPhaseWidth" ->
-          String.format("0x%08X", synth.getOsc2PhaseWidthQ31());
+          String.format(
+              "0x%08X",
+              synth.getOsc2PhaseWidthQ31() != Integer.MIN_VALUE ? synth.getOsc2PhaseWidthQ31() : 0);
+      case "compressorThreshold" ->
+          DelugeHexMapper.unipolarFloatToHexUnified(synth.getCompressorThreshold());
+      case "eqBass" -> DelugeHexMapper.floatToHex(synth.getEqBass());
+      case "eqTreble" -> DelugeHexMapper.floatToHex(synth.getEqTreble());
+      case "eqBassFrequency" -> DelugeHexMapper.floatToHex(synth.getEqBassFreq());
+      case "eqTrebleFrequency" -> DelugeHexMapper.floatToHex(synth.getEqTrebleFreq());
       case "portamento" -> String.format("0x%08X", synth.getPortamentoQ31());
       case "arpeggiatorRate", "arpRate" -> String.format("0x%08X", synth.getArpRateQ31());
       case "waveFold" -> String.format("0x%08X", synth.getWaveFoldQ31());
@@ -2570,11 +3215,18 @@ public class ProjectSerializer {
       List<PatchCable> patchCables)
       throws IOException {
     boolean hasPatchCables = patchCables != null && !patchCables.isEmpty();
-    boolean hasSubElements = hasPatchCables;
-    for (String key : curves.keySet()) {
-      if (isSubElementParamKey(key)) {
-        hasSubElements = true;
-        break;
+    // C sound.cpp:4130-4157, mod_controllable_audio.cpp:540-549: synth <soundParams> always writes
+    // <equalizer>, and writes <envelope1..4> whenever the envelope was programmatically set/edited,
+    // explicitly present in the clip's raw knobs, or automated (while omitting <envelopeN> when the
+    // loaded clip omitted it so <defaultParams> inheritance is preserved). Sparse emission applies
+    // to kit row overrides (synth == null).
+    boolean hasSubElements = (synth != null) || hasPatchCables;
+    if (!hasSubElements) {
+      for (String key : curves.keySet()) {
+        if (isSubElementParamKey(key)) {
+          hasSubElements = true;
+          break;
+        }
       }
     }
     if (!hasSubElements && rowParams != null) {
@@ -2595,12 +3247,17 @@ public class ProjectSerializer {
     String[] envSubs = {"attack", "decay", "sustain", "release"};
     for (int envIdx = 0; envIdx < envTags.length; envIdx++) {
       String envTag = envTags[envIdx];
-      boolean hasAny = false;
-      for (String sub : envSubs) {
-        String key = envTag + "_" + sub;
-        if (curves.containsKey(key) || (rowParams != null && rowParams.containsKey(key))) {
-          hasAny = true;
-          break;
+      boolean hasAny =
+          synth != null
+              && (!synth.getRawKnobs().isEnvKnobSet(envIdx)
+                  || rawEnvKnobMatchesModel(synth, envIdx));
+      if (!hasAny) {
+        for (String sub : envSubs) {
+          String key = envTag + "_" + sub;
+          if (curves.containsKey(key) || (rowParams != null && rowParams.containsKey(key))) {
+            hasAny = true;
+            break;
+          }
         }
       }
       if (!hasAny) continue;
@@ -2631,11 +3288,13 @@ public class ProjectSerializer {
       {"bassFrequency", "eqBassFrequency"},
       {"trebleFrequency", "eqTrebleFrequency"}
     };
-    boolean hasEq = false;
-    for (String[] pair : eqMap) {
-      if (curves.containsKey(pair[1]) || (rowParams != null && rowParams.containsKey(pair[1]))) {
-        hasEq = true;
-        break;
+    boolean hasEq = (synth != null);
+    if (!hasEq) {
+      for (String[] pair : eqMap) {
+        if (curves.containsKey(pair[1]) || (rowParams != null && rowParams.containsKey(pair[1]))) {
+          hasEq = true;
+          break;
+        }
       }
     }
     if (hasEq) {
@@ -2661,11 +3320,31 @@ public class ProjectSerializer {
     writer.writeClosingTag("soundParams");
   }
 
+  private static boolean rawEnvKnobMatchesModel(SynthTrackModel synth, int envIdx) {
+    if (synth == null) {
+      return false;
+    }
+    var raw = synth.getRawKnobs();
+    EnvelopeModel env = synth.getEnv(envIdx);
+    if (raw == null || env == null || !raw.isEnvKnobSet(envIdx)) {
+      return false;
+    }
+    return Math.abs(DelugeHexMapper.q31ToEnvTime(raw.getEnvAttackKnobQ31(envIdx)) - env.attack())
+            <= 1e-3f
+        && Math.abs(DelugeHexMapper.q31ToEnvTime(raw.getEnvDecayKnobQ31(envIdx)) - env.decay())
+            <= 1e-3f
+        && Math.abs(DelugeHexMapper.q31ToSustain(raw.getEnvSustainKnobQ31(envIdx)) - env.sustain())
+            <= 1e-3f
+        && Math.abs(DelugeHexMapper.q31ToEnvTime(raw.getEnvReleaseKnobQ31(envIdx)) - env.release())
+            <= 1e-3f;
+  }
+
   private static String resolveEnvelopeSubBaseHex(
       SynthTrackModel synth, Map<String, Float> rowParams, int envIdx, String sub, String key) {
     if (synth != null) {
       var raw = synth.getRawKnobs();
-      if (raw.isEnvKnobSet(envIdx)) {
+      var env = synth.getEnv(envIdx);
+      if (rawEnvKnobMatchesModel(synth, envIdx)) {
         int q31 =
             switch (sub) {
               case "attack" -> raw.getEnvAttackKnobQ31(envIdx);
@@ -2676,7 +3355,6 @@ public class ProjectSerializer {
             };
         return String.format("0x%08X", q31);
       }
-      var env = synth.getEnv(envIdx);
       if (env != null) {
         return switch (sub) {
           case "attack" -> DelugeHexMapper.envTimeToHex(env.attack());

@@ -116,8 +116,22 @@ public class KitSynthSerializer {
           osc2,
           "fileName",
           sound.getOsc2SamplePath() != null ? sound.getOsc2SamplePath() : "");
-      if ((sound.getOsc2SamplePath() == null || sound.getOsc2SamplePath().isEmpty())
-          && sound.isOscillatorSync()) {
+      if (sound.getOsc2SamplePath() != null && !sound.getOsc2SamplePath().isEmpty()) {
+        Element osc2Zone = doc.createElement("zone");
+        if (sound.getOsc2StartSamplePos() >= 0) {
+          osc2Zone.setAttribute("startSamplePos", String.valueOf(sound.getOsc2StartSamplePos()));
+        }
+        if (sound.getOsc2EndSamplePos() >= 0) {
+          osc2Zone.setAttribute("endSamplePos", String.valueOf(sound.getOsc2EndSamplePos()));
+        }
+        if (sound.getOsc2StartLoopPos() >= 0) {
+          osc2Zone.setAttribute("startLoopPos", String.valueOf(sound.getOsc2StartLoopPos()));
+        }
+        if (sound.getOsc2EndLoopPos() >= 0) {
+          osc2Zone.setAttribute("endLoopPos", String.valueOf(sound.getOsc2EndLoopPos()));
+        }
+        osc2.appendChild(osc2Zone);
+      } else if (sound.isOscillatorSync()) {
         // C sound.cpp:3701-3703 — oscillatorSync written on osc2 when non-sample and enabled.
         appendTextChild(doc, osc2, "oscillatorSync", "1");
       }
@@ -139,8 +153,9 @@ public class KitSynthSerializer {
       appendTextChild(
           doc, soundElem, "clippingAmount", String.valueOf((int) sound.getClippingAmount()));
 
-      // ── voicePriority ──
+      // ── voicePriority & maxVoices (C sound.cpp:4168, 4190) ──
       appendTextChild(doc, soundElem, "voicePriority", String.valueOf(sound.getVoicePriority()));
+      appendTextChild(doc, soundElem, "maxVoices", String.valueOf(sound.getMaxVoiceCount()));
 
       // ── sideChainSend ──
       if (sound.getSidechainSend() > 0) {
@@ -304,12 +319,7 @@ public class KitSynthSerializer {
           dp,
           "oscAWavetablePosition",
           sound,
-          () ->
-              appendRawQ31Child(
-                  doc,
-                  dp,
-                  "oscAWavetablePosition",
-                  (int) Math.round(Math.clamp(sound.getWaveIndex(), 0.0f, 1.0f) * 2147483647.0)));
+          () -> appendHexChildUnipolar(doc, dp, "oscAWavetablePosition", sound.getWaveIndex()));
       appendDrumRawOrFallback(
           doc,
           dp,
@@ -323,12 +333,22 @@ public class KitSynthSerializer {
           dp,
           "oscBWavetablePosition",
           sound,
-          () ->
-              appendRawQ31Child(
-                  doc,
-                  dp,
-                  "oscBWavetablePosition",
-                  (int) Math.round(Math.clamp(sound.getWaveIndex(), 0.0f, 1.0f) * 2147483647.0)));
+          () -> appendHexChildUnipolar(doc, dp, "oscBWavetablePosition", sound.getOsc2WaveIndex()));
+      // C sound.cpp:4099-4107 — pitchAdjust, oscAPitchAdjust, oscBPitchAdjust, mod1PitchAdjust,
+      // mod2PitchAdjust
+      for (String pitchTag :
+          new String[] {
+            "pitchAdjust",
+            "oscAPitchAdjust",
+            "oscBPitchAdjust",
+            "mod1PitchAdjust",
+            "mod2PitchAdjust"
+          }) {
+        Integer rawPitch = sound.getRawDefaultParamQ31(pitchTag);
+        if (rawPitch != null) {
+          appendRawQ31Child(doc, dp, pitchTag, rawPitch);
+        }
+      }
       appendDrumRawOrFallback(
           doc,
           dp,
@@ -967,12 +987,7 @@ public class KitSynthSerializer {
         "oscAWavetablePosition",
         synth,
         Param.LOCAL_OSC_A_WAVE_INDEX,
-        () ->
-            appendRawQ31Child(
-                doc,
-                dp,
-                "oscAWavetablePosition",
-                (int) Math.round(Math.clamp(synth.getWaveIndex(), 0.0f, 1.0f) * 2147483647.0)));
+        () -> appendHexChildUnipolar(doc, dp, "oscAWavetablePosition", synth.getWaveIndex()));
     appendSynthRawOrFallback(
         doc,
         dp,
@@ -1001,12 +1016,7 @@ public class KitSynthSerializer {
         "oscBWavetablePosition",
         synth,
         Param.LOCAL_OSC_B_WAVE_INDEX,
-        () ->
-            appendRawQ31Child(
-                doc,
-                dp,
-                "oscBWavetablePosition",
-                (int) Math.round(Math.clamp(synth.getWaveIndex(), 0.0f, 1.0f) * 2147483647.0)));
+        () -> appendHexChildUnipolar(doc, dp, "oscBWavetablePosition", synth.getOsc2WaveIndex()));
     // C sound.cpp:4099-4107 — pitchAdjust, oscAPitchAdjust, oscBPitchAdjust, mod1PitchAdjust,
     // mod2PitchAdjust
     Integer pitchVal = synth.getRawKnobs().getRawParamKnobs().get(Param.LOCAL_PITCH_ADJUST);

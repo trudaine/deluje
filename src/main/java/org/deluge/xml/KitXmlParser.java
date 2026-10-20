@@ -200,6 +200,8 @@ public class KitXmlParser {
           }
         });
     readAttrOrChildInt(soundNode, "voicePriority", 1, sound::setVoicePriority);
+    // C sound.cpp:1257-1260 — readTagOrAttributeValueInt() for maxVoices on drum <sound>.
+    readAttrOrChildInt(soundNode, "maxVoices", 8, sound::setMaxVoiceCount);
     NodeList midiOutputNodes = soundNode.getElementsByTagName("midiOutput");
     if (midiOutputNodes.getLength() > 0) {
       Element midiOutputEl = (Element) midiOutputNodes.item(0);
@@ -387,8 +389,8 @@ public class KitXmlParser {
       if (osc2Zone != null) {
         sound.setOsc2StartSamplePos(readIntAttr(osc2Zone, "startSamplePos", -1));
         sound.setOsc2EndSamplePos(readIntAttr(osc2Zone, "endSamplePos", -1));
-        sound.setStartLoopPos(readIntAttr(osc2Zone, "startLoopPos", -1));
-        sound.setEndLoopPos(readIntAttr(osc2Zone, "endLoopPos", -1));
+        sound.setOsc2StartLoopPos(readIntAttr(osc2Zone, "startLoopPos", -1));
+        sound.setOsc2EndLoopPos(readIntAttr(osc2Zone, "endLoopPos", -1));
       }
       // osc2 sample-playback attrs
       readAttrOrChildInt(osc2, "loopMode", 0, sound::setOsc2LoopMode);
@@ -770,9 +772,11 @@ public class KitXmlParser {
     readHexFloatUnipolar(dp, "sampleRateReduction", sound::setSampleRateReduction);
     readHexFloatUnipolar(dp, "bitCrush", sound::setBitCrush);
     readHexFloatUnipolar(dp, "waveIndex", sound::setWaveIndex);
+    readHexFloatUnipolar(dp, "oscAWavetablePosition", sound::setWaveIndex);
+    readHexFloatUnipolar(dp, "oscBWavetablePosition", sound::setOsc2WaveIndex);
     readHexFloatUnipolar(dp, "compressorShape", sound::setCompressorShape);
 
-    // LFO 1..4 rates inside defaultParams (C sound.cpp:4107-4110)
+    // LFO 1..4 rates inside defaultParams (C sound.cpp:3955-3970, 4084-4087)
     String[] lfoRateTags = {"lfo1Rate", "lfo2Rate", "lfo3Rate", "lfo4Rate"};
     for (int i = 0; i < 4; i++) {
       String lfoRateHex = attrOrChildText(dp, lfoRateTags[i]);
@@ -842,6 +846,11 @@ public class KitXmlParser {
           "oscBVolume",
           "oscBPulseWidth",
           "oscBWavetablePosition",
+          "pitchAdjust",
+          "oscAPitchAdjust",
+          "oscBPitchAdjust",
+          "mod1PitchAdjust",
+          "mod2PitchAdjust",
           "noiseVolume",
           "volume",
           "pan",
