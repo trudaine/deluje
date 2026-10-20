@@ -24,8 +24,14 @@ public class AudioOutput extends GlobalEffectable {
   private int attackRaw = Integer.MIN_VALUE; // C audio_clip.cpp:63 — default instant attack
   private int amplitudeLastTime = 0; // C audio_output.h:91
   private boolean playing = false;
+  private boolean clipActive = false; // C song.cpp:2509-2510: song-level clip activeness
   private boolean looping = true;
   private boolean reversed = false;
+
+  public AudioOutput() {
+    // Inactive at construction until transport enters an active window (C song.cpp:2509-2514).
+    this.shouldLimitDelayFeedback = true;
+  }
 
   public void setAttackRaw(int attackRaw) {
     this.attackRaw = attackRaw;
@@ -110,10 +116,14 @@ public class AudioOutput extends GlobalEffectable {
   public void setTimelineRange(long startTick, long endTick) {
     ranges.clear();
     ranges.add(new long[] {startTick, endTick});
+    activeRangeIdx = -1;
   }
 
   /** Add one timeline window (one arrangement instance of this track's clip). */
   public void addTimelineRange(long startTick, long endTick) {
+    if (ranges.isEmpty()) {
+      activeRangeIdx = -1;
+    }
     ranges.add(new long[] {startTick, endTick});
   }
 
@@ -141,12 +151,15 @@ public class AudioOutput extends GlobalEffectable {
     }
     if (idx >= 0 && idx != activeRangeIdx) {
       onTransportStart(); // entered a (new) instance → restart from its start
-    } else if (idx < 0 && activeRangeIdx >= 0) {
+    } else if (idx < 0) {
       onTransportStop();
     }
-    activeRangeIdx = idx;
+    activeRangeIdx = (sample != null) ? idx : -1;
     // C song.cpp:2509-2514 — limit delay feedback whenever this clip is not active now.
-    shouldLimitDelayFeedback = !playing;
+    // Note: if the envelope reaches OFF while the clip remains active (idx >= 0), playing is
+    // false (voiceSample unassigned, audio_output.cpp:164) while clipActive stays true so the
+    // still-active clip's delay tail keeps its feedback across subsequent blocks.
+    shouldLimitDelayFeedback = !clipActive;
   }
 
   /**
@@ -185,21 +198,33 @@ public class AudioOutput extends GlobalEffectable {
   public void setClip(Sample sample, boolean looping) {
     this.sample = sample;
     this.looping = looping;
+    this.activeRangeIdx = -1;
     if (sample != null) {
       armVoiceSample();
       if (envelope.state == Envelope.Stage.OFF) {
         resetEnvelope();
       }
+    } else {
+      // C audio_clip.cpp:1324-1326 — clearing/unassigning sample ends active clip playback.
+      this.playing = false;
+      this.clipActive = false;
+      this.shouldLimitDelayFeedback = true;
     }
   }
 
   public void setPlaying(boolean p) {
-    this.playing = p;
-    this.shouldLimitDelayFeedback = !this.playing;
-    if (p && sample != null) {
+    boolean active = p && sample != null;
+    if (active) {
       armVoiceSample();
       resetEnvelope();
+      this.playing = true;
+      this.clipActive = true;
+    } else {
+      this.playing = false;
+      this.clipActive = false;
+      this.activeRangeIdx = -1;
     }
+    this.shouldLimitDelayFeedback = !this.clipActive;
   }
 
   /**
@@ -211,13 +236,19 @@ public class AudioOutput extends GlobalEffectable {
       armVoiceSample();
       resetEnvelope();
       playing = true;
+      clipActive = true;
+    } else {
+      playing = false;
+      clipActive = false;
     }
-    shouldLimitDelayFeedback = !playing;
+    shouldLimitDelayFeedback = !clipActive;
   }
 
   /** Transport stopped: stop streaming (renderInternal becomes silent). */
   public void onTransportStop() {
     playing = false;
+    clipActive = false;
+    activeRangeIdx = -1;
     shouldLimitDelayFeedback = true;
   }
 
@@ -278,8 +309,10 @@ public class AudioOutput extends GlobalEffectable {
                 >> 1)
             + 1073741824;
     if (envelope.state.compareTo(Envelope.Stage.OFF) >= 0) {
+      // C audio_output.cpp:156-166 — the one-shot clip's voice sample is unassigned. The delay
+      // feedback limit is NOT touched here: it follows song-level clip activeness only
+      // (song.cpp:2509-2514), so the delay tail of a still-active clip keeps its feedback.
       playing = false;
-      shouldLimitDelayFeedback = true;
       return;
     }
     if (amplitudeLastTime == 0 && attack > 245632) {
