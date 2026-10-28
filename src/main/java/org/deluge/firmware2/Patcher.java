@@ -763,10 +763,10 @@ public class Patcher {
               getModifiedPatchCableAmount(cable, dest.paramId),
               cable.rangeValue);
     }
-    // Wave index hack: stretch twice as far
+    // Wave index: stretch twice as far with saturation (C patcher.cpp:263-265)
     if (dest.paramId == Param.LOCAL_OSC_A_WAVE_INDEX
         || dest.paramId == Param.LOCAL_OSC_B_WAVE_INDEX) {
-      runningTotal <<= 1;
+      runningTotal = Functions.lshiftAndSaturate(runningTotal, 1);
     }
     // Fold the knob last
     int range = Functions.getParamRange(dest.paramId);
@@ -793,20 +793,22 @@ public class Patcher {
     return Functions.lshiftAndSaturate(preLimits, 3);
   }
 
-  // ── cableToExpParam* (patcher.cpp:177-195) ──
+  // ── cableToExpParam* (patcher.cpp:164-175) ──
 
-  // C (patcher.cpp:164-173): both exp accumulators use PLAIN wrapping addition, not a
-  // saturating add — saturating here diverges exactly when strong cables push a combo past
-  // int range, which is when hardware wraps.
+  // C patcher.cpp:164-169: Exp param cable combinations saturate rather than wrap: wrapping would
+  // flip a param at one extreme of its range straight to the other (e.g. cutoff fully closed to
+  // fully open) mid-note.
   private static int cableToExpParamWithoutRangeAdjustment(
       int runningTotal, int source, int strength) {
-    return runningTotal + Functions.multiply_32x32_rshift32(source, strength);
+    return Functions.add_saturate(
+        runningTotal, Functions.multiply_32x32_rshift32(source, strength));
   }
 
+  // C patcher.cpp:171-175
   private static int cableToExpParam(int runningTotal, int source, int strength, int rangeValue) {
     int scaledSource = Functions.multiply_32x32_rshift32(source, strength);
     scaledSource = applyRangeAdjustment(scaledSource, rangeValue);
-    return runningTotal + scaledSource;
+    return Functions.add_saturate(runningTotal, scaledSource);
   }
 
   // ── applyRangeAdjustment (patcher.cpp) ──

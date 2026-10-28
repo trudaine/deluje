@@ -1310,6 +1310,23 @@ public class Sound extends GlobalEffectable {
       int timeSinceLastTick,
       int timePerInternalTick,
       int audioSampleTimer) {
+    resyncGlobalLFOs(
+        clockActive,
+        lastInternalTickDone,
+        timeSinceLastTick,
+        timePerInternalTick,
+        audioSampleTimer,
+        false);
+  }
+
+  // C sound.cpp:2745-2802 (Sound::resyncGlobalLFOs(bool reset_state))
+  public void resyncGlobalLFOs(
+      boolean clockActive,
+      long lastInternalTickDone,
+      int timeSinceLastTick,
+      int timePerInternalTick,
+      int audioSampleTimer,
+      boolean resetState) {
     if (!clockActive) {
       return; // sound.cpp:2724 — no clock, no sync
     }
@@ -1322,7 +1339,8 @@ public class Sound extends GlobalEffectable {
           lastInternalTickDone,
           timeSinceLastTick,
           timePerInternalTick,
-          audioSampleTimer);
+          audioSampleTimer,
+          resetState);
     }
     if (lfoConfig[2].syncLevel != Lfo.SyncLevel.NONE) {
       resyncOneGlobalLFO(
@@ -1331,13 +1349,14 @@ public class Sound extends GlobalEffectable {
           lastInternalTickDone,
           timeSinceLastTick,
           timePerInternalTick,
-          audioSampleTimer);
+          audioSampleTimer,
+          resetState);
     }
   }
 
   /** Stopped-clock / no-transport overload — faithful no-op, matching the C early-return. */
   public void resyncGlobalLFOs() {
-    resyncGlobalLFOs(false, 0, 0, 0, 0);
+    resyncGlobalLFOs(false, 0, 0, 0, 0, false);
   }
 
   /**
@@ -1350,11 +1369,12 @@ public class Sound extends GlobalEffectable {
       long lastInternalTickDone,
       int timeSinceLastTick,
       int timePerInternalTick,
-      int audioSampleTimer) {
+      int audioSampleTimer,
+      boolean resetState) {
     // Resets the thing where skipped samples are later converted into LFO phase increment.
     timeStartedSkippingRenderingLFO = audioSampleTimer; // sound.cpp:2730
 
-    lfo.setGlobalInitialPhase(config); // sound.cpp:2734
+    lfo.setGlobalInitialPhase(config, resetState); // sound.cpp:2734, 2759, 2796
 
     // If we're right at the first tick, no need to do anything else! (sound.cpp:2741)
     if (lastInternalTickDone != 0 || timeSinceLastTick != 0) {

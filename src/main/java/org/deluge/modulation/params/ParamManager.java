@@ -18,6 +18,26 @@ public class ParamManager {
   private final ExpressionParamSet expressionParamSet = new ExpressionParamSet();
   private ExpressionParamSet.ExpressionListener expressionListener;
   private final int[] unpatchedValues = new int[Param.UNPATCHED_TEMPO + 1];
+  public int samplesPerTick =
+      230; // ~120 BPM default at 44.1kHz (playbackHandler.getTimePerInternalTick)
+
+  /// Params which can't interpolate per sample (MIDI, CV) interpolate per tick instead, but no more
+  // often than this (~1ms)
+  public static final int MIN_SAMPLES_BETWEEN_TICK_INTERPOLATIONS = 44;
+
+  /**
+   * Ticks til next per-tick interpolation update (C tick_interpolation.h:29-37, #5120). Returns 0
+   * (next tick) at normal tempos, or spaces updates out to ~1ms (44 samples) at ultra-fast tempos.
+   */
+  public static int ticksTilNextTickInterpolation(int samplesPerTick) {
+    if (samplesPerTick >= MIN_SAMPLES_BETWEEN_TICK_INTERPOLATIONS) {
+      return 0;
+    }
+    if (samplesPerTick <= 0) {
+      samplesPerTick = 1;
+    }
+    return (MIN_SAMPLES_BETWEEN_TICK_INTERPOLATIONS + samplesPerTick - 1) / samplesPerTick;
+  }
 
   public int getUnpatchedValue(int paramId) {
     if (paramId < 0 || paramId >= unpatchedValues.length) return 0;
@@ -191,9 +211,12 @@ public class ParamManager {
         ticksTilNextEvent = exprDist;
       }
 
-      // C param_manager.cpp:401-403 — wake every tick while tick-domain interpolation is active.
+      // C param_manager.cpp:401-403 — wake every tick (or spaced out at fast tempos) while
+      // tick-domain
+      // interpolation is active (tick_interpolation.h:20-37, #5120).
       if (!mayInterpolate && isAnyParamInterpolating()) {
-        ticksTilNextEvent = 0;
+        ticksTilNextEvent =
+            Math.min(ticksTilNextEvent, ticksTilNextTickInterpolation(samplesPerTick));
       }
 
       ticksSkipped = 0;

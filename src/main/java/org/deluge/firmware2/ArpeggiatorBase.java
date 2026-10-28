@@ -585,6 +585,7 @@ public abstract class ArpeggiatorBase {
   boolean handlePendingNotes(Settings settings, ArpReturnInstruction instruction) {
     if (active_note.isPending()) {
       instruction.arpNoteOn = active_note;
+      instruction.sampleSyncLengthOn = active_note.sampleSyncLength; // C arpeggiator.cpp:1474
       return true;
     }
     instruction.arpNoteOn = null;
@@ -679,8 +680,8 @@ public abstract class ArpeggiatorBase {
     if (howFarIntoPeriod == 0) {
       if (hasAnyInputNotesActive()) {
         switchAnyNoteOff(instruction);
+        instruction.sampleSyncLengthOn = ticksPerPeriod; // C arpeggiator.cpp:1584
         switchNoteOn(settings, instruction, false);
-        instruction.sampleSyncLengthOn = ticksPerPeriod;
       }
       howFarIntoPeriod = ticksPerPeriod;
     } else {

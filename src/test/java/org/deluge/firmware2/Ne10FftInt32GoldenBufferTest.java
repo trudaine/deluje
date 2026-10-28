@@ -117,7 +117,7 @@ class Ne10FftInt32GoldenBufferTest {
     int nyquistBand1 = 64;
     int nyqRe = freq[2 * nyquistBand1];
     int nyqIm = freq[2 * nyquistBand1 + 1];
-    int pythag = (int) Math.min(Integer.MAX_VALUE, Math.round(Math.hypot(nyqRe, nyqIm)));
+    int pythag = Functions.fastPythag(nyqRe, nyqIm);
     freq[2 * nyquistBand1] = (nyqRe < 0) ? -pythag : pythag;
     freq[2 * nyquistBand1 + 1] = 0;
 

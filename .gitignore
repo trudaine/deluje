@@ -46,3 +46,6 @@ target/
 
 # Golden-buffer harness build artifacts (regenerate with tools/<name>_harness/build.sh)
 tools/*_harness/build/
+
+# Local assistant configuration
+.claude/
