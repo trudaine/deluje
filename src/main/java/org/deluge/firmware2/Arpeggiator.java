@@ -160,6 +160,12 @@ public class Arpeggiator {
       Arrays.fill(noteStatus, ArpNoteStatus.OFF);
     }
 
+    /**
+     * Keep the stretch length with the note when its voice start is deferred to a later render (C
+     * arpeggiator.h:176).
+     */
+    public int sampleSyncLength = 0;
+
     /** C: struct copy — active_note = *arpNote (value copy, not pointer). */
     public void copyFrom(ArpNote src) {
       this.inputCharacteristics[0] = src.inputCharacteristics[0];
@@ -167,6 +173,7 @@ public class Arpeggiator {
       System.arraycopy(src.mpeValues, 0, this.mpeValues, 0, 3);
       this.velocity = src.velocity;
       this.baseVelocity = src.baseVelocity;
+      this.sampleSyncLength = src.sampleSyncLength;
       System.arraycopy(src.noteStatus, 0, this.noteStatus, 0, ARP_MAX_INSTRUCTION_NOTES);
       System.arraycopy(
           src.outputMemberChannel, 0, this.outputMemberChannel, 0, ARP_MAX_INSTRUCTION_NOTES);
