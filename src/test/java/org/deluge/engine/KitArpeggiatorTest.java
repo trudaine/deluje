@@ -513,8 +513,12 @@ class KitArpeggiatorTest {
         "Live held pad on stopped clip must arpeggiate via lastSwungTickActioned (session.cpp:2529)");
     ph.stop();
 
-    // Multi-octave post-arp releaseDrum releases row + 12 (drum 14 when row 2 is sounding an octave
-    // up, arpeggiator.cpp:412-430, kit.cpp:1369-1375).
+    // Multi-octave kit arp: a held drum 2 sounds as drum 2 + 12 = 14 (arpeggiator.cpp:424), and on
+    // key-up the C releases the ROW WHOSE NOTE ENDED, drum 2 — kit.cpp:1368-1375 uses
+    // noteCodeOffPostArp[0] only as a gate and calls thisNoteRow->drum->noteOff(). (This test
+    // asserted "OFF14" until 2026-11-03; routing the key-up by the post-arp code stopped the wrong
+    // drum. The tick and render paths DO route by that code — see the kitTickForward cases — and
+    // that asymmetry is upstream's.)
     RecKit octKit = new RecKit();
     octKit.arpSettings.mode = Arpeggiator.ArpMode.ARP;
     octKit.arpSettings.octaveMode = Arpeggiator.ArpOctaveMode.DOWN;
@@ -527,6 +531,8 @@ class KitArpeggiatorTest {
     octKit.hits.clear();
     octKit.releaseDrum(2);
     assertEquals(
-        List.of("OFF14"), octKit.hits, "releaseDrum must release sounding post-arp drum 14");
+        List.of("OFF2"),
+        octKit.hits,
+        "key-up must release the row whose note ended (kit.cpp:1374), not the post-arp row");
   }
 }

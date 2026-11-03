@@ -141,13 +141,19 @@ public class Kit extends GlobalEffectable {
     }
     kitInstruction.reset();
     arpeggiator.noteOff(arpSettings, row, kitInstruction);
-    int glideOff = kitInstruction.glideNoteCodeOffPostArp[0];
-    if (glideOff != Arpeggiator.ARP_NOTE_NONE && drumAt(glideOff) != null) {
-      drumNoteOff(glideOff);
-    }
-    int off = kitInstruction.noteCodeOffPostArp[0];
-    if (off != Arpeggiator.ARP_NOTE_NONE && drumAt(off) != null) {
-      drumNoteOff(off);
+    // C kit.cpp:1368-1375 — the instruction is only a GATE here: when the arp reports a note-off,
+    // the C turns off `thisNoteRow->drum`, the row whose note ended, NOT the row named by
+    // noteCodeOffPostArp[0]. The two differ as soon as the arp transposes — with numOctaves 2 a
+    // held drum 2 sounds as drum 2 + 12 (arpeggiator.cpp:424) — and routing by the post-arp code
+    // there stopped the wrong drum.
+    //
+    // The C also does NOT act on glideNoteCodeOffPostArp in this function, although
+    // Arpeggiator::noteOff fills it in (arpeggiator.cpp:417-418). Only the tick and pre-output
+    // render paths consume it (kit.cpp:1164-1177, :729-746) — see actOnKitInstruction — so a glide
+    // note left sounding at key-up is upstream's behaviour, and this port keeps it rather than
+    // improving on it.
+    if (kitInstruction.noteCodeOffPostArp[0] != Arpeggiator.ARP_NOTE_NONE) {
+      drumNoteOff(row);
     }
   }
 
