@@ -268,7 +268,7 @@ public class Voice {
               Functions.getOscInitialPhaseForZero(sound.oscTypes[s]) + sound.oscRetriggerPhase[s];
           // C vups:90-91 — a retriggered supersaw always starts the same way.
           if (sound.oscTypes[s] == OscType.SUPERSAW) {
-            vs.supersawPhases = Supersaw.sidePhasesFrom(vs.oscPos);
+            Supersaw.fillSidePhasesFrom(vs.supersawPhases, vs.oscPos);
           }
         }
         vs.carrierFeedback = 0;
@@ -463,7 +463,7 @@ public class Voice {
           vs.oscPos =
               Functions.getOscInitialPhaseForZero(sound.oscTypes[s]) + sound.oscRetriggerPhase[s];
           if (sound.oscTypes[s] == OscType.SUPERSAW) { // C vups:90-91
-            vs.supersawPhases = Supersaw.sidePhasesFrom(vs.oscPos);
+            Supersaw.fillSidePhasesFrom(vs.supersawPhases, vs.oscPos);
           }
         }
         vs.carrierFeedback = 0;

@@ -33,16 +33,40 @@ public final class Supersaw {
   private Supersaw() {}
 
   /**
+   * Per-thread scratch for {@link #render}, following {@code Oscillator.rawScratch}: the audio
+   * thread calls render for every active supersaw source and unison part of every block (~1000
+   * calls a second per source at 128 samples), and fresh arrays there are avoidable GC pressure.
+   * Every lane is written before it is read on each call, so reuse cannot carry state across
+   * blocks.
+   */
+  private static final class Scratch {
+    final int[] increments = new int[8];
+    final float[] reciprocals = new float[8];
+    final int[] phases = new int[NUM_SAWS];
+  }
+
+  private static final ThreadLocal<Scratch> SCRATCH = ThreadLocal.withInitial(Scratch::new);
+
+  /**
    * C: supersaw.h:36-42 — sidePhasesFrom. Side phases spread around the centre phase, so a
    * retriggered supersaw always starts the same way and the saws don't start out in phase with each
    * other. Each is another golden ratio of a cycle on from the last.
    */
   public static int[] sidePhasesFrom(int centrePhase) {
     int[] phases = new int[NUM_SAWS - 1];
+    fillSidePhasesFrom(phases, centrePhase);
+    return phases;
+  }
+
+  /**
+   * {@link #sidePhasesFrom} into an existing array. The C assigns a {@code std::array} by value
+   * (voice_unison_part_source.cpp:91), which allocates nothing; a voice note-on runs on the audio
+   * thread, so the live callers use this.
+   */
+  public static void fillSidePhasesFrom(int[] phases, int centrePhase) {
     for (int i = 0; i < phases.length; i++) {
       phases[i] = centrePhase + (i + 1) * 0x9E3779B9;
     }
-    return phases;
   }
 
   /**
@@ -186,8 +210,9 @@ public final class Supersaw {
     centreGain *= norm;
     sideGain *= norm;
 
-    int[] increments = new int[8];
-    float[] reciprocals = new float[8];
+    Scratch scratch = SCRATCH.get();
+    int[] increments = scratch.increments;
+    float[] reciprocals = scratch.reciprocals;
     for (int v = 0; v < increments.length; v += 4) {
       for (int lane = 0; lane < 4; lane++) {
         // C:223-225 — ratio = 1 + offset * detune (vmla, unfused), then * phaseIncrement as float.
@@ -202,7 +227,7 @@ public final class Supersaw {
     // synth
     increments[0] = phaseIncrement;
 
-    int[] phases = new int[NUM_SAWS];
+    int[] phases = scratch.phases;
     phases[0] = phase[0];
     System.arraycopy(sidePhases, 0, phases, 1, NUM_SAWS - 1);
 
