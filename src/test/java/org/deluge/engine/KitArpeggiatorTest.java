@@ -535,4 +535,51 @@ class KitArpeggiatorTest {
         octKit.hits,
         "key-up must release the row whose note ended (kit.cpp:1374), not the post-arp row");
   }
+
+  @Test
+  void kitArpReleasesTheHeldNoteWhenALivePadIsLetGo() {
+    // Regression (Copilot on #138): the live pad paths triggered through Kit.triggerDrum, which
+    // hands the note to the kit arp, but released through drumSounds.get(i).releaseNote(60),
+    // which the arp never sees — so the arp kept arpeggiating a pad that was no longer held.
+    // SwingGridPanel/ClipGridPanel/ClipEditorController now call releaseDrum; this pins the
+    // behaviour those call sites depend on.
+    RecKit kit = new RecKit();
+    kit.arpSettings.mode = Arpeggiator.ArpMode.ARP;
+    kit.arpSettings.syncLevel = Arpeggiator.SyncLevel.SYNC_LEVEL_16TH;
+    kit.arpeggiator.playbackClockActive = true;
+    kit.triggerDrum(1, 100);
+    kit.doTickForwardForKitArp(0, false);
+    kit.hits.clear();
+
+    kit.releaseDrum(1); // what the pad-up path must call
+    kit.hits.clear();
+    for (int tick = 1; tick <= 48; tick++) {
+      kit.doTickForwardForKitArp(tick, false);
+    }
+    assertEquals(
+        List.of(),
+        kit.hits.stream().filter(h -> h.startsWith("ON")).toList(),
+        "a released pad must not keep arpeggiating");
+  }
+
+  @Test
+  void releaseAllNotesResetsTheKitArpSoPanicCannotRetrigger() {
+    // Regression (Copilot on #138): FirmwareAudioEngine.panic() and the transport stop released
+    // each drum directly, leaving the kit arp holding them; the next tick started them again.
+    RecKit kit = new RecKit();
+    kit.arpSettings.mode = Arpeggiator.ArpMode.ARP;
+    kit.arpSettings.syncLevel = Arpeggiator.SyncLevel.SYNC_LEVEL_16TH;
+    kit.arpeggiator.playbackClockActive = true;
+    kit.triggerDrum(2, 100);
+    kit.doTickForwardForKitArp(0, false);
+
+    kit.releaseAllNotes();
+    kit.hits.clear();
+    // 48 ticks, not 24: a still-held note retriggers somewhere in the second half of that window
+    // (measured: [OFF2, ON2]), so a 24-tick window passed whether or not the arp was reset.
+    for (int tick = 1; tick <= 48; tick++) {
+      kit.doTickForwardForKitArp(tick, false);
+    }
+    assertEquals(List.of(), kit.hits, "releaseAllNotes must leave the kit arp holding nothing");
+  }
 }

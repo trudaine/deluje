@@ -1053,11 +1053,9 @@ public class FirmwareAudioEngine {
     for (GlobalEffectable sound : sounds) {
       switch (sound) {
         case FirmwareSound synth -> synth.releaseAllNotes();
-        case FirmwareKit kit -> {
-          for (FirmwareSound drum : kit.drumSounds) {
-            drum.releaseAllNotes();
-          }
-        }
+        // Through the kit, so the kit arpeggiator's held-note list is reset too — releasing only
+        // the drums leaves the arp holding them and it retriggers on the next tick.
+        case FirmwareKit kit -> kit.releaseAllNotes();
         case null, default -> {}
       }
     }

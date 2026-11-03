@@ -219,7 +219,15 @@ public class PureFirmwareEngine {
                 }
               } else if (clip != null
                   && clip.getSound() instanceof org.deluge.engine.FirmwareKit fk) {
-                fk.muted = isMuted;
+                // A kit's bridge rows are PER DRUM — EngineSyncCoordinator.applyProjectMutes
+                // (:185-197) writes one flag per drum row, OR-ing in that row's
+                // NoteRowModel.isMuted() — so the kit BUS must not take row 0's flag the way a
+                // one-row synth track can: muting drum 0 then silenced every drum in the kit
+                // (Kit.renderInternal returns early on muted). The bus follows the track, with the
+                // same solo handling applyProjectMutes uses, and per-row mutes stay where the C
+                // keeps them: NoteRow::muted, which NoteRowModel.processCurrentPos already honours
+                // for sequenced hits.
+                fk.muted = isTrackMutedForBus(activeProject, track, t);
               }
             }
             if (modelChanged && org.deluge.ui.SwingDelugeApp.mainInstance != null) {
@@ -523,5 +531,22 @@ public class PureFirmwareEngine {
 
   public PlaybackHandler getPlaybackHandler() {
     return playbackHandler;
+  }
+
+  /**
+   * The track-level mute for a kit's output bus: solo overrides mute, exactly as {@code
+   * EngineSyncCoordinator.applyProjectMutes} computes {@code trackMuted} (:174-184) before it folds
+   * in per-row mutes.
+   */
+  private static boolean isTrackMutedForBus(
+      org.deluge.model.ProjectModel project, org.deluge.model.TrackModel track, int trackIndex) {
+    int n = project.getTracks().size();
+    boolean anySoloing =
+        !org.deluge.ui.SwingGridPanel.soloedTracks.isEmpty()
+            && org.deluge.ui.SwingGridPanel.soloedTracks.stream()
+                .anyMatch(idx -> idx >= 0 && idx < n);
+    return anySoloing
+        ? !org.deluge.ui.SwingGridPanel.soloedTracks.contains(trackIndex)
+        : track.isMuted();
   }
 }

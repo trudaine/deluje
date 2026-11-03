@@ -1001,7 +1001,9 @@ public class ClipGridPanel extends SwingGridPanel {
                         fwEngine.sounds.get(editedModelTrack);
                     if (sound instanceof org.deluge.engine.FirmwareKit kit) {
                       if (modelRow < kit.drumSounds.size()) {
-                        kit.drumSounds.get(modelRow).releaseNote(60);
+                        kit.releaseDrum(
+                            modelRow); // not drumSounds.get(..).releaseNote: the kit arp holds the
+                        // note
                       }
                     } else if (sound instanceof org.deluge.engine.FirmwareSound synth) {
                       synth.releaseNote(pitchMidi);

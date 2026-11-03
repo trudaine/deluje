@@ -2230,7 +2230,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
           } else if (sound instanceof org.deluge.engine.FirmwareKit kit) {
             if (!kit.drumSounds.isEmpty()) {
               int drumIdx = note % kit.drumSounds.size();
-              kit.drumSounds.get(drumIdx).releaseNote(60);
+              kit.releaseDrum(drumIdx); // the kit arp holds the note (C Kit::noteOffPreKitArp)
             }
             return;
           }
@@ -2273,7 +2273,7 @@ public abstract class SwingGridPanel extends JPanel implements GridScrollControl
           && editedModelTrack < fwEngine.sounds.size()
           && fwEngine.sounds.get(editedModelTrack) instanceof org.deluge.engine.FirmwareKit kit) {
         if (drumIdx >= 0 && drumIdx < kit.drumSounds.size()) {
-          kit.drumSounds.get(drumIdx).releaseNote(60);
+          kit.releaseDrum(drumIdx); // the kit arp holds the note (C Kit::noteOffPreKitArp)
         }
       }
     } catch (Exception ex) {
