@@ -1155,6 +1155,12 @@ public class FirmwareFactory {
   /** The kit clip's arp (C Kit::getArpSettings, kit.cpp:787-797) onto the kit's arpeggiator. */
   public static void configureKitArp(
       org.deluge.engine.FirmwareKit kit, org.deluge.model.ArpModel arp, int inputTickMagnitude) {
+    // Each C clip owns its ArpeggiatorSettings and Kit::getArpSettings just points at the active
+    // one (kit.cpp:787-797), so a clip switch can never inherit the previous clip's state. This
+    // port shares one Settings per kit, so reset it first: a clip whose XML omits <arpeggiator>
+    // used to keep the previous clip's randomizer values, and a leftover noteProbability of 0
+    // silenced every drum (measured: 0 active voices on the next hit).
+    kit.arpSettings.resetToDefaults();
     if (arp == null) {
       kit.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
       kit.arpSettings.numOctaves = 1; // C kit.cpp:53 — defaultArpSettings.numOctaves = 1
@@ -1599,8 +1605,15 @@ public class FirmwareFactory {
     // kit.cpp:714-731, 787-797, arpeggiator.cpp:1968-1983): apply the active kit clip's
     // <arpeggiator> (or track fallback), then overlay raw Q31 knobs from the active clip's
     // <kitParams> or <kit><defaultParams>.
+    // The C has no track-level fallback for a CLIP's arp: Kit::getArpSettings returns
+    // &clip->arpSettings (kit.cpp:787-791), and every InstrumentClip owns one at constructor
+    // defaults — so a clip whose XML carries no <arpeggiator> plays with the arp OFF. The track's
+    // ArpModel is only a copy of whichever clip happened to be parsed first
+    // (SongXmlParser: `if (ktm.getArp() == null && clip.getArp() != null)`), so using it as a
+    // fallback made a clip without the tag inherit a sibling's enabled arp. Fall back to it only
+    // when there is no active clip at all, which is the new-clip / instrument-default case.
     org.deluge.model.ArpModel activeArp =
-        (activeClip != null && activeClip.getArp() != null) ? activeClip.getArp() : model.getArp();
+        (activeClip != null) ? activeClip.getArp() : model.getArp();
     configureKitArp(kit, activeArp, kit.inputTickMagnitude);
     Integer clipArpRateQ31 = resolveKitRawQ31(activeClip, model, "arpeggiatorRate");
     kit.arpRateKnob =

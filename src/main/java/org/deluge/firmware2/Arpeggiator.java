@@ -303,6 +303,75 @@ public class Arpeggiator {
     }
 
     /**
+     * Restore every field to what a freshly constructed {@code Settings} holds.
+     *
+     * <p>In the C each clip owns its own {@code ArpeggiatorSettings} and {@code
+     * Kit::getArpSettings} just points at the active clip's (kit.cpp:787-797), so switching clips
+     * cannot carry anything over. This port shares one Settings per kit that the loader overwrites,
+     * so it needs an explicit reset — without it a clip whose XML omits {@code <arpeggiator>}
+     * inherited the previous clip's randomizer state, and a leftover {@code noteProbability} of 0
+     * silenced every drum. {@code ArpeggiatorSettingsResetTest} walks the fields reflectively, so a
+     * new field cannot be added without being reset here.
+     */
+    public void resetToDefaults() {
+      preset = ArpPreset.OFF;
+      mode = ArpMode.OFF;
+      includeInKitArp = true;
+      octaveMode = ArpOctaveMode.UP;
+      noteMode = ArpNoteMode.UP;
+      numOctaves = 2;
+      numStepRepeats = 1;
+      chordTypeIndex = 0;
+      syncLevel = SyncLevel.SYNC_LEVEL_16TH;
+      syncType = SyncType.EVEN;
+      randomizerLock = false;
+      mpeVelocity = ArpMpeModSource.OFF;
+
+      lastLockedNoteProbabilityParameterValue = 0;
+      lastLockedBassProbabilityParameterValue = 0;
+      lastLockedSwapProbabilityParameterValue = 0;
+      lastLockedGlideProbabilityParameterValue = 0;
+      lastLockedReverseProbabilityParameterValue = 0;
+      lastLockedChordProbabilityParameterValue = 0;
+      lastLockedRatchetProbabilityParameterValue = 0;
+      lastLockedSpreadVelocityParameterValue = 0;
+      lastLockedSpreadGateParameterValue = 0;
+      lastLockedSpreadOctaveParameterValue = 0;
+
+      // C arpeggiator.cpp:58-67 — the constructor fills every locked array with 0
+      java.util.Arrays.fill(lockedNoteProbabilityValues, (byte) 0);
+      java.util.Arrays.fill(lockedBassProbabilityValues, (byte) 0);
+      java.util.Arrays.fill(lockedSwapProbabilityValues, (byte) 0);
+      java.util.Arrays.fill(lockedGlideProbabilityValues, (byte) 0);
+      java.util.Arrays.fill(lockedReverseProbabilityValues, (byte) 0);
+      java.util.Arrays.fill(lockedChordProbabilityValues, (byte) 0);
+      java.util.Arrays.fill(lockedRatchetProbabilityValues, (byte) 0);
+      java.util.Arrays.fill(lockedSpreadVelocityValues, (byte) 0);
+      java.util.Arrays.fill(lockedSpreadGateValues, (byte) 0);
+      java.util.Arrays.fill(lockedSpreadOctaveValues, (byte) 0);
+
+      flagForceArpRestart = false;
+      rate = 0;
+      gate = 0;
+      rhythm = 0;
+      sequenceLength = 0;
+      chordPolyphony = 0;
+      ratchetAmount = 0;
+      noteProbability = 0xFFFFFFFF;
+      bassProbability = 0;
+      swapProbability = 0;
+      glideProbability = 0;
+      reverseProbability = 0;
+      chordProbability = 0;
+      ratchetProbability = 0;
+      spreadVelocity = 0;
+      spreadGate = 0;
+      spreadOctave = 0;
+
+      generateNewNotePattern(); // C arpeggiator.cpp:69
+    }
+
+    /**
      * C: arpeggiator.cpp:1592-1613 — getPhaseIncrement. This no-tempo overload keeps the old fixed
      * {@code 1 << 20} proxy for callers without a playback clock (e.g. standalone renders).
      */

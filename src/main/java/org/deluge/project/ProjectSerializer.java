@@ -2419,9 +2419,12 @@ public class ProjectSerializer {
         writeClipArpeggiator(writer, clipArp, currentInputTickMagnitude);
       }
     } else if (track instanceof KitTrackModel kitTrack) {
-      org.deluge.model.ArpModel clipArp = clip.getArp() != null ? clip.getArp() : kitTrack.getArp();
-      if (clipArp != null) {
-        writeClipArpeggiator(writer, clipArp, currentInputTickMagnitude);
+      // Only the clip's own arp: kitTrack.getArp() is a copy of the first parsed clip's (see
+      // SongXmlParser), not a kit-level default, so falling back to it wrote a sibling clip's
+      // <arpeggiator> into a clip that never had one — baking the inheritance into the file. A kit
+      // clip with no tag loads with the arp OFF on hardware (kit.cpp:787-791).
+      if (clip.getArp() != null) {
+        writeClipArpeggiator(writer, clip.getArp(), currentInputTickMagnitude);
       }
     }
 
