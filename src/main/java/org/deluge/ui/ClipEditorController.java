@@ -431,7 +431,8 @@ public class ClipEditorController {
                     GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
                     if (sound instanceof FirmwareKit kit) {
                       if (modelRow < kit.drumSounds.size()) {
-                        kit.drumSounds.get(modelRow).releaseNote(60);
+                        kit.releaseDrum(
+                            modelRow); // the kit arp holds the note (C Kit::noteOffPreKitArp)
                       }
                     } else if (sound instanceof FirmwareSound synth) {
                       boolean isSynthModeLocal = isSynthOrKit(parent.resolveEditedTrackType());
@@ -553,7 +554,7 @@ public class ClipEditorController {
         GlobalEffectable sound = fwEngine.sounds.get(editedModelTrack);
         if (sound instanceof FirmwareKit kit) {
           if (engineRowOffset >= 0 && engineRowOffset < kit.drumSounds.size()) {
-            kit.drumSounds.get(engineRowOffset).releaseNote(60);
+            kit.releaseDrum(engineRowOffset); // the kit arp holds the note
           }
         } else if (sound instanceof FirmwareSound synth) {
           int pitchMidi = parent.getRowPitch(visualModelRow);

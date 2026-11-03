@@ -364,6 +364,29 @@ public class KitTrackModel extends TrackModel {
   }
 
   public void setArp(ArpModel arp) {
+    ArpModel oldArp = this.arp != null ? this.arp : ArpModel.defaultConfig();
+    if (arp != null) {
+      for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_GATE;
+          p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+          p++) {
+        if (org.deluge.xml.ArpXmlCodec.isUnpatchedArpFieldChanged(oldArp, arp, p)) {
+          String tag = Drum.unpatchedArpXmlTag(p);
+          if (tag != null) {
+            rawDefaultParamQ31.put(tag, org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(arp, p));
+          }
+        }
+      }
+      if (Float.compare(oldArp.rate(), arp.rate()) != 0) {
+        rawDefaultParamQ31.put(
+            "arpeggiatorRate",
+            org.deluge.xml.DelugeHexMapper.unipolarFloatToQ31Unified(arp.rate()));
+      }
+    }
+    this.arp = arp;
+  }
+
+  /** Sets {@link #arp} during XML parsing without overwriting raw {@code <defaultParams>} Q31s. */
+  public void setArpFromXml(ArpModel arp) {
     this.arp = arp;
   }
 

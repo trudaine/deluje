@@ -110,8 +110,9 @@ public class LiveApplyTest {
     assertEquals(3, sound.arpSettings.chordPolyphony);
     // velSpread 0.5 → user 25 → raw 25 × 85899345 (value_scaling.cpp:18)
     assertEquals(25 * 85899345, sound.arpSettings.spreadVelocity);
-    // noteProbability unset (0) must mean "always play", not "never"
-    assertEquals(50 * 85899345, sound.arpSettings.noteProbability);
+    // C value_scaling.cpp:22-33, unpatched_param.cpp:85, arpeggiator.cpp:894-896, 1973:
+    // menu 50 -> Q31 0x7FFFFFFF -> + 0x80000000 = 0xFFFFFFFF (hits CONG-free fast path).
+    assertEquals(0xFFFFFFFF, sound.arpSettings.noteProbability);
     // The rate is the GLOBAL_ARP_RATE param (used unsynced, arpeggiator.cpp:1594-1596); a synced
     // arp has no speed multiplier in the C.
     assertEquals(0x10000000, sound.paramKnobs[org.deluge.firmware2.Param.GLOBAL_ARP_RATE]);

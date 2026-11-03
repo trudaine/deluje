@@ -1504,9 +1504,13 @@ public class InstrumentXmlParser {
     int syncTypeRaw = attrOrDirectChildInt(arpEl, "syncType", 0);
     int syncType = legacyApp ? syncTypeRaw : ArpXmlCodec.syncTypeFromFile(syncTypeRaw);
 
-    String notePattern = attrOrDirectChildText(arpEl, "notePattern"); // C :1732-1734
-    if (notePattern == null || notePattern.isBlank()) {
-      notePattern = "00000000000000000000000000000000";
+    // C :1737-1739 — an absent notePattern leaves the one the ArpeggiatorSettings constructor
+    // generated (arpeggiator.cpp:69), so absence must stay distinguishable from a saved all-zero
+    // pattern. Substituting zeros here also made the serializer write notePattern="00.." into files
+    // that never had it, which real hardware reads as "every step picks index 0".
+    String notePattern = attrOrDirectChildText(arpEl, "notePattern");
+    if (notePattern != null && notePattern.isBlank()) {
+      notePattern = null;
     }
 
     // Spread and probability attributes (attributes written by firmware via writeParamAsAttribute)
@@ -1528,7 +1532,9 @@ public class InstrumentXmlParser {
     int chordType = chordTypeRaw < 9 ? chordTypeRaw : 0;
 
     int numOctaves = octaves;
-    int kitArp = attrOrDirectChildInt(arpEl, "kitArp", 0);
+    // C arpeggiator.h:76, arpeggiator.cpp:1656-1658 — includeInKitArp defaults to true (1) when
+    // pre-community-1.1.0 preset/kit XML omits the "kitArp" attribute.
+    int kitArp = attrOrDirectChildInt(arpEl, "kitArp", 1);
     int randomizerLock = attrOrDirectChildInt(arpEl, "randomizerLock", 0);
 
     int lastLockedNoteProb = attrOrDirectChildInt(arpEl, "lastLockedNoteProb", 0);

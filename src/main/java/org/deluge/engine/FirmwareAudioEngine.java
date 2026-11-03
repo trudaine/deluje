@@ -849,6 +849,12 @@ public class FirmwareAudioEngine {
       GlobalEffectable sound = sounds.get(i);
       if (sound instanceof org.deluge.firmware2.AudioOutput ao) {
         ao.updateTimeline(transportTick, transportPlaying);
+      } else if (sound instanceof FirmwareKit fk) {
+        // C arpeggiator.cpp:1600-1601 — a synced kit arp's phase increment reads the song-wide
+        // playbackHandler.getTimePerInternalTickInverse(). Push it per block, since firmware2.Kit
+        // has no handle on the playback handler; reading one drum's cached copy instead left the
+        // kit arp at the fixed 1 << 20 proxy whenever that drum had never been synced.
+        fk.timePerInternalTickInverse = songTimePerInternalTickInverse;
       }
     }
 
@@ -1053,11 +1059,9 @@ public class FirmwareAudioEngine {
     for (GlobalEffectable sound : sounds) {
       switch (sound) {
         case FirmwareSound synth -> synth.releaseAllNotes();
-        case FirmwareKit kit -> {
-          for (FirmwareSound drum : kit.drumSounds) {
-            drum.releaseAllNotes();
-          }
-        }
+        // Through the kit, so the kit arpeggiator's held-note list is reset too — releasing only
+        // the drums leaves the arp holding them and it retriggers on the next tick.
+        case FirmwareKit kit -> kit.releaseAllNotes();
         case null, default -> {}
       }
     }
