@@ -82,7 +82,11 @@ public record ArpModel(
         0.0f,
         0.0f,
         0,
-        "00000000000000000000000000000000",
+        // notePattern: null = the file carried none, so the engine keeps the pattern the C's
+        // ArpeggiatorSettings constructor generates (arpeggiator.cpp:69). An all-zero string here
+        // is a REAL pattern ("every step picks index 0") and would both silence the generated one
+        // and get written into files that never had the attribute.
+        null,
         0,
         // New fields
         2, // numOctaves

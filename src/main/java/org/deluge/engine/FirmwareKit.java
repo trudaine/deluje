@@ -9,8 +9,21 @@ import org.deluge.firmware2.Param;
 public class FirmwareKit extends org.deluge.firmware2.Kit {
   public final List<FirmwareSound> drumSounds = new ArrayList<>();
   public int inputTickMagnitude = 2;
-  public final org.deluge.modulation.params.ParamManager paramManager =
-      new org.deluge.modulation.params.ParamManager();
+
+  /**
+   * Which clip {@link org.deluge.firmware2.Kit#arpSettings} currently belongs to. The C gives every
+   * {@code InstrumentClip} its own {@code ArpeggiatorSettings} and only points {@code
+   * Kit::getArpSettings} at the active one (kit.cpp:787-791); this port shares one per kit, so the
+   * settings are re-defaulted when, and only when, this changes.
+   */
+  public transient Object arpOwningClip = NO_ARP_CLIP_YET;
+
+  /**
+   * Distinct from every clip and from {@code null}, so the first {@code configureKitArp} always
+   * re-defaults — including for a track with no clips, where the owner is {@code null}. Without it
+   * the first call was silently a no-op and a kit's settings depended on whether it had a clip.
+   */
+  private static final Object NO_ARP_CLIP_YET = new Object();
 
   public FirmwareKit() {
     super.drums.clear();
@@ -23,6 +36,10 @@ public class FirmwareKit extends org.deluge.firmware2.Kit {
       FirmwareSound drumSound = new FirmwareSound();
       drumSound.isDrum = true;
       drumSound.fw2Sound.isDrum = true;
+      // A slot added while the transport runs inherits the kit's cached clock state: the C reads
+      // playbackHandler.isEitherClockActive() globally (arpeggiator.cpp:1527) while
+      // PlaybackHandler.setArpClockActive only refreshes this on transport start/stop.
+      drumSound.fw2Sound.arpeggiator.playbackClockActive = arpeggiator.playbackClockActive;
       drumSound.oscTypes[0] = OscType.SAMPLE;
       // Initialize all generator volumes (Osc A, Osc B, Noise) to absolute silence
       // (Integer.MIN_VALUE)
@@ -39,9 +56,6 @@ public class FirmwareKit extends org.deluge.firmware2.Kit {
   protected void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
     if (muted) {
       return;
-    }
-    if (!drumSounds.isEmpty()) {
-      timePerInternalTickInverse = drumSounds.get(0).fw2Sound.timePerInternalTickInverse;
     }
     renderKitArp(numSamples); // C kit.cpp:705-785 — the kit arp runs before the drums render
     for (FirmwareSound drum : drumSounds) {
@@ -91,7 +105,7 @@ public class FirmwareKit extends org.deluge.firmware2.Kit {
   }
 
   @Override
-  public void releaseAllNotes() {
+  public synchronized void releaseAllNotes() {
     arpeggiator.reset();
     for (FirmwareSound drum : drumSounds) {
       drum.fw2Sound.arpeggiator.invertReversedFromKitArp = false;

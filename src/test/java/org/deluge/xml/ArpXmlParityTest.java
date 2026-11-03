@@ -31,6 +31,24 @@ public class ArpXmlParityTest {
   }
 
   @Test
+  void anAbsentNotePatternStaysAbsentAndASavedOneIsCarried() throws Exception {
+    // C :1737-1739 only overwrites the pattern the ArpeggiatorSettings constructor generated
+    // (arpeggiator.cpp:69) when the attribute is there, so absence must not become a value.
+    // Substituting zeros here made the serializer write notePattern="00.." into files that never
+    // had one, which real hardware reads as "every step picks index 0".
+    assertNull(
+        arpOf("<arpeggiator><mode>up</mode></arpeggiator>").notePattern(),
+        "no notePattern attribute must leave the model's value null");
+    assertEquals(
+        "000102030405060708090A0B0C0D0E0F",
+        arpOf(
+                "<arpeggiator arpMode=\"arp\""
+                    + " notePattern=\"000102030405060708090A0B0C0D0E0F\"></arpeggiator>")
+            .notePattern(),
+        "a saved notePattern must be carried through");
+  }
+
+  @Test
   void studyArpPresetTagFormLoadsLikeTheC() throws Exception {
     // The exact element in SYNTHS/164 Study Arp.XML (firmware 2.0.0-beta, so the legacy "mode").
     ArpModel arp =

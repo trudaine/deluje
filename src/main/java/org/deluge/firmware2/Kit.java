@@ -28,6 +28,12 @@ public class Kit extends GlobalEffectable {
   private void ensureBaseDrumCount(int count) {
     while (drums.size() < count) {
       Sound drumSound = new Sound();
+      // The C has no per-arpeggiator copy of this: every arp reads the global
+      // playbackHandler.isEitherClockActive() at use time (arpeggiator.cpp:1527). This port caches
+      // it, and PlaybackHandler.setArpClockActive only refreshes it on transport start/stop, so a
+      // slot added while the transport runs has to inherit the kit's current value or its synced
+      // arp free-runs from the render loop while also taking sequencer ticks.
+      drumSound.arpeggiator.playbackClockActive = arpeggiator.playbackClockActive;
       drumSound.oscTypes[0] = Oscillator.OscType.SAMPLE;
       // Initialize volumes to keep Operator B and Noise quiet by default
       drumSound.patchedParamValues[Param.LOCAL_OSC_B_VOLUME] = Integer.MIN_VALUE;
@@ -47,6 +53,14 @@ public class Kit extends GlobalEffectable {
     arpSettings.gate = Integer.MAX_VALUE; // C global_effectable.cpp:69 — UNPATCHED_ARP_GATE = 50
   }
 
+  /**
+   * The single instruction buffer the C declares on the stack of each of its three kit-arp entry
+   * points (kit.cpp:729, 1159, 1342). The C can share one per Kit because its audio render and its
+   * MIDI/pad handling run on one cooperative loop, so the three never interleave. Here they are on
+   * the audio thread, the sequencer thread and the Swing EDT, so every entry point that touches
+   * this buffer or {@link #arpeggiator} is {@code synchronized} on the Kit, and anything that
+   * rewrites {@link #arpSettings} underneath them (a clip switch) takes the same monitor.
+   */
   private final Arpeggiator.ArpReturnInstruction kitInstruction =
       new Arpeggiator.ArpReturnInstruction();
 
@@ -59,8 +73,13 @@ public class Kit extends GlobalEffectable {
 
   public int arpGateKnob = Integer.MAX_VALUE;
 
-  /** C playbackHandler.getTimePerInternalTickInverse(), for an unsynced kit arp's rate. */
-  public int timePerInternalTickInverse = 0;
+  /**
+   * C playbackHandler.getTimePerInternalTickInverse() (arpeggiator.cpp:1600-1601), for a synced kit
+   * arp's phase increment. In the C this is a song-wide global read at use time; the engine pushes
+   * the song's value here every block. The default is the same fixed {@code 1 << 20} proxy {@link
+   * Sound#timePerInternalTickInverse} uses for callers without a playback clock.
+   */
+  public int timePerInternalTickInverse = 1 << 20;
 
   protected Sound drumAt(int row) {
     return (row >= 0 && row < drums.size()) ? drums.get(row) : null;
@@ -105,7 +124,7 @@ public class Kit extends GlobalEffectable {
   }
 
   /** C Kit::noteOnPreKitArp (kit.cpp:1291-1332). */
-  public void triggerDrum(int row, int vel, int samplesLate) {
+  public synchronized void triggerDrum(int row, int vel, int samplesLate) {
     if (muted || drumAt(row) == null) {
       return;
     }
@@ -131,7 +150,7 @@ public class Kit extends GlobalEffectable {
   }
 
   /** C Kit::noteOffPreKitArp (kit.cpp:1334-1377, arpeggiator.cpp:412-456). */
-  public void releaseDrum(int row) {
+  public synchronized void releaseDrum(int row) {
     if (drumAt(row) == null) {
       return;
     }
@@ -194,7 +213,7 @@ public class Kit extends GlobalEffectable {
   }
 
   /** C Kit::setupAndRenderArpPreOutput (kit.cpp:705-785), before the drums render. */
-  protected void renderKitArp(int numSamples) {
+  protected synchronized void renderKitArp(int numSamples) {
     nullifyUnsupportedKitArpParams();
     if (arpSettings.mode == Arpeggiator.ArpMode.OFF) {
       return;
@@ -212,7 +231,7 @@ public class Kit extends GlobalEffectable {
   }
 
   /** C Kit::doTickForwardForArp, kit-arp half (kit.cpp:1136-1217). */
-  public int doTickForwardForKitArp(int currentPos, boolean reversed) {
+  public synchronized int doTickForwardForKitArp(int currentPos, boolean reversed) {
     nullifyUnsupportedKitArpParams();
     kitInstruction.reset();
     int ticks = arpeggiator.doTickForward(arpSettings, kitInstruction, currentPos, reversed);
@@ -221,7 +240,7 @@ public class Kit extends GlobalEffectable {
   }
 
   /** C kit.cpp:61, instrument_clip.cpp:1198-1205 — reset kit arp & release every drum's notes. */
-  public void releaseAllNotes() {
+  public synchronized void releaseAllNotes() {
     arpeggiator.reset();
     for (Sound drum : drums) {
       drum.arpeggiator.invertReversedFromKitArp = false;

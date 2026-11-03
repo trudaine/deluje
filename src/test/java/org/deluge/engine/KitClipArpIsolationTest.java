@@ -31,12 +31,14 @@ class KitClipArpIsolationTest {
             .noteProbability(0.0f)
             .octaves(3)
             .build();
-    FirmwareFactory.configureKitArp(kit, clip1Arp, 0);
+    Object clip1 = new Object();
+    Object clip2 = new Object();
+    FirmwareFactory.configureKitArp(kit, clip1Arp, 0, clip1);
     assertEquals(Arpeggiator.ArpMode.ARP, kit.arpSettings.mode, "clip 1 must arpeggiate");
     assertEquals(0, kit.arpSettings.noteProbability, "clip 1 sets 0% note probability");
 
     // Clip 2 carries no <arpeggiator>: the C gives it constructor defaults, i.e. the arp OFF.
-    FirmwareFactory.configureKitArp(kit, null, 0);
+    FirmwareFactory.configureKitArp(kit, null, 0, clip2);
     assertEquals(Arpeggiator.ArpMode.OFF, kit.arpSettings.mode, "clip 2 must default to OFF");
     assertEquals(
         0xFFFFFFFF,

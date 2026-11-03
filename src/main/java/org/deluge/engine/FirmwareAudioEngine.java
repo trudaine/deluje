@@ -849,6 +849,12 @@ public class FirmwareAudioEngine {
       GlobalEffectable sound = sounds.get(i);
       if (sound instanceof org.deluge.firmware2.AudioOutput ao) {
         ao.updateTimeline(transportTick, transportPlaying);
+      } else if (sound instanceof FirmwareKit fk) {
+        // C arpeggiator.cpp:1600-1601 — a synced kit arp's phase increment reads the song-wide
+        // playbackHandler.getTimePerInternalTickInverse(). Push it per block, since firmware2.Kit
+        // has no handle on the playback handler; reading one drum's cached copy instead left the
+        // kit arp at the fixed 1 << 20 proxy whenever that drum had never been synced.
+        fk.timePerInternalTickInverse = songTimePerInternalTickInverse;
       }
     }
 

@@ -1154,22 +1154,93 @@ public class FirmwareFactory {
 
   /** The kit clip's arp (C Kit::getArpSettings, kit.cpp:787-797) onto the kit's arpeggiator. */
   public static void configureKitArp(
-      org.deluge.engine.FirmwareKit kit, org.deluge.model.ArpModel arp, int inputTickMagnitude) {
+      org.deluge.engine.FirmwareKit kit,
+      org.deluge.model.ArpModel arp,
+      int inputTickMagnitude,
+      Object owningClip) {
     // Each C clip owns its ArpeggiatorSettings and Kit::getArpSettings just points at the active
     // one (kit.cpp:787-797), so a clip switch can never inherit the previous clip's state. This
-    // port shares one Settings per kit, so reset it first: a clip whose XML omits <arpeggiator>
-    // used to keep the previous clip's randomizer values, and a leftover noteProbability of 0
-    // silenced every drum (measured: 0 active voices on the next hit).
-    kit.arpSettings.resetToDefaults();
+    // port shares one Settings per kit, so reset it when the pointed-at clip changes: a clip whose
+    // XML omits <arpeggiator> used to keep the previous clip's randomizer values, and a leftover
+    // noteProbability of 0 silenced every drum (measured: 0 active voices on the next hit).
+    //
+    // Only on a change, though. The C runs that constructor once per clip, never again, and this
+    // is also the ordinary live-param-refresh path — SwingKitConfigDialog re-applies the whole kit
+    // model at 5 Hz (SwingKitConfigDialog.java:90). Resetting every time re-randomized the note
+    // pattern and wiped the locked randomizer arrays five times a second, and each
+    // generateNewNotePattern() also drew 32 bytes from the shared noise seed.
+    boolean activating = kit.arpOwningClip != owningClip;
+    if (activating) {
+      kit.arpOwningClip = owningClip;
+      kit.arpSettings.resetToDefaults();
+    }
     if (arp == null) {
       kit.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
       kit.arpSettings.numOctaves = 1; // C kit.cpp:53 — defaultArpSettings.numOctaves = 1
       return;
     }
-    configureArpSettings(kit.arpSettings, arp, inputTickMagnitude);
+    configureArpSettings(kit.arpSettings, arp, inputTickMagnitude, activating);
     if (!arp.active()) {
       kit.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
     }
+  }
+
+  /**
+   * C XMLDeserializer::readTagOrAttributeValueHexBytes (Deserializer.cpp:648) against
+   * XMLSerializer::writeAttributeHexBytes (Serializer.cpp:98-116): the value is two hex chars per
+   * byte, read into a fixed-size array and stopping at the end of either. A null or blank value
+   * means the attribute was absent, which in the C leaves the array at whatever the
+   * ArpeggiatorSettings constructor put there (arpeggiator.cpp:58-69) — so this leaves it alone.
+   */
+  private static void readHexBytesInto(String hex, byte[] dest) {
+    if (hex == null) {
+      return;
+    }
+    String v = hex.trim();
+    if (v.isEmpty()) {
+      return;
+    }
+    int n = Math.min(dest.length, v.length() / 2);
+    for (int i = 0; i < n; i++) {
+      int hi = Character.digit(v.charAt(i * 2), 16);
+      int lo = Character.digit(v.charAt(i * 2 + 1), 16);
+      if (hi < 0 || lo < 0) {
+        return; // C hexToInt stops at the first non-hex char
+      }
+      dest[i] = (byte) ((hi << 4) | lo);
+    }
+  }
+
+  /**
+   * C ArpeggiatorSettings::readFromFile (arpeggiator.cpp:1663-1739) — the saved randomizer-lock
+   * sequences and note pattern. They round-tripped through {@link org.deluge.model.ArpModel} and
+   * the serializers but never reached {@code Settings}, so a locked arp regenerated its sequence on
+   * every load and PATTERN note mode always played a freshly randomized order.
+   */
+  private static void restoreArpSavedSequences(
+      org.deluge.firmware2.Arpeggiator.Settings s, org.deluge.model.ArpModel arp) {
+    readHexBytesInto(arp.notePattern(), s.notePattern);
+
+    s.lastLockedNoteProbabilityParameterValue = arp.lastLockedNoteProb();
+    readHexBytesInto(arp.lockedNoteProbArray(), s.lockedNoteProbabilityValues);
+    s.lastLockedBassProbabilityParameterValue = arp.lastLockedBassProb();
+    readHexBytesInto(arp.lockedBassProbArray(), s.lockedBassProbabilityValues);
+    s.lastLockedSwapProbabilityParameterValue = arp.lastLockedSwapProb();
+    readHexBytesInto(arp.lockedSwapProbArray(), s.lockedSwapProbabilityValues);
+    s.lastLockedGlideProbabilityParameterValue = arp.lastLockedGlideProb();
+    readHexBytesInto(arp.lockedGlideProbArray(), s.lockedGlideProbabilityValues);
+    s.lastLockedReverseProbabilityParameterValue = arp.lastLockedReverseProb();
+    readHexBytesInto(arp.lockedReverseProbArray(), s.lockedReverseProbabilityValues);
+    s.lastLockedChordProbabilityParameterValue = arp.lastLockedChordProb();
+    readHexBytesInto(arp.lockedChordProbArray(), s.lockedChordProbabilityValues);
+    s.lastLockedRatchetProbabilityParameterValue = arp.lastLockedRatchetProb();
+    readHexBytesInto(arp.lockedRatchetProbArray(), s.lockedRatchetProbabilityValues);
+    s.lastLockedSpreadVelocityParameterValue = arp.lastLockedVelocitySpread();
+    readHexBytesInto(arp.lockedVelocitySpreadArray(), s.lockedSpreadVelocityValues);
+    s.lastLockedSpreadGateParameterValue = arp.lastLockedGateSpread();
+    readHexBytesInto(arp.lockedGateSpreadArray(), s.lockedSpreadGateValues);
+    s.lastLockedSpreadOctaveParameterValue = arp.lastLockedOctaveSpread();
+    readHexBytesInto(arp.lockedOctaveSpreadArray(), s.lockedSpreadOctaveValues);
   }
 
   /** The model arp onto a C ArpeggiatorSettings (shared by synths and kits). */
@@ -1177,14 +1248,39 @@ public class FirmwareFactory {
       org.deluge.firmware2.Arpeggiator.Settings s,
       org.deluge.model.ArpModel arp,
       int inputTickMagnitude) {
+    configureArpSettings(s, arp, inputTickMagnitude, false);
+  }
+
+  /**
+   * @param restoreSavedSequences true only when a clip is being ACTIVATED. The saved note pattern
+   *     and locked randomizer arrays are live state the arp mutates as it plays
+   *     (arpeggiator.cpp:1663-1739 reads them once, at load), and nothing pushes those mutations
+   *     back to the model — so re-imposing the model on an ordinary live parameter refresh would
+   *     discard the sequence the arp had just locked.
+   */
+  public static void configureArpSettings(
+      org.deluge.firmware2.Arpeggiator.Settings s,
+      org.deluge.model.ArpModel arp,
+      int inputTickMagnitude,
+      boolean restoreSavedSequences) {
     s.mode =
         arp.active() ? stringToArpMode(arp.mode()) : org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
     s.includeInKitArp = arp.kitArp() != 0; // C arpeggiator.h:76, arpeggiator.cpp:1656-1658
     s.randomizerLock = arp.randomizerLock() != 0; // C arpeggiator.cpp:1659-1661
+    // The lock is only half of it: restore the sequence it locks, and the saved note pattern.
+    if (restoreSavedSequences) {
+      restoreArpSavedSequences(s, arp);
+    }
     s.octaveMode = stringToArpOctaveMode(arp.octaveMode());
     s.numOctaves = Math.max(1, arp.octaves());
     s.numStepRepeats = Math.max(1, arp.stepRepeat());
-    s.gate = (int) (Math.max(0f, Math.min(1f, arp.gate())) * 2147483647.0);
+    // UNPATCHED_ARP_GATE is a SIGNED q31 param whose midpoint 0 is the 50% gate: the consumer adds
+    // 2^31 (Sound.java:1544, C sound.cpp:2468 / arpeggiator.cpp:1457), and the C's initParams
+    // default is 0 (mod_controllable_audio.cpp:113-127). Scaling the model's 0..1 by 2^31-1 put the
+    // whole range in the top half — a default gate of 0.5 became 0x3FFFFFFF, i.e. 75%, and matched
+    // the param default at neither end, so syncParamsToFw2's "no override" test then left it there.
+    // normToBipolarParam is the mapping paramNeutralValues[UNPATCHED_ARP_GATE] already uses.
+    s.gate = normToBipolarParam(arp.gate());
     // Rhythm pattern: fw2 settings.rhythm is the raw uint32 menu value (the C reads it back with
     // computeCurrentValueForUnsignedMenuItem, arpeggiator.cpp:762). XML may carry either the small
     // 0..50 index or the raw stored value — normalize to an index, then scale
@@ -1614,33 +1710,39 @@ public class FirmwareFactory {
     // when there is no active clip at all, which is the new-clip / instrument-default case.
     org.deluge.model.ArpModel activeArp =
         (activeClip != null) ? activeClip.getArp() : model.getArp();
-    configureKitArp(kit, activeArp, kit.inputTickMagnitude);
-    Integer clipArpRateQ31 = resolveKitRawQ31(activeClip, model, "arpeggiatorRate");
-    kit.arpRateKnob =
-        clipArpRateQ31 != null
-            ? clipArpRateQ31
-            : (activeArp != null
-                    && Float.compare(
-                            activeArp.rate(), org.deluge.model.ArpModel.defaultConfig().rate())
-                        != 0
-                ? normToLinearParamKnob(activeArp.rate())
-                : 0);
-    Integer clipArpGateQ31 = resolveKitRawQ31(activeClip, model, "arpeggiatorGate");
-    if (clipArpGateQ31 != null) {
-      kit.arpGateKnob = clipArpGateQ31;
-      kit.arpSettings.gate = clipArpGateQ31;
-    } else if (activeArp != null
-        && Float.compare(activeArp.gate(), org.deluge.model.ArpModel.defaultConfig().gate()) != 0) {
-      int gateQ31 =
-          org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(activeArp, Param.UNPATCHED_ARP_GATE);
-      kit.arpGateKnob = gateQ31;
-      kit.arpSettings.gate = gateQ31;
-    } else {
-      // C global_effectable.cpp:69 — UNPATCHED_ARP_GATE defaults to 2147483647 (50/50 = 100% gate)
-      kit.arpGateKnob = Integer.MAX_VALUE;
-      kit.arpSettings.gate = Integer.MAX_VALUE;
+    // The kit's own monitor: this rewrites the Settings the audio and sequencer threads are
+    // rendering the kit arp from (see firmware2.Kit.kitInstruction). The C needs no lock because
+    // its render and its clip switching share one cooperative loop.
+    synchronized (kit) {
+      configureKitArp(kit, activeArp, kit.inputTickMagnitude, activeClip);
+      Integer clipArpRateQ31 = resolveKitRawQ31(activeClip, model, "arpeggiatorRate");
+      kit.arpRateKnob =
+          clipArpRateQ31 != null
+              ? clipArpRateQ31
+              : (activeArp != null
+                      && Float.compare(
+                              activeArp.rate(), org.deluge.model.ArpModel.defaultConfig().rate())
+                          != 0
+                  ? normToLinearParamKnob(activeArp.rate())
+                  : 0);
+      Integer clipArpGateQ31 = resolveKitRawQ31(activeClip, model, "arpeggiatorGate");
+      if (clipArpGateQ31 != null) {
+        kit.arpGateKnob = clipArpGateQ31;
+        kit.arpSettings.gate = clipArpGateQ31;
+      } else if (activeArp != null
+          && Float.compare(activeArp.gate(), org.deluge.model.ArpModel.defaultConfig().gate())
+              != 0) {
+        int gateQ31 =
+            org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(activeArp, Param.UNPATCHED_ARP_GATE);
+        kit.arpGateKnob = gateQ31;
+        kit.arpSettings.gate = gateQ31;
+      } else {
+        // C global_effectable.cpp:69 — UNPATCHED_ARP_GATE defaults to 2147483647 (50/50 = 100%)
+        kit.arpGateKnob = Integer.MAX_VALUE;
+        kit.arpSettings.gate = Integer.MAX_VALUE;
+      }
+      applyUnpatchedArpQ31Overrides(kit.arpSettings, activeArp, activeClip, model);
     }
-    applyUnpatchedArpQ31Overrides(kit.arpSettings, activeArp, activeClip, model);
   }
 
   private static Integer resolveKitRawQ31(ClipModel activeClip, KitTrackModel model, String key) {

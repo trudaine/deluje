@@ -1504,9 +1504,13 @@ public class InstrumentXmlParser {
     int syncTypeRaw = attrOrDirectChildInt(arpEl, "syncType", 0);
     int syncType = legacyApp ? syncTypeRaw : ArpXmlCodec.syncTypeFromFile(syncTypeRaw);
 
-    String notePattern = attrOrDirectChildText(arpEl, "notePattern"); // C :1732-1734
-    if (notePattern == null || notePattern.isBlank()) {
-      notePattern = "00000000000000000000000000000000";
+    // C :1737-1739 — an absent notePattern leaves the one the ArpeggiatorSettings constructor
+    // generated (arpeggiator.cpp:69), so absence must stay distinguishable from a saved all-zero
+    // pattern. Substituting zeros here also made the serializer write notePattern="00.." into files
+    // that never had it, which real hardware reads as "every step picks index 0".
+    String notePattern = attrOrDirectChildText(arpEl, "notePattern");
+    if (notePattern != null && notePattern.isBlank()) {
+      notePattern = null;
     }
 
     // Spread and probability attributes (attributes written by firmware via writeParamAsAttribute)
