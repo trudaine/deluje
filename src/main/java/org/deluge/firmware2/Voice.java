@@ -254,11 +254,22 @@ public class Voice {
         vs.disabledByPitch = false;
         int ovr = (s == 0) ? testStartPhaseOverrideOsc1.get() : testStartPhaseOverrideOsc2.get();
         vs.oscPos = (ovr != -2) ? ovr : Functions.getNoise(); // random initial phase
+        // C voice.cpp:402-406 — otherwise every note's side saws would start from the same place
+        // and sweep the same way.
+        if (sound.oscTypes[s] == OscType.SUPERSAW) {
+          for (int i = 0; i < vs.supersawPhases.length; i++) {
+            vs.supersawPhases[i] = (ovr != -2) ? ovr : Functions.getNoise();
+          }
+        }
         // C vups:79-82 — retrigger overrides the random phase: zero-phase base for the wave type
         // plus the configured offset. 0xFFFFFFFF (-1) = off.
         if (sound.oscRetriggerPhase[s] != 0xFFFFFFFF) {
           vs.oscPos =
               Functions.getOscInitialPhaseForZero(sound.oscTypes[s]) + sound.oscRetriggerPhase[s];
+          // C vups:90-91 — a retriggered supersaw always starts the same way.
+          if (sound.oscTypes[s] == OscType.SUPERSAW) {
+            Supersaw.fillSidePhasesFrom(vs.supersawPhases, vs.oscPos);
+          }
         }
         vs.carrierFeedback = 0;
       }
@@ -443,9 +454,17 @@ public class Voice {
         VoiceSource vs = unisonParts[u].sources[s];
         int ovr = (s == 0) ? testStartPhaseOverrideOsc1.get() : testStartPhaseOverrideOsc2.get();
         vs.oscPos = (ovr != -2) ? ovr : Functions.getNoise();
+        if (sound.oscTypes[s] == OscType.SUPERSAW) { // C voice.cpp:402-406
+          for (int i = 0; i < vs.supersawPhases.length; i++) {
+            vs.supersawPhases[i] = (ovr != -2) ? ovr : Functions.getNoise();
+          }
+        }
         if (sound.oscRetriggerPhase[s] != 0xFFFFFFFF) {
           vs.oscPos =
               Functions.getOscInitialPhaseForZero(sound.oscTypes[s]) + sound.oscRetriggerPhase[s];
+          if (sound.oscTypes[s] == OscType.SUPERSAW) { // C vups:90-91
+            Supersaw.fillSidePhasesFrom(vs.supersawPhases, vs.oscPos);
+          }
         }
         vs.carrierFeedback = 0;
         if (!sound.isFm2OpMode() && sound.oscTypes[s] == OscType.SAMPLE) {
@@ -1408,7 +1427,13 @@ public class Voice {
             false,
             0,
             0,
-            sound.oscRetriggerPhase[0]);
+            sound.oscRetriggerPhase[0],
+            // C voice.cpp:1363-1365 — ring mod renders the supersaw too, so its side phases have
+            // to come along; without them renderOsc returns silence and the ring mod multiplies
+            // by zero, muting the voice.
+            sourceWaveIndexIncrements[0],
+            sourceWaveIndexesLastTime[0],
+            vsA.supersawPhases);
         vsA.oscPos = phaseA[0];
       }
       // voice.cpp:1362-1367 — "Sine and triangle waves come out bigger in fixed-amplitude rendering
@@ -1417,8 +1442,8 @@ public class Voice {
       // RAW shifts, not lshiftAndSaturate. Same distinction as the noise path above.
       if (oscTypeA == OscType.SAW || oscTypeA == OscType.ANALOG_SAW_2) {
         amplitudeForRingMod <<= 1;
-      } else if (oscTypeA == OscType.WAVETABLE) {
-        amplitudeForRingMod <<= 2;
+      } else if (oscTypeA == OscType.WAVETABLE || oscTypeA == OscType.SUPERSAW) {
+        amplitudeForRingMod <<= 2; // C voice.cpp:1370 groups SUPERSAW with WAVETABLE
       }
 
       if (oscTypeB == OscType.WAVETABLE) {
@@ -1464,13 +1489,16 @@ public class Voice {
             doingOscSync,
             oscSyncPos[u],
             pIncA,
-            sound.oscRetriggerPhase[1]);
+            sound.oscRetriggerPhase[1],
+            sourceWaveIndexIncrements[1],
+            sourceWaveIndexesLastTime[1],
+            vsB.supersawPhases); // C voice.cpp:1363-1365, as for source A
         vsB.oscPos = phaseB[0];
       }
       if (oscTypeB == OscType.SAW || oscTypeB == OscType.ANALOG_SAW_2) {
         amplitudeForRingMod <<= 1;
-      } else if (oscTypeB == OscType.WAVETABLE) {
-        amplitudeForRingMod <<= 2;
+      } else if (oscTypeB == OscType.WAVETABLE || oscTypeB == OscType.SUPERSAW) {
+        amplitudeForRingMod <<= 2; // C voice.cpp:1370
       }
 
       for (int i = 0; i < numSamples; i++) {
@@ -1941,6 +1969,33 @@ public class Voice {
                   Functions.lshiftAndSaturate(
                       Functions.multiply_32x32_rshift32(tempBuf[i], wtAmpNow), 1);
             }
+          } else if (sound.oscTypes[s] == OscType.SUPERSAW) {
+            // C oscillator.cpp:31-46 handles the supersaw inside renderOsc, including its own
+            // amplitude stage, so this goes through the full-parameter overload rather than
+            // applying amplitude here (which is what a first version did, 4x low and invisible to
+            // the golden because the golden only covered the raw render).
+            int pulseWidth =
+                Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s], 1);
+            int[] phase = {vs.oscPos};
+            Oscillator.renderOsc(
+                OscType.SUPERSAW,
+                srcAmpStart,
+                tempBuf,
+                0,
+                numSamples,
+                pInc,
+                pulseWidth,
+                phase,
+                true,
+                srcAmpInc,
+                false,
+                0,
+                0,
+                sound.oscRetriggerPhase[s],
+                sourceWaveIndexIncrements[s],
+                sourceWaveIndexesLastTime[s],
+                vs.supersawPhases);
+            vs.oscPos = phase[0];
           } else {
             int pulseWidth =
                 Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s], 1);

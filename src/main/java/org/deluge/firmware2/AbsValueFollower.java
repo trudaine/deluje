@@ -69,6 +69,16 @@ public class AbsValueFollower {
     return (int) releaseMS;
   }
 
+  /**
+   * C: absolute_value.cpp:25-27 — {@code absForLevel}. {@code |x|}, but defined for {@code INT_MIN}
+   * (which gives {@code INT_MAX}); negatives come out 1 low, which is nothing next to the level
+   * this measures. Java's {@code Math.abs} returns {@code INT_MIN} for {@code INT_MIN}, so the C's
+   * one-instruction form is ported rather than replaced.
+   */
+  static int absForLevel(int x) {
+    return x ^ (x >> 31);
+  }
+
   /** C: absolute_value.cpp:21-30 — IIR envelope */
   float runEnvelope(float current, float desired, float numSamples) {
     if (desired > current) {
@@ -95,14 +105,18 @@ public class AbsValueFollower {
    * share it across threads.
    */
   public float[] calcApproxRMS(int[][] buffer) {
-    long l = 0, r = 0;
+    // C absolute_value.cpp:46-59 — q31_t accumulators, each sample shifted down 8 first so a block
+    // of up to 256 samples cannot overflow int32 (the C's "do not feed block over length 256").
+    // Java could accumulate in a long and skip the shift, but the per-sample >> 8 truncates, so
+    // that would read slightly high; keep the C's int arithmetic.
+    int l = 0, r = 0;
     for (int[] sample : buffer) {
-      l += Math.abs(sample[0]);
-      r += Math.abs(sample[1]);
+      l += absForLevel(sample[0]) >> 8;
+      r += absForLevel(sample[1]) >> 8;
     }
     float ns = buffer.length;
-    meanL = (float) l / ns;
-    meanR = (float) r / ns;
+    meanL = 256.f * l / ns;
+    meanR = 256.f * r / ns;
     // C:51-52 — weighted average with previous
     meanL = (meanL * ns + lastMeanL) / (1.0f + ns);
     meanR = (meanR * ns + lastMeanR) / (1.0f + ns);

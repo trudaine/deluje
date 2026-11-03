@@ -60,6 +60,10 @@ echo "compiling oscillator + basic_waves + sine_osc + wave tables (via SIMDE) ..
 g++ $STD "${INC[@]}" -c "$FW/src/deluge/dsp/oscillators/oscillator.cpp" -o "$BUILD/oscillator.o"
 g++ $STD "${INC[@]}" -c "$FW/src/deluge/dsp/oscillators/basic_waves.cpp" -o "$BUILD/basic_waves.o"
 g++ $STD "${INC[@]}" -c "$FW/src/deluge/dsp/oscillators/sine_osc.cpp" -o "$BUILD/sine_osc.o"
+# renderOsc has dispatched to Supersaw::render since upstream 451c9f82f, so the symbol has to
+# resolve even though this harness never renders one (tools/supersaw_harness covers that path, with
+# the strict float flags it needs).
+g++ $STD "${INC[@]}" -c "$FW/src/deluge/dsp/oscillators/supersaw.cpp" -o "$BUILD/supersaw.o"
 mkdir -p "$BUILD/lut"
 for f in "$FW"/src/deluge/util/lookuptables/*.cpp; do
   g++ $STD "${INC[@]}" -c "$f" -o "$BUILD/lut/$(basename "$f" .cpp).o"
@@ -67,7 +71,7 @@ done
 
 echo "linking oscillator harness ..."
 g++ $STD "${INC[@]}" "$HERE/main_osc.cpp" "$HERE/support.cpp" \
-  "$BUILD/oscillator.o" "$BUILD/basic_waves.o" "$BUILD/sine_osc.o" "$BUILD"/lut/*.o \
+  "$BUILD/oscillator.o" "$BUILD/basic_waves.o" "$BUILD/sine_osc.o" "$BUILD/supersaw.o" "$BUILD"/lut/*.o \
   -o "$BUILD/gen_osc"
 
 GEN="$BUILD/gen_osc"

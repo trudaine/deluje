@@ -21,6 +21,9 @@ public final class Oscillator {
     SQUARE,
     ANALOG_SAW_2,
     ANALOG_SQUARE,
+    // C definitions_cxx.hpp:365 — SUPERSAW sits before WAVETABLE, so it stays inside
+    // kLastRingmoddableOscType and the "> WAVETABLE" tests for sample/DX7/input still hold.
+    SUPERSAW,
     WAVETABLE,
     SAMPLE,
     // C definitions_cxx.hpp:367 has DX7 after SAMPLE (index 8); rendered per-source in
@@ -611,6 +614,99 @@ public final class Oscillator {
       int resetterPhase,
       int resetterPhaseInc,
       int retriggerPhase) {
+    renderOsc(
+        type,
+        amplitude,
+        buffer,
+        off,
+        numSamples,
+        phaseIncrement,
+        pulseWidth,
+        startPhase,
+        applyAmplitude,
+        amplitudeIncrement,
+        doOscSync,
+        resetterPhase,
+        resetterPhaseInc,
+        retriggerPhase,
+        0,
+        0,
+        null);
+  }
+
+  /**
+   * The C's full {@code renderOsc} parameter list (oscillator.h:29-33): the three extra arguments
+   * are the wave-index ramp and the supersaw's side phases. {@code SUPERSAW} needs them, so a
+   * caller that can select one must use this overload — {@code supersawPhases} null renders
+   * silence, exactly as the pre-port Java did.
+   *
+   * @param waveIndexIncrement C {@code waveIndexIncrement} — per-sample wave-index ramp
+   * @param sourceWaveIndexLastTime C {@code sourceWaveIndexLastTime} — wave index at the block
+   *     start
+   * @param supersawPhases in/out: the supersaw's six side-saw phases
+   */
+  public static void renderOsc(
+      OscType type,
+      int amplitude,
+      int[] buffer,
+      int off,
+      int numSamples,
+      int phaseIncrement,
+      int pulseWidth,
+      int[] startPhase,
+      boolean applyAmplitude,
+      int amplitudeIncrement,
+      boolean doOscSync,
+      int resetterPhase,
+      int resetterPhaseInc,
+      int retriggerPhase,
+      int waveIndexIncrement,
+      int sourceWaveIndexLastTime,
+      int[] supersawPhases) {
+
+    // C oscillator.cpp:31-46 — the supersaw does its own thing. Pulse width sets the number of
+    // saws, spread is the END wave index (taken once per buffer, not interpolated), and there is no
+    // osc sync.
+    if (type == OscType.SUPERSAW) {
+      if (supersawPhases == null) {
+        return; // no phase state to render from; see the overload above
+      }
+      // C oscillator.cpp:34 — same CPU-dire fallback as the plain saw: skip the band limiting for
+      // lower notes.
+      boolean bandLimit =
+          getTableNumber(phaseIncrement)[0]
+              >= org.deluge.engine.FirmwareAudioEngine.cpuDireness + 6;
+      int spread = sourceWaveIndexLastTime + waveIndexIncrement * numSamples;
+      int numSaws = Supersaw.numSawsFromPulseWidth(pulseWidth);
+
+      // C oscillator.cpp:37 — renderBuffer = applyAmplitude ? oscSyncRenderingBuffer : bufferStart.
+      // The naive pass writes in blocks of four, so the scratch needs numSamples rounded up
+      // (supersaw.h:56); when rendering straight into the caller's buffer the C relies on the
+      // engine's buffers having that slack, so render through the scratch either way and copy.
+      int[] raw = rawScratch.get();
+      if (raw.length < numSamples + 4) {
+        raw = new int[numSamples + 4];
+        rawScratch.set(raw);
+      }
+      Supersaw.render(
+          raw,
+          0,
+          numSamples,
+          phaseIncrement,
+          spread,
+          numSaws,
+          startPhase,
+          supersawPhases,
+          bandLimit);
+      if (applyAmplitude) {
+        // C oscillator.cpp:41-44 — "Supersaw comes out at a quarter of a saw's level"
+        applyAmplitudeVectorToBuffer(
+            amplitude << 2, numSamples, amplitudeIncrement << 2, buffer, off, raw);
+      } else {
+        System.arraycopy(raw, 0, buffer, off, numSamples);
+      }
+      return;
+    }
 
     // uint32_t phase = *startPhase;  // line 36
     int phase = startPhase[0];
