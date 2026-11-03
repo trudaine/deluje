@@ -1427,7 +1427,13 @@ public class Voice {
             false,
             0,
             0,
-            sound.oscRetriggerPhase[0]);
+            sound.oscRetriggerPhase[0],
+            // C voice.cpp:1363-1365 — ring mod renders the supersaw too, so its side phases have
+            // to come along; without them renderOsc returns silence and the ring mod multiplies
+            // by zero, muting the voice.
+            sourceWaveIndexIncrements[0],
+            sourceWaveIndexesLastTime[0],
+            vsA.supersawPhases);
         vsA.oscPos = phaseA[0];
       }
       // voice.cpp:1362-1367 — "Sine and triangle waves come out bigger in fixed-amplitude rendering
@@ -1436,8 +1442,8 @@ public class Voice {
       // RAW shifts, not lshiftAndSaturate. Same distinction as the noise path above.
       if (oscTypeA == OscType.SAW || oscTypeA == OscType.ANALOG_SAW_2) {
         amplitudeForRingMod <<= 1;
-      } else if (oscTypeA == OscType.WAVETABLE) {
-        amplitudeForRingMod <<= 2;
+      } else if (oscTypeA == OscType.WAVETABLE || oscTypeA == OscType.SUPERSAW) {
+        amplitudeForRingMod <<= 2; // C voice.cpp:1370 groups SUPERSAW with WAVETABLE
       }
 
       if (oscTypeB == OscType.WAVETABLE) {
@@ -1483,13 +1489,16 @@ public class Voice {
             doingOscSync,
             oscSyncPos[u],
             pIncA,
-            sound.oscRetriggerPhase[1]);
+            sound.oscRetriggerPhase[1],
+            sourceWaveIndexIncrements[1],
+            sourceWaveIndexesLastTime[1],
+            vsB.supersawPhases); // C voice.cpp:1363-1365, as for source A
         vsB.oscPos = phaseB[0];
       }
       if (oscTypeB == OscType.SAW || oscTypeB == OscType.ANALOG_SAW_2) {
         amplitudeForRingMod <<= 1;
-      } else if (oscTypeB == OscType.WAVETABLE) {
-        amplitudeForRingMod <<= 2;
+      } else if (oscTypeB == OscType.WAVETABLE || oscTypeB == OscType.SUPERSAW) {
+        amplitudeForRingMod <<= 2; // C voice.cpp:1370
       }
 
       for (int i = 0; i < numSamples; i++) {
@@ -1961,39 +1970,32 @@ public class Voice {
                       Functions.multiply_32x32_rshift32(tempBuf[i], wtAmpNow), 1);
             }
           } else if (sound.oscTypes[s] == OscType.SUPERSAW) {
-            // C oscillator.cpp:31-46 — the supersaw does its own thing: pulse width sets the number
-            // of saws, spread is the END wave index (taken once per buffer, not interpolated), and
-            // there is no osc sync.
+            // C oscillator.cpp:31-46 handles the supersaw inside renderOsc, including its own
+            // amplitude stage, so this goes through the full-parameter overload rather than
+            // applying amplitude here (which is what a first version did, 4x low and invisible to
+            // the golden because the golden only covered the raw render).
             int pulseWidth =
                 Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s], 1);
-            int spread = sourceWaveIndexesLastTime[s] + sourceWaveIndexIncrements[s] * numSamples;
-            // C oscillator.cpp:34 — same CPU-dire fallback as the plain saw: skip the band limiting
-            // for lower notes.
-            boolean bandLimit =
-                Oscillator.getTableNumber(pInc)[0]
-                    >= org.deluge.engine.FirmwareAudioEngine.cpuDireness + 6;
             int[] phase = {vs.oscPos};
-            Supersaw.render(
+            Oscillator.renderOsc(
+                OscType.SUPERSAW,
+                srcAmpStart,
                 tempBuf,
                 0,
                 numSamples,
                 pInc,
-                spread,
-                Supersaw.numSawsFromPulseWidth(pulseWidth),
+                pulseWidth,
                 phase,
-                vs.supersawPhases,
-                bandLimit);
+                true,
+                srcAmpInc,
+                false,
+                0,
+                0,
+                sound.oscRetriggerPhase[s],
+                sourceWaveIndexIncrements[s],
+                sourceWaveIndexesLastTime[s],
+                vs.supersawPhases);
             vs.oscPos = phase[0];
-            // C oscillator.cpp:41-44 — "supersaw comes out at a quarter of a saw's level", so the
-            // C applies amplitude << 2. This port's amplitude stage runs 4x below the C's by
-            // design (CLAUDE.md: the one compensating stage is the master lshiftAndSaturate(…, 6)),
-            // which is the same factor the wavetable branch above carries, so the C's << 2 here
-            // becomes no shift — leaving supersaw at the C's level relative to the other waves.
-            int ssAmpNow = srcAmpStart;
-            for (int i = 0; i < numSamples; i++) {
-              ssAmpNow += srcAmpInc;
-              tempBuf[i] = Functions.multiply_32x32_rshift32(tempBuf[i], ssAmpNow);
-            }
           } else {
             int pulseWidth =
                 Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s], 1);

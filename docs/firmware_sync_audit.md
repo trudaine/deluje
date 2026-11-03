@@ -355,8 +355,33 @@ was measured rather than taken from their commit messages.
 
 | commit | what | Java |
 | --- | --- | --- |
-| `451c9f82f` (#5198) | **New oscillator: the supersaw.** JP-8000 style — a centre saw plus up to six detuned side saws, polyBLEP band limited. `OscType::SUPERSAW` is inserted at ordinal 6 (before `WAVETABLE`), the XML token is `"supersaw"`, spread comes from the wave-index param and the saw count from pulse width | `Supersaw.java` (new) ports `supersaw.{h,cpp}`; wired through `Voice` (per-source side phases, retrigger and random init, the `<< 2` level and the cpu-direness band-limit fallback), `OscType`, and all three osc-type serializers. **Bit-exact against the C** for 9 cases (`SupersawGoldenBufferTest`, new `tools/supersaw_harness/`). Without this a supersaw song hit `stringToOscType`'s unrecognized-name TRIANGLE fallback |
+| `451c9f82f` (#5198) | **New oscillator: the supersaw.** JP-8000 style — a centre saw plus up to six detuned side saws, polyBLEP band limited. `OscType::SUPERSAW` is inserted at ordinal 6 (before `WAVETABLE`), the XML token is `"supersaw"`, spread comes from the wave-index param and the saw count from pulse width | `Supersaw.java` (new) ports `supersaw.{h,cpp}`; wired through `Voice` (per-source side phases, retrigger and random init, the `<< 2` level and the cpu-direness band-limit fallback), `OscType`, and all three osc-type serializers. **Bit-exact against the C** for 13 cases (`SupersawGoldenBufferTest`, new `tools/supersaw_harness/`), raw render and through `renderOsc`. Without this a supersaw song hit `stringToOscType`'s unrecognized-name TRIANGLE fallback |
 | `a44457d9a` (#5235), with `00c0b3b76` (#5228) and its revert `68bf0ce47` (#5232) | `AbsValueFollower::calcApproxRMS` now accumulates `(x ^ (x >> 31)) >> 8` per sample and scales the mean by 256, so a block up to 256 samples cannot overflow the q31 accumulator, and `INT_MIN` maps to `INT_MAX` instead of staying negative | `AbsValueFollower.calcApproxRMS` summed `Math.abs` in a `long` and divided — no overflow, but it skipped the per-sample truncation (reading ~2× high on small signals) and `Math.abs(INT_MIN)` is negative. Ported both, with the C's `int` accumulator |
+
+**Two defects the first version of the supersaw port had, both found in review and both now covered
+by goldens — worth recording because of *why* the first tests missed them:**
+
+1. **The dispatch sat in `Voice`, not in `renderOsc`.** The C handles the supersaw inside
+   `Oscillator::renderOsc` (oscillator.cpp:31-46), which is also what the **ring-mod** path calls
+   (voice.cpp:1363-1365, with `amplitudeForRingMod <<= 2` for SUPERSAW at :1370). With the branch in
+   Voice's subtractive path only, `renderOsc(SUPERSAW, …)` wrote **nothing** — measured, not
+   guessed: `maxAbs=0` over 128 samples — so a supersaw in either ring-mod source multiplied the
+   other by a buffer of zeros and **silenced the voice**.
+2. **The amplitude stage was 4× (12 dB) low.** The C applies `amplitude << 2` ("supersaw comes out
+   at a quarter of a saw's level"). The hand-rolled Voice version used this port's wavetable-branch
+   convention instead, on the assumption — read out of CLAUDE.md rather than measured — that the
+   voice amplitude stage runs 4× below the C. It does not: `renderOsc`'s
+   `applyAmplitudeVectorToBuffer` is bit-exact to the C, which the new `c_supersaw_osc_*` goldens
+   now show directly (and the wavetable branch's `<< 1` is compensating `WaveTable.render`'s own
+   scale, a separate matter).
+
+**Why the first golden set could not catch either.** It covered `Supersaw::render` alone — the raw
+oscillator — so it was blind to everything around it: the dispatch, the amplitude stage, and the
+ring-mod grouping. The fix was to render the golden through `Oscillator::renderOsc` as a Voice does.
+Negative control observed: dropping the `<< 2` makes exactly the three `*_amp` cases fail
+(`maxAbs` ≈ 4e7) and leaves the raw ones passing. The general lesson, which is the same one
+`docs/dsp_parity_review_2026-07-04.md` draws: **a golden proves the function it calls, not the
+subsystem around it.**
 
 ### 11b. Perf refactors — confirmed bit-identical by regenerating every golden
 

@@ -120,7 +120,18 @@ STD="-std=c++23 -O2 -w -ffp-contract=off"
 
 echo "compiling supersaw harness against real dsp/oscillators/supersaw.cpp ..."
 g++ $STD "${INC[@]}" -c "$PATCHED/dsp/oscillators/supersaw.cpp" -o "$BUILD/supersaw.o"
-g++ $STD "${INC[@]}" "$HERE/main_supersaw.cpp" "$BUILD/supersaw.o" -o "$BUILD/gen_supersaw"
+# Also link the real renderOsc, so the harness can cover the supersaw as a Voice reaches it —
+# including the amplitude stage, which a golden over Supersaw::render alone cannot see.
+g++ $STD "${INC[@]}" -c "$FW/src/deluge/dsp/oscillators/oscillator.cpp" -o "$BUILD/oscillator.o"
+g++ $STD "${INC[@]}" -c "$FW/src/deluge/dsp/oscillators/basic_waves.cpp" -o "$BUILD/basic_waves.o"
+g++ $STD "${INC[@]}" -c "$FW/src/deluge/dsp/oscillators/sine_osc.cpp" -o "$BUILD/sine_osc.o"
+mkdir -p "$BUILD/lut"
+for f in "$FW"/src/deluge/util/lookuptables/*.cpp; do
+  g++ $STD "${INC[@]}" -c "$f" -o "$BUILD/lut/$(basename "$f" .cpp).o"
+done
+g++ $STD "${INC[@]}" "$HERE/main_supersaw.cpp" "$REPO/tools/osc_harness/support.cpp" \
+  "$BUILD/supersaw.o" "$BUILD/oscillator.o" "$BUILD/basic_waves.o" "$BUILD/sine_osc.o" \
+  "$BUILD"/lut/*.o -o "$BUILD/gen_supersaw"
 
 GEN="$BUILD/gen_supersaw"
 # gen <phaseIncrement> <spread> <numSaws> <bandLimit> <nsamp> <blocks> <out>
@@ -138,4 +149,14 @@ gen 25480253 0           3 1 c_supersaw_c4_spread0_saws3_bl.bin
 gen 25480253 0           4 1 c_supersaw_c4_spread0_saws4_bl.bin
 gen 3185031  536870912   7 1 c_supersaw_c1_spreadhalf_saws7_bl.bin
 gen 203842024 536870912  7 1 c_supersaw_c7_spreadhalf_saws7_bl.bin
+# Through renderOsc, which is the path a Voice takes: this is what covers the amplitude stage
+# (oscillator.cpp:41-44, amplitude << 2) and the pulse-width-to-saw-count mapping.
+# genosc <phaseIncrement> <pulseWidth> <waveIndex> <amplitude> <ampInc> <applyAmp> <out>
+genosc() { "$GEN" renderosc "$1" "$2" "$3" "$4" "$5" "$6" 128 4 "$OUT/$7"; }
+# C4 renders band limited (table number >= 6 at cpuDireness 0); C1 does not, so the pair separates
+# the amplitude stage from the polyBLEP.
+genosc 25480253 0 0 134217728 0 1 c_supersaw_osc_c4_amp.bin
+genosc 25480253 0 0 134217728 65536 1 c_supersaw_osc_c4_ampramp.bin
+genosc 25480253 0 0 134217728 0 0 c_supersaw_osc_c4_noamp.bin
+genosc 3185031 1073741824 536870912 134217728 0 1 c_supersaw_osc_c1_pwhalf_amp.bin
 echo "done."

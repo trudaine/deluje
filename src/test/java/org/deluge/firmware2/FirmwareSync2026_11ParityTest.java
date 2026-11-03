@@ -134,6 +134,63 @@ class FirmwareSync2026_11ParityTest {
   }
 
   @Test
+  void renderOscRendersTheSupersawForEveryCaller() {
+    // Only Oscillator.renderOsc knows how to render a supersaw (C oscillator.cpp:31-46), and the
+    // ring-mod path goes through it too. The first version of this port dispatched in Voice's
+    // subtractive branch only, so renderOsc(SUPERSAW, ...) wrote nothing: ring mod then multiplied
+    // by a buffer of zeros and the voice went silent.
+    int[] buffer = new int[132];
+    int[] phase = {0};
+    Oscillator.renderOsc(
+        OscType.SUPERSAW,
+        1 << 27,
+        buffer,
+        0,
+        128,
+        25480253,
+        0,
+        phase,
+        false,
+        0,
+        false,
+        0,
+        0,
+        0,
+        0,
+        0,
+        Supersaw.sidePhasesFrom(0));
+    long peak = 0;
+    for (int i = 0; i < 128; i++) {
+      peak = Math.max(peak, Math.abs((long) buffer[i]));
+    }
+    assertTrue(peak > (1 << 27), "renderOsc must render the supersaw, saw peak " + peak);
+  }
+
+  @Test
+  void ringModWithASupersawSourceIsNotSilent() {
+    Sound sound = new Sound();
+    Sound.initParams(sound.patchedParamValues);
+    Sound.setupAsBlankSynth(sound.patchedParamValues, sound, false);
+    sound.bitcrushParam = Integer.MIN_VALUE;
+    sound.srrParam = Integer.MIN_VALUE;
+    sound.synthMode = 2; // RingMod
+    sound.lpfMode = FilterSet.FilterMode.OFF;
+    sound.hpfMode = FilterSet.FilterMode.OFF;
+    sound.oscTypes[0] = OscType.SUPERSAW;
+    sound.oscTypes[1] = OscType.SAW;
+
+    Voice voice = new Voice(sound);
+    voice.noteOn(60, 100, -1, null);
+    int[] out = new int[256];
+    voice.render(out, 128, false, false);
+    long peak = 0;
+    for (int v : out) {
+      peak = Math.max(peak, Math.abs((long) v));
+    }
+    assertTrue(peak > 0, "a supersaw ring-mod source must not silence the voice");
+  }
+
+  @Test
   void supersawSitsBeforeWavetableInTheOscTypeOrder() {
     // C definitions_cxx.hpp:358-374 — SUPERSAW is ring-moddable, i.e. below
     // kLastRingmoddableOscType

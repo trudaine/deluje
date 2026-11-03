@@ -97,6 +97,90 @@ class SupersawGoldenBufferTest {
     assertEquals(0L, maxAbs, () -> "diverges from C " + c.file() + " at sample " + firstDiffAt);
   }
 
+  // ── Through Oscillator.renderOsc, the path a Voice takes ──
+
+  private record OscCase(
+      String file,
+      int phaseIncrement,
+      int pulseWidth,
+      int waveIndex,
+      int amplitude,
+      int ampInc,
+      boolean applyAmp) {}
+
+  private static java.util.stream.Stream<Arguments> oscCases() {
+    return java.util.stream.Stream.of(
+            new OscCase("c_supersaw_osc_c4_amp.bin", 25480253, 0, 0, 134217728, 0, true),
+            new OscCase("c_supersaw_osc_c4_ampramp.bin", 25480253, 0, 0, 134217728, 65536, true),
+            new OscCase("c_supersaw_osc_c4_noamp.bin", 25480253, 0, 0, 134217728, 0, false),
+            new OscCase(
+                "c_supersaw_osc_c1_pwhalf_amp.bin",
+                3185031,
+                1073741824,
+                536870912,
+                134217728,
+                0,
+                true))
+        .map(c -> Arguments.of(c.file(), c));
+  }
+
+  /**
+   * The supersaw as {@code Oscillator::renderOsc} renders it (oscillator.cpp:31-46), amplitude
+   * stage included. That stage is why this case set exists: the raw-render goldens above cannot see
+   * it, and a first version of the port applied amplitude in {@code Voice} at a quarter of the C's
+   * level with every raw golden still passing.
+   */
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("oscCases")
+  void renderOscMatchesCGolden(String name, OscCase c) throws IOException {
+    int[] golden = readGolden(c.file());
+    Assumptions.assumeTrue(golden != null, "missing golden resource: " + c.file());
+    assertEquals(NSAMP * BLOCKS, golden.length, "golden size");
+
+    int[] phase = {0};
+    int[] sidePhases = Supersaw.sidePhasesFrom(phase[0]);
+    int[] ours = new int[NSAMP * BLOCKS];
+    for (int b = 0; b < BLOCKS; b++) {
+      int[] buffer = new int[NSAMP + 4]; // cleared per block, as the voice's source buffer is
+      Oscillator.renderOsc(
+          Oscillator.OscType.SUPERSAW,
+          c.amplitude(),
+          buffer,
+          0,
+          NSAMP,
+          c.phaseIncrement(),
+          c.pulseWidth(),
+          phase,
+          c.applyAmp(),
+          c.ampInc(),
+          false,
+          0,
+          0,
+          0,
+          0,
+          c.waveIndex(),
+          sidePhases);
+      System.arraycopy(buffer, 0, ours, b * NSAMP, NSAMP);
+    }
+
+    int firstDiff = -1;
+    long maxAbs = 0;
+    long goldenMax = 0;
+    for (int i = 0; i < ours.length; i++) {
+      long d = Math.abs((long) ours[i] - golden[i]);
+      if (d != 0 && firstDiff < 0) {
+        firstDiff = i;
+      }
+      maxAbs = Math.max(maxAbs, d);
+      goldenMax = Math.max(goldenMax, Math.abs((long) golden[i]));
+    }
+    System.out.printf("[%-40s] firstDiff=%d maxAbs=%d%n", c.file(), firstDiff, maxAbs);
+    assertTrue(goldenMax > (1 << 20), "golden must carry real signal, saw max " + goldenMax);
+
+    final int firstDiffAt = firstDiff;
+    assertEquals(0L, maxAbs, () -> "diverges from C " + c.file() + " at sample " + firstDiffAt);
+  }
+
   /** The ARM {@code vrecpe.f32} estimate is 8-bit accurate; two Newton steps take it to float. */
   @Test
   void reciprocalEstimateMatchesArmSpec() {
