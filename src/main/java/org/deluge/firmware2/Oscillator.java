@@ -21,6 +21,9 @@ public final class Oscillator {
     SQUARE,
     ANALOG_SAW_2,
     ANALOG_SQUARE,
+    // C definitions_cxx.hpp:365 — SUPERSAW sits before WAVETABLE, so it stays inside
+    // kLastRingmoddableOscType and the "> WAVETABLE" tests for sample/DX7/input still hold.
+    SUPERSAW,
     WAVETABLE,
     SAMPLE,
     // C definitions_cxx.hpp:367 has DX7 after SAMPLE (index 8); rendered per-source in

@@ -12,6 +12,13 @@ public class VoiceSource {
   public int sourceIdx;
 
   public int oscPos; // 32-bit phase accumulator
+
+  /**
+   * C VoiceUnisonPartSource::supersawPhases (voice_unison_part_source.h:46) — the six side saws'
+   * phases, the centre saw's being {@link #oscPos}.
+   */
+  public int[] supersawPhases = Supersaw.sidePhasesFrom(0);
+
   public OscType oscType = OscType.SINE;
   public int carrierFeedback; // FM carrier feedback memory
   public int phaseIncrementStoredValue;

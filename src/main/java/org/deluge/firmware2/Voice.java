@@ -254,11 +254,22 @@ public class Voice {
         vs.disabledByPitch = false;
         int ovr = (s == 0) ? testStartPhaseOverrideOsc1.get() : testStartPhaseOverrideOsc2.get();
         vs.oscPos = (ovr != -2) ? ovr : Functions.getNoise(); // random initial phase
+        // C voice.cpp:402-406 — otherwise every note's side saws would start from the same place
+        // and sweep the same way.
+        if (sound.oscTypes[s] == OscType.SUPERSAW) {
+          for (int i = 0; i < vs.supersawPhases.length; i++) {
+            vs.supersawPhases[i] = (ovr != -2) ? ovr : Functions.getNoise();
+          }
+        }
         // C vups:79-82 — retrigger overrides the random phase: zero-phase base for the wave type
         // plus the configured offset. 0xFFFFFFFF (-1) = off.
         if (sound.oscRetriggerPhase[s] != 0xFFFFFFFF) {
           vs.oscPos =
               Functions.getOscInitialPhaseForZero(sound.oscTypes[s]) + sound.oscRetriggerPhase[s];
+          // C vups:90-91 — a retriggered supersaw always starts the same way.
+          if (sound.oscTypes[s] == OscType.SUPERSAW) {
+            vs.supersawPhases = Supersaw.sidePhasesFrom(vs.oscPos);
+          }
         }
         vs.carrierFeedback = 0;
       }
@@ -443,9 +454,17 @@ public class Voice {
         VoiceSource vs = unisonParts[u].sources[s];
         int ovr = (s == 0) ? testStartPhaseOverrideOsc1.get() : testStartPhaseOverrideOsc2.get();
         vs.oscPos = (ovr != -2) ? ovr : Functions.getNoise();
+        if (sound.oscTypes[s] == OscType.SUPERSAW) { // C voice.cpp:402-406
+          for (int i = 0; i < vs.supersawPhases.length; i++) {
+            vs.supersawPhases[i] = (ovr != -2) ? ovr : Functions.getNoise();
+          }
+        }
         if (sound.oscRetriggerPhase[s] != 0xFFFFFFFF) {
           vs.oscPos =
               Functions.getOscInitialPhaseForZero(sound.oscTypes[s]) + sound.oscRetriggerPhase[s];
+          if (sound.oscTypes[s] == OscType.SUPERSAW) { // C vups:90-91
+            vs.supersawPhases = Supersaw.sidePhasesFrom(vs.oscPos);
+          }
         }
         vs.carrierFeedback = 0;
         if (!sound.isFm2OpMode() && sound.oscTypes[s] == OscType.SAMPLE) {
@@ -1940,6 +1959,40 @@ public class Voice {
               tempBuf[i] =
                   Functions.lshiftAndSaturate(
                       Functions.multiply_32x32_rshift32(tempBuf[i], wtAmpNow), 1);
+            }
+          } else if (sound.oscTypes[s] == OscType.SUPERSAW) {
+            // C oscillator.cpp:31-46 — the supersaw does its own thing: pulse width sets the number
+            // of saws, spread is the END wave index (taken once per buffer, not interpolated), and
+            // there is no osc sync.
+            int pulseWidth =
+                Functions.lshiftAndSaturate(paramFinalValues[Param.LOCAL_OSC_A_PHASE_WIDTH + s], 1);
+            int spread = sourceWaveIndexesLastTime[s] + sourceWaveIndexIncrements[s] * numSamples;
+            // C oscillator.cpp:34 — same CPU-dire fallback as the plain saw: skip the band limiting
+            // for lower notes.
+            boolean bandLimit =
+                Oscillator.getTableNumber(pInc)[0]
+                    >= org.deluge.engine.FirmwareAudioEngine.cpuDireness + 6;
+            int[] phase = {vs.oscPos};
+            Supersaw.render(
+                tempBuf,
+                0,
+                numSamples,
+                pInc,
+                spread,
+                Supersaw.numSawsFromPulseWidth(pulseWidth),
+                phase,
+                vs.supersawPhases,
+                bandLimit);
+            vs.oscPos = phase[0];
+            // C oscillator.cpp:41-44 — "supersaw comes out at a quarter of a saw's level", so the
+            // C applies amplitude << 2. This port's amplitude stage runs 4x below the C's by
+            // design (CLAUDE.md: the one compensating stage is the master lshiftAndSaturate(…, 6)),
+            // which is the same factor the wavetable branch above carries, so the C's << 2 here
+            // becomes no shift — leaving supersaw at the C's level relative to the other waves.
+            int ssAmpNow = srcAmpStart;
+            for (int i = 0; i < numSamples; i++) {
+              ssAmpNow += srcAmpInc;
+              tempBuf[i] = Functions.multiply_32x32_rshift32(tempBuf[i], ssAmpNow);
             }
           } else {
             int pulseWidth =

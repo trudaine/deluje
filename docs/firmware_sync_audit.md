@@ -341,7 +341,82 @@ compiling without it, since they test the C *source*. The current CALIB/ALLSYN r
 (the card's firmware is `deluge-v1_3_0-beta+2026_07_23`); note the firmware build date on any future
 recording.
 
-(Superseded tip; see §9.)
+(Superseded tip; see §11.)
+
+## 11. Re-verified 2026-11-03 — upstream advanced to `f649f7fa2` (93 new commits)
+
+Range `a616dd8e6..f649f7fa2` (§9's tip to upstream HEAD). Of the 93, five were already retrofitted
+by `037331ff` (#5098 fastPythag, #5099 patcher saturation, #5039 S&H LFO retention, #5074 arp
+sample stretch, #5120 tick-interpolation rate limit). Of the rest, **two carried behaviour this port
+needed** and both are ported here; the large perf refactors turned out to be bit-identical, and that
+was measured rather than taken from their commit messages.
+
+### 11a. Retrofitted in this sync
+
+| commit | what | Java |
+| --- | --- | --- |
+| `451c9f82f` (#5198) | **New oscillator: the supersaw.** JP-8000 style — a centre saw plus up to six detuned side saws, polyBLEP band limited. `OscType::SUPERSAW` is inserted at ordinal 6 (before `WAVETABLE`), the XML token is `"supersaw"`, spread comes from the wave-index param and the saw count from pulse width | `Supersaw.java` (new) ports `supersaw.{h,cpp}`; wired through `Voice` (per-source side phases, retrigger and random init, the `<< 2` level and the cpu-direness band-limit fallback), `OscType`, and all three osc-type serializers. **Bit-exact against the C** for 9 cases (`SupersawGoldenBufferTest`, new `tools/supersaw_harness/`). Without this a supersaw song hit `stringToOscType`'s unrecognized-name TRIANGLE fallback |
+| `a44457d9a` (#5235), with `00c0b3b76` (#5228) and its revert `68bf0ce47` (#5232) | `AbsValueFollower::calcApproxRMS` now accumulates `(x ^ (x >> 31)) >> 8` per sample and scales the mean by 256, so a block up to 256 samples cannot overflow the q31 accumulator, and `INT_MIN` maps to `INT_MAX` instead of staying negative | `AbsValueFollower.calcApproxRMS` summed `Math.abs` in a `long` and divided — no overflow, but it skipped the per-sample truncation (reading ~2× high on small signals) and `Math.abs(INT_MIN)` is negative. Ported both, with the C's `int` accumulator |
+
+### 11b. Perf refactors — confirmed bit-identical by regenerating every golden
+
+The window is dominated by performance work on exactly the paths this port mirrors: the LP/HP ladder
+and SVF filters (`c10f363c0`, #5160 — state kept in registers, loop-invariant branches hoisted into
+templates), the oscillator table lookup (`7790ea890`, #5216 — a 20-compare chain replaced by a bounds
+table), `fixedpoint.h` intrinsics (`1e17c60cd`, #5236), the analog delay's tanh dispatch
+(`0d8abeb24`, #5143) and the impulse-response convolution rewritten in NEON (`fc84b94b6`, #5148 —
+transposed form to direct form).
+
+Their commit messages claim identical results. That claim was **tested**: all nine golden-buffer
+harnesses (`ladder`, `filterset`, `osc`, `wt`, `env`, `lfo`, `fm`, `ne10_fft`, `mutable_reverb`) were
+rebuilt against `f649f7fa2` and every regenerated golden came back **byte-identical** to the
+committed one — so the C output on those parameter sets did not move, and the Java stays verified
+against it. `#5216` was additionally checked by hand: the new `kTableNumberBounds` are the old
+chain's thresholds, and `Oscillator.getTableNumber` already carries the same 19 values.
+
+Scope, honestly: the goldens cover the parameters they cover. They do not prove the refactors are
+identical for every input, only that nothing moved where this port is actually verified.
+
+### 11c. Already correct in Java (verified by reading)
+
+- `f49f1d39a` (#5184) reverb HPF missing from `getReverbParamsFromSong` — `FirmwareAudioEngine:370`
+  already applies `project.getReverbHpf()` on song load.
+- `517fb3e3a` (#5218) kit preview level: the render-path half is pure constant extraction
+  (`kClipVolumeAdjustmentShift`, `kKitPostFXBaselineShift`, `kFilterSetGainAdjust` = the literal
+  `1720000000` the Java filter set already carries); the behavioural half is the sample browser's
+  preview gain, and this port has no preview path through a kit's output stage.
+- DX7 param editing (`a74884da2` #5200, `504321944` #5173, `b9635ad58` #5171) — menu clamps in
+  `gui/menu_item/dx/`. `Dx7Panel` already clamps to the same ranges (31 algorithm, 7 feedback, 99
+  envelope/level, 31 coarse, 14 detune, 7 velocity sensitivity, 3 amp-mod sensitivity). One UI-only
+  difference, not a port gap: the C's new table caps LFO waveform at 4 while `Dx7Panel` allows 5, and
+  the C's own `dx7note.cpp:122-127` handles waveform 5 (sample & hold).
+- `32b876f62` (#5091) reverted persisting performance-view settings to the song — this port never
+  wrote `<performanceView>`, so there is nothing to revert.
+
+### 11d. Not applicable
+
+- `25c065e98` (#5178) missing `return` in `NoteRow::changeNotesAcrossAllScreens` — that wrap-edit
+  function has no Java counterpart.
+- Audio-clip, looper and recording fixes: `912d9f58e` (#5204), `4847a9e63` (#5105), `05712fe6a`
+  (#5087), `52104d730` (#5096), `9395e85fd` (#5089), `a396608e6` (#5094). They land in
+  `SampleRecorder`/looper-overdub code this port does not have (no `nextSampleRestartPos`, no
+  `shouldCloneForOverdubs`, no `feedAudio`). Pre-existing unported subsystems, not new deltas.
+- `db015eabd` (#5165) out-of-bounds reads in sample pitch detection — no pitch detection in Java.
+- `534534f44` (#5194) infinite loop when moving MIDI CC automation between CCs — the loop lives in
+  the hardware CC-selection UI.
+- SD/cluster streaming and allocation work (`cb387d6ac`, `4d28ff19e`, `e6483d82e`, `c098df15f`,
+  `e2be65428`, `a702772bb`, `7f47df111`), USB audio and config (`54dcc64e7`, `ced10c4c6`), the GUI
+  move to external RAM (`e9e30119b`, `1a9439333`), OLED/display work, `d_string.cpp` refcounting,
+  action-logger memory, CI, website and dependency bumps.
+
+### 11e. Still open (unchanged by this sync)
+
+The §9b/§10 items this window did not touch remain: the live pitch shifter's `<= 0` guard, arp
+octave modes `"alt"`/`"random"`, the audio-track envelope, `AutoParam` tempo-tracking interpolation,
+and empty-clip transpose. New with the supersaw: `Song::resyncLFOs(reset_state)` now fans out through
+`Kit::resyncLFOs` (`3b8f391df`), but this port's resync leaf is still a documented no-op because
+there is no transport wiring for it (`Sound.resyncGlobalLFOs()` early-returns on `!clockActive`), so
+the kit fan-out would have nothing to do.
 
 ## Method
 

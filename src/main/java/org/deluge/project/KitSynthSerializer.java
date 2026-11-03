@@ -1819,6 +1819,8 @@ public class KitSynthSerializer {
       case "SAW" -> "saw";
       case "ANALOGSAW", "ANALOGSAW2" -> "analogSaw";
       case "ANALOGSQUARE" -> "analogSquare";
+      // C functions.cpp:691-692 (upstream 451c9f82f)
+      case "SUPERSAW" -> "supersaw";
       case "SINE" -> "sine";
       case "TRIANGLE" -> "triangle";
       case "SAMPLE" -> "sample";
