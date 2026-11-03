@@ -91,14 +91,22 @@ public class Lfo {
   }
 
   public void setGlobalInitialPhase(LfoConfig config) {
+    setGlobalInitialPhase(config, false);
+  }
+
+  // C lfo.cpp:27-36 — reset_state only clears holdValue/speed/target when starting playback afresh,
+  // preserving S&H/random walk state across periodic clock resyncs (#5039).
+  public void setGlobalInitialPhase(LfoConfig config, boolean resetState) {
     if (config.waveType == LfoType.SINE || config.waveType == LfoType.TRIANGLE) {
       phase = getLfoInitialPhaseForZero(config.waveType);
     } else {
       phase = getLfoInitialPhaseForNegativeExtreme(config.waveType);
     }
-    holdValue = 0;
-    speed = 0;
-    target = 0;
+    if (resetState) {
+      holdValue = 0;
+      speed = 0;
+      target = 0;
+    }
   }
 
   public int render(int numSamples, LfoConfig config, int phaseIncrement) {

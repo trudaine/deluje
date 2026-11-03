@@ -109,13 +109,11 @@ public class WavetableGenerator {
 
         if (b >= 1) {
           // C wave_table.cpp:681-687 — fold Nyquist bin magnitude into real component so it is not
-          // lost when the imaginary component vanishes at Nyquist.
-          // Uses Math.hypot rather than C's fastPythag, whose `divisor = x << 8` at
-          // functions.cpp:1506 overflows int32 for x >= 2^23.
+          // lost when the imaginary component vanishes at Nyquist (uses fixed fastPythag, #5098).
           int nyqIdx = 2 * nyquist;
           int nyqRe = frequencyDomainData[nyqIdx];
           int nyqIm = frequencyDomainData[nyqIdx + 1];
-          int pythag = (int) Math.min(Integer.MAX_VALUE, Math.round(Math.hypot(nyqRe, nyqIm)));
+          int pythag = Functions.fastPythag(nyqRe, nyqIm);
           frequencyDomainData[nyqIdx] = (nyqRe < 0) ? -pythag : pythag;
           frequencyDomainData[nyqIdx + 1] = 0;
         }

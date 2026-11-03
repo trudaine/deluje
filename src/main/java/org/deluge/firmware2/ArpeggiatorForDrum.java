@@ -82,6 +82,7 @@ public class ArpeggiatorForDrum extends ArpeggiatorBase {
         instruction.invertReversed =
             invertReversedFromKitArp ? !isPlayReverseForCurrentStep : isPlayReverseForCurrentStep;
         instruction.arpNoteOn = active_note;
+        active_note.sampleSyncLength = instruction.sampleSyncLengthOn; // C arpeggiator.cpp:218
       }
     }
   }
@@ -185,6 +186,7 @@ public class ArpeggiatorForDrum extends ArpeggiatorBase {
       instruction.invertReversed =
           invertReversedFromKitArp ? !out.shouldPlayReverseNote : out.shouldPlayReverseNote;
       instruction.arpNoteOn = active_note;
+      active_note.sampleSyncLength = instruction.sampleSyncLengthOn; // C arpeggiator.cpp:885
 
       // C:855-857
       if (isPlayGlideForCurrentStep && !isRatcheting) {

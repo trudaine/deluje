@@ -76,11 +76,15 @@ int main(int argc, char** argv) {
   memset(oscSyncRenderingBuffer, 0, sizeof(int32_t) * (SSI_TX_BUFFER_NUM_SAMPLES + 4));
   uint32_t phase = 0;
 
+  deluge::dsp::Supersaw::SidePhases supersawPhases = deluge::dsp::Supersaw::sidePhasesFrom(0);
   Oscillator::renderOsc((OscType)type, amplitude, buf.data(), buf.data() + nsamp, nsamp, phaseInc,
                         pulseWidth, &phase, applyAmp, ampInc, doOscSync,
                         resetterPhase, resetterPhaseInc, retriggerPhase,
                         /*waveIndexIncrement=*/0, /*sourceWaveIndexLastTime=*/0,
-                        /*waveTable=*/nullptr);
+                        /*waveTable=*/nullptr,
+                        // Upstream 451c9f82f added the supersaw's side phases. Only OscType::SUPERSAW
+                        // touches them, and this harness never renders one (tools/supersaw_harness does).
+                        /*supersawPhases=*/&supersawPhases);
 
   FILE* f = fopen(outpath, "wb");
   if (!f) { perror("fopen"); return 1; }
