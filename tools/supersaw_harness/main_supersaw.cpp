@@ -10,6 +10,7 @@
 //
 // Dumps the raw render output — no amplitude stage — because that is the new DSP under test.
 
+#include "definitions.h"
 #include "dsp/oscillators/oscillator.h"
 #include "dsp/oscillators/supersaw.h"
 
@@ -44,6 +45,19 @@ static int renderThroughOsc(int argc, char** argv) {
   int32_t nsamp = atoi(argv[8]);
   int32_t blocks = atoi(argv[9]);
   const char* outpath = argv[10];
+
+  // HARD CONSTRAINT, same one tools/osc_harness/main_osc.cpp documents for its sync modes: with
+  // applyAmplitude the C renders through the firmware GLOBAL oscSyncRenderingBuffer, which is
+  // SSI_TX_BUFFER_NUM_SAMPLES + 4 == 132 int32 long (oscillator.cpp:25), because the firmware never
+  // renders more than one 128-sample audio block per call. A larger request writes past that global
+  // and the golden becomes garbage that looks exactly like a Java port bug. Refuse instead.
+  if (applyAmp && nsamp > SSI_TX_BUFFER_NUM_SAMPLES) {
+    fprintf(stderr,
+            "error: nsamp %d exceeds SSI_TX_BUFFER_NUM_SAMPLES (%d); with applyAmp the C renders "
+            "through the fixed oscSyncRenderingBuffer\n",
+            nsamp, SSI_TX_BUFFER_NUM_SAMPLES);
+    return 2;
+  }
 
   std::vector<int32_t> buffer(nsamp + 4);
   uint32_t centrePhase = 0;
