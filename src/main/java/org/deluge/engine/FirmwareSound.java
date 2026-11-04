@@ -113,6 +113,14 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   public transient Object arpSettingsOwner = NO_ARP_OWNER_YET;
 
   /**
+   * The {@code SynthTrackModel.arpLoadRevision} the restored sequence came from, so an explicit
+   * preset load into the SAME track and clip still counts as a load. Drums have no hot-swap path —
+   * no {@code copyParametersFrom}, no drum preset browser — so they leave this at 0 and are gated
+   * on the owner alone, which is what the C does by filling a drum from the file once.
+   */
+  public transient int arpSettingsOwnerLoadRevision = 0;
+
+  /**
    * Distinct from every clip, every drum model and from {@code null}, so the first mapping always
    * restores — including for a track with no clips, whose active clip is {@code null}. (On the kit
    * path a {@code null}-initialised equivalent made the first call a silent no-op.)

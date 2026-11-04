@@ -660,7 +660,7 @@ public class FirmwareFactory {
     // on the live refreshes that also come through here. A track with no clips has no active clip,
     // so it owns its settings itself rather than falling to null, which would never restore.
     Object arpOwner = model.getActiveClip() != null ? model.getActiveClip() : model;
-    configureArp(sound, model.getArp(), arpOwner);
+    configureArp(sound, model.getArp(), arpOwner, model.getArpLoadRevision());
 
     // DX7 (Dexed) patch — render via the real DX7 engine instead of the native FM mapping.
     sound.dx7Patch = hexToBytes(model.getDx7Patch());
@@ -1160,24 +1160,52 @@ public class FirmwareFactory {
    */
   public static void configureArp(
       org.deluge.engine.FirmwareSound sound, org.deluge.model.ArpModel arp, Object owner) {
-    boolean activating = owner != null && sound.arpSettingsOwner != owner;
-    if (activating) {
-      sound.arpSettingsOwner = owner;
-    }
-    if (arp == null) {
-      sound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
-      return;
-    }
-    // syncLevel here is a note-division denominator (1=whole, 4=quarter, 16=16th); default 16th.
-    // 0 = not synced (the ARP panel's "OFF"): the engine then leaves arpPhaseIncrement at 0 and
-    // fw2 runs the C's free-rate path from the arp-rate param (arpeggiator.cpp:1594-1596).
-    sound.arpDivision = arp.syncLevel(); // < 0: that many whole notes (ArpXmlCodec)
-    // A synced arp's speed is the sync level alone: the C getPhaseIncrement ignores the rate
-    // param when synced (arpeggiator.cpp:1597-1610). The rate is GLOBAL_ARP_RATE, used unsynced.
-    sound.arpRateMultiplier = 1.0f;
-    configureArpSettings(sound.arpSettings, arp, sound.inputTickMagnitude, activating);
-    if (!arp.active()) {
-      sound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
+    configureArp(sound, arp, owner, 0);
+  }
+
+  /**
+   * As {@link #configureArp(FirmwareSound, org.deluge.model.ArpModel, Object)}, with a load
+   * revision folded into the identity that gates the restore, for the synth path — where an
+   * explicit preset load replaces the arp wholesale while keeping the same track and clip objects,
+   * so owner identity alone cannot see it (see {@link
+   * org.deluge.model.SynthTrackModel#getArpLoadRevision}).
+   */
+  public static void configureArp(
+      org.deluge.engine.FirmwareSound sound,
+      org.deluge.model.ArpModel arp,
+      Object owner,
+      int loadRevision) {
+    // The arpeggiator's own monitor, which is what every DSP entry point that reads or regenerates
+    // these arrays takes: firmware2.Sound guards doTickForwardForArp (Sound.java:1886), note
+    // on/off (:1429, :1465) and render (:1533, :1587) with `synchronized (arpeggiator)`. The live
+    // mapping that reaches here holds the FirmwareSound monitor instead, which is a DIFFERENT lock,
+    // so without this a sequencer tick could read a half-decoded sequence — eleven 16-byte arrays
+    // are restored one byte at a time. One-way ordering: callers take the sound monitor then this
+    // one, and nothing in firmware2.Sound reaches back out to the FirmwareSound monitor.
+    synchronized (sound.arpeggiator) {
+      boolean activating =
+          owner != null
+              && (sound.arpSettingsOwner != owner
+                  || sound.arpSettingsOwnerLoadRevision != loadRevision);
+      if (activating) {
+        sound.arpSettingsOwner = owner;
+        sound.arpSettingsOwnerLoadRevision = loadRevision;
+      }
+      if (arp == null) {
+        sound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
+        return;
+      }
+      // syncLevel here is a note-division denominator (1=whole, 4=quarter, 16=16th); default 16th.
+      // 0 = not synced (the ARP panel's "OFF"): the engine then leaves arpPhaseIncrement at 0 and
+      // fw2 runs the C's free-rate path from the arp-rate param (arpeggiator.cpp:1594-1596).
+      sound.arpDivision = arp.syncLevel(); // < 0: that many whole notes (ArpXmlCodec)
+      // A synced arp's speed is the sync level alone: the C getPhaseIncrement ignores the rate
+      // param when synced (arpeggiator.cpp:1597-1610). The rate is GLOBAL_ARP_RATE, used unsynced.
+      sound.arpRateMultiplier = 1.0f;
+      configureArpSettings(sound.arpSettings, arp, sound.inputTickMagnitude, activating);
+      if (!arp.active()) {
+        sound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
+      }
     }
   }
 
