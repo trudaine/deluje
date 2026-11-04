@@ -357,6 +357,65 @@ class ArpPerClipSettingsTest {
         "nor may the next refresh see a load that already happened");
   }
 
+  /**
+   * A clip's LIVE evolved sequence survives save and reload — in both serialization branches.
+   *
+   * <p>The C writes a clip's {@code <arpeggiator>} from its own live {@code arpSettings}
+   * (instrument_clip.cpp:2404-2412), so what it saves is what the arp has evolved to. This port
+   * keeps the parameters in {@code ArpModel} and the sequences in the clip's {@code Settings}, so
+   * the serializer has to snapshot the live ones; writing the model's instead saved whatever the
+   * file originally held, and after a preset hot-swap could save the preset's over the sequence the
+   * clip was actually still playing.
+   */
+  @Test
+  void aClipsEvolvedSequenceSurvivesSaveAndReload() throws Exception {
+    for (boolean clipHasItsOwnArp : new boolean[] {true, false}) {
+      org.deluge.model.ProjectModel project = new org.deluge.model.ProjectModel();
+      SynthTrackModel track = new SynthTrackModel("LEAD");
+      ClipModel clip = new ClipModel("c", 1, 16);
+      ArpModel arp =
+          ArpModel.defaultConfig().toBuilder()
+              .active(true)
+              .mode("arp")
+              .randomizerLock(1)
+              .noteProbability(0.5f)
+              .lockedNoteProbArray("0101010101010101010101010101010A")
+              .build();
+      if (clipHasItsOwnArp) {
+        clip.setArpFromXml(arp);
+      } else {
+        track.setArp(arp); // the fallback branch: the clip carries no <arpeggiator> of its own
+      }
+      FirmwareSound sound = new FirmwareSound();
+      clip.setSound(sound);
+      track.addClip(clip);
+      track.setActiveClipIndex(0);
+      project.addTrack(track);
+      FirmwareFactory.applyModelToLiveSound(track, sound);
+
+      // Evolve it, the way a playing arp does.
+      byte[] fromFile = clip.getArpSettings().lockedNoteProbabilityValues.clone();
+      sound.fw2Sound.arpeggiator.resetLockedRandomizerValuesNextTime = true;
+      sound.fw2Sound.arpeggiator.calculateRandomizerAmounts(sound.fw2Sound.arpSettings);
+      byte[] evolved = clip.getArpSettings().lockedNoteProbabilityValues.clone();
+      String which = clipHasItsOwnArp ? "clip-owned arp" : "track-fallback arp";
+      assertFalse(
+          java.util.Arrays.equals(fromFile, evolved),
+          which + ": the step must have changed the sequence, or this proves nothing");
+
+      java.io.File f = java.io.File.createTempFile("evolvedsave", ".xml");
+      f.deleteOnExit();
+      org.deluge.project.ProjectSerializer.save(project, f);
+      SynthTrackModel back =
+          (SynthTrackModel) org.deluge.xml.DelugeXmlParser.parseSong(f).getTracks().get(0);
+
+      assertArrayEquals(
+          evolved,
+          back.getClips().get(0).getArpSettings().lockedNoteProbabilityValues,
+          which + ": the EVOLVED sequence must be what was saved and reloaded, not the file's");
+    }
+  }
+
   private static byte[] expand(String hex) {
     byte[] out = new byte[Arpeggiator.RANDOMIZER_LOCK_MAX_SAVED_VALUES];
     for (int i = 0; i < out.length && i * 2 + 1 < hex.length(); i++) {

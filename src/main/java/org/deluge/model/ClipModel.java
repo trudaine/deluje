@@ -169,6 +169,61 @@ public class ClipModel extends TimelineCounter {
     return toHex(getArpSettings().notePattern);
   }
 
+  /**
+   * {@code params} with every arp SEQUENCE field replaced by this clip's live value — the model to
+   * serialize for this clip's {@code <arpeggiator>}.
+   *
+   * <p>The C writes a clip's {@code <arpeggiator>} from the clip's own live {@code arpSettings}
+   * ({@code arpSettings.writeCommonParamsToFile}, instrument_clip.cpp:2404-2412), so what it saves
+   * is whatever the arp has evolved to, not what the file originally held. This port keeps the
+   * parameters in {@link ArpModel} and the sequences in the clip's {@link
+   * org.deluge.firmware2.Arpeggiator.Settings}, and nothing pushes the arp's mutations back to the
+   * model — so serializing the model alone wrote the ORIGINAL sequence, and after a preset hot-swap
+   * it could write the preset's over the sequence the clip was still playing.
+   *
+   * <p>Taken under the owning sound's arpeggiator monitor, which is what every DSP entry point that
+   * mutates these holds ({@code synchronized (arpeggiator)} around render, note on/off and tick).
+   * Eleven arrays read one byte at a time would otherwise be a torn snapshot.
+   */
+  public org.deluge.model.ArpModel withLiveArpSequences(org.deluge.model.ArpModel params) {
+    if (params == null) {
+      return null;
+    }
+    // If the model's saved sequences have never been imposed on the Settings — a clip built
+    // programmatically through setArp rather than read from a file, and not yet activated — impose
+    // them now, so the snapshot cannot lose them. After this the Settings are the single source of
+    // truth for sequences, which is the C's arrangement: an InstrumentClip has no separate model.
+    org.deluge.engine.FirmwareFactory.bindClipArpSettingsFromFile(this);
+    Object monitor =
+        (sound instanceof org.deluge.engine.FirmwareSound fs) ? fs.fw2Sound.arpeggiator : this;
+    synchronized (monitor) {
+      org.deluge.firmware2.Arpeggiator.Settings s = getArpSettings();
+      return params.toBuilder()
+          .notePattern(toHex(s.notePattern))
+          .lastLockedNoteProb(s.lastLockedNoteProbabilityParameterValue)
+          .lockedNoteProbArray(toHex(s.lockedNoteProbabilityValues))
+          .lastLockedBassProb(s.lastLockedBassProbabilityParameterValue)
+          .lockedBassProbArray(toHex(s.lockedBassProbabilityValues))
+          .lastLockedSwapProb(s.lastLockedSwapProbabilityParameterValue)
+          .lockedSwapProbArray(toHex(s.lockedSwapProbabilityValues))
+          .lastLockedGlideProb(s.lastLockedGlideProbabilityParameterValue)
+          .lockedGlideProbArray(toHex(s.lockedGlideProbabilityValues))
+          .lastLockedReverseProb(s.lastLockedReverseProbabilityParameterValue)
+          .lockedReverseProbArray(toHex(s.lockedReverseProbabilityValues))
+          .lastLockedChordProb(s.lastLockedChordProbabilityParameterValue)
+          .lockedChordProbArray(toHex(s.lockedChordProbabilityValues))
+          .lastLockedRatchetProb(s.lastLockedRatchetProbabilityParameterValue)
+          .lockedRatchetProbArray(toHex(s.lockedRatchetProbabilityValues))
+          .lastLockedVelocitySpread(s.lastLockedSpreadVelocityParameterValue)
+          .lockedVelocitySpreadArray(toHex(s.lockedSpreadVelocityValues))
+          .lastLockedGateSpread(s.lastLockedSpreadGateParameterValue)
+          .lockedGateSpreadArray(toHex(s.lockedSpreadGateValues))
+          .lastLockedOctaveSpread(s.lastLockedSpreadOctaveParameterValue)
+          .lockedOctaveSpreadArray(toHex(s.lockedSpreadOctaveValues))
+          .build();
+    }
+  }
+
   /** Hex for an arp sequence blob, matching what {@code readHexBytesInto} reads back. */
   private static String toHex(byte[] bytes) {
     StringBuilder sb = new StringBuilder(bytes.length * 2);
