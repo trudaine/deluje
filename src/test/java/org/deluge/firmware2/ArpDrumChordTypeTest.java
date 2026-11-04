@@ -1,5 +1,6 @@
 package org.deluge.firmware2;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -121,6 +122,56 @@ class ArpDrumChordTypeTest {
         List.of(60, 60, 60, 60),
         arpNotesOverFourSteps(0),
         "chord type 0 (NO_CHORD) must leave every step at the drum's own note");
+  }
+
+  /**
+   * The blast-radius control for routing every drum through {@code ArpeggiatorForDrum}: with the
+   * arp OFF — which is what almost every kit drum is — the two arpeggiators have to produce the
+   * same audio, sample for sample.
+   *
+   * <p>They are not trivially the same code: {@code ArpeggiatorForDrum::noteOn}
+   * (arpeggiator.cpp:189-215) and {@code Arpeggiator::noteOn} (:350-388) each run their own arp-off
+   * branch, both call {@code calculateRandomizerAmounts} — which draws from the shared noise seed —
+   * and both decide independently whether the step sounds at all. A difference in how many PRNG
+   * values they consume, or in the velocity they hand the voice, would show up here.
+   */
+  @Test
+  void withTheArpOffEitherArpeggiatorRendersTheSameDrumHit() {
+    int[] underSynthArp = renderDrumHitWith(new Arpeggiator.Synth());
+    int[] underDrumArp = renderDrumHitWith(new Arpeggiator.ForDrum());
+
+    long energy = 0;
+    for (int v : underDrumArp) {
+      energy += Math.abs((long) v);
+    }
+    assertTrue(energy > 0, "the probe must actually render audio, or it proves nothing");
+
+    assertArrayEquals(
+        underSynthArp,
+        underDrumArp,
+        "with the arp off a drum must sound identically under either arpeggiator — this is what"
+            + " makes giving every kit drum the drum arp a no-op for existing kits");
+  }
+
+  /** One note-on plus two render blocks of a blank drum sound, with the arp off. */
+  private static int[] renderDrumHitWith(ArpeggiatorBase arp) {
+    Functions.resetNoiseSeed();
+    Sound drum = new Sound();
+    drum.setIsDrum(true);
+    drum.arpeggiator = arp;
+    Sound.initParams(drum.patchedParamValues);
+    Sound.setupAsBlankSynth(drum.patchedParamValues, drum, false);
+    drum.bitcrushParam = Integer.MIN_VALUE;
+    drum.srrParam = Integer.MIN_VALUE;
+    drum.arpSettings.resetToDefaults();
+    drum.arpSettings.mode = ArpMode.OFF;
+
+    drum.triggerNote(60, 100); // kNoteForDrum, as Kit.drumNoteOn does
+    int[] buffer = new int[2 * 128];
+    int[] reverb = new int[128];
+    drum.renderInternal(buffer, 128, reverb);
+    drum.renderInternal(buffer, 128, reverb);
+    return buffer;
   }
 
   /** Four synced arp steps on a drum sound, returning the note each one actually sounded. */
