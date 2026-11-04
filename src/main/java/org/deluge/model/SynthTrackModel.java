@@ -755,7 +755,11 @@ public class SynthTrackModel extends TrackModel {
               p, org.deluge.firmware2.Arpeggiator.getUnpatchedArpDefault(p));
         }
         fs.clearUnpatchedArpKnobs();
-        org.deluge.engine.FirmwareFactory.configureArp(fs, nowArp);
+        // The clip being switched TO owns the settings now, so its saved note pattern and locked
+        // randomizer sequences are restored — the C just repoints getArpSettings at that clip's
+        // own already-loaded ArpeggiatorSettings (sound_instrument.cpp:425), which this single
+        // shared Settings has to emulate by re-imposing the clip's saved values.
+        org.deluge.engine.FirmwareFactory.configureArp(fs, nowArp, now);
         fs.paramKnobs[org.deluge.firmware2.Param.UNPATCHED_ARP_GATE] =
             org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
                 nowArp, org.deluge.firmware2.Param.UNPATCHED_ARP_GATE);

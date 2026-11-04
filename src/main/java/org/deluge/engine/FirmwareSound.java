@@ -92,6 +92,33 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
       16; // step note division (16 = 16th note); used to derive arpPhaseIncrement
   public float arpRateMultiplier = 1.0f; // free-rate multiplier on the BPM-derived arp step
 
+  /**
+   * What {@link #arpSettings} currently holds the saved arp sequence of, so the sequence is
+   * re-imposed from the model only on a (re)load and never on an ordinary live refresh.
+   *
+   * <p>The C reaches these settings two different ways, and this one field covers both. A synth's
+   * are the ACTIVE CLIP's: {@code SoundInstrument::getArpSettings} hands back {@code
+   * &((InstrumentClip*)activeClip)->arpSettings} (sound_instrument.cpp:425, :408), so every clip
+   * keeps its own and a clip switch points at another already-loaded one — here the owner is the
+   * {@code ClipModel}. A drum's are the DRUM's own: {@code Drum::arpSettings} (drum.h:68) with
+   * {@code SoundDrum::getArpSettings} ignoring the clip entirely (sound_drum.h:66), filled once by
+   * {@code Sound::readFromFile} (sound_drum.cpp:149) and never per clip — here the owner is the
+   * {@code SoundDrum} model, so a rebuilt drum slot counts as a fresh load.
+   *
+   * <p>Why it has to be gated at all: the note pattern and the locked randomizer arrays are live
+   * state the arp mutates as it plays, and nothing pushes those mutations back to the model, so
+   * re-imposing the model on every parameter refresh would discard the sequence the arp had just
+   * locked. The kit path gates the same restore the same way ({@code FirmwareKit.arpOwningClip}).
+   */
+  public transient Object arpSettingsOwner = NO_ARP_OWNER_YET;
+
+  /**
+   * Distinct from every clip, every drum model and from {@code null}, so the first mapping always
+   * restores — including for a track with no clips, whose active clip is {@code null}. (On the kit
+   * path a {@code null}-initialised equivalent made the first call a silent no-op.)
+   */
+  private static final Object NO_ARP_OWNER_YET = new Object();
+
   // Granular mod-FX (ModFXType.GRAIN routes here instead of the LFO-based ModFXProcessor).
   public float currentBpm = 120.0f;
 
