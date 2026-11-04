@@ -416,6 +416,65 @@ class ArpPerClipSettingsTest {
     }
   }
 
+  /**
+   * Snapshotting a KIT clip's sequences must take the monitor the kit's arp writers hold — the Kit
+   * itself, since every kit-arp entry point is a synchronized method on it — not the clip.
+   *
+   * <p>Decisive rather than circumstantial: {@code withLiveArpSequences} takes exactly one lock, so
+   * whether it blocks on a parked holder of the kit monitor distinguishes the two choices
+   * completely. (The round-1 version of the clip-switch test could not make that claim, because
+   * {@code configureArp} takes its monitor internally.)
+   */
+  @Test
+  void snapshottingAKitClipTakesTheKitMonitor() throws Exception {
+    org.deluge.model.KitTrackModel kitTrack = new org.deluge.model.KitTrackModel("KIT");
+    ClipModel clip = new ClipModel("c", 8, 16);
+    clip.setArpFromXml(
+        ArpModel.defaultConfig().toBuilder()
+            .active(true)
+            .mode("arp")
+            .randomizerLock(1)
+            .lockedNoteProbArray("0101010101010101010101010101010A")
+            .build());
+    org.deluge.engine.FirmwareKit kit = new org.deluge.engine.FirmwareKit();
+    clip.setSound(kit);
+    kitTrack.addClip(clip);
+
+    java.util.concurrent.CountDownLatch holding = new java.util.concurrent.CountDownLatch(1);
+    java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+    Thread holder =
+        new Thread(
+            () -> {
+              synchronized (kit) {
+                holding.countDown();
+                try {
+                  release.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                  Thread.currentThread().interrupt();
+                }
+              }
+            });
+    holder.start();
+    assertTrue(holding.await(10, java.util.concurrent.TimeUnit.SECONDS), "holder must take it");
+
+    java.util.concurrent.atomic.AtomicReference<ArpModel> snapshot =
+        new java.util.concurrent.atomic.AtomicReference<>();
+    Thread saver = new Thread(() -> snapshot.set(clip.withLiveArpSequences(clip.getArp())));
+    saver.start();
+    saver.join(400);
+    boolean blocked = saver.isAlive();
+    release.countDown();
+    saver.join(10_000);
+    holder.join(10_000);
+
+    assertTrue(
+        blocked, "the snapshot must block on the KIT monitor, which is what its writers hold");
+    assertEquals(
+        "0101010101010101010101010101010A",
+        snapshot.get().lockedNoteProbArray(),
+        "and must complete once the monitor is free");
+  }
+
   private static byte[] expand(String hex) {
     byte[] out = new byte[Arpeggiator.RANDOMIZER_LOCK_MAX_SAVED_VALUES];
     for (int i = 0; i < out.length && i * 2 + 1 < hex.length(); i++) {

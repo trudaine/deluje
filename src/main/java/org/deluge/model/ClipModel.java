@@ -194,8 +194,20 @@ public class ClipModel extends TimelineCounter {
     // them now, so the snapshot cannot lose them. After this the Settings are the single source of
     // truth for sequences, which is the C's arrangement: an InstrumentClip has no separate model.
     org.deluge.engine.FirmwareFactory.bindClipArpSettingsFromFile(this);
-    Object monitor =
-        (sound instanceof org.deluge.engine.FirmwareSound fs) ? fs.fw2Sound.arpeggiator : this;
+    // The monitor the WRITERS hold, which differs by instrument type. A synth's arp settings are
+    // mutated under the sound's arpeggiator monitor; a kit's under the Kit itself, because every
+    // kit-arp entry point is a synchronized method on it (render, tick, note on/off, and
+    // setArpSettings). Locking the clip for a kit-backed clip excluded nobody, so the snapshot
+    // could still catch partially regenerated arrays, or lastLocked* values that no longer match
+    // the array they describe.
+    Object monitor;
+    if (sound instanceof org.deluge.engine.FirmwareSound fs) {
+      monitor = fs.fw2Sound.arpeggiator;
+    } else if (sound instanceof org.deluge.firmware2.Kit kit) {
+      monitor = kit;
+    } else {
+      monitor = this;
+    }
     synchronized (monitor) {
       org.deluge.firmware2.Arpeggiator.Settings s = getArpSettings();
       return params.toBuilder()
