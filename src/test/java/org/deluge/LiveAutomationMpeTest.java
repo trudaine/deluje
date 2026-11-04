@@ -60,7 +60,7 @@ public class LiveAutomationMpeTest {
 
     // Build sub-drum sound and map automations
     FirmwareSound drumSound = new FirmwareSound();
-    drumSound.isDrum = true;
+    drumSound.setIsDrum(true);
 
     // Map row automation
     java.util.Map<String, float[]> rowAutos = clip.getNoteRowsMap().get(2).getRowAutomation();

@@ -1203,7 +1203,7 @@ public class FirmwareFactory {
     // so without this a sequencer tick could read a half-decoded sequence — eleven 16-byte arrays
     // are restored one byte at a time. One-way ordering: callers take the sound monitor then this
     // one, and nothing in firmware2.Sound reaches back out to the FirmwareSound monitor.
-    synchronized (sound.arpeggiator) {
+    synchronized (sound.fw2Sound.arpeggiator) {
       boolean activating =
           owner != null
               && (sound.arpSettingsOwner != owner
@@ -1235,7 +1235,7 @@ public class FirmwareFactory {
       // the C keeps the same instrument and the same arpeggiator there, repointing getArpSettings
       // at another clip's settings (sound_instrument.cpp:425), so that state rightly persists.
       if (activating && !arpeggiatorSurvivesInC) {
-        sound.arpeggiator.adoptRestoredSequence(sound.arpSettings);
+        sound.fw2Sound.arpeggiator.adoptRestoredSequence(sound.arpSettings);
       }
     }
   }
@@ -1358,6 +1358,17 @@ public class FirmwareFactory {
     // The lock is only half of it: restore the sequence it locks, and the saved note pattern.
     if (restoreSavedSequences) {
       restoreArpSavedSequences(s, arp);
+    }
+    // C arpeggiator.cpp:1774-1778 — the chordType read guards the assignment with `value >= 0 &&
+    // value < MAX_CHORD_TYPES`, leaving the previous index alone when out of range rather than
+    // writing it. This is the only path that puts model data into chordTypeIndex, so the guard
+    // belongs here: chordTypeSemitoneOffsets and chordTypeNoteCount are MAX_CHORD_TYPES long and
+    // ArpeggiatorForDrum::switchNoteOn indexes both unchecked (arpeggiator.cpp:805, :852, :864).
+    // Without this assignment the field only ever held the 0 that resetToDefaults writes, so every
+    // song played chord type NO_CHORD whatever it had saved.
+    int chordType = arp.chordType();
+    if (chordType >= 0 && chordType < org.deluge.firmware2.Arpeggiator.MAX_CHORD_TYPES) {
+      s.chordTypeIndex = chordType;
     }
     s.octaveMode = stringToArpOctaveMode(arp.octaveMode());
     s.numOctaves = Math.max(1, arp.octaves());
@@ -1922,7 +1933,7 @@ public class FirmwareFactory {
         sd.getMaxVoiceCount(); // C: sound.h:116 (per-drum voice cap, default 8)
     drumSound.fw2Sound.voicePriority =
         sd.getVoicePriority(); // voice-stealing priority (was stuck at default)
-    drumSound.isDrum = true;
+    drumSound.setIsDrum(true);
 
     // Map synthesis oscillator types
     drumSound.oscTypes[0] = stringToOscType(sd.getOsc1Type());

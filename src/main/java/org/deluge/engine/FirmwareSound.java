@@ -59,9 +59,15 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   public final org.deluge.firmware2.Oscillator.OscType[] oscTypes = {
     org.deluge.firmware2.Oscillator.OscType.SINE, org.deluge.firmware2.Oscillator.OscType.SINE
   };
+
   // maxPolyphony / voicePriority now live solely on fw2Sound (single source of truth — facade
   // refactor Phase 1). The factory writes fw2Sound directly; no shadow field, no sync copy.
+  /**
+   * Set through {@link #setIsDrum(boolean)}, which also gives {@link #fw2Sound} the arpeggiator the
+   * role calls for ({@code org.deluge.firmware2.Sound#setIsDrum}).
+   */
   public boolean isDrum = false;
+
   public int[] paramNeutralValues = new int[200];
 
   /** Raw bipolar Q31 knob values for firmware2 Patcher. */
@@ -84,8 +90,11 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   // ── Ported High-Fidelity Logic ──
   public final int[] monophonicExpressionValues = new int[3]; // X, Y, Z
 
-  // C: firmware2 Arpeggiator — faithful port of modulation/arpeggiator.cpp.
-  public final org.deluge.firmware2.Arpeggiator.Synth arpeggiator;
+  // C: firmware2 Arpeggiator — faithful port of modulation/arpeggiator.cpp. There is deliberately
+  // no alias field for the arpeggiator itself: its concrete class follows the sound's role
+  // (ArpeggiatorForDrum for a drum, drum.h:67) and is installed by Sound.setIsDrum, so a cached
+  // copy here would go stale — and it is the monitor every arp path synchronizes on, which makes
+  // a stale copy a lock split rather than a wrong read. Use fw2Sound.arpeggiator.
   public final org.deluge.firmware2.Arpeggiator.Settings arpSettings;
   private final org.deluge.firmware2.Arpeggiator.ArpReturnInstruction arpInstr;
   public int arpDivision =
@@ -246,7 +255,6 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
 
   FirmwareSound(org.deluge.firmware2.Sound fw2Sound) {
     this.fw2Sound = fw2Sound;
-    this.arpeggiator = fw2Sound.arpeggiator;
     this.arpSettings = fw2Sound.arpSettings;
     this.arpInstr = fw2Sound.arpInstr;
     this.sidechain = fw2Sound.sidechain;
@@ -562,11 +570,23 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
     return render;
   }
 
+  /**
+   * Mark this sound as a Kit SoundDrum (or back as a melodic synth), keeping {@link #fw2Sound} in
+   * step. A C {@code Drum} owns an {@code ArpeggiatorForDrum} (drum.h:67) while a {@code
+   * SoundInstrument} owns a plain {@code Arpeggiator} (sound_instrument.h:83), so the role decides
+   * the arpeggiator class and the two flags must never disagree.
+   */
+  public void setIsDrum(boolean drum) {
+    this.isDrum = drum;
+    fw2Sound.setIsDrum(drum);
+  }
+
   // Synchronized against FirmwareFactory.applyModelToLiveSound (the UI live-apply path), which
   // rebuilds the patch-cable set and rewrites params under the same lock — without it the audio
   // thread could iterate a half-rebuilt cable list here.
   public synchronized void syncParamsToFw2() {
-    fw2Sound.isDrum = this.isDrum;
+    // setIsDrum, not the field: a drum's arpeggiator is an ArpeggiatorForDrum (drum.h:67).
+    fw2Sound.setIsDrum(this.isDrum);
     ensureDrumBendRangeDefault();
     if (stagedSynthMode != null) {
       fw2Sound.synthMode = stagedSynthMode;

@@ -21,8 +21,62 @@ public class Sound extends GlobalEffectable {
   public int synthMode = 0; // 0=subtractive, 1=FM, 2=ringmod
   public int voicePriority = 1; // 0=low, 1=medium, 2=high
 
-  /** C: sound_drum.h:41 / sound.h:238 — true when this Sound is a Kit SoundDrum. */
+  /**
+   * C: sound_drum.h:41 / sound.h:238 — true when this Sound is a Kit SoundDrum.
+   *
+   * <p>Set through {@link #setIsDrum(boolean)}, which also installs the arpeggiator the role calls
+   * for; assigning this field directly leaves a drum running the synth arpeggiator.
+   */
   public boolean isDrum = false;
+
+  /**
+   * C: the role decides which arpeggiator class the Sound is driven by. A {@code Drum} owns an
+   * {@code ArpeggiatorForDrum} (drum.h:67) and {@code SoundDrum::noteOn} hands {@code
+   * Sound::noteOn} a pointer to it (sound_drum.cpp:64, :69), whereas a {@code SoundInstrument} owns
+   * a plain {@code Arpeggiator} (sound_instrument.h:83) — {@code Sound} itself owns neither and
+   * takes an {@code ArpeggiatorBase*} parameter (sound.h:218-222).
+   *
+   * <p>This port merges Sound, SoundInstrument and SoundDrum into one class, so the concrete type
+   * is chosen when the role is, not at construction: callers flip {@link #isDrum} after {@code new
+   * Sound()}. {@link #setIsDrum(boolean)} is the only writer and only ever swaps during setup —
+   * every {@code synchronized (arpeggiator)} block in this class takes it as a monitor, so a swap
+   * while audio is running would let two threads hold different locks.
+   */
+  public ArpeggiatorBase arpeggiator = new Arpeggiator.Synth();
+
+  /**
+   * This Sound's arpeggiator narrowed to the synth one. The C needs no such accessor: every site
+   * that touches the held-note list is in {@code SoundInstrument}, where {@code arpeggiator} is
+   * statically an {@code Arpeggiator} (sound_instrument.h:83), and a {@code SoundDrum} has no such
+   * list to reach. Fails fast on a drum, where the C would not have compiled.
+   */
+  public ArpeggiatorSynth synthArp() {
+    return (ArpeggiatorSynth) arpeggiator;
+  }
+
+  /**
+   * This Sound's arpeggiator narrowed to the drum one, the counterpart of {@link #synthArp()}:
+   * {@code Drum::arpeggiator} is statically an {@code ArpeggiatorForDrum} (drum.h:67).
+   */
+  public ArpeggiatorForDrum drumArp() {
+    return (ArpeggiatorForDrum) arpeggiator;
+  }
+
+  /**
+   * Assign this Sound's role, installing the arpeggiator the C gives that role (see {@link
+   * #arpeggiator}). Idempotent, and preserves the cached transport flag {@link
+   * ArpeggiatorBase#playbackClockActive}, which stands in for the C's global {@code
+   * playbackHandler.isEitherClockActive()} (arpeggiator.cpp:1527) and is not per-role state.
+   */
+  public void setIsDrum(boolean drum) {
+    isDrum = drum;
+    if (drum == (arpeggiator instanceof ArpeggiatorForDrum)) {
+      return;
+    }
+    boolean clockActive = arpeggiator.playbackClockActive;
+    arpeggiator = drum ? new Arpeggiator.ForDrum() : new Arpeggiator.Synth();
+    arpeggiator.playbackClockActive = clockActive;
+  }
 
   /** C: definitions_cxx.hpp:575-580 / sound.h:191 — patch cable usability classification. */
   public enum PatchCableAcceptance {
@@ -691,7 +745,6 @@ public class Sound extends GlobalEffectable {
    */
   public double samplesPerSequencerTick = 60.0 * 44100.0 / (120.0 * 96.0);
 
-  public final Arpeggiator.Synth arpeggiator = new Arpeggiator.Synth();
   public final Arpeggiator.Settings arpSettings = new Arpeggiator.Settings();
   public final Arpeggiator.ArpReturnInstruction arpInstr = new Arpeggiator.ArpReturnInstruction();
   private final Arpeggiator.ArpReturnInstruction arpTickInstr =
@@ -1442,10 +1495,16 @@ public class Sound extends GlobalEffectable {
       }
       // C sound_instrument.cpp:348-364, sound_drum.cpp:90 — update MPE values in arpeggiator too.
       int mpeVal16 = newValue >> 16;
-      for (int n = 0; n < arpeggiator.notes.size(); n++) {
-        Arpeggiator.ArpNote arpNote = arpeggiator.notes.get(n);
-        if (arpNote.inputCharacteristics[whichCharacteristic] == channelOrNoteNumber) {
-          arpNote.mpeValues[expressionDimension] = mpeVal16;
+      // The held-note list is the SYNTH arpeggiator's: sound_instrument.cpp:348-364 walks
+      // `arpeggiator.notes` on an Arpeggiator, while SoundDrum has no such list and reaches
+      // active_note through SoundDrum::expressionEvent (sound_drum.cpp:90) — which is the
+      // `active_note` branch just below, and drumExpressionEvent for the drum's own entry point.
+      if (arpeggiator instanceof ArpeggiatorSynth synthArp) {
+        for (int n = 0; n < synthArp.notes.size(); n++) {
+          Arpeggiator.ArpNote arpNote = synthArp.notes.get(n);
+          if (arpNote.inputCharacteristics[whichCharacteristic] == channelOrNoteNumber) {
+            arpNote.mpeValues[expressionDimension] = mpeVal16;
+          }
         }
       }
       if (arpeggiator.active_note.inputCharacteristics[whichCharacteristic]

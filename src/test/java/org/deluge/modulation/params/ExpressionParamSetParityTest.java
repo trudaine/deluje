@@ -492,10 +492,10 @@ class ExpressionParamSetParityTest {
     // 3. Sound.polyphonicExpressionEventOnChannelOrNote updates arpeggiator.notes MPE values.
     synth.fw2Sound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.ARP;
     synth.triggerNote(64, 100, new int[] {0, 0, 0x1000});
-    assertFalse(synth.fw2Sound.arpeggiator.notes.isEmpty());
-    assertEquals(0x1000, synth.fw2Sound.arpeggiator.notes.get(0).mpeValues[2]);
+    assertFalse(synth.fw2Sound.synthArp().notes.isEmpty());
+    assertEquals(0x1000, synth.fw2Sound.synthArp().notes.get(0).mpeValues[2]);
 
     synth.fw2Sound.polyphonicExpressionEventOnChannelOrNote(0x45670000, 2, 64, 0);
-    assertEquals(0x4567, synth.fw2Sound.arpeggiator.notes.get(0).mpeValues[2]);
+    assertEquals(0x4567, synth.fw2Sound.synthArp().notes.get(0).mpeValues[2]);
   }
 }

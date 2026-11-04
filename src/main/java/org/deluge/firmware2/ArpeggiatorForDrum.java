@@ -6,6 +6,14 @@ import org.deluge.firmware2.Arpeggiator.*;
 public class ArpeggiatorForDrum extends ArpeggiatorBase {
   public int noteForDrum;
 
+  /**
+   * C arpeggiator.h:358 — only the DRUM arpeggiator has this. {@code Kit::noteOnPreKitArp} sets it
+   * on the output drum's own arpeggiator ({@code thisNoteRow->drum->arpeggiator}, kit.cpp:1326,
+   * where {@code Drum::arpeggiator} is statically an {@code ArpeggiatorForDrum}, drum.h:67) and the
+   * two places that read it are both in this class (arpeggiator.cpp:219, :883).
+   */
+  public boolean invertReversedFromKitArp = false;
+
   public ArpeggiatorForDrum() {
     active_note.velocity = 0; // C:73
   }
@@ -28,6 +36,7 @@ public class ArpeggiatorForDrum extends ArpeggiatorBase {
   }
 
   /** C: arpeggiator.cpp:150-216 — noteOn */
+  @Override
   public void noteOn(
       Settings settings,
       int noteCode,
@@ -88,6 +97,7 @@ public class ArpeggiatorForDrum extends ArpeggiatorBase {
   }
 
   /** C: arpeggiator.cpp:218-253 — noteOff */
+  @Override
   public void noteOff(Settings settings, int noteCodePreArp, ArpReturnInstruction instruction) {
     if (settings == null || settings.mode == ArpMode.OFF) {
       instruction.noteCodeOffPostArp[0] = noteCodePreArp;

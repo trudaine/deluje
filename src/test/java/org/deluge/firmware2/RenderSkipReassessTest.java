@@ -72,8 +72,8 @@ class RenderSkipReassessTest {
     Arpeggiator.ArpNote pending = new Arpeggiator.ArpNote();
     pending.noteStatus[0] = Arpeggiator.ArpNoteStatus.PENDING;
     pending.noteCodeOnPostArp[0] = 60;
-    s.arpeggiator.notes.add(pending);
-    s.arpeggiator.anyPending = true;
+    s.synthArp().notes.add(pending);
+    s.synthArp().anyPending = true;
     assertTrue(s.reassessRenderSkippingStatus(128));
   }
 }

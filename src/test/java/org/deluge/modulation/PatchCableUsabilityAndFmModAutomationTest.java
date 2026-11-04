@@ -66,13 +66,13 @@ class PatchCableUsabilityAndFmModAutomationTest {
         PatchCableAcceptance.ALLOWED,
         sound.maySourcePatchToParam(PatchSource.NOTE, Param.LOCAL_PITCH_ADJUST));
     assertEquals(PatchCableAcceptance.ALLOWED, sound.maySourcePatchToParam(PatchSource.NOTE, 255));
-    sound.isDrum = true;
+    sound.setIsDrum(true);
     assertEquals(
         PatchCableAcceptance.DISALLOWED,
         sound.maySourcePatchToParam(PatchSource.NOTE, Param.LOCAL_PITCH_ADJUST));
     assertEquals(
         PatchCableAcceptance.DISALLOWED, sound.maySourcePatchToParam(PatchSource.NOTE, 255));
-    sound.isDrum = false;
+    sound.setIsDrum(false);
 
     // 2. Local sources (>= kFirstLocalSource) disallowed on global params (>= FIRST_GLOBAL).
     assertEquals(
