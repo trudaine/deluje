@@ -102,4 +102,73 @@ class PerClipSynthArpTest {
         back.getClips().get(0).getArpSettings().lockedNoteProbabilityValues,
         "and must already be in the clip's own live settings, bound at read time");
   }
+
+  /**
+   * A copied clip must not save — and so must not reload — the source clip's arp sequence.
+   *
+   * <p>C {@code InstrumentClip::instrumentClip(other)} copies the arp with {@code cloneFrom}
+   * (instrument_clip.cpp:151), which carries the params and no sequences
+   * (arpeggiator.cpp:1620-1650), and the C writes a clip's sequences from its own LIVE settings.
+   * This port serializes them from {@code ClipModel.arp}, so the copy has to clear them there too
+   * or the source's sequence comes back on reload.
+   */
+  @Test
+  void aCopiedClipDoesNotSaveTheSourcesArpSequence() throws Exception {
+    String lockHex = "0101010101010101010101010101010A";
+    ProjectModel model = new ProjectModel();
+    SynthTrackModel synth = new SynthTrackModel("LEAD");
+    ClipModel a = new ClipModel("a", 1, 16);
+    a.setArp(
+        ArpModel.defaultConfig().toBuilder()
+            .active(true)
+            .mode("arp")
+            .randomizerLock(1)
+            .notePattern("000102030405060708090A0B0C0D0E0F")
+            .lockedNoteProbArray(lockHex)
+            .build());
+    synth.addClip(a);
+    ClipModel copy = a.deepCopy("a-copy");
+    synth.addClip(copy);
+    model.addTrack(synth);
+
+    assertEquals(
+        lockHex,
+        a.getArp().lockedNoteProbArray(),
+        "the source must still carry its own sequence, or this test proves nothing");
+
+    File f = File.createTempFile("perclipcopy", ".xml");
+    f.deleteOnExit();
+    ProjectSerializer.save(model, f);
+    SynthTrackModel back = (SynthTrackModel) DelugeXmlParser.parseSong(f).getTracks().get(0);
+
+    assertEquals(
+        lockHex,
+        back.getClips().get(0).getArp().lockedNoteProbArray(),
+        "the source clip keeps its saved sequence across the round trip");
+    ArpModel copiedArp = back.getClips().get(1).getArp();
+    // The copy writes no sequence attributes at all, and the reader normalizes an absent locked
+    // array to zeros — which is exactly what cloneFrom leaves a copied clip with
+    // (arpeggiator.cpp:58-67 fills them with 0 and :1620-1650 does not copy them).
+    assertTrue(
+        isAbsentOrAllZeroHex(copiedArp.lockedNoteProbArray()),
+        "the copy must not have saved the source's locked sequence; got "
+            + copiedArp.lockedNoteProbArray());
+    assertTrue(
+        copiedArp.notePattern() == null || copiedArp.notePattern().isEmpty(),
+        "nor the source's note pattern; got " + copiedArp.notePattern());
+    // But the copy DOES keep the arp parameters, which is exactly what cloneFrom carries: compare
+    // them against the source's own reloaded values rather than against literals, so this does not
+    // also assert how mode round-trips.
+    ArpModel sourceArp = back.getClips().get(0).getArp();
+    assertEquals(sourceArp.active(), copiedArp.active(), "the copy keeps active");
+    assertEquals(sourceArp.mode(), copiedArp.mode(), "the copy keeps the mode");
+    assertEquals(
+        sourceArp.randomizerLock(),
+        copiedArp.randomizerLock(),
+        "the copy keeps the randomizer lock — a param, not a sequence");
+  }
+
+  private static boolean isAbsentOrAllZeroHex(String hex) {
+    return hex == null || hex.isEmpty() || hex.chars().allMatch(c -> c == '0');
+  }
 }

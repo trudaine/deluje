@@ -249,12 +249,26 @@ class ArpPerClipSettingsTest {
     FirmwareFactory.applyModelToLiveSound(track, sound);
     int configured = sound.fw2Sound.arpSettings.noteProbability;
 
+    // Bounded protocol rather than a sample-count race: the watcher signals that it has taken its
+    // first sample before any switching starts, and the switching continues until the watcher has
+    // taken REQUIRED_SAMPLES or a generous deadline passes. Both are asserted, so a runner too
+    // slow to produce the samples reports that rather than passing vacuously. An earlier version
+    // just ran 2000 switches and asserted `samples > 1000`, which a late-starting watcher on a
+    // busy single-core runner could fail with correct production locking.
+    // Both bounds matter: the samples prove the watcher was looking, the switches prove there was
+    // something to see. The control (production locking removed) reports odd samples at roughly
+    // 3% of samples, so these numbers give it hundreds of chances rather than a handful.
+    final int requiredSamples = 5000;
+    final int requiredSwitches = 2000;
+    final long deadlineNanos =
+        System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(20);
     java.util.concurrent.atomic.AtomicBoolean run =
         new java.util.concurrent.atomic.AtomicBoolean(true);
     java.util.concurrent.atomic.AtomicInteger oddSamples =
         new java.util.concurrent.atomic.AtomicInteger();
     java.util.concurrent.atomic.AtomicInteger samples =
         new java.util.concurrent.atomic.AtomicInteger();
+    java.util.concurrent.CountDownLatch sampling = new java.util.concurrent.CountDownLatch(1);
     Thread watcher =
         new Thread(
             () -> {
@@ -265,16 +279,33 @@ class ArpPerClipSettingsTest {
                     oddSamples.incrementAndGet();
                   }
                 }
+                sampling.countDown();
               }
             });
     watcher.start();
-    for (int i = 0; i < 2000; i++) {
-      track.setActiveClipIndex(i % 2);
+    assertTrue(
+        sampling.await(20, java.util.concurrent.TimeUnit.SECONDS),
+        "the watcher must be sampling before the switching starts");
+
+    int switches = 0;
+    while ((samples.get() < requiredSamples || switches < requiredSwitches)
+        && System.nanoTime() < deadlineNanos) {
+      track.setActiveClipIndex(switches % 2);
+      switches++;
     }
     run.set(false);
-    watcher.join(5000);
+    watcher.join(20_000);
 
-    assertTrue(samples.get() > 1000, "the watcher must have sampled, or this test proves nothing");
+    assertTrue(
+        samples.get() >= requiredSamples && switches >= requiredSwitches,
+        "this must reach "
+            + requiredSamples
+            + " samples over "
+            + requiredSwitches
+            + " switches to be sensitive; got "
+            + samples.get()
+            + " over "
+            + switches);
     assertEquals(
         0,
         oddSamples.get(),
@@ -282,7 +313,48 @@ class ArpPerClipSettingsTest {
             + oddSamples.get()
             + " of "
             + samples.get()
-            + " samples holding neither clip's noteProbability");
+            + " samples holding neither clip's noteProbability over "
+            + switches
+            + " switches");
+  }
+
+  @Test
+  void aClipSwitchAfterAPresetLoadIsStillJustASwitch() {
+    // configureArp decides "the C built a new arpeggiator" from the load revision. The clip-switch
+    // path has to pass the track's CURRENT revision: passing 0 after a preset load made an
+    // ordinary switch look like an instrument load, clearing the pending regeneration and the
+    // locked-sequence cursor, then doing it again on the next refresh when the real revision
+    // returned. A switch bumps no revision, so the C keeps the same Arpeggiator across one.
+    SynthTrackModel track = new SynthTrackModel("LEAD");
+    ClipModel a = clipWithSavedArp("a", "0101010101010101010101010101010A");
+    ClipModel b = clipWithSavedArp("b", "02020202020202020202020202020202");
+    FirmwareSound sound = new FirmwareSound();
+    a.setSound(sound);
+    b.setSound(sound);
+    track.addClip(a);
+    track.addClip(b);
+    track.setActiveClipIndex(0);
+    FirmwareFactory.applyModelToLiveSound(track, sound);
+
+    // A preset load, which legitimately clears it and leaves the revision nonzero.
+    SynthTrackModel preset = new SynthTrackModel("PRESET");
+    preset.setArp(ArpModel.defaultConfig().toBuilder().active(true).mode("arp").build());
+    track.copyParametersFrom(preset);
+    FirmwareFactory.applyModelToLiveSound(track, sound);
+    assertTrue(track.getArpLoadRevision() != 0, "the preset load must have bumped the revision");
+
+    // Now the arp evolves state again, and a plain clip switch must not discard it.
+    sound.fw2Sound.arpeggiator.resetLockedRandomizerValuesNextTime = true;
+    track.setActiveClipIndex(1);
+    assertTrue(
+        sound.fw2Sound.arpeggiator.resetLockedRandomizerValuesNextTime,
+        "a clip switch after a preset load is still only a switch — the C keeps the arpeggiator");
+
+    // And the following live refresh must not re-trigger it either.
+    FirmwareFactory.applyModelToLiveSound(track, sound);
+    assertTrue(
+        sound.fw2Sound.arpeggiator.resetLockedRandomizerValuesNextTime,
+        "nor may the next refresh see a load that already happened");
   }
 
   private static byte[] expand(String hex) {

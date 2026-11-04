@@ -811,7 +811,12 @@ public class SynthTrackModel extends TrackModel {
         // sequences are NOT re-imposed: this clip bound them once already, and the C keeps the
         // same Arpeggiator across a clip switch, so its pending randomizer regeneration and cached
         // note order carry over rather than being cleared.
-        org.deluge.engine.FirmwareFactory.configureArp(fs, nowArp, now);
+        // The track's CURRENT revision, not the 3-arg overload's 0: after a preset load the
+        // sound's recorded revision is nonzero, and passing 0 here made configureArp read an
+        // ordinary clip switch as an instrument load — clearing the pending regeneration and the
+        // locked-sequence cursor, then doing it again on the next refresh when the real revision
+        // came back. A switch bumps no revision, so passing it through means no load is seen.
+        org.deluge.engine.FirmwareFactory.configureArp(fs, nowArp, now, arpLoadRevision);
         fs.paramKnobs[org.deluge.firmware2.Param.UNPATCHED_ARP_GATE] =
             org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
                 nowArp, org.deluge.firmware2.Param.UNPATCHED_ARP_GATE);

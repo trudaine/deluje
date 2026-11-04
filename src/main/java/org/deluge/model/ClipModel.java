@@ -531,10 +531,17 @@ public class ClipModel extends TimelineCounter {
     // constructor (arpeggiator.cpp:1620-1650). The copy keeps the fresh Settings its own field
     // initializer made, and its params come from `arp` on every refresh like any clip's.
     //
-    // And its one-time sequence load is consumed here, unrestored. `copy.arp` carries the SOURCE
+    // And its one-time sequence load is consumed here, unrestored. `copy.arp` carried the SOURCE
     // clip's saved hex blobs, so leaving the copy unbound would have its first activation impose
     // the source's sequence over its own fresh state — the opposite of what cloneFrom does.
     copy.arpSettingsBound = true;
+    // The blobs have to go from the MODEL too, not just be ignored at bind time: this port
+    // serializes a clip's sequences from `arp` (ProjectSerializer.java:2488-2504), so a copy that
+    // kept them would save the source's sequence and play it back on reload. The C has no such
+    // path — it writes the clip's own live settings.
+    if (copy.arp != null) {
+      copy.arp = copy.arp.toBuilder().withoutSavedSequences().build();
+    }
     copy.bendRange = this.bendRange;
     copy.bendRangeMPE = this.bendRangeMPE;
     copy.midiBank = this.midiBank; // C instrument_clip.cpp:127-129
