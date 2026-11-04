@@ -86,9 +86,21 @@ public class ArpeggiatorSynth extends ArpeggiatorBase {
    */
   public void adoptRestoredSequence(Settings settings) {
     resetLockedRandomizerValuesNextTime = false;
+    // The cursor the restored arrays are READ at (:414-415 here, arpeggiator.cpp:1002-1017). A
+    // fresh arpeggiator starts it at 0 (arpeggiator.h:304), so keeping the previous preset's
+    // position resumes a newly loaded sequence part-way through: with a 01 00 .. array, a cursor
+    // left at 1 reads the 0 and suppresses the first hit of the preset just loaded.
+    notesPlayedFromLockedRandomizer = 0;
     if (hasAnyInputNotesActive()) {
       rearrangePatternArpNotes(settings);
     }
+    // NOT the rest of the family the C zeroes alongside it (arpeggiator.cpp:691-697:
+    // playedFirstArpeggiatedNoteYet, notesPlayedFromSequence/Rhythm, whichNoteCurrentlyOnPostArp,
+    // glideOnNextNoteOff, ...). A fresh C arpeggiator does have them at their defaults, but it also
+    // has NO HELD NOTES — a preset load there replaces the whole instrument, cutting anything
+    // sounding. This port keeps the notes, so zeroing the ones that track a sounding note would
+    // desync note-off handling against notes still down. Only the cursor into the restored
+    // sequence is corrected here; the rest stay with the notes they describe.
   }
 
   /** C: arpeggiator.cpp:1228-1247 — rearrangePatternArpNotes */

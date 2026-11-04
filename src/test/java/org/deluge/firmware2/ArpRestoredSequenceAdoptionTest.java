@@ -112,6 +112,65 @@ class ArpRestoredSequenceAdoptionTest {
   }
 
   @Test
+  void aLoadedSequenceIsConsumedFromItsStartThroughNoteOn() {
+    // The cursor into the locked arrays (ArpeggiatorBase:414-415, arpeggiator.cpp:1002) starts at 0
+    // on a fresh arpeggiator (arpeggiator.h:304), which is what a C preset load produces. Keeping
+    // the previous preset's position resumes a newly loaded sequence part-way through.
+    //
+    // Driven through noteOn with the arp OFF, where Sound::noteOn still routes the note through the
+    // arpeggiator so noteProbability applies (C sound.cpp:1540, arpeggiator.cpp:740-780).
+    SynthTrackModel model = new SynthTrackModel("Unlocked");
+    model.setArp(unlockedArp().toBuilder().mode("off").build());
+    FirmwareSound sound = new FirmwareSound();
+    FirmwareFactory.applyModelToLiveSound(model, sound);
+
+    // One unlocked hit advances the cursor off zero.
+    sound.triggerNote(60, 100);
+    sound.releaseNote(60);
+    assertTrue(
+        sound.arpeggiator.notesPlayedFromLockedRandomizer != 0,
+        "an unlocked hit must advance the cursor, or this test proves nothing");
+
+    // A preset whose saved sequence PLAYS at index 0 and is SILENT at index 1.
+    ArpModel base =
+        ArpModel.defaultConfig().toBuilder()
+            .active(true)
+            .mode("off")
+            .randomizerLock(1)
+            .noteProbability(0.5f)
+            .lockedNoteProbArray("01000000000000000000000000000000")
+            .build();
+    Arpeggiator.Settings probe = new Arpeggiator.Settings();
+    FirmwareFactory.configureArpSettings(probe, base, 0);
+    SynthTrackModel preset = new SynthTrackModel("LockedPreset");
+    preset.setArp(base.toBuilder().lastLockedNoteProb(probe.noteProbability).build());
+
+    model.copyParametersFrom(preset);
+    FirmwareFactory.applyModelToLiveSound(model, sound);
+
+    assertEquals(
+        0,
+        sound.arpeggiator.notesPlayedFromLockedRandomizer,
+        "a load must rewind the cursor into the restored sequence");
+
+    sound.triggerNote(64, 100);
+    // Count the voice for THIS note specifically: the released note 60 is still in its envelope
+    // release and counts as active, so getActiveVoiceCount() > 0 would pass either way (the
+    // negative control proved that assertion vacuous).
+    int voicesForNote64 = 0;
+    for (Voice v : sound.fw2Sound.voices) {
+      if (v.active && v.note == 64) {
+        voicesForNote64++;
+      }
+    }
+    assertEquals(
+        1,
+        voicesForNote64,
+        "the first hit after the load must sound — index 0 of the loaded sequence plays; a stale"
+            + " cursor reads index 1 and silences it");
+  }
+
+  @Test
   void aClipSwitchLeavesThePendingRegenerationAlone() {
     // The other side of the same distinction, and the reason this is not simply "clear it on every
     // activation": a clip switch keeps the instrument in the C, so the SAME Arpeggiator carries its
