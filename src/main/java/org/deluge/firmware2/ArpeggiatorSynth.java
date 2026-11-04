@@ -58,6 +58,51 @@ public class ArpeggiatorSynth extends ArpeggiatorBase {
     return !notes.isEmpty(); // C:1428-1430
   }
 
+  /**
+   * Bring the per-arpeggiator state that a C preset load would have discarded into line with a
+   * sequence just restored from a file, for a port that reuses the arpeggiator instead of replacing
+   * it.
+   *
+   * <p>The C never has to do this: loading a preset builds a whole new instrument ({@code new
+   * (instrumentMemory) SoundInstrument()}, storage_manager.cpp:635), so the arpeggiator comes with
+   * {@code resetLockedRandomizerValuesNextTime} at its default {@code false} (arpeggiator.h:344)
+   * and an empty {@code notesByPattern} (arpeggiator.cpp:78, emptied at :125). This port hot-swaps
+   * parameters into the EXISTING sound, which keeps both:
+   *
+   * <ul>
+   *   <li>a stale {@code resetLockedRandomizerValuesNextTime} — set by every step an UNLOCKED arp
+   *       plays (arpeggiator.cpp:1042) — makes {@code calculateRandomizerAmounts} regenerate all
+   *       ten locked arrays on the next step (:928-999), throwing away the values just restored,
+   *       even though their saved {@code lastLocked*} values match the parameters.
+   *   <li>a stale {@code notesByPattern} keeps held notes playing in the PREVIOUS pattern's order
+   *       until the held set next changes, so a restored {@code notePattern} has no effect on the
+   *       notes already down. The C's own comment at :463 is that this cache must be rearranged
+   *       whenever the order may have changed.
+   * </ul>
+   *
+   * <p>Only for a load. A CLIP SWITCH must not call this: the C keeps the same instrument and so
+   * the same arpeggiator, merely repointing {@code getArpSettings} at another clip's settings
+   * (sound_instrument.cpp:425), so both fields legitimately persist across one.
+   */
+  public void adoptRestoredSequence(Settings settings) {
+    resetLockedRandomizerValuesNextTime = false;
+    // The cursor the restored arrays are READ at (:414-415 here, arpeggiator.cpp:1002-1017). A
+    // fresh arpeggiator starts it at 0 (arpeggiator.h:304), so keeping the previous preset's
+    // position resumes a newly loaded sequence part-way through: with a 01 00 .. array, a cursor
+    // left at 1 reads the 0 and suppresses the first hit of the preset just loaded.
+    notesPlayedFromLockedRandomizer = 0;
+    if (hasAnyInputNotesActive()) {
+      rearrangePatternArpNotes(settings);
+    }
+    // NOT the rest of the family the C zeroes alongside it (arpeggiator.cpp:691-697:
+    // playedFirstArpeggiatedNoteYet, notesPlayedFromSequence/Rhythm, whichNoteCurrentlyOnPostArp,
+    // glideOnNextNoteOff, ...). A fresh C arpeggiator does have them at their defaults, but it also
+    // has NO HELD NOTES — a preset load there replaces the whole instrument, cutting anything
+    // sounding. This port keeps the notes, so zeroing the ones that track a sounding note would
+    // desync note-off handling against notes still down. Only the cursor into the restored
+    // sequence is corrected here; the rest stay with the notes they describe.
+  }
+
   /** C: arpeggiator.cpp:1228-1247 — rearrangePatternArpNotes */
   void rearrangePatternArpNotes(Settings settings) {
     notesByPattern.clear();

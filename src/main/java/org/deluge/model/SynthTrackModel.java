@@ -51,6 +51,10 @@ public class SynthTrackModel extends TrackModel {
   private final RawKnobConfig rawKnobs = new RawKnobConfig();
 
   private ArpModel arp = ArpModel.defaultConfig();
+
+  /** See {@link #getArpLoadRevision()} — counts explicit arp LOADS, not knob edits. */
+  private transient int arpLoadRevision = 0;
+
   private float portamento = 0.0f;
 
   private final ModulationConfig modulation = new ModulationConfig();
@@ -674,6 +678,20 @@ public class SynthTrackModel extends TrackModel {
     return (active != null && active.getArp() != null) ? active.getArp() : arp;
   }
 
+  /**
+   * Bumped whenever an explicit LOAD replaces this track's arp wholesale (see {@link
+   * #copyParametersFrom}), as distinct from a knob edit. The engine folds it into the identity that
+   * gates restoring the saved note pattern and locked randomizer arrays ({@link
+   * org.deluge.engine.FirmwareSound#arpSettingsOwner}), so a preset hot-swapped into the existing
+   * track and clip still re-reads them, while the ordinary refreshes keep leaving the playing arp's
+   * own locked state alone. A knob edit must NOT bump it: {@code ArpModel} is an immutable record,
+   * so every edit makes a new instance, and keying on that instance would re-impose the saved
+   * sequence on each tweak.
+   */
+  public int getArpLoadRevision() {
+    return arpLoadRevision;
+  }
+
   /** Edits the active clip's arp (if it has its own) and this track's default. */
   public void setArp(ArpModel arp) {
     ArpModel oldArp = getArp();
@@ -755,7 +773,15 @@ public class SynthTrackModel extends TrackModel {
               p, org.deluge.firmware2.Arpeggiator.getUnpatchedArpDefault(p));
         }
         fs.clearUnpatchedArpKnobs();
-        org.deluge.engine.FirmwareFactory.configureArp(fs, nowArp);
+        // The clip being switched TO owns the settings now, so its saved note pattern and locked
+        // randomizer sequences are restored — the C just repoints getArpSettings at that clip's
+        // own already-loaded ArpeggiatorSettings (sound_instrument.cpp:425), which this single
+        // shared Settings has to emulate by re-imposing the clip's saved values.
+        // arpeggiatorSurvivesInC: a clip switch keeps the instrument, so the C keeps the same
+        // Arpeggiator and only repoints getArpSettings (sound_instrument.cpp:425) — its pending
+        // randomizer regeneration and cached note order carry over rather than being cleared.
+        org.deluge.engine.FirmwareFactory.configureArp(
+            fs, nowArp, now, arpLoadRevision, /* arpeggiatorSurvivesInC= */ true);
         fs.paramKnobs[org.deluge.firmware2.Param.UNPATCHED_ARP_GATE] =
             org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
                 nowArp, org.deluge.firmware2.Param.UNPATCHED_ARP_GATE);
@@ -1445,6 +1471,11 @@ public class SynthTrackModel extends TrackModel {
     // C instrument_clip.cpp:2312 — assigning a SoundInstrument clones defaultArpSettings into the
     // clip's arpSettings; preset browser hot-swap and undo snapshots rely on copyParametersFrom.
     this.arp = other.getArp();
+    // That clone IS a load, so the engine has to re-read the saved sequence even though the clip
+    // object has not changed. The preset browser hot-swaps into the existing model and active clip
+    // (SynthPresetBrowserPanel.loadSelectedPreset), so owner identity alone cannot see it and the
+    // new preset's notePattern and locked arrays would never reach the DSP.
+    this.arpLoadRevision++;
     ClipModel active = getActiveClip();
     if (active != null && active.getArp() != null) {
       active.setArp(other.getArp());

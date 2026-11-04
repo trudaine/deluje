@@ -654,7 +654,13 @@ public class FirmwareFactory {
     // Arpeggiator. GLOBAL_ARP_RATE is a patched param (sound.cpp:155, :4040) that sets an unsynced
     // arp's speed; it was parsed but never reached the sound, which ran at the neutral 0.
     sound.paramKnobs[Param.GLOBAL_ARP_RATE] = model.getArpRateQ31();
-    configureArp(sound, model.getArp());
+    // The owner is the active clip, matching the per-clip settings a synth's getArpSettings hands
+    // back (sound_instrument.cpp:425) — so this restores the saved sequence on a load and the clip
+    // switch in SynthTrackModel restores it again for the clip switched to, while neither repeats
+    // on the live refreshes that also come through here. A track with no clips has no active clip,
+    // so it owns its settings itself rather than falling to null, which would never restore.
+    Object arpOwner = model.getActiveClip() != null ? model.getActiveClip() : model;
+    configureArp(sound, model.getArp(), arpOwner, model.getArpLoadRevision());
 
     // DX7 (Dexed) patch — render via the real DX7 engine instead of the native FM mapping.
     sound.dx7Patch = hexToBytes(model.getDx7Patch());
@@ -1132,23 +1138,105 @@ public class FirmwareFactory {
     return norm <= -1.0 ? Integer.MIN_VALUE : (int) Math.rint(norm * 2147483647.0);
   }
 
-  /** Map an ArpModel onto a sound's per-sound arpeggiator settings. */
+  /**
+   * Map an ArpModel onto a sound's per-sound arpeggiator settings, without restoring the saved
+   * sequence — the ordinary live-parameter-refresh form. See {@link #configureArp(FirmwareSound,
+   * org.deluge.model.ArpModel, Object)} for the (re)load form.
+   */
   public static void configureArp(
       org.deluge.engine.FirmwareSound sound, org.deluge.model.ArpModel arp) {
-    if (arp == null) {
-      sound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
-      return;
-    }
-    // syncLevel here is a note-division denominator (1=whole, 4=quarter, 16=16th); default 16th.
-    // 0 = not synced (the ARP panel's "OFF"): the engine then leaves arpPhaseIncrement at 0 and
-    // fw2 runs the C's free-rate path from the arp-rate param (arpeggiator.cpp:1594-1596).
-    sound.arpDivision = arp.syncLevel(); // < 0: that many whole notes (ArpXmlCodec)
-    // A synced arp's speed is the sync level alone: the C getPhaseIncrement ignores the rate
-    // param when synced (arpeggiator.cpp:1597-1610). The rate is GLOBAL_ARP_RATE, used unsynced.
-    sound.arpRateMultiplier = 1.0f;
-    configureArpSettings(sound.arpSettings, arp, sound.inputTickMagnitude);
-    if (!arp.active()) {
-      sound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
+    configureArp(sound, arp, null);
+  }
+
+  /**
+   * As {@link #configureArp(FirmwareSound, org.deluge.model.ArpModel)}, but additionally restores
+   * the saved note pattern and locked randomizer sequences when {@code owner} differs from the one
+   * {@code sound.arpSettings} already holds — i.e. on a fresh load or a clip switch, which is where
+   * the C fills them (sound_drum.cpp:149 for a drum; the per-clip settings a synth switches between
+   * at sound_instrument.cpp:425). Pass {@code null} to skip the restore entirely.
+   *
+   * @param owner the {@code ClipModel} (synth) or {@code SoundDrum} (drum) these settings belong to
+   *     — see {@link FirmwareSound#arpSettingsOwner}
+   */
+  public static void configureArp(
+      org.deluge.engine.FirmwareSound sound, org.deluge.model.ArpModel arp, Object owner) {
+    configureArp(sound, arp, owner, 0);
+  }
+
+  /**
+   * As {@link #configureArp(FirmwareSound, org.deluge.model.ArpModel, Object)}, with a load
+   * revision folded into the identity that gates the restore, for the synth path — where an
+   * explicit preset load replaces the arp wholesale while keeping the same track and clip objects,
+   * so owner identity alone cannot see it (see {@link
+   * org.deluge.model.SynthTrackModel#getArpLoadRevision}).
+   */
+  public static void configureArp(
+      org.deluge.engine.FirmwareSound sound,
+      org.deluge.model.ArpModel arp,
+      Object owner,
+      int loadRevision) {
+    configureArp(sound, arp, owner, loadRevision, /* arpeggiatorSurvivesInC= */ false);
+  }
+
+  /**
+   * As {@link #configureArp(FirmwareSound, org.deluge.model.ArpModel, Object, int)}, with {@code
+   * arpeggiatorSurvivesInC} telling it whether the C would have kept the same {@code Arpeggiator}
+   * object across this transition.
+   *
+   * @param arpeggiatorSurvivesInC {@code true} only for a CLIP SWITCH, where the C keeps the
+   *     instrument and repoints {@code getArpSettings} at another clip's settings
+   *     (sound_instrument.cpp:425), so the arpeggiator's own pending-regeneration flag and cached
+   *     note order legitimately carry over. {@code false} for a load — a C preset load builds a new
+   *     instrument with a new arpeggiator (storage_manager.cpp:635) — and for a drum slot taken by
+   *     a different drum model, which in the C is a new {@code Drum} with a new arpeggiator.
+   */
+  public static void configureArp(
+      org.deluge.engine.FirmwareSound sound,
+      org.deluge.model.ArpModel arp,
+      Object owner,
+      int loadRevision,
+      boolean arpeggiatorSurvivesInC) {
+    // The arpeggiator's own monitor, which is what every DSP entry point that reads or regenerates
+    // these arrays takes: firmware2.Sound guards doTickForwardForArp (Sound.java:1886), note
+    // on/off (:1429, :1465) and render (:1533, :1587) with `synchronized (arpeggiator)`. The live
+    // mapping that reaches here holds the FirmwareSound monitor instead, which is a DIFFERENT lock,
+    // so without this a sequencer tick could read a half-decoded sequence — eleven 16-byte arrays
+    // are restored one byte at a time. One-way ordering: callers take the sound monitor then this
+    // one, and nothing in firmware2.Sound reaches back out to the FirmwareSound monitor.
+    synchronized (sound.arpeggiator) {
+      boolean activating =
+          owner != null
+              && (sound.arpSettingsOwner != owner
+                  || sound.arpSettingsOwnerLoadRevision != loadRevision);
+      if (activating) {
+        sound.arpSettingsOwner = owner;
+        sound.arpSettingsOwnerLoadRevision = loadRevision;
+      }
+      if (arp == null) {
+        sound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
+        return;
+      }
+      // syncLevel here is a note-division denominator (1=whole, 4=quarter, 16=16th); default 16th.
+      // 0 = not synced (the ARP panel's "OFF"): the engine then leaves arpPhaseIncrement at 0 and
+      // fw2 runs the C's free-rate path from the arp-rate param (arpeggiator.cpp:1594-1596).
+      sound.arpDivision = arp.syncLevel(); // < 0: that many whole notes (ArpXmlCodec)
+      // A synced arp's speed is the sync level alone: the C getPhaseIncrement ignores the rate
+      // param when synced (arpeggiator.cpp:1597-1610). The rate is GLOBAL_ARP_RATE, used unsynced.
+      sound.arpRateMultiplier = 1.0f;
+      configureArpSettings(sound.arpSettings, arp, sound.inputTickMagnitude, activating);
+      if (!arp.active()) {
+        sound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
+      }
+      // A LOAD also has to clear the per-arpeggiator state a C preset load discards by building a
+      // whole new instrument (storage_manager.cpp:635) — otherwise a stale
+      // resetLockedRandomizerValuesNextTime regenerates the ten arrays just restored on the very
+      // next step (arpeggiator.cpp:928-999, set by every unlocked step at :1042), and a stale
+      // notesByPattern keeps held notes in the previous pattern's order. A CLIP SWITCH must not:
+      // the C keeps the same instrument and the same arpeggiator there, repointing getArpSettings
+      // at another clip's settings (sound_instrument.cpp:425), so that state rightly persists.
+      if (activating && !arpeggiatorSurvivesInC) {
+        sound.arpeggiator.adoptRestoredSequence(sound.arpSettings);
+      }
     }
   }
 
@@ -1940,7 +2028,12 @@ public class FirmwareFactory {
     drumSound.fw2Sound.portamentoKnob = drumPortamentoQ31;
     drumSound.paramNeutralValues[Param.UNPATCHED_PORTAMENTO] = drumPortamentoQ31;
     drumSound.clearUnpatchedArpKnobs();
-    configureArp(drumSound, sd.getArp());
+    // A drum owns its own arpSettings (drum.h:68) and getArpSettings ignores the clip
+    // (sound_drum.h:66), so the saved sequence is restored once per drum model — the C fills it
+    // from the file in Sound::readFromFile (sound_drum.cpp:149) and never again. Keying on `sd`
+    // means a slot rebuilt for a different drum counts as a fresh load, while the live refreshes
+    // that re-enter here for the same drum leave the playing arp's locked state alone.
+    configureArp(drumSound, sd.getArp(), sd);
     drumSound.paramNeutralValues[Param.GLOBAL_ARP_RATE] =
         rawDrumOrFallback(sd, "arpeggiatorRate", normToLinearParamKnob(sd.getArpeggiatorRate()));
     drumSound.paramNeutralValues[Param.UNPATCHED_ARP_GATE] =
