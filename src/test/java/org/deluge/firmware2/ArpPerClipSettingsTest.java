@@ -1,9 +1,11 @@
 package org.deluge.firmware2;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.deluge.engine.FirmwareFactory;
 import org.deluge.engine.FirmwareSound;
@@ -130,6 +132,157 @@ class ArpPerClipSettingsTest {
         expand("0101010101010101010101010101010A"),
         sound.fw2Sound.arpSettings.lockedNoteProbabilityValues,
         "the clip's saved locked sequence must be what the DSP plays");
+  }
+
+  @Test
+  void aClipsOwnSettingsSurviveAConfigureWithNoClipAtAll() {
+    // The no-clip case is a nullptr in the C (melodic_instrument.cpp:675), so it certainly does
+    // not write into the clip that was playing. Here the field has to point somewhere real, so it
+    // goes back to the sound's own no-clip object rather than staying on the clip's.
+    SynthTrackModel track = new SynthTrackModel("LEAD");
+    ClipModel a = clipWithSavedArp("a", "0101010101010101010101010101010A");
+    FirmwareSound sound = new FirmwareSound();
+    a.setSound(sound);
+    track.addClip(a);
+    track.setActiveClipIndex(0);
+    FirmwareFactory.applyModelToLiveSound(track, sound);
+    byte[] aSequence = a.getArpSettings().lockedNoteProbabilityValues.clone();
+
+    FirmwareFactory.configureArp(sound, ArpModel.defaultConfig(), new Object());
+
+    assertSame(
+        sound.fw2Sound.noClipArpSettings,
+        sound.fw2Sound.arpSettings,
+        "with no clip the sound must fall back to its own settings object");
+    assertArrayEquals(
+        aSequence,
+        a.getArpSettings().lockedNoteProbabilityValues,
+        "and the clip it was playing must keep its live sequence untouched");
+  }
+
+  @Test
+  void aPresetLoadClearsThePendingRegenerationEvenForAClipOwner() {
+    // A C preset load builds a whole new instrument, arpeggiator included
+    // (storage_manager.cpp:635), so the new one cannot be carrying a pending regeneration. That is
+    // true whichever settings it is pointed at — and if it were left set, the next locked step
+    // would regenerate over the arrays the clip had evolved (arpeggiator.cpp:928-999).
+    SynthTrackModel track = new SynthTrackModel("LEAD");
+    ClipModel a = clipWithSavedArp("a", "0101010101010101010101010101010A");
+    FirmwareSound sound = new FirmwareSound();
+    a.setSound(sound);
+    track.addClip(a);
+    track.setActiveClipIndex(0);
+    FirmwareFactory.applyModelToLiveSound(track, sound);
+
+    sound.fw2Sound.arpeggiator.resetLockedRandomizerValuesNextTime = true;
+
+    // An ordinary live refresh must leave it alone — this is not a load.
+    FirmwareFactory.applyModelToLiveSound(track, sound);
+    assertTrue(
+        sound.fw2Sound.arpeggiator.resetLockedRandomizerValuesNextTime,
+        "a live refresh is not a load and must not clear it, or this test proves nothing");
+
+    SynthTrackModel preset = new SynthTrackModel("PRESET");
+    preset.setArp(ArpModel.defaultConfig().toBuilder().active(true).mode("arp").build());
+    track.copyParametersFrom(preset);
+    FirmwareFactory.applyModelToLiveSound(track, sound);
+
+    assertFalse(
+        sound.fw2Sound.arpeggiator.resetLockedRandomizerValuesNextTime,
+        "a preset load must clear it — the C's replacement arpeggiator never has it set");
+  }
+
+  @Test
+  void aCopiedClipDoesNotTakeTheSourcesEvolvedOrSavedSequence() {
+    // C instrument_clip.cpp:151 copies a clip's arp with cloneFrom, which carries the params and
+    // no sequences (arpeggiator.cpp:1620-1650) — the new clip keeps its own constructor state. The
+    // copy's ArpModel still carries the source's saved blobs, so the copy must not treat its first
+    // activation as a load of them.
+    SynthTrackModel track = new SynthTrackModel("LEAD");
+    ClipModel a = clipWithSavedArp("a", "0101010101010101010101010101010A");
+    FirmwareSound sound = new FirmwareSound();
+    a.setSound(sound);
+    track.addClip(a);
+
+    ClipModel copy = a.deepCopy("a-copy");
+    copy.setSound(sound);
+    track.addClip(copy);
+    track.setActiveClipIndex(1);
+    FirmwareFactory.applyModelToLiveSound(track, sound);
+
+    byte[] zeros = new byte[Arpeggiator.RANDOMIZER_LOCK_MAX_SAVED_VALUES];
+    assertArrayEquals(
+        zeros,
+        copy.getArpSettings().lockedNoteProbabilityValues,
+        "a copied clip starts from its own constructor state, not the source's saved sequence");
+    assertNotSame(a.getArpSettings(), copy.getArpSettings(), "and it has settings of its own");
+  }
+
+  /**
+   * A clip switch must be atomic against the arp entry points, not merely take their monitor at
+   * some point inside itself.
+   *
+   * <p>Between the repoint and the configure, the settings briefly hold the UNPATCHED defaults
+   * rather than the clip's values. A step landing there would not just play one wrong step: for a
+   * locked clip the momentary {@code noteProbability} mismatch against {@code
+   * lastLockedNoteProbabilityParameterValue} satisfies the second regeneration trigger
+   * (arpeggiator.cpp:929) and refills the ten locked arrays, destroying the evolved sequence.
+   *
+   * <p>A watcher samples under {@code synchronized (arpeggiator)}, exactly as every DSP entry point
+   * does, and records any value that belongs to neither clip. An earlier version of this test
+   * asserted only that the switch BLOCKED, which passed with every lock removed — {@code
+   * configureArp} takes the monitor internally — so it proved nothing.
+   */
+  @Test
+  void aClipSwitchIsAtomicAgainstTheArpEntryPoints() throws Exception {
+    SynthTrackModel track = new SynthTrackModel("LEAD");
+    // Both clips carry the SAME noteProbability, so the only other value the watcher can see is
+    // the UNPATCHED default written mid-switch.
+    ClipModel a = clipWithSavedArp("a", "0101010101010101010101010101010A");
+    ClipModel b = clipWithSavedArp("b", "02020202020202020202020202020202");
+    FirmwareSound sound = new FirmwareSound();
+    a.setSound(sound);
+    b.setSound(sound);
+    track.addClip(a);
+    track.addClip(b);
+    track.setActiveClipIndex(0);
+    FirmwareFactory.applyModelToLiveSound(track, sound);
+    int configured = sound.fw2Sound.arpSettings.noteProbability;
+
+    java.util.concurrent.atomic.AtomicBoolean run =
+        new java.util.concurrent.atomic.AtomicBoolean(true);
+    java.util.concurrent.atomic.AtomicInteger oddSamples =
+        new java.util.concurrent.atomic.AtomicInteger();
+    java.util.concurrent.atomic.AtomicInteger samples =
+        new java.util.concurrent.atomic.AtomicInteger();
+    Thread watcher =
+        new Thread(
+            () -> {
+              while (run.get()) {
+                synchronized (sound.fw2Sound.arpeggiator) {
+                  samples.incrementAndGet();
+                  if (sound.fw2Sound.arpSettings.noteProbability != configured) {
+                    oddSamples.incrementAndGet();
+                  }
+                }
+              }
+            });
+    watcher.start();
+    for (int i = 0; i < 2000; i++) {
+      track.setActiveClipIndex(i % 2);
+    }
+    run.set(false);
+    watcher.join(5000);
+
+    assertTrue(samples.get() > 1000, "the watcher must have sampled, or this test proves nothing");
+    assertEquals(
+        0,
+        oddSamples.get(),
+        "no arp entry point may observe the settings mid-switch; saw "
+            + oddSamples.get()
+            + " of "
+            + samples.get()
+            + " samples holding neither clip's noteProbability");
   }
 
   private static byte[] expand(String hex) {

@@ -314,6 +314,24 @@ public class Arpeggiator {
      * new field cannot be added without being reset here.
      */
     public void resetToDefaults() {
+      resetToDefaultsKeepingNotePattern();
+      generateNewNotePattern(); // C arpeggiator.cpp:69
+    }
+
+    /**
+     * {@link #resetToDefaults()} without the {@code generateNewNotePattern()} the C constructor
+     * ends in — for the one caller that is emulating something the C does not do at all.
+     *
+     * <p>When a sound or kit has no active clip, {@code getArpSettings} returns {@code nullptr}
+     * (melodic_instrument.cpp:675, kit.cpp:795) and there is nothing to reset. This port needs a
+     * real object there, shared across owners, so it clears it when the owner changes — and that
+     * clear must not regenerate the pattern, because generating one draws from the shared CONG
+     * source oscillator start phases also come from. Letting it draw made a render of a kit with no
+     * active clip shift the audio of everything after it, so two renders of the same kit diverged
+     * depending on whether a clip was active. The pattern is only read in PATTERN note mode, which
+     * an OFF arp never reaches.
+     */
+    public void resetToDefaultsKeepingNotePattern() {
       preset = ArpPreset.OFF;
       mode = ArpMode.OFF;
       includeInKitArp = true;
@@ -367,8 +385,6 @@ public class Arpeggiator {
       spreadVelocity = 0;
       spreadGate = 0;
       spreadOctave = 0;
-
-      generateNewNotePattern(); // C arpeggiator.cpp:69
     }
 
     /**

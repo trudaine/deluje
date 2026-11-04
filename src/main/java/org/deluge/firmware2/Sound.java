@@ -770,6 +770,17 @@ public class Sound extends GlobalEffectable {
   public Arpeggiator.Settings arpSettings = new Arpeggiator.Settings();
 
   /**
+   * The no-active-clip settings, kept as its own object so that configuring a sound with no clip
+   * can never write into — or reset — the settings of whichever clip it last played.
+   *
+   * <p>{@link #arpSettings} starts out pointing here. {@code MelodicInstrument::getArpSettings}
+   * returns {@code nullptr} in this case (melodic_instrument.cpp:675), so in the C there is nothing
+   * to write into at all; this port dereferences the field everywhere, so it needs a real object,
+   * and it must not be a clip's.
+   */
+  public final Arpeggiator.Settings noClipArpSettings = arpSettings;
+
+  /**
    * Point this Sound at a clip's settings, the port's spelling of {@code getArpSettings}
    * (melodic_instrument.cpp:667-677). A clip switch is just this — a pointer swap, as in the C — so
    * neither clip's live sequence is disturbed.

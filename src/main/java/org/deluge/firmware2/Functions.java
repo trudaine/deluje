@@ -694,42 +694,6 @@ public final class Functions {
     return val;
   }
 
-  /**
-   * Produce something without advancing the shared noise PRNG — for the few places that must
-   * construct DSP state whose constructor draws from it.
-   *
-   * <p>Not a C function, and deliberately so. The C's {@code getNoise()} is a CONG generator whose
-   * seed is never reset on hardware, so nothing in the firmware depends on HOW MANY values have
-   * been drawn — two boots give different oscillator start phases and different arp note patterns.
-   * This port's source is deterministically seeded ({@link #resetNoiseSeed}) and shared with {@code
-   * Voice}'s oscillator start-phase randomization, so a change in draw COUNT silently moves the
-   * start phase of unrelated voices.
-   *
-   * <p>That matters for {@code ArpeggiatorSettings}, whose constructor ends in {@code
-   * generateNewNotePattern()} (arpeggiator.cpp:69). The C constructs one per clip; doing the same
-   * here would make every rendered oscillator phase in a song depend on how many clips it has,
-   * which the hardware plainly does not. Measured: without this, giving each clip its own settings
-   * shifted four unrelated golden signatures from sample 0.
-   */
-  public static <T> T withoutAdvancingNoise(java.util.function.Supplier<T> work) {
-    int saved = jcongSeed;
-    try {
-      return work.get();
-    } finally {
-      jcongSeed = saved;
-    }
-  }
-
-  /** {@link #withoutAdvancingNoise(java.util.function.Supplier)} for work with no result. */
-  public static void withoutAdvancingNoise(Runnable work) {
-    int saved = jcongSeed;
-    try {
-      work.run();
-    } finally {
-      jcongSeed = saved;
-    }
-  }
-
   // ── Wavefolder (dsp/util.hpp:23-80) ──
 
   /** C: dsp/util.hpp:27 — FOLD_MIN = 0.1 * ONE_Q31. */

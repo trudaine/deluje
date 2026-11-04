@@ -413,12 +413,26 @@ public class FirmwareGoldenSignatureTest {
     // * 0.64: 2026-10-16 C-exact GLOBAL_VOLUME_POST_FX >>2 (patcher.cpp:210-233) evaluates the
     // default user-40 knob (0x4CCCCC48 >> 2 -> 2.56x) instead of clamping at 4.0x (2.56 / 4 =
     // 0.64).
-    assertClose("dx7 peak", 0.019105032086372375 / 4 * 0.64, dx7Peak, 0.10, 0.0005);
-    assertClose("dx7 rms", 0.013321079207954802 / 4 * 0.64, dx7Rms, 0.10, 0.0005);
+    // Re-baselined 2026-11-04 (#170): every ClipModel now constructs its own ArpeggiatorSettings,
+    // as every C InstrumentClip does (instrument_clip.h:103), and that constructor ends in
+    // generateNewNotePattern() (arpeggiator.cpp:69) — PATTERN_MAX_BUFFER_SIZE draws from the
+    // shared CONG stream, which also feeds oscillator start phases. Same class of shift as the
+    // 2026-07-05 note above.
+    //
+    // PROVEN to be only that, not inferred. Burning exactly PATTERN_MAX_BUFFER_SIZE draws in
+    // setUp() on the pre-change tree reproduces EVERY assertion in this class digit for digit —
+    // checked by instrumenting assertClose to print all 40-odd actuals on both trees and diffing
+    // them, not by chasing the ones that happened to fail first (JUnit stops at the first failed
+    // assertion, which masked three of these five in turn). Five needed re-baselining; the rest
+    // sit inside their tolerance. No DSP changed.
+    assertClose("dx7 peak", 0.001974940299987793, dx7Peak, 0.10, 0.0005);
+    // Same CONG shift; was 0.013321079207954802 / 4 * 0.64.
+    assertClose("dx7 rms", 0.0013673218471503513, dx7Rms, 0.10, 0.0005);
     // Updated 2026-06-28: DX7 pitch-envelope rates/levels-swap fix (Dx7Voice.PitchEnv) corrected a
     // spurious +4-octave offset on neutral pitch envelopes, shifting DX7 brightness.
     assertClose("dx7 brightness", 0.03731857465320066, dx7Brightness, 0.10, 0.05);
-    assertClose("dx7 h1", 0.009412460496958971 / 4 * 0.64, dx7H1, 0.10, 0.0005);
+    // Same CONG shift; was 0.009412460496958971 / 4 * 0.64.
+    assertClose("dx7 h1", 9.657445694195553E-4, dx7H1, 0.10, 0.0005);
     assertClose("dx7 h3", 0.000026857 / 4 * 0.64, dx7H3, 0.10, 0.0005);
     assertTrue(dx7H3 > 0.000001 * 0.64, "dx7 patch should stay richer than a pure sine");
   }
@@ -438,12 +452,21 @@ public class FirmwareGoldenSignatureTest {
     double brightness = brightness(xmlFm, from, to);
     // /4: 2026-10-16 C-exact GLOBAL_VOLUME_POST_FX >>2 (sound.cpp:141, 3815; patcher.cpp:210-233).
     assertClose("049 peak", 0.032087833 / 4, peak, 0.10, 0.0005);
-    assertClose("049 rms", 0.017439031 / 4, rms, 0.10, 0.0005);
+    // Re-baselined 2026-11-04 (#170) — the per-clip ArpeggiatorSettings CONG shift; see the note
+    // on "dx7 peak" above. Was 0.017439031 / 4. "049 peak" and the harmonics are unchanged
+    // because the shift sits inside their 10% tolerance; this one does not.
+    assertClose("049 rms", 0.003574162041867265, rms, 0.10, 0.0005);
     assertClose("049 brightness", 0.037263413, brightness, 0.10, 0.0005);
     assertClose("049 h1", 0.000106584 / 4, h1, 0.10, 0.0005);
     assertClose("049 h3", 0.000031248 / 4, h3, 0.10, 0.0005);
     assertClose("049 h5", 0.000008095 / 4, h5, 0.10, 0.0005);
-    assertClose("049 f0", 277.358490566, f0, 0.10, 0.05);
+    // Re-baselined 2026-11-04 (#170), same CONG shift; was 277.358490566. This one is an artifact
+    // of the f0 DETECTOR, not of pitch: a different oscillator start phase changes which partial
+    // dominates, and it picks the sub-octave. It reproduces exactly on the pre-change tree with
+    // nothing but PATTERN_MAX_BUFFER_SIZE extra noise draws, so no pitch changed — but it is a
+    // standing reminder that this detector is not robust to phase (cf. the octave confound in
+    // docs/FIDELITY_GAP_ANALYSIS.md's FM investigation).
+    assertClose("049 f0", 137.38317757009347, f0, 0.10, 0.05);
     assertTrue(h3 > 1e-6, "049 Basic FM should have active FM sidebands");
   }
 }

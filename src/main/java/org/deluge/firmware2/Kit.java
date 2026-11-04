@@ -62,6 +62,15 @@ public class Kit extends GlobalEffectable {
    */
   public Arpeggiator.Settings arpSettings = new Arpeggiator.Settings();
 
+  /**
+   * The no-active-clip settings, kept as its own object so that configuring a kit with no clip can
+   * never write into — or reset — the settings of whichever clip it last played. {@code
+   * Kit::getArpSettings} returns {@code nullptr} in that case (kit.cpp:795), so the C has nothing
+   * to write into; this port dereferences the field, so it needs a real object that is not a
+   * clip's. It also carries the {@code Kit::defaultArpSettings} initializers below.
+   */
+  public final Arpeggiator.Settings noClipArpSettings = arpSettings;
+
   {
     arpSettings.numOctaves = 1; // C kit.cpp:53 — defaultArpSettings.numOctaves = 1
     arpSettings.gate = Integer.MAX_VALUE; // C global_effectable.cpp:69 — UNPATCHED_ARP_GATE = 50

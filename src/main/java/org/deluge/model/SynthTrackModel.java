@@ -766,6 +766,30 @@ public class SynthTrackModel extends TrackModel {
         && now.getSound() instanceof org.deluge.engine.FirmwareSound fs) {
       ArpModel nowArp = now.getArp() != null ? now.getArp() : this.arp;
       if (nowArp != null) {
+        applyClipArpSwitch(fs, now, nowArp);
+      }
+    }
+  }
+
+  /**
+   * The whole clip switch under one lock: repoint, re-derive the params, configure, write the
+   * knobs.
+   *
+   * <p>It has to be atomic. Between the repoint and the configure, the settings briefly hold the
+   * UNPATCHED defaults rather than this clip's values, and a sequencer or audio step landing there
+   * would not merely play one wrong step: for a locked clip the momentary {@code noteProbability}
+   * mismatch against {@code lastLockedNoteProbabilityParameterValue} satisfies the second
+   * regeneration trigger (arpeggiator.cpp:929) and refills the ten locked arrays — destroying the
+   * evolved sequence this whole change exists to preserve.
+   *
+   * <p>Lock order is the one FirmwareFactory.configureArp documents: the FirmwareSound monitor,
+   * then the arpeggiator monitor, and never the reverse. configureArp takes the arpeggiator monitor
+   * again inside, which is reentrant.
+   */
+  private void applyClipArpSwitch(
+      org.deluge.engine.FirmwareSound fs, ClipModel now, ArpModel nowArp) {
+    synchronized (fs) {
+      synchronized (fs.fw2Sound.arpeggiator) {
         // getArpSettings: point the sound at the clip being switched TO before anything writes
         // into the settings (MelodicInstrument::getArpSettings returns &clip->arpSettings,
         // melodic_instrument.cpp:667-677). A pointer swap, as in the C — that clip's evolved note

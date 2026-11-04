@@ -147,31 +147,21 @@ public class ClipModel extends TimelineCounter {
    * <p>Transient: this is the running arp's state, not part of the saved song. What the file
    * carries lives in {@link #arp} and is imposed on this once, at {@link #bindArpSettings}.
    *
-   * <p>Created on first access rather than with the clip, which the C does (the member is by value,
-   * so its constructor runs with the clip's). The reason is a port artifact with no C counterpart:
-   * {@code ArpeggiatorSettings()} ends in {@code generateNewNotePattern()} (arpeggiator.cpp:69),
-   * which draws {@code PATTERN_MAX_BUFFER_SIZE} values from the SHARED noise source this port
-   * reseeds deterministically for golden renders ({@code Functions.getNoise}). Constructing one per
-   * clip eagerly moved that seed for every clip in a song whether or not it ever arpeggiates, which
-   * shifted unrelated golden signatures. Deferring it costs nothing semantically — the C's
-   * observable behaviour is "a clip always has settings at constructor defaults", which this
-   * preserves for anything that looks.
+   * <p>Constructed WITH the clip, as the C does (the member is by value, so its constructor runs
+   * with the clip's). That placement matters beyond faithfulness: {@code ArpeggiatorSettings()}
+   * ends in {@code generateNewNotePattern()} (arpeggiator.cpp:69), which draws from the shared CONG
+   * source this port also uses for oscillator start phases — so building it when the clip is built
+   * keeps those draws out of the render window entirely, where they would otherwise make one render
+   * of a song differ from another depending on how many clips had yet to be bound.
    */
-  private transient org.deluge.firmware2.Arpeggiator.Settings arpSettings;
+  private transient org.deluge.firmware2.Arpeggiator.Settings arpSettings =
+      new org.deluge.firmware2.Arpeggiator.Settings();
 
   /** Whether {@link #arp}'s saved sequences have been imposed on {@link #arpSettings} yet. */
   private transient boolean arpSettingsBound = false;
 
   /** This clip's own arp settings — the C's {@code &clip->arpSettings}. Never null. */
-  public synchronized org.deluge.firmware2.Arpeggiator.Settings getArpSettings() {
-    if (arpSettings == null) {
-      // Without moving the shared noise seed — see Functions.withoutAdvancingNoise. The pattern
-      // the constructor generates is still a random one; what is withheld is letting the NUMBER of
-      // clips in a song change the oscillator start phases of everything that renders.
-      arpSettings =
-          org.deluge.firmware2.Functions.withoutAdvancingNoise(
-              org.deluge.firmware2.Arpeggiator.Settings::new);
-    }
+  public org.deluge.firmware2.Arpeggiator.Settings getArpSettings() {
     return arpSettings;
   }
 
@@ -538,8 +528,13 @@ public class ClipModel extends TimelineCounter {
     copy.arp = this.arp; // ArpModel is immutable
     // NOT copy.arpSettings: C instrument_clip.cpp:151 copies a clip's arp with cloneFrom, which
     // carries the params and leaves the note pattern and locked arrays to the new clip's own
-    // constructor (arpeggiator.cpp:1620-1650). The copy gets its own on first access and takes
-    // the params from `arp` on its first bind, like any other clip.
+    // constructor (arpeggiator.cpp:1620-1650). The copy keeps the fresh Settings its own field
+    // initializer made, and its params come from `arp` on every refresh like any clip's.
+    //
+    // And its one-time sequence load is consumed here, unrestored. `copy.arp` carries the SOURCE
+    // clip's saved hex blobs, so leaving the copy unbound would have its first activation impose
+    // the source's sequence over its own fresh state — the opposite of what cloneFrom does.
+    copy.arpSettingsBound = true;
     copy.bendRange = this.bendRange;
     copy.bendRangeMPE = this.bendRangeMPE;
     copy.midiBank = this.midiBank; // C instrument_clip.cpp:127-129
