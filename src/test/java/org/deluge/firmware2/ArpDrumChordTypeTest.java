@@ -153,6 +153,70 @@ class ArpDrumChordTypeTest {
             + " makes giving every kit drum the drum arp a no-op for existing kits");
   }
 
+  /**
+   * C arpeggiator.cpp:174-177 — {@code ArpeggiatorForDrum::noteOn} copies the MPE values
+   * unconditionally, from an {@code int16_t const*} it dereferences without a null check, so every
+   * C caller passes a real array and a hit with no expression data passes {@code zeroMPEValues =
+   * {0, 0, 0}} (audio_engine.cpp:119). This port passes {@code null} for that case, and {@code
+   * active_note} is one long-lived object, so the previous hit's values used to survive.
+   */
+  @Test
+  void aDrumHitWithNoExpressionDataClearsThePreviousHitsMpeValues() {
+    Sound drum = new Sound();
+    drum.setIsDrum(true);
+    drum.arpSettings.resetToDefaults();
+    drum.arpSettings.mode = ArpMode.OFF;
+
+    Arpeggiator.ArpReturnInstruction in = new Arpeggiator.ArpReturnInstruction();
+    drum.arpeggiator.noteOn(
+        drum.arpSettings, 60, 100, in, Arpeggiator.MIDI_CHANNEL_NONE, new int[] {0, 0, 0x7000});
+    assertEquals(
+        0x7000,
+        drum.drumArp().active_note.mpeValues[2],
+        "the first hit's pressure must land, or this test proves nothing");
+
+    drum.arpeggiator.noteOff(drum.arpSettings, 60, in);
+    // What ClipModel.triggerNote passes for a row with no expression params.
+    drum.arpeggiator.noteOn(drum.arpSettings, 60, 100, in, Arpeggiator.MIDI_CHANNEL_NONE, null);
+    assertEquals(
+        0,
+        drum.drumArp().active_note.mpeValues[2],
+        "a hit with no expression data must zero the values, as zeroMPEValues does in the C");
+  }
+
+  /** The audible half: stale pressure used to set the velocity of every following arp step. */
+  @Test
+  void staleAftertouchDoesNotDriveTheNextDrumArpStepsVelocity() {
+    // C arpeggiator.cpp:788-810 — with mpeVelocity = AFTERTOUCH the step's velocity IS the
+    // pressure, `active_note.mpeValues[Z] >> 8`, floored at MIN_MPE_MODULATED_VELOCITY.
+    Sound drum = new Sound();
+    drum.setIsDrum(true);
+    drum.arpSettings.resetToDefaults();
+    drum.arpSettings.mode = ArpMode.ARP;
+    drum.arpSettings.syncLevel = SyncLevel.SYNC_LEVEL_16TH;
+    drum.arpSettings.syncType = SyncType.EVEN;
+    drum.arpSettings.mpeVelocity = Arpeggiator.ArpMpeModSource.AFTERTOUCH;
+    drum.arpeggiator.playbackClockActive = true;
+    int period = 3 << (9 - SyncLevel.SYNC_LEVEL_16TH.ordinal());
+
+    Arpeggiator.ArpReturnInstruction in = new Arpeggiator.ArpReturnInstruction();
+    drum.arpeggiator.noteOn(
+        drum.arpSettings, 60, 100, in, Arpeggiator.MIDI_CHANNEL_NONE, new int[] {0, 0, 0x7000});
+    drum.doTickForwardForArp(0, false);
+    assertEquals(
+        0x7000 >> 8,
+        drum.drumArp().active_note.velocity,
+        "the pressure must drive the step while the note carrying it is down");
+
+    drum.arpeggiator.noteOff(drum.arpSettings, 60, in);
+    drum.arpeggiator.noteOn(drum.arpSettings, 60, 100, in, Arpeggiator.MIDI_CHANNEL_NONE, null);
+    drum.doTickForwardForArp(period, false);
+    assertEquals(
+        Arpeggiator.MIN_MPE_MODULATED_VELOCITY,
+        drum.drumArp().active_note.velocity,
+        "a hit with no pressure must floor at MIN_MPE_MODULATED_VELOCITY, not inherit 0x70");
+  }
+
   /** One note-on plus two render blocks of a blank drum sound, with the arp off. */
   private static int[] renderDrumHitWith(ArpeggiatorBase arp) {
     Functions.resetNoiseSeed();

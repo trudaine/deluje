@@ -56,11 +56,16 @@ public class ArpeggiatorForDrum extends ArpeggiatorBase {
     for (int n = 0; n < Arpeggiator.ARP_MAX_INSTRUCTION_NOTES; n++) {
       active_note.outputMemberChannel[n] = Arpeggiator.MIDI_CHANNEL_NONE;
     }
-    // C:168-170
-    if (mpeValues != null) {
-      for (int m = 0; m < 3; m++) {
-        active_note.mpeValues[m] = mpeValues[m];
-      }
+    // C:174-177 — the copy is UNCONDITIONAL. `mpeValues` is an `int16_t const*` dereferenced with
+    // no null check, so no C caller can pass null: a hit carrying no expression data passes
+    // zeroMPEValues = {0, 0, 0} (audio_engine.cpp:119, instrument_clip.cpp:4597). This port DOES
+    // pass null for that case (ClipModel.triggerNote, Sound.triggerNote), and active_note is one
+    // long-lived object rather than a per-note one, so skipping the copy left the PREVIOUS hit's
+    // pitch bend and pressure on it — which then drove the next step's velocity whenever
+    // mpeVelocity is not OFF (switchNoteOn below, arpeggiator.cpp:788-810) and reached the voice's
+    // expression sources. Null is the port's spelling of zeroMPEValues, so write the zeros.
+    for (int m = 0; m < 3; m++) {
+      active_note.mpeValues[m] = mpeValues == null ? 0 : mpeValues[m];
     }
 
     // C:173 — if arpeggiator active
