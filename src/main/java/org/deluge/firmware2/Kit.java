@@ -28,6 +28,10 @@ public class Kit extends GlobalEffectable {
   private void ensureBaseDrumCount(int count) {
     while (drums.size() < count) {
       Sound drumSound = new Sound();
+      // Every entry in Kit::drums is a Drum (kit.h:50, a linked list of Drum*), so each slot owns
+      // an ArpeggiatorForDrum (drum.h:67) — set the role before anything reads the arpeggiator,
+      // since that is what installs it.
+      drumSound.setIsDrum(true);
       // The C has no per-arpeggiator copy of this: every arp reads the global
       // playbackHandler.isEitherClockActive() at use time (arpeggiator.cpp:1527). This port caches
       // it, and PlaybackHandler.setArpClockActive only refreshes it on transport start/stop, so a

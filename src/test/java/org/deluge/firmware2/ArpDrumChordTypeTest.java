@@ -78,14 +78,33 @@ class ArpDrumChordTypeTest {
         drum.arpeggiator,
         "a Drum owns an ArpeggiatorForDrum (drum.h:67)");
 
-    // And the kit path, which is how a drum is actually built.
+    // And the kit paths, which are how a drum is actually built. Every entry in Kit::drums is a
+    // Drum (kit.h:50), whether the slot came from the constructor or from a later expansion.
+    Kit baseKit = new Kit();
+    assertInstanceOf(
+        ArpeggiatorForDrum.class,
+        baseKit.drumAt(0).arpeggiator,
+        "a slot the Kit constructor makes is a Drum, so it runs the drum arp");
+    baseKit.ensureDrumCount(baseKit.drums.size() + 1);
+    assertInstanceOf(
+        ArpeggiatorForDrum.class,
+        baseKit.drums.get(baseKit.drums.size() - 1).arpeggiator,
+        "a slot added by expanding the kit is a Drum too");
+    assertInstanceOf(
+        ArpeggiatorKit.class,
+        baseKit.arpeggiator,
+        "the kit's own arp is ArpeggiatorForKit (kit.h:38)");
+
     FirmwareKit kit = new FirmwareKit();
     assertInstanceOf(
         ArpeggiatorForDrum.class,
         kit.drumSounds.get(0).fw2Sound.arpeggiator,
         "every kit slot is a SoundDrum, so every one of them runs the drum arp");
+    kit.ensureDrumCount(kit.drumSounds.size() + 1);
     assertInstanceOf(
-        ArpeggiatorKit.class, kit.arpeggiator, "the kit's own arp is ArpeggiatorForKit (kit.h:38)");
+        ArpeggiatorForDrum.class,
+        kit.drumSounds.get(kit.drumSounds.size() - 1).fw2Sound.arpeggiator,
+        "and so does one added by expanding the kit");
   }
 
   @Test
