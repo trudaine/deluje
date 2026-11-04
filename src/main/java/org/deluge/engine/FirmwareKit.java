@@ -89,14 +89,20 @@ public class FirmwareKit extends org.deluge.firmware2.Kit {
         continue;
       }
       arpSettings.updateParamFromUnpatched(p, auto.currentValue);
-      // GATE and RATE are not read from arpSettings by the kit arp — renderKitArp takes them from
-      // these two knobs (C kit.cpp:722-724 reads them from the unpatched set directly), so an
-      // automated value has to reach them as well.
+      // GATE is not read from arpSettings by the kit arp — renderKitArp takes it from this knob
+      // (C kit.cpp:722 reads it from the unpatched set directly), so the automated value has to
+      // reach the knob as well.
       if (p == org.deluge.firmware2.Param.UNPATCHED_ARP_GATE) {
         arpGateKnob = auto.currentValue;
-      } else if (p == org.deluge.firmware2.Param.UNPATCHED_ARP_RATE) {
-        arpRateKnob = auto.currentValue;
       }
+    }
+    // RATE separately, because UNPATCHED_ARP_RATE (120) is NOT inside the ARP_GATE..SPREAD_VELOCITY
+    // block (101..115) the loop above walks — it sits with the shared unpatched params. The C reads
+    // it from the same unpatched set as the gate (kit.cpp:723).
+    var rateAuto =
+        clipParamManager.getAutomatedParam(org.deluge.firmware2.Param.UNPATCHED_ARP_RATE);
+    if (rateAuto != null && !rateAuto.nodes.isEmpty()) {
+      arpRateKnob = rateAuto.currentValue;
     }
   }
 

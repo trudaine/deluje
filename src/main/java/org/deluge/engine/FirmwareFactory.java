@@ -1287,7 +1287,7 @@ public class FirmwareFactory {
     into.automatedParams.clear();
     int stepTicks = clip.isTripletMode() ? 32 : 24;
     for (java.util.Map.Entry<String, float[]> entry : clip.getAutomationData().entrySet()) {
-      int paramId = getParamIdFromName(entry.getKey());
+      int paramId = kitUnpatchedParamId(entry.getKey());
       if (paramId == -1 || !org.deluge.firmware2.Param.isUnpatched(paramId)) {
         continue;
       }
@@ -1300,7 +1300,7 @@ public class FirmwareFactory {
     }
     for (java.util.Map.Entry<String, java.util.List<org.deluge.modulation.automation.ParamNode>>
         entry : clip.getAutomationCurves().entrySet()) {
-      int paramId = getParamIdFromName(entry.getKey());
+      int paramId = kitUnpatchedParamId(entry.getKey());
       if (paramId == -1 || !org.deluge.firmware2.Param.isUnpatched(paramId)) {
         continue;
       }
@@ -1308,6 +1308,24 @@ public class FirmwareFactory {
         into.recordParamValue(paramId, node.value, node.pos, node.interpolated);
       }
     }
+    // A freshly recorded AutoParam has a zero current value and no slope, so seek to where the
+    // clip actually is — otherwise a live refresh between nodes resets the automated value.
+    clip.seekTimelineParamManagerToCurrentPos();
+  }
+
+  /**
+   * A kit param name to its UNPATCHED id.
+   *
+   * <p>{@link #getParamIdFromName} is shared with the synth path and answers for a VOICE, where the
+   * arp rate is the patched {@code GLOBAL_ARP_RATE} reached through the patcher
+   * (arpeggiator.cpp:1594-1596). A kit has no voice: {@code Kit::setupAndRenderArpPreOutput} reads
+   * its rate from the unpatched set, {@code unpatchedParams->getValue(params::UNPATCHED_ARP_RATE)}
+   * (kit.cpp:723). Without this remap the unpatched filter discarded every kit arp-rate curve,
+   * since GLOBAL_ARP_RATE (54) sits below UNPATCHED_START (90).
+   */
+  private static int kitUnpatchedParamId(String name) {
+    int id = getParamIdFromName(name);
+    return (id == Param.GLOBAL_ARP_RATE) ? Param.UNPATCHED_ARP_RATE : id;
   }
 
   /** The kit clip's arp (C Kit::getArpSettings, kit.cpp:787-797) onto the kit's arpeggiator. */

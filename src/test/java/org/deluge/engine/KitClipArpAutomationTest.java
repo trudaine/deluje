@@ -27,12 +27,15 @@ import org.junit.jupiter.api.Test;
  */
 class KitClipArpAutomationTest {
 
+  private static KitTrackModel lastTrack;
+
   private static final int GATE_AT_START = 0x20000000;
   private static final int GATE_LATER = 0x70000000;
 
   /** A kit track whose single clip automates the arp gate from one value to another. */
   private static ClipModel kitClipWithGateAutomation(FirmwareKit kit) {
     KitTrackModel track = new KitTrackModel("KIT");
+    lastTrack = track;
     ClipModel clip = new ClipModel("c", 8, 16);
     clip.setArpFromXml(
         ArpModel.defaultConfig().toBuilder().active(true).mode("arp").kitArp(1).build());
@@ -79,19 +82,94 @@ class KitClipArpAutomationTest {
   }
 
   @Test
-  void onlyUnpatchedParamsAreRecordedForAKit() {
-    // A kit clip's <kitParams> describes the kit BUS, not a voice, so patched/LOCAL ids have no
-    // meaning here — recording them would put voice automation on a kit's ParamManager.
+  void aKitClipsArpRateCurveIsRecordedAsTheUNPATCHEDRateAndReachesTheArp() {
+    // getParamIdFromName answers for a VOICE, where the arp rate is the patched GLOBAL_ARP_RATE
+    // (54) reached through the patcher. A kit has no voice — Kit::setupAndRenderArpPreOutput reads
+    // its rate from the unpatched set, UNPATCHED_ARP_RATE (120), at kit.cpp:723. Since 54 is below
+    // UNPATCHED_START (90), the unpatched filter discarded every kit rate curve until the kit path
+    // remapped the id.
     FirmwareKit kit = new FirmwareKit();
-    ClipModel clip = kitClipWithGateAutomation(kit);
-    clip.getAutomationCurves()
-        .put("volume", List.of(new ParamNode(0, 0x40000000, false))); // LOCAL_VOLUME, patched
-    FirmwareFactory.syncKitTopLevelParams(new KitTrackModel("KIT"), kit);
+    KitTrackModel track = new KitTrackModel("KIT");
+    ClipModel clip = new ClipModel("c", 8, 16);
+    clip.setArpFromXml(
+        ArpModel.defaultConfig().toBuilder().active(true).mode("arp").kitArp(1).build());
+    clip.getAutomationCurves().put("arpeggiatorRate", List.of(new ParamNode(0, 0x55000000, false)));
+    clip.setSound(kit);
+    track.addClip(clip);
+    track.setActiveClipIndex(0);
+    FirmwareFactory.syncKitTopLevelParams(track, kit);
 
     assertEquals(
         null,
-        clip.getTimelineParamManager().getAutomatedParam(Param.LOCAL_VOLUME),
+        clip.getTimelineParamManager().getAutomatedParam(Param.GLOBAL_ARP_RATE),
+        "a kit rate curve must NOT be recorded under the patched GLOBAL_ARP_RATE id");
+    var rate = clip.getTimelineParamManager().getAutomatedParam(Param.UNPATCHED_ARP_RATE);
+    assertTrue(
+        rate != null && !rate.nodes.isEmpty(),
+        "it must be recorded as UNPATCHED_ARP_RATE, which is what the kit arp reads");
+
+    clip.getTimelineParamManager().processCurrentPos(0, 16 * 24, false, false, true);
+    kit.applyClipArpAutomation();
+    assertEquals(
+        0x55000000,
+        kit.arpRateKnob,
+        "and must reach arpRateKnob — UNPATCHED_ARP_RATE (120) is outside the"
+            + " ARP_GATE..SPREAD_VELOCITY block (101..115), so it needs reading separately");
+  }
+
+  @Test
+  void aLiveRefreshBetweenNodesDoesNotResetTheAutomatedGate() {
+    // A freshly recorded AutoParam starts at a zero current value with no slope, and
+    // SwingKitConfigDialog re-applies the whole kit model at 5 Hz while playing — so without a seek
+    // to the clip's current position an automated gate was knocked back to zero five times a
+    // second. The C never rebuilds a ParamManager, so it has no equivalent step.
+    FirmwareKit kit = new FirmwareKit();
+    ClipModel clip = kitClipWithGateAutomation(kit);
+    KitTrackModel owner = lastTrack;
+
+    // Park the clip BETWEEN the two nodes (0 and 48).
+    clip.getTimelineParamManager().processCurrentPos(0, 16 * 24, false, false, true);
+    clip.getTimelineParamManager().processCurrentPos(24, 16 * 24, false, false, true);
+    kit.applyClipArpAutomation();
+    int gateMidCurve = kit.arpGateKnob;
+    assertNotEquals(0, gateMidCurve, "the gate must be driven mid-curve, or this proves nothing");
+
+    // The 5 Hz live refresh: rebuilds the automation under the playing clip.
+    FirmwareFactory.syncKitTopLevelParams(owner, kit);
+    kit.applyClipArpAutomation();
+
+    assertEquals(
+        gateMidCurve,
+        kit.arpGateKnob,
+        "a live refresh must leave the automated gate where the clip's position puts it");
+  }
+
+  @Test
+  void onlyUnpatchedParamsAreRecordedForAKit() {
+    // A kit clip's <kitParams> describes the kit BUS, not a voice, so patched ids have no meaning
+    // here — recording them would put voice automation on a kit's ParamManager.
+    //
+    // Asserting against the id the mapper ACTUALLY returns: "volume" maps to
+    // GLOBAL_VOLUME_POST_FX (45), not LOCAL_VOLUME. An earlier version of this test asserted
+    // LOCAL_VOLUME was absent and refreshed a brand-new track with no clips, so it passed with the
+    // filtering removed entirely — twice vacuous.
+    FirmwareKit kit = new FirmwareKit();
+    ClipModel clip = kitClipWithGateAutomation(kit);
+    KitTrackModel owner = lastTrack;
+    clip.getAutomationCurves().put("volume", List.of(new ParamNode(0, 0x40000000, false)));
+    FirmwareFactory.syncKitTopLevelParams(owner, kit);
+
+    assertEquals(
+        Param.GLOBAL_VOLUME_POST_FX,
+        FirmwareFactory.getParamIdFromName("volume"),
+        "the mapper must still return the patched id, or this test targets the wrong one");
+    assertEquals(
+        null,
+        clip.getTimelineParamManager().getAutomatedParam(Param.GLOBAL_VOLUME_POST_FX),
         "a patched param must not be recorded onto a kit's ParamManager");
+    assertTrue(
+        clip.getTimelineParamManager().getAutomatedParam(Param.UNPATCHED_ARP_GATE) != null,
+        "while the unpatched one alongside it still is — so the filter is selective, not a no-op");
   }
 
   /**

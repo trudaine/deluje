@@ -392,6 +392,31 @@ public class ClipModel extends TimelineCounter {
   }
 
   /**
+   * Seek {@link #timelineParamManager()} to this clip's current play position.
+   *
+   * <p>Needed after the engine REBUILDS a clip's automation, because a freshly recorded {@code
+   * AutoParam} starts with a zero current value and no interpolation slope: without this, a live
+   * refresh landing between two nodes would reset the automated value until the next node came
+   * round. That is not hypothetical — the kit configuration dialog re-applies the whole kit model
+   * at 5 Hz while playing (SwingKitConfigDialog), so an automated kit arp gate would have been
+   * knocked back to zero five times a second.
+   *
+   * <p>The C never rebuilds: a clip's ParamManager is read once and then only advanced, so it has
+   * no equivalent of this step.
+   */
+  public void seekTimelineParamManagerToCurrentPos() {
+    org.deluge.modulation.params.ParamManager pm = timelineParamManager();
+    if (!pm.mightContainAutomation()) {
+      return;
+    }
+    int len = loopLength > 0 ? loopLength : stepCount * (isTripletMode() ? 32 : 24);
+    if (len <= 0) {
+      return;
+    }
+    pm.setPlayPos(lastProcessedPos, len, currentlyPlayingReversed);
+  }
+
+  /**
    * The ParamManager this clip's automation is advanced on — {@link #timelineParamManager()}, for
    * the engine. For a KIT clip that is the clip's own, which is the C's arrangement: {@code
    * Kit::setupAndRenderArpPreOutput} takes {@code paramManager = getParamManager(song)}, i.e. the
