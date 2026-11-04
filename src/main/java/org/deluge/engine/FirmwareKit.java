@@ -51,6 +51,67 @@ public class FirmwareKit extends org.deluge.firmware2.Kit {
     }
   }
 
+  /**
+   * The active clip's ParamManager, which is where a kit clip's {@code <kitParams>} automation
+   * lives. The C reads the kit's unpatched params straight out of it on every render — {@code
+   * Kit::setupAndRenderArpPreOutput} is handed {@code paramManager = getParamManager(song)} and
+   * calls {@code arpSettings->updateParamsFromUnpatchedParamSet(unpatchedParams)}, then takes the
+   * arp's gate and rate from {@code unpatchedParams->getValue(...)} (kit.cpp:709-724).
+   *
+   * <p>Null until {@link FirmwareFactory#syncKitTopLevelParams} binds it, and null for a kit with
+   * no active clip — which in the C is the {@code getArpSettings() == nullptr} early return
+   * (kit.cpp:711-713).
+   */
+  public transient org.deluge.modulation.params.ParamManager clipParamManager;
+
+  /**
+   * Push the active clip's automated unpatched arp params into {@link #arpSettings} and the arp
+   * knobs, the C's {@code updateParamsFromUnpatchedParamSet} step (kit.cpp:714).
+   *
+   * <p>Without this a {@code <kitParams>} {@code arpeggiatorGate} or {@code arpeggiatorRate} curve
+   * was parsed, stored and advanced on the clip's timeline but never read, so the kit arp ran at
+   * whatever {@code syncKitTopLevelParams} had written at load. The knob fields keep their meaning
+   * as the UNAUTOMATED base, which is how the C treats the unpatched set's own value when nothing
+   * automates it.
+   *
+   * <p>Mirrors FirmwareSound.syncParamsToFw2's loop over the same params, and takes the Kit monitor
+   * because every kit-arp entry point does.
+   */
+  synchronized void applyClipArpAutomation() {
+    if (clipParamManager == null) {
+      return;
+    }
+    for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_GATE;
+        p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
+        p++) {
+      var auto = clipParamManager.getAutomatedParam(p);
+      if (auto == null || auto.nodes.isEmpty()) {
+        continue;
+      }
+      arpSettings.updateParamFromUnpatched(p, auto.currentValue);
+      // GATE and RATE are not read from arpSettings by the kit arp — renderKitArp takes them from
+      // these two knobs (C kit.cpp:722-724 reads them from the unpatched set directly), so an
+      // automated value has to reach them as well.
+      if (p == org.deluge.firmware2.Param.UNPATCHED_ARP_GATE) {
+        arpGateKnob = auto.currentValue;
+      } else if (p == org.deluge.firmware2.Param.UNPATCHED_ARP_RATE) {
+        arpRateKnob = auto.currentValue;
+      }
+    }
+  }
+
+  @Override
+  protected synchronized void renderKitArp(int numSamples) {
+    applyClipArpAutomation(); // C kit.cpp:714 — before the arp renders
+    super.renderKitArp(numSamples);
+  }
+
+  @Override
+  public synchronized int doTickForwardForKitArp(int currentPos, boolean reversed) {
+    applyClipArpAutomation(); // C kit.cpp:1140-1146 — the tick path reads them too
+    return super.doTickForwardForKitArp(currentPos, reversed);
+  }
+
   @Override
   protected void renderInternal(int[] buffer, int numSamples, int[] reverbBuffer) {
     if (muted) {

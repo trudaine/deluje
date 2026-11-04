@@ -391,6 +391,16 @@ public class ClipModel extends TimelineCounter {
     return (sound instanceof org.deluge.engine.FirmwareSound fs) ? fs.paramManager : paramManager;
   }
 
+  /**
+   * The ParamManager this clip's automation is advanced on — {@link #timelineParamManager()}, for
+   * the engine. For a KIT clip that is the clip's own, which is the C's arrangement: {@code
+   * Kit::setupAndRenderArpPreOutput} takes {@code paramManager = getParamManager(song)}, i.e. the
+   * active clip's, and reads the kit's unpatched params from it on every render (kit.cpp:709-724).
+   */
+  public org.deluge.modulation.params.ParamManager getTimelineParamManager() {
+    return timelineParamManager();
+  }
+
   public NoteRowModel getOrCreateRow(int rowIndex) {
     NoteRowModel row = noteRows.computeIfAbsent(rowIndex, idx -> new NoteRowModel(idx));
     row.setOnScheduleInvalidated(this::expectEvent);

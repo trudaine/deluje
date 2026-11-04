@@ -1273,6 +1273,43 @@ public class FirmwareFactory {
     }
   }
 
+  /**
+   * Record a kit clip's own automation curves into its ParamManager, so the kit can read them.
+   *
+   * <p>Only the UNPATCHED params a kit actually has: a kit clip's {@code <kitParams>} describes the
+   * kit bus, not a voice, so the patched/LOCAL ids that a synth clip's {@code <soundParams>} carry
+   * have no meaning here. Re-recording is idempotent per (param, pos) — {@code recordParamValue}
+   * replaces the node at that position — and this runs on the live-refresh path, so the automated
+   * params are cleared first to drop curves the clip no longer has.
+   */
+  private static void recordKitClipAutomation(
+      org.deluge.model.ClipModel clip, org.deluge.modulation.params.ParamManager into) {
+    into.automatedParams.clear();
+    int stepTicks = clip.isTripletMode() ? 32 : 24;
+    for (java.util.Map.Entry<String, float[]> entry : clip.getAutomationData().entrySet()) {
+      int paramId = getParamIdFromName(entry.getKey());
+      if (paramId == -1 || !org.deluge.firmware2.Param.isUnpatched(paramId)) {
+        continue;
+      }
+      float[] array = entry.getValue();
+      for (int step = 0; step < array.length; step++) {
+        if (array[step] > 0.0f) {
+          into.recordParamValue(paramId, (int) (array[step] * 2147483647.0), step * stepTicks);
+        }
+      }
+    }
+    for (java.util.Map.Entry<String, java.util.List<org.deluge.modulation.automation.ParamNode>>
+        entry : clip.getAutomationCurves().entrySet()) {
+      int paramId = getParamIdFromName(entry.getKey());
+      if (paramId == -1 || !org.deluge.firmware2.Param.isUnpatched(paramId)) {
+        continue;
+      }
+      for (org.deluge.modulation.automation.ParamNode node : entry.getValue()) {
+        into.recordParamValue(paramId, node.value, node.pos, node.interpolated);
+      }
+    }
+  }
+
   /** The kit clip's arp (C Kit::getArpSettings, kit.cpp:787-797) onto the kit's arpeggiator. */
   public static void configureKitArp(
       org.deluge.engine.FirmwareKit kit,
@@ -1871,6 +1908,17 @@ public class FirmwareFactory {
     // rendering the kit arp from (see firmware2.Kit.kitInstruction). The C needs no lock because
     // its render and its clip switching share one cooperative loop.
     synchronized (kit) {
+      // Bind the kit to the active clip's ParamManager and record that clip's <kitParams>
+      // automation into it. The C needs no such step because a kit reads its unpatched params from
+      // getParamManager(song) — the active clip's — on every render (kit.cpp:709-724); here the
+      // curves were parsed into ClipModel.getAutomationCurves and advanced on the clip's timeline
+      // (ClipModel.processCurrentPos), but nothing had ever recorded them into a ParamManager for a
+      // kit, so no consumer could see them. The synth path has done this all along for
+      // FirmwareSound.paramManager; this is the kit's equivalent.
+      kit.clipParamManager = (activeClip != null) ? activeClip.getTimelineParamManager() : null;
+      if (activeClip != null && kit.clipParamManager != null) {
+        recordKitClipAutomation(activeClip, kit.clipParamManager);
+      }
       configureKitArp(kit, activeArp, kit.inputTickMagnitude, activeClip);
       Integer clipArpRateQ31 = resolveKitRawQ31(activeClip, model, "arpeggiatorRate");
       kit.arpRateKnob =

@@ -96,6 +96,15 @@ public final class Param {
 
   public static final int UNPATCHED_START = 90;
 
+  /**
+   * Whether {@code paramId} is an UNPATCHED param — C {@code params::UNPATCHED_START}
+   * (param.h:166), where the unpatched ids run from there to the end of the table. Patched/LOCAL
+   * and GLOBAL ids below it describe a voice and have no meaning on a kit's bus.
+   */
+  public static boolean isUnpatched(int paramId) {
+    return paramId >= UNPATCHED_START;
+  }
+
   // Shared
   public static final int UNPATCHED_STUTTER_RATE = 90;
   public static final int UNPATCHED_BASS = 91;
