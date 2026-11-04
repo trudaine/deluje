@@ -6,6 +6,14 @@ import org.deluge.firmware2.Arpeggiator.*;
 public class ArpeggiatorForDrum extends ArpeggiatorBase {
   public int noteForDrum;
 
+  /**
+   * C arpeggiator.h:358 — only the DRUM arpeggiator has this. {@code Kit::noteOnPreKitArp} sets it
+   * on the output drum's own arpeggiator ({@code thisNoteRow->drum->arpeggiator}, kit.cpp:1326,
+   * where {@code Drum::arpeggiator} is statically an {@code ArpeggiatorForDrum}, drum.h:67) and the
+   * two places that read it are both in this class (arpeggiator.cpp:219, :883).
+   */
+  public boolean invertReversedFromKitArp = false;
+
   public ArpeggiatorForDrum() {
     active_note.velocity = 0; // C:73
   }
@@ -28,6 +36,7 @@ public class ArpeggiatorForDrum extends ArpeggiatorBase {
   }
 
   /** C: arpeggiator.cpp:150-216 — noteOn */
+  @Override
   public void noteOn(
       Settings settings,
       int noteCode,
@@ -47,11 +56,16 @@ public class ArpeggiatorForDrum extends ArpeggiatorBase {
     for (int n = 0; n < Arpeggiator.ARP_MAX_INSTRUCTION_NOTES; n++) {
       active_note.outputMemberChannel[n] = Arpeggiator.MIDI_CHANNEL_NONE;
     }
-    // C:168-170
-    if (mpeValues != null) {
-      for (int m = 0; m < 3; m++) {
-        active_note.mpeValues[m] = mpeValues[m];
-      }
+    // C:174-177 — the copy is UNCONDITIONAL. `mpeValues` is an `int16_t const*` dereferenced with
+    // no null check, so no C caller can pass null: a hit carrying no expression data passes
+    // zeroMPEValues = {0, 0, 0} (audio_engine.cpp:119, instrument_clip.cpp:4597). This port DOES
+    // pass null for that case (ClipModel.triggerNote, Sound.triggerNote), and active_note is one
+    // long-lived object rather than a per-note one, so skipping the copy left the PREVIOUS hit's
+    // pitch bend and pressure on it — which then drove the next step's velocity whenever
+    // mpeVelocity is not OFF (switchNoteOn below, arpeggiator.cpp:788-810) and reached the voice's
+    // expression sources. Null is the port's spelling of zeroMPEValues, so write the zeros.
+    for (int m = 0; m < 3; m++) {
+      active_note.mpeValues[m] = mpeValues == null ? 0 : mpeValues[m];
     }
 
     // C:173 — if arpeggiator active
@@ -88,6 +102,7 @@ public class ArpeggiatorForDrum extends ArpeggiatorBase {
   }
 
   /** C: arpeggiator.cpp:218-253 — noteOff */
+  @Override
   public void noteOff(Settings settings, int noteCodePreArp, ArpReturnInstruction instruction) {
     if (settings == null || settings.mode == ArpMode.OFF) {
       instruction.noteCodeOffPostArp[0] = noteCodePreArp;
@@ -126,6 +141,23 @@ public class ArpeggiatorForDrum extends ArpeggiatorBase {
 
     StepResult out = new StepResult();
     executeArpStep(settings, numActiveNotes, isRatchet, maxSequenceLength, rhythm, out);
+
+    // The C's own remedy for this, taken from its sibling one function away: Arpeggiator::
+    // switchNoteOn clamps the same index with `std::clamp<int16_t>(whichNoteCurrentlyOnPostArp, 0,
+    // notes.getNumElements() - 1)` under the comment "Clamp the index to real range"
+    // (arpeggiator.cpp:1301). ArpeggiatorForDrum::switchNoteOn has no such clamp upstream, and it
+    // needs one: calculateNextNoteAndOrOctave sets the index to `numActiveNotes - 2` on an octave
+    // turnaround (arpeggiator.cpp:1131), which is -1 whenever numActiveNotes is 1 — i.e. for
+    // chordTypeIndex NO_CHORD, the default (chordTypeNoteCount[0] == 1, lookuptables.cpp:532).
+    //
+    // In the C that reaches `chordTypeSemitoneOffsets[0][-1]` below, an out-of-bounds read one
+    // byte before the table: undefined behaviour that happens not to crash. Java cannot reproduce
+    // an out-of-bounds read, so this is a DELIBERATE divergence from UB rather than a translation
+    // — without it an ordinary drum arp (chord type NO_CHORD, octave mode ALTERNATE, one octave)
+    // throws ArrayIndexOutOfBoundsException on its second step, on the audio thread. Reported
+    // upstream rather than silently patched; see the test.
+    whichNoteCurrentlyOnPostArp =
+        Math.max(0, Math.min(whichNoteCurrentlyOnPostArp, numActiveNotes - 1));
 
     if (out.shouldCarryOnRhythmNote && out.shouldPlayNote) {
       gateCurrentlyActive = true; // C:780

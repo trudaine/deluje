@@ -113,8 +113,8 @@ class ExpressionSmoothingParityTest {
     // ArpNote MPE values updated in both smooth and immediate paths (sound_instrument.cpp:348-364).
     boolean foundCh2Arp = false;
     boolean foundCh3Arp = false;
-    for (int n = 0; n < sound.arpeggiator.notes.size(); n++) {
-      Arpeggiator.ArpNote arpNote = sound.arpeggiator.notes.get(n);
+    for (int n = 0; n < sound.synthArp().notes.size(); n++) {
+      Arpeggiator.ArpNote arpNote = sound.synthArp().notes.get(n);
       if (arpNote.inputCharacteristics[1] == 2) {
         assertEquals(targetY >> 16, arpNote.mpeValues[1]);
         foundCh2Arp = true;
@@ -192,7 +192,7 @@ class ExpressionSmoothingParityTest {
 
     // Drum FirmwareSound routes expression to drumExpressionEvent (all drum voices + active_note).
     FirmwareSound drum = new FirmwareSound();
-    drum.isDrum = true;
+    drum.setIsDrum(true);
     drum.triggerNote(60, 100, 1);
     drum.mpePressure(0, 90, true);
     Voice drumVoice = drum.fw2Sound.voices.get(0);
@@ -228,7 +228,7 @@ class ExpressionSmoothingParityTest {
     FirmwareKit kit = new FirmwareKit();
     for (int d = 0; d < 4; d++) {
       FirmwareSound drum = new FirmwareSound();
-      drum.isDrum = true;
+      drum.setIsDrum(true);
       kit.drumSounds.add(drum);
     }
     kitClip.setSound(kit);

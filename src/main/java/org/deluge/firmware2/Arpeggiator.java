@@ -20,7 +20,7 @@ public class Arpeggiator {
   public static final int MIN_MPE_MODULATED_VELOCITY = 10;
   public static final int MIDI_CHANNEL_NONE = 255;
   static final int MAX_CHORD_NOTES = 4; // lookuptables.h:140
-  static final int MAX_CHORD_TYPES = 9; // lookuptables.h:139 (NO_CHORD + 8 types)
+  public static final int MAX_CHORD_TYPES = 9; // lookuptables.h:139 (NO_CHORD + 8 types)
 
   /** C: getRandom255() = CONG >> 24 — returns random value in range 0-255. */
   static int getRandom255() {

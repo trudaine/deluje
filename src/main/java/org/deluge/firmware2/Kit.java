@@ -28,6 +28,10 @@ public class Kit extends GlobalEffectable {
   private void ensureBaseDrumCount(int count) {
     while (drums.size() < count) {
       Sound drumSound = new Sound();
+      // Every entry in Kit::drums is a Drum (kit.h:50, a linked list of Drum*), so each slot owns
+      // an ArpeggiatorForDrum (drum.h:67) — set the role before anything reads the arpeggiator,
+      // since that is what installs it.
+      drumSound.setIsDrum(true);
       // The C has no per-arpeggiator copy of this: every arp reads the global
       // playbackHandler.isEitherClockActive() at use time (arpeggiator.cpp:1527). This port caches
       // it, and PlaybackHandler.setArpClockActive only refreshes it on transport start/stop, so a
@@ -98,13 +102,28 @@ public class Kit extends GlobalEffectable {
     }
   }
 
+  /**
+   * C kit.cpp:737, 754, 771, 1171, 1187, 1204, 1326, 1350, 1362, 1373 — {@code
+   * thisNoteRow->drum->arpeggiator.invertReversedFromKitArp}. There {@code Drum::arpeggiator} is
+   * statically an {@code ArpeggiatorForDrum} (drum.h:67), the only class with that field
+   * (arpeggiator.h:358); here {@link Sound#arpeggiator} is base-typed because one Java class serves
+   * both roles, so narrow it. A drum whose role was never set keeps the synth arpeggiator and has
+   * nothing to carry the flag, which is why {@code Sound.setIsDrum} is the only writer of {@code
+   * isDrum}.
+   */
+  protected static void setInvertReversedFromKitArp(Sound drum, boolean invertReversed) {
+    if (drum != null && drum.arpeggiator instanceof ArpeggiatorForDrum drumArp) {
+      drumArp.invertReversedFromKitArp = invertReversed;
+    }
+  }
+
   /** The drum's own note-off (C Drum::noteOff). */
   protected void drumNoteOff(int row) {
     Sound d = drumAt(row);
     if (d != null) {
       // C kit.cpp:737, 754, 1171, 1187, 1349, 1361, 1372 — clear invertReversedFromKitArp on every
       // drum note-off path (bypassed, pass-through, glide-off, and post-arp off).
-      d.arpeggiator.invertReversedFromKitArp = false;
+      setInvertReversedFromKitArp(d, false);
       d.releaseNote(60);
     }
   }
@@ -142,7 +161,7 @@ public class Kit extends GlobalEffectable {
       // play at the arp note's spread-adjusted velocity.
       Sound d = drumAt(outRow);
       if (d != null) {
-        d.arpeggiator.invertReversedFromKitArp = kitInstruction.invertReversed;
+        setInvertReversedFromKitArp(d, kitInstruction.invertReversed);
         drumNoteOn(outRow, kitInstruction.arpNoteOn.velocity, samplesLate);
         kitInstruction.arpNoteOn.noteStatus[0] = Arpeggiator.ArpNoteStatus.PLAYING;
       }
@@ -204,7 +223,7 @@ public class Kit extends GlobalEffectable {
         && drumAt(on.noteCodeOnPostArp[0]) != null) {
       Sound d = drumAt(on.noteCodeOnPostArp[0]);
       // C kit.cpp:771, 1204 — forward the kit arp's invertReversed to the output drum.
-      d.arpeggiator.invertReversedFromKitArp = kitInstruction.invertReversed;
+      setInvertReversedFromKitArp(d, kitInstruction.invertReversed);
       d.pendingSampleSyncLength = kitInstruction.sampleSyncLengthOn;
       drumNoteOn(on.noteCodeOnPostArp[0], on.velocity, 0);
       d.pendingSampleSyncLength = 0;
@@ -243,7 +262,7 @@ public class Kit extends GlobalEffectable {
   public synchronized void releaseAllNotes() {
     arpeggiator.reset();
     for (Sound drum : drums) {
-      drum.arpeggiator.invertReversedFromKitArp = false;
+      setInvertReversedFromKitArp(drum, false);
       drum.releaseAllNotes();
     }
   }

@@ -34,8 +34,7 @@ public class FirmwareKit extends org.deluge.firmware2.Kit {
   public void ensureDrumCount(int count) {
     while (drumSounds.size() < count) {
       FirmwareSound drumSound = new FirmwareSound();
-      drumSound.isDrum = true;
-      drumSound.fw2Sound.isDrum = true;
+      drumSound.setIsDrum(true);
       // A slot added while the transport runs inherits the kit's cached clock state: the C reads
       // playbackHandler.isEitherClockActive() globally (arpeggiator.cpp:1527) while
       // PlaybackHandler.setArpClockActive only refreshes this on transport start/stop.
@@ -99,7 +98,7 @@ public class FirmwareKit extends org.deluge.firmware2.Kit {
   protected void drumNoteOff(int row) {
     if (row >= 0 && row < drumSounds.size()) {
       FirmwareSound drum = drumSounds.get(row);
-      drum.fw2Sound.arpeggiator.invertReversedFromKitArp = false;
+      setInvertReversedFromKitArp(drum.fw2Sound, false);
       drum.releaseNote(60);
     }
   }
@@ -108,7 +107,7 @@ public class FirmwareKit extends org.deluge.firmware2.Kit {
   public synchronized void releaseAllNotes() {
     arpeggiator.reset();
     for (FirmwareSound drum : drumSounds) {
-      drum.fw2Sound.arpeggiator.invertReversedFromKitArp = false;
+      setInvertReversedFromKitArp(drum.fw2Sound, false);
       drum.releaseAllNotes();
     }
   }

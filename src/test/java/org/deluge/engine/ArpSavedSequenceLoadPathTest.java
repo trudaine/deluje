@@ -131,7 +131,7 @@ class ArpSavedSequenceLoadPathTest {
     Thread tickHolder =
         new Thread(
             () -> {
-              synchronized (sound.arpeggiator) {
+              synchronized (sound.fw2Sound.arpeggiator) {
                 holding.countDown();
                 try {
                   release.await(5, java.util.concurrent.TimeUnit.SECONDS);

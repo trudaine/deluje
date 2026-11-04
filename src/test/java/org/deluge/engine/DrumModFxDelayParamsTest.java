@@ -35,7 +35,7 @@ class DrumModFxDelayParamsTest {
     assertEquals(0x20000000, sd.getModFxRateQ31());
 
     FirmwareSound fs = new FirmwareSound();
-    fs.isDrum = true;
+    fs.setIsDrum(true);
     FirmwareFactory.mapDrumToSound(sd, fs, 0, new KitTrackModel("K"));
     fs.syncParamsToFw2();
 

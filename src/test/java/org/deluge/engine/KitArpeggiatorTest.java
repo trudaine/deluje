@@ -159,7 +159,7 @@ class KitArpeggiatorTest {
 
     kit.triggerDrum(0, 100);
     kit.doTickForwardForKitArp(0, false);
-    assertTrue(drum.fw2Sound.arpeggiator.invertReversedFromKitArp);
+    assertTrue(drum.fw2Sound.drumArp().invertReversedFromKitArp);
     assertTrue(drum.fw2Sound.invertReversed, "100% kit reverse XOR 0% drum reverse = reversed");
 
     // Post-arp note-off via render gate expiry clears invertReversedFromKitArp (kit.cpp:737, 754),
@@ -169,7 +169,7 @@ class KitArpeggiatorTest {
     int[] buf = new int[256];
     kit.renderInternal(buf, 128, new int[256]);
     assertFalse(
-        drum.fw2Sound.arpeggiator.invertReversedFromKitArp,
+        drum.fw2Sound.drumArp().invertReversedFromKitArp,
         "post-arp note-off must reset invertReversedFromKitArp");
 
     // 100% kit reverse XOR 100% drum reverse cancels out (1 ^ 1 = forward!).
@@ -177,7 +177,7 @@ class KitArpeggiatorTest {
     drum.syncParamsToFw2();
     int period = 3 << (9 - Arpeggiator.SyncLevel.SYNC_LEVEL_16TH.ordinal());
     kit.doTickForwardForKitArp(period, false);
-    assertTrue(drum.fw2Sound.arpeggiator.invertReversedFromKitArp);
+    assertTrue(drum.fw2Sound.drumArp().invertReversedFromKitArp);
     assertFalse(
         drum.fw2Sound.invertReversed, "100% kit reverse XOR 100% drum reverse must cancel out");
 
@@ -185,7 +185,7 @@ class KitArpeggiatorTest {
     drum.fw2Sound.invertReversed = true;
     kit.releaseAllNotes();
     assertFalse(kit.arpeggiator.hasAnyInputNotesActive());
-    assertFalse(drum.fw2Sound.arpeggiator.invertReversedFromKitArp);
+    assertFalse(drum.fw2Sound.drumArp().invertReversedFromKitArp);
     assertFalse(drum.fw2Sound.invertReversed);
   }
 

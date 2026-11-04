@@ -1657,8 +1657,7 @@ public class ClipModel extends TimelineCounter {
       }
       for (int r = 0; r < kit.drumSounds.size(); r++) {
         org.deluge.engine.FirmwareSound drum = kit.drumSounds.get(r);
-        drum.isDrum = true;
-        drum.fw2Sound.isDrum = true;
+        drum.setIsDrum(true);
         if (!isActiveOnTrack) {
           continue;
         }

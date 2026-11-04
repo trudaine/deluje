@@ -39,9 +39,6 @@ public abstract class ArpeggiatorBase {
 
   public MusicalKey currentKey = new MusicalKey();
   public boolean playbackClockActive = false;
-  // C arpeggiator.h:356 — shared across drum and synth arpeggiators because Java Kit rows use
-  // Sound (ArpeggiatorSynth) as well as ArpeggiatorForDrum.
-  public boolean invertReversedFromKitArp = false;
 
   boolean lastNormalNotePlayedFromNoteProbability = true;
   boolean lastNormalNotePlayedFromBassProbability;
@@ -72,6 +69,19 @@ public abstract class ArpeggiatorBase {
     Arrays.fill(outputMIDIChannelForGlideNoteCurrentlyOnPostArp, Arpeggiator.MIDI_CHANNEL_NONE);
   }
 
+  /** C arpeggiator.h:231-232 — ArpeggiatorBase::noteOn/noteOff are pure virtual. */
+  public abstract void noteOn(
+      Settings settings,
+      int noteCode,
+      int originalVelocity,
+      ArpReturnInstruction instruction,
+      int fromMIDIChannel,
+      int[] mpeValues);
+
+  /** C arpeggiator.h:232 — ArpeggiatorBase::noteOff. */
+  public abstract void noteOff(
+      Settings settings, int noteCodePreArp, ArpReturnInstruction instruction);
+
   public abstract boolean hasAnyInputNotesActive();
 
   /** C arpeggiator.cpp:1474-1476 — ArpeggiatorBase::hasPendingNotes. */
@@ -82,6 +92,49 @@ public abstract class ArpeggiatorBase {
   public abstract void reset();
 
   public abstract ArpType getArpType();
+
+  /**
+   * Bring the per-arpeggiator state that a C preset load would have discarded into line with a
+   * sequence just restored from a file, for a port that reuses the arpeggiator instead of replacing
+   * it.
+   *
+   * <p>The C never has to do this: loading a preset builds a whole new instrument ({@code new
+   * (instrumentMemory) SoundInstrument()}, storage_manager.cpp:635), so the arpeggiator comes with
+   * {@code resetLockedRandomizerValuesNextTime} at its default {@code false} (arpeggiator.h:344)
+   * and its note cursor at 0 (arpeggiator.h:304). This port hot-swaps parameters into the EXISTING
+   * sound, which keeps both:
+   *
+   * <ul>
+   *   <li>a stale {@code resetLockedRandomizerValuesNextTime} — set by every step an UNLOCKED arp
+   *       plays (arpeggiator.cpp:1042) — makes {@code calculateRandomizerAmounts} regenerate all
+   *       ten locked arrays on the next step (:928-999), throwing away the values just restored,
+   *       even though their saved {@code lastLocked*} values match the parameters.
+   *   <li>a stale {@code notesPlayedFromLockedRandomizer} is the cursor the restored arrays are
+   *       READ at (arpeggiator.cpp:1002-1017), so keeping the previous preset's position resumes a
+   *       newly loaded sequence part-way through: with a {@code 01 00 ..} array, a cursor left at 1
+   *       reads the 0 and suppresses the first hit of the preset just loaded.
+   * </ul>
+   *
+   * <p>NOT the rest of the family the C zeroes alongside them (arpeggiator.cpp:691-697: {@code
+   * playedFirstArpeggiatedNoteYet}, {@code notesPlayedFromSequence}/{@code Rhythm}, {@code
+   * whichNoteCurrentlyOnPostArp}, {@code glideOnNextNoteOff}, ...). A fresh C arpeggiator does have
+   * them at their defaults, but it also has NO HELD NOTES — a preset load there replaces the whole
+   * instrument, cutting anything sounding. This port keeps the notes, so zeroing the ones that
+   * track a sounding note would desync note-off handling against notes still down. Only the cursor
+   * into the restored sequence is corrected here; the rest stay with the notes they describe.
+   *
+   * <p>Only for a load. A CLIP SWITCH must not call this: the C keeps the same instrument and so
+   * the same arpeggiator, merely repointing {@code getArpSettings} at another clip's settings
+   * (sound_instrument.cpp:425), so these fields legitimately persist across one.
+   *
+   * <p>{@link ArpeggiatorSynth} extends this with the held-note pattern cache, which only the synth
+   * arp has — {@code ArpeggiatorForDrum::switchNoteOn} never reads {@code notePattern}
+   * (arpeggiator.cpp:790-893), so a drum has nothing further to adopt.
+   */
+  public void adoptRestoredSequence(Settings settings) {
+    resetLockedRandomizerValuesNextTime = false;
+    notesPlayedFromLockedRandomizer = 0;
+  }
 
   protected abstract void switchNoteOn(
       Settings settings, ArpReturnInstruction instruction, boolean isRatchet);

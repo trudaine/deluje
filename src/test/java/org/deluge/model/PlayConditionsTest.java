@@ -831,7 +831,7 @@ class PlayConditionsTest {
     ClipModel kitClip = new ClipModel("kit-drone", 1, 1); // 24 ticks
     org.deluge.engine.FirmwareKit kit = new org.deluge.engine.FirmwareKit();
     CountingLiveSound drum0 = new CountingLiveSound();
-    drum0.isDrum = true;
+    drum0.setIsDrum(true);
     drum0.oscTypes[0] = org.deluge.firmware2.Oscillator.OscType.SQUARE;
     drum0.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_OSC_A_VOLUME] = 0x7FFFFFFF;
     drum0.paramNeutralValues[org.deluge.firmware2.Param.LOCAL_ENV_0_SUSTAIN] = 0x7FFFFFFF;
