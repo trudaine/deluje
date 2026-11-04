@@ -1175,6 +1175,27 @@ public class FirmwareFactory {
       org.deluge.model.ArpModel arp,
       Object owner,
       int loadRevision) {
+    configureArp(sound, arp, owner, loadRevision, /* arpeggiatorSurvivesInC= */ false);
+  }
+
+  /**
+   * As {@link #configureArp(FirmwareSound, org.deluge.model.ArpModel, Object, int)}, with {@code
+   * arpeggiatorSurvivesInC} telling it whether the C would have kept the same {@code Arpeggiator}
+   * object across this transition.
+   *
+   * @param arpeggiatorSurvivesInC {@code true} only for a CLIP SWITCH, where the C keeps the
+   *     instrument and repoints {@code getArpSettings} at another clip's settings
+   *     (sound_instrument.cpp:425), so the arpeggiator's own pending-regeneration flag and cached
+   *     note order legitimately carry over. {@code false} for a load — a C preset load builds a new
+   *     instrument with a new arpeggiator (storage_manager.cpp:635) — and for a drum slot taken by
+   *     a different drum model, which in the C is a new {@code Drum} with a new arpeggiator.
+   */
+  public static void configureArp(
+      org.deluge.engine.FirmwareSound sound,
+      org.deluge.model.ArpModel arp,
+      Object owner,
+      int loadRevision,
+      boolean arpeggiatorSurvivesInC) {
     // The arpeggiator's own monitor, which is what every DSP entry point that reads or regenerates
     // these arrays takes: firmware2.Sound guards doTickForwardForArp (Sound.java:1886), note
     // on/off (:1429, :1465) and render (:1533, :1587) with `synchronized (arpeggiator)`. The live
@@ -1205,6 +1226,16 @@ public class FirmwareFactory {
       configureArpSettings(sound.arpSettings, arp, sound.inputTickMagnitude, activating);
       if (!arp.active()) {
         sound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
+      }
+      // A LOAD also has to clear the per-arpeggiator state a C preset load discards by building a
+      // whole new instrument (storage_manager.cpp:635) — otherwise a stale
+      // resetLockedRandomizerValuesNextTime regenerates the ten arrays just restored on the very
+      // next step (arpeggiator.cpp:928-999, set by every unlocked step at :1042), and a stale
+      // notesByPattern keeps held notes in the previous pattern's order. A CLIP SWITCH must not:
+      // the C keeps the same instrument and the same arpeggiator there, repointing getArpSettings
+      // at another clip's settings (sound_instrument.cpp:425), so that state rightly persists.
+      if (activating && !arpeggiatorSurvivesInC) {
+        sound.arpeggiator.adoptRestoredSequence(sound.arpSettings);
       }
     }
   }

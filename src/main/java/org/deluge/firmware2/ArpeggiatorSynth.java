@@ -58,6 +58,39 @@ public class ArpeggiatorSynth extends ArpeggiatorBase {
     return !notes.isEmpty(); // C:1428-1430
   }
 
+  /**
+   * Bring the per-arpeggiator state that a C preset load would have discarded into line with a
+   * sequence just restored from a file, for a port that reuses the arpeggiator instead of replacing
+   * it.
+   *
+   * <p>The C never has to do this: loading a preset builds a whole new instrument ({@code new
+   * (instrumentMemory) SoundInstrument()}, storage_manager.cpp:635), so the arpeggiator comes with
+   * {@code resetLockedRandomizerValuesNextTime} at its default {@code false} (arpeggiator.h:344)
+   * and an empty {@code notesByPattern} (arpeggiator.cpp:78, emptied at :125). This port hot-swaps
+   * parameters into the EXISTING sound, which keeps both:
+   *
+   * <ul>
+   *   <li>a stale {@code resetLockedRandomizerValuesNextTime} — set by every step an UNLOCKED arp
+   *       plays (arpeggiator.cpp:1042) — makes {@code calculateRandomizerAmounts} regenerate all
+   *       ten locked arrays on the next step (:928-999), throwing away the values just restored,
+   *       even though their saved {@code lastLocked*} values match the parameters.
+   *   <li>a stale {@code notesByPattern} keeps held notes playing in the PREVIOUS pattern's order
+   *       until the held set next changes, so a restored {@code notePattern} has no effect on the
+   *       notes already down. The C's own comment at :463 is that this cache must be rearranged
+   *       whenever the order may have changed.
+   * </ul>
+   *
+   * <p>Only for a load. A CLIP SWITCH must not call this: the C keeps the same instrument and so
+   * the same arpeggiator, merely repointing {@code getArpSettings} at another clip's settings
+   * (sound_instrument.cpp:425), so both fields legitimately persist across one.
+   */
+  public void adoptRestoredSequence(Settings settings) {
+    resetLockedRandomizerValuesNextTime = false;
+    if (hasAnyInputNotesActive()) {
+      rearrangePatternArpNotes(settings);
+    }
+  }
+
   /** C: arpeggiator.cpp:1228-1247 — rearrangePatternArpNotes */
   void rearrangePatternArpNotes(Settings settings) {
     notesByPattern.clear();
