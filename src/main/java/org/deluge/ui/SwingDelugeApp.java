@@ -572,11 +572,25 @@ public class SwingDelugeApp extends JFrame {
     if (!forceRebuild && isFirmwarePlaying() && !engineStructureChanged(model)) {
       return;
     }
+    // Detach the old sounds BEFORE building the replacements. Since #170 a clip owns its
+    // Arpeggiator.Settings and the sound only points at it, so createSong configuring the
+    // replacement sound writes into the very object the OUTGOING sound is still rendering from —
+    // under its own arpeggiator monitor, which is a different lock. A read landing mid-write can
+    // see a parameter briefly mismatched against lastLocked*, satisfy the second regeneration
+    // trigger (arpeggiator.cpp:929) and refill the clip's ten locked arrays, destroying the
+    // evolved sequence. Quiescing first means only one live sound ever reaches a clip's settings.
+    //
+    // This path is only taken for a preset swap while playing, which is already a discontinuity:
+    // its own javadoc notes that skipping the rebuild leaves "all notes garbage".
+    Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
+    if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine quiescing) {
+      quiescing.sounds.clear();
+    }
+
     // Compile DSP engine in-place on the unified model!
     org.deluge.model.ProjectModel project = FirmwareFactory.createSong(model);
 
     // ── Sync Audio Registry ──
-    Object fwEngineObj = bridge.getGlobalObject(BridgeContract.G_FIRMWARE_ENGINE);
     if (fwEngineObj instanceof org.deluge.engine.FirmwareAudioEngine fwEngine) {
       fwEngine.sounds.clear();
       for (int i = 0; i < model.getTracks().size(); i++) {

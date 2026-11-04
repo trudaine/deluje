@@ -59,27 +59,27 @@ class ArpSavedSequenceLoadPathTest {
 
     assertArrayEquals(
         expectedPattern(),
-        sound.arpSettings.notePattern,
+        sound.fw2Sound.arpSettings.notePattern,
         "the synth load path must install the saved note pattern");
     assertEquals(
         4242,
-        sound.arpSettings.lastLockedNoteProbabilityParameterValue,
+        sound.fw2Sound.arpSettings.lastLockedNoteProbabilityParameterValue,
         "and the saved locked randomizer value");
 
     // Now the arp plays and locks new values. Nothing pushes those back to the model, so an
     // ordinary refresh (SwingKitConfigDialog re-applies at 5 Hz) must leave them alone.
-    sound.arpSettings.notePattern[0] = (byte) 0x7B;
-    sound.arpSettings.lastLockedNoteProbabilityParameterValue = 99999;
+    sound.fw2Sound.arpSettings.notePattern[0] = (byte) 0x7B;
+    sound.fw2Sound.arpSettings.lastLockedNoteProbabilityParameterValue = 99999;
 
     FirmwareFactory.applyModelToLiveSound(model, sound);
 
     assertEquals(
         (byte) 0x7B,
-        sound.arpSettings.notePattern[0],
+        sound.fw2Sound.arpSettings.notePattern[0],
         "a live refresh must not re-impose the model's pattern over what the arp locked");
     assertEquals(
         99999,
-        sound.arpSettings.lastLockedNoteProbabilityParameterValue,
+        sound.fw2Sound.arpSettings.lastLockedNoteProbabilityParameterValue,
         "nor reset the locked randomizer value the arp had just chosen");
   }
 
@@ -93,7 +93,8 @@ class ArpSavedSequenceLoadPathTest {
     model.setArp(savedArp());
     FirmwareSound sound = new FirmwareSound();
     FirmwareFactory.applyModelToLiveSound(model, sound);
-    assertArrayEquals(expectedPattern(), sound.arpSettings.notePattern, "preset A must load");
+    assertArrayEquals(
+        expectedPattern(), sound.fw2Sound.arpSettings.notePattern, "preset A must load");
 
     SynthTrackModel presetB = new SynthTrackModel("PresetB");
     String bHex = "01010101010101010101010101010101";
@@ -106,11 +107,11 @@ class ArpSavedSequenceLoadPathTest {
     java.util.Arrays.fill(expectedB, (byte) 1);
     assertArrayEquals(
         expectedB,
-        sound.arpSettings.notePattern,
+        sound.fw2Sound.arpSettings.notePattern,
         "an explicit preset load must re-read the new preset's saved pattern");
     assertEquals(
         777,
-        sound.arpSettings.lastLockedNoteProbabilityParameterValue,
+        sound.fw2Sound.arpSettings.lastLockedNoteProbabilityParameterValue,
         "and its saved locked randomizer value");
   }
 
@@ -168,7 +169,7 @@ class ArpSavedSequenceLoadPathTest {
 
     assertArrayEquals(
         expectedPattern(),
-        sound.arpSettings.notePattern,
+        sound.fw2Sound.arpSettings.notePattern,
         "the sequence still lands once unblocked");
   }
 
@@ -183,25 +184,25 @@ class ArpSavedSequenceLoadPathTest {
 
     assertArrayEquals(
         expectedPattern(),
-        drumSound.arpSettings.notePattern,
+        drumSound.fw2Sound.arpSettings.notePattern,
         "the drum load path must install the saved note pattern");
     assertEquals(
         4242,
-        drumSound.arpSettings.lastLockedNoteProbabilityParameterValue,
+        drumSound.fw2Sound.arpSettings.lastLockedNoteProbabilityParameterValue,
         "and the saved locked randomizer value");
 
-    drumSound.arpSettings.notePattern[0] = (byte) 0x7B;
-    drumSound.arpSettings.lastLockedNoteProbabilityParameterValue = 99999;
+    drumSound.fw2Sound.arpSettings.notePattern[0] = (byte) 0x7B;
+    drumSound.fw2Sound.arpSettings.lastLockedNoteProbabilityParameterValue = 99999;
 
     FirmwareFactory.mapDrumToSound(sd, drumSound, 0, kit);
 
     assertEquals(
         (byte) 0x7B,
-        drumSound.arpSettings.notePattern[0],
+        drumSound.fw2Sound.arpSettings.notePattern[0],
         "a live refresh must not re-impose the model's pattern over what the arp locked");
     assertEquals(
         99999,
-        drumSound.arpSettings.lastLockedNoteProbabilityParameterValue,
+        drumSound.fw2Sound.arpSettings.lastLockedNoteProbabilityParameterValue,
         "nor reset the locked randomizer value the arp had just chosen");
   }
 }

@@ -188,10 +188,10 @@ class ArpRandomizerAndUnpatchedParamsParityTest {
   @Test
   void firmwareSoundSyncsUnpatchedArpParamsAndLiveSyncedTempo() {
     FirmwareSound sound = new FirmwareSound();
-    sound.arpSettings.mode = ArpMode.ARP;
-    sound.arpSettings.syncType = SyncType.EVEN;
-    sound.arpSettings.syncLevel = SyncLevel.SYNC_LEVEL_16TH;
-    sound.arpSettings.gate = 0x3FFFFFFF; // 75% gate set directly on arpSettings
+    sound.fw2Sound.arpSettings.mode = ArpMode.ARP;
+    sound.fw2Sound.arpSettings.syncType = SyncType.EVEN;
+    sound.fw2Sound.arpSettings.syncLevel = SyncLevel.SYNC_LEVEL_16TH;
+    sound.fw2Sound.arpSettings.gate = 0x3FFFFFFF; // 75% gate set directly on arpSettings
     sound.currentBpm = 120.0f;
 
     StereoSample[] buf = new StereoSample[64];
@@ -199,7 +199,7 @@ class ArpRandomizerAndUnpatchedParamsParityTest {
 
     // Unset paramKnobs[101..115] must NOT clobber direct arpSettings edits.
     sound.renderInternal(buf, buf.length, null);
-    assertEquals(0x3FFFFFFF, sound.arpSettings.gate);
+    assertEquals(0x3FFFFFFF, sound.fw2Sound.arpSettings.gate);
     int phaseIncAt120 = sound.fw2Sound.arpPhaseIncrement;
     assertTrue(phaseIncAt120 > 0);
 
@@ -215,13 +215,13 @@ class ArpRandomizerAndUnpatchedParamsParityTest {
     // must override arpSettings.gate because UNSET_ARP_KNOB was replaced with an explicit 0.
     sound.paramKnobs[Param.UNPATCHED_ARP_GATE] = 0;
     sound.renderInternal(buf, buf.length, null);
-    assertEquals(0, sound.arpSettings.gate);
+    assertEquals(0, sound.fw2Sound.arpSettings.gate);
 
     // Live AutoParam automation on UNPATCHED_NOTE_PROBABILITY updates arpSettings.noteProbability.
     sound.paramManager.recordParamValue(Param.UNPATCHED_NOTE_PROBABILITY, 0, 0);
     sound.paramManager.setPlayPos(0, 96, false);
     sound.renderInternal(buf, buf.length, null);
-    assertEquals(0x80000000, sound.arpSettings.noteProbability);
+    assertEquals(0x80000000, sound.fw2Sound.arpSettings.noteProbability);
   }
 
   @Test
@@ -293,12 +293,12 @@ class ArpRandomizerAndUnpatchedParamsParityTest {
     StereoSample[] buf = new StereoSample[16];
     for (int i = 0; i < buf.length; i++) buf[i] = new StereoSample();
     fwSound.renderInternal(buf, buf.length, null);
-    assertEquals(0x10000000, fwSound.arpSettings.gate);
-    assertEquals(0x40000000 + Integer.MIN_VALUE, fwSound.arpSettings.noteProbability);
-    assertEquals(0x20000000 + Integer.MIN_VALUE, fwSound.arpSettings.reverseProbability);
-    assertEquals(0x88000000 + Integer.MIN_VALUE, fwSound.arpSettings.rhythm);
-    assertEquals(0x90000000 + Integer.MIN_VALUE, fwSound.arpSettings.sequenceLength);
-    assertEquals(0xC0000000 + Integer.MIN_VALUE, fwSound.arpSettings.spreadVelocity);
+    assertEquals(0x10000000, fwSound.fw2Sound.arpSettings.gate);
+    assertEquals(0x40000000 + Integer.MIN_VALUE, fwSound.fw2Sound.arpSettings.noteProbability);
+    assertEquals(0x20000000 + Integer.MIN_VALUE, fwSound.fw2Sound.arpSettings.reverseProbability);
+    assertEquals(0x88000000 + Integer.MIN_VALUE, fwSound.fw2Sound.arpSettings.rhythm);
+    assertEquals(0x90000000 + Integer.MIN_VALUE, fwSound.fw2Sound.arpSettings.sequenceLength);
+    assertEquals(0xC0000000 + Integer.MIN_VALUE, fwSound.fw2Sound.arpSettings.spreadVelocity);
 
     // Round-trip through ProjectSerializer and verify non-default unpatched arp knobs persist.
     Path outFile = tempDir.resolve("arp_rand_out.xml");
@@ -318,7 +318,7 @@ class ArpRandomizerAndUnpatchedParamsParityTest {
     SynthTrackModel liveSynth = (SynthTrackModel) songWithEngine.getTracks().get(0);
     FirmwareSound liveSound = (FirmwareSound) liveSynth.getClips().get(0).getSound();
     liveSound.renderInternal(buf, buf.length, null);
-    assertEquals(0x10000000, liveSound.arpSettings.gate);
+    assertEquals(0x10000000, liveSound.fw2Sound.arpSettings.gate);
 
     // Simulate ArpPanel UI edit: setArp updates only the changed UNPATCHED_ARP_GATE knob in
     // rawParamKnobs, leaving the other 5 XML <soundParams> knobs intact.
@@ -327,12 +327,12 @@ class ArpRandomizerAndUnpatchedParamsParityTest {
     int expectedUiGate = DelugeHexMapper.unipolarFloatToQ31Unified(0.75f);
     assertEquals(0x3FFFFFFF, expectedUiGate);
     liveSound.renderInternal(buf, buf.length, null);
-    assertEquals(expectedUiGate, liveSound.arpSettings.gate);
-    assertEquals(0x40000000 + Integer.MIN_VALUE, liveSound.arpSettings.noteProbability);
-    assertEquals(0x20000000 + Integer.MIN_VALUE, liveSound.arpSettings.reverseProbability);
-    assertEquals(0x88000000 + Integer.MIN_VALUE, liveSound.arpSettings.rhythm);
-    assertEquals(0x90000000 + Integer.MIN_VALUE, liveSound.arpSettings.sequenceLength);
-    assertEquals(0xC0000000 + Integer.MIN_VALUE, liveSound.arpSettings.spreadVelocity);
+    assertEquals(expectedUiGate, liveSound.fw2Sound.arpSettings.gate);
+    assertEquals(0x40000000 + Integer.MIN_VALUE, liveSound.fw2Sound.arpSettings.noteProbability);
+    assertEquals(0x20000000 + Integer.MIN_VALUE, liveSound.fw2Sound.arpSettings.reverseProbability);
+    assertEquals(0x88000000 + Integer.MIN_VALUE, liveSound.fw2Sound.arpSettings.rhythm);
+    assertEquals(0x90000000 + Integer.MIN_VALUE, liveSound.fw2Sound.arpSettings.sequenceLength);
+    assertEquals(0xC0000000 + Integer.MIN_VALUE, liveSound.fw2Sound.arpSettings.spreadVelocity);
 
     // Save after UI edit and verify both the edited gate and all 5 untouched <soundParams>
     // fields survive serialization and reload.
@@ -364,7 +364,7 @@ class ArpRandomizerAndUnpatchedParamsParityTest {
     int expectedClip2Gate = DelugeHexMapper.unipolarFloatToQ31Unified(0.25f);
     assertEquals(0xC0000000, expectedClip2Gate);
     liveSound.renderInternal(buf, buf.length, null);
-    assertEquals(expectedClip2Gate, liveSound.arpSettings.gate);
+    assertEquals(expectedClip2Gate, liveSound.fw2Sound.arpSettings.gate);
   }
 
   @Test
@@ -434,20 +434,23 @@ class ArpRandomizerAndUnpatchedParamsParityTest {
     StereoSample[] buf = new StereoSample[16];
     for (int i = 0; i < buf.length; i++) buf[i] = new StereoSample();
     liveSound.renderInternal(buf, buf.length, null);
-    assertEquals(0x20000000, liveSound.arpSettings.gate);
-    assertEquals(0x60000000 + Integer.MIN_VALUE, liveSound.arpSettings.noteProbability);
+    assertEquals(0x20000000, liveSound.fw2Sound.arpSettings.gate);
+    assertEquals(0x60000000 + Integer.MIN_VALUE, liveSound.fw2Sound.arpSettings.noteProbability);
 
     // Switch to Clip 1 (which had NO <arpeggiator> tag): sequenceLength=8, noteProbability=0%,
     // reverseProbability=100% must all apply, and gate resets to 0 (50% duty cycle).
     synth.setActiveClipIndex(1);
     liveSound.renderInternal(buf, buf.length, null);
-    assertEquals(0, liveSound.arpSettings.gate);
+    assertEquals(0, liveSound.fw2Sound.arpSettings.gate);
     assertEquals(
-        8, Functions.computeCurrentValueForUnsignedMenuItem(liveSound.arpSettings.sequenceLength));
-    assertEquals(0, liveSound.arpSettings.noteProbability);
+        8,
+        Functions.computeCurrentValueForUnsignedMenuItem(
+            liveSound.fw2Sound.arpSettings.sequenceLength));
+    assertEquals(0, liveSound.fw2Sound.arpSettings.noteProbability);
     assertEquals(
         50,
-        Functions.computeCurrentValueForUnsignedMenuItem(liveSound.arpSettings.reverseProbability));
+        Functions.computeCurrentValueForUnsignedMenuItem(
+            liveSound.fw2Sound.arpSettings.reverseProbability));
 
     // Save with Clip 0 active again and verify Clip 1's sequenceLength=8 and noteProbability=0%
     // are serialized on the inactive clip without colliding with ArpModel.defaultConfig().

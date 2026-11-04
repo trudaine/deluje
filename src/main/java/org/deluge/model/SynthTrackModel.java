@@ -766,22 +766,57 @@ public class SynthTrackModel extends TrackModel {
         && now.getSound() instanceof org.deluge.engine.FirmwareSound fs) {
       ArpModel nowArp = now.getArp() != null ? now.getArp() : this.arp;
       if (nowArp != null) {
+        applyClipArpSwitch(fs, now, nowArp);
+      }
+    }
+  }
+
+  /**
+   * The whole clip switch under one lock: repoint, re-derive the params, configure, write the
+   * knobs.
+   *
+   * <p>It has to be atomic. Between the repoint and the configure, the settings briefly hold the
+   * UNPATCHED defaults rather than this clip's values, and a sequencer or audio step landing there
+   * would not merely play one wrong step: for a locked clip the momentary {@code noteProbability}
+   * mismatch against {@code lastLockedNoteProbabilityParameterValue} satisfies the second
+   * regeneration trigger (arpeggiator.cpp:929) and refills the ten locked arrays — destroying the
+   * evolved sequence this whole change exists to preserve.
+   *
+   * <p>Lock order is the one FirmwareFactory.configureArp documents: the FirmwareSound monitor,
+   * then the arpeggiator monitor, and never the reverse. configureArp takes the arpeggiator monitor
+   * again inside, which is reentrant.
+   */
+  private void applyClipArpSwitch(
+      org.deluge.engine.FirmwareSound fs, ClipModel now, ArpModel nowArp) {
+    synchronized (fs) {
+      synchronized (fs.fw2Sound.arpeggiator) {
+        // getArpSettings: point the sound at the clip being switched TO before anything writes
+        // into the settings (MelodicInstrument::getArpSettings returns &clip->arpSettings,
+        // melodic_instrument.cpp:667-677). A pointer swap, as in the C — that clip's evolved note
+        // pattern and locked randomizer arrays are already in there and are left exactly as the
+        // arp left them, which is what makes A -> B -> A resume A's sequence. configureArp below
+        // repoints it too; doing it here as well is what keeps the param defaults underneath from
+        // landing on the clip being switched AWAY from.
+        fs.fw2Sound.setArpSettings(now.getArpSettings());
         for (int p = org.deluge.firmware2.Param.UNPATCHED_ARP_GATE;
             p <= org.deluge.firmware2.Param.UNPATCHED_SPREAD_VELOCITY;
             p++) {
-          fs.arpSettings.updateParamFromUnpatched(
+          fs.fw2Sound.arpSettings.updateParamFromUnpatched(
               p, org.deluge.firmware2.Arpeggiator.getUnpatchedArpDefault(p));
         }
         fs.clearUnpatchedArpKnobs();
-        // The clip being switched TO owns the settings now, so its saved note pattern and locked
-        // randomizer sequences are restored — the C just repoints getArpSettings at that clip's
-        // own already-loaded ArpeggiatorSettings (sound_instrument.cpp:425), which this single
-        // shared Settings has to emulate by re-imposing the clip's saved values.
-        // arpeggiatorSurvivesInC: a clip switch keeps the instrument, so the C keeps the same
-        // Arpeggiator and only repoints getArpSettings (sound_instrument.cpp:425) — its pending
-        // randomizer regeneration and cached note order carry over rather than being cleared.
-        org.deluge.engine.FirmwareFactory.configureArp(
-            fs, nowArp, now, arpLoadRevision, /* arpeggiatorSurvivesInC= */ true);
+        // Only the params are re-derived from the model here, which is the set the C's own
+        // cloneFrom carries (arpeggiator.cpp:1620-1650) and the set its per-tick
+        // updateParamsFromUnpatchedParamSet refreshes (sound_instrument.cpp:424). The saved
+        // sequences are NOT re-imposed: this clip bound them once already, and the C keeps the
+        // same Arpeggiator across a clip switch, so its pending randomizer regeneration and cached
+        // note order carry over rather than being cleared.
+        // The track's CURRENT revision, not the 3-arg overload's 0: after a preset load the
+        // sound's recorded revision is nonzero, and passing 0 here made configureArp read an
+        // ordinary clip switch as an instrument load — clearing the pending regeneration and the
+        // locked-sequence cursor, then doing it again on the next refresh when the real revision
+        // came back. A switch bumps no revision, so passing it through means no load is seen.
+        org.deluge.engine.FirmwareFactory.configureArp(fs, nowArp, now, arpLoadRevision);
         fs.paramKnobs[org.deluge.firmware2.Param.UNPATCHED_ARP_GATE] =
             org.deluge.xml.ArpXmlCodec.unpatchedQ31FromArp(
                 nowArp, org.deluge.firmware2.Param.UNPATCHED_ARP_GATE);

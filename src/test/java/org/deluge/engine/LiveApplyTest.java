@@ -104,15 +104,17 @@ public class LiveApplyTest {
     m.setArpRateQ31(0x10000000);
     FirmwareSound sound = build(m);
 
-    assertEquals(org.deluge.firmware2.Arpeggiator.ArpMode.ARP, sound.arpSettings.mode, "arp on");
-    assertEquals(org.deluge.firmware2.Arpeggiator.ArpNoteMode.RANDOM, sound.arpSettings.noteMode);
-    assertEquals(12, sound.arpSettings.sequenceLength);
-    assertEquals(3, sound.arpSettings.chordPolyphony);
+    assertEquals(
+        org.deluge.firmware2.Arpeggiator.ArpMode.ARP, sound.fw2Sound.arpSettings.mode, "arp on");
+    assertEquals(
+        org.deluge.firmware2.Arpeggiator.ArpNoteMode.RANDOM, sound.fw2Sound.arpSettings.noteMode);
+    assertEquals(12, sound.fw2Sound.arpSettings.sequenceLength);
+    assertEquals(3, sound.fw2Sound.arpSettings.chordPolyphony);
     // velSpread 0.5 → user 25 → raw 25 × 85899345 (value_scaling.cpp:18)
-    assertEquals(25 * 85899345, sound.arpSettings.spreadVelocity);
+    assertEquals(25 * 85899345, sound.fw2Sound.arpSettings.spreadVelocity);
     // C value_scaling.cpp:22-33, unpatched_param.cpp:85, arpeggiator.cpp:894-896, 1973:
     // menu 50 -> Q31 0x7FFFFFFF -> + 0x80000000 = 0xFFFFFFFF (hits CONG-free fast path).
-    assertEquals(0xFFFFFFFF, sound.arpSettings.noteProbability);
+    assertEquals(0xFFFFFFFF, sound.fw2Sound.arpSettings.noteProbability);
     // The rate is the GLOBAL_ARP_RATE param (used unsynced, arpeggiator.cpp:1594-1596); a synced
     // arp has no speed multiplier in the C.
     assertEquals(0x10000000, sound.paramKnobs[org.deluge.firmware2.Param.GLOBAL_ARP_RATE]);
@@ -212,6 +214,7 @@ public class LiveApplyTest {
     // 0 makes fw2 Sound recompute the C free-rate increment from GLOBAL_ARP_RATE every block.
     assertEquals(0, sound.fw2Sound.arpPhaseIncrement);
     assertEquals(
-        org.deluge.firmware2.Arpeggiator.SyncLevel.SYNC_LEVEL_NONE, sound.arpSettings.syncLevel);
+        org.deluge.firmware2.Arpeggiator.SyncLevel.SYNC_LEVEL_NONE,
+        sound.fw2Sound.arpSettings.syncLevel);
   }
 }

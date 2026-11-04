@@ -17,9 +17,9 @@ public class ArpParityTest {
   public void heldChordArpeggiates() {
     FirmwareSound sound = new FirmwareSound();
     sound.fw2Sound.polyphonic = org.deluge.firmware2.Sound.PolyphonyMode.MONO;
-    sound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.ARP;
-    sound.arpSettings.numOctaves = 1;
-    sound.arpSettings.gate = 1 << 23; // ~50% duty cycle
+    sound.fw2Sound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.ARP;
+    sound.fw2Sound.arpSettings.numOctaves = 1;
+    sound.fw2Sound.arpSettings.gate = 1 << 23; // ~50% duty cycle
     sound.fw2Sound.arpPhaseIncrement = 16777216; // 2^24 → one arp step every ~256 samples
 
     // Hold a 3-note chord; with arp on these go to the arpeggiator, not straight to voices.

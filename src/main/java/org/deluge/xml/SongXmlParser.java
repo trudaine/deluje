@@ -894,7 +894,10 @@ public class SongXmlParser {
             // C instrument_clip.cpp:2676-2689 — the clip's own arpeggiator (internal syncLevel).
             Element clipArpEl = getFirstChild(clipElem, "arpeggiator");
             if (clipArpEl != null) {
-              clip.setArp(
+              // setArpFromXml, not setArp: this is the clip being READ, which is where the C
+              // fills its own ArpeggiatorSettings from the file (instrument_clip.cpp:2679). The
+              // XML path also must not synthesize rawKitParamHex entries.
+              clip.setArpFromXml(
                   InstrumentXmlParser.parseArpElement(
                       clipArpEl, InstrumentXmlParser.SONG_INPUT_TICK_MAGNITUDE.get(), true));
             }
@@ -1222,7 +1225,10 @@ public class SongXmlParser {
           if (targetTrack instanceof SynthTrackModel stm) {
             Element clipArpEl = getFirstChild(clipElem, "arpeggiator");
             if (clipArpEl != null) {
-              clip.setArp(
+              // setArpFromXml, not setArp: this is the clip being READ, which is where the C
+              // fills its own ArpeggiatorSettings from the file (instrument_clip.cpp:2679). The
+              // XML path also must not synthesize rawKitParamHex entries.
+              clip.setArpFromXml(
                   InstrumentXmlParser.parseArpElement(
                       clipArpEl, InstrumentXmlParser.SONG_INPUT_TICK_MAGNITUDE.get(), true));
             }

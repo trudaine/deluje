@@ -52,7 +52,7 @@ class KitArpeggiatorTest {
 
     @Override
     protected boolean bypassesKitArp(int row) {
-      return !drumSounds.get(row).arpSettings.includeInKitArp;
+      return !drumSounds.get(row).fw2Sound.arpSettings.includeInKitArp;
     }
   }
 
@@ -78,9 +78,9 @@ class KitArpeggiatorTest {
     // drawing zero random bytes on pass-through note-on.
     FirmwareSound configured = new FirmwareSound();
     FirmwareFactory.configureArp(configured, ArpModel.defaultConfig());
-    assertEquals(0xFFFFFFFF, configured.arpSettings.noteProbability);
+    assertEquals(0xFFFFFFFF, configured.fw2Sound.arpSettings.noteProbability);
     RecKit kit = new RecKit();
-    kit.arpSettings.noteProbability = configured.arpSettings.noteProbability;
+    kit.arpSettings.noteProbability = configured.fw2Sound.arpSettings.noteProbability;
     org.deluge.firmware2.Functions.resetNoiseSeed();
     int firstExpectedNoise = org.deluge.firmware2.Functions.getNoise();
     org.deluge.firmware2.Functions.resetNoiseSeed();
@@ -107,7 +107,7 @@ class KitArpeggiatorTest {
     kit.arpSettings.syncLevel = Arpeggiator.SyncLevel.SYNC_LEVEL_16TH;
     kit.arpSettings.syncType = Arpeggiator.SyncType.EVEN;
     kit.arpeggiator.playbackClockActive = true;
-    kit.drumSounds.get(1).arpSettings.includeInKitArp = false; // excluded from kit arp
+    kit.drumSounds.get(1).fw2Sound.arpSettings.includeInKitArp = false; // excluded from kit arp
     int period = 3 << (9 - Arpeggiator.SyncLevel.SYNC_LEVEL_16TH.ordinal());
 
     kit.triggerDrum(0, 100);
@@ -154,7 +154,7 @@ class KitArpeggiatorTest {
     drum.sampleSettings[0].loopMode = Sound.REPEAT_CUT;
     drum.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = 0x7FFFFFFF;
     drum.paramNeutralValues[Param.GLOBAL_VOLUME_POST_FX] = 0x7FFFFFFF;
-    drum.arpSettings.reverseProbability = 0; // 0% drum reverse -> 1 ^ 0 = reversed!
+    drum.fw2Sound.arpSettings.reverseProbability = 0; // 0% drum reverse -> 1 ^ 0 = reversed!
     drum.syncParamsToFw2();
 
     kit.triggerDrum(0, 100);
@@ -173,7 +173,7 @@ class KitArpeggiatorTest {
         "post-arp note-off must reset invertReversedFromKitArp");
 
     // 100% kit reverse XOR 100% drum reverse cancels out (1 ^ 1 = forward!).
-    drum.arpSettings.reverseProbability = 0xFFFFFFFF;
+    drum.fw2Sound.arpSettings.reverseProbability = 0xFFFFFFFF;
     drum.syncParamsToFw2();
     int period = 3 << (9 - Arpeggiator.SyncLevel.SYNC_LEVEL_16TH.ordinal());
     kit.doTickForwardForKitArp(period, false);
@@ -233,8 +233,8 @@ class KitArpeggiatorTest {
     assertEquals(0x12345678, fwKit.arpRateKnob);
     assertEquals(0x20000000, fwKit.arpGateKnob);
     assertEquals(0x80000005 + Integer.MIN_VALUE, fwKit.arpSettings.sequenceLength);
-    assertTrue(fwKit.drumSounds.get(0).arpSettings.includeInKitArp);
-    assertFalse(fwKit.drumSounds.get(1).arpSettings.includeInKitArp);
+    assertTrue(fwKit.drumSounds.get(0).fw2Sound.arpSettings.includeInKitArp);
+    assertFalse(fwKit.drumSounds.get(1).fw2Sound.arpSettings.includeInKitArp);
   }
 
   @Test

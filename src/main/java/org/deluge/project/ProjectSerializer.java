@@ -2412,19 +2412,31 @@ public class ProjectSerializer {
     // C instrument_clip.cpp:2404-2412 — every instrument clip carries its own <arpeggiator>: a
     // clip's arpSettings come only from it (the <sound>'s copy is the instrument's
     // defaultArpSettings, used for new clips). Without it the hardware plays the clip's arp OFF.
+    // The C writes a clip's <arpeggiator> from the clip's OWN live arpSettings
+    // (arpSettings.writeCommonParamsToFile, instrument_clip.cpp:2404-2412) — so the PARAMS come
+    // from the model, which is where this port keeps them, and every SEQUENCE field is snapshotted
+    // from the clip's live Settings by withLiveArpSequences. Serializing the model's sequences
+    // instead wrote whatever the file originally held rather than what the arp had evolved to,
+    // and after a preset hot-swap could write the preset's sequence over the one the clip was
+    // still playing.
     if (track instanceof SynthTrackModel synthTrack) {
-      org.deluge.model.ArpModel clipArp =
+      // A clip with no <arpeggiator> of its own still gets one, as every C clip does; the track's
+      // arp supplies only its PARAMS, which is what such a clip actually runs on (mapModelToSound
+      // passes SynthTrackModel.getArp()).
+      org.deluge.model.ArpModel params =
           clip.getArp() != null ? clip.getArp() : synthTrack.getDefaultArp();
+      org.deluge.model.ArpModel clipArp = clip.withLiveArpSequences(params);
       if (clipArp != null) {
         writeClipArpeggiator(writer, clipArp, currentInputTickMagnitude);
       }
-    } else if (track instanceof KitTrackModel kitTrack) {
-      // Only the clip's own arp: kitTrack.getArp() is a copy of the first parsed clip's (see
+    } else if (track instanceof KitTrackModel) {
+      // No fallback on the kit path: kitTrack.getArp() is a copy of the first parsed clip's (see
       // SongXmlParser), not a kit-level default, so falling back to it wrote a sibling clip's
       // <arpeggiator> into a clip that never had one — baking the inheritance into the file. A kit
       // clip with no tag loads with the arp OFF on hardware (kit.cpp:787-791).
       if (clip.getArp() != null) {
-        writeClipArpeggiator(writer, clip.getArp(), currentInputTickMagnitude);
+        writeClipArpeggiator(
+            writer, clip.withLiveArpSequences(clip.getArp()), currentInputTickMagnitude);
       }
     }
 

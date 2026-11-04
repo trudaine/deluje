@@ -254,7 +254,7 @@ public class PureFirmwareEngine {
           // C getPhaseIncrement (arpeggiator.cpp:1605-1610): TRIPLET multiplies the increment by
           // 3/2 and DOTTED by 2/3, i.e. the period by 2/3 and 3/2.
           quarters *=
-              switch (fsArp.arpSettings.syncType) {
+              switch (fsArp.fw2Sound.arpSettings.syncType) {
                 case TRIPLET -> 2.0 / 3.0;
                 case DOTTED -> 1.5;
                 default -> 1.0;

@@ -350,6 +350,46 @@ public record ArpModel(
       return this;
     }
 
+    /**
+     * Drop the saved note pattern and the ten locked randomizer sequences, keeping every parameter.
+     *
+     * <p>The port's equivalent of what {@code ArpeggiatorSettings::cloneFrom} does NOT carry
+     * (arpeggiator.cpp:1620-1650): the C copies a clip's arp parameters and leaves the new clip's
+     * sequences to its own constructor. Those sequences live in the live {@code
+     * Arpeggiator.Settings} on the C side and get written to file from there, whereas this port
+     * serializes them from here — so a copied clip has to clear them or it would save, and on
+     * reload play, the SOURCE clip's sequence.
+     *
+     * <p>Clearing rather than copying the copy's own freshly generated pattern is a small,
+     * deliberate difference: the C would write the copy's arbitrary new pattern, this writes no
+     * pattern and the reloaded clip generates its own arbitrary one. Both are "an arbitrary pattern
+     * this clip owns"; neither is the source's.
+     */
+    public Builder withoutSavedSequences() {
+      this.notePattern = null;
+      this.lastLockedNoteProb = 0;
+      this.lockedNoteProbArray = null;
+      this.lastLockedBassProb = 0;
+      this.lockedBassProbArray = null;
+      this.lastLockedSwapProb = 0;
+      this.lockedSwapProbArray = null;
+      this.lastLockedGlideProb = 0;
+      this.lockedGlideProbArray = null;
+      this.lastLockedReverseProb = 0;
+      this.lockedReverseProbArray = null;
+      this.lastLockedChordProb = 0;
+      this.lockedChordProbArray = null;
+      this.lastLockedRatchetProb = 0;
+      this.lockedRatchetProbArray = null;
+      this.lastLockedVelocitySpread = 0;
+      this.lockedVelocitySpreadArray = null;
+      this.lastLockedGateSpread = 0;
+      this.lockedGateSpreadArray = null;
+      this.lastLockedOctaveSpread = 0;
+      this.lockedOctaveSpreadArray = null;
+      return this;
+    }
+
     public Builder notePattern(String v) {
       this.notePattern = v;
       return this;

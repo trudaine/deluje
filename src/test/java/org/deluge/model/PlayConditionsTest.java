@@ -1002,7 +1002,7 @@ class PlayConditionsTest {
     // 5. CUT-mode sample with arpeggiator ON stays held into the arpeggiator across wraps.
     ClipModel arpClip = new ClipModel("arp-cut-drone", 1, 1);
     CountingLiveSound arpCutSound = createSampleLiveSound(Sound.REPEAT_CUT, false);
-    arpCutSound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.ARP;
+    arpCutSound.fw2Sound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.ARP;
     arpClip.setSound(arpCutSound);
     NoteRowModel arpRow = arpClip.getOrCreateRow(0);
     arpRow.setPitch(60);

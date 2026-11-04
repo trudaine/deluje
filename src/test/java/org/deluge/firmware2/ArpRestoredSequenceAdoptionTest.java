@@ -83,7 +83,7 @@ class ArpRestoredSequenceAdoptionTest {
 
     // Every step an UNLOCKED arp plays sets the pending-regeneration flag (arpeggiator.cpp:1042).
     // Drive one for real rather than assuming the scenario is reachable.
-    sound.fw2Sound.arpeggiator.calculateRandomizerAmounts(sound.arpSettings);
+    sound.fw2Sound.arpeggiator.calculateRandomizerAmounts(sound.fw2Sound.arpSettings);
     assertTrue(
         sound.fw2Sound.arpeggiator.resetLockedRandomizerValuesNextTime,
         "an unlocked step must leave regeneration pending, or this test proves nothing");
@@ -95,7 +95,7 @@ class ArpRestoredSequenceAdoptionTest {
 
     assertArrayEquals(
         lockBytes(),
-        sound.arpSettings.lockedNoteProbabilityValues,
+        sound.fw2Sound.arpSettings.lockedNoteProbabilityValues,
         "the loaded preset's locked sequence must be in place");
     assertFalse(
         sound.fw2Sound.arpeggiator.resetLockedRandomizerValuesNextTime,
@@ -104,10 +104,10 @@ class ArpRestoredSequenceAdoptionTest {
     // And the next locked step must consume the restored values rather than replace them. With the
     // flag stale this regenerates all ten arrays (arpeggiator.cpp:928-999); the saved lastLocked*
     // values match the parameters, so the flag is the only thing that would trigger it.
-    sound.fw2Sound.arpeggiator.calculateRandomizerAmounts(sound.arpSettings);
+    sound.fw2Sound.arpeggiator.calculateRandomizerAmounts(sound.fw2Sound.arpSettings);
     assertArrayEquals(
         lockBytes(),
-        sound.arpSettings.lockedNoteProbabilityValues,
+        sound.fw2Sound.arpSettings.lockedNoteProbabilityValues,
         "a locked step must consume the restored sequence, not regenerate over it");
   }
 
@@ -191,7 +191,7 @@ class ArpRestoredSequenceAdoptionTest {
     model.addClip(clipB);
     model.setActiveClipIndex(0);
 
-    sound.fw2Sound.arpeggiator.calculateRandomizerAmounts(sound.arpSettings);
+    sound.fw2Sound.arpeggiator.calculateRandomizerAmounts(sound.fw2Sound.arpSettings);
     sound.fw2Sound.arpeggiator.resetLockedRandomizerValuesNextTime = true;
 
     model.setActiveClipIndex(1);
@@ -221,7 +221,7 @@ class ArpRestoredSequenceAdoptionTest {
     Arpeggiator.ArpReturnInstruction instr = new Arpeggiator.ArpReturnInstruction();
     int[] mpe = new int[] {0, 0, 0};
     for (int note : new int[] {60, 64, 67, 72}) {
-      sound.fw2Sound.arpeggiator.noteOn(sound.arpSettings, note, 100, instr, -1, mpe);
+      sound.fw2Sound.arpeggiator.noteOn(sound.fw2Sound.arpSettings, note, 100, instr, -1, mpe);
     }
     assertEquals(4, sound.fw2Sound.synthArp().notesByPattern.size(), "the chord must be held");
     assertEquals(
@@ -246,7 +246,9 @@ class ArpRestoredSequenceAdoptionTest {
       identity[i] = (byte) i;
     }
     assertArrayEquals(
-        identity, sound.arpSettings.notePattern, "the new preset's pattern must be in place");
+        identity,
+        sound.fw2Sound.arpSettings.notePattern,
+        "the new preset's pattern must be in place");
     assertEquals(
         60,
         sound.fw2Sound.synthArp().notesByPattern.get(0).noteCode,

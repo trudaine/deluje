@@ -654,11 +654,9 @@ public class FirmwareFactory {
     // Arpeggiator. GLOBAL_ARP_RATE is a patched param (sound.cpp:155, :4040) that sets an unsynced
     // arp's speed; it was parsed but never reached the sound, which ran at the neutral 0.
     sound.paramKnobs[Param.GLOBAL_ARP_RATE] = model.getArpRateQ31();
-    // The owner is the active clip, matching the per-clip settings a synth's getArpSettings hands
-    // back (sound_instrument.cpp:425) — so this restores the saved sequence on a load and the clip
-    // switch in SynthTrackModel restores it again for the clip switched to, while neither repeats
-    // on the live refreshes that also come through here. A track with no clips has no active clip,
-    // so it owns its settings itself rather than falling to null, which would never restore.
+    // The owner is the active clip, whose own Settings the sound is pointed at — the C's
+    // getArpSettings (melodic_instrument.cpp:667-677). A track with no clips has no active clip, so
+    // it owns the fallback settings itself rather than falling to null, which would never bind.
     Object arpOwner = model.getActiveClip() != null ? model.getActiveClip() : model;
     configureArp(sound, model.getArp(), arpOwner, model.getArpLoadRevision());
 
@@ -1149,14 +1147,19 @@ public class FirmwareFactory {
   }
 
   /**
-   * As {@link #configureArp(FirmwareSound, org.deluge.model.ArpModel)}, but additionally restores
-   * the saved note pattern and locked randomizer sequences when {@code owner} differs from the one
-   * {@code sound.arpSettings} already holds — i.e. on a fresh load or a clip switch, which is where
-   * the C fills them (sound_drum.cpp:149 for a drum; the per-clip settings a synth switches between
-   * at sound_instrument.cpp:425). Pass {@code null} to skip the restore entirely.
+   * As {@link #configureArp(FirmwareSound, org.deluge.model.ArpModel)}, but also points the sound
+   * at the owner's settings and imposes the owner's saved sequences the first time.
    *
-   * @param owner the {@code ClipModel} (synth) or {@code SoundDrum} (drum) these settings belong to
-   *     — see {@link FirmwareSound#arpSettingsOwner}
+   * <p>This is the port's {@code getArpSettings}. For a {@code ClipModel} owner it repoints {@link
+   * org.deluge.firmware2.Sound#arpSettings} at {@code clip.getArpSettings()}, exactly as {@code
+   * MelodicInstrument::getArpSettings} returns {@code &clip->arpSettings}
+   * (melodic_instrument.cpp:667-677) — so a clip switch is a pointer swap and neither clip's
+   * evolved note pattern or locked randomizer arrays is disturbed. A DRUM owner is the exception
+   * the C makes too: {@code SoundDrum::getArpSettings} ignores the clip and returns the Drum's own
+   * {@code arpSettings} (sound_drum.h:66, drum.h:68), so a drum stays on the settings it has.
+   *
+   * @param owner the {@code ClipModel} (synth) or {@code SoundDrum} model (drum) these settings
+   *     belong to, or {@code null} to leave the sound on its no-clip fallback and skip the restore
    */
   public static void configureArp(
       org.deluge.engine.FirmwareSound sound, org.deluge.model.ArpModel arp, Object owner) {
@@ -1165,55 +1168,79 @@ public class FirmwareFactory {
 
   /**
    * As {@link #configureArp(FirmwareSound, org.deluge.model.ArpModel, Object)}, with a load
-   * revision folded into the identity that gates the restore, for the synth path — where an
-   * explicit preset load replaces the arp wholesale while keeping the same track and clip objects,
-   * so owner identity alone cannot see it (see {@link
-   * org.deluge.model.SynthTrackModel#getArpLoadRevision}).
+   * revision that re-imposes the saved sequences on the NO-CLIP fallback settings.
+   *
+   * <p>The C makes exactly this distinction, and it is why the revision applies to one path and not
+   * the other. The fallback stands in for the instrument's own {@code defaultArpSettings}, which
+   * {@code Sound::readFromFile} fills straight from the preset file (sound_instrument.cpp:85) — and
+   * that goes through {@code readCommonTagsFromFile}, so the preset's locked arrays and note
+   * pattern DO land in it. A clip's settings are different: they only ever receive a preset through
+   * {@code arpSettings.cloneFrom(&defaultArpSettings)} (instrument_clip.cpp:2312), which carries
+   * the params and drops the sequences (arpeggiator.cpp:1620-1650). So a preset hot-swap reloads
+   * the instrument-level sequences and leaves a clip's evolved ones alone.
+   *
+   * @param loadRevision see {@link org.deluge.model.SynthTrackModel#getArpLoadRevision} — ignored
+   *     for a {@code ClipModel} owner, whose settings are bound once when the clip is read
    */
   public static void configureArp(
       org.deluge.engine.FirmwareSound sound,
       org.deluge.model.ArpModel arp,
       Object owner,
       int loadRevision) {
-    configureArp(sound, arp, owner, loadRevision, /* arpeggiatorSurvivesInC= */ false);
-  }
-
-  /**
-   * As {@link #configureArp(FirmwareSound, org.deluge.model.ArpModel, Object, int)}, with {@code
-   * arpeggiatorSurvivesInC} telling it whether the C would have kept the same {@code Arpeggiator}
-   * object across this transition.
-   *
-   * @param arpeggiatorSurvivesInC {@code true} only for a CLIP SWITCH, where the C keeps the
-   *     instrument and repoints {@code getArpSettings} at another clip's settings
-   *     (sound_instrument.cpp:425), so the arpeggiator's own pending-regeneration flag and cached
-   *     note order legitimately carry over. {@code false} for a load — a C preset load builds a new
-   *     instrument with a new arpeggiator (storage_manager.cpp:635) — and for a drum slot taken by
-   *     a different drum model, which in the C is a new {@code Drum} with a new arpeggiator.
-   */
-  public static void configureArp(
-      org.deluge.engine.FirmwareSound sound,
-      org.deluge.model.ArpModel arp,
-      Object owner,
-      int loadRevision,
-      boolean arpeggiatorSurvivesInC) {
     // The arpeggiator's own monitor, which is what every DSP entry point that reads or regenerates
-    // these arrays takes: firmware2.Sound guards doTickForwardForArp (Sound.java:1886), note
-    // on/off (:1429, :1465) and render (:1533, :1587) with `synchronized (arpeggiator)`. The live
-    // mapping that reaches here holds the FirmwareSound monitor instead, which is a DIFFERENT lock,
-    // so without this a sequencer tick could read a half-decoded sequence — eleven 16-byte arrays
-    // are restored one byte at a time. One-way ordering: callers take the sound monitor then this
-    // one, and nothing in firmware2.Sound reaches back out to the FirmwareSound monitor.
+    // these arrays takes: firmware2.Sound guards doTickForwardForArp, note on/off and render with
+    // `synchronized (arpeggiator)`. The live mapping that reaches here holds the FirmwareSound
+    // monitor instead, which is a DIFFERENT lock, so without this a sequencer tick could read a
+    // half-decoded sequence — eleven 16-byte arrays are restored one byte at a time — or, now,
+    // step against a settings object being swapped out from under it. One-way ordering: callers
+    // take the sound monitor then this one, and nothing in firmware2.Sound reaches back out to the
+    // FirmwareSound monitor.
     synchronized (sound.fw2Sound.arpeggiator) {
-      boolean activating =
-          owner != null
-              && (sound.arpSettingsOwner != owner
-                  || sound.arpSettingsOwnerLoadRevision != loadRevision);
-      if (activating) {
+      // A clip's saved sequences are imposed exactly ONCE, which is where the C fills them:
+      // arpSettings.readCommonTagsFromFile when the clip is read (instrument_clip.cpp:2679), and
+      // Sound::readFromFile into the Drum's own settings for a drum (sound_drum.cpp:149). Every
+      // later transition in the C either repoints a pointer (a clip switch) or goes through
+      // ArpeggiatorSettings::cloneFrom, which carries the params but NOT notePattern, the ten
+      // locked arrays or the ten lastLocked* scalars (arpeggiator.cpp:1620-1650) — so a preset
+      // hot-swap and a clip-to-clip copy both leave the clip's evolved sequence alone.
+      // Two independent questions, which an earlier shape of this conflated:
+      //   1. does the MODEL's saved sequence have to be imposed on these settings? (firstBind)
+      //   2. did the C just build a NEW ARPEGGIATOR? (instrumentLoad)
+      // A preset load answers yes to (2) whoever owns the settings — the C replaces the whole
+      // instrument, arpeggiator included (storage_manager.cpp:635) — while answering no to (1)
+      // for a clip, because cloneFrom carries no sequences (arpeggiator.cpp:1620-1650). Deciding
+      // (2) from (1) left a clip's pending regeneration set across a preset load, so the next
+      // locked step regenerated over the very arrays the clip had evolved.
+      boolean instrumentLoad = owner != null && sound.arpSettingsOwnerLoadRevision != loadRevision;
+      sound.arpSettingsOwnerLoadRevision = loadRevision;
+      boolean firstBind;
+      if (owner instanceof org.deluge.model.ClipModel clip) {
+        sound.fw2Sound.setArpSettings(clip.getArpSettings());
         sound.arpSettingsOwner = owner;
-        sound.arpSettingsOwnerLoadRevision = loadRevision;
+        firstBind = clip.bindArpSettings();
+      } else {
+        // No clip owns these settings, so go back to the sound's own no-clip object before writing
+        // anything: leaving the pointer on the clip it last played would reset that clip's live
+        // sequence (the C has no such hazard — getArpSettings simply returns nullptr,
+        // melodic_instrument.cpp:675).
+        sound.fw2Sound.setArpSettings(sound.fw2Sound.noClipArpSettings);
+        boolean ownerChanged = owner != null && sound.arpSettingsOwner != owner;
+        if (ownerChanged) {
+          // The shared no-clip object is cleared when the OWNER changes, but not on a mere
+          // load-revision bump into the same owner, where the point is to re-read the preset's
+          // sequences rather than discard them.
+          sound.fw2Sound.arpSettings.resetToDefaultsKeepingNotePattern();
+          sound.arpSettingsOwner = owner;
+        }
+        // The fallback stands in for the instrument's own defaultArpSettings, which
+        // Sound::readFromFile fills from the preset file including its sequences
+        // (sound_instrument.cpp:85 -> readCommonTagsFromFile) — so unlike a clip's, these DO
+        // reload on a preset load.
+        firstBind = ownerChanged || instrumentLoad;
       }
+      org.deluge.firmware2.Arpeggiator.Settings settings = sound.fw2Sound.arpSettings;
       if (arp == null) {
-        sound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
+        settings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
         return;
       }
       // syncLevel here is a note-division denominator (1=whole, 4=quarter, 16=16th); default 16th.
@@ -1223,19 +1250,25 @@ public class FirmwareFactory {
       // A synced arp's speed is the sync level alone: the C getPhaseIncrement ignores the rate
       // param when synced (arpeggiator.cpp:1597-1610). The rate is GLOBAL_ARP_RATE, used unsynced.
       sound.arpRateMultiplier = 1.0f;
-      configureArpSettings(sound.arpSettings, arp, sound.inputTickMagnitude, activating);
+      configureArpSettings(settings, arp, sound.inputTickMagnitude, firstBind);
       if (!arp.active()) {
-        sound.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
+        settings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
       }
-      // A LOAD also has to clear the per-arpeggiator state a C preset load discards by building a
-      // whole new instrument (storage_manager.cpp:635) — otherwise a stale
-      // resetLockedRandomizerValuesNextTime regenerates the ten arrays just restored on the very
+      // An INSTRUMENT-LEVEL load also has to clear the per-arpeggiator state a C load discards by
+      // building a whole new instrument (storage_manager.cpp:635) — otherwise a stale
+      // resetLockedRandomizerValuesNextTime regenerates the ten arrays just imposed on the very
       // next step (arpeggiator.cpp:928-999, set by every unlocked step at :1042), and a stale
-      // notesByPattern keeps held notes in the previous pattern's order. A CLIP SWITCH must not:
-      // the C keeps the same instrument and the same arpeggiator there, repointing getArpSettings
-      // at another clip's settings (sound_instrument.cpp:425), so that state rightly persists.
-      if (activating && !arpeggiatorSurvivesInC) {
-        sound.fw2Sound.arpeggiator.adoptRestoredSequence(sound.arpSettings);
+      // notesByPattern keeps held notes in the previous pattern's order.
+      //
+      // Keyed on the instrument load, NOT on firstBind, and not excluded for a clip: the C's new
+      // arpeggiator arrives with that state clear whichever settings it is pointed at. A plain
+      // CLIP SWITCH is excluded because it bumps no revision — there the C keeps the same
+      // Arpeggiator and merely repoints getArpSettings (melodic_instrument.cpp:667-677), so its
+      // pending regeneration and cached note order legitimately persist. A first bind of the
+      // fallback is included because that is a sequence arriving from the model onto settings an
+      // arpeggiator may already be mid-step on.
+      if (instrumentLoad || (firstBind && !(owner instanceof org.deluge.model.ClipModel))) {
+        sound.fw2Sound.arpeggiator.adoptRestoredSequence(settings);
       }
     }
   }
@@ -1246,30 +1279,43 @@ public class FirmwareFactory {
       org.deluge.model.ArpModel arp,
       int inputTickMagnitude,
       Object owningClip) {
-    // Each C clip owns its ArpeggiatorSettings and Kit::getArpSettings just points at the active
-    // one (kit.cpp:787-797), so a clip switch can never inherit the previous clip's state. This
-    // port shares one Settings per kit, so reset it when the pointed-at clip changes: a clip whose
-    // XML omits <arpeggiator> used to keep the previous clip's randomizer values, and a leftover
-    // noteProbability of 0 silenced every drum (measured: 0 active voices on the next hit).
+    // Kit::getArpSettings just points at the active clip's own ArpeggiatorSettings
+    // (kit.cpp:787-797), every InstrumentClip owning one by value (instrument_clip.h:103) — so
+    // point at it, and a clip switch can neither inherit nor destroy the other clip's state.
     //
-    // Only on a change, though. The C runs that constructor once per clip, never again, and this
-    // is also the ordinary live-param-refresh path — SwingKitConfigDialog re-applies the whole kit
-    // model at 5 Hz (SwingKitConfigDialog.java:90). Resetting every time re-randomized the note
-    // pattern and wiped the locked randomizer arrays five times a second, and each
-    // generateNewNotePattern() also drew 32 bytes from the shared noise seed.
-    boolean activating = kit.arpOwningClip != owningClip;
-    if (activating) {
-      kit.arpOwningClip = owningClip;
-      kit.arpSettings.resetToDefaults();
+    // This replaces a resetToDefaults() on every clip change, which was the previous way of
+    // emulating per-clip settings out of one shared object. That reset was needed because a clip
+    // whose XML omits <arpeggiator> would otherwise keep the previous clip's randomizer values,
+    // and a leftover noteProbability of 0 silenced every drum; a clip with its own Settings at
+    // constructor defaults has that for free, and without the reset's generateNewNotePattern()
+    // draw from the shared noise seed on each switch.
+    boolean firstBind;
+    if (owningClip instanceof org.deluge.model.ClipModel clip) {
+      kit.setArpSettings(clip.getArpSettings());
+      firstBind = clip.bindArpSettings();
+    } else {
+      // As on the synth path: back to the kit's own no-clip settings before writing anything, so a
+      // clipless configuration cannot reset the live sequence of the clip it last played.
+      kit.setArpSettings(kit.noClipArpSettings);
+      firstBind = kit.arpOwningClip != owningClip;
+      if (firstBind) {
+        kit.arpOwningClip = owningClip;
+        // The no-clip object is shared across owners, so clear it when the owner changes rather
+        // than let one owner's randomizer state reach the next — the leak #138 fixed, where a
+        // leftover noteProbability of 0 silenced every drum. Keeping the note pattern is
+        // deliberate; see Settings.resetToDefaultsKeepingNotePattern.
+        kit.arpSettings.resetToDefaultsKeepingNotePattern();
+      }
     }
+    org.deluge.firmware2.Arpeggiator.Settings settings = kit.arpSettings;
     if (arp == null) {
-      kit.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
-      kit.arpSettings.numOctaves = 1; // C kit.cpp:53 — defaultArpSettings.numOctaves = 1
+      settings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
+      settings.numOctaves = 1; // C kit.cpp:53 — defaultArpSettings.numOctaves = 1
       return;
     }
-    configureArpSettings(kit.arpSettings, arp, inputTickMagnitude, activating);
+    configureArpSettings(settings, arp, inputTickMagnitude, firstBind);
     if (!arp.active()) {
-      kit.arpSettings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
+      settings.mode = org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
     }
   }
 
@@ -1305,6 +1351,18 @@ public class FirmwareFactory {
    * the serializers but never reached {@code Settings}, so a locked arp regenerated its sequence on
    * every load and PATTERN note mode always played a freshly randomized order.
    */
+  /**
+   * Impose a clip's saved note pattern and locked randomizer sequences on its own settings, which
+   * the C does when the CLIP is read — {@code arpSettings.readCommonTagsFromFile}
+   * (instrument_clip.cpp:2679) — not when the clip becomes active. Binding at read time is what
+   * makes a later clip switch a pure pointer swap, with no arpeggiator state cleared.
+   */
+  public static void bindClipArpSettingsFromFile(org.deluge.model.ClipModel clip) {
+    if (clip.getArp() != null && clip.bindArpSettings()) {
+      restoreArpSavedSequences(clip.getArpSettings(), clip.getArp());
+    }
+  }
+
   private static void restoreArpSavedSequences(
       org.deluge.firmware2.Arpeggiator.Settings s, org.deluge.model.ArpModel arp) {
     readHexBytesInto(arp.notePattern(), s.notePattern);
