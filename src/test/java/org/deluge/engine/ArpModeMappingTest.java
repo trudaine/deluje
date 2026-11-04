@@ -24,7 +24,7 @@ class ArpModeMappingTest {
     ProjectModel project = new ProjectModel();
     project.addTrack(synth);
     FirmwareFactory.createSong(project);
-    return ((FirmwareSound) synth.getClips().get(0).getSound()).arpSettings;
+    return ((FirmwareSound) synth.getClips().get(0).getSound()).fw2Sound.arpSettings;
   }
 
   private static ArpModel on() {

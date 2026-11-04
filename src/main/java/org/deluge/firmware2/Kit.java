@@ -50,11 +50,33 @@ public class Kit extends GlobalEffectable {
   // Kit::getArpSettings kit.cpp:787-797) ──
   public final ArpeggiatorKit arpeggiator = new ArpeggiatorKit();
 
-  public final Arpeggiator.Settings arpSettings = new Arpeggiator.Settings();
+  /**
+   * The settings this Kit's arp is currently driven by — a REFERENCE to the active clip's, not one
+   * of its own. {@code Kit::getArpSettings} returns {@code &clip->arpSettings}, else the active
+   * clip's, else {@code nullptr} (kit.cpp:787-797), and every {@code InstrumentClip} owns one by
+   * value (instrument_clip.h:103). A clip switch is therefore a pointer swap, which is what keeps
+   * each clip's evolved note pattern and locked randomizer arrays its own.
+   *
+   * <p>The object constructed here is the no-active-clip fallback, standing in for the C's {@code
+   * nullptr}, and it carries the {@code Kit::defaultArpSettings} initializers below.
+   */
+  public Arpeggiator.Settings arpSettings = new Arpeggiator.Settings();
 
   {
     arpSettings.numOctaves = 1; // C kit.cpp:53 — defaultArpSettings.numOctaves = 1
     arpSettings.gate = Integer.MAX_VALUE; // C global_effectable.cpp:69 — UNPATCHED_ARP_GATE = 50
+  }
+
+  /**
+   * Point this Kit's arp at a clip's settings — the port's spelling of {@code Kit::getArpSettings}
+   * (kit.cpp:787-797). Synchronized on the Kit for the reason {@link #kitInstruction} documents:
+   * the three kit-arp entry points run on three different threads here, and swapping the reference
+   * under one of them would finish a step against another clip's sequence.
+   */
+  public synchronized void setArpSettings(Arpeggiator.Settings settings) {
+    if (settings != null) {
+      arpSettings = settings;
+    }
   }
 
   /**

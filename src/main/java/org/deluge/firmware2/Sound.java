@@ -745,7 +745,50 @@ public class Sound extends GlobalEffectable {
    */
   public double samplesPerSequencerTick = 60.0 * 44100.0 / (120.0 * 96.0);
 
-  public final Arpeggiator.Settings arpSettings = new Arpeggiator.Settings();
+  /**
+   * The arp settings this Sound is currently driven by — a REFERENCE to the active clip's, not one
+   * of its own.
+   *
+   * <p>C: every {@code InstrumentClip} owns an {@code ArpeggiatorSettings} by value
+   * (instrument_clip.h:103) and the instrument hands out a pointer to the active clip's: {@code
+   * MelodicInstrument::getArpSettings} returns {@code &clip->arpSettings}, else {@code
+   * &((InstrumentClip*)activeClip)->arpSettings}, else {@code nullptr}
+   * (melodic_instrument.cpp:667-677). That matters because the arp MUTATES these as it plays — the
+   * note pattern and the ten locked randomizer arrays — so on hardware switching A to B and back
+   * resumes A's evolved sequence where it left off.
+   *
+   * <p>A {@code SoundDrum} is the exception and keeps settings of its OWN: {@code
+   * Drum::arpSettings} (drum.h:68), with {@code SoundDrum::getArpSettings} ignoring the clip
+   * entirely (sound_drum.h:66). So a drum never repoints this.
+   *
+   * <p>The object constructed here is the no-active-clip fallback, standing in for the C's {@code
+   * nullptr}: the C's consumers all route through {@code ArpeggiatorBase::arpIsOff}, which treats
+   * null as OFF (arpeggiator.h:249-251), and this port dereferences the field everywhere instead.
+   * {@link #setArpSettings} is the only repointer and takes the arpeggiator monitor, because this
+   * is read from the audio and sequencer threads.
+   */
+  public Arpeggiator.Settings arpSettings = new Arpeggiator.Settings();
+
+  /**
+   * Point this Sound at a clip's settings, the port's spelling of {@code getArpSettings}
+   * (melodic_instrument.cpp:667-677). A clip switch is just this — a pointer swap, as in the C — so
+   * neither clip's live sequence is disturbed.
+   *
+   * <p>Takes the arpeggiator monitor: every DSP entry point that reads these guards with {@code
+   * synchronized (arpeggiator)} (render at :1604, note on/off at :1982, :2265, tick at :1949), and
+   * swapping the reference under a reader would have it finish a step against another clip's
+   * sequence. The C needs no lock because its render and its clip switching share one cooperative
+   * loop.
+   */
+  public void setArpSettings(Arpeggiator.Settings settings) {
+    if (settings == null || settings == arpSettings) {
+      return;
+    }
+    synchronized (arpeggiator) {
+      arpSettings = settings;
+    }
+  }
+
   public final Arpeggiator.ArpReturnInstruction arpInstr = new Arpeggiator.ArpReturnInstruction();
   private final Arpeggiator.ArpReturnInstruction arpTickInstr =
       new Arpeggiator.ArpReturnInstruction();

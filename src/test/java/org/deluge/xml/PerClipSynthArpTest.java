@@ -46,8 +46,9 @@ class PerClipSynthArpTest {
     assertTrue(back.getArp().active(), "the active clip's arp is the synth's");
     back.setActiveClipIndex(1);
     assertFalse(back.getArp().active());
-    assertEquals(Arpeggiator.ArpMode.OFF, fs.arpSettings.mode, "switching clips reconfigures");
+    assertEquals(
+        Arpeggiator.ArpMode.OFF, fs.fw2Sound.arpSettings.mode, "switching clips reconfigures");
     back.setActiveClipIndex(0);
-    assertEquals(Arpeggiator.ArpMode.ARP, fs.arpSettings.mode);
+    assertEquals(Arpeggiator.ArpMode.ARP, fs.fw2Sound.arpSettings.mode);
   }
 }

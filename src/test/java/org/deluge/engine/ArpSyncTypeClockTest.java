@@ -17,7 +17,7 @@ class ArpSyncTypeClockTest {
     PureFirmwareEngine engine = new PureFirmwareEngine();
     FirmwareSound sound = new FirmwareSound();
     sound.arpDivision = 16;
-    sound.arpSettings.syncType = type;
+    sound.fw2Sound.arpSettings.syncType = type;
     engine.getAudioEngine().sounds.add(sound);
     BridgeContract bridge = new BridgeContract();
     bridge.setGlobalFloat(BridgeContract.G_BPM, 120.0);

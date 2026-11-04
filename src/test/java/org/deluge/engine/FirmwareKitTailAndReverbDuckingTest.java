@@ -69,9 +69,9 @@ class FirmwareKitTailAndReverbDuckingTest {
     drum.oscTypes[0] = OscType.SINE;
     drum.paramNeutralValues[Param.LOCAL_OSC_A_VOLUME] = Integer.MAX_VALUE;
     drum.paramNeutralValues[Param.LOCAL_ENV_0_RELEASE] = Integer.MIN_VALUE; // fast release
-    drum.arpSettings.mode = Arpeggiator.ArpMode.ARP;
-    drum.arpSettings.syncLevel = Arpeggiator.SyncLevel.SYNC_LEVEL_NONE;
-    drum.arpSettings.gate = -1_800_000_000; // short gate so voice ends before next step
+    drum.fw2Sound.arpSettings.mode = Arpeggiator.ArpMode.ARP;
+    drum.fw2Sound.arpSettings.syncLevel = Arpeggiator.SyncLevel.SYNC_LEVEL_NONE;
+    drum.fw2Sound.arpSettings.gate = -1_800_000_000; // short gate so voice ends before next step
     drum.paramNeutralValues[Param.GLOBAL_ARP_RATE] = 0x20000000;
 
     kit.triggerDrum(0, 127);

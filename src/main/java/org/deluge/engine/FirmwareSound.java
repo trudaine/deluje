@@ -95,7 +95,11 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   // (ArpeggiatorForDrum for a drum, drum.h:67) and is installed by Sound.setIsDrum, so a cached
   // copy here would go stale — and it is the monitor every arp path synchronizes on, which makes
   // a stale copy a lock split rather than a wrong read. Use fw2Sound.arpeggiator.
-  public final org.deluge.firmware2.Arpeggiator.Settings arpSettings;
+  // No alias field for the arp Settings either, for the same reason as the arpeggiator above:
+  // every clip owns its own in the C (InstrumentClip::arpSettings, instrument_clip.h:103) and
+  // the sound merely points at the ACTIVE clip's (MelodicInstrument::getArpSettings,
+  // melodic_instrument.cpp:667-677), so the reference is repointed on a clip switch and a
+  // cached copy here would go stale. Use fw2Sound.arpSettings.
   private final org.deluge.firmware2.Arpeggiator.ArpReturnInstruction arpInstr;
   public int arpDivision =
       16; // step note division (16 = 16th note); used to derive arpPhaseIncrement
@@ -224,7 +228,7 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
   }
 
   public boolean arpEnabled() {
-    return arpSettings.mode != org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
+    return fw2Sound.arpSettings.mode != org.deluge.firmware2.Arpeggiator.ArpMode.OFF;
   }
 
   public final Sidechain sidechain;
@@ -255,7 +259,6 @@ public class FirmwareSound extends org.deluge.firmware2.GlobalEffectable {
 
   FirmwareSound(org.deluge.firmware2.Sound fw2Sound) {
     this.fw2Sound = fw2Sound;
-    this.arpSettings = fw2Sound.arpSettings;
     this.arpInstr = fw2Sound.arpInstr;
     this.sidechain = fw2Sound.sidechain;
     this.postReverbVolumeLastTime = -1; // C sound.cpp:94 — grab actual value on first render

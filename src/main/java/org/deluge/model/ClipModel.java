@@ -133,6 +133,69 @@ public class ClipModel extends TimelineCounter {
     return arp;
   }
 
+  /**
+   * C InstrumentClip::arpSettings (instrument_clip.h:103) — every clip owns one BY VALUE, and the
+   * instrument merely hands out a pointer to the active clip's ({@code
+   * MelodicInstrument::getArpSettings} returns {@code &clip->arpSettings},
+   * melodic_instrument.cpp:667-677; {@code Kit::getArpSettings} the same, kit.cpp:787-797).
+   *
+   * <p>This is live DSP state, NOT a copy of {@link #arp}: the arpeggiator mutates the note pattern
+   * and the ten locked randomizer arrays as it plays, and nothing pushes those back to the model.
+   * Keeping them here is what lets a clip switch A → B → A resume A's evolved sequence where it
+   * left off, as on hardware, instead of resetting it to the file's values.
+   *
+   * <p>Transient: this is the running arp's state, not part of the saved song. What the file
+   * carries lives in {@link #arp} and is imposed on this once, at {@link #bindArpSettings}.
+   *
+   * <p>Created on first access rather than with the clip, which the C does (the member is by value,
+   * so its constructor runs with the clip's). The reason is a port artifact with no C counterpart:
+   * {@code ArpeggiatorSettings()} ends in {@code generateNewNotePattern()} (arpeggiator.cpp:69),
+   * which draws {@code PATTERN_MAX_BUFFER_SIZE} values from the SHARED noise source this port
+   * reseeds deterministically for golden renders ({@code Functions.getNoise}). Constructing one per
+   * clip eagerly moved that seed for every clip in a song whether or not it ever arpeggiates, which
+   * shifted unrelated golden signatures. Deferring it costs nothing semantically — the C's
+   * observable behaviour is "a clip always has settings at constructor defaults", which this
+   * preserves for anything that looks.
+   */
+  private transient org.deluge.firmware2.Arpeggiator.Settings arpSettings;
+
+  /** Whether {@link #arp}'s saved sequences have been imposed on {@link #arpSettings} yet. */
+  private transient boolean arpSettingsBound = false;
+
+  /** This clip's own arp settings — the C's {@code &clip->arpSettings}. Never null. */
+  public synchronized org.deluge.firmware2.Arpeggiator.Settings getArpSettings() {
+    if (arpSettings == null) {
+      // Without moving the shared noise seed — see Functions.withoutAdvancingNoise. The pattern
+      // the constructor generates is still a random one; what is withheld is letting the NUMBER of
+      // clips in a song change the oscillator start phases of everything that renders.
+      arpSettings =
+          org.deluge.firmware2.Functions.withoutAdvancingNoise(
+              org.deluge.firmware2.Arpeggiator.Settings::new);
+    }
+    return arpSettings;
+  }
+
+  /**
+   * Claim the one-time load of {@link #arp}'s saved note pattern and locked randomizer sequences
+   * into {@link #arpSettings}: true the first time, false ever after.
+   *
+   * <p>The C fills a clip's settings from the file exactly once, when the clip is read ({@code
+   * arpSettings.readCommonTagsFromFile}, instrument_clip.cpp:2679). After that only the arp itself
+   * writes them. Notably a preset hot-swap does NOT re-impose them: {@code
+   * InstrumentClip::setInstrument} does {@code arpSettings.cloneFrom(&defaultArpSettings)}
+   * (instrument_clip.cpp:2312) and {@code cloneFrom} copies the static and automatable params but
+   * neither {@code notePattern}, the ten {@code locked*Values} arrays, nor the ten {@code
+   * lastLocked*} scalars (arpeggiator.cpp:1620-1650). Nor does a clip-to-clip copy
+   * (instrument_clip.cpp:151, same {@code cloneFrom}).
+   */
+  public boolean bindArpSettings() {
+    if (arpSettingsBound) {
+      return false;
+    }
+    arpSettingsBound = true;
+    return true;
+  }
+
   public void setArp(org.deluge.model.ArpModel arp) {
     org.deluge.model.ArpModel oldArp =
         this.arp != null ? this.arp : org.deluge.model.ArpModel.defaultConfig();
@@ -162,6 +225,12 @@ public class ClipModel extends TimelineCounter {
   /** Sets {@link #arp} during XML parsing without synthesizing {@link #rawKitParamHex} entries. */
   public void setArpFromXml(org.deluge.model.ArpModel arp) {
     this.arp = arp;
+    // C instrument_clip.cpp:2679 — a clip's ArpeggiatorSettings are filled from the file as the
+    // CLIP is read, so every clip in a song has its saved sequence before anything plays. Binding
+    // here rather than on first activation is what makes a clip switch a pure pointer swap: if the
+    // first switch to a clip were also its load, it would clear the arpeggiator's pending
+    // randomizer regeneration and cached note order, which the C keeps across a switch.
+    org.deluge.engine.FirmwareFactory.bindClipArpSettingsFromFile(this);
   }
 
   public String getLaunchStyle() {
@@ -467,6 +536,10 @@ public class ClipModel extends TimelineCounter {
     copy.activeInSession = this.activeInSession && !copy.isArrangementOnly;
     copy.launchStyle = this.launchStyle; // C clip.cpp:97, 105
     copy.arp = this.arp; // ArpModel is immutable
+    // NOT copy.arpSettings: C instrument_clip.cpp:151 copies a clip's arp with cloneFrom, which
+    // carries the params and leaves the note pattern and locked arrays to the new clip's own
+    // constructor (arpeggiator.cpp:1620-1650). The copy gets its own on first access and takes
+    // the params from `arp` on its first bind, like any other clip.
     copy.bendRange = this.bendRange;
     copy.bendRangeMPE = this.bendRangeMPE;
     copy.midiBank = this.midiBank; // C instrument_clip.cpp:127-129
