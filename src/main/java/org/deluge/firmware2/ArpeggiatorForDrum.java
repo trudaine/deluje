@@ -142,6 +142,23 @@ public class ArpeggiatorForDrum extends ArpeggiatorBase {
     StepResult out = new StepResult();
     executeArpStep(settings, numActiveNotes, isRatchet, maxSequenceLength, rhythm, out);
 
+    // The C's own remedy for this, taken from its sibling one function away: Arpeggiator::
+    // switchNoteOn clamps the same index with `std::clamp<int16_t>(whichNoteCurrentlyOnPostArp, 0,
+    // notes.getNumElements() - 1)` under the comment "Clamp the index to real range"
+    // (arpeggiator.cpp:1301). ArpeggiatorForDrum::switchNoteOn has no such clamp upstream, and it
+    // needs one: calculateNextNoteAndOrOctave sets the index to `numActiveNotes - 2` on an octave
+    // turnaround (arpeggiator.cpp:1131), which is -1 whenever numActiveNotes is 1 — i.e. for
+    // chordTypeIndex NO_CHORD, the default (chordTypeNoteCount[0] == 1, lookuptables.cpp:532).
+    //
+    // In the C that reaches `chordTypeSemitoneOffsets[0][-1]` below, an out-of-bounds read one
+    // byte before the table: undefined behaviour that happens not to crash. Java cannot reproduce
+    // an out-of-bounds read, so this is a DELIBERATE divergence from UB rather than a translation
+    // — without it an ordinary drum arp (chord type NO_CHORD, octave mode ALTERNATE, one octave)
+    // throws ArrayIndexOutOfBoundsException on its second step, on the audio thread. Reported
+    // upstream rather than silently patched; see the test.
+    whichNoteCurrentlyOnPostArp =
+        Math.max(0, Math.min(whichNoteCurrentlyOnPostArp, numActiveNotes - 1));
+
     if (out.shouldCarryOnRhythmNote && out.shouldPlayNote) {
       gateCurrentlyActive = true; // C:780
       if (!isRatchet) gatePos = 0; // C:782-784

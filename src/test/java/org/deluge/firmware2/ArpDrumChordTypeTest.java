@@ -238,6 +238,48 @@ class ArpDrumChordTypeTest {
     return buffer;
   }
 
+  /**
+   * An octave turnaround with a one-note chord type drives the chord index to -1, which the C reads
+   * out of bounds and Java cannot.
+   *
+   * <p>{@code calculateNextNoteAndOrOctave} sets the index to {@code numActiveNotes - 2} on a
+   * turnaround (arpeggiator.cpp:1131), and {@code numActiveNotes} is {@code
+   * chordTypeNoteCount[chordTypeIndex]} for a drum — 1 for NO_CHORD, which is the DEFAULT
+   * (lookuptables.cpp:532). {@code Arpeggiator::switchNoteOn} clamps the same index one function
+   * away (arpeggiator.cpp:1301, "Clamp the index to real range"); {@code
+   * ArpeggiatorForDrum::switchNoteOn} does not, so the C reads {@code
+   * chordTypeSemitoneOffsets[0][-1]}. Measured: without the clamp this throws
+   * ArrayIndexOutOfBoundsException on the SECOND step, on the audio thread.
+   */
+  @Test
+  void anOctaveTurnaroundOnAOneNoteChordTypeDoesNotWalkOffTheChordTable() {
+    Sound drum = new Sound();
+    drum.setIsDrum(true);
+    drum.arpSettings.resetToDefaults();
+    drum.arpSettings.mode = ArpMode.ARP;
+    drum.arpSettings.chordTypeIndex = 0; // NO_CHORD — chordTypeNoteCount[0] == 1
+    drum.arpSettings.octaveMode = Arpeggiator.ArpOctaveMode.ALTERNATE;
+    drum.arpSettings.noteMode = Arpeggiator.ArpNoteMode.UP;
+    drum.arpSettings.numOctaves = 1; // so currentOctave >= numOctaves - 1 on the first step
+    drum.arpSettings.syncLevel = SyncLevel.SYNC_LEVEL_16TH;
+    drum.arpSettings.syncType = SyncType.EVEN;
+    drum.arpeggiator.playbackClockActive = true;
+    int period = 3 << (9 - SyncLevel.SYNC_LEVEL_16TH.ordinal());
+
+    Arpeggiator.ArpReturnInstruction in = new Arpeggiator.ArpReturnInstruction();
+    drum.arpeggiator.noteOn(drum.arpSettings, 60, 100, in, Arpeggiator.MIDI_CHANNEL_NONE, null);
+    for (int step = 0; step < 6; step++) {
+      drum.doTickForwardForArp(step * period, false);
+    }
+
+    // And it must still be playing the drum's own note, not an arbitrary offset: NO_CHORD's row is
+    // all zeros (lookuptables.cpp:520), so every step of a one-note chord type is noteForDrum.
+    assertEquals(
+        60,
+        drum.drumArp().active_note.noteCodeOnPostArp[0],
+        "a NO_CHORD drum arp must keep sounding the drum's own note across the turnaround");
+  }
+
   /** Four synced arp steps on a drum sound, returning the note each one actually sounded. */
   private static List<Integer> arpNotesOverFourSteps(int chordType) {
     Sound drum = new Sound();
