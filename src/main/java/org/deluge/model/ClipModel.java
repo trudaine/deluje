@@ -160,6 +160,24 @@ public class ClipModel extends TimelineCounter {
   /** Whether {@link #arp}'s saved sequences have been imposed on {@link #arpSettings} yet. */
   private transient boolean arpSettingsBound = false;
 
+  /**
+   * This clip's LIVE note pattern as a hex blob — what the C writes for a clip, since it serializes
+   * a clip's {@code <arpeggiator>} from the clip's own {@code arpSettings}
+   * (instrument_clip.cpp:2404-2412) and never from the instrument's {@code defaultArpSettings}.
+   */
+  public String getLiveArpNotePatternHex() {
+    return toHex(getArpSettings().notePattern);
+  }
+
+  /** Hex for an arp sequence blob, matching what {@code readHexBytesInto} reads back. */
+  private static String toHex(byte[] bytes) {
+    StringBuilder sb = new StringBuilder(bytes.length * 2);
+    for (byte b : bytes) {
+      sb.append(String.format("%02X", b));
+    }
+    return sb.toString();
+  }
+
   /** This clip's own arp settings — the C's {@code &clip->arpSettings}. Never null. */
   public org.deluge.firmware2.Arpeggiator.Settings getArpSettings() {
     return arpSettings;
@@ -535,12 +553,22 @@ public class ClipModel extends TimelineCounter {
     // clip's saved hex blobs, so leaving the copy unbound would have its first activation impose
     // the source's sequence over its own fresh state — the opposite of what cloneFrom does.
     copy.arpSettingsBound = true;
-    // The blobs have to go from the MODEL too, not just be ignored at bind time: this port
+    // The blobs have to be fixed up in the MODEL too, not just ignored at bind time: this port
     // serializes a clip's sequences from `arp` (ProjectSerializer.java:2488-2504), so a copy that
-    // kept them would save the source's sequence and play it back on reload. The C has no such
-    // path — it writes the clip's own live settings.
+    // kept the source's would save them and play them back on reload. The C has no such path — it
+    // writes the clip's own LIVE settings, which cloneFrom left at the new clip's constructor
+    // state (instrument_clip.cpp:151, arpeggiator.cpp:1620-1650).
+    //
+    // So the copy's own freshly generated note pattern is written out, not dropped: dropping it
+    // left a PATTERN-mode duplicate generating a DIFFERENT order on reload, i.e. a clip whose note
+    // order changed when the song was saved. The locked randomizer arrays are cleared, which is
+    // what cloneFrom leaves them as (zeroed by the constructor, arpeggiator.cpp:58-67).
     if (copy.arp != null) {
-      copy.arp = copy.arp.toBuilder().withoutSavedSequences().build();
+      copy.arp =
+          copy.arp.toBuilder()
+              .withoutSavedSequences()
+              .notePattern(toHex(copy.arpSettings.notePattern))
+              .build();
     }
     copy.bendRange = this.bendRange;
     copy.bendRangeMPE = this.bendRangeMPE;

@@ -2413,8 +2413,25 @@ public class ProjectSerializer {
     // clip's arpSettings come only from it (the <sound>'s copy is the instrument's
     // defaultArpSettings, used for new clips). Without it the hardware plays the clip's arp OFF.
     if (track instanceof SynthTrackModel synthTrack) {
-      org.deluge.model.ArpModel clipArp =
-          clip.getArp() != null ? clip.getArp() : synthTrack.getDefaultArp();
+      org.deluge.model.ArpModel clipArp = clip.getArp();
+      if (clipArp == null) {
+        // The C writes a clip's <arpeggiator> from the clip's OWN live arpSettings
+        // (instrument_clip.cpp:2404-2412), never from the instrument's defaultArpSettings — so
+        // every clip carries one, which is what this fallback is for. But it may only supply the
+        // PARAMS: a clip with no <arpeggiator> of its own does run on the track's params
+        // (mapModelToSound passes SynthTrackModel.getArp()), while its SEQUENCES are its own,
+        // owned by the clip since #170. Writing the track's sequence blobs here meant that after
+        // a preset hot-swap a clip saved the PRESET's sequence over the one it was still playing,
+        // and reopened playing the preset's.
+        org.deluge.model.ArpModel trackArp = synthTrack.getDefaultArp();
+        if (trackArp != null) {
+          clipArp =
+              trackArp.toBuilder()
+                  .withoutSavedSequences()
+                  .notePattern(clip.getLiveArpNotePatternHex())
+                  .build();
+        }
+      }
       if (clipArp != null) {
         writeClipArpeggiator(writer, clipArp, currentInputTickMagnitude);
       }
