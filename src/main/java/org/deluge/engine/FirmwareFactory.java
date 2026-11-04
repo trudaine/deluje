@@ -1293,9 +1293,15 @@ public class FirmwareFactory {
       }
       float[] array = entry.getValue();
       for (int step = 0; step < array.length; step++) {
-        if (array[step] > 0.0f) {
-          into.recordParamValue(paramId, (int) (array[step] * 2147483647.0), step * stepTicks);
+        // -1 means "no automation at this step" (ClipModel.resizeAutomationArrays fills with -1f),
+        // so ZERO is a valid value and must be kept — a gate automated to 0 is not an absent node.
+        if (array[step] < 0.0f) {
+          continue;
         }
+        // The full-range knob conversion, 0..1 -> MIN..MAX. Scaling by MAX instead maps a 0..1
+        // normalized value into the POSITIVE HALF of signed q31 only, so a 0.5 gate point lands at
+        // about 75% and every rate value is biased upward.
+        into.recordParamValue(paramId, normToLinearParamKnob(array[step]), step * stepTicks);
       }
     }
     for (java.util.Map.Entry<String, java.util.List<org.deluge.modulation.automation.ParamNode>>

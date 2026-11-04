@@ -404,6 +404,24 @@ public class ClipModel extends TimelineCounter {
    * <p>The C never rebuilds: a clip's ParamManager is read once and then only advanced, so it has
    * no equivalent of this step.
    */
+  /**
+   * The monitor that writers of this clip's timeline ParamManager hold.
+   *
+   * <p>For a KIT clip that is the Kit: {@code FirmwareFactory.syncKitTopLevelParams} rebuilds the
+   * clip's automation under {@code synchronized (kit)}, and {@code recordParamValue} publishes each
+   * {@code AutoParam} before filling its ordinary {@code ArrayList} of nodes — so a sequencer-side
+   * read during a rebuild could see a half-built curve, or throw {@code
+   * ConcurrentModificationException} as nodes are added and sorted. The kit configuration dialog
+   * makes that rebuild happen at 5 Hz while playing, so the window is not theoretical.
+   *
+   * <p>Only the kit path, deliberately: the synth path has its own arrangement and is not what this
+   * change touched. One lock, taken in the same order by writers, so there is no ordering
+   * obligation to get wrong.
+   */
+  private Object timelineParamManagerMonitor() {
+    return (sound instanceof org.deluge.engine.FirmwareKit kit) ? kit : this;
+  }
+
   public void seekTimelineParamManagerToCurrentPos() {
     org.deluge.modulation.params.ParamManager pm = timelineParamManager();
     if (!pm.mightContainAutomation()) {
@@ -413,7 +431,9 @@ public class ClipModel extends TimelineCounter {
     if (len <= 0) {
       return;
     }
-    pm.setPlayPos(lastProcessedPos, len, currentlyPlayingReversed);
+    synchronized (timelineParamManagerMonitor()) {
+      pm.setPlayPos(lastProcessedPos, len, currentlyPlayingReversed);
+    }
   }
 
   /**
@@ -1574,8 +1594,26 @@ public class ClipModel extends TimelineCounter {
     return automationData;
   }
 
+  /**
+   * Set one step of step-array automation.
+   *
+   * <p>A fresh array is filled with {@code -1f}, not zeros: {@code -1} is this map's "no node at
+   * this step" marker, which {@link #hasAutomation(String, int)} tests as {@code >= 0.0f}, {@link
+   * #resizeAutomationArrays} fills with, and {@code AutomationEditorController.setAutomationPoint}
+   * fills by hand before calling here. A zero-filled array instead made every untouched step look
+   * like a deliberate 0, so a consumer that honours the convention saw a full set of nodes at the
+   * bottom of the range. Callers that treat {@code > 0} as "set" were unaffected either way, which
+   * is why it went unnoticed.
+   */
   public void setAutomation(String param, int step, float value) {
-    float[] array = automationData.computeIfAbsent(param, k -> new float[stepCount]);
+    float[] array =
+        automationData.computeIfAbsent(
+            param,
+            k -> {
+              float[] fresh = new float[stepCount];
+              java.util.Arrays.fill(fresh, -1f);
+              return fresh;
+            });
     if (step >= 0 && step < stepCount) {
       array[step] = value;
     }
@@ -1709,7 +1747,9 @@ public class ClipModel extends TimelineCounter {
     org.deluge.modulation.params.ParamManager clipParams = timelineParamManager();
     activateClipExpressionOnParamManager(clipParams, loopLen);
     if (clipParams.mightContainAutomation()) {
-      clipParams.setPlayPos(lastProcessedPos, loopLen, currentlyPlayingReversed);
+      synchronized (timelineParamManagerMonitor()) {
+        clipParams.setPlayPos(lastProcessedPos, loopLen, currentlyPlayingReversed);
+      }
     }
     if (type == ClipType.INSTRUMENT && sound instanceof org.deluge.engine.FirmwareKit kit) {
       for (int r = 0; r < kit.drumSounds.size(); r++) {
@@ -2167,13 +2207,17 @@ public class ClipModel extends TimelineCounter {
       // cannot interpolate per audio sample, so they use tickTicks.
       boolean mayInterpolate =
           sound instanceof org.deluge.engine.FirmwareSound || type == ClipType.AUDIO;
-      clipParams.processCurrentPos(
-          ticksSinceLast,
-          lastProcessedPos,
-          effectiveLength,
-          currentlyPlayingReversed,
-          didPingpong,
-          mayInterpolate);
+      // Under the writers' monitor: a live rebuild of this manager must not be visible half-done
+      // to the sequencer (see timelineParamManagerMonitor).
+      synchronized (timelineParamManagerMonitor()) {
+        clipParams.processCurrentPos(
+            ticksSinceLast,
+            lastProcessedPos,
+            effectiveLength,
+            currentlyPlayingReversed,
+            didPingpong,
+            mayInterpolate);
+      }
       if (clipParams.ticksTilNextEvent < ticksTilNextEvent) {
         ticksTilNextEvent = clipParams.ticksTilNextEvent;
       }

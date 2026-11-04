@@ -127,12 +127,20 @@ class KitClipArpAutomationTest {
     ClipModel clip = kitClipWithGateAutomation(kit);
     KitTrackModel owner = lastTrack;
 
-    // Park the clip BETWEEN the two nodes (0 and 48).
-    clip.getTimelineParamManager().processCurrentPos(0, 16 * 24, false, false, true);
-    clip.getTimelineParamManager().processCurrentPos(24, 16 * 24, false, false, true);
+    // Move the CLIP itself — setPos is what sets lastProcessedPos, which is what the seek reads.
+    // Advancing only the ParamManager leaves lastProcessedPos at zero, and with both nodes
+    // non-interpolated the gate at pos 24 equals the gate at pos 0, so such a test would also pass
+    // if the refresh always seeked to zero. Position 72 is past the second node (48), so its value
+    // DIFFERS from the start and a wrong-position seek is detectable.
+    clip.setPos(72);
     kit.applyClipArpAutomation();
     int gateMidCurve = kit.arpGateKnob;
-    assertNotEquals(0, gateMidCurve, "the gate must be driven mid-curve, or this proves nothing");
+    assertEquals(
+        GATE_LATER,
+        gateMidCurve,
+        "past the second node the gate must be the later value, or this test cannot tell a"
+            + " wrong-position seek from a right one");
+    assertNotEquals(GATE_AT_START, gateMidCurve, "and must not still be the value from position 0");
 
     // The 5 Hz live refresh: rebuilds the automation under the playing clip.
     FirmwareFactory.syncKitTopLevelParams(owner, kit);
@@ -141,7 +149,100 @@ class KitClipArpAutomationTest {
     assertEquals(
         gateMidCurve,
         kit.arpGateKnob,
-        "a live refresh must leave the automated gate where the clip's position puts it");
+        "a live refresh must leave the automated gate where the clip's position puts it, not at"
+            + " the start of the curve or at zero");
+  }
+
+  @Test
+  void stepAutomationKeepsZerosAndUsesTheFullQ31Range() {
+    // The step-array form of automation (ClipModel.setAutomation) is normalized 0..1 with -1
+    // meaning "no node here" (resizeAutomationArrays fills with -1f). Two things followed from
+    // copying the synth path's conversion:
+    //   * `> 0.0f` dropped a step automated to ZERO, which is a real value — a gate automated to 0
+    //     is not an absent node;
+    //   * scaling by MAX mapped 0..1 into the POSITIVE HALF of signed q31 only, so 0.5 landed near
+    //     75% instead of the midpoint, and every rate value was biased upward.
+    FirmwareKit kit = new FirmwareKit();
+    KitTrackModel track = new KitTrackModel("KIT");
+    ClipModel clip = new ClipModel("c", 8, 16);
+    clip.setArpFromXml(
+        ArpModel.defaultConfig().toBuilder().active(true).mode("arp").kitArp(1).build());
+    clip.setAutomation("arpeggiatorGate", 0, 0.5f);
+    clip.setAutomation("arpeggiatorGate", 1, 0.0f);
+    clip.setSound(kit);
+    track.addClip(clip);
+    track.setActiveClipIndex(0);
+    FirmwareFactory.syncKitTopLevelParams(track, kit);
+
+    var gate = clip.getTimelineParamManager().getAutomatedParam(Param.UNPATCHED_ARP_GATE);
+    assertTrue(gate != null && !gate.nodes.isEmpty(), "the step automation must be recorded");
+    assertEquals(2, gate.nodes.size(), "BOTH steps, including the one automated to zero");
+
+    // 0.5 -> the midpoint of signed q31, i.e. ~0, not ~0x3FFFFFFF.
+    int half = gate.nodes.get(0).value;
+    assertTrue(
+        Math.abs((long) half) < 0x01000000L,
+        "0.5 must map to the signed-q31 midpoint; got "
+            + half
+            + " (positive-half scaling of 0.5"
+            + " would give about "
+            + (int) (0.5 * 2147483647.0)
+            + ")");
+    // 0.0 -> the bottom of the range.
+    assertEquals(
+        Integer.MIN_VALUE, gate.nodes.get(1).value, "0.0 must map to the bottom of the range");
+  }
+
+  @Test
+  void advancingAKitClipsAutomationTakesTheKitMonitor() {
+    // syncKitTopLevelParams rebuilds this ParamManager under `synchronized (kit)`, and
+    // recordParamValue publishes each AutoParam BEFORE filling its ordinary ArrayList of nodes — so
+    // a sequencer-side read during a rebuild could see a half-built curve or throw
+    // ConcurrentModificationException while nodes are added and sorted. The kit dialog makes that
+    // rebuild happen at 5 Hz during playback.
+    //
+    // Decisive rather than circumstantial: seekTimelineParamManagerToCurrentPos takes exactly one
+    // lock, so whether it blocks on a parked holder of the kit monitor distinguishes "reader takes
+    // the writers' lock" from "reader takes something else" completely.
+    FirmwareKit kit = new FirmwareKit();
+    ClipModel clip = kitClipWithGateAutomation(kit);
+    assertTrue(
+        clip.getTimelineParamManager().mightContainAutomation(),
+        "the clip must have automation, or the seek returns early and proves nothing");
+
+    java.util.concurrent.CountDownLatch holding = new java.util.concurrent.CountDownLatch(1);
+    java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+    Thread holder =
+        new Thread(
+            () -> {
+              synchronized (kit) {
+                holding.countDown();
+                try {
+                  release.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                  Thread.currentThread().interrupt();
+                }
+              }
+            });
+    holder.start();
+    try {
+      assertTrue(holding.await(10, java.util.concurrent.TimeUnit.SECONDS), "holder must take it");
+      Thread seeker = new Thread(clip::seekTimelineParamManagerToCurrentPos);
+      seeker.start();
+      seeker.join(400);
+      boolean blocked = seeker.isAlive();
+      release.countDown();
+      seeker.join(10_000);
+      assertTrue(
+          blocked,
+          "advancing a kit clip's automation must block on the KIT monitor, which is the lock its"
+              + " rebuild is performed under");
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new AssertionError(e);
+    } finally {
+      release.countDown();
+    }
   }
 
   @Test
