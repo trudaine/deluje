@@ -1328,6 +1328,22 @@ public class FirmwareFactory {
    * its rate from the unpatched set, {@code unpatchedParams->getValue(params::UNPATCHED_ARP_RATE)}
    * (kit.cpp:723). Without this remap the unpatched filter discarded every kit arp-rate curve,
    * since GLOBAL_ARP_RATE (54) sits below UNPATCHED_START (90).
+   *
+   * <p><b>The rate is one instance of a general gap, and the rest is NOT remapped here.</b>
+   * Measured over the common {@code <kitParams>} names, nine of fifteen map to patched ids and are
+   * therefore dropped by the unpatched filter: {@code arpeggiatorRate} (54, fixed here), {@code
+   * volume} (45), {@code pan} (23), {@code lpfFrequency} (24), {@code lpfResonance} (11), {@code
+   * hpfFrequency} (30), {@code reverbAmount} (47), {@code delayFeedback} (49), {@code modFXDepth}
+   * (48), {@code modFXRate} (51). The ones that already work are {@code arpeggiatorGate} (101),
+   * {@code noteProbability} (106), {@code stutterRate} (90), {@code sampleRateReduction} (95) and
+   * {@code bitCrush} (96).
+   *
+   * <p>Nothing is broken by that today, because those params have no per-render consumer on the kit
+   * path yet — that is the remaining half of #168. It is recorded here because it is a trap for
+   * whoever adds one: the consumer will work, the automation will silently never arrive, and the
+   * cause is three call frames away in a shared name mapper that is answering correctly for a
+   * voice. Each needs its kit UNPATCHED id checked against the C's kit unpatched set, which is why
+   * they are not guessed at here.
    */
   private static int kitUnpatchedParamId(String name) {
     int id = getParamIdFromName(name);
