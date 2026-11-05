@@ -1273,6 +1273,83 @@ public class FirmwareFactory {
     }
   }
 
+  /**
+   * Record a kit clip's own automation curves into its ParamManager, so the kit can read them.
+   *
+   * <p>Only the UNPATCHED params a kit actually has: a kit clip's {@code <kitParams>} describes the
+   * kit bus, not a voice, so the patched/LOCAL ids that a synth clip's {@code <soundParams>} carry
+   * have no meaning here. Re-recording is idempotent per (param, pos) — {@code recordParamValue}
+   * replaces the node at that position — and this runs on the live-refresh path, so the automated
+   * params are cleared first to drop curves the clip no longer has.
+   */
+  private static void recordKitClipAutomation(
+      org.deluge.model.ClipModel clip, org.deluge.modulation.params.ParamManager into) {
+    into.automatedParams.clear();
+    int stepTicks = clip.isTripletMode() ? 32 : 24;
+    for (java.util.Map.Entry<String, float[]> entry : clip.getAutomationData().entrySet()) {
+      int paramId = kitUnpatchedParamId(entry.getKey());
+      if (paramId == -1 || !org.deluge.firmware2.Param.isUnpatched(paramId)) {
+        continue;
+      }
+      float[] array = entry.getValue();
+      for (int step = 0; step < array.length; step++) {
+        // -1 means "no automation at this step" (ClipModel.resizeAutomationArrays fills with -1f),
+        // so ZERO is a valid value and must be kept — a gate automated to 0 is not an absent node.
+        if (array[step] < 0.0f) {
+          continue;
+        }
+        // The full-range knob conversion, 0..1 -> MIN..MAX. Scaling by MAX instead maps a 0..1
+        // normalized value into the POSITIVE HALF of signed q31 only, so a 0.5 gate point lands at
+        // about 75% and every rate value is biased upward.
+        into.recordParamValue(paramId, normToLinearParamKnob(array[step]), step * stepTicks);
+      }
+    }
+    for (java.util.Map.Entry<String, java.util.List<org.deluge.modulation.automation.ParamNode>>
+        entry : clip.getAutomationCurves().entrySet()) {
+      int paramId = kitUnpatchedParamId(entry.getKey());
+      if (paramId == -1 || !org.deluge.firmware2.Param.isUnpatched(paramId)) {
+        continue;
+      }
+      for (org.deluge.modulation.automation.ParamNode node : entry.getValue()) {
+        into.recordParamValue(paramId, node.value, node.pos, node.interpolated);
+      }
+    }
+    // A freshly recorded AutoParam has a zero current value and no slope, so seek to where the
+    // clip actually is — otherwise a live refresh between nodes resets the automated value.
+    clip.seekTimelineParamManagerToCurrentPos();
+  }
+
+  /**
+   * A kit param name to its UNPATCHED id.
+   *
+   * <p>{@link #getParamIdFromName} is shared with the synth path and answers for a VOICE, where the
+   * arp rate is the patched {@code GLOBAL_ARP_RATE} reached through the patcher
+   * (arpeggiator.cpp:1594-1596). A kit has no voice: {@code Kit::setupAndRenderArpPreOutput} reads
+   * its rate from the unpatched set, {@code unpatchedParams->getValue(params::UNPATCHED_ARP_RATE)}
+   * (kit.cpp:723). Without this remap the unpatched filter discarded every kit arp-rate curve,
+   * since GLOBAL_ARP_RATE (54) sits below UNPATCHED_START (90).
+   *
+   * <p><b>The rate is one instance of a general gap, and the rest is NOT remapped here.</b>
+   * Measured over the common {@code <kitParams>} names, nine of fifteen map to patched ids and are
+   * therefore dropped by the unpatched filter: {@code arpeggiatorRate} (54, fixed here), {@code
+   * volume} (45), {@code pan} (23), {@code lpfFrequency} (24), {@code lpfResonance} (11), {@code
+   * hpfFrequency} (30), {@code reverbAmount} (47), {@code delayFeedback} (49), {@code modFXDepth}
+   * (48), {@code modFXRate} (51). The ones that already work are {@code arpeggiatorGate} (101),
+   * {@code noteProbability} (106), {@code stutterRate} (90), {@code sampleRateReduction} (95) and
+   * {@code bitCrush} (96).
+   *
+   * <p>Nothing is broken by that today, because those params have no per-render consumer on the kit
+   * path yet — that is the remaining half of #168. It is recorded here because it is a trap for
+   * whoever adds one: the consumer will work, the automation will silently never arrive, and the
+   * cause is three call frames away in a shared name mapper that is answering correctly for a
+   * voice. Each needs its kit UNPATCHED id checked against the C's kit unpatched set, which is why
+   * they are not guessed at here.
+   */
+  private static int kitUnpatchedParamId(String name) {
+    int id = getParamIdFromName(name);
+    return (id == Param.GLOBAL_ARP_RATE) ? Param.UNPATCHED_ARP_RATE : id;
+  }
+
   /** The kit clip's arp (C Kit::getArpSettings, kit.cpp:787-797) onto the kit's arpeggiator. */
   public static void configureKitArp(
       org.deluge.engine.FirmwareKit kit,
@@ -1871,6 +1948,17 @@ public class FirmwareFactory {
     // rendering the kit arp from (see firmware2.Kit.kitInstruction). The C needs no lock because
     // its render and its clip switching share one cooperative loop.
     synchronized (kit) {
+      // Bind the kit to the active clip's ParamManager and record that clip's <kitParams>
+      // automation into it. The C needs no such step because a kit reads its unpatched params from
+      // getParamManager(song) — the active clip's — on every render (kit.cpp:709-724); here the
+      // curves were parsed into ClipModel.getAutomationCurves and advanced on the clip's timeline
+      // (ClipModel.processCurrentPos), but nothing had ever recorded them into a ParamManager for a
+      // kit, so no consumer could see them. The synth path has done this all along for
+      // FirmwareSound.paramManager; this is the kit's equivalent.
+      kit.clipParamManager = (activeClip != null) ? activeClip.getTimelineParamManager() : null;
+      if (activeClip != null && kit.clipParamManager != null) {
+        recordKitClipAutomation(activeClip, kit.clipParamManager);
+      }
       configureKitArp(kit, activeArp, kit.inputTickMagnitude, activeClip);
       Integer clipArpRateQ31 = resolveKitRawQ31(activeClip, model, "arpeggiatorRate");
       kit.arpRateKnob =

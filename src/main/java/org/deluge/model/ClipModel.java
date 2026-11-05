@@ -391,6 +391,60 @@ public class ClipModel extends TimelineCounter {
     return (sound instanceof org.deluge.engine.FirmwareSound fs) ? fs.paramManager : paramManager;
   }
 
+  /**
+   * Seek {@link #timelineParamManager()} to this clip's current play position.
+   *
+   * <p>Needed after the engine REBUILDS a clip's automation, because a freshly recorded {@code
+   * AutoParam} starts with a zero current value and no interpolation slope: without this, a live
+   * refresh landing between two nodes would reset the automated value until the next node came
+   * round. That is not hypothetical — the kit configuration dialog re-applies the whole kit model
+   * at 5 Hz while playing (SwingKitConfigDialog), so an automated kit arp gate would have been
+   * knocked back to zero five times a second.
+   *
+   * <p>The C never rebuilds: a clip's ParamManager is read once and then only advanced, so it has
+   * no equivalent of this step.
+   */
+  /**
+   * The monitor that writers of this clip's timeline ParamManager hold.
+   *
+   * <p>For a KIT clip that is the Kit: {@code FirmwareFactory.syncKitTopLevelParams} rebuilds the
+   * clip's automation under {@code synchronized (kit)}, and {@code recordParamValue} publishes each
+   * {@code AutoParam} before filling its ordinary {@code ArrayList} of nodes — so a sequencer-side
+   * read during a rebuild could see a half-built curve, or throw {@code
+   * ConcurrentModificationException} as nodes are added and sorted. The kit configuration dialog
+   * makes that rebuild happen at 5 Hz while playing, so the window is not theoretical.
+   *
+   * <p>Only the kit path, deliberately: the synth path has its own arrangement and is not what this
+   * change touched. One lock, taken in the same order by writers, so there is no ordering
+   * obligation to get wrong.
+   */
+  private Object timelineParamManagerMonitor() {
+    return (sound instanceof org.deluge.engine.FirmwareKit kit) ? kit : this;
+  }
+
+  public void seekTimelineParamManagerToCurrentPos() {
+    org.deluge.modulation.params.ParamManager pm = timelineParamManager();
+    int len = loopLength > 0 ? loopLength : stepCount * (isTripletMode() ? 32 : 24);
+    if (len <= 0) {
+      return;
+    }
+    synchronized (timelineParamManagerMonitor()) {
+      if (pm.mightContainAutomation()) {
+        pm.setPlayPos(lastProcessedPos, len, currentlyPlayingReversed);
+      }
+    }
+  }
+
+  /**
+   * The ParamManager this clip's automation is advanced on — {@link #timelineParamManager()}, for
+   * the engine. For a KIT clip that is the clip's own, which is the C's arrangement: {@code
+   * Kit::setupAndRenderArpPreOutput} takes {@code paramManager = getParamManager(song)}, i.e. the
+   * active clip's, and reads the kit's unpatched params from it on every render (kit.cpp:709-724).
+   */
+  public org.deluge.modulation.params.ParamManager getTimelineParamManager() {
+    return timelineParamManager();
+  }
+
   public NoteRowModel getOrCreateRow(int rowIndex) {
     NoteRowModel row = noteRows.computeIfAbsent(rowIndex, idx -> new NoteRowModel(idx));
     row.setOnScheduleInvalidated(this::expectEvent);
@@ -1539,8 +1593,26 @@ public class ClipModel extends TimelineCounter {
     return automationData;
   }
 
+  /**
+   * Set one step of step-array automation.
+   *
+   * <p>A fresh array is filled with {@code -1f}, not zeros: {@code -1} is this map's "no node at
+   * this step" marker, which {@link #hasAutomation(String, int)} tests as {@code >= 0.0f}, {@link
+   * #resizeAutomationArrays} fills with, and {@code AutomationEditorController.setAutomationPoint}
+   * fills by hand before calling here. A zero-filled array instead made every untouched step look
+   * like a deliberate 0, so a consumer that honours the convention saw a full set of nodes at the
+   * bottom of the range. Callers that treat {@code > 0} as "set" were unaffected either way, which
+   * is why it went unnoticed.
+   */
   public void setAutomation(String param, int step, float value) {
-    float[] array = automationData.computeIfAbsent(param, k -> new float[stepCount]);
+    float[] array =
+        automationData.computeIfAbsent(
+            param,
+            k -> {
+              float[] fresh = new float[stepCount];
+              java.util.Arrays.fill(fresh, -1f);
+              return fresh;
+            });
     if (step >= 0 && step < stepCount) {
       array[step] = value;
     }
@@ -1673,8 +1745,10 @@ public class ClipModel extends TimelineCounter {
   private void setPosForParamManagers(int loopLen) {
     org.deluge.modulation.params.ParamManager clipParams = timelineParamManager();
     activateClipExpressionOnParamManager(clipParams, loopLen);
-    if (clipParams.mightContainAutomation()) {
-      clipParams.setPlayPos(lastProcessedPos, loopLen, currentlyPlayingReversed);
+    synchronized (timelineParamManagerMonitor()) {
+      if (clipParams.mightContainAutomation()) {
+        clipParams.setPlayPos(lastProcessedPos, loopLen, currentlyPlayingReversed);
+      }
     }
     if (type == ClipType.INSTRUMENT && sound instanceof org.deluge.engine.FirmwareKit kit) {
       for (int r = 0; r < kit.drumSounds.size(); r++) {
@@ -2127,20 +2201,28 @@ public class ClipModel extends TimelineCounter {
 
     org.deluge.modulation.params.ParamManager clipParams = timelineParamManager();
     activateClipExpressionOnParamManager(clipParams, effectiveLength);
-    if (clipParams.mightContainAutomation()) {
-      // C clip.cpp:311 — MIDI/CV outputs (and clips without an attached sample-rate FirmwareSound)
-      // cannot interpolate per audio sample, so they use tickTicks.
-      boolean mayInterpolate =
-          sound instanceof org.deluge.engine.FirmwareSound || type == ClipType.AUDIO;
-      clipParams.processCurrentPos(
-          ticksSinceLast,
-          lastProcessedPos,
-          effectiveLength,
-          currentlyPlayingReversed,
-          didPingpong,
-          mayInterpolate);
-      if (clipParams.ticksTilNextEvent < ticksTilNextEvent) {
-        ticksTilNextEvent = clipParams.ticksTilNextEvent;
+    // The presence check, the advance and the next-event calculation all inside ONE critical
+    // section (see timelineParamManagerMonitor). Taking the lock around only the advance was not
+    // enough: mightContainAutomation() outside it can observe the momentarily EMPTY manager that
+    // recordKitClipAutomation's clear-then-rebuild passes through, skip the whole block, and then
+    // let the clip schedule its next event without accounting for the rebuilt curve — so nodes
+    // falling before that event are silently stepped over.
+    synchronized (timelineParamManagerMonitor()) {
+      if (clipParams.mightContainAutomation()) {
+        // C clip.cpp:311 — MIDI/CV outputs (and clips without an attached sample-rate
+        // FirmwareSound) cannot interpolate per audio sample, so they use tickTicks.
+        boolean mayInterpolate =
+            sound instanceof org.deluge.engine.FirmwareSound || type == ClipType.AUDIO;
+        clipParams.processCurrentPos(
+            ticksSinceLast,
+            lastProcessedPos,
+            effectiveLength,
+            currentlyPlayingReversed,
+            didPingpong,
+            mayInterpolate);
+        if (clipParams.ticksTilNextEvent < ticksTilNextEvent) {
+          ticksTilNextEvent = clipParams.ticksTilNextEvent;
+        }
       }
     }
 
