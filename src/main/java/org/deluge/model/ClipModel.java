@@ -424,15 +424,14 @@ public class ClipModel extends TimelineCounter {
 
   public void seekTimelineParamManagerToCurrentPos() {
     org.deluge.modulation.params.ParamManager pm = timelineParamManager();
-    if (!pm.mightContainAutomation()) {
-      return;
-    }
     int len = loopLength > 0 ? loopLength : stepCount * (isTripletMode() ? 32 : 24);
     if (len <= 0) {
       return;
     }
     synchronized (timelineParamManagerMonitor()) {
-      pm.setPlayPos(lastProcessedPos, len, currentlyPlayingReversed);
+      if (pm.mightContainAutomation()) {
+        pm.setPlayPos(lastProcessedPos, len, currentlyPlayingReversed);
+      }
     }
   }
 
@@ -1746,8 +1745,8 @@ public class ClipModel extends TimelineCounter {
   private void setPosForParamManagers(int loopLen) {
     org.deluge.modulation.params.ParamManager clipParams = timelineParamManager();
     activateClipExpressionOnParamManager(clipParams, loopLen);
-    if (clipParams.mightContainAutomation()) {
-      synchronized (timelineParamManagerMonitor()) {
+    synchronized (timelineParamManagerMonitor()) {
+      if (clipParams.mightContainAutomation()) {
         clipParams.setPlayPos(lastProcessedPos, loopLen, currentlyPlayingReversed);
       }
     }
@@ -2202,14 +2201,18 @@ public class ClipModel extends TimelineCounter {
 
     org.deluge.modulation.params.ParamManager clipParams = timelineParamManager();
     activateClipExpressionOnParamManager(clipParams, effectiveLength);
-    if (clipParams.mightContainAutomation()) {
-      // C clip.cpp:311 — MIDI/CV outputs (and clips without an attached sample-rate FirmwareSound)
-      // cannot interpolate per audio sample, so they use tickTicks.
-      boolean mayInterpolate =
-          sound instanceof org.deluge.engine.FirmwareSound || type == ClipType.AUDIO;
-      // Under the writers' monitor: a live rebuild of this manager must not be visible half-done
-      // to the sequencer (see timelineParamManagerMonitor).
-      synchronized (timelineParamManagerMonitor()) {
+    // The presence check, the advance and the next-event calculation all inside ONE critical
+    // section (see timelineParamManagerMonitor). Taking the lock around only the advance was not
+    // enough: mightContainAutomation() outside it can observe the momentarily EMPTY manager that
+    // recordKitClipAutomation's clear-then-rebuild passes through, skip the whole block, and then
+    // let the clip schedule its next event without accounting for the rebuilt curve — so nodes
+    // falling before that event are silently stepped over.
+    synchronized (timelineParamManagerMonitor()) {
+      if (clipParams.mightContainAutomation()) {
+        // C clip.cpp:311 — MIDI/CV outputs (and clips without an attached sample-rate
+        // FirmwareSound) cannot interpolate per audio sample, so they use tickTicks.
+        boolean mayInterpolate =
+            sound instanceof org.deluge.engine.FirmwareSound || type == ClipType.AUDIO;
         clipParams.processCurrentPos(
             ticksSinceLast,
             lastProcessedPos,
@@ -2217,9 +2220,9 @@ public class ClipModel extends TimelineCounter {
             currentlyPlayingReversed,
             didPingpong,
             mayInterpolate);
-      }
-      if (clipParams.ticksTilNextEvent < ticksTilNextEvent) {
-        ticksTilNextEvent = clipParams.ticksTilNextEvent;
+        if (clipParams.ticksTilNextEvent < ticksTilNextEvent) {
+          ticksTilNextEvent = clipParams.ticksTilNextEvent;
+        }
       }
     }
 

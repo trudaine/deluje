@@ -106,6 +106,24 @@ public class FirmwareKit extends org.deluge.firmware2.Kit {
     }
   }
 
+  /**
+   * C Kit::noteOnPreKitArp (kit.cpp:1291-1332) — with the clip's automation applied FIRST.
+   *
+   * <p>A sequenced note-on runs after the clip has advanced its automation but before the kit's
+   * next arp tick, so without this it read the PREVIOUS {@code arpSettings}. For a drum routed
+   * through the kit arp that is audible: a {@code noteProbability} automated from 100% to 0% on the
+   * hit's own tick would let the hit sound anyway. The C has no gap here because it reads the
+   * unpatched set at the point of use (kit.cpp:714).
+   *
+   * <p>The 3-argument entry point is the one to override: {@code Kit.triggerDrum(row, vel)}
+   * delegates to it, so sequenced, late and live note-ons are all covered.
+   */
+  @Override
+  public synchronized void triggerDrum(int row, int vel, int samplesLate) {
+    applyClipArpAutomation();
+    super.triggerDrum(row, vel, samplesLate);
+  }
+
   @Override
   protected synchronized void renderKitArp(int numSamples) {
     applyClipArpAutomation(); // C kit.cpp:714 — before the arp renders

@@ -227,7 +227,15 @@ class KitClipArpAutomationTest {
     holder.start();
     try {
       assertTrue(holding.await(10, java.util.concurrent.TimeUnit.SECONDS), "holder must take it");
-      Thread seeker = new Thread(clip::seekTimelineParamManagerToCurrentPos);
+      // Both reader entry points, so neither is left outside the lock: the seek and the
+      // per-tick advance. processCurrentPos also has its PRESENCE CHECK inside the critical
+      // section, so it cannot observe the momentarily empty manager a rebuild passes through.
+      Thread seeker =
+          new Thread(
+              () -> {
+                clip.seekTimelineParamManagerToCurrentPos();
+                clip.processCurrentPos(1);
+              });
       seeker.start();
       seeker.join(400);
       boolean blocked = seeker.isAlive();
@@ -243,6 +251,51 @@ class KitClipArpAutomationTest {
     } finally {
       release.countDown();
     }
+  }
+
+  @Test
+  void aSequencedDrumNoteOnSeesTheCurrentAutomationNotTheLastTicksValue() {
+    // A sequenced note-on runs after the clip advances its automation but BEFORE the kit's next arp
+    // tick, so triggerDrum used to read the previous arpSettings. For a drum routed through the kit
+    // arp that is audible: a noteProbability automated from 100% to 0% on the hit's own tick would
+    // let the hit sound anyway. The C has no gap — it reads the unpatched set at the point of use
+    // (kit.cpp:714).
+    FirmwareKit kit = new FirmwareKit();
+    KitTrackModel track = new KitTrackModel("KIT");
+    ClipModel clip = new ClipModel("c", 8, 16);
+    clip.setArpFromXml(
+        ArpModel.defaultConfig().toBuilder().active(true).mode("arp").kitArp(1).build());
+    clip.getAutomationCurves()
+        .put(
+            "noteProbability",
+            List.of(
+                new ParamNode(0, Integer.MAX_VALUE, false), // 100% at the start
+                new ParamNode(48, Integer.MIN_VALUE, false))); // 0% from tick 48
+    clip.setSound(kit);
+    track.addClip(clip);
+    track.setActiveClipIndex(0);
+    FirmwareFactory.syncKitTopLevelParams(track, kit);
+
+    // Park the clip in the 0% span and advance its automation, as the sequencer does...
+    clip.setPos(72);
+    int automated =
+        clip.getTimelineParamManager()
+            .getAutomatedParam(Param.UNPATCHED_NOTE_PROBABILITY)
+            .currentValue;
+    assertEquals(
+        Integer.MIN_VALUE,
+        automated,
+        "the clip must be parked in the 0% span, or this proves nothing");
+
+    // ...and then the note-on arrives, with NO explicit applyClipArpAutomation in between. That is
+    // the gap: the arp tick that would have applied it has not happened yet.
+    kit.triggerDrum(0, 100);
+
+    assertEquals(
+        0,
+        kit.arpSettings.noteProbability,
+        "triggerDrum must see the automation the clip has already advanced to, not the value from"
+            + " the previous tick");
   }
 
   @Test
