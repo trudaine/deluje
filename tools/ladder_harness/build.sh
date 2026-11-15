@@ -132,12 +132,38 @@ echo "done. SVF golden buffers written to $SVFOUT"
 
 # --- Freeverb reverb (freeverb.cpp; integer per-sample, deterministic-float setup) ---
 # Compile with -fwrapv to match ARM Cortex-A9 two's-complement wrapping on loud signals.
+#
+# Upstream 24d4128f9 ("vectorize freeverb", 2026-11-08) made freeverb.cpp `#include <argon.hpp>`,
+# whose only backends are NEON and MVE (argon's include/arm_simd.hpp falls through to
+# arm_simd/neon/vfpv3.hpp, which needs <arm/neon.h>) — so freeverb.cpp NO LONGER COMPILES on a
+# desktop g++ and the golden cannot be regenerated from C HEAD. Its portability backend, SIMDe,
+# is not vendored in the firmware tree. The per-filter arithmetic was unchanged by that commit
+# (same multiply_32x32_rshift32_rounded damping, same `input + (bufout >> 1)` allpass shortcut,
+# and DelayLines keeps a per-line pos/begin/end so each line still wraps at its own length), so
+# until SIMDe is available we regenerate from the last commit that builds here and say so.
+# See docs/firmware_sync_audit.md §12c.
 RVOUT="$REPO/src/test/resources/fidelity/reverb"
 mkdir -p "$RVOUT"
+FV_SRC="$FW/src/deluge/dsp/reverb/freeverb"
+FV_INC=()
+if grep -q "argon.hpp" "$FV_SRC/freeverb.cpp" 2>/dev/null; then
+  FV_PIN="24d4128f9^" # the commit before "vectorize freeverb"
+  FV_DIR="$BUILD/freeverb-pinned"
+  echo "note: freeverb.cpp at C HEAD needs argon/NEON; pinning the freeverb harness to $FV_PIN" >&2
+  mkdir -p "$FV_DIR/dsp/reverb/freeverb"
+  for f in freeverb.cpp freeverb.hpp comb.hpp allpass.hpp tuning.h; do
+    git -C "$FW" show "$FV_PIN:src/deluge/dsp/reverb/freeverb/$f" > "$FV_DIR/dsp/reverb/freeverb/$f"
+  done
+  FV_SRC="$FV_DIR/dsp/reverb/freeverb"
+  FV_INC=(-I"$FV_DIR")
+fi
 echo "linking harness against real freeverb.cpp ..."
-g++ $STD -fwrapv "${INC[@]}" \
+# ${FV_INC[@]+...} rather than "${FV_INC[@]}": expanding an EMPTY array under `set -u` is an
+# error on bash 3.2, which is still the default shell on macOS, and FV_INC is empty whenever the
+# firmware checkout predates the argon include.
+g++ $STD -fwrapv ${FV_INC[@]+"${FV_INC[@]}"} "${INC[@]}" \
   "$HERE/main_reverb.cpp" "$HERE/support.cpp" \
-  "$FW/src/deluge/dsp/reverb/freeverb/freeverb.cpp" \
+  "$FV_SRC/freeverb.cpp" \
   "$BUILD/lookuptables.o" \
   -o "$BUILD/gen_reverb"
 
