@@ -543,11 +543,44 @@ difference above.
 
 `24d4128f9` ("vectorize freeverb") made `freeverb.cpp` `#include <argon.hpp>`. Argon's
 `include/arm_simd.hpp` dispatches to NEON or MVE and otherwise falls through to
-`arm_simd/neon/vfpv3.hpp`, which needs `<arm/neon.h>`; its portability backend (SIMDe) is not
-vendored in the firmware tree. So `tools/ladder_harness/build.sh` **failed at its freeverb step**
-against HEAD, which also aborted the script after the LP/HP/SVF goldens it writes first. Fixed here:
-the step detects the `argon.hpp` include and regenerates from `24d4128f9^` instead, printing why.
-Restoring HEAD coverage needs SIMDe on the include path, which is a follow-up.
+`arm_simd/neon/vfpv3.hpp`, which needs `<arm/neon.h>`. Its portability backend is SIMDe, which the
+firmware fetches for its *own* host tests (`tests/CMakeLists.txt:25-31`, pinned `v0.8.2`, with the
+comment "Argon falls back to SIMDe's `<arm/neon.h>` shim when the host isn't ARM, which is what lets
+the DSP headers build … on a normal x86 dev machine") but which is not vendored in the tree, so a
+plain checkout cannot build it. `tools/ladder_harness/build.sh` therefore **failed at its freeverb
+step** against HEAD, after the LP/HP/SVF goldens it writes first — easy to miss, since the script
+appeared to do most of its job. Restoring HEAD coverage means putting SIMDe on the include path, and
+is issue #176.
+
+**How the pin is kept honest** (this is what the citations in `ReverbGoldenBufferTest` and
+`FREEVERB_PROVENANCE.txt` point here for). The step detects the `argon.hpp` include and regenerates
+the five `c_reverb_*.bin` from `24d4128f9^`, the last revision that compiles on desktop g++. Three
+things stop that pin from quietly going stale, each of which exists because a review found the
+previous version inadequate:
+
+- **`FV_PIN` is fixed and `FV_AUDITED_THROUGH` moves.** They were one variable at first, which left
+  the guard with no valid resolution: `24d4128f9` is the commit that *added* the include, so for any
+  later `X`, `X^` carries it again and will not compile. "Advance the pin" is never the answer;
+  advancing the audit frontier is.
+- **The gate is a content digest, not a path list.** The pinned build is a mix — only the five
+  copied files come from the pin, everything else resolves from `$FW` at HEAD, and
+  `lookuptables.cpp` is compiled at HEAD and linked in. A hand-written watch list was wrong by its
+  own criterion: the real include closure is **38 firmware files**, and naming three left
+  `dsp/stereo_sample.h` — which defines the `q31_t`/`StereoSample` fields the pinned
+  `Freeverb::ProcessOne` writes into — unwatched. The guard now derives the closure with `g++ -M`
+  and hashes the content of every `$FW` file in it, which needs no maintaining and, because it reads
+  the filesystem rather than git, also catches an **uncommitted** edit in the firmware tree — the
+  realistic case, since CLAUDE.md has firmware changes made on local fork branches.
+- **Failure to evaluate is not a pass.** Both revs are resolved with `rev-parse --verify` before
+  anything else (a clone grafted at `24d4128f9` resolves the frontier but not its parent), and no
+  `|| true` or `2>/dev/null` is left on the guard's own commands. Swallowing a `g++ -M` error is
+  exactly how the first digest implementation passed while covering none of freeverb's headers.
+
+`FREEVERB_PROVENANCE.txt` records `source`, `commit`, `reason`, `audited_through`,
+`build_inputs_digest` and `head_at_generation` beside the goldens, and `ReverbGoldenBufferTest` puts
+it in every failure message, so a failure states which C the bytes describe instead of implying the
+Java diverged. A started-but-unfinished regeneration leaves `source=incomplete`, distinct from the
+file being absent (which only means the goldens predate provenance being recorded at all).
 
 The vectorization itself reads as arithmetic-preserving — same
 `multiply_32x32_rshift32_rounded(output, damp2) + multiply_32x32_rshift32_rounded(filterstore,

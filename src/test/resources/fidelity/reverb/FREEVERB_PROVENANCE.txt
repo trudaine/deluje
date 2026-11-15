@@ -3,6 +3,6 @@
 source=pinned
 commit=f858aaf3b
 reason=freeverb.cpp at C HEAD includes <argon.hpp> (NEON/MVE only) and does not compile on desktop g++.
-audited_through=24d4128f9 (vectorize freeverb) - every commit from the pin to here read as arithmetic-preserving; see docs/firmware_sync_audit.md 12c
-watched_paths=src/deluge/dsp/reverb/freeverb/ src/deluge/dsp/reverb/base.hpp src/deluge/util/fixedpoint.h src/deluge/util/functions.h
+audited_through=03e4beb21 (Fix select encoder doing nothing in CV clip automation view (#5268) (#5300)) - the include closure's content at this commit was audited, and is what the digest below captures; see docs/firmware_sync_audit.md 12c
+build_inputs_digest=bca971574d2032472a96015d13e8196d641ef488861bf46dd6549ffc144961d3 (sha256 of every firmware file in the include closure)
 head_at_generation=03e4beb21

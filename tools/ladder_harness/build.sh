@@ -158,51 +158,58 @@ if grep -q "argon.hpp" "$FV_SRC/freeverb.cpp" 2>/dev/null; then
   #   describe HEAD's behaviour. Auditing a new freeverb commit means moving THIS, not the pin.
   FV_ARGON_COMMIT="24d4128f9"
   FV_PIN="$FV_ARGON_COMMIT^"
-  FV_AUDITED_THROUGH="$FV_ARGON_COMMIT"
+  # The commit whose closure CONTENT was audited and is captured by FV_EXPECTED_DIGEST below. It is
+  # not $FV_ARGON_COMMIT: the pinned build takes only five files from the pin and everything else
+  # from HEAD, so what was actually audited is HEAD's closure at the time of the audit. Keeping this
+  # at the argon commit made the failure hint list e223d19d5 (#5296, which touched
+  # definitions_cxx.hpp in the closure) as unaudited, contradicting a digest that already included
+  # it. Move this and FV_EXPECTED_DIGEST together, never apart.
+  FV_AUDITED_THROUGH="03e4beb21"
   FV_DIR="$BUILD/freeverb-pinned"
 
-  # What the guard watches. The pinned build is a MIX: -I"$FV_DIR" shadows only the five copied
-  # files, while the pinned sources still pull dsp/reverb/base.hpp (freeverb.hpp),
-  # util/fixedpoint.h (comb.hpp) and util/functions.h (allpass.hpp) from $FW at HEAD. A change to
-  # multiply_32x32_rshift32_rounded would therefore alter the goldens' arithmetic without touching
-  # the freeverb directory at all, which is the same stale-in-silence failure this guard exists to
-  # stop, so those headers are watched too.
-  FV_WATCH=(
-    src/deluge/dsp/reverb/freeverb/
-    src/deluge/dsp/reverb/base.hpp
-    src/deluge/util/fixedpoint.h
-    src/deluge/util/functions.h
-  )
-
-  # Keying the pin on the mere PRESENCE of the argon include would let it go stale in silence: a
-  # later upstream commit could change the arithmetic, still include <argon.hpp>, and this script
-  # would keep regenerating from the old pin — identical goldens, a green ReverbGoldenBufferTest,
-  # and a Java Freeverb quietly diverged from C HEAD. So refuse to pin past anything newer than the
-  # audit frontier, loudly, at the only moment it matters.
+  # WHAT THE GUARD CHECKS, and why it is a content digest rather than a list of paths.
   #
-  # No `|| true` on the git call: if the frontier cannot be resolved in this firmware checkout
-  # (shallow clone, or a fork branch whose history was rewritten — and per CLAUDE.md firmware edits
-  # do live on fork branches), that is "the guard could not be evaluated", which must not read as
-  # "the guard passed".
-  if ! git -C "$FW" rev-parse --verify -q "$FV_AUDITED_THROUGH^{commit}" >/dev/null; then
-    echo "error: cannot resolve the freeverb audit frontier $FV_AUDITED_THROUGH in $FW." >&2
-    echo "       A shallow clone or a rewritten branch cannot answer whether the pin is stale," >&2
-    echo "       so this refuses to regenerate rather than assume it is fine." >&2
-    exit 1
-  fi
-  FV_NEWER=$(git -C "$FW" log --oneline "$FV_AUDITED_THROUGH..HEAD" -- "${FV_WATCH[@]}")
-  if [ -n "$FV_NEWER" ]; then
-    echo "error: upstream changed the freeverb build inputs since the audit frontier $FV_AUDITED_THROUGH:" >&2
-    echo "$FV_NEWER" | sed 's/^/  /' >&2
-    cat >&2 <<EOF
-Regenerating from the pin ($FV_PIN) now would hide whatever those commits did.
-Read them against the Java Freeverb. If they are arithmetic-preserving, advance
-FV_AUDITED_THROUGH in this script (NOT FV_PIN — see the comment there, the pin cannot move).
-Better: put SIMDe on the include path and drop the pin entirely, which is how the firmware's own
-host tests build this file — see issue #176 and docs/firmware_sync_audit.md 12c.
-EOF
-    exit 1
-  fi
+  # The pinned build is a MIX: -I"$FV_DIR" shadows only the five copied freeverb files, while
+  # everything else they include resolves from $FW at HEAD, and lookuptables.cpp is compiled at HEAD
+  # and linked in too. A hand-written list of "the headers that matter" was tried here and was wrong
+  # by its own criterion: the real include closure is 38 firmware files, and naming three of them
+  # left dsp/stereo_sample.h unwatched - the file defining the q31_t / StereoSample fields the
+  # pinned Freeverb::ProcessOne writes into, and one upstream has edited more than once. A path list
+  # also cannot see an UNCOMMITTED edit in $FW, which matters because CLAUDE.md has firmware changes
+  # made on local fork branches: a working-tree probe in fixedpoint.h would bake itself into the
+  # goldens while git log reported nothing at all.
+  #
+  # So: derive the closure with `g++ -M` and hash the CONTENT of every file in it that comes from
+  # $FW. Closure-correct, needs no hand-maintaining, and reads the filesystem, so it catches
+  # uncommitted edits. Hashing the preprocessed output would also work but would change on a g++ or
+  # libstdc++ upgrade, since that pulls standard headers into the text; hashing only the firmware's
+  # own files keeps the digest about the firmware.
+  # No 2>/dev/null and no `|| true` anywhere in here: a g++ -M that fails must abort the run under
+  # `set -euo pipefail`, not quietly degrade the closure to whatever still resolved. Swallowing it
+  # is precisely how the first version of this guard passed while covering none of freeverb's
+  # headers.
+  fv_build_digest() {
+    {
+      g++ $STD -fwrapv ${FV_INC[@]+"${FV_INC[@]}"} "${INC[@]}" -M "$FV_SRC/freeverb.cpp"
+      g++ $STD "${INC[@]}" -M "$FW/src/deluge/util/lookuptables/lookuptables.cpp"
+    } | tr ' \\' '\n\n' | grep "^$FW/" | sort -u | xargs cat | sha256sum | cut -d' ' -f1
+  }
+  # The digest of those inputs as they stood when the goldens were audited. Update this ONLY
+  # together with FV_AUDITED_THROUGH, after reading what changed against the Java Freeverb.
+  FV_EXPECTED_DIGEST="bca971574d2032472a96015d13e8196d641ef488861bf46dd6549ffc144961d3"
+
+  # Both revs must resolve, not just the frontier: in a clone grafted at $FV_ARGON_COMMIT the
+  # frontier exists while its PARENT - the pin we actually build from - does not, and the run would
+  # then die at the bare `git show "$FV_PIN:..."` below with git's own "invalid object name" rather
+  # than the explanation written for exactly this case.
+  for rev in "$FV_AUDITED_THROUGH" "$FV_PIN"; do
+    if ! git -C "$FW" rev-parse --verify -q "$rev^{commit}" >/dev/null; then
+      echo "error: cannot resolve $rev in $FW (shallow clone, or a branch whose history was rewritten)." >&2
+      echo "       Without it there is no way to tell whether the freeverb pin is stale, so this" >&2
+      echo "       refuses to regenerate rather than assume it is fine." >&2
+      exit 1
+    fi
+  done
 
   echo "note: freeverb.cpp at C HEAD needs argon/NEON; pinning the freeverb harness to $FV_PIN" >&2
   mkdir -p "$FV_DIR/dsp/reverb/freeverb"
@@ -211,11 +218,48 @@ EOF
   done
   FV_SRC="$FV_DIR/dsp/reverb/freeverb"
   FV_INC=(-I"$FV_DIR")
+
+  # The digest gate runs HERE, not before the copy above, and the ordering is load-bearing: the
+  # closure has to be taken from the PINNED translation unit with $FV_SRC and $FV_INC pointing at
+  # it. Computed any earlier, `g++ -M` runs on HEAD's freeverb.cpp, dies on the missing argon.hpp,
+  # and yields a closure covering only lookuptables - which is how the first version of this guard
+  # silently failed to notice an edited dsp/stereo_sample.h. Still ahead of every freeverb golden,
+  # which is what the gate has to be ahead of.
+  FV_DIGEST=$(fv_build_digest)
+  if [ "$FV_DIGEST" != "$FV_EXPECTED_DIGEST" ]; then
+    echo "error: the freeverb build inputs have changed since they were audited." >&2
+    echo "       expected $FV_EXPECTED_DIGEST" >&2
+    echo "       actual   $FV_DIGEST" >&2
+    echo "       (content of every \$FW file in the include closure, so this covers uncommitted edits)" >&2
+    # Non-authoritative hint; the digest is the gate. Lists COMMITTED changes in the closure since
+    # the frontier - an uncommitted edit shows nothing here, which is itself the answer.
+    FV_CLOSURE=$({
+      g++ $STD -fwrapv ${FV_INC[@]+"${FV_INC[@]}"} "${INC[@]}" -M "$FV_SRC/freeverb.cpp"
+      g++ $STD "${INC[@]}" -M "$FW/src/deluge/util/lookuptables/lookuptables.cpp"
+    } | tr ' \\' '\n\n' | grep "^$FW/" | sed "s|^$FW/||" | sort -u)
+    FV_SINCE=$( (cd "$FW" && git log --oneline "$FV_AUDITED_THROUGH..HEAD" -- $FV_CLOSURE) || true)
+    if [ -n "$FV_SINCE" ]; then
+      echo "       committed changes in the closure since $FV_AUDITED_THROUGH:" >&2
+      echo "$FV_SINCE" | sed 's/^/         /' >&2
+    else
+      echo "       nothing committed in the closure since $FV_AUDITED_THROUGH - check git status in $FW" >&2
+    fi
+    cat >&2 <<EOF
+Regenerating from the pin ($FV_PIN) now would bake those changes into the goldens while the
+provenance still claimed the audited state. Read them against the Java Freeverb. If they are
+arithmetic-preserving, update FV_AUDITED_THROUGH *and* FV_EXPECTED_DIGEST in this script together.
+Do NOT advance FV_PIN - see the comment there, it cannot move.
+Better: put SIMDe on the include path and drop the pin entirely, which is how the firmware's own
+host tests build this file - see issue #176 and docs/firmware_sync_audit.md 12c.
+EOF
+    exit 1
+  fi
+
   FV_PROV_TEXT="source=pinned
 commit=$(git -C "$FW" rev-parse --short=9 "$FV_PIN")
 reason=freeverb.cpp at C HEAD includes <argon.hpp> (NEON/MVE only) and does not compile on desktop g++.
-audited_through=$FV_AUDITED_THROUGH ($(git -C "$FW" log -1 --format=%s "$FV_AUDITED_THROUGH")) - every commit from the pin to here read as arithmetic-preserving; see docs/firmware_sync_audit.md 12c
-watched_paths=${FV_WATCH[*]}
+audited_through=$FV_AUDITED_THROUGH ($(git -C "$FW" log -1 --format=%s "$FV_AUDITED_THROUGH")) - the include closure's content at this commit was audited, and is what the digest below captures; see docs/firmware_sync_audit.md 12c
+build_inputs_digest=$FV_DIGEST (sha256 of every firmware file in the include closure)
 head_at_generation=$(git -C "$FW" rev-parse --short=9 HEAD)"
 else
   # No git required on this branch: an exported or tarball firmware tree is a supported input (the
@@ -241,12 +285,19 @@ RVGEN="$BUILD/gen_reverb"
 rvgen() { "$RVGEN" "$1" "$2" "$3" 4096 "$4" "$RVOUT/$5"; }
 
 echo "regenerating Freeverb golden matrix -> $RVOUT"
-# Drop any previous provenance BEFORE writing a single golden. "Write it only after the goldens
-# exist" closes the hazard only for all-or-nothing failure: if rvgen dies on, say, the third of the
-# five cases, `set -e` exits leaving two fresh goldens, three stale ones, and the OLD provenance
-# still on disk, describing bytes that are now only partly there. Absent provenance is reported by
-# ReverbGoldenBufferTest as absent, which is honest; a stale one lies.
-rm -f "$FV_PROV"
+# Mark the set as mid-regeneration BEFORE writing a single golden, and replace it with the real
+# provenance only once all five succeed. "Write it only after the goldens exist" closes the hazard
+# only for all-or-nothing failure: if rvgen dies on, say, the third of the five cases, `set -e`
+# exits leaving two fresh goldens, three stale ones, and the OLD provenance still on disk,
+# describing bytes that are only partly there. Deleting it instead would overload "absent", which
+# already means "generated before this script recorded provenance" - a harmless case. An explicit
+# marker keeps the two apart, so the test can say which it is.
+cat > "$FV_PROV" <<EOF
+# Written by tools/ladder_harness/build.sh at the START of a freeverb regeneration.
+source=incomplete
+note=A regeneration began and did not finish, so these c_reverb_*.bin are a MIX of fresh and stale
+note=bytes and must not be trusted. Re-run tools/ladder_harness/build.sh.
+EOF
 rvgen 0.7 0.5 1.0 impulse    c_reverb_r70_d50_w100_impulse.bin
 rvgen 0.9 0.2 1.0 impulse    c_reverb_r90_d20_w100_impulse.bin
 rvgen 0.5 0.8 0.5 impulse    c_reverb_r50_d80_w50_impulse.bin

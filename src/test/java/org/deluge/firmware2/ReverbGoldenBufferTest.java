@@ -56,15 +56,23 @@ class ReverbGoldenBufferTest {
 
   /**
    * The C the goldens were generated from, as the harness recorded it — reported on failure so the
-   * pinned-vs-HEAD question is answered in the message rather than left to the reader. Absent is
-   * not a failure: goldens generated before the harness wrote provenance are still valid bytes.
+   * pinned-vs-HEAD question is answered in the message rather than left to the reader.
+   *
+   * <p>Three states, deliberately distinct. {@code source=pinned} or {@code source=head} is the
+   * normal case. {@code source=incomplete} means a regeneration started and did not finish, so the
+   * goldens beside it are a mix of fresh and stale bytes and a failure here says nothing about the
+   * Java — the harness writes that marker before its first generator and replaces it only once all
+   * five succeed. Absent means the goldens predate the harness recording provenance at all, which
+   * is harmless; it used to also cover the interrupted case, which is why the marker exists.
    */
   private static String provenance() {
     try (InputStream in =
         ReverbGoldenBufferTest.class.getResourceAsStream(
             "/fidelity/reverb/FREEVERB_PROVENANCE.txt")) {
       if (in == null) {
-        return "FREEVERB_PROVENANCE.txt absent — regenerate with tools/ladder_harness/build.sh to record it";
+        return "FREEVERB_PROVENANCE.txt absent — either these goldens predate the harness recording"
+            + " it (harmless) or a regeneration was interrupted; check `git status` on"
+            + " src/test/resources/fidelity/reverb/ and re-run tools/ladder_harness/build.sh";
       }
       return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
           .lines()
