@@ -466,11 +466,14 @@ faithful.** The C's `Sound::noteOn` goes straight from `arpeggiator->noteOn()` t
 note-**on** is dropped by a Sound, which manages its own voices. It is drained only on the render
 path (sound.cpp:2501-2515), in `Sound::noteOff` (:1626-1637), and by the MIDI/gate outputs
 (non_audio_instrument.cpp:94-100, which is where #5255 added the other half of itself). This port's
-`Sound.triggerNote` drained both arrays right after the arp call. That was *mostly* harmless before
-#5255, because the arp only wrote offs from `noteOn` via `switchNoteOn`; with the new block it means
-**the retrigger releases the very voice the same call is starting.** Measured both ways, not
-assumed: faithful gives 2 voices playing note 60 and 0 releasing; with the drain restored, 1 playing
-and 1 releasing.
+`Sound.triggerNote` drained both arrays right after the arp call. Before #5255 that was **dead
+code**, not merely harmless — checked by enumerating the writers rather than assumed: every write to
+`noteCodeOffPostArp` / `glideNoteCodeOffPostArp` in arpeggiator.cpp came from `noteOff`
+(:411-436, :231-254) or `switchAnyNoteOff` (:554-578), and `switchAnyNoteOff` is called only from
+`render` (:1544) and `doTickForward` (:1594), never from `noteOn`. #5255 (:382) is the **first ever
+write on the noteOn path**, and with it the drain means **the retrigger releases the very voice the
+same call is starting.** Measured both ways, not assumed: faithful gives 2 voices playing note 60
+and 0 releasing; with the drain restored, 1 playing and 1 releasing.
 
 Worth recording for the next person writing one of these tests: the first version of that third
 assertion read "some voice for note 60 is still playing", and it **passed with the drain restored**
