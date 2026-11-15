@@ -3,5 +3,6 @@
 source=pinned
 commit=f858aaf3b
 reason=freeverb.cpp at C HEAD includes <argon.hpp> (NEON/MVE only) and does not compile on desktop g++.
-audited_through=24d4128f9 (vectorize freeverb) - arithmetic-preserving; see docs/firmware_sync_audit.md 12c
+audited_through=24d4128f9 (vectorize freeverb) - every commit from the pin to here read as arithmetic-preserving; see docs/firmware_sync_audit.md 12c
+watched_paths=src/deluge/dsp/reverb/freeverb/ src/deluge/dsp/reverb/base.hpp src/deluge/util/fixedpoint.h src/deluge/util/functions.h
 head_at_generation=03e4beb21

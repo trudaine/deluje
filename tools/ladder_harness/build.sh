@@ -148,27 +148,58 @@ FV_SRC="$FW/src/deluge/dsp/reverb/freeverb"
 FV_INC=()
 FV_PROV="$RVOUT/FREEVERB_PROVENANCE.txt"
 if grep -q "argon.hpp" "$FV_SRC/freeverb.cpp" 2>/dev/null; then
-  # The LAST upstream commit this pin is known to account for. Everything the pin skips must be
-  # exactly this one commit's vectorization, which was audited as arithmetic-preserving.
-  FV_VECTORIZE="24d4128f9"
-  FV_PIN="$FV_VECTORIZE^"
+  # TWO different things, which must not be one variable:
+  #   FV_PIN is FIXED. 24d4128f9 is the commit that ADDED the argon include, so its parent is the
+  #   last revision of freeverb.cpp that compiles on a desktop g++. The pin cannot track the audit
+  #   frontier: any later commit X has X^ at or after 24d4128f9, which carries the include again and
+  #   fails to compile, so "advance the pin" is never a valid response to the guard below.
+  #   FV_AUDITED_THROUGH is the frontier, and MAY advance. It asserts: every upstream commit from
+  #   FV_PIN up to here was read and found arithmetic-preserving, so goldens built at FV_PIN still
+  #   describe HEAD's behaviour. Auditing a new freeverb commit means moving THIS, not the pin.
+  FV_ARGON_COMMIT="24d4128f9"
+  FV_PIN="$FV_ARGON_COMMIT^"
+  FV_AUDITED_THROUGH="$FV_ARGON_COMMIT"
   FV_DIR="$BUILD/freeverb-pinned"
 
+  # What the guard watches. The pinned build is a MIX: -I"$FV_DIR" shadows only the five copied
+  # files, while the pinned sources still pull dsp/reverb/base.hpp (freeverb.hpp),
+  # util/fixedpoint.h (comb.hpp) and util/functions.h (allpass.hpp) from $FW at HEAD. A change to
+  # multiply_32x32_rshift32_rounded would therefore alter the goldens' arithmetic without touching
+  # the freeverb directory at all, which is the same stale-in-silence failure this guard exists to
+  # stop, so those headers are watched too.
+  FV_WATCH=(
+    src/deluge/dsp/reverb/freeverb/
+    src/deluge/dsp/reverb/base.hpp
+    src/deluge/util/fixedpoint.h
+    src/deluge/util/functions.h
+  )
+
   # Keying the pin on the mere PRESENCE of the argon include would let it go stale in silence: a
-  # later upstream commit could change freeverb's arithmetic, still include <argon.hpp>, and this
-  # script would keep regenerating from the old pin — identical goldens, a green
-  # ReverbGoldenBufferTest, and a Java Freeverb quietly diverged from C HEAD. So refuse to pin past
-  # any freeverb commit newer than the one we audited, loudly, at the only moment it matters.
-  FV_NEWER=$(git -C "$FW" log --oneline "$FV_VECTORIZE..HEAD" -- src/deluge/dsp/reverb/freeverb/ || true)
+  # later upstream commit could change the arithmetic, still include <argon.hpp>, and this script
+  # would keep regenerating from the old pin — identical goldens, a green ReverbGoldenBufferTest,
+  # and a Java Freeverb quietly diverged from C HEAD. So refuse to pin past anything newer than the
+  # audit frontier, loudly, at the only moment it matters.
+  #
+  # No `|| true` on the git call: if the frontier cannot be resolved in this firmware checkout
+  # (shallow clone, or a fork branch whose history was rewritten — and per CLAUDE.md firmware edits
+  # do live on fork branches), that is "the guard could not be evaluated", which must not read as
+  # "the guard passed".
+  if ! git -C "$FW" rev-parse --verify -q "$FV_AUDITED_THROUGH^{commit}" >/dev/null; then
+    echo "error: cannot resolve the freeverb audit frontier $FV_AUDITED_THROUGH in $FW." >&2
+    echo "       A shallow clone or a rewritten branch cannot answer whether the pin is stale," >&2
+    echo "       so this refuses to regenerate rather than assume it is fine." >&2
+    exit 1
+  fi
+  FV_NEWER=$(git -C "$FW" log --oneline "$FV_AUDITED_THROUGH..HEAD" -- "${FV_WATCH[@]}")
   if [ -n "$FV_NEWER" ]; then
-    echo "error: upstream has changed dsp/reverb/freeverb/ since the audited pin $FV_VECTORIZE:" >&2
+    echo "error: upstream changed the freeverb build inputs since the audit frontier $FV_AUDITED_THROUGH:" >&2
     echo "$FV_NEWER" | sed 's/^/  /' >&2
     cat >&2 <<EOF
-The freeverb harness pin only accounts for $FV_VECTORIZE ($(git -C "$FW" log -1 --format=%s "$FV_VECTORIZE")),
-which was audited as arithmetic-preserving. Regenerating from the pin now would hide whatever the
-commits above did.
-Re-audit them against the Java Freeverb, then either move FV_VECTORIZE here or (better) put SIMDe on
-the include path and drop the pin entirely — see issue #176 and docs/firmware_sync_audit.md §12c.
+Regenerating from the pin ($FV_PIN) now would hide whatever those commits did.
+Read them against the Java Freeverb. If they are arithmetic-preserving, advance
+FV_AUDITED_THROUGH in this script (NOT FV_PIN — see the comment there, the pin cannot move).
+Better: put SIMDe on the include path and drop the pin entirely, which is how the firmware's own
+host tests build this file — see issue #176 and docs/firmware_sync_audit.md 12c.
 EOF
     exit 1
   fi
@@ -183,11 +214,16 @@ EOF
   FV_PROV_TEXT="source=pinned
 commit=$(git -C "$FW" rev-parse --short=9 "$FV_PIN")
 reason=freeverb.cpp at C HEAD includes <argon.hpp> (NEON/MVE only) and does not compile on desktop g++.
-audited_through=$FV_VECTORIZE ($(git -C "$FW" log -1 --format=%s "$FV_VECTORIZE")) - arithmetic-preserving; see docs/firmware_sync_audit.md 12c
+audited_through=$FV_AUDITED_THROUGH ($(git -C "$FW" log -1 --format=%s "$FV_AUDITED_THROUGH")) - every commit from the pin to here read as arithmetic-preserving; see docs/firmware_sync_audit.md 12c
+watched_paths=${FV_WATCH[*]}
 head_at_generation=$(git -C "$FW" rev-parse --short=9 HEAD)"
 else
+  # No git required on this branch: an exported or tarball firmware tree is a supported input (the
+  # script's only firmware precondition is that lpladder.cpp exists), and under `set -euo pipefail`
+  # a failing command substitution inside an assignment would abort the whole run here, after the
+  # LP/HP/SVF goldens have already been rewritten.
   FV_PROV_TEXT="source=head
-commit=$(git -C "$FW" rev-parse --short=9 HEAD)
+commit=$(git -C "$FW" rev-parse --short=9 HEAD 2>/dev/null || echo unknown)
 reason=freeverb.cpp compiled directly on desktop g++ - no pin needed."
 fi
 echo "linking harness against real freeverb.cpp ..."
@@ -205,6 +241,12 @@ RVGEN="$BUILD/gen_reverb"
 rvgen() { "$RVGEN" "$1" "$2" "$3" 4096 "$4" "$RVOUT/$5"; }
 
 echo "regenerating Freeverb golden matrix -> $RVOUT"
+# Drop any previous provenance BEFORE writing a single golden. "Write it only after the goldens
+# exist" closes the hazard only for all-or-nothing failure: if rvgen dies on, say, the third of the
+# five cases, `set -e` exits leaving two fresh goldens, three stale ones, and the OLD provenance
+# still on disk, describing bytes that are now only partly there. Absent provenance is reported by
+# ReverbGoldenBufferTest as absent, which is honest; a stale one lies.
+rm -f "$FV_PROV"
 rvgen 0.7 0.5 1.0 impulse    c_reverb_r70_d50_w100_impulse.bin
 rvgen 0.9 0.2 1.0 impulse    c_reverb_r90_d20_w100_impulse.bin
 rvgen 0.5 0.8 0.5 impulse    c_reverb_r50_d80_w50_impulse.bin
