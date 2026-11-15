@@ -168,6 +168,20 @@ public class ArpeggiatorSynth extends ArpeggiatorBase {
         arpNote.baseVelocity = originalVelocity;
         int velocity = calculateSpreadVelocity(originalVelocity, spreadVelocityForCurrentStep);
         arpNote.velocity = velocity;
+        // C arpeggiator.cpp:376-387 (#5255) — if this note is already sounding (auditioned while
+        // the sequencer plays it), switch it off before sounding it again. Both note-ons share this
+        // one ArpNote, so only one note-off will ever come out for them, and a receiver that counts
+        // note-ons (a mono synth's note stack, a MIDI device) would hold the note forever. Callers
+        // that manage their own voices ignore this note-off: Sound::noteOn reads only
+        // instruction.arpNoteOn (sound.cpp:1578-1582), never noteCodeOffPostArp.
+        if (noteExists
+            && arpNote.noteStatus[0] == ArpNoteStatus.PLAYING
+            && arpNote.noteCodeOnPostArp[0] != Arpeggiator.ARP_NOTE_NONE) {
+          instruction.noteCodeOffPostArp[0] = arpNote.noteCodeOnPostArp[0];
+          instruction.outputMIDIChannelOff[0] = arpNote.outputMemberChannel[0];
+          // So MPE output doesn't count the old note when choosing a member channel for the new one
+          arpNote.outputMemberChannel[0] = Arpeggiator.MIDI_CHANNEL_NONE;
+        }
         arpNote.noteCodeOnPostArp[0] = noteCode;
         arpNote.noteStatus[0] = ArpNoteStatus.PENDING;
         for (int n = 1; n < Arpeggiator.ARP_MAX_INSTRUCTION_NOTES; n++) {

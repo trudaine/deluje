@@ -1,6 +1,6 @@
 # Firmware Sync Audit — DelugeFirmware (last 3 weeks) vs. the Java port
 
-**Date:** 2026-07-04 (re-verified 2026-07-05: upstream tip unchanged at `9456095b`; two DSP-adjacent commits in the pulled range not previously named — #4538, #4576 — verified below · re-verified 2026-07-14: upstream advanced to `5762c4ba`, 33 new commits, see §5 · re-verified 2026-07-23: upstream advanced to `95b7acab`, 18 new commits, **one porting gap found** — filter mode `"Off"` XML compat, see §6 · re-verified 2026-10-16: upstream advanced to `a616dd8e6`, 145 new commits, all sound/model items ported, see §9) · **Upstream range:** mid-June 2026 to 2026-10-16 on
+**Date:** 2026-07-04 (re-verified 2026-07-05: upstream tip unchanged at `9456095b`; two DSP-adjacent commits in the pulled range not previously named — #4538, #4576 — verified below · re-verified 2026-07-14: upstream advanced to `5762c4ba`, 33 new commits, see §5 · re-verified 2026-07-23: upstream advanced to `95b7acab`, 18 new commits, **one porting gap found** — filter mode `"Off"` XML compat, see §6 · re-verified 2026-10-16: upstream advanced to `a616dd8e6`, 145 new commits, all sound/model items ported, see §9 · re-verified 2026-11-14: upstream advanced to `03e4beb21`, 38 new commits, **one new port gap** — #5296 envelope curves, see §12) · **Upstream range:** mid-June 2026 to 2026-10-16 on
 `../DelugeFirmware` (community `main`).
 
 This audit reviews recent Synthstrom **DelugeFirmware** C/C++ commits and checks, for each one that
@@ -442,6 +442,160 @@ and empty-clip transpose. New with the supersaw: `Song::resyncLFOs(reset_state)`
 `Kit::resyncLFOs` (`3b8f391df`), but this port's resync leaf is still a documented no-op because
 there is no transport wiring for it (`Sound.resyncGlobalLFOs()` early-returns on `!clockActive`), so
 the kit fan-out would have nothing to do.
+
+## 12. Re-verified 2026-11-14 — upstream advanced to `03e4beb21` (38 new commits)
+
+Range `f649f7fa2..03e4beb21` (§11's tip to upstream HEAD), cross-read against the community
+changelog at <https://delugecommunity.com/changelogs/changelog/>, whose "Recent Changes" section
+names the same two features this window carries: **envelope curves (#5296)** and predicted-margin
+voice culling (#5277). Of the 38, **one is a real new port gap** (#5296, filed as its own issue
+because it is a feature, not a fix), **one small behaviour fix is retrofitted here** (#5255), and
+the rest are perf refactors, hardware/UI, USB, CI and website work. The window also **broke one of
+this port's own verification paths**, which is §12c.
+
+### 12a. Retrofitted in this sync
+
+| commit | what | Java |
+| --- | --- | --- |
+| `910d479a6` (#5255) | **Always send note-off before note-on.** `Arpeggiator::noteOn` (arpeggiator.cpp:376-387) now switches an already-sounding note off before sounding it again — auditioning a note the sequencer is already playing. Both note-ons share one `ArpNote`, so only ONE note-off would ever come out for them, and a receiver that counts note-ons (a mono synth's note stack, a MIDI device) holds the note forever | `ArpeggiatorSynth.noteOn` ports the block; it reaches the kit arp too, since `ArpeggiatorForKit : public Arpeggiator` (arpeggiator.h:392) and the kit note-on path does drain the off (kit.cpp:745 ↔ `Kit.java:224`). Covered by `ArpRetriggerNoteOffTest` (3 tests, 5 negative controls) |
+
+**This uncovered a pre-existing divergence in `Sound`, which had to be fixed for the above to be
+faithful.** The C's `Sound::noteOn` goes straight from `arpeggiator->noteOn()` to
+`if (instruction.arpNoteOn != nullptr)` (sound.cpp:1578-1582) and reads **neither**
+`noteCodeOffPostArp` nor `glideNoteCodeOffPostArp`: a note-off the arp writes while handling a
+note-**on** is dropped by a Sound, which manages its own voices. It is drained only on the render
+path (sound.cpp:2501-2515), in `Sound::noteOff` (:1626-1637), and by the MIDI/gate outputs
+(non_audio_instrument.cpp:94-100, which is where #5255 added the other half of itself). This port's
+`Sound.triggerNote` drained both arrays right after the arp call. That was *mostly* harmless before
+#5255, because the arp only wrote offs from `noteOn` via `switchNoteOn`; with the new block it means
+**the retrigger releases the very voice the same call is starting.** Measured both ways, not
+assumed: faithful gives 2 voices playing note 60 and 0 releasing; with the drain restored, 1 playing
+and 1 releasing.
+
+Worth recording for the next person writing one of these tests: the first version of that third
+assertion read "some voice for note 60 is still playing", and it **passed with the drain restored**
+— `releaseVoice` leaves the newly started voice behind, so the count never reached zero. It is the
+same shape as the three vacuous assertions in the #170 review. The assertion that discriminates is
+the count of voices *in release*.
+
+### 12b. #5296 envelope curves — a new port gap, filed as an issue
+
+`e223d19d5` (#5296, 2026-11-13) is the one sound-affecting feature in the window, and it is
+substantial: 1043 insertions across `modulation/envelope.{h,cpp}`, a new
+`modulation/envelope_curve.h`, `voice.cpp`, `sound.{h,cpp}`, `audio_output.cpp`, `params/param.cpp`
+and the menus. It is **not** ported; `Envelope.java` is a faithful port of the pre-#5296 integer
+envelope. What it changes:
+
+- **Envelope levels become `float` in [0, 1]** (`lastValue`, `lastValuePreCurrentStage`,
+  `smoothedSustain`), with `toSourceValue()` converting to the bipolar q31 patch-source value at the
+  end. The lookup tables (`decayTableSmall4`/`decayTableSmall8` + `interpolateTable`) are replaced by
+  `EnvelopeCurve`, a general normalised exponential `(2^(-kx) - 2^-k) / (1 - 2^-k)` evaluated with a
+  5th-order `fastExp2` (relative error < 2e-7).
+- **A `curve` setting per envelope**, −50..50, default `kClassicCurve = 32`, giving decay/release
+  `k = curve/4` and attack half that. That default is **mathematically the old shape** — verified
+  here rather than taken from the commit's comment: `decayTableSmall8[1] = 64125` and
+  `(2^(-8/256) - 2^-8)/(1 - 2^-8) × 65535 = 64125.0`. So the difference at the default is only
+  16-bit-table-plus-interpolation versus float — small, but not bit-identical.
+- **Three new modes beside ADSR**: `AHD` (one-shot for drums; ignores note-off, hold time from the
+  decay param at 8× speed, decay from the release param, sustain forced to 0), `AR` (slews to the
+  sustain param at the attack rate up / release rate down — a slew limiter when the level is
+  patched), and `MPE` (`AR` plus an expression input, target `level + (1 - level) * input`, with a
+  per-envelope `follow` setting choosing pressure/aftertouch or mod wheel/MPE Y). A new `HOLD`
+  stage, and `Sound::envelopeHasSustainCurrently/Ever` now answer from the mode
+  (sound.cpp:4403-4432), which feeds note-tail and culling decisions.
+- **New XML**, at *sound* level, not in the clip's params: `<envelope1Settings mode="…" curve="N"
+  follow="y"/>` through `envelope4Settings`, written only when the config is non-default
+  (sound.cpp:4259-4271) and read at sound.cpp:911-930.
+- The audio-clip envelope keeps its shallower release as `kAudioClipEnvelopeShape` (k = 4), which is
+  the old `decayTableSmall4` the audio-output path used to pass.
+
+**Scope of the risk, stated rather than implied.** Because the tags are written only when
+non-default, **no existing song or preset in this repo's corpus is affected** — every ALLSYN/CALIB
+file predates the feature, so the scorecard baseline cannot move from this. The exposure is forward:
+a song saved by a newer firmware with a non-default envelope mode or curve would load here with its
+`envelopeNSettings` silently ignored and play a classic ADSR (the same failure shape as the
+tag-or-attribute bug and the `chordType` bug in #167), and a save from here drops the tags. Porting
+it will also shift any golden or signature test that exercises an envelope, by the table-vs-float
+difference above.
+
+### 12c. The freeverb golden harness no longer builds against C HEAD
+
+`24d4128f9` ("vectorize freeverb") made `freeverb.cpp` `#include <argon.hpp>`. Argon's
+`include/arm_simd.hpp` dispatches to NEON or MVE and otherwise falls through to
+`arm_simd/neon/vfpv3.hpp`, which needs `<arm/neon.h>`; its portability backend (SIMDe) is not
+vendored in the firmware tree. So `tools/ladder_harness/build.sh` **failed at its freeverb step**
+against HEAD, which also aborted the script after the LP/HP/SVF goldens it writes first. Fixed here:
+the step detects the `argon.hpp` include and regenerates from `24d4128f9^` instead, printing why.
+Restoring HEAD coverage needs SIMDe on the include path, which is a follow-up.
+
+The vectorization itself reads as arithmetic-preserving — same
+`multiply_32x32_rshift32_rounded(output, damp2) + multiply_32x32_rshift32_rounded(filterstore,
+damp1) << 1` damping, same `input + (bufout >> 1)` allpass shortcut, and the new shared `DelayLines`
+keeps a per-line `pos`/`begin`/`end` so every line still wraps at its own length — but that is a
+**read, not a measurement**, and it is the one claim in this section that no golden backs.
+
+### 12d. Perf refactors — read line by line, and every golden regenerated
+
+The window is mostly performance work, again on paths this port mirrors. Each was read for a change
+in arithmetic, and **every golden buffer the ten harnesses write was regenerated against
+`03e4beb21` and came back byte-identical**: all 190 files across `dxenv`, `fm`, `ladder`,
+`hpladder`, `svf`, `ne10_fft`, `osc` (which holds the supersaw set), `lfo`, `reverb`, `wt` and
+`filterset`, with `git status` reporting nothing modified anywhere under
+`src/test/resources/fidelity/` afterwards, and 180 of them additionally md5-matched against a
+manifest taken before the run. The freeverb five were generated at `24d4128f9^` per §12c.
+
+- `008a9b540` (branchless comp render), `b19ade750` (make delay branchless), `f858aaf3b` (don't
+  write back to obj during render), `db9acafe3` (reduce passes through audio buffer), `4cdf49002`
+  (#5252, keep state in registers), `a18dc5455`'s phase-search rewrite: restructures that keep state
+  in locals and fuse passes. The delay is the one worth spelling out, because fusing *looks* risky:
+  the old code ran saturate → HPF → feedback as three full passes over the working buffer; each is
+  pointwise except the HPF, which is sequential but depends only on the same index of the previous
+  pass, so fusing them per-sample is order-preserving.
+- `a5d86b2a4` (#5256, fast int divide for small denominators) replaces `/ numSamples` in
+  `voice.cpp`'s amplitude/wave-index ramps with a reciprocal multiply. It is **exact**, not
+  approximate: Granlund–Montgomery with `m = ceil(2^(31+l)/n)`, `l = bit_width(n-1)`, proven for
+  `0 <= a < 2^31`, and the sign is applied around the magnitude so it truncates toward zero like
+  `/`. (The one input outside the proven range is `INT32_MIN`, whose magnitude is exactly 2^31.)
+  `getStretchToUndoPitch` is memoisation of the same division.
+- `be5e90979` (#5248, cache configs), `6cb291350` (#5277) and `8766cce27` (#5280, culling on
+  predicted render margin), `67dd631b2` (#5247, skip FX for outputs with no sound): CPU-budget
+  management with no counterpart here — this port does not cull on render time, and #5247 preserves
+  FX tails, it only stops rendering silence after they end.
+
+### 12e. Not applicable
+
+- `628d8addf` (#5273, "handle time stretch hop going before sample start") is **cluster-loading
+  machinery**: `clustersForHopBack`, `clusterForHopRetry`, `updateClustersForHopBack`, and
+  `clampToStartIfNotLoaded` all exist to hold SD-streaming "reasons" so audio before the start
+  marker is enqueued in time. This port reads samples from RAM and has no Cluster reasons (§11d).
+  Its one portable detail is an **out-of-bounds read it fixes in passing**: at the clamped top of the
+  coarse hop tables (`speedLog == 896 << 20`) `position` reaches 2^27 and
+  `interpolateTableSigned(…, 27, table, 2)` reads `table[4]` *and* `table[5]` of a 5-entry array, so
+  the C now pins `position` to `(128 << 20) - 1`. **This port already handles it**, the other way
+  round: `TimeStretcher.java:122-138` pads every coarse table with a duplicated last entry,
+  documented there since the port was written, so `position == 2^27` reads `table[4]` and its copy.
+  The two routes are not identical arithmetic — the C's clamp leaves `strength2 = 65535`, one
+  65536th short of `table[4]`, where the padded read lands on it exactly — so this was computed for
+  all five coarse tables rather than argued: `min/maxHopSize` differ by 300 and 1500 in the raw
+  product and agree exactly after the `>> 16` (300 and 2500), `crossfadeAbsolute` likewise (20), and
+  `crossfadeProportional` (589824, used `<< 8`) and `randomCoarse` (0, used raw) are **bit-identical
+  before any shift**. So the two agree on every value this code reads.
+- UI, display and encoder work: `03e4beb21` (#5300/#5268), `106814f77` (#5298), `b6a6a4999` (#5263),
+  `e0497fe3f` (#5243), `cc2639fae` (#5289), `dd7af3590` (#5283), `ac037706f` (#5282),
+  `034a10db4` (#5229), `70b29577f` (#5239), `026fd06a5` (#5240).
+- `b357fdbc0` (#5214) rejects extensionless filenames in `isAudioFilename()` — a `strrchr` null
+  dereference. The nearest Java is `path.toUpperCase().endsWith(".WAV")`
+  (`SwingSynthWavetableEditorDialog.java:594`), which has no such failure mode.
+- USB: `820a3b19f` (#5291), `f7adcb9e6` (#5276). CI, website, blog and packaging: `3f642a514`,
+  `96c002803`, `ea5300622`, `71822ff1b`, `1c0557010`, `279cbbc2b`, `84d39d0f1`, `833dcbb66`,
+  `a90c8a0b5`, `1dfc5839c`.
+
+### 12f. Still open (unchanged by this sync)
+
+The §11e list is untouched: the live pitch shifter's `<= 0` guard, arp octave modes
+`"alt"`/`"random"`, the audio-track envelope, `AutoParam` tempo-tracking interpolation, empty-clip
+transpose, and `Song::resyncLFOs`' kit fan-out. New with this window: **#5296 envelope curves**
+(§12b).
 
 ## Method
 

@@ -2034,20 +2034,15 @@ public class Sound extends GlobalEffectable {
       arpInstr.reset();
       arpInstr.sampleSyncLengthOn = pendingSampleSyncLength; // C sound.cpp:1534
       arpeggiator.noteOn(arpSettings, note, vel, arpInstr, midiChannel, mpeValues);
-      for (int n = 0; n < 4; n++) {
-        int glideOff = arpInstr.glideNoteCodeOffPostArp[n];
-        if (glideOff == Arpeggiator.ARP_NOTE_NONE) {
-          break;
-        }
-        releaseVoice(glideOff, -1);
-      }
-      for (int n = 0; n < 4; n++) {
-        int noteOff = arpInstr.noteCodeOffPostArp[n];
-        if (noteOff == Arpeggiator.ARP_NOTE_NONE) {
-          break;
-        }
-        releaseVoice(noteOff, -1);
-      }
+      // C sound.cpp:1578-1582 — Sound::noteOn goes straight from arpeggiator->noteOn() to
+      // `if (instruction.arpNoteOn != nullptr)`. It reads NEITHER noteCodeOffPostArp nor
+      // glideNoteCodeOffPostArp: a note-off the arp writes while handling a note-ON is dropped on
+      // the floor by a Sound, which manages its own voices, and is only drained on the render path
+      // (sound.cpp:2501-2515, processArpInstruction below), in Sound::noteOff (:1626-1637) and by
+      // the MIDI/gate outputs (non_audio_instrument.cpp:94-100). Draining it here used to be
+      // harmless because the arp wrote offs from noteOn only via switchNoteOn; since #5255
+      // (arpeggiator.cpp:376-387) a retriggered note writes one, and acting on it here would
+      // release the very voice this call is about to start.
       if (arpInstr.arpNoteOn != null) {
         // C sound.cpp:1556 — the voice syncs to instruction.sampleSyncLengthOn, which a synced arp
         // overwrites with its period (arpeggiator.cpp:1579).
