@@ -32,8 +32,14 @@ import org.junit.jupiter.params.provider.MethodSource;
  * be compiled on desktop g++, so the harness regenerates from {@code 24d4128f9^} and writes {@code
  * FREEVERB_PROVENANCE.txt} beside the goldens saying so. This test reads that file and puts it in
  * every failure message: without it, a failure here says "Java diverged" when the honest reading
- * may be "the golden describes a pinned C, not HEAD". The harness itself refuses to pin past any
- * freeverb commit newer than the audited one, which is what stops the pin going stale in silence.
+ * may be "the golden describes a pinned C, not HEAD".
+ *
+ * <p>What stops the pin going stale is a content digest in the harness, over every firmware file in
+ * the pinned build's include closure <em>plus the five pinned freeverb files as they stand at
+ * HEAD</em>; it refuses to regenerate when that digest moves. An earlier version of this comment
+ * claimed the harness "refuses to pin past any freeverb commit newer than the audited one", which
+ * was not true of the code: the digest had excluded the freeverb directory itself, and a review
+ * demonstrated the guard passing with HEAD's {@code freeverb.cpp} and {@code comb.hpp} both edited.
  * See issue #176 and {@code docs/firmware_sync_audit.md} §12c.
  */
 @Tag("slow")
@@ -86,6 +92,19 @@ class ReverbGoldenBufferTest {
   @ParameterizedTest(name = "{0}")
   @MethodSource("cases")
   void javaFreeverbMatchesCGolden(String name, Case c) throws IOException {
+    // An interrupted regeneration has to FAIL here, not merely be mentioned in some other
+    // assertion's message. Because a pinned regeneration is byte-identical, a half-regenerated set
+    // — two fresh goldens, three stale — still matches the Java and every case would pass, so the
+    // marker the harness writes would be read by nobody. These bytes cannot vouch for anything.
+    String prov = provenance();
+    if (prov.contains("source=incomplete")) {
+      org.junit.jupiter.api.Assertions.fail(
+          "the freeverb goldens are mid-regeneration and are a mix of fresh and stale bytes, so this"
+              + " test cannot say anything about the Java: re-run tools/ladder_harness/build.sh."
+              + " Provenance: "
+              + prov);
+    }
+
     int[] expected = readGolden(c.file()); // interleaved L,R
     Assumptions.assumeTrue(expected != null, "missing golden resource: " + c.file());
     assertEquals(NSAMP * 2, expected.length, "golden size");

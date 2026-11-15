@@ -562,15 +562,32 @@ previous version inadequate:
   the guard with no valid resolution: `24d4128f9` is the commit that *added* the include, so for any
   later `X`, `X^` carries it again and will not compile. "Advance the pin" is never the answer;
   advancing the audit frontier is.
-- **The gate is a content digest, not a path list.** The pinned build is a mix — only the five
-  copied files come from the pin, everything else resolves from `$FW` at HEAD, and
-  `lookuptables.cpp` is compiled at HEAD and linked in. A hand-written watch list was wrong by its
-  own criterion: the real include closure is **38 firmware files**, and naming three left
+- **The gate is a content digest over the closure *and* the five pinned files.** The pinned build is
+  a mix — only the five copied files come from the pin, everything else resolves from `$FW` at HEAD,
+  and `lookuptables.cpp` is compiled at HEAD and linked in. A hand-written watch list was wrong by
+  its own criterion: the real include closure is **38 firmware files**, and naming three left
   `dsp/stereo_sample.h` — which defines the `q31_t`/`StereoSample` fields the pinned
-  `Freeverb::ProcessOne` writes into — unwatched. The guard now derives the closure with `g++ -M`
-  and hashes the content of every `$FW` file in it, which needs no maintaining and, because it reads
-  the filesystem rather than git, also catches an **uncommitted** edit in the firmware tree — the
-  realistic case, since CLAUDE.md has firmware changes made on local fork branches.
+  `Freeverb::ProcessOne` writes into — unwatched. The guard derives the closure with `g++ -M` and
+  hashes the content of every `$FW` file in it, which needs no maintaining and, because it reads the
+  filesystem rather than git, also catches an **uncommitted** edit — the realistic case, since
+  CLAUDE.md has firmware changes made on local fork branches.
+
+  **The digest's own first version was worse than the list it replaced, and a review proved it by
+  experiment.** Because `-I"$FV_DIR"` is what makes the pinned files resolve, they are *not* under
+  `$FW` in the closure, so `grep "^$FW/"` dropped all five — the guard passed with HEAD's
+  `freeverb.cpp` and `comb.hpp` both edited, which is the precise scenario it exists to catch, and
+  which the discarded path list had covered. The five files are now hashed explicitly from `$FW`.
+  Recorded because it is the third time in this one change that the mechanism meant to stop a green
+  test from lying was itself quietly broken, and in each case only a deliberately broken input
+  revealed it — never a test result.
+
+  **Known cost, not solved:** the closure reaches `gui/l10n/strings.h`, `gui/colour/palette.h` and
+  others transitively through `model_stack.h`, so an upstream string-table edit will trip the gate
+  and demand a digest bump that cannot change a golden byte. That trains exactly the habit the guard
+  exists to prevent, and narrowing the hash to an "arithmetic-bearing subset" would reintroduce the
+  by-its-own-criterion error above. It errs loud deliberately: a false alarm costs a re-audit, a
+  miss is the hazard. **The real resolution is #176** — with SIMDe on the include path there is no
+  pin, no frontier, no digest and no guard.
 - **Failure to evaluate is not a pass.** Both revs are resolved with `rev-parse --verify` before
   anything else (a clone grafted at `24d4128f9` resolves the frontier but not its parent), and no
   `|| true` or `2>/dev/null` is left on the guard's own commands. Swallowing a `g++ -M` error is

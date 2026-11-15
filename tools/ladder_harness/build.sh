@@ -188,28 +188,50 @@ if grep -q "argon.hpp" "$FV_SRC/freeverb.cpp" 2>/dev/null; then
   # `set -euo pipefail`, not quietly degrade the closure to whatever still resolved. Swallowing it
   # is precisely how the first version of this guard passed while covering none of freeverb's
   # headers.
+  # The five pinned files have to be hashed EXPLICITLY, from $FW, and leaving them out is the one
+  # mistake this guard cannot afford. They resolve under $FV_DIR in the closure above (that is the
+  # point of -I"$FV_DIR"), so `grep "^$FW/"` drops every one of them, and the first version of this
+  # digest therefore passed with HEAD's freeverb.cpp AND comb.hpp both edited — the exact scenario
+  # the guard exists for, and one the path list it replaced did cover. Hash $FW's copies so any
+  # upstream change to them trips the gate, whether committed or not.
+  fv_pinned_at_head() {
+    for f in freeverb.cpp freeverb.hpp comb.hpp allpass.hpp tuning.h; do
+      echo "$FW/src/deluge/dsp/reverb/freeverb/$f"
+    done
+  }
   fv_build_digest() {
     {
-      g++ $STD -fwrapv ${FV_INC[@]+"${FV_INC[@]}"} "${INC[@]}" -M "$FV_SRC/freeverb.cpp"
-      g++ $STD "${INC[@]}" -M "$FW/src/deluge/util/lookuptables/lookuptables.cpp"
-    } | tr ' \\' '\n\n' | grep "^$FW/" | sort -u | xargs cat | sha256sum | cut -d' ' -f1
+      {
+        g++ $STD -fwrapv ${FV_INC[@]+"${FV_INC[@]}"} "${INC[@]}" -M "$FV_SRC/freeverb.cpp"
+        g++ $STD "${INC[@]}" -M "$FW/src/deluge/util/lookuptables/lookuptables.cpp"
+      } | tr ' \\' '\n\n' | grep "^$FW/"
+      fv_pinned_at_head
+    } | sort -u | xargs cat | sha256sum | cut -d' ' -f1
   }
   # The digest of those inputs as they stood when the goldens were audited. Update this ONLY
   # together with FV_AUDITED_THROUGH, after reading what changed against the Java Freeverb.
-  FV_EXPECTED_DIGEST="bca971574d2032472a96015d13e8196d641ef488861bf46dd6549ffc144961d3"
+  FV_EXPECTED_DIGEST="21d3e986f899af2ebf20e04dfe15106139168c3eb2c30d74581a2b1bddb39e88"
 
   # Both revs must resolve, not just the frontier: in a clone grafted at $FV_ARGON_COMMIT the
   # frontier exists while its PARENT - the pin we actually build from - does not, and the run would
   # then die at the bare `git show "$FV_PIN:..."` below with git's own "invalid object name" rather
   # than the explanation written for exactly this case.
-  for rev in "$FV_AUDITED_THROUGH" "$FV_PIN"; do
-    if ! git -C "$FW" rev-parse --verify -q "$rev^{commit}" >/dev/null; then
-      echo "error: cannot resolve $rev in $FW (shallow clone, or a branch whose history was rewritten)." >&2
-      echo "       Without it there is no way to tell whether the freeverb pin is stale, so this" >&2
-      echo "       refuses to regenerate rather than assume it is fine." >&2
-      exit 1
-    fi
-  done
+  # $FV_PIN must resolve: it is what we build from, and there is no way to proceed without it.
+  if ! git -C "$FW" rev-parse --verify -q "$FV_PIN^{commit}" >/dev/null; then
+    echo "error: cannot resolve the freeverb pin $FV_PIN in $FW." >&2
+    echo "       That commit predates the argon include, so a checkout without it is either shallow" >&2
+    echo "       or has had its history rewritten. Nothing can be regenerated from the pin here." >&2
+    exit 1
+  fi
+  # $FV_AUDITED_THROUGH is only used for the failure hint, and it is an upstream HEAD from audit
+  # time, so a $FW that simply PREDATES it — or a fork branch cut before it, which CLAUDE.md makes
+  # the normal state for local firmware work — is perfectly ordinary and must not abort the run.
+  # The digest below is the gate and does not need it.
+  if ! git -C "$FW" rev-parse --verify -q "$FV_AUDITED_THROUGH^{commit}" >/dev/null; then
+    echo "note: audit frontier $FV_AUDITED_THROUGH is not in $FW (an older or forked checkout)." >&2
+    echo "      The digest gate still applies; only the failure hint will be less specific." >&2
+    FV_AUDITED_THROUGH=""
+  fi
 
   echo "note: freeverb.cpp at C HEAD needs argon/NEON; pinning the freeverb harness to $FV_PIN" >&2
   mkdir -p "$FV_DIR/dsp/reverb/freeverb"
@@ -233,16 +255,26 @@ if grep -q "argon.hpp" "$FV_SRC/freeverb.cpp" 2>/dev/null; then
     echo "       (content of every \$FW file in the include closure, so this covers uncommitted edits)" >&2
     # Non-authoritative hint; the digest is the gate. Lists COMMITTED changes in the closure since
     # the frontier - an uncommitted edit shows nothing here, which is itself the answer.
+    # Same set the digest hashes, pinned files included — without them this listing could never
+    # name a commit that touched src/deluge/dsp/reverb/freeverb/, and would print "nothing
+    # committed in the closure" with a freeverb arithmetic change sitting at HEAD.
     FV_CLOSURE=$({
-      g++ $STD -fwrapv ${FV_INC[@]+"${FV_INC[@]}"} "${INC[@]}" -M "$FV_SRC/freeverb.cpp"
-      g++ $STD "${INC[@]}" -M "$FW/src/deluge/util/lookuptables/lookuptables.cpp"
-    } | tr ' \\' '\n\n' | grep "^$FW/" | sed "s|^$FW/||" | sort -u)
-    FV_SINCE=$( (cd "$FW" && git log --oneline "$FV_AUDITED_THROUGH..HEAD" -- $FV_CLOSURE) || true)
-    if [ -n "$FV_SINCE" ]; then
-      echo "       committed changes in the closure since $FV_AUDITED_THROUGH:" >&2
-      echo "$FV_SINCE" | sed 's/^/         /' >&2
+      {
+        g++ $STD -fwrapv ${FV_INC[@]+"${FV_INC[@]}"} "${INC[@]}" -M "$FV_SRC/freeverb.cpp"
+        g++ $STD "${INC[@]}" -M "$FW/src/deluge/util/lookuptables/lookuptables.cpp"
+      } | tr ' \\' '\n\n' | grep "^$FW/"
+      fv_pinned_at_head
+    } | sed "s|^$FW/||" | sort -u)
+    if [ -n "$FV_AUDITED_THROUGH" ]; then
+      FV_SINCE=$( (cd "$FW" && git log --oneline "$FV_AUDITED_THROUGH..HEAD" -- $FV_CLOSURE) || true)
+      if [ -n "$FV_SINCE" ]; then
+        echo "       committed changes in the closure since $FV_AUDITED_THROUGH:" >&2
+        echo "$FV_SINCE" | sed 's/^/         /' >&2
+      else
+        echo "       nothing committed in the closure since $FV_AUDITED_THROUGH - check git status in $FW" >&2
+      fi
     else
-      echo "       nothing committed in the closure since $FV_AUDITED_THROUGH - check git status in $FW" >&2
+      echo "       (no audit frontier in this checkout, so no commit listing - check git status in $FW)" >&2
     fi
     cat >&2 <<EOF
 Regenerating from the pin ($FV_PIN) now would bake those changes into the goldens while the

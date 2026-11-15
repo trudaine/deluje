@@ -4,5 +4,5 @@ source=pinned
 commit=f858aaf3b
 reason=freeverb.cpp at C HEAD includes <argon.hpp> (NEON/MVE only) and does not compile on desktop g++.
 audited_through=03e4beb21 (Fix select encoder doing nothing in CV clip automation view (#5268) (#5300)) - the include closure's content at this commit was audited, and is what the digest below captures; see docs/firmware_sync_audit.md 12c
-build_inputs_digest=bca971574d2032472a96015d13e8196d641ef488861bf46dd6549ffc144961d3 (sha256 of every firmware file in the include closure)
+build_inputs_digest=21d3e986f899af2ebf20e04dfe15106139168c3eb2c30d74581a2b1bddb39e88 (sha256 of every firmware file in the include closure)
 head_at_generation=03e4beb21
