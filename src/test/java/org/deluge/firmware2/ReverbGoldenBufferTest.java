@@ -26,6 +26,15 @@ import org.junit.jupiter.params.provider.MethodSource;
  * <p>Buffers are 4096 frames — the comb delays are ~1116-1617 samples, so a shorter window yields
  * all-zero output before any tail emerges. Interleaved L,R int32. Golden files: {@code
  * src/test/resources/fidelity/reverb/}; regenerate with {@code tools/ladder_harness/build.sh}.
+ *
+ * <p><b>Which C these bytes describe is not obvious, so it is recorded.</b> Since upstream {@code
+ * 24d4128f9} ("vectorize freeverb"), {@code freeverb.cpp} includes {@code <argon.hpp>} and cannot
+ * be compiled on desktop g++, so the harness regenerates from {@code 24d4128f9^} and writes {@code
+ * FREEVERB_PROVENANCE.txt} beside the goldens saying so. This test reads that file and puts it in
+ * every failure message: without it, a failure here says "Java diverged" when the honest reading
+ * may be "the golden describes a pinned C, not HEAD". The harness itself refuses to pin past any
+ * freeverb commit newer than the audited one, which is what stops the pin going stale in silence.
+ * See issue #176 and {@code docs/firmware_sync_audit.md} §12c.
  */
 @Tag("slow")
 class ReverbGoldenBufferTest {
@@ -43,6 +52,27 @@ class ReverbGoldenBufferTest {
             new Case("c_reverb_r70_d50_w100_square.bin", 0.7f, 0.5f, 1.0f, "square"),
             new Case("c_reverb_r99_d0_w100_loud_train.bin", 0.99f, 0.0f, 1.0f, "loud_train"))
         .map(c -> Arguments.of(c.file, c));
+  }
+
+  /**
+   * The C the goldens were generated from, as the harness recorded it — reported on failure so the
+   * pinned-vs-HEAD question is answered in the message rather than left to the reader. Absent is
+   * not a failure: goldens generated before the harness wrote provenance are still valid bytes.
+   */
+  private static String provenance() {
+    try (InputStream in =
+        ReverbGoldenBufferTest.class.getResourceAsStream(
+            "/fidelity/reverb/FREEVERB_PROVENANCE.txt")) {
+      if (in == null) {
+        return "FREEVERB_PROVENANCE.txt absent — regenerate with tools/ladder_harness/build.sh to record it";
+      }
+      return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+          .lines()
+          .filter(l -> !l.startsWith("#") && !l.isBlank())
+          .collect(java.util.stream.Collectors.joining(", "));
+    } catch (IOException e) {
+      return "FREEVERB_PROVENANCE.txt unreadable: " + e;
+    }
   }
 
   @ParameterizedTest(name = "{0}")
@@ -86,7 +116,8 @@ class ReverbGoldenBufferTest {
                 + jv
                 + " golden="
                 + gv
-                + ")");
+                + "). Golden provenance: "
+                + provenance());
   }
 
   private static int[] readGolden(String file) throws IOException {

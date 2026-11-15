@@ -1,0 +1,7 @@
+# Which C these c_reverb_*.bin goldens were generated from. Written by tools/ladder_harness/build.sh.
+# Read by ReverbGoldenBufferTest so a failure says which C the bytes describe.
+source=pinned
+commit=f858aaf3b
+reason=freeverb.cpp at C HEAD includes <argon.hpp> (NEON/MVE only) and does not compile on desktop g++.
+audited_through=24d4128f9 (vectorize freeverb) - arithmetic-preserving; see docs/firmware_sync_audit.md 12c
+head_at_generation=03e4beb21

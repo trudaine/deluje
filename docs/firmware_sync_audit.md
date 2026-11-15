@@ -475,6 +475,15 @@ write on the noteOn path**, and with it the drain means **the retrigger releases
 same call is starting.** Measured both ways, not assumed: faithful gives 2 voices playing note 60
 and 0 releasing; with the drain restored, 1 playing and 1 releasing.
 
+**The other half of #5255 is deliberately unported, and the earlier text did not say so.** The
+commit also touches `NonAudioInstrument::sendNote` (non_audio_instrument.cpp:94-100, draining the
+new off) and `NonAudioInstrument::doTickForwardForArp` (:224, marking `noteStatus` PLAYING so the
+note-on is not sent again next tick). **This port has no such path at all**: `ArpeggiatorSynth`,
+`ArpeggiatorKit` and `ArpeggiatorForDrum` are instantiated only from `Sound` and `Kit`, and
+`FirmwareMidiInstrument` has no arpeggiator, so there is nothing to drain the off on. Recorded
+because the absence is the reason, not an oversight — a future MIDI-out or CV arp path would need
+both halves.
+
 **The kit path needs no change, and an earlier version of this section said the opposite.** It
 claimed the C's kit note-on path drains the off, citing kit.cpp:745. That line is in
 `Kit::setupAndRenderArpPreOutput` — the *render* path. The C's actual kit note-on

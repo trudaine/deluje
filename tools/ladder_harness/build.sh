@@ -146,9 +146,33 @@ RVOUT="$REPO/src/test/resources/fidelity/reverb"
 mkdir -p "$RVOUT"
 FV_SRC="$FW/src/deluge/dsp/reverb/freeverb"
 FV_INC=()
+FV_PROV="$RVOUT/FREEVERB_PROVENANCE.txt"
 if grep -q "argon.hpp" "$FV_SRC/freeverb.cpp" 2>/dev/null; then
-  FV_PIN="24d4128f9^" # the commit before "vectorize freeverb"
+  # The LAST upstream commit this pin is known to account for. Everything the pin skips must be
+  # exactly this one commit's vectorization, which was audited as arithmetic-preserving.
+  FV_VECTORIZE="24d4128f9"
+  FV_PIN="$FV_VECTORIZE^"
   FV_DIR="$BUILD/freeverb-pinned"
+
+  # Keying the pin on the mere PRESENCE of the argon include would let it go stale in silence: a
+  # later upstream commit could change freeverb's arithmetic, still include <argon.hpp>, and this
+  # script would keep regenerating from the old pin — identical goldens, a green
+  # ReverbGoldenBufferTest, and a Java Freeverb quietly diverged from C HEAD. So refuse to pin past
+  # any freeverb commit newer than the one we audited, loudly, at the only moment it matters.
+  FV_NEWER=$(git -C "$FW" log --oneline "$FV_VECTORIZE..HEAD" -- src/deluge/dsp/reverb/freeverb/ || true)
+  if [ -n "$FV_NEWER" ]; then
+    echo "error: upstream has changed dsp/reverb/freeverb/ since the audited pin $FV_VECTORIZE:" >&2
+    echo "$FV_NEWER" | sed 's/^/  /' >&2
+    cat >&2 <<EOF
+The freeverb harness pin only accounts for $FV_VECTORIZE ($(git -C "$FW" log -1 --format=%s "$FV_VECTORIZE")),
+which was audited as arithmetic-preserving. Regenerating from the pin now would hide whatever the
+commits above did.
+Re-audit them against the Java Freeverb, then either move FV_VECTORIZE here or (better) put SIMDe on
+the include path and drop the pin entirely — see issue #176 and docs/firmware_sync_audit.md §12c.
+EOF
+    exit 1
+  fi
+
   echo "note: freeverb.cpp at C HEAD needs argon/NEON; pinning the freeverb harness to $FV_PIN" >&2
   mkdir -p "$FV_DIR/dsp/reverb/freeverb"
   for f in freeverb.cpp freeverb.hpp comb.hpp allpass.hpp tuning.h; do
@@ -156,6 +180,15 @@ if grep -q "argon.hpp" "$FV_SRC/freeverb.cpp" 2>/dev/null; then
   done
   FV_SRC="$FV_DIR/dsp/reverb/freeverb"
   FV_INC=(-I"$FV_DIR")
+  FV_PROV_TEXT="source=pinned
+commit=$(git -C "$FW" rev-parse --short=9 "$FV_PIN")
+reason=freeverb.cpp at C HEAD includes <argon.hpp> (NEON/MVE only) and does not compile on desktop g++.
+audited_through=$FV_VECTORIZE ($(git -C "$FW" log -1 --format=%s "$FV_VECTORIZE")) - arithmetic-preserving; see docs/firmware_sync_audit.md 12c
+head_at_generation=$(git -C "$FW" rev-parse --short=9 HEAD)"
+else
+  FV_PROV_TEXT="source=head
+commit=$(git -C "$FW" rev-parse --short=9 HEAD)
+reason=freeverb.cpp compiled directly on desktop g++ - no pin needed."
 fi
 echo "linking harness against real freeverb.cpp ..."
 # ${FV_INC[@]+...} rather than "${FV_INC[@]}": expanding an EMPTY array under `set -u` is an
@@ -178,4 +211,14 @@ rvgen 0.5 0.8 0.5 impulse    c_reverb_r50_d80_w50_impulse.bin
 rvgen 0.7 0.5 1.0 square     c_reverb_r70_d50_w100_square.bin
 rvgen 0.99 0.0 1.0 loud_train c_reverb_r99_d0_w100_loud_train.bin
 
-echo "done. Freeverb golden buffers written to $RVOUT"
+# Only now that the goldens actually exist: a provenance file written before the generators ran
+# would survive a later compile or generator failure and then describe bytes that were never
+# produced — which is exactly what happened while testing this, leaving a provenance naming one
+# commit beside goldens from another.
+{
+  echo "# Which C these c_reverb_*.bin goldens were generated from. Written by tools/ladder_harness/build.sh."
+  echo "# Read by ReverbGoldenBufferTest so a failure says which C the bytes describe."
+  echo "$FV_PROV_TEXT"
+} > "$FV_PROV"
+
+echo "done. Freeverb golden buffers written to $RVOUT (provenance: $FV_PROV)"
