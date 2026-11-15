@@ -457,7 +457,7 @@ this port's own verification paths**, which is §12c.
 
 | commit | what | Java |
 | --- | --- | --- |
-| `910d479a6` (#5255) | **Always send note-off before note-on.** `Arpeggiator::noteOn` (arpeggiator.cpp:376-387) now switches an already-sounding note off before sounding it again — auditioning a note the sequencer is already playing. Both note-ons share one `ArpNote`, so only ONE note-off would ever come out for them, and a receiver that counts note-ons (a mono synth's note stack, a MIDI device) holds the note forever | `ArpeggiatorSynth.noteOn` ports the block; it reaches the kit arp too, since `ArpeggiatorForKit : public Arpeggiator` (arpeggiator.h:392) and the kit note-on path does drain the off (kit.cpp:745 ↔ `Kit.java:224`). Covered by `ArpRetriggerNoteOffTest` (3 tests, 5 negative controls) |
+| `910d479a6` (#5255) | **Always send note-off before note-on.** `Arpeggiator::noteOn` (arpeggiator.cpp:376-387) now switches an already-sounding note off before sounding it again — auditioning a note the sequencer is already playing. Both note-ons share one `ArpNote`, so only ONE note-off would ever come out for them, and a receiver that counts note-ons (a mono synth's note stack, a MIDI device) holds the note forever | `ArpeggiatorSynth.noteOn` ports the block, which also reaches the kit arp, since `ArpeggiatorForKit : public Arpeggiator` (arpeggiator.h:392). Covered by `ArpRetriggerNoteOffTest` (3 tests, 5 negative controls) |
 
 **This uncovered a pre-existing divergence in `Sound`, which had to be fixed for the above to be
 faithful.** The C's `Sound::noteOn` goes straight from `arpeggiator->noteOn()` to
@@ -474,6 +474,15 @@ code**, not merely harmless — checked by enumerating the writers rather than a
 write on the noteOn path**, and with it the drain means **the retrigger releases the very voice the
 same call is starting.** Measured both ways, not assumed: faithful gives 2 voices playing note 60
 and 0 releasing; with the drain restored, 1 playing and 1 releasing.
+
+**The kit path needs no change, and an earlier version of this section said the opposite.** It
+claimed the C's kit note-on path drains the off, citing kit.cpp:745. That line is in
+`Kit::setupAndRenderArpPreOutput` — the *render* path. The C's actual kit note-on
+(`Kit::noteOnPreKitArp`, kit.cpp:1320-1328) does what `Sound::noteOn` does: it calls
+`arpeggiator.noteOn(...)` and then reads **only** `kitInstruction.arpNoteOn`. The three kit drains
+are render (:745), tick (:1178, `doTickForwardForArp`) and note-off (:1369, `noteOffPreKitArp`).
+`Kit.java:186-197` already matches that and ignores the off on note-on, draining it only at :224
+after `noteOff` — so the retrigger's note-off changes nothing for a kit, in either codebase.
 
 Worth recording for the next person writing one of these tests: the first version of that third
 assertion read "some voice for note 60 is still playing", and it **passed with the drain restored**
@@ -558,12 +567,19 @@ manifest taken before the run. The freeverb five were generated at `24d4128f9^` 
   `voice.cpp`'s amplitude/wave-index ramps with a reciprocal multiply. It is **exact**, not
   approximate: Granlund–Montgomery with `m = ceil(2^(31+l)/n)`, `l = bit_width(n-1)`, proven for
   `0 <= a < 2^31`, and the sign is applied around the magnitude so it truncates toward zero like
-  `/`. (The one input outside the proven range is `INT32_MIN`, whose magnitude is exactly 2^31.)
-  `getStretchToUndoPitch` is memoisation of the same division.
+  `/`. Checked rather than argued, since §12d's whole point is not to inherit commit-message
+  claims: over **1,023,825 cases** — every divisor 2..256 against 4,015 inputs (edge values plus a
+  random sample of the full int32 range) — `divideBySmall` and C truncating division agree
+  everywhere, *including* `INT32_MIN`, whose magnitude is exactly 2^31 and so sits outside
+  Granlund–Montgomery's proven bound. `getStretchToUndoPitch` is memoisation of the same division.
 - `be5e90979` (#5248, cache configs), `6cb291350` (#5277) and `8766cce27` (#5280, culling on
   predicted render margin), `67dd631b2` (#5247, skip FX for outputs with no sound): CPU-budget
   management with no counterpart here — this port does not cull on render time, and #5247 preserves
-  FX tails, it only stops rendering silence after they end.
+  FX tails, it only stops rendering silence after they end: the extracted
+  `getSamplesUntilFXTailsEnd` (mod_controllable_audio.cpp:1561-1581) returns the old inline
+  switch's waits unchanged (chorus 20·44, grain shutdown, otherwise 90·441, max'd with the
+  compressor release) and 0 only when there are no mod FX and the compressor is off. It also picks
+  up a null guard on `grainFX` that the inline version lacked.
 
 ### 12e. Not applicable
 

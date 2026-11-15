@@ -158,7 +158,10 @@ if grep -q "argon.hpp" "$FV_SRC/freeverb.cpp" 2>/dev/null; then
   FV_INC=(-I"$FV_DIR")
 fi
 echo "linking harness against real freeverb.cpp ..."
-g++ $STD -fwrapv "${FV_INC[@]}" "${INC[@]}" \
+# ${FV_INC[@]+...} rather than "${FV_INC[@]}": expanding an EMPTY array under `set -u` is an
+# error on bash 3.2, which is still the default shell on macOS, and FV_INC is empty whenever the
+# firmware checkout predates the argon include.
+g++ $STD -fwrapv ${FV_INC[@]+"${FV_INC[@]}"} "${INC[@]}" \
   "$HERE/main_reverb.cpp" "$HERE/support.cpp" \
   "$FV_SRC/freeverb.cpp" \
   "$BUILD/lookuptables.o" \

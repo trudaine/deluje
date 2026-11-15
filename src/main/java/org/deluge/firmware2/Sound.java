@@ -2038,7 +2038,7 @@ public class Sound extends GlobalEffectable {
       // `if (instruction.arpNoteOn != nullptr)`. It reads NEITHER noteCodeOffPostArp nor
       // glideNoteCodeOffPostArp: a note-off the arp writes while handling a note-ON is dropped on
       // the floor by a Sound, which manages its own voices, and is only drained on the render path
-      // (sound.cpp:2501-2515, processArpInstruction below), in Sound::noteOff (:1626-1637) and by
+      // (sound.cpp:2501-2515, processArpInstruction above), in Sound::noteOff (:1626-1637) and by
       // the MIDI/gate outputs (non_audio_instrument.cpp:94-100). Draining it here used to be
       // DEAD code, not merely harmless: before #5255, arpeggiator.cpp's only writers of
       // noteCodeOffPostArp / glideNoteCodeOffPostArp were noteOff (:411-436, :231-254) and
