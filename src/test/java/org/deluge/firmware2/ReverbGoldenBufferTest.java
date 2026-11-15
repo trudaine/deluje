@@ -26,6 +26,21 @@ import org.junit.jupiter.params.provider.MethodSource;
  * <p>Buffers are 4096 frames — the comb delays are ~1116-1617 samples, so a shorter window yields
  * all-zero output before any tail emerges. Interleaved L,R int32. Golden files: {@code
  * src/test/resources/fidelity/reverb/}; regenerate with {@code tools/ladder_harness/build.sh}.
+ *
+ * <p><b>Which C these bytes describe is not obvious, so it is recorded.</b> Since upstream {@code
+ * 24d4128f9} ("vectorize freeverb"), {@code freeverb.cpp} includes {@code <argon.hpp>} and cannot
+ * be compiled on desktop g++, so the harness regenerates from {@code 24d4128f9^} and writes {@code
+ * FREEVERB_PROVENANCE.txt} beside the goldens saying so. This test reads that file and puts it in
+ * every failure message: without it, a failure here says "Java diverged" when the honest reading
+ * may be "the golden describes a pinned C, not HEAD".
+ *
+ * <p>What stops the pin going stale is a content digest in the harness, over every firmware file in
+ * the pinned build's include closure <em>plus the five pinned freeverb files as they stand at
+ * HEAD</em>; it refuses to regenerate when that digest moves. An earlier version of this comment
+ * claimed the harness "refuses to pin past any freeverb commit newer than the audited one", which
+ * was not true of the code: the digest had excluded the freeverb directory itself, and a review
+ * demonstrated the guard passing with HEAD's {@code freeverb.cpp} and {@code comb.hpp} both edited.
+ * See issue #176 and {@code docs/firmware_sync_audit.md} §12c.
  */
 @Tag("slow")
 class ReverbGoldenBufferTest {
@@ -45,9 +60,51 @@ class ReverbGoldenBufferTest {
         .map(c -> Arguments.of(c.file, c));
   }
 
+  /**
+   * The C the goldens were generated from, as the harness recorded it — reported on failure so the
+   * pinned-vs-HEAD question is answered in the message rather than left to the reader.
+   *
+   * <p>Three states, deliberately distinct. {@code source=pinned} or {@code source=head} is the
+   * normal case. {@code source=incomplete} means a regeneration started and did not finish, so the
+   * goldens beside it are a mix of fresh and stale bytes and a failure here says nothing about the
+   * Java — the harness writes that marker before its first generator and replaces it only once all
+   * five succeed. Absent means the goldens predate the harness recording provenance at all, which
+   * is harmless; it used to also cover the interrupted case, which is why the marker exists.
+   */
+  private static String provenance() {
+    try (InputStream in =
+        ReverbGoldenBufferTest.class.getResourceAsStream(
+            "/fidelity/reverb/FREEVERB_PROVENANCE.txt")) {
+      if (in == null) {
+        return "FREEVERB_PROVENANCE.txt absent — either these goldens predate the harness recording"
+            + " it (harmless) or a regeneration was interrupted; check `git status` on"
+            + " src/test/resources/fidelity/reverb/ and re-run tools/ladder_harness/build.sh";
+      }
+      return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+          .lines()
+          .filter(l -> !l.startsWith("#") && !l.isBlank())
+          .collect(java.util.stream.Collectors.joining(", "));
+    } catch (IOException e) {
+      return "FREEVERB_PROVENANCE.txt unreadable: " + e;
+    }
+  }
+
   @ParameterizedTest(name = "{0}")
   @MethodSource("cases")
   void javaFreeverbMatchesCGolden(String name, Case c) throws IOException {
+    // An interrupted regeneration has to FAIL here, not merely be mentioned in some other
+    // assertion's message. Because a pinned regeneration is byte-identical, a half-regenerated set
+    // — two fresh goldens, three stale — still matches the Java and every case would pass, so the
+    // marker the harness writes would be read by nobody. These bytes cannot vouch for anything.
+    String prov = provenance();
+    if (prov.contains("source=incomplete")) {
+      org.junit.jupiter.api.Assertions.fail(
+          "the freeverb goldens are mid-regeneration and are a mix of fresh and stale bytes, so this"
+              + " test cannot say anything about the Java: re-run tools/ladder_harness/build.sh."
+              + " Provenance: "
+              + prov);
+    }
+
     int[] expected = readGolden(c.file()); // interleaved L,R
     Assumptions.assumeTrue(expected != null, "missing golden resource: " + c.file());
     assertEquals(NSAMP * 2, expected.length, "golden size");
@@ -86,7 +143,8 @@ class ReverbGoldenBufferTest {
                 + jv
                 + " golden="
                 + gv
-                + ")");
+                + "). Golden provenance: "
+                + provenance());
   }
 
   private static int[] readGolden(String file) throws IOException {
